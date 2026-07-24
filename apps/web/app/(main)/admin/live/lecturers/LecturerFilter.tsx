@@ -2,7 +2,7 @@
 
 import { Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 
 interface Props {
   search: string

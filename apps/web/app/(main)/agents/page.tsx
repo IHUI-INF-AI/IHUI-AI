@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 
 import { AgentsHeader } from './AgentsHeader'
 import { MarketFilters } from './MarketFilters'

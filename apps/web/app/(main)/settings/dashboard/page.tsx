@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { User, Receipt, Link2, Settings, Activity, Shield } from 'lucide-react'
 
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 
 const LINKS = [

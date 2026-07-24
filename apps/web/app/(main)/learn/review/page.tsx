@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, CheckCircle2, Brain, Calendar, Flame, Gauge } from 'lucide-react'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import {
   getDueReviews,
   getReviewStats,

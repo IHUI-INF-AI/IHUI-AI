@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CheckCircle2, XCircle, Send } from 'lucide-react'
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, Button, Input, Label } from '@ihui/ui'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, Button, Input, Label } from '@ihui/ui-react'
 import { WS_URL, api } from './helpers'
 import type { Examine, ChatMsg } from './types'
 

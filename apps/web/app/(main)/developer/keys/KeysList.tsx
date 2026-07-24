@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import { Trash2, Copy, RefreshCw, Loader2, Eye, EyeOff } from 'lucide-react'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import type { ApiKey } from './types'
 
 interface Props {

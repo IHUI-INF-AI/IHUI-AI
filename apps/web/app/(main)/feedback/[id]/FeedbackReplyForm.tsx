@@ -13,7 +13,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { STATUSES, PRIORITIES, selectClass } from './helpers'
 import type { FeedbackStatus, Priority } from './types'
 

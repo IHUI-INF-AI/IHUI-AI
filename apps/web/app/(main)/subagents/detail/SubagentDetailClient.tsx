@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Ban, Play, Loader2 } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import {
   fetchActiveDispatches,
   fetchDispatchDag,

@@ -7,7 +7,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import { Globe, Camera, ExternalLink, Loader2, Wrench, Download, MessageSquare } from 'lucide-react'
 
-import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { listOpenclawTools, executeBrowserTool, type OpenclawToolItem } from '@/lib/openclaw-api'
 
 const BROWSER_KEYWORDS = ['browser', 'navigate', 'screenshot', 'click', 'input', 'page', 'web']

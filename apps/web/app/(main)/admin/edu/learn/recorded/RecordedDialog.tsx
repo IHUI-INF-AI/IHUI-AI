@@ -17,7 +17,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { selectClass } from '@/lib/edu'

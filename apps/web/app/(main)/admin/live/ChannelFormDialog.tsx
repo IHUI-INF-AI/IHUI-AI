@@ -20,7 +20,7 @@ import {
   SelectItem,
   SelectValue,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import dynamic from 'next/dynamic'
 import {
   type Channel,

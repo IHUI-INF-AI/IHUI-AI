@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 export function StatCard({

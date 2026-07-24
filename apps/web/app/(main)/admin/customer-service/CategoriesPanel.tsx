@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { type Category, api } from './types'
 
 export function CategoriesPanel() {

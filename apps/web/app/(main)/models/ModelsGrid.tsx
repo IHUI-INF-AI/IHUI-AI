@@ -1,7 +1,7 @@
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Sparkles, Cpu, Zap } from 'lucide-react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ihui/ui-react'
 import type { Model } from './types'
 
 interface Props {

@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { Plus, Search } from 'lucide-react'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 
 interface Props {

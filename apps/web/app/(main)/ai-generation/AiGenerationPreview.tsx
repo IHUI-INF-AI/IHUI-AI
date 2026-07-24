@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { ImageViewer, VideoPlayer } from '@/components/media'
 
 interface Props {

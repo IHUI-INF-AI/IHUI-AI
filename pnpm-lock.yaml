@@ -381,18 +381,15 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@ihui/i18n':
+      '@ihui/design-tokens':
         specifier: workspace:*
-        version: link:../../packages/i18n
+        version: link:../../packages/design-tokens
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@ihui/ui':
+      '@ihui/ui-react':
         specifier: workspace:*
-        version: link:../../packages/ui
-      '@ihui/ui-primitives':
-        specifier: workspace:*
-        version: link:../../packages/ui-primitives
+        version: link:../../packages/ui-react
       react:
         specifier: ^19.0.0
         version: 19.0.0
@@ -557,6 +554,9 @@ importers:
       '@ihui/app':
         specifier: workspace:*
         version: link:../../packages/app
+      '@ihui/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
       '@ihui/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -566,9 +566,6 @@ importers:
       '@ihui/ui-native':
         specifier: workspace:*
         version: link:../../packages/ui-native
-      '@ihui/ui-primitives':
-        specifier: workspace:*
-        version: link:../../packages/ui-primitives
       '@react-native-async-storage/async-storage':
         specifier: ^2.1.2
         version: 2.1.2(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))
@@ -702,9 +699,9 @@ importers:
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@ihui/ui':
+      '@ihui/ui-react':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../packages/ui-react
       '@lobehub/icons':
         specifier: ^5.14.0
         version: 5.14.0(@lobehub/ui@5.22.3)(@types/react@19.2.17)(antd@6.5.1(luxon@3.7.2)(moment@2.30.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -729,12 +726,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.101.2(react@19.0.0)
-      '@tauri-apps/api':
-        specifier: ^2.1.1
-        version: 2.11.1
-      '@tauri-apps/plugin-dialog':
-        specifier: ^2.0.1
-        version: 2.7.1
       '@tiptap/extension-image':
         specifier: ^2.6.6
         version: 2.27.2(@tiptap/core@2.27.2(@tiptap/pm@2.27.2))
@@ -1105,6 +1096,28 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
+  packages/design-tokens:
+    dependencies:
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      tailwind-merge:
+        specifier: ^2.5.5
+        version: 2.6.1
+    devDependencies:
+      '@ihui/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/eslint-config:
     dependencies:
       '@next/eslint-plugin-next':
@@ -1122,8 +1135,6 @@ importers:
       typescript-eslint:
         specifier: ^8.18.0
         version: 8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
-
-  packages/i18n: {}
 
   packages/sdk:
     dependencies:
@@ -1183,11 +1194,39 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
-  packages/ui:
+  packages/ui-native:
     dependencies:
-      '@ihui/ui-primitives':
+      '@ihui/design-tokens':
         specifier: workspace:*
-        version: link:../ui-primitives
+        version: link:../design-tokens
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      nativewind:
+        specifier: ^4.0.0
+        version: 4.2.6(react-native-reanimated@4.5.1(react-native-worklets@0.10.2(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.17)(react@18.3.1))(react@18.3.1)(tailwindcss@4.3.3)
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 18.3.1
+      react-native:
+        specifier: ^0.74.0
+        version: 0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.17)(react@18.3.1)
+    devDependencies:
+      '@ihui/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/ui-react:
+    dependencies:
+      '@ihui/design-tokens':
+        specifier: workspace:*
+        version: link:../design-tokens
       '@radix-ui/react-checkbox':
         specifier: ^1.1.3
         version: 1.3.7(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -1240,56 +1279,6 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.0.0(react@19.0.0)
-      rimraf:
-        specifier: ^6.0.1
-        version: 6.1.3
-      typescript:
-        specifier: ^5.7.2
-        version: 5.9.3
-
-  packages/ui-native:
-    dependencies:
-      '@ihui/ui-primitives':
-        specifier: workspace:*
-        version: link:../ui-primitives
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      nativewind:
-        specifier: ^4.0.0
-        version: 4.2.6(react-native-reanimated@4.5.1(react-native-worklets@0.10.2(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.17)(react@18.3.1))(react@18.3.1)(tailwindcss@4.3.3)
-      react:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 18.3.1
-      react-native:
-        specifier: ^0.74.0
-        version: 0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@19.2.17)(react@18.3.1)
-    devDependencies:
-      '@ihui/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@types/react':
-        specifier: 19.2.17
-        version: 19.2.17
-      typescript:
-        specifier: ^5.7.2
-        version: 5.9.3
-
-  packages/ui-primitives:
-    dependencies:
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      tailwind-merge:
-        specifier: ^2.5.5
-        version: 2.6.1
-    devDependencies:
-      '@ihui/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
       rimraf:
         specifier: ^6.0.1
         version: 6.1.3
@@ -7368,9 +7357,6 @@ packages:
       postcss: ^8
       vite: ^4
 
-  '@tauri-apps/api@2.11.1':
-    resolution: {integrity: sha512-M2FPuYND2m+wh5hfW9ZpSdxMPdEJovPBWwoHJmwUpysTYNHaOkVFN419m/K0LIgjb/7KU2vBgsUepJWugQCvAA==}
-
   '@tauri-apps/cli-darwin-arm64@2.11.4':
     resolution: {integrity: sha512-1ryOF3ZhpZ/nemHV5zVwBQBz9jDGKmKPvWPADOhc83ig0P4bMc2iER4NbC6r9sjeIZ6RVQ4g3RZIYvezhcl4TQ==}
     engines: {node: '>= 10'}
@@ -7446,9 +7432,6 @@ packages:
     resolution: {integrity: sha512-R8xGtMpwyetawSqm9kYOuMmEqkhUbvcUy8n0aNXIxollKBLESUu5f4Fx+64hgASYm1H+jSWq6jCW6zqTnH6hqQ==}
     engines: {node: '>= 10'}
     hasBin: true
-
-  '@tauri-apps/plugin-dialog@2.7.1':
-    resolution: {integrity: sha512-OK1UBXYt+ojcmxMktzzuyonYIFta8CmAASpX+CA+DTGK24KlHjhYI6x2iOJ/TjZF4N7/ACK1oFmEOjIY9IhzOQ==}
 
   '@testing-library/dom@10.4.0':
     resolution: {integrity: sha512-pemlzrSESWbdAloYml3bAJMEfNh1Z7EduzqPKprCH5S341frlpYnUEW0H72dLxa6IsYr+mPno20GiSm+h9dEdQ==}
@@ -21934,12 +21917,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@mdx-js/react@3.1.1(@types/react@19.2.17)(react@18.3.1)':
-    dependencies:
-      '@types/mdx': 2.0.14
-      '@types/react': 19.2.17
-      react: 18.3.1
-
   '@mdx-js/react@3.1.1(@types/react@19.2.17)(react@19.0.0)':
     dependencies:
       '@types/mdx': 2.0.14
@@ -24804,12 +24781,12 @@ snapshots:
 
   '@storybook/addon-docs@8.6.18(@types/react@19.2.17)(storybook@8.6.18(prettier@3.9.4))':
     dependencies:
-      '@mdx-js/react': 3.1.1(@types/react@19.2.17)(react@18.3.1)
-      '@storybook/blocks': 8.6.18(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.6.18(prettier@3.9.4))
+      '@mdx-js/react': 3.1.1(@types/react@19.2.17)(react@19.0.0)
+      '@storybook/blocks': 8.6.18(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(storybook@8.6.18(prettier@3.9.4))
       '@storybook/csf-plugin': 8.6.18(storybook@8.6.18(prettier@3.9.4))
-      '@storybook/react-dom-shim': 8.6.18(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.6.18(prettier@3.9.4))
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
+      '@storybook/react-dom-shim': 8.6.18(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(storybook@8.6.18(prettier@3.9.4))
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
       storybook: 8.6.18(prettier@3.9.4)
       ts-dedent: 2.3.0
     transitivePeerDependencies:
@@ -24865,15 +24842,6 @@ snapshots:
     dependencies:
       memoizerific: 1.11.3
       storybook: 8.6.18(prettier@3.9.4)
-
-  '@storybook/blocks@8.6.18(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.6.18(prettier@3.9.4))':
-    dependencies:
-      '@storybook/icons': 1.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      storybook: 8.6.18(prettier@3.9.4)
-      ts-dedent: 2.3.0
-    optionalDependencies:
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
 
   '@storybook/blocks@8.6.18(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(storybook@8.6.18(prettier@3.9.4))':
     dependencies:
@@ -24965,11 +24933,6 @@ snapshots:
       unplugin: 1.16.1
 
   '@storybook/global@5.0.0': {}
-
-  '@storybook/icons@1.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
-    dependencies:
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
 
   '@storybook/icons@1.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
@@ -25111,12 +25074,6 @@ snapshots:
       webpack: 5.91.0(esbuild@0.25.12)(lightningcss@1.32.0)(postcss@8.5.16)
     transitivePeerDependencies:
       - supports-color
-
-  '@storybook/react-dom-shim@8.6.18(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.6.18(prettier@3.9.4))':
-    dependencies:
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-      storybook: 8.6.18(prettier@3.9.4)
 
   '@storybook/react-dom-shim@8.6.18(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(storybook@8.6.18(prettier@3.9.4))':
     dependencies:
@@ -25966,8 +25923,6 @@ snapshots:
       - tsx
       - typescript
 
-  '@tauri-apps/api@2.11.1': {}
-
   '@tauri-apps/cli-darwin-arm64@2.11.4':
     optional: true
 
@@ -26014,10 +25969,6 @@ snapshots:
       '@tauri-apps/cli-win32-arm64-msvc': 2.11.4
       '@tauri-apps/cli-win32-ia32-msvc': 2.11.4
       '@tauri-apps/cli-win32-x64-msvc': 2.11.4
-
-  '@tauri-apps/plugin-dialog@2.7.1':
-    dependencies:
-      '@tauri-apps/api': 2.11.1
 
   '@testing-library/dom@10.4.0':
     dependencies:
@@ -30145,8 +30096,8 @@ snapshots:
       '@typescript-eslint/parser': 8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       eslint: 9.39.4(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-react-hooks: 5.2.0(eslint@9.39.4(jiti@2.7.0))
@@ -30165,7 +30116,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0)):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3
@@ -30176,22 +30127,22 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.12.2
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0)):
+  eslint-module-utils@2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       eslint: 9.39.4(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -30202,7 +30153,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.39.4(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-module-utils: 2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0))
+      eslint-module-utils: 2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
       hasown: 2.0.4
       is-core-module: 2.16.2
       is-glob: 4.0.3

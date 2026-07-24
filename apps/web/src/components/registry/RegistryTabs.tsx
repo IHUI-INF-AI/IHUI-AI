@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Tabs, TabsList, TabsTrigger } from '@ihui/ui'
+import { Tabs, TabsList, TabsTrigger } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { RegistrySortKey } from '@ihui/types'
 

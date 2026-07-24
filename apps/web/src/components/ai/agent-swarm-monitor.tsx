@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { RefreshCw, AlertCircle, List, Network } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { SwarmTopologyView } from '@/components/ai/swarm-topology-view'

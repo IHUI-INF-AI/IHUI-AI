@@ -3,7 +3,7 @@
 import { Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Button, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Button, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 
 interface Props {
   hotApps: Array<{ id: string; name: string; href: string }>

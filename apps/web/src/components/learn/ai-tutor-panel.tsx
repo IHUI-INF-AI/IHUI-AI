@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, Sparkles, Lightbulb, HelpCircle, Send } from 'lucide-react'
-import { Card, CardContent, Button, Input } from '@ihui/ui'
+import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import {
   explainConcept,
   getHint,

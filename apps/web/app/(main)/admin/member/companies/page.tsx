@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { CompaniesFilter } from './CompaniesFilter'
 import { CompaniesTable } from './CompaniesTable'
 import { CompanyDialog } from './CompanyDialog'

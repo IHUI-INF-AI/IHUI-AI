@@ -2,7 +2,7 @@
 
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Workflow, Zap, Clock, Play } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TRIGGER_BADGE, STATUS_DOT } from './helpers'
 import type { WfStatus, WorkflowItem } from './types'
