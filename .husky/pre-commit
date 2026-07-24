@@ -61,6 +61,22 @@ try {
   } else {
     console.log('⏭  条件 database 重建闸门(无 packages/database/src staged 改动, 跳过)')
   }
+
+  // 16c. 条件 RN global.css 同步守门(仅 staged 涉及 mobile-rn/global.css 或 tokens.css 时跑)
+  // 防止 mobile-rn/global.css 手抄值与 design-tokens/tokens.css 漂移
+  const involvesRnTokens = stagedFiles.some(
+    (f) =>
+      f.includes('apps/mobile-rn/global.css') ||
+      f.includes('packages/design-tokens/src/styles/tokens.css'),
+  )
+  if (involvesRnTokens) {
+    if (!run('🔍 条件 RN global.css 同步守门...', 'node scripts/check-rn-global-css-sync.mjs')) {
+      console.error('❌ RN global.css 与 tokens.css 变量值不一致,提交已阻止(请同步变量值后再 commit)')
+      process.exit(1)
+    }
+  } else {
+    console.log('⏭  条件 RN global.css 同步守门(无相关 staged 改动, 跳过)')
+  }
 } catch (e) {
   // 非 git 环境,跳过
   console.log('⏭  条件 typecheck/database 闸门(非 git 环境, 跳过)')
