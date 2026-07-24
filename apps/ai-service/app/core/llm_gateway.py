@@ -710,6 +710,16 @@ class LLMGateway:
                     if key_field in safe_msg.lower():
                         safe_msg = f"LLM 调用失败(含敏感信息已脱敏): {type(e).__name__}"
                         break
+            # FallbackRouter 接入:LLM_ERROR 且错误类型在 triggerOnError 中时,
+            # 自动尝试 fallbacks 配置中的备用 provider(如 stepfun 故障 → agnes 兜底)
+            if err_code == "LLM_ERROR" and fallback_router._configs:
+                fb_result = await fallback_router.complete_with_fallback(
+                    trimmed_messages, used_model
+                )
+                if not fb_result.get("error"):
+                    fb_result["fallback_used"] = True
+                    fb_result["fallback_primary"] = used_model
+                    return fb_result
             return {
                 "content": "",
                 "model": used_model,
