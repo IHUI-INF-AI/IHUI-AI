@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 const CATEGORY_KEYS = [
   'writing',
@@ -65,57 +64,64 @@ export default function SetNeed() {
   }, [selected, level, budget, t])
 
   return (
-    <View className="page">
-      <View className="card">
-        <Text className="card-title">{t('plaza.setNeed.directionTitle')}</Text>
-        <Text className="card-desc">{t('plaza.setNeed.directionDesc')}</Text>
-        <View className="tag-group">
+    <View className="min-h-screen bg-background pb-[140rpx]">
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+        <Text className="block text-[30rpx] text-foreground font-semibold">{t('plaza.setNeed.directionTitle')}</Text>
+        <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] mb-[24rpx]">{t('plaza.setNeed.directionDesc')}</Text>
+        <View className="flex flex-wrap gap-[20rpx] mt-[24rpx]">
           {categories.map((label, i) => {
             const key = CATEGORY_KEYS[i] || label
+            const active = selected.includes(key)
             return (
               <View
                 key={key}
-                className={`tag${selected.includes(key) ? ' active' : ''}`}
+                className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-[#e6f7ee]' : 'bg-background'}`}
                 onClick={() => toggleCategory(key)}
               >
-                <Text>{label}</Text>
+                <Text className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}>{label}</Text>
               </View>
             )
           })}
         </View>
       </View>
 
-      <View className="card">
-        <Text className="card-title">{t('plaza.setNeed.levelTitle')}</Text>
-        <View className="tag-group">
-          {levels.map((lv) => (
-            <View
-              key={lv}
-              className={`tag${level === lv ? ' active' : ''}`}
-              onClick={() => setLevel(lv)}
-            >
-              <Text>{lv}</Text>
-            </View>
-          ))}
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+        <Text className="block text-[30rpx] text-foreground font-semibold">{t('plaza.setNeed.levelTitle')}</Text>
+        <View className="flex flex-wrap gap-[20rpx] mt-[24rpx]">
+          {levels.map((lv) => {
+            const active = level === lv
+            return (
+              <View
+                key={lv}
+                className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-[#e6f7ee]' : 'bg-background'}`}
+                onClick={() => setLevel(lv)}
+              >
+                <Text className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}>{lv}</Text>
+              </View>
+            )
+          })}
         </View>
       </View>
 
-      <View className="card">
-        <Text className="card-title">{t('plaza.setNeed.budgetTitle')}</Text>
-        <View className="tag-group">
-          {budgets.map((b) => (
-            <View
-              key={b}
-              className={`tag${budget === b ? ' active' : ''}`}
-              onClick={() => setBudget(b)}
-            >
-              <Text>{b}</Text>
-            </View>
-          ))}
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+        <Text className="block text-[30rpx] text-foreground font-semibold">{t('plaza.setNeed.budgetTitle')}</Text>
+        <View className="flex flex-wrap gap-[20rpx] mt-[24rpx]">
+          {budgets.map((b) => {
+            const active = budget === b
+            return (
+              <View
+                key={b}
+                className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-[#e6f7ee]' : 'bg-background'}`}
+                onClick={() => setBudget(b)}
+              >
+                <Text className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}>{b}</Text>
+              </View>
+            )
+          })}
         </View>
       </View>
 
-      <Button className="save-btn" loading={saving} onClick={save} disabled={saving}>
+      <Button className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-foreground rounded-[44rpx] text-[30rpx]" loading={saving} onClick={save} disabled={saving}>
         {t('plaza.setNeed.save')}
       </Button>
     </View>
