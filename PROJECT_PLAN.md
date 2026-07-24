@@ -1447,6 +1447,12 @@
 
 **整合完成度**:外部聚合项目 22 个 provider 中,IHUI-AI 现已内化 22 个(原 8 个重叠 + 新 14 个),外部项目对 IHUI-AI 已无价值,可安全删除。
 
+**收尾(2026-07-24)**:
+- 核对外部项目非 provider 资产:catalog 模型清单全是 openrouter `:free` 模型(IHUI-AI `openrouter/` 路由已覆盖)、.env.example 无遗漏配置、migrations 是自有 schema、provider quirks 由 LiteLLM 处理 → 无有价值资产需内化。
+- 清理 IHUI-AI 中外部项目名引用 4 处:`AGENTS.md` line 380(描述)/405(allowlist 15→14 目录)/409(白名单) + `scripts/g-root-blacklist.json` line 10(白名单条目)。
+- 外部项目目录删除:TRAE 安全沙箱不允许删除项目外目录,需用户手动执行 `Remove-Item -Path "G:\freellmapi" -Recurse -Force`。
+- IHUI-AI 代码层 Grep 外部项目名:0 匹配(无影子)。
+
 ---
 
 ### [ ] Wave 21:桌面端架构收敛 + 安装更新链路闭环(跨端:web + desktop)
@@ -1875,7 +1881,7 @@
 
 | 文件                              | 改造                                                                                                                                                                                                                          |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/g-root-blacklist.json`   | v1.0→v2.0 升级。从纯黑名单模式升级为 allowlist + blacklist + heuristic + systemProtected 四层配置。allowlist 15 目录(IHUI-AI/freellmapi/QoderCN 等)+ 2 通配符(tools);blacklist 17 目录/23 文件/10 通配符;heuristic 7 目录签名/14 文件签名;systemProtected 8 系统目录 |
+| `scripts/g-root-blacklist.json`   | v1.0→v2.0 升级。从纯黑名单模式升级为 allowlist + blacklist + heuristic + systemProtected 四层配置。allowlist 14 目录(IHUI-AI/QoderCN 等)+ 2 通配符(tools);blacklist 17 目录/23 文件/10 通配符;heuristic 7 目录签名/14 文件签名;systemProtected 8 系统目录 |
 | `scripts/g-root-guardian.ps1`     | v1.0→v2.0 升级。实现 5 层判定逻辑(systemProtected→allowlist→blacklist→heuristic→unknown),未知项也删除。.NET Directory.Delete 兜底解决 Remove-Item 删除锁定目录失败问题。日志记录删除原因(BLOCK:blacklist/heuristic/unknown)         |
 | `AGENTS.md` + `README.md`         | §15 G:\ 根目录实时守门服务章节 + README 同步章节,从 v1.0 黑名单模式说明升级为 v2.0 白名单优先模式说明,记录 5 层判定逻辑 + 实测验证结果 + v1.0 盲区描述                                                                              |
 
