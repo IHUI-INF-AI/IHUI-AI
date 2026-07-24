@@ -8,6 +8,7 @@ import { issueTokenPair } from '../services/token-service.js'
 import {
   findUserByPhone,
   findUserByAccount,
+  findUserByEmail,
   findUserById,
   createUser,
   updateUser,
@@ -38,10 +39,7 @@ import {
   generateCode,
   cleanupExpiredCodes,
 } from '../utils/code-store.js'
-import {
-  signChallengeToken,
-  CHALLENGE_TOKEN_TTL_SECONDS,
-} from '../services/totp-service.js'
+import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/totp-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -104,6 +102,15 @@ const wechatLoginSchema = z.object({
 const loginPreferencesSchema = z.object({
   autoLogin: z.boolean().optional(),
   autoRenew: z.boolean().optional(),
+})
+
+const emailLoginQuerySchema = z.object({
+  email: z.string().email('邮箱格式不正确'),
+})
+
+const emailLoginSchema = z.object({
+  email: z.string().email('邮箱格式不正确'),
+  code: z.string().length(6, '验证码必须为 6 位'),
 })
 
 // =============================================================================
@@ -929,6 +936,164 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         roleId: user.roleId,
         familyId,
       })
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
+      return reply.send(
+        success({
+          ...tokens,
+          user: publicUser(user, permissions),
+        }),
+      )
+    },
+  )
+
+  // GET /api/auth/login/email — 三步登录第一步:校验邮箱存在 + 发送验证码
+  server.get(
+    '/login/email',
+    {
+      schema: {
+        summary: '邮箱登录-校验邮箱并发送验证码',
+        description: '校验邮箱是否已注册,存在则发送 6 位验证码(5 分钟有效,60 秒内不可重发)',
+        tags: ['auth'],
+        querystring: {
+          type: 'object',
+          required: ['email'],
+          properties: {
+            email: { type: 'string', description: '邮箱地址' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          429: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = emailLoginQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { email } = parsed.data
+
+      const user = await findUserByEmail(email)
+      if (!user) {
+        return reply.status(404).send(error(404, '邮箱未注册'))
+      }
+
+      cleanupExpiredCodes()
+      const existing = codeStore.get(email)
+      const now = Date.now()
+      if (existing && now - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
+        return reply.status(429).send(error(429, '验证码已发送,请 60 秒后重试'))
+      }
+
+      const code = generateCode()
+      codeStore.set(email, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
+      request.log.info({ email }, '邮箱验证码已生成')
+
+      const isDev = process.env.NODE_ENV !== 'production'
+      return reply.send(
+        success(
+          isDev
+            ? { sent: true, code, expiresIn: CODE_TTL_MS / 1000 }
+            : { sent: true, expiresIn: CODE_TTL_MS / 1000 },
+        ),
+      )
+    },
+  )
+
+  // POST /api/auth/login/email — 邮箱 + 验证码登录(三步登录最终步)
+  server.post(
+    '/login/email',
+    {
+      schema: {
+        summary: '邮箱验证码登录',
+        description: '使用邮箱 + 验证码登录,验证码通过 GET /auth/login/email 获取',
+        tags: ['auth'],
+        body: {
+          type: 'object',
+          required: ['email', 'code'],
+          properties: {
+            email: { type: 'string', description: '邮箱地址' },
+            code: { type: 'string', description: '邮箱验证码(6 位)' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = emailLoginSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { email, code } = parsed.data
+
+      cleanupExpiredCodes()
+      const stored = codeStore.get(email)
+      if (!stored || stored.code !== code || Date.now() > stored.expiresAt) {
+        return reply.status(401).send(error(401, '验证码错误或已过期'))
+      }
+
+      const user = await findUserByEmail(email)
+      if (!user) {
+        // CWE-204:统一返回"验证码错误"防用户枚举
+        return reply.status(401).send(error(401, '验证码错误或已过期'))
+      }
+      if (user.status !== 1) {
+        return reply.status(403).send(error(403, '账号已被禁用'))
+      }
+
+      codeStore.delete(email)
+
+      request.skipResponseSanitization = true
+      const familyId = createFamilyId()
+      const tokens = await buildTokenPair({
+        id: user.id,
+        phone: user.phone,
+        roleId: user.roleId,
+        familyId,
+      })
+
       const permissions = await resolveUserPermissions(user.id, user.roleId)
       return reply.send(
         success({
