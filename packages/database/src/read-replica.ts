@@ -1,6 +1,25 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
+import { performance } from 'node:perf_hooks'
 import * as schema from './schema/index.js'
+
+/**
+ * SQL 查询日志事件。
+ *
+ * 注意:drizzle-orm 0.38 的 Logger.logQuery 仅在查询执行**前**调用,
+ * 只提供 query/params,不提供 durationMs。因此改用 monkey-patch
+ * postgres-js client 的 unsafe 方法,用 performance.now() 测量真实耗时。
+ */
+export interface SqlLogEvent {
+  query: string
+  params: unknown[]
+  /** 查询耗时(毫秒),由 unsafe 包装器用 performance.now() 测量 */
+  durationMs: number
+  timestamp: number
+}
+
+/** SQL 日志回调类型。 */
+export type SqlLoggerFn = (event: SqlLogEvent) => void
 
 export interface DatabaseConfig {
   url: string
@@ -10,6 +29,12 @@ export interface DatabaseConfig {
   replicas?: ReplicaConfig[]
   max?: number
   idleTimeoutMillis?: number
+  /**
+   * SQL 查询日志回调。设置后,主库与所有读副本的每次查询都会回调,
+   * 携带 query/params/durationMs/timestamp。
+   * 用于驱动 slow-sql-killer 与 n1-detector 等监控插件。
+   */
+  logger?: SqlLoggerFn
 }
 
 /** 读副本配置（含优先级，用于故障转移选举）。 */
@@ -37,6 +62,48 @@ const FAIL_THRESHOLD = 3
 const MAX_LAG_SEC = 10
 
 /**
+ * 包装 postgres-js client 的 unsafe 方法,测量每次查询耗时并回调 logger。
+ *
+ * 为什么不用 drizzle 的 logger 配置:
+ * drizzle-orm 0.38 的 Logger.logQuery 在查询执行**前**同步调用(session.js),
+ * 只提供 query/params,不提供 durationMs,无法满足 slow-sql-killer 的耗时判断。
+ * postgres-js 的 debug 选项同样是查询前回调,也不提供耗时。
+ * 因此 monkey-patch unsafe(PendingQuery 是 thenable),在 resolve/reject 时计算耗时。
+ *
+ * 安全性:仅附加 .then 监听器,不改变返回的 PendingQuery 对象本身,
+ * drizzle 内部调用的 .values()/.raw() 等方法不受影响。
+ */
+function wrapClientWithLogger(client: postgres.Sql, logger: SqlLoggerFn): postgres.Sql {
+  // 提前 bind,避免 wrapper 中使用 this(严格模式下 this 需显式标注)
+  const originalUnsafe = client.unsafe.bind(client)
+  // monkey-patch unsafe:保持原签名,仅在完成时测量耗时
+  const wrappedUnsafe = (query: string, params?: unknown[], options?: unknown) => {
+    const start = performance.now()
+    const pending = originalUnsafe(
+      query,
+      params as Parameters<typeof originalUnsafe>[1],
+      options as Parameters<typeof originalUnsafe>[2],
+    )
+    // PendingQuery extends Promise,附加 then 监听器测量耗时(不消费/不改变 pending)
+    if (pending && typeof (pending as Promise<unknown>).then === 'function') {
+      ;(pending as Promise<unknown>).then(
+        () => {
+          logger({ query, params: params ?? [], durationMs: performance.now() - start, timestamp: Date.now() })
+        },
+        () => {
+          // 查询失败也记录耗时(便于排查慢查询导致的超时)
+          logger({ query, params: params ?? [], durationMs: performance.now() - start, timestamp: Date.now() })
+        },
+      )
+    }
+    return pending
+  }
+  ;(client as unknown as { unsafe: postgres.Sql['unsafe'] }).unsafe =
+    wrappedUnsafe as postgres.Sql['unsafe']
+  return client
+}
+
+/**
  * 创建读写分离的数据库实例（含故障转移）。
  *
  * - 无 replicas 且无 readReplicaUrl 时，读写均走主库。
@@ -54,7 +121,9 @@ export function createReadWriteDb(config: DatabaseConfig) {
     prepare: false,
   }
 
-  const writerClient = postgres(config.url, poolOptions)
+  const writerClient = config.logger
+    ? wrapClientWithLogger(postgres(config.url, poolOptions), config.logger)
+    : postgres(config.url, poolOptions)
   const dbWriter = drizzle(writerClient, { schema })
   type Db = typeof dbWriter
 
@@ -69,7 +138,9 @@ export function createReadWriteDb(config: DatabaseConfig) {
   const replicaHealth = new Map<string, ReplicaStatus>()
 
   for (const r of replicaConfigs) {
-    const client = postgres(r.url, poolOptions)
+    const client = config.logger
+      ? wrapClientWithLogger(postgres(r.url, poolOptions), config.logger)
+      : postgres(r.url, poolOptions)
     const db = drizzle(client, { schema })
     replicaClients.set(r.id, client)
     replicaDbs.set(r.id, db)
