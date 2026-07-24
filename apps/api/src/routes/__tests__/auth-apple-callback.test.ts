@@ -48,6 +48,9 @@ vi.mock('@ihui/auth', () => ({
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyRefreshToken: vi.fn(),
   createFamilyId: vi.fn().mockReturnValue('mock-family-id'),
+  // buildTokenPair 使用这两个常量计算 refreshToken 过期时间,必须在 mock 中提供
+  ACCESS_TOKEN_TTL_SECONDS: 900,
+  REFRESH_TOKEN_TTL_SECONDS: 30 * 24 * 60 * 60,
 }))
 
 vi.mock('../../db/index.js', () => {
