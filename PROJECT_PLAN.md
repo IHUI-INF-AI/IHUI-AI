@@ -1469,8 +1469,8 @@
 - [x] ✅(2026-07-24) 生成 Tauri 签名密钥对:本地 `pnpm dlx @tauri-apps/cli signer generate` 生成(commit 2481beb26),pubkey 填入 [tauri.conf.json](file:///d:/桌面/项目/IHUI-AI/apps/desktop/src-tauri/tauri.conf.json) `plugins.updater.pubkey`,私钥存 GitHub Secrets `DESKTOP_TAURI_PRIVATE_KEY`(base64),密码存 `DESKTOP_TAURI_KEY_PASSWORD`。本地密钥文件已删除。
 - [x] ✅(2026-07-24) release-desktop.yml 启用自动更新 artifacts:`updaterJsonPreferNsis: true`(Windows NSIS 安装器)+ `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 环境变量已配置。tauri-action 自动生成 `latest.json` 并上传到 Release assets(commit 2481beb26)。
 - [x] ✅(2026-07-24) updater endpoints 指向 GitHub Releases 免费方案:`https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/latest.json`(替代占位 `https://releases.ihui.ai/desktop/latest.json`)。无需 CDN,GitHub Releases 原生支持。
-- [ ] ⏸️ 暂不做(需付费):代码签名(Windows Authenticode $200/年 / macOS Developer ID $99/年)。Windows SmartScreen 会警告"未知发布者",用户点"仍要运行"可正常安装。Tauri 签名保证自动更新完整性,代码签名只影响首次安装警告。后续可补。
-- [ ] ⏸️ 暂不做(可选):分发渠道 winget/scoop/homebrew 的 desktop manifest(现有 4 个是 CLI 的)。GitHub Releases 已提供直接下载,winget/scoop 等是补充渠道。
+- [ ] ⏸️ 暂不做(需付费):代码签名(Windows Authenticode $200/年 / macOS Developer ID $99/年)(平台独占:仅 desktop)。Windows SmartScreen 会警告"未知发布者",用户点"仍要运行"可正常安装。Tauri 签名保证自动更新完整性,代码签名只影响首次安装警告。后续可补。
+- [ ] ⏸️ 暂不做(可选):分发渠道 winget/scoop/homebrew 的 desktop manifest(现有 4 个是 CLI 的)(平台独占:仅 desktop)。GitHub Releases 已提供直接下载,winget/scoop 等是补充渠道。
 
 **阶段 2(架构决策)— web/desktop 页面收敛**:
 
