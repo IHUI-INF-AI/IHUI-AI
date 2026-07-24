@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { GitBranch, Loader2, CheckCircle, AlertTriangle, XCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

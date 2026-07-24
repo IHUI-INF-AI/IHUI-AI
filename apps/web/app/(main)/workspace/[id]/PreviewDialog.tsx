@@ -2,7 +2,7 @@
 
 import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 import { FilePreview } from '@/components/media'
 import type { PreviewState } from './types'
 

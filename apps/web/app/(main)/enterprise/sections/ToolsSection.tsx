@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 
 interface ToolItem {
   icon: React.ComponentType<{ className?: string }>

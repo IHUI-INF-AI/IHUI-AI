@@ -5,7 +5,7 @@ import { UserPlus, UserCheck } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 interface UserCardProps {
   avatar?: string

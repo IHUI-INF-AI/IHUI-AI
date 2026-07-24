@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 /**
  * Button 组件 stories — 等价自旧架构 client/src/stories/Button.stories.ts

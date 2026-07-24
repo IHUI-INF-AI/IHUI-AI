@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Send, Loader2 } from 'lucide-react'
-import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { METHODS, selectClass, textareaClass } from './helpers'
 import type { Method } from './types'
 

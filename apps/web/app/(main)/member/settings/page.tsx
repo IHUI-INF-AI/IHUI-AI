@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Settings, Loader2, Bell, Shield, Save } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button, Label } from '@ihui/ui'
+import { Card, CardContent, Button, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

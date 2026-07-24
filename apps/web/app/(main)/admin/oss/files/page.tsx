@@ -9,7 +9,7 @@ import { HardDrive, Download } from 'lucide-react'
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { UploadZone } from '@/components/workspace/upload-zone'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { OssFileFilter } from './OssFileFilter'
 import { OssFileTable } from './OssFileTable'

@@ -5,7 +5,7 @@ import { Loader2, RotateCcw, Check, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { REFUND_STATUS_CFG } from './helpers'
 import type { EduRefund } from './types'
 

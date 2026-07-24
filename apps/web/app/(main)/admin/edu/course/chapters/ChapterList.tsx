@@ -1,6 +1,6 @@
 'use client'
 import { Edit, Trash2, Loader2, ListOrdered, ChevronDown, ChevronRight } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { isNotFound } from '@/lib/api-error'
 import { Tooltip } from '@/components/feedback'

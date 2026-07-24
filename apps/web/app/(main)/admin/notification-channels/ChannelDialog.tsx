@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { TYPES, selectClass, textareaCls, type FormState, type Item } from './helpers'
 
 interface Props {

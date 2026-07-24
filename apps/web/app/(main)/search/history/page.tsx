@@ -7,7 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { History, Trash2, Clock, Loader2, Search } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 
 interface HistoryItem {

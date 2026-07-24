@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Smartphone, Loader2 } from 'lucide-react'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { maskPhone } from './helpers'
 import type { FormMsg } from './types'

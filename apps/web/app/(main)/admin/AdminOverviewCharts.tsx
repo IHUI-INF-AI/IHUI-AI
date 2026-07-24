@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { TrendingUp, Folder } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { MiniChart } from '@/components/dashboard/mini-chart'
 import { buildConic, RING_COLORS } from './helpers'
 import type { DetailedStats } from './types'

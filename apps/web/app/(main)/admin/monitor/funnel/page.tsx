@@ -5,8 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, Filter, TrendingDown } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'
 

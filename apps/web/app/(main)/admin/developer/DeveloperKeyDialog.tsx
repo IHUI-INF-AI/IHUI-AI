@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
   Checkbox,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { API_KEY_PERMISSIONS, isValidApiKeyPermission } from '@ihui/types'
 import type { ApiKeyPermission } from '@ihui/types'
 import { textareaClass } from './helpers'

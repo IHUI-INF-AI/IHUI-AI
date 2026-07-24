@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getCourses, type Course } from '@ihui/api-client'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 
 export default function CoursePage() {

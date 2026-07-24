@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { createModelV2, modelToForm } from './helpers-v2'
 import type { UserLlmModel, UserLlmProvider } from './types-v2'

@@ -7,7 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, MessageSquare, Eye, CheckCircle2, Send } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface AskDetail {

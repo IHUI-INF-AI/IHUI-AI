@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { PhoneRegisterForm } from './PhoneRegisterForm'
 import { EmailRegisterForm } from './EmailRegisterForm'
 import { useLoginDialogStore } from '@/stores/login-dialog'

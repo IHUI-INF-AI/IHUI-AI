@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { DeveloperLinkFilter } from './DeveloperLinkFilter'
 import { DeveloperLinkTable } from './DeveloperLinkTable'

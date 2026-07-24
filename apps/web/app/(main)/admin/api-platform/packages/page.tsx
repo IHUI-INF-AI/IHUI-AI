@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Package } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { ApiPackageTable } from './ApiPackageTable'
 import { ApiPackageDialog } from './ApiPackageDialog'

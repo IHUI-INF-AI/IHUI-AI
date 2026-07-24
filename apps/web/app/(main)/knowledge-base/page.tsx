@@ -8,7 +8,7 @@ import { BookOpen, Search, FileText, ChevronLeft, ChevronRight, Loader2 } from '
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Input } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Input } from '@ihui/ui-react'
 
 interface KBCategory {
   id: string

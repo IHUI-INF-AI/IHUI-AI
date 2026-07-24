@@ -7,7 +7,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { STATUS_OPTIONS } from './helpers'
 
 interface Props {
