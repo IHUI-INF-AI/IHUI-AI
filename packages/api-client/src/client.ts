@@ -1,5 +1,5 @@
 import type { ApiResult, ApiResponse } from '@ihui/types'
-import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
+import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
 
 export interface TokenProvider {
   getToken(): string | null
@@ -438,11 +438,7 @@ export function extractAgentId(line: string): string | undefined {
   let data = line
   if (line.startsWith('data:')) {
     data = line.slice(5).replace(/^\s/, '')
-  } else if (
-    line.startsWith('event:') ||
-    line.startsWith('id:') ||
-    line.startsWith('retry:')
-  ) {
+  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
     return undefined
   }
   if (!data || data === '[DONE]') return undefined
@@ -932,11 +928,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       let data = line
       if (line.startsWith('data:')) {
         data = line.slice(5).replace(/^\s/, '')
-      } else if (
-        line.startsWith('event:') ||
-        line.startsWith('id:') ||
-        line.startsWith('retry:')
-      ) {
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
         return
       }
       if (!data || data === '[DONE]') return

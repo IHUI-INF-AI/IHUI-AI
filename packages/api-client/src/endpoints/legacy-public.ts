@@ -13,10 +13,17 @@
  * - /api/points[/transactions]            (gamification.ts → getMyPoints/getPointTransactions)
  * - /api/search[/hot-words]              (search.ts → searchContent/getHotWords)
  */
-import type { ApiResult, Carousel, Agreement, HotWord, SearchContentItem, PointRecord } from '@ihui/types'
+import type {
+  ApiResult,
+  Carousel,
+  Agreement,
+  HotWord,
+  SearchContentItem,
+  PointRecord,
+} from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData } from '../utils'
 
 // ===================== 类型定义 =====================
 
@@ -79,9 +86,7 @@ export async function getActiveCarousels(position?: string): Promise<ApiResult<C
 export type AgreementType = Agreement['type']
 
 /** 获取当前生效协议(公开端点) */
-export async function getCurrentAgreement(
-  type: AgreementType,
-): Promise<ApiResult<Agreement>> {
+export async function getCurrentAgreement(type: AgreementType): Promise<ApiResult<Agreement>> {
   return fetchApi<Agreement>(`/api/agreements/current${buildQs({ type })}`)
 }
 
@@ -100,9 +105,7 @@ export async function getAnnouncementById(id: string): Promise<ApiResult<Announc
 }
 
 /** 标记公告已读(需登录) */
-export async function markAnnouncementRead(
-  id: string,
-): Promise<ApiResult<{ ok: boolean }>> {
+export async function markAnnouncementRead(id: string): Promise<ApiResult<{ ok: boolean }>> {
   return fetchApi<{ ok: boolean }>(`/api/announcements/${encodeURIComponent(id)}/read`, {
     method: 'POST',
   })
