@@ -14,13 +14,20 @@
       {
         "label": "main",
         "title": "IHUI AI 桌面端",
-        "width": 1100,
-        "height": 720,
-        "minWidth": 800,
-        "minHeight": 560,
+        "width": 1200,
+        "height": 780,
+        "minWidth": 880,
+        "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
-        "center": true
+        "center": true,
+        "theme": "Dark",
+        "dragDropEnabled": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "maximized": false,
+        "decorations": true,
+        "titleBarStyle": "Visible"
       },
       {
         "label": "admin",
@@ -33,7 +40,11 @@
         "resizable": true,
         "fullscreen": false,
         "center": true,
-        "visible": false
+        "visible": false,
+        "theme": "Dark",
+        "dragDropEnabled": true,
+        "decorations": true,
+        "titleBarStyle": "Visible"
       }
     ],
     "security": {
