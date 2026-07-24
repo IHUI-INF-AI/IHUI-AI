@@ -1,3 +1,5 @@
+export { type PageData } from '@ihui/api-client'
+
 export interface MarkRecord {
   id: string
   paperId: string
@@ -7,11 +9,6 @@ export interface MarkRecord {
   score: string
   status: string
   submittedAt: string | null
-}
-
-export interface PageData<T> {
-  list: T[]
-  total: number
 }
 
 export interface Question {
