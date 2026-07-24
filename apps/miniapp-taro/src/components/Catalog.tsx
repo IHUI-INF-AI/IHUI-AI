@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import EmptyState from './EmptyState'
+import { useI18n } from '@/i18n'
 
 export interface ChapterItem {
   id: string
@@ -26,16 +27,18 @@ export default function Catalog({
   onSelect,
   onReachBottom,
 }: CatalogProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   if (loading) {
     return (
       <View className="py-8 text-center">
-        <Text className="text-sm text-muted-foreground">加载中...</Text>
+        <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
       </View>
     )
   }
 
   if (chapters.length === 0) {
-    return <EmptyState text="暂无章节" />
+    return <EmptyState text={tt('catalog.empty', '暂无章节')} />
   }
 
   return (
@@ -68,7 +71,7 @@ export default function Catalog({
                 className="flex items-center justify-center mr-3 rounded bg-muted"
                 style={{ width: '120px', height: '68px' }}
               >
-                <Text className="text-xs text-muted-foreground">无封面</Text>
+                <Text className="text-xs text-muted-foreground">{tt('catalog.noCover', '无封面')}</Text>
               </View>
             )}
             <View className="flex-1 min-w-0">
@@ -84,8 +87,8 @@ export default function Catalog({
                 {chapter.duration && (
                   <Text className="text-xs text-muted-foreground mr-2">{chapter.duration}</Text>
                 )}
-                {chapter.watched && <Text className="text-xs text-primary">已观看</Text>}
-                {active && <Text className="text-xs text-primary ml-auto">播放中</Text>}
+                {chapter.watched && <Text className="text-xs text-primary">{tt('catalog.watched', '已观看')}</Text>}
+                {active && <Text className="text-xs text-primary ml-auto">{tt('catalog.playing', '播放中')}</Text>}
               </View>
             </View>
           </View>

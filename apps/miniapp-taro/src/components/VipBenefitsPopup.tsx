@@ -1,4 +1,5 @@
 import { View, Text, ScrollView } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface VipBenefit {
   id: string
@@ -27,6 +28,8 @@ export default function VipBenefitsPopup({
   onUpgrade,
   onClose,
 }: VipBenefitsPopupProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   if (!visible) return null
 
   return (
@@ -34,7 +37,7 @@ export default function VipBenefitsPopup({
       <View className="absolute inset-0 bg-black/50" />
       <View className="relative bg-card rounded-t-2xl w-full" onClick={(e) => e.stopPropagation()}>
         <View className="flex items-center justify-between px-4 py-3">
-          <Text className="text-base font-medium text-[#f59e0b]">会员权益</Text>
+          <Text className="text-base font-medium text-[#f59e0b]">{tt('vip.benefitsTitle', '会员权益')}</Text>
           <Text className="text-sm text-muted-foreground" onClick={onClose}>
             关闭
           </Text>
@@ -58,7 +61,7 @@ export default function VipBenefitsPopup({
             style={{ background: 'linear-gradient(90deg, #fbbf24, #f59e0b)' }}
             onClick={onUpgrade}
           >
-            <Text className="text-sm text-white font-medium">立即升级</Text>
+            <Text className="text-sm text-white font-medium">{tt('vip.upgradeNow', '立即升级')}</Text>
           </View>
         </View>
       </View>

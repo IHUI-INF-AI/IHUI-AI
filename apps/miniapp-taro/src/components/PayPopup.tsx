@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface PayInfo {
   payType?: number
@@ -16,6 +17,8 @@ export interface PayPopupProps {
 }
 
 export default function PayPopup({ visible = false, pay = {}, onClose, onPay }: PayPopupProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   if (!visible) return null
 
   const { payType = 0, payCrowd = 0, amount = 0, isVip = 0 } = pay
@@ -33,18 +36,18 @@ export default function PayPopup({ visible = false, pay = {}, onClose, onPay }: 
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between mb-4">
-          <Text className="text-base font-medium text-foreground">{pay.title || '购买内容'}</Text>
+          <Text className="text-base font-medium text-foreground">{pay.title || tt('pay.purchaseContent', '购买内容')}</Text>
           <Text className="text-sm text-muted-foreground" onClick={onClose}>
-            关闭
+            {tt('common.close', '关闭')}
           </Text>
         </View>
         <View className="mb-4">
           {isFree ? (
-            <Text className="text-2xl font-bold text-primary">免费</Text>
+            <Text className="text-2xl font-bold text-primary">{tt('common.free', '免费')}</Text>
           ) : isLimitFree ? (
-            <Text className="text-2xl font-bold text-[#f59e0b]">限时免费</Text>
+            <Text className="text-2xl font-bold text-[#f59e0b]">{tt('pay.limitedFree', '限时免费')}</Text>
           ) : isVipFree ? (
-            <Text className="text-2xl font-bold text-[#f59e0b]">会员免费</Text>
+            <Text className="text-2xl font-bold text-[#f59e0b]">{tt('pay.memberFree', '会员免费')}</Text>
           ) : (
             <Text className="text-2xl font-bold text-destructive">¥{displayAmount}</Text>
           )}
@@ -55,12 +58,12 @@ export default function PayPopup({ visible = false, pay = {}, onClose, onPay }: 
               className="flex-1 py-3 rounded-md border border-yellow-400 bg-yellow-50 text-center"
               onClick={onPay}
             >
-              <Text className="text-sm text-[#f59e0b]">会员免费</Text>
+              <Text className="text-sm text-[#f59e0b]">{tt('pay.memberFree', '会员免费')}</Text>
             </View>
           )}
           {isPaid && (
             <View className="flex-1 py-3 rounded-md bg-primary text-center" onClick={onPay}>
-              <Text className="text-sm text-white">立即购买</Text>
+              <Text className="text-sm text-white">{tt('pay.buyNow', '立即购买')}</Text>
             </View>
           )}
         </View>

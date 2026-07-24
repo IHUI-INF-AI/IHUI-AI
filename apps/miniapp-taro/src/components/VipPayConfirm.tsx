@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface VipPayConfirmProps {
   visible?: boolean
@@ -21,6 +22,8 @@ export default function VipPayConfirm({
   onCancel,
   onMethodChange,
 }: VipPayConfirmProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   if (!visible) return null
 
   return (
@@ -31,7 +34,7 @@ export default function VipPayConfirm({
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between mb-4">
-          <Text className="text-base font-medium text-foreground">确认订单</Text>
+          <Text className="text-base font-medium text-foreground">{tt('pay.confirmOrder', '确认订单')}</Text>
           <Text className="text-sm text-muted-foreground" onClick={onCancel}>
             ×
           </Text>
@@ -44,13 +47,13 @@ export default function VipPayConfirm({
           </View>
           {originalPrice && (
             <View className="flex justify-between items-center">
-              <Text className="text-xs text-muted-foreground">原价</Text>
+              <Text className="text-xs text-muted-foreground">{tt('pay.originalPrice', '原价')}</Text>
               <Text className="text-xs text-muted-foreground line-through">¥{originalPrice}</Text>
             </View>
           )}
         </View>
 
-        <Text className="block text-sm text-foreground mb-2">支付方式</Text>
+        <Text className="block text-sm text-foreground mb-2">{tt('pay.paymentMethod', '支付方式')}</Text>
         <View className="flex space-x-3 mb-4">
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
@@ -75,7 +78,7 @@ export default function VipPayConfirm({
           style={{ background: 'linear-gradient(90deg, #fbbf24, #f59e0b)' }}
           onClick={onConfirm}
         >
-          <Text className="text-sm text-white font-medium">确认支付 ¥{price}</Text>
+          <Text className="text-sm text-white font-medium">{t('pay.confirmPay', { price })}</Text>
         </View>
       </View>
     </View>

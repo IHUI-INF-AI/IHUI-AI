@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 import type { LlmModel } from '@/api'
 
 export type ModelItem = LlmModel
@@ -16,6 +17,8 @@ export default function ModelList({
   onSelect,
   loading = false,
 }: ModelListProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   if (loading) {
     return (
       <View className="px-3 py-2">
@@ -35,7 +38,7 @@ export default function ModelList({
   if (!models.length) {
     return (
       <View className="flex items-center justify-center py-12">
-        <Text className="text-sm text-muted-foreground">暂无模型</Text>
+        <Text className="text-sm text-muted-foreground">{tt('model.empty', '暂无模型')}</Text>
       </View>
     )
   }

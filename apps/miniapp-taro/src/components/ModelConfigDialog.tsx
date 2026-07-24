@@ -1,4 +1,5 @@
 import { View, Text, Input, Switch } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface ModelConfig {
   temperature?: number
@@ -21,6 +22,8 @@ export default function ModelConfigDialog({
   onChange,
   onClose,
 }: ModelConfigDialogProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   if (!visible) return null
 
   const update = (patch: Partial<ModelConfig>) => {
@@ -35,14 +38,14 @@ export default function ModelConfigDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <Text className="text-sm font-medium text-foreground">模型配置</Text>
+          <Text className="text-sm font-medium text-foreground">{tt('model.configTitle', '模型配置')}</Text>
           <Text className="text-sm text-muted-foreground" onClick={onClose}>
-            关闭
+            {tt('common.close', '关闭')}
           </Text>
         </View>
         <View className="px-4 py-3">
           <View className="mb-3">
-            <Text className="block text-xs text-muted-foreground mb-1">温度 (0-2)</Text>
+            <Text className="block text-xs text-muted-foreground mb-1">{tt('model.temperature', '温度 (0-2)')}</Text>
             <Input
               type="digit"
               className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
@@ -52,7 +55,7 @@ export default function ModelConfigDialog({
             />
           </View>
           <View className="mb-3">
-            <Text className="block text-xs text-muted-foreground mb-1">最大 Token</Text>
+            <Text className="block text-xs text-muted-foreground mb-1">{tt('model.maxToken', '最大 Token')}</Text>
             <Input
               type="number"
               className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
@@ -72,7 +75,7 @@ export default function ModelConfigDialog({
             />
           </View>
           <View className="mb-3">
-            <Text className="block text-xs text-muted-foreground mb-1">系统提示词</Text>
+            <Text className="block text-xs text-muted-foreground mb-1">{tt('model.systemPrompt', '系统提示词')}</Text>
             <Input
               className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
               placeholder="You are a helpful assistant"
@@ -81,7 +84,7 @@ export default function ModelConfigDialog({
             />
           </View>
           <View className="flex items-center justify-between py-2">
-            <Text className="text-sm text-foreground">流式输出</Text>
+            <Text className="text-sm text-foreground">{tt('model.streaming', '流式输出')}</Text>
             <Switch
               checked={config.streamEnabled ?? true}
               onChange={(e) => update({ streamEnabled: e.detail.value })}
