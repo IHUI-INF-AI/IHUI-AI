@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { Loading } from '@ihui/ui-native'
+import { Card, Loading } from '@ihui/ui-native'
 interface ExamHistory {
   id: string
   examTitle: string
@@ -17,7 +17,6 @@ interface ExamHistory {
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function ExamHistoryScreen() {
   const { t } = useI18n()
@@ -44,96 +43,60 @@ export function ExamHistoryScreen() {
 
   if (loading)
     return (
-      <View style={styles.center}>
+      <View className="flex-1 items-center justify-center bg-card p-4">
         <Loading />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+        <Text className="mt-2 text-[13px] text-muted-foreground">{t('common.loading')}</Text>
       </View>
     )
   if (error && history.length === 0)
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
-          <Text style={styles.btnText}>{t('common.back')}</Text>
+      <View className="flex-1 items-center justify-center bg-card p-4">
+        <Text className="text-[13px] text-[#DC2626] mb-2 text-center">{error}</Text>
+        <TouchableOpacity className="mt-3 px-4 py-2 rounded-lg bg-primary" onPress={() => navigation.goBack()}>
+          <Text className="text-sm text-primary-foreground">{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     )
   return (
-    <View style={styles.container}>
+    <View className="flex-1 bg-card px-4 pt-12">
       <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.back}>{t('common.back')}</Text>
+        <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
       </TouchableOpacity>
-      <Text style={styles.title}>{t('examHistory.title')}</Text>
+      <Text className="mt-2 text-[22px] font-semibold text-foreground mb-3">{t('examHistory.title')}</Text>
       <FlatList
         data={history}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.muted}>{t('examHistory.empty')}</Text>
+          <View className="py-10 items-center">
+            <Text className="text-[13px] text-muted-foreground">{t('examHistory.empty')}</Text>
           </View>
         }
         renderItem={({ item }) => (
           <TouchableOpacity
-            style={styles.card}
             onPress={() => navigation.navigate('ExamResult', { id: item.id })}
           >
-            <View style={styles.cardHead}>
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {item.examTitle}
-              </Text>
-              <Text style={[styles.status, item.passed ? styles.statusPass : styles.statusFail]}>
-                {item.passed ? t('examHistory.passed') : t('examHistory.failed')}
-              </Text>
-            </View>
-            <View style={styles.cardFoot}>
-              <Text style={styles.score}>
-                {item.score}/{item.totalScore}
-              </Text>
-              <Text style={styles.meta}>{item.submittedAt}</Text>
-            </View>
+            <Card className="p-3 mb-2">
+              <View className="flex-row justify-between items-center">
+                <Text className="flex-1 text-sm font-semibold text-foreground" numberOfLines={1}>
+                  {item.examTitle}
+                </Text>
+                <Text
+                  className={`text-[11px] px-1.5 py-0.5 rounded ml-2 ${item.passed ? 'text-primary bg-[#ECFDF5]' : 'text-[#DC2626] bg-[#FEF2F2]'}`}
+                >
+                  {item.passed ? t('examHistory.passed') : t('examHistory.failed')}
+                </Text>
+              </View>
+              <View className="flex-row justify-between mt-1.5">
+                <Text className="text-[13px] text-primary font-semibold">
+                  {item.score}/{item.totalScore}
+                </Text>
+                <Text className="text-[11px] text-[#9CA3AF]">{item.submittedAt}</Text>
+              </View>
+            </Card>
           </TouchableOpacity>
         )}
       />
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-  },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  empty: { paddingVertical: 40, alignItems: 'center' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 8 },
-  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' },
-  status: {
-    fontSize: 11,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  statusPass: { color: PRIMARY, backgroundColor: '#ecfdf5' },
-  statusFail: { color: '#dc2626', backgroundColor: '#fef2f2' },
-  cardFoot: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  score: { fontSize: 13, color: PRIMARY, fontWeight: '600' },
-  meta: { fontSize: 11, color: '#9ca3af' },
-  btn: {
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: PRIMARY,
-  },
-  btnText: { color: '#fff', fontSize: 14 },
-})

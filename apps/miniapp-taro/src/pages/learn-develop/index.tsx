@@ -5,7 +5,6 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import type { Course } from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 interface LearnPath {
   id: string
@@ -83,29 +82,29 @@ export default function LearnDevelop() {
   }, [])
 
   return (
-    <View className="page-container">
-      <View className="page-header">
-        <Text className="page-title">{t('learnDevelop.title')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="p-[24rpx] bg-card">
+        <Text className="text-[36rpx] font-semibold text-foreground">{t('learnDevelop.title')}</Text>
       </View>
-      <View className="page-content">
+      <View className="p-[24rpx]">
         {/* 学习路径 */}
-        <View className="section-header">
-          <Text className="section-title">{tt('learnDevelop.pathTitle', '学习路径')}</Text>
+        <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
+          <Text className="text-[32rpx] font-semibold text-foreground">{tt('learnDevelop.pathTitle', '学习路径')}</Text>
         </View>
         {LEARN_PATHS.map((path) => (
-          <View key={path.id} className="path-card">
-            <View className="path-icon-wrapper">
-              <Text className="path-icon">{path.icon}</Text>
+          <View key={path.id} className="flex items-center p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
+            <View className="w-[88rpx] h-[88rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0 mr-[16rpx]">
+              <Text className="text-[48rpx]">{path.icon}</Text>
             </View>
-            <View className="path-info">
-              <Text className="path-name">{tt(path.nameKey, path.name)}</Text>
-              <Text className="path-meta">
+            <View className="flex-1 flex flex-col">
+              <Text className="text-[30rpx] font-semibold text-foreground">{tt(path.nameKey, path.name)}</Text>
+              <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
                 {path.courses} {tt('learnDevelop.coursesUnit', '门课')} ·{' '}
                 {tt('learnDevelop.progress', '进度')} {path.progress}%
               </Text>
-              <View className="progress-bar-wrapper">
+              <View className="h-[8rpx] bg-muted rounded-[4rpx] mt-[12rpx] overflow-hidden">
                 <View
-                  className="progress-bar-inner"
+                  className="h-full bg-primary rounded-[4rpx]"
                   style={{ width: `${path.progress}%` }}
                 />
               </View>
@@ -114,15 +113,15 @@ export default function LearnDevelop() {
         ))}
 
         {/* 推荐课程 */}
-        <View className="section-header">
-          <Text className="section-title">{tt('learnDevelop.recommend', '推荐课程')}</Text>
+        <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
+          <Text className="text-[32rpx] font-semibold text-foreground">{tt('learnDevelop.recommend', '推荐课程')}</Text>
         </View>
         {loading && courseList.length === 0 ? (
-          <Text className="loading-text">{t('common.loading')}</Text>
+          <Text className="block text-center text-muted-foreground py-[80rpx]">{t('common.loading')}</Text>
         ) : error && courseList.length === 0 ? (
-          <View className="error-wrapper">
-            <Text className="empty-text">{tt('learnDevelop.loadFailed', '加载失败')}</Text>
-            <Text className="btn" onClick={loadData}>
+          <View className="flex flex-col items-center py-[40rpx]">
+            <Text className="block text-center text-muted-foreground py-[40rpx]">{tt('learnDevelop.loadFailed', '加载失败')}</Text>
+            <Text className="inline-block mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]" onClick={loadData}>
               {t('common.retry')}
             </Text>
           </View>
@@ -130,25 +129,25 @@ export default function LearnDevelop() {
           courseList.map((item) => (
             <View
               key={item.id}
-              className="course-card"
+              className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
               onClick={() => onItemClick(item.id)}
             >
               {item.coverUrl ? (
-                <Image className="course-cover" src={item.coverUrl} mode="aspectFill" />
+                <Image className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted" src={item.coverUrl} mode="aspectFill" />
               ) : (
-                <View className="course-cover placeholder">
-                  <Text className="placeholder-icon">📚</Text>
+                <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
+                  <Text className="text-[48rpx]">📚</Text>
                 </View>
               )}
-              <View className="course-info">
-                <Text className="course-title">{item.title}</Text>
+              <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
+                <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2 overflow-hidden">{item.title}</Text>
                 {item.teacher ? (
-                  <Text className="course-teacher">
+                  <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
                     {tt('learnDevelop.teacher', '讲师')}: {item.teacher}
                   </Text>
                 ) : null}
                 {item.price != null ? (
-                  <Text className="course-price">
+                  <Text className="text-[32rpx] text-[#f44336] font-bold">
                     {item.price === 0
                       ? tt('learnDevelop.free', '免费')
                       : `¥${item.price.toFixed(2)}`}
@@ -158,16 +157,16 @@ export default function LearnDevelop() {
             </View>
           ))
         ) : (
-          <Text className="empty-text">{t('learnDevelop.empty')}</Text>
+          <Text className="block text-center text-muted-foreground py-[40rpx]">{t('learnDevelop.empty')}</Text>
         )}
 
         {/* 学习排行榜入口 */}
-        <View className="rank-entry" onClick={onGoRank}>
-          <View className="rank-entry-left">
-            <Text className="rank-entry-icon">🏆</Text>
-            <Text className="rank-entry-text">{tt('learnDevelop.rankEntry', '学习排行榜')}</Text>
+        <View className="flex items-center justify-between p-[24rpx] bg-card rounded-[12rpx] mt-[24rpx]" onClick={onGoRank}>
+          <View className="flex items-center">
+            <Text className="text-[40rpx] mr-[16rpx]">🏆</Text>
+            <Text className="text-[28rpx] text-foreground font-semibold">{tt('learnDevelop.rankEntry', '学习排行榜')}</Text>
           </View>
-          <Text className="rank-entry-arrow">›</Text>
+          <Text className="text-[36rpx] text-muted-foreground">›</Text>
         </View>
       </View>
     </View>
