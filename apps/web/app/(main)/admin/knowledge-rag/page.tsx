@@ -23,7 +23,7 @@ import {
   DialogTitle,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import {
   batchDeleteKnowledgeDocs,

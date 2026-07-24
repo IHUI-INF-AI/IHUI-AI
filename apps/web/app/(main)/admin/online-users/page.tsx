@@ -6,7 +6,7 @@ import { Users, LogOut, Smartphone, Monitor } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import { DataTable, type Column, Badge } from '@/components/data'
 
 interface OnlineUser {

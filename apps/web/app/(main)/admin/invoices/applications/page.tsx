@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 type InvoiceAppStatus = 'pending' | 'approved' | 'rejected' | 'invoicing' | 'invoiced' | 'canceled'
 

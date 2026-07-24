@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, Trophy } from 'lucide-react'
-import { Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { fetchAiWorldRankings, fetchLeaderboards } from './helpers'
 import type { LeaderboardId, AiWorldRanking } from './types'
 

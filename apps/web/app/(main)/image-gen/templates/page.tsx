@@ -9,7 +9,7 @@ import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, LayoutTemplate, Sparkles } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface Template {

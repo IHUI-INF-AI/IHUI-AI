@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { MessageSquare, Send, Loader2 } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Textarea } from '@/components/form/Textarea'
 import { CommentItem } from '@/components/business'
 import { fetchApi } from '@/lib/api'

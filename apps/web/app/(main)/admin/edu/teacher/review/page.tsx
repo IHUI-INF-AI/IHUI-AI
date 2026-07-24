@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, ShieldCheck, Check, X } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 
 interface Applicant {
   id: string

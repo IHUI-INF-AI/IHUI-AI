@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Users, Eye, Trash2, KeyRound, Shield, Ban, RotateCcw, ShieldCheck } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 import { Skeleton } from '@/components/common'
 import { cn } from '@/lib/utils'

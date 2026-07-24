@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
   Button,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 import { fetchDynamicComments, PAGE_SIZE } from './helpers'
 import type { CirclePost } from './types'

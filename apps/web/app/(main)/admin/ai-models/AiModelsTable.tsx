@@ -1,7 +1,7 @@
 'use client'
 
 import { Pencil, Trash2, Zap } from 'lucide-react'
-import { Button, Switch } from '@ihui/ui'
+import { Button, Switch } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import type { ModelRow } from './types'
 
