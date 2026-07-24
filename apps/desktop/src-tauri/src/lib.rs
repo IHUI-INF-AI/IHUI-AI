@@ -915,9 +915,9 @@ pub fn run() {
         // 开机自启(macOS 用 LaunchAgent,其他平台原生,启动参数 --minimized)
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--minimized".to_string()]),
+            Some(vec!["--minimized"]),
         ))
-        // 全局快捷键 plugin(handler 在 setup 中通过 on_desktop 注册)
+        // 全局快捷键 plugin(handler 在 setup 中通过 on_shortcut 注册)
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .on_window_event(|window, event| {
             // 关闭主窗口时最小化到托盘,而不是退出应用(真正退出走托盘菜单"退出")
