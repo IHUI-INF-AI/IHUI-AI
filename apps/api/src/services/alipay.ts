@@ -233,19 +233,85 @@ export function appPayOrder(params: {
     .join('&');
 }
 
-/** 小程序支付下单(alipay.trade.create,返回 tradeNO 给前端调起支付) */
+/**
+ * 小程序授权码兑换买家 user_id(alipay.system.oauth.token)。
+ * 小程序前端 my.getAuthCode({ scopes: 'auth_user' }) 拿到 authCode,
+ * 后端用 authCode 调 alipay.system.oauth.token 兑换 user_id(2088开头)或 openid。
+ *
+ * 参考:https://opendocs.alipay.com/mini/introduce/authcode
+ */
+export async function exchangeAuthCode(authCode: string): Promise<{ userId?: string; openId?: string; accessToken?: string }> {
+  if (!authCode) throw new Error('authCode is required')
+  const paramsObj: Record<string, string> = {
+    app_id: env.ALIPAY_APP_ID ?? '',
+    method: 'alipay.system.oauth.token',
+    charset: 'utf-8',
+    sign_type: 'RSA2',
+    timestamp: formatTimestamp(new Date()),
+    version: '1.0',
+    grant_type: 'authorization_code',
+    code: authCode,
+  }
+  addCertParams(paramsObj)
+  paramsObj.sign = signParams(paramsObj)
+  const body = new URLSearchParams(paramsObj).toString()
+  const resp = await fetch(GATEWAY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  })
+  const data = (await resp.json()) as {
+    alipay_system_oauth_token_response: {
+      access_token?: string
+      user_id?: string
+      open_id?: string
+      code: string
+      msg: string
+    }
+  }
+  const tok = data.alipay_system_oauth_token_response
+  if (tok.code !== '10000') {
+    throw new Error(`alipay.system.oauth.token failed: ${tok.code} ${tok.msg}`)
+  }
+  return { userId: tok.user_id, openId: tok.open_id, accessToken: tok.access_token }
+}
+
+/**
+ * 小程序支付下单(alipay.trade.create + JSAPI_PAY,返回 tradeNO 给前端 my.tradePay 调起支付)。
+ *
+ * 支付宝小程序支付的官方必传参数(2024+ 文档):
+ * - product_code: 必须为 'JSAPI_PAY'(小程序场景唯一产品码)
+ * - op_app_id: 必选,商户实际经营主体的小程序应用的 appid(需在产品管理中心绑定)
+ * - buyer_id / buyer_open_id / op_buyer_open_id: 必传其一(2088 开头的 user_id 或 openid)
+ *
+ * 错误码 40006 / ACQ.ACCESS_FORBIDDEN: 多为 product_code 错误或未签约 JSAPI 支付
+ * 错误码 ACQ.PRODUCT_NOT_SUPPORT_IN_TINY_APP: product_code 没用 JSAPI_PAY
+ * 错误码 ACQ.OPEN_ID_NOT_TINY_APP: op_app_id 缺失或非小程序应用类型
+ */
 export async function tradeCreate(params: {
   outTradeNo: string;
   amount: number;
   subject: string;
-  buyerId?: string;
+  /** 买家支付宝 user_id(2088开头)或 buyer_open_id(op_app_id 关联的 openid),必传 */
+  buyerId: string;
+  /** 小程序 appid,用于 op_app_id(默认从 ALIPAY_MINIAPP_APP_ID 环境变量读) */
+  opAppId?: string;
 }): Promise<{ tradeNo: string; outTradeNo: string }> {
+  const opAppId = params.opAppId ?? env.ALIPAY_MINIAPP_APP_ID;
+  if (!params.buyerId) {
+    throw new Error('alipay.trade.create: buyerId is required (支付宝小程序支付必传 2088 开头 user_id)')
+  }
+  if (!opAppId) {
+    throw new Error('alipay.trade.create: op_app_id is required (需在 .env 配置 ALIPAY_MINIAPP_APP_ID)')
+  }
   const bizContent: Record<string, unknown> = {
     out_trade_no: params.outTradeNo,
     total_amount: params.amount.toFixed(2),
     subject: params.subject,
+    product_code: 'JSAPI_PAY',
+    op_app_id: opAppId,
+    buyer_id: params.buyerId,
   };
-  if (params.buyerId) bizContent.buyer_id = params.buyerId;
   const paramsObj: Record<string, string> = {
     app_id: env.ALIPAY_APP_ID ?? '',
     method: 'alipay.trade.create',
@@ -253,16 +319,26 @@ export async function tradeCreate(params: {
     sign_type: 'RSA2',
     timestamp: formatTimestamp(new Date()),
     version: '1.0',
+    notify_url: env.ALIPAY_NOTIFY_URL ?? '',
     biz_content: JSON.stringify(bizContent),
   };
   addCertParams(paramsObj);
   paramsObj.sign = signParams(paramsObj);
   const body = new URLSearchParams(paramsObj).toString();
-  const resp = await fetch(GATEWAY, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-  const data = (await resp.json()) as { alipay_trade_create_response: { trade_no: string; out_trade_no: string; code: string; msg: string } };
+  const resp = await fetch(GATEWAY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const data = (await resp.json()) as {
+    alipay_trade_create_response: { trade_no: string; out_trade_no: string; code: string; msg: string; sub_code?: string; sub_msg?: string };
+  };
   const createResp = data.alipay_trade_create_response;
   if (createResp.code !== '10000') {
-    throw new Error(`alipay.trade.create failed: ${createResp.code} ${createResp.msg}`);
+    throw new Error(
+      `alipay.trade.create failed: ${createResp.code} ${createResp.msg}` +
+        (createResp.sub_code ? ` (sub_code=${createResp.sub_code} sub_msg=${createResp.sub_msg})` : ''),
+    );
   }
   return { tradeNo: createResp.trade_no, outTradeNo: createResp.out_trade_no };
 }
