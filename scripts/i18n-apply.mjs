@@ -33,7 +33,6 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import ts from 'typescript'
 
 const ROOT = process.cwd()
 const isCheck = process.argv.includes('--check')
@@ -43,13 +42,13 @@ const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 
 // target → 目录 + 文件扩展名(与 i18n-diff.mjs 保持一致)
+// 2026-07-25 i18n 单一来源:web/miniapp-taro 翻译迁移到 packages/i18n/messages/<platform>/
 const TARGET_CONFIG = {
-  web: { dir: 'apps/web/messages', ext: '.json' },
+  web: { dir: 'packages/i18n/messages/web', ext: '.json' },
   extension: { dir: 'packages/i18n/messages/extension', ext: '.json' },
-  'miniapp-taro': { dir: 'apps/miniapp-taro/src/i18n', ext: '.ts' },
+  'miniapp-taro': { dir: 'packages/i18n/messages/miniapp-taro', ext: '.json' },
 }
 const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
-const isMiniappTaro = TARGET === 'miniapp-taro'
 
 const MESSAGES_DIR = path.join(ROOT, TARGET_CFG.dir)
 const TMP_DIR = path.join(ROOT, '.trae-cn/tmp')
@@ -81,102 +80,7 @@ function loadJson(file) {
   }
 }
 
-// 解析 .ts 文件中的 `export default { ... }` 对象字面量为普通 JS 对象
-// 用 typescript 包走 AST(禁止 eval/new Function),逻辑与 i18n-diff.mjs 一致
-function parseTsObject(filePath) {
-  const content = fs.readFileSync(filePath, 'utf8')
-  const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
-  let exportAssignment = null
-  for (const stmt of sourceFile.statements) {
-    if (ts.isExportAssignment(stmt)) {
-      exportAssignment = stmt
-      break
-    }
-  }
-  if (!exportAssignment) return null
-  const expr = exportAssignment.expression
-  if (!ts.isObjectLiteralExpression(expr)) return null
-  return extractTsObject(expr)
-}
-
-function extractTsObject(node) {
-  const obj = {}
-  for (const prop of node.properties) {
-    if (!ts.isPropertyAssignment(prop)) continue
-    const name = prop.name
-    const key = ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)
-      ? name.text
-      : String(name.text || '')
-    obj[key] = extractTsValue(prop.initializer)
-  }
-  return obj
-}
-
-function extractTsValue(node) {
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
-  if (ts.isNumericLiteral(node)) return Number(node.text)
-  if (node.kind === ts.SyntaxKind.TrueKeyword) return true
-  if (node.kind === ts.SyntaxKind.FalseKeyword) return false
-  if (node.kind === ts.SyntaxKind.NullKeyword) return null
-  if (ts.isObjectLiteralExpression(node)) return extractTsObject(node)
-  if (ts.isArrayLiteralExpression(node)) return node.elements.map(extractTsValue)
-  return null
-}
-
-// 提取 .ts 文件头部 `// ...` 注释行(export default 之前)
-function extractHeaderComment(content) {
-  const lines = content.split(/\r?\n/)
-  const comments = []
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (trimmed.startsWith('//')) {
-      comments.push(line)
-    } else if (trimmed === '') {
-      continue
-    } else {
-      break
-    }
-  }
-  return comments.length > 0 ? comments.join('\n') : null
-}
-
-// 将 JS 对象序列化为 TypeScript 对象字面量(单引号字符串,2 空格缩进)
-function serializeTsObject(obj, indent = 0) {
-  const keys = Object.keys(obj)
-  if (keys.length === 0) return '{}'
-  const pad = '  '.repeat(indent + 1)
-  const closePad = '  '.repeat(indent)
-  const lines = keys.map((k) => {
-    const keyStr = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? k : `'${k}'`
-    return `${pad}${keyStr}: ${serializeTsValue(obj[k], indent + 1)}`
-  })
-  return `{\n${lines.join(',\n')}\n${closePad}}`
-}
-
-function serializeTsValue(value, indent) {
-  if (value === null) return 'null'
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
-  if (typeof value === 'number') return String(value)
-  if (typeof value === 'string') {
-    const escaped = value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-    return `'${escaped}'`
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) return '[]'
-    return `[${value.map((v) => serializeTsValue(v, indent + 1)).join(', ')}]`
-  }
-  if (typeof value === 'object') return serializeTsObject(value, indent)
-  return 'null'
-}
-
-// 写回 .ts 文件:保留原头部注释 + export default { ... }
-function writeTsObject(filePath, obj, headerComment) {
-  const body = serializeTsObject(obj, 0)
-  const content = headerComment
-    ? `${headerComment}\nexport default ${body}\n`
-    : `export default ${body}\n`
-  fs.writeFileSync(filePath, content, 'utf8')
-}
+// 2026-07-25 miniapp-taro 迁移到 .json 后,TS 解析/序列化辅助函数已移除
 
 function collectLeafEntries(obj, prefix = '') {
   const entries = []
@@ -306,9 +210,8 @@ function main() {
     if (!entry.endsWith(MESSAGE_EXT)) continue
     try {
       const filePath = path.join(MESSAGES_DIR, entry)
-      messages[entry.replace(MESSAGE_EXT, '')] = isMiniappTaro
-        ? parseTsObject(filePath)
-        : JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      // 2026-07-25 miniapp-taro 迁移到 .json,所有 target 统一 JSON 解析
+      messages[entry.replace(MESSAGE_EXT, '')] = JSON.parse(fs.readFileSync(filePath, 'utf8'))
     } catch {
       // 解析失败跳过
     }
@@ -354,13 +257,8 @@ function main() {
     if (!messages[lang]) continue
     if (!translations[lang]) continue
     const file = path.join(MESSAGES_DIR, `${lang}${MESSAGE_EXT}`)
-    if (isMiniappTaro) {
-      const original = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
-      const header = extractHeaderComment(original)
-      writeTsObject(file, messages[lang], header)
-    } else {
-      fs.writeFileSync(file, JSON.stringify(messages[lang], null, 2) + '\n', 'utf8')
-    }
+    // 2026-07-25 miniapp-taro 迁移到 .json,所有 target 统一 JSON 写入
+    fs.writeFileSync(file, JSON.stringify(messages[lang], null, 2) + '\n', 'utf8')
     written++
     console.log(`  ${C.green}✅${C.reset} ${lang}${MESSAGE_EXT} 已更新`)
   }
