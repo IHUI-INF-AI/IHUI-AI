@@ -1058,6 +1058,13 @@
       "when": 1784890800000,
       "tag": "20260724180000_registry_items_payload_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1784894400000,
+      "tag": "20260724190000_resource_context_tables",
+      "breakpoints": true
     }
   ]
 }
