@@ -4,8 +4,8 @@
  * 覆盖定时任务、任务日志、RuoYi 定时任务、在线用户模块 */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData, type PageQuery } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData, type PageQuery } from '../utils'
 
 // ===================== 类型定义 =====================
 

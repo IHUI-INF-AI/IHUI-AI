@@ -4,8 +4,8 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData } from '../utils'
 
 // ===================== 类型定义 =====================
 
@@ -170,9 +170,7 @@ export async function deleteLearnCourse(id: string): Promise<ApiResult<{ success
 }
 
 /** 推荐课程(按报名数降序) */
-export async function getRecommendLearnCourses(
-  limit = 10,
-): Promise<ApiResult<LearnCourse[]>> {
+export async function getRecommendLearnCourses(limit = 10): Promise<ApiResult<LearnCourse[]>> {
   return fetchApi<LearnCourse[]>(`/api/learn/recommend${buildQs({ limit })}`)
 }
 
