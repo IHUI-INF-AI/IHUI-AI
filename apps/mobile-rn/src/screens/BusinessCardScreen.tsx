@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Share, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { Avatar, Card } from '@ihui/ui-native'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -26,12 +27,6 @@ const MOCK_CARD: BusinessCard = {
   email: 'li@ai-zhs.com',
   location: '上海 · 浦东新区',
   bio: '专注 AI 智能体研发与社区运营,致力于打造开放共享的 AI 创新生态。',
-}
-
-const PRIMARY = '#10B981'
-
-function initials(name: string): string {
-  return name ? name.slice(0, 1).toUpperCase() : '?'
 }
 
 /** 电子名片:展示个人信息 / 公司 / 职位 / 联系方式 / 二维码,支持分享与保存。 */
@@ -63,85 +58,53 @@ export default function BusinessCardScreen() {
   ]
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>返回</Text>
+    <View className="flex-1 bg-card">
+      <View className="flex-row items-center gap-3 px-4 pb-3 pt-12">
+        <TouchableOpacity onPress={() => navigation.goBack()} className="py-1">
+          <Text className="text-sm text-muted-foreground">返回</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>电子名片</Text>
+        <Text className="text-lg font-semibold text-foreground">电子名片</Text>
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.cardTop}>
-          <View style={styles.avatarBox}>
-            <Text style={styles.avatarText}>{initials(card.name)}</Text>
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.name}>{card.name}</Text>
-            <Text style={styles.position}>{card.position}</Text>
-            <Text style={styles.company}>{card.company}</Text>
+      <Card className="mx-4 p-4">
+        <View className="flex-row items-center">
+          <Avatar name={card.name} size="lg" shape="rounded" className="bg-primary/10" />
+          <View className="ml-3 flex-1">
+            <Text className="text-lg font-semibold text-foreground">{card.name}</Text>
+            <Text className="mt-0.5 text-xs text-primary">{card.position}</Text>
+            <Text className="mt-0.5 text-xs text-muted-foreground">{card.company}</Text>
           </View>
         </View>
-        <Text style={styles.bio}>{card.bio}</Text>
+        <Text className="mt-3 text-[13px] leading-5 text-foreground/80">{card.bio}</Text>
 
-        <View style={styles.contactBox}>
+        <View className="mt-3 rounded-md bg-muted p-3">
           {contacts.map((c) => (
-            <View key={c.label} style={styles.contactRow}>
-              <Text style={styles.contactLabel}>{c.label}</Text>
-              <Text style={styles.contactValue}>{c.value}</Text>
+            <View key={c.label} className="flex-row items-center py-1">
+              <Text className="w-10 text-[11px] text-muted-foreground">{c.label}</Text>
+              <Text className="flex-1 text-[13px] text-foreground">{c.value}</Text>
             </View>
           ))}
         </View>
 
-        <View style={styles.qrBox}>
-          <View style={styles.qrArea}>
-            <Text style={styles.qrPlaceholder}>QR</Text>
+        <View className="mt-4 items-center">
+          <View className="h-[140px] w-[140px] items-center justify-center rounded-md bg-muted">
+            <Text className="text-2xl font-bold tracking-widest text-muted-foreground">QR</Text>
           </View>
-          <Text style={styles.qrTip}>扫码添加名片</Text>
+          <Text className="mt-2 text-[11px] text-muted-foreground">扫码添加名片</Text>
         </View>
-      </View>
+      </Card>
 
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionBtn} onPress={onShare}>
-          <Text style={styles.actionText}>发送好友</Text>
+      <View className="flex-row gap-2 px-4 py-4">
+        <TouchableOpacity className="flex-1 items-center rounded-md border border-border py-2.5">
+          <Text className="text-[13px] text-foreground/80">发送好友</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={onSave}>
-          <Text style={styles.actionText}>{saved ? '已保存' : '保存相册'}</Text>
+        <TouchableOpacity className="flex-1 items-center rounded-md border border-border py-2.5">
+          <Text className="text-[13px] text-foreground/80">{saved ? '已保存' : '保存相册'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionPrimary} onPress={onSave}>
-          <Text style={styles.actionPrimaryText}>编辑名片</Text>
+        <TouchableOpacity className="flex-1 items-center rounded-md bg-primary py-2.5">
+          <Text className="text-[13px] font-semibold text-primary-foreground">编辑名片</Text>
         </TouchableOpacity>
       </View>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 48, paddingBottom: 12, gap: 12 },
-  backBtn: { paddingVertical: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  card: { marginHorizontal: 16, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
-  cardTop: { flexDirection: 'row', alignItems: 'center' },
-  avatarBox: { width: 56, height: 56, borderRadius: 8, backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 24, fontWeight: '700', color: PRIMARY },
-  cardInfo: { flex: 1, marginLeft: 12 },
-  name: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  position: { marginTop: 2, fontSize: 12, color: PRIMARY },
-  company: { marginTop: 2, fontSize: 12, color: '#6B7280' },
-  bio: { marginTop: 12, fontSize: 13, color: '#374151', lineHeight: 20 },
-  contactBox: { marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: '#F9FAFB' },
-  contactRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-  contactLabel: { width: 40, fontSize: 11, color: '#9CA3AF' },
-  contactValue: { flex: 1, fontSize: 13, color: '#111827' },
-  qrBox: { marginTop: 16, alignItems: 'center' },
-  qrArea: { width: 140, height: 140, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  qrPlaceholder: { fontSize: 24, fontWeight: '700', color: '#9CA3AF', letterSpacing: 2 },
-  qrTip: { marginTop: 8, fontSize: 11, color: '#9CA3AF' },
-  actions: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16, gap: 8 },
-  actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center' },
-  actionText: { fontSize: 13, color: '#374151' },
-  actionPrimary: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
-  actionPrimaryText: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
-})
