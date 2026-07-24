@@ -24,7 +24,7 @@ import {
   ShieldCheck,
   XCircle,
 } from 'lucide-react'
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { CenteredText, Skeleton } from '@/components/common'
 
 import { useCertificatesQuery } from '@/hooks/use-saas-tenants'

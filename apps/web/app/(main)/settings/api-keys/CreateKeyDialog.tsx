@@ -13,7 +13,7 @@ import {
   DialogFooter,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { PermissionSelector } from './PermissionSelector'
 import type { CreateFormState } from './types'
 

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Search, Star, Loader2, ChevronLeft, ChevronRight, Download, Check, Upload, Bell, BellRing } from 'lucide-react'
-import { Card, CardContent, Button, Input, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
+import { Card, CardContent, Button, Input, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { SkillMarketEntry, SkillNotification } from '@ihui/shared/skills/market'
 import {

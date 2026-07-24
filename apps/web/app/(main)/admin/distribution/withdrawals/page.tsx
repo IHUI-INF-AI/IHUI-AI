@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
 import { WithdrawalsFilter } from './WithdrawalsFilter'

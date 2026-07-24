@@ -1,7 +1,7 @@
 'use client'
 
 import { Languages, Globe, Check } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface Props {

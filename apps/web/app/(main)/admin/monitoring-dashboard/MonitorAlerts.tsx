@@ -1,7 +1,7 @@
 'use client'
 
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { ALERT_STYLE } from './types'
 import type { AlertItem } from './types'

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { STATUS_TABS, inputClass } from './helpers'
 
 interface RefundFilterProps {

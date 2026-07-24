@@ -17,7 +17,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass, textareaClass } from '@/lib/edu'
 import type { TForm, Topic } from './types'
 

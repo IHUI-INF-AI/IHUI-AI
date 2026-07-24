@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Terminal, History, Trash2 } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { ApiDebugFilter } from './ApiDebugFilter'
 import { ApiDebugTable } from './ApiDebugTable'

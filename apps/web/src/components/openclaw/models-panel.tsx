@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Cpu, Loader2 } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { listOpenclawModels, type OpenclawModelItem } from '@/lib/openclaw-api'
 
 export function ModelsPanel() {

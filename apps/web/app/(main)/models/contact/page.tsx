@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { Mail, MessageCircle, Phone, Send, Users } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 
 export default async function ContactPage() {
   const t = await getTranslations('models')

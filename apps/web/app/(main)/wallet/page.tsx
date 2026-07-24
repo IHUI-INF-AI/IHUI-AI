@@ -8,7 +8,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Wallet, Plus, ArrowDownToLine, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { AnimatedNumber } from '@/components/common'
 

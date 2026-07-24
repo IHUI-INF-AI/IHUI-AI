@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Search, FileText } from 'lucide-react'
 
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface MentionFile {

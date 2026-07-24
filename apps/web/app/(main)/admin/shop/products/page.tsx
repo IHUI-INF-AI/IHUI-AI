@@ -7,7 +7,7 @@ import { Plus, Package, Download, ChevronLeft, ChevronRight } from 'lucide-react
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { ProductFilter } from './ProductFilter'
 import { ProductTable } from './ProductTable'

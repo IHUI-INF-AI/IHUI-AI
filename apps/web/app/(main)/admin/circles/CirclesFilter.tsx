@@ -2,7 +2,7 @@
 
 import { Users, Plus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 
 interface Props {
   search: string

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Check, Sparkles, Loader2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 export interface Plan {

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Upload, type UploadProps } from '@ihui/ui'
+import { Upload, type UploadProps } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -17,7 +17,7 @@ export interface ImageUploadProps {
 }
 
 /**
- * ImageUpload — 业务侧薄封装(2026-07-21 迁移至 @ihui/ui Upload)
+ * ImageUpload — 业务侧薄封装(2026-07-21 迁移至 @ihui/ui-react Upload)
  *
  * 保留旧 API 契约(value 支持 string | string[]),内部委托给共享 Upload 组件:
  *  - 拖拽 + 点击 + 进度条 + 多文件上传逻辑统一来自 packages/ui Upload

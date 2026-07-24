@@ -8,7 +8,7 @@
 
 IHUI-AI 前端遵循 **compact 紧凑 + elegant 优雅** 风格,通过 `packages/ui`(Web 组件库)+ Tailwind CSS 4 + shadcn/ui 实现设计系统。
 
-- **组件库**:`@ihui/ui`(25+ 组件,详见 [packages/ui/src/index.ts](../packages/ui/src/index.ts))
+- **组件库**:`@ihui/ui-react`(25+ 组件,详见 [packages/ui/src/index.ts](../packages/ui/src/index.ts))
 - **样式引擎**:Tailwind CSS 4(`@theme` 序列化 `--color-*` 为 `hsl()`)
 - **图标**:lucide-react
 - **通知**:sonner toast
@@ -372,7 +372,7 @@ background: color-mix(in srgb, var(--color-muted) 60%, transparent);
 
 ## 12. 组件库使用
 
-### 12.1 @ihui/ui 组件清单
+### 12.1 @ihui/ui-react 组件清单
 
 `packages/ui/src/index.ts` 导出 25+ 组件:
 
@@ -388,7 +388,7 @@ background: color-mix(in srgb, var(--color-muted) 60%, transparent);
 ### 12.2 使用示例
 
 ```tsx
-import { Button, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Button, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 
 export function UserCard() {
   return (
@@ -411,7 +411,7 @@ export function UserCard() {
 新增页面或组件前,逐项确认:
 
 - [ ] 页面 < 250 行,超长拆分组件
-- [ ] 复用 `@ihui/ui` 组件,不重复造轮子
+- [ ] 复用 `@ihui/ui-react` 组件,不重复造轮子
 - [ ] 圆角用规范档位(§3),无 `rounded-full`/`9999px`/`50%`
 - [ ] 中文字体 + 图标同行布局自动应用 `--text-vcenter-offset`(§4),非语义元素用 `<CenteredText>`
 - [ ] 无 `<hr>` / `divide-y` / `divide-x` / 单边 border 当分割线(§5)
@@ -434,4 +434,4 @@ export function UserCard() {
 - [GATEKEEPERS.md](./GATEKEEPERS.md) — UI 守门(第 11/17/18/20 项)详解
 - [architecture.md §4 前端架构](./architecture.md) — 路由组织 / API 调用 / i18n / 登录弹窗视觉规范
 - [I18N.md](./I18N.md) — 前端 i18n 使用
-- [PACKAGES.md](./PACKAGES.md) — `@ihui/ui` / `@ihui/ui-native` 组件库
+- [PACKAGES.md](./PACKAGES.md) — `@ihui/ui-react` / `@ihui/ui-native` 组件库

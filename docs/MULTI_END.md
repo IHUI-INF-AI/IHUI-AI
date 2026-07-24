@@ -134,7 +134,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | `@ihui/types` | 跨端类型契约(user/api/ai/agent/workspace 等) | 全端 |
 | `@ihui/database` | Drizzle schema(160+ 表)+ 迁移 + client + RLS | api / ai-service(只读) |
 | `@ihui/ui-react` | Web 组件库(Button/Input/Card/Dialog/Tabs/Tooltip 等 25+) | web / desktop / extension |
-| `@ihui/ui-native` | React Native 组件库(avatar/badge/button,3 组件) | mobile-rn |
+| `@ihui/ui-native` | React Native 组件库(avatar/badge/button/card/dialog/input/loading/switch/tabs/vip-badge,10 组件) | mobile-rn |
 | `@ihui/design-tokens` | 跨端基础原语(cn + HSL/HEX tokens + CSS 变量) | web / extension / mobile-rn / desktop |
 | `@ihui/config` | constants + env 配置 | 全端 |
 | `@ihui/context-compaction` | 上下文压缩(88% 阈值自动压缩) | cli / api / ai-service |

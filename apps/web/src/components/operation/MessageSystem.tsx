@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Bell, Megaphone, MessageCircle, UserCheck, Inbox } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 

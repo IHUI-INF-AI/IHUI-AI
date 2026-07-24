@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { MailPlus, Users, ArrowRight } from 'lucide-react'
-import { Button, CardContent } from '@ihui/ui'
+import { Button, CardContent } from '@ihui/ui-react'
 
 export function CtaSection() {
   const t = useTranslations('aiNews')

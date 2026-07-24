@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { RotateCcw, RotateCw } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Button } from '@ihui/ui'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 
 interface Props {

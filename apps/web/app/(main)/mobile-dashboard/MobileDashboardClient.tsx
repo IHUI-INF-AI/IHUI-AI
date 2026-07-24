@@ -3,7 +3,7 @@
 import { Activity, AlertTriangle, Smartphone, UserPlus, Users } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { LineChart } from '@/components/charts/LineChart'
 

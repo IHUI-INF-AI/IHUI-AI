@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Plus, ChevronLeft } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 interface Props {
   onCreate: () => void

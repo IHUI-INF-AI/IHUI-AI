@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, Zap, Code, Wrench, ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 
 interface ToolItem {
   id: string

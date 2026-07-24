@@ -13,7 +13,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { DeveloperLink, DeveloperLinkForm } from './types'
 
 interface Props {
