@@ -47,6 +47,12 @@ const filterSchema = z.object({
   text: z.string().min(1).max(10000),
 })
 
+// 审核端点 body:status 为发布状态字符串(前端契约),reason 可选(暂未持久化,留作未来扩展)
+const auditSchema = z.object({
+  status: z.enum(['published', 'rejected']),
+  reason: z.string().max(500).optional(),
+})
+
 export const adminSensitiveWordsRoutes: FastifyPluginAsync = async (server) => {
   // 统一管理员鉴权
   server.addHook('preHandler', requireAdmin)
@@ -116,5 +122,23 @@ export const adminSensitiveWordsRoutes: FastifyPluginAsync = async (server) => {
     }
     const result = await filterSensitiveContent(parsed.data.text)
     return reply.send(success(result))
+  })
+
+  // PUT /security/sensitive-words/:id/audit — 审核(published→启用, rejected→禁用)
+  // 路径含 /security/ 前缀以匹配前端 /api/admin/security/sensitive-words/:id/audit 调用
+  server.put('/security/sensitive-words/:id/audit', async (request, reply) => {
+    const parsedParams = idParamSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsed = auditSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // 字符串 status → DB 整数 status:published=1(启用) / rejected=0(禁用)
+    const dbStatus = parsed.data.status === 'published' ? 1 : 0
+    const item = await updateSensitiveWord(parsedParams.data.id, { status: dbStatus })
+    if (!item) return reply.status(404).send(error(404, '敏感词不存在'))
+    return reply.send(success({}))
   })
 }
