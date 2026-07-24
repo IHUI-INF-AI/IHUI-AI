@@ -3,7 +3,7 @@
 import { Loader2, Link2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { PERM, th } from './helpers'
 import type { AuthAccount } from './types'

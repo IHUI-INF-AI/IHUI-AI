@@ -11,7 +11,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { PayLog, CForm } from './types'
 
 interface Props {

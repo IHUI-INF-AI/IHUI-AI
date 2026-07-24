@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { EMPTY, PAGE_SIZE } from './helpers'
 import type { Teacher, TForm } from './types'

@@ -19,7 +19,7 @@ import {
   SelectItem,
   SelectValue,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { STATUS_OPTIONS, selectClassLg } from './helpers'
 import type { AgentForm, Category } from './types'
 

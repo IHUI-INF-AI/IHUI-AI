@@ -6,7 +6,7 @@ import { useLocale } from 'next-intl'
 import { Heart, Loader2, Trash2, Folder, FileText } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

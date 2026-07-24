@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Webhook, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { WebhooksList } from './WebhooksList'
 import { WebhookDialog } from './WebhookDialog'

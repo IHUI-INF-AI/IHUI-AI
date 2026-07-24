@@ -9,7 +9,7 @@ import { ArrowDownToLine, ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 interface AvailableData {
   available: number

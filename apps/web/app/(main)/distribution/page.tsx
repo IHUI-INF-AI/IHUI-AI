@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { StatCard } from '@/components/data'
 
 interface TeamCenterData {

@@ -7,7 +7,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 

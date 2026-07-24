@@ -7,7 +7,7 @@ import { Code, Loader2, Search, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Input } from '@ihui/ui'
+import { Card, CardContent, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

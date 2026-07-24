@@ -9,7 +9,7 @@ import { Search, Loader2, FileText, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Input } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Input } from '@ihui/ui-react'
 
 interface KBArticle {
   id: string

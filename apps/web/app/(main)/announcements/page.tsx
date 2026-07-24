@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Megaphone, Pin } from 'lucide-react'
 
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { api, type Announcement, ANN_TYPE_ICON, ANN_TYPE_BADGE } from '@/lib/content'
 

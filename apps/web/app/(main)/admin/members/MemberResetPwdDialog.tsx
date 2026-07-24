@@ -14,7 +14,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { type Member, api } from './types'
 
 export function MemberResetPwdDialog({

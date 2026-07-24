@@ -35,7 +35,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { Avatar } from '@/components/data/Avatar'
 import { Skeleton, CenteredText } from '@/components/common'

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { Button, Input, Label, Checkbox, DialogFooter } from '@ihui/ui'
+import { Button, Input, Label, Checkbox, DialogFooter } from '@ihui/ui-react'
 import { api, inputCls, toggleId } from './helpers'
 import type { ListResp } from './types'
 

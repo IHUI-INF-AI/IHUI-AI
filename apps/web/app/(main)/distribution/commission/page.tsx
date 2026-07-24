@@ -17,7 +17,7 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface CommissionSummaryData {
   totalAmount: number

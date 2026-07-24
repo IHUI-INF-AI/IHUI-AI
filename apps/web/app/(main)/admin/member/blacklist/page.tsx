@@ -13,8 +13,8 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+} from '@ihui/ui-react'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
 

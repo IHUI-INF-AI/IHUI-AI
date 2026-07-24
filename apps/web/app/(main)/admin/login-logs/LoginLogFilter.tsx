@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 import type { LoginLogSearch } from './types'
 

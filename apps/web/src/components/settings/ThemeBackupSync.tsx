@@ -5,7 +5,7 @@ import { useTheme } from 'next-themes'
 import { useTranslations, useLocale } from 'next-intl'
 import { Download, Upload, Sparkles, Loader2 } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
 const THEME_BACKUP_KEY = 'theme-backup'

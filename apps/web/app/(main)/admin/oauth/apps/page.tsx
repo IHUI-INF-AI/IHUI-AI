@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, KeyRound } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { OauthAppFilter } from './OauthAppFilter'
 import { OauthAppTable } from './OauthAppTable'

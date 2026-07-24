@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Plus, Download, MessageSquare } from 'lucide-react'
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { SmsFilter } from './SmsFilter'
 import { SmsTable } from './SmsTable'

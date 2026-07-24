@@ -8,7 +8,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, Eye, Newspaper } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
 
 interface ArticleDetail {

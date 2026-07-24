@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { ArrowLeft, BookOpen, Download, Eye, FileText, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
 import { ImageViewer, CodeViewer } from '@/components/media'
 

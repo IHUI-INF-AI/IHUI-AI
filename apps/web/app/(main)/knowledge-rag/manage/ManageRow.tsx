@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Trash2 } from 'lucide-react'
 
-import { Card, CardContent, Checkbox, Button } from '@ihui/ui'
+import { Card, CardContent, Checkbox, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface DocSummary {

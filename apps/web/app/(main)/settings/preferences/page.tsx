@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
 import { Sun, Moon, Monitor, Globe, Languages, Check } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { cn } from '@/lib/utils'
 

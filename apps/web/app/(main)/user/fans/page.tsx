@@ -7,7 +7,7 @@ import { Loader2, Users, UserPlus, UserCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
 import { Avatar } from '@/components/data'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 interface FanUser {
   id: string

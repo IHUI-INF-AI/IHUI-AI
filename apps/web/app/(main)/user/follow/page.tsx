@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Avatar } from '@/components/data'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 interface FollowUser {
   id: string

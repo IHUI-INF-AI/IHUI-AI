@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { SignupFilter } from './SignupFilter'
 import { SignupTable } from './SignupTable'
 import { PAGE_SIZE, api } from './helpers'

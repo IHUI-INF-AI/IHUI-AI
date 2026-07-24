@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { TrendingUp, Building2, Calendar, Search, ArrowUp, ArrowDown } from 'lucide-react'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
 import { getFormatters } from '@/lib/date-utils'
 import type { AiFundingItem } from '@/lib/ai-news-api'

@@ -1,7 +1,7 @@
 'use client'
 
 import { Monitor } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
 
 interface Props {
   t: (k: string) => string

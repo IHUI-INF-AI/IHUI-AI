@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Loader2, Plus, Edit, Trash2, ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 
 import { TitleDialog } from './TitleDialog'

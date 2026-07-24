@@ -26,7 +26,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { fetchPremiumLessons, loadTopic, type TopicLesson } from '../helpers'
 
 export default function LearnTopicDetailPage() {

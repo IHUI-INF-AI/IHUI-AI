@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, FileText, Loader2, AlertCircle, Layers } from 'lucide-react'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import {
   SPEC_BUILTIN_TEMPLATES,
   type SpecHistoryEntry,

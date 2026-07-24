@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 
 interface Props {

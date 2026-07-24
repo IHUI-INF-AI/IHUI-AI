@@ -16,7 +16,7 @@ import {
   TableCell,
   Button,
   Input,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface AnswerRecord {

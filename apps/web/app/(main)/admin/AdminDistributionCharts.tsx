@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { FileText, ShoppingCart, TrendingUp, TrendingDown } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { DetailedStats } from './types'
 

@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { CreditCard, Plus, Star, Share2, Loader2, Pencil, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { getInitials } from '@/components/data/Avatar'
 

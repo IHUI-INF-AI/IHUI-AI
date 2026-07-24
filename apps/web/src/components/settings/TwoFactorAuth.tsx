@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { ShieldCheck, Loader2, Copy, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { generateTotp } from './totp'

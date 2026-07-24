@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Layers, Search, Loader2, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 
 interface TopicItem {
   id: string

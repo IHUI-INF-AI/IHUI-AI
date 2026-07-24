@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { LayoutGrid, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { RecConfigTable } from './RecConfigTable'
 import { RecConfigDialog } from './RecConfigDialog'

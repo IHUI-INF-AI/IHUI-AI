@@ -16,7 +16,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { selectClass, inputSm, textareaClass, FLOW_STATUS } from './types'
 import type { useWithdrawalFlow } from './useWithdrawalFlow'

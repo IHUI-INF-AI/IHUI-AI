@@ -3,7 +3,7 @@
 import { Save, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { api } from './helpers'
 import type { Snapshot } from './types'
 import { formatDate } from '@/lib/date-utils'

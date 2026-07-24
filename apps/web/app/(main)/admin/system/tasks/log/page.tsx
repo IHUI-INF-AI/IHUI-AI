@@ -8,7 +8,7 @@ import { ScrollText, Trash2, Eraser, Download, ChevronLeft, ChevronRight } from 
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { useBatchMutation } from '@/hooks/use-batch-mutation'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { TaskLogFilter } from './TaskLogFilter'
 import { TaskLogTable } from './TaskLogTable'

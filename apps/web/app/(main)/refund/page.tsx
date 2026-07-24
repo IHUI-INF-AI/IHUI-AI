@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, RotateCcw, Clock, CheckCircle, XCircle, Wallet } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 type RefundStatus = 'pending' | 'approved' | 'rejected' | 'completed'

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, MessageSquare, Search } from 'lucide-react'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 
 import { CommentsTable, CommentDrawer } from './CommentsTable'
 import {

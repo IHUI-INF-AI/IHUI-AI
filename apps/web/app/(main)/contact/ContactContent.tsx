@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Mail, Phone, MapPin, Globe, MessageCircle, Sparkles, Loader2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 export interface ContactItem {

@@ -8,7 +8,7 @@ import { Plus, Download, Link2 } from 'lucide-react'
 
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { AuthAccountsFilter } from './AuthAccountsFilter'
 import { AuthAccountsTable } from './AuthAccountsTable'
 import { AuthAccountEditDialog, AuthAccountDeleteDialog } from './AuthAccountsDialog'
