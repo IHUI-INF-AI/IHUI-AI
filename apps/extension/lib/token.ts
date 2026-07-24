@@ -1,6 +1,7 @@
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client'
 import {
-  API_BASE_URL,
+  initApiBaseUrl,
+  getApiBaseUrl,
   TOKEN_STORAGE_KEY,
   REFRESH_TOKEN_STORAGE_KEY,
   EXPIRES_IN_STORAGE_KEY,
@@ -11,7 +12,8 @@ let cachedRefreshToken: string | null = null
 let cachedExpiresIn: number | null = null
 
 export async function initApi(): Promise<void> {
-  setBaseUrl(API_BASE_URL)
+  await initApiBaseUrl()
+  setBaseUrl(getApiBaseUrl())
 
   const result = await chrome.storage.local.get([
     TOKEN_STORAGE_KEY,
