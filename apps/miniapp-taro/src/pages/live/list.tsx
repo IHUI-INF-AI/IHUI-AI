@@ -1,5 +1,10 @@
 import { View, Text, Image } from '@tarojs/components'
-import Taro, { usePullDownRefresh, useReachBottom, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
+import Taro, {
+  usePullDownRefresh,
+  useReachBottom,
+  useShareAppMessage,
+  useShareTimeline,
+} from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
 import { useI18n } from '@/i18n'
@@ -97,6 +102,14 @@ export default function LiveList() {
     <View className="min-h-screen p-3">
       <View className="flex mb-3 gap-2">
         <View
+          className="flex-1 bg-primary rounded-xl py-2.5 flex items-center justify-center"
+          onClick={() => Taro.navigateTo({ url: '/pages/live/host' })}
+        >
+          <Text className="text-sm text-primary-foreground">
+            {tt('live.startLiveBtn', '📺 我要开播')}
+          </Text>
+        </View>
+        <View
           className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
           onClick={() => Taro.navigateTo({ url: '/pages/live/calendar' })}
         >
@@ -106,7 +119,9 @@ export default function LiveList() {
           className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
           onClick={() => Taro.navigateTo({ url: '/pages/live/subscribe' })}
         >
-          <Text className="text-sm text-foreground">{tt('live.mySubscriptionBtn', '🔔 我的订阅')}</Text>
+          <Text className="text-sm text-foreground">
+            {tt('live.mySubscriptionBtn', '🔔 我的订阅')}
+          </Text>
         </View>
       </View>
       <View className="flex mb-3 bg-card rounded-xl">
@@ -147,7 +162,9 @@ export default function LiveList() {
                 <Text className="text-base text-foreground font-semibold">{item.title}</Text>
                 <View className="flex justify-between mt-1.5">
                   {item.anchor && <Text className="text-xs text-primary">{item.anchor}</Text>}
-                  {item.startTime && <Text className="text-xs text-muted-foreground">{item.startTime}</Text>}
+                  {item.startTime && (
+                    <Text className="text-xs text-muted-foreground">{item.startTime}</Text>
+                  )}
                 </View>
                 {item.watchCount !== undefined && (
                   <Text className="block mt-1 text-xs text-muted-foreground">
