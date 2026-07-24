@@ -99,8 +99,17 @@ interface ChatState {
    * 存 pluginId,sendMessage 时合并到 agentTools 传给后端。
    * 不持久化(每次新会话默认空)。 */
   selectedTools: string[]
+  /** Plan/Act 模式(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+   * - 'plan':LLM 只制定计划不调用工具(后端注入 Plan Mode system prompt)
+   * - 'act':正常 tool loop 执行(默认)
+   * 持久化,跨刷新保留用户选择。 */
+  planMode: 'plan' | 'act'
 
   setModel: (model: string) => void
+  /** 设置 Plan/Act 模式 */
+  setPlanMode: (mode: 'plan' | 'act') => void
+  /** 切换 Plan/Act 模式(plan ↔ act) */
+  togglePlanMode: () => void
   /** 添加单个工具到已选;已存在则忽略 */
   addSelectedTool: (pluginId: string) => void
   /** 从已选移除单个工具 */
@@ -175,8 +184,11 @@ export const useChatStore = create<ChatState>()(
       pendingQuestion: null,
       subAgentActivities: [],
       selectedTools: [],
+      planMode: 'act',
 
       setModel: (model) => set({ currentModel: model }),
+      setPlanMode: (mode) => set({ planMode: mode }),
+      togglePlanMode: () => set((s) => ({ planMode: s.planMode === 'plan' ? 'act' : 'plan' })),
       addSelectedTool: (pluginId) =>
         set((s) =>
           s.selectedTools.includes(pluginId)
@@ -345,6 +357,7 @@ export const useChatStore = create<ChatState>()(
         currentModel: s.currentModel,
         conversationId: s.conversationId,
         draftInput: s.draftInput,
+        planMode: s.planMode,
       }),
       // 2026-07-24 立:旧版本无 version,localStorage 中 currentModel='stepfun/step-3.7-flash'
       // 是历史默认值(非显式选择)。version=2 migrate 把旧默认值升级到 step-router-v1。
