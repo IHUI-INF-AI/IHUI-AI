@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
-import bcrypt from 'bcryptjs'
+import { hashPassword } from '../src/utils/password-crypto.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -27,17 +27,14 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-const {
-  mockFindUserById,
-  mockFindUserByPhone,
-  mockIsSystemAdminUser,
-  mockUpdateUser,
-} = vi.hoisted(() => ({
-  mockFindUserById: vi.fn(),
-  mockFindUserByPhone: vi.fn(),
-  mockIsSystemAdminUser: vi.fn(),
-  mockUpdateUser: vi.fn(),
-}))
+const { mockFindUserById, mockFindUserByPhone, mockIsSystemAdminUser, mockUpdateUser } = vi.hoisted(
+  () => ({
+    mockFindUserById: vi.fn(),
+    mockFindUserByPhone: vi.fn(),
+    mockIsSystemAdminUser: vi.fn(),
+    mockUpdateUser: vi.fn(),
+  }),
+)
 
 vi.mock('../src/db/queries.js', () => ({
   findUserById: mockFindUserById,
@@ -135,11 +132,13 @@ describe('users routes', () => {
   function authAs(userId: string, roleId = 0) {
     currentAuth.userId = userId
     currentAuth.roleId = roleId
-    mockAuthenticate.mockImplementation((request: { userId?: string; jwtPayload?: { userId: string; roleId: number } }) => {
-      request.userId = userId
-      request.jwtPayload = { userId, roleId }
-      return Promise.resolve(request.jwtPayload)
-    })
+    mockAuthenticate.mockImplementation(
+      (request: { userId?: string; jwtPayload?: { userId: string; roleId: number } }) => {
+        request.userId = userId
+        request.jwtPayload = { userId, roleId }
+        return Promise.resolve(request.jwtPayload)
+      },
+    )
   }
 
   describe('GET /api/users/me', () => {
@@ -333,7 +332,9 @@ describe('users routes', () => {
 
     it('原密码错误返回 401', async () => {
       authAs('user-001')
-      mockFindUserById.mockResolvedValueOnce(makeUser({ passwordHash: await bcrypt.hash('correct', 10) }))
+      mockFindUserById.mockResolvedValueOnce(
+        makeUser({ passwordHash: await hashPassword('correct') }),
+      )
       mockIsSystemAdminUser.mockResolvedValueOnce(false)
       const res = await app.inject({
         method: 'POST',
@@ -346,7 +347,7 @@ describe('users routes', () => {
 
     it('原密码正确修改成功返回 200', async () => {
       authAs('user-001')
-      const hash = await bcrypt.hash('oldpass', 10)
+      const hash = await hashPassword('oldpass')
       mockFindUserById.mockResolvedValueOnce(makeUser({ passwordHash: hash }))
       mockIsSystemAdminUser.mockResolvedValueOnce(false)
       mockUpdateUserPassword.mockResolvedValueOnce(undefined)

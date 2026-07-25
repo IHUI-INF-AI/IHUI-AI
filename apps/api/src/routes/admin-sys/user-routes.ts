@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import bcrypt from 'bcryptjs'
+import { hashPassword } from '../../utils/password-crypto.js'
 import { success, error } from '../../utils/response.js'
 import { db } from '../../db/index.js'
 import { eq } from 'drizzle-orm'
@@ -20,7 +20,7 @@ export const userRoutes: FastifyPluginAsync = async (s) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const passwordHash = await bcrypt.hash(parsed.data.password, 10)
+    const passwordHash = await hashPassword(parsed.data.password)
     const updated = await db
       .update(users)
       .set({ passwordHash, updatedAt: new Date() })
