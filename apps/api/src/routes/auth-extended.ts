@@ -2501,7 +2501,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /api/auth/2fa/login-verify — 登录 2FA challenge 校验(TOTP 或 backup code)
   // 输入 challengeToken(由 /auth/login 在用户启用 2FA 时返回的短期 5min token)
-  //       + 6 位 TOTP token 或 backup code(8 位字母数字,格式 XXXX-XXXX)
+  //       + 6 位 TOTP token 或 backup code(8 位字母数字,格式 AAAA-AAAA)
   // 校验通过后签发完整 access + refresh token 对
   server.post(
     '/auth/2fa/login-verify',
@@ -2520,7 +2520,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             token: { type: 'string', description: '6 位 TOTP 码(与 backupCode 二选一)' },
             backupCode: {
               type: 'string',
-              description: '8 位 backup code XXXX-XXXX(与 token 二选一)',
+              description: '8 位 backup code AAAA-AAAA(与 token 二选一)',
             },
           },
         },
