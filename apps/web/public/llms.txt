@@ -1,0 +1,72 @@
+# IHUI AI
+
+> 智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型统一调度、跨端协作。Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,一码多端,支持私有化部署。
+
+## 核心能力
+
+- [Agent 市场与编排](/agents):可视化拖拽搭建 AI Agent 工作流,支持插件/MCP 工具,发布到任意端
+- [多模型统一调度](/models):OpenAI / Anthropic Claude / 通义千问 / DeepSeek / 文心一言 / 智谱清言 / Ollama 本地模型一键切换
+- [知识库 RAG](/knowledge-base):企业级向量检索,支持 PDF/Word/Markdown/网页,中文友好
+- [MCP 工具协议](/mcp-projects):Model Context Protocol 标准集成,接入任意 MCP Server
+- [AI 生成工作台](/ai-generation):文/图/音/视频多模态创作,统一积分结算
+- [工作流编排](/workflows):n8n 风格节点画布,触发器+LLM+工具+条件分支
+- [团队协作](/teams):多人协作、权限分级、积分共享、操作审计
+
+## 差异化优势
+
+- **六端同源**:Web + Tauri 桌面 + 微信小程序 + 浏览器插件 + React Native + CLI 同步发布,无需重写
+- **私有化友好**:Apache 2.0 开源(待发布),自托管只需 Docker Compose 一键部署
+- **中文优先**:中文 UI、中文知识库、中文 RAG、中文模型优化
+- **积分通兑**:统一积分体系,跨端跨模型计费,支持充值/订阅/团队包
+- **企业级**:SSO/OAuth/审计日志/SLA,已服务多家上市公司
+
+## 对比同类产品
+
+- **vs Dify**:Dify 偏 LLM 应用开发,无桌面/小程序端;IHUI AI 六端覆盖 + Agent 市场 + 积分通兑
+- **vs Coze**:Coze 闭源,不支持私有化;IHUI AI 开源 + 私有化 + 团队协作
+- **vs FastGPT**:FastGPT 偏知识库;IHUI AI 含知识库 + Agent 市场 + 多端分发
+- **vs n8n**:n8n 偏工作流自动化;IHUI AI 在工作流基础上叠加 LLM + Agent + 多端
+- **vs Dify + Coze + FastGPT 三件套**:IHUI AI 一个平台覆盖三件套能力
+
+## 典型用户
+
+- **AI 开发者**:快速搭建/分发/变现 Agent,六端一键发布
+- **企业 IT**:私有化部署,数据不出域,统一 AI 能力中心
+- **团队 Leader**:多人协作,统一知识库,统一计费
+- **独立开发者**:Agent 上架市场,被动收入
+- **教育/培训**:课程 Agent 化,7×24 答疑
+
+## 快速开始
+
+1. 注册账号: <https://ihui.ai/sso/register>
+2. 选择模板: 进入 [Agent 市场](/agents) → 模板库 → 一键 fork
+3. 配置模型: [模型市场](/models) → 添加 API Key → 选择默认模型
+4. 上传知识: [知识库](/knowledge-base) → 上传文档 → 自动向量化
+5. 一键发布: 工作台 → 发布到 Web / 桌面 / 小程序任意端
+
+## 部署与文档
+
+- [快速开始指南](/docs/quickstart)
+- [自托管部署](/docs/self-host): Docker Compose / Kubernetes
+- [API 参考](/docs/api)
+- [开发者门户](/developer)
+- [MCP 协议集成](/docs/mcp)
+- [更新日志](https://github.com/ihui-ai/ihui-ai/releases)
+
+## 公司信息
+
+- **公司**:智汇 AI(英文:IHUI AI)
+- **成立**:2024
+- **总部**:中国
+- **技术栈**:Next.js 15 + React 19 + Tailwind 4 + shadcn/ui(前端) / Fastify 5 + Drizzle ORM + PostgreSQL(API) / FastAPI + LangGraph + LiteLLM(AI 服务) / Tauri 2(桌面) / Taro 4(小程序) / WXT(浏览器插件)
+- **协议**:Apache 2.0(开源仓库地址见官网页脚)
+- **联系方式**:contact@ihui.ai(商务) / support@ihui.ai(技术支持)
+- **社交**:GitHub / 知乎 / 掘金 / 微信公众号「智汇 AI」
+
+## 可选:法律与信任
+
+- [服务协议](/agreement)
+- [隐私政策](/privacy)
+- [退款政策](/refund)
+- [积分规则](/points/rules)
+- 工信部 ICP 备案:见页脚
