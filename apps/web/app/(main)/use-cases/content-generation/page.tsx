@@ -24,6 +24,48 @@ const jsonLd = {
         { '@type': 'ListItem', position: 3, name: '内容创作', item: 'https://ihui.ai/use-cases/content-generation' },
       ],
     },
+    // 2026-07-26 极致 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建 AI 内容创作流水线"类检索)
+    {
+      '@type': 'HowTo',
+      '@id': 'https://ihui.ai/use-cases/content-generation#howto',
+      name: '搭建多平台多语言 AI 内容创作流水线',
+      description:
+        '基于 IHUI AI 全栈 AI 操作系统搭建内容创作 Agent 的 4 步流程:上传品牌资料 → 选题策划 → 一键生成 → 效果追踪。产能 ×10,多语言成本 -80%。',
+      inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
+      totalTime: 'PT30M',
+      estimatedCost: { '@type': 'MonetaryAmount', currency: 'CNY', value: '0' },
+      supply: [{ '@type': 'HowToSupply', name: '品牌指南/历史爆款文章/产品文档' }],
+      tool: [
+        { '@type': 'HowToTool', name: 'IHUI AI 多模态生成模块' },
+        { '@type': 'HowToTool', name: 'IHUI AI 多语言本地化引擎' },
+      ],
+      step: [
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '上传品牌资料',
+          text: '上传品牌指南/历史爆款文章/产品文档,AI 学习品牌调性。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '选题策划',
+          text: '输入关键词或行业趋势,AI 生成 20+ 选题方案 + 预估流量价值。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '一键生成',
+          text: '选定选题,AI 生成多平台多语言版本,人工微调后发布。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '效果追踪',
+          text: '接入平台数据,AI 复盘高表现内容,持续优化生成策略。',
+        },
+      ],
+    },
   ],
 }
 
