@@ -164,12 +164,93 @@ class SkillScheduler:
             results.append(step_result)
             if step_result.get("content"):
                 context[f"step_{idx}_output"] = step_result["content"]
-        return {
+        chain_result = {
             "results": results,
             "context": context,
             "total_tokens": self.total_tokens,
             "error": next((r.get("error") for r in reversed(results) if r.get("error")), None),
         }
+
+        # L4-6:fire-and-forget 触发 SelfEvaluator 自评 + MetaLearner 沉淀
+        # 由 SELF_EVAL_ENABLED 环境变量控制(默认 false,避免消耗 LLM tokens)
+        # 失败不影响主流程,只 log warning
+        try:
+            import os as _os
+            if _os.environ.get("SELF_EVAL_ENABLED", "false").lower() == "true":
+                asyncio.create_task(
+                    self._trigger_self_eval(chain_result, steps)
+                )
+        except Exception as e:
+            logger.warning(
+                "[skill_scheduler] self_eval 触发失败(忽略): %s: %s",
+                type(e).__name__, e,
+            )
+
+        return chain_result
+
+    async def _trigger_self_eval(
+        self,
+        chain_result: dict[str, Any],
+        steps: list[dict[str, Any]],
+    ) -> None:
+        """L4-6:把 chain 结果转成 SelfEvaluator 输入,触发自评 + 沉淀 meta_lessons。
+
+        fire-and-forget,任何异常不向上抛(只 warning)。
+        """
+        try:
+            # 局部导入避免循环依赖
+            from .meta_learner import meta_learner
+
+            # 把 chain 结果转成 AgentLoopResult 风格(SelfEvaluator 期望的输入)
+            results_list = chain_result.get("results", []) or []
+            error = chain_result.get("error")
+            # 取最后一个 skill 名作为 source skill(若有)
+            last_skill = ""
+            for step in reversed(steps):
+                if step.get("skill"):
+                    last_skill = str(step["skill"])
+                    break
+
+            # 构造 iterations(每步一条)
+            iterations = []
+            for r in results_list:
+                if not isinstance(r, dict):
+                    continue
+                iterations.append({
+                    "reasoning": str(r.get("content", ""))[:200],
+                    "tool_calls": [{"name": r.get("skill", ""), "args": {}}],
+                    "tool_results": [
+                        {
+                            "tool_call_id": "0",
+                            "name": r.get("skill", ""),
+                            "result": r.get("content", ""),
+                            "error": r.get("error"),
+                        }
+                    ],
+                })
+
+            task_result = {
+                "success": error is None,
+                "iterations": iterations,
+                "final_response": str(
+                    results_list[-1].get("content", "") if results_list else ""
+                ),
+                "total_duration_ms": 0.0,  # 累计耗时未知,传 0
+                "total_tokens_used": int(chain_result.get("total_tokens", 0) or 0),
+                "stop_reason": "error" if error else "completed",
+                "error": error,
+            }
+
+            await meta_learner.evaluate_and_record(
+                task_result=task_result,
+                task_input=str(steps)[:500] if steps else "",
+                skill_name=last_skill,
+            )
+        except Exception as e:
+            logger.warning(
+                "[skill_scheduler] _trigger_self_eval 失败(忽略): %s: %s",
+                type(e).__name__, e,
+            )
 
     # ===== 内部工具 =====
 
