@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { REFUND_STATUS_CFG, STATUS_KEY } from '../helpers'
+import { REFUND_STATUS_CFG, STATUS_KEY, REFUND_TYPE_KEY, AUDIT_ACTION_KEY } from '../helpers'
 import type { EduRefund, EduOrder, AuditRecord } from '../types'
 
 function DetailItem({
@@ -85,7 +85,7 @@ export function RefundDetailInfo({
             value={currencyFmt.format(Number(refund.refundAmount))}
             highlight
           />
-          <DetailItem label={t('refundType')} value={t(`refundType_${refund.refundType}`)} />
+          <DetailItem label={t('refundType')} value={t(REFUND_TYPE_KEY[refund.refundType] ?? refund.refundType)} />
           <DetailItem label={t('reason')} value={refund.reason ?? '-'} />
           <DetailItem
             label={t('applyTime')}
@@ -166,7 +166,7 @@ export function RefundDetailInfo({
                   ) : (
                     <X className="h-3 w-3" />
                   )}
-                  {t(`auditAction_${rec.action}`)}
+                  {t(AUDIT_ACTION_KEY[rec.action] ?? rec.action)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs text-muted-foreground">
