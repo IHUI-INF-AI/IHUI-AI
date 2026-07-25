@@ -45,11 +45,15 @@ export default function ClawdbotHealthPage() {
   const [loading, setLoading] = React.useState(true)
   const [refreshing, setRefreshing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const timeFmt = new Intl.DateTimeFormat(locale, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
+  const timeFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }),
+    [locale],
+  )
 
   const load = React.useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)

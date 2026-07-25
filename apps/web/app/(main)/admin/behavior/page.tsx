@@ -59,6 +59,7 @@ export default function BehaviorPage() {
   const t = useTranslations('behavior')
   const tb = useTranslations('admin.behavior')
   const locale = useLocale()
+  const dateFmt = React.useMemo(() => new Intl.DateTimeFormat(locale), [locale])
   const [page, setPage] = React.useState(1)
   const pageSize = 20
 
@@ -196,7 +197,7 @@ export default function BehaviorPage() {
                     <td className="px-4 py-2 text-muted-foreground">{w.topicTitle ?? w.topicId}</td>
                     <td className="px-4 py-2">{w.watchDuration}s</td>
                     <td className="px-4 py-2 text-muted-foreground">
-                      {new Intl.DateTimeFormat(locale).format(new Date(w.createdAt))}
+                      {dateFmt.format(new Date(w.createdAt))}
                     </td>
                   </tr>
                 ))}

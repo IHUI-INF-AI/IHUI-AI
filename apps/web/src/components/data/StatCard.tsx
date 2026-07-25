@@ -12,7 +12,7 @@ interface StatCardProps {
   className?: string
 }
 
-export function StatCard({ title, value, icon: Icon, trend, trendLabel, loading = false, className }: StatCardProps) {
+export const StatCard = React.memo(function StatCard({ title, value, icon: Icon, trend, trendLabel, loading = false, className }: StatCardProps) {
   const positive = (trend ?? 0) >= 0
   return (
     <div className={cn('rounded-xl border bg-card p-4 text-card-foreground shadow', className)}>
@@ -43,4 +43,4 @@ export function StatCard({ title, value, icon: Icon, trend, trendLabel, loading 
       )}
     </div>
   )
-}
+})
