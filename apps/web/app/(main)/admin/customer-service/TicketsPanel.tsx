@@ -112,7 +112,7 @@ export function TicketsPanel() {
                 </td>
               </tr>
             ) : (
-              list.map((tk) => (
+              list.map((tk: any) => (
                 <tr
                   key={tk.id}
                   className="cursor-pointer transition-colors hover:bg-muted/30"
@@ -124,20 +124,20 @@ export function TicketsPanel() {
                     <span
                       className={cn(
                         'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
-                        STATUS_BADGE[tk.status],
+                        STATUS_BADGE[tk.status as keyof typeof STATUS_BADGE],
                       )}
                     >
-                      {STATUS_LABEL[tk.status]}
+                      {STATUS_LABEL[tk.status as keyof typeof STATUS_LABEL]}
                     </span>
                   </td>
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
                         'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
-                        PRIORITY_BADGE[tk.priority],
+                        PRIORITY_BADGE[tk.priority as keyof typeof PRIORITY_BADGE],
                       )}
                     >
-                      {PRIORITY_LABEL[tk.priority]}
+                      {PRIORITY_LABEL[tk.priority as keyof typeof PRIORITY_LABEL]}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">

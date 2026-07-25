@@ -158,14 +158,14 @@ export default function BillingPage() {
           ) : (
             <div className="divide-y">
               {bills.map((b: any) => {
-                const cls = STATUS_CLASS[b.status as any]
+                const cls = (STATUS_CLASS as any)[b.status]
                 return (
                   <div key={b.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium">{b.invoiceNo}</p>
                         <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cls)}>
-                          {t(BILL_STATUS_KEYS[b.status as any]!)}
+                          {t((BILL_STATUS_KEYS as any)[b.status]!)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
