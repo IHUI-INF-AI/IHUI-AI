@@ -10,10 +10,16 @@
  *
  * 防护目标:
  *   1. 检测 reflog 近期 reset 操作 → 告警 + 提示 reset 风险
- *   2. 检测 fsck 悬空 commit → 提示 tag 备份
+ *   2. 检测 fsck 悬空 commit → 过滤 stash-like 对象后核对 tag 备份
  *   3. 列出所有 lost-commit/* tag(防止 git gc 清理)
  *
- * 当前模式: warn-only(不阻塞 commit),后续升级到 blocking。
+ * --filter-stash 模式(guardian-runner 30a 注册):
+ *   过滤掉 stash-like 悬空 commit(WIP / On main / index on main / untracked files on main),
+ *   这些是 git stash / reset / merge 中间状态,不是真 commit 丢失。
+ *   对未备份的 stash-like 悬空 commit,会从 subject 提取"原 commit hash"
+ *   与 lostTag 集合比对,避免误报。
+ *
+ * 当前模式: blocking 模式(isBlocking=true)下,reset 操作或未备份悬空 commit → exit 1。
  *
  * 检查逻辑:
  *   1. git reflog --all --date=iso 最近 20 步
@@ -55,6 +61,8 @@ const C = {
 
 const SKIP_ENV = 'HUSKY_SKIP_COMMIT_LOSS_CHECK'
 const isStrict = process.argv.includes('--strict')
+const isBlocking = process.argv.includes('--blocking')
+const isFilterStash = process.argv.includes('--filter-stash')
 const skip = process.env[SKIP_ENV] === '1'
 
 function run(cmd, opts = {}) {
@@ -85,7 +93,30 @@ function detectResets() {
   return resets
 }
 
-function detectUnreachable() {
+function isStashSubject(subject) {
+  if (!subject) return false
+  return (
+    /^WIP on /.test(subject) ||
+    /^On main: /.test(subject) ||
+    /^index on main: /.test(subject) ||
+    /^untracked files on main: /.test(subject) ||
+    /^untracked files on /.test(subject)
+  )
+}
+
+function extractOriginalHashFromStash(subject) {
+  // stash subject 形如:
+  //   "WIP on main: 5ef36e59d <msg>"
+  //   "On main: 5ef36e59d <msg>"
+  //   "index on main: 5ef36e59d <msg>"
+  //   "untracked files on main: 5ef36e59d <msg>"
+  // 提取第二个冒号后的原 commit hash
+  if (!subject) return ''
+  const m = subject.match(/^[A-Za-z ]+on\s+\S+:\s+([0-9a-f]{7,40})\b/)
+  return m ? m[1] : ''
+}
+
+function listUnreachableHashes() {
   // --no-reflogs: 不遍历 reflog(只检查悬空 commit 对象)
   const out = run('git fsck --unreachable --no-reflogs 2>&1', { allowFail: true })
   if (!out) return []
@@ -95,6 +126,20 @@ function detectUnreachable() {
     .filter((l) => l.startsWith('unreachable commit'))
     .map((l) => l.replace(/^unreachable commit\s+/, ''))
     .filter(Boolean)
+}
+
+function detectUnreachable() {
+  // --no-reflogs: 不遍历 reflog(只检查悬空 commit 对象)
+  // 原始 hash 列表(用于后续丢失 commit 备份核对)
+  return listUnreachableHashes()
+}
+
+function filterStashLike(hashes) {
+  // 对每个 hash 取 subject,若是 stash-like 形态(WIP / On main / index on main)则过滤
+  return hashes.filter((c) => {
+    const subject = run(`git log -1 --format=%s ${c}`, { allowFail: true })
+    return !isStashSubject(subject)
+  })
 }
 
 function listLostCommitTags() {
@@ -118,7 +163,10 @@ function main() {
   console.log(`${C.cyan}${C.bold}🛡️  Commit 丢失防护守门(AGENTS.md §22 配套)${C.reset}`)
 
   const resets = detectResets()
-  const unreachable = detectUnreachable()
+  const rawUnreachable = detectUnreachable()
+  // --filter-stash: 过滤掉 stash-like 对象(WIP / On main / index on main)
+  const unreachable = isFilterStash ? filterStashLike(rawUnreachable) : rawUnreachable
+  const stashCount = isFilterStash ? rawUnreachable.length - unreachable.length : 0
   const lostTags = listLostCommitTags()
   const backups = listBackups()
 
@@ -148,6 +196,11 @@ function main() {
   console.log(header('2. fsck 悬空 commit 检测(可能丢失的 commit)'))
   if (unreachable.length === 0) {
     console.log(`  ${C.green}✅ 未检测到悬空 commit${C.reset}`)
+    if (isFilterStash && stashCount > 0) {
+      console.log(
+        `     ${C.dim}(已过滤 ${stashCount} 个 stash-like 对象:WIP / On main / index on main / untracked files on main)${C.reset}`,
+      )
+    }
   } else {
     console.log(
       `  ${C.yellow}⚠️  检测到 ${unreachable.length} 个悬空 commit:${C.reset}`,
@@ -159,6 +212,11 @@ function main() {
     }
     if (unreachable.length > 10) {
       console.log(`     ${C.dim}... 还有 ${unreachable.length - 10} 个,详见 git fsck 输出${C.reset}`)
+    }
+    if (isFilterStash && stashCount > 0) {
+      console.log(
+        `     ${C.dim}(已过滤 ${stashCount} 个 stash-like 对象,详见 git fsck)${C.reset}`,
+      )
     }
   }
 
@@ -190,18 +248,32 @@ function main() {
 
   if (resets.length > 0) {
     issues.push(`reflog 检测到 ${resets.length} 次 reset 操作`)
+    blocking = true // 2026-07-25 升级:reset 操作直接进 blocking(防 commit 丢失)
   }
   if (unreachable.length > 0) {
     // 检查每个悬空 commit 是否有 lost-commit tag 备份
+    // 注意:stash-like 悬空 commit 的 subject 包含原 commit hash(如 "index on main: 5ef36e59d ...")
+    // 需从 subject 提取原 hash 与 lostTag 比对
     const backedUp = new Set(
       lostTags.map((t) => run(`git rev-list -1 ${t}`, { allowFail: true })),
     )
-    const unbacked = unreachable.filter((c) => !backedUp.has(c))
+    const unbacked = unreachable.filter((c) => {
+      if (backedUp.has(c)) return false
+      // 对 stash-like 悬空 commit,提取 subject 里的原 commit hash 再匹配
+      const subject = run(`git log -1 --format=%s ${c}`, { allowFail: true })
+      const origHash = extractOriginalHashFromStash(subject)
+      if (origHash && backedUp.has(origHash)) return false
+      return true
+    })
     if (unbacked.length > 0) {
       issues.push(
         `${unbacked.length} 个悬空 commit 未 tag 备份(运行 git tag lost-commit/<name> <hash> 备份)`,
       )
       blocking = true
+    } else {
+      issues.push(
+        `${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`,
+      )
     }
   }
 
@@ -214,9 +286,16 @@ function main() {
     console.log(`  ${C.yellow}⚠  ${i}${C.reset}`)
   }
 
-  if (blocking && isStrict) {
+  // 2026-07-25 升级:isBlocking 模式(guardian-runner 30a 注册)直接 exit 1
+  if (blocking && (isStrict || isBlocking)) {
     console.log(
-      `\n${C.red}${C.bold}❌ --strict 模式下阻塞 commit${C.reset} (请先备份悬空 commit)`,
+      `\n${C.red}${C.bold}❌ commit 丢失风险,阻塞 commit${C.reset} (请先处理:备份 / 确认 reset 安全)`,
+    )
+    console.log(
+      `   1. 若 reset 是有意的,先备份:${C.cyan}git tag lost-commit/<name> <hash>${C.reset}`,
+    )
+    console.log(
+      `   2. 紧急跳过(不推荐):${C.cyan}HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...${C.reset}`,
     )
     process.exit(1)
   }
@@ -232,4 +311,8 @@ function main() {
   process.exit(0)
 }
 
-main()
+main().catch((e) => {
+  console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
+  console.error(e?.stack ?? '(no stack)')
+  process.exit(2)
+})
