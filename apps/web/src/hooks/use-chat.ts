@@ -647,6 +647,68 @@ function extractToolUrl(args?: Record<string, unknown>, result?: unknown): strin
   return null
 }
 
+/** #9 流式 token 节流(2026-07-25):rAF 批处理 token 追加,避免每 token 触发 store 写入 + React 重渲染。
+ *  - 维护 pendingTokens buffer,onDelta/onReasoning/onAgentDelta 时 push 到 buffer
+ *  - rAF 回调中一次性 flush 到 store(appendToMessage/appendReasoningToMessage/appendToAgentStream)
+ *  - 若 rAF 已调度则不重复调度
+ *  - 流式结束时(finally 块)必须调用 flush() 同步排空剩余 tokens
+ *  - 不破坏现有 onDelta/onReasoning/onAgentDelta 回调契约,仅做合并写入 */
+function createDeltaBatcher(assistantId: string) {
+  let contentBuf = ''
+  let reasoningBuf = ''
+  const agentBufs = new Map<string, string>()
+  let rAFId: number | null = null
+
+  const flush = () => {
+    rAFId = null
+    const store = useChatStore.getState()
+    if (contentBuf) {
+      store.appendToMessage(assistantId, contentBuf)
+      contentBuf = ''
+    }
+    if (reasoningBuf) {
+      store.appendReasoningToMessage(assistantId, reasoningBuf)
+      reasoningBuf = ''
+    }
+    if (agentBufs.size > 0) {
+      agentBufs.forEach((delta, agentId) => {
+        store.appendToAgentStream(agentId, delta)
+      })
+      agentBufs.clear()
+    }
+  }
+
+  const schedule = () => {
+    if (rAFId !== null) return
+    rAFId = requestAnimationFrame(flush)
+  }
+
+  return {
+    onDelta: (delta: string) => {
+      contentBuf += delta
+      schedule()
+    },
+    onReasoning: (delta: string) => {
+      reasoningBuf += delta
+      schedule()
+    },
+    onAgentDelta: (agentId: string, delta: string) => {
+      const prev = agentBufs.get(agentId) ?? ''
+      agentBufs.set(agentId, prev + delta)
+      schedule()
+    },
+    /** 流式结束时同步排空剩余 tokens(避免最后几个 token 滞留 buffer) */
+    flush,
+    /** 取消待执行的 rAF(组件卸载或流式结束时清理,避免空 rAF 回调) */
+    cancel: () => {
+      if (rAFId !== null) {
+        cancelAnimationFrame(rAFId)
+        rAFId = null
+      }
+    },
+  }
+}
+
 /** onToolCall 工厂:绑定 assistantMessageId,生成统一 handler 给 streamChat 用 */
 function createToolCallHandler(assistantMessageId: string) {
   return (event: {
@@ -767,6 +829,9 @@ export function useChat(): UseChatReturn {
   const abortRef = React.useRef<AbortController | null>(null)
   // P1 错误重试(2026-07-23):保存最后发送内容,toast 加 retry 按钮
   const lastSentContentRef = React.useRef('')
+  // #10 sendAnswer 错误重试(2026-07-25):保存最后 sendAnswer 的 answer + questionId,toast 加 retry 按钮
+  // 与 sendMessage 的 lastSentContentRef 对称,sendAnswer 路径原本无 retry,与 sendMessage 不一致
+  const lastSentAnswerRef = React.useRef<{ answer: string; questionId: string } | null>(null)
 
   const sendMessage = React.useCallback(
     async (content: string): Promise<boolean> => {
@@ -865,13 +930,22 @@ export function useChat(): UseChatReturn {
       const controller = new AbortController()
       abortRef.current = controller
 
-      // 首 token 超时:15s 内未收到任何内容则中止
-      let firstTokenReceived = false
-      const timeoutId = setTimeout(() => {
-        if (!firstTokenReceived) {
+      // 首 token 超时(2026-07-25 深化,#13 区分 reasoning):
+      // - reasoning 模型(o1/DeepSeek-R1)先输出思考过程(reasoning delta),再输出 content delta
+      // - 若 15s 内既无 reasoning 也无 content → abort(模型无响应)
+      // - 若 reasoning 已到但 content 未到 → 延长到 60s(reasoning 阶段可能很长)
+      // - content 到达 → 清除超时(流式已正式开始)
+      let firstContentTokenReceived = false
+      let firstReasoningTokenReceived = false
+      let timeoutId = setTimeout(() => {
+        // 两者都未收到 → 15s 超时
+        if (!firstReasoningTokenReceived && !firstContentTokenReceived) {
           controller.abort()
         }
       }, 15000)
+
+      // #9 流式 token 节流:rAF 批处理 onDelta/onReasoning/onAgentDelta,避免每 token 触发 store 写入
+      const batcher = createDeltaBatcher(assistantId)
 
       // 从 auth store 获取 userId(用于回调链路关联)
       const userId = useAuthStore.getState().user?.id ?? ''
@@ -927,15 +1001,32 @@ export function useChat(): UseChatReturn {
             }
           },
           onDelta: (delta) => {
-            firstTokenReceived = true
-            useChatStore.getState().appendToMessage(assistantId, delta)
+            firstContentTokenReceived = true
+            // content 到达,清除首 token 超时(流式已正式开始)
+            clearTimeout(timeoutId)
+            // #9 通过 batcher 节流,rAF 批处理 token 追加
+            batcher.onDelta(delta)
           },
-          onAgentDelta: (_agentId, delta) => {
-            firstTokenReceived = true
-            useChatStore.getState().appendToAgentStream(_agentId, delta)
+          onAgentDelta: (agentId, delta) => {
+            firstContentTokenReceived = true
+            clearTimeout(timeoutId)
+            batcher.onAgentDelta(agentId, delta)
           },
           onReasoning: (delta) => {
-            useChatStore.getState().appendReasoningToMessage(assistantId, delta)
+            // #13 区分 reasoning:首次 reasoning 到达时,若 content 未到,延长超时到 60s
+            if (!firstReasoningTokenReceived) {
+              firstReasoningTokenReceived = true
+              if (!firstContentTokenReceived) {
+                clearTimeout(timeoutId)
+                timeoutId = setTimeout(() => {
+                  // reasoning 阶段过长,60s 内仍未收到 content → abort
+                  if (!firstContentTokenReceived) {
+                    controller.abort()
+                  }
+                }, 60000)
+              }
+            }
+            batcher.onReasoning(delta)
           },
           onToolCall: createToolCallHandler(assistantId),
           agentTools: mergeAgentTools(),
@@ -971,8 +1062,12 @@ export function useChat(): UseChatReturn {
         })
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
-          if (!firstTokenReceived) {
-            const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
+          if (!firstContentTokenReceived) {
+            // #13 区分超时原因:reasoning 已到但 content 未到 → 60s 超时;两者都未到 → 15s 超时
+            const reasonMsg = firstReasoningTokenReceived
+              ? 'AI 响应超时(60 秒内未收到内容,reasoning 阶段过长),请稍后重试'
+              : 'AI 响应超时(15 秒内未收到任何内容),请稍后重试'
+            const formatted = formatSSEError(err, reasonMsg)
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
           }
@@ -1003,6 +1098,9 @@ export function useChat(): UseChatReturn {
         }
       } finally {
         clearTimeout(timeoutId)
+        // #9 流式结束:取消待执行 rAF + 同步排空剩余 tokens(避免最后几个 token 滞留 buffer)
+        batcher.cancel()
+        batcher.flush()
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
@@ -1019,15 +1117,24 @@ export function useChat(): UseChatReturn {
 
   // 用户回答 AI 主动提问:调 /chat/answer 续流,不中断对话
   // 后端会把 answer 作为新 user 消息 append 到 messages 末尾,继续生成
+  // #10 retry 支持(2026-07-25):questionId 优先从 pendingQuestion 取,
+  // 回退到 lastSentAnswerRef(retry 场景 pendingQuestion 已被清空)
   const sendAnswer = React.useCallback(async (answer: string) => {
     const trimmed = answer.trim()
     if (!trimmed) return
     const store = useChatStore.getState()
+    if (store.isStreaming) return
+    // 获取 questionId:优先从 pendingQuestion,回退到 lastSentAnswerRef(retry 场景)
     const pending = store.pendingQuestion
-    if (!pending || store.isStreaming) return
-
-    // 立即关闭弹窗,避免重复提交
-    store.clearPendingQuestion()
+    const lastSent = lastSentAnswerRef.current
+    const questionId = pending?.questionId ?? lastSent?.questionId
+    if (!questionId) return
+    // 立即关闭弹窗(仅当 pending 存在时),避免重复提交
+    if (pending) {
+      store.clearPendingQuestion()
+    }
+    // 记录本次 answer + questionId,供 retry 使用
+    lastSentAnswerRef.current = { answer: trimmed, questionId }
 
     const model = store.currentModel
 
@@ -1054,10 +1161,19 @@ export function useChat(): UseChatReturn {
     const controller = new AbortController()
     abortRef.current = controller
 
-    let firstTokenReceived = false
-    const timeoutId = setTimeout(() => {
-      if (!firstTokenReceived) controller.abort()
+    // 首 token 超时(2026-07-25 深化,#13 区分 reasoning):
+    // - reasoning 模型先输出思考过程,再输出 content;reasoning 到达但 content 未到 → 延长到 60s
+    // - 两者都未收到 → 15s 超时;content 到达 → 清除超时
+    let firstContentTokenReceived = false
+    let firstReasoningTokenReceived = false
+    let timeoutId = setTimeout(() => {
+      if (!firstReasoningTokenReceived && !firstContentTokenReceived) {
+        controller.abort()
+      }
     }, 15000)
+
+    // #9 流式 token 节流:rAF 批处理,与 sendMessage 同模式
+    const batcher = createDeltaBatcher(assistantId)
 
     const userId = useAuthStore.getState().user?.id ?? ''
     const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
