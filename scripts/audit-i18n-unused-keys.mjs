@@ -46,7 +46,7 @@ const TARGET_CONFIG = {
 // 匹配 useTranslations / getTranslations / formatMessage / FormattedMessage / i18nKey
 // 以及 t( / tt( / tList( 后跟引号(单/双/反引号)
 const RG_PATTERN =
-  "useTranslations|getTranslations|formatMessage|FormattedMessage|i18nKey|\\bt(?:t|List)?\\s*\\(\\s*['\"`]"
+  "useTranslations|getTranslations|formatMessage|FormattedMessage|i18nKey|\\bt(?:t|List)?(?:\\s*\\(|\\.raw\\s*\\()\\s*['\"`]"
 
 // ============================================================
 // CLI 解析
@@ -228,11 +228,12 @@ function escapeRegex(s) {
 
 /**
  * 从代码行提取 translation 变量名(const VAR = useTranslations(...) / getTranslations(...))
- * 返回 Set<string>。用于解决 tc/te/tr 等非标准变量名的调用不被识别的问题。
+ * 支持 await getTranslations(...)(server component 场景)
+ * 返回 Set<string>。用于解决 tc/te/tr/tp 等非标准变量名的调用不被识别的问题。
  */
 function extractTranslationVars(content) {
   const vars = new Set()
-  const re = /\b(?:const|let|var)\s+(\w+)\s*=\s*(?:useTranslations|getTranslations)\s*\(/g
+  const re = /\b(?:const|let|var)\s+(\w+)\s*=\s*(?:await\s+)?(?:useTranslations|getTranslations)\s*\(/g
   let m
   while ((m = re.exec(content)) !== null) {
     vars.add(m[1])
@@ -289,6 +290,22 @@ function extractFromLine(content, filePath, lineNo, usesNamespaces, varNames) {
   // i18nKey="key" / i18nKey='key'
   const re3 = /i18nKey\s*=\s*['"]([^'"]+)['"]/g
   while ((m = re3.exec(content)) !== null) {
+    staticKeys.add(m[1])
+  }
+
+  // t.raw('key') / VAR.raw('key') — next-intl 读取数组/对象类型 i18n 数据的 API
+  // 解决核心 bug:旧版只扫 t('key') 文本调用,漏识别 t.raw('modules.items') 导致数组/对象 key 被误判无引用
+  // t.raw 支持标准 t 和非标准变量名(tc/te/tr/tp 等,来自 varNames)
+  const rawCallers = ['t']
+  if (varNames) for (const v of varNames) rawCallers.push(v)
+  const rawPattern = rawCallers.map(escapeRegex).join('|')
+  const reRaw = new RegExp('\\b(?:' + rawPattern + ")\\.raw\\s*\\(\\s*['\"]([^'\"]+)['\"]\\s*[,)]", 'g')
+  while ((m = reRaw.exec(content)) !== null) {
+    staticKeys.add(m[1])
+  }
+  // t.raw(`key`) — 静态模板字面量
+  const reRawTmpl = new RegExp('\\b(?:' + rawPattern + ')\\.raw\\s*\\(\\s*`([^`${}]+)`\\s*[,)]', 'g')
+  while ((m = reRawTmpl.exec(content)) !== null) {
     staticKeys.add(m[1])
   }
 
@@ -390,10 +407,11 @@ function auditTarget(targetKey) {
   }
 
   // 3b. 第二遍:如果有额外变量名(tc/te/tr 等非 t/tt/tList),ripgrep 搜索它们的调用
+  // 同时搜索 VAR('key') 调用和 VAR.raw('key') 调用(数组/对象类型 key)
   const extraVars = [...allVarNames].filter((v) => v !== 't' && v !== 'tt' && v !== 'tList')
   if (extraVars.length > 0) {
     const varPattern = extraVars.map(escapeRegex).join('|')
-    const extraRgPattern = '\\b(?:' + varPattern + ")\\s*\\(\\s*['\"`]"
+    const extraRgPattern = '\\b(?:' + varPattern + ")(?:\\s*\\(|\\.raw\\s*\\()\\s*['\"`]"
     for (const dir of cfg.searchDirs) {
       const extraLines = rgSearchLines(dir, extraRgPattern)
       for (const rgLine of extraLines) {
