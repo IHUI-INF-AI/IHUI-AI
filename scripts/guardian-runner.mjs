@@ -282,14 +282,14 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- warn (12 项,含 2026-07-25 新增 commit 丢失防护) ---
+  // --- 12 项(2026-07-25 升级 commit 丢失防护为 blocking,id 改 30a 避免与 30 冲突) ---
   {
-    id: '30',
+    id: '30a',
     label:
-      '🛡️  Commit 丢失防护(AGENTS.md §22,防 reset / drop stash 误丢 commit)',
+      '🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)',
     script: 'check-commit-loss-guard.mjs',
-    args: [],
-    mode: 'warn',
+    args: ['--blocking', '--filter-stash'],
+    mode: 'blocking',
   },
   {
     id: '2d',
