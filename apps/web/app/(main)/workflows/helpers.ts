@@ -19,6 +19,32 @@ export const STATUS_DOT: Record<WfStatus, string> = {
   inactive: 'bg-muted-foreground',
 }
 
+/** i18n 静态映射表 — 用于消除 `t(\`triggers.${var}\`)` / `t(\`instanceStatus.${var}\`)` / `t(\`status.${var}\`)` / `t(\`detail.tab_${var}\`)` 动态拼接 */
+export const TRIGGER_KEYS: Record<TriggerType, string> = {
+  manual: 'triggers.manual',
+  schedule: 'triggers.schedule',
+  event: 'triggers.event',
+  webhook: 'triggers.webhook',
+}
+
+export const INSTANCE_STATUS_KEYS: Record<string, string> = {
+  pending: 'instanceStatus.pending',
+  running: 'instanceStatus.running',
+  completed: 'instanceStatus.completed',
+  failed: 'instanceStatus.failed',
+  cancelled: 'instanceStatus.cancelled',
+}
+
+export const WF_STATUS_KEYS: Record<WfStatus, string> = {
+  active: 'status.active',
+  inactive: 'status.inactive',
+}
+
+export const DETAIL_TAB_KEYS: Record<'instances' | 'definition', string> = {
+  instances: 'detail.tab_instances',
+  definition: 'detail.tab_definition',
+}
+
 export const DEFAULT_STEPS = `[
   { "name": "step1", "type": "task", "action": "echo" }
 ]`
