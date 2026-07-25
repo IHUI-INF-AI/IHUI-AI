@@ -62,12 +62,14 @@ export function LoginDialog() {
           max-h-[95vh]
           overflow-y-auto
           border-0 bg-transparent shadow-none
+          pointer-events-none
+          [&>div]:pointer-events-auto
         "
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{subtitle}</DialogDescription>
 
-        <AuthShell>
+        <AuthShell onClose={close}>
           {mode === 'login' ? (
             <LoginFormContent onSuccess={handleLoginSuccess} />
           ) : mode === 'register' ? (
