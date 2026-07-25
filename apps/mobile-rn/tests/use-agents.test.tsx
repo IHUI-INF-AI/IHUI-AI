@@ -28,8 +28,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useAgents } from '@ihui/shared/hooks'
-import type { Agent, AgentListResponse } from '@ihui/shared/hooks'
+import { useAgents, type Agent, type AgentListResponse } from '@ihui/shared/hooks'
 
 // 测试用 mock agent 类型(扩展 Agent,模拟各端自定义字段)
 interface TestAgent extends Agent {

@@ -88,4 +88,38 @@ const { withNativeWind } = require('nativewind/metro')
 
 const config = getDefaultConfig(__dirname)
 
+// pnpm isolated linker 兼容(2026-07-25 修复 Metro bundle 失败)
+// 问题:pnpm node-linker=isolated 下,react-native 等包是 junction 指向
+// .pnpm/<pkg>/node_modules/<pkg>,其传递依赖(ansi-regex, invariant 等)只在
+// .pnpm/<pkg>/node_modules/ 隔离目录下。Metro 默认不 follow junction realpath,
+// hierarchical lookup 从 apps/mobile-rn/node_modules/react-native/.. 查找,找不到。
+// 修复:自定义 resolveRequest,Metro 默认解析失败时,fallback 到 Node 原生
+// require.resolve(基于 originModulePath 的 realpath),Node 能正确处理 pnpm junction。
+config.resolver.unstable_enablePackageExports = true
+config.resolver.unstable_enableSymlinks = true
+config.resolver.nodeModulesPaths = [
+  ...config.resolver.nodeModulesPaths,
+  require('path').resolve(__dirname, '../../node_modules/.pnpm/node_modules'),
+]
+
+const upstreamResolveRequest = config.resolver.resolveRequest
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  try {
+    if (upstreamResolveRequest) {
+      const result = upstreamResolveRequest(context, moduleName, platform)
+      if (result) return result
+    }
+    return context.resolveRequest(context, moduleName, platform)
+  } catch (_e) {
+    // Metro 默认解析失败,fallback 到 Node 原生 require.resolve
+    // 用 originModulePath 的 realpath(解析 pnpm junction)作为解析起点
+    const fs = require('fs')
+    const originRealPath = fs.realpathSync(context.originModulePath)
+    const resolved = require.resolve(moduleName, {
+      paths: [require('path').dirname(originRealPath)],
+    })
+    return { type: 'sourceFile', filePath: resolved }
+  }
+}
+
 module.exports = withNativeWind(config, { input: './global.css' })
