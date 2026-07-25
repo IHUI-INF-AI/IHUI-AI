@@ -75,6 +75,7 @@
     "cancelTime": "取消时间",
     "refundTime": "退款时间",
     "remark": "备注",
+    "reasonRequired": "请填写原因",
     "originalPrice": "原价",
     "discountAmount": "优惠",
     "errorTitle": "出错了",
@@ -7371,6 +7372,17 @@
       "cancel": "取消",
       "connected": "已连接",
       "disconnected": "已断开"
+    }
+  },
+  "agents": {
+    "kanban": {
+      "priority": "优先级",
+      "created": "已创建",
+      "worker": "执行者",
+      "duration": "耗时",
+      "dependencies": "依赖",
+      "transition": "状态转换",
+      "reason": "原因"
     }
   },
   "distribution": {
