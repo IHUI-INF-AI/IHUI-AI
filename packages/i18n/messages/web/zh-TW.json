@@ -706,6 +706,8 @@
     "loading": "加載會話中...",
     "enterToSend": "Enter 發送 · Shift+Enter 換行",
     "generating": "生成中",
+    "streamingIndicator": "AI 正在生成中",
+    "streamingIndicatorHint": "AI 正在生成中,可輸入下一則訊息草稿",
     "me": "我",
     "promptTemplate": "提示詞模板",
     "addContextReference": "添加為上下文引用",
@@ -905,6 +907,10 @@
       "historyClearConfirmTitle": "清空記錄",
       "historyClearConfirmDesc": "將刪除所有模式切換記錄,無法復原。",
       "historyClearConfirm": "清空",
+      "resetSuppressedButton": "重新提醒高風險",
+      "resetSuppressedConfirmTitle": "確認重新啟用高風險提醒?",
+      "resetSuppressedConfirmDesc": "下次切到完全存取模式時,將再次彈出確認彈窗。",
+      "resetSuppressedToast": "已重設,下次切到完全存取將再次確認",
       "historyOpenButton": "記錄",
       "historySource": {
         "popover": "彈窗",
@@ -6404,7 +6410,11 @@
         "model": "模型",
         "tokens": "Tokens",
         "cost": "消費",
-        "status": "狀態"
+        "status": "狀態",
+        "statusLabels": {
+          "success": "成功",
+          "failed": "失敗"
+        }
       }
     },
     "keys": {
@@ -6421,6 +6431,11 @@
         "createdAt": "建立時間",
         "status": "狀態",
         "actions": "操作"
+      },
+      "statusLabels": {
+        "active": "啟用",
+        "disabled": "禁用",
+        "expired": "過期"
       }
     },
     "logs": {
@@ -6435,6 +6450,10 @@
         "cost": "消費",
         "duration": "耗時",
         "status": "狀態"
+      },
+      "statusLabels": {
+        "success": "成功",
+        "failed": "失敗"
       }
     },
     "usage": {
@@ -6487,7 +6506,17 @@
         "amount": "金額",
         "balance": "餘額",
         "time": "時間",
-        "status": "狀態"
+        "status": "狀態",
+        "statusLabels": {
+          "success": "成功",
+          "failed": "失敗",
+          "pending": "待處理"
+        },
+        "types": {
+          "recharge": "儲值",
+          "withdraw": "提現",
+          "consume": "消費"
+        }
       }
     },
     "redeem": {
@@ -6598,6 +6627,10 @@
         "qps": "QPS",
         "todayCalls": "今日調用",
         "status": "狀態"
+      },
+      "statusLabels": {
+        "success": "成功",
+        "failed": "失敗"
       }
     },
     "chats": {

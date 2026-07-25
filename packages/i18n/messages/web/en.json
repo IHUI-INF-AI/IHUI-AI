@@ -706,6 +706,8 @@
     "loading": "Loading conversation...",
     "enterToSend": "Enter to send · Shift+Enter for new line",
     "generating": "Generating",
+    "streamingIndicator": "AI is generating",
+    "streamingIndicatorHint": "AI is generating, you can type the next message",
     "me": "Me",
     "promptTemplate": "Prompt Template",
     "addContextReference": "Add as Context Reference",
@@ -905,6 +907,10 @@
       "historyClearConfirmTitle": "Clear history",
       "historyClearConfirmDesc": "All mode change records will be deleted and cannot be recovered.",
       "historyClearConfirm": "Clear",
+      "resetSuppressedButton": "Re-enable high-risk warning",
+      "resetSuppressedConfirmTitle": "Re-enable high-risk warning?",
+      "resetSuppressedConfirmDesc": "Next time you switch to full access, the confirmation dialog will appear again.",
+      "resetSuppressedToast": "Reset. Next switch to full access will require confirmation",
       "historyOpenButton": "History",
       "historySource": {
         "popover": "Popover",
@@ -6404,7 +6410,11 @@
         "model": "Model",
         "tokens": "Tokens",
         "cost": "Cost",
-        "status": "Status"
+        "status": "Status",
+        "statusLabels": {
+          "success": "Success",
+          "failed": "Failed"
+        }
       }
     },
     "keys": {
@@ -6421,6 +6431,11 @@
         "createdAt": "Created At",
         "status": "Status",
         "actions": "Actions"
+      },
+      "statusLabels": {
+        "active": "Active",
+        "disabled": "Disabled",
+        "expired": "Expired"
       }
     },
     "logs": {
@@ -6435,6 +6450,10 @@
         "cost": "Cost",
         "duration": "Duration",
         "status": "Status"
+      },
+      "statusLabels": {
+        "success": "Success",
+        "failed": "Failed"
       }
     },
     "usage": {
@@ -6487,7 +6506,17 @@
         "amount": "Amount",
         "balance": "Balance",
         "time": "Time",
-        "status": "Status"
+        "status": "Status",
+        "statusLabels": {
+          "success": "Success",
+          "failed": "Failed",
+          "pending": "Pending"
+        },
+        "types": {
+          "recharge": "Recharge",
+          "withdraw": "Withdraw",
+          "consume": "Consume"
+        }
       }
     },
     "redeem": {
@@ -6598,6 +6627,10 @@
         "qps": "QPS",
         "todayCalls": "Today's Calls",
         "status": "Status"
+      },
+      "statusLabels": {
+        "success": "Success",
+        "failed": "Failed"
       }
     },
     "chats": {

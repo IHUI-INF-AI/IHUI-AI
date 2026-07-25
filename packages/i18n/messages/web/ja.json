@@ -706,6 +706,8 @@
     "loading": "読み込み中...",
     "enterToSend": "Enterキーで、Shift+Enterで",
     "generating": "...",
+    "streamingIndicator": "AI が生成中",
+    "streamingIndicatorHint": "AI が生成中です。次のメッセージを入力できます",
     "me": "マイ",
     "promptTemplate": "プロンプトテンプレート",
     "addContextReference": "コンテキストとして",
@@ -905,6 +907,10 @@
       "historyClearConfirmTitle": "履歴をクリア",
       "historyClearConfirmDesc": "すべてのモード切替記録が削除され、復元できません。",
       "historyClearConfirm": "クリア",
+      "resetSuppressedButton": "高リスク警告を再有効化",
+      "resetSuppressedConfirmTitle": "高リスク警告を再有効化しますか?",
+      "resetSuppressedConfirmDesc": "次回完全アクセスに切り替える際、確認ダイアログが再度表示されます。",
+      "resetSuppressedToast": "リセット済み。次回完全アクセス時に再度確認します",
       "historyOpenButton": "履歴",
       "historySource": {
         "popover": "ポップオーバー",
@@ -6404,7 +6410,11 @@
         "model": "モデル",
         "tokens": "トークン",
         "cost": "消費",
-        "status": "ステータス"
+        "status": "ステータス",
+        "statusLabels": {
+          "success": "成功",
+          "failed": "失敗"
+        }
       }
     },
     "keys": {
@@ -6421,6 +6431,11 @@
         "createdAt": "作成日時",
         "status": "ステータス",
         "actions": "操作"
+      },
+      "statusLabels": {
+        "active": "有効",
+        "disabled": "無効",
+        "expired": "期限切れ"
       }
     },
     "logs": {
@@ -6435,6 +6450,10 @@
         "cost": "消費",
         "duration": "所要時間",
         "status": "ステータス"
+      },
+      "statusLabels": {
+        "success": "成功",
+        "failed": "失敗"
       }
     },
     "usage": {
@@ -6487,7 +6506,17 @@
         "amount": "金額",
         "balance": "残高",
         "time": "時間",
-        "status": "ステータス"
+        "status": "ステータス",
+        "statusLabels": {
+          "success": "成功",
+          "failed": "失敗",
+          "pending": "保留中"
+        },
+        "types": {
+          "recharge": "チャージ",
+          "withdraw": "引き出し",
+          "consume": "消費"
+        }
       }
     },
     "redeem": {
@@ -6598,6 +6627,10 @@
         "qps": "ＱＰＳ",
         "todayCalls": "本日の呼び出し",
         "status": "ステータス"
+      },
+      "statusLabels": {
+        "success": "成功",
+        "failed": "失敗"
       }
     },
     "chats": {
