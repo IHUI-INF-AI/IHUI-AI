@@ -126,8 +126,10 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     }
   }, [])
 
-  const current = options.find((m) => m.value === value)
-  const grouped = groupByVendor(options)
+  // 性能修复(2026-07-25):用 useMemo 缓存 find + groupByVendor 结果,
+  // 避免 ModelSelector 每次父级重渲染(由根因 #2 AISidePanel 高频渲染带动)都重算分组。
+  const current = React.useMemo(() => options.find((m) => m.value === value), [options, value])
+  const grouped = React.useMemo(() => groupByVendor(options), [options])
 
   // 当前选中模型是否已配置(根据 vendor 映射到 templateCode 后查 configuredTemplateCodes)
   const currentTemplateCode = current?.vendor
