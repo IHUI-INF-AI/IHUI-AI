@@ -778,9 +778,10 @@ export function MessageInput({
   let streamingHint: string
   try {
     const v = t('streamingIndicatorHint')
-    streamingHint = v === 'streamingIndicatorHint' || v.endsWith('.streamingIndicatorHint')
-      ? 'AI 正在生成中,可输入下一条消息草稿'
-      : v
+    streamingHint =
+      v === 'streamingIndicatorHint' || v.endsWith('.streamingIndicatorHint')
+        ? 'AI 正在生成中,可输入下一条消息草稿'
+        : v
   } catch {
     streamingHint = 'AI 正在生成中,可输入下一条消息草稿'
   }
