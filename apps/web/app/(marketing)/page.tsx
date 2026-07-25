@@ -38,7 +38,8 @@ import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
  * - 解决用户反馈"内容太拥挤了,再分个页面出来,为什么要这么做"
  * - 每页信息密度降低 30-40%,字号 / 间距 / 行高全部放大一档,移动端阅读更舒服
  */
-const BENEFITS_KEYS = ['benefit1', 'benefit2', 'benefit3', 'benefit4', 'benefit5', 'benefit6']
+const BENEFITS_KEYS = ['benefit1', 'benefit2', 'benefit3', 'benefit4', 'benefit5', 'benefit6'] as const
+const BENEFITS_I18N_KEYS: readonly string[] = BENEFITS_KEYS.map((k) => `welcome.benefits.${k}`)
 
 const TOTAL_PAGES = 7
 
@@ -51,7 +52,7 @@ export default function HomePage() {
 
   const { section, scrollTo, next } = useFullPageScroll(TOTAL_PAGES)
 
-  const benefits = BENEFITS_KEYS.map((k) => t(`welcome.benefits.${k}`))
+  const benefits = BENEFITS_I18N_KEYS.map((k) => t(k))
 
   return (
     <>
