@@ -5,6 +5,7 @@ import { Menu } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Sidebar } from '@/components/sidebar'
 import { NativeTopBar } from '@/components/layout/NativeTopBar'
+import { TagsView } from '@/components/layout/TagsView'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
@@ -71,6 +72,16 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   const aiOpen = useAiPanelStore((s) => s.open)
   const aiWidth = useAiPanelStore((s) => s.width)
   const currentUserId = useAuthStore((s) => s.user?.id)
+  // 2026-07-25 用户反馈:TagsView 移到 GlobalShell 顶部,填满 NativeTopBar 下方的空白区域
+  // 2026-07-25 修订:不再要求 isAuthenticated,即使未登录也显示(只要 mounted);
+  //   - TagsView 内部对未登录 / 零 tag 场景做空态降级(不返回 null,显示一行 placeholder),
+  //     保证右侧工作展示区顶部"那块空白"被填满,不让裸背景露出来
+  // 2026-07-25 23:35 再修订:移除 mounted 守卫,SSR/CSR 首帧直接渲染容器
+  //   - 原因:Tauri WebView2 内 mounted 检测可能晚于 Tauri 应用的窗口显示,
+  //     导致用户看到一段"空顶部 + NativeTopBar"的状态(没有 TagsView 标签栏)
+  //   - TagsView 内部已经做了 SSR 安全(useTagsViewStore hydration-safe,
+  //     addTag 在 mounted 后才执行,placeholder 总是渲染),首帧直接展示 placeholder
+  const showTagsView = true
 
   // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
   React.useEffect(() => {
@@ -134,14 +145,16 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="flex h-screen flex-col overflow-hidden">
-        {/* Tauri 桌面端自定义顶栏(2026-07-25 立,2026-07-25 用户反馈整合):
-            - 仅 isDesktop=true 时渲染,内部 isDesktop 守卫保证 web 端不显示
-            - 横跨 Sidebar + 内容区,统一处理拖拽 + 窗口控制 + 菜单 dropdown
-            - 40px 高,半透明毛玻璃背景 + 底边 1px,与 sidebar 视觉融为一体 */}
-        <NativeTopBar />
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
+      {/* 2026-07-25 用户反馈重构布局:
+          - 旧版:NativeTopBar 全宽在顶 + 下方 row(Sidebar + Content + WebWorkPanel)
+            → Sidebar 上方留 40px 空(顶栏占的),视觉割裂
+          - 新版:左右两列(顶到底)布局
+              左列 = <Sidebar />            全高(填满左上角空余)
+              右列 = <NativeTopBar />       仅在内容上方
+                      + <main>            占据剩余高度
+            顶栏在桌面端不再覆盖侧边栏,拖拽区 + 窗口按钮 100% 作用在内容区上方。 */}
+      <div className="flex h-screen overflow-hidden">
+        {/* 左列:桌面端全高侧边栏(占据左上角,不再有 40px 顶部空) */}
         <React.Suspense fallback={null}>
           <Sidebar
             id={sidebarId}
@@ -151,40 +164,63 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             onCloseMobile={() => setMobileOpen(false)}
           />
         </React.Suspense>
-        {/*
-          work-area-portal-root:作为 Sidebar 搜索弹层(SearchNavItem)的 portal 目标。
-          原本只在 MainShell 中存在(仅 (main) 路由可用),现在提升到 GlobalShell,
-          让所有路由都能正确渲染搜索弹层。
-          overflow-hidden 用于裁剪搜索弹层 slide-in-from-top 动画的初始 translateY(-100%),
-          形成从顶部边缘"向下滑出"的视觉效果。
-          flex-1 min-h-0 让内容区在 flex 容器中正确填充并允许子元素滚动。
-          padding-left 由本组件直接计算(见上方 aiPanelOccupy),避让 fixed 定位的 AISidePanel,
-          避免 AISidePanel(紧贴 Sidebar 右侧)覆盖内容区(2026-07-20 修复"重叠"问题)。
-          占位规则:
-          - AI 面板展开:occupy = width + 8(面板宽度 + 右侧 8px 间距)
-          - AI 面板收起:occupy = 0(仅渲染 width:0 的拖拽手柄,不占视觉空间)
-        */}
-        <div
-          id="work-area-portal-root"
-          className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden transition-[padding-left] duration-200 ease-out"
-          style={{ paddingLeft: 'var(--ai-panel-occupy, 408px)' }}
-        >
-          {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen((o) => !o)}
-            className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden"
-            aria-label={t('menu')}
+
+        {/* 右列:NativeTopBar + TagsView(填满顶栏下方空白) + 内容区,顶栏不再覆盖侧边栏 */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Tauri 桌面端自定义顶栏(2026-07-25 用户反馈整合):
+              - 仅 isDesktop=true 时渲染,内部 isDesktop 守卫保证 web 端不显示
+              - 现在仅覆盖右列(内容区上方),左列(Sidebar)已是全高独立列
+              - 40px 高,半透明毛玻璃背景,与 sidebar 视觉融为一体 */}
+          <NativeTopBar />
+          {/* 2026-07-25 23:35 重要修订:TagsView 必须上移至整个右列顶部(NativeTopBar 下面)
+              填满"右侧工作展示区最上面那块空白区域" — 包括 WebWorkPanel 上方的空白。
+              - 跨整个右列宽度(同时跨越 main 内容 + WebWorkPanel 上方)
+              - WebWorkPanel open 时仍可见;WebWorkPanel 自身工具栏在 TagsView 下方
+              - 36px 高(h-9),带 bg-muted/70 圆角胶囊
+              - SSR 安全:直接渲染(true 守卫,不再依赖 mounted),
+                TagsView 内部 placeholder 保证无 tag 时也占位 */}
+          {showTagsView && (
+            <React.Suspense fallback={null}>
+              <TagsView />
+            </React.Suspense>
+          )}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
+          {/*
+            work-area-portal-root:作为 Sidebar 搜索弹层(SearchNavItem) 的 portal 目标。
+            原本只在 MainShell 中存在(仅 (main) 路由可用),现在提升到 GlobalShell,
+            让所有路由都能正确渲染搜索弹层。
+            overflow-hidden 用于裁剪搜索弹层 slide-in-from-top 动画的初始 translateY(-100%),
+            形成从顶部边缘"向下滑出"的视觉效果。
+            flex-1 min-h-0 让内容区在 flex 容器中正确填充并允许子元素滚动。
+            padding-left 由本组件直接计算(见上方 aiPanelOccupy),避让 fixed 定位的 AISidePanel,
+            避免 AISidePanel(紧贴 Sidebar 右侧)覆盖内容区(2026-07-20 修复"重叠"问题)。
+            占位规则:
+            - AI 面板展开:occupy = width + 8(面板宽度 + 右侧 8px 间距)
+            - AI 面板收起:occupy = 0(仅渲染 width:0 的拖拽手柄,不占视觉空间)
+          */}
+          <div
+            id="work-area-portal-root"
+            className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden transition-[padding-left] duration-200 ease-out"
+            style={{ paddingLeft: 'var(--ai-panel-occupy, 408px)' }}
           >
-            <Menu className="h-5 w-5" />
-          </Button>
-          {children}
-        </div>
-        {/* 工作展示区(右侧固定面板):AI 对话内嵌浏览器 / URL 预览。
-            open=false 时渲染 null,不影响布局;open=true 时参与 flex 流,work-area 自动收缩。
-            不弹独立窗口,纯组件渲染(遵守用户规则:dev server 只在 TRAE 内部运行)。 */}
-        <WebWorkPanel />
+            {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileOpen((o) => !o)}
+              className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden"
+              aria-label={t('menu')}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            {children}
+          </div>
+          {/* 工作展示区(右侧固定面板):AI 对话内嵌浏览器 / URL 预览。
+              open=false 时渲染 null,不影响布局;open=true 时参与 flex 流,work-area 自动收缩。
+              不弹独立窗口,纯组件渲染(遵守用户规则:dev server 只在 TRAE 内部运行)。 */}
+          <WebWorkPanel />
+          </div>
         </div>
       </div>
       {/* AISidePanel 作为全局 fixed 组件,移出 flex 容器避免挤压内容区宽度。
