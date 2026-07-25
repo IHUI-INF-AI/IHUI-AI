@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Pin, Edit, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
@@ -27,32 +26,12 @@ export function AnnouncementTable({
 }: Props) {
   const t = useTranslations('admin.announcements')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-    [locale],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
   const th = 'px-4 py-2.5 font-medium'
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const a = list.find((x) => String(x.id) === id)
-      if (a) onEdit(a)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id && confirm(t('deleteConfirm'))) onDelete(id)
-    },
-    [t, onDelete],
-  )
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -132,12 +111,7 @@ export function AnnouncementTable({
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      data-id={a.id}
-                      onClick={handleEdit}
-                    >
+                    <Button size="sm" variant="ghost" onClick={() => onEdit(a)}>
                       <Edit className="h-4 w-4" />
                       {t('edit')}
                     </Button>
@@ -146,8 +120,9 @@ export function AnnouncementTable({
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
                       disabled={deletePending}
-                      data-id={a.id}
-                      onClick={handleDelete}
+                      onClick={() => {
+                        if (confirm(t('deleteConfirm'))) onDelete(a.id)
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
                       {t('delete')}
