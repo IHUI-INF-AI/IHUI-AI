@@ -3,6 +3,12 @@ import { Copy, Gift, Share2, Users } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
+/** i18n 静态映射表 — 用于消除 `t(\`list.statusLabels.${var}\`)` 动态拼接 */
+const REFERRAL_STATUS_KEY: Record<string, string> = {
+  activated: 'list.statusLabels.activated',
+  pending: 'list.statusLabels.pending',
+}
+
 export default async function ReferralPage() {
   const t = await getTranslations('modelsReferralPage')
 
@@ -106,7 +112,7 @@ export default async function ReferralPage() {
                             : 'inline-flex items-center rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400'
                         }
                       >
-                        {t(`list.statusLabels.${r.status}`)}
+                        {t(REFERRAL_STATUS_KEY[r.status] ?? 'list.statusLabels.unknown')}
                       </span>
                     </td>
                   </tr>
