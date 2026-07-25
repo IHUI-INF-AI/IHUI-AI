@@ -4,6 +4,9 @@ import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { wsAuth } from './ws-helpers.js'
 import { config } from '../config/index.js'
+import { db } from '../db/index.js'
+import { agentTasks, workspaceAiTasks, contentGenerationTasks, exportTasks } from '@ihui/database'
+import { eq, and } from 'drizzle-orm'
 
 /**
  * WebSocket 任务进度推送插件(多实例版本,使用 Redis Pub/Sub)。
@@ -83,10 +86,27 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
       }
       if (!userId) return
 
-      // 2026-07-24 安全审计 TODO:此处应校验 taskId 是否归属当前 userId(IDOR 防护)
-      // 需查询 task 表(agent_tasks/content_generation_tasks/export_tasks/workspace_ai_tasks)
-      // 确认 task.userId === 当前 userId,否则 close(1008, '无权访问此任务')
-      // 当前仅校验认证 + UUID 格式,生产环境必须补 ownership 校验
+      // IDOR 防护:校验 taskId 归属当前 userId(查 4 张任务表)
+      try {
+        const [agentTask, wsTask, contentTask, exportTask] = await Promise.all([
+          db.select({ id: agentTasks.id }).from(agentTasks)
+            .where(and(eq(agentTasks.id, taskId), eq(agentTasks.createdBy, userId))).limit(1),
+          db.select({ id: workspaceAiTasks.id }).from(workspaceAiTasks)
+            .where(and(eq(workspaceAiTasks.id, taskId), eq(workspaceAiTasks.userId, userId))).limit(1),
+          db.select({ id: contentGenerationTasks.id }).from(contentGenerationTasks)
+            .where(and(eq(contentGenerationTasks.id, taskId), eq(contentGenerationTasks.userId, userId))).limit(1),
+          db.select({ id: exportTasks.id }).from(exportTasks)
+            .where(and(eq(exportTasks.id, taskId), eq(exportTasks.userId, userId))).limit(1),
+        ])
+        if (!agentTask[0] && !wsTask[0] && !contentTask[0] && !exportTask[0]) {
+          socket.close(1008, '无权访问此任务')
+          return
+        }
+      } catch (e) {
+        server.log.error({ err: e, taskId, userId }, 'ws-tasks ownership check failed')
+        socket.close(1008, '任务校验失败')
+        return
+      }
 
       if (!connections.has(taskId)) connections.set(taskId, new Set())
       connections.get(taskId)!.add(socket)
