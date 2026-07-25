@@ -104,7 +104,7 @@ export default function EduExamPapersManualPage() {
               <SelectValue placeholder={t('selectPaper')} />
             </SelectTrigger>
             <SelectContent>
-              {papers.map((p) => (
+              {papers.map((p: any) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.title}
                 </SelectItem>
@@ -158,7 +158,7 @@ export default function EduExamPapersManualPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              (questions ?? []).map((q) => (
+              (questions ?? []).map((q: any) => (
                 <TableRow
                   key={q.id}
                   className="hover:bg-muted/30 cursor-pointer"

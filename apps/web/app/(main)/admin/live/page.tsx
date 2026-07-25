@@ -131,7 +131,7 @@ export default function AdminLivePage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('allCategories')}</SelectItem>
-              {categories.map((c) => (
+              {categories.map((c: any) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
                 </SelectItem>
@@ -146,7 +146,7 @@ export default function AdminLivePage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('allLecturers')}</SelectItem>
-              {lecturers.map((l) => (
+              {lecturers.map((l: any) => (
                 <SelectItem key={l.id} value={l.id}>
                   {l.name}
                 </SelectItem>
