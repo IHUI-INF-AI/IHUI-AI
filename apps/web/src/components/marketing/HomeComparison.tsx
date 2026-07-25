@@ -21,6 +21,18 @@ import { RevealOnView } from '@/components/common'
 
 const COMPARISON_ROWS = [1, 2, 3, 4, 5, 6, 7, 8] as const
 
+/** i18n 静态映射表 — 用于消除 `t(`row${n}Xxx`)` 动态拼接 */
+const COMPARISON_ROW_KEY: Record<number, { Us: string; Feature: string; Claude: string; Cursor: string; Chatgpt: string }> = {
+  1: { Us: 'row1Us', Feature: 'row1Feature', Claude: 'row1Claude', Cursor: 'row1Cursor', Chatgpt: 'row1Chatgpt' },
+  2: { Us: 'row2Us', Feature: 'row2Feature', Claude: 'row2Claude', Cursor: 'row2Cursor', Chatgpt: 'row2Chatgpt' },
+  3: { Us: 'row3Us', Feature: 'row3Feature', Claude: 'row3Claude', Cursor: 'row3Cursor', Chatgpt: 'row3Chatgpt' },
+  4: { Us: 'row4Us', Feature: 'row4Feature', Claude: 'row4Claude', Cursor: 'row4Cursor', Chatgpt: 'row4Chatgpt' },
+  5: { Us: 'row5Us', Feature: 'row5Feature', Claude: 'row5Claude', Cursor: 'row5Cursor', Chatgpt: 'row5Chatgpt' },
+  6: { Us: 'row6Us', Feature: 'row6Feature', Claude: 'row6Claude', Cursor: 'row6Cursor', Chatgpt: 'row6Chatgpt' },
+  7: { Us: 'row7Us', Feature: 'row7Feature', Claude: 'row7Claude', Cursor: 'row7Cursor', Chatgpt: 'row7Chatgpt' },
+  8: { Us: 'row8Us', Feature: 'row8Feature', Claude: 'row8Claude', Cursor: 'row8Cursor', Chatgpt: 'row8Chatgpt' },
+}
+
 export function HomeComparison() {
   const t = useTranslations('marketing.comparison')
 
@@ -51,7 +63,12 @@ export function HomeComparison() {
           </thead>
           <tbody>
             {COMPARISON_ROWS.map((n, i) => {
-              const us = t(`row${n}Us`)
+              const rowKey = COMPARISON_ROW_KEY[n]
+              const us = t(rowKey?.Us ?? 'rowUnknown')
+              const feature = t(rowKey?.Feature ?? 'rowUnknown')
+              const claude = t(rowKey?.Claude ?? 'rowUnknown')
+              const cursor = t(rowKey?.Cursor ?? 'rowUnknown')
+              const chatgpt = t(rowKey?.Chatgpt ?? 'rowUnknown')
               return (
                 <RevealOnView
                   key={n}
@@ -60,7 +77,7 @@ export function HomeComparison() {
                   className="border-t transition-colors hover:bg-primary/5"
                 >
                   <td className="px-3 py-2.5 font-medium sm:px-4 sm:py-3">
-                    {t(`row${n}Feature`)}
+                    {feature}
                   </td>
                   <td className="bg-primary/5 px-3 py-2.5 font-medium text-primary sm:px-4 sm:py-3">
                     <div className="flex items-center gap-1.5">
@@ -70,35 +87,35 @@ export function HomeComparison() {
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground sm:px-4 sm:py-3">
                     <div className="flex items-center gap-1.5">
-                      {t(`row${n}Claude`) === '无' ? (
+                      {claude === '无' ? (
                         <X
                           className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60"
                           aria-hidden="true"
                         />
                       ) : null}
-                      <span>{t(`row${n}Claude`)}</span>
+                      <span>{claude}</span>
                     </div>
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground sm:px-4 sm:py-3">
                     <div className="flex items-center gap-1.5">
-                      {t(`row${n}Cursor`) === '无' ? (
+                      {cursor === '无' ? (
                         <X
                           className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60"
                           aria-hidden="true"
                         />
                       ) : null}
-                      <span>{t(`row${n}Cursor`)}</span>
+                      <span>{cursor}</span>
                     </div>
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground sm:px-4 sm:py-3">
                     <div className="flex items-center gap-1.5">
-                      {t(`row${n}Chatgpt`) === '无' ? (
+                      {chatgpt === '无' ? (
                         <X
                           className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60"
                           aria-hidden="true"
                         />
                       ) : null}
-                      <span>{t(`row${n}Chatgpt`)}</span>
+                      <span>{chatgpt}</span>
                     </div>
                   </td>
                 </RevealOnView>
