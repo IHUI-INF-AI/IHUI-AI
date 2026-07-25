@@ -4,7 +4,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, FolderCog, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { STATUS_BADGE } from './helpers'
+import { STATUS_BADGE, STATUS_KEY } from './helpers'
 import type { AdminProject } from './types'
 
 interface Props {
@@ -80,7 +80,7 @@ export function ProjectTable({
                     STATUS_BADGE[p.status] ?? 'bg-muted text-muted-foreground',
                   )}
                 >
-                  {t(`status_${p.status}`)}
+                  {t(STATUS_KEY[p.status] ?? 'status_unknown')}
                 </span>
               </CardTitle>
             </CardHeader>
