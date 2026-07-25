@@ -436,7 +436,44 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 
 `.trae-cn/archive/AGENTS_history.md` 记录每次 reset 事故 + 已采取的 tag 备份措施。
 
-- **2026-07-26**:Commit 丢失防护机制强化。本地 lost-commit/* tag 被 git gc 清理事故暴露后,新增 sync-lost-commit-tags.mjs 自动 push + fetch 机制,创建 docs/lost-commit-archive.md 永久档案,check-commit-loss-guard.mjs 升级为 5 段检查(reflog 50 步 + 远程 tag 校验 + tag 对象可达性)。
+---
+
+## 23. `.gitignore __*` 规则静默忽略 `__tests__/` 目录教训(强制)
+
+### 触发背景(2026-07-25 立,真实事故)
+
+`.gitignore` 第 154 行 `__*` 规则(本意是忽略"Agent 临时脚本",如 `__round1.log` / `__audit_dump`)会**静默忽略**所有以 `__` 开头的路径,包括合法的 `__tests__/` 测试目录。**关键陷阱**:`git status` 对 ignore 的文件**完全不显示**(既不 untracked 也不 modified),开发者肉眼完全看不到。
+
+### 真实事故(2026-07-25 阶段 13 集成测试)
+
+集成测试 subagent 在 `apps/web/__tests__/storage-adapter.test.ts` 写完测试文件,本任务合 stage 13 计划清单:
+- 创建文件 → `git status` 不显示
+- 编辑文件 → `git status` 不显示
+- 准备 commit 时,`git add __tests__/` → 无任何文件可加(`__*` 规则吞掉)
+- 险些导致整个 stage 13 测试集成**永久丢失**;直到最后 `git check-ignore -v apps/web/__tests__/` 才追查到 `__*` 规则源头
+
+修复方法:把目录重命名为 `tests/`(避开 `__*` 规则)→ 后续 16 个 `__tests__/` 目录已审计,**全部未被 `__*` 规则命中**(未含 `.gitkeep` 且 `git check-ignore` 返回空),本任务仅作为守门+教训记录,不要求批量迁移。
+
+### 硬性规则(违反视为事故)
+
+1. **项目内测试目录必须用 `tests/`**(推荐)或 `spec/` / `__tests__/` + `.gitkeep`(不推荐);**禁止**新建无 `.gitkeep` 的 `__tests__/` 目录。`__tests__/` 命名只在"目录内全部文件被故意 ignore + 留 `.gitkeep` 占位"时使用。
+2. **创建测试目录前必须** `git check-ignore -v <path>` 确认不被 ignore(空输出=安全,非空=被命中);`__` 前缀目录需逐个验证。
+3. **CI / pre-commit 必跑** `node scripts/check-test-paths.mjs`(本任务新增,§守门脚本速查),命中 `__tests__/` 无 `.gitkeep` 且被 gitignore 吞掉 → 阻塞(退出码 1)。
+
+### 守门脚本:`scripts/check-test-paths.mjs`
+
+- 扫描 `apps/` + `packages/` + `scripts/` 下所有 `__tests__/` 目录
+- 每个 `__tests__/` 调 `git check-ignore -v` 复核 + 检查 `.gitkeep`
+- 同时检测 `*.tmp` / `*.bak` 目录 + 非白名单隐藏目录
+- exit 0 (无阻断) / exit 1 (有 `__tests__/` 被吞掉阻断项)
+- 详细用法:脚本头部 docstring
+
+### 关联案例
+
+- 阶段 13 集成测试 subagent:险些丢失 `apps/web/__tests__/storage-adapter.test.ts`
+- 历史事故:曾出现"测试写了不显示 → commit 漏文件 → CI 假绿"模式,本节规则根治
+
+---- **2026-07-26**:Commit 丢失防护机制强化。本地 lost-commit/* tag 被 git gc 清理事故暴露后,新增 sync-lost-commit-tags.mjs 自动 push + fetch 机制,创建 docs/lost-commit-archive.md 永久档案,check-commit-loss-guard.mjs 升级为 5 段检查(reflog 50 步 + 远程 tag 校验 + tag 对象可达性)。
 
 ---
 

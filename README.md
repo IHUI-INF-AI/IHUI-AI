@@ -1311,6 +1311,8 @@ IHUI-AI/
 | 25      | check-workspace-hygiene.mjs           | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)** |
 | 26      | check-parent-pollution.mjs            | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**     |
 | 30a     | check-commit-loss-guard.mjs           | **Commit 丢失防护(blocking,AGENTS.md §22):reflog 50 步 reset 检测 + fsck 悬空 + lost-commit/* + backup/* tag 完整性(本地+远端+对象可达)+ `sync-lost-commit-tags.mjs` 自动化 push** |
+| 30b     | check-test-paths.mjs                  | **测试目录命名守门(blocking,AGENTS.md §23):`__tests__/` 被 `.gitignore __*` 静默忽略扫描 + `.gitkeep` 复核 + 隐藏/临时目录检测** |
+| 30c     | check-cross-store-parity.mjs          | **跨端 storage-adapter 一致性守门(blocking,AGENTS.md §12):4 端(web/mobile-rn/miniapp-taro/extension)必需导出 + 共享 userPersistKey + partialize 不持久化 token** |
 | 16      | 条件 typecheck                        | apps/web staged 时跑 typecheck                                  |
 | 16b     | 条件 database build                   | packages/database/src staged 时跑 build                         |
 | 17-post | git-push-guard.mjs(post-commit)       | 自动 push + 验证 local == remote(防遗漏)                        |
