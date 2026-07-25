@@ -1,0 +1,19 @@
+{
+  "chat": {
+    "send": "送信"
+  },
+  "common": {
+    "back": "戻る",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除",
+    "retry": "再試行",
+    "save": "保存",
+    "search": "検索"
+  },
+  "nav": {
+    "home": "ホーム",
+    "settings": "設定",
+    "wallet": "ウォレット"
+  }
+}

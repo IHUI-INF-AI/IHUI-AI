@@ -11,6 +11,7 @@
 //   - extension/     (从 apps/extension/src/i18n/messages/ 迁移)
 //   - miniapp-taro/  (从 apps/miniapp-taro/src/i18n/ 迁移,.ts → .json)
 //   - mobile-rn/     (从 apps/mobile-rn/src/i18n/messages/ 迁移,.ts → .json)
+//   - shared/        (跨端共享基础 key,各端可选 import 作为 base;仅含 4 端 zh-CN 完全一致的通用 key)
 
 export * from './types'
 export * from './loader'
