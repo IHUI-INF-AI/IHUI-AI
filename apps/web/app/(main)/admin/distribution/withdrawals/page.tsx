@@ -45,7 +45,7 @@ export default function AdminDistributionWithdrawalsPage() {
 
   const reviewMut = useMutation({
     mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
-      const r = await fetchApi<{ success: boolean }>(`/commission/withdrawals/${id}/${action}`, {
+      const r = await fetchApi<{ success: boolean }>(`/distribution/withdrawals/${id}/${action}`, {
         method: 'POST',
       })
       if (!r.success) throw new Error(r.error)
