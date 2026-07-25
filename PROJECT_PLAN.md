@@ -29,6 +29,33 @@
 
 ---
 
+### [x] ✅(2026-07-25) 桌面端应用名称本地化 — 根据系统语言动态切换"智汇AI"/"IHUI AI",去除"桌面端"字样(跨端:desktop + web)
+
+**触发**:用户要求应用名称根据环境语言动态切换(中文→智汇AI,非中文→IHUI AI),且"桌面端"不应出现在名称中。承接之前会话 WIP。
+
+**成果**:
+
+#### Rust 端(apps/desktop/src-tauri/)
+- **lib.rs**:新增 `is_chinese_locale()`(Windows: `GetUserDefaultUILanguage` 检测中文主语言 ID 0x04;非 Windows: `LANG` 环境变量)+ `localized_app_name()`(中文→"智汇AI",其他→"IHUI AI")
+- **lib.rs**:`get_app_info()` / 菜单"关于"文本 / 托盘 tooltip / admin 窗口标题 / 启动时 main+admin 窗口 `set_title` 全部使用 `localized_app_name()` 动态化
+- **lib.rs**:新增 `toggle_devtools` / `quit_app` / `open_admin_window` 三个 command + 菜单事件 handler 注册(原代码漏写)
+- **Cargo.toml**:description 去除"桌面端";winapi features 增加 `winnls`(用于 `GetUserDefaultUILanguage`)
+- **tauri.conf.json**:title/shortDescription/longDescription 去除"桌面端";`decorations: true→false` + `titleBarStyle: "Visible"→"Overlay"`(自定义标题栏)
+- **capabilities/default.json** + **gen/schemas/capabilities.json**:description 去除"桌面端"
+
+#### Web 端(apps/web/)
+- **tauri-bridge.ts**:新增 `getLocalizedAppName()`(根据 `navigator.language` 检测,中文→"智汇AI",其他→"IHUI AI")+ `listenToMenuEvents` / `openAdminWindow` / `toggleDevtools` 三个菜单 API
+- **use-desktop.ts**:注释"桌面端"→"客户端"
+- **DesktopSettingsCard.tsx**:引入 `getLocalizedAppName`;测试通知使用 `appInfo?.name || getLocalizedAppName()`;CardTitle"桌面端"→"客户端";注释更新
+
+**验证**:Rust 代码逻辑完整(启动时 set_title + get_app_info 动态化)✅;前端 `getLocalizedAppName` 与 Rust `localized_app_name` 双端独立检测(前端用浏览器语言,Rust 用系统 UI 语言)✅;无"桌面端"残留于应用名称 ✅(剩余"桌面端"仅用于描述 desktop 布局/响应式,非应用名称)。
+
+**多端同步说明**:此任务天然只涉及 desktop(Tauri 配置 + Rust)+ web(DesktopSettingsCard 在 Tauri WebView 渲染),属跨端但非 8 端同步范围。
+
+**§22 README 豁免**:应用名称本地化不改变对外能力清单(README 中已有"IHUI AI"品牌名)。
+
+---
+
 ### [x] ✅(2026-07-25) 维护成本优化第四轮 — 守门脚本精简 93→78 + web i18n status 动态拼接第一批治理 + P1 双库依赖评估(跨端:scripts + web + 分析报告)
 
 **触发**:用户要求"继续"。承接第三轮交付报告后续建议,派发 3 个并行 subagent 执行高 ROI 低风险优化。
