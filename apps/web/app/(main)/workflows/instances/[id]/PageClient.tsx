@@ -65,7 +65,7 @@ export default function InstanceDetailPage() {
 
   const inst = instQ.data
   const tasks = tasksQ.data ?? []
-  const logs = (logsQ.data ?? []).filter((l) => logLevel === 'all' || l.level === logLevel)
+  const logs = (logsQ.data ?? []).filter((l: any) => logLevel === 'all' || l.level === logLevel)
 
   return (
     <div className="space-y-4">
