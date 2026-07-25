@@ -302,8 +302,10 @@ export function MessageList({
     let total = 0
     const offsets = new Array(messages.length + 1)
     for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i]
+      if (!msg) continue
       offsets[i] = total
-      total += map.get(messages[i].id) ?? ESTIMATED_ITEM_HEIGHT
+      total += map.get(msg.id) ?? ESTIMATED_ITEM_HEIGHT
     }
     offsets[messages.length] = total
     return { offsets, total }
