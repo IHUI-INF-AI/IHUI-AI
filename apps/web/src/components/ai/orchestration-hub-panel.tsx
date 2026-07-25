@@ -171,6 +171,12 @@ function num(v: unknown): number {
   return 0
 }
 
+// 性能修复(2026-07-25):breakdownEntries 原定义在 BudgetTab render 内,
+// 每次渲染重建函数。提到模块级(纯函数,无闭包依赖),函数引用稳定。
+function breakdownEntries(obj: Record<string, number> | undefined): [string, number][] {
+  return obj ? (Object.entries(obj).sort((a, b) => num(b[1]) - num(a[1])) as [string, number][]) : []
+}
+
 function asArray<T>(v: unknown): T[] {
   if (Array.isArray(v)) return v as T[]
   return []
@@ -658,8 +664,12 @@ function BudgetTab() {
 
   const maxTrendTokens = Math.max(1, ...trend.map((p) => num(p.tokens ?? p.token)))
 
-  const breakdownEntries = (obj: Record<string, number> | undefined) =>
-    obj ? Object.entries(obj).sort((a, b) => num(b[1]) - num(a[1])) : []
+  // 性能修复(2026-07-25):原 render 中 PILLAR_ORDER.filter(...).map(...) 每次重算,
+  // BudgetTab 切换 / summary 数据轮询时重复过滤+映射。useMemo 仅 pillars 变化时重算。
+  const visiblePillars = React.useMemo(
+    () => PILLAR_ORDER.filter((p) => pillars[p]),
+    [pillars],
+  )
 
   return (
     <div className="flex flex-col gap-3">
@@ -746,7 +756,7 @@ function BudgetTab() {
           <Unavailable message={t('unavailable')} />
         ) : (
           <div className="flex flex-col gap-2">
-            {PILLAR_ORDER.filter((p) => pillars[p]).map((p) => {
+            {visiblePillars.map((p) => {
               const item = pillars[p]
               if (!item) return null
               const used = num(item.used ?? item.tokens_used)
