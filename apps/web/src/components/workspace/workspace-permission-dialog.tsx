@@ -60,6 +60,23 @@ const MODE_OPTIONS: Array<{
   { value: 'bypass-permissions', icon: Shield, risk: 'high' },
 ]
 
+/** i18n 静态映射表 — 用于消除 `t(\`mode.${var}.title\`)` / `t(\`mode.${var}.desc\`)` / `t(\`ruleType.${var}\`)` 动态拼接 */
+const MODE_TITLE_KEY: Record<WorkspacePermissionMode, string> = {
+  default: 'mode.default.title',
+  'accept-edits': 'mode.accept-edits.title',
+  'bypass-permissions': 'mode.bypass-permissions.title',
+}
+const MODE_DESC_KEY: Record<WorkspacePermissionMode, string> = {
+  default: 'mode.default.desc',
+  'accept-edits': 'mode.accept-edits.desc',
+  'bypass-permissions': 'mode.bypass-permissions.desc',
+}
+const RULE_TYPE_KEY: Record<PermissionRuleType, string> = {
+  path: 'ruleType.path',
+  command: 'ruleType.command',
+  tool: 'ruleType.tool',
+}
+
 /**
  * 工作区权限配置弹窗 — 用户首次打开本地项目文件夹时弹出。
  *
@@ -180,7 +197,7 @@ export function WorkspacePermissionDialog({
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">
-                        {t(`mode.${opt.value}.title`)}
+                        {t(MODE_TITLE_KEY[opt.value] ?? 'mode.unknown.title')}
                       </span>
                       {opt.risk === 'high' && (
                         <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
@@ -190,7 +207,7 @@ export function WorkspacePermissionDialog({
                       {isSel && <Check className="h-3.5 w-3.5 text-primary" />}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {t(`mode.${opt.value}.desc`)}
+                      {t(MODE_DESC_KEY[opt.value] ?? 'mode.unknown.desc')}
                     </p>
                   </div>
                 </button>
@@ -395,7 +412,7 @@ function RulesEditor({
                 {rule.decision === 'allow' ? t('decision.allow') : t('decision.deny')}
               </span>
               <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                {t(`ruleType.${rule.ruleType}`)}
+                {t(RULE_TYPE_KEY[rule.ruleType] ?? 'ruleType.unknown')}
               </span>
               <span className="flex-1 truncate font-mono">{rule.pattern}</span>
               {rule.builtin && (
