@@ -32,6 +32,13 @@ type RankRange = 'week' | 'month' | 'total'
 
 const RANGES: RankRange[] = ['week', 'month', 'total']
 
+/** i18n 静态映射表 — 用于消除 range.{r} 形式的动态拼接 */
+const RANGE_KEY: Record<RankRange, string> = {
+  week: 'range.week',
+  month: 'range.month',
+  total: 'range.total',
+}
+
 export default function RankingPage() {
   const t = useTranslations('rankingPage')
   const [range, setRange] = React.useState<RankRange>('week')
@@ -59,7 +66,7 @@ export default function RankingPage() {
         <TabsList>
           {RANGES.map((r) => (
             <TabsTrigger key={r} value={r}>
-              {t(`range.${r}`)}
+              {t(RANGE_KEY[r] ?? 'range.unknown')}
             </TabsTrigger>
           ))}
         </TabsList>

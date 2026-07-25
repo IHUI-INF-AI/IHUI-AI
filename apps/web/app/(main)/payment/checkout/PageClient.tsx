@@ -26,6 +26,13 @@ const PLAN_PRICES: Record<string, { price: number }> = {
 
 const DEFAULT_PRICE = 99
 
+/** i18n 静态映射表 — 用于消除 plans.{planId}.name 形式的动态拼接 */
+const PLAN_NAME_KEY: Record<string, string> = {
+  free: 'plans.free.name',
+  pro: 'plans.pro.name',
+  enterprise: 'plans.enterprise.name',
+}
+
 const METHODS = [
   { id: 'wechat_native', labelKey: 'checkout.wechat' },
   { id: 'alipay', labelKey: 'checkout.alipay' },
@@ -132,7 +139,7 @@ function CheckoutContent() {
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('checkout.plan')}</span>
-                <span className="font-medium">{t(`plans.${planId}.name`)}</span>
+                <span className="font-medium">{t(PLAN_NAME_KEY[planId] ?? 'plans.unknown.name')}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('checkout.subtotal')}</span>
