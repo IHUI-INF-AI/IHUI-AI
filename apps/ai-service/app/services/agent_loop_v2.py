@@ -19,13 +19,16 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .agent_checkpoint import (
     AgentCheckpointManager,
     AgentLoopCheckpoint,
     get_agent_checkpoint_manager,
 )
+
+if TYPE_CHECKING:
+    from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +117,11 @@ class AgentLoopV2:
         enable_checkpoint: bool = True,
         session_id: Optional[str] = None,
         checkpoint_manager: Optional[AgentCheckpointManager] = None,
+        # L1-1 记忆闭环接入(2026-07-25 立,对标 Hermes Agent 默认在线记忆)
+        user_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+        enable_memory: bool = True,
+        memory_svc: Optional["MemoryService"] = None,
     ):
         """
         Args:
@@ -128,6 +136,10 @@ class AgentLoopV2:
             session_id: agent loop 会话 id(不传则首次 run 时自动生成 uuid4 hex),
                         同一 session_id 的 checkpoint 可通过 load_latest_by_session 查询
             checkpoint_manager: 自定义 checkpoint 管理器(不传则用全局单例)
+            user_id: 跨会话记忆用户 id(传入后默认启用记忆 load/save 闭环,让 ReAct 主循环不再失忆)
+            conversation_id: 会话 id(用于 session scope 记忆;不传则用 session_id)
+            enable_memory: 是否启用记忆闭环(默认 True;传 False 则关闭 load/save,即使 user_id 已给)
+            memory_svc: 可注入 MemoryService 实例(测试 mock 用);不传则 lazy import 全局单例
         """
         self._llm_complete = llm_complete_fn
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
@@ -143,6 +155,13 @@ class AgentLoopV2:
             if checkpoint_manager is not None
             else get_agent_checkpoint_manager()
         )
+
+        # L1-1 记忆闭环配置(对标 Hermes Agent 默认在线记忆)
+        self._user_id: Optional[str] = user_id
+        self._conversation_id: Optional[str] = conversation_id
+        # enable_memory 仅在 user_id 存在时才真正生效
+        self._enable_memory: bool = bool(enable_memory and user_id)
+        self._memory_svc: Optional["MemoryService"] = memory_svc
 
         # 运行时状态(每次 run() 开始时重置)
         self._messages: Optional[list[dict[str, Any]]] = None
@@ -193,17 +212,97 @@ class AgentLoopV2:
         签名与 v2 初版保持一致(不破坏 11 个已有测试用例)。
         Wave 9 扩展:每轮 iteration 结束后自动 checkpoint(若 enable_checkpoint),
         异常/暂停/取消时也保存 checkpoint,便于 resume_from_checkpoint 续跑。
+
+        L1-1 扩展(2026-07-25,对标 Hermes Agent 默认在线记忆):
+        - 入口:自动加载用户跨会话记忆注入 system prompt(让 ReAct 主循环不再失忆)
+        - 出口:成功完成后自动提取记忆写回 API(失败不阻塞,不覆盖 result)
         """
         self._reset_run_state()
         self._ensure_session_id()
         self._messages = messages
-        return await self._run_loop(
+        # L1-1 入口:注入跨会话记忆到 system prompt(失败不阻塞)
+        await self._inject_memory_context(messages)
+        result = await self._run_loop(
             messages=messages,
             start_iteration=1,
             prior_iterations=[],
             prior_tokens=0,
             start_time=datetime.now(timezone.utc),
         )
+        # L1-1 出口:成功完成后保存记忆(失败不阻塞,不覆盖 result)
+        if result.success:
+            await self._persist_memory_insights(messages)
+        return result
+
+    # ------------------------------------------------------------------
+    # L1-1 记忆闭环辅助(2026-07-25 立,对标 Hermes Agent 默认在线记忆)
+    # ------------------------------------------------------------------
+
+    def _resolve_memory_service(self) -> Optional["MemoryService"]:
+        """lazy 解析 MemoryService 实例(避免顶层循环导入)。
+
+        优先用注入的 memory_svc(测试 mock);否则 lazy import 全局单例。
+        导入失败返回 None(记忆闭环静默降级,不阻塞主循环)。
+        """
+        if self._memory_svc is not None:
+            return self._memory_svc
+        try:
+            from .memory_service import memory_service as _ms
+            return _ms
+        except ImportError as e:
+            logger.warning("memory_service 导入失败,记忆闭环降级: %s", e)
+            return None
+
+    async def _inject_memory_context(self, messages: list[dict[str, Any]]) -> None:
+        """入口:加载用户跨会话记忆注入 system prompt。
+
+        策略:
+        - 首条是 system 消息 → append 到 content(避免新增消息打乱 LLM 上下文顺序)
+        - 否则 insert 新 system 消息到 messages[0]
+        - load 失败 / 无记忆 / 记忆服务不可用 → 静默跳过,不阻塞主循环
+        """
+        if not self._enable_memory or not self._user_id:
+            return
+        svc = self._resolve_memory_service()
+        if svc is None:
+            return
+        try:
+            ctx = await svc.load_context_for_conversation(
+                user_id=self._user_id,
+                session_id=self._conversation_id or self._session_id,
+            )
+        except Exception as e:
+            logger.warning("memory_load 失败(user=%s): %s", self._user_id, e)
+            return
+        if not ctx:
+            return
+        try:
+            if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
+                existing = messages[0].get("content", "")
+                messages[0]["content"] = f"{existing}\n\n{ctx}" if existing else ctx
+            else:
+                messages.insert(0, {"role": "system", "content": ctx})
+        except Exception as e:
+            logger.warning("memory_context 注入失败(user=%s): %s", self._user_id, e)
+
+    async def _persist_memory_insights(self, messages: list[dict[str, Any]]) -> None:
+        """出口:从对话提取记忆写回 API(仅 run() 成功时调用)。
+
+        失败不阻塞主循环(已 success 的 result 不被覆盖)。
+        """
+        if not self._enable_memory or not self._user_id:
+            return
+        svc = self._resolve_memory_service()
+        if svc is None:
+            return
+        try:
+            await svc.save_insights_from_conversation(
+                user_id=self._user_id,
+                messages=messages,
+                session_id=self._conversation_id or self._session_id,
+            )
+        except Exception as e:
+            logger.warning("memory_save 失败(user=%s): %s", self._user_id, e)
 
     async def _run_loop(
         self,
