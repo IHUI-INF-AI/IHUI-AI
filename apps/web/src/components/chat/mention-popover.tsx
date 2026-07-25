@@ -17,6 +17,7 @@ import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { useSearchMentions } from '@/hooks/use-context-mention'
 import { useContextMentionStore } from '@/stores/context-mention'
+import { useShallow } from 'zustand/react/shallow'
 import type { ContextMention, MentionType } from '@ihui/types'
 import { DatabaseMentionList } from './database-mention-list'
 
@@ -57,13 +58,14 @@ interface MentionPopoverProps {
  *
  * 紧凑:`w-64 max-h-72 overflow-y-auto rounded-md border border-border bg-popover shadow-md`
  */
-export function MentionPopover({ open, onSelect, onClose, workspacePath }: MentionPopoverProps) {
+export const MentionPopover = React.memo(function MentionPopover({ open, onSelect, onClose, workspacePath }: MentionPopoverProps) {
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
   const [itemCount, setItemCount] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
-  const activeType = useContextMentionStore((s) => s.activeType)
-  const setActiveType = useContextMentionStore((s) => s.setActiveType)
+  const { activeType, setActiveType } = useContextMentionStore(
+    useShallow((s) => ({ activeType: s.activeType, setActiveType: s.setActiveType })),
+  )
 
   // database tab 由 DatabaseMentionList 自行管理数据,其他 tab 用 useSearchMentions
   const isDatabase = activeType === 'database'
@@ -193,7 +195,7 @@ export function MentionPopover({ open, onSelect, onClose, workspacePath }: Menti
       </div>
     </div>
   )
-}
+})
 
 /** 通用列表(file/symbol/folder/web 共用) */
 function MentionList({
@@ -251,9 +253,10 @@ function MentionList({
  * 由主 agent 集成到 message-input.tsx 的输入框上方区域。
  * 每个 chip:类型图标 + label + x 删除按钮,删除时调 store.removeMention。
  */
-export function MentionChips() {
-  const mentions = useContextMentionStore((s) => s.mentions)
-  const removeMention = useContextMentionStore((s) => s.removeMention)
+export const MentionChips = React.memo(function MentionChips() {
+  const { mentions, removeMention } = useContextMentionStore(
+    useShallow((s) => ({ mentions: s.mentions, removeMention: s.removeMention })),
+  )
   if (mentions.length === 0) return null
   return (
     <div className="mb-2 flex flex-wrap gap-1">
@@ -279,6 +282,6 @@ export function MentionChips() {
       })}
     </div>
   )
-}
+})
 
 export default MentionPopover

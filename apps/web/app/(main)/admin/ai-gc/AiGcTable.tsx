@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
@@ -16,6 +17,22 @@ interface Props {
 
 export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.aiGc')
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (id) onDelete(id)
+    },
+    [onDelete],
+  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -71,7 +88,7 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
                 ))}
                 <td className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => onEdit(item)}>
+                    <Button size="sm" variant="ghost" data-id={item.id} onClick={handleEdit}>
                       <Edit className="h-4 w-4" />
                       {t('edit')}
                     </Button>
@@ -80,7 +97,8 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
                       disabled={delPending}
-                      onClick={() => onDelete(item.id)}
+                      data-id={item.id}
+                      onClick={handleDelete}
                     >
                       <Trash2 className="h-4 w-4" />
                       {t('delete')}

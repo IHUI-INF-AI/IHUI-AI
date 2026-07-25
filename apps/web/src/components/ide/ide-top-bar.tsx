@@ -22,13 +22,16 @@ const TAB_LABELS: Record<IDETabType, { icon: typeof Code2; labelKey?: string; la
 function Clock() {
   const locale = useLocale()
   const [time, setTime] = React.useState('')
+  const dateFmt = React.useMemo(
+    () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hour12: false }),
+    [locale],
+  )
   React.useEffect(() => {
-    const fmt = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hour12: false })
-    const update = () => setTime(fmt.format(new Date()))
+    const update = () => setTime(dateFmt.format(new Date()))
     update()
     const id = setInterval(update, 30 * 1000)
     return () => clearInterval(id)
-  }, [locale])
+  }, [dateFmt])
   return <span className="tabular-nums text-[11px] text-muted-foreground">{time}</span>
 }
 
