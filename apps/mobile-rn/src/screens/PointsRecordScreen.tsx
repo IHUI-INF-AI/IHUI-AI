@@ -29,6 +29,12 @@ interface RecordPage {
 const PAGE_SIZE = 20
 const TYPE_TABS = ['all', 'earn', 'spend'] as const
 
+const POINTS_TAB_KEYS: Record<(typeof TYPE_TABS)[number], string> = {
+  all: 'pointsRecord.tab_all',
+  earn: 'pointsRecord.tab_earn',
+  spend: 'pointsRecord.tab_spend',
+}
+
 function formatDateTime(iso: string): string {
   if (!iso) return '—'
   try {
@@ -66,7 +72,10 @@ export function PointsRecordScreen() {
     return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
   }, [token, typeTab, t])
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<PointsRecord>(fetcher, PAGE_SIZE)
+  const { items, loading, refreshing, error, refresh } = usePaginatedList<PointsRecord>(
+    fetcher,
+    PAGE_SIZE,
+  )
 
   const onTabChange = (next: (typeof TYPE_TABS)[number]) => {
     if (next === typeTab) return
@@ -97,7 +106,7 @@ export function PointsRecordScreen() {
             style={[styles.tab, typeTab === s && styles.tabActive]}
           >
             <Text style={[styles.tabText, typeTab === s && styles.tabTextActive]}>
-              {t(`pointsRecord.tab_${s}`)}
+              {t(POINTS_TAB_KEYS[s])}
             </Text>
           </TouchableOpacity>
         ))}
@@ -132,9 +141,17 @@ export function PointsRecordScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.sourceText} numberOfLines={1}>{item.source}</Text>
-                <Text style={[styles.amountText, item.type === 'earn' ? styles.earnText : styles.spendText]}>
-                  {item.type === 'earn' ? '+' : '-'}{item.amount}
+                <Text style={styles.sourceText} numberOfLines={1}>
+                  {item.source}
+                </Text>
+                <Text
+                  style={[
+                    styles.amountText,
+                    item.type === 'earn' ? styles.earnText : styles.spendText,
+                  ]}
+                >
+                  {item.type === 'earn' ? '+' : '-'}
+                  {item.amount}
                 </Text>
               </View>
               <View style={styles.cardMetaRow}>
@@ -160,7 +177,14 @@ const styles = StyleSheet.create({
   backText: { fontSize: 14, color: '#6B7280' },
   title: { fontSize: 22, fontWeight: '600', color: '#111827' },
   subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
-  balanceCard: { marginHorizontal: 16, marginBottom: 8, padding: 16, borderRadius: 8, backgroundColor: '#ECFDF5', alignItems: 'center' },
+  balanceCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+  },
   balanceLabel: { fontSize: 12, color: '#065F46' },
   balanceValue: { marginTop: 4, fontSize: 26, fontWeight: '700', color: PRIMARY },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
@@ -168,12 +192,24 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: PRIMARY },
   tabText: { fontSize: 12, color: '#6B7280' },
   tabTextActive: { color: '#FFFFFF' },
-  errorBar: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  errorBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   errorText: { fontSize: 12, color: '#DC2626' },
   retryText: { fontSize: 12, color: PRIMARY },
   center: { alignItems: 'center', paddingVertical: 32 },
   emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+  card: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sourceText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827', marginRight: 8 },
   amountText: { fontSize: 16, fontWeight: '700' },
