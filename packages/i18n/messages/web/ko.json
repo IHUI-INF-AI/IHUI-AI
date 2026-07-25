@@ -1394,7 +1394,8 @@
   },
   "chat": {
     "title": "AI대화",
-    "placeholder": "요청을 상세히 입력, / 로 스킬·플러그인·MCP 호출 (예: /goal /loop)",
+    "placeholder": "요청을 상세히 입력, / 로 스킬·플러그인·MCP 호출 (예 /goal /loop /plan)",
+    "placeholderPlan": "계획 모드: 요청 입력, AI가 계획만 수립하고 도구를 실행하지 않습니다 (/act 로 복귀, Alt+P 전환)",
     "send": "전송",
     "stop": "녹음 중지",
     "clear": "채팅 지우기",
