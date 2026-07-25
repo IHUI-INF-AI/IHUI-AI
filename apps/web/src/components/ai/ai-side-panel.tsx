@@ -32,7 +32,6 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
 import { parsePendingQuestion } from '@/lib/pending-question'
 import { fetchApi } from '@/lib/api'
-import { useDesktop } from '@/hooks/use-desktop'
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
@@ -61,11 +60,6 @@ export function AISidePanel() {
   const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
   const pendingPermissionSetup = useAiPanelStore((s) => s.pendingPermissionSetup)
   const setPendingPermissionSetup = useAiPanelStore((s) => s.setPendingPermissionSetup)
-  // 2026-07-25 桌面端兼容:isDesktop=true 时让 AI 面板从 top-12 (48px) 开始,
-  // 避开 40px 高的 NativeTopBar(z-[1000]),垂直方向完全不重叠,符合桌面应用
-  // title-bar 与 content 分区规范;web 端没有 NativeTopBar,保持 top-2 (8px) 与
-  // work-area 的 my-2 视觉间距。
-  const { isDesktop } = useDesktop()
   const {
     messages,
     currentModel,
@@ -87,13 +81,18 @@ export function AISidePanel() {
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
   const [dispatchOpen, setDispatchOpen] = React.useState(false)
-  // 分页状态(2026-07-25 立,#8 滚动到顶部加载更多历史)
-  // - hasMoreHistory:当前会话是否还有更早的消息可加载
-  // - oldestCursor:下一页 before 游标(当前已加载消息中最旧一条的 id)
-  // - loadingMoreHistory:防止滚动到顶部重复触发
-  const [hasMoreHistory, setHasMoreHistory] = React.useState(false)
-  const oldestCursorRef = React.useRef<string | null>(null)
-  const [loadingMoreHistory, setLoadingMoreHistory] = React.useState(false)
+  // #11 切换会话 LRU 缓存(2026-07-25 立):缓存最近 5 个会话的 messages,
+  // 切回之前会话时同步从缓存恢复(无闪烁),后台异步拉取最新消息对比更新。
+  // - 命中:delete + set 重新插入实现 LRU(最近使用的在 Map 末尾)
+  // - 未命中:正常拉取,拉取后写入 cache
+  // - 淘汰:cache.size > 5 时删除 Map.keys().next().value(最早使用)
+  // - 失效:sendMessage / WebSocket 多端同步 触发 messages 变化时,
+  //   由下方同步 useEffect 自动更新当前会话 cache(仅更新已存在的 cache 项)
+  // - hasMore / oldestCursor 字段为未来 P0 分页加载预留(当前 P0 未实现分页,始终 false/null)
+  const conversationCacheRef = React.useRef<
+    Map<string, { messages: ChatMessage[]; hasMore: boolean; oldestCursor: string | null }>
+  >(new Map())
+  const prevConversationIdRef = React.useRef<string | null>(null)
   // 性能修复(2026-07-25):原 const pathname = usePathname() 订阅在 AISidePanel 根,
   // 导致每次路由切换 AISidePanel 整树重渲染(连带 MessageList/MessageInput/ModelSelector 等)。
   // 改为下推到 <WorkspaceNameSync> 子组件,pathname 订阅只触发子组件(渲染 null,无开销)。
@@ -199,16 +198,94 @@ export function AISidePanel() {
   React.useEffect(() => {
     if (!open) return
 
+    // #11 切换会话前,把当前(旧)会话的状态存入 cache(LRU)。
+    // 注意:此时 store.messages 还是旧会话的(loadHistory 还没运行),可安全保存快照。
+    const prevId = prevConversationIdRef.current
+    if (prevId && prevId !== storeConversationId) {
+      const currentStore = useChatStore.getState()
+      if (currentStore.messages.length > 0) {
+        // LRU:delete + set 重新插入(若已存在则成为最新使用)
+        conversationCacheRef.current.delete(prevId)
+        conversationCacheRef.current.set(prevId, {
+          messages: currentStore.messages,
+          hasMore: false,
+          oldestCursor: null,
+        })
+        // LRU 淘汰:cache.size > 5 时删除最早使用
+        while (conversationCacheRef.current.size > 5) {
+          const oldestKey = conversationCacheRef.current.keys().next().value
+          if (oldestKey) conversationCacheRef.current.delete(oldestKey)
+        }
+      }
+    }
+    prevConversationIdRef.current = storeConversationId
+
     let cancelled = false
 
     async function loadHistory(id: string) {
+      // #11 先查 cache,命中则同步用缓存数据填充 store(无闪烁)
+      const cached = conversationCacheRef.current.get(id)
+      if (cached) {
+        // LRU:delete + set 重新插入(成为最新使用)
+        conversationCacheRef.current.delete(id)
+        conversationCacheRef.current.set(id, cached)
+        // 同步填充 store(避免空状态闪烁,用户立即可见缓存消息)
+        useChatStore.setState({ messages: cached.messages, error: null })
+        setLoadingHistory(false)
+        // 后台异步拉取最新消息对比更新(若服务端有新消息则覆盖缓存)
+        void (async () => {
+          try {
+            const [convRes, msgRes] = await Promise.all([getConversation(id), getMessages(id)])
+            if (cancelled) return
+            if (convRes.success && msgRes.success) {
+              const hydrated: ChatMessage[] = msgRes.data.messages.map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                createdAt: new Date(m.createdAt).getTime(),
+              }))
+              // 仅当最新消息 ID 变化或数量变化时更新(避免不必要的 re-render)
+              const currentMsgs = useChatStore.getState().messages
+              const lastMsg = currentMsgs[currentMsgs.length - 1]
+              const newLastMsg = hydrated[hydrated.length - 1]
+              const changed =
+                currentMsgs.length !== hydrated.length ||
+                (!!lastMsg !== !!newLastMsg) ||
+                (!!lastMsg && !!newLastMsg && lastMsg.id !== newLastMsg.id)
+              if (changed) {
+                useChatStore.setState({ messages: hydrated, error: null })
+              }
+              // 更新 cache(无论是否变化,刷新服务端最新数据)
+              conversationCacheRef.current.delete(id)
+              conversationCacheRef.current.set(id, {
+                messages: hydrated,
+                hasMore: false,
+                oldestCursor: null,
+              })
+              setConversationTitle(convRes.data.conversation.title || null)
+              // P2 多端同步:从 conversation.metadata.pendingQuestion 恢复挂起状态
+              // (cache 命中分支同样需要恢复 pending,因为缓存的是 messages,不含会话元数据)
+              const meta = convRes.data.conversation.metadata as {
+                pendingQuestion?: unknown
+              } | null
+              const pending = parsePendingQuestion(meta?.pendingQuestion)
+              if (pending) {
+                useChatStore.getState().setPendingQuestion(pending)
+              } else {
+                useChatStore.getState().clearPendingQuestion()
+              }
+            }
+          } catch {
+            // 后台拉取失败,保留缓存数据(已填充到 store,用户可见)
+          }
+        })()
+        return
+      }
+
+      // #11 未命中:正常拉取,拉取后写入 cache
       setLoadingHistory(true)
       try {
-        // #8 分页加载:默认 page=1 返回最新 pageSize 条(后端 offset 模式按 desc + reverse)
-        const [convRes, msgRes] = await Promise.all([
-          getConversation(id),
-          getMessages(id, { pageSize: 50 }),
-        ])
+        const [convRes, msgRes] = await Promise.all([getConversation(id), getMessages(id)])
         if (cancelled) return
         if (convRes.success && msgRes.success) {
           const hydrated: ChatMessage[] = msgRes.data.messages.map((m) => ({
@@ -219,9 +296,18 @@ export function AISidePanel() {
           }))
           useChatStore.setState({ messages: hydrated, error: null })
           setConversationTitle(convRes.data.conversation.title || null)
-          // 记录分页游标:oldestCursor = 当前最旧一条 id,hasMoreHistory = 是否还有更早历史
-          oldestCursorRef.current = msgRes.data.nextCursor
-          setHasMoreHistory(msgRes.data.hasMore)
+
+          // 写入 cache(LRU)
+          conversationCacheRef.current.delete(id)
+          conversationCacheRef.current.set(id, {
+            messages: hydrated,
+            hasMore: false,
+            oldestCursor: null,
+          })
+          while (conversationCacheRef.current.size > 5) {
+            const oldestKey = conversationCacheRef.current.keys().next().value
+            if (oldestKey) conversationCacheRef.current.delete(oldestKey)
+          }
 
           // P2 多端同步:从 conversation.metadata.pendingQuestion 恢复挂起状态
           // 场景:用户 A 在 web 提问后刷新页面 / 切换会话再切回 / 在其他端打开同一会话
@@ -259,15 +345,10 @@ export function AISidePanel() {
     }
 
     if (storeConversationId) {
-      // 重置分页状态(防止上一会话的游标残留)
-      oldestCursorRef.current = null
-      setHasMoreHistory(false)
       void loadHistory(storeConversationId)
     } else {
       useChatStore.setState({ messages: [], error: null })
       setConversationTitle(null)
-      oldestCursorRef.current = null
-      setHasMoreHistory(false)
     }
 
     return () => {
@@ -275,43 +356,23 @@ export function AISidePanel() {
     }
   }, [storeConversationId, setConversationId, open])
 
-  // #8 滚动到顶部加载更多历史消息(before 游标分页)
-  // - 由 MessageList 在 scrollTop 接近 0 时触发
-  // - 加载完成后 prepend 到 messages 头部,并保持视觉滚动位置(由 MessageList 内部处理)
-  const handleLoadMoreHistory = React.useCallback(async () => {
-    const convId = useChatStore.getState().conversationId
-    const cursor = oldestCursorRef.current
-    if (!convId || !cursor || loadingMoreHistory || !hasMoreHistory) return
-    setLoadingMoreHistory(true)
-    try {
-      const res = await getMessages(convId, { before: cursor, pageSize: 50 })
-      if (!res.success) return
-      const older = res.data.messages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        createdAt: new Date(m.createdAt).getTime(),
-      }))
-      if (older.length === 0) {
-        setHasMoreHistory(false)
-        oldestCursorRef.current = null
-        return
-      }
-      // prepend 到 messages 头部(时间正序,older 也是正序且早于当前所有消息)
-      useChatStore.setState((s) => ({ messages: [...older, ...s.messages] }))
-      oldestCursorRef.current = res.data.nextCursor
-      setHasMoreHistory(res.data.hasMore)
-    } finally {
-      setLoadingMoreHistory(false)
-    }
-  }, [loadingMoreHistory, hasMoreHistory])
+  // #11 同步当前会话 store.messages 到 cache(messages 变化时触发)。
+  // 触发场景:sendMessage 写入新消息 / WebSocket 多端同步 append 新消息 / 后台拉取覆盖。
+  // 仅更新已存在的 cache 项(未拉取过的会话不入 cache,避免预填充未访问会话)。
+  React.useEffect(() => {
+    if (!storeConversationId) return
+    const cached = conversationCacheRef.current.get(storeConversationId)
+    if (!cached) return
+    const currentMsgs = useChatStore.getState().messages
+    // 引用相同时跳过(避免无意义的引用赋值)
+    if (cached.messages === currentMsgs) return
+    cached.messages = currentMsgs
+  }, [storeConversationId, messages])
 
   const handleNewChat = React.useCallback(() => {
     clearMessages()
     setConversationId(null)
     setConversationTitle(null)
-    oldestCursorRef.current = null
-    setHasMoreHistory(false)
   }, [clearMessages, setConversationId])
 
   // 标题显示优先级(用户规则):
@@ -390,17 +451,12 @@ export function AISidePanel() {
   // 容器 fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 由 Sidebar 同步到 :root),
   // width:0 使容器自身不占视觉空间;手柄 right-[-12px] 跨越容器右边缘 8px 命中。
   // z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)。
-  // 2026-07-25 桌面端兼容:isDesktop=true 时容器从 top-12 (48px) 开始,完全位于
-  // NativeTopBar (40px 高) 之下,垂直方向不重叠;拖拽手柄同步 top-14 bottom-14 避让顶栏。
   if (!open) {
     return (
       <>
         {workspaceNameSync}
         <div
-          className={cn(
-            'fixed bottom-2 left-[var(--sidebar-width,130px)] z-sticky',
-            isDesktop ? 'top-12' : 'top-2',
-          )}
+          className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] z-sticky"
           style={{ width: 0 }}
         >
           {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
@@ -449,17 +505,11 @@ export function AISidePanel() {
       <div
         // 全局 fixed 面板(与 Sidebar 同性质,作为 MainShell 的兄弟节点而非 flex 子元素):
         // - fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 跟随 Sidebar 折叠/展开/拖拽)
-        // - 顶部对齐:web 端 top-2 (8px) 与 work-area 的 my-2 视觉间距;桌面端 top-12 (48px)
-        //   避开 40px 高的 NativeTopBar,垂直方向完全不重叠,符合桌面应用 title-bar
-        //   与 content 分区规范(macOS / Windows 窗口的 content 不延伸到 title bar 下面)
-        // - bottom-2 (8px) 与桌面/网页通用底部间距
+        // - top-2 bottom-2 与 work-area 的 my-2 垂直对齐,顶部/底部留出 8px 间距
         // - mr-2 在可见面板右边缘与 work-area 内容间形成 8px 视觉间距
         // - z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)
         // - width 由 useAiPanelStore.width 控制(320-720px);不挤压右侧 work-area 宽度
-        className={cn(
-          'fixed bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky',
-          isDesktop ? 'top-12' : 'top-2',
-        )}
+        className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky"
         style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
       >
         <aside
@@ -563,9 +613,6 @@ export function AISidePanel() {
               emptyHint={t('emptyHint')}
               assistantLabel={t('assistant')}
               loadingLabel={t('loading')}
-              hasMoreHistory={hasMoreHistory}
-              loadingMoreHistory={loadingMoreHistory}
-              onLoadMoreHistory={handleLoadMoreHistory}
               onTemplateSelect={(content) => {
                 useChatStore.setState({ draftInput: content })
               }}
