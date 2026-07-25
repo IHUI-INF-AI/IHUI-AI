@@ -8,7 +8,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { TYPE_ICON, TYPE_BADGE, STATUS_BADGE, PRIORITY_BADGE, STATUS_KEY } from '@/lib/feedback'
+import { TYPE_ICON, TYPE_BADGE, STATUS_BADGE, PRIORITY_BADGE, STATUS_KEY, PRIORITY_KEY } from '@/lib/feedback'
 import type { AdminFeedbackItem } from './types'
 
 interface FeedbackTableProps {
@@ -121,7 +121,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                         PRIORITY_BADGE[fb.priority],
                       )}
                     >
-                      {tf(`priority_${fb.priority}`)}
+                      {tf(PRIORITY_KEY[fb.priority] ?? 'priority_unknown')}
                     </span>
                   </td>
                   <td className="max-w-xs break-words px-4 py-2.5">{fb.feedback ?? '-'}</td>

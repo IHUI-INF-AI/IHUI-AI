@@ -129,6 +129,13 @@ export const PROVIDER_GROUPS: { key: ProviderGroup; providers: Provider[] }[] = 
 export const PROVIDERS: Provider[] = PROVIDER_GROUPS.flatMap((g) => g.providers)
 
 /**
+ * 厂商 i18n key 静态映射表:providers.${provider} — 用于消除 `t(\`providers.${var}\`)` 动态拼接
+ */
+export const PROVIDER_KEY: Record<string, string> = Object.fromEntries(
+  PROVIDERS.map((p) => [p, `providers.${p}`]),
+)
+
+/**
  * 推荐模型 id 集合:用于 highlight 标记 + "推荐排序" 加权
  * 选取标准:plan 套餐已接入 / 行业旗舰 / 项目默认模型
  */

@@ -40,7 +40,7 @@ import { cn } from '@/lib/utils'
 
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { QuickKeyDialog } from './QuickKeyDialog'
-import { getFavoriteModelIds, toggleFavoriteModel } from './helpers'
+import { getFavoriteModelIds, toggleFavoriteModel, PROVIDER_KEY } from './helpers'
 import type { Model, QuickFilter, SortKey, ViewMode } from './types'
 
 interface Props {
@@ -188,7 +188,7 @@ export function ModelsMarketplace({ list }: Props) {
         m.name.toLowerCase().includes(q) ||
         m.id.toLowerCase().includes(q) ||
         m.provider.toLowerCase().includes(q) ||
-        t(`providers.${m.provider}`).toLowerCase().includes(q) ||
+        t(PROVIDER_KEY[m.provider] ?? 'providers.unknown').toLowerCase().includes(q) ||
         m.features.some((f) => f.toLowerCase().includes(q))
       const matchFilter = matchesQuickFilter(m, quickFilter)
       return matchQuery && matchFilter
@@ -517,7 +517,7 @@ function ModelCardGrid({
 }) {
   const t = useTranslations('models')
   const outputPrice = model.outputPrice ?? model.inputPrice * 3
-  const vendorLabel = t(`providers.${model.provider}`)
+  const vendorLabel = t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
   return (
@@ -685,7 +685,7 @@ function ModelCardList({
   onConfigure: (m: Model) => void
 }) {
   const t = useTranslations('models')
-  const vendorLabel = t(`providers.${model.provider}`)
+  const vendorLabel = t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')
 
   return (
     <Card

@@ -28,6 +28,11 @@ import {
   DialogTitle,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Switch,
 } from '@ihui/ui-react'
 
@@ -45,6 +50,10 @@ interface Props {
   open: boolean
   provider: UserLlmProvider | null
   templates: PlatformTemplate[]
+  /** 模板是否正在加载(2026-07-25:用于 templates=[] 时区分"加载中"vs"加载失败") */
+  templatesLoading?: boolean
+  /** 模板加载错误(2026-07-25:用户能看到具体原因) */
+  templatesError?: string | null
   /** 用户已存在的分组(供下拉选择) */
   existingGroups: { group: string; groupLabel: string }[]
   /** 从外部预填(如排行榜一键导入),仅新建时生效 */
@@ -57,6 +66,8 @@ export function ProviderFormDialog({
   open,
   provider,
   templates,
+  templatesLoading = false,
+  templatesError = null,
   existingGroups,
   prefill,
   onClose,
@@ -78,9 +89,13 @@ export function ProviderFormDialog({
           apiKey: '',
         })
       } else {
+        // 新建:用 templates[0] 作为默认平台(若 templates 已加载,providerCode 必须落在 SelectItem 列表里,
+        // 否则 Radix SelectValue 会显示空白 → trigger 变成"黑不溜秋一条")。
+        // templates=[] 时(API 未就绪/未登录)保留 EMPTY 默认 'openai',SelectValue 走 placeholder 兜底。
         const tpl = templates[0]
         setForm({
           ...EMPTY_PROVIDER_FORM,
+          providerCode: tpl?.code ?? EMPTY_PROVIDER_FORM.providerCode,
           name: tpl?.name ?? '',
           baseUrlOverride: tpl?.baseUrl ?? '',
           apiFormat: tpl?.apiFormat ?? 'openai_chat',
@@ -108,6 +123,11 @@ export function ProviderFormDialog({
     e.preventDefault()
     if (!form.name.trim()) {
       toast.error(t('nameRequired'))
+      return
+    }
+    if (!isEdit && !form.providerCode.trim()) {
+      // templates 未加载好时(触发器变成 muted 显示,用户无法选择)→ 直接拦截,提示重试
+      toast.error(t('templatesNotReady'))
       return
     }
     if (!form.id && !form.apiKey.trim()) {
@@ -138,28 +158,52 @@ export function ProviderFormDialog({
           {/* 平台选择(只在新建时可改) */}
           <div className="space-y-1.5">
             <Label htmlFor="providerCode">{t('platform')}</Label>
-            <select
-              id="providerCode"
-              value={form.providerCode}
-              onChange={(e) => {
-                const next = templates.find((tt) => tt.code === e.target.value)
-                setForm({
-                  ...form,
-                  providerCode: e.target.value,
-                  baseUrlOverride: next?.baseUrl ?? '',
-                  apiFormat: next?.apiFormat ?? 'openai_chat',
-                  name: form.name || next?.name || '',
-                })
-              }}
-              disabled={isEdit}
-              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {templates.map((tpl) => (
-                <option key={tpl.code} value={tpl.code}>
-                  {tpl.name} {tpl.isOfficial ? '★' : ''}
-                </option>
-              ))}
-            </select>
+            {templates.length === 0 ? (
+              // 模板未就绪:显示加载/错误状态,而不是空下拉(避免用户看到"黑不溜秋一条"无内容下拉)
+              <div
+                id="providerCode"
+                className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm text-muted-foreground"
+              >
+                {templatesError ? (
+                  <span className="truncate" title={templatesError}>
+                    {t('templatesLoadError', { error: templatesError })}
+                  </span>
+                ) : templatesLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    {t('templatesLoading')}
+                  </>
+                ) : (
+                  <span>{t('templatesEmpty')}</span>
+                )}
+              </div>
+            ) : (
+              <Select
+                value={form.providerCode}
+                onValueChange={(v) => {
+                  const next = templates.find((tt) => tt.code === v)
+                  setForm({
+                    ...form,
+                    providerCode: v,
+                    baseUrlOverride: next?.baseUrl ?? '',
+                    apiFormat: next?.apiFormat ?? 'openai_chat',
+                    name: form.name || next?.name || '',
+                  })
+                }}
+                disabled={isEdit}
+              >
+                <SelectTrigger id="providerCode" className="w-full">
+                  <SelectValue placeholder={t('platformPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((tpl) => (
+                    <SelectItem key={tpl.code} value={tpl.code}>
+                      {tpl.name} {tpl.isOfficial ? '★' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {tpl?.docsUrl ? (
               <a
                 href={tpl.docsUrl}
@@ -254,41 +298,49 @@ export function ProviderFormDialog({
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <Label htmlFor="providerGroup">{t('group')}</Label>
-              <select
-                id="providerGroup"
+              <Select
                 value={form.providerGroup}
-                onChange={(e) => {
-                  const matched = existingGroups.find((g) => g.group === e.target.value)
+                onValueChange={(v) => {
+                  const matched = existingGroups.find((g) => g.group === v)
                   setForm({
                     ...form,
-                    providerGroup: e.target.value,
-                    groupLabel: matched?.groupLabel ?? e.target.value,
+                    providerGroup: v,
+                    groupLabel: matched?.groupLabel ?? v,
                   })
                 }}
-                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="default">{t('defaultGroup')}</option>
-                {existingGroups
-                  .filter((g) => g.group !== 'default')
-                  .map((g) => (
-                    <option key={g.group} value={g.group}>
-                      {g.groupLabel}
-                    </option>
-                  ))}
-              </select>
+                <SelectTrigger id="providerGroup" className="w-full">
+                  <SelectValue placeholder={t('groupPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">{t('defaultGroup')}</SelectItem>
+                  {existingGroups
+                    .filter((g) => g.group !== 'default')
+                    .map((g) => (
+                      <SelectItem key={g.group} value={g.group}>
+                        {g.groupLabel}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="apiFormat">{t('protocol')}</Label>
-              <select
-                id="apiFormat"
+              <Select
                 value={form.apiFormat}
-                onChange={(e) => setForm({ ...form, apiFormat: e.target.value as ProviderFormState['apiFormat'] })}
-                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                onValueChange={(v) =>
+                  setForm({ ...form, apiFormat: v as ProviderFormState['apiFormat'] })
+                }
               >
-                <option value="openai_chat">OpenAI Chat</option>
-                <option value="openai_responses">OpenAI Responses</option>
-                <option value="anthropic_messages">Anthropic Messages</option>
-              </select>
+                <SelectTrigger id="apiFormat" className="w-full">
+                  <SelectValue placeholder={t('protocolPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai_chat">OpenAI Chat</SelectItem>
+                  <SelectItem value="openai_responses">OpenAI Responses</SelectItem>
+                  <SelectItem value="anthropic_messages">Anthropic Messages</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

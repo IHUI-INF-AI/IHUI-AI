@@ -74,17 +74,24 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const activeMode = activeWorkspace?.mode
   // 初始读 localStorage(SSR 阶段跳过,客户端首次渲染再读)
-  const [record, setRecord] = React.useState<AutoRevertRecord | null>(() => {
-    if (typeof window === 'undefined') return null
-    return readRecord()
-  })
+  const [record, setRecord] = React.useState<AutoRevertRecord | null>(null)
+  // 客户端 mount 时强制读一次(2026-07-25 修复:useState lazy initializer 在 SSR 返回 null 后,
+  // 客户端 hydration 不会重跑,导致 expired/刷新场景的 record 被 effect 1 覆盖)
+  const [hydrated, setHydrated] = React.useState(false)
+  React.useEffect(() => {
+    if (hydrated) return
+    setRecord(readRecord())
+    setHydrated(true)
+  }, [hydrated])
   // 强制 1s 重渲染,刷新倒计时显示
   const [, setTick] = React.useState(0)
 
   // 模式变化 → 同步 record
   // - 切到 bypass-permissions:启动新倒计时(如果当前已激活则保持,只在切回 default/accept-edits 时清掉)
   // - 切到 default / accept-edits:清掉
+  // 依赖 hydrated:hydration 完成后才允许 effect 同步,防止 hydration 前 effect 把 record 覆盖
   React.useEffect(() => {
+    if (!hydrated) return
     if (activeMode === 'bypass-permissions') {
       // 仅在没有活跃 record 时启动新的
       setRecord((prev) => {

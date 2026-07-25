@@ -58,6 +58,7 @@ import {
 } from '@/lib/user-llm-configs'
 import { providerToTemplateCode } from '@/lib/llm-templates'
 
+import { PROVIDER_KEY } from './helpers'
 import type { Model } from './types'
 
 interface Props {
@@ -209,7 +210,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
               </DialogTitle>
               <DialogDescription className="mt-0.5 flex items-center gap-1.5 text-xs">
                 <BrandIcon vendor={model.provider} size={12} className="text-muted-foreground" />
-                <span>{t(`providers.${model.provider}`)}</span>
+                <span>{t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')}</span>
                 <span className="text-muted-foreground/60">·</span>
                 <code className="font-mono text-[11px]">{model.id}</code>
               </DialogDescription>
