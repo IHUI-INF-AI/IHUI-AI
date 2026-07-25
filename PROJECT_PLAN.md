@@ -927,6 +927,38 @@ const auth = useAuth({
 
 ---
 
+### [x] ✅(2026-07-25) 维护成本优化第十轮 — i18n 阶段 4 无引用 key 清理完成(跨端:仅 web)
+
+**触发**:用户要求继续 i18n 治理阶段 4(无引用 key 清理)。
+
+**执行方式**:1 主 agent + 其他 agent 并行(其他 agent 修复 audit 脚本 + 清理 37 key,主 agent 清理 nav 198 key + 增强 audit --output-keys)。
+
+**成果清单**:
+
+#### web i18n 无引用 key 453 → 0 真实无引用
+
+| 批次 | commit | 范围 | 数量 |
+|------|--------|------|------|
+| 批次 1(主 agent) | 1ccd3fa3e | nav 命名空间 + audit --output-keys 增强 | 198 |
+| 其他 agent | 47ba174ff | audit(31)+help.faq(5)+chat.permission(1)+audit 脚本修复 | 37 |
+| **累计** | — | — | **235 实删 + 218 因其他 agent 改动自然消引用** |
+
+**audit 最终状态**:
+- 递归 key:9910 → 9679
+- 无引用 key:453 (4.6%) → 8 (0.1%) → 0(8 个全部是误报,audit 脚本增强修复)
+- 动态拼接警告:0
+
+**剩余 8 个误报 key(全部已修复)**:
+- chat.permission.switchedToMode*(3):变量赋值后 t(key) 引用(audit 新增 re6 检测)
+- design.templates.categories.*(5):映射表对象属性间接引用(audit 新增 re7 检测)
+
+**Git 同步证据**:
+- 本地 commit: 1ccd3fa3e(主 agent,已 push)
+- origin commit: fb47a1697(包含主 agent commit)
+- 同步状态: 本任务 commit 已 push ✅
+
+---
+
 ### [x] ✅(2026-07-25) 维护成本优化第六轮 — web i18n 动态拼接第二批治理 Top 10 命名空间(跨端:仅 web)
 
 **触发**:用户要求"继续 E:\桌面\项目端口分析与维护成本优化.md"。承接报告 ⑧ i18n key 必要性审计,推进 web 端动态拼接静态化第二批。
