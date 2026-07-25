@@ -1405,6 +1405,69 @@ const auth = useAuth({
 
 ---
 
+### [x] ✅(2026-07-25) 维护成本优化第十二轮 — audit 脚本误判修复 + extension/mobile-rn i18n 无引用 key 清理(跨端:extension + mobile-rn)
+
+**触发**:用户要求"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。承接第十一轮 extension 端 i18n 翻译补齐,推进 extension + mobile-rn 两端的无引用 key 审计与清理。
+
+**根因排查(2 个 subagent 并行核对发现 3 类误判)**:
+
+1. ❌ 误判 1:audit 脚本 `RG_PATTERN` 未含 `titleKey|descKey|labelKey` 等 → ripgrep 漏扫 `<AppListPage titleKey="apps.aiTitle" />` JSX 属性行 → extractFromLine 的 re3 只识别 `i18nKey=`,不识别 `titleKey=`/`descKey=` → extension 端 67 个 apps.* key 被误判无引用(实际通过 AppListPage 组件 `t(item.titleKey)` / `t(item.descKey)` 渲染)。
+2. ❌ 误判 2:audit 脚本 `TARGET_CONFIG['mobile-rn'].searchDirs` 未含 `packages/app/src` → mobile-rn 通过 `props.t={t}` 注入共享组件的 `t('key')` 调用被漏扫 → 30 个 about.*/settings.*/profile.* key 被误判无引用(实际在 packages/app 的 AboutScreen/ProfileScreen/SettingsScreen 中引用)。
+3. ❌ 误判 3:audit 脚本 `reDyn1` 只识别 `t(`...${...}...`)` 直接调用,不识别 `const VAR = `...${...}...`; t(VAR)` 间接调用 → mobile-rn OrderScreen 的 7 个 `order.status.*` key 被误判无引用。
+
+**误判核对统计**(2 个 subagent 并行核对审计报告 v1):
+
+| 端 | audit v1 报告 | 误判 | 真无引用 | 误判率 |
+| --- | --- | --- | --- | --- |
+| extension | 115 | 67(58.3%) | 48 | JSX 属性 titleKey=/descKey= 漏识别 |
+| mobile-rn | 148 | 37(25.0%) | 111 | searchDirs 漏扫 packages/app(30)+ 动态拼接间接调用(7) |
+| **合计** | **263** | **104** | **159** | — |
+
+**audit 脚本 5 处修复**([scripts/audit-i18n-unused-keys.mjs](file:///g:/IHUI-AI/scripts/audit-i18n-unused-keys.mjs)):
+
+1. `RG_PATTERN` 补 `titleKey|descKey|labelKey|nameKey|descriptionKey|altKey` — ripgrep 广义匹配覆盖 JSX 属性行。
+2. `re3` 扩展为 `/\b(?:i18nKey|titleKey|descKey|labelKey|nameKey|descriptionKey|altKey)\s*=\s*['"]([^'"]+)['"]/g` — 精确识别 JSX 属性形式。
+3. `re7` 新增 `/(?:const|let|var)\s+\w+\s*=\s*`([^`]*\$\{[^}]*\}[^`]*)`/g` + 文件级扫描(步骤 3c-2)+ 步骤 4b 用 dynamicPrefix 标记所有以该 prefix 开头的 leaf key 为已引用 — 解决 `const VAR = `prefix${...}...`; t(VAR)` 间接调用。
+4. `TARGET_CONFIG['mobile-rn'].searchDirs` 加 `packages/app/src` — 覆盖共享组件通过 props.t 注入的引用。
+5. 默认 `targets` 从 `['web', 'miniapp-taro']` 改为 `['web', 'miniapp-taro', 'extension', 'mobile-rn']` — 与 showHelp 描述对齐。
+
+**audit v3 验证(误判全部消除)**:
+
+| 端 | audit v1 | audit v3 | 误判消除数 |
+| --- | --- | --- | --- |
+| extension | 115 | 48 | 67 ✅ |
+| mobile-rn | 148 | 111 | 37 ✅ |
+
+**清理成果**(159 个真无引用 key,5 语言同步删除):
+
+| 端 | 删除 key 数 | 命名空间分布 | 5 语言 parity |
+| --- | --- | --- | --- |
+| extension | 48 | apps.*Desc(5)/common(3)/nav(5)/auth(2)/translate(8 全)/vocab(7)/chat(3)/settings(6)/error(6 全)/success(3 全) | ✅ 277→229 |
+| mobile-rn | 111 | common(6)/nav(5)/auth(16)/home(5)/course(9)/live(6)/profile(9)/order(8)/wallet(6)/community(7)/agent(5)/chat(9)/settings(3)/error(6)/success(5)/taskDispatch(5) | ✅ 259→148 |
+| **合计** | **159** | — | **10 文件** |
+
+**执行方式**:1 主 agent(audit 脚本修复 + cleanup 清单生成 + 验证) + 2 subagent 并行(extension/mobile-rn 无引用 key 核对)。
+
+**验证**:
+
+| 验证项 | 结果 |
+| --- | --- |
+| `node scripts/cleanup-i18n-unused-keys.mjs --dry-run` | ✅ 159 key,notFound=0,parity OK |
+| `node scripts/cleanup-i18n-unused-keys.mjs`(实际删除) | ✅ 10 文件已写入,5 语言 deleted 一致 |
+| `pnpm --filter @ihui/extension typecheck` | ✅ exit 0 |
+| `pnpm --filter @ihui/mobile-rn typecheck` | ⚠️ 失败,但是 `tests/use-chat.test.tsx(52,1): error TS1005: '}' expected` 语法错误(其他 agent 引入,与本任务 i18n cleanup 无关) |
+| `node scripts/check-i18n-keys.mjs` | ⚠️ 报告 18 缺失键 + 349 未翻译键,全是 web 端问题(其他 agent 引入,与本任务无关) |
+
+**教训**:audit 脚本的误判率曾高达 58.3%(extension)/25.0%(mobile-rn),核心根因是"ripgrep 广义匹配模式漏扫 + 行级正则不识别间接引用"。修复策略:① RG_PATTERN 必须覆盖所有 i18n key 字段名(titleKey/descKey/labelKey 等);② 间接引用(对象字段字面量 → t(item.field)、props.t 注入、const VAR = `prefix${...}...`; t(VAR))必须用文件级扫描 + 动态 prefix 标记;③ 默认 targets 必须覆盖所有已配置端,避免漏扫。
+
+**Git 同步证据**:
+
+- 本地 commit: <待填>(本任务 commit)
+- origin commit: <待填>
+- 同步状态: 本任务 commit 待 push
+
+---
+
 ### [x] ✅(2026-07-25) 维护成本优化第六轮 — web i18n 动态拼接第二批治理 Top 10 命名空间(跨端:仅 web)
 
 **触发**:用户要求"继续 E:\桌面\项目端口分析与维护成本优化.md"。承接报告 ⑧ i18n key 必要性审计,推进 web 端动态拼接静态化第二批。
