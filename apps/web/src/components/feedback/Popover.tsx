@@ -34,6 +34,13 @@ interface PopoverProps {
    */
   tooltip?: React.ReactNode
   tooltipSide?: 'top' | 'right' | 'bottom' | 'left'
+  /**
+   * 弹层开关状态变化回调(2026-07-25 深化,Codex 权限模式 popover 用)
+   * - 用于外部组件感知弹层打开/关闭,在打开时启用键盘监听(↑/↓/Enter/1-3)
+   * - 关闭时清理由 PermissionModePopover 等组件持有的 focusedIndex 等 transient state
+   * - 不传时保持原行为(内部 state 独立管理)
+   */
+  onOpenChange?: (open: boolean) => void
 }
 
 const FOCUSABLE_SELECTOR =
@@ -54,12 +61,23 @@ export function Popover({
   align = 'center',
   tooltip,
   tooltipSide = 'top',
+  onOpenChange,
 }: PopoverProps) {
   const [open, setOpen] = React.useState(false)
+  // 把 setOpen 包裹成通知外部的版本(2026-07-25 立,onOpenChange 接入)
+  const updateOpen = React.useCallback(
+    (next: boolean) => {
+      setOpen(next)
+      onOpenChange?.(next)
+    },
+    [onOpenChange],
+  )
   const contentRef = React.useRef<HTMLDivElement | null>(null)
   const triggerElRef = React.useRef<HTMLElement | null>(null)
   // 包装 div 引用,click-outside 用
-  const ref = useClickOutside<HTMLDivElement>(React.useCallback(() => setOpen(false), []))
+  const ref = useClickOutside<HTMLDivElement>(
+    React.useCallback(() => updateOpen(false), [updateOpen]),
+  )
 
   // portal 模式:动态计算 fixed 坐标(随 trigger 滚动/resize 同步)
   // 直接计算最终 left/top(已含 align 平移)+ 视口边界 clamp,避免弹层超出视口
@@ -153,7 +171,7 @@ export function Popover({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        setOpen(false)
+        updateOpen(false)
         return
       }
       if (e.key !== 'Tab' || !contentRef.current) return
@@ -182,12 +200,12 @@ export function Popover({
       // 关闭时焦点回归 trigger
       triggerElRef.current?.focus?.()
     }
-  }, [open])
+  }, [open, updateOpen])
 
   const triggerProps =
     trigger === 'hover'
-      ? { onMouseEnter: () => setOpen(true), onMouseLeave: () => setOpen(false) }
-      : { onClick: () => setOpen(!open) }
+      ? { onMouseEnter: () => updateOpen(true), onMouseLeave: () => updateOpen(false) }
+      : { onClick: () => updateOpen(!open) }
 
   // 抓 trigger DOM 节点(用 callback ref 赋值给 triggerElRef)
   const childWithRef = React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {

@@ -4,6 +4,7 @@ import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { CATEGORY_KEY } from './helpers'
 import type { HelpArticle } from './types'
 
 interface Props {
@@ -51,7 +52,7 @@ export function HelpTable({ list, isLoading, deletePending, onEdit, onDelete }: 
                 <td className="px-4 py-2.5 font-medium">{h.title}</td>
                 <td className="px-4 py-2.5">
                   <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    {t(`categories.${h.category}`)}
+                    {t(CATEGORY_KEY[h.category] ?? 'categories.unknown')}
                   </span>
                 </td>
                 <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{h.slug}</td>
