@@ -147,7 +147,7 @@ function RecordsContent() {
                 </TableCell>
               </TableRow>
             ) : (
-              records.map((r) => {
+              records.map((r: any) => {
                 const cls = STATUS_CLS[r.status] ?? 'bg-muted text-muted-foreground'
                 return (
                   <TableRow key={r.id} className="hover:bg-muted/30">

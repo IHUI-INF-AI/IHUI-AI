@@ -119,9 +119,9 @@ export default function EduCourseCategoriesPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
-  const allChecked = rows.length > 0 && rows.every((r) => ids.includes(r.id))
+  const allChecked = rows.length > 0 && rows.every((r: any) => ids.includes(r.id))
   function toggleAll() {
-    setIds(allChecked ? [] : rows.map((r) => r.id))
+    setIds(allChecked ? [] : rows.map((r: any) => r.id))
   }
   function toggleOne(id: string) {
     setIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))

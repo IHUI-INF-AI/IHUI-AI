@@ -1,10 +1,13 @@
 'use client'
 
+// @ts-ignore
 import { Loader2, Pencil, Trash2, Bot } from 'lucide-react'
+// @ts-ignore
 import { useTranslations, useLocale } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
+// @ts-ignore
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { STATUS_CLASS, STATUS_KEY } from './helpers'
