@@ -1,5 +1,6 @@
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client'
 import { type TokenPair } from '@ihui/types'
+import type { TokenStore } from '@ihui/shared/auth'
 import {
   initApiBaseUrl,
   getApiBaseUrl,
@@ -55,6 +56,16 @@ export async function setToken(token: string | null): Promise<void> {
   }
 }
 
+/** 单独设置 refresh token(写存储 + 更新缓存),与 setToken 解耦 */
+export async function setRefreshToken(token: string | null): Promise<void> {
+  cachedRefreshToken = token
+  if (token) {
+    await chrome.storage.local.set({ [REFRESH_TOKEN_STORAGE_KEY]: token })
+  } else {
+    await chrome.storage.local.remove(REFRESH_TOKEN_STORAGE_KEY)
+  }
+}
+
 export function getToken(): string | null {
   return cachedToken
 }
@@ -93,4 +104,19 @@ export async function clearAllTokens(): Promise<void> {
   ])
   const { stopAutoRefresh } = await import('./token-utils')
   stopAutoRefresh()
+}
+
+/**
+ * TokenStore 契约接入(类型层验证,零运行时改动)
+ *
+ * 编译时验证本端 token 管理实现符合 @ihui/shared/auth TokenStore 接口,
+ * 为后续跨端统一调用提供类型安全网。各调用方仍可直接用具体函数,
+ * 此对象供后续重构或新代码通过 TokenStore 接口调用使用。
+ */
+export const tokenStore: TokenStore = {
+  getToken,
+  getRefreshToken,
+  setToken,
+  setRefreshToken,
+  clearAll: clearAllTokens,
 }

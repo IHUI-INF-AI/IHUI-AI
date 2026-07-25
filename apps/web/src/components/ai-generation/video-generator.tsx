@@ -14,6 +14,18 @@ interface VideoGeneratorProps {
 const PROVIDERS: VideoProvider[] = ['qwen', 'kling', 'one-click']
 const DURATIONS = ['5', '10', '30'] as const
 
+/** i18n 静态映射表 — 用于消除 `t(\`provider.${var}\`)` / `t(\`duration.${var}\`)` 动态拼接 */
+const PROVIDER_KEY: Record<VideoProvider, string> = {
+  qwen: 'provider.qwen',
+  kling: 'provider.kling',
+  'one-click': 'provider.one-click',
+}
+const DURATION_KEY: Record<string, string> = {
+  '5': 'duration.5',
+  '10': 'duration.10',
+  '30': 'duration.30',
+}
+
 /** VideoGenerator - 视频生成器 */
 export function VideoGenerator({ onGenerate }: VideoGeneratorProps) {
   const t = useTranslations('videoGenerator')
@@ -42,13 +54,13 @@ export function VideoGenerator({ onGenerate }: VideoGeneratorProps) {
             label={t('providerLabel')}
             value={provider}
             onChange={setProvider}
-            options={PROVIDERS.map((p) => ({ value: p, label: t(`provider.${p}`) }))}
+            options={PROVIDERS.map((p) => ({ value: p, label: t(PROVIDER_KEY[p] ?? 'provider.unknown') }))}
           />
           <OptionSelect
             label={t('durationLabel')}
             value={duration}
             onChange={setDuration}
-            options={DURATIONS.map((d) => ({ value: d, label: t(`duration.${d}`) }))}
+            options={DURATIONS.map((d) => ({ value: d, label: t(DURATION_KEY[d] ?? 'duration.unknown') }))}
           />
         </div>
       }
