@@ -770,10 +770,20 @@ export function MessageInput({
   // #18 流式中输入框保持可输入(2026-07-25 立):
   // 流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
   // 发送按钮仍由 !isStreaming 守门(流式中显示 Stop 按钮),Enter 提交由 submit() 内 isStreaming 检查兜底,不会误发。
-  // 注:此处硬编码中文占位,后续 i18n 治理补 chat.streamingPlaceholder key(已知技术债)。
-  const effectivePlaceholder = isStreaming
-    ? 'AI 正在生成中,可输入下一条消息草稿…'
-    : placeholder
+  // 2026-07-25 修复:占位符从硬编码中文改走 i18n chat.streamingIndicatorHint
+  // (已在 zh-CN/en/ja/ko/zh-TW 5 语言文件中齐备,末尾省略号统一加 "…" 提示持续生成)。
+  // try/catch 兜底:next-intl 缺失 key 时返回带 namespace 前缀的路径(非空字符串),
+  // 这里额外检查路径后缀避免误用,fallback 字符串保证 placeholder 永不为 undefined。
+  let streamingHint: string
+  try {
+    const v = t('streamingIndicatorHint')
+    streamingHint = v === 'streamingIndicatorHint' || v.endsWith('.streamingIndicatorHint')
+      ? 'AI 正在生成中,可输入下一条消息草稿'
+      : v
+  } catch {
+    streamingHint = 'AI 正在生成中,可输入下一条消息草稿'
+  }
+  const effectivePlaceholder = isStreaming ? `${streamingHint}…` : placeholder
 
   return (
     <div>
