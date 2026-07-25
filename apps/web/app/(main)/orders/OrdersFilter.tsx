@@ -15,6 +15,20 @@ interface Props {
   setView: (v: 'table' | 'card') => void
 }
 
+const TYPE_KEY: Record<string, string> = {
+  all: 'type.all',
+  course: 'type.course',
+  card: 'type.card',
+}
+
+const STATUS_KEY: Record<'all' | 'pending' | 'paid' | 'cancelled' | 'refunded', string> = {
+  all: 'status.all',
+  pending: 'status.pending',
+  paid: 'status.paid',
+  cancelled: 'status.cancelled',
+  refunded: 'status.refunded',
+}
+
 export function OrdersFilter({ status, setStatus, orderType, setOrderType, view, setView }: Props) {
   const t = useTranslations('orders')
   return (
@@ -26,7 +40,7 @@ export function OrdersFilter({ status, setStatus, orderType, setOrderType, view,
         <SelectContent>
           {TYPE_TABS.map((tab) => (
             <SelectItem key={tab.value} value={tab.value}>
-              {t(`type.${tab.labelKey}`)}
+              {t(TYPE_KEY[tab.labelKey] ?? 'type.unknown')}
             </SelectItem>
           ))}
         </SelectContent>
@@ -43,7 +57,7 @@ export function OrdersFilter({ status, setStatus, orderType, setOrderType, view,
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`status.${tab.labelKey}`)}
+            {t(STATUS_KEY[tab.labelKey]!)}
           </button>
         ))}
       </div>

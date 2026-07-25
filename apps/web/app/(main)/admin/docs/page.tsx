@@ -13,6 +13,21 @@ import { cn } from '@/lib/utils'
 type DocCategory = 'api' | 'guide' | 'development' | 'faq'
 type DocStatus = 'draft' | 'published'
 
+const DOC_STATUS_KEYS: Record<DocStatus, string> = {
+  draft: 'status_draft',
+  published: 'status_published',
+}
+
+/**
+ * 文档分类 i18n key 静态映射表:categories.${category} — 用于消除 `t(\`categories.${var}\`)` 动态拼接
+ */
+const DOC_CATEGORY_KEY: Record<DocCategory, string> = {
+  api: 'categories.api',
+  guide: 'categories.guide',
+  development: 'categories.development',
+  faq: 'categories.faq',
+}
+
 interface Doc {
   id: string
   title: string
@@ -119,13 +134,13 @@ export default function AdminDocsPage() {
                 <tr key={d.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{d.title}</td>
                   <td className="px-4 py-2.5">
-                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t(`categories.${d.category}`)}</span>
+                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t(DOC_CATEGORY_KEY[d.category] ?? 'categories.unknown')}</span>
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{d.slug}</td>
                   <td className="px-4 py-2.5">
                     <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium', d.status === 'published' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
                       <span className={cn('h-1.5 w-1.5 rounded-full', d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
-                      {t(`status_${d.status}`)}
+                      {t(DOC_STATUS_KEYS[d.status]!)}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{d.viewCount ?? 0}</td>
