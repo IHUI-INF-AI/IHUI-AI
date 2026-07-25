@@ -49,7 +49,7 @@ describe('clawdbot PairingService 配对服务', () => {
     })
 
     it('无效 code 返回 null', () => {
-      expect(svc.confirmPairing('XXXXXX', 'u1', 'd1', 'web')).toBeNull()
+      expect(svc.confirmPairing('IIIIII', 'u1', 'd1', 'web')).toBeNull()
     })
 
     it('已过期 code 标记为 expired 并返回 null', () => {
