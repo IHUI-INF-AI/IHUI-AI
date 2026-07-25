@@ -257,7 +257,11 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
       <div
         ref={ref}
         className={cn(
-          'relative flex h-full flex-col border-l border-border bg-card',
+          // 2026-07-25 用户反馈:加 overflow-hidden 彻底干掉外层滚动条
+          // 原 'relative flex h-full flex-col border-l border-border bg-card'
+          // 缺 overflow-hidden → 内容区(工具栏+iframe)总高度 > 父容器时
+          // 浏览器自动给外层加竖向滚动条,鼠标滚轮/触摸板足够不需要它
+          'relative flex h-full flex-col overflow-hidden border-l border-border bg-card',
           'animate-in slide-in-from-right duration-200',
           className,
         )}
@@ -386,8 +390,8 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
               </button>
             </div>
 
-            {/* 列表 */}
-            <div className="max-h-60 overflow-y-auto py-0.5">
+            {/* 列表(2026-07-25 用户反馈:彻底隐藏滚动条,鼠标滚轮/触摸板足够) */}
+            <div className="hover-scroll max-h-60 overflow-y-auto py-0.5">
               {dropdownItems.length === 0 ? (
                 <div className="px-2 py-4 text-center text-xs text-muted-foreground">
                   {dropdownTab === 'favorites' ? labels.emptyFavorites : labels.emptyHistory}
@@ -449,7 +453,8 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
         {/* Tab 栏(仅多 Tab 时显示) */}
         {tabs.length > 0 && (
           <div className="flex items-center gap-0.5 px-2 pb-1">
-            <div className="flex flex-1 items-center gap-0.5 overflow-x-auto">
+            {/* 2026-07-25 用户反馈:横向滚动条也彻底隐藏,鼠标滚轮/触摸板左右滑足够 */}
+            <div className="hover-scroll flex flex-1 items-center gap-0.5 overflow-x-auto">
               {tabs.map((tab, idx) => {
                 // P4-5:本 tab 是否在拖动中 / 是 drop 目标
                 const isDragging = draggedTabId === tab.id
@@ -553,8 +558,11 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
           </div>
         )}
 
-        {/* 内容区 */}
-        <div className="flex-1 overflow-hidden p-2">{children}</div>
+        {/* 内容区(2026-07-25 用户反馈:彻底隐藏滚动条,鼠标滚轮/触摸板足够)
+            - 加 work-panel-content 类,globals.css 用 !important 强制干掉 Webkit/Firefox/IE 滚动条
+            - 改用 overflow-hidden(原 overflow-y-auto):即使内容溢出也不显示原生滚动条,
+              鼠标滚轮/触摸板驱动外层 / iframe 内部滚动 */}
+        <div className="work-panel-content hover-scroll flex-1 overflow-hidden p-2">{children}</div>
       </div>
     )
   },

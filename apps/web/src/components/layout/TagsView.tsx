@@ -161,7 +161,11 @@ export function TagsView() {
     setOverIndex(null)
   }
 
-  if (tags.length === 0) return null
+  // 2026-07-25 用户反馈:即使无 tag 也不返回 null,显示一行 placeholder 占位
+  // 填满"右侧工作展示区最上面那块空白区域",不让裸背景露出来。
+  // 容器始终存在,内部内容根据 tags.length 切换:
+  //   - 有 tags:渲染标签栏 + Dropdown
+  //   - 无 tags:渲染一行 "暂无打开的页面" 占位文本 + Dropdown(禁用)
 
   // ctxMenu 位置越界修正:贴 viewport 边缘(避免菜单出框)
   const menuStyle = ctxMenu
@@ -178,9 +182,22 @@ export function TagsView() {
     : null
 
   return (
-    <div className="mx-2 mt-2 flex h-9 items-center gap-1 rounded-lg bg-muted/70 px-2 dark:bg-white/[0.07]">
-      <div className="thin_scroll flex flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
-        {tags.map((tag, index) => {
+    <div
+      data-tagsview
+      data-empty={tags.length === 0 ? 'true' : 'false'}
+      className="mx-2 mt-2 flex h-9 items-center gap-1 rounded-lg bg-muted/70 px-2 dark:bg-white/[0.07]"
+    >
+      <div className="hover-scroll flex flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
+        {tags.length === 0 ? (
+          // 2026-07-25 用户反馈:无 tag 时不返回 null,显示一行 placeholder 占位文本
+          <span
+            data-testid="tagsview-empty"
+            className="select-none px-1 text-xs text-muted-foreground/70"
+          >
+            暂无打开的页面
+          </span>
+        ) : (
+          tags.map((tag, index) => {
           const active = tag.path === activePath
           const draggable = !active
           const isOver = overIndex === index && dragIndex !== null
@@ -248,7 +265,8 @@ export function TagsView() {
               </span>
             </Link>
           )
-        })}
+          })
+        )}
       </div>
       {tags.length > 0 && (
         <Dropdown

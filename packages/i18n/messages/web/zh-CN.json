@@ -712,6 +712,8 @@
     "promptTemplate": "提示词模板",
     "addContextReference": "添加为上下文引用",
     "addContextHint": "添加上下文文件或引用",
+    "addMenuLabel": "添加",
+    "addMenuDesc": "添加菜单(模板/引用/Skill/附件/插件)",
     "slashCommand": "调用命令与技能(/)",
     "selectedToolsTitle": "已选工具",
     "realIntegratedTooltip": "已集成:ai-service 后端有对应 MCP 工具,LLM 真能调用",
