@@ -24,6 +24,48 @@ const jsonLd = {
         { '@type': 'ListItem', position: 3, name: '智能客服', item: 'https://ihui.ai/use-cases/customer-support' },
       ],
     },
+    // 2026-07-26 极致 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建智能客服 Agent"类检索)
+    {
+      '@type': 'HowTo',
+      '@id': 'https://ihui.ai/use-cases/customer-support#howto',
+      name: '5 分钟搭建 7×24 智能客服 Agent',
+      description:
+        '基于 IHUI AI 全栈 AI 操作系统搭建智能客服 Agent 的 4 步流程:上传知识库 → 配置 Agent → 多渠道发布 → 持续优化。成本降低 70%,响应 0 秒。',
+      inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
+      totalTime: 'PT5M',
+      estimatedCost: { '@type': 'MonetaryAmount', currency: 'CNY', value: '0' },
+      supply: [{ '@type': 'HowToSupply', name: '产品手册/FAQ/历史工单' }],
+      tool: [
+        { '@type': 'HowToTool', name: 'IHUI AI 知识库 RAG 模块' },
+        { '@type': 'HowToTool', name: 'IHUI AI Agent 设计器' },
+      ],
+      step: [
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '上传知识库',
+          text: '导入产品手册/FAQ/历史工单,AI 自动向量化,5 分钟即可上线。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '配置 Agent',
+          text: '从客服场景模板 fork,配置欢迎语/转人工规则/品牌话术。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '多渠道发布',
+          text: '一键发布到 Web/微信/小程序/邮件,所有渠道共享同一知识库。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '持续优化',
+          text: '查看对话日志,标注 AI 错误答案,系统自动迭代知识库。',
+        },
+      ],
+    },
   ],
 }
 
