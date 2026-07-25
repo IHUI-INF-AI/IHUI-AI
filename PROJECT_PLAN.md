@@ -183,8 +183,8 @@
 
 ```
 ## Git 同步证据
-- 本地 commit: <待填>
-- origin commit: <待填>
+- 本地 commit: f96e48105221cccdd223d7ea216024efaec3ceb3
+- origin commit: f96e48105221cccdd223d7ea216024efaec3ceb3
 - 同步状态: local == remote ✅
 - 守门脚本: node scripts/git-push-guard.mjs exit 0
 ```
