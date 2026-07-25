@@ -70,7 +70,14 @@ export default function AdminSettlementPage() {
       icon: Hourglass,
       cls: 'text-amber-500',
     },
-  ]
+  ] as const
+
+  /** i18n 静态映射表 — 用于消除 `t(\`summary_${var}\`)` 动态拼接 */
+  const SUMMARY_KEY: Record<string, string> = {
+    totalAmount: 'summary_totalAmount',
+    settledAmount: 'summary_settledAmount',
+    pendingAmount: 'summary_pendingAmount',
+  }
 
   return (
     <div className="space-y-4">
@@ -88,7 +95,7 @@ export default function AdminSettlementPage() {
           return (
             <div key={s.key} className="rounded-lg border bg-card p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{t(`summary_${s.key}`)}</span>
+                <span className="text-xs text-muted-foreground">{t(SUMMARY_KEY[s.key] ?? 'summary_unknown')}</span>
                 <Icon className={cn('h-4 w-4', s.cls)} />
               </div>
               <p className="mt-2 text-2xl font-bold">{fmtAmount(s.value)}</p>

@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, MessageSquare } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { TYPE_ICON, TYPE_BADGE, STATUS_BADGE, STATUS_KEY } from '@/lib/feedback'
+import { TYPE_ICON, TYPE_BADGE, STATUS_BADGE, STATUS_KEY, TYPE_KEY } from '@/lib/feedback'
 import type { FeedbackItem } from './types'
 
 interface Props {
@@ -76,7 +76,7 @@ export function FeedbackList({ list, isLoading, error }: Props) {
                 TYPE_BADGE[fb.type],
               )}
             >
-              {t(`type_${fb.type}`)}
+              {t(TYPE_KEY[fb.type] ?? 'type_unknown')}
             </span>
             <span
               className={cn(

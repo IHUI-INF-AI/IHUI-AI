@@ -25,6 +25,11 @@ import { switchPermissionMode } from '@/components/ai/permission-mode-popover'
  * - 用户主动 cancelRevert → 清除 localStorage(下次开启重新计时)
  * - 解除工作区绑定 / 切换工作区 → 清除(避免跨工作区污染)
  *
+ * 2026-07-25 修复 2 个边缘场景:
+ * 1) 跨工作区 record 污染:record 携带 workspacePath,切换工作区时校验并清掉
+ * 2) 自动撤销归零 race condition:record 携带 monotonic version,自动切回前
+ *    校验 ref 是否还是我们 watch 的那个(防止用户最后一刻手动切到 bypass)
+ *
  * 时序细节:
  * - 用 Date.now() 算剩余,不用 setInterval 累积(setInterval 在标签页后台会被节流到 1 分钟,误差大)
  * - 用 1s 的 setInterval 仅触发 setState(强制重渲染剩余时间)
@@ -33,12 +38,25 @@ import { switchPermissionMode } from '@/components/ai/permission-mode-popover'
 const STORAGE_KEY = 'ihui:auto-revert-bypass'
 const DEFAULT_DURATION_MS = 60 * 60 * 1000 // 1 小时
 
+/**
+ * 2026-07-25 新增字段:
+ * - workspacePath:启动 record 时所属工作区,跨工作区切换时校验避免污染
+ * - version:单调递增版本号,自动切回前校验防止 race condition
+ * 旧版 record(无这 2 字段)readRecord 视为无效,自动忽略。
+ */
 interface AutoRevertRecord {
   /** 切到 bypass-permissions 的时间戳(ms) */
   startedAt: number
   /** 持续时间(ms) */
   durationMs: number
+  /** 关联工作区路径(防止跨工作区 record 污染) */
+  workspacePath: string
+  /** 单调递增版本号(防止 race condition) */
+  version: number
 }
+
+/** 模块级单调计数器(2026-07-25 修复 race condition):跨 hook 实例也单调递增 */
+let globalRecordVersion = 0
 
 function readRecord(): AutoRevertRecord | null {
   if (typeof window === 'undefined') return null
@@ -46,10 +64,20 @@ function readRecord(): AutoRevertRecord | null {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<AutoRevertRecord>
-    if (typeof parsed.startedAt !== 'number' || typeof parsed.durationMs !== 'number') {
+    if (
+      typeof parsed.startedAt !== 'number' ||
+      typeof parsed.durationMs !== 'number' ||
+      typeof parsed.workspacePath !== 'string' ||
+      typeof parsed.version !== 'number'
+    ) {
       return null
     }
-    return { startedAt: parsed.startedAt, durationMs: parsed.durationMs }
+    return {
+      startedAt: parsed.startedAt,
+      durationMs: parsed.durationMs,
+      workspacePath: parsed.workspacePath,
+      version: parsed.version,
+    }
   } catch {
     return null
   }
@@ -78,39 +106,66 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   // 客户端 mount 时强制读一次(2026-07-25 修复:useState lazy initializer 在 SSR 返回 null 后,
   // 客户端 hydration 不会重跑,导致 expired/刷新场景的 record 被 effect 1 覆盖)
   const [hydrated, setHydrated] = React.useState(false)
+  // 2026-07-25 修复 race condition:缓存当前 watch 的 record 引用,
+  // 自动切回 effect 用 ref === record 校验,防止用户最后一刻手动切到 bypass
+  // 引起的 record 替换被误判为"刚启动的新 record"
+  const watchedRecordRef = React.useRef<AutoRevertRecord | null>(null)
   React.useEffect(() => {
     if (hydrated) return
-    setRecord(readRecord())
+    const loaded = readRecord()
+    console.log('[auto-revert:hydration] readRecord', { hasLoaded: !!loaded, version: loaded?.version, ws: loaded?.workspacePath, startedAt: loaded?.startedAt, startedAtAgo: loaded ? Date.now() - loaded.startedAt : null })
+    setRecord(loaded)
+    watchedRecordRef.current = loaded
     setHydrated(true)
   }, [hydrated])
   // 强制 1s 重渲染,刷新倒计时显示
-  const [, setTick] = React.useState(0)
+  const [tick, setTick] = React.useState(0)
 
-  // 模式变化 → 同步 record
-  // - 切到 bypass-permissions:启动新倒计时(如果当前已激活则保持,只在切回 default/accept-edits 时清掉)
-  // - 切到 default / accept-edits:清掉
-  // 依赖 hydrated:hydration 完成后才允许 effect 同步,防止 hydration 前 effect 把 record 覆盖
+  // 模式变化 / 工作区变化 → 同步 record(2026-07-25 修复跨工作区污染 + race condition)
+  // - 切到 bypass-permissions:
+  //   * 已有 record 且 workspacePath 匹配 + 未到期 → 保持(刷新场景)
+  //   * 已有 record 但 workspacePath 不匹配 → 跨工作区,启动新 record
+  //   * 已有 record + workspacePath 匹配 + 已到期 → 不启动新 record,让 auto-switch effect 处理
+  //     (否则模式 effect 永久重启,auto-switch 永远等不到归零时刻)
+  //   * 无 record → 启动新 record
+  // - 切到 default / accept-edits → 清掉
+  // 依赖:hydrated(防 hydration 前 effect 覆盖)+ activeWorkspace.path(防跨工作区污染)
   React.useEffect(() => {
     if (!hydrated) return
+    const currentPath = activeWorkspace?.path ?? null
     if (activeMode === 'bypass-permissions') {
-      // 仅在没有活跃 record 时启动新的
       setRecord((prev) => {
-        if (prev) {
-          // 已有 record(刷新场景) → 保持
+        if (prev && prev.workspacePath === currentPath) {
+          const elapsed = Date.now() - prev.startedAt
+          if (elapsed < prev.durationMs) {
+            console.log('[auto-revert:mode-effect] 保持同工作区未到期 record', { prevVersion: prev.version, currentPath })
+            return prev
+          }
+          // 2026-07-25 修复:同工作区已到期 → 不重启 record,
+          // 让归零 effect 走自动切回逻辑(否则模式 effect 永久覆盖归零时刻)
+          console.log('[auto-revert:mode-effect] 保持同工作区已到期 record 让 auto-switch 处理', { prevVersion: prev.version, currentPath })
           return prev
         }
-        const next: AutoRevertRecord = { startedAt: Date.now(), durationMs }
+        // 跨工作区 或 无 record → 启动新 record
+        const next: AutoRevertRecord = {
+          startedAt: Date.now(),
+          durationMs,
+          workspacePath: currentPath ?? '',
+          version: ++globalRecordVersion,
+        }
+        console.log('[auto-revert:mode-effect] 启动新 record', { prev: prev ? { version: prev.version, ws: prev.workspacePath, expired: Date.now() - prev.startedAt >= prev.durationMs } : null, nextVersion: next.version, currentPath })
         writeRecord(next)
+        watchedRecordRef.current = next
         return next
       })
     } else {
-      // 非高风险模式 → 清掉
       setRecord((prev) => {
         if (prev) writeRecord(null)
+        watchedRecordRef.current = null
         return null
       })
     }
-  }, [activeMode, durationMs])
+  }, [activeMode, activeWorkspace?.path, durationMs, hydrated])
 
   // 1s 触发 setState 强制重渲染剩余时间
   React.useEffect(() => {
@@ -119,12 +174,15 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
     return () => window.clearInterval(id)
   }, [record])
 
-  // 跨标签页同步
+  // 跨标签页同步(2026-07-25 修复:从 storage 事件加载的 record 也需要同步到 watchedRecordRef,
+  // 否则用户在另一标签页点击 cancel 后,本标签页自动切回 effect 看到的是过期的本地 ref)
   React.useEffect(() => {
     if (typeof window === 'undefined') return
     const onStorage = (e: StorageEvent) => {
       if (e.key !== STORAGE_KEY) return
-      setRecord(readRecord())
+      const next = readRecord()
+      setRecord(next)
+      watchedRecordRef.current = next
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
@@ -175,38 +233,58 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
         },
       })
     }
-  }, [remainingMs, record, t]) // extendRevert 引用稳定,可省略
+    // 2026-07-25 修复:依赖 tick 让 effect 在 1s 后重新检查 remainingMs(同归零 effect 原因)
+  }, [remainingMs, record, t, tick])
 
   // 倒计时归零 → 自动切回 default
   // 2026-07-25 修复:本地优先,API 失败不阻断本地切换(兜底安全护栏必须保证最终生效)
   // 1. 先乐观更新 store + localStorage → 立即退出高风险
   // 2. 后台异步调 API 落库 + 失败重试 1 次
+  // 2026-07-25 race condition 防御:自动切回前校验 watchedRecordRef === record,
+  // 防止用户在最后一刻手动切到 bypass 时旧 expired record 残留触发自动切回
   const autoSwitchedRef = React.useRef(false)
   React.useEffect(() => {
     if (!record) {
       autoSwitchedRef.current = false
+      watchedRecordRef.current = null
       return
     }
     if (remainingMs > 0) return
-    if (autoSwitchedRef.current) return
+    if (autoSwitchedRef.current) {
+      console.log('[auto-revert:auto-switch] 跳过:已触发过', { autoSwitchedRef: autoSwitchedRef.current })
+      return
+    }
+    // 2026-07-25 race condition 防御:当前 record 不是我们 watch 的那个
+    // (用户已重启 record / 切走模式 / 跨标签页 cancel),跳过自动切回
+    if (watchedRecordRef.current !== record) {
+      console.log('[auto-revert:auto-switch] 跳过:watchedRecordRef !== record', { watched: watchedRecordRef.current?.version, record: record.version })
+      return
+    }
+    console.log('[auto-revert:auto-switch] 通过所有检查,准备切回')
     // 当前模式已被切走 → 清 record 退出
     const current = useAiPanelStore.getState().activeWorkspace?.mode
     if (current !== 'bypass-permissions') {
       setRecord(null)
       writeRecord(null)
+      watchedRecordRef.current = null
       return
     }
     autoSwitchedRef.current = true
+    // 计算本次完全访问累计时长(2026-07-25 深化):让用户知道"我开了多久"
+    const usedMs = record ? Math.min(Date.now() - record.startedAt, record.durationMs) : 0
+    const usedMin = Math.round(usedMs / 60000)
+    console.log('[auto-revert:auto-switch] 触发自动切回', { usedMin, currentMode: useAiPanelStore.getState().activeWorkspace?.mode })
     // 立即本地切回(安全护栏兜底,不能被 API 失败阻断)
     const store = useAiPanelStore.getState()
     if (store.activeWorkspace) {
       store.setActiveWorkspace({ ...store.activeWorkspace, mode: 'default' })
+      console.log('[auto-revert:auto-switch] 已设 store mode=default', { newMode: useAiPanelStore.getState().activeWorkspace?.mode })
+    } else {
+      console.log('[auto-revert:auto-switch] store.activeWorkspace 为空,无法切回')
     }
-    // 计算本次完全访问累计时长(2026-07-25 深化):让用户知道"我开了多久"
-    const usedMs = record ? Math.min(Date.now() - record.startedAt, record.durationMs) : 0
-    const usedMin = Math.round(usedMs / 60000)
     setRecord(null)
     writeRecord(null)
+    watchedRecordRef.current = null
     toast(t('autoRevertedTitle'), {
       description: t('autoRevertedDescWithDuration', { usedMin }),
       duration: 6000,
@@ -228,6 +306,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   const cancelRevert = React.useCallback(() => {
     setRecord(null)
     writeRecord(null)
+    watchedRecordRef.current = null
     toast.success(t('cancelAutoRevert') + ' ✓', {
       description: '当前保持完全访问,关闭标签页/刷新后也不会自动降级',
       duration: 3000,
@@ -237,11 +316,18 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   /** 延长计时(从 now 重置 durationMs) */
   const extendRevert = React.useCallback(
     (extraMs: number = durationMs) => {
-      const next: AutoRevertRecord = { startedAt: Date.now(), durationMs: extraMs }
+      const currentPath = activeWorkspace?.path ?? ''
+      const next: AutoRevertRecord = {
+        startedAt: Date.now(),
+        durationMs: extraMs,
+        workspacePath: currentPath,
+        version: ++globalRecordVersion,
+      }
+      watchedRecordRef.current = next
       setRecord(next)
       writeRecord(next)
     },
-    [durationMs],
+    [durationMs, activeWorkspace?.path],
   )
 
   // 全局句柄(2026-07-25 深化):toast callback 在 React 组件作用域外触发不了 hook,
