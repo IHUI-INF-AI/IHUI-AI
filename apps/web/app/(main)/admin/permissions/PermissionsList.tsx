@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Loader2, Lock, Copy, Check } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
@@ -14,28 +13,14 @@ interface Props {
   onCopy: (p: Permission) => void
 }
 
-export const PermissionsList = React.memo(function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy }: Props) {
+export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy }: Props) {
   const t = useTranslations('admin.permissions')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-    [locale],
-  )
-
-  const handleCopy = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = grouped.flatMap(([, l]) => l).find((x) => String(x.id) === id)
-      if (item) onCopy(item)
-    },
-    [grouped, onCopy],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 
   if (isError) {
     return (
@@ -91,8 +76,7 @@ export const PermissionsList = React.memo(function PermissionsList({ grouped, is
                     <TableCell className="px-4 py-2">
                       <button
                         type="button"
-                        data-id={p.id}
-                        onClick={handleCopy}
+                        onClick={() => onCopy(p)}
                         className="group inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/70"
                         title={t('copyCode')}
                       >
@@ -124,4 +108,4 @@ export const PermissionsList = React.memo(function PermissionsList({ grouped, is
       ))}
     </div>
   )
-})
+}

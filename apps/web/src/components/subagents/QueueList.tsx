@@ -32,13 +32,7 @@ const dateFmt = new Intl.DateTimeFormat('zh-CN', {
   minute: '2-digit',
 })
 
-// 性能修复(2026-07-25):React.memo 包裹,父组件轮询/SSE 高频更新时,
-// queue 引用不变则跳过渲染。
-export const QueueList = React.memo(function QueueList({
-  queue,
-  isLoading,
-  onItemClick,
-}: QueueListProps) {
+export function QueueList({ queue, isLoading, onItemClick }: QueueListProps) {
   const sorted = React.useMemo(
     () => [...(queue ?? [])].sort((a, b) => a.position - b.position),
     [queue],
@@ -88,6 +82,6 @@ export const QueueList = React.memo(function QueueList({
       </CardContent>
     </Card>
   )
-})
+}
 
 export { PRIORITY_BADGE, PRIORITY_LABEL }

@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Loader2, Tag, Hash, Edit, Trash2 } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
@@ -22,35 +21,15 @@ interface Props {
 
 const th = 'px-4 py-2.5 font-medium'
 
-export const TagTable = React.memo(function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
+export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.tags')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-    [locale],
-  )
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = tags.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [tags, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id) onDelete(id)
-    },
-    [onDelete],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
   const fontSize = getFontSize(tags)
   const total = tags.length
 
@@ -142,7 +121,7 @@ export const TagTable = React.memo(function TagTable({ tags, isLoading, error, o
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <div className="inline-flex items-center gap-1">
-                    <Button variant="ghost" size="sm" data-id={tag.id} onClick={handleEdit}>
+                    <Button variant="ghost" size="sm" onClick={() => onEdit(tag)}>
                       <Edit className="mr-1 h-3.5 w-3.5" />
                       {tc('edit')}
                     </Button>
@@ -150,8 +129,7 @@ export const TagTable = React.memo(function TagTable({ tags, isLoading, error, o
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:text-destructive"
-                      data-id={tag.id}
-                      onClick={handleDelete}
+                      onClick={() => onDelete(tag.id)}
                     >
                       <Trash2 className="mr-1 h-3.5 w-3.5" />
                       {tc('delete')}
@@ -167,4 +145,4 @@ export const TagTable = React.memo(function TagTable({ tags, isLoading, error, o
       <div className="text-sm text-muted-foreground">{t('total', { total })}</div>
     </>
   )
-})
+}

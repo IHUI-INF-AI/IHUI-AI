@@ -176,15 +176,10 @@ function layoutNodes(nodes: RichTopologyNode[]): Map<string, { x: number; y: num
     return positions
   }
 
-  // 分离 arbiter / DAG / 普通节点(单次遍历,保持原 filter 语义:三类可重叠)
-  const arbiters: RichTopologyNode[] = []
-  const dagNodes: RichTopologyNode[] = []
-  const regular: RichTopologyNode[] = []
-  for (const node of nodes) {
-    if (node.isArbiter) arbiters.push(node)
-    if (isDagNodeGroup(node)) dagNodes.push(node)
-    if (!node.isArbiter && !isDagNodeGroup(node)) regular.push(node)
-  }
+  // 分离 arbiter / DAG / 普通节点
+  const arbiters = nodes.filter((node) => node.isArbiter)
+  const dagNodes = nodes.filter((node) => isDagNodeGroup(node))
+  const regular = nodes.filter((node) => !node.isArbiter && !isDagNodeGroup(node))
 
   // 有 arbiter 的情况:arbiter 居中,其他环绕
   if (arbiters.length === 1 && (regular.length > 0 || dagNodes.length > 0)) {
@@ -232,7 +227,7 @@ interface SwarmTopologyViewProps {
   className?: string
 }
 
-export const SwarmTopologyView = React.memo(function SwarmTopologyView({
+export function SwarmTopologyView({
   topology: injectedTopology,
   className,
 }: SwarmTopologyViewProps) {
@@ -567,7 +562,7 @@ export const SwarmTopologyView = React.memo(function SwarmTopologyView({
       `}</style>
     </div>
   )
-})
+}
 
 // ===========================================================================
 // 超越 v3:协作消息流 + 拓扑推荐视图 + 演化时间轴

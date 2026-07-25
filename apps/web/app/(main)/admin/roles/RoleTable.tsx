@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Pencil, Trash2, Lock } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
@@ -13,36 +12,14 @@ interface Props {
   onDelete: (r: Role) => void
 }
 
-export const RoleTable = React.memo(function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
+export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.roles')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-    [locale],
-  )
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onDelete(item)
-    },
-    [list, onDelete],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -104,8 +81,7 @@ export const RoleTable = React.memo(function RoleTable({ list, isLoading, onEdit
                       size="sm"
                       variant="ghost"
                       disabled={r.isSystem}
-                      data-id={r.id}
-                      onClick={handleEdit}
+                      onClick={() => onEdit(r)}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       {t('edit')}
@@ -114,8 +90,7 @@ export const RoleTable = React.memo(function RoleTable({ list, isLoading, onEdit
                       size="sm"
                       variant="ghost"
                       disabled={r.isSystem}
-                      data-id={r.id}
-                      onClick={handleDelete}
+                      onClick={() => onDelete(r)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       {t('delete')}
@@ -129,4 +104,4 @@ export const RoleTable = React.memo(function RoleTable({ list, isLoading, onEdit
       </table>
     </div>
   )
-})
+}
