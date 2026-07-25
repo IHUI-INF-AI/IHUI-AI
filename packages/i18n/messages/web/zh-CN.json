@@ -905,7 +905,6 @@
       "historyClearConfirmTitle": "清空历史",
       "historyClearConfirmDesc": "将删除所有模式切换记录,无法恢复。",
       "historyClearConfirm": "清空",
-      "historyClearCancel": "取消",
       "historyOpenButton": "历史",
       "historySource": {
         "popover": "弹窗",
@@ -914,12 +913,6 @@
         "auto-revert": "自动"
       },
       "historyStatsTitle": "累计统计",
-      "historyStatsMode": {
-        "default": "请求批准",
-        "accept-edits": "替我审批",
-        "bypass-permissions": "完全访问"
-      },
-      "historyStatsDuration": "{{mode}}:{{duration}}",
       "historyOpenExternal": "查看历史",
       "dangerousPattern": {
         "rmRrfRoot": "递归删除根/家目录",

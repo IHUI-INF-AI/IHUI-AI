@@ -905,7 +905,6 @@
       "historyClearConfirmTitle": "清空記錄",
       "historyClearConfirmDesc": "將刪除所有模式切換記錄,無法復原。",
       "historyClearConfirm": "清空",
-      "historyClearCancel": "取消",
       "historyOpenButton": "記錄",
       "historySource": {
         "popover": "彈窗",
@@ -914,12 +913,6 @@
         "auto-revert": "自動"
       },
       "historyStatsTitle": "累計統計",
-      "historyStatsMode": {
-        "default": "請求核准",
-        "accept-edits": "自動核准",
-        "bypass-permissions": "完全存取"
-      },
-      "historyStatsDuration": "{{mode}}:{{duration}}",
       "historyOpenExternal": "查看記錄",
       "dangerousPattern": {
         "rmRrfRoot": "遞迴刪除根/家目錄",

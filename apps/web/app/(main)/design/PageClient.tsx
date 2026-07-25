@@ -34,6 +34,16 @@ import {
 } from '@/lib/design/responsive-devices'
 import type { ResponsiveDeviceIcon } from '@/lib/design/responsive-devices'
 import { DESIGN_TEMPLATES } from '@/lib/design/design-templates'
+import type { DesignTemplateCategory } from '@/lib/design/design-templates'
+
+/** i18n 静态映射表 — 用于消除 `t(\`design.templates.categories.${var}\`)` 动态拼接 */
+const TEMPLATE_CATEGORY_KEY: Record<DesignTemplateCategory, string> = {
+  blank: 'design.templates.categories.blank',
+  marketing: 'design.templates.categories.marketing',
+  app: 'design.templates.categories.app',
+  content: 'design.templates.categories.content',
+  commerce: 'design.templates.categories.commerce',
+}
 
 type CssGroupId = 'layout' | 'boxModel' | 'typography' | 'background' | 'effects' | 'responsive'
 type CssPropType = 'text' | 'number' | 'select' | 'color'
@@ -1529,7 +1539,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                   <span style={{ fontSize: 12, fontWeight: 600 }}>{t(tpl.nameKey)}</span>
                   <span style={{ fontSize: 11, color: 'var(--muted)' }}>{t(tpl.descriptionKey)}</span>
                   <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
-                    {t(`design.templates.categories.${tpl.category}`)}
+                    {t(TEMPLATE_CATEGORY_KEY[tpl.category] ?? 'design.templates.categories.unknown')}
                   </span>
                 </button>
               ))}

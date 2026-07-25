@@ -26,6 +26,20 @@ export const TYPE_DOT: Record<EventType, string> = {
   deploy: 'bg-primary',
 }
 
+/**
+ * 事件类型 i18n key 静态映射表:types.${type} — 用于消除 `t(\`types.${var}\`)` 动态拼接
+ */
+export const TYPE_KEY: Record<string, string> = Object.fromEntries(
+  TYPES.map((tp) => [tp, `types.${tp}`]),
+)
+
+/**
+ * 事件级别 i18n key 静态映射表:levels.${level} — 用于消除 `t(\`levels.${var}\`)` 动态拼接
+ */
+export const LEVEL_KEY: Record<string, string> = Object.fromEntries(
+  LEVELS.map((lv) => [lv, `levels.${lv}`]),
+)
+
 export const EMPTY_FORM: EventForm = {
   type: 'maintenance',
   level: 'info',
