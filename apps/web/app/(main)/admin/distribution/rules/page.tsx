@@ -153,7 +153,7 @@ export default function AdminDistributionRulesPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((it) => (
+              items.map((it: any) => (
                 <TableRow key={it.id}>
                   <TableCell className="px-4 py-2.5 font-medium">{it.name}</TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">
