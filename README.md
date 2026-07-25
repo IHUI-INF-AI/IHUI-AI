@@ -77,7 +77,7 @@
 </p>
 
 <p align="center">
-  <sub><strong>i18n 国际化</strong>:5 语言键集合 100% parity(zh-CN / zh-TW / en / ko / ja)+ 10 守门脚本(4 web + 4 extension + 2 AI 翻译流水线 blocking × 2 端:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端 / AI agent 自主翻译)+ AI 翻译流水线(i18n-diff → AI agent 翻译 → i18n-apply,零 LLM API 调用,支持 web/extension/miniapp-taro 三端,开发成本降 70%+)</sub>
+  <sub><strong>i18n 国际化</strong>:5 语言键集合 100% parity(zh-CN / zh-TW / en / ko / ja)+ 10 守门脚本(4 web + 4 extension + 2 AI 翻译流水线 blocking × 2 端:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端 / AI agent 自主翻译)+ AI 翻译流水线(i18n-diff → AI agent 翻译 → i18n-apply,零 LLM API 调用,支持 web/extension/miniapp-taro 三端,开发成本降 70%+)+ i18n 治理 4 阶段完成(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679)</sub>
 </p>
 
 <p align="center">
@@ -303,7 +303,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
 7. **企业级安全栈**:RBAC + 多租户 + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + GDPR + 2FA + IDOR 防护 — 开源 AI 平台中**唯一**完整企业级安全栈
 8. **21 道工程守门 + 11 迁移审计 + post-commit 自动 push**:从机制上杜绝协作事故 — 开源 AI 项目中**唯一**把工程守门做到机制级(Dify/FastGPT 仅有基础 lint)
 9. **三支柱可观测性 + 21 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中**唯一**带完整 SRE 级可观测性栈(其他项目最多基础日志)
-10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中**唯一**把 i18n 做到 parity + 守门级(其他项目最多中英文)
+10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中**唯一**把 i18n 做到 parity + 守门级(其他项目最多中英文)+ i18n 治理 4 阶段(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679,无引用率 4.6%→0%)
 
 ### 记忆点标语(可传播)
 
@@ -435,7 +435,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **AI 编排三栈**      | LangGraph(工作流)+ MCP(工具协议)+ A2A(Agent 互通)                                                                                                                                                                                                                                                                    | 工作流、工具、智能体协同一体化                                  |
 | **自研 CLI**         | 21 命令 + 36 内置工具 + ACP Server,对标 Claude Code                                                                                                                                                                                                                                                                  | 命令行原生 AI 编程体验                                          |
 | **CLI 配置无缝导入** | 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)+ providerCode/apiFormat 智能推断(modelId 前缀优先,URL 兜底) | 跨 CLI 工具配置零迁移成本                                       |
-| **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时                                                                                                                                                                                                                                                         | 决策者级风险控制                                                |
+| **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗 + 键盘导航 + 5s 切换撤销 | 决策者级风险控制 + Codex CLI safety guard                                  |
 | **数据加密**         | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单                                                                                                                                                                                                                                                | 金融级数据保护                                                  |
 | **可观测性**         | Prometheus + Grafana(**21 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                                                                                                                                                                                         | 全链路指标 / 日志 / 追踪 / 告警                                 |
 | **工程守门**         | 30+ pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计                                                                                                                                                                                                                                                | 杜绝协作事故,99.9% SLA                                          |
@@ -944,7 +944,6 @@ IHUI-AI/
 │   ├── api-client/          # @ihui/api-client (40+ endpoints 自动生成 SDK,6 端共享)
 │   ├── app/                 # @ihui/app (RN 业务逻辑共享:AboutScreen/ProfileScreen/SettingsScreen + RN tokens re-export)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
-│   ├── config/              # @ihui/config
 │   ├── context-compaction/  # @ihui/context-compaction (上下文压缩)
 │   ├── database/            # @ihui/database (Drizzle, 340 表, 144 迁移, RLS, 租户路由, pgvector)
 │   ├── design-tokens/       # @ihui/design-tokens (8端共享设计令牌:cn() + HSL shadcn tokens + RN HEX tokens + CSS 变量)
@@ -1062,7 +1061,7 @@ IHUI-AI/
 
 #### B2. 企业级工作空间权限
 
-3 种权限模式 + 7 端点运行时拦截 + 60s 审计超时:
+3 种权限模式 + 7 端点运行时拦截 + 60s 审计超时 + 输入框安全护栏:
 
 | 模式                 | 行为                              |
 | -------------------- | --------------------------------- |
@@ -1073,6 +1072,15 @@ IHUI-AI/
 - 7 个 FS 端点全部接入:`/fs/read` `/fs/write` `/fs/edit` `/fs/delete` `/fs/grep` `/fs/glob` `/fs/run`
 - WebSocket 实时推送权限请求,60s 不响应自动拒绝
 - workspace-ai-tasks schema 支持任务级权限隔离
+- **AI 输入框权限模式切换器**(深度对标 OpenAI Codex CLI approvalMode):
+  - 盾牌图标按钮 + 当前模式短名,点击弹 Codex 风格 popover(3 单选卡 + 完全访问快捷链接)
+  - 键盘交互:`↑/↓` 循环切换焦点 · `Enter` 选中 · `1/2/3` 数字键直接选 ask/auto/full
+  - 模式切换撤销:切到 `bypass-permissions` 后 5s 内 toast 可一键回退
+  - 高风险模式持久化视觉警告:触发器按钮琥珀色 + 输入框顶部警告横幅 + 标题栏模式徽章
+  - 斜杠命令集成:`/permission ask|auto|full` 一行切换模式
+  - **首启确认弹窗**:首次启用完全访问必须勾选"我了解上述风险"才能继续(可勾"不再提醒")
+  - **1 小时自动撤销**:高风险模式 1h 无操作后自动降级到 `default`,标题栏 + 顶部横幅实时倒计时,可取消或重新启用
+  - 三处触发源(popover / Shift+Tab / /permission)共享同一个 FullAccessConfirmDialog
 
 #### B3. 多智能体业务管理
 
@@ -1238,7 +1246,7 @@ IHUI-AI/
 | ko    | `apps/web/messages/ko.json`    | 字符范围检测中文残留(阻塞)               |
 | ja    | `apps/web/messages/ja.json`    | 中文残留检测(warn-only,日文汉字词易误报) |
 
-**19 i18n 工具链脚本**(`scripts/`):apply-brand-glossary / apply-i18n-translations / apply-translation-fallback / audit-i18n-missing-evaluate / deep-i18n-audit / export-untranslated-i18n / fix-i18n-deep / fix-missing-i18n-keys / fix-zh-tw-simp / fix-zhtw-parity / generate-i18n / prune-orphan-i18n-namespaces / scan-hardcoded-zh / scan-i18n-zh-residue / scan-zh-tw-untranslated / sync-i18n-fixes / translate-i18n-batch / analyze-unique-i18n-values / verify-i18n
+**21 i18n 工具链脚本**(`scripts/`):apply-brand-glossary / apply-i18n-translations / apply-translation-fallback / audit-i18n-missing-evaluate / deep-i18n-audit / export-untranslated-i18n / fix-i18n-deep / fix-missing-i18n-keys / fix-zh-tw-simp / fix-zhtw-parity / generate-i18n / prune-orphan-i18n-namespaces / scan-hardcoded-zh / scan-i18n-zh-residue / scan-zh-tw-untranslated / sync-i18n-fixes / translate-i18n-batch / analyze-unique-i18n-values / verify-i18n / audit-i18n-unused-keys.mjs(无引用 key 审计 + --output-keys 完整列表导出) / cleanup-i18n-unused-keys.mjs(无引用 key 批量清理,5 语言同步)
 
 **品牌翻译策略**:优先官方英文名(智谱清言 → Zhipu AI,百度文心 → Baidu ERNIE,火山引擎 → Volcengine 等),机器可读映射表见 `scripts/brand-glossary.json`。
 
@@ -1284,7 +1292,7 @@ IHUI-AI/
 | 16b     | 条件 database build                   | packages/database/src staged 时跑 build                         |
 | 17-post | git-push-guard.mjs(post-commit)       | 自动 push + 验证 local == remote(防遗漏)                        |
 
-**9 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计,2026-07-25 立)
+**10 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立) / `cleanup-i18n-unused-keys.mjs`(无引用 key 批量清理,5 语言同步,2026-07-25 立)
 
 **9 PowerShell 启动脚本**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-trae-workspace.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
 
@@ -1524,7 +1532,7 @@ pnpm turbo build typecheck lint test
 | **XSS**          | sanitizer 绕过检测脚本守门(pre-commit 第 6 项)                                        |
 | **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项)                                     |
 | **RBAC**         | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 + data-scope 5 级    |
-| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时                                              |
+| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗         |
 | **多租户**       | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS                               |
 | **OAuth 私钥**   | oauth-private-keys schema 加密存储                                                    |
 | **2FA/MFA**      | TOTP RFC 6238 + 备份恢复码 + 设备指纹 + 信任设备管理                                  |

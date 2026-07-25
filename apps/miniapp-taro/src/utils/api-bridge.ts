@@ -7,6 +7,7 @@
  */
 import Taro from '@tarojs/taro'
 import type { ApiResult } from '@ihui/types'
+import { fetchApi, type FetchApiOptions } from '@ihui/api-client'
 import { clearAuth } from './auth'
 
 /** 解包 ApiResult,失败时 toast + throw(行为与原 request.ts 一致) */
@@ -23,4 +24,66 @@ export async function unwrapApi<T>(p: Promise<ApiResult<T>>): Promise<T> {
     throw new Error(r.error)
   }
   return r.data
+}
+
+/* ============ HTTP 方法助手(替代 utils/request.ts,统一走 @ihui/api-client fetchApi) ============ */
+// 行为与原 utils/request.ts 等价:
+//   - GET: data 作为 query string(Taro.request GET 语义)
+//   - POST/PUT/PATCH/DELETE: data 作为 JSON body
+//   - 错误处理(401 跳登录 / toast / throw)由 unwrapApi 统一承接,与旧 request.ts 一致
+type _Query = Record<string, string | number | boolean | undefined | null>
+
+/** GET 请求:data 作为 query string */
+export function get<T = unknown>(
+  url: string,
+  data?: unknown,
+  header?: Record<string, string>,
+): Promise<T> {
+  const opts: FetchApiOptions = { method: 'GET', headers: header }
+  if (data !== null && data !== undefined) opts.params = data as _Query
+  return unwrapApi(fetchApi<T>(url, opts))
+}
+
+/** POST 请求:data 作为 JSON body */
+export function post<T = unknown>(
+  url: string,
+  data?: unknown,
+  header?: Record<string, string>,
+): Promise<T> {
+  const opts: FetchApiOptions = { method: 'POST', headers: header }
+  if (data !== undefined) opts.body = JSON.stringify(data)
+  return unwrapApi(fetchApi<T>(url, opts))
+}
+
+/** PUT 请求:data 作为 JSON body */
+export function put<T = unknown>(
+  url: string,
+  data?: unknown,
+  header?: Record<string, string>,
+): Promise<T> {
+  const opts: FetchApiOptions = { method: 'PUT', headers: header }
+  if (data !== undefined) opts.body = JSON.stringify(data)
+  return unwrapApi(fetchApi<T>(url, opts))
+}
+
+/** PATCH 请求:data 作为 JSON body */
+export function patch<T = unknown>(
+  url: string,
+  data?: unknown,
+  header?: Record<string, string>,
+): Promise<T> {
+  const opts: FetchApiOptions = { method: 'PATCH', headers: header }
+  if (data !== undefined) opts.body = JSON.stringify(data)
+  return unwrapApi(fetchApi<T>(url, opts))
+}
+
+/** DELETE 请求 */
+export function del<T = unknown>(
+  url: string,
+  data?: unknown,
+  header?: Record<string, string>,
+): Promise<T> {
+  const opts: FetchApiOptions = { method: 'DELETE', headers: header }
+  if (data !== undefined) opts.body = JSON.stringify(data)
+  return unwrapApi(fetchApi<T>(url, opts))
 }

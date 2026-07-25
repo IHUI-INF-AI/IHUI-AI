@@ -8,7 +8,7 @@
  * 登录成功后通过一次性 code 回跳小程序,小程序用 code 换取 token。
  */
 import { getStorageSync, removeStorageSync } from '@tarojs/taro'
-import { BASE_URL } from './request'
+import { BASE_URL } from './api-config'
 import {
   exchangeSsoCode as exchangeSsoCodeCore,
   validateToken as validateTokenCore,

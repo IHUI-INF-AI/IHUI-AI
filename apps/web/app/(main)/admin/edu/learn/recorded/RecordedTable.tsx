@@ -15,7 +15,7 @@ import {
 } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
-import { PERM, badgeCls } from './helpers'
+import { PERM, badgeCls, LEVEL_KEY, AUDIT_KEY } from './helpers'
 import type { Video } from './types'
 
 const COLSPAN = 14
@@ -125,11 +125,13 @@ export function RecordedTable({
                 <TableCell className="px-4 py-2.5 text-xs">{r.amount ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.label ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className={badgeCls(r.status === 2)}>{t(`level.${r.status ?? 0}`)}</span>
+                  <span className={badgeCls(r.status === 2)}>
+                    {t(LEVEL_KEY[r.status ?? 0] ?? 'level.unknown')}
+                  </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span className={badgeCls(r.auditStatus === 4)}>
-                    {t(`audit.${r.auditStatus ?? 0}`)}
+                    {t(AUDIT_KEY[r.auditStatus ?? 0] ?? 'audit.unknown')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">

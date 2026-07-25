@@ -29,7 +29,6 @@
 | `@ihui/ui-react` | `packages/ui-react/` | shadcn/ui 基础组件(Web) | `button`/`input`/`label`/`card`/`dialog`/`select`/`tabs`/`tooltip`/`badge`/`checkbox`/`table`/`data-table`/`sidebar`/`sheet`/`switch`/`collapsible`/`code-block`/`log-viewer`/`resizable`/`tree-select`/`vip-badge`/`theme-logo`/`webview-frame`/`work-panel`/`Upload` | - |
 | `@ihui/ui-native` | `packages/ui-native/` | React Native 版组件(mobile-rn 用) | `avatar`/`badge`/`button`/`card`/`dialog`/`input`/`loading`/`switch`/`tabs`/`vip-badge`(10 组件) | - |
 | `@ihui/design-tokens` | `packages/design-tokens/` | 设计令牌(8端共享):`cn()` 类名合并 + HSL shadcn tokens + RN HEX tokens + CSS 变量 | `cn`/`tokens`/`rnTokens`/`rnLightTokens`/`rnDarkTokens`/`getRnTokens` | - |
-| `@ihui/config` | `packages/config/` | 常量与环境配置 | `constants`/`env` | - |
 | `@ihui/eslint-config` | `packages/eslint-config/` | ESLint 共享配置 | `base`/`next`/`react` | - |
 | `@ihui/tsconfig` | `packages/tsconfig/` | TSConfig 共享配置 | `base`/`nextjs`/`node`/`react-library` | - |
 | `@ihui/api-client` | `packages/api-client/` | API 客户端:48 endpoint 文件 + client + circuit-breaker + ws-client | `client`/`api-error`/`utils`/`endpoints/*`(48 文件)/`circuit-breaker`/`ws-client`/`model-context-capacity` | 3 测试文件 |
@@ -231,13 +230,6 @@ packages/api-client/src/endpoints/
     ▼             ▼
  apps/web    apps/mobile-rn
 
-  ┌─────────────────┐
-  │ @ihui/config    │ (constants + env,无依赖)
-  └─────────────────┘
-           │
-           ▼
-      apps/* (全部)
-
   ┌─────────────────┐  ┌─────────────────┐
   │ @ihui/eslint-config │  │ @ihui/tsconfig    │ (配置包,无运行时依赖)
   └─────────────────┘  └─────────────────┘
@@ -263,7 +255,6 @@ packages/api-client/src/endpoints/
 | `@ihui/design-tokens` | (无,依赖 cva + clsx + tailwind-merge) | ui-react, ui-native, app |
 | `@ihui/ui-react` | design-tokens | apps/web |
 | `@ihui/ui-native` | design-tokens | apps/mobile-rn |
-| `@ihui/config` | (无) | apps/* |
 | `@ihui/eslint-config` | (无) | packages/* + apps/* |
 | `@ihui/tsconfig` | (无) | packages/* + apps/* |
 | `@ihui/api-client` | types | apps/web, apps/cli |
@@ -557,7 +548,6 @@ pnpm --filter @ihui/new-package build
 | `@ihui/design-tokens` | `tsc` | `packages/design-tokens/dist/` |
 | `@ihui/api-client` | `tsc` | `packages/api-client/dist/` |
 | `@ihui/sdk` | `tsc -p tsconfig.json` | `packages/sdk/dist/` |
-| `@ihui/config` | `tsc` | `packages/config/dist/` |
 | `@ihui/context-compaction` | `tsc` | `packages/context-compaction/dist/` |
 
 ### check-stale-dist.mjs 守门
@@ -610,7 +600,6 @@ pnpm changeset publish
 
 ### 不发布的包(保持私有)
 
-- `@ihui/config`:含项目特定环境配置
 - `@ihui/eslint-config` / `@ihui/tsconfig`:可发布,但当前项目特定
 - `@ihui/database`:schema 与项目强绑定,不通用
 

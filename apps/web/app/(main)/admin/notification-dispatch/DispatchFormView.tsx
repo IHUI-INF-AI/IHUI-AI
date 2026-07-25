@@ -11,6 +11,9 @@ import {
   CHANNELS,
   MSG_TYPES,
   TARGET_MODES,
+  TARGET_MODE_KEY,
+  CHANNEL_KEY,
+  MSG_TYPE_KEY,
   textareaCls,
   selectClass,
 } from './helpers'
@@ -84,7 +87,7 @@ export function DispatchFormView({ form, submitting, onChange, onSubmit }: Props
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
               )}
             >
-              {t(`nd.targetMode_${m}`)}
+              {t(TARGET_MODE_KEY[m] ?? 'nd.targetMode_unknown')}
             </button>
           ))}
         </div>
@@ -128,7 +131,7 @@ export function DispatchFormView({ form, submitting, onChange, onSubmit }: Props
                 checked={form.channels.includes(ch)}
                 onCheckedChange={() => toggleChannel(ch)}
               />
-              {t(`nd.channel_${ch}`)}
+              {t(CHANNEL_KEY[ch] ?? 'nd.channel_unknown')}
             </label>
           ))}
         </div>
@@ -144,7 +147,7 @@ export function DispatchFormView({ form, submitting, onChange, onSubmit }: Props
         >
           {MSG_TYPES.map((m) => (
             <option key={m} value={m}>
-              {t(`nd.msgType_${m}`)}
+              {t(MSG_TYPE_KEY[m] ?? 'nd.msgType_unknown')}
             </option>
           ))}
         </select>
