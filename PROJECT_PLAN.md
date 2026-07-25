@@ -5071,7 +5071,7 @@ P1(5 项):
 **遗留项**(L2-2 ~ L5,后续推进,不阻塞本轮交付):
 - L2-2 ✅ 激活 _compute_importance(user_feedback + tool_success_rate + access_frequency + recency),importance_score 不再硬编码 0.5(commit f6007ae1c)
 - L2-3 ✅ MemoryDecayManager 状态持久化到 DB(agent_memory_decay_state 表 + lifespan hydrate + 写穿 UPSERT,重启不丢失)(commit 233c6dc3d,2026-07-25)
-- L2-4 UserProfileBuilder 持久化到 PostgreSQL(新表 agent_user_profile)+ 注入 system prompt
+- L2-4 ✅ UserProfileBuilder 持久化到 PostgreSQL(agent_user_profile 表 + lifespan hydrate + 写穿 UPSERT + system prompt snippet 注入,2026-07-25)
 - L2-5 ✅ DreamService 定时触发(DreamScheduler + lifespan background task + episodic 阈值,2026-07-25)
 - L3 自进化闭环:skill_evolution_loop + iterate_on_feedback + run_chain 触发
 - L4 元学习:meta_learner + 失败聚类 + self-eval
