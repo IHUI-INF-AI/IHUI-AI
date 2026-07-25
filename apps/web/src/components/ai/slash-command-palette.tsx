@@ -9,6 +9,10 @@ interface Command {
   label: string
   description?: string
   icon?: React.ReactNode
+  /** 命令类型(2026-07-25 立):
+   * - 'template'(默认):选命令后填充模板到 textarea
+   * - 'action':选命令后执行动作(如切换模式),不填充 textarea */
+  kind?: 'template' | 'action'
 }
 
 interface SlashCommandPaletteProps {
