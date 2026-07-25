@@ -1,6 +1,11 @@
 import 'dotenv/config'
 import postgres from 'postgres'
-import bcrypt from 'bcryptjs'
+import { createRequire } from 'node:module'
+
+// .mjs 无法直接 import TS 文件,通过 tsx 的 tsImport API 导入 password-crypto 封装
+const apiRequire = createRequire(new URL('../package.json', import.meta.url))
+const { tsImport } = apiRequire('tsx/esm/api')
+const { verifyPassword } = await tsImport('../src/utils/password-crypto.ts', import.meta.url)
 
 const url = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/ihui'
 const sql = postgres(url, { max: 1 })
@@ -12,7 +17,7 @@ try {
   `
   console.log('Found', admin.length, 'admin-related rows:')
   for (const u of admin) {
-    const ok = await bcrypt.compare('admin123', u.password_hash)
+    const ok = await verifyPassword('admin123', u.password_hash)
     console.log(JSON.stringify({ ...u, password_hash: '[REDACTED]', password_admin123: ok }, null, 2))
   }
   // Trigger immutability test
