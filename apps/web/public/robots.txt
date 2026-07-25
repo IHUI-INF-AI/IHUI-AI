@@ -10,7 +10,7 @@ Disallow: /wallet/
 Disallow: /orders/
 
 # AI 爬虫(显式放行,强化 GEO 检索权重)
-# 主流生成式引擎(GPT/Claude/Perplexity/Gemini/豆包/Kimi/DeepSeek)的抓取入口
+# 主流生成式引擎(GPT/Claude/Perplexity/Gemini/豆包/Kimi/DeepSeek/Qwen/文心/智谱/混元/Copilot)的抓取入口
 User-agent: GPTBot
 Allow: /
 
@@ -77,14 +77,41 @@ Allow: /
 User-agent: ImagesiftBot
 Allow: /
 
-# 站点地图 + GEO 入口(2026-07-26 强化:每个主流 AI 引擎一个专用文件 + Feed)
+# 2026-07-26 新增:国内主流 AI 引擎爬虫
+User-agent: Baiduspider
+Allow: /
+
+User-agent: Baidu-YunGuanCe-Spider
+Allow: /
+
+User-agent: MSNBot-Media
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: BingPreview
+Allow: /
+
+# 站点地图 + GEO 入口(2026-07-26 极致曝光度:8 主流 AI 引擎 + 微软 Copilot + Feed)
 Sitemap: https://ihui.ai/sitemap.xml
 Sitemap: https://ihui.ai/llms.txt
 Sitemap: https://ihui.ai/llms-full.txt
+# 海外主流 AI 引擎(4)
 Sitemap: https://ihui.ai/gpt.txt
 Sitemap: https://ihui.ai/claude.md
 Sitemap: https://ihui.ai/perplexity.md
 Sitemap: https://ihui.ai/gemini.txt
+Sitemap: https://ihui.ai/copilot.txt
+# 国内主流 AI 引擎(6)
+Sitemap: https://ihui.ai/doubao.txt
+Sitemap: https://ihui.ai/kimi.txt
+Sitemap: https://ihui.ai/deepseek.txt
+Sitemap: https://ihui.ai/qwen.txt
+Sitemap: https://ihui.ai/wenxin.txt
+Sitemap: https://ihui.ai/zhipu.txt
+Sitemap: https://ihui.ai/hunyuan.txt
+# Feed(2)
 Sitemap: https://ihui.ai/rss.xml
 Sitemap: https://ihui.ai/atom.xml
 
