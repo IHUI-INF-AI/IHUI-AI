@@ -33,6 +33,12 @@ const TABS: { value: 'all' | ResourceType; labelKey: 'all' | 'project' | 'file' 
   { value: 'file', labelKey: 'file' },
 ]
 
+const TAB_KEY: Record<string, string> = {
+  all: 'tabs.all',
+  project: 'tabs.project',
+  file: 'tabs.file',
+}
+
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
@@ -89,7 +95,7 @@ export default function FavoritesPage() {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`tabs.${tabItem.labelKey}`)}
+            {t(TAB_KEY[tabItem.labelKey] ?? `tabs.${tabItem.labelKey}`)}
           </button>
         ))}
       </div>
