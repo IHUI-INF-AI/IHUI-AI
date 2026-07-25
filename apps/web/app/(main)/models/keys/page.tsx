@@ -3,6 +3,12 @@ import { Copy, Key, Plus, Trash2 } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
+/** i18n 静态映射表 — 用于消除 `t(`keys.statusLabels.${var}`)` 动态拼接 */
+const KEYS_STATUS_KEY: Record<string, string> = {
+  active: 'keys.statusLabels.active',
+  expired: 'keys.statusLabels.expired',
+}
+
 export default async function KeysPage() {
   const t = await getTranslations('models')
 
@@ -130,7 +136,7 @@ export default async function KeysPage() {
                               : 'inline-flex items-center rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
                           }
                         >
-                          {t(`keys.statusLabels.${k.status}`)}
+                          {t(KEYS_STATUS_KEY[k.status] ?? 'keys.statusLabels.unknown')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
