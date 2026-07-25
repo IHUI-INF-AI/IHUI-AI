@@ -43,6 +43,18 @@ const STATUS_CLS: Record<string, string> = {
   rejected: 'bg-rose-500/10 text-rose-600 dark:text-rose-500',
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
+const STATUS_KEY: Record<string, string> = {
+  pending: 'status.pending',
+  processing: 'status.processing',
+  issued: 'status.issued',
+  rejected: 'status.rejected',
+}
+const TYPE_KEY: Record<string, string> = {
+  company: 'type.company',
+  personal: 'type.personal',
+}
+
 export default function EduFinanceInvoicesPage() {
   const t = useTranslations('admin.edu.finance.invoices')
   const qc = useQueryClient()
@@ -174,7 +186,7 @@ export default function EduFinanceInvoicesPage() {
                           'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
                         )}
                       >
-                        {t(`type.${inv.type}`)}
+                        {t(TYPE_KEY[inv.type] ?? 'type.unknown')}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 font-semibold">¥{inv.amount}</TableCell>
@@ -185,7 +197,7 @@ export default function EduFinanceInvoicesPage() {
                           cls,
                         )}
                       >
-                        {t(`status.${inv.status}`)}
+                        {t(STATUS_KEY[inv.status] ?? 'status.unknown')}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
