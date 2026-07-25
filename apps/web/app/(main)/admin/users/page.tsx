@@ -4,42 +4,9 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Users,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Eye,
-  Trash2,
-  KeyRound,
-  Shield,
-  Ban,
-  RotateCcw,
-  ShieldCheck,
-  GripVertical,
-} from 'lucide-react'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { Users, Plus, ArrowUpDown } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
-
-import { Avatar } from '@/components/data/Avatar'
-import { Skeleton, CenteredText } from '@/components/common'
-import { cn } from '@/lib/utils'
+import { CenteredText } from '@/components/common'
 
 import { UserFilter } from './UserFilter'
 import { UserDialog } from './UserDialog'
@@ -47,9 +14,31 @@ import { CreateUserDialog, type CreateUserForm } from './CreateUserDialog'
 import { ResetPasswordDialog } from './ResetPasswordDialog'
 import { RoleAssignDialog } from './RoleAssignDialog'
 import { DeptTree } from './DeptTree'
-import { PAGE_SIZE, fetchUsers, fetchDeptList } from './helpers'
+import { UserTable } from './UserTable'
+import { PAGE_SIZE, fetchDeptList, api, selectClass } from './helpers'
 import { useUserMutations } from './useUserMutations'
-import type { AdminUser } from './types'
+import type { AdminUser, UsersData } from './types'
+import { useClientTable, useSortedData, type ColumnDef, type SortingState } from '@/hooks/use-react-table'
+
+// 列定义:与 UserTable 列 ID 对齐,用于 react-table 排序/列状态管理
+const userColumns: ColumnDef<AdminUser>[] = [
+  { id: 'drag', enableSorting: false },
+  { id: 'nickname', accessorKey: 'nickname' },
+  { id: 'contact', accessorFn: (u: AdminUser) => `${u.phone ?? ''} ${u.email ?? ''}` },
+  { id: 'role', accessorKey: 'roleId' },
+  { id: 'status', accessorKey: 'status' },
+  { id: 'createdAt', accessorKey: 'createdAt' },
+  { id: 'actions', enableSorting: false },
+]
+
+// 默认排序选项 → SortingState 映射(空值回落到 storedOrder 手动拖拽排序)
+const USER_SORT_OPTIONS: { value: string; label: string; state: SortingState }[] = [
+  { value: '', label: '默认(手动排序)', state: [] },
+  { value: 'createdAt-desc', label: '最新注册', state: [{ id: 'createdAt', desc: true }] },
+  { value: 'createdAt-asc', label: '最早注册', state: [{ id: 'createdAt', desc: false }] },
+  { value: 'nickname-asc', label: '昵称 A-Z', state: [{ id: 'nickname', desc: false }] },
+  { value: 'nickname-desc', label: '昵称 Z-A', state: [{ id: 'nickname', desc: true }] },
+]
 
 const EMPTY_FORM: CreateUserForm = { nickname: '', phone: '', email: '', password: '' }
 
@@ -89,185 +78,6 @@ function applyStoredOrder(users: AdminUser[], stored: string[]): AdminUser[] {
   return [...known, ...newcomers]
 }
 
-interface SortableUserRowProps {
-  user: AdminUser
-  dateFmt: Intl.DateTimeFormat
-  t: ReturnType<typeof useTranslations<'admin.users'>>
-  patchPending: boolean
-  onQuickView: (u: AdminUser) => void
-  onDetail: (u: AdminUser) => void
-  onRoleAssign: (u: AdminUser) => void
-  onResetPassword: (u: AdminUser) => void
-  onStatusToggle: (u: AdminUser) => void
-  onDelete: (u: AdminUser) => void
-}
-
-function SortableUserRow({
-  user,
-  dateFmt,
-  t,
-  patchPending,
-  onQuickView,
-  onDetail,
-  onRoleAssign,
-  onResetPassword,
-  onStatusToggle,
-  onDelete,
-}: SortableUserRowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: user.id,
-  })
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
-  const isAdmin = (user.roleId ?? 0) >= 1
-  const statusVal = user.status ?? 0
-  const isActive = statusVal === 1
-  const isBanned = statusVal === 3
-  const name = user.nickname || user.phone || user.email || 'U'
-
-  return (
-    <tr
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        'transition-colors hover:bg-muted/30',
-        isDragging && 'bg-accent/50',
-      )}
-      {...attributes}
-    >
-      <td className="w-8 px-1 py-2.5">
-        <button
-          type="button"
-          {...listeners}
-          aria-label="拖动以排序"
-          className={cn(
-            'flex h-6 w-4 cursor-grab items-center justify-center rounded-md text-muted-foreground/60 transition-colors',
-            'hover:bg-accent hover:text-foreground active:cursor-grabbing',
-            isDragging && 'text-foreground',
-          )}
-        >
-          <GripVertical className="h-4 w-3.5" strokeWidth={1.5} />
-        </button>
-      </td>
-      <td className="px-4 py-2.5">
-        <button
-          className="flex items-center gap-2"
-          onClick={() => onQuickView(user)}
-        >
-          <Avatar src={user.avatar ?? undefined} name={name} size="sm" />
-          <span className="font-medium hover:text-primary">{name}</span>
-        </button>
-      </td>
-      <td className="px-4 py-2.5 text-muted-foreground">
-        <div className="text-xs">{user.phone || '-'}</div>
-        <div className="text-xs text-muted-foreground/80">{user.email || '-'}</div>
-      </td>
-      <td className="px-4 py-2.5">
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 text-xs font-medium',
-            isAdmin ? 'text-primary' : 'text-muted-foreground',
-          )}
-        >
-          <Shield className="h-3 w-3" />
-          {isAdmin ? t('roleAdmin') : t('roleUser')}
-        </span>
-      </td>
-      <td className="px-4 py-2.5">
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
-            isBanned
-              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-500'
-              : isActive
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                : 'bg-muted text-muted-foreground',
-          )}
-        >
-          <span
-            className={cn(
-              'h-1.5 w-1.5 rounded-full',
-              isBanned
-                ? 'bg-rose-500'
-                : isActive
-                  ? 'bg-emerald-500'
-                  : 'bg-muted-foreground',
-            )}
-          />
-          {isBanned
-            ? t('statusCancelled')
-            : isActive
-              ? t('statusActive')
-              : t('statusDisabled')}
-        </span>
-      </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground">
-        {user.createdAt ? dateFmt.format(new Date(user.createdAt)) : '-'}
-      </td>
-      <td className="px-4 py-2.5 text-right">
-        <div className="flex justify-end gap-0.5">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onDetail(user)}
-            aria-label={t('view')}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onRoleAssign(user)}
-            aria-label={t('setRole')}
-            disabled={patchPending}
-          >
-            <KeyRound className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onResetPassword(user)}
-            aria-label={t('resetPassword')}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={patchPending}
-            onClick={() => onStatusToggle(user)}
-            className={cn(
-              isActive
-                ? 'text-rose-600 hover:text-rose-600 dark:text-rose-500'
-                : 'text-emerald-600 hover:text-emerald-600 dark:text-emerald-500',
-            )}
-            aria-label={isActive ? t('ban') : t('unban')}
-          >
-            {isActive ? (
-              <Ban className="h-4 w-4" />
-            ) : (
-              <ShieldCheck className="h-4 w-4" />
-            )}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onDelete(user)}
-            aria-label={t('delete')}
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </td>
-    </tr>
-  )
-}
-
 export default function AdminUsersPage() {
   const t = useTranslations('admin.users')
   const locale = useLocale()
@@ -277,6 +87,7 @@ export default function AdminUsersPage() {
   const [role, setRole] = React.useState('all')
   const [status, setStatus] = React.useState('all')
   const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE)
   const [selectedDeptId, setSelectedDeptId] = React.useState<string | null>(null)
   const [quickUser, setQuickUser] = React.useState<AdminUser | null>(null)
   const [detailUser, setDetailUser] = React.useState<AdminUser | null>(null)
@@ -301,8 +112,18 @@ export default function AdminUsersPage() {
   }, [search])
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'users', debounced, role, status, page, selectedDeptId],
-    queryFn: () => fetchUsers({ page, search: debounced, role, status, deptId: selectedDeptId }),
+    queryKey: ['admin', 'users', debounced, role, status, page, selectedDeptId, pageSize],
+    queryFn: () => {
+      const qs = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      })
+      if (debounced) qs.set('search', debounced)
+      if (role !== 'all') qs.set('role', role)
+      if (status !== 'all') qs.set('status', status)
+      if (selectedDeptId) qs.set('deptId', selectedDeptId)
+      return api<UsersData>(`/api/admin/users?${qs.toString()}`)
+    },
   })
 
   const { data: deptData } = useQuery({
@@ -321,9 +142,39 @@ export default function AdminUsersPage() {
   )
 
   const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const rawUsers = data?.list ?? []
-  const users = React.useMemo(() => applyStoredOrder(rawUsers, storedOrder), [rawUsers, storedOrder])
+  const orderedUsers = React.useMemo(
+    () => applyStoredOrder(rawUsers, storedOrder),
+    [rawUsers, storedOrder],
+  )
+
+  // react-table 客户端实例:排序持久化 + 列可见性/固定/宽状态管理
+  // sorting 非空时覆盖 storedOrder 手动拖拽排序;sorting 为空时回落到 orderedUsers
+  const { table, sorting, setSorting } = useClientTable<AdminUser>({
+    data: orderedUsers,
+    columns: userColumns,
+    storageKey: 'admin-users-table',
+    enableSorting: true,
+    enableColumnVisibility: true,
+    enableColumnPinning: true,
+    enableColumnResize: true,
+    getRowId: (u) => u.id,
+  })
+  const users = useSortedData(table, orderedUsers, sorting)
+
+  // 排序选择器当前值
+  const userSortValue = React.useMemo(() => {
+    const s = sorting[0]
+    return s ? `${s.id}-${s.desc ? 'desc' : 'asc'}` : ''
+  }, [sorting])
+  const onUserSortChange = React.useCallback(
+    (v: string) => {
+      const opt = USER_SORT_OPTIONS.find((o) => o.value === v)
+      setSorting(opt ? opt.state : [])
+    },
+    [setSorting],
+  )
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -333,22 +184,10 @@ export default function AdminUsersPage() {
     minute: '2-digit',
   })
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    const oldIndex = users.findIndex((u) => u.id === active.id)
-    const newIndex = users.findIndex((u) => u.id === over.id)
-    if (oldIndex < 0 || newIndex < 0) return
-    const reordered = arrayMove(users, oldIndex, newIndex)
-    const newOrder = reordered.map((u) => u.id)
+  const handleReorder = React.useCallback((newOrder: string[]) => {
     setStoredOrder(newOrder)
     saveStoredOrder(newOrder)
-  }
+  }, [])
 
   const handleStatusConfirm = () => {
     if (!confirmUser) return
@@ -451,92 +290,46 @@ export default function AdminUsersPage() {
             }}
           />
 
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={users.map((u) => u.id)} strategy={verticalListSortingStrategy}>
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr>
-                      <th className="w-8 px-1 py-2.5" aria-label="拖动以排序" />
-                      <th className="px-4 py-2.5 font-medium">{t('nickname')}</th>
-                      <th className="px-4 py-2.5 font-medium">
-                        {t('phone')} / {t('email')}
-                      </th>
-                      <th className="px-4 py-2.5 font-medium">{t('role')}</th>
-                      <th className="px-4 py-2.5 font-medium">{t('status')}</th>
-                      <th className="px-4 py-2.5 font-medium">{t('createdAt')}</th>
-                      <th className="px-4 py-2.5 text-right font-medium">{t('actions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-4">
-                          <Skeleton variant="list" count={5} />
-                        </td>
-                      </tr>
-                    ) : error ? (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-destructive">
-                          {error.message}
-                        </td>
-                      </tr>
-                    ) : users.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                          <Users className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                          {t('noData')}
-                        </td>
-                      </tr>
-                    ) : (
-                      users.map((u) => (
-                        <SortableUserRow
-                          key={u.id}
-                          user={u}
-                          dateFmt={dateFmt}
-                          t={t}
-                          patchPending={patchMut.isPending}
-                          onQuickView={setQuickUser}
-                          onDetail={setDetailUser}
-                          onRoleAssign={setRoleUser}
-                          onResetPassword={setResetUser}
-                          onStatusToggle={(usr) => openConfirm(usr, 'status')}
-                          onDelete={(usr) => openConfirm(usr, 'delete')}
-                        />
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </SortableContext>
-          </DndContext>
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <CenteredText>{t('prev')}</CenteredText>
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {t('page', { page, total: totalPages })}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <CenteredText>{t('next')}</CenteredText>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="flex items-center gap-2 text-sm">
+            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">默认排序</span>
+            <select
+              value={userSortValue}
+              onChange={(e) => onUserSortChange(e.target.value)}
+              className={selectClass}
+              aria-label="默认排序"
+            >
+              {USER_SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
+
+          <UserTable
+            users={users}
+            loading={isLoading}
+            error={error as Error | null}
+            patchPending={patchMut.isPending}
+            dateFmt={dateFmt}
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s)
+              setPage(1)
+            }}
+            onReorder={handleReorder}
+            onQuickView={setQuickUser}
+            onDetail={setDetailUser}
+            onRoleAssign={setRoleUser}
+            onResetPassword={setResetUser}
+            onStatusToggle={(usr) => openConfirm(usr, 'status')}
+            onDelete={(usr) => openConfirm(usr, 'delete')}
+          />
         </div>
       </div>
 
