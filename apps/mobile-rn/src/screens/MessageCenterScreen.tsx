@@ -34,9 +34,12 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const PAGE_SIZE = 20
 
 type TabKey = 'notification' | 'message'
-type Item =
-  | (NotificationItem & { _kind: 'notification' })
-  | (MessageItem & { _kind: 'message' })
+type Item = (NotificationItem & { _kind: 'notification' }) | (MessageItem & { _kind: 'message' })
+
+const MESSAGE_CENTER_TAB_KEYS: Record<TabKey, string> = {
+  notification: 'messageCenter.tab_notification',
+  message: 'messageCenter.tab_message',
+}
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('zh-CN', {
@@ -158,7 +161,7 @@ export function MessageCenterScreen() {
             style={[styles.tab, tab === k && styles.tabActive]}
           >
             <Text style={[styles.tabText, tab === k && styles.tabTextActive]}>
-              {t(`messageCenter.tab_${k}`)}
+              {t(MESSAGE_CENTER_TAB_KEYS[k])}
             </Text>
           </TouchableOpacity>
         ))}
@@ -204,9 +207,7 @@ export function MessageCenterScreen() {
           <Card className="p-3">
             <TouchableOpacity onPress={() => onMarkRead(item)} style={styles.itemBtn}>
               <View style={styles.itemRow}>
-                <View
-                  style={[styles.dot, item.isRead ? styles.dotRead : styles.dotUnread]}
-                />
+                <View style={[styles.dot, item.isRead ? styles.dotRead : styles.dotUnread]} />
                 <View style={styles.itemBody}>
                   <Text style={styles.itemTitle} numberOfLines={1}>
                     {item._kind === 'notification'
