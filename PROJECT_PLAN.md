@@ -193,10 +193,10 @@
 
 **Git 同步证据**:
 
-- 本地 commit: (待 push 后填充)
-- origin commit: (待 push 后填充)
-- 同步状态: (待验证)
-- 守门脚本: (待验证)
+- 本地 commit: 36bf3be13
+- origin commit: 36bf3be13
+- 同步状态: local == remote ✅
+- 守门脚本: node scripts/git-push-guard.mjs exit 0(全量 typecheck 通过,push 自动验证 local==remote)
 
 ---
 
