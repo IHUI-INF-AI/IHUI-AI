@@ -5,10 +5,9 @@
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/Carousel/index.vue)
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native'
 import {
   Image,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,

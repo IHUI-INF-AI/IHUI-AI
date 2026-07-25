@@ -26,8 +26,8 @@ vi.mock('../src/i18n', () => {
   return { useI18n: () => ({ t }) }
 })
 
-vi.mock('react-native', () => {
-  const { createElement } = require('react')
+vi.mock('react-native', async () => {
+  const { createElement } = await import('react')
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       return createElement(tag, props, props.children)
