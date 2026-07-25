@@ -14,6 +14,12 @@ from typing import Any, AsyncIterator, Optional, TYPE_CHECKING
 import asyncpg
 import httpx
 
+from ..middleware.llm_metrics import (
+    LLM_FALLBACK_FAILURE,
+    LLM_FALLBACK_SUCCESS,
+    LLM_FALLBACK_TRIGGERED,
+    classify_fallback_reason,
+)
 from .config import settings
 
 # TEMP-FIX(ai-feed): 循环导入临时绕过(llm_gateway → providers → base_provider → llm_gateway)
@@ -832,7 +838,34 @@ class LLMGateway:
                 if not fb_result.get("error"):
                     fb_result["fallback_used"] = True
                     fb_result["fallback_primary"] = used_model
+                    # P3-2 指标埋点:fallback 触发 + 成功
+                    backup_model = fb_result.get("model", "unknown")
+                    try:
+                        LLM_FALLBACK_TRIGGERED.labels(
+                            primary_model=used_model,
+                            backup_model=backup_model,
+                            reason=classify_fallback_reason(e),
+                        ).inc()
+                        LLM_FALLBACK_SUCCESS.labels(
+                            primary_model=used_model,
+                            backup_model=backup_model,
+                        ).inc()
+                    except Exception as metric_err:
+                        logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
                     return fb_result
+                # P3-2 指标埋点:fallback 触发 + 失败(所有备用 provider 均失败)
+                try:
+                    LLM_FALLBACK_TRIGGERED.labels(
+                        primary_model=used_model,
+                        backup_model="all_failed",
+                        reason=classify_fallback_reason(e),
+                    ).inc()
+                    LLM_FALLBACK_FAILURE.labels(
+                        primary_model=used_model,
+                        backup_model="all_failed",
+                    ).inc()
+                except Exception as metric_err:
+                    logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
             return {
                 "content": "",
                 "model": used_model,
@@ -1003,6 +1036,7 @@ class LLMGateway:
                 and not accumulated_reasoning
                 and fallback_router._configs
             ):
+                fb_reason = classify_fallback_reason(e)
                 try:
                     fb_result = await fallback_router.complete_with_fallback(
                         trimmed_messages, used_model
@@ -1010,20 +1044,60 @@ class LLMGateway:
                     if not fb_result.get("error"):
                         # fallback 返回的是完整结果(非流式),拆成 chunk 产出
                         fb_content = fb_result.get("content", "") or ""
+                        backup_model = fb_result.get("model", "unknown")
+                        # P3-2 指标埋点:fallback 触发 + 成功
+                        try:
+                            LLM_FALLBACK_TRIGGERED.labels(
+                                primary_model=used_model,
+                                backup_model=backup_model,
+                                reason=fb_reason,
+                            ).inc()
+                            LLM_FALLBACK_SUCCESS.labels(
+                                primary_model=used_model,
+                                backup_model=backup_model,
+                            ).inc()
+                        except Exception as metric_err:
+                            logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
                         chunk_size = 10
                         for i in range(0, len(fb_content), chunk_size):
                             yield {"type": "chunk", "content": fb_content[i : i + chunk_size]}
                         yield {
                             "type": "done",
-                            "model": fb_result.get("model", used_model),
+                            "model": backup_model,
                             "usage": fb_result.get("usage", {}),
                             "stub": False,
                             "fallback_used": True,
                             "fallback_primary": used_model,
                         }
                         return
+                    # P3-2 指标埋点:fallback 触发 + 失败(所有备用 provider 均失败)
+                    try:
+                        LLM_FALLBACK_TRIGGERED.labels(
+                            primary_model=used_model,
+                            backup_model="all_failed",
+                            reason=fb_reason,
+                        ).inc()
+                        LLM_FALLBACK_FAILURE.labels(
+                            primary_model=used_model,
+                            backup_model="all_failed",
+                        ).inc()
+                    except Exception as metric_err:
+                        logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
                 except Exception as fb_err:
                     logger.warning("astream fallback 失败: %s", fb_err)
+                    # P3-2 指标埋点:fallback 触发 + 失败(fallback_router 自身抛异常)
+                    try:
+                        LLM_FALLBACK_TRIGGERED.labels(
+                            primary_model=used_model,
+                            backup_model="all_failed",
+                            reason=fb_reason,
+                        ).inc()
+                        LLM_FALLBACK_FAILURE.labels(
+                            primary_model=used_model,
+                            backup_model="all_failed",
+                        ).inc()
+                    except Exception as metric_err:
+                        logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
             yield {"type": "error", "message": safe_msg, "errorCode": err_code}
 
     async def embed(
