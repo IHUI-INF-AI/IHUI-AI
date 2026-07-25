@@ -148,7 +148,7 @@ export default function WithdrawRecordsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((it) => (
+              items.map((it: any) => (
                 <TableRow key={it.id}>
                   <TableCell className="px-4 py-2.5 text-right font-medium">
                     {fmtYuan(it.originalAmount)}

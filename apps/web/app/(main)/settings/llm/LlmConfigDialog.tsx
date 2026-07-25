@@ -201,7 +201,7 @@ export function LlmConfigDialog({
         baseUrlOverride: form.baseUrlOverride.trim() || undefined,
       })
     },
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
       toast.success(res.message || t('previewTestSuccess'), {
         description: `${tCard('testTimeOnly', { ms: res.responseMs ?? 0 })}${res.modelEcho ? ` · ${res.modelEcho}` : ''}`,
         icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
@@ -221,7 +221,7 @@ export function LlmConfigDialog({
       if (!form.id) throw new Error(t('saveBeforeFetchErr'))
       return fetchUpstreamModels(form.id)
     },
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
       setModels(res.models)
       toast.success(res.message || tCard('fetchSuccess', { total: res.total }), {
         icon: <Sparkles className="h-4 w-4 text-amber-500" />,
