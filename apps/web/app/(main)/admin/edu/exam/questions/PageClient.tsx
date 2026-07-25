@@ -146,7 +146,7 @@ function QuestionsContent() {
   }
 
   const all = data ?? []
-  const questions = typeFilter === 'all' ? all : all.filter((q) => q.type === typeFilter)
+  const questions = typeFilter === 'all' ? all : all.filter((q: any) => q.type === typeFilter)
   const saving = createMut.isPending || updateMut.isPending
 
   return (
