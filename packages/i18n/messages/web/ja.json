@@ -905,7 +905,6 @@
       "historyClearConfirmTitle": "履歴をクリア",
       "historyClearConfirmDesc": "すべてのモード切替記録が削除され、復元できません。",
       "historyClearConfirm": "クリア",
-      "historyClearCancel": "キャンセル",
       "historyOpenButton": "履歴",
       "historySource": {
         "popover": "ポップオーバー",
@@ -914,12 +913,6 @@
         "auto-revert": "自動"
       },
       "historyStatsTitle": "累計統計",
-      "historyStatsMode": {
-        "default": "毎回確認",
-        "accept-edits": "自動承認",
-        "bypass-permissions": "完全アクセス"
-      },
-      "historyStatsDuration": "{{mode}}:{{duration}}",
       "historyOpenExternal": "履歴を表示",
       "dangerousPattern": {
         "rmRrfRoot": "ルート/ホームディレクトリを再帰削除",

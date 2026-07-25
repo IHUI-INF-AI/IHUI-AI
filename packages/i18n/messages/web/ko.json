@@ -905,7 +905,6 @@
       "historyClearConfirmTitle": "기록 지우기",
       "historyClearConfirmDesc": "모든 모드 전환 기록이 삭제되며 복구할 수 없습니다.",
       "historyClearConfirm": "지우기",
-      "historyClearCancel": "취소",
       "historyOpenButton": "기록",
       "historySource": {
         "popover": "팝오버",
@@ -914,12 +913,6 @@
         "auto-revert": "자동"
       },
       "historyStatsTitle": "누적 통계",
-      "historyStatsMode": {
-        "default": "승인 요청",
-        "accept-edits": "자동 승인",
-        "bypass-permissions": "전체 액세스"
-      },
-      "historyStatsDuration": "{{mode}}: {{duration}}",
       "historyOpenExternal": "기록 보기",
       "dangerousPattern": {
         "rmRrfRoot": "루트/홈 디렉터리 재귀 삭제",
