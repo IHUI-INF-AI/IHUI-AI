@@ -20,7 +20,7 @@ import {
   SelectValue,
   Switch,
 } from '@ihui/ui-react'
-import { STATUS_OPTIONS, selectClassLg } from './helpers'
+import { STATUS_OPTIONS, STATUS_KEY, selectClassLg } from './helpers'
 import type { AgentForm, Category } from './types'
 
 const textareaCls =
@@ -127,7 +127,7 @@ export function AgentEditDialog({
                 <SelectContent>
                   {STATUS_OPTIONS.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {t(`status${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
+                      {t(STATUS_KEY[s] ?? 'statusUnknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>

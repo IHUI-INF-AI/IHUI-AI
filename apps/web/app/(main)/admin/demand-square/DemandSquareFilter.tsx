@@ -4,7 +4,7 @@ import { Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { STATUS_OPTIONS, selectClass } from './helpers'
+import { STATUS_OPTIONS, STATUS_KEY, selectClass } from './helpers'
 
 interface Props {
   status: string
@@ -25,7 +25,7 @@ export function DemandSquareFilter({ status, onStatusChange, onExport }: Props) 
           <SelectItem value="all">{t('allStatus')}</SelectItem>
           {STATUS_OPTIONS.map((s) => (
             <SelectItem key={s} value={s}>
-              {t(`status${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
+              {t(STATUS_KEY[s] ?? 'statusUnknown')}
             </SelectItem>
           ))}
         </SelectContent>

@@ -24,7 +24,7 @@ import {
 } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
-import { api, STATUS_CLASS } from '../helpers'
+import { api, STATUS_CLASS, STATUS_KEY } from '../helpers'
 import type { Examine } from '../types'
 
 interface ExamineDetail extends Examine {
@@ -163,7 +163,7 @@ export default function DemandSquareDetailPage() {
                   STATUS_CLASS[rec.status] ?? STATUS_CLASS.pending,
                 )}
               >
-                {t(`status${rec.status.charAt(0).toUpperCase()}${rec.status.slice(1)}`)}
+                {t(STATUS_KEY[rec.status] ?? 'statusUnknown')}
               </span>
             </CardTitle>
             <CardDescription className="font-mono text-xs">#{rec.id}</CardDescription>
