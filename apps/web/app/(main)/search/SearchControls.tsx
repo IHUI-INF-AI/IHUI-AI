@@ -6,6 +6,13 @@ import { cn } from '@/lib/utils'
 import { TABS } from './helpers'
 import type { TabKey, SortKey } from './types'
 
+const TAB_KEY: Record<string, string> = {
+  all: 'tabs.all',
+  users: 'tabs.users',
+  projects: 'tabs.projects',
+  files: 'tabs.files',
+}
+
 interface Props {
   tab: TabKey
   setTab: (v: TabKey) => void
@@ -29,7 +36,7 @@ export function SearchControls({ tab, setTab, sort, setSort }: Props) {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`tabs.${tabItem.labelKey}`)}
+            {t(TAB_KEY[tabItem.labelKey] ?? `tabs.${tabItem.labelKey}`)}
           </button>
         ))}
       </div>
