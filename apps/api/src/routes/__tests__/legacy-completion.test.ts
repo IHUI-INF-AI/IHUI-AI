@@ -64,7 +64,15 @@ global.fetch = vi.fn().mockResolvedValue({
   json: async () => ({ access_token: 'mock-token-123', errcode: 0, errmsg: '' }),
 }) as unknown as typeof fetch
 
-import { legacyCompletionRoutes } from '../legacy-completion.js'
+import { legacyExamRoutes } from '../legacy-exam.js'
+import { legacyLearnRoutes } from '../legacy-learn.js'
+import { legacyLiveRoutes } from '../legacy-live.js'
+import { legacyAskRoutes } from '../legacy-ask.js'
+import { legacyBatchRoutes } from '../legacy-batch.js'
+import { legacyOssRoutes } from '../legacy-oss.js'
+import { legacyCommunityRoutes } from '../legacy-community.js'
+import { legacyWorkWechatRoutes } from '../legacy-work-wechat.js'
+import { legacyStudyRoutes } from '../legacy-study.js'
 
 describe('Legacy Completion API (D17/D18/D19 新增端点)', () => {
   let app: FastifyInstance
@@ -86,7 +94,15 @@ describe('Legacy Completion API (D17/D18/D19 新增端点)', () => {
           : err.message
       reply.status(statusCode).send({ code: statusCode, message })
     })
-    await app.register(legacyCompletionRoutes, { prefix: '/api' })
+    await app.register(legacyExamRoutes, { prefix: '/api' })
+    await app.register(legacyLearnRoutes, { prefix: '/api' })
+    await app.register(legacyLiveRoutes, { prefix: '/api' })
+    await app.register(legacyAskRoutes, { prefix: '/api' })
+    await app.register(legacyBatchRoutes, { prefix: '/api' })
+    await app.register(legacyOssRoutes, { prefix: '/api' })
+    await app.register(legacyCommunityRoutes, { prefix: '/api' })
+    await app.register(legacyWorkWechatRoutes, { prefix: '/api' })
+    await app.register(legacyStudyRoutes, { prefix: '/api' })
     await app.ready()
   })
 
