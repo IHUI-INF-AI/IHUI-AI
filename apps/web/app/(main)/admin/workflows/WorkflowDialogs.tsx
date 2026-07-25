@@ -14,7 +14,7 @@ import {
   DialogFooter,
   Button,
 } from '@ihui/ui-react'
-import { STATUS_BADGE, stepName } from './helpers'
+import { STATUS_BADGE, STATUS_KEY, TRIGGER_KEY, stepName } from './helpers'
 import type { WorkflowItem } from './types'
 
 interface WorkflowViewDialogProps {
@@ -58,13 +58,13 @@ export function WorkflowViewDialog({ item, onClose }: WorkflowViewDialogProps) {
                   (STATUS_BADGE[item.isActive ? 'active' : 'archived'] ?? STATUS_BADGE.draft).cls,
                 )}
               >
-                {t(`status_${item.isActive ? 'active' : 'archived'}`)}
+                {t(STATUS_KEY[item.isActive ? 'active' : 'archived'] ?? 'status_unknown')}
               </span>
             </div>
             {item.description ? <p className="text-muted-foreground">{item.description}</p> : null}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Zap className="h-3 w-3" />
-              {t(`trigger_${item.triggerType}`)}
+              {t(TRIGGER_KEY[item.triggerType] ?? 'trigger_unknown')}
               <span className="mx-1">·</span>
               {dateFmt.format(new Date(item.createdAt))}
             </div>
