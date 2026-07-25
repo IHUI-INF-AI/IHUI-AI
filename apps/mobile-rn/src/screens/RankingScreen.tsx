@@ -32,6 +32,12 @@ type RangeKey = 'weekly' | 'monthly' | 'allTime'
 
 const RANGES: RangeKey[] = ['weekly', 'monthly', 'allTime']
 
+const RANKING_RANGE_KEYS: Record<RangeKey, string> = {
+  weekly: 'ranking.range_weekly',
+  monthly: 'ranking.range_monthly',
+  allTime: 'ranking.range_allTime',
+}
+
 function rankColor(rank: number): string {
   if (rank === 1) return '#F59E0B'
   if (rank === 2) return '#9CA3AF'
@@ -115,7 +121,7 @@ export function RankingScreen() {
             style={[styles.tab, range === r && styles.tabActive]}
           >
             <Text style={[styles.tabText, range === r && styles.tabTextActive]}>
-              {t(`ranking.range_${r}`)}
+              {t(RANKING_RANGE_KEYS[r])}
             </Text>
           </TouchableOpacity>
         ))}

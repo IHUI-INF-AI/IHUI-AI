@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
-import { STATUS_BADGE, TRIGGER_BADGE } from './helpers'
+import { STATUS_BADGE, TRIGGER_BADGE, TRIGGER_KEY, STATUS_KEY } from './helpers'
 import type { WorkflowItem, WfStatus } from './types'
 
 interface WorkflowsTableProps {
@@ -103,7 +103,7 @@ export function WorkflowsTable({
                       )}
                     >
                       <Zap className="h-3 w-3" />
-                      {t(`trigger_${w.triggerType}`)}
+                      {t(TRIGGER_KEY[w.triggerType] ?? 'trigger_unknown')}
                     </span>
                     {stepCount > 0 ? (
                       <span className="ml-2 text-xs text-muted-foreground">
@@ -119,7 +119,7 @@ export function WorkflowsTable({
                       )}
                     >
                       <span className={cn('h-1.5 w-1.5 rounded-full', sc.dot)} />
-                      {t(`status_${status}`)}
+                      {t(STATUS_KEY[status] ?? 'status_unknown')}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">

@@ -9,7 +9,8 @@ import {
   getAgentDetail,
   getAgentList,
 } from '@/api'
-import { formatSSEError, getModelContextCapacity, formatTokenCount } from '@ihui/api-client'
+import { formatSSEError, getModelContextCapacity } from '@ihui/api-client'
+import { formatTokenCount } from '@ihui/shared/utils'
 import type { Agent } from '@ihui/api-client'
 import {
   type ModelItem,

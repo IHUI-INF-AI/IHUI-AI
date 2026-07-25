@@ -17,6 +17,15 @@ interface Props {
 type SortField = 'date' | 'amount'
 type SortDir = 'asc' | 'desc'
 
+/**
+ * i18n 静态映射表 — 用于消除 `t(`funding.sortBy${field.charAt(0).toUpperCase() + field.slice(1)}`)` 动态拼接
+ * field ∈ 'date' | 'amount',首字母大写后为 'Date' | 'Amount',最终 key 为 'funding.sortByDate' | 'funding.sortByAmount'
+ */
+const SORT_BY_LABEL_KEY: Record<SortField, string> = {
+  date: 'funding.sortByDate',
+  amount: 'funding.sortByAmount',
+}
+
 export function FundingSection({ items }: Props) {
   const t = useTranslations('aiNews')
   const locale = React.useMemo(() => {
@@ -114,7 +123,7 @@ export function FundingSection({ items }: Props) {
                   : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
-              {t(`funding.sortBy${field.charAt(0).toUpperCase() + field.slice(1)}`)}
+              {t(SORT_BY_LABEL_KEY[field] ?? 'funding.sortByDate')}
               {sortField === field ? (
                 sortDir === 'asc' ? <ArrowUp className="h-2 w-2" /> : <ArrowDown className="h-2 w-2" />
               ) : null}

@@ -10,6 +10,15 @@ import type { InvoiceApplication } from './types'
 
 type Translator = ReturnType<typeof useTranslations<'settings'>>
 
+/** i18n 静态映射表 — 用于消除 billingInvoiceTypeValue.{type} 形式的动态拼接 */
+const INVOICE_TYPE_KEY: Record<string, string> = {
+  general: 'billingInvoiceTypeValue.general',
+  special: 'billingInvoiceTypeValue.special',
+  electronic: 'billingInvoiceTypeValue.electronic',
+  normal: 'billingInvoiceTypeValue.normal',
+  vat: 'billingInvoiceTypeValue.vat',
+}
+
 interface Props {
   t: Translator
   list: InvoiceApplication[]
@@ -73,7 +82,7 @@ export function InvoicesTab({
             list.map((inv) => (
               <tr key={inv.id} className="transition-colors hover:bg-muted/30">
                 <td className={cn(tdCls, 'font-mono text-xs')}>{inv.invoiceNo}</td>
-                <td className={tdCls}>{t(`billingInvoiceTypeValue.${inv.type}`)}</td>
+                <td className={tdCls}>{t(INVOICE_TYPE_KEY[inv.type] ?? 'billingInvoiceTypeValue.unknown')}</td>
                 <td className={cn(tdCls, 'font-medium')}>
                   {currencyFmt.format(Number(inv.amount))}
                 </td>

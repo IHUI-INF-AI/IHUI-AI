@@ -1,0 +1,19 @@
+{
+  "chat": {
+    "send": "Send"
+  },
+  "common": {
+    "back": "Back",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "retry": "Retry",
+    "save": "Save",
+    "search": "Search"
+  },
+  "nav": {
+    "home": "Home",
+    "settings": "Settings",
+    "wallet": "Wallet"
+  }
+}
