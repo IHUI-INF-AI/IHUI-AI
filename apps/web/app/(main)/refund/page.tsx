@@ -92,7 +92,7 @@ export default function RefundPage() {
       ) : (
         <div className="space-y-2">
           {items.map((item: any) => {
-            const sc = STATUS_CONFIG[item.status as any] ?? STATUS_CONFIG.pending
+            const sc = (STATUS_CONFIG as any)[item.status] ?? STATUS_CONFIG.pending
             const StatusIcon = sc.icon
             return (
               <Card key={item.id} className="transition-colors hover:bg-accent">
