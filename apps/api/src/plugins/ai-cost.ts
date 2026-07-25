@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastif
 import fp from 'fastify-plugin'
 import { createHash } from 'node:crypto'
 import type { Redis } from 'ioredis'
-import { eq, sql, and, gte, sum, desc, type SQL } from 'drizzle-orm'
+import { eq, sql, and, gte, lte, sum, desc, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { aiCostRecords, aiBudgets, type AiCostRecord } from '@ihui/database'
 import { authenticate } from './auth.js'
@@ -326,7 +326,7 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
       const conditions: SQL[] = [
         gte(aiCostRecords.createdAt, startDate),
-        sql`${aiCostRecords.createdAt} <= ${endDate}`,
+        lte(aiCostRecords.createdAt, endDate),
       ]
       if (query.tenantId) {
         conditions.push(eq(aiCostRecords.tenantId, query.tenantId))
