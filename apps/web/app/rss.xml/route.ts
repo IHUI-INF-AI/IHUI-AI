@@ -55,6 +55,7 @@ export async function GET() {
       <height>512</height>
     </image>
     <atom:link href="${SITE_URL}/rss.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="${SITE_URL}/websub" rel="hub" xmlns:atom="http://www.w3.org/2005/Atom" />
 ${items
   .map(
     (item) => `    <item>
