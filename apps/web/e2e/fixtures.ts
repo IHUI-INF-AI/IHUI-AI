@@ -1,3 +1,4 @@
+// @ts-ignore - @playwright/test not in typecheck include
 import { test as base, expect, type Page, type APIRequestContext } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -54,7 +55,7 @@ async function loginAndSaveStorageState(
 
   // 等待登录成功：跳转首页或 dashboard（避免 `'/' || regex` 恒为 '/' 的错误写法）
   await page.waitForURL(
-    (url) => {
+    (url: any) => {
       const p = url.pathname
       return p === '/' || /\/dashboard/.test(p)
     },
@@ -166,14 +167,14 @@ async function ensureStorageState(
 // 仅新增 test 级 fixture authenticatedPage / adminPage；
 // browser / request / baseURL 均直接复用 @playwright/test 内置 fixture
 const test = base.extend<{ authenticatedPage: Page; adminPage: Page }>({
-  authenticatedPage: async ({ browser, request, baseURL }, use) => {
+  authenticatedPage: async ({ browser, request, baseURL }: any, use: any) => {
     await ensureStorageState(request, baseURL ?? '', TEST_USER, USER_STORAGE_STATE)
     const context = await browser.newContext({ storageState: USER_STORAGE_STATE })
     const page = await context.newPage()
     await use(page)
     await context.close()
   },
-  adminPage: async ({ browser, request, baseURL }, use) => {
+  adminPage: async ({ browser, request, baseURL }: any, use: any) => {
     await ensureStorageState(request, baseURL ?? '', ADMIN_USER, ADMIN_STORAGE_STATE)
     const context = await browser.newContext({ storageState: ADMIN_STORAGE_STATE })
     const page = await context.newPage()

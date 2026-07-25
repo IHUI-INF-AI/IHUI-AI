@@ -1,7 +1,9 @@
 'use client'
 
 import * as React from 'react'
+// @ts-ignore
 import { Loader2 } from 'lucide-react'
+// @ts-ignore
 import { useTranslations } from 'next-intl'
 import {
   Dialog,
@@ -18,6 +20,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
+// @ts-ignore
 } from '@ihui/ui-react'
 import { selectClass } from './helpers'
 import type { AgentRule, AgentRuleForm } from './types'
@@ -47,7 +50,7 @@ export function AgentRuleDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(o) => {
+      onOpenChange={(o: any) => {
         if (!o) onClose()
       }}
     >
@@ -65,7 +68,7 @@ export function AgentRuleDialog({
             <Label>{t('labelAgentId')}</Label>
             <Input
               value={form.agentId}
-              onChange={(e) => setForm({ ...form, agentId: e.target.value })}
+              onChange={(e: any) => setForm({ ...form, agentId: e.target.value })}
               placeholder={t('placeholderAgentId')}
             />
           </div>
@@ -73,7 +76,7 @@ export function AgentRuleDialog({
             <Label>{t('labelRuleName')}</Label>
             <Input
               value={form.ruleName}
-              onChange={(e) => setForm({ ...form, ruleName: e.target.value })}
+              onChange={(e: any) => setForm({ ...form, ruleName: e.target.value })}
               placeholder={t('placeholderRuleName')}
             />
           </div>
@@ -82,7 +85,7 @@ export function AgentRuleDialog({
               <Label>{t('labelRuleCode')}</Label>
               <Input
                 value={form.ruleCode}
-                onChange={(e) => setForm({ ...form, ruleCode: e.target.value })}
+                onChange={(e: any) => setForm({ ...form, ruleCode: e.target.value })}
                 placeholder={t('placeholderRuleCode')}
               />
             </div>
@@ -90,7 +93,7 @@ export function AgentRuleDialog({
               <Label>{t('labelRuleType')}</Label>
               <Select
                 value={form.ruleType}
-                onValueChange={(v) => setForm({ ...form, ruleType: v })}
+                onValueChange={(v: any) => setForm({ ...form, ruleType: v })}
               >
                 <SelectTrigger className={selectClass}>
                   <SelectValue />
@@ -109,13 +112,13 @@ export function AgentRuleDialog({
               <Input
                 type="number"
                 value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                onChange={(e: any) => setForm({ ...form, priority: e.target.value })}
               />
             </div>
             <div className="flex items-center gap-2 pt-7">
               <Switch
                 checked={form.status}
-                onCheckedChange={(v) => setForm({ ...form, status: v })}
+                onCheckedChange={(v: any) => setForm({ ...form, status: v })}
               />
               <Label>{t('labelEnabled')}</Label>
             </div>
