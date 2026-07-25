@@ -8,6 +8,7 @@ import {
   TOKEN_STORAGE_KEY as TOKEN_KEY,
   REFRESH_TOKEN_STORAGE_KEY as REFRESH_TOKEN_KEY,
 } from '@ihui/shared/constants'
+import type { TokenStoreWithUserInfo } from '@ihui/shared/auth'
 
 const USER_INFO_KEY = 'ihui_user_info'
 
@@ -90,4 +91,26 @@ export function checkLoginStatus(redirect = false): boolean {
     reLaunch({ url: '/pages/login/login' })
   }
   return loggedIn
+}
+
+/**
+ * TokenStore 契约接入(类型层验证,零运行时改动)
+ *
+ * 编译时验证本端 token 管理实现符合 @ihui/shared/auth TokenStoreWithUserInfo 接口,
+ * 为后续跨端统一调用提供类型安全网。各调用方仍可直接用具体函数,
+ * 此对象供后续重构或新代码通过 TokenStore 接口调用使用。
+ *
+ * 注意:
+ * - clearAuth 同时清除 token + refreshToken + userInfo,映射到 clearAll
+ * - getToken/getRefreshToken 返回 string(空串表空),TokenStore 要求 string | null,
+ *   string 是 string | null 的子类型,协变位置赋值兼容
+ */
+export const tokenStore: TokenStoreWithUserInfo<UserInfo> = {
+  getToken,
+  getRefreshToken,
+  setToken,
+  setRefreshToken,
+  clearAll: clearAuth,
+  getUserInfo,
+  setUserInfo,
 }
