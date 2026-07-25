@@ -756,6 +756,67 @@ async function persistQuestionSafe(
   }
 }
 
+/** #9 流式 token 节流批处理器(2026-07-25 立,P0 流式性能优化):
+ *  - 用 requestAnimationFrame 合并多次 token 追加,每帧只触发一次 store 写入
+ *  - 避免 streaming 时每个 token 都触发 zustand set → React 重渲染
+ *  - 内部维护 content/reasoning/agent 三个 buffer,rAF flush 时合并写入
+ *  - flush() 在流结束前主动调用,避免最后一批 token 丢失
+ *  - cancel() 在 finally 中调用,清理未执行的 rAF
+ *  - 不破坏现有 onDelta/onReasoning/onAgentDelta 回调契约,只优化写入频率 */
+function createDeltaBatcher(assistantId: string) {
+  let contentBuf = ''
+  let reasoningBuf = ''
+  const agentBufs = new Map<string, string>()
+  let rAFId: number | null = null
+
+  const flush = () => {
+    rAFId = null
+    const store = useChatStore.getState()
+    if (contentBuf) {
+      store.appendToMessage(assistantId, contentBuf)
+      contentBuf = ''
+    }
+    if (reasoningBuf) {
+      store.appendReasoningToMessage(assistantId, reasoningBuf)
+      reasoningBuf = ''
+    }
+    if (agentBufs.size > 0) {
+      agentBufs.forEach((delta, agentId) => {
+        store.appendToAgentStream(agentId, delta)
+      })
+      agentBufs.clear()
+    }
+  }
+
+  const schedule = () => {
+    if (rAFId !== null) return
+    rAFId = requestAnimationFrame(flush)
+  }
+
+  return {
+    onDelta: (delta: string) => {
+      contentBuf += delta
+      schedule()
+    },
+    onReasoning: (delta: string) => {
+      reasoningBuf += delta
+      schedule()
+    },
+    onAgentDelta: (agentId: string, delta: string) => {
+      const prev = agentBufs.get(agentId) ?? ''
+      agentBufs.set(agentId, prev + delta)
+      schedule()
+    },
+    flush,
+    cancel: () => {
+      if (rAFId !== null) {
+        cancelAnimationFrame(rAFId)
+        rAFId = null
+      }
+    },
+  }
+}
+
 export function useChat(): UseChatReturn {
   const messages = useChatStore((s) => s.messages)
   const currentModel = useChatStore((s) => s.currentModel)
@@ -767,6 +828,10 @@ export function useChat(): UseChatReturn {
   const abortRef = React.useRef<AbortController | null>(null)
   // P1 错误重试(2026-07-23):保存最后发送内容,toast 加 retry 按钮
   const lastSentContentRef = React.useRef('')
+  // #10 sendAnswer 错误重试(2026-07-25 立):与 sendMessage 路径对齐
+  // - 保存最后发送的 answer + questionId,onError/catch 时 toast 加 retry 按钮
+  // - questionId 来自 pendingQuestion,clearPendingQuestion 后仍可恢复
+  const lastSentAnswerRef = React.useRef<{ answer: string; questionId: string } | null>(null)
 
   const sendMessage = React.useCallback(
     async (content: string): Promise<boolean> => {
@@ -865,13 +930,26 @@ export function useChat(): UseChatReturn {
       const controller = new AbortController()
       abortRef.current = controller
 
-      // 首 token 超时:15s 内未收到任何内容则中止
-      let firstTokenReceived = false
-      const timeoutId = setTimeout(() => {
-        if (!firstTokenReceived) {
+      // #13 首 token 超时区分 reasoning(2026-07-25 立,双阶超时):
+      //  - 15s 内 reasoning + content 都未收到 → abort(模型卡死或网络异常)
+      //  - 60s 内 content 未收到(但 reasoning 已收到)→ abort(reasoning 模型长思考)
+      //  - content 一旦收到 → 清掉两个 timer(进入正常流式)
+      //  - 与原版"15s 无任何 token 才中止"相比,避免对 reasoning 模型的误判
+      let firstContentTokenReceived = false
+      let firstReasoningTokenReceived = false
+      const timeout15s = setTimeout(() => {
+        if (!firstReasoningTokenReceived && !firstContentTokenReceived) {
           controller.abort()
         }
       }, 15000)
+      const timeout60s = setTimeout(() => {
+        if (!firstContentTokenReceived) {
+          controller.abort()
+        }
+      }, 60000)
+
+      // #9 流式 token 节流批处理器:每帧合并 store 写入,避免每 token 重渲染
+      const batcher = createDeltaBatcher(assistantId)
 
       // 从 auth store 获取 userId(用于回调链路关联)
       const userId = useAuthStore.getState().user?.id ?? ''
@@ -927,19 +1005,31 @@ export function useChat(): UseChatReturn {
             }
           },
           onDelta: (delta) => {
-            firstTokenReceived = true
-            useChatStore.getState().appendToMessage(assistantId, delta)
+            if (!firstContentTokenReceived) {
+              firstContentTokenReceived = true
+              clearTimeout(timeout15s)
+              clearTimeout(timeout60s)
+            }
+            batcher.onDelta(delta)
           },
           onAgentDelta: (_agentId, delta) => {
-            firstTokenReceived = true
-            useChatStore.getState().appendToAgentStream(_agentId, delta)
+            if (!firstContentTokenReceived) {
+              firstContentTokenReceived = true
+              clearTimeout(timeout15s)
+              clearTimeout(timeout60s)
+            }
+            batcher.onAgentDelta(_agentId, delta)
           },
           onReasoning: (delta) => {
-            useChatStore.getState().appendReasoningToMessage(assistantId, delta)
+            if (!firstReasoningTokenReceived) {
+              firstReasoningTokenReceived = true
+            }
+            batcher.onReasoning(delta)
           },
           onToolCall: createToolCallHandler(assistantId),
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
+            batcher.flush()
             const formatted = formatSSEError(errMsg)
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
@@ -970,9 +1060,18 @@ export function useChat(): UseChatReturn {
           },
         })
       } catch (err) {
+        batcher.flush()
         if (err instanceof DOMException && err.name === 'AbortError') {
-          if (!firstTokenReceived) {
+          // #13 区分 15s / 60s 超时给不同的提示文案
+          if (!firstReasoningTokenReceived && !firstContentTokenReceived) {
             const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
+            useChatStore.getState().setMessageError(assistantId, formatted.message)
+            useChatStore.getState().setError(formatted.message)
+          } else if (!firstContentTokenReceived) {
+            const formatted = formatSSEError(
+              err,
+              'AI 响应超时(60 秒内未收到回复内容,可能模型 reasoning 较长,请稍后重试',
+            )
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
           }
@@ -1002,7 +1101,9 @@ export function useChat(): UseChatReturn {
           }
         }
       } finally {
-        clearTimeout(timeoutId)
+        clearTimeout(timeout15s)
+        clearTimeout(timeout60s)
+        batcher.cancel()
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
@@ -1023,11 +1124,17 @@ export function useChat(): UseChatReturn {
     const trimmed = answer.trim()
     if (!trimmed) return
     const store = useChatStore.getState()
+    if (store.isStreaming) return
     const pending = store.pendingQuestion
-    if (!pending || store.isStreaming) return
-
+    const lastSent = lastSentAnswerRef.current
+    const questionId = pending?.questionId ?? lastSent?.questionId
+    if (!questionId) return
     // 立即关闭弹窗,避免重复提交
-    store.clearPendingQuestion()
+    if (pending) {
+      store.clearPendingQuestion()
+    }
+    // #10 保存最后发送的 answer + questionId,onError/catch 时 toast 加 retry 按钮
+    lastSentAnswerRef.current = { answer: trimmed, questionId }
 
     const model = store.currentModel
 
@@ -1054,10 +1161,22 @@ export function useChat(): UseChatReturn {
     const controller = new AbortController()
     abortRef.current = controller
 
-    let firstTokenReceived = false
-    const timeoutId = setTimeout(() => {
-      if (!firstTokenReceived) controller.abort()
+    // #13 首 token 超时区分 reasoning(2026-07-25 立,双阶超时,与 sendMessage 一致)
+    let firstContentTokenReceived = false
+    let firstReasoningTokenReceived = false
+    const timeout15s = setTimeout(() => {
+      if (!firstReasoningTokenReceived && !firstContentTokenReceived) {
+        controller.abort()
+      }
     }, 15000)
+    const timeout60s = setTimeout(() => {
+      if (!firstContentTokenReceived) {
+        controller.abort()
+      }
+    }, 60000)
+
+    // #9 流式 token 节流批处理器(2026-07-25 立)
+    const batcher = createDeltaBatcher(assistantId)
 
     const userId = useAuthStore.getState().user?.id ?? ''
     const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
@@ -1068,7 +1187,7 @@ export function useChat(): UseChatReturn {
         messages: history,
         path: '/ai/chat/answer',
         extraBody: {
-          questionId: pending.questionId,
+          questionId,
           answer: trimmed,
           // 模式透传(2026-07-22 立,对标 Trae Plan/Spec):build/plan/review/spec
           mode: useModeStore.getState().currentMode,
@@ -1084,19 +1203,31 @@ export function useChat(): UseChatReturn {
         workspacePath,
         contextLimit: getModelContextCapacity(model),
         onDelta: (delta) => {
-          firstTokenReceived = true
-          useChatStore.getState().appendToMessage(assistantId, delta)
+          if (!firstContentTokenReceived) {
+            firstContentTokenReceived = true
+            clearTimeout(timeout15s)
+            clearTimeout(timeout60s)
+          }
+          batcher.onDelta(delta)
         },
         onAgentDelta: (agentId, delta) => {
-          firstTokenReceived = true
-          useChatStore.getState().appendToAgentStream(agentId, delta)
+          if (!firstContentTokenReceived) {
+            firstContentTokenReceived = true
+            clearTimeout(timeout15s)
+            clearTimeout(timeout60s)
+          }
+          batcher.onAgentDelta(agentId, delta)
         },
         onReasoning: (delta) => {
-          useChatStore.getState().appendReasoningToMessage(assistantId, delta)
+          if (!firstReasoningTokenReceived) {
+            firstReasoningTokenReceived = true
+          }
+          batcher.onReasoning(delta)
         },
         onToolCall: createToolCallHandler(assistantId),
         agentTools: mergeAgentTools(),
         onError: (errMsg, info) => {
+          batcher.flush()
           const formatted = formatSSEError(errMsg)
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
@@ -1116,14 +1247,33 @@ export function useChat(): UseChatReturn {
           } else if (formatted.severity === 'safety') {
             toast.warning(formatted.title, { description: formatted.message })
           } else {
-            toast.error(formatted.title, { description: toastDesc })
+            // #10 sendAnswer 错误重试(2026-07-25 立,与 sendMessage 路径对齐):toast 加 retry 按钮
+            toast.error(formatted.title, {
+              description: toastDesc,
+              action: {
+                label: '重试',
+                onClick: () => {
+                  const last = lastSentAnswerRef.current
+                  if (last) sendAnswer(last.answer)
+                },
+              },
+            })
           }
         },
       })
     } catch (err) {
+      batcher.flush()
       if (err instanceof DOMException && err.name === 'AbortError') {
-        if (!firstTokenReceived) {
+        // #13 区分 15s / 60s 超时给不同的提示文案(与 sendMessage 一致)
+        if (!firstReasoningTokenReceived && !firstContentTokenReceived) {
           const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
+          useChatStore.getState().setMessageError(assistantId, formatted.message)
+          useChatStore.getState().setError(formatted.message)
+        } else if (!firstContentTokenReceived) {
+          const formatted = formatSSEError(
+            err,
+            'AI 响应超时(60 秒内未收到回复内容,可能模型 reasoning 较长,请稍后重试',
+          )
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
         }
@@ -1140,13 +1290,35 @@ export function useChat(): UseChatReturn {
         if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
           toast.warning(formatted.title, { description: `${prefix}${formatted.message}` })
         } else if (formatted.severity === 'network') {
-          toast.error(formatted.title, { description: `${prefix}${formatted.message}` })
+          // #10 sendAnswer 网络错误 retry 按钮(与 sendMessage 一致)
+          toast.error(formatted.title, {
+            description: `${prefix}${formatted.message}`,
+            action: {
+              label: '重试',
+              onClick: () => {
+                const last = lastSentAnswerRef.current
+                if (last) sendAnswer(last.answer)
+              },
+            },
+          })
         } else {
-          toast.error(formatted.title, { description: `${prefix}${formatted.rawMessage}` })
+          // #10 sendAnswer 通用错误 retry 按钮(与 sendMessage 一致)
+          toast.error(formatted.title, {
+            description: `${prefix}${formatted.rawMessage}`,
+            action: {
+              label: '重试',
+              onClick: () => {
+                const last = lastSentAnswerRef.current
+                if (last) sendAnswer(last.answer)
+              },
+            },
+          })
         }
       }
     } finally {
-      clearTimeout(timeoutId)
+      clearTimeout(timeout15s)
+      clearTimeout(timeout60s)
+      batcher.cancel()
       abortRef.current = null
       useChatStore.getState().setStreaming(false)
       useChatStore.getState().markAllAgentStreamsDone()

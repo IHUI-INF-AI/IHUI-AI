@@ -293,6 +293,12 @@ export function MessageList({
   // 是否在用户手动向上滚动(暂停自动滚动到底部,直到新消息到达或用户滚到底)
   const userScrolledUpRef = React.useRef(false)
   const prevMessagesLenRef = React.useRef(0)
+  // #9 滚动 50ms 节流(2026-07-25 立,P0 流式性能优化):
+  //  - scroll 事件高频触发,每次都重算虚拟滚动范围代价高
+  //  - timestamp + setTimeout 节流到 50ms 一次,leading + trailing edge
+  //  - 流式 token 触发的滚动会被合并,避免长输出时滚动卡顿
+  const lastScrollTsRef = React.useRef(0)
+  const scrollTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const enableVirtual = messages.length > VIRTUAL_THRESHOLD
 
@@ -312,63 +318,91 @@ export function MessageList({
   }, [messages])
 
   const handleScroll = React.useCallback(() => {
-    const el = containerRef.current
-    if (!el) return
+    // #9 滚动 50ms 节流(2026-07-25 立,P0 流式性能优化):
+    //  - leading edge:首次/上次执行已超过 50ms → 立即执行
+    //  - trailing edge:50ms 内的后续调用 → 合并到最后一次,50ms 后兜底执行
+    //  - 流式 token 高频追加时,滚动事件被合并到一帧一次,显著降低虚拟滚动重算开销
+    const now = Date.now()
+    const elapsed = now - lastScrollTsRef.current
+    const performScroll = () => {
+      lastScrollTsRef.current = Date.now()
+      const el = containerRef.current
+      if (!el) return
 
-    // 标记用户是否向上滚动(远离底部)
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    userScrolledUpRef.current = distanceFromBottom > 120
+      // 标记用户是否向上滚动(远离底部)
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      userScrolledUpRef.current = distanceFromBottom > 120
 
-    // #8 滚动到顶部触发加载更多历史
-    if (el.scrollTop < TOP_LOAD_MORE_THRESHOLD && onLoadMoreHistory && hasMoreHistory && !loadingMoreHistory) {
-      // 记录当前 scrollHeight,prepend 后恢复相对位置(保持视觉不跳动)
-      const prevScrollHeight = el.scrollHeight
-      const prevScrollTop = el.scrollTop
-      onLoadMoreHistory()
-      // 恢复滚动位置(prepend 后新内容在顶部,需要把 scrollTop 调整到对应位置)
-      requestAnimationFrame(() => {
-        if (containerRef.current) {
-          const newScrollHeight = containerRef.current.scrollHeight
-          containerRef.current.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight)
+      // #8 滚动到顶部触发加载更多历史
+      if (el.scrollTop < TOP_LOAD_MORE_THRESHOLD && onLoadMoreHistory && hasMoreHistory && !loadingMoreHistory) {
+        // 记录当前 scrollHeight,prepend 后恢复相对位置(保持视觉不跳动)
+        const prevScrollHeight = el.scrollHeight
+        const prevScrollTop = el.scrollTop
+        onLoadMoreHistory()
+        // 恢复滚动位置(prepend 后新内容在顶部,需要把 scrollTop 调整到对应位置)
+        requestAnimationFrame(() => {
+          if (containerRef.current) {
+            const newScrollHeight = containerRef.current.scrollHeight
+            containerRef.current.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight)
+          }
+        })
+      }
+
+      // #7 虚拟滚动:计算可见范围
+      if (!enableVirtual) return
+      const { offsets, total } = computeCumulative()
+      if (total === 0) return
+
+      // 二分查找找到 startIndex(第一个 offset > scrollTop - buffer*ESTIMATED)
+      const scrollPos = el.scrollTop
+      const viewportBottom = scrollPos + el.clientHeight
+      let start = 0
+      let lo = 0,
+        hi = messages.length - 1
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1
+        if (offsets[mid + 1] < scrollPos - BUFFER * ESTIMATED_ITEM_HEIGHT) lo = mid + 1
+        else if (offsets[mid] > scrollPos) hi = mid - 1
+        else {
+          start = mid
+          if (offsets[mid + 1] < scrollPos) lo = mid + 1
+          else hi = mid - 1
         }
+      }
+      start = Math.max(0, start - BUFFER)
+
+      // 找到 endIndex(第一个 offset > viewportBottom + buffer*ESTIMATED)
+      let end = start
+      while (end < messages.length - 1 && offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT) {
+        end++
+      }
+      end = Math.min(messages.length - 1, end + BUFFER)
+
+      setVisibleRange((prev) => {
+        if (prev.start === start && prev.end === end) return prev
+        return { start, end }
       })
     }
+    if (elapsed >= 50) {
+      performScroll()
+    } else {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+      scrollTimerRef.current = setTimeout(() => {
+        scrollTimerRef.current = null
+        performScroll()
+      }, 50 - elapsed)
+    }
+  }, [enableVirtual, computeCumulative, messages.length, onLoadMoreHistory, hasMoreHistory, loadingMoreHistory])
 
-    // #7 虚拟滚动:计算可见范围
-    if (!enableVirtual) return
-    const { offsets, total } = computeCumulative()
-    if (total === 0) return
-
-    // 二分查找找到 startIndex(第一个 offset > scrollTop - buffer*ESTIMATED)
-    const scrollPos = el.scrollTop
-    const viewportBottom = scrollPos + el.clientHeight
-    let start = 0
-    let lo = 0,
-      hi = messages.length - 1
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1
-      if (offsets[mid + 1] < scrollPos - BUFFER * ESTIMATED_ITEM_HEIGHT) lo = mid + 1
-      else if (offsets[mid] > scrollPos) hi = mid - 1
-      else {
-        start = mid
-        if (offsets[mid + 1] < scrollPos) lo = mid + 1
-        else hi = mid - 1
+  // #9 滚动节流 timer 清理:组件卸载时清掉 pending 的 trailing 执行
+  React.useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current) {
+        clearTimeout(scrollTimerRef.current)
+        scrollTimerRef.current = null
       }
     }
-    start = Math.max(0, start - BUFFER)
-
-    // 找到 endIndex(第一个 offset > viewportBottom + buffer*ESTIMATED)
-    let end = start
-    while (end < messages.length - 1 && offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT) {
-      end++
-    }
-    end = Math.min(messages.length - 1, end + BUFFER)
-
-    setVisibleRange((prev) => {
-      if (prev.start === start && prev.end === end) return prev
-      return { start, end }
-    })
-  }, [enableVirtual, computeCumulative, messages.length, onLoadMoreHistory, hasMoreHistory, loadingMoreHistory])
+  }, [])
 
   // 自动滚动到底部(流式 token 到达 + 新消息)
   // - 用户手动向上滚动时不强制滚到底(避免打断阅读)
