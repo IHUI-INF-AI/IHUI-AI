@@ -981,6 +981,20 @@ class LLMGateway:
                     if key_field in safe_msg.lower():
                         safe_msg = f"LLM 流式调用失败(含敏感信息已脱敏): {type(e).__name__}"
                         break
+            # 流式中断标记:已发过 chunk 的流式调用失败时,不可中途切换 provider,
+            # 标记 partial_done 让前端知道流被异常截断(收到的是部分内容),避免半截内容 + error 的混淆
+            if accumulated_content or accumulated_reasoning:
+                logger.warning(
+                    "astream 流式中断:已发 content_len=%d reasoning_len=%d,异常=%s: %s,标记 partial_done",
+                    len(accumulated_content), len(accumulated_reasoning), type(e).__name__, safe_msg,
+                )
+                yield {
+                    "type": "partial_done",
+                    "fallback_applied": False,
+                    "reason": "stream_interrupted",
+                    "model": used_model,
+                }
+                return
             # 流式 fallback:仅在未发送任何 chunk 时尝试 fallback provider
             # (已发送 chunk 不可撤回,无法中途切换 provider)
             if (

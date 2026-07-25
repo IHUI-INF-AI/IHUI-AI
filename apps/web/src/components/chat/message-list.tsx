@@ -293,6 +293,14 @@ export function MessageList({
   // 是否在用户手动向上滚动(暂停自动滚动到底部,直到新消息到达或用户滚到底)
   const userScrolledUpRef = React.useRef(false)
   const prevMessagesLenRef = React.useRef(0)
+  // #9 自动滚动 50ms throttle(2026-07-25 立):
+  // 用 setTimeout + timestamp 实现 leading + trailing 节流,避免每个 token 触发 scrollIntoView。
+  // - leading:第一次立即滚(新消息到达时视觉跟手)
+  // - trailing:50ms 内后续 token 忽略,50ms 边缘补滚一次(保证最后 token 也能滚到底)
+  const scrollThrottleRef = React.useRef<{ last: number; timer: number | null }>({
+    last: 0,
+    timer: null,
+  })
 
   const enableVirtual = messages.length > VIRTUAL_THRESHOLD
 
@@ -373,15 +381,48 @@ export function MessageList({
   // 自动滚动到底部(流式 token 到达 + 新消息)
   // - 用户手动向上滚动时不强制滚到底(避免打断阅读)
   // - 新消息到达(messages.length 增加)时强制滚到底
+  // - #9 50ms throttle(2026-07-25 立):leading + trailing,避免每个 token 触发 scrollIntoView
   React.useEffect(() => {
     const newLen = messages.length
     const isNewMessage = newLen > prevMessagesLenRef.current
     prevMessagesLenRef.current = newLen
-    if (isNewMessage || !userScrolledUpRef.current) {
+    if (!isNewMessage && userScrolledUpRef.current) return
+
+    const doScroll = () => {
       const el = bottomRef.current
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
     }
+    const st = scrollThrottleRef.current
+    const now = Date.now()
+    const remaining = 50 - (now - st.last)
+    if (remaining <= 0) {
+      // leading:超过 50ms 未滚,立即滚
+      st.last = now
+      if (st.timer !== null) {
+        clearTimeout(st.timer)
+        st.timer = null
+      }
+      doScroll()
+    } else if (st.timer === null) {
+      // trailing:50ms 内首次触发,安排 trailing 滚动(后续触发忽略,保证最后 token 也滚)
+      st.timer = window.setTimeout(() => {
+        st.last = Date.now()
+        st.timer = null
+        doScroll()
+      }, remaining)
+    }
   }, [messages.length, lastContent, isStreaming])
+
+  // #9 卸载时清理 pending throttle timer(2026-07-25 立)
+  React.useEffect(() => {
+    const st = scrollThrottleRef.current
+    return () => {
+      if (st.timer !== null) {
+        clearTimeout(st.timer)
+        st.timer = null
+      }
+    }
+  }, [])
 
   // #8 加载更多历史时保持滚动位置(handleScroll 内已处理)
   // #7 ResizeObserver 测量真实高度并触发重算可见范围
