@@ -1,0 +1,19 @@
+{
+  "chat": {
+    "send": "发送"
+  },
+  "common": {
+    "back": "返回",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "retry": "重试",
+    "save": "保存",
+    "search": "搜索"
+  },
+  "nav": {
+    "home": "首页",
+    "settings": "设置",
+    "wallet": "钱包"
+  }
+}
