@@ -7,6 +7,14 @@ import { useAuthStore } from '@/stores/auth'
 import { useTaskReceiver } from '@/hooks/use-task-receiver'
 import type { TaskDispatch, TaskResult, TaskStatus } from '@ihui/shared/tasks/dispatch'
 
+const TASK_STATUS_KEYS: Record<TaskStatus, string> = {
+  pending: 'status.pending',
+  running: 'status.running',
+  completed: 'status.completed',
+  failed: 'status.failed',
+  cancelled: 'status.cancelled',
+}
+
 const STATUS_STYLE: Record<TaskStatus, { className: string; dot?: boolean }> = {
   pending: { className: 'text-muted-foreground' },
   running: { className: 'text-primary', dot: true },
@@ -108,7 +116,7 @@ export default function TaskReceiverPageClient() {
                     {st.dot && (
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
                     )}
-                    {t(`status.${task.status}` as const)}
+                    {t(TASK_STATUS_KEYS[task.status]!)}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">

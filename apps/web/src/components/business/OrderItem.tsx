@@ -8,6 +8,15 @@ import { Badge } from '@/components/data'
 
 type OrderStatus = 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded'
 
+const ORDER_STATUS_KEYS: Record<OrderStatus, string> = {
+  pending: 'orderStatus.pending',
+  paid: 'orderStatus.paid',
+  shipped: 'orderStatus.shipped',
+  completed: 'orderStatus.completed',
+  cancelled: 'orderStatus.cancelled',
+  refunded: 'orderStatus.refunded',
+}
+
 interface OrderItemProps {
   orderNo: string
   product: { name: string; image?: string; spec?: string; quantity?: number }
@@ -66,7 +75,7 @@ function OrderItemImpl({
         </span>
         <div className="flex items-center gap-2">
           {createdAt && <span className="text-xs">{createdAt}</span>}
-          <Badge variant={statusInfo.variant}>{t(`orderStatus.${status}`)}</Badge>
+          <Badge variant={statusInfo.variant}>{t(ORDER_STATUS_KEYS[status]!)}</Badge>
         </div>
       </div>
       <div className="flex items-center gap-3 py-3">
