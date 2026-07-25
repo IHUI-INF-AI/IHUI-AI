@@ -32,6 +32,21 @@ const FIELDS: FieldConfig[] = [
 ]
 const MODES: Mode[] = ['every', 'step', 'range', 'specific']
 
+/** i18n 静态映射表 — 用于消除 `t(\`field.${var}\`)` / `t(\`mode.${var}\`)` 动态拼接 */
+const FIELD_KEY: Record<FieldKey, string> = {
+  minute: 'field.minute',
+  hour: 'field.hour',
+  day: 'field.day',
+  month: 'field.month',
+  weekday: 'field.weekday',
+}
+const MODE_KEY: Record<Mode, string> = {
+  every: 'mode.every',
+  step: 'mode.step',
+  range: 'mode.range',
+  specific: 'mode.specific',
+}
+
 function defaultState(cfg: FieldConfig): FieldState {
   return { mode: 'every', step: 2, rangeStart: cfg.min, rangeEnd: cfg.max, specific: [cfg.min] }
 }
@@ -160,7 +175,7 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
       <CardContent className="space-y-1">
         {FIELDS.map((cfg) => {
           const f = fields[cfg.key]
-          const fieldLabel = t(`field.${cfg.key}`)
+          const fieldLabel = t(FIELD_KEY[cfg.key] ?? 'field.unknown')
           return (
             <div key={cfg.key} className="flex items-center gap-3 py-1.5">
               <Label className="w-9 shrink-0 text-xs text-muted-foreground">{fieldLabel}</Label>
@@ -176,7 +191,7 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
                     )}
                     onClick={() => update(cfg.key, { mode })}
                   >
-                    {t(`mode.${mode}`)}
+                    {t(MODE_KEY[mode] ?? 'mode.unknown')}
                   </Button>
                 ))}
               </div>

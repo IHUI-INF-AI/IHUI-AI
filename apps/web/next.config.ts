@@ -121,6 +121,18 @@ const nextConfig: NextConfig = {
     return []
   },
   async rewrites() {
+    // 2026-07-25 修复:开发模式(NEXT_PUBLIC_API_BASE_URL 加载失败时)代理 /api/* → localhost:8802
+    // - output:'export' 模式 rewrites 不生效(构建后由 nginx/CDN 托管),但 dev server (next dev) 会生效
+    // - 浏览器 fetch 走同源 /api/* → Next.js dev 代理 → 解决 404 + CORS 双失败导致 templates 等查询为空
+    // - 生产环境(production)跳过此 rewrite(避免重复代理)
+    if (process.env.NODE_ENV !== 'production') {
+      return [
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:8802/api/:path*',
+        },
+      ]
+    }
     return []
   },
   // 2026-07-24 安全加固:HTTP 安全响应头(CSP/HSTS/X-Frame-Options 等)

@@ -14,6 +14,13 @@ const TABS = [
   { href: '/publish/history', labelKey: 'history', icon: History },
 ] as const
 
+/**
+ * 发布页 tab i18n key 静态映射表:tabs.${labelKey} — 用于消除 `t(\`tabs.${var}\`)` 动态拼接
+ */
+const TAB_KEY: Record<string, string> = Object.fromEntries(
+  TABS.map((tab) => [tab.labelKey, `tabs.${tab.labelKey}`]),
+)
+
 export default function PublishLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations('publish')
   const pathname = usePathname()
@@ -40,7 +47,7 @@ export default function PublishLayout({ children }: { children: React.ReactNode 
               )}
             >
               <Icon className="h-4 w-4" />
-              <span>{t(`tabs.${tab.labelKey}`)}</span>
+              <span>{t(TAB_KEY[tab.labelKey] ?? 'tabs.unknown')}</span>
             </Link>
           )
         })}
