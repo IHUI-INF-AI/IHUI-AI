@@ -60,7 +60,7 @@ export default function AdminEduSettingsPage() {
 
   const groups = React.useMemo(() => {
     const set = new Set<string>()
-    list.forEach((c) => set.add(c.group))
+    list.forEach((c: any) => set.add(c.group))
     return Array.from(set)
   }, [list])
 
@@ -102,7 +102,7 @@ export default function AdminEduSettingsPage() {
     }
   }
 
-  const filtered = group === 'all' ? list : list.filter((c) => c.group === group)
+  const filtered = group === 'all' ? list : list.filter((c: any) => c.group === group)
 
   return (
     <div className="space-y-4">
