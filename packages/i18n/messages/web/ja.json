@@ -5521,6 +5521,32 @@
         "success": "生成に成功しました",
         "error": "モジュール名を入力してください"
       }
+    },
+    "aiMetrics": {
+      "title": "AI 運用指標",
+      "subtitle": "SSE ストリーミング、Prompt キャッシュ、VIP 割引の監視",
+      "backToCost": "コストダッシュボードに戻る",
+      "loadFailed": "読み込みに失敗しました。後でもう一度お試しください",
+      "lastRefresh": "最終更新: {time}",
+      "sseMetrics": "SSE ストリーミング指標",
+      "sseMetricsDesc": "リアルタイムチャットストリームの切断・レート制限カウンター",
+      "sseTimeouts": "タイムアウト",
+      "sseRateLimitHits": "レート制限ヒット",
+      "sseBudgetRejects": "予算拒否",
+      "sseRetryAfterSent": "再試行通知",
+      "sseUpstreamErrors": "上流エラー",
+      "promptCache": "Prompt キャッシュ",
+      "promptCacheDesc": "L1/L2 キャッシュヒットとエラー",
+      "pcL1Hits": "L1 ヒット",
+      "pcL1Misses": "L1 ミス",
+      "pcL2Hits": "L2 ヒット",
+      "pcL2Misses": "L2 ミス",
+      "pcErrors": "エラー",
+      "vipDiscount": "VIP 割引",
+      "vipDiscountDesc": "VIP ユーザー割引申請統計",
+      "vipApplies": "申請回数",
+      "vipTotalDiscounted": "割引総額",
+      "vipLevel": "VIP {level}"
     }
   },
   "knowledgeGraph": {
@@ -6658,7 +6684,7 @@
       },
       "hours": {
         "title": "サービス時間",
-        "weekday": "営業日",
+        "weekday": "平日",
         "weekend": "週末",
         "holiday": "祝日",
         "closed": "休業"
@@ -7046,7 +7072,10 @@
     "rangeLabel": "期間",
     "range1d": "最近 1 日",
     "range7d": "最近 7 日",
-    "range30d": "最近 30 日"
+    "range30d": "最近 30 日",
+    "l1HitRate": "L1 キャッシュヒット率",
+    "l2HitRate": "L2 キャッシュヒット率",
+    "promptCacheErrors": "キャッシュエラー"
   },
   "wallet": {
     "title": "APIテスト",
