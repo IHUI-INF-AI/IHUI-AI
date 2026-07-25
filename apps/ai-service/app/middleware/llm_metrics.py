@@ -80,3 +80,63 @@ def record_llm_call(
             llm_provider_errors_total.labels(provider=provider, status=error).inc()
     except Exception as e:
         logger.warning("LLM 指标记录失败(忽略,不阻塞业务): %s", e)
+
+
+# =============================================================================
+# 流式 fallback 指标(P3-1 + P3-2: fallback 触发率后端监控上报,2026-07-25 立)
+#
+# 上一轮 goal 已在 llm_gateway.complete/astream 的 fallback 触发点埋点,
+# 此处补齐 Prometheus 指标定义,通过全局注册表自动暴露在 /metrics 端点
+# (由 main.py 的 Instrumentator.expose 挂载,无需额外注册)。
+#
+# 触发场景:
+# - complete(): 主模型异常 LLM_ERROR 且未跳过 fallback → 调 fallback_router
+# - astream():  流式异常 + 未发送任何 chunk → 调 fallback_router
+#
+# 标签语义:
+# - primary_model: 主模型名(失败的那个)
+# - backup_model:  实际成功/失败的备用模型名(全部失败用 "all_failed")
+# - reason:        fallback 触发原因(timeout / rate_limit / api_error / unknown)
+# =============================================================================
+
+LLM_FALLBACK_TRIGGERED = Counter(
+    'llm_fallback_triggered_total',
+    'LLM 流式 fallback 触发总次数(主模型失败,切换到备用模型)',
+    ['primary_model', 'backup_model', 'reason'],
+)
+
+LLM_FALLBACK_SUCCESS = Counter(
+    'llm_fallback_success_total',
+    'LLM fallback 切换后成功完成生成的次数',
+    ['primary_model', 'backup_model'],
+)
+
+LLM_FALLBACK_FAILURE = Counter(
+    'llm_fallback_failure_total',
+    'LLM fallback 切换后仍然失败的次数(备用模型也失败)',
+    ['primary_model', 'backup_model'],
+)
+
+
+def classify_fallback_reason(exc: BaseException | None) -> str:
+    """从异常类型/消息推导 fallback 触发原因标签。
+
+    Args:
+        exc: 主模型抛出的异常(None 时返回 'unknown')。
+
+    Returns:
+        'timeout' / 'rate_limit' / 'api_error' / 'unknown'
+    """
+    if exc is None:
+        return 'unknown'
+    combined = f"{type(exc).__name__} {exc}".lower()
+    if 'timeout' in combined or 'timed out' in combined:
+        return 'timeout'
+    if 'ratelimit' in combined or 'rate_limit' in combined or 'rate limit' in combined or '429' in combined:
+        return 'rate_limit'
+    if 'apierror' in combined or 'api_error' in combined or 'apiconnection' in combined or 'api error' in combined:
+        return 'api_error'
+    if 'connection' in combined:
+        return 'api_error'
+    return 'unknown'
+
