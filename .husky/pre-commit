@@ -82,4 +82,9 @@ try {
   console.log('⏭  条件 typecheck/database 闸门(非 git 环境, 跳过)')
 }
 
+// 跨端 storage-adapter 一致性守门(node 直接跑,避免 husky 环境变量污染)
+if (!run('🔗 跨端 storage-adapter parity 守门...', 'node scripts/check-cross-store-parity.mjs')) {
+  process.exit(1)
+}
+
 console.log('✅ Pre-commit 检查通过')
