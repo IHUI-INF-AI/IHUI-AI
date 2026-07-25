@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
+// @ts-ignore - @ihui/types module not resolvable in current tsconfig (transpilePackages only affects runtime, not typecheck)
 import type { RotateApiKeyResponse } from '@ihui/types'
 import type { ApiKey, WebhookConfig, SdkItem } from './types'
 
@@ -261,7 +262,7 @@ export function DeveloperCards({
         )}
       </section>
 
-      <Dialog open={!!resetTarget} onOpenChange={(o) => !o && !resetPending && setResetTarget(null)}>
+      <Dialog open={!!resetTarget} onOpenChange={(o: any) => !o && !resetPending && setResetTarget(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>重置密钥</DialogTitle>

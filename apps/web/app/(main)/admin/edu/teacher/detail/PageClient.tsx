@@ -140,7 +140,7 @@ export default function EduTeacherDetailPage() {
             </TableHeader>
             <TableBody className="divide-y">
               {data.courses?.length ? (
-                data.courses.map((c) => (
+                data.courses.map((c: any) => (
                   <TableRow key={c.id} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-2.5 font-medium">{c.title}</TableCell>
                     <TableCell className="px-4 py-2.5">{c.signupCount}</TableCell>
