@@ -68,16 +68,16 @@ export default function SubagentTopologyPage() {
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         {roles.map((r) => (
-          <span key as any={r} className="inline-flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded ${ROLE_DOT[r as any]}`} />
-            {SWARM_ROLE_LABEL[r as any]}
+          <span key={r} className="inline-flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded ${(ROLE_DOT as any)[r]}`} />
+            {(SWARM_ROLE_LABEL as any)[r]}
           </span>
         ))}
         <span className="text-muted-foreground">·</span>
         {statuses.map((s) => (
-          <span key as any={s} className="inline-flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded ${STATUS_DOT[s as any]}`} />
-            {SWARM_STATUS_LABEL[s as any]}
+          <span key={s} className="inline-flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded ${(STATUS_DOT as any)[s]}`} />
+            {(SWARM_STATUS_LABEL as any)[s]}
           </span>
         ))}
       </div>

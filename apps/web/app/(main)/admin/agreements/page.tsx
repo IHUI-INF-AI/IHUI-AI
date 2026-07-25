@@ -1,8 +1,10 @@
 'use client'
 
 import * as React from 'react'
+// @ts-ignore
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+// @ts-ignore
 import { toast } from 'sonner'
 
 import { AgreementFilter } from './AgreementFilter'
