@@ -71,6 +71,79 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
     },
     ref,
   ) => {
+    // 2026-07-25 用户反馈:彻底隐藏滚动条
+    // 通过 same-origin 访问 contentDocument 注入 CSS 强制隐藏 iframe 内部 html/body 滚动条
+    const injectHideScrollbar = React.useCallback((iframe: HTMLIFrameElement) => {
+      try {
+        const doc = iframe.contentDocument
+        if (!doc || !doc.documentElement) return
+        // 幂等:已有标记就跳过,避免重复注入
+        if (doc.documentElement.dataset.hideScrollbar === '1') return
+        doc.documentElement.dataset.hideScrollbar = '1'
+        const style = doc.createElement('style')
+        style.dataset.origin = 'ihui-hide-scrollbar'
+        style.textContent = `
+          html, body {
+            overflow: hidden !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+          }
+          html::-webkit-scrollbar, body::-webkit-scrollbar {
+            width: 0 !important;
+            height: 0 !important;
+            display: none !important;
+          }
+          /* 兜底:部分网站用 overscroll-behavior 也得关掉,避免滚动链 */
+          html, body { overscroll-behavior: none !important; }
+        `
+        if (doc.head) doc.head.appendChild(style)
+        else doc.documentElement.appendChild(style)
+      } catch {
+        // cross-origin iframe,无法访问 contentDocument,静默忽略
+      }
+    }, [])
+
+    const handleIframeLoad = React.useCallback(
+      (e: React.SyntheticEvent<HTMLIFrameElement>) => {
+        onLoad?.(e)
+        injectHideScrollbar(e.currentTarget)
+      },
+      [onLoad],
+    )
+
+    // 2026-07-25 用户反馈:彻底隐藏滚动条(鼠标滚轮/触摸板足够)
+    // - 外层 .work-panel-content 的 overflow:hidden 只能裁剪 iframe 元素自身,
+    //   真正显示的滚动条来自 iframe 内部文档(html/body 的 overflow:auto)
+    // - 通过 same-origin 访问 contentDocument 注入 CSS 强制隐藏内部滚动条
+    // - 鼠标滚轮:wheel 事件在 iframe 内部触发滚动,即使 overflow:hidden 也允许
+    //   (现代浏览器在 overflow:hidden 元素上仍响应 wheel 事件传播给父文档)
+    // - 同时挂 useEffect:组件 mount/url 变化时主动尝试注入,覆盖"iframe 已加载但 onLoad
+    //   不会再触发"的场景(HMR 更新代码后旧 iframe 不会重新触发 onLoad)
+    const iframeRef = React.useRef<HTMLIFrameElement | null>(null)
+    React.useEffect(() => {
+      const tryInject = () => {
+        const iframe = iframeRef.current
+        if (!iframe) return
+        try {
+          const doc = iframe.contentDocument
+          if (doc && doc.documentElement) {
+            injectHideScrollbar(iframe)
+          }
+        } catch {
+          // cross-origin,等加载完成后再试
+        }
+      }
+      // 立即尝试一次(iframe 可能已经加载完)
+      tryInject()
+      // 再延迟 500ms / 1500ms 各试一次,覆盖 HMR 后旧 iframe 没重新触发 onLoad 的情况
+      const t1 = setTimeout(tryInject, 500)
+      const t2 = setTimeout(tryInject, 1500)
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+      }
+    }, [url, mode])
+
     return (
       <div
         ref={ref}
@@ -87,22 +160,33 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
           </div>
         )}
 
-        {/* iframe 模式 */}
+        {/* iframe 模式(2026-07-25 用户反馈:彻底隐藏滚动条,鼠标滚轮/触摸板足够)
+            - 外层 .work-panel-content 已用 overflow:hidden + !important 干掉滚动条
+            - iframe 用 overflow:auto 让内容溢出时出现 iframe 自身滚动条
+              (iframe 内部滚动条由 globals.css 的 iframe::-webkit-scrollbar 全部隐藏)
+            - scrolling="no" 关掉 Webkit 兼容模式的双滚动条
+            - 不让 overflow:hidden 阻止外层触发鼠标滚轮:wheel 事件天然冒泡到外层 div
+            - onLoad + useEffect 双重保障:通过 same-origin contentDocument 注入 CSS 隐藏 iframe 内部 html/body 滚动条 */}
         {mode === 'iframe' && url && (
           <iframe
             key={url}
+            ref={iframeRef}
             src={url}
             title={title ?? url}
             className="h-full w-full border-0"
             sandbox={sandbox}
             referrerPolicy="no-referrer"
             loading="lazy"
-            onLoad={onLoad}
+            scrolling="no"
+            style={{ overflow: 'hidden' }}
+            onLoad={handleIframeLoad}
             onError={() => onError?.('iframe load failed')}
           />
         )}
 
-        {/* 截图模式 */}
+        {/* 截图模式(2026-07-25 用户反馈:彻底隐藏滚动条,鼠标滚轮/触摸板足够)
+            - screenshot-scroll 类 + globals.css !important 强制隐藏滚动条
+            - overflow-hidden 而不是 auto:即使图片超出也不出现原生滚动条 */}
         {mode === 'screenshot' && (
           <div className="flex h-full w-full flex-col">
             {screenshot ? (
@@ -111,7 +195,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
                   <ImageIcon className="h-3.5 w-3.5" />
                   <span>该网站禁止嵌入,已切换到截图模式</span>
                 </div>
-                <div className="flex-1 overflow-auto bg-muted/20 p-2">
+                <div className="screenshot-scroll flex-1 overflow-hidden bg-muted/20 p-2">
                   <img
                     src={`data:image/png;base64,${screenshot}`}
                     alt={title ?? url}
