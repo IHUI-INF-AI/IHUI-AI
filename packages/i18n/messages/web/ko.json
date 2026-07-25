@@ -712,6 +712,8 @@
     "promptTemplate": "프롬프트 템플릿",
     "addContextReference": "컨텍스트 참조로 추가",
     "addContextHint": "컨텍스트 파일 또는 참조 추가",
+    "addMenuLabel": "추가",
+    "addMenuDesc": "추가 메뉴(템플릿/참조/Skill/첨부/플러그인)",
     "slashCommand": "명령/스킬 호출(/)",
     "selectedToolsTitle": "선택된 도구",
     "realIntegratedTooltip": "통합됨: ai-service 백엔드에 해당 MCP 도구가 있어 LLM이 실제로 호출 가능",
@@ -8672,32 +8674,56 @@
       "chat": {
         "label": "AI 채팅",
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI"]
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 드라마",
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI"]
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI"
+        ]
       },
       "search": {
         "label": "검색",
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"]
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 월드",
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"]
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ]
       },
       "profile": {
         "label": "프로필",
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"]
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ]
       },
       "settings": {
         "label": "설정",
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"]
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ]
       }
     }
   },
@@ -9019,19 +9045,31 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ]
         }
       ]
     },
@@ -9151,25 +9189,37 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"]
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"]
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"]
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ]
         }
       ]
     },
