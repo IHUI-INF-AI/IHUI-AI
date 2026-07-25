@@ -1266,15 +1266,8 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
-  // 性能修复(2026-07-25):原 `const isActive = (href) => ...` 每次渲染都新建函数,
-  // 且对 100+ nav items 调用 2-3 次(group.items.some + 每项 renderItem)→ 每渲染
-  // 200-300+ 次 startsWith 字符串比较。useCallback 让函数引用稳定,pathname 不变时
-  // 函数 identity 不变,下游 useMemo/子组件可正常命中缓存。
-  const isActive = React.useCallback(
-    (href: string) =>
-      href === '/admin' ? pathname === '/admin' : pathname.startsWith(href),
-    [pathname],
-  )
+  const isActive = (href: string) =>
+    href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
 
   // 旧版扁平 nav items:仅保留未归入分组的条目
   const flatItems: AdminNavItem[] = React.useMemo(() => {
