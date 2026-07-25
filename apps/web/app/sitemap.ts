@@ -12,6 +12,10 @@ import type { MetadataRoute } from 'next'
 // 全量进 sitemap 会导致大量 404/重复内容被 LLM 索引,反而降低 SEO 权重。
 // 这里只枚举真正"对外可索引"的营销/产品/帮助/法律/资源页。
 
+// 2026-07-26 P3-1 修复:output:'export' 模式下 sitemap.xml 路由需要 force-static,
+// 否则 Next.js 抛 "export const dynamic = 'force-static' not configured" 错误。
+export const dynamic = 'force-static'
+
 const SITE_URL = 'https://ihui.ai'
 const LOCALES = ['zh-cn', 'zh-tw', 'en', 'ko', 'ja'] as const
 
@@ -87,6 +91,22 @@ const PAGES: Array<{
   { path: '/compare/ihui-vs-llamaindex', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/compare/ihui-vs-flowise', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/compare/ihui-vs-typebot', changeFrequency: 'monthly', priority: 0.85 },
+  // 2026-07-26 阶段 8 新增:国内 AI 平台 8 个(高频搜索长尾)
+  { path: '/compare/ihui-vs-ernie', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-qwen-platform', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-kimi-platform', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-doubao', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-deepseek-platform', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-zhipu', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-spark', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-minimax', changeFrequency: 'monthly', priority: 0.85 },
+  // 2026-07-26 阶段 8 新增:国际 SaaS 6 个(海外 AI 检索长尾)
+  { path: '/compare/ihui-vs-zapier-ai', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-make', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-relevance-ai', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-stack-ai', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-wordware', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-voiceflow', changeFrequency: 'monthly', priority: 0.85 },
 
   // SEO 长尾 — 行业用例(2026-07-26 极端曝光度优化)
   // 高频场景搜索:AI 客服 / 企业知识库 / AI 代码助手 / AI 内容创作
@@ -95,6 +115,13 @@ const PAGES: Array<{
   { path: '/use-cases/knowledge-base', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/use-cases/code-assistant', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/use-cases/content-generation', changeFrequency: 'monthly', priority: 0.8 },
+  // 2026-07-26 阶段 8 新增 6 个用例页(场景化长尾覆盖)
+  { path: '/use-cases/sales', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/use-cases/hr-recruiting', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/use-cases/market-analysis', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/use-cases/product-analysis', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/use-cases/it-ops', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/use-cases/data-analysis', changeFrequency: 'monthly', priority: 0.8 },
 
   // 文档中心(2026-07-26 立,HowTo rich results):
   // 文档中心聚合所有文档入口,提升整站文档页索引
