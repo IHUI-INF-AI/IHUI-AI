@@ -18,6 +18,7 @@ import {
 } from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import { TYPES, selectClass } from './helpers'
+import { TYPE_KEY } from '@/lib/feedback'
 import type { FeedbackType } from './types'
 
 interface Props {
@@ -69,7 +70,7 @@ export function FeedbackForm({
               <SelectContent>
                 {TYPES.map((v) => (
                   <SelectItem key={v} value={v}>
-                    {t(`type_${v}`)}
+                    {t(TYPE_KEY[v] ?? 'type_unknown')}
                   </SelectItem>
                 ))}
               </SelectContent>

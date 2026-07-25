@@ -18,7 +18,14 @@ type FilterForm = z.infer<typeof filterSchema>
 
 const BADGE: Record<SensitiveWordStatus, string> = {
   draft: 'bg-muted text-muted-foreground', pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  published: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', rejected: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  published: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500', rejected: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+}
+
+const SENSITIVE_WORD_STATUS_KEYS: Record<SensitiveWordStatus, string> = {
+  draft: 'status_draft',
+  published: 'status_published',
+  rejected: 'status_rejected',
+  pending: 'status_pending',
 }
 const c = 'px-4 py-3'
 
@@ -78,7 +85,7 @@ export default function AdminSensitiveWordPage() {
                   <td className={`${c} font-medium`}>{w.word}</td>
                   <td className={`${c} text-muted-foreground`}>{w.category ?? '—'}</td>
                   <td className={`${c} text-muted-foreground`}>{w.level}</td>
-                  <td className={c}><span className={`rounded px-2 py-0.5 text-xs ${BADGE[w.status]}`}>{t(`status_${w.status}`)}</span></td>
+                  <td className={c}><span className={`rounded px-2 py-0.5 text-xs ${BADGE[w.status]}`}>{t(SENSITIVE_WORD_STATUS_KEYS[w.status]!)}</span></td>
                   <td className={c}><div className="flex justify-end gap-1">
                     {w.status === 'pending' && (<>
                       <Button size="sm" variant="ghost" disabled={audit.isPending} onClick={() => audit.mutate({ id: w.id, status: 'published' })}><Check className="h-4 w-4" />{t('approve')}</Button>
