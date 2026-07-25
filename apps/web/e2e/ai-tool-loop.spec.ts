@@ -207,10 +207,10 @@ test.describe('AI 对话 tool loop 全链路', () => {
  *
  * 实际行为参考(以代码为准,断言已对齐):
  * - streamChat(client.ts:832)catch 块:429+retryAfter 视为可重试,3 次重试用尽后 onError
- * - use-chat.ts onError 仅传 errMsg 字符串给 formatSSEError,retryAfter 不直接展示在 UI
- *   → 断言改为匹配 "AI 服务异常" / 业务消息文本,而非 "N 秒后重试"
- * - parseStreamLine(client.ts:374)只识别 {"type":"error","message":"..."} 等 3 种格式,
- *   原始任务示例的 {"code":"RATE_LIMIT","retryAfter":10} 会被静默忽略 → 必须用 type:error 格式
+ * - P3-4:use-chat.ts onError 透传 info(含 retryAfter)给 formatSSEError,retryAfter 展示在 UI
+ *   → 断言匹配 "N 秒后重试" / "请求过于频繁" / 业务消息文本
+ * - P3-4:parseStreamLine(client.ts:374)识别 4 种 error 格式(含 {code:"RATE_LIMIT",retryAfter:N}),
+ *   attachErrorMeta 挂载 retryAfter → formatSSEError 追加 "(N 秒后重试)" 到 message
  * - STREAM_MAX_RETRIES=3(client.ts:809),用 Retry-After: 1 控制 3s 内跑完,避免 15s 超时
  */
 test.describe('SSE retry-after 限流降级', () => {
@@ -258,12 +258,18 @@ test.describe('SSE retry-after 限流降级', () => {
     // 断言 1:Retry-After 触发了重试(callCount >= 2,证明 429+retryAfter 走了重连路径)
     await expect.poll(async () => callCount, { timeout: 12000 }).toBeGreaterThanOrEqual(2)
 
-    // 断言 2:限流降级提示显示(toast 或消息错误,匹配 "请求过于频繁" / "AI 服务异常")
+    // 断言 2:限流降级提示显示(toast 或消息错误,匹配 "1 秒后重试" / "请求过于频繁" / "AI 服务异常")
+    // P3-4:retryAfter 透传到 UI,429 分支 message 含 "1 秒后重试",非 429 分支含 "(1 秒后重试)"
     await expect
       .poll(
         async () => {
           const text = (await page.locator('body').textContent()) ?? ''
-          return text.includes('请求过于频繁') || text.includes('AI 服务异常')
+          return (
+            text.includes('1 秒后重试') ||
+            text.includes('稍后重试') ||
+            text.includes('请求过于频繁') ||
+            text.includes('AI 服务异常')
+          )
         },
         { timeout: 12000 },
       )
@@ -284,9 +290,9 @@ test.describe('SSE retry-after 限流降级', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
 
-    // SSE error 事件需用 parseStreamLine 可识别的格式:
+    // SSE error 事件用 parseStreamLine 可识别的格式(P3-4 后支持 4 种,含 RATE_LIMIT):
     // {"type":"error","message":"...","retryAfter":N} → attachErrorMeta 挂载 retryAfter(err.retryAfter=N)
-    // 原始任务示例 {"code":"RATE_LIMIT","retryAfter":10} 无 type/error 字段会被 parseStreamLine 忽略
+    // P3-4:{"code":"RATE_LIMIT","retryAfter":N,"message":"..."} 也已支持(第 4 种格式)
     // retryAfter 用 1(秒)而非 10,避免 3 次重试 × 10s = 30s 超过 15s 测试预算
     const sseBody = [
       'event: chunk\ndata: {"content":"正在思考"}\n\n',
@@ -338,11 +344,16 @@ test.describe('SSE retry-after 限流降级', () => {
       .toBeTruthy()
 
     // 断言 2:限流降级提示显示(retryAfter 被消费 → 3 次重试用尽 → onError → toast/消息错误)
+    // P3-4:retryAfter 透传到 UI,非 429 分支 message 含 "(1 秒后重试)"
     await expect
       .poll(
         async () => {
           const text = (await page.locator('body').textContent()) ?? ''
-          return text.includes('限流') || text.includes('AI 服务异常')
+          return (
+            text.includes('限流') ||
+            text.includes('1 秒后重试') ||
+            text.includes('AI 服务异常')
+          )
         },
         { timeout: 12000 },
       )
