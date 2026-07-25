@@ -77,6 +77,20 @@ Allow: /
 User-agent: ImagesiftBot
 Allow: /
 
-# 站点地图 + GEO 入口
+# 站点地图 + GEO 入口(2026-07-26 强化:每个主流 AI 引擎一个专用文件 + Feed)
 Sitemap: https://ihui.ai/sitemap.xml
 Sitemap: https://ihui.ai/llms.txt
+Sitemap: https://ihui.ai/llms-full.txt
+Sitemap: https://ihui.ai/gpt.txt
+Sitemap: https://ihui.ai/claude.md
+Sitemap: https://ihui.ai/perplexity.md
+Sitemap: https://ihui.ai/gemini.txt
+Sitemap: https://ihui.ai/rss.xml
+Sitemap: https://ihui.ai/atom.xml
+
+# Feed 自动发现(2026-07-26 立)
+# 浏览器/阅读器访问首页时自动发现 feed 入口
+# 已在 layout.tsx <head> 通过 <link rel="alternate"> 声明,此处冗余声明增强抓取
+
+# 主机声明(明确主域,避免子域抓取分散权重)
+Host: https://ihui.ai
