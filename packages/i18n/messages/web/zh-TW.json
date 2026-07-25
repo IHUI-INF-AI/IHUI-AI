@@ -5521,6 +5521,32 @@
         "success": "產生成功",
         "error": "請輸入模組名稱"
       }
+    },
+    "aiMetrics": {
+      "title": "AI 運行指標",
+      "subtitle": "SSE 串流、Prompt 快取與 VIP 折扣監控",
+      "backToCost": "返回成本看板",
+      "loadFailed": "載入失敗,請稍後重試",
+      "lastRefresh": "最後重新整理: {time}",
+      "sseMetrics": "SSE 串流指標",
+      "sseMetricsDesc": "即時聊天串流斷流/限流計數",
+      "sseTimeouts": "逾時",
+      "sseRateLimitHits": "限流命中",
+      "sseBudgetRejects": "預算拒絕",
+      "sseRetryAfterSent": "重試提示",
+      "sseUpstreamErrors": "上游錯誤",
+      "promptCache": "Prompt 快取",
+      "promptCacheDesc": "L1/L2 快取命中與錯誤",
+      "pcL1Hits": "L1 命中",
+      "pcL1Misses": "L1 未命中",
+      "pcL2Hits": "L2 命中",
+      "pcL2Misses": "L2 未命中",
+      "pcErrors": "錯誤",
+      "vipDiscount": "VIP 折扣",
+      "vipDiscountDesc": "VIP 使用者折扣申請統計",
+      "vipApplies": "申請次數",
+      "vipTotalDiscounted": "折扣總額",
+      "vipLevel": "VIP {level}"
     }
   },
   "knowledgeGraph": {
@@ -7046,7 +7072,10 @@
     "rangeLabel": "時間範圍",
     "range1d": "最近 1 天",
     "range7d": "最近 7 天",
-    "range30d": "最近 30 天"
+    "range30d": "最近 30 天",
+    "l1HitRate": "L1 快取命中率",
+    "l2HitRate": "L2 快取命中率",
+    "promptCacheErrors": "快取錯誤"
   },
   "wallet": {
     "title": "我的錢包",
