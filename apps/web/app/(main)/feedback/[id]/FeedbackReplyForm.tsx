@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { STATUSES, PRIORITIES, selectClass } from './helpers'
+import { STATUS_KEY } from '@/lib/feedback'
 import type { FeedbackStatus, Priority } from './types'
 
 interface Props {
@@ -63,7 +64,7 @@ export function FeedbackReplyForm({
                 <SelectContent>
                   {STATUSES.map((v) => (
                     <SelectItem key={v} value={v}>
-                      {t(`status_${v}`)}
+                      {t(STATUS_KEY[v] ?? 'status_unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>
