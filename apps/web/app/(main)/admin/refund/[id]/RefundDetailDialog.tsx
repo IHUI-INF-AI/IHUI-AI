@@ -14,7 +14,7 @@ import {
   DialogFooter,
   Label,
 } from '@ihui/ui-react'
-import { textareaClass } from '../helpers'
+import { textareaClass, STATUS_KEY } from '../helpers'
 import type { EduRefund } from '../types'
 
 interface RefundDetailDialogProps {
@@ -69,7 +69,7 @@ export function RefundDetailDialog({
             <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
               <div className="font-mono text-xs">{refund.orderNo}</div>
               <div className="mt-0.5 text-xs text-muted-foreground">
-                {currencyFmt.format(Number(refund.refundAmount))} · {t(`status_${refund.status}`)}
+                {currencyFmt.format(Number(refund.refundAmount))} · {t(STATUS_KEY[refund.status] ?? 'status_unknown')}
               </div>
             </div>
           )}
