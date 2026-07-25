@@ -1643,6 +1643,22 @@
       "highUsage": "接近上限",
       "criticalUsage": "已超上限",
       "disclaimer": "Token 數為客戶端估算,與服務端精確計數可能存在 ±10% 誤差。壓縮後內容將作為後續對話的上下文摘要。"
+    },
+    "permission": {
+      "buttonLabel": "權限模式",
+      "popoverTitle": "如何核准 AI 操作?",
+      "popoverHintNoWorkspace": "尚未綁定工作區,選定後將於綁定時生效",
+      "learnMore": "瞭解更多",
+      "highRisk": "高風險",
+      "quickFullAccess": "完全存取",
+      "mode": {
+        "ask": "請求核准",
+        "askDesc": "編輯外部檔案與使用網際網路時一律詢問",
+        "auto": "自動核准",
+        "autoDesc": "僅對偵測到的風險操作請求核准",
+        "full": "完全存取權限",
+        "fullDesc": "可不受限制地存取網際網路與您電腦上的任何檔案"
+      }
     }
   },
   "learn": {
