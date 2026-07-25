@@ -8,17 +8,9 @@ import { useEffect, useState } from 'react'
 import { getAsks, type Ask } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
 
 const WEB_BASE = 'https://ihui.ai'
-
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(new Date(s))
-  } catch {
-    return ''
-  }
-}
 
 function fmtCount(n: number | undefined): string {
   if (typeof n !== 'number') return '0'

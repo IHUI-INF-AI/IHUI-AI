@@ -14,7 +14,6 @@ const nextConfig: NextConfig = {
     '@ihui/ui-react',
     '@ihui/design-tokens',
     '@ihui/types',
-    '@ihui/config',
     '@ihui/auth',
     '@ihui/app',
     '@ihui/shared',

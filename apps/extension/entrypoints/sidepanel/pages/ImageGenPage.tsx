@@ -13,23 +13,10 @@ import {
 } from '@ihui/api-client'
 import { Card, CardContent, Input } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDate } from '../../../lib/date-utils'
 
 const POLL_INTERVAL_MS = 2000
 const POLL_MAX_ATTEMPTS = 60
-
-function fmtDate(s?: string): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(s))
-  } catch {
-    return ''
-  }
-}
 
 export default function ImageGenPage() {
   const { t } = useI18n()
@@ -58,7 +45,7 @@ export default function ImageGenPage() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [])
 
   const pollTask = async (taskId: string, attempt = 0) => {

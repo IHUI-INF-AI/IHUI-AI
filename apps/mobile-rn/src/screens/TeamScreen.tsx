@@ -42,6 +42,17 @@ type TabKey = 'all' | 'direct' | 'indirect'
 
 const TABS: TabKey[] = ['all', 'direct', 'indirect']
 
+const TEAM_TAB_KEYS: Record<TabKey, string> = {
+  all: 'team.tab_all',
+  direct: 'team.tab_direct',
+  indirect: 'team.tab_indirect',
+}
+
+const TEAM_STATUS_KEYS: Record<TeamMember['status'], string> = {
+  active: 'team.status_active',
+  inactive: 'team.status_inactive',
+}
+
 function initials(name: string): string {
   if (!name) return '?'
   return name.slice(0, 1).toUpperCase()
@@ -158,7 +169,7 @@ export function TeamScreen() {
             style={[styles.tab, activeTab === s && styles.tabActive]}
           >
             <Text style={[styles.tabText, activeTab === s && styles.tabTextActive]}>
-              {t(`team.tab_${s}`)}
+              {t(TEAM_TAB_KEYS[s])}
             </Text>
           </TouchableOpacity>
         ))}
@@ -201,7 +212,7 @@ export function TeamScreen() {
                     item.relation === 'direct' && styles.relationDirect,
                   ]}
                 >
-                  <Text style={styles.relationText}>{t(`team.tab_${item.relation}`)}</Text>
+                  <Text style={styles.relationText}>{t(TEAM_TAB_KEYS[item.relation])}</Text>
                 </View>
               </View>
               <Text style={styles.memberMeta}>
@@ -219,7 +230,7 @@ export function TeamScreen() {
                   item.status === 'active' ? styles.statusActive : styles.statusInactive,
                 ]}
               >
-                <Text style={styles.statusText}>{t(`team.status_${item.status}`)}</Text>
+                <Text style={styles.statusText}>{t(TEAM_STATUS_KEYS[item.status])}</Text>
               </View>
             </View>
           </View>

@@ -29,6 +29,13 @@ interface LivePage {
 const PAGE_SIZE = 20
 const STATUS_TABS = ['all', 'upcoming', 'ongoing', 'ended'] as const
 
+const LIVE_TAB_KEYS: Record<(typeof STATUS_TABS)[number], string> = {
+  all: 'liveList.tab_all',
+  upcoming: 'liveList.tab_upcoming',
+  ongoing: 'liveList.tab_ongoing',
+  ended: 'liveList.tab_ended',
+}
+
 function formatDateTime(iso: string): string {
   if (!iso) return '—'
   try {
@@ -99,7 +106,7 @@ export function LiveListScreen() {
             style={[styles.tab, statusTab === s && styles.tabActive]}
           >
             <Text style={[styles.tabText, statusTab === s && styles.tabTextActive]}>
-              {t(`liveList.tab_${s}`)}
+              {t(LIVE_TAB_KEYS[s])}
             </Text>
           </TouchableOpacity>
         ))}
@@ -138,7 +145,7 @@ export function LiveListScreen() {
                   {item.title}
                 </Text>
                 <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
-                  <Text style={styles.statusText}>{t(`liveList.tab_${item.status}`)}</Text>
+                  <Text style={styles.statusText}>{t(LIVE_TAB_KEYS[item.status])}</Text>
                 </View>
               </View>
               <Text style={styles.cardMeta}>

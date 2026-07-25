@@ -12,6 +12,12 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type CouponStatus = 'available' | 'used' | 'expired'
 
+const PROMOTION_STATUS_KEYS: Record<CouponStatus, string> = {
+  available: 'promotion.status_available',
+  used: 'promotion.status_used',
+  expired: 'promotion.status_expired',
+}
+
 interface Coupon {
   id: string
   name: string
@@ -97,13 +103,19 @@ export function PromotionScreen() {
             <View style={styles.row}>
               <View style={styles.amountBox}>
                 <Text style={styles.amountText}>¥{item.amount}</Text>
-                <Text style={styles.minSpend}>{t('promotion.minSpend')}: ¥{item.minSpend}</Text>
+                <Text style={styles.minSpend}>
+                  {t('promotion.minSpend')}: ¥{item.minSpend}
+                </Text>
               </View>
               <View style={styles.body}>
-                <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.expire}>{t('promotion.expireDate')}: {item.expireDate}</Text>
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.expire}>
+                  {t('promotion.expireDate')}: {item.expireDate}
+                </Text>
                 <View style={[styles.badge, { backgroundColor: statusColor(item.status) }]}>
-                  <Text style={styles.badgeText}>{t(`promotion.status_${item.status}`)}</Text>
+                  <Text style={styles.badgeText}>{t(PROMOTION_STATUS_KEYS[item.status])}</Text>
                 </View>
               </View>
               {item.status === 'available' ? (
@@ -121,7 +133,13 @@ export function PromotionScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
@@ -134,9 +152,20 @@ const styles = StyleSheet.create({
   body: { flex: 1, marginLeft: 12 },
   itemName: { fontSize: 14, fontWeight: '600', color: '#111827' },
   expire: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
-  badge: { alignSelf: 'flex-start', marginTop: 6, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  badge: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
   badgeText: { fontSize: 10, color: '#FFFFFF' },
-  useBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#10B981' },
+  useBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#10B981',
+  },
   useText: { fontSize: 12, color: '#FFFFFF' },
   emptyWrap: { alignItems: 'center', paddingVertical: 48 },
   muted: { fontSize: 12, color: '#6B7280' },
