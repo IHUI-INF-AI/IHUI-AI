@@ -14,8 +14,10 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+type AgentId = 'customer-service' | 'content-moderation' | 'data-sync' | 'report-generation' | 'alert-notify'
+
 interface N8nAgent {
-  id: string
+  id: AgentId
   active: boolean
   lastRunAt: string
   runCount: number
@@ -60,6 +62,24 @@ const AGENTS: N8nAgent[] = [
   },
 ]
 
+/** i18n 静态映射表 — 用于消除 `t(`agents.${agent.id}.name`)` 动态拼接 */
+const AGENT_NAME_KEY: Record<AgentId, string> = {
+  'customer-service': 'agents.customer-service.name',
+  'content-moderation': 'agents.content-moderation.name',
+  'data-sync': 'agents.data-sync.name',
+  'report-generation': 'agents.report-generation.name',
+  'alert-notify': 'agents.alert-notify.name',
+}
+
+/** i18n 静态映射表 — 用于消除 `t(`agents.${agent.id}.description`)` 动态拼接 */
+const AGENT_DESCRIPTION_KEY: Record<AgentId, string> = {
+  'customer-service': 'agents.customer-service.description',
+  'content-moderation': 'agents.content-moderation.description',
+  'data-sync': 'agents.data-sync.description',
+  'report-generation': 'agents.report-generation.description',
+  'alert-notify': 'agents.alert-notify.description',
+}
+
 export default async function N8nAgentsPage() {
   const t = await getTranslations('n8nAgentsPage')
   const activeCount = AGENTS.filter((a) => a.active).length
@@ -103,7 +123,7 @@ export default async function N8nAgentsPage() {
                     <agent.icon className="h-5 w-5" />
                   </div>
                   <div className="space-y-0.5">
-                    <CardTitle className="text-base">{t(`agents.${agent.id}.name`)}</CardTitle>
+                    <CardTitle className="text-base">{t(AGENT_NAME_KEY[agent.id] ?? 'agents.unknown.name')}</CardTitle>
                     <p className="text-xs text-muted-foreground">ID: {agent.id}</p>
                   </div>
                 </div>
@@ -114,7 +134,7 @@ export default async function N8nAgentsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm leading-relaxed text-muted-foreground">
-                {t(`agents.${agent.id}.description`)}
+                {t(AGENT_DESCRIPTION_KEY[agent.id] ?? 'agents.unknown.description')}
               </p>
               <div className="flex items-center justify-between border-t pt-3 text-xs">
                 <div className="space-y-0.5">
