@@ -63,7 +63,7 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
         )
         if (cancelled || !res.success || !res.data) return
         const arr = res.data.list ?? res.data.data ?? []
-        const ids = arr.map((m) => m.id).filter(Boolean)
+        const ids = arr.map((m: any) => m.id).filter(Boolean)
         if (ids.length) setModels([...new Set([...ids, ...FALLBACK_MODELS])])
       } catch {
         /* 降级用默认列表 */
