@@ -135,7 +135,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       if (!res.success) throw new Error(res.error)
       return res.data.permission
     },
-    onSuccess: (perm) => {
+    onSuccess: (perm: any) => {
       if (perm) {
         queryClient.invalidateQueries({ queryKey: ['workspace', 'permissions'] })
         queryClient.invalidateQueries({
@@ -179,7 +179,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         }
       }
       updateMode.mutate(mode, {
-        onError: (err) => {
+        onError: (err: any) => {
           if (activeWorkspace && previousMode !== undefined) {
             setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
           }
