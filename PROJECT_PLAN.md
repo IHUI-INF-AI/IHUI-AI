@@ -70,6 +70,7 @@
 ### [x] ✅(2026-07-25) i18n 治理阶段 12 — adminGroup.* 嵌套化 + downloads.* 迁移 + chat.* 14 key 补全(修复 INVALID_KEY 致命错误)
 
 **触发**:用户验收阶段 11 后反馈"侧边栏还是有问题",浏览器深度排查发现:
+
 1. 12 个 AdminNavGroup 分组 label(`adminGroup.operation` 等)显示原始 key(侧边栏管理分组下子分组)
 2. 下载客户端弹窗 8 项显示原始 key(`nav.downloadWeb` 等)
 3. 关键 next-intl 致命错误 `INVALID_KEY: Namespace keys can not contain the character "." as this is used to express nesting` — 之前我误把 `adminGroup.X` 当成平铺 key 放在 `nav` 命名空间下,触发了这个阻塞整个 i18n provider 的错误
@@ -78,10 +79,12 @@
 6. context-usage-ring.tsx 报 4 个 `chat.contextUsage.*` MISSING_MESSAGE
 
 **根因(双层)**:
+
 1. **结构层**:next-intl 不允许 key 含 `.`,必须是嵌套对象。`nav.adminGroup.operation` 这种平铺 key 会让整个 `nav` 命名空间在初始化时崩溃,导致 **所有 `nav.*` 翻译都 fallback 到 raw key**
 2. **覆盖层**:chat / contextUsage / slashCmd 命名空间从未被补全,即使 nested 化也仍然 missing
 
 **执行方式**:
+
 - 5 个 i18n 文件并行批处理(脚本 + 手工 + 重构)
 - 重构 `nav.adminGroup.X` 平铺 → 嵌套对象 `nav.adminGroup: { X: "..." }`(12 个)
 - 把 `downloads.*` 16 个 key 迁移到 `nav.*` 命名空间(sidebar 用 `useTranslations('nav')` 而不是 `downloads`)
@@ -92,16 +95,19 @@
 **成果清单**:
 
 #### P0:修复 INVALID_KEY 致命错误(整页 i18n 不可用)
+
 - 重构 `nav.adminGroup.*` 平铺 → 嵌套对象(5 语言 12 个 group 同步)
 - 关键修复:消除 `INVALID_KEY` 错误,恢复 `useTranslations('nav')` provider 正常工作
 - 验证:SSR HTML 抓取 `adminGroup.*` raw key 计数从 36 → **0**
 
 #### P0:下载客户端 8 项翻译(侧边栏底部工具栏 popover)
+
 - 16 个 key 从 `downloads.*` 命名空间迁移到 `nav.*` 命名空间
 - 覆盖:Web 版 / 桌面客户端 / iOS App / Android APK / 移动端 H5 / 微信小程序 / 浏览器插件 / 命令行工具
 - 验证:浏览器 popover 截图 8 项全部中文(Web 版 / 桌面客户端 / iOS / Android APK / 移动端 H5 / 微信小程序 / 浏览器插件 / 命令行工具)
 
 #### P0:补全 chat 命名空间 14 个 key(用户当时打开的 plan-act-toggle.tsx + 周边组件)
+
 - `chat.modePlan` = 规划 / `chat.modeAct` = 执行
 - `chat.planTooltip` / `chat.actTooltip` 详细说明
 - `chat.slashCmd.{summary, translate, explain, code, polish, wechat-article, koubo-script}` 7 个
@@ -120,6 +126,7 @@
   - Plan/Act toggle 显示「规划 / 执行」
 
 **修改文件**:
+
 - `packages/i18n/messages/web/{zh-CN,en,ja,ko,zh-TW}.json`(5 个 i18n 文件)
 - 临时辅助:`.trae-cn/tmp/{fix-nested-admin-group,fix-downloads-to-nav,fix-chat-namespace,check-sidebar-i18n,check-rendered-page,check-key-context}.mjs`
 
@@ -224,11 +231,11 @@
 
 #### P0:3 种存储后端一致性验证
 
-| 端 | 存储后端 | 同步/异步 | 空值表示 | 测试场景数 | 结果 |
-| --- | --- | --- | --- | --- | --- |
-| mobile-rn | SecureStore | 异步 | null | 15 | ✅ 全绿 |
-| extension | chrome.storage.local | 异步 | null | 16 | ✅ 全绿 |
-| miniapp-taro | Taro.storage | 同步 | ''(空串) | 17 | ✅ 全绿 |
+| 端           | 存储后端             | 同步/异步 | 空值表示 | 测试场景数 | 结果    |
+| ------------ | -------------------- | --------- | -------- | ---------- | ------- |
+| mobile-rn    | SecureStore          | 异步      | null     | 15         | ✅ 全绿 |
+| extension    | chrome.storage.local | 异步      | null     | 16         | ✅ 全绿 |
+| miniapp-taro | Taro.storage         | 同步      | ''(空串) | 17         | ✅ 全绿 |
 
 - useAuth hook 在 3 种存储后端下行为一致(48 场景全绿)
 - miniapp-taro 空串表空特色通过类型协变兼容(string 是 string \| null 的子类型)
@@ -402,9 +409,9 @@
 
 **已知遗留(下一轮可选,非本任务范围)**:
 
-- desktop 端未检查是否有手写 setTokenProvider(本次只处理 extension/mobile-rn/miniapp-taro 三端)
-- shared parity 守门仍为 warn-only(P2-3),需观察 1-2 周后升级 blocking
-- mobile-rn `lib/token.ts` 的 `tokenStore` 对象尚未被 useAuth hook 消费(阶段 7 已有集成测试,但未接入真实 AuthContext)
+- ~~desktop 端未检查是否有手写 setTokenProvider~~ → ✅ 已检查(2026-07-25 补):desktop 端 grep 无 `setTokenProvider` 用法,无需迁移
+- ~~shared parity 守门仍为 warn-only(P2-3)~~ → ✅ 阶段 9 已升级 blocking(commit 898425855)
+- ~~mobile-rn `lib/token.ts` 的 `tokenStore` 对象尚未被 useAuth hook 消费~~ → ✅ 阶段 8 已接入(AuthContext.tsx 调用 `initApi()` → `bindTokenStoreToApiClient(tokenStore)`,commit 29f3aaeaa)
 
 ---
 
@@ -533,10 +540,10 @@
 
 **已知遗留(下一轮可选,非本任务范围)**:
 
-- 三端 tokenStore 对象尚未被调用方使用(仅做编译时守门):后续可让各端调用方用 `bindTokenStoreToApiClient(tokenStore)` 替代手写 `setTokenProvider({ getToken: ... })`,真正复用跨端统一适配器
-- mobile-rn 已有其他 agent 的 `lib/token-store.ts` 适配器(阶段 5,包装函数式 API 为 rnTokenStore),与本阶段的 `lib/token.ts` 内 `tokenStore` export 形成两个入口,后续需评估是否合并
-- shared parity 守门为 warn-only,稳定后可升级为 blocking
-- P2-2 shared 基数扩展(4 端值归一或放宽到 3 端共有策略)未执行,涉及修改 4 端 i18n 文件,风险高暂缓
+- ~~三端 tokenStore 对象尚未被调用方使用(仅做编译时守门)~~ → ✅ 阶段 8 已接入(extension/mobile-rn/miniapp-taro 三端 initApi/模块顶层用 `bindTokenStoreToApiClient(tokenStore)` 替代手写 `setTokenProvider`,commit 29f3aaeaa)
+- ~~mobile-rn 已有其他 agent 的 `lib/token-store.ts` 适配器(阶段 5),与 `lib/token.ts` 内 `tokenStore` 形成两个入口~~ → ✅ 阶段 8 已合并(删除 token-store.ts,re-export 迁移到 lib/token.ts,commit 29f3aaeaa)
+- ~~shared parity 守门为 warn-only~~ → ✅ 阶段 9 已升级 blocking(commit 898425855)
+- P2-2 shared 基数扩展(4 端值归一或放宽到 3 端共有策略)未执行,涉及修改 4 端 i18n 文件,风险高暂缓(仍为有效遗留项)
 
 ---
 
@@ -726,10 +733,10 @@ const auth = useAuth({
 
 **已知遗留(下一轮可选处理,非本任务范围)**:
 
-- shared 仅 11 key,基数偏低:可后续做 4 端值归一(如 common.empty="暂无数据"/common.loading="加载中…" 在 4 端统一),把 2 个高频基础 key 纳入(11→13);或放宽到「3 端共有」策略,预计可提取 50-150 key
-- 三端 token.ts 未接入 TokenStore 接口:可在 extension/mobile-rn/miniapp-taro 各端用 `satisfies TokenStore` 类型层接入(零运行时改动),逐步对齐跨端契约
-- `--target=shared` 未接入 pre-commit:当前手动调用,如需提交时自动校验可在 `.husky/pre-commit` 第 2f 项旁追加
-- `packages/shared/src/skills/market.ts:70` 预存在 lint 错误(空接口 `SkillPublishResponse extends SkillMarketEntry {}`),与本任务无关,按 §12 不处理
+- shared 仅 11 key,基数偏低:可后续做 4 端值归一(如 common.empty="暂无数据"/common.loading="加载中…" 在 4 端统一),把 2 个高频基础 key 纳入(11→13);或放宽到「3 端共有」策略,预计可提取 50-150 key(仍为有效遗留项,见 P2-2)
+- ~~三端 token.ts 未接入 TokenStore 接口~~ → ✅ 阶段 6 类型层接入 + 阶段 8 调用方接入(commit 29f3aaeaa)
+- ~~`--target=shared` 未接入 pre-commit~~ → ✅ 阶段 9 已升级 blocking(commit 898425855)
+- `packages/shared/src/skills/market.ts:70` 预存在 lint 错误(空接口 `SkillPublishResponse extends SkillMarketEntry {}`),与本任务无关,按 §12 不处理(其他 agent 范围,2026-07-25 复查仍存在)
 
 **Git 同步证据**(§20):
 
@@ -917,7 +924,7 @@ const auth = useAuth({
 - check-i18n-broken-en.mjs:✅ 0 破碎
 - 浏览器自验:⚠️ **阻塞** — dev server 因其他 agent commit `3f9877d58` 引入 `NativeTopBar.tsx → @/lib/menu-actions` 不存在 import 返回 500,我的代码无法在浏览器渲染
   - 按 §12 + §17 不能修改其他 agent 的代码"帮他们修",按 §17"服务起不来禁止交付"原则
-  - 留作 P0 待办:web NativeTopBar.tsx import 修复(其他 agent 范围,需他们自己修复)
+  - ~~留作 P0 待办:web NativeTopBar.tsx import 修复(其他 agent 范围,需他们自己修复)~~ → ✅ 已修复(2026-07-25 复查):`apps/web/src/lib/menu-actions.ts` 已存在,NativeTopBar.tsx import 解析正常
 
 **Git 同步证据**:
 
@@ -1208,6 +1215,58 @@ const auth = useAuth({
 - 本地 commit: 1ccd3fa3e(主 agent,已 push)
 - origin commit: fb47a1697(包含主 agent commit)
 - 同步状态: 本任务 commit 已 push ✅
+
+---
+
+### [x] ✅(2026-07-25) 维护成本优化第十一轮 — extension 端 i18n 4 语言翻译补齐(跨端:仅 extension)
+
+**触发**:用户问"插件端相关工作都完成了?"。深度排查发现 extension 端 zh-CN.json 比其他 4 语言多 114 个 key(nav.apps + apps 整个命名空间 110 + nav.{ai,content,me} 3),但 4 语言并未补齐翻译。
+
+**根因排查(关键纠错)**:
+
+1. ❌ 误判 1:之前对话基于"4 语言 parity 不一致"推断 zh-CN 多出的 114 key 全是无引用,开发 `.trae-cn/tmp/cleanup-extension.mjs` 脚本执行清理 → 删除了 zh-CN 的 apps 命名空间(110 leaf key)和 nav 下 4 个 key。
+2. ⚠️ 紧急回滚:Grep 验证发现 apps 命名空间在 [apps/extension/entrypoints/sidepanel/pages/*AppsPage.tsx](file:///g:/IHUI-AI/apps/extension/entrypoints/sidepanel/pages) + [components/AppListPage.tsx](file:///g:/IHUI-AI/apps/extension/entrypoints/sidepanel/components/AppListPage.tsx) 共 5 个文件、80+ 处真实代码引用(`titleKey: 'apps.xxx'` + `t('apps.xxx')`),清理是误删 → `git checkout -- packages/i18n/messages/extension/zh-CN.json` 立即回滚。
+3. ✅ 真相:zh-CN 多出的 114 key 中只有 `nav.apps` 1 个真无引用(代码从未引用),其他 113 个(apps 整个命名空间 110 + nav.{ai,content,me} 3)都有真实引用,问题是 4 语言缺翻译,不是 zh-CN 有冗余。
+4. ✅ audit-i18n-unused-keys.mjs 当前 TARGET_CONFIG 只覆盖 web + miniapp-taro,未覆盖 extension → 这才是误判的根本原因(没法用 audit 验证就直接基于"键集合差异"推断)。
+
+**执行方式**:1 主 agent(回滚 + 删 zh-CN nav.apps + 验证) + 1 subagent(458 处翻译补齐 + 3 项 parity 验证)。
+
+**成果清单**:
+
+#### extension i18n 4 语言 parity 修复 113 missing → 0
+
+| 改动文件                                    | 改动内容                                     | 数量                      |
+| ------------------------------------------- | -------------------------------------------- | ------------------------- |
+| packages/i18n/messages/extension/zh-CN.json | 删除 `nav.apps`(真无引用,代码 0 引用)        | 1 个 key                  |
+| packages/i18n/messages/extension/en.json    | 新增 nav.{ai,content,me} + apps 命名空间翻译 | 113 个 key                |
+| packages/i18n/messages/extension/ja.json    | 同上                                         | 113 个 key                |
+| packages/i18n/messages/extension/ko.json    | 同上                                         | 113 个 key                |
+| packages/i18n/messages/extension/zh-TW.json | 同上(含 3 处简体字残留修复:儀錶板/平臺/瞭解) | 113 个 key                |
+| **合计**                                    |                                              | **452 处翻译 + 1 处删除** |
+
+**翻译质量保证**(AGENTS.md §19 brand-glossary.json 一致):
+
+- 品牌名/技术术语:AI 应用中心→AI Apps Center / AI アプリセンター / AI 앱 센터 / AI 應用中心
+- 占位符 {var} / {{var}} 原样保留
+- zh-TW 繁体字形(应用→應用, 仪表板→儀錶板, 平台→平臺, 了解→瞭解)
+- ko Hangul(개인 센터 / 알림 / 결제)
+- ja 汉字词允许(登録/確認/削除)+ 应用程序类用片假名(アプリセンター)
+
+**验证(3 项全绿)**:
+
+| 守门脚本                                                         | 退出码 | 结果                |
+| ---------------------------------------------------------------- | ------ | ------------------- |
+| `node scripts/check-i18n-keys.mjs --target=extension`            | 0      | ✅ 5 语言 parity OK |
+| `node scripts/scan-i18n-zh-residue.mjs zh-TW --target=extension` | 0      | ✅ 0 简体字残留     |
+| `node scripts/scan-i18n-zh-residue.mjs ko --target=extension`    | 0      | ✅ 0 中文残留       |
+
+**教训**:i18n 治理必须先扩展 audit-i18n-unused-keys.mjs TARGET_CONFIG 覆盖目标端,再用 audit 输出做清理决策,**严禁**基于"键集合差异"直接推断哪些是无引用 key。本次回滚及时未造成损失,但暴露了流程漏洞。
+
+**Git 同步证据**:
+
+- 本地 commit: <待填>(本任务 commit)
+- origin commit: <待填>
+- 同步状态: 本任务 commit 待 push
 
 ---
 
