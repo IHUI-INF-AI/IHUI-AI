@@ -28,8 +28,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useAgents } from '@ihui/shared/hooks'
-import type { Agent, AgentListResponse } from '@ihui/shared/hooks'
+import { useAgents, type Agent, type AgentListResponse } from '@ihui/shared/hooks'
 
 // 测试用 mock agent 类型(扩展 Agent,模拟各端自定义字段)
 interface TestAgent extends Agent {
@@ -74,9 +73,7 @@ describe('useAgents 跨端共享 hook — 集成测试', () => {
     const agents = makeAgents(2)
     fetchList.mockResolvedValue(makeListResponse(agents))
 
-    const { result } = renderHook(() =>
-      useAgents<TestAgent>({ fetchList, fetchDetail }),
-    )
+    const { result } = renderHook(() => useAgents<TestAgent>({ fetchList, fetchDetail }))
 
     // autoLoad 默认 true,挂载后应自动拉取
     await waitFor(() => expect(result.current.agents).toHaveLength(2))
@@ -216,9 +213,7 @@ describe('useAgents 跨端共享 hook — 集成测试', () => {
     fetchList.mockResolvedValue(makeListResponse(agents))
 
     // 不传 fetchDetail
-    const { result } = renderHook(() =>
-      useAgents<TestAgent>({ fetchList, autoLoad: true }),
-    )
+    const { result } = renderHook(() => useAgents<TestAgent>({ fetchList, autoLoad: true }))
 
     await waitFor(() => expect(result.current.agents).toHaveLength(1))
 
