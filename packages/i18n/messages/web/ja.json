@@ -686,7 +686,6 @@
       "cancelAutoRevert": "自動切替をキャンセル",
       "reEnableAutoRevert": "1 時間自動切替を再有効化",
       "autoRevertedTitle": "毎回確認へ自動切替しました",
-      "autoRevertedDesc": "高リスクモードの長時間滞在を防ぐため、1 時間操作がない場合自動的にダウングレードします。完全アクセスを再有効化するには Shift+Tab または権限ボタンをクリックしてください。",
       "autoRevertedDescWithDuration": "完全アクセスは {usedMin} 分間継続し、自動的にリクエスト承認へ降格しました。再度有効化するには Shift+Tab または権限ボタンをクリックしてください。",
       "revertWarning5minTitle": "完全アクセスモードはまもなく自動降格します",
       "revertWarning5minDesc": "5分後にリクエスト承認モードへ自動切替。継続するには「1時間延長」をクリックしてください。",
@@ -705,6 +704,10 @@
       "titleBarAutoRevert": "⏱ {time} 後に自動ダウングレード",
       "cycledTo": "{mode} に切替",
       "cycleError": "切替に失敗しました:{error}",
+      "usageHint": "使い方: /permission ask | auto | full",
+      "switchedToModeAsk": "リクエスト承認モードに切替",
+      "switchedToModeAuto": "自動承認モードに切替",
+      "switchedToModeFull": "完全アクセスモードに切替",
       "mode": {
         "ask": "毎回確認",
         "askDesc": "プロジェクト外のファイル編集やインターネット使用時に必ず確認します",
@@ -5889,79 +5892,7 @@
     "prev": "へ",
     "next": "へ",
     "related": "関連記事",
-    "notFound": "つかりません",
-    "faq": {
-      "account": [
-        {
-          "q": "Forgot your password?",
-          "a": "Click “Forgot password” on the login page to reset via phone verification."
-        },
-        {
-          "q": "How to edit profile?",
-          "a": "Go to Settings to update your nickname, avatar and other info."
-        },
-        {
-          "q": "How to delete account?",
-          "a": "Contact support to submit a deletion request, processed within 3 business days."
-        }
-      ],
-      "payment": [
-        {
-          "q": "What payment methods are supported?",
-          "a": "WeChat Pay, Alipay, Stripe credit card and USDC."
-        },
-        {
-          "q": "How to request a refund?",
-          "a": "Contact support within 7 days of subscription for a full refund."
-        },
-        {
-          "q": "How to cancel subscription?",
-          "a": "Click “Cancel subscription” on the pricing page. Billing stops next cycle."
-        }
-      ],
-      "project": [
-        {
-          "q": "How to create a project?",
-          "a": "Click “New Project” in the workspace and enter a name."
-        },
-        {
-          "q": "Is there a project limit?",
-          "a": "Free plan: 1 project. Pro and above: unlimited."
-        },
-        {
-          "q": "How to share a project?",
-          "a": "Open project details and click “Share” to generate a link."
-        }
-      ],
-      "ai": [
-        {
-          "q": "Which AI models are supported?",
-          "a": "GPT-4, Claude 3.5, Gemini and more. Pro unlocks all models."
-        },
-        {
-          "q": "Daily chat limits?",
-          "a": "Free: 10/day. Pro: unlimited."
-        },
-        {
-          "q": "How to switch models?",
-          "a": "Use the model selector at the top of the chat page."
-        }
-      ],
-      "tech": [
-        {
-          "q": "How to get an API Key?",
-          "a": "Create an app on the Developer platform to get an API Key."
-        },
-        {
-          "q": "API rate limits?",
-          "a": "Default 60 requests/min. Enterprise can request higher limits."
-        },
-        {
-          "q": "Which SDKs are available?",
-          "a": "Official SDKs for Python, Node.js and Go."
-        }
-      ]
-    }
+    "notFound": "つかりません"
   },
   "search": {
     "loading": "読み込み中...",
@@ -8954,43 +8885,6 @@
         "scriptIdAndContentRequired": "脚本 ID とセリフ内容を入力してください"
       }
     }
-  },
-  "audit": {
-    "action": "操作",
-    "actionLabel": {
-      "fileDelete": "削除",
-      "fileDownload": "ダウンロード",
-      "fileShare": "共有",
-      "fileUpload": "アップロード",
-      "permissionAssign": "権限割当",
-      "userLogin": "ログイン",
-      "versionCreate": "バージョン",
-      "versionRollback": "バージョン"
-    },
-    "actionType": "タイプ",
-    "actionTypeOption": {
-      "fileDelete": "ファイル",
-      "fileDownload": "ファイルダウンロード",
-      "fileShare": "ファイル",
-      "fileUpload": "ファイルアップロード",
-      "permissionAssign": "りて",
-      "userLogin": "ユーザーログイン",
-      "versionCreate": "バージョン",
-      "versionRollback": "バージョン"
-    },
-    "details": "詳細",
-    "endDate": "終了日付",
-    "failed": "失敗",
-    "ip": "IPアドレス",
-    "resourceId": "リソースID",
-    "resourceType": "Resourceタイプ",
-    "startDate": "開始日付",
-    "status": "ステータス",
-    "success": "成功",
-    "time": "時間",
-    "title": "ログ",
-    "totalLogs": "总記録数",
-    "userId": "ユーザーID"
   },
   "editor": {
     "toolbar": {
