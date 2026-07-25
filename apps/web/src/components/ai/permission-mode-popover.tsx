@@ -108,6 +108,10 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
     const idx = MODE_OPTIONS_LIST.findIndex((o) => o.value === currentMode)
     return idx >= 0 ? idx : 0
   })
+  // Radio DOM 引用(2026-07-25 深化,A11y):popover 打开时覆盖默认初始焦点,
+  // 把焦点放到 currentMode 对应的 radio 卡片(而非首个 focusable=learnMore),
+  // 让屏幕阅读器/键盘用户从最有意义的元素开始浏览
+  const radioRefs = React.useRef<(HTMLButtonElement | null)[]>([])
   // 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard):
   // 通过 ai-panel store 共享状态,popover / Shift+Tab / /permission full 三处触发共用
   // 同一个 FullAccessConfirmDialog(由 message-input 渲染)
@@ -241,14 +245,18 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         }
         return
       }
-      // ↑/↓ 循环切换焦点
+      // ↑/↓ 循环切换焦点 + 同步 DOM focus(2026-07-25 深化:视觉 ring 移动时键盘焦点也跟过去)
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
         e.stopPropagation()
+        const len = MODE_OPTIONS_LIST.length
         setFocusedIndex((prev) => {
-          const len = MODE_OPTIONS_LIST.length
-          if (e.key === 'ArrowDown') return (prev + 1) % len
-          return (prev - 1 + len) % len
+          const next = e.key === 'ArrowDown' ? (prev + 1) % len : (prev - 1 + len) % len
+          // 同步 DOM focus 到下一个 radio,避免视觉 ring 和实际 DOM 焦点脱节
+          requestAnimationFrame(() => {
+            radioRefs.current[next]?.focus()
+          })
+          return next
         })
         return
       }
@@ -278,6 +286,25 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       const idx = MODE_OPTIONS_LIST.findIndex((o) => o.value === currentMode)
       setFocusedIndex(idx >= 0 ? idx : 0)
     }
+  }, [isOpen, currentMode])
+
+  // Popover 打开时(2026-07-25 深化,A11y):
+  // 1. 覆盖 popover.tsx 默认初始焦点(首个 focusable=learnMore 链接)→
+  //    改为 currentMode 对应的 radio 卡片,符合用户视觉预期
+  //    (popover.tsx 已有 focus trap,只需覆盖 initial focus)
+  // 2. 给 dialog 补 aria-modal="true",告诉 AT 弹层是模态
+  //    (popover.tsx 有 role="dialog" + focus trap 但缺 aria-modal;
+  //    按规则不能改 popover.tsx,在此上层补 A11y 语义,
+  //    弹层关闭时 dialog div 被 unmount 自动清理 aria-modal)
+  React.useEffect(() => {
+    if (!isOpen) return
+    const idx = MODE_OPTIONS_LIST.findIndex((o) => o.value === currentMode)
+    radioRefs.current[idx]?.focus()
+    // popover content 在 portal 里,用 querySelectorAll 找到 role=dialog 的节点
+    // 由于此组件独占一个 popover,document 内 role=dialog 唯一,querySelectorAll 安全
+    document.querySelectorAll('[role="dialog"]').forEach((d) => {
+      d.setAttribute('aria-modal', 'true')
+    })
   }, [isOpen, currentMode])
 
   const currentOption =
@@ -327,6 +354,9 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
               return (
                 <button
                   key={opt.value}
+                  ref={(el) => {
+                    radioRefs.current[idx] = el
+                  }}
                   type="button"
                   role="radio"
                   aria-checked={isSel}
@@ -462,25 +492,46 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         aria-label={t('buttonLabel')}
         title={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
         className={cn(
-          'inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors',
+          // 2026-07-25 深化:加 duration-150 ease-out 让 bypass ↔ default ↔ accept-edits
+          // 模式切换时背景色平滑过渡(原 transition-colors 无 duration 是瞬变)
+          'inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors duration-150 ease-out',
           // 模式风险色:default=中性 / accept-edits=绿 / bypass=琥珀
+          // 2026-07-25 深化:disabled 时(streaming)不应用 hover 类,防止 hover 变背景色
           currentMode === 'bypass-permissions'
-            ? 'bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-400'
+            ? cn(
+                'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                !disabled && 'hover:bg-amber-500/15',
+              )
             : currentMode === 'accept-edits'
-              ? 'bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-400'
-              : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              ? cn(
+                  'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+                  !disabled && 'hover:bg-emerald-500/15',
+                )
+              : cn(
+                  'bg-muted text-muted-foreground',
+                  !disabled && 'hover:bg-accent hover:text-accent-foreground',
+                ),
           'disabled:cursor-not-allowed disabled:opacity-50',
         )}
       >
         <CurrentIcon
+          // 2026-07-25 深化:加 transition-colors duration-200 让图标颜色
+          // 随 mode 切换平滑过渡(避免图标瞬变)
           className={cn(
-            'h-3.5 w-3.5 shrink-0',
+            'h-3.5 w-3.5 shrink-0 transition-colors duration-200',
             currentMode === 'bypass-permissions' && 'text-amber-500',
             currentMode === 'accept-edits' && 'text-emerald-500',
             currentMode === 'default' && 'text-muted-foreground',
           )}
         />
         <span className="whitespace-nowrap">{currentTitle}</span>
+        {/* 屏幕阅读器公告 mode 变化(2026-07-25 深化,A11y):
+            trigger button 的 aria-label 是静态的(buttonLabel),聚焦时听不到 mode 变化;
+            aria-live="polite" + aria-atomic="true" 的 sr-only span 在 currentTitle 变化时
+            重新宣告完整 mode 名(不依赖新增 i18n 键,直接复用 t(mode.ask/auto/full)) */}
+        <span className="sr-only" aria-live="polite" aria-atomic="true">
+          {currentTitle}
+        </span>
         {/* 高风险模式追加醒目的三角警告图标(2026-07-25 深化) */}
         {currentMode === 'bypass-permissions' && (
           <TriangleAlert className="h-3 w-3 shrink-0 text-amber-500" aria-hidden="true" />
