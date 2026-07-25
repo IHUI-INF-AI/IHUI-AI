@@ -3,6 +3,17 @@ import { ArrowUpRight, Check, DollarSign, Wallet } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
+/** i18n 静态映射表 — 用于消除 `t(`billing.transactions.types.${var}`)` 动态拼接 */
+const BILLING_TX_TYPE_KEY: Record<string, string> = {
+  recharge: 'billing.transactions.types.recharge',
+  consume: 'billing.transactions.types.consume',
+}
+
+/** i18n 静态映射表 — 用于消除 `t(`billing.transactions.statusLabels.${var}`)` 动态拼接 */
+const BILLING_TX_STATUS_KEY: Record<string, string> = {
+  success: 'billing.transactions.statusLabels.success',
+}
+
 export default async function BillingPage() {
   const t = await getTranslations('models')
   const tp = await getTranslations('modelsBillingPage')
@@ -204,7 +215,7 @@ export default async function BillingPage() {
                             : 'inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
                         }
                       >
-                        {t(`billing.transactions.types.${tx.type}`)}
+                        {t(BILLING_TX_TYPE_KEY[tx.type] ?? 'billing.transactions.types.unknown')}
                       </span>
                     </td>
                     <td
@@ -220,7 +231,7 @@ export default async function BillingPage() {
                     <td className="px-4 py-2.5 text-muted-foreground">{tx.time}</td>
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                        {t(`billing.transactions.statusLabels.${tx.status}`)}
+                        {t(BILLING_TX_STATUS_KEY[tx.status] ?? 'billing.transactions.statusLabels.unknown')}
                       </span>
                     </td>
                   </tr>
