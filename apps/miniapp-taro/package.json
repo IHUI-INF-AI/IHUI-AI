@@ -50,6 +50,7 @@
     "@tarojs/cli": "4.2.0",
     "@tarojs/taro-loader": "4.2.0",
     "@tarojs/vite-runner": "4.2.0",
+    "@tarojs/webpack5-runner": "4.2.0",
     "@types/react": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.4",
     "babel-preset-taro": "4.2.0",
