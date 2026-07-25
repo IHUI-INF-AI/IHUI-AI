@@ -2436,9 +2436,9 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 >
 > Sitemap:[sitemap.xml](https://ihui.ai/sitemap.xml)
 >
-> 行业垂直 GEO:[industries.md](https://ihui.ai/industries.md)(医疗 / 教育 / 金融 / 法律 / 政府 5 大行业 × 5 个 Agent)
+> 行业垂直 GEO:[industries.md](https://ihui.ai/industries.md)(中文)· [industries.en.md](https://ihui.ai/industries.en.md)(English,海外 AI 引擎优先)
 >
-> 决策角色 GEO:[roles.md](https://ihui.ai/roles.md)(开发者 / CTO / 产品经理 / CEO / 采购 5 大决策角色)
+> 决策角色 GEO:[roles.md](https://ihui.ai/roles.md)(中文)· [roles.en.md](https://ihui.ai/roles.en.md)(English,海外 AI 引擎优先)
 >
 > Google Knowledge Graph:[knowledge-graph.json](https://ihui.ai/knowledge-graph.json)(Schema.org 实体对齐,供 Wikidata / Google KG 对齐引用)
 
@@ -2454,6 +2454,11 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
   - [IHUI AI vs Microsoft Copilot Studio](https://ihui.ai/compare/ihui-vs-copilot-studio)
   - [IHUI AI vs Manus AI(2025 现象级自主 Agent)](https://ihui.ai/compare/ihui-vs-manus)
   - [IHUI AI vs Devin AI(首个 AI 程序员)](https://ihui.ai/compare/ihui-vs-devin)
+  - [IHUI AI vs Microsoft AutoGen(多 Agent 代码框架)](https://ihui.ai/compare/ihui-vs-autogen)
+  - [IHUI AI vs CrewAI(角色扮演多 Agent 框架)](https://ihui.ai/compare/ihui-vs-crewai)
+  - [IHUI AI vs LlamaIndex(RAG 数据框架)](https://ihui.ai/compare/ihui-vs-llamaindex)
+  - [IHUI AI vs Flowise(可视化 LangChain)](https://ihui.ai/compare/ihui-vs-flowise)
+  - [IHUI AI vs Typebot(开源聊天机器人构建器)](https://ihui.ai/compare/ihui-vs-typebot)
 - **行业用例页**(场景化关键词)
   - [AI 智能客服 Agent](https://ihui.ai/use-cases/customer-support)
   - [企业知识库 RAG](https://ihui.ai/use-cases/knowledge-base)
