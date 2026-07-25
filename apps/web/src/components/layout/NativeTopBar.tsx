@@ -38,7 +38,7 @@ import {
   DropdownMenuShortcut,
 } from '@/components/ui/dropdown-menu'
 import { useDesktop } from '@/hooks/use-desktop'
-import { useNativeMenu } from '@/hooks/use-native-menu'
+import { useNativeShortcuts } from '@/hooks/use-native-shortcuts'
 import { dispatchMenuAction } from '@/lib/menu-actions'
 import {
   getLocalizedAppName,
@@ -114,7 +114,10 @@ function stopDragPropagation(e: React.MouseEvent | React.PointerEvent) {
 
 export function NativeTopBar() {
   const { isDesktop, appInfo, isMaximized, minimize, toggleMaximize, close } = useDesktop()
-  useNativeMenu((id) => void dispatchMenuAction(id))
+  // 2026-07-25 修订:用 web 端快捷键监听替代 Rust 端菜单 emit(Rust 端 build_app_menu 已删除,
+  // 避免原生菜单 + HTML 顶栏两层菜单割裂)。HTML 顶栏点击 + 快捷键都走 dispatchMenuAction,
+  // 单一逻辑源。
+  useNativeShortcuts((id) => void dispatchMenuAction(id))
 
   // SSR + web 端:完全不渲染
   if (typeof window === 'undefined') return null
@@ -127,9 +130,19 @@ export function NativeTopBar() {
     <div
       data-tauri-drag-region
       className={cn(
-        'relative z-sticky flex h-10 shrink-0 items-center select-none',
+        // 2026-07-25 P0 修复:加 w-full 让顶栏占满 flex-col 父容器宽度。
+        // 之前缺 w-full,顶层 div 在 flex-col 父容器中宽度 = 内容宽度 ≈ 200px,
+        // 导致"视图/帮助"菜单 + 窗口控制按钮(最小/最大/关闭)被挤出可视区域。
+        // 2026-07-25 P0 二次修复:z-index 提到 z-[1000] 高于 AISidePanel 的 z-sticky(990),
+        // 之前两者同为 z-sticky,AISidePanel 作为 fixed 元素在 DOM 顺序上晚于 NativeTopBar
+        // 所在 flex 容器 → 同 z-index 绘制时 fixed 元素胜出 → 覆盖顶栏右半部分
+        // (视图/帮助 菜单 + 窗口控制按钮被 AI 面板"空工作区/执行"头部盖住)。
+        // 提到 z-[1000] 后 NativeTopBar 永远在 AISidePanel 之上,顶栏 + 菜单 + 窗口控制
+        // 完全可见;AISidePanel 顶部 40px 区域被顶栏半透明毛玻璃覆盖(底层内容略透出,
+        // 形成连贯的视觉过渡,符合现代桌面应用 frosted glass 设计语言)。
+        // 2026-07-25 DEBUG:临时加 bg-pink-500 验证 HMR 是否应用到实际页面
+        'relative z-[1000] flex h-10 w-full shrink-0 items-center select-none bg-pink-500',
         // 半透明毛玻璃 + 底边 1px,与 sidebar 视觉融为一体
-        'bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60',
         'border-b border-border/80',
       )}
     >
@@ -171,7 +184,9 @@ export function NativeTopBar() {
 
       {/* === 右侧:窗口控制(不可拖拽) === */}
       <div
-        className="flex h-full shrink-0 items-center"
+        // 2026-07-25 DEBUG:临时加 bg-yellow-500 验证窗口控制 div 渲染位置
+        // 再加 outline outline-4 outline-cyan-500 保证 div 至少 1px 可见
+        className="flex h-full shrink-0 items-center bg-yellow-500 outline outline-4 outline-cyan-500"
         onMouseDown={stopDragPropagation}
         onPointerDown={stopDragPropagation}
         onDoubleClick={stopDragPropagation}
@@ -192,6 +207,8 @@ export function NativeTopBar() {
           icon={<X className="h-3.5 w-3.5" />}
           variant="close"
         />
+        {/* DEBUG: 占位文本,验证 div 是否渲染 */}
+        <span className="text-xs text-black">WC</span>
       </div>
     </div>
   )
