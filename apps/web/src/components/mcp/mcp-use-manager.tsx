@@ -79,15 +79,9 @@ function getMockStats(range: Range): UsageStats {
       avgDuration: 120,
     },
   ]
-  // 性能修复(2026-07-25):3 次 reduce 合并为 1 次遍历(totalCalls/successCount/totalDuration)
-  let totalCalls = 0
-  let successCount = 0
-  let totalDuration = 0
-  for (const u of byServer) {
-    totalCalls += u.calls
-    successCount += u.successCount
-    totalDuration += u.avgDuration * u.calls
-  }
+  const totalCalls = byServer.reduce((s, u) => s + u.calls, 0)
+  const successCount = byServer.reduce((s, u) => s + u.successCount, 0)
+  const totalDuration = byServer.reduce((s, u) => s + u.avgDuration * u.calls, 0)
   return {
     totalCalls,
     successRate: totalCalls > 0 ? (successCount / totalCalls) * 100 : 0,
@@ -118,7 +112,7 @@ function StatCard({ title, value, icon: Icon }: StatCardProps) {
   )
 }
 
-export const McpUseManager = React.memo(function McpUseManager() {
+export function McpUseManager() {
   const t = useTranslations('mcp')
   const [range, setRange] = React.useState<Range>('7d')
 
@@ -214,4 +208,4 @@ export const McpUseManager = React.memo(function McpUseManager() {
       )}
     </div>
   )
-})
+}

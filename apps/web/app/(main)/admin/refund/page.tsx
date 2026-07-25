@@ -18,21 +18,14 @@ export default function AdminRefundPage() {
   const t = useTranslations('admin.refund')
   const locale = useLocale()
 
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
-  const currencyFmt = React.useMemo(
-    () => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }),
-    [],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const currencyFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 
   return (
     <div className="space-y-4">

@@ -32,11 +32,7 @@ const STATUS_META: Record<
 }
 
 export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentManagerProps) {
-  // 性能修复(2026-07-25):原 render 中 agents.filter,SSE 高频更新时每次重算。useMemo 缓存。
-  const active = React.useMemo(
-    () => agents.filter((a) => a.status === 'running').length,
-    [agents],
-  )
+  const active = agents.filter((a) => a.status === 'running').length
 
   return (
     <div className="flex h-full flex-col rounded-xl border bg-card">

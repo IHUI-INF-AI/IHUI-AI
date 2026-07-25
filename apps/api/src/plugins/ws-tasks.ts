@@ -4,6 +4,14 @@ import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { wsAuth } from './ws-helpers.js'
 import { config } from '../config/index.js'
+import { db } from '../db/index.js'
+import { eq, and } from 'drizzle-orm'
+import {
+  agentTasks,
+  contentGenerationTasks,
+  exportTasks,
+  workspaceAiTasks,
+} from '@ihui/database'
 
 /**
  * WebSocket 任务进度推送插件(多实例版本,使用 Redis Pub/Sub)。
@@ -83,10 +91,62 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
       }
       if (!userId) return
 
-      // 2026-07-24 安全审计 TODO:此处应校验 taskId 是否归属当前 userId(IDOR 防护)
-      // 需查询 task 表(agent_tasks/content_generation_tasks/export_tasks/workspace_ai_tasks)
-      // 确认 task.userId === 当前 userId,否则 close(1008, '无权访问此任务')
-      // 当前仅校验认证 + UUID 格式,生产环境必须补 ownership 校验
+      // 2026-07-25 IDOR 防护:校验 task 归属当前 userId,4 张表任一匹配即放行
+      try {
+        const uid = userId
+        const checks = [
+          () =>
+            db
+              .select({ id: agentTasks.id })
+              .from(agentTasks)
+              .where(and(eq(agentTasks.id, taskId), eq(agentTasks.createdBy, uid)))
+              .limit(1),
+          () =>
+            db
+              .select({ id: contentGenerationTasks.id })
+              .from(contentGenerationTasks)
+              .where(
+                and(
+                  eq(contentGenerationTasks.id, taskId),
+                  eq(contentGenerationTasks.userId, uid),
+                ),
+              )
+              .limit(1),
+          () =>
+            db
+              .select({ id: exportTasks.id })
+              .from(exportTasks)
+              .where(and(eq(exportTasks.id, taskId), eq(exportTasks.userId, uid)))
+              .limit(1),
+          () =>
+            db
+              .select({ id: workspaceAiTasks.id })
+              .from(workspaceAiTasks)
+              .where(
+                and(
+                  eq(workspaceAiTasks.id, taskId),
+                  eq(workspaceAiTasks.userId, uid),
+                ),
+              )
+              .limit(1),
+        ]
+        let owned = false
+        for (const check of checks) {
+          const rows = await check()
+          if (rows.length > 0) {
+            owned = true
+            break
+          }
+        }
+        if (!owned) {
+          socket.close(1008, '无权访问此任务')
+          return
+        }
+      } catch (err) {
+        server.log.warn({ err, taskId, userId }, 'ws-tasks ownership check failed')
+        socket.close(1008, '无权访问此任务')
+        return
+      }
 
       if (!connections.has(taskId)) connections.set(taskId, new Set())
       connections.get(taskId)!.add(socket)
