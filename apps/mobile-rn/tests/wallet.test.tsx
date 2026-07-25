@@ -37,8 +37,8 @@ vi.mock('../src/lib/config', () => ({
   API_BASE_URL: 'http://localhost:8801',
 }))
 
-vi.mock('react-native', () => {
-  const { createElement } = require('react')
+vi.mock('react-native', async () => {
+  const { createElement } = await import('react')
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       return createElement(tag, props, props.children)
@@ -139,7 +139,9 @@ describe('WalletScreen 余额查询', () => {
     const { getByText, getAllByText } = render(<WalletScreen />)
 
     await waitFor(() => expect(getByText('可用余额')).toBeTruthy())
-    expect(getAllByText((content: string) => content.includes('—')).length).toBeGreaterThanOrEqual(1)
+    expect(getAllByText((content: string) => content.includes('—')).length).toBeGreaterThanOrEqual(
+      1,
+    )
   })
 })
 
