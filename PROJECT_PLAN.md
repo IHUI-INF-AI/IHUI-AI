@@ -170,6 +170,56 @@
 
 ---
 
+### [x] ✅(2026-07-25) AI 输入框「添加」下拉菜单整合修复 — 9e90351d3 patch 重建时丢失 7f907f030 改动,跨设备拉 main 分支修改不生效(跨端:仅 web,平台独占)
+
+**触发**:用户反馈"相关 `div` 整合工作相关的代码怎么没上传到代码库呢  从其他设备拉下来代码  这个修改没生效啊"。诊断发现 main 分支的 message-input.tsx 不含 addMenu 整合代码,虽然 `7f907f030` commit 历史上存在。
+
+**根因诊断(2026-07-25 19:30)**:
+- `7f907f030` commit 引入了 addMenu 整合(附加栏 3 个独立按钮 → 1 个「添加」下拉,收纳 5 类动作)
+- `9e90351d3` 权限按钮深化 commit 在生成 patch 时基于 7f907f030 **之前**的版本(生成的 patch 包含 addMenu 整合代码的 reverse)
+- 结果:main 分支上 `9e90351d3..main` 的 message-input.tsx 跟 `00b7f08ce` 完全一致(1206 行,0 个 addMenu 引用)
+- 验证:7f907f030 当时 message-input.tsx 含 28+ 处 addMenu,9e90351d3 之后 0 处
+- 用户从 main 分支拉代码,只看到 3 个独立按钮,看不到「添加」下拉整合
+
+**修复方案**(用户确认"不丢失任何新提交内容"):
+1. **以 `00b7f08ce` (= main HEAD,含所有权限功能) 为基础**
+2. 从 `7f907f030` 取 addMenu 整合代码段(state + Popover + 5 项菜单)
+3. 替换附加栏 3 个独立按钮(提示词模板 / 添加引用 / Skill 库)为 1 个「添加」下拉
+4. 保留 `9e90351d3` 权限深化(高风险警告/1h 自动撤销/首启确认/标题栏徽章)
+5. 保留 `00b7f08ce` 权限历史(PermissionHistoryPanel)集成
+
+**代码变更**(commit `92bc40512`,1 文件,+150/-78):
+- `apps/web/src/components/chat/message-input.tsx`:
+  - 追加 `addMenuOpen` / `addMenuMode` state(2 行)
+  - 替换附加栏 3 个独立按钮(行 848-939)为 1 个「添加」下拉 Popover(~150 行)
+  - 修复 import:`FilePlus`(未用)→`Package`(已用)
+- 净增 72 行(addMenu 整合 + 注释)
+- 关键引用验证:39 处(addMenuOpen/addMenuMode/isHighRiskPermissionMode/PermissionHistoryPanel/FullAccessConfirmDialog/cyclePermissionMode)
+
+**验证**:
+- `pnpm --filter @ihui/web typecheck`:0 错误 ✅
+- addMenu 整合出现 28 处 ✅
+- 权限功能引用 14 处 ✅(高风险模式 + 1h 自动撤销 + 首启确认 + 标题栏徽章 + 历史)
+- 未丢失任何 9e90351d3 / 00b7f08ce 的功能 ✅
+
+**Git 同步证据**:
+- 本地 commit 1:`bf523a3d5` (feat/web-consolidate-add-menu 分支)
+- 本地 commit 2:`92bc40512` (main 分支,cherry-pick 1)
+- origin commit:`92bc405121db8e89d606646f4518cdabd753b8ce`
+- 同步状态:local == remote ✅
+- 守门脚本:`node scripts/git-push-guard.mjs` exit 0(本任务通过,因本任务文件已 typecheck)
+
+**重要设计决策**:
+- 没用 `git merge feat/web-consolidate-add-menu` 引入 a91a2df49 / 6ee06327c / 449489125 等独有 commit(会冲突 4 个文件)
+- 改用 `git cherry-pick bf523a3d5` 只引入本任务 fix(0 冲突,1 file changed)
+- feat 分支上 a91a2df49 等保留,后续如需同步再单独 cherry-pick
+
+**§22 README 豁免**:纯 bug 修复(不改变对外能力,addMenu 整合本身已在 7f907f030 commit 描述过)。
+
+**§17 UI 验证**:dev server 验证由用户从其他设备 pull 后浏览器自验确认(本 agent 无 dev server)。
+
+---
+
 ### [x] ✅(2026-07-25) 桌面端移除 Rust 原生菜单 — 根治"两层菜单割裂"(平台独占:desktop + web 联动)
 
 **触发**:用户反馈"你加的这个菜单栏我们自己独立的 跟上面他自带的重复啊 这给用户什么体验啊 多割裂啊 你不能把自带的那个给去掉吗或者隐藏"。HTML 顶栏(NativeTopBar.tsx)已自绘文件/视图/帮助菜单,再保留 Rust 端 build_app_menu 会同时显示系统菜单 + HTML 菜单,体验割裂。
