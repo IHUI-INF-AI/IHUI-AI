@@ -261,27 +261,17 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
     !isSubmitting &&
     (!enableDag || dagNodes.length > 0)
 
-  // 性能修复(2026-07-25):原 addDagNode/removeDagNode/updateDagNode 闭包依赖 dagNodes/dagEdges,
-  // 父组件任何 state 变化都让 handler 引用变化 → 即使抽 DagNodeRow + memo 也会失效。
-  // 改用 useCallback + functional update,handler 引用永不变。
-  const addDagNode = React.useCallback(() => {
-    setDagNodes((prev) => {
-      const newId = `node${prev.length + 1}-${Math.random().toString(36).slice(2, 5)}`
-      return [...prev, { id: newId, agentRole: 'coder', task: '' }]
-    })
-  }, [])
-  const removeDagNode = React.useCallback((id: string) => {
-    setDagNodes((prev) => prev.filter((n) => n.id !== id))
-    setDagEdges((prev) => prev.filter((e) => e.from !== id && e.to !== id))
-  }, [])
-  const updateDagNode = React.useCallback(
-    (id: string, field: 'agentRole' | 'task', value: string) => {
-      setDagNodes((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, [field]: value } : n)),
-      )
-    },
-    [],
-  )
+  const addDagNode = () => {
+    const newId = `node${dagNodes.length + 1}-${Math.random().toString(36).slice(2, 5)}`
+    setDagNodes([...dagNodes, { id: newId, agentRole: 'coder', task: '' }])
+  }
+  const removeDagNode = (id: string) => {
+    setDagNodes(dagNodes.filter((n) => n.id !== id))
+    setDagEdges(dagEdges.filter((e) => e.from !== id && e.to !== id))
+  }
+  const updateDagNode = (id: string, field: 'agentRole' | 'task', value: string) => {
+    setDagNodes(dagNodes.map((n) => (n.id === id ? { ...n, [field]: value } : n)))
+  }
   const addDagEdge = () => {
     if (dagNodes.length < 2) return
     setDagEdges([...dagEdges, { from: dagNodes[0]!.id, to: dagNodes[1]!.id, condition: '' }])
@@ -509,12 +499,39 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
                 </button>
               </div>
               {dagNodes.map((node) => (
-                <DagNodeRow
-                  key={node.id}
-                  node={node}
-                  updateDagNode={updateDagNode}
-                  removeDagNode={removeDagNode}
-                />
+                <div key={node.id} className="flex items-center gap-1.5">
+                  <code
+                    className="w-16 shrink-0 truncate rounded bg-muted px-1 py-0.5 font-mono text-[10px]"
+                    title={node.id}
+                  >
+                    {node.id.slice(0, 8)}
+                  </code>
+                  <select
+                    value={node.agentRole}
+                    onChange={(e) => updateDagNode(node.id, 'agentRole', e.target.value)}
+                    className="h-6 w-24 rounded-sm border border-input bg-transparent px-1 text-[10px] focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    {ROLE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label.split('(')[0]}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={node.task}
+                    onChange={(e) => updateDagNode(node.id, 'task', e.target.value)}
+                    placeholder="任务描述"
+                    className="h-6 flex-1 rounded-sm border border-input bg-transparent px-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeDagNode(node.id)}
+                    className="rounded-sm border border-border bg-background px-1 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
             </div>
             <div className="space-y-1">
@@ -1361,59 +1378,3 @@ function Field({
 }
 
 export default DispatchSubagentDialog
-
-// ---------------------------------------------------------------------------
-// DagNodeRow — DAG 节点行(性能修复 2026-07-25)
-// 原 dagNodes.map 内 inline JSX,task 输入框每键入一次触发整个 dagNodes
-// 列表重渲染(每个 select 重新渲染 ROLE_OPTIONS option 列表)。
-// 抽子组件 + React.memo:仅当前编辑的 node 重渲染,其他 node 引用不变跳过。
-// 前提:updateDagNode / removeDagNode 必须用 useCallback 稳定引用(已在父方处理)。
-// ---------------------------------------------------------------------------
-
-interface DagNodeRowProps {
-  node: DagNodeInput
-  updateDagNode: (id: string, field: 'agentRole' | 'task', value: string) => void
-  removeDagNode: (id: string) => void
-}
-
-const DagNodeRow = React.memo(function DagNodeRow({
-  node,
-  updateDagNode,
-  removeDagNode,
-}: DagNodeRowProps) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <code
-        className="w-16 shrink-0 truncate rounded bg-muted px-1 py-0.5 font-mono text-[10px]"
-        title={node.id}
-      >
-        {node.id.slice(0, 8)}
-      </code>
-      <select
-        value={node.agentRole}
-        onChange={(e) => updateDagNode(node.id, 'agentRole', e.target.value)}
-        className="h-6 w-24 rounded-sm border border-input bg-transparent px-1 text-[10px] focus:outline-none focus:ring-1 focus:ring-ring"
-      >
-        {ROLE_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label.split('(')[0]}
-          </option>
-        ))}
-      </select>
-      <input
-        type="text"
-        value={node.task}
-        onChange={(e) => updateDagNode(node.id, 'task', e.target.value)}
-        placeholder="任务描述"
-        className="h-6 flex-1 rounded-sm border border-input bg-transparent px-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-ring"
-      />
-      <button
-        type="button"
-        onClick={() => removeDagNode(node.id)}
-        className="rounded-sm border border-border bg-background px-1 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
-      >
-        ×
-      </button>
-    </div>
-  )
-})

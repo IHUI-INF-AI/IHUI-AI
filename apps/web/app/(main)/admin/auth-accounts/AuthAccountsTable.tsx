@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Loader2, Link2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -20,7 +19,7 @@ interface AuthAccountsTableProps {
   onPageChange: (page: number) => void
 }
 
-export const AuthAccountsTable = React.memo(function AuthAccountsTable({
+export function AuthAccountsTable({
   list,
   isLoading,
   page,
@@ -31,22 +30,6 @@ export const AuthAccountsTable = React.memo(function AuthAccountsTable({
   onPageChange,
 }: AuthAccountsTableProps) {
   const t = useTranslations('adminAuthAccounts')
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id) onDelete(id)
-    },
-    [onDelete],
-  )
   return (
     <>
       <div className="overflow-x-auto rounded-lg border">
@@ -92,19 +75,14 @@ export const AuthAccountsTable = React.memo(function AuthAccountsTable({
                   <td className="px-4 py-2.5 text-muted-foreground">{item.bindTime ?? '-'}</td>
                   <td className="px-4 py-2.5 space-x-2">
                     <HasPermi code={`${PERM}:edit`}>
-                      <button
-                        className="text-primary hover:underline"
-                        data-id={item.id}
-                        onClick={handleEdit}
-                      >
+                      <button className="text-primary hover:underline" onClick={() => onEdit(item)}>
                         {t('edit')}
                       </button>
                     </HasPermi>
                     <HasPermi code={`${PERM}:remove`}>
                       <button
                         className="text-destructive hover:underline"
-                        data-id={item.id}
-                        onClick={handleDelete}
+                        onClick={() => onDelete(item.id)}
                       >
                         {t('delete')}
                       </button>
@@ -142,4 +120,4 @@ export const AuthAccountsTable = React.memo(function AuthAccountsTable({
       )}
     </>
   )
-})
+}
