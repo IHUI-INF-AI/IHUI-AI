@@ -2,10 +2,13 @@
 
 import * as React from 'react'
 
+import { ListChecks, Play } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
+
+import './plan-act-toggle.css'
 
 export type PlanActMode = 'plan' | 'act'
 
@@ -15,6 +18,9 @@ export type PlanActMode = 'plan' | 'act'
  * 非受控(默认):读写 useChatStore.planMode,兼容 `<PlanActToggle />` 旧调用方。
  * - Plan:LLM 只制定计划不调用工具
  * - Act:正常 tool loop 执行(默认)
+ *
+ * 2026-07-25 增强:容器 < 360px 时折叠为单个图标按钮(ListChecks/Play),
+ * 避免在窄屏 ai-side-panel 挤占其他 toolbar 元素(详见 plan-act-toggle.css)。
  */
 function safeT(t: (key: string) => string, key: string, fallback: string): string {
   try {
@@ -76,14 +82,44 @@ export function PlanActToggle({
     </button>
   )
 
+  // 窄屏折叠态(2026-07-25):单个图标按钮,点击切换 plan/act。
+  // 复用 select() 保持 plan/act 切换行为与宽屏完全一致(受控/非受控分支同源)。
+  const toggle = () => select(current === 'plan' ? 'act' : 'plan')
+  const currentLabel = current === 'plan' ? planLabel : actLabel
+  const currentTooltip = current === 'plan' ? planTooltip : actTooltip
+  const CurrentIcon = current === 'plan' ? ListChecks : Play
+
   return (
     <div
       role="radiogroup"
       aria-label="Plan/Act mode"
-      className={cn('inline-flex h-7 items-center gap-0.5 rounded-md bg-muted p-0.5', className)}
+      className={cn(
+        'ai-panel-toggle inline-flex h-7 items-center gap-0.5 rounded-md bg-muted p-0.5',
+        className,
+      )}
     >
-      {btn('plan', planLabel, planTooltip)}
-      {btn('act', actLabel, actTooltip)}
+      {/* 宽屏(>= 360px):2 个文字按钮(radiogroup 语义保留供 a11y) */}
+      <span className="ai-toggle-wide inline-flex items-center gap-0.5">
+        {btn('plan', planLabel, planTooltip)}
+        {btn('act', actLabel, actTooltip)}
+      </span>
+      {/* 窄屏(< 360px):单个图标按钮,点击切换 mode(plan/act)。
+         故意放在 radiogroup 内部但非 role="radio",与宽屏互斥显示(由 CSS 容器查询切换),
+         a11y 走 title + aria-label,屏幕阅读器同一时间只感知一种状态。 */}
+      <span className="ai-toggle-narrow">
+        <button
+          type="button"
+          onClick={toggle}
+          title={currentTooltip}
+          aria-label={currentLabel}
+          className={cn(
+            'inline-flex h-7 w-7 items-center justify-center rounded-md transition-all duration-150',
+            'bg-primary text-primary-foreground shadow-sm hover:opacity-90',
+          )}
+        >
+          <CurrentIcon className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </span>
     </div>
   )
 }
