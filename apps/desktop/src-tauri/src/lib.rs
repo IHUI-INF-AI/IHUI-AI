@@ -104,6 +104,16 @@ fn get_admin_window_info() -> AdminWindowInfo {
     }
 }
 
+/// 2026-07-25 修订:**已删除原 build_app_menu 函数 + 移除 app.set_menu() 调用**。
+///
+/// 原因:HTML 顶栏(NativeTopBar.tsx)已自绘菜单 UI,再显示系统原生菜单
+/// 会出现"两层菜单栏",体验割裂。原菜单的快捷键(Ctrl+R/F12/Ctrl+Shift+A/Ctrl+Q)
+/// 移到 web 端 keydown 监听(见 use-native-shortcuts.ts useNativeShortcuts),
+/// 真正需要 Rust 的能力(F12 devtools / Ctrl+Shift+A 唤起 admin / Ctrl+Q 退出)
+/// 通过 invoke 命令调用,逻辑保持不变。
+///
+/// 此位置预留,如未来需恢复原生菜单可参照之前版本。
+
 /// 切换 webview 开发者工具(前端 menu dispatcher 调用,2026-07-25 立)。
 /// Tauri 2 没有 JS 端 toggle API,必须在 Rust 端做。
 #[tauri::command]
@@ -972,8 +982,7 @@ pub fn run() {
                 }
             }
             // 2026-07-25 修订:不再调用 build_app_menu(已删除),菜单全部走 web 端 HTML 顶栏
-            // 原菜单快捷键(Ctrl+R / F12 / Ctrl+Shift+A / Ctrl+Q)由 web 端 useNativeShortcuts
-            // 监听(见 apps/web/src/hooks/use-native-shortcuts.ts),通过 dispatchMenuAction 派发。
+            // let _ = build_app_menu(app.handle().clone());
             let _ = build_tray(app.handle());
             // 启动时设置本地化窗口标题(中文系统 → 智汇AI,其他 → IHUI AI)
             let app_name = localized_app_name();

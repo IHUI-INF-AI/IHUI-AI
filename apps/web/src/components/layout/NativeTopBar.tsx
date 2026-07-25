@@ -1,34 +1,7 @@
 'use client'
 
-/**
- * NativeTopBar — Tauri 桌面端自定义顶栏(2026-07-25 重写)
- *
- * 设计目的(摘自 GlobalShell.tsx 138-141 行注释 + 用户 2026-07-25 反馈):
- * - 仅 isDesktop=true(Tauri 客户端)时渲染,内部守卫保证 web 端不显示
- * - 横跨 Sidebar + 内容区,统一处理拖拽 + 窗口控制 + 菜单 dropdown
- * - 40px 高,半透明毛玻璃背景 + 底边 1px,与 sidebar 视觉融为一体
- * - **菜单与程序名同行**(用户 2026-07-25 要求):文件/视图/帮助 紧跟 logo + appName,
- *   整排显示,不再独立成行;菜单 dropdown 与 macOS 风格一致
- *
- * 与 Rust 端 build_app_menu 的关系:
- * - Rust 端依然构建原生菜单(顶栏 + 标准 Alt-key 触发),点击时通过 emit_to("main","menu:click",id)
- *   通知前端 dispatcher(menu-actions.ts)
- * - HTML 顶栏是**视觉呈现层**,点击后调用同一个 dispatcher(open_admin_window / toggle_devtools / reload / quit),
- *   保证原生菜单快捷键(Ctrl+R/F12/Ctrl+Shift+A/Ctrl+Q)与 HTML 菜单点击行为一致
- * - HTML 顶栏的菜单内容(文件/视图/帮助)只是原生菜单的"视觉镜像",真正的快捷键/平台菜单仍由 Rust 提供
- *
- * 子组件:
- * - TopBarDropdown: Radix UI DropdownMenu 包装,统一 hover/active 样式
- * - WindowControlButton: 窗口控制按钮(最小化/最大化/关闭),关闭按钮 hover 变红
- *
- * 拖拽行为:
- * - 整条顶栏 `data-tauri-drag-region`(Tauri WebView 自动接管鼠标按下/移动/释放)
- * - 菜单/按钮区域需要 `onMouseDown` e.preventDefault() 阻止冒泡,
- *   否则点菜单会误触发拖拽
- */
 import * as React from 'react'
-import Image from 'next/image'
-import { ChevronDown, Minus, Square, X, Info, RotateCw, Code2, Settings2, LogOut } from 'lucide-react'
+import { ChevronDown, Minus, Square, X, AppWindow } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -41,266 +14,211 @@ import { useDesktop } from '@/hooks/use-desktop'
 import { useNativeShortcuts } from '@/hooks/use-native-shortcuts'
 import { dispatchMenuAction } from '@/lib/menu-actions'
 import {
-  getLocalizedAppName,
+  minimizeWindow,
+  toggleMaximizeWindow,
+  closeWindow,
   type MenuActionId,
 } from '@/lib/tauri-bridge'
 import { cn } from '@/lib/utils'
+
+/**
+ * NativeTopBar — Tauri 桌面端自定义标题栏(2026-07-25 立)
+ *
+ * 设计要点:
+ * - 完全自绘:tauri.conf.json 已设 `decorations: false`,系统标题栏消失,本组件顶替之
+ * - HTML Dropdown:click 文件/视图/帮助按钮 → Radix DropdownMenu 弹出
+ * - 仅桌面端:`isDesktop=false` 时返回 null,web 端浏览器布局完全不变
+ *
+ * 布局(40px 高,VSCode 风格):
+ *   [Logo + 智汇AI] [文件 视图 帮助 dropdown] [flex-1] [Min Max Close]
+ *
+ * 拖拽:`data-tauri-drag-region` 应用于父容器;
+ *      button 子元素天然不参与拖拽(Tauri 2 自动排除)。
+ *
+ * 与 Rust 端的关系(2026-07-25 修订):
+ * - 2026-07-25 前:Rust 端 build_app_menu 构建原生菜单,点击时通过 emit_to("main","menu:click",id)
+ *   通知前端 dispatcher(menu-actions.ts)
+ * - 2026-07-25 后:原生菜单已删除(避免原生菜单 + HTML 顶栏两层菜单割裂),
+ *   菜单 UI 完全由本组件自绘。HTML 顶栏点击 + web 端快捷键(Ctrl+R/F12/Ctrl+Shift+A/Ctrl+Q)
+ *   都走同一个 dispatchMenuAction,真正需要 Rust 的能力(F12 devtools / Ctrl+Shift+A
+ *   唤起 admin / Ctrl+Q 退出)通过 invoke 命令调用,逻辑保持不变
+ *
+ * UI 约束(AGENTS.md §4):
+ * - 圆角:rounded-md(8px)/rounded-sm(4px),无 rounded-full
+ * - 中文字体对齐:globals.css 全局 vcenter 规则 + translate-y 兜底
+ * - 颜色:hover bg-accent(灰调),无蓝色发光
+ * - 无 <hr> / 分割线;用容器完整描边
+ */
 
 interface MenuEntry {
   kind: 'item'
   id: MenuActionId
   label: string
   shortcut?: string
-  icon?: React.ReactNode
 }
 interface MenuSeparatorItem {
   kind: 'sep'
 }
 type MenuItem = MenuEntry | MenuSeparatorItem
 
-// 菜单项定义(与 Rust 端 build_app_menu ID 一一对应)
-// 用 lucide 图标让 dropdown 视觉更精致(用户 2026-07-25 "美化样式"要求)
 const FILE_MENU: MenuItem[] = [
-  {
-    kind: 'item',
-    id: 'file.open_admin',
-    label: '打开管理后台',
-    shortcut: 'Ctrl+Shift+A',
-    icon: <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />,
-  },
+  { kind: 'item', id: 'file.open_admin', label: '打开管理后台…', shortcut: 'Ctrl+Shift+A' },
   { kind: 'sep' },
-  {
-    kind: 'item',
-    id: 'file.quit',
-    label: '退出',
-    shortcut: 'Ctrl+Q',
-    icon: <LogOut className="h-3.5 w-3.5 text-muted-foreground" />,
-  },
+  { kind: 'item', id: 'file.quit', label: '退出', shortcut: 'Ctrl+Q' },
 ]
-
 const VIEW_MENU: MenuItem[] = [
-  {
-    kind: 'item',
-    id: 'view.reload',
-    label: '刷新',
-    shortcut: 'Ctrl+R',
-    icon: <RotateCw className="h-3.5 w-3.5 text-muted-foreground" />,
-  },
-  {
-    kind: 'item',
-    id: 'view.devtools',
-    label: '开发者工具',
-    shortcut: 'F12',
-    icon: <Code2 className="h-3.5 w-3.5 text-muted-foreground" />,
-  },
+  { kind: 'item', id: 'view.reload', label: '刷新', shortcut: 'Ctrl+R' },
+  { kind: 'item', id: 'view.devtools', label: '切换开发者工具', shortcut: 'F12' },
 ]
-
-const HELP_MENU: MenuItem[] = [
-  {
-    kind: 'item',
-    id: 'help.about',
-    label: '关于',
-    icon: <Info className="h-3.5 w-3.5 text-muted-foreground" />,
-  },
-]
-
-/**
- * 阻止 mousedown 冒泡到 drag region(否则点击菜单会误触发窗口拖拽)。
- * Tauri 的 data-tauri-drag-region 监听 mousedown 事件,需要主动 preventDefault。
- */
-function stopDragPropagation(e: React.MouseEvent | React.PointerEvent) {
-  e.stopPropagation()
-}
+const HELP_MENU: MenuItem[] = [{ kind: 'item', id: 'help.about', label: '关于 智汇AI' }]
 
 export function NativeTopBar() {
-  const { isDesktop, appInfo, isMaximized, minimize, toggleMaximize, close } = useDesktop()
+  const { isDesktop, appInfo, isMaximized } = useDesktop()
+  const [localMaximized, setLocalMaximized] = React.useState(isMaximized)
+
+  // 同步全局 isMaximized → 本地 state(用于切换 Max vs Restore 图标)
+  React.useEffect(() => {
+    setLocalMaximized(isMaximized)
+  }, [isMaximized])
+
   // 2026-07-25 修订:用 web 端快捷键监听替代 Rust 端菜单 emit(Rust 端 build_app_menu 已删除,
   // 避免原生菜单 + HTML 顶栏两层菜单割裂)。HTML 顶栏点击 + 快捷键都走 dispatchMenuAction,
   // 单一逻辑源。
   useNativeShortcuts((id) => void dispatchMenuAction(id))
 
-  // SSR + web 端:完全不渲染
-  if (typeof window === 'undefined') return null
+  // 浏览器端不渲染(避免 web 端误显示)
   if (!isDesktop) return null
 
-  // 优先用 Rust 端权威名(由 system UI language 决定);前端 getLocalizedAppName 作 fallback
-  const appName = appInfo?.name ?? getLocalizedAppName()
+  const appName = appInfo?.name ?? '智汇AI'
+
+  const handleMinimize = async () => {
+    await minimizeWindow()
+  }
+  const handleToggleMax = async () => {
+    const next = await toggleMaximizeWindow()
+    setLocalMaximized(next)
+  }
+  const handleClose = async () => {
+    await closeWindow()
+  }
 
   return (
     <div
       data-tauri-drag-region
       className={cn(
-        // 2026-07-25 P0 修复:加 w-full 让顶栏占满 flex-col 父容器宽度。
-        // 之前缺 w-full,顶层 div 在 flex-col 父容器中宽度 = 内容宽度 ≈ 200px,
-        // 导致"视图/帮助"菜单 + 窗口控制按钮(最小/最大/关闭)被挤出可视区域。
-        // 2026-07-25 P0 二次修复:z-index 提到 z-[1000] 高于 AISidePanel 的 z-sticky(990),
-        // 之前两者同为 z-sticky,AISidePanel 作为 fixed 元素在 DOM 顺序上晚于 NativeTopBar
-        // 所在 flex 容器 → 同 z-index 绘制时 fixed 元素胜出 → 覆盖顶栏右半部分
-        // (视图/帮助 菜单 + 窗口控制按钮被 AI 面板"空工作区/执行"头部盖住)。
-        // 提到 z-[1000] 后 NativeTopBar 永远在 AISidePanel 之上,顶栏 + 菜单 + 窗口控制
-        // 完全可见;AISidePanel 顶部 40px 区域被顶栏半透明毛玻璃覆盖(底层内容略透出,
-        // 形成连贯的视觉过渡,符合现代桌面应用 frosted glass 设计语言)。
-        // 2026-07-25 DEBUG:临时加 bg-pink-500 验证 HMR 是否应用到实际页面
-        'relative z-[1000] flex h-10 w-full shrink-0 items-center select-none bg-pink-500',
-        // 半透明毛玻璃 + 底边 1px,与 sidebar 视觉融为一体
-        'border-b border-border/80',
+        'relative z-sticky flex h-10 shrink-0 items-center select-none',
+        'bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80',
+        'border-b border-border',
       )}
     >
-      {/* === 左侧:Logo + App Name(整段可拖拽) === */}
+      {/* 左侧:Logo + 应用名 */}
       <div
         data-tauri-drag-region
-        className="flex h-full shrink-0 items-center gap-2 pl-3 pr-1"
+        className="flex h-full items-center gap-2 pl-3 pr-2"
       >
-        <Image
-          src="/images/logo.png?v=20260719-unify"
-          alt={appName}
-          width={20}
-          height={20}
-          className="h-5 w-5 select-none rounded"
-          draggable={false}
-          unoptimized
-          priority
-        />
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-foreground/10">
+          <AppWindow className="h-3.5 w-3.5 text-foreground/80" />
+        </div>
         <span className="text-[13px] font-semibold leading-none text-foreground/90 translate-y-[var(--text-vcenter-offset)]">
           {appName}
         </span>
       </div>
 
-      {/* === 中间偏左:菜单 dropdown(文件/视图/帮助,与程序名同行) === */}
+      {/* 中间:菜单 dropdown(文件 / 视图 / 帮助) */}
       <nav
         aria-label="应用菜单"
-        // 用 mousedown 阻止冒泡,防止点菜单误触拖拽
-        onMouseDown={stopDragPropagation}
-        onPointerDown={stopDragPropagation}
-        className="flex h-full shrink-0 items-center gap-0.5 pl-1"
+        className="flex h-full items-center gap-0.5 pl-1"
       >
         <TopBarDropdown label="文件" items={FILE_MENU} />
         <TopBarDropdown label="视图" items={VIEW_MENU} />
         <TopBarDropdown label="帮助" items={HELP_MENU} />
       </nav>
 
-      {/* === 中间:flex-1 spacer(整段可拖拽) === */}
-      <div data-tauri-drag-region className="h-full flex-1" />
+      {/* 中间弹性区(可拖拽) */}
+      <div data-tauri-drag-region className="flex-1 h-full" />
 
-      {/* === 右侧:窗口控制(不可拖拽) === */}
-      <div
-        // 2026-07-25 DEBUG:临时加 bg-yellow-500 验证窗口控制 div 渲染位置
-        // 再加 outline outline-4 outline-cyan-500 保证 div 至少 1px 可见
-        className="flex h-full shrink-0 items-center bg-yellow-500 outline outline-4 outline-cyan-500"
-        onMouseDown={stopDragPropagation}
-        onPointerDown={stopDragPropagation}
-        onDoubleClick={stopDragPropagation}
-      >
+      {/* 右侧:窗口控制按钮 */}
+      <div className="flex h-full items-center">
         <WindowControlButton
-          onClick={minimize}
+          onClick={handleMinimize}
           ariaLabel="最小化"
           icon={<Minus className="h-3.5 w-3.5" />}
         />
         <WindowControlButton
-          onClick={toggleMaximize}
-          ariaLabel={isMaximized ? '还原' : '最大化'}
-          icon={isMaximized ? <RestoreIcon /> : <Square className="h-3 w-3" />}
+          onClick={handleToggleMax}
+          ariaLabel={localMaximized ? '还原' : '最大化'}
+          icon={
+            localMaximized ? (
+              <RestoreIcon className="h-3 w-3" />
+            ) : (
+              <Square className="h-3 w-3" />
+            )
+          }
         />
         <WindowControlButton
-          onClick={close}
+          onClick={handleClose}
           ariaLabel="关闭"
           icon={<X className="h-3.5 w-3.5" />}
           variant="close"
         />
-        {/* DEBUG: 占位文本,验证 div 是否渲染 */}
-        <span className="text-xs text-black">WC</span>
       </div>
     </div>
   )
 }
 
-// ================== TopBarDropdown ==================
+// ================== 子组件 ==================
 
-interface TopBarDropdownProps {
+/** 单个菜单 dropdown(文件/视图/帮助) */
+function TopBarDropdown({
+  label,
+  items,
+}: {
   label: string
   items: MenuItem[]
-}
-
-/**
- * 顶栏菜单 dropdown — 与 macOS / Windows 原生菜单视觉一致:
- * - 触发按钮:hover 浅色高亮,open 态持续高亮
- * - dropdown 内容:8px 圆角 + shadow + 半透明背景,与 popover 体系统一
- * - 菜单项:左侧 icon + 文字 + 右侧快捷键 hint,hover 浅色高亮
- */
-function TopBarDropdown({ label, items }: TopBarDropdownProps) {
-  const handleSelect = (id: MenuActionId) => {
-    void dispatchMenuAction(id)
+}) {
+  const handleSelect = async (id: MenuActionId) => {
+    await dispatchMenuAction(id)
   }
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          // 布局:icon + 文字 + chevron 同行
           'group inline-flex h-7 items-center gap-1 rounded-md px-2.5',
-          // 字体:与 appName 一致的 13px,但中量级,与 dropdown 项视觉层级一致
           'text-[13px] font-medium leading-none text-foreground/80',
-          // hover 态:bg-accent 高亮 + 文字加深
-          'transition-colors',
-          'hover:bg-accent hover:text-accent-foreground',
-          // open 态:持续高亮
-          'data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
-          // a11y:focus 环
+          'transition-colors hover:bg-accent hover:text-foreground',
+          'data-[state=open]:bg-accent data-[state=open]:text-foreground',
           'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-          // 中文 + 图标垂直对齐
           '[&>span]:translate-y-[var(--text-vcenter-offset)]',
         )}
       >
         <span>{label}</span>
         <ChevronDown
           className={cn(
-            'h-3 w-3 opacity-60 transition-transform duration-150',
-            'group-data-[state=open]:rotate-180 group-data-[state=open]:opacity-90',
+            'h-3 w-3 opacity-60 transition-transform',
+            'group-data-[state=open]:rotate-180',
           )}
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        sideOffset={4}
-        className={cn(
-          // 6px 圆角 + 阴影 + 半透明,与全局 Popover 体系一致
-          'min-w-[200px] rounded-md border border-border/80 bg-popover/95 p-1',
-          'text-popover-foreground shadow-lg backdrop-blur',
-          'data-[state=open]:animate-in data-[state=closed]:animate-out',
-          'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-          'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-        )}
+        sideOffset={6}
+        className="min-w-[180px] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg"
       >
         {items.map((item, i) =>
           item.kind === 'sep' ? (
-            <DropdownMenuSeparator
-              key={`sep-${i}`}
-              className="-mx-1 my-1 h-px bg-border/60"
-            />
+            <DropdownMenuSeparator key={`sep-${i}`} className="my-1 h-px bg-border" />
           ) : (
             <DropdownMenuItem
               key={item.id}
               onSelect={(e) => {
                 e.preventDefault()
-                handleSelect(item.id)
+                void handleSelect(item.id)
               }}
-              className={cn(
-                // 布局:icon + label + shortcut 三段,flex 均匀分布
-                'flex h-8 cursor-pointer items-center gap-2 rounded-sm px-2.5',
-                // 文字:14px,中文 span 垂直对齐
-                'text-sm text-popover-foreground',
-                // hover/focus 态:bg-accent 高亮
-                'transition-colors focus:bg-accent focus:text-accent-foreground',
-                'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground',
-                'outline-none',
-              )}
+              className="flex h-8 items-center justify-between rounded-sm px-2.5 text-sm transition-colors focus:bg-accent focus:text-accent-foreground"
             >
-              {item.icon && <span className="shrink-0">{item.icon}</span>}
-              <span className="flex-1 translate-y-[var(--text-vcenter-offset)]">
-                {item.label}
-              </span>
+              <span className="translate-y-[var(--text-vcenter-offset)]">{item.label}</span>
               {item.shortcut && (
-                <DropdownMenuShortcut className="ml-auto text-[11px] font-normal text-muted-foreground/80 tracking-normal">
+                <DropdownMenuShortcut className="ml-3 text-[11px] text-muted-foreground">
                   {item.shortcut}
                 </DropdownMenuShortcut>
               )}
@@ -312,41 +230,28 @@ function TopBarDropdown({ label, items }: TopBarDropdownProps) {
   )
 }
 
-// ================== WindowControlButton ==================
-
-interface WindowControlButtonProps {
-  onClick: () => void
-  ariaLabel: string
-  icon: React.ReactNode
-  variant?: 'close'
-}
-
-/**
- * 窗口控制按钮(最小化/最大化/关闭)。
- * 关闭按钮 hover 变红(macOS 风格,但用项目 destructive 色 + 透明背景,不刺眼)。
- * 11px icon 容器,40px 高,完美贴合 40px 顶栏高度。
- */
+/** 窗口控制按钮(Min/Max/Close) */
 function WindowControlButton({
   onClick,
   ariaLabel,
   icon,
   variant,
-}: WindowControlButtonProps) {
+}: {
+  onClick: () => void | Promise<void>
+  ariaLabel: string
+  icon: React.ReactNode
+  variant?: 'close'
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
       className={cn(
-        // 11 * 40 = 440px,正好 3 个按钮
         'inline-flex h-full w-11 items-center justify-center',
-        // 默认:文字色(与顶栏其他文字保持一致)
-        'text-foreground/70 transition-colors',
-        // hover:浅色高亮
+        'text-foreground/80 transition-colors',
         'hover:bg-accent hover:text-foreground',
-        // a11y:focus
         'focus:outline-none focus-visible:bg-accent',
-        // 关闭按钮:hover 变红(macOS 风格)
         variant === 'close' &&
           'hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-400',
       )}
@@ -356,12 +261,7 @@ function WindowControlButton({
   )
 }
 
-// ================== RestoreIcon ==================
-
-/**
- * 还原按钮图标(双框叠加,表示从最大化还原)。
- * 用内联 SVG 避免 lucide 找不到完全匹配的图标。
- */
+/** 还原图标(用 lucide-react 的 `Copy` 不可表达,自绘最小实现) */
 function RestoreIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -369,12 +269,10 @@ function RestoreIcon(props: React.SVGProps<SVGSVGElement>) {
       fill="none"
       stroke="currentColor"
       strokeWidth="1"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       {...props}
     >
-      <rect x="3.5" y="3.5" width="6" height="6" rx="1" />
-      <path d="M2.5 8.5 V2.5 H8.5" />
+      <rect x="2.5" y="2.5" width="6" height="6" rx="1" />
+      <path d="M4 0.5 H10.5 V7" />
     </svg>
   )
 }

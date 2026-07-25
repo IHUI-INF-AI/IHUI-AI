@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { fetchApi, type PageData } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
 
 const WEB_BASE = 'https://ihui.ai'
 
@@ -16,15 +17,6 @@ interface ChatFavorite {
   title: string
   summary?: string | null
   createdAt?: string | null
-}
-
-function fmtDate(s?: string | null): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(new Date(s))
-  } catch {
-    return ''
-  }
 }
 
 export default function ChatFavoritesPage() {
