@@ -41,7 +41,7 @@ export default function EduSchedulePage() {
     const items = data ?? []
     const map: Record<number, ScheduleItem[]> = {}
     for (let i = 0; i < 7; i++) map[i] = []
-    items.forEach((it) => {
+    items.forEach((it: any) => {
       const arr = map[it.weekday] ?? (map[it.weekday] = [])
       arr.push(it)
     })

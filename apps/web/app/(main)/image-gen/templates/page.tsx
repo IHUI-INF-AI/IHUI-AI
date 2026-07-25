@@ -61,7 +61,7 @@ export default function ImageGenTemplatesPage() {
   const categories = data?.categories ?? []
   const allTemplates = data?.list ?? []
   const templates =
-    activeCat === 'all' ? allTemplates : allTemplates.filter((t) => t.categoryId === activeCat)
+    activeCat === 'all' ? allTemplates : allTemplates.filter((t: any) => t.categoryId === activeCat)
 
   function applyTemplate(prompt: string) {
     sessionStorage.setItem('image-gen-draft', prompt)
@@ -99,7 +99,7 @@ export default function ImageGenTemplatesPage() {
           >
             全部
           </button>
-          {categories.map((c) => (
+          {categories.map((c: any) => (
             <button
               key={c.id}
               onClick={() => setActiveCat(c.id)}
@@ -132,7 +132,7 @@ export default function ImageGenTemplatesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {templates.map((tpl) => (
+          {templates.map((tpl: any) => (
             <Card
               key={tpl.id}
               className="cursor-pointer overflow-hidden transition-colors hover:bg-accent/40"

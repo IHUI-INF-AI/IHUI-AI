@@ -100,7 +100,7 @@ export function CopyModelDialog({
       }
       return createModelV2(targetProviderId, targetForm)
     },
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
       const modelIdEcho = 'modelId' in res ? res.modelId : undefined
       toast.success(t('success'), {
         description: modelIdEcho ? `「${modelIdEcho}」` : undefined,
