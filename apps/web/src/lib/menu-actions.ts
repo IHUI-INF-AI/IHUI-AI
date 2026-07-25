@@ -1,73 +1,62 @@
-'use client'
-
-import { toast } from 'sonner'
-import {
-  openAdminWindow,
-  quitApp,
-  toggleDevtools,
-  getDesktopAppInfo,
-  type MenuActionId,
-} from '@/lib/tauri-bridge'
+import { type MenuActionId, openAdminWindow, quitApp, toggleDevtools } from './tauri-bridge'
 
 /**
- * dispatchMenuAction — 菜单动作统一调度器(2026-07-25 立)
+ * 应用菜单 dispatcher(2026-07-25 立,深度对标 Codex / Claude Desktop 菜单架构)
  *
- * 所有菜单项行为集中在这一处,避免散落在各组件。
- * 行为映射(与 HTML 顶栏菜单 ID 一致):
- * - file.open_admin → 唤起/创建 admin 窗口
- * - view.reload     → 刷新当前 webview
- * - view.devtools   → 切换 devtools
- * - help.about      → toast 显示版本信息
- * - file.quit       → 真正退出(不走 closeWindow 的"隐藏到托盘")
+ * 设计背景:
+ * - 2026-07-25 前:Rust 端 build_app_menu 构建原生菜单,点击时通过
+ *   `emit_to("main","menu:click",id)` 通知前端 dispatcher
+ * - 2026-07-25 后:Rust 端原生菜单已删除(避免原生菜单 + HTML 顶栏两层菜单割裂),
+ *   菜单 UI 由 NativeTopBar 自绘;菜单点击事件统一通过本 dispatcher 派发
  *
- * 入口:
- * 1. HTML 顶栏 NativeTopBar.tsx dropdown 点击
- * 2. useNativeShortcuts(web 端 keydown 监听)替代原 Rust 端菜单 accelerator
+ * 调用源:
+ * - NativeTopBar 文件/视图/帮助 dropdown 点击(2026-07-25 后)
+ * - useNativeShortcuts 监听 Ctrl+R/F12/Ctrl+Shift+A/Ctrl+Q(2026-07-25 后,
+ *   替代原 Rust MenuItemBuilder.accelerator)
  *
- * @param id 菜单 ID
+ * 派发逻辑:
+ * - 需要 Rust 能力的(view.devtools / file.quit / file.open_admin):
+ *   走 tauri-bridge 的 invoke 命令
+ * - 不需要 Rust 能力的(view.reload):web 端用 location.reload() 直接处理
+ * - help.about:弹 toast(后续可换 Modal)
+ *
+ * 单点出口:未来若需统一埋点(菜单点击事件 analytics)只改这一处。
+ *
+ * 非 Tauri 环境:所有需要 Rust 能力的函数已在 tauri-bridge 内部静默 noop,
+ * 帮助菜单的 toast 用 sonner 直接弹。Web 端菜单按钮依然可点,只是"唤起 admin"
+ * 等能力失效,符合 tauri-bridge 的"非 Tauri 静默"约定。
  */
 export async function dispatchMenuAction(id: MenuActionId): Promise<void> {
   switch (id) {
     case 'file.open_admin':
-      try {
-        await openAdminWindow()
-      } catch (e) {
-        toast.error('打开管理后台失败')
-        console.error('[menu] open_admin failed', e)
-      }
-      break
-
-    case 'view.reload':
-      window.location.reload()
-      break
-
-    case 'view.devtools':
-      try {
-        await toggleDevtools()
-      } catch {
-        toast.error('切换开发者工具失败')
-      }
-      break
-
-    case 'help.about': {
-      try {
-        const info = await getDesktopAppInfo()
-        toast.info(
-          `${info?.name ?? '智汇AI'} v${info?.version ?? '0.0.0'} (${info?.platform ?? 'unknown'})`,
-          { duration: 4000 },
-        )
-      } catch {
-        toast.info('智汇AI', { duration: 3000 })
-      }
-      break
-    }
-
+      await openAdminWindow()
+      return
     case 'file.quit':
       await quitApp()
-      break
-
-    default:
-      // unknown id 静默忽略(未来菜单新增时不会崩)
-      break
+      return
+    case 'view.reload':
+      // Tauri WebView 内 Ctrl+R 可能被 webview 拦截,显式 reload 兜底;
+      // 浏览器端 location.reload() 也安全
+      if (typeof window !== 'undefined') {
+        window.location.reload()
+      }
+      return
+    case 'view.devtools':
+      await toggleDevtools()
+      return
+    case 'help.about': {
+      // 简单 toast 占位(后续可换 Modal 显示版本号/版权/快捷键 cheat sheet)
+      const { toast } = await import('sonner')
+      toast('智汇AI Desktop', {
+        description: '© 2026 IHUI-AI · 工作空间权限 + 8 端协同 + 176 模型',
+        duration: 4000,
+      })
+      return
+    }
+    default: {
+      // 穷举保护:未来新增 MenuActionId 漏改此 switch 时 TS 编译期就会报错
+      const _exhaustive: never = id
+      void _exhaustive
+    }
   }
 }

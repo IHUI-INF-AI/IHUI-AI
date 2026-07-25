@@ -46,7 +46,7 @@ const TARGET_CONFIG = {
 // 匹配 useTranslations / getTranslations / formatMessage / FormattedMessage / i18nKey
 // 以及 t( / tt( / tList( 后跟引号(单/双/反引号)
 const RG_PATTERN =
-  "useTranslations|getTranslations|formatMessage|FormattedMessage|i18nKey|\\bt(?:t|List)?\\s*\\(\\s*['\"`]"
+  "useTranslations|getTranslations|formatMessage|FormattedMessage|i18nKey|\\bt(?:t|List)?(?:\\s*\\(|\\.raw\\s*\\()\\s*['\"`]"
 
 // ============================================================
 // CLI 解析
@@ -64,14 +64,16 @@ function parseArgs(argv) {
   const dryRun = args.includes('--dry-run')
   const outputArg = args.find((a) => a.startsWith('--output='))
   const output = outputArg ? outputArg.slice('--output='.length) : null
+  const outputKeysArg = args.find((a) => a.startsWith('--output-keys='))
+  const outputKeys = outputKeysArg ? outputKeysArg.slice('--output-keys='.length) : null
   // 未知参数检查
   const knownFlags = new Set(['--dry-run', '--help', '-h'])
   for (const a of args) {
     if (knownFlags.has(a)) continue
-    if (a.startsWith('--target=') || a.startsWith('--output=')) continue
+    if (a.startsWith('--target=') || a.startsWith('--output=') || a.startsWith('--output-keys=')) continue
     return { error: `未知参数: ${a}(用 --help 查看可用选项)` }
   }
-  return { target, dryRun, output }
+  return { target, dryRun, output, outputKeys }
 }
 
 function showHelp() {
@@ -83,11 +85,13 @@ function showHelp() {
   node scripts/audit-i18n-unused-keys.mjs --target=miniapp-taro         # 只扫小程序
   node scripts/audit-i18n-unused-keys.mjs --dry-run                     # 输出到 stdout
   node scripts/audit-i18n-unused-keys.mjs --output=<path>               # 输出到文件
+  node scripts/audit-i18n-unused-keys.mjs --output-keys=<path>          # 输出完整 key 列表 JSON
 
 选项:
   --target=<web|miniapp-taro>   指定扫描目标(默认两端都扫)
   --dry-run                     输出到 stdout,不写文件
-  --output=<path>               输出到指定文件(目录不存在自动创建)
+  --output=<path>               输出 markdown 审计报告到指定文件(目录不存在自动创建)
+  --output-keys=<path>          输出完整无引用 key 列表 JSON 数组到指定文件(用于分批清理)
   --help, -h                    显示帮助
 
 扫描范围:
@@ -183,16 +187,134 @@ function parseRgLine(rgLine) {
 }
 
 /**
+ * strip 注释:避免 JSDoc 示例文本(如 t(`status.${var}`))被误识别为动态拼接。
+ * 处理:① 整行注释(行首去空格后以 // 或 slash-star 或 * 或 /** 开头)→ 返回空;
+ *       ② 行内块注释(slash-star ... star-slash)→ 移除;
+ *       ③ 行内单行注释 // ...(引号外)→ 移除之后部分(用引号状态机避免误删字符串内的 //)。
+ */
+function stripComments(content) {
+  const trimmed = content.trimStart()
+  if (
+    trimmed.startsWith('//') ||
+    trimmed.startsWith('/*') ||
+    trimmed.startsWith('*') ||
+    trimmed.startsWith('/**')
+  ) {
+    return ''
+  }
+  const s = content.replace(/\/\*[^*]*\*\//g, '')
+  let inSingle = false
+  let inDouble = false
+  let inTemplate = false
+  let cut = s.length
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    const prev = s[i - 1]
+    if (c === "'" && !inDouble && !inTemplate && prev !== '\\') inSingle = !inSingle
+    else if (c === '"' && !inSingle && !inTemplate && prev !== '\\') inDouble = !inDouble
+    else if (c === '`' && !inSingle && !inDouble) inTemplate = !inTemplate
+    else if (!inSingle && !inDouble && !inTemplate && c === '/' && s[i + 1] === '/') {
+      cut = i
+      break
+    }
+  }
+  return s.slice(0, cut)
+}
+
+/** 转义正则元字符 */
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 从代码行提取 translation 变量名(const VAR = useTranslations(...) / getTranslations(...))
+ * 支持 await getTranslations(...)(server component 场景)
+ * 返回 Set<string>。用于解决 tc/te/tr/tp 等非标准变量名的调用不被识别的问题。
+ */
+function extractTranslationVars(content) {
+  const vars = new Set()
+  const re = /\b(?:const|let|var)\s+(\w+)\s*=\s*(?:await\s+)?(?:useTranslations|getTranslations)\s*\(/g
+  let m
+  while ((m = re.exec(content)) !== null) {
+    vars.add(m[1])
+  }
+  return vars
+}
+
+/**
+ * 从文件内容提取对象字面量映射表 + 字符串赋值的 i18n key。
+ * 匹配模式:
+ *   - 对象属性 { labelKey: 'value', nameKey: 'ns.path' }
+ *   - 字符串赋值 const key = 'permission.switchedToModeAsk'
+ *   - 三元运算 mode === 'x' ? 'ns.path1' : 'ns.path2'
+ * knownTopLevelKeys:已知顶层 i18n 命名空间,用于过滤非 i18n 字符串。
+ * fileNamespaces:文件级 useTranslations 命名空间,用于把短键解析为完整路径。
+ * shortKeyFields:已知 i18n key 字段名集合(labelKey/nameKey/label 等),用于短键匹配。
+ */
+function extractObjectLiteralKeys(content, knownTopLevelKeys, fileNamespaces) {
+  const staticKeys = new Set()
+  if (!knownTopLevelKeys || knownTopLevelKeys.size === 0) return staticKeys
+
+  // 已知 i18n key 字段名(含 label 用于 sidebar 分组标题)
+  const i18nKeyFields = /^(labelKey|nameKey|descriptionKey|titleKey|altKey|key|value|label|text|title)$/
+
+  // 1. 匹配对象属性值字符串:field: 'value' 或 field: "value"
+  const re1 = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*['"]([a-zA-Z][a-zA-Z0-9_-]*(?:\.[a-zA-Z0-9_-]+)*)['"]\s*[,}\n)]/g
+  let m
+  while ((m = re1.exec(content)) !== null) {
+    const field = m[1]
+    const value = m[2]
+    if (value.includes('.')) {
+      const firstSegment = value.split('.')[0]
+      if (knownTopLevelKeys.has(firstSegment)) {
+        staticKeys.add(value)
+      }
+    } else {
+      if (i18nKeyFields.test(field) && fileNamespaces && fileNamespaces.size > 0) {
+        for (const ns of fileNamespaces) {
+          staticKeys.add(`${ns}.${value}`)
+        }
+      }
+    }
+  }
+
+  // 2. 匹配字符串赋值:const/let/var key = 'ns.path' 或三元运算 'ns.path1' : 'ns.path2'
+  // 仅匹配完整路径(含点号),按以下顺序解析:
+  //   a) 第一段是已知顶层 key → 直接加入
+  //   b) 否则,与文件命名空间拼接(ns + '.' + value),检查是否匹配已知 leaf
+  const re2 = /['"]([a-zA-Z][a-zA-Z0-9_-]*(?:\.[a-zA-Z0-9_-]+)+)['"]\s*(?=[,)\s:};])/g
+  while ((m = re2.exec(content)) !== null) {
+    const value = m[1]
+    const firstSegment = value.split('.')[0]
+    if (knownTopLevelKeys.has(firstSegment)) {
+      staticKeys.add(value)
+    } else if (fileNamespaces && fileNamespaces.size > 0) {
+      // 命名空间 + 子路径:如 t = useTranslations('chat') + 'permission.switchedToModeAsk'
+      // → 完整路径 'chat.permission.switchedToModeAsk'
+      for (const ns of fileNamespaces) {
+        const full = `${ns}.${value}`
+        staticKeys.add(full)
+      }
+    }
+  }
+  return staticKeys
+}
+
+/**
  * 从代码行中提取:
  * - staticKeys:静态 key 引用(t('key') / i18nKey="key" / id: 'key' 等)
  * - dynamicWarnings:动态拼接 key(t(`...${...}`) / t('...' + ...))
  * - namespaces:useTranslations('ns') / getTranslations('ns') 命名空间
+ * - varNames(可选):文件级 translation 变量名集合,用于匹配 VAR('key') 调用
  */
-function extractFromLine(content, filePath, lineNo, usesNamespaces) {
+function extractFromLine(content, filePath, lineNo, usesNamespaces, varNames) {
   const staticKeys = new Set()
   const dynamicWarnings = []
   const namespaces = new Set()
   let m
+
+  // strip 注释(避免 JSDoc 示例文本被误识别为动态拼接,2026-07-25 修)
+  content = stripComments(content)
 
   // t('key') / t("key") / tt('key', ...) / tList('key')
   const re1 = /\bt(?:t|List)?\s*\(\s*['"]([^'"]+)['"]\s*[,)]/g
@@ -206,9 +328,43 @@ function extractFromLine(content, filePath, lineNo, usesNamespaces) {
     staticKeys.add(m[1])
   }
 
+  // VAR('key') / VAR("key") — 匹配非标准变量名(tc/te/tr 等,来自 const VAR = useTranslations(...))
+  // 解决核心 bug:旧正则只认 t/tt/tList,漏识别 tc('login') 等调用导致大量假阳性
+  if (varNames && varNames.size > 0) {
+    const extraVars = [...varNames].filter((v) => v !== 't' && v !== 'tt' && v !== 'tList')
+    if (extraVars.length > 0) {
+      const varPattern = extraVars.map(escapeRegex).join('|')
+      const reVar = new RegExp('\\b(?:' + varPattern + ")\\s*\\(\\s*['\"]([^'\"]+)['\"]\\s*[,)]", 'g')
+      while ((m = reVar.exec(content)) !== null) {
+        staticKeys.add(m[1])
+      }
+      // VAR(`key`) — 静态模板字面量(无 ${} 插值)
+      const reVarTmpl = new RegExp('\\b(?:' + varPattern + ')\\s*\\(\\s*`([^`${}]+)`\\s*[,)]', 'g')
+      while ((m = reVarTmpl.exec(content)) !== null) {
+        staticKeys.add(m[1])
+      }
+    }
+  }
+
   // i18nKey="key" / i18nKey='key'
   const re3 = /i18nKey\s*=\s*['"]([^'"]+)['"]/g
   while ((m = re3.exec(content)) !== null) {
+    staticKeys.add(m[1])
+  }
+
+  // t.raw('key') / VAR.raw('key') — next-intl 读取数组/对象类型 i18n 数据的 API
+  // 解决核心 bug:旧版只扫 t('key') 文本调用,漏识别 t.raw('modules.items') 导致数组/对象 key 被误判无引用
+  // t.raw 支持标准 t 和非标准变量名(tc/te/tr/tp 等,来自 varNames)
+  const rawCallers = ['t']
+  if (varNames) for (const v of varNames) rawCallers.push(v)
+  const rawPattern = rawCallers.map(escapeRegex).join('|')
+  const reRaw = new RegExp('\\b(?:' + rawPattern + ")\\.raw\\s*\\(\\s*['\"]([^'\"]+)['\"]\\s*[,)]", 'g')
+  while ((m = reRaw.exec(content)) !== null) {
+    staticKeys.add(m[1])
+  }
+  // t.raw(`key`) — 静态模板字面量
+  const reRawTmpl = new RegExp('\\b(?:' + rawPattern + ')\\.raw\\s*\\(\\s*`([^`${}]+)`\\s*[,)]', 'g')
+  while ((m = reRawTmpl.exec(content)) !== null) {
     staticKeys.add(m[1])
   }
 
@@ -277,16 +433,23 @@ function auditTarget(targetKey) {
     const lines = rgSearchLines(dir, RG_PATTERN)
     allRgLines.push(...lines)
   }
+  // 收集所有命中文件列表(用于第三步文件级对象字面量扫描)
+  const hitFiles = new Set()
 
-  // 3. 按文件分组,提取 key 引用(单次遍历)
-  const referencedKeys = new Set()
+  // 3. 按文件分组,第一遍提取变量名 + 命名空间 + staticKeys(t/tt/tList)+ 动态警告
   const dynamicWarnings = []
-  const fileData = new Map() // file -> { namespaces: Set, staticKeys: Set }
+  const fileData = new Map() // file -> { namespaces: Set, staticKeys: Set, varNames: Set }
+  const allVarNames = new Set()
 
   for (const rgLine of allRgLines) {
     const parsed = parseRgLine(rgLine)
     if (!parsed) continue
     const { file, lineNo, content } = parsed
+    hitFiles.add(file)
+
+    // 提取 translation 变量名(const VAR = useTranslations/getTranslations(...))
+    const vars = extractTranslationVars(content)
+    for (const v of vars) allVarNames.add(v)
 
     const { staticKeys, dynamicWarnings: dw, namespaces } = extractFromLine(
       content,
@@ -296,24 +459,83 @@ function auditTarget(targetKey) {
     )
 
     if (!fileData.has(file)) {
-      fileData.set(file, { namespaces: new Set(), staticKeys: new Set() })
+      fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
     }
     const fd = fileData.get(file)
     for (const ns of namespaces) fd.namespaces.add(ns)
+    for (const v of vars) fd.varNames.add(v)
     for (const k of staticKeys) fd.staticKeys.add(k)
     dynamicWarnings.push(...dw)
+  }
+
+  // 3b. 第二遍:如果有额外变量名(tc/te/tr 等非 t/tt/tList),ripgrep 搜索它们的调用
+  // 同时搜索 VAR('key') 调用和 VAR.raw('key') 调用(数组/对象类型 key)
+  const extraVars = [...allVarNames].filter((v) => v !== 't' && v !== 'tt' && v !== 'tList')
+  if (extraVars.length > 0) {
+    const varPattern = extraVars.map(escapeRegex).join('|')
+    const extraRgPattern = '\\b(?:' + varPattern + ")(?:\\s*\\(|\\.raw\\s*\\()\\s*['\"`]"
+    for (const dir of cfg.searchDirs) {
+      const extraLines = rgSearchLines(dir, extraRgPattern)
+      for (const rgLine of extraLines) {
+        const parsed = parseRgLine(rgLine)
+        if (!parsed) continue
+        const { file, lineNo, content } = parsed
+        if (!fileData.has(file)) {
+          fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
+        }
+        const fd = fileData.get(file)
+        // 用文件级 varNames 提取 staticKeys
+        const { staticKeys } = extractFromLine(content, file, lineNo, cfg.usesNamespaces, fd.varNames)
+        for (const k of staticKeys) fd.staticKeys.add(k)
+      }
+    }
+  }
+
+  // 3c. 第三遍:文件级对象字面量映射表扫描
+  // 解决 t(MAP[var]) / t(item.nameKey) 间接引用漏识别
+  // 对每个命中文件读取完整内容,提取对象字面量中的 i18n key 路径字符串
+  const knownTopLevelKeys = new Set(Object.keys(messages))
+  for (const file of hitFiles) {
+    let fileContent
+    try {
+      fileContent = fs.readFileSync(file, 'utf8')
+    } catch {
+      continue
+    }
+    const fd = fileData.get(file)
+    const fileNamespaces = fd ? fd.namespaces : new Set()
+    const objKeys = extractObjectLiteralKeys(fileContent, knownTopLevelKeys, fileNamespaces)
+    if (objKeys.size === 0) continue
+    if (!fd) {
+      fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
+    }
+    const fd2 = fileData.get(file)
+    for (const k of objKeys) fd2.staticKeys.add(k)
   }
 
   // 4. 解析引用 key
   // 对每个文件中的静态 key:
   //   a) 直接作为完整路径引用(无命名空间场景 / t('full.path') 场景)
   //   b) 与文件中每个命名空间拼接:ns + '.' + key(next-intl 场景)
+  //   c) 祖先标记:当 key `a.b.c` 被引用时,同时把祖先 `a.b`、`a` 加入引用集。
+  //      这样数组/对象 leaf(如 `liveHost.products`)在代码以 `t('liveHost.products.0.title')`
+  //      引用其元素时,也会被正确标记为已引用,避免被误判为无引用而删除。
+  const referencedKeys = new Set()
+  const markAncestors = (fullKey) => {
+    const parts = fullKey.split('.')
+    for (let i = parts.length - 1; i > 0; i--) {
+      referencedKeys.add(parts.slice(0, i).join('.'))
+    }
+  }
   for (const [, fd] of fileData) {
     for (const key of fd.staticKeys) {
       referencedKeys.add(key)
+      markAncestors(key)
       if (cfg.usesNamespaces && fd.namespaces.size > 0) {
         for (const ns of fd.namespaces) {
-          referencedKeys.add(`${ns}.${key}`)
+          const full = `${ns}.${key}`
+          referencedKeys.add(full)
+          markAncestors(full)
         }
       }
     }
@@ -494,6 +716,23 @@ function main() {
         `[${r.target}] 递归 key ${r.leafKeyCount}, 无引用 ${r.unusedCount} (${rate}%), 动态拼接警告 ${r.dynamicWarningCount} 处`,
       )
     }
+  }
+
+  // 输出完整 key 列表 JSON(用于分批清理)
+  if (opts.outputKeys) {
+    const keysAbs = path.resolve(ROOT, opts.outputKeys)
+    const keysDir = path.dirname(keysAbs)
+    if (!fs.existsSync(keysDir)) {
+      fs.mkdirSync(keysDir, { recursive: true })
+    }
+    const allKeys = []
+    for (const r of results) {
+      for (const k of r.unusedKeys) {
+        allKeys.push({ target: r.target, key: k.key, value: k.value })
+      }
+    }
+    fs.writeFileSync(keysAbs, JSON.stringify(allKeys, null, 2) + '\n', 'utf8')
+    console.log(`✅ 完整 key 列表已写入: ${path.relative(ROOT, keysAbs).replace(/\\/g, '/')} (${allKeys.length} 个)`)
   }
 
   process.exit(0)

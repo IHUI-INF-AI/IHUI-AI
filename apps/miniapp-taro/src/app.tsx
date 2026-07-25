@@ -7,6 +7,7 @@ import {
   setToken,
   setRefreshToken,
   setUserInfo,
+  tokenStore,
 } from './utils/auth'
 import { exchangeSsoCode } from './utils/sso'
 import { showShareMenu } from './utils/share'
@@ -16,20 +17,21 @@ import { isMiniAppEnvironment } from './utils/miniapp-login'
 import { useUserStore } from './stores/user'
 import {
   createNotificationClient,
-  setTokenProvider,
   setBaseUrl,
   setTransport,
 } from '@ihui/api-client'
+import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
 import { createTaroTransport } from './utils/api-client-transport'
 import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
-import { BASE_URL } from './utils/request'
+import { BASE_URL } from './utils/api-config'
 import { I18nProvider, useI18n } from './i18n'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import './app.css'
 
 // 初始化 api-client:注入 Taro transport + token provider + baseUrl
 // 使 @ihui/api-client 共享端点可在小程序运行时使用(替代 native fetch)
-setTokenProvider({ getToken: () => getToken() })
+// token provider 通过 bindTokenStoreToApiClient 统一接入跨端 TokenStore 契约
+bindTokenStoreToApiClient(tokenStore)
 setBaseUrl(BASE_URL.replace(/\/api$/, ''))
 setTransport(createTaroTransport())
 

@@ -16,6 +16,14 @@ export const STATUS_KEY: Record<string, string> = {
   rejected: 'statusRejected',
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`stat_${s.key}`)` 动态拼接 */
+export const STAT_KEY: Record<string, string> = {
+  total: 'stat_total',
+  pending: 'stat_pending',
+  approved: 'stat_approved',
+  rejected: 'stat_rejected',
+}
+
 export const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
