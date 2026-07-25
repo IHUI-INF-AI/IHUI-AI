@@ -637,7 +637,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/vip/order',
-      body: { vipLevelId: level.id, openId: 'oXXX_mock_openid_XXX' },
+      body: { vipLevelId: level.id, openId: 'oAAA_mock_openid_AAA' },
     })
     expect(res.statusCode).toBe(200)
     const body = res.json()
