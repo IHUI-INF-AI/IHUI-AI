@@ -275,13 +275,14 @@ export async function findMessages(
     hasMore = rows.length > limit
     list = hasMore ? rows.slice(0, limit) : rows
   } else {
-    // offset 分页:单次 Promise.all 获取 rows + total,不重复查询
+    // offset 分页:按 createdAt desc 取页 + reverse 成正序,page=1 = 最新页(聊天 UI 行业惯例)
+    // nextCursor = list[0]?.id(本页最旧一条),供前端 before 续传加载更早历史
     const [rows, totalRows] = await Promise.all([
       db
         .select()
         .from(chatMessages)
         .where(where)
-        .orderBy(asc(chatMessages.createdAt))
+        .orderBy(desc(chatMessages.createdAt))
         .limit(limit)
         .offset((opts.page - 1) * opts.pageSize),
       db
@@ -289,18 +290,20 @@ export async function findMessages(
         .from(chatMessages)
         .where(where),
     ])
-    list = rows
+    list = rows.reverse()
     total = Number(totalRows[0]?.count ?? 0)
     hasMore = opts.page * opts.pageSize < total
   }
 
-  // 计算 nextCursor
+  // 计算 nextCursor(供前端 before 续传加载更早历史)
   let nextCursor: string | null = null
   if (hasMore) {
-    if (opts.before) {
-      nextCursor = list[0]?.id ?? null
-    } else {
+    // before / offset 模式:list[0] 是当前页最旧一条,作为下次 before 的 cursor
+    // after 模式:list[length-1] 是当前页最新一条,作为下次 after 的 cursor
+    if (opts.after) {
       nextCursor = list[list.length - 1]?.id ?? null
+    } else {
+      nextCursor = list[0]?.id ?? null
     }
   }
 

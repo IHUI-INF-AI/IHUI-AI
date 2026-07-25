@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 
 import { ssrStorage } from './persist-helpers'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
+import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
@@ -79,6 +80,12 @@ export interface ChatMessage {
   reasoning?: string
   /** 该消息触发的提问(若有,渲染时显示提问卡片) */
   question?: PendingQuestion
+  /** 2026-07-25 立(深度对标 Codex 透明性):该消息生成时所使用的工作区权限模式
+   * - undefined:旧消息或用户消息(不显示徽章)
+   * - 'default' | 'accept-edits' | 'bypass-permissions':AI 响应生成时的模式
+   * - 用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
+   * - 前端 addMessage 写入,后端 streamChat 事件不携带(纯前端元数据) */
+  permissionMode?: WorkspacePermissionMode
 }
 
 interface ChatState {
@@ -116,7 +123,7 @@ interface ChatState {
   removeSelectedTool: (pluginId: string) => void
   /** 清空已选工具 */
   clearSelectedTools: () => void
-  addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model'>) => string
+  addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model' | 'permissionMode'>) => string
   appendToMessage: (id: string, delta: string) => void
   appendReasoningToMessage: (id: string, delta: string) => void
   setMessageError: (id: string, error: string) => void
@@ -207,6 +214,9 @@ export const useChatStore = create<ChatState>()(
           content: msg.content,
           createdAt: Date.now(),
           model: msg.model,
+          // 透传权限模式(2026-07-25 深化,深度对标 Codex 透明性):
+          // 用户消息不传(无模式),AI 消息由调用方传入当前工作区模式
+          permissionMode: msg.permissionMode,
         }
         set((s) => ({ messages: [...s.messages, message] }))
         return id
