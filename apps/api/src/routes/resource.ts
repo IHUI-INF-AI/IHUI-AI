@@ -4,7 +4,7 @@ import { stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { z } from 'zod'
 import { and, eq, desc } from 'drizzle-orm'
-import { auditLogs } from '@ihui/database'
+import { auditLogs, resourceProducts } from '@ihui/database'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { authenticate } from '../plugins/auth.js'
@@ -428,6 +428,19 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
 // 管理员路由（前缀 /api/admin）
 // =============================================================================
 
+/** 产品树形分类节点(递归 children) */
+interface ProductTreeNode {
+  id: string
+  name: string
+  price: string
+  resourceId: string
+  pid: string | null
+  sort: number
+  status: number
+  isPublished: boolean
+  children: ProductTreeNode[]
+}
+
 export const adminResourceRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
@@ -599,6 +612,47 @@ export const adminResourceRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // ----- Products Admin -----
+
+  // GET /resources/products/tree - 产品树形分类(根节点 pid=NULL,递归组装 children)
+  // 2026-07-25 P2 治理:resource_products 加 pid 列后的树形查询接口
+  server.get(
+    '/resources/products/tree',
+    { schema: { response: { ...responseSchema } } },
+    async (_request, reply) => {
+      const rows = await db
+        .select()
+        .from(resourceProducts)
+        .orderBy(desc(resourceProducts.sort), desc(resourceProducts.createdAt))
+
+      // 单层查询 + 内存组装(产品数通常 < 1000,无需递归 SQL)
+      const nodeMap = new Map<string, ProductTreeNode>()
+      for (const r of rows) {
+        nodeMap.set(r.id, {
+          id: r.id,
+          name: r.name,
+          price: r.price,
+          resourceId: r.resourceId,
+          pid: r.pid,
+          sort: r.sort,
+          status: r.status,
+          isPublished: r.isPublished,
+          children: [],
+        })
+      }
+
+      const roots: ProductTreeNode[] = []
+      for (const node of nodeMap.values()) {
+        if (node.pid && nodeMap.has(node.pid)) {
+          nodeMap.get(node.pid)!.children.push(node)
+        } else {
+          // pid 为空或指向不存在的产品 → 视为根节点
+          roots.push(node)
+        }
+      }
+
+      return reply.send(success({ tree: roots, total: rows.length }))
+    },
+  )
 
   // GET /resources/products - 产品列表
   server.get(
