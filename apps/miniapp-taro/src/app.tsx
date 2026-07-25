@@ -22,7 +22,7 @@ import {
 } from '@ihui/api-client'
 import { createTaroTransport } from './utils/api-client-transport'
 import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
-import { BASE_URL } from './utils/request'
+import { BASE_URL } from './utils/api-config'
 import { I18nProvider, useI18n } from './i18n'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import './app.css'
