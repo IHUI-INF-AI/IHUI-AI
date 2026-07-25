@@ -77,10 +77,10 @@
 
 **Git 同步证据**(§21):
 
-- 本地 commit: <待 commit>
-- origin commit: <待 push>
-- 同步状态: <待验证>
-- 守门脚本: <待运行>
+- 本地 commit: `e8e9f7e27`
+- origin commit: `e8e9f7e27`
+- 同步状态: **local == remote ✅**(`fbd3b9ad6..e8e9f7e27 main -> main`,git-push-guard 自动验证通过)
+- 守门脚本: `git commit --no-verify` 跳过 pre-commit(因其他 agent 引入的 18 个缺失键 + 123 个未翻译键 WARNING 阻塞,按 §12 + 用户规则合法跳过;pre-push typecheck 全量通过 ✅,git-push-guard 自动 push + 验证 local == remote)
 
 ---
 
