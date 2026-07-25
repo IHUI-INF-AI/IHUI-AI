@@ -8,7 +8,7 @@
  * - 上传文件以 file_id 为名存储，支持元数据(sidecar .meta)与缩略图
  */
 
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createHmac, createPublicKey, createVerify, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { env } from 'node:process';
@@ -260,4 +260,522 @@ export function cleanupCache(): number {
     }
   }
   return cleaned;
+}
+
+// =============================================================================
+// OSS 直传能力(STS 签发 + 直传回调验签 + 分片上传协议)
+// 迁移自 D3 OssServiceApplication,适配 TS + Fastify,零新增依赖
+// - STS:使用 @alicloud/openapi-client(已安装)调 AssumeRole
+// - 回调验签:Node crypto RSA-SHA1
+// - 分片上传:Node fetch + OSS v1 HMAC-SHA1 签名直调 REST API
+// =============================================================================
+
+export interface OssConfig {
+  accessKeyId: string;
+  accessKeySecret: string;
+  roleArn: string;
+  bucket: string;
+  region: string;
+  endpoint: string;
+  callbackUrl?: string;
+}
+
+/** 读取 OSS 配置(环境变量)。缺失返回 null。 */
+export function getOssConfig(): OssConfig | null {
+  const accessKeyId = env.OSS_ACCESS_KEY_ID;
+  const accessKeySecret = env.OSS_ACCESS_KEY_SECRET;
+  const roleArn = env.OSS_ROLE_ARN;
+  const bucket = env.OSS_BUCKET;
+  const region = env.OSS_REGION ?? 'oss-cn-hangzhou';
+  if (!accessKeyId || !accessKeySecret || !roleArn || !bucket) return null;
+  return {
+    accessKeyId,
+    accessKeySecret,
+    roleArn,
+    bucket,
+    region,
+    endpoint: env.OSS_ENDPOINT ?? `${region}.aliyuncs.com`,
+    callbackUrl: env.OSS_CALLBACK_URL,
+  };
+}
+
+export interface StsCredentialsResult {
+  AccessKeyId: string;
+  AccessKeySecret: string;
+  SecurityToken: string;
+  Expiration: string;
+  bucket: string;
+  region: string;
+  endpoint: string;
+}
+
+/**
+ * 签发 STS 临时凭证(默认 15 分钟,仅 oss:PutObject 权限)。
+ * 使用 @alicloud/openapi-client(已安装依赖)调用 STS AssumeRole。
+ */
+export async function issueStsCredentials(
+  sessionName: string,
+  durationSeconds = 900,
+): Promise<StsCredentialsResult> {
+  const config = getOssConfig();
+  if (!config) {
+    throw new Error('OSS 配置缺失(OSS_ACCESS_KEY_ID/OSS_ACCESS_KEY_SECRET/OSS_ROLE_ARN/OSS_BUCKET)');
+  }
+
+  // 动态 import @alicloud/openapi-client(类型声明见 src/types/optional-deps.d.ts)
+  // 使用 as unknown as 强转绕过 optional-deps.d.ts 仅声明 Config 的限制
+  const OpenApi = (await import('@alicloud/openapi-client')) as unknown as {
+    default: new (config: unknown) => {
+      callApi(
+        params: unknown,
+        request: unknown,
+        runtime: unknown,
+      ): Promise<{ body: Record<string, unknown> }>;
+    };
+    Config: new (input: Record<string, unknown>) => unknown;
+    Params: new (input: Record<string, unknown>) => unknown;
+    OpenApiRequest: new (input: Record<string, unknown>) => unknown;
+  };
+
+  // 最小权限策略:仅允许 oss:PutObject 到当前 bucket
+  const policy = {
+    Version: '1',
+    Statement: [
+      {
+        Effect: 'Allow',
+        Action: ['oss:PutObject'],
+        Resource: [`acs:oss:*:*:${config.bucket}/*`],
+      },
+    ],
+  };
+
+  const client = new OpenApi.default(
+    new OpenApi.Config({
+      accessKeyId: config.accessKeyId,
+      accessKeySecret: config.accessKeySecret,
+      endpoint: 'sts.aliyuncs.com',
+      protocol: 'HTTPS',
+    }),
+  );
+
+  const params = new OpenApi.Params({
+    action: 'AssumeRole',
+    version: '2015-04-01',
+    protocol: 'HTTPS',
+    pathname: '/',
+    method: 'POST',
+    authType: 'AK',
+    bodyType: 'json',
+    reqBodyType: 'formData',
+    style: 'RPC',
+  });
+
+  const request = new OpenApi.OpenApiRequest({
+    query: {
+      RoleArn: config.roleArn,
+      RoleSessionName: sessionName.slice(0, 32) || 'ihui-upload',
+      DurationSeconds: String(durationSeconds),
+      Policy: JSON.stringify(policy),
+    },
+  });
+
+  // runtime 传空对象,SDK 内部用 Util.defaultNumber/String 兜底默认值
+  const response = await client.callApi(params, request, {});
+  const creds = response.body?.Credentials as
+    | {
+        AccessKeyId: string;
+        AccessKeySecret: string;
+        SecurityToken: string;
+        Expiration: string;
+      }
+    | undefined;
+
+  if (!creds) {
+    throw new Error(`STS AssumeRole 失败: ${JSON.stringify(response.body)}`);
+  }
+
+  return {
+    ...creds,
+    bucket: config.bucket,
+    region: config.region,
+    endpoint: config.endpoint,
+  };
+}
+
+// =============================================================================
+// 直传回调验签(RSA-SHA1)
+// 阿里云 OSS 回调签名算法:RSA-SHA1,公钥 URL 在 x-oss-pub-key-url header(base64)
+// =============================================================================
+
+const pubKeyCache = new Map<
+  string,
+  { key: ReturnType<typeof createPublicKey>; fetchedAt: number }
+>();
+const PUB_KEY_TTL_MS = 60 * 60 * 1000; // 1 小时
+
+/** 验证 OSS 直传回调签名(RSA-SHA1)。验证通过返回 true。 */
+export async function verifyOssCallback(params: {
+  method: string;
+  path: string;
+  query: string;
+  body: string;
+  authorization: string;
+  pubKeyUrlB64: string;
+}): Promise<boolean> {
+  const { method, path, query, body, authorization, pubKeyUrlB64 } = params;
+
+  // 1. 解码公钥 URL(base64)
+  let pubKeyUrl: string;
+  try {
+    pubKeyUrl = Buffer.from(pubKeyUrlB64, 'base64').toString('utf-8');
+  } catch {
+    return false;
+  }
+
+  // 2. 域名白名单校验(防止 SSRF)
+  //    阿里云公钥分发域:gosspublic.alicdn.com / *.aliyuncs.com
+  const allowedDomains = [
+    'https://gosspublic.alicdn.com/',
+    'https://oss-document.aliyuncs.com/',
+  ];
+  const isAllowed =
+    allowedDomains.some((d) => pubKeyUrl.startsWith(d)) ||
+    /\.alicdn\.com\//.test(pubKeyUrl) ||
+    /\.aliyuncs\.com\//.test(pubKeyUrl);
+  if (!isAllowed) return false;
+
+  // 3. 获取公钥(带 1 小时缓存)
+  let cached = pubKeyCache.get(pubKeyUrl);
+  if (!cached || Date.now() - cached.fetchedAt > PUB_KEY_TTL_MS) {
+    try {
+      const resp = await fetch(pubKeyUrl);
+      if (!resp.ok) return false;
+      const pem = await resp.text();
+      cached = {
+        key: createPublicKey(pem),
+        fetchedAt: Date.now(),
+      };
+      pubKeyCache.set(pubKeyUrl, cached);
+    } catch {
+      return false;
+    }
+  }
+
+  // 4. 构造签名串:method + "\n" + pathAndQuery + "\n" + body
+  //    OSS 回调签名标准:path(含 query) + "\n" + body
+  const pathAndQuery = query ? `${path}?${query}` : path;
+  const signedString = `${method}\n${pathAndQuery}\n${body}`;
+
+  // 5. 解码签名(base64)
+  let signature: Buffer;
+  try {
+    signature = Buffer.from(authorization, 'base64');
+  } catch {
+    return false;
+  }
+
+  // 6. RSA-SHA1 验签
+  const verifier = createVerify('RSA-SHA1');
+  verifier.update(signedString);
+  return verifier.verify(cached.key, signature);
+}
+
+// =============================================================================
+// OSS v1 签名 + REST API 调用(用于分片上传)
+// OSS v1 签名:HMAC-SHA1,与 STS 的 RPC 签名不同
+// =============================================================================
+
+interface OssCallOptions {
+  queryParams?: Record<string, string>;
+  headers?: Record<string, string>;
+  body?: Buffer;
+  contentType?: string;
+}
+
+interface OssCallResult {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}
+
+/** OSS v1 HMAC-SHA1 签名并发起 HTTP 请求。 */
+async function callOss(
+  method: string,
+  key: string,
+  options: OssCallOptions = {},
+): Promise<OssCallResult> {
+  const config = getOssConfig();
+  if (!config) throw new Error('OSS 配置缺失');
+
+  const queryParams = options.queryParams ?? {};
+  const resource = `/${config.bucket}/${key}`;
+
+  // 构造 URL
+  const url = `https://${config.bucket}.${config.endpoint}/${key}`;
+  const queryString = new URLSearchParams(queryParams).toString();
+  const fullUrl = queryString ? `${url}?${queryString}` : url;
+
+  // CanonicalizedResource(含子资源)
+  const SUB_RESOURCES = new Set([
+    'acl',
+    'uploads',
+    'location',
+    'cors',
+    'logging',
+    'website',
+    'referer',
+    'lifecycle',
+    'delete',
+    'uploadId',
+    'partNumber',
+    'security-token',
+  ]);
+  const subResEntries = Object.entries(queryParams)
+    .filter(([k]) => SUB_RESOURCES.has(k) || k.startsWith('x-oss-'))
+    .sort(([a], [b]) => a.localeCompare(b));
+  const canonicalizedResource =
+    subResEntries.length > 0
+      ? `${resource}?${subResEntries.map(([k, v]) => `${k}=${v}`).join('&')}`
+      : resource;
+
+  // 构造 headers
+  const date = new Date().toUTCString();
+  const headers: Record<string, string> = {
+    Date: date,
+    ...options.headers,
+  };
+
+  // Content-MD5
+  let contentMd5 = '';
+  if (options.body) {
+    contentMd5 = createHash('md5').update(options.body).digest('base64');
+    headers['Content-MD5'] = contentMd5;
+  }
+  if (options.contentType) {
+    headers['Content-Type'] = options.contentType;
+  }
+
+  // CanonicalizedOSSHeaders(x-oss-* 排序)
+  const ossHeaderLines = Object.entries(headers)
+    .filter(([k]) => k.toLowerCase().startsWith('x-oss-'))
+    .map(([k, v]) => `${k.toLowerCase()}:${v}`)
+    .sort();
+  const canonicalizedOSSHeaders =
+    ossHeaderLines.length > 0 ? ossHeaderLines.join('\n') + '\n' : '';
+
+  // StringToSign
+  const stringToSign = `${method.toUpperCase()}\n${contentMd5}\n${options.contentType ?? ''}\n${date}\n${canonicalizedOSSHeaders}${canonicalizedResource}`;
+
+  // 签名
+  const signature = createHmac('sha1', config.accessKeySecret)
+    .update(stringToSign)
+    .digest('base64');
+  headers['Authorization'] = `OSS ${config.accessKeyId}:${signature}`;
+
+  // 发起请求
+  const resp = await fetch(fullUrl, {
+    method,
+    headers,
+    body: options.body,
+  });
+
+  const respHeaders: Record<string, string> = {};
+  resp.headers.forEach((v, k) => {
+    respHeaders[k] = v;
+  });
+  const respBody = await resp.text();
+
+  if (resp.status >= 400) {
+    throw new Error(`OSS ${method} ${key} 失败: ${resp.status} ${respBody}`);
+  }
+
+  return { status: resp.status, headers: respHeaders, body: respBody };
+}
+
+// =============================================================================
+// 分片上传会话管理(内存 Map + TTL 清理)
+// UploadId(UUID v4) 为客户端可见的会话 ID,内部映射到 OSS 的 UploadId
+// =============================================================================
+
+interface MultipartSession {
+  sessionId: string; // UUID v4,返回给客户端作为 uploadId
+  ossUploadId: string; // OSS 的 UploadId
+  key: string; // 对象 key
+  bucket: string;
+  userId: string; // 所有者(用于鉴权)
+  createdAt: number;
+}
+
+const multipartSessions = new Map<string, MultipartSession>();
+const SESSION_TTL_MS = 60 * 60 * 1000; // 1 小时
+
+function cleanupExpiredSessions(): void {
+  const now = Date.now();
+  for (const [id, session] of multipartSessions) {
+    if (now - session.createdAt > SESSION_TTL_MS) {
+      multipartSessions.delete(id);
+    }
+  }
+}
+
+// =============================================================================
+// 分片上传操作
+// =============================================================================
+
+export interface MultipartInitResult {
+  uploadId: string; // 我们的 sessionId(UUID v4)
+  key: string;
+  ossUploadId: string;
+  bucket: string;
+}
+
+/** 初始化分片上传:调 OSS InitiateMultipartUpload,返回 sessionId。 */
+export async function initiateMultipartUpload(
+  userId: string,
+  opts: { filename: string; contentType?: string },
+): Promise<MultipartInitResult> {
+  cleanupExpiredSessions();
+
+  const config = getOssConfig();
+  if (!config) throw new Error('OSS 配置缺失');
+
+  // 生成对象 key:uploads/<userId>/<date>/<uuid>/<filename>
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const uuid = randomUUID();
+  const safeFilename = opts.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const key = `uploads/${userId}/${dateStr}/${uuid}/${safeFilename}`;
+
+  const headers: Record<string, string> = {};
+  if (opts.contentType) {
+    headers['Content-Type'] = opts.contentType;
+  }
+
+  const result = await callOss('POST', key, {
+    queryParams: { uploads: '' },
+    headers,
+    contentType: opts.contentType,
+  });
+
+  // 解析 XML 响应获取 UploadId
+  const uploadIdMatch = result.body.match(/<UploadId>([^<]+)<\/UploadId>/);
+  const ossUploadId = uploadIdMatch?.[1];
+  if (!ossUploadId) {
+    throw new Error(`OSS InitiateMultipartUpload 响应无 UploadId: ${result.body}`);
+  }
+
+  // 生成 sessionId(UUID v4)并存储映射
+  const sessionId = randomUUID();
+  multipartSessions.set(sessionId, {
+    sessionId,
+    ossUploadId,
+    key,
+    bucket: config.bucket,
+    userId,
+    createdAt: Date.now(),
+  });
+
+  return { uploadId: sessionId, key, ossUploadId, bucket: config.bucket };
+}
+
+export interface MultipartUploadResult {
+  etag: string;
+  partNumber: number;
+}
+
+/** 上传分片:调 OSS UploadPart,返回 ETag。 */
+export async function uploadMultipartPart(
+  sessionId: string,
+  partNumber: number,
+  data: Buffer,
+  userId: string,
+): Promise<MultipartUploadResult> {
+  const session = multipartSessions.get(sessionId);
+  if (!session) throw new Error('分片上传会话不存在或已过期');
+  if (session.userId !== userId) throw new Error('无权操作此分片上传会话');
+
+  if (partNumber < 1 || partNumber > 10000) {
+    throw new Error('partNumber 必须在 1-10000 之间');
+  }
+
+  const result = await callOss('PUT', session.key, {
+    queryParams: {
+      partNumber: String(partNumber),
+      uploadId: session.ossUploadId,
+    },
+    body: data,
+    contentType: 'application/octet-stream',
+  });
+
+  const etag = result.headers['etag'] ?? result.headers['ETag'];
+  if (!etag) {
+    throw new Error(`OSS UploadPart 响应无 ETag: ${result.status}`);
+  }
+
+  return { etag: etag.replace(/"/g, ''), partNumber };
+}
+
+export interface MultipartCompleteResult {
+  url: string;
+  key: string;
+  bucket: string;
+  location: string;
+}
+
+/** 完成分片上传:调 OSS CompleteMultipartUpload,返回最终 URL。 */
+export async function completeMultipartUpload(
+  sessionId: string,
+  parts: Array<{ partNumber: number; etag: string }>,
+  userId: string,
+): Promise<MultipartCompleteResult> {
+  const session = multipartSessions.get(sessionId);
+  if (!session) throw new Error('分片上传会话不存在或已过期');
+  if (session.userId !== userId) throw new Error('无权操作此分片上传会话');
+
+  // 构造 CompleteMultipartUpload XML body
+  const sortedParts = [...parts].sort((a, b) => a.partNumber - b.partNumber);
+  const xmlBody = `<?xml version="1.0" encoding="UTF-8"?>\n<CompleteMultipartUpload>${sortedParts
+    .map(
+      (p) =>
+        `<Part><PartNumber>${p.partNumber}</PartNumber><ETag>"${p.etag}"</ETag></Part>`,
+    )
+    .join('')}</CompleteMultipartUpload>`;
+
+  const result = await callOss('POST', session.key, {
+    queryParams: { uploadId: session.ossUploadId },
+    body: Buffer.from(xmlBody),
+    contentType: 'application/xml',
+  });
+
+  // 解析 XML 获取 Location
+  const locationMatch = result.body.match(/<Location>([^<]+)<\/Location>/);
+  const location = locationMatch?.[1] ?? '';
+
+  const config = getOssConfig();
+  const url = `https://${session.bucket}.${config?.endpoint ?? ''}/${session.key}`;
+
+  // 清理会话
+  multipartSessions.delete(sessionId);
+
+  return {
+    url,
+    key: session.key,
+    bucket: session.bucket,
+    location,
+  };
+}
+
+/** 取消分片上传:调 OSS AbortMultipartUpload,清理会话。 */
+export async function abortMultipartUpload(
+  sessionId: string,
+  userId: string,
+): Promise<void> {
+  const session = multipartSessions.get(sessionId);
+  if (!session) throw new Error('分片上传会话不存在或已过期');
+  if (session.userId !== userId) throw new Error('无权操作此分片上传会话');
+
+  await callOss('DELETE', session.key, {
+    queryParams: { uploadId: session.ossUploadId },
+  });
+
+  multipartSessions.delete(sessionId);
 }
