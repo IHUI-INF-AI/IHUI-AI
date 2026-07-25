@@ -243,6 +243,10 @@ class MemorySystem:
         extracted = extraction_result.get("extracted", [])
 
         # 4. 每条提取的记忆:生成 embedding + 写入向量存储 + API + 更新画像
+        # L2-1:处理 conflictResolution(replace/merge/latest/skip)
+        #   - skip 已在 extractor 阶段过滤,这里只剩 replace/merge/latest
+        #   - replace/latest:新条目正常写入,metadata 携带 supersededOldId 供下游(DreamService consolidate)清理
+        #   - merge:新条目用 LLM 合并后的文本(已在 extractor 替换 item.text),旧条目同样靠 supersededOldId 标记
         now = datetime.utcnow().isoformat()
         ts = int(time.time() * 1000)
         for idx, item in enumerate(extracted):
@@ -258,6 +262,16 @@ class MemorySystem:
                 "createdAt": now,
                 "updatedAt": now,
             }
+            # L2-1:冲突解决元信息写入 metadata(供下游 DreamService consolidate 标记旧条目 superseded)
+            conflict = item.get("conflictResolution")
+            if conflict:
+                entry["metadata"] = {
+                    "conflictAction": conflict.get("action"),
+                    "supersededOldId": conflict.get("conflictWith"),
+                    "conflictSimilarity": conflict.get("similarity"),
+                    "conflictReason": conflict.get("reason"),
+                    "mergedText": conflict.get("mergedText"),
+                }
             # 生成 embedding 并写入向量存储
             try:
                 embedding = await self._vector_store.embed(item["text"])
