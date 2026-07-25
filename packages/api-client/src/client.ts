@@ -1163,8 +1163,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
       const info = getSSEErrorInfo(err)
       const code = info?.code
-      // 业务错误(401 未登录 / 403 无权限 / 429 限流)不重连,直接 onError
-      const isBusinessError = code === 401 || code === 403 || code === 429
+      // P2-2 retry-after 协商:429 + retryAfter 视为可重试(走网络重试路径,按 retryAfter 等待);
+      // 429 无 retryAfter 仍视为业务错误(不重连);401/403 永远是业务错误
+      const isBusinessError =
+        code === 401 ||
+        code === 403 ||
+        (code === 429 && info?.retryAfter === undefined)
       const canRetry = !isBusinessError && attempt < maxRetries
       if (!canRetry) {
         const message = err instanceof Error ? err.message : '网络异常'
@@ -1172,8 +1176,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         opts.onError?.(message, { ...info, recoverable: !isBusinessError })
         return
       }
-      // 指数退避:1s, 2s, 4s, 8s... 上限 30s(与 useAgentSSE 重连模式一致)
-      const delay = Math.min(STREAM_INITIAL_RETRY_DELAY * 2 ** attempt, STREAM_MAX_RETRY_DELAY)
+      // P2-2 优先消费 Retry-After(秒转毫秒,上限 STREAM_MAX_RETRY_DELAY);
+      // 无 retryAfter 时走指数退避:1s, 2s, 4s, 8s... 上限 30s(与 useAgentSSE 重连模式一致)
+      const delay =
+        info?.retryAfter !== undefined
+          ? Math.min(info.retryAfter * 1000, STREAM_MAX_RETRY_DELAY)
+          : Math.min(STREAM_INITIAL_RETRY_DELAY * 2 ** attempt, STREAM_MAX_RETRY_DELAY)
       attempt++
       opts.onReconnect?.(attempt, delay)
       await sleepWithAbort(delay, opts.signal)
