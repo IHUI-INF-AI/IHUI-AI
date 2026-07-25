@@ -1,4 +1,5 @@
 const Module = require('module')
+const path = require('path')
 const { getDefaultConfig } = require('expo/metro-config')
 
 // =============================================================================
@@ -86,6 +87,21 @@ Module._resolveFilename = function (request, parent, ...args) {
 
 const { withNativeWind } = require('nativewind/metro')
 
-const config = getDefaultConfig(__dirname)
+// Monorepo + pnpm isolated linker 支持(2026-07-25 修复 bundle 失败)
+// 问题:Metro 默认不跟随 pnpm 的 .pnpm symlink 结构,导致 @react-navigation/core
+// 等传递依赖无法从 @react-navigation/native 的 .pnpm 隔离目录解析,报
+// "Unable to resolve module @react-navigation/core"。
+// 修复:① watchFolders 指向 monorepo 根,Metro 能监视 packages/* 变更;
+//      ② unstable_enableSymlinks=true 让 Metro 解析时遵循 pnpm symlink 真实路径,
+//         从 .pnpm/<pkg>/node_modules 下找到传递依赖(如 invariant、core);
+//      ③ unstable_enablePackageExports=true 支持 package.json exports 字段。
+const projectRoot = __dirname
+const monorepoRoot = path.resolve(projectRoot, '../..')
+
+const config = getDefaultConfig(projectRoot)
+
+// 只开启 symlink 解析,不扩大 watchFolders(避免扫描整个 monorepo 导致 node crash)
+config.resolver.unstable_enableSymlinks = true
+config.resolver.unstable_enablePackageExports = true
 
 module.exports = withNativeWind(config, { input: './global.css' })
