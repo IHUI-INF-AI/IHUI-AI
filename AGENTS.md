@@ -408,18 +408,35 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 
 可通过 `git show <tag-name>` 查看完整 commit 内容;`git tag -l "lost-commit/*"` 列出所有丢失 commit tag。
 
-### 守门(warn-only → 后续升级 blocking)
+### 守门(blocking 升级已完成,2026-07-25)
 
-`scripts/check-commit-loss-guard.mjs`(guardian-runner 第 30 项,本任务新增):
+`scripts/check-commit-loss-guard.mjs`(guardian-runner 第 30a 项,2026-07-25 升级为 blocking):
 
-- pre-commit 前扫描 `git reflog --all --date=iso` 最近 20 步,检测是否含 `reset: moving to HEAD~` 模式
+- ✅ **已升级 blocking**:`guardian-runner.mjs` 第 30a 项以 `node scripts/check-commit-loss-guard.mjs --blocking --filter-stash` 调用
+- pre-commit 前扫描 `git reflog --all --date=iso` 最近 50 步(2026-07-26 扩),检测是否含 `reset: moving to HEAD~` 模式
 - 扫描 `git fsck --unreachable --no-reflogs` 检测是否有悬空 commit
-- 发现上述任一情况 → warn 告警 + 提示已丢失 commit 的 tag 列表
-- 后续升级:warn → blocking,任何 reset 操作必须先 tag 备份
+- 5 段检查流程(2026-07-26 强化):reflog reset / fsck 悬空 / lost-commit tag / backup tag / 远程 tag 完整性
+- 发现 reset 操作或未备份悬空 commit → exit 1,阻塞 commit
+- 紧急跳过:`HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...`
+- 详细档案:见 [docs/lost-commit-archive.md](./docs/lost-commit-archive.md)
+
+### 自动化 tag 同步(2026-07-26 立)
+
+`scripts/sync-lost-commit-tags.mjs`(本任务新增)+ `.husky/post-commit` 第 5 段集成:
+
+- **自动 push**:每次 commit 后自动 `git push origin --atomic refs/tags/lost-commit/* refs/tags/backup/*`,防止本地 git gc 清理 tag 后无远端备份
+- **手动 fetch**:`node scripts/sync-lost-commit-tags.mjs --fetch` 一键从 origin 拉回所有 lost-commit/backup tag
+- **手动 check**:`node scripts/sync-lost-commit-tags.mjs --check` 校验本地+远端 tag 一致性 + tag 对象可达性
+- **package.json scripts**:`tag:sync` / `tag:sync:check` / `tag:sync:fetch` / `tag:sync:push`
+- **紧急跳过**:`HUSKY_SKIP_TAG_SYNC=1`
+- **触发背景**:2026-07-26 04:23 真实事故 — 本地 tag 被 git gc 清理,远端虽有但 fetch 失败(因为 fetch 默认不包含 tag,需要明确 refspec)
+- **详细档案**:见 [docs/lost-commit-archive.md](./docs/lost-commit-archive.md) "🛡️ 防护机制" 段
 
 ### 历史案例
 
 `.trae-cn/archive/AGENTS_history.md` 记录每次 reset 事故 + 已采取的 tag 备份措施。
+
+- **2026-07-26**:Commit 丢失防护机制强化。本地 lost-commit/* tag 被 git gc 清理事故暴露后,新增 sync-lost-commit-tags.mjs 自动 push + fetch 机制,创建 docs/lost-commit-archive.md 永久档案,check-commit-loss-guard.mjs 升级为 5 段检查(reflog 50 步 + 远程 tag 校验 + tag 对象可达性)。
 
 ---
 
