@@ -19,7 +19,7 @@ interface Props {
   onPageChange: (page: number) => void
 }
 
-export function AuthUserVipTable({
+export const AuthUserVipTable = React.memo(function AuthUserVipTable({
   list,
   isLoading,
   total,
@@ -145,4 +145,4 @@ export function AuthUserVipTable({
       )}
     </>
   )
-}
+})
