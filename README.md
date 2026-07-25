@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <strong>340 张表 · 144 迁移 · 1300+ API 端点 · 21 Grafana 仪表盘 · 30+ pre-commit 守门 · 5346 API 测试 · 63 e2e spec</strong><br/>
+  <strong>340 张表 · 144 迁移 · 1300+ API 端点 · 21 Grafana 仪表盘 · 32+ pre-commit 守门 · 5346 API 测试 · 63 e2e spec</strong><br/>
   <sub>不是 PPT,不是画饼,不是占位 —— 每一个数字都能在代码里 grep 到</sub>
 </p>
 
@@ -1310,9 +1310,11 @@ IHUI-AI/
 | 24b     | check-port-registry.mjs               | **端口注册表守门(warn-only,非 88xx)**                           |
 | 25      | check-workspace-hygiene.mjs           | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)** |
 | 26      | check-parent-pollution.mjs            | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**     |
+| 30a     | check-commit-loss-guard.mjs           | **Commit 丢失防护(blocking,AGENTS.md §22):reflog 50 步 reset 检测 + fsck 悬空 + lost-commit/* + backup/* tag 完整性(本地+远端+对象可达)+ `sync-lost-commit-tags.mjs` 自动化 push** |
 | 16      | 条件 typecheck                        | apps/web staged 时跑 typecheck                                  |
 | 16b     | 条件 database build                   | packages/database/src staged 时跑 build                         |
 | 17-post | git-push-guard.mjs(post-commit)       | 自动 push + 验证 local == remote(防遗漏)                        |
+| 5-post  | sync-lost-commit-tags.mjs(post-commit)| commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
 
 **10 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立) / `cleanup-i18n-unused-keys.mjs`(无引用 key 批量清理,5 语言同步,2026-07-25 立)
 
@@ -1638,7 +1640,26 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 项目通过 23 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本杜绝协作事故:
 
-详细清单见 [核心能力 E4 节](#e4-工程守门23-pre-commit--post-commit--11-迁移审计)。
+详细清单见 [核心能力 E4 节](#e4-工程守门30-pre-commit--post-commit--11-迁移审计)。
+
+---
+
+## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)
+
+多 agent 并行环境下,`git reset HEAD~` 可能把整个 commit 链一并丢弃(2026-07-25 真实事故:丢失 3 个 commit)。本项目建立 4 道防护:
+
+1. **pre-commit blocking 检查**(第 30a 项):`scripts/check-commit-loss-guard.mjs --blocking --filter-stash`
+   - reflog 最近 50 步 reset 检测
+   - fsck 悬空 commit 检测 + tag 备份核对
+   - 远程 tag 完整性(对比 origin)
+   - tag 对象可达性(annotated tag 的 commit object)
+2. **post-commit 自动 tag 同步**:`scripts/sync-lost-commit-tags.mjs --auto-push`
+   - commit 后立即 push 所有 `lost-commit/*` + `backup/*` tag 到 origin
+   - 防止本地 git gc 清理后无远端备份
+3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回所有 lost-commit/backup tag
+4. **完整档案**:`docs/lost-commit-archive.md` 永久记录每个 lost commit 的 hash / subject / 改动文件 / 重做 commit / tag 状态
+
+**触发背景**:2026-07-25 reflog 记录 6 次 `git reset HEAD~` 丢失 3 个 commit(15b984f90 P0 安全债 + 5ef36e59d / b120c6e20 sidebar 折叠按钮 x2);2026-07-26 本地 tag 被 git gc 清理事故。
 
 ---
 
