@@ -17,6 +17,7 @@ from typing import Any
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 from .memory import memory_store
+from .meta_learner import meta_learner
 from .mcp_server import mcp_server
 from .project_memory import build_system_prompt
 
@@ -148,8 +149,19 @@ class AgentExecutor:
 
                 # 取出会话历史作为上下文
                 history = await memory_store.get(sid)
+                # L4 自进化:构建 system prompt 时注入 meta_lessons 避坑指南
+                # build_system_prompt_snippet 是同步方法(读内存缓存),失败降级不阻塞
+                system_prompt_content = build_system_prompt(sid)
+                try:
+                    lessons_snippet = meta_learner.build_system_prompt_snippet()
+                    if lessons_snippet:
+                        system_prompt_content = f"{system_prompt_content}\n\n{lessons_snippet}"
+                except Exception as e:
+                    logger.warning(
+                        "meta_learner.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
+                    )
                 messages = [
-                    {"role": "system", "content": build_system_prompt(sid)}
+                    {"role": "system", "content": system_prompt_content}
                 ]
                 messages.extend(
                     {"role": m["role"], "content": m["content"]} for m in history
@@ -244,6 +256,33 @@ class AgentExecutor:
                 task.add_done_callback(self._pending_tasks.discard)
             except Exception as e:
                 logger.warning("Skill 自进化评估启动失败: %s", e)
+
+        # L4 自进化:后置自评 fire-and-forget(成功/失败都触发,不阻塞主链路)
+        # canceled 状态不触发(用户主动取消,非真实失败,无可学习信号)
+        if self._running[task_id]["status"] in {"completed", "failed"}:
+            try:
+                task_result_for_eval = {
+                    "task_id": task_id,
+                    "session_id": sid,
+                    "status": self._running[task_id]["status"],
+                    "iterations": self._running[task_id]["iterations"],
+                    "steps": steps,
+                    "result": final_content,
+                    "error": error,
+                }
+                eval_task = asyncio.create_task(
+                    meta_learner.evaluate_and_record(
+                        task_result=task_result_for_eval,
+                        task_input=goal,
+                        skill_name="default",
+                    )
+                )
+                self._pending_tasks.add(eval_task)
+                eval_task.add_done_callback(self._pending_tasks.discard)
+            except Exception as e:
+                logger.warning(
+                    "meta_learner.evaluate_and_record 启动失败(降级,不阻塞): %s", e
+                )
 
         return {
             "task_id": task_id,
