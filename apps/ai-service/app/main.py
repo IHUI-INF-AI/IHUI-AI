@@ -133,6 +133,15 @@ async def lifespan(app: FastAPI):
     from app.services.dream_scheduler import dream_scheduler
     await dream_scheduler.start()
 
+    # L2-4 启动时从 DB 加载所有用户画像到内存(进程重启不丢)
+    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 build_profile 会重建)
+    from app.services.user_profile import user_profile_builder
+    profile_loaded = await user_profile_builder.load_all_profiles()
+    if profile_loaded:
+        logger.info(
+            "[user_profile] 启动从 DB hydrate %d 条用户画像", profile_loaded
+        )
+
     # 启动多平台一键发布调度器(轮询 publish_tasks 表 scheduled_at 到期任务,
     # 同用户最多 3 个并发,失败平台支持 retry)
     from app.services.publish.scheduler import publish_scheduler
