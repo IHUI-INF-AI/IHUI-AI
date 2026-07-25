@@ -44,6 +44,16 @@ export const ANN_TYPE_BADGE: Record<AnnouncementType, string> = {
   update: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
 }
 
+/**
+ * 公告类型 i18n key 静态映射表:types.${type} — 用于消除 `t(\`types.${var}\`)` 动态拼接
+ */
+export const ANN_TYPE_KEY: Record<AnnouncementType, string> = {
+  info: 'types.info',
+  warning: 'types.warning',
+  maintenance: 'types.maintenance',
+  update: 'types.update',
+}
+
 // ---------------- Help ----------------
 export interface HelpCategory {
   slug: string

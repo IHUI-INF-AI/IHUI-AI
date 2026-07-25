@@ -9,6 +9,15 @@ export const TYPE_BADGE: Record<string, string> = {
   programming: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
 }
 
+export const TYPE_KEY: Record<string, string> = {
+  single_choice: 'type.single_choice',
+  multi_choice: 'type.multi_choice',
+  judgment: 'type.judgment',
+  fill_blank: 'type.fill_blank',
+  subjective: 'type.subjective',
+  programming: 'type.programming',
+}
+
 export const TYPE_LABEL: Record<string, string> = {
   single_choice: 'typeLabel.single_choice',
   multi_choice: 'typeLabel.multi_choice',
