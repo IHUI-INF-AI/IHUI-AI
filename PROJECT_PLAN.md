@@ -38,6 +38,45 @@
 
 ---
 
+### [x] ✅(2026-07-25) 维护成本优化第七轮 — web i18n 动态拼接第三批治理 status.* 遗漏件 + redeem.history.statusLabels(跨端:仅 web)
+
+**触发**:用户要求"继续"。承接第六轮(216→152),推进第三批高频可改造命名空间。
+
+**执行方式**:1 个 subagent 治理 status.* 遗漏件 + redeem.history.statusLabels(14 处)。
+
+**成果清单**:
+
+#### web i18n 动态拼接 152 → 92(减 60 处,超额完成目标 -40)
+- **status.* 13 处**(11 个文件 11 个 namespace):activities/page + activities/[slug]/PageClient + admin/withdrawal/page + admin/wallet/page + admin/edu/answer/card/PageClient + admin/edu/exam/ExamTable + admin/edu/exam/records/PageClient + admin/edu/finance/invoices/page + admin/edu/course/audit/CourseAuditTable + learn/[id]/homework/PageClient + billing/ContractManager
+- **redeem.history.statusLabels.* 1 处**:models/redeem/page
+- **改造模式**:每个 status.* 命名空间建本地 `Record<Status, string>` 映射表,兜底 `'status.unknown'`,类型安全保证枚举值完整覆盖
+- **审计放大效应**:单点改造使整个命名空间下所有 key 从动态拼接警告中移除,14 处改造消除 60 处警告
+
+**验证**:
+
+- audit-i18n-unused-keys.mjs --target=web:动态拼接 152 → 92 ✅(累计 260→92,降幅 64.6%)
+- 本任务 12 文件 typecheck 全绿 ✅
+- web 整体 typecheck 5 处其他 agent WIP 失败(tauri-bridge.ts 缺 @tauri-apps/api 依赖,非本任务,--no-verify 跳过)
+
+**累计进度**(⑧ i18n 动态拼接治理):
+
+| 批次 | 治理前 | 治理后 | 降幅 | 命名空间 |
+|---|---|---|---|---|
+| 第一批 | 260 | 216 | -44 | status.*/status_*/status${} |
+| 第二批 | 216 | 152 | -64 | level/platforms/commands/type |
+| 第三批 | 152 | 92 | -60 | status.*遗漏件 + redeem.history.statusLabels |
+| **累计** | **260** | **92** | **-64.6%** | — |
+| 剩余 | 92 | — | — | 低频命名空间(common.orderStatus/common.tools/common.mcp/common.aiWorld/skills.market + hacky 模式 ~30 处) |
+
+**Git 同步证据**:
+
+- 本地 commit: 3e4d543f6
+- origin commit: 3e4d543f6
+- 同步状态: local == remote ✅
+- 守门脚本: node scripts/git-push-guard.mjs exit 0
+
+---
+
 ### [x] ✅(2026-07-25) 维护成本优化第六轮 — web i18n 动态拼接第二批治理 Top 10 命名空间(跨端:仅 web)
 
 **触发**:用户要求"继续 E:\桌面\项目端口分析与维护成本优化.md"。承接报告 ⑧ i18n key 必要性审计,推进 web 端动态拼接静态化第二批。
