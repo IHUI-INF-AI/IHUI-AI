@@ -32,6 +32,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# L4 自进化:持有 fire-and-forget evaluate_and_record task 引用,
+# 防止 CPython GC 在 task 完成前回收(与 agent_loop.py 的 _pending_tasks 同模式)
+_pending_meta_eval_tasks: set[asyncio.Task] = set()
+
 
 @dataclass
 class ToolDefinition:
@@ -222,6 +226,27 @@ class AgentLoopV2:
         self._messages = messages
         # L1-1 入口:注入跨会话记忆到 system prompt(失败不阻塞)
         await self._inject_memory_context(messages)
+        # L4 自进化:注入 meta_lessons 避坑指南到 system prompt(失败降级,不阻塞)
+        # build_system_prompt_snippet 是同步方法(读内存缓存),失败只 warning
+        try:
+            from .meta_learner import meta_learner
+            lessons_snippet = meta_learner.build_system_prompt_snippet()
+            if lessons_snippet:
+                if (
+                    messages
+                    and isinstance(messages[0], dict)
+                    and messages[0].get("role") == "system"
+                ):
+                    existing = messages[0].get("content", "")
+                    messages[0]["content"] = (
+                        f"{existing}\n\n{lessons_snippet}" if existing else lessons_snippet
+                    )
+                else:
+                    messages.insert(0, {"role": "system", "content": lessons_snippet})
+        except Exception as e:
+            logger.warning(
+                "meta_learner.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
+            )
         result = await self._run_loop(
             messages=messages,
             start_iteration=1,
@@ -232,6 +257,28 @@ class AgentLoopV2:
         # L1-1 出口:成功完成后保存记忆(失败不阻塞,不覆盖 result)
         if result.success:
             await self._persist_memory_insights(messages)
+        # L4 自进化:后置自评 fire-and-forget(成功/失败都触发,不阻塞主链路)
+        # paused/cancelled 状态不触发(用户主动操作,非真实失败,无可学习信号)
+        if result.stop_reason in {"completed", "error", "max_iterations"}:
+            try:
+                from dataclasses import asdict
+                from .meta_learner import meta_learner
+                task_input_text = ""
+                if messages and isinstance(messages[0], dict):
+                    task_input_text = str(messages[0].get("content", ""))
+                eval_task = asyncio.create_task(
+                    meta_learner.evaluate_and_record(
+                        task_result=asdict(result),
+                        task_input=task_input_text,
+                        skill_name="default",
+                    )
+                )
+                _pending_meta_eval_tasks.add(eval_task)
+                eval_task.add_done_callback(_pending_meta_eval_tasks.discard)
+            except Exception as e:
+                logger.warning(
+                    "meta_learner.evaluate_and_record 启动失败(降级,不阻塞): %s", e
+                )
         return result
 
     # ------------------------------------------------------------------
