@@ -123,8 +123,16 @@ import {
 } from './user-agent-free-times.js'
 import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './service-catalog.js'
 import { shareContentRoutes } from './share-content.js'
-// 历史项目缺失端点补齐（集中实现）
-import { legacyCompletionRoutes } from './legacy-completion.js'
+// 历史项目缺失端点补齐（从 legacy-completion.ts 拆分为 9 个业务模块文件,完整路径 /api/legacy/* 不变）
+import { legacyExamRoutes } from './legacy-exam.js'
+import { legacyLearnRoutes } from './legacy-learn.js'
+import { legacyLiveRoutes } from './legacy-live.js'
+import { legacyAskRoutes } from './legacy-ask.js'
+import { legacyBatchRoutes } from './legacy-batch.js'
+import { legacyOssRoutes } from './legacy-oss.js'
+import { legacyCommunityRoutes } from './legacy-community.js'
+import { legacyWorkWechatRoutes } from './legacy-work-wechat.js'
+import { legacyStudyRoutes } from './legacy-study.js'
 // R101 补建：WS live-chat 房间实时聊天（/ws/live-chat?roomId=xxx）
 import { liveChatWsRoutes } from './ws/live-chat.js'
 // R101 补建：课程/小节视频签名 URL 端点
@@ -606,9 +614,17 @@ export function registerRoutes(server: FastifyInstance) {
   // 分享内容 H5：/api/share/content/:code（迁移自 share-h5 历史项目）
   server.register(shareContentRoutes, { prefix: '/api/share' })
 
-  // ===== 历史项目缺失端点补齐（集中实现）=====
-  // 考试报名/收藏/学习统计/专题/直播订阅/问答/OSS/错题等散点端点
-  server.register(legacyCompletionRoutes, { prefix: '/api/legacy' })
+  // ===== 历史项目缺失端点补齐（从 legacy-completion.ts 拆分为 9 个业务模块文件）=====
+  // 完整路径保持 /api/legacy/* 不变(exam/learn/live/ask/batch/oss/community/work-wechat/study)
+  server.register(legacyExamRoutes, { prefix: '/api/legacy' })
+  server.register(legacyLearnRoutes, { prefix: '/api/legacy' })
+  server.register(legacyLiveRoutes, { prefix: '/api/legacy' })
+  server.register(legacyAskRoutes, { prefix: '/api/legacy' })
+  server.register(legacyBatchRoutes, { prefix: '/api/legacy' })
+  server.register(legacyOssRoutes, { prefix: '/api/legacy' })
+  server.register(legacyCommunityRoutes, { prefix: '/api/legacy' })
+  server.register(legacyWorkWechatRoutes, { prefix: '/api/legacy' })
+  server.register(legacyStudyRoutes, { prefix: '/api/legacy' })
 
   // ===== R101 补建：WS live-chat + 视频签名 URL + AdminContent 统一 CRUD =====
   // WS live-chat:房间实时聊天,房间管理 + 历史消息(读 live_comment 表)

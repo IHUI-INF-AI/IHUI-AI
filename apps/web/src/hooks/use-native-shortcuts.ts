@@ -1,10 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { type MenuActionId } from '@/lib/tauri-bridge'
+import type { MenuActionId } from '@/lib/tauri-bridge'
 
 /**
- * useNativeShortcuts — Web 端快捷键监听(2026-07-25 立,替代 Rust 端原生菜单 accelerator)
+ * useNativeShortcuts — Web 端快捷键监听(2026-07-25 立,替代原生菜单 accelerator)
  *
  * 2026-07-25 修订背景:
  * - Rust 端 build_app_menu 已删除(避免原生菜单 + HTML 顶栏两层菜单割裂)
@@ -18,8 +18,10 @@ import { type MenuActionId } from '@/lib/tauri-bridge'
  * - Ctrl+Shift+A      → file.open_admin (唤起管理后台)
  * - Ctrl+Q            → file.quit       (真退出应用)
  *
- * 用法:
- *   useNativeShortcuts((id) => void dispatchMenuAction(id))
+ * 兼容性:
+ * - 焦点在 input/textarea/contenteditable 时不触发(让用户正常输入)
+ * - modifier 严格匹配,避免 Ctrl+R 在中文输入法下误触
+ * - 非 Tauri 环境也支持(本地浏览器开发体验)
  */
 export function useNativeShortcuts(handler: (id: MenuActionId) => void) {
   const handlerRef = React.useRef(handler)
@@ -30,7 +32,6 @@ export function useNativeShortcuts(handler: (id: MenuActionId) => void) {
   React.useEffect(() => {
     if (typeof window === 'undefined') return
 
-    // 焦点在输入控件 / contenteditable 时不拦截,让用户正常输入
     const isEditableTarget = (target: EventTarget | null): boolean => {
       const el = target as HTMLElement | null
       if (!el) return false
@@ -41,6 +42,7 @@ export function useNativeShortcuts(handler: (id: MenuActionId) => void) {
     }
 
     const onKey = (e: KeyboardEvent) => {
+      // 焦点在输入控件时不拦截,让用户正常输入
       if (isEditableTarget(e.target)) return
 
       const key = e.key.toLowerCase()
@@ -48,28 +50,26 @@ export function useNativeShortcuts(handler: (id: MenuActionId) => void) {
       const shift = e.shiftKey
       const alt = e.altKey
 
-      // F12 → 切换开发者工具(浏览器/Tauri 通用)
-      if (key === 'f12' && !ctrl && !shift && !alt) {
+      // 调试模式:DevTools 自身快捷键 / 浏览器保留
+      // Ctrl+Shift+I / F12 都可能冲突,这里只做菜单 dispatcher 的派发
+      if (key === 'f12') {
         e.preventDefault()
         handlerRef.current('view.devtools')
         return
       }
 
-      // Ctrl+Shift+A → 唤起管理后台
-      if (ctrl && shift && !alt && key === 'a') {
+      if (ctrl && shift && (key === 'a' || key === 'a')) {
         e.preventDefault()
         handlerRef.current('file.open_admin')
         return
       }
 
-      // Ctrl+R → 刷新 webview
       if (ctrl && !shift && !alt && key === 'r') {
         e.preventDefault()
         handlerRef.current('view.reload')
         return
       }
 
-      // Ctrl+Q → 真退出应用(Tauri 内显式派发,避免被 webview 拦截)
       if (ctrl && !shift && !alt && key === 'q') {
         e.preventDefault()
         handlerRef.current('file.quit')

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Send, Square, SquareSlash, FileText, Plus, AtSign, Sparkles, Package } from 'lucide-react'
+import { AlertTriangle, Clock3, Send, Square, SquareSlash, FileText, Plus, FilePlus, AtSign, Sparkles, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -17,16 +17,44 @@ import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
 import { ModeSwitcher } from '@/components/ai/mode-switcher'
-import { PermissionModePopover } from '@/components/ai/permission-mode-popover'
+import {
+  PermissionModePopover,
+  isHighRiskPermissionMode,
+  switchPermissionMode,
+} from '@/components/ai/permission-mode-popover'
+import {
+  FullAccessConfirmDialog,
+  isFullAccessConfirmSuppressed,
+} from '@/components/ai/full-access-confirm-dialog'
+import {
+  usePermissionAutoRevert,
+  formatRemaining,
+} from '@/hooks/use-permission-auto-revert'
+import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { getRecentFilesForMention } from '@/lib/workspace-api'
 import { useChatStore } from '@/stores/chat'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
+import { toast } from 'sonner'
 
 const MAX_LENGTH = 10000
 const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
 const MIN_HEIGHT_PX = 96 // rows=3 基础高度,与 hook threeLinePx 阈值一致
+
+/** 模式循环顺序(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环切换)
+ * default(请求批准) → accept-edits(替我审批) → bypass-permissions(完全访问) → default
+ * 注意:bypass-permissions 是高风险,放在最后便于"按 3 次回正" */
+const PERMISSION_CYCLE: WorkspacePermissionMode[] = [
+  'default',
+  'accept-edits',
+  'bypass-permissions',
+]
+
+/** localStorage 键(2026-07-25 深化,跨刷新记忆用户上次主动选择的权限模式)
+ * 仅记忆非默认模式;首次绑定工作区时如果 store 没指定,优先用这个值 */
+const PERMISSION_MEMORY_KEY = 'ihui:preferred-permission-mode'
 
 type ReferenceType = 'file' | 'url' | 'text' | 'image' | 'video'
 
@@ -117,7 +145,18 @@ export function MessageInput({
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
-  const tNav = useTranslations('nav')
+  // 当前工作区权限模式(2026-07-25 深化,高风险模式持久化视觉警告)
+  const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
+  const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
+  const setPendingFullAccess = useAiPanelStore((s) => s.setPendingFullAccess)
+  const activeWorkspaceMode = activeWorkspace?.mode
+  const isHighRisk = isHighRiskPermissionMode(activeWorkspaceMode)
+  // 高风险模式自动撤销倒计时(2026-07-25 深化,深度对标 Codex CLI 安全护栏):
+  // - 切到 bypass-permissions 时启动 1h 倒计时,显示剩余时间
+  // - 倒计时归零 → 自动切回 default
+  // - 用户可点"取消自动撤销"维持当前模式(但视觉警告仍存在)
+  // - 用户主动切走其他模式 → 自动清掉计时
+  const autoRevert = usePermissionAutoRevert()
   // P1 草稿自动保存(2026-07-23):刷新/路由切换不丢失未发送内容
   const DRAFT_KEY = 'chat:draft'
   const [value, setValue] = React.useState(() => {
@@ -143,14 +182,6 @@ export function MessageInput({
   >([])
   const mentionLoadedRef = React.useRef(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
-  // "添加"下拉菜单状态(2026-07-25 合并):收纳"添加为上下文引用 / Skill 库 / 添加附件"三个动作
-  // mode 决定 Popover 内部 content:menu = 三项菜单,skill = SkillLibrary 弹窗
-  const [addMenuOpen, setAddMenuOpen] = React.useState(false)
-  // addMenuMode 决定 Popover content:
-  // - menu:5 项主菜单(模板/引用/Skill 库/附件/插件)
-  // - prompt:PromptTemplates 弹层(2026-07-25 立,从原附加栏独立 Popover 整合)
-  // - skill:SkillLibrary 弹层
-  const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill'>('menu')
   const { ref: textareaRef, resize } = useTextareaAutoHeight<HTMLTextAreaElement>(value, {
     threeLinePx: MIN_HEIGHT_PX,
     maxHeightPx: MAX_HEIGHT_PX,
@@ -204,6 +235,70 @@ export function MessageInput({
       })
   }, [mentionOpen])
 
+  // 权限模式快捷切换(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环):
+  // - 模式改变时同步到 localStorage(只记忆非默认,避免污染用户)
+  // - Shift+Tab 在 3 个模式间循环切,跳过斜杠面板/提及面板打开时
+  // - 切到 bypass-permissions 复用 PermissionModePopover 同一撤销 toast
+  // 监听 mode 变化 → localStorage
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      if (activeWorkspaceMode) {
+        window.localStorage.setItem(PERMISSION_MEMORY_KEY, activeWorkspaceMode)
+      } else {
+        // 解除绑定时清掉记忆(避免下次自动套用过时模式)
+        window.localStorage.removeItem(PERMISSION_MEMORY_KEY)
+      }
+    } catch {
+      // 隐私模式/localStorage 不可用静默
+    }
+  }, [activeWorkspaceMode])
+
+  // 切到下一个模式(Shift+Tab 循环)
+  const cyclePermissionMode = React.useCallback(async () => {
+    const current = (activeWorkspaceMode ?? 'default') as WorkspacePermissionMode
+    const idx = PERMISSION_CYCLE.indexOf(current)
+    const next = PERMISSION_CYCLE[(idx + 1) % PERMISSION_CYCLE.length] ?? 'default'
+    if (next === current) return
+    // 切到 bypass-permissions + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化)
+    // 与 popover 走同一条 FullAccessConfirmDialog(共享 store.pendingFullAccess)
+    if (next === 'bypass-permissions' && !isFullAccessConfirmSuppressed()) {
+      setPendingFullAccess(true)
+      return
+    }
+    const previousMode = current
+    // 乐观更新 store
+    if (activeWorkspace) {
+      setActiveWorkspace({ ...activeWorkspace, mode: next })
+    }
+    const result = await switchPermissionMode(next)
+    if (!result.ok) {
+      // 回滚
+      if (activeWorkspace && previousMode) {
+        setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
+      }
+      toast.error(t('permission.cycleError', { error: result.error ?? '未知错误' }))
+      return
+    }
+    // 切到完全访问 → 5s 撤销 toast(与 popover 一致体验)
+    if (next === 'bypass-permissions') {
+      toast(t('permission.switchedToFull'), {
+        description: t('permission.switchedToFullDesc', { prev: previousMode }),
+        duration: 5000,
+        action: {
+          label: t('permission.undo'),
+          onClick: () => void cyclePermissionMode(),
+        },
+      })
+    } else {
+      // default / accept-edits → 短提示
+      const labelKey = next === 'default' ? 'permission.mode.ask' : 'permission.mode.auto'
+      toast.success(t('permission.cycledTo', { mode: t(labelKey) }), {
+        duration: 2000,
+      })
+    }
+  }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t])
+
   const slashCommands = [
     // 动作型命令(2026-07-25 立,对标 Trae SOLO Plan 模式):置顶,切换 plan/act 模式
     {
@@ -216,6 +311,26 @@ export function MessageInput({
       id: 'act',
       label: '/act',
       description: t('slashCmd.act'),
+      kind: 'action' as const,
+    },
+    // 权限模式动作型命令(2026-07-25 深化,深度对标 Codex approvalMode CLI):
+    // /permission ask|auto|full 切换工作区权限模式(不进入 LLM 流,纯本地 UI 状态)
+    {
+      id: 'permission-ask',
+      label: '/permission ask',
+      description: t('slashCmd.permissionAsk'),
+      kind: 'action' as const,
+    },
+    {
+      id: 'permission-auto',
+      label: '/permission auto',
+      description: t('slashCmd.permissionAuto'),
+      kind: 'action' as const,
+    },
+    {
+      id: 'permission-full',
+      label: '/permission full',
+      description: t('slashCmd.permissionFull'),
       kind: 'action' as const,
     },
     // 模板型命令:选命令后填充模板到 textarea
@@ -286,11 +401,19 @@ export function MessageInput({
   const handleCommandSelect = (id: string) => {
     // 动作型命令(2026-07-25 立):直接走 onSend 流程,由 use-chat.ts 的 tryHandlePlanModeSlash 拦截。
     // 不填充 textarea,避免用户看到 "/plan" 文字再手动按发送(多余操作)。
-    if (id === 'plan' || id === 'act') {
+    if (
+      id === 'plan' ||
+      id === 'act' ||
+      // 权限模式动作型命令(2026-07-25 深化):/permission ask|auto|full 走 onSend
+      // 由 use-chat.ts 的 tryHandlePermissionSlash 拦截(纯本地 UI 状态切换,无 LLM)
+      id === 'permission-ask' ||
+      id === 'permission-auto' ||
+      id === 'permission-full'
+    ) {
       // 清空当前 textarea 内容再发送,避免与已有内容拼接
       setValue('')
       requestAnimationFrame(resize)
-      void onSend(`/${id}`)
+      void onSend(`/${id.replace('-', ' ')}`)
       return
     }
     fillInput(commandTemplates[id] ?? '')
@@ -432,6 +555,15 @@ export function MessageInput({
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       submit()
+      return
+    }
+    // Shift+Tab 全局循环切权限模式(2026-07-25 深化,深度对标 Codex CLI)
+    // - 斜杠面板/提及面板打开时不抢(让面板用 Tab)
+    // - 阻止默认焦点切换(浏览器默认 Shift+Tab 是反向 focus)
+    // - 即使 textarea 内有输入也直接切换(Codex 行为:全局生效,非 textarea 局部)
+    if (e.key === 'Tab' && e.shiftKey && !slashOpen && !mentionOpen) {
+      e.preventDefault()
+      void cyclePermissionMode()
     }
   }
 
@@ -441,6 +573,48 @@ export function MessageInput({
   return (
     <div>
       <div className="mx-auto max-w-3xl px-4 py-3">
+        {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对标 Codex 高风险提示)
+            - bypass-permissions 模式时,输入框上方加琥珀色横幅
+            - 提醒用户 AI 当前可执行任何操作(无法撤回的破坏性操作的预防)
+            - 倒计时(2026-07-25 深化):显示"X 分钟后自动切回请求批准",可手动取消
+            - 非高风险模式时不渲染(零开销) */}
+        {isHighRisk && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-300"
+          >
+            <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
+            <div className="min-w-0 flex-1 leading-snug">
+              <div>{t('permission.inputWarning')}</div>
+              {autoRevert.isActive ? (
+                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400">
+                  <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <span>
+                    {t('permission.autoRevertIn', { time: formatRemaining(autoRevert.remainingMs) })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={autoRevert.cancelRevert}
+                    className="ml-1 inline-flex items-center gap-0.5 rounded-sm border border-amber-500/30 px-1.5 py-px text-[10px] font-medium transition-colors hover:bg-amber-500/10"
+                    aria-label={t('permission.cancelAutoRevert')}
+                  >
+                    <X className="h-2.5 w-2.5" aria-hidden="true" />
+                    {t('permission.cancelAutoRevert')}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => autoRevert.extendRevert()}
+                  className="mt-1 inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 underline-offset-2 hover:underline dark:text-amber-400"
+                >
+                  {t('permission.reEnableAutoRevert')}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {references.length > 0 && (
           <div className="mb-2">
             <ContextReferencePanel references={references} onRemove={removeReference} />
@@ -466,14 +640,20 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
-          {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框 */}
+          {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
+              高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告 */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={cn(
               'rounded-xl border bg-card transition-colors focus-within:border-foreground/20',
-              isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-border',
+              // 互斥的边框逻辑:拖拽 > 高风险 > 默认
+              isDragOver
+                ? 'border-primary ring-2 ring-primary/20'
+                : isHighRisk
+                  ? 'border-amber-500/50 focus-within:border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.08)]'
+                  : 'border-border',
             )}
           >
             {/* 拖拽提示遮罩:仅在 isDragOver 时显示 */}
@@ -483,175 +663,107 @@ export function MessageInput({
               </div>
             )}
             {/* 附加栏:输入框上方的功能条。
-                - 左侧:权限模式切换 + 统一"添加"下拉(收纳模板/引用/Skill 库/附件/插件)
+                - 左侧:提示词模板 + 添加引用(并列,统一胶囊风格)
                 - 右侧:引用计数徽章
-                2026-07-25 终极整合:附加栏 + 底部工具栏 共 5 个分散按钮 → 1 个"添加"下拉按钮。
-                唯一入口规则:除权限模式(始终显示,语义独立)和"添加"按钮外,无其他独立按钮。 */}
+                提示词模板按钮从底部工具栏上移至此(用户规则:挪到输入框上方附加栏),
+                与空状态 chips 共用同一组 5 个核心模板源,视觉风格协调。 */}
             <div className="flex items-center gap-1 bg-muted/30 px-2 py-1.5">
               {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
                   盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
-                  点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。
-                  注:权限模式是"全局会话级决策",语义独立,不算"添加"类,保留独立入口。 */}
+                  点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。 */}
               <PermissionModePopover disabled={isStreaming} />
-              {/* "添加"下拉菜单(2026-07-25 终极整合):唯一附加栏功能入口
-                  收纳 5 类动作,内部按 addMenuMode 切换 content:
-                  - menu:5 项主菜单(模板/引用/Skill 库/附件/插件)
-                  - prompt:PromptTemplates 弹层
-                  - skill:SkillLibrary 弹层
-                  避免嵌套弹层,trigger 始终是"添加"按钮,焦点/坐标/ESC 行为统一 */}
-              <Popover
-                open={addMenuOpen}
-                onOpenChange={(next) => {
-                  setAddMenuOpen(next)
-                  // 关闭时重置为菜单态,下次打开从 menu 开始
-                  if (!next) setAddMenuMode('menu')
-                }}
-                content={
-                  addMenuMode === 'prompt' ? (
+              {isStreaming ? (
+                <Tooltip content={t('promptTemplate')}>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label={t('promptTemplate')}
+                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>{t('promptTemplate')}</span>
+                  </button>
+                </Tooltip>
+              ) : (
+                <Popover
+                  content={
                     <div className="w-72">
                       <PromptTemplates
                         templates={promptTemplates}
-                        onSelect={(content) => {
-                          handleTemplateSelect(content)
-                          setAddMenuOpen(false)
-                          setAddMenuMode('menu')
-                        }}
+                        onSelect={handleTemplateSelect}
                       />
                     </div>
-                  ) : addMenuMode === 'skill' ? (
-                    <SkillLibrary
-                      onSelect={(template) => {
-                        fillInput(template)
-                        setAddMenuOpen(false)
-                        setAddMenuMode('menu')
-                      }}
-                      onClose={() => {
-                        setAddMenuOpen(false)
-                        setAddMenuMode('menu')
-                      }}
-                    />
-                  ) : (
-                    <div
-                      role="menu"
-                      aria-label={t('addMenuDesc')}
-                      className="flex w-60 flex-col gap-0.5"
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming}
-                        onClick={() => {
-                          // 切换到 prompt 模式,弹层保持打开
-                          setAddMenuMode('prompt')
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{t('promptTemplate')}</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming || !value.trim()}
-                        onClick={() => {
-                          setAddMenuOpen(false)
-                          setAddMenuMode('menu')
-                          addTextReference()
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{t('addContextReference')}</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming}
-                        onClick={() => {
-                          // 切换到 skill 模式,弹层保持打开
-                          setAddMenuMode('skill')
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{t('skillLibrary.title')}</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming}
-                        onClick={() => {
-                          setAddMenuOpen(false)
-                          setAddMenuMode('menu')
-                          fileInputRef.current?.click()
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{tA11y('addAttachment')}</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming}
-                        onClick={() => {
-                          setAddMenuOpen(false)
-                          setAddMenuMode('menu')
-                          // 插件/MCP 入口:跳转到 /plugins 页面(用户从该页面点击"+"添加到对话)
-                          window.location.href = '/plugins'
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{tNav('pluginMarket')}</span>
-                      </button>
-                    </div>
-                  )
-                }
-                position="bottom"
-                trigger="click"
-                portal
-                align="start"
-                tooltip={addMenuOpen ? undefined : t('addMenuLabel')}
-              >
+                  }
+                  position="bottom"
+                  trigger="click"
+                  tooltip={t('promptTemplate')}
+                >
+                  <button
+                    type="button"
+                    aria-label={t('promptTemplate')}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
+                      'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
+                    )}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>{t('promptTemplate')}</span>
+                  </button>
+                </Popover>
+              )}
+              <Tooltip content={value.trim() ? t('addContextReference') : t('addContextHint')}>
                 <button
                   type="button"
-                  aria-label={t('addMenuLabel')}
-                  aria-haspopup="menu"
-                  aria-expanded={addMenuOpen}
+                  onClick={addTextReference}
                   disabled={isStreaming}
+                  aria-label={value.trim() ? t('addContextReference') : t('addContextHint')}
                   className={cn(
                     'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
                     'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>{t('addMenuLabel')}</span>
+                  <FilePlus className="h-3.5 w-3.5" />
+                  <span>{value.trim() ? t('addContextReference') : t('addContextHint')}</span>
                 </button>
-              </Popover>
+              </Tooltip>
+              {/* Skill 库入口(2026-07-21 新增):统一收纳 内置模板 + 斜杠命令 + 自媒体 + 用户自定义技能。
+                  点击后弹出 SkillLibrary 弹窗,选中后填充模板到 textarea。
+                  替代了原先单独的 SelfMediaSkillPicker(已并入此弹窗的 self-media tab)。 */}
+              {isStreaming ? (
+                <Tooltip content={t('skillLibrary.title')}>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label={t('skillLibrary.title')}
+                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>{t('skillLibrary.title')}</span>
+                  </button>
+                </Tooltip>
+              ) : (
+                <Popover
+                  content={<SkillLibrary onSelect={fillInput} onClose={() => {}} />}
+                  position="bottom"
+                  trigger="click"
+                  portal
+                  align="start"
+                  tooltip={t('skillLibrary.title')}
+                >
+                  <button
+                    type="button"
+                    aria-label={t('skillLibrary.title')}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
+                      'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
+                    )}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>{t('skillLibrary.title')}</span>
+                  </button>
+                </Popover>
+              )}
               {references.length > 0 && (
                 <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                   {references.length} 个引用
@@ -660,9 +772,43 @@ export function MessageInput({
             </div>
             {/* 模式切换栏(2026-07-23 移至 textarea 上方,对标 Cursor 'top of chat input'):
                 模式切换是"对话开始前的决策",放输入区上方符合用户决策流(选模式→写prompt→发送)。
-                从底部工具栏移出,避免和 ModelSelector/VoiceInput/Send 拥挤(对标 Trae/Cursor/Claude/ChatGPT 均不放在输入框右下角)。 */}
-            <div className="flex items-center px-3 pt-2">
+                从底部工具栏移出,避免和 ModelSelector/VoiceInput/Send 拥挤(对标 Trae/Cursor/Claude/ChatGPT 均不放在输入框右下角)。
+                权限模式徽章(2026-07-25 深化):在模式切换栏右侧持续显示当前权限模式,
+                高风险时附倒计时(与顶部高风险警告横幅同步,用户不用滚动到顶部也能看到),
+                透明性 + 时效性双指标。 */}
+            <div className="flex items-center gap-2 px-3 pt-2">
               <ModeSwitcher className="hidden sm:flex" />
+              <div className="ml-auto flex items-center gap-1.5" data-testid="titlebar-permission-mode">
+                {activeWorkspaceMode && (
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
+                      isHighRisk
+                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                        : activeWorkspaceMode === 'accept-edits'
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                          : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
+                    {activeWorkspaceMode === 'bypass-permissions'
+                      ? t('permission.mode.full')
+                      : activeWorkspaceMode === 'accept-edits'
+                        ? t('permission.mode.auto')
+                        : t('permission.mode.ask')}
+                  </span>
+                )}
+                {/* 高风险 + 倒计时激活 → 在徽章右侧追加倒计时(2026-07-25 深化)
+                    复用 autoRevert hook 的同一份 1s tick,保证顶部警告和标题栏倒计时一致 */}
+                {isHighRisk && autoRevert.isActive && (
+                  <span
+                    className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-amber-700 dark:text-amber-400"
+                    data-testid="titlebar-auto-revert"
+                  >
+                    {t('permission.titleBarAutoRevert', { time: formatRemaining(autoRevert.remainingMs) })}
+                  </span>
+                )}
+              </div>
             </div>
             {/* textarea 容器:padding 由容器提供,避免 textarea 滚动时 padding-top 被吃掉 */}
             <div className="px-3 pt-2 pb-2">
@@ -693,7 +839,22 @@ export function MessageInput({
                 用原生 CSS 不依赖 Tailwind v4 container variant 编译(实测 Tailwind v4
                 仅编译 .@container 类不编译 @sm: 断点规则)。 */}
             <div className="ai-input-toolbar flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
-              {/* 附件入口已在 2026-07-25 整合至附加栏"添加"下拉菜单,此处不再保留独立按钮 */}
+              {/* 独立附件按钮:点击触发 hidden file input,选择图片/视频文件作为附件引用 */}
+              <Tooltip content={tA11y('addAttachment')}>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isStreaming}
+                  aria-label={tA11y('addAttachment')}
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                    'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </Tooltip>
               {/* / 独立按钮:点击在 textarea 末尾插入 / 字符并触发 SlashCommandPalette */}
               <Tooltip content={tA11y('slashCommand')}>
                 <button
@@ -816,7 +977,71 @@ export function MessageInput({
           </span>
         </div>
       </div>
+      {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
+          - 由 ai-panel store.pendingFullAccess 控制 open 状态
+          - popover / Shift+Tab / /permission full 三处切到 bypass-permissions 时共用
+          - 用户勾选"我了解"后才能点"继续启用"(内部 markFullAccessSuppressed/Acknowledged)
+          - 确认后调 cyclePermissionMode(再次切到 bypass,此时 isFullAccessConfirmSuppressed=true,直走切换) */}
+      <FullAccessConfirmBridge />
     </div>
+  )
+}
+
+/** 首次启用高风险模式确认弹窗桥接组件(2026-07-25 深化,深度对标 Codex CLI safety guard)
+ *  - 监听 ai-panel store.pendingFullAccess 控制 Dialog open
+ *  - confirm:FullAccessConfirmDialog 内部已写 localStorage(suppressed 或 acknowledged),
+ *    此处只关弹窗 + 触发实际切模式 + 弹 5s 撤销 toast
+ *  - cancel:只 setPendingFullAccess(false),不动 activeWorkspace.mode
+ * 单独抽组件是避免污染主组件 useEffect deps + 减少主函数重渲染 */
+function FullAccessConfirmBridge() {
+  const t = useTranslations('chat.permission')
+  const pendingFullAccess = useAiPanelStore((s) => s.pendingFullAccess)
+  const setPendingFullAccess = useAiPanelStore((s) => s.setPendingFullAccess)
+  const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
+  const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
+
+  const handleConfirm = React.useCallback(() => {
+    setPendingFullAccess(false)
+    if (!activeWorkspace) return
+    const previousMode = activeWorkspace.mode
+    // 乐观更新 + 落库(动态 import 避免循环依赖)
+    setActiveWorkspace({ ...activeWorkspace, mode: 'bypass-permissions' })
+    void (async () => {
+      const { switchPermissionMode } = await import('@/components/ai/permission-mode-popover')
+      const { toast } = await import('sonner')
+      const result = await switchPermissionMode('bypass-permissions')
+      if (!result.ok) {
+        if (previousMode !== undefined) {
+          setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
+        }
+        return
+      }
+      // 切到完全访问 → 5s 撤销 toast(与 popover 一致体验)
+      toast(t('switchedToFull'), {
+        description: t('switchedToFullDesc', {
+          prev: previousMode ?? 'default',
+        }),
+        duration: 5000,
+        action: {
+          label: t('undo'),
+          onClick: async () => {
+            await switchPermissionMode(previousMode ?? 'default')
+          },
+        },
+      })
+    })()
+  }, [activeWorkspace, setActiveWorkspace, setPendingFullAccess, t])
+
+  const handleCancel = React.useCallback(() => {
+    setPendingFullAccess(false)
+  }, [setPendingFullAccess])
+
+  return (
+    <FullAccessConfirmDialog
+      open={pendingFullAccess}
+      onConfirm={handleConfirm}
+      onCancel={handleCancel}
+    />
   )
 }
 

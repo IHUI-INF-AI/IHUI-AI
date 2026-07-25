@@ -24,6 +24,13 @@ const STATUS_CLASS: Record<number, string> = {
   2: 'bg-red-500/10 text-red-600 dark:text-red-400',
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
+const STATUS_KEY: Record<number, string> = {
+  0: 'status.0',
+  1: 'status.1',
+  2: 'status.2',
+}
+
 export default function AdminWalletPage() {
   const t = useTranslations('admin.wallet')
   const locale = useLocale()
@@ -115,7 +122,7 @@ export default function AdminWalletPage() {
                   <td className="px-3 py-2 text-right tabular-nums">{num.format(w.totalConsume)}</td>
                   <td className="px-3 py-2">
                     <span className={`rounded-md px-2 py-0.5 text-xs ${STATUS_CLASS[w.status] ?? STATUS_CLASS[0]}`}>
-                      {t(`status.${w.status}` as 'status.0')}
+                      {t(STATUS_KEY[w.status] ?? 'status.unknown')}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{fmt.format(new Date(w.updatedAt))}</td>

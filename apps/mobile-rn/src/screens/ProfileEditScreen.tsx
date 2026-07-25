@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Input } from '@ihui/ui-native'
@@ -17,6 +26,12 @@ const GENDERS: Array<{ value: Gender; key: 'male' | 'female' | 'secret' }> = [
   { value: 2, key: 'female' },
   { value: 0, key: 'secret' },
 ]
+
+const GENDER_KEYS: Record<'male' | 'female' | 'secret', string> = {
+  male: 'profileEdit.gender_male',
+  female: 'profileEdit.gender_female',
+  secret: 'profileEdit.gender_secret',
+}
 
 export function ProfileEditScreen() {
   const { t } = useI18n()
@@ -155,10 +170,8 @@ export function ProfileEditScreen() {
               onPress={() => setGender(g.value)}
               style={[styles.genderItem, gender === g.value && styles.genderItemActive]}
             >
-              <Text
-                style={[styles.genderText, gender === g.value && styles.genderTextActive]}
-              >
-                {t(`profileEdit.gender_${g.key}`)}
+              <Text style={[styles.genderText, gender === g.value && styles.genderTextActive]}>
+                {t(GENDER_KEYS[g.key])}
               </Text>
             </TouchableOpacity>
           ))}
@@ -167,7 +180,8 @@ export function ProfileEditScreen() {
 
       <View style={styles.fieldCard}>
         <Text style={styles.fieldLabel}>{t('profileEdit.bio')}</Text>
-        <Input className="h-auto min-h-[120px]"
+        <Input
+          className="h-auto min-h-[120px]"
           value={bio}
           onChangeText={setBio}
           style={[styles.fieldInput, styles.bioInput]}
