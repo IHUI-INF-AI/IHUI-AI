@@ -111,6 +111,12 @@ interface ChatState {
    * - 'act':正常 tool loop 执行(默认)
    * 持久化,跨刷新保留用户选择。 */
   planMode: 'plan' | 'act'
+  /** 最近一条会话的 messages 快照(2026-07-25 立,#12 store messages 持久化)。
+   * 不在 set 中主动更新,每次 partialize 调用时从 messages + conversationId 派生。
+   * 持久化目的:刷新页面后 messages 数组清空,从 recentMessages 预填充避免空状态闪烁。
+   * 真实数据以服务端 getMessages 拉取为准,预填充仅作为首屏过渡,不作为真实数据源。
+   * 限制最近 50 条(slice(-50))避免 localStorage 超 5MB 配额。 */
+  recentMessages: { conversationId: string; messages: ChatMessage[] } | null
 
   setModel: (model: string) => void
   /** 设置 Plan/Act 模式 */
@@ -192,6 +198,7 @@ export const useChatStore = create<ChatState>()(
       subAgentActivities: [],
       selectedTools: [],
       planMode: 'act',
+      recentMessages: null,
 
       setModel: (model) => set({ currentModel: model }),
       setPlanMode: (mode) => set({ planMode: mode }),
@@ -368,7 +375,30 @@ export const useChatStore = create<ChatState>()(
         conversationId: s.conversationId,
         draftInput: s.draftInput,
         planMode: s.planMode,
+        // #12 store messages 持久化(2026-07-25 立):
+        // 仅持久化当前 conversationId 对应的 messages 最近 50 条,
+        // 用于刷新页面后预填充(避免空状态闪烁),真实数据以服务端 getMessages 为准。
+        recentMessages: s.conversationId
+          ? {
+              conversationId: s.conversationId,
+              messages: s.messages.slice(-50),
+            }
+          : null,
       }),
+      // #12 store messages 持久化(2026-07-25 立):
+      // 状态从 localStorage 恢复时,若 recentMessages.conversationId 与当前 conversationId 匹配,
+      // 预填充 messages 数组,避免首屏空状态闪烁。
+      // 后台 getMessages 拉取完整历史后会覆盖预填充数据(由 ai-side-panel loadHistory 处理)。
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        if (
+          state.recentMessages &&
+          state.recentMessages.conversationId === state.conversationId &&
+          Array.isArray(state.recentMessages.messages)
+        ) {
+          state.messages = state.recentMessages.messages
+        }
+      },
       // 2026-07-24 立:旧版本无 version,localStorage 中 currentModel='stepfun/step-3.7-flash'
       // 是历史默认值(非显式选择)。version=2 migrate 把旧默认值升级到 step-router-v1。
       // 用户若显式选了其他模型(gpt-4o / claude 等),migrate 不动,保留原值。
