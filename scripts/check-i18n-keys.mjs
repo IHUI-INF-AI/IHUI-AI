@@ -9,13 +9,14 @@
  * - 识别 getTranslations: 同时识别 useTranslations('ns') 和 getTranslations('ns')(含 await)
  * - 单文件多命名空间: 基于变量名精确归属,覆盖 t/tc/te 等变量;多 ns 时宽松检查(任一 ns 存在即通过)
  * - --staged 双模式: 暂存区报 error(exit 1) / 全量报 warning(exit 0)
- * - --target=web|extension: 切换扫描目标(web 默认 apps/web/messages/; extension packages/i18n/messages/extension/)
- *   extension 模式只做 key parity 校验,跳过源码使用检测与翻译完整性检测(extension 用 useI18n(),
- *   namespace 提取逻辑不适用,且翻译已人工校对)
+ * - --target=web|extension|shared: 切换扫描目标
+ *   (web 默认 apps/web/messages/; extension packages/i18n/messages/extension/; shared packages/i18n/messages/shared/)
+ *   extension / shared 模式只做 key parity 校验,跳过源码使用检测与翻译完整性检测
+ *   (extension 用 useI18n(),namespace 提取逻辑不适用;shared 为跨端共享基础 key 无源码消费方)
  *
- * 用法: node scripts/check-i18n-keys.mjs [--staged] [--target=web|extension]
+ * 用法: node scripts/check-i18n-keys.mjs [--staged] [--target=web|extension|shared]
  *   --staged: 只检查 git 暂存区涉及的文件(pre-commit 用, 有问题则 exit 1)
- *   --target: 扫描目标,web(默认)或 extension
+ *   --target: 扫描目标,web(默认)、extension 或 shared
  *   无参数:   全量检查(CI 用, 历史遗留问题标 warning, exit 0)
  */
 import { execSync } from 'node:child_process'
@@ -27,15 +28,23 @@ const isStaged = process.argv.includes('--staged')
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 const isExtension = TARGET === 'extension'
+const isShared = TARGET === 'shared'
+// parity-only 模式:仅做 5 语言 key parity 校验,跳过源码使用检测与翻译完整性检测
+// (extension 用 useI18n() namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方)
+const isParityOnly = isExtension || isShared
 const WEB_DIR = join(ROOT, 'apps/web')
 // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
 const MESSAGES_DIR = isExtension
   ? join(ROOT, 'packages/i18n/messages/extension')
-  : join(ROOT, 'packages/i18n/messages/web')
-// extension 模式:暂存区路径前缀(同时识别 packages/i18n/messages/extension/ 与 apps/extension/)
+  : isShared
+    ? join(ROOT, 'packages/i18n/messages/shared')
+    : join(ROOT, 'packages/i18n/messages/web')
+// extension / shared 模式:暂存区路径前缀(extension 同时识别 apps/extension/)
 const STAGED_MESSAGES_PREFIX = isExtension
   ? 'packages/i18n/messages/extension/'
-  : 'packages/i18n/messages/web/'
+  : isShared
+    ? 'packages/i18n/messages/shared/'
+    : 'packages/i18n/messages/web/'
 const STAGED_SOURCE_PREFIX = isExtension ? 'apps/extension/' : 'apps/web/'
 const EXCLUDE_DIRS = new Set(['messages', '.next', 'node_modules', '.git'])
 const BASE_LANG = 'zh-CN'
@@ -168,8 +177,8 @@ if (isStaged) {
     messagesChanged = staged.some(
       (f) => f.startsWith(STAGED_MESSAGES_PREFIX) && f.endsWith('.json'),
     )
-    if (isExtension) {
-      // extension 模式跳过源码使用检测(useI18n() 不是 useTranslations(),namespace 提取不适用)
+    if (isParityOnly) {
+      // parity-only 模式跳过源码使用检测(extension useI18n() 不适用;shared 无源码消费方)
       sourceFiles = []
     } else if (messagesChanged) {
       sourceFiles = collectSourceFiles(WEB_DIR)
@@ -194,20 +203,20 @@ if (isStaged) {
   } catch {
     sourceFiles = []
   }
-} else if (!isExtension) {
+} else if (!isParityOnly) {
   sourceFiles = collectSourceFiles(WEB_DIR)
 }
-// extension 非 staged 模式:sourceFiles 保持 [] (跳过源码使用检测,只做 key parity)
+// parity-only 非 staged 模式:sourceFiles 保持 [] (跳过源码使用检测,只做 key parity)
 
-// extension 模式无源码扫描,仅靠 parity 校验驱动,不能因 sourceFiles 空 + messagesChanged 假就跳过
-if (!isExtension && sourceFiles.length === 0 && !messagesChanged) {
+// parity-only 模式无源码扫描,仅靠 parity 校验驱动,不能因 sourceFiles 空 + messagesChanged 假就跳过
+if (!isParityOnly && sourceFiles.length === 0 && !messagesChanged) {
   console.log(`${C.green}[i18n 键检查] 无源文件变更,跳过${C.reset}`)
   process.exit(0)
 }
 
-// extension 暂存区无 i18n JSON 改动时跳过(避免无关 commit 触发 extension parity)
-if (isExtension && isStaged && !messagesChanged) {
-  console.log(`${C.green}[i18n 键检查] extension 模式:暂存区无 i18n JSON 改动,跳过${C.reset}`)
+// parity-only 暂存区无 i18n JSON 改动时跳过(避免无关 commit 触发 parity 校验)
+if (isParityOnly && isStaged && !messagesChanged) {
+  console.log(`${C.green}[i18n 键检查] ${TARGET} 模式:暂存区无 i18n JSON 改动,跳过${C.reset}`)
   process.exit(0)
 }
 
@@ -245,7 +254,7 @@ if (!isStaged || messagesChanged) {
 // extension 模式跳过:翻译已人工校对,key 数量少,且 extension 用 useI18n() 不走 next-intl
 const untranslatedValueIssues = []
 const TRANSLATABLE_LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
-if (!isExtension && (!isStaged || messagesChanged)) {
+if (!isParityOnly && (!isStaged || messagesChanged)) {
   const enLeaves = collectLeafValues(messages.en || {})
   for (const lang of TRANSLATABLE_LANGS) {
     if (lang === 'en' || !messages[lang]) continue
@@ -400,7 +409,9 @@ if (untranslatedValueIssues.length > 0) {
 if (issueCount > 0) {
   const messagesRelPath = isExtension
     ? `packages/i18n/messages/extension/${BASE_LANG}.json`
-    : `packages/i18n/messages/web/${BASE_LANG}.json`
+    : isShared
+      ? `packages/i18n/messages/shared/${BASE_LANG}.json`
+      : `packages/i18n/messages/web/${BASE_LANG}.json`
   console.log(
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
@@ -408,13 +419,13 @@ if (issueCount > 0) {
   console.log(`${C.yellow}修复方法:${C.reset}`)
   console.log(`  1. 在 ${messagesRelPath} 对应命名空间补齐缺失键`)
   console.log(`  2. 确保所有语言文件的键集与 ${BASE_LANG} 一致(parity)`)
-  if (!isExtension) {
+  if (!isParityOnly) {
     console.log(`  3. 多命名空间文件用不同变量名(t/tc/te)避免冲突`)
   }
   process.exit(1)
 }
 
-const targetLabel = isExtension ? '[extension] ' : ''
+const targetLabel = isExtension ? '[extension] ' : isShared ? '[shared] ' : ''
 console.log(
   `${C.green}[i18n 键检查] ${targetLabel}通过,已检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 parity OK${C.reset}`,
 )
