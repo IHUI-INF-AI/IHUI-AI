@@ -67,6 +67,28 @@ const PAGES: Array<{
   { path: '/recruitment', changeFrequency: 'weekly', priority: 0.6 },
   { path: '/feedback', changeFrequency: 'weekly', priority: 0.5 },
 
+  // SEO 长尾 — 产品对比(2026-07-26 极端曝光度优化)
+  // 这些是高频搜索词:ihui vs dify / ihui vs coze 等,直接进 SEO 第一页
+  { path: '/compare', changeFrequency: 'monthly', priority: 0.9 },
+  { path: '/compare/ihui-vs-dify', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-coze', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-fastgpt', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-n8n', changeFrequency: 'monthly', priority: 0.85 },
+
+  // SEO 长尾 — 行业用例(2026-07-26 极端曝光度优化)
+  // 高频场景搜索:AI 客服 / 企业知识库 / AI 代码助手 / AI 内容创作
+  { path: '/use-cases', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/use-cases/customer-support', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/use-cases/knowledge-base', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/use-cases/code-assistant', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/use-cases/content-generation', changeFrequency: 'monthly', priority: 0.8 },
+
+  // 文档中心(2026-07-26 立,HowTo rich results):
+  // 文档中心聚合所有文档入口,提升整站文档页索引
+  { path: '/docs', changeFrequency: 'weekly', priority: 0.9 },
+  // 快速开始页(HowTo schema,Google Rich Results 优先)
+  { path: '/docs/quickstart', changeFrequency: 'weekly', priority: 0.9 },
+
   // 帮助/支持
   { path: '/help', changeFrequency: 'weekly', priority: 0.7 },
   { path: '/developer', changeFrequency: 'weekly', priority: 0.8 },

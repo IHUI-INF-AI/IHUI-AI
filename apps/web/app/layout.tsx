@@ -300,6 +300,50 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             }),
           }}
         />
+        {/*
+          Feed 自动发现(2026-07-26 立,极致 SEO):
+          RSS / Atom feed 是搜索引擎、内容聚合器、内容订阅系统的标准入口。
+          - 浏览器/阅读器访问首页时自动发现 feed 入口
+          - Google News / Bing News 优先通过 feed 发现更新
+          - 与 sitemap.xml 互补,feed 强调"最近更新"信号
+          使用 <link> 标签,Next.js App Router 会自动 hoist 到 <head>。
+        */}
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="IHUI AI — RSS Feed"
+          href="https://ihui.ai/rss.xml"
+        />
+        <link
+          rel="alternate"
+          type="application/atom+xml"
+          title="IHUI AI — Atom Feed"
+          href="https://ihui.ai/atom.xml"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — LLM Short Index"
+          href="https://ihui.ai/llms.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — LLM Full Documentation"
+          href="https://ihui.ai/llms-full.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/markdown"
+          title="IHUI AI — Claude Optimized"
+          href="https://ihui.ai/claude.md"
+        />
+        <link
+          rel="alternate"
+          type="text/markdown"
+          title="IHUI AI — Perplexity Optimized"
+          href="https://ihui.ai/perplexity.md"
+        />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
