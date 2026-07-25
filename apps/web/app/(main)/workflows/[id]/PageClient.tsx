@@ -8,6 +8,7 @@ import { Loader2, ArrowLeft, Play, Square, RotateCcw, Workflow, Zap } from 'luci
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { TRIGGER_KEYS, INSTANCE_STATUS_KEYS, DETAIL_TAB_KEYS } from '../helpers'
 
 type TriggerType = 'manual' | 'schedule' | 'event' | 'webhook'
 type InstStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -126,7 +127,7 @@ export default function WorkflowDetailPage() {
             <p className="mt-0.5 text-sm text-muted-foreground">{wf.description || '-'}</p>
             <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
               <Zap className="h-3.5 w-3.5" />
-              {t(`triggers.${wf.triggerType}`)}
+              {t(TRIGGER_KEYS[wf.triggerType] ?? 'triggers.unknown')}
             </div>
           </div>
         </div>
@@ -155,7 +156,7 @@ export default function WorkflowDetailPage() {
                   : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
-              {t(`detail.tab_${k}`)}
+              {t(DETAIL_TAB_KEYS[k] ?? 'detail.tab_unknown')}
             </button>
           ))}
         </nav>
@@ -185,7 +186,7 @@ export default function WorkflowDetailPage() {
                       STATUS_BADGE[i.status],
                     )}
                   >
-                    {t(`instanceStatus.${i.status}`)}
+                    {t(INSTANCE_STATUS_KEYS[i.status] ?? 'instanceStatus.unknown')}
                   </span>
                   <div className="min-w-0 flex-1 text-xs text-muted-foreground">
                     <div>
