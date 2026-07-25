@@ -14,10 +14,21 @@ import fp from 'fastify-plugin'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userMargins, users } from '@ihui/database'
+import { authenticate } from './auth.js'
+import { success } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
 
 const TOKEN_CACHE_TTL = 300 // 5 分钟缓存
 const TOKEN_CACHE_PREFIX = 'token_balance:'
+
+// P3-1 VIP 折扣实时计数器(供 admin 看板查询)
+// VIP_TOKEN_BENEFITS: vipLevel 0=1.0 / 1=0.9 / 2=0.8 / 3=0.7 / 4=0.5
+// 仅当 discountRate < 1.0 且 vipLevel > 0 时视为"应用了 VIP 折扣"
+const vipDiscountMetrics = {
+  applies: 0, // 应用 VIP 折扣的总次数
+  totalDiscounted: 0, // 累计节省 token 数(amount - actualAmount 之和,含促销期额外8折)
+  byLevel: {} as Record<number, number>, // 各 VIP 等级应用次数 { 1: N, 2: N, 3: N, 4: N }
+}
 
 /** VIP 等级对应的 Token 权益 */
 const VIP_TOKEN_BENEFITS: Record<number, { monthlyQuota: number; discountRate: number }> = {
@@ -199,6 +210,15 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       `)
 
       await this.invalidateCache(userId)
+
+      // P3-1 VIP 折扣指标埋点:仅当 discountRate < 1.0 且 vipLevel > 0 时算应用了 VIP 折扣
+      if (info.discountRate < 1.0 && info.vipLevel > 0) {
+        vipDiscountMetrics.applies++
+        vipDiscountMetrics.totalDiscounted += Math.max(0, amount - actualAmount)
+        vipDiscountMetrics.byLevel[info.vipLevel] =
+          (vipDiscountMetrics.byLevel[info.vipLevel] ?? 0) + 1
+      }
+
       return { success: true, remaining: newBalance }
     },
 
@@ -240,6 +260,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   }
 
   server.decorate('tokenBalance', service)
+
+  // GET /api/admin/token-balance/metrics — VIP 折扣实时计数器(admin 调试用, P3-1)
+  // 与 business-metrics.ts 的 /business-metrics 互补,本端点提供 admin 看板查询的细分计数器,
+  // 不直接进 Prometheus(避免改 business-metrics.ts)。
+  server.get('/api/admin/token-balance/metrics', { preHandler: authenticate }, async () => {
+    return success({ ...vipDiscountMetrics, byLevel: { ...vipDiscountMetrics.byLevel } })
+  })
 }
 
 export const tokenBalanceService = fp(plugin, {
