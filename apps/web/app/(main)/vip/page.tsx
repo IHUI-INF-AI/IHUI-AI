@@ -46,8 +46,8 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const formatCNY = (cents: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
+const CNY_FMT = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
+const formatCNY = (cents: number) => CNY_FMT.format(cents / 100)
 
 export default function VipPage() {
   const t = useTranslations('vip')
@@ -79,11 +79,15 @@ export default function VipPage() {
   const maxTrialDays = billingPlans
     .filter((p) => p.isRecurring === true)
     .reduce((m, p) => Math.max(m, p.trialDays ?? 0), 0)
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    [locale],
+  )
   const popularIdx = levels.length > 1 ? Math.floor(levels.length / 2) : 0
 
   return (

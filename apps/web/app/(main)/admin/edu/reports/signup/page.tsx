@@ -57,9 +57,14 @@ export default function EduReportsSignupPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const totalSignups = rows.reduce((a, r) => a + r.totalSignups, 0)
-  const totalPaid = rows.reduce((a, r) => a + r.paidSignups, 0)
-  const totalRevenue = rows.reduce((a, r) => a + r.revenue, 0)
+  const { totalSignups, totalPaid, totalRevenue } = React.useMemo(
+    () => ({
+      totalSignups: rows.reduce((a, r) => a + r.totalSignups, 0),
+      totalPaid: rows.reduce((a, r) => a + r.paidSignups, 0),
+      totalRevenue: rows.reduce((a, r) => a + r.revenue, 0),
+    }),
+    [rows],
+  )
   const noEndpoint = isNotFound(error)
 
   return (

@@ -107,24 +107,27 @@ export default function CrewPage() {
   const sessions = sessionsQ.data ?? []
 
   // 最近 10 次会话成功率 + 平均耗时(基于已加载的 sessions 列表)
-  const recentSessions = sessions.slice(0, 10)
-  const completedRecent = recentSessions.filter(
-    (s) => s.status === 'completed' || s.status === 'failed',
-  )
-  const successCount = completedRecent.filter((s) => s.status === 'completed').length
-  const successRate =
-    completedRecent.length > 0 ? Math.round((successCount / completedRecent.length) * 100) : null
-  const completedWithTime = recentSessions.filter((s) => s.createdAt && s.completedAt)
-  const avgDurationMs =
-    completedWithTime.length > 0
-      ? Math.round(
-          completedWithTime.reduce((sum, s) => {
-            const start = new Date(s.createdAt!).getTime()
-            const end = new Date(s.completedAt!).getTime()
-            return sum + (end - start)
-          }, 0) / completedWithTime.length,
-        )
-      : null
+  const { completedRecent, successRate, avgDurationMs } = React.useMemo(() => {
+    const recentSessions = sessions.slice(0, 10)
+    const completedRecent = recentSessions.filter(
+      (s) => s.status === 'completed' || s.status === 'failed',
+    )
+    const successCount = completedRecent.filter((s) => s.status === 'completed').length
+    const successRate =
+      completedRecent.length > 0 ? Math.round((successCount / completedRecent.length) * 100) : null
+    const completedWithTime = recentSessions.filter((s) => s.createdAt && s.completedAt)
+    const avgDurationMs =
+      completedWithTime.length > 0
+        ? Math.round(
+            completedWithTime.reduce((sum, s) => {
+              const start = new Date(s.createdAt!).getTime()
+              const end = new Date(s.completedAt!).getTime()
+              return sum + (end - start)
+            }, 0) / completedWithTime.length,
+          )
+        : null
+    return { completedRecent, successRate, avgDurationMs }
+  }, [sessions])
 
   return (
     <div className="space-y-4">
