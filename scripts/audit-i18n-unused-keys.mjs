@@ -308,12 +308,24 @@ function auditTarget(targetKey) {
   // 对每个文件中的静态 key:
   //   a) 直接作为完整路径引用(无命名空间场景 / t('full.path') 场景)
   //   b) 与文件中每个命名空间拼接:ns + '.' + key(next-intl 场景)
+  //   c) 祖先标记:当 key `a.b.c` 被引用时,同时把祖先 `a.b`、`a` 加入引用集。
+  //      这样数组/对象 leaf(如 `liveHost.products`)在代码以 `t('liveHost.products.0.title')`
+  //      引用其元素时,也会被正确标记为已引用,避免被误判为无引用而删除。
+  const markAncestors = (fullKey) => {
+    const parts = fullKey.split('.')
+    for (let i = parts.length - 1; i > 0; i--) {
+      referencedKeys.add(parts.slice(0, i).join('.'))
+    }
+  }
   for (const [, fd] of fileData) {
     for (const key of fd.staticKeys) {
       referencedKeys.add(key)
+      markAncestors(key)
       if (cfg.usesNamespaces && fd.namespaces.size > 0) {
         for (const ns of fd.namespaces) {
-          referencedKeys.add(`${ns}.${key}`)
+          const full = `${ns}.${key}`
+          referencedKeys.add(full)
+          markAncestors(full)
         }
       }
     }
