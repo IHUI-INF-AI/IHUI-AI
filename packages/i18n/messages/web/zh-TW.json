@@ -1394,7 +1394,8 @@
   },
   "chat": {
     "title": "AI 對話",
-    "placeholder": "詳細描述需求，輸入 / 調用技能、插件、MCP（如 /goal /loop）",
+    "placeholder": "詳細描述需求，輸入 / 呼叫技能、外掛、MCP（如 /goal /loop /plan）",
+    "placeholderPlan": "規劃模式：輸入需求，AI 只制定計畫不執行工具（/act 切回執行，Alt+P 切換）",
     "send": "發送",
     "stop": "停止生成",
     "clear": "清空對話",
