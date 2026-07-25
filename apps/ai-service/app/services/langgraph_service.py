@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway, trim_messages
-from .memory import memory_store
+from .memory import memory_store, memory_system
 from .memory_service import memory_service
 
 
@@ -428,6 +428,11 @@ class LangGraphService:
     async def _memory_save_node(self, state: GraphState) -> GraphState:
         """图出口节点:从对话提取记忆写回 API。
 
+        L1-3 扩展(2026-07-25,对标 Hermes Agent 默认在线记忆 + 激活 P3-1 深度层):
+        - 优先调 memory_system.add_with_extraction(深度层:embedding + 向量存储 + 画像更新 + API 同步)
+        - 深度层异常时降级到 memory_service.save_insights_from_conversation(简化版:仅 LLM 提取 + POST API)
+        - 双层兜底,保证记忆保存不丢
+
         失败不阻塞对话:logger.warning 后继续,图直接进入 END。
         """
         start = time.monotonic()
@@ -436,16 +441,38 @@ class LangGraphService:
         session_id = state.get("session_id", "")
         status = "ok"
         error_msg: str | None = None
+        deep_count = 0
+        fallback_used = False
 
         try:
             # 从 working memory 收集本轮对话消息
             history = await memory_store.get(session_id)
             if history:
-                await memory_service.save_insights_from_conversation(
-                    user_id=user_id,
-                    messages=history,
-                    session_id=session_id or None,
-                )
+                # L1-3 优先:深度层(embedding + 向量 + 画像 + API)
+                try:
+                    result = await memory_system.add_with_extraction(
+                        user_id=user_id,
+                        messages=history,
+                        scope="session",
+                        session_id=session_id or None,
+                    )
+                    deep_count = int(result.get("count", 0))
+                    logger.info(
+                        "memory_save 深度层完成(user=%s):提取 %d 条记忆,耗时 %dms",
+                        user_id, deep_count, int(result.get("durationMs", 0)),
+                    )
+                except Exception as deep_e:
+                    # 深度层异常 → 降级简化版(只 LLM 提取 + POST API)
+                    fallback_used = True
+                    logger.warning(
+                        "memory_save 深度层失败,降级简化版(user=%s): %s",
+                        user_id, deep_e,
+                    )
+                    await memory_service.save_insights_from_conversation(
+                        user_id=user_id,
+                        messages=history,
+                        session_id=session_id or None,
+                    )
         except Exception as e:
             # save 失败不阻塞,图照常进入 END
             status = "error"
@@ -456,6 +483,8 @@ class LangGraphService:
         trace.append(_trace_entry(
             "memory_save", start, end,
             status=status, error=error_msg,
+            deep_extracted=deep_count,
+            fallback_used=fallback_used,
         ))
         return {**state, "trace": trace}
 
