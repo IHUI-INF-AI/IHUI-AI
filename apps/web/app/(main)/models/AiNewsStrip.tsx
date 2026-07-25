@@ -8,7 +8,7 @@ import { Calendar, ChevronRight, Newspaper, Sparkles, TrendingUp } from 'lucide-
 
 import { Button, Card } from '@ihui/ui-react'
 import { getAiNewsFeed, type AiNewsItem } from '@/lib/models-api'
-import { LIVE_2026_MODELS } from './helpers'
+import { LIVE_2026_MODELS, PROVIDER_KEY } from './helpers'
 
 /**
  * 2026-07 真实 AI 资讯条带
@@ -162,7 +162,7 @@ function FallbackNewsCard({ item }: { item: FallbackItem }) {
         <Calendar className="h-2.5 w-2.5" />
         <span>{item.date || '2026-07'}</span>
         <span className="text-muted-foreground/60">·</span>
-        <span>{t(`providers.${item.provider}`)}</span>
+        <span>{t(PROVIDER_KEY[item.provider] ?? 'providers.unknown')}</span>
       </div>
       <h3 className="line-clamp-1 text-xs font-medium leading-snug text-foreground group-hover:text-primary">
         {item.title}

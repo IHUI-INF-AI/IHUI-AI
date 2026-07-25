@@ -9933,7 +9933,7 @@
         "cancel": "취소",
         "formatLabel": "내보내기 형식",
         "exportJson": "JSON 형식",
-        "exportEnv": ".env 형式"
+        "exportEnv": ".env 형식"
       },
       "sidebar": {
         "title": "그룹",

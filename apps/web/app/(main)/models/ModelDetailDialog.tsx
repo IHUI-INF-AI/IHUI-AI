@@ -27,6 +27,7 @@ import { BrandIcon } from '@/components/ai/brand-icon'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 
+import { PROVIDER_KEY } from './helpers'
 import type { Model } from './types'
 
 interface Props {
@@ -79,7 +80,7 @@ export function ModelDetailDialog({
 
   const outputPrice = model.outputPrice ?? model.inputPrice * 3
   const isOutputEstimated = model.outputPrice === undefined
-  const vendorLabel = t(`providers.${model.provider}`)
+  const vendorLabel = t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
   return (

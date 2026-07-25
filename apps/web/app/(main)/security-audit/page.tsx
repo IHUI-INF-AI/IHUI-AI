@@ -35,6 +35,13 @@ const TYPE_ICON: Record<AuditEvent['type'], React.ComponentType<{ className?: st
 
 const DEFAULT_ICON = ShieldAlert
 
+const TYPE_KEY: Record<string, string> = {
+  login: 'type.login',
+  permission: 'type.permission',
+  sensitive: 'type.sensitive',
+  other: 'type.other',
+}
+
 export default function SecurityAuditPage() {
   const t = useTranslations('securityAuditPage')
   const { data: list = [], isLoading } = useQuery({
@@ -88,7 +95,7 @@ export default function SecurityAuditPage() {
                       <TableCell className="px-4 py-2.5">
                         <span className="flex items-center gap-1.5 text-sm font-medium">
                           <Icon className="h-4 w-4 text-muted-foreground" />
-                          {t(`type.${ev.type}`)}
+                          {t(TYPE_KEY[ev.type] ?? 'type.other')}
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-2.5">{ev.description}</TableCell>
