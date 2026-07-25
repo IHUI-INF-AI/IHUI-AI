@@ -1,11 +1,8 @@
 {
   "common": {
-    "save": "保存",
     "cancel": "取消",
     "delete": "删除",
-    "edit": "编辑",
     "back": "返回",
-    "confirm": "确认",
     "loading": "加载中…",
     "empty": "暂无数据",
     "retry": "重试",
@@ -15,17 +12,12 @@
     "failed": "失败"
   },
   "nav": {
-    "home": "首页",
     "chat": "对话",
-    "translate": "翻译",
-    "vocab": "词库",
     "settings": "设置",
-    "about": "关于",
     "agents": "AI 助手",
     "vocabulary": "词库",
     "profile": "个人中心",
     "wallet": "钱包",
-    "courses": "课程",
     "notifications": "通知",
     "tabRuntime": "运行时",
     "ai": "AI",
@@ -134,21 +126,14 @@
     "support": "客服中心",
     "supportDesc": "在线客服支持",
     "about": "关于我们",
-    "aboutDesc": "了解智汇 AI",
     "contact": "联系我们",
-    "contactDesc": "联系方式与地址",
     "help": "帮助中心",
-    "helpDesc": "使用文档与 FAQ",
     "agreement": "用户协议",
-    "agreementDesc": "服务条款",
-    "pricing": "定价方案",
-    "pricingDesc": "会员与套餐价格"
+    "pricing": "定价方案"
   },
   "auth": {
     "login": "登录",
     "logout": "退出登录",
-    "register": "注册",
-    "loginSuccess": "登录成功",
     "loginRequired": "请输入账号和密码",
     "phoneOrEmail": "手机号 / 邮箱",
     "password": "密码",
@@ -163,25 +148,8 @@
     "openChat": "AI 对话",
     "openSidePanel": "打开侧边栏"
   },
-  "translate": {
-    "title": "沉浸式翻译",
-    "source": "源语言",
-    "target": "目标语言",
-    "auto": "自动检测",
-    "translating": "翻译中…",
-    "result": "翻译结果",
-    "copy": "复制",
-    "swap": "交换"
-  },
   "vocab": {
     "title": "生词本",
-    "add": "添加生词",
-    "word": "单词",
-    "meaning": "释义",
-    "example": "例句",
-    "empty": "生词本为空",
-    "review": "复习",
-    "mastered": "已掌握",
     "inputPlaceholder": "输入单词查询...",
     "lookup": "查询",
     "saved": "保存到生词本"
@@ -194,11 +162,8 @@
     "emptyHint": "生词本为空,查词后点击保存"
   },
   "chat": {
-    "placeholder": "输入消息…",
     "send": "发送",
-    "newConversation": "新建对话",
     "history": "历史对话",
-    "stop": "停止",
     "title": "AI 对话",
     "exit": "退出",
     "selectModel": "选择模型",
@@ -209,12 +174,6 @@
   "settings": {
     "title": "设置",
     "language": "界面语言",
-    "targetLanguage": "翻译目标语言",
-    "apiKey": "API 密钥",
-    "theme": "主题",
-    "about": "关于智汇 AI",
-    "version": "版本",
-    "feedback": "意见反馈",
     "appearance": "外观",
     "darkMode": "深色模式",
     "account": "账号",
@@ -300,18 +259,5 @@
     "requireInput": "请输入账号和密码",
     "button": "登录",
     "loadFailed": "登录失败"
-  },
-  "error": {
-    "network": "网络错误",
-    "server": "服务器错误",
-    "unauthorized": "请先登录",
-    "forbidden": "无权限",
-    "notFound": "资源不存在",
-    "unknown": "未知错误"
-  },
-  "success": {
-    "saved": "保存成功",
-    "deleted": "删除成功",
-    "copied": "已复制"
   }
 }
