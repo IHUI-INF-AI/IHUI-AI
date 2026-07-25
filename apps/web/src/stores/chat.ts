@@ -79,6 +79,10 @@ export interface ChatMessage {
   reasoning?: string
   /** 该消息触发的提问(若有,渲染时显示提问卡片) */
   question?: PendingQuestion
+  /** AI 消息生成时所使用的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
+   *  记录"当时生效的模式",便于用户事后回溯"这条回答是基于哪种权限模式生成的"
+   *  仅在 mode !== 'default' 时记录(默认模式太多,无意义) */
+  permissionMode?: 'default' | 'accept-edits' | 'bypass-permissions'
 }
 
 interface ChatState {
@@ -116,7 +120,9 @@ interface ChatState {
   removeSelectedTool: (pluginId: string) => void
   /** 清空已选工具 */
   clearSelectedTools: () => void
-  addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model'>) => string
+  addMessage: (
+    msg: Pick<ChatMessage, 'role' | 'content' | 'model'> & { permissionMode?: ChatMessage['permissionMode'] },
+  ) => string
   appendToMessage: (id: string, delta: string) => void
   appendReasoningToMessage: (id: string, delta: string) => void
   setMessageError: (id: string, error: string) => void
@@ -207,6 +213,7 @@ export const useChatStore = create<ChatState>()(
           content: msg.content,
           createdAt: Date.now(),
           model: msg.model,
+          permissionMode: msg.permissionMode,
         }
         set((s) => ({ messages: [...s.messages, message] }))
         return id
