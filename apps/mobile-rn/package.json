@@ -44,7 +44,8 @@
     "react-native-view-shot": "^4.0.3",
     "react-native-webview": "13.13.5",
     "react-native-wechat-lib": "^3.0.7",
-    "solito": "4.3.0"
+    "solito": "4.3.0",
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
