@@ -81,6 +81,12 @@ const PAGES: Array<{
   // 2026-07-26 阶段 5 新增 2 个现象级 AI Agent 对比
   { path: '/compare/ihui-vs-manus', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/compare/ihui-vs-devin', changeFrequency: 'monthly', priority: 0.85 },
+  // 2026-07-26 阶段 7 新增 5 个开源生态长尾对比
+  { path: '/compare/ihui-vs-autogen', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-crewai', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-llamaindex', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-flowise', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-typebot', changeFrequency: 'monthly', priority: 0.85 },
 
   // SEO 长尾 — 行业用例(2026-07-26 极端曝光度优化)
   // 高频场景搜索:AI 客服 / 企业知识库 / AI 代码助手 / AI 内容创作
