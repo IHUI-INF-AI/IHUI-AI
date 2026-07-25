@@ -8,6 +8,70 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 业务层共享启动阶段 7 — useAuth 跨端集成测试(mobile-rn 端 15 场景全绿,验证 useAuth + createInMemoryTokenStore 组合契约,跨端:packages/shared + apps/mobile-rn,平台独占 — mobile-rn 单端验证,共享层 hook + factory 由阶段 3-4 提供)
+
+**触发**:阶段 5(mobile-rn TokenStore 适配器)完成后用户要求"继续"。阶段 5 仅落地适配器未真实消费,本阶段用集成测试验证 hook + factory 组合行为,为后续各端真实接入打基础。
+
+**执行方式**:主 agent 单端实现(apps/mobile-rn/tests/use-auth.test.tsx),用 `createInMemoryTokenStore`(共享层 factory)作为 mock store,真实测试 hook + factory 组合行为,不 mock 任何 RN / SecureStore API。
+
+**成果清单**:
+
+#### P0:15 场景集成测试(全绿)
+
+- [apps/mobile-rn/tests/use-auth.test.tsx](file:///g:/IHUI-AI/apps/mobile-rn/tests/use-auth.test.tsx) — 268 行,15 个测试场景
+  - 用 `renderHook` + `act` + `waitFor` 模拟 React 组件生命周期
+  - 用 `createInMemoryTokenStore` 作为 mock store,真实测试 hook + factory 组合
+  - 不 mock RN / SecureStore / chrome.storage,纯 React hooks 行为验证
+
+#### P0:测试覆盖矩阵
+
+| 场景 | 验证点 | 结果 |
+| --- | --- | --- |
+| 挂载初始态 | ready=true / token=null / isAuthenticated=false | ✅ |
+| autoBind=true | 调 bindTransport(store) 一次 | ✅ |
+| autoBind=false | 不调 bindTransport,ready 仍 true | ✅ |
+| login 传 newUser | 写 token + setUser,不调 fetchProfile | ✅ |
+| login 不传 newUser | 写 token + 调 fetchProfile 拉取 user | ✅ |
+| login + fetchProfile 失败 | user 保持 null,token 仍写入 | ✅ |
+| login 不传 refreshToken | 不调 setRefreshToken,refreshToken 保持 null | ✅ |
+| logout | 调 logoutApi(rt) + clearAll + 清 user | ✅ |
+| logoutApi 抛异常 | 本地清理仍执行,token/user 都清空 | ✅ |
+| logout 无 refreshToken | 不调 logoutApi | ✅ |
+| logout 不传 logoutApi | 跳过后端调用,直接清本地 | ✅ |
+| refresh 默认实现 | 返回 false(各端按需注入) | ✅ |
+| setUser | 直接更新 user state | ✅ |
+| store 已有 initial token | hook 读取到 isAuthenticated=true | ✅ |
+| login + logout + login 序列 | 状态正确转换 | ✅ |
+
+#### P0:验证 hook + factory 跨端契约
+
+- `createInMemoryTokenStore`(阶段 3)+ `useAuth`(阶段 4)组合行为符合设计预期
+- 15 场景覆盖:ready 状态 / login(4 变体)/ logout(4 变体)/ refresh / setUser / initial token / 状态序列
+- 测试不依赖任何端特定 API,可在 web / extension / miniapp-taro 复用
+
+**验证**:
+
+- @ihui/mobile-rn test(vitest run tests/use-auth.test.tsx):15 passed (15) ✅
+- @ihui/mobile-rn typecheck ✅ exit 0
+- @ihui/mobile-rn lint(use-auth.test.tsx 干净)✅ exit 0
+- 测试耗时 4.32s,环境 jsdom,transform 700ms
+
+**后续阶段预告**(业务层共享启动,7 阶段规划):
+
+- 阶段 8 P1:新增 useArticles/useChat/useAgents 业务 hooks(各端接入 useAuth 后再启动)
+- 阶段 9 P1:新增 authStore/userStore/themeStore 共享(zustand + transport 注入)
+- 阶段 10 P1:业务组件 MessageBubble/ArticleCard/AgentCard/NotificationItem 提取到 @ihui/ui-react
+- 阶段 11 P1:extension 引入 React Query(架构升级评估 + 试点页面)
+
+**Git 同步证据**:
+
+- 本地 commit: (待 commit)
+- origin commit: (待 push)
+- 同步状态: (待验证)
+- 守门脚本: (待验证)
+
+---
+
 ### [x] ✅(2026-07-25) 业务层共享启动阶段 6 — 三端 token.ts 类型层接入 TokenStore 契约 + shared parity 守门接入 pre-commit(跨端:extension + mobile-rn + miniapp-taro + scripts,共享层契约由阶段 3 提供)
 
 **触发**:阶段 3(token-store 通用契约)完成后,用户要求"继续"。承接阶段 3 交付报告的 3 个最优下一步建议(P1 三端类型层接入 + P2-3 shared parity 接入 pre-commit),本阶段执行 P1 + P2-3。
