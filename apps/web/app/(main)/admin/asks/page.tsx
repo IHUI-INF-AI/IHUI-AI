@@ -4,9 +4,6 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@ihui/ui-react'
-
 import { AsksFilter } from './AsksFilter'
 import { AsksTable } from './AsksTable'
 import { AskDialog } from './AskDialog'
@@ -21,6 +18,7 @@ export default function AdminAsksPage() {
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE)
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<AskItem | null>(null)
 
@@ -33,8 +31,8 @@ export default function AdminAsksPage() {
   }, [search])
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'asks', debounced, page],
-    queryFn: () => fetchAsks({ page, search: debounced }),
+    queryKey: ['admin', 'asks', debounced, page, pageSize],
+    queryFn: () => fetchAsks({ page, pageSize, search: debounced }),
     retry: false,
   })
 
@@ -100,7 +98,7 @@ export default function AdminAsksPage() {
   }
 
   const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const list = data?.list ?? []
   const mockMode = !!error && list.length === 0
 
@@ -126,34 +124,19 @@ export default function AdminAsksPage() {
         error={error}
         auditPending={auditMut.isPending}
         deletePending={deleteMut.isPending}
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => {
+          setPageSize(s)
+          setPage(1)
+        }}
         onEdit={openEdit}
         onAudit={handleAudit}
         onDelete={handleDelete}
       />
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            {t('prev')}
-          </Button>
-          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t('next')}
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
       <AskDialog
         open={open}
         editing={editing}

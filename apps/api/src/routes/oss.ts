@@ -16,6 +16,15 @@ import { createUploadPreHandler } from '../plugins/upload-scanner.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { files } from '@ihui/database'
+import {
+  getOssConfig,
+  issueStsCredentials,
+  verifyOssCallback,
+  initiateMultipartUpload,
+  uploadMultipartPart,
+  completeMultipartUpload,
+  abortMultipartUpload,
+} from '../services/storage-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -71,14 +80,58 @@ const uploadProxyBodySchema = z.object({
   size: z.number().int().min(0),
 })
 
+// STS 签发 schema
+const stsBodySchema = z.object({
+  sessionName: z.string().max(64).optional(),
+  durationSeconds: z.number().int().min(900).max(3600).optional(),
+})
+
+// 分片上传 schema
+const multipartInitBodySchema = z.object({
+  filename: z.string().min(1).max(255),
+  contentType: z.string().max(128).optional(),
+})
+
+const multipartUploadQuerySchema = z.object({
+  uploadId: z.string().min(1, 'uploadId 不能为空'),
+  partNumber: z.coerce.number().int().min(1).max(10000),
+})
+
+const multipartCompleteBodySchema = z.object({
+  uploadId: z.string().min(1, 'uploadId 不能为空'),
+  parts: z
+    .array(
+      z.object({
+        partNumber: z.number().int().min(1).max(10000),
+        etag: z.string().min(1),
+      }),
+    )
+    .min(1),
+})
+
+const multipartAbortBodySchema = z.object({
+  uploadId: z.string().min(1, 'uploadId 不能为空'),
+})
+
 // =============================================================================
 // 公共路由(前缀 /api,需登录):查询可用驱动 + 上传/下载代理
 // =============================================================================
 
 export const ossRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    // /oss/callback 由 OSS 服务端调用,使用 RSA-SHA1 验签替代 JWT 鉴权
+    if (request.url.startsWith('/oss/callback')) return
     if (!(await checkAuth(request, reply))) return
   })
+
+  // 分片上传接收二进制 body(application/octet-stream)
+  server.addContentTypeParser(
+    'application/octet-stream',
+    { parseAs: 'buffer' },
+    (_req, body, done) => {
+      done(null, body)
+    },
+  )
 
   // GET /oss/drivers - 启用中的驱动列表(不返回 credentials)
   server.get(
@@ -275,6 +328,323 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
           message: '请通过 /files 接口完成下载',
         }),
       )
+    },
+  )
+
+  // ===========================================================================
+  // OSS 直传能力(P2-1):STS 签发 + 直传回调验签 + 分片上传
+  // 迁移自 D3 OssServiceApplication
+  // ===========================================================================
+
+  // POST /oss/sts - 签发 STS 临时凭证(客户端直传)
+  server.post(
+    '/oss/sts',
+    {
+      schema: {
+        summary: '签发 STS 临时凭证(直传)',
+        tags: ['oss'],
+        body: { type: 'object', additionalProperties: true },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          503: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = stsBodySchema.safeParse(request.body ?? {})
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      if (!getOssConfig()) {
+        return reply
+          .status(503)
+          .send(
+            error(
+              503,
+              'OSS 未配置(OSS_ACCESS_KEY_ID/OSS_ACCESS_KEY_SECRET/OSS_ROLE_ARN/OSS_BUCKET 环境变量缺失)',
+            ),
+          )
+      }
+      try {
+        const userId = request.userId ?? 'anonymous'
+        const sessionName = parsed.data.sessionName ?? `ihui-${userId.slice(-8)}`
+        const creds = await issueStsCredentials(sessionName, parsed.data.durationSeconds)
+        return reply.send(success({ credentials: creds }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(503).send(error(503, (e as Error).message || 'STS 签发失败'))
+      }
+    },
+  )
+
+  // POST /oss/callback - 直传回调验签(OSS 服务端调用,无 JWT,使用 RSA-SHA1 验签)
+  // 注册在子插件中以覆盖 body parser,获取原始 body 字符串用于验签
+  server.register(async (sub) => {
+    // OSS 回调可能以 application/x-www-form-urlencoded 或 application/json 发送
+    // 验签需要原始 body 字符串,所以 parser 返回 string 而非解析后的对象
+    sub.addContentTypeParser(
+      'application/json',
+      { parseAs: 'string' },
+      (_req, body, done) => done(null, body),
+    )
+    sub.addContentTypeParser(
+      'application/x-www-form-urlencoded',
+      { parseAs: 'string' },
+      (_req, body, done) => done(null, body),
+    )
+
+    sub.post(
+      '/oss/callback',
+      {
+        schema: {
+          summary: '直传回调验签(OSS 调用)',
+          tags: ['oss'],
+          body: { type: 'string' },
+          response: {
+            200: {
+              type: 'object',
+              properties: {
+                Result: { type: 'string' },
+              },
+            },
+            401: {
+              type: 'object',
+              properties: { code: { type: 'number' }, message: { type: 'string' } },
+            },
+          },
+        },
+      },
+      async (request, reply) => {
+        const authHeader = request.headers.authorization ?? ''
+        const pubKeyUrlB64 = (request.headers['x-oss-pub-key-url'] as string) ?? ''
+
+        if (!authHeader || !pubKeyUrlB64) {
+          return reply.status(401).send(error(401, '缺少验签 header'))
+        }
+
+        // request.body 为原始字符串(parser 已配置为返回 string)
+        const body = (request.body as string | undefined) ?? ''
+        const urlPath = request.url.split('?')[0] ?? ''
+        const urlQuery = request.url.split('?')[1] ?? ''
+
+        const verified = await verifyOssCallback({
+          method: request.method,
+          path: urlPath,
+          query: urlQuery,
+          body,
+          authorization: authHeader,
+          pubKeyUrlB64,
+        })
+
+        if (!verified) {
+          return reply.status(401).send(error(401, '回调验签失败'))
+        }
+
+        // 验签通过,返回 Result: success(OSS 协议要求)
+        return reply.send({ Result: 'success' })
+      },
+    )
+  })
+
+  // POST /oss/multipart/init - 分片上传初始化
+  server.post(
+    '/oss/multipart/init',
+    {
+      schema: {
+        summary: '分片上传初始化',
+        tags: ['oss'],
+        body: { type: 'object', additionalProperties: true },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          503: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = multipartInitBodySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      if (!getOssConfig()) {
+        return reply.status(503).send(error(503, 'OSS 未配置'))
+      }
+      try {
+        const userId = request.userId!
+        const result = await initiateMultipartUpload(userId, parsed.data)
+        return reply.send(success(result))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(503).send(error(503, (e as Error).message || '分片上传初始化失败'))
+      }
+    },
+  )
+
+  // POST /oss/multipart/upload - 分片上传(二进制 body,query 传 uploadId + partNumber)
+  server.post(
+    '/oss/multipart/upload',
+    {
+      schema: {
+        summary: '分片上传(二进制)',
+        tags: ['oss'],
+        querystring: {
+          type: 'object',
+          properties: {
+            uploadId: { type: 'string' },
+            partNumber: { type: 'number' },
+          },
+          required: ['uploadId', 'partNumber'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+      bodyLimit: 10 * 1024 * 1024, // 单片最大 10MB(默认 5MB + 余量)
+    },
+    async (request, reply) => {
+      const parsed = multipartUploadQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const body = request.body as Buffer | undefined
+      if (!body || body.length === 0) {
+        return reply.status(400).send(error(400, '分片数据不能为空'))
+      }
+      try {
+        const userId = request.userId!
+        const result = await uploadMultipartPart(
+          parsed.data.uploadId,
+          parsed.data.partNumber,
+          body,
+          userId,
+        )
+        return reply.send(success(result))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(400).send(error(400, (e as Error).message || '分片上传失败'))
+      }
+    },
+  )
+
+  // POST /oss/multipart/complete - 完成分片上传
+  server.post(
+    '/oss/multipart/complete',
+    {
+      schema: {
+        summary: '完成分片上传',
+        tags: ['oss'],
+        body: { type: 'object', additionalProperties: true },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = multipartCompleteBodySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const userId = request.userId!
+        const result = await completeMultipartUpload(
+          parsed.data.uploadId,
+          parsed.data.parts,
+          userId,
+        )
+        return reply.send(success(result))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(400).send(error(400, (e as Error).message || '完成分片上传失败'))
+      }
+    },
+  )
+
+  // POST /oss/multipart/abort - 取消分片上传
+  server.post(
+    '/oss/multipart/abort',
+    {
+      schema: {
+        summary: '取消分片上传',
+        tags: ['oss'],
+        body: { type: 'object', additionalProperties: true },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = multipartAbortBodySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const userId = request.userId!
+        await abortMultipartUpload(parsed.data.uploadId, userId)
+        return reply.send(success({ aborted: true }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(400).send(error(400, (e as Error).message || '取消分片上传失败'))
+      }
     },
   )
 }
