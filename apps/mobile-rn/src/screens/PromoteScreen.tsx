@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -28,6 +36,11 @@ interface InviteRecord {
   status: 'active' | 'inactive'
 }
 
+const PROMOTE_STATUS_KEYS: Record<InviteRecord['status'], string> = {
+  active: 'promote.status_active',
+  inactive: 'promote.status_inactive',
+}
+
 export function PromoteScreen() {
   const { t } = useI18n()
   const { token } = useAuth()
@@ -40,29 +53,38 @@ export function PromoteScreen() {
   const [copied, setCopied] = useState(false)
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
-    setError('')
-    const [infoRes, recordsRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/promote/info`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-      fetch(`${API_BASE_URL}/api/promote/records?page=1&pageSize=10`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-    ])
-    if (!infoRes.ok || !recordsRes.ok) {
-      setError(t('promote.loadFailed'))
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      const [infoRes, recordsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/promote/info`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }),
+        fetch(`${API_BASE_URL}/api/promote/records?page=1&pageSize=10`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }),
+      ])
+      if (!infoRes.ok || !recordsRes.ok) {
+        setError(t('promote.loadFailed'))
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      const infoData = (await infoRes.json()) as { data?: PromoteInfo }
+      const recordsData = (await recordsRes.json()) as { data?: { list: InviteRecord[] } }
+      setInfo(infoData.data ?? null)
+      setRecords(recordsData.data?.list ?? [])
       setLoading(false)
       setRefreshing(false)
-      return
-    }
-    const infoData = (await infoRes.json()) as { data?: PromoteInfo }
-    const recordsData = (await recordsRes.json()) as { data?: { list: InviteRecord[] } }
-    setInfo(infoData.data ?? null)
-    setRecords(recordsData.data?.list ?? [])
-    setLoading(false)
-    setRefreshing(false)
-  }, [token, t])
+    },
+    [token, t],
+  )
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   useEffect(() => {
     return () => {
@@ -143,7 +165,9 @@ export function PromoteScreen() {
 
           <View style={styles.linkCard}>
             <Text style={styles.linkLabel}>{t('promote.referralLink')}</Text>
-            <Text style={styles.linkText} numberOfLines={1}>{info.referralLink}</Text>
+            <Text style={styles.linkText} numberOfLines={1}>
+              {info.referralLink}
+            </Text>
             <View style={styles.linkActions}>
               <TouchableOpacity style={[styles.linkBtn, styles.copyBtn]} onPress={handleCopy}>
                 <Text style={styles.linkBtnText}>
@@ -154,7 +178,9 @@ export function PromoteScreen() {
                 <Text style={styles.linkBtnText}>{t('promote.shareBtn')}</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.codeText}>{t('promote.referralCode')}: {info.referralCode}</Text>
+            <Text style={styles.codeText}>
+              {t('promote.referralCode')}: {info.referralCode}
+            </Text>
           </View>
 
           <Text style={styles.sectionTitle}>{t('promote.rules')}</Text>
@@ -163,7 +189,9 @@ export function PromoteScreen() {
               <Text style={styles.emptyText}>{t('promote.empty')}</Text>
             ) : (
               info.rules.map((rule, idx) => (
-                <Text key={idx} style={styles.ruleText}>• {rule}</Text>
+                <Text key={idx} style={styles.ruleText}>
+                  • {rule}
+                </Text>
               ))
             )}
           </View>
@@ -178,14 +206,18 @@ export function PromoteScreen() {
               records.map((item) => (
                 <View key={item.id} style={styles.recordCard}>
                   <View style={styles.recordInfo}>
-                    <Text style={styles.recordName} numberOfLines={1}>{item.nickname}</Text>
+                    <Text style={styles.recordName} numberOfLines={1}>
+                      {item.nickname}
+                    </Text>
                     <Text style={styles.recordDate}>{item.joinDate}</Text>
                   </View>
                   <View style={styles.recordRight}>
                     <Text style={styles.recordContribution}>+¥{item.contribution}</Text>
-                    <View style={[styles.recordStatus, item.status === 'active' && styles.statusActive]}>
+                    <View
+                      style={[styles.recordStatus, item.status === 'active' && styles.statusActive]}
+                    >
                       <Text style={styles.recordStatusText}>
-                        {t(`promote.status_${item.status}`)}
+                        {t(PROMOTE_STATUS_KEYS[item.status])}
                       </Text>
                     </View>
                   </View>
@@ -218,7 +250,14 @@ const styles = StyleSheet.create({
   statItem: { alignItems: 'center', flex: 1 },
   statValue: { fontSize: 20, fontWeight: '700', color: PRIMARY },
   statLabel: { marginTop: 4, fontSize: 11, color: '#065F46' },
-  linkCard: { marginHorizontal: 16, marginTop: 12, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  linkCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
   linkLabel: { fontSize: 12, fontWeight: '600', color: '#374151' },
   linkText: { marginTop: 6, fontSize: 13, color: PRIMARY },
   linkActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
@@ -227,19 +266,53 @@ const styles = StyleSheet.create({
   shareBtn: { backgroundColor: '#F3F4F6' },
   linkBtnText: { fontSize: 13, color: '#FFFFFF' },
   codeText: { marginTop: 10, fontSize: 11, color: '#9CA3AF' },
-  sectionTitle: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, fontSize: 15, fontWeight: '600', color: '#111827' },
-  rulesCard: { marginHorizontal: 16, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  sectionTitle: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  rulesCard: {
+    marginHorizontal: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
   ruleText: { fontSize: 12, color: '#6B7280', marginVertical: 3, lineHeight: 18 },
   recordsList: { marginHorizontal: 16, marginBottom: 24 },
-  recordCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 8 },
+  recordCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+  },
   recordInfo: { flex: 1, marginRight: 8 },
   recordName: { fontSize: 14, fontWeight: '600', color: '#111827' },
   recordDate: { marginTop: 2, fontSize: 11, color: '#9CA3AF' },
   recordRight: { alignItems: 'flex-end' },
   recordContribution: { fontSize: 13, fontWeight: '600', color: PRIMARY },
-  recordStatus: { marginTop: 4, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, backgroundColor: '#F3F4F6' },
+  recordStatus: {
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
   statusActive: { backgroundColor: '#ECFDF5' },
   recordStatusText: { fontSize: 10, color: '#6B7280' },
-  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
+  retryBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
   retryBtnText: { color: '#FFFFFF', fontSize: 13 },
 })
