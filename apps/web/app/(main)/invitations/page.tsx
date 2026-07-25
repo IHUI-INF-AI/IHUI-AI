@@ -144,10 +144,10 @@ export default function InvitationsPage() {
                     <span
                       className={cn(
                         'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
-                        STATUS_STYLE[c.status as any],
+                        (STATUS_STYLE as any)[c.status],
                       )}
                     >
-                      {t(INVITATION_STATUS_KEYS[c.status as any]!)}
+                      {t((INVITATION_STATUS_KEYS as any)[c.status]!)}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">

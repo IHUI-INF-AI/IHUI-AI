@@ -109,7 +109,7 @@ export default function MemberCouponsPage() {
           {coupons.map((c: any) => (
             <div
               key={c.id}
-              className={cn('flex items-center gap-3 rounded-lg border p-3', STATUS_CLS[c.status as any])}
+              className={cn('flex items-center gap-3 rounded-lg border p-3', (STATUS_CLS as any)[c.status])}
             >
               <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-md bg-primary/10 text-primary">
                 <span className="text-lg font-bold">

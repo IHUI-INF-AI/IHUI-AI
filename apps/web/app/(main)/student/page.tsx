@@ -100,15 +100,15 @@ export default function StudentCenterPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem as any onClick={() => handleExport('pdf')}>
+            <DropdownMenuItem {...({ onClick: () => handleExport('pdf') } as any)}>
               <FileText className="mr-2 h-4 w-4" />
               {t('exportPdf')}
             </DropdownMenuItem>
-            <DropdownMenuItem as any onClick={() => handleExport('excel')}>
+            <DropdownMenuItem {...({ onClick: () => handleExport('excel') } as any)}>
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               {t('exportExcel')}
             </DropdownMenuItem>
-            <DropdownMenuItem as any onClick={() => handleExport('json')}>
+            <DropdownMenuItem {...({ onClick: () => handleExport('json') } as any)}>
               <FileJson className="mr-2 h-4 w-4" />
               {t('exportJson')}
             </DropdownMenuItem>

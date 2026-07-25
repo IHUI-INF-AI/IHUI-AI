@@ -105,7 +105,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
 
     const handleIframeLoad = React.useCallback(
       (e: React.SyntheticEvent<HTMLIFrameElement>) => {
-        onLoad?.(e)
+        onLoad?.()
         injectHideScrollbar(e.currentTarget)
       },
       [onLoad],
