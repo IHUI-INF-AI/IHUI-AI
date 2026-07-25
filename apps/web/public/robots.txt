@@ -1,7 +1,82 @@
+# 传统爬虫(全文允许,屏蔽私有区)
 User-agent: *
 Allow: /
 Disallow: /admin/
 Disallow: /api/
 Disallow: /user/
+Disallow: /sso/auth/
+Disallow: /settings/
+Disallow: /wallet/
+Disallow: /orders/
 
+# AI 爬虫(显式放行,强化 GEO 检索权重)
+# 主流生成式引擎(GPT/Claude/Perplexity/Gemini/豆包/Kimi/DeepSeek)的抓取入口
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: GoogleOther
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: cohere-training-data-crawler
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+User-agent: ImagesiftBot
+Allow: /
+
+# 站点地图 + GEO 入口
 Sitemap: https://ihui.ai/sitemap.xml
+Sitemap: https://ihui.ai/llms.txt

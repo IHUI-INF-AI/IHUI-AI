@@ -1,0 +1,103 @@
+import type { MetadataRoute } from 'next'
+
+// 动态 sitemap(2026-07-26 立,GEO 优化):
+// - 覆盖 30+ 核心公开页(产品/营销/帮助/法律/资源)
+// - 每页带 5 语言 hreflang(zh-CN / zh-TW / en / ko / ja)
+// - 优先级 + 更新频率按页面重要度分级
+// - 私有页(admin/user/wallet/orders/sso-callback/auth)不进 sitemap,
+//   由 robots.txt 配合 Disallow 防止被索引
+//
+// 为什么不枚举所有 (main) 路由:
+// app/(main) 路由组下有 100+ 页面,大量是登录后私有页(dashboard/wallet/orders 等),
+// 全量进 sitemap 会导致大量 404/重复内容被 LLM 索引,反而降低 SEO 权重。
+// 这里只枚举真正"对外可索引"的营销/产品/帮助/法律/资源页。
+
+const SITE_URL = 'https://ihui.ai'
+const LOCALES = ['zh-cn', 'zh-tw', 'en', 'ko', 'ja'] as const
+
+// 核心公开页面清单
+// changeFrequency: 页面更新频率
+// priority: 相对优先级(0.0-1.0,首页=1.0)
+const PAGES: Array<{
+  path: string
+  changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency']
+  priority: number
+}> = [
+  // 营销/首页
+  { path: '', changeFrequency: 'daily', priority: 1.0 },
+
+  // 产品核心页
+  { path: '/agents', changeFrequency: 'daily', priority: 0.9 },
+  { path: '/models', changeFrequency: 'daily', priority: 0.9 },
+  { path: '/knowledge-base', changeFrequency: 'weekly', priority: 0.9 },
+  { path: '/knowledge-rag', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/workflows', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/mcp-projects', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/ai-generation', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/ai-skills', changeFrequency: 'weekly', priority: 0.7 },
+  { path: '/agent-kanban', changeFrequency: 'weekly', priority: 0.7 },
+  { path: '/agent-runtime', changeFrequency: 'weekly', priority: 0.7 },
+  { path: '/agent-workbench', changeFrequency: 'weekly', priority: 0.7 },
+
+  // 内容/社区
+  { path: '/articles', changeFrequency: 'daily', priority: 0.8 },
+  { path: '/news', changeFrequency: 'daily', priority: 0.8 },
+  { path: '/ai-news', changeFrequency: 'daily', priority: 0.7 },
+  { path: '/ai-world', changeFrequency: 'daily', priority: 0.7 },
+  { path: '/plaza', changeFrequency: 'daily', priority: 0.7 },
+  { path: '/asks', changeFrequency: 'daily', priority: 0.6 },
+  { path: '/circles', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/members', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/topics', changeFrequency: 'weekly', priority: 0.5 },
+  { path: '/tags', changeFrequency: 'weekly', priority: 0.5 },
+
+  // 资源/工具
+  { path: '/plugins', changeFrequency: 'weekly', priority: 0.7 },
+  { path: '/tools', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/n8n-agents', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/subagents', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/hooks', changeFrequency: 'weekly', priority: 0.5 },
+  { path: '/registry', changeFrequency: 'weekly', priority: 0.5 },
+
+  // 公司/服务
+  { path: '/about', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/pricing', changeFrequency: 'monthly', priority: 0.9 },
+  { path: '/enterprise', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/contact', changeFrequency: 'monthly', priority: 0.6 },
+  { path: '/recruitment', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/feedback', changeFrequency: 'weekly', priority: 0.5 },
+
+  // 帮助/支持
+  { path: '/help', changeFrequency: 'weekly', priority: 0.7 },
+  { path: '/developer', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/support', changeFrequency: 'weekly', priority: 0.5 },
+
+  // 法律
+  { path: '/agreement', changeFrequency: 'yearly', priority: 0.3 },
+  { path: '/rules', changeFrequency: 'yearly', priority: 0.3 },
+  { path: '/refund', changeFrequency: 'yearly', priority: 0.3 },
+  { path: '/security-audit', changeFrequency: 'monthly', priority: 0.5 },
+]
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  const lastModified = new Date()
+
+  return PAGES.map(({ path, changeFrequency, priority }) => {
+    // zh-CN 是主语言,canonical 指向它
+    const languages: Record<string, string> = {}
+    for (const locale of LOCALES) {
+      languages[locale] = `${SITE_URL}/${locale}${path}`
+    }
+    languages['x-default'] = `${SITE_URL}${path}`
+
+    return {
+      url: `${SITE_URL}${path}`,
+      lastModified,
+      changeFrequency,
+      priority,
+      alternates: {
+        languages,
+      },
+    }
+  })
+}
