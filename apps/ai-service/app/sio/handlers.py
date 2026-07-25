@@ -28,7 +28,7 @@ import jwt
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 from ..services.memory import memory_store
-from . import sio
+from . import rate_limiter, sio
 
 logger = logging.getLogger(__name__)
 
@@ -301,6 +301,50 @@ async def on_chat_message(sid: str, data: Any) -> None:
 
     # 房间:同一 chat 多端订阅广播 chunk
     room = f"chat:{owner_uuid}:{chat_id}"
+
+    # 速率限制:per-user token bucket(防高频刷 AI 调用)
+    try:
+        rate_ok = await rate_limiter.acquire(owner_uuid)
+    except Exception as e:
+        logger.warning("[sio] rate_limiter.acquire 异常,降级允许: %s", e)
+        rate_ok = True
+    if not rate_ok:
+        await sio.emit(
+            "chat_error",
+            {
+                "chat_id": chat_id,
+                "session_id": session_id,
+                "message": "请求过于频繁,请稍后再试",
+                "code": "rate_limited",
+            },
+            to=sid,
+        )
+        return
+
+    # 预算检查:防预算耗尽后仍调 AI
+    tenant_id_raw = data.get("tenant_id")
+    tenant_id = str(tenant_id_raw) if tenant_id_raw else None
+    try:
+        budget_ok, budget_reason = await rate_limiter.check_budget(
+            owner_uuid, tenant_id=tenant_id, model=model
+        )
+    except Exception as e:
+        logger.warning(
+            "[sio] rate_limiter.check_budget 异常,降级允许: %s", e
+        )
+        budget_ok, budget_reason = True, None
+    if not budget_ok:
+        await sio.emit(
+            "chat_error",
+            {
+                "chat_id": chat_id,
+                "session_id": session_id,
+                "message": budget_reason or "日 token 预算已用尽",
+                "code": "budget_exceeded",
+            },
+            to=sid,
+        )
+        return
 
     # 构造消息:可选直接用客户端传入的 history(覆盖 session 记忆),
     # 否则从 memory_store 读历史 + 当前输入。
