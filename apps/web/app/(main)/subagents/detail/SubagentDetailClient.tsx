@@ -155,20 +155,20 @@ export default function SubagentDetailClient() {
             <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
               <div>
                 <p className="text-xs text-muted-foreground">状态</p>
-                <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_BADGE[dispatch.status as any]}`}>
-                  {STATUS_LABEL[dispatch.status as any]}
+                <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${(STATUS_BADGE as any)[dispatch.status]}`}>
+                  {(STATUS_LABEL as any)[dispatch.status]}
                 </span>
               </div>
               {dispatch.agentRole && (
                 <div>
                   <p className="text-xs text-muted-foreground">角色</p>
-                  <p className="mt-1 text-sm">{ROLE_LABEL[dispatch.agentRole as any]}</p>
+                  <p className="mt-1 text-sm">{(ROLE_LABEL as any)[dispatch.agentRole]}</p>
                 </div>
               )}
               {dispatch.priority && (
                 <div>
                   <p className="text-xs text-muted-foreground">优先级</p>
-                  <p className="mt-1 text-sm">{PRIORITY_LABEL[dispatch.priority as any]}</p>
+                  <p className="mt-1 text-sm">{(PRIORITY_LABEL as any)[dispatch.priority]}</p>
                 </div>
               )}
               <div>
