@@ -887,6 +887,7 @@
       "reEnableAutoRevert": "重新启用 1 小时自动撤销",
       "autoRevertedTitle": "已自动切回请求批准",
       "autoRevertedDesc": "为避免长时间处于高风险模式,1 小时无操作后自动降级。重新开启完全访问请用 Shift+Tab 或点击权限按钮。",
+      "autoRevertedDescWithDuration": "本次完全访问已持续 {usedMin} 分钟,自动降级到请求批准。重新开启完全访问请用 Shift+Tab 或点击权限按钮。",
       "revertWarning5minTitle": "完全访问模式即将自动降级",
       "revertWarning5minDesc": "5 分钟后将自动切回请求批准模式。如需继续完全访问,请点「再保持 1 小时」。",
       "revertWarning1minTitle": "完全访问模式 1 分钟后自动降级",

@@ -887,6 +887,7 @@
       "reEnableAutoRevert": "1시간 자동 전환 재활성화",
       "autoRevertedTitle": "승인 요청으로 자동 전환됨",
       "autoRevertedDesc": "고위험 모드에 오래 머물지 않도록 1시간 동안 작업이 없으면 자동으로 다운그레이드됩니다. Shift+Tab 또는 권한 버튼으로 전체 액세스를 다시 켜세요.",
+      "autoRevertedDescWithDuration": "전체 액세스가 {usedMin}분 동안 유지되어 요청 승인으로 자동 강등되었습니다. 다시 활성화하려면 Shift+Tab을 누르거나 권한 버튼을 클릭하세요.",
       "revertWarning5minTitle": "전체 액세스 모드가 곧 자동 강등됩니다",
       "revertWarning5minDesc": "5분 후 요청 승인 모드로 자동 전환됩니다. 계속하려면 '1시간 연장'을 클릭하세요.",
       "revertWarning1minTitle": "전체 액세스 모드 1분 후 자동 강등",
