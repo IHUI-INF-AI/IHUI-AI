@@ -282,7 +282,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- warn (12 项) ---
+  // --- warn (11 项) ---
   {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',
@@ -299,10 +299,10 @@ const checks = [
   },
   {
     id: '2f-shared',
-    label: '🌐 [shared] i18n 键完整性(warn-only)',
+    label: '🌐 [shared] i18n 键完整性(blocking,零变更验证通过)',
     script: 'check-i18n-keys.mjs',
     args: ['--target=shared'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2g-ext',
