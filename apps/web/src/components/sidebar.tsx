@@ -1905,8 +1905,10 @@ export function Sidebar({
           onClick={onToggleCollapse}
           // h-9 w-9 (36×36) 与新建任务按钮/主导航项统一;hover 用 foreground/20 与新建任务按钮一致;
           // 默认无背景,仅 hover 出现 (2026-07-20 用户反馈:默认 bg-foreground/10 让按钮视觉过重)
+          // 图标尺寸 20×20 (size-5):覆盖 Button 默认的 [&_svg]:size-4,纯图标按钮无文字标签,16×16 视觉过小
+          // (2026-07-25 用户反馈);h-4 仍保留在 SVG 上作为防御性兜底。
           className={cn(
-            'flex-shrink-0 p-0 text-foreground hover:bg-foreground/20',
+            'flex-shrink-0 p-0 text-foreground hover:bg-foreground/20 [&_svg]:size-5',
             'hidden lg:flex',
           )}
           aria-label={collapsed ? t('expand') : t('collapse')}
