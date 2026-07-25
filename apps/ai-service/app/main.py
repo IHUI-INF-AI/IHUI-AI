@@ -164,6 +164,22 @@ async def lifespan(app: FastAPI):
     from app.services.meta_learner_scheduler import meta_learner_scheduler
     await meta_learner_scheduler.start()
 
+    # L5 启动时从 DB 加载 running A/B 测试到内存(进程重启不丢 shadow 流量统计)
+    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 create_test 会创建新测试)
+    from app.services.ab_test_tracker import ab_test_tracker
+    tests_loaded = await ab_test_tracker.load_active_tests()
+    if tests_loaded:
+        logger.info(
+            "[ab_test_tracker] 启动从 DB hydrate %d 条 running A/B 测试",
+            tests_loaded,
+        )
+
+    # L5 启动 A/B 测试调度器(周期 flush stats + 触发显著性检验 + auto promote/rollback)
+    # 由 AB_TEST_ENABLED 环境变量控制开关(默认 false,避免消耗 LLM tokens 做 shadow call)
+    # 失败不阻塞主服务(单次循环异常只 warning,下次循环自动恢复)
+    from app.services.ab_test_scheduler import ab_test_scheduler
+    await ab_test_scheduler.start()
+
     # 启动多平台一键发布调度器(轮询 publish_tasks 表 scheduled_at 到期任务,
     # 同用户最多 3 个并发,失败平台支持 retry)
     from app.services.publish.scheduler import publish_scheduler
@@ -195,6 +211,10 @@ async def lifespan(app: FastAPI):
     # 关闭元学习调度器(等待进行中的失败聚类任务完成)
     from app.services.meta_learner_scheduler import meta_learner_scheduler
     await meta_learner_scheduler.stop()
+
+    # L5 关闭 A/B 测试调度器(等待进行中的显著性检验任务完成)
+    from app.services.ab_test_scheduler import ab_test_scheduler
+    await ab_test_scheduler.stop()
 
     await publish_scheduler.stop()
     await self_media_scheduler.stop()
