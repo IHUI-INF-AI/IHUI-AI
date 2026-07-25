@@ -24,6 +24,16 @@ const PERMISSION_REASON_KEY: Record<string, string> = {
   paid: 'ai.agentDetail.reasonVip',
 }
 
+const CATEGORY_KEY: Record<string, string> = {
+  office: 'ai.agentList.categories.office',
+  writing: 'ai.agentList.categories.writing',
+  coding: 'ai.agentList.categories.coding',
+  education: 'ai.agentList.categories.education',
+  life: 'ai.agentList.categories.life',
+  other: 'ai.agentList.categories.other',
+  recommend: 'ai.agentList.categories.recommend',
+}
+
 const FAVORITE_KEY = 'ai_agent_favorites'
 const RECENT_KEY = 'ai_agent_recent'
 const RECENT_MAX = 20
@@ -258,7 +268,7 @@ export default function AgentDetailPage() {
 
   const categoryLabel = useMemo(() => {
     if (!category || category === 'other') return ''
-    return t(`ai.agentList.categories.${category}`)
+    return t(CATEGORY_KEY[category] ?? 'ai.agentList.categories.other')
   }, [category, t])
 
   // 派生数据:标签 / 示例对话 / 评分 / 评分分布
