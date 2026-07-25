@@ -4,6 +4,7 @@
  * 多模型路由、负载均衡、故障转移。
  */
 import { EventEmitter } from 'node:events'
+import WebSocket from 'ws'
 import { logger } from './logger.js'
 import {
   getModelManager,
@@ -56,28 +57,162 @@ export class ClawdbotGateway extends EventEmitter {
   /** 运行时延迟统计(非持久化数据,重启后重新采集) */
   private latencyStats = new Map<string, number[]>()
   private connected = false
+  private wsClient: WebSocket | null = null
+  private reconnectAttempts = 0
+  private reconnectTimer: NodeJS.Timeout | null = null
+  private manuallyDisconnected = false
 
   configure(config: Partial<GatewayConfig>): void {
     this.config = { ...DEFAULT_CONFIG, ...config }
   }
 
+  /**
+   * 推导 WebSocket URL:
+   *   config.wsUrl > env AI_SERVICE_WS_URL > 从 AI_SERVICE_URL 转 ws/wss + /gateway
+   * 不硬编码端口,默认跟随 AI_SERVICE_URL(8803)。
+   */
+  private resolveWsUrl(): string {
+    if (this.config.wsUrl) return this.config.wsUrl
+    const envWs = process.env.AI_SERVICE_WS_URL
+    if (envWs) return envWs
+    const baseUrl = (process.env.AI_SERVICE_URL ?? 'http://localhost:8803').replace(/\/$/, '')
+    const wsBase = baseUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
+    return `${wsBase}/gateway`
+  }
+
+  /** 指数退避重连延迟:1s/2s/4s/8s/16s,最大 30s */
+  private getReconnectDelay(): number {
+    const base = this.config.reconnect?.retryDelay ?? 1000
+    const multiplier = this.config.reconnect?.backoffMultiplier ?? 2
+    const max = 30000
+    const delay = base * Math.pow(multiplier, this.reconnectAttempts)
+    return Math.min(delay, max)
+  }
+
   async connect(): Promise<void> {
     if (this.connected) return
+    this.manuallyDisconnected = false
     this.state = 'connecting'
-    logger.info('[Gateway] Connecting')
-    // 简化实现:未建立真实 WebSocket 连接到 ai-service
-    // TODO: 需建立真实 WebSocket 连接到 ai-service(ws://localhost:8803/gateway)
-    logger.warn('[Gateway] 简化实现:未建立真实 WebSocket 连接,仅标记为 connected')
-    this.state = 'connected'
-    this.connected = true
-    this.emit('connected')
+    const url = this.resolveWsUrl()
+    logger.info({ url }, '[Gateway] Connecting to ai-service via WebSocket')
+    this.openSocket(url)
+  }
+
+  private openSocket(url: string): void {
+    let ws: WebSocket
+    try {
+      ws = new WebSocket(url)
+    } catch (err) {
+      logger.error({ url, err: err as Error }, '[Gateway] WebSocket 创建失败,触发重连')
+      this.scheduleReconnect()
+      return
+    }
+    this.wsClient = ws
+
+    ws.on('open', () => {
+      this.connected = true
+      this.state = 'connected'
+      this.reconnectAttempts = 0
+      logger.info({ url }, '[Gateway] WebSocket connected')
+      // 发送注册消息,告知 ai-service 本网关身份
+      try {
+        ws.send(
+          JSON.stringify({
+            type: 'system',
+            event: 'register',
+            source: 'clawdbot-gateway',
+            timestamp: Date.now(),
+          }),
+        )
+      } catch (err) {
+        logger.warn({ err: err as Error }, '[Gateway] 注册消息发送失败')
+      }
+      this.emit('connected')
+    })
+
+    ws.on('message', (data) => {
+      try {
+        const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data as Uint8Array)
+        const parsed = JSON.parse(buf.toString('utf8')) as GatewayMessage
+        logger.debug(
+          { messageId: parsed.id, type: parsed.type },
+          '[Gateway] WS message received',
+        )
+        this.emit('message', parsed)
+      } catch (err) {
+        logger.warn({ err: err as Error }, '[Gateway] 消息解析失败,忽略非 JSON 帧')
+      }
+    })
+
+    ws.on('error', (err) => {
+      logger.warn({ err }, '[Gateway] WebSocket error')
+      // 不直接改 state;close 事件会跟着触发并处理重连
+    })
+
+    ws.on('close', (code, reason) => {
+      this.connected = false
+      this.wsClient = null
+      logger.info(
+        { code, reason: reason.toString() },
+        '[Gateway] WebSocket closed',
+      )
+      this.emit('disconnected')
+      if (!this.manuallyDisconnected) this.scheduleReconnect()
+    })
+  }
+
+  private scheduleReconnect(): void {
+    if (this.manuallyDisconnected) return
+    const maxRetries = this.config.reconnect?.maxRetries ?? 5
+    if (this.reconnectAttempts >= maxRetries) {
+      this.state = 'disconnected'
+      logger.error({ attempts: this.reconnectAttempts }, '[Gateway] 重连次数耗尽,放弃')
+      return
+    }
+    const delay = this.getReconnectDelay()
+    this.state = 'reconnecting'
+    this.reconnectAttempts++
+    logger.info({ attempt: this.reconnectAttempts, delayMs: delay }, '[Gateway] 计划重连')
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      this.openSocket(this.resolveWsUrl())
+    }, delay)
   }
 
   async disconnect(): Promise<void> {
+    this.manuallyDisconnected = true
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.wsClient) {
+      try {
+        this.wsClient.close(1000, 'client disconnect')
+      } catch {
+        /* already closed */
+      }
+      this.wsClient = null
+    }
     this.state = 'disconnected'
     this.connected = false
     logger.info('[Gateway] Disconnected')
     this.emit('disconnected')
+  }
+
+  /** 主动发送消息到 ai-service;未连接时返回 false */
+  send(message: GatewayMessage | Record<string, unknown>): boolean {
+    if (!this.connected || !this.wsClient) {
+      logger.warn({ connected: this.connected }, '[Gateway] send 失败:未连接')
+      return false
+    }
+    try {
+      this.wsClient.send(JSON.stringify(message))
+      return true
+    } catch (err) {
+      logger.error({ err: err as Error }, '[Gateway] send 异常')
+      return false
+    }
   }
 
   get isConnected(): boolean {

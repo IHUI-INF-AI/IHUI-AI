@@ -24,6 +24,7 @@ export const chatConversations = pgTable('chat_conversations', {
   systemPrompt: text('system_prompt'),
   metadata: jsonb('metadata').default({}),
   lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
+  lastReadAt: timestamp('last_read_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
