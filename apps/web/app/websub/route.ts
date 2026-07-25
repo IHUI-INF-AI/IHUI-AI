@@ -24,6 +24,13 @@
  */
 import type { NextRequest } from 'next/server'
 
+// 2026-07-26 修复:Next.js output: 'export' 静态导出模式要求所有 Route Handler
+// 必须显式声明 force-static 或 revalidate,否则构建报错。
+// 注:WebSub Hub 在 Tauri 桌面端不实际运行(桌面端为本地单机应用,无公网 hub),
+// 静态导出预渲染 GET 无参数的健康检查响应即可满足 SEO 抓取需求。
+// 真正的 subscribe/unsubscribe/publish 动态行为在生产 nginx + Next.js standalone 模式下生效。
+export const dynamic = 'force-static'
+
 const HUB_URL = 'https://ihui.ai/websub'
 const FEED_URLS = ['https://ihui.ai/rss.xml', 'https://ihui.ai/atom.xml']
 
