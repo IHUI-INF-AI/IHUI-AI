@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { REFUND_STATUS_CFG } from '../helpers'
+import { REFUND_STATUS_CFG, STATUS_KEY } from '../helpers'
 import type { EduRefund, EduOrder, AuditRecord } from '../types'
 
 function DetailItem({
@@ -74,7 +74,7 @@ export function RefundDetailInfo({
             <span
               className={cn('h-1.5 w-1.5 rounded-full', REFUND_STATUS_CFG[refund.status].dot)}
             />
-            {t(`status_${refund.status}`)}
+            {t(STATUS_KEY[refund.status] ?? 'status_unknown')}
           </span>
         </div>
 
@@ -134,7 +134,7 @@ export function RefundDetailInfo({
             />
             <DetailItem
               label={t('orderStatus')}
-              value={t(`status_${order.status === 'refunded' ? 'completed' : 'pending'}`)}
+              value={t(STATUS_KEY[order.status === 'refunded' ? 'completed' : 'pending'])}
             />
             <DetailItem label={t('userId')} value={order.userId} mono />
             <DetailItem label={t('createdAt')} value={dateFmt.format(new Date(order.createdAt))} />
