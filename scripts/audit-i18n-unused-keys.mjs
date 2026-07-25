@@ -64,14 +64,16 @@ function parseArgs(argv) {
   const dryRun = args.includes('--dry-run')
   const outputArg = args.find((a) => a.startsWith('--output='))
   const output = outputArg ? outputArg.slice('--output='.length) : null
+  const outputKeysArg = args.find((a) => a.startsWith('--output-keys='))
+  const outputKeys = outputKeysArg ? outputKeysArg.slice('--output-keys='.length) : null
   // 未知参数检查
   const knownFlags = new Set(['--dry-run', '--help', '-h'])
   for (const a of args) {
     if (knownFlags.has(a)) continue
-    if (a.startsWith('--target=') || a.startsWith('--output=')) continue
+    if (a.startsWith('--target=') || a.startsWith('--output=') || a.startsWith('--output-keys=')) continue
     return { error: `未知参数: ${a}(用 --help 查看可用选项)` }
   }
-  return { target, dryRun, output }
+  return { target, dryRun, output, outputKeys }
 }
 
 function showHelp() {
@@ -83,11 +85,13 @@ function showHelp() {
   node scripts/audit-i18n-unused-keys.mjs --target=miniapp-taro         # 只扫小程序
   node scripts/audit-i18n-unused-keys.mjs --dry-run                     # 输出到 stdout
   node scripts/audit-i18n-unused-keys.mjs --output=<path>               # 输出到文件
+  node scripts/audit-i18n-unused-keys.mjs --output-keys=<path>          # 输出完整 key 列表 JSON
 
 选项:
   --target=<web|miniapp-taro>   指定扫描目标(默认两端都扫)
   --dry-run                     输出到 stdout,不写文件
-  --output=<path>               输出到指定文件(目录不存在自动创建)
+  --output=<path>               输出 markdown 审计报告到指定文件(目录不存在自动创建)
+  --output-keys=<path>          输出完整无引用 key 列表 JSON 数组到指定文件(用于分批清理)
   --help, -h                    显示帮助
 
 扫描范围:
@@ -217,13 +221,33 @@ function stripComments(content) {
   return s.slice(0, cut)
 }
 
+/** 转义正则元字符 */
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 从代码行提取 translation 变量名(const VAR = useTranslations(...) / getTranslations(...))
+ * 返回 Set<string>。用于解决 tc/te/tr 等非标准变量名的调用不被识别的问题。
+ */
+function extractTranslationVars(content) {
+  const vars = new Set()
+  const re = /\b(?:const|let|var)\s+(\w+)\s*=\s*(?:useTranslations|getTranslations)\s*\(/g
+  let m
+  while ((m = re.exec(content)) !== null) {
+    vars.add(m[1])
+  }
+  return vars
+}
+
 /**
  * 从代码行中提取:
  * - staticKeys:静态 key 引用(t('key') / i18nKey="key" / id: 'key' 等)
  * - dynamicWarnings:动态拼接 key(t(`...${...}`) / t('...' + ...))
  * - namespaces:useTranslations('ns') / getTranslations('ns') 命名空间
+ * - varNames(可选):文件级 translation 变量名集合,用于匹配 VAR('key') 调用
  */
-function extractFromLine(content, filePath, lineNo, usesNamespaces) {
+function extractFromLine(content, filePath, lineNo, usesNamespaces, varNames) {
   const staticKeys = new Set()
   const dynamicWarnings = []
   const namespaces = new Set()
@@ -242,6 +266,24 @@ function extractFromLine(content, filePath, lineNo, usesNamespaces) {
   const re2 = /\bt(?:t|List)?\s*\(\s*`([^`${}]+)`\s*[,)]/g
   while ((m = re2.exec(content)) !== null) {
     staticKeys.add(m[1])
+  }
+
+  // VAR('key') / VAR("key") — 匹配非标准变量名(tc/te/tr 等,来自 const VAR = useTranslations(...))
+  // 解决核心 bug:旧正则只认 t/tt/tList,漏识别 tc('login') 等调用导致大量假阳性
+  if (varNames && varNames.size > 0) {
+    const extraVars = [...varNames].filter((v) => v !== 't' && v !== 'tt' && v !== 'tList')
+    if (extraVars.length > 0) {
+      const varPattern = extraVars.map(escapeRegex).join('|')
+      const reVar = new RegExp('\\b(?:' + varPattern + ")\\s*\\(\\s*['\"]([^'\"]+)['\"]\\s*[,)]", 'g')
+      while ((m = reVar.exec(content)) !== null) {
+        staticKeys.add(m[1])
+      }
+      // VAR(`key`) — 静态模板字面量(无 ${} 插值)
+      const reVarTmpl = new RegExp('\\b(?:' + varPattern + ')\\s*\\(\\s*`([^`${}]+)`\\s*[,)]', 'g')
+      while ((m = reVarTmpl.exec(content)) !== null) {
+        staticKeys.add(m[1])
+      }
+    }
   }
 
   // i18nKey="key" / i18nKey='key'
@@ -316,15 +358,19 @@ function auditTarget(targetKey) {
     allRgLines.push(...lines)
   }
 
-  // 3. 按文件分组,提取 key 引用(单次遍历)
-  const referencedKeys = new Set()
+  // 3. 按文件分组,第一遍提取变量名 + 命名空间 + staticKeys(t/tt/tList)+ 动态警告
   const dynamicWarnings = []
-  const fileData = new Map() // file -> { namespaces: Set, staticKeys: Set }
+  const fileData = new Map() // file -> { namespaces: Set, staticKeys: Set, varNames: Set }
+  const allVarNames = new Set()
 
   for (const rgLine of allRgLines) {
     const parsed = parseRgLine(rgLine)
     if (!parsed) continue
     const { file, lineNo, content } = parsed
+
+    // 提取 translation 变量名(const VAR = useTranslations/getTranslations(...))
+    const vars = extractTranslationVars(content)
+    for (const v of vars) allVarNames.add(v)
 
     const { staticKeys, dynamicWarnings: dw, namespaces } = extractFromLine(
       content,
@@ -334,12 +380,35 @@ function auditTarget(targetKey) {
     )
 
     if (!fileData.has(file)) {
-      fileData.set(file, { namespaces: new Set(), staticKeys: new Set() })
+      fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
     }
     const fd = fileData.get(file)
     for (const ns of namespaces) fd.namespaces.add(ns)
+    for (const v of vars) fd.varNames.add(v)
     for (const k of staticKeys) fd.staticKeys.add(k)
     dynamicWarnings.push(...dw)
+  }
+
+  // 3b. 第二遍:如果有额外变量名(tc/te/tr 等非 t/tt/tList),ripgrep 搜索它们的调用
+  const extraVars = [...allVarNames].filter((v) => v !== 't' && v !== 'tt' && v !== 'tList')
+  if (extraVars.length > 0) {
+    const varPattern = extraVars.map(escapeRegex).join('|')
+    const extraRgPattern = '\\b(?:' + varPattern + ")\\s*\\(\\s*['\"`]"
+    for (const dir of cfg.searchDirs) {
+      const extraLines = rgSearchLines(dir, extraRgPattern)
+      for (const rgLine of extraLines) {
+        const parsed = parseRgLine(rgLine)
+        if (!parsed) continue
+        const { file, lineNo, content } = parsed
+        if (!fileData.has(file)) {
+          fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
+        }
+        const fd = fileData.get(file)
+        // 用文件级 varNames 提取 staticKeys
+        const { staticKeys } = extractFromLine(content, file, lineNo, cfg.usesNamespaces, fd.varNames)
+        for (const k of staticKeys) fd.staticKeys.add(k)
+      }
+    }
   }
 
   // 4. 解析引用 key
@@ -544,6 +613,23 @@ function main() {
         `[${r.target}] 递归 key ${r.leafKeyCount}, 无引用 ${r.unusedCount} (${rate}%), 动态拼接警告 ${r.dynamicWarningCount} 处`,
       )
     }
+  }
+
+  // 输出完整 key 列表 JSON(用于分批清理)
+  if (opts.outputKeys) {
+    const keysAbs = path.resolve(ROOT, opts.outputKeys)
+    const keysDir = path.dirname(keysAbs)
+    if (!fs.existsSync(keysDir)) {
+      fs.mkdirSync(keysDir, { recursive: true })
+    }
+    const allKeys = []
+    for (const r of results) {
+      for (const k of r.unusedKeys) {
+        allKeys.push({ target: r.target, key: k.key, value: k.value })
+      }
+    }
+    fs.writeFileSync(keysAbs, JSON.stringify(allKeys, null, 2) + '\n', 'utf8')
+    console.log(`✅ 完整 key 列表已写入: ${path.relative(ROOT, keysAbs).replace(/\\/g, '/')} (${allKeys.length} 个)`)
   }
 
   process.exit(0)
