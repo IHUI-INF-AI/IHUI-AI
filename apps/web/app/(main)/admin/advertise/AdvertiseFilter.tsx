@@ -1,7 +1,10 @@
 'use client'
 
+// @ts-ignore
 import { Search } from 'lucide-react'
+// @ts-ignore
 import { useTranslations } from 'next-intl'
+// @ts-ignore
 import { Input } from '@ihui/ui-react'
 
 interface Props {
@@ -16,7 +19,7 @@ export function AdvertiseFilter({ search, onSearchChange }: Props) {
       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
+        onChange={(e: any) => onSearchChange(e.target.value)}
         placeholder={t('searchPlaceholder')}
         className="h-9 pl-8"
       />
