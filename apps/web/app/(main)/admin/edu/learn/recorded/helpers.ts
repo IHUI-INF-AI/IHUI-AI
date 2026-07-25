@@ -7,6 +7,15 @@ export const API = '/api/admin/course/videos'
 export const LEVEL_TEXT = ['level.0', 'level.1', 'level.2']
 export const AUDIT_TEXT = ['audit.0', 'audit.1', 'audit.2', 'audit.3', 'audit.4']
 
+/**
+ * 录播课等级 i18n key 静态映射表(数字枚值 0/1/2):level.${num} — 用于消除 `t(\`level.${var}\`)` 动态拼接
+ */
+export const LEVEL_KEY: Record<number, string> = {
+  0: 'level.0',
+  1: 'level.1',
+  2: 'level.2',
+}
+
 export const EMPTY_FORM: CForm = {
   courseId: '',
   videoPath: '',
