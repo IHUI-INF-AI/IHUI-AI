@@ -153,7 +153,7 @@ export function AISidePanel() {
 
     // AI 回复多端同步(原有逻辑)
     if (!isAIResponse(lastMessage)) return
-    const { conversationId, message, clientMessageId } = lastMessage.data
+    const { conversationId, message, clientMessageId } = lastMessage.data as any
     if (conversationId && currentConv && conversationId !== currentConv) return
 
     if (message) {
