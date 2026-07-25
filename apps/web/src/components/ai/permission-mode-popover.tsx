@@ -49,26 +49,27 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
   const currentMode: WorkspacePermissionMode = activeWorkspace?.mode ?? 'default'
 
   // 三种模式配置(对齐 WorkspacePermissionDialog 的 MODE_OPTIONS,做加法扩展 + 短描述)
+  // titleKey/descKey 已是字面量联合,直接预计算完整 i18n key 避免动态拼接
   const MODE_OPTIONS: Array<{
     value: WorkspacePermissionMode
     icon: LucideIcon
-    titleKey: string
-    descKey: string
+    titleKey: 'mode.ask' | 'mode.auto' | 'mode.full'
+    descKey: 'mode.askDesc' | 'mode.autoDesc' | 'mode.fullDesc'
     risk: 'low' | 'medium' | 'high'
   }> = [
-    { value: 'default', icon: Hand, titleKey: 'ask', descKey: 'askDesc', risk: 'low' },
+    { value: 'default', icon: Hand, titleKey: 'mode.ask', descKey: 'mode.askDesc', risk: 'low' },
     {
       value: 'accept-edits',
       icon: ShieldCheck,
-      titleKey: 'auto',
-      descKey: 'autoDesc',
+      titleKey: 'mode.auto',
+      descKey: 'mode.autoDesc',
       risk: 'medium',
     },
     {
       value: 'bypass-permissions',
       icon: ShieldAlert,
-      titleKey: 'full',
-      descKey: 'fullDesc',
+      titleKey: 'mode.full',
+      descKey: 'mode.fullDesc',
       risk: 'high',
     },
   ]
@@ -129,7 +130,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
 
   const currentOption = MODE_OPTIONS.find((opt) => opt.value === currentMode) ?? MODE_OPTIONS[0]!
   const CurrentIcon = currentOption.icon
-  const currentTitle = t(`mode.${currentOption.titleKey}` as never)
+  const currentTitle = t(currentOption.titleKey)
   const hasWorkspace = !!activeWorkspace
 
   return (
@@ -201,7 +202,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                           opt.risk === 'high' && isSel && 'text-amber-600 dark:text-amber-400',
                         )}
                       >
-                        {t(`mode.${opt.titleKey}` as never)}
+                        {t(opt.titleKey)}
                       </span>
                       {opt.risk === 'high' && (
                         <span className="rounded-sm bg-amber-500/10 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
@@ -210,7 +211,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                       )}
                     </div>
                     <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                      {t(`mode.${opt.descKey}` as never)}
+                      {t(opt.descKey)}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center self-center">
