@@ -16,6 +16,21 @@ import {
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { api, STATUS_BADGE, textareaClass } from './helpers'
+
+const TICKET_STATUS_KEYS: Record<'pending' | 'open' | 'resolved' | 'closed' | 'rejected', string> = {
+  pending: 'status.pending',
+  open: 'status.open',
+  resolved: 'status.resolved',
+  closed: 'status.closed',
+  rejected: 'status.rejected',
+}
+
+const TICKET_PRIORITY_KEYS: Record<'low' | 'medium' | 'high' | 'urgent', string> = {
+  low: 'priority.low',
+  medium: 'priority.medium',
+  high: 'priority.high',
+  urgent: 'priority.urgent',
+}
 import type { Ticket, Comment, Rating } from './types'
 import { formatDate } from '@/lib/date-utils'
 
@@ -90,9 +105,9 @@ export function TicketDetailDialog({
                 STATUS_BADGE[ticket.status],
               )}
             >
-              {t(`status.${ticket.status}`)}
+              {t(TICKET_STATUS_KEYS[ticket.status]!)}
             </span>
-            <span className="ml-2">{t('priorityPrefix')}{t(`priority.${ticket.priority}`)}</span>
+            <span className="ml-2">{t('priorityPrefix')}{t(TICKET_PRIORITY_KEYS[ticket.priority]!)}</span>
           </DialogDescription>
         </DialogHeader>
 

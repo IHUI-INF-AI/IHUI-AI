@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
-import { LEVEL_MAP } from './helpers'
+import { LEVEL_MAP, LEVEL_KEY } from './helpers'
 import type { Student } from './types'
 
 interface Props {
@@ -64,7 +64,10 @@ export function StudentTable({ rows, isLoading, error, onEdit, onDelete, deleteP
                 <TableCell className="px-4 py-2.5 text-xs">{s.phone ?? s.email ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span className="inline-flex items-center rounded-md bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
-                    {LEVEL_MAP[s.level] ? t(`level.${LEVEL_MAP[s.level]}`) : `L${s.level}`}
+                    {(() => {
+                      const lv = LEVEL_MAP[s.level]
+                      return lv ? t(LEVEL_KEY[lv] ?? 'level.unknown') : `L${s.level}`
+                    })()}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{s.signupCount}</TableCell>

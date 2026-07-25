@@ -3,6 +3,17 @@ import { Search, UserPlus, Users } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 
+/** i18n 静态映射表 — 用于消除 `t(\`users.roleLabels.${var}\`)` / `t(\`users.statusLabels.${var}\`)` 动态拼接 */
+const ROLE_LABEL_KEY: Record<string, string> = {
+  admin: 'users.roleLabels.admin',
+  user: 'users.roleLabels.user',
+  vip: 'users.roleLabels.vip',
+}
+const USER_STATUS_LABEL_KEY: Record<string, string> = {
+  active: 'users.statusLabels.active',
+  disabled: 'users.statusLabels.disabled',
+}
+
 export default async function UsersPage() {
   const t = await getTranslations('models')
 
@@ -94,7 +105,7 @@ export default async function UsersPage() {
                               : 'inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
                         }
                       >
-                        {t(`users.roleLabels.${u.role}`)}
+                        {t(ROLE_LABEL_KEY[u.role ?? 'unknown'] ?? 'users.roleLabels.unknown')}
                       </span>
                     </td>
                     <td className="px-4 py-2.5">¥ {u.balance}</td>
@@ -109,7 +120,7 @@ export default async function UsersPage() {
                             : 'inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
                         }
                       >
-                        {t(`users.statusLabels.${u.status}`)}
+                        {t(USER_STATUS_LABEL_KEY[u.status ?? 'unknown'] ?? 'users.statusLabels.unknown')}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{u.createdAt}</td>

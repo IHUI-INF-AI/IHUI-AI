@@ -4,7 +4,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Workflow, Zap, Clock, Play } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { TRIGGER_BADGE, STATUS_DOT } from './helpers'
+import { TRIGGER_BADGE, STATUS_DOT, TRIGGER_KEYS, WF_STATUS_KEYS } from './helpers'
 import type { WfStatus, WorkflowItem } from './types'
 
 interface Props {
@@ -64,7 +64,7 @@ export function WorkflowCardList({ wfs, isLoading, onItemClick }: Props) {
                   )}
                 >
                   <Zap className="h-3 w-3" />
-                  {t(`triggers.${w.triggerType}`)}
+                  {t(TRIGGER_KEYS[w.triggerType]!)}
                 </span>
               </div>
               <CardTitle className="text-base">{w.name}</CardTitle>
@@ -77,7 +77,7 @@ export function WorkflowCardList({ wfs, isLoading, onItemClick }: Props) {
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[status])} />
-                {t(`status.${status}`)}
+                {t(WF_STATUS_KEYS[status]!)}
               </span>
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" />

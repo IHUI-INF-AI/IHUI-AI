@@ -37,6 +37,7 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
+import { LEVEL_NUM_KEY } from '../helpers'
 
 // 后端 GET /api/admin/users/:id 返回 { user: AdminUser },前端解包为 Detail
 interface Detail {
@@ -152,7 +153,7 @@ export default function EduStudentDetailPage() {
       </div>
     )
 
-  const levelLabel = [1, 2, 3, 4].includes(data.level) ? t(`level.${data.level}`) : `L${data.level}`
+  const levelLabel = [1, 2, 3, 4].includes(data.level) ? t(LEVEL_NUM_KEY[data.level] ?? 'level.unknown') : `L${data.level}`
 
   return (
     <div className="space-y-4">

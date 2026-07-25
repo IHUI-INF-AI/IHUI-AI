@@ -10,6 +10,12 @@ import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
+const SUBSCRIPTION_STATUS_KEYS: Record<'active' | 'cancelled' | 'expired', string> = {
+  active: 'status.active',
+  cancelled: 'status.cancelled',
+  expired: 'status.expired',
+}
+
 interface Subscription {
   id: string
   planName: string
@@ -107,7 +113,7 @@ export default function MemberSubscriptionPage() {
                     STATUS_CLS[sub.status],
                   )}
                 >
-                  {t(`status.${sub.status}`)}
+                  {t(SUBSCRIPTION_STATUS_KEYS[sub.status]!)}
                 </span>
               </div>
 
