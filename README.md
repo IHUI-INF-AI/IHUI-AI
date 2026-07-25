@@ -435,7 +435,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **AI 编排三栈**      | LangGraph(工作流)+ MCP(工具协议)+ A2A(Agent 互通)                                                                                                                                                                                                                                                                    | 工作流、工具、智能体协同一体化                                  |
 | **自研 CLI**         | 21 命令 + 36 内置工具 + ACP Server,对标 Claude Code                                                                                                                                                                                                                                                                  | 命令行原生 AI 编程体验                                          |
 | **CLI 配置无缝导入** | 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)+ providerCode/apiFormat 智能推断(modelId 前缀优先,URL 兜底) | 跨 CLI 工具配置零迁移成本                                       |
-| **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时                                                                                                                                                                                                                                                         | 决策者级风险控制                                                |
+| **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗 + 键盘导航 + 5s 切换撤销 | 决策者级风险控制 + Codex CLI safety guard                                  |
 | **数据加密**         | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单                                                                                                                                                                                                                                                | 金融级数据保护                                                  |
 | **可观测性**         | Prometheus + Grafana(**21 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                                                                                                                                                                                         | 全链路指标 / 日志 / 追踪 / 告警                                 |
 | **工程守门**         | 30+ pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计                                                                                                                                                                                                                                                | 杜绝协作事故,99.9% SLA                                          |
@@ -1061,7 +1061,7 @@ IHUI-AI/
 
 #### B2. 企业级工作空间权限
 
-3 种权限模式 + 7 端点运行时拦截 + 60s 审计超时:
+3 种权限模式 + 7 端点运行时拦截 + 60s 审计超时 + 输入框安全护栏:
 
 | 模式                 | 行为                              |
 | -------------------- | --------------------------------- |
@@ -1072,6 +1072,15 @@ IHUI-AI/
 - 7 个 FS 端点全部接入:`/fs/read` `/fs/write` `/fs/edit` `/fs/delete` `/fs/grep` `/fs/glob` `/fs/run`
 - WebSocket 实时推送权限请求,60s 不响应自动拒绝
 - workspace-ai-tasks schema 支持任务级权限隔离
+- **AI 输入框权限模式切换器**(深度对标 OpenAI Codex CLI approvalMode):
+  - 盾牌图标按钮 + 当前模式短名,点击弹 Codex 风格 popover(3 单选卡 + 完全访问快捷链接)
+  - 键盘交互:`↑/↓` 循环切换焦点 · `Enter` 选中 · `1/2/3` 数字键直接选 ask/auto/full
+  - 模式切换撤销:切到 `bypass-permissions` 后 5s 内 toast 可一键回退
+  - 高风险模式持久化视觉警告:触发器按钮琥珀色 + 输入框顶部警告横幅 + 标题栏模式徽章
+  - 斜杠命令集成:`/permission ask|auto|full` 一行切换模式
+  - **首启确认弹窗**:首次启用完全访问必须勾选"我了解上述风险"才能继续(可勾"不再提醒")
+  - **1 小时自动撤销**:高风险模式 1h 无操作后自动降级到 `default`,标题栏 + 顶部横幅实时倒计时,可取消或重新启用
+  - 三处触发源(popover / Shift+Tab / /permission)共享同一个 FullAccessConfirmDialog
 
 #### B3. 多智能体业务管理
 
@@ -1523,7 +1532,7 @@ pnpm turbo build typecheck lint test
 | **XSS**          | sanitizer 绕过检测脚本守门(pre-commit 第 6 项)                                        |
 | **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项)                                     |
 | **RBAC**         | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 + data-scope 5 级    |
-| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时                                              |
+| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗         |
 | **多租户**       | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS                               |
 | **OAuth 私钥**   | oauth-private-keys schema 加密存储                                                    |
 | **2FA/MFA**      | TOTP RFC 6238 + 备份恢复码 + 设备指纹 + 信任设备管理                                  |
