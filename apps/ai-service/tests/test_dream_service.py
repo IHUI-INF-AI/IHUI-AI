@@ -384,8 +384,13 @@ class TestConsolidateNormal:
         mem.add_semantic.assert_called_once_with(
             "u1",
             content="用户喜欢 Python",
-            importance_score=0.9,
-            metadata={"source": "dream_consolidate"},
+            importance_score=None,  # L2-2:None 触发 _resolve_importance_score 综合计算
+            metadata={
+                "source": "dream_consolidate",
+                "user_feedback": 0.9,  # LLM 返回的 importance 作为 user_feedback 信号
+                "access_count": 0,
+                "recency_days": 0.0,
+            },
         )
 
     @pytest.mark.asyncio
@@ -681,8 +686,13 @@ class TestConsolidateEdgeCases:
         mem.add_semantic.assert_called_once_with(
             "u1",
             content="",
-            importance_score=0.5,
-            metadata={"source": "dream_consolidate"},
+            importance_score=None,  # L2-2:None 触发 _resolve_importance_score 综合计算
+            metadata={
+                "source": "dream_consolidate",
+                "user_feedback": 0.5,  # 默认值(无 importance 字段)
+                "access_count": 0,
+                "recency_days": 0.0,
+            },
         )
 
     @pytest.mark.asyncio
