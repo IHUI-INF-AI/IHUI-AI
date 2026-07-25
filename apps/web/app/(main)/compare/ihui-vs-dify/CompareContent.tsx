@@ -16,7 +16,7 @@ interface CompareRow {
 }
 
 interface CompetitorConfig {
-  id: 'dify' | 'coze' | 'fastgpt' | 'n8n' | 'openai-agent' | 'langchain' | 'copilot-studio'
+  id: 'dify' | 'coze' | 'fastgpt' | 'n8n' | 'openai-agent' | 'langchain' | 'copilot-studio' | 'manus' | 'devin'
   name: string
   tagline: string
   rows: CompareRow[]
@@ -626,6 +626,178 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
       },
     ],
   },
+  manus: {
+    id: 'manus',
+    name: 'Manus AI',
+    tagline: 'Manus 是单任务自主 Agent;IHUI AI 是可复用的 Agent 操作系统',
+    verdict:
+      '如果你想跑一次性研究/操作任务,Manus 体验酷炫;如果你需要构建可复用、可分享、可商业化的 Agent 产品,IHUI AI 是更系统化的选择。',
+    rows: [
+      {
+        dimension: '定位',
+        ihui: '全栈 AI 操作系统(可复用)',
+        competitor: '单任务自主 Agent(一次性)',
+        ihuiDetail: '构建可复用 Agent 产品',
+        competitorDetail: '跑一次性研究/操作任务',
+      },
+      {
+        dimension: 'Agent 复用',
+        ihui: '完整支持',
+        competitor: '有限',
+        ihuiDetail: 'Agent 市场 + 模板 + 一键 fork',
+        competitorDetail: '任务完成即结束,无持久化',
+      },
+      {
+        dimension: 'Agent 市场',
+        ihui: '200+ 模板 + 创作者分成',
+        competitor: '无',
+        ihuiDetail: '社区市场 + 商业化',
+        competitorDetail: '无市场概念',
+      },
+      {
+        dimension: '知识库 RAG',
+        ihui: '内置 RAG 模块',
+        competitor: '临时检索',
+        ihuiDetail: '向量 + BM25 + 中文友好',
+        competitorDetail: '任务期间临时检索',
+      },
+      {
+        dimension: '工作流',
+        ihui: '可视化画布',
+        competitor: '黑盒自主决策',
+        ihuiDetail: '可控 + 可审计',
+        competitorDetail: '黑盒,难控制',
+      },
+      {
+        dimension: 'MCP 工具',
+        ihui: '原生 + 100+ 预置',
+        competitor: '部分支持',
+        ihuiDetail: '完整 MCP 生态',
+        competitorDetail: '基础工具调用',
+      },
+      {
+        dimension: '多模型',
+        ihui: '30+ 模型',
+        competitor: 'Claude 为主',
+        ihuiDetail: '跨厂商模型 + 成本路由',
+        competitorDetail: '依赖单一模型',
+      },
+      {
+        dimension: '客户端',
+        ihui: '6 端同源',
+        competitor: 'Web only',
+        ihuiDetail: 'Web/桌面/小程序/扩展/移动/CLI',
+        competitorDetail: 'Web 体验',
+      },
+      {
+        dimension: '团队协作',
+        ihui: '完整 RBAC + 审计 + SSO',
+        competitor: '单用户',
+        ihuiDetail: '多租户企业级',
+        competitorDetail: '适合个人',
+      },
+      {
+        dimension: '私有化',
+        ihui: 'Apache 2.0 + 完整私有化',
+        competitor: '闭源 SaaS',
+        ihuiDetail: '数据自有',
+        competitorDetail: '数据经 Manus 云',
+      },
+      {
+        dimension: '定价',
+        ihui: '个人免费 + Pro ¥49/月',
+        competitor: '邀请制 + 订阅',
+        ihuiDetail: '开源透明',
+        competitorDetail: '邀请码 + 付费',
+      },
+    ],
+  },
+  devin: {
+    id: 'devin',
+    name: 'Devin AI',
+    tagline: 'Devin 专注 AI 程序员(单点);IHUI AI 是通用全栈 AI 操作系统',
+    verdict:
+      '如果你的需求是"AI 软件工程师"单点工具,Devin 体验前沿;如果你需要 AI Agent 全场景(客服/知识库/内容/工作流)+ 跨端分发,IHUI AI 是更全面的选择。',
+    rows: [
+      {
+        dimension: '定位',
+        ihui: '通用全栈 AI 操作系统',
+        competitor: 'AI 软件工程师(单点)',
+        ihuiDetail: '通用场景:客服/知识库/内容/工作流',
+        competitorDetail: '专注代码任务',
+      },
+      {
+        dimension: '应用场景',
+        ihui: '10+ 场景',
+        competitor: '1 场景(编程)',
+        ihuiDetail: '客服/教育/医疗/法律/制造/媒体/政企...',
+        competitorDetail: '软件工程',
+      },
+      {
+        dimension: '知识库 RAG',
+        ihui: '内置 + 多种格式',
+        competitor: '代码上下文',
+        ihuiDetail: 'PDF/Word/网页/数据库/Notion',
+        competitorDetail: '代码仓库为主',
+      },
+      {
+        dimension: 'Agent 市场',
+        ihui: '200+ 跨场景模板',
+        competitor: '编程模板',
+        ihuiDetail: '客服 Agent/教育 Agent/销售 Agent...',
+        competitorDetail: 'Devin 编程模板',
+      },
+      {
+        dimension: '多模型',
+        ihui: '30+ 模型',
+        competitor: 'Claude 为主',
+        ihuiDetail: '跨厂商 + 成本路由',
+        competitorDetail: 'Anthropic 优先',
+      },
+      {
+        dimension: '客户端',
+        ihui: '6 端同源',
+        competitor: 'Web IDE',
+        ihuiDetail: 'Web/桌面/小程序/扩展/移动/CLI',
+        competitorDetail: 'Web 编辑器',
+      },
+      {
+        dimension: 'MCP 工具',
+        ihui: '原生 + 100+ 预置',
+        competitor: '基础',
+        ihuiDetail: '完整 MCP 生态',
+        competitorDetail: '编程工具为主',
+      },
+      {
+        dimension: '工作流',
+        ihui: '可视化画布 + 触发器',
+        competitor: '自主执行',
+        ihuiDetail: '业务人员可上手',
+        competitorDetail: '需 Devin 自己决策',
+      },
+      {
+        dimension: '团队协作',
+        ihui: '完整 RBAC + 审计 + SSO',
+        competitor: '基础',
+        ihuiDetail: '多角色企业级',
+        competitorDetail: '开发协作',
+      },
+      {
+        dimension: '私有化',
+        ihui: 'Apache 2.0 + 完整私有化',
+        competitor: '闭源',
+        ihuiDetail: '代码自有',
+        competitorDetail: '数据过 Cognition',
+      },
+      {
+        dimension: '定价',
+        ihui: '个人免费 + Pro ¥49/月',
+        competitor: '$500/月起',
+        ihuiDetail: '性价比高',
+        competitorDetail: '较贵',
+      },
+    ],
+  },
 }
 
 function Cell({ value, isIhui, dimension }: { value: CellValue; dimension: string; isIhui: boolean }) {
@@ -639,7 +811,7 @@ function Cell({ value, isIhui, dimension }: { value: CellValue; dimension: strin
   return <span className="text-sm font-medium">{value}</span>
 }
 
-export function CompareContent({ competitor }: { competitor: 'dify' | 'coze' | 'fastgpt' | 'n8n' | 'openai-agent' | 'langchain' | 'copilot-studio' }): React.JSX.Element {
+export function CompareContent({ competitor }: { competitor: 'dify' | 'coze' | 'fastgpt' | 'n8n' | 'openai-agent' | 'langchain' | 'copilot-studio' | 'manus' | 'devin' }): React.JSX.Element {
   const config = COMPETITORS[competitor]
   const yesCount = config.rows.filter((r) => r.ihui === true).length
   const competitorYesCount = config.rows.filter((r) => r.competitor === true).length
