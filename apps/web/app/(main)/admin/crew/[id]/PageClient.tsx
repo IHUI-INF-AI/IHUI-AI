@@ -205,7 +205,7 @@ export default function CrewSessionDetailPage() {
               <div className="py-8 text-center text-sm text-muted-foreground">暂无任务</div>
             ) : (
               <div className="divide-y">
-                {tasks.map((t) => (
+                {tasks.map((t: any) => (
                   <div key={t.id} className="p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -243,7 +243,7 @@ export default function CrewSessionDetailPage() {
               <div className="py-8 text-center text-sm text-muted-foreground">暂无消息</div>
             ) : (
               <div className="divide-y">
-                {messages.map((m) => (
+                {messages.map((m: any) => (
                   <div key={m.id} className="flex gap-3 p-3">
                     <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
@@ -270,7 +270,7 @@ export default function CrewSessionDetailPage() {
               <div className="py-8 text-center text-sm text-muted-foreground">暂无产物</div>
             ) : (
               <div className="divide-y">
-                {artifacts.map((a) => (
+                {artifacts.map((a: any) => (
                   <div key={a.id} className="p-3">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-primary" />
