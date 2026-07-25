@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { get } from './request'
+import { get } from './api-bridge'
 import { logger } from './logger'
 
 /** 后端返回的推送模板结构 */
