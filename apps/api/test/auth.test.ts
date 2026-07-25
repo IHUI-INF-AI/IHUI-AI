@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
-import bcrypt from 'bcryptjs'
+import { hashPassword } from '../src/utils/password-crypto.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -392,7 +392,7 @@ describe('auth routes', () => {
 
     it('密码错误返回 401 并记录失败', async () => {
       mockFindUserByAccount.mockResolvedValueOnce(
-        makeUser({ passwordHash: await bcrypt.hash('correct', 10) }),
+        makeUser({ passwordHash: await hashPassword('correct') }),
       )
       mockRecordLoginFailure.mockResolvedValueOnce(4)
       const res = await app.inject({
@@ -406,7 +406,7 @@ describe('auth routes', () => {
 
     it('账号被禁用返回 403', async () => {
       mockFindUserByAccount.mockResolvedValueOnce(
-        makeUser({ passwordHash: await bcrypt.hash('pass1234', 10), status: 0 }),
+        makeUser({ passwordHash: await hashPassword('pass1234'), status: 0 }),
       )
       const res = await app.inject({
         method: 'POST',
@@ -419,7 +419,7 @@ describe('auth routes', () => {
 
     it('登录成功返回 200 与 token + user', async () => {
       mockFindUserByAccount.mockResolvedValueOnce(
-        makeUser({ passwordHash: await bcrypt.hash('pass1234', 10) }),
+        makeUser({ passwordHash: await hashPassword('pass1234') }),
       )
       const res = await app.inject({
         method: 'POST',
