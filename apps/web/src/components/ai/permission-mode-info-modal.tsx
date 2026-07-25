@@ -58,6 +58,29 @@ const MODE_CONFIG: Record<WorkspacePermissionMode, ModeConfig> = {
   },
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`modeInfoBullets.${mode}.${idx}`)` 双变量动态拼接 */
+type ModeInfoBulletIdx = 0 | 1 | 2 | 3
+const MODE_INFO_BULLETS_KEY: Record<WorkspacePermissionMode, Record<ModeInfoBulletIdx, string>> = {
+  default: {
+    0: 'modeInfoBullets.default.0',
+    1: 'modeInfoBullets.default.1',
+    2: 'modeInfoBullets.default.2',
+    3: 'modeInfoBullets.default.3',
+  },
+  'accept-edits': {
+    0: 'modeInfoBullets.accept-edits.0',
+    1: 'modeInfoBullets.accept-edits.1',
+    2: 'modeInfoBullets.accept-edits.2',
+    3: 'modeInfoBullets.accept-edits.3',
+  },
+  'bypass-permissions': {
+    0: 'modeInfoBullets.bypass-permissions.0',
+    1: 'modeInfoBullets.bypass-permissions.1',
+    2: 'modeInfoBullets.bypass-permissions.2',
+    3: 'modeInfoBullets.bypass-permissions.3',
+  },
+}
+
 export interface PermissionModeInfoModalProps {
   /** null = 关闭,非 null = 打开并展示该模式详情 */
   mode: WorkspacePermissionMode | null
@@ -116,7 +139,10 @@ export function PermissionModeInfoModal({ mode, onClose }: PermissionModeInfoMod
                           aria-hidden="true"
                         />
                         <span className="text-xs text-foreground">
-                          {t(`modeInfoBullets.${mode}.${idx}`)}
+                          {t(
+                            MODE_INFO_BULLETS_KEY[mode]?.[idx as ModeInfoBulletIdx] ??
+                              'modeInfoBullets.unknown',
+                          )}
                         </span>
                       </li>
                     ))}
