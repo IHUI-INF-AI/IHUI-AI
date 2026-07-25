@@ -26,6 +26,14 @@ const PLATFORM_TABS: PlatformTab[] = [
   { key: 'feishu', labelKey: 'feishuLogin', icon: '/images/loginSANFANG/feishu.png' },
 ]
 
+/** 平台标签 i18n key 静态映射表(消除 labelKey 动态拼接) */
+const PLATFORM_LABEL_KEY: Record<QrPlatform, string> = {
+  wechat: 'wechatLogin',
+  enterpriseWechat: 'enterpriseWechat',
+  dingtalk: 'dingtalkLogin',
+  feishu: 'feishuLogin',
+}
+
 /**
  * 扫码登录:平台切换 Tab + 各厂商官方 SDK 内嵌二维码。
  *
@@ -113,7 +121,7 @@ export function QrCodeLogin({ onSwitchMethod }: { onSwitchMethod?: () => void })
 
       {/* 扫码提示 */}
       <p className="text-center text-xs text-muted-foreground">
-        {t('qrScanTipPlatform', { platform: t(`${PLATFORM_TABS.find((p) => p.key === platform)?.labelKey}`) })}
+        {t('qrScanTipPlatform', { platform: t(PLATFORM_LABEL_KEY[platform]) })}
       </p>
     </div>
   )
