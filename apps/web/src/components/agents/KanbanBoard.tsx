@@ -77,14 +77,17 @@ export function KanbanBoard() {
     onError: (e: Error) => setCreateError(e.message),
   })
 
-  const handleSelectTask = (task: KanbanTask) => {
+  // 性能修复(2026-07-25):useCallback 稳定 handleSelectTask 引用,
+  // 配合 KanbanColumn 的 React.memo,避免父组件 createOpen/SSE 状态变化时
+  // 6 列 × N task 全量重渲染(原本 handleSelectTask 每次 render 新建 → memo 失效)。
+  const handleSelectTask = React.useCallback((task: KanbanTask) => {
     setSelectedTask(task)
     setDetailOpen(true)
-  }
+  }, [])
 
-  const handleTaskChanged = () => {
+  const handleTaskChanged = React.useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['agents-kanban'] })
-  }
+  }, [queryClient])
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault()
