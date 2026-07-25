@@ -4,6 +4,11 @@ import type { CourseAuditSearch } from './types'
 export const PAGE_SIZE = 10
 export const PERM = 'course:courseaudit:'
 
+export const TYPE_KEY: Record<number, string> = {
+  0: 'type.0',
+  1: 'type.1',
+}
+
 export const fmt = (s?: string | null) =>
   s
     ? new Intl.DateTimeFormat('zh-CN', {

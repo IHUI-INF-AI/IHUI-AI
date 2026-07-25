@@ -769,3 +769,22 @@ body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-close-b
 body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-content] {
   padding-right: 32px;
 }
+
+/* 高风险模式脉动动画(2026-07-25 深化,深度对标 Codex CLI 高风险视觉警告)
+ * - 仅作用于 .animate-pulse-soft(高风险模式警告横幅 + 输入框边框)
+ * - 2.4s 慢节奏 + opacity 只到 0.85 + 微亮 box-shadow,不刺眼(Codex 风格)
+ * - keyframes 命名加 ihui- 前缀,避免与项目其他动画冲突 */
+@keyframes ihui-pulse-soft {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12);
+  }
+}
+
+.animate-pulse-soft {
+  animation: ihui-pulse-soft 2.4s ease-in-out infinite;
+}

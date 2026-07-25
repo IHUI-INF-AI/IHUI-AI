@@ -5,6 +5,7 @@ import { ListChecks, ChevronRight, ChevronDown, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { STATUS_BADGE } from './helpers'
+import { INSTANCE_STATUS_KEYS } from '../../helpers'
 import type { Task } from './types'
 
 interface Props {
@@ -63,7 +64,7 @@ function TaskRow({ task }: { task: Task }) {
         <span
           className={cn('rounded px-1.5 py-0.5 text-xs font-medium', STATUS_BADGE[task.status])}
         >
-          {t(`instanceStatus.${task.status}`)}
+          {t(INSTANCE_STATUS_KEYS[task.status] ?? 'instanceStatus.unknown')}
         </span>
       </button>
       {open && (

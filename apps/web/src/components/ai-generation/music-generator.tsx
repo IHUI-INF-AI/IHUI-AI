@@ -13,6 +13,20 @@ interface MusicGeneratorProps {
 const GENRES = ['pop', 'classical', 'electronic', 'jazz', 'rock'] as const
 const DURATIONS = ['15', '30', '60'] as const
 
+/** i18n 静态映射表 — 用于消除 `t(\`genre.${var}\`)` / `t(\`duration.${var}\`)` 动态拼接 */
+const GENRE_KEY: Record<string, string> = {
+  pop: 'genre.pop',
+  classical: 'genre.classical',
+  electronic: 'genre.electronic',
+  jazz: 'genre.jazz',
+  rock: 'genre.rock',
+}
+const DURATION_KEY: Record<string, string> = {
+  '15': 'duration.15',
+  '30': 'duration.30',
+  '60': 'duration.60',
+}
+
 /** MusicGenerator - 音乐生成器 */
 export function MusicGenerator({ onGenerate }: MusicGeneratorProps) {
   const t = useTranslations('musicGenerator')
@@ -41,13 +55,13 @@ export function MusicGenerator({ onGenerate }: MusicGeneratorProps) {
             label={t('genreLabel')}
             value={genre}
             onChange={setGenre}
-            options={GENRES.map((g) => ({ value: g, label: t(`genre.${g}`) }))}
+            options={GENRES.map((g) => ({ value: g, label: t(GENRE_KEY[g] ?? 'genre.unknown') }))}
           />
           <OptionSelect
             label={t('durationLabel')}
             value={duration}
             onChange={setDuration}
-            options={DURATIONS.map((d) => ({ value: d, label: t(`duration.${d}`) }))}
+            options={DURATIONS.map((d) => ({ value: d, label: t(DURATION_KEY[d] ?? 'duration.unknown') }))}
           />
         </div>
       }
