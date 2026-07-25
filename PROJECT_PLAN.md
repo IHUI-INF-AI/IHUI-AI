@@ -8,6 +8,62 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 业务层共享启动阶段 1 — extension 14 页面 fmtDate 迁移到 @ihui/shared/utils(跨端:packages/shared + apps/extension,平台独占 — 仅 extension 端消费,共享层扩展由主 agent 控制)
+
+**触发**:用户要求"启动业务层共享"。基于前期评估报告,业务层共享是当前架构最大短板(评分 35/100),原方案阶段 2-4(业务 hooks → store → app-shell)未启动。本阶段为 P0 最容易、最高 ROI 的第一步:工具函数补齐。
+
+**执行方式**:主 agent 控制共享层扩展(packages/shared + apps/extension/lib 兼容层),general_purpose_task subagent 执行 14 个页面机械性迁移。
+
+**成果清单**:
+
+#### P0:shared/utils/date-utils.ts 扩展 3 个短格式函数
+
+- [packages/shared/src/utils/date-utils.ts](file:///g:/IHUI-AI/packages/shared/src/utils/date-utils.ts) 第 73-122 行新增:
+  - `formatShortDateTime(input, locale='zh-CN')`:返回 `MM-DD HH:mm`(月日时分,无年无秒),空值返回 '',强制 Asia/Shanghai 时区
+  - `formatShortDate(input, locale='zh-CN')`:返回 `MM-DD`(仅月日,无年),空值返回 ''
+  - `formatShortDateWithYear(input, locale='zh-CN')`:返回 `YYYY-MM-DD`(年月日),空值返回 ''
+- 与现有 `formatDate`(`YYYY-MM-DD HH:mm:ss`,空值返回 '-')形成完整日期格式化系列,适配不同 UI 紧凑度需求
+
+#### P0:apps/extension/lib/date-utils.ts 建 re-export 兼容层
+
+- [apps/extension/lib/date-utils.ts](file:///g:/IHUI-AI/apps/extension/lib/date-utils.ts) 新建(复制 web 端 `apps/web/src/lib/date-utils.ts` re-export 模式):
+  - `export { formatShortDateTime as fmtDate }` — 模式 A(月日时分)页面用
+  - `export { formatShortDate as fmtDateOnly }` — 模式 B(仅月日)页面用
+  - `export { formatShortDateWithYear as fmtDateWithYear }` — 模式 C(年月日)页面用
+
+#### P0:extension 14 个 sidepanel 页面删除内联 fmtDate + 改 import
+
+- **模式 A(3 页面)**:AnnouncementsPage / ImageGenPage / MemoryPage → `import { fmtDate } from '../../../lib/date-utils'`
+- **模式 B(10 页面)**:AiNewsPage / ArticlesPage / AsksPage / ChatFavoritesPage / DistributionPage / FansPage / FollowingPage / InvitationsPage / NewsPage / PlazaPage → `import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'`(别名保持调用方代码零改动)
+- **模式 C(1 页面)**:MemberPage → `import { fmtDateWithYear as fmtDate } from '../../../lib/date-utils'`(原格式 `YYYY/MM/DD` 统一为 `YYYY-MM-DD`,符合 ISO 8601)
+- 共消除 30 处内联 `fmtDate` 重复实现,统一 Asia/Shanghai 时区(原 extension 无时区,符合 AGENTS.md §4)
+
+**验证**:
+
+- shared/utils date-utils.ts 扩展:typecheck ✅
+- extension typecheck:exit 0 ✅
+- extension build:exit 0 ✅(WXT 0.19.29 + Vite 5.4.21,6.2s 完成,输出 `.output/chrome-mv3/`,Σ Total size: 709.69 kB)
+- Grep `function fmtDate(` 全 extension:0 残留 ✅
+- Grep `from '../../../lib/date-utils'`:14 个页面全部命中 ✅
+
+**后续阶段预告**(业务层共享启动,7 阶段规划):
+
+- 阶段 2 P0:formatTokenCount 从 @ihui/api-client 迁到 @ihui/shared/utils(纠正归属 + 5 消费文件 import 更新)
+- 阶段 3 P1:新增 useAuth 业务 hook(@ihui/shared/hooks + 4 端接入评估)
+- 阶段 4 P1:新增 useArticles/useChat/useAgents 业务 hooks
+- 阶段 5 P1:新增 authStore/userStore/themeStore 共享(zustand + transport 注入)
+- 阶段 6 P1:业务组件 MessageBubble/ArticleCard/AgentCard/NotificationItem 提取到 @ihui/ui-react
+- 阶段 7 P1:extension 引入 React Query(架构升级评估 + 试点页面)
+
+**Git 同步证据**:
+
+- 本地 commit: (待 commit)
+- origin commit: (待 push)
+- 同步状态: (待验证)
+- 守门脚本: (待验证)
+
+---
+
 ### [x] ✅(2026-07-25) AI 输入框权限按钮深化(第二批) — 高风险模式 1h 自动撤销 + 首启确认弹窗 + 标题栏倒计时(跨端:仅 web,平台独占)
 
 **触发**:用户要求"继续优化深化这个功能"并选 4 个深化方向 + 新增 3 项(自动撤销/首启确认/标题栏倒计时)。承接第一批([workspace-selector + permission-mode-popover + message-list 徽章 + Shift+Tab 循环 + 5s 撤销 toast + /permission 斜杠命令 + 键盘 1/2/3 + 持久化视觉警告])。
@@ -68,6 +124,7 @@
   - 留作 P0 待办:web NativeTopBar.tsx import 修复(其他 agent 范围,需他们自己修复)
 
 **Git 同步证据**:
+
 - 本地 commit: 9e90351d3
 - origin commit: 9e90351d3
 - 同步状态: local == remote ✅
@@ -115,8 +172,9 @@
 **成果清单**:
 
 #### web i18n 动态拼接 152 → 92(减 60 处,超额完成目标 -40)
-- **status.* 13 处**(11 个文件 11 个 namespace):activities/page + activities/[slug]/PageClient + admin/withdrawal/page + admin/wallet/page + admin/edu/answer/card/PageClient + admin/edu/exam/ExamTable + admin/edu/exam/records/PageClient + admin/edu/finance/invoices/page + admin/edu/course/audit/CourseAuditTable + learn/[id]/homework/PageClient + billing/ContractManager
-- **redeem.history.statusLabels.* 1 处**:models/redeem/page
+
+- _*status.* 13 处_*(11 个文件 11 个 namespace):activities/page + activities/[slug]/PageClient + admin/withdrawal/page + admin/wallet/page + admin/edu/answer/card/PageClient + admin/edu/exam/ExamTable + admin/edu/exam/records/PageClient + admin/edu/finance/invoices/page + admin/edu/course/audit/CourseAuditTable + learn/[id]/homework/PageClient + billing/ContractManager
+- _*redeem.history.statusLabels.* 1 处_*:models/redeem/page
 - **改造模式**:每个 status.* 命名空间建本地 `Record<Status, string>` 映射表,兜底 `'status.unknown'`,类型安全保证枚举值完整覆盖
 - **审计放大效应**:单点改造使整个命名空间下所有 key 从动态拼接警告中移除,14 处改造消除 60 处警告
 
@@ -128,13 +186,13 @@
 
 **累计进度**(⑧ i18n 动态拼接治理):
 
-| 批次 | 治理前 | 治理后 | 降幅 | 命名空间 |
-|---|---|---|---|---|
-| 第一批 | 260 | 216 | -44 | status.*/status_*/status${} |
-| 第二批 | 216 | 152 | -64 | level/platforms/commands/type |
-| 第三批 | 152 | 92 | -60 | status.*遗漏件 + redeem.history.statusLabels |
-| **累计** | **260** | **92** | **-64.6%** | — |
-| 剩余 | 92 | — | — | 低频命名空间(common.orderStatus/common.tools/common.mcp/common.aiWorld/skills.market + hacky 模式 ~30 处) |
+| 批次     | 治理前  | 治理后 | 降幅       | 命名空间                                                                                                  |
+| -------- | ------- | ------ | ---------- | --------------------------------------------------------------------------------------------------------- |
+| 第一批   | 260     | 216    | -44        | status._/status__/status${}                                                                               |
+| 第二批   | 216     | 152    | -64        | level/platforms/commands/type                                                                             |
+| 第三批   | 152     | 92     | -60        | status.*遗漏件 + redeem.history.statusLabels                                                              |
+| **累计** | **260** | **92** | **-64.6%** | —                                                                                                         |
+| 剩余     | 92      | —      | —          | 低频命名空间(common.orderStatus/common.tools/common.mcp/common.aiWorld/skills.market + hacky 模式 ~30 处) |
 
 **Git 同步证据**:
 
@@ -154,18 +212,20 @@
 **成果清单**:
 
 #### ① 项目外路径污染防护扩展(彻底杜绝再发生)
+
 - **守门脚本扩展**:[scripts/check-parent-pollution.mjs](file:///g:/IHUI-AI/scripts/check-parent-pollution.mjs) 新增 `getRealDesktopPaths()` 函数,通过 PowerShell `[Environment]::GetFolderPath('Desktop')` 获取真实桌面路径 + 驱动器兜底(A-Z 扫描 `桌面`/`Desktop`),覆盖跨驱动器重定向场景(用户桌面重定向到 E:\桌面,项目在 G:\IHUI-AI)
 - **项目外报告迁移**:`E:\桌面\项目端口分析与维护成本优化.md` → [docs/port-cost-analysis.md](file:///g:/IHUI-AI/docs/port-cost-analysis.md)(违反 AGENTS.md §15,已迁移)
 - **验证**:守门脚本 `node scripts/check-parent-pollution.mjs --warn` exit 0,无污染 ✅
 
 #### ② web i18n 动态拼接第四批治理(5 subagent 并行,治理前 71 → 治理后 58,实际改造 29 处)
+
 - **Subagent A — status.${var} 全局命名空间(10 处)**:全部已治理完成(前批次成果),10 处审计命中均为 STATUS_KEY 上方 JSDoc 注释中的示例文本误识别,无需改动
-- **Subagent B — models/* statusLabels + types 系列(6 处,5 文件)**:[channels/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/models/channels/page.tsx) CHANNELS_STATUS_KEY + [billing/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/models/billing/page.tsx) BILLING_TX_TYPE_KEY/BILLING_TX_STATUS_KEY + [logs/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/models/logs/page.tsx) LOGS_STATUS_KEY + [overview/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/models/overview/page.tsx) OVERVIEW_RECENTCALLS_STATUS_KEY + [keys/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/models/keys/page.tsx) KEYS_STATUS_KEY
-- **Subagent C — admin/edu/* helpers 系列(7 处,5 文件)**:[answer/online/helpers.ts](file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/answer/online/helpers.ts) 移除冗余 TYPE_LABEL + [certificate/helpers.ts](file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/certificate/helpers.ts) 移除冗余 SOURCE_MAP + [course/pay/helpers.ts](file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/course/pay/helpers.ts) PAY_TYPE_KEY/PAY_CROWD_KEY + [course/helpers.ts](file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/course/helpers.ts) STAGE_KEY/AUDIT_KEY(修复 AUDIT_TEXT 错误 key bug:auditStatus.X → audit.X) + learn/ranking/page.tsx(已治理)
-- **Subagent D — admin/* helpers 系列(6 处,5 文件)**:全部已治理完成(前批次成果),demand-square/dict/notification-dispatch/workflows/roles helpers.ts 共 9 张静态映射表全部就位,12 个消费点全部带兜底
+- *_Subagent B — models/_ statusLabels + types 系列(6 处,5 文件)**:[channels/page.tsx](<file:///g:/IHUI-AI/apps/web/app/(main)/models/channels/page.tsx>) CHANNELS_STATUS_KEY + [billing/page.tsx](<file:///g:/IHUI-AI/apps/web/app/(main)/models/billing/page.tsx>) BILLING_TX_TYPE_KEY/BILLING_TX_STATUS_KEY + [logs/page.tsx](<file:///g:/IHUI-AI/apps/web/app/(main)/models/logs/page.tsx>) LOGS_STATUS_KEY + [overview/page.tsx](<file:///g:/IHUI-AI/apps/web/app/(main)/models/overview/page.tsx>) OVERVIEW_RECENTCALLS_STATUS_KEY + [keys/page.tsx](<file:///g:/IHUI-AI/apps/web/app/(main)/models/keys/page.tsx>) KEYS_STATUS_KEY
+- *_Subagent C — admin/edu/_ helpers 系列(7 处,5 文件)**:[answer/online/helpers.ts](<file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/answer/online/helpers.ts>) 移除冗余 TYPE_LABEL + [certificate/helpers.ts](<file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/certificate/helpers.ts>) 移除冗余 SOURCE_MAP + [course/pay/helpers.ts](<file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/course/pay/helpers.ts>) PAY_TYPE_KEY/PAY_CROWD_KEY + [course/helpers.ts](<file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/course/helpers.ts>) STAGE_KEY/AUDIT_KEY(修复 AUDIT_TEXT 错误 key bug:auditStatus.X → audit.X) + learn/ranking/page.tsx(已治理)
+- *_Subagent D — admin/_ helpers 系列(6 处,5 文件)**:全部已治理完成(前批次成果),demand-square/dict/notification-dispatch/workflows/roles helpers.ts 共 9 张静态映射表全部就位,12 个消费点全部带兜底
 - **Subagent E — marketing 系列(16 处,3 文件)**:[HomeScenarios.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/HomeScenarios.tsx) SCENARIO_I18N_KEY(5 条) + [HomeRoi.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/HomeRoi.tsx) ROI_I18N_KEY(8 条) + [HomeComparison.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/HomeComparison.tsx) COMPARISON_ROW_KEY(8 条)
 
-**改造模式**:参考 [admin/edu/answer/card/PageClient.tsx#L40-L45](file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/answer/card/PageClient.tsx#L40-L45) 的 `STATUS_KEY: Record<string, string>` 静态映射表 + `t(KEY[var] ?? 'xxx.unknown')` 兜底查询模式。
+**改造模式**:参考 [admin/edu/answer/card/PageClient.tsx#L40-L45](<file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/answer/card/PageClient.tsx#L40-L45>) 的 `STATUS_KEY: Record<string, string>` 静态映射表 + `t(KEY[var] ?? 'xxx.unknown')` 兜底查询模式。
 
 **审计放大效应**:审计命中的 71 处中,16 处为注释误识别(JSDoc 示例文本),实际动态拼接 55 处;5 subagent 改造 29 处(全部转为静态映射表),治理后审计值 71 → 58(剩余 58 处含注释误识别 + 低频命名空间 misc 模式)。
 
@@ -177,16 +237,17 @@
 
 **累计进度**(⑧ i18n 动态拼接治理):
 
-| 批次 | 治理前 | 治理后 | 降幅 | 命名空间 |
-|---|---|---|---|---|
-| 第一批 | 260 | 216 | -44 | status.*/status_*/status${} |
-| 第二批 | 216 | 152 | -64 | level/platforms/commands/type |
-| 第三批 | 152 | 92 | -60 | status.*遗漏件 + redeem.history.statusLabels |
-| 第四批 | 71 | 58 | -13 | status.${var}注释误识别 + models statusLabels + admin/edu helpers + admin helpers + marketing |
-| **累计** | **260** | **58** | **-77.7%** | — |
-| 剩余 | 58 | — | — | 低频命名空间 misc 模式(hooks/use-zod-form/login/QrCodeLogin/settings/ThemeBackupSync/layout/CommandPalette/AdminNav/ai-news/n8n-agents/teams/messages/models/ModelsMarketplace/payment/publish/ranking/points/settings/billing/settings/import/user/profile ~26 处) |
+| 批次     | 治理前  | 治理后 | 降幅       | 命名空间                                                                                                                                                                                                                                                            |
+| -------- | ------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 第一批   | 260     | 216    | -44        | status._/status__/status${}                                                                                                                                                                                                                                         |
+| 第二批   | 216     | 152    | -64        | level/platforms/commands/type                                                                                                                                                                                                                                       |
+| 第三批   | 152     | 92     | -60        | status.*遗漏件 + redeem.history.statusLabels                                                                                                                                                                                                                        |
+| 第四批   | 71      | 58     | -13        | status.${var}注释误识别 + models statusLabels + admin/edu helpers + admin helpers + marketing                                                                                                                                                                       |
+| **累计** | **260** | **58** | **-77.7%** | —                                                                                                                                                                                                                                                                   |
+| 剩余     | 58      | —      | —          | 低频命名空间 misc 模式(hooks/use-zod-form/login/QrCodeLogin/settings/ThemeBackupSync/layout/CommandPalette/AdminNav/ai-news/n8n-agents/teams/messages/models/ModelsMarketplace/payment/publish/ranking/points/settings/billing/settings/import/user/profile ~26 处) |
 
 **已知遗留(下一轮处理)**:
+
 - 审计工具注释误识别:治理后的文件 JSDoc 注释中的 `t('status.${var}')` 示例文本仍被识别为动态拼接(约 16 处),需优化审计脚本排除注释行
 - zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 在 zh-CN.json 中缺失,需补齐并按 §19 i18n 流水线同步 4 语言
 - 第五批治理:剩余 26 处 misc 模式(hooks/login/settings/layout/ai-news/n8n-agents/teams/messages/payment/publish/ranking/points 等),模式各异需逐个分析
@@ -209,10 +270,11 @@
 **成果清单**:
 
 #### web i18n 动态拼接 216 → 152(减 64 处,达 ~150 目标)
-- **level.* 2 处**:[RecordedTable.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/learn/recorded/RecordedTable.tsx) + recorded/page.tsx(修复前批次未落地改动)
-- **platforms.* 5 处**:新建 [publish/helpers.ts](file:///g:/IHUI-AI/apps/web/app/(main)/publish/helpers.ts) 共享 14 平台映射(wordpress/medium/youtube/bilibili/wechat/toutiao/douyin/kuaishou/weibo/zhihu/csdn/juejin/xiaohongshu/shipinhao),改 publish/new+accounts+history
-- **commands.* 4 处**:[CommandPalette.tsx](file:///g:/IHUI-AI/apps/web/src/components/layout/CommandPalette.tsx) 新建 3 映射表(COMMAND_LABEL_KEY/COMMAND_DESC_KEY/COMMAND_KEYWORDS_KEY)覆盖 6 id(chat/drama/search/ai-world/profile/settings),含 t.raw
-- **type.* 1 处**:[learn/topic/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/learn/topic/page.tsx) 补全 TYPE_TIP_KEY 预存 bug(此前被引用但从未定义)
+
+- _*level.* 2 处_*:[RecordedTable.tsx](<file:///g:/IHUI-AI/apps/web/app/(main)/admin/edu/learn/recorded/RecordedTable.tsx>) + recorded/page.tsx(修复前批次未落地改动)
+- _*platforms.* 5 处_*:新建 [publish/helpers.ts](<file:///g:/IHUI-AI/apps/web/app/(main)/publish/helpers.ts>) 共享 14 平台映射(wordpress/medium/youtube/bilibili/wechat/toutiao/douyin/kuaishou/weibo/zhihu/csdn/juejin/xiaohongshu/shipinhao),改 publish/new+accounts+history
+- _*commands.* 4 处_*:[CommandPalette.tsx](file:///g:/IHUI-AI/apps/web/src/components/layout/CommandPalette.tsx) 新建 3 映射表(COMMAND_LABEL_KEY/COMMAND_DESC_KEY/COMMAND_KEYWORDS_KEY)覆盖 6 id(chat/drama/search/ai-world/profile/settings),含 t.raw
+- _*type.* 1 处_*:[learn/topic/page.tsx](<file:///g:/IHUI-AI/apps/web/app/(main)/learn/topic/page.tsx>) 补全 TYPE_TIP_KEY 预存 bug(此前被引用但从未定义)
 
 **验证**:
 
@@ -222,18 +284,18 @@
 
 **报告 10 个优化点状态**:
 
-| # | 优化点 | 状态 |
-|---|---|---|
-| ① | Storybook 端口 docs/代码不一致 | ✅ 已修(方案 B 改 docs 承认 6006 豁免) |
-| ② | CLI 8841 占用蓝绿段未注册 | ✅ 已修(docs §2.6 注册 8841) |
-| ③ | 预留空槽过多(59%) | 保留现状(合理设计) |
-| ④ | 8806 Desktop 废弃占位 | 保留现状(历史追溯) |
-| ⑤ | 守门脚本合并 | ✅ 已修(93→78,第四轮) |
-| ⑥ | LLM provider 字典化 | ✅ 已修(第一轮) |
-| ⑦ | 可观测性栈精简 | ✅ 已修(profile 拆分,第一轮) |
-| ⑧ | i18n key 必要性审计 | 🔄 推进中(miniapp-taro 13/13 ✅,web 260→152,剩余 ~152 处低频命名空间) |
-| ⑨ | TODO/FIXME/HACK 733 处清理 | ⏳ 持续迭代(每轮 10-20 个) |
-| ⑩ | 多端用户评估 | 产品决策,非技术 |
+| #   | 优化点                         | 状态                                                                  |
+| --- | ------------------------------ | --------------------------------------------------------------------- |
+| ①   | Storybook 端口 docs/代码不一致 | ✅ 已修(方案 B 改 docs 承认 6006 豁免)                                |
+| ②   | CLI 8841 占用蓝绿段未注册      | ✅ 已修(docs §2.6 注册 8841)                                          |
+| ③   | 预留空槽过多(59%)              | 保留现状(合理设计)                                                    |
+| ④   | 8806 Desktop 废弃占位          | 保留现状(历史追溯)                                                    |
+| ⑤   | 守门脚本合并                   | ✅ 已修(93→78,第四轮)                                                 |
+| ⑥   | LLM provider 字典化            | ✅ 已修(第一轮)                                                       |
+| ⑦   | 可观测性栈精简                 | ✅ 已修(profile 拆分,第一轮)                                          |
+| ⑧   | i18n key 必要性审计            | 🔄 推进中(miniapp-taro 13/13 ✅,web 260→152,剩余 ~152 处低频命名空间) |
+| ⑨   | TODO/FIXME/HACK 733 处清理     | ⏳ 持续迭代(每轮 10-20 个)                                            |
+| ⑩   | 多端用户评估                   | 产品决策,非技术                                                       |
 
 **Git 同步证据**:
 
@@ -975,11 +1037,11 @@ P1(5 项):
 
 **Git 同步证据**(§21):
 
-| commit | 内容 | 文件数 | push 状态 |
-|---|---|---|---|
-| 6b13e7352 | P0 + 文档清理 + #7 miniapp-taro 迁移 | 39 | ✅ origin/main |
-| b1993c159 | #4 i18n 清理(14825 key × 5 语言) | 11 | ✅ origin/main |
-| 43c177c80 | #6 legacy 迁移(34 端点拆到 9 文件) | 12 | ✅ origin/main |
+| commit    | 内容                                 | 文件数 | push 状态      |
+| --------- | ------------------------------------ | ------ | -------------- |
+| 6b13e7352 | P0 + 文档清理 + #7 miniapp-taro 迁移 | 39     | ✅ origin/main |
+| b1993c159 | #4 i18n 清理(14825 key × 5 语言)     | 11     | ✅ origin/main |
+| 43c177c80 | #6 legacy 迁移(34 端点拆到 9 文件)   | 12     | ✅ origin/main |
 
 - 同步状态: local == remote ✅(3 commits 全部 push 成功)
 - 守门:本任务文件 typecheck + lint 全绿;hook 失败因其他 agent 代码(tauri-bridge/use-chat/permission-mode-popover 等)按 §12 用 `--no-verify` 跳过
