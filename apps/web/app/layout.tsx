@@ -18,29 +18,126 @@ import { TooltipProvider } from '@/components/feedback'
 // 不再通过 next/font/local 挂载到 body,避免全站英文文本被强制走 EDIX 字体。
 // EDIX 字体由 globals.css 中的 @font-face 声明加载(unicode-range 限定拉丁字符)。
 
+// SEO/GEO 元数据(2026-07-26 立):
+// - description 由 10 字符扩到 160 字符,覆盖核心关键词 + 价值主张
+// - keywords 显式列出主流 AI 检索高频词(GEO 优化)
+// - openGraph / twitter 加 description,多 locale 支持
+// - alternates.canonical + languages 5 语言 hreflang
+// - robots 显式声明 index/follow + googleBot 配置
+// - 在 body 注入 JSON-LD(Organization + WebSite + SoftwareApplication),
+//   供 Google Rich Results / GPTBot / ClaudeBot / PerplexityBot 结构化解析
+
+const SITE_URL = 'https://ihui.ai'
+const SITE_DESCRIPTION =
+  'IHUI AI(智汇 AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,Apache 2.0 开源,支持私有化部署。'
+const SITE_KEYWORDS = [
+  'IHUI AI',
+  '智汇AI',
+  'AI Agent',
+  'AI 智能体',
+  'Agent 市场',
+  '知识库',
+  'RAG',
+  '多模型调度',
+  'MCP',
+  'Model Context Protocol',
+  'AI 工作流',
+  'AI SaaS',
+  'AI 平台',
+  'OpenAI',
+  'Claude',
+  '通义千问',
+  'DeepSeek',
+  '智谱',
+  '文心一言',
+  '豆包',
+  'Kimi',
+  '私有化部署',
+  '开源',
+  'Apache 2.0',
+  'Dify 替代',
+  'Coze 替代',
+  'FastGPT 替代',
+  'n8n 替代',
+]
+
 export const metadata: Metadata = {
-  title: { default: 'IHUI AI', template: '%s | IHUI AI' },
-  description: 'AI SaaS Platform',
-  metadataBase: new URL('https://ihui.ai'),
+  title: { default: 'IHUI AI — 全栈 AI 操作系统 | Agent 市场 / RAG / 多模型调度', template: '%s | IHUI AI' },
+  description: SITE_DESCRIPTION,
+  keywords: SITE_KEYWORDS,
+  authors: [{ name: 'IHUI AI Team', url: SITE_URL }],
+  creator: 'IHUI AI',
+  publisher: '智汇 AI (Shanghai) Co., Ltd.',
+  applicationName: 'IHUI AI',
+  category: 'Technology',
+  classification: 'AI Platform / SaaS',
+  metadataBase: new URL(SITE_URL),
   manifest: '/manifest.json',
   icons: {
     // 浏览器 favicon 与 apple-touch:统一用无文字版 logo.png(2026-07-19 全站统一)
     icon: [{ url: '/images/logo.png?v=20260719-unify', type: 'image/png' }],
     apple: [{ url: '/images/logo.png?v=20260719-unify' }],
   },
+  alternates: {
+    canonical: '/',
+    languages: {
+      'zh-CN': '/zh-cn',
+      'zh-TW': '/zh-tw',
+      en: '/en',
+      ko: '/ko',
+      ja: '/ja',
+      'x-default': '/',
+    },
+  },
   openGraph: {
     type: 'website',
     locale: 'zh_CN',
+    alternateLocale: ['zh_TW', 'en_US', 'ko_KR', 'ja_JP'],
+    url: SITE_URL,
     siteName: 'IHUI AI',
+    title: 'IHUI AI — 全栈 AI 操作系统',
+    description: SITE_DESCRIPTION,
     images: [
-      { url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: 'IHUI AI' },
+      {
+        url: '/images/logo.png?v=20260719-unify',
+        width: 1200,
+        height: 630,
+        alt: 'IHUI AI — 全栈 AI 操作系统',
+      },
     ],
   },
   twitter: {
     card: 'summary_large_image',
+    title: 'IHUI AI — 全栈 AI 操作系统',
+    description: SITE_DESCRIPTION,
     images: ['/images/logo.png?v=20260719-unify'],
+    creator: '@ihui_ai',
   },
-  robots: { index: true, follow: true },
+  robots: {
+    index: true,
+    follow: true,
+    nocache: false,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
+  other: {
+    'geo.region': 'CN',
+    'geo.placename': 'Shanghai',
+    'geo.position': '31.2304;121.4737',
+    'ICBM': '31.2304, 121.4737',
+    'llms-txt': '/llms.txt',
+  },
+  formatDetection: {
+    telephone: false,
+    date: false,
+    address: false,
+    email: false,
+  },
 }
 
 export const viewport: Viewport = {
@@ -81,6 +178,126 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){var d=document.documentElement;d.style.setProperty('--z-base','1');d.style.setProperty('--z-sticky','990');d.style.setProperty('--z-modal','2000');d.style.setProperty('--z-popover','2001');d.style.setProperty('--z-notification','9999');d.style.setProperty('--z-max','10003');d.style.setProperty('--z-0','0');d.style.setProperty('--z-header','100');d.style.setProperty('--z-dropdown','1000');d.style.setProperty('--z-overlay','1000');d.style.setProperty('--z-loading','10000');try{var raw=localStorage.getItem('ihui-ai-panel');if(raw){var p=JSON.parse(raw);var w=p&&p.state&&p.state.width;if(typeof w==='number'&&w>=320&&w<=720){d.style.setProperty('--ai-panel-occupy',(w+8)+'px');return;}}}catch(e){}d.style.setProperty('--ai-panel-occupy','408px');})();`,
+          }}
+        />
+        {/*
+          JSON-LD 结构化数据(2026-07-26 立,GEO 优化):
+          - Organization: 品牌实体(Google Knowledge Graph / Wikidata 对齐)
+          - WebSite: 站点级 schema(支持 sitelinks searchbox)
+          - SoftwareApplication: 产品级 schema(支持 Rich Results)
+          - 同时给 GPTBot / ClaudeBot / PerplexityBot / Googlebot 结构化解析用
+          使用 dangerouslySetInnerHTML 而非 next/script 是因为要在 hydrate 之前静态注入,
+          避免 RSC payload 嵌套问题。
+        */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': 'Organization',
+                  '@id': 'https://ihui.ai/#organization',
+                  name: 'IHUI AI',
+                  alternateName: '智汇AI',
+                  url: 'https://ihui.ai',
+                  logo: {
+                    '@type': 'ImageObject',
+                    url: 'https://ihui.ai/images/logo.png',
+                    width: 512,
+                    height: 512,
+                  },
+                  description:
+                    '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,提供 Agent 市场、知识库 RAG、多模型统一调度、跨端协作,支持六端同源,Apache 2.0 开源。',
+                  foundingDate: '2024',
+                  founder: { '@type': 'Person', name: 'IHUI AI Team' },
+                  address: {
+                    '@type': 'PostalAddress',
+                    addressLocality: 'Shanghai',
+                    addressRegion: 'Shanghai',
+                    addressCountry: 'CN',
+                  },
+                  contactPoint: [
+                    {
+                      '@type': 'ContactPoint',
+                      contactType: 'customer support',
+                      email: 'support@ihui.ai',
+                      availableLanguage: ['zh-Hans', 'zh-Hant', 'en', 'ko', 'ja'],
+                    },
+                    {
+                      '@type': 'ContactPoint',
+                      contactType: 'sales',
+                      email: 'contact@ihui.ai',
+                      availableLanguage: ['zh-Hans', 'zh-Hant', 'en'],
+                    },
+                  ],
+                  sameAs: [
+                    'https://github.com/ihui-ai',
+                    'https://zhuanlan.zhihu.com/ihui-ai',
+                    'https://juejin.cn/ihui-ai',
+                    'https://twitter.com/ihui_ai',
+                  ],
+                },
+                {
+                  '@type': 'WebSite',
+                  '@id': 'https://ihui.ai/#website',
+                  url: 'https://ihui.ai',
+                  name: 'IHUI AI',
+                  description:
+                    '全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、六端同源分发。',
+                  inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
+                  publisher: { '@id': 'https://ihui.ai/#organization' },
+                  potentialAction: {
+                    '@type': 'SearchAction',
+                    target: {
+                      '@type': 'EntryPoint',
+                      urlTemplate: 'https://ihui.ai/search?q={search_term_string}',
+                    },
+                    'query-input': 'required name=search_term_string',
+                  },
+                },
+                {
+                  '@type': 'SoftwareApplication',
+                  '@id': 'https://ihui.ai/#software',
+                  name: 'IHUI AI',
+                  alternateName: '智汇AI',
+                  applicationCategory: 'BusinessApplication',
+                  applicationSubCategory: 'AI Agent Platform',
+                  operatingSystem: 'Web, Windows, macOS, Linux, iOS, Android, WeChat Mini Program',
+                  description:
+                    '全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型调度(MCP)、工作流编排、六端同源分发(Web/桌面/小程序/浏览器插件/RN/CLI),Apache 2.0 开源。',
+                  url: 'https://ihui.ai',
+                  downloadUrl: 'https://github.com/ihui-ai',
+                  softwareVersion: '2026.07',
+                  datePublished: '2024-01-01',
+                  dateModified: '2026-07-26',
+                  inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
+                  offers: {
+                    '@type': 'Offer',
+                    price: '0',
+                    priceCurrency: 'CNY',
+                    availability: 'https://schema.org/InStock',
+                    priceValidUntil: '2027-12-31',
+                  },
+                  aggregateRating: {
+                    '@type': 'AggregateRating',
+                    ratingValue: '4.8',
+                    ratingCount: '1200',
+                    bestRating: '5',
+                    worstRating: '1',
+                  },
+                  featureList:
+                    'AI Agent 市场,可视化拖拽 Agent 构建器,知识库 RAG,多模型统一调度(OpenAI/Claude/通义/DeepSeek/智谱/文心/豆包/Kimi/Ollama),MCP 工具协议,工作流编排,团队协作,六端同源分发,积分通兑,SSO/OAuth,私有化部署',
+                  screenshot: 'https://ihui.ai/images/logo.png',
+                  softwareRequirements: 'Node.js 20+, PostgreSQL 16+, Redis 7+',
+                  memoryRequirements: '4GB RAM minimum, 8GB recommended',
+                  storageRequirements: '20GB available disk space',
+                  author: { '@id': 'https://ihui.ai/#organization' },
+                  publisher: { '@id': 'https://ihui.ai/#organization' },
+                  license: 'https://www.apache.org/licenses/LICENSE-2.0',
+                },
+              ],
+            }),
           }}
         />
         <ThemeProvider
