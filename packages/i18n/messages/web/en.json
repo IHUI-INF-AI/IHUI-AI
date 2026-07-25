@@ -887,6 +887,11 @@
       "reEnableAutoRevert": "Re-enable 1h auto-revert",
       "autoRevertedTitle": "Auto-reverted to ask for approval",
       "autoRevertedDesc": "To prevent staying in high-risk mode too long, we automatically downgrade after 1 hour of inactivity. Re-enable full access with Shift+Tab or the permission button.",
+      "revertWarning5minTitle": "Full Access mode will auto-revert soon",
+      "revertWarning5minDesc": "Auto-reverting to Ask in 5 minutes. Click 'Extend 1 hour' to keep full access.",
+      "revertWarning1minTitle": "Full Access auto-reverting in 1 minute",
+      "revertWarning1minDesc": "Click 'Extend 1 hour' immediately to keep full access.",
+      "extendOneHour": "Extend 1 hour",
       "firstTimeConfirmTitle": "Enable full access mode?",
       "firstTimeConfirmDesc": "Full access lets AI perform any action without confirmation, including modifying/deleting files, running arbitrary commands, and network access. Use only in fully trusted private projects.",
       "firstTimeConfirmBullet1": "AI can perform all actions without per-action confirmation",
@@ -8917,19 +8922,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -9049,25 +9066,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -9957,12 +9986,12 @@
         "keyPlaceholderNew": "sk-...",
         "keyPlaceholderEdit": "•••••••(encrypted)",
         "keyKeepEmpty": "(leave empty to keep current)",
-        "showKey": "Show",
-        "hideKey": "Hide",
         "pasteFromClipboard": "Paste API Key from clipboard",
         "pasteSuccess": "Pasted from clipboard",
         "pasteFailed": "Clipboard read failed, please paste manually",
         "pasteEmpty": "Clipboard is empty",
+        "showKey": "Show",
+        "hideKey": "Hide",
         "platformPlaceholder": "Select a platform template",
         "groupPlaceholder": "Select a group",
         "protocolPlaceholder": "Select a protocol",
