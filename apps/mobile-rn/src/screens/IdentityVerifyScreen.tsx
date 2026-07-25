@@ -12,6 +12,13 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type VerifyStatus = 'unverified' | 'pending' | 'verified' | 'rejected'
 
+const IDENTITY_STATUS_KEYS: Record<VerifyStatus, string> = {
+  unverified: 'identityVerify.status_unverified',
+  pending: 'identityVerify.status_pending',
+  verified: 'identityVerify.status_verified',
+  rejected: 'identityVerify.status_rejected',
+}
+
 interface VerifyResult {
   status: VerifyStatus
   reason?: string
@@ -97,7 +104,7 @@ export function IdentityVerifyScreen() {
         <Card style={styles.card}>
           <Text style={styles.subtitle}>{t('identityVerify.subtitle')}</Text>
           <Text style={[styles.status, status === 'verified' && styles.statusOk]}>
-            {t(`identityVerify.status_${status}`)}
+            {t(IDENTITY_STATUS_KEYS[status])}
           </Text>
           {reason ? <Text style={styles.errorText}>{reason}</Text> : null}
         </Card>
@@ -112,7 +119,12 @@ export function IdentityVerifyScreen() {
               </View>
             ))}
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <Button loading={submitting} disabled={submitting} onPress={handleSubmit} style={styles.submitBtn}>
+            <Button
+              loading={submitting}
+              disabled={submitting}
+              onPress={handleSubmit}
+              style={styles.submitBtn}
+            >
               {submitting ? t('identityVerify.submitting') : t('identityVerify.submit')}
             </Button>
           </Card>
@@ -125,7 +137,13 @@ export function IdentityVerifyScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
   body: { padding: 16 },
@@ -133,9 +151,21 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 12, color: '#6B7280' },
   status: { marginTop: 6, fontSize: 14, fontWeight: '600', color: '#DC2626' },
   statusOk: { color: '#10B981' },
-  uploadItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  uploadItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
   label: { fontSize: 12, color: '#374151' },
-  uploadBtn: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  uploadBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   uploadBtnText: { fontSize: 24, color: '#9CA3AF' },
   errorText: { fontSize: 12, color: '#DC2626', marginTop: 8 },
   submitBtn: { marginTop: 12, borderRadius: 8 },

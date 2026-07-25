@@ -24,6 +24,11 @@ const PAGE_SIZE = 20
 
 type TabKey = 'following' | 'fans'
 
+const FOLLOW_TAB_KEYS: Record<TabKey, string> = {
+  following: 'follow.tab_following',
+  fans: 'follow.tab_fans',
+}
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
@@ -94,7 +99,7 @@ export function FollowScreen() {
             style={[styles.tab, tab === k && styles.tabActive]}
           >
             <Text style={[styles.tabText, tab === k && styles.tabTextActive]}>
-              {t(`follow.tab_${k}`)}
+              {t(FOLLOW_TAB_KEYS[k])}
             </Text>
           </TouchableOpacity>
         ))}
