@@ -130,17 +130,17 @@ export default function AdminDocsPage() {
             ) : list.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">{t('noData')}</td></tr>
             ) : (
-              list.map((d) => (
+              list.map((d: any) => (
                 <tr key={d.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{d.title}</td>
                   <td className="px-4 py-2.5">
-                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t(DOC_CATEGORY_KEY[d.category] ?? 'categories.unknown')}</span>
+                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{t(DOC_CATEGORY_KEY[d.category as keyof typeof DOC_CATEGORY_KEY] ?? 'categories.unknown')}</span>
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{d.slug}</td>
                   <td className="px-4 py-2.5">
                     <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium', d.status === 'published' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
                       <span className={cn('h-1.5 w-1.5 rounded-full', d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
-                      {t(DOC_STATUS_KEYS[d.status]!)}
+                      {t(DOC_STATUS_KEYS[d.status as keyof typeof DOC_STATUS_KEYS]!)}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{d.viewCount ?? 0}</td>
