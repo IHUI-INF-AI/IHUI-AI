@@ -10,6 +10,12 @@ export const STATUS_CLASS: Record<string, string> = {
   rejected: 'bg-destructive/10 text-destructive',
 }
 
+export const STATUS_KEY: Record<string, string> = {
+  pending: 'statusPending',
+  approved: 'statusApproved',
+  rejected: 'statusRejected',
+}
+
 export const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
