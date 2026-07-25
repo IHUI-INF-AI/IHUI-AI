@@ -22,7 +22,7 @@ interface Props {
 
 const th = 'px-4 py-2.5 font-medium'
 
-export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
+export const TagTable = React.memo(function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.tags')
   const tc = useTranslations('common')
   const locale = useLocale()
@@ -34,6 +34,22 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
         day: '2-digit',
       }),
     [locale],
+  )
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = tags.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [tags, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (id) onDelete(id)
+    },
+    [onDelete],
   )
   const fontSize = getFontSize(tags)
   const total = tags.length
@@ -126,7 +142,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <div className="inline-flex items-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(tag)}>
+                    <Button variant="ghost" size="sm" data-id={tag.id} onClick={handleEdit}>
                       <Edit className="mr-1 h-3.5 w-3.5" />
                       {tc('edit')}
                     </Button>
@@ -134,7 +150,8 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => onDelete(tag.id)}
+                      data-id={tag.id}
+                      onClick={handleDelete}
                     >
                       <Trash2 className="mr-1 h-3.5 w-3.5" />
                       {tc('delete')}
@@ -150,4 +167,4 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
       <div className="text-sm text-muted-foreground">{t('total', { total })}</div>
     </>
   )
-}
+})

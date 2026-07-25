@@ -15,7 +15,7 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
+export const AiGcTable = React.memo(function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.aiGc')
   const handleEdit = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -112,4 +112,4 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
       </table>
     </div>
   )
-}
+})
