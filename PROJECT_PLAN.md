@@ -865,7 +865,7 @@ const auth = useAuth({
 - check-i18n-broken-en.mjs:✅ 0 破碎
 - 浏览器自验:⚠️ **阻塞** — dev server 因其他 agent commit `3f9877d58` 引入 `NativeTopBar.tsx → @/lib/menu-actions` 不存在 import 返回 500,我的代码无法在浏览器渲染
   - 按 §12 + §17 不能修改其他 agent 的代码"帮他们修",按 §17"服务起不来禁止交付"原则
-  - 留作 P0 待办:web NativeTopBar.tsx import 修复(其他 agent 范围,需他们自己修复)
+  - ~~留作 P0 待办:web NativeTopBar.tsx import 修复(其他 agent 范围,需他们自己修复)~~ → ✅ 已修复(2026-07-25 复查):`apps/web/src/lib/menu-actions.ts` 已存在,NativeTopBar.tsx import 解析正常
 
 **Git 同步证据**:
 
