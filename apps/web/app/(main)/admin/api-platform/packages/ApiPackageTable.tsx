@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
@@ -15,24 +14,8 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export const ApiPackageTable = React.memo(function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
+export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('adminApiPackages')
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const p = list.find((x) => String(x.id) === id)
-      if (p) onEdit(p)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id && confirm(t('confirmDelete'))) onDelete(id)
-    },
-    [t, onDelete],
-  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -84,15 +67,16 @@ export const ApiPackageTable = React.memo(function ApiPackageTable({ list, isLoa
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" data-id={p.id} onClick={handleEdit}>
+                    <Button size="sm" variant="ghost" onClick={() => onEdit(p)}>
                       <Pencil className="h-3.5 w-3.5" />
                       {t('edit')}
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      data-id={p.id}
-                      onClick={handleDelete}
+                      onClick={() => {
+                        if (confirm(t('confirmDelete'))) onDelete(p.id)
+                      }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -105,4 +89,4 @@ export const ApiPackageTable = React.memo(function ApiPackageTable({ list, isLoa
       </Table>
     </div>
   )
-})
+}

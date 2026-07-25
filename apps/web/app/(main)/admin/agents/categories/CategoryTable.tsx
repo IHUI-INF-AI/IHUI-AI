@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Loader2, Tag, Pencil, Trash2 } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
@@ -29,7 +28,7 @@ interface CategoryTableProps {
   onTogglePaid: (cat: Category, enable: boolean) => void
 }
 
-export const CategoryTable = React.memo(function CategoryTable({
+export function CategoryTable({
   list,
   isLoading,
   error,
@@ -42,35 +41,13 @@ export const CategoryTable = React.memo(function CategoryTable({
   const t = useTranslations('admin.agents.categories')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const c = list.find((x) => String(x.categoryId) === id)
-      if (c) onEdit(c)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const c = list.find((x) => String(x.categoryId) === id)
-      if (c && window.confirm(t('deleteConfirm'))) onDelete(c)
-    },
-    [list, t, onDelete],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -156,8 +133,7 @@ export const CategoryTable = React.memo(function CategoryTable({
                         <Button
                           size="sm"
                           variant="ghost"
-                          data-id={c.categoryId}
-                          onClick={handleEdit}
+                          onClick={() => onEdit(c)}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -166,8 +142,9 @@ export const CategoryTable = React.memo(function CategoryTable({
                         <Button
                           size="sm"
                           variant="ghost"
-                          data-id={c.categoryId}
-                          onClick={handleDelete}
+                          onClick={() => {
+                            if (window.confirm(t('deleteConfirm'))) onDelete(c)
+                          }}
                           disabled={deletePending}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -183,4 +160,4 @@ export const CategoryTable = React.memo(function CategoryTable({
       </Table>
     </div>
   )
-})
+}

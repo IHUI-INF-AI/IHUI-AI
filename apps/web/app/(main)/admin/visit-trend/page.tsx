@@ -44,7 +44,7 @@ export default function VisitTrendPage() {
     },
     retry: false,
   })
-  const numFmt = React.useMemo(() => new Intl.NumberFormat(locale), [locale])
+  const numFmt = new Intl.NumberFormat(locale)
   const stats = data ?? FALLBACK
   const peak = Math.max(1, ...stats.trend.map((p) => p.pv))
   const totalSrc = stats.bySource.reduce((s, x) => s + x.pv, 0) || 1

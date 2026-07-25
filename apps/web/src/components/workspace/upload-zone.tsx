@@ -11,7 +11,7 @@ export interface UploadZoneProps {
   onFiles: (files: File[]) => void
 }
 
-export const UploadZone = React.memo(function UploadZone({ uploading = false, onFiles }: UploadZoneProps) {
+export function UploadZone({ uploading = false, onFiles }: UploadZoneProps) {
   const t = useTranslations('workspace')
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = React.useState(false)
@@ -80,6 +80,6 @@ export const UploadZone = React.memo(function UploadZone({ uploading = false, on
       </div>
     </div>
   )
-})
+}
 
 export default UploadZone

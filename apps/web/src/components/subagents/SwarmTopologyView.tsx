@@ -90,19 +90,7 @@ function layout(topology: SwarmTopology): {
   }
 }
 
-export const SwarmTopologyView = React.memo(function SwarmTopologyView({
-  topology,
-  className,
-}: SwarmTopologyViewProps) {
-  // 性能修复(2026-07-25):layout 计算加 useMemo,避免每次 render 重新计算
-  const { positions, width, height } = React.useMemo(
-    () =>
-      topology && topology.nodes.length > 0
-        ? layout(topology)
-        : { positions: new Map<string, { x: number; y: number }>(), width: 0, height: 0 },
-    [topology],
-  )
-
+export function SwarmTopologyView({ topology, className }: SwarmTopologyViewProps) {
   if (!topology || topology.nodes.length === 0) {
     return (
       <div className={`flex items-center justify-center py-10 text-sm text-muted-foreground ${className ?? ''}`}>
@@ -110,6 +98,8 @@ export const SwarmTopologyView = React.memo(function SwarmTopologyView({
       </div>
     )
   }
+
+  const { positions, width, height } = layout(topology)
 
   return (
     <div className={`overflow-auto rounded-md border bg-background ${className ?? ''}`}>
@@ -197,6 +187,6 @@ export const SwarmTopologyView = React.memo(function SwarmTopologyView({
       </svg>
     </div>
   )
-})
+}
 
 export { ROLE_LABEL as SWARM_ROLE_LABEL, STATUS_LABEL as SWARM_STATUS_LABEL }
