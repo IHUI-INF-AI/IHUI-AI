@@ -8,19 +8,7 @@ import { useEffect, useState } from 'react'
 import { getMyMemberInfo, getMemberLevels, type Member, type MemberLevel } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(s))
-  } catch {
-    return ''
-  }
-}
+import { fmtDateWithYear as fmtDate } from '../../../lib/date-utils'
 
 export default function MemberPage() {
   const { t } = useI18n()

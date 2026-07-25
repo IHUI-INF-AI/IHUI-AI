@@ -8,6 +8,62 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 业务层共享启动阶段 1 — extension 14 页面 fmtDate 迁移到 @ihui/shared/utils(跨端:packages/shared + apps/extension,平台独占 — 仅 extension 端消费,共享层扩展由主 agent 控制)
+
+**触发**:用户要求"启动业务层共享"。基于前期评估报告,业务层共享是当前架构最大短板(评分 35/100),原方案阶段 2-4(业务 hooks → store → app-shell)未启动。本阶段为 P0 最容易、最高 ROI 的第一步:工具函数补齐。
+
+**执行方式**:主 agent 控制共享层扩展(packages/shared + apps/extension/lib 兼容层),general_purpose_task subagent 执行 14 个页面机械性迁移。
+
+**成果清单**:
+
+#### P0:shared/utils/date-utils.ts 扩展 3 个短格式函数
+
+- [packages/shared/src/utils/date-utils.ts](file:///g:/IHUI-AI/packages/shared/src/utils/date-utils.ts) 第 73-122 行新增:
+  - `formatShortDateTime(input, locale='zh-CN')`:返回 `MM-DD HH:mm`(月日时分,无年无秒),空值返回 '',强制 Asia/Shanghai 时区
+  - `formatShortDate(input, locale='zh-CN')`:返回 `MM-DD`(仅月日,无年),空值返回 ''
+  - `formatShortDateWithYear(input, locale='zh-CN')`:返回 `YYYY-MM-DD`(年月日),空值返回 ''
+- 与现有 `formatDate`(`YYYY-MM-DD HH:mm:ss`,空值返回 '-')形成完整日期格式化系列,适配不同 UI 紧凑度需求
+
+#### P0:apps/extension/lib/date-utils.ts 建 re-export 兼容层
+
+- [apps/extension/lib/date-utils.ts](file:///g:/IHUI-AI/apps/extension/lib/date-utils.ts) 新建(复制 web 端 `apps/web/src/lib/date-utils.ts` re-export 模式):
+  - `export { formatShortDateTime as fmtDate }` — 模式 A(月日时分)页面用
+  - `export { formatShortDate as fmtDateOnly }` — 模式 B(仅月日)页面用
+  - `export { formatShortDateWithYear as fmtDateWithYear }` — 模式 C(年月日)页面用
+
+#### P0:extension 14 个 sidepanel 页面删除内联 fmtDate + 改 import
+
+- **模式 A(3 页面)**:AnnouncementsPage / ImageGenPage / MemoryPage → `import { fmtDate } from '../../../lib/date-utils'`
+- **模式 B(10 页面)**:AiNewsPage / ArticlesPage / AsksPage / ChatFavoritesPage / DistributionPage / FansPage / FollowingPage / InvitationsPage / NewsPage / PlazaPage → `import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'`(别名保持调用方代码零改动)
+- **模式 C(1 页面)**:MemberPage → `import { fmtDateWithYear as fmtDate } from '../../../lib/date-utils'`(原格式 `YYYY/MM/DD` 统一为 `YYYY-MM-DD`,符合 ISO 8601)
+- 共消除 30 处内联 `fmtDate` 重复实现,统一 Asia/Shanghai 时区(原 extension 无时区,符合 AGENTS.md §4)
+
+**验证**:
+
+- shared/utils date-utils.ts 扩展:typecheck ✅
+- extension typecheck:exit 0 ✅
+- extension build:exit 0 ✅(WXT 0.19.29 + Vite 5.4.21,6.2s 完成,输出 `.output/chrome-mv3/`,Σ Total size: 709.69 kB)
+- Grep `function fmtDate(` 全 extension:0 残留 ✅
+- Grep `from '../../../lib/date-utils'`:14 个页面全部命中 ✅
+
+**后续阶段预告**(业务层共享启动,7 阶段规划):
+
+- 阶段 2 P0:formatTokenCount 从 @ihui/api-client 迁到 @ihui/shared/utils(纠正归属 + 5 消费文件 import 更新)
+- 阶段 3 P1:新增 useAuth 业务 hook(@ihui/shared/hooks + 4 端接入评估)
+- 阶段 4 P1:新增 useArticles/useChat/useAgents 业务 hooks
+- 阶段 5 P1:新增 authStore/userStore/themeStore 共享(zustand + transport 注入)
+- 阶段 6 P1:业务组件 MessageBubble/ArticleCard/AgentCard/NotificationItem 提取到 @ihui/ui-react
+- 阶段 7 P1:extension 引入 React Query(架构升级评估 + 试点页面)
+
+**Git 同步证据**:
+
+- 本地 commit: (待 commit)
+- origin commit: (待 push)
+- 同步状态: (待验证)
+- 守门脚本: (待验证)
+
+---
+
 ### [x] ✅(2026-07-25) AI 输入框权限按钮深化(第二批) — 高风险模式 1h 自动撤销 + 首启确认弹窗 + 标题栏倒计时(跨端:仅 web,平台独占)
 
 **触发**:用户要求"继续优化深化这个功能"并选 4 个深化方向 + 新增 3 项(自动撤销/首启确认/标题栏倒计时)。承接第一批([workspace-selector + permission-mode-popover + message-list 徽章 + Shift+Tab 循环 + 5s 撤销 toast + /permission 斜杠命令 + 键盘 1/2/3 + 持久化视觉警告])。
