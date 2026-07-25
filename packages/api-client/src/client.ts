@@ -316,6 +316,8 @@ export interface StreamChatOptions {
     allowCustom: boolean
     allowMultiple: boolean
   }) => void
+  /** P4-2: 后端 fallback 触发回调(主模型失败 + 切换到备用模型时触发,前端展示横幅提示) */
+  onFallback?: (event: FallbackEvent) => void
   metadata?: { conversationId?: string; userId?: string; messageId?: string }
   temperature?: number
   topP?: number
@@ -473,6 +475,55 @@ export function extractAgentId(line: string): string | undefined {
     /* 非 JSON */
   }
   return undefined
+}
+
+/** P4-2: 后端 fallback 事件 — 主模型失败切换到备用模型时,后端在 chunk 产出前发送此事件 */
+export interface FallbackEvent {
+  /** 原模型(失败的主模型) */
+  primaryModel: string
+  /** 备用模型(切换到的) */
+  backupModel: string
+  /** 切换原因(timeout/rate_limit/api_error/unknown) */
+  reason: string
+}
+
+/**
+ * P4-2: 从 SSE data: 行解析 fallback 事件。
+ *
+ * 后端 llm_gateway.py astream fallback 分支在 chunk 产出前 yield:
+ *   {type:"fallback", primary_model, backup_model, reason}
+ * api 端 streamToClient 自动透传为 SSE `data: {...}` 行。
+ *
+ * 与 parseStreamLine 并列:use-chat.ts 在调 parseStreamLine 之前先调本函数,
+ * 命中即触发 onFallback 回调展示"已切换到备用模型"横幅,不再走 parseStreamLine。
+ *
+ * @returns 解析成功返回 FallbackEvent,非 fallback 事件或解析失败返回 null
+ */
+export function parseFallbackEvent(line: string): FallbackEvent | null {
+  if (!line || line.startsWith(':')) return null
+  let data = line
+  if (line.startsWith('data:')) {
+    data = line.slice(5).replace(/^\s/, '')
+  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+    return null
+  }
+  if (!data || data === '[DONE]') return null
+  // Vercel AI SDK 协议 `0:"..."` → 非 fallback 事件
+  if (/^\d+:/.test(data)) return null
+  if (!data.startsWith('{')) return null
+  try {
+    const json = JSON.parse(data) as Record<string, unknown>
+    if (json?.type === 'fallback' && typeof json?.primary_model === 'string') {
+      return {
+        primaryModel: json.primary_model,
+        backupModel: typeof json.backup_model === 'string' ? json.backup_model : 'unknown',
+        reason: typeof json.reason === 'string' ? json.reason : 'unknown',
+      }
+    }
+  } catch {
+    /* 非 JSON 或格式不符,返回 null */
+  }
+  return null
 }
 
 export function parseStreamLineReasoning(line: string): string | null {
@@ -946,6 +997,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasQuestion = typeof opts.onQuestion === 'function'
     const hasAgentDelta = typeof opts.onAgentDelta === 'function'
     const hasToolCall = typeof opts.onToolCall === 'function'
+    // P4-2: fallback 事件回调存在时启用解析
+    const hasFallback = typeof opts.onFallback === 'function'
 
     // ===== Dedupe 机制(isRetry 时启用) =====
     // 重连后若服务端不支持 Last-Event-ID 续传会从头重发,前端用 receivedContent 前缀匹配
@@ -1163,6 +1216,14 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseCompaction(line)
         tryParseQuestion(line)
         tryParseToolCall(line)
+        // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
+        if (hasFallback) {
+          const fbEvt = parseFallbackEvent(line)
+          if (fbEvt) {
+            opts.onFallback!(fbEvt)
+            continue
+          }
+        }
         const delta = parseStreamLine(line)
         if (delta) {
           const agentId = hasAgentDelta ? extractAgentId(line) : undefined
@@ -1180,6 +1241,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       tryParseCompaction(buffer)
       tryParseQuestion(buffer)
       tryParseToolCall(buffer)
+      // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
+      if (hasFallback) {
+        const fbEvt = parseFallbackEvent(buffer)
+        if (fbEvt) opts.onFallback!(fbEvt)
+      }
       const delta = parseStreamLine(buffer)
       if (delta) {
         const agentId = hasAgentDelta ? extractAgentId(buffer) : undefined
