@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
-import { SOURCE_MAP } from './helpers'
+import { SOURCE_LABEL_KEY } from './helpers'
 import { Tooltip } from '@/components/feedback'
 import type { Certificate } from './types'
 
@@ -91,8 +91,8 @@ export function CertificateTable({
                     {c.recipientName ?? c.nickname ?? '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs">
-                    {SOURCE_MAP[c.source ?? '']
-                      ? t(`sourceLabel.${SOURCE_MAP[c.source ?? '']}`)
+                    {SOURCE_LABEL_KEY[c.source ?? '']
+                      ? t(SOURCE_LABEL_KEY[c.source ?? ''] ?? 'sourceLabel.unknown')
                       : (c.source ?? '-')}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
