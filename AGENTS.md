@@ -1,112 +1,79 @@
 # AGENTS.md — IHUI-AI 项目 Agent 指南
 
-> 作用域:`G:\IHUI-AI` 仓库根目录及所有子目录。
-> 完整历史规则归档见 `.trae-cn/archive/AGENTS_full_20260719.md`(86KB 原版备份)。
-> 本文件为精简版(2026-07-19 压缩),保留所有强制规则核心条款,删除冗余示例与重复说明。
+> 作用域:`d:\桌面\项目\IHUI-AI` 仓库根目录及所有子目录。
+> 历史案例归档见 `.trae-cn/archive/AGENTS_history.md`。
+> 本文件为精简版(2026-07-25 重构,原 783 行 → ≤400 行),保留所有强制规则核心条款。
 
 ---
 
 ## 1. 任务计划文档规则(强制)
 
-- 项目**唯一**任务计划文档是 `PROJECT_PLAN.md`(根目录)。
-- 所有任务计划、进度更新、待办清单、状态变更**只写** `PROJECT_PLAN.md`。
-- **不得**在 `.trae/`、`docs/`、根目录或其他位置新建计划/TODO/ROADMAP 文件。
-- 完成任务后,`[ ]` → `[x] ✅(日期)`。新增任务追加到对应优先级(P0/P1/P2)末尾。
-- commit message:`feat`/`fix`/`docs`/`chore`/`test`/`refactor` 前缀。
+- 项目**唯一**任务计划文档是 `PROJECT_PLAN.md`(根目录),所有任务计划、进度更新、待办清单、状态变更**只写**此文件,**不得**在 `.trae/`、`docs/`、根目录或其他位置新建计划/TODO/ROADMAP 文件。
+- 完成任务后 `[ ]` → `[x] ✅(日期)`;新增任务追加到对应优先级(P0/P1/P2)末尾。commit message:`feat`/`fix`/`docs`/`chore`/`test`/`refactor` 前缀。
 
-### 归档精简强制规则(2026-07-20 立,杜绝第三次误删)
+### 归档机制
 
-- 已完成任务条目(`### XXX(已完成 ✅ ...)` 标题)**禁止直接删除**。
-- 归档精简操作必须**两步走**:
-  1. 把完整任务条目(标题 + 正文)移动到 `.trae-cn/archive/PROJECT_PLAN_YYYY-MM-DD.md`。
-  2. 在 `PROJECT_PLAN.md` 原位置(或文件末尾归档区)留一行 HTML 注释占位:
-     `<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .trae-cn/archive/PROJECT_PLAN_*.md -->`
-- **守门**:`scripts/check-project-plan-archive.mjs` + pre-commit 第 13c 项,检测到已完成任务条目被删除且无 `<!-- 已归档` 占位注释 → 阻塞 commit。
-- **历史教训**:`CLI 配置导入`任务条目被两次误删(commit 15a50b53 第一次补回 → 再次被删 → commit c0ac97c 第二次补回),本规则从机制上杜绝。
-
-### 自动归档机制(2026-07-23 立)
-
-- **脚本**:`scripts/archive-completed-tasks.mjs` — 扫描 PROJECT_PLAN.md,把完成 ≥7 天的已完成任务条目(`### [x] ✅(YYYY-MM-DD) ...`)自动移动到 `.trae-cn/archive/PROJECT_PLAN_YYYY-MM-DD_auto-archive.md`,原位置留归档占位注释。
-- **自动触发**:`.husky/post-commit` 钩子第 2 段,每次 `git commit` 后自动调用 `--auto-commit` 模式,有可归档条目则自动创建归档 commit(由 git-push-guard 自动 push)。
-- **防递归**:归档 commit 设 `IHUI_ARCHIVE_COMMIT=1`,post-commit 检测到则跳过归档脚本,避免无限递归。
-- **手动触发**:`pnpm archive`(默认 ≥7 天)/ `pnpm archive -- --all`(归档所有已完成)/ `pnpm archive -- --days 3`(自定义天数)/ `pnpm archive -- --dry-run`(预览)。
-- **跳过自动归档**:`HUSKY_SKIP_ARCHIVE=1 git commit`(紧急场景,不推荐)。
-- **与体积守门协同**:13b 项体积守门已改为 warn-only(2026-07-23),自动归档不再为"压体积"服务,而为"保持 PROJECT_PLAN.md 可读性 + 历史可追溯"。
+- 已完成任务条目(`### XXX(已完成 ✅ ...)` 标题)**禁止直接删除**,必须两步走:① 把完整任务条目(标题 + 正文)移动到 `.trae-cn/archive/PROJECT_PLAN_YYYY-MM-DD.md`;② 在 `PROJECT_PLAN.md` 原位置留 HTML 注释占位:`<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .trae-cn/archive/PROJECT_PLAN_*.md -->`。
+- **自动归档**:`scripts/archive-completed-tasks.mjs` 扫描完成 ≥7 天的条目,post-commit 钩子自动 `--auto-commit`,归档 commit 设 `IHUI_ARCHIVE_COMMIT=1` 防递归。
+- **手动触发**:`pnpm archive` / `--all`(全部)/ `--days 3`(自定义)/ `--dry-run`(预览);跳过用 `HUSKY_SKIP_ARCHIVE=1 git commit`。
+- **守门**:`scripts/check-project-plan-archive.mjs` + pre-commit 第 13c 项。历史案例见 `.trae-cn/archive/AGENTS_history.md`。
 
 ### 唯一例外
 
-- `/goal` 模式运行时:`.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md`(临时,目标结束后删除)。
-- skills:`.trae-cn/skills/SKILL.md`(AI 工具配置,非计划文档)。
+- `/goal` 模式:`.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md`(临时,目标结束后删除);skills:`.trae-cn/skills/SKILL.md`(AI 工具配置,非计划文档)。
 
 ---
 
 ## 2. 项目概览
 
-IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo):
+IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单:
 
 - `apps/api`(Fastify 5 + Drizzle ORM 0.38 + PostgreSQL)
 - `apps/web`(Next.js 15 + React 19 + Tailwind 4 + shadcn/ui)
 - `apps/ai-service`(FastAPI + LangGraph + LiteLLM + MCP)
 - `apps/miniapp-taro`(Taro 4 + React)
+- `apps/desktop` / `apps/extension` / `apps/mobile-rn` / `apps/cli`(各端独立)
 - `packages/`(database / auth / types / ui / config / eslint-config / tsconfig)
 
 ---
 
 ## 3. 代码风格
 
-- 做减法,最小化代码,零冗余。
-- 复用现有代码和模式,不创建文档文件(除非明确要求),不加 copyright/license header。
+- 做减法,最小化代码,零冗余。复用现有代码和模式,不创建文档文件(除非明确要求),不加 copyright/license header。
 
 ---
 
 ## 4. 前端 UI 约束
 
-- compact 紧凑、elegant 优雅。hover 用 subtle 颜色变化,**不要蓝色发光边框**。
-- 复用 `packages/ui` 的 Card/Button/Input/Dialog。每个页面 < 250 行。
-- 时间用 `Intl.DateTimeFormat`,头像用 initials。
-- 状态徽章: draft 灰 / published 绿。积分正数绿色,负数红色。
+- compact 紧凑、elegant 优雅。hover 用 subtle 颜色变化,**不要蓝色发光边框**。复用 `packages/ui` 的 Card/Button/Input/Dialog。每个页面 < 250 行。时间用 `Intl.DateTimeFormat`,头像用 initials。状态徽章:draft 灰 / published 绿。积分正数绿色,负数红色。
 
 ### 圆角守门(强制)
 
-- **禁止**纯圆形 / 胶囊形状容器:`rounded-full`、`rounded-pill`、`border-radius: 9999px`、`50%`。
-- 按尺寸梯度:`rounded-sm`(2px)/ `rounded`(4px)/ `rounded-md`(6px)/ `rounded-lg`(8px)/ `rounded-xl`(12px)/ `rounded-2xl`(16px)。
-- **唯一豁免**:用户头像 `<img>` 本身、纯装饰点(`w-2 h-2` 连接灯/在线点)、未读角标红点底、`Switch` 拇指。
-- 守门脚本:`scripts/check-rounded-full.mjs` + pre-commit 第 11 项。
+- **禁止**纯圆形 / 胶囊容器:`rounded-full` / `rounded-pill` / `border-radius: 9999px` / `50%`。尺寸梯度:`rounded-sm`(2px)/ `rounded`(4px)/ `rounded-md`(6px)/ `rounded-lg`(8px)/ `rounded-xl`(12px)/ `rounded-2xl`(16px)。豁免:头像 / 装饰点 / 红点 / Switch 拇指。守门:`scripts/check-rounded-full.mjs` + pre-commit 第 11 项。
 
-### 中文字体 + 图标垂直对齐硬约束(强制,2026-07-19 立)
+### 中文字体 + 图标垂直对齐硬约束(强制)
 
-- **问题**:中文字体(以 HarmonyOS Sans SC 为基准) ascent(≈11px) ≠ descent(≈3px) 不对称,14px 字号下 ink 几何中心比 line-box 中心低 0.4-0.5px。flex `items-center` 时图标与文字视觉不齐,肉眼可见"文字偏下"。
-- **根治方案**:`apps/web/app/globals.css` 建立 `--text-vcenter-offset: 0.3px` CSS 变量 + 第 170 行全局规则 `:where(button, a, [role='button'], [role='menuitem']):has(>svg):has(>span) > span { transform: translateY(var(--text-vcenter-offset)); }`。所有 button/a 内 "icon + 中文 span" 同行布局**自动**应用 0.3px GPU 视觉位移,无需手动加类。
-- **text-xs (12px)** 专用 0.7px 规则(globals.css 第 178-183 行)。
-- **配套常量**:`apps/web/src/lib/nav-styles.ts` 5 个共享类(`NAV_ITEM_BASE_CLASS` / `NAV_CHILD_CLASS` / `BTN_NEW_CONVERSATION_CLASS` / `HEADER_BAR_CLASS` / `MODEL_SELECTOR_TRIGGER_CLASS`)+ 显式 `<CenteredText>` 组件(`apps/web/src/components/common/CenteredText.tsx`)。
-- **守门**:`apps/web/e2e/icon-text-alignment.spec.ts` 5 个 case,阈值 |delta| ≤ 0.15px,跨 6 个关键 nav + 新建任务按钮 + AI panel header + CSS 变量验证。任何漏改 → CI fail。
-- **严禁**:`-mt-px` / `margin-top: -1px` 等"反向微调"hack(实测让 delta 从 0 变 -0.5,反向恶化)。
+- **根治方案**:`apps/web/app/globals.css` 设 `--text-vcenter-offset: 0.3px` + 全局规则 `:where(button, a, [role='button'], [role='menuitem']):has(>svg):has(>span) > span { transform: translateY(var(--text-vcenter-offset)); }`,button/a 内 "icon + 中文 span" 同行布局自动应用,text-xs (12px) 用专用 0.7px 规则。配套:`apps/web/src/lib/nav-styles.ts` 5 个共享类 + `<CenteredText>` 组件(`apps/web/src/components/common/CenteredText.tsx`)。
+- **守门**:`apps/web/e2e/icon-text-alignment.spec.ts` 阈值 |delta| ≤ 0.15px,漏改 → CI fail。**严禁** `-mt-px` / `margin-top: -1px` 反向微调 hack。
 
 ### 禁止分割线(强制)
 
-- 禁止 `<hr>` / `divide-y` / `divide-x` / 单边 `border-t/b/l/r` 当分割线。
-- 允许:容器完整描边(`border border-border`)、容器背景色对比(`bg-card` vs `bg-background`)、间距分隔(`gap-*`)。
+- 禁止 `<hr>` / `divide-y` / `divide-x` / 单边 `border-t/b/l/r` 当分割线。允许:容器完整描边(`border border-border`)、背景色对比(`bg-card` vs `bg-background`)、间距分隔(`gap-*`)。
 
 ### 禁止渐变遮罩(强制)
 
-- 任何容器禁止 `mask-image` / `-webkit-mask-image` / `linear-gradient` 用作边缘淡出。
-- 用显式 UI 元素("查看更多"按钮 / 计数徽章 / 分页)替代。
+- 任何容器禁止 `mask-image` / `-webkit-mask-image` / `linear-gradient` 用作边缘淡出。用显式 UI 元素("查看更多"按钮 / 计数徽章 / 分页)替代。
 
 ### 圆角容器内 absolute 子元素避让
 
-- 父容器 `rounded-xl` + `overflow-hidden` 时,贴边子元素**禁止** `h-full`/`w-full`。
-- 用 `top-<radius> bottom-<radius>`(纵向)或 `left-<radius> right-<radius>`(横向)替代。
-- `rounded-lg`(8px)→ `top-2 bottom-2` / `rounded-xl`(12px)→ `top-3 bottom-3` / `rounded-2xl`(16px)→ `top-4 bottom-4`。
+- 父容器 `rounded-xl` + `overflow-hidden` 时,贴边子元素**禁止** `h-full`/`w-full`,用 `top-<radius> bottom-<radius>`(纵向)或 `left-<radius> right-<radius>`(横向)替代。映射:`rounded-lg`→`top-2 bottom-2` / `rounded-xl`→`top-3 bottom-3` / `rounded-2xl`→`top-4 bottom-4`。
 - 拖拽手柄用双层 div 结构(外层命中区 + 内层可见细线),**禁止** `before:` 伪元素方案。
 
 ---
 
 ## 5. 后端约束
 
-- Drizzle ORM 0.38 + postgres-js。用 Zod 校验请求参数。
-- 复用 `packages/auth` 的 authenticate 函数。admin 路由用 preHandler 统一校验(roleId >= 1)。
-- 幂等操作用 `onConflictDoNothing`。slug 从 name 自动生成。
-- API 响应统一 `{ code, message, data }` 格式。
+- Drizzle ORM 0.38 + postgres-js。用 Zod 校验请求参数。复用 `packages/auth` 的 authenticate 函数;admin 路由用 preHandler 统一校验(roleId >= 1)。幂等操作用 `onConflictDoNothing`。slug 从 name 自动生成。API 响应统一 `{ code, message, data }` 格式。
 
 ---
 
@@ -116,20 +83,14 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo):
 pnpm turbo build typecheck lint test          # 全量验证(必须全绿)
 pnpm --filter @ihui/api typecheck             # 单独验证后端
 pnpm --filter @ihui/web typecheck             # 单独验证前端
-pnpm dev                                       # 启动所有服务(web 3000 + api 3001 + ai-service 8000)
+pnpm dev                                       # 启动所有服务(web + api + ai-service,端口见 docs/port-management.md)
 ```
 
 ---
 
 ## 7. 删除/重构安全规则(强制)
 
-删除任何 git 对象(分支/stash/commit/文件)前必须回答:
-
-1. 该内容承载的**功能**是什么?
-2. 当前 monorepo 中是否有**等价的功能实现**?
-3. 没有 → **不可以删除**,必须先迁移/开发替代。
-
-禁止基于"路径不兼容"或"看起来是垃圾"擅自 drop。stash drop / branch -D 同样适用。
+删除任何 git 对象(分支/stash/commit/文件)前必须回答:① 该内容承载的**功能**是什么?② 当前 monorepo 中是否有**等价的功能实现**?③ 没有 → **不可以删除**,必须先迁移/开发替代。禁止基于"路径不兼容"或"看起来是垃圾"擅自 drop。stash drop / branch -D 同样适用。
 
 ---
 
@@ -139,10 +100,7 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 
 ### 目标条件硬门槛(单条最大 4000 字符)
 
-必须同时包含:核心任务 + 验证标准(命令退出码/测试输出/文件状态/HTTP 响应)+ 约束边界 + 质量要求 + 异常处理。缺一即拒绝启动。
-
-劣质拒绝示例:`/goal 修复登录bug` / `/goal 优化一下架构`
-优质示例:`/goal 修复登录接口中文账号登录失败,验证标准:pnpm --filter @ihui/api test auth 退出码 0;仅修改 apps/api/src/auth,不得改用户表结构;保持接口兼容性;无法复现的用例记录后跳过`
+必须同时包含:核心任务 + 验证标准(命令退出码/测试输出/文件状态/HTTP 响应)+ 约束边界 + 质量要求 + 异常处理。缺一即拒绝启动。示例见对话上下文。
 
 ### 运行时文件(强制)
 
@@ -161,17 +119,7 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 6. 状态清除与交还控制权(输出交付报告)
 7. 整合与清理(目标摘要追加到 PROJECT_PLAN.md,删除 STATE.md + loop-run-log.md)
 
-### 子命令
-
-| 子指令                             | 语义                                    |
-| ---------------------------------- | --------------------------------------- |
-| `<目标条件>`                       | 设置目标并立即启动第一轮                |
-| (无参数) / `status`                | 查询当前状态                            |
-| `pause` / `hold`                   | 暂停,置 `paused`                        |
-| `resume` / `continue`              | 断点续跑                                |
-| `clear` / `stop` / `off` / `reset` | 终止并清理                              |
-| `budget <数值>`                    | 设置 Token 上限,达阈值 `budget_limited` |
-| `log` / `history`                  | 输出完整执行日志                        |
+**子命令**:`<目标条件>` 启动第一轮;`(无参数)`/`status` 查询;`pause`/`hold` 暂停;`resume`/`continue` 续跑;`clear`/`stop`/`off`/`reset` 终止清理;`budget <数值>` 设 Token 上限;`log`/`history` 输出日志。
 
 ### 红线规则
 
@@ -184,55 +132,23 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 ### 失败回滚
 
 - `blocked` / `budget_limited` 状态下**禁止** agent 自主执行 `git reset --hard` / `git checkout .` / `git clean -f`。
-- 必须在 PROJECT_PLAN.md 记录:已修改文件清单 + 当前分支 + 起始 commit sha + 未完成原因 + 剩余任务 + 建议后续操作。
+- 必须在 PROJECT_PLAN.md 记录:已修改文件 + 当前分支 + 起始 commit sha + 未完成原因。
 - 回滚决策权归属用户。
 
 ---
 
-## 9. 多端同步开发强制规则(强制,2026-07-21 升级)
+## 9. 多端同步开发强制规则(强制)
 
-### 默认全端连通(强制红线,2026-07-21 立)
-
-- **每一个任务**开发时,**默认必须本项目所有端程序同步开发、匹配连通好**,不限于"影响 API 接口契约 / 共享类型 / 数据库 schema / 共享 UI 组件 / 业务功能"的改动才同步。
-- "所有端"= web + api + ai-service + desktop + extension + mobile-rn + miniapp-taro + cli(8 端)。
-- "匹配连通好"= 三层同时满足:
-  1. **代码同步**:各端代码同步改动,共享类型(`packages/types`)/共享 UI(`packages/ui`)/schema(`packages/database`)跨端引用一致。
-  2. **链路打通**:跨端调用链路实测连通(web ↔ api ↔ ai-service ↔ 其他端),任一端调用不报契约错 / 类型错 / 路由错 / 404。
-  3. **验证齐绿**:受影响的各端 typecheck + build + test 全绿,不只跑单端就交付。
-- **禁止**只改一端就交付,其他端留作"后续任务"。
-- **禁止**交付时只跑单端 typecheck / 单端 build 就声明完成,必须验证受影响的跨端调用链路连通。
-- **禁止**"先合并本端、其他端下一轮再做"的分期交付模式(平台独占豁免除外)。
-
-### 平台独占豁免(需显式标注)
-
-- 仅当任务**天然只属特定端**(desktop 系统托盘、extension 浏览器上下文菜单、miniapp-taro 微信支付、cli 终端集成、纯 README/文档/守门脚本等)时,可豁免全端同步。
-- **豁免必须显式**:在 PROJECT_PLAN.md 任务条目标注"平台独占"或"单端文档/脚本",未标注的按全端同步执行,不得自行默判"这个只属单端"。
-
-### 多端并行开发派单规则
-
-- 主 agent 派发多端任务时,优先用 §11 多 Subagent 并行模式,按端拆分 subagent(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli 各一个),每个 subagent 只管自己端的代码 + typecheck + build。
-- 主 agent 负责跨端契约对齐(共享类型 / API 路由 / schema)和最终全链路连通验证,不得把"跨端连通"下放给单个 subagent。
-
-### 守门(warn-only,2026-07-21 立)
-
-- `scripts/check-multi-end-sync.mjs`:检测 staged 文件跨端分布,4 场景:
-  - 纯豁免目录(scripts/.husky/docs/AGENTS.md/PROJECT_PLAN.md 等)→ pass
-  - 触及 `packages/*` 共享包且未在 PROJECT_PLAN.md 标注"共享包 only/跨端共享"→ warn
-  - 触及 ≥2 端 → pass(满足全端连通)
-  - 触及 1 端且未在 PROJECT_PLAN.md 标注"跨端:仅 X 端 / 平台独占 / X 独占"→ warn
-- 集成位置:`.husky/pre-commit` 第 21 项(warn-only,不阻塞 commit,只提醒补标注或补跨端证据)。
-- 设计哲学:把 AGENTS.md §9"每一个任务默认全端连通"从人工自觉变成机制守门,agent 单端改动时强制显式声明平台独占,否则 warn 提醒。
+- **默认全端连通**:每一个任务默认 8 端(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)同步开发,"匹配连通好"= 代码同步(共享 types/UI/schema 跨端一致)+ 链路打通(跨端调用无契约/类型/路由/404 错)+ 验证齐绿(各端 typecheck+build+test 全绿)。禁止只改一端交付、单端验证声明完成、分期交付(平台独占豁免除外)。
+- **平台独占豁免需显式标注**:仅天然只属特定端(desktop 系统托盘/extension 上下文菜单/miniapp-taro 微信支付/cli 终端集成/纯文档守门脚本)可豁免,必须在 PROJECT_PLAN.md 标注"平台独占"或"单端文档/脚本",未标注按全端同步执行。
+- **多端并行派单**:主 agent 优先用 §11 多 Subagent 并行模式按端拆分,每个 subagent 管自己端的代码+typecheck+build;主 agent 负责跨端契约对齐(共享类型/API 路由/schema)和全链路连通验证,不得下放给单个 subagent。
+- **守门**(warn-only):`scripts/check-multi-end-sync.mjs` 检测 staged 跨端分布 4 场景(纯豁免目录→pass;触及 packages/* 未标注→warn;触及≥2 端→pass;触及 1 端未标注→warn),集成于 pre-commit 第 21 项。
 
 ---
 
 ## 10. 交付报告一致性硬约束(强制)
 
-同一份 .md 报告中**不得**同时出现:
-
-- "无后续建议" / "完整收尾" / "对话可关闭"
-- 与 "P1-P5" / "优化项" / "TODO" / "后续任务"
-
-守门脚本:`scripts/check-delivery-report-consistency.mjs` + pre-commit 第 12 项。
+同一份 .md 报告中**不得**同时出现:"无后续建议" / "完整收尾" / "对话可关闭" 与 "P1-P5" / "优化项" / "TODO" / "后续任务"。守门:`scripts/check-delivery-report-consistency.mjs` + pre-commit 第 12 项。
 
 ---
 
@@ -247,8 +163,8 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 <一句话>
 
 ## 受影响文件(绝对路径,只允许以下文件)
-- g:\IHUI-AI\path\to\file1
-- g:\IHUI-AI\path\to\file2
+- d:\桌面\项目\IHUI-AI\path\to\file1
+- d:\桌面\项目\IHUI-AI\path\to\file2
 
 ## 禁止修改
 - 任何不在上述清单的文件
@@ -266,8 +182,8 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 
 ### 联动规则
 
-- 与第 8 节(删除安全)协同:subagent 不得删除非任务清单内文件。
-- 与第 13 节(push 保护)协同:subagent 完成后由主 agent 统一 push。
+- 与第 7 节(删除安全)协同:subagent 不得删除非任务清单内文件。
+- 与第 16 节(push 保护)和 §20 协同:subagent 完成后由主 agent 统一 push。
 
 ---
 
@@ -275,12 +191,8 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 
 - 多会话/多 agent 在同一仓库并行工作时,**禁止**任何破坏性 git 操作:`git restore` / `git stash push` / `git clean -f` / `git reset --hard` / `Remove-Item` 删除其他 agent 创建的文件(包括"看着像垃圾"的 `commit_msg.txt` / 临时测试文件 / 调试日志)。
 - commit 阶段**只 add 本任务相关文件**:`git add <file1> <file2>`,**禁止** `git add .` / `git add -A` / `git add -u`。
-- 正确流程:预检(`git status --porcelain`)→ 隔离(仅 add 本任务文件)→ 验证(`git status --short` 确认 staged 仅含本任务文件)。
-- pre-push / pre-commit hook 失败因**其他 agent 引入的代码问题**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration 等,不在本任务范围):
-  - **直接用 `--no-verify` 跳过 hook 完成自己的 commit + push**,各 agent 各管各的,其他 agent 自己会处理自己的代码。
-  - **禁止**修改其他 agent 代码"帮他们修" / `git reset --hard` / 把"等其他 agent 修复再 push"作为交付结论 / 用 AskUserQuestion 询问用户"如何处理其他 agent 的 XXX"。
-  - 自己 commit + push 前只需保证**本任务改动文件** typecheck + lint + build 全绿即可。
-  - `--no-verify` 合法场景**仅限**"hook 失败原因是其他 agent 代码"这一种;若 hook 失败原因是**本任务自己代码**,必须修复后正常 commit,**禁止** `--no-verify` 跳过。
+- 正确流程:预检(`git status --porcelain`)→ 隔离 add 本任务文件 → 验证 staged 仅含本任务文件。
+- pre-push / pre-commit hook 失败因**其他 agent 引入的代码问题**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration 等,不在本任务范围):**直接用 `--no-verify` 跳过 hook** 完成自己的 commit + push;**禁止**修改其他 agent 代码"帮他们修" / `git reset --hard` / 把"等其他 agent 修复再 push"作为交付结论 / 用 AskUserQuestion 询问用户;自己 commit + push 前只需保证**本任务改动文件** typecheck + lint + build 全绿即可;`--no-verify` 合法场景**仅限**"hook 失败原因是其他 agent 代码",若失败原因是**本任务自己代码**必须修复后正常 commit。
 
 ---
 
@@ -303,119 +215,16 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 
 ## 15. 工作区卫生强制规则(强制)
 
-- **禁止**在 `G:\` 根目录创建任何文件(包括 `commit_msg.txt` / 临时脚本 / 调试日志)。
-- 临时文件统一放 `g:\IHUI-AI\.trae-cn\tmp\`(已 gitignore)。
-- 任务完成后清理本任务产生的临时文件。
+**禁止项**:① 在 `G:\` 根目录创建任何文件;② 项目数据(扩展打包/Chrome profile/构建副本/临时 DB/临时配置)写到项目外路径;③ 硬编码 `C:\temp\ihui-*`/`$env:TEMP\ihui-*` 等项目外路径;④ agent 用 RunCommand/PowerShell/Out-File/Set-Content/New-Item 在项目外直接创建文件;⑤ 在 `G:\` 根目录运行 Qt 类外部工具或执行 pnpm 命令(会创建 `.pnpm-store` v11 冲突);⑥ 硬编码中文绝对路径(GBK 乱码)。路径推导用 `$PSScriptRoot`/`__dirname`/`import.meta.url`。唯一例外:纯系统日志(`debug.log`/`next-server.log`)可写 `$env:TEMP`。
 
-### 项目外路径禁令(2026-07-23 立,机制根治)
+**必须用项目内路径**(根 `d:\桌面\项目\IHUI-AI`):扩展打包→`apps/extension/.output/chrome-mv3/`;Chrome profile→`.trae-cn/tmp/chrome-profile/`;临时副本→`.trae-cn/tmp/<任务名>/`;临时脚本→`.trae-cn/tmp/<脚本名>.ps1`;临时文件统一放 `.trae-cn/tmp/`(已 gitignore),任务完成后清理。
 
-- **禁止**任何项目数据(扩展打包 / Chrome profile / 构建产物副本 / 临时数据库 / 临时配置)写到项目外路径。
-- **禁止**硬编码 `C:\temp\ihui-ext` / `C:\temp\ihui-prof` / `$env:LOCALAPPDATA\Temp\ihui-*` / `$env:TEMP\ihui-*` 等项目外路径作为项目数据存储位置。
-- **必须**用项目内路径:
-  - 扩展打包产物:`apps/extension/.output/chrome-mv3/`(WXT 默认输出,直接用)
-  - Chrome profile(扩展调试用):`.trae-cn/tmp/chrome-profile/`
-  - 临时构建副本:`.trae-cn/tmp/<任务名>/`
-  - 临时脚本:`.trae-cn/tmp/<脚本名>.ps1` / `.py`
-- **路径推导强制**:写脚本时用 `$PSScriptRoot`(PowerShell)/ `__dirname`(CJS)/ `import.meta.url`(ESM) 推导项目根,**禁止**硬编码中文绝对路径(GBK 编码会导致乱码 `D:\妗岄潰\椤圭洰\`)。
-- **唯一例外**:纯系统日志文件(`debug.log` / `next-server.log`)允许写到 `$env:TEMP`,因为不承载项目数据。
-- **守门(v2,2026-07-23 根治)**:`scripts/check-workspace-hygiene.mjs` + pre-commit 第 25 项。
-  - **BLOCKING(阻塞 commit)**:项目外路径写入(`C:\temp\ihui-*` / `$env:TEMP\` 非日志 / `\AppData\...` 非日志 / `..\..` 写入上下文)→ exit 1
-  - **WARNING(提醒不阻塞)**:硬编码中文绝对路径(`d:\桌面\` 等,GBK 会乱码)→ 提醒用 `$PSScriptRoot` / `import.meta.url`
-  - 扫描范围:整个项目(排除 `node_modules`/`.git`/`.venv`/`.output`/`.next` 等)
-  - `--staged` 模式:只扫 staged 文件(用于 pre-commit,避免误报其他 agent WIP)
-  - 文件级白名单:守门脚本自身 / `AGENTS.md` / `README.*.md` / 归档文档
-  - 行级白名单:注释行 / "禁止/反面/deprecated" / `.log`/`.txt` 路径 / `--redirect` 参数
-- **历史教训**:2026-07-23 扩展验证时,agent 把构建产物复制到 `C:\temp\ihui-ext2`,用户质问"为什么不放项目内"。根因:§15 原版只说"临时文件放 `.trae-cn/tmp/`",没明确禁止项目数据写到项目外,导致 agent 习惯性沿用早期诊断脚本的 `C:\temp` 路径。v1 守门只扫 `.trae-cn/tmp/` 且 warn-only,仍有 7 大漏洞(覆盖窄/模式不全/不阻塞/没用 staged/不检测中文路径/不检测相对路径跳出/不扫配置文件)。v2 从机制上根治:阻塞模式 + 分级检测 + 全项目扫描 + `--staged` 模式。
-
-### 运行时项目外文件创建禁令(2026-07-24 立,补盲区)
-
-- **禁止** agent 用 `RunCommand` / PowerShell / `Out-File` / `Set-Content` / `New-Item` 等任何方式,在项目目录**之外**直接创建任何文件(脚本 / 文本 / 日志 / 临时产物)。
-- **禁止**的典型场景:
-  - 在项目父目录(`D:\桌面\项目\`)创建 `.ps1` 诊断脚本
-  - 在项目父目录创建 `*_result.txt` / `*_search*.ps1` 等 agent 临时产物
-  - 在桌面(`D:\桌面\`)根级创建 `.txt` / `.log` / `.ps1` 调试文件
-  - 在项目祖父目录或更上层目录创建任何与项目相关的脚本
-- **必须**:所有临时脚本放 `.trae-cn/tmp/<脚本名>.ps1`,所有产物放 `.trae-cn/tmp/<任务名>/`,所有日志用 `*> "$env:TEMP\<纯系统日志>.log"` 或项目内 `.trae-cn/tmp/<日志名>.log`。
-- **守门(v1,2026-07-24 立)**:`scripts/check-parent-pollution.mjs` + pre-commit 第 26 项。
-  - **BLOCKING(阻塞 commit)**:发现项目父目录或桌面根级有 agent 临时产物 → exit 1
-  - 命中条件(满足任一即判定污染):
-    1. **强信号**:文件名匹配 agent 临时产物命名模式(`search_*.ps1` / `*_result.txt` / `tmp_*.ps1` / `ihui-*.ps1` / `test_*.ps1` / `debug_*.txt` / `cleanup*.ps1` / `fix_*.ps1` / `migrate*.ps1` / `scan_*.ps1` / `*_output.txt` / `*_list.txt` 等)
-    2. **弱信号**:文件内容同时包含项目路径引用(`IHUI-AI` / `d:\桌面\项目` / `apps/web` / `packages/database` / `@ihui/` 等) + agent 操作痕迹(`Get-ChildItem` / `Out-File` / `Write-Output` / `Remove-Item` / `Select-Object` / `$ErrorActionPreference` 等)
-  - 扫描范围:项目父目录递归 2 层 + 项目祖父目录(桌面)根级文件(不递归)
-  - 用户合法文件白名单:快捷方式(`.lnk`/`.url`)、Office 文档、图片、音视频、压缩包、安装包、`desktop.ini`/`Thumbs.db`
-  - 手动触发:`pnpm hygiene:parent`(阻塞) / `node scripts/check-parent-pollution.mjs --warn`(warn-only)
-- **历史教训**:2026-07-19 agent 在 `D:\桌面\项目\` 创建了 `search_uuyc.ps1`(13KB,扫描 UU 远程卸载残留的 PowerShell 脚本) + `uuyc_search_result.txt`(245B,搜索结果),2026-07-24 用户发现质问"为什么项目主目录外会出现乱七八糟的文件"。根因:`check-workspace-hygiene.mjs` 只能扫项目**内**代码引用项目外路径,无法检测 agent 用 RunCommand 在项目外**直接创建**的运行时产物,存在盲区。本规则从机制上根治:反向巡查项目父目录,捕获 agent 运行时污染。
-- **与 §15 项目外路径禁令互补**:§15 项目外路径禁令是"代码层守门"(扫项目内代码引用项目外路径),本规则是"运行时守门"(扫项目外是否被 agent 直接创建文件),两层防御覆盖 agent 写项目外的所有路径。
-
-### 自动巡查与自动清理(2026-07-24 立,彻底杜绝)
-
-- **post-commit 钩子自动巡查**:每次 `git commit` 后,post-commit 第 4 段自动调用 `node scripts/check-parent-pollution.mjs --auto-clean --quiet`,立即巡查 + 自动清理项目外污染。即使 agent 偷偷创建了文件不 commit,下一次任何 agent commit 时也会被自动清理。
-- **TRAE 定时任务**:每天 08:00 自动巡查 + 清理(详见 TRAE Schedule 工具,任务名 `项目外污染每日巡查`)。
-- **自动清理授权(用户授权,2026-07-24)**:`--auto-clean` 模式只自动清理**文件名强信号命中**(`search_*.ps1` / `*_result.txt` / `tmp_*.ps1` / `ihui-*.ps1` / `test_*.ps1` / `debug_*.txt` / `cleanup*.ps1` / `fix_*.ps1` / `migrate*.ps1` / `scan_*.ps1` / `*_output.txt` / `*_list.txt` 等),**不自动清理**内容双信号命中(避免误删用户合法脚本)。内容双信号命中的文件只 warn,需人工确认。
-- **手动触发**:
-  - `pnpm hygiene:parent`(阻塞模式,只检测不清理)
-  - `pnpm hygiene:parent:clean`(自动清理文件名强信号命中)
-  - `node scripts/check-parent-pollution.mjs --warn`(warn-only)
-  - `node scripts/check-parent-pollution.mjs --auto-clean --quiet`(静默自动清理,post-commit 用)
-- **跳过自动巡查**:`HUSKY_SKIP_HYGIENE=1 git commit`(紧急场景,不推荐)。
-- **扫描范围**(三层覆盖):
-  1. 项目父目录递归 2 层(捕获 `D:\桌面\项目\*.ps1` 和子目录中的污染)
-  2. 项目祖父目录(桌面)根级文件(不递归,避免误伤其他项目)
-  3. 用户主目录根级文件(不递归,捕获 agent 误写到 `~/` 的调试日志)
-
-### G:\ 根目录外部工具污染防护(2026-07-24 立,机制根治)
-
-- **问题背景**:2026-07-24 用户发现 `G:\` 根目录散落 16 个垃圾目录(`platforms/` / `iconengines/` / `imageformats/` / `styles/` / `bearer/` / `translations/` / `CA/` / `cert/` / `WXCertUtil/` / `rail_user_data/` / `.pnpm-store/` / `tmp/` / `ai_zhs/` / `.appdata/` / `c/` / `nonexistent-root/`),全部是项目外垃圾。
-- **三类根因**:
-  1. **用户行为 — 外部 Qt 工具污染**:`微信支付商户API证书工具 V1.4.exe`(Qt 应用)在 `G:\` 根目录双击运行时,Qt 框架自动释放插件目录(`platforms/iconengines/imageformats/styles/bearer/translations`) + Qt5*.dll + 依赖 DLL + `CA/cert/WXCertUtil` 证书工作目录到**当前工作目录**(即 G:\)。
-  2. **其他 IDE 配置异常 — QoderCN venv 路径错误**:QoderCN IDE 一次 venv 创建命令把 `C:\` 错写成 `g:\c\`,Python 在 G:\ 下创建了完整路径链 `c\Users\Administrator\.workbuddy\binaries\python\envs\default\`(证据:`pyvenv.cfg` 第 5 行 `command` 字段)。同时 QoderCN 路径解析失败时创建兜底目录 `nonexistent-root\no-perm\`,JDK 探测缓存写到 `G:\.appdata\jdk.md`。
-  3. **早期 agent 临时文件违规**:2026-07-23 v2 守门立规前,agent 把 hover 截图 / sidebar .vue / .diff / .log 等临时文件随手写到 `G:\tmp\` 而非 `.trae-cn\tmp\`。
-- **强制规则**:
-  - **禁止**在 `G:\` 根目录运行任何 Qt 类外部工具(微信支付证书工具 / 任意 .exe 安装包 / 任意解压即用工具)。必须放到专门工具目录(如 `G:\tools\` 或项目内 `g:\IHUI-AI\cert\`)运行,避免 Qt 框架把插件目录释放到 G:\ 根。
-  - **禁止**在 `G:\` 根目录执行 `pnpm install` / `pnpm dev` 等 pnpm 命令(会创建 `.pnpm-store` v11,与项目内 v3 冲突)。pnpm 命令必须在项目内执行。
-  - **使用 QoderCN 等 IDE 时**:若发现 `G:\c\Users\Administrator\.workbuddy\` 被创建,需检查 IDE 的 Python venv 路径配置(可能把 `C:\` 错写成 `g:\c\`),并立即运行清理脚本。
-  - **清理脚本(根治工具)**:`scripts/cleanup-external-junk.ps1` 已扩展为 16 目录 + 31 文件清单,支持 `-Force` 跳过确认(agent 自动执行)。
-    - 交互模式:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1`(需输入 YES 确认)
-    - 自动模式:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1 -Force`(agent 用)
-    - 安全保证:只删清单内 16 目录 + 31 文件,不用通配符,不触碰其他应用目录(Trae CN / QoderCN / Zcode / grok-build / 微信web开发者工具 / 支付宝小程序开发工具 / Yingyongbao 等)
-  - **脚本是纯 ASCII**:PowerShell 5 默认用 GBK 读 .ps1,中文会破坏引号配对。脚本注释/输出全部用英文,只有清单中的中文文件名(`微信支付商户API证书工具 V1.4.exe`)保留中文(GBK 兼容)。
-- **agent 行为约束**(机制可阻止):
-  - agent 启动外部 Qt 类工具时,**禁止**把工作目录设为 `G:\` 根,必须用 `Set-Location` 切到项目内或专门工具目录。
-  - agent 执行 pnpm 命令时,**禁止**在 `G:\` 根目录执行,必须 `cd g:\IHUI-AI` 后再执行。
-  - agent 创建临时文件时,**必须**用 `.trae-cn\tmp\`(由 v2 守门 blocking 强制)。
-- **用户行为约束**(机制无法阻止,靠规则提示):
-  - 双击 .exe 前先确认当前工作目录不是 `G:\` 根(Windows 默认双击工作目录是 .exe 所在目录)。
-  - 把 Qt 类工具放到 `G:\tools\` 或项目子目录再运行。
-- **守门局限性**:v2/v3 守门只检测项目内代码写项目外路径,无法检测用户双击 .exe 或其他 IDE 配置异常。本节规则是补充提示,真正根治靠下方"实时守门服务"。
-
-### G:\ 根目录实时守门服务(2026-07-24 立,机制根治;v2.0 白名单优先 2026-07-24 升级)
-
-- **问题背景**:§15 v2/v3 守门只检测项目内代码,无法阻止用户双击 .exe 或其他 IDE 配置异常产生的垃圾。用户质问"从根上解决了吗 不允许往这放垃圾文件夹",要求主动实时阻止。
-- **v1.0 盲区**:v1.0 只用黑名单模式,只删除已知垃圾。`guardian-test-allowed`(测试残留)不在黑名单,被保留 → 用户再次质问"没彻底解决好啊"。
-- **v2.0 升级(白名单优先模式)**:任何**不在白名单**且**不是系统目录**的目录/文件创建后立即删除。彻底消除 v1.0 盲区。
-- **5 层判定逻辑**(顺序执行):
-  1. `systemProtected` → ALLOWED(系统目录,永不删除)
-  2. `allowlist` → ALLOWED(用户合法项目/工具)
-  3. `blacklist` → BLOCKED(已知垃圾,删除)
-  4. `heuristic` → BLOCKED(垃圾特征匹配,删除)
-  5. 否则 → BLOCKED:unknown(未知项,删除)— **v2.0 核心改动**
-- **解决方案**:FileSystemWatcher 实时监控 G:\ 根目录,垃圾创建后**约 110-222ms 内自动删除** + 写审计日志。注册为 Windows 计划任务(用户登录时自启,失败自动重启)。
-- **组件**:
-  - `scripts/g-root-guardian.ps1` v2.0 — 实时监控脚本(allowlist-first + 黑名单 + 启发式 + .NET Directory.Delete 兜底)
-  - `scripts/g-root-blacklist.json` v2.0 — 配置(allowlist 14 目录 + blacklist 17 目录/23 文件/10 通配符 + heuristic 7 目录签名/14 文件签名 + systemProtected 8 系统目录)
-  - `scripts/install-g-root-guardian.ps1` — 安装脚本(注册计划任务 IHUI-AI-G-Root-Guardian,用户登录时自启,-WindowStyle Hidden,RestartCount 999)
-  - `scripts/uninstall-g-root-guardian.ps1` — 卸载脚本(停止进程 + 删除计划任务)
-  - `scripts/g-root-guardian-status.ps1` — 状态检查脚本(查询运行状态 + 显示最近日志 + 统计 BLOCKED/ALLOWED/ERROR)
-- **白名单(allowlist)**:`$RECYCLE.BIN` / `System Volume Information` / `IHUI-AI` / `MuMuPlayer` / `QoderCN` / `Qoderwork` / `Trae CN` / `TRAE SOLO CN` / `WeGameApps` / `WeixinGameData` / `Yingyongbao` / `Zcode` / `微信web开发者工具` / `支付宝小程序开发工具`(14 目录)+ `tools` 通配符 + `desktop.ini`/`Thumbs.db`/`*.lnk`/`*.url` 文件通配符。
-- **关键性能优化**:用 `Wait-Event -Timeout 1` 替代 `Start-Sleep 60`,避免阻塞 PowerShell 事件队列,实测删除延迟 110-222ms。
-- **日志**:`.trae-cn/tmp/g-root-guardian.log`(格式:`yyyy-MM-dd HH:mm:ss [BLOCKED|ALLOWED|ERROR|STARTED|STOPPED] <path> (reason)`,1MB 自动轮转为 .bak)。
-- **安装/卸载/状态**:
-  - 安装:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\install-g-root-guardian.ps1`
-  - 卸载:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-guardian.ps1`
-  - 状态:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1`
-- **守门协同**:v3.1 守门脚本 FILE_WHITELIST 已豁免 5 个 guardian 脚本(引用垃圾路径作为黑名单是合法的)。
-- **实测验证(v2.0)**:guardian-test-allowed 114ms 删除 / platforms 110ms 删除 / unknown-random-dir-xyz 222ms 删除 / Qt5Core.dll 106ms 删除 / IHUI-AI 保留。
-- **真正根治**:从被动清理(清理脚本)→ 主动实时阻止(FileSystemWatcher + 计划任务自启 + 白名单优先),用户无需干预,任何垃圾(已知或未知)创建的瞬间就被删除,等同于"不允许往这放垃圾文件夹"。
+**守门脚本**:
+- `check-workspace-hygiene.mjs`(第 25 项 BLOCKING:项目外路径写入;WARNING:硬编码中文路径)
+- `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)
+- `cleanup-external-junk.ps1`(G:\ 垃圾清理,16 目录+31 文件,`-Force` 跳过确认)
+- `g-root-guardian.ps1` v2.0(G:\ 实时守门,FileSystemWatcher+白名单优先 5 层判定,~110-222ms 删除,Windows 计划任务自启)+ 配套 `g-root-blacklist.json`/install/uninstall/status 脚本
+- post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);TRAE 定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。历史案例见 `.trae-cn/archive/AGENTS_history.md`。
 
 ---
 
@@ -423,240 +232,68 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 
 - 本 agent 完成 commit + push 后,不再触碰 working tree,不执行 `git pull` / `git fetch` / `git rebase` / `git push --force`。
 - 抹除其他 agent 改动 → **协作事故**;混入其他 agent 改动到自己 commit → **污染事故**;修改其他 agent 文件"帮他们修" → **越权事故**。
-- `--no-verify` 跳过 hook 的合法性:见 §12 最后一条(hook 失败因其他 agent 代码 → 合法跳过;hook 失败因本任务自己代码 → 禁止跳过)。`--no-verify` **不是**流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证。
+- `--no-verify` 跳过 hook 的合法性:见 §12 最后一条(hook 失败因其他 agent 代码 → 合法跳过;本任务代码 → 禁止跳过);`--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build。
 
 ---
 
-## 17. 样式改动强制验证规则(强制,2026-07-19 立)
+## 17. UI 改动验证强制规则(强制)
 
-### 触发条件
+**触发条件**:UI 样式/布局/交互改动(CSS/className/style/组件结构/Tailwind 类/shadcn props)。
 
-任何涉及 UI 样式 / 布局 / 交互的代码改动(CSS / className / style / 组件结构 / 页面布局)。
+**强制动作**(缺一不可,违反视为交付事故):
+1. 改码前 browser ping `http://localhost:8801` 确认服务在线,不通则先启动 web+api+ai-service(端口见 `docs/port-management.md`)。
+2. 改码后确认 web+api 服务在跑(browser 实际访问)。
+3. 用 browser_use subagent 渲染目标页面,截图自验 4 状态:默认/hover/active/dark mode。
+4. 读 DOM 数值验证样式生效(`getAttribute`/`getComputedStyle`,禁止只靠截图)。
+5. 交付附 4 状态截图 + "已自验通过"声明;服务起不来禁止交付。
 
-### 必须遵守(强制红线)
+**commit message trailer**:含 `apps/web/**/*.css` 改动必须附 `Verified-DOM: http://localhost:8801/<path> (<DOM 属性=数值> ...)`,commit-msg hook 自动守门。
 
-1. **必须启动全链路 dev server**:web(3000) + api(3001) + ai-service(8000,失败不阻塞 UI 验证)。用 `long_running_process` + `blocking: false` 并行启动。
-2. **必须用 browser_use 实际渲染验证**:
-   - `browser_navigate` 访问目标页面
-   - `browser_wait_for` 等待渲染稳定
-   - `browser_take_screenshot` 截图初始状态
-   - `browser_evaluate` 读 DOM 属性(offsetHeight / scrollHeight / getComputedStyle)— **禁止**只靠截图主观判断
-   - 模拟交互(输入文字 / 点击)后再次截图 + 读 DOM
-3. **验证证据必须写入交付报告**:每个状态截图描述 + DOM 数值 + 与预期对照表。
-4. **未启动服务 + 未 browser_use 验证就交付 → 视为交付事故**。
-5. **commit message 必须附 `Verified-DOM:` trailer**(若含 `apps/web/**/*.css` 改动):由 commit-msg hook 自动守门。格式:`Verified-DOM: http://localhost:3000/<path> (<DOM 属性=数值> ...)`。
+**Next.js CSS 缓存陷阱**:改 globals.css/styles 后 HMR 不一定重编译 CSS chunk,必须 curl 当前 CSS chunk 验证新值;`grep -c` 返回 0 → kill 旧 next-server 重启 `pnpm --filter @ihui/web dev`,等 15s 重新 curl 确认。
 
-### 允许跳过 browser_use 的场景(豁免)
+**工具故障应急**:dev server 永远只在 TRAE 内部运行(`RunCommand long_running_process`+`blocking=false`),禁止 `Start-Process` 派生独立窗口。RunCommand 连续 2 次返回空输出 → 判定失联 → 告知用户在 TRAE 终端面板手动执行。工具反复失败时先 Grep project_memory.md 查已知约束。
 
-1. 纯后端 API 改动(curl 验证)
-2. 纯类型 / 工具函数改动(typecheck + test 验证)
-3. dev server 30 分钟内无法修复(降级为单元测试,标注"dev server 启动失败")
-4. CI 环境(用 Playwright / Cypress e2e)
+**豁免**(允许跳过 browser_use):① 纯后端 API(curl 验证);② 纯类型/工具函数(typecheck+test);③ dev server 30 分钟无法修复(降级单元测试);④ CI 环境(e2e)。历史案例见 `.trae-cn/archive/AGENTS_history.md`。
 
 ---
 
 ## 18. 启动项目语义(强制)
 
-用户说"启动项目" = 前后端全链路同步启动:web(3000) + api(3001) + ai-service(8000),必要时检查并启动数据库/Redis。**禁止**只启动前端就交付。
+用户说"启动项目" = 前后端全链路同步启动:web + api + ai-service(端口见 `docs/port-management.md`),必要时检查并启动数据库 / Redis。禁止只启动前端就交付。
 
 ---
 
-## 19. UI 改动交付前自验强制规则(2026-07-19 升级)
-
-### 触发条件
-
-任务类型 ∈ {UI 样式修改, 前端组件改动, 页面布局调整, Tailwind/CSS 类调整, shadcn 组件 props 调整}
-
-### 强制动作(缺一不可,违反视为交付事故)
-
-1. 改码前必须用 browser ping `http://localhost:3000` 确认服务在线;不通则先启动服务。
-2. 改码后必须确认 web + api 服务在跑(browser 实际访问确认,不是假设)。
-3. 必须用 browser_use subagent 实际渲染目标页面,截图自验 **4 个关键状态**:默认态 / hover 态 / active 选中态 / dark mode 态。
-4. 必须读 DOM 数值验证样式生效(getAttribute / getComputedStyle 读 class/style 确认 Tailwind 类已应用)。
-5. 交付回复必须附 4 状态截图证据 + "已自验通过"声明。
-6. 服务起不来或工具故障时**禁止交付**,先解决环境或告知用户,绝不假装启动成功。
-
-### 工具故障应急(2 次失败立即告知,禁止弹独立窗口,2026-07-21 升级)
-
-**绝对红线**:任何 dev server(next-server / fastify / uvicorn / vite / turbo 等)**永远只在 TRAE 内部运行**,通过 `RunCommand` 的 `command_type=long_running_process` + `blocking=false` 启动,进程归 TRAE 终端管理,输出回流到 TRAE 面板。
-
-**禁止**:`Start-Process` / `powershell -Command "Start-Process..."` / `cmd /c start...` / `WScript.Shell.Run` / `git bash` / `wt` / `conhost` 等任何派生**独立可见窗口**的启动方式(用户桌面会被弹窗污染,2026-07-21 用户规则:"next-server怎么总是在我的电脑弹出powershell窗口呢 你设置为静默运行不行吗 或者在trae里运行")。
-
-RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判定工具失联 → **不再尝试 Start-Process 派生独立窗口** → 直接告知用户"RunCommand 工具失联,请在 TRAE 终端面板手动执行" + 提供完整手动命令清单(web/api/ai-service 三条)→ 等用户确认服务跑起来后再继续 browser 验证。
-
-**静默后台方案(仅当 RunCommand 失联且用户知情同意后备用,不得作为首选)**:`Start-Process -WindowStyle Hidden -FilePath pnpm -ArgumentList "--filter","@ihui/web","dev" -RedirectStandardOutput "$env:TEMP\ihui-web.log" -RedirectStandardError "$env:TEMP\ihui-web.err"` —— `-WindowStyle Hidden` 不弹可见窗口,日志写临时文件,agent 用 `Get-Content` 读日志确认服务起来。首选路径永远是 `RunCommand long_running_process` 在 TRAE 内部跑。
-
-任何"工具反复失败"场景必须先 Grep `c:\Users\Administrator\.trae-cn\memory\projects\-g-IHUI-AI\project_memory.md` 查是否已知约束,命中则按已知方案执行,不得重复踩坑。
-
-### Next.js dev server CSS 缓存陷阱(强制,2026-07-19 立)
-
-修改 `apps/web/app/globals.css` / `apps/web/src/styles/*.css` 后,Next.js dev 服务的 HMR **不一定重新编译 CSS chunk**。文件已更新,但浏览器拿到的是旧值(常见现象:`--text-vcenter-offset` 改了但浏览器仍渲染老值)。
-
-**强制守门(2 步必走)**:
-
-1. 改 CSS 后**必须**验证浏览器拿到新值(不是只看磁盘文件):
-   ```bash
-   # 找到 web 当前服务的 CSS chunk
-   ls apps/web/.next/static/chunks/apps_web_app_globals_*.css | tail -1
-   # curl 该 chunk,确认新值已编译进去
-   curl -s "http://localhost:3000/_next/static/chunks/<chunk名>" | grep -c "新值特征"
-   ```
-2. 若 `grep` 返回 0 → 旧 chunk,必须 kill 旧 next-server 后重启 `pnpm --filter @ihui/web dev`(HMR 触发不了完整 CSS 重编译,只能重启):
-   ```bash
-   # 找到 next-server PID
-   Get-Process -Name node | Where-Object {$_.StartTime -gt (Get-Date).AddHours(-1)}
-   # kill
-   Stop-Process -Id <PID> -Force
-   # 重启
-   pnpm --filter @ihui/web dev
-   # 等 15s 编译完成,重新 curl 确认
-   ```
-
-**判断标准**:`grep -c "新值" chunk.css` 返回 ≥1 即新值生效,否则必须重启。
-
-**反面案例**:不验证直接硬刷新 → 浏览器继续渲染老值 → 用户再反馈"改了没生效" → agent 再花几轮重新查根因。
-
----
-
-## 20. i18n 约束规则(强制,2026-07-19 立)
+## 19. i18n 约束规则(强制)
 
 ### 翻译文件语言纯度
 
-- **zh-CN.json**: 基准语言文件,其他 4 语言必须与之 parity(key 集合完全一致)。
-- **zh-TW.json**: 繁体中文,禁止简体字(pre-commit 第 2b 项守门,opencc 字形转换检测)。
-- **ko.json**: 韩语,禁止中文残留(pre-commit 第 2c 项守门,字符范围检测)。
-- **ja.json**: 日语,禁止中文残留(warn-only 提醒,因日文汉字词易误报)。
-- **en.json**: 英文,禁止中文残留。
+- **zh-CN.json**:基准语言文件,其他 4 语言必须 parity(key 集合完全一致)。
+- **zh-TW.json**:繁体中文,禁止简体字(pre-commit 第 2b 项,opencc 字形转换检测,阻塞)。
+- **ko.json**:韩语,禁止中文残留(第 2c 项,字符范围检测,阻塞)。
+- **ja.json**:日语,禁止中文残留(第 2d 项,warn-only,日文汉字词易误报)。
+- **en.json**:英文,禁止中文残留 + 禁止破碎机翻(第 2e 项,阻塞)。
 
 ### JSON 重复键禁止
 
-- 同一对象内禁止出现重复 key(`JSON.parse` 时最后一个生效,前面被 shadowed)。
-- 添加新键前先用 Grep 确认同级命名空间无同名块。
-- 特别是 models/nav/sort/market 等高频命名空间,容易多 agent 并发添加导致重复。
+- 同一对象内禁止重复 key(`JSON.parse` 时最后一个生效,前面被 shadowed)。
+- 添加新键前 Grep 确认同级命名空间无同名块(models/nav/sort/market 等高频命名空间尤需注意)。
 
-### 翻译策略
+### 翻译策略(source of truth:`scripts/brand-glossary.json`)
 
-- **品牌名**: 优先官方英文名(智谱清言→Zhipu AI, 百度文心→Baidu ERNIE, 宇树科技→Unitree, 火山引擎→Volcengine, 阿里云→Alibaba Cloud, 腾讯云→Tencent Cloud, 九章智算云→JiuZhang, 百度智能云→Baidu Cloud, 华为云→Huawei Cloud, 致远互联→Seeyon)。
-- **公司名**: 优先官方英文名(同上)。
-- **字体名**: 优先英文系统名(宋体→SimSun, 黑体→SimHei, 楷体→KaiTi, 微软雅黑→Microsoft YaHei)。
-- **人名**: fictional/示例数据用拼音(李思涵→Li Sihan / 리쓰한 / リ・スハン);称呼符合目标语言习惯(李总→이 대표)。
-- **技术术语**: 优先英文国际通用词(物联网→IoT, 人工智能→AI)。
-
-### 守门工具
-
-- `scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme]`: 通用 i18n 中文残留守门。
-  - zh-TW: opencc 字形转换检测(阻塞)。
-  - ko: 字符范围检测(阻塞)。
-  - ja: warn-only(不阻塞,因日文汉字词易误报)。
-  - `--readme`: 扫描根目录 `README.<locale>.md` 而非 `apps/web/messages/<locale>.json`,跳过 code fence / HTML 注释 / 图片 / 链接 URL / 行内代码,ICP 备案号行级豁免。
-  - 未来新增 locale 在 `LOCALE_CONFIG` 加一行即可。
-- `scripts/check-i18n-broken-en.mjs [--staged] [--readme]`: en.json 破碎机翻英文守门(阻塞)。
-  - 检测:no-space-concat(AgentDevPlatform)/ case-chaos(M3SubAI)/ possible-pinyin(siningpeople)/ zh-residue(兜底)。
-  - 豁免:白名单 token(AI/GPT/LLM 等 50+ 品牌/技术缩写)、纯大写单词(PLATFORM 等)、单词单大写开头。
-  - `--readme`: 扫描根目录 `README.en.md`,应用同样的 detectBroken 检测,ICP 备案号行级豁免。
-- `scripts/check-i18n-keys.mjs --staged`: i18n key 完整性 + parity + 翻译白名单(15 条豁免规则:短缩写/占位符/技术术语/错误码/品牌名/大写标题/编程语言/文件格式/key 后缀/比例/价格/组合术语/已知技术术语集合/下划线标识符/品牌后缀组合,品牌名与技术术语保留英文不误报)。
-- `scripts/brand-glossary.json`: 品牌/字体/术语 canonical 映射表(机器可读,供翻译脚本引用)。
-- `scripts/apply-brand-glossary.mjs [--dry-run]`: 应用品牌映射到 5 语言 i18n 文件。
-- `scripts/i18n-diff.mjs [--staged] [--output <path>] [--quiet]`: i18n AI 翻译流水线 - 差异检测器(零 LLM API 调用)。
-  - 检测 zh-CN.json 与其他 4 语言的 missing key + 未翻译值(ko/en 值===zh-CN)+ ASCII fallback(值===en 且纯 ASCII)。
-  - 输出 `.trae-cn/tmp/i18n-pending.json` 供 AI agent 消费(含 glossary + workflow 说明 + translationRules)。
-  - ja untranslated 跳过(日文汉字词与中文同形合法,由 scan-i18n-zh-residue.mjs warnOnly 兜底);ASCII fallback 降级为 reviewAscii(品牌名/技术术语大多有意为之)。
-  - 退出码:0=无 pending / 1=有 pending(warn-only 守门用)。
-- `scripts/i18n-apply.mjs [--input <path>] [--check]`: i18n AI 翻译流水线 - 翻译结果应用器。
-  - 读取 `.trae-cn/tmp/i18n-translations.json`(AI agent 写入的翻译结果),应用到 4 语言 locale 文件。
-  - 自动按 zh-CN 基准重排 key 顺序,应用后自动 parity 校验。
-  - `--check` 模式只校验 parity 不写入。
-
-### AI 翻译流水线(强制,2026-07-24 立,零用户算力)
-
-**设计理念**:脚本不调用任何 LLM API,翻译能力由 AI 编程 agent 自带(用户规则:"不要耗费我们自己的算力模型,开发过程中调用的模型自然就可以做这个事情")。
-
-**触发条件**:zh-CN.json 新增/修改 key 后,AI agent 必须执行翻译流水线补齐其他 4 语言。
-
-**执行步骤(强制)**:
-
-1. `node scripts/i18n-diff.mjs` — 检测差异,生成 `.trae-cn/tmp/i18n-pending.json`
-2. AI agent 读取 `.trae-cn/tmp/i18n-pending.json`(含 glossary + workflow 说明)
-3. AI agent 自己翻译(结合 `scripts/brand-glossary.json` 保证品牌名一致)
-4. AI agent 写入 `.trae-cn/tmp/i18n-translations.json`(结构:`{ translations: { [lang]: { [key]: translatedValue } } }`)
-5. `node scripts/i18n-apply.mjs` — 应用翻译到 4 语言 locale 文件
-6. `node scripts/check-i18n-keys.mjs` — 验证 parity 全绿
-7. `node scripts/scan-i18n-zh-residue.mjs ko` / `zh-TW` — 验证无中文/简体字残留
-
-**翻译规则**:
-
-- 品牌名优先用 `brand-glossary.json` 的 canonical 英文名(如 智谱清言→Zhipu AI)。
-- 字体名优先用英文系统名(如 宋体→SimSun)。
-- 技术术语优先用英文国际通用词(如 物联网→IoT)。
+- 品牌名/公司名/字体名/技术术语:优先 canonical 英文名(智谱清言→Zhipu AI, 宋体→SimSun, 物联网→IoT)。
+- 人名:fictional/示例数据用拼音(李思涵→Li Sihan / 리쓰한 / リ・スハン);称呼符合目标语言习惯(李总→이 대표)。
 - 占位符 `{var}` / `{{var}}` 必须原样保留。
-- zh-TW 必须用繁体字形(简体字→繁体字),禁止简体字残留。
-- ko 禁止中文残留,必须用韩语 Hangul。
-- ja 日文汉字词允许(如 登録/確認/削除),但简体字残留要改为日文习惯。
-- en 禁止中文残留,禁止破碎机翻英文(如 AgentDevPlatform)。
+- zh-TW 用繁体字形(简体→繁体);ko 用 Hangul;ja 汉字词允许(登録/確認/削除)但简体字残留改日文习惯;en 禁破碎机翻(如 AgentDevPlatform)。
 
-**守门集成**:
+**守门工具**:`scan-i18n-zh-residue.mjs <locale>`(zh-TW/ko 阻塞,ja warn)/ `check-i18n-broken-en.mjs`(en 破碎机翻,阻塞)/ `check-i18n-keys.mjs --staged`(key 完整性+parity+白名单)/ `brand-glossary.json`(canonical 映射表)+ `apply-brand-glossary.mjs [--dry-run]` / `i18n-diff.mjs`(差异检测,输出 pending.json)/ `i18n-apply.mjs [--check]`(应用器,按 zh-CN 重排 key+parity 校验)。
 
-- **web 端**(pre-commit 第 2f-web 项,blocking):仅当 staged 涉及 `apps/web/messages/zh-CN.json` 时检测,有 pending 则阻塞 commit 直到翻译完成。
-- **miniapp-taro 端**(pre-commit 第 2f-miniapp-taro 项,blocking):仅当 staged 涉及 `apps/miniapp-taro/src/i18n/zh-CN.ts` 时检测,有 pending 则阻塞 commit。用 `--target=miniapp-taro` 切换扫描路径,typescript AST 解析 `.ts` 文件。
-- 多 agent 并行时其他 agent 改 target locale 文件不会触发阻塞(避免误伤)。
+**AI 翻译流水线**(强制,零用户算力):zh-CN.json 新增/修改 key 后必须执行:① `i18n-diff.mjs` 检测差异生成 pending.json;② AI agent 读 pending.json+brand-glossary.json 自行翻译;③ 写 i18n-translations.json(`{ translations: { [lang]: { [key]: value } } }`);④ `i18n-apply.mjs` 应用到 4 语言;⑤ `check-i18n-keys.mjs` 验 parity;⑥ `scan-i18n-zh-residue.mjs ko/zh-TW` 验无残留。
 
-**收益**:新增文案时只需维护 zh-CN.json 一份,其他 4 语言由 AI agent 在开发流程中自动翻译补齐,开发成本降低 70%+。
+**守门集成**:web(第 2f-web 项 blocking,仅 staged 涉及 zh-CN.json 时);miniapp-taro(第 2f-miniapp-taro 项 blocking,`--target=miniapp-taro`);多 agent 并行时其他 agent 改 target locale 不触发阻塞。
 
 ---
 
-## 守门脚本速查(pre-commit 第 1-27 项)
-
-| #               | 脚本                                  | 用途                                                                                                     |
-| --------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 1               | check-api-key-leak.mjs                | API key 泄露                                                                                             |
-| 2               | check-i18n-keys.mjs                   | i18n 键完整性 + 翻译白名单(15 条豁免)                                                                    |
-| 2b              | scan-i18n-zh-residue.mjs zh-TW        | zh-TW 简体字残留 (opencc 字形转换)                                                                       |
-| 2c              | scan-i18n-zh-residue.mjs ko           | ko.json 中文残留 (字符范围检测)                                                                          |
-| 2d              | scan-i18n-zh-residue.mjs ja           | ja.json 中文残留 (warn-only,不阻塞)                                                                      |
-| 2e              | check-i18n-broken-en.mjs              | en.json 破碎机翻英文                                                                                     |
-| 2f-web          | i18n-diff.mjs                         | **i18n AI 翻译流水线守门(blocking,仅 zh-CN staged 时检测)**                                              |
-| 2f-miniapp-taro | i18n-diff.mjs --target=miniapp-taro   | **miniapp-taro i18n 翻译流水线守门(blocking,仅 zh-CN.ts staged 时检测)**                                 |
-| 3               | check-db-schema-drift.mjs             | schema drift                                                                                             |
-| 4               | check-stale-dist.mjs                  | packages 陈旧 dist                                                                                       |
-| 4b              | check-dist-encoding.mjs               | packages/*/dist UTF-8 BOM 守门                                                                           |
-| 4c              | check-api-client-utf8.mjs             | api-client 源码字节级 UTF-8 完整性                                                                       |
-| 5               | lint-staged                           | eslint + prettier                                                                                        |
-| 6               | check-sanitizer-bypass.mjs            | skipResponseSanitization                                                                                 |
-| 7               | check-dedupe.mjs                      | 依赖碎片化                                                                                               |
-| 8               | check-api-routes.mjs                  | 前后端路由一致性                                                                                         |
-| 9               | check-safe-parse.mjs                  | safeParse 静默忽略(warn-only)                                                                            |
-| 10              | openapi-check.mjs                     | OpenAPI spec 存在性(informational)                                                                       |
-| 11              | check-rounded-full.mjs                | 容器圆角违规                                                                                             |
-| 12              | check-delivery-report-consistency.mjs | 交付报告一致性                                                                                           |
-| 13b             | check-project-plan-size.mjs           | **PROJECT_PLAN.md 体积(warn-only,500KB 软参考,不阻塞)**                                                  |
-| 13c             | check-project-plan-archive.mjs        | **PROJECT_PLAN.md 已完成任务条目防误删**                                                                 |
-| 15              | check-api-migration-completeness.mjs  | 迁移完整性                                                                                               |
-| 17              | check-input-border-var.mjs            | CSS 颜色 token 嵌套(hsl(hsl(...)))                                                                       |
-| 18              | check-native-title-tooltip.mjs        | 原生 title tooltip 违规                                                                                  |
-| 19              | check-staged-pollution.mjs            | **staged 污染预警(warn-only,跨 ≥ 4 目录)**                                                               |
-| 20              | check-tailwind-class-conflict.mjs     | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)**                                                     |
-| 21              | check-multi-end-sync.mjs              | **多端同步守门(warn-only,单端未标注平台独占)**                                                           |
-| 22              | check-readme-sync.mjs                 | **README 同步守门(warn-only,功能代码改动但 README 未更新)**                                              |
-| 23              | check-staged-files.mjs                | **staged 文件清单打印(info-only)**                                                                       |
-| 24a             | check-sidebar-width-consistency.mjs   | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**                                                       |
-| 24b             | check-port-registry.mjs               | **端口注册表守门(warn-only,非 88xx)**                                                                    |
-| 25              | check-workspace-hygiene.mjs           | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)**                                          |
-| 26              | check-parent-pollution.mjs            | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**                                              |
-| 27              | check-z-index-guard.mjs               | **z-index 层叠防护(blocking:禁 !important + inline script 覆盖 + 遮罩 fade-in 回归)**                    |
-| 28              | check-overlay-zindex.mjs              | **全屏遮罩 z-index 层级(blocking:防 `fixed inset-0` + `z-50` 复发,根除 SSO 登录遮罩盖不住 AI 面板问题)** |
-| 29              | check-push-sync.mjs                   | **Push 同步兜底(blocking:commit 前检测本地是否有未 push 的 commit,根除"commit 后忘记 push"复发,§21 第三道防线)** |
-| 16              | 条件 typecheck                        | apps/web staged 时跑 typecheck                                                                           |
-| 16b             | 条件 database build                   | packages/database/src staged 时跑 build                                                                  |
-
-> **post-commit 钩子**(非 pre-commit):`git-push-guard.mjs` 自动检测本地 ahead → 自动 push + 验证 local == remote(详见 §21)。
-
----
-
-## 21. 任务完成硬定义 — 杜绝"commit 后忘记 push"协作事故(强制,2026-07-20 立)
-
-### 触发原因
-
-历史上多次出现 agent 自报"任务完成"但实际**仅本地 commit、未 push 到 origin** 的事故,用户被迫追问"你自己的修改你push合并了吗"。本质问题:`git commit` 与 `git push` 在工作流中是分离两步,中间存在遗漏窗口(context 丢失 / 用户打断 / 任务切换)。
+## 20. 任务完成硬定义 — 杜绝"commit 后忘记 push"协作事故(强制)
 
 ### 任务完成的硬定义(5 条全满足才可声明"完成")
 
@@ -668,38 +305,19 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 
 ### 4 道自动防线
 
-1. **pre-commit 守门阻塞**(第一道,2026-07-24 立,根治"commit 后忘记 push"复发):`scripts/check-push-sync.mjs` 集成到 guardian-runner.mjs 第 29 项 blocking 检查。
-   - **commit 前**检测本地是否有未 push 的 commit(`git rev-list --count origin/<branch>..HEAD`)
-   - 如果 > 0 → **阻塞本次 commit**,要求先 push
-   - 即使 post-commit 钩子失败(网络/hook 跳过/工具失联),下次 commit 时也会被阻塞,强制 push
-   - 跳过:`HUSKY_SKIP_PUSH_SYNC=1 git commit ...`(紧急场景,不推荐)
-   - 豁免:`IHUI_ARCHIVE_COMMIT=1`(归档 commit 由 post-commit 自动 push)
-
-2. **post-commit 钩子自动 push**(主防线):`.husky/post-commit` 在 LFS 钩子之后立即调用 `node scripts/git-push-guard.mjs`。
-   - 任何 `git commit` 完成后**自动检测**本地 ahead,有则自动 push 并验证 local == remote
-   - 失败时**阻断**并提示手动 `git push origin main`,不静默
-   - 跳过:`HUSKY_SKIP_PUSH=1 git commit ...`(紧急本地暂存场景,不推荐)
-
-3. **pre-push 钩子 typecheck 闸门**(第三道,沿用):`.husky/pre-push` 跑 `pnpm typecheck:full`
-   - 失败 → 阻止 push(commit 仍本地保留,可修复后重新 push)
-   - 跳过:`HUSKY_SKIP_TYPECHECK=1 git push`(不推荐)
-
-4. **手动 `git-push-guard` 验证**(兜底,任何时候可手跑):`node scripts/git-push-guard.mjs`
-   - 打印 local HEAD vs remote HEAD
-   - 本地 ahead → 自动 push
-   - 完全对齐 → exit 0
-   - 用于:交付前自验 / pre-delivery checklist / 怀疑遗漏时一键核查
+1. **pre-commit**:`check-push-sync.mjs`(guardian 第 29 项 blocking),commit 前检测本地 ahead(`git rev-list --count origin/<branch>..HEAD`),>0 阻塞;跳过 `HUSKY_SKIP_PUSH_SYNC=1`(不推荐);归档 commit `IHUI_ARCHIVE_COMMIT=1` 豁免。
+2. **post-commit(主防线)**:`git-push-guard.mjs` 自动检测 ahead → push + 验证 local == remote,失败阻断提示手动 push;跳过 `HUSKY_SKIP_PUSH=1`(不推荐)。
+3. **pre-push**:`.husky/pre-push` 跑 `pnpm typecheck:full`,失败阻止 push(commit 仍本地保留);跳过 `HUSKY_SKIP_TYPECHECK=1`(不推荐)。
+4. **手动兜底**:`node scripts/git-push-guard.mjs` 任何时候可手跑,打印 local vs remote HEAD,完全对齐 exit 0。
 
 ### 红线(违反视为协作事故)
 
-- ❌ 禁止在 commit 后**只输出文字**"已 commit"就声明任务完成,必须执行 push + 验证
-- ❌ 禁止在交付报告中遗漏"local HEAD == remote HEAD" commit SHA 对照
-- ❌ 禁止用 `--no-verify` 绕过 `git-push-guard`(除非证明 typecheck 已自验通过且显式说明)
-- ❌ 禁止把"git push 失败"作为交付结论(必须修复后重推或显式说明阻塞原因)
+- ❌ 禁止 commit 后只输出"已 commit"就声明任务完成,必须 push + 验证
+- ❌ 禁止交付报告遗漏 "local HEAD == remote HEAD" commit SHA 对照
+- ❌ 禁止用 `--no-verify` 绕过 `git-push-guard`(除非 typecheck 自验通过且显式说明)
+- ❌ 禁止把 "git push 失败" 作为交付结论(必须修复后重推或显式说明阻塞原因)
 
-### 交付报告必含证据(从 2026-07-20 起强制)
-
-任何"任务完成"交付报告**必须**包含:
+### 交付报告必含证据
 
 ```
 ## Git 同步证据
@@ -709,50 +327,33 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 - 守门脚本: node scripts/git-push-guard.mjs exit 0
 ```
 
-### 工具失联处理流程(2026-07-24 立,根治"agent 甩锅让用户自己 commit/push")
+### 工具失联处理流程
 
-**触发条件**:RunCommand 工具连续 ≥2 次返回 `{Exited, exit_code 0, 空输出}`(连 `Write-Output "test"` / `git --version` 都无输出),判定为平台级故障。
-
-**强制红线(违反视为协作事故)**:
-
-- ❌ **禁止**在交付报告中把 git 命令清单(`git add` / `git commit` / `git push`)甩给用户作为交付物,措辞如"请用户在 TRAE 终端面板手动执行以下命令清单"
-- ❌ **禁止**把"用户手动执行 git 命令"作为任务完成结论
-- ❌ **禁止**用"工具失联"作为借口停止尝试(必须持续 retry)
-- ✅ **必须**自己完成 commit + push + 验证(§21 硬定义),工具失联时持续 retry 直到恢复
-- ✅ **必须**在工具失联时明确报告"工具故障阻塞交付,状态 blocked",**不声明任务完成**
-- ✅ **必须**在工具恢复后立即自己执行 git 流程,无需用户催促
-- ✅ **唯一例外**:用户**主动**明确说"我来手动执行"——此时 agent 可提供命令清单,但仍需在交付报告中标注"用户手动执行,agent 未能自主完成"
-
-**retry 策略**:
-
-1. 首次失联:立即用 `Write-Output "alive-test"` 探测,确认是否真失联
-2. 确认失联后:每隔 1-2 轮交互 retry 一次 RunCommand(也许工具已恢复)
-3. 可派发 subagent 尝试(subagent 环境可能与主 agent 不同)
-4. 持续 retry 直到工具恢复,**不放弃**
-5. 工具恢复后立即执行完整 git 流程(add → commit → push → git-push-guard 验证)
-
-**历史教训**:2026-07-24 agent 在 RunCommand 失联后,直接把 6 步 git 命令清单甩给用户作为交付物,用户质问"为什么总是让我自己 commit push 呢 agent.md 没写明你要怎么做吗"。根因:§21 只规定"agent 必须自己 commit+push",没规定"工具失联时怎么办",导致 agent 把工具故障当甩锅借口。本规则从机制上根治:工具失联 → blocked 状态 + 持续 retry,绝不允许把命令清单甩给用户。
+- **触发条件**:RunCommand 连续 ≥2 次返回 `{Exited, exit_code 0, 空输出}`(连 `Write-Output "test"` / `git --version` 都无输出),判定平台级故障。
+- **红线**:禁止把 git 命令清单甩给用户作为交付物;禁止把"用户手动执行"作为完成结论;禁止用"工具失联"停止 retry;必须自己完成 commit+push+验证;工具失联时报告"blocked"状态不声明完成;工具恢复后立即执行 git 流程;唯一例外是用户主动说"我来手动执行"。
+- **retry 策略**:首次失联用 `Write-Output "alive-test"` 探测 → 每隔 1-2 轮 retry RunCommand(可派 subagent 尝试) → 持续 retry 不放弃 → 恢复后立即执行完整 git 流程(add → commit → push → git-push-guard 验证)。
+- 历史案例见 `.trae-cn/archive/AGENTS_history.md`。
 
 ---
 
-## 22. 功能开发同步更新 README 规则(强制,2026-07-22 立)
+## 21. 功能开发同步更新 README 规则(强制)
 
 ### 触发条件
 
-任何任务完成后,如果该任务**新增 / 修改 / 删除**了以下任一类别的能力:
+任务**新增 / 修改 / 删除**以下任一类别能力:
 
-- 新功能模块(如新增 P3 深度层、新增 IM 渠道、新增沙箱后端)
-- 现有功能重大调整(如 API 路由变更、架构重构、数据库 schema 迁移)
-- 守门规则 / 工程约束新增(如本节本身就是触发例)
+- 新功能模块(新增 P3 深度层 / IM 渠道 / 沙箱后端等)
+- 现有功能重大调整(API 路由变更 / 架构重构 / schema 迁移)
+- 守门规则 / 工程约束新增(本节本身即触发例)
 - 项目对外能力清单变化(支持的平台 / 厂商 / 模型 / 端)
 
 ### 强制动作(缺一不可,违反视为交付事故)
 
-1. **同步修改 `README.md`**(根目录):在对应章节(功能特性 / 架构 / 平台支持 / 守门规则等)更新文字 + 表格,反映本次开发成果。
-2. **README 改动必须与本任务代码同 commit 提交**:不允许"代码先 push、README 下一轮补"的分期模式。
-3. **README 内容必须可被 git 远端可见**:commit + push 成功后,`git rev-parse origin/main` 必须包含 README 改动(由 §21 git-push-guard 自动验证)。
+1. **同步修改根目录 `README.md`**:在对应章节(功能特性 / 架构 / 平台支持 / 守门规则)更新文字 + 表格。
+2. **README 改动必须与本任务代码同 commit 提交**:禁止"代码先 push、README 下一轮补"的分期模式。
+3. **README 必须可被 git 远端可见**:commit + push 后 `git rev-parse origin/main` 必须包含 README 改动(由 §20 git-push-guard 自动验证)。
 4. **交付报告必须含 "README 更新证据"**:列出修改的章节 + 行数变化。
-5. **禁止以"下一步建议"形式把 README 同步留给下一轮**(2026-07-22 强化):如果本任务触发了 §22 触发条件,README 同步是**本任务的一部分**,不是"建议"。交付报告中不得把"README 同步"列为 P1/P2 遗留项或"最优下一步建议",必须在当前轮次直接完成。违反视为交付事故。
+5. **禁止以"下一步建议"形式把 README 同步留给下一轮**:本任务触发条件则 README 同步属本任务一部分,不得列为 P1/P2 遗留项或"最优下一步建议",违反视为交付事故。
 
 ### 豁免场景(允许不更新 README)
 
@@ -762,22 +363,32 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 - 纯配置 / 依赖升级(不改变功能清单)
 - 单端内部优化(不改变跨端契约)
 
-### 守门(warn-only,2026-07-22 立)
+### 守门(warn-only)
 
-- `scripts/check-readme-sync.mjs`:检测 staged 文件中是否有 `apps/` / `packages/` 下的功能代码改动,但 `README.md` 未在 staged 列表中 → warn 提醒"是否需要同步更新 README"。
+- `scripts/check-readme-sync.mjs`:staged 中有 `apps/` / `packages/` 下功能代码改动但 `README.md` 不在 staged → warn 提醒。
 - 集成位置:`.husky/pre-commit` 第 22 项(warn-only,不阻塞 commit,只提醒)。
-- 设计哲学:把"功能开发后同步更新 README"从人工自觉变成机制守门,agent 提交功能代码时强制提醒检查 README。
+- 历史案例见 `.trae-cn/archive/AGENTS_history.md`。
 
-### 反面案例(本规则立规依据)
+---
 
-- 2026-07-22 P3 深度层三大壁垒(记忆系统 / Skill 进化 / 调度系统 / 沙箱 6 后端 / IM 16 渠道)开发完成后,`README.md` 仍停留在旧版本,未反映任何 P3 能力。用户在 GitHub 远端看不到项目最新能力清单,无法评估项目进度。本规则从机制上杜绝此类"代码已交付但 README 未同步"的协作事故。
+## 守门脚本速查(pre-commit 项,按类别)
+
+- **i18n**(2/2b/2c/2d/2e/2f):check-i18n-keys(parity+白名单)/ scan-i18n-zh-residue(zh-TW/ko 阻塞,ja warn)/ check-i18n-broken-en(阻塞)/ i18n-diff(翻译流水线,2f-web + 2f-miniapp-taro 阻塞)
+- **代码质量**(1/3/4/4b/4c/5/6/7/8/9/10):API key 泄露 / schema drift / 陈旧 dist / UTF-8 完整性 / lint-staged / sanitizer / dedupe / 路由一致性 / safeParse(warn)/ OpenAPI(info)
+- **UI/样式**(11/17/18/20/24a/24b/27/28):圆角 / CSS token / title tooltip / Tailwind 冲突 / 侧边栏宽度+端口注册表(warn)/ z-index+遮罩 z-index(阻塞)
+- **工程约束**(12/13b/13c/15/19/21/22/23):交付报告 / PLAN 体积(warn)+防误删 / 迁移完整性 / staged 污染(warn)/ 多端同步(warn)/ README 同步(warn)/ staged 清单(info)
+- **Push/工作区**(25/26/29):项目外路径(阻塞)/ 父目录污染(阻塞)/ Push 同步(阻塞)
+- **条件**(16/16b):apps/web staged → typecheck;packages/database/src staged → build
+
+> post-commit 钩子:`git-push-guard.mjs` 自动 push + 验证 local == remote(见 §20)。
 
 ---
 
 ## 关键参考文档
 
-| 文档                   | 说明                               |
-| ---------------------- | ---------------------------------- |
-| `PROJECT_PLAN.md`      | **唯一任务计划文档**(必读)         |
-| `.trae-cn/archive/`    | 历史归档(audit/交接/迁移报告,只读) |
-| `docs/architecture.md` | 系统架构文档                       |
+| 文档 | 说明 |
+| --- | --- |
+| `PROJECT_PLAN.md` | 唯一任务计划文档(必读) |
+| `.trae-cn/archive/` | 历史归档(audit/交接/迁移报告,只读) |
+| `docs/architecture.md` | 系统架构文档 |
+| `docs/port-management.md` | 端口注册表(88xx 段) |
