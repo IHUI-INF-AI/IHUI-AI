@@ -30,6 +30,7 @@ import {
   updateNewsRecommendSort,
 } from '../db/misc-extended-queries.js'
 import { success, error } from '../utils/response.js'
+import { modelsRoutes } from './models.js'
 
 // =============================================================================
 // Zod schemas
@@ -97,6 +98,9 @@ const topOrRecommendSchema = z.object({
 // =============================================================================
 
 export const newsRoutes: FastifyPluginAsync = async (server) => {
+  // 模型市场路由(挂载 /models → 最终 URL /api/models/market,公开)
+  server.register(modelsRoutes, { prefix: '/models' })
+
   // GET /news/categories - 启用的分类列表（公开）
   server.get('/news/categories', async (_request, reply) => {
     const list = await findPublishedNewsCategories()
@@ -143,6 +147,58 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     if (recs.length === 0) return reply.send(success({ list: [] }))
     const articles = await findArticlesByIds(recs.map((r) => r.newsId))
     return reply.send(success({ list: articles }))
+  })
+
+  // GET /news/feed - AI 资讯 feed(公开,合并置顶+推荐+最新发布,去重按 limit 截断)
+  // 供 /models 公开页"AI 资讯条带"SSR 拉取,前端 models-api.ts getAiNewsFeed 消费。
+  server.get('/news/feed', async (request, reply) => {
+    const limitQuery = z
+      .object({ limit: z.coerce.number().int().min(1).max(50).default(6) })
+      .safeParse(request.query)
+    const limit = limitQuery.success ? limitQuery.data.limit : 6
+
+    const [tops, recs, latest] = await Promise.all([
+      findNewsTopList(),
+      findNewsRecommendList(),
+      findPublishedArticles({ page: 1, pageSize: limit }),
+    ])
+
+    type ArticleItem = Awaited<ReturnType<typeof findArticlesByIds>>[number]
+    const map = new Map<string, ArticleItem>()
+    const ids = new Set<string>()
+    for (const t of tops) ids.add(t.newsId)
+    for (const r of recs) ids.add(r.newsId)
+    for (const a of latest.list) ids.add(a.id)
+
+    if (ids.size > 0) {
+      const articles = await findArticlesByIds(Array.from(ids))
+      for (const a of articles) map.set(a.id, a)
+    }
+
+    // 排序:置顶优先 → 推荐次之 → 最新发布
+    const ordered: string[] = []
+    const seen = new Set<string>()
+    for (const t of tops) if (!seen.has(t.newsId)) { ordered.push(t.newsId); seen.add(t.newsId) }
+    for (const r of recs) if (!seen.has(r.newsId)) { ordered.push(r.newsId); seen.add(r.newsId) }
+    for (const a of latest.list) if (!seen.has(a.id)) { ordered.push(a.id); seen.add(a.id) }
+
+    const items = ordered
+      .slice(0, limit)
+      .map((id) => map.get(id))
+      .filter((a): a is ArticleItem => !!a)
+      .map((a) => ({
+        id: String(a.id),
+        title: a.title,
+        summary: a.summary ?? '',
+        cover: a.coverImage ?? null,
+        author: a.authorName ?? '',
+        category: null as string | null,
+        publishedAt: a.publishedAt ? a.publishedAt.toISOString() : null,
+        relatedModelIds: [] as string[],
+        source: 'api' as const,
+      }))
+
+    return reply.send(success({ items }))
   })
 
   // GET /news/articles/:id - 资讯详情（公开）
