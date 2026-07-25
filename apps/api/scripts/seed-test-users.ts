@@ -5,7 +5,7 @@
  *   pnpm --filter @ihui/api tsx scripts/seed-test-users.ts
  *
  * 行为：
- * 1. 用应用层 bcrypt.hash 生成密码 hash（与 auth.ts 登录校验一致，cost=10）
+ * 1. 用应用层 hashPassword(argon2id)生成密码 hash（与 auth.ts 登录校验一致）
  * 2. upsert test@ihui.ai / admin@ihui.ai 两个用户（onConflictDoUpdate on email）
  * 3. 打印 seed 结果
  *
@@ -14,7 +14,7 @@
  * - 数据库重置后恢复测试账号
  */
 import 'dotenv/config'
-import bcrypt from 'bcryptjs'
+import { hashPassword } from '../src/utils/password-crypto.js'
 import { db } from '../src/db/index.js'
 import { users } from '@ihui/database'
 import { eq } from 'drizzle-orm'
@@ -50,7 +50,7 @@ async function main() {
   let updated = 0
 
   for (const u of SEED_USERS) {
-    const passwordHash = await bcrypt.hash(u.password, 10)
+    const passwordHash = await hashPassword(u.password)
     try {
       const [existing] = await db
         .select({ id: users.id })

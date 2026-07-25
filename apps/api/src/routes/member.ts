@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import bcrypt from 'bcryptjs'
+import { hashPassword } from '../utils/password-crypto.js'
 import * as XLSX from 'xlsx'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -1337,7 +1337,7 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const passwordHash = await bcrypt.hash(parsed.data.password, 10)
+    const passwordHash = await hashPassword(parsed.data.password)
     const user = await createSystemUser({
       phone: parsed.data.phone ?? undefined,
       email: parsed.data.email ?? undefined,
@@ -1391,7 +1391,7 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) {
       return reply.status(404).send(error(404, '用户不存在'))
     }
-    const passwordHash = await bcrypt.hash(parsed.data.password, 10)
+    const passwordHash = await hashPassword(parsed.data.password)
     await resetSystemUserPassword(idParsed.data.id, passwordHash)
     return reply.send(success({ id: idParsed.data.id }))
   })

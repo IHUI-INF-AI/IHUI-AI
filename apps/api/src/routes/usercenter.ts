@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import bcrypt from 'bcryptjs'
+import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findUsers,
@@ -282,7 +282,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (existing) {
         return reply.status(409).send(error(409, '手机号已存在'))
       }
-      const passwordHash = await bcrypt.hash(parsed.data.password, 10)
+      const passwordHash = await hashPassword(parsed.data.password)
       const user = await createUser({
         phone: parsed.data.phone,
         nickname: parsed.data.nickname ?? undefined,
@@ -408,11 +408,11 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!user) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
-      const ok = await bcrypt.compare(parsed.data.oldPassword, user.passwordHash ?? '')
+      const ok = await verifyPassword(parsed.data.oldPassword, user.passwordHash ?? '')
       if (!ok) {
         return reply.status(401).send(error(401, '原密码错误'))
       }
-      const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10)
+      const passwordHash = await hashPassword(parsed.data.newPassword)
       await updateUserPassword(idParsed.data.id, passwordHash)
       return reply.send(success({ id: user.id }))
     },
@@ -462,7 +462,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!user) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
-      const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10)
+      const passwordHash = await hashPassword(parsed.data.newPassword)
       await updateUserPassword(idParsed.data.id, passwordHash)
       return reply.send(success({ id: user.id }))
     },
