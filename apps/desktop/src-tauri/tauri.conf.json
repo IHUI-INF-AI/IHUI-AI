@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "IHUI AI 桌面端",
+        "title": "IHUI AI",
         "width": 1200,
         "height": 780,
         "minWidth": 880,
@@ -26,8 +26,8 @@
         "alwaysOnTop": false,
         "skipTaskbar": false,
         "maximized": false,
-        "decorations": true,
-        "titleBarStyle": "Visible"
+        "decorations": false,
+        "titleBarStyle": "Overlay"
       },
       {
         "label": "admin",
@@ -43,8 +43,8 @@
         "visible": false,
         "theme": "Dark",
         "dragDropEnabled": true,
-        "decorations": true,
-        "titleBarStyle": "Visible"
+        "decorations": false,
+        "titleBarStyle": "Overlay"
       }
     ],
     "security": {
@@ -68,7 +68,7 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "IHUI AI 桌面端",
-    "longDescription": "IHUI AI 多端平台桌面客户端,基于 Tauri 2 + WebView2"
+    "shortDescription": "IHUI AI",
+    "longDescription": "IHUI AI 多端平台客户端,基于 Tauri 2 + WebView2"
   }
 }
