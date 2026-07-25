@@ -183,6 +183,41 @@ function parseRgLine(rgLine) {
 }
 
 /**
+ * strip 注释:避免 JSDoc 示例文本(如 t(`status.${var}`))被误识别为动态拼接。
+ * 处理:① 整行注释(行首去空格后以 // 或 slash-star 或 * 或 /** 开头)→ 返回空;
+ *       ② 行内块注释(slash-star ... star-slash)→ 移除;
+ *       ③ 行内单行注释 // ...(引号外)→ 移除之后部分(用引号状态机避免误删字符串内的 //)。
+ */
+function stripComments(content) {
+  const trimmed = content.trimStart()
+  if (
+    trimmed.startsWith('//') ||
+    trimmed.startsWith('/*') ||
+    trimmed.startsWith('*') ||
+    trimmed.startsWith('/**')
+  ) {
+    return ''
+  }
+  const s = content.replace(/\/\*[^*]*\*\//g, '')
+  let inSingle = false
+  let inDouble = false
+  let inTemplate = false
+  let cut = s.length
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    const prev = s[i - 1]
+    if (c === "'" && !inDouble && !inTemplate && prev !== '\\') inSingle = !inSingle
+    else if (c === '"' && !inSingle && !inTemplate && prev !== '\\') inDouble = !inDouble
+    else if (c === '`' && !inSingle && !inDouble) inTemplate = !inTemplate
+    else if (!inSingle && !inDouble && !inTemplate && c === '/' && s[i + 1] === '/') {
+      cut = i
+      break
+    }
+  }
+  return s.slice(0, cut)
+}
+
+/**
  * 从代码行中提取:
  * - staticKeys:静态 key 引用(t('key') / i18nKey="key" / id: 'key' 等)
  * - dynamicWarnings:动态拼接 key(t(`...${...}`) / t('...' + ...))
@@ -193,6 +228,9 @@ function extractFromLine(content, filePath, lineNo, usesNamespaces) {
   const dynamicWarnings = []
   const namespaces = new Set()
   let m
+
+  // strip 注释(避免 JSDoc 示例文本被误识别为动态拼接,2026-07-25 修)
+  content = stripComments(content)
 
   // t('key') / t("key") / tt('key', ...) / tList('key')
   const re1 = /\bt(?:t|List)?\s*\(\s*['"]([^'"]+)['"]\s*[,)]/g
