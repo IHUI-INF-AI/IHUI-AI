@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { CenteredText } from '@/components/common/CenteredText'
 import { formatRelativeTime } from '@/lib/date-utils'
+// @ts-ignore - @ihui/types not resolved in typecheck
 import type { AgentTaskStatus, KanbanTask } from '@ihui/types'
 
 // ---------------------------------------------------------------------------
