@@ -116,7 +116,6 @@
     "jsdom": "^29.1.1",
     "postcss": "^8.4.49",
     "rimraf": "^6.0.1",
-    "source-map-js": "1.2.1",
     "storybook": "8.6.18",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
