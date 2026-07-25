@@ -4,7 +4,7 @@ import { Layers } from 'lucide-react'
 
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { cn } from '@/lib/utils'
-import { PROVIDER_GROUPS } from './helpers'
+import { PROVIDER_GROUPS, PROVIDER_KEY } from './helpers'
 import type { Provider, ProviderGroup } from './types'
 
 interface Props {
@@ -19,6 +19,15 @@ const GROUP_ORDER: ProviderGroup[] = [
   'aggregator',
   'local',
 ]
+
+const PROVIDER_GROUP_KEYS: Record<ProviderGroup, string> = {
+  international: 'providerGroups.international',
+  domestic: 'providerGroups.domestic',
+  inference: 'providerGroups.inference',
+  cloud: 'providerGroups.cloud',
+  aggregator: 'providerGroups.aggregator',
+  local: 'providerGroups.local',
+}
 
 /**
  * 模型市场厂商 nav:
@@ -57,13 +66,13 @@ export async function ModelsNav({ active }: Props) {
               className="mr-1 inline-flex h-7 items-center rounded-md bg-background/60 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
               data-group-label={groupKey}
             >
-              {t(`providerGroups.${groupKey}`)}
+              {t(PROVIDER_GROUP_KEYS[groupKey]!)}
             </span>
             {group.providers.map((p) => (
               <ProviderPill
                 key={p}
                 href={`/models?provider=${p}`}
-                label={t(`providers.${p}`)}
+                label={t(PROVIDER_KEY[p] ?? 'providers.unknown')}
                 icon={<BrandIcon vendor={p} size={14} />}
                 active={active === p}
               />

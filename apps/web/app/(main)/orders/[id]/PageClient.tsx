@@ -49,6 +49,13 @@ const TYPE_KEY: Record<string, string> = {
   card: 'type.card',
 }
 
+const ORDER_STATUS_KEYS: Record<OrderStatus, string> = {
+  pending: 'status.pending',
+  paid: 'status.paid',
+  cancelled: 'status.cancelled',
+  refunded: 'status.refunded',
+}
+
 async function fetchOrder(id: string): Promise<Order> {
   const res = await fetchApi<OrderDetailData>(`/api/orders/${id}`)
   if (!res.success) throw new Error(res.error)
@@ -135,7 +142,7 @@ export default function OrderDetailPage() {
         )}
       >
         <StatusIcon className="h-4 w-4" />
-        {t(`status.${order.status}`)}
+        {t(ORDER_STATUS_KEYS[order.status]!)}
       </div>
 
       <dl className="divide-y rounded-lg border">

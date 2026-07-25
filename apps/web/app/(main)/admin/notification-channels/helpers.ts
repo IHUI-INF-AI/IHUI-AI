@@ -5,6 +5,14 @@ export const PAGE_SIZE = 10
 export const TYPES = ['email', 'sms', 'push', 'in_app', 'webhook'] as const
 export type ChannelType = (typeof TYPES)[number]
 
+export const TYPE_KEY: Record<ChannelType, string> = {
+  email: 'type_email',
+  sms: 'type_sms',
+  push: 'type_push',
+  in_app: 'type_in_app',
+  webhook: 'type_webhook',
+}
+
 export interface Item {
   id: string
   name: string
