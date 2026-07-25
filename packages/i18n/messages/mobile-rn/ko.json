@@ -3,106 +3,47 @@
     "save": "저장",
     "cancel": "취소",
     "delete": "삭제",
-    "edit": "편집",
     "back": "뒤로",
     "confirm": "확인",
     "loading": "로딩 중…",
     "empty": "데이터 없음",
-    "retry": "재시도",
-    "submit": "제출",
-    "search": "검색",
-    "all": "전체",
-    "yes": "예",
-    "no": "아니오"
+    "search": "검색"
   },
   "nav": {
     "home": "홈",
-    "chat": "AI 채팅",
     "courses": "강의",
     "live": "라이브",
     "profile": "마이",
-    "agents": "에이전트",
-    "orders": "주문",
-    "wallet": "지갑",
-    "settings": "설정",
-    "community": "커뮤니티"
-  },
-  "auth": {
-    "login": "로그인",
-    "logout": "로그아웃",
-    "register": "회원가입",
-    "forgot": "비밀번호 찾기",
-    "username": "사용자명",
-    "password": "비밀번호",
-    "phone": "전화번호",
-    "code": "인증코드",
-    "smsCode": "SMS 코드",
-    "loginSuccess": "로그인 성공",
-    "loginFailed": "로그인 실패",
-    "getCode": "코드 받기",
-    "resend": "재전송",
-    "thirdParty": "제3자 로그인",
-    "apple": "Apple",
-    "google": "Google",
-    "wechat": "WeChat"
+    "agents": "에이전트"
   },
   "home": {
-    "welcome": "IHUI AI에 오신 것을 환영합니다",
-    "greeting": "안녕하세요, {{name}}",
-    "todayRecommend": "오늘의 추천",
-    "hotCourses": "인기 강의",
-    "liveNow": "라이브 중",
-    "quickEntry": "빠른 진입"
+    "welcome": "IHUI AI에 오신 것을 환영합니다"
   },
   "course": {
     "title": "강의",
-    "detail": "강의 상세",
     "studentCount": "{{count}}명 학습",
     "rating": "평점",
-    "duration": "시간",
     "free": "무료",
-    "paid": "유료",
     "pay": "¥{{amount}} 결제",
     "enroll": "지금 등록",
     "enrolled": "등록됨",
-    "progress": "진도",
-    "chapters": "챕터",
-    "notes": "노트",
-    "qa": "Q&A",
-    "related": "관련 강의",
-    "teacher": "강사",
-    "catalog": "목차"
+    "progress": "진도"
   },
   "live": {
     "title": "라이브",
     "viewerCount": "{{count}}명 시청 중",
-    "startTime": "시작 시간",
-    "host": "호스트",
-    "join": "라이브 참여",
     "upcoming": "예정",
     "ended": "종료",
-    "replay": "다시보기",
-    "chat": "채팅",
-    "gift": "선물",
-    "share": "공유"
+    "chat": "채팅"
   },
   "profile": {
     "title": "마이",
-    "vip": "VIP",
     "myCourses": "내 강의",
     "myOrders": "내 주문",
     "myFavorites": "내 즐겨찾기",
-    "settings": "설정",
-    "about": "정보",
-    "language": "언어",
-    "theme": "테마",
     "feedback": "피드백",
-    "privacy": "개인정보",
-    "terms": "약관",
     "logout": "로그아웃",
     "nickname": "닉네임",
-    "avatar": "아바타",
-    "bio": "소개",
     "editProfile": "프로필 편집"
   },
   "payment": {
@@ -148,68 +89,30 @@
       "completed": "완료",
       "failed": "실패"
     },
-    "create": "주문 생성",
-    "cancel": "주문 취소",
-    "pay": "결제하기",
-    "refund": "환불 신청",
-    "detail": "주문 상세",
     "empty": "주문 없음",
-    "amount": "금액",
-    "orderNo": "주문 번호",
-    "payMethod": "결제 방법",
-    "payTime": "결제 시간"
+    "orderNo": "주문 번호"
   },
   "wallet": {
-    "title": "지갑",
-    "balance": "잔액",
-    "points": "포인트",
-    "recharge": "충전",
-    "withdraw": "출금",
-    "history": "내역",
-    "frozen": "동결"
+    "points": "포인트"
   },
   "community": {
-    "title": "커뮤니티",
-    "posts": "게시물",
-    "publish": "게시",
-    "comment": "댓글",
-    "like": "좋아요",
-    "favorite": "즐겨찾기",
-    "share": "공유",
     "follow": "팔로우",
     "follower": "팔로워"
   },
   "agent": {
-    "title": "에이전트",
-    "create": "새 에이전트",
-    "chat": "에이전트와 채팅",
-    "runtime": "런타임",
-    "config": "설정",
-    "publish": "게시"
+    "config": "설정"
   },
   "chat": {
-    "placeholder": "메시지 입력…",
-    "send": "전송",
-    "thinking": "생각 중…",
-    "newConversation": "새 대화",
-    "history": "기록",
-    "stop": "중지",
-    "retry": "재생성",
-    "copy": "복사",
-    "voice": "음성",
-    "attach": "첨부"
+    "voice": "음성"
   },
   "settings": {
     "title": "설정",
     "account": "계정 및 보안",
     "notification": "알림",
-    "privacy": "개인정보",
     "language": "언어",
     "theme": "테마",
     "about": "IHUI AI 정보",
     "version": "버전",
-    "clearCache": "캐시 지우기",
-    "update": "업데이트 확인",
     "notifPush": "푸시 알림",
     "notifMessage": "메시지 알림",
     "notifEmail": "이메일 알림",
@@ -250,20 +153,7 @@
     "agreement": "이용약관"
   },
   "error": {
-    "network": "네트워크 오류",
-    "server": "서버 오류",
-    "unauthorized": "먼저 로그인하세요",
-    "forbidden": "권한 없음",
-    "notFound": "찾을 수 없음",
-    "timeout": "시간 초과",
-    "unknown": "알 수 없는 오류"
-  },
-  "success": {
-    "saved": "저장됨",
-    "updated": "업데이트됨",
-    "deleted": "삭제됨",
-    "submitted": "제출됨",
-    "copied": "복사됨"
+    "network": "네트워크 오류"
   },
   "taskDispatch": {
     "title": "작업 전송",
@@ -287,20 +177,15 @@
     "cancel": {
       "cancelButton": "작업 취소",
       "cancelling": "취소 중",
-      "cancelSuccess": "작업이 취소되었습니다",
       "cancelFailed": "작업 취소에 실패했습니다"
     },
     "reconnect": {
-      "reconnecting": "작업 동기화 중",
-      "reconnectSuccess": "작업이 동기화되었습니다"
+      "reconnecting": "작업 동기화 중"
     },
     "file": {
       "attach": "첨부",
       "attached": "첨부됨: {{filename}} ({{size}})",
       "tooLarge": "파일이 너무 큽니다(1MB 제한)",
-      "download": "첨부 다운로드",
-      "downloadSuccess": "{{filename}} 다운로드 완료",
-      "downloadFailed": "다운로드 실패",
       "invalidBase64": "Base64 내용이 잘못되었습니다",
       "missingFilename": "파일명을 입력하세요",
       "filenamePlaceholder": "파일명, 예: notes.txt",
