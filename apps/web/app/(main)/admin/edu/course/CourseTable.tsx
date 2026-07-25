@@ -16,7 +16,7 @@ import {
 import { Tooltip } from '@/components/feedback'
 import { TruncatedText } from '@/components/common'
 import { useTranslations } from 'next-intl'
-import { PERM, badgeCls } from './helpers'
+import { PERM, badgeCls, STAGE_KEY, AUDIT_KEY } from './helpers'
 import type { Course } from './types'
 
 interface Props {
@@ -123,12 +123,12 @@ export function CourseTable({
                   )}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className={badgeCls(r.stage === 2)}>{t(`stage.${r.stage ?? 0}`)}</span>
+                  <span className={badgeCls(r.stage === 2)}>{t(STAGE_KEY[r.stage ?? 0] ?? 'stage.unknown')}</span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.label ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span className={badgeCls(r.auditStatus === 4)}>
-                    {t(`audit.${r.auditStatus ?? 0}`)}
+                    {t(AUDIT_KEY[r.auditStatus ?? 0] ?? 'audit.unknown')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">

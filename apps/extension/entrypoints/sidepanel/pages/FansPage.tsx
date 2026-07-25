@@ -8,16 +8,9 @@ import { useEffect, useState } from 'react'
 import { getFans, fetchApi, type FollowUser } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
 
 const WEB_BASE = 'https://ihui.ai'
-
-function fmtDate(s: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(new Date(s))
-  } catch {
-    return ''
-  }
-}
 
 function initials(name: string): string {
   return name?.trim().charAt(0).toUpperCase() || '?'

@@ -1,15 +1,20 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { apiClientMocks } = vi.hoisted(() => ({
+const { apiClientMocks, sharedMocks } = vi.hoisted(() => ({
   apiClientMocks: {
     setBaseUrl: vi.fn(),
-    setTokenProvider: vi.fn(),
+  },
+  sharedMocks: {
+    bindTokenStoreToApiClient: vi.fn(),
   },
 }))
 
 vi.mock('@ihui/api-client', () => ({
   setBaseUrl: apiClientMocks.setBaseUrl,
-  setTokenProvider: apiClientMocks.setTokenProvider,
+}))
+
+vi.mock('@ihui/shared/auth', () => ({
+  bindTokenStoreToApiClient: sharedMocks.bindTokenStoreToApiClient,
 }))
 
 import {
@@ -27,7 +32,7 @@ describe('lib/token', () => {
   beforeEach(() => {
     resetAsyncStorageMock()
     apiClientMocks.setBaseUrl.mockClear()
-    apiClientMocks.setTokenProvider.mockClear()
+    sharedMocks.bindTokenStoreToApiClient.mockClear()
   })
 
   it('initApi 调用 setBaseUrl 设置 API_BASE_URL', async () => {
@@ -35,13 +40,13 @@ describe('lib/token', () => {
     expect(apiClientMocks.setBaseUrl).toHaveBeenCalledWith('http://localhost:8801')
   })
 
-  it('initApi 调用 setTokenProvider 注册 token 提供器', async () => {
+  it('initApi 调用 bindTokenStoreToApiClient 注册 token 提供器', async () => {
     await initApi()
-    expect(apiClientMocks.setTokenProvider).toHaveBeenCalledTimes(1)
-    const provider = apiClientMocks.setTokenProvider.mock.calls[0]![0]! as {
+    expect(sharedMocks.bindTokenStoreToApiClient).toHaveBeenCalledTimes(1)
+    const store = sharedMocks.bindTokenStoreToApiClient.mock.calls[0]![0]! as {
       getToken: () => string | null
     }
-    expect(typeof provider.getToken).toBe('function')
+    expect(typeof store.getToken).toBe('function')
   })
 
   it('initApi 从 AsyncStorage 读取已存在的 token 并缓存', async () => {
@@ -58,13 +63,13 @@ describe('lib/token', () => {
     expect(getRefreshToken()).toBeNull()
   })
 
-  it('initApi 注册的 tokenProvider 返回当前缓存 token', async () => {
+  it('initApi 注册的 tokenStore.getToken 返回当前缓存 token', async () => {
     await AsyncStorage.setItem('ihui_token', 'abc123')
     await initApi()
-    const provider = apiClientMocks.setTokenProvider.mock.calls[0]![0]! as {
+    const store = sharedMocks.bindTokenStoreToApiClient.mock.calls[0]![0]! as {
       getToken: () => string | null
     }
-    expect(provider.getToken()).toBe('abc123')
+    expect(store.getToken()).toBe('abc123')
   })
 
   it('setToken 写入缓存和 AsyncStorage', async () => {

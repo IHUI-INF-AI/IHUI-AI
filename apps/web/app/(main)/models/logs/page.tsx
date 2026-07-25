@@ -3,6 +3,12 @@ import { CheckCircle2, FileText, XCircle } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
+/** i18n 静态映射表 — 用于消除 `t(`logs.statusLabels.${var}`)` 动态拼接 */
+const LOGS_STATUS_KEY: Record<string, string> = {
+  success: 'logs.statusLabels.success',
+  failed: 'logs.statusLabels.failed',
+}
+
 export default async function LogsPage() {
   const t = await getTranslations('models')
 
@@ -142,7 +148,7 @@ export default async function LogsPage() {
                         ) : (
                           <XCircle className="h-3 w-3" />
                         )}
-                        {t(`logs.statusLabels.${l.status}`)}
+                        {t(LOGS_STATUS_KEY[l.status] ?? 'logs.statusLabels.unknown')}
                       </span>
                     </td>
                   </tr>
