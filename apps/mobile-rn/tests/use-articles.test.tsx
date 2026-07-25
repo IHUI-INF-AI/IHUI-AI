@@ -30,8 +30,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useArticles } from '@ihui/shared/hooks'
-import type { Article } from '@ihui/shared/hooks'
+import { useArticles, type Article } from '@ihui/shared/hooks'
 
 // 测试用 mock article 类型(扩展 author 字段,模拟各端自定义字段)
 interface TestArticle extends Article {

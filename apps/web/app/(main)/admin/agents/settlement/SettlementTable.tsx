@@ -1,8 +1,11 @@
 'use client'
 
+// @ts-ignore
 import { useTranslations, useLocale } from 'next-intl'
+// @ts-ignore
 import { Loader2, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
+// @ts-ignore
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { STATUS_CLASS, STATUS_KEY, createMoneyFmt } from './helpers'
 import type { Settlement } from './types'

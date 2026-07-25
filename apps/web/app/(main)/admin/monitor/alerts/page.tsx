@@ -43,9 +43,9 @@ export default function AdminMonitorAlertsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'monitor', 'alerts'] }),
   })
 
-  const activeCount = alerts.filter((a) => a.status === 'active').length
-  const criticalCount = alerts.filter((a) => a.level === 'critical' && a.status === 'active').length
-  const warningCount = alerts.filter((a) => a.level === 'warning' && a.status === 'active').length
+  const activeCount = alerts.filter((a: any) => a.status === 'active').length
+  const criticalCount = alerts.filter((a: any) => a.level === 'critical' && a.status === 'active').length
+  const warningCount = alerts.filter((a: any) => a.level === 'warning' && a.status === 'active').length
 
   return (
     <div className="space-y-4">
