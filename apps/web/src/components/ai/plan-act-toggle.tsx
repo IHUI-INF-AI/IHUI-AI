@@ -8,8 +8,6 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
 
-import './plan-act-toggle.css'
-
 export type PlanActMode = 'plan' | 'act'
 
 /** Plan/Act 模式切换器(对标 Trae Work plan/act toggle + Codex)。
@@ -19,9 +17,13 @@ export type PlanActMode = 'plan' | 'act'
  * - Plan:LLM 只制定计划不调用工具
  * - Act:正常 tool loop 执行(默认)
  *
- * 2026-07-25 增强:容器 < 360px 时折叠为单个图标按钮(ListChecks/Play),
- * 避免在窄屏 ai-side-panel 挤占其他 toolbar 元素(详见 plan-act-toggle.css)。
+ * 2026-07-25 v2 增强:用 ResizeObserver 测量自身渲染宽度,容器宽 < 60px 时
+ * 折叠为单个 28px 图标按钮(避免被父容器 flex 布局压成 4px 不可见)。
+ * 之前用 CSS container query 实测与 flex + min-w-0 + overflow-hidden 父容器
+ * 冲突,父容器 size containment 反向把 inline-size 压成 4px,改用 JS 测量最稳。
  */
+const COMPACT_THRESHOLD_PX = 60
+
 function safeT(t: (key: string) => string, key: string, fallback: string): string {
   try {
     const v = t(key)
@@ -64,7 +66,28 @@ export function PlanActToggle({
     if (mode === undefined) setStoreMode(m)
   }
 
-  const btn = (m: PlanActMode, label: string, title: string) => (
+  // 测量容器渲染宽度(2026-07-25 v2):useLayoutEffect 同步测量避免首帧渲染宽屏后
+  // 再切窄屏的闪烁;ResizeObserver 监听父容器 resize 动态切换。
+  // - compact=true:父容器可用空间 < 60px,渲染单个 28px 图标按钮
+  // - compact=false:渲染 2 文字按钮(规划/执行,~ 60px 宽)
+  const ref = React.useRef<HTMLDivElement | null>(null)
+  const [compact, setCompact] = React.useState(false)
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => {
+      // 用 getBoundingClientRect 读真实渲染宽度(含 padding/border),
+      // offsetWidth 同样可用但 getBoundingClientRect 更直观
+      const w = el.getBoundingClientRect().width
+      setCompact(w < COMPACT_THRESHOLD_PX)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const wideBtn = (m: PlanActMode, label: string, title: string) => (
     <button
       type="button"
       role="radio"
@@ -82,34 +105,21 @@ export function PlanActToggle({
     </button>
   )
 
-  // 窄屏折叠态(2026-07-25):单个图标按钮,点击切换 plan/act。
-  // 复用 select() 保持 plan/act 切换行为与宽屏完全一致(受控/非受控分支同源)。
-  const toggle = () => select(current === 'plan' ? 'act' : 'plan')
-  const currentLabel = current === 'plan' ? planLabel : actLabel
-  const currentTooltip = current === 'plan' ? planTooltip : actTooltip
-  const CurrentIcon = current === 'plan' ? ListChecks : Play
-
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Plan/Act mode"
-      className={cn(
-        'ai-panel-toggle inline-flex h-7 items-center gap-0.5 rounded-md bg-muted p-0.5',
-        className,
-      )}
-    >
-      {/* 宽屏(>= 360px):2 个文字按钮(radiogroup 语义保留供 a11y) */}
-      <span className="ai-toggle-wide inline-flex items-center gap-0.5">
-        {btn('plan', planLabel, planTooltip)}
-        {btn('act', actLabel, actTooltip)}
-      </span>
-      {/* 窄屏(< 360px):单个图标按钮,点击切换 mode(plan/act)。
-         故意放在 radiogroup 内部但非 role="radio",与宽屏互斥显示(由 CSS 容器查询切换),
-         a11y 走 title + aria-label,屏幕阅读器同一时间只感知一种状态。 */}
-      <span className="ai-toggle-narrow">
+  if (compact) {
+    // 窄屏:单个 28px 图标按钮,点击切换 plan/act(2026-07-25 v2)
+    const CurrentIcon = current === 'plan' ? ListChecks : Play
+    const currentLabel = current === 'plan' ? planLabel : actLabel
+    const currentTooltip = current === 'plan' ? planTooltip : actTooltip
+    return (
+      <div
+        ref={ref}
+        role="radiogroup"
+        aria-label="Plan/Act mode"
+        className={cn('flex h-7 w-7 flex-shrink-0 items-center justify-center', className)}
+      >
         <button
           type="button"
-          onClick={toggle}
+          onClick={() => select(current === 'plan' ? 'act' : 'plan')}
           title={currentTooltip}
           aria-label={currentLabel}
           className={cn(
@@ -119,7 +129,23 @@ export function PlanActToggle({
         >
           <CurrentIcon className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
-      </span>
+      </div>
+    )
+  }
+
+  // 宽屏:2 文字按钮(radiogroup 语义保留供 a11y)
+  return (
+    <div
+      ref={ref}
+      role="radiogroup"
+      aria-label="Plan/Act mode"
+      className={cn(
+        'inline-flex h-7 flex-shrink-0 items-center gap-0.5 rounded-md bg-muted p-0.5',
+        className,
+      )}
+    >
+      {wideBtn('plan', planLabel, planTooltip)}
+      {wideBtn('act', actLabel, actTooltip)}
     </div>
   )
 }
