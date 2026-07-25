@@ -952,7 +952,13 @@
       "shortcutsItemUndoKbd": "切到完全访问后 5s 内可撤销",
       "shortcutsItemDangerousKbd": "高风险模式发送时检测危险命令,需二次确认",
       "shortcutsItemHistoryKbd": "查看 popover 底部「历史」按钮看最近切换",
+      "shortcutsItemInfoKbd": "查看该模式 4 条详细行为",
+      "shortcutsItemSlashAskKbd": "切换到请求批准",
+      "shortcutsItemSlashAutoKbd": "切换到替我审批",
+      "shortcutsItemSlashFullKbd": "切换到完全访问",
       "shortcutsLearnMore": "了解更多安全设计",
+      "infoModalTitle": "当前权限模式详情",
+      "infoModalDescription": "当前模式的具体行为和风险等级",
       "infoButtonLabel": "查看模式说明",
       "infoButtonTitle": "当前模式的详细行为",
       "modeInfoAcknowledge": "知道了",
@@ -980,7 +986,27 @@
     "modePlan": "规划",
     "modeAct": "执行",
     "planTooltip": "Plan:AI 只制定计划,不执行工具(Alt+P 切换 / 输入 /plan)",
-    "actTooltip": "Act:AI 正常执行工具(Alt+P 切换 / 输入 /act)"
+    "actTooltip": "Act:AI 正常执行工具(Alt+P 切换 / 输入 /act)",
+    "permission": {
+      "shortcuts": {
+        "title": "权限模式快捷键",
+        "description": "切换模式与高风险护栏(对标 OpenAI Codex CLI /help)",
+        "modeGroup": "模式切换",
+        "guardGroup": "高风险护栏",
+        "undoGroup": "撤销与审计",
+        "cycleMode": "Shift+Tab 循环切换模式",
+        "pickByNumber": "1 / 2 / 3 直接选择模式",
+        "slashAsk": "/permission ask 切到请求批准",
+        "slashAuto": "/permission auto 切到替我审批",
+        "slashFull": "/permission full 切到完全访问",
+        "toggleHelp": "? 打开/关闭本面板",
+        "infoButton": "ⓘ 查看权限模式说明",
+        "undoSwitch": "5 秒内撤销模式切换",
+        "autoRevert": "1 小时后自动从高风险回退",
+        "history": "查看历史",
+        "gotIt": "我知道了"
+      }
+    }
   },
   "learn": {
     "title": "学习中心",

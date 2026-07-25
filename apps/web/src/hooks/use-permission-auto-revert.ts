@@ -105,19 +105,22 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   const [record, setRecord] = React.useState<AutoRevertRecord | null>(null)
   // 客户端 mount 时强制读一次(2026-07-25 修复:useState lazy initializer 在 SSR 返回 null 后,
   // 客户端 hydration 不会重跑,导致 expired/刷新场景的 record 被 effect 1 覆盖)
-  const [hydrated, setHydrated] = React.useState(false)
+  // 2026-07-25 深化:重命名为 hydrationDone,明确语义"hydration 已完成,后续 effect 可放心跑"
+  // 同时承担 gate 角色:所有依赖 record / watchedRecordRef 的 effect 都必须等 hydrationDone=true 才能跑,
+  // 否则 hydration 还没注入 loaded,auto-switch 的 `if (!record) { ref = null }` 早退分支会清掉 ref
+  const [hydrationDone, setHydrationDone] = React.useState(false)
   // 2026-07-25 修复 race condition:缓存当前 watch 的 record 引用,
   // 自动切回 effect 用 ref === record 校验,防止用户最后一刻手动切到 bypass
   // 引起的 record 替换被误判为"刚启动的新 record"
   const watchedRecordRef = React.useRef<AutoRevertRecord | null>(null)
   React.useEffect(() => {
-    if (hydrated) return
+    if (hydrationDone) return
     const loaded = readRecord()
     console.log('[auto-revert:hydration] readRecord', { hasLoaded: !!loaded, version: loaded?.version, ws: loaded?.workspacePath, startedAt: loaded?.startedAt, startedAtAgo: loaded ? Date.now() - loaded.startedAt : null })
     setRecord(loaded)
     watchedRecordRef.current = loaded
-    setHydrated(true)
-  }, [hydrated])
+    setHydrationDone(true)
+  }, [hydrationDone])
   // 强制 1s 重渲染,刷新倒计时显示
   const [tick, setTick] = React.useState(0)
 
@@ -129,9 +132,9 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   //     (否则模式 effect 永久重启,auto-switch 永远等不到归零时刻)
   //   * 无 record → 启动新 record
   // - 切到 default / accept-edits → 清掉
-  // 依赖:hydrated(防 hydration 前 effect 覆盖)+ activeWorkspace.path(防跨工作区污染)
+  // 依赖:hydrationDone(防 hydration 前 effect 覆盖)+ activeWorkspace.path(防跨工作区污染)
   React.useEffect(() => {
-    if (!hydrated) return
+    if (!hydrationDone) return
     const currentPath = activeWorkspace?.path ?? null
     if (activeMode === 'bypass-permissions') {
       setRecord((prev) => {
@@ -165,7 +168,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
         return null
       })
     }
-  }, [activeMode, activeWorkspace?.path, durationMs, hydrated])
+  }, [activeMode, activeWorkspace?.path, durationMs, hydrationDone])
 
   // 1s 触发 setState 强制重渲染剩余时间
   React.useEffect(() => {
@@ -244,12 +247,24 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   // 防止用户在最后一刻手动切到 bypass 时旧 expired record 残留触发自动切回
   const autoSwitchedRef = React.useRef(false)
   React.useEffect(() => {
+    // 2026-07-25 修复 hydration race:必须等 hydrationDone 后再跑本 effect,
+    // 否则首次 mount 阶段 record=null,本 effect 早退分支会执行 `watchedRecordRef.current = null`,
+    // 覆盖掉 hydration effect 刚 setRef(loaded) 的值,导致 auto-switch 校验 `watchedRecordRef !== record` 永远成立,
+    // 归零时无法触发自动切回(expired record 场景)
+    if (!hydrationDone) return
     if (!record) {
       autoSwitchedRef.current = false
       watchedRecordRef.current = null
       return
     }
     if (remainingMs > 0) return
+    // 2026-07-25 修复跨工作区 race:mode-effect 的 setRecord((prev) => ...) 是 functional update,
+    // callback(包括 ref 更新)是异步处理的。在 callback 跑完前,本 effect 看到的还是旧 record + 旧 ref,
+    // 此时如果 record 已到期 + workspacePath 不匹配,不应触发自动切回(让 mode-effect 先重启 record)。
+    if (record.workspacePath !== (activeWorkspace?.path ?? null)) {
+      console.log('[auto-revert:auto-switch] 跳过:workspacePath 不匹配,等 mode-effect 重启 record', { recordWs: record.workspacePath, currentPath: activeWorkspace?.path ?? null })
+      return
+    }
     if (autoSwitchedRef.current) {
       console.log('[auto-revert:auto-switch] 跳过:已触发过', { autoSwitchedRef: autoSwitchedRef.current })
       return
@@ -300,7 +315,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
       // 2 次都失败:记录到 console(不阻塞 UI,本地已切回)
       console.warn('[usePermissionAutoRevert] 自动切回 default 后落库失败,已本地切回')
     })()
-  }, [remainingMs, record, t])
+  }, [remainingMs, record, t, hydrationDone, activeWorkspace?.path])
 
   /** 用户主动取消自动撤销(不清工作区模式,只取消计时) */
   const cancelRevert = React.useCallback(() => {

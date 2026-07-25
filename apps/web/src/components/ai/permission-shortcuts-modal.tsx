@@ -50,28 +50,28 @@ interface ShortcutGroup {
 
 const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
-    titleKey: 'shortcuts.modeGroup',
+    titleKey: 'shortcutsSectionSwitch',
     rows: [
-      { key: 'Shift+Tab', descKey: 'shortcuts.cycleMode', icon: Hand },
-      { key: '1 / 2 / 3', descKey: 'shortcuts.pickByNumber', icon: Hand },
-      { key: '/permission ask', descKey: 'shortcuts.slashAsk' },
-      { key: '/permission auto', descKey: 'shortcuts.slashAuto' },
-      { key: '/permission full', descKey: 'shortcuts.slashFull' },
+      { key: 'Shift+Tab', descKey: 'shortcutsItemShiftTabKbd', icon: Hand },
+      { key: '1 / 2 / 3', descKey: 'shortcutsItemNumberKbd', icon: Hand },
+      { key: '/permission ask', descKey: 'shortcutsItemSlashAskKbd' },
+      { key: '/permission auto', descKey: 'shortcutsItemSlashAutoKbd' },
+      { key: '/permission full', descKey: 'shortcutsItemSlashFullKbd' },
     ],
   },
   {
-    titleKey: 'shortcuts.guardGroup',
+    titleKey: 'shortcutsSectionGuard',
     rows: [
-      { key: '?', descKey: 'shortcuts.toggleHelp', icon: Keyboard },
-      { key: 'ⓘ', descKey: 'shortcuts.infoButton', icon: ShieldAlert },
+      { key: '?', descKey: 'shortcutsItemQuestionMarkKbd', icon: Keyboard },
+      { key: 'ⓘ', descKey: 'shortcutsItemInfoKbd', icon: ShieldAlert },
     ],
   },
   {
-    titleKey: 'shortcuts.undoGroup',
+    titleKey: 'shortcutsSectionAudit',
     rows: [
-      { key: 'Undo 5s', descKey: 'shortcuts.undoSwitch', icon: Undo2 },
-      { key: '1h', descKey: 'shortcuts.autoRevert', icon: TriangleAlert },
-      { key: '查看历史', descKey: 'shortcuts.history', icon: History },
+      { key: 'Undo 5s', descKey: 'shortcutsItemUndoKbd', icon: Undo2 },
+      { key: '1h', descKey: 'shortcutsItemAutoRevert1hKbd', icon: TriangleAlert },
+      { key: '查看历史', descKey: 'shortcutsItemHistoryKbd', icon: History },
     ],
   },
 ]

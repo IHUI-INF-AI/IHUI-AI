@@ -21,7 +21,8 @@
     "@ihui/design-tokens": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",

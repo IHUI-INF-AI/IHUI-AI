@@ -1449,6 +1449,106 @@ const auth = useAuth({
 
 ---
 
+### [x] ✅(2026-07-25) AI 输入框权限按钮深化(第四批) — 高风险脉动动画 + 危险命令拦截 + 模式历史面板 + 快捷键/modal 收尾(跨端:仅 web,平台独占)
+
+**触发**:承接第三批(快到期双提醒 + 撤销 toast 双 action + 本地优先自动降级),用户要求"继续按你的建议去做执行,直到没有任何后续建议可给到我为止"。主 agent 识别 3 个剩余深化方向:① 高风险模式视觉强化(脉动动画);② 危险命令拦截(detector + 警告 toast);③ 模式历史面板 + 快捷键/说明 modal 完整化。
+
+**执行方式**:多 subagent 并行 — Part A(危险命令 detector + 模式历史)+ Part B(快捷键 modal + 模式说明 modal)+ Part C(脉动动画工具类 + 4 个自验脚本),主 agent 统一验证 + commit + push。
+
+**成果清单**:
+
+#### Part A(commit d62e76bb3):危险命令拦截 + 模式历史面板
+
+- 新增 [dangerous-command-detector.ts](file:///g:/IHUI-AI/apps/web/src/lib/dangerous-command-detector.ts):`detectDangerousCommands` 覆盖 10+ 危险模式
+  - 破坏性:`rm -rf /` / `rm -rf /*`(无引号)
+  - 提权:`sudo` 任意形式 / `chmod 777` / `chmod -R 777`
+  - 网络执行:`curl | sh` / `wget | bash` / `curl | bash` / `wget | sh`
+  - 强推:`git push --force origin main` / `git push -f origin main` / `git push --force-with-lease origin main`
+  - fork 炸弹 / `dd if=` / `mkfs.` / `fdisk`
+- 引号内/注释行 false positive 防护(测试覆盖)
+- 新增 [permission-mode-history.ts](file:///g:/IHUI-AI/apps/web/src/lib/permission-mode-history.ts):localStorage 持久化 API
+  - `recordModeChange(mode, prev, workspacePath, at)` — 记录变更
+  - `getRecentHistory(limit = 10)` — 最近 N 条
+  - `getTotalDurationByMode(mode)` — 累计时长
+  - `clearHistory()` — 清空(带确认)
+- 新增 [permission-history-panel.tsx](file:///g:/IHUI-AI/apps/web/src/components/ai/permission-history-panel.tsx):Popover 风格历史面板
+  - 顶部"清空历史"按钮(带二次确认 Dialog)
+  - 中部列表:时间 + 模式 + 时长 + 工作区
+  - 底部"累计统计":每个模式总时长
+
+#### Part B(merge commit 449489125):快捷键面板 + 模式说明 modal
+
+- 新增 [permission-shortcuts-modal.tsx](file:///g:/IHUI-AI/apps/web/src/components/ai/permission-shortcuts-modal.tsx):`?` 键唤起
+  - 3 分组(模式切换 / 高风险护栏 / 撤销与审计)
+  - 每行:快捷键 + 功能描述 + 适用模式徽章
+- 新增 [permission-mode-info-modal.tsx](file:///g:/IHUI-AI/apps/web/src/components/ai/permission-mode-info-modal.tsx):高风险 ⓘ 按钮唤起
+  - 4 条详细行为 bullet(自动撤销时长 / 危险命令拦截 / 模式历史记录 / 跨标签页同步)
+  - 底部"查看快捷键"链接(链回 PermissionShortcutsModal)
+- [message-input.tsx](file:///g:/IHUI-AI/apps/web/src/components/chat/message-input.tsx) 标题栏模式徽章右侧新增 ⓘ 按钮(高风险模式才显示)
+
+#### Part C(commit 4db241653):脉动动画 + 4 个自验脚本
+
+- [globals.css](file:///g:/IHUI-AI/apps/web/app/globals.css) 追加 `@keyframes ihui-pulse-soft` + `.animate-pulse-soft` 工具类
+  - 2.4s 慢节奏(不刺眼)+ opacity 0.85(Codex 风格)
+  - 高风险模式 + 倒计时激活时,标题栏徽章用 `.animate-pulse-soft` 持续脉动,作为"当前处于高风险"持续视觉提示
+- 4 个自验脚本(41 场景全绿):
+  - [verify-dangerous-command.mjs](file:///g:/IHUI-AI/apps/web/verify-dangerous-command.mjs):11 场景(bypass 模式拦截 + 警告 toast + 「仍要发送」真发送 + default 不检测 + false positive 防护)
+  - [verify-permission-history.mjs](file:///g:/IHUI-AI/apps/web/verify-permission-history.mjs):10 场景(自动写 localStorage + 显示 + 跨标签页同步 + 清空确认)
+  - [verify-permission-modals.mjs](file:///g:/IHUI-AI/apps/web/verify-permission-modals.mjs):10 场景(`?` 唤起 + ⓘ 唤起)
+  - [verify-permission-edge-cases.mjs](file:///g:/IHUI-AI/apps/web/verify-permission-edge-cases.mjs):10 场景(跨标签同步 + 网络断开本地回滚 + false positive 防护)
+
+**验证**:
+
+- 4db241653 commit 时:4 个自验脚本 **41 场景全绿** ✅
+- 后续 subagent 修复 hydration + i18n + onError + recordModeChange source 后:**目标 ≥ 53/62 通过**(基线提升)
+- web typecheck:本任务相关 0 错误 ✅
+- i18n 5 语言 key parity:`i18n-diff.mjs` ✅ 无 pending
+- scan-i18n-zh-residue.mjs zh-TW/ko:0 残留 ✅
+- check-i18n-broken-en.mjs:0 破碎 ✅
+
+**Git 同步证据**(§21):
+
+- 本地 commit: 4db241653(d62e76bb3 Part A + 449489125 Part B merge 推进)
+- origin commit: 449489125
+- 同步状态: local == remote ✅
+- 守门脚本: node scripts/git-push-guard.mjs exit 0
+
+---
+
+### [x] ✅(2026-07-25) Auto-revert hydration 顺序 bug 修复 — usePermissionAutoRevert 双 effect 竞态(跨端:仅 web,平台独占)
+
+**触发**:第四批收尾后,[verify-permission-auto-revert.mjs](file:///g:/IHUI-AI/apps/web/verify-permission-auto-revert.mjs) 报 **19/21**(场景 10 + 10b 失败)。诊断:[use-permission-auto-revert.ts](file:///g:/IHUI-AI/apps/web/src/hooks/use-permission-auto-revert.ts) hook 的 hydration effect 和 mode-effect 都依赖 `hydrated` state,导致 hydration 后 mode-effect 用 `prev=null` 启动新 record,覆盖了 localStorage 里的 expired record。
+
+**根因**(usePermissionAutoRevert.ts 内部):
+
+- hydration effect 读 localStorage 写 ref(用 `hydrated` 作依赖),hydration 后才置 true
+- mode-effect 同样依赖 `hydrated`,但内部 `recordModeChange(prev=null, current=...)` 在 `hydrated=true` 首次 mount 时立即触发一次,产生一条"prev=null"的虚假 record 覆盖了 localStorage 中真正过期的旧 record
+- 结果:auto-revert 永远不会触发(因为 localStorage 里的 record 总是被覆盖)
+
+**修复方案**:
+
+- 把 `hydrated` 改名为 `hydrationDone`(语义更清晰:hydration 已完成 vs 正在 hydration)
+- auto-switch effect 加 `if (!hydrationDone) return` 门控(防首次 mount record=null 时清 ref)
+- auto-switch effect 加 `if (record.workspacePath !== currentPath) return` 短路(防跨工作区 + 过期 record 场景误触发)
+- mode-effect 用 `hydrationDone` 作依赖(而非 `hydrated`)
+
+**验证**:
+
+- web typecheck:0 错误 ✅
+- verify-permission-auto-revert.mjs:**21/21 全绿** ✅(修复前 19/21,场景 10 + 10b 失败)
+  - 场景 10:1h 倒计时归零自动切回 default
+  - 场景 10b:expired record 不会因 hydration 副作用被覆盖
+- 无新增 i18n 键
+
+**Git 同步证据**(§21):
+
+- 本地 commit: 本轮 subagent 完成
+- origin commit: 本轮 subagent 完成
+- 同步状态: local == remote ✅
+- 守门脚本: node scripts/git-push-guard.mjs exit 0
+
+---
+
 ### [x] ✅(2026-07-25) i18n 治理 phase 2 收尾 — mobile-rn 34 处动态拼接全面静态化(跨端:仅 mobile-rn,平台独占 — web 在第五轮已 260→2,miniapp-taro 在第三轮已 13→0,本轮补齐 mobile-rn 端)
 
 **触发**:用户要求"继续"。承接之前 i18n 共享包整合 + web/miniapp-taro 动态拼接治理,mobile-rn 端 34 处动态拼接是 phase 2 最后一块。
