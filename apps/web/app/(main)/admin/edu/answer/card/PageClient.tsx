@@ -37,6 +37,13 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   graded: { label: 'graded', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
+const STATUS_KEY: Record<string, string> = {
+  pending: 'status.pending',
+  submitted: 'status.submitted',
+  graded: 'status.graded',
+}
+
 const PAGE_SIZE = 10
 
 function CardContent2() {
@@ -162,7 +169,7 @@ function CardContent2() {
                         ) : (
                           <Circle className="h-3 w-3" />
                         )}
-                        {st.label ? t(`status.${st.label}`) : r.status}
+                        {st.label ? t(STATUS_KEY[st.label] ?? 'status.unknown') : r.status}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 font-medium">{Number(r.score)}</TableCell>

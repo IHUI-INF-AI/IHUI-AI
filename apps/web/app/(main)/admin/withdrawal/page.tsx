@@ -21,6 +21,14 @@ const STATUS_CLASS: Record<WithdrawalStatus, string> = {
   paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
+const STATUS_KEY: Record<WithdrawalStatus, string> = {
+  pending: 'status.pending',
+  approved: 'status.approved',
+  rejected: 'status.rejected',
+  paid: 'status.paid',
+}
+
 export default function AdminWithdrawalPage() {
   const t = useTranslations('admin.withdrawal')
   const locale = useLocale()
@@ -104,7 +112,7 @@ export default function AdminWithdrawalPage() {
           <option value="all">{t('statusAll')}</option>
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>
-              {t(`status.${s}` as 'status.pending')}
+              {t(STATUS_KEY[s] ?? 'status.unknown')}
             </option>
           ))}
         </select>
@@ -144,7 +152,7 @@ export default function AdminWithdrawalPage() {
                   <td className="px-3 py-2">{w.channel}</td>
                   <td className="px-3 py-2">
                     <span className={`rounded-md px-2 py-0.5 text-xs ${STATUS_CLASS[w.status]}`}>
-                      {t(`status.${w.status}` as 'status.pending')}
+                      {t(STATUS_KEY[w.status] ?? 'status.unknown')}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">

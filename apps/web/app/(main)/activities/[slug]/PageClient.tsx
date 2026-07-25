@@ -42,6 +42,13 @@ const STATUS_STYLE: Record<Status, string> = {
   ended: 'bg-muted text-muted-foreground',
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
+const STATUS_KEY: Record<Status, string> = {
+  upcoming: 'status.upcoming',
+  active: 'status.active',
+  ended: 'status.ended',
+}
+
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
@@ -158,7 +165,7 @@ export default function ActivityDetailPage() {
               STATUS_STYLE[computedStatus],
             )}
           >
-            {t(`status.${computedStatus}`)}
+            {t(STATUS_KEY[computedStatus] ?? 'status.unknown')}
           </span>
         </div>
 
