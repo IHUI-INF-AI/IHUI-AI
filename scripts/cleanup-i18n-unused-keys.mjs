@@ -3,8 +3,10 @@
  * i18n 无引用 key 批量清理脚本
  *
  * 输入: .trae-cn/tmp/i18n-deletion-list.txt (格式: base_file | key | namespace | value)
- * 作用: 对 web / miniapp-taro 两端各 5 个语言文件,同步删除 safe-to-delete key
+ * 作用: 对 web / miniapp-taro / extension / mobile-rn 四端各 5 个语言文件,同步删除 safe-to-delete key
  *      删除后清理空父对象,保持 2 空格缩进 + UTF-8 无 BOM + 末尾换行
+ *
+ * 2026-07-25 第十一轮:扩展支持 extension + mobile-rn 端,与 audit-i18n-unused-keys.mjs TARGET_CONFIG 对齐。
  *
  * 用法:
  *   node scripts/cleanup-i18n-unused-keys.mjs            # 实际删除
@@ -33,11 +35,14 @@ const I18N_DIR = path.join(ROOT, 'packages/i18n/messages');
 
 /**
  * 解析删除清单,返回按 target 分组的 key 集合
- * @returns {{ web: Set<string>, 'miniapp-taro': Set<string>, raw: Array }}
+ * 2026-07-25 第十一轮:扩展支持 extension + mobile-rn 端。
+ * @returns {{ web: Set<string>, 'miniapp-taro': Set<string>, extension: Set<string>, 'mobile-rn': Set<string>, raw: Array }}
  */
 function parseList(content) {
   const web = new Set();
   const miniapp = new Set();
+  const extension = new Set();
+  const mobileRn = new Set();
   const raw = [];
   let skippedMalformed = 0;
 
@@ -58,14 +63,18 @@ function parseList(content) {
     let target;
     if (baseFile.includes('/messages/web/')) target = 'web';
     else if (baseFile.includes('/messages/miniapp-taro/')) target = 'miniapp-taro';
+    else if (baseFile.includes('/messages/extension/')) target = 'extension';
+    else if (baseFile.includes('/messages/mobile-rn/')) target = 'mobile-rn';
     else { skippedMalformed++; continue; }
 
     if (target === 'web') web.add(key);
-    else miniapp.add(key);
+    else if (target === 'miniapp-taro') miniapp.add(key);
+    else if (target === 'extension') extension.add(key);
+    else mobileRn.add(key);
     raw.push({ target, key, namespace, value });
   }
 
-  return { web, miniapp, raw, skippedMalformed };
+  return { web, miniapp, extension, mobileRn, raw, skippedMalformed };
 }
 
 /**
@@ -158,13 +167,15 @@ if (!fs.existsSync(LIST_FILE)) {
 }
 
 const listContent = fs.readFileSync(LIST_FILE, 'utf8');
-const { web: webKeys, miniapp: miniappKeys, raw, skippedMalformed } = parseList(listContent);
+const { web: webKeys, miniapp: miniappKeys, extension: extensionKeys, mobileRn: mobileRnKeys, raw, skippedMalformed } = parseList(listContent);
 
-console.log(`解析清单: web=${webKeys.size} unique key, miniapp-taro=${miniappKeys.size} unique key, 总条目=${raw.length}, 跳过畸形=${skippedMalformed}`);
+console.log(`解析清单: web=${webKeys.size}, miniapp-taro=${miniappKeys.size}, extension=${extensionKeys.size}, mobile-rn=${mobileRnKeys.size}, 总条目=${raw.length}, 跳过畸形=${skippedMalformed}`);
 
 const targets = [
   { name: 'web', keys: webKeys },
   { name: 'miniapp-taro', keys: miniappKeys },
+  { name: 'extension', keys: extensionKeys },
+  { name: 'mobile-rn', keys: mobileRnKeys },
 ];
 
 const stats = {};
@@ -172,6 +183,16 @@ let totalDeletedZhCN = 0;
 let totalNotFoundZhCN = 0;
 
 for (const target of targets) {
+  // 跳过空 target(避免无意义打印)
+  if (target.keys.size === 0) {
+    console.log(`\n[${target.name}] 无待删除 key,跳过`);
+    stats[target.name] = {};
+    for (const lang of LANGS) {
+      stats[target.name][lang] = { before: 0, deleted: 0, notFound: 0, after: 0 };
+    }
+    continue;
+  }
+
   const dir = path.join(I18N_DIR, target.name);
   stats[target.name] = {};
 
@@ -233,6 +254,7 @@ console.log(`zh-CN 未找到(notFound,幂等跳过)总数: ${totalNotFoundZhCN}`
 console.log('\n=== Parity 自检 (5 语言 deleted 应一致) ===');
 let parityOk = true;
 for (const target of targets) {
+  if (target.keys.size === 0) continue;
   const zhDeleted = stats[target.name]['zh-CN'].deleted;
   for (const lang of LANGS) {
     const d = stats[target.name][lang].deleted;
@@ -246,20 +268,19 @@ if (parityOk) {
   console.log('✅ 5 语言 deleted 数一致, parity 维护 OK');
 }
 
-// ============= 预期对比 =============
-console.log('\n=== 预期对比 ===');
-const expected = { web: 14525, 'miniapp-taro': 511 };
+// ============= unique key 匹配检查(替代旧的硬编码 expected) =============
+console.log('\n=== unique key 匹配检查 ===');
 for (const target of targets) {
+  if (target.keys.size === 0) continue;
   const zhDeleted = stats[target.name]['zh-CN'].deleted;
-  const exp = expected[target.name];
   const uniqueKeys = target.keys.size;
   const matchUnique = zhDeleted === uniqueKeys;
-  const matchExpected = zhDeleted === exp;
-  console.log(`${target.name}: uniqueKeys=${uniqueKeys}, zh-CN deleted=${zhDeleted}, 预期=${exp}, unique 匹配=${matchUnique?'✅':'❌'}, 预期匹配=${matchExpected?'✅':'❌'}`);
+  console.log(`${target.name}: uniqueKeys=${uniqueKeys}, zh-CN deleted=${zhDeleted}, unique 匹配=${matchUnique?'✅':'❌'}`);
 }
 
 if (DRY_RUN) {
   console.log('\n[Dry-run] 未写入任何文件');
 } else {
-  console.log('\n✅ 已写入 10 个 i18n 文件');
+  const writtenCount = targets.filter(t => t.keys.size > 0).length * LANGS.length;
+  console.log(`\n✅ 已写入 ${writtenCount} 个 i18n 文件`);
 }

@@ -30,15 +30,11 @@ export default function ClawdbotBotsPage() {
   const [editing, setEditing] = React.useState<BotItem | null>(null)
   const [form, setForm] = React.useState(EMPTY_FORM)
   const [saving, setSaving] = React.useState(false)
-  const timeFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-    [locale],
-  )
+  const timeFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 
   const load = React.useCallback(async () => {
     const res = await fetchApi<BotsData>('/api/admin/clawdbot/bots')

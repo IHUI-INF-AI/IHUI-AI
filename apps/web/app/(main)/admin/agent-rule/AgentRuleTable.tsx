@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Loader2, Edit, Trash2, Settings, FileText } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
@@ -18,33 +17,6 @@ interface Props {
 
 export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.agentRule')
-  const handleParams = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onParams(item)
-    },
-    [list, onParams],
-  )
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onDelete(item)
-    },
-    [list, onDelete],
-  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -105,8 +77,7 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
                       <Button
                         variant="ghost"
                         size="sm"
-                        data-id={item.id}
-                        onClick={handleParams}
+                        onClick={() => onParams(item)}
                       >
                         <Settings className="h-4 w-4" />
                       </Button>
@@ -116,8 +87,7 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
                         <Button
                           variant="ghost"
                           size="sm"
-                          data-id={item.id}
-                          onClick={handleEdit}
+                          onClick={() => onEdit(item)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -128,8 +98,7 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
                         <Button
                           variant="ghost"
                           size="sm"
-                          data-id={item.id}
-                          onClick={handleDelete}
+                          onClick={() => onDelete(item)}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
