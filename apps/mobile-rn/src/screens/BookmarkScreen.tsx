@@ -1,11 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  FlatList,
-  RefreshControl,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -19,6 +13,13 @@ interface Bookmark {
   targetType: 'course' | 'article' | 'post' | 'note'
   title: string
   savedAt: string
+}
+
+const BOOKMARK_TYPE_KEYS: Record<Bookmark['targetType'], string> = {
+  course: 'bookmark.type.course',
+  article: 'bookmark.type.article',
+  post: 'bookmark.type.post',
+  note: 'bookmark.type.note',
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -102,7 +103,7 @@ export function BookmarkScreen() {
           <Card className="mb-2 flex-row items-center p-3">
             <TouchableOpacity className="flex-1" onPress={() => onPress(item)}>
               <View className="mb-1 flex-row justify-between">
-                <Badge variant="secondary" label={t(`bookmark.type.${item.targetType}`)} />
+                <Badge variant="secondary" label={t(BOOKMARK_TYPE_KEYS[item.targetType])} />
                 <Text className="text-[11px] text-muted-foreground">{item.savedAt}</Text>
               </View>
               <Text className="text-sm font-medium text-foreground" numberOfLines={2}>

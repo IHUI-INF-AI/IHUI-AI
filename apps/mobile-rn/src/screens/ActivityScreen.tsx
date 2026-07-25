@@ -11,6 +11,12 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type ActivityStatus = 'upcoming' | 'ongoing' | 'ended'
 
+const ACTIVITY_STATUS_KEYS: Record<ActivityStatus, string> = {
+  upcoming: 'activity.status_upcoming',
+  ongoing: 'activity.status_ongoing',
+  ended: 'activity.status_ended',
+}
+
 interface Activity {
   id: string
   title: string
@@ -100,15 +106,25 @@ export function ActivityScreen() {
         renderItem={({ item }) => (
           <Card style={styles.card}>
             <View style={styles.row}>
-              <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
+              <Text style={styles.itemTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
               <View style={[styles.badge, { backgroundColor: statusColor(item.status) }]}>
-                <Text style={styles.badgeText}>{t(`activity.status_${item.status}`)}</Text>
+                <Text style={styles.badgeText}>{t(ACTIVITY_STATUS_KEYS[item.status])}</Text>
               </View>
             </View>
-            <Text style={styles.itemDesc} numberOfLines={2}>{item.description}</Text>
-            <Text style={styles.meta}>{t('activity.startTime')}: {formatDate(item.startTime)}</Text>
-            <Text style={styles.meta}>{t('activity.endTime')}: {formatDate(item.endTime)}</Text>
-            <Text style={styles.meta}>{t('activity.participants')}: {item.participants}</Text>
+            <Text style={styles.itemDesc} numberOfLines={2}>
+              {item.description}
+            </Text>
+            <Text style={styles.meta}>
+              {t('activity.startTime')}: {formatDate(item.startTime)}
+            </Text>
+            <Text style={styles.meta}>
+              {t('activity.endTime')}: {formatDate(item.endTime)}
+            </Text>
+            <Text style={styles.meta}>
+              {t('activity.participants')}: {item.participants}
+            </Text>
             <TouchableOpacity style={styles.joinBtn}>
               <Text style={styles.joinText}>{t('activity.joinNow')}</Text>
             </TouchableOpacity>
@@ -121,7 +137,13 @@ export function ActivityScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
