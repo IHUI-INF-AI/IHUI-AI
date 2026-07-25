@@ -69,10 +69,35 @@ export function getConversation(id: string) {
   )
 }
 
-/** 获取对话消息列表(时间正序,单页最多 100 条) */
-export function getMessages(id: string) {
-  return fetchApi<{ messages: ConversationMessage[]; total: number }>(
-    `/api/chat/conversations/${encodeURIComponent(id)}/messages?pageSize=100`,
+/** 获取对话消息列表(时间正序,单页最多 100 条)
+ *  分页参数(2026-07-25 立):支持 page/pageSize offset 分页和 before 游标分页。
+ *  - 默认加载最新页(page=1, pageSize=20)
+ *  - before:游标模式,返回此 message id 之前的消息(用于滚动到顶部加载更多历史)
+ *  - 返回 hasMore/nextCursor 用于前端判断是否还有更早的历史 */
+export interface GetMessagesParams {
+  page?: number
+  pageSize?: number
+  before?: string
+  after?: string
+}
+
+export interface GetMessagesResult {
+  messages: ConversationMessage[]
+  page: number
+  pageSize: number
+  total: number
+  hasMore: boolean
+  nextCursor: string | null
+}
+
+export function getMessages(id: string, params: GetMessagesParams = {}) {
+  const qs = new URLSearchParams()
+  qs.set('page', String(params.page ?? 1))
+  qs.set('pageSize', String(params.pageSize ?? 20))
+  if (params.before) qs.set('before', params.before)
+  if (params.after) qs.set('after', params.after)
+  return fetchApi<GetMessagesResult>(
+    `/api/chat/conversations/${encodeURIComponent(id)}/messages?${qs.toString()}`,
   )
 }
 
