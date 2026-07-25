@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { WorkPanel, WebViewFrame } from '@ihui/ui-react'
 import type { WorkPanelTabItem } from '@ihui/ui-react'
 import {
@@ -20,6 +21,10 @@ import { useMounted } from '@/hooks/use-mounted'
  */
 export function WebWorkPanel() {
   const mounted = useMounted()
+  // 性能修复(2026-07-25):原 25+ 字段全解构 `useWorkPanelStore()` 等价于订阅整个 state,
+  // 任何字段(tabs 切换 / addressInput 输入 / recentUrls 追加)变化都会触发 WebWorkPanel 重渲染,
+  // 内含 iframe/WebViewFrame 重建开销极大。改用 useShallow 浅比较,只对返回对象做浅层 diff,
+  // 大部分字段引用稳定(尤其 actions),可显著降低无关重渲染。
   const {
     open,
     width,
@@ -47,7 +52,36 @@ export function WebWorkPanel() {
     setAddressInput,
     onLoaded,
     onFailed,
-  } = useWorkPanelStore()
+  } = useWorkPanelStore(
+    useShallow((s) => ({
+      open: s.open,
+      width: s.width,
+      addressInput: s.addressInput,
+      isResizing: s.isResizing,
+      tabs: s.tabs,
+      activeTabId: s.activeTabId,
+      favorites: s.favorites,
+      recentUrls: s.recentUrls,
+      closePanel: s.closePanel,
+      navigate: s.navigate,
+      back: s.back,
+      forward: s.forward,
+      reload: s.reload,
+      stop: s.stop,
+      newTab: s.newTab,
+      closeTab: s.closeTab,
+      setActiveTab: s.setActiveTab,
+      reorderTabs: s.reorderTabs,
+      addFavorite: s.addFavorite,
+      removeFavorite: s.removeFavorite,
+      clearHistory: s.clearHistory,
+      setWidth: s.setWidth,
+      setResizing: s.setResizing,
+      setAddressInput: s.setAddressInput,
+      onLoaded: s.onLoaded,
+      onFailed: s.onFailed,
+    })),
+  )
 
   // 当前激活 Tab(从 tabs 数组查找)
   const activeTab = React.useMemo(
