@@ -1393,6 +1393,8 @@
     }
   },
   "chat": {
+    "addMenuLabel": "新增",
+    "addMenuDesc": "新增引用 / Skill 庫 / 附件",
     "title": "AI 對話",
     "placeholder": "詳細描述需求，輸入 / 呼叫技能、外掛、MCP（如 /goal /loop /plan）",
     "placeholderPlan": "規劃模式：輸入需求，AI 只制定計畫不執行工具（/act 切回執行，Alt+P 切換）",
