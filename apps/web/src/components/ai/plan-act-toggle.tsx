@@ -42,8 +42,16 @@ export function PlanActToggle({
   const t = useTranslations('chat')
   const planLabel = safeT(t, 'modePlan', '规划')
   const actLabel = safeT(t, 'modeAct', '执行')
-  const planTooltip = safeT(t, 'planTooltip', 'Plan: AI 只制定计划,不执行工具')
-  const actTooltip = safeT(t, 'actTooltip', 'Act: AI 正常执行工具')
+  const planTooltip = safeT(
+    t,
+    'planTooltip',
+    'Plan:AI 只制定计划,不执行工具(Alt+P 切换 / 输入 /plan)',
+  )
+  const actTooltip = safeT(
+    t,
+    'actTooltip',
+    'Act:AI 正常执行工具(Alt+P 切换 / 输入 /act)',
+  )
 
   const select = (m: PlanActMode) => {
     if (onChange) onChange(m)
