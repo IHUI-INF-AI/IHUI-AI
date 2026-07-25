@@ -289,6 +289,17 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
       description: t('autoRevertedDescWithDuration', { usedMin }),
       duration: 6000,
     })
+    // 自动切回 → 把刚被 message-input useEffect 占位为 'popover' 的最新一条记录
+    // source 改为 'auto-revert'(2026-07-25 深化,来源精细化)
+    // useEffect 回调不是 async,用 IIFE 包 await
+    void (async () => {
+      try {
+        const { updateLatestRecordSource } = await import('@/lib/permission-mode-history')
+        updateLatestRecordSource('auto-revert', (e) => e.mode === 'default')
+      } catch {
+        // 静默
+      }
+    })()
     // 后台异步落库 + 失败重试
     void (async () => {
       for (let attempt = 0; attempt < 2; attempt++) {
