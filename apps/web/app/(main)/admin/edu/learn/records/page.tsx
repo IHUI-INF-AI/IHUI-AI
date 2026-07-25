@@ -34,6 +34,13 @@ interface LearnRecord {
   hours: number
 }
 const TYPES = ['study', 'exam', 'live', 'offline', 'other']
+const TYPE_KEY: Record<string, string> = {
+  study: 'type.study',
+  exam: 'type.exam',
+  live: 'type.live',
+  offline: 'type.offline',
+  other: 'type.other',
+}
 const PAGE_SIZE = 10
 
 export default function EduLearnRecordsPage() {
@@ -97,7 +104,7 @@ export default function EduLearnRecordsPage() {
               <SelectItem value="all">{t('allTypes')}</SelectItem>
               {TYPES.map((k) => (
                 <SelectItem key={k} value={k}>
-                  {t(`type.${k}`)}
+                  {t(TYPE_KEY[k] ?? 'type.unknown')}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -148,7 +155,7 @@ export default function EduLearnRecordsPage() {
                         'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
                       )}
                     >
-                      {TYPES.includes(r.type) ? t(`type.${r.type}`) : r.type}
+                      {TYPES.includes(r.type) ? t(TYPE_KEY[r.type] ?? 'type.unknown') : r.type}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
