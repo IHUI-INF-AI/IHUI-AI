@@ -10,6 +10,13 @@ import { Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
+const API_VERSION_STATUS_KEYS: Record<'stable' | 'beta' | 'deprecated' | 'sunset', string> = {
+  stable: 'status.stable',
+  beta: 'status.beta',
+  deprecated: 'status.deprecated',
+  sunset: 'status.sunset',
+}
+
 interface ApiVersion {
   id: string
   version: string
@@ -97,7 +104,7 @@ export default function VersionsPage() {
                         )}
                       >
                         <StatusIcon className="h-3 w-3" />
-                        {t(`status.${v.status}` as 'status.stable')}
+                        {t(API_VERSION_STATUS_KEYS[v.status]!)}
                       </span>
                     </div>
                     <span className="ml-auto text-xs text-muted-foreground">

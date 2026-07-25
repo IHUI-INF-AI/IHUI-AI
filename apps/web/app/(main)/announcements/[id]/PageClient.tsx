@@ -10,10 +10,10 @@ import { Loader2, ArrowLeft, ArrowRight, Megaphone, CheckCheck } from 'lucide-re
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import {
-
-api,
+  api,
   markdownComponents,
   ANN_TYPE_BADGE,
+  ANN_TYPE_KEY,
   type Announcement,
   type AnnouncementDetail,
 } from '@/lib/content'
@@ -108,7 +108,7 @@ export default function AnnouncementDetailPage() {
           <span
             className={cn('rounded-md px-2 py-0.5 text-xs font-medium', ANN_TYPE_BADGE[a.type])}
           >
-            {t(`types.${a.type}`)}
+            {t(ANN_TYPE_KEY[a.type] ?? 'types.unknown')}
           </span>
           <Megaphone className="h-4 w-4 text-muted-foreground" />
           {a.isPinned && <span className="text-xs text-primary">{t('pinned')}</span>}

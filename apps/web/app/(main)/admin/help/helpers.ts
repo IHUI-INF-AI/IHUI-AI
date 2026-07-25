@@ -25,6 +25,13 @@ export const EMPTY_FORM: HelpForm = {
 
 export const HELP_CATEGORIES: HelpCategory[] = ['account', 'payment', 'project', 'ai', 'tech']
 
+/**
+ * 帮助分类 i18n key 静态映射表:categories.${category} — 用于消除 `t(\`categories.${var}\`)` 动态拼接
+ */
+export const CATEGORY_KEY: Record<string, string> = Object.fromEntries(
+  HELP_CATEGORIES.map((c) => [c, `categories.${c}`]),
+)
+
 export function articleToForm(h: HelpArticle): HelpForm {
   return {
     title: h.title,
