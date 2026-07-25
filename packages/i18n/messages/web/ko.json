@@ -951,10 +951,16 @@
       "shortcutsItemCancelAutoKbd": "배너의 '자동 전환 취소' 버튼으로 전체 액세스 유지",
       "shortcutsItemUndoKbd": "전체 액세스 전환 후 5초 내 실행 취소 가능",
       "shortcutsItemDangerousKbd": "고위험 모드에서 위험 명령 감지 시 재확인",
-      "shortcutsItemHistoryKbd": "팝오버 하단 '기록' 버튼으로 최근 전환 내역 확인",
-      "shortcutsLearnMore": "보안 설계 자세히 보기",
+      "shortcutsItemHistoryKbd": "popover 하단 '기록' 버튼으로 최근 전환 확인",
+      "shortcutsItemInfoKbd": "이 모드의 4가지 상세 동작 보기",
+      "shortcutsItemSlashAskKbd": "요청 승인 모드로 전환",
+      "shortcutsItemSlashAutoKbd": "자동 승인 모드로 전환",
+      "shortcutsItemSlashFullKbd": "전체 접근 모드로 전환",
+      "shortcutsLearnMore": "안전 설계 자세히 보기",
       "infoButtonLabel": "모드 설명 보기",
       "infoButtonTitle": "현재 모드의 상세 동작",
+      "infoModalTitle": "현재 권한 모드 상세",
+      "infoModalDescription": "현재 모드의 동작 및 위험 수준",
       "modeInfoAcknowledge": "확인",
       "modeInfoBullets": {
         "default": {
