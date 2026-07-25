@@ -362,7 +362,37 @@
     "memberFeedback": "マイフィードバック",
     "memberHelp": "ヘルプ",
     "memberSettings": "設定",
-    "eduExam": "試験"
+    "eduExam": "試験",
+    "downloadWeb": "Web 版",
+    "downloadWebDesc": "ブラウザで直接アクセス、インストール不要",
+    "downloadDesktop": "デスクトップ",
+    "downloadDesktopDesc": "Windows / macOS / Linux 対応",
+    "downloadIOS": "iOS アプリ",
+    "downloadIOSDesc": "iPhone / iPad でいつでも",
+    "downloadAndroidApk": "Android APK",
+    "downloadAndroidDesc": "Android ネイティブインストーラー",
+    "downloadMobile": "モバイル版",
+    "downloadMobileDesc": "H5 モバイル、QR で即利用",
+    "downloadWechatMiniApp": "WeChat ミニプログラム",
+    "downloadMiniDesc": "QR スキャンで開くだけ",
+    "downloadExtension": "ブラウザ拡張",
+    "downloadExtensionDesc": "Chrome / Edge / Firefox 対応",
+    "downloadCli": "CLI ツール",
+    "downloadCliDesc": "ターミナルで一発呼び出し、スクリプト化",
+    "adminGroup": {
+      "operation": "運営管理",
+      "moderation": "コンテンツ審査",
+      "finance": "財務管理",
+      "aiAgent": "AI エージェント",
+      "marketing": "マーケティング・ライブ",
+      "courseExam": "コース・試験",
+      "analytics": "監視・BI",
+      "support": "サポートチケット",
+      "community": "コミュニティ",
+      "resource": "リソースセンター",
+      "developer": "開発者センター",
+      "saas": "SaaS プラットフォーム"
+    }
   },
   "auth": {
     "loginTitle": "おかえりなさい",
@@ -696,7 +726,14 @@
       "act": "実行モードに切り替え(AIは正常にツールを実行します、デフォルト)",
       "permissionAsk": "毎回確認モードに切替(AI操作前に確認が必要)",
       "permissionAuto": "自動承認モードに切替(安全な操作を自動承認)",
-      "permissionFull": "完全アクセスモードに切替(高リスク、確認なし)"
+      "permissionFull": "完全アクセスモードに切替(高リスク、確認なし)",
+      "summary": "現在の会話を要約",
+      "translate": "選択したテキストを翻訳",
+      "explain": "コードや概念を説明",
+      "code": "コード生成",
+      "polish": "テキスト推敲",
+      "wechat-article": "WeChat 記事執筆",
+      "koubo-script": "口播動画スクリプト作成"
     },
     "cmdSummary": "のをし、なをしてください",
     "cmdTranslate": "のをにしてください：",
@@ -809,7 +846,11 @@
       "compressResultDesc": "元 {original} 文字 → 圧縮後 {compressed} 文字",
       "ratio": "圧縮率",
       "noConversation": "新規タスク開始後に圧縮できます",
-      "disclaimer": "トークン数はクライアント推定値で、サーバー正確計数と ±10% 誤差が生じる場合があります。圧縮後の内容は後続対話のコンテキスト要約として使用されます。"
+      "disclaimer": "トークン数はクライアント推定値で、サーバー正確計数と ±10% 誤差が生じる場合があります。圧縮後の内容は後続対話のコンテキスト要約として使用されます。",
+      "lowUsage": "使用量低",
+      "mediumUsage": "使用量中",
+      "highUsage": "使用量高",
+      "criticalUsage": "もうすぐ上限"
     },
     "permission": {
       "buttonLabel": "承認モード",
@@ -942,7 +983,11 @@
           "3": "不可逆操作のリスクはユーザーが負担"
         }
       }
-    }
+    },
+    "modePlan": "計画",
+    "modeAct": "実行",
+    "planTooltip": "Plan: AI は計画のみ、ツール実行なし(Alt+P 切替 / /plan 入力)",
+    "actTooltip": "Act: AI はツールを通常実行(Alt+P 切替 / /act 入力)"
   },
   "learn": {
     "title": "APIテスト",
@@ -8565,32 +8610,56 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI"]
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI"]
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI"
+        ]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "検索", "search"]
+        "keywords": [
+          "検索",
+          "検索",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"]
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"]
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"]
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ]
       }
     }
   },
@@ -8912,19 +8981,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -9044,25 +9125,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },

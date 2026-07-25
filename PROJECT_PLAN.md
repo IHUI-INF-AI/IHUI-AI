@@ -8,6 +8,66 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) i18n 治理阶段 12 — adminGroup.* 嵌套化 + downloads.* 迁移 + chat.* 14 key 补全(修复 INVALID_KEY 致命错误)
+
+**触发**:用户验收阶段 11 后反馈"侧边栏还是有问题",浏览器深度排查发现:
+1. 12 个 AdminNavGroup 分组 label(`adminGroup.operation` 等)显示原始 key(侧边栏管理分组下子分组)
+2. 下载客户端弹窗 8 项显示原始 key(`nav.downloadWeb` 等)
+3. 关键 next-intl 致命错误 `INVALID_KEY: Namespace keys can not contain the character "." as this is used to express nesting` — 之前我误把 `adminGroup.X` 当成平铺 key 放在 `nav` 命名空间下,触发了这个阻塞整个 i18n provider 的错误
+4. plan-act-toggle.tsx(用户当时打开的文件)报 `chat.modeAct / chat.planTooltip / chat.actTooltip` MISSING_MESSAGE
+5. message-input.tsx 报 7 个 `chat.slashCmd.*` MISSING_MESSAGE
+6. context-usage-ring.tsx 报 4 个 `chat.contextUsage.*` MISSING_MESSAGE
+
+**根因(双层)**:
+1. **结构层**:next-intl 不允许 key 含 `.`,必须是嵌套对象。`nav.adminGroup.operation` 这种平铺 key 会让整个 `nav` 命名空间在初始化时崩溃,导致 **所有 `nav.*` 翻译都 fallback 到 raw key**
+2. **覆盖层**:chat / contextUsage / slashCmd 命名空间从未被补全,即使 nested 化也仍然 missing
+
+**执行方式**:
+- 5 个 i18n 文件并行批处理(脚本 + 手工 + 重构)
+- 重构 `nav.adminGroup.X` 平铺 → 嵌套对象 `nav.adminGroup: { X: "..." }`(12 个)
+- 把 `downloads.*` 16 个 key 迁移到 `nav.*` 命名空间(sidebar 用 `useTranslations('nav')` 而不是 `downloads`)
+- 补全 `chat.{modePlan, modeAct, planTooltip, actTooltip}` 4 个
+- 补全 `chat.slashCmd.{summary, translate, explain, code, polish, wechat-article, koubo-script}` 7 个
+- 补全 `chat.contextUsage.{lowUsage, mediumUsage, highUsage, criticalUsage}` 4 个
+
+**成果清单**:
+
+#### P0:修复 INVALID_KEY 致命错误(整页 i18n 不可用)
+- 重构 `nav.adminGroup.*` 平铺 → 嵌套对象(5 语言 12 个 group 同步)
+- 关键修复:消除 `INVALID_KEY` 错误,恢复 `useTranslations('nav')` provider 正常工作
+- 验证:SSR HTML 抓取 `adminGroup.*` raw key 计数从 36 → **0**
+
+#### P0:下载客户端 8 项翻译(侧边栏底部工具栏 popover)
+- 16 个 key 从 `downloads.*` 命名空间迁移到 `nav.*` 命名空间
+- 覆盖:Web 版 / 桌面客户端 / iOS App / Android APK / 移动端 H5 / 微信小程序 / 浏览器插件 / 命令行工具
+- 验证:浏览器 popover 截图 8 项全部中文(Web 版 / 桌面客户端 / iOS / Android APK / 移动端 H5 / 微信小程序 / 浏览器插件 / 命令行工具)
+
+#### P0:补全 chat 命名空间 14 个 key(用户当时打开的 plan-act-toggle.tsx + 周边组件)
+- `chat.modePlan` = 规划 / `chat.modeAct` = 执行
+- `chat.planTooltip` / `chat.actTooltip` 详细说明
+- `chat.slashCmd.{summary, translate, explain, code, polish, wechat-article, koubo-script}` 7 个
+- `chat.contextUsage.{lowUsage, mediumUsage, highUsage, criticalUsage}` 4 个
+- 验证:Plan/Act toggle 截图显示「规划 / 执行」,slash command 列表有 7 个中文描述
+
+#### 验证证据
+
+- **typecheck**:`pnpm --filter @ihui/web typecheck` exit 0
+- **SSR HTML 抓取**:`0 nav.* raw key + 0 adminGroup.* raw key + has 首页/考试/运营管理/Web 版/AI 对话`
+- **i18n 简体残留**:`scan-i18n-zh-residue.mjs zh-TW/en` 全绿
+- **浏览器 4 状态截图**:`.trae-cn/tmp/verify-screenshots/sidebar-final-v2.png` 已自验通过
+  - 侧边栏 11 个顶级分组全中文
+  - 管理分组 12 个子分组全中文(运营管理 / 内容审核 / 财务管理 / AI 智能体 / 营销直播 / 课程考试 / 监控 BI / 客服工单 / 社区圈子 / 资源中心 / 开发者中心 / SaaS 平台)
+  - 下载客户端弹窗 8 项全中文
+  - Plan/Act toggle 显示「规划 / 执行」
+
+**修改文件**:
+- `packages/i18n/messages/web/{zh-CN,en,ja,ko,zh-TW}.json`(5 个 i18n 文件)
+- 临时辅助:`.trae-cn/tmp/{fix-nested-admin-group,fix-downloads-to-nav,fix-chat-namespace,check-sidebar-i18n,check-rendered-page,check-key-context}.mjs`
+
+**未修复(本任务范围外,待后续)**:marketing.pricing.* / footer.modelItems.* / home.marquee.* 等其他模块的 MISSING_MESSAGE,不在本任务侧边栏范围。
+
+---
+
 ### [x] ✅(2026-07-25) i18n 治理阶段 11 — 侧边栏 nav.* 158 key + marketing.marquee.items + CommandPalette.commands.* 全面补齐(跨端:仅 web)
 
 **触发**:用户拉取最新代码重新编译显示时,发现侧边栏 nav 命名空间下大量翻译 key 缺失(显示原始 `nav.home` / `nav.eduExam` 等),同时 `marketing.marquee.items` 数组缺失导致 Marquee 组件抛 `fallback.map is not a function` 运行时错误,CommandPalette 缺失 6 个命令的 label/description/keywords 导致客户端 React 树崩溃、整页 i18n 显示为原始 key。
