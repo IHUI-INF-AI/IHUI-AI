@@ -103,7 +103,20 @@
     "follower": "粉丝"
   },
   "agent": {
-    "config": "配置"
+    "config": "配置",
+    "runtimeTitle": "运行时",
+    "runtimeClear": "清空",
+    "runtimePlan": "执行计划",
+    "runtimePermission": "权限",
+    "runtimePermissionTool": "工具",
+    "runtimePermissionLevel": "级别",
+    "runtimePermissionMode": "模式",
+    "runtimeOutput": "输出",
+    "runtimeError": "错误",
+    "runtimeEmpty": "暂无运行记录",
+    "runtimeInputPlaceholder": "输入消息发送给智能体",
+    "runtimeStop": "停止",
+    "runtimeSend": "发送"
   },
   "chat": {
     "voice": "语音"
