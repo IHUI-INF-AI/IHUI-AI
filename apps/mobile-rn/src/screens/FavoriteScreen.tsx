@@ -27,6 +27,13 @@ type FilterTab = 'all' | 'course' | 'live' | 'article'
 
 const TABS: FilterTab[] = ['all', 'course', 'live', 'article']
 
+const FAVORITE_TAB_KEYS: Record<FilterTab, string> = {
+  all: 'favorite.tab_all',
+  course: 'favorite.tab_course',
+  live: 'favorite.tab_live',
+  article: 'favorite.tab_article',
+}
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
@@ -107,7 +114,7 @@ export function FavoriteScreen() {
             style={[styles.tab, tab === k && styles.tabActive]}
           >
             <Text style={[styles.tabText, tab === k && styles.tabTextActive]}>
-              {t(`favorite.tab_${k}`)}
+              {t(FAVORITE_TAB_KEYS[k])}
             </Text>
           </TouchableOpacity>
         ))}
@@ -160,7 +167,8 @@ export function FavoriteScreen() {
                   {item.title}
                 </Text>
                 <Text style={styles.itemMeta}>
-                  {t(`favorite.tab_${item.targetType}`)} · {formatDate(item.createdAt)}
+                  {t(FAVORITE_TAB_KEYS[item.targetType as FilterTab] ?? 'favorite.tab_all')} ·{' '}
+                  {formatDate(item.createdAt)}
                 </Text>
               </View>
               <Button onPress={() => onDelete(item)} variant="outline" size="sm">

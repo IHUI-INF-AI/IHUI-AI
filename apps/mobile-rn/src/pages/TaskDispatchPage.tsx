@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { View, Text, Pressable, FlatList, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native'
+import {
+  View,
+  Text,
+  Pressable,
+  FlatList,
+  RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type {
@@ -34,6 +42,14 @@ const STATUS_META: Record<TaskStatus, { badge: string }> = {
   completed: { badge: 'bg-green-100 text-green-700' },
   failed: { badge: 'bg-red-100 text-red-700' },
   cancelled: { badge: 'bg-gray-100 text-gray-600' },
+}
+
+const TASK_STATUS_KEYS: Record<TaskStatus, string> = {
+  pending: 'taskDispatch.status.pending',
+  running: 'taskDispatch.status.running',
+  completed: 'taskDispatch.status.completed',
+  failed: 'taskDispatch.status.failed',
+  cancelled: 'taskDispatch.status.cancelled',
 }
 
 function formatTime(iso: string): string {
@@ -139,7 +155,7 @@ export function TaskDispatchPage(_: Props) {
       setError(t('taskDispatch.loadTasksFailed'))
       return
     }
-    const list = Array.isArray(data) ? data : data.list ?? []
+    const list = Array.isArray(data) ? data : (data.list ?? [])
     setTasks(list)
     // 初始化 lastSeenTs 为全量任务中的最大 updatedAt
     const maxTs = list.reduce((max, x) => Math.max(max, Date.parse(x.updatedAt) || 0), 0)
@@ -197,7 +213,7 @@ export function TaskDispatchPage(_: Props) {
         )
         setReconnecting(false)
         if (!data) return
-        const list = Array.isArray(data) ? data : data.tasks ?? []
+        const list = Array.isArray(data) ? data : (data.tasks ?? [])
         if (list.length === 0) return
         setTasks((prev) => upsertIncremental(prev, list))
         const maxTs = list.reduce((max, x) => Math.max(max, Date.parse(x.updatedAt) || 0), since)
@@ -359,7 +375,17 @@ export function TaskDispatchPage(_: Props) {
     setFileFilename('')
     setFileContent('')
     setFileMime('text/plain')
-  }, [command, toDevice, sending, t, fileFilename, fileContent, fileMime, pendingFilePayload, b64DecodedBytes])
+  }, [
+    command,
+    toDevice,
+    sending,
+    t,
+    fileFilename,
+    fileContent,
+    fileMime,
+    pendingFilePayload,
+    b64DecodedBytes,
+  ])
 
   /** 格式化附件大小显示 */
   const formatFileSize = useCallback((bytes: number): string => {
@@ -399,14 +425,21 @@ export function TaskDispatchPage(_: Props) {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1"
+      >
         <View className="bg-white px-4 py-3">
           <View className="flex-row items-center justify-between">
-            <Text className="mb-2 text-base font-semibold text-gray-900">{t('taskDispatch.title')}</Text>
+            <Text className="mb-2 text-base font-semibold text-gray-900">
+              {t('taskDispatch.title')}
+            </Text>
             {reconnecting ? (
               <View className="mb-2 flex-row items-center gap-1.5">
                 <Loading size="sm" />
-                <Text className="text-xs text-gray-500">{t('taskDispatch.reconnect.reconnecting')}</Text>
+                <Text className="text-xs text-gray-500">
+                  {t('taskDispatch.reconnect.reconnecting')}
+                </Text>
               </View>
             ) : null}
           </View>
@@ -446,7 +479,9 @@ export function TaskDispatchPage(_: Props) {
               className={`ml-auto flex-row items-center gap-1.5 rounded-md px-3 py-1.5 ${attachOpen || pendingFilePayload ? 'bg-indigo-600' : 'bg-gray-100'}`}
               accessibilityRole="button"
             >
-              <Text className={`text-xs font-semibold ${attachOpen || pendingFilePayload ? 'text-white' : 'text-gray-600'}`}>
+              <Text
+                className={`text-xs font-semibold ${attachOpen || pendingFilePayload ? 'text-white' : 'text-gray-600'}`}
+              >
                 {t('taskDispatch.file.attach')}
               </Text>
             </Pressable>
@@ -500,9 +535,7 @@ export function TaskDispatchPage(_: Props) {
                   })}
                 </Text>
               ) : null}
-              {fileError ? (
-                <Text className="mt-1 text-xs text-red-600">{fileError}</Text>
-              ) : null}
+              {fileError ? <Text className="mt-1 text-xs text-red-600">{fileError}</Text> : null}
             </View>
           ) : null}
           {error ? <Text className="mt-2 text-xs text-red-600">{error}</Text> : null}
@@ -534,7 +567,7 @@ export function TaskDispatchPage(_: Props) {
                       {item.command}
                     </Text>
                     <View className={`rounded-md px-2 py-0.5 ${meta.badge}`}>
-                      <Text className="text-xs">{t(`taskDispatch.status.${item.status}`)}</Text>
+                      <Text className="text-xs">{t(TASK_STATUS_KEYS[item.status])}</Text>
                     </View>
                   </View>
                   <View className="mt-2 flex-row items-center gap-3">
@@ -571,9 +604,7 @@ export function TaskDispatchPage(_: Props) {
                         accessibilityRole="button"
                         accessibilityState={{ disabled: isCancelling }}
                       >
-                        {isCancelling ? (
-                          <Loading size="sm" color="#dc2626" />
-                        ) : null}
+                        {isCancelling ? <Loading size="sm" color="#dc2626" /> : null}
                         <Text className="text-xs font-semibold text-red-600">
                           {isCancelling
                             ? t('taskDispatch.cancel.cancelling')
