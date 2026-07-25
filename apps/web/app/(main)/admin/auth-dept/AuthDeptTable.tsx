@@ -16,7 +16,7 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export function AuthDeptTable({ list, isLoading, perm, onEdit, onDelete }: Props) {
+export const AuthDeptTable = React.memo(function AuthDeptTable({ list, isLoading, perm, onEdit, onDelete }: Props) {
   const t = useTranslations('adminAuthDept')
   const handleEdit = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -95,4 +95,4 @@ export function AuthDeptTable({ list, isLoading, perm, onEdit, onDelete }: Props
       </table>
     </div>
   )
-}
+})
