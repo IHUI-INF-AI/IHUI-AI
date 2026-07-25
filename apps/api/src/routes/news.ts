@@ -1,6 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
+import { authenticate } from '../plugins/auth.js'
+import { toggleLike, findLikeCounts } from '../db/resource-likes-queries.js'
 import {
   findPublishedNewsCategories,
   findAllNewsCategories,
@@ -30,6 +32,7 @@ import {
   updateNewsRecommendSort,
 } from '../db/misc-extended-queries.js'
 import { success, error } from '../utils/response.js'
+import { modelsRoutes } from './models.js'
 
 // =============================================================================
 // Zod schemas
@@ -97,6 +100,9 @@ const topOrRecommendSchema = z.object({
 // =============================================================================
 
 export const newsRoutes: FastifyPluginAsync = async (server) => {
+  // 模型市场路由(挂载 /models → 最终 URL /api/models/market,公开)
+  server.register(modelsRoutes, { prefix: '/models' })
+
   // GET /news/categories - 启用的分类列表（公开）
   server.get('/news/categories', async (_request, reply) => {
     const list = await findPublishedNewsCategories()
@@ -145,6 +151,58 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: articles }))
   })
 
+  // GET /news/feed - AI 资讯 feed(公开,合并置顶+推荐+最新发布,去重按 limit 截断)
+  // 供 /models 公开页"AI 资讯条带"SSR 拉取,前端 models-api.ts getAiNewsFeed 消费。
+  server.get('/news/feed', async (request, reply) => {
+    const limitQuery = z
+      .object({ limit: z.coerce.number().int().min(1).max(50).default(6) })
+      .safeParse(request.query)
+    const limit = limitQuery.success ? limitQuery.data.limit : 6
+
+    const [tops, recs, latest] = await Promise.all([
+      findNewsTopList(),
+      findNewsRecommendList(),
+      findPublishedArticles({ page: 1, pageSize: limit }),
+    ])
+
+    type ArticleItem = Awaited<ReturnType<typeof findArticlesByIds>>[number]
+    const map = new Map<string, ArticleItem>()
+    const ids = new Set<string>()
+    for (const t of tops) ids.add(t.newsId)
+    for (const r of recs) ids.add(r.newsId)
+    for (const a of latest.list) ids.add(a.id)
+
+    if (ids.size > 0) {
+      const articles = await findArticlesByIds(Array.from(ids))
+      for (const a of articles) map.set(a.id, a)
+    }
+
+    // 排序:置顶优先 → 推荐次之 → 最新发布
+    const ordered: string[] = []
+    const seen = new Set<string>()
+    for (const t of tops) if (!seen.has(t.newsId)) { ordered.push(t.newsId); seen.add(t.newsId) }
+    for (const r of recs) if (!seen.has(r.newsId)) { ordered.push(r.newsId); seen.add(r.newsId) }
+    for (const a of latest.list) if (!seen.has(a.id)) { ordered.push(a.id); seen.add(a.id) }
+
+    const items = ordered
+      .slice(0, limit)
+      .map((id) => map.get(id))
+      .filter((a): a is ArticleItem => !!a)
+      .map((a) => ({
+        id: String(a.id),
+        title: a.title,
+        summary: a.summary ?? '',
+        cover: a.coverImage ?? null,
+        author: a.authorName ?? '',
+        category: null as string | null,
+        publishedAt: a.publishedAt ? a.publishedAt.toISOString() : null,
+        relatedModelIds: [] as string[],
+        source: 'api' as const,
+      }))
+
+    return reply.send(success({ items }))
+  })
+
   // GET /news/articles/:id - 资讯详情（公开）
   server.get('/news/articles/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
@@ -157,6 +215,63 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     }
     await incrementArticleViewCount(parsed.data.id)
     return reply.send(success({ article }))
+  })
+
+  // GET /news/articles/:id/related - 相关资讯（公开,同分类优先,推荐位兜底）
+  server.get('/news/articles/:id/related', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const id = parsed.data.id
+    const article = await findArticleById(id)
+    if (!article || !article.isPublished) {
+      return reply.status(404).send(error(404, '资讯不存在'))
+    }
+
+    // 1. 优先查同分类的其他已发布文章(多取 1 个用于排除当前 id)
+    if (article.categoryId) {
+      const result = await findPublishedArticles({
+        page: 1,
+        pageSize: 6,
+        categoryId: article.categoryId,
+      })
+      const list = result.list.filter((a) => a.id !== id).slice(0, 5)
+      if (list.length > 0) return reply.send(success({ list }))
+    }
+
+    // 2. fallback:同分类无结果 → 推荐位文章(排除当前 id)
+    const recs = await findNewsRecommendList()
+    const recIds = recs.map((r) => r.newsId).filter((rid) => rid !== id).slice(0, 5)
+    if (recIds.length > 0) {
+      const list = await findArticlesByIds(recIds)
+      return reply.send(success({ list }))
+    }
+
+    return reply.send(success({ list: [] }))
+  })
+
+  // POST /news/articles/:id/like - 点赞资讯(需登录,复用 resource_likes 表 toggleLike)
+  server.post('/news/articles/:id/like', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      await authenticate(request)
+    } catch {
+      return reply.status(401).send(error(401, 'Authentication required'))
+    }
+    const id = parsed.data.id
+    const userId = request.userId!
+    const article = await findArticleById(id)
+    if (!article || !article.isPublished) {
+      return reply.status(404).send(error(404, '资讯不存在'))
+    }
+    const { liked } = await toggleLike('news_article', id, userId)
+    const countMap = await findLikeCounts('news_article', [id])
+    const likeCount = countMap.get(id) ?? 0
+    return reply.send(success({ liked, likeCount }))
   })
 }
 
