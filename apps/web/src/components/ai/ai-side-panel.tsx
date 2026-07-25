@@ -619,8 +619,12 @@ export function AISidePanel() {
               </span>
             </div>
             {/* Plan/Act 模式切换(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
-              Plan=只制定计划不执行工具,Act=正常 tool loop 执行(默认) */}
-            <PlanActToggle />
+              Plan=只制定计划不执行工具,Act=正常 tool loop 执行(默认)
+              2026-07-25 v3:AI 面板 header 强制 variant="icon" 始终单图标按钮。
+              原因:header 已有 4 个图标按钮(新对话/派发 subagent/关闭)+ 厂商图标 + 标题 + 工作区,
+              在 320px 最小宽度下没有空间再放 2 文字按钮(规划/执行,~90px),
+              强制 icon 形态占 32px(h-8 w-8),跟其他 header 按钮对齐,空间始终可控。 */}
+            <PlanActToggle variant="icon" />
             <Tooltip content={tc('newConversation')}>
               <button
                 type="button"
