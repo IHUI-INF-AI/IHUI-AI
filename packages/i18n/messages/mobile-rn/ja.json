@@ -16,6 +16,9 @@
     "profile": "マイページ",
     "agents": "エージェント"
   },
+  "auth": {
+    "login": "ログイン"
+  },
   "home": {
     "welcome": "IHUI AI へようこそ"
   },
