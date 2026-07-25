@@ -28,6 +28,12 @@ interface SignUpsData {
 
 const PAGE_SIZE = 10
 
+const EXAM_STATUS_KEYS: Record<'pending' | 'attended' | 'canceled', string> = {
+  pending: 'status.pending',
+  attended: 'status.attended',
+  canceled: 'status.canceled',
+}
+
 const STATUS_CLS: Record<string, string> = {
   pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
   attended: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
@@ -84,7 +90,7 @@ export default function MemberExamSignUpPage() {
 
   function statusLabel(s: string) {
     if (s === 'pending' || s === 'attended' || s === 'canceled') {
-      return t(`status.${s}`)
+      return t(EXAM_STATUS_KEYS[s as 'pending' | 'attended' | 'canceled']!)
     }
     return s || t('status.unknown')
   }

@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { STATUS_BADGE } from './helpers'
+import { INSTANCE_STATUS_KEYS } from '../../helpers'
 import type { Instance } from './types'
 
 interface Props {
@@ -32,7 +33,7 @@ export function InstanceHeader({ inst, fmt, onBack }: Props) {
             STATUS_BADGE[inst.status],
           )}
         >
-          {t(`instanceStatus.${inst.status}`)}
+          {t(INSTANCE_STATUS_KEYS[inst.status] ?? 'instanceStatus.unknown')}
         </span>
         {inst.workflowName && <span className="text-sm font-medium">{inst.workflowName}</span>}
         <div className="text-xs text-muted-foreground">
