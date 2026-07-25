@@ -30,8 +30,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useArticles } from '@ihui/shared/hooks'
-import type { Article } from '@ihui/shared/hooks'
+import { useArticles, type Article } from '@ihui/shared/hooks'
 
 // 测试用 mock article 类型(扩展 author 字段,模拟各端自定义字段)
 interface TestArticle extends Article {
@@ -57,9 +56,12 @@ const makeList = (start: number, count: number): TestArticle[] =>
 describe('useArticles 跨端共享 hook — 集成测试', () => {
   it('1. 挂载后 autoLoad=true 自动拉取,articles 填充,loading 从 true→false', async () => {
     const holder: { resolve?: (v: FetchResult) => void } = {}
-    const fetcher = vi
-      .fn()
-      .mockImplementationOnce(() => new Promise<FetchResult>(r => { holder.resolve = r }))
+    const fetcher = vi.fn().mockImplementationOnce(
+      () =>
+        new Promise<FetchResult>((r) => {
+          holder.resolve = r
+        }),
+    )
 
     const { result } = renderHook(() => useArticles<TestArticle>({ fetcher }))
 
@@ -85,9 +87,7 @@ describe('useArticles 跨端共享 hook — 集成测试', () => {
 
   it('2. autoLoad=false 时不自动拉取', () => {
     const fetcher = vi.fn().mockResolvedValue({ list: [], total: 0 })
-    const { result } = renderHook(() =>
-      useArticles<TestArticle>({ fetcher, autoLoad: false }),
-    )
+    const { result } = renderHook(() => useArticles<TestArticle>({ fetcher, autoLoad: false }))
 
     // effect 已运行但 autoLoad=false 提前返回,fetcher 未被调
     expect(fetcher).not.toHaveBeenCalled()
@@ -99,9 +99,7 @@ describe('useArticles 跨端共享 hook — 集成测试', () => {
 
   it('3. load() 成功:articles 填充,total 正确,page=1', async () => {
     const fetcher = vi.fn().mockResolvedValue({ list: makeList(0, 5), total: 5 })
-    const { result } = renderHook(() =>
-      useArticles<TestArticle>({ fetcher, autoLoad: false }),
-    )
+    const { result } = renderHook(() => useArticles<TestArticle>({ fetcher, autoLoad: false }))
 
     expect(result.current.articles).toEqual([])
     expect(result.current.loading).toBe(false)
@@ -138,9 +136,7 @@ describe('useArticles 跨端共享 hook — 集成测试', () => {
       .mockResolvedValueOnce({ list: makeList(0, 10), total: 25 }) // page 1
       .mockResolvedValueOnce({ list: makeList(10, 10), total: 25 }) // page 2
 
-    const { result } = renderHook(() =>
-      useArticles<TestArticle>({ fetcher, pageSize: 10 }),
-    )
+    const { result } = renderHook(() => useArticles<TestArticle>({ fetcher, pageSize: 10 }))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.page).toBe(1)
@@ -161,13 +157,9 @@ describe('useArticles 跨端共享 hook — 集成测试', () => {
   })
 
   it('6. loadMore() 到末页:hasNext=false,不调 fetcher', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce({ list: makeList(0, 10), total: 10 }) // 仅 1 页
+    const fetcher = vi.fn().mockResolvedValueOnce({ list: makeList(0, 10), total: 10 }) // 仅 1 页
 
-    const { result } = renderHook(() =>
-      useArticles<TestArticle>({ fetcher, pageSize: 10 }),
-    )
+    const { result } = renderHook(() => useArticles<TestArticle>({ fetcher, pageSize: 10 }))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.totalPages).toBe(1)
@@ -193,12 +185,13 @@ describe('useArticles 跨端共享 hook — 集成测试', () => {
       .fn()
       .mockResolvedValueOnce({ list: makeList(0, 10), total: 25 }) // 初始 load
       .mockImplementationOnce(
-        () => new Promise<FetchResult>(r => { holder.resolve = r }),
+        () =>
+          new Promise<FetchResult>((r) => {
+            holder.resolve = r
+          }),
       ) // loadMore fetch:挂起
 
-    const { result } = renderHook(() =>
-      useArticles<TestArticle>({ fetcher, pageSize: 10 }),
-    )
+    const { result } = renderHook(() => useArticles<TestArticle>({ fetcher, pageSize: 10 }))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(fetcher).toHaveBeenCalledTimes(1)
@@ -259,9 +252,7 @@ describe('useArticles 跨端共享 hook — 集成测试', () => {
       .mockResolvedValueOnce({ list: makeList(0, 10), total: 25 }) // 挂载 load(categoryId='all')
       .mockResolvedValueOnce({ list: makeList(0, 3), total: 3 }) // setCategoryId 后 reload
 
-    const { result } = renderHook(() =>
-      useArticles<TestArticle>({ fetcher, pageSize: 10 }),
-    )
+    const { result } = renderHook(() => useArticles<TestArticle>({ fetcher, pageSize: 10 }))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.categoryId).toBe('all')
@@ -311,9 +302,7 @@ describe('useArticles 跨端共享 hook — 集成测试', () => {
 
   it('11. setSearch() 更新 search 值,下次 load() 时生效(不自动触发)', async () => {
     const fetcher = vi.fn().mockResolvedValue({ list: [], total: 0 })
-    const { result } = renderHook(() =>
-      useArticles<TestArticle>({ fetcher, autoLoad: false }),
-    )
+    const { result } = renderHook(() => useArticles<TestArticle>({ fetcher, autoLoad: false }))
 
     // 初始 search 为空,fetcher 未被调
     expect(result.current.search).toBe('')
@@ -363,9 +352,7 @@ describe('useArticles 跨端共享 hook — 集成测试', () => {
 
   it('13. setPage() clamp 到 [1, totalPages]', async () => {
     const fetcher = vi.fn().mockResolvedValue({ list: makeList(0, 10), total: 25 })
-    const { result } = renderHook(() =>
-      useArticles<TestArticle>({ fetcher, pageSize: 10 }),
-    )
+    const { result } = renderHook(() => useArticles<TestArticle>({ fetcher, pageSize: 10 }))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.totalPages).toBe(3) // ceil(25/10)
@@ -412,7 +399,7 @@ describe('useArticles 跨端共享 hook — 集成测试', () => {
 
     // 支持函数式更新(各端 createArticle 后追加)
     act(() => {
-      result.current.setArticles(prev => [...prev, makeArticle(2)])
+      result.current.setArticles((prev) => [...prev, makeArticle(2)])
     })
     expect(result.current.articles).toHaveLength(3)
     expect(result.current.articles[2]!.id).toBe('a-2')
