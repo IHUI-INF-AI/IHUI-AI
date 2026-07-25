@@ -71,6 +71,13 @@ export default defineConfig(async (merge) => {
       },
       // 项目无 babel.config.js，webpack5 编译器需在 babel-loader 程序化注入 babel-preset-taro
       // (程序化选项对所有文件生效，含 packages/* 的 TS 源码)
+      // 同时配置 splitChunks + runtimeChunk 拆分主 bundle（2026-07-26 体积优化）:
+      // - vendors: 初始入口依赖的 node_modules（react/react-dom/@tarojs/* 等），chunks:'initial'
+      //   仅抽取初始包 vendor，避免把异步页面专属 vendor 拖入首屏
+      // - ihui-packages: 初始入口依赖的 monorepo workspace 包（@ihui/* TS 源码）
+      // - common: 跨≥2 个异步 chunk 共享的业务代码，仅作用于 async 包，不影响首屏
+      // - runtime: webpack 运行时单独抽出，利于长缓存
+      // 优化前 app.js 单文件 823 KiB（含全部 vendor + runtime），优化后主 bundle 显著下降
       webpackChain: (chain: any) => {
         chain.module.rule('script').use('babelLoader').tap((options: any) => ({
           ...options,
@@ -78,6 +85,36 @@ export default defineConfig(async (merge) => {
             ['taro', { framework: 'react', ts: true, compiler: 'webpack5' }],
           ],
         }))
+        chain.optimization.runtimeChunk('single')
+        chain.optimization.splitChunks({
+          chunks: 'async',
+          maxAsyncRequests: 10,
+          maxInitialRequests: 5,
+          automaticNameDelimiter: '~',
+          cacheGroups: {
+            vendors: {
+              test: /[\\/]node_modules[\\/]/,
+              name: 'vendors',
+              chunks: 'initial',
+              priority: 20,
+              reuseExistingChunk: true,
+            },
+            ihuiPackages: {
+              test: /[\\/]packages[\\/][^/]+[\\/]src[\\/]/,
+              name: 'ihui-packages',
+              chunks: 'initial',
+              priority: 15,
+              reuseExistingChunk: true,
+            },
+            common: {
+              name: 'common',
+              chunks: 'async',
+              minChunks: 2,
+              priority: 5,
+              reuseExistingChunk: true,
+            },
+          },
+        })
       },
       postcss: {
         autoprefixer: { enable: true, config: {} },
