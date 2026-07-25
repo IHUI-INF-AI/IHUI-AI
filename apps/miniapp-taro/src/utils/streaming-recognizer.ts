@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { post } from './request'
+import { post } from './api-bridge'
 
 export interface RecognizerConfig {
   apiUrl?: string

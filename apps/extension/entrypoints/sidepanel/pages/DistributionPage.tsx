@@ -13,21 +13,13 @@ import {
 } from '@ihui/api-client'
 import { Card, CardContent, Badge } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
 
 const WEB_BASE = 'https://ihui.ai'
 
 function fmtMoney(n: number | undefined): string {
   if (typeof n !== 'number') return '0.00'
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(new Date(s))
-  } catch {
-    return ''
-  }
 }
 
 export default function DistributionPage() {
@@ -142,7 +134,9 @@ export default function DistributionPage() {
             <CardContent className="p-3 flex items-center justify-between">
               <div className="min-w-0">
                 <div className="text-sm truncate">{r.userNickname}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{fmtDate(r.createdAt)}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  {fmtDate(r.createdAt)}
+                </div>
               </div>
               <div className="text-right shrink-0">
                 <div className="text-sm font-semibold tabular-nums text-primary">

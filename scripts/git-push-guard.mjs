@@ -192,6 +192,62 @@ if (agentScope) {
   log('ok', `commit 内容在 AGENT_SCOPE 范围内(${C.cyan}${committedFiles.length}${C.reset} 文件)`)
 }
 
+// ─── 3.6 commit 完整性预检(防止 prettier 截断 json 导致损坏 commit 被 push,2026-07-25 立) ──
+// 背景:lint-staged 的 prettier --write 在解析大 json 失败时会截断文件
+// (如 29100 行 i18n json 被截断到 11066 行),损坏 commit 被 post-commit
+// 自动 push 到 origin,造成远端丢失 ~72K 行文案,需要 force push 修复。
+// 此预检对比 HEAD 和 HEAD~1 的 json 文件行数,若 HEAD 行数 < HEAD~1 × 0.5
+// 且减少量 > 100 行,判定为疑似截断,阻止 push。
+const headFilesRaw = run('git show --name-only --pretty=format: HEAD', { allowFail: true }) || ''
+const headJsonFiles = headFilesRaw.split('\n').filter((f) => f && f.endsWith('.json'))
+
+if (headJsonFiles.length === 0) {
+  log('ok', `commit 完整性预检通过(无 json 文件,跳过)`)
+} else {
+  // 检查 HEAD~1 是否存在(首次 commit 无父,跳过预检)
+  const hasParent = run('git rev-parse --verify HEAD~1', { allowFail: true })
+  if (!hasParent) {
+    log('info', `首次 commit(无 HEAD~1),跳过 json 完整性预检`)
+  } else {
+    const truncationIssues = []
+    for (const file of headJsonFiles) {
+      // 读取 HEAD 和 HEAD~1 版本内容(run() 已 trim 末尾换行)
+      const headContent = run(`git show HEAD:${file}`, { allowFail: true })
+      const parentContent = run(`git show HEAD~1:${file}`, { allowFail: true })
+      // 文件在 HEAD 或 HEAD~1 不存在(删除/新增)时跳过
+      if (headContent === null || parentContent === null) continue
+
+      const headLines = headContent.split('\n').length
+      const parentLines = parentContent.split('\n').length
+
+      // 阈值:HEAD 行数 < HEAD~1 行数 × 0.5 且减少量 > 100 行
+      if (parentLines > 0 && headLines < parentLines * 0.5 && (parentLines - headLines) > 100) {
+        const decreasePercent = (((parentLines - headLines) / parentLines) * 100).toFixed(1)
+        truncationIssues.push({ file, parentLines, headLines, decreasePercent })
+      }
+    }
+
+    if (truncationIssues.length > 0) {
+      log('err', `commit 完整性预检失败!检测到 ${C.red}${truncationIssues.length}${C.reset} 个 json 文件疑似被截断:`)
+      for (const issue of truncationIssues) {
+        console.log(`     ${C.red}× ${issue.file}${C.reset}`)
+        console.log(`       ${C.dim}${issue.parentLines} 行 → ${issue.headLines} 行(减少 ${issue.decreasePercent}%)${C.reset}`)
+      }
+      log('err', `可能是 lint-staged/prettier 解析失败导致截断,建议:`)
+      log('err', `  1. git reset HEAD~1 撤销此 commit`)
+      log('err', `  2. git restore --staged --worktree <文件> 恢复`)
+      log('err', `  3. 重新编辑后 commit`)
+      log('warn', `逃生通道:设置 AUTO_PUSH_CONFIRM=1 可跳过此预检强制 push(仅在人工确认非事故时使用)`)
+      if (process.env.AUTO_PUSH_CONFIRM !== '1') {
+        process.exit(1)
+      }
+      log('warn', `⚠️  AUTO_PUSH_CONFIRM=1 已设置, 跳过完整性预检, 强制推送(请确认非事故)`)
+    } else {
+      log('ok', `commit 完整性预检通过(${C.cyan}${headJsonFiles.length}${C.reset} 个 json 文件行数正常)`)
+    }
+  }
+}
+
 // ─── 4. 执行 push(实时输出,失败立即退出) ──────────────────────
 log('info', `执行 git push origin ${branch} ...`)
 
