@@ -103,7 +103,20 @@
     "follower": "팔로워"
   },
   "agent": {
-    "config": "설정"
+    "config": "설정",
+    "runtimeTitle": "런타임",
+    "runtimeClear": "초기화",
+    "runtimePlan": "실행 계획",
+    "runtimePermission": "권한",
+    "runtimePermissionTool": "도구",
+    "runtimePermissionLevel": "레벨",
+    "runtimePermissionMode": "모드",
+    "runtimeOutput": "출력",
+    "runtimeError": "오류",
+    "runtimeEmpty": "실행 기록이 없습니다",
+    "runtimeInputPlaceholder": "에이전트에 보낼 메시지를 입력하세요",
+    "runtimeStop": "중지",
+    "runtimeSend": "전송"
   },
   "chat": {
     "voice": "음성"

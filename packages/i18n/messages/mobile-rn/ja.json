@@ -103,7 +103,20 @@
     "follower": "フォロワー"
   },
   "agent": {
-    "config": "設定"
+    "config": "設定",
+    "runtimeTitle": "ランタイム",
+    "runtimeClear": "クリア",
+    "runtimePlan": "実行計画",
+    "runtimePermission": "権限",
+    "runtimePermissionTool": "ツール",
+    "runtimePermissionLevel": "レベル",
+    "runtimePermissionMode": "モード",
+    "runtimeOutput": "出力",
+    "runtimeError": "エラー",
+    "runtimeEmpty": "実行履歴はまだありません",
+    "runtimeInputPlaceholder": "エージェントに送信するメッセージを入力",
+    "runtimeStop": "停止",
+    "runtimeSend": "送信"
   },
   "chat": {
     "voice": "音声"
