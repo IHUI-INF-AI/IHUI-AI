@@ -649,7 +649,6 @@ IHUI-AI/
 ├── packages/                # 13 個の共有パッケージ
 │   ├── api-client/          # @ihui/api-client (40+ endpoints 自動生成 SDK)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
-│   ├── config/              # @ihui/config
 │   ├── context-compaction/  # @ihui/context-compaction (コンテキスト圧縮)
 │   ├── database/            # @ihui/database (Drizzle, 339+ テーブル, 128+ マイグレーション, RLS, テナントルーティング, pgvector)
 │   ├── eslint-config/       # @ihui/eslint-config
