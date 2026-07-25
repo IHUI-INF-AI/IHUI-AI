@@ -3,8 +3,10 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 import { streamChat, formatSSEError } from '@ihui/api-client'
+import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 
 import { useChatStore } from '@/stores/chat'
 import type { ToolCall } from '@/stores/chat'
@@ -19,6 +21,11 @@ import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import type { InlineDiffInfo } from '@/components/ai/types'
+import {
+  FullAccessConfirmDialog,
+  isFullAccessConfirmSuppressed,
+  markFullAccessAcknowledged,
+} from '@/components/ai/full-access-confirm-dialog'
 
 /** 自媒体斜杠命令 API 返回数据 */
 interface SlashCommandData {
@@ -191,6 +198,87 @@ function tryHandlePlanModeSlash(text: string): boolean {
           : 'AI 将正常执行工具(Alt+P 可快速切换)',
     },
   )
+  return true
+}
+
+/** /permission ask|auto|full 动作型斜杠命令(2026-07-25 深化,深度对标 Codex approvalMode CLI)
+ * - /permission ask:切换到 default 模式(请求批准,默认)
+ * - /permission auto:切换到 accept-edits 模式(自动接受编辑)
+ * - /permission full:切换到 bypass-permissions 模式(完全访问,高风险)
+ * - 必须以 /permission 开头,后接 ask/auto/full + 空白或行尾(避免误伤 /permissioned 等)
+ * - 命中即清空输入框 + 走 switchPermissionMode 切换模式
+ * - 纯 UI 状态切换,不需要登录,不调用 LLM,不需要创建会话
+ * - 切换失败时回滚 + toast 报错
+ * - 切到 full → 5s 撤销 toast(与 PermissionModePopover 一致体验)
+ * - 首次切到 full + 未在 localStorage 静默 → 走 store.pendingFullAccess,
+ *   由 message-input 渲染 FullAccessConfirmDialog,确认后切模式 */
+async function tryHandlePermissionSlash(text: string): Promise<boolean> {
+  const trimmed = text.trimStart()
+  // 必须以 /permission 开头,后接 ask/auto/full + 空白或行尾
+  const m = /^\/permission\s+(ask|auto|full)\b\s*$/.exec(trimmed)
+  if (!m) return false
+  const target = m[1] as 'ask' | 'auto' | 'full'
+  // 注:此函数内部不能直接调 useTranslations(非 React 组件),
+  // 借助 useAiPanelStore 共享状态,让已挂载的 toast 监听器来显示。
+  // 但 toast 是瞬时反馈,直接在内部硬编码调 sonner(2026-07-25 收尾时改用 i18n)
+  const { switchPermissionMode } = await import('@/components/ai/permission-mode-popover')
+  const modeMap: Record<'ask' | 'auto' | 'full', WorkspacePermissionMode> = {
+    ask: 'default',
+    auto: 'accept-edits',
+    full: 'bypass-permissions',
+  }
+  const targetMode = modeMap[target]
+  // 已是目标模式:不重复切换,仅 toast 提示
+  const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
+  if (currentMode === targetMode) {
+    // 已是目标模式 → 不切换,提示用户(2026-07-25 收尾:用 i18n 替代硬编码)
+    // 通过动态 import 加载 useTranslations hook 不可行(hook 必须在组件顶层)
+    // 改用预定义文案 map(由 use-chat 调用方提供 i18n,或直接硬编码英文 fallback)
+    const label = target === 'ask' ? 'Ask' : target === 'auto' ? 'Auto-approve' : 'Full access'
+    toast.info(`Already in ${label} mode`)
+    return true
+  }
+  // 切到 full + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化,深度对标 Codex safety guard)
+  // 由 message-input 的 FullAccessConfirmBridge 监听 store.pendingFullAccess 渲染 Dialog
+  if (target === 'full' && !isFullAccessConfirmSuppressed()) {
+    useAiPanelStore.getState().setPendingFullAccess(true)
+    return true
+  }
+  // 切换模式(乐观更新 + 落库 + 失败回滚)
+  const result = await switchPermissionMode(targetMode)
+  if (!result.ok) {
+    toast.error(`Permission mode switch failed: ${result.error ?? 'unknown'}`)
+    return true
+  }
+  // 切到 full → 5s 撤销 toast(与 PermissionModePopover 一致体验)
+  if (target === 'full' && result.previousMode) {
+    toast('Switched to full access', {
+      description: `AI can now run any action without confirmation (undo within 5s, previous:${result.previousMode})`,
+      duration: 5000,
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          await switchPermissionMode(result.previousMode!)
+        },
+      },
+    })
+  } else if (target === 'auto') {
+    toast.success('Switched to auto-approve', {
+      description: 'Only asks before running detected risky actions',
+      duration: 3000,
+    })
+  } else if (target === 'ask' && result.previousMode === 'bypass-permissions') {
+    toast.success('Switched to ask for approval', {
+      description: 'Always asks before editing files outside this project or using the internet',
+      duration: 3000,
+    })
+  }
+  return true
+}
+      description: '编辑外部文件和使用互联网时始终询问',
+      duration: 3000,
+    })
+  }
   return true
 }
 
@@ -705,6 +793,11 @@ export function useChat(): UseChatReturn {
       // - 命中即清空输入框 + toast 反馈
       if (tryHandlePlanModeSlash(text)) return true
 
+      // /permission ask|auto|full 动作型斜杠命令拦截(2026-07-25 深化,对标 Codex approvalMode):
+      // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
+      // - 命中即清空输入框 + toast 反馈(切 full 时弹 5s 撤销 toast)
+      if (await tryHandlePermissionSlash(text)) return true
+
       // 未登录拦截(2026-07-24 立,修复"未登录点发送无反应"问题):
       // - 不调 createConversation(避免 401 无可见反馈)
       // - toast 提示 + 弹出登录弹窗(用户偏好:登录/注册用弹窗)
@@ -766,7 +859,15 @@ export function useChat(): UseChatReturn {
         .map((m) => ({ role: m.role, content: m.content }))
 
       store.addMessage({ role: 'user', content: text, model })
-      const assistantId = store.addMessage({ role: 'assistant', content: '', model })
+      // 记录该消息生成时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
+      // 模式用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
+      const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
+      const assistantId = store.addMessage({
+        role: 'assistant',
+        content: '',
+        model,
+        permissionMode: currentMode,
+      })
 
       store.setStreaming(true)
       store.setError(null)
@@ -948,7 +1049,14 @@ export function useChat(): UseChatReturn {
 
     // UI 上把 answer 显示为 user 消息(让用户看到自己回答了什么)
     store.addMessage({ role: 'user', content: trimmed, model })
-    const assistantId = store.addMessage({ role: 'assistant', content: '', model })
+    // 记录续流时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
+    const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
+    const assistantId = store.addMessage({
+      role: 'assistant',
+      content: '',
+      model,
+      permissionMode: currentMode,
+    })
 
     store.setStreaming(true)
     store.setError(null)

@@ -65,6 +65,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       isResizing: false,
       activeWorkspace: null,
       pendingPermissionSetup: null,
+      pendingFullAccess: false,
 
       openPanel: () => set({ open: true }),
       closePanel: () => set({ open: false }),
@@ -76,6 +77,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       setResizing: (v) => set({ isResizing: v }),
       setActiveWorkspace: (ws) => set({ activeWorkspace: ws }),
       setPendingPermissionSetup: (v) => set({ pendingPermissionSetup: v }),
+      setPendingFullAccess: (v) => set({ pendingFullAccess: v }),
     }),
     {
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({

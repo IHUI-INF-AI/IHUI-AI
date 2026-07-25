@@ -47,6 +47,13 @@ const CATEGORIES: MessageCategory[] = [
   },
 ]
 
+/**
+ * 消息分类 i18n key 静态映射表:categories.${key} — 用于消除 `t(\`categories.${var}\`)` 动态拼接
+ */
+const CATEGORY_KEY: Record<string, string> = Object.fromEntries(
+  CATEGORIES.map((c) => [c.key, `categories.${c.key}`]),
+)
+
 interface MessageSystemProps {
   className?: string
   /** 渲染紧凑模式(用于导航栏徽章 + 4 个分类入口);默认 false 渲染卡片样式 */
@@ -156,7 +163,7 @@ export function MessageSystem({ className, compact = false }: MessageSystemProps
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium leading-tight">
-                    {t(`categories.${cat.key}`)}
+                    {t(CATEGORY_KEY[cat.key] ?? 'categories.unknown')}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {!loading && count > 0 ? t('unreadCount', { count }) : t('noNewMessages')}

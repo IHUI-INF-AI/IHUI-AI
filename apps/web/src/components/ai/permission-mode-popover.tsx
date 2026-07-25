@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import {
   Check,
   ExternalLink,
@@ -12,6 +13,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   ShieldX,
+  TriangleAlert,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -22,22 +24,73 @@ import {
 import { Popover } from '@/components/feedback'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { cn } from '@/lib/utils'
+import { isFullAccessConfirmSuppressed } from './full-access-confirm-dialog'
 
-/** 工作区权限模式选择器(2026-07-25 立,深度对标 OpenAI Codex CLI approvalMode)
+/** 工作区权限模式选择器(2026-07-25 深化,深度对标 OpenAI Codex CLI approvalMode)
  *
  * 触发器:盾牌图标 + 当前模式短名(如"完全访问" / "请求批准" / "替我审批")
  * 点击 → 弹 Codex 风格 popover:
  *   - 顶部:"应如何批准 AI 操作?" + 右侧"了解更多" 链接
- *   - 三个单选卡片(每卡 = 图标 + 标题 + 描述),右侧 ✓ 标识当前模式
+ *   - 三个单选卡片(每卡 = 图标 + 标题 + 描述 + 数字快捷键 1/2/3),右侧 ✓ 标识当前模式
  *   - 底部"完全访问"快捷链接(深色卡片风格,提醒高风险)
  *
  * 数据流:
  *   - 读:useAiPanelStore.activeWorkspace.mode
  *   - 写:setWorkspacePermission API → 同步更新 store + 触发 toast
  *
+ * 键盘交互(2026-07-25 深化,Codex CLI 风格):
+ *   - ↑/↓ 在三个模式间循环切换焦点
+ *   - Enter 选中当前聚焦的模式
+ *   - 1/2/3 数字键直接选 ask/auto/full
+ *   - Esc 关闭(由 Popover 组件处理)
+ *
+ * 高风险切换撤销(2026-07-25 深化,防误操作):
+ *   - 切到 bypass-permissions 后,5s 内 toast 显示"已切换到完全访问" + 撤销按钮
+ *   - 点撤销 → 切回上一个模式
+ *   - 5s 倒计时由 sonner duration 控制
+ *
+ * 持久化视觉警告(2026-07-25 深化,高风险模式醒目):
+ *   - 触发器按钮:bypass-permissions 模式显示琥珀底色 + 琥珀图标
+ *   - 弹层打开时:三卡片焦点模式额外加 1px ring 突出
+ *   - 外层 message-input 容器:见 message-input 自身根据 mode 加警告边框
+ *
  * 若用户尚未绑定工作区,触发器点击 → 直接弹出"为新工作区选择权限"提示
  *   (用户规则:选择项目文件后需要让用户确认同意是否可完全访问)
  */
+type ModeValue = WorkspacePermissionMode
+type ModeKey = 'mode.ask' | 'mode.auto' | 'mode.full'
+type ModeDescKey = 'mode.askDesc' | 'mode.autoDesc' | 'mode.fullDesc'
+
+interface ModeOption {
+  value: ModeValue
+  icon: LucideIcon
+  titleKey: ModeKey
+  descKey: ModeDescKey
+  risk: 'low' | 'medium' | 'high'
+}
+
+// 移到组件外避免每次 render 重新创建(2026-07-25 深化)
+const MODE_OPTIONS_LIST: ModeOption[] = [
+  { value: 'default', icon: Hand, titleKey: 'mode.ask', descKey: 'mode.askDesc', risk: 'low' },
+  {
+    value: 'accept-edits',
+    icon: ShieldCheck,
+    titleKey: 'mode.auto',
+    descKey: 'mode.autoDesc',
+    risk: 'medium',
+  },
+  {
+    value: 'bypass-permissions',
+    icon: ShieldAlert,
+    titleKey: 'mode.full',
+    descKey: 'mode.fullDesc',
+    risk: 'high',
+  },
+]
+
+/** 撤销 toast 持续时间(ms)。给用户足够的"哎呀我点错了"反悔窗口 */
+const UNDO_TOAST_DURATION = 5000
+
 export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
   const t = useTranslations('chat.permission')
   const tCommon = useTranslations('common')
@@ -48,31 +101,20 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
 
   const currentMode: WorkspacePermissionMode = activeWorkspace?.mode ?? 'default'
 
-  // 三种模式配置(对齐 WorkspacePermissionDialog 的 MODE_OPTIONS,做加法扩展 + 短描述)
-  // titleKey/descKey 已是字面量联合,直接预计算完整 i18n key 避免动态拼接
-  const MODE_OPTIONS: Array<{
-    value: WorkspacePermissionMode
-    icon: LucideIcon
-    titleKey: 'mode.ask' | 'mode.auto' | 'mode.full'
-    descKey: 'mode.askDesc' | 'mode.autoDesc' | 'mode.fullDesc'
-    risk: 'low' | 'medium' | 'high'
-  }> = [
-    { value: 'default', icon: Hand, titleKey: 'mode.ask', descKey: 'mode.askDesc', risk: 'low' },
-    {
-      value: 'accept-edits',
-      icon: ShieldCheck,
-      titleKey: 'mode.auto',
-      descKey: 'mode.autoDesc',
-      risk: 'medium',
-    },
-    {
-      value: 'bypass-permissions',
-      icon: ShieldAlert,
-      titleKey: 'mode.full',
-      descKey: 'mode.fullDesc',
-      risk: 'high',
-    },
-  ]
+  // 弹层开关状态(2026-07-25 深化,onOpenChange 上抛):用于启用键盘监听 + 打开时重置焦点
+  const [isOpen, setIsOpen] = React.useState(false)
+  // 键盘焦点索引(用于 ↑/↓ 循环切换)。初始指向当前模式。
+  const [focusedIndex, setFocusedIndex] = React.useState(() => {
+    const idx = MODE_OPTIONS_LIST.findIndex((o) => o.value === currentMode)
+    return idx >= 0 ? idx : 0
+  })
+  // 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard):
+  // 通过 ai-panel store 共享状态,popover / Shift+Tab / /permission full 三处触发共用
+  // 同一个 FullAccessConfirmDialog(由 message-input 渲染)
+  const pendingFullAccess = useAiPanelStore((s) => s.pendingFullAccess)
+  const setPendingFullAccess = useAiPanelStore((s) => s.setPendingFullAccess)
+
+  const focusedMode = MODE_OPTIONS_LIST[focusedIndex]?.value ?? currentMode
 
   const updateMode = useMutation({
     mutationFn: async (mode: WorkspacePermissionMode) => {
@@ -96,39 +138,143 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
           queryKey: ['workspace', 'permission', perm.workspacePath],
         })
       }
-      if (activeWorkspace) {
-        setActiveWorkspace({ ...activeWorkspace, mode: currentMode })
-      }
+      // 注:activeWorkspace.mode 已在 onMutate 乐观更新,这里不需要再 setActiveWorkspace
     },
   })
 
-  const handleSelect = (mode: WorkspacePermissionMode) => {
-    if (mode === currentMode) return
-    // 乐观更新:立即写 store,失败回滚
-    const previousMode = activeWorkspace?.mode
-    if (activeWorkspace) {
-      setActiveWorkspace({ ...activeWorkspace, mode })
-    } else {
-      // 未绑定工作区:写到 useModeStore 风格的"未绑定期望模式",等绑定时由 picker 接管
-      // 这里简化:用 sessionStorage 暂存
-      try {
-        if (typeof window !== 'undefined') {
-          window.sessionStorage.setItem('ihui-pending-permission-mode', mode)
+  /** 切换模式(核心逻辑,2026-07-25 深化)
+   * 1. 同模式 → noop
+   * 2. 乐观更新 store(立即反馈)
+   * 3. mutation 落库,失败回滚
+   * 4. 切到 bypass-permissions → 弹 5s 撤销 toast
+   * 5. 切到 accept-edits → 弹持久化视觉警告横幅(toast 较轻,只提醒一次)
+   */
+  const handleSelect = React.useCallback(
+    (mode: WorkspacePermissionMode) => {
+      if (mode === currentMode) return
+      if (updateMode.isPending) return // 防止快速连点
+      // 切到 bypass-permissions + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化)
+      // 用户必须勾选"我了解"才能点"继续启用",防止误操作
+      // 通过 ai-panel store 共享状态,message-input 监听并渲染 FullAccessConfirmDialog
+      if (mode === 'bypass-permissions' && !isFullAccessConfirmSuppressed()) {
+        setPendingFullAccess(true)
+        return
+      }
+      const previousMode = activeWorkspace?.mode
+      // 乐观更新:立即写 store,失败回滚
+      if (activeWorkspace) {
+        setActiveWorkspace({ ...activeWorkspace, mode })
+      } else {
+        // 未绑定工作区:写到 sessionStorage 暂存,绑定时由 picker 接管
+        try {
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.setItem('ihui-pending-permission-mode', mode)
+          }
+        } catch {
+          // sessionStorage 不可用(隐私模式)静默忽略
         }
-      } catch {
-        // sessionStorage 不可用(隐私模式)静默忽略
+      }
+      updateMode.mutate(mode, {
+        onError: () => {
+          if (activeWorkspace && previousMode !== undefined) {
+            setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
+          }
+        },
+        onSuccess: () => {
+          // 切到完全访问(bypass-permissions)→ 弹 5s 撤销 toast,防误操作
+          if (mode === 'bypass-permissions' && previousMode) {
+            toast(t('switchedToFull'), {
+              description: t('switchedToFullDesc', { prev: previousMode }),
+              duration: UNDO_TOAST_DURATION,
+              action: {
+                label: t('undo'),
+                onClick: () => {
+                  handleSelect(previousMode)
+                },
+              },
+            })
+          } else if (mode === 'accept-edits') {
+            // 切到 accept-edits → 普通提示(无撤销,误操作风险低)
+            toast.success(t('switchedToAuto'), {
+              description: t('switchedToAutoDesc'),
+              duration: 3000,
+            })
+          } else if (mode === 'default' && previousMode === 'bypass-permissions') {
+            // 从高风险切回默认 → 确认反馈
+            toast.success(t('switchedToAsk'), {
+              description: t('switchedToAskDesc'),
+              duration: 3000,
+            })
+          }
+        },
+      })
+    },
+    // handleSelect 自身递归调用,useMutation 自带 isPending 闭包,无需在 deps 中重复
+    [activeWorkspace, currentMode, updateMode, setActiveWorkspace, t],
+  )
+
+  // 键盘处理(↑/↓/Enter/1/2/3):只在 popover 打开时启用
+  React.useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      // 数字键 1/2/3 直接选对应模式(Codex CLI 风格)
+      if (e.key === '1' || e.key === '2' || e.key === '3') {
+        e.preventDefault()
+        e.stopPropagation()
+        const idx = Number(e.key) - 1
+        const target = MODE_OPTIONS_LIST[idx]
+        if (target) {
+          handleSelect(target.value)
+        }
+        return
+      }
+      // ↑/↓ 循环切换焦点
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        e.stopPropagation()
+        setFocusedIndex((prev) => {
+          const len = MODE_OPTIONS_LIST.length
+          if (e.key === 'ArrowDown') return (prev + 1) % len
+          return (prev - 1 + len) % len
+        })
+        return
+      }
+      // Enter 选中当前聚焦
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        e.stopPropagation()
+        handleSelect(focusedMode)
       }
     }
-    updateMode.mutate(mode, {
-      onError: () => {
-        if (activeWorkspace && previousMode !== undefined) {
-          setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
-        }
-      },
-    })
-  }
+    document.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('keydown', onKey, true)
+    }
+  }, [isOpen, focusedMode, handleSelect])
 
-  const currentOption = MODE_OPTIONS.find((opt) => opt.value === currentMode) ?? MODE_OPTIONS[0]!
+  // 确认弹窗回调(2026-07-25 深化)
+  // - confirm:清 pending + 用 pending.mode 重新调 handleSelect(此时 isFullAccessConfirmSuppressed 已 true,走原逻辑)
+  // - cancel:清 pending(状态回滚到 currentMode)
+  const handlePendingConfirm = React.useCallback(() => {
+    if (!pendingFullAccess) return
+    const target = pendingFullAccess.mode
+    setPendingFullAccess(null)
+    handleSelect(target)
+  }, [pendingFullAccess, handleSelect])
+
+  const handlePendingCancel = React.useCallback(() => {
+    setPendingFullAccess(null)
+  }, [])
+
+  // 弹层打开时重置焦点到当前模式(避免上次关闭时的残留 index)
+  React.useEffect(() => {
+    if (isOpen) {
+      const idx = MODE_OPTIONS_LIST.findIndex((o) => o.value === currentMode)
+      setFocusedIndex(idx >= 0 ? idx : 0)
+    }
+  }, [isOpen, currentMode])
+
+  const currentOption = MODE_OPTIONS_LIST.find((o) => o.value === currentMode) ?? MODE_OPTIONS_LIST[0]!
   const CurrentIcon = currentOption.icon
   const currentTitle = t(currentOption.titleKey)
   const hasWorkspace = !!activeWorkspace
@@ -136,7 +282,11 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
   return (
     <Popover
       content={
-        <div className="w-[360px] space-y-2">
+        <div
+          className="w-[360px] space-y-2"
+          // 阻止 popover 内部 click 冒泡到 document(onKey 监听器在 document 上,
+          // 若用户点击卡片,卡片自身 onClick 触发 handleSelect,不需要 document 再次处理)
+        >
           {/* 顶部标题 + 了解更多链接(Codex 风格:左标题,右链接) */}
           <div className="flex items-start justify-between gap-2 px-1 pb-1">
             <div className="flex flex-col">
@@ -163,30 +313,41 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
             </button>
           </div>
 
-          {/* 三个模式单选卡片 */}
-          <div className="space-y-1.5">
-            {MODE_OPTIONS.map((opt) => {
+          {/* 三个模式单选卡片(键盘可聚焦) */}
+          <div className="space-y-1.5" role="radiogroup" aria-label={t('popoverTitle')}>
+            {MODE_OPTIONS_LIST.map((opt, idx) => {
               const Icon = opt.icon
               const isSel = opt.value === currentMode
+              const isFocused = idx === focusedIndex
               return (
                 <button
                   key={opt.value}
                   type="button"
+                  role="radio"
+                  aria-checked={isSel}
                   onClick={() => handleSelect(opt.value)}
+                  onMouseEnter={() => setFocusedIndex(idx)}
                   disabled={updateMode.isPending}
                   className={cn(
-                    'group flex w-full items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors',
+                    'group relative flex w-full items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors',
                     'disabled:cursor-not-allowed disabled:opacity-60',
+                    // 当前选中:实心高亮
                     isSel
                       ? 'border-primary/60 bg-primary/5'
                       : 'border-border hover:border-foreground/20 hover:bg-muted/30',
+                    // 键盘聚焦但未选中:虚线 ring 提示(双重高亮:选中 + 聚焦)
+                    isFocused && !isSel && 'ring-1 ring-primary/40 ring-offset-1 ring-offset-popover',
+                    // 高风险 + 选中:琥珀色边框强化警告
+                    isSel && opt.risk === 'high' && 'border-amber-500/60 bg-amber-500/5',
                   )}
                 >
                   <Icon
                     className={cn(
                       'mt-0.5 h-4 w-4 shrink-0',
                       isSel
-                        ? 'text-primary'
+                        ? opt.risk === 'high'
+                          ? 'text-amber-500'
+                          : 'text-primary'
                         : opt.risk === 'high'
                           ? 'text-amber-500'
                           : opt.risk === 'medium'
@@ -209,6 +370,13 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                           {t('highRisk')}
                         </span>
                       )}
+                      {/* 数字快捷键徽章(Codex 风格:右侧 1/2/3) */}
+                      <span
+                        className="ml-auto inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[9px] font-medium text-muted-foreground"
+                        aria-hidden="true"
+                      >
+                        {idx + 1}
+                      </span>
                     </div>
                     <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                       {t(opt.descKey)}
@@ -248,6 +416,28 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
             )}
           </button>
 
+          {/* 键盘提示(2026-07-25 深化):底部小字,提醒用户可用 ↑/↓/Enter/1-3 键盘操作 */}
+          <div className="flex items-center gap-1.5 px-1 pt-0.5 text-[10px] text-muted-foreground">
+            <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+              ↑
+            </kbd>
+            <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+              ↓
+            </kbd>
+            <span>{t('kbdNavigate')}</span>
+            <span className="ml-auto inline-flex items-center gap-0.5">
+              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+                1
+              </kbd>
+              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+                2
+              </kbd>
+              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+                3
+              </kbd>
+            </span>
+          </div>
+
           {updateMode.isError && (
             <p className="px-1 text-[11px] text-destructive">
               {(updateMode.error as Error)?.message || tCommon('error')}
@@ -259,12 +449,13 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       align="start"
       trigger="click"
       portal
+      onOpenChange={setIsOpen}
     >
       <button
         type="button"
         disabled={disabled}
         aria-label={t('buttonLabel')}
-        title={t('buttonLabel')}
+        title={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
         className={cn(
           'inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors',
           // 模式风险色:default=中性 / accept-edits=绿 / bypass=琥珀
@@ -285,11 +476,93 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
           )}
         />
         <span className="whitespace-nowrap">{currentTitle}</span>
+        {/* 高风险模式追加醒目的三角警告图标(2026-07-25 深化) */}
+        {currentMode === 'bypass-permissions' && (
+          <TriangleAlert
+            className="h-3 w-3 shrink-0 text-amber-500"
+            aria-hidden="true"
+          />
+        )}
         <Shield
           className="h-3 w-3 shrink-0 opacity-50"
           aria-hidden="true"
         />
       </button>
+      {/* 首次启用高风险模式确认弹窗(2026-07-25 深化)
+          - 仅在用户尝试切到 bypass-permissions 且未在 localStorage 静默时弹出
+          - 用户必须勾选"我了解上述风险"才能点"继续启用"
+          - 选"不再提醒"→ 写 localStorage 永久静默;否则只写"已确认"标志 */}
+      <FullAccessConfirmDialog
+        open={!!pendingFullAccess}
+        onConfirm={handlePendingConfirm}
+        onCancel={handlePendingCancel}
+      />
     </Popover>
   )
+}
+
+/** 暴露给 message-input / use-chat 等外部组件的高风险模式判断函数
+ * 用于在 message-input 顶部加视觉警告横幅(顶性警告) + 输入框边框变色 */
+export function isHighRiskPermissionMode(mode: WorkspacePermissionMode | undefined): boolean {
+  return mode === 'bypass-permissions'
+}
+
+/** 切换并广播模式变更(2026-07-25 深化,/permission 斜杠命令专用)
+ * - 复用 useAiPanelStore 的乐观更新逻辑
+ * - 调用方负责 toast 反馈(因为斜杠命令上下文与 popover 上下文不同)
+ * - 落库失败时回滚(由 useMutation 内部处理)
+ *
+ * 之所以单独导出此函数:permission-mode-popover.tsx 内的 handleSelect 是
+ * 闭包闭包内部,无法被 use-chat.ts 复用;而 /permission 斜杠命令需要在
+ * use-chat.ts 内触发模式切换(在用户已点发送后拦截)。
+ */
+export async function switchPermissionMode(
+  mode: WorkspacePermissionMode,
+): Promise<{ ok: boolean; previousMode: WorkspacePermissionMode | undefined; error?: string }> {
+  const store = useAiPanelStore.getState()
+  const previousMode = store.activeWorkspace?.mode
+  if (mode === previousMode) {
+    return { ok: true, previousMode }
+  }
+  // 乐观更新
+  if (store.activeWorkspace) {
+    store.setActiveWorkspace({ ...store.activeWorkspace, mode })
+  } else {
+    try {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem('ihui-pending-permission-mode', mode)
+      }
+    } catch {
+      // 静默
+    }
+  }
+  // 落库
+  if (store.activeWorkspace) {
+    try {
+      const res = await setWorkspacePermission({
+        workspacePath: store.activeWorkspace.path,
+        name: store.activeWorkspace.name,
+        techStack: store.activeWorkspace.techStack?.join(','),
+        mode,
+        initializeDefaults: mode === 'accept-edits' && !store.activeWorkspace.mode,
+      })
+      if (!res.success) {
+        // 回滚
+        if (store.activeWorkspace && previousMode !== undefined) {
+          store.setActiveWorkspace({ ...store.activeWorkspace, mode: previousMode })
+        }
+        return { ok: false, previousMode, error: res.error }
+      }
+    } catch (e: unknown) {
+      if (store.activeWorkspace && previousMode !== undefined) {
+        store.setActiveWorkspace({ ...store.activeWorkspace, mode: previousMode })
+      }
+      return {
+        ok: false,
+        previousMode,
+        error: e instanceof Error ? e.message : String(e),
+      }
+    }
+  }
+  return { ok: true, previousMode }
 }
