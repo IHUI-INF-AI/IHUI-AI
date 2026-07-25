@@ -67,6 +67,18 @@
       "types": "./src/spec/*.ts",
       "import": "./src/spec/*.ts"
     },
+    "./stores": {
+      "types": "./src/stores/index.ts",
+      "import": "./src/stores/index.ts"
+    },
+    "./stores/index": {
+      "types": "./src/stores/index.ts",
+      "import": "./src/stores/index.ts"
+    },
+    "./stores/*": {
+      "types": "./src/stores/*.ts",
+      "import": "./src/stores/*.ts"
+    },
     "./subagents": {
       "types": "./src/subagents/index.ts",
       "import": "./src/subagents/index.ts"
@@ -138,7 +150,8 @@
   "dependencies": {
     "@ihui/api-client": "workspace:*",
     "xstate": "^5.19.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zustand": "^5.0.2"
   },
   "peerDependencies": {
     "react": ">=18.0.0"

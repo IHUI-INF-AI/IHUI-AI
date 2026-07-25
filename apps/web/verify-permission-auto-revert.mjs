@@ -49,6 +49,34 @@ async function captureDom(page, label) {
       return false
     }
   })
+  // 2026-07-25 新增:记录 record.workspacePath 和 startedAt(用于 cross-workspace / race condition 状态验证)
+  data.recordWorkspacePath = await page.evaluate(() => {
+    try {
+      const raw = window.localStorage.getItem('ihui:auto-revert-bypass')
+      if (!raw) return null
+      return JSON.parse(raw).workspacePath ?? null
+    } catch {
+      return null
+    }
+  })
+  data.recordStartedAt = await page.evaluate(() => {
+    try {
+      const raw = window.localStorage.getItem('ihui:auto-revert-bypass')
+      if (!raw) return null
+      return JSON.parse(raw).startedAt ?? null
+    } catch {
+      return null
+    }
+  })
+  data.recordVersion = await page.evaluate(() => {
+    try {
+      const raw = window.localStorage.getItem('ihui:auto-revert-bypass')
+      if (!raw) return null
+      return JSON.parse(raw).version ?? null
+    } catch {
+      return null
+    }
+  })
   data.activeMode = await page.evaluate(() => {
     try {
       const raw = window.localStorage.getItem('ihui-ai-panel')
@@ -122,6 +150,13 @@ async function main() {
       }
       console.error(`[console.${msg.type()}]`, t.slice(0, 200))
     }
+    // 捕获 auto-revert hook 的调试日志
+    if (t.includes('auto-revert:')) {
+      console.log('  [hook]', t)
+    }
+    if (t.includes('IHUI_EXTEND_AUTO_REVERT')) {
+      console.log('  [hook]', t)
+    }
   })
 
   // 拦截 /api/workspace/* 防止真实 API 报错
@@ -153,17 +188,17 @@ async function main() {
   })
 
   /** 重设 mock 模式 + 自动撤销状态 + reload */
-  async function setState(mode, autoRevert) {
+  async function setState(mode, autoRevert, workspacePath = 'C:/Windows') {
     await page.evaluate(
-      ([m, ar]) => {
+      ([m, ar, wp]) => {
         window.localStorage.setItem(
           'ihui-ai-panel',
           JSON.stringify({
             state: {
               width: 400,
               activeWorkspace: {
-                path: 'C:/Windows',
-                name: 'Windows',
+                path: wp,
+                name: wp === 'C:/Windows' ? 'Windows' : wp === 'A:/old-workspace' ? 'Old' : 'Projects',
                 mode: m,
                 techStack: ['typescript', 'next.js'],
               },
@@ -174,7 +209,12 @@ async function main() {
         if (ar === 'start') {
           window.localStorage.setItem(
             'ihui:auto-revert-bypass',
-            JSON.stringify({ startedAt: Date.now(), durationMs: 60 * 60 * 1000 }),
+            JSON.stringify({
+              startedAt: Date.now(),
+              durationMs: 60 * 60 * 1000,
+              workspacePath: wp,
+              version: 1,
+            }),
           )
         } else if (ar === 'start-5min') {
           window.localStorage.setItem(
@@ -182,6 +222,8 @@ async function main() {
             JSON.stringify({
               startedAt: Date.now() - 55 * 60 * 1000, // 已过 55min,剩 5min
               durationMs: 60 * 60 * 1000,
+              workspacePath: wp,
+              version: 1,
             }),
           )
         } else if (ar === 'start-1min') {
@@ -190,6 +232,8 @@ async function main() {
             JSON.stringify({
               startedAt: Date.now() - 59 * 60 * 1000, // 已过 59min,剩 1min
               durationMs: 60 * 60 * 1000,
+              workspacePath: wp,
+              version: 1,
             }),
           )
         } else if (ar === 'expired') {
@@ -198,13 +242,39 @@ async function main() {
             JSON.stringify({
               startedAt: Date.now() - 2 * 60 * 60 * 1000,
               durationMs: 60 * 60 * 1000,
+              workspacePath: wp,
+              version: 1,
+            }),
+          )
+        } else if (ar === 'cross-workspace-fresh') {
+          // 2026-07-25 新增:模拟 localStorage 里残留旧工作区 A 的 record,
+          // 当前 activeWorkspace 已切到 C(都是 bypass)。期望 hook 检测到 workspacePath 不匹配 → 重启 record
+          window.localStorage.setItem(
+            'ihui:auto-revert-bypass',
+            JSON.stringify({
+              startedAt: Date.now() - 10 * 60 * 1000, // 10 min ago
+              durationMs: 60 * 60 * 1000,
+              workspacePath: 'A:/old-workspace', // 与当前 wp 不匹配
+              version: 1,
+            }),
+          )
+        } else if (ar === 'cross-workspace-expired') {
+          // 2026-07-25 新增:跨工作区 + 旧 record 已到期(race condition 场景),
+          // 期望 hook 重启 record 而不是 auto-switch 到 default
+          window.localStorage.setItem(
+            'ihui:auto-revert-bypass',
+            JSON.stringify({
+              startedAt: Date.now() - 2 * 60 * 60 * 1000,
+              durationMs: 60 * 60 * 1000,
+              workspacePath: 'A:/old-workspace', // 与当前 wp 不匹配
+              version: 1,
             }),
           )
         } else if (ar === 'clear') {
           window.localStorage.removeItem('ihui:auto-revert-bypass')
         }
       },
-      [mode, autoRevert],
+      [mode, autoRevert, workspacePath],
     )
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(3500)
@@ -327,6 +397,35 @@ async function main() {
     return toasts.map((t) => t.textContent || '').join(' || ')
   })
 
+  // 7. 2026-07-25 新增 - 跨工作区 record 污染
+  // 场景:localStorage 残留旧工作区 A 的 record,activeWorkspace 已切到 C(/Projects),bypass
+  // 期望:hook 检测 workspacePath 不匹配 → 重启 record(workspacePath 改 C,startedAt 接近 now)
+  console.log('[7/6] 跨工作区 record 污染修复验证...')
+  const beforeCrossWs = Date.now()
+  await setState('bypass-permissions', 'cross-workspace-fresh', 'C:/Projects')
+  await page.screenshot({ path: resolve(SCREENSHOT_DIR, '7-cross-workspace-fresh.png'), fullPage: false })
+  const s7 = await captureDom(page, 'cross-workspace-fresh')
+  console.log('  →', JSON.stringify(s7))
+  const s7ElapsedMs = s7.recordStartedAt ? s7.recordStartedAt - beforeCrossWs : null
+  console.log('  [cross-ws-elapsed]', s7ElapsedMs, 'ms(期望 > 0 因为 reload 后才写)')
+
+  // 8. 2026-07-25 新增 - 跨工作区 + 旧 record 已到期(race condition 场景)
+  // 场景:旧 record 已过期(2h 前)且 workspacePath 不匹配当前,期望 hook 重启 record 而非 auto-switch
+  // 验证:activeMode 仍为 bypass(auto-switch 未触发),record workspacePath 已更新,无降级 toast
+  console.log('[8/6] 跨工作区 + 过期 record(race condition 场景)修复验证...')
+  await setState('bypass-permissions', 'cross-workspace-expired', 'C:/Projects')
+  // 等 hook 完成 workspacePath 校验 + record 重启(以及确认 auto-switch 未触发)
+  await page.waitForTimeout(5000)
+  // 抓 toast 文本(应该没有"已自动切回")
+  const raceToastText = await page.evaluate(() => {
+    const toasts = Array.from(document.querySelectorAll('[data-sonner-toast]'))
+    return toasts.map((t) => t.textContent || '').join(' || ')
+  })
+  console.log('  [race-toast]', raceToastText.slice(0, 250))
+  await page.screenshot({ path: resolve(SCREENSHOT_DIR, '8-cross-workspace-expired.png'), fullPage: false })
+  const s8 = await captureDom(page, 'cross-workspace-expired')
+  console.log('  →', JSON.stringify(s8))
+
   writeFileSync(resolve(SCREENSHOT_DIR, 'dom-log.json'), JSON.stringify(DOM_LOG, null, 2))
   console.log('\n[DOM 数据汇总]:')
   for (const d of DOM_LOG) console.log('  ', JSON.stringify(d))
@@ -373,6 +472,36 @@ async function main() {
           : Number(m[1]) * 60 + Number(m[2])
         return total > 55 * 60 // > 55min
       })(),
+    },
+    // 2026-07-25 新增:跨工作区 record 污染修复
+    {
+      name: '14. 跨工作区切换 - record.workspacePath 已更新为当前工作区',
+      pass: s7.recordWorkspacePath === 'C:/Projects',
+    },
+    {
+      name: '15. 跨工作区切换 - record 仍激活(autoRevertActive=true)',
+      pass: s7.autoRevertActive === true,
+    },
+    {
+      name: '16. 跨工作区切换 - activeMode 仍为 bypass(未被切走)',
+      pass: s7.activeMode === 'bypass-permissions',
+    },
+    // 2026-07-25 新增:跨工作区 + 过期 record race condition 修复
+    {
+      name: '17. 跨工作区+过期 record - activeMode 仍为 bypass(auto-switch 未误触发)',
+      pass: s8.activeMode === 'bypass-permissions',
+    },
+    {
+      name: '18. 跨工作区+过期 record - record 已重启(autoRevertActive=true)',
+      pass: s8.autoRevertActive === true,
+    },
+    {
+      name: '19. 跨工作区+过期 record - record.workspacePath 已更新为 C',
+      pass: s8.recordWorkspacePath === 'C:/Projects',
+    },
+    {
+      name: '20. 跨工作区+过期 record - 无降级 toast("已自动切回")',
+      pass: !/已自动切回|本次完全访问/.test(raceToastText),
     },
   ]
   let passed = 0

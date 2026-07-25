@@ -5,7 +5,7 @@ import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
-import { th } from './helpers'
+import { th, CATEGORY_KEY } from './helpers'
 import type { Config } from './types'
 
 interface Props {
@@ -70,7 +70,7 @@ export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDe
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">
-                  {t(`categories.${c.category}`)}
+                  {t(CATEGORY_KEY[c.category] ?? 'categories.unknown')}
                 </td>
                 <td className="px-4 py-2.5">
                   <span
