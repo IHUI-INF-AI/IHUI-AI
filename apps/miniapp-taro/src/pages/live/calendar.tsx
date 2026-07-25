@@ -50,6 +50,16 @@ const fmtDate = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d
 
 const WEEK_FALLBACK = ['日', '一', '二', '三', '四', '五', '六']
 
+const WEEKDAY_KEYS = [
+  'live.calendar.w0',
+  'live.calendar.w1',
+  'live.calendar.w2',
+  'live.calendar.w3',
+  'live.calendar.w4',
+  'live.calendar.w5',
+  'live.calendar.w6',
+] as const
+
 export default function LiveCalendar() {
   const { t } = useI18n()
   const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
@@ -141,7 +151,7 @@ export default function LiveCalendar() {
     }
   }
 
-  const weekLabels = WEEK_FALLBACK.map((w, i) => tt(`live.calendar.w${i}`, w))
+  const weekLabels = WEEK_FALLBACK.map((w, i) => tt(WEEKDAY_KEYS[i] ?? 'live.calendar.w0', w))
 
   return (
     <View className="cal-page">
