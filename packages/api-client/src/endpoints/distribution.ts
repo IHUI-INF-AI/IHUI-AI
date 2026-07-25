@@ -66,29 +66,29 @@ export interface CommissionRanking {
 }
 
 export async function getOverview(): Promise<ApiResult<CommissionOverview>> {
-  return fetchApi<CommissionOverview>('/commission/overview')
+  return fetchApi<CommissionOverview>('/distribution/overview')
 }
 
 export async function getInviteInfo(): Promise<ApiResult<InviteInfo>> {
-  return fetchApi<InviteInfo>('/commission/invite-info')
+  return fetchApi<InviteInfo>('/distribution/invite-info')
 }
 
 export async function getInvitedUsers(
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<InvitedUser>>> {
-  return fetchApi<PageData<InvitedUser>>(`/commission/invited-users${buildQs(query)}`)
+  return fetchApi<PageData<InvitedUser>>(`/distribution/invited-users${buildQs(query)}`)
 }
 
 export async function getCommissionList(
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<CommissionRecord>>> {
-  return fetchApi<PageData<CommissionRecord>>(`/commission/list${buildQs(query)}`)
+  return fetchApi<PageData<CommissionRecord>>(`/distribution/list${buildQs(query)}`)
 }
 
 export async function getWithdrawList(
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<CommissionWithdrawRecord>>> {
-  return fetchApi<PageData<CommissionWithdrawRecord>>(`/commission/withdraw-list${buildQs(query)}`)
+  return fetchApi<PageData<CommissionWithdrawRecord>>(`/distribution/withdraw-list${buildQs(query)}`)
 }
 
 export async function requestWithdraw(input: {
@@ -96,7 +96,7 @@ export async function requestWithdraw(input: {
   account: string
   accountType: string
 }): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>('/commission/withdraw', {
+  return fetchApi<{ success: boolean }>('/distribution/withdraw', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -105,7 +105,7 @@ export async function requestWithdraw(input: {
 export async function getRanking(
   query: { limit?: number; period?: string } = {},
 ): Promise<ApiResult<CommissionRanking[]>> {
-  return fetchApi<CommissionRanking[]>(`/commission/ranking${buildQs(query)}`)
+  return fetchApi<CommissionRanking[]>(`/distribution/ranking${buildQs(query)}`)
 }
 
 export interface DayMonthSummary {
