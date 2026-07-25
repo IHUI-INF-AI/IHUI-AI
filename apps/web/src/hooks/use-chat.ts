@@ -245,6 +245,14 @@ async function tryHandlePermissionSlash(text: string): Promise<boolean> {
     toast.error(`Permission mode switch failed: ${result.error ?? 'unknown'}`)
     return true
   }
+  // 切完模式 → 把刚被 message-input useEffect 占位为 'popover' 的最新一条记录
+  // source 改为 'slash'(2026-07-25 深化,来源精细化)
+  try {
+    const { updateLatestRecordSource } = await import('@/lib/permission-mode-history')
+    updateLatestRecordSource('slash', (e) => e.mode === targetMode)
+  } catch {
+    // permission-mode-history 模块不可用时静默(避免 slash 命令主流程受阻)
+  }
   // 切到 full → 5s 撤销 toast(与 PermissionModePopover 一致体验)
   if (target === 'full' && result.previousMode) {
     toast('Switched to full access', {
