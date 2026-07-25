@@ -53,6 +53,35 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(request, reply))) return
   })
 
+  // Token 预算前置校验:调用 aiCost.checkBudget 检查用户日 token 预算。
+  // 实际签名 checkBudget(scope, scopeKey, model?) 与期望的 ({userId, model, estimatedTokens}) 不一致,
+  // 用 try/catch 兜底:checkBudget 不可用或异常时降级为只 log warning 不阻塞主链路。
+  // 返回 true 放行;返回 false 表示超预算(已通过 reply 返回 429,调用方应直接 return)。
+  async function checkTokenBudget(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    userId: string | undefined,
+    model: string | undefined,
+  ): Promise<boolean> {
+    if (!userId) return true // 无 userId 无法校验,放行
+    try {
+      const result = await server.aiCost.checkBudget('user', userId, model)
+      if (!result.allowed) {
+        reply.code(429).send({
+          code: 429,
+          message: '预算超限',
+          data: { reason: 'budget_exceeded', detail: result.reason },
+        })
+        return false
+      }
+      return true
+    } catch (e) {
+      // checkBudget 不可用或异常:降级为只 log warning 不阻塞主链路
+      request.log.warn({ err: e, userId, model }, 'checkBudget failed, degrade to allow')
+      return true
+    }
+  }
+
   // 共享的 SSE 流式转发逻辑:/chat/stream 和 /chat/answer 共用
   // messages 已是最终列表(已 repair + 已压缩 + 已追加 answer),直接透传到 ai-service
   async function streamToClient(
@@ -91,6 +120,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const controller = new AbortController()
+    // 服务端超时兜底:防 ai-service 卡死时连接无限挂起(5 分钟,正常对话远小于此)
+    const serverTimeout = setTimeout(() => controller.abort(), 5 * 60_000)
     const onClose = () => controller.abort()
     request.raw.on('close', onClose)
 
@@ -123,8 +154,17 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
 
       if (!resp.ok || !resp.body) {
         const errText = await resp.text().catch(() => '')
-        const errChunk: Record<string, unknown> = {
-          error: `upstream ${resp.status}: ${errText.slice(0, 200)}`,
+        // 上游错误响应完整透传:尝试 JSON.parse,若成功则原样透传 {errorCode, message, ...}
+        // 前端可基于 errorCode 做精准提示(如 MODEL_NOT_CONFIGURED → 提示用户切换模型)
+        let errChunk: Record<string, unknown>
+        try {
+          const parsed = JSON.parse(errText) as Record<string, unknown>
+          errChunk =
+            typeof parsed === 'object' && parsed !== null
+              ? parsed
+              : { error: `upstream ${resp.status}: ${errText.slice(0, 200)}` }
+        } catch {
+          errChunk = { error: `upstream ${resp.status}: ${errText.slice(0, 200)}` }
         }
         if (opts.agentId) errChunk.agentId = opts.agentId
         raw.write(`data: ${JSON.stringify(errChunk)}\n\n`)
@@ -172,11 +212,23 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       raw.write(`data: ${JSON.stringify(errChunk)}\n\n`)
     } finally {
       request.raw.off('close', onClose)
+      clearTimeout(serverTimeout)
       raw.end()
     }
   }
 
-  server.post('/chat/stream', async (request, reply) => {
+  server.post(
+    '/chat/stream',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          keyGenerator: (req) => req.userId || req.ip,
+        },
+      },
+    },
+    async (request, reply) => {
     const parsed = chatStreamSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -225,6 +277,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
+    // Token 预算前置校验:超预算直接返回 429,不进入流式(避免无效消耗 ai-service 配额)
+    if (!(await checkTokenBudget(request, reply, metadata?.userId ?? request.userId, resolvedModel))) {
+      return
+    }
+
     return streamToClient(
       request,
       reply,
@@ -242,7 +299,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       },
       extraFirstEvents,
     )
-  })
+  },
+  )
 
   // POST /chat/answer — 用户回答 AI 主动提问,继续生成(不中断对话)
   // 前端收到 SSE question 事件 → 弹窗让用户选择/输入 → 提交答案到本接口
@@ -252,7 +310,18 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
   // 1. 持久化 answer 到 chat_messages(role: user, metadata: { questionId, isAnswer: true })
   // 2. 清除原 assistant 消息 metadata.pendingQuestion(标记已回答)
   // 3. WS 广播 chat_question_answered 通知其他端关闭弹窗
-  server.post('/chat/answer', async (request, reply) => {
+  server.post(
+    '/chat/answer',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          keyGenerator: (req) => req.userId || req.ip,
+        },
+      },
+    },
+    async (request, reply) => {
     const parsed = chatAnswerSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -359,6 +428,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
+    // Token 预算前置校验:超预算直接返回 429,不进入流式(避免无效消耗 ai-service 配额)
+    if (!(await checkTokenBudget(request, reply, userId, resolvedModel))) {
+      return
+    }
+
     return streamToClient(
       request,
       reply,
@@ -376,7 +450,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       },
       extraFirstEvents,
     )
-  })
+  },
+  )
 
   // POST /chat/questions — 持久化 AI 主动提问挂起状态 + WS 广播到多端
   // 前端收到 SSE question 事件时主动调用本端点,把挂起状态写入 chat_conversations.metadata.pendingQuestion
