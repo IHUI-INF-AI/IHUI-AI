@@ -1,17 +1,31 @@
 'use client'
 
-// TODO: 后续迁移到 shared notification-store(@ihui/shared/notifications/notification-store)。
-// 当前跳过原因:web 端 use-notification 包含大量平台独占逻辑(桌面通知 Notification API、
-// 声音播放 AudioContext、按 ID markAsRead + API 调用 + 失败回滚、AudioContext 解锁),
-// 与共享 store 的 Context Provider 模式 + markAllRead(无 API 调用)架构差异过大,
-// 迁移会破坏 web 的复杂通知逻辑。需先在 shared store 中扩展 per-id markAsRead、
-// API 集成、桌面通知/声音钩子等能力后再迁移。
+/**
+ * Web 端通知 hook(2026-07-25 迁移到 shared notification-store)。
+ *
+ * 架构:
+ * - 状态管理(notifications + unreadCount + markAsRead + clearAll):本地 useState,
+ *   因 web 端未集成 NotificationProvider(Provider 在 layout 中包裹属后续工作,不在本任务范围)。
+ * - 桌面通知 + 声音播放 + 权限请求:全部委托给 shared 纯函数
+ *   (@ihui/shared/notifications/notification-store 的 SSR 安全 utils),
+ *   实现单一事实源 + 跨端复用。
+ * - WS 订阅 + AudioContext 解锁:web 独占逻辑,保留在本 hook 中。
+ */
 
 import * as React from 'react'
 
 import { useWebSocket, type WSNotification } from '@/hooks/use-websocket'
 import { fetchApi } from '@/lib/api'
 import type { NotificationItem } from '@ihui/types'
+import {
+  getDesktopPermission,
+  isSoundNotificationEnabled,
+  playNotificationSound,
+  requestDesktopNotificationPermission,
+  setSoundNotificationEnabled,
+  showDesktopNotification,
+  type DesktopPermission,
+} from '@ihui/shared/notifications/notification-store'
 
 export type { NotificationItem }
 
@@ -21,37 +35,12 @@ export interface UseNotificationReturn {
   markAsRead: (id: string) => Promise<void>
   clearAll: () => Promise<void>
   requestDesktopPermission: () => Promise<boolean>
-  desktopPermission: NotificationPermission | 'unsupported'
+  desktopPermission: DesktopPermission
   soundEnabled: boolean
   setSoundEnabled: (enabled: boolean) => void
 }
 
 const NON_NOTIFICATION_TYPES = ['ai_response', 'chat_message']
-
-const DESKTOP_NOTIFICATION_KEY = 'ihui-desktop-notification-enabled'
-const SOUND_NOTIFICATION_KEY = 'ihui-notification-sound-enabled'
-
-function isDesktopNotificationEnabled(): boolean {
-  if (typeof window === 'undefined') return false
-  return localStorage.getItem(DESKTOP_NOTIFICATION_KEY) === '1'
-}
-
-function setDesktopNotificationEnabled(enabled: boolean): void {
-  if (typeof window === 'undefined') return
-  if (enabled) localStorage.setItem(DESKTOP_NOTIFICATION_KEY, '1')
-  else localStorage.removeItem(DESKTOP_NOTIFICATION_KEY)
-}
-
-function isSoundNotificationEnabled(): boolean {
-  if (typeof window === 'undefined') return false
-  return localStorage.getItem(SOUND_NOTIFICATION_KEY) === '1'
-}
-
-function setSoundNotificationEnabled(enabled: boolean): void {
-  if (typeof window === 'undefined') return
-  if (enabled) localStorage.setItem(SOUND_NOTIFICATION_KEY, '1')
-  else localStorage.removeItem(SOUND_NOTIFICATION_KEY)
-}
 
 type AudioContextCtor = typeof AudioContext
 type WindowWithAudioContext = {
@@ -65,37 +54,11 @@ function getAudioContextCtor(): AudioContextCtor | null {
   return w.AudioContext ?? w.webkitAudioContext ?? null
 }
 
-function playNotificationSound(): void {
-  const AudioContextCtor = getAudioContextCtor()
-  if (!AudioContextCtor) return
-  try {
-    const ctx = new AudioContextCtor()
-    const oscillator = ctx.createOscillator()
-    const gainNode = ctx.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.value = 880
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
-    oscillator.connect(gainNode)
-    gainNode.connect(ctx.destination)
-    oscillator.start()
-    oscillator.stop(ctx.currentTime + 0.15)
-    oscillator.onended = () => {
-      ctx.close().catch(() => {})
-    }
-  } catch {
-    // 自动播放策略拦截或 AudioContext 不可用,静默
-  }
-}
-
 export function useNotification(): UseNotificationReturn {
   const [notifications, setNotifications] = React.useState<NotificationItem[]>([])
-  const [desktopPermission, setDesktopPermission] = React.useState<
-    NotificationPermission | 'unsupported'
-  >(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported'
-    return Notification.permission
-  })
+  const [desktopPermission, setDesktopPermission] = React.useState<DesktopPermission>(() =>
+    getDesktopPermission(),
+  )
   const [soundEnabled, setSoundEnabledState] = React.useState<boolean>(() =>
     isSoundNotificationEnabled(),
   )
@@ -115,6 +78,8 @@ export function useNotification(): UseNotificationReturn {
     setSoundEnabledState(enabled)
   }, [])
 
+  // AudioContext 解锁:首次用户交互(click/touchstart)后 resume suspended context,
+  // 避免后续播放提示音被浏览器自动播放策略拦截。web 独占,不迁移到 shared。
   React.useEffect(() => {
     if (typeof document === 'undefined') return
     const unlock = (): void => {
@@ -139,16 +104,10 @@ export function useNotification(): UseNotificationReturn {
   }, [])
 
   const requestDesktopPermission = React.useCallback(async (): Promise<boolean> => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return false
-    try {
-      const perm = await Notification.requestPermission()
-      setDesktopPermission(perm)
-      if (perm === 'granted') setDesktopNotificationEnabled(true)
-      else setDesktopNotificationEnabled(false)
-      return perm === 'granted'
-    } catch {
-      return false
-    }
+    const ok = await requestDesktopNotificationPermission()
+    if (!mountedRef.current) return ok
+    setDesktopPermission(getDesktopPermission())
+    return ok
   }, [])
 
   React.useEffect(() => {
@@ -159,26 +118,9 @@ export function useNotification(): UseNotificationReturn {
     const title = String(data.title ?? '新通知')
     const content = data.content ? String(data.content) : undefined
 
-    if (
-      typeof window !== 'undefined' &&
-      'Notification' in window &&
-      Notification.permission === 'granted' &&
-      isDesktopNotificationEnabled() &&
-      document.visibilityState === 'hidden'
-    ) {
-      try {
-        new Notification(title, {
-          body: content ?? '',
-          icon: '/favicon.ico',
-        })
-      } catch {
-        // 通知 API 失败静默(部分浏览器在 iframe 中受限)
-      }
-    }
-
-    if (isSoundNotificationEnabled()) {
-      playNotificationSound()
-    }
+    // 桌面通知 + 声音播放委托给 shared SSR 安全纯函数
+    showDesktopNotification(title, content)
+    if (isSoundNotificationEnabled()) playNotificationSound()
 
     setNotifications((prev) => [
       {

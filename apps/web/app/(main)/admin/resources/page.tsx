@@ -92,10 +92,9 @@ export default function AdminResourcesPage() {
               {t('categories')}
             </Link>
           </Button>
-          {/* TODO(项2.6): 旧项目 resource/product 为树形分类,当前 products/ProductDialog 为商品实体(绑定 resourceId/价格,非树);
-              后端 resource_products 表无 pid 列、无树分类接口,待后端补齐后再新建 product-categories 模块。 */}
+          {/* 产品树形分类:resource_products.pid 自引用列 + GET /api/admin/resources/products/tree 路由(2026-07-25 P2 治理补齐) */}
           <Button asChild variant="outline" size="sm">
-            <Link href="/admin/resources/products">
+            <Link href="/admin/resources/product-categories">
               <Package className="h-4 w-4" />
               {t('products')}
             </Link>

@@ -531,17 +531,13 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // POST /messages/:id/read - 占位:会话已读标记
-  // TODO: chatConversations 表无 lastReadAt 字段(现有: lastMessageAt/createdAt/updatedAt/archivedAt/compressedAt),
-  // 持久化已读状态需扩展 schema 增加 last_read_at 字段 + 配套 migration。当前仅校验会话归属后返回 202 Accepted,
-  // 明确告知客户端"已读标记已接收但未持久化"。
+  // POST /messages/:id/read - 标记会话已读(持久化 lastReadAt)
   server.post(
     '/messages/:id/read',
     {
       schema: {
         summary: '标记会话已读',
-        description:
-          '标记指定会话为已读(占位:chatConversations 无 lastReadAt 字段,返回 202 已接收但未持久化)',
+        description: '标记指定会话为已读,持久化 lastReadAt 时间戳',
         tags: ['message'],
         params: {
           type: 'object',
@@ -560,8 +556,11 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
         .where(and(eq(chatConversations.id, id), eq(chatConversations.userId, userId)))
         .limit(1)
       if (conv.length === 0) return reply.status(404).send(error(404, '会话不存在'))
-      // 202 Accepted:已读标记已接收,但 chatConversations 无 lastReadAt 字段,未持久化
-      return reply.status(202).send(success({ accepted: true, persisted: false }))
+      await db
+        .update(chatConversations)
+        .set({ lastReadAt: new Date(), updatedAt: new Date() })
+        .where(eq(chatConversations.id, id))
+      return reply.send(success({ accepted: true, persisted: true }))
     },
   )
 
