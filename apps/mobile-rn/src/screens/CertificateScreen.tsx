@@ -30,6 +30,18 @@ interface Certificate {
   cover: string | null
 }
 
+const CERT_FILTER_KEYS: Record<'all' | 'valid' | 'expired', string> = {
+  all: 'certificate.filter_all',
+  valid: 'certificate.filter_valid',
+  expired: 'certificate.filter_expired',
+}
+
+const CERT_STATUS_KEYS: Record<Certificate['status'], string> = {
+  valid: 'certificate.status_valid',
+  expired: 'certificate.status_expired',
+  revoked: 'certificate.status_revoked',
+}
+
 interface CertPage {
   list: Certificate[]
   total: number
@@ -102,7 +114,7 @@ export function CertificateScreen() {
             style={[styles.tab, selectedStatus === s && styles.tabActive]}
           >
             <Text style={[styles.tabText, selectedStatus === s && styles.tabTextActive]}>
-              {t(`certificate.filter_${s}`)}
+              {t(CERT_FILTER_KEYS[s])}
             </Text>
           </TouchableOpacity>
         ))}
@@ -158,9 +170,7 @@ export function CertificateScreen() {
                 ) : null}
               </View>
               <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
-                <Text style={styles.statusText}>
-                  {t(`certificate.status_${item.status}`)}
-                </Text>
+                <Text style={styles.statusText}>{t(CERT_STATUS_KEYS[item.status])}</Text>
               </View>
             </View>
             <TouchableOpacity onPress={() => onItemPress(item)} style={styles.detailBtn}>
