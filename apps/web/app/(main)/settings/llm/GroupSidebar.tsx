@@ -56,7 +56,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
   const [showAddInput, setShowAddInput] = React.useState(false)
   const createGroupMut = useMutation({
     mutationFn: (label: string) => createGroupV2(label),
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
       toast.success(t('groupCreated', { name: res.label }))
       setNewGroupName('')
       setShowAddInput(false)

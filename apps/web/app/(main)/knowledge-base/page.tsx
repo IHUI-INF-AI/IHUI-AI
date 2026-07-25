@@ -110,7 +110,7 @@ export default function KnowledgeBasePage() {
               <span>全部分类</span>
               <span className="text-xs opacity-70">{total}</span>
             </button>
-            {categories.map((c) => (
+            {categories.map((c: any) => (
               <button
                 key={c.id}
                 type="button"
@@ -161,7 +161,7 @@ export default function KnowledgeBasePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {items.map((item) => (
+              {items.map((item: any) => (
                 <Link key={item.id} href={`/knowledge-base/${item.id}`} className="block">
                   <Card className="transition-colors hover:bg-accent/50">
                     <CardHeader className="pb-2">

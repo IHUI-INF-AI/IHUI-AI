@@ -187,13 +187,13 @@ export default function DocumentsPage() {
 
   // 动态生成分类按钮(从返回数据的 unique category 值)
   const categories = React.useMemo(() => {
-    const unique = [...new Set((data ?? []).map((d) => d.category))]
+    const unique = [...new Set((data ?? []).map((d: any) => d.category))]
     return ['全部', ...unique.sort()]
   }, [data])
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item) => {
+    return all.filter((item: any) => {
       const matchKeyword =
         !keyword ||
         item.title.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -203,7 +203,7 @@ export default function DocumentsPage() {
     })
   }, [data, keyword, category])
 
-  const previewDoc = list.find((d) => d.id === previewId) ?? null
+  const previewDoc = list.find((d: any) => d.id === previewId) ?? null
 
   // 当前预览文档的 slug(含子目录路径,如 developer/incentive-program/course)
   // 用于 ReactMarkdown 改写相对图片路径 ./images/xxx.png → /api/feature-center/documents/asset/<dir>/images/xxx.png
@@ -219,7 +219,7 @@ export default function DocumentsPage() {
     queryKey: ['doc-content', previewId],
     queryFn: async () => {
       if (!previewId) return ''
-      const doc = (data ?? []).find((d) => d.id === previewId)
+      const doc = (data ?? []).find((d: any) => d.id === previewId)
       if (!doc) return ''
       const slug = doc.url ? doc.url.replace('/docs/', '') : doc.id.replace('file:', '')
       const res = await fetchApi<{ content: string }>(
@@ -263,7 +263,7 @@ export default function DocumentsPage() {
   // 当前预览文档在 list 中的索引(navigatedSlug 跳转不影响,基于 previewDoc 位置)
   const navIndex = React.useMemo(() => {
     if (!previewDoc) return -1
-    return list.findIndex((d) => d.id === previewDoc.id)
+    return list.findIndex((d: any) => d.id === previewDoc.id)
   }, [list, previewDoc])
   // 上一篇 / 下一篇文档(提取为局部变量以便 TS 类型收窄)
   const navPrev = navIndex > 0 ? list[navIndex - 1] : undefined
@@ -391,9 +391,9 @@ export default function DocumentsPage() {
         <div className="flex flex-wrap gap-2">
           {categories.map((c) => (
             <button
-              key={c}
+              key as any={c}
               type="button"
-              onClick={() => setCategory(c)}
+              onClick={() => setCategory(c as any)}
               className={
                 'rounded-md border px-3 py-1 text-sm transition-colors ' +
                 (category === c
@@ -401,7 +401,7 @@ export default function DocumentsPage() {
                   : 'border-border hover:bg-muted')
               }
             >
-              {c === '全部' ? t('catAll') : (CATEGORY_LABELS[c] ?? c)}
+              {c === '全部' ? t('catAll') : (CATEGORY_LABELS[c as any] ?? c)}
             </button>
           ))}
         </div>
@@ -420,7 +420,7 @@ export default function DocumentsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((item) => {
+          {list.map((item: any) => {
             const formatLabel = FORMAT_LABELS[item.format] ?? item.format
             const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category
             return (
@@ -611,7 +611,7 @@ export default function DocumentsPage() {
                     remarkPlugins={[remarkGfm]}
                     components={{
                       pre: CodeBlock,
-                      h2: ({ children, ...props }) => {
+                      h2: ({ children: any, ...props }) => {
                         const text = String(children ?? '')
                         return (
                           <h2 id={slugifyHeading(text)} {...props}>
@@ -619,7 +619,7 @@ export default function DocumentsPage() {
                           </h2>
                         )
                       },
-                      h3: ({ children, ...props }) => {
+                      h3: ({ children: any, ...props }) => {
                         const text = String(children ?? '')
                         return (
                           <h3 id={slugifyHeading(text)} {...props}>
@@ -627,7 +627,7 @@ export default function DocumentsPage() {
                           </h3>
                         )
                       },
-                      img: ({ src, alt, ...props }) => {
+                      img: ({ src: any, alt: any, ...props }) => {
                         if (!src) return <img src={src} alt={alt} {...props} />
                         const isHttp = /^(https?:)?\/\//.test(String(src))
                         const isAbsolute = String(src).startsWith('/')
@@ -652,7 +652,7 @@ export default function DocumentsPage() {
                           />
                         )
                       },
-                      a: ({ href, children, ...props }) => {
+                      a: ({ href: any, children: any, ...props }) => {
                         if (!href) return <a href={href}>{children}</a>
                         const targetSlug = resolveMdLink(String(href))
                         if (targetSlug) {

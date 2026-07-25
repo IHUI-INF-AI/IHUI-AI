@@ -166,7 +166,7 @@ export default function MemberDashboardPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
             <ul className="divide-y">
-              {orders.map((o) => (
+              {orders.map((o: any) => (
                 <li key={o.id} className="flex items-center gap-3 px-4 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{o.targetTitle ?? o.orderNo}</p>

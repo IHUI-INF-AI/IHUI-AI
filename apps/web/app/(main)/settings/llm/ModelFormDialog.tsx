@@ -118,7 +118,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
       }
       return createModelV2(provider.id, f)
     },
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
       const modelIdEcho = 'modelId' in res ? res.modelId : undefined
       toast.success(form.id ? t('saved') : t('created'), {
         description: modelIdEcho ? `「${modelIdEcho}」` : undefined,
