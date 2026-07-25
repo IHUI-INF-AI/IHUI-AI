@@ -168,7 +168,7 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
       if (audioPollingRef.current) clearInterval(audioPollingRef.current)
       let attempts = 0
       const MAX_ATTEMPTS = 60 // 2 分钟超时(2000ms × 60)
-      // TODO: POST /api/ai/keling/audio/end 后端校准
+      // POST /api/ai/keling/audio/end 后端已校准(routes/ai-frontend-routes.ts:304,2026-07-25 P2 治理)
       audioPollingRef.current = setInterval(async () => {
         attempts++
         if (attempts >= MAX_ATTEMPTS) {
@@ -211,7 +211,7 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
       if (videoPollingRef.current) clearInterval(videoPollingRef.current)
       let attempts = 0
       const MAX_ATTEMPTS = 60 // 2 分钟超时(2000ms × 60)
-      // TODO: POST /api/ai/sora/request/end 后端校准
+      // POST /api/ai/sora/request/end 后端已校准(routes/ai-frontend-routes.ts:319,2026-07-25 P2 治理)
       videoPollingRef.current = setInterval(async () => {
         attempts++
         if (attempts >= MAX_ATTEMPTS) {

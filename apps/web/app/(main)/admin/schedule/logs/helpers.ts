@@ -1,4 +1,5 @@
 import { listJobLogs, cleanJobLogs, type PageData } from '@ihui/api-client'
+import { fetchApi } from '@/lib/api'
 import type { JobLog, JobLogFilter, JobLogSearch, JobLogStatus } from './types'
 
 export const PAGE_SIZE = 10
@@ -44,9 +45,12 @@ export async function clearJobLogs(): Promise<void> {
   if (!r.success) throw new Error(r.error)
 }
 
-// TODO: 后端未暴露 DELETE /api/admin/job/log/:id 单条删除路由
-// （db 层 admin-sys-queries.ts 有 deleteJobLog，但 routes/admin-sys.ts 未注册）。
-// 待后端补路由后,改用 delAdminJobLog / 直接 fetchApi DELETE。
-export async function deleteJobLog(_id: string | number): Promise<void> {
-  throw new Error('单条删除接口待后端实现')
+// DELETE /api/admin/job/log/:id — 单条任务日志删除
+// 后端路由在 routes/admin-sys/job-log-routes.ts 注册(2026-07-25 P2 治理补齐)
+export async function deleteJobLog(id: string | number): Promise<void> {
+  const r = await fetchApi<{ id: number; deleted: boolean }>(
+    `/api/admin/job/log/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  )
+  if (!r.success) throw new Error(r.error)
 }
