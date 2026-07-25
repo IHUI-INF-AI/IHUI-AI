@@ -95,6 +95,33 @@ export function recordModeChange(entry: ModeChangeEntry): void {
 }
 
 /**
+ * 更新最新一条记录的 source(2026-07-25 深化,来源精细化)
+ *
+ * 调用时机:模式切换先由 message-input useEffect 写入 source='popover' 占位,
+ * 真正的来源(shift-tab / slash / auto-revert)在自己的代码路径切完模式后
+ * 调本函数覆盖最新一条的 source,避免在 5 个调用点 (popover handleSelect /
+ * cyclePermissionMode / use-chat.ts /permission / auto-revert hook /
+ * FullAccessConfirmBridge) 重复改 useEffect 内的 if 分支。
+ *
+ * @param source - 新的来源标识
+ * @param predicate - 可选,只更新满足条件的最新记录(默认:任意模式)
+ * @returns 是否成功更新(没记录/不匹配 → false)
+ */
+export function updateLatestRecordSource(
+  source: ModeChangeSource,
+  predicate?: (entry: ModeChangeEntry) => boolean,
+): boolean {
+  if (typeof window === 'undefined') return false
+  const all = readAll()
+  if (all.length === 0) return false
+  const latest = all[0]!
+  if (predicate && !predicate(latest)) return false
+  all[0] = { ...latest, source }
+  writeAll(all)
+  return true
+}
+
+/**
  * 取最近 N 条记录(2026-07-25 立)
  *
  * @param workspacePath - 可选,只返回该工作区的记录(空字符串 = 未绑定)

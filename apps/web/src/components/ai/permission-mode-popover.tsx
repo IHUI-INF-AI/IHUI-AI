@@ -179,10 +179,15 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         }
       }
       updateMode.mutate(mode, {
-        onError: () => {
+        onError: (err) => {
           if (activeWorkspace && previousMode !== undefined) {
             setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
           }
+          // 切模式失败 → 错误 toast(2026-07-25 深化,与 cyclePermissionMode 行为一致)
+          // 复用 cycleError key,避免再增 1 个仅 popover 用的 key 引起 i18n 噪声
+          toast.error(
+            t('cycleError', { error: err instanceof Error ? err.message : String(err) }),
+          )
         },
         onSuccess: () => {
           // 切到完全访问(bypass-permissions)→ 弹 5s 撤销 toast,防误操作
