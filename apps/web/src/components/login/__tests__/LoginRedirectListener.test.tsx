@@ -9,13 +9,19 @@ import React from 'react'
  * - `?reauth=1&next=<公开路径>` → 不弹窗,清理 URL(回归根因:旧版 reauth 分支无 isPublicPath 检查)
  * - `?reauth=1&next=<受保护路径>` → 弹窗,清理 URL
  * - `login_redirect=<公开路径>` cookie → 不弹窗,清理 cookie
- * - `login_redirect=<受保护路径>` cookie → 弹窗,清理 cookie
+ * - `login_redirect=<受保护路径>` cookie + 当前页面是公开页面 → 不弹窗(2026-07-26 新增:用户要求)
+ * - `login_redirect=<受保护路径>` cookie + 当前页面是受保护页面 → 弹窗 + 清理 cookie
  * - 无 reauth 无 cookie → 不弹窗
  *
  * 深度根治(2026-07-24):
  * - LoginRedirectListener 改用共享模块 `@/lib/login-dialog-trigger` 的 isPublicPath + openLoginDialogOnce
  * - 测试用真实共享模块 + mock 底层 store,验证端到端行为
  * - openLoginDialogOnce 自带全局去重 guard,每个 case 前 __resetOpenGuardForTest 重置
+ *
+ * 2026-07-26 加强:cookie 分支额外检查当前路径,避免"在公开页面刷新残留 cookie"误弹
+ *  - 用户场景:先访问 /dashboard → 留下 cookie login_redirect=/dashboard → 在首页 / 刷新
+ *  - 旧逻辑:target=/dashboard 不是公开 → 弹窗(违反用户"刷新进项目不要弹窗")
+ *  - 新逻辑:当前路径 / 是公开 → 不弹窗
  *
  * 目的:固定两个分支(reauth + cookie)的懒触发契约,防止后续 agent 误改回"全路径弹窗"。
  * 历史教训:a0bc9e5c5 只修了 cookie 分支,reauth 分支"保持不变"导致刷新 `/?reauth=1&next=/` 仍弹窗。
@@ -121,8 +127,37 @@ describe('LoginRedirectListener 懒触发策略', () => {
     expect(mocks.cookie.value).not.toContain('login_redirect=')
   })
 
-  it('login_redirect=/dashboard cookie (target 是受保护路径) → 弹窗 + cookie 被清理', () => {
+  it('login_redirect=/dashboard cookie 在 / (公开页面) → 不弹窗 + cookie 被清理(2026-07-26 加强:用户要求"刷新进项目不要弹窗")', () => {
+    // 模拟用户场景:先访问 /dashboard 留下 cookie,然后在首页 / 刷新
+    // 旧逻辑:target=/dashboard 不是公开 → 弹窗(违反用户约定)
+    // 新逻辑:当前路径 / 是公开 → 不弹窗(用户已在公开页面,弹窗纯属打扰)
     mocks.cookie.value = 'login_redirect=' + encodeURIComponent('/dashboard')
+    window.history.replaceState({}, '', '/')
+
+    render(<LoginRedirectListener />)
+
+    expect(mocks.open).not.toHaveBeenCalled()
+    expect(mocks.cookie.value).not.toContain('login_redirect=')
+  })
+
+  it('login_redirect=/dashboard cookie 在 /dashboard (受保护页面) → 弹窗 + cookie 被清理', () => {
+    // 模拟用户场景:在受保护页面 /dashboard 刷新,确实需要登录
+    // 当前路径 + cookie target 都是受保护路径 → 弹窗
+    mocks.cookie.value = 'login_redirect=' + encodeURIComponent('/dashboard')
+    window.history.replaceState({}, '', '/dashboard')
+
+    render(<LoginRedirectListener />)
+
+    expect(mocks.open).toHaveBeenCalledTimes(1)
+    expect(mocks.open).toHaveBeenCalledWith('login', '/dashboard')
+    expect(mocks.cookie.value).not.toContain('login_redirect=')
+  })
+
+  it('login_redirect=/dashboard cookie 在 /chat (受保护页面) → 弹窗 + cookie 被清理', () => {
+    // 模拟用户场景:cookie 残留 /dashboard,但用户当前在 /chat 受保护页面
+    // 当前路径是受保护 + target 也是受保护 → 弹窗(用户没登录访问受保护页面)
+    mocks.cookie.value = 'login_redirect=' + encodeURIComponent('/dashboard')
+    window.history.replaceState({}, '', '/chat')
 
     render(<LoginRedirectListener />)
 

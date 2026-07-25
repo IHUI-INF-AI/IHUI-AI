@@ -59,6 +59,25 @@ const LANGUAGE_AUTOGLOSSONYMS = new Set([
   '日本語', '日本语',
 ])
 
+// 跨语言品牌名标注白名单(2026-07-26 立)
+// en.json 中允许在括号内附中文品牌名做 SEO 标注(IHUI AI / 智汇 AI 双名标注),
+// 这是 i18n §19 brand-glossary.json 规则允许的"品牌名/公司名优先 canonical 英文名"
+// 的合理扩展。豁免:整体 value 含此白名单中的品牌名。
+// 注意:仅豁免"括号内引用"形式(value 含 `品牌名` 但周围是括号或"(Chinese: 品牌名)"形式),
+// 避免把整句中文误判放过。
+const BRAND_NAME_ZH = ['智汇 AI', '智汇AI']
+function isBrandNameInParens(v) {
+  // 匹配 (智汇 AI) / (Chinese: 智汇 AI) / （智汇 AI） 三种形式
+  for (const name of BRAND_NAME_ZH) {
+    if (v.includes(name)) {
+      // 中文外必须被括号包裹
+      const re = new RegExp(`[(\uff08][^)）]*?${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^)）]*?[)）]`)
+      if (re.test(v)) return true
+    }
+  }
+  return false
+}
+
 // 检测规则（按优先级，避免误报优先）
 function detectBroken(value) {
   if (!value || typeof value !== 'string') return null
@@ -67,7 +86,11 @@ function detectBroken(value) {
   // 语言原生名称白名单(语言选择器本名,非中文残留)
   if (LANGUAGE_AUTOGLOSSONYMS.has(v)) return null
   // 中文残留（兜底）
-  if (/[\u4e00-\u9fff]/.test(v)) return 'zh-residue'
+  if (/[\u4e00-\u9fff]/.test(v)) {
+    // 豁免:跨语言品牌名标注(括号内附中文品牌名,如 "IHUI AI (智汇 AI)")
+    if (isBrandNameInParens(v)) return null
+    return 'zh-residue'
+  }
   // 全空格分隔的英文不检
   if (!/[A-Z]/.test(v)) return null
 
