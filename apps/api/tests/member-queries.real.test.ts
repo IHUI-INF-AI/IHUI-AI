@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { sql } from 'drizzle-orm'
-import bcrypt from 'bcryptjs'
+import { verifyPassword } from '../src/utils/password-crypto.js'
 import { db } from '../src/db/index.js'
 import {
   hashPassword,
@@ -57,20 +57,20 @@ describe('member-queries — 真实 DB 集成测试', () => {
   })
 
   describe('hashPassword', () => {
-    it('hashPassword — 空字符串返回空', () => {
-      expect(hashPassword('')).toBe('')
-      // hashPassword 现在用 bcrypt 10 轮,返回 $2a$10$... 格式
-      const h = hashPassword('123456')
-      expect(h).toMatch(/^\$2[aby]\$\d{2}\$/)
-      expect(bcrypt.compareSync('123456', h)).toBe(true)
+    it('hashPassword — 空字符串返回空', async () => {
+      expect(await hashPassword('')).toBe('')
+      // hashPassword 现在用 argon2id,返回 $argon2id$... 格式
+      const h = await hashPassword('123456')
+      expect(h).toMatch(/^\$argon2id\$/)
+      expect(await verifyPassword('123456', h)).toBe(true)
     })
 
-    it('hashPasswordBcrypt — bcrypt 哈希,同密码不同输出(自带 salt)', () => {
-      const a = hashPasswordBcrypt('123456')
-      const b = hashPasswordBcrypt('123456')
-      expect(a).not.toBe(b) // bcrypt salt 不同 → 输出不同
-      expect(bcrypt.compareSync('123456', a)).toBe(true)
-      expect(bcrypt.compareSync('123456', b)).toBe(true)
+    it('hashPasswordBcrypt — argon2id 哈希,同密码不同输出(自带 salt)', async () => {
+      const a = await hashPasswordBcrypt('123456')
+      const b = await hashPasswordBcrypt('123456')
+      expect(a).not.toBe(b) // argon2id salt 不同 → 输出不同
+      expect(await verifyPassword('123456', a)).toBe(true)
+      expect(await verifyPassword('123456', b)).toBe(true)
     })
 
     it('hashPasswordLegacy — 旧 SHA-256 哈希保留,仅供数据迁移', () => {
@@ -83,12 +83,12 @@ describe('member-queries — 真实 DB 集成测试', () => {
   })
 
   describe('会员 CRUD', () => {
-    it('createMember + findMemberById — 密码自动 bcrypt 哈希(2026-07-21 安全审计加固)', async () => {
+    it('createMember + findMemberById — 密码自动 argon2id 哈希(2026-07-25 国安级升级)', async () => {
       const m = await createMember({ username: 'alice', password: '123456', status: 1 })
       expect(m.username).toBe('alice')
-      // 2026-07-21 起密码用 bcrypt,bcrypt 哈希含 salt 不可直接比较
-      expect(m.password).toMatch(/^\$2[aby]\$\d{2}\$/)
-      expect(bcrypt.compareSync('123456', m.password)).toBe(true)
+      // 2026-07-25 起密码用 argon2id,哈希含 salt 不可直接比较
+      expect(m.password).toMatch(/^\$argon2id\$/)
+      expect(await verifyPassword('123456', m.password)).toBe(true)
       expect(m.status).toBe(1)
       const found = await findMemberById(m.id)
       expect(found?.username).toBe('alice')
@@ -160,11 +160,12 @@ describe('member-queries — 真实 DB 集成测试', () => {
       expect(unbanned?.status).toBe(1)
     })
 
-    it('resetMemberPassword — 重新 sha256 哈希', async () => {
+    it('resetMemberPassword — 重新 argon2id 哈希', async () => {
       const m = await createMember({ username: 'reset', password: 'old' })
       const r = await resetMemberPassword(m.id, 'newpass')
-      expect(r?.password).toBe(hashPassword('newpass'))
-      expect(r?.password).not.toBe(hashPassword('old'))
+      expect(r?.password).toMatch(/^\$argon2id\$/)
+      expect(await verifyPassword('newpass', r?.password ?? '')).toBe(true)
+      expect(await verifyPassword('old', r?.password ?? '')).toBe(false)
     })
 
     it('deleteMember — 删除后查不到', async () => {
@@ -175,14 +176,14 @@ describe('member-queries — 真实 DB 集成测试', () => {
   })
 
   describe('注册', () => {
-    it('registerMember — 用户名注册成功 + 默认 status=1 + 密码 bcrypt 哈希', async () => {
+    it('registerMember — 用户名注册成功 + 默认 status=1 + 密码 argon2id 哈希', async () => {
       const m = await registerMember({ username: 'newuser', password: 'pw', nickname: 'New' })
       expect(m.username).toBe('newuser')
       expect(m.nickname).toBe('New')
       expect(m.status).toBe(1)
-      // 2026-07-21 起密码用 bcrypt,bcrypt 哈希含 salt 不可直接比较
-      expect(m.password).toMatch(/^\$2[aby]\$\d{2}\$/)
-      expect(bcrypt.compareSync('pw', m.password)).toBe(true)
+      // 2026-07-25 起密码用 argon2id,哈希含 salt 不可直接比较
+      expect(m.password).toMatch(/^\$argon2id\$/)
+      expect(await verifyPassword('pw', m.password)).toBe(true)
     })
 
     it('registerMember — 用户名重复抛 MemberConflictError', async () => {
