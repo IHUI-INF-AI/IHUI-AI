@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
-import { LEVEL_MAP } from './helpers'
+import { LEVEL_MAP, LEVEL_KEY } from './helpers'
 
 interface Props {
   search: string
@@ -56,7 +56,7 @@ export function StudentFilter({
             <SelectItem value="all">{t('allLevels')}</SelectItem>
             {Object.entries(LEVEL_MAP).map(([k, v]) => (
               <SelectItem key={k} value={k}>
-                {t(`level.${v}`)}
+                {t(LEVEL_KEY[v] ?? 'level.unknown')}
               </SelectItem>
             ))}
           </SelectContent>
