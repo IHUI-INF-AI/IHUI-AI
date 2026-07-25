@@ -362,7 +362,37 @@
     "memberFeedback": "我的反馈",
     "memberHelp": "帮助",
     "memberSettings": "会员设置",
-    "eduExam": "考试"
+    "eduExam": "考试",
+    "downloadWeb": "Web 版",
+    "downloadWebDesc": "浏览器直接访问,无需安装",
+    "downloadDesktop": "桌面客户端",
+    "downloadDesktopDesc": "Windows / macOS / Linux 全平台支持",
+    "downloadIOS": "iOS App",
+    "downloadIOSDesc": "iPhone / iPad 随时使用",
+    "downloadAndroidApk": "Android APK",
+    "downloadAndroidDesc": "Android 原生安装包",
+    "downloadMobile": "移动端 H5",
+    "downloadMobileDesc": "H5 移动端,扫码即用",
+    "downloadWechatMiniApp": "微信小程序",
+    "downloadMiniDesc": "微信扫码,即开即用",
+    "downloadExtension": "浏览器插件",
+    "downloadExtensionDesc": "Chrome / Edge / Firefox 全支持",
+    "downloadCli": "命令行工具",
+    "downloadCliDesc": "终端一键调用,脚本化集成",
+    "adminGroup": {
+      "operation": "运营管理",
+      "moderation": "内容审核",
+      "finance": "财务管理",
+      "aiAgent": "AI 智能体",
+      "marketing": "营销直播",
+      "courseExam": "课程考试",
+      "analytics": "监控 BI",
+      "support": "客服工单",
+      "community": "社区圈子",
+      "resource": "资源中心",
+      "developer": "开发者中心",
+      "saas": "SaaS 平台"
+    }
   },
   "auth": {
     "loginTitle": "欢迎回来",
@@ -696,7 +726,14 @@
       "act": "切换到执行模式(AI 正常执行工具,默认)",
       "permissionAsk": "切换到请求批准模式(AI 操作前需确认)",
       "permissionAuto": "切换到替我审批模式(自动批准安全操作)",
-      "permissionFull": "切换到完全访问模式(高风险,无确认)"
+      "permissionFull": "切换到完全访问模式(高风险,无确认)",
+      "summary": "总结当前对话",
+      "translate": "翻译选中文本",
+      "explain": "解释代码或概念",
+      "code": "生成代码",
+      "polish": "润色文本",
+      "wechat-article": "写微信公众号文章",
+      "koubo-script": "写口播视频脚本"
     },
     "cmdSummary": "请总结以上对话内容，提炼关键信息",
     "cmdTranslate": "请将以下内容翻译为英文：",
@@ -809,7 +846,11 @@
       "compressResultDesc": "原始 {original} 字符 → 压缩后 {compressed} 字符",
       "ratio": "压缩比",
       "noConversation": "新建任务后才能压缩",
-      "disclaimer": "Token 数为客户端估算,与服务端精确计数可能存在 ±10% 误差。压缩后内容将作为后续对话的上下文摘要。"
+      "disclaimer": "Token 数为客户端估算,与服务端精确计数可能存在 ±10% 误差。压缩后内容将作为后续对话的上下文摘要。",
+      "lowUsage": "使用较低",
+      "mediumUsage": "使用中等",
+      "highUsage": "使用较高",
+      "criticalUsage": "即将耗尽"
     },
     "permission": {
       "buttonLabel": "权限模式",
@@ -942,7 +983,11 @@
           "3": "不可逆操作的风险由你承担"
         }
       }
-    }
+    },
+    "modePlan": "规划",
+    "modeAct": "执行",
+    "planTooltip": "Plan:AI 只制定计划,不执行工具(Alt+P 切换 / 输入 /plan)",
+    "actTooltip": "Act:AI 正常执行工具(Alt+P 切换 / 输入 /act)"
   },
   "learn": {
     "title": "学习中心",
@@ -8565,32 +8610,58 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"]
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"]
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"]
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"]
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"]
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -8912,19 +8983,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -9044,25 +9127,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
