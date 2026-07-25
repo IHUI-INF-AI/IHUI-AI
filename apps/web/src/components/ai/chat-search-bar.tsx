@@ -18,6 +18,16 @@ interface ChatSearchBarProps {
   onScrollToMessage: (id: string) => void
 }
 
+// 性能修复(2026-07-25):Intl.DateTimeFormat 构造涉及 ICU 数据加载,
+// 原每次 formatTime 调用(每个搜索结果项一次)都新建 formatter。
+// 提到模块级常量,locale 固定 zh-CN,只构造一次。
+const LONG_AGO_DATE_FMT = new Intl.DateTimeFormat('zh-CN', {
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
 /** 格式化时间为相对时间 */
 function formatTime(time: string): string {
   if (!time) return ''
@@ -31,12 +41,7 @@ function formatTime(time: string): string {
   if (hours < 24) return `${hours}小时前`
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}天前`
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
+  return LONG_AGO_DATE_FMT.format(date)
 }
 
 /**
