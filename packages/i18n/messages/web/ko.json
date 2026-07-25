@@ -5521,6 +5521,32 @@
         "success": "생성 성공",
         "error": "모듈 이름을 입력해 주세요"
       }
+    },
+    "aiMetrics": {
+      "title": "AI 운영 지표",
+      "subtitle": "SSE 스트리밍, Prompt 캐시 및 VIP 할인 모니터링",
+      "backToCost": "비용 대시보드로 돌아가기",
+      "loadFailed": "로딩 실패, 잠시 후 재시도해 주세요",
+      "lastRefresh": "마지막 새로고침: {time}",
+      "sseMetrics": "SSE 스트리밍 지표",
+      "sseMetricsDesc": "실시간 채팅 스트림 끊김 및 속도 제한 카운터",
+      "sseTimeouts": "타임아웃",
+      "sseRateLimitHits": "속도 제한 적중",
+      "sseBudgetRejects": "예산 거부",
+      "sseRetryAfterSent": "재시도 알림",
+      "sseUpstreamErrors": "업스트림 오류",
+      "promptCache": "Prompt 캐시",
+      "promptCacheDesc": "L1/L2 캐시 적중 및 오류",
+      "pcL1Hits": "L1 적중",
+      "pcL1Misses": "L1 미스",
+      "pcL2Hits": "L2 적중",
+      "pcL2Misses": "L2 미스",
+      "pcErrors": "오류",
+      "vipDiscount": "VIP 할인",
+      "vipDiscountDesc": "VIP 사용자 할인 신청 통계",
+      "vipApplies": "신청 수",
+      "vipTotalDiscounted": "총 할인액",
+      "vipLevel": "VIP {level}"
     }
   },
   "knowledgeGraph": {
@@ -6658,7 +6684,7 @@
       },
       "hours": {
         "title": "서비스 시간",
-        "weekday": "영업일",
+        "weekday": "주중",
         "weekend": "주말",
         "holiday": "공휴일",
         "closed": "휴무"
@@ -7046,7 +7072,10 @@
     "rangeLabel": "기간",
     "range1d": "최근 1일",
     "range7d": "최근 7일",
-    "range30d": "최근 30일"
+    "range30d": "최근 30일",
+    "l1HitRate": "L1 캐시 적중률",
+    "l2HitRate": "L2 캐시 적중률",
+    "promptCacheErrors": "캐시 오류"
   },
   "wallet": {
     "title": "AI인마음페이스테스트",
