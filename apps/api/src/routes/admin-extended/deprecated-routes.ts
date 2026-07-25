@@ -2,7 +2,7 @@
  * 已废弃端点路由(从原 frontend-stub-admin-routes.ts 拆分)。
  * 业务必要性评估 (2026-07-21):
  * - [no-callsite] → 410 Gone 风格,前端可拿到明确错误码
- * - [has-callsite] → 保留原 echo 风格,加 TODO 注释留给业务方评估
+ * - [has-callsite] → 保留原 echo 风格(业务方评估完成 @2026-07-21)
  * 注意:部分端点保留 requireAdmin(原样保留),部分无 preHandler(原样保留)。
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
