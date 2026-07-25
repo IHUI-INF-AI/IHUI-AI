@@ -19,6 +19,26 @@ export function success<T>(data: T): ApiSuccess<T> {
   return { code: 0, message: 'success', data }
 }
 
+export interface PaginatedData<T> {
+  items: T[]
+  total: number
+  page?: number
+  pageSize?: number
+}
+
+export function paginatedSuccess<T>(
+  items: T[],
+  total: number,
+  meta?: { page?: number; pageSize?: number },
+): ApiSuccess<PaginatedData<T>> {
+  return success<PaginatedData<T>>({
+    items,
+    total,
+    page: meta?.page,
+    pageSize: meta?.pageSize,
+  })
+}
+
 export function error(code: number, message: string): ApiError {
   return { code, message }
 }
