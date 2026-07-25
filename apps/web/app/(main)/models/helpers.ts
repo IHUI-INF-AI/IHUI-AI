@@ -129,6 +129,40 @@ export const PROVIDER_GROUPS: { key: ProviderGroup; providers: Provider[] }[] = 
 export const PROVIDERS: Provider[] = PROVIDER_GROUPS.flatMap((g) => g.providers)
 
 /**
+ * 厂商 i18n key 静态映射表:providers.{provider}
+ */
+export const PROVIDER_KEY: Record<string, string> = Object.fromEntries(
+  PROVIDERS.map((p) => [p, `providers.${p}`]),
+)
+
+/**
+ * 排序 i18n key 静态映射表:sort.{key}
+ */
+export const SORT_KEY: Record<string, string> = {
+  recommended: 'sort.recommended',
+  priceAsc: 'sort.priceAsc',
+  priceDesc: 'sort.priceDesc',
+  contextDesc: 'sort.contextDesc',
+  nameAsc: 'sort.nameAsc',
+}
+
+/**
+ * 快捷筛选 i18n key 静态映射表:quickFilters.{key}
+ */
+export const QUICK_FILTER_KEY: Record<string, string> = {
+  favorite: 'quickFilters.favorite',
+  configured: 'quickFilters.configured',
+  notConfigured: 'quickFilters.notConfigured',
+  free: 'quickFilters.free',
+  longContext: 'quickFilters.longContext',
+  reasoning: 'quickFilters.reasoning',
+  vision: 'quickFilters.vision',
+  coding: 'quickFilters.coding',
+  chinese: 'quickFilters.chinese',
+  openSource: 'quickFilters.openSource',
+}
+
+/**
  * 推荐模型 id 集合:用于 highlight 标记 + "推荐排序" 加权
  * 选取标准:plan 套餐已接入 / 行业旗舰 / 项目默认模型
  */
