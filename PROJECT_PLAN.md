@@ -132,6 +132,67 @@
 
 ---
 
+### [x] ✅(2026-07-25) 业务层共享启动阶段 10 — extension + miniapp-taro 端 useAuth 集成测试(双 subagent 并行,33 场景全绿,验证 useAuth hook 在 3 种存储后端下的一致性,跨端:packages/shared + apps/extension + apps/miniapp-taro,平台独占 — 双端单端验证,共享层 hook + factory 由阶段 3-4 提供)
+
+**触发**:阶段 7(mobile-rn 集成测试 15 场景全绿)完成后用户要求"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。阶段 8-9 由其他 agent 完成(三端接入 bindTokenStoreToApiClient + shared parity 升级 blocking),本阶段补齐 extension + miniapp-taro 端的 useAuth 集成测试,验证 useAuth hook 在 3 种存储后端下的一致性。
+
+**执行方式**:双 subagent 并行(general_purpose_task),主 agent 协调 + 验证 + commit。每个 subagent 独立完成自己端的测试文件 + 自验(typecheck + lint + test 全绿)。
+
+**成果清单**:
+
+#### P0:extension 端 16 场景集成测试(全绿)
+
+- [apps/extension/tests/use-auth.test.tsx](file:///g:/IHUI-AI/apps/extension/tests/use-auth.test.tsx) — 678 行,16 个测试场景
+  - 场景 1-15:与 mobile-rn 模板一致,用 `createInMemoryTokenStore` 作为 mock store
+  - 场景 16(extension 特色):用 extension 端真实 `tokenStore`(lib/token.ts)+ chrome.storage.local mock,验证 login 写入 `ihui_token`/`ihui_refresh_token`、logout 清除存储
+  - 自包含最小 DOM shim(ShimNode/ShimElement/ShimText/ShimDocument/ShimWindow)+ 自定义 renderHook/act/waitFor(因 extension 端无 jsdom / @testing-library/react 依赖)
+  - react-dom 19 兼容性处理:补齐 HTMLIFrameElement/HTMLInputElement 等 DOM API
+
+#### P0:miniapp-taro 端 17 场景集成测试(全绿)
+
+- [apps/miniapp-taro/tests/use-auth.test.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/tests/use-auth.test.tsx) — 743 行,17 个测试场景
+  - 场景 1-15:与 mobile-rn/extension 模板一致,用 `createInMemoryTokenStore` 作为 mock store
+  - 场景 16(miniapp-taro 特色):用 miniapp-taro 端真实 `tokenStore`(src/utils/auth.ts)+ Taro.storage mock,验证同步存储语义 + 空串表空特色 + TokenStoreWithUserInfo 的 getUserInfo/setUserInfo
+  - 场景 17:login + Taro.storage 组合契约(login 写入 storage,logout 清除 storage)
+  - 自包含 DOM shim(参考 extension 模式,适配 react 18)
+
+#### P0:miniapp-taro vitest.config.ts dual React 修复
+
+- [apps/miniapp-taro/vitest.config.ts](file:///g:/IHUI-AI/apps/miniapp-taro/vitest.config.ts) — 添加 react/react-dom alias 解决 dual React 问题
+  - 根因:`@ihui/shared` 源码从 packages/shared 上下文解析 react → react@19.0.0,而 react-dom@18.3.1 从 apps/miniapp-taro 上下文解析 react → react@18.3.1。两个 react 实例导致 useState dispatcher 为 null
+  - 解决:在 vitest.config.ts 的 `resolve.alias` 中用 RegExp `{ find: /^react$/, replacement: ... }` 强制全模块图 react/react-dom import 解析到 miniapp-taro 的 react@18.3.1
+  - RegExp `^react$` 精确匹配包名,不影响 react-dom / react/jsx-runtime 等子路径
+
+#### P0:3 种存储后端一致性验证
+
+| 端 | 存储后端 | 同步/异步 | 空值表示 | 测试场景数 | 结果 |
+| --- | --- | --- | --- | --- | --- |
+| mobile-rn | SecureStore | 异步 | null | 15 | ✅ 全绿 |
+| extension | chrome.storage.local | 异步 | null | 16 | ✅ 全绿 |
+| miniapp-taro | Taro.storage | 同步 | ''(空串) | 17 | ✅ 全绿 |
+
+- useAuth hook 在 3 种存储后端下行为一致(48 场景全绿)
+- miniapp-taro 空串表空特色通过类型协变兼容(string 是 string \| null 的子类型)
+- TokenStore 基础契约 + TokenStoreWithUserInfo 扩展契约均验证通过
+
+**验证**:
+
+- @ihui/extension test:16 passed (16) ✅ 耗时 53ms
+- @ihui/extension typecheck ✅ exit 0
+- @ihui/extension lint(use-auth.test.tsx 干净)✅ exit 0
+- @ihui/miniapp-taro test:17 passed (17) ✅ 耗时 38ms
+- @ihui/miniapp-taro typecheck ✅ exit 0
+- @ihui/miniapp-taro lint(use-auth.test.tsx 干净)✅ exit 0
+- 三端累计 48 场景全绿(mobile-rn 15 + extension 16 + miniapp-taro 17)
+
+**Git 同步证据**:
+
+- miniapp-taro 测试文件 + vitest.config.ts 已由 subagent commit `9a890acde` push ✅
+- extension 测试文件 + PROJECT_PLAN.md:本 commit
+- 守门脚本:git-push-guard.mjs 验证通过
+
+---
+
 ### [x] ✅(2026-07-25) 业务层共享启动阶段 9(收尾)— shared parity 升级 blocking + desktop/mobile-rn 接入评估(跨端:scripts,平台独占 — 守门脚本配置调整)
 
 **触发**:阶段 8 完成后用户要求"继续按建议去做执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止 完整收尾 关闭对话"。承接阶段 8 交付报告的 3 个最优下一步建议(P1 desktop 检查 + P2 mobile-rn AuthContext 接入 + P2-3 shared parity 升级 blocking),目标完整收尾。
