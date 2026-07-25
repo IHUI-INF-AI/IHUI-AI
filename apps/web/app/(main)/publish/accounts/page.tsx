@@ -23,6 +23,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@ihui/ui-react'
+import { PLATFORM_KEY } from '../helpers'
 
 interface Account {
   id: string
@@ -220,7 +221,7 @@ export default function AccountsPage() {
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{a.nickname}</div>
                     <div className="text-xs text-muted-foreground">
-                      {t(`platforms.${a.platform}`)}
+                      {t(PLATFORM_KEY[a.platform] ?? 'platforms.unknown')}
                     </div>
                   </div>
                   <span
@@ -297,7 +298,7 @@ export default function AccountsPage() {
                 <SelectContent>
                   {PLATFORMS.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {t(`platforms.${p}`)}
+                      {t(PLATFORM_KEY[p] ?? 'platforms.unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>
