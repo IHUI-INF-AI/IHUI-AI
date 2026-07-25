@@ -20,7 +20,9 @@ interface Props {
   isSelf: boolean
 }
 
-export function MessageBubble({ message, isSelf }: Props) {
+// 性能修复(2026-07-25):React.memo 包裹,聊天消息流高频更新时,
+// 未变化的 message 项跳过渲染(message 引用稳定时)。
+export const MessageBubble = React.memo(function MessageBubble({ message, isSelf }: Props) {
   const [zoomed, setZoomed] = React.useState(false)
 
   if (message.type === 'system') {
@@ -94,6 +96,6 @@ export function MessageBubble({ message, isSelf }: Props) {
       )}
     </div>
   )
-}
+})
 
 export default MessageBubble
