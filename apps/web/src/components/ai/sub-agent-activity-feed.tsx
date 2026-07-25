@@ -134,10 +134,16 @@ export function SubAgentActivityFeed({
 }: SubAgentActivityFeedProps) {
   const t = useTranslations('ai.subAgentFeed')
   const ts = useTranslations('ai.status')
-  const hasRunning = activities.some(isAgentActive)
+  // 性能修复(2026-07-25):原 render 中 activities.some + activities.reduce 两次遍历,
+  // 活动流高频更新时重复计算。合并到一个 useMemo,仅 activities 变化时重算。
+  const { hasRunning, totalSteps } = React.useMemo(
+    () => ({
+      hasRunning: activities.some(isAgentActive),
+      totalSteps: activities.reduce((sum, a) => sum + a.completedSteps.length, 0),
+    }),
+    [activities],
+  )
   const [expanded, setExpanded] = React.useState(initiallyExpanded ?? (hasRunning && !completed))
-
-  const totalSteps = activities.reduce((sum, a) => sum + a.completedSteps.length, 0)
 
   return (
     <div
