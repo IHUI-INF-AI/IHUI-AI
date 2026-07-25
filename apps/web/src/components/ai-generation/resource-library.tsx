@@ -65,7 +65,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
     const list = records ?? []
     const q = search.trim().toLowerCase()
     if (!q) return list
-    return list.filter((r) => r.prompt.toLowerCase().includes(q))
+    return list.filter((r: any) => r.prompt.toLowerCase().includes(q))
   }, [records, search])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -184,7 +184,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {pageItems.map((record) => (
+              {pageItems.map((record: any) => (
                 <button
                   key={record.recordId}
                   type="button"
