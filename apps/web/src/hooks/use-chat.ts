@@ -1059,7 +1059,7 @@ export function useChat(): UseChatReturn {
             contentBatcher.flush()
             reasoningBatcher.flush()
             agentBatcher.flushAll()
-            const formatted = formatSSEError(errMsg)
+            const formatted = formatSSEError(errMsg, info)
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
             if (formatted.severity === 'auth') {
@@ -1277,7 +1277,7 @@ export function useChat(): UseChatReturn {
           contentBatcher.flush()
           reasoningBatcher.flush()
           agentBatcher.flushAll()
-          const formatted = formatSSEError(errMsg)
+          const formatted = formatSSEError(errMsg, info)
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
           if (formatted.severity === 'auth') {
