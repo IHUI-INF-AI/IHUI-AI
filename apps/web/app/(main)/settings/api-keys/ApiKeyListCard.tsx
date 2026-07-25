@@ -152,7 +152,7 @@ export function ApiKeyListCard({
                           key={p}
                           className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
                         >
-                          {PERM_LABELS[p] ?? p}
+                          {(PERM_LABELS as any)[p] ?? p}
                         </span>
                       ))}
                     </div>

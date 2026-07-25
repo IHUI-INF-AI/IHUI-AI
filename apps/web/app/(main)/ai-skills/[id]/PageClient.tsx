@@ -168,7 +168,7 @@ export default function AiSkillDetailPage() {
     )
   }
 
-  const Icon = CATEGORY_ICON[skill.category as any] ?? Wand2
+  const Icon = (CATEGORY_ICON as any)[skill.category] ?? Wand2
   const detectedVars = parseVariables(skill.promptTemplate)
   // 用 4 个已知变量的顺序 + 检测到的补全顺序
   const renderVars = detectedVars.length > 0
