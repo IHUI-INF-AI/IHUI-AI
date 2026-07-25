@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Coins, TrendingUp, Database, BarChart3, Zap, Loader2 } from 'lucide-react'
+import { Coins, TrendingUp, Database, BarChart3, Zap, Loader2, Layers, Boxes, AlertCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
@@ -31,11 +31,20 @@ interface ByDay {
   calls: number
 }
 
+interface PromptCacheMetrics {
+  hits: number
+  misses: number
+  l2Hits: number
+  l2Misses: number
+  errors: number
+}
+
 interface AiCostDashboard {
   summary: AiCostSummary
   byModel: ByModel[]
   byDay: ByDay[]
   period: { startDate: string; endDate: string }
+  promptCacheMetrics?: PromptCacheMetrics
 }
 
 async function api<T>(url: string): Promise<T> {
@@ -49,6 +58,11 @@ const EMPTY: AiCostDashboard = {
   byModel: [],
   byDay: [],
   period: { startDate: '', endDate: '' },
+}
+
+const hitRate = (h: number, m: number): string => {
+  const total = h + m
+  return total === 0 ? '—' : `${((h / total) * 100).toFixed(1)}%`
 }
 
 export default function AiCostPage() {
@@ -67,36 +81,18 @@ export default function AiCostPage() {
   const d = data ?? EMPTY
   const curFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
   const totalCost = Number(d.summary.totalCost ?? 0) / 100
+  const pc = d.promptCacheMetrics
 
   const cards = [
-    {
-      key: 'totalCost',
-      label: t('totalCost'),
-      value: curFmt.format(totalCost),
-      icon: Coins,
-      cls: 'text-emerald-600',
-    },
-    {
-      key: 'totalTokens',
-      label: t('totalTokens'),
-      value: fmtNum(d.summary.totalTokens ?? 0),
-      icon: Database,
-      cls: 'text-blue-600',
-    },
-    {
-      key: 'totalCalls',
-      label: t('totalCalls'),
-      value: fmtNum(d.summary.totalCalls ?? 0),
-      icon: Zap,
-      cls: 'text-amber-600',
-    },
-    {
-      key: 'cacheHit',
-      label: t('cacheHitRate'),
-      value: `${d.summary.cacheHitRate ?? 0}%`,
-      icon: TrendingUp,
-      cls: 'text-purple-600',
-    },
+    { key: 'totalCost', label: t('totalCost'), value: curFmt.format(totalCost), icon: Coins, cls: 'text-emerald-600' },
+    { key: 'totalTokens', label: t('totalTokens'), value: fmtNum(d.summary.totalTokens ?? 0), icon: Database, cls: 'text-blue-600' },
+    { key: 'totalCalls', label: t('totalCalls'), value: fmtNum(d.summary.totalCalls ?? 0), icon: Zap, cls: 'text-amber-600' },
+    { key: 'cacheHit', label: t('cacheHitRate'), value: `${d.summary.cacheHitRate ?? 0}%`, icon: TrendingUp, cls: 'text-purple-600' },
+    ...(pc ? [
+      { key: 'l1Hit', label: t('l1HitRate'), value: hitRate(pc.hits, pc.misses), icon: Layers, cls: 'text-emerald-600' },
+      { key: 'l2Hit', label: t('l2HitRate'), value: hitRate(pc.l2Hits, pc.l2Misses), icon: Boxes, cls: 'text-emerald-600' },
+      { key: 'pcErrors', label: t('promptCacheErrors'), value: fmtNum(pc.errors ?? 0), icon: AlertCircle, cls: (pc.errors ?? 0) > 0 ? 'text-red-600' : 'text-muted-foreground' },
+    ] : []),
   ]
 
   return (
