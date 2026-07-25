@@ -41,6 +41,12 @@ const VIS_OPTIONS: Array<{ key: Visibility; label: string; icon: string }> = [
   { key: 'private', label: '私密', icon: '🔒' },
 ]
 
+const VIS_KEY: Record<string, string> = {
+  public: 'circle.create.vis.public',
+  friends: 'circle.create.vis.friends',
+  private: 'circle.create.vis.private',
+}
+
 export default function CircleCreatePage() {
   const { t } = useI18n()
   const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
@@ -308,7 +314,7 @@ export default function CircleCreatePage() {
                 onClick={() => setForm((f) => ({ ...f, visibility: opt.key }))}
               >
                 <Text className="cc-vis-icon">{opt.icon}</Text>
-                <Text className="cc-vis-text">{tt(`circle.create.vis.${opt.key}`, opt.label)}</Text>
+                <Text className="cc-vis-text">{tt(VIS_KEY[opt.key] ?? 'circle.create.vis.public', opt.label)}</Text>
               </View>
             ))}
           </View>
