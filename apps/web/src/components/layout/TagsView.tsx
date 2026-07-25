@@ -50,12 +50,13 @@ export function TagsView() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
-  // 通过 useTranslations 获取各命名空间翻译函数。
-  // 关键设计:TagsView 在每次渲染时根据 tag.path + 当前 locale 派生标签标题,
-  // 因此语言切换会自动触发重渲染,所有已存在标签立即重新翻译,无需刷新。
+  // 性能修复(2026-07-25):原 TagsView 顶层声明 22 个 useTranslations 调用,
+  // 每次路由切换 / Sidebar 拖拽 / AI 面板 toggle 触发 TagsView 重渲染时,
+  // 22 个 translator 实例全部重新初始化。改为:
+  // - 主体只保留 1 个 useTranslations('common')(右键菜单 / 关闭按钮文案)
+  // - 每个 tag 的标题翻译下推到 <TagLabel> 子组件,内部只调 1 次 useTranslations
+  // - 子组件用 React.memo 浅比较 path prop,避免父组件无关重渲染连锁
   const tCommon = useTranslations('common')
-  // 各页面命名空间按需懒加载(useTranslations 接受动态 ns),覆盖 EXTRA_PATH_LABELS 中
-  // 指向独立页面命名空间的项(如 about/articles/workflows 等)。
   const tags = useTagsViewStore((s) => s.tags)
   const activePath = useTagsViewStore((s) => s.activePath)
   const addTag = useTagsViewStore((s) => s.addTag)
@@ -65,101 +66,6 @@ export function TagsView() {
   const reorderTags = useTagsViewStore((s) => s.reorderTags)
   // 订阅 dirtyPaths(Set 引用变化时触发重渲染);各标签用 dirtyPaths.has(path) 判定 dirty
   const dirtyPaths = useTagsViewStore((s) => s.dirtyPaths)
-
-  // 按 ns 分组缓存 useTranslations 实例。
-  // 注意:useTranslations 必须在组件顶层调用(不能在循环/条件中),
-  // 因此先收集所有出现的 ns,再统一调用。
-  // 这里采用"声明所有可能用到的 ns"策略,确保 hook 顺序稳定。
-  const tNav = useTranslations('nav')
-  const tAdmin = useTranslations('admin')
-  const tAbout = useTranslations('about')
-  const tAgreement = useTranslations('agreement')
-  const tAiCareer = useTranslations('aiCareer')
-  const tApiTest = useTranslations('apiTest')
-  const tArticles = useTranslations('articles')
-  const tBiDashboard = useTranslations('biDashboard')
-  const tBusinessCard = useTranslations('businessCard')
-  const tChat = useTranslations('chat')
-  const tDesignSystem = useTranslations('designSystem')
-  const tFeatureCenter = useTranslations('featureCenter')
-  const tInvitations = useTranslations('invitations')
-  const tN8nAgents = useTranslations('n8nAgents')
-  const tRanking = useTranslations('ranking')
-  const tRefund = useTranslations('refund')
-  const tSecurityAudit = useTranslations('securityAudit')
-  const tShare = useTranslations('share')
-  const tTokenValue = useTranslations('tokenValue')
-  const tTools = useTranslations('tools')
-  const tWorkflows = useTranslations('workflows')
-
-  /** ns → useTranslations 实例的查找表(供 resolveTitle 使用) */
-  const nsTranslators = React.useMemo<Record<string, (key: string) => string>>(
-    () => ({
-      nav: tNav,
-      admin: tAdmin,
-      about: tAbout,
-      agreement: tAgreement,
-      aiCareer: tAiCareer,
-      apiTest: tApiTest,
-      articles: tArticles,
-      biDashboard: tBiDashboard,
-      businessCard: tBusinessCard,
-      chat: tChat,
-      designSystem: tDesignSystem,
-      featureCenter: tFeatureCenter,
-      invitations: tInvitations,
-      n8nAgents: tN8nAgents,
-      ranking: tRanking,
-      refund: tRefund,
-      securityAudit: tSecurityAudit,
-      share: tShare,
-      tokenValue: tTokenValue,
-      tools: tTools,
-      workflows: tWorkflows,
-    }),
-    [
-      tNav,
-      tAdmin,
-      tAbout,
-      tAgreement,
-      tAiCareer,
-      tApiTest,
-      tArticles,
-      tBiDashboard,
-      tBusinessCard,
-      tChat,
-      tDesignSystem,
-      tFeatureCenter,
-      tInvitations,
-      tN8nAgents,
-      tRanking,
-      tRefund,
-      tSecurityAudit,
-      tShare,
-      tTokenValue,
-      tTools,
-      tWorkflows,
-    ],
-  )
-
-  /** 根据 path 派生标签标题(渲染时实时计算,语言切换自动更新) */
-  const resolveTitle = React.useCallback(
-    (p: string): string => {
-      const spec = resolvePathLabelSpec(p)
-      if (spec) {
-        const t = nsTranslators[spec.ns]
-        if (t) {
-          try {
-            return t(spec.key)
-          } catch {
-            // 翻译键缺失时回退到 deriveTitle
-          }
-        }
-      }
-      return deriveTitle(p)
-    },
-    [nsTranslators],
-  )
 
   // 路由切换:把当前 path 加入标签栏(只存 path+query,标题由渲染时派生)
   React.useEffect(() => {
@@ -279,8 +185,6 @@ export function TagsView() {
           const draggable = !active
           const isOver = overIndex === index && dragIndex !== null
           const isDirty = dirtyPaths.has(tag.path)
-          // 派生式标题:每次渲染根据 path + 当前 locale 实时计算
-          const title = resolveTitle(tag.path)
           return (
             // 标签宽度契约:右侧 = gap-1 (4px) + X (w-5=20px) + pr-1 (4px) = 28px
             // 左侧 pl-7 (28px) 与右侧对称,文字几何居中
@@ -309,7 +213,9 @@ export function TagsView() {
                 draggable && 'cursor-grab active:cursor-grabbing',
               )}
             >
-              <span className="leading-none">{title}</span>
+              {/* 性能修复:TagLabel 子组件内部根据 path 解析到的 ns 只调用 1 次 useTranslations,
+                  而非顶层 22 个 translator 全量初始化。React.memo 浅比较 path 避免无关重渲染。 */}
+              <TagLabel path={tag.path} />
               {/* Feature 5: 未保存指示点 - 文字左侧小圆点,使用 amber-500 与项目主色区分 */}
               {isDirty && (
                 <span
@@ -416,5 +322,30 @@ export function TagsView() {
     </div>
   )
 }
+
+/**
+ * 单个标签标题渲染器(性能修复 2026-07-25)。
+ *
+ * 设计:每个 tag 只渲染自己的标题,内部根据 path 解析到的 ns 调用 1 次 useTranslations,
+ * 而非旧实现中 TagsView 顶层 22 个 useTranslations 全量初始化。
+ *
+ * - useTranslations 必须在顶层调用(不能条件),所以 spec 为 null 时也调用 useTranslations('common'),
+ *   但实际走 deriveTitle 分支不调用 t()
+ * - React.memo 浅比较 path prop,TagsView 父组件无关重渲染时本组件不重渲染
+ * - 语言切换时 NextIntlClientProvider context 变化,本组件自动重渲染重新翻译
+ */
+const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
+  const spec = resolvePathLabelSpec(path)
+  // spec 为 null 时也必须无条件调用 useTranslations(React hook 规则)
+  const t = useTranslations(spec?.ns ?? 'common')
+  if (!spec) return <span className="leading-none">{deriveTitle(path)}</span>
+  let title: string
+  try {
+    title = t(spec.key)
+  } catch {
+    title = deriveTitle(path)
+  }
+  return <span className="leading-none">{title}</span>
+})
 
 export default TagsView
