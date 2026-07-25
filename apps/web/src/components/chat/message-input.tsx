@@ -17,6 +17,7 @@ import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
 import { ModeSwitcher } from '@/components/ai/mode-switcher'
+import { PermissionModePopover } from '@/components/ai/permission-mode-popover'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { getRecentFilesForMention } from '@/lib/workspace-api'
@@ -52,6 +53,32 @@ const SLASH_COMMAND_IDS = [
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
 const PROMPT_TEMPLATE_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
+
+const SLASH_CMD_KEY_MAP: Record<string, string> = {
+  summary: 'slashCmd.summary',
+  translate: 'slashCmd.translate',
+  explain: 'slashCmd.explain',
+  code: 'slashCmd.code',
+  polish: 'slashCmd.polish',
+  'wechat-article': 'slashCmd.wechat-article',
+  'koubo-script': 'slashCmd.koubo-script',
+}
+
+const TPL_NAME_KEY_MAP: Record<string, string> = {
+  summary: 'tplSummary',
+  translate: 'tplTranslate',
+  explain: 'tplExplain',
+  code: 'tplCode',
+  polish: 'tplPolish',
+}
+
+const TPL_CONTENT_KEY_MAP: Record<string, string> = {
+  summary: 'tplSummaryContent',
+  translate: 'tplTranslateContent',
+  explain: 'tplExplainContent',
+  code: 'tplCodeContent',
+  polish: 'tplPolishContent',
+}
 
 /**
  * 把后端返回的 mimeType 转换为短标签(image/png → PNG,application/pdf → PDF)。
@@ -168,11 +195,28 @@ export function MessageInput({
       })
   }, [mentionOpen])
 
-  const slashCommands = SLASH_COMMAND_IDS.map((id) => ({
-    id,
-    label: `/${id}`,
-    description: t(`slashCmd.${id}`),
-  }))
+  const slashCommands = [
+    // 动作型命令(2026-07-25 立,对标 Trae SOLO Plan 模式):置顶,切换 plan/act 模式
+    {
+      id: 'plan',
+      label: '/plan',
+      description: t('slashCmd.plan'),
+      kind: 'action' as const,
+    },
+    {
+      id: 'act',
+      label: '/act',
+      description: t('slashCmd.act'),
+      kind: 'action' as const,
+    },
+    // 模板型命令:选命令后填充模板到 textarea
+    ...SLASH_COMMAND_IDS.map((id) => ({
+      id,
+      label: `/${id}`,
+      description: t(SLASH_CMD_KEY_MAP[id] ?? id),
+      kind: 'template' as const,
+    })),
+  ]
 
   const commandTemplates: Record<string, string> = {
     summary: t('cmdSummary'),
@@ -187,11 +231,10 @@ export function MessageInput({
   // i18n key 为扁平结构(tplSummary / tplSummaryContent),与 message-list 空状态共用同一组 key,
   // 保证附加栏弹窗与空状态 chips 显示的模板内容完全一致。
   const promptTemplates = PROMPT_TEMPLATE_IDS.map((id) => {
-    const idCap = id.charAt(0).toUpperCase() + id.slice(1)
     return {
       id,
-      name: t(`tpl${idCap}`),
-      content: t(`tpl${idCap}Content`),
+      name: t(TPL_NAME_KEY_MAP[id] ?? id),
+      content: t(TPL_CONTENT_KEY_MAP[id] ?? id),
     }
   })
 
@@ -232,6 +275,15 @@ export function MessageInput({
   }
 
   const handleCommandSelect = (id: string) => {
+    // 动作型命令(2026-07-25 立):直接走 onSend 流程,由 use-chat.ts 的 tryHandlePlanModeSlash 拦截。
+    // 不填充 textarea,避免用户看到 "/plan" 文字再手动按发送(多余操作)。
+    if (id === 'plan' || id === 'act') {
+      // 清空当前 textarea 内容再发送,避免与已有内容拼接
+      setValue('')
+      requestAnimationFrame(resize)
+      void onSend(`/${id}`)
+      return
+    }
     fillInput(commandTemplates[id] ?? '')
   }
 
@@ -427,6 +479,10 @@ export function MessageInput({
                 提示词模板按钮从底部工具栏上移至此(用户规则:挪到输入框上方附加栏),
                 与空状态 chips 共用同一组 5 个核心模板源,视觉风格协调。 */}
             <div className="flex items-center gap-1 bg-muted/30 px-2 py-1.5">
+              {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
+                  盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
+                  点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。 */}
+              <PermissionModePopover disabled={isStreaming} />
               {isStreaming ? (
                 <Tooltip content={t('promptTemplate')}>
                   <button
