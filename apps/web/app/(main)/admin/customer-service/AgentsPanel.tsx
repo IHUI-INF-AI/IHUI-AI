@@ -108,17 +108,17 @@ export function AgentsPanel() {
                 </td>
               </tr>
             ) : (
-              list.map((a) => (
+              list.map((a: any) => (
                 <tr key={a.id}>
                   <td className="px-4 py-2.5 font-medium">{a.nickname}</td>
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
                         'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
-                        AGENT_STATUS_BADGE[a.status],
+                        AGENT_STATUS_BADGE[a.status as keyof typeof AGENT_STATUS_BADGE],
                       )}
                     >
-                      {AGENT_STATUS_LABEL[a.status]}
+                      {AGENT_STATUS_LABEL[a.status as keyof typeof AGENT_STATUS_LABEL]}
                     </span>
                   </td>
                   <td className="px-4 py-2.5">
@@ -151,7 +151,7 @@ export function AgentsPanel() {
         </table>
       </div>
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : setOpen(false))}>
+      <Dialog open={open} onOpenChange={(o: any) => (o ? setOpen(true) : setOpen(false))}>
         <DialogContent>
           <form
             onSubmit={(e) => {
@@ -197,7 +197,7 @@ export function AgentsPanel() {
                 min={1}
                 max={100}
                 value={form.maxConcurrent}
-                onChange={(e) => setForm({ ...form, maxConcurrent: Number(e.target.value) })}
+                onChange={(e: any) => setForm({ ...form, maxConcurrent: Number(e.target.value) })}
               />
             </div>
             <DialogFooter>
