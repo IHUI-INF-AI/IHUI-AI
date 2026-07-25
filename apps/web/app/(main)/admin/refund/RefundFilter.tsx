@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
-import { STATUS_TABS, inputClass } from './helpers'
+import { STATUS_TABS, TAB_LABEL_KEY, inputClass } from './helpers'
 
 interface RefundFilterProps {
   status: string
@@ -38,7 +38,7 @@ export function RefundFilter({
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`status_${tb.labelKey}`)}
+            {t(TAB_LABEL_KEY[tb.labelKey] ?? 'status_unknown')}
           </button>
         ))}
       </div>

@@ -16,7 +16,7 @@ import {
 
 import { ProjectTable } from './ProjectTable'
 import { ProjectDialog } from './ProjectDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, projectToForm } from './helpers'
+import { PAGE_SIZE, api, EMPTY_FORM, projectToForm, STATUS_KEY } from './helpers'
 import type { AdminProject, ProjectForm, PageData } from './types'
 
 export default function AdminProjectsPage() {
@@ -167,7 +167,7 @@ export default function AdminProjectsPage() {
               <div className="mt-0.5 text-xs text-muted-foreground">
                 {t('owner')}:{' '}
                 {delTarget.ownerNickname ?? delTarget.ownerPhone ?? delTarget.ownerEmail ?? '-'} ·{' '}
-                {t(`status_${delTarget.status}`)}
+                {t(STATUS_KEY[delTarget.status] ?? 'status_unknown')}
               </div>
             </div>
           )}
