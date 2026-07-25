@@ -31,12 +31,23 @@ interface AiPanelState {
   isResizing: boolean
   /** 当前绑定的本地工作区(持久化,刷新后保留) */
   activeWorkspace: ActiveWorkspace | null
+  /**
+   * 待确认权限的工作区(2026-07-25 立,深度对标 Codex approval setup):
+   * 用户在 WorkspaceSelector 绑定新工作区但该工作区尚未配置权限(perm=null)时,
+   * 写入此字段。由 ai-side-panel 监听并弹 WorkspacePermissionDialog,
+   * 用户在弹窗选定模式后:回写 activeWorkspace.mode + 清空 pendingPermissionSetup。
+   * 不持久化:刷新页面后若 perm 仍为 null,需用户重新触发绑定流程(避免旧状态误弹)。
+   */
+  pendingPermissionSetup: { path: string; name: string; techStack?: string[] } | null
   openPanel: () => void
   closePanel: () => void
   togglePanel: () => void
   setWidth: (w: number) => void
   setResizing: (v: boolean) => void
   setActiveWorkspace: (ws: ActiveWorkspace | null) => void
+  setPendingPermissionSetup: (
+    v: { path: string; name: string; techStack?: string[] } | null,
+  ) => void
 }
 
 /**
@@ -53,6 +64,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       width: AI_PANEL_DEFAULT_WIDTH,
       isResizing: false,
       activeWorkspace: null,
+      pendingPermissionSetup: null,
 
       openPanel: () => set({ open: true }),
       closePanel: () => set({ open: false }),
@@ -63,6 +75,7 @@ export const useAiPanelStore = create<AiPanelState>()(
         }),
       setResizing: (v) => set({ isResizing: v }),
       setActiveWorkspace: (ws) => set({ activeWorkspace: ws }),
+      setPendingPermissionSetup: (v) => set({ pendingPermissionSetup: v }),
     }),
     {
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
