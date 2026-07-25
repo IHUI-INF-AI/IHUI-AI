@@ -1,4 +1,4 @@
-import { post, get } from './request'
+import { post, get } from './api-bridge'
 import { readFileToBase64 } from './file-utils'
 
 export interface VoiceChatResult {
