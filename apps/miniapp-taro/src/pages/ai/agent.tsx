@@ -26,6 +26,16 @@ const CATEGORY_KEYWORDS: Record<Exclude<CategoryKey, 'recommend'>, string[]> = {
   life: ['生活', '健康', '美食', '旅游', '运动', '购物', '日常', 'life'],
 }
 
+const CATEGORY_KEY: Record<string, string> = {
+  office: 'ai.agentList.categories.office',
+  writing: 'ai.agentList.categories.writing',
+  coding: 'ai.agentList.categories.coding',
+  education: 'ai.agentList.categories.education',
+  life: 'ai.agentList.categories.life',
+  other: 'ai.agentList.categories.other',
+  recommend: 'ai.agentList.categories.recommend',
+}
+
 function detectCategory(name: string, desc: string): string {
   const text = `${name} ${desc}`.toLowerCase()
   for (const key of Object.keys(CATEGORY_KEYWORDS) as Array<Exclude<CategoryKey, 'recommend'>>) {
@@ -381,7 +391,7 @@ export default function AgentPage() {
                   <View className="flex items-center mt-1">
                     {agent.category && agent.category !== 'other' && (
                       <Text className="text-[20rpx] px-[8rpx] py-[2rpx] mr-2 rounded bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-                        {t(`ai.agentList.categories.${agent.category}`)}
+                        {t(CATEGORY_KEY[agent.category] ?? 'ai.agentList.categories.other')}
                       </Text>
                     )}
                     {rating > 0 && (

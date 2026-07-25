@@ -15,6 +15,14 @@ const LANGS: LangItem[] = [
   { value: 'ja', key: 'ja', native: '日本語', english: 'Japanese' },
 ]
 
+const LANG_KEY: Record<string, string> = {
+  zhCN: 'setting.zhCN',
+  zhTW: 'setting.zhTW',
+  en: 'setting.en',
+  ko: 'setting.ko',
+  ja: 'setting.ja',
+}
+
 const DEFAULT_LANG: LangItem = { value: 'zh-CN', key: 'zhCN', native: '简体中文', english: 'Simplified Chinese' }
 
 export default function LanguagePage() {
@@ -64,7 +72,7 @@ export default function LanguagePage() {
           <Text className="block text-[24rpx] text-muted-foreground">
             {tt('setting.language.currentLabel', '当前语言')}
           </Text>
-          <Text className="block text-[32rpx] font-semibold text-foreground mt-[8rpx]">{tt(`setting.${currentLang.key}`, currentLang.native)}</Text>
+          <Text className="block text-[32rpx] font-semibold text-foreground mt-[8rpx]">{tt(LANG_KEY[currentLang.key] ?? 'setting.zhCN', currentLang.native)}</Text>
           <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">{currentLang.english} · {currentLang.value}</Text>
         </View>
       </View>
@@ -77,7 +85,7 @@ export default function LanguagePage() {
         {LANGS.map((l) => (
           <View key={l.value} className={`flex items-center justify-between py-[28rpx] px-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]${current === l.value ? ' bg-[rgba(0,242,255,0.08)]' : ''}`}>
             <View className="flex-1">
-              <Text className="text-[30rpx] text-foreground">{tt(`setting.${l.key}`, l.native)}</Text>
+              <Text className="text-[30rpx] text-foreground">{tt(LANG_KEY[l.key] ?? 'setting.zhCN', l.native)}</Text>
               <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">{l.english}</Text>
             </View>
             <Radio
