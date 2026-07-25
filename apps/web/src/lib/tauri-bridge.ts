@@ -148,31 +148,13 @@ export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
 
 // ================== 应用菜单(2026-07-25 立) ==================
 
-/** 原生菜单 ID 联合类型(Rust 端 build_app_menu 定义,前端 dispatcher 严格 switch)。 */
+/** 原生菜单 ID 联合类型(HTML 顶栏 + web 端快捷键共用,前端 dispatcher 严格 switch)。 */
 export type MenuActionId =
   | 'file.open_admin'
   | 'file.quit'
   | 'view.reload'
   | 'view.devtools'
   | 'help.about'
-
-/**
- * 订阅 Rust 端通过 emit_to("main", "menu:click", id) 转发的菜单点击事件。
- * 非 Tauri 环境返回 noop unlisten 函数,handler 不会被调用。
- *
- * @param cb 菜单 ID 回调
- * @returns unlisten 函数(组件卸载时调用释放 event listener)
- */
-export async function listenToMenuEvents(
-  cb: (id: MenuActionId) => void,
-): Promise<() => void> {
-  if (!isTauri()) return () => {}
-  const { listen } = await import('@tauri-apps/api/event')
-  const unlisten = await listen<string>('menu:click', (e) => {
-    cb(e.payload as MenuActionId)
-  })
-  return unlisten
-}
 
 /** 唤起 / 创建 admin 窗口(Rust 端 open_admin_window)。已存在则 show + focus。 */
 export async function openAdminWindow(): Promise<void> {
