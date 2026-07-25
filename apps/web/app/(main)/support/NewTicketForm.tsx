@@ -18,6 +18,13 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { api, PRIORITIES, textareaClass } from './helpers'
+
+const TICKET_PRIORITY_KEYS: Record<'low' | 'medium' | 'high' | 'urgent', string> = {
+  low: 'priority.low',
+  medium: 'priority.medium',
+  high: 'priority.high',
+  urgent: 'priority.urgent',
+}
 import type { Ticket, TicketPriority, Category } from './types'
 
 export function NewTicketForm({ onDone }: { onDone: () => void }) {
@@ -115,7 +122,7 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
                 <SelectContent>
                   {PRIORITIES.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {t(`priority.${p}`)}
+                      {t(TICKET_PRIORITY_KEYS[p]!)}
                     </SelectItem>
                   ))}
                 </SelectContent>

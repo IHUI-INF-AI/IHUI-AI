@@ -362,7 +362,19 @@
     "memberFeedback": "我的反饋",
     "memberHelp": "幫助",
     "memberSettings": "會員設置",
-    "eduExam": "考試"
+    "eduExam": "考試",
+    "adminGroup.operation": "營運管理",
+    "adminGroup.moderation": "內容審核",
+    "adminGroup.finance": "財務管理",
+    "adminGroup.aiAgent": "AI 智能體",
+    "adminGroup.marketing": "營銷直播",
+    "adminGroup.courseExam": "課程考試",
+    "adminGroup.analytics": "監控 BI",
+    "adminGroup.support": "客服工單",
+    "adminGroup.community": "社群圈子",
+    "adminGroup.resource": "資源中心",
+    "adminGroup.developer": "開發者中心",
+    "adminGroup.saas": "SaaS 平臺"
   },
   "auth": {
     "loginTitle": "歡迎回來",
@@ -8565,32 +8577,56 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI"]
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI"]
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI"
+        ]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": ["搜尋", "查找", "search"]
+        "keywords": [
+          "搜尋",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": ["個人", "資料", "設置"]
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ]
       },
       "settings": {
         "label": "系統設置",
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"]
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -8912,19 +8948,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -9044,25 +9092,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"]
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ]
         }
       ]
     },
@@ -11535,5 +11595,23 @@
         "commerce": "電商"
       }
     }
+  },
+  "downloads": {
+    "downloadWeb": "Web 版",
+    "downloadWebDesc": "瀏覽器直接存取,無需安裝",
+    "downloadDesktop": "桌面用戶端",
+    "downloadDesktopDesc": "Windows / macOS / Linux 全平臺支援",
+    "downloadIOS": "iOS App",
+    "downloadIOSDesc": "iPhone / iPad 隨時使用",
+    "downloadAndroidApk": "Android APK",
+    "downloadAndroidDesc": "Android 原生安裝包",
+    "downloadMobile": "行動版",
+    "downloadMobileDesc": "H5 行動版,掃碼即用",
+    "downloadWechatMiniApp": "微信小程式",
+    "downloadMiniDesc": "微信掃碼,即開即用",
+    "downloadExtension": "瀏覽器擴充功能",
+    "downloadExtensionDesc": "Chrome / Edge / Firefox 全支援",
+    "downloadCli": "命令列工具",
+    "downloadCliDesc": "終端一鍵調用,腳本化整合"
   }
 }

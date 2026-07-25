@@ -362,7 +362,19 @@
     "memberFeedback": "내 피드백",
     "memberHelp": "도움말",
     "memberSettings": "설정",
-    "eduExam": "시험"
+    "eduExam": "시험",
+    "adminGroup.operation": "운영 관리",
+    "adminGroup.moderation": "콘텐츠 심사",
+    "adminGroup.finance": "재무 관리",
+    "adminGroup.aiAgent": "AI 에이전트",
+    "adminGroup.marketing": "마케팅·라이브",
+    "adminGroup.courseExam": "강좌·시험",
+    "adminGroup.analytics": "모니터링·BI",
+    "adminGroup.support": "지원 티켓",
+    "adminGroup.community": "커뮤니티",
+    "adminGroup.resource": "리소스 센터",
+    "adminGroup.developer": "개발자 센터",
+    "adminGroup.saas": "SaaS 플랫폼"
   },
   "auth": {
     "loginTitle": "돌아오신 것을 환영합니다",
@@ -8565,32 +8577,56 @@
       "chat": {
         "label": "AI 채팅",
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI"]
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 드라마",
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI"]
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI"
+        ]
       },
       "search": {
         "label": "검색",
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"]
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 월드",
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"]
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ]
       },
       "profile": {
         "label": "프로필",
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"]
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ]
       },
       "settings": {
         "label": "설정",
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"]
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ]
       }
     }
   },
@@ -8912,19 +8948,31 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ]
         }
       ]
     },
@@ -9044,25 +9092,37 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"]
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"]
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"]
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ]
         }
       ]
     },
@@ -11535,5 +11595,23 @@
         "commerce": "커머스"
       }
     }
+  },
+  "downloads": {
+    "downloadWeb": "웹 버전",
+    "downloadWebDesc": "브라우저에서 바로 접속, 설치 불필요",
+    "downloadDesktop": "데스크톱",
+    "downloadDesktopDesc": "Windows / macOS / Linux 지원",
+    "downloadIOS": "iOS 앱",
+    "downloadIOSDesc": "iPhone / iPad 언제 어디서나",
+    "downloadAndroidApk": "Android APK",
+    "downloadAndroidDesc": "Android 네이티브 설치 패키지",
+    "downloadMobile": "모바일 H5",
+    "downloadMobileDesc": "H5 모바일, QR 코드 스캔",
+    "downloadWechatMiniApp": "위챗 미니앱",
+    "downloadMiniDesc": "QR 스캔, 즉시 사용",
+    "downloadExtension": "브라우저 확장",
+    "downloadExtensionDesc": "Chrome / Edge / Firefox 지원",
+    "downloadCli": "CLI 도구",
+    "downloadCliDesc": "터미널 원클릭, 스크립트 통합"
   }
 }
