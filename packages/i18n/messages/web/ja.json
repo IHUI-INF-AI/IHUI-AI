@@ -75,6 +75,7 @@
     "cancelTime": "キャンセル日時",
     "refundTime": "返金日時",
     "remark": "備考",
+    "reasonRequired": "理由を入力してください",
     "originalPrice": "定価",
     "discountAmount": "割引額",
     "errorTitle": "エラーが発生しました",
@@ -7371,6 +7372,17 @@
       "cancel": "キャンセル",
       "connected": "接続済み",
       "disconnected": "切断済み"
+    }
+  },
+  "agents": {
+    "kanban": {
+      "priority": "優先度",
+      "created": "作成済み",
+      "worker": "ワーカー",
+      "duration": "所要時間",
+      "dependencies": "依存関係",
+      "transition": "遷移",
+      "reason": "理由"
     }
   },
   "distribution": {

@@ -75,6 +75,7 @@
     "cancelTime": "Cancel Time",
     "refundTime": "Refund Time",
     "remark": "Remark",
+    "reasonRequired": "Reason is required",
     "originalPrice": "Original Price",
     "discountAmount": "Discount",
     "errorTitle": "Something went wrong",
@@ -7371,6 +7372,17 @@
       "cancel": "Cancel",
       "connected": "Connected",
       "disconnected": "Disconnected"
+    }
+  },
+  "agents": {
+    "kanban": {
+      "priority": "Priority",
+      "created": "Created",
+      "worker": "Worker",
+      "duration": "Duration",
+      "dependencies": "Dependencies",
+      "transition": "Transition",
+      "reason": "Reason"
     }
   },
   "distribution": {
