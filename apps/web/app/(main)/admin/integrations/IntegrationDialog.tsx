@@ -19,7 +19,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@ihui/ui-react'
-import { PROVIDERS, selectClass, textareaClass } from './helpers'
+import { PROVIDERS, PROVIDER_KEY, selectClass, textareaClass } from './helpers'
 import type { Integration, IntegrationForm, Provider } from './types'
 
 interface Props {
@@ -93,7 +93,7 @@ export function IntegrationDialog({
                 <SelectContent>
                   {PROVIDERS.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {t(`providers.${p}`)}
+                      {t(PROVIDER_KEY[p] ?? 'providers.unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -147,7 +147,7 @@ export function IntegrationDialog({
             <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
               <div className="font-medium">{delTarget.name}</div>
               <div className="mt-0.5 text-xs text-muted-foreground">
-                {t(`providers.${delTarget.provider}`)}
+                {t(PROVIDER_KEY[delTarget.provider] ?? 'providers.unknown')}
               </div>
             </div>
           )}

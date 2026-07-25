@@ -18,6 +18,13 @@ type SplitMode = 'range' | 'every' | 'bookmarks'
 
 const MODE_KEYS: SplitMode[] = ['range', 'every', 'bookmarks']
 
+/** i18n 静态映射表 — 用于消除 `t(\`mode.${var}\`)` 动态拼接 */
+const MODE_KEY: Record<SplitMode, string> = {
+  range: 'mode.range',
+  every: 'mode.every',
+  bookmarks: 'mode.bookmarks',
+}
+
 export default function PdfSplitPage() {
   const t = useTranslations('toolsPdfSplitPage')
   const [file, setFile] = React.useState<File | null>(null)
@@ -71,7 +78,7 @@ export default function PdfSplitPage() {
                 mode === key ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-accent',
               )}
             >
-              {t(`mode.${key}`)}
+              {t(MODE_KEY[key] ?? 'mode.unknown')}
             </button>
           ))}
         </div>
