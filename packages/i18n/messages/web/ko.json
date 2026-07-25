@@ -686,7 +686,6 @@
       "cancelAutoRevert": "자동 전환 취소",
       "reEnableAutoRevert": "1시간 자동 전환 재활성화",
       "autoRevertedTitle": "승인 요청으로 자동 전환됨",
-      "autoRevertedDesc": "고위험 모드에 오래 머물지 않도록 1시간 동안 작업이 없으면 자동으로 다운그레이드됩니다. Shift+Tab 또는 권한 버튼으로 전체 액세스를 다시 켜세요.",
       "autoRevertedDescWithDuration": "전체 액세스가 {usedMin}분 동안 유지되어 요청 승인으로 자동 강등되었습니다. 다시 활성화하려면 Shift+Tab을 누르거나 권한 버튼을 클릭하세요.",
       "revertWarning5minTitle": "전체 액세스 모드가 곧 자동 강등됩니다",
       "revertWarning5minDesc": "5분 후 요청 승인 모드로 자동 전환됩니다. 계속하려면 '1시간 연장'을 클릭하세요.",
@@ -705,6 +704,10 @@
       "titleBarAutoRevert": "⏱ {time} 후 자동 다운그레이드",
       "cycledTo": "{mode}로 전환됨",
       "cycleError": "전환 실패: {error}",
+      "usageHint": "사용법: /permission ask | auto | full",
+      "switchedToModeAsk": "승인 요청 모드로 전환됨",
+      "switchedToModeAuto": "자동 승인 모드로 전환됨",
+      "switchedToModeFull": "전체 액세스 모드로 전환됨",
       "mode": {
         "ask": "승인 요청",
         "askDesc": "프로젝트 외부 파일 편집 및 인터넷 사용 시 항상 확인",
@@ -5889,79 +5892,7 @@
     "prev": "이전",
     "next": "다음",
     "related": "관련 문서",
-    "notFound": "찾을 수 없음",
-    "faq": {
-      "account": [
-        {
-          "q": "Forgot your password?",
-          "a": "Click “Forgot password” on the login page to reset via phone verification."
-        },
-        {
-          "q": "How to edit profile?",
-          "a": "Go to Settings to update your nickname, avatar and other info."
-        },
-        {
-          "q": "How to delete account?",
-          "a": "Contact support to submit a deletion request, processed within 3 business days."
-        }
-      ],
-      "payment": [
-        {
-          "q": "What payment methods are supported?",
-          "a": "WeChat Pay, Alipay, Stripe credit card and USDC."
-        },
-        {
-          "q": "How to request a refund?",
-          "a": "Contact support within 7 days of subscription for a full refund."
-        },
-        {
-          "q": "How to cancel subscription?",
-          "a": "Click “Cancel subscription” on the pricing page. Billing stops next cycle."
-        }
-      ],
-      "project": [
-        {
-          "q": "How to create a project?",
-          "a": "Click “New Project” in the workspace and enter a name."
-        },
-        {
-          "q": "Is there a project limit?",
-          "a": "Free plan: 1 project. Pro and above: unlimited."
-        },
-        {
-          "q": "How to share a project?",
-          "a": "Open project details and click “Share” to generate a link."
-        }
-      ],
-      "ai": [
-        {
-          "q": "Which AI models are supported?",
-          "a": "GPT-4, Claude 3.5, Gemini and more. Pro unlocks all models."
-        },
-        {
-          "q": "Daily chat limits?",
-          "a": "Free: 10/day. Pro: unlimited."
-        },
-        {
-          "q": "How to switch models?",
-          "a": "Use the model selector at the top of the chat page."
-        }
-      ],
-      "tech": [
-        {
-          "q": "How to get an API Key?",
-          "a": "Create an app on the Developer platform to get an API Key."
-        },
-        {
-          "q": "API rate limits?",
-          "a": "Default 60 requests/min. Enterprise can request higher limits."
-        },
-        {
-          "q": "Which SDKs are available?",
-          "a": "Official SDKs for Python, Node.js and Go."
-        }
-      ]
-    }
+    "notFound": "찾을 수 없음"
   },
   "search": {
     "loading": "로딩 중...",
@@ -8954,43 +8885,6 @@
         "scriptIdAndContentRequired": "스크립트 ID와 대사 내용을 입력해 주세요"
       }
     }
-  },
-  "audit": {
-    "action": "작업",
-    "actionLabel": {
-      "fileDelete": "삭제",
-      "fileDownload": "다운로드",
-      "fileShare": "공유",
-      "fileUpload": "업로드",
-      "permissionAssign": "권한 관리",
-      "userLogin": "로그인",
-      "versionCreate": "생성버전",
-      "versionRollback": "돌아버전"
-    },
-    "actionType": "작업 유형",
-    "actionTypeOption": {
-      "fileDelete": "파일삭제",
-      "fileDownload": "파일다운로드",
-      "fileShare": "파일공유",
-      "fileUpload": "파일업로드",
-      "permissionAssign": "권한 할당",
-      "userLogin": "사용자로그인",
-      "versionCreate": "버전생성",
-      "versionRollback": "버전돌아"
-    },
-    "details": "상세",
-    "endDate": "종료일",
-    "failed": "실패",
-    "ip": "IP 주의소주소",
-    "resourceId": "리소스 ID",
-    "resourceType": "Resource유형",
-    "startDate": "시작일",
-    "status": "상태",
-    "success": "성공",
-    "time": "시간",
-    "title": "작업 로그",
-    "totalLogs": "총 로그 수",
-    "userId": "사용자 ID"
   },
   "editor": {
     "toolbar": {
