@@ -13,7 +13,8 @@ import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import fp from 'fastify-plugin'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { userMargins } from '@ihui/database'
+import { userMargins, users } from '@ihui/database'
+import { logger } from '../utils/logger.js'
 
 const TOKEN_CACHE_TTL = 300 // 5 分钟缓存
 const TOKEN_CACHE_PREFIX = 'token_balance:'
@@ -86,18 +87,33 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   async function getDbBalance(
     userId: string,
   ): Promise<{ balance: number; vipLevel: number } | null> {
+    // 单次 LEFT JOIN 同时取余额 + VIP 等级, 避免二次查询开销
+    // users.isVip 由 purchaseVip 同步更新 (vip-queries.ts): -1=游客 0=普通 1=VIP 2=操盘手,
+    // 实际 levelValue 可由管理员配置更高 (3/4...), 对应 VIP_TOKEN_BENEFITS 的 0.7/0.5 折扣
     const result = await db
       .select({
         tokenQuantity: userMargins.tokenQuantity,
+        isVip: users.isVip,
       })
       .from(userMargins)
+      .leftJoin(users, eq(userMargins.userId, users.id))
       .where(eq(userMargins.userId, userId))
       .limit(1)
     if (result.length === 0) {
       return { balance: 0, vipLevel: 0 }
     }
-    // VIP 等级查询可后续从 vip 表关联，当前默认 0
-    return { balance: result[0]!.tokenQuantity, vipLevel: 0 }
+    // VIP 等级降级: isVip 为 null (users 行缺失, 数据完整性异常) 或非正数 (游客 -1 / 普通 0) 时
+    // 降级为 vipLevel=0 (无折扣), 不阻塞扣费主链路; null 视为数据异常 log warning
+    const rawVip = result[0]!.isVip
+    if (rawVip === null) {
+      logger.warn(
+        { userId },
+        '[token-balance] users.isVip 为 null (数据完整性异常), 降级为 vipLevel=0',
+      )
+      return { balance: result[0]!.tokenQuantity, vipLevel: 0 }
+    }
+    const vipLevel = rawVip > 0 ? rawVip : 0
+    return { balance: result[0]!.tokenQuantity, vipLevel }
   }
 
   const service: TokenBalanceService = {

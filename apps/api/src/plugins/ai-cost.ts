@@ -54,6 +54,47 @@ export function clearPromptCache(): void {
   promptCache.clear()
 }
 
+/**
+ * 缓存包装器: 为非流式 AI 调用提供 prompt 缓存。
+ *
+ * 设计说明 (2026-07-25):
+ * - 当前对话主链路 /chat/stream 和 /chat/answer 均使用 SSE 流式响应 (见 ai-chat-stream.ts streamToClient)。
+ *   流式场景下缓存完整响应需缓冲整条 token 流, 会破坏首 token 延迟优势, 且每次追问 messages
+ *   变化导致命中率低, 故主链路暂不启用缓存 (streamToClient 不调用本包装器, 由 P0 已固化的
+ *   checkTokenBudget 前置校验独占预算闸口)。
+ * - 本包装器供非流式 AI 调用端点 (如一次性补全 / 同步问答 / 后台批处理) 使用:
+ *   1. 命中缓存 → 直接返回缓存的完整响应 (无上游调用, 零成本)
+ *   2. 未命中 → 调用 upstreamFetch 获取响应, 缓存后返回
+ * - 缓存读写失败时降级为直接调用 upstreamFetch, 不阻塞主链路 (try/catch 兜底)。
+ *
+ * @param prompt 缓存 key 的源 prompt (内部 sha256 hash)
+ * @param upstreamFetch 上游获取函数 (返回完整响应)
+ * @returns 命中时 { cached: true, response }; 未命中时 { cached: false, response }
+ */
+export async function cachedStreamWrapper<T>(
+  prompt: string,
+  upstreamFetch: () => Promise<T>,
+): Promise<{ cached: boolean; response: T }> {
+  try {
+    const hit = getCachedPrompt(prompt)
+    if (hit !== null) {
+      return { cached: true, response: hit as T }
+    }
+  } catch (e) {
+    logger.warn({ err: e }, '[ai-cost] getCachedPrompt failed, degrade to upstream')
+  }
+
+  const response = await upstreamFetch()
+
+  try {
+    setCachedPrompt(prompt, response)
+  } catch (e) {
+    logger.warn({ err: e }, '[ai-cost] setCachedPrompt failed, skip cache write')
+  }
+
+  return { cached: false, response }
+}
+
 // =============================================================================
 // Token 预算控制
 // =============================================================================
@@ -160,6 +201,7 @@ declare module 'fastify' {
       record: typeof recordAiCost
       getCached: typeof getCachedPrompt
       setCached: typeof setCachedPrompt
+      cachedStreamWrapper: typeof cachedStreamWrapper
     }
   }
 }
@@ -177,6 +219,7 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     record: recordAiCost,
     getCached: getCachedPrompt,
     setCached: setCachedPrompt,
+    cachedStreamWrapper,
   })
 
   // ---- 成本看板 API ----
