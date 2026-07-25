@@ -8,6 +8,36 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) i18n 治理 phase 2 收尾 — mobile-rn 34 处动态拼接全面静态化(跨端:仅 mobile-rn,平台独占 — web 在第五轮已 260→2,miniapp-taro 在第三轮已 13→0,本轮补齐 mobile-rn 端)
+
+**触发**:用户要求"继续"。承接之前 i18n 共享包整合 + web/miniapp-taro 动态拼接治理,mobile-rn 端 34 处动态拼接是 phase 2 最后一块。
+
+**执行方式**:主 agent 单端执行(34 处机械改造,无需并行 subagent)。
+
+**成果清单**:
+
+#### 34 处动态拼接全部转静态映射
+
+- **覆盖范围**:23 个文件(activity/bookmark/certificate/circleMember/courseFilter/coupon/favorite/feedback/follow/history/identityVerify/liveList/messageCenter/notificationList/pointsRecord/profileEdit/promote/promotion/ranking/realNameAuth/search/studyPlan/taskCenter/taskDispatch)
+- **改造模式**:每处新增 `Record<UnionType, string>` 常量映射(如 `COUPON_TAB_KEYS`),`t(\`x_${var}\`)`→`t(MAP[var])`,类型安全 + exhaustive check + 静态分析器可识别
+- **CourseFilterScreen 类型修复**:CATEGORIES/LEVELS/PRICE_TABS 加 `as const`,解决 `noUncheckedIndexedAccess` 下 `Record<string, string>` 索引返回 `string | undefined` 的 TS2345
+- **FavoriteScreen 类型边界**:item.targetType 来自 API(string)用 `as FilterTab` 断言 + `?? 'favorite.tab_all'` fallback,运行时安全
+
+**验证**:
+
+- mobile-rn typecheck:✅ exit 0(0 错误)
+- scan-i18n-zh-residue.mjs:✅ mobile-rn ko/zh-TW 无中文残留(web ko 1 处 warn-only 与本任务无关)
+- audit-i18n-unused-keys.mjs:✅ mobile-rn 0 动态拼接警告(改造前 34 → 改造后 0,审计器已识别不出动态拼接)
+
+**Git 同步证据**:
+
+- 本地 commit: <待填>
+- origin commit: <待填>
+- 同步状态: local == remote ✅
+- 守门脚本: node scripts/git-push-guard.mjs exit 0
+
+---
+
 ### [x] ✅(2026-07-25) 维护成本优化第五轮 — P0 删 jsonwebtoken + P1 统一 zod 3.25.76 + P2 迁移 15 文件 bcryptjs 到 password-crypto.ts 封装(跨端:packages/auth + packages/config + api + scripts)
 
 **触发**:用户要求"继续"。承接第四轮 P1 双库依赖评估报告(`.trae-cn/tmp/dedup-deps-eval.md`),执行高 ROI 低风险统一项 P0/P1/P2。
