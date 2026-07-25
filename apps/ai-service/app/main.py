@@ -182,6 +182,20 @@ async def lifespan(app: FastAPI):
     from app.services.ab_test_scheduler import ab_test_scheduler
     await ab_test_scheduler.start()
 
+    # L7 启动时从 DB 加载所有 federated_lessons 到内存(进程重启不丢群体智慧)
+    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 aggregate_user_lessons 会重建)
+    from app.services.federated_learner import federated_learner
+    fed_lessons_loaded = await federated_learner.load_all_lessons()
+    if fed_lessons_loaded:
+        logger.info(
+            "[federated_learner] 启动从 DB hydrate %d 条 federated_lessons",
+            fed_lessons_loaded,
+        )
+
+    # L6 多模态记忆 / L8 长程记忆 按用户加载,首次访问时按需 hydrate(避免启动时全表扫描)
+    # L9 元认知按需触发反思(reflect_on_memories),无全局 load_all
+    # 四层均无 background task,启动时无需 start 调度器,关闭时无需 stop
+
     # 启动多平台一键发布调度器(轮询 publish_tasks 表 scheduled_at 到期任务,
     # 同用户最多 3 个并发,失败平台支持 retry)
     from app.services.publish.scheduler import publish_scheduler
