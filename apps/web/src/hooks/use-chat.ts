@@ -164,6 +164,36 @@ async function tryHandleAutoTaskSlash(
   return true
 }
 
+/** /plan & /act 动作型斜杠命令(2026-07-25 立,对标 Trae SOLO Plan 模式)
+ * - /plan [可选说明]:切换到 Plan 模式(AI 只制定计划,不执行工具)。后续说明文字被忽略(纯动作命令)。
+ * - /act [可选说明]:切换回 Act 模式(默认,AI 正常执行工具)。
+ * - 命中即返回 true,不发送给 LLM,清空输入框。toast 给反馈。
+ * - 仅当输入完全匹配 /plan 或 /act 开头(后接空白或行尾)时命中,避免误伤 "/planning" 等词。 */
+function tryHandlePlanModeSlash(text: string): boolean {
+  const trimmed = text.trimStart()
+  // 必须以 /plan 或 /act 开头,且其后是空白或行尾(避免误伤 /planning /action 等)
+  const m = /^\/(plan|act)\b\s*/.exec(trimmed)
+  if (!m) return false
+  const target = m[1] as 'plan' | 'act'
+  const store = useChatStore.getState()
+  if (store.planMode === target) {
+    // 已是目标模式:不重复切换,仅 toast 提示当前模式
+    toast.info(target === 'plan' ? '当前已是规划模式' : '当前已是执行模式')
+    return true
+  }
+  store.setPlanMode(target)
+  toast.success(
+    target === 'plan' ? '已切换到规划模式' : '已切换到执行模式',
+    {
+      description:
+        target === 'plan'
+          ? 'AI 将只制定计划,不执行工具(Alt+P 可快速切换)'
+          : 'AI 将正常执行工具(Alt+P 可快速切换)',
+    },
+  )
+  return true
+}
+
 async function tryHandleSelfMediaSlash(
   text: string,
   onResult: (assistantContent: string) => void,
@@ -669,6 +699,11 @@ export function useChat(): UseChatReturn {
 
       const store = useChatStore.getState()
       if (store.isStreaming) return false
+
+      // /plan & /act 动作型斜杠命令拦截(2026-07-25 立,对标 Trae SOLO Plan 模式):
+      // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
+      // - 命中即清空输入框 + toast 反馈
+      if (tryHandlePlanModeSlash(text)) return true
 
       // 未登录拦截(2026-07-24 立,修复"未登录点发送无反应"问题):
       // - 不调 createConversation(避免 401 无可见反馈)
