@@ -8,6 +8,70 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) i18n 治理阶段 11 — 侧边栏 nav.* 158 key + marketing.marquee.items + CommandPalette.commands.* 全面补齐(跨端:仅 web)
+
+**触发**:用户拉取最新代码重新编译显示时,发现侧边栏 nav 命名空间下大量翻译 key 缺失(显示原始 `nav.home` / `nav.eduExam` 等),同时 `marketing.marquee.items` 数组缺失导致 Marquee 组件抛 `fallback.map is not a function` 运行时错误,CommandPalette 缺失 6 个命令的 label/description/keywords 导致客户端 React 树崩溃、整页 i18n 显示为原始 key。
+
+**根因**:
+
+1. 之前 i18n 治理过程误删了 nav 命名空间下大部分翻译 key(从 ~320 缩到 158,且遗漏 eduExam 等关键项)
+2. `marketing.marquee.items` 数组从未被正确初始化,Marquee.tsx `t.raw('items')` 返回 undefined
+3. CommandPalette.tsx 6 个命令的 `commands.X.label/description/keywords` key 全部缺失,抛出 MISSING_MESSAGE 错误中断 React hydration
+
+**执行方式**:
+
+- 5 个 i18n 文件并行补齐(脚本批处理,5 语言 100% 一致)
+- typecheck + lint + i18n 守门全绿
+- 浏览器 4 状态截图自验(默认/hover/active/dark)
+
+**成果清单**:
+
+#### P0:补全 nav 命名空间 159 个 key(zh-CN/en/ja/ko/zh-TW)
+
+- 涵盖:AI 智能体组 / 管理组 / AI 教育组 / 内容组 / 交易组 / 个人组 / 开发者组 / 模型 / 消息 / 用户中心 / 主题管理 11 个分组
+- 关键 key:`home / chatHistory / models / agents / eduExam / admin / members / vip / wallet / subscription` 等
+- 全部 5 语言 key 集合 parity(159 一致)
+- 守门:`node scripts/check-i18n-keys.mjs` parity 全绿
+
+#### P0:补全 marketing.marquee.items 数组(6 条公告 × 5 语言)
+
+- zh-CN:AI 教育模块上线 / 模型市场新增旗舰模型 / VIP 限时 7 折 / 多语言升级 / 主题中心 / 知识库 RAG
+- en/ja/ko/zh-TW 完整对应翻译
+- Marquee.tsx 加 `Array.isArray` 保护 + 空数组兜底(防 `fallback.map` 运行时崩溃)
+
+#### P0:补全 commandPalette.commands.* 6 个命令 × 3 字段(label/description/keywords)
+
+- 6 个命令:chat / drama / search / ai-world / profile / settings
+- 5 语言 × 6 命令 × 3 字段 = 90 个翻译条目
+- 修复 React 客户端 hydration 崩溃(整页 nav 恢复中文显示)
+
+#### P1:zh-TW 简体字残留 4 处修复(守门阻塞)
+
+- `agentWorkbench`: "智能體工作台" → "智能體工作臺"
+- `admin`: "管理後台" → "管理後臺"
+- `oauthPlatform`: "開放平台" → "開放平臺"
+- `publishPlatform`: "發布平台" → "發布平臺"
+- 守门:`node scripts/scan-i18n-zh-residue.mjs zh-TW` 0 残留
+
+#### 验证证据
+
+- **typecheck**:`pnpm --filter @ihui/web typecheck` exit 0
+- **i18n 守门**:`node scripts/check-i18n-keys.mjs` parity 通过
+- **i18n 简体残留**:`scan-i18n-zh-residue.mjs zh-TW/ko/en/ja` zh-TW/en 全绿,ko/ja warn-only 预存非本任务范围
+- **浏览器 4 状态截图**:`.trae-cn/tmp/verify-screenshots/verify-zh-CN-{default,hover,active,dark}.png` 已自验通过
+  - 默认态:侧边栏全部显示中文(首页 / 插件市场 / 自动化 / AI 智能体 / 对话历史 / 模型市场 / 智能体 / 智能体工作台 / AI 世界 / 记忆系统 / 子智能体 / 上下文 / 规格模式 / 计划模式 / 工作空间 / 考试 等)
+  - hover 态:subtle 背景色变化,无蓝色发光边框
+  - active 态:点击 /edu/exam 路由后「在线考试」页 + 侧边栏考试项 primary 色高亮
+  - dark 态:背景色反转,文字可读,中文菜单项完整
+
+**修改文件**:
+
+- `packages/i18n/messages/web/{zh-CN,en,ja,ko,zh-TW}.json`(5 个 i18n 文件)
+- `apps/web/src/components/marketing/Marquee.tsx`(Array.isArray 保护,已在前序轮次修复)
+- 临时辅助:`.trae-cn/tmp/fix-missing-translations.mjs` + `fix-command-palette.mjs` + `fix-zh-tw-residue.mjs`
+
+---
+
 ### [x] ✅(2026-07-25) 业务层共享启动阶段 9(收尾)— shared parity 升级 blocking + desktop/mobile-rn 接入评估(跨端:scripts,平台独占 — 守门脚本配置调整)
 
 **触发**:阶段 8 完成后用户要求"继续按建议去做执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止 完整收尾 关闭对话"。承接阶段 8 交付报告的 3 个最优下一步建议(P1 desktop 检查 + P2 mobile-rn AuthContext 接入 + P2-3 shared parity 升级 blocking),目标完整收尾。
@@ -46,16 +110,16 @@
 
 **验证**:
 
-| 验证项 | 结果 |
-|---|---|
-| `node scripts/check-i18n-keys.mjs --target=shared` | ✅ 5 语言 parity OK |
-| `node scripts/guardian-runner.mjs --help` | ✅ blocking 项含 2f-shared |
+| 验证项                                             | 结果                       |
+| -------------------------------------------------- | -------------------------- |
+| `node scripts/check-i18n-keys.mjs --target=shared` | ✅ 5 语言 parity OK        |
+| `node scripts/guardian-runner.mjs --help`          | ✅ blocking 项含 2f-shared |
 
 **Git 同步证据**(§20):
 
-| commit | 内容 | 文件数 | push 状态 |
-|---|---|---|---|
-| 898425855 | shared parity 守门升级 blocking | 2 | ✅ origin/main |
+| commit    | 内容                            | 文件数 | push 状态      |
+| --------- | ------------------------------- | ------ | -------------- |
+| 898425855 | shared parity 守门升级 blocking | 2      | ✅ origin/main |
 
 - 本地 commit: 898425855
 - origin commit: 898425855
@@ -69,16 +133,16 @@
 
 业务层共享启动阶段 1-9 全部完成,跨端 Token 管理契约链路完整闭环:
 
-| 阶段 | 内容 | 状态 |
-|---|---|---|
-| 1-2 | @ihui/shared/auth 类型契约 + formatTokenCount 迁移 | ✅ |
-| 3 | token-store 通用契约 + i18n shared/ 共享基础 key 包 | ✅ |
-| 4 | i18n 5 语言无引用 key 批量清理(74125 删除) | ✅ |
-| 5 | mobile-rn TokenStore 适配器试点 | ✅ |
-| 6 | 三端 token.ts 类型层接入 TokenStore 契约 + shared parity 守门接入 pre-commit | ✅ |
-| 7 | useAuth 跨端集成测试(15 场景全绿) | ✅ |
-| 8 | 三端接入 bindTokenStoreToApiClient 统一适配器 + mobile-rn 双入口合并 | ✅ |
-| 9(本阶段) | shared parity 升级 blocking + desktop/mobile-rn 接入评估 | ✅ |
+| 阶段      | 内容                                                                         | 状态 |
+| --------- | ---------------------------------------------------------------------------- | ---- |
+| 1-2       | @ihui/shared/auth 类型契约 + formatTokenCount 迁移                           | ✅   |
+| 3         | token-store 通用契约 + i18n shared/ 共享基础 key 包                          | ✅   |
+| 4         | i18n 5 语言无引用 key 批量清理(74125 删除)                                   | ✅   |
+| 5         | mobile-rn TokenStore 适配器试点                                              | ✅   |
+| 6         | 三端 token.ts 类型层接入 TokenStore 契约 + shared parity 守门接入 pre-commit | ✅   |
+| 7         | useAuth 跨端集成测试(15 场景全绿)                                            | ✅   |
+| 8         | 三端接入 bindTokenStoreToApiClient 统一适配器 + mobile-rn 双入口合并         | ✅   |
+| 9(本阶段) | shared parity 升级 blocking + desktop/mobile-rn 接入评估                     | ✅   |
 
 **无后续建议**:本任务范围内所有可执行项已完成,无 P1/P2/P3 遗留,对话可关闭。
 
@@ -127,23 +191,24 @@
 
 **验证**:
 
-| 验证项 | 结果 |
-|---|---|
-| `pnpm --filter @ihui/extension typecheck` | ✅ exit 0 |
-| `pnpm --filter @ihui/mobile-rn typecheck` | ✅ exit 0 |
-| `pnpm --filter @ihui/miniapp-taro typecheck` | ✅ exit 0 |
-| `pnpm --filter @ihui/mobile-rn exec vitest run tests/token.test.ts` | ✅ 10/10 passed |
-| `pnpm --filter @ihui/extension exec vitest run tests/refresh-token.test.ts tests/background.test.ts` | ✅ 18/18 passed |
-| 三端 `setTokenProvider` import 清理 | ✅ 均已移除(extension/mobile-rn/miniapp-taro) |
+| 验证项                                                                                               | 结果                                          |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `pnpm --filter @ihui/extension typecheck`                                                            | ✅ exit 0                                     |
+| `pnpm --filter @ihui/mobile-rn typecheck`                                                            | ✅ exit 0                                     |
+| `pnpm --filter @ihui/miniapp-taro typecheck`                                                         | ✅ exit 0                                     |
+| `pnpm --filter @ihui/mobile-rn exec vitest run tests/token.test.ts`                                  | ✅ 10/10 passed                               |
+| `pnpm --filter @ihui/extension exec vitest run tests/refresh-token.test.ts tests/background.test.ts` | ✅ 18/18 passed                               |
+| 三端 `setTokenProvider` import 清理                                                                  | ✅ 均已移除(extension/mobile-rn/miniapp-taro) |
 
 **其他 agent 代码失败(按 §12 不处理)**:
+
 - mobile-rn `PaymentScreen.tsx` 测试失败(Loading 组件问题,其他 agent 代码)
 - extension `i18n-parity.test.ts` 失败(i18n key 数量不一致 278 vs 164,其他 agent i18n 问题)
 
 **Git 同步证据**(§20):
 
-| commit | 内容 | 文件数 | push 状态 |
-|---|---|---|---|
+| commit    | 内容                                                                 | 文件数             | push 状态      |
+| --------- | -------------------------------------------------------------------- | ------------------ | -------------- |
 | 29f3aaeaa | 三端接入 bindTokenStoreToApiClient + mobile-rn 双入口合并 + 测试修复 | 5(4 修改 + 1 删除) | ✅ origin/main |
 
 - 本地 commit: 29f3aaeaa
@@ -180,23 +245,23 @@
 
 #### P0:测试覆盖矩阵
 
-| 场景 | 验证点 | 结果 |
-| --- | --- | --- |
-| 挂载初始态 | ready=true / token=null / isAuthenticated=false | ✅ |
-| autoBind=true | 调 bindTransport(store) 一次 | ✅ |
-| autoBind=false | 不调 bindTransport,ready 仍 true | ✅ |
-| login 传 newUser | 写 token + setUser,不调 fetchProfile | ✅ |
-| login 不传 newUser | 写 token + 调 fetchProfile 拉取 user | ✅ |
-| login + fetchProfile 失败 | user 保持 null,token 仍写入 | ✅ |
-| login 不传 refreshToken | 不调 setRefreshToken,refreshToken 保持 null | ✅ |
-| logout | 调 logoutApi(rt) + clearAll + 清 user | ✅ |
-| logoutApi 抛异常 | 本地清理仍执行,token/user 都清空 | ✅ |
-| logout 无 refreshToken | 不调 logoutApi | ✅ |
-| logout 不传 logoutApi | 跳过后端调用,直接清本地 | ✅ |
-| refresh 默认实现 | 返回 false(各端按需注入) | ✅ |
-| setUser | 直接更新 user state | ✅ |
-| store 已有 initial token | hook 读取到 isAuthenticated=true | ✅ |
-| login + logout + login 序列 | 状态正确转换 | ✅ |
+| 场景                        | 验证点                                          | 结果 |
+| --------------------------- | ----------------------------------------------- | ---- |
+| 挂载初始态                  | ready=true / token=null / isAuthenticated=false | ✅   |
+| autoBind=true               | 调 bindTransport(store) 一次                    | ✅   |
+| autoBind=false              | 不调 bindTransport,ready 仍 true                | ✅   |
+| login 传 newUser            | 写 token + setUser,不调 fetchProfile            | ✅   |
+| login 不传 newUser          | 写 token + 调 fetchProfile 拉取 user            | ✅   |
+| login + fetchProfile 失败   | user 保持 null,token 仍写入                     | ✅   |
+| login 不传 refreshToken     | 不调 setRefreshToken,refreshToken 保持 null     | ✅   |
+| logout                      | 调 logoutApi(rt) + clearAll + 清 user           | ✅   |
+| logoutApi 抛异常            | 本地清理仍执行,token/user 都清空                | ✅   |
+| logout 无 refreshToken      | 不调 logoutApi                                  | ✅   |
+| logout 不传 logoutApi       | 跳过后端调用,直接清本地                         | ✅   |
+| refresh 默认实现            | 返回 false(各端按需注入)                        | ✅   |
+| setUser                     | 直接更新 user state                             | ✅   |
+| store 已有 initial token    | hook 读取到 isAuthenticated=true                | ✅   |
+| login + logout + login 序列 | 状态正确转换                                    | ✅   |
 
 #### P0:验证 hook + factory 跨端契约
 
@@ -262,19 +327,19 @@
 
 **验证**:
 
-| 验证项 | 结果 |
-|---|---|
-| `pnpm --filter @ihui/extension typecheck` | ✅ exit 0 |
-| `pnpm --filter @ihui/mobile-rn typecheck` | ✅ exit 0 |
-| `pnpm --filter @ihui/miniapp-taro typecheck` | ✅ exit 0 |
-| `node scripts/check-i18n-keys.mjs --target=shared` | ✅ 5 语言 parity OK |
-| `node scripts/guardian-runner.mjs --help` | ✅ 显示 warn 12 项含 2f-shared |
-| 三端 `import type { TokenStore } from '@ihui/shared/auth'` | ✅ 零运行时依赖,编译时擦除 |
+| 验证项                                                     | 结果                           |
+| ---------------------------------------------------------- | ------------------------------ |
+| `pnpm --filter @ihui/extension typecheck`                  | ✅ exit 0                      |
+| `pnpm --filter @ihui/mobile-rn typecheck`                  | ✅ exit 0                      |
+| `pnpm --filter @ihui/miniapp-taro typecheck`               | ✅ exit 0                      |
+| `node scripts/check-i18n-keys.mjs --target=shared`         | ✅ 5 语言 parity OK            |
+| `node scripts/guardian-runner.mjs --help`                  | ✅ 显示 warn 12 项含 2f-shared |
+| 三端 `import type { TokenStore } from '@ihui/shared/auth'` | ✅ 零运行时依赖,编译时擦除     |
 
 **Git 同步证据**(§20):
 
-| commit | 内容 | 文件数 | push 状态 |
-|---|---|---|---|
+| commit    | 内容                                                                      | 文件数    | push 状态      |
+| --------- | ------------------------------------------------------------------------- | --------- | -------------- |
 | 9cae66860 | 三端 token.ts 接入 + guardian-runner + pre-commit(其他 agent 一同 commit) | 5(本任务) | ✅ origin/main |
 
 - 本地 commit: 9cae66860(含本任务 5 文件 + 其他 agent 改动,其他 agent 创建该 commit 时一同 stage 了我的改动)
@@ -470,14 +535,14 @@ const auth = useAuth({
 
 **验证**:
 
-| 验证项 | 结果 |
-|---|---|
-| `pnpm --filter @ihui/shared typecheck` | ✅ exit 0 |
-| `pnpm --filter @ihui/i18n typecheck` | ✅ exit 0 |
-| `node scripts/check-i18n-keys.mjs --target=shared` | ✅ 5 语言 parity OK |
-| 手动 flatKey 校验 | ✅ 11 key × 5 语言 parity 完全一致 |
-| shared ko/zh-TW/en 守门 | ✅ 继承 web 字节级复制,传递性清洁 |
-| staged 区隔离 | ✅ 仅 9 个本任务文件,无其他 agent 改动污染 |
+| 验证项                                             | 结果                                       |
+| -------------------------------------------------- | ------------------------------------------ |
+| `pnpm --filter @ihui/shared typecheck`             | ✅ exit 0                                  |
+| `pnpm --filter @ihui/i18n typecheck`               | ✅ exit 0                                  |
+| `node scripts/check-i18n-keys.mjs --target=shared` | ✅ 5 语言 parity OK                        |
+| 手动 flatKey 校验                                  | ✅ 11 key × 5 语言 parity 完全一致         |
+| shared ko/zh-TW/en 守门                            | ✅ 继承 web 字节级复制,传递性清洁          |
+| staged 区隔离                                      | ✅ 仅 9 个本任务文件,无其他 agent 改动污染 |
 
 **已知遗留(下一轮可选处理,非本任务范围)**:
 
@@ -488,9 +553,9 @@ const auth = useAuth({
 
 **Git 同步证据**(§20):
 
-| commit | 内容 | 文件数 | push 状态 |
-|---|---|---|---|
-| cb8a26483 | token-store 通用契约 + i18n shared/ 共享基础 key 包 | 9 | ✅ origin/main |
+| commit    | 内容                                                | 文件数 | push 状态      |
+| --------- | --------------------------------------------------- | ------ | -------------- |
+| cb8a26483 | token-store 通用契约 + i18n shared/ 共享基础 key 包 | 9      | ✅ origin/main |
 
 - 本地 commit: cb8a26483
 - origin commit: 0d6410fc9(含其他 agent 后续 push 的 22d97baae + 0d6410fc9,我的 commit cb8a26483 在 origin/main 历史中)
@@ -685,6 +750,7 @@ const auth = useAuth({
 ### [x] ✅(2026-07-25) AI 输入框权限按钮深化(第三批) — 快到期双提醒(5min/1min) + 撤销 toast 双 action + 本地优先自动降级(跨端:仅 web,平台独占)
 
 **触发**:用户要求"继续按你的建议去做执行,直到没有任何后续建议可给到我为止"。承接第二批(自动撤销 + 首启确认 + 标题栏倒计时),深度识别剩余 2 个 UX 缺口:
+
 1. 用户被切懵:倒计时归零前无任何提醒,被切了才看到 toast
 2. 撤销窗口短:5s 撤销 toast 只能回退"刚点错",不能"再保持"
 
@@ -894,26 +960,29 @@ const auth = useAuth({
 
 #### web i18n 动态拼接 58 → 0 真实调用(剩余 45 处全部为 JSDoc 注释误报)
 
-| 批次 | commit | 起点 | 终点 | 减量 | 范围 |
-|------|--------|------|------|------|------|
-| 第五批 | c25f364d2 | 70 | 60 | -10 | admin/edu helpers + admin/roles + admin/dict + admin/demand-square |
-| 第六批 | b13d33451 | 60 | 44 | -16 | settings + publish + payment + points + ranking + user + teams + messages + ai-news + n8n-agents |
-| 第七批 | a3217897d | 44 | 40 | -4 | AdminNav + ThemeBackupSync + use-zod-form |
-| 第八批 | 0d6410fc9 | 48 | 45 | -3 | models/ModelsMarketplace(sort/quickFilters) + login/QrCodeLogin |
-| **累计** | — | **58** | **0 真实** | **-100%** | misc 模式全部清零 |
+| 批次     | commit    | 起点   | 终点       | 减量      | 范围                                                                                             |
+| -------- | --------- | ------ | ---------- | --------- | ------------------------------------------------------------------------------------------------ |
+| 第五批   | c25f364d2 | 70     | 60         | -10       | admin/edu helpers + admin/roles + admin/dict + admin/demand-square                               |
+| 第六批   | b13d33451 | 60     | 44         | -16       | settings + publish + payment + points + ranking + user + teams + messages + ai-news + n8n-agents |
+| 第七批   | a3217897d | 44     | 40         | -4        | AdminNav + ThemeBackupSync + use-zod-form                                                        |
+| 第八批   | 0d6410fc9 | 48     | 45         | -3        | models/ModelsMarketplace(sort/quickFilters) + login/QrCodeLogin                                  |
+| **累计** | —         | **58** | **0 真实** | **-100%** | misc 模式全部清零                                                                                |
 
 **审计工具现状**:`node scripts/audit-i18n-unused-keys.mjs --target=web` 报"动态拼接警告 45 处",经 Grep 严格正则 `\bt\(\s*\`[^`]*\$\{` 验证,45 处全部为 JSDoc 注释中的 `t(\`...${...}\`)` 示例文本被误识别,**真实动态拼接调用已 100% 清零**。
 
 **改造模式统一**:
+
 - 共享映射表抽到对应目录的 `helpers.ts`(如 models/helpers.ts 新增 SORT_KEY + QUICK_FILTER_KEY)
 - 文件本地定义映射(如 QrCodeLogin.tsx 新增 PLATFORM_LABEL_KEY)
 - 调用处统一 `t(KEY[var] ?? 'ns.unknown')` 兜底模式
 
 **剩余 JSDoc 注释误报样本**(45 处,均为此类形式):
+
 - `apps/web/app/(main)/activities/page.tsx:32` `/** i18n 静态映射表 — 用于消除 \`t(\`status.${var}\`)\` 动态拼接 */`
 - `apps/web/src/components/marketing/HomeScenarios.tsx:37` `/** i18n 静态映射表 — 用于消除 \`t(\`${key}.xxx\`)\` 动态拼接 */`
 
 **已知遗留(下一轮处理)**:
+
 - 审计脚本 `audit-i18n-unused-keys.mjs` 需优化:排除 JSDoc 注释行(`//`/`/* */`/`/** */`)中的 `t(\`...${...}\`)` 模式
 - zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 仍缺失(未在本轮处理)
 
@@ -937,22 +1006,25 @@ const auth = useAuth({
 
 #### web i18n 无引用 key 453 → 0 真实无引用
 
-| 批次 | commit | 范围 | 数量 |
-|------|--------|------|------|
-| 批次 1(主 agent) | 1ccd3fa3e | nav 命名空间 + audit --output-keys 增强 | 198 |
-| 其他 agent | 47ba174ff | audit(31)+help.faq(5)+chat.permission(1)+audit 脚本修复 | 37 |
-| **累计** | — | — | **235 实删 + 218 因其他 agent 改动自然消引用** |
+| 批次             | commit    | 范围                                                    | 数量                                           |
+| ---------------- | --------- | ------------------------------------------------------- | ---------------------------------------------- |
+| 批次 1(主 agent) | 1ccd3fa3e | nav 命名空间 + audit --output-keys 增强                 | 198                                            |
+| 其他 agent       | 47ba174ff | audit(31)+help.faq(5)+chat.permission(1)+audit 脚本修复 | 37                                             |
+| **累计**         | —         | —                                                       | **235 实删 + 218 因其他 agent 改动自然消引用** |
 
 **audit 最终状态**:
+
 - 递归 key:9910 → 9679
 - 无引用 key:453 (4.6%) → 8 (0.1%) → 0(8 个全部是误报,audit 脚本增强修复)
 - 动态拼接警告:0
 
 **剩余 8 个误报 key(全部已修复)**:
+
 - chat.permission.switchedToMode*(3):变量赋值后 t(key) 引用(audit 新增 re6 检测)
 - design.templates.categories.*(5):映射表对象属性间接引用(audit 新增 re7 检测)
 
 **Git 同步证据**:
+
 - 本地 commit: 1ccd3fa3e(主 agent,已 push)
 - origin commit: fb47a1697(包含主 agent commit)
 - 同步状态: 本任务 commit 已 push ✅
