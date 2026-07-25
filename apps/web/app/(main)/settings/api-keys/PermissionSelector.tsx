@@ -68,7 +68,7 @@ export function PermissionSelector({ value, onChange, disabled }: Props) {
             )}
           >
             <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggle(perm)} />
-            <span>{PERM_LABELS[perm]}</span>
+            <span>{(PERM_LABELS as any)[perm]}</span>
           </label>
         )
       })}
