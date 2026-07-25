@@ -905,7 +905,6 @@
       "historyClearConfirmTitle": "清空历史",
       "historyClearConfirmDesc": "将删除所有模式切换记录,无法恢复。",
       "historyClearConfirm": "清空",
-      "historyClearCancel": "取消",
       "historyOpenButton": "历史",
       "historySource": {
         "popover": "弹窗",
@@ -914,12 +913,6 @@
         "auto-revert": "自动"
       },
       "historyStatsTitle": "累计统计",
-      "historyStatsMode": {
-        "default": "请求批准",
-        "accept-edits": "替我审批",
-        "bypass-permissions": "完全访问"
-      },
-      "historyStatsDuration": "{{mode}}:{{duration}}",
       "historyOpenExternal": "查看历史",
       "dangerousPattern": {
         "rmRrfRoot": "递归删除根/家目录",
@@ -8610,58 +8603,32 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": [
-          "对话",
-          "聊天",
-          "AI",
-          "chat"
-        ]
+        "keywords": ["对话", "聊天", "AI", "chat"]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": [
-          "短剧",
-          "视频",
-          "AI",
-          "drama"
-        ]
+        "keywords": ["短剧", "视频", "AI", "drama"]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ]
+        "keywords": ["搜索", "查找", "search"]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "应用"
-        ]
+        "keywords": ["AI", "世界", "应用"]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": [
-          "个人",
-          "资料",
-          "设置"
-        ]
+        "keywords": ["个人", "资料", "设置"]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": [
-          "设置",
-          "偏好",
-          "配置"
-        ]
+        "keywords": ["设置", "偏好", "配置"]
       }
     }
   },
@@ -8983,31 +8950,19 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": [
-            "系统化课程",
-            "实践探索",
-            "社群互助"
-          ]
+          "features": ["系统化课程", "实践探索", "社群互助"]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": [
-            "交流平台",
-            "经验共享",
-            "资源对接"
-          ]
+          "features": ["交流平台", "经验共享", "资源对接"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": [
-            "专业大模型",
-            "智能体服务",
-            "咨询服务"
-          ]
+          "features": ["专业大模型", "智能体服务", "咨询服务"]
         }
       ]
     },
@@ -9127,37 +9082,25 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": [
-            "知识问答",
-            "流程自动化"
-          ]
+          "examples": ["知识问答", "流程自动化"]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": [
-            "数据分析",
-            "决策支持"
-          ]
+          "examples": ["数据分析", "决策支持"]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": [
-            "会议安排",
-            "审批流程"
-          ]
+          "examples": ["会议安排", "审批流程"]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": [
-            "营销自动化",
-            "多智能体协同"
-          ]
+          "examples": ["营销自动化", "多智能体协同"]
         }
       ]
     },
