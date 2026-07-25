@@ -142,7 +142,7 @@ export default function EduStudentPage() {
           <CardContent className="p-5">
             <div className="text-sm text-muted-foreground">{t('currentPageSignups')}</div>
             <div className="mt-1 text-2xl font-semibold">
-              {rows.reduce((a, s) => a + s.signupCount, 0)}
+              {rows.reduce((a: any, s: any) => a + s.signupCount, 0)}
             </div>
           </CardContent>
         </Card>
@@ -150,7 +150,7 @@ export default function EduStudentPage() {
           <CardContent className="p-5">
             <div className="text-sm text-muted-foreground">{t('currentPageLearnHours')}</div>
             <div className="mt-1 text-2xl font-semibold">
-              {rows.reduce((a, s) => a + s.learnHours, 0)}h
+              {rows.reduce((a: any, s: any) => a + s.learnHours, 0)}h
             </div>
           </CardContent>
         </Card>
