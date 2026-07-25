@@ -26,8 +26,8 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const CNY_FMT = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
-const formatCNY = (cents: number) => CNY_FMT.format(cents / 100)
+const formatCNY = (cents: number) =>
+  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
 
 export default function VipTraderPage() {
   const t = useTranslations('vip')

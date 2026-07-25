@@ -65,10 +65,7 @@ export default function AiCostPage() {
   })
 
   const d = data ?? EMPTY
-  const curFmt = React.useMemo(
-    () => new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' }),
-    [locale],
-  )
+  const curFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
   const totalCost = Number(d.summary.totalCost ?? 0) / 100
 
   const cards = [

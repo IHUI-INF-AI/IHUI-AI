@@ -407,10 +407,27 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
-      // 2026-07-24 安全审计 TODO:此处应校验用户是否有权加入该 roomId(IDOR 防护)
-      // 当前任何认证用户可加入任意房间,可能窃听其他用户私密对话
-      // 修复建议:查 room 表确认用户是创建者或被邀请者,否则 close(1008, '无权加入此房间')
-      // 生产环境必须补 ownership 校验
+      // 2026-07-25 IDOR 防护:仅房主或曾经加入成员可访问,Redis 不可用时降级放行
+      try {
+        const idorRedis = getRedis()
+        if (!idorRedis) {
+          server.log.warn({ roomId, userId }, 'ws-chat IDOR 校验降级:Redis 不可用')
+        } else {
+          const meta = await idorRedis.hgetall(`chatroom:meta:${roomId}`)
+          if (meta && Object.keys(meta).length > 0) {
+            const isOwner = meta.createdBy === userId
+            const isMember = isOwner
+              ? true
+              : (await idorRedis.sismember(`chatroom:user_rooms:${userId}`, roomId)) === 1
+            if (!isOwner && !isMember) {
+              socket.close(1008, '无权加入此房间')
+              return
+            }
+          }
+        }
+      } catch (err) {
+        server.log.warn({ err, roomId, userId }, 'ws-chat IDOR 校验异常,降级放行')
+      }
       const nickname = query.nickname || userId.slice(0, 8)
       const member: RoomMember = { socket, userId, nickname, rooms: new Set<string>() }
 

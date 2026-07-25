@@ -33,16 +33,12 @@ export default function ClawdbotMessagesPage() {
   const [keyword, setKeyword] = React.useState('')
   const [intentFilter, setIntentFilter] = React.useState('')
   const [selected, setSelected] = React.useState<ClawdbotMessageItem | null>(null)
-  const timeFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
+  const timeFmt = new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
   const load = React.useCallback(async () => {
     const params = new URLSearchParams()

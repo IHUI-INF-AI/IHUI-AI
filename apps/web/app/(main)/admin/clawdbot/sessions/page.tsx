@@ -32,16 +32,12 @@ export default function ClawdbotSessionsPage() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [selected, setSelected] = React.useState<SessionItem | null>(null)
-  const timeFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
+  const timeFmt = new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
   const load = React.useCallback(async () => {
     const res = await fetchApi<SessionsData>('/api/admin/clawdbot/sessions')
