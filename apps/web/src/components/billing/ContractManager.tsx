@@ -18,6 +18,12 @@ function statusVariant(status: WechatPayContract['status']): 'success' | 'warnin
   return 'default'
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
+const STATUS_KEY: Record<string, string> = {
+  active: 'status.active',
+  pending: 'status.pending',
+}
+
 export function ContractManager() {
   const t = useTranslations('contractManager')
   const locale = useLocale()
@@ -25,43 +31,29 @@ export function ContractManager() {
   const cancelMutation = useCancelContract()
   const [cancelTarget, setCancelTarget] = React.useState<WechatPayContract | null>(null)
 
-  // 性能修复(2026-07-25):Intl.DateTimeFormat 构造涉及 ICU 数据加载,
-  // 每次 render 重建代价高(数十 ms)。useMemo 仅 locale 变化时重建。
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        timeZone: 'Asia/Shanghai',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      }),
-    [locale],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 
-  // 性能优化(2026-07-25):useCallback 稳定 fmt/chargeStatusText 引用,
-  // 配合 ContractRow 的 React.memo 提升列表渲染命中率。
-  const fmt = React.useCallback(
-    (input?: string): string => {
-      if (!input) return '-'
-      const d = new Date(input)
-      if (Number.isNaN(d.getTime())) return '-'
-      return dateFmt.format(d)
-    },
-    [dateFmt],
-  )
+  const fmt = (input?: string): string => {
+    if (!input) return '-'
+    const d = new Date(input)
+    if (Number.isNaN(d.getTime())) return '-'
+    return dateFmt.format(d)
+  }
 
-  const chargeStatusText = React.useCallback(
-    (status?: WechatPayContract['lastChargeStatus']): string => {
-      if (!status) return '-'
-      if (status === 'success') return t('chargeStatus.success')
-      if (status === 'failed') return t('chargeStatus.failed')
-      return t('chargeStatus.processing')
-    },
-    [t],
-  )
+  const chargeStatusText = (status?: WechatPayContract['lastChargeStatus']): string => {
+    if (!status) return '-'
+    if (status === 'success') return t('chargeStatus.success')
+    if (status === 'failed') return t('chargeStatus.failed')
+    return t('chargeStatus.processing')
+  }
 
   const list = (contracts ?? []).filter((c) => c.status === 'active' || c.status === 'pending')
 
@@ -74,11 +66,6 @@ export function ContractManager() {
       // 错误已在 mutation 上下文中暴露,此处静默
     }
   }
-
-  const handleCancelClick = React.useCallback(
-    (c: WechatPayContract) => setCancelTarget(c),
-    [],
-  )
 
   return (
     <div className="space-y-3">
@@ -94,13 +81,32 @@ export function ContractManager() {
       ) : (
         <ul className="space-y-3">
           {list.map((c) => (
-            <ContractRow
-              key={c.id}
-              contract={c}
-              fmt={fmt}
-              chargeStatusText={chargeStatusText}
-              onCancel={handleCancelClick}
-            />
+            <li key={c.id} className="rounded-lg border border-border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{t('planName')}</span>
+                    <Badge variant={statusVariant(c.status)}>{t(STATUS_KEY[c.status ?? 'unknown'] ?? 'status.unknown')}</Badge>
+                  </div>
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <dt>{t('fields.nextCharge')}</dt>
+                    <dd className="text-foreground">{fmt(c.nextChargeTime)}</dd>
+                    <dt>{t('fields.lastCharge')}</dt>
+                    <dd className="text-foreground">{fmt(c.lastChargeTime)}</dd>
+                    <dt>{t('fields.chargeStatus')}</dt>
+                    <dd className="text-foreground">{chargeStatusText(c.lastChargeStatus)}</dd>
+                    <dt>{t('fields.signedAt')}</dt>
+                    <dd className="text-foreground">{fmt(c.signedAt)}</dd>
+                  </dl>
+                </div>
+                {c.status === 'active' && (
+                  <Button variant="outline" size="sm" onClick={() => setCancelTarget(c)}>
+                    <Ban className="mr-1" />
+                    {t('actions.cancel')}
+                  </Button>
+                )}
+              </div>
+            </li>
           ))}
         </ul>
       )}
@@ -121,52 +127,3 @@ export function ContractManager() {
     </div>
   )
 }
-
-interface ContractRowProps {
-  contract: WechatPayContract
-  fmt: (input?: string) => string
-  chargeStatusText: (status?: WechatPayContract['lastChargeStatus']) => string
-  onCancel: (contract: WechatPayContract) => void
-}
-
-// 性能优化(2026-07-25):抽出列表项 + React.memo,避免父方 state 变更
-// (如 cancelTarget 切换)导致全部行重渲染。t 经 next-intl 内部稳定,
-// 故 useTranslations 在子组件内调用即可。
-const ContractRow = React.memo(function ContractRow({
-  contract,
-  fmt,
-  chargeStatusText,
-  onCancel,
-}: ContractRowProps) {
-  const t = useTranslations('contractManager')
-  return (
-    <li className="rounded-lg border border-border p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{t('planName')}</span>
-            <Badge variant={statusVariant(contract.status)}>
-              {t(`status.${contract.status}` as 'status.active')}
-            </Badge>
-          </div>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <dt>{t('fields.nextCharge')}</dt>
-            <dd className="text-foreground">{fmt(contract.nextChargeTime)}</dd>
-            <dt>{t('fields.lastCharge')}</dt>
-            <dd className="text-foreground">{fmt(contract.lastChargeTime)}</dd>
-            <dt>{t('fields.chargeStatus')}</dt>
-            <dd className="text-foreground">{chargeStatusText(contract.lastChargeStatus)}</dd>
-            <dt>{t('fields.signedAt')}</dt>
-            <dd className="text-foreground">{fmt(contract.signedAt)}</dd>
-          </dl>
-        </div>
-        {contract.status === 'active' && (
-          <Button variant="outline" size="sm" onClick={() => onCancel(contract)}>
-            <Ban className="mr-1" />
-            {t('actions.cancel')}
-          </Button>
-        )}
-      </div>
-    </li>
-  )
-})

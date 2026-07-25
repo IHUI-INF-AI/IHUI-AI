@@ -1,0 +1,19 @@
+{
+  "chat": {
+    "send": "전송"
+  },
+  "common": {
+    "back": "뒤로",
+    "cancel": "취소",
+    "confirm": "확인",
+    "delete": "삭제",
+    "retry": "다시 시도",
+    "save": "저장",
+    "search": "검색"
+  },
+  "nav": {
+    "home": "홈",
+    "settings": "설정",
+    "wallet": "지갑"
+  }
+}
