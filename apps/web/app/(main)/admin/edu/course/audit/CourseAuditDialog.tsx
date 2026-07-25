@@ -12,7 +12,7 @@ import {
   Button,
   Label,
 } from '@ihui/ui-react'
-import { COURSE_FIELDS, VIDEO_FIELDS } from './helpers'
+import { COURSE_FIELDS, VIDEO_FIELDS, TYPE_KEY } from './helpers'
 import type { CompareData } from './types'
 
 function CompareRow({ label, before, after }: { label: string; before: unknown; after: unknown }) {
@@ -78,7 +78,7 @@ export function CourseAuditDialog({
     >
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t('dialog.compareTitle', { type: t(`type.${compareType}`) })}</DialogTitle>
+          <DialogTitle>{t('dialog.compareTitle', { type: t(TYPE_KEY[compareType] ?? 'type.unknown') })}</DialogTitle>
         </DialogHeader>
         {loadingCompare ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
