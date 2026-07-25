@@ -16,6 +16,13 @@ const filterSchema = z.object({
 })
 type FilterForm = z.infer<typeof filterSchema>
 
+const SIGNIN_RULE_STATUS_KEYS: Record<SigninRuleStatus, string> = {
+  draft: 'status.draft',
+  published: 'status.published',
+  rejected: 'status.rejected',
+  pending: 'status.pending',
+}
+
 const BADGE: Record<SigninRuleStatus, string> = {
   draft: 'bg-muted text-muted-foreground', pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   published: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', rejected: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
@@ -81,7 +88,7 @@ export default function AdminSigninRulePage() {
                   <td className={`${c} font-medium tabular-nums`}>{t('dayN', { n: r.day })}</td>
                   <td className={c}><span className="tabular-nums text-emerald-600 dark:text-emerald-400">+{r.points}</span></td>
                   <td className={c}><span className="tabular-nums text-sky-600 dark:text-sky-400">{r.extra > 0 ? `+${r.extra}` : '—'}</span></td>
-                  <td className={c}><span className={`rounded px-2 py-0.5 text-xs ${BADGE[r.status]}`}>{t(`status.${r.status}`)}</span></td>
+                  <td className={c}><span className={`rounded px-2 py-0.5 text-xs ${BADGE[r.status]}`}>{t(SIGNIN_RULE_STATUS_KEYS[r.status]!)}</span></td>
                   <td className={c}><div className="flex justify-end">
                     <Button size="sm" variant="ghost" disabled={toggle.isPending} onClick={() => toggle.mutate({ id: r.id, status: r.status === 'published' ? 'draft' : 'published' })}>{t('toggle')}</Button>
                   </div></td>
