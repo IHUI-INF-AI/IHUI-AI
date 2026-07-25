@@ -7,14 +7,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Image,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native'
 
 export interface CarouselItem {
