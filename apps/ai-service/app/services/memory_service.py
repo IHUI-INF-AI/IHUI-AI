@@ -101,6 +101,81 @@ def _compute_importance(
     return max(0.0, min(1.0, score))
 
 
+def _resolve_importance_score(
+    importance_score: float | None,
+    metadata: dict[str, Any] | None,
+    *,
+    default_user_feedback: float = 0.5,
+    default_tool_success_rate: float = 0.5,
+) -> float:
+    """L2-2(2026-07-25 立):激活 _compute_importance,importance_score 不再硬编码 0.5。
+
+    解析策略(按优先级):
+    1. 显式传入 importance_score(非 None)→ 直接用(尊重调用方)
+    2. metadata.user_feedback(用户显式反馈)→ 走 _compute_importance 综合计算
+    3. metadata.importanceScore(LLM 提取的 confidence)→ 当 user_feedback 用
+    4. metadata.success(procedural 工具调用结果)→ 影响 tool_success_rate
+    5. metadata.access_count(访问频次)→ 影响 access_frequency
+    6. metadata.recency_days(自定义近度)→ 影响 recency_days
+    7. 任何信号都没有 → 默认值走 _compute_importance(全 0.5 → 0.5)
+
+    metadata 字段约定(可选):
+        user_feedback: float 0-1,用户对这条记忆的显式反馈(赞/踩/收藏)
+        importanceScore: float 0-1,LLM 提取的置信度(memory_extractor 输出)
+        confidence: float 0-1,同上(兼容字段)
+        success: bool,procedural 工具调用是否成功
+        access_count: int,历史访问次数
+        recency_days: float,距上次访问的天数(默认 0=刚创建,最近)
+
+    Args:
+        importance_score:            调用方显式传入的分数(None 触发自动计算)
+        metadata:                    记忆元数据
+        default_user_feedback:       缺省用户反馈(0.5 中性)
+        default_tool_success_rate:   缺省工具成功率(0.5 中性)
+
+    Returns:
+        综合评分 0.0-1.0
+    """
+    if importance_score is not None:
+        return max(0.0, min(1.0, importance_score))
+    md = metadata or {}
+    # user_feedback:优先 user_feedback > importanceScore > confidence
+    user_feedback = (
+        md.get("user_feedback")
+        if md.get("user_feedback") is not None
+        else md.get("importanceScore")
+        if md.get("importanceScore") is not None
+        else md.get("confidence")
+        if md.get("confidence") is not None
+        else default_user_feedback
+    )
+    try:
+        user_feedback = float(user_feedback)
+    except (TypeError, ValueError):
+        user_feedback = default_user_feedback
+    # tool_success_rate:从 success bool 推断(True=1.0 / False=0.0)
+    if "success" in md:
+        tool_success_rate = 1.0 if bool(md.get("success")) else 0.0
+    else:
+        tool_success_rate = default_tool_success_rate
+    # access_frequency:历史访问次数
+    try:
+        access_frequency = int(md.get("access_count", 0))
+    except (TypeError, ValueError):
+        access_frequency = 0
+    # recency_days:距上次访问天数(默认 0=最近)
+    try:
+        recency_days = float(md.get("recency_days", 0.0))
+    except (TypeError, ValueError):
+        recency_days = 0.0
+    return _compute_importance(
+        user_feedback=user_feedback,
+        tool_success_rate=tool_success_rate,
+        access_frequency=access_frequency,
+        recency_days=recency_days,
+    )
+
+
 def _parse_pgvector_text(text_val: str | None) -> list[float]:
     """把 pgvector 文本表示 '[0.1,0.2,...]' 解析回 list[float]。"""
     if not text_val:
@@ -198,11 +273,17 @@ class MemoryService:
         session_id: str,
         content: str,
         summary: str | None = None,
-        importance_score: float = 0.5,
+        importance_score: float | None = None,
         metadata: dict[str, Any] | None = None,
         expires_at: datetime | None = None,
     ) -> dict[str, Any]:
-        """保存一条情景记忆。"""
+        """保存一条情景记忆。
+
+        L2-2(2026-07-25 立):importance_score=None 时自动调 _resolve_importance_score
+        从 metadata 综合计算(user_feedback + tool_success_rate + access_count + recency_days),
+        不再硬编码 0.5。
+        """
+        score = _resolve_importance_score(importance_score, metadata)
         pool = await _get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -216,7 +297,7 @@ class MemoryService:
                 user_id,
                 content,
                 summary,
-                importance_score,
+                score,
                 json.dumps(metadata or {}, ensure_ascii=False),
                 expires_at,
             )
@@ -312,13 +393,17 @@ class MemoryService:
         self,
         user_id: str,
         content: str,
-        importance_score: float = 0.5,
+        importance_score: float | None = None,
         metadata: dict[str, Any] | None = None,
         embedding: list[float] | None = None,
     ) -> dict[str, Any]:
         """保存一条语义记忆(若未提供 embedding 则调用 gateway.embed 生成)。
 
         embedding 长度必须为 1536(与 pgvector vector(1536) 一致)。
+
+        L2-2(2026-07-25 立):importance_score=None 时自动调 _resolve_importance_score
+        从 metadata 综合计算(优先用 LLM 提取的 confidence/importanceScore 作为 user_feedback),
+        不再硬编码 0.5。
         """
         if embedding is None:
             embedding = await self._gateway.embed(content)
@@ -327,6 +412,7 @@ class MemoryService:
                 f"embedding 维度必须为 1536,实际 {len(embedding)}"
                 "(请用 text-embedding-ada-002 或同维度模型)"
             )
+        score = _resolve_importance_score(importance_score, metadata)
         # pgvector 接受 '[0.1,0.2,...]' 字符串
         embedding_str = "[" + ",".join(str(float(x)) for x in embedding) + "]"
         pool = await _get_pool()
@@ -341,7 +427,7 @@ class MemoryService:
                 user_id,
                 content,
                 embedding_str,
-                importance_score,
+                score,
                 json.dumps(metadata or {}, ensure_ascii=False),
             )
         return self._row_to_semantic(row)
@@ -567,7 +653,7 @@ class MemoryService:
           - semantic: 写入 agent_memory_semantic(自动生成 embedding)
           - procedural: 写入 agent_memory_procedural(需 metadata.pattern / metadata.tool_name)
         """
-        score = importance_score if importance_score is not None else 0.5
+        score = _resolve_importance_score(importance_score, metadata)
         if layer == "working":
             if not session_id:
                 raise ValueError("working 层需要 session_id")
