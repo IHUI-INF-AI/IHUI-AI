@@ -3,13 +3,11 @@
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
-    "edit": "Edit",
     "back": "Back",
     "confirm": "Confirm",
     "loading": "Loading…",
     "empty": "No data",
     "retry": "Retry",
-    "submit": "Submit",
     "search": "Search",
     "all": "All",
     "hint": "Hint",
@@ -33,19 +31,6 @@
     "wallet": "Wallet",
     "settings": "Settings",
     "community": "Community"
-  },
-  "auth": {
-    "login": "Log in",
-    "logout": "Log out",
-    "register": "Sign up",
-    "forgot": "Forgot password",
-    "phone": "Phone",
-    "code": "Code",
-    "loginSuccess": "Logged in",
-    "getCode": "Get code",
-    "wechatLogin": "WeChat login",
-    "appleLogin": "Apple login",
-    "phoneLogin": "Phone login"
   },
   "login": {
     "loginSuccess": "Login successful",
@@ -96,20 +81,9 @@
     "resetSuccess": "Password reset successful"
   },
   "home": {
-    "welcome": "Welcome to IHUI AI",
-    "greeting": "Hello, {{name}}",
-    "todayRecommend": "Today's picks",
     "hotCourses": "Hot courses",
-    "liveNow": "Live now",
     "tapLogin": "Tap to log in",
     "slogan": "IHUI AI — learn smarter",
-    "entry": {
-      "course": "Courses",
-      "live": "Live",
-      "ai": "AI Assistant",
-      "order": "Orders",
-      "setting": "Settings"
-    },
     "todayMinutes": "{{n}} min today",
     "continuousDays": "{{n}} day streak",
     "totalMinutes": "{{n}} min total",
@@ -119,27 +93,11 @@
     "livePreview": "Upcoming live",
     "startTime": "Starts at",
     "aiAppTitle": "AI Apps",
-    "aiEntries": {
-      "aiChat": "AI Chat",
-      "aiImage": "AI Image",
-      "aiVoice": "AI Voice",
-      "aiVideo": "AI Video",
-      "agent": "Agent",
-      "modelPlaza": "Model Plaza"
-    },
     "knowledgePlanet": "Knowledge Planet",
     "knowledgePlanetDesc": "Join the Knowledge Planet and grow with creators",
     "planetMembers": "members"
   },
   "course": {
-    "title": "Courses",
-    "detail": "Course detail",
-    "studentCount": "{{count}} learners",
-    "pay": "Pay ¥{{amount}}",
-    "enroll": "Enroll now",
-    "enrolled": "Enrolled",
-    "progress": "Progress",
-    "chapters": "Chapters",
     "learningProgress": "Progress",
     "note": "Notes",
     "rating": "Rating",
@@ -164,7 +122,6 @@
     "noteTitle": "{{title}} — Notes",
     "scanCourse": "Scan to view course",
     "loadFailed": "Course load failed",
-    "weekDays": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     "list": {
       "searchPlaceholder": "Search courses",
       "search": "Search",
@@ -180,13 +137,7 @@
     "audience": "Target Audience"
   },
   "live": {
-    "title": "Live",
-    "viewerCount": "{{count}} viewers",
     "viewers": "{{n}} viewers",
-    "join": "Join live",
-    "upcoming": "Upcoming",
-    "ended": "Ended",
-    "replay": "Replay",
     "preview": "Preview",
     "empty": "No live sessions",
     "detail": {
@@ -204,7 +155,6 @@
       "subscribeSuccess": "Subscribed",
       "loadFailed": "Subscribe failed",
       "empty": "No subscriptions",
-      "entry": "My subscriptions",
       "unsubscribed": "Unsubscribed",
       "reminderSaved": "Settings saved",
       "reminder": "Pre-live reminder",
@@ -213,8 +163,6 @@
       "discover": "Discover live streams"
     },
     "history": {
-      "anchor": "Host: {{name}}",
-      "replay": "Watch replay",
       "empty": "No past live sessions",
       "loading": "Loading…",
       "hour": "h",
@@ -224,10 +172,7 @@
       "continue": "Continue watching"
     },
     "calendar": {
-      "title": "{{n}} live calendar",
       "loadFailed": "Calendar load failed",
-      "empty": "No live sessions this month",
-      "entry": "Calendar",
       "prevMonth": "‹",
       "year": "",
       "month": "",
@@ -242,7 +187,6 @@
     "startLiveBtn": "📺 Go Live"
   },
   "liveHost": {
-    "title": "Host",
     "statusIdle": "Not Started",
     "statusActive": "Live Now",
     "statusInactive": "Ended",
@@ -271,38 +215,12 @@
     "endFailed": "Failed to end live",
     "copySuccess": "Copied to clipboard"
   },
-  "profile": {
-    "title": "Profile",
-    "vip": "VIP Center",
-    "myCourses": "My courses",
-    "myOrders": "My orders",
-    "myFavorites": "My favorites",
-    "settings": "Settings",
-    "about": "About",
-    "language": "Language",
-    "theme": "Theme",
-    "privacy": "Privacy Policy",
-    "terms": "Terms",
-    "logout": "Log out",
-    "nickname": "Nickname"
-  },
   "order": {
     "title": "Orders",
     "status": {
-      "pending": "Pending",
-      "paid": "Paid",
-      "cancelled": "Cancelled",
-      "refunding": "Refunding",
-      "refunded": "Refunded",
-      "completed": "Completed",
-      "failed": "Failed"
+      "refunded": "Refunded"
     },
-    "create": "Create order",
     "cancel": "Cancel order",
-    "pay": "Pay now",
-    "detail": "Order detail",
-    "empty": "No orders",
-    "amount": "Amount",
     "orderNo": "Order No.",
     "loadFailed": "Order load failed",
     "createTime": "Created at",
@@ -315,7 +233,6 @@
       "title": "Request refund",
       "orderNo": "Order No.",
       "reason": "Reason",
-      "reasonPlaceholder": "Please enter the refund reason",
       "submit": "Submit",
       "submitted": "Refund submitted",
       "selectReasonFirst": "Please select a refund reason",
@@ -341,11 +258,6 @@
       "viewProgress": "View progress",
       "viewOrder": "Order details"
     },
-    "tabs": {
-      "cancelled": "Cancelled"
-    },
-    "searchPlaceholder": "Search orders",
-    "notFound": "No orders found",
     "cancelConfirm": "Are you sure you want to cancel this order?",
     "cancelSuccess": "Order cancelled",
     "cancelFailed": "Failed to cancel order",
@@ -355,10 +267,6 @@
     }
   },
   "wallet": {
-    "title": "Wallet",
-    "balance": "Balance",
-    "points": "Points",
-    "withdraw": "Withdraw",
     "recharge": {
       "amount": "Amount",
       "customAmount": "Custom amount",
@@ -372,7 +280,6 @@
       "success": {
         "title": "Recharge successful",
         "desc": "The top-up has arrived",
-        "amount": "Amount",
         "backHome": "Back to home",
         "backWallet": "Back to wallet",
         "tipsTitle": "Notice",
@@ -393,20 +300,6 @@
       "activityPlaceholder": "Please enter the event recharge amount",
       "activitySubmit": "Limited-time discount recharge"
     },
-    "topUp": {
-      "balanceLabel": "Account balance",
-      "balanceUnit": "CNY",
-      "balanceLoadFail": "Balance load failed",
-      "amount": "Amount",
-      "customAmount": "Custom amount",
-      "customPlaceholder": "Enter amount",
-      "method": "Payment method",
-      "methodWechat": "WeChat Pay",
-      "methodAlipay": "Alipay",
-      "submit": "Recharge",
-      "submitting": "Recharging…",
-      "invalidAmount": "Please enter a valid amount"
-    },
     "withdrawal": {
       "amountLabel": "Withdrawal amount",
       "records": "Withdrawal records"
@@ -419,65 +312,19 @@
   },
   "community": {
     "title": "Community",
-    "posts": "Posts",
-    "publish": "Publish",
-    "comment": "Comment",
-    "like": "Like",
-    "favorite": "Favorite",
-    "share": "Share",
-    "modelTypes": {
-      "aiChat": "AI Chat",
-      "aiImage": "AI Image",
-      "aiVideo": "AI Video",
-      "aiVoice": "AI Voice",
-      "agent": "Agent",
-      "digitalHuman": "Digital Human",
-      "modelPlaza": "Model Plaza",
-      "moreTools": "More Tools"
-    },
-    "quickEntries": {
-      "myCreation": "My Creations",
-      "aigcWorks": "AIGC Works",
-      "ranking": "Ranking",
-      "aiTeam": "AI Team"
-    }
+    "posts": "Posts"
   },
   "action": {
     "like": "Like",
     "favorite": "Favorite",
     "share": "Share"
   },
-  "modelType": {
-    "skills": "Skills",
-    "talk": "Chat",
-    "image": "Image",
-    "video": "Video",
-    "audio": "Audio",
-    "videoa": "Digital Human",
-    "other": "All",
-    "sck": "Material"
-  },
   "agent": {
-    "title": "Agents",
-    "create": "New agent",
-    "runtime": "Runtime"
+    "title": "Agents"
   },
   "chat": {
-    "placeholder": "Type a message…",
     "send": "Send",
-    "newConversation": "New chat",
-    "history": "History",
-    "stop": "Stop"
-  },
-  "settings": {
-    "title": "Settings",
-    "account": "Account & security",
-    "notification": "Notifications",
-    "privacy": "Privacy",
-    "language": "Language",
-    "theme": "Theme",
-    "about": "About IHUI AI",
-    "version": "Version"
+    "newConversation": "New chat"
   },
   "setting": {
     "hint": "Hint",
@@ -518,13 +365,11 @@
       "detail": "Notification details",
       "detailDesc": "View past notifications"
     },
-    "accountBinding": "Account & security",
     "changePhone": "Change phone",
     "changePassword": "Change password",
     "realNameAuth": "Real-name verification",
     "emailBinding": "Email binding",
     "accountCancel": "Delete account",
-    "messageNotification": "Notifications",
     "helpFeedback": "Help & feedback",
     "feedback": "Feedback",
     "privacyPermission": "Privacy & permissions",
@@ -533,10 +378,6 @@
     "appPermission": "App permissions",
     "other": "Other",
     "version": "Version",
-    "currentPhone": "Current phone",
-    "messageNotificationOff": "Off — you may miss important messages",
-    "openSettingHint": "Please enable notification permission in system settings",
-    "cacheCleared": "Cache cleared",
     "theme": {
       "hintTitle": "Theme notes",
       "switchHint": "Theme change will be saved and applied globally immediately",
@@ -548,17 +389,10 @@
     "accountSecurity": "Account & security"
   },
   "error": {
-    "network": "Network error",
-    "server": "Server error",
-    "unauthorized": "Please log in first",
-    "forbidden": "No permission",
-    "notFound": "Not found",
-    "unknown": "Unknown error"
+    "network": "Network error"
   },
   "success": {
-    "saved": "Saved",
     "deleted": "Deleted",
-    "submitted": "Submitted",
     "copied": "Copied"
   },
   "ai": {
@@ -598,19 +432,12 @@
       "tokenCost": "Tokens: {{n}}",
       "reuse": "Reuse",
       "copy": "Copy",
-      "favorite": "Favorite",
       "favorited": "Favorited",
       "speak": "Speak",
-      "speaking": "Speaking...",
       "stopSpeak": "Stop",
       "share": "Share",
       "viewDigitalHuman": "View Digital Human",
-      "voiceMessage": "Voice Message",
-      "playVoice": "Play"
-    },
-    "favorite": {
-      "title": "Favorites",
-      "empty": "No favorites"
+      "voiceMessage": "Voice Message"
     },
     "history": {
       "title": "Chat History",
@@ -629,11 +456,7 @@
       "upload": "Upload",
       "loadMore": "Load more",
       "noMore": "No more",
-      "empty": "No materials",
-      "tabText": "Text",
-      "tabImage": "Image",
-      "tabVideo": "Video",
-      "tabAudio": "Audio"
+      "empty": "No materials"
     },
     "skillsPopup": {
       "title": "Select skill",
@@ -646,8 +469,6 @@
       "welcome": "Hi, press and hold the button below to start a voice chat",
       "voiceMessage": "[Voice message]",
       "chatFailed": "Chat failed, please retry",
-      "startRecord": "Start recording",
-      "thinking": "Thinking…",
       "releaseToSend": "Release to send",
       "holdToSpeak": "Hold to speak",
       "recordFailed": "Recording failed, please retry",
@@ -670,11 +491,8 @@
       "favorited": "Favorited",
       "history": "History",
       "empty": "No generations yet",
-      "size": "Size",
-      "style": "Style",
       "styles": ["Realistic", "Anime", "Oil Painting", "Watercolor", "3D", "Pixel"],
       "generateFailed": "Generation failed, please retry",
-      "promptRequired": "Please enter a description",
       "downloadSuccess": "Saved to album",
       "downloadFailed": "Download failed, please retry",
       "favoriteAdded": "Added to favorites",
@@ -691,34 +509,17 @@
       "download": "Download",
       "share": "Share",
       "history": "History",
-      "empty": "No generations yet",
       "emptyHistory": "No history yet",
-      "duration": "Duration (s)",
-      "resolution": "Resolution",
-      "fps": "Frame rate",
-      "style": "Style",
       "generateFailed": "Generation failed, please retry",
-      "promptRequired": "Please enter a description",
       "modelUnavailable": "This model API is not yet available",
       "notAvailable": "Unavailable",
       "taskSubmitted": "Task submitted, please check history later",
       "downloadSuccess": "Saved to album",
-      "downloadFailed": "Download failed, please retry",
-      "vendors": {
-        "sora2": "Sora2",
-        "sora2Desc": "OpenAI video model",
-        "kling": "Kling",
-        "klingDesc": "Kuaishou Kling video",
-        "doubao": "Doubao",
-        "doubaoDesc": "ByteDance Doubao video",
-        "dashscope": "Dashscope",
-        "dashscopeDesc": "Alibaba Tongyi Wanxiang"
-      }
+      "downloadFailed": "Download failed, please retry"
     },
     "agent": {
       "searchPlaceholder": "Search agents",
       "count": "{{n}}",
-      "notFound": "No agents found",
       "empty": "No agents",
       "inputPlaceholder": "Ask a question…"
     },
@@ -749,13 +550,7 @@
       "unfavorite": "Unfavorite",
       "useCount": "{{n}} uses",
       "relatedAgents": "Related agents",
-      "noRelated": "No related agents",
       "prologue": "Prologue",
-      "tags": "Tags",
-      "reasonFree": "Free",
-      "reasonVip": "VIP only",
-      "reasonPurchased": "Purchased",
-      "reasonVipOnly": "VIP only",
       "exampleDialog": "Example dialog",
       "reviews": "Reviews",
       "reviewCount": "{{n}} reviews",
@@ -786,7 +581,6 @@
       "emptyRecent": "No recently used agents"
     },
     "historyPage": {
-      "title": "Chat history",
       "empty": "No chat history",
       "deleteOne": "Delete this chat",
       "clearAll": "Clear all",
@@ -797,33 +591,7 @@
       "msgCount": "{{n}} messages"
     },
     "special": {
-      "hint": "Special AI model entries — tap to open the related feature page",
-      "available": "Available",
       "pageError": "Operation failed",
-      "nanobanana": {
-        "name": "NanoBanana",
-        "desc": "Google image editing model, supports natural-language image editing",
-        "capabilities": ["Image Editing", "Natural Language Commands", "High-Quality Output"],
-        "apiStatus": "Tap to open AI Image"
-      },
-      "veo3": {
-        "name": "Veo3",
-        "desc": "Google video generation model, supports high-quality text-to-video",
-        "capabilities": ["Video Generation", "Text to Video", "High Quality"],
-        "apiStatus": "Tap to open AI Video"
-      },
-      "httpmodel": {
-        "name": "HttpModel",
-        "desc": "Generic HTTP model proxy, supports custom model integration",
-        "capabilities": ["Custom Model", "HTTP Proxy", "Flexible Integration"],
-        "apiStatus": "Tap to open AI Chat"
-      },
-      "geminiFlash": {
-        "name": "Gemini-2.5-flash",
-        "desc": "Google Gemini 2.5 Flash text model, fast response",
-        "capabilities": ["Text Chat", "Fast Response", "Multilingual"],
-        "apiStatus": "Available via AI Chat"
-      },
       "cat": {
         "image": "AI Drawing",
         "video": "AI Video",
@@ -854,18 +622,6 @@
     "timelineTitle": "IHUI AI, your smart learning assistant",
     "courseTitle": "Recommended course: {{title}}",
     "liveTitle": "Recommended live: {{title}}",
-    "shareHint": "Please save the image before sharing",
-    "noImage": "Image not generated",
-    "navTitle": "Share",
-    "defaultName": "IHUI AI",
-    "defaultDesc": "Join IHUI AI to learn together",
-    "memberCount": "{{n}} members",
-    "shareToFriends": "Share to friends",
-    "qrcode": "QR code",
-    "scanHint": "Scan to join now",
-    "shareFriend": "Share to WeChat friend",
-    "saveImage": "Save image",
-    "sharePath": "Share path",
     "index": {
       "title": "AI News",
       "removeConfirm": "Delete this conversation?",
@@ -928,7 +684,6 @@
   },
   "aiChatDetail": {
     "title": "Chat history",
-    "chat": "Chat",
     "empty": "No chat history",
     "noReply": "No reply",
     "sendFailed": "Send failed, please retry",
@@ -949,15 +704,9 @@
     "openWorkflow": "Open workflow"
   },
   "agentDialogue": {
-    "title": "Agent dialogue",
-    "agent": "Agent",
-    "empty": "No agents",
     "sendFailed": "Send failed, please retry",
     "loadFailed": "Load failed",
-    "historyEntry": "Chat history",
-    "welcome": "Hi, I am {{name}}. How can I help?",
     "messageEmpty": "Send a message to start",
-    "thinking": "Thinking…",
     "inputPlaceholder": "Type a message…",
     "userMissing": "User info incomplete",
     "openInBrowser": "Please open in browser",
@@ -969,10 +718,7 @@
   },
   "accountCancel": {
     "title": "Delete account",
-    "confirmContent": "Account deletion is irreversible. Continue?",
     "cancelled": "Account deleted",
-    "currentAccount": "Account: {{account}}",
-    "confirm": "Confirm deletion",
     "noInfo": "No account information",
     "confirmSentence": "I confirm account deletion",
     "noPhone": "No phone number bound",
@@ -983,13 +729,6 @@
     "submitting": "Deleting…",
     "submit": "Confirm deletion",
     "consequenceTitle": "Consequences",
-    "consequence1": "All course learning records will be cleared",
-    "consequence2": "Purchased courses and membership benefits will no longer be available",
-    "consequence3": "Wallet balance and points will be reset to zero and cannot be withdrawn",
-    "consequence4": "All published content and comments will be deleted",
-    "consequence5": "Distribution team relationships will be terminated",
-    "consequence6": "Account deletion is irreversible. Please proceed with caution",
-    "consequence7": "Pending orders will be automatically cancelled upon deletion",
     "phoneLabel": "Phone",
     "codeLabel": "Verification code",
     "codePlaceholder": "Enter verification code",
@@ -1127,14 +866,8 @@
       "pass": "Congratulations, passed",
       "notPass": "Not passed",
       "scoreValue": "{{n}} points",
-      "score": "Score",
-      "isPass": "Passed",
-      "passLabel": "Pass",
-      "notPassLabel": "Fail",
-      "rank": "Rank",
       "rankValue": "#{{n}} of {{total}}",
       "goList": "View exam list",
-      "goStudy": "Continue learning",
       "correct": "Correct",
       "wrong": "Wrong",
       "pageTitle": "Exam result",
@@ -1154,11 +887,8 @@
       "durationValue": "{{n}} min",
       "passScore": "Pass score",
       "passScoreValue": "{{n}} points",
-      "noticeTitle": "Exam notice",
       "notice1": "Please read questions carefully and complete within the time limit",
       "notice2": "Answers can be modified before submission",
-      "notice3": "Do not exit the app during the exam",
-      "notice4": "Score will be calculated automatically after submission",
       "start": "Start exam",
       "startFailed": "Failed to start exam",
       "rule3": "Screen switching is prohibited; the exam will auto-submit after 5 switches",
@@ -1184,7 +914,6 @@
     "cancel": "Unfavorite",
     "loadFailed": "Load failed",
     "empty": "No favorites",
-    "delete": "Delete",
     "loadMore": "Load more",
     "noMore": "No more",
     "batchCancel": "Batch unfavorite",
@@ -1202,7 +931,6 @@
     "withdraw": {
       "methodWechat": "WeChat",
       "methodAlipay": "Alipay",
-      "methodBank": "Bank card",
       "invalidAmount": "Please enter a valid amount",
       "insufficient": "Insufficient balance",
       "submitted": "Withdrawal submitted",
@@ -1212,49 +940,7 @@
       "method": "Withdrawal method",
       "submit": "Submit"
     },
-    "index": {
-      "menuTeam": "My team",
-      "menuCommission": "Commission records",
-      "menuWithdraw": "Request withdrawal",
-      "menuRank": "Referral rank",
-      "viewWithdrawal": "View withdrawal #{{id}}",
-      "level": "Distribution level",
-      "rank": "Referral rank",
-      "totalCommission": "Total commission",
-      "available": "Available",
-      "withdrawn": "Withdrawn",
-      "teamCount": "Team size",
-      "inviteReward": "Invite reward",
-      "inviterName": "Inviter",
-      "posterSaved": "Poster saved",
-      "qrLoadFail": "QR code load failed",
-      "qrLoading": "QR code generating",
-      "fillInfo": "Please fill in all fields",
-      "verifying": "Verifying",
-      "verifyOk": "Verified",
-      "verifyFail": "Verification failed",
-      "menuOrders": "Distribution orders",
-      "menuPlan": "Commission plan",
-      "menuQrCode": "My QR code",
-      "defaultName": "Operator",
-      "title": "My company",
-      "operator": "Operator",
-      "tabDay": "Day",
-      "tabMonth": "Month",
-      "tabSum": "Total",
-      "earnings": "Earnings",
-      "orders": "Orders",
-      "invites": "Invites",
-      "qrTitle": "My share QR code",
-      "share": "Share to friends",
-      "saveAlbum": "Save to album",
-      "verifyTitle": "Identity verification",
-      "idPlaceholder": "Enter ID number",
-      "namePlaceholder": "Enter name",
-      "confirm": "Confirm"
-    },
     "team": {
-      "title": "My Team",
       "member": "Member",
       "searchPlaceholder": "Search team members",
       "totalMembers": "Total team members",
@@ -1277,26 +963,6 @@
       "loading": "Loading…"
     },
     "plan": {
-      "title": "Distribution plan",
-      "loading": "Loading…",
-      "level": "Level",
-      "totalCommission": "Total commission",
-      "available": "Available",
-      "withdrawn": "Withdrawn",
-      "teamCount": "Team size",
-      "empty": "No distribution data",
-      "planName": "Plan",
-      "comingSoon": "Under development",
-      "newPlan": "New plan",
-      "planList": "Plan list",
-      "active": "Active",
-      "inactive": "Inactive",
-      "commissionRate": "Commission rate",
-      "productCount": "Products",
-      "viewDetail": "Detail",
-      "error": "Load failed",
-      "retry": "Tap to retry",
-      "noMore": "No more",
       "openVipTitle": "Open VIP membership",
       "confirm": "Confirm",
       "cancel": "Cancel",
@@ -1310,7 +976,6 @@
       "openVipBtn": "Open VIP membership to join commission plan"
     },
     "memberDetail": {
-      "title": "Member detail",
       "loading": "Loading…",
       "member": "Member",
       "empty": "No members",
@@ -1325,7 +990,6 @@
       "noMore": "No more"
     },
     "orderList": {
-      "title": "Distribution orders",
       "loading": "Loading…",
       "empty": "No orders",
       "product": "Product",
@@ -1348,10 +1012,6 @@
       "menuTeam": "Team",
       "menuCommission": "Commission",
       "menuWithdraw": "Withdraw"
-    },
-    "rank": {
-      "title": "Distribution Leaderboard",
-      "empty": "No ranking data"
     },
     "rankTitle": "Distribution Ranking",
     "rankEmpty": "No ranking data",
@@ -1499,13 +1159,6 @@
       "tapToView": "Tap to view business license"
     },
     "icpRecord": {
-      "labels": [
-        "ICP Record Number",
-        "Record Entity",
-        "Record Nature",
-        "Approval Date",
-        "Record Type"
-      ],
       "footer": "Sourced from MIIT filing system",
       "icpNo": "ICP filing No.",
       "policeNo": "Public security filing No.",
@@ -1517,43 +1170,6 @@
       "icpLabel": "ICP filing/license number"
     },
     "usageRules": {
-      "titles": [
-        "1. Account Usage Rules",
-        "2. Content Publishing Rules",
-        "3. Payment and Rights Rules",
-        "4. Violation Handling Rules",
-        "5. Disclaimer"
-      ],
-      "account": [
-        "Users must register through official channels",
-        "Account ownership belongs to the platform",
-        "Users must keep login credentials safe",
-        "Malicious account registration is prohibited"
-      ],
-      "content": [
-        "Published content must comply with laws",
-        "Illegal harmful information is prohibited",
-        "Infringement of intellectual property is prohibited",
-        "Platform reserves the right to review and delete violations"
-      ],
-      "usage": [
-        "Users must not interfere with platform operations",
-        "Using automation tools for fake traffic is prohibited",
-        "Exploiting vulnerabilities for profit is prohibited",
-        "User behavior must follow principles of good faith"
-      ],
-      "disclaimer": [
-        "Platform is not liable for service interruptions",
-        "Users bear the risk of use",
-        "Platform is not responsible for third-party content",
-        "Platform is not liable for losses due to force majeure"
-      ],
-      "footer": "Effective from the date of publication",
-      "titleAccount": "1. Account usage",
-      "titleContent": "2. Content rules",
-      "titleForbid": "3. Prohibited behavior",
-      "titleIP": "4. Intellectual property",
-      "titleDisclaimer": "5. Disclaimer",
       "s2": {
         "sub1": "(1) Permitted Actions",
         "sub2": "(2) Prohibited Actions (Red Line Terms)"
@@ -1589,16 +1205,7 @@
       "openAllSetting": "Open system settings"
     },
     "modelRecord": {
-      "labels": [
-        "Model Name",
-        "Model Type",
-        "Record Number",
-        "Record Entity",
-        "Review Date",
-        "Service Scope"
-      ],
       "noticeTitle": "Model information",
-      "noticeText": "This app uses AI technology. Below is the model information.",
       "footer": "For reference only",
       "modelName": "Model name",
       "recordNo": "Filing No.",
@@ -1633,20 +1240,8 @@
     "introFallback": "IHUI AI is dedicated to building a one-stop AI service platform",
     "copyright": "© 2026 IHUI AI. All rights reserved."
   },
-  "aboutProtocol": {
-    "loadFailed": "Protocol load failed"
-  },
   "businessCard": {
-    "saved": "Card saved",
     "title": "My card",
-    "name": "Name",
-    "position": "Position",
-    "company": "Company",
-    "phone": "Phone",
-    "intro": "Intro",
-    "save": "Save",
-    "edit": "Edit",
-    "loading": "Loading…",
     "uploaded": "Business card uploaded",
     "savedToAlbum": "Saved to album",
     "saveFailed": "Save failed",
@@ -1680,25 +1275,17 @@
     "useCount": "{{n}} uses"
   },
   "circle": {
-    "tabs": {
-      "recommend": "Recommended",
-      "follow": "Following",
-      "hot": "Hot"
-    },
     "empty": "No content",
     "createForm": {
       "published": "Published",
-      "titlePlaceholder": "Say something…",
       "contentPlaceholder": "Share your thoughts…",
       "topicLabel": "Topic",
-      "selectTopic": "Select topic",
       "publish": "Publish"
     },
     "detail": {
       "followed": "Following",
       "shareHint": "Copy link to share",
       "follow": "Follow",
-      "share": "Share",
       "unfollowed": "Unfollowed",
       "commentSent": "Comment posted",
       "aigcTag": "AI Work",
@@ -1723,8 +1310,6 @@
   "devEnter": {
     "cover": {
       "title": "Developer Details",
-      "agent": "Agent",
-      "empty": "No content",
       "opening": "Exclusive developer space opening…",
       "openingTip": "For progress inquiry, please join the community and contact staff",
       "becomeDeveloper": "Become a Developer",
@@ -1784,10 +1369,8 @@
       "submit": "Create Agent"
     },
     "modelEdit": {
-      "saved": "Saved",
       "title": "Edit model",
       "model": "Model",
-      "empty": "No models",
       "categoryLabel": "Categories (multi-select)",
       "departmentLabel": "Department",
       "saleTypeLabel": "Sale type",
@@ -1825,14 +1408,7 @@
       "empty": "No withdrawal records"
     },
     "subscribe": {
-      "monthly": "Monthly",
-      "yearly": "Yearly",
-      "bannerTitle": "Developer subscription",
-      "bannerDesc": "Unlock developer-only features",
       "recommended": "Recommended",
-      "empty": "No subscription plans",
-      "submitting": "Submitting…",
-      "priceLabel": "¥{{price}}/{{period}}",
       "devName": "Developer",
       "unfollowed": "Unfollowed",
       "noContact": "No contact information",
@@ -1852,14 +1428,8 @@
       "contact": "Contact developer"
     },
     "income": {
-      "title": "Income overview",
-      "total": "Total income",
-      "available": "Available",
       "withdrawn": "Withdrawn",
-      "details": "Income details",
-      "income": "Income",
       "withdraw": "Withdraw Now",
-      "withdrawRecord": "Withdrawal Records",
       "withdrawPopup": "Withdraw",
       "withdrawAvailable": "Available Amount ¥",
       "withdrawPlaceholder": "Enter withdrawal amount",
@@ -1869,8 +1439,6 @@
       "exceedAvailable": "Amount exceeds available balance",
       "withdrawSubmitted": "Withdrawal submitted",
       "withdrawFailed": "Withdrawal failed, please retry later",
-      "totalYuan": "Total Income (CNY)",
-      "availableYuan": "Available (CNY)",
       "withdrawnYuan": "Withdrawn (CNY)",
       "selectMethod": "Please select withdrawal method",
       "settled": "Settled",
@@ -1895,11 +1463,9 @@
       "wechat": "WeChat"
     },
     "index": {
-      "title": "Developer center",
       "subscribeTitle": "Subscription",
       "subscribeDesc": "Upgrade to unlock more",
       "unnamedAgent": "Untitled agent",
-      "useCount": "{{n}} uses",
       "published": "Published",
       "empty": "No agents",
       "tip": "Tip",
@@ -1918,8 +1484,6 @@
   },
   "modelPlaza": {
     "title": "Model plaza",
-    "unnamed": "Untitled model",
-    "noDesc": "No description",
     "empty": "No models",
     "tabAll": "All",
     "tabText": "Text",
@@ -1937,7 +1501,6 @@
     "search": "Search news",
     "views": "{{n}} views",
     "empty": "No news",
-    "loading": "Loading…",
     "readCount": "{{n}} reads",
     "detail": {
       "like": "Like",
@@ -1975,13 +1538,6 @@
     },
     "index": {
       "title": "Model plaza",
-      "model": "Model",
-      "empty": "No models",
-      "statusAll": "All",
-      "statusPublished": "Published",
-      "statusTesting": "Testing",
-      "statusOffline": "Offline",
-      "statusUnknown": "Unknown",
       "untitled": "Untitled",
       "anonymous": "Anonymous",
       "emptyMain": "No content",
@@ -2000,9 +1556,6 @@
       "identityTitle": "Switch identity"
     },
     "cover": {
-      "title": "Cover selection",
-      "model": "Model",
-      "empty": "No content",
       "entryTitle": "Become a developer",
       "entryDesc": "Open your developer space, publish agents to earn income",
       "becomeDeveloper": "Become a developer now",
@@ -2023,16 +1576,8 @@
     }
   },
   "ranking": {
-    "title": "Leaderboard",
     "empty": "No ranking data",
-    "tabCreation": "Creation",
-    "tabLearning": "Learning",
-    "tabDistribution": "Distribution",
-    "myRank": "My rank",
-    "notRanked": "Not ranked",
     "unitCreation": "pts",
-    "unitLearning": "min",
-    "unitDistribution": "CNY",
     "listTitle": "AI Leaderboard",
     "searchPlaceholder": "Search AI tools",
     "generalHelper": "General assistant",
@@ -2151,7 +1696,6 @@
   "member": {
     "index": {
       "loadFailed": "Load failed",
-      "defaultLevel": "Regular member",
       "integral": "Points",
       "growth": "Growth",
       "coupons": "Coupons",
@@ -2185,11 +1729,7 @@
       "tierCatalog": "Tier benefits"
     },
     "coupon": {
-      "unused": "Unused",
-      "used": "Used",
-      "expired": "Expired",
       "unit": "CNY",
-      "threshold": "Spend {{threshold}}+",
       "empty": "No coupons",
       "couponCenter": "Coupon center",
       "useHint": "Use it on the product page",
@@ -2203,8 +1743,6 @@
       "received": "Claimed",
       "unit": "CNY",
       "coupon": "Coupon",
-      "threshold": "Spend {{threshold}} CNY+",
-      "expireTime": "Valid until {{time}}",
       "receive": "Claim",
       "empty": "No coupons available",
       "loadFailed": "Load failed",
@@ -2214,9 +1752,7 @@
   },
   "pay": {
     "result": {
-      "paid": "Payment successful",
-      "pending": "Payment processing",
-      "failed": "Payment failed"
+      "paid": "Payment successful"
     },
     "backHome": "Back to home",
     "viewOrders": "View orders",
@@ -2233,7 +1769,6 @@
     "noCoupon": "No coupons available",
     "couponNone": "No coupon",
     "orderExpired": "Order expired, please place a new order",
-    "alipayNotReady": "Alipay is not available yet",
     "countdownTip": "Remaining payment time {{time}}",
     "couponSaved": "Saved ¥{{n}}",
     "goodsName": "Product name",
@@ -2256,10 +1791,6 @@
     "totalMinutes": "{{n}} min total",
     "continuousDays": "{{n}} day streak",
     "courses": "{{n}} courses",
-    "record": "Study records",
-    "plan": "Study plan",
-    "rank": "Study rank",
-    "exam": "My exams",
     "continueLearning": "Continue learning",
     "emptyCourse": "No courses",
     "planPage": {
@@ -2278,7 +1809,6 @@
       "empty": "No ranking data"
     },
     "recordPage": {
-      "duration": "Studied {{n}} min",
       "progress": "Progress {{n}}%",
       "empty": "No study records",
       "statusLearning": "Learning",
@@ -2326,7 +1856,6 @@
     "myStudy": {
       "title": "My study",
       "courseFallback": "Untitled course",
-      "empty": "No study records",
       "inProgressEmpty": "No in-progress courses",
       "completedEmpty": "No completed courses",
       "favoritedEmpty": "No favorited courses",
@@ -2381,8 +1910,6 @@
     }
   },
   "topic": {
-    "count": "{{n}} posts",
-    "empty": "No topics",
     "detail": {
       "unfollowed": "Unfollowed",
       "followSuccess": "Followed successfully",
@@ -2396,9 +1923,6 @@
   },
   "token": {
     "balance": {
-      "balanceLabel": "Token balance",
-      "recordsTitle": "Change records",
-      "change": "Token change",
       "empty": "No records",
       "title": "My tokens",
       "agentConsume": "Agent consumption",
@@ -2416,19 +1940,9 @@
     "normalUser": "User",
     "tapLogin": "Tap to log in",
     "loginHint": "Log in for more services",
-    "menu": {
-      "orders": "My Orders",
-      "favorites": "My Favorites",
-      "following": "My Following",
-      "subscriptions": "My Subscriptions",
-      "courses": "All Courses",
-      "ai": "AI Assistant",
-      "settings": "Settings"
-    },
     "identity": "Identity",
     "avatar": {
       "updateSuccess": "Avatar updated",
-      "choose": "Choose avatar",
       "formatHint": "JPG or PNG",
       "sizeHint": "Recommended 200×200",
       "updateFailed": "Failed to update avatar",
@@ -2472,10 +1986,6 @@
       "saving": "Saving…"
     },
     "orders": {
-      "statusPending": "Pending",
-      "statusPaid": "Paid",
-      "statusCancelled": "Cancelled",
-      "statusRefunded": "Refunded",
       "pay": "Pay",
       "tabsAll": "All",
       "tabsPending": "Pending",
@@ -2497,32 +2007,22 @@
       "confirmPlaceholder": "Enter the new password again",
       "submit": "Change password",
       "forgotOld": "Forgot the old password? Verify via phone",
-      "lengthHint": "Password length 6–20 characters",
-      "confirmError": "Passwords do not match",
       "sameAsOld": "New password cannot be the same as the old one",
-      "submitting": "Changing…",
-      "modifySuccess": "Password changed"
+      "submitting": "Changing…"
     },
     "phone": {
       "phoneInvalid": "Invalid phone number",
       "codeSendFailed": "Code send failed",
       "bindSuccess": "Phone bound",
       "phone": "Phone",
-      "phonePlaceholder": "Enter your phone number",
       "code": "Code",
       "codePlaceholder": "Enter the code",
       "getCode": "Get code",
       "bind": "Bind",
-      "changeTitle": "Change phone",
-      "step1": "Step 1: Verify current phone",
-      "step2": "Step 2: Bind new phone",
       "currentLabel": "Current phone",
-      "oldCodePlaceholder": "Enter the current phone verification code",
       "codeSent": "Code sent",
       "next": "Next",
-      "newPhone": "New phone",
       "newPhonePlaceholder": "Enter the new phone number",
-      "newCodePlaceholder": "Enter the new phone verification code",
       "binding": "Binding…",
       "sameAsCurrent": "New phone cannot be the same as the current one",
       "unbound": "Not bound",
@@ -2572,26 +2072,6 @@
     }
   },
   "vipTrader": {
-    "enterName": "Please enter your name",
-    "enterPhone": "Please enter your phone number",
-    "selectLevel": "Please select a tier",
-    "submitted": "Application submitted",
-    "loading": "Loading…",
-    "empty": "No tiers available",
-    "title": "VIP Reseller",
-    "subtitle": "Join as a reseller and share the revenue",
-    "levelSection": "Member tier",
-    "privilegeSection": "Exclusive benefits",
-    "formSection": "Application info",
-    "nameLabel": "Name",
-    "namePlaceholder": "Enter your name",
-    "phoneLabel": "Phone",
-    "phonePlaceholder": "Enter your phone number",
-    "experienceLabel": "Promotion experience",
-    "experiencePlaceholder": "Briefly describe your promotion experience",
-    "reasonLabel": "Reason",
-    "reasonPlaceholder": "Why do you want to be a reseller?",
-    "submit": "Submit",
     "openTitle": "Open membership",
     "openTrader": "Open trader membership",
     "consultHint": "Advisor connected",
@@ -2621,7 +2101,6 @@
     "memberDescText": "IHUI AI membership includes exclusive courses, extra AI chats, priority support, and more.",
     "privilege": {
       "title": "Member Benefits",
-      "desc": "Exclusive perks for premium experience",
       "empty": "No benefits",
       "upgrade": "Upgrade now",
       "notOpened": "Not a Member",
@@ -2639,28 +2118,7 @@
       "traderDesc": "Traders are platform-certified professional market analysis roles with exclusive data tools and one-on-one guidance.",
       "privateAdvisoryDesc": "Private Advisory is the platform top-tier membership circle, gathering industry experts with one-on-one advisory and closed-door salon access.",
       "matrixBenefit": "Benefit",
-      "matrixDesc": "1 yuan = 1 growth point, upgrade membership for higher benefits. All courses/compute/automated agents/knowledge base/custom services, continuously adding features.",
-      "matrixDailyChats": "Daily Chats",
-      "matrixModelAccess": "Model Access",
-      "matrixBasic": "Basic",
-      "matrixAdvanced": "Advanced",
-      "matrixAll": "All",
-      "matrixExclusiveService": "Exclusive Service",
-      "matrixCourseDiscount": "Course Discount",
-      "matrixNone": "None",
-      "matrixAgentCount": "Agent Count",
-      "matrixPrice": "Price",
-      "matrixFree": "Free",
-      "traderBenefit1": "Exclusive market data analysis tools",
-      "traderBenefit2": "One-on-one professional guidance",
-      "traderBenefit3": "Real-time market alerts",
-      "traderBenefit4": "Trading strategy exclusive courses",
-      "traderBenefit5": "Priority access to platform events",
-      "privateBenefit1": "One-on-one exclusive advisor",
-      "privateBenefit2": "Closed-door salon access",
-      "privateBenefit3": "Private networking with industry experts",
-      "privateBenefit4": "Premium resource matchmaking",
-      "privateBenefit5": "Customized solutions"
+      "matrixDesc": "1 yuan = 1 growth point, upgrade membership for higher benefits. All courses/compute/automated agents/knowledge base/custom services, continuously adding features."
     },
     "upgrade": {
       "bannerTitle": "Upgrade to VIP",
@@ -2683,16 +2141,12 @@
     "index": {
       "autoRenew": "Enable auto-renewal (monthly, cancel anytime)",
       "manageAutoRenew": "Manage auto-renewal",
-      "vipSuffix": "VIP",
       "memberFallback": "Member",
       "configNotReady": "Payment config not ready. Contact admin.",
       "introduce": "Level Intro",
       "introduceTitle": "VIP Level Benefits",
       "introduceDesc": "VIP members enjoy multiple exclusive benefits",
       "confirmTitle": "Confirm Purchase",
-      "confirmPlan": "Plan",
-      "confirmPrice": "Price",
-      "confirmPeriod": "Period",
       "payNow": "Pay Now",
       "noticeTitle": "Purchase Notice",
       "noticeAgree": "I have read and agree to the purchase notice",
@@ -2762,7 +2216,6 @@
   },
   "learnDevelop": {
     "title": "Learning & development",
-    "course": "Course",
     "empty": "No content",
     "pathTitle": "Learning path",
     "coursesUnit": "courses",
@@ -2774,18 +2227,6 @@
     "rankEntry": "Study leaderboard"
   },
   "settingPrivacy": {
-    "permissions": {
-      "record": "Microphone",
-      "camera": "Camera",
-      "album": "Album",
-      "location": "Location",
-      "notification": "Notifications"
-    },
-    "status": {
-      "granted": "On",
-      "denied": "Denied",
-      "unknown": "Off"
-    },
     "systemPermissions": "System permissions",
     "privacySettings": "Privacy settings",
     "goSetting": "Open settings",
@@ -2798,61 +2239,8 @@
     "privacyPolicy": "Privacy policy"
   },
   "page": {
-    "index": {
-      "title": "Home",
-      "welcome": "Welcome to IHUI AI"
-    },
-    "community": {
-      "title": "Community",
-      "post": "Post",
-      "comment": "Comment"
-    },
-    "message": {
-      "title": "Messages",
-      "system": "System",
-      "interaction": "Interactions",
-      "private": "Direct"
-    },
-    "ranking": {
-      "title": "Rankings",
-      "weekly": "Weekly",
-      "monthly": "Monthly",
-      "total": "All-time"
-    },
-    "share": {
-      "title": "Share",
-      "shareToFriend": "Share to friends",
-      "poster": "Generate poster"
-    },
-    "pay": {
-      "title": "Payment",
-      "orderDetail": "Order details",
-      "payMethod": "Payment method",
-      "confirm": "Confirm payment"
-    },
-    "member": {
-      "title": "Membership",
-      "benefits": "Member benefits",
-      "points": "Points",
-      "coupons": "Coupons"
-    },
-    "setting": {
-      "title": "Settings",
-      "general": "General",
-      "clearCache": "Clear cache",
-      "about": "About us"
-    },
     "vip": {
-      "title": "VIP Membership",
-      "openVip": "Subscribe",
-      "privileges": "VIP privileges",
-      "openNow": "Subscribe now",
       "dayUnit": " days"
-    },
-    "about": {
-      "title": "About us",
-      "userAgreement": "User agreement",
-      "privacy": "Privacy policy"
     }
   },
   "feedback": {
