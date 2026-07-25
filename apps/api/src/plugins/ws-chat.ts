@@ -407,10 +407,27 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
-      // 2026-07-24 安全审计 TODO:此处应校验用户是否有权加入该 roomId(IDOR 防护)
-      // 当前任何认证用户可加入任意房间,可能窃听其他用户私密对话
-      // 修复建议:查 room 表确认用户是创建者或被邀请者,否则 close(1008, '无权加入此房间')
-      // 生产环境必须补 ownership 校验
+      // IDOR 防护:校验用户是否有权加入该 roomId(创建者或成员)
+      const redis = getRedis()
+      if (!redis) {
+        socket.close(1008, '服务暂不可用')
+        return
+      }
+      try {
+        const [meta, isMember] = await Promise.all([
+          redis.hgetall(`chatroom:meta:${roomId}`),
+          redis.sismember(`chatroom:members:${roomId}`, userId),
+        ])
+        const isCreator = meta && Object.keys(meta).length > 0 && meta.createdBy === userId
+        if (!isCreator && !isMember) {
+          socket.close(1008, '无权加入此房间')
+          return
+        }
+      } catch (e) {
+        server.log.error({ err: e, roomId, userId }, 'ws-chat membership check failed')
+        socket.close(1008, '房间校验失败')
+        return
+      }
       const nickname = query.nickname || userId.slice(0, 8)
       const member: RoomMember = { socket, userId, nickname, rooms: new Set<string>() }
 
