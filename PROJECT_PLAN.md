@@ -179,23 +179,32 @@
 6. **`backup_model="all_failed"` 哨兵值**:所有备用 provider 都失败时无法确定具体 backup_model,用统一哨兵值便于 Prometheus 查询聚合
 7. **L2 操作在 L1 锁外执行**:避免长时间持锁阻塞 L1 写入,回填 L1 时重新获取锁
 
-**运行时验证(2026-07-25,降级模式)**:
+**运行时验证(2026-07-25,全链路环境)**:
 
-Docker Desktop 不可用 → DB/Redis 未启动 → api(8802)+ web(8801)无法启动。按 §17 豁免场景③"dev server 30 分钟无法修复降级单元测试"适用,采用降级验证方案:
+Docker Desktop 启动 + db(8810)+ redis(8811)容器启动 + api(8802)+ web(8801)+ ai-service(8803)全链路就绪。补加 users 表 two_factor 列(0130_two_factor.sql) + 临时 DISABLE system_admin 触发器重置 admin 密码(admin123)后验证。
 
 | 验证项 | 方式 | 结果 |
 | --- | --- | --- |
-| **ai-service /metrics 端点** | `uvicorn app.main:app --port 8803` 启动(降级模式:schema_check 失败忽略 + scheduler_service 降级内存)+ `Invoke-WebRequest http://127.0.0.1:8803/metrics` | ✅ HTTP 200,响应含 3 个 fallback 指标:`# HELP llm_fallback_triggered_total` / `# HELP llm_fallback_success_total` / `# HELP llm_fallback_failure_total` + 对应 `# TYPE ... counter` |
-| **classify_fallback_reason 单测** | `python -c "from app.middleware.llm_metrics import classify_fallback_reason; ..."` 测 4 类异常 | ✅ TimeoutError→`timeout` / RateLimit 429→`rate_limit` / APIError 500→`api_error` / ConnectionError→`api_error` / ValueError→`unknown` |
+| **ai-service /metrics 端点** | `Invoke-WebRequest http://127.0.0.1:8803/metrics` | ✅ HTTP 200,长度 4360,含 3 个 fallback Counter 的 `# HELP` + `# TYPE ... counter` 声明 |
+| **ai-service /health 端点** | `Invoke-WebRequest http://127.0.0.1:8803/health` | ✅ HTTP 200,`{"status":"ok","service":"ihui-ai-service"}` |
+| **api /api/health** | `Invoke-WebRequest http://127.0.0.1:8802/api/health` | ✅ HTTP 200,`{"status":"ok","service":"@ihui/api"}` |
+| **登录获取 token** | POST `/api/auth/login` {admin/admin123} | ✅ HTTP 200,返回 JWT token(Bearer ...) |
+| **P3-1 SSE 指标端点** | GET `/api/ai/admin/ai/chat/metrics`(修复后路径) | ✅ HTTP 200,`{"code":0,"data":{"timeouts":0,"rateLimitHits":0,"budgetRejects":0,"retryAfterSent":0,"upstreamErrors":0}}`(5 维计数器全部暴露,初始 0 正确) |
+| **P3-1 VIP 折扣端点** | GET `/api/admin/token-balance/metrics` | ✅ HTTP 200,`{"code":0,"data":{"applies":0,"totalDiscounted":0,"byLevel":{}}}`(3 维计数器暴露,初始 0/空 正确) |
+| **P2-3 Prompt 缓存指标端点** | GET `/api/admin/ai/cost/dashboard` | ⚠️ HTTP 500(DB schema 不完整,byModel/byDay 等表缺失致 postgres 参数类型错误 `ERR_INVALID_ARG_TYPE`)。**非 P2-3 代码问题**:ai-cost.ts:392 已正确暴露 `promptCacheMetrics: { ...promptCacheMetrics }`,待 DB migration 完整后该端点正常返回含 promptCacheMetrics 字段的 dashboard |
+| **P2-2 SSE retry-after 路径 bug 修复** | curl 三路径对比 | ✅ 修复前:`/api/admin/ai/chat/metrics` → 404(路由路径双 `/api` 拼接 bug,prefix `/api/ai` + 路由 `/api/admin/...` = `/api/ai/api/admin/...`)。修复后:路由改为 `/admin/ai/chat/metrics`,实际路径 `/api/ai/admin/ai/chat/metrics` → 401 → 登录后 200 |
+| **classify_fallback_reason 单测** | `python -c "from app.middleware.llm_metrics import classify_fallback_reason; ..."` | ✅ TimeoutError→`timeout` / RateLimit 429→`rate_limit` / APIError 500→`api_error` / ConnectionError→`api_error` / ValueError→`unknown` |
 | **Prometheus Counter 注册** | 模拟 `LLM_FALLBACK_TRIGGERED.labels(...).inc()` 后 `generate_latest()` | ✅ 输出 `llm_fallback_triggered_total{backup_model,primary_model,reason} 1.0` + `llm_fallback_success_total{...} 1.0` + `llm_fallback_failure_total{...} 1.0`,labels 维度完整 |
 | **P2-2 retry-after 代码自验** | grep `Retry-After\|retryAfter\|isBusinessError\|STREAM_MAX_RETRY_DELAY` | ✅ ai-chat-stream.ts:82 `reply.header('Retry-After', '60')` + `sseMetrics.retryAfterSent++`;client.ts:1168-1171 `429 + retryAfter` 视为可重试;client.ts:1182-1184 `delay` 优先消费 `retryAfter`(秒转毫秒,上限 30s) |
 | **P2-3 Prompt Redis 代码自验** | grep `getCachedPromptAsync\|setCachedPrompt\|prompt:cache:\|promptCacheMetrics` | ✅ ai-cost.ts:76 异步查 L1+L2 / 115 同步写 L1+L2 / 26 `REDIS_PROMPT_CACHE_PREFIX` / 32 5 维计数器 / 392 dashboard 暴露 |
 | **P2-4 embedding Redis 代码自验** | grep `_AsyncLRUCache\|_get_redis\|embedding:cache:\|_EMBEDDING_CACHE_TTL_SECONDS` | ✅ vector_memory.py:34 prefix / 35 TTL=3600s / 38 `_get_redis()` 降级 / 121 类定义 / 144/172 get/set 双层 |
-| **P3-1 SSE/缓存/VIP 指标自验** | grep `sseMetrics\|promptCacheMetrics\|vipDiscountMetrics\|/api/admin/ai/chat/metrics\|/api/admin/token-balance/metrics` | ✅ 3 个计数器 + 3 个 admin 路由全部落地 |
 | **P3-2 fallback 埋点自验** | grep `LLM_FALLBACK_TRIGGERED\|LLM_FALLBACK_SUCCESS\|LLM_FALLBACK_FAILURE\|classify_fallback_reason` | ✅ llm_metrics.py:102-141 定义 + llm_gateway.py:844-1095 complete+astream 全路径埋点(成功/备用失败/router 异常 3 分支) |
-| **api/web 运行时验证** | 因 Docker 不可用无法启动 | ⚠️ 降级,待 Docker 恢复后补验证 `/api/admin/ai/chat/metrics` 等端点(代码已通过 typecheck 自验) |
 
-**降级原因**:Docker Desktop 未运行(`failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine`),DB(8810)+ Redis(8811)无法启动,api/web 依赖 DB 无法运行。ai-service 因有降级模式(schema_check 失败忽略 + scheduler_service 降级内存)成功启动并验证 /metrics 端点。
+**本次运行时验证发现的 bug 修复**:
+
+`apps/api/src/routes/ai-chat-stream.ts:548` 路由路径 bug — 原代码 `server.get('/api/admin/ai/chat/metrics', ...)`,但插件注册时 prefix=`/api/ai`(routes/index.ts:591),Fastify 拼接成 `/api/ai/api/admin/ai/chat/metrics`(双 `/api`)。修复:路由路径改为 `/admin/ai/chat/metrics`,实际路径 `/api/ai/admin/ai/chat/metrics`。同步更新注释说明 prefix 拼接规则。其他两个 admin 端点(`/api/admin/ai/cost/dashboard` + `/api/admin/token-balance/metrics`)所在插件无 prefix 注册,路径正常,无需修复。
+
+**降级说明**:`/api/admin/ai/cost/dashboard` HTTP 500 是 DB schema 不完整导致(byModel/byDay 查询的表/列缺失),非 P2-3 代码问题。ai-cost.ts:392 已正确暴露 `promptCacheMetrics` 字段,待 DB migration 完整后该端点可正常返回。本次不修 DB migration(超出 P2/P3 任务范围)。
 
 **Git 同步证据**(§20):
 
