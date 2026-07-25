@@ -247,12 +247,12 @@ export async function generateQrCodeDataUrl(uri: string): Promise<string> {
  * Backup code 字符表:大写字母 + 数字,排除易混淆字符 (0/O/1/I/L)。
  */
 const BACKUP_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789' as const
-const BACKUP_CODE_LENGTH = 8 // 8 字符(不含分隔符),格式 XXXX-XXXX
+const BACKUP_CODE_LENGTH = 8 // 8 字符(不含分隔符),格式 AAAA-AAAA
 
 /**
  * 生成 count 个 backup code(明文,返回给用户保存)。
  *
- * 每个 code 为 8 字符字母数字,格式 XXXX-XXXX(中间一个连字符便于阅读/抄写)。
+ * 每个 code 为 8 字符字母数字,格式 AAAA-AAAA(中间一个连字符便于阅读/抄写)。
  * 字符集排除易混淆字符 (0/O/1/I/L),使用 CSPRNG 随机。
  */
 export function generateBackupCodes(count: number = 10): string[] {
@@ -263,7 +263,7 @@ export function generateBackupCodes(count: number = 10): string[] {
     for (let j = 0; j < BACKUP_CODE_LENGTH; j++) {
       const idx = bytes[j]! % BACKUP_CODE_ALPHABET.length
       code += BACKUP_CODE_ALPHABET[idx]
-      if (j === 3) code += '-' // XXXX-XXXX
+      if (j === 3) code += '-' // AAAA-AAAA
     }
     codes.push(code)
   }
