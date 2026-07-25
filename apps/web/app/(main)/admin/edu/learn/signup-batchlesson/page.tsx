@@ -211,7 +211,7 @@ export default function AdminLearnSignupBatchLessonPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => {
+              rows.map((r: any) => {
                 const sc = statusOf(r.status)
                 const canRetry = r.status === 2
                 return (

@@ -171,7 +171,7 @@ export default function AdminLearnSignupBatchPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => {
+              rows.map((r: any) => {
                 const sc = statusOf(r.status)
                 return (
                   <TableRow key={r.id} className="hover:bg-muted/30">

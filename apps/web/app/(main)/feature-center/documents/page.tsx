@@ -391,7 +391,7 @@ export default function DocumentsPage() {
         <div className="flex flex-wrap gap-2">
           {categories.map((c) => (
             <button
-              key as any={c}
+              key={c}
               type="button"
               onClick={() => setCategory(c as any)}
               className={
@@ -611,7 +611,7 @@ export default function DocumentsPage() {
                     remarkPlugins={[remarkGfm]}
                     components={{
                       pre: CodeBlock,
-                      h2: ({ children: any, ...props }) => {
+                      h2: ({ children, ...props }: any) => {
                         const text = String(children ?? '')
                         return (
                           <h2 id={slugifyHeading(text)} {...props}>
@@ -619,7 +619,7 @@ export default function DocumentsPage() {
                           </h2>
                         )
                       },
-                      h3: ({ children: any, ...props }) => {
+                      h3: ({ children, ...props }: any) => {
                         const text = String(children ?? '')
                         return (
                           <h3 id={slugifyHeading(text)} {...props}>
@@ -627,7 +627,7 @@ export default function DocumentsPage() {
                           </h3>
                         )
                       },
-                      img: ({ src: any, alt: any, ...props }) => {
+                      img: ({ src, alt, ...props }: any) => {
                         if (!src) return <img src={src} alt={alt} {...props} />
                         const isHttp = /^(https?:)?\/\//.test(String(src))
                         const isAbsolute = String(src).startsWith('/')
@@ -652,7 +652,7 @@ export default function DocumentsPage() {
                           />
                         )
                       },
-                      a: ({ href: any, children: any, ...props }) => {
+                      a: ({ href, children, ...props }: any) => {
                         if (!href) return <a href={href}>{children}</a>
                         const targetSlug = resolveMdLink(String(href))
                         if (targetSlug) {
