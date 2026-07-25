@@ -1,6 +1,7 @@
 /**
  * user 路由组合根(从 missing-user-routes.ts 拆分)。
- * 统一注册鉴权 preHandler + 23 个业务域子路由,端点路径与行为完全等价于原文件。
+ * 统一注册鉴权 preHandler + 22 个业务域子路由,端点路径与行为完全等价于原文件。
+ * 注:commissionRoutes 已于 2026-07-25 P1-1 命名统一时迁移至 routes/distribution.ts(路径 /commission/* → /distribution/*)。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { userAuthPreHandler } from './_shared.js'
@@ -15,7 +16,6 @@ import aiModelsRoutes from './ai-models-routes.js'
 import aigcRoutes from './aigc-routes.js'
 import courseRoutes from './course-routes.js'
 import developerRoutes from './developer-routes.js'
-import commissionRoutes from './commission-routes.js'
 import miscRoutes from './misc-routes.js'
 import paymentRoutes from './payment-routes.js'
 import withdrawalRoutes from './withdrawal-routes.js'
@@ -41,7 +41,6 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   await server.register(aigcRoutes)
   await server.register(courseRoutes)
   await server.register(developerRoutes)
-  await server.register(commissionRoutes)
   await server.register(miscRoutes)
   await server.register(paymentRoutes)
   await server.register(withdrawalRoutes)
