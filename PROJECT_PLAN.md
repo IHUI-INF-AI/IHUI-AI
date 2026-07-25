@@ -5069,10 +5069,10 @@ P1(5 项):
 **§22 README 豁免**:本任务为 ai-service 内部记忆系统优化,不改变对外能力清单(API 路由契约不变 / 平台支持不变),按 §22 豁免场景"单端内部优化(不改变跨端契约)"扩展适用。
 
 **遗留项**(L2-2 ~ L5,后续推进,不阻塞本轮交付):
-- L2-2 激活 _compute_importance(user_feedback + tool_success_rate + access_frequency + recency),importance_score 不再硬编码 0.5
-- L2-3 MemoryDecayManager 状态持久化到 DB(decay_factor + decay_state),重启不丢失
+- L2-2 ✅ 激活 _compute_importance(user_feedback + tool_success_rate + access_frequency + recency),importance_score 不再硬编码 0.5(commit f6007ae1c)
+- L2-3 ✅ MemoryDecayManager 状态持久化到 DB(agent_memory_decay_state 表 + lifespan hydrate + 写穿 UPSERT,重启不丢失)(commit 233c6dc3d,2026-07-25)
 - L2-4 UserProfileBuilder 持久化到 PostgreSQL(新表 agent_user_profile)+ 注入 system prompt
-- L2-5 DreamService 定时触发(FastAPI startup background task + episodic 阈值)
+- L2-5 ✅ DreamService 定时触发(DreamScheduler + lifespan background task + episodic 阈值,2026-07-25)
 - L3 自进化闭环:skill_evolution_loop + iterate_on_feedback + run_chain 触发
 - L4 元学习:meta_learner + 失败聚类 + self-eval
 - L5 A/B 验证:shadow 流量 + 显著性检验自动回滚
