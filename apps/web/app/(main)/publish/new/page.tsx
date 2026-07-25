@@ -20,7 +20,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@ihui/ui-react'
-import { PLATFORM_KEY } from '../helpers'
+import { PLATFORM_KEY, CONTENT_FORMAT_KEY } from '../helpers'
 
 interface Account {
   id: string
@@ -226,7 +226,7 @@ export default function NewPublishPage() {
               <SelectContent>
                 {FORMATS.map((f) => (
                   <SelectItem key={f} value={f}>
-                    {t(`new.contentFormat${f.charAt(0).toUpperCase()}${f.slice(1)}`)}
+                    {t(CONTENT_FORMAT_KEY[f] ?? 'new.contentFormatUnknown')}
                   </SelectItem>
                 ))}
               </SelectContent>
