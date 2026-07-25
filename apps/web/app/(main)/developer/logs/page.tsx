@@ -34,12 +34,7 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const STATUS_FILTERS = [
-  { key: 'all' },
-  { key: '2xx' },
-  { key: '4xx' },
-  { key: '5xx' },
-] as const
+const STATUS_FILTERS = [{ key: 'all' }, { key: '2xx' }, { key: '4xx' }, { key: '5xx' }] as const
 
 const METHOD_CLASS: Record<string, string> = {
   GET: 'text-emerald-600 dark:text-emerald-400',
@@ -47,6 +42,13 @@ const METHOD_CLASS: Record<string, string> = {
   PUT: 'text-amber-600 dark:text-amber-400',
   DELETE: 'text-rose-600 dark:text-rose-400',
   PATCH: 'text-purple-600 dark:text-purple-400',
+}
+
+const STATUS_FILTER_KEY: Record<string, string> = {
+  all: 'statusFilter.all',
+  '2xx': 'statusFilter.2xx',
+  '4xx': 'statusFilter.4xx',
+  '5xx': 'statusFilter.5xx',
 }
 
 export default function LogsPage() {
@@ -105,7 +107,7 @@ export default function LogsPage() {
               variant={statusFilter === f.key ? 'default' : 'outline'}
               onClick={() => setStatusFilter(f.key)}
             >
-              {t(`statusFilter.${f.key}`)}
+              {t(STATUS_FILTER_KEY[f.key] ?? `statusFilter.${f.key}`)}
             </Button>
           ))}
         </div>
@@ -157,7 +159,9 @@ export default function LogsPage() {
                   {expanded[log.id] && (
                     <div className="space-y-2 border-t bg-muted/30 px-4 py-3 text-xs">
                       {log.keyName && (
-                        <p className="text-muted-foreground">{t('keyValue', { value: log.keyName })}</p>
+                        <p className="text-muted-foreground">
+                          {t('keyValue', { value: log.keyName })}
+                        </p>
                       )}
                       {log.ip && <p className="text-muted-foreground">IP: {log.ip}</p>}
                       {log.request && (
