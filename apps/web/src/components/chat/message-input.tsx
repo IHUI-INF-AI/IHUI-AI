@@ -1151,22 +1151,9 @@ export function MessageInput({
                 用原生 CSS 不依赖 Tailwind v4 container variant 编译(实测 Tailwind v4
                 仅编译 .@container 类不编译 @sm: 断点规则)。 */}
             <div className="ai-input-toolbar flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
-              {/* 独立附件按钮:点击触发 hidden file input,选择图片/视频文件作为附件引用 */}
-              <Tooltip content={tA11y('addAttachment')}>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isStreaming}
-                  aria-label={tA11y('addAttachment')}
-                  className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                    'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </Tooltip>
+              {/* 附件入口已合并到上方"添加"下拉菜单第 4 项(2026-07-25 合并),此处不再保留独立按钮,
+                  避免和"添加 → 添加附件"重复造成用户认知负担。
+                  若需要触发 file input,在"添加"菜单中点击"添加附件"项即可(fileInputRef 共享)。 */}
               {/* / 独立按钮:点击在 textarea 末尾插入 / 字符并触发 SlashCommandPalette */}
               <Tooltip content={tA11y('slashCommand')}>
                 <button
