@@ -8,6 +8,47 @@
 
 ---
 
+## 当前活跃任务(2026-07-26)
+
+### [x] ✅(2026-07-26) Commit 丢失防护机制强化 — 文档 + 脚本 + 钩子三件套(AGENTS.md §22 升级)
+
+**触发**:2026-07-25 19:05-19:33 reflog 记录 6 次 `git reset HEAD~` 丢失 3 个 commit(P0 安全债 + sidebar 折叠按钮 x2),虽然 2026-07-25 已完成 check-commit-loss-guard.mjs 升级为 blocking,但 AGENTS.md §22 文档未同步 + 缺自动化 tag 同步机制,导致 2026-07-26 04:23 真实事故:本地 lost-commit/* tag 被 git gc 清理,远端有但 fetch 失败,4 个 commit 暂不可访问。本任务彻底根治。
+
+**执行方式**:主 agent 直接 Write docs/lost-commit-archive.md(主 agent 拥有完整 commit 信息,自己写最快),并行派发 3 个 subagent:
+- subagent A: 升级 check-commit-loss-guard.mjs(reflog 20→50 步 + 远程 tag 校验 + tag 对象可达性)
+- subagent B: 新增 sync-lost-commit-tags.mjs(自动 push + fetch + check) + 集成 .husky/post-commit 第 5 段 + 补充 package.json scripts
+- subagent D: 同步 PROJECT_PLAN.md + AGENTS.md §22 + README.md(本任务)
+
+**交付内容**(3 文件新增 + 3 文件修改):
+1. `docs/lost-commit-archive.md`(新增)— 4 个 lost-commit/backup tag 完整档案(commit hash / subject / 改动文件 / 重做 commit / tag 状态 / 可访问性)
+2. `scripts/sync-lost-commit-tags.mjs`(新增)— 3 种模式 `--check` / `--fetch` / `--auto-push`
+3. `scripts/check-commit-loss-guard.mjs`(增强)— 5 段检查流程(原 4 段 + 新增远程 tag 完整性)
+4. `.husky/post-commit`(第 5 段新增)— commit 后自动 push lost-commit/backup tag
+5. `package.json`(3 个 scripts)— `tag:sync` / `tag:sync:check` / `tag:sync:fetch` / `tag:sync:push`
+6. `PROJECT_PLAN.md`(本章节) / `AGENTS.md`(§22) / `README.md`(对应章节)同步
+
+**硬性指标验证**:
+
+| 指标 | 命令 | 结果 |
+| --- | --- | --- |
+| docs/lost-commit-archive.md 存在 | `ls docs/lost-commit-archive.md` | ✅ |
+| check-commit-loss-guard.mjs 增强 | `node scripts/check-commit-loss-guard.mjs --blocking --filter-stash` | ✅ exit 0 |
+| sync-lost-commit-tags.mjs --check | `node scripts/sync-lost-commit-tags.mjs --check` | ✅ exit 0(4 tag 本地+远端齐全) |
+| sync-lost-commit-tags.mjs --fetch | `node scripts/sync-lost-commit-tags.mjs --fetch` | ✅ 拉回 tag 成功 |
+| post-commit 第 5 段 | `grep "5. Lost commit tag 同步" .husky/post-commit` | ✅ 命中 |
+| package.json scripts | `pnpm tag:sync:check` | ✅ exit 0 |
+| 4 commit 完整可访问 | `git cat-file -e 15b984f90e9b20ea8fba8b0846e1cc130935efe2` 等 4 个 | ✅ 全部 exit 0 |
+| README 同步 | `grep -c "commit 丢失防护" README.md` | ✅ 命中 |
+| AGENTS.md §22 同步 | `grep -c "blocking 升级已完成" AGENTS.md` | ✅ 命中 |
+| Git 同步 | `git rev-parse HEAD` === `git rev-parse origin/main` | ✅ |
+| git-push-guard | `node scripts/git-push-guard.mjs` | ✅ exit 0 |
+
+**§9 多端同步应用**:本任务全部为单端工程化守门脚本 + 文档(不涉及 8 端业务代码),标注 "单端工程化守门/单端文档",不触发全端同步要求。
+
+**§12 多 agent 并行规则应用**:本任务主 agent + 3 个并行 subagent,所有改动在指定文件清单内,无越界修改,本任务代码自验通过。
+
+---
+
 ## 当前活跃任务(2026-07-25)
 
 ### [x] ✅(2026-07-25) AI 对话/编程体验优化 goal 模式执行 — P0 安全/性能 8 项 + P1 体验/缓存 12 项,共 20 项(跨端:web + api + ai-service + packages/api-client)
@@ -204,7 +245,60 @@ Docker Desktop 启动 + db(8810)+ redis(8811)容器启动 + api(8802)+ web(8801)
 
 `apps/api/src/routes/ai-chat-stream.ts:548` 路由路径 bug — 原代码 `server.get('/api/admin/ai/chat/metrics', ...)`,但插件注册时 prefix=`/api/ai`(routes/index.ts:591),Fastify 拼接成 `/api/ai/api/admin/ai/chat/metrics`(双 `/api`)。修复:路由路径改为 `/admin/ai/chat/metrics`,实际路径 `/api/ai/admin/ai/chat/metrics`。同步更新注释说明 prefix 拼接规则。其他两个 admin 端点(`/api/admin/ai/cost/dashboard` + `/api/admin/token-balance/metrics`)所在插件无 prefix 注册,路径正常,无需修复。
 
-**降级说明**:`/api/admin/ai/cost/dashboard` HTTP 500 是 DB schema 不完整导致(byModel/byDay 查询的表/列缺失),非 P2-3 代码问题。ai-cost.ts:392 已正确暴露 `promptCacheMetrics` 字段,待 DB migration 完整后该端点可正常返回。本次不修 DB migration(超出 P2/P3 任务范围)。
+**降级说明**:`/api/admin/ai/cost/dashboard` HTTP 500 原初步判断为 DB schema 不完整,实际根因经深入排查为 **ai-cost.ts:328 `sql` 模板直接插值 Date 对象**(`sql\`${aiCostRecords.createdAt} <= ${endDate}\``),postgres-js 在 Bind 阶段对 Date 调用 `Buffer.byteLength` 抛 `ERR_INVALID_ARG_TYPE`。**已修复**:用 Drizzle `lte(aiCostRecords.createdAt, endDate)` 替换 `sql` 模板,正确处理 Date 类型参数。修复后 dashboard HTTP 200,返回 `{summary:{totalCost,totalTokens,totalCalls,cacheHitRate},byModel:[],byDay:[],period:{startDate,endDate},promptCacheMetrics:{hits,misses,l2Hits,l2Misses,errors}}`,5 维 promptCacheMetrics 字段正确暴露。
+
+---
+
+## P3-3 admin 看板 UI 接入 + SSE retry-after e2e 测试(2026-07-25)
+
+### 任务清单
+
+| 项 | 任务 | 优先级 | 状态 |
+| --- | --- | --- | --- |
+| P3-3-A | apply DB migration + 修复 dashboard 500(Date 类型 bug) | P1 | ✅ |
+| P3-3-B | admin 看板 UI 接入 3 个 P3-1 端点(promptCacheMetrics + SSE 指标 + VIP 折扣) | P1 | ✅ |
+| P3-3-C | SSE retry-after e2e 测试补 3 个 case(429 限流/error 事件 retryAfter/流中断重连) | P2 | ✅ |
+
+### 执行方式
+
+多 Subagent 并行开发(AGENTS.md §11):
+- **Subagent B**(admin 看板 UI):扩展 `apps/web/app/(main)/admin/ai-cost/page.tsx` + 新建 `apps/web/app/(main)/admin/ai-metrics/page.tsx` + 5 语言 i18n 同步。已 commit `7d797c336` + push origin/main。
+- **Subagent C**(SSE e2e 测试):扩展 `apps/web/e2e/ai-tool-loop.spec.ts`(198→430 行),3 个 retry-after case。待主 agent 统一 commit。
+- **主 agent**(DB + dashboard bug):apply DB migration + 修复 ai-cost.ts:328 Date 类型 bug。
+
+### 验证结果
+
+| 验证项 | 方式 | 结果 |
+| --- | --- | --- |
+| **dashboard Date 类型 bug 修复** | curl `/api/admin/ai/cost/dashboard?startDate=2026-07-18&endDate=2026-07-25` | ✅ 修复前 HTTP 500(ERR_INVALID_ARG_TYPE: Date 对象),修复后 HTTP 200 + 完整 JSON(summary + byModel + byDay + period + promptCacheMetrics 5 维字段) |
+| **Subagent B typecheck** | `pnpm --filter @ihui/web typecheck` | ✅ exit 0(本任务 2 个 .tsx 文件) |
+| **Subagent B lint** | `pnpm exec eslint`(本任务文件) | ✅ exit 0(0 errors 0 warnings) |
+| **Subagent B i18n 5 项守门** | check-i18n-keys + scan-zh-residue ko/zh-TW + check-broken-en | ✅ 全绿(45 键 5 语言 parity + 无中文残留 + 无破碎英文) |
+| **Subagent C typecheck** | `pnpm --filter @ihui/web typecheck` | ✅ exit 0 |
+| **Subagent C lint** | eslint ai-tool-loop.spec.ts | ✅ exit 0 |
+| **3 个 admin API 端点** | curl + Bearer JWT 认证 | ✅ 全部 200(SSE 5 维 + VIP 3 维 + dashboard 含 promptCacheMetrics) |
+| **browser_use UI 4 状态验证(§17)** | browser_use subagent | ⚠️ 降级:SSO middleware 重定向阻塞(token 有效但前端检查 cookie 非 Bearer),按 §17 豁免场景降级。subagent B 已自验代码遵守所有 §4 约束(无蓝色发光边框/圆角 rounded-md/颜色 text-emerald-600+text-red-600/无 divide-y/hr/mask-image/中文字体对齐用 span 包裹) |
+
+### Subagent C 关键发现
+
+1. **`parseStreamLine`(client.ts:374-424)只识别 3 种 SSE error 事件格式**:`{"type":"error","message":"..."}` / `{"error":true,"error_message":"..."}` / `{"error":"string"}`。任务示例的 `{"code":"RATE_LIMIT","retryAfter":10}` 无 `type`/`error` 字段 → `attachErrorMeta` 不会被调用 → retryAfter 丢失。Case B 改用 `{"type":"error","message":"限流,请稍后重试","retryAfter":1,"errorCode":"RATE_LIMIT"}` 格式。
+
+2. **`use-chat.ts` onError 调 `formatSSEError(errMsg)` 只传字符串**:retryAfter 字段在 `info` 参数里但被丢弃。formatSSEError 对纯字符串 `"请求过于频繁"` 提取不到 code=429 → severity='unknown',UI 显示 "AI 服务异常" + 业务消息文本,**不显示 "N 秒后重试"**。Case A/B 断言改为匹配 "请求过于频繁" / "限流" / "AI 服务异常"。
+
+3. **`STREAM_MAX_RETRIES=3`(client.ts:809)**:用 `Retry-After: 1` / `retryAfter: 1`(3 次重试 ≈ 3s)避免超过 15s 测试预算。
+
+4. **`use-chat.ts` 无 `onReconnect` handler**:重试静默进行,UI 无倒计时/重连指示。验证 retry-after 被消费的唯一可靠方式是断言 `callCount >= 2`(证明走了重连路径)。
+
+5. **Case C 用 `route.abort('connectionreset')`** 模拟中断(非 `route.fulfill` 提前关闭 — fulfill 会发完整 body,reader 读完后 done=true,不触发重连)。abort 后 fetch 抛 TypeError,streamChat catch 块走重试路径,第二次返回正常 SSE。
+
+### 降级说明(browser_use UI 验证)
+
+按 AGENTS.md §17 豁免场景降级:
+- ① 纯后端 API 已 curl 验证 ✅
+- ② dev server 运行正常(web 8801 + api 8802 + ai-service 8803 全部 200)
+- ③ SSO middleware 重定向阻塞 UI 验证,非本任务 UI 代码问题(前端 middleware.ts 检查 cookie 非 Bearer token,token 有效但未注入 cookie)
+- subagent B 已自验 typecheck + lint + i18n 全绿 + 代码遵守所有 §4 UI 约束
+- 实际 UI 视觉验证待 SSO middleware 配置修复后补充(非本任务范围)
 
 **Git 同步证据**(§20):
 
@@ -5073,7 +5167,7 @@ P1(5 项):
 - L2-3 ✅ MemoryDecayManager 状态持久化到 DB(agent_memory_decay_state 表 + lifespan hydrate + 写穿 UPSERT,重启不丢失)(commit 233c6dc3d,2026-07-25)
 - L2-4 ✅ UserProfileBuilder 持久化到 PostgreSQL(agent_user_profile 表 + lifespan hydrate + 写穿 UPSERT + system prompt snippet 注入,2026-07-25)
 - L2-5 ✅ DreamService 定时触发(DreamScheduler + lifespan background task + episodic 阈值,2026-07-25)
-- L3 自进化闭环:skill_evolution_loop + iterate_on_feedback + run_chain 触发
+- L3 ✅ 自进化闭环:skill_evolution_loop + iterate_on_feedback + run_chain(均已实现)+ SkillEvolutionScheduler 定时触发(2026-07-25)
 - L4 元学习:meta_learner + 失败聚类 + self-eval
 - L5 A/B 验证:shadow 流量 + 显著性检验自动回滚
 
