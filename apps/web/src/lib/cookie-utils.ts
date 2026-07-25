@@ -70,3 +70,15 @@ export function getRefreshTokenCookie(): string | null {
 export function clearRefreshTokenCookie(): void {
   setRefreshTokenCookie(null, { maxAge: 0 })
 }
+
+/**
+ * 读取 auth_token cookie 中的 accessToken。
+ * 2026-07-25 修复 CSRF:刷新页面后 useAuthStore 内存 token 丢失但 auth_token cookie 仍在,
+ * 旧实现只读内存导致 Authorization header 缺失,被 CSRF 插件当作"非 Bearer 请求"拦截。
+ * 修复后由 setTokenProvider 兜底读取,保证 CSRF Bearer 豁免分支生效。
+ */
+export function getAuthCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(/(?:^|;\s*)auth_token=([^;]+)/)
+  return match?.[1] ? decodeURIComponent(match[1]) : null
+}
