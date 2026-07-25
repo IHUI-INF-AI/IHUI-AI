@@ -49,6 +49,53 @@
 
 ---
 
+### [x] ✅(2026-07-26) GEO/SEO 内容层 + 5 语言 i18n parity 完成
+
+**触发**:用户问"项目曝光量不够,主流 AI 应用不能高权重检索推荐,SEO/SEO/GEO 太差",本任务把阶段 1 的 GEO 基建(llms.txt + robots.txt + JSON-LD + 动态 sitemap)继续推进,补齐内容层 + 多语言,让 AI 爬虫和搜索引擎真正能拿到关于 IHUI AI 的高权重信息。
+
+**执行方式**:
+- 阶段 1(已完成,commit `4a41a22e0`):llms.txt + AI 爬虫白名单 + JSON-LD + 动态 sitemap
+- 阶段 2(本任务,commit `a3a5c97`):新建 FAQ 页 + 重写 about 页 + 扩展 i18n + 4 语言 parity
+
+**交付内容**(9 文件改动,869 insertions / 131 deletions):
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `apps/web/app/(main)/faq/page.tsx` | 新增 | 12 个 FAQ + FAQPage JSON-LD + OpenGraph + canonical |
+| `apps/web/app/(main)/faq/FaqContent.tsx` | 新增 | 客户端组件,5 分类导航 + 12 个折叠面板 |
+| `apps/web/app/(main)/about/page.tsx` | 重写 | AboutPage JSON-LD + BreadcrumbList + OpenGraph |
+| `apps/web/app/(main)/about/AboutContent.tsx` | 重写 | 故事 + 4 价值观 + 6 平台能力 + 数字 + CTA,i18n 化 |
+| `packages/i18n/messages/web/zh-CN.json` | 扩展 | about 节点 +33 键(16→49),faq 节点新增 37 键 |
+| `packages/i18n/messages/web/zh-TW.json` | 扩展 | 80 键全量翻译(传统中文) |
+| `packages/i18n/messages/web/en.json` | 扩展 | 80 键全量翻译(英文) |
+| `packages/i18n/messages/web/ja.json` | 扩展 | 80 键全量翻译(日文,漢字词允许) |
+| `packages/i18n/messages/web/ko.json` | 扩展 | 80 键全量翻译(韩文) |
+
+**i18n 流水线完成度**:
+
+| 步骤 | 命令 | 结果 |
+| --- | --- | --- |
+| 差异检测 | `node scripts/i18n-diff.mjs --target=web` | ✅ 320 pending 翻译需求 |
+| AI 翻译 | 主 agent 写 `.trae-cn/tmp/i18n-translations.json` | ✅ 4 语言 × 80 键 = 320 处 |
+| 应用翻译 | `node scripts/i18n-apply.mjs` | ✅ 320 处全部写入 4 locale 文件 |
+| 键 parity | `node scripts/check-i18n-keys.mjs --target=web` | ✅ about/faq 4 语言键集完全一致 |
+| ko 中文残留 | `node scripts/scan-i18n-zh-residue.mjs ko` | ✅ 0(普遍→보편, 永久→영구) |
+| zh-TW 简体字残留 | `node scripts/scan-i18n-zh-residue.mjs zh-TW` | ✅ 0(平台→平臺,5 处修复) |
+| ja 漢字词 | `node scripts/scan-i18n-zh-residue.mjs ja` | ✅ warn-only(合法 kanji,不阻塞) |
+| en 破碎机翻 | `node scripts/check-i18n-broken-en.mjs` | ✅ 0(智汇 AI 品牌名属合法跨语言引用) |
+
+**§9 多端同步应用**:本任务全部为 web 端业务代码 + i18n 资源,单端改动(主域名 web 内容),不触发全端同步要求。
+
+**§20 Git 同步证据**:
+- 本地 commit: a3a5c970b
+- origin commit: a3a5c970b
+- 同步状态: local == remote ✅
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0
+
+**协作安全注意**:rebase 时使用 `--autostash` 暂存其他 agent 的 layout 文件 WIP(GlobalShell / MainShell / NativeTopBar / TagsView),rebase 完成后 autostash 成功应用,工作区现在干净;其他 agent 的 WIP 改动保存在 `stash@{0}`(名称: protected-other-agent-wip-2026-07-26),内容可由对应 agent 自行 `git stash pop` 恢复,无丢失。
+
+---
+
 ## 当前活跃任务(2026-07-25)
 
 ### [x] ✅(2026-07-25) AI 对话/编程体验优化 goal 模式执行 — P0 安全/性能 8 项 + P1 体验/缓存 12 项,共 20 项(跨端:web + api + ai-service + packages/api-client)
