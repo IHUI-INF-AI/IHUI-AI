@@ -30,6 +30,20 @@ export const TRIGGER_BADGE: Record<TriggerType, string> = {
 
 export const TRIGGER_OPTIONS: TriggerType[] = ['manual', 'schedule', 'event', 'webhook']
 
+/** i18n 静态映射表 — 用于消除 `t(`trigger_${var}`)` / `t(`status_${var}`)` 动态拼接 */
+export const TRIGGER_KEY: Record<TriggerType, string> = {
+  manual: 'trigger_manual',
+  schedule: 'trigger_schedule',
+  event: 'trigger_event',
+  webhook: 'trigger_webhook',
+}
+
+export const STATUS_KEY: Record<WfStatus, string> = {
+  active: 'status_active',
+  draft: 'status_draft',
+  archived: 'status_archived',
+}
+
 export const selectClass =
   'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
