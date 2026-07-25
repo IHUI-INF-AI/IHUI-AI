@@ -110,10 +110,10 @@ export default function MemberSubscriptionPage() {
                 <span
                   className={cn(
                     'rounded-md px-2 py-0.5 text-xs font-medium',
-                    STATUS_CLS[sub.status as any],
+                    (STATUS_CLS as any)[sub.status],
                   )}
                 >
-                  {t(SUBSCRIPTION_STATUS_KEYS[sub.status as any]!)}
+                  {t((SUBSCRIPTION_STATUS_KEYS as any)[sub.status]!)}
                 </span>
               </div>
 

@@ -125,7 +125,7 @@ export default function SubscriptionsPage() {
       ) : (
         <ul className="divide-y rounded-lg border">
           {items.map((s: any) => {
-            const Icon = TYPE_ICON[s.targetType as any]
+            const Icon = (TYPE_ICON as any)[s.targetType]
             return (
               <li
                 key={s.id}
@@ -133,7 +133,7 @@ export default function SubscriptionsPage() {
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium">{t(TYPE_KEY[s.targetType as any] ?? 'types.unknown')}</p>
+                  <p className="break-words text-sm font-medium">{t((TYPE_KEY as any)[s.targetType] ?? 'types.unknown')}</p>
                   <p className="break-words font-mono text-xs text-muted-foreground">
                     {s.targetId}
                   </p>
