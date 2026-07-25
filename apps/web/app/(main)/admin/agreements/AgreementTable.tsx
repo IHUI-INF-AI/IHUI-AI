@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, FileText } from 'lucide-react'
 import { th } from './helpers'
@@ -16,6 +17,24 @@ interface Props {
 export function AgreementTable({ list, isLoading, deletePending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.agreements')
   const tc = useTranslations('common')
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onDelete(item)
+    },
+    [list, onDelete],
+  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -51,12 +70,17 @@ export function AgreementTable({ list, isLoading, deletePending, onEdit, onDelet
                 <td className="px-4 py-2.5 text-muted-foreground">{item.version}</td>
                 <td className="px-4 py-2.5">{item.status === 1 ? t('enabled') : t('disabled')}</td>
                 <td className="px-4 py-2.5 space-x-2">
-                  <button className="text-primary hover:underline" onClick={() => onEdit(item)}>
+                  <button
+                    className="text-primary hover:underline"
+                    data-id={item.id}
+                    onClick={handleEdit}
+                  >
                     {t('edit')}
                   </button>
                   <button
                     className="text-destructive hover:underline"
-                    onClick={() => onDelete(item)}
+                    data-id={item.id}
+                    onClick={handleDelete}
                     disabled={deletePending}
                   >
                     {tc('delete')}
