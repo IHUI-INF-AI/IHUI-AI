@@ -75,10 +75,10 @@ export default function VipPage() {
   const levels = levelsData?.items ?? []
   const myVip = myData?.vip ?? null
   const billingPlans = plansData?.plans ?? []
-  const hasRecurring = billingPlans.some((p) => p.isRecurring === true)
+  const hasRecurring = billingPlans.some((p: any) => p.isRecurring === true)
   const maxTrialDays = billingPlans
-    .filter((p) => p.isRecurring === true)
-    .reduce((m, p) => Math.max(m, p.trialDays ?? 0), 0)
+    .filter((p: any) => p.isRecurring === true)
+    .reduce((m: any, p: any) => Math.max(m, p.trialDays ?? 0), 0)
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
@@ -168,7 +168,7 @@ export default function VipPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-start">
-          {levels.map((level, idx) => {
+          {levels.map((level: any, idx: any) => {
             const isPopular = idx === popularIdx
             const benefits = Array.isArray(level.benefits) ? level.benefits : []
             return (
@@ -206,7 +206,7 @@ export default function VipPage() {
 
                   {benefits.length > 0 && (
                     <ul className="mb-6 space-y-2 text-sm">
-                      {benefits.map((b, i) => (
+                      {benefits.map((b: any, i: any) => (
                         <li key={`benefit-${i}`} className="flex items-start gap-2">
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                           <span>{b}</span>

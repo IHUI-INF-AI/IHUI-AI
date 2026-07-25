@@ -106,7 +106,7 @@ export default function ContextVisualizationPage() {
                 </div>
               ) : (
                 <ol className="space-y-2">
-                  {events.map((e, i) => {
+                  {events.map((e: any, i: any) => {
                     const ratio = e.compressionRatio
                     return (
                       <li

@@ -158,7 +158,7 @@ export default function AskDetailPage() {
           )}
           {ask.tags && ask.tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
-              {ask.tags.map((tag) => (
+              {ask.tags.map((tag: any) => (
                 <span
                   key={tag}
                   className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
@@ -200,7 +200,7 @@ export default function AskDetailPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {answers.map((a) => (
+            {answers.map((a: any) => (
               <Card key={a.id} className={cn(a.isAccepted && 'border-emerald-500/40')}>
                 <CardContent className="p-4">
                   {a.isAccepted && (

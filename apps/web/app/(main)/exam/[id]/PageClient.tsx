@@ -37,7 +37,7 @@ export default function ExamTakePage() {
   const startMut = useMutation({
     mutationFn: () =>
       api<{ record: { id: string } }>(`/api/exam/papers/${id}/start`, { method: 'POST' }),
-    onSuccess: (d) => {
+    onSuccess: (d: any) => {
       setRecordId(d.record.id)
       setPhase('answering')
       const duration = data?.duration ?? 0
@@ -57,7 +57,7 @@ export default function ExamTakePage() {
         method: 'POST',
         body: JSON.stringify(payload),
       }).then((d) => d.result),
-    onSuccess: (r) => {
+    onSuccess: (r: any) => {
       setResult(r)
       setPhase('result')
     },
