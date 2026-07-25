@@ -29,7 +29,7 @@ interface CategoryTableProps {
   onTogglePaid: (cat: Category, enable: boolean) => void
 }
 
-export function CategoryTable({
+export const CategoryTable = React.memo(function CategoryTable({
   list,
   isLoading,
   error,
@@ -52,6 +52,24 @@ export function CategoryTable({
         minute: '2-digit',
       }),
     [locale],
+  )
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const c = list.find((x) => String(x.categoryId) === id)
+      if (c) onEdit(c)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const c = list.find((x) => String(x.categoryId) === id)
+      if (c && window.confirm(t('deleteConfirm'))) onDelete(c)
+    },
+    [list, t, onDelete],
   )
 
   return (
@@ -138,7 +156,8 @@ export function CategoryTable({
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => onEdit(c)}
+                          data-id={c.categoryId}
+                          onClick={handleEdit}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -147,9 +166,8 @@ export function CategoryTable({
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            if (window.confirm(t('deleteConfirm'))) onDelete(c)
-                          }}
+                          data-id={c.categoryId}
+                          onClick={handleDelete}
                           disabled={deletePending}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -165,4 +183,4 @@ export function CategoryTable({
       </Table>
     </div>
   )
-}
+})
