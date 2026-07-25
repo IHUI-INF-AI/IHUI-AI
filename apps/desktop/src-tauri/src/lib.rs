@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
 use base64::Engine;
@@ -15,7 +15,7 @@ struct AppInfo {
     platform: String,
 }
 
-/// 桌面端 admin 窗口元数据,前端用于决定窗口尺寸/标题。
+/// admin 窗口元数据,前端用于决定窗口尺寸/标题。
 #[derive(Debug, Serialize, Deserialize)]
 struct AdminWindowInfo {
     label: String,
@@ -56,10 +56,37 @@ struct ClipboardResult {
     clipboard: String,
 }
 
+/// 检测系统 UI 语言是否为中文(Windows: GetUserDefaultUILanguage)。
+#[cfg(windows)]
+fn is_chinese_locale() -> bool {
+    use winapi::um::winnls::GetUserDefaultUILanguage;
+    let lang_id = unsafe { GetUserDefaultUILanguage() };
+    // 中文主语言 ID = 0x04(涵盖 zh-CN/zh-TW/zh-HK/zh-SG/zh-MO)
+    let primary_lang = lang_id & 0x3FF;
+    primary_lang == 0x04
+}
+
+/// 检测系统 UI 语言是否为中文(非 Windows: LANG 环境变量)。
+#[cfg(not(windows))]
+fn is_chinese_locale() -> bool {
+    std::env::var("LANG")
+        .map(|lang| lang.to_lowercase().starts_with("zh"))
+        .unwrap_or(false)
+}
+
+/// 根据系统 UI 语言返回本地化应用名称:中文 → 智汇AI,其他 → IHUI AI。
+fn localized_app_name() -> &'static str {
+    if is_chinese_locale() {
+        "智汇AI"
+    } else {
+        "IHUI AI"
+    }
+}
+
 #[tauri::command]
 fn get_app_info() -> AppInfo {
     AppInfo {
-        name: "IHUI AI".to_string(),
+        name: localized_app_name().to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         platform: std::env::consts::OS.to_string(),
     }
@@ -96,7 +123,8 @@ fn build_app_menu(app: tauri::AppHandle) -> Result<(), String> {
         .accelerator("F12")
         .build(&app)
         .map_err(|e| e.to_string())?;
-    let help_about = MenuItemBuilder::with_id("help.about", "关于 IHUI AI")
+    let about_text = format!("关于 {}", localized_app_name());
+    let help_about = MenuItemBuilder::with_id("help.about", about_text)
         .build(&app)
         .map_err(|e| e.to_string())?;
 
@@ -123,6 +151,62 @@ fn build_app_menu(app: tauri::AppHandle) -> Result<(), String> {
         .build()
         .map_err(|e| e.to_string())?;
     app.set_menu(menu).map_err(|e| e.to_string())?;
+
+    // 2026-07-25 P0:注册菜单事件 handler(原代码漏写,导致菜单点击 dead)。
+    // 策略:file.quit 直接在 Rust 退出(真退出,绕过 close-to-tray);
+    //      其他项 emit 到 main webview,前端 dispatcher 统一处理。
+    app.on_menu_event(|app, event| {
+        let id = event.id().as_ref();
+        match id {
+            "file.quit" => app.exit(0),
+            _ => {
+                let _ = app.emit_to("main", "menu:click", id);
+            }
+        }
+    });
+
+    Ok(())
+}
+
+/// 切换 webview 开发者工具(前端 menu dispatcher 调用,2026-07-25 立)。
+/// Tauri 2 没有 JS 端 toggle API,必须在 Rust 端做。
+#[tauri::command]
+fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.is_devtools_open() {
+        window.close_devtools();
+    } else {
+        window.open_devtools();
+    }
+    Ok(())
+}
+
+/// 真正退出应用(供前端 menu dispatcher 调用,2026-07-25 立)。
+/// 绕过 closeWindow 的"隐藏到托盘"语义,直接走 `app.exit(0)`。
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
+/// 唤起 / 创建 admin 窗口(2026-07-25 立,供前端 menu dispatcher 调用)。
+/// admin 已存在则 show + focus;否则按 tauri.conf.json admin 配置新建。
+#[tauri::command]
+async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("admin") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+    let app_name = localized_app_name();
+    WebviewWindowBuilder::new(&app, "admin", WebviewUrl::App("admin".into()))
+        .title(&format!("{} 管理后台", app_name))
+        .inner_size(1280.0, 820.0)
+        .min_inner_size(960.0, 640.0)
+        .resizable(true)
+        .center()
+        .decorations(false)
+        .build()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -151,7 +235,7 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         .ok_or_else(|| "no default window icon".to_string())?;
     TrayIconBuilder::new()
         .icon(icon)
-        .tooltip("IHUI AI")
+        .tooltip(localized_app_name())
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "tray.show" => {
@@ -953,6 +1037,14 @@ pub fn run() {
             }
             let _ = build_app_menu(app.handle().clone());
             let _ = build_tray(app.handle());
+            // 启动时设置本地化窗口标题(中文系统 → 智汇AI,其他 → IHUI AI)
+            let app_name = localized_app_name();
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_title(app_name);
+            }
+            if let Some(window) = app.get_webview_window("admin") {
+                let _ = window.set_title(&format!("{} 管理后台", app_name));
+            }
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             let _ = restore_window_state(app.handle().clone());
             // 注册全局快捷键 Ctrl+Shift+I 唤起/隐藏主窗口
@@ -975,6 +1067,9 @@ pub fn run() {
             get_app_info,
             get_admin_window_info,
             build_app_menu,
+            toggle_devtools,
+            quit_app,
+            open_admin_window,
             screenshot_screen,
             mouse_move,
             mouse_click,
