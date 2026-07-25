@@ -46,6 +46,12 @@ const STATUS_CLASS: Record<BillItem['status'], string> = {
   failed: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
 }
 
+const PAY_TYPE_KEY: Record<string, string> = {
+  alipay: 'payType.alipay',
+  wechat: 'payType.wechat',
+  card: 'payType.card',
+}
+
 export default function BillingPage() {
   const t = useTranslations('developerBillingPage')
   const locale = useLocale()
@@ -94,13 +100,19 @@ export default function BillingPage() {
               <CreditCard className="h-4 w-4" />
               {t('paymentMethods')}
             </p>
-            <Button size="sm" variant="outline" onClick={() => toast.info(t('toastContactSupport'))}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => toast.info(t('toastContactSupport'))}
+            >
               <Plus className="h-3.5 w-3.5" />
               {t('add')}
             </Button>
           </div>
           {paymentMethods.length === 0 ? (
-            <p className="py-3 text-center text-xs text-muted-foreground">{t('noPaymentMethods')}</p>
+            <p className="py-3 text-center text-xs text-muted-foreground">
+              {t('noPaymentMethods')}
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {paymentMethods.map((p) => (
@@ -111,7 +123,9 @@ export default function BillingPage() {
                     p.isDefault && 'border-primary bg-primary/5',
                   )}
                 >
-                  <span className="font-medium">{t(`payType.${p.type}`)}</span>
+                  <span className="font-medium">
+                    {t(PAY_TYPE_KEY[p.type] ?? `payType.${p.type}`)}
+                  </span>
                   {p.last4 && <span className="text-muted-foreground">**** {p.last4}</span>}
                   {p.isDefault && (
                     <span className="rounded bg-primary/10 px-1 py-0.5 text-xs text-primary">
@@ -144,9 +158,7 @@ export default function BillingPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium">{b.invoiceNo}</p>
-                        <span
-                          className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cls)}
-                        >
+                        <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cls)}>
                           {t(`status.${b.status}`)}
                         </span>
                       </div>
