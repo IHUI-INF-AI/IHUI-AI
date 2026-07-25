@@ -16,6 +16,17 @@ export const LEVEL_KEY: Record<number, string> = {
   2: 'level.2',
 }
 
+/**
+ * 录播课审核状态 i18n key 静态映射表(数字枚值 0/1/2/3/4):audit.${num} — 用于消除 `t(\`audit.${var}\`)` 动态拼接
+ */
+export const AUDIT_KEY: Record<number, string> = {
+  0: 'audit.0',
+  1: 'audit.1',
+  2: 'audit.2',
+  3: 'audit.3',
+  4: 'audit.4',
+}
+
 export const EMPTY_FORM: CForm = {
   courseId: '',
   videoPath: '',

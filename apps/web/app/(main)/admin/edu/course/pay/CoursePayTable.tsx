@@ -6,7 +6,7 @@ import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell }
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
-import { PERM } from './helpers'
+import { PERM, PAY_TYPE_KEY, PAY_CROWD_KEY } from './helpers'
 import type { CoursePay } from './types'
 
 interface Props {
@@ -71,10 +71,10 @@ export function CoursePayTable({ list, isLoading, error, deletePending, onEdit, 
                           : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
                     )}
                   >
-                    {t(`payType.${r.payType}`)}
+                    {t(PAY_TYPE_KEY[r.payType] ?? 'payType.unknown')}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5">{t(`payCrowd.${r.payCrowd}`)}</TableCell>
+                <TableCell className="px-4 py-2.5">{t(PAY_CROWD_KEY[r.payCrowd] ?? 'payCrowd.unknown')}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.amount}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.nickname ?? r.creator ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

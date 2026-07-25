@@ -20,7 +20,7 @@ import {
   SelectItem,
   Switch,
 } from '@ihui/ui-react'
-import { textareaClass, LIST_CLASS_OPTIONS } from './helpers'
+import { textareaClass, LIST_CLASS_OPTIONS, LIST_CLASS_KEY } from './helpers'
 import { useZodForm } from '@/hooks/use-zod-form'
 import {
   dictTypeSchema,
@@ -220,7 +220,7 @@ export function DictItemDialog({
                 <SelectContent>
                   {LIST_CLASS_OPTIONS.map((opt) => (
                     <SelectItem key={opt} value={opt}>
-                      {t(`dict.listClass_${opt}`)}
+                      {t(LIST_CLASS_KEY[opt] ?? 'dict.listClass_unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>
