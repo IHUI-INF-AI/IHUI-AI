@@ -9,9 +9,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from ..core.llm_gateway import llm_gateway
+from .skill_feedback import skill_feedback_tracker
 from .skills import skill_registry
 
 logger = logging.getLogger(__name__)
@@ -51,13 +53,19 @@ class SkillScheduler:
     ) -> dict[str, Any]:
         """运行单个 skill(包装 llm_gateway),支持重试 + token 统计。
 
+        L1-2 扩展(2026-07-25):成功/失败均调 skill_feedback_tracker.record_usage,
+        接通反馈追踪断链,让 iterate_on_feedback 能拿到 failure_cases。
+
         Returns dict: content / model / tokens / retries / error。
         """
+        # L1-2:测量单次调用耗时,供反馈追踪
+        skill_start = time.time()
         skill = skill_registry.get(skill_name)
         if skill is None:
             return self._record(
                 skill_name=skill_name, content="", model="", tokens=0, retries=0,
                 error=f"skill not found: {skill_name}",
+                duration_ms=(time.time() - skill_start) * 1000,
             )
 
         # 合并 variables + context(context 优先,允许链式 skill 覆盖)
@@ -72,6 +80,7 @@ class SkillScheduler:
             return self._record(
                 skill_name=skill_name, content="", model="", tokens=0, retries=0,
                 error=f"template render failed: {type(e).__name__}: {e}",
+                duration_ms=(time.time() - skill_start) * 1000,
             )
 
         # 指数退避重试
@@ -106,6 +115,7 @@ class SkillScheduler:
                     content=str(result.get("content", "")),
                     model=str(result.get("model", "")),
                     tokens=tokens, retries=attempt, error=None,
+                    duration_ms=(time.time() - skill_start) * 1000,
                 )
             last_error = str(result.get("error_message") or result.get("error"))
             logger.warning(
@@ -118,6 +128,7 @@ class SkillScheduler:
             skill_name=skill_name, content="", model="", tokens=0,
             retries=self.max_retries - 1,
             error=f"重试 {self.max_retries} 次后仍失败: {last_error}",
+            duration_ms=(time.time() - skill_start) * 1000,
         )
 
     # ===== 链式执行(上下文传递) =====
@@ -171,8 +182,13 @@ class SkillScheduler:
         tokens: int,
         retries: int,
         error: str | None,
+        duration_ms: float = 0.0,
     ) -> dict[str, Any]:
-        """记录单次调用结果 + 更新累计统计。"""
+        """记录单次调用结果 + 更新累计统计。
+
+        L1-2 扩展(2026-07-25):fire-and-forget 调 skill_feedback_tracker.record_usage,
+        接通反馈追踪断链(让 iterate_on_feedback 能拿到 failure_cases / stats)。
+        """
         self.call_count += 1
         if tokens > 0:
             self.total_tokens += tokens
@@ -189,6 +205,25 @@ class SkillScheduler:
         })
         if len(self.history) > 100:
             self.history = self.history[-100:]
+
+        # L1-2:fire-and-forget 接入反馈追踪(失败不影响主流程,只 log warning)
+        try:
+            feedback: dict[str, Any] = {
+                "skillName": skill_name,
+                "usedAt": datetime.now(timezone.utc).isoformat(),
+                "success": error is None,
+                "durationMs": int(duration_ms),
+            }
+            if error is not None:
+                feedback["failureReason"] = error
+            asyncio.create_task(
+                skill_feedback_tracker.record_usage(feedback)
+            )
+        except Exception as e:
+            logger.warning(
+                "skill_feedback_tracker.record_usage 触发失败(skill=%s): %s",
+                skill_name, e,
+            )
         return entry
 
     def stats(self) -> dict[str, Any]:
