@@ -686,7 +686,6 @@
       "cancelAutoRevert": "Cancel auto-revert",
       "reEnableAutoRevert": "Re-enable 1h auto-revert",
       "autoRevertedTitle": "Auto-reverted to ask for approval",
-      "autoRevertedDesc": "To prevent staying in high-risk mode too long, we automatically downgrade after 1 hour of inactivity. Re-enable full access with Shift+Tab or the permission button.",
       "autoRevertedDescWithDuration": "Full Access ran for {usedMin} min, auto-reverted to Ask. Use Shift+Tab or click the permission button to re-enable.",
       "revertWarning5minTitle": "Full Access mode will auto-revert soon",
       "revertWarning5minDesc": "Auto-reverting to Ask in 5 minutes. Click 'Extend 1 hour' to keep full access.",
@@ -705,6 +704,10 @@
       "titleBarAutoRevert": "⏱ auto-revert in {time}",
       "cycledTo": "Switched to {mode}",
       "cycleError": "Switch failed: {error}",
+      "usageHint": "Usage: /permission ask | auto | full",
+      "switchedToModeAsk": "Switched to ask-for-approval mode",
+      "switchedToModeAuto": "Switched to auto-approve mode",
+      "switchedToModeFull": "Switched to full-access mode",
       "mode": {
         "ask": "Ask for approval",
         "askDesc": "Always asks before editing files outside this project or using the internet",
@@ -5889,79 +5892,7 @@
     "prev": "Previous",
     "next": "Next",
     "related": "Related Articles",
-    "notFound": "Article not found or offline",
-    "faq": {
-      "account": [
-        {
-          "q": "Forgot your password?",
-          "a": "Click “Forgot password” on the login page to reset via phone verification."
-        },
-        {
-          "q": "How to edit profile?",
-          "a": "Go to Settings to update your nickname, avatar and other info."
-        },
-        {
-          "q": "How to delete account?",
-          "a": "Contact support to submit a deletion request, processed within 3 business days."
-        }
-      ],
-      "payment": [
-        {
-          "q": "What payment methods are supported?",
-          "a": "WeChat Pay, Alipay, Stripe credit card and USDC."
-        },
-        {
-          "q": "How to request a refund?",
-          "a": "Contact support within 7 days of subscription for a full refund."
-        },
-        {
-          "q": "How to cancel subscription?",
-          "a": "Click “Cancel subscription” on the pricing page. Billing stops next cycle."
-        }
-      ],
-      "project": [
-        {
-          "q": "How to create a project?",
-          "a": "Click “New Project” in the workspace and enter a name."
-        },
-        {
-          "q": "Is there a project limit?",
-          "a": "Free plan: 1 project. Pro and above: unlimited."
-        },
-        {
-          "q": "How to share a project?",
-          "a": "Open project details and click “Share” to generate a link."
-        }
-      ],
-      "ai": [
-        {
-          "q": "Which AI models are supported?",
-          "a": "GPT-4, Claude 3.5, Gemini and more. Pro unlocks all models."
-        },
-        {
-          "q": "Daily chat limits?",
-          "a": "Free: 10/day. Pro: unlimited."
-        },
-        {
-          "q": "How to switch models?",
-          "a": "Use the model selector at the top of the chat page."
-        }
-      ],
-      "tech": [
-        {
-          "q": "How to get an API Key?",
-          "a": "Create an app on the Developer platform to get an API Key."
-        },
-        {
-          "q": "API rate limits?",
-          "a": "Default 60 requests/min. Enterprise can request higher limits."
-        },
-        {
-          "q": "Which SDKs are available?",
-          "a": "Official SDKs for Python, Node.js and Go."
-        }
-      ]
-    }
+    "notFound": "Article not found or offline"
   },
   "search": {
     "loading": "Searching...",
@@ -8954,43 +8885,6 @@
         "scriptIdAndContentRequired": "Please enter the script ID and dialogue content"
       }
     }
-  },
-  "audit": {
-    "action": "Action",
-    "actionLabel": {
-      "fileDelete": "Delete",
-      "fileDownload": "Download",
-      "fileShare": "Share",
-      "fileUpload": "Upload",
-      "permissionAssign": "Permissions",
-      "userLogin": "Login",
-      "versionCreate": "CreateVersion",
-      "versionRollback": "BackVersion"
-    },
-    "actionType": "Action Types",
-    "actionTypeOption": {
-      "fileDelete": "FileDelete",
-      "fileDownload": "FileDownload",
-      "fileShare": "FileShare",
-      "fileUpload": "FileUpload",
-      "permissionAssign": "Permission Assignment",
-      "userLogin": "UserLogin",
-      "versionCreate": "VersionCreate",
-      "versionRollback": "VersionBack"
-    },
-    "details": "Detail",
-    "endDate": "End Date",
-    "failed": "Failed",
-    "ip": "IP Address",
-    "resourceId": "ResourceID",
-    "resourceType": "ResourceType",
-    "startDate": "Start Date",
-    "status": "Status",
-    "success": "Success",
-    "time": "Time",
-    "title": "Operation Logs",
-    "totalLogs": "Record",
-    "userId": "User ID"
   },
   "editor": {
     "toolbar": {
