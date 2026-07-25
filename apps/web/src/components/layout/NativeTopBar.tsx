@@ -72,9 +72,9 @@ export function NativeTopBar() {
     <div
       data-tauri-drag-region
       className={cn(
+        // 2026-07-25 用户反馈:去掉底部的 border-b 细线分隔,顶栏和下方内容融为一体
         'relative z-sticky flex h-10 shrink-0 items-center select-none',
         'bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80',
-        'border-b border-border',
       )}
     >
       {/* 左侧:整段可拖拽空白区(2026-07-25 用户反馈:不要 Logo / 应用名 / 菜单) */}
