@@ -27,6 +27,9 @@ import {
   api,
   PAGE_SIZE,
   INVOICE_STATUS_CFG,
+  INVOICE_STATUS_KEY,
+  INVOICE_TAB_LABEL_KEY,
+  INVOICE_TYPE_KEY,
   selectClass,
 } from './types'
 import { Pagination } from './Pagination'
@@ -120,7 +123,7 @@ export function InvoicesTab({
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`invoiceStatus_${tb.labelKey}`)}
+            {t(INVOICE_TAB_LABEL_KEY[tb.labelKey] ?? 'invoiceStatus_unknown')}
           </button>
         ))}
       </div>
@@ -164,7 +167,7 @@ export function InvoicesTab({
                 <tr key={a.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5">
                     <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
-                      {t(`invoiceType_${a.invoiceType}`)}
+                      {t(INVOICE_TYPE_KEY[a.invoiceType] ?? 'invoiceType_unknown')}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 font-medium">
@@ -181,7 +184,7 @@ export function InvoicesTab({
                         INVOICE_STATUS_CFG[a.status].cls,
                       )}
                     >
-                      {t(`invoiceStatus_${a.status}`)}
+                      {t(INVOICE_STATUS_KEY[a.status] ?? 'invoiceStatus_unknown')}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
@@ -217,7 +220,7 @@ export function InvoicesTab({
               <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
                 <div className="font-medium">{currencyFmt.format(Number(target.amount))}</div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  {t(`invoiceType_${target.invoiceType}`)} · {t(`invoiceStatus_${target.status}`)}
+                  {t(INVOICE_TYPE_KEY[target.invoiceType] ?? 'invoiceType_unknown')} · {t(INVOICE_STATUS_KEY[target.status] ?? 'invoiceStatus_unknown')}
                 </div>
               </div>
             )}
@@ -239,7 +242,7 @@ export function InvoicesTab({
                     ] as const
                   ).map((s) => (
                     <SelectItem key={s} value={s}>
-                      {t(`invoiceStatus_${s}`)}
+                      {t(INVOICE_STATUS_KEY[s] ?? 'invoiceStatus_unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>
