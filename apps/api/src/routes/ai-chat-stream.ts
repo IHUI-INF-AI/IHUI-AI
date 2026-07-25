@@ -539,11 +539,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ ok: true, persisted: true }))
   })
 
-  // GET /api/admin/ai/chat/metrics — SSE 流式对话实时指标(admin 调试用)
+  // GET /api/ai/admin/ai/chat/metrics — SSE 流式对话实时指标(admin 调试用)
   // P3-1 简化方案:不引入 prom-client,不改 business-metrics.ts(不在受影响文件清单),
   // 改为 admin JSON 端点暴露细分计数器,供 admin 看板查询。
   // Prometheus 抓取仍由 business-metrics.ts 的 /business-metrics 负责,本端点不直接进 Prometheus。
-  server.get('/api/admin/ai/chat/metrics', { preHandler: authenticate }, async () => {
+  // 注意:本插件注册时 prefix=/api/ai(见 routes/index.ts),故路由用相对路径 /admin/ai/chat/metrics,
+  // 实际完整路径为 /api/ai/admin/ai/chat/metrics(避免双 /api 拼接 bug)。
+  server.get('/admin/ai/chat/metrics', { preHandler: authenticate }, async () => {
     return success(sseMetrics)
   })
 }
