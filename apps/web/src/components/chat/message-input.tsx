@@ -9,9 +9,9 @@ import {
   SquareSlash,
   FileText,
   Plus,
-  FilePlus,
   AtSign,
   Sparkles,
+  Package,
   X,
   Info,
 } from 'lucide-react'
@@ -224,6 +224,13 @@ export function MessageInput({
       // 静默
     }
   }, [])
+  // "添加"下拉菜单状态(2026-07-25 合并):收纳"提示词模板 / 添加引用 / Skill 库 / 添加附件 / 插件市场"5 类动作
+  // addMenuMode 决定 Popover content:
+  // - menu:5 项主菜单(模板/引用/Skill 库/附件/插件)
+  // - prompt:PromptTemplates 弹层
+  // - skill:SkillLibrary 弹层
+  const [addMenuOpen, setAddMenuOpen] = React.useState(false)
+  const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill'>('menu')
   const { ref: textareaRef, resize } = useTextareaAutoHeight<HTMLTextAreaElement>(value, {
     threeLinePx: MIN_HEIGHT_PX,
     maxHeightPx: MAX_HEIGHT_PX,
@@ -845,98 +852,163 @@ export function MessageInput({
                   - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层
                   - 通过 window.__IHUI_OPEN_HISTORY__?.() 由外部组件触发,自身不渲染任何重复入口 */}
               <PermissionHistoryPanel />
-              {isStreaming ? (
-                <Tooltip content={t('promptTemplate')}>
-                  <button
-                    type="button"
-                    disabled
-                    aria-label={t('promptTemplate')}
-                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    <span>{t('promptTemplate')}</span>
-                  </button>
-                </Tooltip>
-              ) : (
-                <Popover
-                  content={
+              {/* "添加"下拉菜单(2026-07-25 终极整合):唯一附加栏功能入口
+                  收纳 5 类动作,内部按 addMenuMode 切换 content:
+                  - menu:5 项主菜单(模板/引用/Skill 库/附件/插件)
+                  - prompt:PromptTemplates 弹层
+                  - skill:SkillLibrary 弹层
+                  避免嵌套弹层,trigger 始终是"添加"按钮,焦点/坐标/ESC 行为统一 */}
+              <Popover
+                open={addMenuOpen}
+                onOpenChange={(next) => {
+                  setAddMenuOpen(next)
+                  // 关闭时重置为菜单态,下次打开从 menu 开始
+                  if (!next) setAddMenuMode('menu')
+                }}
+                content={
+                  addMenuMode === 'prompt' ? (
                     <div className="w-72">
                       <PromptTemplates
                         templates={promptTemplates}
-                        onSelect={handleTemplateSelect}
+                        onSelect={(content) => {
+                          handleTemplateSelect(content)
+                          setAddMenuOpen(false)
+                          setAddMenuMode('menu')
+                        }}
                       />
                     </div>
-                  }
-                  position="bottom"
-                  trigger="click"
-                  tooltip={t('promptTemplate')}
-                >
-                  <button
-                    type="button"
-                    aria-label={t('promptTemplate')}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
-                      'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
-                    )}
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    <span>{t('promptTemplate')}</span>
-                  </button>
-                </Popover>
-              )}
-              <Tooltip content={value.trim() ? t('addContextReference') : t('addContextHint')}>
+                  ) : addMenuMode === 'skill' ? (
+                    <SkillLibrary
+                      onSelect={(template) => {
+                        fillInput(template)
+                        setAddMenuOpen(false)
+                        setAddMenuMode('menu')
+                      }}
+                      onClose={() => {
+                        setAddMenuOpen(false)
+                        setAddMenuMode('menu')
+                      }}
+                    />
+                  ) : (
+                    <div
+                      role="menu"
+                      aria-label={t('addMenuDesc')}
+                      className="flex w-60 flex-col gap-0.5"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={isStreaming}
+                        onClick={() => {
+                          setAddMenuMode('prompt')
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                          'disabled:cursor-not-allowed disabled:opacity-50',
+                        )}
+                      >
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{t('promptTemplate')}</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={isStreaming || !value.trim()}
+                        onClick={() => {
+                          setAddMenuOpen(false)
+                          setAddMenuMode('menu')
+                          addTextReference()
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                          'disabled:cursor-not-allowed disabled:opacity-50',
+                        )}
+                      >
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{t('addContextReference')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={isStreaming}
+                        onClick={() => {
+                          setAddMenuMode('skill')
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                          'disabled:cursor-not-allowed disabled:opacity-50',
+                        )}
+                      >
+                        <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{t('skillLibrary.title')}</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={isStreaming}
+                        onClick={() => {
+                          setAddMenuOpen(false)
+                          setAddMenuMode('menu')
+                          fileInputRef.current?.click()
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                          'disabled:cursor-not-allowed disabled:opacity-50',
+                        )}
+                      >
+                        <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{tA11y('addAttachment')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={isStreaming}
+                        onClick={() => {
+                          setAddMenuOpen(false)
+                          setAddMenuMode('menu')
+                          // 插件/MCP 入口:跳转到 /plugins 页面
+                          window.location.href = '/plugins'
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                          'disabled:cursor-not-allowed disabled:opacity-50',
+                        )}
+                      >
+                        <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{t('nav.pluginMarket')}</span>
+                      </button>
+                    </div>
+                  )
+                }
+                position="bottom"
+                trigger="click"
+                portal
+                align="start"
+                tooltip={addMenuOpen ? undefined : t('addMenuLabel')}
+              >
                 <button
                   type="button"
-                  onClick={addTextReference}
+                  aria-label={t('addMenuLabel')}
+                  aria-haspopup="menu"
+                  aria-expanded={addMenuOpen}
                   disabled={isStreaming}
-                  aria-label={value.trim() ? t('addContextReference') : t('addContextHint')}
                   className={cn(
                     'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
                     'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
                 >
-                  <FilePlus className="h-3.5 w-3.5" />
-                  <span>{value.trim() ? t('addContextReference') : t('addContextHint')}</span>
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>{t('addMenuLabel')}</span>
                 </button>
-              </Tooltip>
-              {/* Skill 库入口(2026-07-21 新增):统一收纳 内置模板 + 斜杠命令 + 自媒体 + 用户自定义技能。
-                  点击后弹出 SkillLibrary 弹窗,选中后填充模板到 textarea。
-                  替代了原先单独的 SelfMediaSkillPicker(已并入此弹窗的 self-media tab)。 */}
-              {isStreaming ? (
-                <Tooltip content={t('skillLibrary.title')}>
-                  <button
-                    type="button"
-                    disabled
-                    aria-label={t('skillLibrary.title')}
-                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span>{t('skillLibrary.title')}</span>
-                  </button>
-                </Tooltip>
-              ) : (
-                <Popover
-                  content={<SkillLibrary onSelect={fillInput} onClose={() => {}} />}
-                  position="bottom"
-                  trigger="click"
-                  portal
-                  align="start"
-                  tooltip={t('skillLibrary.title')}
-                >
-                  <button
-                    type="button"
-                    aria-label={t('skillLibrary.title')}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
-                      'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
-                    )}
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span>{t('skillLibrary.title')}</span>
-                  </button>
-                </Popover>
-              )}
+              </Popover>
               {references.length > 0 && (
                 <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                   {references.length} 个引用
