@@ -4,6 +4,19 @@ import type { CourseAuditSearch } from './types'
 export const PAGE_SIZE = 10
 export const PERM = 'course:courseaudit:'
 
+/** 审计操作类型 → i18n key 映射(2026-07-25 补充,补齐 CourseAuditTable 的 type 字段翻译)
+ * - 数字 → 翻译 key 字符串,t('type.xxx') 渲染
+ * - 未知值兜底 'type.unknown' */
+export const TYPE_KEY: Record<number, string> = {
+  1: 'type.create',
+  2: 'type.update',
+  3: 'type.delete',
+  4: 'type.publish',
+  5: 'type.unpublish',
+  6: 'type.archive',
+  7: 'type.restore',
+}
+
 export const fmt = (s?: string | null) =>
   s
     ? new Intl.DateTimeFormat('zh-CN', {
