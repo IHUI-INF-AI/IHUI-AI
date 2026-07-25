@@ -6,7 +6,7 @@ import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell }
 import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-import { STATUS_CLASS } from './helpers'
+import { STATUS_CLASS, STATUS_KEY } from './helpers'
 import type { Examine } from './types'
 
 interface Props {
@@ -87,7 +87,7 @@ export function DemandSquareTable({
                       STATUS_CLASS[r.status] ?? STATUS_CLASS.pending,
                     )}
                   >
-                    {t(`status${r.status.charAt(0).toUpperCase()}${r.status.slice(1)}`)}
+                    {t(STATUS_KEY[r.status] ?? 'statusUnknown')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-muted-foreground">

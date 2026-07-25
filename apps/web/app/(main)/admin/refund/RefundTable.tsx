@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
-import { REFUND_STATUS_CFG } from './helpers'
+import { REFUND_STATUS_CFG, STATUS_KEY } from './helpers'
 import type { EduRefund } from './types'
 
 interface RefundTableProps {
@@ -92,7 +92,7 @@ export function RefundTable({
                       )}
                     >
                       <span className={cn('h-1.5 w-1.5 rounded-full', sc.dot)} />
-                      {t(`status_${r.status}`)}
+                      {t(STATUS_KEY[r.status] ?? 'status_unknown')}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
