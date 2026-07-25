@@ -92,60 +92,56 @@ function buildWsUrl(sessionId: string, token: string): string {
 
 export function useTerminalSession() {
   const token = useAuthStore((s) => s.token)
-  // 性能修复(2026-07-25):原 `const { ...35 fields } = useTerminalStore()` 全订阅,
-  // 任何 state 变化(commandHistory 写入 / aiSuggestOpen 切换 / recordings 拉取等)
-  // 都触发整个 hook 重跑,进而触发所有消费组件(TerminalPanel + TerminalPane)重渲染。
-  // 拆分为单字段 selector:actions 引用稳定(永不变),state 各自独立订阅,
-  // 仅对应字段变化才触发本 hook 重跑。AI 浮层状态变化不再触发 session 列表重渲染。
-  // State — sessions / panes / 录制
-  const sessions = useTerminalStore((s) => s.sessions)
-  const activeSessionId = useTerminalStore((s) => s.activeSessionId)
-  const loading = useTerminalStore((s) => s.loading)
-  const error = useTerminalStore((s) => s.error)
-  const panes = useTerminalStore((s) => s.panes)
-  const activePaneId = useTerminalStore((s) => s.activePaneId)
-  const splitDirections = useTerminalStore((s) => s.splitDirections)
-  const recordingBySession = useTerminalStore((s) => s.recordingBySession)
-  const recordings = useTerminalStore((s) => s.recordings)
-  const activePlaybackId = useTerminalStore((s) => s.activePlaybackId)
-  const commandHistory = useTerminalStore((s) => s.commandHistory)
-  // State — AI 浮层
-  const aiSuggestOpen = useTerminalStore((s) => s.aiSuggestOpen)
-  const aiSuggestLoading = useTerminalStore((s) => s.aiSuggestLoading)
-  const aiSuggestions = useTerminalStore((s) => s.aiSuggestions)
-  const aiDiagnoseOpen = useTerminalStore((s) => s.aiDiagnoseOpen)
-  const aiDiagnoseLoading = useTerminalStore((s) => s.aiDiagnoseLoading)
-  const aiDiagnoseResult = useTerminalStore((s) => s.aiDiagnoseResult)
-  const aiError = useTerminalStore((s) => s.aiError)
-  // Actions — 引用稳定,各 selector 实际不会因 state 变化触发重渲染
-  const setSessions = useTerminalStore((s) => s.setSessions)
-  const addSession = useTerminalStore((s) => s.addSession)
-  const removeSession = useTerminalStore((s) => s.removeSession)
-  const setActive = useTerminalStore((s) => s.setActive)
-  const setLoading = useTerminalStore((s) => s.setLoading)
-  const setError = useTerminalStore((s) => s.setError)
-  const renameSessionInStore = useTerminalStore((s) => s.renameSession)
-  const addPaneInStore = useTerminalStore((s) => s.addPane)
-  const removePaneInStore = useTerminalStore((s) => s.removePane)
-  const setActivePaneInStore = useTerminalStore((s) => s.setActivePane)
-  const getPanesInStore = useTerminalStore((s) => s.getPanes)
-  const getSplitDirectionInStore = useTerminalStore((s) => s.getSplitDirection)
-  const startRecordingInStore = useTerminalStore((s) => s.startRecording)
-  const stopRecordingInStore = useTerminalStore((s) => s.stopRecording)
-  const isRecordingInStore = useTerminalStore((s) => s.isRecording)
-  const setRecordings = useTerminalStore((s) => s.setRecordings)
-  const addRecording = useTerminalStore((s) => s.addRecording)
-  const removeRecordingInStore = useTerminalStore((s) => s.removeRecording)
-  const setActivePlaybackId = useTerminalStore((s) => s.setActivePlaybackId)
-  const setCommandHistory = useTerminalStore((s) => s.setCommandHistory)
-  const setAiSuggestOpen = useTerminalStore((s) => s.setAiSuggestOpen)
-  const setAiSuggestLoading = useTerminalStore((s) => s.setAiSuggestLoading)
-  const setAiSuggestions = useTerminalStore((s) => s.setAiSuggestions)
-  const setAiDiagnoseOpen = useTerminalStore((s) => s.setAiDiagnoseOpen)
-  const setAiDiagnoseLoading = useTerminalStore((s) => s.setAiDiagnoseLoading)
-  const setAiDiagnoseResult = useTerminalStore((s) => s.setAiDiagnoseResult)
-  const setAiError = useTerminalStore((s) => s.setAiError)
-  const resetAiPanel = useTerminalStore((s) => s.resetAiPanel)
+  const {
+    sessions,
+    activeSessionId,
+    loading,
+    error,
+    panes,
+    activePaneId,
+    splitDirections,
+    // AI 辅助 / 录制 / 智能历史 state
+    recordingBySession,
+    recordings,
+    activePlaybackId,
+    commandHistory,
+    aiSuggestOpen,
+    aiSuggestLoading,
+    aiSuggestions,
+    aiDiagnoseOpen,
+    aiDiagnoseLoading,
+    aiDiagnoseResult,
+    aiError,
+    setSessions,
+    addSession,
+    removeSession,
+    setActive,
+    setLoading,
+    setError,
+    renameSession: renameSessionInStore,
+    addPane: addPaneInStore,
+    removePane: removePaneInStore,
+    setActivePane: setActivePaneInStore,
+    getPanes: getPanesInStore,
+    getSplitDirection: getSplitDirectionInStore,
+    // 录制 / 历史 / AI actions
+    startRecording: startRecordingInStore,
+    stopRecording: stopRecordingInStore,
+    isRecording: isRecordingInStore,
+    setRecordings,
+    addRecording,
+    removeRecording: removeRecordingInStore,
+    setActivePlaybackId,
+    setCommandHistory,
+    setAiSuggestOpen,
+    setAiSuggestLoading,
+    setAiSuggestions,
+    setAiDiagnoseOpen,
+    setAiDiagnoseLoading,
+    setAiDiagnoseResult,
+    setAiError,
+    resetAiPanel,
+  } = useTerminalStore()
 
   const activeSession = React.useMemo(
     () => sessions.find((s) => s.id === activeSessionId) ?? null,

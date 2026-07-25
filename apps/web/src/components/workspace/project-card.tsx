@@ -24,7 +24,7 @@ export interface ProjectCardData {
   updatedAt: string | Date
 }
 
-export const ProjectCard = React.memo(function ProjectCard({ project }: { project: ProjectCardData }) {
+export function ProjectCard({ project }: { project: ProjectCardData }) {
   const t = useTranslations('workspace')
   const fileCount = Number(project.fileCount ?? 0)
 
@@ -58,6 +58,6 @@ export const ProjectCard = React.memo(function ProjectCard({ project }: { projec
       </CardFooter>
     </Card>
   )
-})
+}
 
 export default ProjectCard
