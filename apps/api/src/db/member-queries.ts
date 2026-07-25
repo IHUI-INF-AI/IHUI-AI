@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import bcrypt from 'bcryptjs'
+import { hashPassword as hashPasswordArgon2 } from '../utils/password-crypto.js'
 import { eq, and, desc, asc, sql, ilike, inArray, or, isNotNull } from 'drizzle-orm'
 import { AppError } from '../errors/AppError.js'
 import { db } from './index.js'
@@ -17,11 +17,8 @@ import {
   type User,
 } from '@ihui/database'
 
-/** Bcrypt cost factor:平衡安全性与性能(10 轮 ≈ 60-100ms per hash)。 */
-const BCRYPT_COST = 10
-
 /**
- * SHA256 哈希密码(仅用于兼容旧 Java 项目数据验证,新代码必须用 hashPasswordBcrypt)。
+ * SHA256 哈希密码(仅用于兼容旧 Java 项目数据验证,新代码必须用 hashPassword)。
  *
  * ⚠️ 2026-07-21 安全审计警告:SHA-256 是快速哈希,GPU 可秒算数十亿次,
  * 不加盐易遭彩虹表攻击。仅在迁移旧数据时使用,新代码禁止调用。
@@ -32,18 +29,18 @@ export function hashPasswordLegacy(password: string): string {
 }
 
 /**
- * Bcrypt 哈希密码(默认新密码存储方式)。
+ * 密码哈希(默认新密码存储方式,函数名保留向后兼容)。
  *
- * 2026-07-21 安全审计加固:替换原 SHA-256 哈希。
- * Bcrypt 自带 salt + cost factor,抗 GPU 暴力破解和彩虹表攻击。
+ * 2026-07-25 国安级升级:内部委托给 password-crypto 的 argon2id(抗 GPU/ASIC),
+ * 函数名保留 hashPasswordBcrypt 仅为向后兼容(测试与调用方引用)。
  */
 export async function hashPasswordBcrypt(password: string): Promise<string> {
   if (!password) return ''
-  return bcrypt.hash(password, BCRYPT_COST)
+  return hashPasswordArgon2(password)
 }
 
 /**
- * 默认密码哈希入口(2026-07-21 起:使用 bcrypt)。
+ * 默认密码哈希入口(2026-07-25 起:使用 argon2id)。
  *
  * 历史 API:`hashPassword(password)` 返回 SHA-256 哈希,已被本函数取代。
  * 旧函数 `hashPasswordLegacy` 保留仅用于数据迁移验证。
