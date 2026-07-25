@@ -39,6 +39,8 @@ interface AiPanelState {
    * 不持久化:刷新页面后若 perm 仍为 null,需用户重新触发绑定流程(避免旧状态误弹)。
    */
   pendingPermissionSetup: { path: string; name: string; techStack?: string[] } | null
+  /** 待确认启用完全访问模式(2026-07-25 立,首次启用高风险模式弹确认弹窗) */
+  pendingFullAccess: boolean
   openPanel: () => void
   closePanel: () => void
   togglePanel: () => void
@@ -48,6 +50,7 @@ interface AiPanelState {
   setPendingPermissionSetup: (
     v: { path: string; name: string; techStack?: string[] } | null,
   ) => void
+  setPendingFullAccess: (v: boolean) => void
 }
 
 /**
@@ -65,6 +68,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       isResizing: false,
       activeWorkspace: null,
       pendingPermissionSetup: null,
+      pendingFullAccess: false,
 
       openPanel: () => set({ open: true }),
       closePanel: () => set({ open: false }),
@@ -73,9 +77,10 @@ export const useAiPanelStore = create<AiPanelState>()(
         set({
           width: Math.min(AI_PANEL_MAX_WIDTH, Math.max(AI_PANEL_MIN_WIDTH, w)),
         }),
-      setResizing: (v) => set({ isResizing: v }),
+      setResizing: (v: boolean) => set({ isResizing: v }),
       setActiveWorkspace: (ws) => set({ activeWorkspace: ws }),
       setPendingPermissionSetup: (v) => set({ pendingPermissionSetup: v }),
+      setPendingFullAccess: (v: boolean) => set({ pendingFullAccess: v }),
     }),
     {
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({

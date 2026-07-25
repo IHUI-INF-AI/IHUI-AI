@@ -29,6 +29,19 @@ const NOTI_API_TYPE: Record<Exclude<MessageType, 'private-letter'>, string> = {
   fans: 'follow',
 }
 
+/**
+ * i18n 静态映射表 — 用于消除 `t(`tab.${type === 'fans' ? 'follow' : type}`)` 动态拼接
+ * 'fans' 在 UI tab 中映射为 'follow',其余原样;'private-letter' 不会到达(isPrivateLetter 时走 tp('title')),兜底 'tab.unknown'
+ */
+const TAB_LABEL_KEY: Record<MessageType, string> = {
+  notice: 'tab.notice',
+  like: 'tab.like',
+  favorite: 'tab.favorite',
+  comment: 'tab.comment',
+  fans: 'tab.follow',
+  'private-letter': 'tab.unknown',
+}
+
 const TYPE_ICON: Record<MessageType, React.ComponentType<{ className?: string }>> = {
   notice: Bell,
   like: Heart,
@@ -132,7 +145,7 @@ export default function MessageTypePage() {
 
   const Icon = TYPE_ICON[type]
   const items = data ?? []
-  const headerLabel = isPrivateLetter ? tp('title') : t(`tab.${type === 'fans' ? 'follow' : type}`)
+  const headerLabel = isPrivateLetter ? tp('title') : t(TAB_LABEL_KEY[type] ?? 'tab.unknown')
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">

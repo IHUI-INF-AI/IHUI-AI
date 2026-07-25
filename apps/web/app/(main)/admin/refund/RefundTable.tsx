@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
-import { REFUND_STATUS_CFG, STATUS_KEY } from './helpers'
+import { REFUND_STATUS_CFG, REFUND_TYPE_KEY, STATUS_KEY } from './helpers'
 import type { EduRefund } from './types'
 
 interface RefundTableProps {
@@ -79,7 +79,7 @@ export function RefundTable({
                     {currencyFmt.format(Number(r.refundAmount))}
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
-                    {t(`refundType_${r.refundType}`)}
+                    {t(REFUND_TYPE_KEY[r.refundType] ?? 'refundType_unknown')}
                   </td>
                   <td className="max-w-xs break-words px-4 py-2.5 text-muted-foreground">
                     {r.reason ?? '-'}

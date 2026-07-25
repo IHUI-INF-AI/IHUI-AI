@@ -18,6 +18,12 @@ interface Props {
 
 const COLSPAN = 6
 
+/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
+const STATUS_KEY: Record<string, string> = {
+  published: 'status.published',
+  unpublished: 'status.unpublished',
+}
+
 export function ExamTable({ rows, isLoading, error, onEdit, onDelete, deletePending }: Props) {
   const t = useTranslations('admin.edu.exam.index')
   return (
@@ -85,7 +91,7 @@ export function ExamTable({ rows, isLoading, error, onEdit, onDelete, deletePend
                         p.isPublished ? 'bg-emerald-500' : 'bg-muted-foreground',
                       )}
                     />
-                    {t(`status.${p.isPublished ? 'published' : 'unpublished'}`)}
+                    {t(STATUS_KEY[p.isPublished ? 'published' : 'unpublished'] ?? 'status.unknown')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
