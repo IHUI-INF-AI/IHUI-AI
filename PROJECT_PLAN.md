@@ -949,6 +949,46 @@ P1(5项,尽量完成):
 **§9 跨端**:miniapp-taro + api-client 两端同步,共享端点 + 共享类型,零行为变化(纯类型/API 契约统一)。
 **§22 README 豁免**:纯内部重构(类型/API 契约统一),不改变对外能力清单。
 
+---
+
+### [x] ✅(2026-07-25) /goal P0+P1 架构优化 8 项 — 类型契约包 + i18n 清理 + legacy 路由拆分 + api-client 全量迁移(跨端:多端)
+
+**触发**:用户要求"continue"。承接 P3 全端统一迁移,执行架构改进建议 P0+P1 共 8 项(6 项执行 + 2 项调研决策)。
+
+**成果**(3 commits,6 subagent 并行 2 轮):
+
+P0(3 项,commit `6b13e7352`):
+
+- #1 删除三端(web/extension/desktop)`types/api-client.ts` 本地副本,统一引用 `@ihui/api-client`
+- #2 `@ihui/config` 包删除 + 文档残留清理(被 `@ihui/types` + 各端 config 替代)
+- #3 `@ihui/types` 类型契约包建立,跨端共享类型定义
+
+P1(5 项):
+
+- #4 i18n 5 语言无引用 key 批量清理(commit `b1993c159`)— 删除 14825 key(web 14316 + miniapp-taro 509)× 5 语言 = **74125 删除**,parity 完全一致(web 10012/lang,miniapp-taro 1950/lang)。过程中发现并修复审计脚本把数组误判为 leaf key 的 bug(恢复 10 个数组),抽样验证假阳性率 0%
+- #5 API 路由合并 ⚠️ **调研决策不执行激进合并** — routes/ 200+ 文件已按业务域拆分,强行合并到 ~80 会产生大文件降低可维护性。替代方案:#6 legacy-completion.ts 拆分
+- #6 legacy-completion.ts 34 端点迁移(commit `43c177c80`)— 按 D1-D20 业务模块拆分到 9 个新 `legacy-<module>.ts` 文件(exam/learn/live/ask/batch/oss/community/work-wechat/study),保持 `/api/legacy/*` 完整 URL 路径不变,删除源文件并更新 index.ts 注册;修复测试文件 `legacy-completion.test.ts` import 适配
+- #7 miniapp-taro api-client 全量迁移(commit `6b13e7352`)— 与 P0 同 commit,完成 miniapp-taro 端 API 调用全面迁移到 `@ihui/api-client` 共享层
+- #8 tailwindcss 统一 v4 ⚠️ **调研决策保持现状** — web/extension/desktop 已 v4(3 端),miniapp-taro(Taro 4.2.0 不兼容 v4)+ mobile-rn(NativeWind 4.x 硬依赖 v3)保持 v3。"3 端 v4 + 2 端 v3" 是受外部依赖约束的合理现状,已有 `scripts/check-nativewind-status.mjs` 监控 NativeWind 5.0 发布
+
+**质量保证**:保持 API 契约(路由路径不变)+ 保持 DB schema(无迁移)+ 保持接口兼容(re-export 保持向后兼容)+ i18n parity 完全一致 + 抽样验证假阳性率 0%
+
+**Git 同步证据**(§21):
+
+| commit | 内容 | 文件数 | push 状态 |
+|---|---|---|---|
+| 6b13e7352 | P0 + 文档清理 + #7 miniapp-taro 迁移 | 39 | ✅ origin/main |
+| b1993c159 | #4 i18n 清理(14825 key × 5 语言) | 11 | ✅ origin/main |
+| 43c177c80 | #6 legacy 迁移(34 端点拆到 9 文件) | 12 | ✅ origin/main |
+
+- 同步状态: local == remote ✅(3 commits 全部 push 成功)
+- 守门:本任务文件 typecheck + lint 全绿;hook 失败因其他 agent 代码(tauri-bridge/use-chat/permission-mode-popover 等)按 §12 用 `--no-verify` 跳过
+
+**§9 跨端**:多端同步(web/extension/desktop/miniapp-taro/api-client/packages),共享类型契约 + 共享 API 客户端 + 共享 i18n 单一来源。
+**§22 README 豁免**:纯内部架构优化(类型/API 契约/i18n 治理/路由拆分),不改变对外能力清单。
+
+---
+
 ### [x] ✅(2026-07-24) 登录弹窗自动弹出回归深度根治 — 共享决策中心 + 统一去重 guard(跨端:web)
 
 **触发**:用户反馈"登录弹窗设置了刷新页面不弹出,修了好几遍还是回归"。a0bc9e5c5 修复 cookie 分支后,reauth 分支遗漏导致刷新带 `?reauth=1&next=/` 的公开路径 URL 仍弹窗。
