@@ -26668,7 +26668,11 @@
         "saveFailed": "저장 실패",
         "nameRequired": "프로바이더 이름은 필수입니다",
         "keyRequired": "API 키는 필수입니다",
-        "baseUrlRequired": "기본 URL은 필수입니다"
+        "baseUrlRequired": "기본 URL은 필수입니다",
+        "templatesLoading": "플랫폼 목록 불러오는 중...",
+        "templatesEmpty": "사용 가능한 플랫폼 템플릿이 없습니다",
+        "templatesLoadError": "플랫폼 목록 불러오기 실패: {error}",
+        "templatesNotReady": "플랫폼 목록이 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요"
       },
       "modelDialog": {
         "newTitle": "새 모델",
