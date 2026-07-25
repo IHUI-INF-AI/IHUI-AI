@@ -16,6 +16,13 @@ export const EMPTY_FORM: AgentForm = {
 
 export const STATUS_OPTIONS = ['pending', 'published', 'rejected', 'offline']
 
+export const STATUS_KEY: Record<string, string> = {
+  pending: 'statusPending',
+  published: 'statusPublished',
+  rejected: 'statusRejected',
+  offline: 'statusOffline',
+}
+
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
