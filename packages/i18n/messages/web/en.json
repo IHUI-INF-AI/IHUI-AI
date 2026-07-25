@@ -887,6 +887,7 @@
       "reEnableAutoRevert": "Re-enable 1h auto-revert",
       "autoRevertedTitle": "Auto-reverted to ask for approval",
       "autoRevertedDesc": "To prevent staying in high-risk mode too long, we automatically downgrade after 1 hour of inactivity. Re-enable full access with Shift+Tab or the permission button.",
+      "autoRevertedDescWithDuration": "Full Access ran for {usedMin} min, auto-reverted to Ask. Use Shift+Tab or click the permission button to re-enable.",
       "revertWarning5minTitle": "Full Access mode will auto-revert soon",
       "revertWarning5minDesc": "Auto-reverting to Ask in 5 minutes. Click 'Extend 1 hour' to keep full access.",
       "revertWarning1minTitle": "Full Access auto-reverting in 1 minute",
