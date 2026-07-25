@@ -9,6 +9,13 @@
  */
 import { getAllRoutesForFeed } from './feed-source'
 
+// 2026-07-26 修复:Next.js output: 'export' 静态导出模式要求所有 Route Handler
+// 必须显式声明 force-static 或 revalidate,否则构建报错:
+//   "export const dynamic = "force-static"/export const revalidate not configured
+//    on route "/rss.xml" with "output: export""
+// RSS/Atom 是构建时确定的内容,完全可以用 force-static 预渲染
+export const dynamic = 'force-static'
+
 const SITE_URL = 'https://ihui.ai'
 const SITE_TITLE = 'IHUI AI — 全栈 AI 操作系统'
 const SITE_DESCRIPTION =
