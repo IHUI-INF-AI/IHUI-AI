@@ -35,6 +35,12 @@ import type {
 
 const CONFLICT_STRATEGIES: ImportConflictStrategy[] = ['overwrite', 'skip', 'clone']
 
+const HISTORY_STATUS_KEY: Record<ImportHistoryItem['status'], string> = {
+  success: 'statusSuccess',
+  partial: 'statusPartial',
+  failed: 'statusFailed',
+}
+
 export default function CliImportPage() {
   const t = useTranslations('cliImport')
   const qc = useQueryClient()
@@ -340,9 +346,7 @@ export default function CliImportPage() {
                               : 'bg-red-500/10 text-red-600 dark:text-red-400'
                         }`}
                       >
-                        {t(
-                          `status${h.status.charAt(0).toUpperCase()}${h.status.slice(1)}` as never,
-                        )}
+                        {t(HISTORY_STATUS_KEY[h.status] ?? 'statusUnknown')}
                       </span>
                     </div>
                     <p className="truncate text-muted-foreground">{h.sourcePath}</p>
