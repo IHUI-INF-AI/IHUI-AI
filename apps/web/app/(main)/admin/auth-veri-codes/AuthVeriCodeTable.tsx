@@ -14,7 +14,7 @@ interface Props {
   onDelete: (item: AuthVeriCode) => void
 }
 
-export function AuthVeriCodeTable({ list, isLoading, onEdit, onDelete }: Props) {
+export const AuthVeriCodeTable = React.memo(function AuthVeriCodeTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('adminAuthVeriCode')
   const handleEdit = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -111,4 +111,4 @@ export function AuthVeriCodeTable({ list, isLoading, onEdit, onDelete }: Props) 
       </table>
     </div>
   )
-}
+})

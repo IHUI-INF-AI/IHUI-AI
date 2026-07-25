@@ -20,7 +20,7 @@ interface Props {
   onPageChange: (page: number) => void
 }
 
-export function ProjectTable({
+export const ProjectTable = React.memo(function ProjectTable({
   list,
   isLoading,
   error,
@@ -42,6 +42,25 @@ export function ProjectTable({
         day: '2-digit',
       }),
     [locale],
+  )
+
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onDelete(item)
+    },
+    [list, onDelete],
   )
 
   if (isLoading) {
@@ -104,7 +123,7 @@ export function ProjectTable({
                 </span>
               </div>
               <div className="flex items-center gap-1 border-t pt-2">
-                <Button size="sm" variant="ghost" className="flex-1" onClick={() => onEdit(p)}>
+                <Button size="sm" variant="ghost" className="flex-1" data-id={p.id} onClick={handleEdit}>
                   <Edit className="h-4 w-4" />
                   {tc('edit')}
                 </Button>
@@ -112,7 +131,8 @@ export function ProjectTable({
                   size="sm"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
-                  onClick={() => onDelete(p)}
+                  data-id={p.id}
+                  onClick={handleDelete}
                 >
                   <Trash2 className="h-4 w-4" />
                   {tc('delete')}
@@ -151,4 +171,4 @@ export function ProjectTable({
       </div>
     </>
   )
-}
+})
