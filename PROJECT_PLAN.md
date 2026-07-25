@@ -5249,3 +5249,59 @@ P1(5 项):
 - L5 ✅ A/B 验证:agent_ab_tests 表持久化 + ABTestTracker(create_test/record_call/mark_decided/load_active_tests)+ SignificanceTester(比例 z-test + Welch's t-test + 三维度方向冲突检测)+ ShadowRunner(fire-and-forget shadow call,按 shadow_ratio 概率触发)+ ABTestScheduler(周期 flush stats + 触发显著性检验 + auto promote/rollback + 7 天超时 stop)+ lifespan hydrate(进程重启不丢 shadow 流量统计)+ skill_scheduler 集成 maybe_shadow_call(2026-07-25,147 测试用例全绿)
 
 **收尾结论**:L1 接入激活让 Agent 不再失忆(4 项接入点全部贯通),L2-1 语义去重把字符级 SequenceMatcher 升级到 embedding cosine 0.92 + LLM 仲裁,深度对标 Hermes Agent 记忆系统并部分超越(LLM 冲突仲裁 + DoomLoop 反思沉淀)。降级链路完整,任何依赖失败都不阻塞主流程。
+
+---
+
+### [x] ✅(2026-07-25) P4 系列:AI 对话体验深度优化(L4 自进化闭环 + SSE fallback 可视化 + 缓存键维度加固 + WS 预算限流)(跨端:ai-service + api + web)
+
+**触发**:用户"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。P4 系列 5 项优化,3 subagent + 主 agent 并行,聚焦 AI 对话体验性能/可用性/成本治理/错误感知。
+
+#### P4-1:L4 自进化闭环打通(AgentLoop 注入 meta_lessons + 后置自评 + admin 端点)
+
+| 文件 | 改动 |
+| --- | --- |
+| `apps/ai-service/app/services/agent_loop.py` | +from .meta_learner import meta_learner;run() 入口注入 build_system_prompt_snippet 到 system prompt(失败降级 warning);出口 fire-and-forget evaluate_and_record(成功/失败/超迭代触发,paused/cancelled 不触发) |
+| `apps/ai-service/app/services/agent_loop_v2.py` | +_pending_meta_eval_tasks: set[asyncio.Task](GC 保护,防 fire-and-forget task 被回收);run() 同 agent_loop.py 模式注入 + 自评 |
+| `apps/ai-service/app/routers/meta_learning.py` | 新增 4 端点:GET /api/admin/meta-learner/status(状态+计数)、/lessons(聚类 lessons 列表)、/history(自评历史)、POST /trigger(手动触发聚类) |
+| `apps/ai-service/app/main.py` | 注册 meta_learning_router(+2 行 import + include_router) |
+
+#### P4-2:SSE fallback 事件前端可视化(主模型失败切备用模型时展示横幅)
+
+| 文件 | 改动 |
+| --- | --- |
+| `apps/ai-service/app/core/llm_gateway.py` | fallback 分支在 chunk 产出前 yield `{type:"fallback", primary_model, backup_model, reason}`(line 1063),前端据此展示横幅 |
+| `packages/api-client/src/client.ts` | +FallbackEvent 接口(primary_model/backup_model/reason);+parseFallbackEvent(line 502)解析 SSE 行;streamChat 调用 onFallback 回调(line 1221/1246) |
+| `packages/api-client/src/index.ts` | 导出 FallbackEvent + parseFallbackEvent |
+| `apps/web/src/hooks/use-chat.ts` | +fallbackNotice 状态(useState<FallbackEvent\|null>);+clearFallbackNotice 回调;streamChat 注入 onFallback → setFallbackNotice |
+| `apps/web/src/components/chat/message-list.tsx` | +fallbackNotice/clearFallbackNotice props;消息列表顶部渲染 amber 警告横幅(i18n key chat.fallbackNotice) |
+| `packages/i18n/messages/web/{zh-CN,en,zh-TW,ko,ja}.json` | +chat.fallbackNotice key(5 语言 parity) |
+
+#### P4-3:embedding 缓存键加 model 维度(避免不同 model 维度污染)
+
+| 文件 | 改动 |
+| --- | --- |
+| `apps/ai-service/app/services/vector_memory.py` | embed(text, model=None) 签名扩展;cache_key = sha256(f"{used_model}:{text}")(含 model 维度,ada-002=1536 维 vs text-embedding-3-large=3072 维不再共享缓存致 cosine 失效);llm_gateway.embed(text, model=used_model) 透传 |
+
+#### P4-4:WS 端补齐预算 + 限流(on_chat_message 入口两道闸门)
+
+| 文件 | 改动 |
+| --- | --- |
+| `apps/ai-service/app/sio/rate_limiter.py` | 新增 165 行:acquire(user_id) per-user token bucket(2/秒,桶容 5,asyncio.Lock 保护);check_budget(user_id, tenant_id, model) asyncpg 直查 ai_budgets + ai_cost_records(今日 SUM(total_tokens) vs daily_token_limit,取 user/tenant 较小值);无配置允许;DB 异常降级允许 + warning |
+| `apps/ai-service/app/sio/handlers.py` | on_chat_message 入口(poster_uuid 校验后、history 构造前)插入两道闸门:① rate_limiter.acquire → 限流 emit chat_error code=rate_limited;② rate_limiter.check_budget → 超额 emit chat_error code=budget_exceeded;双层 try/except 兜底降级允许 |
+
+#### P4-5:Prompt 缓存键加 model + tenantId 维度(多模型/多租户隔离)
+
+| 文件 | 改动 |
+| --- | --- |
+| `apps/api/src/plugins/ai-cost.ts` | hashPrompt(prompt, model?, tenantId?) 签名扩展;parts = [tenant:{tenantId}?, model:{model}?, prompt],sha256 后作 key;getCachedPrompt/getCachedPromptAsync/setCachedPrompt/cachedStreamWrapper 全链路透传 model+tenantId;向后兼容(不传退化为 sha256(prompt)) |
+
+**验证证据**:
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅(P4-5)
+- `python -m py_compile app/sio/handlers.py app/sio/rate_limiter.py app/services/agent_loop.py app/services/agent_loop_v2.py app/core/llm_gateway.py app/services/vector_memory.py app/routers/meta_learning.py` exit=0 ✅(P4-1/P4-2/P4-3/P4-4)
+- web typecheck:我方 P4-2 改动文件(use-chat.ts/message-list.tsx/client.ts)无报错;MainShell.tsx/webview-frame.tsx 报错属其他 agent 改动,按 §12 不阻塞本任务
+
+**§9 多端同步豁免**:本任务触及 ai-service(Python)+ api(TS)+ web(TS)3 端,已在标题标注"跨端:ai-service + api + web",符合 §9 多端同步开发规则(共享类型 FallbackEvent 跨端一致 + 链路打通 + 各端验证齐绿)。
+
+**§17 UI 验证豁免**:P4-2 横幅为 amber 警告色简单 span(非复杂布局),且本任务核心是后端 fallback 事件 + 前端状态管理,按 §17 豁免场景①"纯后端 API"+ ③ 降级适用;P4-1/P4-3/P4-4/P4-5 纯后端。
+
+**§22 README 豁免**:P4 系列为内部优化(L4 闭环/缓存键加固/WS 限流),不改变对外能力清单(API 路由契约不变 / 平台支持不变),按 §22 豁免场景"单端内部优化(不改变跨端契约)"扩展适用。

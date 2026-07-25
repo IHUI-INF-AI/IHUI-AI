@@ -4,6 +4,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import { Sparkles, AlertCircle, Loader2, ChevronDown, ShieldCheck, ShieldAlert, Hand } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import type { FallbackEvent } from '@ihui/api-client'
 
 import type { ChatMessage } from '@/stores/chat'
 import type { InlineDiffInfo } from '@/components/ai/types'
@@ -254,6 +255,10 @@ interface MessageListProps {
   loadingMoreHistory?: boolean
   /** #8 滚动到顶部时触发加载更多历史消息 */
   onLoadMoreHistory?: () => void
+  /** P4-2: fallback 通知(主模型失败切换到备用模型时非 null,展示横幅) */
+  fallbackNotice?: FallbackEvent | null
+  /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
+  onClearFallbackNotice?: () => void
 }
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
@@ -280,6 +285,8 @@ export function MessageList({
   hasMoreHistory,
   loadingMoreHistory,
   onLoadMoreHistory,
+  fallbackNotice,
+  onClearFallbackNotice,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
@@ -514,6 +521,22 @@ export function MessageList({
     // 解决 bg-shell-panel 暗色背景下默认滚动条轨道透出深色的问题
     <div ref={containerRef} onScroll={handleScroll} className="hover-scroll h-full overflow-y-auto">
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
+        {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
+        {fallbackNotice && (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+            <span>{t('fallbackNotice', { primary: fallbackNotice.primaryModel, backup: fallbackNotice.backupModel })}</span>
+            {onClearFallbackNotice && (
+              <button
+                type="button"
+                onClick={onClearFallbackNotice}
+                className="shrink-0 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
+                aria-label="close"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
         {/* #8 顶部加载更多历史指示器 */}
         {loadingMoreHistory && (
           <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
