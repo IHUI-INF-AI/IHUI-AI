@@ -1393,6 +1393,8 @@
     }
   },
   "chat": {
+    "addMenuLabel": "Add",
+    "addMenuDesc": "Add reference / Skill library / attachment",
     "title": "AI Chat",
     "placeholder": "Describe your request; type / for skills, plugins, MCP (e.g. /goal /loop /plan)",
     "placeholderPlan": "Plan mode: type your request, AI only makes plans without executing tools (/act to switch back, Alt+P to toggle)",
