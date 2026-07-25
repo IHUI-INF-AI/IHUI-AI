@@ -1081,6 +1081,28 @@ IHUI-AI/
   - **首启确认弹窗**:首次启用完全访问必须勾选"我了解上述风险"才能继续(可勾"不再提醒")
   - **1 小时自动撤销**:高风险模式 1h 无操作后自动降级到 `default`,标题栏 + 顶部横幅实时倒计时,可取消或重新启用
   - 三处触发源(popover / Shift+Tab / /permission)共享同一个 FullAccessConfirmDialog
+- **AI 输入框「添加」下拉菜单整合**(2026-07-25,降噪):
+  - 附加栏 3 个独立按钮(提示词模板 / 添加引用 / Skill 库)→ 1 个「添加」下拉,收纳 5 类动作
+  - 统一 Popover 受控模式:外部 `open` + `onOpenChange` 双向绑定(新增 PopoverProps.open/onOpenChange)
+  - 关闭时重置 mode、Skill 库点击不关闭 Popover、同一 Popover 内切换 content
+- **权限模式透明性**(2026-07-25 深化,深度对标 Codex CLI):
+  - `ChatMessage.permissionMode` 字段:记录 AI 响应生成时的工作区权限模式
+  - 消息气泡徽章:仅非 `default` 模式显示(accept-edits 绿底 / bypass-permissions 琥珀底)
+  - 权限模式快捷键帮助 modal:`?` 键全局唤起/关闭,3 分组(模式切换 / 高风险护栏 / 撤销与审计)
+  - 权限模式详情 modal:ⓘ 按钮触发,显示模式图标 / 风险等级 / 详细行为说明
+- **切换会话 LRU 缓存 + store 持久化**(2026-07-25 优化,无闪烁体验):
+  - 缓存最近 5 个会话的 messages + 分页状态(Map<id, { messages, hasMore, oldestCursor }>)
+  - 切回会话时同步从缓存恢复(无 loading 闪烁),后台异步拉取最新消息对比更新
+  - LRU 淘汰:`cache.size > 5` 时删除最早(Map.keys().next().value)
+  - 缓存同步触发:用户发送新消息 / AI 流式回复 / WebSocket 多端同步 / 分页加载更多 / loadHistory 正常拉取
+  - `useChatStore.recentMessages`:localStorage 持久化最近 50 条(slice(-50) 避免超 5MB 配额)
+  - `onRehydrateStorage` 时按 conversationId 匹配预填充,避免刷新页面后空状态闪烁
+  - 真实数据以服务端 `getMessages` 拉取为准,预填充仅作首屏过渡
+- **桌面端顶栏终极简化**(2026-07-25,消除视觉噪音):
+  - 移除 Logo + 应用名 + 文件/视图/帮助 dropdown,仅保留 Min/Max/Close 三按钮
+  - 213 → 109 行(净减 104 行,-48%)
+  - 菜单逻辑全走 web 端 `useNativeShortcuts` 监听 keydown,统一 `dispatchMenuAction` dispatcher
+  - 与 Rust 端 build_app_menu(已删除)完全解耦,单源菜单逻辑
 
 #### B3. 多智能体业务管理
 
