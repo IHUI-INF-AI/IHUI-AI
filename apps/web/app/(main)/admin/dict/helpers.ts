@@ -22,6 +22,16 @@ export const LIST_CLASS_OPTIONS: ListClass[] = [
   'danger',
 ]
 
+/** i18n 静态映射表 — 用于消除 `t(`dict.listClass_${opt}`)` 动态拼接 */
+export const LIST_CLASS_KEY: Record<ListClass, string> = {
+  default: 'dict.listClass_default',
+  primary: 'dict.listClass_primary',
+  success: 'dict.listClass_success',
+  info: 'dict.listClass_info',
+  warning: 'dict.listClass_warning',
+  danger: 'dict.listClass_danger',
+}
+
 export const th = 'px-4 py-2.5 font-medium'
 
 export const textareaClass =

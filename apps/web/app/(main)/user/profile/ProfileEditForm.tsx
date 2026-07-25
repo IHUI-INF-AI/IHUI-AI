@@ -23,6 +23,13 @@ const GENDER_OPTIONS = [
   { value: 2, key: 'female' },
 ] as const
 
+/** i18n 静态映射表 — 用于消除 `t(`gender_${opt.key}`)` 动态拼接 */
+const GENDER_LABEL_KEY: Record<(typeof GENDER_OPTIONS)[number]['key'], string> = {
+  unknown: 'gender_unknown',
+  male: 'gender_male',
+  female: 'gender_female',
+}
+
 export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg, phone }: Props) {
   const t = useTranslations('user.profile')
   const {
@@ -77,7 +84,7 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg,
         >
           {GENDER_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              {t(`gender_${opt.key}`)}
+              {t(GENDER_LABEL_KEY[opt.key] ?? 'gender_unknown')}
             </option>
           ))}
         </select>

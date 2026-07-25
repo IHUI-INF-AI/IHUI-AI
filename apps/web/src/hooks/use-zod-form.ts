@@ -8,6 +8,27 @@ import { useTranslations } from 'next-intl'
 import { VALIDATION_NS, type ValidationKey } from '@/lib/form-schema'
 
 /**
+ * 校验错误 i18n 静态映射表 — 用于消除 `t(`${VALIDATION_NS}.${key}`)` 动态拼接
+ * 覆盖 ValidationKey 全部 13 个值,未知值兜底 'admin.validation.unknown'
+ */
+const VALIDATION_I18N_KEY: Record<ValidationKey, string> = {
+  required: `${VALIDATION_NS}.required`,
+  min: `${VALIDATION_NS}.min`,
+  max: `${VALIDATION_NS}.max`,
+  minLength: `${VALIDATION_NS}.minLength`,
+  maxLength: `${VALIDATION_NS}.maxLength`,
+  email: `${VALIDATION_NS}.email`,
+  url: `${VALIDATION_NS}.url`,
+  uuid: `${VALIDATION_NS}.uuid`,
+  number: `${VALIDATION_NS}.number`,
+  integer: `${VALIDATION_NS}.integer`,
+  positive: `${VALIDATION_NS}.positive`,
+  pattern: `${VALIDATION_NS}.pattern`,
+  enum: `${VALIDATION_NS}.enum`,
+  custom: `${VALIDATION_NS}.custom`,
+}
+
+/**
  * useZodForm — react-hook-form + zod + next-intl 一体化 hook。
  *
  * 特性:
@@ -59,7 +80,7 @@ export function useZodForm<T extends FieldValues>({
   const t = useTranslations()
   const tValidation = React.useCallback(
     (key: ValidationKey, vars?: Record<string, string | number>) => {
-      return t(`${VALIDATION_NS}.${key}`, vars as Record<string, string | number> | undefined)
+      return t(VALIDATION_I18N_KEY[key] ?? `${VALIDATION_NS}.unknown`, vars as Record<string, string | number> | undefined)
     },
     [t],
   )

@@ -10,6 +10,16 @@ import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react
 const SIDEBAR_KEY = 'sidebar-collapsed'
 const THEME_BACKUP_KEY = 'theme-backup'
 
+/**
+ * 主题标签 i18n 静态映射表 — 用于消除 `t(`theme${capitalize(th)}`)` 动态拼接
+ * th ∈ ['light', 'dark', 'system'] → i18n key ['themeLight', 'themeDark', 'themeSystem']
+ */
+const THEME_LABEL_KEY: Record<'light' | 'dark' | 'system', string> = {
+  light: 'themeLight',
+  dark: 'themeDark',
+  system: 'themeSystem',
+}
+
 interface ThemeConfig {
   theme: string
   sidebar: string
@@ -101,7 +111,7 @@ export function ThemeBackupSync() {
 
         {/* 平滑快速切换 */}
         <div className="flex gap-2">
-          {['light', 'dark', 'system'].map((th) => (
+          {(['light', 'dark', 'system'] as const).map((th) => (
             <Button
               key={th}
               variant={theme === th ? 'default' : 'outline'}
@@ -111,7 +121,7 @@ export function ThemeBackupSync() {
               className="flex-1"
             >
               {transitioning && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
-              {t(`theme${th.charAt(0).toUpperCase() + th.slice(1)}` as 'themeLight')}
+              {t(THEME_LABEL_KEY[th] ?? 'themeUnknown')}
             </Button>
           ))}
         </div>
