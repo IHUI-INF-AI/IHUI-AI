@@ -38,6 +38,17 @@ function toolNameToI18nKey(tool: string): string {
   return tool.replace(/\.([a-z])/g, (_, c: string) => c.toUpperCase())
 }
 
+/** i18n 静态映射表 — 用于消除 `t(\`toolNames.${var}\`)` 动态拼接 */
+const TOOL_NAME_KEY: Record<string, string> = {
+  fsRead: 'toolNames.fsRead',
+  fsWrite: 'toolNames.fsWrite',
+  fsEdit: 'toolNames.fsEdit',
+  fsDelete: 'toolNames.fsDelete',
+  fsGrep: 'toolNames.fsGrep',
+  fsGlob: 'toolNames.fsGlob',
+  fsRun: 'toolNames.fsRun',
+}
+
 function renderArgsSummary(args: Record<string, unknown>): { label: string; value: string }[] {
   const items: { label: string; value: string }[] = []
   const path = args.path
@@ -107,7 +118,7 @@ export function WorkspacePermissionRequestDialog({
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-muted-foreground">{t('tool')}</span>
                 <span className="font-medium">
-                  {t(`toolNames.${toolNameToI18nKey(current.tool)}` as never) || current.tool}
+                  {t(TOOL_NAME_KEY[toolNameToI18nKey(current.tool)] ?? 'toolNames.unknown') || current.tool}
                 </span>
               </div>
               {current.workspacePath && (
