@@ -106,14 +106,22 @@ class DreamService:
             parsed = {"knowledge": [], "patterns": []}
 
         # 3. 知识类 → semantic_memory
+        # L2-2(2026-07-25 立):importance 不再硬编码 0.5,LLM 返回值作为 user_feedback 信号,
+        # 让 _resolve_importance_score 综合评估(权重 0.35,最权威),其他信号默认中性 0.5。
         consolidated_count = 0
         for item in parsed.get("knowledge", []):
             try:
+                llm_importance = float(item.get("importance", 0.5))
                 await self._memory.add_semantic(
                     user_id,
                     content=str(item.get("content", "")),
-                    importance_score=float(item.get("importance", 0.5)),
-                    metadata={"source": "dream_consolidate"},
+                    importance_score=None,  # 触发 _resolve_importance_score
+                    metadata={
+                        "source": "dream_consolidate",
+                        "user_feedback": llm_importance,  # LLM 提取的 importance 视为用户反馈权重
+                        "access_count": 0,  # 新条目无访问历史
+                        "recency_days": 0.0,  # 刚创建,最近
+                    },
                 )
                 consolidated_count += 1
             except Exception as e:
