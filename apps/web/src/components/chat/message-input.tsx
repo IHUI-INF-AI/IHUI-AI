@@ -740,6 +740,13 @@ export function MessageInput({
 
   const canSend = value.trim().length > 0 && !isStreaming
   const count = value.length
+  // #18 流式中输入框保持可输入(2026-07-25 立):
+  // 流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
+  // 发送按钮仍由 !isStreaming 守门(流式中显示 Stop 按钮),Enter 提交由 submit() 内 isStreaming 检查兜底,不会误发。
+  // 注:此处硬编码中文占位,后续 i18n 治理补 chat.streamingPlaceholder key(已知技术债)。
+  const effectivePlaceholder = isStreaming
+    ? 'AI 正在生成中,可输入下一条消息草稿…'
+    : placeholder
 
   return (
     <div>
@@ -1080,21 +1087,20 @@ export function MessageInput({
             </div>
             {/* textarea 容器:padding 由容器提供,避免 textarea 滚动时 padding-top 被吃掉 */}
             <div className="px-3 pt-2 pb-2">
+              {/* #18 流式中不 disabled,允许用户输入下一条消息草稿;发送按钮由 !isStreaming 守门 */}
               <textarea
                 ref={textareaRef}
                 value={value}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                placeholder={placeholder}
+                placeholder={effectivePlaceholder}
                 rows={3}
-                disabled={isStreaming}
-                aria-label={placeholder}
+                aria-label={effectivePlaceholder}
                 style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
                 className={cn(
                   'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
                   'placeholder:text-muted-foreground/70',
-                  'disabled:cursor-not-allowed disabled:opacity-60',
                 )}
               />
             </div>
