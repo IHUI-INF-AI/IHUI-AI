@@ -4,6 +4,7 @@ import * as React from 'react'
 import { ListChecks, ChevronRight, ChevronDown, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { JsonCell } from '@/components/common'
 import { STATUS_BADGE } from './helpers'
 import type { Task } from './types'
 
@@ -72,17 +73,13 @@ function TaskRow({ task }: { task: Task }) {
             <div className="mb-1 font-medium text-muted-foreground">
               {t('instanceDetail.input')}
             </div>
-            <pre className="overflow-auto rounded bg-muted p-2 leading-relaxed">
-              {JSON.stringify(task.input ?? null, null, 2)}
-            </pre>
+            <JsonCell value={task.input} className="rounded border-none bg-muted p-2" />
           </div>
           <div>
             <div className="mb-1 font-medium text-muted-foreground">
               {t('instanceDetail.output')}
             </div>
-            <pre className="overflow-auto rounded bg-muted p-2 leading-relaxed">
-              {JSON.stringify(task.output ?? null, null, 2)}
-            </pre>
+            <JsonCell value={task.output} className="rounded border-none bg-muted p-2" />
           </div>
         </div>
       )}
