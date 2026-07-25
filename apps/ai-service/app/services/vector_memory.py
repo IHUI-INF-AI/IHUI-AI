@@ -19,6 +19,56 @@ logger = logging.getLogger(__name__)
 
 _HASH_DIM = 128  # hash 伪向量维度
 
+# redis.asyncio(异步客户端;无 redis 包时降级为纯内存 L1)
+try:
+    import redis.asyncio as aioredis  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover - 依赖存在时不触发
+    aioredis = None  # type: ignore[assignment]
+
+# 惰性 async Redis 客户端(用于 embedding 缓存 L2 跨进程共享)
+_redis_client: Any = None
+_redis_checked: bool = False
+_redis_init_lock: asyncio.Lock = asyncio.Lock()
+
+# Redis L2 缓存 key 前缀 + TTL(1 小时)
+_EMBEDDING_CACHE_KEY_PREFIX = "embedding:cache:"
+_EMBEDDING_CACHE_TTL_SECONDS = 3600
+
+
+async def _get_redis() -> Any:
+    """惰性获取 async Redis 客户端,降级返回 None。
+
+    首次调用尝试连接;失败/无 URL/无 redis 包 → 永久降级(_redis_checked=True)。
+    模式复用 artifacts_store.ArtifactsStore._get_redis(async 版)。
+    """
+    global _redis_client, _redis_checked
+    if _redis_checked:
+        return _redis_client
+    async with _redis_init_lock:
+        if _redis_checked:
+            return _redis_client
+        _redis_checked = True
+        try:
+            from ..core.config import settings
+            url = getattr(settings, "redis_url", "") or ""
+            if not url or aioredis is None:
+                return None
+            client = aioredis.from_url(url, decode_responses=True)
+            await client.ping()
+            _redis_client = client
+            return _redis_client
+        except Exception as e:
+            logger.warning("vector_memory Redis 不可用,降级为纯内存 L1: %s", e)
+            _redis_client = None
+            return None
+
+
+def _redis_cache_key(key: str) -> str:
+    """生成 Redis L2 缓存 key:embedding:cache:{sha256(key)}。"""
+    h = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return f"{_EMBEDDING_CACHE_KEY_PREFIX}{h}"
+
+
 # 持久化文件路径(相对 ai-service 根目录)
 _PERSIST_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -69,10 +119,13 @@ def _hash_embedding(text: str, dim: int = _HASH_DIM) -> list[float]:
 
 
 class _AsyncLRUCache:
-    """异步安全 LRU 缓存(基于 OrderedDict + asyncio.Lock)。
+    """异步安全 LRU 缓存(L1 内存 OrderedDict + L2 Redis 双层)。
+
+    - L1:进程内 OrderedDict(maxsize=1000,LRU 淘汰)
+    - L2:Redis 分布式缓存(TTL 1h,跨进程共享),不可用时降级为纯 L1
 
     用于 embedding 缓存:embedding 是确定性的(同文本同向量,无随机性),
-    无需主动失效;后续可扩展到 Redis 实现跨进程共享缓存。
+    无需主动失效;L2 Redis 让多进程共享缓存,降低远程 embedding 调用开销。
     """
 
     def __init__(self, maxsize: int = 1000) -> None:
@@ -81,25 +134,55 @@ class _AsyncLRUCache:
         self._lock = asyncio.Lock()
 
     async def get(self, key: str) -> Any:
-        """查缓存:命中时 move_to_end 提升为 MRU,未命中返回 None。"""
+        """查缓存:L1 命中 → 返回;L1 未命中 → 查 L2 Redis,L2 命中回填 L1;否则返回 None。"""
+        # L1 命中(锁内 move_to_end 提升为 MRU)
         async with self._lock:
             if key in self._data:
                 self._data.move_to_end(key)
                 return self._data[key]
-            return None
+        # L1 未命中 → 查 L2 Redis(锁外执行,避免长时间持锁阻塞 L1 写入)
+        redis = await _get_redis()
+        if redis is not None:
+            try:
+                raw = await redis.get(_redis_cache_key(key))
+                if raw:
+                    value = json.loads(raw)
+                    # 回填 L1
+                    async with self._lock:
+                        if key in self._data:
+                            self._data.move_to_end(key)
+                        self._data[key] = value
+                        if len(self._data) > self._maxsize:
+                            self._data.popitem(last=False)
+                    return value
+            except Exception as e:
+                logger.warning("embedding 缓存 L2 Redis 读取失败,降级 L1: %s", e)
+        return None
 
     async def set(self, key: str, value: Any) -> None:
-        """写缓存:已存在则更新并提升为 MRU;满载时 popitem(last=False) 淘汰 LRU。"""
+        """写缓存:写 L1;异步写 L2 Redis(失败降级,不阻塞主链路)。"""
+        # 写 L1
         async with self._lock:
             if key in self._data:
                 self._data.move_to_end(key)
             self._data[key] = value
             if len(self._data) > self._maxsize:
                 self._data.popitem(last=False)
+        # 写 L2 Redis(TTL 1h,异常降级不抛出)
+        redis = await _get_redis()
+        if redis is not None:
+            try:
+                payload = json.dumps(value)
+                await redis.set(
+                    _redis_cache_key(key),
+                    payload,
+                    ex=_EMBEDDING_CACHE_TTL_SECONDS,
+                )
+            except Exception as e:
+                logger.warning("embedding 缓存 L2 Redis 写入失败,降级 L1: %s", e)
 
 
-# 模块级单例:LLM embedding 结果缓存(maxsize=1000,LRU 淘汰)
-# 说明:embedding 确定性,同文本同向量,无需主动失效;可后续扩展到 Redis
+# 模块级单例:LLM embedding 结果缓存(L1 LRU maxsize=1000 + L2 Redis TTL 1h)
 _embedding_cache = _AsyncLRUCache(maxsize=1000)
 
 
