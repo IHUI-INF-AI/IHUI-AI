@@ -180,6 +180,7 @@ export function MessageInput({
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
+  const tNav = useTranslations('nav')
   // 当前工作区权限模式(2026-07-25 深化,高风险模式持久化视觉警告)
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
@@ -1026,7 +1027,7 @@ export function MessageInput({
                         )}
                       >
                         <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{t('nav.pluginMarket')}</span>
+                        <span className="min-w-0 flex-1 truncate">{tNav('pluginMarket')}</span>
                       </button>
                     </div>
                   )
