@@ -1,6 +1,14 @@
-// 临时脚本: 用 bcryptjs 生成 admin123 密码 hash,并更新 users 表 admin 用户为硬约束规范
+// 临时脚本: 用 password-crypto(argon2id)生成 admin123 密码 hash,并更新 users 表 admin 用户为硬约束规范
 import postgres from 'postgres'
-import bcrypt from 'bcryptjs'
+import { createRequire } from 'node:module'
+
+// .mjs 无法直接 import TS 文件,通过 tsx 的 tsImport API 导入 password-crypto 封装
+const apiRequire = createRequire(new URL('../apps/api/package.json', import.meta.url))
+const { tsImport } = apiRequire('tsx/esm/api')
+const { hashPassword } = await tsImport(
+  new URL('../apps/api/src/utils/password-crypto.ts', import.meta.url).href,
+  import.meta.url,
+)
 
 const url = process.env.DATABASE_URL ?? 'postgresql://ihui:ihui_dev_d6412937d5e397bc@127.0.0.1:5432/ihui'
 const sql = postgres(url, { max: 1, onnotice: () => {} })
@@ -23,8 +31,8 @@ try {
   console.log('\n=== 现有 admin@ihui.ai 用户 ===')
   console.log(adminUser[0] ?? '(not found)')
 
-  // 生成 admin123 密码 hash
-  const passwordHash = await bcrypt.hash('admin123', 10)
+  // 生成 admin123 密码 hash(argon2id)
+  const passwordHash = await hashPassword('admin123')
   console.log(`\n=== 生成 admin123 密码 hash ===\n${passwordHash}`)
 
   // 更新 admin 用户的邮箱/手机号/用户名/密码/roleId
