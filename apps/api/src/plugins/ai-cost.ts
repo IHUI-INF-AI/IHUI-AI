@@ -35,6 +35,13 @@ export function getCachedPrompt(prompt: string): unknown | null {
     promptCache.delete(key)
     return null
   }
+  // 真 LRU: 命中时 delete + set 重新插入到末尾。
+  // Map 的迭代顺序是插入顺序, delete + set 把 key 移到末尾,
+  // 使 setCachedPrompt 淘汰时 keys().next().value 始终指向最久未访问的 entry。
+  // 同时续期 TTL, 避免热数据在 10 分钟后被强制淘汰(滑动窗口语义)。
+  promptCache.delete(key)
+  entry.expiredAt = Date.now() + CACHE_TTL_MS
+  promptCache.set(key, entry)
   return entry.response
 }
 
@@ -42,7 +49,8 @@ export function getCachedPrompt(prompt: string): unknown | null {
 export function setCachedPrompt(prompt: string, response: unknown): void {
   const key = hashPrompt(prompt)
   if (promptCache.size >= CACHE_MAX) {
-    // 淘汰最旧条目
+    // 淘汰最久未访问的条目: 由于 getCachedPrompt 命中时会 delete+set 移到末尾,
+    // keys().next().value 此时指向 LRU 端(最久未访问), 而非 FIFO 的最早插入。
     const firstKey = promptCache.keys().next().value
     if (firstKey) promptCache.delete(firstKey)
   }
