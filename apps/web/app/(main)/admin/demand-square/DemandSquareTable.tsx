@@ -20,7 +20,7 @@ interface Props {
   rejectPending: boolean
 }
 
-export function DemandSquareTable({
+export const DemandSquareTable = React.memo(function DemandSquareTable({
   list,
   isLoading,
   error,
@@ -41,6 +41,22 @@ export function DemandSquareTable({
         minute: '2-digit',
       }),
     [locale],
+  )
+  const handleApprove = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (id) onApprove(id)
+    },
+    [onApprove],
+  )
+  const handleReject = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onReject(item)
+    },
+    [list, onReject],
   )
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -109,7 +125,8 @@ export function DemandSquareTable({
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => onApprove(r.id)}
+                            data-id={r.id}
+                            onClick={handleApprove}
                             disabled={approvePending}
                           >
                             <Check className="h-4 w-4 text-emerald-600" />
@@ -121,7 +138,8 @@ export function DemandSquareTable({
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => onReject(r)}
+                            data-id={r.id}
+                            onClick={handleReject}
                             disabled={rejectPending}
                           >
                             <X className="h-4 w-4 text-destructive" />
@@ -140,4 +158,4 @@ export function DemandSquareTable({
       </Table>
     </div>
   )
-}
+})
