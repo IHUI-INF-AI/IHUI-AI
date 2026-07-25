@@ -15,7 +15,10 @@ interface MarqueeProps {
 
 export function Marquee({ items }: MarqueeProps) {
   const t = useTranslations('marketing.marquee')
-  const fallback = t.raw('items') as string[]
+  // 2026-07-25 修复:next-intl 在 key 缺失时 t.raw 返回 undefined/对象 而非数组,
+  // 旧代码 fallback.map 会报 "fallback.map is not a function",加 Array.isArray 保护 + 空数组兜底。
+  const raw = t.raw('items') as unknown
+  const fallback: string[] = Array.isArray(raw) ? (raw as string[]) : []
   const list: MarqueeItem[] =
     items && items.length > 0 ? items : fallback.map((text, i) => ({ id: String(i), text }))
 
