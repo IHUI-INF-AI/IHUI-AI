@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
-import { STATUS_OPTIONS, selectClass } from './helpers'
+import { STATUS_OPTIONS, STATUS_KEY, selectClass } from './helpers'
 
 interface Props {
   orderNo: string
@@ -46,7 +46,7 @@ export function SettlementFilter({
           <SelectItem value="all">{t('allStatus')}</SelectItem>
           {STATUS_OPTIONS.map((s) => (
             <SelectItem key={s} value={s}>
-              {t(`status${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
+              {t(STATUS_KEY[s] ?? 'statusUnknown')}
             </SelectItem>
           ))}
         </SelectContent>

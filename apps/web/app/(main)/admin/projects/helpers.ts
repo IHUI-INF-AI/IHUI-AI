@@ -9,6 +9,12 @@ export const STATUS_BADGE: Record<number, string> = {
   2: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
 }
 
+export const STATUS_KEY: Record<number, string> = {
+  0: 'status_0',
+  1: 'status_1',
+  2: 'status_2',
+}
+
 export const EMPTY_FORM: ProjectForm = {
   userId: '',
   name: '',
