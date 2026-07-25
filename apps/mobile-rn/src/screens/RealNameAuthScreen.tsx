@@ -17,6 +17,13 @@ interface AuthStatus {
   reason?: string
 }
 
+const REAL_NAME_STATUS_KEYS: Record<AuthStatus['status'], string> = {
+  unverified: 'realNameAuth.status_unverified',
+  pending: 'realNameAuth.status_pending',
+  verified: 'realNameAuth.status_verified',
+  rejected: 'realNameAuth.status_rejected',
+}
+
 export function RealNameAuthScreen() {
   const { t } = useI18n()
   const { token } = useAuth()
@@ -94,8 +101,10 @@ export function RealNameAuthScreen() {
       <View style={styles.body}>
         <Card style={styles.card}>
           <Text style={styles.statusLabel}>{t('realNameAuth.status')}</Text>
-          <Text style={[styles.statusValue, status?.status === 'verified' && styles.statusVerified]}>
-            {t(`realNameAuth.status_${status?.status ?? 'unverified'}`)}
+          <Text
+            style={[styles.statusValue, status?.status === 'verified' && styles.statusVerified]}
+          >
+            {t(REAL_NAME_STATUS_KEYS[status?.status ?? 'unverified'])}
           </Text>
           {status?.status === 'verified' ? (
             <Text style={styles.hint}>{t('realNameAuth.verifiedDesc')}</Text>
@@ -107,11 +116,26 @@ export function RealNameAuthScreen() {
         {status?.status !== 'verified' && status?.status !== 'pending' ? (
           <Card style={styles.card}>
             <Text style={styles.label}>{t('realNameAuth.name')}</Text>
-            <Input value={name} onChangeText={setName} placeholder={t('realNameAuth.namePlaceholder')} style={styles.input} />
+            <Input
+              value={name}
+              onChangeText={setName}
+              placeholder={t('realNameAuth.namePlaceholder')}
+              style={styles.input}
+            />
             <Text style={styles.label}>{t('realNameAuth.idNumber')}</Text>
-            <Input value={idNumber} onChangeText={setIdNumber} placeholder={t('realNameAuth.idNumberPlaceholder')} style={styles.input} />
+            <Input
+              value={idNumber}
+              onChangeText={setIdNumber}
+              placeholder={t('realNameAuth.idNumberPlaceholder')}
+              style={styles.input}
+            />
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <Button loading={submitting} disabled={submitting} onPress={handleSubmit} style={styles.submitBtn}>
+            <Button
+              loading={submitting}
+              disabled={submitting}
+              onPress={handleSubmit}
+              style={styles.submitBtn}
+            >
               {submitting ? t('realNameAuth.submitting') : t('realNameAuth.submit')}
             </Button>
           </Card>
@@ -124,7 +148,13 @@ export function RealNameAuthScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
   body: { padding: 16 },
