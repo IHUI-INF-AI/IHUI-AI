@@ -1307,7 +1307,9 @@ export function MessageInput({
             </div>
           </div>
         </div>
-        <div className="mt-1.5 flex items-center justify-between px-1 text-xs text-muted-foreground">
+        {/* 2026-07-25 用户规则调整:mt-1.5 → mt-1(6px → 4px),hint 行更紧凑贴 input 底部。
+            配合外层 pb-1.5 调整,hint 整体下移更贴近 AI 面板底部。 */}
+        <div className="mt-1 flex items-center justify-between px-1 text-xs text-muted-foreground">
           <span>{t('enterToSend')}</span>
           <span className={count >= MAX_LENGTH ? 'text-destructive' : ''}>
             {count}/{MAX_LENGTH}
