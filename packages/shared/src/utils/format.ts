@@ -32,3 +32,21 @@ export function formatMoney(amount: number): string {
 export function formatPhone(phone: string): string {
   return String(phone || '').replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
 }
+
+/**
+ * 格式化 token 数为人类可读字符串(如 32K / 128K / 1M / 2M)。
+ *
+ * 单一来源:@ihui/shared/utils(2026-07-25 立,从 @ihui/api-client 迁入)。
+ * api-client 的同名函数保留作为向后兼容 re-export,新代码应优先从 @ihui/shared/utils 导入。
+ */
+export function formatTokenCount(tokens: number): string {
+  if (tokens >= 1_000_000) {
+    const m = tokens / 1_000_000
+    return `${Number.isInteger(m) ? m : m.toFixed(1)}M`
+  }
+  if (tokens >= 1_000) {
+    const k = tokens / 1_000
+    return `${Number.isInteger(k) ? k : k.toFixed(0)}K`
+  }
+  return String(tokens)
+}
