@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { RESULT_KEY } from './helpers'
 import type { DispatchResult } from './types'
 
 interface Props {
@@ -22,7 +23,7 @@ export function DispatchResultView({ result }: Props) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stats.map((s) => (
           <div key={s.key} className={cn('rounded-md px-3 py-2', s.cls)}>
-            <div className="text-xs opacity-80">{t(`nd.result_${s.key}`)}</div>
+            <div className="text-xs opacity-80">{t(RESULT_KEY[s.key as 'sent' | 'failed' | 'skipped' | 'queued'] ?? 'nd.result_unknown')}</div>
             <div className="text-xl font-bold">{s.value}</div>
           </div>
         ))}
