@@ -99,7 +99,7 @@ export default function CardFavoritesPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {items.map((entry) => {
+          {items.map((entry: any) => {
             const card = entry.card
             return (
               <Card

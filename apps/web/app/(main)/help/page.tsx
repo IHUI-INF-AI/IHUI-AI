@@ -43,7 +43,7 @@ export default function HelpPage() {
   }
 
   const kw = q.trim().toLowerCase()
-  const filtered = articles.filter((a) => {
+  const filtered = articles.filter((a: any) => {
     if (active !== 'all' && a.category !== active) return false
     if (!kw) return true
     const excerpt = a.summary ?? excerptFromContent(a.content)
@@ -88,7 +88,7 @@ export default function HelpPage() {
             {t('allArticles')}
             <span className="ml-auto text-xs text-muted-foreground">{articles.length}</span>
           </button>
-          {cats.map((c) => (
+          {cats.map((c: any) => (
             <button
               key={c.slug}
               type="button"
@@ -116,7 +116,7 @@ export default function HelpPage() {
             </div>
           ) : filtered.length > 0 ? (
             <div className="space-y-2">
-              {filtered.map((a) => (
+              {filtered.map((a: any) => (
                 <Link key={a.slug} href={`/help/${a.slug}`} className="block">
                   <Card className="transition-colors hover:bg-accent">
                     <CardContent className="p-4">

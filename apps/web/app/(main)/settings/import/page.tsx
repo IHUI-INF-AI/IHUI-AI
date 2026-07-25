@@ -76,9 +76,9 @@ export default function CliImportPage() {
   // 解析
   const parseMut = useMutation({
     mutationFn: () => parseFile(source as CliConfigSource, file!),
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
       setPreview(res.preview)
-      setSelected(new Set(res.preview.providers.map((p) => p.sourceId)))
+      setSelected(new Set(res.preview.providers.map((p: any) => p.sourceId)))
       toast.success(t('parseSuccess', { count: res.preview.providers.length }))
     },
     onError: (e: Error) => toast.error(t('parseFailed', { error: e.message })),
@@ -87,7 +87,7 @@ export default function CliImportPage() {
   // 提交导入
   const commitMut = useMutation({
     mutationFn: () => commitImport(preview!.previewId, Array.from(selected), strategy),
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
       toast.success(
         t('commitSuccess', { imported: res.imported, skipped: res.skipped, failed: res.failed }),
       )
@@ -120,7 +120,7 @@ export default function CliImportPage() {
     if (selected.size === preview.providers.length) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(preview.providers.map((p) => p.sourceId)))
+      setSelected(new Set(preview.providers.map((p: any) => p.sourceId)))
     }
   }
 
@@ -232,7 +232,7 @@ export default function CliImportPage() {
 
             {preview.globalWarnings.length > 0 && (
               <div className="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
-                {preview.globalWarnings.map((w, i) => (
+                {preview.globalWarnings.map((w: any, i: any) => (
                   <p key={i} className="flex items-start gap-1">
                     <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
                     <span>{w}</span>
@@ -242,7 +242,7 @@ export default function CliImportPage() {
             )}
 
             <div className="space-y-2">
-              {preview.providers.map((p) => {
+              {preview.providers.map((p: any) => {
                 const checked = selected.has(p.sourceId)
                 return (
                   <label

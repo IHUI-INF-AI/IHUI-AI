@@ -106,10 +106,10 @@ export default function MemberCouponsPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {coupons.map((c) => (
+          {coupons.map((c: any) => (
             <div
               key={c.id}
-              className={cn('flex items-center gap-3 rounded-lg border p-3', STATUS_CLS[c.status])}
+              className={cn('flex items-center gap-3 rounded-lg border p-3', STATUS_CLS[c.status as any])}
             >
               <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-md bg-primary/10 text-primary">
                 <span className="text-lg font-bold">

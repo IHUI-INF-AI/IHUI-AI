@@ -101,7 +101,7 @@ export default function EduPointsPage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((channel) => (
+            {list.map((channel: any) => (
               <Card key={channel.id} className="transition-colors hover:bg-accent">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-base">{channel.name}</CardTitle>

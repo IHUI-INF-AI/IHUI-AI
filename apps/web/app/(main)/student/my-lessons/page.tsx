@@ -80,7 +80,7 @@ export default function MyLessonsPage() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((item) => {
+            {list.map((item: any) => {
               const statusKey =
                 item.status === 2
                   ? 'statusCompleted'
