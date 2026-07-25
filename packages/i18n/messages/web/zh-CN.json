@@ -5521,6 +5521,32 @@
         "success": "生成成功",
         "error": "请输入模块名称"
       }
+    },
+    "aiMetrics": {
+      "title": "AI 运行指标",
+      "subtitle": "SSE 流式、Prompt 缓存与 VIP 折扣监控",
+      "backToCost": "返回成本看板",
+      "loadFailed": "加载失败,请稍后重试",
+      "lastRefresh": "最后刷新: {time}",
+      "sseMetrics": "SSE 流式指标",
+      "sseMetricsDesc": "实时聊天流断流/限流计数",
+      "sseTimeouts": "超时",
+      "sseRateLimitHits": "限流命中",
+      "sseBudgetRejects": "预算拒绝",
+      "sseRetryAfterSent": "重试提示",
+      "sseUpstreamErrors": "上游错误",
+      "promptCache": "Prompt 缓存",
+      "promptCacheDesc": "L1/L2 缓存命中与错误",
+      "pcL1Hits": "L1 命中",
+      "pcL1Misses": "L1 未命中",
+      "pcL2Hits": "L2 命中",
+      "pcL2Misses": "L2 未命中",
+      "pcErrors": "错误",
+      "vipDiscount": "VIP 折扣",
+      "vipDiscountDesc": "VIP 用户折扣申请统计",
+      "vipApplies": "申请次数",
+      "vipTotalDiscounted": "折扣总额",
+      "vipLevel": "VIP {level}"
     }
   },
   "knowledgeGraph": {
@@ -7046,7 +7072,10 @@
     "rangeLabel": "时间范围",
     "range1d": "最近 1 天",
     "range7d": "最近 7 天",
-    "range30d": "最近 30 天"
+    "range30d": "最近 30 天",
+    "l1HitRate": "L1 缓存命中率",
+    "l2HitRate": "L2 缓存命中率",
+    "promptCacheErrors": "缓存错误"
   },
   "wallet": {
     "title": "我的钱包",
