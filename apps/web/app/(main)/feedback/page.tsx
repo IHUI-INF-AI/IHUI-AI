@@ -10,6 +10,12 @@ import type { FeedbackItem, FeedbackType } from './types'
 import { FeedbackList } from './FeedbackList'
 import { FeedbackForm } from './FeedbackForm'
 
+/** i18n 静态映射表 — 用于消除 `t(\`tab_${var}\`)` 动态拼接 */
+const TAB_KEY: Record<'list' | 'new', string> = {
+  list: 'tab_list',
+  new: 'tab_new',
+}
+
 export default function FeedbackPage() {
   const t = useTranslations('feedback')
   const qc = useQueryClient()
@@ -90,7 +96,7 @@ export default function FeedbackPage() {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`tab_${v}`)}
+            {t(TAB_KEY[v] ?? 'tab_unknown')}
           </button>
         ))}
       </div>
