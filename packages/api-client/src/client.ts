@@ -348,6 +348,10 @@ export interface StreamChatOptions {
    *  - toolCallResult:type 7(tool-result)或自定义 tool_result 事件
    *  触发 WorkPanel.openPanel({ url, source: 'ai-tool' }) */
   onToolCall?: (event: ToolCallEvent) => void
+  /** 自动重连最大次数(默认 3)。网络错误指数退避重连,业务错误(401/403/429)不重连 */
+  maxRetries?: number
+  /** 自动重连前回调(前端可显示"网络波动,正在重连…") */
+  onReconnect?: (attempt: number, delayMs: number) => void
 }
 
 /** AI 工具调用 SSE 事件(跨端共享) */
@@ -507,6 +511,8 @@ export interface SSEErrorInfo {
   code?: number
   errorCode?: string
   retryAfter?: number
+  /** 可恢复标记:true 表示网络错误但已耗尽自动重连次数,前端可显示"网络不稳定,可手动重试" */
+  recoverable?: boolean
 }
 
 /**
@@ -800,7 +806,37 @@ function detectSafetyViolation(message: string, errorCode?: string): string | nu
   return null
 }
 
+const STREAM_MAX_RETRIES = 3
+const STREAM_INITIAL_RETRY_DELAY = 1000
+const STREAM_MAX_RETRY_DELAY = 30_000
+
+/** 指数退避等待,支持 AbortSignal 中断(用户主动取消重连) */
+function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'))
+      return
+    }
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(new DOMException('Aborted', 'AbortError'))
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
+  const maxRetries = opts.maxRetries ?? STREAM_MAX_RETRIES
+  // 跨重连尝试共享的状态:Last-Event-ID(断点续传)+ 已接收内容(dedupe)
+  const lastEventIdRef = { current: '' }
+  const receivedContentRef = { current: '' }
+  const receivedAgentRef = { current: new Map<string, string>() }
+  let attempt = 0
+
   const token = tokenProvider.getToken()
   const url = normalizeUrl(opts.path ?? '/ai/chat/stream')
   const headers: Record<string, string> = {
@@ -822,8 +858,13 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.agentTools && opts.agentTools.length > 0) body.agentTools = opts.agentTools
   if (opts.extraBody) Object.assign(body, opts.extraBody)
 
-  try {
-    const resp = await fetch(url, {
+  while (true) {
+    const isRetry = attempt > 0
+    try {
+      // 断点续传:每次尝试携带 Last-Event-ID(SSE 标准 resume 头),服务端支持则跳过已发送事件
+      if (lastEventIdRef.current) headers['Last-Event-ID'] = lastEventIdRef.current
+
+      const resp = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -868,6 +909,70 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasQuestion = typeof opts.onQuestion === 'function'
     const hasAgentDelta = typeof opts.onAgentDelta === 'function'
     const hasToolCall = typeof opts.onToolCall === 'function'
+
+    // ===== Dedupe 机制(isRetry 时启用) =====
+    // 重连后若服务端不支持 Last-Event-ID 续传会从头重发,前端用 receivedContent 前缀匹配
+    // 跳过已接收内容,仅追加新增部分;若服务端发送不同内容则放弃 dedupe 全量追加
+    let dedupeBuffer = ''
+    let dedupeActive = isRetry && receivedContentRef.current.length > 0
+    const agentDedupeBuffer = new Map<string, string>()
+
+    const emitDelta = (delta: string): void => {
+      if (!dedupeActive) {
+        opts.onDelta?.(delta)
+        receivedContentRef.current += delta
+        return
+      }
+      dedupeBuffer += delta
+      const received = receivedContentRef.current
+      if (dedupeBuffer.length < received.length) {
+        if (received.startsWith(dedupeBuffer)) return
+        opts.onDelta?.(dedupeBuffer)
+        receivedContentRef.current += dedupeBuffer
+        dedupeBuffer = ''
+        dedupeActive = false
+        return
+      }
+      const tail = dedupeBuffer.slice(received.length)
+      if (dedupeBuffer.slice(0, received.length) === received) {
+        if (tail) opts.onDelta?.(tail)
+        receivedContentRef.current += tail
+      } else {
+        opts.onDelta?.(dedupeBuffer)
+        receivedContentRef.current += dedupeBuffer
+      }
+      dedupeBuffer = ''
+      dedupeActive = false
+    }
+
+    const emitAgentDelta = (agentId: string, delta: string): void => {
+      const received = receivedAgentRef.current.get(agentId) ?? ''
+      if (!isRetry || received.length === 0) {
+        opts.onAgentDelta!(agentId, delta)
+        receivedAgentRef.current.set(agentId, received + delta)
+        return
+      }
+      const buf = (agentDedupeBuffer.get(agentId) ?? '') + delta
+      if (buf.length < received.length) {
+        if (received.startsWith(buf)) {
+          agentDedupeBuffer.set(agentId, buf)
+          return
+        }
+        opts.onAgentDelta!(agentId, buf)
+        receivedAgentRef.current.set(agentId, received + buf)
+        agentDedupeBuffer.delete(agentId)
+        return
+      }
+      const tail = buf.slice(received.length)
+      if (buf.slice(0, received.length) === received) {
+        if (tail) opts.onAgentDelta!(agentId, tail)
+        receivedAgentRef.current.set(agentId, received + tail)
+      } else {
+        opts.onAgentDelta!(agentId, buf)
+        receivedAgentRef.current.set(agentId, received + buf)
+      }
+      agentDedupeBuffer.delete(agentId)
+    }
 
     const tryParseCompaction = (line: string): void => {
       if (!hasCompaction) return
@@ -1016,14 +1121,16 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       while ((nl = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, nl).replace(/\r$/, '')
         buffer = buffer.slice(nl + 1)
+        // 捕获 SSE id: 行(用于 Last-Event-ID 断点续传)
+        if (line.startsWith('id:')) lastEventIdRef.current = line.slice(3).trim()
         tryParseCompaction(line)
         tryParseQuestion(line)
         tryParseToolCall(line)
         const delta = parseStreamLine(line)
         if (delta) {
           const agentId = hasAgentDelta ? extractAgentId(line) : undefined
-          if (agentId) opts.onAgentDelta!(agentId, delta)
-          else opts.onDelta(delta)
+          if (agentId) emitAgentDelta(agentId, delta)
+          else emitDelta(delta)
         }
         if (hasReasoning) {
           const r = parseStreamLineReasoning(line)
@@ -1032,14 +1139,15 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
     if (buffer.trim()) {
+      if (buffer.startsWith('id:')) lastEventIdRef.current = buffer.slice(3).trim()
       tryParseCompaction(buffer)
       tryParseQuestion(buffer)
       tryParseToolCall(buffer)
       const delta = parseStreamLine(buffer)
       if (delta) {
         const agentId = hasAgentDelta ? extractAgentId(buffer) : undefined
-        if (agentId) opts.onAgentDelta!(agentId, delta)
-        else opts.onDelta(delta)
+        if (agentId) emitAgentDelta(agentId, delta)
+        else emitDelta(delta)
       }
       if (hasReasoning) {
         const r = parseStreamLineReasoning(buffer)
@@ -1047,15 +1155,28 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
     opts.onDone?.()
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      opts.onDone?.()
-      return
+    return
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        opts.onDone?.()
+        return
+      }
+      const info = getSSEErrorInfo(err)
+      const code = info?.code
+      // 业务错误(401 未登录 / 403 无权限 / 429 限流)不重连,直接 onError
+      const isBusinessError = code === 401 || code === 403 || code === 429
+      const canRetry = !isBusinessError && attempt < maxRetries
+      if (!canRetry) {
+        const message = err instanceof Error ? err.message : '网络异常'
+        // recoverable=true 标记"网络可重试但已耗尽自动重连次数",前端可显示"网络不稳定,可手动重试"
+        opts.onError?.(message, { ...info, recoverable: !isBusinessError })
+        return
+      }
+      // 指数退避:1s, 2s, 4s, 8s... 上限 30s(与 useAgentSSE 重连模式一致)
+      const delay = Math.min(STREAM_INITIAL_RETRY_DELAY * 2 ** attempt, STREAM_MAX_RETRY_DELAY)
+      attempt++
+      opts.onReconnect?.(attempt, delay)
+      await sleepWithAbort(delay, opts.signal)
     }
-    const message = err instanceof Error ? err.message : '网络异常'
-    // 透传 errorCode/code/retryAfter 到 onError(供调用方按错误码分类提示)
-    // SSE 流内错误(parseStreamLine → attachErrorMeta)和 HTTP 错误(fetch !ok → throw)都走此路径
-    const info = getSSEErrorInfo(err)
-    opts.onError?.(message, info)
   }
 }

@@ -87,6 +87,13 @@ export function AISidePanel() {
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
   const [dispatchOpen, setDispatchOpen] = React.useState(false)
+  // 分页状态(2026-07-25 立,#8 滚动到顶部加载更多历史)
+  // - hasMoreHistory:当前会话是否还有更早的消息可加载
+  // - oldestCursor:下一页 before 游标(当前已加载消息中最旧一条的 id)
+  // - loadingMoreHistory:防止滚动到顶部重复触发
+  const [hasMoreHistory, setHasMoreHistory] = React.useState(false)
+  const oldestCursorRef = React.useRef<string | null>(null)
+  const [loadingMoreHistory, setLoadingMoreHistory] = React.useState(false)
   // 性能修复(2026-07-25):原 const pathname = usePathname() 订阅在 AISidePanel 根,
   // 导致每次路由切换 AISidePanel 整树重渲染(连带 MessageList/MessageInput/ModelSelector 等)。
   // 改为下推到 <WorkspaceNameSync> 子组件,pathname 订阅只触发子组件(渲染 null,无开销)。
@@ -197,7 +204,11 @@ export function AISidePanel() {
     async function loadHistory(id: string) {
       setLoadingHistory(true)
       try {
-        const [convRes, msgRes] = await Promise.all([getConversation(id), getMessages(id)])
+        // #8 分页加载:默认 page=1 返回最新 pageSize 条(后端 offset 模式按 desc + reverse)
+        const [convRes, msgRes] = await Promise.all([
+          getConversation(id),
+          getMessages(id, { pageSize: 50 }),
+        ])
         if (cancelled) return
         if (convRes.success && msgRes.success) {
           const hydrated: ChatMessage[] = msgRes.data.messages.map((m) => ({
@@ -208,6 +219,9 @@ export function AISidePanel() {
           }))
           useChatStore.setState({ messages: hydrated, error: null })
           setConversationTitle(convRes.data.conversation.title || null)
+          // 记录分页游标:oldestCursor = 当前最旧一条 id,hasMoreHistory = 是否还有更早历史
+          oldestCursorRef.current = msgRes.data.nextCursor
+          setHasMoreHistory(msgRes.data.hasMore)
 
           // P2 多端同步:从 conversation.metadata.pendingQuestion 恢复挂起状态
           // 场景:用户 A 在 web 提问后刷新页面 / 切换会话再切回 / 在其他端打开同一会话
@@ -245,10 +259,15 @@ export function AISidePanel() {
     }
 
     if (storeConversationId) {
+      // 重置分页状态(防止上一会话的游标残留)
+      oldestCursorRef.current = null
+      setHasMoreHistory(false)
       void loadHistory(storeConversationId)
     } else {
       useChatStore.setState({ messages: [], error: null })
       setConversationTitle(null)
+      oldestCursorRef.current = null
+      setHasMoreHistory(false)
     }
 
     return () => {
@@ -256,10 +275,43 @@ export function AISidePanel() {
     }
   }, [storeConversationId, setConversationId, open])
 
+  // #8 滚动到顶部加载更多历史消息(before 游标分页)
+  // - 由 MessageList 在 scrollTop 接近 0 时触发
+  // - 加载完成后 prepend 到 messages 头部,并保持视觉滚动位置(由 MessageList 内部处理)
+  const handleLoadMoreHistory = React.useCallback(async () => {
+    const convId = useChatStore.getState().conversationId
+    const cursor = oldestCursorRef.current
+    if (!convId || !cursor || loadingMoreHistory || !hasMoreHistory) return
+    setLoadingMoreHistory(true)
+    try {
+      const res = await getMessages(convId, { before: cursor, pageSize: 50 })
+      if (!res.success) return
+      const older = res.data.messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        createdAt: new Date(m.createdAt).getTime(),
+      }))
+      if (older.length === 0) {
+        setHasMoreHistory(false)
+        oldestCursorRef.current = null
+        return
+      }
+      // prepend 到 messages 头部(时间正序,older 也是正序且早于当前所有消息)
+      useChatStore.setState((s) => ({ messages: [...older, ...s.messages] }))
+      oldestCursorRef.current = res.data.nextCursor
+      setHasMoreHistory(res.data.hasMore)
+    } finally {
+      setLoadingMoreHistory(false)
+    }
+  }, [loadingMoreHistory, hasMoreHistory])
+
   const handleNewChat = React.useCallback(() => {
     clearMessages()
     setConversationId(null)
     setConversationTitle(null)
+    oldestCursorRef.current = null
+    setHasMoreHistory(false)
   }, [clearMessages, setConversationId])
 
   // 标题显示优先级(用户规则):
@@ -511,6 +563,9 @@ export function AISidePanel() {
               emptyHint={t('emptyHint')}
               assistantLabel={t('assistant')}
               loadingLabel={t('loading')}
+              hasMoreHistory={hasMoreHistory}
+              loadingMoreHistory={loadingMoreHistory}
+              onLoadMoreHistory={handleLoadMoreHistory}
               onTemplateSelect={(content) => {
                 useChatStore.setState({ draftInput: content })
               }}
