@@ -1,3 +1,85 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# ============== mobile-rn (Expo + RN) Metro hoist 配置 ==============
+# 解决 pnpm isolated linker 与 Metro bundler 不兼容问题(2026-07-25)
+# Metro 0.81 默认不 follow pnpm 的 .pnpm/<pkg>/node_modules junction 真实路径,
+# 导致 react-native / @react-navigation/native 的传递依赖(invariant, @react-navigation/core,
+# ansi-regex 等)无法从 .pnpm 隔离目录解析,报 "Unable to resolve module"。
+# 方案:用 publicHoistPattern 把 RN/Expo 生态的传递依赖 hoist 到根 node_modules 顶层,
+# Metro 的 hierarchical lookup 即可找到。
+# 注意:pnpm 9.15+ 的 public-hoist-pattern 必须配在 pnpm-workspace.yaml(而非 .npmrc),
+#       否则 pnpm config get 能读到但 install 时不应用。
+# 影响范围:仅 RN/Expo 生态包,其他 7 端不引用这些包,无影响。
+publicHoistPattern:
+  # ----- 通配符:覆盖 RN/Expo/Metro 生态 -----
+  - '*react-native*'
+  - '*react-navigation*'
+  - '*expo*'
+  - '*nativewind*'
+  - '*metro*'
+  - '*solito*'
+  - '@react-native/*'
+  - '@react-native-*/*'
+  - '@react-navigation/*'
+  - '@expo/*'
+  - '@ide/*'
+  # ----- react-native 0.79.6 非 scoped 传递依赖(Metro bundle 必需) -----
+  - 'invariant'
+  - 'nullthrows'
+  - 'memoize-one'
+  - 'scheduler'
+  - 'stacktrace-parser'
+  - 'pretty-format'
+  - 'regenerator-runtime'
+  - 'anser'
+  - 'ansi-regex'
+  - 'chalk'
+  - 'commander'
+  - 'glob'
+  - 'event-target-shim'
+  - 'abort-controller'
+  - 'base64-js'
+  - 'whatwg-fetch'
+  - 'ws'
+  - 'yargs'
+  - 'semver'
+  - 'promise'
+  - 'react-devtools-core'
+  - 'react-refresh'
+  - 'flow-enums-runtime'
+  - 'babel-jest'
+  - 'jest-environment-node'
+  - 'babel-plugin-syntax-hermes-parser'
+  - '@jest/create-cache-key-function'
+  # ----- @react-navigation / expo 非 scoped 传递依赖 -----
+  - 'escape-string-regexp'
+  - 'fast-deep-equal'
+  - 'nanoid'
+  - 'query-string'
+  - 'react-is'
+  - 'use-latest-callback'
+  - 'color'
+  - 'warn-once'
+  - 'whatwg-url-without-unicode'
+  - 'babel-preset-expo'
+  - 'ua-parser-js'
+  - 'assert'
+  - 'badgin'
+  # ----- react-native-* / nativewind / workspace 包的非 scoped 传递依赖 -----
+  - 'react-freeze'
+  - 'comment-json'
+  - 'debug'
+  - 'lightningcss'
+  - 'convert-source-map'
+  - 'merge-options'
+  - 'html2canvas'
+  - 'events'
+  - 'js-sha1'
+  - 'tailwindcss'
+  - 'class-variance-authority'
+  - 'clsx'
+  - 'tailwind-merge'
+  - 'xstate'
+  - 'zod'
