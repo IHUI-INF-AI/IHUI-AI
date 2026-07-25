@@ -27,6 +27,13 @@ const QA_FALLBACK: QaItem[] = [
   { title: '智能体如何上架?', url: 'https://www.zhihui.com/developer/qa4' },
 ]
 
+const QA_KEYS = [
+  'plaza.cover.qa0',
+  'plaza.cover.qa1',
+  'plaza.cover.qa2',
+  'plaza.cover.qa3',
+] as const
+
 /** 三个开发者入口(对标原项目 dev_list) */
 const DEV_ENTRIES = [
   {
@@ -241,7 +248,7 @@ export default function PlazaCover() {
           <Text className="block text-[30rpx] font-semibold text-foreground pt-[32rpx] px-[32rpx] pb-[8rpx]">{tt('plaza.cover.qaTitle', '常见问题')}</Text>
           {QA_FALLBACK.map((qa, i) => (
             <View key={i} className="flex items-center gap-[16rpx] px-[32rpx] py-[28rpx]" onClick={() => toWeb(qa.url)}>
-              <Text className="flex-1 text-[28rpx] text-foreground">{tt(`plaza.cover.qa${i}`, qa.title)}</Text>
+              <Text className="flex-1 text-[28rpx] text-foreground">{tt(QA_KEYS[i] ?? 'plaza.cover.qa0', qa.title)}</Text>
               <Text className="text-[36rpx] text-muted-foreground leading-none">›</Text>
             </View>
           ))}
