@@ -37,8 +37,21 @@ const promptCacheMetrics = {
   errors: 0, // L2 Redis 异常次数
 }
 
-function hashPrompt(prompt: string): string {
-  return createHash('sha256').update(prompt).digest('hex')
+/**
+ * 计算 prompt 缓存键(SHA-256)。
+ *
+ * P4-5: cache key 含 model + tenantId 维度,避免:
+ * - 同一 prompt 不同 model 共享缓存(风格/格式不符预期)
+ * - 多租户场景共享缓存(隔离弱点)
+ *
+ * 向后兼容:不传 model/tenantId 时退化为 sha256(prompt)(与旧版一致)。
+ */
+function hashPrompt(prompt: string, model?: string, tenantId?: string): string {
+  const parts: string[] = []
+  if (tenantId) parts.push(`tenant:${tenantId}`)
+  if (model) parts.push(`model:${model}`)
+  parts.push(prompt)
+  return createHash('sha256').update(parts.join('|')).digest('hex')
 }
 
 /**
@@ -50,8 +63,8 @@ function hashPrompt(prompt: string): string {
  *
  * 注: 此函数只查 L1, 不查 L2 Redis。需要 L1+L2 双层查询请用 getCachedPromptAsync。
  */
-export function getCachedPrompt(prompt: string): unknown | null {
-  const key = hashPrompt(prompt)
+export function getCachedPrompt(prompt: string, model?: string, tenantId?: string): unknown | null {
+  const key = hashPrompt(prompt, model, tenantId)
   const entry = promptCache.get(key)
   if (!entry) return null
   if (Date.now() > entry.expiredAt) {
@@ -73,9 +86,13 @@ export function getCachedPrompt(prompt: string): unknown | null {
  *
  * P2-3: 跨实例部署时, A 实例写入的缓存只在自己 L1, 通过 L2 Redis 让 B 实例也能命中。
  */
-export async function getCachedPromptAsync(prompt: string): Promise<unknown | null> {
+export async function getCachedPromptAsync(
+  prompt: string,
+  model?: string,
+  tenantId?: string,
+): Promise<unknown | null> {
   // L1 查询(与同步版同逻辑)
-  const key = hashPrompt(prompt)
+  const key = hashPrompt(prompt, model, tenantId)
   const entry = promptCache.get(key)
   if (entry) {
     if (Date.now() <= entry.expiredAt) {
@@ -112,8 +129,13 @@ export async function getCachedPromptAsync(prompt: string): Promise<unknown | nu
 }
 
 /** 写入 prompt 缓存 (L1 内存 + L2 Redis 异步写入)。 */
-export function setCachedPrompt(prompt: string, response: unknown): void {
-  const key = hashPrompt(prompt)
+export function setCachedPrompt(
+  prompt: string,
+  response: unknown,
+  model?: string,
+  tenantId?: string,
+): void {
+  const key = hashPrompt(prompt, model, tenantId)
   if (promptCache.size >= CACHE_MAX) {
     // 淘汰最旧条目
     const firstKey = promptCache.keys().next().value
@@ -155,9 +177,11 @@ export function clearPromptCache(): void {
 export async function cachedStreamWrapper<T>(
   prompt: string,
   upstreamFetch: () => Promise<T>,
+  model?: string,
+  tenantId?: string,
 ): Promise<{ cached: boolean; response: T }> {
   try {
-    const hit = await getCachedPromptAsync(prompt)
+    const hit = await getCachedPromptAsync(prompt, model, tenantId)
     if (hit !== null) {
       return { cached: true, response: hit as T }
     }
@@ -166,7 +190,7 @@ export async function cachedStreamWrapper<T>(
   }
   const response = await upstreamFetch()
   try {
-    setCachedPrompt(prompt, response)
+    setCachedPrompt(prompt, response, model, tenantId)
   } catch (err) {
     logger.warn(`[ai-cost] setCachedPrompt 异常, 跳过缓存写入: ${String(err)}`)
   }
