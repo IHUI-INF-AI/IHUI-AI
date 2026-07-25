@@ -17,14 +17,35 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
 
 const LOCALES = ['zh-CN', 'zh-TW', 'ko', 'ja', 'en']
-const MSG_DIR = join(ROOT, 'packages', 'i18n', 'messages', 'web')
+
+// 解析 --target 参数(默认 web),支持 --target=value 和 --target value 两种形式
+const args = process.argv.slice(2)
+let target = 'web'
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--target' && i + 1 < args.length) target = args[i + 1]
+  else if (args[i].startsWith('--target=')) target = args[i].slice('--target='.length)
+}
+const dryRun = args.includes('--dry-run')
+const MSG_DIR = join(ROOT, 'packages', 'i18n', 'messages', target)
 
 // 删除规则:[顶层key, 子路径] — null 表示删除整个顶层 key
-const DELETE_RULES = [
+// web 规则
+const WEB_DELETE_RULES = [
   ['audit', null], // 删除整个 audit 命名空间(31 个 leaf)
   ['help', 'faq'], // 删除 help.faq 子对象(5 个数组 key)
   ['chat', 'permission.autoRevertedDesc'], // 删除单个 key
 ]
+// miniapp-taro 规则(7 个无引用 key,subagent 交叉验证确认)
+const MINIAPP_DELETE_RULES = [
+  ['common', 'search'], // 搜索(SearchBar 用硬编码默认值)
+  ['nav', 'chat'], // AI 对话(TabBar 不引用)
+  ['nav', 'agents'], // 智能体(用 aiGroup.agent)
+  ['nav', 'orders'], // 订单(用 order.title)
+  ['nav', 'wallet'], // 钱包(用 wallet.* 子键)
+  ['nav', 'settings'], // 设置(用 setting.* 命名空间)
+  ['chat', 'newConversation'], // 新建对话(用 share.index.newChat)
+]
+const DELETE_RULES = target === 'miniapp-taro' ? MINIAPP_DELETE_RULES : WEB_DELETE_RULES
 
 function deepDelete(obj, path) {
   const parts = path.split('.')
@@ -47,9 +68,6 @@ function countLeaves(obj) {
   }
   return count || 1
 }
-
-const args = process.argv.slice(2)
-const dryRun = args.includes('--dry-run')
 
 let totalDeleted = 0
 let totalBefore = 0
@@ -105,4 +123,4 @@ for (const locale of LOCALES) {
   }
 }
 
-console.log(`\n汇总:${dryRun ? '[DRY-RUN] ' : ''}共删除 ${totalDeleted} 个 key,5 语言 leaf 总数 ${totalBefore} → ${totalAfter}`)
+console.log(`\n汇总:[target=${target}] ${dryRun ? '[DRY-RUN] ' : ''}共删除 ${totalDeleted} 个 key,5 语言 leaf 总数 ${totalBefore} → ${totalAfter}`)
