@@ -75,6 +75,7 @@
     "cancelTime": "취소시간",
     "refundTime": "환불 시간",
     "remark": "비고",
+    "reasonRequired": "사유를 입력해 주세요",
     "originalPrice": "원가",
     "discountAmount": "할인",
     "errorTitle": "오류가 발생했습니다",
@@ -7371,6 +7372,17 @@
       "cancel": "취소",
       "connected": "연결됨",
       "disconnected": "연결 끊김"
+    }
+  },
+  "agents": {
+    "kanban": {
+      "priority": "우선순위",
+      "created": "생성됨",
+      "worker": "작업자",
+      "duration": "소요 시간",
+      "dependencies": "종속성",
+      "transition": "상태 전환",
+      "reason": "사유"
     }
   },
   "distribution": {
