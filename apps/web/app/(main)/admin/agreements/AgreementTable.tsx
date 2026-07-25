@@ -14,7 +14,7 @@ interface Props {
   onDelete: (item: Agreement) => void
 }
 
-export function AgreementTable({ list, isLoading, deletePending, onEdit, onDelete }: Props) {
+export const AgreementTable = React.memo(function AgreementTable({ list, isLoading, deletePending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.agreements')
   const tc = useTranslations('common')
   const handleEdit = React.useCallback(
@@ -93,4 +93,4 @@ export function AgreementTable({ list, isLoading, deletePending, onEdit, onDelet
       </table>
     </div>
   )
-}
+})

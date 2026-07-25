@@ -16,7 +16,7 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export function ContactTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
+export const ContactTable = React.memo(function ContactTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
   const t = useTranslations('adminContact')
   const handleEdit = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -99,4 +99,4 @@ export function ContactTable({ list, isLoading, delPending, onEdit, onDelete }: 
       </table>
     </div>
   )
-}
+})
