@@ -18,6 +18,13 @@ export default function PointsPage() {
   const [tab, setTab] = React.useState<'tx' | 'lb' | 'redeem'>('tx')
   const currentUserId = useAuthStore((s) => s.user?.id)
 
+  /** i18n 静态映射表 — 用于消除 tab.{k} 形式的动态拼接 */
+  const TAB_KEY: Record<'tx' | 'lb' | 'redeem', string> = {
+    tx: 'tab.tx',
+    lb: 'tab.lb',
+    redeem: 'tab.redeem',
+  }
+
   const pointsQ = useQuery({
     queryKey: ['points'],
     queryFn: () =>
@@ -80,7 +87,7 @@ export default function PointsPage() {
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`tab.${k}`)}
+            {t(TAB_KEY[k] ?? 'tab.unknown')}
           </button>
         ))}
       </div>
