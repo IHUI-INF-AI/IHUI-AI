@@ -17,17 +17,17 @@ import {
 } from '@/lib/tauri-bridge'
 
 /**
- * useDesktop — 桌面端(Tauri WebView)能力统一 hook(2026-07-25 立)
+ * useDesktop — 客户端(Tauri WebView)能力统一 hook(2026-07-25 立)
  *
  * 封装:
- * - isDesktop:当前是否在 Tauri 桌面端运行(非浏览器)
- * - appInfo:桌面端应用信息(名称/版本/平台)
+ * - isDesktop:当前是否在 Tauri 客户端运行(非浏览器)
+ * - appInfo:客户端应用信息(名称/版本/平台)
  * - isMaximized:主窗口是否最大化(实时同步)
  * - autostartEnabled:开机自启状态
  * - 操作:minimize / toggleMaximize / close / toggleAutostart / resetWindow / notify
  *
  * 浏览器环境下 isDesktop=false,所有操作为 no-op,appInfo=null。
- * 组件可根据 isDesktop 决定是否渲染桌面端独占 UI。
+ * 组件可根据 isDesktop 决定是否渲染客户端独占 UI。
  */
 export function useDesktop() {
   const [isDesktop] = React.useState(() => isTauri())

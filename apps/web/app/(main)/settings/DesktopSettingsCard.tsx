@@ -4,15 +4,16 @@ import * as React from 'react'
 import { Monitor, Power, Keyboard, RotateCcw, Bell, Minimize, Maximize2, X } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, Switch, Button } from '@ihui/ui-react'
 import { useDesktop } from '@/hooks/use-desktop'
+import { getLocalizedAppName } from '@/lib/tauri-bridge'
 import { toast } from 'sonner'
 
 /**
- * DesktopSettingsCard — 桌面端独占设置卡片(2026-07-25 立)
+ * DesktopSettingsCard — 客户端独占设置卡片(2026-07-25 立)
  *
- * 仅在 Tauri 桌面端 WebView 中渲染,浏览器环境返回 null。
+ * 仅在 Tauri 客户端 WebView 中渲染,浏览器环境返回 null。
  *
  * 内容:
- * - 桌面端版本 / 平台信息
+ * - 客户端版本 / 平台信息
  * - 开机自启开关(Switch)
  * - 全局快捷键说明(Ctrl+Shift+I 唤起/隐藏)
  * - 窗口控制快捷入口(最小化/最大化/关闭)
@@ -25,7 +26,7 @@ import { toast } from 'sonner'
  * - hover 用 subtle bg-accent,无蓝色发光边框
  * - compact 紧凑布局
  *
- * i18n:桌面端独占 UI,中文优先(用户偏好),后续按需补齐 5 语言。
+ * i18n:客户端独占 UI,中文优先(用户偏好),后续按需补齐 5 语言。
  */
 export function DesktopSettingsCard() {
   const {
@@ -42,7 +43,7 @@ export function DesktopSettingsCard() {
     close,
   } = useDesktop()
 
-  // 浏览器环境不渲染(整张卡片仅桌面端可见)
+  // 浏览器环境不渲染(整张卡片仅客户端可见)
   if (!isDesktop) return null
 
   const handleResetWindow = async () => {
@@ -51,7 +52,8 @@ export function DesktopSettingsCard() {
   }
 
   const handleTestNotify = async () => {
-    await notify('IHUI AI 桌面端', '这是一条测试通知,确认系统通知功能正常工作。')
+    const appName = appInfo?.name || getLocalizedAppName()
+    await notify(appName, '这是一条测试通知,确认系统通知功能正常工作。')
     toast.success('通知已发送,请查看系统通知中心')
   }
 
@@ -72,7 +74,7 @@ export function DesktopSettingsCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Monitor className="h-4 w-4" />
-          桌面端
+          客户端
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
