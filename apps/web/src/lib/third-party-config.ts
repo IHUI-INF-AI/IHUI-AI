@@ -12,7 +12,7 @@ import type { ThirdPartyPlatform } from '@/types/third-party'
 /**
  * Next.js 客户端 env 变量映射表。
  *
- * ⚠️ 重要:Next.js 只在编译时静态替换 `process.env.NEXT_PUBLIC_XXX` 的**直接字面量引用**,
+ * ⚠️ 重要:Next.js 只在编译时静态替换 `process.env.NEXT_PUBLIC_*` 的**直接字面量引用**,
  * 不支持 `process.env[key]` 的动态访问。所以必须显式列出所有用到的变量名,
  * 让 Next.js 编译器能识别并内联到客户端 chunk。
  */
