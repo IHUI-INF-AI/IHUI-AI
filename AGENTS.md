@@ -220,6 +220,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 **必须用项目内路径**(根 `d:\桌面\项目\IHUI-AI`):扩展打包→`apps/extension/.output/chrome-mv3/`;Chrome profile→`.trae-cn/tmp/chrome-profile/`;临时副本→`.trae-cn/tmp/<任务名>/`;临时脚本→`.trae-cn/tmp/<脚本名>.ps1`;临时文件统一放 `.trae-cn/tmp/`(已 gitignore),任务完成后清理。
 
 **守门脚本**:
+
 - `check-workspace-hygiene.mjs`(第 25 项 BLOCKING:项目外路径写入;WARNING:硬编码中文路径)
 - `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)
 - `cleanup-external-junk.ps1`(G:\ 垃圾清理,16 目录+31 文件,`-Force` 跳过确认)
@@ -241,6 +242,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 **触发条件**:UI 样式/布局/交互改动(CSS/className/style/组件结构/Tailwind 类/shadcn props)。
 
 **强制动作**(缺一不可,违反视为交付事故):
+
 1. 改码前 browser ping `http://localhost:8801` 确认服务在线,不通则先启动 web+api+ai-service(端口见 `docs/port-management.md`)。
 2. 改码后确认 web+api 服务在跑(browser 实际访问)。
 3. 用 browser_use subagent 渲染目标页面,截图自验 4 状态:默认/hover/active/dark mode。
@@ -371,6 +373,56 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 ---
 
+## 22. 防止 commit / push / merge 提交丢失硬性规则(强制)
+
+### 触发背景(2026-07-25 立,真实事故)
+
+reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**,导致 3 个本地 commit 在 main 历史中消失:
+
+- `15b984f90` "fix(api): P0 安全债并行修复"(ws-chat/ws-tasks IDOR + payment-gateway 金额反查)
+- `5ef36e59d` "fix(web): sidebar 折叠按钮图标 16→20px" 第一次
+- `b120c6e20` "fix(web): sidebar 折叠按钮图标 16→20px" 第二次
+
+幸运的是这 3 个 commit 的工作内容已通过后续 commit(`ce3116ebd` merge + `ff7f744e0` 重做)重新整合到 origin/main,但 commit 本身已不可追溯,git log 不再显示原始 commit hash。
+
+**根因**:多 agent 并行 + 某 agent 自动化流程使用 `git reset` 时,未考虑对其他 agent 本地 commit 的影响,导致 reset 把整个 commit 链(包括其他 agent 的工作)一并丢弃。
+
+### 硬性规则(违反视为协作事故)
+
+1. **禁止**在共享分支(任何已 push 过的分支,包括 main)使用 `git reset --hard`。
+2. **禁止**使用 `git reset HEAD~N` / `git reset --soft HEAD~N` 撤销本地 commit(在多 agent 并行环境下,该 commit 可能被其他 agent 依赖)。
+3. **禁止**使用 `git push --force` / `git push --force-with-lease`(已 push commit 的"撤销"必须用 `git revert`)。
+4. **撤销已 push 提交必须用 `git revert`**:产生新 commit 撤销改动,保留原始 commit hash,所有 agent 都能看到完整历史。
+5. **撤销本地未 push commit 推荐 `git revert`**(同样产生新 commit 保留历史);仅在确认 commit 内容无价值、且无其他 agent 引用时,才考虑 `git reset`(不推荐,需记录在 commit message)。
+6. **禁止** `git stash drop` / `git stash clear`,除非先 `git stash show <id> --stat` 确认 stash 内容已合并到 working tree 或其他 commit;lint-staged 自动创建的 stash 必须保留至少到 commit 成功后下一次 git gc 周期(默认 14 天)。
+7. **多 agent 并行 reset 前必须**:`git log --all --oneline | grep <other-agent-commit-sha>` 确认无其他 agent 引用;并在 `PROJECT_PLAN.md` 记录"reset 影响范围 + 已 tag 备份的 commit hash"。
+
+### 已被 reset 丢失的 commit 永久记录(tag 备份)
+
+3 个被 reset 的 commit 已用以下 tag 永久保留(防止 git gc 清理):
+
+- `lost-commit/P0-security-debt` → `15b984f90`(P0 安全债)
+- `lost-commit/sidebar-fold-btn-1` → `5ef36e59d`(sidebar 按钮第一次)
+- `lost-commit/sidebar-fold-btn-2` → `b120c6e20`(sidebar 按钮第二次)
+- `backup/pre-drop-recovery` → `251956eb6`(恢复前主分支快照)
+
+可通过 `git show <tag-name>` 查看完整 commit 内容;`git tag -l "lost-commit/*"` 列出所有丢失 commit tag。
+
+### 守门(warn-only → 后续升级 blocking)
+
+`scripts/check-commit-loss-guard.mjs`(guardian-runner 第 30 项,本任务新增):
+
+- pre-commit 前扫描 `git reflog --all --date=iso` 最近 20 步,检测是否含 `reset: moving to HEAD~` 模式
+- 扫描 `git fsck --unreachable --no-reflogs` 检测是否有悬空 commit
+- 发现上述任一情况 → warn 告警 + 提示已丢失 commit 的 tag 列表
+- 后续升级:warn → blocking,任何 reset 操作必须先 tag 备份
+
+### 历史案例
+
+`.trae-cn/archive/AGENTS_history.md` 记录每次 reset 事故 + 已采取的 tag 备份措施。
+
+---
+
 ## 守门脚本速查(pre-commit 项,按类别)
 
 - **i18n**(2/2b/2c/2d/2e/2f):check-i18n-keys(parity+白名单)/ scan-i18n-zh-residue(zh-TW/ko 阻塞,ja warn)/ check-i18n-broken-en(阻塞)/ i18n-diff(翻译流水线,2f-web + 2f-miniapp-taro 阻塞)
@@ -378,6 +430,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **UI/样式**(11/17/18/20/24a/24b/27/28):圆角 / CSS token / title tooltip / Tailwind 冲突 / 侧边栏宽度+端口注册表(warn)/ z-index+遮罩 z-index(阻塞)
 - **工程约束**(12/13b/13c/15/19/21/22/23):交付报告 / PLAN 体积(warn)+防误删 / 迁移完整性 / staged 污染(warn)/ 多端同步(warn)/ README 同步(warn)/ staged 清单(info)
 - **Push/工作区**(25/26/29):项目外路径(阻塞)/ 父目录污染(阻塞)/ Push 同步(阻塞)
+- **防提交丢失**(30):reflog reset 检测 + fsck 悬空 commit 检测 + lost-commit/* tag 备份清单(AGENTS.md §22 配套,warn-only,后续升级 blocking)
 - **条件**(16/16b):apps/web staged → typecheck;packages/database/src staged → build
 
 > post-commit 钩子:`git-push-guard.mjs` 自动 push + 验证 local == remote(见 §20)。
@@ -386,9 +439,9 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 ## 关键参考文档
 
-| 文档 | 说明 |
-| --- | --- |
-| `PROJECT_PLAN.md` | 唯一任务计划文档(必读) |
-| `.trae-cn/archive/` | 历史归档(audit/交接/迁移报告,只读) |
-| `docs/architecture.md` | 系统架构文档 |
-| `docs/port-management.md` | 端口注册表(88xx 段) |
+| 文档                      | 说明                               |
+| ------------------------- | ---------------------------------- |
+| `PROJECT_PLAN.md`         | 唯一任务计划文档(必读)             |
+| `.trae-cn/archive/`       | 历史归档(audit/交接/迁移报告,只读) |
+| `docs/architecture.md`    | 系统架构文档                       |
+| `docs/port-management.md` | 端口注册表(88xx 段)                |
