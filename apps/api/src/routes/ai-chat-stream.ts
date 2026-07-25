@@ -2,10 +2,19 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { repairMessages } from '@ihui/types'
 import { compressContextIfNeeded, type ChatMessage } from '@ihui/context-compaction'
-import { checkAuth } from '../plugins/auth.js'
+import { checkAuth, authenticate } from '../plugins/auth.js'
 import { error, success } from '../utils/response.js'
 import { createMessage, patchConversationMetadata } from '../db/chat-queries.js'
 import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+
+// P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
+const sseMetrics = {
+  timeouts: 0, // SSE 服务端超时次数(5min 兜底超时触发)
+  rateLimitHits: 0, // rateLimit 拦截次数(fastify-rate-limit 内部处理,本计数器暂不递增)
+  budgetRejects: 0, // 预算校验拦截次数
+  retryAfterSent: 0, // Retry-After header 下发次数
+  upstreamErrors: 0, // 上游 ai-service 错误次数
+}
 
 const chatStreamSchema = z.object({
   messages: z
@@ -67,6 +76,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     try {
       const result = await server.aiCost.checkBudget('user', userId, model)
       if (!result.allowed) {
+        // P2-2 日预算超限:下发 Retry-After(60s)让客户端按协商重试,而非无脑指数退避
+        sseMetrics.budgetRejects++
+        sseMetrics.retryAfterSent++
+        reply.header('Retry-After', '60')
         reply.code(429).send({
           code: 429,
           message: '预算超限',
@@ -121,7 +134,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
 
     const controller = new AbortController()
     // 服务端超时兜底:防 ai-service 卡死时连接无限挂起(5 分钟,正常对话远小于此)
-    const serverTimeout = setTimeout(() => controller.abort(), 5 * 60_000)
+    // timedOut 标记用于区分"服务端超时 abort" vs "客户端主动断开 abort"
+    let timedOut = false
+    const serverTimeout = setTimeout(() => {
+      timedOut = true
+      sseMetrics.timeouts++
+      controller.abort()
+    }, 5 * 60_000)
     const onClose = () => controller.abort()
     request.raw.on('close', onClose)
 
@@ -153,6 +172,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       })
 
       if (!resp.ok || !resp.body) {
+        sseMetrics.upstreamErrors++
         const errText = await resp.text().catch(() => '')
         // 上游错误响应完整透传:尝试 JSON.parse,若成功则原样透传 {errorCode, message, ...}
         // 前端可基于 errorCode 做精准提示(如 MODEL_NOT_CONFIGURED → 提示用户切换模型)
@@ -206,7 +226,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
       if (streamBuffer) raw.write(streamBuffer)
     } catch (e) {
-      const msg = (e as Error).name === 'AbortError' ? '客户端断开' : (e as Error).message
+      const msg =
+        (e as Error).name === 'AbortError'
+          ? timedOut
+            ? '服务端超时'
+            : '客户端断开'
+          : (e as Error).message
       const errChunk: Record<string, unknown> = { error: msg }
       if (opts.agentId) errChunk.agentId = opts.agentId
       raw.write(`data: ${JSON.stringify(errChunk)}\n\n`)
@@ -512,5 +537,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     }
 
     return reply.send(success({ ok: true, persisted: true }))
+  })
+
+  // GET /api/admin/ai/chat/metrics — SSE 流式对话实时指标(admin 调试用)
+  // P3-1 简化方案:不引入 prom-client,不改 business-metrics.ts(不在受影响文件清单),
+  // 改为 admin JSON 端点暴露细分计数器,供 admin 看板查询。
+  // Prometheus 抓取仍由 business-metrics.ts 的 /business-metrics 负责,本端点不直接进 Prometheus。
+  server.get('/api/admin/ai/chat/metrics', { preHandler: authenticate }, async () => {
+    return success(sseMetrics)
   })
 }
