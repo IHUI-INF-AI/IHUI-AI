@@ -15,7 +15,7 @@ interface Props {
   onDelete: (ev: SystemEvent) => void
 }
 
-export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
+export const EventTable = React.memo(function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.events')
   const tc = useTranslations('common')
   const locale = useLocale()
@@ -31,6 +31,24 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
         hour12: false,
       }),
     [locale],
+  )
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onDelete(item)
+    },
+    [list, onDelete],
   )
   return (
     <div className="rounded-lg border">
@@ -74,7 +92,7 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <Button size="sm" variant="ghost" onClick={() => onEdit(ev)}>
+                <Button size="sm" variant="ghost" data-id={ev.id} onClick={handleEdit}>
                   <Edit className="h-4 w-4" />
                   {tc('edit')}
                 </Button>
@@ -82,7 +100,8 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
                   size="sm"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
-                  onClick={() => onDelete(ev)}
+                  data-id={ev.id}
+                  onClick={handleDelete}
                 >
                   <Trash2 className="h-4 w-4" />
                   {tc('delete')}
@@ -94,4 +113,4 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
       )}
     </div>
   )
-}
+})
