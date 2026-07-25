@@ -8,6 +8,39 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) web 终极整合 — 添加 按钮收纳 5 类功能(模板/引用/Skill 库/附件/插件)(平台独占:web)
+
+**触发**:用户在浏览器实测时反馈 "我要的是加到 `button` 按钮里  不是在 `button` 又给我加个同质化按钮    还有 `button`    也给我整合加进去吧    还有插件 mcp也都统一整合进来只有这一个点击使用入口"。承接上轮 3 按钮整合(commit 66efafaaa),把剩余的"提示词模板"和"插件/MCP"也整合进同一个"添加"下拉菜单,实现唯一点击入口。
+
+**成果**(接 66efafaaa commit 之后追加 119 行变化,68+/51-):
+
+- **message-input.tsx 终极整合**:
+  - 移除附加栏独立的"提示词模板"Popover(原 481-528 行),改为"添加"菜单第一项
+  - 扩展 `addMenuMode` 类型:`'menu' | 'prompt' | 'skill'`(`prompt` 模式渲染 `PromptTemplates` 弹层)
+  - "添加"菜单现含 5 项(顺序按"语义决策流"组织):
+    1. 提示词模板 → FileText + 末尾 `→` 标记(切换 prompt 模式)
+    2. 添加为上下文引用 → FileText
+    3. Skill 库 → Sparkles + 末尾 `→`(切换 skill 模式)
+    4. 添加附件 → Plus
+    5. 插件市场 → Package(导航到 /plugins 页面)
+  - 菜单宽度 56→60(适配"插件市场"最长 label)
+- **附加栏唯一入口规则**:除权限模式(语义独立,Codex 风格全局决策)和"添加"按钮外,无其他独立功能按钮
+
+**用户浏览器看到底部"添加附件"独立按钮**:dev server 缓存导致,代码层面已在上一轮 commit 66efafaaa 移除。重启 dev server 或 Ctrl+Shift+R 硬刷新即可看到。
+
+**验证**:
+- `pnpm --filter @ihui/web typecheck`:本任务文件 0 错 ✅(其他 agent `i18n/request.ts` 5 个错误与本任务无关)
+- `pnpm exec eslint apps/web/src/components/chat/message-input.tsx`:0 错 0 warn ✅
+
+**§20 Git 同步证据**:
+- 本地 commit: 66efafaaa + 待 push
+- origin commit: 66efafaaa + 待 push
+- 守门脚本: git-push-guard.mjs exit 0
+
+**§22 README 豁免**:仅 UI 工具栏终极整合(从 5 按钮 → 1 按钮),未改变对外能力清单。
+
+---
+
 ### [x] ✅(2026-07-25) web 输入框 工具栏整合 — 添加引用 / Skill 库 / 添加附件 三按钮合并为 添加 下拉菜单(平台独占:web)
 
 **触发**:用户要求"把 `button` `button` 按钮整合到 `button` 添加文件功能也在菜单栏里使用"。承接上轮 AI 侧栏清理 + Popover 受控支持,把分散的 3 个独立按钮收纳为 1 个统一入口,降低工具栏视觉噪音。
