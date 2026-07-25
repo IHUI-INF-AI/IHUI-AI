@@ -103,7 +103,20 @@
     "follower": "粉絲"
   },
   "agent": {
-    "config": "設定"
+    "config": "設定",
+    "runtimeTitle": "執行階段",
+    "runtimeClear": "清空",
+    "runtimePlan": "執行計畫",
+    "runtimePermission": "權限",
+    "runtimePermissionTool": "工具",
+    "runtimePermissionLevel": "層級",
+    "runtimePermissionMode": "模式",
+    "runtimeOutput": "輸出",
+    "runtimeError": "錯誤",
+    "runtimeEmpty": "暫無執行記錄",
+    "runtimeInputPlaceholder": "輸入訊息傳送給智慧體",
+    "runtimeStop": "停止",
+    "runtimeSend": "傳送"
   },
   "chat": {
     "voice": "語音"
