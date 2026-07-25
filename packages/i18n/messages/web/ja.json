@@ -26662,7 +26662,11 @@
         "saveFailed": "保存失敗",
         "nameRequired": "プロバイダー名は必須です",
         "keyRequired": "API キーは必須です",
-        "baseUrlRequired": "ベース URL は必須です"
+        "baseUrlRequired": "ベース URL は必須です",
+        "templatesLoading": "プラットフォーム一覧を読み込み中...",
+        "templatesEmpty": "利用可能なプラットフォームテンプレートがありません",
+        "templatesLoadError": "プラットフォーム一覧の読み込みに失敗しました:{error}",
+        "templatesNotReady": "プラットフォーム一覧がまだ準備できていません。少し経ってからお試しください"
       },
       "modelDialog": {
         "newTitle": "新規モデル",
