@@ -12,6 +12,7 @@ import json
 import logging
 import math
 import os
+from collections import OrderedDict
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,41 @@ def _hash_embedding(text: str, dim: int = _HASH_DIM) -> list[float]:
             vec[offset + i] = val * 2 - 1  # 归一化到 [-1, 1]
         offset += 8
     return vec
+
+
+class _AsyncLRUCache:
+    """异步安全 LRU 缓存(基于 OrderedDict + asyncio.Lock)。
+
+    用于 embedding 缓存:embedding 是确定性的(同文本同向量,无随机性),
+    无需主动失效;后续可扩展到 Redis 实现跨进程共享缓存。
+    """
+
+    def __init__(self, maxsize: int = 1000) -> None:
+        self._data: OrderedDict[str, Any] = OrderedDict()
+        self._maxsize = maxsize
+        self._lock = asyncio.Lock()
+
+    async def get(self, key: str) -> Any:
+        """查缓存:命中时 move_to_end 提升为 MRU,未命中返回 None。"""
+        async with self._lock:
+            if key in self._data:
+                self._data.move_to_end(key)
+                return self._data[key]
+            return None
+
+    async def set(self, key: str, value: Any) -> None:
+        """写缓存:已存在则更新并提升为 MRU;满载时 popitem(last=False) 淘汰 LRU。"""
+        async with self._lock:
+            if key in self._data:
+                self._data.move_to_end(key)
+            self._data[key] = value
+            if len(self._data) > self._maxsize:
+                self._data.popitem(last=False)
+
+
+# 模块级单例:LLM embedding 结果缓存(maxsize=1000,LRU 淘汰)
+# 说明:embedding 确定性,同文本同向量,无需主动失效;可后续扩展到 Redis
+_embedding_cache = _AsyncLRUCache(maxsize=1000)
 
 
 class VectorMemoryStore:
@@ -137,15 +173,29 @@ class VectorMemoryStore:
     # ==================================================================
 
     async def embed(self, text: str) -> list[float]:
-        """生成 embedding:优先 llm_gateway,失败降级为 hash 伪向量。"""
+        """生成 embedding:优先 llm_gateway(结果按 sha256 缓存),失败降级为 hash 伪向量。
+
+        缓存策略:LLM embedding 按 sha256(text) hex 作 key 缓存,命中直接返回,
+        省一次远程调用;降级 hash 伪向量不缓存(hash 本身 O(1),无远程开销)。
+        """
+        # 1. 计算 sha256(text) hex 作 cache key
+        cache_key = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        # 2. 查缓存,命中直接返回(embedding 确定性,同文本同向量)
+        cached = await _embedding_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        # 3. 未命中:调 llm_gateway.embed
         try:
             from ..core.llm_gateway import llm_gateway
             result = await llm_gateway.embed(text)
             if isinstance(result, list) and result:
-                return [float(x) for x in result]
+                embedding = [float(x) for x in result]
+                # 4. 写入缓存(后续同文本命中直接返回)
+                await _embedding_cache.set(cache_key, embedding)
+                return embedding
         except Exception:
             pass
-        # 降级:确定性 hash 伪向量
+        # 5. 降级:确定性 hash 伪向量(不缓存,hash 本身 O(1))
         return _hash_embedding(text)
 
     async def add_entry(
