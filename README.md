@@ -77,7 +77,7 @@
 </p>
 
 <p align="center">
-  <sub><strong>i18n 国际化</strong>:5 语言键集合 100% parity(zh-CN / zh-TW / en / ko / ja)+ 10 守门脚本(4 web + 4 extension + 2 AI 翻译流水线 blocking × 2 端:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端 / AI agent 自主翻译)+ AI 翻译流水线(i18n-diff → AI agent 翻译 → i18n-apply,零 LLM API 调用,支持 web/extension/miniapp-taro 三端,开发成本降 70%+)</sub>
+  <sub><strong>i18n 国际化</strong>:5 语言键集合 100% parity(zh-CN / zh-TW / en / ko / ja)+ 10 守门脚本(4 web + 4 extension + 2 AI 翻译流水线 blocking × 2 端:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端 / AI agent 自主翻译)+ AI 翻译流水线(i18n-diff → AI agent 翻译 → i18n-apply,零 LLM API 调用,支持 web/extension/miniapp-taro 三端,开发成本降 70%+)+ i18n 治理 4 阶段完成(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679)</sub>
 </p>
 
 <p align="center">
@@ -303,7 +303,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
 7. **企业级安全栈**:RBAC + 多租户 + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + GDPR + 2FA + IDOR 防护 — 开源 AI 平台中**唯一**完整企业级安全栈
 8. **21 道工程守门 + 11 迁移审计 + post-commit 自动 push**:从机制上杜绝协作事故 — 开源 AI 项目中**唯一**把工程守门做到机制级(Dify/FastGPT 仅有基础 lint)
 9. **三支柱可观测性 + 21 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中**唯一**带完整 SRE 级可观测性栈(其他项目最多基础日志)
-10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中**唯一**把 i18n 做到 parity + 守门级(其他项目最多中英文)
+10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中**唯一**把 i18n 做到 parity + 守门级(其他项目最多中英文)+ i18n 治理 4 阶段(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679,无引用率 4.6%→0%)
 
 ### 记忆点标语(可传播)
 
@@ -1246,7 +1246,7 @@ IHUI-AI/
 | ko    | `apps/web/messages/ko.json`    | 字符范围检测中文残留(阻塞)               |
 | ja    | `apps/web/messages/ja.json`    | 中文残留检测(warn-only,日文汉字词易误报) |
 
-**19 i18n 工具链脚本**(`scripts/`):apply-brand-glossary / apply-i18n-translations / apply-translation-fallback / audit-i18n-missing-evaluate / deep-i18n-audit / export-untranslated-i18n / fix-i18n-deep / fix-missing-i18n-keys / fix-zh-tw-simp / fix-zhtw-parity / generate-i18n / prune-orphan-i18n-namespaces / scan-hardcoded-zh / scan-i18n-zh-residue / scan-zh-tw-untranslated / sync-i18n-fixes / translate-i18n-batch / analyze-unique-i18n-values / verify-i18n
+**21 i18n 工具链脚本**(`scripts/`):apply-brand-glossary / apply-i18n-translations / apply-translation-fallback / audit-i18n-missing-evaluate / deep-i18n-audit / export-untranslated-i18n / fix-i18n-deep / fix-missing-i18n-keys / fix-zh-tw-simp / fix-zhtw-parity / generate-i18n / prune-orphan-i18n-namespaces / scan-hardcoded-zh / scan-i18n-zh-residue / scan-zh-tw-untranslated / sync-i18n-fixes / translate-i18n-batch / analyze-unique-i18n-values / verify-i18n / audit-i18n-unused-keys.mjs(无引用 key 审计 + --output-keys 完整列表导出) / cleanup-i18n-unused-keys.mjs(无引用 key 批量清理,5 语言同步)
 
 **品牌翻译策略**:优先官方英文名(智谱清言 → Zhipu AI,百度文心 → Baidu ERNIE,火山引擎 → Volcengine 等),机器可读映射表见 `scripts/brand-glossary.json`。
 
@@ -1292,7 +1292,7 @@ IHUI-AI/
 | 16b     | 条件 database build                   | packages/database/src staged 时跑 build                         |
 | 17-post | git-push-guard.mjs(post-commit)       | 自动 push + 验证 local == remote(防遗漏)                        |
 
-**9 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计,2026-07-25 立)
+**10 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立) / `cleanup-i18n-unused-keys.mjs`(无引用 key 批量清理,5 语言同步,2026-07-25 立)
 
 **9 PowerShell 启动脚本**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-trae-workspace.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
 
