@@ -18,7 +18,7 @@ interface ChatHeaderProps {
   historyLabel: string
 }
 
-export const ChatHeader = React.memo(function ChatHeader({
+export function ChatHeader({
   currentModel,
   onClear,
   hasMessages,
@@ -95,6 +95,6 @@ export const ChatHeader = React.memo(function ChatHeader({
       </Tooltip>
     </header>
   )
-})
+}
 
 export default ChatHeader
