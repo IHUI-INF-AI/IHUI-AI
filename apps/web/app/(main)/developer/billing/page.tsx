@@ -11,6 +11,12 @@ import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
+const BILL_STATUS_KEYS: Record<'paid' | 'pending' | 'failed', string> = {
+  paid: 'status.paid',
+  pending: 'status.pending',
+  failed: 'status.failed',
+}
+
 interface BillItem {
   id: string
   invoiceNo: string
@@ -159,7 +165,7 @@ export default function BillingPage() {
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium">{b.invoiceNo}</p>
                         <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cls)}>
-                          {t(`status.${b.status}`)}
+                          {t(BILL_STATUS_KEYS[b.status]!)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
