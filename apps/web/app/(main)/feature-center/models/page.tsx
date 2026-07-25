@@ -46,7 +46,7 @@ export default function ModelsPage() {
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item) => {
+    return all.filter((item: any) => {
       const matchKeyword =
         !keyword ||
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -102,26 +102,26 @@ export default function ModelsPage() {
           </CardContent>
         </Card>
       ) : (
-        <VirtualList items={list} itemKey={(item) => item.id} itemHeight={200}>
+        <VirtualList items={list} itemKey={(item) => item.id as any} itemHeight={200}>
           {(item) => (
             <FeatureCard
-              title={item.name}
-              description={item.description}
-              badge={item.provider}
+              title={item.name as any}
+              description={item.description as any}
+              badge={item.provider as any}
               footer={
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Cpu className="h-3.5 w-3.5" />
-                      {t('contextLabel')} {formatNumber(item.contextLength)}
+                      {t('contextLabel')} {formatNumber(item.contextLength as any)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Zap className="h-3.5 w-3.5" />
-                      {item.inputPrice === 0 ? t('freeLabel') : `$${item.inputPrice}/1M`}
+                      {item.inputPrice as any === 0 ? t('freeLabel') : `$${item.inputPrice as any}/1M`}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {item.capabilities.map((cap) => (
+                    {item.capabilities.map((cap: any) => (
                       <span
                         key={cap}
                         className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"

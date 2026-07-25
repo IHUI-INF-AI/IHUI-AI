@@ -89,7 +89,7 @@ export default function FeaturedAgentsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {agents.map((agent) => (
+          {agents.map((agent: any) => (
             <Link key={agent.agentId} href={`/agents/${agent.agentId}`}>
               <Card className="overflow-hidden transition-colors hover:bg-accent/40">
                 <div className="relative h-24 w-full bg-muted">

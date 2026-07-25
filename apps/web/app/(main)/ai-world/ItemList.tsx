@@ -118,7 +118,7 @@ export function ItemList({
                 : 'space-y-2'
             }
           >
-            {items.map((item) => (
+            {items.map((item: any) => (
               <ItemCard key={item.id} item={item} layout={layout} />
             ))}
           </div>

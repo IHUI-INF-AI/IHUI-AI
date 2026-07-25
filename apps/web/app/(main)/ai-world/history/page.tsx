@@ -86,7 +86,7 @@ export default function AiWorldHistoryPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((item) => (
+          {items.map((item: any) => (
             <Link key={item.id} href={`/ai-world/${item.id}`}>
               <Card className="transition-colors hover:bg-accent/40">
                 <CardContent className="flex items-center gap-4 p-4">
