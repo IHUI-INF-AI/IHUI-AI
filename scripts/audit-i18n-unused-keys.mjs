@@ -242,6 +242,65 @@ function extractTranslationVars(content) {
 }
 
 /**
+ * 从文件内容提取对象字面量映射表 + 字符串赋值的 i18n key。
+ * 匹配模式:
+ *   - 对象属性 { labelKey: 'value', nameKey: 'ns.path' }
+ *   - 字符串赋值 const key = 'permission.switchedToModeAsk'
+ *   - 三元运算 mode === 'x' ? 'ns.path1' : 'ns.path2'
+ * knownTopLevelKeys:已知顶层 i18n 命名空间,用于过滤非 i18n 字符串。
+ * fileNamespaces:文件级 useTranslations 命名空间,用于把短键解析为完整路径。
+ * shortKeyFields:已知 i18n key 字段名集合(labelKey/nameKey/label 等),用于短键匹配。
+ */
+function extractObjectLiteralKeys(content, knownTopLevelKeys, fileNamespaces) {
+  const staticKeys = new Set()
+  if (!knownTopLevelKeys || knownTopLevelKeys.size === 0) return staticKeys
+
+  // 已知 i18n key 字段名(含 label 用于 sidebar 分组标题)
+  const i18nKeyFields = /^(labelKey|nameKey|descriptionKey|titleKey|altKey|key|value|label|text|title)$/
+
+  // 1. 匹配对象属性值字符串:field: 'value' 或 field: "value"
+  const re1 = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*['"]([a-zA-Z][a-zA-Z0-9_-]*(?:\.[a-zA-Z0-9_-]+)*)['"]\s*[,}\n)]/g
+  let m
+  while ((m = re1.exec(content)) !== null) {
+    const field = m[1]
+    const value = m[2]
+    if (value.includes('.')) {
+      const firstSegment = value.split('.')[0]
+      if (knownTopLevelKeys.has(firstSegment)) {
+        staticKeys.add(value)
+      }
+    } else {
+      if (i18nKeyFields.test(field) && fileNamespaces && fileNamespaces.size > 0) {
+        for (const ns of fileNamespaces) {
+          staticKeys.add(`${ns}.${value}`)
+        }
+      }
+    }
+  }
+
+  // 2. 匹配字符串赋值:const/let/var key = 'ns.path' 或三元运算 'ns.path1' : 'ns.path2'
+  // 仅匹配完整路径(含点号),按以下顺序解析:
+  //   a) 第一段是已知顶层 key → 直接加入
+  //   b) 否则,与文件命名空间拼接(ns + '.' + value),检查是否匹配已知 leaf
+  const re2 = /['"]([a-zA-Z][a-zA-Z0-9_-]*(?:\.[a-zA-Z0-9_-]+)+)['"]\s*(?=[,)\s:};])/g
+  while ((m = re2.exec(content)) !== null) {
+    const value = m[1]
+    const firstSegment = value.split('.')[0]
+    if (knownTopLevelKeys.has(firstSegment)) {
+      staticKeys.add(value)
+    } else if (fileNamespaces && fileNamespaces.size > 0) {
+      // 命名空间 + 子路径:如 t = useTranslations('chat') + 'permission.switchedToModeAsk'
+      // → 完整路径 'chat.permission.switchedToModeAsk'
+      for (const ns of fileNamespaces) {
+        const full = `${ns}.${value}`
+        staticKeys.add(full)
+      }
+    }
+  }
+  return staticKeys
+}
+
+/**
  * 从代码行中提取:
  * - staticKeys:静态 key 引用(t('key') / i18nKey="key" / id: 'key' 等)
  * - dynamicWarnings:动态拼接 key(t(`...${...}`) / t('...' + ...))
@@ -374,6 +433,8 @@ function auditTarget(targetKey) {
     const lines = rgSearchLines(dir, RG_PATTERN)
     allRgLines.push(...lines)
   }
+  // 收集所有命中文件列表(用于第三步文件级对象字面量扫描)
+  const hitFiles = new Set()
 
   // 3. 按文件分组,第一遍提取变量名 + 命名空间 + staticKeys(t/tt/tList)+ 动态警告
   const dynamicWarnings = []
@@ -384,6 +445,7 @@ function auditTarget(targetKey) {
     const parsed = parseRgLine(rgLine)
     if (!parsed) continue
     const { file, lineNo, content } = parsed
+    hitFiles.add(file)
 
     // 提取 translation 变量名(const VAR = useTranslations/getTranslations(...))
     const vars = extractTranslationVars(content)
@@ -427,6 +489,28 @@ function auditTarget(targetKey) {
         for (const k of staticKeys) fd.staticKeys.add(k)
       }
     }
+  }
+
+  // 3c. 第三遍:文件级对象字面量映射表扫描
+  // 解决 t(MAP[var]) / t(item.nameKey) 间接引用漏识别
+  // 对每个命中文件读取完整内容,提取对象字面量中的 i18n key 路径字符串
+  const knownTopLevelKeys = new Set(Object.keys(messages))
+  for (const file of hitFiles) {
+    let fileContent
+    try {
+      fileContent = fs.readFileSync(file, 'utf8')
+    } catch {
+      continue
+    }
+    const fd = fileData.get(file)
+    const fileNamespaces = fd ? fd.namespaces : new Set()
+    const objKeys = extractObjectLiteralKeys(fileContent, knownTopLevelKeys, fileNamespaces)
+    if (objKeys.size === 0) continue
+    if (!fd) {
+      fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
+    }
+    const fd2 = fileData.get(file)
+    for (const k of objKeys) fd2.staticKeys.add(k)
   }
 
   // 4. 解析引用 key
