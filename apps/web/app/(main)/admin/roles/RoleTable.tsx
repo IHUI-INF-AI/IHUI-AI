@@ -13,7 +13,7 @@ interface Props {
   onDelete: (r: Role) => void
 }
 
-export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
+export const RoleTable = React.memo(function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.roles')
   const locale = useLocale()
   const dateFmt = React.useMemo(
@@ -24,6 +24,24 @@ export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
         day: '2-digit',
       }),
     [locale],
+  )
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onDelete(item)
+    },
+    [list, onDelete],
   )
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -86,7 +104,8 @@ export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
                       size="sm"
                       variant="ghost"
                       disabled={r.isSystem}
-                      onClick={() => onEdit(r)}
+                      data-id={r.id}
+                      onClick={handleEdit}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       {t('edit')}
@@ -95,7 +114,8 @@ export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
                       size="sm"
                       variant="ghost"
                       disabled={r.isSystem}
-                      onClick={() => onDelete(r)}
+                      data-id={r.id}
+                      onClick={handleDelete}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       {t('delete')}
@@ -109,4 +129,4 @@ export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
       </table>
     </div>
   )
-}
+})
