@@ -114,6 +114,9 @@ Sitemap: https://ihui.ai/hunyuan.txt
 # 行业 + 角色垂直 GEO(2026-07-26 阶段 6 新增)
 Sitemap: https://ihui.ai/industries.md
 Sitemap: https://ihui.ai/roles.md
+# 英文版行业/角色 GEO(2026-07-26 阶段 7 新增,海外 AI 引擎优先)
+Sitemap: https://ihui.ai/industries.en.md
+Sitemap: https://ihui.ai/roles.en.md
 # Google Knowledge Graph 结构化数据
 Sitemap: https://ihui.ai/knowledge-graph.json
 # Feed(2)+ WebSub Hub(1)
