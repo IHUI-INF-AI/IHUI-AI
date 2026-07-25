@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { fetchApi, type PageData } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
 
 interface Article {
   id: string
@@ -23,18 +24,6 @@ interface Article {
 }
 
 const WEB_BASE = 'https://ihui.ai'
-
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(s))
-  } catch {
-    return ''
-  }
-}
 
 export default function ArticlesPage() {
   const { t } = useI18n()
@@ -122,7 +111,9 @@ export default function ArticlesPage() {
                     <span className="truncate">
                       {[a.authorName, a.categoryName].filter(Boolean).join(' · ') || '—'}
                     </span>
-                    <span className="whitespace-nowrap">{fmtDate(a.publishedAt || a.createdAt)}</span>
+                    <span className="whitespace-nowrap">
+                      {fmtDate(a.publishedAt || a.createdAt)}
+                    </span>
                   </div>
                 </CardContent>
               ) : (
@@ -131,7 +122,9 @@ export default function ArticlesPage() {
                     <span className="truncate">
                       {[a.authorName, a.categoryName].filter(Boolean).join(' · ') || '—'}
                     </span>
-                    <span className="whitespace-nowrap">{fmtDate(a.publishedAt || a.createdAt)}</span>
+                    <span className="whitespace-nowrap">
+                      {fmtDate(a.publishedAt || a.createdAt)}
+                    </span>
                   </div>
                 </CardContent>
               )}
