@@ -14,7 +14,7 @@ import { Button } from '@ihui/ui-react'
 import { RecordedFilter } from './RecordedFilter'
 import { RecordedTable } from './RecordedTable'
 import { RecordedDialog } from './RecordedDialog'
-import { PAGE_SIZE, API, EMPTY_FORM, videoToForm } from './helpers'
+import { PAGE_SIZE, API, EMPTY_FORM, videoToForm, LEVEL_KEY } from './helpers'
 import type { Video, CForm, RecordedSearch } from './types'
 
 export default function EduLearnRecordedPage() {
@@ -141,7 +141,7 @@ export default function EduLearnRecordedPage() {
         { key: 'amount', title: t('colAmount') },
         { key: 'label', title: t('colLabel') },
         { key: 'hot', title: t('colHot') },
-        { key: 'status', title: t('colLevel'), formatter: (v) => t(`level.${Number(v)}`) },
+        { key: 'status', title: t('colLevel'), formatter: (v) => t(LEVEL_KEY[Number(v)] ?? 'level.unknown') },
         { key: 'auditStatus', title: t('colAudit'), formatter: (v) => t(`audit.${Number(v)}`) },
         { key: 'creator', title: t('colCreator') },
       ],
