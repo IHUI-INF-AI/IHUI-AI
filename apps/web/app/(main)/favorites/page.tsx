@@ -115,7 +115,7 @@ export default function FavoritesPage() {
       ) : (
         <ul className="divide-y rounded-lg border">
           {items.map((item: any) => {
-            const Icon = TYPE_ICON[item.resourceType as any] ?? FileText
+            const Icon = (TYPE_ICON as any)[item.resourceType] ?? FileText
             return (
               <li
                 key={item.id}

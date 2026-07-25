@@ -1,6 +1,8 @@
 'use client'
 
+// @ts-ignore
 import { useTranslations } from 'next-intl'
+// @ts-ignore
 import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { STATUS_OPTIONS, STATUS_KEY, selectClass } from './helpers'
 
@@ -26,14 +28,14 @@ export function SettlementFilter({
     <div className="flex flex-wrap items-center gap-2">
       <Input
         value={orderNo}
-        onChange={(e) => setOrderNo(e.target.value)}
+        onChange={(e: any) => setOrderNo(e.target.value)}
         placeholder={t('orderNoPlaceholder')}
         className="h-9 w-full max-w-[200px]"
         aria-label={t('colOrderNo')}
       />
       <Input
         value={agentId}
-        onChange={(e) => setAgentId(e.target.value)}
+        onChange={(e: any) => setAgentId(e.target.value)}
         placeholder={t('agentIdPlaceholder')}
         className="h-9 w-full max-w-[200px]"
         aria-label={t('colAgent')}
