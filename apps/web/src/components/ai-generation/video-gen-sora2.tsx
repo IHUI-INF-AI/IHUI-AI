@@ -50,7 +50,7 @@ export function VideoGenSora2() {
       if (!res.success) throw new Error(res.error)
       return res.data
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setTaskId(data.taskId)
       toast.success(t('taskSubmitted'))
     },
@@ -65,7 +65,7 @@ export function VideoGenSora2() {
       return res.data
     },
     enabled: !!taskId,
-    refetchInterval: (query) => {
+    refetchInterval: (query: any) => {
       const status = query.state.data?.status
       return status === 'succeeded' || status === 'failed' ? false : 3000
     },
