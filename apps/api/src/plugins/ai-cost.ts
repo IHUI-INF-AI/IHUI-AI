@@ -26,7 +26,13 @@ function hashPrompt(prompt: string): string {
   return createHash('sha256').update(prompt).digest('hex')
 }
 
-/** 查询 prompt 缓存, 命中返回结果, 否则返回 null。 */
+/**
+ * 查询 prompt 缓存, 命中返回结果, 否则返回 null。
+ *
+ * 真 LRU + 命中续期: Map 迭代顺序按插入序, 命中后 delete + 重新 set 移到末尾(MRU 端),
+ * 淘汰时 promptCache.keys().next().value 指向 LRU 端(最久未访问)。
+ * 同时续期 expiredAt = now + CACHE_TTL_MS, 热点 prompt 永不过期。
+ */
 export function getCachedPrompt(prompt: string): unknown | null {
   const key = hashPrompt(prompt)
   const entry = promptCache.get(key)
@@ -35,6 +41,10 @@ export function getCachedPrompt(prompt: string): unknown | null {
     promptCache.delete(key)
     return null
   }
+  // 命中: 删除后重新插入到末尾(MRU 端) + 续期 TTL
+  promptCache.delete(key)
+  entry.expiredAt = Date.now() + CACHE_TTL_MS
+  promptCache.set(key, entry)
   return entry.response
 }
 
@@ -52,6 +62,35 @@ export function setCachedPrompt(prompt: string, response: unknown): void {
 /** 清空 prompt 缓存。 */
 export function clearPromptCache(): void {
   promptCache.clear()
+}
+
+/**
+ * Prompt 缓存包装器: 命中直接返回 {cached: true}, 未命中调用 upstreamFetch 后写入缓存再返回 {cached: false}。
+ *
+ * 缓存读写异常 try/catch 兜底降级, 不阻塞主流程(任何异常都退化为直取 upstream)。
+ *
+ * 注: 流式对话暂不启用此包装器(缓存整段响应会破坏首 token 延迟, 与 streamToClient 的
+ * 增量推送语义冲突), 供未来非流式端点(如批量翻译/嵌入/单轮问答)使用。
+ */
+export async function cachedStreamWrapper<T>(
+  prompt: string,
+  upstreamFetch: () => Promise<T>,
+): Promise<{ cached: boolean; response: T }> {
+  try {
+    const hit = getCachedPrompt(prompt)
+    if (hit !== null) {
+      return { cached: true, response: hit as T }
+    }
+  } catch (err) {
+    logger.warn(`[ai-cost] getCachedPrompt 异常, 降级直取 upstream: ${String(err)}`)
+  }
+  const response = await upstreamFetch()
+  try {
+    setCachedPrompt(prompt, response)
+  } catch (err) {
+    logger.warn(`[ai-cost] setCachedPrompt 异常, 跳过缓存写入: ${String(err)}`)
+  }
+  return { cached: false, response }
 }
 
 // =============================================================================
@@ -160,6 +199,7 @@ declare module 'fastify' {
       record: typeof recordAiCost
       getCached: typeof getCachedPrompt
       setCached: typeof setCachedPrompt
+      cachedStreamWrapper: typeof cachedStreamWrapper
     }
   }
 }
@@ -177,6 +217,7 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     record: recordAiCost,
     getCached: getCachedPrompt,
     setCached: setCachedPrompt,
+    cachedStreamWrapper,
   })
 
   // ---- 成本看板 API ----
