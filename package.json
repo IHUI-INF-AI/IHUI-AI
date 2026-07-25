@@ -54,6 +54,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",
+    "@esbuild/win32-x64": "0.21.5",
     "@ihui/eslint-config": "workspace:^",
     "@next/eslint-plugin-next": "^15.5.0",
     "@types/node": "^22.10.0",
@@ -76,7 +77,9 @@
       "drizzle-orm": "0.38.4",
       "fast-jwt": "6.2.4",
       "metro": "0.81.5",
-      "html-encoding-sniffer": "4.0.0"
+      "html-encoding-sniffer": "4.0.0",
+      "d3-array": "^3.2.0",
+      "d3-shape": "^3.2.0"
     },
     "peerDependencyRules": {
       "ignoreMissing": [
