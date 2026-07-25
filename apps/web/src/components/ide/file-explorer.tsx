@@ -70,9 +70,21 @@ function highlightMatch(name: string, term: string) {
 export function FileExplorer() {
   const t = useTranslations('ide')
   const locale = useLocale()
-  const { fileTree, activeView, openFile, selectFile, loading, error, workspacePath, fetchFileTree } = useIDEWorkspace()
+  const fileTree = useIDEWorkspace((s) => s.fileTree)
+  const activeView = useIDEWorkspace((s) => s.activeView)
+  const openFile = useIDEWorkspace((s) => s.openFile)
+  const selectFile = useIDEWorkspace((s) => s.selectFile)
+  const loading = useIDEWorkspace((s) => s.loading)
+  const error = useIDEWorkspace((s) => s.error)
+  const workspacePath = useIDEWorkspace((s) => s.workspacePath)
+  const fetchFileTree = useIDEWorkspace((s) => s.fetchFileTree)
   const [subTab, setSubTab] = React.useState<SubTab>('files')
   const [search, setSearch] = React.useState('')
+
+  const timeFmt = React.useMemo(
+    () => new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' }),
+    [locale],
+  )
 
   const formatTime = (ts: number): string => {
     const diff = Date.now() - ts
@@ -81,12 +93,16 @@ export function FileExplorer() {
     if (m < 60) return t('fileExplorer.minutesAgo', { count: m })
     const h = Math.floor(m / 60)
     if (h < 24) return t('fileExplorer.hoursAgo', { count: h })
-    return new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' }).format(ts)
+    return timeFmt.format(ts)
   }
+
+  const matched = React.useMemo(
+    () => (search ? flattenFiles(fileTree, search) : []),
+    [fileTree, search],
+  )
 
   if (activeView !== 'files') return null
 
-  const matched = search ? flattenFiles(fileTree, search) : []
   const tabLabel = (tab: SubTab) =>
     tab === 'files' ? t('fileExplorer.tabFiles') : tab === 'outline' ? t('fileExplorer.tabOutline') : t('fileExplorer.tabTimeline')
 

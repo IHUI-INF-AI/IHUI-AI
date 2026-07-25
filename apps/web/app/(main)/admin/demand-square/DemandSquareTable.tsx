@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { Check, X, Loader2, LayoutGrid } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
@@ -30,13 +31,17 @@ export function DemandSquareTable({
 }: Props) {
   const t = useTranslations('admin.demandSquare')
   const locale = useLocale()
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [locale],
+  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>

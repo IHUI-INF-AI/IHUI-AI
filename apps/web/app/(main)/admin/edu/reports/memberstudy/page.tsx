@@ -59,11 +59,25 @@ export default function EduReportsMemberStudyPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const totalCourses = rows.reduce((a, r) => a + r.courseCount, 0)
-  const totalCompleted = rows.reduce((a, r) => a + r.completedCount, 0)
-  const totalHours = rows.reduce((a, r) => a + r.studyHours, 0)
+  const { totalCourses, totalCompleted, totalHours } = React.useMemo(
+    () => ({
+      totalCourses: rows.reduce((a, r) => a + r.courseCount, 0),
+      totalCompleted: rows.reduce((a, r) => a + r.completedCount, 0),
+      totalHours: rows.reduce((a, r) => a + r.studyHours, 0),
+    }),
+    [rows],
+  )
   const noEndpoint = isNotFound(error)
-  const dateFmt = new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [locale],
+  )
 
   return (
     <div className="space-y-4">
