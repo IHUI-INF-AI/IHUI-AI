@@ -27,7 +27,9 @@ const SHORTCUT_ROUTES: Record<string, string> = {
  */
 export function GlobalHooksProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const { currentPath } = useRouteAnalytics()
+  // 性能修复(2026-07-25):useRouteAnalytics 现在是纯副作用 hook,不再返回 currentPath,
+  // 避免本 Provider 因路由变化重渲染导致 <CommandPalette> + help panel 连锁重渲染。
+  useRouteAnalytics()
   const { showHelpPanel, toggleHelpPanel, shortcuts } = useGlobalShortcuts()
   // 激活全局通知 WS 连接 + 通知 store(未登录时自动 no-op,登录后自动连接)
   useGlobalNotification()
@@ -151,7 +153,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
           </div>
         </div>
       )}
-      <span aria-hidden style={{ display: 'none' }} data-current-path={currentPath} />
+      {/* 性能修复:删除 debug span(data-current-path=currentPath),
+          原本仅用于调试,却是 usePathname 订阅链路的唯一消费点,触发整 provider 重渲染。 */}
     </>
   )
 }
