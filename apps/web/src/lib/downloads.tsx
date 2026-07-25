@@ -1,5 +1,5 @@
 /**
- * 下载配置层(2026-07-19 抽取)
+ * 下载配置层(2026-07-19 抽取,2026-07-25 配置外置)
  *
  * 历史:原本内联在 `apps/web/src/components/sidebar.tsx` 的模块级 `DOWNLOADS` 数组
  *  耦合了 React 组件的图标 import + i18n label key,导致:
@@ -13,15 +13,21 @@
  *  - `DOWNLOADS` 常量集中维护,sidebar.tsx 仅做 map 渲染
  *  - 纯数据 + 类型,无 React/JSX 依赖,可独立单测
  *
- * 真实接入 TODO(本季度内,非本轮范围):
- *  - App Store ID:占位 `https://apps.apple.com/cn/app/ihui-ai` → 真实 ID
- *  - Desktop/Mobile/Extension/CLI 4 端 href 是占位路由,需对接 CDN 真实下载 URL
- *  - APK path:`/apk/ihui-ai-latest.apk` 需与 `apps/web/public/apk/` 实际文件名对齐
- *  - 微信小程序:`/minapp` 是占位,实际是 QR code 扫码入口
+ * 配置外置(2026-07-25):运营待接入字段(App Store ID / 4 端 href / APK path /
+ * 微信小程序 QR)统一在 `apps/web/src/config/downloads.config.ts` 的 DOWNLOADS_CONFIG
+ * 维护,本文件通过 resolveIosHref / resolveAndroidHref / resolveWechatHref 三个 resolver
+ * 读取配置。空字符串值视为"未接入",UI 通过 isDownloadAvailable 判断后显示占位。
  */
 
 import { Globe, Monitor, Puzzle, Smartphone, Terminal, type LucideIcon } from 'lucide-react'
 import * as React from 'react'
+
+import {
+  DOWNLOADS_CONFIG,
+  resolveAndroidHref,
+  resolveIosHref,
+  resolveWechatHref,
+} from '@/config/downloads.config'
 
 /** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
 export type DownloadPlatform =
@@ -97,52 +103,49 @@ export const DOWNLOADS: readonly DownloadEntry[] = [
     platform: 'desktop',
     labelKey: 'downloadDesktop',
     descKey: 'downloadDesktopDesc',
-    href: '/download/desktop',
+    href: DOWNLOADS_CONFIG.hrefs.desktop,
     icon: Monitor,
   },
   {
     platform: 'ios',
     labelKey: 'downloadIOS',
     descKey: 'downloadIOSDesc',
-    // TODO: 上架后替换为真实 App Store ID
-    href: 'https://apps.apple.com/cn/app/ihui-ai',
+    href: resolveIosHref(),
     icon: AppleIcon,
   },
   {
     platform: 'android-apk',
     labelKey: 'downloadAndroidApk',
     descKey: 'downloadAndroidDesc',
-    // TODO: 与 apps/web/public/apk/ 实际文件名对齐,接入 CDN 后改为绝对 URL
-    href: '/apk/ihui-ai-latest.apk',
+    href: resolveAndroidHref(),
     icon: AndroidIcon,
   },
   {
     platform: 'mobile',
     labelKey: 'downloadMobile',
     descKey: 'downloadMobileDesc',
-    href: '/download/mobile',
+    href: DOWNLOADS_CONFIG.hrefs.mobile,
     icon: Smartphone,
   },
   {
     platform: 'wechat-miniapp',
     labelKey: 'downloadWechatMiniApp',
     descKey: 'downloadMiniDesc',
-    // TODO: 实际是 QR code 扫码入口,后续可改为 MiniProgram scheme 或扫码落地页
-    href: '/minapp',
+    href: resolveWechatHref(),
     icon: WechatMiniIcon,
   },
   {
     platform: 'extension',
     labelKey: 'downloadExtension',
     descKey: 'downloadExtensionDesc',
-    href: '/download/extension',
+    href: DOWNLOADS_CONFIG.hrefs.extension,
     icon: Puzzle,
   },
   {
     platform: 'cli',
     labelKey: 'downloadCli',
     descKey: 'downloadCliDesc',
-    href: '/download/cli',
+    href: DOWNLOADS_CONFIG.hrefs.cli,
     icon: Terminal,
   },
 ] as const
@@ -155,4 +158,19 @@ export function getDownloadEntry(platform: DownloadPlatform): DownloadEntry | un
 /** 判定 href 是否为外部链接(http(s):// 开头) */
 export function isExternalDownloadHref(href: string): boolean {
   return /^https?:/.test(href)
+}
+
+/**
+ * 判定指定端的下载是否已接入(2026-07-25 新增,配合配置外置)。
+ *
+ * 空字符串 href 表示该端尚未接入(运营待办),UI 应显示"即将上线"占位状态:
+ * - 禁用点击 / 链接按钮置 disabled
+ * - 角标显示 "soon" / "即将上线" Badge
+ *
+ * `web` 端始终可用(首页路由 /);其他端按 href 是否为空判断。
+ */
+export function isDownloadAvailable(platform: DownloadPlatform): boolean {
+  if (platform === 'web') return true
+  const entry = getDownloadEntry(platform)
+  return Boolean(entry && entry.href.length > 0)
 }
