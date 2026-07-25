@@ -8,19 +8,7 @@ import { useEffect, useState } from 'react'
 import { getMyMemberInfo, getMemberLevels, type Member, type MemberLevel } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(s))
-  } catch {
-    return ''
-  }
-}
+import { fmtDateWithYear as fmtDate } from '../../../lib/date-utils'
 
 export default function MemberPage() {
   const { t } = useI18n()
@@ -122,7 +110,8 @@ export default function MemberPage() {
                   </div>
                 ) : null}
                 <div className="text-[11px] text-muted-foreground mt-0.5">
-                  需 {lv.minPoints} 积分{lv.discount ? ` · ${(lv.discount * 10).toFixed(0)} 折` : ''}
+                  需 {lv.minPoints} 积分
+                  {lv.discount ? ` · ${(lv.discount * 10).toFixed(0)} 折` : ''}
                 </div>
               </div>
               {member?.level === lv.level ? <Badge variant="secondary">当前</Badge> : null}

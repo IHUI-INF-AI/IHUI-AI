@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { TRIGGER_OPTIONS, selectClass, textareaClass } from './helpers'
+import { TRIGGER_OPTIONS, TRIGGER_KEY, selectClass, textareaClass } from './helpers'
 import type { WorkflowForm, WorkflowItem, TriggerType } from './types'
 
 interface WorkflowDialogProps {
@@ -93,7 +93,7 @@ export function WorkflowDialog({
               <SelectContent>
                 {TRIGGER_OPTIONS.map((tt) => (
                   <SelectItem key={tt} value={tt}>
-                    {t(`trigger_${tt}`)}
+                    {t(TRIGGER_KEY[tt] ?? 'trigger_unknown')}
                   </SelectItem>
                 ))}
               </SelectContent>

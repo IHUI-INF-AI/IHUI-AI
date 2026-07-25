@@ -2,7 +2,7 @@
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
 import Taro from '@tarojs/taro'
-import { get, post, put, patch, del, BASE_URL } from '../utils/request'
+import { BASE_URL } from '../utils/api-config'
 import { getToken, type UserInfo, type LoginResult } from '../utils/auth'
 import { parseSSEChunk, type SSEEvent } from '../utils/sse-parse'
 import type {
@@ -26,9 +26,12 @@ import {
   getBalance as _getBalance,
   createAlipayMiniappPayment as _createAlipayMiniappPayment,
 } from '@ihui/api-client'
-import { unwrapApi } from '../utils/api-bridge'
+// HTTP 方法助手(get/post/put/patch/del)与 unwrapApi 统一来自 api-bridge,
+// 替代原 utils/request.ts,内部走 @ihui/api-client fetchApi + Taro transport。
+import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
 export type { UserInfo }
-export { get, post } from '../utils/request'
+// HTTP 方法 re-export:保持外部 `import { get, post, ... } from '@/api'` 引用不变
+export { get, post, put, patch, del }
 // 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType / WalletBalance / VipLevel / SignContractResponse / ExamQuestion 复用 @ihui/api-client,本地 re-export 保持外部引用不变
 export type {
   LlmModel,
@@ -1359,4 +1362,3 @@ export const cancelRecurringContract = (id: string | number, reason?: string) =>
   unwrapApi(_cancelRecurringContract(id, reason))
 
 export const getSubscriptionStatus = () => unwrapApi(_getSubscriptionStatus())
-

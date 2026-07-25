@@ -34,16 +34,28 @@ const SCENARIO_KEYS = [
   { key: 'decision', icon: Target },
 ] as const
 
+/** i18n 静态映射表 — 用于消除 `t(`${key}.xxx`)` 动态拼接 */
+const SCENARIO_I18N_KEY: Record<string, { title: string; painPoint: string; description: string; benefit: string }> = {
+  costReduction: { title: 'costReduction.title', painPoint: 'costReduction.painPoint', description: 'costReduction.description', benefit: 'costReduction.benefit' },
+  efficiency: { title: 'efficiency.title', painPoint: 'efficiency.painPoint', description: 'efficiency.description', benefit: 'efficiency.benefit' },
+  learning: { title: 'learning.title', painPoint: 'learning.painPoint', description: 'learning.description', benefit: 'learning.benefit' },
+  innovation: { title: 'innovation.title', painPoint: 'innovation.painPoint', description: 'innovation.description', benefit: 'innovation.benefit' },
+  decision: { title: 'decision.title', painPoint: 'decision.painPoint', description: 'decision.description', benefit: 'decision.benefit' },
+}
+
 export function HomeScenarios() {
   const t = useTranslations('marketing.scenarios')
 
-  const scenarios: ScenarioItem[] = SCENARIO_KEYS.map(({ key, icon }) => ({
-    icon,
-    title: t(`${key}.title`),
-    painPoint: t(`${key}.painPoint`),
-    description: t(`${key}.description`),
-    benefit: t(`${key}.benefit`),
-  }))
+  const scenarios: ScenarioItem[] = SCENARIO_KEYS.map(({ key, icon }) => {
+    const i18nKey = SCENARIO_I18N_KEY[key]
+    return {
+      icon,
+      title: t(i18nKey?.title ?? 'unknown.title'),
+      painPoint: t(i18nKey?.painPoint ?? 'unknown.painPoint'),
+      description: t(i18nKey?.description ?? 'unknown.description'),
+      benefit: t(i18nKey?.benefit ?? 'unknown.benefit'),
+    }
+  })
 
   return (
     <section className="space-y-5">

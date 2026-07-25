@@ -19,7 +19,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui-react'
-import { inputClass, selectClass, SCOPES } from './helpers'
+import { inputClass, selectClass, SCOPES, SCOPES_KEY } from './helpers'
 import type { Role, RoleForm } from './types'
 
 interface Props {
@@ -112,7 +112,7 @@ export function RoleDialog({
                 <SelectContent>
                   {SCOPES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {t(`scopes.${s}`)}
+                      {t(SCOPES_KEY[s] ?? 'scopes.unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>
