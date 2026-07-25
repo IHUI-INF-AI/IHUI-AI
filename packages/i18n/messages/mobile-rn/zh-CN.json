@@ -16,6 +16,9 @@
     "profile": "我的",
     "agents": "智能体"
   },
+  "auth": {
+    "login": "登录"
+  },
   "home": {
     "welcome": "欢迎使用智汇 AI"
   },
