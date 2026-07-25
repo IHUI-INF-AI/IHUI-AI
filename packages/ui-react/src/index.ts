@@ -75,6 +75,8 @@ export {
   SheetTitle,
   SheetDescription,
 } from './components/sheet'
+export { Drawer } from './components/drawer'
+export type { DrawerProps } from './components/drawer'
 export { DataTable } from './components/data-table'
 export type { DataTableColumn, DataTableProps } from './components/data-table'
 // 工作展示区组件(2026-07-22 立,AI 对话内嵌浏览器)
