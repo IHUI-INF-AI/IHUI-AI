@@ -45,6 +45,7 @@ export function TicketDetailDialog({
 }) {
   const qc = useQueryClient()
   const locale = useLocale()
+  const dateFmt = React.useMemo(() => new Intl.DateTimeFormat(locale), [locale])
   const t = useTranslations('adminTicketDetail')
   const [reply, setReply] = React.useState('')
   const [assignAgentId, setAssignAgentId] = React.useState('')
@@ -210,7 +211,7 @@ export function TicketDetailDialog({
                       <span className="font-medium">
                         {c.isAdmin ? t('roleAgent') : t('roleUser')}
                       </span>
-                      <span>{new Intl.DateTimeFormat(locale).format(new Date(c.createdAt))}</span>
+                      <span>{dateFmt.format(new Date(c.createdAt))}</span>
                     </div>
                     <p className="whitespace-pre-wrap">{c.content}</p>
                   </div>

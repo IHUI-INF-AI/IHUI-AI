@@ -93,8 +93,13 @@ export default function AdminSystemTasksPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'system', 'tasks'] }),
   })
 
-  const runningCount = list.filter((t) => t.status === 'running').length
-  const failedCount = list.filter((t) => t.status === 'failed').length
+  const { runningCount, failedCount } = React.useMemo(
+    () => ({
+      runningCount: list.filter((t) => t.status === 'running').length,
+      failedCount: list.filter((t) => t.status === 'failed').length,
+    }),
+    [list],
+  )
 
   return (
     <div className="space-y-4">
