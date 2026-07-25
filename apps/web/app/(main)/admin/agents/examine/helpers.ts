@@ -13,6 +13,12 @@ export const STATUS_STYLE: Record<number, string> = {
   2: TONE.emerald,
 }
 
+export const STATUS_KEY: Record<number, string> = {
+  0: 'status0',
+  1: 'status1',
+  2: 'status2',
+}
+
 export const EMPTY_FORM: ExamineForm = {
   agentId: '',
   agentName: '',

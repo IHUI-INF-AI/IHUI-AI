@@ -7,7 +7,14 @@ import { DataTable, type Column } from '@/components/data'
 import { Empty, Loading } from '@/components/common'
 import { OrderItem } from '@/components/business'
 import { STATUS_CONFIG } from './helpers'
-import type { OrderRow } from './types'
+import type { OrderRow, OrderStatus } from './types'
+
+const STATUS_KEY: Record<OrderStatus, string> = {
+  pending: 'status.pending',
+  paid: 'status.paid',
+  cancelled: 'status.cancelled',
+  refunded: 'status.refunded',
+}
 
 interface Props {
   orders: OrderRow[]
@@ -65,7 +72,7 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
             )}
           >
             <StatusIcon className="h-3 w-3" />
-            {t(`status.${o.status}`)}
+            {t(STATUS_KEY[o.status] ?? 'status.unknown')}
           </span>
         )
       },
