@@ -1,7 +1,20 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle, Clock3, Send, Square, SquareSlash, FileText, Plus, FilePlus, AtSign, Sparkles, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  Clock3,
+  Send,
+  Square,
+  SquareSlash,
+  FileText,
+  Plus,
+  FilePlus,
+  AtSign,
+  Sparkles,
+  X,
+  Info,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -22,14 +35,16 @@ import {
   isHighRiskPermissionMode,
   switchPermissionMode,
 } from '@/components/ai/permission-mode-popover'
+import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
+import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
+import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import {
   FullAccessConfirmDialog,
   isFullAccessConfirmSuppressed,
 } from '@/components/ai/full-access-confirm-dialog'
-import {
-  usePermissionAutoRevert,
-  formatRemaining,
-} from '@/hooks/use-permission-auto-revert'
+import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
+import { recordModeChange } from '@/lib/permission-mode-history'
+import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
@@ -182,6 +197,33 @@ export function MessageInput({
   >([])
   const mentionLoadedRef = React.useRef(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  // /permission 切换 toast 首弹记录(2026-07-25 深化):每个子命令模式只 toast 一次,
+  // 持久化到 localStorage(跨刷新/跨标签页也只弹一次)。
+  // 用 set 序列化存,key 形如 "ask,auto,full" 表示已提示过的模式集合
+  // React.useRef 不支持 lazy initializer(那是 useState 才有的),改用空 set + useEffect mount 填充
+  const PERMISSION_TOAST_KEY = 'ihui:permission-toast-shown'
+  const permissionToastShownRef = React.useRef<Set<string>>(new Set())
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem(PERMISSION_TOAST_KEY)
+      if (!raw) return
+      permissionToastShownRef.current = new Set(raw.split(',').filter(Boolean))
+    } catch {
+      // 静默
+    }
+  }, [])
+  const markPermissionToastShown = React.useCallback((mode: string) => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(
+        PERMISSION_TOAST_KEY,
+        [...permissionToastShownRef.current, mode].join(','),
+      )
+    } catch {
+      // 静默
+    }
+  }, [])
   const { ref: textareaRef, resize } = useTextareaAutoHeight<HTMLTextAreaElement>(value, {
     threeLinePx: MIN_HEIGHT_PX,
     maxHeightPx: MAX_HEIGHT_PX,
@@ -235,6 +277,35 @@ export function MessageInput({
       })
   }, [mentionOpen])
 
+  // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
+  // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
+  // - infoMode: 标题栏 ⓘ 按钮点击后展示该模式的详细说明 modal
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
+  const [infoMode, setInfoMode] = React.useState<WorkspacePermissionMode | null>(null)
+
+  // 全局 ? 键监听(2026-07-25 深化,Codex CLI 风格):
+  // - Shift+/ 也算,避免不同键盘布局下 ? 在不同位置
+  // - 排除 textarea/input/contenteditable 内,用户打字时不应该误触
+  // - 再按一次关闭(toggle),与常见 ? 文档快捷键行为一致
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable)
+      ) {
+        return
+      }
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault()
+        setShortcutsOpen((v) => !v)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   // 权限模式快捷切换(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环):
   // - 模式改变时同步到 localStorage(只记忆非默认,避免污染用户)
   // - Shift+Tab 在 3 个模式间循环切,跳过斜杠面板/提及面板打开时
@@ -253,6 +324,31 @@ export function MessageInput({
       // 隐私模式/localStorage 不可用静默
     }
   }, [activeWorkspaceMode])
+
+  // 权限模式切换历史记录(2026-07-25 立,深度对标 Codex CLI 审计能力):
+  // - activeWorkspaceMode 变化时追加 1 条记录到 localStorage
+  // - source 暂用 'popover' 作为默认,具体来源由调用方通过 __IHUI_RECORD_MODE_CHANGE__ 句柄覆盖
+  // - 不在 message-input 内做来源判断(避免 popover/Shift+Tab/slash 三处分别改 1 个 if)
+  // - 主动撤销 1h 计时器归零 → auto-revert 来源,由 use-permission-auto-revert 内 hook 句柄写入
+  React.useEffect(() => {
+    if (!activeWorkspaceMode) return
+    // 首次 mount 时不记录(用户可能刚打开页面看到默认 default,记录无意义)
+    // 只在 mode 真正变化时记录 —— 通过 ref 缓存上次值判断
+    const w = window as unknown as {
+      __IHUI_LAST_RECORDED_MODE__?: WorkspacePermissionMode | null
+    }
+    const last = w.__IHUI_LAST_RECORDED_MODE__
+    if (last === activeWorkspaceMode) return
+    w.__IHUI_LAST_RECORDED_MODE__ = activeWorkspaceMode
+    recordModeChange({
+      mode: activeWorkspaceMode,
+      workspacePath: activeWorkspace?.path ?? '',
+      timestamp: Date.now(),
+      // 默认识别为 popover 来源;popover/shift-tab/slash 各自的代码路径在切完模式后会
+      // 通过 __IHUI_RECORD_MODE_CHANGE__ 句柄覆盖最近一条的 source(见下)
+      source: 'popover',
+    })
+  }, [activeWorkspaceMode, activeWorkspace?.path])
 
   // 切到下一个模式(Shift+Tab 循环)
   const cyclePermissionMode = React.useCallback(async () => {
@@ -315,22 +411,23 @@ export function MessageInput({
     },
     // 权限模式动作型命令(2026-07-25 深化,深度对标 Codex approvalMode CLI):
     // /permission ask|auto|full 切换工作区权限模式(不进入 LLM 流,纯本地 UI 状态)
+    // description 用 \n 拼接短描述 + 用法提示(2026-07-25 深化,提示用户支持的 3 个子命令)
     {
       id: 'permission-ask',
       label: '/permission ask',
-      description: t('slashCmd.permissionAsk'),
+      description: `${t('slashCmd.permissionAsk')}\n${t('permission.usageHint')}`,
       kind: 'action' as const,
     },
     {
       id: 'permission-auto',
       label: '/permission auto',
-      description: t('slashCmd.permissionAuto'),
+      description: `${t('slashCmd.permissionAuto')}\n${t('permission.usageHint')}`,
       kind: 'action' as const,
     },
     {
       id: 'permission-full',
       label: '/permission full',
-      description: t('slashCmd.permissionFull'),
+      description: `${t('slashCmd.permissionFull')}\n${t('permission.usageHint')}`,
       kind: 'action' as const,
     },
     // 模板型命令:选命令后填充模板到 textarea
@@ -410,6 +507,24 @@ export function MessageInput({
       id === 'permission-auto' ||
       id === 'permission-full'
     ) {
+      // /permission 切换 toast(2026-07-25 深化):仅每个模式首次弹一次,
+      // 提醒用户已切换并显示完整模式名,避免反复刷屏。用 useRef 跨渲染持久,
+      // 用户后续再用同一子命令不再弹(避免噪音)。
+      if (id.startsWith('permission-')) {
+        const mode = id.replace('permission-', '')
+        if (!permissionToastShownRef.current.has(mode)) {
+          permissionToastShownRef.current.add(mode)
+          // 持久化到 localStorage(2026-07-25 二次深化):跨刷新/跨标签页也只弹一次
+          markPermissionToastShown(mode)
+          const key =
+            mode === 'ask'
+              ? 'permission.switchedToModeAsk'
+              : mode === 'auto'
+                ? 'permission.switchedToModeAuto'
+                : 'permission.switchedToModeFull'
+          toast.success(t(key), { duration: 2500 })
+        }
+      }
       // 清空当前 textarea 内容再发送,避免与已有内容拼接
       setValue('')
       requestAnimationFrame(resize)
@@ -525,8 +640,57 @@ export function MessageInput({
   const submit = async () => {
     const text = value.trim()
     if (!text || isStreaming) return
+    // 危险命令检测(2026-07-25 立,深度对标 OpenAI Codex CLI safety guard):
+    // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
+    // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
+    // - medium → 普通 toast 警告(不阻断,只提醒)
+    if (isHighRisk) {
+      const detection = detectDangerousCommands(text)
+      if (detection.hasDangerous) {
+        // 找出最严重的 critical/high 命中的 pattern + reason 展示
+        const top = detection.matches.find(
+          (m) => m.severity === 'critical' || m.severity === 'high',
+        )
+        if (top) {
+          const patternLabel = t(`permission.dangerousPattern.${top.pattern}`)
+          toast(t('permission.dangerousCommandTitle'), {
+            description: t('permission.dangerousCommandDesc', {
+              pattern: patternLabel,
+              reason: top.reason,
+            }),
+            duration: 10_000,
+            action: {
+              label: t('permission.dangerousCommandProceed'),
+              onClick: () => {
+                void doSend(text, references)
+              },
+            },
+            cancel: {
+              label: t('permission.dangerousCommandCancel'),
+              onClick: () => {
+                // 仅关闭 toast,保留输入内容
+              },
+            },
+          })
+          return
+        }
+      }
+      // 仅 medium → 警告但不阻断
+      if (detection.matches.length > 0) {
+        const medium = detection.matches[0]!
+        const patternLabel = t(`permission.dangerousPattern.${medium.pattern}`)
+        toast.warning(t('permission.dangerousCommandWarningOnly', { pattern: patternLabel }), {
+          duration: 5_000,
+        })
+      }
+    }
+    await doSend(text, references)
+  }
+
+  /** 实际发送逻辑(2026-07-25 立,危险命令检测拆分):供 submit / toast action 复用 */
+  const doSend = async (text: string, refs: ReferenceItem[]) => {
     // 附件作为引用文本随消息发送:图片用 markdown image 语法,视频/其他文件用引用块
-    const attachmentMarkdown = references
+    const attachmentMarkdown = refs
       .map((r) => {
         if (r.type === 'image' && r.thumbnail) {
           return `![${r.label}](${r.thumbnail})`
@@ -542,7 +706,7 @@ export function MessageInput({
     const ok = await onSend(finalContent)
     if (!ok) return
     // 释放所有 objectURL
-    references.forEach((r) => {
+    refs.forEach((r) => {
       if (r.thumbnail) URL.revokeObjectURL(r.thumbnail)
     })
     setValue('')
@@ -582,16 +746,21 @@ export function MessageInput({
           <div
             role="status"
             aria-live="polite"
-            className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-300"
+            className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-300 animate-pulse-soft"
           >
-            <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
+            <AlertTriangle
+              className="mt-px h-3.5 w-3.5 shrink-0 text-amber-500"
+              aria-hidden="true"
+            />
             <div className="min-w-0 flex-1 leading-snug">
               <div>{t('permission.inputWarning')}</div>
               {autoRevert.isActive ? (
                 <div className="mt-1 flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400">
                   <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
                   <span>
-                    {t('permission.autoRevertIn', { time: formatRemaining(autoRevert.remainingMs) })}
+                    {t('permission.autoRevertIn', {
+                      time: formatRemaining(autoRevert.remainingMs),
+                    })}
                   </span>
                   <button
                     type="button"
@@ -652,7 +821,7 @@ export function MessageInput({
               isDragOver
                 ? 'border-primary ring-2 ring-primary/20'
                 : isHighRisk
-                  ? 'border-amber-500/50 focus-within:border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.08)]'
+                  ? 'border-amber-500/50 focus-within:border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.08)] animate-pulse-soft'
                   : 'border-border',
             )}
           >
@@ -672,6 +841,10 @@ export function MessageInput({
                   盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
                   点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。 */}
               <PermissionModePopover disabled={isStreaming} />
+              {/* 权限模式历史(2026-07-25 深化,放在附加栏跟盾牌按钮成组,与 popover 内"查看历史"互斥):
+                  - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层
+                  - 通过 window.__IHUI_OPEN_HISTORY__?.() 由外部组件触发,自身不渲染任何重复入口 */}
+              <PermissionHistoryPanel />
               {isStreaming ? (
                 <Tooltip content={t('promptTemplate')}>
                   <button
@@ -778,7 +951,10 @@ export function MessageInput({
                 透明性 + 时效性双指标。 */}
             <div className="flex items-center gap-2 px-3 pt-2">
               <ModeSwitcher className="hidden sm:flex" />
-              <div className="ml-auto flex items-center gap-1.5" data-testid="titlebar-permission-mode">
+              <div
+                className="ml-auto flex items-center gap-1.5"
+                data-testid="titlebar-permission-mode"
+              >
                 {activeWorkspaceMode && (
                   <span
                     className={cn(
@@ -790,13 +966,31 @@ export function MessageInput({
                           : 'bg-muted text-muted-foreground',
                     )}
                   >
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
+                    <span
+                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-current"
+                      aria-hidden="true"
+                    />
                     {activeWorkspaceMode === 'bypass-permissions'
                       ? t('permission.mode.full')
                       : activeWorkspaceMode === 'accept-edits'
                         ? t('permission.mode.auto')
                         : t('permission.mode.ask')}
                   </span>
+                )}
+                {/* 高风险模式 ⓘ 详细说明按钮(2026-07-25 深化,可解释性增强):
+                    只在 bypass-permissions 模式显示,点击唤起 PermissionModeInfoModal
+                    展示 4 条该模式的详细说明 bullet,底部"知道了"关闭 */}
+                {activeWorkspaceMode === 'bypass-permissions' && (
+                  <button
+                    type="button"
+                    onClick={() => setInfoMode('bypass-permissions')}
+                    className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
+                    aria-label={t('permission.infoButtonLabel')}
+                    title={t('permission.infoButtonTitle')}
+                    data-testid="permission-mode-info-button"
+                  >
+                    <Info className="h-3 w-3" aria-hidden="true" />
+                  </button>
                 )}
                 {/* 高风险 + 倒计时激活 → 在徽章右侧追加倒计时(2026-07-25 深化)
                     复用 autoRevert hook 的同一份 1s tick,保证顶部警告和标题栏倒计时一致 */}
@@ -805,7 +999,9 @@ export function MessageInput({
                     className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-amber-700 dark:text-amber-400"
                     data-testid="titlebar-auto-revert"
                   >
-                    {t('permission.titleBarAutoRevert', { time: formatRemaining(autoRevert.remainingMs) })}
+                    {t('permission.titleBarAutoRevert', {
+                      time: formatRemaining(autoRevert.remainingMs),
+                    })}
                   </span>
                 )}
               </div>
@@ -983,6 +1179,15 @@ export function MessageInput({
           - 用户勾选"我了解"后才能点"继续启用"(内部 markFullAccessSuppressed/Acknowledged)
           - 确认后调 cyclePermissionMode(再次切到 bypass,此时 isFullAccessConfirmSuppressed=true,直走切换) */}
       <FullAccessConfirmBridge />
+      {/* 权限模式快捷键帮助面板(2026-07-25 深化,深度对标 Codex CLI /help):
+          - ? 键(Shift+/)全局唤起/关闭,由本组件内 useEffect 监听
+          - 排除 textarea/input/contenteditable 内,用户打字不误触
+          - 3 分组:模式切换 / 高风险护栏 / 撤销与审计 */}
+      <PermissionShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      {/* 权限模式详细说明 modal(2026-07-25 深化,可解释性增强):
+          - 只在高风险模式(bypass-permissions)显示 ⓘ 按钮时唤起
+          - 4 条该模式详细行为 bullet,底部"知道了"关闭 */}
+      <PermissionModeInfoModal mode={infoMode} onClose={() => setInfoMode(null)} />
     </div>
   )
 }
