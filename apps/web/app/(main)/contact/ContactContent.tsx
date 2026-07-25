@@ -110,7 +110,8 @@ export function ContactContent({
           </div>
         )}
         {!isLoading &&
-          contacts.map(({ icon: any, label: any, value: any, href: any }) => {
+          contacts.map((item: { icon: string; label: string; value: string; href: string }) => {
+            const { icon, label, value, href } = item
             const Icon = ICON_MAP[icon as keyof typeof ICON_MAP] ?? Mail
             return (
               <a
