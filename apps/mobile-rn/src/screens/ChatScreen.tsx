@@ -16,9 +16,9 @@ import {
   fetchModels,
   formatSSEError,
   getModelContextCapacity,
-  formatTokenCount,
   type LlmModel,
 } from '@ihui/api-client'
+import { formatTokenCount } from '@ihui/shared/utils'
 import { useAuth } from '../context/AuthContext'
 import { useScreenshot } from '../hooks/use-screenshot'
 import type { RootStackParamList } from '../navigation/RootNavigator'
