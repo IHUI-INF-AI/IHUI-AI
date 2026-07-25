@@ -1394,7 +1394,8 @@
   },
   "chat": {
     "title": "ai",
-    "placeholder": "要件を詳しく記述、/ でスキル・プラグイン・MCP を呼出（例: /goal /loop）",
+    "placeholder": "要件を詳細に入力、/ でスキル・プラグイン・MCP を呼び出し（例 /goal /loop /plan）",
+    "placeholderPlan": "計画モード：要件を入力、AIは計画のみ立案しツールを実行しません（/act で戻る、Alt+P で切替）",
     "send": "送信",
     "stop": "を",
     "clear": "チャットをクリア",
