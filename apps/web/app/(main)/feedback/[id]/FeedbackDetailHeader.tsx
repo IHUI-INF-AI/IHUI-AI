@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { TYPE_ICON, TYPE_BADGE, STATUS_BADGE, PRIORITY_BADGE } from '@/lib/feedback'
+import { TYPE_ICON, TYPE_BADGE, STATUS_BADGE, PRIORITY_BADGE, STATUS_KEY } from '@/lib/feedback'
 import type { FeedbackItem } from './types'
 
 function Badge({ className, children }: { className: string; children: React.ReactNode }) {
@@ -57,7 +57,7 @@ export function FeedbackDetailHeader({ fb }: Props) {
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Badge className={TYPE_BADGE[fb.type]}>{t(`type_${fb.type}`)}</Badge>
-          <Badge className={STATUS_BADGE[fb.status]}>{t(`status_${fb.status}`)}</Badge>
+          <Badge className={STATUS_BADGE[fb.status]}>{t(STATUS_KEY[fb.status] ?? 'status_unknown')}</Badge>
           <Badge className={PRIORITY_BADGE[fb.priority]}>{t(`priority_${fb.priority}`)}</Badge>
           <span>·</span>
           <span>{dateFmt.format(new Date(fb.createdAt))}</span>

@@ -14,7 +14,7 @@ import {
   SelectValue,
   Switch,
 } from '@ihui/ui-react'
-import { selectClass, STATUS_OPTIONS } from './helpers'
+import { selectClass, STATUS_OPTIONS, STATUS_KEY } from './helpers'
 import type { AgentForm, Category } from './types'
 
 interface Props {
@@ -112,7 +112,7 @@ export function AgentCreateForm({
             <SelectContent>
               {STATUS_OPTIONS.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {t(`status${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
+                  {t(STATUS_KEY[s] ?? 'statusUnknown')}
                 </SelectItem>
               ))}
             </SelectContent>

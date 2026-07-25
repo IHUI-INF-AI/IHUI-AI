@@ -19,7 +19,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui-react'
-import { selectClass, textareaClass, STATUS_OPTS } from './helpers'
+import { selectClass, textareaClass, STATUS_OPTS, STATUS_KEY } from './helpers'
 import type { AdminProject, ProjectForm } from './types'
 
 interface Props {
@@ -107,7 +107,7 @@ export function ProjectDialog({
               <SelectContent>
                 {STATUS_OPTS.map((s) => (
                   <SelectItem key={s} value={String(s)}>
-                    {t(`status_${s}`)}
+                    {t(STATUS_KEY[s] ?? 'status_unknown')}
                   </SelectItem>
                 ))}
               </SelectContent>

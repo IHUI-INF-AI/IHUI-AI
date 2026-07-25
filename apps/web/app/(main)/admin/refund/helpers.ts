@@ -37,6 +37,30 @@ export const STATUS_TABS: { value: string; labelKey: 'all' | RefundStatus }[] = 
   { value: 'failed', labelKey: 'failed' },
 ]
 
+export const STATUS_KEY: Record<RefundStatus, string> = {
+  pending: 'status_pending',
+  approved: 'status_approved',
+  rejected: 'status_rejected',
+  processing: 'status_processing',
+  completed: 'status_completed',
+  failed: 'status_failed',
+}
+
+export const TAB_LABEL_KEY: Record<'all' | RefundStatus, string> = {
+  all: 'status_all',
+  ...STATUS_KEY,
+}
+
+export const REFUND_TYPE_KEY: Record<string, string> = {
+  original: 'refundType_original',
+  balance: 'refundType_balance',
+}
+
+export const AUDIT_ACTION_KEY: Record<string, string> = {
+  approve: 'auditAction_approve',
+  reject: 'auditAction_reject',
+}
+
 export const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
