@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
@@ -15,24 +14,8 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export const AiGcTable = React.memo(function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
+export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.aiGc')
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id) onDelete(id)
-    },
-    [onDelete],
-  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -88,7 +71,7 @@ export const AiGcTable = React.memo(function AiGcTable({ list, isLoading, delPen
                 ))}
                 <td className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" data-id={item.id} onClick={handleEdit}>
+                    <Button size="sm" variant="ghost" onClick={() => onEdit(item)}>
                       <Edit className="h-4 w-4" />
                       {t('edit')}
                     </Button>
@@ -97,8 +80,7 @@ export const AiGcTable = React.memo(function AiGcTable({ list, isLoading, delPen
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
                       disabled={delPending}
-                      data-id={item.id}
-                      onClick={handleDelete}
+                      onClick={() => onDelete(item.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                       {t('delete')}
@@ -112,4 +94,4 @@ export const AiGcTable = React.memo(function AiGcTable({ list, isLoading, delPen
       </table>
     </div>
   )
-})
+}

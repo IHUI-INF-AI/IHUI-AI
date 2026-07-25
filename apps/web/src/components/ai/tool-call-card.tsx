@@ -305,14 +305,6 @@ export function ToolCallCard({
   const showImage = isImageTool && !!imageUrl
   const showSummary = isSummaryTool && !!summaryData
 
-  // 性能修复(2026-07-25):JSON.stringify 在 render 中每次重算,
-  // 大型工具调用参数/diff 结果重复序列化开销显著。useMemo 仅 args/result 变化时重算。
-  const argsJson = React.useMemo(() => JSON.stringify(args, null, 2), [args])
-  const resultText = React.useMemo(
-    () => (typeof result === 'string' ? result : JSON.stringify(result, null, 2)),
-    [result],
-  )
-
   const handleOpenInWorkPanel = React.useCallback(() => {
     if (!extractedUrl) return
     useWorkPanelStore.getState().openPanel({ url: extractedUrl, source: 'ai-tool' })
@@ -382,7 +374,7 @@ export function ToolCallCard({
               <div>
                 <p className="mb-1 font-medium text-muted-foreground">参数</p>
                 <pre className="overflow-x-auto rounded-md bg-muted p-2 font-mono">
-                  {argsJson}
+                  {JSON.stringify(args, null, 2)}
                 </pre>
               </div>
               {error && (
@@ -397,7 +389,7 @@ export function ToolCallCard({
                 <div>
                   <p className="mb-1 font-medium text-muted-foreground">结果</p>
                   <pre className="overflow-x-auto rounded-md bg-muted p-2 font-mono">
-                    {resultText}
+                    {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
                   </pre>
                 </div>
               )}

@@ -25,37 +25,13 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
   const locale = useLocale()
   const router = useRouter()
 
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      e.stopPropagation()
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const fb = list.find((x) => String(x.id) === id)
-      if (fb) onEdit(fb)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      e.stopPropagation()
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const fb = list.find((x) => String(x.id) === id)
-      if (fb) onDelete(fb)
-    },
-    [list, onDelete],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -168,8 +144,10 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                       <Button
                         size="sm"
                         variant="ghost"
-                        data-id={fb.id}
-                        onClick={handleEdit}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEdit(fb)
+                        }}
                       >
                         <Edit className="h-4 w-4" />
                         {t('edit')}
@@ -179,8 +157,10 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                           size="sm"
                           variant="ghost"
                           className="text-destructive"
-                          data-id={fb.id}
-                          onClick={handleDelete}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onDelete(fb)
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

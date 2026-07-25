@@ -17,7 +17,7 @@ interface Props {
 
 const QUICK_REPLIES = ['你好，有什么可以帮您？', '请稍等，正在查询', '问题已收到', '感谢您的耐心']
 
-function ChatWindow({ roomId, onClose }: Props) {
+export function ChatWindow({ roomId, onClose }: Props) {
   const t = useTranslations('a11y')
   const [isOpen, setIsOpen] = React.useState(false)
   const [isMinimized, setIsMinimized] = React.useState(false)
@@ -48,17 +48,12 @@ function ChatWindow({ roomId, onClose }: Props) {
     return () => clearInterval(timer)
   }, [loadMessages])
 
-  // 未读消息计数:新消息到达且窗口不可见时累加未读
   React.useEffect(() => {
     if (messages.length > prevCount.current && (!isOpen || isMinimized)) {
       const newOnes = messages.slice(prevCount.current)
       if (newOnes.some((m) => m.sender === 'agent')) setUnread((u) => u + 1)
     }
     prevCount.current = messages.length
-  }, [messages, isOpen, isMinimized])
-
-  // 自动滚动到底:消息变化或窗口可见时滚动到底
-  React.useEffect(() => {
     if (isOpen && !isMinimized) {
       const el = scrollRef.current
       if (el) el.scrollTop = el.scrollHeight
@@ -195,7 +190,4 @@ function ChatWindow({ roomId, onClose }: Props) {
   )
 }
 
-const ChatWindowMemo = React.memo(ChatWindow)
-
-export { ChatWindowMemo as ChatWindow }
-export default ChatWindowMemo
+export default ChatWindow
