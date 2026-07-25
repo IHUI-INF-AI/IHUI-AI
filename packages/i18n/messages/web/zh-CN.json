@@ -905,6 +905,10 @@
       "historyClearConfirmTitle": "清空历史",
       "historyClearConfirmDesc": "将删除所有模式切换记录,无法恢复。",
       "historyClearConfirm": "清空",
+      "resetSuppressedButton": "重新提醒高风险",
+      "resetSuppressedConfirmTitle": "确认重新启用高风险提醒?",
+      "resetSuppressedConfirmDesc": "下次切到完全访问模式时,将再次弹出确认弹窗。",
+      "resetSuppressedToast": "已重置,下次切到完全访问将再次确认",
       "historyOpenButton": "历史",
       "historySource": {
         "popover": "弹窗",

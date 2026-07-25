@@ -905,6 +905,10 @@
       "historyClearConfirmTitle": "履歴をクリア",
       "historyClearConfirmDesc": "すべてのモード切替記録が削除され、復元できません。",
       "historyClearConfirm": "クリア",
+      "resetSuppressedButton": "高リスク警告を再有効化",
+      "resetSuppressedConfirmTitle": "高リスク警告を再有効化しますか?",
+      "resetSuppressedConfirmDesc": "次回完全アクセスに切り替える際、確認ダイアログが再度表示されます。",
+      "resetSuppressedToast": "リセット済み。次回完全アクセス時に再度確認します",
       "historyOpenButton": "履歴",
       "historySource": {
         "popover": "ポップオーバー",

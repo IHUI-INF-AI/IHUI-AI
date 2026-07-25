@@ -28,8 +28,9 @@
  */
 
 import * as React from 'react'
-import { Clock4, History, Trash2, ShieldAlert, ShieldCheck, Hand } from 'lucide-react'
+import { Clock4, History, Trash2, ShieldAlert, ShieldCheck, Hand, BellRing } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 
 import { Popover } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -41,6 +42,10 @@ import {
   formatRelativeTime,
   type ModeChangeEntry,
 } from '@/lib/permission-mode-history'
+import {
+  isFullAccessConfirmSuppressed,
+  resetFullAccessAcknowledgement,
+} from '@/components/ai/full-access-confirm-dialog'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 
 /** 历史面板最大展示条数 */
@@ -176,6 +181,8 @@ export function PermissionHistoryPanel() {
   const [open, setOpen] = React.useState(false)
   const [entries, setEntries] = React.useState<ModeChangeEntry[]>([])
   const [now, setNow] = React.useState<number>(() => Date.now())
+  /** 是否已"不再提醒"静默(仅 mount + 打开时读,不实时监听;用户主动重置后联动隐藏按钮) */
+  const [isSuppressed, setIsSuppressed] = React.useState(false)
   /** Popover 触发器按钮 ref(2026-07-25 立):供 window.__IHUI_OPEN_HISTORY__ 编程式触发 */
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
 
@@ -184,7 +191,13 @@ export function PermissionHistoryPanel() {
     if (!open) return
     setEntries(getRecentHistory(undefined, HISTORY_DISPLAY_LIMIT))
     setNow(Date.now())
+    setIsSuppressed(isFullAccessConfirmSuppressed())
   }, [open])
+
+  // "不再提醒"静默状态:mount 时读一次(打开时也会刷新,见上;不监听 storage)
+  React.useEffect(() => {
+    setIsSuppressed(isFullAccessConfirmSuppressed())
+  }, [])
 
   // 跨标签页同步:监听 storage,另一标签页清空历史时本标签页也更新
   React.useEffect(() => {
@@ -227,6 +240,16 @@ export function PermissionHistoryPanel() {
     setEntries([])
   }
 
+  // 重新启用高风险确认弹窗(用户此前勾了"不再提醒",此处清除静默标志恢复提醒)
+  const handleResetSuppressed = () => {
+    if (typeof window === 'undefined') return
+    const ok = window.confirm(`${t('resetSuppressedConfirmTitle')}\n\n${t('resetSuppressedConfirmDesc')}`)
+    if (!ok) return
+    resetFullAccessAcknowledgement()
+    setIsSuppressed(false)
+    toast.success(t('resetSuppressedToast'))
+  }
+
   return (
     <Popover
       content={
@@ -258,6 +281,24 @@ export function PermissionHistoryPanel() {
           </div>
           {/* 统计汇总 */}
           <StatsFooter />
+          {/* 重新提醒高风险(仅当用户已勾"不再提醒"时显示,供恢复确认弹窗) */}
+          {isSuppressed && (
+            <div className="px-1">
+              <button
+                type="button"
+                onClick={handleResetSuppressed}
+                aria-label={t('resetSuppressedButton')}
+                data-testid="reset-full-access-suppressed"
+                className={cn(
+                  'inline-flex items-center gap-0.5 text-[10px] font-medium',
+                  'text-muted-foreground transition-colors hover:text-amber-600',
+                )}
+              >
+                <BellRing className="h-3 w-3" aria-hidden="true" />
+                <span>{t('resetSuppressedButton')}</span>
+              </button>
+            </div>
+          )}
           {/* 屏幕阅读器宣告:打开 + 空状态时宣告"暂无历史" */}
           <span className="sr-only" aria-live="polite">
             {open && entries.length === 0 ? t('historyEmpty') : ''}
