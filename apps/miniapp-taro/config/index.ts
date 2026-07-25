@@ -23,7 +23,9 @@ export default defineConfig(async (merge) => {
       options: {},
     },
     framework: 'react',
-    compiler: 'vite',
+    // H5 切 webpack5 编译器规避 Taro 4.2.0 Vite runner 缺陷 (GitHub #17978/#18415)
+    // weapp 等其他端继续用 Vite (已验证 100+ 页面正常)
+    compiler: process.env.TARO_ENV === 'h5' ? 'webpack5' : 'vite',
     cache: { enable: true },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
@@ -55,6 +57,27 @@ export default defineConfig(async (merge) => {
         resolve: {
           dedupe: ['react', 'react-dom', '@tarojs/runtime', '@tarojs/runtime-dom'],
         },
+      },
+      // webpack5 编译器需让 babel-loader 处理 @ihui/* workspace 包的 TS 源码
+      // (这些包 main 字段直接指向 src/*.ts,未预编译)
+      compile: {
+        include: [
+          path.resolve(__dirname, '..', '..', '..', 'packages', 'api-client', 'src'),
+          path.resolve(__dirname, '..', '..', '..', 'packages', 'design-tokens', 'src'),
+          path.resolve(__dirname, '..', '..', '..', 'packages', 'i18n', 'src'),
+          path.resolve(__dirname, '..', '..', '..', 'packages', 'shared', 'src'),
+          path.resolve(__dirname, '..', '..', '..', 'packages', 'types', 'src'),
+        ],
+      },
+      // 项目无 babel.config.js，webpack5 编译器需在 babel-loader 程序化注入 babel-preset-taro
+      // (程序化选项对所有文件生效，含 packages/* 的 TS 源码)
+      webpackChain: (chain: any) => {
+        chain.module.rule('script').use('babelLoader').tap((options: any) => ({
+          ...options,
+          presets: [
+            ['taro', { framework: 'react', ts: true, compiler: 'webpack5' }],
+          ],
+        }))
       },
       postcss: {
         autoprefixer: { enable: true, config: {} },
