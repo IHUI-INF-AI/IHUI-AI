@@ -8,7 +8,6 @@
     "loading": "로딩 중…",
     "empty": "데이터 없음",
     "retry": "재시도",
-    "search": "검색",
     "all": "전체",
     "hint": "알림",
     "success": "성공",
@@ -22,14 +21,9 @@
   },
   "nav": {
     "home": "홈",
-    "chat": "AI 채팅",
     "courses": "강의",
     "live": "라이브",
     "profile": "마이페이지",
-    "agents": "에이전트",
-    "orders": "주문",
-    "wallet": "지갑",
-    "settings": "설정",
     "community": "커뮤니티"
   },
   "login": {
@@ -128,7 +122,14 @@
       "empty": "강의 없음"
     },
     "ratingTitle": "코스 평가",
-    "ratingLabels": ["", "매우 나쁨", "나쁨", "보통", "좋음", "매우 좋음"],
+    "ratingLabels": [
+      "",
+      "매우 나쁨",
+      "나쁨",
+      "보통",
+      "좋음",
+      "매우 좋음"
+    ],
     "ratingPlaceholder": "평가해주세요",
     "ratingDescLabel": "리뷰를 작성하세요",
     "ratingInputPlaceholder": "코스는 어땠나요? 생각을 공유하세요...",
@@ -323,8 +324,7 @@
     "title": "에이전트"
   },
   "chat": {
-    "send": "전송",
-    "newConversation": "새 대화"
+    "send": "전송"
   },
   "setting": {
     "hint": "알림",
@@ -477,7 +477,12 @@
       "timbre": "음색"
     },
     "image": {
-      "examples": ["귀여운 고양이", "일몰 산 풍경", "미래 도시", "추상 예술"],
+      "examples": [
+        "귀여운 고양이",
+        "일몰 산 풍경",
+        "미래 도시",
+        "추상 예술"
+      ],
       "emptyHint": "이미지 생성 설명 입력",
       "tryThese": "이것들 시도",
       "placeholder": "생성할 이미지 설명",
@@ -491,7 +496,14 @@
       "favorited": "즐겨찾기됨",
       "history": "기록",
       "empty": "생성 기록 없음",
-      "styles": ["실사", "애니메이션", "유화", "수채화", "3D", "픽셀"],
+      "styles": [
+        "실사",
+        "애니메이션",
+        "유화",
+        "수채화",
+        "3D",
+        "픽셀"
+      ],
       "generateFailed": "생성 실패, 재시도",
       "downloadSuccess": "앨범에 저장됨",
       "downloadFailed": "다운로드 실패, 재시도",
@@ -902,7 +914,10 @@
       "starting": "시험 입장 중…"
     },
     "answer": {
-      "judgmentOptions": ["맞음", "틀림"],
+      "judgmentOptions": [
+        "맞음",
+        "틀림"
+      ],
       "loadFailed": "문제 로딩 실패",
       "answerPlaceholder": "답 입력",
       "prev": "이전 문제",
@@ -1181,7 +1196,13 @@
       }
     },
     "appPermission": {
-      "names": ["앨범 권한", "카메라 권한", "마이크 권한", "위치 권한", "알림 권한"],
+      "names": [
+        "앨범 권한",
+        "카메라 권한",
+        "마이크 권한",
+        "위치 권한",
+        "알림 권한"
+      ],
       "descs": [
         "이미지를 앨범에 저장하고 업로드",
         "사진 촬영 및 동영상 녹화",
@@ -1520,8 +1541,18 @@
         "도움 요청",
         "경험 요약"
       ],
-      "levels": ["초급", "중급", "고급", "전문가"],
-      "budgets": ["1000위안 이하", "1000-5000위안", "5000-10000위안", "10000위안 이상"],
+      "levels": [
+        "초급",
+        "중급",
+        "고급",
+        "전문가"
+      ],
+      "budgets": [
+        "1000위안 이하",
+        "1000-5000위안",
+        "5000-10000위안",
+        "10000위안 이상"
+      ],
       "selectAtLeast": "최소 1개 선택",
       "saved": "저장됨",
       "directionTitle": "학습 방향",
@@ -1836,7 +1867,11 @@
         "도움 요청",
         "경험 요약"
       ],
-      "visibilityOptions": ["공개", "친구만", "비공개"],
+      "visibilityOptions": [
+        "공개",
+        "친구만",
+        "비공개"
+      ],
       "enterTitle": "제목 입력",
       "enterContent": "내용 입력",
       "published": "게시됨",
@@ -2118,7 +2153,14 @@
       "bannerTitle": "VIP로 업그레이드",
       "bannerDesc": "더 많은 전용 특권 잠금 해제",
       "rightsTitle": "회원 혜택",
-      "rights": ["전용 고객지원", "우선 체험", "고급 기능", "광고 제거", "전용 배지", "할인 혜택"],
+      "rights": [
+        "전용 고객지원",
+        "우선 체험",
+        "고급 기능",
+        "광고 제거",
+        "전용 배지",
+        "할인 혜택"
+      ],
       "loadFailed": "로딩 실패",
       "operationFailed": "작업 실패",
       "originalPrice": "원가 ¥{{n}}",
