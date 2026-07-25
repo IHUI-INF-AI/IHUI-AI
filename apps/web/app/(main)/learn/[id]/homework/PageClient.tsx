@@ -28,6 +28,14 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
+const STATUS_KEY: Record<string, string> = {
+  notSubmitted: 'status.notSubmitted',
+  submitted: 'status.submitted',
+  passApproval: 'status.passApproval',
+  failApproval: 'status.failApproval',
+}
+
 export default function CourseHomeworkPage() {
   const t = useTranslations('learnHomeworkPage')
   const locale = useLocale()
@@ -68,9 +76,9 @@ export default function CourseHomeworkPage() {
       const numKey = ['notSubmitted', 'submitted', 'passApproval', 'failApproval'][
         status
       ] as 'notSubmitted' | 'submitted' | 'passApproval' | 'failApproval'
-      return numKey ? t(`status.${numKey}`) : t('status.unknown')
+      return numKey ? t(STATUS_KEY[numKey] ?? 'status.unknown') : t('status.unknown')
     }
-    return t(`status.${status}` as 'status.submitted')
+    return t(STATUS_KEY[status] ?? 'status.unknown')
   }
 
   const list = data?.list ?? []

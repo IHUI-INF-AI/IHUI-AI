@@ -267,8 +267,22 @@ const checks = [
       '',
     ].join('\n'),
   },
+  {
+    id: '30',
+    label: '🛡️ i18n 文件完整性(防 prettier 截断事故复发)',
+    script: 'validate-i18n-integrity.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 staged 的 i18n JSON 文件行数异常减少(>50% 且 >100 行),',
+      '     通常是 lint-staged 的 prettier --write 解析大 JSON 失败导致截断事故。',
+      '     修复:git restore --staged --worktree <file> 后重新编辑/格式化。',
+      '',
+    ].join('\n'),
+  },
 
-  // --- warn (12 项) ---
+  // --- warn (11 项) ---
   {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',
@@ -282,6 +296,13 @@ const checks = [
     script: 'check-i18n-keys.mjs',
     args: ['--target=extension'],
     mode: 'warn',
+  },
+  {
+    id: '2f-shared',
+    label: '🌐 [shared] i18n 键完整性(blocking,零变更验证通过)',
+    script: 'check-i18n-keys.mjs',
+    args: ['--target=shared'],
+    mode: 'blocking',
   },
   {
     id: '2g-ext',
