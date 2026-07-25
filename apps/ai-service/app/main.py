@@ -118,6 +118,15 @@ async def lifespan(app: FastAPI):
     if hydrated:
         logger.info("[vector_memory] 启动从 Redis hydrate %d 条历史记忆", hydrated)
 
+    # L2-3 启动时从 DB 加载所有记忆衰减状态(进程重启不丢)
+    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 apply_decay 会重建)
+    from app.services.memory_decay import memory_decay_manager
+    decay_loaded = await memory_decay_manager.load_all_states()
+    if decay_loaded:
+        logger.info(
+            "[memory_decay] 启动从 DB hydrate %d 条衰减状态", decay_loaded
+        )
+
     # 启动多平台一键发布调度器(轮询 publish_tasks 表 scheduled_at 到期任务,
     # 同用户最多 3 个并发,失败平台支持 retry)
     from app.services.publish.scheduler import publish_scheduler
