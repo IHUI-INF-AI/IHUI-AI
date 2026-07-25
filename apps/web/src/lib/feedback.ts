@@ -50,6 +50,26 @@ export const PRIORITY_BADGE: Record<Priority, string> = {
   high: 'bg-red-500/10 text-red-600 dark:text-red-400',
 }
 
+export const STATUS_KEY: Record<FeedbackStatus, string> = {
+  pending: 'status_pending',
+  reviewing: 'status_reviewing',
+  resolved: 'status_resolved',
+  closed: 'status_closed',
+}
+
+export const TYPE_KEY: Record<FeedbackType, string> = {
+  bug: 'type_bug',
+  feature: 'type_feature',
+  improvement: 'type_improvement',
+  other: 'type_other',
+}
+
+export const PRIORITY_KEY: Record<Priority, string> = {
+  low: 'priority_low',
+  medium: 'priority_medium',
+  high: 'priority_high',
+}
+
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)

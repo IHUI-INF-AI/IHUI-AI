@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
-import { STATUS_CLASS } from './helpers'
+import { STATUS_CLASS, STATUS_KEY } from './helpers'
 import type { Agent, Category } from './types'
 
 interface AgentsTableProps {
@@ -104,7 +104,7 @@ export function AgentsTable({
                       STATUS_CLASS[a.status] ?? STATUS_CLASS.pending,
                     )}
                   >
-                    {t(`status${a.status.charAt(0).toUpperCase()}${a.status.slice(1)}`)}
+                    {t(STATUS_KEY[a.status] ?? 'statusUnknown')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-muted-foreground">{a.sort}</TableCell>

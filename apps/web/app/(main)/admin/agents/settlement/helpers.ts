@@ -9,6 +9,11 @@ export const STATUS_CLASS: Record<string, string> = {
   settled: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
 }
 
+export const STATUS_KEY: Record<string, string> = {
+  unsettled: 'statusUnsettled',
+  settled: 'statusSettled',
+}
+
 export const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
