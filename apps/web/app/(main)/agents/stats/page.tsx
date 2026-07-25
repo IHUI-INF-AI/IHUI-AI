@@ -25,6 +25,16 @@ async function api<T>(url: string): Promise<T> {
 
 type StatKey = 'totalAgents' | 'published' | 'pending' | 'totalCalls' | 'totalUsers' | 'avgRating'
 
+/** i18n 静态映射表 — 用于消除 `t(\`stat.${var}\`)` 动态拼接 */
+const STAT_KEY: Record<StatKey, string> = {
+  totalAgents: 'stat.totalAgents',
+  published: 'stat.published',
+  pending: 'stat.pending',
+  totalCalls: 'stat.totalCalls',
+  totalUsers: 'stat.totalUsers',
+  avgRating: 'stat.avgRating',
+}
+
 export default function AgentStatsPage() {
   const locale = useLocale()
   const t = useTranslations('agentsStatsPage')
@@ -116,7 +126,7 @@ export default function AgentStatsPage() {
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {t(`stat.${card.key}`)}
+                      {t(STAT_KEY[card.key] ?? 'stat.unknown')}
                     </span>
                     <Icon className={`h-4 w-4 ${card.color}`} />
                   </div>

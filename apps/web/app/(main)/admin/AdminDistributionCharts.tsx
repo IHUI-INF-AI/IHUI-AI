@@ -12,10 +12,18 @@ interface Props {
   curFmt: Intl.NumberFormat
 }
 
+/** i18n 静态映射表 — 用于消除 `t(\`fileTypes.${var}\`)` 动态拼接 */
+const FILE_TYPE_KEY: Record<string, string> = {
+  image: 'fileTypes.image',
+  document: 'fileTypes.document',
+  video: 'fileTypes.video',
+  other: 'fileTypes.other',
+}
+
 export function AdminDistributionCharts({ stats, numFmt, curFmt }: Props) {
   const t = useTranslations('dashboard.admin')
   const fileItems = stats.fileTypes.map((f) => ({
-    label: t(`fileTypes.${f.key}`),
+    label: t(FILE_TYPE_KEY[f.key] ?? 'fileTypes.unknown'),
     value: f.value,
   }))
   const fileMax = Math.max(...fileItems.map((f) => f.value), 1)
