@@ -36,16 +36,7 @@ const QUICK_ACTIONS = [
 ]
 
 export function EditorEmptyState() {
-  const setActiveView = useIDEWorkspace((s) => s.setActiveView)
-  const openFile = useIDEWorkspace((s) => s.openFile)
-  const fileTree = useIDEWorkspace((s) => s.fileTree)
-  const openTabs = useIDEWorkspace((s) => s.openTabs)
-  const workspacePath = useIDEWorkspace((s) => s.workspacePath)
-  const setWorkspacePath = useIDEWorkspace((s) => s.setWorkspacePath)
-  const fetchFileTree = useIDEWorkspace((s) => s.fetchFileTree)
-  const fetchDiffFiles = useIDEWorkspace((s) => s.fetchDiffFiles)
-  const fetchGitLog = useIDEWorkspace((s) => s.fetchGitLog)
-  const fetchGitBranches = useIDEWorkspace((s) => s.fetchGitBranches)
+  const { setActiveView, openFile, fileTree, openTabs, workspacePath, setWorkspacePath, fetchFileTree, fetchDiffFiles, fetchGitLog, fetchGitBranches } = useIDEWorkspace()
   const t = useTranslations('ide')
 
   // 最近打开的文件:openTabs 优先,不足时从文件树补齐(最多 5 项)

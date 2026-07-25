@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, CheckCircle, XCircle, ClipboardList } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
@@ -20,38 +19,6 @@ interface Props {
 
 export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.agentTask')
-  const handleApprove = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id) onApprove(id)
-    },
-    [onApprove],
-  )
-  const handleReject = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id) onReject(id)
-    },
-    [onReject],
-  )
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onDelete(item)
-    },
-    [list, onDelete],
-  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -115,8 +82,7 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                             <Button
                               variant="ghost"
                               size="sm"
-                              data-id={item.id}
-                              onClick={handleApprove}
+                              onClick={() => onApprove(item.id)}
                               className="text-emerald-600"
                             >
                               <CheckCircle className="h-4 w-4" />
@@ -128,8 +94,7 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                             <Button
                               variant="ghost"
                               size="sm"
-                              data-id={item.id}
-                              onClick={handleReject}
+                              onClick={() => onReject(item.id)}
                               className="text-amber-600"
                             >
                               <XCircle className="h-4 w-4" />
@@ -143,8 +108,7 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                         <Button
                           variant="ghost"
                           size="sm"
-                          data-id={item.id}
-                          onClick={handleEdit}
+                          onClick={() => onEdit(item)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -155,8 +119,7 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                         <Button
                           variant="ghost"
                           size="sm"
-                          data-id={item.id}
-                          onClick={handleDelete}
+                          onClick={() => onDelete(item)}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />

@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
@@ -18,26 +17,8 @@ interface Props {
   onDelete: (c: Config) => void
 }
 
-export const ConfigTable = React.memo(function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDelete }: Props) {
+export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.configs')
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const c = list.find((x) => String(x.id) === id)
-      if (c) onEdit(c)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const c = list.find((x) => String(x.id) === id)
-      if (c) onDelete(c)
-    },
-    [list, onDelete],
-  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -111,7 +92,7 @@ export const ConfigTable = React.memo(function ConfigTable({ list, isLoading, is
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" data-id={c.id} onClick={handleEdit}>
+                    <Button size="sm" variant="ghost" onClick={() => onEdit(c)}>
                       <Edit className="h-4 w-4" />
                       {t('edit')}
                     </Button>
@@ -120,8 +101,7 @@ export const ConfigTable = React.memo(function ConfigTable({ list, isLoading, is
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
                       disabled={delPending}
-                      data-id={c.id}
-                      onClick={handleDelete}
+                      onClick={() => onDelete(c)}
                     >
                       <Trash2 className="h-4 w-4" />
                       {t('delete')}
@@ -135,4 +115,4 @@ export const ConfigTable = React.memo(function ConfigTable({ list, isLoading, is
       </table>
     </div>
   )
-})
+}
