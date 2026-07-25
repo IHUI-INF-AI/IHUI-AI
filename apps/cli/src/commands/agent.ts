@@ -20,6 +20,8 @@ import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
 import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type SSEErrorSeverity } from '@ihui/api-client';
+// L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
+import { loadConfig } from '../config/index.js';
 import {
   registerTools,
   listTools,
@@ -390,6 +392,69 @@ export interface RunToolLoopOptions {
    * 不传入时使用内部临时实例(结果通过 usage 字段返回,无历史记录)。
    */
   usageLedger?: UsageLedger;
+  /**
+   * L1-4(2026-07-25 立):跨会话记忆用户 ID。
+   * 若传入,doom_loop 首轮 alert 触发时会 fire-and-forget 调 ai-service POST /api/memory/procedural,
+   * 把失败模式沉淀为 procedural memory,让 agent 未来能规避相同陷阱(对标 Hermes Agent 反思沉淀)。
+   */
+  userId?: string;
+}
+
+/**
+ * L1-4(2026-07-25 立):fire-and-forget 把 doom_loop 失败模式沉淀到 procedural memory。
+ *
+ * 调用 ai-service POST /api/memory/procedural 端点:
+ * - pattern: `doom_loop:<toolName>:<inputHash>`(unique 反模式标识)
+ * - success: false
+ * - metadata: { source, repeatCount, message, suggestion, workspacePath, sessionId }
+ *
+ * 失败不阻塞(opts.userId 未传 / 网络故障 / 端点 404 等):由调用方 catch 后 stderr 输出。
+ *
+ * 对标 Hermes Agent 反思沉淀:agent 检测到死循环后,把失败模式写入 procedural memory,
+ * 下次调用工具前可 recall 到这条反模式,主动规避相同陷阱。
+ */
+async function persistDoomLoopProcedural(
+  opts: RunToolLoopOptions,
+  alerts: DoomLoopAlert[],
+): Promise<void> {
+  if (!opts.userId) return;
+  const config = loadConfig();
+  const baseUrl = (config.apiUrl || 'http://localhost:8803').replace(/\/+$/, '');
+  for (const alert of alerts) {
+    const pattern = `doom_loop:${alert.toolName}:${alert.inputHash}`;
+    const body = {
+      user_id: opts.userId,
+      pattern,
+      tool_name: alert.toolName,
+      success: false,
+      metadata: {
+        source: 'doom_loop_detector',
+        repeatCount: alert.repeatCount,
+        message: alert.message,
+        suggestion: alert.suggestion,
+        workspacePath: opts.ctx.workspacePath,
+        sessionId: opts.sessionId ?? null,
+      },
+    };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(`${baseUrl}/api/memory/procedural`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 }
 
 /**
@@ -950,6 +1015,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         // 首轮 alert:注入反思提示,跳过本轮工具执行,让 LLM 重新考虑
         opts.messages.push({ role: 'user', content: alertText });
         void opts.onError?.(alertText);
+        // L1-4(2026-07-25 立):fire-and-forget 沉淀失败模式到 procedural memory
+        // 让 agent 未来调用工具前能 recall 到这条反模式,规避相同陷阱(对标 Hermes Agent 反思沉淀)
+        void persistDoomLoopProcedural(opts, doomAlerts).catch((err) => {
+          process.stderr.write(
+            chalk.yellow(`[doom-loop] procedural 记忆沉淀失败(非阻塞): ${err}\n`),
+          );
+        });
         continue;
       } else {
         consecutiveDoomAlerts = 0;
