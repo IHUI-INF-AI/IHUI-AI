@@ -16,6 +16,7 @@
     "@ihui/api-client": "workspace:*",
     "@ihui/app": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
+    "@ihui/i18n": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "@ihui/ui-native": "workspace:*",
