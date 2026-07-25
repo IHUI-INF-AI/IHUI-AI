@@ -4,7 +4,6 @@ import * as React from 'react'
 import { Menu } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Sidebar } from '@/components/sidebar'
-import { NativeTopBar } from '@/components/layout/NativeTopBar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
@@ -14,6 +13,8 @@ import { Button } from '@ihui/ui-react'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAuthStore } from '@/stores/auth'
+import { useNativeShortcuts } from '@/hooks/use-native-shortcuts'
+import { dispatchMenuAction } from '@/lib/menu-actions'
 import { startAutoRefresh } from '@/lib/tokenUtils'
 
 /**
@@ -76,6 +77,12 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 现在 TagsView 跟随 MainShell 一起渲染,所有 (main) 路由组都能看到,
   // 非 (main) 路由组(marketing/auth/sso 等)不显示(因为没有 MainShell)
   // MainShell 内部:无 tag 时显示 placeholder,首帧直接渲染,SSR 安全
+
+  // 桌面端快捷键全局监听(2026-07-26 迁移:从 NativeTopBar 移到 GlobalShell,
+  // 因为 NativeTopBar 已删除,窗口控制按钮跟随 TagsView 一起搬到 MainShell 内部)
+  // - 全局路由都能响应 Ctrl+R / F12 / Ctrl+Shift+A / Ctrl+Q
+  // - 走 dispatchMenuAction 单一逻辑源
+  useNativeShortcuts((id) => void dispatchMenuAction(id))
 
   // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
   React.useEffect(() => {
@@ -142,11 +149,13 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
       {/* 2026-07-25 用户反馈重构布局:
           - 旧版:NativeTopBar 全宽在顶 + 下方 row(Sidebar + Content + WebWorkPanel)
             → Sidebar 上方留 40px 空(顶栏占的),视觉割裂
-          - 新版:左右两列(顶到底)布局
-              左列 = <Sidebar />            全高(填满左上角空余)
-              右列 = <NativeTopBar />       仅在内容上方
-                      + <main>            占据剩余高度
-            顶栏在桌面端不再覆盖侧边栏,拖拽区 + 窗口按钮 100% 作用在内容区上方。 */}
+          - 2026-07-26 用户反馈再次重构:
+              左列 = <Sidebar />                       全高(填满左上角空余)
+              右列 = <work-area-portal-root>           占据右列(包含 children = MainShell)
+                      + <WebWorkPanel />             右侧固定面板
+            NativeTopBar 已删除,TagsView + 窗口控制按钮由 MainShell 内部渲染,
+            严格匹配 main 同宽容器(rounded-xl my-2 mr-2),不会横跨到 WebWorkPanel。
+            桌面端快捷键(useNativeShortcuts)由 GlobalShell 全局监听,不依赖 NativeTopBar。 */}
       <div className="flex h-screen overflow-hidden">
         {/* 左列:桌面端全高侧边栏(占据左上角,不再有 40px 顶部空) */}
         <React.Suspense fallback={null}>
@@ -159,18 +168,10 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           />
         </React.Suspense>
 
-        {/* 右列:NativeTopBar + 内容区(work-area + WebWorkPanel 横向并列),顶栏不再覆盖侧边栏 */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Tauri 桌面端自定义顶栏(2026-07-25 用户反馈整合):
-              - 仅 isDesktop=true 时渲染,内部 isDesktop 守卫保证 web 端不显示
-              - 现在仅覆盖右列(内容区上方),左列(Sidebar)已是全高独立列
-              - 40px 高,半透明毛玻璃背景,与 sidebar 视觉融为一体
-              - 2026-07-25 修订:去掉底部的 border-b 细线,顶栏与下方内容无缝衔接 */}
-          <NativeTopBar />
-          {/* 2026-07-26 修订:TagsView 不再放在 GlobalShell(右列级别),
-              而是由 MainShell 渲染,只覆盖 main 同宽容器(被 rounded-xl my-2 mr-2 约束),
-              不会横跨到 WebWorkPanel。TagsView 在非 (main) 路由组不显示。 */}
-          <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* 右列:内容区(work-area + WebWorkPanel 横向并列)
+            2026-07-26 修订:NativeTopBar 已删除,TagsView + 窗口控制按钮由 MainShell 内部渲染,
+            严格匹配 main 同宽容器(rounded-xl my-2 mr-2),不会横跨到 WebWorkPanel */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
           {/*
             work-area-portal-root:作为 Sidebar 搜索弹层(SearchNavItem) 的 portal 目标。
@@ -206,7 +207,6 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
               open=false 时渲染 null,不影响布局;open=true 时参与 flex 流,work-area 自动收缩。
               不弹独立窗口,纯组件渲染(遵守用户规则:dev server 只在 TRAE 内部运行)。 */}
           <WebWorkPanel />
-          </div>
         </div>
       </div>
       {/* AISidePanel 作为全局 fixed 组件,移出 flex 容器避免挤压内容区宽度。
