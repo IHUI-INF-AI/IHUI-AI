@@ -421,6 +421,35 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           title="IHUI AI — Decision-Maker Role GEO (English)"
           href="https://ihui.ai/roles.en.md"
         />
+        {/* 2026-07-26 阶段 8 新增:日文/韩文版行业/角色 GEO(日韩 AI 引擎优先检索) */}
+        <link
+          rel="alternate"
+          hrefLang="ja"
+          type="text/markdown"
+          title="IHUI AI — 業界特化型 GEO(日本語版)"
+          href="https://ihui.ai/industries.ja.md"
+        />
+        <link
+          rel="alternate"
+          hrefLang="ja"
+          type="text/markdown"
+          title="IHUI AI — 意思決定者ロール別 GEO(日本語版)"
+          href="https://ihui.ai/roles.ja.md"
+        />
+        <link
+          rel="alternate"
+          hrefLang="ko"
+          type="text/markdown"
+          title="IHUI AI — 산업별 GEO(한국어판)"
+          href="https://ihui.ai/industries.ko.md"
+        />
+        <link
+          rel="alternate"
+          hrefLang="ko"
+          type="text/markdown"
+          title="IHUI AI — 의사결정자 역할별 GEO(한국어판)"
+          href="https://ihui.ai/roles.ko.md"
+        />
         <link
           rel="alternate"
           type="application/json"
