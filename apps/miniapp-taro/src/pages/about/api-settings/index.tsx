@@ -2,7 +2,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { BASE_URL } from '@/utils/request'
+import { BASE_URL } from '@/utils/api-config'
 import { get, post } from '@/api'
 import { useI18n } from '@/i18n'
 
@@ -50,10 +50,13 @@ export default function ApiSettings() {
     setWorkflowId(savedWorkflow)
   }, [])
 
-  const copy = useCallback((text: string) => {
-    Taro.setClipboardData({ data: text })
-    Taro.showToast({ title: tt('about.apiSettings.copied', '已复制'), icon: 'none' })
-  }, [tt])
+  const copy = useCallback(
+    (text: string) => {
+      Taro.setClipboardData({ data: text })
+      Taro.showToast({ title: tt('about.apiSettings.copied', '已复制'), icon: 'none' })
+    },
+    [tt],
+  )
 
   const toggleToken = useCallback(() => {
     setShowToken((prev) => !prev)
@@ -117,7 +120,10 @@ export default function ApiSettings() {
   return (
     <View className="min-h-screen bg-background pb-[60rpx]">
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        <View className="flex justify-between items-center p-[32rpx]" onClick={() => copy(BASE_URL)}>
+        <View
+          className="flex justify-between items-center p-[32rpx]"
+          onClick={() => copy(BASE_URL)}
+        >
           <Text className="text-[28rpx] text-foreground">
             {tt('about.apiSettings.apiUrl', 'API 地址')}
           </Text>
@@ -189,10 +195,7 @@ export default function ApiSettings() {
           />
         </View>
         <Text className="block py-[16rpx] px-[32rpx] text-[22rpx] text-muted-foreground leading-[1.6]">
-          {tt(
-            'about.apiSettings.tokenHint',
-            '提示:您可以从 Coze 平台获取 API 令牌和工作流 ID',
-          )}
+          {tt('about.apiSettings.tokenHint', '提示:您可以从 Coze 平台获取 API 令牌和工作流 ID')}
         </Text>
         <View className="flex gap-[16rpx] pt-[16rpx] px-[32rpx] pb-[32rpx]">
           <Button
