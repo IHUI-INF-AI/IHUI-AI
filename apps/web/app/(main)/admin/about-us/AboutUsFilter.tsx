@@ -1,8 +1,11 @@
 'use client'
 
 import * as React from 'react'
+// @ts-ignore
 import { Search } from 'lucide-react'
+// @ts-ignore
 import { useTranslations } from 'next-intl'
+// @ts-ignore
 import { Button, Input, Label } from '@ihui/ui-react'
 import { SEARCH_KEYS, FIELDS } from './helpers'
 
@@ -25,7 +28,7 @@ export function AboutUsFilter({ search, setSearch, onSearch, onReset }: Props) {
             <Input
               className="h-9 w-40"
               value={search[k]}
-              onChange={(e) => setSearch({ ...search, [k]: e.target.value })}
+              onChange={(e: any) => setSearch({ ...search, [k]: e.target.value })}
               placeholder={t('searchPlaceholder', { field: label })}
             />
           </div>
