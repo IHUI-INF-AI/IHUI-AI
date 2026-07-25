@@ -29,10 +29,7 @@ function Tooltip({ label, shortcut }: { label: string; shortcut: string }) {
 
 export function ActivityBar() {
   const t = useTranslations('ide')
-  const activeView = useIDEWorkspace((s) => s.activeView)
-  const setActiveView = useIDEWorkspace((s) => s.setActiveView)
-  const setActiveTopTab = useIDEWorkspace((s) => s.setActiveTopTab)
-  const diffFiles = useIDEWorkspace((s) => s.diffFiles)
+  const { activeView, setActiveView, setActiveTopTab, diffFiles } = useIDEWorkspace()
   const badgeCount = diffFiles.length
 
   return (

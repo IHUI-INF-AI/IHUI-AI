@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -19,25 +18,14 @@ interface Props {
 export function SettlementTable({ list, isLoading, error, settlePending, onSettle }: Props) {
   const t = useTranslations('admin.agents.settlement')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
-  const fmtAmount = React.useMemo(() => createMoneyFmt(locale), [locale])
-  const handleSettle = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id) onSettle(id)
-    },
-    [onSettle],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const fmtAmount = createMoneyFmt(locale)
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -103,8 +91,7 @@ export function SettlementTable({ list, isLoading, error, settlePending, onSettl
                     <Button
                       size="sm"
                       variant="outline"
-                      data-id={r.id}
-                      onClick={handleSettle}
+                      onClick={() => onSettle(r.id)}
                       disabled={settlePending}
                     >
                       {t('settle')}

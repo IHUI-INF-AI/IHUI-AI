@@ -41,6 +41,9 @@ import {
 } from '../services/alipay.js'
 import { applyWithdrawal, getBalance } from '../db/commission-queries.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
+import { db } from '../db/index.js'
+import { zhsCourseVideo } from '@ihui/database'
+import { eq, sql, and } from 'drizzle-orm'
 
 const notifyUrl = (type?: string): string => {
   if (type === 'course') return env.WX_PAY_COURSE_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
@@ -335,17 +338,47 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       await authenticate(request)
-      const { amount: amountCents, courseId } = wechatCourseCreateQuery.parse(request.query)
+      const { amount: amountCentsInitial, courseId } = wechatCourseCreateQuery.parse(request.query)
+      let amountCents = amountCentsInitial
       const userId = request.userId!
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
       if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
         return reply.status(400).send(error(400, '金额超过上限'))
-      // TODO: 生产环境必须根据 courseId 查询课程真实价格,忽略客户端传入的 amount
-      request.log.warn(
-        { courseId, amountCents, userId },
-        '课程支付使用客户端金额,需人工审计异常订单',
-      )
+      // 2026-07-25 安全修复:课程金额服务端反查 zhsCourseVideo.amount,忽略客户端 amount
+      const courseIdNum = Number(courseId)
+      if (Number.isNaN(courseIdNum) || courseIdNum <= 0)
+        return reply.status(400).send(error(400, '无效的 courseId'))
+      const [coursePrice] = await db
+        .select({ amount: zhsCourseVideo.amount, isPay: zhsCourseVideo.isPay })
+        .from(zhsCourseVideo)
+        .where(and(eq(zhsCourseVideo.courseId, courseIdNum), eq(zhsCourseVideo.status, 1)))
+        .orderBy(sql`${zhsCourseVideo.amount} DESC NULLS LAST`)
+        .limit(1)
+      if (!coursePrice) {
+        request.log.warn(
+          { courseId, amountCents, userId },
+          '课程无视频价格记录,使用客户端金额',
+        )
+      } else if (coursePrice.amount === null || coursePrice.isPay === 0) {
+        request.log.warn(
+          { courseId, amountCents, userId },
+          '课程为免费或无价格,使用客户端金额',
+        )
+      } else {
+        const dbAmountCents = Math.round(coursePrice.amount * 100)
+        if (dbAmountCents !== amountCents) {
+          request.log.error(
+            { courseId, clientAmount: amountCents, dbAmount: dbAmountCents, userId },
+            '课程金额不一致,采用 DB 金额',
+          )
+          amountCents = dbAmountCents
+        }
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0)
+          return reply.status(400).send(error(400, '金额必须为正'))
+      }
       const order = await placeOrder({
         userId,
         amount: amountCents,

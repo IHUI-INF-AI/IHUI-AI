@@ -235,15 +235,9 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
   const maxTokens = React.useMemo(() => getModelContextCapacity(model), [model])
   const usedTokens = React.useMemo(() => estimateChatMessagesTokens(messages), [messages])
   const ratio = maxTokens > 0 ? usedTokens / maxTokens : 0
-  // 性能修复(2026-07-25):原 render 中 messages.filter 每次重算,
-  // 流式 token 更新时每条 token 都触发 O(n) 重扫。useMemo 仅 messages 变化时重算。
-  const messageCount = React.useMemo(
-    () =>
-      messages.filter(
-        (m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content,
-      ).length,
-    [messages],
-  )
+  const messageCount = messages.filter(
+    (m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content,
+  ).length
 
   const [compressing, setCompressing] = React.useState(false)
   const [compressResult, setCompressResult] = React.useState<{
