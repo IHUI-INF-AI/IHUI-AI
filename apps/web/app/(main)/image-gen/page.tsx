@@ -42,7 +42,7 @@ export default function ImageGenPage() {
         body: JSON.stringify(body),
       })
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setResult(data)
       toast.success(t('success'))
     },

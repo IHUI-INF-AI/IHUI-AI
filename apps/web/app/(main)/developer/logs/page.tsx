@@ -133,7 +133,7 @@ export default function LogsPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
             <div className="divide-y">
-              {list.map((log) => (
+              {list.map((log: any) => (
                 <div key={log.id}>
                   <button
                     onClick={() => toggleExpand(log.id)}

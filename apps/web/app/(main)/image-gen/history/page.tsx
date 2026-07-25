@@ -83,7 +83,7 @@ export default function ImageGenHistoryPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {items.map((item) => (
+          {items.map((item: any) => (
             <Card key={item.id} className="overflow-hidden transition-colors hover:bg-accent/40">
               <div className="relative aspect-square w-full bg-muted">
                 <Image src={item.imageUrl} alt={item.prompt} fill className="object-cover" />
