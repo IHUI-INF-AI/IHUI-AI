@@ -88,7 +88,7 @@ export default function EduExamResultPage() {
   }
 
   const result = data
-  const correctCount = result.results.filter((r) => r.correct).length
+  const correctCount = result.results.filter((r: any) => r.correct).length
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
@@ -153,7 +153,7 @@ export default function EduExamResultPage() {
           {t('detail')}
         </h2>
         <div className="space-y-2">
-          {result.results.map((r, i) => (
+          {result.results.map((r: any, i: any) => (
             <div key={r.questionId} className="rounded-md border p-3 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <span className="flex items-center gap-2">

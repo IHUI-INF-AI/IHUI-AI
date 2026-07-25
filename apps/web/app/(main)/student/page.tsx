@@ -89,7 +89,7 @@ export default function StudentCenterPage() {
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger as any asChild>
             <Button variant="outline" size="sm" disabled={generating}>
               {generating ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -100,15 +100,15 @@ export default function StudentCenterPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleExport('pdf')}>
+            <DropdownMenuItem as any onClick={() => handleExport('pdf')}>
               <FileText className="mr-2 h-4 w-4" />
               {t('exportPdf')}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('excel')}>
+            <DropdownMenuItem as any onClick={() => handleExport('excel')}>
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               {t('exportExcel')}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('json')}>
+            <DropdownMenuItem as any onClick={() => handleExport('json')}>
               <FileJson className="mr-2 h-4 w-4" />
               {t('exportJson')}
             </DropdownMenuItem>

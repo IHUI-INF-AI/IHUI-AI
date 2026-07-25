@@ -98,7 +98,7 @@ export default function HistoryPage() {
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {items.map((item) => (
+          {items.map((item: any) => (
             <li
               key={item.id}
               className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"

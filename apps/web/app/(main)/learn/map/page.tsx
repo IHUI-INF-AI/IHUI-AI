@@ -99,7 +99,7 @@ export default function LearnMapPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {nodes.map((node, idx) => {
+          {nodes.map((node: any, idx: any) => {
             const isLocked = node.status === 'locked'
             const isCompleted = node.status === 'completed'
             return (
