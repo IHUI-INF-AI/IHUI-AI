@@ -1,6 +1,6 @@
-import { setBaseUrl, setTokenProvider } from '@ihui/api-client'
+import { setBaseUrl } from '@ihui/api-client'
 import { type TokenPair } from '@ihui/types'
-import type { TokenStore } from '@ihui/shared/auth'
+import { bindTokenStoreToApiClient, type TokenStore } from '@ihui/shared/auth'
 import {
   initApiBaseUrl,
   getApiBaseUrl,
@@ -44,7 +44,7 @@ export async function initApi(): Promise<void> {
     }
   })
 
-  setTokenProvider({ getToken: () => cachedToken })
+  bindTokenStoreToApiClient(tokenStore)
 }
 
 export async function setToken(token: string | null): Promise<void> {
