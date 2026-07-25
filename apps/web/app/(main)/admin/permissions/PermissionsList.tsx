@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { Loader2, Lock, Copy, Check } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
@@ -16,11 +17,15 @@ interface Props {
 export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy }: Props) {
   const t = useTranslations('admin.permissions')
   const locale = useLocale()
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    [locale],
+  )
 
   if (isError) {
     return (

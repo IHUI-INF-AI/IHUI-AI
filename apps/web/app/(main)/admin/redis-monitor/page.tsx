@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Cpu, Database, HardDrive, Zap, Trash2, Server, Target, Loader2 } from 'lucide-react'
@@ -39,10 +40,10 @@ export default function RedisMonitorPage() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'monitor', 'redis'] }),
   })
-  const nf = new Intl.NumberFormat(locale)
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale])
   const o = (data ?? FB).overview, p = (data ?? FB).byPrefix, k = (data ?? FB).topKeys
   const mp = o.maxMemory > 0 ? (o.usedMemory / o.maxMemory) * 100 : 0
-  const tp = p.reduce((a, x) => a + x.count, 0) || 1
+  const tp = React.useMemo(() => p.reduce((a, x) => a + x.count, 0) || 1, [p])
   const bc = mp > 80 ? 'bg-red-500/70' : mp > 60 ? 'bg-amber-500/70' : 'bg-emerald-500/70'
   return (
     <div className="space-y-4">
