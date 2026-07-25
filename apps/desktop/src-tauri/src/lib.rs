@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
 use base64::Engine;
@@ -102,70 +102,6 @@ fn get_admin_window_info() -> AdminWindowInfo {
         min_width: 960.0,
         min_height: 640.0,
     }
-}
-
-/// 构造应用主菜单(文件/视图/帮助三组)。Windows / macOS 通用。
-#[tauri::command]
-fn build_app_menu(app: tauri::AppHandle) -> Result<(), String> {
-    let file_open_admin = MenuItemBuilder::with_id("file.open_admin", "打开管理后台…")
-        .accelerator("CmdOrCtrl+Shift+A")
-        .build(&app)
-        .map_err(|e| e.to_string())?;
-    let file_quit = MenuItemBuilder::with_id("file.quit", "退出")
-        .accelerator("CmdOrCtrl+Q")
-        .build(&app)
-        .map_err(|e| e.to_string())?;
-    let view_reload = MenuItemBuilder::with_id("view.reload", "刷新")
-        .accelerator("CmdOrCtrl+R")
-        .build(&app)
-        .map_err(|e| e.to_string())?;
-    let view_toggle_devtools = MenuItemBuilder::with_id("view.devtools", "切换开发者工具")
-        .accelerator("F12")
-        .build(&app)
-        .map_err(|e| e.to_string())?;
-    let about_text = format!("关于 {}", localized_app_name());
-    let help_about = MenuItemBuilder::with_id("help.about", about_text)
-        .build(&app)
-        .map_err(|e| e.to_string())?;
-
-    let file_menu = SubmenuBuilder::new(&app, "文件")
-        .item(&file_open_admin)
-        .separator()
-        .item(&file_quit)
-        .build()
-        .map_err(|e| e.to_string())?;
-    let view_menu = SubmenuBuilder::new(&app, "视图")
-        .item(&view_reload)
-        .item(&view_toggle_devtools)
-        .build()
-        .map_err(|e| e.to_string())?;
-    let help_menu = SubmenuBuilder::new(&app, "帮助")
-        .item(&help_about)
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    let menu = MenuBuilder::new(&app)
-        .item(&file_menu)
-        .item(&view_menu)
-        .item(&help_menu)
-        .build()
-        .map_err(|e| e.to_string())?;
-    app.set_menu(menu).map_err(|e| e.to_string())?;
-
-    // 2026-07-25 P0:注册菜单事件 handler(原代码漏写,导致菜单点击 dead)。
-    // 策略:file.quit 直接在 Rust 退出(真退出,绕过 close-to-tray);
-    //      其他项 emit 到 main webview,前端 dispatcher 统一处理。
-    app.on_menu_event(|app, event| {
-        let id = event.id().as_ref();
-        match id {
-            "file.quit" => app.exit(0),
-            _ => {
-                let _ = app.emit_to("main", "menu:click", id);
-            }
-        }
-    });
-
-    Ok(())
 }
 
 /// 切换 webview 开发者工具(前端 menu dispatcher 调用,2026-07-25 立)。
@@ -1035,7 +971,9 @@ pub fn run() {
                     window.open_devtools();
                 }
             }
-            let _ = build_app_menu(app.handle().clone());
+            // 2026-07-25 修订:不再调用 build_app_menu(已删除),菜单全部走 web 端 HTML 顶栏
+            // 原菜单快捷键(Ctrl+R / F12 / Ctrl+Shift+A / Ctrl+Q)由 web 端 useNativeShortcuts
+            // 监听(见 apps/web/src/hooks/use-native-shortcuts.ts),通过 dispatchMenuAction 派发。
             let _ = build_tray(app.handle());
             // 启动时设置本地化窗口标题(中文系统 → 智汇AI,其他 → IHUI AI)
             let app_name = localized_app_name();
@@ -1066,7 +1004,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             get_admin_window_info,
-            build_app_menu,
             toggle_devtools,
             quit_app,
             open_admin_window,
