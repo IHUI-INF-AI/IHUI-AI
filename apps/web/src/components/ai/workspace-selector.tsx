@@ -33,6 +33,7 @@ export function WorkspaceSelector() {
 
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
+  const setPendingPermissionSetup = useAiPanelStore((s) => s.setPendingPermissionSetup)
 
   const [pickerOpen, setPickerOpen] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
@@ -92,6 +93,13 @@ export function WorkspaceSelector() {
             .filter(Boolean)
         : undefined,
     })
+    // 2026-07-25 深度对标 Codex:选择项目文件后,若该工作区尚未配置权限,
+    // 立即弹权限确认 Dialog,让用户主动选择是否完全访问(避免 AI 静默拿到完全访问权限)。
+    if (!perm) {
+      setPendingPermissionSetup({ path, name })
+    } else {
+      setPendingPermissionSetup(null)
+    }
   }
 
   const triggerLabel = hasActive ? tw('selectWorkspace') : t('addWorkspace')
