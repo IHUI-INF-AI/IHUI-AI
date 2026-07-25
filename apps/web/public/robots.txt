@@ -111,9 +111,15 @@ Sitemap: https://ihui.ai/qwen.txt
 Sitemap: https://ihui.ai/wenxin.txt
 Sitemap: https://ihui.ai/zhipu.txt
 Sitemap: https://ihui.ai/hunyuan.txt
-# Feed(2)
+# 行业 + 角色垂直 GEO(2026-07-26 阶段 6 新增)
+Sitemap: https://ihui.ai/industries.md
+Sitemap: https://ihui.ai/roles.md
+# Google Knowledge Graph 结构化数据
+Sitemap: https://ihui.ai/knowledge-graph.json
+# Feed(2)+ WebSub Hub(1)
 Sitemap: https://ihui.ai/rss.xml
 Sitemap: https://ihui.ai/atom.xml
+Sitemap: https://ihui.ai/websub
 
 # Feed 自动发现(2026-07-26 立)
 # 浏览器/阅读器访问首页时自动发现 feed 入口
