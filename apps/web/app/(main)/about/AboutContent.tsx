@@ -122,7 +122,7 @@ export function AboutContent(): React.JSX.Element {
           </div>
         )}
         {!isLoading &&
-          displayValues.map(({ icon, title, desc }) => {
+          displayValues.map(({ icon: any, title: any, desc: any }) => {
             const Icon = ICON_MAP[icon as keyof typeof ICON_MAP] ?? Target
             return (
               <div

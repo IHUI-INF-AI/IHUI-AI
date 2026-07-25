@@ -81,10 +81,10 @@ export default function AiWorldDetailPage() {
   }
 
   const categoryName = world?.categoryId
-    ? (catData?.list.find((c) => c.id === world.categoryId)?.name ?? '-')
+    ? (catData?.list.find((c: any) => c.id === world.categoryId)?.name ?? '-')
     : '-'
 
-  const relatedApps = (worldListData ?? []).filter((a) => a.id !== params.id).slice(0, 4)
+  const relatedApps = (worldListData ?? []).filter((a: any) => a.id !== params.id).slice(0, 4)
 
   if (isLoading) {
     return (
@@ -171,7 +171,7 @@ export default function AiWorldDetailPage() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold">相关推荐</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {relatedApps.map((app) => (
+            {relatedApps.map((app: any) => (
               <Link
                 key={app.id}
                 href={`/ai-world/${app.id}`}

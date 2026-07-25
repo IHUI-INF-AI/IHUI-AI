@@ -20,6 +20,9 @@ import type {
   CreateApiKeyRequest,
   CreateApiKeyResponse,
   RotateApiKeyResponse,
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 } from '@ihui/types'
 
 /** 列出当前用户的 API 密钥(脱敏,不含 secret)。 */

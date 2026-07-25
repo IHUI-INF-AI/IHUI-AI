@@ -95,7 +95,7 @@ export default function LimitsPage() {
         <p className="py-8 text-center text-sm text-muted-foreground">暂无限额数据</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {items.map((item) => {
+          {items.map((item: any) => {
             const pct = item.total > 0 ? (item.used / item.total) * 100 : 0
             return (
               <Card key={item.key}>

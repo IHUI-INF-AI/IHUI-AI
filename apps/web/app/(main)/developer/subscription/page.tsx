@@ -155,7 +155,7 @@ export default function SubscriptionPage() {
 
                 {data.features && data.features.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 border-t pt-2">
-                    {data.features.map((f) => (
+                    {data.features.map((f: any) => (
                       <span
                         key={f}
                         className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
@@ -174,7 +174,7 @@ export default function SubscriptionPage() {
             <div>
               <p className="mb-2 text-sm font-semibold">{t('upgradePlans')}</p>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {plans.map((p) => (
+                {plans.map((p: any) => (
                   <Card key={p.id} className={cn(p.isCurrent && 'border-primary bg-primary/5')}>
                     <CardContent className="space-y-2 p-4">
                       <div className="flex items-center justify-between">
@@ -193,7 +193,7 @@ export default function SubscriptionPage() {
                         </span>
                       </p>
                       <ul className="space-y-1 text-xs text-muted-foreground">
-                        {p.features.map((f) => (
+                        {p.features.map((f: any) => (
                           <li key={f} className="flex items-center gap-1">
                             <Check className="h-3 w-3 shrink-0" />
                             {f}

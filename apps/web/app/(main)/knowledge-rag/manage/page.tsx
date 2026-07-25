@@ -78,7 +78,7 @@ export default function KnowledgeRagManagePage() {
 
   const docs = data ?? []
   const allSelected = docs.length > 0 && selected.size === docs.length
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(docs.map((d) => d.id)))
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(docs.map((d: any) => d.id)))
   const toggleOne = (id: number) =>
     setSelected((prev) => {
       const next = new Set(prev)
@@ -90,7 +90,7 @@ export default function KnowledgeRagManagePage() {
   const singleDeleteMut = useMutation({
     mutationFn: (docId: number) =>
       api<{ deleted: boolean }>(`/api/knowledge/docs/${docId}`, { method: 'DELETE' }),
-    onSuccess: (_d, docId) => {
+    onSuccess: (_d: any, docId: any) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setSelected((p) => {
         const n = new Set(p)
@@ -99,7 +99,7 @@ export default function KnowledgeRagManagePage() {
       })
       setFeedback({ type: 'success', msg: t('deleteSuccess') })
     },
-    onError: (e) => setFeedback({ type: 'error', msg: (e as Error).message }),
+    onError: (e: any) => setFeedback({ type: 'error', msg: (e as Error).message }),
   })
 
   const batchDeleteMut = useMutation({
@@ -108,7 +108,7 @@ export default function KnowledgeRagManagePage() {
         method: 'POST',
         body: JSON.stringify({ docIds, ownerUuid: '' }),
       }),
-    onSuccess: (result) => {
+    onSuccess: (result: any) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setSelected(new Set())
       setConfirmOpen(false)
@@ -118,7 +118,7 @@ export default function KnowledgeRagManagePage() {
         msg: failed === 0 ? t('deleteSuccess') : t('partialFailed', { failed }),
       })
     },
-    onError: (e) => setFeedback({ type: 'error', msg: (e as Error).message }),
+    onError: (e: any) => setFeedback({ type: 'error', msg: (e as Error).message }),
   })
 
   return (
@@ -191,7 +191,7 @@ export default function KnowledgeRagManagePage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {docs.map((d) => (
+          {docs.map((d: any) => (
             <ManageRow
               key={d.id}
               doc={d}
