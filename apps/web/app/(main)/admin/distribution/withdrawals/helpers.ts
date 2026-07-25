@@ -53,7 +53,7 @@ export const amountCls = (n: number) =>
 
 export function fetchWithdrawals(page: number, status: string): Promise<ListData> {
   return safeFetch<ListData>(
-    `/commission/withdrawals?page=${page}&pageSize=${PAGE_SIZE}${status !== 'all' ? `&status=${status}` : ''}`,
+    `/distribution/withdrawals?page=${page}&pageSize=${PAGE_SIZE}${status !== 'all' ? `&status=${status}` : ''}`,
     { items: [], total: 0 },
   )
 }

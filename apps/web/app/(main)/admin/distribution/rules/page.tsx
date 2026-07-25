@@ -66,14 +66,14 @@ export default function AdminDistributionRulesPage() {
 
   const listQ = useQuery({
     queryKey: ['admin', 'distribution', 'rules'],
-    queryFn: () => safeFetch<ListData>('/commission/rules', { items: [], total: 0 }),
+    queryFn: () => safeFetch<ListData>('/distribution/rules', { items: [], total: 0 }),
   })
 
   const items = listQ.data?.items ?? listQ.data?.list ?? []
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      const url = editing ? `/commission/rules/${editing.id}` : '/commission/rules'
+      const url = editing ? `/distribution/rules/${editing.id}` : '/distribution/rules'
       const r = await fetchApi<Rule>(url, {
         method: editing ? 'PUT' : 'POST',
         body: JSON.stringify(form),
