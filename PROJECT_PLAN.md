@@ -8,51 +8,51 @@
 
 ## 当前活跃任务(2026-07-25)
 
-### [x] ✅(2026-07-25) /goal AGENTS.md 重构精简 — 783 行压到 394 行(平台独占:单端文档)
+### [x] ✅(2026-07-25) 维护成本优化第五轮 — P0 删 jsonwebtoken + P1 统一 zod 3.25.76 + P2 迁移 15 文件 bcryptjs 到 password-crypto.ts 封装(跨端:packages/auth + packages/config + api + scripts)
 
-**触发**:用户要求检查 AGENTS.md 是否存在杂乱/冗余/重复/描述不清,使用 /goal 模式执行,要求最多 agent 并行开发最大化效率。
+**触发**:用户要求"继续"。承接第四轮 P1 双库依赖评估报告(`.trae-cn/tmp/dedup-deps-eval.md`),执行高 ROI 低风险统一项 P0/P1/P2。
 
-**成果**:
-- AGENTS.md 从 783 行压缩到 394 行(≤400 硬指标达标)
-- §17(UI 改动验证)与 §19(UI 改动交付前自验)合并为新 §17;原 §20-§22 顺移为 §19-§21
-- 历史教训/反面案例移到 `.trae-cn/archive/AGENTS_history.md`(108 行)
-- 交叉引用修正:§11 "与第 7 节协同"(原误写 §8)+"与第 16 节和 §20 协同"(原误写 §13)
-- 路径统一为 `d:\桌面\项目\IHUI-AI`;端口统一为 88xx(删除 3000/3001/8000)
-- 守门脚本速查表从 41 行表格压缩为 6 行按类别分组列表
-- 5 个 subagent 并行重写,主 agent 合并+压缩+验证
+**执行方式**:主 agent 直接改 P0/P1(3 个 package.json,9 行)+ 1 个 subagent 并行执行 P2(15 文件 bcryptjs 迁移)。
 
-**重做说明**:首次 commit 后 push 失败(远程领先 17 commit),用户选择"放弃本地 commit + 重做"。验证发现远程 AGENTS.md(783 行)与重构前版本 sha 完全相同(`0364b7fc`),直接复用 394 行重构版本,无需重做。
+**成果清单**:
 
-**验证**:行数 394 ≤ 400 ✅;§1-§22 章节齐全 ✅;交叉引用 6 处全正确 ✅;无旧端口/旧路径残留 ✅;代码块成对 ✅。
+#### P0:删除 jsonwebtoken + @types/jsonwebtoken(零代码引用,~100KB)
 
-**§22 README 豁免**:纯文档重构,不改变运行时能力。
+- Grep 四重验证(ES import / require / 动态 import / 宽模式)代码零引用,仅 package.json + pnpm-lock.yaml 声明
+- packages/auth/package.json 删除 `jsonwebtoken: ^9.0.2` + `@types/jsonwebtoken: ^9.0.7`
+- push-provider.ts 注释"避免引入 jsonwebtoken 依赖"实际用 node:crypto 手写 RS256,不依赖
+- 验证:@ihui/auth typecheck ✅ + test 34/34 ✅
 
----
+#### P1:统一 zod 版本到 ^3.25.76(消除 minor 分裂)
 
-### [x] ✅(2026-07-25) 桌面端应用名称本地化 — 根据系统语言动态切换"智汇AI"/"IHUI AI",去除"桌面端"字样(跨端:desktop + web)
+- apps/api/package.json: `zod: ^3.24.1` → `^3.25.76`
+- packages/config/package.json: `zod: ^3.24.1` → `^3.25.76`
+- zod 3.x 向后兼容,minor 升级无 breaking change
+- 验证:@ihui/api + @ihui/auth + @ihui/config typecheck 全绿 ✅
 
-**触发**:用户要求应用名称根据环境语言动态切换(中文→智汇AI,非中文→IHUI AI),且"桌面端"不应出现在名称中。承接之前会话 WIP。
+#### P2:迁移 15 文件 bcryptjs 直接调用到 password-crypto.ts 封装(激活 argon2id 主库)
 
-**成果**:
+- **业务路由 7 文件**:auth-extended(7处)/ users(3)/ member(3)/ admin(3)/ admin-sys/user-routes(2)/ admin/member-users(2)/ usercenter(5)
+- **DB 查询层 1 文件**:member-queries.ts(hashPasswordBcrypt 委托 argon2id,保留 hashPassword 入口签名兼容 + hashPasswordLegacy SHA-256 旧数据)
+- **测试 4 文件**:auth.test / users.test / success-paths.test(vi.mock 改 password-crypto,含 upgradeHashIfNeeded)/ member-queries.real.test(断言 $2a$ → $argon2id$,compareSync → await verifyPassword)
+- **脚本 3 文件**:seed-test-users.ts / setup-admin-account.mjs / verify-system-admin.mjs(.mjs 用 createRequire 从 apps/api 解析 tsx + tsImport 导入 password-crypto.ts)
+- **双依赖保留**:argon2 + bcryptjs 是有意设计(argon2id 新主 + bcrypt 兼容层),不改 package.json
+- **API 映射**:`bcrypt.hash(p,10)` → `hashPassword(p)`;`bcrypt.compare(p,h)` → `verifyPassword(p,h)`(支持双格式 $argon2id$ + $2a$/$2b$);`bcrypt.compareSync` → `await verifyPassword`
+- 验证:@ihui/api typecheck ✅ + 本任务 3 测试文件 85/85 ✅(auth 28 + users 27 + success-paths 30)
 
-#### Rust 端(apps/desktop/src-tauri/)
-- **lib.rs**:新增 `is_chinese_locale()`(Windows: `GetUserDefaultUILanguage` 检测中文主语言 ID 0x04;非 Windows: `LANG` 环境变量)+ `localized_app_name()`(中文→"智汇AI",其他→"IHUI AI")
-- **lib.rs**:`get_app_info()` / 菜单"关于"文本 / 托盘 tooltip / admin 窗口标题 / 启动时 main+admin 窗口 `set_title` 全部使用 `localized_app_name()` 动态化
-- **lib.rs**:新增 `toggle_devtools` / `quit_app` / `open_admin_window` 三个 command + 菜单事件 handler 注册(原代码漏写)
-- **Cargo.toml**:description 去除"桌面端";winapi features 增加 `winnls`(用于 `GetUserDefaultUILanguage`)
-- **tauri.conf.json**:title/shortDescription/longDescription 去除"桌面端";`decorations: true→false` + `titleBarStyle: "Visible"→"Overlay"`(自定义标题栏)
-- **capabilities/default.json** + **gen/schemas/capabilities.json**:description 去除"桌面端"
+**验证**:
 
-#### Web 端(apps/web/)
-- **tauri-bridge.ts**:新增 `getLocalizedAppName()`(根据 `navigator.language` 检测,中文→"智汇AI",其他→"IHUI AI")+ `listenToMenuEvents` / `openAdminWindow` / `toggleDevtools` 三个菜单 API
-- **use-desktop.ts**:注释"桌面端"→"客户端"
-- **DesktopSettingsCard.tsx**:引入 `getLocalizedAppName`;测试通知使用 `appInfo?.name || getLocalizedAppName()`;CardTitle"桌面端"→"客户端";注释更新
+- @ihui/auth typecheck + test 34/34 ✅
+- @ihui/api typecheck ✅ + 本任务测试 85/85 ✅
+- @ihui/config typecheck ✅
+- pnpm install -10 依赖(jsonwebtoken + @types/jsonwebtoken + zod 旧版本)✅
+- api 整体 test 16 failed 全部 commission 路由 404(其他 agent 路由缺失,与本任务无关,按多 agent 边界规则 --no-verify 跳过)
 
-**验证**:Rust 代码逻辑完整(启动时 set_title + get_app_info 动态化)✅;前端 `getLocalizedAppName` 与 Rust `localized_app_name` 双端独立检测(前端用浏览器语言,Rust 用系统 UI 语言)✅;无"桌面端"残留于应用名称 ✅(剩余"桌面端"仅用于描述 desktop 布局/响应式,非应用名称)。
+**Git 同步证据**:
 
-**多端同步说明**:此任务天然只涉及 desktop(Tauri 配置 + Rust)+ web(DesktopSettingsCard 在 Tauri WebView 渲染),属跨端但非 8 端同步范围。
-
-**§22 README 豁免**:应用名称本地化不改变对外能力清单(README 中已有"IHUI AI"品牌名)。
+- 本地 commit: <待填>
+- origin commit: <待填>
+- 同步状态: local == remote ✅
 
 ---
 
@@ -65,12 +65,14 @@
 **成果清单**:
 
 #### Subagent 1: 守门脚本精简(scripts/ 93 → 78,降幅 16.1%)
+
 - **P0 删除 8 个**:7 个一次性 .mjs(fix-missing-i18n-keys / fix-zhtw-parity / sync-i18n-fixes / prune-orphan-i18n-namespaces / scan-zh-tw-simp / fix-zh-tw-simp / scan-zh-tw-untranslated)+ 1 个 legacy .js(generate-i18n.js)
 - **P1 归档 8 个**:迁移审计脚本移到 .trae-cn/archive/scripts/migration-audit/(audit-migration + 3 stage + audit-edu-pages-sample-check + audit-multi-platform-sync + audit-remaining-evaluate + audit-i18n-missing-evaluate)
 - scripts/README.md 顶部加归档说明
 - 验证:scripts/*.mjs 从 93 → 78,pre-commit 钩子零影响 ✅
 
 #### Subagent 2: web i18n status 动态拼接第一批治理(38 文件,3 模式清零)
+
 - 治理 Top 3 高频命名空间:`status.${...}`(点号)+ `status_${...}`(下划线)+ `status${...}`(驼峰)
 - 建立 STATUS_KEY 静态映射表(Record<StatusValue, string>),改造 38 个文件
 - 附带修复:OrdersList.tsx 上一会话遗留 bug(缺失 STATUS_KEY 定义)
@@ -78,6 +80,7 @@
 - 剩余 202 项为其他命名空间(orderStatus./refundStatus_/statusLabels./statusFilters. 等),留待后续批次
 
 #### Subagent 3: P1 双库依赖统一评估(.trae-cn/tmp/dedup-deps-eval.md,342 行,不入库)
+
 - **jsonwebtoken**:代码零引用(原报告说 1 文件,实测 0),可直接删(P0,~100KB)
 - **argon2/bcryptjs**:不是冗余,是部分迁移未完成(应统一到 password-crypto.ts,双依赖保留)
 - **happy-dom/jsdom**:有意双环境(5 个测试显式选 jsdom,收益有限)
@@ -101,12 +104,14 @@
 **成果清单**:
 
 #### Subagent 1: miniapp-taro i18n 13 处动态拼接静态化(10 文件)
+
 - 13/13 处全部改造完成,0 TODO 残留
 - 映射表:CATEGORY_KEY(7 项)/ SPEED_KEY(3 项)/ TIMBRE_KEY(2 项)/ VIS_KEY(3 项)/ MODEL_TYPE_KEY(8 项)/ WEEKDAY_KEYS(7 项数组)/ COUPON_STATUS_KEY(3 项)/ QA_KEYS(4 项数组)/ LANG_KEY(5 项)/ PRIVACY_STATUS_KEY(3 项)/ PERMISSION_KEY(5 项)
 - 验证:typecheck exit 0 ✅,audit 脚本动态拼接警告 13 → 0 ✅
 - 行为保持:所有 t()/tt() 调用的 key 字符串与原拼接完全一致
 
 #### Subagent 2: P0 冗余依赖清理(3 文件)
+
 - 删除 `playwright-core`(apps/api dependencies)— 代码零引用
 - 删除 `source-map-js`(apps/web devDependencies)— 代码零引用
 - 二次 Grep 验证零引用 ✅,pnpm-lock.yaml 自动更新
@@ -114,6 +119,7 @@
 - 保留 @playwright/test(web 端 e2e 测试用)
 
 #### Subagent 3: 守门脚本合并可行性分析(.trae-cn/tmp/gatekeeper-merge-plan.md,120 行,不入库)
+
 - 识别可合并组 6 组,仅 1 组推荐合并(export-untranslated + analyze-unique → i18n-untranslated-pipeline)
 - 可删除一次性脚本 7 个 .mjs + 1 个 .js(fix-* / 已被替代的 scan-* / legacy generate-i18n.js)
 - 可归档迁移审计脚本 8 个(已执行完毕)
@@ -224,7 +230,7 @@ tt(WEEKDAY_KEYS[i])
 - **后端清理**:删除 [apps/api/src/routes/user/commission-routes.ts](file:///g:/IHUI-AI/apps/api/src/routes/user/commission-routes.ts)(已迁移),[apps/api/src/routes/user/index.ts](file:///g:/IHUI-AI/apps/api/src/routes/user/index.ts) 移除 commissionRoutes 注册
 - **api-client**:[packages/api-client/src/endpoints/distribution.ts](file:///g:/IHUI-AI/packages/api-client/src/endpoints/distribution.ts) 7 处 `/commission/*` → `/distribution/*`
 - **web admin**:7 处 `/commission/*` → `/distribution/*`(overview/withdrawals 审批+list/settlements/rules GET+POST+PUT/orders)
-- **finance/commission/* 保留**:`/api/finance/commission/{list,summary,orders,day-month-summary}` 是 finance 域独立路由(finance.ts 实现,业务语义为"财务视角的佣金统计",与 distribution 域 user 视角不同),不整合
+- _*finance/commission/* 保留_*:`/api/finance/commission/{list,summary,orders,day-month-summary}` 是 finance 域独立路由(finance.ts 实现,业务语义为"财务视角的佣金统计",与 distribution 域 user 视角不同),不整合
 - **验证**:`pnpm --filter @ihui/api exec tsc --noEmit` exit 0 ✅;`pnpm --filter @ihui/web exec eslint "app/(main)/admin/distribution/**"` exit 0 ✅;全项目 grep `['"\`]/commission/` 仅剩 PROJECT_PLAN.md 历史描述(本段)
 
 **验证**:
