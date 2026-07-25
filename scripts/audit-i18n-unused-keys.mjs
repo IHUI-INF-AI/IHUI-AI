@@ -6,9 +6,11 @@
  * 只审计不删除,主 agent 决定后续清理。
  *
  * 用法:
- *   node scripts/audit-i18n-unused-keys.mjs                              # 默认扫 web + miniapp-taro
+ *   node scripts/audit-i18n-unused-keys.mjs                              # 默认扫 web + miniapp-taro + extension + mobile-rn
  *   node scripts/audit-i18n-unused-keys.mjs --target=web                  # 只扫 web
  *   node scripts/audit-i18n-unused-keys.mjs --target=miniapp-taro         # 只扫小程序
+ *   node scripts/audit-i18n-unused-keys.mjs --target=extension            # 只扫浏览器插件
+ *   node scripts/audit-i18n-unused-keys.mjs --target=mobile-rn            # 只扫 React Native 移动端
  *   node scripts/audit-i18n-unused-keys.mjs --dry-run                     # 输出到 stdout
  *   node scripts/audit-i18n-unused-keys.mjs --output=<path>               # 输出到文件
  *
@@ -27,6 +29,7 @@ const ROOT = process.cwd()
 // 注:任务规格中的路径(apps/web/messages/、apps/miniapp-taro/src/i18n/zh-CN.ts)
 // 已于 2026-07-25 迁移到 packages/i18n/messages/{web,miniapp-taro}/zh-CN.json
 // (单一来源,各端通过 @ihui/i18n 包导入)。本脚本按实际路径扫描。
+// 2026-07-25 第十一轮:扩展覆盖 extension + mobile-rn 两端,避免基于"键集合差异"误判无引用 key。
 const TARGET_CONFIG = {
   web: {
     name: 'web',
@@ -40,13 +43,30 @@ const TARGET_CONFIG = {
     searchDirs: ['apps/miniapp-taro/src'],
     usesNamespaces: false, // 自定义 useI18n():t('full.path') 直传完整路径
   },
+  extension: {
+    name: 'extension',
+    messagesFile: 'packages/i18n/messages/extension/zh-CN.json',
+    // extension 代码分布:entrypoints(popup/sidepanel/content)+ src(i18n/idb/lib)+ lib(共享工具)
+    searchDirs: ['apps/extension/entrypoints', 'apps/extension/src', 'apps/extension/lib'],
+    usesNamespaces: false, // 自定义 useI18n():t('full.path') 直传完整路径(与 miniapp-taro/mobile-rn 一致)
+  },
+  'mobile-rn': {
+    name: 'mobile-rn',
+    messagesFile: 'packages/i18n/messages/mobile-rn/zh-CN.json',
+    // 2026-07-25 第十二轮:补 packages/app/src — mobile-rn 通过 props.t={t} 注入共享组件,
+    // 共享组件内部 t('key') 调用必须纳入扫描,否则 about.*/settings.*/profile.* 等会被误判无引用。
+    searchDirs: ['apps/mobile-rn/src', 'apps/mobile-rn/App.tsx', 'packages/app/src'],
+    usesNamespaces: false, // 自定义 useI18n():t('full.path') 直传完整路径
+  },
 }
 
 // ripgrep 广义匹配模式:捕获所有可能包含 i18n 引用的行
 // 匹配 useTranslations / getTranslations / formatMessage / FormattedMessage / i18nKey
 // 以及 t( / tt( / tList( 后跟引号(单/双/反引号)
+// 2026-07-25 第十二轮:补 titleKey|descKey|labelKey|nameKey|descriptionKey|altKey —
+// 解决 extension 端 <AppListPage titleKey="apps.aiTitle" /> JSX 属性形式被 ripgrep 漏扫的问题。
 const RG_PATTERN =
-  "useTranslations|getTranslations|formatMessage|FormattedMessage|i18nKey|\\bt(?:t|List)?(?:\\s*\\(|\\.raw\\s*\\()\\s*['\"`]"
+  "useTranslations|getTranslations|formatMessage|FormattedMessage|i18nKey|titleKey|descKey|labelKey|nameKey|descriptionKey|altKey|\\bt(?:t|List)?(?:\\s*\\(|\\.raw\\s*\\()\\s*['\"`]"
 
 // ============================================================
 // CLI 解析
@@ -58,8 +78,8 @@ function parseArgs(argv) {
   }
   const targetArg = args.find((a) => a.startsWith('--target='))
   const target = targetArg ? targetArg.slice('--target='.length) : null
-  if (target !== null && target !== 'web' && target !== 'miniapp-taro') {
-    return { error: `无效的 --target 值: ${target}(可选: web | miniapp-taro)` }
+  if (target !== null && target !== 'web' && target !== 'miniapp-taro' && target !== 'extension' && target !== 'mobile-rn') {
+    return { error: `无效的 --target 值: ${target}(可选: web | miniapp-taro | extension | mobile-rn)` }
   }
   const dryRun = args.includes('--dry-run')
   const outputArg = args.find((a) => a.startsWith('--output='))
@@ -97,6 +117,8 @@ function showHelp() {
 扫描范围:
   web          基准 packages/i18n/messages/web/zh-CN.json,搜索 apps/web/src + apps/web/app
   miniapp-taro 基准 packages/i18n/messages/miniapp-taro/zh-CN.json,搜索 apps/miniapp-taro/src
+  extension    基准 packages/i18n/messages/extension/zh-CN.json,搜索 apps/extension/entrypoints + src + lib
+  mobile-rn    基准 packages/i18n/messages/mobile-rn/zh-CN.json,搜索 apps/mobile-rn/src + App.tsx + packages/app/src
 
 退出码:
   0 = 审计完成(无论是否发现无引用 key)
@@ -256,7 +278,8 @@ function extractObjectLiteralKeys(content, knownTopLevelKeys, fileNamespaces) {
   if (!knownTopLevelKeys || knownTopLevelKeys.size === 0) return staticKeys
 
   // 已知 i18n key 字段名(含 label 用于 sidebar 分组标题)
-  const i18nKeyFields = /^(labelKey|nameKey|descriptionKey|titleKey|altKey|key|value|label|text|title)$/
+  // 2026-07-25 第十二轮:补 descKey — extension 端 AppListPage 通过 descKey 字段传递描述 i18n key。
+  const i18nKeyFields = /^(labelKey|nameKey|descriptionKey|titleKey|descKey|altKey|key|value|label|text|title)$/
 
   // 1. 匹配对象属性值字符串:field: 'value' 或 field: "value"
   const re1 = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*['"]([a-zA-Z][a-zA-Z0-9_-]*(?:\.[a-zA-Z0-9_-]+)*)['"]\s*[,}\n)]/g
@@ -311,6 +334,9 @@ function extractFromLine(content, filePath, lineNo, usesNamespaces, varNames) {
   const staticKeys = new Set()
   const dynamicWarnings = []
   const namespaces = new Set()
+  // 2026-07-25 第十二轮:收集模板字面量赋值的静态 prefix(如 `order.status.${var}` → "order.status.")
+  // 用于后续标记所有以该 prefix 开头的 leaf key 为已引用,解决 const VAR = `...${...}...`; t(VAR) 间接调用漏识别。
+  const dynamicPrefixes = new Set()
   let m
 
   // strip 注释(避免 JSDoc 示例文本被误识别为动态拼接,2026-07-25 修)
@@ -346,8 +372,10 @@ function extractFromLine(content, filePath, lineNo, usesNamespaces, varNames) {
     }
   }
 
-  // i18nKey="key" / i18nKey='key'
-  const re3 = /i18nKey\s*=\s*['"]([^'"]+)['"]/g
+  // i18nKey="key" / i18nKey='key' — JSX 属性
+  // 2026-07-25 第十二轮:扩展识别 titleKey/descKey/labelKey/nameKey 等 JSX 属性形式,
+  // 解决 extension 端 AppListPage 通过 <AppListPage titleKey="apps.aiTitle" /> 传递 i18n key 被漏识别。
+  const re3 = /\b(?:i18nKey|titleKey|descKey|labelKey|nameKey|descriptionKey|altKey)\s*=\s*['"]([^'"]+)['"]/g
   while ((m = re3.exec(content)) !== null) {
     staticKeys.add(m[1])
   }
@@ -403,6 +431,29 @@ function extractFromLine(content, filePath, lineNo, usesNamespaces, varNames) {
     })
   }
 
+  // 动态拼接:const VAR = `prefix${...}...` — 间接调用模式(2026-07-25 第十二轮新增)
+  // 解决核心 bug:reDyn1 只识别 t(`...${...}...`) 直接调用,
+  // 不识别 const VAR = `...${...}...`; t(VAR) 间接调用(mobile-rn OrderScreen 模式)。
+  // 提取第一个 ${} 之前的静态 prefix,用于标记所有以该 prefix 开头的 leaf key 为已引用。
+  const re7 = /(?:const|let|var)\s+\w+\s*=\s*`([^`]*\$\{[^}]*\}[^`]*)`/g
+  while ((m = re7.exec(content)) !== null) {
+    const template = m[1]
+    const dollarIdx = template.indexOf('${')
+    if (dollarIdx > 0) {
+      const prefix = template.slice(0, dollarIdx)
+      // 只保留含点号的 prefix(避免误匹配普通模板字符串)
+      if (prefix.includes('.')) {
+        dynamicPrefixes.add(prefix)
+      }
+    }
+    dynamicWarnings.push({
+      file: filePath,
+      lineNo,
+      line: content.trim(),
+      pattern: m[0],
+    })
+  }
+
   // 命名空间:useTranslations('ns') / getTranslations('ns')
   if (usesNamespaces) {
     const reNs = /\b(?:useTranslations|getTranslations)\s*\(\s*['"]([^'"]+)['"]\s*\)/g
@@ -411,7 +462,7 @@ function extractFromLine(content, filePath, lineNo, usesNamespaces, varNames) {
     }
   }
 
-  return { staticKeys, dynamicWarnings, namespaces }
+  return { staticKeys, dynamicWarnings, namespaces, dynamicPrefixes }
 }
 
 // ============================================================
@@ -438,6 +489,8 @@ function auditTarget(targetKey) {
 
   // 3. 按文件分组,第一遍提取变量名 + 命名空间 + staticKeys(t/tt/tList)+ 动态警告
   const dynamicWarnings = []
+  // 2026-07-25 第十二轮:汇总所有文件的动态 prefix(如 "order.status."),用于步骤 4b 标记 leaf key
+  const dynamicPrefixes = new Set()
   const fileData = new Map() // file -> { namespaces: Set, staticKeys: Set, varNames: Set }
   const allVarNames = new Set()
 
@@ -451,7 +504,7 @@ function auditTarget(targetKey) {
     const vars = extractTranslationVars(content)
     for (const v of vars) allVarNames.add(v)
 
-    const { staticKeys, dynamicWarnings: dw, namespaces } = extractFromLine(
+    const { staticKeys, dynamicWarnings: dw, namespaces, dynamicPrefixes: dp } = extractFromLine(
       content,
       file,
       lineNo,
@@ -466,6 +519,7 @@ function auditTarget(targetKey) {
     for (const v of vars) fd.varNames.add(v)
     for (const k of staticKeys) fd.staticKeys.add(k)
     dynamicWarnings.push(...dw)
+    if (dp) for (const p of dp) dynamicPrefixes.add(p)
   }
 
   // 3b. 第二遍:如果有额外变量名(tc/te/tr 等非 t/tt/tList),ripgrep 搜索它们的调用
@@ -484,17 +538,20 @@ function auditTarget(targetKey) {
           fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
         }
         const fd = fileData.get(file)
-        // 用文件级 varNames 提取 staticKeys
-        const { staticKeys } = extractFromLine(content, file, lineNo, cfg.usesNamespaces, fd.varNames)
+        // 用文件级 varNames 提取 staticKeys + dynamicPrefixes
+        const { staticKeys, dynamicPrefixes: dp2 } = extractFromLine(content, file, lineNo, cfg.usesNamespaces, fd.varNames)
         for (const k of staticKeys) fd.staticKeys.add(k)
+        if (dp2) for (const p of dp2) dynamicPrefixes.add(p)
       }
     }
   }
 
-  // 3c. 第三遍:文件级对象字面量映射表扫描
-  // 解决 t(MAP[var]) / t(item.nameKey) 间接引用漏识别
-  // 对每个命中文件读取完整内容,提取对象字面量中的 i18n key 路径字符串
+  // 3c. 第三遍:文件级对象字面量映射表扫描 + 动态 prefix 文件级扫描
+  // 解决 t(MAP[var]) / t(item.nameKey) 间接引用漏识别 + const VAR = `prefix${...}...`; t(VAR) 间接调用漏识别
+  // 2026-07-25 第十二轮:re7 从行级提升为文件级扫描 — 因为 `const VAR = `...${...}...`` 这一行
+  // 通常不含 t( 调用,ripgrep 不会返回,extractFromLine 行级 re7 无法触发。改为文件级扫描捕获。
   const knownTopLevelKeys = new Set(Object.keys(messages))
+  const re7File = /(?:const|let|var)\s+\w+\s*=\s*`([^`]*\$\{[^}]*\}[^`]*)`/g
   for (const file of hitFiles) {
     let fileContent
     try {
@@ -502,15 +559,30 @@ function auditTarget(targetKey) {
     } catch {
       continue
     }
+    // 3c-1: 对象字面量映射表(原逻辑)
     const fd = fileData.get(file)
     const fileNamespaces = fd ? fd.namespaces : new Set()
     const objKeys = extractObjectLiteralKeys(fileContent, knownTopLevelKeys, fileNamespaces)
-    if (objKeys.size === 0) continue
-    if (!fd) {
-      fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
+    if (objKeys.size > 0) {
+      if (!fd) {
+        fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
+      }
+      const fd2 = fileData.get(file)
+      for (const k of objKeys) fd2.staticKeys.add(k)
     }
-    const fd2 = fileData.get(file)
-    for (const k of objKeys) fd2.staticKeys.add(k)
+    // 3c-2: 动态 prefix 文件级扫描(解决 const VAR = `order.status.${item.status}`; t(VAR) 间接调用)
+    let m7
+    re7File.lastIndex = 0
+    while ((m7 = re7File.exec(fileContent)) !== null) {
+      const template = m7[1]
+      const dollarIdx = template.indexOf('${')
+      if (dollarIdx > 0) {
+        const prefix = template.slice(0, dollarIdx)
+        if (prefix.includes('.')) {
+          dynamicPrefixes.add(prefix)
+        }
+      }
+    }
   }
 
   // 4. 解析引用 key
@@ -536,6 +608,21 @@ function auditTarget(targetKey) {
           const full = `${ns}.${key}`
           referencedKeys.add(full)
           markAncestors(full)
+        }
+      }
+    }
+  }
+
+  // 4b. 动态 prefix 标记(2026-07-25 第十二轮新增)
+  // 解决 const VAR = `order.status.${item.status}`; t(VAR) 间接调用模式:
+  // re7 已提取静态 prefix "order.status.",此处把所有以该 prefix 开头的 leaf key 标记为已引用。
+  if (dynamicPrefixes.size > 0) {
+    for (const leaf of leaves) {
+      for (const prefix of dynamicPrefixes) {
+        if (leaf.key.startsWith(prefix)) {
+          referencedKeys.add(leaf.key)
+          markAncestors(leaf.key)
+          break
         }
       }
     }
@@ -673,7 +760,8 @@ function main() {
   }
 
   // 确定扫描目标
-  const targets = opts.target ? [opts.target] : ['web', 'miniapp-taro']
+  // 2026-07-25 第十二轮:默认扫描全部 4 端(web + miniapp-taro + extension + mobile-rn),与 showHelp 描述对齐。
+  const targets = opts.target ? [opts.target] : ['web', 'miniapp-taro', 'extension', 'mobile-rn']
 
   // 审计各目标
   const results = []

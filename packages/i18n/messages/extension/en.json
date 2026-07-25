@@ -1,11 +1,8 @@
 {
   "common": {
-    "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
-    "edit": "Edit",
     "back": "Back",
-    "confirm": "Confirm",
     "loading": "Loading…",
     "empty": "No data",
     "retry": "Retry",
@@ -15,17 +12,12 @@
     "failed": "Failed"
   },
   "nav": {
-    "home": "Home",
     "chat": "AI Chat",
-    "translate": "Translate",
-    "vocab": "Vocab",
     "settings": "Settings",
-    "about": "About",
     "agents": "AI Assistant",
     "vocabulary": "Vocabulary",
     "profile": "Profile",
     "wallet": "Wallet",
-    "courses": "Courses",
     "notifications": "Notifications",
     "tabRuntime": "Runtime",
     "ai": "AI",
@@ -134,21 +126,14 @@
     "support": "Customer Support",
     "supportDesc": "Online customer support",
     "about": "About Us",
-    "aboutDesc": "Learn about IHUI AI",
     "contact": "Contact Us",
-    "contactDesc": "Contact information and address",
     "help": "Help Center",
-    "helpDesc": "Documentation and FAQ",
     "agreement": "User Agreement",
-    "agreementDesc": "Terms of Service",
-    "pricing": "Pricing",
-    "pricingDesc": "Membership and plan pricing"
+    "pricing": "Pricing"
   },
   "auth": {
     "login": "Log in",
     "logout": "Log out",
-    "register": "Sign up",
-    "loginSuccess": "Logged in",
     "loginRequired": "Please enter account and password",
     "phoneOrEmail": "Phone / Email",
     "password": "Password",
@@ -163,25 +148,8 @@
     "openChat": "AI Chat",
     "openSidePanel": "Open side panel"
   },
-  "translate": {
-    "title": "Immersive Translation",
-    "source": "Source",
-    "target": "Target",
-    "auto": "Auto-detect",
-    "translating": "Translating…",
-    "result": "Result",
-    "copy": "Copy",
-    "swap": "Swap"
-  },
   "vocab": {
     "title": "Vocabulary",
-    "add": "Add word",
-    "word": "Word",
-    "meaning": "Meaning",
-    "example": "Example",
-    "empty": "No words",
-    "review": "Review",
-    "mastered": "Mastered",
     "inputPlaceholder": "Enter a word to look up...",
     "lookup": "Look up",
     "saved": "Save to wordbook"
@@ -194,11 +162,8 @@
     "emptyHint": "Wordbook is empty, look up a word and save it"
   },
   "chat": {
-    "placeholder": "Type a message…",
     "send": "Send",
-    "newConversation": "New chat",
     "history": "History",
-    "stop": "Stop",
     "title": "AI Chat",
     "exit": "Exit",
     "selectModel": "Select model",
@@ -209,12 +174,6 @@
   "settings": {
     "title": "Settings",
     "language": "Interface language",
-    "targetLanguage": "Translation target",
-    "apiKey": "API Key",
-    "theme": "Theme",
-    "about": "About IHUI AI",
-    "version": "Version",
-    "feedback": "Feedback",
     "appearance": "Appearance",
     "darkMode": "Dark mode",
     "account": "Account",
@@ -300,18 +259,5 @@
     "requireInput": "Please enter account and password",
     "button": "Log in",
     "loadFailed": "Login failed"
-  },
-  "error": {
-    "network": "Network error",
-    "server": "Server error",
-    "unauthorized": "Please log in first",
-    "forbidden": "No permission",
-    "notFound": "Not found",
-    "unknown": "Unknown error"
-  },
-  "success": {
-    "saved": "Saved",
-    "deleted": "Deleted",
-    "copied": "Copied"
   }
 }

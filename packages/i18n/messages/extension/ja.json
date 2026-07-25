@@ -1,11 +1,8 @@
 {
   "common": {
-    "save": "保存",
     "cancel": "キャンセル",
     "delete": "削除",
-    "edit": "編集",
     "back": "戻る",
-    "confirm": "確認",
     "loading": "読み込み中…",
     "empty": "データなし",
     "retry": "再試行",
@@ -15,17 +12,12 @@
     "failed": "失敗"
   },
   "nav": {
-    "home": "ホーム",
     "chat": "AI チャット",
-    "translate": "翻訳",
-    "vocab": "単語帳",
     "settings": "設定",
-    "about": "について",
     "agents": "AI アシスタント",
     "vocabulary": "単語帳",
     "profile": "マイページ",
     "wallet": "ウォレット",
-    "courses": "コース",
     "notifications": "通知",
     "tabRuntime": "ランタイム",
     "ai": "AI",
@@ -134,21 +126,14 @@
     "support": "カスタマーサポート",
     "supportDesc": "オンラインカスタマーサポート",
     "about": "私たちについて",
-    "aboutDesc": "IHUI AI について",
     "contact": "お問い合わせ",
-    "contactDesc": "連絡先と住所",
     "help": "ヘルプセンター",
-    "helpDesc": "利用ドキュメントと FAQ",
     "agreement": "利用規約",
-    "agreementDesc": "サービス利用規約",
-    "pricing": "料金プラン",
-    "pricingDesc": "会員およびプラン料金"
+    "pricing": "料金プラン"
   },
   "auth": {
     "login": "ログイン",
     "logout": "ログアウト",
-    "register": "登録",
-    "loginSuccess": "ログインしました",
     "loginRequired": "アカウントとパスワードを入力してください",
     "phoneOrEmail": "電話番号 / メール",
     "password": "パスワード",
@@ -163,25 +148,8 @@
     "openChat": "AI チャット",
     "openSidePanel": "サイドパネルを開く"
   },
-  "translate": {
-    "title": "イマーシブ翻訳",
-    "source": "原文",
-    "target": "翻訳先",
-    "auto": "自動検出",
-    "translating": "翻訳中…",
-    "result": "翻訳結果",
-    "copy": "コピー",
-    "swap": "交換"
-  },
   "vocab": {
     "title": "単語帳",
-    "add": "単語を追加",
-    "word": "単語",
-    "meaning": "意味",
-    "example": "例文",
-    "empty": "単語なし",
-    "review": "復習",
-    "mastered": "習得済み",
     "inputPlaceholder": "単語を入力して検索...",
     "lookup": "検索",
     "saved": "単語帳に保存"
@@ -194,11 +162,8 @@
     "emptyHint": "単語帳は空です,単語を検索して保存してください"
   },
   "chat": {
-    "placeholder": "メッセージを入力…",
     "send": "送信",
-    "newConversation": "新規会話",
     "history": "履歴",
-    "stop": "停止",
     "title": "AI チャット",
     "exit": "終了",
     "selectModel": "モデルを選択",
@@ -209,12 +174,6 @@
   "settings": {
     "title": "設定",
     "language": "インターフェース言語",
-    "targetLanguage": "翻訳先の言語",
-    "apiKey": "API キー",
-    "theme": "テーマ",
-    "about": "IHUI AI について",
-    "version": "バージョン",
-    "feedback": "フィードバック",
     "appearance": "外観",
     "darkMode": "ダークモード",
     "account": "アカウント",
@@ -300,18 +259,5 @@
     "requireInput": "アカウントとパスワードを入力してください",
     "button": "ログイン",
     "loadFailed": "ログイン失敗"
-  },
-  "error": {
-    "network": "ネットワークエラー",
-    "server": "サーバーエラー",
-    "unauthorized": "ログインしてください",
-    "forbidden": "権限なし",
-    "notFound": "見つかりません",
-    "unknown": "不明なエラー"
-  },
-  "success": {
-    "saved": "保存しました",
-    "deleted": "削除しました",
-    "copied": "コピーしました"
   }
 }
