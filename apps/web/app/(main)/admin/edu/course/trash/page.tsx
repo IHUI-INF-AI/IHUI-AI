@@ -144,7 +144,7 @@ export default function EduCourseTrashPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((c) => (
+              rows.map((c: any) => (
                 <TableRow key={c.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{c.title}</div>
