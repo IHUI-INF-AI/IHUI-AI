@@ -2436,9 +2436,9 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 >
 > Sitemap:[sitemap.xml](https://ihui.ai/sitemap.xml)
 >
-> 行业垂直 GEO:[industries.md](https://ihui.ai/industries.md)(中文)· [industries.en.md](https://ihui.ai/industries.en.md)(English,海外 AI 引擎优先)
+> 行业垂直 GEO:[industries.md](https://ihui.ai/industries.md)(中文)· [industries.en.md](https://ihui.ai/industries.en.md)(English)· [industries.ja.md](https://ihui.ai/industries.ja.md)(日本語)· [industries.ko.md](https://ihui.ai/industries.ko.md)(한국어)— 5 行业 × 5 Agent × 3 案例 = 75 个落地参考
 >
-> 决策角色 GEO:[roles.md](https://ihui.ai/roles.md)(中文)· [roles.en.md](https://ihui.ai/roles.en.md)(English,海外 AI 引擎优先)
+> 决策角色 GEO:[roles.md](https://ihui.ai/roles.md)(中文)· [roles.en.md](https://ihui.ai/roles.en.md)(English)· [roles.ja.md](https://ihui.ai/roles.ja.md)(日本語)· [roles.ko.md](https://ihui.ai/roles.ko.md)(한국어)— 5 角色(Developer/CTO/PM/CEO/采购)决策路径
 >
 > Google Knowledge Graph:[knowledge-graph.json](https://ihui.ai/knowledge-graph.json)(Schema.org 实体对齐,供 Wikidata / Google KG 对齐引用)
 
@@ -2459,11 +2459,17 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
   - [IHUI AI vs LlamaIndex(RAG 数据框架)](https://ihui.ai/compare/ihui-vs-llamaindex)
   - [IHUI AI vs Flowise(可视化 LangChain)](https://ihui.ai/compare/ihui-vs-flowise)
   - [IHUI AI vs Typebot(开源聊天机器人构建器)](https://ihui.ai/compare/ihui-vs-typebot)
-- **行业用例页**(场景化关键词)
+  - **2026-07-26 阶段 8 新增 — 国内 AI 平台 8 个**(高频搜索长尾):
+    [vs 文心一言 ERNIE](https://ihui.ai/compare/ihui-vs-ernie) · [vs 通义千问平台](https://ihui.ai/compare/ihui-vs-qwen-platform) · [vs Kimi 平台](https://ihui.ai/compare/ihui-vs-kimi-platform) · [vs 豆包平台](https://ihui.ai/compare/ihui-vs-doubao) · [vs DeepSeek 平台](https://ihui.ai/compare/ihui-vs-deepseek-platform) · [vs 智谱开放平台](https://ihui.ai/compare/ihui-vs-zhipu) · [vs 讯飞星火](https://ihui.ai/compare/ihui-vs-spark) · [vs MiniMax](https://ihui.ai/compare/ihui-vs-minimax)
+  - **2026-07-26 阶段 8 新增 — 国际 SaaS 6 个**(海外 AI 检索长尾):
+    [vs Zapier AI Actions](https://ihui.ai/compare/ihui-vs-zapier-ai) · [vs Make.com](https://ihui.ai/compare/ihui-vs-make) · [vs Relevance AI](https://ihui.ai/compare/ihui-vs-relevance-ai) · [vs Stack AI](https://ihui.ai/compare/ihui-vs-stack-ai) · [vs Wordware](https://ihui.ai/compare/ihui-vs-wordware) · [vs Voiceflow](https://ihui.ai/compare/ihui-vs-voiceflow)
+- **行业用例页**(场景化关键词,2026-07-26 阶段 8 扩展到 10 个)
   - [AI 智能客服 Agent](https://ihui.ai/use-cases/customer-support)
   - [企业知识库 RAG](https://ihui.ai/use-cases/knowledge-base)
   - [AI 代码助手](https://ihui.ai/use-cases/code-assistant)
   - [AI 内容创作](https://ihui.ai/use-cases/content-generation)
+  - **阶段 8 新增 6 个场景化长尾**:
+    [AI 销售助手](https://ihui.ai/use-cases/sales) · [AI HR 招聘](https://ihui.ai/use-cases/hr-recruiting) · [AI 市场分析](https://ihui.ai/use-cases/market-analysis) · [AI 产品分析](https://ihui.ai/use-cases/product-analysis) · [AI IT 运维](https://ihui.ai/use-cases/it-ops) · [AI 数据分析](https://ihui.ai/use-cases/data-analysis)
 - **内容站**([FAQ](https://ihui.ai/faq) · [About](https://ihui.ai/about) · [Docs](https://ihui.ai/docs) · [Quickstart](https://ihui.ai/docs/quickstart))
 
 ### 结构化数据矩阵(JSON-LD schema,2026-07-26 极致 GEO 强化)
@@ -2474,7 +2480,7 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 |-------------|----------|------|
 | `Organization` + `WebSite` + `SoftwareApplication` | 全站(layout.tsx) | 品牌实体对齐,Knowledge Graph 收录 |
 | `FAQPage` | [/faq](https://ihui.ai/faq)(12 个 Q&A) | Google FAQ Rich Results,ChatGPT/Claude 直接引用 |
-| `HowTo` | 4 个 use case 页面(客服/知识库/代码/内容) | Google HowTo Rich Results,适配"如何搭建 X"类检索 |
+| `HowTo` | 10 个 use case 页面(客服/知识库/代码/内容 + 销售/HR/市场/产品/IT/数据) | Google HowTo Rich Results,适配"如何搭建 X"类检索 |
 | `BreadcrumbList` | 所有 use case + compare 页面 | 面包屑导航 Rich Results |
 | `WebPage` + `@graph` | 所有 use case + compare 页面 | 页面级实体声明 |
 | `Knowledge Graph`(`@type: Graph`) | [knowledge-graph.json](https://ihui.ai/knowledge-graph.json) | Wikidata / Google KG / 各大 AI 引擎实体对齐 |
