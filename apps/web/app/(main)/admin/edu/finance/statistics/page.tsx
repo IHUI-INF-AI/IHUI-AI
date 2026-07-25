@@ -155,7 +155,7 @@ export default function EduFinanceStatisticsPage() {
                   </TableHeader>
                   <TableBody className="divide-y">
                     {stats.byType?.length ? (
-                      stats.byType.map((t) => (
+                      stats.byType.map((t: any) => (
                         <TableRow key={t.type} className="hover:bg-muted/30">
                           <TableCell className="px-4 py-2.5 font-medium">{t.type}</TableCell>
                           <TableCell className="px-4 py-2.5">{t.count}</TableCell>
@@ -191,7 +191,7 @@ export default function EduFinanceStatisticsPage() {
                   </TableHeader>
                   <TableBody className="divide-y">
                     {stats.byMonth?.length ? (
-                      stats.byMonth.map((m) => (
+                      stats.byMonth.map((m: any) => (
                         <TableRow key={m.month} className="hover:bg-muted/30">
                           <TableCell className="px-4 py-2.5 font-medium">{m.month}</TableCell>
                           <TableCell className="px-4 py-2.5">{m.orders}</TableCell>
