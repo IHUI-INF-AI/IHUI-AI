@@ -112,7 +112,7 @@ export function SlashCommandPalette({
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="break-words text-sm font-medium">{cmd.label}</span>
                   {cmd.description && (
-                    <span className="break-words text-xs text-muted-foreground">
+                    <span className="whitespace-pre-line break-words text-xs text-muted-foreground">
                       {cmd.description}
                     </span>
                   )}

@@ -19,7 +19,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui-react'
-import { selectClass, HELP_CATEGORIES } from './helpers'
+import { selectClass, HELP_CATEGORIES, CATEGORY_KEY } from './helpers'
 import { slugify } from '@/lib/content'
 import { useZodForm } from '@/hooks/use-zod-form'
 import { helpSchema, type HelpFormValues } from '@/lib/form-schemas/help'
@@ -110,7 +110,7 @@ export function HelpDialog({
                 <SelectContent>
                   {HELP_CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>
-                      {t(`categories.${c}`)}
+                      {t(CATEGORY_KEY[c] ?? 'categories.unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>

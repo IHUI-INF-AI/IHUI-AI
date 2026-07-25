@@ -26,6 +26,27 @@ const TYPE_ICON: Record<TargetType, React.ComponentType<{ className?: string }>>
   category: FolderTree,
 }
 
+/**
+ * 订阅目标类型 i18n key 静态映射表:types.${targetType} — 用于消除 `t(\`types.${var}\`)` 动态拼接
+ */
+const TYPE_KEY: Record<TargetType, string> = {
+  user: 'types.user',
+  project: 'types.project',
+  tag: 'types.tag',
+  category: 'types.category',
+}
+
+/**
+ * 订阅 tab i18n key 静态映射表:tabs.${value} — 用于消除 `t(\`tabs.${var}\`)` 动态拼接
+ */
+const TAB_KEY: Record<string, string> = {
+  all: 'tabs.all',
+  user: 'tabs.user',
+  project: 'tabs.project',
+  tag: 'tabs.tag',
+  category: 'tabs.category',
+}
+
 const TABS: { value: 'all' | TargetType }[] = [
   { value: 'all' },
   { value: 'user' },
@@ -84,7 +105,7 @@ export default function SubscriptionsPage() {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`tabs.${tabItem.value}`)}
+            {t(TAB_KEY[tabItem.value] ?? 'tabs.unknown')}
           </button>
         ))}
       </div>
@@ -112,7 +133,7 @@ export default function SubscriptionsPage() {
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium">{t(`types.${s.targetType}`)}</p>
+                  <p className="break-words text-sm font-medium">{t(TYPE_KEY[s.targetType] ?? 'types.unknown')}</p>
                   <p className="break-words font-mono text-xs text-muted-foreground">
                     {s.targetId}
                   </p>
