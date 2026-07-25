@@ -216,7 +216,153 @@
     "selfMediaAutomation": "自动化",
     "downloadTitle": "下载客户端",
     "mainNav": "主导航",
-    "pluginMarket": "插件市场"
+    "pluginMarket": "插件市场",
+    "aiGroupLabel": "AI 智能体",
+    "adminGroupLabel": "管理",
+    "eduGroup": "AI 教育",
+    "contentGroup": "内容",
+    "tradeGroup": "交易",
+    "personalGroup": "个人",
+    "developerGroup": "开发者",
+    "home": "首页",
+    "chatHistory": "对话历史",
+    "models": "模型市场",
+    "agents": "智能体",
+    "agentWorkbench": "智能体工作台",
+    "aiWorld": "AI 世界",
+    "memory": "记忆系统",
+    "subagents": "子智能体",
+    "context": "上下文",
+    "spec": "规格模式",
+    "plan": "计划模式",
+    "workspace": "工作空间",
+    "knowledgeBase": "知识库",
+    "knowledgeRag": "RAG 知识库",
+    "knowledgeGraph": "知识图谱",
+    "registry": "注册中心",
+    "admin": "管理后台",
+    "adminStatistics": "数据统计",
+    "userCenter": "用户中心",
+    "members": "会员列表",
+    "adminWorkflows": "工作流",
+    "adminTags": "标签管理",
+    "adminLogs": "操作日志",
+    "adminTheme": "主题管理",
+    "adminThemeList": "主题列表",
+    "adminThemeCreate": "创建主题",
+    "adminThemeColors": "颜色配置",
+    "adminThemeFonts": "字体配置",
+    "adminThemeDarkMode": "深色模式",
+    "adminThemeAssets": "主题资源",
+    "adminThemePresets": "主题预设",
+    "adminThemeExport": "导出主题",
+    "adminConfigs": "参数配置",
+    "adminDynamic": "动态路由",
+    "overview": "总览",
+    "learn": "学习",
+    "live": "直播",
+    "exam": "考试",
+    "lecturers": "讲师",
+    "schedule": "课表",
+    "topics": "专题",
+    "asks": "问答",
+    "circles": "学习圈",
+    "resources": "资源",
+    "news": "资讯",
+    "announcements": "公告",
+    "plaza": "广场",
+    "enterprise": "企业服务",
+    "distribution": "分销",
+    "teams": "团队",
+    "docs": "文档",
+    "search": "搜索",
+    "tags": "标签",
+    "oauthPlatform": "开放平台",
+    "selfMediaWechat": "微信公众号",
+    "selfMediaKoubo": "口播视频",
+    "publishPlatform": "发布平台",
+    "wallet": "钱包",
+    "payment": "支付",
+    "orders": "订单",
+    "activities": "活动",
+    "points": "积分",
+    "eduPoints": "学习积分",
+    "oauthMyAuthorized": "我的授权",
+    "myLearning": "我的学习",
+    "favorites": "收藏",
+    "following": "关注",
+    "subscriptions": "订阅",
+    "student": "学员中心",
+    "feedback": "反馈",
+    "help": "帮助",
+    "developer": "开发者",
+    "developerApiDocs": "API 文档",
+    "developerKeys": "API 密钥",
+    "developerWebhooks": "Webhooks",
+    "developerSandbox": "沙箱",
+    "developerLimits": "限流",
+    "developerLogs": "调用日志",
+    "developerVersions": "版本",
+    "developerSubscription": "订阅",
+    "developerNotifications": "通知",
+    "developerTeam": "团队",
+    "developerBilling": "账单",
+    "developerSettings": "设置",
+    "modelsOverview": "模型总览",
+    "modelsMarket": "模型市场",
+    "modelsChannels": "渠道管理",
+    "modelsKeys": "密钥管理",
+    "modelsLogs": "调用日志",
+    "modelsChats": "对话",
+    "modelsUsers": "用户",
+    "modelsGroups": "分组",
+    "modelsUsage": "用量",
+    "modelsBilling": "账单",
+    "modelsRedeem": "兑换码",
+    "modelsReferral": "推荐奖励",
+    "modelsOpenclaw": "OpenClaw",
+    "modelsApiDocs": "API 文档",
+    "modelsSkills": "技能",
+    "messagesNotice": "系统通知",
+    "messagesLike": "收到的赞",
+    "messagesFavorite": "收藏消息",
+    "messagesComment": "评论",
+    "messagesFans": "新粉丝",
+    "messagesPrivateLetter": "私信",
+    "userProfile": "个人资料",
+    "userSecurity": "账号安全",
+    "userNotifications": "通知",
+    "userRealname": "实名认证",
+    "userSubscription": "订阅",
+    "userLearnRecord": "学习记录",
+    "userComment": "我的评论",
+    "userFans": "粉丝",
+    "userFollow": "关注",
+    "userAsk": "我的提问",
+    "userCircle": "我的圈子",
+    "userResource": "我的资源",
+    "userExam": "我的考试",
+    "userSignUp": "我的报名",
+    "eduDashboard": "学习中心",
+    "eduCourses": "课程",
+    "eduCertificates": "证书",
+    "eduSchedule": "课程表",
+    "eduNotes": "笔记",
+    "eduQa": "问答",
+    "eduProgress": "学习进度",
+    "memberDashboard": "会员中心",
+    "memberBenefits": "会员权益",
+    "memberCoupons": "优惠券",
+    "memberSubscription": "我的订阅",
+    "memberRefunds": "退款",
+    "memberAddresses": "收货地址",
+    "memberFavorites": "收藏",
+    "memberHistory": "浏览历史",
+    "memberInvitations": "邀请奖励",
+    "memberFeedback": "我的反馈",
+    "memberHelp": "帮助",
+    "memberSettings": "会员设置",
+    "eduExam": "考试"
   },
   "auth": {
     "loginTitle": "欢迎回来",
@@ -708,6 +854,46 @@
       "switchedToModeAsk": "已切换到请求批准模式",
       "switchedToModeAuto": "已切换到替我审批模式",
       "switchedToModeFull": "已切换到完全访问模式",
+      "dangerousCommandTitle": "检测到危险命令",
+      "dangerousCommandDesc": "你即将发送的命令包含 {{pattern}}({{reason}})。完全访问模式下 AI 会直接执行,无法撤回。",
+      "dangerousCommandProceed": "仍要发送",
+      "dangerousCommandCancel": "取消",
+      "dangerousCommandWarningOnly": "警告:{{pattern}}。建议先确认命令安全性。",
+      "historyTitle": "权限模式历史",
+      "historyEmpty": "暂无历史",
+      "historyClearConfirmTitle": "清空历史",
+      "historyClearConfirmDesc": "将删除所有模式切换记录,无法恢复。",
+      "historyClearConfirm": "清空",
+      "historyClearCancel": "取消",
+      "historyOpenButton": "历史",
+      "historySource": {
+        "popover": "弹窗",
+        "shift-tab": "Shift+Tab",
+        "slash": "斜杠",
+        "auto-revert": "自动"
+      },
+      "historyStatsTitle": "累计统计",
+      "historyStatsMode": {
+        "default": "请求批准",
+        "accept-edits": "替我审批",
+        "bypass-permissions": "完全访问"
+      },
+      "historyStatsDuration": "{{mode}}:{{duration}}",
+      "historyOpenExternal": "查看历史",
+      "dangerousPattern": {
+        "rmRrfRoot": "递归删除根/家目录",
+        "ddToDisk": "直接写磁盘设备",
+        "mkfsDisk": "格式化磁盘",
+        "redirectToDevice": "重定向到磁盘设备",
+        "chmodRoot": "根目录全开权限",
+        "sudoAny": "任意 sudo 操作",
+        "curlPipeSh": "下载即执行",
+        "forkBomb": "Fork 炸弹",
+        "mvRootToNull": "批量移走根目录内容",
+        "rmEnv": "删除 .env 关键文件",
+        "rmGit": "删除 .git 目录",
+        "forcePushMain": "强推主分支"
+      },
       "mode": {
         "ask": "请求批准",
         "askDesc": "编辑外部文件和使用互联网时始终询问",
@@ -715,6 +901,46 @@
         "autoDesc": "仅对检测到的风险操作请求批准",
         "full": "完全访问权限",
         "fullDesc": "可不受限制地访问互联网和您电脑上的任何文件"
+      },
+      "shortcutsModalTitle": "权限模式快捷键",
+      "shortcutsClose": "知道了",
+      "shortcutsSectionSwitch": "模式切换",
+      "shortcutsSectionGuard": "高风险护栏",
+      "shortcutsSectionAudit": "撤销与审计",
+      "shortcutsItemShiftTabKbd": "循环切换 3 种模式",
+      "shortcutsItemNumberKbd": "popover 打开时按 1/2/3 直接选模式",
+      "shortcutsItemQuestionMarkKbd": "唤起本快捷键面板",
+      "shortcutsItemAutoRevert1hKbd": "1 小时无操作后自动切回请求批准",
+      "shortcutsItemWarn5minKbd": "剩 5 分钟警告 toast,可一键续期",
+      "shortcutsItemWarn1minKbd": "剩 1 分钟紧急 toast",
+      "shortcutsItemExtendKbd": "切到完全访问时 toast 提供「再保持 1 小时」按钮",
+      "shortcutsItemCancelAutoKbd": "横幅「取消自动撤销」按钮,可永久保持完全访问",
+      "shortcutsItemUndoKbd": "切到完全访问后 5s 内可撤销",
+      "shortcutsItemDangerousKbd": "高风险模式发送时检测危险命令,需二次确认",
+      "shortcutsItemHistoryKbd": "查看 popover 底部「历史」按钮看最近切换",
+      "shortcutsLearnMore": "了解更多安全设计",
+      "infoButtonLabel": "查看模式说明",
+      "infoButtonTitle": "当前模式的详细行为",
+      "modeInfoAcknowledge": "知道了",
+      "modeInfoBullets": {
+        "default": {
+          "0": "AI 每次执行命令/编辑文件都需你点击「批准」才执行",
+          "1": "适合不熟悉的项目或敏感操作",
+          "2": "不会自动撤销(没有 1 小时倒计时)",
+          "3": "推荐在不确定的项目先用此模式"
+        },
+        "accept-edits": {
+          "0": "AI 编辑文件自动应用,无需你逐个批准",
+          "1": "命令执行仍需你点击「批准」",
+          "2": "适合「信任的 AI 帮我改代码」场景",
+          "3": "不会自动撤销"
+        },
+        "bypass-permissions": {
+          "0": "AI 可执行任何操作,无需确认",
+          "1": "1 小时后自动切回请求批准(可取消/续期)",
+          "2": "适合「批量处理已知任务」场景",
+          "3": "不可逆操作的风险由你承担"
+        }
       }
     }
   },
@@ -8334,7 +8560,39 @@
     "searchPlaceholder": "搜索命令...",
     "noResults": "未找到匹配的命令",
     "keyboardHint": "↑↓ 选择 · Enter 执行",
-    "resultCount": "{count} 个结果"
+    "resultCount": "{count} 个结果",
+    "commands": {
+      "chat": {
+        "label": "AI 对话",
+        "description": "与 AI 助手开始对话",
+        "keywords": ["对话", "聊天", "AI", "chat"]
+      },
+      "drama": {
+        "label": "AI 短剧",
+        "description": "AI 生成的精彩短剧",
+        "keywords": ["短剧", "视频", "AI", "drama"]
+      },
+      "search": {
+        "label": "搜索",
+        "description": "全局内容搜索",
+        "keywords": ["搜索", "查找", "search"]
+      },
+      "ai-world": {
+        "label": "AI 世界",
+        "description": "探索 AI 应用世界",
+        "keywords": ["AI", "世界", "应用"]
+      },
+      "profile": {
+        "label": "个人中心",
+        "description": "管理个人资料和设置",
+        "keywords": ["个人", "资料", "设置"]
+      },
+      "settings": {
+        "label": "系统设置",
+        "description": "系统偏好与配置",
+        "keywords": ["设置", "偏好", "配置"]
+      }
+    }
   },
   "routes": {
     "userAgreement": "用户协议",
@@ -8654,31 +8912,19 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": [
-            "系统化课程",
-            "实践探索",
-            "社群互助"
-          ]
+          "features": ["系统化课程", "实践探索", "社群互助"]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": [
-            "交流平台",
-            "经验共享",
-            "资源对接"
-          ]
+          "features": ["交流平台", "经验共享", "资源对接"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": [
-            "专业大模型",
-            "智能体服务",
-            "咨询服务"
-          ]
+          "features": ["专业大模型", "智能体服务", "咨询服务"]
         }
       ]
     },
@@ -8798,37 +9044,25 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": [
-            "知识问答",
-            "流程自动化"
-          ]
+          "examples": ["知识问答", "流程自动化"]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": [
-            "数据分析",
-            "决策支持"
-          ]
+          "examples": ["数据分析", "决策支持"]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": [
-            "会议安排",
-            "审批流程"
-          ]
+          "examples": ["会议安排", "审批流程"]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": [
-            "营销自动化",
-            "多智能体协同"
-          ]
+          "examples": ["营销自动化", "多智能体协同"]
         }
       ]
     },
@@ -9176,7 +9410,15 @@
       "scanTip": "打开微信扫一扫,进入小程序"
     },
     "marquee": {
-      "label": "公告"
+      "label": "公告",
+      "items": [
+        "🎉 全新 AI 教育模块上线,支持课程学习 / 直播 / 考试一体化",
+        "🚀 模型市场新增 GPT-5 / Claude 4.5 / Gemini 2.5 Pro 等旗舰模型",
+        "💎 VIP 会员限时 7 折,享 100+ 智能体无限使用",
+        "🌍 多语言支持升级:新增 5 种语言实时翻译",
+        "🎨 主题中心 50+ 套主题,一键切换视觉风格",
+        "📚 知识库 RAG 上线,文档秒变智能问答"
+      ]
     },
     "welcome": {
       "title": "欢迎来到智汇 AI 社区",
