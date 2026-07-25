@@ -22,6 +22,12 @@ vi.mock('react-native', () => {
   }
 })
 
+vi.mock('@ihui/ui-native', () => ({
+  Input: (props: { value?: string; placeholder?: string; [k: string]: unknown }) =>
+    createElement('input', { value: props.value ?? '', placeholder: props.placeholder }),
+  Loading: () => createElement('div', null, 'loading'),
+}))
+
 import { AgentRuntimePanel } from '../src/components/AgentRuntimePanel'
 
 const wrapper = ({ children }: { children: ReactNode }) => <I18nProvider>{children}</I18nProvider>
@@ -38,11 +44,11 @@ describe('AgentRuntimePanel (mobile-rn)', () => {
 
   it('renders empty hint text in idle state', () => {
     const { getByText } = render(<AgentRuntimePanel />, { wrapper })
-    expect(() => getByText('输入任务,开始 Agent 执行')).not.toThrow()
+    expect(() => getByText('agent.runtimeEmpty')).not.toThrow()
   })
 
   it('renders execute button when not running', () => {
     const { getByText } = render(<AgentRuntimePanel />, { wrapper })
-    expect(() => getByText('执行')).not.toThrow()
+    expect(() => getByText('agent.runtimeSend')).not.toThrow()
   })
 })
