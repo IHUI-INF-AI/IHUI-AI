@@ -142,6 +142,28 @@ async def lifespan(app: FastAPI):
             "[user_profile] 启动从 DB hydrate %d 条用户画像", profile_loaded
         )
 
+    # L3 启动 Skill 自进化调度器(周期扫描有失败反馈的 skill 触发 iterate_on_feedback)
+    # 由 SKILL_EVOLUTION_ENABLED 环境变量控制开关(默认 false,避免消耗 LLM tokens)
+    # 失败不阻塞主服务(单次循环异常只 warning,下次循环自动恢复)
+    from app.services.skill_evolution_scheduler import skill_evolution_scheduler
+    await skill_evolution_scheduler.start()
+
+    # L4 启动时从 DB 加载所有 meta_lessons 到内存(进程重启不丢)
+    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 learn_from_failures 会重建)
+    from app.services.meta_learner import meta_learner
+    lessons_loaded = await meta_learner.load_all_lessons()
+    if lessons_loaded:
+        logger.info(
+            "[meta_learner] 启动从 DB hydrate %d 条 meta_lessons", lessons_loaded
+        )
+
+    # L4 启动元学习调度器(周期扫描跨 skill 失败案例,触发 FailureClusterer 聚类
+    # + 抽取 meta_lessons,对标 Hermes Agent meta-learning cycle)
+    # 由 META_LEARNER_ENABLED 环境变量控制开关(默认 false,避免消耗 LLM tokens)
+    # 失败不阻塞主服务(单次循环异常只 warning,下次循环自动恢复)
+    from app.services.meta_learner_scheduler import meta_learner_scheduler
+    await meta_learner_scheduler.start()
+
     # 启动多平台一键发布调度器(轮询 publish_tasks 表 scheduled_at 到期任务,
     # 同用户最多 3 个并发,失败平台支持 retry)
     from app.services.publish.scheduler import publish_scheduler
@@ -165,6 +187,14 @@ async def lifespan(app: FastAPI):
     # 关闭梦境固化调度器(等待进行中的用户固化任务完成)
     from app.services.dream_scheduler import dream_scheduler
     await dream_scheduler.stop()
+
+    # 关闭 Skill 自进化调度器(等待进行中的 skill 迭代任务完成)
+    from app.services.skill_evolution_scheduler import skill_evolution_scheduler
+    await skill_evolution_scheduler.stop()
+
+    # 关闭元学习调度器(等待进行中的失败聚类任务完成)
+    from app.services.meta_learner_scheduler import meta_learner_scheduler
+    await meta_learner_scheduler.stop()
 
     await publish_scheduler.stop()
     await self_media_scheduler.stop()
