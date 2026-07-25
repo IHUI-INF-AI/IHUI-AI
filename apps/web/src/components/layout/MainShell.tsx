@@ -22,8 +22,8 @@ import { TagsView } from '@/components/layout/TagsView'
  * - main 的 thin-scroll flex-1 overflow-y-auto:细滚动条 + 独立滚动
  */
 export function MainShell({ children }: { children: React.ReactNode }) {
-  // hydration-safe: 首屏不渲染需要 auth 的内容
-  const mounted = useMounted()
+  // hydration-safe: 订阅 mount 状态以触发 hydration 同步(useMounted 副作用)
+  useMounted()
   // 显式订阅以触发 (main) 路由组的认证态变化
   useAuthStore((s) => s.isAuthenticated)
 
