@@ -36,7 +36,7 @@ function formatSize(bytes: number): string {
   return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }
 
-export const FileList = React.memo(function FileList({ files, downloadingId, onDownload, onDelete, onPreview }: FileListProps) {
+export function FileList({ files, downloadingId, onDownload, onDelete, onPreview }: FileListProps) {
   const t = useTranslations('workspace')
 
   if (files.length === 0) {
@@ -125,6 +125,6 @@ export const FileList = React.memo(function FileList({ files, downloadingId, onD
       </table>
     </div>
   )
-})
+}
 
 export default FileList
