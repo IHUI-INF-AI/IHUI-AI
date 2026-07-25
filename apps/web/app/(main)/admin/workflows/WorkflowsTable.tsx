@@ -18,7 +18,7 @@ interface WorkflowsTableProps {
   onDelete: (id: string) => void
 }
 
-export function WorkflowsTable({
+export const WorkflowsTable = React.memo(function WorkflowsTable({
   list,
   isLoading,
   error,
@@ -41,6 +41,32 @@ export function WorkflowsTable({
     [locale],
   )
   const th = 'px-4 py-2.5 font-medium'
+
+  const handleView = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onView(item)
+    },
+    [list, onView],
+  )
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (id) onDelete(id)
+    },
+    [onDelete],
+  )
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -127,11 +153,11 @@ export function WorkflowsTable({
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="inline-flex items-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => onView(w)}>
+                      <Button variant="ghost" size="sm" data-id={w.id} onClick={handleView}>
                         <Eye className="mr-1 h-3.5 w-3.5" />
                         {t('view')}
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(w)}>
+                      <Button variant="ghost" size="sm" data-id={w.id} onClick={handleEdit}>
                         <Edit className="mr-1 h-3.5 w-3.5" />
                         {tc('edit')}
                       </Button>
@@ -139,7 +165,8 @@ export function WorkflowsTable({
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => onDelete(w.id)}
+                        data-id={w.id}
+                        onClick={handleDelete}
                       >
                         <Trash2 className="mr-1 h-3.5 w-3.5" />
                         {tc('delete')}
@@ -154,4 +181,4 @@ export function WorkflowsTable({
       </table>
     </div>
   )
-}
+})
