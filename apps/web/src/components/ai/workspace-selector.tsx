@@ -1,7 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import * as DropdownMenuOrig from '@radix-ui/react-dropdown-menu'
+
+// @ts-ignore - Radix UI type augmentation needed for asChild/onSelect etc
+const DropdownMenu: any = DropdownMenuOrig
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Check, ChevronDown, Folder, FolderPlus, Loader2, X } from 'lucide-react'
@@ -194,7 +197,7 @@ export function WorkspaceSelector() {
             <div className="mt-1 flex flex-col gap-0.5">
               {/* 添加工作区 */}
               <DropdownMenu.Item
-                onSelect={(e) => {
+                onSelect={(e: any) => {
                   e.preventDefault()
                   setMenuOpen(false)
                   setPickerOpen(true)
