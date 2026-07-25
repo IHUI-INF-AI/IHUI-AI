@@ -207,6 +207,133 @@ class TestComputeImportance:
 
 
 # =============================================================================
+# L2-2 _resolve_importance_score:激活 _compute_importance(2026-07-25 立)
+# =============================================================================
+
+
+from app.services.memory_service import _resolve_importance_score
+
+
+class TestResolveImportanceScore:
+    """L2-2:_resolve_importance_score 从 metadata 综合计算重要性,不再硬编码 0.5。"""
+
+    def test_explicit_score_takes_precedence(self):
+        """显式传入 importance_score → 直接用(不调 _compute_importance)。"""
+        score = _resolve_importance_score(0.9, {"user_feedback": 0.1})
+        assert score == pytest.approx(0.9)
+
+    def test_explicit_score_clipped(self):
+        """显式传入越界值 → clip 到 [0, 1]。"""
+        assert _resolve_importance_score(1.5, None) == 1.0
+        assert _resolve_importance_score(-0.3, None) == 0.0
+
+    def test_none_uses_user_feedback_from_metadata(self):
+        """importance_score=None + metadata.user_feedback → 走 _compute_importance。"""
+        score = _resolve_importance_score(None, {"user_feedback": 1.0})
+        # user_feedback=1.0,tool_success=0.5(default),freq=0,recency=0
+        # = 0.35*1 + 0.25*0.5 + 0 + 0.20*1 = 0.675
+        assert score == pytest.approx(0.675, rel=1e-3)
+
+    def test_none_uses_importance_score_field_as_user_feedback(self):
+        """importanceScore 字段作为 user_feedback 兼容(memory_extractor 输出)。"""
+        score = _resolve_importance_score(None, {"importanceScore": 1.0})
+        assert score == pytest.approx(0.675, rel=1e-3)
+
+    def test_none_uses_confidence_field_as_user_feedback(self):
+        """confidence 字段作为 user_feedback 兼容(LLM 输出)。"""
+        score = _resolve_importance_score(None, {"confidence": 1.0})
+        assert score == pytest.approx(0.675, rel=1e-3)
+
+    def test_user_feedback_priority_over_importance_score(self):
+        """user_feedback 优先于 importanceScore > confidence。"""
+        md = {"user_feedback": 1.0, "importanceScore": 0.2, "confidence": 0.3}
+        score = _resolve_importance_score(None, md)
+        # 取 user_feedback=1.0
+        assert score == pytest.approx(0.675, rel=1e-3)
+
+    def test_importance_score_priority_over_confidence(self):
+        """importanceScore 优先于 confidence。"""
+        md = {"importanceScore": 1.0, "confidence": 0.3}
+        score = _resolve_importance_score(None, md)
+        assert score == pytest.approx(0.675, rel=1e-3)
+
+    def test_success_true_boosts_tool_success_rate(self):
+        """metadata.success=True → tool_success_rate=1.0,提升总分。"""
+        score_true = _resolve_importance_score(
+            None, {"user_feedback": 0.5, "success": True}
+        )
+        score_default = _resolve_importance_score(
+            None, {"user_feedback": 0.5}  # 无 success 字段,tool_success 默认 0.5
+        )
+        assert score_true > score_default
+
+    def test_success_false_lowers_tool_success_rate(self):
+        """metadata.success=False → tool_success_rate=0.0,降低总分。"""
+        score_false = _resolve_importance_score(
+            None, {"user_feedback": 0.5, "success": False}
+        )
+        score_default = _resolve_importance_score(
+            None, {"user_feedback": 0.5}
+        )
+        assert score_false < score_default
+
+    def test_access_count_boosts_score(self):
+        """metadata.access_count 越大 → freq_score 越高 → 总分越高。"""
+        score_low = _resolve_importance_score(
+            None, {"user_feedback": 0.5, "access_count": 1}
+        )
+        score_high = _resolve_importance_score(
+            None, {"user_feedback": 0.5, "access_count": 100}
+        )
+        assert score_high > score_low
+
+    def test_recency_days_lowers_score(self):
+        """metadata.recency_days 越大 → recency_score 越低 → 总分越低。"""
+        score_recent = _resolve_importance_score(
+            None, {"user_feedback": 0.5, "recency_days": 0}
+        )
+        score_old = _resolve_importance_score(
+            None, {"user_feedback": 0.5, "recency_days": 60}
+        )
+        assert score_recent > score_old
+
+    def test_no_signals_uses_default(self):
+        """没有任何信号 → 全默认值,等价于旧硬编码 0.5(向后兼容)。"""
+        score = _resolve_importance_score(None, None)
+        # user_feedback=0.5,tool_success=0.5,freq=0,recency=0 → 0.35*0.5 + 0.25*0.5 + 0 + 0.20 = 0.5
+        assert score == pytest.approx(0.5)
+
+    def test_empty_metadata_uses_default(self):
+        """空 metadata → 全默认,等价于硬编码 0.5。"""
+        assert _resolve_importance_score(None, {}) == pytest.approx(0.5)
+
+    def test_invalid_user_feedback_degrades_to_default(self):
+        """非法 user_feedback 类型 → 降级默认值 0.5。"""
+        score = _resolve_importance_score(None, {"user_feedback": "not a number"})
+        assert score == pytest.approx(0.5)
+
+    def test_invalid_access_count_degrades_to_zero(self):
+        """非法 access_count 类型 → 降级 0。"""
+        score = _resolve_importance_score(None, {"access_count": "invalid"})
+        # user_feedback=0.5(默认),tool_success=0.5,freq=0,recency=0 → 0.5
+        assert score == pytest.approx(0.5)
+
+    def test_full_signal_combination(self):
+        """全信号组合:user_feedback=0.9 + success=True + access_count=50 + recency_days=10。"""
+        score = _resolve_importance_score(None, {
+            "user_feedback": 0.9,
+            "success": True,
+            "access_count": 50,
+            "recency_days": 10.0,
+        })
+        # user_feedback=0.9,tool_success=1.0,access_count=50 → freq_score=log1p(50)/5 ≈ 0.785
+        # recency_days=10 → recency_score=exp(-10/30) ≈ 0.717
+        # = 0.35*0.9 + 0.25*1.0 + 0.20*0.785 + 0.20*0.717
+        # = 0.315 + 0.25 + 0.157 + 0.143 ≈ 0.865
+        assert 0.85 <= score <= 0.88
+
+
+# =============================================================================
 # _parse_pgvector_text:pgvector 文本解析
 # =============================================================================
 
