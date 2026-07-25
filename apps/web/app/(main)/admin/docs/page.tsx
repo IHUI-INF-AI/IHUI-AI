@@ -79,10 +79,7 @@ export default function AdminDocsPage() {
     saveMut.mutate()
   }
 
-  const dateFmt = React.useMemo(
-    () => new Intl.DateTimeFormat(locale, { year: 'numeric', month: '2-digit', day: '2-digit' }),
-    [locale],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, { year: 'numeric', month: '2-digit', day: '2-digit' })
   const th = 'px-4 py-2.5 font-medium'
 
   return (

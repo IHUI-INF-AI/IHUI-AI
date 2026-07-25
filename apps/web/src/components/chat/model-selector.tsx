@@ -71,7 +71,7 @@ function groupByVendor(options: ModelOption[]): Array<[string, ModelOption[]]> {
   })
 }
 
-export const ModelSelector = React.memo(function ModelSelector({ value, onChange, disabled, label }: ModelSelectorProps) {
+export function ModelSelector({ value, onChange, disabled, label }: ModelSelectorProps) {
   const t = useTranslations('chat')
   const router = useRouter()
   const [options, setOptions] = React.useState<ModelOption[]>(() => FALLBACK_MODELS.map(toOption))
@@ -323,6 +323,6 @@ export const ModelSelector = React.memo(function ModelSelector({ value, onChange
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
   )
-})
+}
 
 export default ModelSelector

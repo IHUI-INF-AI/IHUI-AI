@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Loader2, Trash2, Copy, Power } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
@@ -18,25 +17,6 @@ interface Props {
 
 export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, onDelete }: Props) {
   const t = useTranslations('adminApiApps')
-  const dateFmt = React.useMemo(() => new Intl.DateTimeFormat(locale), [locale])
-  const handleToggle = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const a = apps.find((x) => String(x.id) === id)
-      if (a) onToggle(a)
-    },
-    [apps, onToggle],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const a = apps.find((x) => String(x.id) === id)
-      if (a) onDelete(a)
-    },
-    [apps, onDelete],
-  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -101,26 +81,20 @@ export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, 
                   )}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {dateFmt.format(new Date(a.createdAt))}
+                  {new Intl.DateTimeFormat(locale).format(new Date(a.createdAt))}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button
                       size="sm"
                       variant="ghost"
-                      data-id={a.id}
-                      onClick={handleToggle}
+                      onClick={() => onToggle(a)}
                       disabled={togglePending}
                     >
                       <Power className="h-3.5 w-3.5" />
                       {a.status === 1 ? t('toggleOff') : t('toggleOn')}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      data-id={a.id}
-                      onClick={handleDelete}
-                    >
+                    <Button size="sm" variant="ghost" onClick={() => onDelete(a)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

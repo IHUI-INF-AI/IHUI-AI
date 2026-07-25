@@ -32,7 +32,7 @@ interface SelectedToolsPanelProps {
  *  - 模型接入:蓝色徽章
  *  - 仅 prompt 意图:灰色徽章 + 说明 tooltip
  */
-export const SelectedToolsPanel = React.memo(function SelectedToolsPanel({ tools, onRemove }: SelectedToolsPanelProps) {
+export function SelectedToolsPanel({ tools, onRemove }: SelectedToolsPanelProps) {
   const t = useTranslations('chat')
   if (tools.length === 0) return null
 
@@ -50,7 +50,7 @@ export const SelectedToolsPanel = React.memo(function SelectedToolsPanel({ tools
       </div>
     </div>
   )
-})
+}
 
 function ToolChip({
   tool,
