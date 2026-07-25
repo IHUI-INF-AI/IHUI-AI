@@ -5,7 +5,6 @@ import { Menu } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Sidebar } from '@/components/sidebar'
 import { NativeTopBar } from '@/components/layout/NativeTopBar'
-import { TagsView } from '@/components/layout/TagsView'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
@@ -72,16 +71,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   const aiOpen = useAiPanelStore((s) => s.open)
   const aiWidth = useAiPanelStore((s) => s.width)
   const currentUserId = useAuthStore((s) => s.user?.id)
-  // 2026-07-25 用户反馈:TagsView 移到 GlobalShell 顶部,填满 NativeTopBar 下方的空白区域
-  // 2026-07-25 修订:不再要求 isAuthenticated,即使未登录也显示(只要 mounted);
-  //   - TagsView 内部对未登录 / 零 tag 场景做空态降级(不返回 null,显示一行 placeholder),
-  //     保证右侧工作展示区顶部"那块空白"被填满,不让裸背景露出来
-  // 2026-07-25 23:35 再修订:移除 mounted 守卫,SSR/CSR 首帧直接渲染容器
-  //   - 原因:Tauri WebView2 内 mounted 检测可能晚于 Tauri 应用的窗口显示,
-  //     导致用户看到一段"空顶部 + NativeTopBar"的状态(没有 TagsView 标签栏)
-  //   - TagsView 内部已经做了 SSR 安全(useTagsViewStore hydration-safe,
-  //     addTag 在 mounted 后才执行,placeholder 总是渲染),首帧直接展示 placeholder
-  const showTagsView = true
+  // 2026-07-26 用户反馈:TagsView 从 GlobalShell 移到 MainShell(只覆盖 main 同宽容器)
+  // 之前放右列顶部会横跨 work-area-portal-root + WebWorkPanel,违反"只覆盖 main 同宽"要求
+  // 现在 TagsView 跟随 MainShell 一起渲染,所有 (main) 路由组都能看到,
+  // 非 (main) 路由组(marketing/auth/sso 等)不显示(因为没有 MainShell)
+  // MainShell 内部:无 tag 时显示 placeholder,首帧直接渲染,SSR 安全
 
   // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
   React.useEffect(() => {
@@ -165,25 +159,17 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           />
         </React.Suspense>
 
-        {/* 右列:NativeTopBar + TagsView(填满顶栏下方空白) + 内容区,顶栏不再覆盖侧边栏 */}
+        {/* 右列:NativeTopBar + 内容区(work-area + WebWorkPanel 横向并列),顶栏不再覆盖侧边栏 */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Tauri 桌面端自定义顶栏(2026-07-25 用户反馈整合):
               - 仅 isDesktop=true 时渲染,内部 isDesktop 守卫保证 web 端不显示
               - 现在仅覆盖右列(内容区上方),左列(Sidebar)已是全高独立列
-              - 40px 高,半透明毛玻璃背景,与 sidebar 视觉融为一体 */}
+              - 40px 高,半透明毛玻璃背景,与 sidebar 视觉融为一体
+              - 2026-07-25 修订:去掉底部的 border-b 细线,顶栏与下方内容无缝衔接 */}
           <NativeTopBar />
-          {/* 2026-07-25 23:35 重要修订:TagsView 必须上移至整个右列顶部(NativeTopBar 下面)
-              填满"右侧工作展示区最上面那块空白区域" — 包括 WebWorkPanel 上方的空白。
-              - 跨整个右列宽度(同时跨越 main 内容 + WebWorkPanel 上方)
-              - WebWorkPanel open 时仍可见;WebWorkPanel 自身工具栏在 TagsView 下方
-              - 36px 高(h-9),带 bg-muted/70 圆角胶囊
-              - SSR 安全:直接渲染(true 守卫,不再依赖 mounted),
-                TagsView 内部 placeholder 保证无 tag 时也占位 */}
-          {showTagsView && (
-            <React.Suspense fallback={null}>
-              <TagsView />
-            </React.Suspense>
-          )}
+          {/* 2026-07-26 修订:TagsView 不再放在 GlobalShell(右列级别),
+              而是由 MainShell 渲染,只覆盖 main 同宽容器(被 rounded-xl my-2 mr-2 约束),
+              不会横跨到 WebWorkPanel。TagsView 在非 (main) 路由组不显示。 */}
           <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
           {/*
