@@ -610,26 +610,12 @@ export function AISidePanel() {
                 className="text-foreground/80"
               />
             </div>
-            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
               <span className="flex min-w-0 items-center gap-1">
                 <span className="whitespace-nowrap text-sm font-semibold">{displayTitle}</span>
                 {/* 工作区选择器(参考 Trae/Codex 顶部 project selector):
                   空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除 */}
                 <WorkspaceSelector />
-              </span>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <BrandIcon
-                  vendor={inferVendor(currentModel)}
-                  size={12}
-                  className="text-muted-foreground"
-                />
-                <span className="whitespace-nowrap">{currentModel}</span>
-                {isStreaming && (
-                  <span className="ml-1 inline-flex items-center gap-1 text-primary">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-sm bg-primary" />
-                    {t('generating')}
-                  </span>
-                )}
               </span>
             </div>
             {/* Plan/Act 模式切换(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
