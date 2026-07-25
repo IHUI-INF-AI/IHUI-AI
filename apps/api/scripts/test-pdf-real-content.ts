@@ -3,7 +3,11 @@
  * 用法: pnpm --filter @ihui/api exec tsx scripts/test-pdf-real-content.ts
  */
 import { writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { generateReportPDF } from '../src/services/pdf-service.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const sampleData = {
   name: 'Li Sihan',
@@ -52,7 +56,7 @@ console.log('contains Helvetica font:', textContent.includes('Helvetica'))
 console.log('contains FlateDecode (compressed stream):', textContent.includes('FlateDecode'))
 console.log('contains text content stream:', textContent.includes('/Length') || textContent.includes('stream'))
 
-const outputPath = process.env.OUTPUT_PATH ?? 'g:\\IHUI-AI\\.trae-cn\\tmp\\pdf-test-after.pdf'
+const outputPath = process.env.OUTPUT_PATH ?? path.join(__dirname, '..', '..', '.trae-cn', 'tmp', 'pdf-test-after.pdf')
 writeFileSync(outputPath, result.buffer)
 console.log('PDF written to:', outputPath)
 

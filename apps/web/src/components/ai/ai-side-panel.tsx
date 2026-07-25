@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { X, Plus, Bot } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useDesktop } from '@/hooks/use-desktop'
 import { useChat } from '@/hooks/use-chat'
 import {
   useWebSocket,
@@ -46,6 +47,9 @@ export function AISidePanel() {
   const t = useTranslations('chat')
   const tc = useTranslations('aiChat')
   const tcommon = useTranslations('common')
+  // 桌面端有 40px NativeTopBar(GlobalShell 渲染),AISidePanel fixed top-2(8px)
+  // 会与顶栏叠加覆盖。桌面端 top 需下移到 48px(40 + 8 间距),web 端保持 top-2。
+  const { isDesktop } = useDesktop()
 
   // 性能修复(2026-07-25):全解构 → 单字段 selector。
   // zustand action 函数引用稳定,不会触发重渲染;state 字段(open/width/isResizing)
@@ -337,9 +341,14 @@ export function AISidePanel() {
       <>
         {workspaceNameSync}
         <div
-          className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] z-sticky"
-          style={{ width: 0 }}
-        >
+        className={cn(
+          'fixed bottom-2 left-[var(--sidebar-width,130px)] z-sticky',
+          // 桌面端:NativeTopBar 40px + 8px 视觉间距 = 48px;
+          // web 端:无顶栏,保持 top-2(8px)与 work-area 对齐
+          isDesktop ? 'top-12' : 'top-2',
+        )}
+        style={{ width: 0 }}
+      >
           {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
           (容器右边缘 +4px ~ +12px),与 Sidebar 自身手柄(Sidebar 右边缘 -4px ~ +4px)空间错开,
           两个手柄各保留完整 8px 命中区,互不重叠冲突。
@@ -386,11 +395,15 @@ export function AISidePanel() {
       <div
         // 全局 fixed 面板(与 Sidebar 同性质,作为 MainShell 的兄弟节点而非 flex 子元素):
         // - fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 跟随 Sidebar 折叠/展开/拖拽)
-        // - top-2 bottom-2 与 work-area 的 my-2 垂直对齐,顶部/底部留出 8px 间距
+        // - 桌面端 top-12(40px NativeTopBar + 8px 间距),web 端 top-2(与 work-area 对齐)
+        // - bottom-2 与 work-area 的 my-2 垂直对齐,顶部/底部留出 8px 间距
         // - mr-2 在可见面板右边缘与 work-area 内容间形成 8px 视觉间距
         // - z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)
         // - width 由 useAiPanelStore.width 控制(320-720px);不挤压右侧 work-area 宽度
-        className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky"
+        className={cn(
+          'fixed bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky',
+          isDesktop ? 'top-12' : 'top-2',
+        )}
         style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
       >
         <aside
