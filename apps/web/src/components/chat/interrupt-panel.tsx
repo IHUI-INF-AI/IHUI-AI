@@ -63,7 +63,7 @@ function formatPayload(payload: unknown): string {
   }
 }
 
-export const InterruptPanel = React.memo(function InterruptPanel({
+export function InterruptPanel({
   threadId,
   interruptEvent,
   onResumed,
@@ -272,6 +272,6 @@ export const InterruptPanel = React.memo(function InterruptPanel({
       )}
     </Card>
   )
-})
+}
 
 export default InterruptPanel

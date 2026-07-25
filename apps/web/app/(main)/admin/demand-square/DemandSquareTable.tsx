@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Check, X, Loader2, LayoutGrid } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
@@ -20,7 +19,7 @@ interface Props {
   rejectPending: boolean
 }
 
-export const DemandSquareTable = React.memo(function DemandSquareTable({
+export function DemandSquareTable({
   list,
   isLoading,
   error,
@@ -31,33 +30,13 @@ export const DemandSquareTable = React.memo(function DemandSquareTable({
 }: Props) {
   const t = useTranslations('admin.demandSquare')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
-  const handleApprove = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id) onApprove(id)
-    },
-    [onApprove],
-  )
-  const handleReject = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onReject(item)
-    },
-    [list, onReject],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -125,8 +104,7 @@ export const DemandSquareTable = React.memo(function DemandSquareTable({
                           <Button
                             size="sm"
                             variant="ghost"
-                            data-id={r.id}
-                            onClick={handleApprove}
+                            onClick={() => onApprove(r.id)}
                             disabled={approvePending}
                           >
                             <Check className="h-4 w-4 text-emerald-600" />
@@ -138,8 +116,7 @@ export const DemandSquareTable = React.memo(function DemandSquareTable({
                           <Button
                             size="sm"
                             variant="ghost"
-                            data-id={r.id}
-                            onClick={handleReject}
+                            onClick={() => onReject(r)}
                             disabled={rejectPending}
                           >
                             <X className="h-4 w-4 text-destructive" />
@@ -158,4 +135,4 @@ export const DemandSquareTable = React.memo(function DemandSquareTable({
       </Table>
     </div>
   )
-})
+}

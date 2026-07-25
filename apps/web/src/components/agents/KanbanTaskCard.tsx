@@ -67,12 +67,7 @@ export interface KanbanTaskCardProps {
   onSelect: (task: KanbanTask) => void
 }
 
-// 性能修复(2026-07-25):React.memo 包裹,task 引用不变时不重渲染。
-// 父 KanbanColumn 的 sortedTasks 重算时,未变化的 task 项跳过渲染。
-export const KanbanTaskCard = React.memo(function KanbanTaskCard({
-  task,
-  onSelect,
-}: KanbanTaskCardProps) {
+export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
   const t = useTranslations('agents.kanban')
   const locale = useLocale()
   const level = getPriorityLevel(task.priority)
@@ -107,14 +102,14 @@ export const KanbanTaskCard = React.memo(function KanbanTaskCard({
       </div>
     </button>
   )
-})
+}
 
 /** 空状态提示(列内无任务时) */
-export const KanbanTaskCardEmpty = React.memo(function KanbanTaskCardEmpty() {
+export function KanbanTaskCardEmpty() {
   const t = useTranslations('agents.kanban')
   return (
     <div className="flex items-center justify-center rounded-md border border-dashed py-6 text-xs text-muted-foreground">
       <CenteredText enabled={false}>{t('empty')}</CenteredText>
     </div>
   )
-})
+}
