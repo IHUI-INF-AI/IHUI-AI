@@ -138,9 +138,7 @@ export function createJsonTransport(base: PersistTransport): PersistTransport {
  *
  * @param getClientAdapter 客户端 adapter 工厂(在 useEffect/挂载时调用)
  */
-export function createSSRSafeTransport(
-  getClientAdapter: () => SyncStorageAdapter,
-): PersistTransport {
+export function createSSRSafeTransport(getClientAdapter: () => SyncStorageAdapter): PersistTransport {
   const memory = createMemoryTransport()
   let client: PersistTransport | null = null
   const ensureClient = (): PersistTransport => {
@@ -155,30 +153,22 @@ export function createSSRSafeTransport(
   }
   return {
     getItem: (key) => {
-      if (!hasWindow()) return memory.getItem(key)
+      if (typeof window === 'undefined') return memory.getItem(key)
       return ensureClient().getItem(key)
     },
     setItem: (key, value) => {
-      if (!hasWindow()) {
+      if (typeof window === 'undefined') {
         memory.setItem(key, value)
         return
       }
       ensureClient().setItem(key, value)
     },
     removeItem: (key) => {
-      if (!hasWindow()) {
+      if (typeof window === 'undefined') {
         memory.removeItem(key)
         return
       }
       ensureClient().removeItem(key)
     },
   }
-}
-
-/**
- * SSR/Node 环境检测:用 globalThis.window 代替 typeof window,
- * 避免 Node 服务端 typecheck 报"Cannot find name 'window'"(apps/api typecheck 复现)
- */
-function hasWindow(): boolean {
-  return typeof globalThis !== 'undefined' && 'window' in (globalThis as { window?: unknown })
 }

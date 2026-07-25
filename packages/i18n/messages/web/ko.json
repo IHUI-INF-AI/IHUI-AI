@@ -905,6 +905,10 @@
       "historyClearConfirmTitle": "기록 지우기",
       "historyClearConfirmDesc": "모든 모드 전환 기록이 삭제되며 복구할 수 없습니다.",
       "historyClearConfirm": "지우기",
+      "resetSuppressedButton": "고위험 경고 다시 활성화",
+      "resetSuppressedConfirmTitle": "고위험 경고를 다시 활성화하시겠습니까?",
+      "resetSuppressedConfirmDesc": "다음에 전체 액세스로 전환할 때 확인 대화상자가 다시 표시됩니다.",
+      "resetSuppressedToast": "재설정 완료. 다음 전체 액세스 시 다시 확인합니다",
       "historyOpenButton": "기록",
       "historySource": {
         "popover": "팝오버",

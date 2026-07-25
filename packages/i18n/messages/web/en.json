@@ -905,6 +905,10 @@
       "historyClearConfirmTitle": "Clear history",
       "historyClearConfirmDesc": "All mode change records will be deleted and cannot be recovered.",
       "historyClearConfirm": "Clear",
+      "resetSuppressedButton": "Re-enable high-risk warning",
+      "resetSuppressedConfirmTitle": "Re-enable high-risk warning?",
+      "resetSuppressedConfirmDesc": "Next time you switch to full access, the confirmation dialog will appear again.",
+      "resetSuppressedToast": "Reset. Next switch to full access will require confirmation",
       "historyOpenButton": "History",
       "historySource": {
         "popover": "Popover",
