@@ -179,6 +179,24 @@
 6. **`backup_model="all_failed"` 哨兵值**:所有备用 provider 都失败时无法确定具体 backup_model,用统一哨兵值便于 Prometheus 查询聚合
 7. **L2 操作在 L1 锁外执行**:避免长时间持锁阻塞 L1 写入,回填 L1 时重新获取锁
 
+**运行时验证(2026-07-25,降级模式)**:
+
+Docker Desktop 不可用 → DB/Redis 未启动 → api(8802)+ web(8801)无法启动。按 §17 豁免场景③"dev server 30 分钟无法修复降级单元测试"适用,采用降级验证方案:
+
+| 验证项 | 方式 | 结果 |
+| --- | --- | --- |
+| **ai-service /metrics 端点** | `uvicorn app.main:app --port 8803` 启动(降级模式:schema_check 失败忽略 + scheduler_service 降级内存)+ `Invoke-WebRequest http://127.0.0.1:8803/metrics` | ✅ HTTP 200,响应含 3 个 fallback 指标:`# HELP llm_fallback_triggered_total` / `# HELP llm_fallback_success_total` / `# HELP llm_fallback_failure_total` + 对应 `# TYPE ... counter` |
+| **classify_fallback_reason 单测** | `python -c "from app.middleware.llm_metrics import classify_fallback_reason; ..."` 测 4 类异常 | ✅ TimeoutError→`timeout` / RateLimit 429→`rate_limit` / APIError 500→`api_error` / ConnectionError→`api_error` / ValueError→`unknown` |
+| **Prometheus Counter 注册** | 模拟 `LLM_FALLBACK_TRIGGERED.labels(...).inc()` 后 `generate_latest()` | ✅ 输出 `llm_fallback_triggered_total{backup_model,primary_model,reason} 1.0` + `llm_fallback_success_total{...} 1.0` + `llm_fallback_failure_total{...} 1.0`,labels 维度完整 |
+| **P2-2 retry-after 代码自验** | grep `Retry-After\|retryAfter\|isBusinessError\|STREAM_MAX_RETRY_DELAY` | ✅ ai-chat-stream.ts:82 `reply.header('Retry-After', '60')` + `sseMetrics.retryAfterSent++`;client.ts:1168-1171 `429 + retryAfter` 视为可重试;client.ts:1182-1184 `delay` 优先消费 `retryAfter`(秒转毫秒,上限 30s) |
+| **P2-3 Prompt Redis 代码自验** | grep `getCachedPromptAsync\|setCachedPrompt\|prompt:cache:\|promptCacheMetrics` | ✅ ai-cost.ts:76 异步查 L1+L2 / 115 同步写 L1+L2 / 26 `REDIS_PROMPT_CACHE_PREFIX` / 32 5 维计数器 / 392 dashboard 暴露 |
+| **P2-4 embedding Redis 代码自验** | grep `_AsyncLRUCache\|_get_redis\|embedding:cache:\|_EMBEDDING_CACHE_TTL_SECONDS` | ✅ vector_memory.py:34 prefix / 35 TTL=3600s / 38 `_get_redis()` 降级 / 121 类定义 / 144/172 get/set 双层 |
+| **P3-1 SSE/缓存/VIP 指标自验** | grep `sseMetrics\|promptCacheMetrics\|vipDiscountMetrics\|/api/admin/ai/chat/metrics\|/api/admin/token-balance/metrics` | ✅ 3 个计数器 + 3 个 admin 路由全部落地 |
+| **P3-2 fallback 埋点自验** | grep `LLM_FALLBACK_TRIGGERED\|LLM_FALLBACK_SUCCESS\|LLM_FALLBACK_FAILURE\|classify_fallback_reason` | ✅ llm_metrics.py:102-141 定义 + llm_gateway.py:844-1095 complete+astream 全路径埋点(成功/备用失败/router 异常 3 分支) |
+| **api/web 运行时验证** | 因 Docker 不可用无法启动 | ⚠️ 降级,待 Docker 恢复后补验证 `/api/admin/ai/chat/metrics` 等端点(代码已通过 typecheck 自验) |
+
+**降级原因**:Docker Desktop 未运行(`failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine`),DB(8810)+ Redis(8811)无法启动,api/web 依赖 DB 无法运行。ai-service 因有降级模式(schema_check 失败忽略 + scheduler_service 降级内存)成功启动并验证 /metrics 端点。
+
 **Git 同步证据**(§20):
 
 ```
