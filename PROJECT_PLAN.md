@@ -5168,7 +5168,7 @@ P1(5 项):
 - L2-4 ✅ UserProfileBuilder 持久化到 PostgreSQL(agent_user_profile 表 + lifespan hydrate + 写穿 UPSERT + system prompt snippet 注入,2026-07-25)
 - L2-5 ✅ DreamService 定时触发(DreamScheduler + lifespan background task + episodic 阈值,2026-07-25)
 - L3 ✅ 自进化闭环:skill_evolution_loop + iterate_on_feedback + run_chain(均已实现)+ SkillEvolutionScheduler 定时触发(2026-07-25)
-- L4 元学习:meta_learner + 失败聚类 + self-eval
+- L4 ✅ 元学习:MetaLearner + FailureClusterer(跨 skill 失败聚类)+ SelfEvaluator(任务后自评)+ MetaLearnerScheduler(定时触发,12h 周期)+ agent_meta_lessons 表持久化 + system prompt snippet 注入 + run_chain 后 fire-and-forget 触发 self_eval(2026-07-25)
 - L5 A/B 验证:shadow 流量 + 显著性检验自动回滚
 
 **收尾结论**:L1 接入激活让 Agent 不再失忆(4 项接入点全部贯通),L2-1 语义去重把字符级 SequenceMatcher 升级到 embedding cosine 0.92 + LLM 仲裁,深度对标 Hermes Agent 记忆系统并部分超越(LLM 冲突仲裁 + DoomLoop 反思沉淀)。降级链路完整,任何依赖失败都不阻塞主流程。
