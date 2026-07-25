@@ -111,6 +111,11 @@ interface ChatState {
    * - 'act':正常 tool loop 执行(默认)
    * 持久化,跨刷新保留用户选择。 */
   planMode: 'plan' | 'act'
+  /** 最近一条会话的 messages 快照(2026-07-25 立,#12 store messages 持久化)。
+   * 不在 set 中主动更新,每次 partialize 调用时从 messages + conversationId 派生。
+   * 持久化目的:刷新页面后 messages 数组清空,从 recentMessages 预填充避免空状态闪烁。
+   * 真实数据以服务端 getMessages 拉取为准,预填充仅作为首屏过渡,不作为真实数据源。 */
+  recentMessages: { conversationId: string; messages: ChatMessage[] } | null
 
   setModel: (model: string) => void
   /** 设置 Plan/Act 模式 */
@@ -192,6 +197,7 @@ export const useChatStore = create<ChatState>()(
       subAgentActivities: [],
       selectedTools: [],
       planMode: 'act',
+      recentMessages: null,
 
       setModel: (model) => set({ currentModel: model }),
       setPlanMode: (mode) => set({ planMode: mode }),

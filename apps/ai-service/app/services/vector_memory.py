@@ -12,6 +12,7 @@ import json
 import logging
 import math
 import os
+from collections import OrderedDict
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,39 @@ def _hash_embedding(text: str, dim: int = _HASH_DIM) -> list[float]:
             vec[offset + i] = val * 2 - 1  # 归一化到 [-1, 1]
         offset += 8
     return vec
+
+
+class _AsyncLRUCache:
+    """async-safe LRU 缓存(OrderedDict + asyncio.Lock)。
+
+    用于 embedding 缓存:embedding 是确定性的,相同文本永远产生相同向量,
+    无需主动失效。本任务仅内存缓存,可后续扩展到 Redis(扩展时仍保留内存层作 hot path)。
+    """
+
+    def __init__(self, maxsize: int = 1000) -> None:
+        self._maxsize = maxsize
+        self._store: OrderedDict[str, list[float]] = OrderedDict()
+        self._lock = asyncio.Lock()
+
+    async def get(self, key: str) -> list[float] | None:
+        async with self._lock:
+            if key in self._store:
+                self._store.move_to_end(key)  # 命中:提升为 MRU
+                return self._store[key]
+            return None
+
+    async def set(self, key: str, value: list[float]) -> None:
+        async with self._lock:
+            if key in self._store:
+                self._store.move_to_end(key)
+            else:
+                if len(self._store) >= self._maxsize:
+                    self._store.popitem(last=False)  # 淘汰 LRU
+            self._store[key] = value
+
+
+# 模块级 embedding 缓存(全局共享,跨 VectorMemoryStore 实例;maxsize=1000)
+_embedding_cache = _AsyncLRUCache(maxsize=1000)
 
 
 class VectorMemoryStore:
@@ -137,15 +171,22 @@ class VectorMemoryStore:
     # ==================================================================
 
     async def embed(self, text: str) -> list[float]:
-        """生成 embedding:优先 llm_gateway,失败降级为 hash 伪向量。"""
+        """生成 embedding:优先 llm_gateway(命中缓存直接返回),失败降级为 hash 伪向量。"""
+        # 缓存 key 用 sha256(text) hex,避免长文本作 key 占内存
+        cache_key = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        cached = await _embedding_cache.get(cache_key)
+        if cached is not None:
+            return cached
         try:
             from ..core.llm_gateway import llm_gateway
             result = await llm_gateway.embed(text)
             if isinstance(result, list) and result:
-                return [float(x) for x in result]
+                vec = [float(x) for x in result]
+                await _embedding_cache.set(cache_key, vec)
+                return vec
         except Exception:
             pass
-        # 降级:确定性 hash 伪向量
+        # 降级:确定性 hash 伪向量(不缓存,hash 本身 O(1) 无需缓存)
         return _hash_embedding(text)
 
     async def add_entry(
