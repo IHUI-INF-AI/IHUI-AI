@@ -102,7 +102,7 @@ export default function ActivitiesPage() {
         </div>
       ) : data && data.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.map((a) => {
+          {data.map((a: any) => {
             const displayStatus = computeStatus(a.startAt, a.endAt)
             return (
               <Card
