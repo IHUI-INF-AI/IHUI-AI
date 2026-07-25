@@ -88,6 +88,72 @@ function loadMessages() {
   return langs
 }
 
+// 加载 brand-glossary.json 的 brands / fonts / terms / commonTech 全部 value
+// 用于 Gate 3 过滤已知品牌/技术术语(大小写不敏感)
+let GLOSSARY_VALUES = new Set()
+function loadGlossary() {
+  try {
+    const path = join(ROOT, 'scripts/brand-glossary.json')
+    if (!existsSync(path)) return
+    const data = JSON.parse(readFileSync(path, 'utf8'))
+    for (const section of ['brands', 'fonts', 'terms', 'commonTech']) {
+      if (data[section]) {
+        for (const v of Object.values(data[section])) {
+          GLOSSARY_VALUES.add(String(v).toLowerCase())
+        }
+      }
+    }
+  } catch {
+  }
+}
+loadGlossary()
+
+// Gate 1: 符号/代码标记 — 含 +/\{}<>*~^=#$%@&_`:| → 跳过
+const CODE_SYMBOL_RE = /[+\/\\{}<>*~^=#$%@&_`:\x7c]/
+function passesGate1(value) {
+  return !CODE_SYMBOL_RE.test(value)
+}
+
+// Gate 2: 长度 + 词数 — length < 15 或 词数 ≤ 2 → 跳过
+function passesGate2(value) {
+  const len = value.length
+  const words = value.split(/\s+/).filter(Boolean).length
+  return !(len < 15 || words <= 2)
+}
+
+// Gate 3: 品牌/专名 — glossary / camelCase / 全大写缩写 → 跳过
+const CAMEL_CASE_RE = /^[A-Z][a-z]+(?:[A-Z][a-zA-Z]*)+$/
+function passesGate3(value) {
+  if (GLOSSARY_VALUES.has(value.toLowerCase())) return false
+  if (CAMEL_CASE_RE.test(value)) return false
+  const words = value.split(/\s+/).filter(Boolean)
+  if (
+    words.length > 0 &&
+    words.length <= 5 &&
+    words.every((w) => /^[A-Z][A-Z0-9\-&]*$/.test(w))
+  ) {
+    return false
+  }
+  return true
+}
+
+// Gate 4: 句子结构 — 含自然语言标记词或长度 > 25 → 标记为未翻译
+const SENTENCE_MARKER_RE =
+  /\b(the|a|an|is|are|was|were|be|been|being|you|your|yours|i|me|my|we|us|our|they|them|their|this|that|these|those|to|for|with|from|in|on|at|by|of|and|or|but|not|no|if|then|else|when|where|why|how|what|which|who|whom|can|could|will|would|should|may|might|must|shall|do|does|did|have|has|had)\b/i
+function passesGate4(value) {
+  return SENTENCE_MARKER_RE.test(value) || value.length > 25
+}
+
+// 综合判断:4 道 gate 全部通过 → 真未翻译(需要人工补译)
+function isGenuineUntranslated(value) {
+  return (
+    passesGate1(value) &&
+    passesGate2(value) &&
+    passesGate3(value) &&
+    passesGate4(value)
+  )
+}
+
 function getNested(obj, dotPath) {
   return dotPath.split('.').reduce((acc, k) => {
     if (acc && typeof acc === 'object' && k in acc) return acc[k]
@@ -252,6 +318,7 @@ if (!isStaged || messagesChanged) {
 // 翻译完整性检查:对非 en 的语言,值 === en 值 且仅含 ASCII 字母,标记为"未翻译"
 // 仅作为 WARNING(不阻塞),用于发现历史上 i18n 复制粘贴导致的英文 fallback
 // extension 模式跳过:翻译已人工校对,key 数量少,且 extension 用 useI18n() 不走 next-intl
+// 4-gate 过滤:品牌/技术术语/快捷键/单位/代码/营销标题/LLM API 参数不视为未翻译
 const untranslatedValueIssues = []
 const TRANSLATABLE_LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
 if (!isParityOnly && (!isStaged || messagesChanged)) {
@@ -265,7 +332,9 @@ if (!isParityOnly && (!isStaged || messagesChanged)) {
       if (!/^[A-Za-z0-9 ._!?'",:;\-/()&+@#$%^*=]+$/.test(enValue)) continue
       const langValue = langValues.get(key)
       if (langValue === enValue) {
-        untranslated.push({ key, value: enValue })
+        if (isGenuineUntranslated(enValue)) {
+          untranslated.push({ key, value: enValue })
+        }
       }
     }
     if (untranslated.length > 0) {

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import type { Remind } from './types'
+import { TYPE_MAP } from './helpers'
 
 interface Props {
   list: Remind[]
@@ -76,7 +77,7 @@ export function LearnRemindTable({
                       'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
                     )}
                   >
-                    {t(`type.${r.type}`)}
+                    {t(TYPE_MAP[r.type] ?? 'type.unknown')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">

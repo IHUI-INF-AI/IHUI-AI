@@ -33,6 +33,13 @@ const PRIORITY_OPTIONS = [
   { value: '0', labelKey: 'low' },
 ] as const
 
+/** i18n 静态映射表 — 用于消除 `t(\`kanban.${var}\`)` 动态拼接 */
+const KANBAN_LABEL_KEY: Record<string, string> = {
+  high: 'kanban.high',
+  medium: 'kanban.medium',
+  low: 'kanban.low',
+}
+
 export function KanbanBoard() {
   const t = useTranslations('agent')
   const tc = useTranslations('common')
@@ -191,7 +198,7 @@ export function KanbanBoard() {
                       <SelectContent>
                         {PRIORITY_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
-                            {t(`kanban.${opt.labelKey}`)}
+                            {t(KANBAN_LABEL_KEY[opt.labelKey] ?? 'kanban.unknown')}
                           </SelectItem>
                         ))}
                       </SelectContent>
