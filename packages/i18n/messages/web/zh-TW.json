@@ -686,7 +686,6 @@
       "cancelAutoRevert": "取消自動撤銷",
       "reEnableAutoRevert": "重新啟用 1 小時自動撤銷",
       "autoRevertedTitle": "已自動切回請求核准",
-      "autoRevertedDesc": "為避免長時間處於高風險模式,1 小時無操作後自動降級。重新開啟完全存取請用 Shift+Tab 或點擊權限按鈕。",
       "autoRevertedDescWithDuration": "本次完全訪問已持續 {usedMin} 分鐘,自動降級到請求批准。重新開啟完全訪問請用 Shift+Tab 或點擊權限按鈕。",
       "revertWarning5minTitle": "完全訪問模式即將自動降級",
       "revertWarning5minDesc": "5 分鐘後將自動切回請求批准模式。如需繼續完全訪問,請點「再保持 1 小時」。",
@@ -705,6 +704,10 @@
       "titleBarAutoRevert": "⏱ {time} 後自動降級",
       "cycledTo": "已切換至 {mode}",
       "cycleError": "切換失敗:{error}",
+      "usageHint": "用法: /permission ask | auto | full",
+      "switchedToModeAsk": "已切換至請求核准模式",
+      "switchedToModeAuto": "已切換至自動核准模式",
+      "switchedToModeFull": "已切換至完全存取模式",
       "mode": {
         "ask": "請求核准",
         "askDesc": "編輯外部檔案與使用網際網路時一律詢問",
@@ -5889,79 +5892,7 @@
     "prev": "上一篇",
     "next": "下一篇",
     "related": "相關文章",
-    "notFound": "文章不存在或已下線",
-    "faq": {
-      "account": [
-        {
-          "q": "忘記密碼怎麼辦？",
-          "a": "在登錄頁點擊“忘記密碼”，通過手機號驗證碼重置密碼。"
-        },
-        {
-          "q": "如何修改個人信息？",
-          "a": "進入設置頁面，可修改暱稱、頭像等個人信息。"
-        },
-        {
-          "q": "如何註銷賬號？",
-          "a": "請聯繫客服提交註銷申請，我們將在 3 個工作日內處理。"
-        }
-      ],
-      "payment": [
-        {
-          "q": "支持哪些支付方式？",
-          "a": "目前支持微信支付、支付寶、Stripe 信用卡和 USDC。"
-        },
-        {
-          "q": "如何申請退款？",
-          "a": "訂閱 7 天內可聯繫客服申請全額退款，逾期不予受理。"
-        },
-        {
-          "q": "如何取消訂閱？",
-          "a": "在支付頁面點擊“取消訂閱”，下個計費週期停止扣費。"
-        }
-      ],
-      "project": [
-        {
-          "q": "如何創建項目？",
-          "a": "在工作空間點擊“新建項目”，填寫名稱即可創建。"
-        },
-        {
-          "q": "項目數量有限制嗎？",
-          "a": "免費版限 1 個項目，專業版及以上無限制。"
-        },
-        {
-          "q": "如何分享項目？",
-          "a": "進入項目詳情，點擊“分享”生成鏈接發送給協作者。"
-        }
-      ],
-      "ai": [
-        {
-          "q": "支持哪些 AI 模型？",
-          "a": "提供 GPT-4、Claude 3.5、Gemini 等主流模型，專業版解鎖全部。"
-        },
-        {
-          "q": "每日對話次數限制？",
-          "a": "免費版每日 10 次，專業版無限制。"
-        },
-        {
-          "q": "如何切換模型？",
-          "a": "在對話頁面頂部點擊模型選擇器即可切換。"
-        }
-      ],
-      "tech": [
-        {
-          "q": "如何獲取 API Key？",
-          "a": "進入開發者平臺創建應用，即可獲取 API Key。"
-        },
-        {
-          "q": "API 調用頻率限制？",
-          "a": "默認每分鐘 60 次，企業版可申請提升。"
-        },
-        {
-          "q": "提供哪些 SDK？",
-          "a": "官方提供 Python、Node.js、Go 三種語言 SDK。"
-        }
-      ]
-    }
+    "notFound": "文章不存在或已下線"
   },
   "search": {
     "loading": "搜尋中...",
@@ -8954,43 +8885,6 @@
         "scriptIdAndContentRequired": "請輸入劇本 ID 和對白內容"
       }
     }
-  },
-  "audit": {
-    "action": "操作",
-    "actionLabel": {
-      "fileDelete": "刪除",
-      "fileDownload": "下載",
-      "fileShare": "分享",
-      "fileUpload": "上傳",
-      "permissionAssign": "分配權限",
-      "userLogin": "登入",
-      "versionCreate": "創建版本",
-      "versionRollback": "回滾版本"
-    },
-    "actionType": "操作類型",
-    "actionTypeOption": {
-      "fileDelete": "文件刪除",
-      "fileDownload": "文件下載",
-      "fileShare": "文件分享",
-      "fileUpload": "文件上傳",
-      "permissionAssign": "權限分配",
-      "userLogin": "使用者登入",
-      "versionCreate": "版本創建",
-      "versionRollback": "版本回滾"
-    },
-    "details": "詳情",
-    "endDate": "結束日期",
-    "failed": "失敗",
-    "ip": "IP地址",
-    "resourceId": "資源ID",
-    "resourceType": "資源類型",
-    "startDate": "開始日期",
-    "status": "狀態",
-    "success": "成功",
-    "time": "時間",
-    "title": "操作日誌",
-    "totalLogs": "總記錄數",
-    "userId": "使用者ID"
   },
   "editor": {
     "toolbar": {
