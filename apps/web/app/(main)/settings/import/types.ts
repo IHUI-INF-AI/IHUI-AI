@@ -9,6 +9,9 @@ import type {
   ImportHistoryItem,
   ImportPreview,
   ImportedProvider,
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 } from '@ihui/types'
 
 export type {

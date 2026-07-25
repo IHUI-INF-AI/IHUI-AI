@@ -168,7 +168,7 @@ export default function WithdrawRecordsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((it) => (
+              items.map((it: any) => (
                 <TableRow key={it.id}>
                   <TableCell className="px-4 py-2.5 font-medium">{it.amount}</TableCell>
                   <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
@@ -182,10 +182,10 @@ export default function WithdrawRecordsPage() {
                     <span
                       className={cn(
                         'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                        STATUS_CLS[it.status],
+                        STATUS_CLS[it.status as any],
                       )}
                     >
-                      {t(STATUS_KEY[it.status])}
+                      {t(STATUS_KEY[it.status as any])}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">

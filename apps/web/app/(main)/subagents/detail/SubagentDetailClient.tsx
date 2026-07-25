@@ -93,7 +93,7 @@ export default function SubagentDetailClient() {
     refetchInterval: 3000,
   })
 
-  const dispatch = activeQ.data?.dispatches.find((d) => d.id === id)
+  const dispatch = activeQ.data?.dispatches.find((d: any) => d.id === id)
 
   const cancelMut = useMutation({
     mutationFn: () => cancelDispatch(id),
@@ -155,20 +155,20 @@ export default function SubagentDetailClient() {
             <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
               <div>
                 <p className="text-xs text-muted-foreground">状态</p>
-                <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_BADGE[dispatch.status]}`}>
-                  {STATUS_LABEL[dispatch.status]}
+                <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_BADGE[dispatch.status as any]}`}>
+                  {STATUS_LABEL[dispatch.status as any]}
                 </span>
               </div>
               {dispatch.agentRole && (
                 <div>
                   <p className="text-xs text-muted-foreground">角色</p>
-                  <p className="mt-1 text-sm">{ROLE_LABEL[dispatch.agentRole]}</p>
+                  <p className="mt-1 text-sm">{ROLE_LABEL[dispatch.agentRole as any]}</p>
                 </div>
               )}
               {dispatch.priority && (
                 <div>
                   <p className="text-xs text-muted-foreground">优先级</p>
-                  <p className="mt-1 text-sm">{PRIORITY_LABEL[dispatch.priority]}</p>
+                  <p className="mt-1 text-sm">{PRIORITY_LABEL[dispatch.priority as any]}</p>
                 </div>
               )}
               <div>

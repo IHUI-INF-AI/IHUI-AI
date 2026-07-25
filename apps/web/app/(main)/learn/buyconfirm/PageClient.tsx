@@ -85,7 +85,7 @@ function BuyConfirmContent() {
         body: JSON.stringify(body),
       })
     },
-    onSuccess: (d) =>
+    onSuccess: (d: any) =>
       router.push(`/learn/payment/confirm?orderNo=${encodeURIComponent(d.orderNo)}`),
     onError: (e: Error) => setFormError(e.message),
   })

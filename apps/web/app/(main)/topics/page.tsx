@@ -97,7 +97,7 @@ export default function TopicsPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {topics.map((topic) => (
+          {topics.map((topic: any) => (
             <Link key={topic.id} href={`/topics/${topic.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="relative flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
