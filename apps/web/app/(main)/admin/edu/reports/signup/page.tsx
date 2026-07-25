@@ -57,9 +57,9 @@ export default function EduReportsSignupPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const totalSignups = rows.reduce((a, r) => a + r.totalSignups, 0)
-  const totalPaid = rows.reduce((a, r) => a + r.paidSignups, 0)
-  const totalRevenue = rows.reduce((a, r) => a + r.revenue, 0)
+  const totalSignups = rows.reduce((a: any, r: any) => a + r.totalSignups, 0)
+  const totalPaid = rows.reduce((a: any, r: any) => a + r.paidSignups, 0)
+  const totalRevenue = rows.reduce((a: any, r: any) => a + r.revenue, 0)
   const noEndpoint = isNotFound(error)
 
   return (
@@ -161,7 +161,7 @@ export default function EduReportsSignupPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => (
+              rows.map((r: any) => (
                 <TableRow key={r.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">{r.targetTitle}</TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">{r.targetType}</TableCell>

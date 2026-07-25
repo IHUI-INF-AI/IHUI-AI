@@ -66,10 +66,10 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
               <span
                 className={cn(
                   'inline-flex shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
-                  STATUS_BADGE[t.status as any],
+                  (STATUS_BADGE as any)[t.status],
                 )}
               >
-                {STATUS_LABEL[t.status as any]}
+                {(STATUS_LABEL as any)[t.status]}
               </span>
             </button>
           ))}
