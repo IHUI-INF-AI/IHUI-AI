@@ -531,16 +531,19 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   // 未挂载时渲染固定占位 (Moon + "深色模式"), 与 SSR 一致; 挂载后再切到真实态。
   const mounted = useMounted()
   const isDark = mounted && theme === 'dark'
-  const router = useRouter()
 
   const handleLocaleChange = (code: Language) => {
     if (code === locale) return
     document.cookie = `locale=${code};path=/;max-age=31536000`
     setLocale(code)
-    // 不整页刷新, 让服务端重新读取 cookie + 重渲染当前路由的 server components,
-    // NextIntlClientProvider 的 locale/messages 随之更新, 所有 useTranslations 自动重译。
-    // 客户端状态(zustand store、TagsView 标签等)完整保留, 派生式 title 会按新 locale 重算。
-    router.refresh()
+    // 性能修复(2026-07-25):删除 router.refresh()。
+    // 原因:i18n/request.ts 在 output:export 模式下硬编码 locale='zh-CN',
+    // 服务端 getLocale() 永远返回 zh-CN,router.refresh() 只会让所有 server components
+    // 重新执行一遍(代价极高:重新查 DB / 重新渲染 RSC 树),但 NextIntlClientProvider
+    // 的 locale/messages 仍是 zh-CN,refresh 完全无效。
+    // 真正的 locale 切换需要客户端动态加载对应 locale 的 messages 并更新 Provider,
+    // 属于 i18n 架构改造(后续任务),不在本次"按钮切换性能"修复范围内。
+    // 当前 setLocale(code) 已更新 useLanguageStore,客户端 locale-aware 逻辑可读取此值。
   }
 
   const handleToggleTheme = () => {
@@ -1050,7 +1053,14 @@ interface NavLinkProps {
   registerRef: (href: string, el: HTMLElement | null) => void
 }
 
-function NavLink({ item, collapsed, active, label, onCloseMobile, registerRef }: NavLinkProps) {
+const NavLink = React.memo(function NavLink({
+  item,
+  collapsed,
+  active,
+  label,
+  onCloseMobile,
+  registerRef,
+}: NavLinkProps) {
   const Icon = item.icon
   const className = cn(
     NAV_ITEM_BASE_CLASS,
@@ -1103,7 +1113,7 @@ function NavLink({ item, collapsed, active, label, onCloseMobile, registerRef }:
       <span className="min-w-0 whitespace-nowrap text-left">{label}</span>
     </Link>
   )
-}
+})
 
 interface ExpandableNavItemProps {
   item: NavItem
@@ -1119,7 +1129,7 @@ interface ExpandableNavItemProps {
   scope: 'desktop' | 'mobile'
 }
 
-function ExpandableNavItem({
+const ExpandableNavItem = React.memo(function ExpandableNavItem({
   item,
   collapsed,
   isActive,
@@ -1332,7 +1342,7 @@ function ExpandableNavItem({
       {open && <div className="mt-0.5">{childList}</div>}
     </div>
   )
-}
+})
 
 /**
  * 顶级分组渲染器(2026-07-20 立):支持分组级别的展开/折叠。
@@ -1362,7 +1372,7 @@ interface NavGroupSectionProps {
   isFirst: boolean
 }
 
-function NavGroupSection({
+const NavGroupSection = React.memo(function NavGroupSection({
   group,
   collapsed,
   isActive,
@@ -1537,7 +1547,7 @@ function NavGroupSection({
       </div>
     </div>
   )
-}
+})
 
 export function Sidebar({
   id,
@@ -1550,11 +1560,14 @@ export function Sidebar({
   const tc = useTranslations('common')
   const pathname = usePathname()
   const router = useRouter()
-  const user = useAuthStore((s) => s.user)
+  // 性能修复(2026-07-25):仅订阅 user.roleId 单字段,而非整个 user 对象。
+  // 原全对象订阅导致任何 setUser(登录/profile 刷新/auth bootstrap/persist hydration)
+  // 都触发 Sidebar 根重渲染 → 80+ NavLink/ExpandableNavItem/NavGroupSection 连锁。
+  const userRoleId = useAuthStore((s) => s.user?.roleId)
   const tchat = useTranslations('aiChat')
   const aiPanelOpen = useAiPanelStore((s) => s.open)
   const toggleAiPanel = useAiPanelStore((s) => s.togglePanel)
-  const isAdmin = (user?.roleId ?? 0) >= 1
+  const isAdmin = (userRoleId ?? 0) >= 1
   // admin 动态路由:仅 admin 用户拉取,合并到"管理"分组 items 前部(过滤掉已分组的项)
   const { list: adminDynamicList, loaded: adminLoaded } = useAdminRouters()
 
