@@ -30,8 +30,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useChat } from '@ihui/shared/hooks'
-import type { ApiChatMessage, StreamRunnerParams } from '@ihui/shared/hooks'
+import { useChat, type ApiChatMessage, type StreamRunnerParams } from '@ihui/shared/hooks'
 
 // 受控 Promise 工厂(用于冻结 streamRunner,验证 streaming 中间态)
 function createDeferred<T = void>() {
@@ -214,9 +213,7 @@ describe('useChat 跨端共享 hook — 集成测试', () => {
       params.callbacks.onError(new Error('boom'))
     })
 
-    const { result } = renderHook(() =>
-      useChat({ streamRunner, clearAssistantOnError: true }),
-    )
+    const { result } = renderHook(() => useChat({ streamRunner, clearAssistantOnError: true }))
 
     await act(async () => {
       await result.current.sendMessage({ model: 'gpt-4', text: 'hi' })
