@@ -94,7 +94,6 @@
 | `@ihui/auth` | JWT + token-family + blacklist + data-scope + OAuth2 + ws-auth |
 | `@ihui/types` | user/api/ai 类型定义 |
 | `@ihui/ui-react` | Button/Input/Label/Card/Dialog 基础组件 |
-| `@ihui/config` | constants + env 配置 |
 | `@ihui/eslint-config` | base/next/react ESLint 配置 |
 | `@ihui/tsconfig` | base/nextjs/node/react-library TSConfig |
 

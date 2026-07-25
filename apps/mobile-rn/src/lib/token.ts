@@ -8,9 +8,10 @@
  * 调用方:`setToken` / `setRefreshToken` / `clearToken` / `getToken` / `getRefreshToken`。
  * `getToken` / `getRefreshToken` 返回同步缓存值(避免每次 HTTP 都 await SecureStore)。
  */
-import { setBaseUrl, setTokenProvider } from '@ihui/api-client'
+import { setBaseUrl } from '@ihui/api-client'
 import { API_BASE_URL, TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from './config'
 import { deleteSecureItem, getSecureItem, setSecureItem } from './auth/secure-store'
+import { bindTokenStoreToApiClient, type TokenStore } from '@ihui/shared/auth'
 
 let cachedToken: string | null = null
 let cachedRefreshToken: string | null = null
@@ -23,7 +24,7 @@ export async function initApi(): Promise<void> {
   ])
   cachedToken = typeof stored === 'string' ? stored : null
   cachedRefreshToken = typeof storedRefresh === 'string' ? storedRefresh : null
-  setTokenProvider({ getToken: () => cachedToken })
+  bindTokenStoreToApiClient(tokenStore)
 }
 
 export function getToken(): string | null {
@@ -55,5 +56,29 @@ export async function setRefreshToken(token: string | null): Promise<void> {
 export async function clearToken(): Promise<void> {
   cachedToken = null
   cachedRefreshToken = null
-  await Promise.all([deleteSecureItem(TOKEN_STORAGE_KEY), deleteSecureItem(REFRESH_TOKEN_STORAGE_KEY)])
+  await Promise.all([
+    deleteSecureItem(TOKEN_STORAGE_KEY),
+    deleteSecureItem(REFRESH_TOKEN_STORAGE_KEY),
+  ])
 }
+
+/**
+ * TokenStore 契约接入(类型层验证,零运行时改动)
+ *
+ * 编译时验证本端 token 管理实现符合 @ihui/shared/auth TokenStore 接口,
+ * 为后续跨端统一调用提供类型安全网。各调用方仍可直接用具体函数,
+ * 此对象供后续重构或新代码通过 TokenStore 接口调用使用。
+ *
+ * 注意:clearToken 同时清除 token + refreshToken,映射到 TokenStore.clearAll。
+ */
+export const tokenStore: TokenStore = {
+  getToken,
+  getRefreshToken,
+  setToken,
+  setRefreshToken,
+  clearAll: clearToken,
+}
+
+// Re-export 给 mobile-rn 端使用(从 lib/token-store.ts 迁移,避免维护两个文件)
+export { bindTokenStoreToApiClient } from '@ihui/shared/auth'
+export type { TokenStore, TokenStoreWithUserInfo } from '@ihui/shared/auth'
