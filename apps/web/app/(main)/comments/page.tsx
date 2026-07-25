@@ -130,7 +130,7 @@ export default function MyCommentsPage() {
       ) : (
         <>
           <div className="space-y-3">
-            {list.map((comment) => {
+            {list.map((comment: any) => {
               const Icon = TARGET_ICONS[comment.targetType] ?? FileText
               return (
                 <div

@@ -79,7 +79,7 @@ export default function UserExamPage() {
         </div>
       ) : (
         <ul className="space-y-3">
-          {items.map((e) => {
+          {items.map((e: any) => {
             const inProgress = e.status === 'published' || e.status === 'draft'
             return (
               <li
