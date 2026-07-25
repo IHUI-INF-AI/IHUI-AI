@@ -26,13 +26,17 @@ export function WorkflowViewDialog({ item, onClose }: WorkflowViewDialogProps) {
   const t = useTranslations('admin.workflows')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [locale],
+  )
 
   return (
     <Dialog

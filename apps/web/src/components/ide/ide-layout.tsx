@@ -17,7 +17,7 @@ import { TerminalPanel } from './terminal-panel'
 
 /** 根据活动视图渲染左侧面板 */
 function SidePanel() {
-  const { activeView } = useIDEWorkspace()
+  const activeView = useIDEWorkspace((s) => s.activeView)
   switch (activeView) {
     case 'files':
       return <FileExplorer />
@@ -64,7 +64,13 @@ function MainContent() {
 
 export function IDELayout() {
   useIDEShortcuts()
-  const { workspacePath, setWorkspacePath, restoreExpandedFolders, fetchFileTree, fetchDiffFiles, fetchGitLog, fetchGitBranches } = useIDEWorkspace()
+  const workspacePath = useIDEWorkspace((s) => s.workspacePath)
+  const setWorkspacePath = useIDEWorkspace((s) => s.setWorkspacePath)
+  const restoreExpandedFolders = useIDEWorkspace((s) => s.restoreExpandedFolders)
+  const fetchFileTree = useIDEWorkspace((s) => s.fetchFileTree)
+  const fetchDiffFiles = useIDEWorkspace((s) => s.fetchDiffFiles)
+  const fetchGitLog = useIDEWorkspace((s) => s.fetchGitLog)
+  const fetchGitBranches = useIDEWorkspace((s) => s.fetchGitBranches)
 
   // 工作区初始化:从 localStorage 恢复路径 + 展开状态,有路径则 fetch 数据
   React.useEffect(() => {

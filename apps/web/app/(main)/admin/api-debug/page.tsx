@@ -17,6 +17,10 @@ export default function ApiDebugPage() {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
   const locale = useLocale()
+  const timeFmt = React.useMemo(
+    () => new Intl.DateTimeFormat(locale, { timeStyle: 'medium' }),
+    [locale],
+  )
 
   const [method, setMethod] = React.useState<Method>('GET')
   const [url, setUrl] = React.useState('/api/health')
@@ -66,7 +70,7 @@ export default function ApiDebugPage() {
             method,
             url,
             status: data.status,
-            time: new Intl.DateTimeFormat(locale, { timeStyle: 'medium' }).format(new Date()),
+            time: timeFmt.format(new Date()),
           },
           ...prev,
         ].slice(0, 20),
