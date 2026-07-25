@@ -20,6 +20,18 @@ const BADGE: Record<MenuPermissionStatus, string> = {
   draft: 'bg-muted text-muted-foreground', pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   published: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', rejected: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
 }
+const TYPE_KEY: Record<string, string> = {
+  menu: 'type_menu',
+  button: 'type_button',
+  group: 'type_group',
+  api: 'type_api',
+}
+const MENU_STATUS_KEYS: Record<MenuPermissionStatus, string> = {
+  draft: 'status_draft',
+  pending: 'status_pending',
+  published: 'status_published',
+  rejected: 'status_rejected',
+}
 const c = 'px-4 py-3'
 
 export default function AdminMenuPermissionPage() {
@@ -78,8 +90,8 @@ export default function AdminMenuPermissionPage() {
                   <td className={`${c} font-medium`}>{m.name}</td>
                   <td className={`${c} text-muted-foreground font-mono text-xs`}>{m.code ?? '—'}</td>
                   <td className={`${c} text-muted-foreground font-mono text-xs`}>{m.path ?? '—'}</td>
-                  <td className={c}><span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t(`type_${m.type}`)}</span></td>
-                  <td className={c}><span className={`rounded px-2 py-0.5 text-xs ${BADGE[m.status]}`}>{t(`status_${m.status}`)}</span></td>
+                  <td className={c}><span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t(TYPE_KEY[m.type] ?? 'type_unknown')}</span></td>
+                  <td className={c}><span className={`rounded px-2 py-0.5 text-xs ${BADGE[m.status]}`}>{t(MENU_STATUS_KEYS[m.status]!)}</span></td>
                   <td className={c}><div className="flex justify-end gap-1">
                     {m.status === 'pending' && (<>
                       <Button size="sm" variant="ghost" disabled={audit.isPending} onClick={() => audit.mutate({ id: m.id, status: 'published' })}><Check className="h-4 w-4" />{t('approve')}</Button>
