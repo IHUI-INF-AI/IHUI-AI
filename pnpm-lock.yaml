@@ -666,6 +666,9 @@ importers:
       solito:
         specifier: 4.3.0
         version: 4.3.0(patch_hash=euz47cotzhirsu2kgxxm2zrxpm)
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.14(@types/react@19.2.17)(immer@11.1.15)(react@19.0.0)(use-sync-external-store@1.6.0(react@19.0.0))
     devDependencies:
       '@ihui/eslint-config':
         specifier: workspace:*
