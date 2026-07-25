@@ -5,7 +5,7 @@ import { Loader2, Edit, Trash2, CheckCircle, XCircle, ClipboardList } from 'luci
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
-import { STATUS_STYLE } from './helpers'
+import { STATUS_STYLE, STATUS_KEY } from './helpers'
 import type { AgentTask } from './types'
 
 interface Props {
@@ -70,7 +70,7 @@ export function AgentTaskTable({ list, isLoading, onApprove, onReject, onEdit, o
                   <span
                     className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[item.status] ?? 'bg-muted text-muted-foreground'}`}
                   >
-                    {t(`status${item.status}`)}
+                    {t(STATUS_KEY[item.status] ?? 'statusUnknown')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

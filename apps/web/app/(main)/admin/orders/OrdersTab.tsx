@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
-import { type EduOrder, type PageData, api, PAGE_SIZE, ORDER_STATUS_CFG } from './types'
+import { type EduOrder, type PageData, api, PAGE_SIZE, ORDER_STATUS_CFG, ORDER_STATUS_KEY, ORDER_TAB_LABEL_KEY } from './types'
 import { Pagination } from './Pagination'
 import {
   Button,
@@ -270,7 +270,7 @@ export function OrdersTab({
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`status_${tb.labelKey}`)}
+            {t(ORDER_TAB_LABEL_KEY[tb.labelKey] ?? 'status_unknown')}
           </button>
         ))}
       </div>
@@ -428,7 +428,7 @@ export function OrdersTab({
                         )}
                       >
                         <span className={cn('h-1.5 w-1.5 rounded-full', sc.dot)} />
-                        {t(`status_${o.status}`)}
+                        {t(ORDER_STATUS_KEY[o.status] ?? 'status_unknown')}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">
