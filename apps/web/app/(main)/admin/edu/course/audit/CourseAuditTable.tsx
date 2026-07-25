@@ -6,7 +6,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button }
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
-import { PERM, fmt, statusClass } from './helpers'
+import { PERM, fmt, statusClass, statusText, TYPE_KEY } from './helpers'
 import type { Audit } from './types'
 
 interface Props {
@@ -60,7 +60,7 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
             list.map((r) => (
               <TableRow key={r.id} className="hover:bg-muted/30">
                 <TableCell className="px-4 py-2.5">{r.id}</TableCell>
-                <TableCell className="px-4 py-2.5">{t(`type.${r.type}`)}</TableCell>
+                <TableCell className="px-4 py-2.5">{t(TYPE_KEY[r.type] ?? 'type.unknown')}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.operate}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.sourceId}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.targetId}</TableCell>
@@ -81,7 +81,7 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
                             : 'bg-muted-foreground',
                       )}
                     />
-                    {t(`status.${r.status}`)}
+                    {t(statusText(r.status))}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{r.creator ?? '-'}</TableCell>

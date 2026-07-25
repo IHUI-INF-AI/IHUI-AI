@@ -13,15 +13,8 @@ export { formatFileSize } from '@ihui/shared/utils/format'
  * 与 apps/desktop/src/lib/desktop.ts 的 bridge 逻辑一一对应,共享同一 Rust 后端。
  */
 
-/** 判断当前是否在 Tauri 客户端运行(非浏览器环境)。
- * 2026-07-25 临时调试:支持 ?desktop=1 URL 参数在浏览器中强制 isTauri=true,
- * 便于用普通浏览器调试桌面专属组件(如 NativeTopBar)。
- * 调试完成后保留该参数无害(isTauri=true 时 native 行为 no-op)。
- */
+/** 判断当前是否在 Tauri 客户端运行(非浏览器环境)。 */
 export function isTauri(): boolean {
-  if (typeof window !== 'undefined') {
-    if (window.location.search.includes('desktop=1')) return true
-  }
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
 
@@ -155,17 +148,13 @@ export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
 
 // ================== 应用菜单(2026-07-25 立) ==================
 
-/** 菜单动作 ID 联合类型(HTML 顶栏点击 + web 端 useNativeShortcuts 快捷键共用,前端 dispatcher 严格 switch)。 */
+/** 原生菜单 ID 联合类型(HTML 顶栏 + web 端快捷键共用,前端 dispatcher 严格 switch)。 */
 export type MenuActionId =
   | 'file.open_admin'
   | 'file.quit'
   | 'view.reload'
   | 'view.devtools'
   | 'help.about'
-
-// 2026-07-25 修订:已删除原 listenToMenuEvents(订阅 Rust 端 emit_to("main","menu:click"))。
-// 原因:Rust 端 build_app_menu 已删除(避免原生菜单 + HTML 顶栏两层菜单割裂),不再 emit menu:click。
-// 菜单动作改为 web 端 dispatchMenuAction + useNativeShortcuts 统一派发。
 
 /** 唤起 / 创建 admin 窗口(Rust 端 open_admin_window)。已存在则 show + focus。 */
 export async function openAdminWindow(): Promise<void> {

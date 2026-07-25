@@ -27,6 +27,9 @@ import {
   api,
   PAGE_SIZE,
   REFUND_STATUS_CFG,
+  REFUND_STATUS_KEY,
+  REFUND_TAB_LABEL_KEY,
+  REFUND_TYPE_KEY,
   selectClass,
   textareaClass,
 } from './types'
@@ -138,7 +141,7 @@ export function RefundsTab({
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`refundStatus_${tb.labelKey}`)}
+            {t(REFUND_TAB_LABEL_KEY[tb.labelKey] ?? 'refundStatus_unknown')}
           </button>
         ))}
       </div>
@@ -185,7 +188,7 @@ export function RefundsTab({
                     {currencyFmt.format(Number(r.refundAmount))}
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
-                    {t(`refundType_${r.refundType}`)}
+                    {t(REFUND_TYPE_KEY[r.refundType] ?? 'refundType_unknown')}
                   </td>
                   <td className="max-w-xs break-words px-4 py-2.5 text-muted-foreground">
                     {r.reason ?? '-'}
@@ -197,7 +200,7 @@ export function RefundsTab({
                         REFUND_STATUS_CFG[r.status].cls,
                       )}
                     >
-                      {t(`refundStatus_${r.status}`)}
+                      {t(REFUND_STATUS_KEY[r.status] ?? 'refundStatus_unknown')}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
@@ -250,7 +253,7 @@ export function RefundsTab({
                 <div className="font-mono text-xs">{action.refund.orderNo}</div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
                   {currencyFmt.format(Number(action.refund.refundAmount))} ·{' '}
-                  {t(`refundStatus_${action.refund.status}`)}
+                  {t(REFUND_STATUS_KEY[action.refund.status] ?? 'refundStatus_unknown')}
                 </div>
               </div>
             )}
@@ -264,12 +267,12 @@ export function RefundsTab({
                   {action?.mode === 'process'
                     ? (['approved', 'rejected'] as const).map((s) => (
                         <SelectItem key={s} value={s}>
-                          {t(`refundStatus_${s}`)}
+                          {t(REFUND_STATUS_KEY[s] ?? 'refundStatus_unknown')}
                         </SelectItem>
                       ))
                     : (['processing', 'completed', 'failed'] as const).map((s) => (
                         <SelectItem key={s} value={s}>
-                          {t(`refundStatus_${s}`)}
+                          {t(REFUND_STATUS_KEY[s] ?? 'refundStatus_unknown')}
                         </SelectItem>
                       ))}
                 </SelectContent>

@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { BASE_URL } from './request'
+import { BASE_URL } from './api-config'
 import { getToken } from './auth'
 import { readFileToBase64 } from './file-utils'
 

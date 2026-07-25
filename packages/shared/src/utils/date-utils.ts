@@ -70,6 +70,57 @@ export function formatTimeOnly(
   return getFormatters(locale).timeOnlyFormatter.format(d)
 }
 
+// ---------------------------------------------------------------------------
+// 短格式(用于 extension/小程序等紧凑 UI,无年份)
+// 空值返回 ''(UI 不展示),与 extension 原 fmtDate 行为一致
+// ---------------------------------------------------------------------------
+
+export function formatShortDateTime(
+  input: string | number | Date | null | undefined,
+  locale = 'zh-CN',
+): string {
+  if (!input) return ''
+  const d = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(d.getTime())) return ''
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: DEFAULT_TZ,
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d)
+}
+
+export function formatShortDate(
+  input: string | number | Date | null | undefined,
+  locale = 'zh-CN',
+): string {
+  if (!input) return ''
+  const d = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(d.getTime())) return ''
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: DEFAULT_TZ,
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+
+export function formatShortDateWithYear(
+  input: string | number | Date | null | undefined,
+  locale = 'zh-CN',
+): string {
+  if (!input) return ''
+  const d = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(d.getTime())) return ''
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: DEFAULT_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+
 export function formatNumber(input: number | null | undefined, locale = 'zh-CN'): string {
   if (input === null || input === undefined || Number.isNaN(input)) return '-'
   return getFormatters(locale).numberFormatter.format(input)

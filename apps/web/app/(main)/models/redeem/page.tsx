@@ -3,6 +3,12 @@ import { CheckCircle2, Gift, Ticket } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 
+/** i18n 静态映射表 — 用于消除 `t(\`redeem.history.statusLabels.${var}\`)` 动态拼接 */
+const REDEEM_STATUS_KEY: Record<string, string> = {
+  success: 'redeem.history.statusLabels.success',
+  failed: 'redeem.history.statusLabels.failed',
+}
+
 export default async function RedeemPage() {
   const t = await getTranslations('models')
 
@@ -79,7 +85,7 @@ export default async function RedeemPage() {
                         }
                       >
                         {h.status === 'success' && <CheckCircle2 className="h-3 w-3" />}
-                        {t(`redeem.history.statusLabels.${h.status}`)}
+                        {t(REDEEM_STATUS_KEY[h.status] ?? 'redeem.history.statusLabels.unknown')}
                       </span>
                     </td>
                   </tr>

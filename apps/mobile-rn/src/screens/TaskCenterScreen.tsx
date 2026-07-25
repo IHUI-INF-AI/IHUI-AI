@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -27,6 +35,12 @@ type TabKey = 'daily' | 'weekly' | 'newbie'
 
 const TABS: TabKey[] = ['daily', 'weekly', 'newbie']
 
+const TASK_CENTER_TAB_KEYS: Record<TabKey, string> = {
+  daily: 'taskCenter.tab_daily',
+  weekly: 'taskCenter.tab_weekly',
+  newbie: 'taskCenter.tab_newbie',
+}
+
 export function TaskCenterScreen() {
   const { t } = useI18n()
   const { token } = useAuth()
@@ -38,26 +52,31 @@ export function TaskCenterScreen() {
   const [error, setError] = useState('')
   const [claimingId, setClaimingId] = useState<string | null>(null)
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
-    setError('')
-    const resp = await fetch(`${API_BASE_URL}/api/tasks?type=${activeTab}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) {
-      setError(t('taskCenter.loadFailed'))
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      const resp = await fetch(`${API_BASE_URL}/api/tasks?type=${activeTab}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!resp.ok) {
+        setError(t('taskCenter.loadFailed'))
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      const data = (await resp.json()) as { data?: TaskItem[] }
+      setTasks(data.data ?? [])
       setLoading(false)
       setRefreshing(false)
-      return
-    }
-    const data = (await resp.json()) as { data?: TaskItem[] }
-    setTasks(data.data ?? [])
-    setLoading(false)
-    setRefreshing(false)
-  }, [token, activeTab, t])
+    },
+    [token, activeTab, t],
+  )
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const handleClaim = async (task: TaskItem) => {
     setClaimingId(task.id)
@@ -112,7 +131,7 @@ export function TaskCenterScreen() {
             style={[styles.tab, activeTab === s && styles.tabActive]}
           >
             <Text style={[styles.tabText, activeTab === s && styles.tabTextActive]}>
-              {t(`taskCenter.tab_${s}`)}
+              {t(TASK_CENTER_TAB_KEYS[s])}
             </Text>
           </TouchableOpacity>
         ))}
@@ -134,11 +153,14 @@ export function TaskCenterScreen() {
           </View>
         ) : (
           filtered.map((task) => {
-            const progressPct = task.target > 0 ? Math.min(100, Math.round((task.progress / task.target) * 100)) : 0
+            const progressPct =
+              task.target > 0 ? Math.min(100, Math.round((task.progress / task.target) * 100)) : 0
             return (
               <View key={task.id} style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.taskTitle} numberOfLines={1}>{task.title}</Text>
+                  <Text style={styles.taskTitle} numberOfLines={1}>
+                    {task.title}
+                  </Text>
                   <View style={styles.rewardBadge}>
                     <Text style={styles.rewardText}>+{task.reward}</Text>
                   </View>
@@ -200,20 +222,44 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: PRIMARY },
   tabText: { fontSize: 12, color: '#6B7280' },
   tabTextActive: { color: '#FFFFFF' },
-  errorBar: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  errorBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   retryText: { fontSize: 12, color: PRIMARY },
   list: { padding: 16, paddingBottom: 32 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10, backgroundColor: '#FFFFFF' },
+  card: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   taskTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827', marginRight: 8 },
-  rewardBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: '#ECFDF5' },
+  rewardBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: '#ECFDF5',
+  },
   rewardText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
   taskDesc: { marginTop: 4, fontSize: 12, color: '#6B7280' },
   progressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
   progressBarBg: { flex: 1, height: 6, borderRadius: 8, backgroundColor: '#F3F4F6' },
   progressBarFill: { height: 6, borderRadius: 8, backgroundColor: PRIMARY },
   progressText: { fontSize: 11, color: '#9CA3AF' },
-  actionBtn: { marginTop: 10, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
+  actionBtn: {
+    marginTop: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+  },
   goBtn: { backgroundColor: '#F3F4F6' },
   claimedBtn: { backgroundColor: '#F3F4F6' },
   actionBtnText: { fontSize: 13, color: '#FFFFFF' },

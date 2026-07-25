@@ -13,18 +13,10 @@ import {
 } from '@ihui/api-client'
 import { Card, CardContent, Badge } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
 
 function initials(name: string): string {
   return name?.trim().charAt(0).toUpperCase() || '?'
-}
-
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(new Date(s))
-  } catch {
-    return ''
-  }
 }
 
 function fmtMoney(n: number | undefined): string {
