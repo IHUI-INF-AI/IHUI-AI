@@ -110,13 +110,30 @@ class SkillScheduler:
                 continue
             if not result.get("error"):
                 tokens = int(result.get("usage", {}).get("total_tokens", 0))
-                return self._record(
+                entry = self._record(
                     skill_name=skill_name,
                     content=str(result.get("content", "")),
                     model=str(result.get("model", "")),
                     tokens=tokens, retries=attempt, error=None,
                     duration_ms=(time.time() - skill_start) * 1000,
                 )
+                # L5:fire-and-forget 触发 shadow call(若有 active A/B test)
+                # 由 AB_TEST_ENABLED 环境变量间接控制(scheduler 启动时已检查)
+                # 失败不影响主流程,只 log warning
+                try:
+                    from .shadow_runner import shadow_runner
+                    shadow_runner.maybe_shadow_call(
+                        skill_name=skill_name,
+                        control_call_result=entry,
+                        model=model,
+                        variables=merged_vars,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "[skill_scheduler] maybe_shadow_call 触发失败(忽略): %s: %s",
+                        type(e).__name__, e,
+                    )
+                return entry
             last_error = str(result.get("error_message") or result.get("error"))
             logger.warning(
                 "SkillScheduler skill=%s 第 %d 次返回 error: %s",
