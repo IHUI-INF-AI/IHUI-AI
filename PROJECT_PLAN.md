@@ -8,6 +8,65 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 业务层共享启动阶段 5 — mobile-rn TokenStore 适配器接入试点(lib/token-store.ts 包装现有 lib/token.ts 为 TokenStore 接口实例,跨端:packages/shared + apps/mobile-rn,平台独占 — mobile-rn 单端接入,共享层契约由阶段 3-4 提供)
+
+**触发**:阶段 4(useAuth hook 落地)完成后用户要求"继续"。阶段 5 为 mobile-rn 单端接入试点,验证 TokenStore 契约 + useAuth hook 在真实端的可用性。
+
+**执行方式**:主 agent 单端实现(apps/mobile-rn/src/lib/token-store.ts),非破坏性接入 — 现有 lib/token.ts + AuthContext.tsx 完全不动,仅补适配器作为基础设施。
+
+**成果清单**:
+
+#### P0:mobile-rn TokenStore 适配器(非破坏性接入)
+
+- [apps/mobile-rn/src/lib/token-store.ts](file:///g:/IHUI-AI/apps/mobile-rn/src/lib/token-store.ts) — 53 行,将现有 lib/token.ts 函数式 API 包装成 TokenStore 接口对象
+  - `rnTokenStore: TokenStore` 实例:getToken/getRefreshToken(同步)/ setToken/setRefreshToken(异步)/ clearAll(对应 clearToken)
+  - Re-export `bindTokenStoreToApiClient` + `TokenStore`/`TokenStoreWithUserInfo` 类型(避免各处自行 import @ihui/shared/auth)
+  - 完整 JSDoc + 接入示例注释
+
+#### P0:非破坏性策略(3 条原则)
+
+1. **现有 lib/token.ts 完全不动**:4 个消费文件(AuthContext.tsx / TaskDispatchPage.tsx / use-websocket.ts / LiveDetailScreen.tsx)继续用函数式 API
+2. **AuthContext.tsx 完全不动**:SSO deep link + 密码登录 + 登出流程复杂,改造风险大,本阶段不触碰
+3. **本适配器仅作为基础设施**:后续新页面/新功能可直接 `useAuth({ store: rnTokenStore, fetchProfile })` 消费
+
+#### P0:接入示例(mobile-rn 后续新代码可用)
+
+```ts
+import { useAuth } from '@ihui/shared/hooks'
+import { rnTokenStore } from '../lib/token-store'
+
+const auth = useAuth({
+  store: rnTokenStore,
+  // bindTransport 不传:lib/token.ts initApi 已 setTokenProvider,避免重复绑定
+  fetchProfile: async () => {
+    const res = await getProfile()
+    return { success: res.success, data: res.data }
+  },
+})
+```
+
+**验证**:
+
+- @ihui/mobile-rn typecheck ✅ exit 0
+- @ihui/mobile-rn lint:token-store.ts 干净 ✅(剩余 5 error + 4 warning 都在 tests/ + screens/ 属其他 agent 代码,按 §12 不本任务范围)
+- token-store.ts 53 行,零新依赖,纯适配器模式
+
+**后续阶段预告**(业务层共享启动,7 阶段规划):
+
+- 阶段 6 P1:新增 useArticles/useChat/useAgents 业务 hooks(各端接入 useAuth 后再启动)
+- 阶段 7 P1:新增 authStore/userStore/themeStore 共享(zustand + transport 注入)
+- 阶段 8 P1:业务组件 MessageBubble/ArticleCard/AgentCard/NotificationItem 提取到 @ihui/ui-react
+- 阶段 9 P1:extension 引入 React Query(架构升级评估 + 试点页面)
+
+**Git 同步证据**:
+
+- 本地 commit: (待 commit)
+- origin commit: (待 push)
+- 同步状态: (待验证)
+- 守门脚本: (待验证)
+
+---
+
 ### [x] ✅(2026-07-25) 业务层共享启动阶段 4 — useAuth 跨端共享 hook 落地(@ihui/shared/hooks/use-auth + hooks/index 导出,跨端:packages/shared,平台独占 — 共享层扩展由主 agent 控制,各端接入属后续阶段)
 
 **触发**:阶段 3(token-store 通用契约)完成后用户要求"继续"。useAuth 是业务层共享的关键基础(鉴权前置依赖),阶段 3 已提供 `TokenStore` 接口 + `createInMemoryTokenStore` 工厂 + `bindTokenStoreToApiClient` 适配器,本阶段补齐 hook 层。
