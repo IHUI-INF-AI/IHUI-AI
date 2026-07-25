@@ -944,7 +944,6 @@ IHUI-AI/
 │   ├── api-client/          # @ihui/api-client (40+ endpoints 自动生成 SDK,6 端共享)
 │   ├── app/                 # @ihui/app (RN 业务逻辑共享:AboutScreen/ProfileScreen/SettingsScreen + RN tokens re-export)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
-│   ├── config/              # @ihui/config
 │   ├── context-compaction/  # @ihui/context-compaction (上下文压缩)
 │   ├── database/            # @ihui/database (Drizzle, 340 表, 144 迁移, RLS, 租户路由, pgvector)
 │   ├── design-tokens/       # @ihui/design-tokens (8端共享设计令牌:cn() + HSL shadcn tokens + RN HEX tokens + CSS 变量)
