@@ -1643,6 +1643,22 @@
       "highUsage": "接近上限",
       "criticalUsage": "已超上限",
       "disclaimer": "Token 数为客户端估算,与服务端精确计数可能存在 ±10% 误差。压缩后内容将作为后续对话的上下文摘要。"
+    },
+    "permission": {
+      "buttonLabel": "权限模式",
+      "popoverTitle": "应如何批准 AI 操作?",
+      "popoverHintNoWorkspace": "未绑定工作区,选定后将在绑定时生效",
+      "learnMore": "了解更多",
+      "highRisk": "高风险",
+      "quickFullAccess": "完全访问",
+      "mode": {
+        "ask": "请求批准",
+        "askDesc": "编辑外部文件和使用互联网时始终询问",
+        "auto": "替我审批",
+        "autoDesc": "仅对检测到的风险操作请求批准",
+        "full": "完全访问权限",
+        "fullDesc": "可不受限制地访问互联网和您电脑上的任何文件"
+      }
     }
   },
   "learn": {
