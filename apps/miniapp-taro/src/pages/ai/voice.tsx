@@ -21,6 +21,17 @@ const TIMBRES: Timbre[] = ['female', 'male']
 const speedLabel: Record<Speed, string> = { normal: '标准', fast: '快速', slow: '慢速' }
 const timbreLabel: Record<Timbre, string> = { female: '女声', male: '男声' }
 
+const SPEED_KEY: Record<string, string> = {
+  normal: 'ai.voice.speed.normal',
+  fast: 'ai.voice.speed.fast',
+  slow: 'ai.voice.speed.slow',
+}
+
+const TIMBRE_KEY: Record<string, string> = {
+  female: 'ai.voice.timbre.female',
+  male: 'ai.voice.timbre.male',
+}
+
 const WAVE_DELAYS = [0, 0.1, 0.2, 0.3, 0.4]
 
 export default function VoicePage() {
@@ -250,7 +261,7 @@ export default function VoicePage() {
               className={`py-[6rpx] px-[20rpx] bg-background rounded-[8rpx] text-[24rpx] text-muted-foreground ${speed === s ? 'bg-primary text-foreground' : ''}`}
               onClick={() => setSpeed(s)}
             >
-              {tt(`ai.voice.speed.${s}`, speedLabel[s])}
+              {tt(SPEED_KEY[s] ?? 'ai.voice.speed.normal', speedLabel[s])}
             </Text>
           ))}
         </View>
@@ -262,7 +273,7 @@ export default function VoicePage() {
               className={`py-[6rpx] px-[20rpx] bg-background rounded-[8rpx] text-[24rpx] text-muted-foreground ${timbre === tb ? 'bg-primary text-foreground' : ''}`}
               onClick={() => setTimbre(tb)}
             >
-              {tt(`ai.voice.timbre.${tb}`, timbreLabel[tb])}
+              {tt(TIMBRE_KEY[tb] ?? 'ai.voice.timbre.female', timbreLabel[tb])}
             </Text>
           ))}
         </View>
