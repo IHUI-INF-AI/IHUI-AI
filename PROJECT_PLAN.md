@@ -8,6 +8,62 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 业务层共享启动阶段 2 — formatTokenCount 从 @ihui/api-client 迁到 @ihui/shared/utils(纠正工具函数归属 + 4 端 import 更新,跨端:packages/shared + web + extension + miniapp-taro + mobile-rn)
+
+**触发**:业务层共享启动阶段 1 完成后,用户要求"继续"。formatTokenCount 是纯工具函数(格式化 token 数为 32K/128K/1M),归属 @ihui/api-client 不合理(工具函数应统一在 @ihui/shared/utils),且与 formatDate/formatPrice 等同属格式化工具系列。
+
+**执行方式**:主 agent 控制共享层扩展(packages/shared/src/utils/format.ts 新增实现),general_purpose_task subagent 执行 4 个消费文件 import 路径迁移。
+
+**成果清单**:
+
+#### P0:shared/utils/format.ts 新增 formatTokenCount(单一来源)
+
+- [packages/shared/src/utils/format.ts](file:///g:/IHUI-AI/packages/shared/src/utils/format.ts) 第 36-52 行新增 `formatTokenCount(tokens: number): string`,实现与 api-client 完全一致(32K/128K/1M/2M 格式)
+- 注释明确"单一来源:@ihui/shared/utils(2026-07-25 立,从 @ihui/api-client 迁入)"
+- 纯函数,无依赖,无循环依赖风险(api-client 不依赖 shared,反向才可以)
+
+#### P0:4 个消费文件 import 路径迁移(6 处直接调用 + 8 处 web 间接调用保持不变)
+
+- [apps/web/src/lib/model-context-capacity.ts](file:///g:/IHUI-AI/apps/web/src/lib/model-context-capacity.ts) — web re-export 兼容层,`formatTokenCount` 改从 `@ihui/shared/utils` 导出,`DEFAULT_CONTEXT_CAPACITY` + `getModelContextCapacity` 仍走 `@ihui/api-client`(间接服务 web 端 use-chat.ts + context-usage-ring.tsx 共 8 处调用,无需改动)
+- [apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx](file:///g:/IHUI-AI/apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx) 第 10 行 — 从 api-client import 块删除 formatTokenCount,新增 `import { formatTokenCount } from '@ihui/shared/utils'`
+- [apps/miniapp-taro/src/pages/ai/chat.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/ai/chat.tsx) 第 13 行 — 拆分为两行 import,Agent type import 保持不变
+- [apps/mobile-rn/src/screens/ChatScreen.tsx](file:///g:/IHUI-AI/apps/mobile-rn/src/screens/ChatScreen.tsx) 第 21 行 — 同 extension,删除并新增独立 import 行
+
+#### 向后兼容策略
+
+- `packages/api-client/src/model-context-capacity.ts` 保留原 `formatTokenCount` 实现(本次未动),作为 fallback
+- `packages/api-client/src/index.ts` 仍导出 `formatTokenCount`(向后兼容)
+- 后续可逐步清理:确认全端无直接从 @ihui/api-client 导入 formatTokenCount 后,移除该导出
+
+**验证**:
+
+- shared/utils/format.ts 新增:typecheck ✅
+- 6 端 typecheck 全绿 exit 0:
+  - @ihui/shared ✅
+  - @ihui/api-client ✅
+  - @ihui/web ✅
+  - @ihui/extension ✅
+  - @ihui/miniapp-taro ✅
+  - @ihui/mobile-rn ✅
+- 调用方代码零改动(6 处直接调用 + 8 处 web 间接调用保持原样)
+
+**后续阶段预告**(业务层共享启动,7 阶段规划):
+
+- 阶段 3 P1:新增 useAuth 业务 hook(@ihui/shared/hooks + 4 端接入评估)— 鉴权前置依赖,需先设计 transport 注入机制
+- 阶段 4 P1:新增 useArticles/useChat/useAgents 业务 hooks
+- 阶段 5 P1:新增 authStore/userStore/themeStore 共享(zustand + transport 注入)
+- 阶段 6 P1:业务组件 MessageBubble/ArticleCard/AgentCard/NotificationItem 提取到 @ihui/ui-react
+- 阶段 7 P1:extension 引入 React Query(架构升级评估 + 试点页面)
+
+**Git 同步证据**:
+
+- 本地 commit: (待 commit)
+- origin commit: (待 push)
+- 同步状态: (待验证)
+- 守门脚本: (待验证)
+
+---
+
 ### [x] ✅(2026-07-25) 业务层共享启动阶段 1 — extension 14 页面 fmtDate 迁移到 @ihui/shared/utils(跨端:packages/shared + apps/extension,平台独占 — 仅 extension 端消费,共享层扩展由主 agent 控制)
 
 **触发**:用户要求"启动业务层共享"。基于前期评估报告,业务层共享是当前架构最大短板(评分 35/100),原方案阶段 2-4(业务 hooks → store → app-shell)未启动。本阶段为 P0 最容易、最高 ROI 的第一步:工具函数补齐。
