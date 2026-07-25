@@ -11,6 +11,7 @@
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client'
 import { API_BASE_URL, TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from './config'
 import { deleteSecureItem, getSecureItem, setSecureItem } from './auth/secure-store'
+import type { TokenStore } from '@ihui/shared/auth'
 
 let cachedToken: string | null = null
 let cachedRefreshToken: string | null = null
@@ -56,4 +57,21 @@ export async function clearToken(): Promise<void> {
   cachedToken = null
   cachedRefreshToken = null
   await Promise.all([deleteSecureItem(TOKEN_STORAGE_KEY), deleteSecureItem(REFRESH_TOKEN_STORAGE_KEY)])
+}
+
+/**
+ * TokenStore 契约接入(类型层验证,零运行时改动)
+ *
+ * 编译时验证本端 token 管理实现符合 @ihui/shared/auth TokenStore 接口,
+ * 为后续跨端统一调用提供类型安全网。各调用方仍可直接用具体函数,
+ * 此对象供后续重构或新代码通过 TokenStore 接口调用使用。
+ *
+ * 注意:clearToken 同时清除 token + refreshToken,映射到 TokenStore.clearAll。
+ */
+export const tokenStore: TokenStore = {
+  getToken,
+  getRefreshToken,
+  setToken,
+  setRefreshToken,
+  clearAll: clearToken,
 }

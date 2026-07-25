@@ -74,17 +74,24 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const activeMode = activeWorkspace?.mode
   // 初始读 localStorage(SSR 阶段跳过,客户端首次渲染再读)
-  const [record, setRecord] = React.useState<AutoRevertRecord | null>(() => {
-    if (typeof window === 'undefined') return null
-    return readRecord()
-  })
+  const [record, setRecord] = React.useState<AutoRevertRecord | null>(null)
+  // 客户端 mount 时强制读一次(2026-07-25 修复:useState lazy initializer 在 SSR 返回 null 后,
+  // 客户端 hydration 不会重跑,导致 expired/刷新场景的 record 被 effect 1 覆盖)
+  const [hydrated, setHydrated] = React.useState(false)
+  React.useEffect(() => {
+    if (hydrated) return
+    setRecord(readRecord())
+    setHydrated(true)
+  }, [hydrated])
   // 强制 1s 重渲染,刷新倒计时显示
   const [, setTick] = React.useState(0)
 
   // 模式变化 → 同步 record
   // - 切到 bypass-permissions:启动新倒计时(如果当前已激活则保持,只在切回 default/accept-edits 时清掉)
   // - 切到 default / accept-edits:清掉
+  // 依赖 hydrated:hydration 完成后才允许 effect 同步,防止 hydration 前 effect 把 record 覆盖
   React.useEffect(() => {
+    if (!hydrated) return
     if (activeMode === 'bypass-permissions') {
       // 仅在没有活跃 record 时启动新的
       setRecord((prev) => {
@@ -128,9 +135,52 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
     if (!record) return 0
     const elapsed = Date.now() - record.startedAt
     return Math.max(0, record.durationMs - elapsed)
-  }, [record]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [record])  
+
+  // 快到期提醒(2026-07-25 深化,防"被切懵"):
+  // - 剩 5 分钟:警告 toast,可一键续期 1h
+  // - 剩 1 分钟:紧急 toast
+  // 用 ref 去重,每个阈值只弹一次
+  const warnedFiveMinRef = React.useRef(false)
+  const warnedOneMinRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!record) {
+      warnedFiveMinRef.current = false
+      warnedOneMinRef.current = false
+      return
+    }
+    if (remainingMs > 5 * 60 * 1000) {
+      warnedFiveMinRef.current = false
+      warnedOneMinRef.current = false
+      return
+    }
+    if (remainingMs <= 5 * 60 * 1000 && remainingMs > 60 * 1000 && !warnedFiveMinRef.current) {
+      warnedFiveMinRef.current = true
+      toast(t('revertWarning5minTitle'), {
+        description: t('revertWarning5minDesc'),
+        duration: 10000,
+        action: {
+          label: t('extendOneHour'),
+          onClick: () => extendRevert(DEFAULT_DURATION_MS),
+        },
+      })
+    } else if (remainingMs <= 60 * 1000 && remainingMs > 0 && !warnedOneMinRef.current) {
+      warnedOneMinRef.current = true
+      toast(t('revertWarning1minTitle'), {
+        description: t('revertWarning1minDesc'),
+        duration: 8000,
+        action: {
+          label: t('extendOneHour'),
+          onClick: () => extendRevert(DEFAULT_DURATION_MS),
+        },
+      })
+    }
+  }, [remainingMs, record, t]) // extendRevert 引用稳定,可省略
 
   // 倒计时归零 → 自动切回 default
+  // 2026-07-25 修复:本地优先,API 失败不阻断本地切换(兜底安全护栏必须保证最终生效)
+  // 1. 先乐观更新 store + localStorage → 立即退出高风险
+  // 2. 后台异步调 API 落库 + 失败重试 1 次
   const autoSwitchedRef = React.useRef(false)
   React.useEffect(() => {
     if (!record) {
@@ -139,28 +189,38 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
     }
     if (remainingMs > 0) return
     if (autoSwitchedRef.current) return
-    // 当前模式仍是 bypass → 自动切
+    // 当前模式已被切走 → 清 record 退出
     const current = useAiPanelStore.getState().activeWorkspace?.mode
     if (current !== 'bypass-permissions') {
-      // 已被切走,清 record 退出
       setRecord(null)
       writeRecord(null)
       return
     }
     autoSwitchedRef.current = true
+    // 立即本地切回(安全护栏兜底,不能被 API 失败阻断)
+    const store = useAiPanelStore.getState()
+    if (store.activeWorkspace) {
+      store.setActiveWorkspace({ ...store.activeWorkspace, mode: 'default' })
+    }
+    // 计算本次完全访问累计时长(2026-07-25 深化):让用户知道"我开了多久"
+    const usedMs = record ? Math.min(Date.now() - record.startedAt, record.durationMs) : 0
+    const usedMin = Math.round(usedMs / 60000)
+    setRecord(null)
+    writeRecord(null)
+    toast(t('autoRevertedTitle'), {
+      description: t('autoRevertedDescWithDuration', { usedMin }),
+      duration: 6000,
+    })
+    // 后台异步落库 + 失败重试
     void (async () => {
-      const result = await switchPermissionMode('default')
-      if (result.ok) {
-        setRecord(null)
-        writeRecord(null)
-        // 自动切回反馈(2026-07-25 深化):让用户知道"为什么被切了"
-        toast(t('autoRevertedTitle'), {
-          description: t('autoRevertedDesc'),
-          duration: 6000,
-        })
-      } else {
-        autoSwitchedRef.current = false
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const result = await switchPermissionMode('default')
+        if (result.ok) return
+        // 短暂等待再重试
+        await new Promise((r) => setTimeout(r, 1500))
       }
+      // 2 次都失败:记录到 console(不阻塞 UI,本地已切回)
+      console.warn('[usePermissionAutoRevert] 自动切回 default 后落库失败,已本地切回')
     })()
   }, [remainingMs, record, t])
 
@@ -183,6 +243,19 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
     },
     [durationMs],
   )
+
+  // 全局句柄(2026-07-25 深化):toast callback 在 React 组件作用域外触发不了 hook,
+  // 把 extendRevert 挂到 window 上,供任何 toast action.onClick 安全调用
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const w = window as unknown as {
+      __IHUI_EXTEND_AUTO_REVERT__?: (ms?: number) => void
+    }
+    w.__IHUI_EXTEND_AUTO_REVERT__ = (ms?: number) => extendRevert(ms ?? DEFAULT_DURATION_MS)
+    return () => {
+      w.__IHUI_EXTEND_AUTO_REVERT__ = undefined
+    }
+  }, [extendRevert])
 
   return {
     /** 是否处于高风险 + 倒计时激活态 */
