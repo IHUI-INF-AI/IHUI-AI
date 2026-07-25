@@ -37,6 +37,12 @@ interface CouponPage {
 const PAGE_SIZE = 20
 const STATUS_TABS = ['available', 'used', 'expired'] as const
 
+const COUPON_TAB_KEYS: Record<CouponItem['status'], string> = {
+  available: 'coupon.tab_available',
+  used: 'coupon.tab_used',
+  expired: 'coupon.tab_expired',
+}
+
 function statusColor(status: CouponItem['status']): string {
   if (status === 'available') return '#10B981'
   if (status === 'used') return '#9CA3AF'
@@ -64,7 +70,10 @@ export function CouponScreen() {
     return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
   }, [token, statusTab, t])
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<CouponItem>(fetcher, PAGE_SIZE)
+  const { items, loading, refreshing, error, refresh } = usePaginatedList<CouponItem>(
+    fetcher,
+    PAGE_SIZE,
+  )
 
   const onTabChange = (next: (typeof STATUS_TABS)[number]) => {
     if (next === statusTab) return
@@ -90,7 +99,7 @@ export function CouponScreen() {
             style={[styles.tab, statusTab === s && styles.tabActive]}
           >
             <Text style={[styles.tabText, statusTab === s && styles.tabTextActive]}>
-              {t(`coupon.tab_${s}`)}
+              {t(COUPON_TAB_KEYS[s])}
             </Text>
           </TouchableOpacity>
         ))}
@@ -131,12 +140,14 @@ export function CouponScreen() {
                 </Text>
               </View>
               <View style={styles.cardRight}>
-                <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+                <Text style={styles.cardName} numberOfLines={1}>
+                  {item.name}
+                </Text>
                 <Text style={styles.validText}>
                   {t('coupon.validUntil')}: {formatDateOnly(item.validUntil)}
                 </Text>
                 <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
-                  <Text style={styles.statusText}>{t(`coupon.tab_${item.status}`)}</Text>
+                  <Text style={styles.statusText}>{t(COUPON_TAB_KEYS[item.status])}</Text>
                 </View>
               </View>
             </Card>
@@ -161,18 +172,43 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: PRIMARY },
   tabText: { fontSize: 12, color: '#6B7280' },
   tabTextActive: { color: '#FFFFFF' },
-  errorBar: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  errorBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   errorText: { fontSize: 12, color: '#DC2626' },
   retryText: { fontSize: 12, color: PRIMARY },
   center: { alignItems: 'center', paddingVertical: 32 },
   emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
-  card: { flexDirection: 'row', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', backgroundColor: '#FFFFFF' },
-  cardLeft: { width: 96, padding: 12, backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center' },
+  card: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+  },
+  cardLeft: {
+    width: 96,
+    padding: 12,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   amountText: { fontSize: 22, fontWeight: '700', color: PRIMARY },
   minText: { marginTop: 4, fontSize: 11, color: '#6B7280', textAlign: 'center' },
   cardRight: { flex: 1, padding: 12 },
   cardName: { fontSize: 14, fontWeight: '600', color: '#111827' },
   validText: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
-  statusBadge: { alignSelf: 'flex-start', marginTop: 6, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
   statusText: { fontSize: 11, color: '#FFFFFF' },
 })
