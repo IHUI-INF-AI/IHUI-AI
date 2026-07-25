@@ -1,0 +1,22 @@
+feat(web): 权限模式可发现性深化 Part B — 高风险脉动 + ? 帮助面板 + 模式说明 modal
+
+承接第四批 Part A(d62e76bb3 危险命令 + 模式历史),本批聚焦可发现性 + 视觉细节:
+1. 高风险模式脉动动画(globals.css 加 ihui-pulse-soft keyframes + .animate-pulse-soft 工具类)
+   - 2.4s 慢节奏,opacity 0.85,微亮 box-shadow(不刺眼,Codex 风格)
+   - 应用于高风险警告横幅 + 输入框边框
+2. PermissionShortcutsModal(? 键唤起)
+   - 3 分组:模式切换 / 高风险护栏 / 撤销与审计
+   - 全局 ? 键监听(排除 textarea/input/contenteditable)
+3. PermissionModeInfoModal(标题栏 ⓘ 按钮唤起,仅 bypass 模式显示)
+   - 3 种模式共用,通过 mode prop 切换内容
+   - 每种模式 4 条 bullet 详细说明
+4. 5 语言 i18n 同步(chat.permission.shortcuts*/infoButton*/modeInfoBullets.*)
+   - 共 19 个新 key + 12 条 modeInfoBullets(4 bullets × 3 modes)
+5. 集成在 message-input.tsx:Info 图标 import + 2 个 useState + 全局 ? 键 useEffect
+   + 2 个 modal 挂载在 FullAccessConfirmBridge 之后(message-input 集成在 commit 00b7f08ce 已合并)
+
+验证:
+- web typecheck: 0 错误
+- i18n 5 语言 parity + zh-TW 无残留 + en 无破碎
+
+Co-Authored-By: MiniMax-M3 <noreply@example.com>

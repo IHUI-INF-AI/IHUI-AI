@@ -1,0 +1,15 @@
+fix(scripts/i18n): 修复审计工具变量名识别 + t.raw + await,清理 37 个无引用 key
+
+审计工具修复(stripComments + varNames + t.raw + await getTranslations):
+1. stripComments 过滤 JSDoc 注释示例文本误识别(动态拼接 48→0)
+2. extractTranslationVars 提取非标准变量名(tc/te/tr/tp,支持 await getTranslations)
+3. 第二阶段 ripgrep 搜索 VAR(key)/VAR.raw(key) 调用
+4. t.raw() 扫描解决数组/对象类型 key 误判(enterprise 系列)
+
+无引用 key 清理(3 subagent 交叉验证确认):
+- audit 顶层命名空间 31 个 leaf(无任何代码引用)
+- help.faq 5 个数组 key(account/payment/project/ai/tech,/help 页面已迁移后端 API)
+- chat.permission.autoRevertedDesc 1 个(被 autoRevertedDescWithDuration 替代)
+- 5 语言同步删除(zh-CN/zh-TW/ko/ja/en),共 165 个 key
+
+效果:web 无引用率 4.6%(453)→ 0.1%(9),动态拼接 48→0
