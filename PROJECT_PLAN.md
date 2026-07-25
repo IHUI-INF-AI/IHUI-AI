@@ -8,7 +8,43 @@
 
 ## 当前活跃任务(2026-07-25)
 
-### [ ] i18n 治理阶段 1 — miniapp-taro 13 处动态拼接改静态映射(跨端:仅 miniapp-taro)
+### [x] ✅(2026-07-25) 维护成本优化第三轮 — miniapp-taro i18n 13 处动态拼接静态化 + P0 冗余依赖清理 + 守门脚本合并分析(跨端:miniapp-taro + api + web + scripts 分析)
+
+**触发**:用户要求"继续"。承接第二轮交付报告后续建议,派发 3 个并行 subagent 执行高 ROI 低风险优化。
+
+**执行方式**:3 个 subagent 并行(i18n 静态化 / P0 依赖清理 / 守门脚本分析)。
+
+**成果清单**:
+
+#### Subagent 1: miniapp-taro i18n 13 处动态拼接静态化(10 文件)
+- 13/13 处全部改造完成,0 TODO 残留
+- 映射表:CATEGORY_KEY(7 项)/ SPEED_KEY(3 项)/ TIMBRE_KEY(2 项)/ VIS_KEY(3 项)/ MODEL_TYPE_KEY(8 项)/ WEEKDAY_KEYS(7 项数组)/ COUPON_STATUS_KEY(3 项)/ QA_KEYS(4 项数组)/ LANG_KEY(5 项)/ PRIVACY_STATUS_KEY(3 项)/ PERMISSION_KEY(5 项)
+- 验证:typecheck exit 0 ✅,audit 脚本动态拼接警告 13 → 0 ✅
+- 行为保持:所有 t()/tt() 调用的 key 字符串与原拼接完全一致
+
+#### Subagent 2: P0 冗余依赖清理(3 文件)
+- 删除 `playwright-core`(apps/api dependencies)— 代码零引用
+- 删除 `source-map-js`(apps/web devDependencies)— 代码零引用
+- 二次 Grep 验证零引用 ✅,pnpm-lock.yaml 自动更新
+- 验证:api typecheck exit 0 ✅,web typecheck 失败(tauri-bridge 问题,与本次改动无关)
+- 保留 @playwright/test(web 端 e2e 测试用)
+
+#### Subagent 3: 守门脚本合并可行性分析(.trae-cn/tmp/gatekeeper-merge-plan.md,120 行,不入库)
+- 识别可合并组 6 组,仅 1 组推荐合并(export-untranslated + analyze-unique → i18n-untranslated-pipeline)
+- 可删除一次性脚本 7 个 .mjs + 1 个 .js(fix-* / 已被替代的 scan-* / legacy generate-i18n.js)
+- 可归档迁移审计脚本 8 个(已执行完毕)
+- 预估精简:93 → 78 个(保守)/ 77 个(激进),对 pre-commit 钩子零影响
+
+**验证**:
+
+- miniapp-taro typecheck exit 0 ✅
+- api typecheck exit 0 ✅
+- audit-i18n-unused-keys.mjs miniapp-taro 动态拼接 13 → 0 ✅
+- git local == remote(f8d8a4239)✅
+
+---
+
+### [x] ✅(2026-07-25) i18n 治理阶段 1 — miniapp-taro 13 处动态拼接改静态映射(跨端:仅 miniapp-taro)
 
 **触发**:用户要求"按计划你的最优建议进行"。承接维护成本优化第二轮 subagent 4 产出的 `.trae-cn/tmp/i18n-cleanup-plan.md` 6 阶段治理方案,执行阶段 1(P0 风险最低、工时最短 0.5 天、为后续 web 端 260 处改造铺路)。
 
