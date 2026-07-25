@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
@@ -18,15 +19,19 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.events')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const dtFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
+  const dtFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }),
+    [locale],
+  )
   return (
     <div className="rounded-lg border">
       {isLoading ? (

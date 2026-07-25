@@ -18,7 +18,7 @@ const colMap = {
   3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
 }
 
-export function DescriptionList({ items, column = 2, className }: DescriptionListProps) {
+export const DescriptionList = React.memo(function DescriptionList({ items, column = 2, className }: DescriptionListProps) {
   return (
     <dl className={cn('grid gap-x-4 gap-y-3', colMap[column], className)}>
       {items.map((item) => (
@@ -29,4 +29,4 @@ export function DescriptionList({ items, column = 2, className }: DescriptionLis
       ))}
     </dl>
   )
-}
+})

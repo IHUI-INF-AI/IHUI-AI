@@ -67,11 +67,15 @@ export default function ErrorDashboardPage() {
     },
   })
 
-  const filtered = errors.filter((e) => {
-    if (levelFilter !== 'all' && e.level !== levelFilter) return false
-    if (statusFilter !== 'all' && e.status !== statusFilter) return false
-    return true
-  })
+  const filtered = React.useMemo(
+    () =>
+      errors.filter((e) => {
+        if (levelFilter !== 'all' && e.level !== levelFilter) return false
+        if (statusFilter !== 'all' && e.status !== statusFilter) return false
+        return true
+      }),
+    [errors, levelFilter, statusFilter],
+  )
 
   const cards = [
     { label: t('errorDash.total'), value: stats.total, icon: Bug, color: 'text-primary' },

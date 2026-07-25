@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Pencil, Trash2, Lock } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
@@ -15,11 +16,15 @@ interface Props {
 export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.roles')
   const locale = useLocale()
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    [locale],
+  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
