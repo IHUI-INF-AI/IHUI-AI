@@ -81,6 +81,18 @@ export function AISidePanel() {
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
   const [dispatchOpen, setDispatchOpen] = React.useState(false)
+  // #11 切换会话 LRU 缓存(2026-07-25 立):缓存最近 5 个会话的 messages,
+  // 切回之前会话时同步从缓存恢复(无闪烁),后台异步拉取最新消息对比更新。
+  // - 命中:delete + set 重新插入实现 LRU(最近使用的在 Map 末尾)
+  // - 未命中:正常拉取,拉取后写入 cache
+  // - 淘汰:cache.size > 5 时删除 Map.keys().next().value(最早使用)
+  // - 失效:sendMessage / WebSocket 多端同步 触发 messages 变化时,
+  //   由下方同步 useEffect 自动更新当前会话 cache(仅更新已存在的 cache 项)
+  // - hasMore / oldestCursor 字段为未来 P0 分页加载预留(当前 P0 未实现分页,始终 false/null)
+  const conversationCacheRef = React.useRef<
+    Map<string, { messages: ChatMessage[]; hasMore: boolean; oldestCursor: string | null }>
+  >(new Map())
+  const prevConversationIdRef = React.useRef<string | null>(null)
   // 性能修复(2026-07-25):原 const pathname = usePathname() 订阅在 AISidePanel 根,
   // 导致每次路由切换 AISidePanel 整树重渲染(连带 MessageList/MessageInput/ModelSelector 等)。
   // 改为下推到 <WorkspaceNameSync> 子组件,pathname 订阅只触发子组件(渲染 null,无开销)。
@@ -186,9 +198,91 @@ export function AISidePanel() {
   React.useEffect(() => {
     if (!open) return
 
+    // #11 切换会话前,把当前(旧)会话的状态存入 cache(LRU)。
+    // 注意:此时 store.messages 还是旧会话的(loadHistory 还没运行),可安全保存快照。
+    const prevId = prevConversationIdRef.current
+    if (prevId && prevId !== storeConversationId) {
+      const currentStore = useChatStore.getState()
+      if (currentStore.messages.length > 0) {
+        // LRU:delete + set 重新插入(若已存在则成为最新使用)
+        conversationCacheRef.current.delete(prevId)
+        conversationCacheRef.current.set(prevId, {
+          messages: currentStore.messages,
+          hasMore: false,
+          oldestCursor: null,
+        })
+        // LRU 淘汰:cache.size > 5 时删除最早使用
+        while (conversationCacheRef.current.size > 5) {
+          const oldestKey = conversationCacheRef.current.keys().next().value
+          if (oldestKey) conversationCacheRef.current.delete(oldestKey)
+        }
+      }
+    }
+    prevConversationIdRef.current = storeConversationId
+
     let cancelled = false
 
     async function loadHistory(id: string) {
+      // #11 先查 cache,命中则同步用缓存数据填充 store(无闪烁)
+      const cached = conversationCacheRef.current.get(id)
+      if (cached) {
+        // LRU:delete + set 重新插入(成为最新使用)
+        conversationCacheRef.current.delete(id)
+        conversationCacheRef.current.set(id, cached)
+        // 同步填充 store(避免空状态闪烁,用户立即可见缓存消息)
+        useChatStore.setState({ messages: cached.messages, error: null })
+        setLoadingHistory(false)
+        // 后台异步拉取最新消息对比更新(若服务端有新消息则覆盖缓存)
+        void (async () => {
+          try {
+            const [convRes, msgRes] = await Promise.all([getConversation(id), getMessages(id)])
+            if (cancelled) return
+            if (convRes.success && msgRes.success) {
+              const hydrated: ChatMessage[] = msgRes.data.messages.map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                createdAt: new Date(m.createdAt).getTime(),
+              }))
+              // 仅当最新消息 ID 变化或数量变化时更新(避免不必要的 re-render)
+              const currentMsgs = useChatStore.getState().messages
+              const lastMsg = currentMsgs[currentMsgs.length - 1]
+              const newLastMsg = hydrated[hydrated.length - 1]
+              const changed =
+                currentMsgs.length !== hydrated.length ||
+                (!!lastMsg !== !!newLastMsg) ||
+                (!!lastMsg && !!newLastMsg && lastMsg.id !== newLastMsg.id)
+              if (changed) {
+                useChatStore.setState({ messages: hydrated, error: null })
+              }
+              // 更新 cache(无论是否变化,刷新服务端最新数据)
+              conversationCacheRef.current.delete(id)
+              conversationCacheRef.current.set(id, {
+                messages: hydrated,
+                hasMore: false,
+                oldestCursor: null,
+              })
+              setConversationTitle(convRes.data.conversation.title || null)
+              // P2 多端同步:从 conversation.metadata.pendingQuestion 恢复挂起状态
+              // (cache 命中分支同样需要恢复 pending,因为缓存的是 messages,不含会话元数据)
+              const meta = convRes.data.conversation.metadata as {
+                pendingQuestion?: unknown
+              } | null
+              const pending = parsePendingQuestion(meta?.pendingQuestion)
+              if (pending) {
+                useChatStore.getState().setPendingQuestion(pending)
+              } else {
+                useChatStore.getState().clearPendingQuestion()
+              }
+            }
+          } catch {
+            // 后台拉取失败,保留缓存数据(已填充到 store,用户可见)
+          }
+        })()
+        return
+      }
+
+      // #11 未命中:正常拉取,拉取后写入 cache
       setLoadingHistory(true)
       try {
         const [convRes, msgRes] = await Promise.all([getConversation(id), getMessages(id)])
@@ -202,6 +296,18 @@ export function AISidePanel() {
           }))
           useChatStore.setState({ messages: hydrated, error: null })
           setConversationTitle(convRes.data.conversation.title || null)
+
+          // 写入 cache(LRU)
+          conversationCacheRef.current.delete(id)
+          conversationCacheRef.current.set(id, {
+            messages: hydrated,
+            hasMore: false,
+            oldestCursor: null,
+          })
+          while (conversationCacheRef.current.size > 5) {
+            const oldestKey = conversationCacheRef.current.keys().next().value
+            if (oldestKey) conversationCacheRef.current.delete(oldestKey)
+          }
 
           // P2 多端同步:从 conversation.metadata.pendingQuestion 恢复挂起状态
           // 场景:用户 A 在 web 提问后刷新页面 / 切换会话再切回 / 在其他端打开同一会话
@@ -249,6 +355,19 @@ export function AISidePanel() {
       cancelled = true
     }
   }, [storeConversationId, setConversationId, open])
+
+  // #11 同步当前会话 store.messages 到 cache(messages 变化时触发)。
+  // 触发场景:sendMessage 写入新消息 / WebSocket 多端同步 append 新消息 / 后台拉取覆盖。
+  // 仅更新已存在的 cache 项(未拉取过的会话不入 cache,避免预填充未访问会话)。
+  React.useEffect(() => {
+    if (!storeConversationId) return
+    const cached = conversationCacheRef.current.get(storeConversationId)
+    if (!cached) return
+    const currentMsgs = useChatStore.getState().messages
+    // 引用相同时跳过(避免无意义的引用赋值)
+    if (cached.messages === currentMsgs) return
+    cached.messages = currentMsgs
+  }, [storeConversationId, messages])
 
   const handleNewChat = React.useCallback(() => {
     clearMessages()
