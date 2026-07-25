@@ -40,7 +40,7 @@ export default function AdminDistributionOrdersPage() {
     queryKey: ['admin', 'distribution', 'orders', page, debounced],
     queryFn: () =>
       safeFetch<ListData>(
-        `/commission/orders?page=${page}&pageSize=${PAGE_SIZE}${debounced ? `&keyword=${encodeURIComponent(debounced)}` : ''}`,
+        `/distribution/orders?page=${page}&pageSize=${PAGE_SIZE}${debounced ? `&keyword=${encodeURIComponent(debounced)}` : ''}`,
         { items: [], total: 0 },
       ),
   })
