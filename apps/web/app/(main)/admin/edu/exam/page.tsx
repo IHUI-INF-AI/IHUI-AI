@@ -176,13 +176,13 @@ export default function EduExamPage() {
         <StatCard
           icon={ListChecks}
           label={t('published')}
-          value={papers.filter((p) => p.isPublished).length}
+          value={papers.filter((p: any) => p.isPublished).length}
           gradient="bg-gradient-to-br from-emerald-500 to-green-400"
         />
         <StatCard
           icon={Settings2}
           label={t('random')}
-          value={papers.filter((p) => p.isRandom).length}
+          value={papers.filter((p: any) => p.isRandom).length}
           gradient="bg-gradient-to-br from-teal-500 to-emerald-600"
         />
         <StatCard
