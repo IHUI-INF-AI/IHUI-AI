@@ -49,6 +49,24 @@ const PREF_GROUPS: Array<{
   { key: 'billingReminder', icon: CreditCard },
 ]
 
+const PREF_LABEL_KEY: Record<string, string> = {
+  apiError: 'apiErrorLabel',
+  quotaWarning: 'quotaWarningLabel',
+  webhookFailure: 'webhookFailureLabel',
+  weeklyReport: 'weeklyReportLabel',
+  versionUpdate: 'versionUpdateLabel',
+  billingReminder: 'billingReminderLabel',
+}
+
+const PREF_DESC_KEY: Record<string, string> = {
+  apiError: 'apiErrorDesc',
+  quotaWarning: 'quotaWarningDesc',
+  webhookFailure: 'webhookFailureDesc',
+  weeklyReport: 'weeklyReportDesc',
+  versionUpdate: 'versionUpdateDesc',
+  billingReminder: 'billingReminderDesc',
+}
+
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
@@ -108,8 +126,12 @@ export default function NotificationsPage() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <Label className="text-sm font-medium">{t(`${item.key}Label`)}</Label>
-                  <p className="text-xs text-muted-foreground">{t(`${item.key}Desc`)}</p>
+                  <Label className="text-sm font-medium">
+                    {t(PREF_LABEL_KEY[item.key] ?? `${item.key}Label`)}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t(PREF_DESC_KEY[item.key] ?? `${item.key}Desc`)}
+                  </p>
                 </div>
                 <Switch
                   checked={prefs[item.key]}
