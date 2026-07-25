@@ -146,7 +146,7 @@ export default function LearnPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allCategories')}</SelectItem>
-            {(categories ?? []).map((c) => (
+            {(categories ?? []).map((c: any) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
               </SelectItem>
@@ -171,7 +171,7 @@ export default function LearnPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {lessons.map((lesson) => (
+          {lessons.map((lesson: any) => (
             <CourseCard
               key={lesson.id}
               title={lesson.title}

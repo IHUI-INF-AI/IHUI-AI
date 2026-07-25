@@ -109,7 +109,7 @@ export function ProviderFormDialog({
       if (f.id) return updateProviderV2(f.id, f)
       return createProviderV2(f)
     },
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
       toast.success(form.id ? t('saved') : t('created'), {
         description: 'name' in res && res.name ? `「${res.name}」` : undefined,
       })
