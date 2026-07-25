@@ -26678,7 +26678,11 @@
         "saveFailed": "Save failed",
         "nameRequired": "Provider name is required",
         "keyRequired": "API Key is required",
-        "baseUrlRequired": "Base URL is required"
+        "baseUrlRequired": "Base URL is required",
+        "templatesLoading": "Loading platform list...",
+        "templatesEmpty": "No platform templates available",
+        "templatesLoadError": "Failed to load platform list: {error}",
+        "templatesNotReady": "Platform list not ready, please try again later"
       },
       "modelDialog": {
         "newTitle": "New Model",
