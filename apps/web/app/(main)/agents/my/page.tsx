@@ -42,6 +42,15 @@ const STATUS_FILTERS = [
   { value: 'offline' },
 ]
 
+/** i18n 静态映射表 — 用于消除 `t(\`statusFilters.${var}\`)` 动态拼接 */
+const STATUS_FILTER_KEY: Record<string, string> = {
+  all: 'statusFilters.all',
+  pending: 'statusFilters.pending',
+  published: 'statusFilters.published',
+  rejected: 'statusFilters.rejected',
+  offline: 'statusFilters.offline',
+}
+
 const STATUS_CLASS: Record<string, string> = {
   pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
   published: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
@@ -110,7 +119,7 @@ export default function MyAgentsPage() {
                 : 'bg-muted text-muted-foreground hover:bg-accent',
             )}
           >
-            {t(`statusFilters.${f.value}`)}
+            {t(STATUS_FILTER_KEY[f.value] ?? 'statusFilters.unknown')}
           </button>
         ))}
       </div>
@@ -158,7 +167,7 @@ export default function MyAgentsPage() {
                         )}
                       >
                         {STATUS_FILTERS.some((f) => f.value === agent.status)
-                          ? t(`statusFilters.${agent.status}`)
+                          ? t(STATUS_FILTER_KEY[agent.status] ?? 'statusFilters.unknown')
                           : agent.status}
                       </span>
                     </div>

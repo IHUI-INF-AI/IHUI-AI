@@ -20,7 +20,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@ihui/ui-react'
-import { TYPES, selectClass, textareaCls, type FormState, type Item } from './helpers'
+import { TYPES, selectClass, textareaCls, type FormState, type Item, TYPE_KEY } from './helpers'
 
 interface Props {
   open: boolean
@@ -76,7 +76,7 @@ export function ChannelDialog({
                 <SelectContent>
                   {TYPES.map((tp) => (
                     <SelectItem key={tp} value={tp}>
-                      {t(`type_${tp}`)}
+                      {t(TYPE_KEY[tp] ?? 'type_unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>

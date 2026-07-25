@@ -4,7 +4,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { TYPE_DOT, LEVEL_BADGE } from './helpers'
+import { TYPE_DOT, LEVEL_BADGE, TYPE_KEY, LEVEL_KEY } from './helpers'
 import type { SystemEvent } from './types'
 
 interface Props {
@@ -55,10 +55,10 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
                       LEVEL_BADGE[ev.level],
                     )}
                   >
-                    {t(`levels.${ev.level}`)}
+                    {t(LEVEL_KEY[ev.level] ?? 'levels.unknown')}
                   </span>
                   <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                    {t(`types.${ev.type}`)}
+                    {t(TYPE_KEY[ev.type] ?? 'types.unknown')}
                   </span>
                 </div>
                 <p className="mt-1 break-words text-sm">{ev.message}</p>
