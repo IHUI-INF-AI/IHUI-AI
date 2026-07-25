@@ -109,7 +109,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {news.map((n) => (
+        {news.map((n: any) => (
           <NewsCard key={n.id} item={n} />
         ))}
       </div>

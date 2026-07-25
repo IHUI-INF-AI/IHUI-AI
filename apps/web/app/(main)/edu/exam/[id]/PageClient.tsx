@@ -55,7 +55,7 @@ export default function EduExamTakePage() {
           ),
         }),
       }),
-    onSuccess: (r) => router.push(`/edu/exam/${id}/result?recordId=${r.recordId}`),
+    onSuccess: (r: any) => router.push(`/edu/exam/${id}/result?recordId=${r.recordId}`),
   })
 
   if (isLoading)
@@ -146,7 +146,7 @@ export default function EduExamTakePage() {
           </p>
           <p className="text-base">{q.title}</p>
           <div className="space-y-2">
-            {q.options.map((opt) => {
+            {q.options.map((opt: any) => {
               const selected = (answers[q.id] ?? []).includes(opt.key)
               return (
                 <button

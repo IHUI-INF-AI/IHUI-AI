@@ -126,7 +126,7 @@ export default function ResourceEditPage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    onSuccess: (d) => {
+    onSuccess: (d: any) => {
       setFileUrl(d.url)
       setFileName(file?.name ?? '')
     },

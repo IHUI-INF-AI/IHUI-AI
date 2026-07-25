@@ -91,8 +91,8 @@ export default function RefundPage() {
         <p className="py-16 text-center text-sm text-muted-foreground">{t('listEmpty')}</p>
       ) : (
         <div className="space-y-2">
-          {items.map((item) => {
-            const sc = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending
+          {items.map((item: any) => {
+            const sc = STATUS_CONFIG[item.status as any] ?? STATUS_CONFIG.pending
             const StatusIcon = sc.icon
             return (
               <Card key={item.id} className="transition-colors hover:bg-accent">

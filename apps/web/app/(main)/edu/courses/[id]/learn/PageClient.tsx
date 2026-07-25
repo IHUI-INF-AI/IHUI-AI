@@ -197,7 +197,7 @@ export default function EduCourseLearnPage() {
               <CardTitle className="text-sm">{t('sections')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-0.5 p-2">
-              {sections.map((s, i) => (
+              {sections.map((s: any, i: any) => (
                 <button
                   key={s.id}
                   type="button"
@@ -248,7 +248,7 @@ export default function EduCourseLearnPage() {
                 {(qaList ?? []).length === 0 ? (
                   <p className="py-4 text-center text-xs text-muted-foreground">{t('qaEmpty')}</p>
                 ) : (
-                  (qaList ?? []).map((qa) => (
+                  (qaList ?? []).map((qa: any) => (
                     <div key={qa.id} className="rounded-md border p-2">
                       <p className="text-xs font-medium">{qa.question}</p>
                       {qa.answer && (

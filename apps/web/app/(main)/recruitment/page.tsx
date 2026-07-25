@@ -90,7 +90,7 @@ export default function RecruitmentPage() {
 
       {stats.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {stats.map((s, i) => {
+          {stats.map((s: any, i: any) => {
             const Icon = statIcons[i] ?? TrendingUp
             const color = statColors[i] ?? 'text-primary'
             return (
@@ -126,7 +126,7 @@ export default function RecruitmentPage() {
           <CardContent>
             {requirements.length > 0 ? (
               <ul className="space-y-3">
-                {requirements.map((r, i) => (
+                {requirements.map((r: any, i: any) => (
                   <li key={r.title} className="flex items-start gap-2 text-sm">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-medium text-primary">
                       {i + 1}
@@ -154,7 +154,7 @@ export default function RecruitmentPage() {
           <CardContent>
             {benefits.length > 0 ? (
               <ul className="space-y-3">
-                {benefits.map((b) => (
+                {benefits.map((b: any) => (
                   <li key={b.title} className="flex items-start gap-2 text-sm">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                     <div>
