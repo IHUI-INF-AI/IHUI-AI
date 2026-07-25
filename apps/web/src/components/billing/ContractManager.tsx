@@ -41,19 +41,27 @@ export function ContractManager() {
     [locale],
   )
 
-  const fmt = (input?: string): string => {
-    if (!input) return '-'
-    const d = new Date(input)
-    if (Number.isNaN(d.getTime())) return '-'
-    return dateFmt.format(d)
-  }
+  // 性能优化(2026-07-25):useCallback 稳定 fmt/chargeStatusText 引用,
+  // 配合 ContractRow 的 React.memo 提升列表渲染命中率。
+  const fmt = React.useCallback(
+    (input?: string): string => {
+      if (!input) return '-'
+      const d = new Date(input)
+      if (Number.isNaN(d.getTime())) return '-'
+      return dateFmt.format(d)
+    },
+    [dateFmt],
+  )
 
-  const chargeStatusText = (status?: WechatPayContract['lastChargeStatus']): string => {
-    if (!status) return '-'
-    if (status === 'success') return t('chargeStatus.success')
-    if (status === 'failed') return t('chargeStatus.failed')
-    return t('chargeStatus.processing')
-  }
+  const chargeStatusText = React.useCallback(
+    (status?: WechatPayContract['lastChargeStatus']): string => {
+      if (!status) return '-'
+      if (status === 'success') return t('chargeStatus.success')
+      if (status === 'failed') return t('chargeStatus.failed')
+      return t('chargeStatus.processing')
+    },
+    [t],
+  )
 
   const list = (contracts ?? []).filter((c) => c.status === 'active' || c.status === 'pending')
 
@@ -66,6 +74,11 @@ export function ContractManager() {
       // 错误已在 mutation 上下文中暴露,此处静默
     }
   }
+
+  const handleCancelClick = React.useCallback(
+    (c: WechatPayContract) => setCancelTarget(c),
+    [],
+  )
 
   return (
     <div className="space-y-3">
@@ -81,32 +94,13 @@ export function ContractManager() {
       ) : (
         <ul className="space-y-3">
           {list.map((c) => (
-            <li key={c.id} className="rounded-lg border border-border p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{t('planName')}</span>
-                    <Badge variant={statusVariant(c.status)}>{t(`status.${c.status}` as 'status.active')}</Badge>
-                  </div>
-                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <dt>{t('fields.nextCharge')}</dt>
-                    <dd className="text-foreground">{fmt(c.nextChargeTime)}</dd>
-                    <dt>{t('fields.lastCharge')}</dt>
-                    <dd className="text-foreground">{fmt(c.lastChargeTime)}</dd>
-                    <dt>{t('fields.chargeStatus')}</dt>
-                    <dd className="text-foreground">{chargeStatusText(c.lastChargeStatus)}</dd>
-                    <dt>{t('fields.signedAt')}</dt>
-                    <dd className="text-foreground">{fmt(c.signedAt)}</dd>
-                  </dl>
-                </div>
-                {c.status === 'active' && (
-                  <Button variant="outline" size="sm" onClick={() => setCancelTarget(c)}>
-                    <Ban className="mr-1" />
-                    {t('actions.cancel')}
-                  </Button>
-                )}
-              </div>
-            </li>
+            <ContractRow
+              key={c.id}
+              contract={c}
+              fmt={fmt}
+              chargeStatusText={chargeStatusText}
+              onCancel={handleCancelClick}
+            />
           ))}
         </ul>
       )}
@@ -127,3 +121,52 @@ export function ContractManager() {
     </div>
   )
 }
+
+interface ContractRowProps {
+  contract: WechatPayContract
+  fmt: (input?: string) => string
+  chargeStatusText: (status?: WechatPayContract['lastChargeStatus']) => string
+  onCancel: (contract: WechatPayContract) => void
+}
+
+// 性能优化(2026-07-25):抽出列表项 + React.memo,避免父方 state 变更
+// (如 cancelTarget 切换)导致全部行重渲染。t 经 next-intl 内部稳定,
+// 故 useTranslations 在子组件内调用即可。
+const ContractRow = React.memo(function ContractRow({
+  contract,
+  fmt,
+  chargeStatusText,
+  onCancel,
+}: ContractRowProps) {
+  const t = useTranslations('contractManager')
+  return (
+    <li className="rounded-lg border border-border p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t('planName')}</span>
+            <Badge variant={statusVariant(contract.status)}>
+              {t(`status.${contract.status}` as 'status.active')}
+            </Badge>
+          </div>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <dt>{t('fields.nextCharge')}</dt>
+            <dd className="text-foreground">{fmt(contract.nextChargeTime)}</dd>
+            <dt>{t('fields.lastCharge')}</dt>
+            <dd className="text-foreground">{fmt(contract.lastChargeTime)}</dd>
+            <dt>{t('fields.chargeStatus')}</dt>
+            <dd className="text-foreground">{chargeStatusText(contract.lastChargeStatus)}</dd>
+            <dt>{t('fields.signedAt')}</dt>
+            <dd className="text-foreground">{fmt(contract.signedAt)}</dd>
+          </dl>
+        </div>
+        {contract.status === 'active' && (
+          <Button variant="outline" size="sm" onClick={() => onCancel(contract)}>
+            <Ban className="mr-1" />
+            {t('actions.cancel')}
+          </Button>
+        )}
+      </div>
+    </li>
+  )
+})

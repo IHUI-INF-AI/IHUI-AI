@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { Loader2, Building2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -17,6 +18,22 @@ interface Props {
 
 export function AuthDeptTable({ list, isLoading, perm, onEdit, onDelete }: Props) {
   const t = useTranslations('adminAuthDept')
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (id) onDelete(id)
+    },
+    [onDelete],
+  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -53,14 +70,19 @@ export function AuthDeptTable({ list, isLoading, perm, onEdit, onDelete }: Props
                 <td className="px-4 py-2.5 text-muted-foreground">{item.createdAt ?? '-'}</td>
                 <td className="px-4 py-2.5 space-x-2">
                   <HasPermi code={`${perm}:edit`}>
-                    <button className="text-primary hover:underline" onClick={() => onEdit(item)}>
+                    <button
+                      className="text-primary hover:underline"
+                      data-id={item.id}
+                      onClick={handleEdit}
+                    >
                       {t('edit')}
                     </button>
                   </HasPermi>
                   <HasPermi code={`${perm}:remove`}>
                     <button
                       className="text-destructive hover:underline"
-                      onClick={() => onDelete(item.id)}
+                      data-id={item.id}
+                      onClick={handleDelete}
                     >
                       {t('delete')}
                     </button>
