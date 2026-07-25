@@ -1065,8 +1065,8 @@ const auth = useAuth({
 
 **已知遗留(下一轮处理)**:
 
-- 审计工具注释误识别:治理后的文件 JSDoc 注释中的 `t('status.${var}')` 示例文本仍被识别为动态拼接(约 16 处),需优化审计脚本排除注释行
-- zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 在 zh-CN.json 中缺失,需补齐并按 §19 i18n 流水线同步 4 语言
+- ~~审计工具注释误识别:治理后的文件 JSDoc 注释中的 `t('status.${var}')` 示例文本仍被识别为动态拼接(约 16 处),需优化审计脚本排除注释行~~ → ✅ 已修复(`audit-i18n-unused-keys.mjs` stripComments 过滤 JSDoc 示例文本,动态拼接 48→0)
+- zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 在 zh-CN.json 中缺失,需补齐并按 §19 i18n 流水线同步 4 语言(2026-07-25 复查:statusLabel 已存在 6 处,marketing 命名空间已存在,需进一步用 audit 脚本验证是否还有悬空引用)
 - 第五批治理:剩余 26 处 misc 模式(hooks/login/settings/layout/ai-news/n8n-agents/teams/messages/payment/publish/ranking/points 等),模式各异需逐个分析
 
 **Git 同步证据**:
@@ -1111,8 +1111,8 @@ const auth = useAuth({
 
 **已知遗留(下一轮处理)**:
 
-- 审计脚本 `audit-i18n-unused-keys.mjs` 需优化:排除 JSDoc 注释行(`//`/`/* */`/`/** */`)中的 `t(\`...${...}\`)` 模式
-- zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 仍缺失(未在本轮处理)
+- ~~审计脚本 `audit-i18n-unused-keys.mjs` 需优化:排除 JSDoc 注释行(`//`/`/* */`/`/** */`)中的 `t(\`...${...}\`)` 模式~~ → ✅ 已修复(stripComments 函数 2026-07-25 加入,动态拼接误识别 48→0)
+- zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 仍缺失(未在本轮处理)(2026-07-25 复查:statusLabel + marketing 命名空间已存在,需用 audit 脚本进一步验证是否还有悬空)
 
 **Git 同步证据**:
 
@@ -1244,7 +1244,7 @@ const auth = useAuth({
 | ⑥   | LLM provider 字典化            | ✅ 已修(第一轮)                                                       |
 | ⑦   | 可观测性栈精简                 | ✅ 已修(profile 拆分,第一轮)                                          |
 | ⑧   | i18n key 必要性审计            | 🔄 推进中(miniapp-taro 13/13 ✅,web 260→152,剩余 ~152 处低频命名空间) |
-| ⑨   | TODO/FIXME/HACK 733 处清理     | ⏳ 持续迭代(每轮 10-20 个)                                            |
+| ⑨   | TODO/FIXME/HACK 733 处清理     | 🔄 推进中(733→243,2026-07-25 复查)                                   |
 | ⑩   | 多端用户评估                   | 产品决策,非技术                                                       |
 
 **Git 同步证据**:
