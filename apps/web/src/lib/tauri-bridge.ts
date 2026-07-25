@@ -13,9 +13,22 @@ export { formatFileSize } from '@ihui/shared/utils/format'
  * 与 apps/desktop/src/lib/desktop.ts 的 bridge 逻辑一一对应,共享同一 Rust 后端。
  */
 
-/** 判断当前是否在 Tauri 桌面端运行(非浏览器环境)。 */
+/** 判断当前是否在 Tauri 客户端运行(非浏览器环境)。 */
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+}
+
+/**
+ * 根据浏览器/系统语言返回本地化应用名称。
+ * 中文环境 → 智汇AI,其他 → IHUI AI。
+ * 用于前端同步显示(Rust 端已独立检测系统 UI 语言)。
+ */
+export function getLocalizedAppName(): string {
+  if (typeof navigator !== 'undefined') {
+    const lang = navigator.language.toLowerCase()
+    if (lang.startsWith('zh')) return '智汇AI'
+  }
+  return 'IHUI AI'
 }
 
 /** 非 Tauri 环境统一抛错(用于文件读写等无安全默认值的场景)。 */
@@ -123,7 +136,7 @@ export interface DesktopAppInfo {
   platform: string
 }
 
-/** 获取桌面端应用信息(名称/版本/平台)。非 Tauri 环境返回 null。 */
+/** 获取客户端应用信息(名称/版本/平台)。非 Tauri 环境返回 null。 */
 export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
   if (!isTauri()) return null
   try {
@@ -131,6 +144,52 @@ export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
   } catch {
     return null
   }
+}
+
+// ================== 应用菜单(2026-07-25 立) ==================
+
+/** 原生菜单 ID 联合类型(Rust 端 build_app_menu 定义,前端 dispatcher 严格 switch)。 */
+export type MenuActionId =
+  | 'file.open_admin'
+  | 'file.quit'
+  | 'view.reload'
+  | 'view.devtools'
+  | 'help.about'
+
+/**
+ * 订阅 Rust 端通过 emit_to("main", "menu:click", id) 转发的菜单点击事件。
+ * 非 Tauri 环境返回 noop unlisten 函数,handler 不会被调用。
+ *
+ * @param cb 菜单 ID 回调
+ * @returns unlisten 函数(组件卸载时调用释放 event listener)
+ */
+export async function listenToMenuEvents(
+  cb: (id: MenuActionId) => void,
+): Promise<() => void> {
+  if (!isTauri()) return () => {}
+  const { listen } = await import('@tauri-apps/api/event')
+  const unlisten = await listen<string>('menu:click', (e) => {
+    cb(e.payload as MenuActionId)
+  })
+  return unlisten
+}
+
+/** 唤起 / 创建 admin 窗口(Rust 端 open_admin_window)。已存在则 show + focus。 */
+export async function openAdminWindow(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('open_admin_window')
+}
+
+/** 切换 webview 开发者工具(Rust 端 toggle_devtools)。 */
+export async function toggleDevtools(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('toggle_devtools')
+}
+
+/** 真正退出应用(Rust 端 quit_app,绕过 closeWindow 的"隐藏到托盘"语义)。 */
+export async function quitApp(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('quit_app')
 }
 
 // ================== 原生通知 ==================
