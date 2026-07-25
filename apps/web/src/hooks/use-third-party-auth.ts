@@ -78,7 +78,7 @@ const BOUND_ACCOUNTS_PATH = '/api/user/third-party-accounts'
  * 判断是否为演示模式。
  * 优先读 NEXT_PUBLIC_DEMO_MODE，其次检查 URL 是否含 ?demo=1。
  *
- * ⚠️ Next.js 只在编译时静态替换 `process.env.NEXT_PUBLIC_XXX` 的直接字面量引用,
+ * ⚠️ Next.js 只在编译时静态替换 `process.env.NEXT_PUBLIC_*` 的直接字面量引用,
  * 不能用 `process.env[key]` 动态访问。所以这里直接引用 `process.env.NEXT_PUBLIC_DEMO_MODE`。
  */
 export function isDemoMode(): boolean {
