@@ -21,7 +21,7 @@ import {
   Switch,
 } from '@ihui/ui-react'
 import { Radio, Textarea } from '@/components/form'
-import { CATEGORIES, TYPES, selectClass } from './helpers'
+import { CATEGORIES, TYPES, selectClass, CATEGORY_KEY } from './helpers'
 import type { Category, CfgType, Config, ConfigForm } from './types'
 
 interface Props {
@@ -107,7 +107,7 @@ export function ConfigDialog({
                 <SelectContent>
                   {CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>
-                      {t(`categories.${c}`)}
+                      {t(CATEGORY_KEY[c] ?? 'categories.unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>
