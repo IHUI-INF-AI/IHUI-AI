@@ -67,7 +67,7 @@ export default function AdminDistributionSettlementsPage() {
   const listQ = useQuery({
     queryKey: ['admin', 'distribution', 'settlements', page],
     queryFn: () =>
-      safeFetch<ListData>(`/commission/settlements?page=${page}&pageSize=${PAGE_SIZE}`, {
+      safeFetch<ListData>(`/distribution/settlements?page=${page}&pageSize=${PAGE_SIZE}`, {
         items: [],
         total: 0,
       }),
