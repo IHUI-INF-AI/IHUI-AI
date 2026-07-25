@@ -106,9 +106,9 @@ export default function AnnouncementDetailPage() {
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={cn('rounded-md px-2 py-0.5 text-xs font-medium', ANN_TYPE_BADGE[a.type as any])}
+            className={cn('rounded-md px-2 py-0.5 text-xs font-medium', (ANN_TYPE_BADGE as any)[a.type])}
           >
-            {t(ANN_TYPE_KEY[a.type as any] ?? 'types.unknown')}
+            {t((ANN_TYPE_KEY as any)[a.type] ?? 'types.unknown')}
           </span>
           <Megaphone className="h-4 w-4 text-muted-foreground" />
           {a.isPinned && <span className="text-xs text-primary">{t('pinned')}</span>}
