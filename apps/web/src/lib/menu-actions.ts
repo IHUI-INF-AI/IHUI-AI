@@ -13,12 +13,16 @@ import {
  * dispatchMenuAction — 菜单动作统一调度器(2026-07-25 立)
  *
  * 所有菜单项行为集中在这一处,避免散落在各组件。
- * 行为映射(与 Rust 端 build_app_menu ID 一致):
+ * 行为映射(与 HTML 顶栏菜单 ID 一致):
  * - file.open_admin → 唤起/创建 admin 窗口
  * - view.reload     → 刷新当前 webview
  * - view.devtools   → 切换 devtools
  * - help.about      → toast 显示版本信息
  * - file.quit       → 真正退出(不走 closeWindow 的"隐藏到托盘")
+ *
+ * 入口:
+ * 1. HTML 顶栏 NativeTopBar.tsx dropdown 点击
+ * 2. useNativeShortcuts(web 端 keydown 监听)替代原 Rust 端菜单 accelerator
  *
  * @param id 菜单 ID
  */
