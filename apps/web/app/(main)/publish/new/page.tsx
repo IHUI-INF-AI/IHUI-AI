@@ -20,6 +20,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@ihui/ui-react'
+import { PLATFORM_KEY } from '../helpers'
 
 interface Account {
   id: string
@@ -330,7 +331,7 @@ export default function NewPublishPage() {
                     )}
                   >
                     <Checkbox checked={checked} onCheckedChange={() => togglePlatform(p)} />
-                    <span>{t(`platforms.${p}`)}</span>
+                    <span>{t(PLATFORM_KEY[p] ?? 'platforms.unknown')}</span>
                     <span className="ml-auto text-xs text-muted-foreground">
                       ×{platformMap.get(p)?.length}
                     </span>

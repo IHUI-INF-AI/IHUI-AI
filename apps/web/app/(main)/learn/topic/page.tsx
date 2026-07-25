@@ -20,6 +20,20 @@ import {
 
 type TopicType = 'lesson' | 'premium'
 
+/**
+ * 学习专题类型 i18n key 静态映射表:type.${type}.label / type.${type}.tip
+ * 用于消除 `t(`type.${var}.label`)` 动态拼接,并补全 TYPE_TIP_KEY 定义
+ * 覆盖 TopicType 全部 2 个枚值(lesson/premium),未知值兜底 'type.lesson.label'
+ */
+const TYPE_LABEL_KEY: Record<TopicType, string> = {
+  lesson: 'type.lesson.label',
+  premium: 'type.premium.label',
+}
+const TYPE_TIP_KEY: Record<TopicType, string> = {
+  lesson: 'type.lesson.tip',
+  premium: 'type.premium.tip',
+}
+
 interface LessonTopic {
   id: string
   title: string
@@ -175,7 +189,7 @@ export default function LearnTopicPage() {
                       <TooltipTrigger asChild>
                         <span
                           className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
-                          aria-label={t(`type.${topic.type}.label`)}
+                          aria-label={t(TYPE_LABEL_KEY[topic.type] ?? 'type.lesson.label')}
                         >
                           {topic.type === 'premium' ? (
                             <span className="inline-flex items-center gap-1 rounded-md border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
@@ -191,7 +205,7 @@ export default function LearnTopicPage() {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="max-w-xs text-left leading-relaxed">
-                        {t(`type.${topic.type}.tip`)}
+                        {t(TYPE_TIP_KEY[topic.type])}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
