@@ -362,7 +362,37 @@
     "memberFeedback": "My Feedback",
     "memberHelp": "Help",
     "memberSettings": "Settings",
-    "eduExam": "Exams"
+    "eduExam": "Exams",
+    "downloadWeb": "Web",
+    "downloadWebDesc": "Access directly in browser, no install",
+    "downloadDesktop": "Desktop",
+    "downloadDesktopDesc": "Windows / macOS / Linux supported",
+    "downloadIOS": "iOS App",
+    "downloadIOSDesc": "iPhone / iPad anytime",
+    "downloadAndroidApk": "Android APK",
+    "downloadAndroidDesc": "Android native installer",
+    "downloadMobile": "Mobile Web",
+    "downloadMobileDesc": "H5 mobile, scan to use",
+    "downloadWechatMiniApp": "WeChat Mini App",
+    "downloadMiniDesc": "Scan QR, open and use",
+    "downloadExtension": "Browser Extension",
+    "downloadExtensionDesc": "Chrome / Edge / Firefox supported",
+    "downloadCli": "CLI Tool",
+    "downloadCliDesc": "One-click terminal, scriptable",
+    "adminGroup": {
+      "operation": "Operations",
+      "moderation": "Moderation",
+      "finance": "Finance",
+      "aiAgent": "AI Agents",
+      "marketing": "Marketing & Live",
+      "courseExam": "Courses & Exams",
+      "analytics": "Monitoring & BI",
+      "support": "Support Tickets",
+      "community": "Community",
+      "resource": "Resource Center",
+      "developer": "Developer Center",
+      "saas": "SaaS Platform"
+    }
   },
   "auth": {
     "loginTitle": "Welcome Back",
@@ -696,7 +726,14 @@
       "act": "Switch to act mode (AI normally executes tools, default)",
       "permissionAsk": "Switch to ask-for-approval mode (confirm before each AI action)",
       "permissionAuto": "Switch to auto-approve mode (approve safe actions automatically)",
-      "permissionFull": "Switch to full-access mode (high risk, no confirmation)"
+      "permissionFull": "Switch to full-access mode (high risk, no confirmation)",
+      "summary": "Summarize current conversation",
+      "translate": "Translate selected text",
+      "explain": "Explain code or concept",
+      "code": "Generate code",
+      "polish": "Polish text",
+      "wechat-article": "Write WeChat article",
+      "koubo-script": "Write koubo video script"
     },
     "cmdSummary": "Please summarize the above conversation and extract key information",
     "cmdTranslate": "Please translate the following content to English:",
@@ -809,7 +846,11 @@
       "compressResultDesc": "Original {original} chars → compressed {compressed} chars",
       "ratio": "Ratio",
       "noConversation": "Start a new task before compressing",
-      "disclaimer": "Token count is a client-side estimate; may differ from server-side exact count by ±10%. Compressed content becomes the context summary for subsequent conversation."
+      "disclaimer": "Token count is a client-side estimate; may differ from server-side exact count by ±10%. Compressed content becomes the context summary for subsequent conversation.",
+      "lowUsage": "Low usage",
+      "mediumUsage": "Medium usage",
+      "highUsage": "High usage",
+      "criticalUsage": "Nearly full"
     },
     "permission": {
       "buttonLabel": "Approval mode",
@@ -942,7 +983,11 @@
           "3": "You bear the risk of irreversible operations"
         }
       }
-    }
+    },
+    "modePlan": "Plan",
+    "modeAct": "Act",
+    "planTooltip": "Plan: AI plans only, no tool execution (Alt+P toggle / type /plan)",
+    "actTooltip": "Act: AI executes tools normally (Alt+P toggle / type /act)"
   },
   "learn": {
     "title": "Learning Center",
@@ -8565,32 +8610,58 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
@@ -8912,19 +8983,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -9044,25 +9127,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
