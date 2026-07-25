@@ -59,7 +59,7 @@ export default function EduExamGradesPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const records = data?.list ?? []
   const subjectiveQs = React.useMemo(
-    () => (detail?.questions ?? []).filter((q) => q.type === 'subjective'),
+    () => (detail?.questions ?? []).filter((q: any) => q.type === 'subjective'),
     [detail],
   )
 

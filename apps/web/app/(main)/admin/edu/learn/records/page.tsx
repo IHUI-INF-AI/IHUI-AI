@@ -144,7 +144,7 @@ export default function EduLearnRecordsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => (
+              rows.map((r: any) => (
                 <TableRow key={r.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">
                     {r.userName ?? r.userId.slice(0, 8)}
