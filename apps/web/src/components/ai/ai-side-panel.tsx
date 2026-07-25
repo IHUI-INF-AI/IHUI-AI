@@ -26,6 +26,7 @@ import { PlanActToggle } from '@/components/ai/plan-act-toggle'
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 import { Tooltip } from '@/components/feedback'
+import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
@@ -56,6 +57,9 @@ export function AISidePanel() {
   const setWidth = useAiPanelStore((s) => s.setWidth)
   const setResizing = useAiPanelStore((s) => s.setResizing)
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
+  const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
+  const pendingPermissionSetup = useAiPanelStore((s) => s.pendingPermissionSetup)
+  const setPendingPermissionSetup = useAiPanelStore((s) => s.setPendingPermissionSetup)
   const {
     messages,
     currentModel,
@@ -265,6 +269,32 @@ export function AISidePanel() {
     window.addEventListener('global-shortcut:new-chat', onNewChat)
     return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
   }, [handleNewChat, open])
+
+  // Alt+P / Option+P 快捷键:切换 Plan/Act 模式(2026-07-25 立,对标 Trae SOLO Plan 快捷键)
+  // - 仅当 AI 面板打开时生效,避免污染其他页面
+  // - 不在输入框聚焦时触发(避免与 Alt+字母 输入特殊字符冲突)
+  // - 与 PlanActToggle 按钮 / /plan /act 斜杠命令三入口联动
+  React.useEffect(() => {
+    if (!open) return
+    const onAltP = (e: KeyboardEvent) => {
+      if (!e.altKey || e.key !== 'p' || e.ctrlKey || e.metaKey || e.shiftKey) return
+      // 避免在 textarea/input 聚焦时触发(用户可能用 Alt 组合输入特殊字符)
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'TEXTAREA' ||
+          target.tagName === 'INPUT' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+      e.preventDefault()
+      const next = useChatStore.getState().planMode === 'plan' ? 'act' : 'plan'
+      useChatStore.getState().setPlanMode(next)
+    }
+    window.addEventListener('keydown', onAltP)
+    return () => window.removeEventListener('keydown', onAltP)
+  }, [open])
 
   // 拖拽调整宽度
   // 关闭态下拖拽手柄:先 openPanel 再开始 resize,实现"拖拽即打开"
@@ -495,6 +525,28 @@ export function AISidePanel() {
         <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
         {/* Subagent 派单对话框(2026-07-22 立,对标 Trae Subagent) */}
         <DispatchSubagentDialog open={dispatchOpen} onOpenChange={setDispatchOpen} />
+        {/* 工作区权限确认弹窗(2026-07-25 立,深度对标 Codex):
+            用户绑定新工作区但 perm=null 时,WorkspaceSelector 写入 pendingPermissionSetup,
+            这里弹 Dialog 让用户主动选择权限模式(完全访问/请求批准/替我审批),
+            用户在弹窗中保存后:回写 activeWorkspace.mode + 清空 pendingPermissionSetup。 */}
+        {pendingPermissionSetup && (
+          <WorkspacePermissionDialog
+            open={!!pendingPermissionSetup}
+            onOpenChange={(open) => {
+              if (!open) setPendingPermissionSetup(null)
+            }}
+            workspacePath={pendingPermissionSetup.path}
+            workspaceName={pendingPermissionSetup.name}
+            techStack={pendingPermissionSetup.techStack}
+            onSaved={(perm) => {
+              // 弹窗保存成功:回写 store.activeWorkspace.mode(已绑定 workspace 的 mode)
+              if (activeWorkspace && activeWorkspace.path === perm.workspacePath) {
+                setActiveWorkspace({ ...activeWorkspace, mode: perm.mode })
+              }
+              setPendingPermissionSetup(null)
+            }}
+          />
+        )}
       </aside>
       {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
         内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与 aside 右边缘重合。
