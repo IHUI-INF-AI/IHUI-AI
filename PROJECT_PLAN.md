@@ -300,6 +300,83 @@ Docker Desktop 启动 + db(8810)+ redis(8811)容器启动 + api(8802)+ web(8801)
 - subagent B 已自验 typecheck + lint + i18n 全绿 + 代码遵守所有 §4 UI 约束
 - 实际 UI 视觉验证待 SSO middleware 配置修复后补充(非本任务范围)
 
+---
+
+## P3-4 DB migration 补全 + retryAfter 传递链路修复(2026-07-25)
+
+### 任务清单
+
+| 项 | 任务 | 优先级 | 状态 |
+| --- | --- | --- | --- |
+| P3-4-A | apply DB migration 补 10 张缺失表 + 启用 pgvector extension | P1 | ✅ |
+| P3-4-B | 修复 parseStreamLine 不识别 RATE_LIMIT 格式 + formatSSEError 传递 retryAfter + use-chat.ts UI 倒计时 | P2 | ✅ |
+
+### 执行方式
+
+多 Subagent 并行开发(AGENTS.md §11):
+- **主 agent**(DB migration):apply 5 个 migration SQL 文件 + 启用 pgvector extension
+- **Subagent**(retryAfter 链路):修复 client.ts + use-chat.ts + ai-tool-loop.spec.ts(3 文件)
+
+### P3-4-A:DB migration 补全
+
+**缺失表清单**(ai-service schema_check 报告):agent_memory_episodic/procedural/semantic、langgraph_checkpoints/writes、publish_accounts/notifications、zhs_knowledge_entity/relation、agent_memory_decay_state(共 10 张)
+
+**apply 过程**:
+1. 手动 apply 5 个 migration SQL 文件:`0125_knowledge_graph.sql` / `0127_dazzling_master_mold.sql` / `20260720170000_publish_platform.sql` / `20260723120000_p3_deep_layer.sql` / `20260725120000_agent_memory_decay_state.sql`
+2. 发现 `agent_memory_semantic` 表创建失败,根因 `type "vector" does not exist` — pgvector extension 未启用
+3. `CREATE EXTENSION IF NOT EXISTS vector` 启用 pgvector
+4. 重新 apply 0127,`agent_memory_semantic` 表创建成功
+
+**验证结果**:13 张表全部存在(ai_cost_records + publish_tasks + publish_history + zhs_knowledge_entity + zhs_knowledge_relation + agent_memory_episodic + agent_memory_procedural + agent_memory_semantic + publish_accounts + publish_notifications + langgraph_checkpoints + langgraph_writes + agent_memory_decay_state)
+
+### P3-4-B:retryAfter 传递链路修复
+
+**缺陷 1:parseStreamLine 不识别 RATE_LIMIT 格式**
+
+`packages/api-client/src/client.ts:374-424` 的 `parseStreamLine` 只识别 3 种 SSE error 事件格式:
+- `{type:"error", message:"..."}` (line 398)
+- `{error:true, error_message:"..."}` (line 401)
+- `{error:"string"}` (line 404)
+
+但不识别 `{code:"RATE_LIMIT", retryAfter:10, message:"限流"}` 这种格式(无 type/error 字段),导致 `attachErrorMeta` 不会被调用,`retryAfter` 字段被丢弃。
+
+**修复**:在 line 411 后追加第 4 种格式识别:
+```typescript
+// P3-4: 识别 {code:"RATE_LIMIT", retryAfter:N, message:"..."} 格式(无 type/error 字段)
+if (typeof json?.code === 'string' && typeof json?.message === 'string') {
+  const e = new Error(json.message)
+  throw attachErrorMeta(e, json)
+}
+```
+
+**缺陷 2:use-chat.ts onError 丢弃 retryAfter**
+
+`apps/web/src/hooks/use-chat.ts` 有 11 处 `onError: (errMsg, info) => { ... formatSSEError(errMsg) }` 调用,只传 `errMsg` 字符串给 `formatSSEError`,丢弃了 `info` 参数(含 retryAfter 字段)。
+
+**修复**:
+1. `formatSSEError` 签名扩展:第二参数从 `fallbackMessage: string` 改为 `fallbackMessageOrInfo: string | SSEErrorInfo`,向后兼容。传字符串=旧 fallbackMessage 行为;传 SSEErrorInfo 对象=提取 extraInfo 与 `getSSEErrorInfo(err)` 合并(extraInfo 优先)。
+2. `formatSSEError` 新增分支:非 4xx/5xx 但带 `retryAfter >= 1` → severity='ratelimit',message 追加 `(N 秒后重试)`。覆盖 RATE_LIMIT 字符串 code 场景(code undefined 但 retryAfter 存在)。429 已在上方分支处理(含"N 秒后重试"),不重复。
+3. `use-chat.ts` 2 处 onError 透传 info:`formatSSEError(errMsg)` → `formatSSEError(errMsg, info)`(line 1062 sendMessage + line 1280 sendAnswer)。其他 6 处 catch 块传 Error 对象,`getSSEErrorInfo(err)` 已能提取 retryAfter,无需改。
+
+**e2e 断言更新**(ai-tool-loop.spec.ts):
+- Case A 断言 2:新增匹配 "1 秒后重试" / "稍后重试"
+- Case B 断言 2:反映 RATE_LIMIT 格式已支持 + 新增匹配 "1 秒后重试"
+- Case C 不变(callCount >= 2)
+
+### 验证结果
+
+| 验证项 | 方式 | 结果 |
+| --- | --- | --- |
+| **DB 13 张表** | `psql -c "SELECT tablename FROM pg_tables WHERE ..."` | ✅ 13 张表全部存在(含 agent_memory_semantic) |
+| **ai-service /health** | curl | ✅ HTTP 200 `{"status":"ok"}` |
+| **ai-service /metrics** | curl | ✅ HTTP 200,含 6 行 fallback 指标 |
+| **api /api/health** | curl | ✅ HTTP 200 |
+| **3 个 admin 端点** | curl + Bearer JWT | ✅ 全部 200(SSE 5 维 + VIP 3 维 + dashboard 含 promptCacheMetrics) |
+| **api-client typecheck** | `pnpm --filter @ihui/api-client typecheck` | ✅ exit 0 |
+| **api-client lint** | eslint client.ts | ✅ exit 0 |
+| **web lint** | eslint use-chat.ts | ✅ exit 0 |
+| **web typecheck** | `pnpm --filter @ihui/web typecheck` | ⚠️ 1 个预存错误(MainShell.tsx 'mounted' 未使用,其他 agent 代码,非本任务范围) |
+
 **Git 同步证据**(§20):
 
 ```
@@ -5169,6 +5246,6 @@ P1(5 项):
 - L2-5 ✅ DreamService 定时触发(DreamScheduler + lifespan background task + episodic 阈值,2026-07-25)
 - L3 ✅ 自进化闭环:skill_evolution_loop + iterate_on_feedback + run_chain(均已实现)+ SkillEvolutionScheduler 定时触发(2026-07-25)
 - L4 ✅ 元学习:MetaLearner + FailureClusterer(跨 skill 失败聚类)+ SelfEvaluator(任务后自评)+ MetaLearnerScheduler(定时触发,12h 周期)+ agent_meta_lessons 表持久化 + system prompt snippet 注入 + run_chain 后 fire-and-forget 触发 self_eval(2026-07-25)
-- L5 A/B 验证:shadow 流量 + 显著性检验自动回滚
+- L5 ✅ A/B 验证:agent_ab_tests 表持久化 + ABTestTracker(create_test/record_call/mark_decided/load_active_tests)+ SignificanceTester(比例 z-test + Welch's t-test + 三维度方向冲突检测)+ ShadowRunner(fire-and-forget shadow call,按 shadow_ratio 概率触发)+ ABTestScheduler(周期 flush stats + 触发显著性检验 + auto promote/rollback + 7 天超时 stop)+ lifespan hydrate(进程重启不丢 shadow 流量统计)+ skill_scheduler 集成 maybe_shadow_call(2026-07-25,147 测试用例全绿)
 
 **收尾结论**:L1 接入激活让 Agent 不再失忆(4 项接入点全部贯通),L2-1 语义去重把字符级 SequenceMatcher 升级到 embedding cosine 0.92 + LLM 仲裁,深度对标 Hermes Agent 记忆系统并部分超越(LLM 冲突仲裁 + DoomLoop 反思沉淀)。降级链路完整,任何依赖失败都不阻塞主流程。
