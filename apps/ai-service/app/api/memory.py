@@ -54,6 +54,16 @@ class DreamRequest(BaseModel):
     user_id: str = Field(..., description="用户 ID(UUID)")
 
 
+class ProceduralSaveRequest(BaseModel):
+    """L1-4(2026-07-25 立):工具用法模式保存请求(doom_loop 反思沉淀 / 工具调用结果记录)。"""
+
+    user_id: str = Field(..., description="用户 ID(UUID)")
+    pattern: str = Field(..., description="工具用法模式标识(如 doom_loop:read:hash)")
+    tool_name: str | None = Field(None, description="工具名")
+    success: bool = Field(True, description="是否成功(失败模式传 False)")
+    metadata: dict[str, Any] | None = Field(None, description="元数据(失败原因/建议等)")
+
+
 # ---------------------------------------------------------------------------
 # 核心端点
 # ---------------------------------------------------------------------------
@@ -164,3 +174,23 @@ async def list_procedural(
     """查询 procedural memory(技能/工具用法模式)。"""
     items = await memory_service.list_procedural(user_id, limit=limit)
     return {"code": 0, "message": "ok", "data": items}
+
+
+@router.post("/memory/procedural")
+async def save_procedural(req: ProceduralSaveRequest) -> dict[str, Any]:
+    """L1-4(2026-07-25 立):保存工具用法模式(供 cli doom_loop 反思沉淀 / 工具调用结果记录)。
+
+    失败模式(success=False)用于让 agent 未来规避相同陷阱;
+    成功模式(success=True)用于让 agent 重复有效工具组合。
+    """
+    try:
+        result = await memory_service.add_procedural(
+            user_id=req.user_id,
+            pattern=req.pattern,
+            tool_name=req.tool_name,
+            success=req.success,
+            metadata=req.metadata,
+        )
+        return {"code": 0, "message": "ok", "data": result}
+    except Exception as e:
+        return {"code": 500, "message": f"procedural 保存失败: {e}", "data": None}
