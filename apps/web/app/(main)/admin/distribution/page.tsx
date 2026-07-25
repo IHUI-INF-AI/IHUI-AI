@@ -44,7 +44,7 @@ const fmtYuan = (n: number) => `¥${(n / 100).toFixed(2)}`
 export default function AdminDistributionPage() {
   const ovQ = useQuery({
     queryKey: ['admin', 'distribution', 'overview'],
-    queryFn: () => safeFetch<Overview>('/commission/overview', {}),
+    queryFn: () => safeFetch<Overview>('/distribution/overview', {}),
   })
 
   const ov = ovQ.data ?? {}
