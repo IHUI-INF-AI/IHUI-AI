@@ -1,0 +1,15 @@
+fix(scripts/i18n): 清理 miniapp-taro 7 个无引用 key + cleanup 脚本支持 --target
+
+清理 miniapp-taro 7 个无引用 key(subagent 交叉验证确认):
+- common.search(SearchBar 用硬编码默认值)
+- nav.chat/agents/orders/wallet/settings(TabBar 不引用,用其他命名空间)
+- chat.newConversation(用 share.index.newChat 替代)
+- 5 语言同步删除(zh-CN/zh-TW/ko/ja/en),共 35 个 key
+
+cleanup-unused-i18n-keys.mjs 重构:
+- 支持 --target 参数(默认 web),支持 --target=value 和 --target value 两种形式
+- 新增 MINIAPP_DELETE_RULES 规则集
+- 输出加 [target=xxx] 标识
+
+效果:miniapp-taro 无引用 7 → 0(0.0%),5 语言 parity 0 diff
+两端 i18n 审计全部 0 无引用,审计工具达到生产级准确度

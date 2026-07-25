@@ -1,0 +1,37 @@
+feat(web): 权限模式第四批深化收尾 — 高风险脉动动画 + 4 个自验脚本(41 场景全绿)
+
+承接 Part A(d62e76bb3 危险命令 + 模式历史)和 Part B modal 集成
+(449489125 合并冲突解决带入),本批收尾完成:
+
+1. apps/web/app/globals.css:追加 ihui-pulse-soft keyframes + .animate-pulse-soft
+   工具类(2.4s 慢节奏 + opacity 0.85,Codex 风格不刺眼)
+   - 已 commit 449489125 携带 2 个 modal 文件到 origin/main
+   - 本批补回丢失的脉动 CSS
+
+2. apps/web/verify-dangerous-command.mjs:11 场景覆盖危险命令拦截
+   - bypass 模式 + rm -rf / / sudo chmod / curl|sh 弹警告 toast
+   - medium 警告(强推 main)不阻断
+   - 「仍要发送」action 可真发送
+   - default 模式不检测(保持低风险体验)
+   - false positive 防护(引号内不误报)
+
+3. apps/web/verify-permission-history.mjs:10 场景覆盖模式历史
+   - 切换自动写 localStorage
+   - PermissionHistoryPanel 显示最近 10 条 + 累计统计
+   - 跨标签页同步(同 BrowserContext 共享 localStorage)
+   - 清空历史确认
+
+4. apps/web/verify-permission-modals.mjs:10 场景覆盖 2 个 modal
+   - ? 键唤起 PermissionShortcutsModal(Esc 关闭)
+   - 标题栏 ⓘ 按钮唤起 PermissionModeInfoModal(仅 bypass 显示)
+   - 切换 default 模式 → ⓘ 按钮消失
+
+5. apps/web/verify-permission-edge-cases.mjs:10 场景覆盖边界
+   - 跨标签页 ihui-ai-panel / ihui:auto-revert-bypass / ihui:permission-mode-history 同步
+   - 503 网络断开 → 本地仍乐观更新(API 失败不阻断)
+   - 自动降级本地优先策略
+   - false positive(quoted safe command 不误报)
+
+合计 41/41 场景全绿 ✅,与老 verify-permission-auto-revert.mjs(13/13)合计 54 项自验
+
+Co-Authored-By: MiniMax-M3 <noreply@example.com>
