@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, FolderCog, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
@@ -20,7 +19,7 @@ interface Props {
   onPageChange: (page: number) => void
 }
 
-export const ProjectTable = React.memo(function ProjectTable({
+export function ProjectTable({
   list,
   isLoading,
   error,
@@ -34,34 +33,11 @@ export const ProjectTable = React.memo(function ProjectTable({
   const t = useTranslations('admin.projects')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-    [locale],
-  )
-
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onDelete(item)
-    },
-    [list, onDelete],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 
   if (isLoading) {
     return (
@@ -123,7 +99,7 @@ export const ProjectTable = React.memo(function ProjectTable({
                 </span>
               </div>
               <div className="flex items-center gap-1 border-t pt-2">
-                <Button size="sm" variant="ghost" className="flex-1" data-id={p.id} onClick={handleEdit}>
+                <Button size="sm" variant="ghost" className="flex-1" onClick={() => onEdit(p)}>
                   <Edit className="h-4 w-4" />
                   {tc('edit')}
                 </Button>
@@ -131,8 +107,7 @@ export const ProjectTable = React.memo(function ProjectTable({
                   size="sm"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
-                  data-id={p.id}
-                  onClick={handleDelete}
+                  onClick={() => onDelete(p)}
                 >
                   <Trash2 className="h-4 w-4" />
                   {tc('delete')}
@@ -171,4 +146,4 @@ export const ProjectTable = React.memo(function ProjectTable({
       </div>
     </>
   )
-})
+}

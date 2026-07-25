@@ -53,18 +53,14 @@ export default function TenantBackupsPage() {
   const [pending, setPending] = React.useState<'create' | 'restore' | 'delete' | null>(null)
   const [confirmAction, setConfirmAction] = React.useState<ConfirmAction>(null)
 
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }),
-    [locale],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
 
   const backups = data ?? []
   const totalSizeKb = backups.reduce((sum, b) => sum + b.sizeKb, 0)

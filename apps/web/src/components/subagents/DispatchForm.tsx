@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { Loader2, Plus, Trash2, ChevronDown } from 'lucide-react'
@@ -122,7 +122,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
             className={textareaClass}
             value={affectedFiles}
             onChange={(e) => setAffectedFiles(e.target.value)}
-            placeholder={'d:\\桌面\\项目\\IHUI-AI\\apps\\web\\src\\...'}
+            placeholder={'g:\\IHUI-AI\\apps\\web\\src\\...'}
             required
           />
         </div>
