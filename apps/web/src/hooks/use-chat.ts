@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/common'
-import { streamChat, formatSSEError } from '@ihui/api-client'
+import { streamChat, formatSSEError, type FallbackEvent } from '@ihui/api-client'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 
 import { useChatStore } from '@/stores/chat'
@@ -779,6 +779,8 @@ export interface UseChatReturn {
   error: string | null
   /** 当前挂起的 AI 提问;非 null 时弹窗阻塞输入 */
   pendingQuestion: ReturnType<typeof useChatStore.getState>['pendingQuestion']
+  /** P4-2: fallback 通知(主模型失败切换到备用模型时非 null,UI 展示横幅) */
+  fallbackNotice: FallbackEvent | null
   /** 发送消息(2026-07-24 立,返回 Promise<boolean>,true=已提交可清空输入框,false=未发送需保留输入内容) */
   sendMessage: (content: string) => Promise<boolean>
   /** 用户回答 AI 主动提问,触发 /chat/answer 续流 */
@@ -788,6 +790,8 @@ export interface UseChatReturn {
   stop: () => void
   clearMessages: () => void
   setModel: (model: string) => void
+  /** P4-2: 清除 fallback 通知(用户关闭横幅时调用) */
+  clearFallbackNotice: () => void
   /** Accept:把 edit_file/write_file 的 diff 写入文件系统(2026-07-22 立,P3 Inline Diff) */
   applyDiff: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   /** Reject:纯前端标记为 rejected,无 API 调用 */
@@ -837,6 +841,8 @@ export function useChat(): UseChatReturn {
   const currentModel = useChatStore((s) => s.currentModel)
   const isStreaming = useChatStore((s) => s.isStreaming)
   const error = useChatStore((s) => s.error)
+  // P4-2: fallback 通知状态(主模型失败切换到备用模型时设置,UI 展示横幅)
+  const [fallbackNotice, setFallbackNotice] = React.useState<FallbackEvent | null>(null)
 
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -940,6 +946,8 @@ export function useChat(): UseChatReturn {
       store.setStreaming(true)
       store.setError(null)
       store.resetSubAgentActivities()
+      // P4-2: 清除上一轮 fallback 通知,避免旧横幅残留到新对话轮次
+      setFallbackNotice(null)
 
       const controller = new AbortController()
       abortRef.current = controller
@@ -1030,6 +1038,8 @@ export function useChat(): UseChatReturn {
               })
             }
           },
+          // P4-2: 后端 fallback 触发时设置通知状态,UI 展示"已切换到备用模型"横幅
+          onFallback: (event) => setFallbackNotice(event),
           onDelta: (delta) => {
             if (!firstContentTokenReceived) {
               firstContentTokenReceived = true
@@ -1193,6 +1203,8 @@ export function useChat(): UseChatReturn {
     store.setStreaming(true)
     store.setError(null)
     store.resetSubAgentActivities()
+    // P4-2: 清除上一轮 fallback 通知(与 sendMessage 对称)
+    setFallbackNotice(null)
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -1248,6 +1260,8 @@ export function useChat(): UseChatReturn {
         },
         workspacePath,
         contextLimit: getModelContextCapacity(model),
+        // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
+        onFallback: (event) => setFallbackNotice(event),
         onDelta: (delta) => {
           if (!firstContentTokenReceived) {
             firstContentTokenReceived = true
@@ -1401,6 +1415,8 @@ export function useChat(): UseChatReturn {
   const clearMessages = useChatStore((s) => s.clearMessages)
   const setModel = useChatStore((s) => s.setModel)
   const pendingQuestion = useChatStore((s) => s.pendingQuestion)
+  // P4-2: 清除 fallback 通知(用户关闭横幅时调用)
+  const clearFallbackNotice = React.useCallback(() => setFallbackNotice(null), [])
 
   // P3 Inline Diff Apply 工作流:Accept 调 API 写入文件,Reject 纯前端标记
   const { applyDiff, rejectDiff } = useApplyDiff()
@@ -1411,12 +1427,14 @@ export function useChat(): UseChatReturn {
     isStreaming,
     error,
     pendingQuestion,
+    fallbackNotice,
     sendMessage,
     sendAnswer,
     skipQuestion,
     stop,
     clearMessages,
     setModel,
+    clearFallbackNotice,
     applyDiff,
     rejectDiff,
   }
