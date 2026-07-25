@@ -6,8 +6,5 @@
  * 避免破坏 web 端既有代码。
  */
 
-export {
-  DEFAULT_CONTEXT_CAPACITY,
-  getModelContextCapacity,
-  formatTokenCount,
-} from '@ihui/api-client'
+export { DEFAULT_CONTEXT_CAPACITY, getModelContextCapacity } from '@ihui/api-client'
+export { formatTokenCount } from '@ihui/shared/utils'
