@@ -282,7 +282,15 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- warn (11 项) ---
+  // --- warn (12 项,含 2026-07-25 新增 commit 丢失防护) ---
+  {
+    id: '30',
+    label:
+      '🛡️  Commit 丢失防护(AGENTS.md §22,防 reset / drop stash 误丢 commit)',
+    script: 'check-commit-loss-guard.mjs',
+    args: [],
+    mode: 'warn',
+  },
   {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',
