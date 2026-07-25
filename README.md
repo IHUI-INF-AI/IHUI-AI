@@ -2432,9 +2432,15 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 > 通用 LLM 索引(LLMs.txt 标准):[llms.txt](https://ihui.ai/llms.txt) · [llms-full.txt](https://ihui.ai/llms-full.txt)
 >
-> Feed 订阅:[RSS](https://ihui.ai/rss.xml) · [Atom](https://ihui.ai/atom.xml)
+> Feed 订阅:[RSS](https://ihui.ai/rss.xml) · [Atom](https://ihui.ai/atom.xml) · [WebSub Hub](https://ihui.ai/websub)(W3C 实时推送协议)
 >
 > Sitemap:[sitemap.xml](https://ihui.ai/sitemap.xml)
+>
+> 行业垂直 GEO:[industries.md](https://ihui.ai/industries.md)(医疗 / 教育 / 金融 / 法律 / 政府 5 大行业 × 5 个 Agent)
+>
+> 决策角色 GEO:[roles.md](https://ihui.ai/roles.md)(开发者 / CTO / 产品经理 / CEO / 采购 5 大决策角色)
+>
+> Google Knowledge Graph:[knowledge-graph.json](https://ihui.ai/knowledge-graph.json)(Schema.org 实体对齐,供 Wikidata / Google KG 对齐引用)
 
 ### SEO 友好页面矩阵
 
@@ -2454,6 +2460,19 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
   - [AI 代码助手](https://ihui.ai/use-cases/code-assistant)
   - [AI 内容创作](https://ihui.ai/use-cases/content-generation)
 - **内容站**([FAQ](https://ihui.ai/faq) · [About](https://ihui.ai/about) · [Docs](https://ihui.ai/docs) · [Quickstart](https://ihui.ai/docs/quickstart))
+
+### 结构化数据矩阵(JSON-LD schema,2026-07-26 极致 GEO 强化)
+
+每个公开页面都注入了 schema.org JSON-LD 结构化数据,供 Google Rich Results / GPTBot / ClaudeBot / PerplexityBot / Gemini 直接解析引用:
+
+| Schema 类型 | 覆盖页面 | 作用 |
+|-------------|----------|------|
+| `Organization` + `WebSite` + `SoftwareApplication` | 全站(layout.tsx) | 品牌实体对齐,Knowledge Graph 收录 |
+| `FAQPage` | [/faq](https://ihui.ai/faq)(12 个 Q&A) | Google FAQ Rich Results,ChatGPT/Claude 直接引用 |
+| `HowTo` | 4 个 use case 页面(客服/知识库/代码/内容) | Google HowTo Rich Results,适配"如何搭建 X"类检索 |
+| `BreadcrumbList` | 所有 use case + compare 页面 | 面包屑导航 Rich Results |
+| `WebPage` + `@graph` | 所有 use case + compare 页面 | 页面级实体声明 |
+| `Knowledge Graph`(`@type: Graph`) | [knowledge-graph.json](https://ihui.ai/knowledge-graph.json) | Wikidata / Google KG / 各大 AI 引擎实体对齐 |
 
 ### 站长工具收录状态(2026-07-26)
 

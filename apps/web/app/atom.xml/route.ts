@@ -50,6 +50,7 @@ export async function GET() {
   <subtitle>${escapeXml(SITE_DESCRIPTION)}</subtitle>
   <link href="${SITE_URL}" rel="alternate" type="text/html" />
   <link href="${SITE_URL}/atom.xml" rel="self" type="application/atom+xml" />
+  <link href="${SITE_URL}/websub" rel="hub" />
   <icon>${SITE_URL}/images/logo.png</icon>
   <logo>${SITE_URL}/images/logo.png</logo>
   <updated>${now}</updated>
