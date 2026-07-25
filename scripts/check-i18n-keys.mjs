@@ -13,6 +13,10 @@
  *   (web 默认 apps/web/messages/; extension packages/i18n/messages/extension/; shared packages/i18n/messages/shared/)
  *   extension / shared 模式只做 key parity 校验,跳过源码使用检测与翻译完整性检测
  *   (extension 用 useI18n(),namespace 提取逻辑不适用;shared 为跨端共享基础 key 无源码消费方)
+ * - 方案 A(2026-07-26):web/extension 非 shared 模式下 loadMessages() 返回
+ *   mergeMessages(shared[lang], target[lang]),parity 校验在合并集上进行,
+ *   源码缺失键检测也查合并集。这样把 common.save 等基础 key 迁移到 shared 后,
+ *   web 端不会误报"缺失键 common.save"。shared 模式保持 parity-only 不变。
  *
  * 用法: node scripts/check-i18n-keys.mjs [--staged] [--target=web|extension|shared]
  *   --staged: 只检查 git 暂存区涉及的文件(pre-commit 用, 有问题则 exit 1)
@@ -39,12 +43,17 @@ const MESSAGES_DIR = isExtension
   : isShared
     ? join(ROOT, 'packages/i18n/messages/shared')
     : join(ROOT, 'packages/i18n/messages/web')
+// shared 目录:web/extension 非 shared 模式下与 MESSAGES_DIR 合并校验(方案 A)
+// shared 模式下 MESSAGES_DIR === SHARED_DIR,二者相同
+const SHARED_DIR = join(ROOT, 'packages/i18n/messages/shared')
 // extension / shared 模式:暂存区路径前缀(extension 同时识别 apps/extension/)
-const STAGED_MESSAGES_PREFIX = isExtension
-  ? 'packages/i18n/messages/extension/'
-  : isShared
-    ? 'packages/i18n/messages/shared/'
-    : 'packages/i18n/messages/web/'
+// 非 shared 模式同时识别 shared/(合并集的一部分,shared 改动需触发 parity 校验)
+// shared 模式只识别 shared/
+const STAGED_MESSAGES_PREFIXES = isShared
+  ? ['packages/i18n/messages/shared/']
+  : isExtension
+    ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
+    : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
 const STAGED_SOURCE_PREFIX = isExtension ? 'apps/extension/' : 'apps/web/'
 const EXCLUDE_DIRS = new Set(['messages', '.next', 'node_modules', '.git'])
 const BASE_LANG = 'zh-CN'
@@ -76,16 +85,61 @@ function collectSourceFiles(dir, result = []) {
 function loadMessages() {
   const langs = {}
   if (!existsSync(MESSAGES_DIR)) return langs
+  // shared 模式:仅读 MESSAGES_DIR(=== SHARED_DIR),不合并
+  if (isShared) {
+    for (const entry of readdirSync(MESSAGES_DIR)) {
+      if (!entry.endsWith('.json')) continue
+      try {
+        langs[entry.replace('.json', '')] = JSON.parse(
+          readFileSync(join(MESSAGES_DIR, entry), 'utf8'),
+        )
+      } catch {
+      }
+    }
+    return langs
+  }
+  // web/extension 非 shared 模式:读 shared + 端合并集(shared base,端 override)
+  // 端的 key 覆盖 shared 同名 key,shared 提供跨端共享基础 key
   for (const entry of readdirSync(MESSAGES_DIR)) {
     if (!entry.endsWith('.json')) continue
+    let targetMsg
     try {
-      langs[entry.replace('.json', '')] = JSON.parse(
-        readFileSync(join(MESSAGES_DIR, entry), 'utf8'),
-      )
+      targetMsg = JSON.parse(readFileSync(join(MESSAGES_DIR, entry), 'utf8'))
     } catch {
+      continue
     }
+    // 读 shared/<lang>.json 作为 base
+    let sharedMsg = {}
+    if (existsSync(SHARED_DIR)) {
+      const sharedPath = join(SHARED_DIR, entry)
+      if (existsSync(sharedPath)) {
+        try {
+          sharedMsg = JSON.parse(readFileSync(sharedPath, 'utf8'))
+        } catch {
+        }
+      }
+    }
+    langs[entry.replace('.json', '')] = deepMerge(sharedMsg, targetMsg)
   }
   return langs
+}
+
+// 深合并:shared 作为 base,端 override 优先(端版本的 key 覆盖 shared 同名 key)
+// 用于 web/extension 非 shared 模式与 shared 合并校验(方案 A)
+// 自己实现,不引入新依赖(check-i18n-keys.mjs 是 .mjs 脚本,不能直接 import TS loader)
+function deepMerge(base, override) {
+  if (!base) return override
+  if (!override) return base
+  const result = { ...base }
+  for (const key of Object.keys(override)) {
+    const ov = override[key]
+    if (ov && typeof ov === 'object' && !Array.isArray(ov)) {
+      result[key] = deepMerge(base[key], ov)
+    } else {
+      result[key] = ov
+    }
+  }
+  return result
 }
 
 // 加载 brand-glossary.json 的 brands / fonts / terms / commonTech 全部 value
@@ -241,7 +295,9 @@ if (isStaged) {
     })
     const staged = output.split('\n').filter(Boolean)
     messagesChanged = staged.some(
-      (f) => f.startsWith(STAGED_MESSAGES_PREFIX) && f.endsWith('.json'),
+      (f) =>
+        f.endsWith('.json') &&
+        STAGED_MESSAGES_PREFIXES.some((p) => f.startsWith(p)),
     )
     if (isParityOnly) {
       // parity-only 模式跳过源码使用检测(extension useI18n() 不适用;shared 无源码消费方)
@@ -476,11 +532,13 @@ if (untranslatedValueIssues.length > 0) {
 }
 
 if (issueCount > 0) {
+  // 方案 A:web/extension 模式下 key 可能在 shared/(基础 key 已迁移)
+  // 同时提示端文件和 shared 文件,迁移后 key 可能位于其中之一
   const messagesRelPath = isExtension
-    ? `packages/i18n/messages/extension/${BASE_LANG}.json`
+    ? `packages/i18n/messages/extension/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
     : isShared
       ? `packages/i18n/messages/shared/${BASE_LANG}.json`
-      : `packages/i18n/messages/web/${BASE_LANG}.json`
+      : `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
   console.log(
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
