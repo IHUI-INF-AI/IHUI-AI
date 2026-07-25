@@ -14,6 +14,10 @@ export const PROVIDERS: Provider[] = [
   'webhook',
 ]
 
+export const PROVIDER_KEY: Record<string, string> = Object.fromEntries(
+  PROVIDERS.map((p) => [p, `providers.${p}`]),
+)
+
 export const PROVIDER_INITIAL: Record<Provider, string> = {
   openai: 'O',
   anthropic: 'A',
