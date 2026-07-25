@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Edit, Trash2, CheckCircle2, Loader2, HelpCircle } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
@@ -35,42 +34,11 @@ export function AsksTable({
 }: Props) {
   const t = useTranslations('admin.asks')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-    [locale],
-  )
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [list, onEdit],
-  )
-  const handleAudit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onAudit(item)
-    },
-    [list, onAudit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onDelete(item)
-    },
-    [list, onDelete],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -154,8 +122,7 @@ export function AsksTable({
                         <Button
                           variant="ghost"
                           size="sm"
-                          data-id={item.id}
-                          onClick={handleEdit}
+                          onClick={() => onEdit(item)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -165,8 +132,7 @@ export function AsksTable({
                           <Button
                             variant="ghost"
                             size="sm"
-                            data-id={item.id}
-                            onClick={handleAudit}
+                            onClick={() => onAudit(item)}
                             disabled={auditPending}
                           >
                             <CheckCircle2 className="h-4 w-4" />
@@ -177,8 +143,7 @@ export function AsksTable({
                         <Button
                           variant="ghost"
                           size="sm"
-                          data-id={item.id}
-                          onClick={handleDelete}
+                          onClick={() => onDelete(item)}
                           className="text-destructive hover:text-destructive"
                           disabled={deletePending}
                         >

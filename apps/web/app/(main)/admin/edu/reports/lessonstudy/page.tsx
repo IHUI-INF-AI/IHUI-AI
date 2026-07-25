@@ -65,14 +65,9 @@ export default function EduReportsLessonStudyPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const { totalLearners, totalCompleted, totalHours } = React.useMemo(
-    () => ({
-      totalLearners: rows.reduce((a, r) => a + r.learnerCount, 0),
-      totalCompleted: rows.reduce((a, r) => a + r.completedCount, 0),
-      totalHours: rows.reduce((a, r) => a + r.totalHours, 0),
-    }),
-    [rows],
-  )
+  const totalLearners = rows.reduce((a, r) => a + r.learnerCount, 0)
+  const totalCompleted = rows.reduce((a, r) => a + r.completedCount, 0)
+  const totalHours = rows.reduce((a, r) => a + r.totalHours, 0)
   const noEndpoint = isNotFound(error)
 
   return (
