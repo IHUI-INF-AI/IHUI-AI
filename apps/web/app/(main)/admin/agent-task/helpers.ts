@@ -14,6 +14,16 @@ export const STATUS_STYLE: Record<number, string> = {
   6: TONE.muted,
 }
 
+export const STATUS_KEY: Record<number, string> = {
+  0: 'status0',
+  1: 'status1',
+  2: 'status2',
+  3: 'status3',
+  4: 'status4',
+  5: 'status5',
+  6: 'status6',
+}
+
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)

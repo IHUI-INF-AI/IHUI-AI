@@ -11,6 +11,13 @@ export const STATUS_CLASS: Record<string, string> = {
   offline: 'bg-muted text-muted-foreground',
 }
 
+export const STATUS_KEY: Record<string, string> = {
+  pending: 'statusPending',
+  published: 'statusPublished',
+  rejected: 'statusRejected',
+  offline: 'statusOffline',
+}
+
 export const EMPTY_FORM: AgentForm = {
   name: '',
   description: '',
