@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Sparkles, AlertCircle, Loader2, ChevronDown } from 'lucide-react'
+import { Sparkles, AlertCircle, Loader2, ChevronDown, ShieldCheck, ShieldAlert, Hand } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import type { ChatMessage } from '@/stores/chat'
@@ -11,6 +11,50 @@ import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { cn } from '@/lib/utils'
+
+/** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
+ * - AI 消息气泡的标签后追加一个轻量模式徽章
+ * - 仅当 permissionMode !== 'default' 时显示(默认模式太多,无意义)
+ * - accept-edits → 绿底 + ShieldCheck
+ * - bypass-permissions → 琥珀底 + ShieldAlert(高风险)
+ * - default → Hand(理论不会走到,兜底渲染) */
+function PermissionModeBadge({ mode }: { mode: NonNullable<ChatMessage['permissionMode']> }) {
+  const t = useTranslations('chat.permission')
+  const config = {
+    default: {
+      icon: Hand,
+      label: t('mode.ask'),
+      cls: 'bg-muted text-muted-foreground',
+      tip: t('mode.askDesc'),
+    },
+    'accept-edits': {
+      icon: ShieldCheck,
+      label: t('mode.auto'),
+      cls: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+      tip: t('mode.autoDesc'),
+    },
+    'bypass-permissions': {
+      icon: ShieldAlert,
+      label: t('mode.full'),
+      cls: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+      tip: t('mode.fullDesc'),
+    },
+  }[mode]
+  const Icon = config.icon
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-sm px-1 py-px text-[9px] font-medium',
+        config.cls,
+      )}
+      title={config.tip}
+      aria-label={config.tip}
+    >
+      <Icon className="h-2.5 w-2.5" aria-hidden="true" />
+      {config.label}
+    </span>
+  )
+}
 
 function TypingIndicator() {
   return (
@@ -89,7 +133,17 @@ const MessageItem = React.memo(function MessageItem({
         )}
       </div>
       <div className={cn('flex max-w-[85%] flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
-        {!isUser && <span className="px-1 text-xs text-muted-foreground">{assistantLabel}</span>}
+        {!isUser && (
+          <span className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
+            <span>{assistantLabel}</span>
+            {/* 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
+              - 记录 AI 响应生成时所使用的权限模式,便于用户事后回溯
+              - 仅非 default 模式显示(默认模式太多,无信息量) */}
+            {m.permissionMode && m.permissionMode !== 'default' && (
+              <PermissionModeBadge mode={m.permissionMode} />
+            )}
+          </span>
+        )}
         <div
           className={cn(
             'rounded-2xl px-4 py-2.5',

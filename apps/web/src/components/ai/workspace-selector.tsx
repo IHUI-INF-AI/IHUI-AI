@@ -41,6 +41,16 @@ export function WorkspaceSelector() {
   // 持久化的 activeWorkspace 在挂载时校验路径是否仍存在(跨机器/移动硬盘等场景)。
   // 不存在则自动解绑,避免后续 AI 调用 fs 工具时因路径无效报错。
   React.useEffect(() => {
+    // dev 自验模式(2026-07-25):自动化测试通过 window.__IHUI_SKIP_WS_VALIDATE__=true 跳过路径校验
+    // - 自验脚本注入 mock 工作区(macOS/Linux 风格的虚构路径),避免被自动解绑
+    // - 仅 dev 模式生效(production 不挂 window flag,逻辑不变)
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      typeof window !== 'undefined' &&
+      (window as unknown as { __IHUI_SKIP_WS_VALIDATE__?: boolean }).__IHUI_SKIP_WS_VALIDATE__
+    ) {
+      return
+    }
     const ws = useAiPanelStore.getState().activeWorkspace
     if (!ws?.path) return
     let cancelled = false
