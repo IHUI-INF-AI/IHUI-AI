@@ -546,41 +546,19 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     // 当前 setLocale(code) 已更新 useLanguageStore,客户端 locale-aware 逻辑可读取此值。
   }
 
-  const onLocaleClick = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const code = e.currentTarget.getAttribute('data-locale') as Language | null
-      if (code) handleLocaleChange(code)
-    },
-    [handleLocaleChange],
-  )
-
-  const onDownloadClick = React.useCallback(
-    (e: React.MouseEvent<HTMLAnchorElement>) => {
-      const platform = e.currentTarget.getAttribute('data-platform')
-      if (platform) trackClick(`download_${platform}`, 'download_popover')
-    },
-    [trackClick],
-  )
-
   const handleToggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark')
   }
 
   // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
-  // 性能修复(2026-07-25):原 render 中 notifications.map,SidebarActions 任何 state
-  // 变化(locale / theme / collapsed 等)都触发重映射。useMemo 仅 notifications 变化时重算。
-  const noticeItems: NoticeItem[] = React.useMemo(
-    () =>
-      notifications.map((n) => ({
-        id: n.id,
-        title: n.title,
-        description: n.content,
-        type: n.type === 'warning' || n.type === 'error' || n.type === 'success' ? n.type : 'info',
-        read: n.isRead,
-        createdAt: n.createdAt,
-      })),
-    [notifications],
-  )
+  const noticeItems: NoticeItem[] = notifications.map((n) => ({
+    id: n.id,
+    title: n.title,
+    description: n.content,
+    type: n.type === 'warning' || n.type === 'error' || n.type === 'success' ? n.type : 'info',
+    read: n.isRead,
+    createdAt: n.createdAt,
+  }))
 
   // 按钮统一 h-[26px] w-[26px] + svg size-5 (20×20):
   // 图标尺寸与 NavLink 导航项 (h-5 w-5=20px) 完全一致,避免底部工具栏图标过小不一致;
@@ -616,8 +594,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
             {LANGUAGES.map((lang) => (
               <button
                 key={lang.code}
-                data-locale={lang.code}
-                onClick={onLocaleClick}
+                onClick={() => handleLocaleChange(lang.code)}
                 className={cn(
                   'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent',
                   locale === lang.code && 'bg-accent font-medium',
@@ -671,10 +648,9 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                 <a
                   key={item.platform}
                   href={item.href}
-                  data-platform={item.platform}
                   target={isExternal ? '_blank' : undefined}
                   rel={isExternal ? 'noopener noreferrer' : undefined}
-                  onClick={onDownloadClick}
+                  onClick={() => trackClick(`download_${item.platform}`, 'download_popover')}
                   className="group flex items-start gap-2.5 rounded px-2 py-1.5 text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                 >
                   <Icon className="mt-0.5 h-4 w-4 shrink-0 text-foreground/80 transition-colors group-hover:text-foreground" />
@@ -1245,11 +1221,6 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
         : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     )
 
-  const makeRefCb = React.useCallback(
-    (href: string) => (el: HTMLElement | null) => registerRef(href, el),
-    [registerRef],
-  )
-
   const childList = (
     <div id={listId} role="group" aria-label={label} className="flex flex-col gap-0.5">
       {children.map((child) => {
@@ -1257,12 +1228,13 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
         const active = isActive(child.href)
         const childLabel = child.dynamicLabel ?? t(child.labelKey)
         const badgeCount = getBadgeCount(child.badge)
+        const refCb = (el: HTMLElement | null) => registerRef(child.href, el)
         return (
           <Link
             key={child.href}
             data-testid={`nav-${child.labelKey}`}
             href={child.href}
-            ref={makeRefCb(child.href)}
+            ref={refCb}
             onClick={onCloseMobile}
             aria-current={active ? 'page' : undefined}
             className={childClassName(active)}
@@ -1968,12 +1940,7 @@ export function Sidebar({
       <aside
         aria-label={t('mainNav')}
         className={cn(
-          // 2026-07-25 P0 修复:h-screen 改为 h-full
-          // 原 h-screen = 100vh(900px),但 GlobalShell 顶层是 flex-col,NativeTopBar 占 40px,
-          // 父容器(下方水平 flex div)高度只有 860px,Sidebar 高度 900px > 父容器 860px,
-          // 导致 Sidebar 向下溢出 40px,完全覆盖 NativeTopBar。
-          // 改为 h-full 后 Sidebar 高度 = 父容器高度(860px),完美贴合。
-          'relative hidden h-full shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 lg:flex',
+          'relative hidden h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 lg:flex',
           collapsed && 'w-[60px]',
         )}
         // 2026-07-22 修复首屏 width 闪烁:
