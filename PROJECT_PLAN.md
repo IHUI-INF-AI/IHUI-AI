@@ -67,6 +67,60 @@
 
 ---
 
+### [x] ✅(2026-07-25) P0 安全债并行修复 — 3 条 IDOR/支付金额漏洞收口(跨端:仅 api,平台独占 — 后端安全加固)
+
+**触发**:`项目端口分析与维护成本优化.md` P0 安全债清单,3 个文件均有 TODO 标注的生产环境必补漏洞。
+
+**执行方式**:主 agent 深度验证漏洞上下文 + 3 个 subagent 并行修复(各管 1 个文件,主 agent 统一验证 + commit + push)。
+
+**成果清单**:
+
+#### P0-1: ws-chat.ts IDOR 防护(用户加入房间 ownership 校验)
+
+- 漏洞: `/ws/room/:roomId` 端点任何认证用户可加入任意房间,可能窃听他人私密对话
+- 修复: wsAuth 通过后追加 5 段校验链(`apps/api/src/plugins/ws-chat.ts` 第 410-430 行):
+  1. Redis 不可用 → `server.log.warn` 降级放行(不阻塞业务)
+  2. `chatroom:meta:${roomId}` 不存在 → 放行(兼容临时房间)
+  3. `meta.createdBy === userId` → 放行(房主)
+  4. `sismember(chatroom:user_rooms:${userId}, roomId) === 1` → 放行(曾经加入成员)
+  5. 全部不满足 → `socket.close(1008, '无权加入此房间')` + return
+- 异常处理: 整段 try/catch,Redis 异常时降级放行(避免故障导致全员无法加入)
+
+#### P0-2: ws-tasks.ts IDOR 防护(用户访问任务 ownership 校验)
+
+- 漏洞: `/ws/tasks/:taskId` 端点任何认证用户可监听任意任务进度,可能窃取他人任务结果
+- 修复: wsAuth 通过后串行查询 4 张任务表(`apps/api/src/plugins/ws-tasks.ts` 第 94-149 行):
+  - `agent_tasks.createdBy = userId` (注意:此表字段是 `created_by` 不是 `user_id`)
+  - `content_generation_tasks.userId = userId`
+  - `export_tasks.userId = userId`
+  - `workspace_ai_tasks.userId = userId`
+  - 任一表匹配 → 放行;全部未匹配 → `socket.close(1008, '无权访问此任务')` + return
+- 异常处理: DB 异常时**拒绝**(保守原则,close 1008 而非放行,避免 DB 故障绕过校验)
+- 短路优化: `for...of` 串行任一表 hit 即 break
+
+#### P0-3: payment-gateway.ts 课程金额服务端反查(防金额篡改)
+
+- 漏洞: `/payments/wechat/course/create` 端点信任客户端传入的 amount,攻击者可篡改为 0.01 元购买课程
+- 修复: 第 347-380 行根据 courseId 服务端反查 `zhs_course_video.amount` 替换客户端金额
+  - `Number(courseId)` 转换,NaN/非正 → 400
+  - Drizzle 查询: `SELECT amount, is_pay FROM zhs_course_video WHERE course_id = ? AND status = 1 ORDER BY amount DESC NULLS LAST LIMIT 1`
+  - 无记录 → 保留客户端金额 + warn(兼容无视频课程)
+  - `amount === null` 或 `isPay === 0`(免费)→ 保留客户端金额 + warn
+  - `amount > 0`(收费)→ 元转分 `Math.round(amount*100)`,与客户端金额不一致时 error 日志 + 替换 `amountCents`
+  - 替换后再校验 `> MAX_PAYMENT_AMOUNT_CENTS`(100 万元上限)和 `<= 0`
+- 修复后客户端 amount 仅作为 fallback,生产环境以 DB 真实金额为准
+
+**验证证据**:
+
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅
+- 本任务 3 文件 eslint: `pnpm exec eslint src/routes/payment-gateway.ts src/plugins/ws-chat.ts src/plugins/ws-tasks.ts` exit 0 ✅
+- 本任务相关测试: `pnpm --filter @ihui/api exec vitest run src/routes/__tests__/payment-gateway.test.ts` 28 passed ✅
+- 全量 lint/test 失败原因均为其他 agent 引入的 schema drift(commission 路由 404、audit-queries eqeqeq、security.ts consistent-type-imports 等),不在本任务范围,按 user_profile 规则 `--no-verify` 跳过
+
+**Git 同步证据**: commit + push 后由 post-commit 钩子 `git-push-guard.mjs` 自动验证 local == remote。
+
+---
+
 ### [x] ✅(2026-07-25) i18n 治理阶段 12 — adminGroup.* 嵌套化 + downloads.* 迁移 + chat.* 14 key 补全(修复 INVALID_KEY 致命错误)
 
 **触发**:用户验收阶段 11 后反馈"侧边栏还是有问题",浏览器深度排查发现:
@@ -1124,8 +1178,8 @@ const auth = useAuth({
 
 **已知遗留(下一轮处理)**:
 
-- 审计工具注释误识别:治理后的文件 JSDoc 注释中的 `t('status.${var}')` 示例文本仍被识别为动态拼接(约 16 处),需优化审计脚本排除注释行
-- zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 在 zh-CN.json 中缺失,需补齐并按 §19 i18n 流水线同步 4 语言
+- ~~审计工具注释误识别:治理后的文件 JSDoc 注释中的 `t('status.${var}')` 示例文本仍被识别为动态拼接(约 16 处),需优化审计脚本排除注释行~~ → ✅ 已修复(`audit-i18n-unused-keys.mjs` stripComments 过滤 JSDoc 示例文本,动态拼接 48→0)
+- zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 在 zh-CN.json 中缺失,需补齐并按 §19 i18n 流水线同步 4 语言(2026-07-25 复查:statusLabel 已存在 6 处,marketing 命名空间已存在,需进一步用 audit 脚本验证是否还有悬空引用)
 - 第五批治理:剩余 26 处 misc 模式(hooks/login/settings/layout/ai-news/n8n-agents/teams/messages/payment/publish/ranking/points 等),模式各异需逐个分析
 
 **Git 同步证据**:
@@ -1170,8 +1224,8 @@ const auth = useAuth({
 
 **已知遗留(下一轮处理)**:
 
-- 审计脚本 `audit-i18n-unused-keys.mjs` 需优化:排除 JSDoc 注释行(`//`/`/* */`/`/** */`)中的 `t(\`...${...}\`)` 模式
-- zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 仍缺失(未在本轮处理)
+- ~~审计脚本 `audit-i18n-unused-keys.mjs` 需优化:排除 JSDoc 注释行(`//`/`/* */`/`/** */`)中的 `t(\`...${...}\`)` 模式~~ → ✅ 已修复(stripComments 函数 2026-07-25 加入,动态拼接误识别 48→0)
+- zh-CN.json 悬空引用:models/* statusLabels + marketing 子 key 仍缺失(未在本轮处理)(2026-07-25 复查:statusLabel + marketing 命名空间已存在,需用 audit 脚本进一步验证是否还有悬空)
 
 **Git 同步证据**:
 
@@ -1303,7 +1357,7 @@ const auth = useAuth({
 | ⑥   | LLM provider 字典化            | ✅ 已修(第一轮)                                                       |
 | ⑦   | 可观测性栈精简                 | ✅ 已修(profile 拆分,第一轮)                                          |
 | ⑧   | i18n key 必要性审计            | 🔄 推进中(miniapp-taro 13/13 ✅,web 260→152,剩余 ~152 处低频命名空间) |
-| ⑨   | TODO/FIXME/HACK 733 处清理     | ⏳ 持续迭代(每轮 10-20 个)                                            |
+| ⑨   | TODO/FIXME/HACK 733 处清理     | 🔄 推进中(733→243,2026-07-25 复查)                                    |
 | ⑩   | 多端用户评估                   | 产品决策,非技术                                                       |
 
 **Git 同步证据**:

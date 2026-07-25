@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Loader2, Workflow, Zap, Edit, Trash2, Eye } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
@@ -18,7 +17,7 @@ interface WorkflowsTableProps {
   onDelete: (id: string) => void
 }
 
-export const WorkflowsTable = React.memo(function WorkflowsTable({
+export function WorkflowsTable({
   list,
   isLoading,
   error,
@@ -29,44 +28,14 @@ export const WorkflowsTable = React.memo(function WorkflowsTable({
   const t = useTranslations('admin.workflows')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
   const th = 'px-4 py-2.5 font-medium'
-
-  const handleView = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onView(item)
-    },
-    [list, onView],
-  )
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id) onDelete(id)
-    },
-    [onDelete],
-  )
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -153,11 +122,11 @@ export const WorkflowsTable = React.memo(function WorkflowsTable({
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="inline-flex items-center gap-1">
-                      <Button variant="ghost" size="sm" data-id={w.id} onClick={handleView}>
+                      <Button variant="ghost" size="sm" onClick={() => onView(w)}>
                         <Eye className="mr-1 h-3.5 w-3.5" />
                         {t('view')}
                       </Button>
-                      <Button variant="ghost" size="sm" data-id={w.id} onClick={handleEdit}>
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(w)}>
                         <Edit className="mr-1 h-3.5 w-3.5" />
                         {tc('edit')}
                       </Button>
@@ -165,8 +134,7 @@ export const WorkflowsTable = React.memo(function WorkflowsTable({
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive"
-                        data-id={w.id}
-                        onClick={handleDelete}
+                        onClick={() => onDelete(w.id)}
                       >
                         <Trash2 className="mr-1 h-3.5 w-3.5" />
                         {tc('delete')}
@@ -181,4 +149,4 @@ export const WorkflowsTable = React.memo(function WorkflowsTable({
       </table>
     </div>
   )
-})
+}

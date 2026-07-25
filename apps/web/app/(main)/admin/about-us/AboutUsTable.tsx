@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Edit, Trash2, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
@@ -16,24 +15,8 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export const AboutUsTable = React.memo(function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete }: Props) {
+export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.aboutUs')
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const item = list.find((x) => String(x.id) === id)
-      if (item) onEdit(item)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (id && confirm(t('confirmDelete'))) onDelete(id)
-    },
-    [t, onDelete],
-  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -78,7 +61,7 @@ export const AboutUsTable = React.memo(function AboutUsTable({ list, isLoading, 
                 <td className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     <HasPermi code={`${PERM}:edit`}>
-                      <Button size="sm" variant="ghost" data-id={item.id} onClick={handleEdit}>
+                      <Button size="sm" variant="ghost" onClick={() => onEdit(item)}>
                         <Edit className="h-4 w-4" />
                         {t('edit')}
                       </Button>
@@ -89,8 +72,7 @@ export const AboutUsTable = React.memo(function AboutUsTable({ list, isLoading, 
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
                         disabled={deletePending}
-                        data-id={item.id}
-                        onClick={handleDelete}
+                        onClick={() => confirm(t('confirmDelete')) && onDelete(item.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                         {t('delete')}
@@ -105,4 +87,4 @@ export const AboutUsTable = React.memo(function AboutUsTable({ list, isLoading, 
       </table>
     </div>
   )
-})
+}

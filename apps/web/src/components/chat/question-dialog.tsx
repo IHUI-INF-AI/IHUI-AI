@@ -33,7 +33,7 @@ interface QuestionDialogProps {
  * - allowCustom=true:展示自定义输入框,Enter 提交
  * - 关闭弹窗 = 跳过提问,不续流 LLM
  */
-export const QuestionDialog = React.memo(function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogProps) {
+export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogProps) {
   const t = useTranslations('chat.question')
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [customInput, setCustomInput] = React.useState('')
@@ -175,4 +175,4 @@ export const QuestionDialog = React.memo(function QuestionDialog({ question, onS
       </DialogContent>
     </Dialog>
   )
-})
+}
