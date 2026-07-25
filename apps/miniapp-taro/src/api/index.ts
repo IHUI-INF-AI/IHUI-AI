@@ -582,6 +582,21 @@ export interface News {
 export const getNewsList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: News[]; total: number }>('/news/articles', params)
 export const getNewsDetail = (id: string | number) => get<News>(`/news/articles/${id}`)
+/**
+ * 相关新闻推荐 — 复用 GET /news/articles/recommended(后端暂无 :id/related 端点,
+ * 返回运营推荐位文章列表,语义最接近"相关推荐")。
+ * 失败由调用方(detail.tsx) catch 后 fallback 为空数组。
+ */
+export const getRelatedNews = (
+  _id: string | number,
+  params?: { page?: number; pageSize?: number },
+) => get<{ list: News[]; total: number }>('/news/articles/recommended', params)
+/**
+ * 点赞资讯 — POST /news/articles/:id/like(后端暂未实现,请求将 404,
+ * 调用方 detail.tsx 已 catch 回滚 UI 状态)。
+ */
+export const likeNews = (id: string | number) =>
+  post<{ liked?: boolean }>(`/news/articles/${id}/like`)
 
 export interface Circle {
   id: string | number
