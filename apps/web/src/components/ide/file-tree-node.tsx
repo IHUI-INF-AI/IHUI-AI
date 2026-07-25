@@ -15,7 +15,11 @@ interface FileTreeNodeProps {
 
 export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps) {
   const t = useTranslations('ide')
-  const { expandedFolders, selectedFileId, toggleFolder, openFile, selectFile } = useIDEWorkspace()
+  const expandedFolders = useIDEWorkspace((s) => s.expandedFolders)
+  const selectedFileId = useIDEWorkspace((s) => s.selectedFileId)
+  const toggleFolder = useIDEWorkspace((s) => s.toggleFolder)
+  const openFile = useIDEWorkspace((s) => s.openFile)
+  const selectFile = useIDEWorkspace((s) => s.selectFile)
   const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null)
   const isExpanded = node.type === 'folder' && expandedFolders.has(node.id)
   const isSelected = selectedFileId === node.id

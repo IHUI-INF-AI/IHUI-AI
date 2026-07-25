@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { Loader2, Tag, Hash, Edit, Trash2 } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
@@ -25,11 +26,15 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.tags')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    [locale],
+  )
   const fontSize = getFontSize(tags)
   const total = tags.length
 
