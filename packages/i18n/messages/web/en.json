@@ -825,6 +825,7 @@
     },
     "hideReasoning": "Hide Reasoning",
     "showReasoning": "Show Reasoning",
+    "fallbackNotice": "Switched to backup model {{backup}} (primary model {{primary}} temporarily unavailable)",
     "question": {
       "title": "AI needs your answer",
       "submit": "Submit Answer",
