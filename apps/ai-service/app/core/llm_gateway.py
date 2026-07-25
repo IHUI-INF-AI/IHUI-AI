@@ -1058,6 +1058,14 @@ class LLMGateway:
                             ).inc()
                         except Exception as metric_err:
                             logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+                        # P4-2: 提前发送 fallback 通知事件,让前端感知模型切换
+                        # 在 chunk 产出之前 yield,前端据此展示"已切换到备用模型"横幅
+                        yield {
+                            "type": "fallback",
+                            "primary_model": used_model,
+                            "backup_model": backup_model,
+                            "reason": fb_reason,
+                        }
                         chunk_size = 10
                         for i in range(0, len(fb_content), chunk_size):
                             yield {"type": "chunk", "content": fb_content[i : i + chunk_size]}

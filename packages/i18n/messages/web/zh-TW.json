@@ -825,6 +825,7 @@
     },
     "hideReasoning": "隱藏推理過程",
     "showReasoning": "顯示推理過程",
+    "fallbackNotice": "已切換到備用模型 {{backup}}(原模型 {{primary}} 暫時不可用)",
     "question": {
       "title": "AI 需要你的回答",
       "submit": "提交回答",
