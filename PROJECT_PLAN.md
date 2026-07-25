@@ -347,6 +347,82 @@
 
 ---
 
+### [x] ✅(2026-07-25) 业务层共享启动阶段 11 — useAgents/useArticles/useChat 跨端业务 hooks 落地 + 集成测试(3 subagent 并行,46 场景全绿,跨端:packages/shared + apps/mobile-rn,平台独占 — 共享层 hooks 由主 agent 实现,测试由 3 subagent 并行编写)
+
+**触发**:阶段 10(extension + miniapp-taro useAuth 集成测试 33 场景全绿)完成后用户要求"继续"。承接阶段 10 交付报告的"阶段 11:新增 useArticles/useChat/useAgents 业务 hooks"建议。
+
+**执行方式**:主 agent 实现 3 个 hooks(参照 usePagination/useAuth 依赖注入模式),3 subagent 并行编写集成测试(useAgents 14 + useArticles 16 + useChat 16 = 46 场景)。
+
+**成果清单**:
+
+#### P0:3 个跨端业务 hooks 落地(纯逻辑层 + 依赖注入)
+
+- [packages/shared/src/hooks/use-agents.ts](file:///g:/IHUI-AI/packages/shared/src/hooks/use-agents.ts) — 160 行,Agent 列表管理
+  - `Agent` / `AgentListResponse` / `UseAgentsOptions` / `UseAgentsReturn` 接口契约
+  - 依赖注入 `fetchList` / `fetchDetail`,零 transport 绑定
+  - agents / currentAgent / loading / error / load / refresh / selectById / clearSelection / findById / setAgents
+  - autoLoad=true 挂载自动拉取
+
+- [packages/shared/src/hooks/use-articles.ts](file:///g:/IHUI-AI/packages/shared/src/hooks/use-articles.ts) — 245 行,文章列表管理
+  - `Article` / `ArticleQueryParams` / `ArticleListResponse` / `UseArticlesOptions` / `UseArticlesReturn` 接口契约
+  - 依赖注入 `fetcher`,零 transport 绑定
+  - articles / page / pageSize / total / totalPages / hasNext / categoryId / status / search
+  - load / loadMore / refresh / setPage / setCategoryId / setStatus / setSearch / resetFilters
+  - categoryId/status 变化自动重新加载(单 effect 避免挂载重复触发)
+
+- [packages/shared/src/hooks/use-chat.ts](file:///g:/IHUI-AI/packages/shared/src/hooks/use-chat.ts) — 280 行,聊天消息管理
+  - `ChatMessage` / `ChatRole` / `SendMessageParams` / `StreamRunnerParams` / `StreamRunnerCallbacks` / `UseChatOptions` / `UseChatReturn` 接口契约
+  - 依赖注入 `streamRunner`(各端桥接 @ihui/api-client 的 streamChat)
+  - messages / isStreaming / error / sendMessage / stopStreaming / clearMessages / setMessages / setError
+  - 自动添加 user 消息 + assistant 占位,delta 累积到 assistant
+  - clearAssistantOnError 选项(默认 false,保留占位 + 填充错误信息)
+  - 可选 systemPrompt 注入到 apiMessages 开头
+  - 可选 meta 透传到 user 消息
+
+#### P0:hooks/index.ts 导出 3 个新 hooks
+
+- [packages/shared/src/hooks/index.ts](file:///g:/IHUI-AI/packages/shared/src/hooks/index.ts) — 第 7-9 行新增 `use-agents` / `use-articles` / `use-chat` 导出
+- 各端可通过 `import { useAgents, useArticles, useChat } from '@ihui/shared/hooks'` 消费
+
+#### P0:3 subagent 并行集成测试(46 场景全绿)
+
+- [apps/mobile-rn/tests/use-agents.test.tsx](file:///g:/IHUI-AI/apps/mobile-rn/tests/use-agents.test.tsx) — 14 场景:列表加载/autoLoad/load 成功失败/refresh/selectById 本地命中远程拉取无 fetchDetail 远程失败/clearSelection/findById/setAgents/loading 中间态/空 list 边界
+- [apps/mobile-rn/tests/use-articles.test.tsx](file:///g:/IHUI-AI/apps/mobile-rn/tests/use-articles.test.tsx) — 16 场景:挂载自动拉取/autoLoad false/load 成功失败/loadMore 成功末页防抖/refresh/setCategoryId/setStatus/setSearch/resetFilters/setPage clamp/setArticles/空 list/初始自定义(已由 subagent commit `c1f31b2da`)
+- [apps/mobile-rn/tests/use-chat.test.tsx](file:///g:/IHUI-AI/apps/mobile-rn/tests/use-chat.test.tsx) — 16 场景:sendMessage 成功空 text 防抖/onDelta 累积/onDone/onError/clearAssistantOnError true/false/stopStreaming abort/clearMessages/setMessages/setError/systemPrompt 注入/meta 透传/streamRunner 抛异常/formatError 自定义
+
+#### P0:设计原则(4 条,与 useAuth 一致)
+
+1. **纯逻辑层**:只管业务状态(列表/选中/分页/消息/streaming),不绑定具体 transport
+2. **依赖注入**:fetcher/streamRunner 由各端注入(web 用 fetchApi / miniapp-taro 用 get<T> / mobile-rn + extension 用 @ihui/api-client)
+3. **零新依赖**:纯 useState + useEffect + useCallback + useRef,不引入 react-query / swr / zustand
+4. **非破坏性**:与各端现有 hook 平行存在,可通过 re-export 桥接(参考 date-utils 模式)
+
+**验证**:
+
+- @ihui/shared typecheck ✅ exit 0
+- @ihui/shared lint(use-agents.ts + use-articles.ts + use-chat.ts + index.ts 干净)✅ exit 0
+- @ihui/mobile-rn test:**61 passed (61)** ✅ 耗时 7.82s
+  - use-auth.test.tsx:15 passed ✅(阶段 7)
+  - use-agents.test.tsx:14 passed ✅
+  - use-articles.test.tsx:16 passed ✅
+  - use-chat.test.tsx:16 passed ✅
+- @ihui/mobile-rn typecheck ✅ exit 0
+- @ihui/mobile-rn lint(3 个新测试文件干净)✅ exit 0
+
+**后续阶段预告**(业务层共享启动,7 阶段规划):
+
+- 阶段 12 P1:新增 authStore/userStore/themeStore 共享(zustand + transport 注入)
+- 阶段 13 P1:业务组件 MessageBubble/ArticleCard/AgentCard/NotificationItem 提取到 @ihui/ui-react
+- 阶段 14 P1:extension 引入 React Query(架构升级评估 + 试点页面)
+
+**Git 同步证据**:
+
+- useArticles 测试文件已由 subagent commit `c1f31b2da` push ✅
+- 3 个 hooks 源文件 + hooks/index.ts + useAgents 测试 + useChat 测试 + PROJECT_PLAN.md:本 commit
+- 守门脚本:git-push-guard.mjs 验证通过
+
+---
+
 ### [x] ✅(2026-07-25) 业务层共享启动阶段 10 — extension + miniapp-taro 端 useAuth 集成测试(双 subagent 并行,33 场景全绿,验证 useAuth hook 在 3 种存储后端下的一致性,跨端:packages/shared + apps/extension + apps/miniapp-taro,平台独占 — 双端单端验证,共享层 hook + factory 由阶段 3-4 提供)
 
 **触发**:阶段 7(mobile-rn 集成测试 15 场景全绿)完成后用户要求"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。阶段 8-9 由其他 agent 完成(三端接入 bindTokenStoreToApiClient + shared parity 升级 blocking),本阶段补齐 extension + miniapp-taro 端的 useAuth 集成测试,验证 useAuth hook 在 3 种存储后端下的一致性。
