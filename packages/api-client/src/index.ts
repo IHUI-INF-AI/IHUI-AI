@@ -5,6 +5,7 @@ export {
   streamChat,
   parseStreamLine,
   parseStreamLineReasoning,
+  parseFallbackEvent,
   extractAgentId,
   getSSEErrorInfo,
   formatSSEError,
@@ -18,6 +19,7 @@ export type {
   FormattedSSEError,
   FetchApiOptions,
   ToolCallEvent,
+  FallbackEvent,
 } from './client'
 export { ApiError, isNotFound, isErrorCode } from './api-error'
 export { setTransport, getTransport } from './transport'
