@@ -1643,6 +1643,22 @@
       "highUsage": "Approaching limit",
       "criticalUsage": "Limit exceeded",
       "disclaimer": "Token count is a client-side estimate; may differ from server-side exact count by ±10%. Compressed content becomes the context summary for subsequent conversation."
+    },
+    "permission": {
+      "buttonLabel": "Approval mode",
+      "popoverTitle": "How should Codex approve actions?",
+      "popoverHintNoWorkspace": "No workspace bound — your selection will take effect when you bind one",
+      "learnMore": "Learn more",
+      "highRisk": "High risk",
+      "quickFullAccess": "Full access",
+      "mode": {
+        "ask": "Ask for approval",
+        "askDesc": "Always asks before editing files outside this project or using the internet",
+        "auto": "Auto-approve edits",
+        "autoDesc": "Only asks before running detected risky actions",
+        "full": "Full access",
+        "fullDesc": "Can use the internet and any file on your computer without asking"
+      }
     }
   },
   "learn": {
