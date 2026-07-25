@@ -46,7 +46,15 @@ export function AISidePanel() {
   const tc = useTranslations('aiChat')
   const tcommon = useTranslations('common')
 
-  const { open, width, isResizing, closePanel, setWidth, setResizing } = useAiPanelStore()
+  // 性能修复(2026-07-25):全解构 → 单字段 selector。
+  // zustand action 函数引用稳定,不会触发重渲染;state 字段(open/width/isResizing)
+  // 只在对应字段变化时触发本组件重渲染,activeWorkspace 变化不再让本组件重渲染。
+  const open = useAiPanelStore((s) => s.open)
+  const width = useAiPanelStore((s) => s.width)
+  const isResizing = useAiPanelStore((s) => s.isResizing)
+  const closePanel = useAiPanelStore((s) => s.closePanel)
+  const setWidth = useAiPanelStore((s) => s.setWidth)
+  const setResizing = useAiPanelStore((s) => s.setResizing)
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const {
     messages,
@@ -67,47 +75,10 @@ export function AISidePanel() {
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
   const [dispatchOpen, setDispatchOpen] = React.useState(false)
-  const pathname = usePathname()
-
-  // 从 URL 检测当前是否处于 workspace 项目页(/workspace/[id]),并拉取项目名
-  // 用于 AI 面板标题显示"项目文件夹名"(用户规则:选择项目文件时显示项目文件夹名)
-  // 优化:若用户已在 AI 面板手动绑定 activeWorkspace,则跳过 URL 项目名拉取
-  //      (displayTitle 优先级 activeWorkspace.name > workspaceName,拉了也用不上)
-  React.useEffect(() => {
-    if (!pathname) {
-      setWorkspaceName(null)
-      return
-    }
-    const m = pathname.match(/^\/workspace\/([^/]+)/)
-    if (!m) {
-      setWorkspaceName(null)
-      return
-    }
-    // activeWorkspace 已绑定时跳过 URL 项目名拉取,避免无谓网络请求
-    if (useAiPanelStore.getState().activeWorkspace) {
-      return
-    }
-    const projectId = m[1]!
-    let cancelled = false
-    void (async () => {
-      try {
-        const res = await fetchApi<{ project: { id: string; name: string } }>(
-          `/api/workspace/projects/${encodeURIComponent(projectId)}`,
-        )
-        if (cancelled) return
-        if (res.success && res.data?.project?.name) {
-          setWorkspaceName(res.data.project.name)
-        } else {
-          setWorkspaceName(null)
-        }
-      } catch {
-        if (!cancelled) setWorkspaceName(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [pathname])
+  // 性能修复(2026-07-25):原 const pathname = usePathname() 订阅在 AISidePanel 根,
+  // 导致每次路由切换 AISidePanel 整树重渲染(连带 MessageList/MessageInput/ModelSelector 等)。
+  // 改为下推到 <WorkspaceNameSync> 子组件,pathname 订阅只触发子组件(渲染 null,无开销)。
+  // 父组件通过 setWorkspaceName callback 接收项目名,不订阅 pathname。
 
   // 同步 AISidePanel 占据宽度(含右侧 8px 视觉间距)到 :root 的 --ai-panel-width CSS 变量。
   // 注:2026-07-20 已迁移到 GlobalShell 直接订阅 store 计算 padding-left(单一来源),
@@ -322,12 +293,19 @@ export function AISidePanel() {
     [setResizing, setWidth],
   )
 
+  // 性能修复(2026-07-25):WorkspaceNameSync 子组件渲染 null,内部订阅 usePathname,
+  // 把项目名通过 onNameChange callback 回传给父组件(setWorkspaceName)。
+  // pathname 变化只触发子组件重渲染,不触发 AISidePanel 根重渲染。
+  const workspaceNameSync = <WorkspaceNameSync onNameChange={setWorkspaceName} />
+
   // 关闭态:仅渲染拖拽手柄(可拖拽打开),不渲染整个面板内容。
   // 容器 fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 由 Sidebar 同步到 :root),
   // width:0 使容器自身不占视觉空间;手柄 right-[-12px] 跨越容器右边缘 8px 命中。
   // z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)。
   if (!open) {
     return (
+      <>
+      {workspaceNameSync}
       <div
         className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] z-sticky"
         style={{ width: 0 }}
@@ -368,10 +346,13 @@ export function AISidePanel() {
           </div>
         </div>
       </div>
+      </>
     )
   }
 
   return (
+    <>
+    {workspaceNameSync}
     <div
       // 全局 fixed 面板(与 Sidebar 同性质,作为 MainShell 的兄弟节点而非 flex 子元素):
       // - fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 跟随 Sidebar 折叠/展开/拖拽)
@@ -543,7 +524,66 @@ export function AISidePanel() {
         </div>
       </div>
     </div>
+    </>
   )
+}
+
+/**
+ * WorkspaceNameSync 子组件(性能修复 2026-07-25)。
+ *
+ * 设计目的:把 usePathname 订阅从 AISidePanel 根下推到本子组件,
+ * 避免每次路由切换 AISidePanel 整树重渲染(连带 MessageList /
+ * MessageInput / ModelSelector 等重渲染)。
+ *
+ * - 内部订阅 usePathname + useEffect 拉取 workspace 项目名
+ * - 通过 onNameChange callback 回传给父组件(setWorkspaceName)
+ * - 渲染 null,无视觉开销
+ * - 若 activeWorkspace 已绑定则跳过拉取(原逻辑保留)
+ */
+function WorkspaceNameSync({
+  onNameChange,
+}: {
+  onNameChange: (name: string | null) => void
+}) {
+  const pathname = usePathname()
+
+  React.useEffect(() => {
+    if (!pathname) {
+      onNameChange(null)
+      return
+    }
+    const m = pathname.match(/^\/workspace\/([^/]+)/)
+    if (!m) {
+      onNameChange(null)
+      return
+    }
+    // activeWorkspace 已绑定时跳过 URL 项目名拉取,避免无谓网络请求
+    if (useAiPanelStore.getState().activeWorkspace) {
+      return
+    }
+    const projectId = m[1]!
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetchApi<{ project: { id: string; name: string } }>(
+          `/api/workspace/projects/${encodeURIComponent(projectId)}`,
+        )
+        if (cancelled) return
+        if (res.success && res.data?.project?.name) {
+          onNameChange(res.data.project.name)
+        } else {
+          onNameChange(null)
+        }
+      } catch {
+        if (!cancelled) onNameChange(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [pathname, onNameChange])
+
+  return null
 }
 
 export default AISidePanel

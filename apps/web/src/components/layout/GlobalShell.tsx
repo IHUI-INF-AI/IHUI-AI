@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Menu } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Sidebar } from '@/components/sidebar'
+import { NativeTopBar } from '@/components/layout/NativeTopBar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
@@ -65,7 +66,10 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 之前方案:首帧用 store 默认值(408px),rehydrate 后跳到持久化值 → "先宽后窄"闪烁
   // 本方案(2026-07-22):首帧就用持久化值(由 bootstrap script 预设),无跳变
   const mounted = useMounted()
-  const { open: aiOpen, width: aiWidth } = useAiPanelStore()
+  // 性能修复(2026-07-25):拆分为单字段 selector,避免订阅 isResizing/activeWorkspace
+  // 等高频变化字段触发整棵路由树重渲染(原 `{ open, width } = useAiPanelStore()` 等价于全订阅)。
+  const aiOpen = useAiPanelStore((s) => s.open)
+  const aiWidth = useAiPanelStore((s) => s.width)
   const currentUserId = useAuthStore((s) => s.user?.id)
 
   // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
@@ -130,7 +134,13 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen flex-col overflow-hidden">
+        {/* Tauri 桌面端自定义顶栏(2026-07-25 立,2026-07-25 用户反馈整合):
+            - 仅 isDesktop=true 时渲染,内部 isDesktop 守卫保证 web 端不显示
+            - 横跨 Sidebar + 内容区,统一处理拖拽 + 窗口控制 + 菜单 dropdown
+            - 40px 高,半透明毛玻璃背景 + 底边 1px,与 sidebar 视觉融为一体 */}
+        <NativeTopBar />
+        <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
         <React.Suspense fallback={null}>
           <Sidebar
@@ -175,6 +185,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             open=false 时渲染 null,不影响布局;open=true 时参与 flex 流,work-area 自动收缩。
             不弹独立窗口,纯组件渲染(遵守用户规则:dev server 只在 TRAE 内部运行)。 */}
         <WebWorkPanel />
+        </div>
       </div>
       {/* AISidePanel 作为全局 fixed 组件,移出 flex 容器避免挤压内容区宽度。
           定位样式 left:var(--sidebar-width) 由 Sidebar 同步到 :root,紧贴 Sidebar 右侧。
