@@ -22,6 +22,7 @@ import {
 } from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, selectClass, textareaClass, inputSm } from './helpers'
+import { STATUS_KEY } from '@/lib/feedback'
 import type { AdminFeedbackItem, EditForm, CreateForm } from './types'
 
 interface FeedbackEditDialogProps {
@@ -82,7 +83,7 @@ export function FeedbackEditDialog({
               <SelectContent>
                 {STATUS_OPTIONS.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {tf(`status_${s}`)}
+                    {tf(STATUS_KEY[s] ?? 'status_unknown')}
                   </SelectItem>
                 ))}
               </SelectContent>

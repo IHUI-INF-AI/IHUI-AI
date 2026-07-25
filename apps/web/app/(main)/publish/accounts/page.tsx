@@ -56,6 +56,12 @@ const STATUS_STYLE: Record<string, string> = {
   expired: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
 }
 
+const ACCOUNTS_STATUS_KEY: Record<Account['status'], string> = {
+  active: 'accounts.statusActive',
+  disabled: 'accounts.statusDisabled',
+  expired: 'accounts.statusExpired',
+}
+
 const TIME_FMT = new Intl.DateTimeFormat('zh-CN', {
   month: '2-digit',
   day: '2-digit',
@@ -223,9 +229,7 @@ export default function AccountsPage() {
                       STATUS_STYLE[a.status] ?? STATUS_STYLE.disabled,
                     )}
                   >
-                    {t(
-                      `accounts.status${a.status.charAt(0).toUpperCase()}${a.status.slice(1)}` as `accounts.status${Capitalize<Account['status']>}`,
-                    )}
+                    {t(ACCOUNTS_STATUS_KEY[a.status] ?? 'accounts.statusUnknown')}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
