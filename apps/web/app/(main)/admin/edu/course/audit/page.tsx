@@ -38,7 +38,7 @@ export default function EduCourseAuditPage() {
         method: 'PUT',
         body: JSON.stringify({ status: args.status, remark: args.remark }),
       }),
-    onSuccess: (_d, vars) => {
+    onSuccess: (_d: any, vars: any) => {
       toast.success(vars.status === 3 ? t('approveSuccess') : t('rectifySuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course-audit'] })
       closeCompare()
