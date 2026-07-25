@@ -887,6 +887,7 @@
       "reEnableAutoRevert": "1 時間自動切替を再有効化",
       "autoRevertedTitle": "毎回確認へ自動切替しました",
       "autoRevertedDesc": "高リスクモードの長時間滞在を防ぐため、1 時間操作がない場合自動的にダウングレードします。完全アクセスを再有効化するには Shift+Tab または権限ボタンをクリックしてください。",
+      "autoRevertedDescWithDuration": "完全アクセスは {usedMin} 分間継続し、自動的にリクエスト承認へ降格しました。再度有効化するには Shift+Tab または権限ボタンをクリックしてください。",
       "revertWarning5minTitle": "完全アクセスモードはまもなく自動降格します",
       "revertWarning5minDesc": "5分後にリクエスト承認モードへ自動切替。継続するには「1時間延長」をクリックしてください。",
       "revertWarning1minTitle": "完全アクセスモード 1分後に自動降格",
