@@ -43,7 +43,7 @@ import {
   isFullAccessConfirmSuppressed,
 } from '@/components/ai/full-access-confirm-dialog'
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
-import { recordModeChange } from '@/lib/permission-mode-history'
+import { recordModeChange, updateLatestRecordSource } from '@/lib/permission-mode-history'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Popover, Tooltip } from '@/components/feedback'
@@ -383,6 +383,9 @@ export function MessageInput({
       toast.error(t('permission.cycleError', { error: result.error ?? '未知错误' }))
       return
     }
+    // 切完模式 → 把刚被 useEffect 占位为 'popover' 的最新一条记录 source 改为 'shift-tab'
+    // 避免在 useEffect 内的 source 写死 'popover' 让历史面板误把 Shift+Tab 记成 popover
+    updateLatestRecordSource('shift-tab', (e) => e.mode === next)
     // 切到完全访问 → 5s 撤销 toast(与 popover 一致体验)
     if (next === 'bypass-permissions') {
       toast(t('permission.switchedToFull'), {

@@ -50,28 +50,28 @@ interface ShortcutGroup {
 
 const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
-    titleKey: 'shortcuts.modeGroup',
+    titleKey: 'shortcutsSectionSwitch',
     rows: [
-      { key: 'Shift+Tab', descKey: 'shortcuts.cycleMode', icon: Hand },
-      { key: '1 / 2 / 3', descKey: 'shortcuts.pickByNumber', icon: Hand },
-      { key: '/permission ask', descKey: 'shortcuts.slashAsk' },
-      { key: '/permission auto', descKey: 'shortcuts.slashAuto' },
-      { key: '/permission full', descKey: 'shortcuts.slashFull' },
+      { key: 'Shift+Tab', descKey: 'shortcutsItemShiftTabKbd', icon: Hand },
+      { key: '1 / 2 / 3', descKey: 'shortcutsItemNumberKbd', icon: Hand },
+      { key: '/permission ask', descKey: 'shortcutsItemSlashAskKbd' },
+      { key: '/permission auto', descKey: 'shortcutsItemSlashAutoKbd' },
+      { key: '/permission full', descKey: 'shortcutsItemSlashFullKbd' },
     ],
   },
   {
-    titleKey: 'shortcuts.guardGroup',
+    titleKey: 'shortcutsSectionGuard',
     rows: [
-      { key: '?', descKey: 'shortcuts.toggleHelp', icon: Keyboard },
-      { key: 'ⓘ', descKey: 'shortcuts.infoButton', icon: ShieldAlert },
+      { key: '?', descKey: 'shortcutsItemQuestionMarkKbd', icon: Keyboard },
+      { key: 'ⓘ', descKey: 'shortcutsItemInfoKbd', icon: ShieldAlert },
     ],
   },
   {
-    titleKey: 'shortcuts.undoGroup',
+    titleKey: 'shortcutsSectionAudit',
     rows: [
-      { key: 'Undo 5s', descKey: 'shortcuts.undoSwitch', icon: Undo2 },
-      { key: '1h', descKey: 'shortcuts.autoRevert', icon: TriangleAlert },
-      { key: '查看历史', descKey: 'shortcuts.history', icon: History },
+      { key: 'Undo 5s', descKey: 'shortcutsItemUndoKbd', icon: Undo2 },
+      { key: '1h', descKey: 'shortcutsItemAutoRevert1hKbd', icon: TriangleAlert },
+      { key: '查看历史', descKey: 'shortcutsItemHistoryKbd', icon: History },
     ],
   },
 ]
@@ -94,18 +94,18 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Keyboard className="h-4 w-4" aria-hidden="true" />
-            {t('shortcuts.title')}
+            {t('shortcutsModalTitle')}
           </DialogTitle>
-          <DialogDescription>{t('shortcuts.description')}</DialogDescription>
+          <DialogDescription>{t('shortcutsLearnMore')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {SHORTCUT_GROUPS.map((group) => (
             <div key={group.titleKey} className="space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {group.titleKey === 'shortcuts.modeGroup' && <ShieldCheck className="h-3 w-3" />}
-                {group.titleKey === 'shortcuts.guardGroup' && <ShieldAlert className="h-3 w-3" />}
-                {group.titleKey === 'shortcuts.undoGroup' && <History className="h-3 w-3" />}
+                {group.titleKey === 'shortcutsSectionSwitch' && <ShieldCheck className="h-3 w-3" />}
+                {group.titleKey === 'shortcutsSectionGuard' && <ShieldAlert className="h-3 w-3" />}
+                {group.titleKey === 'shortcutsSectionAudit' && <History className="h-3 w-3" />}
                 <span>{t(group.titleKey)}</span>
               </div>
               <ul className="space-y-1.5">
@@ -141,7 +141,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
             className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             data-testid="permission-shortcuts-close"
           >
-            {t('shortcuts.gotIt')}
+            {t('shortcutsClose')}
             <X className="h-3 w-3" aria-hidden="true" />
           </button>
         </div>
