@@ -482,7 +482,7 @@ def check_article(art, all_articles):
     R.append(('"我"次数', ok, f'{wo}次'))
 
     # ── 8. CTA残留 = 0 ──
-    # 2026-07-20 用户铁律：口播稿不再写「关注我，XXXXX」类 CTA 收束（翻转为硬禁止）。
+    # 2026-07-20 用户铁律：口播稿不再写「关注我，···」类 CTA 收束（翻转为硬禁止）。
     # 命中「关注我」即计入 CTA残留 → FAIL。其余订阅/私信/导流类（点个关注/来找我/私信我/加我/下期/下集）仍禁。
     found_cta = []
     for c in CTA_PATTERNS:

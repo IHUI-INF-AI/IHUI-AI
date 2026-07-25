@@ -403,7 +403,7 @@ base_url = "https://api.openai.com/v1"
 describe('parser/gemini-cli', () => {
   it('解析 .env + settings.json,GEMINI_API_KEY 模式', () => {
     const env = `# Gemini CLI
-GEMINI_API_KEY=AIzaSyXXX
+GEMINI_API_KEY=AIzaSyPLACEHOLDER
 GOOGLE_GENAI_USE_VERTEXAI=false
 `
     const settingsJson = JSON.stringify({ model: 'gemini-2.0-flash' })
@@ -414,7 +414,7 @@ GOOGLE_GENAI_USE_VERTEXAI=false
     })
     expect(result.providers).toHaveLength(1)
     const p = result.providers[0]!
-    expect(p.apiKey).toBe('AIzaSyXXX')
+    expect(p.apiKey).toBe('AIzaSyPLACEHOLDER')
     expect(p.apiFormat).toBe('gemini_native')
     expect(p.providerCode).toBe('google')
     expect(p.modelIdForTest).toBe('gemini-2.0-flash')
