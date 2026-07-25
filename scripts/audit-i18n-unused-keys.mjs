@@ -65,8 +65,10 @@ const TARGET_CONFIG = {
 // 以及 t( / tt( / tList( 后跟引号(单/双/反引号)
 // 2026-07-25 第十二轮:补 titleKey|descKey|labelKey|nameKey|descriptionKey|altKey —
 // 解决 extension 端 <AppListPage titleKey="apps.aiTitle" /> JSX 属性形式被 ripgrep 漏扫的问题。
+// 2026-07-25 第十三轮:补 safeT — wrapper 函数 safeT(t, 'key', fallback) 内部调用 t(key),
+// 需 ripgrep 返回含 safeT 的行,否则文件不会被纳入 hitFiles 进行文件级扫描。
 const RG_PATTERN =
-  "useTranslations|getTranslations|formatMessage|FormattedMessage|i18nKey|titleKey|descKey|labelKey|nameKey|descriptionKey|altKey|\\bt(?:t|List)?(?:\\s*\\(|\\.raw\\s*\\()\\s*['\"`]"
+  "useTranslations|getTranslations|formatMessage|FormattedMessage|i18nKey|titleKey|descKey|labelKey|nameKey|descriptionKey|altKey|\\bsafeT\\s*\\(|\\bt(?:t|List)?(?:\\s*\\(|\\.raw\\s*\\()\\s*['\"`]"
 
 // ============================================================
 // CLI 解析
@@ -291,11 +293,27 @@ function extractObjectLiteralKeys(content, knownTopLevelKeys, fileNamespaces) {
       const firstSegment = value.split('.')[0]
       if (knownTopLevelKeys.has(firstSegment)) {
         staticKeys.add(value)
-      }
-    } else {
-      if (i18nKeyFields.test(field) && fileNamespaces && fileNamespaces.size > 0) {
+      } else if (fileNamespaces && fileNamespaces.size > 0) {
+        // 2026-07-25 第十三轮:点号值首段非顶层 key 时,尝试命名空间+值组合
+        // 解决 MODE_KEY_MAP = { default: 'mode.ask' } + useTranslations('chat.permission') 场景
         for (const ns of fileNamespaces) {
           staticKeys.add(`${ns}.${value}`)
+        }
+      }
+    } else {
+      if (i18nKeyFields.test(field)) {
+        if (fileNamespaces && fileNamespaces.size > 0) {
+          for (const ns of fileNamespaces) {
+            staticKeys.add(`${ns}.${value}`)
+          }
+        } else {
+          // 2026-07-25 第十三轮:数据驱动 i18n — 文件无 useTranslations,但 labelKey 等字段的值
+          // 是短 key,在其他组件中通过 useTranslations('ns') + t(item.labelKey) 解析。
+          // 尝试所有已知顶层命名空间,匹配存在的 leaf key(非存在 key 加入 referencedKeys 无副作用)。
+          // 解决 downloads.tsx: labelKey: 'downloadWeb' 在 sidebar.tsx 中 useTranslations('nav') 解析。
+          for (const ns of knownTopLevelKeys) {
+            staticKeys.add(`${ns}.${value}`)
+          }
         }
       }
     }
@@ -409,15 +427,52 @@ function extractFromLine(content, filePath, lineNo, usesNamespaces, varNames) {
     staticKeys.add(m[1])
   }
 
-  // 动态拼接:t(`...${...}...`)
-  const reDyn1 = /\bt(?:t|List)?\s*\(\s*`[^`]*\$\{[^}]*\}[^`]*`/g
+  // 动态拼接:t(`...${...}...`) — 直接调用模式
+  // 2026-07-25 第十三轮:提取 ${} 前的静态 prefix 到 dynamicPrefixes,
+  // 解决 t(`modeInfoBullets.${mode}.0`) 等直接动态拼接调用被漏识别导致 key 被误判无引用。
+  const reDyn1 = /\bt(?:t|List)?\s*\(\s*`([^`]*\$\{[^}]*\}[^`]*)`/g
   while ((m = reDyn1.exec(content)) !== null) {
+    const template = m[1]
+    const dollarIdx = template.indexOf('${')
+    if (dollarIdx > 0) {
+      const prefix = template.slice(0, dollarIdx)
+      // 只保留含点号的 prefix(避免误匹配普通模板字符串)
+      if (prefix.includes('.')) {
+        dynamicPrefixes.add(prefix)
+      }
+    }
     dynamicWarnings.push({
       file: filePath,
       lineNo,
       line: content.trim(),
       pattern: m[0],
     })
+  }
+
+  // 动态拼接:VAR(`...${...}...`) — 非标准变量名直接调用(tc/te/tr 等)
+  // 2026-07-25 第十三轮:补齐非标准变量名的动态拼接 prefix 提取
+  if (varNames && varNames.size > 0) {
+    const extraVars = [...varNames].filter((v) => v !== 't' && v !== 'tt' && v !== 'tList')
+    if (extraVars.length > 0) {
+      const varPattern = extraVars.map(escapeRegex).join('|')
+      const reVarDyn = new RegExp('\\b(?:' + varPattern + ')\\s*\\(\\s*`([^`]*\\$\\{[^}]*\\}[^`]*)`', 'g')
+      while ((m = reVarDyn.exec(content)) !== null) {
+        const template = m[1]
+        const dollarIdx = template.indexOf('${')
+        if (dollarIdx > 0) {
+          const prefix = template.slice(0, dollarIdx)
+          if (prefix.includes('.')) {
+            dynamicPrefixes.add(prefix)
+          }
+        }
+        dynamicWarnings.push({
+          file: filePath,
+          lineNo,
+          line: content.trim(),
+          pattern: m[0],
+        })
+      }
+    }
   }
 
   // 动态拼接:t('...' + ...) / t("..." + ...)
@@ -583,6 +638,47 @@ function auditTarget(targetKey) {
         }
       }
     }
+
+    // 3c-3: wrapper 函数文件级扫描(2026-07-25 第十三轮新增)
+    // 解决 safeT(t, 'key', fallback) 内部调用 t(key) 但 audit 不识别 safeT 作为调用者的问题。
+    // 文件级扫描可处理多行调用形式:
+    //   const x = safeT(
+    //     t,
+    //     'key',
+    //     'fallback',
+    //   )
+    // 已知 wrapper:safeT(本地定义,plan-act-toggle.tsx)。如未来出现其他 wrapper,扩展此列表。
+    const reSafeT = /safeT\s*\(\s*\w+\s*,\s*['"]([^'"]+)['"]/g
+    let mSafe
+    while ((mSafe = reSafeT.exec(fileContent)) !== null) {
+      if (!fd) {
+        fileData.set(file, { namespaces: new Set(), staticKeys: new Set(), varNames: new Set() })
+      }
+      const fd3 = fileData.get(file)
+      fd3.staticKeys.add(mSafe[1])
+    }
+
+    // 3c-4: 对象属性动态模板字面量扫描(2026-07-25 第十三轮新增)
+    // 解决 labelKey: `adminGroup.${group.groupKey}` 等对象属性用动态模板字面量传递 i18n key 的问题。
+    // 提取 ${} 前的静态 prefix(如 "adminGroup."),加入 dynamicPrefixes,
+    // step 4b 会把所有以 namespace+prefix 开头的 leaf key 标记为已引用。
+    // 解决 sidebar.tsx:201 labelKey: `adminGroup.${group.groupKey}` → 12 个 adminGroup.* key 被误判。
+    const i18nKeyFieldsForDyn = /^(labelKey|nameKey|descriptionKey|titleKey|descKey|altKey)$/
+    const reObjDyn = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*`([^`]*\$\{[^}]*\}[^`]*)`/g
+    let mObjDyn
+    while ((mObjDyn = reObjDyn.exec(fileContent)) !== null) {
+      const field = mObjDyn[1]
+      const template = mObjDyn[2]
+      if (i18nKeyFieldsForDyn.test(field)) {
+        const dollarIdx = template.indexOf('${')
+        if (dollarIdx > 0) {
+          const prefix = template.slice(0, dollarIdx)
+          if (prefix.includes('.')) {
+            dynamicPrefixes.add(prefix)
+          }
+        }
+      }
+    }
   }
 
   // 4. 解析引用 key
@@ -613,17 +709,40 @@ function auditTarget(targetKey) {
     }
   }
 
-  // 4b. 动态 prefix 标记(2026-07-25 第十二轮新增)
+  // 4b. 动态 prefix 标记(2026-07-25 第十二轮新增,第十三轮扩展命名空间支持)
   // 解决 const VAR = `order.status.${item.status}`; t(VAR) 间接调用模式:
   // re7 已提取静态 prefix "order.status.",此处把所有以该 prefix 开头的 leaf key 标记为已引用。
+  // 2026-07-25 第十三轮:扩展支持命名空间场景(web 端 next-intl useTranslations('ns') + t(`sub.${var}`)),
+  // 对每个全局命名空间 ns,额外检查 leaf.key 是否以 "ns.prefix" 开头。
   if (dynamicPrefixes.size > 0) {
+    // 收集所有命名空间(web 端 next-intl useTranslations('ns') 场景)
+    const allNamespaces = new Set()
+    for (const [, fd] of fileData) {
+      for (const ns of fd.namespaces) allNamespaces.add(ns)
+    }
+
     for (const leaf of leaves) {
+      let matched = false
       for (const prefix of dynamicPrefixes) {
+        // a) 直接匹配(无命名空间场景:miniapp-taro/extension/mobile-rn)
         if (leaf.key.startsWith(prefix)) {
           referencedKeys.add(leaf.key)
           markAncestors(leaf.key)
+          matched = true
           break
         }
+        // b) 命名空间 + prefix 匹配(web 端 next-intl:useTranslations('chat.permission') + t(`modeInfoBullets.${mode}.0`))
+        // → 完整 key "chat.permission.modeInfoBullets.default.0" 以 "chat.permission.modeInfoBullets." 开头
+        for (const ns of allNamespaces) {
+          const fullPrefix = `${ns}.${prefix}`
+          if (leaf.key.startsWith(fullPrefix)) {
+            referencedKeys.add(leaf.key)
+            markAncestors(leaf.key)
+            matched = true
+            break
+          }
+        }
+        if (matched) break
       }
     }
   }
