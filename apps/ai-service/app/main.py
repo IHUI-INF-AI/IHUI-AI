@@ -127,6 +127,12 @@ async def lifespan(app: FastAPI):
             "[memory_decay] 启动从 DB hydrate %d 条衰减状态", decay_loaded
         )
 
+    # L2-5 启动梦境固化调度器(周期触发 DreamService.consolidate + forget)
+    # 由 DREAM_ENABLED 环境变量控制开关(默认 false,避免消耗 LLM tokens)
+    # 失败不阻塞主服务(单次循环异常只 warning,下次循环自动恢复)
+    from app.services.dream_scheduler import dream_scheduler
+    await dream_scheduler.start()
+
     # 启动多平台一键发布调度器(轮询 publish_tasks 表 scheduled_at 到期任务,
     # 同用户最多 3 个并发,失败平台支持 retry)
     from app.services.publish.scheduler import publish_scheduler
@@ -146,6 +152,10 @@ async def lifespan(app: FastAPI):
 
     yield
     shutdown_telemetry()
+
+    # 关闭梦境固化调度器(等待进行中的用户固化任务完成)
+    from app.services.dream_scheduler import dream_scheduler
+    await dream_scheduler.stop()
 
     await publish_scheduler.stop()
     await self_media_scheduler.stop()
