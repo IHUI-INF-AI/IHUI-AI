@@ -88,4 +88,139 @@ const { withNativeWind } = require('nativewind/metro')
 
 const config = getDefaultConfig(__dirname)
 
+// pnpm isolated linker 兼容(2026-07-25 修复 Metro bundle 失败)
+// 问题:pnpm node-linker=isolated 下,react-native 等包是 junction 指向
+// .pnpm/<pkg>/node_modules/<pkg>,其传递依赖(ansi-regex, invariant 等)只在
+// .pnpm/<pkg>/node_modules/ 隔离目录下。Metro 默认不 follow junction realpath,
+// hierarchical lookup 从 apps/mobile-rn/node_modules/react-native/.. 查找,找不到。
+// 修复:自定义 resolveRequest,Metro 默认解析失败时,fallback 到 Node 原生
+// require.resolve(基于 originModulePath 的 realpath),Node 能正确处理 pnpm junction。
+config.resolver.unstable_enablePackageExports = false
+config.resolver.unstable_enableSymlinks = true
+config.resolver.nodeModulesPaths = [
+  ...config.resolver.nodeModulesPaths,
+  require('path').resolve(__dirname, '../../node_modules/.pnpm/node_modules'),
+]
+
+// pnpm isolated linker 兼容:watchFolders 添加 monorepo 根 + .pnpm 虚拟存储
+// Metro 默认 watchFolders 为空,只 watch projectRoot,但 RN 依赖在 .pnpm 隔离目录下,
+// 不在 projectRoot 内,Metro 无法 watch → "Failed to get SHA-1" 错误。
+// 添加 monorepo 根让 Metro watch 所有依赖文件。
+config.watchFolders = [
+  ...(config.watchFolders || []),
+  require('path').resolve(__dirname, '../..'),
+]
+
+// pnpm isolated linker 兼容:Metro 默认解析失败时,fallback 到 Node 原生 require.resolve
+// Node 能正确处理 pnpm junction,且支持 sourceExts(.ts/.tsx)解析
+const upstreamResolveRequest = config.resolver.resolveRequest
+const fs = require('fs')
+const path = require('path')
+
+function tryResolveWithExts(basePath, originDir) {
+  // 0. 如果是目录,先尝试读 package.json 的 main/browser/react-native 字段
+  if (fs.existsSync(basePath) && fs.statSync(basePath).isDirectory()) {
+    const pkgPath = path.join(basePath, 'package.json')
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+        // 按 Metro resolverMainFields 优先级:react-native > browser > main
+        const mainField =
+          (pkg['react-native'] && typeof pkg['react-native'] === 'string' ? pkg['react-native'] : null) ||
+          (pkg['browser'] && typeof pkg['browser'] === 'string' ? pkg['browser'] : null) ||
+          pkg['main'] ||
+          'index'
+        const mainPath = path.resolve(basePath, mainField)
+        const resolved = tryResolveWithExts(mainPath, originDir)
+        if (resolved) return resolved
+      } catch {}
+    }
+  }
+  // 1. 原路径直接存在
+  if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
+    return basePath
+  }
+  // 2. 尝试 sourceExts(.ts/.tsx/.js/.jsx/.json/.mjs/.cjs)
+  const exts = ['ts', 'tsx', 'js', 'jsx', 'json', 'mjs', 'cjs']
+  for (const ext of exts) {
+    if (fs.existsSync(`${basePath}.${ext}`)) return `${basePath}.${ext}`
+  }
+  // 3. 尝试 /index.<ext>
+  for (const ext of exts) {
+    if (fs.existsSync(path.join(basePath, `index.${ext}`))) {
+      return path.join(basePath, `index.${ext}`)
+    }
+  }
+  // 4. 尝试平台扩展(.ios/.android/.native/.web)
+  const platforms = ['ios', 'android', 'native', 'web']
+  for (const plat of platforms) {
+    for (const ext of exts) {
+      if (fs.existsSync(`${basePath}.${plat}.${ext}`)) return `${basePath}.${plat}.${ext}`
+    }
+  }
+  return null
+}
+
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // 调试日志
+  if (process.env.METRO_DEBUG_RESOLVE) {
+    console.error(`[resolveRequest] moduleName=${moduleName} origin=${context.originModulePath} platform=${platform}`)
+  }
+  // 1. 先尝试 Metro 默认解析(upstreamResolveRequest 或 context.resolveRequest)
+  try {
+    if (upstreamResolveRequest) {
+      const result = upstreamResolveRequest(context, moduleName, platform)
+      if (result) return result
+    }
+    return context.resolveRequest(context, moduleName, platform)
+  } catch (_e) {
+    // 2. fallback:Node 原生 require.resolve(适用于 npm 包名)
+    try {
+      const originRealPath = fs.realpathSync(context.originModulePath)
+      const resolved = require.resolve(moduleName, {
+        paths: [path.dirname(originRealPath)],
+      })
+      return { type: 'sourceFile', filePath: resolved }
+    } catch (_e2) {
+      // 3. 最终 fallback:相对路径 + 扩展名解析(适用于 main 字段指向 src/XXX 无扩展名)
+      const originRealPath = fs.realpathSync(context.originModulePath)
+      const originDir = path.dirname(originRealPath)
+      // 解析 moduleName:相对路径或绝对路径
+      let basePath
+      if (path.isAbsolute(moduleName)) {
+        basePath = moduleName
+      } else if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
+        basePath = path.resolve(originDir, moduleName)
+      } else {
+        // npm 包名,尝试在 originDir 的 node_modules 层级查找
+        basePath = null
+        let dir = originDir
+        for (let i = 0; i < 10 && dir; i++) {
+          const candidate = path.join(dir, 'node_modules', moduleName)
+          if (fs.existsSync(candidate)) {
+            basePath = candidate
+            break
+          }
+          const parent = path.dirname(dir)
+          if (parent === dir) break
+          dir = parent
+        }
+      }
+      if (process.env.METRO_DEBUG_RESOLVE) {
+        console.error(`[resolveRequest fallback] basePath=${basePath}`)
+      }
+      if (basePath) {
+        const resolved = tryResolveWithExts(basePath, originDir)
+        if (resolved) {
+          if (process.env.METRO_DEBUG_RESOLVE) {
+            console.error(`[resolveRequest fallback] resolved=${resolved}`)
+          }
+          return { type: 'sourceFile', filePath: resolved }
+        }
+      }
+      throw _e2
+    }
+  }
+}
+
 module.exports = withNativeWind(config, { input: './global.css' })
