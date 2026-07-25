@@ -38,7 +38,7 @@ export default function ContextMentionsPage() {
 
   const symbolDetail: SymbolResult | null = React.useMemo(() => {
     if (activeType !== 'symbol' || !selected) return null
-    return symbolsQ.data?.symbols.find((s) => s.id === selected.id) ?? null
+    return symbolsQ.data?.symbols.find((s: any) => s.id === selected.id) ?? null
   }, [activeType, selected, symbolsQ.data])
 
   const results = mentionsQ.data?.mentions ?? []
@@ -89,7 +89,7 @@ export default function ContextMentionsPage() {
                     {isLoading ? '检索中…' : debouncedQ.length === 0 ? '请输入符号关键词' : '暂无结果'}
                   </div>
                 ) : (
-                  symbols.map((s) => (
+                  symbols.map((s: any) => (
                     <SymbolSearchResult
                       key={s.id}
                       symbol={s}

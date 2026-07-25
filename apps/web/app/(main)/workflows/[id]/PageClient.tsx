@@ -127,7 +127,7 @@ export default function WorkflowDetailPage() {
             <p className="mt-0.5 text-sm text-muted-foreground">{wf.description || '-'}</p>
             <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
               <Zap className="h-3.5 w-3.5" />
-              {t(TRIGGER_KEYS[wf.triggerType] ?? 'triggers.unknown')}
+              {t(TRIGGER_KEYS[wf.triggerType as any] ?? 'triggers.unknown')}
             </div>
           </div>
         </div>
@@ -175,7 +175,7 @@ export default function WorkflowDetailPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {insts.map((i) => (
+              {insts.map((i: any) => (
                 <div
                   key={i.id}
                   className="flex flex-wrap items-center gap-3 rounded-md border bg-card px-4 py-3"
@@ -183,7 +183,7 @@ export default function WorkflowDetailPage() {
                   <span
                     className={cn(
                       'inline-flex rounded px-2 py-0.5 text-xs font-medium',
-                      STATUS_BADGE[i.status],
+                      STATUS_BADGE[i.status as any],
                     )}
                   >
                     {t(INSTANCE_STATUS_KEYS[i.status] ?? 'instanceStatus.unknown')}

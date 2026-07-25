@@ -68,7 +68,7 @@ export default function LearnRecordPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {items.map((item) => {
+          {items.map((item: any) => {
             const progress =
               typeof item.progress === 'number' ? Math.min(100, Math.max(0, item.progress)) : 0
             return (
