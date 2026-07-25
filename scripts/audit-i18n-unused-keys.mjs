@@ -6,9 +6,11 @@
  * 只审计不删除,主 agent 决定后续清理。
  *
  * 用法:
- *   node scripts/audit-i18n-unused-keys.mjs                              # 默认扫 web + miniapp-taro
+ *   node scripts/audit-i18n-unused-keys.mjs                              # 默认扫 web + miniapp-taro + extension + mobile-rn
  *   node scripts/audit-i18n-unused-keys.mjs --target=web                  # 只扫 web
  *   node scripts/audit-i18n-unused-keys.mjs --target=miniapp-taro         # 只扫小程序
+ *   node scripts/audit-i18n-unused-keys.mjs --target=extension            # 只扫浏览器插件
+ *   node scripts/audit-i18n-unused-keys.mjs --target=mobile-rn            # 只扫 React Native 移动端
  *   node scripts/audit-i18n-unused-keys.mjs --dry-run                     # 输出到 stdout
  *   node scripts/audit-i18n-unused-keys.mjs --output=<path>               # 输出到文件
  *
@@ -27,6 +29,7 @@ const ROOT = process.cwd()
 // 注:任务规格中的路径(apps/web/messages/、apps/miniapp-taro/src/i18n/zh-CN.ts)
 // 已于 2026-07-25 迁移到 packages/i18n/messages/{web,miniapp-taro}/zh-CN.json
 // (单一来源,各端通过 @ihui/i18n 包导入)。本脚本按实际路径扫描。
+// 2026-07-25 第十一轮:扩展覆盖 extension + mobile-rn 两端,避免基于"键集合差异"误判无引用 key。
 const TARGET_CONFIG = {
   web: {
     name: 'web',
@@ -38,6 +41,19 @@ const TARGET_CONFIG = {
     name: 'miniapp-taro',
     messagesFile: 'packages/i18n/messages/miniapp-taro/zh-CN.json',
     searchDirs: ['apps/miniapp-taro/src'],
+    usesNamespaces: false, // 自定义 useI18n():t('full.path') 直传完整路径
+  },
+  extension: {
+    name: 'extension',
+    messagesFile: 'packages/i18n/messages/extension/zh-CN.json',
+    // extension 代码分布:entrypoints(popup/sidepanel/content)+ src(i18n/idb/lib)+ lib(共享工具)
+    searchDirs: ['apps/extension/entrypoints', 'apps/extension/src', 'apps/extension/lib'],
+    usesNamespaces: false, // 自定义 useI18n():t('full.path') 直传完整路径(与 miniapp-taro/mobile-rn 一致)
+  },
+  'mobile-rn': {
+    name: 'mobile-rn',
+    messagesFile: 'packages/i18n/messages/mobile-rn/zh-CN.json',
+    searchDirs: ['apps/mobile-rn/src', 'apps/mobile-rn/App.tsx'],
     usesNamespaces: false, // 自定义 useI18n():t('full.path') 直传完整路径
   },
 }
@@ -58,8 +74,8 @@ function parseArgs(argv) {
   }
   const targetArg = args.find((a) => a.startsWith('--target='))
   const target = targetArg ? targetArg.slice('--target='.length) : null
-  if (target !== null && target !== 'web' && target !== 'miniapp-taro') {
-    return { error: `无效的 --target 值: ${target}(可选: web | miniapp-taro)` }
+  if (target !== null && target !== 'web' && target !== 'miniapp-taro' && target !== 'extension' && target !== 'mobile-rn') {
+    return { error: `无效的 --target 值: ${target}(可选: web | miniapp-taro | extension | mobile-rn)` }
   }
   const dryRun = args.includes('--dry-run')
   const outputArg = args.find((a) => a.startsWith('--output='))
