@@ -1,11 +1,8 @@
 {
   "common": {
-    "save": "저장",
     "cancel": "취소",
     "delete": "삭제",
-    "edit": "편집",
     "back": "뒤로",
-    "confirm": "확인",
     "loading": "로딩 중…",
     "empty": "데이터 없음",
     "retry": "재시도",
@@ -15,17 +12,12 @@
     "failed": "실패"
   },
   "nav": {
-    "home": "홈",
     "chat": "AI 채팅",
-    "translate": "번역",
-    "vocab": "단어장",
     "settings": "설정",
-    "about": "정보",
     "agents": "AI 어시스턴트",
     "vocabulary": "단어장",
     "profile": "내 정보",
     "wallet": "지갑",
-    "courses": "코스",
     "notifications": "알림",
     "tabRuntime": "런타임",
     "ai": "AI",
@@ -134,21 +126,14 @@
     "support": "고객 지원",
     "supportDesc": "온라인 고객 지원",
     "about": "회사 소개",
-    "aboutDesc": "IHUI AI 알아보기",
     "contact": "문의하기",
-    "contactDesc": "연락처 및 주소",
     "help": "도움말 센터",
-    "helpDesc": "사용 문서 및 FAQ",
     "agreement": "이용 약관",
-    "agreementDesc": "서비스 약관",
-    "pricing": "요금제",
-    "pricingDesc": "멤버십 및 요금제 가격"
+    "pricing": "요금제"
   },
   "auth": {
     "login": "로그인",
     "logout": "로그아웃",
-    "register": "회원가입",
-    "loginSuccess": "로그인 성공",
     "loginRequired": "계정과 비밀번호를 입력하세요",
     "phoneOrEmail": "전화번호 / 이메일",
     "password": "비밀번호",
@@ -163,25 +148,8 @@
     "openChat": "AI 채팅",
     "openSidePanel": "사이드 패널 열기"
   },
-  "translate": {
-    "title": "몰입형 번역",
-    "source": "원문",
-    "target": "번역 대상",
-    "auto": "자동 감지",
-    "translating": "번역 중…",
-    "result": "번역 결과",
-    "copy": "복사",
-    "swap": "교환"
-  },
   "vocab": {
     "title": "단어장",
-    "add": "단어 추가",
-    "word": "단어",
-    "meaning": "의미",
-    "example": "예문",
-    "empty": "단어 없음",
-    "review": "복습",
-    "mastered": "마스터됨",
     "inputPlaceholder": "조회할 단어 입력...",
     "lookup": "조회",
     "saved": "단어장에 저장"
@@ -194,11 +162,8 @@
     "emptyHint": "단어장이 비어 있습니다, 단어를 조회하고 저장하세요"
   },
   "chat": {
-    "placeholder": "메시지 입력…",
     "send": "전송",
-    "newConversation": "새 대화",
     "history": "기록",
-    "stop": "중지",
     "title": "AI 채팅",
     "exit": "종료",
     "selectModel": "모델 선택",
@@ -209,12 +174,6 @@
   "settings": {
     "title": "설정",
     "language": "인터페이스 언어",
-    "targetLanguage": "번역 대상 언어",
-    "apiKey": "API 키",
-    "theme": "테마",
-    "about": "IHUI AI 정보",
-    "version": "버전",
-    "feedback": "피드백",
     "appearance": "외관",
     "darkMode": "다크 모드",
     "account": "계정",
@@ -300,18 +259,5 @@
     "requireInput": "계정과 비밀번호를 입력하세요",
     "button": "로그인",
     "loadFailed": "로그인 실패"
-  },
-  "error": {
-    "network": "네트워크 오류",
-    "server": "서버 오류",
-    "unauthorized": "먼저 로그인하세요",
-    "forbidden": "권한 없음",
-    "notFound": "찾을 수 없음",
-    "unknown": "알 수 없는 오류"
-  },
-  "success": {
-    "saved": "저장됨",
-    "deleted": "삭제됨",
-    "copied": "복사됨"
   }
 }
