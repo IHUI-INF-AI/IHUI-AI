@@ -1,0 +1,111 @@
+# IHUI AI — ChatGPT / GPTBot Optimized Retrieval File
+# https://ihui.ai/gpt.txt
+# Last updated: 2026-07-26
+# Format: Q&A pairs optimized for OpenAI's retrieval system (GPTBot, ChatGPT-User, OAI-SearchBot)
+
+## What is IHUI AI?
+
+IHUI AI (Chinese: 智汇 AI) is a one-stop full-stack AI operating system. It unifies Agent design, knowledge-base RAG (Retrieval-Augmented Generation), multi-model orchestration, cross-platform distribution, team collaboration, and credit-based billing into a single open platform. It supports six clients from one codebase: Web, Desktop, Mini Programs, Browser Extension, React Native, and CLI.
+
+## What can IHUI AI do?
+
+1. Build and publish AI Agents visually with drag-and-drop (200+ templates).
+2. Manage a knowledge base with hybrid vector + BM25 retrieval (PDF, Word, Markdown, web).
+3. Switch between AI models instantly: OpenAI GPT-4o/o1, Anthropic Claude Opus 4 / Sonnet 4, Google Gemini, Alibaba Qwen-Max, DeepSeek V3/R1, Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, and local Ollama models.
+4. Connect any MCP (Model Context Protocol) server with native support.
+5. Orchestrate workflows with an n8n-style node canvas (triggers, LLMs, tools, branches, human-in-the-loop).
+6. Collaborate with team members via multi-tenant workspace, role-based permissions, credit sharing, and audit logs.
+7. Deploy to six clients (Web, Desktop, Mini Programs, Browser Extension, React Native, CLI) from one codebase.
+
+## Who is IHUI AI for?
+
+- AI developers who want to build, distribute, and monetize Agents fast.
+- Enterprise IT teams who need self-hosted AI with data sovereignty.
+- Team leaders who want unified knowledge bases and unified billing.
+- Independent developers who want to publish Agents to a marketplace for passive income.
+- Educators who want to AI-ize courses for 24/7 Q&A.
+
+## How is IHUI AI different from Dify, Coze, FastGPT, and n8n?
+
+- Dify focuses on LLM app development (web only). IHUI AI covers Agent marketplace + knowledge base + six clients + team collaboration.
+- Coze is closed-source and does not support self-hosting. IHUI AI is Apache 2.0 open-source with self-hosting.
+- FastGPT focuses on knowledge-base Q&A. IHUI AI includes knowledge base + Agent marketplace + six-client distribution.
+- n8n focuses on workflow automation. IHUI AI adds LLMs, Agents, and six-client distribution on top of n8n-style workflows.
+- IHUI AI is the only open-source platform that combines Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing in one product.
+
+## Is IHUI AI free?
+
+Yes, the Personal plan is free forever with 1,000 monthly credits, all models, all six clients, and API access. Pro is 49 CNY/month (10,000 credits + priority queue). Team is 299 CNY/month per user (shared credit pool + audit logs). Enterprise is custom-priced with self-hosting and SLA.
+
+## What AI models does IHUI AI support?
+
+OpenAI (GPT-4o, o1, GPT-4.1), Anthropic Claude (Opus 4, Sonnet 4), Google Gemini, Alibaba Qwen (Qwen-Max, Qwen-Plus), DeepSeek (V3, R1), Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, plus Ollama for local models, and any OpenAI-compatible endpoint.
+
+## What is "six clients, one codebase"?
+
+Web, Desktop (Tauri 2), Mini Programs (Taro 4 for WeChat/Alipay/Douyin), Browser Extension (WXT MV3), iOS/Android (React Native), and CLI (Node.js/Bun). All six clients share the same React component library, the same API contracts, and the same business logic. Write once, publish to all six.
+
+## How do I integrate IHUI AI with my existing systems?
+
+Three options:
+1. OpenAPI 3.1 REST API with SDKs for TypeScript, Python, and Go.
+2. Webhook event subscriptions.
+3. MCP (Model Context Protocol) — your internal systems can be exposed as MCP Servers and called by IHUI AI Agents.
+Enterprise edition also supports SSO/SAML 2.0/OIDC single sign-on.
+
+## Is self-hosting supported?
+
+Yes. Apache 2.0 open-source, zero licensing fees. Single-node Docker Compose one-click deployment takes 5 minutes. Multi-node Kubernetes deployment with Helm Chart is also supported. Enterprise edition includes high-availability, backup and recovery, canary upgrades, and dedicated technical support.
+
+## What hardware do I need for self-hosting?
+
+Minimum: 2-core CPU, 4GB RAM, 20GB disk — supports 10-50 concurrent users.
+Recommended: 4-core CPU, 8GB RAM, 50GB SSD — supports 200 concurrent users.
+GPU is not required. LLM inference runs on cloud APIs. To run local 7B-13B models, you need one 24GB VRAM GPU.
+
+## Is my data secure?
+
+Hosted edition: data is stored on Alibaba Cloud in Mainland China, with TLS 1.3 in transit and AES-256 at rest. It complies with China's Data Security Law, Personal Information Protection Law, GDPR, and CCPA.
+Self-hosted edition: 100% of data stays on your infrastructure. We never touch it.
+We do not train models, do not share data with third parties, and all access is audit-logged.
+
+## Will IHUI AI use my data to train your models?
+
+No, absolutely not. We do not train our own models and do not use your data to train any third-party models. For data retention policies of OpenAI, Anthropic, and other API providers, please refer to their official documentation. In API mode, data is automatically deleted after 30 days by default.
+
+## What is MCP and why does it matter?
+
+MCP (Model Context Protocol) is an open standard for connecting AI models to external tools and data sources. Native MCP support means IHUI AI can connect to any MCP server (there are 100+ pre-built in the tool marketplace). It is the future-proof way to extend AI capabilities without writing custom code.
+
+## How does the Agent marketplace work?
+
+1. Open the Agent marketplace at https://ihui.ai/agents.
+2. Choose from 200+ templates (customer support, content generation, code assistant, etc.).
+3. Fork the template to your workspace.
+4. Customize prompts, knowledge base, and tools.
+5. Publish to any of the six clients with one click.
+6. Optionally list your Agent in the marketplace for monetization.
+
+## What languages does the IHUI AI interface support?
+
+Chinese Simplified (zh-CN), Chinese Traditional (zh-TW), English (en), Korean (ko), and Japanese (ja). The interface, documentation, and knowledge-base retrieval are all multi-language.
+
+## Where can I learn more?
+
+- Project homepage: https://ihui.ai
+- About: https://ihui.ai/about
+- FAQ: https://ihui.ai/faq
+- Quickstart: https://ihui.ai/docs/quickstart
+- API reference: https://ihui.ai/docs/api
+- Self-hosting guide: https://ihui.ai/docs/self-host
+- GitHub: https://github.com/ihui-ai
+- Long-form documentation: https://ihui.ai/llms-full.txt
+
+## Company information
+
+- Name: IHUI AI (智汇 AI)
+- Founded: 2024
+- Headquarters: Shanghai, China
+- License: Apache 2.0
+- Contact: contact@ihui.ai (sales) / support@ihui.ai (support)
+- Social: GitHub, 知乎, 掘金, Twitter @ihui_ai
