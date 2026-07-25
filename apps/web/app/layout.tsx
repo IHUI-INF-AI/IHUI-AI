@@ -344,6 +344,55 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           title="IHUI AI — Perplexity Optimized"
           href="https://ihui.ai/perplexity.md"
         />
+        {/* 2026-07-26 极致曝光度强化:国内主流 AI 引擎 + 微软 Copilot 专用文件 */}
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — 字节豆包 Doubao Optimized"
+          href="https://ihui.ai/doubao.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — 月之暗面 Kimi Optimized"
+          href="https://ihui.ai/kimi.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — DeepSeek Optimized"
+          href="https://ihui.ai/deepseek.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — 阿里通义 Qwen Optimized"
+          href="https://ihui.ai/qwen.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — 百度文心 ERNIE Optimized"
+          href="https://ihui.ai/wenxin.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — 智谱清言 GLM Optimized"
+          href="https://ihui.ai/zhipu.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — 腾讯混元 Hunyuan Optimized"
+          href="https://ihui.ai/hunyuan.txt"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          title="IHUI AI — Microsoft Copilot Optimized"
+          href="https://ihui.ai/copilot.txt"
+        />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

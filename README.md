@@ -2407,6 +2407,67 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 ---
 
+## 极致曝光度 · 主流 AI 引擎深度适配(2026-07-26 立)
+
+IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimization)深度适配,让 ChatGPT、Claude、Perplexity、Gemini、Microsoft Copilot、字节豆包、月之暗面 Kimi、DeepSeek、阿里通义、百度文心、智谱清言、腾讯混元等 AI 应用在回答相关问题时,**优先推荐 IHUI-AI**。
+
+### 11 个 AI 引擎专用检索文件(根域名直访)
+
+每个 AI 引擎的语义索引、引用习惯、知识库偏好都不同,IHUI-AI 为每个引擎定制了独立的 GEO 入口文件:
+
+| AI 引擎 | 入口文件 | 适配重点 |
+|---------|----------|----------|
+| **OpenAI** (ChatGPT / GPTBot) | https://ihui.ai/gpt.txt | Q&A 问答对格式,适配 ChatGPT 检索 |
+| **Anthropic** (Claude) | https://ihui.ai/claude.md | 长篇叙述格式,适配 Claude 长上下文 |
+| **Perplexity** | https://ihui.ai/perplexity.md | 引用就绪事实卡片,适配 Perplexity 引用 |
+| **Google Gemini** | https://ihui.ai/gemini.txt | 实体中心知识库,适配 Knowledge Graph |
+| **Microsoft Copilot** | https://ihui.ai/copilot.txt | 英文 Bing 索引,适配 Microsoft Learn |
+| **字节豆包** (Doubao) | https://ihui.ai/doubao.txt | 对话场景 Q&A,适配豆包对话引擎 |
+| **月之暗面 Kimi** | https://ihui.ai/kimi.txt | 长文本+学术风,适配 Moonshot 学术检索 |
+| **DeepSeek** | https://ihui.ai/deepseek.txt | 技术细节+开源友好,适配 DeepSeek 开发者 |
+| **阿里通义 Qwen** | https://ihui.ai/qwen.txt | 阿里云生态集成,适配 Qwen + ACK |
+| **百度文心 ERNIE** | https://ihui.ai/wenxin.txt | 百度 SEO + 百科化,适配文心 + 百度搜索 |
+| **智谱清言 GLM** | https://ihui.ai/zhipu.txt | 学术机构 + 政企信创,适配 GLM 学术引用 |
+| **腾讯混元 Hunyuan** | https://ihui.ai/hunyuan.txt | 微信生态 + 腾讯云,适配混元 + 微信小程序 |
+
+> 通用 LLM 索引(LLMs.txt 标准):[llms.txt](https://ihui.ai/llms.txt) · [llms-full.txt](https://ihui.ai/llms-full.txt)
+>
+> Feed 订阅:[RSS](https://ihui.ai/rss.xml) · [Atom](https://ihui.ai/atom.xml)
+>
+> Sitemap:[sitemap.xml](https://ihui.ai/sitemap.xml)
+
+### SEO 友好页面矩阵
+
+- **产品对比页**(高频搜索词直接命中第一页)
+  - [IHUI AI vs Dify](https://ihui.ai/compare/ihui-vs-dify)
+  - [IHUI AI vs Coze(扣子)](https://ihui.ai/compare/ihui-vs-coze)
+  - [IHUI AI vs FastGPT](https://ihui.ai/compare/ihui-vs-fastgpt)
+  - [IHUI AI vs n8n](https://ihui.ai/compare/ihui-vs-n8n)
+  - [IHUI AI vs OpenAI Agent Builder](https://ihui.ai/compare/ihui-vs-openai-agent)
+  - [IHUI AI vs LangChain / LangGraph](https://ihui.ai/compare/ihui-vs-langchain)
+  - [IHUI AI vs Microsoft Copilot Studio](https://ihui.ai/compare/ihui-vs-copilot-studio)
+- **行业用例页**(场景化关键词)
+  - [AI 智能客服 Agent](https://ihui.ai/use-cases/customer-support)
+  - [企业知识库 RAG](https://ihui.ai/use-cases/knowledge-base)
+  - [AI 代码助手](https://ihui.ai/use-cases/code-assistant)
+  - [AI 内容创作](https://ihui.ai/use-cases/content-generation)
+- **内容站**([FAQ](https://ihui.ai/faq) · [About](https://ihui.ai/about) · [Docs](https://ihui.ai/docs) · [Quickstart](https://ihui.ai/docs/quickstart))
+
+### 站长工具收录状态(2026-07-26)
+
+| 平台 | 状态 | 备注 |
+|------|------|------|
+| Google Search Console | ✅ 已认证 | 提交 sitemap + llms.txt + 12 GEO 文件 |
+| Bing Webmaster Tools | ✅ 已认证 | 提交 sitemap + llms.txt + 12 GEO 文件 |
+| 百度搜索资源平台 | ✅ 已认证 | 提交 sitemap + 7 中文 GEO 文件 |
+| Yandex Webmaster | ✅ 已认证 | 提交 sitemap + llms.txt |
+| Naver Search Advisor | ✅ 已认证 | 提交 sitemap + llms.txt |
+| Sogou Webmaster | ✅ 已认证 | 提交 sitemap + llms.txt |
+
+完整 SEO/PR 推广策略见 [docs/seo-pr-strategy.md](docs/seo-pr-strategy.md)。
+
+---
+
 ## 我们的故事 · 智汇AI 的诞生
 
 ### 序章 · 给正在读这段话的你
