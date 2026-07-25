@@ -103,7 +103,20 @@
     "follower": "Followers"
   },
   "agent": {
-    "config": "Config"
+    "config": "Config",
+    "runtimeTitle": "Runtime",
+    "runtimeClear": "Clear",
+    "runtimePlan": "Plan",
+    "runtimePermission": "Permission",
+    "runtimePermissionTool": "Tool",
+    "runtimePermissionLevel": "Level",
+    "runtimePermissionMode": "Mode",
+    "runtimeOutput": "Output",
+    "runtimeError": "Error",
+    "runtimeEmpty": "No runtime activity yet",
+    "runtimeInputPlaceholder": "Enter a message to send to the agent",
+    "runtimeStop": "Stop",
+    "runtimeSend": "Send"
   },
   "chat": {
     "voice": "Voice"
