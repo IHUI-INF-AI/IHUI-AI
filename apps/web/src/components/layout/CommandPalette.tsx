@@ -21,6 +21,36 @@ const COMMANDS: CommandItem[] = [
   { id: 'settings', icon: Settings, path: '/settings' },
 ]
 
+/**
+ * 命令面板 i18n key 静态映射表:commands.${id}.label / commands.${id}.description
+ * 用于消除 `t(`commands.${var}.label`)` / `t(`commands.${var}.description`)` 动态拼接
+ * 覆盖 COMMANDS 数组全部 6 个 id,未知值兜底 'commands.unknown.label' / 'commands.unknown.description'
+ */
+const COMMAND_LABEL_KEY: Record<string, string> = {
+  chat: 'commands.chat.label',
+  drama: 'commands.drama.label',
+  search: 'commands.search.label',
+  'ai-world': 'commands.ai-world.label',
+  profile: 'commands.profile.label',
+  settings: 'commands.settings.label',
+}
+const COMMAND_DESC_KEY: Record<string, string> = {
+  chat: 'commands.chat.description',
+  drama: 'commands.drama.description',
+  search: 'commands.search.description',
+  'ai-world': 'commands.ai-world.description',
+  profile: 'commands.profile.description',
+  settings: 'commands.settings.description',
+}
+const COMMAND_KEYWORDS_KEY: Record<string, string> = {
+  chat: 'commands.chat.keywords',
+  drama: 'commands.drama.keywords',
+  search: 'commands.search.keywords',
+  'ai-world': 'commands.ai-world.keywords',
+  profile: 'commands.profile.keywords',
+  settings: 'commands.settings.keywords',
+}
+
 export function CommandPalette({
   open,
   onOpenChange,
@@ -39,8 +69,8 @@ export function CommandPalette({
     const q = query.trim().toLowerCase()
     if (!q) return COMMANDS
     return COMMANDS.filter((c) => {
-      const keywords = t.raw(`commands.${c.id}.keywords`) as string[]
-      const text = `${t(`commands.${c.id}.label`)} ${t(`commands.${c.id}.description`)} ${keywords.join(' ')}`.toLowerCase()
+      const keywords = t.raw(COMMAND_KEYWORDS_KEY[c.id] ?? 'commands.unknown.keywords') as string[]
+      const text = `${t(COMMAND_LABEL_KEY[c.id] ?? 'commands.unknown.label')} ${t(COMMAND_DESC_KEY[c.id] ?? 'commands.unknown.description')} ${keywords.join(' ')}`.toLowerCase()
       return text.includes(q)
     })
   }, [query, t])
@@ -117,9 +147,11 @@ export function CommandPalette({
                 >
                   <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{t(`commands.${item.id}.label`)}</div>
+                    <div className="truncate text-sm font-medium">
+                      {t(COMMAND_LABEL_KEY[item.id] ?? 'commands.unknown.label')}
+                    </div>
                     <div className="truncate text-xs text-muted-foreground">
-                      {t(`commands.${item.id}.description`)}
+                      {t(COMMAND_DESC_KEY[item.id] ?? 'commands.unknown.description')}
                     </div>
                   </div>
                 </button>
