@@ -1393,6 +1393,8 @@
     }
   },
   "chat": {
+    "addMenuLabel": "添加",
+    "addMenuDesc": "添加引用 / Skill 库 / 附件",
     "title": "AI 任务",
     "placeholder": "详细描述需求，输入 / 调用技能、插件、MCP（如 /goal /loop /plan）",
     "placeholderPlan": "规划模式：输入需求，AI 只制定计划不执行工具（/act 切回执行，Alt+P 切换）",
