@@ -686,7 +686,6 @@
       "cancelAutoRevert": "取消自动撤销",
       "reEnableAutoRevert": "重新启用 1 小时自动撤销",
       "autoRevertedTitle": "已自动切回请求批准",
-      "autoRevertedDesc": "为避免长时间处于高风险模式,1 小时无操作后自动降级。重新开启完全访问请用 Shift+Tab 或点击权限按钮。",
       "autoRevertedDescWithDuration": "本次完全访问已持续 {usedMin} 分钟,自动降级到请求批准。重新开启完全访问请用 Shift+Tab 或点击权限按钮。",
       "revertWarning5minTitle": "完全访问模式即将自动降级",
       "revertWarning5minDesc": "5 分钟后将自动切回请求批准模式。如需继续完全访问,请点「再保持 1 小时」。",
@@ -705,6 +704,10 @@
       "titleBarAutoRevert": "⏱ {time} 后自动降级",
       "cycledTo": "已切换到 {mode}",
       "cycleError": "切换失败:{error}",
+      "usageHint": "用法: /permission ask | auto | full",
+      "switchedToModeAsk": "已切换到请求批准模式",
+      "switchedToModeAuto": "已切换到替我审批模式",
+      "switchedToModeFull": "已切换到完全访问模式",
       "mode": {
         "ask": "请求批准",
         "askDesc": "编辑外部文件和使用互联网时始终询问",
@@ -5889,79 +5892,7 @@
     "prev": "上一篇",
     "next": "下一篇",
     "related": "相关文章",
-    "notFound": "文章不存在或已下线",
-    "faq": {
-      "account": [
-        {
-          "q": "忘记密码怎么办？",
-          "a": "在登录页点击“忘记密码”，通过手机号验证码重置密码。"
-        },
-        {
-          "q": "如何修改个人信息？",
-          "a": "进入设置页面，可修改昵称、头像等个人信息。"
-        },
-        {
-          "q": "如何注销账号？",
-          "a": "请联系客服提交注销申请，我们将在 3 个工作日内处理。"
-        }
-      ],
-      "payment": [
-        {
-          "q": "支持哪些支付方式？",
-          "a": "目前支持微信支付、支付宝、Stripe 信用卡和 USDC。"
-        },
-        {
-          "q": "如何申请退款？",
-          "a": "订阅 7 天内可联系客服申请全额退款，逾期不予受理。"
-        },
-        {
-          "q": "如何取消订阅？",
-          "a": "在支付页面点击“取消订阅”，下个计费周期停止扣费。"
-        }
-      ],
-      "project": [
-        {
-          "q": "如何创建项目？",
-          "a": "在工作空间点击“新建项目”，填写名称即可创建。"
-        },
-        {
-          "q": "项目数量有限制吗？",
-          "a": "免费版限 1 个项目，专业版及以上无限制。"
-        },
-        {
-          "q": "如何分享项目？",
-          "a": "进入项目详情，点击“分享”生成链接发送给协作者。"
-        }
-      ],
-      "ai": [
-        {
-          "q": "支持哪些 AI 模型？",
-          "a": "提供 GPT-4、Claude 3.5、Gemini 等主流模型，专业版解锁全部。"
-        },
-        {
-          "q": "每日对话次数限制？",
-          "a": "免费版每日 10 次，专业版无限制。"
-        },
-        {
-          "q": "如何切换模型？",
-          "a": "在对话页面顶部点击模型选择器即可切换。"
-        }
-      ],
-      "tech": [
-        {
-          "q": "如何获取 API Key？",
-          "a": "进入开发者平台创建应用，即可获取 API Key。"
-        },
-        {
-          "q": "API 调用频率限制？",
-          "a": "默认每分钟 60 次，企业版可申请提升。"
-        },
-        {
-          "q": "提供哪些 SDK？",
-          "a": "官方提供 Python、Node.js、Go 三种语言 SDK。"
-        }
-      ]
-    }
+    "notFound": "文章不存在或已下线"
   },
   "search": {
     "loading": "搜索中...",
@@ -8954,43 +8885,6 @@
         "scriptIdAndContentRequired": "请输入剧本 ID 和对白内容"
       }
     }
-  },
-  "audit": {
-    "action": "操作",
-    "actionLabel": {
-      "fileDelete": "删除",
-      "fileDownload": "下载",
-      "fileShare": "分享",
-      "fileUpload": "上传",
-      "permissionAssign": "分配权限",
-      "userLogin": "登录",
-      "versionCreate": "创建版本",
-      "versionRollback": "回滚版本"
-    },
-    "actionType": "操作类型",
-    "actionTypeOption": {
-      "fileDelete": "文件删除",
-      "fileDownload": "文件下载",
-      "fileShare": "文件分享",
-      "fileUpload": "文件上传",
-      "permissionAssign": "权限分配",
-      "userLogin": "用户登录",
-      "versionCreate": "版本创建",
-      "versionRollback": "版本回滚"
-    },
-    "details": "详情",
-    "endDate": "结束日期",
-    "failed": "失败",
-    "ip": "IP地址",
-    "resourceId": "资源ID",
-    "resourceType": "资源类型",
-    "startDate": "开始日期",
-    "status": "状态",
-    "success": "成功",
-    "time": "时间",
-    "title": "操作日志",
-    "totalLogs": "总记录数",
-    "userId": "用户ID"
   },
   "editor": {
     "toolbar": {
