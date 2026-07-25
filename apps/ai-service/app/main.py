@@ -49,6 +49,8 @@ from app.routers.legacy import router as legacy_router
 # P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
 from app.routers.ai_tutor import router as ai_tutor_router
 from app.routers.langgraph import router as langgraph_router
+# L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
+from app.routers.meta_learning import router as meta_learning_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
 from app.telemetry import setup_telemetry, shutdown_telemetry
@@ -349,6 +351,8 @@ def create_app() -> FastAPI:
     # P3 深度层:AI 助教(学科讲解/提示/出题)+ LangGraph(interrupt/resume/state/history/stream)
     app.include_router(ai_tutor_router)
     app.include_router(langgraph_router)
+    # L4 自进化 admin 端点(meta_learner 状态/lessons/history + 手动触发聚类,2026-07-25 立)
+    app.include_router(meta_learning_router)
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     @app.get("/api/audit/recent", tags=["audit"])
