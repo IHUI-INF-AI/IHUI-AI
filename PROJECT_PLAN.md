@@ -8,6 +8,70 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 业务层共享启动阶段 4 — useAuth 跨端共享 hook 落地(@ihui/shared/hooks/use-auth + hooks/index 导出,跨端:packages/shared,平台独占 — 共享层扩展由主 agent 控制,各端接入属后续阶段)
+
+**触发**:阶段 3(token-store 通用契约)完成后用户要求"继续"。useAuth 是业务层共享的关键基础(鉴权前置依赖),阶段 3 已提供 `TokenStore` 接口 + `createInMemoryTokenStore` 工厂 + `bindTokenStoreToApiClient` 适配器,本阶段补齐 hook 层。
+
+**执行方式**:主 agent 单端实现(packages/shared/src/hooks/use-auth.ts),不涉及各端接入(各端接入属阶段 5-6,需评估 React Query / zustand 升级路径)。
+
+**成果清单**:
+
+#### P0:useAuth hook 实现原则(4 条设计约束)
+
+1. **依赖注入**:各端必须传入 TokenStore 实现,hook 不内置存储逻辑
+2. **零新依赖**:纯 useState + useEffect,不引入 zustand(兼容 extension MV3 / mobile-rn Hermes)
+3. **非破坏性**:与各端现有 auth store 平行存在,可通过 re-export 桥接(参考 date-utils 模式)
+4. **泛型 TUser**:兼容 miniapp-taro 的 UserInfo 扩展(默认 AuthUser)
+
+#### P0:UseAuthOptions / UseAuthReturn 接口契约
+
+- [packages/shared/src/hooks/use-auth.ts](file:///g:/IHUI-AI/packages/shared/src/hooks/use-auth.ts) — 完整实现 + JSDoc + 各端接入示例注释
+  - `UseAuthOptions<TUser>`:store(必填) / bindTransport(可选,默认不注入) / fetchProfile(可选) / logoutApi(可选) / autoBind(可选,默认 true)
+  - `UseAuthReturn<TUser>`:user / token / refreshToken / isAuthenticated / ready / login / logout / refresh / setUser
+  - login:写 token + 可选拉 profile(若 newUser 已传则跳过 fetchProfile)
+  - logout:调后端 logoutApi(可选,失败不阻塞本地清理)+ clearAll + 清 state
+  - refresh:默认返回 false,各端按需注入 chrome.alarms / cookie refresh 逻辑
+
+#### P0:hooks/index.ts 导出 useAuth
+
+- [packages/shared/src/hooks/index.ts](file:///g:/IHUI-AI/packages/shared/src/hooks/index.ts) 第 6 行新增 `export * from './use-auth'`
+- 各端可通过 `import { useAuth } from '@ihui/shared/hooks'` 消费
+
+#### 设计说明:tokenVersion 触发重渲染
+
+- store.getToken() 是同步读取,React 不会因 store 内部状态变化而重渲染
+- tokenVersion useState 仅用于在 login/logout 后触发重渲染,组件重执行时重新读取 store.getToken()
+- `void tokenVersion` 显式消费避免"未使用变量"警告(注释说明用途)
+
+**各端接入路径(后续阶段)**:
+
+- **mobile-rn**:`useAuth({ store: rnTokenStore, bindTransport: bindTokenStoreToApiClient, fetchProfile })` — 替换 `apps/mobile-rn/src/context/AuthContext.tsx` 现有 useState 实现
+- **extension**:`useAuth({ store: extTokenStore, bindTransport, fetchProfile: getProfile })` — 桥接 `apps/extension/src/auth/token-store.ts` chrome.storage adapter
+- **web**:桥接版,内部订阅 useAuthStore,对外接口与本 hook 一致(保留 getState() 能力,因 web 已深度使用 zustand)
+- **miniapp-taro**:`useAuth<UserInfo>({ store: taroTokenStore })` — 因 Taro.storage 同步语义,不走 bindTransport
+
+**验证**:
+
+- @ihui/shared typecheck ✅ exit 0
+- @ihui/shared lint:use-auth.ts 干净 ✅(剩余 1 error 在 `src/skills/market.ts:70:18` 属其他 agent 代码,按 §12 不本任务范围)
+- use-auth.ts 151 行,零新依赖,纯 React hooks
+
+**后续阶段预告**(业务层共享启动,7 阶段规划):
+
+- 阶段 5 P1:新增 useArticles/useChat/useAgents 业务 hooks(各端接入 useAuth 后再启动)
+- 阶段 6 P1:新增 authStore/userStore/themeStore 共享(zustand + transport 注入)
+- 阶段 7 P1:业务组件 MessageBubble/ArticleCard/AgentCard/NotificationItem 提取到 @ihui/ui-react
+- 阶段 8 P1:extension 引入 React Query(架构升级评估 + 试点页面)
+
+**Git 同步证据**:
+
+- 本地 commit: (待 commit)
+- origin commit: (待 push)
+- 同步状态: (待验证)
+- 守门脚本: (待验证)
+
+---
+
 ### [x] ✅(2026-07-25) 业务层共享启动阶段 3 — token-store 通用契约 + i18n shared/ 共享基础 key 包(跨端:packages/shared + packages/i18n + scripts,共享层扩展由主 agent 控制)
 
 **触发**:用户要求"继续按建议执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏"。承接跨端架构适配分析(P2 优先级),派发 2 subagent 并行执行 token-store 接口抽取 + i18n shared/ 共享基础库建立。
