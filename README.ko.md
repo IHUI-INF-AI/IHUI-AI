@@ -649,7 +649,6 @@ IHUI-AI/
 ├── packages/                # 13개 공유 패키지
 │   ├── api-client/          # @ihui/api-client (40+ 엔드포인트 자동 생성 SDK)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
-│   ├── config/              # @ihui/config
 │   ├── context-compaction/  # @ihui/context-compaction (컨텍스트 압축)
 │   ├── database/            # @ihui/database (Drizzle, 339+ 테이블, 128+ 마이그레이션, RLS, 테넌트 라우팅, pgvector)
 │   ├── eslint-config/       # @ihui/eslint-config

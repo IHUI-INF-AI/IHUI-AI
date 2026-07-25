@@ -1,6 +1,6 @@
 import Taro from '@tarojs/taro'
 
-export * from './request'
+export * from './api-bridge'
 export * from './auth'
 export * from './voice-recorder'
 export * from './upload-image'
