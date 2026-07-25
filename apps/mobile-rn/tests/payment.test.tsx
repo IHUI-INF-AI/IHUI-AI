@@ -44,8 +44,8 @@ vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ goBack: vi.fn() }),
 }))
 
-vi.mock('react-native', () => {
-  const { createElement } = require('react')
+vi.mock('react-native', async () => {
+  const { createElement } = await import('react')
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       return createElement(tag, props, props.children)
@@ -91,6 +91,7 @@ vi.mock('@ihui/ui-native', () => ({
     ),
   Card: (props: { children?: ReactNode }) =>
     createElement('div', null, props.children),
+  Loading: () => createElement('div', null, 'loading'),
 }))
 
 import { PaymentScreen } from '../src/screens/PaymentScreen'
