@@ -29,6 +29,12 @@ const STATUS_CLS: Record<CouponStatus, string> = {
   expired: 'border-muted bg-muted/20 opacity-70',
 }
 
+const TAB_KEY: Record<string, string> = {
+  unused: 'tab.unused',
+  used: 'tab.used',
+  expired: 'tab.expired',
+}
+
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
   if (!r.success) throw new Error(r.error)
@@ -81,7 +87,7 @@ export default function MemberCouponsPage() {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`tab.${v}`)}
+            {t(TAB_KEY[v] ?? `tab.${v}`)}
           </button>
         ))}
       </div>
