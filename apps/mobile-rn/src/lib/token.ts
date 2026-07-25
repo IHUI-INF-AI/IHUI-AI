@@ -8,10 +8,10 @@
  * 调用方:`setToken` / `setRefreshToken` / `clearToken` / `getToken` / `getRefreshToken`。
  * `getToken` / `getRefreshToken` 返回同步缓存值(避免每次 HTTP 都 await SecureStore)。
  */
-import { setBaseUrl, setTokenProvider } from '@ihui/api-client'
+import { setBaseUrl } from '@ihui/api-client'
 import { API_BASE_URL, TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from './config'
 import { deleteSecureItem, getSecureItem, setSecureItem } from './auth/secure-store'
-import type { TokenStore } from '@ihui/shared/auth'
+import { bindTokenStoreToApiClient, type TokenStore } from '@ihui/shared/auth'
 
 let cachedToken: string | null = null
 let cachedRefreshToken: string | null = null
@@ -24,7 +24,7 @@ export async function initApi(): Promise<void> {
   ])
   cachedToken = typeof stored === 'string' ? stored : null
   cachedRefreshToken = typeof storedRefresh === 'string' ? storedRefresh : null
-  setTokenProvider({ getToken: () => cachedToken })
+  bindTokenStoreToApiClient(tokenStore)
 }
 
 export function getToken(): string | null {
@@ -78,3 +78,7 @@ export const tokenStore: TokenStore = {
   setRefreshToken,
   clearAll: clearToken,
 }
+
+// Re-export 给 mobile-rn 端使用(从 lib/token-store.ts 迁移,避免维护两个文件)
+export { bindTokenStoreToApiClient } from '@ihui/shared/auth'
+export type { TokenStore, TokenStoreWithUserInfo } from '@ihui/shared/auth'
