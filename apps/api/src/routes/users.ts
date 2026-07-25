@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import bcrypt from 'bcryptjs'
+import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { sql } from 'drizzle-orm'
 import { createWriteStream, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
 import { join, extname } from 'node:path'
@@ -214,12 +214,12 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(403).send(error(403, '系统内置管理员密码不可修改'))
     }
 
-    const ok = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash ?? '')
+    const ok = await verifyPassword(parsed.data.currentPassword, user.passwordHash ?? '')
     if (!ok) {
       return reply.status(401).send(error(401, '原密码错误'))
     }
 
-    const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10)
+    const passwordHash = await hashPassword(parsed.data.newPassword)
     await updateUserPassword(id, passwordHash)
     return reply.send(success({ id: user.id }))
   })

@@ -8,6 +8,7 @@ import { success, error } from '../../utils/response.js'
 import { users } from '@ihui/database'
 import { eq, notInArray, ilike, desc, sql, and, or } from 'drizzle-orm'
 import { paginationSchema, idParamSchema } from './_shared.js'
+import { hashPassword } from '../../utils/password-crypto.js'
 import { isSystemAdminUser } from '../../db/queries.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
@@ -151,14 +152,13 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
     if (!b.data.phone && !b.data.email)
       return reply.status(400).send(error(400, 'phone 与 email 至少需提供一个'))
-    const bcrypt = (await import('bcryptjs')).default
     const [row] = await db
       .insert(users)
       .values({
         nickname: b.data.nickname,
         phone: b.data.phone,
         email: b.data.email,
-        passwordHash: await bcrypt.hash(b.data.password, 10),
+        passwordHash: await hashPassword(b.data.password),
         roleId: b.data.roleId ?? 0,
         status: b.data.status ?? 1,
         level: b.data.level ?? 0,
