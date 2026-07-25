@@ -31,8 +31,8 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const formatCNY = (cents: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
+const CNY_FMT = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
+const formatCNY = (cents: number) => CNY_FMT.format(cents / 100)
 
 function DetailsContent() {
   const t = useTranslations('vip')
