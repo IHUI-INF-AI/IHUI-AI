@@ -23,7 +23,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 │  共享层(14 包跨端复用,packages/*)                       │
 │  @ihui/auth @ihui/api-client @ihui/types @ihui/database │
 │  @ihui/ui-react @ihui/ui-native @ihui/design-tokens     │
-│  @ihui/config @ihui/context-compaction @ihui/sdk        │
+│  @ihui/context-compaction @ihui/sdk                     │
 │  @ihui/shared @ihui/app                                  │
 │  @ihui/eslint-config @ihui/tsconfig                     │
 ├─────────────────────────────────────────────────────────┤
@@ -136,7 +136,6 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | `@ihui/ui-react` | Web 组件库(Button/Input/Card/Dialog/Tabs/Tooltip 等 25+) | web / desktop / extension |
 | `@ihui/ui-native` | React Native 组件库(avatar/badge/button/card/dialog/input/loading/switch/tabs/vip-badge,10 组件) | mobile-rn |
 | `@ihui/design-tokens` | 跨端基础原语(cn + HSL/HEX tokens + CSS 变量) | web / extension / mobile-rn / desktop |
-| `@ihui/config` | constants + env 配置 | 全端 |
 | `@ihui/context-compaction` | 上下文压缩(88% 阈值自动压缩) | cli / api / ai-service |
 | `@ihui/sdk` | 多语言 SDK(TS/Go/Python/Java/.NET) | 外部集成 |
 | `@ihui/shared` | 8端共享业务逻辑(auth/sso + memory + notifications + plan + workflows 等) | 全端 |
