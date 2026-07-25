@@ -696,6 +696,74 @@ function createToolCallHandler(assistantMessageId: string) {
   }
 }
 
+/**
+ * #9 流式 token 节流(2026-07-25 立):
+ * 用 requestAnimationFrame 每帧合并一次 token,避免每个 token 触发 store 更新 + React 重渲染。
+ * - batch(delta):累加 delta,标记 dirty,下帧 flush
+ * - flush():立即把累积 delta 一次性 append(用于错误/中止前最后冲刺)
+ * - cancel():取消 raf,清空累积(用于 finally)
+ */
+function createDeltaBatcher(appendFn: (delta: string) => void) {
+  let pending = ''
+  let rafId: number | null = null
+  const flush = () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
+    if (pending) {
+      const d = pending
+      pending = ''
+      appendFn(d)
+    }
+  }
+  const batch = (delta: string) => {
+    pending += delta
+    if (rafId === null) {
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        if (pending) {
+          const d = pending
+          pending = ''
+          appendFn(d)
+        }
+      })
+    }
+  }
+  const cancel = () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
+    pending = ''
+  }
+  return { batch, flush, cancel }
+}
+
+/**
+ * #9 多 agent stream 节流(2026-07-25 立):
+ * 单一 manager 管理多个 agentId 各自的 batcher,flushAll/cancelAll 统一清理。
+ */
+function createAgentDeltaBatcher() {
+  const map = new Map<string, ReturnType<typeof createDeltaBatcher>>()
+  const batch = (agentId: string, delta: string) => {
+    let b = map.get(agentId)
+    if (!b) {
+      b = createDeltaBatcher((d) => useChatStore.getState().appendToAgentStream(agentId, d))
+      map.set(agentId, b)
+    }
+    b.batch(delta)
+  }
+  const flushAll = () => {
+    for (const b of map.values()) b.flush()
+  }
+  const cancelAll = () => {
+    for (const b of map.values()) b.cancel()
+    map.clear()
+  }
+  return { batch, flushAll, cancelAll }
+}
+
 export interface UseChatReturn {
   messages: ReturnType<typeof useChatStore.getState>['messages']
   currentModel: string
@@ -767,6 +835,9 @@ export function useChat(): UseChatReturn {
   const abortRef = React.useRef<AbortController | null>(null)
   // P1 错误重试(2026-07-23):保存最后发送内容,toast 加 retry 按钮
   const lastSentContentRef = React.useRef('')
+  // #10 sendAnswer 错误重试(2026-07-25 立):保存最后回答内容,toast 加 retry 按钮
+  // 与 lastSentContentRef 对称,sendAnswer catch 块复用 sendMessage 路径的 retry 模式
+  const lastSentAnswerRef = React.useRef<{ answer: string; questionId: string } | null>(null)
 
   const sendMessage = React.useCallback(
     async (content: string): Promise<boolean> => {
@@ -865,13 +936,38 @@ export function useChat(): UseChatReturn {
       const controller = new AbortController()
       abortRef.current = controller
 
-      // 首 token 超时:15s 内未收到任何内容则中止
-      let firstTokenReceived = false
-      const timeoutId = setTimeout(() => {
-        if (!firstTokenReceived) {
+      // #13 首 token 超时区分 reasoning(2026-07-25 立):
+      // 双阶超时适配 reasoning 模型(o1/R1)长思考场景:
+      // - timeout15s:15s 内 reasoning + content 都未收到 → abort(完全冷启动)
+      // - timeout60s:60s 内 content 未收到但 reasoning 已收到 → abort(reasoning 模型可能长时间只产 reasoning)
+      // - 任一 content token 到达 → clearTimeout 两个 timer(进入正常流式)
+      // - 用户主动 stop 触发的 abort 不报错(由 abortedByTimeout* 标志区分)
+      let firstContentTokenReceived = false
+      let firstReasoningTokenReceived = false
+      let abortedByTimeout15s = false
+      let abortedByTimeout60s = false
+      const timeout15sId = setTimeout(() => {
+        if (!firstContentTokenReceived && !firstReasoningTokenReceived) {
+          abortedByTimeout15s = true
           controller.abort()
         }
       }, 15000)
+      const timeout60sId = setTimeout(() => {
+        if (!firstContentTokenReceived && firstReasoningTokenReceived) {
+          abortedByTimeout60s = true
+          controller.abort()
+        }
+      }, 60000)
+
+      // #9 流式 token 节流(2026-07-25 立):
+      // 用 requestAnimationFrame 每帧合并一次 token,避免每个 token 触发 store 更新 + React 重渲染
+      const contentBatcher = createDeltaBatcher((d) =>
+        useChatStore.getState().appendToMessage(assistantId, d),
+      )
+      const reasoningBatcher = createDeltaBatcher((d) =>
+        useChatStore.getState().appendReasoningToMessage(assistantId, d),
+      )
+      const agentBatcher = createAgentDeltaBatcher()
 
       // 从 auth store 获取 userId(用于回调链路关联)
       const userId = useAuthStore.getState().user?.id ?? ''
@@ -927,19 +1023,34 @@ export function useChat(): UseChatReturn {
             }
           },
           onDelta: (delta) => {
-            firstTokenReceived = true
-            useChatStore.getState().appendToMessage(assistantId, delta)
+            if (!firstContentTokenReceived) {
+              firstContentTokenReceived = true
+              clearTimeout(timeout15sId)
+              clearTimeout(timeout60sId)
+            }
+            contentBatcher.batch(delta)
           },
           onAgentDelta: (_agentId, delta) => {
-            firstTokenReceived = true
-            useChatStore.getState().appendToAgentStream(_agentId, delta)
+            if (!firstContentTokenReceived) {
+              firstContentTokenReceived = true
+              clearTimeout(timeout15sId)
+              clearTimeout(timeout60sId)
+            }
+            agentBatcher.batch(_agentId, delta)
           },
           onReasoning: (delta) => {
-            useChatStore.getState().appendReasoningToMessage(assistantId, delta)
+            if (!firstReasoningTokenReceived) {
+              firstReasoningTokenReceived = true
+            }
+            reasoningBatcher.batch(delta)
           },
           onToolCall: createToolCallHandler(assistantId),
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
+            // #9 错误前先 flush 累积 token,避免最后一批内容丢失
+            contentBatcher.flush()
+            reasoningBatcher.flush()
+            agentBatcher.flushAll()
             const formatted = formatSSEError(errMsg)
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
@@ -970,9 +1081,25 @@ export function useChat(): UseChatReturn {
           },
         })
       } catch (err) {
+        // #9 catch 前先 flush 累积 token,避免最后一批内容丢失
+        contentBatcher.flush()
+        reasoningBatcher.flush()
+        agentBatcher.flushAll()
         if (err instanceof DOMException && err.name === 'AbortError') {
-          if (!firstTokenReceived) {
-            const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
+          // #13 区分两种超时:15s 完全冷启动 vs 60s reasoning 已收到但 content 未到
+          // 用户主动 stop 触发的 abort(abortedByTimeout* 均为 false)静默不报错
+          if (abortedByTimeout15s) {
+            const formatted = formatSSEError(
+              err,
+              'AI 响应超时(15 秒内未收到任何内容),请稍后重试',
+            )
+            useChatStore.getState().setMessageError(assistantId, formatted.message)
+            useChatStore.getState().setError(formatted.message)
+          } else if (abortedByTimeout60s) {
+            const formatted = formatSSEError(
+              err,
+              'AI 思考超时(60 秒内未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型',
+            )
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
           }
@@ -1002,7 +1129,12 @@ export function useChat(): UseChatReturn {
           }
         }
       } finally {
-        clearTimeout(timeoutId)
+        clearTimeout(timeout15sId)
+        clearTimeout(timeout60sId)
+        // #9 finally 取消 raf,清空累积(防止内存泄漏 + 下次调用残留)
+        contentBatcher.cancel()
+        reasoningBatcher.cancel()
+        agentBatcher.cancelAll()
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
@@ -1025,6 +1157,9 @@ export function useChat(): UseChatReturn {
     const store = useChatStore.getState()
     const pending = store.pendingQuestion
     if (!pending || store.isStreaming) return
+
+    // #10 入口存储 lastSentAnswerRef(2026-07-25 立):catch 块 retry 按钮用
+    lastSentAnswerRef.current = { answer: trimmed, questionId: pending.questionId }
 
     // 立即关闭弹窗,避免重复提交
     store.clearPendingQuestion()
@@ -1054,10 +1189,32 @@ export function useChat(): UseChatReturn {
     const controller = new AbortController()
     abortRef.current = controller
 
-    let firstTokenReceived = false
-    const timeoutId = setTimeout(() => {
-      if (!firstTokenReceived) controller.abort()
+    // #13 首 token 超时区分 reasoning(2026-07-25 立,与 sendMessage 对称)
+    let firstContentTokenReceived = false
+    let firstReasoningTokenReceived = false
+    let abortedByTimeout15s = false
+    let abortedByTimeout60s = false
+    const timeout15sId = setTimeout(() => {
+      if (!firstContentTokenReceived && !firstReasoningTokenReceived) {
+        abortedByTimeout15s = true
+        controller.abort()
+      }
     }, 15000)
+    const timeout60sId = setTimeout(() => {
+      if (!firstContentTokenReceived && firstReasoningTokenReceived) {
+        abortedByTimeout60s = true
+        controller.abort()
+      }
+    }, 60000)
+
+    // #9 流式 token 节流(2026-07-25 立,与 sendMessage 对称)
+    const contentBatcher = createDeltaBatcher((d) =>
+      useChatStore.getState().appendToMessage(assistantId, d),
+    )
+    const reasoningBatcher = createDeltaBatcher((d) =>
+      useChatStore.getState().appendReasoningToMessage(assistantId, d),
+    )
+    const agentBatcher = createAgentDeltaBatcher()
 
     const userId = useAuthStore.getState().user?.id ?? ''
     const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
@@ -1084,19 +1241,34 @@ export function useChat(): UseChatReturn {
         workspacePath,
         contextLimit: getModelContextCapacity(model),
         onDelta: (delta) => {
-          firstTokenReceived = true
-          useChatStore.getState().appendToMessage(assistantId, delta)
+          if (!firstContentTokenReceived) {
+            firstContentTokenReceived = true
+            clearTimeout(timeout15sId)
+            clearTimeout(timeout60sId)
+          }
+          contentBatcher.batch(delta)
         },
         onAgentDelta: (agentId, delta) => {
-          firstTokenReceived = true
-          useChatStore.getState().appendToAgentStream(agentId, delta)
+          if (!firstContentTokenReceived) {
+            firstContentTokenReceived = true
+            clearTimeout(timeout15sId)
+            clearTimeout(timeout60sId)
+          }
+          agentBatcher.batch(agentId, delta)
         },
         onReasoning: (delta) => {
-          useChatStore.getState().appendReasoningToMessage(assistantId, delta)
+          if (!firstReasoningTokenReceived) {
+            firstReasoningTokenReceived = true
+          }
+          reasoningBatcher.batch(delta)
         },
         onToolCall: createToolCallHandler(assistantId),
         agentTools: mergeAgentTools(),
         onError: (errMsg, info) => {
+          // #9 错误前先 flush 累积 token,避免最后一批内容丢失
+          contentBatcher.flush()
+          reasoningBatcher.flush()
+          agentBatcher.flushAll()
           const formatted = formatSSEError(errMsg)
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
@@ -1112,18 +1284,44 @@ export function useChat(): UseChatReturn {
                 ? `[${ec}] ${formatted.rawMessage}`
                 : formatted.rawMessage
           if (formatted.severity === 'ratelimit') {
+            // ratelimit/safety 错误保持 warning 无 retry(与 sendMessage 一致)
             toast.warning(formatted.title, { description: toastDesc })
           } else if (formatted.severity === 'safety') {
             toast.warning(formatted.title, { description: formatted.message })
           } else {
-            toast.error(formatted.title, { description: toastDesc })
+            // #10 sendAnswer 错误加 retry 按钮(2026-07-25 立,与 sendMessage 路径对齐)
+            toast.error(formatted.title, {
+              description: toastDesc,
+              action: {
+                label: '重试',
+                onClick: () => {
+                  const last = lastSentAnswerRef.current
+                  if (last) sendAnswer(last.answer)
+                },
+              },
+            })
           }
         },
       })
     } catch (err) {
+      // #9 catch 前先 flush 累积 token
+      contentBatcher.flush()
+      reasoningBatcher.flush()
+      agentBatcher.flushAll()
       if (err instanceof DOMException && err.name === 'AbortError') {
-        if (!firstTokenReceived) {
-          const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
+        // #13 区分两种超时,用户主动 stop 静默不报错
+        if (abortedByTimeout15s) {
+          const formatted = formatSSEError(
+            err,
+            'AI 响应超时(15 秒内未收到任何内容),请稍后重试',
+          )
+          useChatStore.getState().setMessageError(assistantId, formatted.message)
+          useChatStore.getState().setError(formatted.message)
+        } else if (abortedByTimeout60s) {
+          const formatted = formatSSEError(
+            err,
+            'AI 思考超时(60 秒内未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型',
+          )
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
         }
@@ -1138,15 +1336,41 @@ export function useChat(): UseChatReturn {
         const ec = formatted.errorCode
         const prefix = ec ? `[${ec}] ` : ''
         if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
+          // ratelimit/safety 错误保持 warning 无 retry
           toast.warning(formatted.title, { description: `${prefix}${formatted.message}` })
         } else if (formatted.severity === 'network') {
-          toast.error(formatted.title, { description: `${prefix}${formatted.message}` })
+          // #10 网络错误 toast 加 retry 按钮(2026-07-25 立,与 sendMessage 对称)
+          toast.error(formatted.title, {
+            description: `${prefix}${formatted.message}`,
+            action: {
+              label: '重试',
+              onClick: () => {
+                const last = lastSentAnswerRef.current
+                if (last) sendAnswer(last.answer)
+              },
+            },
+          })
         } else {
-          toast.error(formatted.title, { description: `${prefix}${formatted.rawMessage}` })
+          // #10 通用错误 toast 加 retry 按钮
+          toast.error(formatted.title, {
+            description: `${prefix}${formatted.rawMessage}`,
+            action: {
+              label: '重试',
+              onClick: () => {
+                const last = lastSentAnswerRef.current
+                if (last) sendAnswer(last.answer)
+              },
+            },
+          })
         }
       }
     } finally {
-      clearTimeout(timeoutId)
+      clearTimeout(timeout15sId)
+      clearTimeout(timeout60sId)
+      // #9 finally 取消 raf,清空累积
+      contentBatcher.cancel()
+      reasoningBatcher.cancel()
+      agentBatcher.cancelAll()
       abortRef.current = null
       useChatStore.getState().setStreaming(false)
       useChatStore.getState().markAllAgentStreamsDone()
