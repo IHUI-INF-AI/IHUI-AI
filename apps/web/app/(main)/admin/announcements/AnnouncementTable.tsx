@@ -5,6 +5,7 @@ import { Pin, Edit, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TYPE_BADGE } from './helpers'
+import { ANN_TYPE_KEY } from '@/lib/content'
 import type { Announcement } from './types'
 
 interface Props {
@@ -82,7 +83,7 @@ export function AnnouncementTable({
                       TYPE_BADGE[a.type],
                     )}
                   >
-                    {t(`types.${a.type}`)}
+                    {t(ANN_TYPE_KEY[a.type] ?? 'types.unknown')}
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">

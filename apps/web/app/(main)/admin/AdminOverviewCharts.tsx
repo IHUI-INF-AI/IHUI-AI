@@ -12,10 +12,17 @@ interface Props {
   numFmt: Intl.NumberFormat
 }
 
+/** i18n 静态映射表 — 用于消除 `t(\`projectStatus.${var}\`)` 动态拼接 */
+const PROJECT_STATUS_KEY: Record<string, string> = {
+  active: 'projectStatus.active',
+  completed: 'projectStatus.completed',
+  archived: 'projectStatus.archived',
+}
+
 export function AdminOverviewCharts({ stats, numFmt }: Props) {
   const t = useTranslations('dashboard.admin')
   const statusItems = stats.projectStatus.map((s) => ({
-    label: t(`projectStatus.${s.key}`),
+    label: t(PROJECT_STATUS_KEY[s.key] ?? 'projectStatus.unknown'),
     value: s.value,
   }))
   const statusTotal = statusItems.reduce((s, x) => s + x.value, 0)
