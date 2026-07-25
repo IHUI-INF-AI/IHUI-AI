@@ -4,6 +4,13 @@ import { randomUUID } from 'node:crypto'
 import { eq, sql, desc, and, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { commissionFlows, withdrawalFlows, users, systemConfigs } from '@ihui/database'
+import {
+  listCommissionFlows,
+  listSubordinates,
+  teamCenter,
+  availableWithdrawal,
+  listWithdrawals,
+} from '../db/commission-queries.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
@@ -19,7 +26,7 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // GET /distribution/overview — 分销概览
+  // GET /distribution/overview — 分销概览(超集:合并 commission-routes 的 availableCommission + distribution 的 inviteCode/level)
   server.get('/distribution/overview', async (request, reply) => {
     const userId = request.userId!
     const [userRow] = await dbRead
@@ -42,9 +49,13 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
       .from(withdrawalFlows)
       .where(sql`${withdrawalFlows.userId} = ${userId} AND ${withdrawalFlows.status} = 2`)
 
+    // 合并 commission-routes.ts 的 availableCommission(可提现余额)
+    const available = await availableWithdrawal(userId)
+
     return reply.send(
       success({
         totalCommission: Number(totalRow?.total ?? 0),
+        availableCommission: available,
         pendingCommission: Number(pendingRow?.total ?? 0),
         withdrawnCommission: Number(withdrawnRow?.total ?? 0),
         inviteCode: userRow?.inviteCode ?? null,
@@ -53,9 +64,25 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // GET /distribution/invited-users — 邀请用户列表
+  // GET /distribution/invited-users — 邀请用户列表(向后兼容:不传分页返回全部,传分页则分页查)
   server.get('/distribution/invited-users', async (request, reply) => {
     const userId = request.userId!
+    const { page, pageSize } = z
+      .object({
+        page: z.coerce.number().int().min(1).optional(),
+        pageSize: z.coerce.number().int().min(1).max(100).optional(),
+      })
+      .parse(request.query ?? {})
+
+    // 走 listSubordinates 复用分页查询封装(与 commission-routes 一致)
+    if (page && pageSize) {
+      const result = await listSubordinates(userId, page, pageSize)
+      return reply.send(
+        success({ list: result.items, total: result.total, page, pageSize }),
+      )
+    }
+
+    // 未传分页:返回全部(保持 miniapp-taro/mobile-rn 现有行为兼容)
     const list = await dbRead
       .select({
         id: users.id,
@@ -322,5 +349,99 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(500).send(error(500, '创建提现申请失败'))
     }
     return reply.status(201).send(success({ withdrawal }))
+  })
+
+  // ============================================================================
+  // 以下 4 个端点迁移自 user/commission-routes.ts(2026-07-25 P1-1 命名统一)
+  // 路径 /commission/* → /distribution/*,前端零改动,后端合并到单一前缀
+  // ============================================================================
+
+  // GET /distribution/invite-info — 邀请信息(从 commission-routes 迁移)
+  server.get('/distribution/invite-info', async (request, reply) => {
+    const team = await teamCenter(request.userId!)
+    return reply.send(
+      success({
+        inviteCode: null,
+        inviteUrl: null,
+        inviteCount: team.totalInvitees,
+        vipInvitees: team.vipInvitees,
+        monthNew: team.monthNew,
+      }),
+    )
+  })
+
+  // GET /distribution/list — 佣金流水列表(从 commission-routes 迁移)
+  server.get('/distribution/list', async (request, reply) => {
+    const { page, pageSize } = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      })
+      .parse(request.query ?? {})
+    const result = await listCommissionFlows(request.userId!, page, pageSize)
+    return reply.send(
+      success({ list: result.items, total: result.total, page, pageSize }),
+    )
+  })
+
+  // GET /distribution/withdraw-list — 提现记录列表(补建:原 api-client 调用 404)
+  server.get('/distribution/withdraw-list', async (request, reply) => {
+    const userId = request.userId!
+    const { page, pageSize } = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      })
+      .parse(request.query ?? {})
+    const result = await listWithdrawals(userId, page, pageSize)
+    return reply.send(
+      success({ list: result.items, total: result.total, page, pageSize }),
+    )
+  })
+
+  // GET /distribution/ranking — 分销排行(补建:原 api-client 调用 404)
+  // 按累计佣金降序取 top N(简易版,后续可扩展为按周期/等级筛选)
+  server.get('/distribution/ranking', async (request, reply) => {
+    const { limit } = z
+      .object({
+        limit: z.coerce.number().int().min(1).max(100).default(10),
+      })
+      .parse(request.query ?? {})
+    const rows = await dbRead
+      .select({
+        userId: commissionFlows.beneficiaryId,
+        totalCommission: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)`,
+      })
+      .from(commissionFlows)
+      .where(eq(commissionFlows.status, 1))
+      .groupBy(commissionFlows.beneficiaryId)
+      .orderBy(sql`sum(${commissionFlows.amount}) desc`)
+      .limit(limit)
+
+    // 补充用户信息(昵称/头像)
+    const userIds = rows.map((r) => r.userId).filter((id): id is string => typeof id === 'string')
+    const userRows: Array<{ id: string; nickname: string | null; avatar: string | null }> = []
+    if (userIds.length > 0) {
+      const found = await dbRead
+        .select({ id: users.id, nickname: users.nickname, avatar: users.avatar })
+        .from(users)
+        .where(inArray(users.id, userIds))
+      userRows.push(...found)
+    }
+    const userMap = new Map(userRows.map((u) => [u.id, u]))
+
+    const ranking = rows.map((r, idx) => {
+      const u = r.userId ? userMap.get(r.userId) : undefined
+      return {
+        rank: idx + 1,
+        userId: r.userId,
+        nickname: u?.nickname ?? null,
+        avatar: u?.avatar ?? null,
+        totalCommission: Number(r.totalCommission),
+        invitedCount: 0, // 简化:不查每人的 invitedCount(避免 N+1)
+      }
+    })
+
+    return reply.send(success(ranking))
   })
 }
