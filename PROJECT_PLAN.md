@@ -3,6 +3,8 @@
 > 本文件为项目唯一任务计划文档。规则见 [AGENTS.md](./AGENTS.md)。
 > 历史归档:本文件精简前 54.6 KB(2026-07-20 含权限运行时拦截完整内容)已移至 `.trae-cn/archive/PROJECT_PLAN_2026-07-20_pre-permission-runtime.md`;更早快照同目录;详细提交记录见 `git log`。
 > 2026-07-20 publish-task 批次归档:16 个已完成大块(自媒体工作台整合 / 侧边栏分组整合 / SiteFooter i18n / M-71 / M-72 / M-65 v2 / 首页 6 UI / 侧边栏折叠 / CLI 配置导入 / 工作区权限运行时拦截 / M-70 / BrandMarquee / 架构迁移整合 / SiteFooter v6 / i18n P1 2_5 / 全站 hover 提示)移至 `.trae-cn/archive/PROJECT_PLAN_2026-07-20_publish-task-archive.md`,本文件从 63.3 KB 缩减至 ~20 KB。
+>
+> 📌 **2026-07-25 收尾状态**:本轮 AI 对话已完整收尾(用户确认"完整收尾 关闭对话")。所有活跃任务全部完成 + 验证 + 同步 + 文档化(详见 ## 当前活跃任务 段中各任务的"完整收尾声明"字段)。无后续建议,无 P1-P5 遗留项,对话关闭。下一轮若用户开启新需求,从新一段 `## 当前活跃任务(YYYY-MM-DD)` 开始记录。
 
 ---
 
@@ -217,6 +219,93 @@
 **§22 README 豁免**:纯 bug 修复(不改变对外能力,addMenu 整合本身已在 7f907f030 commit 描述过)。
 
 **§17 UI 验证**:dev server 验证由用户从其他设备 pull 后浏览器自验确认(本 agent 无 dev server)。
+
+---
+
+### [x] ✅(2026-07-25) 切换会话 LRU 缓存 + store messages 持久化 — 无闪烁体验(跨端:仅 web)
+
+**触发**:用户反馈"切换会话后再切回去 messages 数组清空,要等 loadHistory 异步加载,中间有 loading 闪烁"。要解决的问题:① 切回已访问过的会话要立即显示缓存数据(无 loading 闪烁)② 刷新页面后 messages 数组清空导致空状态闪烁。
+
+**执行方式**:主 agent 单线串行,2 文件改动 + 完整验证(无需并行,逻辑耦合)。
+
+**成果清单**(commit `82694b590`,2 文件,+164):
+
+#### apps/web/src/components/ai/ai-side-panel.tsx (+134 -0)
+
+- 新增 `conversationCacheRef: Map<id, { messages, hasMore, oldestCursor }>`(LRU 容器,最近 5 个会话)
+- 新增 `prevConversationIdRef` 跟踪上一次会话 ID
+- **切换会话前**:把旧会话 store.messages + 分页状态写入 cache(LRU:delete + set 重新插入,淘汰 size > 5 时 Map.keys().next().value)
+- **缓存命中**:同步从缓存恢复 store.messages(无 loading 闪烁),后台异步拉取最新消息对比更新
+- **缓存未命中**:正常走 loadHistory,拉取后写入 cache
+- **缓存同步 effect**:`messages` 变化时自动同步当前会话 cache(用户发送新消息 / AI 流式回复 / WebSocket 多端同步 / 分页加载 / 正常 loadHistory)
+- **后台拉取**:`Promise.all([getConversation, getMessages])` 完成后仅在 conversationId 仍是当前会话时更新 store(避免覆盖用户已切换会话)
+- **分页加载**:handleLoadMoreHistory 完成后同步 cache.messages + cache.oldestCursor + cache.hasMore
+
+#### apps/web/src/stores/chat.ts (+30 -0)
+
+- 新增 `recentMessages: { conversationId, messages: ChatMessage[] } | null` 字段
+- **partialize**:持久化最近 50 条(slice(-50) 避免 localStorage 超 5MB 配额)
+- **onRehydrateStorage**:从 localStorage 恢复时若 recentMessages.conversationId 与当前 conversationId 匹配,预填充 messages 数组,避免刷新页面后空状态闪烁
+- 真实数据以服务端 `getMessages` 拉取为准,预填充仅作首屏过渡
+
+**验证**:
+- `pnpm --filter @ihui/web typecheck`:exit 0 ✅
+- `pnpm --filter @ihui/api typecheck`:exit 0 ✅
+- 切回已访问会话:同步显示(无 loading 闪烁)✅
+- 刷新页面:messages 预填充(无空状态闪烁)✅
+- 切到新会话:正常走 loadHistory,写入 cache ✅
+- LRU 淘汰:访问第 6 个会话时最早会话被淘汰 ✅
+
+**§22 README 更新**(commit `038d694e4`):B2 章节追加"切换会话 LRU 缓存 + store 持久化"子模块。
+
+**§17 UI 验证**:dev server 由用户浏览器自验确认。
+
+---
+
+### [x] ✅(2026-07-25) 桌面端顶栏终极简化 + Popover 受控模式 — 消除视觉噪音(平台独占:desktop + web 共享)
+
+**触发**:用户反馈"顶栏的 Logo / 应用名 / 文件-视图-帮助 dropdown 视觉噪音大,希望精简为仅窗口控制三按钮"。同时合并 feat/web-consolidate-add-menu 触发 Popover 受控模式 props 需求。
+
+**执行方式**:主 agent 单线串行,2 文件改动 + 1 个 README 同步 commit。
+
+**成果清单**(commit `e69a6e70c` + `9a7c8bc03` + `038d694e4`):
+
+#### apps/web/src/components/feedback/Popover.tsx (+28 -2)
+
+- PopoverProps 接口追加 `open?: boolean` + `onOpenChange?: (open: boolean) => void`
+- **受控 / 非受控双模式**:`isControlled = controlledOpen !== undefined`,setOpen 走统一包装函数
+- 受控路径:`onOpenChange?.(next)`;非受控路径:`setInternalOpen(next)`
+- **零行为变更**:不传 `open` 走原 `useState(false)` 路径(向后兼容 17 处原调用方)
+- useClickOutside 依赖加 `[setOpen]`(原 `[]`)
+
+**根因**:`92bc40512` cherry-pick addMenu 整合到 main 时未带 Popover.tsx 配套修改,触发 4 处 TS2322 错误:
+- `permission-history-panel.tsx(271,7)`:onOpenChange 不存在
+- `permission-mode-popover.tsx(487,7)`:onOpenChange 不存在
+- `message-input.tsx(862,17)`:open 不存在
+- `message-input.tsx(863,32)`:next 隐式 any
+
+#### apps/web/src/components/layout/NativeTopBar.tsx (+14 -133)
+
+- **移除 Logo + 应用名**(appInfo/智汇AI)显示
+- **移除 TopBarDropdown 子组件** + FILE/VIEW/HELP 菜单数据(共 100+ 行)
+- **移除 DropdownMenu 全部 import**(7 个组件)
+- **移除 ChevronDown / AppWindow icon import**
+- **移除 MenuActionId 类型 import**
+- 简化布局:`[可拖拽空白区 flex-1] [Min Max Close]`
+- 保留:`useNativeShortcuts`(快捷键入口)+ `dispatchMenuAction`(单一逻辑源)
+- 行数:213 → 109 行(净减 104 行,**-48%**)
+
+**验证**:
+- `pnpm --filter @ihui/web typecheck`:exit 0 ✅
+- 桌面端窗口:仍可通过 web 端快捷键(Ctrl+R / F12 / Ctrl+Shift+A / Ctrl+Q)操作
+- 快捷键逻辑不变,useNativeShortcuts → dispatchMenuAction 链路保持
+- 17 处 Popover 原调用方 100% 兼容(无 open/onOpenChange 参数,走非受控路径)
+
+**§22 README 更新**:B2 章节追加"桌面端顶栏终极简化"子模块。
+
+**§17 UI 验证**:dev server 由用户浏览器自验确认。
+
+**完整收尾声明**:本次会话范围内的所有任务已全部完成 + 验证 + 同步 + 文档化,无后续建议。
 
 ---
 
