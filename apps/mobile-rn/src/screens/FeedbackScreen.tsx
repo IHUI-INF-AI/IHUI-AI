@@ -13,6 +13,13 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const FEEDBACK_TYPES = ['bug', 'suggestion', 'question', 'other'] as const
 type FeedbackType = (typeof FEEDBACK_TYPES)[number]
 
+const FEEDBACK_TYPE_KEYS: Record<FeedbackType, string> = {
+  bug: 'feedback.type_bug',
+  suggestion: 'feedback.type_suggestion',
+  question: 'feedback.type_question',
+  other: 'feedback.type_other',
+}
+
 export function FeedbackScreen() {
   const { t } = useI18n()
   const { token } = useAuth()
@@ -71,7 +78,7 @@ export function FeedbackScreen() {
                 style={[styles.typeBtn, type === tp && styles.typeBtnActive]}
               >
                 <Text style={[styles.typeText, type === tp && styles.typeTextActive]}>
-                  {t(`feedback.type_${tp}`)}
+                  {t(FEEDBACK_TYPE_KEYS[tp])}
                 </Text>
               </TouchableOpacity>
             ))}
