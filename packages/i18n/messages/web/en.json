@@ -1394,7 +1394,8 @@
   },
   "chat": {
     "title": "AI Chat",
-    "placeholder": "Describe your request; type / for skills, plugins, MCP (e.g. /goal /loop)",
+    "placeholder": "Describe your request; type / for skills, plugins, MCP (e.g. /goal /loop /plan)",
+    "placeholderPlan": "Plan mode: type your request, AI only makes plans without executing tools (/act to switch back, Alt+P to toggle)",
     "send": "Send",
     "stop": "Stop generating",
     "clear": "Clear chat",
