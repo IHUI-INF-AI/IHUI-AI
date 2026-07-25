@@ -19,7 +19,7 @@ import {
 } from '../db/admin-queries.js'
 import { createUser, isSystemAdminUser, type CreateUserInput } from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import bcrypt from 'bcryptjs'
+import { hashPassword } from '../utils/password-crypto.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -430,7 +430,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       const user = await createUser({
         phone: parsed.data.phone,
         email: parsed.data.email,
-        passwordHash: await bcrypt.hash(parsed.data.password, 10),
+        passwordHash: await hashPassword(parsed.data.password),
         nickname: parsed.data.nickname,
         roleId: parsed.data.roleId,
         status: parsed.data.status,
@@ -623,7 +623,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     }
     const user = await findUserByIdAdmin(paramParsed.data.id)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
-    const passwordHash = await bcrypt.hash(bodyParsed.data.newPassword, 10)
+    const passwordHash = await hashPassword(bodyParsed.data.newPassword)
     const { db } = await import('../db/index.js')
     const { users } = await import('@ihui/database')
     const { eq } = await import('drizzle-orm')
