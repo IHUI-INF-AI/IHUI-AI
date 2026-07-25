@@ -1190,7 +1190,6 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { model, personImage, garmentImage } = parsed.data
-      // TODO: 内部 /api/ai-image/tongyi/virtual-try-on 字段名以 base64 图片为准,这里透传 camelCase
       return forwardInternal(
         reply,
         '/api/ai-image/tongyi/virtual-try-on',
