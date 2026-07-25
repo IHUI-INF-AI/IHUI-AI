@@ -50,7 +50,7 @@ export default function EduCourseDetailPage() {
 
   const handleSelectSection = (section: Section) => {
     setCurrentSection(section)
-    const chapter = course?.chapters?.find((c) => c.sections.some((s) => s.id === section.id))
+    const chapter = course?.chapters?.find((c: any) => c.sections.some((s: any) => s.id === section.id))
     setCurrentChapterId(chapter?.id)
   }
 

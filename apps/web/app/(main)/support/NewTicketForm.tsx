@@ -104,7 +104,7 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
                   <SelectValue placeholder={t('categoryPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((c) => (
+                  {categories.map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
