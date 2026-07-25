@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
 import fp from 'fastify-plugin'
 import { createHash } from 'node:crypto'
+import type { Redis } from 'ioredis'
 import { eq, sql, and, gte, sum, desc, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { aiCostRecords, aiBudgets, type AiCostRecord } from '@ihui/database'
@@ -10,7 +11,7 @@ import { calculateCost } from '../services/pricing-service.js'
 import { logger } from '../utils/logger.js'
 
 // =============================================================================
-// Prompt 缓存 (LRU, 内存)
+// Prompt 缓存 (L1 内存 LRU + L2 Redis 分布式双层)
 // =============================================================================
 
 interface CacheEntry {
@@ -21,17 +22,33 @@ interface CacheEntry {
 const promptCache = new Map<string, CacheEntry>()
 const CACHE_MAX = 500
 const CACHE_TTL_MS = 10 * 60 * 1000 // 10 分钟
+const CACHE_TTL_SEC = Math.floor(CACHE_TTL_MS / 1000)
+const REDIS_PROMPT_CACHE_PREFIX = 'prompt:cache:'
+
+// P2-3 L2 Redis 客户端:在 aiCostPlugin 注册时由 server.redis 注入(null 表示 Redis 不可用,降级为仅 L1)
+let redisClient: Redis | null = null
+
+// P3-1 缓存实时计数器(供 admin 看板查询,与 dashboard 的 cacheHitRate(从 DB 算)互补)
+const promptCacheMetrics = {
+  hits: 0, // L1 命中次数
+  misses: 0, // L1 未命中次数(L2 命中或全 miss)
+  l2Hits: 0, // L2 Redis 命中次数
+  l2Misses: 0, // L2 Redis 未命中次数
+  errors: 0, // L2 Redis 异常次数
+}
 
 function hashPrompt(prompt: string): string {
   return createHash('sha256').update(prompt).digest('hex')
 }
 
 /**
- * 查询 prompt 缓存, 命中返回结果, 否则返回 null。
+ * 查询 prompt 缓存 (仅 L1 内存, 同步, 向后兼容)。
  *
  * 真 LRU + 命中续期: Map 迭代顺序按插入序, 命中后 delete + 重新 set 移到末尾(MRU 端),
  * 淘汰时 promptCache.keys().next().value 指向 LRU 端(最久未访问)。
  * 同时续期 expiredAt = now + CACHE_TTL_MS, 热点 prompt 永不过期。
+ *
+ * 注: 此函数只查 L1, 不查 L2 Redis。需要 L1+L2 双层查询请用 getCachedPromptAsync。
  */
 export function getCachedPrompt(prompt: string): unknown | null {
   const key = hashPrompt(prompt)
@@ -48,7 +65,53 @@ export function getCachedPrompt(prompt: string): unknown | null {
   return entry.response
 }
 
-/** 写入 prompt 缓存。 */
+/**
+ * 查询 prompt 缓存 (L1 内存 + L2 Redis 双层, 异步)。
+ *
+ * 流程: L1 命中 → 返回 + L1 续期(已实现);L1 未命中 → 异步查 L2 Redis,L2 命中 → 回填 L1 + 返回;
+ * L2 未命中 → 返回 null。L2 异常降级返回 null(不阻塞主链路)。
+ *
+ * P2-3: 跨实例部署时, A 实例写入的缓存只在自己 L1, 通过 L2 Redis 让 B 实例也能命中。
+ */
+export async function getCachedPromptAsync(prompt: string): Promise<unknown | null> {
+  // L1 查询(与同步版同逻辑)
+  const key = hashPrompt(prompt)
+  const entry = promptCache.get(key)
+  if (entry) {
+    if (Date.now() <= entry.expiredAt) {
+      // L1 命中: 续期 + 移到 MRU 端
+      promptCache.delete(key)
+      entry.expiredAt = Date.now() + CACHE_TTL_MS
+      promptCache.set(key, entry)
+      promptCacheMetrics.hits++
+      return entry.response
+    }
+    promptCache.delete(key)
+  }
+  promptCacheMetrics.misses++
+
+  // L2 查询(Redis)
+  if (!redisClient) return null
+  try {
+    const raw = await redisClient.get(REDIS_PROMPT_CACHE_PREFIX + key)
+    if (raw === null) {
+      promptCacheMetrics.l2Misses++
+      return null
+    }
+    // L2 命中: 回填 L1 + 返回
+    promptCacheMetrics.l2Hits++
+    const response = JSON.parse(raw) as unknown
+    setCachedPrompt(prompt, response) // 同步回填 L1(含 LRU 淘汰逻辑)
+    return response
+  } catch (err) {
+    // L2 异常降级: 不阻塞主链路,只 log warn + 计数
+    promptCacheMetrics.errors++
+    logger.warn(`[ai-cost] L2 Redis getCachedPromptAsync 异常, 降级返回 null: ${String(err)}`)
+    return null
+  }
+}
+
+/** 写入 prompt 缓存 (L1 内存 + L2 Redis 异步写入)。 */
 export function setCachedPrompt(prompt: string, response: unknown): void {
   const key = hashPrompt(prompt)
   if (promptCache.size >= CACHE_MAX) {
@@ -57,15 +120,32 @@ export function setCachedPrompt(prompt: string, response: unknown): void {
     if (firstKey) promptCache.delete(firstKey)
   }
   promptCache.set(key, { response, expiredAt: Date.now() + CACHE_TTL_MS })
+
+  // P2-3 L2 Redis 异步写入(fire-and-forget,失败仅 log warn 不阻塞主链路)
+  if (redisClient) {
+    void (async () => {
+      try {
+        await redisClient.set(
+          REDIS_PROMPT_CACHE_PREFIX + key,
+          JSON.stringify(response),
+          'EX',
+          CACHE_TTL_SEC,
+        )
+      } catch (err) {
+        promptCacheMetrics.errors++
+        logger.warn(`[ai-cost] L2 Redis setCachedPrompt 异常, 跳过 L2 写入: ${String(err)}`)
+      }
+    })()
+  }
 }
 
-/** 清空 prompt 缓存。 */
+/** 清空 prompt 缓存 (仅 L1;L2 由 TTL 自动过期,不做批量 DEL 避免阻塞 Redis)。 */
 export function clearPromptCache(): void {
   promptCache.clear()
 }
 
 /**
- * Prompt 缓存包装器: 命中直接返回 {cached: true}, 未命中调用 upstreamFetch 后写入缓存再返回 {cached: false}。
+ * Prompt 缓存包装器 (L1+L2 双层): 命中直接返回 {cached: true}, 未命中调用 upstreamFetch 后写入缓存再返回 {cached: false}。
  *
  * 缓存读写异常 try/catch 兜底降级, 不阻塞主流程(任何异常都退化为直取 upstream)。
  *
@@ -77,12 +157,12 @@ export async function cachedStreamWrapper<T>(
   upstreamFetch: () => Promise<T>,
 ): Promise<{ cached: boolean; response: T }> {
   try {
-    const hit = getCachedPrompt(prompt)
+    const hit = await getCachedPromptAsync(prompt)
     if (hit !== null) {
       return { cached: true, response: hit as T }
     }
   } catch (err) {
-    logger.warn(`[ai-cost] getCachedPrompt 异常, 降级直取 upstream: ${String(err)}`)
+    logger.warn(`[ai-cost] getCachedPromptAsync 异常, 降级直取 upstream: ${String(err)}`)
   }
   const response = await upstreamFetch()
   try {
@@ -197,7 +277,10 @@ declare module 'fastify' {
     aiCost: {
       checkBudget: typeof checkBudget
       record: typeof recordAiCost
+      /** 仅查 L1 内存(同步, 向后兼容) */
       getCached: typeof getCachedPrompt
+      /** 查 L1+L2 Redis 双层(异步, P2-3) */
+      getCachedAsync: typeof getCachedPromptAsync
       setCached: typeof setCachedPrompt
       cachedStreamWrapper: typeof cachedStreamWrapper
     }
@@ -207,15 +290,19 @@ declare module 'fastify' {
 /**
  * AI 成本治理插件:
  * - Token 预算控制 (按用户/租户/模型)
- * - Prompt 缓存 (重复 prompt 复用结果)
+ * - Prompt 缓存 (L1 内存 + L2 Redis 双层, P2-3)
  * - AI 调用成本记录
  * - 成本看板 API (GET /api/admin/ai/cost/dashboard)
  */
 const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  // P2-3 注入 Redis 客户端供 L2 缓存层使用(redisPlugin 已在本插件之前注册)
+  redisClient = server.redis
+
   server.decorate('aiCost', {
     checkBudget,
     record: recordAiCost,
     getCached: getCachedPrompt,
+    getCachedAsync: getCachedPromptAsync,
     setCached: setCachedPrompt,
     cachedStreamWrapper,
   })
@@ -301,6 +388,8 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
           calls: r.calls ?? 0,
         })),
         period: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
+        // P3-1 实时缓存计数器(与 summary.cacheHitRate(从 DB 算)互补,反映当前进程 L1+L2 命中情况)
+        promptCacheMetrics: { ...promptCacheMetrics },
       })
     },
   )
