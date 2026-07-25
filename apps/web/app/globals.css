@@ -242,6 +242,74 @@ body {
   display: none;
 }
 
+/* 2026-07-25 用户反馈:工作展示区(WebWorkPanel)内嵌 iframe + 截图模式 + 工具栏下拉
+   的滚动条全部彻底隐藏,鼠标滚轮/触摸板足够。
+   - scrolling="no" 配合 overflow:hidden 在大部分现代浏览器已能彻底隐藏
+   - 这里用 !important 提升优先级,确保覆盖 Tailwind v4 的 overflow-y-auto utility
+   - 同时覆盖 Firefox(scrollbar-width:none)+ IE/Edge 老(-ms-overflow-style:none)
+   - HMR touch trigger: 2026-07-25 22:44 → 23:35 加强版 → 23:50 终极加强版(全局 * 选择器) */
+.no-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overflow: hidden !important;
+}
+.no-scrollbar::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+/* WebWorkPanel 内容区(被加 .work-panel-content 容器的 div 滚动条)直接干掉 */
+.work-panel-content {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overflow: hidden !important;
+}
+.work-panel-content::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+iframe {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overflow: hidden !important;
+}
+iframe::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+/* iframe 内容区滚动条:用 wrapper div 包裹 + overflow:hidden,
+   即使 iframe 内部文档有滚动条,也被外层裁掉。
+   注意:这不会阻止 iframe 内部内容响应鼠标滚轮 — wheel 事件仍冒泡到外层 */
+.work-panel-content iframe {
+  display: block !important;
+  overflow: hidden !important;
+}
+/* 截图模式外层(.screenshot-scroll)与全局规则共用 */
+.screenshot-scroll {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.screenshot-scroll::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+/* 2026-07-25 23:50 终极加强:用属性选择器匹配所有可能是 work-panel 内部子元素的容器,
+   强制干掉滚动条,鼠标滚轮/触摸板驱动外层 / iframe 内部滚动
+   - 覆盖 [class*="overflow-y-auto"] / [class*="overflow-auto"] 残留 utility
+   - 覆盖 Tailwind v4 hover-scroll(已隐藏但兜底) */
+[class*='border-l'][class*='bg-card'] * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+[class*='border-l'][class*='bg-card'] *::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
 /* 跳转到主内容链接:键盘用户可见,平时屏幕阅读器外隐藏 — 由 app/(main)/layout.tsx 中的 sr-only 元素承担 */
 
 /* 主内容区焦点可见(配合 skip link 使用) */
