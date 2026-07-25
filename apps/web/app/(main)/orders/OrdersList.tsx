@@ -16,6 +16,11 @@ const STATUS_KEY: Record<OrderStatus, string> = {
   refunded: 'status.refunded',
 }
 
+const TYPE_KEY: Record<string, string> = {
+  course: 'type.course',
+  card: 'type.card',
+}
+
 interface Props {
   orders: OrderRow[]
   isLoading: boolean
@@ -48,7 +53,7 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
         <div>
           <div className="font-medium">{o.targetTitle ?? '-'}</div>
           <div className="text-xs text-muted-foreground">
-            {t(`type.${o.orderType === 'course' ? 'course' : 'card'}`)}
+            {t(TYPE_KEY[o.orderType === 'course' ? 'course' : 'card'] ?? 'type.card')}
           </div>
         </div>
       ),
