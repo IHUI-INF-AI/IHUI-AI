@@ -11,16 +11,14 @@ import {
 
 export function SourceControlPanel() {
   const t = useTranslations('ide')
-  const {
-    activeView,
-    diffFiles,
-    gitCommits,
-    gitBranches,
-    gitCurrentBranch,
-    fetchGitLog,
-    fetchGitBranches,
-    fetchDiffFiles,
-  } = useIDEWorkspace()
+  const activeView = useIDEWorkspace((s) => s.activeView)
+  const diffFiles = useIDEWorkspace((s) => s.diffFiles)
+  const gitCommits = useIDEWorkspace((s) => s.gitCommits)
+  const gitBranches = useIDEWorkspace((s) => s.gitBranches)
+  const gitCurrentBranch = useIDEWorkspace((s) => s.gitCurrentBranch)
+  const fetchGitLog = useIDEWorkspace((s) => s.fetchGitLog)
+  const fetchGitBranches = useIDEWorkspace((s) => s.fetchGitBranches)
+  const fetchDiffFiles = useIDEWorkspace((s) => s.fetchDiffFiles)
   const [branch, setBranch] = React.useState(gitCurrentBranch)
   const [branchOpen, setBranchOpen] = React.useState(false)
   const [stagedIds, setStagedIds] = React.useState<Set<string>>(new Set())
@@ -39,10 +37,20 @@ export function SourceControlPanel() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  const { totalAdd, totalDel } = React.useMemo(() => {
+    const add = diffFiles.reduce((s, f) => s + f.additions, 0)
+    const del = diffFiles.reduce((s, f) => s + f.deletions, 0)
+    return { totalAdd: add, totalDel: del }
+  }, [diffFiles])
+
+  const { stagedFiles, unstagedFiles } = React.useMemo(() => {
+    const staged = diffFiles.filter((f) => stagedIds.has(f.id))
+    const unstaged = diffFiles.filter((f) => !stagedIds.has(f.id))
+    return { stagedFiles: staged, unstagedFiles: unstaged }
+  }, [diffFiles, stagedIds])
+
   if (activeView !== 'source-control') return null
 
-  const totalAdd = diffFiles.reduce((s, f) => s + f.additions, 0)
-  const totalDel = diffFiles.reduce((s, f) => s + f.deletions, 0)
   const total = Math.max(totalAdd + totalDel, 1)
   const addPct = (totalAdd / total) * 100
   const ahead = 2
@@ -65,9 +73,6 @@ export function SourceControlPanel() {
       return next
     })
   }
-
-  const stagedFiles = diffFiles.filter((f) => stagedIds.has(f.id))
-  const unstagedFiles = diffFiles.filter((f) => !stagedIds.has(f.id))
 
   const renderFile = (file: typeof diffFiles[number], staged: boolean) => {
     const Icon = getFileIcon(file.filename)

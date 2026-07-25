@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
@@ -14,6 +15,7 @@ interface Props {
 export function BillingRecordsTable({ list, isLoading }: Props) {
   const t = useTranslations('adminApiBilling')
   const locale = useLocale()
+  const dateFmt = React.useMemo(() => new Intl.DateTimeFormat(locale), [locale])
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -90,7 +92,7 @@ export function BillingRecordsTable({ list, isLoading }: Props) {
                   </span>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {new Intl.DateTimeFormat(locale).format(new Date(r.createdAt))}
+                  {dateFmt.format(new Date(r.createdAt))}
                 </TableCell>
               </TableRow>
             ))
