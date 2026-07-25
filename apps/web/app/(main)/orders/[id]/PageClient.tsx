@@ -44,6 +44,11 @@ const STATUS_CONFIG: Record<
   refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary' },
 }
 
+const TYPE_KEY: Record<string, string> = {
+  course: 'type.course',
+  card: 'type.card',
+}
+
 async function fetchOrder(id: string): Promise<Order> {
   const res = await fetchApi<OrderDetailData>(`/api/orders/${id}`)
   if (!res.success) throw new Error(res.error)
@@ -144,7 +149,11 @@ export default function OrderDetailPage() {
         </div>
         <div className="flex justify-between px-4 py-3 text-sm">
           <dt className="text-muted-foreground">{t('orderType')}</dt>
-          <dd>{t(`type.${order.orderType}`, { default: order.orderType })}</dd>
+          <dd>
+            {t(TYPE_KEY[order.orderType] ?? `type.${order.orderType}`, {
+              default: order.orderType,
+            })}
+          </dd>
         </div>
         <div className="flex justify-between px-4 py-3 text-sm">
           <dt className="text-muted-foreground">{t('createdAt')}</dt>

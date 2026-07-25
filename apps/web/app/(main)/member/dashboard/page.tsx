@@ -35,6 +35,13 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
+const STAT_KEY: Record<string, string> = {
+  level: 'stats.level',
+  points: 'stats.points',
+  coupon: 'stats.coupon',
+  orders: 'stats.orders',
+}
+
 export default function MemberDashboardPage() {
   const t = useTranslations('memberDashboardPage')
   const locale = useLocale()
@@ -114,7 +121,9 @@ export default function MemberDashboardPage() {
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
               <p className="mt-2 truncate text-lg font-semibold">{s.value}</p>
-              <p className="text-xs text-muted-foreground">{t(`stats.${s.labelKey}`)}</p>
+              <p className="text-xs text-muted-foreground">
+                {t(STAT_KEY[s.labelKey] ?? `stats.${s.labelKey}`)}
+              </p>
             </Link>
           )
         })}
@@ -129,10 +138,7 @@ export default function MemberDashboardPage() {
                 {dateFmt.format(new Date(summary.expireAt))}
               </span>
             </span>
-            <Link
-              href="/vip"
-              className="text-amber-600 hover:underline dark:text-amber-400"
-            >
+            <Link href="/vip" className="text-amber-600 hover:underline dark:text-amber-400">
               {t('renew')}
             </Link>
           </CardContent>
