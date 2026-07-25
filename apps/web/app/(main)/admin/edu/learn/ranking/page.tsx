@@ -40,6 +40,13 @@ interface Rank {
 const PAGE_SIZE = 20
 const PERIODS = ['week', 'month', 'total']
 
+/** 排行榜周期 i18n key 静态映射表:period.${k} — 用于消除 `t(`period.${k}`)` 动态拼接 */
+const PERIOD_KEY: Record<string, string> = {
+  week: 'period.week',
+  month: 'period.month',
+  total: 'period.total',
+}
+
 export default function EduLearnRankingPage() {
   const t = useTranslations('admin.edu.learn.ranking')
   const [page, setPage] = React.useState(1)
@@ -85,7 +92,7 @@ export default function EduLearnRankingPage() {
             <SelectContent>
               {PERIODS.map((k) => (
                 <SelectItem key={k} value={k}>
-                  {t(`period.${k}`)}
+                  {t(PERIOD_KEY[k] ?? 'period.unknown')}
                 </SelectItem>
               ))}
             </SelectContent>
