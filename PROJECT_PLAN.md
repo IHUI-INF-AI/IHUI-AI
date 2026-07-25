@@ -134,6 +134,15 @@ tt(WEEKDAY_KEYS[i])
 - miniapp-taro 端 11 处调 `/distribution/*`,api-client 端 11 处调 `/commission/*`,后端路由 `/distribution/*` 与 `/commission/*` 并存
 - **推荐方案**:统一为 `/distribution/*`(后端主路由 + miniapp-taro 现状),api-client 11 处 `/commission/*` 改名,作为 P1-1 后续任务执行
 
+**Distribution API 命名统一执行(2026-07-25 完成 ✅)**:
+
+- **后端**:[apps/api/src/routes/distribution.ts](file:///g:/IHUI-AI/apps/api/src/routes/distribution.ts) 新增 4 个端点迁移自 commission-routes.ts(`invite-info` / `list` / `withdraw-list` / `ranking`),`overview` 扩展返回 `availableCommission` 字段
+- **后端清理**:删除 [apps/api/src/routes/user/commission-routes.ts](file:///g:/IHUI-AI/apps/api/src/routes/user/commission-routes.ts)(已迁移),[apps/api/src/routes/user/index.ts](file:///g:/IHUI-AI/apps/api/src/routes/user/index.ts) 移除 commissionRoutes 注册
+- **api-client**:[packages/api-client/src/endpoints/distribution.ts](file:///g:/IHUI-AI/packages/api-client/src/endpoints/distribution.ts) 7 处 `/commission/*` → `/distribution/*`
+- **web admin**:7 处 `/commission/*` → `/distribution/*`(overview/withdrawals 审批+list/settlements/rules GET+POST+PUT/orders)
+- **finance/commission/* 保留**:`/api/finance/commission/{list,summary,orders,day-month-summary}` 是 finance 域独立路由(finance.ts 实现,业务语义为"财务视角的佣金统计",与 distribution 域 user 视角不同),不整合
+- **验证**:`pnpm --filter @ihui/api exec tsc --noEmit` exit 0 ✅;`pnpm --filter @ihui/web exec eslint "app/(main)/admin/distribution/**"` exit 0 ✅;全项目 grep `['"\`]/commission/` 仅剩 PROJECT_PLAN.md 历史描述(本段)
+
 **验证**:
 
 - `pnpm --filter @ihui/app typecheck` exit 0 ✅
