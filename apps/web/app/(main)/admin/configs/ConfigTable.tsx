@@ -18,7 +18,7 @@ interface Props {
   onDelete: (c: Config) => void
 }
 
-export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDelete }: Props) {
+export const ConfigTable = React.memo(function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.configs')
   const handleEdit = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -135,4 +135,4 @@ export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDe
       </table>
     </div>
   )
-}
+})

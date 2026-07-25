@@ -17,7 +17,7 @@ interface Props {
   onDelete: (item: ModelRow) => void
 }
 
-export function AiModelsTable({
+export const AiModelsTable = React.memo(function AiModelsTable({
   list,
   isLoading,
   togglePending,
@@ -156,4 +156,4 @@ export function AiModelsTable({
       </table>
     </div>
   )
-}
+})

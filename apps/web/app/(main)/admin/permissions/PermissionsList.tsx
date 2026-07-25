@@ -14,7 +14,7 @@ interface Props {
   onCopy: (p: Permission) => void
 }
 
-export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy }: Props) {
+export const PermissionsList = React.memo(function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy }: Props) {
   const t = useTranslations('admin.permissions')
   const locale = useLocale()
   const dateFmt = React.useMemo(
@@ -25,6 +25,16 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
         day: '2-digit',
       }),
     [locale],
+  )
+
+  const handleCopy = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = grouped.flatMap(([, l]) => l).find((x) => String(x.id) === id)
+      if (item) onCopy(item)
+    },
+    [grouped, onCopy],
   )
 
   if (isError) {
@@ -81,7 +91,8 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
                     <TableCell className="px-4 py-2">
                       <button
                         type="button"
-                        onClick={() => onCopy(p)}
+                        data-id={p.id}
+                        onClick={handleCopy}
                         className="group inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/70"
                         title={t('copyCode')}
                       >
@@ -113,4 +124,4 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
       ))}
     </div>
   )
-}
+})

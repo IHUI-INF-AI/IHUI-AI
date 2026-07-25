@@ -14,7 +14,7 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export function AuthFindInfoTable({ list, isLoading, onEdit, onDelete }: Props) {
+export const AuthFindInfoTable = React.memo(function AuthFindInfoTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('adminAuthFindInfo')
   const handleEdit = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -99,4 +99,4 @@ export function AuthFindInfoTable({ list, isLoading, onEdit, onDelete }: Props) 
       </table>
     </div>
   )
-}
+})
