@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
@@ -17,6 +18,22 @@ interface Props {
 
 export function ContactTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
   const t = useTranslations('adminContact')
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (id && confirm(t('confirmDelete'))) onDelete(id)
+    },
+    [t, onDelete],
+  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -55,7 +72,7 @@ export function ContactTable({ list, isLoading, delPending, onEdit, onDelete }: 
                 <td className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     <HasPermi code={`${PERM}:edit`}>
-                      <Button size="sm" variant="ghost" onClick={() => onEdit(item)}>
+                      <Button size="sm" variant="ghost" data-id={item.id} onClick={handleEdit}>
                         <Edit className="h-4 w-4" />
                         {t('edit')}
                       </Button>
@@ -66,7 +83,8 @@ export function ContactTable({ list, isLoading, delPending, onEdit, onDelete }: 
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
                         disabled={delPending}
-                        onClick={() => confirm(t('confirmDelete')) && onDelete(item.id)}
+                        data-id={item.id}
+                        onClick={handleDelete}
                       >
                         <Trash2 className="h-4 w-4" />
                         {t('delete')}
