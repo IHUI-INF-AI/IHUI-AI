@@ -66,8 +66,8 @@ export default function WorkspacePermissionsPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {permissions.map((perm) => {
-            const Mode = MODE_LABEL[perm.mode]
+          {permissions.map((perm: any) => {
+            const Mode = MODE_LABEL[perm.mode as any]
             const ModeIcon = Mode.icon
             return (
               <li
@@ -88,7 +88,7 @@ export default function WorkspacePermissionsPage() {
                             : 'bg-muted text-muted-foreground',
                       )}
                     >
-                      {tw(MODE_TITLE_KEY[perm.mode] ?? 'mode.unknown.title')}
+                      {tw(MODE_TITLE_KEY[perm.mode as any] ?? 'mode.unknown.title')}
                     </span>
                   </div>
                   <p className="font-mono text-xs text-muted-foreground truncate">
