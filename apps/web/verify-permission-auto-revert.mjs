@@ -268,8 +268,24 @@ async function main() {
     activeWorkspace: window.localStorage.getItem('ihui-ai-panel'),
   }))
   console.log('  [debug-ls]', JSON.stringify(debugLs).slice(0, 300))
+  // 轮询抓降级 toast 文本(必须 ≤ 6s 内抓到,sonner 自动消失)
+  const revertedToastPromise = (async () => {
+    for (let i = 0; i < 60; i++) {
+      const text = await page.evaluate(() => {
+        const toasts = Array.from(document.querySelectorAll('[data-sonner-toast]'))
+        return toasts.map((t) => t.textContent || '').join(' || ')
+      })
+      if (text.includes('已自动切回') || text.includes('本次完全访问')) {
+        return text
+      }
+      await page.waitForTimeout(100)
+    }
+    return ''
+  })()
   // hook 内部 void(async () => { ... })() 启动异步 IIFE,需更长时间等 switchPermissionMode + persist 写回
   await page.waitForTimeout(8000)
+  const autoRevertedToastText = await revertedToastPromise
+  console.log('  [toast-text-reverted]', autoRevertedToastText.slice(0, 250))
   const debugLs2 = await page.evaluate(() => ({
     autoRevert: window.localStorage.getItem('ihui:auto-revert-bypass'),
     activeWorkspace: window.localStorage.getItem('ihui-ai-panel'),
@@ -303,6 +319,14 @@ async function main() {
   const s6b = await captureDom(page, 'warning-5min-after-extend')
   console.log('  → after-extend', JSON.stringify(s6b))
 
+  // 抓 toast 描述(5min 提醒,自动降级 toast 已在 #5 阶段抓过)
+  // 必须在 browser.close() 之前调用
+   
+  const _fiveMinToastText = await page.evaluate(() => {
+    const toasts = Array.from(document.querySelectorAll('[data-sonner-toast]'))
+    return toasts.map((t) => t.textContent || '').join(' || ')
+  })
+
   writeFileSync(resolve(SCREENSHOT_DIR, 'dom-log.json'), JSON.stringify(DOM_LOG, null, 2))
   console.log('\n[DOM 数据汇总]:')
   for (const d of DOM_LOG) console.log('  ', JSON.stringify(d))
@@ -321,8 +345,15 @@ async function main() {
     { name: '6. bypass 标题栏徽章', pass: !!s2.titleBadge && s2.titleBadge.includes('完全访问') },
     { name: '7. bypass 标题栏倒计时', pass: !!s2.titleCountdown && /\d{1,2}:\d{2}/.test(s2.titleCountdown) },
     { name: '8. 取消按钮可见', pass: s2.cancelBtn === true },
-    { name: '9. dark 模式 classList.dark', pass: s4.isDark === true },
-    { name: '10. 自动撤销后切回 default', pass: s5.activeMode === 'default' },
+    { name: '9. dark 模式 classList.dark', pass: s4.isDark === true },{
+      name: '10. 自动撤销后切回 default',
+      pass: s5.activeMode === 'default',
+    },
+    {
+      name: '10b. 自动降级 toast 描述含本次时长(usedMin)',
+      // 期望描述含 "本次完全访问已持续" 或带数字的"X 分钟"
+      pass: /本次完全访问已持续\s*\d+\s*分钟/.test(autoRevertedToastText),
+    },
     {
       name: '11. 5min 提醒 - 横幅仍可见(警告态)',
       pass: s6.banner?.includes('完全访问模式') || s6.titleCountdown !== null,
