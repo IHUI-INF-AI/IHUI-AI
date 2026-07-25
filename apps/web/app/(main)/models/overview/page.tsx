@@ -3,6 +3,12 @@ import { Activity, ArrowUpRight, Bot, DollarSign, Key, Zap } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
+/** i18n 静态映射表 — 用于消除 `t(`overview.recentCalls.statusLabels.${var}`)` 动态拼接 */
+const OVERVIEW_RECENTCALLS_STATUS_KEY: Record<string, string> = {
+  success: 'overview.recentCalls.statusLabels.success',
+  failed: 'overview.recentCalls.statusLabels.failed',
+}
+
 export default async function OverviewPage() {
   const t = await getTranslations('models')
 
@@ -171,7 +177,7 @@ export default async function OverviewPage() {
                             : 'inline-flex items-center rounded bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:text-rose-400'
                         }
                       >
-                        {t(`overview.recentCalls.statusLabels.${c.status}`)}
+                        {t(OVERVIEW_RECENTCALLS_STATUS_KEY[c.status] ?? 'overview.recentCalls.statusLabels.unknown')}
                       </span>
                     </td>
                   </tr>

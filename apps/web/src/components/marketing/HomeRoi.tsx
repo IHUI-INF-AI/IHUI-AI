@@ -37,16 +37,31 @@ const ROI_KEYS = [
   { key: 'seats', icon: Users },
 ] as const
 
+/** i18n 静态映射表 — 用于消除 `t(`${key}.xxx`)` 动态拼接 */
+const ROI_I18N_KEY: Record<string, { title: string; value: string; description: string; calculation: string }> = {
+  cost: { title: 'cost.title', value: 'cost.value', description: 'cost.description', calculation: 'cost.calculation' },
+  speed: { title: 'speed.title', value: 'speed.value', description: 'speed.description', calculation: 'speed.calculation' },
+  cache: { title: 'cache.title', value: 'cache.value', description: 'cache.description', calculation: 'cache.calculation' },
+  quality: { title: 'quality.title', value: 'quality.value', description: 'quality.description', calculation: 'quality.calculation' },
+  sla: { title: 'sla.title', value: 'sla.value', description: 'sla.description', calculation: 'sla.calculation' },
+  learning: { title: 'learning.title', value: 'learning.value', description: 'learning.description', calculation: 'learning.calculation' },
+  models: { title: 'models.title', value: 'models.value', description: 'models.description', calculation: 'models.calculation' },
+  seats: { title: 'seats.title', value: 'seats.value', description: 'seats.description', calculation: 'seats.calculation' },
+}
+
 export function HomeRoi() {
   const t = useTranslations('marketing.roi')
 
-  const rois: RoiItem[] = ROI_KEYS.map(({ key, icon }) => ({
-    icon,
-    title: t(`${key}.title`),
-    value: t(`${key}.value`),
-    description: t(`${key}.description`),
-    calculation: t(`${key}.calculation`),
-  }))
+  const rois: RoiItem[] = ROI_KEYS.map(({ key, icon }) => {
+    const i18nKey = ROI_I18N_KEY[key]
+    return {
+      icon,
+      title: t(i18nKey?.title ?? 'unknown.title'),
+      value: t(i18nKey?.value ?? 'unknown.value'),
+      description: t(i18nKey?.description ?? 'unknown.description'),
+      calculation: t(i18nKey?.calculation ?? 'unknown.calculation'),
+    }
+  })
 
   return (
     <section className="space-y-5">

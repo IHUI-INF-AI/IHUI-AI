@@ -3,6 +3,12 @@ import { Cable, Plus } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
+/** i18n 静态映射表 — 用于消除 `t(`channels.statusLabels.${var}`)` 动态拼接 */
+const CHANNELS_STATUS_KEY: Record<string, string> = {
+  enabled: 'channels.statusLabels.enabled',
+  disabled: 'channels.statusLabels.disabled',
+}
+
 export default async function ChannelsPage() {
   const t = await getTranslations('models')
 
@@ -88,7 +94,7 @@ export default async function ChannelsPage() {
                             : 'inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
                         }
                       >
-                        {t(`channels.statusLabels.${c.status}`)}
+                        {t(CHANNELS_STATUS_KEY[c.status ?? ''] ?? 'channels.statusLabels.unknown')}
                       </span>
                     </td>
                   </tr>
