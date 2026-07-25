@@ -649,7 +649,6 @@ IHUI-AI/
 ├── packages/                # 13 shared packages
 │   ├── api-client/          # @ihui/api-client (40+ endpoints auto-generated SDK)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
-│   ├── config/              # @ihui/config
 │   ├── context-compaction/  # @ihui/context-compaction (context compression)
 │   ├── database/            # @ihui/database (Drizzle, 339+ tables, 128+ migrations, RLS, tenant routing, pgvector)
 │   ├── eslint-config/       # @ihui/eslint-config
