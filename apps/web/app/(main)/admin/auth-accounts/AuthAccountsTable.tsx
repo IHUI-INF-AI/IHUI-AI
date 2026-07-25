@@ -20,7 +20,7 @@ interface AuthAccountsTableProps {
   onPageChange: (page: number) => void
 }
 
-export function AuthAccountsTable({
+export const AuthAccountsTable = React.memo(function AuthAccountsTable({
   list,
   isLoading,
   page,
@@ -142,4 +142,4 @@ export function AuthAccountsTable({
       )}
     </>
   )
-}
+})

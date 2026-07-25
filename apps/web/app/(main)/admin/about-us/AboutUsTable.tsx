@@ -16,7 +16,7 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete }: Props) {
+export const AboutUsTable = React.memo(function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.aboutUs')
   const handleEdit = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -105,4 +105,4 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
       </table>
     </div>
   )
-}
+})
