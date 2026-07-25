@@ -2,8 +2,15 @@ import { setTokenProvider, setBaseUrl, fetchApi as fetchApiShared } from '@ihui/
 import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
+import { getAuthCookie } from '@/lib/cookie-utils'
 
-setTokenProvider({ getToken: () => useAuthStore.getState().token })
+// 2026-07-25 修复 CSRF:内存 token 为 null 时从 auth_token cookie 兜底读取。
+// 原因:登录后只把 accessToken 写到 cookie(2026-07-21 安全加固后未持久化到 localStorage),
+// 刷新页面后 useAuthStore.token 丢失,但 cookie 仍在。CSRF 插件(csrf.ts)对非 Bearer
+// 写请求直接拒绝,导致新增服务商等表单无法保存。
+setTokenProvider({
+  getToken: () => useAuthStore.getState().token ?? getAuthCookie(),
+})
 
 // A 套壳:rewrites 失效后(output: 'export'),前端直连 apps/api
 // - Tauri 环境:直连 http://127.0.0.1:8802(本地 API server)
