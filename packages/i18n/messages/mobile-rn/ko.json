@@ -16,6 +16,9 @@
     "profile": "마이",
     "agents": "에이전트"
   },
+  "auth": {
+    "login": "로그인"
+  },
   "home": {
     "welcome": "IHUI AI에 오신 것을 환영합니다"
   },
