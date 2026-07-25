@@ -1,0 +1,11 @@
+chore(api): 清理 2 条过时 TODO 注释
+
+1. deprecated-routes.ts:5 — "加 TODO 注释留给业务方评估" 过时(业务方已评估完成 @2026-07-21),改为明确描述
+2. v1-multimodal.ts:1193 — "透传 camelCase" 与代码事实不符(下一行已做 snake_case 转换),删除
+
+2 subagent 交叉分析 25 个源码文件 TODO/FIXME/HACK 分布:
+- 可清理 2 条(本轮处理)
+- 需实现 18 条(真实待办,保留:安全债/后端断链/占位 stub)
+- 误匹配 14 条(NEXT_PUBLIC_XXX 模式/XXXX-XXXX 格式/测试假数据,保留)
+
+至此 ⑨ TODO/FIXME/HACK 清理完成:源码无过时残留,剩余均为真实待办
