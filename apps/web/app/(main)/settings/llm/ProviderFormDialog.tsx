@@ -17,7 +17,7 @@ import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { ClipboardPaste, Loader2 } from 'lucide-react'
+import { ClipboardPaste, Eye, EyeOff, Loader2 } from 'lucide-react'
 
 import {
   Button,
@@ -39,6 +39,7 @@ import {
 } from './helpers-v2'
 import type { ProviderFormState, UserLlmProvider } from './types-v2'
 import type { PlatformTemplate } from './types'
+import { Tooltip } from '@/components/feedback'
 
 interface Props {
   open: boolean
@@ -123,6 +124,7 @@ export function ProviderFormDialog({
   const tpl = templates.find((t) => t.code === form.providerCode)
   const isEdit = !!form.id
   const isPending = saveMut.isPending
+  const [showKey, setShowKey] = React.useState(false)
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -184,14 +186,30 @@ export function ProviderFormDialog({
           <div className="space-y-1.5">
             <Label htmlFor="apiKey">{t('apiKey')}</Label>
             <div className="flex gap-1.5">
-              <Input
-                id="apiKey"
-                type="password"
-                value={form.apiKey}
-                onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                placeholder={isEdit ? t('keyPlaceholderEdit') : t('keyPlaceholderNew')}
-                className="flex-1"
-              />
+              <div className="relative flex-1">
+                <Input
+                  id="apiKey"
+                  type={showKey ? 'text' : 'password'}
+                  value={form.apiKey}
+                  onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                  placeholder={isEdit ? t('keyPlaceholderEdit') : t('keyPlaceholderNew')}
+                  className="flex-1 pr-9 font-mono"
+                />
+                <Tooltip content={showKey ? t('hideKey') : t('showKey')}>
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((s) => !s)}
+                    aria-label={showKey ? t('hideKey') : t('showKey')}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    {showKey ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </Tooltip>
+              </div>
               <Button
                 type="button"
                 variant="outline"
