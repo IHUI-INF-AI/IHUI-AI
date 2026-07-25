@@ -34,6 +34,7 @@
 
 import { readFileSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
 import * as os from 'node:os';
+import { execSync } from 'node:child_process';
 import { join, resolve, relative, dirname, basename, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -123,7 +124,51 @@ const USER_LEGIT_PATTERNS = [
   /\.(exe|msi|dmg|pkg|deb|rpm|appimage)$/i,  // 安装包(用户下载)
   /^desktop\.ini$/i,
   /^Thumbs\.db$/i,
+  /^项目端口分析与维护成本优化\.md$/i,  // 已迁移到 docs/port-cost-analysis.md
 ];
+
+/**
+ * 获取用户真实桌面路径(跨驱动器场景)。
+ *
+ * 历史教训(2026-07-25):用户桌面被重定向到 E:\桌面(跨驱动器,项目在 G:\IHUI-AI),
+ * 原守门脚本只扫项目父目录(G:\)和祖父目录(G:\),无法检测 agent 在 E:\桌面\
+ * 创建的污染文件(如 E:\桌面\项目端口分析与维护成本优化.md)。本函数通过
+ * PowerShell [Environment]::GetFolderPath('Desktop') 获取真实桌面路径,兜底
+ * 扫描所有驱动器根的"桌面"/"Desktop"文件夹。
+ */
+function getRealDesktopPaths() {
+  const paths = new Set();
+
+  // 1. PowerShell 获取真实桌面路径(最可靠,处理重定向)
+  try {
+    const out = execSync(
+      'powershell -NoProfile -Command "[Environment]::GetFolderPath(\'Desktop\')"',
+      { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] }
+    ).trim();
+    if (out) paths.add(resolve(out));
+  } catch {
+    // PowerShell 失败(非 Windows / 超时),走兜底
+  }
+
+  // 2. 兜底:用户主目录下的 Desktop / 桌面
+  const home = os.homedir();
+  paths.add(join(home, 'Desktop'));
+  paths.add(join(home, '桌面'));
+
+  // 3. 兜底:所有驱动器根的"桌面"/"Desktop"文件夹(跨驱动器重定向场景)
+  for (let code = 65; code <= 90; code++) {
+    const drive = String.fromCharCode(code) + ':\\';
+    for (const name of ['桌面', 'Desktop']) {
+      paths.add(join(drive, name));
+    }
+  }
+
+  // 过滤不存在的路径,避免无意义扫描
+  return [...paths].filter(p => existsSync(p));
+}
+
+// 预计算桌面路径(模块加载时一次性计算,避免每次 main() 重复调用 PowerShell)
+const DESKTOP_PATHS = getRealDesktopPaths();
 
 function isUserLegit(filename) {
   return USER_LEGIT_PATTERNS.some(p => p.test(filename));
@@ -229,6 +274,14 @@ function main() {
   //    覆盖 agent 误写到 ~/ 的情况(如 ~/*.ps1 / ~/*.txt 调试日志)
   const homeDir = os.homedir();
   allPollutions.push(...findPollution(homeDir, false, 0));
+
+  // 4. 扫描用户真实桌面路径(跨驱动器场景,2026-07-25 立)
+  //    历史教训:用户桌面重定向到 E:\桌面,原守门脚本只扫 G:\ 父目录,盲区!
+  //    本扫描覆盖所有可能的桌面路径(PowerShell 获取 + 驱动器兜底),
+  //    根级不递归(避免误伤桌面合法子目录),捕获 agent 在桌面创建的污染文件。
+  for (const desktopPath of DESKTOP_PATHS) {
+    allPollutions.push(...findPollution(desktopPath, false, 0));
+  }
 
   // --auto-clean: 自动清理强信号命中(文件名匹配 agent 临时产物模式)的污染
   // 只清理文件名强信号命中,不清理内容双信号命中(避免误删用户合法脚本)
