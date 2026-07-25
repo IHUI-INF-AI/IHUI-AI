@@ -216,7 +216,153 @@
     "selfMediaAutomation": "Automation",
     "downloadTitle": "Download App",
     "mainNav": "Main Navigation",
-    "pluginMarket": "Plugin Market"
+    "pluginMarket": "Plugin Market",
+    "aiGroupLabel": "AI Agents",
+    "adminGroupLabel": "Admin",
+    "eduGroup": "AI Education",
+    "contentGroup": "Content",
+    "tradeGroup": "Trade",
+    "personalGroup": "Personal",
+    "developerGroup": "Developer",
+    "home": "Home",
+    "chatHistory": "Chat History",
+    "models": "Model Market",
+    "agents": "Agents",
+    "agentWorkbench": "Agent Workbench",
+    "aiWorld": "AI World",
+    "memory": "Memory",
+    "subagents": "Subagents",
+    "context": "Context",
+    "spec": "Spec Mode",
+    "plan": "Plan Mode",
+    "workspace": "Workspace",
+    "knowledgeBase": "Knowledge Base",
+    "knowledgeRag": "RAG Knowledge",
+    "knowledgeGraph": "Knowledge Graph",
+    "registry": "Registry",
+    "admin": "Admin",
+    "adminStatistics": "Statistics",
+    "userCenter": "User Center",
+    "members": "Members",
+    "adminWorkflows": "Workflows",
+    "adminTags": "Tags",
+    "adminLogs": "Operation Logs",
+    "adminTheme": "Theme",
+    "adminThemeList": "Theme List",
+    "adminThemeCreate": "Create Theme",
+    "adminThemeColors": "Colors",
+    "adminThemeFonts": "Fonts",
+    "adminThemeDarkMode": "Dark Mode",
+    "adminThemeAssets": "Assets",
+    "adminThemePresets": "Presets",
+    "adminThemeExport": "Export",
+    "adminConfigs": "Configs",
+    "adminDynamic": "Dynamic Routes",
+    "overview": "Overview",
+    "learn": "Learn",
+    "live": "Live",
+    "exam": "Exam",
+    "lecturers": "Lecturers",
+    "schedule": "Schedule",
+    "topics": "Topics",
+    "asks": "Q&A",
+    "circles": "Circles",
+    "resources": "Resources",
+    "news": "News",
+    "announcements": "Announcements",
+    "plaza": "Plaza",
+    "enterprise": "Enterprise",
+    "distribution": "Distribution",
+    "teams": "Teams",
+    "docs": "Docs",
+    "search": "Search",
+    "tags": "Tags",
+    "oauthPlatform": "OAuth Platform",
+    "selfMediaWechat": "WeChat MP",
+    "selfMediaKoubo": "Koubo Video",
+    "publishPlatform": "Publish",
+    "wallet": "Wallet",
+    "payment": "Payment",
+    "orders": "Orders",
+    "activities": "Activities",
+    "points": "Points",
+    "eduPoints": "Edu Points",
+    "oauthMyAuthorized": "My Authorized",
+    "myLearning": "My Learning",
+    "favorites": "Favorites",
+    "following": "Following",
+    "subscriptions": "Subscriptions",
+    "student": "Student Center",
+    "feedback": "Feedback",
+    "help": "Help",
+    "developer": "Developer",
+    "developerApiDocs": "API Docs",
+    "developerKeys": "API Keys",
+    "developerWebhooks": "Webhooks",
+    "developerSandbox": "Sandbox",
+    "developerLimits": "Rate Limits",
+    "developerLogs": "Call Logs",
+    "developerVersions": "Versions",
+    "developerSubscription": "Subscription",
+    "developerNotifications": "Notifications",
+    "developerTeam": "Team",
+    "developerBilling": "Billing",
+    "developerSettings": "Settings",
+    "modelsOverview": "Overview",
+    "modelsMarket": "Market",
+    "modelsChannels": "Channels",
+    "modelsKeys": "Keys",
+    "modelsLogs": "Logs",
+    "modelsChats": "Chats",
+    "modelsUsers": "Users",
+    "modelsGroups": "Groups",
+    "modelsUsage": "Usage",
+    "modelsBilling": "Billing",
+    "modelsRedeem": "Redeem",
+    "modelsReferral": "Referral",
+    "modelsOpenclaw": "OpenClaw",
+    "modelsApiDocs": "API Docs",
+    "modelsSkills": "Skills",
+    "messagesNotice": "System Notices",
+    "messagesLike": "Likes",
+    "messagesFavorite": "Favorites",
+    "messagesComment": "Comments",
+    "messagesFans": "New Followers",
+    "messagesPrivateLetter": "DMs",
+    "userProfile": "Profile",
+    "userSecurity": "Security",
+    "userNotifications": "Notifications",
+    "userRealname": "Real-name Verify",
+    "userSubscription": "Subscription",
+    "userLearnRecord": "Learning Records",
+    "userComment": "My Comments",
+    "userFans": "Followers",
+    "userFollow": "Following",
+    "userAsk": "My Questions",
+    "userCircle": "My Circles",
+    "userResource": "My Resources",
+    "userExam": "My Exams",
+    "userSignUp": "My Sign-ups",
+    "eduDashboard": "Learning Hub",
+    "eduCourses": "Courses",
+    "eduCertificates": "Certificates",
+    "eduSchedule": "Schedule",
+    "eduNotes": "Notes",
+    "eduQa": "Q&A",
+    "eduProgress": "Progress",
+    "memberDashboard": "Member Hub",
+    "memberBenefits": "Benefits",
+    "memberCoupons": "Coupons",
+    "memberSubscription": "My Subscription",
+    "memberRefunds": "Refunds",
+    "memberAddresses": "Addresses",
+    "memberFavorites": "Favorites",
+    "memberHistory": "History",
+    "memberInvitations": "Invitations",
+    "memberFeedback": "My Feedback",
+    "memberHelp": "Help",
+    "memberSettings": "Settings",
+    "eduExam": "Exams"
   },
   "auth": {
     "loginTitle": "Welcome Back",
@@ -708,6 +854,46 @@
       "switchedToModeAsk": "Switched to ask-for-approval mode",
       "switchedToModeAuto": "Switched to auto-approve mode",
       "switchedToModeFull": "Switched to full-access mode",
+      "dangerousCommandTitle": "Dangerous command detected",
+      "dangerousCommandDesc": "Your message contains {{pattern}} ({{reason}}). In full access mode, the AI will execute it directly and it cannot be undone.",
+      "dangerousCommandProceed": "Send anyway",
+      "dangerousCommandCancel": "Cancel",
+      "dangerousCommandWarningOnly": "Warning: {{pattern}}. Please verify the command is safe.",
+      "historyTitle": "Permission mode history",
+      "historyEmpty": "No history yet",
+      "historyClearConfirmTitle": "Clear history",
+      "historyClearConfirmDesc": "All mode change records will be deleted and cannot be recovered.",
+      "historyClearConfirm": "Clear",
+      "historyClearCancel": "Cancel",
+      "historyOpenButton": "History",
+      "historySource": {
+        "popover": "Popover",
+        "shift-tab": "Shift+Tab",
+        "slash": "Slash",
+        "auto-revert": "Auto"
+      },
+      "historyStatsTitle": "Total usage",
+      "historyStatsMode": {
+        "default": "Ask",
+        "accept-edits": "Auto-approve",
+        "bypass-permissions": "Full access"
+      },
+      "historyStatsDuration": "{{mode}}: {{duration}}",
+      "historyOpenExternal": "View history",
+      "dangerousPattern": {
+        "rmRrfRoot": "Recursively delete root or home directory",
+        "ddToDisk": "Write directly to disk device",
+        "mkfsDisk": "Format disk",
+        "redirectToDevice": "Redirect output to disk device",
+        "chmodRoot": "World-writable root directory",
+        "sudoAny": "Arbitrary sudo operation",
+        "curlPipeSh": "Download and execute",
+        "forkBomb": "Fork bomb",
+        "mvRootToNull": "Move root contents to /dev/null",
+        "rmEnv": "Delete .env files",
+        "rmGit": "Delete .git directory",
+        "forcePushMain": "Force push to main"
+      },
       "mode": {
         "ask": "Ask for approval",
         "askDesc": "Always asks before editing files outside this project or using the internet",
@@ -715,6 +901,46 @@
         "autoDesc": "Only asks before running detected risky actions",
         "full": "Full access",
         "fullDesc": "Can use the internet and any file on your computer without asking"
+      },
+      "shortcutsModalTitle": "Permission mode shortcuts",
+      "shortcutsClose": "Got it",
+      "shortcutsSectionSwitch": "Mode switching",
+      "shortcutsSectionGuard": "High-risk guardrails",
+      "shortcutsSectionAudit": "Undo & audit",
+      "shortcutsItemShiftTabKbd": "Cycle through 3 modes",
+      "shortcutsItemNumberKbd": "Press 1/2/3 in popover to pick mode directly",
+      "shortcutsItemQuestionMarkKbd": "Open this shortcuts panel",
+      "shortcutsItemAutoRevert1hKbd": "Auto-revert to ask after 1h idle",
+      "shortcutsItemWarn5minKbd": "5-minute warning toast with one-click extend",
+      "shortcutsItemWarn1minKbd": "1-minute urgent toast",
+      "shortcutsItemExtendKbd": "Switch toast offers an Extend 1 hour button",
+      "shortcutsItemCancelAutoKbd": "Banner's Cancel auto-revert button keeps full access",
+      "shortcutsItemUndoKbd": "5s undo window after switching to full access",
+      "shortcutsItemDangerousKbd": "High-risk mode blocks dangerous commands with confirm",
+      "shortcutsItemHistoryKbd": "View recent switches via popover's History button",
+      "shortcutsLearnMore": "Learn more about security design",
+      "infoButtonLabel": "View mode details",
+      "infoButtonTitle": "Detailed behavior of the current mode",
+      "modeInfoAcknowledge": "Got it",
+      "modeInfoBullets": {
+        "default": {
+          "0": "AI must get your click on Approve before every command or file edit",
+          "1": "Best for unfamiliar projects or sensitive operations",
+          "2": "No auto-revert (no 1-hour countdown)",
+          "3": "Recommended when you are unsure about a project"
+        },
+        "accept-edits": {
+          "0": "AI applies file edits automatically — no per-edit approval",
+          "1": "Commands still require your click on Approve",
+          "2": "Best for trusting the AI to refactor code",
+          "3": "No auto-revert"
+        },
+        "bypass-permissions": {
+          "0": "AI can perform any action without confirmation",
+          "1": "Auto-reverts to ask after 1 hour (cancellable or extendable)",
+          "2": "Best for batch handling of well-known tasks",
+          "3": "You bear the risk of irreversible operations"
+        }
       }
     }
   },
@@ -8334,7 +8560,39 @@
     "searchPlaceholder": "Search commands...",
     "noResults": "No matching commands found",
     "keyboardHint": "↑↓ Navigate · Enter Execute",
-    "resultCount": "{count} results"
+    "resultCount": "{count} results",
+    "commands": {
+      "chat": {
+        "label": "AI Chat",
+        "description": "Start a conversation with AI assistant",
+        "keywords": ["chat", "talk", "AI", "conversation"]
+      },
+      "drama": {
+        "label": "AI Drama",
+        "description": "AI-generated short dramas",
+        "keywords": ["drama", "video", "AI", "show"]
+      },
+      "search": {
+        "label": "Search",
+        "description": "Global content search",
+        "keywords": ["search", "find", "query"]
+      },
+      "ai-world": {
+        "label": "AI World",
+        "description": "Explore the world of AI applications",
+        "keywords": ["AI", "world", "apps"]
+      },
+      "profile": {
+        "label": "Profile",
+        "description": "Manage your profile and settings",
+        "keywords": ["profile", "user", "settings"]
+      },
+      "settings": {
+        "label": "Settings",
+        "description": "System preferences and configuration",
+        "keywords": ["settings", "preferences", "config"]
+      }
+    }
   },
   "routes": {
     "userAgreement": "User Agreement",
@@ -8654,31 +8912,19 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": [
-            "Systematic courses",
-            "Hands-on exploration",
-            "Community mutual aid"
-          ]
+          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": [
-            "Communication platform",
-            "Experience sharing",
-            "Resource matching"
-          ]
+          "features": ["Communication platform", "Experience sharing", "Resource matching"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": [
-            "Professional LLMs",
-            "Agent services",
-            "Consulting services"
-          ]
+          "features": ["Professional LLMs", "Agent services", "Consulting services"]
         }
       ]
     },
@@ -8798,37 +9044,25 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": [
-            "Knowledge Q&A",
-            "Process automation"
-          ]
+          "examples": ["Knowledge Q&A", "Process automation"]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": [
-            "Data analysis",
-            "Decision support"
-          ]
+          "examples": ["Data analysis", "Decision support"]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": [
-            "Meeting scheduling",
-            "Approval workflows"
-          ]
+          "examples": ["Meeting scheduling", "Approval workflows"]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": [
-            "Marketing automation",
-            "Multi-agent collaboration"
-          ]
+          "examples": ["Marketing automation", "Multi-agent collaboration"]
         }
       ]
     },
@@ -9176,7 +9410,15 @@
       "scanTip": "Open WeChat and scan to enter the mini program"
     },
     "marquee": {
-      "label": "Announcement"
+      "label": "Announcement",
+      "items": [
+        "🎉 New AI Education module: courses, live classes, and exams in one",
+        "🚀 Model Market adds GPT-5, Claude 4.5, Gemini 2.5 Pro flagships",
+        "💎 VIP members: 30% off, unlimited access to 100+ agents",
+        "🌍 Multi-language upgrade: real-time translation in 5 languages",
+        "🎨 50+ themes in Theme Center, switch visual style with one click",
+        "📚 Knowledge RAG is live, documents turn into smart Q&A"
+      ]
     },
     "welcome": {
       "title": "Welcome to the Zhihui AI Community",
