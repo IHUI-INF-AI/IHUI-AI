@@ -408,6 +408,12 @@ export function parseStreamLine(line: string): string | null {
       )
       throw attachErrorMeta(e, json)
     }
+    // P3-4: 识别 {code:"RATE_LIMIT", retryAfter:N, message:"..."} 格式(无 type/error 字段)
+    // 该格式由后端限流中间件发出,无 type/error 字段时上方 3 个分支均不命中,retryAfter 会被丢弃
+    if (typeof json?.code === 'string' && typeof json?.message === 'string') {
+      const e = new Error(json.message)
+      throw attachErrorMeta(e, json)
+    }
     if (json?.type === 'reasoning') return null
     const choice = json?.choices?.[0]
     const delta =
@@ -633,7 +639,20 @@ export function getSSEErrorInfo(err: unknown): SSEErrorInfo | undefined {
  * }
  * ```
  */
-export function formatSSEError(err: unknown, fallbackMessage = 'AI 服务异常'): FormattedSSEError {
+export function formatSSEError(
+  err: unknown,
+  fallbackMessageOrInfo: string | SSEErrorInfo = 'AI 服务异常',
+): FormattedSSEError {
+  // P3-4: 第二参数兼容两种形态 — 字符串(fallbackMessage,旧调用方)或 SSEErrorInfo(onError 透传 info)
+  // onError 回调只拿到 errMsg 字符串 + info 对象,字符串本身不带 retryAfter,需通过 info 注入
+  let fallbackMessage = 'AI 服务异常'
+  let extraInfo: SSEErrorInfo | undefined
+  if (typeof fallbackMessageOrInfo === 'string') {
+    fallbackMessage = fallbackMessageOrInfo
+  } else {
+    extraInfo = fallbackMessageOrInfo
+  }
+
   let rawMessage: string
   if (err instanceof Error) {
     rawMessage = err.message || fallbackMessage
@@ -646,10 +665,12 @@ export function formatSSEError(err: unknown, fallbackMessage = 'AI 服务异常'
     rawMessage = fallbackMessage
   }
 
-  const info = getSSEErrorInfo(err)
-  const code = info?.code
-  const errorCode = info?.errorCode
-  const retryAfter = info?.retryAfter
+  // P3-4: extraInfo(onError 路径透传)优先于 getSSEErrorInfo(err)(catch 路径从 Error 对象提取)
+  // onError 路径 err 是纯字符串,不含 retryAfter,必须靠 extraInfo 补全
+  const extractedInfo = getSSEErrorInfo(err)
+  const code = extraInfo?.code ?? extractedInfo?.code
+  const errorCode = extraInfo?.errorCode ?? extractedInfo?.errorCode
+  const retryAfter = extraInfo?.retryAfter ?? extractedInfo?.retryAfter
 
   // 优先识别 LLM 厂商内容安全策略拦截关键词
   // 这些错误来自上游 LLM(Gemini/OpenAI/Anthropic),不是项目本身的违规判定
@@ -737,6 +758,22 @@ export function formatSSEError(err: unknown, fallbackMessage = 'AI 服务异常'
       severity: 'network',
       title: '请求已取消',
       message: '请求已取消',
+      rawMessage,
+      requireReauth: false,
+    }
+  }
+  // P3-4: 非 4xx/5xx 但带 retryAfter(如 SSE error {code:"RATE_LIMIT", retryAfter:N} 或
+  // {type:"error", message:"...", retryAfter:N} 无 code 字段)→ 视为限流,追加倒计时到 message,
+  // severity = ratelimit(触发 warning toast,非致命,与 429 一致不加 retry 按钮)
+  // 429 已在上方分支处理(含 "N 秒后重试"),此处不重复,仅覆盖 code 缺失的限流场景
+  if (retryAfter !== undefined && retryAfter >= 1) {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'ratelimit',
+      title: '请求过于频繁',
+      message: `${rawMessage}(${retryAfter} 秒后重试)`,
       rawMessage,
       requireReauth: false,
     }

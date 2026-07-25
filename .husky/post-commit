@@ -35,3 +35,14 @@ fi
 if [ "${HUSKY_SKIP_HYGIENE:-0}" != "1" ]; then
   node scripts/check-parent-pollution.mjs --auto-clean --quiet 2>/dev/null || true
 fi
+
+# ─── 5. Lost commit tag 自动同步(2026-07-26 立, AGENTS.md §22 + docs/lost-commit-archive.md) ──
+# 背景: 2026-07-26 真实事故: 本地 lost-commit/* tag 被 git gc 清理, 远端虽有但 fetch 失败。
+#       关键教训: tag 必须主动 push + 主动 fetch, 否则 git gc 14 天后丢失。
+# 机制: commit 后立即把本地所有 lost-commit/* + backup/* tag 推送到 origin(用 --atomic 原子性)。
+# 跳过: HUSKY_SKIP_TAG_SYNC=1(紧急场景)
+# 非阻塞: push 失败不阻断 commit(已由第 3 段 git-push-guard 处理)
+cd "$(git rev-parse --show-toplevel)" || { printf '%s\n' "❌ 无法定位仓库根目录" >&2; exit 1; }
+if [ "${HUSKY_SKIP_TAG_SYNC:-0}" != "1" ]; then
+  node scripts/sync-lost-commit-tags.mjs --auto-push 2>/dev/null || printf '%s\n' "⚠️  tag 同步失败(非阻塞, commit 已落地并 push 到 branch)" >&2
+fi
