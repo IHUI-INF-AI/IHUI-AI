@@ -37,33 +37,24 @@ import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspa
 type ModeConfig = {
   icon: React.ComponentType<{ className?: string }>
   titleKey: 'mode.ask' | 'mode.auto' | 'mode.full'
-  riskKey: 'riskLow' | 'riskMedium' | 'riskHigh'
   riskCls: string
-  /** 4 条详细行为 bullet i18n key */
-  bullets: Array<'askBullet1' | 'askBullet2' | 'askBullet3' | 'askBullet4' | 'autoBullet1' | 'autoBullet2' | 'autoBullet3' | 'autoBullet4' | 'fullBullet1' | 'fullBullet2' | 'fullBullet3' | 'fullBullet4'>
 }
 
 const MODE_CONFIG: Record<WorkspacePermissionMode, ModeConfig> = {
   default: {
     icon: Hand,
     titleKey: 'mode.ask',
-    riskKey: 'riskLow',
     riskCls: 'bg-muted text-muted-foreground',
-    bullets: ['askBullet1', 'askBullet2', 'askBullet3', 'askBullet4'],
   },
   'accept-edits': {
     icon: ShieldCheck,
     titleKey: 'mode.auto',
-    riskKey: 'riskMedium',
     riskCls: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-    bullets: ['autoBullet1', 'autoBullet2', 'autoBullet3', 'autoBullet4'],
   },
   'bypass-permissions': {
     icon: ShieldAlert,
     titleKey: 'mode.full',
-    riskKey: 'riskHigh',
     riskCls: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-    bullets: ['fullBullet1', 'fullBullet2', 'fullBullet3', 'fullBullet4'],
   },
 }
 
@@ -88,9 +79,9 @@ export function PermissionModeInfoModal({ mode, onClose }: PermissionModeInfoMod
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Info className="h-4 w-4" aria-hidden="true" />
-                {t('infoModal.title')}
+                {t('infoModalTitle')}
               </DialogTitle>
-              <DialogDescription>{t('infoModal.description')}</DialogDescription>
+              <DialogDescription>{t('infoModalDescription')}</DialogDescription>
             </DialogHeader>
 
             {(() => {
@@ -111,28 +102,22 @@ export function PermissionModeInfoModal({ mode, onClose }: PermissionModeInfoMod
                       <span className="text-sm font-semibold text-foreground">
                         {t(config.titleKey)}
                       </span>
-                      <span
-                        className={cn(
-                          'mt-0.5 inline-flex w-fit items-center gap-0.5 rounded-sm px-1.5 py-px text-[10px] font-medium',
-                          config.riskCls,
-                        )}
-                      >
-                        {t(config.riskKey)}
-                      </span>
                     </div>
                   </div>
 
                   <ul className="space-y-1.5">
-                    {config.bullets.map((key) => (
+                    {[0, 1, 2, 3].map((idx) => (
                       <li
-                        key={key}
+                        key={idx}
                         className="flex items-start gap-2 rounded-md border border-border/60 bg-card/40 px-2 py-1.5"
                       >
                         <span
                           className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
                           aria-hidden="true"
                         />
-                        <span className="text-xs text-foreground">{t(`infoModal.${key}`)}</span>
+                        <span className="text-xs text-foreground">
+                          {t(`modeInfoBullets.${mode}.${idx}`)}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -147,7 +132,7 @@ export function PermissionModeInfoModal({ mode, onClose }: PermissionModeInfoMod
                 className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                 data-testid="permission-mode-info-close"
               >
-                {t('infoModal.gotIt')}
+                {t('modeInfoAcknowledge')}
                 <X className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>

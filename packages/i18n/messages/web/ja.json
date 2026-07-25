@@ -952,9 +952,15 @@
       "shortcutsItemUndoKbd": "完全アクセス切替後 5秒以内に取り消し可能",
       "shortcutsItemDangerousKbd": "高リスクモードで危険コマンド検出時に再確認",
       "shortcutsItemHistoryKbd": "ポップオーバー下部の「履歴」ボタンで最近の切替を確認",
+      "shortcutsItemInfoKbd": "このモードの 4 つの詳細行動を表示",
+      "shortcutsItemSlashAskKbd": "Ask モードに切替",
+      "shortcutsItemSlashAutoKbd": "Auto モードに切替",
+      "shortcutsItemSlashFullKbd": "Full モードに切替",
       "shortcutsLearnMore": "セキュリティ設計の詳細を見る",
       "infoButtonLabel": "モード詳細を見る",
       "infoButtonTitle": "現在のモードの詳細動作",
+      "infoModalTitle": "現在の権限モード詳細",
+      "infoModalDescription": "現在のモードの行動とリスクレベル",
       "modeInfoAcknowledge": "了解",
       "modeInfoBullets": {
         "default": {
