@@ -57,6 +57,15 @@ const TABS: {
   { value: 'comment', labelKey: 'comment' },
 ]
 
+const TAB_KEY: Record<string, string> = {
+  all: 'tab.all',
+  follow: 'tab.follow',
+  system: 'tab.system',
+  order: 'tab.order',
+  project: 'tab.project',
+  comment: 'tab.comment',
+}
+
 function relativeTime(iso: string, t: ReturnType<typeof useTranslations>): string {
   const diff = Date.now() - new Date(iso).getTime()
   const sec = Math.floor(diff / 1000)
@@ -146,7 +155,7 @@ export default function NotificationsPage() {
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {t(`tab.${tabItem.labelKey}`)}
+              {t(TAB_KEY[tabItem.labelKey] ?? `tab.${tabItem.labelKey}`)}
             </button>
           ))}
         </div>
