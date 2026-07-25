@@ -40,6 +40,9 @@ import {
   downloadBillUrl as aliDownloadBillUrl,
 } from '../services/alipay.js'
 import { applyWithdrawal, getBalance } from '../db/commission-queries.js'
+import { db } from '../db/index.js'
+import { lessons } from '@ihui/database'
+import { eq } from 'drizzle-orm'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
 
 const notifyUrl = (type?: string): string => {
@@ -335,20 +338,24 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       await authenticate(request)
-      const { amount: amountCents, courseId } = wechatCourseCreateQuery.parse(request.query)
+      const { courseId } = wechatCourseCreateQuery.parse(request.query)
       const userId = request.userId!
-      if (!amountCents || amountCents <= 0)
+      // 服务端按 courseId 查询课程真实价格,忽略客户端传入的 amount(金额篡改防护)
+      const course = await db
+        .select({ price: lessons.price, isPublished: lessons.isPublished })
+        .from(lessons)
+        .where(eq(lessons.id, courseId))
+        .limit(1)
+      if (!course[0]) return reply.status(400).send(error(400, '课程不存在'))
+      if (!course[0].isPublished) return reply.status(400).send(error(400, '课程已下架'))
+      const serverAmountCents = Math.round(parseFloat(course[0].price) * 100)
+      if (!serverAmountCents || serverAmountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
-      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+      if (serverAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
         return reply.status(400).send(error(400, '金额超过上限'))
-      // TODO: 生产环境必须根据 courseId 查询课程真实价格,忽略客户端传入的 amount
-      request.log.warn(
-        { courseId, amountCents, userId },
-        '课程支付使用客户端金额,需人工审计异常订单',
-      )
       const order = await placeOrder({
         userId,
-        amount: amountCents,
+        amount: serverAmountCents,
         orderType: 1,
         productId: courseId,
         payType: 'wechat',
@@ -357,7 +364,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
       const prepayId = await jsapiPrepay({
         outTradeNo: order.orderNo,
-        amount: amountCents,
+        amount: serverAmountCents,
         description: '课程购买',
         openId: '',
         notifyUrl: notifyUrl('course'),
