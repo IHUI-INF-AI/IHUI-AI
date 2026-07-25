@@ -55,7 +55,7 @@ export default function KnowledgeRagDetailPage() {
         body: JSON.stringify({ query: data?.title ?? '', topK: 6 }),
       }),
     enabled: Boolean(data?.title),
-    select: (list) => list.filter((h) => String(h.docId) !== String(id)).slice(0, 5),
+    select: (list: any) => list.filter((h: any) => String(h.docId) !== String(id)).slice(0, 5),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -145,7 +145,7 @@ export default function KnowledgeRagDetailPage() {
         </h2>
         {hits && hits.length > 0 ? (
           <div className="space-y-2">
-            {hits.map((h) => (
+            {hits.map((h: any) => (
               <Link
                 key={h.id}
                 href={`/knowledge-rag/${h.docId}`}

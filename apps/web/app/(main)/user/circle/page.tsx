@@ -63,7 +63,7 @@ export default function UserCirclePage() {
         </div>
       ) : (
         <ul className="space-y-3">
-          {items.map((c) => (
+          {items.map((c: any) => (
             <li
               key={c.id}
               className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"

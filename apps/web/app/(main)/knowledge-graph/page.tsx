@@ -103,7 +103,7 @@ export default function KnowledgeGraphPage() {
         body: JSON.stringify({ text: input }),
         headers: { 'Content-Type': 'application/json' },
       }),
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ['knowledgeGraph', 'data'] })
       setText('')
       setFeedback({
@@ -111,7 +111,7 @@ export default function KnowledgeGraphPage() {
         msg: `${t('feedbackBuildSuccess', { entities: data.entities_added, relations: data.relations_added })}`,
       })
     },
-    onError: (e) => {
+    onError: (e: any) => {
       setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) })
     },
   })
@@ -122,7 +122,7 @@ export default function KnowledgeGraphPage() {
       qc.invalidateQueries({ queryKey: ['knowledgeGraph', 'data'] })
       setFeedback({ type: 'success', msg: t('feedbackClearSuccess') })
     },
-    onError: (e) => {
+    onError: (e: any) => {
       setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) })
     },
   })
@@ -142,7 +142,7 @@ export default function KnowledgeGraphPage() {
   const relatedEdgeIds = React.useMemo(() => {
     if (highlightId === null) return new Set<number>()
     const s = new Set<number>()
-    relations.forEach((r) => {
+    relations.forEach((r: any) => {
       if (r.source_entity_id === highlightId || r.target_entity_id === highlightId) {
         s.add(r.id)
       }
@@ -269,7 +269,7 @@ export default function KnowledgeGraphPage() {
                 aria-label={t('graphAriaLabel')}
               >
                 {/* 边 */}
-                {relations.map((r) => {
+                {relations.map((r: any) => {
                   const src = positions.get(r.source_entity_id)
                   const tgt = positions.get(r.target_entity_id)
                   if (!src || !tgt) return null
@@ -300,7 +300,7 @@ export default function KnowledgeGraphPage() {
                   )
                 })}
                 {/* 节点 */}
-                {entities.map((e) => {
+                {entities.map((e: any) => {
                   const pos = positions.get(e.id)
                   if (!pos) return null
                   const r = Math.max(18, Math.min(48, 18 + e.frequency * 6))
