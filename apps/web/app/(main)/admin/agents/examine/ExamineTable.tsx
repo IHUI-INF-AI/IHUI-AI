@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, ShieldCheck, Edit, Trash2, MessageCircle } from 'lucide-react'
 
@@ -21,6 +22,33 @@ interface ExamineTableProps {
 export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: ExamineTableProps) {
   const t = useTranslations('admin.agents.examine')
   const tc = useTranslations('common')
+  const handleChat = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onChat(item)
+    },
+    [list, onChat],
+  )
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onDelete(item)
+    },
+    [list, onDelete],
+  )
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -82,7 +110,8 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onChat(item)}
+                            data-id={item.id}
+                            onClick={handleChat}
                           >
                             <MessageCircle className="h-4 w-4" />
                           </Button>
@@ -94,7 +123,8 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onEdit(item)}
+                          data-id={item.id}
+                          onClick={handleEdit}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -105,7 +135,8 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onDelete(item)}
+                          data-id={item.id}
+                          onClick={handleDelete}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
