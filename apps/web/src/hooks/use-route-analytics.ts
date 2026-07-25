@@ -10,8 +10,8 @@ import { useAnalytics } from '@/hooks/use-analytics'
 // ============================================================================
 
 export interface UseRouteAnalyticsReturn {
-  /** 当前路由路径 */
-  currentPath: string
+  /** 当前路由路径(已弃用,保留兼容;新代码不要消费) */
+  currentPath?: string
 }
 
 // ============================================================================
@@ -28,6 +28,10 @@ export interface UseRouteAnalyticsReturn {
  *
  * 用法：在根 Layout 组件中调用一次即可。
  *   useRouteAnalytics()
+ *
+ * 性能修复(2026-07-25):原返回 currentPath 让调用方订阅 usePathname 触发重渲染,
+ * 现改为纯副作用 hook(usePathname 订阅仍存在但只在 useEffect 内消费,不返回到渲染流),
+ * 调用方 GlobalHooksProvider 不再因路由变化重渲染。
  */
 export function useRouteAnalytics(): UseRouteAnalyticsReturn {
   const pathname = usePathname()
@@ -94,5 +98,6 @@ export function useRouteAnalytics(): UseRouteAnalyticsReturn {
     }
   }, [track, flush])
 
-  return { currentPath: pathname ?? '/' }
+  // 不再返回 currentPath,避免调用方订阅 usePathname 触发重渲染
+  return {}
 }
