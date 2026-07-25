@@ -43,7 +43,7 @@ export default function EduTeacherReviewPage() {
         method: 'POST',
         body: JSON.stringify({ approved }),
       }),
-    onSuccess: (_d, vars) => {
+    onSuccess: (_d: any, vars: any) => {
       toast.success(vars.approved ? t('approveSuccess') : t('rejectSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'teacher', 'review'] })
     },
@@ -103,7 +103,7 @@ export default function EduTeacherReviewPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((a) => (
+              rows.map((a: any) => (
                 <TableRow key={a.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{a.nickname}</div>
