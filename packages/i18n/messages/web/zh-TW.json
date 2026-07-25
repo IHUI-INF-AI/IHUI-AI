@@ -26650,7 +26650,11 @@
         "saveFailed": "儲存失敗",
         "nameRequired": "請填寫服務商名稱",
         "keyRequired": "請填寫 API Key",
-        "baseUrlRequired": "請填寫 Base URL"
+        "baseUrlRequired": "請填寫 Base URL",
+        "templatesLoading": "正在載入平臺列表...",
+        "templatesEmpty": "暫無可用平臺範本",
+        "templatesLoadError": "平臺列表載入失敗:{error}",
+        "templatesNotReady": "平臺列表尚未就緒,請稍後再試"
       },
       "modelDialog": {
         "newTitle": "新增模型",
