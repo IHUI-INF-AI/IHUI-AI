@@ -393,6 +393,31 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           title="IHUI AI — Microsoft Copilot Optimized"
           href="https://ihui.ai/copilot.txt"
         />
+        {/* 2026-07-26 极致 GEO 强化:行业垂直 + 角色垂直 + Knowledge Graph + WebSub Hub */}
+        <link
+          rel="alternate"
+          type="text/markdown"
+          title="IHUI AI — 行业垂直 GEO(医疗/教育/金融/法律/政府)"
+          href="https://ihui.ai/industries.md"
+        />
+        <link
+          rel="alternate"
+          type="text/markdown"
+          title="IHUI AI — 决策角色 GEO(开发者/CTO/PM/CEO/采购)"
+          href="https://ihui.ai/roles.md"
+        />
+        <link
+          rel="alternate"
+          type="application/json"
+          title="IHUI AI — Google Knowledge Graph 结构化数据"
+          href="https://ihui.ai/knowledge-graph.json"
+        />
+        <link
+          rel="hub"
+          type="application/json"
+          title="IHUI AI — WebSub Hub(实时 Feed 更新通知)"
+          href="https://ihui.ai/websub"
+        />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
