@@ -25,15 +25,21 @@ export function ContractManager() {
   const cancelMutation = useCancelContract()
   const [cancelTarget, setCancelTarget] = React.useState<WechatPayContract | null>(null)
 
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
+  // 性能修复(2026-07-25):Intl.DateTimeFormat 构造涉及 ICU 数据加载,
+  // 每次 render 重建代价高(数十 ms)。useMemo 仅 locale 变化时重建。
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }),
+    [locale],
+  )
 
   const fmt = (input?: string): string => {
     if (!input) return '-'

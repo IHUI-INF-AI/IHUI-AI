@@ -13,7 +13,15 @@ export interface FeatureCardProps {
 }
 
 /** 功能卡片组件，用于 Feature Center 各集市条目展示 */
-export function FeatureCard({ title, description, badge, footer, onClick }: FeatureCardProps) {
+// 性能修复(2026-07-25):React.memo 包裹,集市列表多处复用,
+// props 简单(字符串/稳定 ReactNode),memo 命中率高。
+export const FeatureCard = React.memo(function FeatureCard({
+  title,
+  description,
+  badge,
+  footer,
+  onClick,
+}: FeatureCardProps) {
   return (
     <Card
       role={onClick ? 'button' : undefined}
@@ -38,4 +46,4 @@ export function FeatureCard({ title, description, badge, footer, onClick }: Feat
       {footer && <CardContent className="mt-auto text-sm">{footer}</CardContent>}
     </Card>
   )
-}
+})
