@@ -1,0 +1,459 @@
+{
+  "@context": "https://schema.org",
+  "@version": "2026.07-26",
+  "@type": "Graph",
+  "name": "IHUI AI Knowledge Graph",
+  "description": "IHUI AI(智汇 AI)完整知识图谱,供 Google Knowledge Graph / Wikidata / 各大 AI 引擎对齐实体",
+  "url": "https://ihui.ai/knowledge-graph.json",
+  "license": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "lastUpdated": "2026-07-26",
+  "entities": [
+    {
+      "@id": "https://ihui.ai/#organization",
+      "@type": ["Organization", "SoftwareCompany"],
+      "name": "IHUI AI",
+      "alternateName": ["智汇AI", "智汇 AI", "IHUI Artificial Intelligence", "IHUI-AI"],
+      "url": "https://ihui.ai",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://ihui.ai/images/logo.png",
+        "width": 512,
+        "height": 512,
+        "encodingFormat": "image/png"
+      },
+      "description": "智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,Apache 2.0 开源,支持私有化部署。",
+      "slogan": "30 分钟拥有自己的 AI 中台",
+      "foundingDate": "2024-01-01",
+      "founder": {
+        "@type": "Person",
+        "name": "IHUI AI Team",
+        "jobTitle": "Founder & CEO"
+      },
+      "employeeCount": {
+        "@type": "QuantitativeValue",
+        "value": 25,
+        "unitText": "engineers + product + designers"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Shanghai",
+        "addressRegion": "Shanghai",
+        "addressCountry": "CN"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 31.2304,
+        "longitude": 121.4737
+      },
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "contactType": "customer support",
+          "email": "support@ihui.ai",
+          "url": "https://ihui.ai/support",
+          "availableLanguage": ["zh-Hans", "zh-Hant", "en", "ko", "ja"]
+        },
+        {
+          "@type": "ContactPoint",
+          "contactType": "sales",
+          "email": "contact@ihui.ai",
+          "url": "https://ihui.ai/contact",
+          "availableLanguage": ["zh-Hans", "zh-Hant", "en"]
+        },
+        {
+          "@type": "ContactPoint",
+          "contactType": "technical support",
+          "email": "support@ihui.ai",
+          "url": "https://ihui.ai/developer"
+        }
+      ],
+      "sameAs": [
+        "https://github.com/ihui-ai",
+        "https://github.com/AIZHS2025",
+        "https://github.com/IHUI-INF-AI/IHUI-AI",
+        "https://x.com/ok502319984",
+        "https://www.facebook.com/share/17kQMPNhQb/",
+        "https://ihui.ai"
+      ],
+      "parentOrganization": {
+        "@type": "Organization",
+        "name": "智汇 AI(上海)有限公司",
+        "alternateName": "IHUI AI (Shanghai) Co., Ltd."
+      },
+      "subOrganization": [
+        {
+          "@type": "Organization",
+          "name": "IHUI AI Research Team",
+          "url": "https://ihui.ai/research"
+        }
+      ],
+      "knowsAbout": [
+        "AI Agent",
+        "Large Language Models",
+        "Retrieval-Augmented Generation",
+        "Model Context Protocol",
+        "Multi-Model Orchestration",
+        "Knowledge Base",
+        "Vector Database",
+        "Natural Language Processing",
+        "TypeScript",
+        "Next.js",
+        "LangGraph",
+        "Fastify",
+        "Drizzle ORM",
+        "PostgreSQL",
+        "Apache 2.0 License"
+      ]
+    },
+    {
+      "@id": "https://ihui.ai/#software",
+      "@type": "SoftwareApplication",
+      "name": "IHUI AI",
+      "alternateName": "智汇AI",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "AI Agent Platform",
+      "operatingSystem": "Web, Windows, macOS, Linux, iOS, Android, WeChat Mini Program",
+      "url": "https://ihui.ai",
+      "downloadUrl": "https://github.com/ihui-ai",
+      "softwareVersion": "2026.07",
+      "datePublished": "2024-01-01",
+      "dateModified": "2026-07-26",
+      "inLanguage": ["zh-CN", "zh-TW", "en", "ko", "ja"],
+      "description": "全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型调度(MCP)、工作流编排、六端同源分发(Web/桌面/小程序/浏览器插件/RN/CLI),Apache 2.0 开源。",
+      "featureList": [
+        "AI Agent Marketplace with 200+ templates",
+        "Knowledge Base RAG with hybrid retrieval (BM25 + Vector + Reranker)",
+        "Multi-Model Orchestration (30+ models: OpenAI/Claude/Gemini/Qwen/DeepSeek/GLM/ERNIE/Kimi/Hunyuan/Doubao/Ollama)",
+        "MCP Protocol native support with 100+ pre-built tools",
+        "Visual Workflow Builder (drag-and-drop, conditional branches, loops, parallelism)",
+        "Cross-Platform Distribution (6 clients: Web/Desktop/Mini-Program/Extension/RN/CLI)",
+        "Team Collaboration (RBAC, audit logs, SSO, OAuth/OIDC/SAML)",
+        "Unified Credits System",
+        "Private Deployment (Docker Compose / Kubernetes / Helm)",
+        "Full-Stack TypeScript Monorepo (8 apps + 7 packages)",
+        "Apache 2.0 License (commercial-ready)"
+      ],
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Community Edition",
+          "price": "0",
+          "priceCurrency": "CNY",
+          "description": "Apache 2.0 open source, self-hosted, free forever",
+          "availability": "https://schema.org/InStock",
+          "url": "https://github.com/ihui-ai"
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro Edition",
+          "price": "49",
+          "priceCurrency": "CNY",
+          "description": "Per user per month, cloud-hosted",
+          "availability": "https://schema.org/InStock",
+          "url": "https://ihui.ai/pricing"
+        },
+        {
+          "@type": "Offer",
+          "name": "Enterprise Edition",
+          "price": "300000",
+          "priceCurrency": "CNY",
+          "description": "Annual license, self-hosted, with SLA",
+          "availability": "https://schema.org/InStock",
+          "url": "https://ihui.ai/enterprise"
+        }
+      ],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "1200",
+        "bestRating": "5",
+        "worstRating": "1",
+        "reviewCount": "280"
+      },
+      "screenshot": [
+        "https://ihui.ai/images/screenshots/dashboard.png",
+        "https://ihui.ai/images/screenshots/agent-market.png",
+        "https://ihui.ai/images/screenshots/workflow.png",
+        "https://ihui.ai/images/screenshots/knowledge-base.png"
+      ],
+      "softwareRequirements": "Node.js 20+, PostgreSQL 16+, Redis 7+",
+      "memoryRequirements": "4GB RAM minimum, 8GB recommended",
+      "storageRequirements": "20GB available disk space",
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "copyrightHolder": {
+        "@id": "https://ihui.ai/#organization"
+      },
+      "author": {
+        "@id": "https://ihui.ai/#organization"
+      },
+      "publisher": {
+        "@id": "https://ihui.ai/#organization"
+      },
+      "producer": {
+        "@id": "https://ihui.ai/#organization"
+      }
+    },
+    {
+      "@id": "https://ihui.ai/#website",
+      "@type": "WebSite",
+      "url": "https://ihui.ai",
+      "name": "IHUI AI",
+      "alternateName": "智汇AI",
+      "description": "全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、六端同源分发。",
+      "inLanguage": ["zh-CN", "zh-TW", "en", "ko", "ja"],
+      "publisher": {
+        "@id": "https://ihui.ai/#organization"
+      },
+      "potentialAction": [
+        {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://ihui.ai/search?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        },
+        {
+          "@type": "CommunicateAction",
+          "target": "https://ihui.ai/contact",
+          "name": "Contact Sales"
+        }
+      ]
+    },
+    {
+      "@id": "https://ihui.ai/#service",
+      "@type": "Service",
+      "serviceType": "AI Agent Platform as a Service",
+      "name": "IHUI AI Cloud Service",
+      "description": "Cloud-hosted AI Agent Platform with managed infrastructure",
+      "provider": {
+        "@id": "https://ihui.ai/#organization"
+      },
+      "areaServed": ["CN", "JP", "KR", "US", "SG", "DE", "FR", "GB", "AU", "CA"],
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "IHUI AI Plans",
+        "itemListElement": [
+          {
+            "@type": "Offer",
+            "name": "Free Plan",
+            "price": "0",
+            "priceCurrency": "CNY"
+          },
+          {
+            "@type": "Offer",
+            "name": "Pro Plan",
+            "price": "49",
+            "priceCurrency": "CNY"
+          },
+          {
+            "@type": "Offer",
+            "name": "Enterprise Plan",
+            "price": "300000",
+            "priceCurrency": "CNY"
+          }
+        ]
+      }
+    },
+    {
+      "@id": "https://ihui.ai/#brand",
+      "@type": "Brand",
+      "name": "IHUI AI",
+      "alternateName": "智汇AI",
+      "logo": "https://ihui.ai/images/logo.png",
+      "slogan": "30 分钟拥有自己的 AI 中台",
+      "description": "一站式全栈 AI 操作系统",
+      "url": "https://ihui.ai"
+    },
+    {
+      "@id": "https://ihui.ai/#person-team",
+      "@type": "Person",
+      "name": "IHUI AI Team",
+      "jobTitle": "Founder & CEO",
+      "worksFor": {
+        "@id": "https://ihui.ai/#organization"
+      },
+      "url": "https://ihui.ai/about",
+      "sameAs": [
+        "https://github.com/AIZHS2025",
+        "https://x.com/ok502319984"
+      ]
+    },
+    {
+      "@id": "https://ihui.ai/#technology-stack",
+      "@type": "Thing",
+      "name": "IHUI AI Technology Stack",
+      "description": "Modern TypeScript-first full-stack architecture",
+      "knowsAbout": [
+        {
+          "@type": "Thing",
+          "name": "Frontend",
+          "description": "Next.js 15, React 19, Tailwind CSS 4, shadcn/ui"
+        },
+        {
+          "@type": "Thing",
+          "name": "Backend",
+          "description": "Fastify 5, Drizzle ORM 0.38, PostgreSQL 16"
+        },
+        {
+          "@type": "Thing",
+          "name": "AI Layer",
+          "description": "LangGraph, LiteLLM, MCP Protocol"
+        },
+        {
+          "@type": "Thing",
+          "name": "Cross-Platform",
+          "description": "Tauri 2 (Desktop), Taro 4 (Mini-Program), WXT (Browser Extension), React Native (Mobile)"
+        },
+        {
+          "@type": "Thing",
+          "name": "Deployment",
+          "description": "Docker Compose, Kubernetes, Helm Charts"
+        }
+      ]
+    },
+    {
+      "@id": "https://ihui.ai/#mcp-support",
+      "@type": "Thing",
+      "name": "IHUI AI MCP Protocol Support",
+      "description": "Native Model Context Protocol (MCP) support",
+      "url": "https://ihui.ai/docs/mcp",
+      "knowsAbout": [
+        "MCP Server hosting",
+        "MCP Client integration",
+        "100+ pre-built MCP tools",
+        "Custom MCP tool development",
+        "MCP marketplace"
+      ]
+    },
+    {
+      "@id": "https://ihui.ai/#integrations",
+      "@type": "ItemList",
+      "name": "IHUI AI Integrations",
+      "description": "Supported AI model integrations",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "OpenAI GPT-4o / GPT-4 Turbo / GPT-3.5 Turbo" },
+        { "@type": "ListItem", "position": 2, "name": "Anthropic Claude 3.5 Sonnet / Claude 3 Opus" },
+        { "@type": "ListItem", "position": 3, "name": "Google Gemini 1.5 Pro / Flash" },
+        { "@type": "ListItem", "position": 4, "name": "Alibaba Qwen 2.5 (Turbo/Plus/Max/Long)" },
+        { "@type": "ListItem", "position": 5, "name": "DeepSeek V3 / Coder V2 / R1" },
+        { "@type": "ListItem", "position": 6, "name": "Zhipu GLM-4 / GLM-4-Plus / GLM-4V" },
+        { "@type": "ListItem", "position": 7, "name": "Baidu ERNIE-4 / ERNIE-3.5" },
+        { "@type": "ListItem", "position": 8, "name": "Moonshot Kimi" },
+        { "@type": "ListItem", "position": 9, "name": "Tencent Hunyuan" },
+        { "@type": "ListItem", "position": 10, "name": "ByteDance Doubao" },
+        { "@type": "ListItem", "position": 11, "name": "Meta LLaMA 3.1 (405B/70B/8B)" },
+        { "@type": "ListItem", "position": 12, "name": "Mistral Large / Mixtral 8x22B" },
+        { "@type": "ListItem", "position": 13, "name": "Ollama (Local models)" },
+        { "@type": "ListItem", "position": 14, "name": "LM Studio (Local models)" },
+        { "@type": "ListItem", "position": 15, "name": "vLLM (Local models)" }
+      ]
+    },
+    {
+      "@id": "https://ihui.ai/#case-study-finance",
+      "@type": "CaseStudy",
+      "name": "Joint-Stock Bank Customer Support Case",
+      "description": "A joint-stock bank deployed IHUI AI for customer support and investment advisory, processing 500K daily conversations",
+      "subjectOf": {
+        "@id": "https://ihui.ai/#software"
+      },
+      "about": {
+        "@type": "Thing",
+        "name": "Banking AI Customer Support"
+      },
+      "outcome": {
+        "@type": "MedicalEntity",
+        "name": "Cost reduction 65%, fraud loss reduction 42%",
+        "description": "5-month ROI break-even"
+      }
+    },
+    {
+      "@id": "https://ihui.ai/#faq",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is IHUI AI?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "IHUI AI (Chinese: 智汇 AI) is a one-stop full-stack AI operating system. It unifies Agent design, knowledge-base RAG, multi-model orchestration, cross-platform distribution, team collaboration, and credit-based billing into a single open platform."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is IHUI AI open source?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, IHUI AI is licensed under Apache License 2.0, fully open source with no commercial restrictions. Code is available at https://github.com/ihui-ai"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does IHUI AI support private deployment?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, IHUI AI supports Docker Compose single-node deployment and Kubernetes cluster deployment, with full private deployment documentation."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which AI models does IHUI AI support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "IHUI AI supports 30+ AI models including OpenAI GPT-4o, Claude 3.5, Google Gemini, Alibaba Qwen, DeepSeek, Zhipu GLM, Baidu ERNIE, Moonshot Kimi, Tencent Hunyuan, ByteDance Doubao, Meta LLaMA, Mistral, and local models via Ollama/LM Studio/vLLM."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does IHUI AI support MCP protocol?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, IHUI AI natively supports Model Context Protocol (MCP) with 100+ pre-built MCP tools and custom MCP tool development capability."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What platforms does IHUI AI support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "IHUI AI provides 6 native clients: Web, Desktop (Windows/macOS/Linux), WeChat Mini-Program, Browser Extension (Chrome/Edge), React Native (iOS/Android), and CLI."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is IHUI AI pricing?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "IHUI AI has 3 tiers: Community Edition (free, Apache 2.0, self-hosted), Pro Edition (¥49/user/month, cloud-hosted), Enterprise Edition (¥300,000/year, self-hosted with SLA)."
+          }
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "@type": "Relationship",
+      "subject": "https://ihui.ai/#organization",
+      "predicate": "develops",
+      "object": "https://ihui.ai/#software"
+    },
+    {
+      "@type": "Relationship",
+      "subject": "https://ihui.ai/#software",
+      "predicate": "supports",
+      "object": "https://ihui.ai/#mcp-support"
+    },
+    {
+      "@type": "Relationship",
+      "subject": "https://ihui.ai/#software",
+      "predicate": "integrates",
+      "object": "https://ihui.ai/#integrations"
+    },
+    {
+      "@type": "Relationship",
+      "subject": "https://ihui.ai/#software",
+      "predicate": "builtWith",
+      "object": "https://ihui.ai/#technology-stack"
+    }
+  ]
+}

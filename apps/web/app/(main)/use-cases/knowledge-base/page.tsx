@@ -24,6 +24,48 @@ const jsonLd = {
         { '@type': 'ListItem', position: 3, name: '企业知识库', item: 'https://ihui.ai/use-cases/knowledge-base' },
       ],
     },
+    // 2026-07-26 极致 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建企业知识库 RAG"类检索)
+    {
+      '@type': 'HowTo',
+      '@id': 'https://ihui.ai/use-cases/knowledge-base#howto',
+      name: '60 秒搭建企业知识库 RAG 智能问答',
+      description:
+        '基于 IHUI AI 全栈 AI 操作系统搭建企业知识库 RAG 的 4 步流程:连接数据源 → 智能解析 → 向量化索引 → 智能问答。找信息时间降低 70%,准确率 95%+。',
+      inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
+      totalTime: 'PT60S',
+      estimatedCost: { '@type': 'MonetaryAmount', currency: 'CNY', value: '0' },
+      supply: [{ '@type': 'HowToSupply', name: '企业文档(PDF/Word/Markdown/Confluence/Notion)' }],
+      tool: [
+        { '@type': 'HowToTool', name: 'IHUI AI 数据源接入器' },
+        { '@type': 'HowToTool', name: 'IHUI AI 向量索引引擎' },
+      ],
+      step: [
+        {
+          '@type': 'HowToStep',
+          position: 1,
+          name: '连接数据源',
+          text: '对接 Confluence/Notion/SharePoint/S3 等 30+ 数据源,自动同步。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 2,
+          name: '智能解析',
+          text: 'PDF 表格、Word 图片、Markdown 链接自动抽取,无信息丢失。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 3,
+          name: '向量化索引',
+          text: '选择嵌入模型(支持中文优化版),构建混合索引,分钟级完成。',
+        },
+        {
+          '@type': 'HowToStep',
+          position: 4,
+          name: '智能问答',
+          text: '员工提问,AI 给出答案 + 引用来源,点击可跳转到原文段落。',
+        },
+      ],
+    },
   ],
 }
 
