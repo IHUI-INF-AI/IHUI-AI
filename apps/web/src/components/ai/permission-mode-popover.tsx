@@ -182,7 +182,16 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         },
         onSuccess: () => {
           // 切到完全访问(bypass-permissions)→ 弹 5s 撤销 toast,防误操作
+          // (2026-07-25 深化)双 action:撤销 + 再保持 1h(防"刚切完就觉得不够"场景)
           if (mode === 'bypass-permissions' && previousMode) {
+            const extendOneHour = () => {
+              if (typeof window !== 'undefined') {
+                const w = window as unknown as {
+                  __IHUI_EXTEND_AUTO_REVERT__?: (ms?: number) => void
+                }
+                w.__IHUI_EXTEND_AUTO_REVERT__?.()
+              }
+            }
             toast(t('switchedToFull'), {
               description: t('switchedToFullDesc', { prev: previousMode }),
               duration: UNDO_TOAST_DURATION,
@@ -191,6 +200,10 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                 onClick: () => {
                   handleSelect(previousMode)
                 },
+              },
+              cancel: {
+                label: t('extendOneHour'),
+                onClick: extendOneHour,
               },
             })
           } else if (mode === 'accept-edits') {
@@ -267,7 +280,8 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
     }
   }, [isOpen, currentMode])
 
-  const currentOption = MODE_OPTIONS_LIST.find((o) => o.value === currentMode) ?? MODE_OPTIONS_LIST[0]!
+  const currentOption =
+    MODE_OPTIONS_LIST.find((o) => o.value === currentMode) ?? MODE_OPTIONS_LIST[0]!
   const CurrentIcon = currentOption.icon
   const currentTitle = t(currentOption.titleKey)
   const hasWorkspace = !!activeWorkspace
@@ -283,9 +297,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
           {/* 顶部标题 + 了解更多链接(Codex 风格:左标题,右链接) */}
           <div className="flex items-start justify-between gap-2 px-1 pb-1">
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-foreground">
-                {t('popoverTitle')}
-              </span>
+              <span className="text-sm font-semibold text-foreground">{t('popoverTitle')}</span>
               {!hasWorkspace && (
                 <span className="text-[11px] text-muted-foreground">
                   {t('popoverHintNoWorkspace')}
@@ -329,7 +341,9 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                       ? 'border-primary/60 bg-primary/5'
                       : 'border-border hover:border-foreground/20 hover:bg-muted/30',
                     // 键盘聚焦但未选中:虚线 ring 提示(双重高亮:选中 + 聚焦)
-                    isFocused && !isSel && 'ring-1 ring-primary/40 ring-offset-1 ring-offset-popover',
+                    isFocused &&
+                      !isSel &&
+                      'ring-1 ring-primary/40 ring-offset-1 ring-offset-popover',
                     // 高风险 + 选中:琥珀色边框强化警告
                     isSel && opt.risk === 'high' && 'border-amber-500/60 bg-amber-500/5',
                   )}
@@ -404,9 +418,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
             <span className="flex-1 text-xs font-medium text-amber-700 dark:text-amber-400">
               {t('quickFullAccess')}
             </span>
-            {currentMode === 'bypass-permissions' && (
-              <Check className="h-3 w-3 text-amber-500" />
-            )}
+            {currentMode === 'bypass-permissions' && <Check className="h-3 w-3 text-amber-500" />}
           </button>
 
           {/* 键盘提示(2026-07-25 深化):底部小字,提醒用户可用 ↑/↓/Enter/1-3 键盘操作 */}
@@ -471,15 +483,9 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         <span className="whitespace-nowrap">{currentTitle}</span>
         {/* 高风险模式追加醒目的三角警告图标(2026-07-25 深化) */}
         {currentMode === 'bypass-permissions' && (
-          <TriangleAlert
-            className="h-3 w-3 shrink-0 text-amber-500"
-            aria-hidden="true"
-          />
+          <TriangleAlert className="h-3 w-3 shrink-0 text-amber-500" aria-hidden="true" />
         )}
-        <Shield
-          className="h-3 w-3 shrink-0 opacity-50"
-          aria-hidden="true"
-        />
+        <Shield className="h-3 w-3 shrink-0 opacity-50" aria-hidden="true" />
       </button>
       {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
           - 统一由 message-input 渲染 FullAccessConfirmDialog(共享 store,Slash/Popover/Shift+Tab 共用)
