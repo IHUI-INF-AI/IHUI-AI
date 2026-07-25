@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { selectClass, textareaClass, TYPES, LEVELS } from './helpers'
+import { selectClass, textareaClass, TYPES, LEVELS, TYPE_KEY, LEVEL_KEY } from './helpers'
 import type { SystemEvent, EventForm, EventType, Level } from './types'
 
 interface Props {
@@ -76,7 +76,7 @@ export function EventDialog({
                 <SelectContent>
                   {TYPES.map((tp) => (
                     <SelectItem key={tp} value={tp}>
-                      {t(`types.${tp}`)}
+                      {t(TYPE_KEY[tp] ?? 'types.unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -94,7 +94,7 @@ export function EventDialog({
                 <SelectContent>
                   {LEVELS.map((lv) => (
                     <SelectItem key={lv} value={lv}>
-                      {t(`levels.${lv}`)}
+                      {t(LEVEL_KEY[lv] ?? 'levels.unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>

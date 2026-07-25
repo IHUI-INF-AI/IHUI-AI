@@ -10,6 +10,12 @@ import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
 
+const INVITATION_STATUS_KEYS: Record<'unused' | 'used' | 'expired', string> = {
+  unused: 'status.unused',
+  used: 'status.used',
+  expired: 'status.expired',
+}
+
 interface Invitation {
   id: string
   code: string
@@ -141,7 +147,7 @@ export default function InvitationsPage() {
                         STATUS_STYLE[c.status],
                       )}
                     >
-                      {t(`status.${c.status}`)}
+                      {t(INVITATION_STATUS_KEYS[c.status]!)}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
