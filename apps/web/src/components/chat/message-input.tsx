@@ -124,6 +124,26 @@ const TPL_CONTENT_KEY_MAP: Record<string, string> = {
 }
 
 /**
+ * i18n 静态映射表 — 用于消除 `t(`permission.dangerousPattern.${pattern}`)` 单变量动态拼接。
+ * key 集合与 apps/web/src/lib/dangerous-command-detector.ts 的 DANGEROUS_PATTERNS[].id 一一对应;
+ * 若 detector 新增 pattern 而本表漏改,运行时回退到 'permission.dangerousPattern.unknown'。
+ */
+const DANGEROUS_PATTERN_KEY: Record<string, string> = {
+  rmRrfRoot: 'permission.dangerousPattern.rmRrfRoot',
+  ddToDisk: 'permission.dangerousPattern.ddToDisk',
+  mkfsDisk: 'permission.dangerousPattern.mkfsDisk',
+  redirectToDevice: 'permission.dangerousPattern.redirectToDevice',
+  chmodRoot: 'permission.dangerousPattern.chmodRoot',
+  sudoAny: 'permission.dangerousPattern.sudoAny',
+  curlPipeSh: 'permission.dangerousPattern.curlPipeSh',
+  forkBomb: 'permission.dangerousPattern.forkBomb',
+  mvRootToNull: 'permission.dangerousPattern.mvRootToNull',
+  rmEnv: 'permission.dangerousPattern.rmEnv',
+  rmGit: 'permission.dangerousPattern.rmGit',
+  forcePushMain: 'permission.dangerousPattern.forcePushMain',
+}
+
+/**
  * 把后端返回的 mimeType 转换为短标签(image/png → PNG,application/pdf → PDF)。
  * 没有 mimeType 时回退为 "FILE"。
  */
@@ -662,7 +682,9 @@ export function MessageInput({
           (m) => m.severity === 'critical' || m.severity === 'high',
         )
         if (top) {
-          const patternLabel = t(`permission.dangerousPattern.${top.pattern}`)
+          const patternLabel = t(
+            DANGEROUS_PATTERN_KEY[top.pattern] ?? 'permission.dangerousPattern.unknown',
+          )
           toast(t('permission.dangerousCommandTitle'), {
             description: t('permission.dangerousCommandDesc', {
               pattern: patternLabel,
@@ -688,7 +710,9 @@ export function MessageInput({
       // 仅 medium → 警告但不阻断
       if (detection.matches.length > 0) {
         const medium = detection.matches[0]!
-        const patternLabel = t(`permission.dangerousPattern.${medium.pattern}`)
+        const patternLabel = t(
+          DANGEROUS_PATTERN_KEY[medium.pattern] ?? 'permission.dangerousPattern.unknown',
+        )
         toast.warning(t('permission.dangerousCommandWarningOnly', { pattern: patternLabel }), {
           duration: 5_000,
         })
@@ -1215,16 +1239,41 @@ export function MessageInput({
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
                 {isStreaming ? (
-                  <Tooltip content={stopLabel}>
-                    <button
-                      type="button"
-                      onClick={onStop}
-                      aria-label={stopLabel}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
-                    >
-                      <Square className="h-4 w-4" fill="currentColor" />
-                    </button>
-                  </Tooltip>
+                  <>
+                    {/* 流式生成状态指示(2026-07-25 补回,深度对标 Cursor/ChatGPT):
+                        - 圆角矩形容器(rounded-md,避免 rounded-full 违反圆角守门)
+                        - 左侧 1.5x1.5 脉冲点 + 右侧中文小字,紧凑不抢戏
+                        - 用 Tooltip 包裹提供详细提示,aria-live=polite 让屏幕阅读器感知
+                        - 仅 isStreaming=true 时渲染,否则零开销 */}
+                    <Tooltip content={t('streamingIndicatorHint')}>
+                      <div
+                        role="status"
+                        aria-live="polite"
+                        className="flex h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-sm bg-primary"
+                        />
+                        <span
+                          className="whitespace-nowrap text-xs font-medium text-primary"
+                          style={{ transform: 'translateY(0.7px)' }}
+                        >
+                          {t('streamingIndicator')}
+                        </span>
+                      </div>
+                    </Tooltip>
+                    <Tooltip content={stopLabel}>
+                      <button
+                        type="button"
+                        onClick={onStop}
+                        aria-label={stopLabel}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
+                      >
+                        <Square className="h-4 w-4" fill="currentColor" />
+                      </button>
+                    </Tooltip>
+                  </>
                 ) : (
                   <Tooltip content={sendLabel}>
                     <button
