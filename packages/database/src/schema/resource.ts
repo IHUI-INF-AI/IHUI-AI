@@ -71,6 +71,7 @@ export const resources = pgTable(
 
 /**
  * 资源产品表 - 资源可关联多个付费产品。
+ * pid: 父产品 ID(自引用,根节点 pid = NULL),用于树形分类。
  */
 export const resourceProducts = pgTable(
   'resource_products',
@@ -86,11 +87,15 @@ export const resourceProducts = pgTable(
     isPublished: boolean('is_published').default(false).notNull(),
     sort: integer('sort').default(0).notNull(),
     status: integer('status').default(1).notNull(),
+    pid: uuid('pid').references((): AnyPgColumn => resourceProducts.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     resIdx: index('resource_products_resource_idx').on(t.resourceId),
+    pidIdx: index('resource_products_pid_idx').on(t.pid),
   }),
 )
 
