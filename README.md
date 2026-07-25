@@ -2446,6 +2446,8 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
   - [IHUI AI vs OpenAI Agent Builder](https://ihui.ai/compare/ihui-vs-openai-agent)
   - [IHUI AI vs LangChain / LangGraph](https://ihui.ai/compare/ihui-vs-langchain)
   - [IHUI AI vs Microsoft Copilot Studio](https://ihui.ai/compare/ihui-vs-copilot-studio)
+  - [IHUI AI vs Manus AI(2025 现象级自主 Agent)](https://ihui.ai/compare/ihui-vs-manus)
+  - [IHUI AI vs Devin AI(首个 AI 程序员)](https://ihui.ai/compare/ihui-vs-devin)
 - **行业用例页**(场景化关键词)
   - [AI 智能客服 Agent](https://ihui.ai/use-cases/customer-support)
   - [企业知识库 RAG](https://ihui.ai/use-cases/knowledge-base)
