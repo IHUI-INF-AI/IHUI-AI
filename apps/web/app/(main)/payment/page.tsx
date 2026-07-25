@@ -26,6 +26,13 @@ const PLANS: Plan[] = [
   },
 ]
 
+/** i18n 静态映射表 — 用于消除 plans.{id}.name 形式的动态拼接 */
+const PLAN_NAME_KEY: Record<Plan['id'], string> = {
+  free: 'plans.free.name',
+  pro: 'plans.pro.name',
+  enterprise: 'plans.enterprise.name',
+}
+
 const formatCNY = (n: number) =>
   new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
 
@@ -65,7 +72,7 @@ export default function PaymentPage() {
                 <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
-                <CardTitle className="text-lg">{t(`plans.${plan.id}.name`)}</CardTitle>
+                <CardTitle className="text-lg">{t(PLAN_NAME_KEY[plan.id] ?? 'plans.unknown.name')}</CardTitle>
                 <div className="mt-2 flex items-baseline gap-1">
                   <span className="text-3xl font-bold tracking-tight">{priceLabel}</span>
                   {!isEnterprise && (
