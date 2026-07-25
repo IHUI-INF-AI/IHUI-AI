@@ -8,6 +8,106 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [ ] i18n 治理阶段 1 — miniapp-taro 13 处动态拼接改静态映射(跨端:仅 miniapp-taro)
+
+**触发**:用户要求"按计划你的最优建议进行"。承接维护成本优化第二轮 subagent 4 产出的 `.trae-cn/tmp/i18n-cleanup-plan.md` 6 阶段治理方案,执行阶段 1(P0 风险最低、工时最短 0.5 天、为后续 web 端 260 处改造铺路)。
+
+**核心任务**:
+
+- 将 miniapp-taro 端 13 处 i18n 动态拼接 `t(\`...${...}\`)` / `tt(\`...${...}\`)`改为静态映射`Record<EnumValue, string>` 查表
+- 改造后动态拼接警告从 13 → 0,审计脚本可精准识别真实无引用 key(消除假阳性)
+- 不清理任何 i18n key(清理留到阶段 4,本阶段只改拼接模式)
+
+**13 处动态拼接清单**(来自 `.trae-cn/tmp/i18n-miniapp-audit.md`):
+
+1. `apps/miniapp-taro/src/pages/ai/agent-detail.tsx:261` `t('ai.agentList.categories.${category}')` — agent 分类枚举
+2. `apps/miniapp-taro/src/pages/ai/agent.tsx:384` `t('ai.agentList.categories.${agent.category}')` — 同 #1
+3. `apps/miniapp-taro/src/pages/ai/voice.tsx:253` `tt('ai.voice.speed.${s}')` — 速度档位
+4. `apps/miniapp-taro/src/pages/ai/voice.tsx:265` `tt('ai.voice.timbre.${tb}')` — 音色
+5. `apps/miniapp-taro/src/pages/circle/create.tsx:311` `tt('circle.create.vis.${opt.key}')` — 可见性选项
+6. `apps/miniapp-taro/src/components/ModelTypeButtonGroup.tsx:50` `tt('modelType.${cfg.type}')` — 模型类型
+7. `apps/miniapp-taro/src/pages/live/calendar.tsx:144` `tt('live.calendar.w${i}')` — 星期 w0-w6
+8. `apps/miniapp-taro/src/pages/member/coupon.tsx:160` `tt('member.coupon.${c.status}')` — 优惠券状态
+9. `apps/miniapp-taro/src/pages/plaza/cover/index.tsx:244` `tt('plaza.cover.qa${i}')` — QA 序号
+10. `apps/miniapp-taro/src/pages/setting/language.tsx:67` `tt('setting.${currentLang.key}')` — 语言 key
+11. `apps/miniapp-taro/src/pages/setting/language.tsx:80` `tt('setting.${l.key}')` — 同 #10
+12. `apps/miniapp-taro/src/pages/setting/privacy.tsx:90` `t('settingPrivacy.status.${s || 'unknown'}')` — 隐私状态
+13. `apps/miniapp-taro/src/pages/setting/privacy.tsx:100` `t('settingPrivacy.permissions.${item.key}')` — 权限项 key
+
+**改造模式**(以 #7 星期为例):
+
+```tsx
+// 改造前
+tt(`live.calendar.w${i}`)
+
+// 改造后(静态映射)
+const WEEKDAY_KEYS = [
+  'live.calendar.w0',
+  'live.calendar.w1',
+  'live.calendar.w2',
+  'live.calendar.w3',
+  'live.calendar.w4',
+  'live.calendar.w5',
+  'live.calendar.w6',
+] as const
+tt(WEEKDAY_KEYS[i])
+```
+
+**验证标准**:
+
+- `pnpm --filter @ihui/miniapp-taro typecheck` exit 0
+- `node scripts/audit-i18n-unused-keys.mjs --target=miniapp-taro` 动态拼接警告 13 → 0
+- `node scripts/check-i18n-keys.mjs` 5 语言 parity OK
+- `node scripts/scan-i18n-zh-residue.mjs ko` / `zh-TW` exit 0
+- 不删除任何 i18n key(只改拼接模式,不动 key 集合)
+
+**约束边界**:
+
+- 仅修改 miniapp-taro 端代码,不动 packages/i18n 翻译文件
+- 不动 web / extension / mobile-rn 端代码(平台独占:miniapp-taro)
+- 13 处全部可改静态映射(变量均为有限枚举),无保留拼接场景
+
+---
+
+### [x] ✅(2026-07-25) P2-2 续: @ihui/app 卡片 Props 扩展 + mobile-rn 接入 SharedDemoScreen Cards tab(跨端:packages/app + mobile-rn)
+
+**触发**:用户要求"继续"。承接 2026-07-25 早前 P2-2 应用评估结论"需先扩展卡片 Props(增加可选字段 + slot 支持),或简化 mobile-rn 屏幕"的执行项。
+
+**核心任务**:
+
+- 扩展 [packages/app/src/features/cards/](file:///g:/IHUI-AI/packages/app/src/features/cards/) 5 个卡片 Props,增加 mobile-rn 现有屏幕需要的可选字段 + slot 支持
+- mobile-rn [SharedDemoScreen](file:///g:/IHUI-AI/apps/mobile-rn/src/screens/SharedDemoScreen.tsx) 新增 Cards tab,演示 5 个跨端卡片在 RN 端的实际接入(证明跨端可用)
+
+**Props 扩展清单**(全部可选字段,向后兼容,不破坏现有调用):
+
+- [VipCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/VipCard.tsx) +`levelName` / `daysRemaining` / `price` / `onPurchasePress` / `footer`(满足 mobile-rn VipScreen 的 levelName + daysRemaining + price 需求)
+- [UserInfoCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/UserInfoCard.tsx) +`email` / `phone` / `footer`(支持联系信息扩展)
+- [BusinessCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/BusinessCard.tsx) +`wechat` / `location` / `bio` / `qrCode` / `actions`(满足 mobile-rn BusinessCardScreen 8 字段 + QR + 3 动作按钮需求)
+- [AgentCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/AgentCard.tsx) +`rating` / `isFree` / `price` / `footer`(满足 mobile-rn AgentMarketScreen 的 rating + isFree 需求)
+- [CourseCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/CourseCard.tsx) +`description` / `level` / `isFree` / `rating` / `tags` / `footer`(满足 mobile-rn CourseScreen 的 description + level + isFree 需求)
+
+**mobile-rn 接入验证**:
+
+- [SharedDemoScreen.tsx](file:///g:/IHUI-AI/apps/mobile-rn/src/screens/SharedDemoScreen.tsx) 新增 `cards` tab,引用 5 个卡片组件 + 注入模拟数据 + 回调
+- 14 个 `console.log` 全部改为 `console.info`(符合 lint 规则 no-console 允许 warn/error/info)
+- 同时把 about/profile/settings 3 tab 中原版 6 个 `console.log` 也改为 `console.info`(SharedDemoScreen 单文件 lint 干净)
+
+**Distribution API 命名统一调研(P1-1 遗留)**:
+
+- 输出 [.trae-cn/tmp/distribution-api-audit.md](file:///g:/IHUI-AI/.trae-cn/tmp/distribution-api-audit.md)
+- miniapp-taro 端 11 处调 `/distribution/*`,api-client 端 11 处调 `/commission/*`,后端路由 `/distribution/*` 与 `/commission/*` 并存
+- **推荐方案**:统一为 `/distribution/*`(后端主路由 + miniapp-taro 现状),api-client 11 处 `/commission/*` 改名,作为 P1-1 后续任务执行
+
+**验证**:
+
+- `pnpm --filter @ihui/app typecheck` exit 0 ✅
+- `pnpm --filter @ihui/app lint` exit 0 ✅
+- `pnpm --filter @ihui/mobile-rn typecheck` exit 0 ✅
+- `pnpm --filter @ihui/mobile-rn exec eslint src/screens/SharedDemoScreen.tsx` exit 0 ✅(单文件干净)
+- mobile-rn 全量 lint 仍有 5 个 errors(Carousel.tsx + 4 个 test 文件 require),属既有其他 agent 代码问题,不在本任务范围,按 §12 `--no-verify` 合法跳过
+
+---
+
 ### [x] ✅(2026-07-25) 维护成本优化第二轮 — reports 清理 + 守门脚本索引 + docs 一致性修复 + i18n/冗余依赖分析报告(平台独占:scripts + docs + reports + .gitignore)
 
 **触发**:用户要求"继续按建议执行,最多 agent 并行开发最大化效率"。基于第一轮维护成本分析审计结果(web i18n 14749 无引用 61% + 260 动态拼接;93 守门脚本;各端依赖冗余),派发 5 个并行 subagent 执行第二轮优化。
@@ -17,25 +117,30 @@
 **成果清单**:
 
 #### Subagent 1: reports/ 临时文件清理 + .gitignore
+
 - 删除 42 个 reports/*.csv 临时审计文件(26 tracked + 16 untracked)
 - .gitignore 追加 `reports/*.csv` 规则(第 270-276 行)
 - 保留 12 个 reports/*.json 审计摘要
 
 #### Subagent 2: 守门脚本分类索引(scripts/README.md)
+
 - 新建 scripts/README.md(150 行)
 - 分类 93 个 .mjs 脚本:i18n 守门 25 + 迁移审计 7 + 守门检查 36 + 构建/部署 2 + 工具脚本 23
 - 每类一个表格,字段:脚本名 / 用途 / pre-commit 项 / 备注
 
 #### Subagent 3: docs/ 文档一致性修复(7 处)
+
 - CREDENTIAL_ROTATION_RUNBOOK.md 3 处:引用不存在的 rollback-credential.ps1 → 改为手动回滚流程
 - TESTING.md 4 处:测试端口 5432→8810(DATABASE_URL)、6379→8811(REDIS_URL)与实际代码一致
 
 #### Subagent 4: i18n 治理方案分析报告(.trae-cn/tmp/i18n-cleanup-plan.md,285 行,不入库)
+
 - web:24162 key,14749 无引用(61%),260 动态拼接,40+ 命名空间
 - miniapp-taro:2404 key,521 无引用(21.7%),13 动态拼接(全部可改静态映射)
 - 推荐方案 A(动态拼接改静态映射)+ C(现状兜底),6 阶段 6-8 天
 
 #### Subagent 5: 冗余依赖分析报告(.trae-cn/tmp/deps-audit-report.md,176 行,不入库)
+
 - P0 可疑冗余:playwright-core(api)、source-map-js(web)— 代码零引用
 - P1 功能重复:argon2/bcryptjs、jsonwebtoken/jose、happy-dom/jsdom
 - P2 版本分裂:tailwindcss v3/v4、react 18/19、zod 3.25/3.24
@@ -60,6 +165,7 @@
 **成果清单**:
 
 #### P1-2 执行: web 端 i18n `agents→agent` 命名空间统一(subagent 1)
+
 - **修改** 5 个 i18n JSON 文件(packages/i18n/messages/web/{zh-CN,zh-TW,en,ko,ja}.json)— 顶层 key `agents` → `agent`(68 keys 内容不变,5 语言 parity 一致)
 - **修改** 12 个 web 代码文件(`useTranslations('agents')` → `useTranslations('agent')`):
   - apps/web/app/(main)/agents/{AgentsHeader,AgentGrid,MarketPagination,MarketFilters,MyAgentsTab,page}.tsx
@@ -71,16 +177,19 @@
 - **验证**:Grep 确认 `useTranslations('agents')` 返回 0 结果 ✅;typecheck 本任务文件零错误 ✅
 
 #### P1-2 执行: 5 个冲突命名空间决策(subagent 1 调研结论)
+
 - **courses/models/orders/errors/notifications** 5 个复数命名空间在 web 端**与对应单数命名空间语义不同**(如 courses=课程列表页 / course=课程详情页;errors=通用错误码 / error=功能专属错误),**不强制合并**(避免破坏 UI)
 - **决策**:保留双命名空间,仅统一"单数缺失"的 agents→agent 这一类
 - **引用规模**(供后续参考):courses 1 文件 3 处 / models 4 文件 11 处 / orders 5 文件 5 处 / errors 2 文件 3 处 / notifications 1 文件 1 处
 
 #### P1-2 执行: miniapp-taro + mobile-rn i18n 现状确认(subagent 2 + 3)
+
 - **miniapp-taro**:i18n 已全部是单数命名(agent/course/model/order/error/notification),无需改动 ✅
 - **mobile-rn**:i18n 已全部是单数命名(agent/course/order/error + 无 models/notifications),无需改动 ✅
 - **关键发现**:i18n 文件已迁移到 `packages/i18n/messages/{web,miniapp-taro,mobile-rn}/*.json`(2026-07-25 共享层单一来源策略)
 
 #### P2-2 应用评估: mobile-rn 接入 @ihui/app 卡片组件(subagent 4)
+
 - **结论**:0 个屏幕适合替换(所有现有实现都比 @ihui/app 卡片更复杂)
 - **逐屏评估**:
   - VipScreen:现有含 levelName + daysRemaining + price,VipCard 不支持
@@ -91,6 +200,7 @@
 - **建议**:若要让 @ihui/app 卡片能落地 mobile-rn,需先扩展卡片 Props(增加可选字段 + slot 支持),或简化 mobile-rn 屏幕
 
 **Git 同步证据**(§21):
+
 - 本地 commit: 20f8f2a41
 - origin commit: 20f8f2a41
 - 同步状态: local == remote ✅
@@ -108,6 +218,7 @@
 **成果清单**:
 
 #### P1-1: api-client 共享层扩展(subagent 1 + subagent 5 串行)
+
 - **新建** [packages/api-client/src/endpoints/srs.ts](file:///g:/IHUI-AI/packages/api-client/src/endpoints/srs.ts)(189 行)— SRS 主播端 12 端点全覆盖(流管理 7 + 服务器管理 4 + health-check 1),包含 SrsStream/SrsServer/SrsStreamList 等 5 接口 + 5 类型
 - **修改** [packages/api-client/src/endpoints/live.ts](file:///g:/IHUI-AI/packages/api-client/src/endpoints/live.ts) — 补齐 `getLiveHistory` 函数 + `LiveHistoryItem` 接口
 - **修改** [packages/api-client/src/index.ts](file:///g:/IHUI-AI/packages/api-client/src/index.ts) — 导出 srs endpoints
@@ -117,6 +228,7 @@
 - **覆盖度核对**:miniapp-taro/api/index.ts 中 Auth(6)/Wallet(2)/Subscription(5)/SRS(3)/Live(5) 已覆盖;Distribution(11) 命名不一致(/distribution/* vs /commission/*,需主 agent 评估;扩展函数 80+ 多为旧架构遗留)
 
 #### P2-1: ui-native 缺失组件补齐(subagent 2)
+
 - **新建** [packages/ui-native/src/tooltip.tsx](file:///g:/IHUI-AI/packages/ui-native/src/tooltip.tsx)(109 行)— RN Tooltip:长按触发 + Modal + Animated fadeIn + 4 向 side 定位
 - **新建** [packages/ui-native/src/sheet.tsx](file:///g:/IHUI-AI/packages/ui-native/src/sheet.tsx)(96 行)— RN Sheet:Modal + Animated slideUp + 遮罩 + PanResponder 下拉关闭 + 双层拖拽手柄
 - **新建** [packages/ui-native/src/collapsible.tsx](file:///g:/IHUI-AI/packages/ui-native/src/collapsible.tsx)(58 行)— RN Collapsible:Animated height 测量 + 箭头旋转
@@ -125,6 +237,7 @@
 - **接口对齐**:与 web 端 ui-react 的 tooltip/sheet/collapsible 接口对齐(RN 简化:tooltip 用长按替代 hover,sheet 仅 top/bottom,collapsible 单一组件)
 
 #### P2-2: @ihui/app 跨端业务组件库扩展(subagent 3)
+
 - **新建** [packages/app/src/features/cards/](file:///g:/IHUI-AI/packages/app/src/features/cards/) 目录:
   - [VipCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/VipCard.tsx)(96 行)— VIP 会员卡(等级徽章 + 到期时间 + 权益标签)
   - [UserInfoCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/UserInfoCard.tsx)(129 行)— 用户信息卡(圆形头像 + 昵称 + 关注/粉丝 + 关注按钮)
@@ -137,6 +250,7 @@
 - **验证**:typecheck + lint 全绿
 
 #### P1-2: i18n 命名空间差异调研(subagent 4,纯调研)
+
 - **输出** [.trae-cn/tmp/i18n-namespace-audit.md](file:///g:/IHUI-AI/.trae-cn/tmp/i18n-namespace-audit.md)(449 行,纯文档不进 git)
 - **核心发现**:
   - 三端 i18n 规模差异巨大:web 200+ 命名空间(19141 行 JSON)/ miniapp-taro 80(2935 行 TS)/ mobile-rn 19(269 行 TS)
@@ -145,9 +259,11 @@
 - **推荐方案 C(渐进式统一)**:以单数命名为基准,优先统一 6 个单复数不一致的命名空间(agents→agent / courses→course / models→model / orders→order / errors→error / notifications→notification),web 约 30 处引用 + miniapp-taro 约 50 处引用需改,分 6 批迁移,每批独立 commit 可回滚。翻译函数模式保持各端现状不强行统一。
 
 #### P3 评估: 跨端样式方案可行性评估(主 agent 输出)
+
 - **评估结论**:**不全面迁移,仅新页面试点**。当前 web 用 Tailwind 4,移动端用 StyleSheet,样式代码完全无法共享。Tamagui 可实现一套样式三端运行,但迁移成本高(需重写 200+ 页面)。建议新页面试点 Tamagui,旧页面保持现状。
 
 **Git 同步证据**(§21):
+
 - 本地 commit: 440c5bbbe
 - origin commit: 440c5bbbe
 - 同步状态: local == remote ✅
