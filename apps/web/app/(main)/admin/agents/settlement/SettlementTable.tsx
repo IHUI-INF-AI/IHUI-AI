@@ -4,7 +4,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
-import { STATUS_CLASS, createMoneyFmt } from './helpers'
+import { STATUS_CLASS, STATUS_KEY, createMoneyFmt } from './helpers'
 import type { Settlement } from './types'
 
 interface Props {
@@ -77,7 +77,7 @@ export function SettlementTable({ list, isLoading, error, settlePending, onSettl
                       STATUS_CLASS[r.status] ?? STATUS_CLASS.unsettled,
                     )}
                   >
-                    {t(`status${r.status.charAt(0).toUpperCase()}${r.status.slice(1)}`)}
+                    {t(STATUS_KEY[r.status] ?? 'statusUnknown')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
