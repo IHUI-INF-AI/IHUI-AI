@@ -22,7 +22,7 @@ import {
 } from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, selectClass, textareaClass, inputSm } from './helpers'
-import { STATUS_KEY } from '@/lib/feedback'
+import { STATUS_KEY, PRIORITY_KEY } from '@/lib/feedback'
 import type { AdminFeedbackItem, EditForm, CreateForm } from './types'
 
 interface FeedbackEditDialogProps {
@@ -101,7 +101,7 @@ export function FeedbackEditDialog({
               <SelectContent>
                 {PRIORITY_OPTIONS.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {tf(`priority_${p}`)}
+                    {tf(PRIORITY_KEY[p] ?? 'priority_unknown')}
                   </SelectItem>
                 ))}
               </SelectContent>

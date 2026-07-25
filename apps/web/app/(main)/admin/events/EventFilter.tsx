@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
-import { selectClass, TYPES, LEVELS } from './helpers'
+import { selectClass, TYPES, LEVELS, TYPE_KEY, LEVEL_KEY } from './helpers'
 import type { EventType, Level } from './types'
 
 interface Props {
@@ -24,7 +24,7 @@ export function EventFilter({ type, setType, level, setLevel }: Props) {
           <SelectItem value="all">{t('allTypes')}</SelectItem>
           {TYPES.map((tp) => (
             <SelectItem key={tp} value={tp}>
-              {t(`types.${tp}`)}
+              {t(TYPE_KEY[tp] ?? 'types.unknown')}
             </SelectItem>
           ))}
         </SelectContent>
@@ -37,7 +37,7 @@ export function EventFilter({ type, setType, level, setLevel }: Props) {
           <SelectItem value="all">{t('allLevels')}</SelectItem>
           {LEVELS.map((lv) => (
             <SelectItem key={lv} value={lv}>
-              {t(`levels.${lv}`)}
+              {t(LEVEL_KEY[lv] ?? 'levels.unknown')}
             </SelectItem>
           ))}
         </SelectContent>
