@@ -39,6 +39,19 @@ const DEFAULT_PRIVACY: PrivacyPrefs = {
 const NOTIF_KEYS = ['orderUpdates', 'promotions', 'points', 'newsletter'] as const
 const PRIVACY_KEYS = ['showProfile', 'showActivity', 'allowInvites'] as const
 
+/** i18n 静态映射表 — 用于消除 `t(\`notif.${var}\`)` / `t(\`privacy.${var}\`)` 动态拼接 */
+const NOTIF_KEY: Record<string, string> = {
+  orderUpdates: 'notif.orderUpdates',
+  promotions: 'notif.promotions',
+  points: 'notif.points',
+  newsletter: 'notif.newsletter',
+}
+const PRIVACY_KEY: Record<string, string> = {
+  showProfile: 'privacy.showProfile',
+  showActivity: 'privacy.showActivity',
+  allowInvites: 'privacy.allowInvites',
+}
+
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
@@ -119,7 +132,7 @@ export default function MemberSettingsPage() {
           {NOTIF_KEYS.map((key) => (
             <div key={key} className="flex items-center justify-between">
               <Label className="text-sm font-normal text-muted-foreground">
-                {t(`notif.${key}`)}
+                {t(NOTIF_KEY[key] ?? 'notif.unknown')}
               </Label>
               <Toggle checked={notif[key]} onChange={(v) => setNotif({ ...notif, [key]: v })} />
             </div>
@@ -136,7 +149,7 @@ export default function MemberSettingsPage() {
           {PRIVACY_KEYS.map((key) => (
             <div key={key} className="flex items-center justify-between">
               <Label className="text-sm font-normal text-muted-foreground">
-                {t(`privacy.${key}`)}
+                {t(PRIVACY_KEY[key] ?? 'privacy.unknown')}
               </Label>
               <Toggle
                 checked={privacy[key]}

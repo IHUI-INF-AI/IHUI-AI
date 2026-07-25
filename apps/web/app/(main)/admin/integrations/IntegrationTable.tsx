@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Zap, Check, X, Edit, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { PROVIDER_INITIAL } from './helpers'
+import { PROVIDER_INITIAL, PROVIDER_KEY } from './helpers'
 import type { Integration, TestResult } from './types'
 
 interface Props {
@@ -62,7 +62,7 @@ export function IntegrationTable({
                 <div>
                   <div className="font-medium">{i.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {t(`providers.${i.provider}`)}
+                    {t(PROVIDER_KEY[i.provider] ?? 'providers.unknown')}
                   </div>
                 </div>
               </div>
