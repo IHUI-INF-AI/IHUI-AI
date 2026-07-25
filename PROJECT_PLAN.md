@@ -8,6 +8,82 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) i18n 治理阶段 13 — audit 脚本 6 类误判修复 + web 端 5 个真无引用 key 5 语言同步清理(跨端:仅 web)
+
+**触发**:第十二轮 commit `b6fc9be16` 完成 extension/mobile-rn 159 个无引用 key 清理后,运行 audit 发现 web 端报 64 个无引用 key。深度排查发现 audit 脚本存在 6 类误判场景(动态拼接直接调用 / 命名空间+prefix 组合 / safeT wrapper / 数据驱动短 key / 对象属性动态模板字面量 / 点号值首段非顶层 key),误判率 92%(64 个中仅 5 个真无引用)。用户要求"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。
+
+**执行方式**:主 agent 串行修复 audit 脚本 6 类误判 + 生成清理清单 + 调用 cleanup-i18n-unused-keys.mjs 5 语言同步删除 + 多维度验证(audit/parity/zh-TW 残留/ko 残留/en 破碎)。
+
+**交付内容**(7 文件):
+
+#### 1. audit-i18n-unused-keys.mjs 6 类误判修复(误判率 92% → 0%)
+
+| #   | 误判场景                                                                  | 根因                                                    | 修复方案                                                                 |
+| --- | ------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1   | 动态拼接直接调用 `t(\`prefix${var}\`)`                                    | reDyn 未提取 `${}` 前静态 prefix                        | 新增 reDyn1 正则提取 prefix 至 dynamicPrefixes,step 4b 标记匹配 leaf     |
+| 2   | 命名空间+动态prefix组合 `useTranslations('ns') + t(\`sub.${var}\`)`       | 动态 prefix 仅匹配 leaf.key,未尝试 ns+prefix 组合       | 收集全局命名空间,对每个 prefix 尝试 `${ns}.${prefix}` 组合匹配 leaf.key  |
+| 3   | safeT wrapper 函数 `safeT(t, 'key', fallback)`                            | RG_PATTERN 未含 safeT,文件不会被纳入 hitFiles           | RG_PATTERN 追加 `\bsafeT\s*\(`,文件级扫描 reSafeT 提取 key 至 staticKeys |
+| 4   | 数据驱动短 key(文件无命名空间,`labelKey: 'shortKey'`)                     | extractObjectLiteralKeys 仅匹配点号值,短 key 被漏判     | 文件无命名空间时尝试所有已知顶层命名空间拼接                             |
+| 5   | 对象属性动态模板字面量 `labelKey: \`prefix${var}\``                       | re1 仅匹配静态字符串值,动态模板被漏判                   | 新增 reObjDyn 正则提取 i18n 字段的动态 prefix 至 dynamicPrefixes         |
+| 6   | 点号值首段非顶层 key(`'mode.ask'` + `useTranslations('chat.permission')`) | re1 仅检查 firstSegment 是否顶层 key,未尝试命名空间组合 | 首段非顶层 key 时尝试命名空间+值组合(`${ns}.${value}`)                   |
+
+#### 2. web 端 5 个真无引用 key 5 语言同步删除(zh-CN/zh-TW/ko/ja/en)
+
+| key                                                   | namespace | value                   |
+| ----------------------------------------------------- | --------- | ----------------------- |
+| `chat.permission.historyClearCancel`                  | chat      | 取消                    |
+| `chat.permission.historyStatsMode.default`            | chat      | 请求批准                |
+| `chat.permission.historyStatsMode.accept-edits`       | chat      | 替我审批                |
+| `chat.permission.historyStatsMode.bypass-permissions` | chat      | 完全访问                |
+| `chat.permission.historyStatsDuration`                | chat      | `{{mode}}:{{duration}}` |
+
+清理清单:`.trae-cn/tmp/i18n-deletion-list-web-round13.txt`(临时文件,gitignored)
+
+#### 3. 多维度验证
+
+| 验证维度       | 命令                                                       | 结果                                                                                                          |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| audit 无引用   | `node scripts/audit-i18n-unused-keys.mjs --target=web`     | ✅ 9948 递归 key,0 无引用(0.0%),7 处动态拼接警告(已确认真实业务场景)                                          |
+| zh-TW 简体残留 | `node scripts/scan-i18n-zh-residue.mjs zh-TW --target=web` | ✅ 0 处残留                                                                                                   |
+| ko 中文残留    | `node scripts/scan-i18n-zh-residue.mjs ko --target=web`    | ⚠️ 1 处半翻译(`exportEnv: ".env 형식"` warn-only,不阻塞)                                                      |
+| en 破碎机翻    | `node scripts/check-i18n-broken-en.mjs --target=web`       | ✅ 0 处破碎英文                                                                                               |
+| parity 键集    | `node scripts/check-i18n-keys.mjs --target=web`            | ✅ 5 语言键集一致(123 个"未翻译键"经人工甄别全部为合理保留英文:品牌名/技术术语/快捷键/单位/代码片段/营销标题) |
+
+**123 个"未翻译键"人工甄别结论**:经逐项核对完整清单(`.trae-cn/tmp/untranslated-web-zh-CN-flat.txt`),123 个键值 === en 的 ASCII 字符串全部为合理保留英文,按 `scripts/brand-glossary.json` canonical 映射规则 + 行业惯例处理:
+
+- **品牌名/公司名**:Google/Apple/GitHub/Claude Code/Cursor/ChatGPT/Let's Encrypt/OpenClaw
+- **技术术语**:API Key/Base URL/CPU/IP/ID/Slug/Tokens/Webhook/MCP/RAG/VIP/HTML/Python/cURL/QPS/UA/User-Agent/AccessToken/RefreshToken/OpenID/AppID/AppSecret
+- **快捷键符号**:Shift+Tab
+- **数字占位符**:0.00
+- **文件路径示例**:Output/0720.txt
+- **单位**:ms/KB
+- **代码片段**:sk-.../max_tokens
+- **设备类型**:PC/H5
+- **营销标题(有意英文,key 带 En 后缀)**:marketing.*.titleEn 系列(LATEST NEWS/CHOOSE YOUR PLAN/POWERFUL FEATURES 等)
+- **LLM API 标准参数名**:Temperature/Max Tokens/Top P/Frequency Penalty/Presence Penalty/Response Format/System Prompt/Context Length/Model ID(保留英文符合开发者习惯)
+- **比较表财务指标**:Input $/1K/Output $/1K/30d Tokens/30d Cost(带 $ 符号)
+
+→ check-i18n-keys.mjs 的"未翻译键"WARNING 是误报,无需修复。本任务不修改这 123 个 key 的值。
+
+**§9 平台独占豁免**:仅触及 `packages/i18n/messages/web/*.json`(5 文件)+ `scripts/audit-i18n-unused-keys.mjs`(1 文件)+ `PROJECT_PLAN.md`(1 文件),无 api/ai-service/web 业务代码改动,i18n 治理属纯数据层。
+
+**§22 README 豁免**:纯 i18n 数据清理 + 守门脚本修复,不改变对外能力清单。
+
+**教训**:
+
+1. audit 脚本误判率 92% 暴露了"基于静态正则匹配"的局限性 — 动态拼接 / 命名空间组合 / wrapper 函数 / 数据驱动短 key 等真实业务场景必须逐项覆盖,否则误判率失控。
+2. i18n 治理必须先扩展 audit 脚本覆盖所有真实引用模式,再用 audit 输出做清理决策,**严禁**基于"键集合差异"或"未翻译键 WARNING"直接推断需要清理/翻译的 key。
+3. check-i18n-keys.mjs 的"未翻译键"检测应区分"有意保留英文"(品牌名/技术术语)与"真未翻译"(完整英文句子),当前正则过于宽泛,123 个 WARNING 全部是误报。
+
+**Git 同步证据**(§21):
+
+- 本地 commit: <待 commit>
+- origin commit: <待 push>
+- 同步状态: <待验证>
+- 守门脚本: <待运行>
+
+---
+
 ### [x] ✅(2026-07-25) P0 安全债收尾 — IDOR 防护集成测试 + payment-gateway 全量金额反查(平台独占:api 后端)
 
 **触发**:上一轮 P0 安全债并行修复 commit `ce3116ebd` 后,主 agent 给出 2 条收尾建议:① 补 ws-chat/ws-tasks IDOR 集成测试锁死回归;② 审计 payment-gateway 其他下单端点金额篡改漏洞。用户要求"完整收尾,关闭对话"。
