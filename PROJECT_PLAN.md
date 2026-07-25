@@ -8,6 +8,67 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) i18n 治理阶段 11 — 侧边栏 nav.* 158 key + marketing.marquee.items + CommandPalette.commands.* 全面补齐(跨端:仅 web)
+
+**触发**:用户拉取最新代码重新编译显示时,发现侧边栏 nav 命名空间下大量翻译 key 缺失(显示原始 `nav.home` / `nav.eduExam` 等),同时 `marketing.marquee.items` 数组缺失导致 Marquee 组件抛 `fallback.map is not a function` 运行时错误,CommandPalette 缺失 6 个命令的 label/description/keywords 导致客户端 React 树崩溃、整页 i18n 显示为原始 key。
+
+**根因**:
+1. 之前 i18n 治理过程误删了 nav 命名空间下大部分翻译 key(从 ~320 缩到 158,且遗漏 eduExam 等关键项)
+2. `marketing.marquee.items` 数组从未被正确初始化,Marquee.tsx `t.raw('items')` 返回 undefined
+3. CommandPalette.tsx 6 个命令的 `commands.X.label/description/keywords` key 全部缺失,抛出 MISSING_MESSAGE 错误中断 React hydration
+
+**执行方式**:
+- 5 个 i18n 文件并行补齐(脚本批处理,5 语言 100% 一致)
+- typecheck + lint + i18n 守门全绿
+- 浏览器 4 状态截图自验(默认/hover/active/dark)
+
+**成果清单**:
+
+#### P0:补全 nav 命名空间 159 个 key(zh-CN/en/ja/ko/zh-TW)
+
+- 涵盖:AI 智能体组 / 管理组 / AI 教育组 / 内容组 / 交易组 / 个人组 / 开发者组 / 模型 / 消息 / 用户中心 / 主题管理 11 个分组
+- 关键 key:`home / chatHistory / models / agents / eduExam / admin / members / vip / wallet / subscription` 等
+- 全部 5 语言 key 集合 parity(159 一致)
+- 守门:`node scripts/check-i18n-keys.mjs` parity 全绿
+
+#### P0:补全 marketing.marquee.items 数组(6 条公告 × 5 语言)
+
+- zh-CN:AI 教育模块上线 / 模型市场新增旗舰模型 / VIP 限时 7 折 / 多语言升级 / 主题中心 / 知识库 RAG
+- en/ja/ko/zh-TW 完整对应翻译
+- Marquee.tsx 加 `Array.isArray` 保护 + 空数组兜底(防 `fallback.map` 运行时崩溃)
+
+#### P0:补全 commandPalette.commands.* 6 个命令 × 3 字段(label/description/keywords)
+
+- 6 个命令:chat / drama / search / ai-world / profile / settings
+- 5 语言 × 6 命令 × 3 字段 = 90 个翻译条目
+- 修复 React 客户端 hydration 崩溃(整页 nav 恢复中文显示)
+
+#### P1:zh-TW 简体字残留 4 处修复(守门阻塞)
+
+- `agentWorkbench`: "智能體工作台" → "智能體工作臺"
+- `admin`: "管理後台" → "管理後臺"
+- `oauthPlatform`: "開放平台" → "開放平臺"
+- `publishPlatform`: "發布平台" → "發布平臺"
+- 守门:`node scripts/scan-i18n-zh-residue.mjs zh-TW` 0 残留
+
+#### 验证证据
+
+- **typecheck**:`pnpm --filter @ihui/web typecheck` exit 0
+- **i18n 守门**:`node scripts/check-i18n-keys.mjs` parity 通过
+- **i18n 简体残留**:`scan-i18n-zh-residue.mjs zh-TW/ko/en/ja` zh-TW/en 全绿,ko/ja warn-only 预存非本任务范围
+- **浏览器 4 状态截图**:`.trae-cn/tmp/verify-screenshots/verify-zh-CN-{default,hover,active,dark}.png` 已自验通过
+  - 默认态:侧边栏全部显示中文(首页 / 插件市场 / 自动化 / AI 智能体 / 对话历史 / 模型市场 / 智能体 / 智能体工作台 / AI 世界 / 记忆系统 / 子智能体 / 上下文 / 规格模式 / 计划模式 / 工作空间 / 考试 等)
+  - hover 态:subtle 背景色变化,无蓝色发光边框
+  - active 态:点击 /edu/exam 路由后「在线考试」页 + 侧边栏考试项 primary 色高亮
+  - dark 态:背景色反转,文字可读,中文菜单项完整
+
+**修改文件**:
+- `packages/i18n/messages/web/{zh-CN,en,ja,ko,zh-TW}.json`(5 个 i18n 文件)
+- `apps/web/src/components/marketing/Marquee.tsx`(Array.isArray 保护,已在前序轮次修复)
+- 临时辅助:`.trae-cn/tmp/fix-missing-translations.mjs` + `fix-command-palette.mjs` + `fix-zh-tw-residue.mjs`
+
+---
+
 ### [x] ✅(2026-07-25) 业务层共享启动阶段 9(收尾)— shared parity 升级 blocking + desktop/mobile-rn 接入评估(跨端:scripts,平台独占 — 守门脚本配置调整)
 
 **触发**:阶段 8 完成后用户要求"继续按建议去做执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止 完整收尾 关闭对话"。承接阶段 8 交付报告的 3 个最优下一步建议(P1 desktop 检查 + P2 mobile-rn AuthContext 接入 + P2-3 shared parity 升级 blocking),目标完整收尾。
