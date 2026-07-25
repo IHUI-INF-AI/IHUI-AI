@@ -19,6 +19,20 @@ const PERMISSIONS: PermissionItem[] = [
   { key: 'notification', scope: 'subscription' },
 ]
 
+const PRIVACY_STATUS_KEY: Record<string, string> = {
+  granted: 'settingPrivacy.status.granted',
+  denied: 'settingPrivacy.status.denied',
+  unknown: 'settingPrivacy.status.unknown',
+}
+
+const PERMISSION_KEY: Record<string, string> = {
+  record: 'settingPrivacy.permissions.record',
+  camera: 'settingPrivacy.permissions.camera',
+  album: 'settingPrivacy.permissions.album',
+  location: 'settingPrivacy.permissions.location',
+  notification: 'settingPrivacy.permissions.notification',
+}
+
 // 隐私设置项 key
 const PRIVACY_KEYS = {
   mute: 'privacy_mute',
@@ -87,7 +101,7 @@ export default function PrivacySettingPage() {
     Taro.navigateTo({ url: '/pages/about/privacy' })
   }, [])
 
-  const statusText = (s: string) => t(`settingPrivacy.status.${s || 'unknown'}`)
+  const statusText = (s: string) => t(PRIVACY_STATUS_KEY[s || 'unknown'] ?? 'settingPrivacy.status.unknown')
 
   return (
     <View className="page">
@@ -97,7 +111,7 @@ export default function PrivacySettingPage() {
         {PERMISSIONS.map((item) => (
           <View className="perm-item" key={item.key}>
             <View className="perm-info">
-              <Text className="perm-label">{t(`settingPrivacy.permissions.${item.key}`)}</Text>
+              <Text className="perm-label">{t(PERMISSION_KEY[item.key] ?? 'settingPrivacy.permissions.record')}</Text>
               <Text className={`perm-status ${permStatus[item.key] || 'unknown'}`}>
                 {statusText(permStatus[item.key] || 'unknown')}
               </Text>
