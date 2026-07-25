@@ -108,7 +108,7 @@ export default function EduCoursesPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((c) => (
+          {courses.map((c: any) => (
             <Card
               key={c.id}
               className="flex cursor-pointer flex-col transition-colors hover:bg-accent"

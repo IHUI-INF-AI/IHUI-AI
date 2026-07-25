@@ -54,23 +54,23 @@ export default function AiSkillsPage() {
   })
 
   const all = data ?? []
-  const availableCount = all.filter((s) => s.available).length
+  const availableCount = all.filter((s: any) => s.available).length
   const comingCount = all.length - availableCount
 
   const filtered = React.useMemo(() => {
     const k = keyword.trim().toLowerCase()
     return all
-      .filter((s) => {
+      .filter((s: any) => {
         if (activeTab === 'available' && !s.available) return false
         if (activeTab === 'coming' && s.available) return false
         if (!k) return true
         return (
           s.name.toLowerCase().includes(k) ||
           s.description.toLowerCase().includes(k) ||
-          s.tags.some((tag) => tag.toLowerCase().includes(k))
+          s.tags.some((tag: any) => tag.toLowerCase().includes(k))
         )
       })
-      .sort((a, b) => {
+      .sort((a: any, b: any) => {
         // 已上线优先 + 同状态按 name 升序
         if (a.available !== b.available) return a.available ? -1 : 1
         return a.name.localeCompare(b.name)
@@ -155,7 +155,7 @@ export default function AiSkillsPage() {
 
       {filtered.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((skill) => (
+          {filtered.map((skill: any) => (
             <SkillCard key={skill.id} skill={skill} />
           ))}
         </div>

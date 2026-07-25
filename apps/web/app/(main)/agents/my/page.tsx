@@ -140,7 +140,7 @@ export default function MyAgentsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {agents.map((agent) => (
+          {agents.map((agent: any) => (
             <Link key={agent.agentId} href={`/agents/${agent.agentId}`}>
               <Card className="transition-colors hover:bg-accent/40">
                 <CardContent className="space-y-2 p-4">

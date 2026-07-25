@@ -92,7 +92,7 @@ export default function RankingPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {list.map((item) => (
+                      {list.map((item: any) => (
                         <TableRow key={item.id}>
                           <TableCell className="px-4 py-2.5 font-medium">
                             {item.rank <= 3 ? (
