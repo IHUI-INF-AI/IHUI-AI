@@ -16,6 +16,9 @@
     "profile": "我的",
     "agents": "智慧體"
   },
+  "auth": {
+    "login": "登入"
+  },
   "home": {
     "welcome": "歡迎使用智匯 AI"
   },

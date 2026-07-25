@@ -16,6 +16,9 @@
     "profile": "Profile",
     "agents": "Agents"
   },
+  "auth": {
+    "login": "Log in"
+  },
   "home": {
     "welcome": "Welcome to IHUI AI"
   },
