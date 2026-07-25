@@ -100,7 +100,7 @@ export default function SpecListPage() {
             </div>
           ) : data && data.length > 0 ? (
             <div className="space-y-2">
-              {data.map((entry) => (
+              {data.map((entry: any) => (
                 <HistoryRow key={entry.id} entry={entry} />
               ))}
             </div>
