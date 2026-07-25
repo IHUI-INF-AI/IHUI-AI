@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Loader2, Pencil, Trash2, Bot } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
@@ -33,41 +32,16 @@ export function AgentsTable({
   const t = useTranslations('admin.agents')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
-  const priceFmt = React.useMemo(
-    () => new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' }),
-    [locale],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const priceFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
   const catName = (id: string | null) =>
     id ? (categories.find((c) => c.categoryId === id)?.name ?? '-') : '-'
-  const handleEdit = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const a = list.find((x) => String(x.agentId) === id)
-      if (a) onEdit(a)
-    },
-    [list, onEdit],
-  )
-  const handleDelete = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.getAttribute('data-id')
-      if (!id) return
-      const a = list.find((x) => String(x.agentId) === id)
-      if (a) onDelete(a)
-    },
-    [list, onDelete],
-  )
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -140,12 +114,7 @@ export function AgentsTable({
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     <Tooltip content={tc('edit')}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        data-id={a.agentId}
-                        onClick={handleEdit}
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => onEdit(a)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </Tooltip>
@@ -153,8 +122,7 @@ export function AgentsTable({
                       <Button
                         size="sm"
                         variant="ghost"
-                        data-id={a.agentId}
-                        onClick={handleDelete}
+                        onClick={() => onDelete(a)}
                         disabled={deletePending}
                       >
                         <Trash2 className="h-4 w-4" />

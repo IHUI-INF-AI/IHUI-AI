@@ -65,10 +65,7 @@ function VariableRow({ v, depth = 0 }: { v: LocalVariable; depth?: number }) {
 
 export function DebugPanel() {
   const t = useTranslations('ide')
-  const activeView = useIDEWorkspace((s) => s.activeView)
-  const openTabs = useIDEWorkspace((s) => s.openTabs)
-  const activeTabId = useIDEWorkspace((s) => s.activeTabId)
-  const workspacePath = useIDEWorkspace((s) => s.workspacePath)
+  const { activeView, openTabs, activeTabId, workspacePath } = useIDEWorkspace()
   const [debugState, setDebugState] = React.useState<DebugState>('stopped')
   const [sessionId, setSessionId] = React.useState<string | null>(null)
   const [stackFrames, setStackFrames] = React.useState<StackFrame[]>([])
@@ -124,11 +121,6 @@ export function DebugPanel() {
     })
     return () => { cancelled = true }
   }, [sessionId, currentFrameId, watches])
-
-  const enabledBreakpoints = React.useMemo(
-    () => breakpoints.filter((b) => b.enabled),
-    [breakpoints],
-  )
 
   if (activeView !== 'debug') return null
 
@@ -212,7 +204,7 @@ export function DebugPanel() {
   }
 
   const ctrlBtn = 'rounded p-1 transition-colors hover:bg-muted/50 disabled:opacity-50 disabled:pointer-events-none'
-  const enabledBreaks = enabledBreakpoints.length
+  const enabledBreaks = breakpoints.filter((b) => b.enabled).length
   const spinner = <Loader2 className="h-3.5 w-3.5 animate-spin" />
 
   return (

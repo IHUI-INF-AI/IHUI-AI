@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -12,13 +11,8 @@ interface Props {
 }
 
 export function FundsHeader({ accounts }: Props) {
-  const { totalBalance, totalFrozen } = React.useMemo(
-    () => ({
-      totalBalance: accounts.reduce((s, a) => s + a.balance, 0),
-      totalFrozen: accounts.reduce((s, a) => s + a.frozen, 0),
-    }),
-    [accounts],
-  )
+  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
+  const totalFrozen = accounts.reduce((s, a) => s + a.frozen, 0)
   const cards = [
     { label: '总余额', value: totalBalance, icon: Wallet, cls: 'text-primary' },
     { label: '总冻结', value: totalFrozen, icon: TrendingDown, cls: 'text-amber-600' },
