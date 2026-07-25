@@ -905,7 +905,6 @@
       "historyClearConfirmTitle": "履歴をクリア",
       "historyClearConfirmDesc": "すべてのモード切替記録が削除され、復元できません。",
       "historyClearConfirm": "クリア",
-      "historyClearCancel": "キャンセル",
       "historyOpenButton": "履歴",
       "historySource": {
         "popover": "ポップオーバー",
@@ -914,12 +913,6 @@
         "auto-revert": "自動"
       },
       "historyStatsTitle": "累計統計",
-      "historyStatsMode": {
-        "default": "毎回確認",
-        "accept-edits": "自動承認",
-        "bypass-permissions": "完全アクセス"
-      },
-      "historyStatsDuration": "{{mode}}:{{duration}}",
       "historyOpenExternal": "履歴を表示",
       "dangerousPattern": {
         "rmRrfRoot": "ルート/ホームディレクトリを再帰削除",
@@ -8610,56 +8603,32 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": [
-          "チャット",
-          "会話",
-          "AI"
-        ]
+        "keywords": ["チャット", "会話", "AI"]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": [
-          "ドラマ",
-          "ビデオ",
-          "AI"
-        ]
+        "keywords": ["ドラマ", "ビデオ", "AI"]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": [
-          "検索",
-          "検索",
-          "search"
-        ]
+        "keywords": ["検索", "検索", "search"]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": [
-          "AI",
-          "ワールド",
-          "アプリ"
-        ]
+        "keywords": ["AI", "ワールド", "アプリ"]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": [
-          "プロフィール",
-          "ユーザー",
-          "設定"
-        ]
+        "keywords": ["プロフィール", "ユーザー", "設定"]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": [
-          "設定",
-          "環境設定",
-          "構成"
-        ]
+        "keywords": ["設定", "環境設定", "構成"]
       }
     }
   },
@@ -8981,31 +8950,19 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": [
-            "体系化コース",
-            "実践探求",
-            "コミュニティ相互支援"
-          ]
+          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": [
-            "交流プラットフォーム",
-            "経験共有",
-            "リソースマッチング"
-          ]
+          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": [
-            "プロの大規模モデル",
-            "エージェントサービス",
-            "コンサルティングサービス"
-          ]
+          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
         }
       ]
     },
@@ -9125,37 +9082,25 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": [
-            "ナレッジQ&A",
-            "プロセス自動化"
-          ]
+          "examples": ["ナレッジQ&A", "プロセス自動化"]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": [
-            "データ分析",
-            "意思決定サポート"
-          ]
+          "examples": ["データ分析", "意思決定サポート"]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": [
-            "会議調整",
-            "承認プロセス"
-          ]
+          "examples": ["会議調整", "承認プロセス"]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": [
-            "マーケティング自動化",
-            "マルチエージェント連携"
-          ]
+          "examples": ["マーケティング自動化", "マルチエージェント連携"]
         }
       ]
     },
