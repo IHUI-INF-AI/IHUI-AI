@@ -44,11 +44,11 @@ describe('AgentRuntimePanel (mobile-rn)', () => {
 
   it('renders empty hint text in idle state', () => {
     const { getByText } = render(<AgentRuntimePanel />, { wrapper })
-    expect(() => getByText('agent.runtimeEmpty')).not.toThrow()
+    expect(() => getByText('暂无运行记录')).not.toThrow()
   })
 
   it('renders execute button when not running', () => {
     const { getByText } = render(<AgentRuntimePanel />, { wrapper })
-    expect(() => getByText('agent.runtimeSend')).not.toThrow()
+    expect(() => getByText('发送')).not.toThrow()
   })
 })
