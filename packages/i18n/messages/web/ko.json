@@ -825,6 +825,7 @@
     },
     "hideReasoning": "추론 숨기기",
     "showReasoning": "추론 표시",
+    "fallbackNotice": "백업 모델 {{backup}}(으)로 전환됨(원본 모델 {{primary}} 일시 사용 불가)",
     "question": {
       "title": "AI가 답변을 기다립니다",
       "submit": "답변 제출",
