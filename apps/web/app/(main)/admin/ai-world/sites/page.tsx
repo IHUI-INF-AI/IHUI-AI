@@ -50,6 +50,18 @@ function isIconKey(k: string): k is IconKey {
   return (ICON_KEYS as readonly string[]).includes(k)
 }
 
+/** i18n 静态映射表 — 用于消除 `t(\`iconLabels.${var}\`)` 动态拼接 */
+const ICON_LABEL_KEY: Record<IconKey, string> = {
+  message: 'iconLabels.message',
+  palette: 'iconLabels.palette',
+  video: 'iconLabels.video',
+  music: 'iconLabels.music',
+  code: 'iconLabels.code',
+  briefcase: 'iconLabels.briefcase',
+  graduation: 'iconLabels.graduation',
+  megaphone: 'iconLabels.megaphone',
+}
+
 export default function AdminAiWorldSitesPage() {
   const t = useTranslations('aiWorld.admin.sites')
   const { data, isLoading, isError, error } = useQuery({
@@ -100,7 +112,7 @@ export default function AdminAiWorldSitesPage() {
                     className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-medium text-primary">
-                      {isIconKey(cat.icon) ? t(`iconLabels.${cat.icon}`) : cat.icon}
+                      {isIconKey(cat.icon) ? t(ICON_LABEL_KEY[cat.icon]) : cat.icon}
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{cat.name}</p>
