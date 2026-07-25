@@ -45,13 +45,12 @@ vi.mock('@ihui/auth', () => ({
 }))
 
 // =============================================================================
-// Mock bcryptjs：避免真实 hash/compare 执行
+// Mock password-crypto：避免真实 hash/verify 执行
 // =============================================================================
-vi.mock('bcryptjs', () => ({
-  default: {
-    hash: vi.fn().mockResolvedValue('$2a$10$mockedhashvalue'),
-    compare: vi.fn().mockResolvedValue(true),
-  },
+vi.mock('../src/utils/password-crypto.js', () => ({
+  hashPassword: vi.fn().mockResolvedValue('$argon2id$mockedhashvalue'),
+  verifyPassword: vi.fn().mockResolvedValue(true),
+  upgradeHashIfNeeded: vi.fn().mockResolvedValue(null),
 }))
 
 // =============================================================================
@@ -180,7 +179,7 @@ vi.mock('../src/services/points-service.js', () => ({
 import { authRoutes } from '../src/routes/auth'
 import { billingRoutes } from '../src/routes/billing'
 import { contentRoutes } from '../src/routes/content'
-import bcrypt from 'bcryptjs'
+import { hashPassword, verifyPassword } from '../src/utils/password-crypto.js'
 import { findUserByPhone, findUserByAccount, createUser } from '../src/db/queries'
 import { findPlans, findPlanById } from '../src/db/billing-queries'
 import {
@@ -300,9 +299,9 @@ describe('success paths', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    // 重置 bcrypt 默认实现（可能被前一个测试覆盖）
-    vi.mocked(bcrypt.hash).mockResolvedValue('$2a$10$mockedhashvalue')
-    vi.mocked(bcrypt.compare).mockResolvedValue(true)
+    // 重置 password-crypto 默认实现（可能被前一个测试覆盖）
+    vi.mocked(hashPassword).mockResolvedValue('$argon2id$mockedhashvalue')
+    vi.mocked(verifyPassword).mockResolvedValue(true)
   })
 
   // ===========================================================================
@@ -366,7 +365,7 @@ describe('success paths', () => {
 
     it('POST /api/auth/login 成功登录返回 200 与 token', async () => {
       vi.mocked(findUserByAccount).mockResolvedValue(mockUser)
-      vi.mocked(bcrypt.compare).mockResolvedValue(true)
+      vi.mocked(verifyPassword).mockResolvedValue(true)
 
       const res = await server.inject({
         method: 'POST',
@@ -383,7 +382,7 @@ describe('success paths', () => {
 
     it('POST /api/auth/login 密码错误返回 401', async () => {
       vi.mocked(findUserByAccount).mockResolvedValue(mockUser)
-      vi.mocked(bcrypt.compare).mockResolvedValue(false)
+      vi.mocked(verifyPassword).mockResolvedValue(false)
 
       const res = await server.inject({
         method: 'POST',
@@ -425,7 +424,7 @@ describe('success paths', () => {
     // =====================================================================
     it('POST /api/auth/login/password 成功登录返回 200 与 token', async () => {
       vi.mocked(findUserByPhone).mockResolvedValue(mockUser)
-      vi.mocked(bcrypt.compare).mockResolvedValue(true)
+      vi.mocked(verifyPassword).mockResolvedValue(true)
 
       const res = await server.inject({
         method: 'POST',
@@ -442,7 +441,7 @@ describe('success paths', () => {
 
     it('POST /api/auth/login/password 密码错误返回 401', async () => {
       vi.mocked(findUserByPhone).mockResolvedValue(mockUser)
-      vi.mocked(bcrypt.compare).mockResolvedValue(false)
+      vi.mocked(verifyPassword).mockResolvedValue(false)
 
       const res = await server.inject({
         method: 'POST',
