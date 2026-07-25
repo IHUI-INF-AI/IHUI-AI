@@ -35,9 +35,30 @@ interface CoursePage {
 }
 
 const PAGE_SIZE = 20
-const CATEGORIES = ['all', 'tech', 'design', 'business', 'language']
-const LEVELS = ['all', 'beginner', 'intermediate', 'advanced']
-const PRICE_TABS = ['all', 'free', 'paid']
+const CATEGORIES = ['all', 'tech', 'design', 'business', 'language'] as const
+const LEVELS = ['all', 'beginner', 'intermediate', 'advanced'] as const
+const PRICE_TABS = ['all', 'free', 'paid'] as const
+
+const COURSE_CAT_KEYS: Record<(typeof CATEGORIES)[number], string> = {
+  all: 'courseFilter.cat_all',
+  tech: 'courseFilter.cat_tech',
+  design: 'courseFilter.cat_design',
+  business: 'courseFilter.cat_business',
+  language: 'courseFilter.cat_language',
+}
+
+const COURSE_LEVEL_KEYS: Record<(typeof LEVELS)[number], string> = {
+  all: 'courseFilter.level_all',
+  beginner: 'courseFilter.level_beginner',
+  intermediate: 'courseFilter.level_intermediate',
+  advanced: 'courseFilter.level_advanced',
+}
+
+const COURSE_PRICE_KEYS: Record<(typeof PRICE_TABS)[number], string> = {
+  all: 'courseFilter.price_all',
+  free: 'courseFilter.price_free',
+  paid: 'courseFilter.price_paid',
+}
 
 export function CourseFilterScreen() {
   const { t } = useI18n()
@@ -64,7 +85,10 @@ export function CourseFilterScreen() {
     return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
   }, [token, category, level, priceTab, t])
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<CourseItem>(fetcher, PAGE_SIZE)
+  const { items, loading, refreshing, error, refresh } = usePaginatedList<CourseItem>(
+    fetcher,
+    PAGE_SIZE,
+  )
 
   const applyFilter = () => {
     setTimeout(refresh, 0)
@@ -97,7 +121,7 @@ export function CourseFilterScreen() {
               style={[styles.chip, category === c && styles.chipActive]}
             >
               <Text style={[styles.chipText, category === c && styles.chipTextActive]}>
-                {t(`courseFilter.cat_${c}`)}
+                {t(COURSE_CAT_KEYS[c])}
               </Text>
             </TouchableOpacity>
           ))}
@@ -112,7 +136,7 @@ export function CourseFilterScreen() {
               style={[styles.chip, level === l && styles.chipActive]}
             >
               <Text style={[styles.chipText, level === l && styles.chipTextActive]}>
-                {t(`courseFilter.level_${l}`)}
+                {t(COURSE_LEVEL_KEYS[l])}
               </Text>
             </TouchableOpacity>
           ))}
@@ -127,7 +151,7 @@ export function CourseFilterScreen() {
               style={[styles.chip, priceTab === p && styles.chipActive]}
             >
               <Text style={[styles.chipText, priceTab === p && styles.chipTextActive]}>
-                {t(`courseFilter.price_${p}`)}
+                {t(COURSE_PRICE_KEYS[p])}
               </Text>
             </TouchableOpacity>
           ))}
@@ -171,11 +195,15 @@ export function CourseFilterScreen() {
           }
           renderItem={({ item }) => (
             <Card className="p-3">
-              <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-              <Text style={styles.cardMeta}>{t('courseFilter.instructor')}: {item.instructor}</Text>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text style={styles.cardMeta}>
+                {t('courseFilter.instructor')}: {item.instructor}
+              </Text>
               <View style={styles.cardMetaRow}>
                 <Text style={styles.cardMetaText}>
-                  {t('courseFilter.level_label')}: {t(`courseFilter.level_${item.level}`)}
+                  {t('courseFilter.level_label')}: {t(COURSE_LEVEL_KEYS[item.level])}
                 </Text>
                 <Text style={styles.priceText}>
                   {item.price === 0 ? t('courseFilter.free') : `¥${item.price}`}
@@ -211,12 +239,24 @@ const styles = StyleSheet.create({
   applyBtn: { backgroundColor: PRIMARY },
   resetText: { fontSize: 13, color: '#6B7280' },
   applyText: { fontSize: 13, color: '#FFFFFF' },
-  errorBar: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  errorBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   errorText: { fontSize: 12, color: '#DC2626' },
   retryText: { fontSize: 12, color: PRIMARY },
   center: { alignItems: 'center', paddingVertical: 32 },
   emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+  card: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
   cardMeta: { marginTop: 4, fontSize: 12, color: '#6B7280' },
   cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
