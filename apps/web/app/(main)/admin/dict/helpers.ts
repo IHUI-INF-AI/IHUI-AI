@@ -51,7 +51,7 @@ export async function fetchDictList(): Promise<DictType[]> {
   }>('/api/admin/dict/type/list')
   if (!r.success) throw new Error(r.error)
   const result: DictType[] = await Promise.all(
-    (r.data?.list ?? []).map(async (t) => {
+    (r.data?.list ?? []).map(async (t: any) => {
       const dr = await fetchApi<{
         list: {
           dictCode: number
@@ -67,7 +67,7 @@ export async function fetchDictList(): Promise<DictType[]> {
       }>(`/api/admin/dict/data/type/${t.dictType}`)
       const items: DictItem[] =
         dr.success && dr.data?.list
-          ? dr.data.list.map((d) => ({
+          ? dr.data.list.map((d: any) => ({
               id: String(d.dictCode),
               label: d.dictLabel,
               value: d.dictValue,
