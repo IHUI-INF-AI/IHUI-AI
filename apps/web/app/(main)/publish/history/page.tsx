@@ -15,6 +15,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@ihui/ui-react'
+import { PLATFORM_KEY } from '../helpers'
 
 const STATUS_LABEL: Record<string, string> = {
   success: '成功',
@@ -196,7 +197,7 @@ export default function HistoryPage() {
                 <SelectItem value="all">{t('history.allPlatforms')}</SelectItem>
                 {PLATFORMS.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {t(`platforms.${p}`)}
+                    {t(PLATFORM_KEY[p] ?? 'platforms.unknown')}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -280,7 +281,9 @@ export default function HistoryPage() {
                               key={`${tg.account_id ?? tg.platform}-${i}`}
                               className="flex flex-wrap items-center gap-2"
                             >
-                              <span className="font-medium">{t(`platforms.${tg.platform}`)}</span>
+                              <span className="font-medium">
+                                {t(PLATFORM_KEY[tg.platform] ?? 'platforms.unknown')}
+                              </span>
                               <span
                                 className={cn(
                                   'rounded px-1.5 py-0.5 text-[10px]',

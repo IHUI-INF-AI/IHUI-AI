@@ -49,6 +49,13 @@ const STATUS_CLS: Record<string, string> = {
   graded: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
+const STATUS_KEY: Record<string, string> = {
+  pending: 'status.pending',
+  submitted: 'status.submitted',
+  graded: 'status.graded',
+}
+
 function RecordsContent() {
   const t = useTranslations('admin.edu.exam.records')
   const router = useRouter()
@@ -175,7 +182,7 @@ function RecordsContent() {
                           cls,
                         )}
                       >
-                        {t(`status.${r.status}`)}
+                        {t(STATUS_KEY[r.status] ?? 'status.unknown')}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">

@@ -1,0 +1,19 @@
+{
+  "chat": {
+    "send": "發送"
+  },
+  "common": {
+    "back": "返回",
+    "cancel": "取消",
+    "confirm": "確認",
+    "delete": "刪除",
+    "retry": "重試",
+    "save": "儲存",
+    "search": "搜尋"
+  },
+  "nav": {
+    "home": "首頁",
+    "settings": "設置",
+    "wallet": "錢包"
+  }
+}

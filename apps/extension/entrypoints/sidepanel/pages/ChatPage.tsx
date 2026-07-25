@@ -4,10 +4,10 @@ import {
   fetchModels,
   formatSSEError,
   getModelContextCapacity,
-  formatTokenCount,
   type StreamChatOptions,
   type LlmModel,
 } from '@ihui/api-client'
+import { formatTokenCount } from '@ihui/shared/utils'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
