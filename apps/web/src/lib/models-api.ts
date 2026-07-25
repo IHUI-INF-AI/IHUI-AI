@@ -4,13 +4,13 @@
  * 目标:把 /models 页面从"helpers.ts 写死数据"升级为"消费 seed 2026-07 真实数据"
  * 同时为后续 backend 路由补全预留 fetch 接口,带 graceful fallback。
  *
- * 后端路由(2026-07 当前可用 / 计划):
+ * 后端路由(2026-07 当前可用):
  *   - GET /api/llm/models                 已存在(需 auth,代理 ai-service,旧 fetchModels 走它)
  *   - GET /api/llm/list                   已存在(DB 驱动,20 字段格式)
  *   - GET /api/news/articles/pinned       已存在(公开,置顶资讯)
  *   - GET /api/news/articles/recommended  已存在(公开,推荐资讯)
- *   - GET /api/models/market              TODO:后端尚未实现,后续 backend 任务补
- *   - GET /api/news/feed                  TODO:后端尚未实现,后续 backend 任务补
+ *   - GET /api/models/market              已存在(公开,DB 驱动 zhsAiModelInfo status=1)
+ *   - GET /api/news/feed                  已存在(公开,合并置顶+推荐+最新发布)
  *
  * 行为约定:
  *   - fetch 失败/超时/404 → 返回空数组 + console.warn
@@ -41,15 +41,14 @@ export interface AiNewsItem {
 }
 
 // ============================================================================
-// 模型市场 API(主要走现有 /api/llm/models;预留 /api/models/market 未来升级)
+// 模型市场 API(走 /api/models/market 公开路由)
 // ============================================================================
 
 /**
  * 拉取模型市场列表(从真实数据源)
  * 优先级:
- *   1. /api/models/market(2026 计划路由,后端尚未实现)
- *   2. /api/llm/models(现有路由,需要 auth,失败率高)
- *   3. 空数组(让调用方 fallback 到 FALLBACK_MODELS)
+ *   1. /api/models/market(公开路由,DB 驱动 zhsAiModelInfo)
+ *   2. 空数组(让调用方 fallback 到 FALLBACK_MODELS)
  */
 export async function getMarketModels(): Promise<Model[]> {
   try {
@@ -60,12 +59,10 @@ export async function getMarketModels(): Promise<Model[]> {
     if (result.success) {
       return result.data?.models ?? result.data?.items ?? []
     }
-    // 后端 404 路由不存在 → 静默失败,返回空让调用方 fallback
     return []
   } catch (err) {
-    // console.warn 而非 console.error:API 尚未实现属预期内,不需要污染日志
     if (typeof window !== 'undefined') {
-      console.warn('[models-api] getMarketModels /api/models/market 尚未实现,使用 fallback', err)
+      console.warn('[models-api] getMarketModels fetch 失败,使用 fallback', err)
     }
     return []
   }
@@ -77,12 +74,12 @@ export async function getMarketModels(): Promise<Model[]> {
 
 /**
  * 拉取 AI 资讯(模型广场页顶部"AI 资讯条带"使用)
- * - 优先 /api/news/feed(计划路由,2026 后续 backend 任务)
+ * - 优先 /api/news/feed(公开路由,合并置顶+推荐+最新发布)
  * - fallback /api/news/articles/pinned + recommended(已存在,公开)
  * - 全失败 → 返回空数组
  */
 export async function getAiNewsFeed(limit = 6): Promise<AiNewsItem[]> {
-  // 计划路由
+  // 主路由:合并 feed
   try {
     const r = await fetchApi<{ items: AiNewsItem[] }>(
       `/api/news/feed?limit=${limit}`,
