@@ -216,7 +216,153 @@
     "selfMediaAutomation": "자동화",
     "downloadTitle": "앱 다운로드",
     "mainNav": "메인 내비게이션",
-    "pluginMarket": "플러그인 마켓"
+    "pluginMarket": "플러그인 마켓",
+    "aiGroupLabel": "AI 에이전트",
+    "adminGroupLabel": "관리",
+    "eduGroup": "AI 교육",
+    "contentGroup": "콘텐츠",
+    "tradeGroup": "거래",
+    "personalGroup": "개인",
+    "developerGroup": "개발자",
+    "home": "홈",
+    "chatHistory": "채팅 기록",
+    "models": "모델 마켓",
+    "agents": "에이전트",
+    "agentWorkbench": "에이전트 워크벤치",
+    "aiWorld": "AI 월드",
+    "memory": "메모리",
+    "subagents": "서브에이전트",
+    "context": "컨텍스트",
+    "spec": "스펙 모드",
+    "plan": "플랜 모드",
+    "workspace": "워크스페이스",
+    "knowledgeBase": "지식 베이스",
+    "knowledgeRag": "RAG 지식",
+    "knowledgeGraph": "지식 그래프",
+    "registry": "레지스트리",
+    "admin": "관리",
+    "adminStatistics": "통계",
+    "userCenter": "사용자 센터",
+    "members": "회원",
+    "adminWorkflows": "워크플로우",
+    "adminTags": "태그",
+    "adminLogs": "작업 로그",
+    "adminTheme": "테마",
+    "adminThemeList": "테마 목록",
+    "adminThemeCreate": "테마 생성",
+    "adminThemeColors": "색상",
+    "adminThemeFonts": "폰트",
+    "adminThemeDarkMode": "다크 모드",
+    "adminThemeAssets": "에셋",
+    "adminThemePresets": "프리셋",
+    "adminThemeExport": "내보내기",
+    "adminConfigs": "설정",
+    "adminDynamic": "동적 라우트",
+    "overview": "개요",
+    "learn": "학습",
+    "live": "라이브",
+    "exam": "시험",
+    "lecturers": "강사",
+    "schedule": "일정",
+    "topics": "주제",
+    "asks": "Q&A",
+    "circles": "서클",
+    "resources": "리소스",
+    "news": "뉴스",
+    "announcements": "공지사항",
+    "plaza": "광장",
+    "enterprise": "엔터프라이즈",
+    "distribution": "유통",
+    "teams": "팀",
+    "docs": "문서",
+    "search": "검색",
+    "tags": "태그",
+    "oauthPlatform": "OAuth 플랫폼",
+    "selfMediaWechat": "WeChat 공식",
+    "selfMediaKoubo": "쿠보 영상",
+    "publishPlatform": "퍼블리시",
+    "wallet": "지갑",
+    "payment": "결제",
+    "orders": "주문",
+    "activities": "활동",
+    "points": "포인트",
+    "eduPoints": "학습 포인트",
+    "oauthMyAuthorized": "내 인증",
+    "myLearning": "내 학습",
+    "favorites": "즐겨찾기",
+    "following": "팔로잉",
+    "subscriptions": "구독",
+    "student": "학생 센터",
+    "feedback": "피드백",
+    "help": "도움말",
+    "developer": "개발자",
+    "developerApiDocs": "API 문서",
+    "developerKeys": "API 키",
+    "developerWebhooks": "Webhooks",
+    "developerSandbox": "샌드박스",
+    "developerLimits": "속도 제한",
+    "developerLogs": "호출 로그",
+    "developerVersions": "버전",
+    "developerSubscription": "구독",
+    "developerNotifications": "알림",
+    "developerTeam": "팀",
+    "developerBilling": "청구",
+    "developerSettings": "설정",
+    "modelsOverview": "개요",
+    "modelsMarket": "마켓",
+    "modelsChannels": "채널",
+    "modelsKeys": "키",
+    "modelsLogs": "로그",
+    "modelsChats": "채팅",
+    "modelsUsers": "사용자",
+    "modelsGroups": "그룹",
+    "modelsUsage": "사용량",
+    "modelsBilling": "청구",
+    "modelsRedeem": "교환",
+    "modelsReferral": "추천",
+    "modelsOpenclaw": "OpenClaw",
+    "modelsApiDocs": "API 문서",
+    "modelsSkills": "스킬",
+    "messagesNotice": "시스템 알림",
+    "messagesLike": "좋아요",
+    "messagesFavorite": "즐겨찾기",
+    "messagesComment": "댓글",
+    "messagesFans": "새 팔로워",
+    "messagesPrivateLetter": "DM",
+    "userProfile": "프로필",
+    "userSecurity": "보안",
+    "userNotifications": "알림",
+    "userRealname": "실명 인증",
+    "userSubscription": "구독",
+    "userLearnRecord": "학습 기록",
+    "userComment": "내 댓글",
+    "userFans": "팔로워",
+    "userFollow": "팔로잉",
+    "userAsk": "내 질문",
+    "userCircle": "내 서클",
+    "userResource": "내 리소스",
+    "userExam": "내 시험",
+    "userSignUp": "내 신청",
+    "eduDashboard": "학습 허브",
+    "eduCourses": "강좌",
+    "eduCertificates": "자격증",
+    "eduSchedule": "일정",
+    "eduNotes": "노트",
+    "eduQa": "Q&A",
+    "eduProgress": "진도",
+    "memberDashboard": "회원 허브",
+    "memberBenefits": "혜택",
+    "memberCoupons": "쿠폰",
+    "memberSubscription": "내 구독",
+    "memberRefunds": "환불",
+    "memberAddresses": "주소",
+    "memberFavorites": "즐겨찾기",
+    "memberHistory": "기록",
+    "memberInvitations": "초대",
+    "memberFeedback": "내 피드백",
+    "memberHelp": "도움말",
+    "memberSettings": "설정",
+    "eduExam": "시험"
   },
   "auth": {
     "loginTitle": "돌아오신 것을 환영합니다",
@@ -708,6 +854,46 @@
       "switchedToModeAsk": "승인 요청 모드로 전환됨",
       "switchedToModeAuto": "자동 승인 모드로 전환됨",
       "switchedToModeFull": "전체 액세스 모드로 전환됨",
+      "dangerousCommandTitle": "위험한 명령 감지",
+      "dangerousCommandDesc": "전송하려는 메시지에 {{pattern}}({{reason}})이(가) 포함되어 있습니다. 전체 액세스 모드에서 AI가 직접 실행하며 실행 취소할 수 없습니다.",
+      "dangerousCommandProceed": "그래도 전송",
+      "dangerousCommandCancel": "취소",
+      "dangerousCommandWarningOnly": "경고: {{pattern}}. 명령의 안전성을 먼저 확인하세요.",
+      "historyTitle": "권한 모드 기록",
+      "historyEmpty": "기록 없음",
+      "historyClearConfirmTitle": "기록 지우기",
+      "historyClearConfirmDesc": "모든 모드 전환 기록이 삭제되며 복구할 수 없습니다.",
+      "historyClearConfirm": "지우기",
+      "historyClearCancel": "취소",
+      "historyOpenButton": "기록",
+      "historySource": {
+        "popover": "팝오버",
+        "shift-tab": "Shift+Tab",
+        "slash": "슬래시",
+        "auto-revert": "자동"
+      },
+      "historyStatsTitle": "누적 통계",
+      "historyStatsMode": {
+        "default": "승인 요청",
+        "accept-edits": "자동 승인",
+        "bypass-permissions": "전체 액세스"
+      },
+      "historyStatsDuration": "{{mode}}: {{duration}}",
+      "historyOpenExternal": "기록 보기",
+      "dangerousPattern": {
+        "rmRrfRoot": "루트/홈 디렉터리 재귀 삭제",
+        "ddToDisk": "디스크 장치에 직접 쓰기",
+        "mkfsDisk": "디스크 포맷",
+        "redirectToDevice": "디스크 장치로 리디렉션",
+        "chmodRoot": "루트 디렉터리 전체 권한 열기",
+        "sudoAny": "임의의 sudo 작업",
+        "curlPipeSh": "다운로드 후 즉시 실행",
+        "forkBomb": "포크 폭탄",
+        "mvRootToNull": "루트 내용을 /dev/null로 이동",
+        "rmEnv": ".env 파일 삭제",
+        "rmGit": ".git 디렉터리 삭제",
+        "forcePushMain": "메인 브랜치 강제 푸시"
+      },
       "mode": {
         "ask": "승인 요청",
         "askDesc": "프로젝트 외부 파일 편집 및 인터넷 사용 시 항상 확인",
@@ -715,6 +901,46 @@
         "autoDesc": "감지된 위험 작업에 대해서만 승인 요청",
         "full": "전체 액세스",
         "fullDesc": "인터넷과 컴퓨터의 모든 파일을 제한 없이 사용 가능"
+      },
+      "shortcutsModalTitle": "권한 모드 단축키",
+      "shortcutsClose": "확인",
+      "shortcutsSectionSwitch": "모드 전환",
+      "shortcutsSectionGuard": "고위험 보호장치",
+      "shortcutsSectionAudit": "실행 취소 및 감사",
+      "shortcutsItemShiftTabKbd": "3가지 모드를 순환 전환",
+      "shortcutsItemNumberKbd": "팝오버 열림 시 1/2/3 으로 직접 선택",
+      "shortcutsItemQuestionMarkKbd": "이 단축키 패널 열기",
+      "shortcutsItemAutoRevert1hKbd": "1시간 동안 작업이 없으면 승인 요청으로 자동 전환",
+      "shortcutsItemWarn5minKbd": "5분 남음 경고 토스트, 원클릭으로 연장",
+      "shortcutsItemWarn1minKbd": "1분 남음 긴급 토스트",
+      "shortcutsItemExtendKbd": "전환 토스트에 '1시간 연장' 버튼 제공",
+      "shortcutsItemCancelAutoKbd": "배너의 '자동 전환 취소' 버튼으로 전체 액세스 유지",
+      "shortcutsItemUndoKbd": "전체 액세스 전환 후 5초 내 실행 취소 가능",
+      "shortcutsItemDangerousKbd": "고위험 모드에서 위험 명령 감지 시 재확인",
+      "shortcutsItemHistoryKbd": "팝오버 하단 '기록' 버튼으로 최근 전환 내역 확인",
+      "shortcutsLearnMore": "보안 설계 자세히 보기",
+      "infoButtonLabel": "모드 설명 보기",
+      "infoButtonTitle": "현재 모드의 상세 동작",
+      "modeInfoAcknowledge": "확인",
+      "modeInfoBullets": {
+        "default": {
+          "0": "AI는 모든 명령 실행 및 파일 편집 전에 '승인' 클릭이 필요합니다",
+          "1": "익숙하지 않은 프로젝트 또는 민감한 작업에 적합합니다",
+          "2": "자동 전환 없음(1시간 카운트다운 없음)",
+          "3": "불확실한 프로젝트에서는 먼저 이 모드를 권장합니다"
+        },
+        "accept-edits": {
+          "0": "AI 파일 편집은 자동 적용되며 개별 승인이 필요 없습니다",
+          "1": "명령 실행은 여전히 '승인' 클릭이 필요합니다",
+          "2": "'AI를 신뢰하고 코드를 작성'하는 상황에 적합합니다",
+          "3": "자동 전환 없음"
+        },
+        "bypass-permissions": {
+          "0": "AI는 확인 없이 모든 작업을 실행할 수 있습니다",
+          "1": "1시간 후 승인 요청으로 자동 전환(취소 또는 연장 가능)",
+          "2": "'알려진 작업을 일괄 처리'하는 상황에 적합합니다",
+          "3": "되돌릴 수 없는 작업의 위험은 사용자가 부담합니다"
+        }
       }
     }
   },
@@ -8334,7 +8560,39 @@
     "searchPlaceholder": "명령 검색...",
     "noResults": "일치하는 명령이 없습니다",
     "keyboardHint": "↑↓ 선택 · Enter 실행",
-    "resultCount": "{count}개 결과"
+    "resultCount": "{count}개 결과",
+    "commands": {
+      "chat": {
+        "label": "AI 채팅",
+        "description": "AI 어시스턴트와 대화",
+        "keywords": ["채팅", "대화", "AI"]
+      },
+      "drama": {
+        "label": "AI 드라마",
+        "description": "AI 생성 단편 드라마",
+        "keywords": ["드라마", "비디오", "AI"]
+      },
+      "search": {
+        "label": "검색",
+        "description": "전역 콘텐츠 검색",
+        "keywords": ["검색", "찾기", "search"]
+      },
+      "ai-world": {
+        "label": "AI 월드",
+        "description": "AI 애플리케이션 세계 탐색",
+        "keywords": ["AI", "월드", "앱"]
+      },
+      "profile": {
+        "label": "프로필",
+        "description": "프로필 및 설정 관리",
+        "keywords": ["프로필", "사용자", "설정"]
+      },
+      "settings": {
+        "label": "설정",
+        "description": "시스템 환경 설정 및 구성",
+        "keywords": ["설정", "환경설정", "구성"]
+      }
+    }
   },
   "routes": {
     "userAgreement": "사용자",
@@ -8654,31 +8912,19 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": [
-            "체계적 과정",
-            "실천 탐구",
-            "커뮤니티 상호 지원"
-          ]
+          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": [
-            "소통 플랫폼",
-            "경험 공유",
-            "자원 연결"
-          ]
+          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": [
-            "전문 대형 모델",
-            "에이전트 서비스",
-            "컨설팅 서비스"
-          ]
+          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
         }
       ]
     },
@@ -8798,37 +9044,25 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": [
-            "지식 Q&A",
-            "프로세스 자동화"
-          ]
+          "examples": ["지식 Q&A", "프로세스 자동화"]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": [
-            "데이터 분석",
-            "의사결정 지원"
-          ]
+          "examples": ["데이터 분석", "의사결정 지원"]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": [
-            "회의 일정",
-            "승인 프로세스"
-          ]
+          "examples": ["회의 일정", "승인 프로세스"]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": [
-            "마케팅 자동화",
-            "멀티에이전트 협업"
-          ]
+          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
         }
       ]
     },
@@ -9176,7 +9410,15 @@
       "scanTip": "WeChat을 열고 스캔하여 미니프로그램 진입"
     },
     "marquee": {
-      "label": "공지"
+      "label": "공지",
+      "items": [
+        "🎉 새 AI 교육 모듈 출시: 강의·라이브·시험 통합",
+        "🚀 모델 마켓에 GPT-5 / Claude 4.5 / Gemini 2.5 Pro 추가",
+        "💎 VIP 회원 30% 할인, 100+ 에이전트 무제한",
+        "🌍 다국어 지원: 5개 언어 실시간 번역",
+        "🎨 테마 센터 50+ 테마, 원클릭 전환",
+        "📚 지식 RAG 출시, 문서가 스마트 Q&A로"
+      ]
     },
     "welcome": {
       "title": "지후이 AI 커뮤니티에 오신 것을 환영합니다",
