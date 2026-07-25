@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { View } from 'react-native'
-import { captureRef } from 'react-native-view-shot'
-import type ViewShot from 'react-native-view-shot'
+import { captureRef, type default as ViewShot } from 'react-native-view-shot'
 
 export function useScreenshot() {
   const [lastUri, setLastUri] = useState<string | null>(null)

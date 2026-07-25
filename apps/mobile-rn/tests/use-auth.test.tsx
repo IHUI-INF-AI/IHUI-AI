@@ -22,8 +22,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useAuth } from '@ihui/shared/hooks'
-import { createInMemoryTokenStore } from '@ihui/shared/auth'
-import type { TokenStore } from '@ihui/shared/auth'
+import { createInMemoryTokenStore, type TokenStore } from '@ihui/shared/auth'
 
 // 测试用 mock user 类型
 interface TestUser {
@@ -221,8 +220,8 @@ describe('useAuth 跨端共享 hook — 集成测试', () => {
   })
 
   it('logout 不传 logoutApi 时:跳过后端调用,直接清本地', async () => {
-    const { result } = renderHook(() =>
-      useAuth<TestUser>({ store, bindTransport, fetchProfile }), // 不传 logoutApi
+    const { result } = renderHook(
+      () => useAuth<TestUser>({ store, bindTransport, fetchProfile }), // 不传 logoutApi
     )
 
     await waitFor(() => expect(result.current.ready).toBe(true))
