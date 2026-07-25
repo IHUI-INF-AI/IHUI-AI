@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Send, Square, SquareSlash, FileText, Plus, AtSign, Sparkles } from 'lucide-react'
+import { Send, Square, SquareSlash, FileText, Plus, AtSign, Sparkles, Package } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -145,7 +145,11 @@ export function MessageInput({
   // "添加"下拉菜单状态(2026-07-25 合并):收纳"添加为上下文引用 / Skill 库 / 添加附件"三个动作
   // mode 决定 Popover 内部 content:menu = 三项菜单,skill = SkillLibrary 弹窗
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
-  const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'skill'>('menu')
+  // addMenuMode 决定 Popover content:
+  // - menu:5 项主菜单(模板/引用/Skill 库/附件/插件)
+  // - prompt:PromptTemplates 弹层(2026-07-25 立,从原附加栏独立 Popover 整合)
+  // - skill:SkillLibrary 弹层
+  const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill'>('menu')
   const { ref: textareaRef, resize } = useTextareaAutoHeight<HTMLTextAreaElement>(value, {
     threeLinePx: MIN_HEIGHT_PX,
     maxHeightPx: MAX_HEIGHT_PX,
@@ -478,58 +482,22 @@ export function MessageInput({
               </div>
             )}
             {/* 附加栏:输入框上方的功能条。
-                - 左侧:提示词模板 + 添加引用(并列,统一胶囊风格)
+                - 左侧:权限模式切换 + 统一"添加"下拉(收纳模板/引用/Skill 库/附件/插件)
                 - 右侧:引用计数徽章
-                提示词模板按钮从底部工具栏上移至此(用户规则:挪到输入框上方附加栏),
-                与空状态 chips 共用同一组 5 个核心模板源,视觉风格协调。 */}
+                2026-07-25 终极整合:附加栏 + 底部工具栏 共 5 个分散按钮 → 1 个"添加"下拉按钮。
+                唯一入口规则:除权限模式(始终显示,语义独立)和"添加"按钮外,无其他独立按钮。 */}
             <div className="flex items-center gap-1 bg-muted/30 px-2 py-1.5">
               {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
                   盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
-                  点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。 */}
+                  点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。
+                  注:权限模式是"全局会话级决策",语义独立,不算"添加"类,保留独立入口。 */}
               <PermissionModePopover disabled={isStreaming} />
-              {isStreaming ? (
-                <Tooltip content={t('promptTemplate')}>
-                  <button
-                    type="button"
-                    disabled
-                    aria-label={t('promptTemplate')}
-                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    <span>{t('promptTemplate')}</span>
-                  </button>
-                </Tooltip>
-              ) : (
-                <Popover
-                  content={
-                    <div className="w-72">
-                      <PromptTemplates
-                        templates={promptTemplates}
-                        onSelect={handleTemplateSelect}
-                      />
-                    </div>
-                  }
-                  position="bottom"
-                  trigger="click"
-                  tooltip={t('promptTemplate')}
-                >
-                  <button
-                    type="button"
-                    aria-label={t('promptTemplate')}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
-                      'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
-                    )}
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    <span>{t('promptTemplate')}</span>
-                  </button>
-                </Popover>
-              )}
-              {/* "添加"下拉菜单(2026-07-25 合并):收纳"添加为上下文引用 / Skill 库 / 添加附件"三个动作
-                  替换原附加栏独立的"添加引用" + "Skill 库"按钮,以及底部工具栏的"添加附件"按钮。
-                  - 同一 Popover 内部按 addMenuMode 切换 content:menu(三项) / skill(SkillLibrary)
-                  - 避免嵌套弹层,trigger 始终是"添加"按钮,焦点/坐标/ESC 行为统一 */}
+              {/* "添加"下拉菜单(2026-07-25 终极整合):唯一附加栏功能入口
+                  收纳 5 类动作,内部按 addMenuMode 切换 content:
+                  - menu:5 项主菜单(模板/引用/Skill 库/附件/插件)
+                  - prompt:PromptTemplates 弹层
+                  - skill:SkillLibrary 弹层
+                  避免嵌套弹层,trigger 始终是"添加"按钮,焦点/坐标/ESC 行为统一 */}
               <Popover
                 open={addMenuOpen}
                 onOpenChange={(next) => {
@@ -538,7 +506,18 @@ export function MessageInput({
                   if (!next) setAddMenuMode('menu')
                 }}
                 content={
-                  addMenuMode === 'skill' ? (
+                  addMenuMode === 'prompt' ? (
+                    <div className="w-72">
+                      <PromptTemplates
+                        templates={promptTemplates}
+                        onSelect={(content) => {
+                          handleTemplateSelect(content)
+                          setAddMenuOpen(false)
+                          setAddMenuMode('menu')
+                        }}
+                      />
+                    </div>
+                  ) : addMenuMode === 'skill' ? (
                     <SkillLibrary
                       onSelect={(template) => {
                         fillInput(template)
@@ -554,8 +533,26 @@ export function MessageInput({
                     <div
                       role="menu"
                       aria-label={t('addMenuDesc')}
-                      className="flex w-56 flex-col gap-0.5"
+                      className="flex w-60 flex-col gap-0.5"
                     >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={isStreaming}
+                        onClick={() => {
+                          // 切换到 prompt 模式,弹层保持打开
+                          setAddMenuMode('prompt')
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                          'disabled:cursor-not-allowed disabled:opacity-50',
+                        )}
+                      >
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{t('promptTemplate')}</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
+                      </button>
                       <button
                         type="button"
                         role="menuitem"
@@ -590,6 +587,7 @@ export function MessageInput({
                       >
                         <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span className="min-w-0 flex-1 truncate">{t('skillLibrary.title')}</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
                       </button>
                       <button
                         type="button"
@@ -608,6 +606,25 @@ export function MessageInput({
                       >
                         <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span className="min-w-0 flex-1 truncate">{tA11y('addAttachment')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={isStreaming}
+                        onClick={() => {
+                          setAddMenuOpen(false)
+                          setAddMenuMode('menu')
+                          // 插件/MCP 入口:跳转到 /plugins 页面(用户从该页面点击"+"添加到对话)
+                          window.location.href = '/plugins'
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                          'disabled:cursor-not-allowed disabled:opacity-50',
+                        )}
+                      >
+                        <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{t('nav.pluginMarket')}</span>
                       </button>
                     </div>
                   )
