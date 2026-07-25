@@ -27,6 +27,17 @@ export const MODEL_TYPES: ModelTypeConfig[] = [
   { type: 'sck', label: '素材', icon: sckIcon },
 ]
 
+const MODEL_TYPE_KEY: Record<string, string> = {
+  skills: 'modelType.skills',
+  talk: 'modelType.talk',
+  image: 'modelType.image',
+  video: 'modelType.video',
+  audio: 'modelType.audio',
+  videoa: 'modelType.videoa',
+  other: 'modelType.other',
+  sck: 'modelType.sck',
+}
+
 export interface ModelTypeButtonGroupProps {
   activeType?: ModelType | ''
   onSelect?: (type: ModelType) => void
@@ -47,7 +58,7 @@ export default function ModelTypeButtonGroup({
           <ModelTypeButton
             key={cfg.type}
             type={cfg.type}
-            label={tt(`modelType.${cfg.type}`, cfg.label)}
+            label={tt(MODEL_TYPE_KEY[cfg.type] ?? 'modelType.other', cfg.label)}
             icon={cfg.icon}
             active={activeType === cfg.type}
             onClick={onSelect}
