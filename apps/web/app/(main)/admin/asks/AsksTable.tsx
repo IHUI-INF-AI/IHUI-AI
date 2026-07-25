@@ -1,15 +1,14 @@
 'use client'
 
+import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
-import { Edit, Trash2, CheckCircle2, Loader2, HelpCircle } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import { Edit, Trash2, CheckCircle2 } from 'lucide-react'
+import { Button, DataTable, type DataTableColumn } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { TruncatedText } from '@/components/common'
 import { STATUS_META } from './helpers'
 import type { AskItem } from './types'
-
-const COLSPAN = 7
 
 interface Props {
   list: AskItem[]
@@ -17,6 +16,12 @@ interface Props {
   error: Error | null
   auditPending: boolean
   deletePending: boolean
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  onPageChange: (p: number) => void
+  onPageSizeChange: (s: number) => void
   onEdit: (item: AskItem) => void
   onAudit: (item: AskItem) => void
   onDelete: (item: AskItem) => void
@@ -28,6 +33,12 @@ export function AsksTable({
   error,
   auditPending,
   deletePending,
+  page,
+  pageSize,
+  total,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
   onEdit,
   onAudit,
   onDelete,
@@ -40,124 +51,179 @@ export function AsksTable({
     day: '2-digit',
   })
 
-  return (
-    <div className="overflow-x-auto rounded-lg border">
-      <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow>
-            <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
-            <TableHead className="px-4 py-2.5">{t('colUser')}</TableHead>
-            <TableHead className="px-4 py-2.5">{t('colAnswerCount')}</TableHead>
-            <TableHead className="px-4 py-2.5">{t('colResolved')}</TableHead>
-            <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
-            <TableHead className="px-4 py-2.5">{t('colCreatedAt')}</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody className="divide-y">
-          {isLoading ? (
-            <TableRow>
-              <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                {t('loading')}
-              </TableCell>
-            </TableRow>
-          ) : error ? (
-            <TableRow>
-              <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-destructive">
-                {error.message}
-              </TableCell>
-            </TableRow>
-          ) : list.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
-                <HelpCircle className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                {t('noData')}
-              </TableCell>
-            </TableRow>
+  const columns = React.useMemo<DataTableColumn<AskItem>[]>(
+    () => [
+      {
+        id: 'title',
+        accessorKey: 'title',
+        header: t('colTitle'),
+        size: 240,
+        cell: ({ row }) => (
+          <div className="max-w-xs">
+            <TruncatedText value={row.original.title} className="font-medium" />
+            {row.original.categoryName && (
+              <div className="text-xs text-muted-foreground">{row.original.categoryName}</div>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: 'user',
+        accessorKey: 'userName',
+        header: t('colUser'),
+        size: 120,
+        cell: ({ row }) => row.original.user?.nickname ?? row.original.userName ?? '-',
+      },
+      {
+        id: 'answerCount',
+        accessorKey: 'answerCount',
+        header: t('colAnswerCount'),
+        size: 90,
+        cell: ({ row }) => row.original.answerCount,
+      },
+      {
+        id: 'isResolved',
+        accessorKey: 'isResolved',
+        header: t('colResolved'),
+        size: 110,
+        filterFn: (row, _id, value) => {
+          const v = String(value).toLowerCase()
+          if (v === 'true' || v === '1' || v === 'yes') return row.original.isResolved
+          if (v === 'false' || v === '0' || v === 'no') return !row.original.isResolved
+          return true
+        },
+        cell: ({ row }) =>
+          row.original.isResolved ? (
+            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-500">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {t('resolved')}
+            </span>
           ) : (
-            list.map((item) => {
-              const meta = STATUS_META[item.status] ??
-                STATUS_META[0] ?? {
-                  label: 'statusHidden',
-                  cls: 'bg-muted text-muted-foreground',
-                }
-              const user = item.user?.nickname ?? item.userName ?? '-'
-              return (
-                <TableRow key={item.id} className="hover:bg-muted/30">
-                  <TableCell className="max-w-xs px-4 py-2.5">
-                    <TruncatedText value={item.title} className="font-medium" />
-                    {item.categoryName && (
-                      <div className="text-xs text-muted-foreground">{item.categoryName}</div>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">{user}</TableCell>
-                  <TableCell className="px-4 py-2.5">{item.answerCount}</TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    {item.isResolved ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-500">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {t('resolved')}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">{t('unresolved')}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                        meta.cls,
-                      )}
-                    >
-                      {t(meta.label)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {dateFmt.format(new Date(item.createdAt))}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Tooltip content={t('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(item)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </Tooltip>
-                      {item.status !== 1 && (
-                        <Tooltip content={t('audit')}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onAudit(item)}
-                            disabled={auditPending}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        </Tooltip>
-                      )}
-                      <Tooltip content={t('delete')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onDelete(item)}
-                          className="text-destructive hover:text-destructive"
-                          disabled={deletePending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </Tooltip>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            })
+            <span className="text-xs text-muted-foreground">{t('unresolved')}</span>
+          ),
+      },
+      {
+        id: 'status',
+        accessorKey: 'status',
+        header: t('colStatus'),
+        size: 110,
+        filterFn: (row, _id, value) => String(row.original.status) === String(value),
+        cell: ({ row }) => {
+          const meta = STATUS_META[row.original.status] ??
+            STATUS_META[0] ?? { label: 'statusHidden', cls: 'bg-muted text-muted-foreground' }
+          return (
+            <span
+              className={cn(
+                'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                meta.cls,
+              )}
+            >
+              {t(meta.label)}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'createdAt',
+        accessorKey: 'createdAt',
+        header: t('colCreatedAt'),
+        size: 130,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {dateFmt.format(new Date(row.original.createdAt))}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: t('colActions'),
+        size: 150,
+        enableSorting: false,
+        enableColumnFilter: false,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            <Tooltip content={t('edit')}>
+              <Button variant="ghost" size="sm" onClick={() => onEdit(row.original)}>
+                <Edit className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+            {row.original.status !== 1 && (
+              <Tooltip content={t('audit')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onAudit(row.original)}
+                  disabled={auditPending}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </Button>
+              </Tooltip>
+            )}
+            <Tooltip content={t('delete')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onDelete(row.original)}
+                className="text-destructive hover:text-destructive"
+                disabled={deletePending}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+          </div>
+        ),
+      },
+    ],
+    [t, dateFmt, auditPending, deletePending, onEdit, onAudit, onDelete],
+  )
+
+  return (
+    <DataTable
+      columns={columns}
+      data={list}
+      manualPagination
+      pageCount={totalPages}
+      controlledPageIndex={page - 1}
+      controlledPageSize={pageSize}
+      controlledTotal={total}
+      onPageIndexChange={(i) => onPageChange(i + 1)}
+      onPageSizeChange={onPageSizeChange}
+      loading={isLoading}
+      error={error}
+      loadingText={t('loading')}
+      emptyText={t('noData')}
+      enableColumnResize
+      enableColumnFilters
+      enableRowExpansion
+      expandOnRowClick
+      renderExpandedRow={(row) => (
+        <div className="space-y-2 text-sm">
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">内容</div>
+            <div className="mt-1 whitespace-pre-wrap">{row.original.content || '-'}</div>
+          </div>
+          {row.original.tags && row.original.tags.length > 0 && (
+            <div>
+              <div className="text-xs font-medium text-muted-foreground">标签</div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {row.original.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
-        </TableBody>
-      </Table>
-    </div>
+          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <span>浏览 {row.original.viewCount}</span>
+            <span>点赞 {row.original.likeCount}</span>
+            <span>回答 {row.original.answerCount}</span>
+          </div>
+        </div>
+      )}
+    />
   )
 }
