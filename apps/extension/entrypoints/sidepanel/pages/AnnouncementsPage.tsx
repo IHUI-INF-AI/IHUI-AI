@@ -8,26 +8,16 @@ import { useEffect, useState } from 'react'
 import { getAnnouncements, type Announcement } from '@ihui/api-client'
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDate } from '../../../lib/date-utils'
 
 const WEB_BASE = 'https://ihui.ai'
 
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(s))
-  } catch {
-    return ''
-  }
-}
-
 function stripHtml(s: string | undefined | null): string {
   if (!s) return ''
-  return s.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  return s
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 const PINNED_LABEL: Record<string, string> = {
@@ -71,7 +61,9 @@ export default function AnnouncementsPage() {
 
   if (loading) {
     return (
-      <div className="text-center text-muted-foreground py-8 px-4 text-sm">{t('common.loading')}</div>
+      <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+        {t('common.loading')}
+      </div>
     )
   }
   if (error) {
@@ -117,11 +109,15 @@ export default function AnnouncementsPage() {
                         {PINNED_LABEL[locale] || 'Pinned'}
                       </Badge>
                     ) : null}
-                    <CardTitle className="text-sm leading-snug line-clamp-2 flex-1">{a.title}</CardTitle>
+                    <CardTitle className="text-sm leading-snug line-clamp-2 flex-1">
+                      {a.title}
+                    </CardTitle>
                   </div>
                   <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground gap-2">
                     <span>{a.category || '—'}</span>
-                    <span className="whitespace-nowrap">{fmtDate(a.publishTime || a.createdAt)}</span>
+                    <span className="whitespace-nowrap">
+                      {fmtDate(a.publishTime || a.createdAt)}
+                    </span>
                   </div>
                 </CardHeader>
                 <CardContent className="px-3 pb-2 -mt-1">
