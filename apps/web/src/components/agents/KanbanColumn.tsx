@@ -12,7 +12,13 @@ export interface KanbanColumnProps {
   onSelectTask: (task: KanbanTask) => void
 }
 
-export function KanbanColumn({ column, onSelectTask }: KanbanColumnProps) {
+// 性能修复(2026-07-25):React.memo 包裹,column 引用 + onSelectTask 引用都不变时跳过渲染。
+// 父 KanbanBoard 的 createOpen/SSE 状态变化不再触发 6 列重渲染。
+// 注意:onSelectTask 必须在父方用 useCallback 稳定引用,否则 memo 失效。
+export const KanbanColumn = React.memo(function KanbanColumn({
+  column,
+  onSelectTask,
+}: KanbanColumnProps) {
   const t = useTranslations('agents.kanban')
 
   const sortedTasks = React.useMemo(
@@ -53,4 +59,4 @@ export function KanbanColumn({ column, onSelectTask }: KanbanColumnProps) {
       </div>
     </div>
   )
-}
+})
