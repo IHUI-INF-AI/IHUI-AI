@@ -90,7 +90,7 @@ export function LearnRemindDialog({
                 <SelectContent>
                   {Object.entries(TYPE_MAP).map(([k]) => (
                     <SelectItem key={k} value={k}>
-                      {t(`type.${k}`)}
+                      {t(TYPE_MAP[k] ?? 'type.unknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>

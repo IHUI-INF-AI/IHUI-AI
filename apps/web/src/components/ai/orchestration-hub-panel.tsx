@@ -146,6 +146,14 @@ const HEALTH_STYLE: Record<HealthStatus, { dot: string; text: string }> = {
   unknown: { dot: 'bg-zinc-500', text: 'text-zinc-400' },
 }
 
+/** i18n 静态映射表 — 用于消除 `t(\`telemetry.${var}\`)` 动态拼接 */
+const TELEMETRY_STATUS_KEY: Record<HealthStatus, string> = {
+  healthy: 'telemetry.healthy',
+  degraded: 'telemetry.degraded',
+  unhealthy: 'telemetry.unhealthy',
+  unknown: 'telemetry.unknown',
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // 工具函数
 // ────────────────────────────────────────────────────────────────────────────
@@ -892,7 +900,7 @@ function TelemetryTab() {
                     </span>
                   </div>
                   <div className={cn('mt-1 text-[10px]', hs.text)}>
-                    {t(`telemetry.${status}`)}
+                    {t(TELEMETRY_STATUS_KEY[status] ?? 'telemetry.unknown')}
                   </div>
                   {p.metrics && (
                     <div className="mt-1 flex flex-col gap-0.5">
@@ -969,6 +977,13 @@ const TABS: Array<{ key: TabKey; icon: React.ReactNode }> = [
   { key: 'telemetry', icon: <Gauge className="h-3.5 w-3.5" /> },
 ]
 
+/**
+ * 编排面板 tab i18n key 静态映射表:tabs.${key} — 用于消除 `t(\`tabs.${var}\`)` 动态拼接
+ */
+const TAB_KEY: Record<string, string> = Object.fromEntries(
+  TABS.map((tab) => [tab.key, `tabs.${tab.key}`]),
+)
+
 export function OrchestrationHubPanel() {
   const t = useTranslations('orchestration')
   const [activeTab, setActiveTab] = React.useState<TabKey>('events')
@@ -1005,7 +1020,7 @@ export function OrchestrationHubPanel() {
               )}
             >
               {tab.icon}
-              <span>{t(`tabs.${tab.key}`)}</span>
+              <span>{t(TAB_KEY[tab.key] ?? 'tabs.unknown')}</span>
             </button>
           )
         })}

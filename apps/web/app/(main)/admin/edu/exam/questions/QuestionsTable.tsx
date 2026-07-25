@@ -3,7 +3,7 @@ import { Edit, Trash2, Loader2, ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
-import { TYPE_BADGE } from './helpers'
+import { TYPE_BADGE, TYPE_KEY } from './helpers'
 import { Tooltip } from '@/components/feedback'
 import type { Question } from './types'
 
@@ -79,7 +79,7 @@ export function QuestionsTable({
                       TYPE_BADGE[q.type],
                     )}
                   >
-                    {t(`type.${q.type}`)}
+                    {t(TYPE_KEY[q.type] ?? 'type.unknown')}
                   </span>
                 </TableCell>
                 <TableCell className="max-w-md break-words px-4 py-2.5">{q.title}</TableCell>

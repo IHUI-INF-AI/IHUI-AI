@@ -7,6 +7,12 @@ import { cn } from '@/lib/utils'
 import { fmt } from './helpers'
 import type { Invitation } from './types'
 
+const INVITATION_STATUS_KEYS: Record<'pending' | 'accepted' | 'expired', string> = {
+  pending: 'status.pending',
+  accepted: 'status.accepted',
+  expired: 'status.expired',
+}
+
 interface Props {
   isLoading: boolean
   invitations: Invitation[] | undefined
@@ -54,7 +60,7 @@ export function TeamInvitationsList({ isLoading, invitations, onCancel, cancelPe
                   : 'bg-muted text-muted-foreground',
             )}
           >
-            {t(`status.${inv.status}`)}
+            {t(INVITATION_STATUS_KEYS[inv.status]!)}
           </span>
           {inv.status === 'pending' && (
             <Button

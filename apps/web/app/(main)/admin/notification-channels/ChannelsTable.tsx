@@ -2,7 +2,7 @@
 
 import { Loader2, Bell } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { briefConfig, type Item } from './helpers'
+import { briefConfig, type Item, TYPE_KEY } from './helpers'
 
 interface Props {
   list: Item[]
@@ -50,7 +50,7 @@ export function ChannelsTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <td className="px-4 py-2.5 font-medium">{item.name}</td>
                 <td className="px-4 py-2.5">
                   <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                    {t(`type_${item.type}`)}
+                    {t(TYPE_KEY[item.type] ?? 'type_unknown')}
                   </span>
                 </td>
                 <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">

@@ -64,6 +64,18 @@ const PARTNERS = [
   '华为云',
 ]
 
+/**
+ * 工具分类 i18n key 静态映射表:categories.${titleKey} — 用于消除 `t(\`categories.${var}\`)` 动态拼接
+ */
+const CATEGORY_KEY: Record<string, string> = Object.fromEntries(
+  CATEGORIES.map((c) => [c.titleKey, `categories.${c.titleKey}`]),
+)
+
+/** i18n 静态映射表 — 用于消除 `t(\`items.${var}\`)` 动态拼接 */
+const ITEM_KEY: Record<string, string> = Object.fromEntries(
+  CATEGORIES.flatMap((c) => c.items.map((i) => [i.labelKey, `items.${i.labelKey}`])),
+)
+
 export function ToolsSection() {
   const t = useTranslations('enterpriseTools')
 
@@ -82,7 +94,7 @@ export function ToolsSection() {
           <Card key={cat.titleKey}>
             <CardContent className="space-y-3 p-5">
               <h3 className="text-sm font-semibold tracking-tight">
-                {t(`categories.${cat.titleKey}`)}
+                {t(CATEGORY_KEY[cat.titleKey] ?? 'categories.unknown')}
               </h3>
               <div className="grid grid-cols-2 gap-2">
                 {cat.items.map((item) => {
@@ -93,7 +105,7 @@ export function ToolsSection() {
                       className="flex items-center gap-2 rounded-md border bg-muted/30 px-2.5 py-2 text-sm transition-colors hover:bg-accent"
                     >
                       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span>{t(`items.${item.labelKey}`)}</span>
+                      <span>{t(ITEM_KEY[item.labelKey] ?? 'items.unknown')}</span>
                     </div>
                   )
                 })}

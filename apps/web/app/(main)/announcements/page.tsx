@@ -7,7 +7,7 @@ import { Loader2, Megaphone, Pin } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { api, type Announcement, ANN_TYPE_ICON, ANN_TYPE_BADGE } from '@/lib/content'
+import { api, type Announcement, ANN_TYPE_ICON, ANN_TYPE_BADGE, ANN_TYPE_KEY } from '@/lib/content'
 
 export default function AnnouncementsPage() {
   const t = useTranslations('announcements')
@@ -73,7 +73,7 @@ export default function AnnouncementsPage() {
                             ANN_TYPE_BADGE[a.type],
                           )}
                         >
-                          {t(`types.${a.type}`)}
+                          {t(ANN_TYPE_KEY[a.type] ?? 'types.unknown')}
                         </span>
                         {a.isPinned && (
                           <span className="inline-flex items-center gap-0.5 text-xs text-primary">

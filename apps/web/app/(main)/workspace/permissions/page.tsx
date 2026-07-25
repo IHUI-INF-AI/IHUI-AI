@@ -17,6 +17,13 @@ const MODE_LABEL: Record<WorkspacePermissionMode, { icon: LucideIcon; color: str
   'bypass-permissions': { icon: Shield, color: 'text-amber-500' },
 }
 
+/** i18n 静态映射表 — 用于消除 `tw(\`mode.${var}.title\`)` 动态拼接 */
+const MODE_TITLE_KEY: Record<WorkspacePermissionMode, string> = {
+  default: 'mode.default.title',
+  'accept-edits': 'mode.accept-edits.title',
+  'bypass-permissions': 'mode.bypass-permissions.title',
+}
+
 export default function WorkspacePermissionsPage() {
   const t = useTranslations('workspace.permissionsPage')
   const tw = useTranslations('workspace.permission')
@@ -81,7 +88,7 @@ export default function WorkspacePermissionsPage() {
                             : 'bg-muted text-muted-foreground',
                       )}
                     >
-                      {tw(`mode.${perm.mode}.title`)}
+                      {tw(MODE_TITLE_KEY[perm.mode] ?? 'mode.unknown.title')}
                     </span>
                   </div>
                   <p className="font-mono text-xs text-muted-foreground truncate">

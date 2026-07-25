@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { CATEGORIES, tabBase } from './helpers'
+import { CATEGORIES, tabBase, CATEGORY_KEY } from './helpers'
 import type { Category } from './types'
 
 interface Props {
@@ -26,7 +26,7 @@ export function ConfigFilter({ category, setCategory }: Props) {
       </button>
       {CATEGORIES.map((c) => (
         <button key={c} onClick={() => setCategory(c)} className={tabCls(category === c)}>
-          {t(`categories.${c}`)}
+          {t(CATEGORY_KEY[c] ?? 'categories.unknown')}
         </button>
       ))}
     </div>
