@@ -706,6 +706,8 @@
     "loading": "로딩 중...",
     "enterToSend": "Enter 키로 전송, Shift+Enter로 줄바꿈",
     "generating": "생성 중...",
+    "streamingIndicator": "AI가 생성 중",
+    "streamingIndicatorHint": "AI가 생성 중입니다. 다음 메시지를 입력할 수 있습니다",
     "me": "나",
     "promptTemplate": "프롬프트 템플릿",
     "addContextReference": "컨텍스트 참조로 추가",
@@ -905,6 +907,10 @@
       "historyClearConfirmTitle": "기록 지우기",
       "historyClearConfirmDesc": "모든 모드 전환 기록이 삭제되며 복구할 수 없습니다.",
       "historyClearConfirm": "지우기",
+      "resetSuppressedButton": "고위험 경고 다시 활성화",
+      "resetSuppressedConfirmTitle": "고위험 경고를 다시 활성화하시겠습니까?",
+      "resetSuppressedConfirmDesc": "다음에 전체 액세스로 전환할 때 확인 대화상자가 다시 표시됩니다.",
+      "resetSuppressedToast": "재설정 완료. 다음 전체 액세스 시 다시 확인합니다",
       "historyOpenButton": "기록",
       "historySource": {
         "popover": "팝오버",
@@ -6430,7 +6436,11 @@
         "model": "모델",
         "tokens": "토큰",
         "cost": "소비",
-        "status": "상태"
+        "status": "상태",
+        "statusLabels": {
+          "success": "성공",
+          "failed": "실패"
+        }
       }
     },
     "keys": {
@@ -6447,6 +6457,11 @@
         "createdAt": "생성 시간",
         "status": "상태",
         "actions": "작업"
+      },
+      "statusLabels": {
+        "active": "활성화",
+        "disabled": "비활성화",
+        "expired": "만료"
       }
     },
     "logs": {
@@ -6461,6 +6476,10 @@
         "cost": "소비",
         "duration": "소요 시간",
         "status": "상태"
+      },
+      "statusLabels": {
+        "success": "성공",
+        "failed": "실패"
       }
     },
     "usage": {
@@ -6513,7 +6532,17 @@
         "amount": "금액",
         "balance": "잔액",
         "time": "시간",
-        "status": "상태"
+        "status": "상태",
+        "statusLabels": {
+          "success": "성공",
+          "failed": "실패",
+          "pending": "대기 중"
+        },
+        "types": {
+          "recharge": "충전",
+          "withdraw": "출금",
+          "consume": "소비"
+        }
       }
     },
     "redeem": {
@@ -6624,6 +6653,10 @@
         "qps": "ＱＰＳ",
         "todayCalls": "오늘 호출",
         "status": "상태"
+      },
+      "statusLabels": {
+        "success": "성공",
+        "failed": "실패"
       }
     },
     "chats": {
