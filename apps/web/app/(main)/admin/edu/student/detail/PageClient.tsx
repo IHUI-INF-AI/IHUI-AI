@@ -165,7 +165,7 @@ export default function EduStudentDetailPage() {
           </Link>
         </Button>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger {...({ asChild: true } as any)}>
             <Button variant="outline" size="sm" disabled={exporting !== null}>
               {exporting !== null ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -176,15 +176,15 @@ export default function EduStudentDetailPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleExport('pdf')}>
+            <DropdownMenuItem {...({ onClick: () => handleExport('pdf') } as any)}>
               <FileText className="mr-2 h-4 w-4" />
               导出 PDF
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('excel')}>
+            <DropdownMenuItem {...({ onClick: () => handleExport('excel') } as any)}>
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               导出 Excel
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('json')}>
+            <DropdownMenuItem {...({ onClick: () => handleExport('json') } as any)}>
               <FileJson className="mr-2 h-4 w-4" />
               导出 JSON
             </DropdownMenuItem>
@@ -268,7 +268,7 @@ export default function EduStudentDetailPage() {
             </TableHeader>
             <TableBody className="divide-y">
               {data.lessons?.length ? (
-                data.lessons.map((l) => (
+                data.lessons.map((l: any) => (
                   <TableRow key={l.id} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-2.5 font-medium">{l.title ?? l.id.slice(0, 8)}</TableCell>
                     <TableCell className="px-4 py-2.5">
