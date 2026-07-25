@@ -22,6 +22,7 @@ export function TicketsPanel() {
   const t = useTranslations('admin.customerService')
   const qc = useQueryClient()
   const locale = useLocale()
+  const dateFmt = React.useMemo(() => new Intl.DateTimeFormat(locale), [locale])
   const [status, setStatus] = React.useState('all')
   const [priority, setPriority] = React.useState('all')
   const [selected, setSelected] = React.useState<TicketType | null>(null)
@@ -141,7 +142,7 @@ export function TicketsPanel() {
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
-                    {new Intl.DateTimeFormat(locale).format(new Date(tk.createdAt))}
+                    {dateFmt.format(new Date(tk.createdAt))}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <Button

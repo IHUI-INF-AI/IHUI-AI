@@ -15,7 +15,7 @@ interface TimelineProps {
   className?: string
 }
 
-export function Timeline({ items, mode = 'left', className }: TimelineProps) {
+export const Timeline = React.memo(function Timeline({ items, mode = 'left', className }: TimelineProps) {
   return (
     <div className={cn('relative', className)}>
       <div
@@ -56,4 +56,4 @@ export function Timeline({ items, mode = 'left', className }: TimelineProps) {
       </div>
     </div>
   )
-}
+})

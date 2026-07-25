@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import {
   Loader2,
   Plus,
@@ -68,13 +69,44 @@ export function ArticleTable(props: ArticleTableProps) {
   } = props
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [locale],
+  )
+  const handleToggle = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const a = articles.find((x) => String(x.id) === id)
+      if (a) onToggle(a)
+    },
+    [articles, onToggle],
+  )
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const a = articles.find((x) => String(x.id) === id)
+      if (a) onEdit(a)
+    },
+    [articles, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const a = articles.find((x) => String(x.id) === id)
+      if (a) onDelete(a)
+    },
+    [articles, onDelete],
+  )
 
   return (
     <>
@@ -159,7 +191,8 @@ export function ArticleTable(props: ArticleTableProps) {
                     <TableCell className="px-4 py-2.5">{a.viewCount}</TableCell>
                     <TableCell className="px-4 py-2.5">
                       <button
-                        onClick={() => onToggle(a)}
+                        data-id={a.id}
+                        onClick={handleToggle}
                         disabled={togglePending}
                         className={cn(
                           'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
@@ -183,7 +216,12 @@ export function ArticleTable(props: ArticleTableProps) {
                     <TableCell className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Tooltip content="编辑">
-                          <Button variant="ghost" size="sm" onClick={() => onEdit(a)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            data-id={a.id}
+                            onClick={handleEdit}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                         </Tooltip>
@@ -191,7 +229,8 @@ export function ArticleTable(props: ArticleTableProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onDelete(a)}
+                            data-id={a.id}
+                            onClick={handleDelete}
                             className="text-destructive hover:text-destructive"
                             disabled={deletePending}
                           >
