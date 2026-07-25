@@ -52,7 +52,24 @@ export default function HomePage() {
 
   const { section, scrollTo, next } = useFullPageScroll(TOTAL_PAGES)
 
-  const benefits = BENEFITS_I18N_KEYS.map((k) => t(k))
+  // 性能修复(2026-07-25):原每次 render 都 BENEFITS_KEYS.map((k) => t(...))
+  // 新建 6 元素数组,locale 不变时 t(k) 返回值稳定,但数组引用每次都变,
+  // 导致下方 benefits.map 渲染的 6 张 RevealOnView 卡片全部重渲染。
+  // 用 useMemo 仅在 t 引用变化时重算(next-intl locale 切换才变)。
+  const benefits = React.useMemo(
+    () => BENEFITS_I18N_KEYS.map((k) => t(k)),
+    [t],
+  )
+  // 同理:stats 数组(4 元素)也每次新建,RevealOnView 卡片重渲染。
+  const stats = React.useMemo(
+    () => [
+      { value: 8, suffix: '', label: t('stats.platforms') },
+      { value: 100, suffix: '+', label: t('stats.models') },
+      { value: 6000, prefix: '¥', label: te('hero.priceEarlyBird') },
+      { value: 18, suffix: '', label: t('stats.seats') },
+    ],
+    [t, te],
+  )
 
   return (
     <>
@@ -254,12 +271,7 @@ export default function HomePage() {
                 2026-07-23 深度美化:数字渐变高亮 + 卡片玻璃拟态 */}
             <div className="mx-auto w-full max-w-5xl px-4">
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
-                {[
-                  { value: 8, suffix: '', label: t('stats.platforms') },
-                  { value: 100, suffix: '+', label: t('stats.models') },
-                  { value: 6000, prefix: '¥', label: te('hero.priceEarlyBird') },
-                  { value: 18, suffix: '', label: t('stats.seats') },
-                ].map((s, i) => (
+                {stats.map((s, i) => (
                   <RevealOnView
                     key={i}
                     delay={0.2 + 0.08 * i}
