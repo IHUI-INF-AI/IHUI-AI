@@ -27,3 +27,31 @@ export const parseUserIds = (text: string): string[] =>
     .filter(Boolean)
 
 export const TARGET_MODES: TargetMode[] = ['userIds', 'roleFilter']
+
+/** i18n 静态映射表 — 用于消除 `t(`nd.${var}_${var}`)` 动态拼接 */
+export const TARGET_MODE_KEY: Record<TargetMode, string> = {
+  userIds: 'nd.targetMode_userIds',
+  roleFilter: 'nd.targetMode_roleFilter',
+}
+
+export const CHANNEL_KEY: Record<NotificationChannel, string> = {
+  in_app: 'nd.channel_in_app',
+  email: 'nd.channel_email',
+  sms: 'nd.channel_sms',
+}
+
+export const MSG_TYPE_KEY: Record<MsgType, string> = {
+  system: 'nd.msgType_system',
+  order: 'nd.msgType_order',
+  project: 'nd.msgType_project',
+  comment: 'nd.msgType_comment',
+  mention: 'nd.msgType_mention',
+  follow: 'nd.msgType_follow',
+}
+
+export const RESULT_KEY: Record<'sent' | 'failed' | 'skipped' | 'queued', string> = {
+  sent: 'nd.result_sent',
+  failed: 'nd.result_failed',
+  skipped: 'nd.result_skipped',
+  queued: 'nd.result_queued',
+}

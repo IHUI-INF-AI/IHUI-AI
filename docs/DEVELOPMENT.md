@@ -437,7 +437,6 @@ uvicorn app.main:app --reload --port 8000 --log-level debug
 | `@ihui/types` | `packages/types` | 共享 TypeScript 类型 |
 | `@ihui/ui-react` | `packages/ui` | shadcn/ui 组件库 |
 | `@ihui/api-client` | `packages/sdk` | API SDK(多语言:TS/Go/Java/Python/.NET) |
-| `@ihui/config` | `packages/config` | 环境变量校验 |
 | `@ihui/eslint-config` | `packages/eslint-config` | 共享 ESLint 配置 |
 | `@ihui/tsconfig` | `packages/tsconfig` | 共享 tsconfig |
 

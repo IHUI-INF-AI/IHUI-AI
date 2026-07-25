@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { AnswerInput } from './AnswerInput'
 import { PaperSelectCard } from './PaperSelectCard'
-import { TYPE_LABEL } from './helpers'
+import { TYPE_LABEL_KEY } from './helpers'
 import type { Paper, Question } from './types'
 
 function AnswerOnlineContent() {
@@ -169,7 +169,7 @@ function AnswerOnlineContent() {
                       <div>
                         <span className="mr-2 text-xs text-muted-foreground">
                           {idx + 1}.{' '}
-                          {TYPE_LABEL[q.type] ? t(`typeLabel.${TYPE_LABEL[q.type]}`) : q.type}
+                          {TYPE_LABEL_KEY[q.type] ? t(TYPE_LABEL_KEY[q.type] ?? 'typeLabel.unknown') : q.type}
                         </span>
                         <span className="text-sm font-medium">{q.title}</span>
                       </div>
