@@ -46,11 +46,15 @@ export default function ClawdbotDashboardPage() {
   })
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  const timeFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
+  const timeFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    [locale],
+  )
 
   const load = React.useCallback(async () => {
     const [botsRes, statsRes] = await Promise.all([

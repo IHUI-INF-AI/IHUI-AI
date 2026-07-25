@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Check, X, Loader2, Sparkles, AlertCircle } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useInlineEditStore } from '@/stores/inline-edit'
 import { useInlineEdit } from '@/hooks/use-inline-edit'
 
@@ -19,13 +20,19 @@ import { useInlineEdit } from '@/hooks/use-inline-edit'
 const PREVIEW_MAX_CHARS = 200
 
 export function InlineEditDialog() {
-  const isOpen = useInlineEditStore((s) => s.isOpen)
-  const selection = useInlineEditStore((s) => s.selection)
-  const status = useInlineEditStore((s) => s.status)
-  const instruction = useInlineEditStore((s) => s.instruction)
-  const generatedPatch = useInlineEditStore((s) => s.generatedPatch)
-  const error = useInlineEditStore((s) => s.error)
-  const setInstruction = useInlineEditStore((s) => s.setInstruction)
+  // 性能修复(2026-07-25):7 个独立 selector 合并为 1 个 useShallow,减少订阅器数量
+  const { isOpen, selection, status, instruction, generatedPatch, error, setInstruction } =
+    useInlineEditStore(
+      useShallow((s) => ({
+        isOpen: s.isOpen,
+        selection: s.selection,
+        status: s.status,
+        instruction: s.instruction,
+        generatedPatch: s.generatedPatch,
+        error: s.error,
+        setInstruction: s.setInstruction,
+      })),
+    )
 
   const { startEdit, acceptPatch, rejectPatch, closeInlineEdit } = useInlineEdit()
   const inputRef = React.useRef<HTMLInputElement>(null)
