@@ -298,6 +298,13 @@ const checks = [
     mode: 'warn',
   },
   {
+    id: '2f-shared',
+    label: '🌐 [shared] i18n 键完整性(warn-only)',
+    script: 'check-i18n-keys.mjs',
+    args: ['--target=shared'],
+    mode: 'warn',
+  },
+  {
     id: '2g-ext',
     label: '🔍 [extension] zh-TW 简体字残留(warn-only)',
     script: 'scan-i18n-zh-residue.mjs',
