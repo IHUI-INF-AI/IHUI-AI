@@ -41,6 +41,13 @@ const HISTORY_STATUS_KEY: Record<ImportHistoryItem['status'], string> = {
   failed: 'statusFailed',
 }
 
+/** i18n 静态映射表 — 用于消除 {s}Desc 形式的动态拼接 */
+const CONFLICT_STRATEGY_DESC_KEY: Record<ImportConflictStrategy, string> = {
+  overwrite: 'overwriteDesc',
+  skip: 'skipDesc',
+  clone: 'cloneDesc',
+}
+
 export default function CliImportPage() {
   const t = useTranslations('cliImport')
   const qc = useQueryClient()
@@ -290,7 +297,7 @@ export default function CliImportPage() {
                       }`}
                     >
                       <p className="font-medium">{t(s as never)}</p>
-                      <p className="mt-0.5 text-muted-foreground">{t(`${s}Desc` as never)}</p>
+                      <p className="mt-0.5 text-muted-foreground">{t((CONFLICT_STRATEGY_DESC_KEY[s] ?? 'unknownDesc') as never)}</p>
                     </button>
                   )
                 })}

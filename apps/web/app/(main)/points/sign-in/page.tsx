@@ -31,6 +31,17 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] // 0=日 ... 6=六
 
+/** i18n 静态映射表 — 用于消除 day{d} 形式的动态拼接 */
+const WEEKDAY_KEY: Record<number, string> = {
+  0: 'day0',
+  1: 'day1',
+  2: 'day2',
+  3: 'day3',
+  4: 'day4',
+  5: 'day5',
+  6: 'day6',
+}
+
 export default function SignInPage() {
   const t = useTranslations('points.signIn')
   const locale = useLocale()
@@ -189,7 +200,7 @@ export default function SignInPage() {
                   isSigned ? 'border-primary/40 bg-primary/5' : 'hover:bg-accent/50',
                 )}
               >
-                <span className="text-xs text-muted-foreground">{t(`day${d}`)}</span>
+                <span className="text-xs text-muted-foreground">{t(WEEKDAY_KEY[d] ?? 'dayUnknown')}</span>
                 <span
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium',
