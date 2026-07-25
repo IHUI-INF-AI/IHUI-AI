@@ -5521,6 +5521,32 @@
         "success": "Generated successfully",
         "error": "Please enter a module name"
       }
+    },
+    "aiMetrics": {
+      "title": "AI Operations Metrics",
+      "subtitle": "SSE streaming, Prompt cache and VIP discount monitoring",
+      "backToCost": "Back to Cost Dashboard",
+      "loadFailed": "Load failed, please retry later",
+      "lastRefresh": "Last refresh: {time}",
+      "sseMetrics": "SSE Streaming Metrics",
+      "sseMetricsDesc": "Real-time chat stream disconnection and rate limit counters",
+      "sseTimeouts": "Timeouts",
+      "sseRateLimitHits": "Rate Limit Hits",
+      "sseBudgetRejects": "Budget Rejects",
+      "sseRetryAfterSent": "Retry-After Sent",
+      "sseUpstreamErrors": "Upstream Errors",
+      "promptCache": "Prompt Cache",
+      "promptCacheDesc": "L1/L2 cache hits and errors",
+      "pcL1Hits": "L1 Hits",
+      "pcL1Misses": "L1 Misses",
+      "pcL2Hits": "L2 Hits",
+      "pcL2Misses": "L2 Misses",
+      "pcErrors": "Errors",
+      "vipDiscount": "VIP Discount",
+      "vipDiscountDesc": "VIP user discount application statistics",
+      "vipApplies": "Applications",
+      "vipTotalDiscounted": "Total Discounted",
+      "vipLevel": "VIP {level}"
     }
   },
   "knowledgeGraph": {
@@ -7046,7 +7072,10 @@
     "rangeLabel": "Time Range",
     "range1d": "Last 1 day",
     "range7d": "Last 7 days",
-    "range30d": "Last 30 days"
+    "range30d": "Last 30 days",
+    "l1HitRate": "L1 Cache Hit Rate",
+    "l2HitRate": "L2 Cache Hit Rate",
+    "promptCacheErrors": "Cache Errors"
   },
   "wallet": {
     "title": "My Wallet",
