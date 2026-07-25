@@ -19,6 +19,13 @@ interface Props {
   removePending: boolean
 }
 
+/** i18n 静态映射表 — 用于消除 `t(`roles.${m.role}`)` 动态拼接 */
+const ROLE_LABEL_KEY: Record<Role, string> = {
+  owner: 'roles.owner',
+  admin: 'roles.admin',
+  member: 'roles.member',
+}
+
 function Avatar({ src, name }: { src?: string; name: string }) {
   if (src) {
     return <Image src={src} alt={name} width={32} height={32} className="h-8 w-8 rounded-full" />
@@ -71,7 +78,7 @@ export function TeamMembersList({
                   )}
                 >
                   <RoleIcon className="h-3 w-3" />
-                  {t(`roles.${m.role}`)}
+                  {t(ROLE_LABEL_KEY[m.role] ?? 'roles.member')}
                 </span>
               </div>
               <div className="mt-0.5 text-xs text-muted-foreground">
