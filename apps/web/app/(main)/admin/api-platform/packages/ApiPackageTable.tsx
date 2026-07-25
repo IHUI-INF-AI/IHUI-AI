@@ -15,7 +15,7 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
+export const ApiPackageTable = React.memo(function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('adminApiPackages')
   const handleEdit = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -105,4 +105,4 @@ export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
       </Table>
     </div>
   )
-}
+})
