@@ -104,17 +104,17 @@ export default function SubagentsListPage() {
                     key={d.id}
                     className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent"
                   >
-                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_BADGE[d.status as any]}`}>
-                      {STATUS_LABEL[d.status as any]}
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${(STATUS_BADGE as any)[d.status]}`}>
+                      {(STATUS_LABEL as any)[d.status]}
                     </span>
                     {d.priority && (
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${PRIORITY_BADGE[d.priority as any]}`}>
-                        {PRIORITY_LABEL[d.priority as any]}
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${(PRIORITY_BADGE as any)[d.priority]}`}>
+                        {(PRIORITY_LABEL as any)[d.priority]}
                       </span>
                     )}
                     {d.agentRole && (
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${ROLE_BADGE[d.agentRole as any]}`}>
-                        {ROLE_LABEL[d.agentRole as any]}
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${(ROLE_BADGE as any)[d.agentRole]}`}>
+                        {(ROLE_LABEL as any)[d.agentRole]}
                       </span>
                     )}
                     <span className="flex-1 truncate text-sm">{d.goal}</span>
