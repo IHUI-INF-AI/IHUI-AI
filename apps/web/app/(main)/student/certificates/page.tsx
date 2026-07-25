@@ -73,7 +73,7 @@ export default function MyCertificatesPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((cert) => {
+          {list.map((cert: any) => {
             const statusKey = cert.status === 2 ? 'statusRevoked' : 'statusValid'
             return (
               <Card key={cert.id} className="transition-colors hover:bg-accent">

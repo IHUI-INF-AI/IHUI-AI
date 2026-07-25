@@ -41,7 +41,7 @@ export default function LecturersPage() {
   const list = data ?? []
   const kw = search.trim().toLowerCase()
   const filtered = kw
-    ? list.filter((l) =>
+    ? list.filter((l: any) =>
         [l.name, l.title, l.intro].filter(Boolean).join(' ').toLowerCase().includes(kw),
       )
     : list
@@ -83,7 +83,7 @@ export default function LecturersPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((l) => (
+          {filtered.map((l: any) => (
             <Link key={l.id} href={`/lecturers/${l.id}`} className="group block">
               <Card className="h-full transition-colors hover:bg-accent">
                 <CardHeader className="flex flex-row items-center gap-3 p-4 pb-2">

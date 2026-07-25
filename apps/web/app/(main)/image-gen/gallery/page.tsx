@@ -48,7 +48,7 @@ export default function ImageGenGalleryPage() {
 
   const items = data?.list ?? []
   const columns: GalleryItem[][] = [[], [], []]
-  items.forEach((item, i) => {
+  items.forEach((item: any, i: any) => {
     const col = columns[i % 3]
     if (col) col.push(item)
   })

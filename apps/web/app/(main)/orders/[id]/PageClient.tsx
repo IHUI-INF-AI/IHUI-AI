@@ -120,7 +120,7 @@ export default function OrderDetailPage() {
     )
   }
 
-  const sc = STATUS_CONFIG[order.status]
+  const sc = STATUS_CONFIG[order.status as any]
   const StatusIcon = sc.icon
 
   return (
@@ -142,7 +142,7 @@ export default function OrderDetailPage() {
         )}
       >
         <StatusIcon className="h-4 w-4" />
-        {t(ORDER_STATUS_KEYS[order.status]!)}
+        {t(ORDER_STATUS_KEYS[order.status as any]!)}
       </div>
 
       <dl className="divide-y rounded-lg border">

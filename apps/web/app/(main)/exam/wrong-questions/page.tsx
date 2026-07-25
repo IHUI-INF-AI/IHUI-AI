@@ -225,7 +225,7 @@ export default function WrongQuestionsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              list.map((wq) => (
+              list.map((wq: any) => (
                 <TableRow key={wq.id}>
                   <TableCell className="max-w-[280px] truncate">
                     {wq.questionTitle || wq.questionId.slice(0, 8)}
