@@ -9,8 +9,8 @@ import {
   exchangeSsoCode as exchangeSsoCodeCore,
   extractSsoCode,
   buildSsoLoginUrl,
+  type SsoTokenData,
 } from '@ihui/shared/auth/sso-core'
-import type { SsoTokenData } from '@ihui/shared/auth/sso-core'
 
 // 重新导出类型(保持 RN 调用方 SsoTokenData 类型名不变)
 export type { SsoTokenData } from '@ihui/shared/auth/sso-core'
