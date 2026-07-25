@@ -34,6 +34,15 @@ interface PopoverProps {
    */
   tooltip?: React.ReactNode
   tooltipSide?: 'top' | 'right' | 'bottom' | 'left'
+  /**
+   * 受控模式(2026-07-25 新增):外部控制 open 状态。
+   * 用于"下拉菜单项触发内部状态切换"场景(如菜单项切换显示 SkillLibrary),
+   * 需要从 content 内部反向通知关闭。
+   * 不传则走内部 useState 非受控模式(保持原有行为)。
+   */
+  open?: boolean
+  /** 受控模式:open 状态变化回调 */
+  onOpenChange?: (open: boolean) => void
 }
 
 const FOCUSABLE_SELECTOR =
@@ -54,12 +63,29 @@ export function Popover({
   align = 'center',
   tooltip,
   tooltipSide = 'top',
+  open: controlledOpen,
+  onOpenChange,
 }: PopoverProps) {
-  const [open, setOpen] = React.useState(false)
+  // 受控 / 非受控双模式(2026-07-25 立):外部传 open 即受控,否则用内部 useState。
+  // setOpen 走统一包装函数,click-outside / ESC / trigger 切换都通过它,
+  // 避免受控/非受控逻辑分散。
+  const [internalOpen, setInternalOpen] = React.useState(false)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = React.useCallback(
+    (next: boolean) => {
+      if (isControlled) {
+        onOpenChange?.(next)
+      } else {
+        setInternalOpen(next)
+      }
+    },
+    [isControlled, onOpenChange],
+  )
   const contentRef = React.useRef<HTMLDivElement | null>(null)
   const triggerElRef = React.useRef<HTMLElement | null>(null)
   // 包装 div 引用,click-outside 用
-  const ref = useClickOutside<HTMLDivElement>(React.useCallback(() => setOpen(false), []))
+  const ref = useClickOutside<HTMLDivElement>(React.useCallback(() => setOpen(false), [setOpen]))
 
   // portal 模式:动态计算 fixed 坐标(随 trigger 滚动/resize 同步)
   // 直接计算最终 left/top(已含 align 平移)+ 视口边界 clamp,避免弹层超出视口
