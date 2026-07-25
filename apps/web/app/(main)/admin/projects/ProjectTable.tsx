@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, FolderCog, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
@@ -33,11 +34,15 @@ export function ProjectTable({
   const t = useTranslations('admin.projects')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    [locale],
+  )
 
   if (isLoading) {
     return (
