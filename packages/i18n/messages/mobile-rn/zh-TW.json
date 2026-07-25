@@ -3,106 +3,47 @@
     "save": "儲存",
     "cancel": "取消",
     "delete": "刪除",
-    "edit": "編輯",
     "back": "返回",
     "confirm": "確認",
     "loading": "載入中…",
     "empty": "暫無資料",
-    "retry": "重試",
-    "submit": "提交",
-    "search": "搜尋",
-    "all": "全部",
-    "yes": "是",
-    "no": "否"
+    "search": "搜尋"
   },
   "nav": {
     "home": "首頁",
-    "chat": "AI 對話",
     "courses": "課程",
     "live": "直播",
     "profile": "我的",
-    "agents": "智慧體",
-    "orders": "訂單",
-    "wallet": "錢包",
-    "settings": "設定",
-    "community": "社群"
-  },
-  "auth": {
-    "login": "登入",
-    "logout": "登出",
-    "register": "註冊",
-    "forgot": "忘記密碼",
-    "username": "使用者名稱",
-    "password": "密碼",
-    "phone": "手機號碼",
-    "code": "驗證碼",
-    "smsCode": "簡訊驗證碼",
-    "loginSuccess": "登入成功",
-    "loginFailed": "登入失敗",
-    "getCode": "取得驗證碼",
-    "resend": "重新發送",
-    "thirdParty": "第三方登入",
-    "apple": "Apple 登入",
-    "google": "Google 登入",
-    "wechat": "微信登入"
+    "agents": "智慧體"
   },
   "home": {
-    "welcome": "歡迎使用智匯 AI",
-    "greeting": "你好,{{name}}",
-    "todayRecommend": "今日推薦",
-    "hotCourses": "熱門課程",
-    "liveNow": "正在直播",
-    "quickEntry": "快捷入口"
+    "welcome": "歡迎使用智匯 AI"
   },
   "course": {
     "title": "課程",
-    "detail": "課程詳情",
     "studentCount": "{{count}} 人學過",
     "rating": "評分",
-    "duration": "時長",
     "free": "免費",
-    "paid": "付費",
     "pay": "支付 ¥{{amount}}",
     "enroll": "立即報名",
     "enrolled": "已報名",
-    "progress": "學習進度",
-    "chapters": "章節",
-    "notes": "筆記",
-    "qa": "問答",
-    "related": "相關課程",
-    "teacher": "講師",
-    "catalog": "課程目錄"
+    "progress": "學習進度"
   },
   "live": {
     "title": "直播",
     "viewerCount": "{{count}} 人觀看",
-    "startTime": "開播時間",
-    "host": "主播",
-    "join": "進入直播",
     "upcoming": "即將開播",
     "ended": "已結束",
-    "replay": "回放",
-    "chat": "互動",
-    "gift": "禮物",
-    "share": "分享"
+    "chat": "互動"
   },
   "profile": {
     "title": "我的",
-    "vip": "會員中心",
     "myCourses": "我的課程",
     "myOrders": "我的訂單",
     "myFavorites": "我的收藏",
-    "settings": "設定",
-    "about": "關於",
-    "language": "語言",
-    "theme": "主題",
     "feedback": "意見回饋",
-    "privacy": "隱私協議",
-    "terms": "使用者條款",
     "logout": "登出",
     "nickname": "暱稱",
-    "avatar": "頭像",
-    "bio": "簡介",
     "editProfile": "編輯資料"
   },
   "payment": {
@@ -148,68 +89,30 @@
       "completed": "已完成",
       "failed": "失敗"
     },
-    "create": "建立訂單",
-    "cancel": "取消訂單",
-    "pay": "前往付款",
-    "refund": "申請退款",
-    "detail": "訂單詳情",
     "empty": "暫無訂單",
-    "amount": "金額",
-    "orderNo": "訂單編號",
-    "payMethod": "付款方式",
-    "payTime": "付款時間"
+    "orderNo": "訂單編號"
   },
   "wallet": {
-    "title": "錢包",
-    "balance": "餘額",
-    "points": "積分",
-    "recharge": "儲值",
-    "withdraw": "提領",
-    "history": "交易紀錄",
-    "frozen": "凍結金額"
+    "points": "積分"
   },
   "community": {
-    "title": "社群",
-    "posts": "貼文",
-    "publish": "發布",
-    "comment": "留言",
-    "like": "按讚",
-    "favorite": "收藏",
-    "share": "分享",
     "follow": "追蹤",
     "follower": "粉絲"
   },
   "agent": {
-    "title": "智慧體",
-    "create": "建立智慧體",
-    "chat": "與智慧體對話",
-    "runtime": "執行狀態",
-    "config": "設定",
-    "publish": "發布"
+    "config": "設定"
   },
   "chat": {
-    "placeholder": "輸入訊息…",
-    "send": "傳送",
-    "thinking": "思考中…",
-    "newConversation": "新增對話",
-    "history": "歷史對話",
-    "stop": "停止",
-    "retry": "重新產生",
-    "copy": "複製",
-    "voice": "語音",
-    "attach": "附件"
+    "voice": "語音"
   },
   "settings": {
     "title": "設定",
     "account": "帳號與安全",
     "notification": "訊息通知",
-    "privacy": "隱私",
     "language": "語言",
     "theme": "主題",
     "about": "關於智匯 AI",
     "version": "版本",
-    "clearCache": "清除快取",
-    "update": "檢查更新",
     "notifPush": "推送通知",
     "notifMessage": "訊息提醒",
     "notifEmail": "郵件通知",
@@ -250,20 +153,7 @@
     "agreement": "用戶協議"
   },
   "error": {
-    "network": "網路錯誤,請稍後重試",
-    "server": "伺服器錯誤",
-    "unauthorized": "請先登入",
-    "forbidden": "無權限存取",
-    "notFound": "資源不存在",
-    "timeout": "請求逾時",
-    "unknown": "未知錯誤"
-  },
-  "success": {
-    "saved": "儲存成功",
-    "updated": "更新成功",
-    "deleted": "刪除成功",
-    "submitted": "提交成功",
-    "copied": "已複製"
+    "network": "網路錯誤,請稍後重試"
   },
   "taskDispatch": {
     "title": "任務下發",
@@ -287,20 +177,15 @@
     "cancel": {
       "cancelButton": "取消任務",
       "cancelling": "取消中",
-      "cancelSuccess": "任務已取消",
       "cancelFailed": "取消任務失敗"
     },
     "reconnect": {
-      "reconnecting": "正在同步任務",
-      "reconnectSuccess": "任務已同步"
+      "reconnecting": "正在同步任務"
     },
     "file": {
       "attach": "新增附件",
       "attached": "已附加: {{filename}} ({{size}})",
       "tooLarge": "檔案過大(限制 1MB)",
-      "download": "下載附件",
-      "downloadSuccess": "已下載 {{filename}}",
-      "downloadFailed": "下載失敗",
       "invalidBase64": "Base64 內容非法",
       "missingFilename": "請填寫檔名",
       "filenamePlaceholder": "檔名,如 notes.txt",
