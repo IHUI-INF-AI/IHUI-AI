@@ -16,7 +16,7 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-export function AuthRoleTable({ list, isLoading, perm, onEdit, onDelete }: Props) {
+export const AuthRoleTable = React.memo(function AuthRoleTable({ list, isLoading, perm, onEdit, onDelete }: Props) {
   const t = useTranslations('adminAuthRole')
   const handleEdit = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -95,4 +95,4 @@ export function AuthRoleTable({ list, isLoading, perm, onEdit, onDelete }: Props
       </table>
     </div>
   )
-}
+})
