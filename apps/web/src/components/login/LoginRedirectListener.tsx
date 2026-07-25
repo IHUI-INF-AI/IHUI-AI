@@ -49,9 +49,16 @@ export function LoginRedirectListener() {
     if (!match) return
     const target = decodeURIComponent(match[1] ?? '')
     document.cookie = 'login_redirect=; path=/; max-age=0'
-    // 仅当用户访问的是需要登录的受保护路由时才弹窗
-    // 首页 / 登录 / 注册等公开路径不弹窗(2026-07-23:用户要求"刷新进项目不要弹窗")
-    if (target && !isPublicPath(target)) {
+    // 关键修复(2026-07-26):用户要求"刷新进项目不要弹窗"
+    // 旧逻辑:仅检查 cookie 中 target 是否公开路径 → 用户先访问受保护页面留下
+    //   login_redirect=/dashboard cookie,然后在首页(/)刷新,target 不是公开路径
+    //   → 仍弹窗,违反"刷新进项目不要弹窗"约定
+    // 新逻辑:必须**当前路径不是公开路径** + **cookie target 也是受保护路径**才弹窗
+    //   - 当前路径是首页/登录/注册等公开页面 → 永不弹窗(用户已在公开页面,
+    //     不需要"跳到受保护页面",弹窗纯属打扰)
+    //   - 当前路径是受保护页面(用户确实想访问需要登录的内容)→ 才弹窗
+    const currentPath = window.location.pathname
+    if (target && !isPublicPath(target) && !isPublicPath(currentPath)) {
       openLoginDialogOnce(target)
     }
   }, [router, searchParams])
