@@ -7,14 +7,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Image,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native'
 
 export interface CarouselItem {
@@ -65,7 +65,7 @@ export default function Carousel({
         setCurrent(idx)
       }
     },
-    [current, width, banner.length]
+    [current, width, banner.length],
   )
 
   if (!banner || banner.length === 0) {
@@ -97,10 +97,7 @@ export default function Carousel({
             onPress={() => onItemPress?.(item, index)}
             style={{ width, height }}
           >
-            <Image
-              source={{ uri: item.img }}
-              style={{ width, height, resizeMode: 'cover' }}
-            />
+            <Image source={{ uri: item.img }} style={{ width, height, resizeMode: 'cover' }} />
           </TouchableOpacity>
         ))}
       </ScrollView>

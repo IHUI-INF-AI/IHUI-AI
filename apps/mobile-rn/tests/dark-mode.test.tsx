@@ -10,8 +10,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 
-vi.mock('react-native', () => {
-  const { createElement } = require('react')
+vi.mock('react-native', async () => {
+  const { createElement } = await import('react')
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       return createElement(tag, props, props.children)
@@ -36,8 +36,14 @@ vi.mock('solito/link', () => ({
     createElement('a', null, props.children),
 }))
 
-import { getTokens, lightTokens, darkTokens, tokens, SettingsScreen } from '@ihui/app'
-import type { SettingsScreenProps } from '@ihui/app'
+import {
+  getTokens,
+  lightTokens,
+  darkTokens,
+  tokens,
+  SettingsScreen,
+  type SettingsScreenProps,
+} from '@ihui/app'
 
 describe('getTokens 动态 token 逻辑', () => {
   it("getTokens('light') === lightTokens", () => {
