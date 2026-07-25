@@ -733,6 +733,11 @@ export function MessageInput({
 
   const canSend = value.trim().length > 0 && !isStreaming
   const count = value.length
+  // #18 流式中输入框保持可输入(2026-07-25 立,UX 优化):
+  //  - textarea 不再 disabled,用户可以在 AI 流式输出时输入下一条消息草稿
+  //  - 发送按钮仍由 canSend(isStreaming 时为 false)禁用,避免误发
+  //  - placeholder 切换提示文案,让用户知道当前可输入但不会立即发送
+  const effectivePlaceholder = isStreaming ? 'AI 正在生成中,可输入下一条消息草稿…' : placeholder
 
   return (
     <div>
@@ -1014,15 +1019,13 @@ export function MessageInput({
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                placeholder={placeholder}
+                placeholder={effectivePlaceholder}
                 rows={3}
-                disabled={isStreaming}
-                aria-label={placeholder}
+                aria-label={effectivePlaceholder}
                 style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
                 className={cn(
                   'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
                   'placeholder:text-muted-foreground/70',
-                  'disabled:cursor-not-allowed disabled:opacity-60',
                 )}
               />
             </div>
