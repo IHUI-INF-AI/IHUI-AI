@@ -905,7 +905,6 @@
       "historyClearConfirmTitle": "Clear history",
       "historyClearConfirmDesc": "All mode change records will be deleted and cannot be recovered.",
       "historyClearConfirm": "Clear",
-      "historyClearCancel": "Cancel",
       "historyOpenButton": "History",
       "historySource": {
         "popover": "Popover",
@@ -914,12 +913,6 @@
         "auto-revert": "Auto"
       },
       "historyStatsTitle": "Total usage",
-      "historyStatsMode": {
-        "default": "Ask",
-        "accept-edits": "Auto-approve",
-        "bypass-permissions": "Full access"
-      },
-      "historyStatsDuration": "{{mode}}: {{duration}}",
       "historyOpenExternal": "View history",
       "dangerousPattern": {
         "rmRrfRoot": "Recursively delete root or home directory",
