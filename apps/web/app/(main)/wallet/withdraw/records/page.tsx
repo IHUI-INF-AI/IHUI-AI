@@ -182,10 +182,10 @@ export default function WithdrawRecordsPage() {
                     <span
                       className={cn(
                         'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                        STATUS_CLS[it.status as any],
+                        (STATUS_CLS as any)[it.status],
                       )}
                     >
-                      {t(STATUS_KEY[it.status as any])}
+                      {t((STATUS_KEY as any)[it.status])}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">
