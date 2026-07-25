@@ -952,9 +952,15 @@
       "shortcutsItemUndoKbd": "切到完全访问后 5s 内可撤销",
       "shortcutsItemDangerousKbd": "高风险模式发送时检测危险命令,需二次确认",
       "shortcutsItemHistoryKbd": "查看 popover 底部「历史」按钮看最近切换",
+      "shortcutsItemInfoKbd": "查看该模式 4 条详细行为",
+      "shortcutsItemSlashAskKbd": "切换到请求批准",
+      "shortcutsItemSlashAutoKbd": "切换到替我审批",
+      "shortcutsItemSlashFullKbd": "切换到完全访问",
       "shortcutsLearnMore": "了解更多安全设计",
       "infoButtonLabel": "查看模式说明",
       "infoButtonTitle": "当前模式的详细行为",
+      "infoModalTitle": "当前权限模式详情",
+      "infoModalDescription": "当前模式的具体行为和风险等级",
       "modeInfoAcknowledge": "知道了",
       "modeInfoBullets": {
         "default": {
