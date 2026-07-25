@@ -12,6 +12,13 @@ export const CATEGORIES: Category[] = [
 ]
 export const TYPES: CfgType[] = ['string', 'number', 'boolean', 'json']
 
+/**
+ * 分类 i18n key 静态映射表:categories.${category} — 用于消除 `t(\`categories.${var}\`)` 动态拼接
+ */
+export const CATEGORY_KEY: Record<string, string> = Object.fromEntries(
+  CATEGORIES.map((c) => [c, `categories.${c}`]),
+)
+
 export const EMPTY_FORM: ConfigForm = {
   key: '',
   value: '',

@@ -182,7 +182,16 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         },
         onSuccess: () => {
           // 切到完全访问(bypass-permissions)→ 弹 5s 撤销 toast,防误操作
+          // (2026-07-25 深化)双 action:撤销 + 再保持 1h(防"刚切完就觉得不够"场景)
           if (mode === 'bypass-permissions' && previousMode) {
+            const extendOneHour = () => {
+              if (typeof window !== 'undefined') {
+                const w = window as unknown as {
+                  __IHUI_EXTEND_AUTO_REVERT__?: (ms?: number) => void
+                }
+                w.__IHUI_EXTEND_AUTO_REVERT__?.()
+              }
+            }
             toast(t('switchedToFull'), {
               description: t('switchedToFullDesc', { prev: previousMode }),
               duration: UNDO_TOAST_DURATION,
@@ -191,6 +200,10 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                 onClick: () => {
                   handleSelect(previousMode)
                 },
+              },
+              cancel: {
+                label: t('extendOneHour'),
+                onClick: extendOneHour,
               },
             })
           } else if (mode === 'accept-edits') {
