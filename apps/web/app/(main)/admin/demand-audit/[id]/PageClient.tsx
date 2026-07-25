@@ -33,17 +33,13 @@ export default function DemandAuditDetailPage() {
   const params = useParams<{ id: string }>()
   const qc = useQueryClient()
 
-  const dateFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  )
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
   // 列表页 API 无单条详情端点，按任务要求使用「列表 API + filter」方式获取
   const { data, isLoading, error } = useQuery({

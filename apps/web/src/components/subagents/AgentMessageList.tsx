@@ -32,12 +32,7 @@ const timeFmt = new Intl.DateTimeFormat('zh-CN', {
   second: '2-digit',
 })
 
-// 性能修复(2026-07-25):React.memo 包裹,Agent 间消息流式更新高频,
-// messages 引用不变则跳过渲染。
-export const AgentMessageList = React.memo(function AgentMessageList({
-  messages,
-  isLoading,
-}: AgentMessageListProps) {
+export function AgentMessageList({ messages, isLoading }: AgentMessageListProps) {
   const list = messages ?? []
 
   return (
@@ -79,6 +74,6 @@ export const AgentMessageList = React.memo(function AgentMessageList({
       </CardContent>
     </Card>
   )
-})
+}
 
 export { MESSAGE_TYPE_BADGE, MESSAGE_TYPE_LABEL }
