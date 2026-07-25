@@ -30,8 +30,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useChat } from '@ihui/shared/hooks'
-import type { ApiChatMessage, StreamRunnerParams } from '@ihui/shared/hooks'
+import { useChat, type ApiChatMessage, type StreamRunnerParams } from '@ihui/shared/hooks'
 
 // 受控 Promise 工厂(用于冻结 streamRunner,验证 streaming 中间态)
 function createDeferred<T = void>() {

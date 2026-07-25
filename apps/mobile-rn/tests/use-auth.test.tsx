@@ -22,8 +22,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useAuth } from '@ihui/shared/hooks'
-import { createInMemoryTokenStore } from '@ihui/shared/auth'
-import type { TokenStore } from '@ihui/shared/auth'
+import { createInMemoryTokenStore, type TokenStore } from '@ihui/shared/auth'
 
 // 测试用 mock user 类型
 interface TestUser {
