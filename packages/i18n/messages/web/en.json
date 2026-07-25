@@ -952,9 +952,15 @@
       "shortcutsItemUndoKbd": "5s undo window after switching to full access",
       "shortcutsItemDangerousKbd": "High-risk mode blocks dangerous commands with confirm",
       "shortcutsItemHistoryKbd": "View recent switches via popover's History button",
+      "shortcutsItemInfoKbd": "View 4 detailed behaviors of this mode",
+      "shortcutsItemSlashAskKbd": "Switch to Ask mode",
+      "shortcutsItemSlashAutoKbd": "Switch to Auto mode",
+      "shortcutsItemSlashFullKbd": "Switch to Full mode",
       "shortcutsLearnMore": "Learn more about security design",
       "infoButtonLabel": "View mode details",
       "infoButtonTitle": "Detailed behavior of the current mode",
+      "infoModalTitle": "Current permission mode details",
+      "infoModalDescription": "Behaviors and risk level of the current mode",
       "modeInfoAcknowledge": "Got it",
       "modeInfoBullets": {
         "default": {
@@ -980,7 +986,7 @@
     "modePlan": "Plan",
     "modeAct": "Act",
     "planTooltip": "Plan: AI plans only, no tool execution (Alt+P toggle / type /plan)",
-    "actTooltip": "Act: AI executes tools normally (Alt+P toggle / type /act)"
+    "actTooltip": "Act: AI runs tools normally (Alt+P toggle / type /act)"
   },
   "learn": {
     "title": "Learning Center",
