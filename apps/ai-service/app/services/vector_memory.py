@@ -255,14 +255,18 @@ class VectorMemoryStore:
     # 基本操作
     # ==================================================================
 
-    async def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str, model: str | None = None) -> list[float]:
         """生成 embedding:优先 llm_gateway(结果按 sha256 缓存),失败降级为 hash 伪向量。
 
-        缓存策略:LLM embedding 按 sha256(text) hex 作 key 缓存,命中直接返回,
-        省一次远程调用;降级 hash 伪向量不缓存(hash 本身 O(1),无远程开销)。
+        缓存策略:LLM embedding 按 sha256(model:text) hex 作 key 缓存(含 model 维度,
+        避免不同 embedding model 维度不同导致缓存污染),命中直接返回,省一次远程调用;
+        降级 hash 伪向量不缓存(hash 本身 O(1),无远程开销)。
         """
-        # 1. 计算 sha256(text) hex 作 cache key
-        cache_key = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        # P4-3: cache key 含 model 维度,避免不同 model 维度不同导致向量索引污染
+        # (如 ada-002=1536 维 vs text-embedding-3-large=3072 维,共享缓存会致 cosine 失效)
+        from ..core.config import settings
+        used_model = model or getattr(settings, "embedding_model", "text-embedding-ada-002")
+        cache_key = hashlib.sha256(f"{used_model}:{text}".encode("utf-8")).hexdigest()
         # 2. 查缓存,命中直接返回(embedding 确定性,同文本同向量)
         cached = await _embedding_cache.get(cache_key)
         if cached is not None:
@@ -270,7 +274,7 @@ class VectorMemoryStore:
         # 3. 未命中:调 llm_gateway.embed
         try:
             from ..core.llm_gateway import llm_gateway
-            result = await llm_gateway.embed(text)
+            result = await llm_gateway.embed(text, model=used_model)
             if isinstance(result, list) and result:
                 embedding = [float(x) for x in result]
                 # 4. 写入缓存(后续同文本命中直接返回)
