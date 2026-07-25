@@ -90,7 +90,7 @@ export default function CourseDetailPage() {
 
   const lesson = data
   const chapters = lesson.chapters ?? []
-  const totalSections = chapters.reduce((s, c) => s + c.sections.length, 0)
+  const totalSections = chapters.reduce((s: any, c: any) => s + c.sections.length, 0)
   const progress = lesson.progress ?? 0
 
   return (
@@ -130,7 +130,7 @@ export default function CourseDetailPage() {
             <section className="space-y-3">
               <h2 className="text-lg font-semibold">{t('detail.objectives')}</h2>
               <ul className="space-y-2">
-                {lesson.objectives.map((obj, i) => (
+                {lesson.objectives.map((obj: any, i: any) => (
                   <li key={`obj-${i}`} className="flex items-start gap-2 text-sm">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <span>{obj}</span>
@@ -149,7 +149,7 @@ export default function CourseDetailPage() {
               <p className="text-sm text-muted-foreground">{t('empty')}</p>
             ) : (
               <div className="space-y-2">
-                {chapters.map((chapter) => (
+                {chapters.map((chapter: any) => (
                   <details key={chapter.id} className="group rounded-lg border">
                     <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium transition-colors hover:bg-accent">
                       <span>{chapter.title}</span>
@@ -158,7 +158,7 @@ export default function CourseDetailPage() {
                       </span>
                     </summary>
                     <div className="border-t">
-                      {chapter.sections.map((sec) => (
+                      {chapter.sections.map((sec: any) => (
                         <div
                           key={sec.id}
                           className="flex items-center justify-between px-4 py-2 text-sm transition-colors hover:bg-accent/50"

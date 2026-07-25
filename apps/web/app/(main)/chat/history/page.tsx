@@ -28,7 +28,7 @@ export default function ChatHistoryPage() {
   })
 
   const keyword = q.trim().toLowerCase()
-  const items = (data ?? []).filter((c) => !keyword || c.title.toLowerCase().includes(keyword))
+  const items = (data ?? []).filter((c: any) => !keyword || c.title.toLowerCase().includes(keyword))
   const total = data?.length ?? 0
 
   return (
