@@ -3,106 +3,47 @@
     "save": "保存",
     "cancel": "キャンセル",
     "delete": "削除",
-    "edit": "編集",
     "back": "戻る",
     "confirm": "確認",
     "loading": "読み込み中…",
     "empty": "データなし",
-    "retry": "再試行",
-    "submit": "送信",
-    "search": "検索",
-    "all": "すべて",
-    "yes": "はい",
-    "no": "いいえ"
+    "search": "検索"
   },
   "nav": {
     "home": "ホーム",
-    "chat": "AI チャット",
     "courses": "コース",
     "live": "ライブ",
     "profile": "マイページ",
-    "agents": "エージェント",
-    "orders": "注文",
-    "wallet": "ウォレット",
-    "settings": "設定",
-    "community": "コミュニティ"
-  },
-  "auth": {
-    "login": "ログイン",
-    "logout": "ログアウト",
-    "register": "登録",
-    "forgot": "パスワードを忘れた",
-    "username": "ユーザー名",
-    "password": "パスワード",
-    "phone": "電話番号",
-    "code": "コード",
-    "smsCode": "SMS コード",
-    "loginSuccess": "ログインしました",
-    "loginFailed": "ログイン失敗",
-    "getCode": "コードを取得",
-    "resend": "再送",
-    "thirdParty": "サードパーティ",
-    "apple": "Apple",
-    "google": "Google",
-    "wechat": "WeChat"
+    "agents": "エージェント"
   },
   "home": {
-    "welcome": "IHUI AI へようこそ",
-    "greeting": "こんにちは、{{name}}",
-    "todayRecommend": "今日のおすすめ",
-    "hotCourses": "人気コース",
-    "liveNow": "ライブ配信中",
-    "quickEntry": "クイックアクセス"
+    "welcome": "IHUI AI へようこそ"
   },
   "course": {
     "title": "コース",
-    "detail": "コース詳細",
     "studentCount": "{{count}} 人が学習",
     "rating": "評価",
-    "duration": "時間",
     "free": "無料",
-    "paid": "有料",
     "pay": "¥{{amount}} を支払う",
     "enroll": "今すぐ登録",
     "enrolled": "登録済み",
-    "progress": "進捗",
-    "chapters": "章",
-    "notes": "ノート",
-    "qa": "Q&A",
-    "related": "関連コース",
-    "teacher": "講師",
-    "catalog": "目次"
+    "progress": "進捗"
   },
   "live": {
     "title": "ライブ",
     "viewerCount": "{{count}} 人が視聴中",
-    "startTime": "開始時間",
-    "host": "配信者",
-    "join": "ライブに参加",
     "upcoming": "予定",
     "ended": "終了",
-    "replay": "リプレイ",
-    "chat": "チャット",
-    "gift": "ギフト",
-    "share": "共有"
+    "chat": "チャット"
   },
   "profile": {
     "title": "マイページ",
-    "vip": "VIP",
     "myCourses": "マイコース",
     "myOrders": "マイ注文",
     "myFavorites": "お気に入り",
-    "settings": "設定",
-    "about": "について",
-    "language": "言語",
-    "theme": "テーマ",
     "feedback": "フィードバック",
-    "privacy": "プライバシー",
-    "terms": "利用規約",
     "logout": "ログアウト",
     "nickname": "ニックネーム",
-    "avatar": "アバター",
-    "bio": "プロフィール",
     "editProfile": "プロフィール編集"
   },
   "payment": {
@@ -148,68 +89,30 @@
       "completed": "完了",
       "failed": "失敗"
     },
-    "create": "注文を作成",
-    "cancel": "注文をキャンセル",
-    "pay": "今すぐ支払う",
-    "refund": "返金申請",
-    "detail": "注文詳細",
     "empty": "注文なし",
-    "amount": "金額",
-    "orderNo": "注文番号",
-    "payMethod": "支払い方法",
-    "payTime": "支払い時間"
+    "orderNo": "注文番号"
   },
   "wallet": {
-    "title": "ウォレット",
-    "balance": "残高",
-    "points": "ポイント",
-    "recharge": "チャージ",
-    "withdraw": "出金",
-    "history": "履歴",
-    "frozen": "凍結"
+    "points": "ポイント"
   },
   "community": {
-    "title": "コミュニティ",
-    "posts": "投稿",
-    "publish": "公開",
-    "comment": "コメント",
-    "like": "いいね",
-    "favorite": "お気に入り",
-    "share": "共有",
     "follow": "フォロー",
     "follower": "フォロワー"
   },
   "agent": {
-    "title": "エージェント",
-    "create": "新規エージェント",
-    "chat": "エージェントとチャット",
-    "runtime": "ランタイム",
-    "config": "設定",
-    "publish": "公開"
+    "config": "設定"
   },
   "chat": {
-    "placeholder": "メッセージを入力…",
-    "send": "送信",
-    "thinking": "考え中…",
-    "newConversation": "新規会話",
-    "history": "履歴",
-    "stop": "停止",
-    "retry": "再生成",
-    "copy": "コピー",
-    "voice": "音声",
-    "attach": "添付"
+    "voice": "音声"
   },
   "settings": {
     "title": "設定",
     "account": "アカウントとセキュリティ",
     "notification": "通知",
-    "privacy": "プライバシー",
     "language": "言語",
     "theme": "テーマ",
     "about": "IHUI AI について",
     "version": "バージョン",
-    "clearCache": "キャッシュをクリア",
-    "update": "更新を確認",
     "notifPush": "プッシュ通知",
     "notifMessage": "メッセージ通知",
     "notifEmail": "メール通知",
@@ -250,20 +153,7 @@
     "agreement": "利用規約"
   },
   "error": {
-    "network": "ネットワークエラー",
-    "server": "サーバーエラー",
-    "unauthorized": "ログインしてください",
-    "forbidden": "権限なし",
-    "notFound": "見つかりません",
-    "timeout": "タイムアウト",
-    "unknown": "不明なエラー"
-  },
-  "success": {
-    "saved": "保存しました",
-    "updated": "更新しました",
-    "deleted": "削除しました",
-    "submitted": "送信しました",
-    "copied": "コピーしました"
+    "network": "ネットワークエラー"
   },
   "taskDispatch": {
     "title": "タスク送信",
@@ -287,20 +177,15 @@
     "cancel": {
       "cancelButton": "タスクをキャンセル",
       "cancelling": "キャンセル中",
-      "cancelSuccess": "タスクをキャンセルしました",
       "cancelFailed": "タスクのキャンセルに失敗しました"
     },
     "reconnect": {
-      "reconnecting": "タスクを同期中",
-      "reconnectSuccess": "タスクを同期しました"
+      "reconnecting": "タスクを同期中"
     },
     "file": {
       "attach": "添付",
       "attached": "添付済み: {{filename}} ({{size}})",
       "tooLarge": "ファイルが大きすぎます(上限 1MB)",
-      "download": "添付をダウンロード",
-      "downloadSuccess": "{{filename}} をダウンロードしました",
-      "downloadFailed": "ダウンロード失敗",
       "invalidBase64": "Base64 内容が不正です",
       "missingFilename": "ファイル名を入力してください",
       "filenamePlaceholder": "ファイル名,例: notes.txt",
