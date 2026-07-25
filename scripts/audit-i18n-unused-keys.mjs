@@ -4,6 +4,7 @@
  *
  * 扫描代码中无静态引用的 i18n key,输出 markdown 审计报告。
  * 只审计不删除,主 agent 决定后续清理。
+ * 动态拼接检测排除 JSDoc/单行注释/单行块注释行(stripComments),减少假阳性误报。
  *
  * 用法:
  *   node scripts/audit-i18n-unused-keys.mjs                              # 默认扫 web + miniapp-taro + extension + mobile-rn
@@ -211,18 +212,18 @@ function parseRgLine(rgLine) {
 }
 
 /**
- * strip 注释:避免 JSDoc 示例文本(如 t(`status.${var}`))被误识别为动态拼接。
- * 处理:① 整行注释(行首去空格后以 // 或 slash-star 或 * 或 /** 开头)→ 返回空;
- *       ② 行内块注释(slash-star ... star-slash)→ 移除;
- *       ③ 行内单行注释 // ...(引号外)→ 移除之后部分(用引号状态机避免误删字符串内的 //)。
+ * strip 注释:避免 JSDoc 示例文本(如 `* t(`status.${var}`)`)被误识别为动态拼接。
+ * ① 整行注释 → 返回空:`//` 单行注释、`*` JSDoc 续行(含块注释关闭符)、slash-star ... star-slash 单行块注释;
+ * ② 行内块注释(slash-star ... star-slash)→ 移除;
+ * ③ 行内 `//`(引号外)→ 用引号状态机移除之后部分(避免误删字符串内的 //)。
+ * 注:多行块注释开行(无 star-slash 关闭符)不跳过 — 块注释内的动态拼接通常是真代码,极少放在块注释里。
  */
 function stripComments(content) {
   const trimmed = content.trimStart()
   if (
     trimmed.startsWith('//') ||
-    trimmed.startsWith('/*') ||
     trimmed.startsWith('*') ||
-    trimmed.startsWith('/**')
+    (trimmed.startsWith('/*') && trimmed.includes('*/'))
   ) {
     return ''
   }
