@@ -8,6 +8,42 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 维护成本优化第四轮 — 守门脚本精简 93→78 + web i18n status 动态拼接第一批治理 + P1 双库依赖评估(跨端:scripts + web + 分析报告)
+
+**触发**:用户要求"继续"。承接第三轮交付报告后续建议,派发 3 个并行 subagent 执行高 ROI 低风险优化。
+
+**执行方式**:3 个 subagent 并行(守门脚本精简 / web i18n 治理 / P1 双库评估)。
+
+**成果清单**:
+
+#### Subagent 1: 守门脚本精简(scripts/ 93 → 78,降幅 16.1%)
+- **P0 删除 8 个**:7 个一次性 .mjs(fix-missing-i18n-keys / fix-zhtw-parity / sync-i18n-fixes / prune-orphan-i18n-namespaces / scan-zh-tw-simp / fix-zh-tw-simp / scan-zh-tw-untranslated)+ 1 个 legacy .js(generate-i18n.js)
+- **P1 归档 8 个**:迁移审计脚本移到 .trae-cn/archive/scripts/migration-audit/(audit-migration + 3 stage + audit-edu-pages-sample-check + audit-multi-platform-sync + audit-remaining-evaluate + audit-i18n-missing-evaluate)
+- scripts/README.md 顶部加归档说明
+- 验证:scripts/*.mjs 从 93 → 78,pre-commit 钩子零影响 ✅
+
+#### Subagent 2: web i18n status 动态拼接第一批治理(38 文件,3 模式清零)
+- 治理 Top 3 高频命名空间:`status.${...}`(点号)+ `status_${...}`(下划线)+ `status${...}`(驼峰)
+- 建立 STATUS_KEY 静态映射表(Record<StatusValue, string>),改造 38 个文件
+- 附带修复:OrdersList.tsx 上一会话遗留 bug(缺失 STATUS_KEY 定义)
+- 验证:Grep 复核 3 模式 0 匹配,typecheck 本次改动全绿 ✅
+- 剩余 202 项为其他命名空间(orderStatus./refundStatus_/statusLabels./statusFilters. 等),留待后续批次
+
+#### Subagent 3: P1 双库依赖统一评估(.trae-cn/tmp/dedup-deps-eval.md,342 行,不入库)
+- **jsonwebtoken**:代码零引用(原报告说 1 文件,实测 0),可直接删(P0,~100KB)
+- **argon2/bcryptjs**:不是冗余,是部分迁移未完成(应统一到 password-crypto.ts,双依赖保留)
+- **happy-dom/jsdom**:有意双环境(5 个测试显式选 jsdom,收益有限)
+- **版本分裂**:zod 统一到 ^3.25.76(P1,极低风险);react 18→19(P4,中风险);tailwindcss v3/v4 不统一(P5,平台独占)
+- 推荐 ROI:P0 删 jsonwebtoken → P1 统一 zod → P2 迁移 bcryptjs → P3 迁移 jsdom → P4 React 19
+
+**验证**:
+
+- scripts/*.mjs 93 → 78 ✅
+- web i18n status 3 模式动态拼接 0 匹配 ✅
+- git local == remote(d1a75f03c)✅
+
+---
+
 ### [x] ✅(2026-07-25) 维护成本优化第三轮 — miniapp-taro i18n 13 处动态拼接静态化 + P0 冗余依赖清理 + 守门脚本合并分析(跨端:miniapp-taro + api + web + scripts 分析)
 
 **触发**:用户要求"继续"。承接第二轮交付报告后续建议,派发 3 个并行 subagent 执行高 ROI 低风险优化。
