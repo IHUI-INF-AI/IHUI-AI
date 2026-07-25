@@ -1,4 +1,5 @@
 import { Fragment, useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
@@ -11,6 +12,16 @@ export interface BusinessCardProps {
   company: string
   phone?: string
   email?: string
+  /** 微信号 */
+  wechat?: string
+  /** 位置 */
+  location?: string
+  /** 个人简介 */
+  bio?: string
+  /** 二维码 URL(若有则显示二维码图标,点击放大) */
+  qrCode?: string
+  /** 多动作按钮 slot(替代单一 onContactPress,支持发送好友/保存相册/编辑名片等多个按钮) */
+  actions?: ReactNode
   onPress?: () => void
   onContactPress?: () => void
   colorScheme?: 'light' | 'dark'
@@ -33,13 +44,18 @@ export function BusinessCard({
   company,
   phone,
   email,
+  wechat,
+  location,
+  bio,
+  qrCode,
+  actions,
   onPress,
   onContactPress,
   colorScheme = 'light',
 }: BusinessCardProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const hasContact = Boolean(phone || email)
+  const hasContact = Boolean(phone || email || wechat)
 
   const inner = (
     <Fragment>
@@ -55,8 +71,24 @@ export function BusinessCard({
           <Text style={styles.name}>{name}</Text>
           <Text style={styles.titleText}>{title}</Text>
           <Text style={styles.company}>{company}</Text>
+          {location ? <Text style={styles.location}>{location}</Text> : null}
         </View>
+        {qrCode ? (
+          <View style={styles.qrWrap}>
+            <Image
+              source={{ uri: qrCode }}
+              style={styles.qrImg}
+              accessibilityLabel={`${name} 名片二维码`}
+            />
+          </View>
+        ) : null}
       </View>
+
+      {bio ? (
+        <Text style={styles.bio} numberOfLines={2}>
+          {bio}
+        </Text>
+      ) : null}
 
       {hasContact ? (
         <View style={styles.contactRow}>
@@ -72,10 +104,18 @@ export function BusinessCard({
               <Text style={styles.contactValue}>{email}</Text>
             </View>
           ) : null}
+          {wechat ? (
+            <View style={styles.contactItem}>
+              <Text style={styles.contactLabel}>微信</Text>
+              <Text style={styles.contactValue}>{wechat}</Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
-      {onContactPress ? (
+      {actions ? (
+        <View style={styles.actionsRow}>{actions}</View>
+      ) : onContactPress ? (
         <Pressable
           style={({ pressed }) => [styles.contactBtn, pressed && styles.pressed]}
           onPress={onContactPress}
@@ -88,7 +128,10 @@ export function BusinessCard({
 
   if (onPress) {
     return (
-      <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={onPress}>
+      <Pressable
+        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+        onPress={onPress}
+      >
         {inner}
       </Pressable>
     )
@@ -116,11 +159,28 @@ function createStyles(tk: AppThemeTokens) {
     name: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     titleText: { fontSize: 12, color: tk.brand.DEFAULT },
     company: { fontSize: 12, color: tk.text.secondary },
+    location: { fontSize: 11, color: tk.text.tertiary },
+    qrWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 6,
+      overflow: 'hidden',
+      backgroundColor: tk.surface.card,
+    },
+    qrImg: { width: 48, height: 48 },
+    bio: { fontSize: 12, color: tk.text.secondary },
     contactRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
     contactItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     contactLabel: { fontSize: 12, color: tk.text.secondary },
     contactValue: { fontSize: 12, color: tk.text.primary },
-    contactBtn: { alignSelf: 'flex-start', backgroundColor: tk.brand.DEFAULT, borderRadius: 6, paddingHorizontal: 16, paddingVertical: 8 },
+    actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    contactBtn: {
+      alignSelf: 'flex-start',
+      backgroundColor: tk.brand.DEFAULT,
+      borderRadius: 6,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
     contactBtnText: { fontSize: 13, fontWeight: '600', color: tk.surface.light },
   })
 }
