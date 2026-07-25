@@ -248,7 +248,23 @@ interface MessageListProps {
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   /** Inline Diff Reject 回调:纯前端标记为 rejected */
   onRejectDiff?: (messageId: string, toolCallId: string) => void
+  /** #8 是否还有更早的历史消息可加载(滚动到顶部时触发 onLoadMoreHistory) */
+  hasMoreHistory?: boolean
+  /** #8 是否正在加载更早的历史消息(显示顶部 loading 指示器) */
+  loadingMoreHistory?: boolean
+  /** #8 滚动到顶部时触发加载更多历史消息 */
+  onLoadMoreHistory?: () => void
 }
+
+// #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
+// - ESTIMATED_ITEM_HEIGHT:消息平均高度估计值,用于初始 padding 计算
+// - VIRTUAL_THRESHOLD:超过此条数启用虚拟滚动(60 条以下全量渲染,保留流畅性)
+// - BUFFER:上下各多渲染的缓冲条数,减少快速滚动时的白屏
+// - heightMap:ResizeObserver 测量的真实高度映射,滚动时用真实累积高度精确定位
+const ESTIMATED_ITEM_HEIGHT = 160
+const VIRTUAL_THRESHOLD = 60
+const BUFFER = 6
+const TOP_LOAD_MORE_THRESHOLD = 60 // scrollTop < 60px 触发加载更多历史
 
 export function MessageList({
   messages,
@@ -261,17 +277,139 @@ export function MessageList({
   onTemplateSelect,
   onApplyDiff,
   onRejectDiff,
+  hasMoreHistory,
+  loadingMoreHistory,
+  onLoadMoreHistory,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const lastContent = messages[messages.length - 1]?.content
 
-  // 自动滚动到底部
+  // #7 虚拟滚动状态
+  const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
+  // heightMap:messageId → 真实高度(px)。ResizeObserver 持续更新,用于精确计算累积 offset
+  const heightMapRef = React.useRef<Map<string, number>>(new Map())
+  // 是否在用户手动向上滚动(暂停自动滚动到底部,直到新消息到达或用户滚到底)
+  const userScrolledUpRef = React.useRef(false)
+  const prevMessagesLenRef = React.useRef(0)
+
+  const enableVirtual = messages.length > VIRTUAL_THRESHOLD
+
+  // 计算累积高度数组(用于精确定位可见范围 + padding)
+  const computeCumulative = React.useCallback(() => {
+    const map = heightMapRef.current
+    let total = 0
+    const offsets = new Array(messages.length + 1)
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i]
+      if (!msg) continue
+      offsets[i] = total
+      total += map.get(msg.id) ?? ESTIMATED_ITEM_HEIGHT
+    }
+    offsets[messages.length] = total
+    return { offsets, total }
+  }, [messages])
+
+  const handleScroll = React.useCallback(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    // 标记用户是否向上滚动(远离底部)
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    userScrolledUpRef.current = distanceFromBottom > 120
+
+    // #8 滚动到顶部触发加载更多历史
+    if (el.scrollTop < TOP_LOAD_MORE_THRESHOLD && onLoadMoreHistory && hasMoreHistory && !loadingMoreHistory) {
+      // 记录当前 scrollHeight,prepend 后恢复相对位置(保持视觉不跳动)
+      const prevScrollHeight = el.scrollHeight
+      const prevScrollTop = el.scrollTop
+      onLoadMoreHistory()
+      // 恢复滚动位置(prepend 后新内容在顶部,需要把 scrollTop 调整到对应位置)
+      requestAnimationFrame(() => {
+        if (containerRef.current) {
+          const newScrollHeight = containerRef.current.scrollHeight
+          containerRef.current.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight)
+        }
+      })
+    }
+
+    // #7 虚拟滚动:计算可见范围
+    if (!enableVirtual) return
+    const { offsets, total } = computeCumulative()
+    if (total === 0) return
+
+    // 二分查找找到 startIndex(第一个 offset > scrollTop - buffer*ESTIMATED)
+    const scrollPos = el.scrollTop
+    const viewportBottom = scrollPos + el.clientHeight
+    let start = 0
+    let lo = 0,
+      hi = messages.length - 1
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1
+      if (offsets[mid + 1] < scrollPos - BUFFER * ESTIMATED_ITEM_HEIGHT) lo = mid + 1
+      else if (offsets[mid] > scrollPos) hi = mid - 1
+      else {
+        start = mid
+        if (offsets[mid + 1] < scrollPos) lo = mid + 1
+        else hi = mid - 1
+      }
+    }
+    start = Math.max(0, start - BUFFER)
+
+    // 找到 endIndex(第一个 offset > viewportBottom + buffer*ESTIMATED)
+    let end = start
+    while (end < messages.length - 1 && offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT) {
+      end++
+    }
+    end = Math.min(messages.length - 1, end + BUFFER)
+
+    setVisibleRange((prev) => {
+      if (prev.start === start && prev.end === end) return prev
+      return { start, end }
+    })
+  }, [enableVirtual, computeCumulative, messages.length, onLoadMoreHistory, hasMoreHistory, loadingMoreHistory])
+
+  // 自动滚动到底部(流式 token 到达 + 新消息)
+  // - 用户手动向上滚动时不强制滚到底(避免打断阅读)
+  // - 新消息到达(messages.length 增加)时强制滚到底
   React.useEffect(() => {
-    const el = bottomRef.current
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const newLen = messages.length
+    const isNewMessage = newLen > prevMessagesLenRef.current
+    prevMessagesLenRef.current = newLen
+    if (isNewMessage || !userScrolledUpRef.current) {
+      const el = bottomRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
   }, [messages.length, lastContent, isStreaming])
+
+  // #8 加载更多历史时保持滚动位置(handleScroll 内已处理)
+  // #7 ResizeObserver 测量真实高度并触发重算可见范围
+  const measureItem = React.useCallback((id: string) => (el: HTMLElement | null) => {
+    const map = heightMapRef.current
+    if (!el) {
+      map.delete(id)
+      return
+    }
+    const h = el.getBoundingClientRect().height
+    const prev = map.get(id)
+    if (prev !== h) {
+      map.set(id, h)
+      // 高度变化后重算可见范围(下一帧,避免布局抖动)
+      requestAnimationFrame(() => handleScroll())
+    }
+  }, [handleScroll])
+
+  // 消息列表重置(切换会话)时清空高度映射 + 重置可见范围
+  React.useEffect(() => {
+    if (messages.length === 0) {
+      heightMapRef.current.clear()
+      setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
+      userScrolledUpRef.current = false
+    } else if (messages.length <= VIRTUAL_THRESHOLD) {
+      setVisibleRange({ start: 0, end: messages.length - 1 })
+    }
+  }, [messages.length])
 
   if (messages.length === 0) {
     // 空状态引导模板与附加栏 Popover 共用同一组 5 个核心模板(i18n key 一致)。
@@ -318,23 +456,50 @@ export function MessageList({
     )
   }
 
+  // #7 虚拟滚动:窗口化渲染,仅渲染可见范围 + buffer,用 padding 占位未渲染部分
+  // - 非虚拟模式(消息数 <= VIRTUAL_THRESHOLD):全量渲染,保留原逻辑
+  // - 虚拟模式:用 measureItem ref 测量真实高度,handleScroll 计算可见范围
+  const renderItems = enableVirtual
+    ? messages.slice(visibleRange.start, visibleRange.end + 1)
+    : messages
+  const offsets = enableVirtual ? computeCumulative().offsets : []
+  const paddingTop = enableVirtual ? offsets[visibleRange.start] ?? 0 : 0
+  const paddingBottom = enableVirtual
+    ? Math.max(0, (offsets[messages.length] ?? 0) - (offsets[visibleRange.end + 1] ?? 0))
+    : 0
+
   return (
     // 2026-07-21 AI 面板滚动条:加 hover-scroll 完全隐藏滚动条(不占布局空间),
     // 解决 bg-shell-panel 暗色背景下默认滚动条轨道透出深色的问题
-    <div ref={containerRef} className="hover-scroll h-full overflow-y-auto">
+    <div ref={containerRef} onScroll={handleScroll} className="hover-scroll h-full overflow-y-auto">
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
-        {messages.map((m, idx) => (
-          // P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染
-          <MessageItem
-            key={m.id}
-            message={m}
-            isLast={idx === messages.length - 1}
-            isStreaming={isStreaming}
-            assistantLabel={assistantLabel}
-            onApplyDiff={onApplyDiff}
-            onRejectDiff={onRejectDiff}
-          />
-        ))}
+        {/* #8 顶部加载更多历史指示器 */}
+        {loadingMoreHistory && (
+          <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {t('loading')}
+          </div>
+        )}
+        {/* #7 虚拟滚动顶部占位(未渲染消息的高度填充) */}
+        {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
+        {renderItems.map((m, idx) => {
+          const realIdx = enableVirtual ? visibleRange.start + idx : idx
+          return (
+            <div key={m.id} ref={enableVirtual ? measureItem(m.id) : undefined}>
+              {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
+              <MessageItem
+                message={m}
+                isLast={realIdx === messages.length - 1}
+                isStreaming={isStreaming}
+                assistantLabel={assistantLabel}
+                onApplyDiff={onApplyDiff}
+                onRejectDiff={onRejectDiff}
+              />
+            </div>
+          )
+        })}
+        {/* #7 虚拟滚动底部占位 */}
+        {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
         <div ref={bottomRef} />
       </div>
     </div>
