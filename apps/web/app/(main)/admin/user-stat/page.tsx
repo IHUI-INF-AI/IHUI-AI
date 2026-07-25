@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { UserCheck, UserPlus, Activity, Users, MapPin, Shield } from 'lucide-react'
@@ -37,7 +38,7 @@ export default function UserStatPage() {
     },
     retry: false,
   })
-  const numFmt = new Intl.NumberFormat(locale)
+  const numFmt = React.useMemo(() => new Intl.NumberFormat(locale), [locale])
   const stats = data ?? FALLBACK
   const peak = Math.max(1, ...stats.growth.map((p) => p.newUsers))
   const totalRegion = stats.byRegion.reduce((s, r) => s + r.count, 0) || 1

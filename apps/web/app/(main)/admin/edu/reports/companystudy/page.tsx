@@ -56,9 +56,14 @@ export default function EduReportsCompanyStudyPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const totalEmployees = rows.reduce((a, r) => a + r.employeeCount, 0)
-  const totalActive = rows.reduce((a, r) => a + r.activeEmployees, 0)
-  const totalHours = rows.reduce((a, r) => a + r.totalStudyHours, 0)
+  const { totalEmployees, totalActive, totalHours } = React.useMemo(
+    () => ({
+      totalEmployees: rows.reduce((a, r) => a + r.employeeCount, 0),
+      totalActive: rows.reduce((a, r) => a + r.activeEmployees, 0),
+      totalHours: rows.reduce((a, r) => a + r.totalStudyHours, 0),
+    }),
+    [rows],
+  )
   const noEndpoint = isNotFound(error)
 
   return (

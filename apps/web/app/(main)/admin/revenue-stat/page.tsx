@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Wallet, TrendingUp, ShoppingCart, RotateCcw, Coins, Receipt } from 'lucide-react'
@@ -39,8 +40,11 @@ export default function RevenueStatPage() {
     },
     retry: false,
   })
-  const curFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY', maximumFractionDigits: 0 })
-  const numFmt = new Intl.NumberFormat(locale)
+  const curFmt = React.useMemo(
+    () => new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY', maximumFractionDigits: 0 }),
+    [locale],
+  )
+  const numFmt = React.useMemo(() => new Intl.NumberFormat(locale), [locale])
   const stats = data ?? FALLBACK
   const peak = Math.max(1, ...stats.trend.map((p) => p.gross))
   const totalChannel = stats.byChannel.reduce((s, c) => s + c.amount, 0) || 1

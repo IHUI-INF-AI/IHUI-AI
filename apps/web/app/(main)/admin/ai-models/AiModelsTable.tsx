@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { Pencil, Trash2, Zap } from 'lucide-react'
 import { Button, Switch } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
@@ -26,6 +27,31 @@ export function AiModelsTable({
   onEdit,
   onDelete,
 }: Props) {
+  const handleTest = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (id) onTest(Number(id))
+    },
+    [onTest],
+  )
+  const handleEdit = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onEdit(item)
+    },
+    [list, onEdit],
+  )
+  const handleDelete = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const id = e.currentTarget.getAttribute('data-id')
+      if (!id) return
+      const item = list.find((x) => String(x.id) === id)
+      if (item) onDelete(item)
+    },
+    [list, onDelete],
+  )
   return (
     <div className="rounded-md border border-border">
       <table className="w-full text-sm">
@@ -104,19 +130,20 @@ export function AiModelsTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onTest(item.id)}
+                        data-id={item.id}
+                        onClick={handleTest}
                         disabled={testPending}
                       >
                         <Zap className="h-3.5 w-3.5" />
                       </Button>
                     </Tooltip>
                     <Tooltip content="编辑">
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
+                      <Button variant="ghost" size="sm" data-id={item.id} onClick={handleEdit}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                     </Tooltip>
                     <Tooltip content="删除">
-                      <Button variant="ghost" size="sm" onClick={() => onDelete(item)}>
+                      <Button variant="ghost" size="sm" data-id={item.id} onClick={handleDelete}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </Tooltip>

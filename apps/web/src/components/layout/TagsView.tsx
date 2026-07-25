@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { X, ChevronDown, XCircle } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 import { Dropdown } from '@/components/feedback'
@@ -57,15 +58,22 @@ export function TagsView() {
   // - 每个 tag 的标题翻译下推到 <TagLabel> 子组件,内部只调 1 次 useTranslations
   // - 子组件用 React.memo 浅比较 path prop,避免父组件无关重渲染连锁
   const tCommon = useTranslations('common')
-  const tags = useTagsViewStore((s) => s.tags)
-  const activePath = useTagsViewStore((s) => s.activePath)
-  const addTag = useTagsViewStore((s) => s.addTag)
-  const removeTag = useTagsViewStore((s) => s.removeTag)
-  const closeOther = useTagsViewStore((s) => s.closeOther)
-  const closeAll = useTagsViewStore((s) => s.closeAll)
-  const reorderTags = useTagsViewStore((s) => s.reorderTags)
-  // 订阅 dirtyPaths(Set 引用变化时触发重渲染);各标签用 dirtyPaths.has(path) 判定 dirty
-  const dirtyPaths = useTagsViewStore((s) => s.dirtyPaths)
+  // 性能修复(2026-07-25):8 个独立 selector 合并为 1 个 useShallow,减少订阅器数量
+  // actions 引用稳定,useShallow 浅比较对 actions 永远返回相同引用,不触发重渲染
+  const { tags, activePath, addTag, removeTag, closeOther, closeAll, reorderTags, dirtyPaths } =
+    useTagsViewStore(
+      useShallow((s) => ({
+        tags: s.tags,
+        activePath: s.activePath,
+        addTag: s.addTag,
+        removeTag: s.removeTag,
+        closeOther: s.closeOther,
+        closeAll: s.closeAll,
+        reorderTags: s.reorderTags,
+        // 订阅 dirtyPaths(Set 引用变化时触发重渲染);各标签用 dirtyPaths.has(path) 判定 dirty
+        dirtyPaths: s.dirtyPaths,
+      })),
+    )
 
   // 路由切换:把当前 path 加入标签栏(只存 path+query,标题由渲染时派生)
   React.useEffect(() => {

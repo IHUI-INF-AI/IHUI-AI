@@ -17,14 +17,21 @@ export default function RefundDetailPage() {
   const locale = useLocale()
   const params = useParams<{ id: string }>()
 
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  const currencyFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
+  const dateFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [locale],
+  )
+  const currencyFmt = React.useMemo(
+    () => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }),
+    [],
+  )
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'refund', 'detail', params.id],
