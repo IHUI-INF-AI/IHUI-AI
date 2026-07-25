@@ -117,6 +117,7 @@ export function MessageInput({
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
+  const tNav = useTranslations('nav')
   // P1 草稿自动保存(2026-07-23):刷新/路由切换不丢失未发送内容
   const DRAFT_KEY = 'chat:draft'
   const [value, setValue] = React.useState(() => {
@@ -624,7 +625,7 @@ export function MessageInput({
                         )}
                       >
                         <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{t('nav.pluginMarket')}</span>
+                        <span className="min-w-0 flex-1 truncate">{tNav('pluginMarket')}</span>
                       </button>
                     </div>
                   )
