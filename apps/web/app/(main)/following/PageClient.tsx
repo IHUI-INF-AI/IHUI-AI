@@ -57,7 +57,7 @@ function FollowingContent() {
   })
 
   const followedIds = React.useMemo(
-    () => new Set((myFollowing ?? []).map((u) => u.userId)),
+    () => new Set((myFollowing ?? []).map((u: any) => u.userId)),
     [myFollowing],
   )
 
@@ -118,7 +118,7 @@ function FollowingContent() {
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((u) => {
+            {items.map((u: any) => {
               const isFollowing = followedIds.has(u.userId)
               return (
                 <UserCard

@@ -51,7 +51,7 @@ export default function AsksPage() {
     onError: (e: Error) => setFormError(e.message),
   })
 
-  const list = (data?.list ?? []).filter((a) =>
+  const list = (data?.list ?? []).filter((a: any) =>
     filter === 'all' ? true : filter === 'resolved' ? a.isResolved : !a.isResolved,
   )
 

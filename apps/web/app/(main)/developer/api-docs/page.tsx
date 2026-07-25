@@ -65,20 +65,20 @@ export default function ApiDocsPage() {
     if (!keyword.trim()) return groups
     const kw = keyword.toLowerCase()
     return groups
-      .map((g) => ({
+      .map((g: any) => ({
         ...g,
         endpoints: g.endpoints.filter(
-          (e) =>
+          (e: any) =>
             e.path.toLowerCase().includes(kw) ||
             e.summary.toLowerCase().includes(kw) ||
             e.category.toLowerCase().includes(kw),
         ),
       }))
-      .filter((g) => g.endpoints.length > 0)
+      .filter((g: any) => g.endpoints.length > 0)
   }, [groups, keyword])
 
-  const allEndpoints = filtered.flatMap((g) => g.endpoints)
-  const selected = allEndpoints.find((e) => e.id === selectedId) ?? allEndpoints[0] ?? null
+  const allEndpoints = filtered.flatMap((g: any) => g.endpoints)
+  const selected = allEndpoints.find((e: any) => e.id === selectedId) ?? allEndpoints[0] ?? null
 
   React.useEffect(() => {
     if (!selectedId && allEndpoints.length > 0) setSelectedId(allEndpoints[0]?.id ?? null)
@@ -123,13 +123,13 @@ export default function ApiDocsPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
           <aside className="space-y-3 lg:max-h-[70vh] lg:overflow-y-auto lg:pr-2">
-            {filtered.map((g) => (
+            {filtered.map((g: any) => (
               <div key={g.category}>
                 <p className="mb-1 px-1 text-xs font-semibold uppercase text-muted-foreground">
                   {g.category}
                 </p>
                 <div className="space-y-0.5">
-                  {g.endpoints.map((e) => (
+                  {g.endpoints.map((e: any) => (
                     <button
                       key={e.id}
                       onClick={() => setSelectedId(e.id)}
@@ -194,7 +194,7 @@ export default function ApiDocsPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y">
-                          {selected.params.map((p) => (
+                          {selected.params.map((p: any) => (
                             <tr key={p.name}>
                               <td className="px-2 py-1.5 font-mono">{p.name}</td>
                               <td className="px-2 py-1.5 text-muted-foreground">{p.type}</td>
