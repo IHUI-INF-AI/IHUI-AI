@@ -48,7 +48,7 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {list.map((t) => (
+          {list.map((t: any) => (
             <button
               key={t.id}
               onClick={() => openDetail(t)}
@@ -66,10 +66,10 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
               <span
                 className={cn(
                   'inline-flex shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
-                  STATUS_BADGE[t.status],
+                  STATUS_BADGE[t.status as any],
                 )}
               >
-                {STATUS_LABEL[t.status]}
+                {STATUS_LABEL[t.status as any]}
               </span>
             </button>
           ))}

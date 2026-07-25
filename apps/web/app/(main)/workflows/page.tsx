@@ -42,7 +42,7 @@ export default function WorkflowsPage() {
         }),
       })
     },
-    onSuccess: (d) => {
+    onSuccess: (d: any) => {
       qc.invalidateQueries({ queryKey: ['workflows'] })
       setCreateOpen(false)
       setForm(EMPTY_FORM)

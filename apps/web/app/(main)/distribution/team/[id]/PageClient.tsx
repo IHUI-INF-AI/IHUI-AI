@@ -83,7 +83,7 @@ export default function DistributionTeamDetailPage() {
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
   }
 
-  const member = usersData?.list.find((u) => u.id === params.id) ?? null
+  const member = usersData?.list.find((u: any) => u.id === params.id) ?? null
   const treeNode = treeData ? findInTree(treeData.tree, params.id) : null
   const subordinates = treeNode?.children ?? []
   const displayName = member?.nickname || member?.username || t('defaultName')

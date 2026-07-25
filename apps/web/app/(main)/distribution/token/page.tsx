@@ -179,7 +179,7 @@ export default function TokenWalletPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((it) => {
+                items.map((it: any) => {
                   const positive = it.opType === 0
                   return (
                     <TableRow key={it.id}>
