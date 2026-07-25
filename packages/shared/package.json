@@ -67,6 +67,18 @@
       "types": "./src/spec/*.ts",
       "import": "./src/spec/*.ts"
     },
+    "./stores": {
+      "types": "./src/stores/index.ts",
+      "import": "./src/stores/index.ts"
+    },
+    "./stores/index": {
+      "types": "./src/stores/index.ts",
+      "import": "./src/stores/index.ts"
+    },
+    "./stores/*": {
+      "types": "./src/stores/*.ts",
+      "import": "./src/stores/*.ts"
+    },
     "./subagents": {
       "types": "./src/subagents/index.ts",
       "import": "./src/subagents/index.ts"
