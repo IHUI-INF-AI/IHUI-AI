@@ -551,14 +551,20 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   }
 
   // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
-  const noticeItems: NoticeItem[] = notifications.map((n) => ({
-    id: n.id,
-    title: n.title,
-    description: n.content,
-    type: n.type === 'warning' || n.type === 'error' || n.type === 'success' ? n.type : 'info',
-    read: n.isRead,
-    createdAt: n.createdAt,
-  }))
+  // 性能修复(2026-07-25):原 render 中 notifications.map,SidebarActions 任何 state
+  // 变化(locale / theme / collapsed 等)都触发重映射。useMemo 仅 notifications 变化时重算。
+  const noticeItems: NoticeItem[] = React.useMemo(
+    () =>
+      notifications.map((n) => ({
+        id: n.id,
+        title: n.title,
+        description: n.content,
+        type: n.type === 'warning' || n.type === 'error' || n.type === 'success' ? n.type : 'info',
+        read: n.isRead,
+        createdAt: n.createdAt,
+      })),
+    [notifications],
+  )
 
   // 按钮统一 h-[26px] w-[26px] + svg size-5 (20×20):
   // 图标尺寸与 NavLink 导航项 (h-5 w-5=20px) 完全一致,避免底部工具栏图标过小不一致;

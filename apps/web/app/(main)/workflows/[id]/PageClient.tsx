@@ -8,6 +8,7 @@ import { Loader2, ArrowLeft, Play, Square, RotateCcw, Workflow, Zap } from 'luci
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { JsonCell } from '@/components/common'
 
 type TriggerType = 'manual' | 'schedule' | 'event' | 'webhook'
 type InstStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -236,9 +237,7 @@ export default function WorkflowDetailPage() {
             <div className="border-b bg-muted/40 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
               {t('detail.definition')}
             </div>
-            <pre className="overflow-auto p-4 text-xs leading-relaxed">
-              {JSON.stringify(wf.steps ?? [], null, 2)}
-            </pre>
+            <JsonCell value={wf.steps ?? []} className="rounded-none border-none bg-transparent p-4" />
           </div>
         )}
       </div>
