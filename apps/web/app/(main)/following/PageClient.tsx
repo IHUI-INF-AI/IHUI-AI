@@ -22,6 +22,20 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
+/**
+ * 关注页 tab i18n key 静态映射表:tabs.${value} — 用于消除 `t(\`tabs.${var}\`)` 动态拼接
+ */
+const TAB_KEY: Record<string, string> = {
+  following: 'tabs.following',
+  followers: 'tabs.followers',
+}
+
+/** i18n 静态映射表 — 用于消除 `t(\`empty.${var}\`)` 动态拼接 */
+const EMPTY_KEY: Record<string, string> = {
+  following: 'empty.following',
+  followers: 'empty.followers',
+}
+
 function FollowingContent() {
   const t = useTranslations('follows')
   const router = useRouter()
@@ -80,7 +94,7 @@ function FollowingContent() {
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t(`tabs.${value}`)}
+            {t(TAB_KEY[value] ?? 'tabs.unknown')}
           </button>
         ))}
       </div>
@@ -100,7 +114,7 @@ function FollowingContent() {
             ) : (
               <UserMinus className="h-8 w-8 opacity-40" />
             )}
-            <p className="text-sm">{t(`empty.${tab}`)}</p>
+            <p className="text-sm">{t(EMPTY_KEY[tab] ?? 'empty.unknown')}</p>
           </div>
         ) : (
           <div className="space-y-3">
