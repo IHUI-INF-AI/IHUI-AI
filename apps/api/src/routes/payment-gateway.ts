@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyBaseLogger } from 'fastify'
 import { z } from 'zod'
 import { env } from 'node:process'
 import { authenticate } from '../plugins/auth.js'
@@ -42,7 +42,7 @@ import {
 import { applyWithdrawal, getBalance } from '../db/commission-queries.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
 import { db } from '../db/index.js'
-import { zhsCourseVideo } from '@ihui/database'
+import { zhsCourseVideo, vipLevels, developerPricing } from '@ihui/database'
 import { eq, sql, and } from 'drizzle-orm'
 
 const notifyUrl = (type?: string): string => {
@@ -54,6 +54,63 @@ const notifyUrl = (type?: string): string => {
 const ADMIN_ROLE_ID = 1
 // 2026-07-24 安全防护:支付金额上限(分,100 万元,防异常大额 CWE-841)
 const MAX_PAYMENT_AMOUNT_CENTS = 100_000_000
+
+/**
+ * 2026-07-25 安全防护:服务端反查真实商品价格(CWE-994 客户端控制金额)。
+ * 仅对绑定真实商品的订单类型反查:
+ * - orderType=2: VIP 等级(vipLevels.price,单位:分)
+ * - orderType=5: 开发者套餐(developerPricing.price,单位:元 → 转分)
+ * 其他 orderType 或无 productId:返回 null(用户自定义金额场景,不反查)。
+ *
+ * @returns DB 反查金额(分);null 表示无商品可反查,调用方使用客户端金额。
+ */
+async function resolveProductAmountCents(
+  orderType: number,
+  productId: string | undefined,
+  clientAmountCents: number,
+  log: FastifyBaseLogger,
+  userId: string,
+): Promise<number | null> {
+  if (!productId) return null
+  if (orderType === 2) {
+    const [row] = await db
+      .select({ price: vipLevels.price, status: vipLevels.status })
+      .from(vipLevels)
+      .where(and(eq(vipLevels.id, productId), eq(vipLevels.status, 1)))
+      .limit(1)
+    if (!row) {
+      log.warn({ orderType, productId, userId }, 'VIP 等级不存在或已下架,使用客户端金额')
+      return null
+    }
+    if (row.price !== clientAmountCents) {
+      log.error(
+        { orderType, productId, clientAmountCents, dbAmountCents: row.price, userId },
+        'VIP 金额不一致,采用 DB 金额',
+      )
+    }
+    return row.price
+  }
+  if (orderType === 5) {
+    const [row] = await db
+      .select({ price: developerPricing.price, status: developerPricing.status })
+      .from(developerPricing)
+      .where(and(eq(developerPricing.id, productId), eq(developerPricing.status, 1)))
+      .limit(1)
+    if (!row) {
+      log.warn({ orderType, productId, userId }, '开发者套餐不存在或已下架,使用客户端金额')
+      return null
+    }
+    const dbAmountCents = Math.round(Number(row.price) * 100)
+    if (dbAmountCents !== clientAmountCents) {
+      log.error(
+        { orderType, productId, clientAmountCents, dbAmountCents, userId },
+        '开发者套餐金额不一致,采用 DB 金额',
+      )
+    }
+    return dbAmountCents
+  }
+  return null
+}
 
 // =============================================================================
 // Zod schemas
@@ -164,18 +221,34 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       await authenticate(request)
       const {
-        amount: amountCents,
+        amount: amountCentsInitial,
         openId,
         orderType,
         productId,
         description,
       } = wechatCreateQuery.parse(request.query)
+      let amountCents = amountCentsInitial
       const userId = request.userId!
       const resolvedOpenId = openId || userId
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
       if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
         return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0)
+          return reply.status(400).send(error(400, '金额必须为正'))
+      }
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -296,16 +369,32 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       await authenticate(request)
       const {
-        amount: amountCents,
+        amount: amountCentsInitial,
         orderType,
         productId,
         description,
       } = wechatNativeCreateQuery.parse(request.query)
+      let amountCents = amountCentsInitial
       const userId = request.userId!
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
       if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
         return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0)
+          return reply.status(400).send(error(400, '金额必须为正'))
+      }
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -660,11 +749,26 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const { amount: amountYuan, orderType, subject, productId } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
-      const amountCents = Math.round(amountYuan * 100)
+      let amountCents = Math.round(amountYuan * 100)
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
       if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
         return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0)
+          return reply.status(400).send(error(400, '金额必须为正'))
+      }
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -676,7 +780,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
       const bizContent: Record<string, unknown> = {
         out_trade_no: order.orderNo,
-        total_amount: amountYuan.toFixed(2),
+        total_amount: (amountCents / 100).toFixed(2),
         subject,
         product_code: 'FAST_INSTANT_TRADE_PAY',
       }
@@ -755,11 +859,26 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const { amount: amountYuan, orderType, subject, productId, buyerId } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
-      const amountCents = Math.round(amountYuan * 100)
+      let amountCents = Math.round(amountYuan * 100)
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
       if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
         return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0)
+          return reply.status(400).send(error(400, '金额必须为正'))
+      }
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -779,7 +898,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_op_app_id' }))
       }
       try {
-        const { tradeNo } = await tradeCreate({ outTradeNo: order.orderNo, amount: amountYuan, subject, buyerId })
+        const { tradeNo } = await tradeCreate({ outTradeNo: order.orderNo, amount: amountCents / 100, subject, buyerId })
         return reply.send(success({ outTradeNo: order.orderNo, tradeNo }))
       } catch (err) {
         request.log.error({ err, orderNo: order.orderNo }, 'alipay miniapp tradeCreate failed')
@@ -965,9 +1084,18 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const { outTradeNo, totalFee } = wechatPayQuery.parse(request.query)
       if (!isWechatPayConfigured()) return reply.send(success({ outTradeNo, mock: true }))
+      // 2026-07-25 安全修复:用 DB 订单金额替换客户端 totalFee(CWE-994)
+      const localOrder = await getOrder(outTradeNo)
+      if (!localOrder) return reply.status(404).send(error(404, '订单不存在'))
+      if (totalFee !== localOrder.amount) {
+        request.log.error(
+          { outTradeNo, clientFee: totalFee, orderAmount: localOrder.amount },
+          'wechatPay totalFee 与订单金额不一致,采用 DB 订单金额',
+        )
+      }
       const prepayId = await jsapiPrepay({
         outTradeNo,
-        amount: totalFee,
+        amount: localOrder.amount,
         description: '基金充值',
         openId: '',
         notifyUrl: notifyUrl(),
