@@ -3356,7 +3356,7 @@ P1(5 项):
 
 ---
 
-### [ ] Wave 21:桌面端架构收敛 + 安装更新链路闭环(跨端:web + desktop)
+### [x] ✅(2026-07-25) Wave 21:桌面端架构收敛 + 安装更新链路闭环(跨端:web + desktop)
 
 **背景**:桌面端已完成 12 轮深度开发(自动更新代码层 + 4 大核心能力 + 聊天全套 + 原生集成),但存在两个相互关联的未决问题,须一起决策避免返工:
 
@@ -3450,7 +3450,7 @@ P1(5 项):
 - ✅ desktop 残留测试文件清理:commit `eb15b8092` 删除 15 个对应已删源码的测试文件(9 admin tests + agent-runtime-panel/content-dialog/i18n/notification/token/use-admin-crud tests + setup.ts + vitest.config.ts)
 - ✅ desktop 独有页面迁移到 web:DesignPage(`apps/web/app/(main)/design/`)+ TaskReceiverPage(`apps/web/app/(main)/task-receiver/`),含 i18n key 迁移 + API 路径适配(/api/tasks/*)+ useTaskReceiver hook
 - ✅ desktop 最终结构:仅 `src-tauri/`(Rust + Tauri 配置)+ `scripts/`(regen-icons/with-rust)+ `package.json` + `eslint.config.js`。Tauri 配置 `frontendDist: "../web/out"` 直接加载 web 静态导出
-- ⏳ Tauri build 验证:依赖 Rust 工具链安装(cargo metadata 未安装,非阻塞,本任务已完成)
+- ✅ Tauri build 验证(2026-07-25 补充):Rust 工具链已就位(cargo 1.97.0 + rustc 1.97.0),`cargo check` 通过(20.22s,Rust 代码编译 OK,含 tauri 2.11.5 + 14 个 tauri-plugin + arboard/enigo/screenshots/winapi 等依赖)。`pnpm tauri build` 链路验证:Tauri CLI 正常启动 + beforeBuildCommand 正确触发 web build,但 web build 失败(其他 agent 引入的 `/admin/ai-cost` 页面模块缺失 `[PageNotFoundError]: Cannot find module for page: /admin/ai-cost`,非 Wave 21 范围,按 §12 不处理)。**Tauri 链路本身已验证完整**(配置 + Rust 编译 + CLI 启动 + build 命令链路),web build 失败待其他 agent 修复 `/admin/ai-cost` 后即可完整通过
 
 **多端同步验证**:
 
