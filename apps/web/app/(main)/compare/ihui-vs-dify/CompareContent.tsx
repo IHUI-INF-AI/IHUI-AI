@@ -16,7 +16,7 @@ interface CompareRow {
 }
 
 interface CompetitorConfig {
-  id: 'dify' | 'coze' | 'fastgpt' | 'n8n'
+  id: 'dify' | 'coze' | 'fastgpt' | 'n8n' | 'openai-agent' | 'langchain' | 'copilot-studio'
   name: string
   tagline: string
   rows: CompareRow[]
@@ -368,6 +368,264 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
       },
     ],
   },
+  'openai-agent': {
+    id: 'openai-agent',
+    name: 'OpenAI Agent Builder',
+    tagline: 'OpenAI Agent Builder 锁定 OpenAI 生态;IHUI AI 跨 30+ 模型中立',
+    verdict:
+      '如果你的项目全栈使用 OpenAI 且不需要私有化,OpenAI Agent Builder 够用;如果你需要多模型切换、私有化部署、数据主权,IHUI AI 是更灵活的选择。',
+    rows: [
+      {
+        dimension: '模型选择',
+        ihui: '30+ 模型中立',
+        competitor: '仅 OpenAI 系列',
+        ihuiDetail: 'GPT-4o / Claude / Gemini / DeepSeek / Qwen 等',
+        competitorDetail: 'GPT-4o / o1 / o3 系列',
+      },
+      {
+        dimension: '开源',
+        ihui: 'Apache 2.0',
+        competitor: '闭源',
+        ihuiDetail: '完全开源可审计',
+        competitorDetail: '闭源,黑盒',
+      },
+      {
+        dimension: '私有化',
+        ihui: '完整支持',
+        competitor: '不支持',
+        ihuiDetail: 'Docker Compose / K8s 离线部署',
+        competitorDetail: '仅 OpenAI 云端',
+      },
+      {
+        dimension: '数据主权',
+        ihui: '自托管 100% 自主',
+        competitor: 'OpenAI 托管',
+        ihuiDetail: '数据不出域',
+        competitorDetail: '数据经 OpenAI',
+      },
+      {
+        dimension: 'Agent 市场',
+        ihui: '200+ 模板 + 创作者分成',
+        competitor: 'GPT Store',
+        ihuiDetail: 'Apache 2.0 可商用',
+        competitorDetail: 'OpenAI 审核上架',
+      },
+      {
+        dimension: '客户端',
+        ihui: '6 端同源',
+        competitor: 'Web API',
+        ihuiDetail: 'Web/桌面/小程序/扩展/移动/CLI',
+        competitorDetail: 'SDK 自行开发',
+      },
+      {
+        dimension: 'MCP 协议',
+        ihui: '原生支持',
+        competitor: '部分支持',
+        ihuiDetail: '100+ 预置 MCP Server',
+        competitorDetail: 'MCP 规范新发布',
+      },
+      {
+        dimension: '知识库 RAG',
+        ihui: '内置 + 可对接外部',
+        competitor: '需自己实现',
+        ihuiDetail: '向量 + BM25 + 中文友好',
+        competitorDetail: '依赖 Assistants File Search',
+      },
+      {
+        dimension: '工作流',
+        ihui: '可视化画布',
+        competitor: '代码编排',
+        ihuiDetail: '拖拽节点 + 触发器',
+        competitorDetail: '主要靠 SDK 代码',
+      },
+      {
+        dimension: '团队协作',
+        ihui: '完整 RBAC + 审计 + SSO',
+        competitor: 'OpenAI Workspace 基础',
+        ihuiDetail: '多租户企业级',
+        competitorDetail: '适合小团队',
+      },
+      {
+        dimension: '定价',
+        ihui: '个人免费 + Pro ¥49/月',
+        competitor: '按 token 计费',
+        ihuiDetail: '统一积分,跨模型成本优化',
+        competitorDetail: 'GPT-4o 较贵,无优化空间',
+      },
+    ],
+  },
+  langchain: {
+    id: 'langchain',
+    name: 'LangChain / LangGraph',
+    tagline: 'LangChain 是 Python SDK 框架;IHUI AI 是完整生产就绪操作系统',
+    verdict:
+      '如果你是研究/原型阶段,LangChain 灵活;如果需要生产就绪的 UI、Agent 市场、跨端分发、私有化,IHUI AI 是更优选择。',
+    rows: [
+      {
+        dimension: '产品形态',
+        ihui: '完整 OS(UI + 后端 + DB)',
+        competitor: 'Python SDK',
+        ihuiDetail: '开箱即用',
+        competitorDetail: '需自己搭建前后端',
+      },
+      {
+        dimension: '上手成本',
+        ihui: '30 分钟注册',
+        competitor: '2-3 天搭原型',
+        ihuiDetail: '无需开发',
+        competitorDetail: '需写 FastAPI/前端/数据库',
+      },
+      {
+        dimension: 'Agent 编排',
+        ihui: '可视化 + 200+ 模板',
+        competitor: 'LangGraph 代码编排',
+        ihuiDetail: '拖拽 + 一键 fork',
+        competitorDetail: 'StateGraph 编程式',
+      },
+      {
+        dimension: 'Agent 市场',
+        ihui: '内置社区市场',
+        competitor: '无',
+        ihuiDetail: '创作者分成 + 商用',
+        competitorDetail: 'Hub 主要是组件库',
+      },
+      {
+        dimension: 'MCP',
+        ihui: '原生支持',
+        competitor: 'MCP 适配器',
+        ihuiDetail: '100+ 预置',
+        competitorDetail: 'langchain-mcp-adapters',
+      },
+      {
+        dimension: '客户端',
+        ihui: '6 端同源',
+        competitor: '0 端(库)',
+        ihuiDetail: 'Web/桌面/小程序/扩展/移动/CLI',
+        competitorDetail: '需自行开发',
+      },
+      {
+        dimension: '知识库',
+        ihui: '内置 RAG + 向量库',
+        competitor: '集成外部向量库',
+        ihuiDetail: 'pgvector / Qdrant / Milvus',
+        competitorDetail: '需自己配 Pinecone/Chroma',
+      },
+      {
+        dimension: '工作流',
+        ihui: '可视化画布',
+        competitor: 'LangGraph 代码',
+        ihuiDetail: '业务人员可上手',
+        competitorDetail: '需 Python 工程师',
+      },
+      {
+        dimension: '部署',
+        ihui: 'Docker Compose / K8s 一键',
+        competitor: '自建',
+        ihuiDetail: '生产就绪',
+        competitorDetail: '需自己写 Dockerfile',
+      },
+      {
+        dimension: '生产案例',
+        ihui: '120+ 企业付费客户',
+        competitor: '开发者自部署',
+        ihuiDetail: '完整 SLA 保障',
+        competitorDetail: '社区支持',
+      },
+      {
+        dimension: '许可证',
+        ihui: 'Apache 2.0',
+        competitor: 'MIT',
+        ihuiDetail: '完全开源商用',
+        competitorDetail: '更宽松',
+      },
+    ],
+  },
+  'copilot-studio': {
+    id: 'copilot-studio',
+    name: 'Microsoft Copilot Studio',
+    tagline: 'Copilot Studio 锁定 Microsoft 365;IHUI AI 跨云中立',
+    verdict:
+      '如果你的企业全栈 Microsoft 365 且不要求自托管,Copilot Studio 适合;如果需要跨云中立、Apache 2.0 源码可控、数据自有,IHUI AI 是更灵活的选择。',
+    rows: [
+      {
+        dimension: '云锁定',
+        ihui: '跨云中立',
+        competitor: 'Azure 锁定',
+        ihuiDetail: 'AWS / Azure / GCP / 阿里云 / 腾讯云',
+        competitorDetail: '必须 Microsoft 云',
+      },
+      {
+        dimension: '开源',
+        ihui: 'Apache 2.0',
+        competitor: '闭源 SaaS',
+        ihuiDetail: '可审计可定制',
+        competitorDetail: '无法修改内核',
+      },
+      {
+        dimension: '私有化',
+        ihui: '完整支持',
+        competitor: '受限',
+        ihuiDetail: '离线 K8s 部署',
+        competitorDetail: '需 Power Platform 环境',
+      },
+      {
+        dimension: '数据主权',
+        ihui: '自托管 100%',
+        competitor: 'Microsoft 365 租户',
+        ihuiDetail: '数据完全自有',
+        competitorDetail: '数据在 Microsoft 云',
+      },
+      {
+        dimension: 'Microsoft 365 集成',
+        ihui: '丰富(Teams/Outlook/Word/Excel/SharePoint)',
+        competitor: '原生',
+        ihuiDetail: 'IHUI AI 集成更广(同时支持飞书/钉钉/微信)',
+        competitorDetail: 'Microsoft 全家桶原生',
+      },
+      {
+        dimension: '客户端',
+        ihui: '6 端同源',
+        competitor: 'Web + Teams',
+        ihuiDetail: 'Web/桌面/小程序/扩展/移动/CLI',
+        competitorDetail: 'Web 画布 + Teams 应用',
+      },
+      {
+        dimension: '模型',
+        ihui: '30+ 模型',
+        competitor: 'OpenAI + Azure OpenAI',
+        ihuiDetail: '跨厂商模型 + 成本路由',
+        competitorDetail: 'Azure OpenAI 为主',
+      },
+      {
+        dimension: '定价',
+        ihui: '个人免费 + Pro ¥49/月',
+        competitor: '$200/月/租户起',
+        ihuiDetail: '开源自托管零费用',
+        competitorDetail: '按消息计费,较贵',
+      },
+      {
+        dimension: 'RBAC',
+        ihui: '完整',
+        competitor: 'Microsoft Entra ID',
+        ihuiDetail: '细粒度',
+        competitorDetail: '依赖 Entra',
+      },
+      {
+        dimension: 'Agent 市场',
+        ihui: '200+ 模板社区',
+        competitor: 'Copilot Template Library',
+        ihuiDetail: 'Apache 2.0 可商用',
+        competitorDetail: 'Microsoft 官方模板',
+      },
+      {
+        dimension: '国产化',
+        ihui: '信创全栈适配',
+        competitor: '不支持',
+        ihuiDetail: '麒麟/统信/鲲鹏/海光',
+        competitorDetail: 'Microsoft 生态外不兼容',
+      },
+    ],
+  },
 }
 
 function Cell({ value, isIhui, dimension }: { value: CellValue; dimension: string; isIhui: boolean }) {
@@ -381,7 +639,7 @@ function Cell({ value, isIhui, dimension }: { value: CellValue; dimension: strin
   return <span className="text-sm font-medium">{value}</span>
 }
 
-export function CompareContent({ competitor }: { competitor: 'dify' | 'coze' | 'fastgpt' | 'n8n' }): React.JSX.Element {
+export function CompareContent({ competitor }: { competitor: 'dify' | 'coze' | 'fastgpt' | 'n8n' | 'openai-agent' | 'langchain' | 'copilot-studio' }): React.JSX.Element {
   const config = COMPETITORS[competitor]
   const yesCount = config.rows.filter((r) => r.ihui === true).length
   const competitorYesCount = config.rows.filter((r) => r.competitor === true).length
