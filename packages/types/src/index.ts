@@ -77,3 +77,6 @@ export * from './education'
 
 // 资源上游自动同步中心跨端契约(2026-07-24 立,MCP/Skill/Plugin 四源拉取 + 双路径触发 + 全量自动更新)
 export * from './registry'
+
+// 跨端 app 组件类型契约(从 packages/app 迁移,2026-07-25)
+export * from './app'

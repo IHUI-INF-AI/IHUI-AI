@@ -1,4 +1,4 @@
-import { get, del } from '../utils/request'
+import { get, del } from './index'
 import type { PageData, PageQuery, FavoriteItem, SubscriptionItem } from '@ihui/api-client'
 
 // 向后兼容别名:PaginationQuery → PageQuery(api-client canonical 名)

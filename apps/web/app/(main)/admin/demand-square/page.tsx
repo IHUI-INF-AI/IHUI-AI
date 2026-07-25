@@ -13,7 +13,7 @@ import { Button } from '@ihui/ui-react'
 import { DemandSquareFilter } from './DemandSquareFilter'
 import { DemandSquareTable } from './DemandSquareTable'
 import { DemandSquareDialog } from './DemandSquareDialog'
-import { PAGE_SIZE, api, fetchExamine, EXPORT_COLUMNS } from './helpers'
+import { PAGE_SIZE, api, fetchExamine, EXPORT_COLUMNS, STAT_KEY } from './helpers'
 import type { Examine, ExamineStats } from './types'
 
 export default function AdminDemandSquarePage() {
@@ -114,7 +114,9 @@ export default function AdminDemandSquarePage() {
           return (
             <div key={s.key} className="rounded-lg border bg-card p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{t(`stat_${s.key}`)}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t(STAT_KEY[s.key] ?? 'stat_unknown')}
+                </span>
                 <Icon className={cn('h-4 w-4', s.cls)} />
               </div>
               <p className="mt-2 text-2xl font-bold">{s.value}</p>
