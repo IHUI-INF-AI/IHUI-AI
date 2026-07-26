@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Popover } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
-import { compressConversation } from '@/lib/chat-api'
+import { compressConversation } from '@ihui/api-client'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import { estimateChatMessagesTokens } from '@/lib/token-estimate'
 
@@ -198,13 +198,7 @@ function PanelRing({ ratio, usedTokens, maxTokens }: PanelRingProps) {
           </text>
         </svg>
       </div>
-      <span
-        className={cn(
-          'rounded-sm px-2 py-0.5 text-[10px] font-medium',
-          style.bg,
-          style.text,
-        )}
-      >
+      <span className={cn('rounded-sm px-2 py-0.5 text-[10px] font-medium', style.bg, style.text)}>
         {t(style.label)}
       </span>
       <div className="text-center text-xs text-muted-foreground">
@@ -304,7 +298,13 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           {/* 标题 */}
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-semibold">{t('title')}</span>
-            <span className={cn('rounded-sm px-1.5 py-0.5 text-[10px] font-medium', style.bg, style.text)}>
+            <span
+              className={cn(
+                'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                style.bg,
+                style.text,
+              )}
+            >
               {t(style.label)}
             </span>
           </div>
@@ -378,12 +378,10 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
                   <div className="font-medium">{t('compressSuccess')}</div>
                   <div className="tabular-nums text-muted-foreground">
                     {compressResult.originalChars.toLocaleString()} →{' '}
-                    {compressResult.compressedChars.toLocaleString()} ·{' '}
-                    {t('ratio')}{' '}
+                    {compressResult.compressedChars.toLocaleString()} · {t('ratio')}{' '}
                     {Math.max(
                       1 -
-                        compressResult.compressedChars /
-                          Math.max(compressResult.originalChars, 1),
+                        compressResult.compressedChars / Math.max(compressResult.originalChars, 1),
                       0,
                     ).toLocaleString(undefined, {
                       style: 'percent',
@@ -444,11 +442,7 @@ function StatRow({
     <div className="flex items-center justify-between gap-2">
       <span className="text-muted-foreground">{label}</span>
       <span
-        className={cn(
-          'text-foreground',
-          mono && 'tabular-nums',
-          truncate && 'min-w-0 truncate',
-        )}
+        className={cn('text-foreground', mono && 'tabular-nums', truncate && 'min-w-0 truncate')}
       >
         {value}
       </span>

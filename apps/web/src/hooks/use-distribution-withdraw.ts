@@ -2,11 +2,7 @@
 
 import * as React from 'react'
 
-import {
-  getWithdrawList,
-  requestWithdraw,
-  type CommissionWithdrawRecord,
-} from '@/lib/distribution-api'
+import { getWithdrawList, requestWithdraw, type CommissionWithdrawRecord } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 
 export interface UseDistributionWithdrawReturn {
