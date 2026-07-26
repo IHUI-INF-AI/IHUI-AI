@@ -43,14 +43,14 @@ export default function AdminSigninRulePage() {
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: '10' })
       if (search.trim()) qs.set('keyword', search.trim())
-      const r = await fetchApi<SigninRuleListData>(`/api/v1/admin/promotions/signin-rules?${qs}`)
+      const r = await fetchApi<SigninRuleListData>(`/api/admin/promotions/signin-rules?${qs}`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
   })
   const toggle = useMutation({
     mutationFn: ({ id, status }: { id: string; status: SigninRuleStatus }) =>
-      fetchApi(`/api/v1/admin/promotions/signin-rules/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
+      fetchApi(`/api/admin/promotions/signin-rules/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
     onSuccess: () => { toast.success(t('updateSuccess')); qc.invalidateQueries({ queryKey: ['admin', 'signinRule'] }) },
     onError: (e: Error) => toast.error(e.message),
   })
