@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import json
 import os as _os
 import pytest
 from unittest.mock import AsyncMock, patch
@@ -1232,8 +1233,9 @@ async def test_fetch_url_missing_params():
 async def test_image_generation_success(monkeypatch):
     """mock httpx 返回 data[0].url,验证 image_url。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "stepfun_api_key", "fake-key")
-    monkeypatch.setattr(settings, "stepfun_api_base", "https://fake.stepfun.com/v1")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "stepfun": {"api_key": "fake-key", "api_base": "https://fake.stepfun.com/v1"},
+    }))
 
     def handler(method, url):
         return _FakeHttpxResponse(
@@ -1253,8 +1255,10 @@ async def test_image_generation_success(monkeypatch):
 async def test_image_generation_no_provider(monkeypatch):
     """两 provider 都无 api_key → ok=False + errorCode=PROVIDER_NOT_CONFIGURED。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "stepfun_api_key", "")
-    monkeypatch.setattr(settings, "agnes_api_key", "")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "stepfun": {"api_key": ""},
+        "agnes": {"api_key": ""},
+    }))
     out = await _tool_image_generation({"prompt": "a cat"})
     assert out["tool"] == "image_generation"
     assert out["ok"] is False
@@ -1724,3 +1728,91 @@ class TestKnowledgeLookupViaMCPServer:
         assert "errors" in out
         assert "duration_ms" in out
         assert "ok" in out
+
+
+class TestKnowledgeLookupG6SessionContext:
+    """G6(2026-07-26):call_tool 的 user_id/session_id 注入 knowledge_lookup 测试。
+
+    验证 call_tool 新增的 user_id/session_id kwargs 透传到 knowledge_lookup 调用,
+    启用 long_term_memory 源(此前 G5 固定 None 跳过 LTM)。
+    """
+
+    async def test_call_tool_user_id_propagated_to_knowledge_lookup(self):
+        """call_tool(user_id="u1") → knowledge_lookup(user_id="u1") 透传。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        mock_kl = AsyncMock(return_value=KnowledgeLookupResult(query="q"))
+        with patch("app.services.knowledge_lookup.knowledge_lookup", new=mock_kl):
+            await mcp_server.call_tool(
+                "knowledge_lookup", {"query": "q"}, user_role=0, user_id="u1"
+            )
+        _, kwargs = mock_kl.call_args
+        assert kwargs.get("user_id") == "u1"
+
+    async def test_call_tool_session_id_propagated_to_knowledge_lookup(self):
+        """call_tool(session_id="s1") → knowledge_lookup(session_id="s1") 透传。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        mock_kl = AsyncMock(return_value=KnowledgeLookupResult(query="q"))
+        with patch("app.services.knowledge_lookup.knowledge_lookup", new=mock_kl):
+            await mcp_server.call_tool(
+                "knowledge_lookup", {"query": "q"}, user_role=0, session_id="s1"
+            )
+        _, kwargs = mock_kl.call_args
+        assert kwargs.get("session_id") == "s1"
+
+    async def test_call_tool_default_user_id_none_when_not_passed(self):
+        """call_tool 不传 user_id → knowledge_lookup(user_id=None)(向后兼容,G5 行为)。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        mock_kl = AsyncMock(return_value=KnowledgeLookupResult(query="q"))
+        with patch("app.services.knowledge_lookup.knowledge_lookup", new=mock_kl):
+            await mcp_server.call_tool(
+                "knowledge_lookup", {"query": "q"}, user_role=0
+            )
+        _, kwargs = mock_kl.call_args
+        assert kwargs.get("user_id") is None
+        assert kwargs.get("session_id") is None
+
+    async def test_call_tool_both_user_id_and_session_id_propagated(self):
+        """call_tool 同时传 user_id + session_id → 两者都透传到 knowledge_lookup。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        mock_kl = AsyncMock(return_value=KnowledgeLookupResult(query="q"))
+        with patch("app.services.knowledge_lookup.knowledge_lookup", new=mock_kl):
+            await mcp_server.call_tool(
+                "knowledge_lookup",
+                {"query": "q"},
+                user_role=0,
+                user_id="user-42",
+                session_id="sess-7",
+            )
+        _, kwargs = mock_kl.call_args
+        assert kwargs.get("user_id") == "user-42"
+        assert kwargs.get("session_id") == "sess-7"
+
+    async def test_arguments_not_polluted_by_session_context_keys(self):
+        """__user_id/__session_id 注入 arguments 副本但不污染 LLM 可控参数(query/top_k_per_source)。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        mock_kl = AsyncMock(return_value=KnowledgeLookupResult(query="q"))
+        with patch("app.services.knowledge_lookup.knowledge_lookup", new=mock_kl):
+            await mcp_server.call_tool(
+                "knowledge_lookup",
+                {"query": "q", "top_k_per_source": 3},
+                user_role=0,
+                user_id="u1",
+                session_id="s1",
+            )
+        args, kwargs = mock_kl.call_args
+        # query(位置参数)不被 __user_id 污染
+        assert args[0] == "q" or kwargs.get("query") == "q"
+        # top_k_per_source 不被 __session_id 污染
+        assert kwargs.get("top_k_per_source") == 3
+
+    async def test_tool_knowledge_lookup_reads_injected_user_id_directly(self):
+        """_tool_knowledge_lookup 直接从 arguments 提取 __user_id(G6 注入路径,不经 call_tool)。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        mock_kl = AsyncMock(return_value=KnowledgeLookupResult(query="q"))
+        with patch("app.services.knowledge_lookup.knowledge_lookup", new=mock_kl):
+            await _tool_knowledge_lookup(
+                {"query": "q", "__user_id": "direct-u", "__session_id": "direct-s"}
+            )
+        _, kwargs = mock_kl.call_args
+        assert kwargs.get("user_id") == "direct-u"
+        assert kwargs.get("session_id") == "direct-s"
