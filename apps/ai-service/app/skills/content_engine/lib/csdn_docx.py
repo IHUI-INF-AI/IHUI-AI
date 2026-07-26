@@ -23,10 +23,13 @@ CSDN 专用 DOCX 构建器（2026-07-16 用户强制·2026-07-17 二次加固）
 说明：CSDN DOCX 不受微信 22 项门禁约束（GEO/营销是其刻意要的），是独立交付物。
 但必须过 CSDN 平台审核——CSDN 比 validate 脚本严格得多。
 """
+from __future__ import annotations
+
 import os
 import re
 import sys
 import tempfile
+from typing import Any, Optional, cast
 
 # 让本模块能 import 项目根的 build_gpt56_sol
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -127,7 +130,7 @@ MARKETING_TITLE_WORDS = [
 ]
 
 
-def derive_csdn_title(wechat_title):
+def derive_csdn_title(wechat_title: Optional[str]) -> str:
     """从微信标题派生 CSDN 中性标题（去营销后缀，不在标点处截断）。"""
     t = wechat_title or ''
     for w in MARKETING_TITLE_WORDS:
@@ -139,7 +142,7 @@ def derive_csdn_title(wechat_title):
     return t.strip() or (wechat_title or '')
 
 
-def clean_md_for_csdn(md_text, csdn_title=None):
+def clean_md_for_csdn(md_text: str, csdn_title: Optional[str] = None) -> str:
     """返回清洗后的 CSDN 版 markdown 文本。
 
     2026-07-17 加固：CSDN 平台判定营销的标准比 validate 脚本严格得多。
@@ -276,7 +279,8 @@ def clean_md_for_csdn(md_text, csdn_title=None):
     return text
 
 
-def build_csdn_docx(source_md, out_docx, images_dir=None, csdn_title=None):
+def build_csdn_docx(source_md: str, out_docx: str, images_dir: Optional[str] = None,
+                    csdn_title: Optional[str] = None) -> str:
     """构建 CSDN 专用 DOCX（去营销/去 GEO），返回 out_docx 路径。
 
     2026-07-17 加固：清洗后自检平台风险，>0 立即报错（不交付营销 CSDN）。

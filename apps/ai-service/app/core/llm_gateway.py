@@ -1227,7 +1227,7 @@ class LLMGateway:
         import litellm
 
         response = await litellm.aembedding(model=used_model, input=text)
-        return response.data[0]["embedding"]
+        return cast(list[float], response.data[0]["embedding"])
 
 
 llm_gateway = LLMGateway()
