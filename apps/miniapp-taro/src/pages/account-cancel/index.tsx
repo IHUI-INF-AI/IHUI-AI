@@ -197,11 +197,15 @@ export default function AccountCancel() {
   return (
     <View className="min-h-screen bg-background">
       <View className="p-[24rpx] bg-card">
-        <Text className="text-[36rpx] font-semibold text-foreground">{t('accountCancel.title')}</Text>
+        <Text className="text-[36rpx] font-semibold text-foreground">
+          {t('accountCancel.title')}
+        </Text>
       </View>
       <View className="p-[24rpx]">
         {loading ? (
-          <Text className="text-center text-muted-foreground py-[80rpx]">{t('common.loading')}</Text>
+          <Text className="text-center text-muted-foreground py-[80rpx]">
+            {t('common.loading')}
+          </Text>
         ) : info ? (
           <View>
             <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.consequenceTitle')}</Text>
@@ -256,7 +260,9 @@ export default function AccountCancel() {
             </View>
           </View>
         ) : (
-          <Text className="text-center text-muted-foreground py-[80rpx]">{t('accountCancel.noInfo')}</Text>
+          <Text className="text-center text-muted-foreground py-[80rpx]">
+            {t('accountCancel.noInfo')}
+          </Text>
         )}
       </View>
     </View>
