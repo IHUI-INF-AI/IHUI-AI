@@ -31,7 +31,7 @@ MMDD_RE = re.compile(r'^\d{4}\.txt$')
 SKIP_DIRS = {'.git', '__pycache__', '.workbuddy', '_archive', 'assets', 'lib',
              'tools', 'images', 'node_modules'}
 
-issues = []
+issues: list[str] = []
 
 def add(where, detail):
     issues.append(f"[{where}] {detail}")

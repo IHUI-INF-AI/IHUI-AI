@@ -37,7 +37,7 @@ export default function VisitTrendPage() {
     queryKey: ['admin', 'stats', 'visit-trend', granularity],
     queryFn: async () => {
       const r = await fetchApi<VisitTrendResponse>(
-        `/api/v1/admin/stats/visit-trend?granularity=${granularity}`,
+        `/api/admin/stats/visit-trend?granularity=${granularity}`,
       )
       if (!r.success) throw new Error(r.error)
       return r.data

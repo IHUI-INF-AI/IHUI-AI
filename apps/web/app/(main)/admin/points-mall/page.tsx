@@ -27,7 +27,7 @@ export default function AdminPointsMallPage() {
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: '10' })
       if (search.trim()) qs.set('name', search.trim())
-      const r = await fetchApi<PointsProductListData>(`/api/v1/admin/points/mall?${qs}`)
+      const r = await fetchApi<PointsProductListData>(`/api/admin/points/mall?${qs}`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
