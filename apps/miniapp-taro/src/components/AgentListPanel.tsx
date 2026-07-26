@@ -62,12 +62,12 @@ export default function AgentListPanel({
                 <View className="flex items-center">
                   <Text className="text-sm font-medium text-foreground truncate">{agent.name}</Text>
                   {agent.isVipExclusive && (
-                    <Text className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
+                    <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
                       VIP
                     </Text>
                   )}
                   {agent.category && (
-                    <Text className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                       {agent.category}
                     </Text>
                   )}
