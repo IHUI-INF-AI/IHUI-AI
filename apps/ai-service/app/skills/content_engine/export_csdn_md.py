@@ -62,7 +62,7 @@ def export_csdn_md(md_path, out_path=None):
     n = len(lines)
     block = None          # 'code' / 'fence'
     block_kind = None     # oneliner / quote / tip / warning / note / ...
-    buf = []
+    buf: list[str] = []
     meta = None
 
     while i < n:
