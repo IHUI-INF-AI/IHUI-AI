@@ -10,8 +10,11 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs, quote_plus, urlparse
+
+if TYPE_CHECKING:
+    from .agent_orchestrator import AgentOrchestrator
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
@@ -232,12 +235,12 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             from .codebase_indexer import codebase_indexer
             semantic_results = await codebase_indexer.search(query, top_k=max_results)
             if semantic_results:
-                matches: list[dict[str, Any]] = []
+                semantic_matches: list[dict[str, Any]] = []
                 for r in semantic_results[:max_results]:
                     content_preview = r.get("content", "")
                     if len(content_preview) > 500:
                         content_preview = content_preview[:500]
-                    matches.append({
+                    semantic_matches.append({
                         "path": r.get("filePath", ""),
                         "file": r.get("filePath", "").rsplit("/", 1)[-1],
                         "line": r.get("lineStart", 0),
@@ -252,10 +255,10 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     "query": query,
                     "path": path,
                     "use_semantic": True,
-                    "matches": matches,
-                    "total": len(matches),
+                    "matches": semantic_matches,
+                    "total": len(semantic_matches),
                     "truncated": False,
-                    "message": f"语义搜索找到 {len(matches)} 个匹配(pgvector ANN)",
+                    "message": f"语义搜索找到 {len(semantic_matches)} 个匹配(pgvector ANN)",
                     "ok": True,
                 }
         except Exception as e:
@@ -342,16 +345,16 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
                 # 2) 通用行匹配(任意包含 query 的行)
                 line_matches: list[tuple[int, str]] = []  # (line_no, line_text)
-                for i, ln in enumerate(lines):
-                    if query_lower in ln.lower():
-                        line_matches.append((i + 1, ln))
+                for i, line_text in enumerate(lines):
+                    if query_lower in line_text.lower():
+                        line_matches.append((i + 1, line_text))
 
                 # 合并:符号匹配优先,再补通用行匹配(去重)
-                seen_lines = {ln for ln, _, _ in symbol_matches}
-                for ln, txt in line_matches:
-                    if ln not in seen_lines:
-                        symbol_matches.append((ln, "reference", txt))
-                        seen_lines.add(ln)
+                seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
+                for ln_no, ln_text in line_matches:
+                    if ln_no not in seen_lines:
+                        symbol_matches.append((ln_no, "reference", ln_text))
+                        seen_lines.add(ln_no)
 
                 if not symbol_matches:
                     continue
@@ -601,15 +604,15 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
 
     backup_path = resolved_path + ".bak"
     try:
-        with open(backup_path, "wb") as f:
-            f.write(raw)
-        with open(resolved_path, "wb") as f:
-            f.write(new_content.encode("utf-8"))
+        with open(backup_path, "wb") as bf:
+            bf.write(raw)
+        with open(resolved_path, "wb") as wf:
+            wf.write(new_content.encode("utf-8"))
     except OSError as e:
         # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
         try:
-            with open(resolved_path, "wb") as f:
-                f.write(raw)
+            with open(resolved_path, "wb") as rf:
+                rf.write(raw)
         except OSError:
             pass
         try:
@@ -1271,6 +1274,7 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
             }
 
         # 构造 git 命令参数
+        git_args: list[str] | None
         if action in _READONLY_ACTIONS:
             git_args = list(_READONLY_ACTIONS[action])
             # show 命令需要 ref 参数
@@ -1291,7 +1295,7 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
                 }
 
         result = subprocess.run(
-            ["git"] + git_args,
+            ["git"] + (git_args or []),
             cwd=repo_path,
             capture_output=True,
             text=True,
@@ -1988,7 +1992,7 @@ def _get_orchestrator() -> "AgentOrchestrator":
     if _orchestrator is None:
         from .agent_orchestrator import agent_orchestrator as _inst
         _orchestrator = _inst
-    return _orchestrator  # type: ignore[return-value]
+    return _orchestrator
 
 
 async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -2066,7 +2070,7 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
         }
     try:
         orchestrator = _get_orchestrator()
-        result = await orchestrator.invoke(
+        step_result = await orchestrator.invoke(
             agent_name=name,
             user_input=task,
             session_id=session_id,
@@ -2075,12 +2079,12 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
             "tool": "dispatch_subagent", "mode": "single",
             "agent": name,
             "task": task,
-            "status": result.status,
-            "output": result.output,
-            "duration_ms": result.duration_ms,
-            "iterations": result.iterations,
-            "error": result.error,
-            "ok": result.status == "completed",
+            "status": step_result.status,
+            "output": step_result.output,
+            "duration_ms": step_result.duration_ms,
+            "iterations": step_result.iterations,
+            "error": step_result.error,
+            "ok": step_result.status == "completed",
         }
     except Exception as e:
         return {
@@ -2134,7 +2138,7 @@ def _get_schedule_redis() -> Any:
 
     url = settings.schedule_redis_url or settings.redis_url
     try:
-        import redis  # type: ignore[import-not-found]
+        import redis
 
         client = redis.Redis.from_url(url, decode_responses=True)
         client.ping()
@@ -2756,6 +2760,12 @@ async def _tool_review_pr(arguments: dict[str, Any]) -> dict[str, Any]:
         )
 
     # 分支 2:GitHub API(repo + pr_number)
+    # use_github=True 隐含 pr_number is not None(已在 line 2744 校验)
+    if pr_number is None:
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "pr_number 必须是正整数", "errorCode": "INVALID_PARAMS",
+        }
     try:
         pr_number = int(pr_number)
     except (TypeError, ValueError):
@@ -3037,7 +3047,7 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
     elif cron:
         # recurring + cron:优先用 croniter 计算 next_run
         try:
-            from croniter import croniter  # type: ignore[import-not-found]
+            from croniter import croniter
 
             cron_iter = croniter(cron, datetime.now(timezone.utc))
             next_run_at = cron_iter.get_next(datetime).isoformat()
@@ -3052,8 +3062,14 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
             next_run_at = parsed
     else:
         # recurring + interval_seconds
+        if interval_seconds is None:
+            return {
+                "tool": "schedule_task", "ok": False,
+                "error": "interval_seconds 必须为正整数",
+                "errorCode": "INVALID_PARAMS",
+            }
         try:
-            int(interval_seconds)  # type: ignore[arg-type]
+            int(interval_seconds)
         except (TypeError, ValueError):
             return {
                 "tool": "schedule_task", "ok": False,
