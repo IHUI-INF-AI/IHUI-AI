@@ -7,16 +7,17 @@ import { cn } from '@/lib/utils'
 
 import type { TenantState } from '../types'
 
-const STATE_MAP: Record<TenantState, { className: string; dotClassName: string; labelKey: string }> = {
+const STATE_MAP: Record<
+  TenantState,
+  { className: string; dotClassName: string; labelKey: string }
+> = {
   active: {
-    className:
-      'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+    className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
     dotClassName: 'bg-emerald-500',
     labelKey: 'stateActive',
   },
   paused: {
-    className:
-      'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    className: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
     dotClassName: 'bg-amber-500',
     labelKey: 'statePaused',
   },
@@ -48,7 +49,7 @@ export function StateBadge({ state, className }: StateBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium',
+        'inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium',
         cfg.className,
         className,
       )}
