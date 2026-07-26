@@ -316,9 +316,9 @@ export default function KnowledgeGraphPage() {
                         cx={pos.x}
                         cy={pos.y}
                         r={r}
-                        fill="hsl(var(--primary))"
+                        fill="var(--primary)"
                         fillOpacity={isHighlighted ? 0.85 : 0.35}
-                        stroke="hsl(var(--primary))"
+                        stroke="var(--primary)"
                         strokeWidth={2}
                       />
                       <text
