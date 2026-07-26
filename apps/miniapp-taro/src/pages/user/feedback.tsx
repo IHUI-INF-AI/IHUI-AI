@@ -124,7 +124,7 @@ export default function Feedback() {
               <View
                 className="absolute top-0 right-0 w-[20px] h-[20px] bg-[rgba(0,0,0,0.6)] rounded-md flex items-center justify-center"
                 onClick={(e) => {
-                  e.stopPropagation && e.stopPropagation()
+                  e.stopPropagation()
                   onRemoveImage(idx)
                 }}
               >
