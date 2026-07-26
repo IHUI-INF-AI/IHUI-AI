@@ -36,6 +36,7 @@ const SCAN_TARGETS = [
   path.join(ROOT, 'apps/web/app'), // Next.js 15 App Router(2026-07-26 漏扫 bug 修复)
   path.join(ROOT, 'apps/miniapp-taro/src'),
   path.join(ROOT, 'apps/cli/src'),
+  path.join(ROOT, 'apps/mobile-rn/src'), // React Native 端,2026-07-26 mobile-rn 子任务补扫(与 web 共享部分 leaf key)
 ]
 const EXCLUDE_DIRS = new Set(['node_modules', '.next', '.git', 'dist', 'build', 'coverage', '__tests__', 'tests', 'test', '__mocks__', 'fixtures'])
 const EXCLUDE_FILE_PATTERNS = [/\.test\.(ts|tsx)$/, /\.spec\.(ts|tsx)$/, /\.d\.ts$/, /messages\//]
