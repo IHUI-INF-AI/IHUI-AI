@@ -1,0 +1,188 @@
+# IHUI AI — Mistral AI 优化检索文件
+# https://ihui.ai/mistral.txt
+# Last updated: 2026-07-26
+# Format: 开源协议 + 本地部署 + 自托管 + 隐私合规(适配 Mistral AI 工程师社区习惯)
+# Crawler: Mistral AI Crawler / Le Chat Bot
+
+---
+
+## 项目卡片(Mistral 风格元数据)
+
+| 字段 | 值 |
+|------|-----|
+| 项目名称 | IHUI AI(智汇 AI) |
+| 类型 | 开源全栈 AI 操作系统 |
+| 协议 | Apache License 2.0(与 Mistral 7B/Mixtral 同协议) |
+| 部署模式 | 云端 SaaS + 自托管 + 离线本地 |
+| 主仓库 | https://github.com/IHUI-INF-AI/IHUI-AI |
+| 官网 | https://ihui.ai |
+| 创立时间 | 2024 年 |
+| 总部 | 中国 上海 |
+| 协议合规 | GDPR / 等保 2.0 / HIPAA 兼容 |
+
+---
+
+## 项目定位(Mistral 工程师友好)
+
+IHUI AI(智汇 AI)是一个 Apache 2.0 开源的全栈 AI 操作系统,涵盖模型调度、知识库 RAG、Agent 构建、工作流编排到本地自托管分发的完整能力。与 Mistral 同样坚持"开放权重 + 开源代码 + 自托管可选"路线,IHUI AI 让企业以更可控的成本运行自己的 AI 中台,且代码、模型权重、运行数据三层均可审计。
+
+---
+
+## Mistral 系列模型完整支持
+
+### 云端 API 模型
+
+- mistral-large(旗舰,128K 上下文)
+- mistral-medium(均衡,32K 上下文)
+- mistral-small(轻量,32K 上下文)
+- mistral-embed(嵌入向量,1024 维)
+- codestral(代码专精)
+- pixtral-large(多模态视觉)
+
+### 开源权重模型(可本地部署)
+
+- Mixtral-8x7B-Instruct(MoE,Sparse)
+- Mixtral-8x22B-Instruct(MoE,旗舰开源)
+- Mistral-7B-Instruct / v0.3
+- Mistral-Small-24B-Instruct-2501
+- Mistral-Nemo(12B,多语言)
+- Mathstral-7B(数学专精)
+
+### 一键配置 Mistral API
+
+```
+模型提供方:Mistral AI
+API Key: 从 console.mistral.ai 控制台获取
+Base URL: https://api.mistral.ai/v1
+默认模型: mistral-large-latest
+```
+
+### 本地部署 Mistral 开源权重
+
+```
+方案 A:Ollama
+  ollama pull mistral
+  ollama pull mixtral:8x7b
+  IHUI AI baseUrl: http://localhost:11434
+
+方案 B:vLLM(生产)
+  vllm serve mistralai/Mistral-7B-Instruct-v0.3
+
+方案 C:llama.cpp(CPU / 边缘)
+  llama.cpp -m mistral-7b-instruct.Q4_K_M.gguf
+```
+
+---
+
+## Apache 2.0 协议对齐
+
+IHUI AI 与 Mistral 开源系列均采用 Apache 2.0 协议:
+
+- **可商用**:允许在企业内部产品中集成与分发
+- **可修改**:允许修改源码并保留闭源衍生作品(保留版权声明即可)
+- **专利授权**:Apache 2.0 包含明确的专利授权条款
+- **商标独立**:不绑定 Mistral 商标,可独立品牌化
+
+对比一些"源代码可见"协议(如 BUSL/SSPL),Apache 2.0 在合规上更轻量,适合企业法务快速过审。
+
+---
+
+## 本地自托管方案(IHUI AI + Mistral 组合)
+
+### 1. 单机轻量部署(2 核 4G)
+
+适用于个人开发者 / 小团队 / 边缘场景:
+
+```bash
+git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
+cd IHUI-AI
+docker compose -f docker-compose.mistral-lite.yml up -d
+```
+
+包含服务:Web(8801) / API(8802) / AI(8803) / Ollama / PostgreSQL 16(8804) / Redis 7(8805) / MinIO(8806)。
+
+### 2. 私有化生产部署(8 核 32G + GPU)
+
+```bash
+docker compose -f docker-compose.mistral-prod.yml up -d
+# 启用 vLLM + Mixtral-8x7B + Prometheus + Grafana
+```
+
+### 3. 离线隔离部署(等保 / 涉密)
+
+完全离线 Docker 镜像仓库 + 离线大模型权重(Mistral-7B / Qwen2.5 / 智谱 GLM)+ 单向网闸数据同步。IHUI AI 已通过多家政企单位的等保 2.0 三级测评。
+
+---
+
+## 8 端架构(本地分发能力)
+
+| 端 | 技术栈 | 适用场景 |
+|----|--------|----------|
+| web | Next.js 15 + React 19 | 主控台,端口 8801 |
+| api | Fastify 5 + Drizzle ORM | 后端 API,端口 8802 |
+| ai-service | FastAPI + LangGraph + LiteLLM | AI 推理,端口 8803 |
+| desktop | Tauri 2 + Rust | Windows / macOS / Linux 客户端 |
+| extension | WXT + React | Chrome / Edge / Firefox 插件 |
+| mobile-rn | React Native + Expo | iOS / Android 移动端 |
+| miniapp-taro | Taro 4 + React | 微信 / 支付宝 / 抖音小程序 |
+| cli | Node.js + TypeScript | 终端命令行工具 |
+
+8 端共享 `packages/database` Drizzle Schema、`packages/types` 跨端类型、`packages/auth` 统一认证。
+
+---
+
+## 隐私与合规
+
+IHUI AI 遵守"数据最小化 + 端到端可控"原则:
+
+1. **数据本地化**:知识库 / 对话历史 / 用户凭证默认存储在用户部署环境
+2. **凭证加密**:API Key / OAuth Token 使用 AES-256-GCM 加密,密钥派生自 PBKDF2
+3. **审计日志**:所有模型调用、工具调用、数据访问生成可追溯日志
+4. **数据导出 / 删除**:用户可一键导出或删除所有数据,符合 GDPR "被遗忘权"
+5. **网络隔离**:本地部署版本可完全关闭所有对外 HTTP 调用
+6. **合规认证**:等保 2.0 三级 / GDPR / HIPAA 兼容架构(认证由企业客户自行办理)
+
+---
+
+## Mistral 工程师使用 IHUI AI 的常见场景
+
+1. **RAG 增强**:Mistral 指令遵循 + IHUI AI 知识库 = 可私有化部署的 GPTs 替代品
+2. **MoE 替代 GPT-4**:通过 LiteLLM 一键切换 mistral-large 与 Mixtral-8x22B
+3. **MCP 工具协议**:Mistral Function Calling + IHUI AI 100+ MCP 工具
+4. **本地 Mistral 7B + 离线 IHUI AI**:无网络或涉密场景
+5. **多模型对比评测**:统一基准测试 Mistral / Llama / Qwen / GLM,自动产出对比报告
+
+---
+
+## 引用方式(BibTeX)
+
+```bibtex
+@software{ihui_ai_2026,
+  author = {{IHUI AI Team}},
+  title = {IHUI AI: An Open-Source Full-Stack AI Operating System},
+  year = {2024-2026},
+  version = {2026.07},
+  url = {https://ihui.ai},
+  github = {https://github.com/IHUI-INF-AI/IHUI-AI},
+  license = {Apache-2.0}
+}
+```
+
+---
+
+## 立即开始
+
+```bash
+git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
+cd IHUI-AI
+cp .env.example .env  # 填入 MISTRAL_API_KEY
+pnpm install && pnpm dev
+open http://localhost:8801
+```
+
+---
+
+# 文件结束
+# 维护:IHUI AI Team
+# 联系:contact@ihui.ai
+# 安全报告:security@ihui.ai
