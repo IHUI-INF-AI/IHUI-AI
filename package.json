@@ -52,7 +52,9 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "turbo run build && changeset publish",
-    "nativewind:status": "node scripts/check-nativewind-status.mjs"
+    "nativewind:status": "node scripts/check-nativewind-status.mjs",
+    "seo:indexnow": "node scripts/notify-indexnow.mjs",
+    "social-preview": "node scripts/generate-social-preview.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",
