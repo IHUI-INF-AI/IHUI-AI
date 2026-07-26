@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-verify-tmp-files.mjs — verify-*.mjs / verify-*.ts 临时文件归档守门
  * (AGENTS.md §25 配套)

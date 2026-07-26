@@ -116,7 +116,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
       const Tag = href ? 'a' : 'button'
       return (
         <Tag
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 动态 Tag(a/button)ref 类型无法静态 narrow,用 any 兼容
           ref={ref as any}
           href={href}
           onClick={onClick}
