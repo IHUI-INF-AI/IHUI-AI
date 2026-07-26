@@ -12145,24 +12145,14 @@
   "modelsGroupsPage": {
     "group": {
       "1": {
-        "name": "Enterprise Core Group",
-        "desc": "For core business, supports high concurrency and availability"
       },
       "2": {
-        "name": "R&D Collaboration Group",
-        "desc": "R&D team collaboration, balancing performance and cost"
       },
       "3": {
-        "name": "Customer Service Group",
-        "desc": "For customer support, prioritizes low latency"
       },
       "4": {
-        "name": "Data Analysis Group",
-        "desc": "Data analysis and reporting, prioritizes large context"
       },
       "5": {
-        "name": "Sandbox Testing Group",
-        "desc": "New model testing and prototyping, flexible switching"
       }
     }
   },
