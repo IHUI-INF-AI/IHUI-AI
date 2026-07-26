@@ -1125,8 +1125,9 @@ async function seedAsks() {
     catMap[c.name] = String(id)
   }
 
-  // 2. 用户(问答需要 userId 引用)。查 admin 用户
-  const [adminUser] = await db.execute(`SELECT id FROM users WHERE email = 'admin@ihui.ai' LIMIT 1`)
+  // 2. 用户(问答需要 userId 引用)。查 system admin(由 0067/0071 migration 保证,
+  // username='admin' / is_system_admin=true,触发器禁止改 email/username/phone)
+  const [adminUser] = await db.execute(`SELECT id FROM users WHERE username = 'admin' AND is_system_admin = true LIMIT 1`)
   const userId = (adminUser as unknown as { id: string }[])?.id
   if (!userId) {
     console.info('[问答] 跳过:未找到 admin 用户')
