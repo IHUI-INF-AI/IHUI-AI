@@ -1,6 +1,5 @@
 {
   "common": {
-    "loading": "로딩 중…",
     "failed": "실패"
   },
   "nav": {
@@ -122,7 +121,6 @@
     "pricing": "요금제"
   },
   "auth": {
-    "login": "로그인",
     "logout": "로그아웃",
     "loginRequired": "계정과 비밀번호를 입력하세요",
     "phoneOrEmail": "전화번호 / 이메일",
@@ -208,12 +206,10 @@
   "course": {
     "title": "코스",
     "empty": "코스 없음",
-    "free": "무료",
     "loadFailed": "로딩 실패"
   },
   "order": {
     "title": "내 주문",
-    "empty": "주문 없음",
     "loadFailed": "로딩 실패",
     "statusPending": "결제 대기",
     "statusPaid": "결제 완료",

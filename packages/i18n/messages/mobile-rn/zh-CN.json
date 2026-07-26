@@ -1,15 +1,7 @@
 {
-  "common": {
-    "loading": "加载中…"
-  },
   "nav": {
-    "courses": "课程",
-    "live": "直播",
     "profile": "我的",
     "agents": "智能体"
-  },
-  "auth": {
-    "login": "登录"
   },
   "home": {
     "welcome": "欢迎使用智汇 AI"
@@ -17,8 +9,6 @@
   "course": {
     "title": "课程",
     "studentCount": "{{count}} 人学过",
-    "rating": "评分",
-    "free": "免费",
     "pay": "支付 ¥{{amount}}",
     "enroll": "立即报名",
     "enrolled": "已报名",
@@ -80,12 +70,9 @@
       "paid": "已支付",
       "cancelled": "已取消",
       "refunding": "退款中",
-      "refunded": "已退款",
       "completed": "已完成",
       "failed": "失败"
-    },
-    "empty": "暂无订单",
-    "orderNo": "订单号"
+    }
   },
   "wallet": {
     "points": "积分"
