@@ -11,17 +11,23 @@
  * 跳过健康检查(/api/health、/api/ready),避免噪音。
  * 用 setImmediate 异步落库,失败忽略,绝不阻塞业务响应。
  */
-import type {
-  FastifyInstance,
-  FastifyPluginAsync,
-  FastifyRequest,
-  FastifyReply,
-} from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import { recordAuditLog } from '../services/audit-log-service.js'
 
 /** 需要脱敏的字段名(小写匹配,子串包含即脱敏)。 */
-const SENSITIVE_KEYS = ['password', 'phone', 'idcard', 'bankcard', 'email', 'token', 'secret', 'apikey', 'api_key', 'authorization']
+const SENSITIVE_KEYS = [
+  'password',
+  'phone',
+  'idcard',
+  'bankcard',
+  'email',
+  'token',
+  'secret',
+  'apikey',
+  'api_key',
+  'authorization',
+]
 
 const REDACTED = '***REDACTED***'
 
@@ -100,7 +106,10 @@ function sanitizeQuery(query: Record<string, string>): Record<string, string> {
  * 例:/api/users/550e8400-e29b-41d4-a716-446655440000 → /api/users/550e8400...
  */
 function sanitizePath(path: string): string {
-  return path.replace(/\/([0-9a-fA-F]{8})-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g, '/$1...')
+  return path.replace(
+    /\/([0-9a-fA-F]{8})-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g,
+    '/$1...',
+  )
 }
 
 /** 从 method + URL 自动分类 action。 */
@@ -161,7 +170,9 @@ const auditLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
     // 计算响应耗时(ms)
     const start = request.auditStartTime
     const responseTimeMs =
-      start != null ? Number(process.hrtime.bigint() - start) / 1e6 : undefined
+      start !== null && start !== undefined
+        ? Number(process.hrtime.bigint() - start) / 1e6
+        : undefined
 
     const sanitizedPath = sanitizePath(path)
     const action = classifyAction(method, path)
@@ -174,7 +185,8 @@ const auditLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
     if (
       method !== 'GET' &&
       method !== 'HEAD' &&
-      request.body != null &&
+      request.body !== null &&
+      request.body !== undefined &&
       typeof request.body === 'object'
     ) {
       try {
