@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, cast
 
 import httpx
 
@@ -155,4 +155,4 @@ class OpenAIProvider(BaseProvider):
 
     async def list_models(self) -> list[dict[str, Any]]:
         data = await self._request("GET", f"{self.base_url}/v1/models", headers=self._headers())
-        return data.get("data", [])
+        return cast(list[dict[str, Any]], data.get("data", []))
