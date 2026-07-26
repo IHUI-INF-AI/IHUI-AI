@@ -110,7 +110,6 @@ export default defineAppConfig({
   subPackages: [
     {
       root: 'pages/distribution',
-      name: 'pagesA',
       pages: [
         'index',
         'team',
@@ -125,12 +124,10 @@ export default defineAppConfig({
     },
     {
       root: 'pages/exam',
-      name: 'pagesB',
       pages: ['list', 'detail', 'answer', 'result'],
     },
     {
       root: 'pages/study',
-      name: 'pagesB',
       pages: [
         'index',
         'record',
@@ -143,22 +140,18 @@ export default defineAppConfig({
     },
     {
       root: 'pages/circle',
-      name: 'pagesC',
       pages: ['index', 'detail', 'create'],
     },
     {
       root: 'pages/ask',
-      name: 'pagesC',
       pages: ['list', 'detail', 'create'],
     },
     {
       root: 'pages/member',
-      name: 'pagesD',
       pages: ['index', 'benefits', 'integral', 'coupon', 'coupon-list'],
     },
     {
       root: 'pages/setting',
-      name: 'pagesD',
       pages: ['index', 'notification', 'cache', 'language', 'theme', 'privacy'],
     },
   ],
