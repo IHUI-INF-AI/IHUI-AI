@@ -1,4 +1,12 @@
-import { create } from 'zustand'
+// 2026-07-26 修复 Taro 4.2.0 Vite 打包 bug:
+// Taro Vite runner 将 `import { create } from 'zustand'` 错误归并为
+// `taro.react_production_min.create`(React 上无此函数),导致运行时抛
+// `TypeError: taro.react_production_min.create is not a function`。
+// 规避方案:绕开 zustand/react 的 create,直接用 zustand/vanilla 的 createStore
+// 创建 store 实例 + React 18 的 useSyncExternalStore 手动实现订阅 hook,
+// 保持与原 useUserStore API 完全兼容(支持 hook 调用 + getState/setState/subscribe)。
+import { useSyncExternalStore, useCallback } from 'react'
+import { createStore, type StoreApi } from 'zustand/vanilla'
 import {
   getToken,
   setToken as persistToken,
@@ -21,16 +29,23 @@ interface UserState {
   logout: () => void
   fetchProfile: () => Promise<void>
   /** 真实微信登录流程(wx.login → 后端换 unionid → 持久化) */
-  loginByWechat: (options?: { withProfile?: boolean; inviteCode?: string }) => Promise<WechatLoginResult>
+  loginByWechat: (options?: {
+    withProfile?: boolean
+    inviteCode?: string
+  }) => Promise<WechatLoginResult>
   /** 静默尝试微信登录(用于 App.onLaunch 启动时,如已有 token 则跳过) */
   trySilentWechatLogin: () => Promise<WechatLoginResult | null>
   /** 跨端小程序登录(自动适配微信/支付宝,推荐使用) */
-  loginByMiniApp: (options?: { withProfile?: boolean; inviteCode?: string }) => Promise<MiniAppLoginResult>
+  loginByMiniApp: (options?: {
+    withProfile?: boolean
+    inviteCode?: string
+  }) => Promise<MiniAppLoginResult>
   /** 静默尝试跨端小程序登录(启动时自动适配微信/支付宝环境) */
   trySilentMiniAppLogin: () => Promise<MiniAppLoginResult | null>
 }
 
-export const useUserStore = create<UserState>((set) => ({
+// 创建 store 实例(纯逻辑,不依赖 React,可被 Vite 正确打包)
+const userStoreApi = createStore<UserState>((set) => ({
   token: getToken(),
   refreshToken: getRefreshToken(),
   user: getUserInfo(),
@@ -88,3 +103,35 @@ export const useUserStore = create<UserState>((set) => ({
     }
   },
 }))
+
+// 兼容原 useUserStore 的 API:既能作为 hook 调用(useUserStore((s) => s.user)),
+// 又能访问 .getState()/.setState()/.subscribe() 方法
+type UseUserStore = {
+  (): UserState
+  <U>(selector: (state: UserState) => U): U
+  getState: () => UserState
+  setState: StoreApi<UserState>['setState']
+  subscribe: StoreApi<UserState>['subscribe']
+}
+
+const identity = <T>(s: T): T => s
+
+// hook 实现:用 useSyncExternalStore 订阅 vanilla store
+function useUserStoreImpl<U>(
+  selector: (state: UserState) => U = identity as (state: UserState) => U,
+): U {
+  return useSyncExternalStore(
+    userStoreApi.subscribe,
+    useCallback(() => selector(userStoreApi.getState()), [selector]),
+    useCallback(() => selector(userStoreApi.getInitialState()), [selector]),
+  )
+}
+
+// 附加 api 方法到 hook 函数上(与 zustand create 返回的 UseBoundStore 接口一致)
+const useUserStore = Object.assign(useUserStoreImpl, {
+  getState: userStoreApi.getState,
+  setState: userStoreApi.setState,
+  subscribe: userStoreApi.subscribe,
+}) as UseUserStore
+
+export { useUserStore }
