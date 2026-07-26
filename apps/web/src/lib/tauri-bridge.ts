@@ -1,6 +1,7 @@
 // tauri 桥接依赖:运行时由 Tauri WebView 注入,构建时 next.config.ts transpilePackages 解析。
 // pnpm workspace 已将 @tauri-apps/api 与 @tauri-apps/plugin-dialog 链接到 web node_modules。
 import { invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 
 export { formatFileSize } from '@ihui/shared/utils/format'
@@ -139,6 +140,74 @@ export async function closeWindow(): Promise<void> {
 export async function startWindowDrag(): Promise<void> {
   if (!isTauri()) return
   await invoke('plugin:window|start_dragging', { label: 'main' })
+}
+
+/**
+ * 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
+ * direction: n/s/e/w/ne/nw/se/sw
+ * 非桌面端静默忽略。
+ */
+export async function startResize(
+  direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw',
+): Promise<void> {
+  if (!isTauri()) return
+  await invoke('start_resize', { direction })
+}
+
+/**
+ * 监听窗口最大化状态变化(P0-2:最大化按钮图标切换,2026-07-27 立)。
+ * 返回清理函数。非桌面端返回 no-op。
+ */
+export function onMaximizeChange(callback: (maximized: boolean) => void): () => void {
+  if (!isTauri()) return () => {}
+  const win = getCurrentWindow()
+  let unlisten: (() => void) | undefined
+  win.onResized(async () => {
+    try {
+      const max = await win.isMaximized()
+      callback(max)
+    } catch {
+      /* ignore */
+    }
+  }).then((fn: () => void) => {
+    unlisten = fn
+  })
+  return () => {
+    unlisten?.()
+  }
+}
+
+/**
+ * 获取系统主题(P1-7:主题跟随,2026-07-27 立)。
+ * 返回 'light' | 'dark' | undefined(非 Tauri 或失败)。
+ */
+export async function getSystemTheme(): Promise<'light' | 'dark' | undefined> {
+  if (!isTauri()) return undefined
+  try {
+    const theme = await invoke<string>('plugin:os|theme')
+    return theme as 'light' | 'dark'
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * 监听系统主题变化(P1-7:主题跟随,2026-07-27 立)。
+ * 返回同步清理函数。非桌面端返回 no-op。
+ */
+export function onSystemThemeChange(callback: (theme: 'light' | 'dark') => void): () => void {
+  if (!isTauri()) return () => {}
+  const win = getCurrentWindow()
+  let unlisten: (() => void) | undefined
+  win.onThemeChanged(async () => {
+    const theme = await getSystemTheme()
+    if (theme) callback(theme)
+  }).then((fn: () => void) => {
+    unlisten = fn
+  })
+  return () => {
+    unlisten?.()
+  }
 }
 
 // ================== 应用信息 ==================
