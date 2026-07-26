@@ -119,14 +119,10 @@ test.describe('侧边栏按钮高度统一验证', () => {
       return r
     })
 
-    // eslint-disable-next-line no-console
-    console.log('=== DOM 数值 ===')
-    // eslint-disable-next-line no-console
-    console.log(JSON.stringify(data, null, 2))
-    // eslint-disable-next-line no-console
-    console.log('=== 控制台错误 ===')
-    // eslint-disable-next-line no-console
-    console.log(consoleErrors.length === 0 ? '(无)' : consoleErrors.join('\n'))
+    console.info('=== DOM 数值 ===')
+    console.info(JSON.stringify(data, null, 2))
+    console.info('=== 控制台错误 ===')
+    console.info(consoleErrors.length === 0 ? '(无)' : consoleErrors.join('\n'))
 
     // 断言(核心)
     expect(data.navLink0_height).toBe(36)
@@ -158,10 +154,8 @@ test.describe('侧边栏按钮高度统一验证', () => {
       const cs = getComputedStyle(el)
       return { backgroundColor: cs.backgroundColor, color: cs.color }
     })
-    // eslint-disable-next-line no-console
-    console.log('=== hover 态样式 ===')
-    // eslint-disable-next-line no-console
-    console.log(JSON.stringify(hoverBg, null, 2))
+    console.info('=== hover 态样式 ===')
+    console.info(JSON.stringify(hoverBg, null, 2))
   })
 
   test('active 态(点击导航项)', async ({ page }) => {
@@ -201,14 +195,10 @@ test.describe('侧边栏按钮高度统一验证', () => {
         }
       })
     }
-    // eslint-disable-next-line no-console
-    console.log('=== active 态 ===')
-    // eslint-disable-next-line no-console
-    console.log('clicked href:', clickedHref)
-    // eslint-disable-next-line no-console
-    console.log('active item style:', JSON.stringify(activeStyle, null, 2))
-    // eslint-disable-next-line no-console
-    console.log('current url:', page.url())
+    console.info('=== active 态 ===')
+    console.info('clicked href:', clickedHref)
+    console.info('active item style:', JSON.stringify(activeStyle, null, 2))
+    console.info('current url:', page.url())
   })
 
   test('dark mode 态', async ({ page }) => {
@@ -218,10 +208,8 @@ test.describe('侧边栏按钮高度统一验证', () => {
 
     // 初始 html class
     const initialClass = await page.evaluate(() => document.documentElement.className)
-    // eslint-disable-next-line no-console
-    console.log('=== dark mode 初始 ===')
-    // eslint-disable-next-line no-console
-    console.log('initial html class:', initialClass)
+    console.info('=== dark mode 初始 ===')
+    console.info('initial html class:', initialClass)
 
     // 主题切换按钮:light 下 aria-label="深色模式"(显示 Moon),dark 下 aria-label="浅色模式"(显示 Sun)
     // 直接用 aria-label 精确匹配(避免 filter 链导致 click 不触发)
@@ -233,8 +221,7 @@ test.describe('侧边栏按钮高度统一验证', () => {
       .first()
 
     const btnCount = await themeBtn.count()
-    // eslint-disable-next-line no-console
-    console.log('themeBtn count:', btnCount)
+    console.info('themeBtn count:', btnCount)
 
     if (btnCount === 0) {
       // 兜底:直接选含 Moon svg 的 button(light 态显示 Moon)
@@ -250,8 +237,7 @@ test.describe('侧边栏按钮高度统一验证', () => {
     try {
       await expect(page.locator('html')).toHaveClass(/dark/, { timeout: 5000 })
     } catch {
-      // eslint-disable-next-line no-console
-      console.log('click 未触发 dark,用 evaluate 强制切换')
+      console.info('click 未触发 dark,用 evaluate 强制切换')
       await page.evaluate(() => {
         try {
           localStorage.setItem('theme', 'dark')
@@ -266,10 +252,8 @@ test.describe('侧边栏按钮高度统一验证', () => {
     await page.waitForTimeout(500)
 
     const htmlClass = await page.evaluate(() => document.documentElement.className)
-    // eslint-disable-next-line no-console
-    console.log('=== dark mode 切换后 ===')
-    // eslint-disable-next-line no-console
-    console.log('html class:', htmlClass)
+    console.info('=== dark mode 切换后 ===')
+    console.info('html class:', htmlClass)
 
     await page.screenshot({
       path: path.join(SHOT_DIR, '4-dark.png'),
