@@ -36,35 +36,13 @@ body {
   color: var(--color-foreground);
 }
 
-/* ===== 登录外壳样式(2026-07-26 同步 web 端 globals.css) =====
- * 与 apps/web/app/globals.css 第 79-93 行保持完全一致:
- * - .login-scope 强制 --color-accent/--color-muted 为纯白(hover 凸出)
- * - .login-scope .border-input:hover 边框变深(默认 border-input 太浅,hover 无反馈)
- * - .welcome-img-dark 默认隐藏,.dark 下反之(实现浅/深 welcome.svg 自动切换)
- */
-.login-scope {
-  --color-accent: hsl(0 0% 100%);
-  --color-accent-foreground: hsl(0 0% 3.9%);
-  --color-muted: hsl(0 0% 100%);
-}
-.dark .login-scope {
-  --color-accent: hsl(0 0% 22%);
-  --color-muted: hsl(0 0% 22%);
-}
-.login-scope .border-input:hover {
-  border-color: hsl(0 0% 3.9% / 0.2);
-}
-:where(.dark) .login-scope .border-input:hover {
-  border-color: hsl(0 0% 98% / 0.2);
-}
-
-/* 登录页 welcome 图:浅色 welcome.svg,深色 baiwelcome.svg */
-.welcome-img-dark {
-  display: none;
-}
-.dark .welcome-img {
-  display: none;
-}
-.dark .welcome-img-dark {
-  display: block;
-}
+/* ===== 登录外壳样式 =====
+ * 2026-07-26 根治 web/extension 登录界面不一致:全部抽到 packages/ui-react/src/styles/auth-shell.css
+ * 通过 @ihui/ui-react 包的 index.ts 自动加载(import './styles/auth-shell.css'),此处不再重复定义。
+ *
+ * 共享样式内容(.login-scope CSS 变量覆盖 + outline 按钮 hover 边框 + welcome 图浅/深切换)
+ * 与 apps/web/app/globals.css 注释中 M-70 增强版完全一致 — 单一来源,真正"一模一样"。
+ *
+ * web 端 globals.css 通过 @source 扫描 ui-react/src 自动加载;
+ * 本扩展端通过 ESM import 副作用(import './styles/auth-shell.css' 触发)
+ * 链入。修改样式请改 packages/ui-react/src/styles/auth-shell.css,不要在本文件重复。 */
