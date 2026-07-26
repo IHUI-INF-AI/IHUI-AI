@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { Hammer, BookOpen, Search, FileText, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
-// @ts-ignore - @ihui/types not resolved in typecheck
 import type { ChatMode } from '@ihui/types'
 import { useModeStore } from '@/stores/mode'
 import { Tooltip } from '@/components/feedback'

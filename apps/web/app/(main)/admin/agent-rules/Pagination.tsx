@@ -1,9 +1,6 @@
 'use client'
-// @ts-ignore
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Button } from '@ihui/ui-react'
 
 interface Props {
