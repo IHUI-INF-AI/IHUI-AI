@@ -361,6 +361,19 @@ for (const call of allCalls) {
       break
     }
   }
+  // 兜底:前端路径含 /api/v1/ 段时,后端可能注册的是无 /v1 版本(历史 API 版本前缀遗留)
+  // 尝试剥除 /v1 段重试匹配,命中则视为已注册(避免误报,同时不掩盖真正 404 风险)
+  if (!found && call.path.includes('/api/v1/')) {
+    const strippedPath = call.path.replace('/api/v1/', '/api/')
+    for (const bp of backendPathSet) {
+      const [bm, bp2] = bp.split(' ')
+      const methodOk = call.method === 'ANY' || bm === call.method
+      if (methodOk && pathMatches(strippedPath, bp2)) {
+        found = true
+        break
+      }
+    }
+  }
   if (!found) {
     missing.push(call)
   }
