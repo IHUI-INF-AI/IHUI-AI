@@ -20,7 +20,7 @@ interface PDFViewerProps {
   initialScale?: number
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any -- PDF.js API 类型定义不完整,用 any 简化集成 */
 type AnyPdfLib = any
 type AnyPdfDoc = any
 type AnyPdfPage = any

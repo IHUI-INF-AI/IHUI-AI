@@ -193,7 +193,7 @@ export function EditorTabBar() {
         )
       })}
       {menu && (
-        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互
         <div
           className="fixed z-50 min-w-[160px] rounded-md border border-border bg-popover py-1 text-xs shadow-md"
           style={{ left: menu.x, top: menu.y }}
