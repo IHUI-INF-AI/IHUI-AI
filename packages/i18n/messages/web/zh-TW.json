@@ -12147,10 +12147,7 @@
       "hideGuides": "隱藏參考線"
     },
     "commentPlaceholder": "對該元素的評論…",
-    "saved": "已儲存: {name}",
-    "saveFailed": "儲存失敗: {error}",
     "errorPrefix": "異常",
-    "commented": "已評論 {tagName}#{elementId}: {comment}",
     "undo": "復原",
     "redo": "重做",
     "previewList": "預覽列表",
@@ -12183,28 +12180,16 @@
       "exportButton": "匯出程式碼",
       "exportReact": "React 元件",
       "exportVue": "Vue 元件",
-      "exportHtml": "純 HTML",
-      "exportSuccess": "已匯出 {filename}"
+      "exportHtml": "純 HTML"
     },
     "responsive": {
       "customWidth": "自訂寬度",
       "apply": "套用",
-      "deviceFrame": "裝置外框",
-      "deviceCustom": "",
-      "deviceDesktop": "",
-      "deviceMobileLandscape": "",
-      "deviceMobilePortrait": "",
-      "deviceTabletLandscape": "",
-      "deviceTabletPortrait": ""
+      "deviceFrame": "裝置外框"
     },
     "templates": {
       "title": "範本",
       "categories": {
-        "blank": "空白",
-        "marketing": "行銷",
-        "app": "應用",
-        "content": "內容",
-        "commerce": "電商"
       }
     }
   },

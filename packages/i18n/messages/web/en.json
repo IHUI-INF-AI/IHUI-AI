@@ -12178,10 +12178,7 @@
       "hideGuides": "Hide guides"
     },
     "commentPlaceholder": "Comment on this element…",
-    "saved": "Saved: {name}",
-    "saveFailed": "Save failed: {error}",
     "errorPrefix": "Error",
-    "commented": "Commented {tagName}#{elementId}: {comment}",
     "undo": "Undo",
     "redo": "Redo",
     "previewList": "Preview List",
@@ -12214,28 +12211,16 @@
       "exportButton": "Export Code",
       "exportReact": "React Component",
       "exportVue": "Vue Component",
-      "exportHtml": "Plain HTML",
-      "exportSuccess": "Exported {filename}"
+      "exportHtml": "Plain HTML"
     },
     "responsive": {
       "customWidth": "Custom Width",
       "apply": "Apply",
-      "deviceFrame": "Device Frame",
-      "deviceCustom": "",
-      "deviceDesktop": "",
-      "deviceMobileLandscape": "",
-      "deviceMobilePortrait": "",
-      "deviceTabletLandscape": "",
-      "deviceTabletPortrait": ""
+      "deviceFrame": "Device Frame"
     },
     "templates": {
       "title": "Templates",
       "categories": {
-        "blank": "Blank",
-        "marketing": "Marketing",
-        "app": "App",
-        "content": "Content",
-        "commerce": "Commerce"
       }
     }
   },
