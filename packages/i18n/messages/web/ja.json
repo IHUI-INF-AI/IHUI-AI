@@ -8783,32 +8783,56 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI"]
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI"]
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI"
+        ]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "検索", "search"]
+        "keywords": [
+          "検索",
+          "検索",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"]
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"]
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"]
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ]
       }
     }
   },
@@ -9170,19 +9194,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -9303,25 +9339,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -10650,7 +10698,15 @@
       "sessions": "セッション数",
       "crashRate": "クラッシュ率"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ],
     "dauTrend": {
       "title": "直近7日間のDAU推移",
       "subtitle": "日次アクティブユーザー数推移曲線"
@@ -10794,8 +10850,18 @@
     "title": "AI キャリア指導",
     "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
     "options": {
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"],
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -12409,25 +12475,6 @@
       }
     }
   },
-  "modelsPage": "Models",
-  "seo": {
-    "imageSitemap": {
-      "title": "画像サイトマップ — IHUI AI",
-      "description": "IHUI AI 画像サイトマップ。public/images/ 配下の公式ブランド素材、アイコン、第三者ログイン素材を網羅し、Google Images のクロールに対応します。"
-    },
-    "newsSitemap": {
-      "title": "ニュースサイトマップ — IHUI AI",
-      "description": "IHUI AI ニュースサイトマップ。過去 30 日間の製品リリース、セキュリティ強化、機能追加を docs/CHANGELOG.md と照合して掲載します。"
-    },
-    "jsonFeed": {
-      "title": "JSON Feed — IHUI AI",
-      "description": "IHUI AI JSON Feed 1.1 購読。5 言語切替対応の構造化フィードで、LLM および MCP クライアントの解析に適しています。"
-    },
-    "opml": {
-      "title": "OPML 購読アウトライン — IHUI AI",
-      "description": "IHUI AI 全購読ソースの OPML 2.0 アウトライン。主要フィード、リアルタイムプッシュ、検索エンジン用 sitemap、5 言語バージョンごとにグループ化し、リーダーにワンクリックで取り込めます。"
-    }
-  },
   "useCasesAiEdu": {
     "metaTitle": "AI 教育 Agent ユースケース — コース設計/自動答疑/学習推薦 | IHUI AI",
     "metaDescription": "IHUI AI フルスタック AI OS で構築する AI 教育 Agent:コース構造化設計、自動答疑、添削、パーソナライズ学習パス、学習ダッシュボード、8 エンド同期配信。",
@@ -12469,21 +12516,5 @@
         "ratingValue": 4.8
       }
     }
-  },
-  "useCasesAiDesign": {
-    "metaTitle": "AI デザイン協業 Agent — ポスター/Logo コンセプト/スケッチをコードへ | IHUI AI",
-    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI デザイン協業 Agent を構築:ポスター/Logo コンセプト + スケッチをコードへ + ブランド資産管理 + デザインレビュー + デザインシステム検索,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
-  },
-  "useCasesAiMarketing": {
-    "metaTitle": "AI マーケティングコンテンツ生成 Agent — マルチプラットフォーム/SEO/A/B | IHUI AI",
-    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI マーケティングコンテンツ生成 Agent を構築:マルチプラットフォームコピー + SEO ブログ + ブランドトーン一貫性 + A/B テスト + ペルソナ駆動,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
-  },
-  "useCasesAiResearch": {
-    "metaTitle": "AI 学術研究アシスタント — 論文検索/レビュー/引用管理 | IHUI AI",
-    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI 学術研究アシスタントを構築:論文検索 + PDF パース + 引用管理 + レビュー生成 + 知識グラフ + 動態分析,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
-  },
-  "useCasesAiTranslation": {
-    "metaTitle": "AI 多言語翻訳 Agent — 文書翻訳/ローカライズ/用語集/字幕 | IHUI AI",
-    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI 多言語翻訳 Agent を構築:多言語文書翻訳 + ローカライズワークフロー + 用語集管理 + 翻訳レビュー + 文化適応 + 字幕翻訳,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
   }
 }

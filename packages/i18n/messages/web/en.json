@@ -8748,32 +8748,58 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
@@ -9134,19 +9160,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -9267,25 +9305,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -10614,7 +10664,15 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"
@@ -12348,7 +12406,6 @@
       }
     }
   },
-  "modelsPage": "Models",
   "useCasesAiEdu": {
     "metaTitle": "AI Education Agent Use Case — Course Authoring / Q&A / Learning Path | IHUI AI",
     "metaDescription": "Build AI Education Agent with IHUI AI full-stack AI OS: structured course authoring, smart Q&A, auto-grading, personalized learning paths, learning dashboard, 8-end sync distribution.",
@@ -12390,39 +12447,5 @@
         "ratingValue": 4.8
       }
     }
-  },
-  "seo": {
-    "imageSitemap": {
-      "title": "Image Sitemap — IHUI AI",
-      "description": "IHUI AI image sitemap covering all official brand assets, icons, and third-party login materials under public/images/, for Google Images crawling."
-    },
-    "newsSitemap": {
-      "title": "News Sitemap — IHUI AI",
-      "description": "IHUI AI news sitemap listing product releases, security hardening, and capability launches from the past 30 days, traced to docs/CHANGELOG.md."
-    },
-    "jsonFeed": {
-      "title": "JSON Feed — IHUI AI",
-      "description": "IHUI AI JSON Feed 1.1 subscription with 5-language switch support, providing structured feed data suitable for LLM and MCP client parsing."
-    },
-    "opml": {
-      "title": "OPML Subscription Outline — IHUI AI",
-      "description": "IHUI AI full-feed OPML 2.0 outline: main feeds, real-time push, search-engine sitemaps, and 5-language version groups, one-click import into any reader."
-    }
-  },
-  "useCasesAiDesign": {
-    "metaTitle": "AI Design Collaboration Agent — Poster/Logo Concept / Sketch to Code / Review | IHUI AI",
-    "metaDescription": "Build an AI design collaboration agent on IHUI AI full-stack AI OS: poster/Logo concepts + sketch-to-code + brand asset management + design review + design system retrieval, 8-endpoint sync distribution, Apache 2.0 open source."
-  },
-  "useCasesAiMarketing": {
-    "metaTitle": "AI Marketing Content Generation Agent — Multi-platform Copy / SEO / A/B | IHUI AI",
-    "metaDescription": "Build an AI marketing content generation agent on IHUI AI full-stack AI OS: multi-platform copy + SEO blog + brand voice consistency + A/B testing + persona-driven content, 8-endpoint sync distribution, Apache 2.0 open source."
-  },
-  "useCasesAiResearch": {
-    "metaTitle": "AI Academic Research Assistant — Paper Retrieval / Review / Citation | IHUI AI",
-    "metaDescription": "Build an AI academic research assistant on IHUI AI full-stack AI OS: paper retrieval + PDF parsing + citation management + review generation + knowledge graph + trend analysis, 8-endpoint sync distribution, Apache 2.0 open source."
-  },
-  "useCasesAiTranslation": {
-    "metaTitle": "AI Multilingual Translation Agent — Document / Localization / Glossary / Subtitle | IHUI AI",
-    "metaDescription": "Build an AI multilingual translation agent on IHUI AI full-stack AI OS: multilingual document translation + localization workflow + glossary management + translation review + cultural adaptation + subtitle translation, 8-endpoint sync distribution, Apache 2.0 open source."
   }
 }

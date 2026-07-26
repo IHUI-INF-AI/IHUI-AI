@@ -39,8 +39,12 @@ function clickByText(container: HTMLElement, text: string) {
 describe('PlanActToggle', () => {
   afterEach(() => cleanup())
 
+  // 2026-07-26 修复:happy-dom 默认 getBoundingClientRect().width=0,auto 模式测量得
+  // compact=true 走 icon 分支(1 按钮)。这里测文字按钮语义,显式传 variant="text"。
   it('mode=plan 时 规划 按钮选中(aria-checked=true)', () => {
-    const { container } = render(<PlanActToggle mode="plan" onChange={() => {}} />)
+    const { container } = render(
+      <PlanActToggle mode="plan" onChange={() => {}} variant="text" />,
+    )
     const radios = getButtons(container)
     expect(radios).toHaveLength(2)
     expect(radios[0]!.getAttribute('aria-checked')).toBe('true')
@@ -49,7 +53,9 @@ describe('PlanActToggle', () => {
 
   it('点击 执行 触发 onChange("act")', () => {
     const onChange = vi.fn()
-    const { container } = render(<PlanActToggle mode="plan" onChange={onChange} />)
+    const { container } = render(
+      <PlanActToggle mode="plan" onChange={onChange} variant="text" />,
+    )
     clickByText(container, '执行')
     expect(onChange).toHaveBeenCalledWith('act')
     expect(onChange).toHaveBeenCalledTimes(1)
@@ -57,13 +63,17 @@ describe('PlanActToggle', () => {
 
   it('点击 规划 触发 onChange("plan")', () => {
     const onChange = vi.fn()
-    const { container } = render(<PlanActToggle mode="act" onChange={onChange} />)
+    const { container } = render(
+      <PlanActToggle mode="act" onChange={onChange} variant="text" />,
+    )
     clickByText(container, '规划')
     expect(onChange).toHaveBeenCalledWith('plan')
   })
 
   it('选中态含 primary 背景类,未选中不含', () => {
-    const { container } = render(<PlanActToggle mode="plan" onChange={() => {}} />)
+    const { container } = render(
+      <PlanActToggle mode="plan" onChange={() => {}} variant="text" />,
+    )
     const radios = getButtons(container)
     expect(radios[0]!.getAttribute('class')).toContain('bg-primary')
     expect(radios[0]!.getAttribute('class')).toContain('text-primary-foreground')
@@ -72,7 +82,9 @@ describe('PlanActToggle', () => {
   })
 
   it('radiogroup 容器用 rounded-md(非 rounded-full)', () => {
-    const { container } = render(<PlanActToggle mode="plan" onChange={() => {}} />)
+    const { container } = render(
+      <PlanActToggle mode="plan" onChange={() => {}} variant="text" />,
+    )
     const group = getGroup(container)
     expect(group).not.toBeNull()
     expect(group!.getAttribute('class')).toContain('rounded-md')
