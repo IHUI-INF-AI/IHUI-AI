@@ -40,6 +40,18 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.0
+      '@webext-core/fake-browser':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@webext-core/isolated-element':
+        specifier: ^3.0.0
+        version: 3.0.0
+      '@webext-core/match-patterns':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@wxt-dev/storage':
+        specifier: ^1.2.8
+        version: 1.2.8
       eslint:
         specifier: ^9.16.0
         version: 9.39.4(jiti@2.7.0)
@@ -439,6 +451,9 @@ importers:
       '@wxt-dev/module-react':
         specifier: ^1.1.0
         version: 1.2.2(vite@5.4.21(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0))(wxt@0.19.29(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(rollup@4.62.2)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0))
+      '@wxt-dev/storage':
+        specifier: ^1.2.8
+        version: 1.2.8
       eslint:
         specifier: ^9.16.0
         version: 9.39.4(jiti@2.7.0)
@@ -538,7 +553,7 @@ importers:
         version: 4.2.0(@swc/helpers@0.5.15)(webpack@5.91.0(@swc/core@1.3.96(@swc/helpers@0.5.15))(lightningcss@1.32.0)(postcss@8.5.16))
       '@tarojs/vite-runner':
         specifier: 4.2.0
-        version: 4.2.0(@swc/helpers@0.5.15)(@tarojs/runtime@4.2.0)(@types/babel__core@7.20.5)(jiti@2.7.0)(postcss@8.5.16)(rollup@3.30.0)(terser@5.49.0)(tsx@4.23.0)(typescript@5.9.3)(vite@4.5.14(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0))
+        version: 4.2.0(@swc/helpers@0.5.15)(@tarojs/runtime@4.2.0)(@types/babel__core@7.20.5)(jiti@1.21.7)(postcss@8.5.16)(rollup@3.30.0)(terser@5.49.0)(tsx@4.23.0)(typescript@5.9.3)(vite@4.5.14(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0))
       '@tarojs/webpack5-runner':
         specifier: 4.2.0
         version: 4.2.0(@babel/core@7.29.7)(@swc/core@1.3.96(@swc/helpers@0.5.15))(@swc/helpers@0.5.15)(@tarojs/runtime@4.2.0)(less@4.7.0)(postcss@8.5.16)(sass@1.101.0)(stylus@0.64.0)(typescript@5.9.3)(webpack@5.91.0(@swc/core@1.3.96(@swc/helpers@0.5.15))(lightningcss@1.32.0)(postcss@8.5.16))
@@ -553,7 +568,7 @@ importers:
         version: 4.2.0(@babel/core@7.29.7)(@babel/plugin-transform-typescript@7.29.7(@babel/core@7.29.7))(@babel/preset-react@7.29.7(@babel/core@7.29.7))(@react-native/babel-preset@0.86.0(@babel/core@7.29.7))(@swc/helpers@0.5.15)(@tarojs/taro-rn@4.2.0(adt5yohtffdiwj7xrjsevhlviy))(react-refresh@0.14.2)
       eslint:
         specifier: ^9.16.0
-        version: 9.39.4(jiti@2.7.0)
+        version: 9.39.4(jiti@1.21.7)
       react-refresh:
         specifier: ^0.14.0
         version: 0.14.2
@@ -8583,11 +8598,20 @@ packages:
   '@webext-core/fake-browser@1.5.2':
     resolution: {integrity: sha512-nkDQwOJ23X5Q7cEtN6LRuBtVFf1KVOFi5GoQAro0lzqdh59F5E+K350j1isbnqYbzsXRh1NJtboudIcHfZtvOQ==}
 
+  '@webext-core/fake-browser@2.0.0':
+    resolution: {integrity: sha512-BIgOLTVmtz2NKB6NDlgW4yt3Dr75lc/LRjkVJvojunHvZ+wb1xDdFEIaJD+hjqaRW6R7AjGBxx7ZtwAV2n2E8A==}
+
   '@webext-core/isolated-element@1.1.5':
     resolution: {integrity: sha512-4m6oP8Vzm/68YO1QmkUOZqqUcmyBtA53tji2g00/nYXE3E3IceYgeub7eIqvXDV2Z7xU6cm6qO1IMt4XFVwtvQ==}
 
+  '@webext-core/isolated-element@3.0.0':
+    resolution: {integrity: sha512-PmSIBMSe+rFw6eXzpJoV+glc1HPO40clcT9FJ7rSfCQzNewK8/nQZoBYWen2cMqdXdBNM9to/IbNNu5mdQLaPg==}
+
   '@webext-core/match-patterns@1.1.0':
     resolution: {integrity: sha512-vebVVbcOyva4jyvljIzRJwjFi/OKMLr96LIIxiPeXfA38gE4Z3+H6Y9DwRmn7pWErJGNNHU6XOhOb5ZwicGs7Q==}
+
+  '@webext-core/match-patterns@2.0.0':
+    resolution: {integrity: sha512-EsyMMKfQuSE4rWCjP/TifwvUWlhC/OhiGn5OK3p9F0d57UmtLib0nzguzPKyxM1/kZV7SkE+jYXkE8gsdPRLmw==}
 
   '@wxt-dev/browser@0.1.43':
     resolution: {integrity: sha512-RMB0zgfe7uuiTp18s9taLeKXoOCLBV418797dnEggiMWmM1JDJekiLtlvrNc6QeZg+amDBy2/KKYuQB2kh/K9A==}
@@ -21279,6 +21303,11 @@ snapshots:
       eslint: 8.41.0
       eslint-visitor-keys: 3.4.3
 
+  '@eslint-community/eslint-utils@4.9.1(eslint@9.39.4(jiti@1.21.7))':
+    dependencies:
+      eslint: 9.39.4(jiti@1.21.7)
+      eslint-visitor-keys: 3.4.3
+
   '@eslint-community/eslint-utils@4.9.1(eslint@9.39.4(jiti@2.7.0))':
     dependencies:
       eslint: 9.39.4(jiti@2.7.0)
@@ -26450,7 +26479,7 @@ snapshots:
       webpack-chain: 6.5.1
       webpack-dev-server: 4.15.2(webpack@5.91.0(@swc/core@1.3.96(@swc/helpers@0.5.15))(lightningcss@1.32.0)(postcss@8.5.16))
 
-  '@tarojs/vite-runner@4.2.0(@swc/helpers@0.5.15)(@tarojs/runtime@4.2.0)(@types/babel__core@7.20.5)(jiti@2.7.0)(postcss@8.5.16)(rollup@3.30.0)(terser@5.49.0)(tsx@4.23.0)(typescript@5.9.3)(vite@4.5.14(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0))':
+  '@tarojs/vite-runner@4.2.0(@swc/helpers@0.5.15)(@tarojs/runtime@4.2.0)(@types/babel__core@7.20.5)(jiti@1.21.7)(postcss@8.5.16)(rollup@3.30.0)(terser@5.49.0)(tsx@4.23.0)(typescript@5.9.3)(vite@4.5.14(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@babel/core': 7.29.7
@@ -26479,7 +26508,7 @@ snapshots:
       postcss-css-variables: 0.19.0(postcss@8.5.16)
       postcss-html-transform: 4.2.0(postcss@8.5.16)
       postcss-import: 16.1.1(postcss@8.5.16)
-      postcss-load-config: 5.1.0(jiti@2.7.0)(postcss@8.5.16)(tsx@4.23.0)
+      postcss-load-config: 5.1.0(jiti@1.21.7)(postcss@8.5.16)(tsx@4.23.0)
       postcss-modules: 6.0.1(postcss@8.5.16)
       postcss-plugin-constparse: 4.2.0(postcss@8.5.16)
       postcss-pxtransform: 4.2.0(postcss@8.5.16)
@@ -27886,11 +27915,22 @@ snapshots:
       '@types/webextension-polyfill': 0.12.5
       lodash.merge: 4.6.2
 
+  '@webext-core/fake-browser@2.0.0':
+    dependencies:
+      '@wxt-dev/browser': 0.1.43
+      lodash.merge: 4.6.2
+
   '@webext-core/isolated-element@1.1.5':
     dependencies:
       is-potential-custom-element-name: 1.0.1
 
+  '@webext-core/isolated-element@3.0.0':
+    dependencies:
+      is-potential-custom-element-name: 1.0.1
+
   '@webext-core/match-patterns@1.1.0': {}
+
+  '@webext-core/match-patterns@2.0.0': {}
 
   '@wxt-dev/browser@0.1.43':
     dependencies:
@@ -31075,6 +31115,47 @@ snapshots:
       strip-ansi: 6.0.1
       strip-json-comments: 3.1.1
       text-table: 0.2.0
+    transitivePeerDependencies:
+      - supports-color
+
+  eslint@9.39.4(jiti@1.21.7):
+    dependencies:
+      '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.4(jiti@1.21.7))
+      '@eslint-community/regexpp': 4.12.2
+      '@eslint/config-array': 0.21.2
+      '@eslint/config-helpers': 0.4.2
+      '@eslint/core': 0.17.0
+      '@eslint/eslintrc': 3.3.5
+      '@eslint/js': 9.39.4
+      '@eslint/plugin-kit': 0.4.1
+      '@humanfs/node': 0.16.8
+      '@humanwhocodes/module-importer': 1.0.1
+      '@humanwhocodes/retry': 0.4.3
+      '@types/estree': 1.0.9
+      ajv: 6.15.0
+      chalk: 4.1.2
+      cross-spawn: 7.0.6
+      debug: 4.4.3
+      escape-string-regexp: 4.0.0
+      eslint-scope: 8.4.0
+      eslint-visitor-keys: 4.2.1
+      espree: 10.4.0
+      esquery: 1.7.0
+      esutils: 2.0.3
+      fast-deep-equal: 3.1.3
+      file-entry-cache: 8.0.0
+      find-up: 5.0.0
+      glob-parent: 6.0.2
+      ignore: 5.3.2
+      imurmurhash: 0.1.4
+      is-glob: 4.0.3
+      json-stable-stringify-without-jsonify: 1.0.1
+      lodash.merge: 4.6.2
+      minimatch: 3.1.5
+      natural-compare: 1.4.0
+      optionator: 0.9.4
+    optionalDependencies:
+      jiti: 1.21.7
     transitivePeerDependencies:
       - supports-color
 
@@ -36546,12 +36627,12 @@ snapshots:
       camelcase-css: 2.0.1
       postcss: 8.5.16
 
-  postcss-load-config@5.1.0(jiti@2.7.0)(postcss@8.5.16)(tsx@4.23.0):
+  postcss-load-config@5.1.0(jiti@1.21.7)(postcss@8.5.16)(tsx@4.23.0):
     dependencies:
       lilconfig: 3.1.3
       yaml: 2.9.0
     optionalDependencies:
-      jiti: 2.7.0
+      jiti: 1.21.7
       postcss: 8.5.16
       tsx: 4.23.0
 
