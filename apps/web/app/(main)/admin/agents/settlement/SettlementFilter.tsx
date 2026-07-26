@@ -1,8 +1,5 @@
 'use client'
-
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { STATUS_OPTIONS, STATUS_KEY, selectClass } from './helpers'
 

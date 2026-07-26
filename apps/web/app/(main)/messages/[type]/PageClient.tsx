@@ -8,9 +8,6 @@ import { Loader2, Bell, Heart, Star, MessageSquare, Users, Mail } from 'lucide-r
 import { fetchApi } from '@/lib/api'
 import { Avatar } from '@/components/data'
 import { cn } from '@/lib/utils'
-// @ts-ignore
-// @ts-ignore
-// @ts-ignore
 import type { NotificationItem } from '@ihui/types'
 
 type MessageType = 'notice' | 'like' | 'favorite' | 'comment' | 'fans' | 'private-letter'
