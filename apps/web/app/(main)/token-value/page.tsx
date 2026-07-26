@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Coins } from 'lucide-react'
 
 import { AnimatedNumber } from '@/components/common'
-import { getTokenBalance, getTokenFlows, type TokenFlowItem } from '@/lib/token-api'
+import { getTokenBalance, getTokenFlows, type TokenFlowItem } from '@ihui/api-client'
 
 import { TokenValueCards } from './TokenValueCards'
 import { TokenValueFilters } from './TokenValueFilters'

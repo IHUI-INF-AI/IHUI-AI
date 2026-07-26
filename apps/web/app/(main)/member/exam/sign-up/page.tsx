@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ClipboardList, Loader2, ChevronLeft, ChevronRight, CalendarClock } from 'lucide-react'
 
-import { getMySignUps, cancelSignUp } from '@/lib/exam-api'
+import { getMySignUps, cancelSignUp } from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
