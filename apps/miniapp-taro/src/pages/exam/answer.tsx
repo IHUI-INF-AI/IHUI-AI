@@ -135,7 +135,7 @@ export default function ExamAnswer() {
     if (current.type === 'subjective') {
       return (
         <Textarea
-          className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl min-h-[160px]"
+          className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl min-h-[320rpx]"
           placeholder={t('exam.answer.answerPlaceholder')}
           value={typeof ans === 'string' ? ans : ''}
           onInput={(e) => select(e.detail.value)}
@@ -164,7 +164,9 @@ export default function ExamAnswer() {
             className={`w-7 h-7 leading-7 text-center border text-sm ${
               isMulti ? 'rounded-md' : 'rounded-md'
             } ${
-              selected ? 'border-primary bg-primary text-white' : 'border-[#ccc] text-muted-foreground'
+              selected
+                ? 'border-primary bg-primary text-white'
+                : 'border-[#ccc] text-muted-foreground'
             }`}
           >
             {current.type === 'judgment' ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
