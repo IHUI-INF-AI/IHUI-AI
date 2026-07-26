@@ -71,7 +71,7 @@ export function ViewSwitcher() {
         ),
       }))
       .filter((g) => g.items.length > 0)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅依赖 query 变化时重新过滤,其他依赖通过闭包捕获
   }, [query])
 
   return (

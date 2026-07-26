@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * 真实 LLM 联调验证 — 验证 stepfun/agnes plan 套餐 key 在 CLI 场景下连通
  * 真实 key 严禁硬编码,从 .env 读取

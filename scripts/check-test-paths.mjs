@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-test-paths.mjs — 测试目录与误忽略路径守门(AGENTS.md §23 配套)
  *
