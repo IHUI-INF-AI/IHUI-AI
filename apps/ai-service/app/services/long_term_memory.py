@@ -349,7 +349,7 @@ class LongTermMemory:
                 dt = __import__("datetime").datetime.fromisoformat(text)
             else:
                 dt = end_time
-            return dt.strftime("%Y-%m-%d")
+            return str(dt.strftime("%Y-%m-%d"))
         except (ValueError, TypeError):
             return "未知日期"
 

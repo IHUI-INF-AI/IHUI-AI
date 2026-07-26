@@ -4,12 +4,15 @@
 /execute/stream 由 LangGraph StateGraph(plan → execute → summarize)驱动 SSE 事件流。
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import os
 import time
 import uuid
+from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -109,11 +112,11 @@ def _find_session(session_id: str) -> SessionState | None:
 
 # ============ Redis 客户端(不可用时降级到纯内存)============
 
-_redis_client = None
-_redis_disabled = False
+_redis_client: Any = None
+_redis_disabled: bool = False
 
 
-def _get_redis():
+def _get_redis() -> Any:
     global _redis_client, _redis_disabled
     if _redis_disabled:
         return None
@@ -188,7 +191,8 @@ async def execute(req: ExecuteRequest) -> ExecuteResponse:
 
     summary = ""
     try:
-        graph = get_agent_graph()
+        _get_graph: Any = get_agent_graph
+        graph = _get_graph()
         initial_state: AgentState = {
             "messages": [m.model_dump() for m in session.messages],
             "mode": req.mode,
@@ -215,7 +219,7 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
     session.messages.append(SessionMessage(role="user", content=req.message))
     _save_session_redis(session)
 
-    async def event_stream():
+    async def event_stream() -> AsyncIterator[str]:
         yield f"event: session\ndata: {json.dumps({'sessionId': session.id})}\n\n"
 
         if req.mode == "plan":
@@ -225,7 +229,8 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
             )
 
         try:
-            graph = get_agent_graph()
+            _get_graph: Any = get_agent_graph
+            graph = _get_graph()
             initial_state: AgentState = {
                 "messages": [m.model_dump() for m in session.messages],
                 "mode": req.mode,
@@ -292,7 +297,7 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
 
 
 @router.get("/{session_id}/status")
-async def get_status(session_id: str) -> dict:
+async def get_status(session_id: str) -> dict[str, Any]:
     session = _find_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
@@ -300,7 +305,7 @@ async def get_status(session_id: str) -> dict:
 
 
 @router.post("/{session_id}/cancel")
-async def cancel_session(session_id: str) -> dict:
+async def cancel_session(session_id: str) -> dict[str, Any]:
     session = _find_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
@@ -310,7 +315,7 @@ async def cancel_session(session_id: str) -> dict:
 
 
 @router.get("/sessions")
-async def list_sessions(limit: int = 20, offset: int = 0) -> dict:
+async def list_sessions(limit: int = 20, offset: int = 0) -> dict[str, Any]:
     items = list(_sessions.values())
     return {
         "sessions": [s.model_dump() for s in items[offset : offset + limit]],
@@ -319,7 +324,7 @@ async def list_sessions(limit: int = 20, offset: int = 0) -> dict:
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(session_id: str) -> dict:
+async def get_session(session_id: str) -> dict[str, Any]:
     session = _find_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
@@ -327,7 +332,7 @@ async def get_session(session_id: str) -> dict:
 
 
 @router.post("/sessions/{session_id}/resume")
-async def resume_session(session_id: str) -> dict:
+async def resume_session(session_id: str) -> dict[str, Any]:
     session = _find_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
@@ -349,14 +354,14 @@ async def check_permission(
 @router.get("/memory")
 async def get_memory(
     user_id: str, scope: str = "session", session_id: str | None = None
-) -> dict:
+) -> dict[str, Any]:
     """读取统一记忆(对接 api /api/memory,网络失败降级返回空列表)。"""
     entries = await unified_memory_client.get_entries(user_id, scope, session_id)
     return {"code": 0, "message": "ok", "data": entries}
 
 
 @router.post("/memory")
-async def add_memory(request: Request) -> dict:
+async def add_memory(request: Request) -> dict[str, Any]:
     """写入统一记忆(对接 api /api/memory,网络失败降级返回 None)。"""
     body = await request.json()
     result = await unified_memory_client.add_entry(body.get("userId"), body.get("entry"))
