@@ -1,23 +1,13 @@
 {
   "common": {
-    "cancel": "取消",
-    "delete": "删除",
-    "back": "返回",
     "loading": "加载中…",
-    "empty": "暂无数据",
-    "retry": "重试",
-    "submit": "提交",
-    "search": "搜索",
-    "all": "全部",
     "failed": "失败"
   },
   "nav": {
     "chat": "对话",
-    "settings": "设置",
     "agents": "AI 助手",
     "vocabulary": "词库",
     "profile": "个人中心",
-    "wallet": "钱包",
     "notifications": "通知",
     "tabRuntime": "运行时",
     "ai": "AI",
@@ -136,7 +126,6 @@
     "logout": "退出登录",
     "loginRequired": "请输入账号和密码",
     "phoneOrEmail": "手机号 / 邮箱",
-    "password": "密码",
     "roleAdmin": "管理员",
     "roleUser": "普通用户"
   },
@@ -162,7 +151,6 @@
     "emptyHint": "生词本为空,查词后点击保存"
   },
   "chat": {
-    "send": "发送",
     "history": "历史对话",
     "title": "AI 对话",
     "exit": "退出",
@@ -172,7 +160,6 @@
     "compactionNotice": "上下文已自动压缩:{{before}} → {{after}}(移除 {{removed}} 条历史)"
   },
   "settings": {
-    "title": "设置",
     "language": "界面语言",
     "appearance": "外观",
     "darkMode": "深色模式",
