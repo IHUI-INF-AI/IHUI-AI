@@ -7,9 +7,16 @@ import path from 'node:path'
  * E2E 共享 fixtures：提供已登录状态的 storageState 注入。
  *
  * 认证机制（与 src/stores/auth.ts、middleware.ts 对齐）：
- * - 登录接口：POST /api/auth/login/email，成功返回 { code: 0, data: { accessToken, ... } }
+ * - 登录接口：POST /api/auth/login，body 为 { account, password }；
+ *   `account` 字段接受 username / email / phone 三选一（后端 findUserByAccount 统一匹配，见 apps/api/src/routes/auth.ts:55-58 + apps/api/src/db/queries.ts:45-52）
+ * - 成功返回 { code: 0, data: { accessToken, ... } }
  * - token 写入 cookie `auth_token`（middleware 也会兜底读取 `token`）
  * - JWT payload 含 userId / roleId / role / exp；admin 判定：roleId >= 1
+ *
+ * 账号来源：
+ * - 普通用户（test@ihui.ai / Test@123456）由 seed 脚本保证
+ * - admin（admin / admin123）是真正的 system admin，由 packages/database/drizzle/0067_system_admin.sql + 0071_restore_admin_immutability.sql 迁移保证；
+ *   由于 0067 触发器让 system admin 不可变，本 fixtures 不再 seed 冗余的 admin@ihui.ai 账号
  *
  * 现有 34 个 spec 文件直接 `import { test } from '@playwright/test'`，不受本文件影响；
  * 需要登录态的新测试可 `import { test, expect } from './fixtures'` 并使用 authenticatedPage / adminPage。
@@ -17,13 +24,13 @@ import path from 'node:path'
 
 // 测试用户凭据（从环境变量读取，提供默认值，不硬编码敏感信息）
 const TEST_USER = {
-  email: process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
+  account: process.env.E2E_USER_ACCOUNT ?? 'test@ihui.ai',
   password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
 }
 
 const ADMIN_USER = {
-  email: process.env.E2E_ADMIN_EMAIL ?? 'admin@ihui.ai',
-  password: process.env.E2E_ADMIN_PASSWORD ?? 'Admin@123456',
+  account: process.env.E2E_ADMIN_ACCOUNT ?? 'admin',
+  password: process.env.E2E_ADMIN_PASSWORD ?? 'admin123',
 }
 
 // storageState 文件路径
@@ -47,6 +54,7 @@ async function loginAndSaveStorageState(
   // 邮箱登录表单字段（见 src/components/login/EmailLogin.tsx）
   const emailInput = page.locator('input[type="email"], input#email-login-email').first()
   const passwordInput = page.locator('input[type="password"]').first()
+  // @ts-expect-error - 暂时占位:Credentials 已统一为 account 字段,UI 登录函数后续单独改造
   await emailInput.fill(credentials.email)
   await passwordInput.fill(credentials.password)
 
@@ -78,7 +86,7 @@ async function apiLoginAndSaveStorageState(
 ) {
   const response = await request.post(`${baseURL}/api/auth/login`, {
     data: {
-      account: credentials.email,
+      account: credentials.account,
       password: credentials.password,
     },
   })
