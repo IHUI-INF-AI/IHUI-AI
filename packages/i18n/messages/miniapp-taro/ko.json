@@ -1,10 +1,5 @@
 {
-  "common": {
-    "loading": "로딩 중…"
-  },
   "nav": {
-    "courses": "강의",
-    "live": "라이브",
     "profile": "마이페이지",
     "community": "커뮤니티"
   },
@@ -76,7 +71,6 @@
   "course": {
     "learningProgress": "학습 진행도",
     "note": "노트",
-    "rating": "평점",
     "share": "공유",
     "teacher": "강사",
     "goldTeacher": "우수 강사",
@@ -115,7 +109,6 @@
   "live": {
     "viewers": "{{n}}명 시청",
     "preview": "예고",
-    "empty": "라이브 없음",
     "detail": {
       "loadFailed": "라이브 로딩 실패",
       "loading": "라이브 로딩 중…",
@@ -193,11 +186,7 @@
   },
   "order": {
     "title": "주문",
-    "status": {
-      "refunded": "환불됨"
-    },
     "cancel": "주문 취소",
-    "orderNo": "주문 번호",
     "loadFailed": "주문 로딩 실패",
     "createTime": "주문 일시",
     "orderType": "주문 유형",
@@ -840,8 +829,6 @@
       "scoreValue": "{{n}}점",
       "rankValue": "{{total}}명 중 {{n}}위",
       "goList": "시험 목록 보기",
-      "correct": "정답",
-      "wrong": "오답",
       "pageTitle": "시험 결과",
       "reviewTitle": "문제 복습",
       "reviewCorrect": "정답",
