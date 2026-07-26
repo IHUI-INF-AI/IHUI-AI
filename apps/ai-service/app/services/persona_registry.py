@@ -7,6 +7,8 @@
 
 from dataclasses import dataclass
 
+from .project_memory import build_system_prompt
+
 
 @dataclass
 class PersonaContract:
@@ -209,3 +211,35 @@ def get_persona_contract(persona: str) -> PersonaContract | None:
 def list_persona_names() -> list[str]:
     """列出全部 persona 名称。"""
     return list(PERSONAS_CONTRACTS.keys())
+
+
+# ════════════════════════════════════════════════
+# G1 字典化闭环接入示例(G1 第 3 轮)
+# 把"业务代号字典"与 persona 契约组合,作为 persona LLM 调用的 system prompt。
+# 所有走此 helper 的 persona 调用自动获得:DEFAULT + 业务代号字典 + 项目记忆 + persona 契约摘要。
+# ════════════════════════════════════════════════
+
+
+def build_persona_system_prompt(persona: str, workspace_path: str | None = None) -> str | None:
+    """构建 persona 专属 system prompt(自动注入业务代号字典 + 项目记忆 + persona 契约摘要)。
+
+    Args:
+        persona: persona 名称(researcher / coder / reviewer / architect / debugger)
+        workspace_path: 工作区路径(None 时用 cwd)
+
+    Returns:
+        完整 system prompt;persona 不存在时返回 None
+    """
+    contract = get_persona_contract(persona)
+    if contract is None:
+        return None
+
+    base = build_system_prompt(workspace_path=workspace_path)
+    contract_summary = (
+        f"## persona 契约:{persona}\n\n"
+        f"**输入 schema**(required 字段):"
+        f"{', '.join(contract.input_schema.get('required', [])) or '(无 required 字段)'}\n\n"
+        f"**输出 schema**(required 字段):"
+        f"{', '.join(contract.output_schema.get('required', [])) or '(无 required 字段)'}\n"
+    )
+    return f"{base}\n\n{contract_summary}"
