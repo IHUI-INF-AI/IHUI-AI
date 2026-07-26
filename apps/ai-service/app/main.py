@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from typing import Any
 
 # Windows + asyncio 强制使用 ProactorEventLoop(支持 subprocess_exec)
 # 否则 Playwright 启动 Chromium 会报 NotImplementedError(2026-07-22 立)
@@ -77,7 +78,7 @@ for _key in ("REDIS_URL", "DATABASE_URL", "JWT_SECRET", "AI_CALLBACK_SECRET",
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> Any:
     """应用生命周期。
 
     启动时执行 ai_model_config 字段对照校验(防止 ai-service 与 TS schema 漂移),
@@ -303,7 +304,7 @@ def create_app() -> FastAPI:
 
     # 全局异常兜底:未捕获的 Exception 返回 500 JSON(避免 ASGI 默认 HTML 错误页)
     @app.exception_handler(Exception)
-    async def global_exception_handler(request, exc):
+    async def global_exception_handler(request: Any, exc: Exception) -> JSONResponse:
         logger.exception("Unhandled exception: %s", exc)
         return JSONResponse(
             status_code=500,
@@ -370,7 +371,7 @@ def create_app() -> FastAPI:
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     @app.get("/api/audit/recent", tags=["audit"])
-    async def audit_recent(limit: int = 100):
+    async def audit_recent(limit: int = 100) -> dict[str, Any]:
         from app.services.audit_service import audit_service
         return {
             "code": 200,

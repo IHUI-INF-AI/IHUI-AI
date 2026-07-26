@@ -18,7 +18,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Coroutine
 
 from ..core.config import settings
 from .agent_loop import agent_executor
@@ -135,16 +135,16 @@ class A2AServer:
         self._redis: Any = None
         self._redis_available = False
         # 持有 create_task 引用,防止 CPython GC 回收未完成的 task
-        self._pending_tasks: set[asyncio.Task] = set()
+        self._pending_tasks: set[asyncio.Task[None]] = set()
 
-    def _spawn_task(self, coro) -> asyncio.Task:
+    def _spawn_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[None]:
         """创建 task 并持有引用,完成后自动从集合移除。"""
         task = asyncio.create_task(coro)
         self._pending_tasks.add(task)
         task.add_done_callback(self._pending_tasks.discard)
         return task
 
-    async def _get_redis(self):
+    async def _get_redis(self) -> Any:
         """获取 Redis 连接(懒初始化)。
 
         Redis 不可用时降级为纯内存模式,并打 warning 日志(2026-07-09 Phase 4 改进)。
