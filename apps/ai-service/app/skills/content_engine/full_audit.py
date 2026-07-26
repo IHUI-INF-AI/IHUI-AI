@@ -20,10 +20,11 @@ import time
 import argparse
 import urllib.request
 import subprocess
+from typing import cast
 
 try:
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8')
 except Exception:
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
@@ -38,7 +39,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 import project_boundary
 project_boundary.check_action(tool="full_audit.py")
 
-results = []  # (维度, 状态, 详情)
+results: list[tuple] = []  # (维度, 状态, 详情)
 IS_DRY_RUN = 'AUDIIT_DRY_RUN' in os.environ
 
 # === 项目边界硬检测（2026-07-14 用户强制·零容忍） ===
@@ -257,7 +258,7 @@ def main(argv=None):
             img_p = os.path.join('output/images', img_f)
             try:
                 img_obj = Image.open(img_p).convert('RGB')
-                img_small = img_obj.resize((min(200, img_obj.size[0]), min(200, img_obj.size[1])), Image.LANCZOS)
+                img_small = img_obj.resize((min(200, img_obj.size[0]), min(200, img_obj.size[1])), Image.Resampling.LANCZOS)
                 pixels = list(img_small.getdata())
                 counter = Counter(pixels)
                 most_common_pct = counter.most_common(1)[0][1] / len(pixels)
@@ -291,7 +292,7 @@ def main(argv=None):
                 continue
             try:
                 img_obj = Image.open(img_p).convert('RGB')
-                img_small = img_obj.resize((min(200, img_obj.size[0]), min(200, img_obj.size[1])), Image.LANCZOS)
+                img_small = img_obj.resize((min(200, img_obj.size[0]), min(200, img_obj.size[1])), Image.Resampling.LANCZOS)
                 pixels = list(img_small.getdata())
                 counter = Counter(pixels)
                 most_common_pct = counter.most_common(1)[0][1] / len(pixels)
