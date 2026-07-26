@@ -237,7 +237,7 @@ npx playwright test --project=setup
 | `adminPage` | 用 `admin.json` storageState 创建已登录管理员 page |
 
 - storageState 文件不存在时自动通过 API 登录创建(兜底)。
-- 测试用户凭据从环境变量读取(`E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD`),提供默认值。
+- 测试用户凭据从环境变量读取(`E2E_USER_ACCOUNT` / `E2E_USER_PASSWORD` / `E2E_ADMIN_ACCOUNT` / `E2E_ADMIN_PASSWORD`),提供默认值。`account` 字段接受 username/email/phone 三选一(后端 findUserByAccount 统一匹配)。
 - 现有 spec 直接 `import { test } from '@playwright/test'` 不受影响;新测试可 `import { test, expect } from './fixtures'`。
 
 ### 4.5 E2E spec 清单
