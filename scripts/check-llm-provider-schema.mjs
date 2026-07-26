@@ -182,7 +182,7 @@ function validateProviderConfig(name, cfg, source, issues) {
 
 function validateJsonField(rawValue, fieldName, isStrict, seenProviderNames) {
   const issues = []
-  if (rawValue === '' || rawValue == null) return issues
+  if (rawValue === '' || rawValue === null || rawValue === undefined) return issues
   let parsed
   try {
     parsed = JSON.parse(rawValue)

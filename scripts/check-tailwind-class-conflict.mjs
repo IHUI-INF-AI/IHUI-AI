@@ -132,47 +132,6 @@ function parseTemplateClassName(expr) {
   return { base, branches }
 }
 
-/**
- * 抽取跨多行的 className={`...`} 表达式(M-64 案例的 base + 条件分支可跨行)
- * 返回 [{ line, expr }]
- */
-function findTemplateClassNames(lines) {
-  const findings = []
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    // 行内豁免
-    if (/tailwind-class-conflict-allow/.test(line)) continue
-    // 找 className={` 起始
-    const startRe = /className=\{`/
-    const startMatch = startRe.exec(line)
-    if (!startMatch) continue
-    // 找到行内的 backtick 结束位置(从起始 match 末尾开始)
-    let j = startMatch.index + startMatch[0].length
-    // 行内可能 backtick 关闭
-    let endInLine = -1
-    let depth = 1 // 我们在 { 内部,跟踪 { } 配对;backtick 内容里可能还有 ${} 嵌套
-    while (j < line.length) {
-      if (line[j] === '`') {
-        // 关闭?需要确保 ${} 已闭合
-        endInLine = j
-        break
-      }
-      j++
-    }
-    if (endInLine === -1) {
-      // backtick 跨行:行内没找到关闭,继续往下
-      // 简化处理:仅当本行内 backtick 关闭才检查(避免复杂多行解析)
-      // 多行模板字面量是合法 JSX,但极少见,放过
-      continue
-    }
-    // 检查起始到结束都在同一行
-    const expr = line.slice(startMatch.index + 'className={'.length, endInLine + 1)
-    if (!/^`[\s\S]*`$/.test(expr)) continue
-    findings.push({ line: i + 1, expr, file: lines._file })
-  }
-  return findings
-}
-
 function collectFiles(dir, result = []) {
   if (!existsSync(dir)) return result
   for (const entry of readdirSync(dir)) {
