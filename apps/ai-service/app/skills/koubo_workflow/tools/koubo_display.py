@@ -18,6 +18,7 @@ koubo_display.py — 口播稿全量显示生成器 + 全量显示检查点维�
 默认文件 = 历史稿/历史口播稿汇编.txt（自动取最后一个 #MMDD 段）
 """
 import sys, os, re, hashlib, argparse
+from typing import Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import koubo_validate as kv
 
@@ -26,16 +27,16 @@ ASSEMBLY = os.path.join(_KOUBO_DIR, 'history', '历史口播稿汇编.txt')
 HASH_FILE = os.path.join(_KOUBO_DIR, '.cache', 'koubo_display_hash')
 
 
-def seg_hash(text):
+def seg_hash(text: str) -> str:
     return hashlib.sha256(text.strip().encode('utf-8')).hexdigest()[:16]
 
 
-def extract_latest_segment(text):
+def extract_latest_segment(text: str) -> tuple[str, str | None]:
     headers = [m.start() for m in re.finditer(r'^#\s*\d{4}\s*$', text, re.M)]
     if not headers:
         return text, None
     start = headers[-1]
-    nxt = None
+    nxt: int | None = None
     for h in headers:
         if h > start:
             nxt = h
@@ -46,12 +47,12 @@ def extract_latest_segment(text):
     return seg, sid
 
 
-def num(detail):
+def num(detail: str) -> str:
     m = re.search(r'\d+', detail or '')
     return m.group(0) if m else '0'
 
 
-def build_display(seg_text):
+def build_display(seg_text: str) -> tuple[str, list[Any]]:
     tmp = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_disp_tmp.txt')
     open(tmp, 'w', encoding='utf-8').write(seg_text)
     try:
@@ -61,11 +62,11 @@ def build_display(seg_text):
             os.remove(tmp)
     if not articles:
         return '（未解析到文章）', []
-    blocks = []
+    blocks: list[str] = []
     for i, art in enumerate(articles):
         R = kv.check_article(art, articles)
-        rd = {name: (p, d) for name, p, d in R}
-        def g(n):
+        rd: dict[str, tuple[Any, str]] = {name: (p, d) for name, p, d in R}
+        def g(n: str) -> tuple[Any, str]:
             return rd.get(n, (None, ''))
         blen = g('字数')[1]
         tlen = g('标题字数')[1]
@@ -118,7 +119,7 @@ def build_display(seg_text):
     return sep.join(blocks), articles
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument('file', nargs='?', default=ASSEMBLY)
     ap.add_argument('--mark', action='store_true')

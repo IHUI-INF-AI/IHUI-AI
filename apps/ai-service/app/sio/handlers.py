@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, Callable, TypeVar
 from urllib.parse import parse_qs
 
 import httpx
@@ -147,8 +147,24 @@ async def _verify_token(token: str) -> dict[str, Any] | None:
 # 事件处理器
 # =============================================================================
 
+F = TypeVar("F", bound=Callable[..., Any])
 
-@sio.event
+
+def _typed_event(func: F) -> F:
+    """Typed wrapper for sio.event — 保留 handler 函数签名供 mypy --strict 检查。"""
+    sio.event(func)
+    return func
+
+
+def _typed_on(event: str) -> Callable[[F], F]:
+    """Typed wrapper for sio.on — 保留 handler 函数签名供 mypy --strict 检查。"""
+    def decorator(func: F) -> F:
+        sio.on(event)(func)
+        return func
+    return decorator
+
+
+@_typed_event
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> bool:
     """握手鉴权:从 query/auth 提取 token,失败拒绝连接。"""
     query = environ.get("QUERY_STRING", "") if isinstance(environ, dict) else ""
@@ -181,7 +197,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> bool:
     return True
 
 
-@sio.event
+@_typed_event
 async def disconnect(sid: str) -> None:
     """清理会话资源。"""
     session = _sessions.pop(sid, None)
@@ -193,7 +209,7 @@ async def disconnect(sid: str) -> None:
     )
 
 
-@sio.on("join_room")
+@_typed_on("join_room")
 async def on_join_room(sid: str, data: Any) -> None:
     """加入 chat_id 房间(同一 chat 多端订阅广播用)。
 
@@ -229,7 +245,7 @@ async def on_join_room(sid: str, data: Any) -> None:
     logger.debug("[sio] sid=%s joined room=%s", sid, room)
 
 
-@sio.on("leave_room")
+@_typed_on("leave_room")
 async def on_leave_room(sid: str, data: Any) -> None:
     """离开房间。"""
     chat_id = _extract_chat_id(data)
@@ -247,7 +263,7 @@ async def on_leave_room(sid: str, data: Any) -> None:
     )
 
 
-@sio.on("chat_message")
+@_typed_on("chat_message")
 async def on_chat_message(sid: str, data: Any) -> None:
     """客户端发送消息,服务端流式返回 AI 响应。
 

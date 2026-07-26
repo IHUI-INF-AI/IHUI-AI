@@ -48,7 +48,7 @@ except ImportError:
     HAS_CSDN_UPLOAD = False
 
 
-def export_csdn_md(md_path, out_path=None):
+def export_csdn_md(md_path: str, out_path: str | None = None) -> str:
     if out_path is None:
         base = os.path.splitext(md_path)[0]
         out_path = base + '.md'

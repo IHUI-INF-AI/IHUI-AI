@@ -32,11 +32,11 @@ _EDITOR_PREFIXES = ('## 智汇AI悄悄话', '## 编者按', '## 悄悄话', '## 
 END_SUPPORT_HINTS = ('点赞', '关注')
 
 
-def _is_end_support(src):
+def _is_end_support(src: str | None) -> bool:
     return any(hint in (src or '') for hint in END_SUPPORT_HINTS)
 
 
-def parse_blocks(md_text):
+def parse_blocks(md_text: str) -> list[dict[str, Any]]:
     """解析 markdown 文本为语义块列表（唯一语法解析源）。
 
     解析语义严格对齐已充分验证的 HTML 渲染器主循环，确保下游 renderer
@@ -48,7 +48,7 @@ def parse_blocks(md_text):
     i = 0
     editor: dict[str, Any] | None = None  # {'type':'editor','title':str,'children':[block],'end_support':bool}
 
-    def close_editor():
+    def close_editor() -> None:
         nonlocal editor
         if editor is not None:
             blocks.append(editor)

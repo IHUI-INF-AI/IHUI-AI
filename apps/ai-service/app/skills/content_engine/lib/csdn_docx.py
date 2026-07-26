@@ -127,7 +127,7 @@ MARKETING_TITLE_WORDS = [
 ]
 
 
-def derive_csdn_title(wechat_title):
+def derive_csdn_title(wechat_title: str | None) -> str:
     """从微信标题派生 CSDN 中性标题（去营销后缀，不在标点处截断）。"""
     t = wechat_title or ''
     for w in MARKETING_TITLE_WORDS:
@@ -139,7 +139,7 @@ def derive_csdn_title(wechat_title):
     return t.strip() or (wechat_title or '')
 
 
-def clean_md_for_csdn(md_text, csdn_title=None):
+def clean_md_for_csdn(md_text: str, csdn_title: str | None = None) -> str:
     """返回清洗后的 CSDN 版 markdown 文本。
 
     2026-07-17 加固：CSDN 平台判定营销的标准比 validate 脚本严格得多。
@@ -276,7 +276,12 @@ def clean_md_for_csdn(md_text, csdn_title=None):
     return text
 
 
-def build_csdn_docx(source_md, out_docx, images_dir=None, csdn_title=None):
+def build_csdn_docx(
+    source_md: str,
+    out_docx: str,
+    images_dir: str | None = None,
+    csdn_title: str | None = None,
+) -> str:
     """构建 CSDN 专用 DOCX（去营销/去 GEO），返回 out_docx 路径。
 
     2026-07-17 加固：清洗后自检平台风险，>0 立即报错（不交付营销 CSDN）。
