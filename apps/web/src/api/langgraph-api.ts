@@ -1,4 +1,3 @@
-// @ts-ignore - @ihui/types not resolved in typecheck
 import type {
   ApiResponse,
   HistoryEntry,

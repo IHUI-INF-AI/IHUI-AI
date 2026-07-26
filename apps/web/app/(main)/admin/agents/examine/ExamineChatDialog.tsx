@@ -1,15 +1,10 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-// @ts-ignore
 import { toast } from 'sonner'
-// @ts-ignore
 import { CheckCircle2, XCircle, Send } from 'lucide-react'
-
-// @ts-ignore
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button, Input, Label } from '@ihui/ui-react'
 import { WS_URL, api } from './helpers'
 import type { Examine, ChatMsg } from './types'

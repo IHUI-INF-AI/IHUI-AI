@@ -13,9 +13,6 @@ import {
   getMemoryTypeOption,
   getMemoryScopeOption,
 } from '@/lib/memory-api'
-// @ts-ignore
-// @ts-ignore
-// @ts-ignore
 import type { MemoryEntry } from '@ihui/types'
 import { cn } from '@/lib/utils'
 
