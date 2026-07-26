@@ -93,23 +93,6 @@ test.describe('真机验证 8 项清单', () => {
       return
     }
 
-    // 验证模型选择器存在(model-selector 组件)
-    // DropdownMenu trigger 通常是 button 含模型名
-    const modelTrigger = page
-      .locator('button')
-      .filter({
-        has: page.locator('[class*="model"], svg'),
-      })
-      .first()
-
-    // 或者直接找含 "model" / "模型" 文本的按钮
-    const modelButton = page.getByRole('button', { name: /model|模型|stepfun|gpt|claude/i }).first()
-    const modelVisible = await modelButton.isVisible({ timeout: 5000 }).catch(() => false)
-
-    // 验证输入框存在
-    const textarea = page.locator('textarea').first()
-    const textareaVisible = await textarea.isVisible({ timeout: 5000 }).catch(() => false)
-
     // 至少验证 chat 页面渲染了核心结构
     const main = page.locator('main, [role="main"]').first()
     await expect(main)
@@ -167,14 +150,6 @@ test.describe('真机验证 8 项清单', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    // 通知 Bell 图标(aria-label 可能是 "notifications" / "通知" 等)
-    const bellButton = page.getByRole('button', { name: /notification|通知|bell/i }).first()
-    const bellVisible = await bellButton.isVisible({ timeout: 5000 }).catch(() => false)
-
-    // 如果找不到 aria-label,尝试找 Bell 图标(lucide Bell svg)
-    const bellIcon = page.locator('svg.lucide-bell, button:has(svg)').first()
-    const iconVisible = await bellIcon.isVisible({ timeout: 3000 }).catch(() => false)
-
     // 验证导航栏存在
     const nav = page.locator('nav, header, [role="navigation"]').first()
     await expect(nav)
@@ -221,13 +196,6 @@ test.describe('真机验证 8 项清单', () => {
       return
     }
 
-    // 验证发送按钮存在(Square 图标或 Send 文案)
-    const sendButton = page
-      .getByRole('button', { name: /send|发送|送信/i })
-      .or(page.locator('button:has(svg.lucide-send)'))
-      .first()
-    const sendVisible = await sendButton.isVisible({ timeout: 5000 }).catch(() => false)
-
     // 停止按钮在非 streaming 时不显示,streaming 时显示
     // 这里验证按钮容器存在(发送/停止按钮在同一位置切换)
     const inputArea = page.locator('textarea').first()
@@ -255,11 +223,6 @@ test.describe('真机验证 8 项清单', () => {
     // 初始 URL 不含 conversationId
     const initialUrl = page.url()
     expect(initialUrl).toContain('/chat')
-
-    // 验证 conversation-list 组件存在(历史按钮)
-    // chat-header 有 history 按钮(可能 disabled)
-    const historyButton = page.getByRole('button', { name: /history|历史|履歴|기록/i }).first()
-    const historyVisible = await historyButton.isVisible({ timeout: 3000 }).catch(() => false)
 
     // 验证"新建对话"功能(Ctrl+Shift+N 快捷键)
     // 这里只验证页面不崩溃
