@@ -11,8 +11,7 @@ import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getCircleList } from '@/api'
 import { useI18n } from '@/i18n'
 
-const defaultAvatar =
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
+const defaultAvatar = '/static/default-avatar.png'
 
 // 8 类模型切换(对标原项目 ai_index.vue 的 8 类:skills/talk/image/video/audio/videoa/other/sck)
 const modelTypes = [
