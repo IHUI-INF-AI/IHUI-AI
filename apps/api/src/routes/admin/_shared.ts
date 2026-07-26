@@ -211,7 +211,7 @@ export const updateLoginLogSchema = z.object({
 export function registerCrud(
   server: FastifyInstance,
   basePath: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle pgTable 泛型受 TableConfig 约束无法静态表达
   table: any,
   opts: {
     searchField?: Column
