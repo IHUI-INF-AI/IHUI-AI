@@ -11105,30 +11105,12 @@
     "anonymous": "익명 사용자"
   },
   "modelsBillingPage": {
-    "consumeTrend": "+{n}% vs 지난달",
-    "rechargeCount": "총 {n}회 충전",
     "packages": {
       "starter": {
-        "features": ["월 1000회 AI 호출", "기본 모델 접근(3개)", "표준 API 속도", "커뮤니티 지원"]
       },
       "pro": {
-        "features": [
-          "월 20000회 AI 호출",
-          "전체 모델 접근(15+)",
-          "고우선순위 API 속도",
-          "이메일 기술 지원(24h 응답)",
-          "고급 Agent 워크플로"
-        ]
       },
       "enterprise": {
-        "features": [
-          "무제한 AI 호출",
-          "전체 모델 + 맞춤 파인튜닝",
-          "전용 API 속도 + SLA 99.99%",
-          "7×24 전담 계정 매니저",
-          "프라이빗 배포 + 데이터 격리",
-          "맞춤 기능 개발 지원"
-        ]
       }
     }
   },
