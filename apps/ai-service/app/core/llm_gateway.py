@@ -421,16 +421,12 @@ class LLMGateway:
         直接读 os.environ 而非 settings 字段,避免给 Pydantic Settings 加 30+ 字段。
         注意:key 已用任何厂商(国内/国际/云/聚合)即解除 stub,无需重启。
         """
-        # 第一层:settings 字段(8 个核心 OpenAI 兼容厂商,显式 settings 配置)
-        if any([
-            settings.openai_api_key,
-            settings.anthropic_api_key,
-            settings.groq_api_key,
-            settings.gemini_api_key,
-            settings.openrouter_api_key,
-            settings.agnes_api_key,
-            settings.stepfun_api_key,
-        ]):
+        # 第一层:LLM_PROVIDERS JSON 配置(7 个核心 OpenAI 兼容厂商,任一有 api_key 即非 stub)
+        # 阶段 3 主体(2026-07-26):扁平字段已删除,统一走 get_provider_config
+        if any(
+            settings.get_provider_config(name).api_key
+            for name in ("openai", "anthropic", "groq", "gemini", "openrouter", "agnes", "stepfun")
+        ):
             return False
         # 第二层:os.environ 检查所有 LiteLLM 一等公民厂商 key
         # 用户在 .env 直接配 GROQ_API_KEY / XAI_API_KEY / DEEPSEEK_API_KEY 等也立即激活
@@ -517,23 +513,23 @@ class LLMGateway:
         if m.startswith("stepfun/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("stepfun")
-            return cfg["api_key"], cfg["api_base"], f"openai/{real_model}"
+            return cfg.api_key, cfg.api_base, f"openai/{real_model}"
         if m.startswith("agnes/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("agnes")
-            return cfg["api_key"], cfg["api_base"], f"openai/{real_model}"
+            return cfg.api_key, cfg.api_base, f"openai/{real_model}"
         if m.startswith("groq/"):
             cfg = settings.get_provider_config("groq")
-            return cfg["api_key"], cfg["api_base"] or None, model
+            return cfg.api_key, cfg.api_base or None, model
         if m.startswith("gemini/"):
             cfg = settings.get_provider_config("gemini")
-            return cfg["api_key"], cfg["api_base"] or None, model
+            return cfg.api_key, cfg.api_base or None, model
         if m.startswith("openrouter/"):
             cfg = settings.get_provider_config("openrouter")
-            return cfg["api_key"], cfg["api_base"] or None, model
+            return cfg.api_key, cfg.api_base or None, model
         if m.startswith("claude-") or m.startswith("anthropic/"):
             cfg = settings.get_provider_config("anthropic")
-            return cfg["api_key"], cfg["api_base"] or None, model
+            return cfg.api_key, cfg.api_base or None, model
         if m.startswith("ollama/"):
             return os.environ.get("OLLAMA_API_KEY") or None, os.environ.get("OLLAMA_API_BASE", "http://localhost:11434"), model
         if m.startswith("lmstudio/"):
@@ -549,110 +545,111 @@ class LLMGateway:
         if m.startswith(("cloudflare/", "@cf/")):
             real_model = model.split("/", 1)[1] if m.startswith("cloudflare/") else model
             cfg = settings.get_provider_config("cloudflare")
-            if not cfg["api_key"] or not settings.cloudflare_account_id:
+            # 阶段 3 主体:cloudflare_account_id 字段已删除,api_base 必须配置完整 URL
+            # (含 account_id,如 https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1)
+            if not cfg.api_key or not cfg.api_base:
                 return None, None, real_model
-            base = cfg["api_base"] or f"https://api.cloudflare.com/client/v4/accounts/{settings.cloudflare_account_id}/ai/v1"
-            return cfg["api_key"], base, f"openai/{real_model}"
+            return cfg.api_key, cfg.api_base, f"openai/{real_model}"
         if m.startswith("nvidia/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("nvidia")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://integrate.api.nvidia.com/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://integrate.api.nvidia.com/v1", f"openai/{real_model}"
         if m.startswith("github/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("github")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://models.inference.ai.azure.com", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://models.inference.ai.azure.com", f"openai/{real_model}"
         if m.startswith("vercel/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("vercel")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://ai-gateway.vercel.sh/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://ai-gateway.vercel.sh/v1", f"openai/{real_model}"
         if m.startswith("opencode/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("opencode")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://opencode.ai/zen/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://opencode.ai/zen/v1", f"openai/{real_model}"
         if m.startswith("modal/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("modal")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://modal.com/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://modal.com/v1", f"openai/{real_model}"
         if m.startswith("inferencenet/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("inference_net")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://api.inference.net/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://api.inference.net/v1", f"openai/{real_model}"
         if m.startswith("nlpcloud/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("nlp_cloud")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://api.nlpcloud.io/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://api.nlpcloud.io/v1", f"openai/{real_model}"
         if m.startswith("scaleway/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("scaleway")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://api.scaleway.ai/ai-platform/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://api.scaleway.ai/ai-platform/v1", f"openai/{real_model}"
         if m.startswith("alibaba-intl/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("alibaba_intl")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://bailian-intl.alibabacloud.com/compatible-mode/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://bailian-intl.alibabacloud.com/compatible-mode/v1", f"openai/{real_model}"
         # 2026-07-24 接入:10 个免费 LLM provider 内化(均为 OpenAI 兼容)
         if m.startswith("cerebras/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("cerebras")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://api.cerebras.ai/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://api.cerebras.ai/v1", f"openai/{real_model}"
         if m.startswith("mistral/") or m.startswith("mistral-") or m.startswith("codestral-") or m.startswith("pixtral-"):
             real_model = model.split("/", 1)[1] if "/" in model else model
             cfg = settings.get_provider_config("mistral")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://api.mistral.ai/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://api.mistral.ai/v1", f"openai/{real_model}"
         if m.startswith("cohere/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("cohere")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://api.cohere.ai/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://api.cohere.ai/v1", f"openai/{real_model}"
         if m.startswith("huggingface/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("huggingface")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://router.huggingface.co/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://router.huggingface.co/v1", f"openai/{real_model}"
         if m.startswith("zai/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("zai")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://open.bigmodel.cn/api/paas/v4", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://open.bigmodel.cn/api/paas/v4", f"openai/{real_model}"
         # keyless provider:无需 key,有 base_url 即可用
         if m.startswith("kilo/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("kilo")
-            return None, cfg["api_base"], f"openai/{real_model}"
+            return None, cfg.api_base, f"openai/{real_model}"
         if m.startswith("pollinations/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("pollinations")
-            return None, cfg["api_base"], f"openai/{real_model}"
+            return None, cfg.api_base, f"openai/{real_model}"
         if m.startswith("llm7/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("llm7")
-            return cfg["api_key"] or None, cfg["api_base"], f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base, f"openai/{real_model}"
         if m.startswith("ovh/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("ovh")
-            return None, cfg["api_base"], f"openai/{real_model}"
+            return None, cfg.api_base, f"openai/{real_model}"
         if m.startswith("aihorde/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("aihorde")
-            return cfg["api_key"] or "0000000000", cfg["api_base"], f"openai/{real_model}"
+            return cfg.api_key or "0000000000", cfg.api_base, f"openai/{real_model}"
         # Reka(每月免费 credit,OpenAI 兼容;reka-flash-3 / reka-edge-2603)
         if m.startswith("reka/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("reka")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://api.reka.ai/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://api.reka.ai/v1", f"openai/{real_model}"
         # Routeway(OpenAI 兼容聚合,:free 后缀模型 $0)
         if m.startswith("routeway/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("routeway")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://api.routeway.ai/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://api.routeway.ai/v1", f"openai/{real_model}"
         # BazaarLink(OpenAI 兼容聚合,auto:free 路由零成本)
         if m.startswith("bazaarlink/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("bazaarlink")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://bazaarlink.ai/api/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://bazaarlink.ai/api/v1", f"openai/{real_model}"
         # AINative Studio(OpenAI 兼容聚合,每月 ~10M tokens 免费)
         if m.startswith("ainative/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("ainative")
-            return cfg["api_key"] or None, cfg["api_base"] or "https://api.ainative.studio/api/v1", f"openai/{real_model}"
+            return cfg.api_key or None, cfg.api_base or "https://api.ainative.studio/api/v1", f"openai/{real_model}"
         cfg = settings.get_provider_config("openai")
-        return cfg["api_key"] or None, cfg["api_base"] or None, model
+        return cfg.api_key or None, cfg.api_base or None, model
 
     async def _get_provider(
         self,
