@@ -518,6 +518,49 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 
 ---
 
+## 25. `verify-*.mjs` / `verify-*.ts` 临时验证文件归档规则(强制)
+
+### 触发条件
+
+Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/` 等源码根目录随手写一个 `verify-xxx.mjs` 脚本(如 `verify-permission-popover-v2.mjs` / `verify-permission-popover-v3.mjs` / `verify-login-tabs.mjs`)快速跑一次。这类临时文件**禁止**提交到 git,必须归档到 `.trae-cn/tmp/<任务名>/`。
+
+### 强制动作(缺一不可,违反视为协作事故)
+
+1. **临时文件必须放 `.trae-cn/tmp/<任务名>/`**:例如 `.trae-cn/tmp/perm-popover-debug/verify-v2.mjs`。
+2. **禁止放 apps/* 根目录**:`apps/web/verify-*.mjs` / `apps/api/verify-*.ts` 等位置**严禁** commit。
+3. **禁止放 .trae-cn/ 根目录**:`.trae-cn/verify-*.mjs` 与守门脚本混在一起,难追溯。
+4. **路径推导用项目内路径**:`$PSScriptRoot` / `__dirname` / `import.meta.url`,不写硬编码绝对路径(§15 卫生规则)。
+5. **任务完成后清理**:`rm -rf .trae-cn/tmp/<任务名>/`(已 gitignore,自动忽略)。
+6. **commit 阶段禁 add**:`git add <本任务文件>`(§12 多会话保护),**禁止** `git add .` / `git add -A` 一次性把所有 verify-*.mjs 加进去。
+
+### 红线(违反视为协作事故)
+
+- ❌ **禁止** `apps/web/verify-*.mjs` 等源码根目录临时文件 commit(会被守门脚本警告 + 污染 main 分支)。
+- ❌ **禁止** 用 "这是为了验证 XXX 功能" 借口把临时文件 commit 进来。
+- ❌ **禁止** 留 `verify-v1.mjs` / `verify-v2.mjs` / `verify-v3.mjs` 等版本号后缀文件(版本号在 git history 里有)。
+
+### 豁免场景(允许放源码目录)
+
+- 守门脚本:`scripts/check-*.mjs` / `scripts/verify-*.mjs`(正式工具,有 README/CLI/help)。
+- 测试文件:`*.test.ts` / `*.spec.ts` / `tests/` / `__tests__/`(符合 §23 测试目录规则)。
+- 长期保留的 E2E 脚本:`scripts/e2e-*.mjs`(已纳入 CI,有意保留)。
+
+### 守门脚本:`scripts/check-verify-tmp-files.mjs`
+
+- 扫描 `apps/*/verify-*.mjs` / `apps/*/verify-*.ts` / `scripts/verify-*.mjs`(白名单外)
+- 发现任意 1 个 → 警告(不阻断,只提示)
+- 集成位置:CI / guardian-runner 后续项(暂 warn-only,后续按需升级 blocking)
+- 退出码:0(有警告但通过)+ 输出警告列表
+
+### 与其他规则协同
+
+- 与 §12(多会话并行)协同:`git add` 阶段只加本任务文件,不批量加 verify-*.mjs。
+- 与 §13(文件修改持久化)协同:Read 验证 verify-*.mjs 的修改生效。
+- 与 §15(工作区卫生)协同:临时文件必须项目内路径(`.trae-cn/tmp/`),不写 `G:\` 根目录或 `C:\temp\`。
+- 与 §23(测试目录)协同:`verify-*.mjs` 命名 ≠ 测试文件,不能伪装成 `*.test.mjs` 绕过守门。
+
+---
+
 ## 守门脚本速查(pre-commit 项,按类别)
 
 - **i18n**(2/2b/2c/2d/2e/2f):check-i18n-keys(parity+白名单)/ scan-i18n-zh-residue(zh-TW/ko 阻塞,ja warn)/ check-i18n-broken-en(阻塞)/ i18n-diff(翻译流水线,2f-web + 2f-miniapp-taro 阻塞)
