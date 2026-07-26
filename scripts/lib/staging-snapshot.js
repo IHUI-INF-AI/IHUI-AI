@@ -37,6 +37,8 @@
  *   setupRestoreOnExit() 封装 exit + SIGINT + SIGTERM 三种退出路径的还原逻辑。
  */
 const { execSync } = require('child_process')
+const { appendFileSync, mkdirSync } = require('node:fs')
+const { resolve, dirname } = require('node:path')
 
 /**
  * 获取当前 staged 文件快照(Added/Copied/Modified/Renamed,不含 Deleted)
@@ -47,11 +49,16 @@ const { execSync } = require('child_process')
 function takeStagingSnapshot(options = {}) {
   const cwd = options.cwd || process.cwd()
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf8',
-      cwd,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
+    // core.quotepath=false: 非 ASCII 路径(如中文)输出原始 UTF-8,而非 octal 转义
+    // 避免 replace(/\\/g, '/') 误伤 octal 转义中的反斜杠(如 \344 → /344)
+    const output = execSync(
+      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
+      {
+        encoding: 'utf8',
+        cwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
     return new Set(
       output
         .split('\n')
@@ -60,6 +67,44 @@ function takeStagingSnapshot(options = {}) {
     )
   } catch (e) {
     return null
+  }
+}
+
+/**
+ * 写入 staging 还原监控日志(JSON Lines 格式,追加一行)
+ *
+ * 触发条件(全部满足才写):
+ *   ① 非静默模式(!options.silent);
+ *   ② process.env.HUSKY_STAGING_RESTORE_LOG === '1';
+ *   ③ 本次还原有实际操作(result.restored.length > 0 或 result.skipped=true)。
+ *
+ * 日志路径:<cwd>/.trae-cn/tmp/staging-restore.log(cwd = options.cwd || process.cwd())
+ * IO 错误被 try-catch 吞掉,不阻塞主流程。
+ *
+ * @param {{restored: string[], skipped: boolean}} result restoreStaging 的返回值
+ * @param {string|null} skipReason 跳过原因("null-snapshot"/"options.skip"/"non-git-env"/null)
+ * @param {object} options 透传选项(用 options.silent / options.cwd)
+ * @returns {void}
+ */
+function writeRestoreLog(result, skipReason, options) {
+  if (options.silent) return
+  if (process.env.HUSKY_STAGING_RESTORE_LOG !== '1') return
+  if (result.restored.length === 0 && !result.skipped) return
+  try {
+    const cwd = (options.cwd || process.cwd()).replace(/\\/g, '/')
+    const logPath = resolve(cwd, '.trae-cn/tmp/staging-restore.log')
+    mkdirSync(dirname(logPath), { recursive: true })
+    const entry = JSON.stringify({
+      timestamp: new Date().toISOString(),
+      cwd,
+      restored: result.restored,
+      restoredCount: result.restored.length,
+      skipped: result.skipped,
+      skipReason,
+    })
+    appendFileSync(logPath, entry + '\n', 'utf8')
+  } catch (e) {
+    // 吞掉 IO 错误,不阻塞主流程
   }
 }
 
@@ -76,20 +121,26 @@ function restoreStaging(initialSnapshot, options = {}) {
   const result = { restored: [], skipped: false }
   if (!initialSnapshot) {
     result.skipped = true
+    writeRestoreLog(result, 'null-snapshot', options)
     return result
   }
   if (options.skip) {
     result.skipped = true
+    writeRestoreLog(result, 'options.skip', options)
     return result
   }
   const cwd = options.cwd || process.cwd()
   const silent = options.silent || false
   try {
-    const currentOutput = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf8',
-      cwd,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
+    // core.quotepath=false: 非 ASCII 路径(如中文)输出原始 UTF-8,而非 octal 转义
+    const currentOutput = execSync(
+      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
+      {
+        encoding: 'utf8',
+        cwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
     const currentStaged = new Set(
       currentOutput
         .split('\n')
@@ -99,6 +150,7 @@ function restoreStaging(initialSnapshot, options = {}) {
     // 找出快照之外的新增文件(可能是 lint-staged/IDE 副作用 stage 的)
     const addedFiles = [...currentStaged].filter((f) => !initialSnapshot.has(f))
     if (addedFiles.length === 0) {
+      writeRestoreLog(result, null, options)
       return result
     }
     if (!silent) {
@@ -121,11 +173,14 @@ function restoreStaging(initialSnapshot, options = {}) {
       )
     }
     result.restored = addedFiles
+    writeRestoreLog(result, null, options)
     return result
   } catch (e) {
     if (!silent) {
       console.warn(`⚠️  staging area 还原检查跳过: ${e.message}`)
     }
+    result.skipped = true
+    writeRestoreLog(result, 'non-git-env', options)
     return result
   }
 }
