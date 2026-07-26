@@ -162,16 +162,18 @@ export function onMaximizeChange(callback: (maximized: boolean) => void): () => 
   if (!isTauri()) return () => {}
   const win = getCurrentWindow()
   let unlisten: (() => void) | undefined
-  win.onResized(async () => {
-    try {
-      const max = await win.isMaximized()
-      callback(max)
-    } catch {
-      /* ignore */
-    }
-  }).then((fn: () => void) => {
-    unlisten = fn
-  })
+  win
+    .onResized(async () => {
+      try {
+        const max = await win.isMaximized()
+        callback(max)
+      } catch {
+        /* ignore */
+      }
+    })
+    .then((fn: () => void) => {
+      unlisten = fn
+    })
   return () => {
     unlisten?.()
   }
@@ -199,12 +201,14 @@ export function onSystemThemeChange(callback: (theme: 'light' | 'dark') => void)
   if (!isTauri()) return () => {}
   const win = getCurrentWindow()
   let unlisten: (() => void) | undefined
-  win.onThemeChanged(async () => {
-    const theme = await getSystemTheme()
-    if (theme) callback(theme)
-  }).then((fn: () => void) => {
-    unlisten = fn
-  })
+  win
+    .onThemeChanged(async () => {
+      const theme = await getSystemTheme()
+      if (theme) callback(theme)
+    })
+    .then((fn: () => void) => {
+      unlisten = fn
+    })
   return () => {
     unlisten?.()
   }
@@ -232,11 +236,7 @@ export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
 
 /** 原生菜单 ID 联合类型(HTML 顶栏 + web 端快捷键共用,前端 dispatcher 严格 switch)。 */
 export type MenuActionId =
-  | 'file.open_admin'
-  | 'file.quit'
-  | 'view.reload'
-  | 'view.devtools'
-  | 'help.about'
+  'file.open_admin' | 'file.quit' | 'view.reload' | 'view.devtools' | 'help.about'
 
 /** 唤起 / 创建 admin 窗口(Rust 端 open_admin_window)。已存在则 show + focus。 */
 export async function openAdminWindow(): Promise<void> {
