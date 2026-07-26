@@ -310,8 +310,10 @@ export default function AgentDialogue() {
 
   const connectWebSocket = useCallback(() => {
     if (!userUuidRef.current || wsTaskRef.current) return
-    // ws URL 从 BASE_URL 推导,失败不阻塞主流程(降级为只展示历史消息)
-    const wsUrl = 'ws://localhost:8801/api/chat-room/ws'
+    // ws URL 直连 API 端口(8802),与 H5 dev server proxy 区分;按端动态取 BASE_URL
+    const apiOriginHttp = process.env.TARO_ENV === 'h5' ? '/api' : 'http://localhost:8802/api'
+    const apiOriginWs = apiOriginHttp.replace(/^http/, 'ws').replace(/\/api$/, '')
+    const wsUrl = `${apiOriginWs}/api/chat-room/ws`
     Taro.connectSocket({ url: wsUrl })
       .then((task) => {
         wsTaskRef.current = task

@@ -77,6 +77,25 @@ try {
   } else {
     console.log('⏭  条件 RN global.css 同步守门(无相关 staged 改动, 跳过)')
   }
+
+  // 16d. 条件 MiniApp-Taro dist 清理提示(仅 staged 涉及 miniapp-taro 配置时 warn)
+  // 防止 config 改动后 IDE 仍指向陈旧 dist/dist-alipay,误判产物路径错误
+  // 仅输出提示,不阻断(用户可手动运行 node scripts/clean-miniapp-taro-dist.mjs)
+  const involvesMiniappConfig = stagedFiles.some(
+    (f) =>
+      f.startsWith('apps/miniapp-taro/config/') ||
+      f.startsWith('apps\\miniapp-taro\\config\\') ||
+      f === 'apps/miniapp-taro/package.json' ||
+      f === 'apps\\miniapp-taro\\package.json',
+  )
+  if (involvesMiniappConfig) {
+    console.log(
+      '\n⚠️  检测到 miniapp-taro 配置改动 → 建议清理 dist + dist-alipay 避免 IDE 缓存混淆\n' +
+        '   命令: node scripts/clean-miniapp-taro-dist.mjs\n',
+    )
+  } else {
+    console.log('⏭  条件 miniapp-taro dist 清理提示(无相关 staged 改动, 跳过)')
+  }
 } catch (e) {
   // 非 git 环境,跳过
   console.log('⏭  条件 typecheck/database 闸门(非 git 环境, 跳过)')
