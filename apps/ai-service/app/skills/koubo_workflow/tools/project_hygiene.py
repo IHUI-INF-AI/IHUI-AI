@@ -138,20 +138,20 @@ KOUBO_FILE_PATTERN_TUPLE = (
 
 
 class HygieneChecker:
-    def __init__(self):
-        self.results = []
+    def __init__(self) -> None:
+        self.results: list[tuple[str, bool, str]] = []
 
-    def _add(self, check, passed, detail=''):
+    def _add(self, check: str, passed: bool, detail: str = '') -> None:
         self.results.append((check, passed, detail))
 
-    def _has_junk_name(self, name):
+    def _has_junk_name(self, name: str) -> bool:
         for pat in JUNK_PATTERNS:
             if pat.search(name):
                 return True
         return False
 
     # ===== 口播稿项目 =====
-    def check_koubo(self):
+    def check_koubo(self) -> None:
         koubo_dir = os.path.join(MEDIA_ROOT, '\u53e3\u64ad\u7a3f', 'koubo')
         if not os.path.isdir(koubo_dir):
             self._add('\u53e3\u64ad\u7a3f/koubo/\u76ee\u5f55', False, '\u76ee\u5f55\u4e0d\u5b58\u5728')
@@ -194,7 +194,7 @@ class HygieneChecker:
                       '' if not unexpected_archive else '\u610f\u5916: ' + ', '.join(unexpected_archive))
 
     # ===== 公众号项目 =====
-    def check_wechat(self):
+    def check_wechat(self) -> None:
         wc_dir = os.path.join(MEDIA_ROOT, '\u516c\u4f17\u53f7')
         if not os.path.isdir(wc_dir):
             self._add('\u516c\u4f17\u53f7/\u76ee\u5f55', False, '\u76ee\u5f55\u4e0d\u5b58\u5728')
@@ -269,7 +269,7 @@ class HygieneChecker:
                   '' if not unexpected_was else '\u610f\u5916: ' + ', '.join(unexpected_was))
 
     # ===== 项目边界硬检测（2026-07-14 用户强制·零容忍） =====
-    def check_cross_project_boundary(self):
+    def check_cross_project_boundary(self) -> None:
         """根治疗法: AI 误把口播稿文件写到公众号 output/、或把公众号 HTML 写到口播稿/ 时,
         立即 FAIL,不放过到下次会话。
 
@@ -390,7 +390,7 @@ class HygieneChecker:
                   ', '.join(f'{h[0]}({h[1]})' for h in koubo_img_txt[:5]))
 
     # ===== 根目录 =====
-    def check_root(self):
+    def check_root(self) -> None:
         if not os.path.isdir(MEDIA_ROOT):
             return
 
@@ -416,7 +416,7 @@ class HygieneChecker:
                   '' if not stray_dirs else '\u591a\u4f59: ' + ', '.join(stray_dirs))
 
     # ===== 报告 =====
-    def report(self):
+    def report(self) -> bool:
         print('=' * 50)
         print('  \u9879\u76ee\u536b\u751f\u68c0\u67e5')
         print('=' * 50)
