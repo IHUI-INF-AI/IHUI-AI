@@ -1,6 +1,18 @@
 /**
  * @ihui/miniapp-taro/stores/auth-store — miniapp-taro 端共享 Auth zustand store
  *
+ * ⚠️ 2026-07-26 Taro Vite 打包 bug 警告(暂未启用,不要直接 import):
+ * 本文件依赖 `createAuthStore` from `@ihui/shared/stores`,shared 层使用
+ * `import { create } from 'zustand'`。Taro 4.2.0 Vite runner 会把此 import
+ * 错误归并为 `taro.react_production_min.create`(React 上无此函数),导致运行时抛
+ * `TypeError: taro.react_production_min.create is not a function`。
+ * 目前本文件未被任何业务代码引用,被 tree-shaking 移除,不会触发错误。
+ * 若要启用本文件,需先解决以下任一条件:
+ *   1. 升级 Taro 到修复此 bug 的版本
+ *   2. 改造 packages/shared/src/stores/* 用 `createStore` from 'zustand/vanilla'
+ *      + React 18 `useSyncExternalStore` 模式(参考 stores/user.ts 的实现)
+ *   3. 在本端重新实现 createAuthStore 逻辑,不依赖 shared
+ *
  * 接入示例(组件订阅 + 登录/登出):
  * ```ts
  * import { useAuthStore, hydrateAuth, logoutAuth, taroAuthStore } from '@/stores/auth-store'
