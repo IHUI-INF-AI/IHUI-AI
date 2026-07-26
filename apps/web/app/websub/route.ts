@@ -38,7 +38,7 @@ const FEED_URLS = ['https://ihui.ai/rss.xml', 'https://ihui.ai/atom.xml']
 // 注:Next.js Edge Runtime 不支持持久化,这里仅作演示
 // 真实部署应接入 Redis / PostgreSQL 持久化
 declare global {
-  // eslint-disable-next-line no-var
+  // declare global 语法要求 var,let/const 无法用于全局声明扩展
   var __websubSubscribers: Set<string> | undefined
 }
 
