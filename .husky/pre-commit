@@ -27,6 +27,25 @@ if (!run('🛡️ 运行守门脚本批量检查(41 项)...', 'node scripts/guar
   process.exit(1)
 }
 
+// 🌐 i18n 死 key 扫描挂 pre-commit 阻塞(2026-07-26 立,PROJECT_PLAN.md §1 后续任务收尾)
+// 背景:scan-dead-i18n-keys.mjs 之前仅在 pre-push dry-run + i18n-dead-key-audit.yml paths 触发,
+//      漏掉"main 分支全量 PR"场景;本步在每次 commit 都跑全量扫描,死 key > 0 立即阻断。
+// 跳过方法(紧急,本任务挂载时已知 40 个现存死 key):HUSKY_SKIP_I18N_DEAD_KEY=1 git commit ...
+// 性能:web 端 3261 文件全量扫描 ~3.5s,在 guardian-runner 之后跑,不影响前置检查流。
+if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
+  if (
+    !run(
+      '🌐 i18n 死 key 扫描(死 key > 0 阻断 commit,2026-07-26 立)',
+      'node scripts/scan-dead-i18n-keys.mjs --exit 1',
+    )
+  ) {
+    console.error('❌ i18n 死 key 扫描发现死 key,提交已阻止(请清理 packages/i18n/messages/* 中未引用的 key 后再 commit)')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  i18n 死 key 扫描(HUSKY_SKIP_I18N_DEAD_KEY=1, 跳过)')
+}
+
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
 // 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度
