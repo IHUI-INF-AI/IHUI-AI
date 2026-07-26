@@ -34,12 +34,11 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve, relative, extname, normalize } from 'node:path';
+import { join, resolve, relative, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
 const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)));
-const TMP_DIR = join(ROOT, '.trae-cn', 'tmp');
 
 // ===== 文件类型 =====
 const SCRIPT_EXTS = new Set(['.ps1', '.py', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.sh', '.bat', '.json', '.yaml', '.yml']);

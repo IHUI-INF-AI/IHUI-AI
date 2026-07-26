@@ -19,11 +19,8 @@
  * 退出码:0(warn-only,永不阻塞 commit)
  */
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
 
 const ROOT = process.cwd();
-const README_PATH = path.join(ROOT, "README.md");
 
 // 豁免目录 / 文件模式(改动这些不触发 README 同步提醒)
 const EXEMPT_PATTERNS = [
