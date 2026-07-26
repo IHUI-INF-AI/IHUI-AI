@@ -6,12 +6,16 @@
  *
  * 行为：
  * 1. 用应用层 hashPassword(argon2id)生成密码 hash（与 auth.ts 登录校验一致）
- * 2. upsert test@ihui.ai / admin@ihui.ai 两个用户（onConflictDoUpdate on email）
+ * 2. upsert test@ihui.ai 一个普通测试用户（onConflictDoUpdate on email）
  * 3. 打印 seed 结果
  *
  * 适用场景：
  * - E2E 测试前初始化认证用户（修复 auth.setup.ts 500）
  * - 数据库重置后恢复测试账号
+ *
+ * 注意：admin 用户由 0067/0071 migration 永久保证（username='admin' /
+ * password='admin123' / email='502319984@qq.com' / role_id=1 /
+ * is_system_admin=true），本脚本不 seed admin，避免和 system admin 触发器冲突。
  */
 import 'dotenv/config'
 import { hashPassword } from '../src/utils/password-crypto.js'
@@ -34,13 +38,6 @@ const SEED_USERS: SeedUser[] = [
     nickname: 'Test User',
     password: 'Test@123456',
     roleId: 0,
-  },
-  {
-    email: 'admin@ihui.ai',
-    username: 'admin_e2e',
-    nickname: 'Admin User',
-    password: 'Admin@123456',
-    roleId: 1,
   },
 ]
 
