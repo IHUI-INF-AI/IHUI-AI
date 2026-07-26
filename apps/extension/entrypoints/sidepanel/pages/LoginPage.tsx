@@ -1,8 +1,8 @@
 /**
- * LoginPage — 扩展端登录页(2026-07-26 同步 web 端 LoginDialog 视觉)
+ * LoginPage — 扩展端登录页(2026-07-26 改造:改用共享 AuthShell)
  *
  * 视觉对齐 apps/web/src/components/auth/AuthShell.tsx + apps/web/src/components/login/PasswordLoginForm.tsx:
- *   - 外壳:ExtensionAuthShell(rounded-xl + border + bg-card + 双层阴影 + p-7)
+ *   - 外壳:共享 @ihui/ui-react.AuthShell(rounded-xl + border + bg-card + 双层阴影 + p-7)
  *   - 顶部:logo (31×31) + welcome.svg/baiwelcome.svg 浅/深主题并排
  *   - 表单:space-y-4 + Label + Input h-10 + PasswordInput(带 show/hide 切换)
  *   - 错误:Alert 风格(红色 destructive/10 背景 + 边框)
@@ -12,11 +12,15 @@
  *   - 用 useState 直接管表单(表单字段少,react-hook-form 反而增加复杂度)
  *   - 去掉验证码(扩展端无对应后端)
  *   - 去掉协议复选框(扩展端是 browser_action 唤起,隐含用户已接受)
+ *
+ * 2026-07-26 根治样式不一致:
+ *   - 旧代码用本地 ExtensionAuthShell(2026-07-25 立),与 web 端 AuthShell 视觉有肉眼差异
+ *   - 改为共享 @ihui/ui-react.AuthShell,与 web 端主站登录弹窗用同一份组件 + 同一份 CSS
+ *   - 本地 ExtensionAuthShell.tsx 已删除
  */
 import { useState } from 'react'
 import { loginByAccount, type LoginResult } from '@ihui/api-client'
-import { Button, Input, Label } from '@ihui/ui-react'
-import { ExtensionAuthShell } from '../../components/ExtensionAuthShell'
+import { Button, Input, Label, AuthShell } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 
 interface Props {
@@ -117,9 +121,10 @@ export default function LoginPage({ onSuccess }: Props) {
 
   return (
     <div className="flex items-center justify-center min-h-screen p-4 bg-background">
-      <ExtensionAuthShell
+      <AuthShell
         title={t('auth.login')}
         subtitle={t('auth.loginSubtitle')}
+        closeAriaLabel={t('common.close') || 'Close'}
         className="max-w-[420px]"
       >
         <form onSubmit={onLogin} className="space-y-4 pt-2">
@@ -159,7 +164,7 @@ export default function LoginPage({ onSuccess }: Props) {
             {loading ? t('common.loading') : t('auth.login')}
           </Button>
         </form>
-      </ExtensionAuthShell>
+      </AuthShell>
     </div>
   )
 }
