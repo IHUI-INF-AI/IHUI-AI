@@ -33,7 +33,7 @@ export default function RevenueStatPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'stats', 'revenue'],
     queryFn: async () => {
-      const r = await fetchApi<RevenueStatResponse>('/api/v1/admin/stats/revenue')
+      const r = await fetchApi<RevenueStatResponse>('/api/admin/stats/revenue')
       if (!r.success) throw new Error(r.error)
       return r.data
     },
