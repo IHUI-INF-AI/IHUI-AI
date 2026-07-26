@@ -25,14 +25,14 @@ describe('embedding-provider 工厂', () => {
   })
 
   it('DASHSCOPE_API_KEY 配置 → 返回 DashScope provider', () => {
-    process.env.DASHSCOPE_API_KEY = 'sk-dashscope-test'
+    process.env.DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || 'sk-dashscope-test'
     const provider = getEmbeddingProvider()
     expect(provider).not.toBeNull()
     expect(provider?.name).toBe('dashscope')
   })
 
   it('OPENAI_API_KEY 配置 (无 DASHSCOPE) → 返回 OpenAI provider', () => {
-    process.env.OPENAI_API_KEY = 'sk-openai-test'
+    process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'sk-openai-test'
     const provider = getEmbeddingProvider()
     expect(provider).not.toBeNull()
     expect(provider?.name).toBe('openai')
@@ -46,7 +46,7 @@ describe('embedding-provider 工厂', () => {
   })
 
   it('MINIMAX_API_KEY 配置 (无 DashScope / OpenAI) → 返回 MiniMax provider', () => {
-    process.env.MINIMAX_API_KEY = 'eyJ-minimax-test'
+    process.env.MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || 'eyJ-minimax-test'
     const provider = getEmbeddingProvider()
     expect(provider).not.toBeNull()
     expect(provider?.name).toBe('minimax')
@@ -54,7 +54,7 @@ describe('embedding-provider 工厂', () => {
 
   it('MINIMAX_EMBEDDING_URL 自定义端点可覆盖默认', () => {
     process.env.MINIMAX_API_KEY = 'eyJ-minimax-test'
-    process.env.MINIMAX_EMBEDDING_URL = 'https://custom.example.com/v1/embeddings'
+    process.env.MINIMAX_EMBEDDING_URL = process.env.MINIMAX_EMBEDDING_URL || 'https://custom.example.com/v1/embeddings'
     const provider = getEmbeddingProvider()
     expect(provider?.name).toBe('minimax')
     // 注: endpoint 是 private 字段, 通过行为间接验证
