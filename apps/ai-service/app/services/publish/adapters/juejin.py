@@ -8,7 +8,7 @@
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from app.core.logging import get_logger
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
@@ -32,7 +32,7 @@ class JuejinAdapter(BasePlatformAdapter):
     requires_credentials = ["sessionid", "signatureId"]
     needs_browser = True
 
-    def _cookies(self, credentials: dict) -> list[SetCookieParam]:
+    def _cookies(self, credentials: dict[str, Any]) -> list[SetCookieParam]:
         return [
             {
                 "name": "sessionid",
@@ -57,7 +57,7 @@ class JuejinAdapter(BasePlatformAdapter):
             },
         ]
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         if not _HAS_PLAYWRIGHT:
             return False, "Playwright not installed. Run: pip install playwright && playwright install chromium"
         sessionid = credentials.get("sessionid", "").strip()
@@ -85,8 +85,8 @@ class JuejinAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         if not _HAS_PLAYWRIGHT:
             return PublishResult(

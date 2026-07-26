@@ -60,7 +60,7 @@ class ShadowRunner:
         self._treatments: dict[str, str] = {}
         self._lock = asyncio.Lock()
         # 持有 create_task 引用,防止 CPython GC 回收未完成的子任务
-        self._pending_tasks: set[asyncio.Task] = set()
+        self._pending_tasks: set[asyncio.Task[None]] = set()
 
     # ==================================================================
     # Treatment 内容管理

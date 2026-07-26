@@ -88,7 +88,7 @@ def _clamp_timeout(timeout: int) -> int:
 
 
 async def _read_stream(
-    stream: asyncio.StreamReader | None, ev_type: str, queue: asyncio.Queue
+    stream: asyncio.StreamReader | None, ev_type: str, queue: asyncio.Queue[dict[str, Any] | None]
 ) -> None:
     """逐行读取 stream,put 事件到 queue;结束时 put None 哨兵。stream 为 None 时直接 put 哨兵。"""
     if stream is None:
@@ -112,8 +112,8 @@ async def _read_stream(
 
 async def _cleanup_proc(
     proc: asyncio.subprocess.Process,
-    stdout_task: asyncio.Task,
-    stderr_task: asyncio.Task,
+    stdout_task: asyncio.Task[None],
+    stderr_task: asyncio.Task[None],
     timed_out: bool,
 ) -> None:
     """清理 reader 任务 + 进程(超时 → SIGTERM → grace → SIGKILL)。"""
