@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
@@ -450,6 +450,8 @@ export const adminSystemRoutes: FastifyPluginAsync = async (server) => {
     if (!parsedParams.success) {
       return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
     }
+    // 处理 credentials(含 clientSecret/access_token 关键字),旁路 response-sanitizer
+    request.skipResponseSanitization = true
     const integration = await findIntegrationById(parsedParams.data.id)
     if (!integration) {
       return reply.status(404).send(error(404, '集成不存在'))
