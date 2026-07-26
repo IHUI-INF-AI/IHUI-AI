@@ -180,7 +180,7 @@ class BilibiliAdapter(BasePlatformAdapter):
                         "X-Upos-Auth": auth,
                         "Content-Type": "application/octet-stream",
                     },
-                    data=b"",
+                    content=b"",
                 )
         except httpx.HTTPError as e:
             return PublishResult(
