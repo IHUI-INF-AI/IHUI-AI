@@ -33,6 +33,8 @@
 注意：X 官方条目复用公众号 x_sources.py 的 X_SOURCES，保证两边 X 信源逐条一致。
 """
 
+from typing import Any
+
 # ── 复用公众号同款 X 信源（保证一致）──────────────────────────────
 try:
     from x_sources import X_SOURCES as _X_SOURCES
@@ -40,9 +42,9 @@ except Exception:
     _X_SOURCES = []
 
 
-def _x_entries():
+def _x_entries() -> list[dict[str, Any]]:
     """把公众号 x_sources.X_SOURCES 转成本注册表统一结构。"""
-    out = []
+    out: list[dict[str, Any]] = []
     for cat, lst in (_X_SOURCES or {}).items():
         for s in lst:
             out.append({
@@ -375,28 +377,28 @@ PLATFORM_LABELS = {
 }
 
 
-def by_platform(platform=None):
+def by_platform(platform: str | None = None) -> list[dict[str, Any]]:
     if platform:
         return [s for s in ALL_SOURCES if s['platform'] == platform]
     return ALL_SOURCES
 
 
-def priority1_official():
+def priority1_official() -> list[dict[str, Any]]:
     """发布潮核心：official 且 priority==1。"""
     return [s for s in ALL_SOURCES if s.get('official') and s.get('priority') == 1]
 
 
-def api_sources():
+def api_sources() -> list[dict[str, Any]]:
     """脚本可自动拉取的信源（urllib 直连）。"""
     return [s for s in ALL_SOURCES if s.get('fetch') == 'api']
 
 
-def webfetch_sources():
+def webfetch_sources() -> list[dict[str, Any]]:
     """需 agent 用 WebFetch 抓的信源。"""
     return [s for s in ALL_SOURCES if s.get('fetch') == 'webfetch']
 
 
-def topic_focus(query, top_n=15):
+def topic_focus(query: str, top_n: int = 15) -> list[dict[str, Any]]:
     """主题聚焦：返回名称/句柄/平台含 query 关键词的信源核查清单。"""
     q = (query or '').lower()
     hits = [s for s in ALL_SOURCES
