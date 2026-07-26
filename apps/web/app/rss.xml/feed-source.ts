@@ -108,7 +108,7 @@ export function getAllRoutesForFeed(): FeedItem[] {
 
     // === 行业用例(高搜索量长尾) ===
     {
-      title: 'AI 智能客服 Agent 用例 — 7×24 极致服务',
+      title: 'AI 智能客服 Agent 用例 — 7×24 高质量服务',
       path: '/use-cases/customer-support',
       description:
         '基于智汇 AI 搭建的智能客服 Agent:7×24 在线、统一知识库、多模型路由、多渠道部署、人机协同,成本降低 70%,响应 0 秒。',
