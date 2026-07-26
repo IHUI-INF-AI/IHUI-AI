@@ -1,4 +1,4 @@
-/* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
+/* eslint-disable jsx-a11y/no-noninteractive-element-interactions -- 模态弹层用 div+onClick 实现遮罩;键盘用户通过关闭按钮(X)提供等价交互 */
 'use client'
 
 import * as React from 'react'
