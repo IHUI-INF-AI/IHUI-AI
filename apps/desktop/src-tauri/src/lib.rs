@@ -154,6 +154,7 @@ fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 /// 绕过 closeWindow 的"隐藏到托盘"语义,直接走 `app.exit(0)`。
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
+    let _ = save_window_state(app.clone());
     app.exit(0);
 }
 
@@ -220,6 +221,7 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 }
             }
             "tray.quit" => {
+                let _ = save_window_state(app.clone());
                 app.exit(0);
             }
             _ => {}
@@ -1008,6 +1010,12 @@ pub fn run() {
                 }
             }
             if let tauri::WindowEvent::Moved(_) = event {
+                if window.label() == "main" {
+                    let app = window.app_handle().clone();
+                    let _ = save_window_state(app);
+                }
+            }
+            if let tauri::WindowEvent::Destroyed = event {
                 if window.label() == "main" {
                     let app = window.app_handle().clone();
                     let _ = save_window_state(app);
