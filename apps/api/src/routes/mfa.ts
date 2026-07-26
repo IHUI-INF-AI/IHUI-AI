@@ -208,6 +208,8 @@ const mfaRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // 返回 accessToken,旁路 response-sanitizer 防止脱敏
+    request.skipResponseSanitization = true
     const user = await findUserById(userId)
     if (!user || !user.twoFactorEnabled) {
       return reply.status(400).send(error(400, 'MFA 未启用'))

@@ -122,6 +122,26 @@ fn start_resize(
     win.start_resize_dragging(dir).map_err(|e| e.to_string())
 }
 
+/// 切换窗口全屏状态(P2:桌面端标配,2026-07-27 立)。
+/// 返回切换后的全屏状态(true=全屏,false=窗口模式)。
+#[tauri::command]
+fn toggle_fullscreen(window: tauri::WebviewWindow) -> Result<bool, String> {
+    let fs = window.is_fullscreen().unwrap_or(false);
+    window.set_fullscreen(!fs).map_err(|e| e.to_string())?;
+    Ok(!fs)
+}
+
+/// 切换窗口置顶状态(P2:AI 对话悬浮场景,2026-07-27 立)。
+/// 返回切换后的置顶状态(true=置顶,false=普通)。
+#[tauri::command]
+fn toggle_always_on_top(window: tauri::WebviewWindow) -> Result<bool, String> {
+    let current = window.is_always_on_top().unwrap_or(false);
+    window
+        .set_always_on_top(!current)
+        .map_err(|e| e.to_string())?;
+    Ok(!current)
+}
+
 #[tauri::command]
 fn get_admin_window_info() -> AdminWindowInfo {
     AdminWindowInfo {
@@ -129,8 +149,8 @@ fn get_admin_window_info() -> AdminWindowInfo {
         title: "IHUI AI 管理后台".to_string(),
         width: 1280.0,
         height: 820.0,
-        min_width: 960.0,
-        min_height: 640.0,
+        min_width: 1200.0,
+        min_height: 720.0,
     }
 }
 
@@ -181,7 +201,7 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     let _admin_window = WebviewWindowBuilder::new(&app, "admin", WebviewUrl::App("admin".into()))
         .title(&format!("{} 管理后台", app_name))
         .inner_size(1280.0, 820.0)
-        .min_inner_size(960.0, 640.0)
+        .min_inner_size(1200.0, 720.0)
         .resizable(true)
         .center()
         .decorations(false)
@@ -1164,6 +1184,8 @@ pub fn run() {
             quit_app,
             open_admin_window,
             start_resize,
+            toggle_fullscreen,
+            toggle_always_on_top,
             screenshot_screen,
             mouse_move,
             mouse_click,
