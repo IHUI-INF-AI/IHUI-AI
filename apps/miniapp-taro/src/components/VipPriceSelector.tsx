@@ -55,7 +55,7 @@ export default function VipPriceSelector({
                 className="absolute -top-2 left-1/2 px-2 py-0.5 rounded-md bg-destructive"
                 style={{ transform: 'translateX(-50%)' }}
               >
-                <Text className="text-[10px] text-white">{tt('vip.hot', '热门')}</Text>
+                <Text className="text-[20rpx] text-white">{tt('vip.hot', '热门')}</Text>
               </View>
             )}
             <Text
@@ -76,13 +76,15 @@ export default function VipPriceSelector({
                 ¥{opt.originalPrice}
               </Text>
             )}
-            <Text className="block text-xs text-muted-foreground text-center mt-1">{opt.period}</Text>
+            <Text className="block text-xs text-muted-foreground text-center mt-1">
+              {opt.period}
+            </Text>
             {opt.discount && (
               <View
                 className="mt-1.5 px-1.5 py-0.5 rounded bg-[#f59e0b]/10 inline-block"
                 style={{ display: 'block', textAlign: 'center' }}
               >
-                <Text className="text-[10px] text-[#f59e0b]">{opt.discount}</Text>
+                <Text className="text-[20rpx] text-[#f59e0b]">{opt.discount}</Text>
               </View>
             )}
           </View>
