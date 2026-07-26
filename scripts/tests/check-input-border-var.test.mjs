@@ -196,8 +196,7 @@ test('豁免: 行首 // 注释 hsl(var(--xxx)) → 跳过 exit 0', () => {
 })
 
 // ─── 11. 批量扫描:多文件(2 违规 + 1 合法)──────────────
-// 注:源脚本 roots 含 'apps/web/src' + 'apps/web/src/styles'(后者是前者子目录),
-// 放在 styles/ 下的文件会被扫描两次(双重计数)。用 apps/web/app/ 避免重复扫描。
+// 注:用 apps/web/app/(独立 root)测试批量扫描,与 apps/web/src 互不重叠。
 test('批量: apps/web/app 含 3 文件(2 违规 + 1 合法)→ 报告 2 违规', () => {
   const dir = createTempScanDir({
     'apps/web/app/styles/bad1.css': `.a {\n  color: hsl(var(--color-a));\n}\n`,
