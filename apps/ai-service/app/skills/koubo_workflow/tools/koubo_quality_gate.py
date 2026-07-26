@@ -24,6 +24,7 @@
 import sys
 import re
 import os
+from typing import Any
 
 # ============ 跨项目边界硬门禁（2026-07-20 新增·防止窜工作） ============
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # koubo_workflow/
@@ -176,7 +177,7 @@ SENT_SPLIT = re.compile(r'[。！？]')
 SEP_RE = re.compile(r'^\s*[-─]{8,}\s*$')
 
 
-def parse_scripts(content):
+def parse_scripts(content: str) -> list[dict[str, str]]:
     """按长破折号分篇；每篇：标题 / 话题词(#) / [置顶]行 / 正文。返回含置顶行。"""
     lines = content.split('\n')
     blocks: list[list[str]] = []
@@ -191,12 +192,12 @@ def parse_scripts(content):
     if cur:
         blocks.append(cur)
 
-    scripts = []
+    scripts: list[dict[str, str]] = []
     for block in blocks:
         title = None
         kw = None
         top = None
-        body_parts = []
+        body_parts: list[str] = []
         for raw in block:
             s = raw.strip()
             if not s:
@@ -223,10 +224,10 @@ def parse_scripts(content):
 
 
 # ===================== 单篇检测 =====================
-def check_script(sc, strict=False):
+def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], list[str], list[str]]:
     body = sc['body']
-    fails = []
-    warns = []
+    fails: list[str] = []
+    warns: list[str] = []
 
     # --- ① 断句：按句末标点分句 ---
     sentences = SENT_SPLIT.split(body)
@@ -317,8 +318,8 @@ def check_script(sc, strict=False):
         re.compile(r'没毛病吧[？?]\s*$'),
         re.compile(r'难道.{0,8}吗[？?]\s*$'),
     ]
-    for p in RH_PATS:
-        m = p.search(end_txt)
+    for rh_pat in RH_PATS:
+        m = rh_pat.search(end_txt)
         if m:
             fails.append('AI腔反问收尾：结尾「%s」生硬反问，口播很假，改为自然陈述/态度金句/行动引导' % m.group(0))
             break
@@ -394,7 +395,7 @@ def check_script(sc, strict=False):
             fails.append('AI味[%s]：命中「%s」 → %s' % (atype, m.group(0), fix))
 
     # --- ⑫ 2026-07-14 新规则：4项结构优化软警告（soft_warns，·符号显示，不影响all_ok/--strict） ---
-    soft_warns = []
+    soft_warns: list[str] = []
     # 优化1·开头3句钩子公式：S1身份背书, S2完播承诺, S3完播锁钩
     sents_list = [s for s in SENT_SPLIT.split(body) if s.strip()]
     hook_s2_ok = False
@@ -410,7 +411,7 @@ def check_script(sc, strict=False):
         s3 = sents_list[2]
         hook_s3_ok = any(p in s3 for p in S3_LOCK_PATS)
     if not hook_s2_ok or not hook_s3_ok:
-        miss = []
+        miss: list[str] = []
         if not hook_s2_ok: miss.append('S2(完播承诺)')
         if not hook_s3_ok: miss.append('S3(完播锁钩)')
         soft_warns.append('开头3句钩子公式: 缺%s（S2=身份+承诺, S3=锁钩）' % ','.join(miss))
@@ -443,7 +444,7 @@ def check_script(sc, strict=False):
 
     # --- ⑭ 2026-07-14 新规则：跨稿统一词表一致性（WARN 级，不硬拦） ---
     # 命中禁用别名即提示应改推荐写法，确保跨稿称谓一致
-    canonical_hits = []
+    canonical_hits: list[str] = []
     for canonical, *aliases in TERM_CANONICAL_DICT:
         for alias in aliases:
             if alias and alias in full_text and canonical not in full_text:
@@ -458,7 +459,7 @@ def check_script(sc, strict=False):
 
 
 # ===================== 主流程 =====================
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print('用法: python koubo_quality_gate.py <MMDD.txt> [--strict]')
         sys.exit(2)
@@ -468,8 +469,8 @@ def main():
         print('文件不存在: %s' % path)
         sys.exit(2)
 
-    with open(path, 'r', encoding='utf-8') as f:
-        content = f.read()
+    with open(path, 'r', encoding='utf-8') as fp:
+        content = fp.read()
 
     scripts = parse_scripts(content)
     if not scripts:

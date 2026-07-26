@@ -119,11 +119,8 @@ test('合法: 空报告(只有 H2 标题)→ 通过', () => {
   }
 })
 
-// ─── 4. 只含完整收尾类(避开子串 bug)→ 通过 ──────────────
-// 注:源脚本 REMAINING_KEYWORDS 含 '后续建议',而 COMPLETE_PHRASES 含 '无后续建议',
-// 前者是后者子串,所以含"无后续建议"的章节会被误判含"后续建议" → 误报矛盾。
-// 这是源脚本已知 bug(任务约束不修改源脚本),本测试用"完整收尾"避开。
-test('合法: 章节只含"完整收尾"(避开"无后续建议"子串 bug)→ 通过', () => {
+// ─── 4. 只含完整收尾类 → 通过 ──────────────────────────
+test('合法: 章节只含"完整收尾" → 通过', () => {
   const root = createTempProject()
   try {
     writeProjectPlan(
@@ -137,18 +134,77 @@ test('合法: 章节只含"完整收尾"(避开"无后续建议"子串 bug)→ �
   }
 })
 
-// ─── 4b. 源脚本已知 bug:"无后续建议"被误判含"后续建议"子串 → 误报矛盾 ──
-test('行为(源脚本 bug): 含"无后续建议"会被误判含"后续建议" → 误报矛盾', () => {
+// ─── 4b. 修复 bug:"无后续建议"单独出现 → 不再误报含"后续建议" → 通过 ──
+// 历史:源脚本 REMAINING_KEYWORDS 含 '后续建议',COMPLETE_PHRASES 含 '无后续建议',
+// 前者是后者子串。修复前 text.includes('后续建议') 会命中"无后续建议"中的子串 → 误报矛盾。
+// 修复:containsRemainingKeyword() 用 lookbehind 排除前面紧邻 `无/无任何/没有/不存在` 的位置。
+test('修复: 含"无后续建议"单独出现 → 不再误报含"后续建议" → 通过(bug 修复)', () => {
   const root = createTempProject()
   try {
     writeProjectPlan(
       root,
-      '# Project Plan\n\n## 任务 A-bug (2026-08-01)\n\n任务已完成,无后续建议。\n',
+      '# Project Plan\n\n## 任务 A-fixed (2026-08-01)\n\n任务已完成,无后续建议。\n',
     )
     const r = runScript(root)
-    // 源脚本用 text.includes('后续建议') 检查,而"无后续建议"含"后续建议"子串 → 误报
+    // 修复后:"无后续建议"中的"后续建议"子串不算命中(lookbehind 排除否定前缀)
+    assertPass(r)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 4c. 修复 bug:"无后续建议" + "TODO" → 违规,但后续工作类只含 TODO(不误报"后续建议") ──
+test('修复: "无后续建议" + "TODO" → 违规,后续工作类只含 TODO(不误报"后续建议"子串)', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 任务 (2026-08-01)\n\n任务已完成,无后续建议。\n\nTODO: 修复 X。\n',
+    )
+    const r = runScript(root)
+    // 完整收尾类(无后续建议)+ 真正后续工作类(TODO)→ 违规
     assertFail(r, /无后续建议/)
-    assert.match(r.stdout, /后续建议/, '应误报含"后续建议"')
+    assert.match(r.stdout, /TODO/)
+    // 关键:后续工作类条目行不应含"后续建议"(它是"无后续建议"的子串,lookbehind 排除)
+    const remainingLine = r.stdout.match(/后续工作类条目:\s*(.+)/)
+    assert.ok(remainingLine, '应含"后续工作类条目"行')
+    assert.doesNotMatch(
+      remainingLine[1],
+      /后续建议/,
+      '后续工作类条目不应含"后续建议"(子串不算命中)',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 4d. 修复 bug:"后续建议:P1 修复" 单独出现 → 只触发后续工作类 → 通过 ──
+test('修复: "后续建议:P1 修复" 单独出现 → 触发后续工作类,无违规(无完整收尾类)', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 任务 (2026-08-01)\n\n后续建议:P1 修复 X。\n',
+    )
+    const r = runScript(root)
+    // 只有后续工作类,无完整收尾类 → 不违规
+    assertPass(r)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 4e. 修复 bug:"无后续建议" + "后续可改进:X" → 违规(真正的后续工作类) ──
+test('修复: "无后续建议" + "后续可改进:X" → 违规(完整收尾类 + 真正后续工作类)', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 任务 (2026-08-01)\n\n任务完成,无后续建议。\n\n后续可改进:优化 Y。\n',
+    )
+    const r = runScript(root)
+    assertFail(r, /无后续建议/)
+    assert.match(r.stdout, /后续可改进/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -221,7 +277,6 @@ test('违规: 同一章节含"可以关闭对话" + "后续建议" → 检测到
 test('违规: 同一章节含多个完整收尾类 + 多个后续工作类 → 报告多个违规词对', () => {
   const root = createTempProject()
   try {
-    // 用"完整收尾"+"已闭环"(避开"无后续建议"子串 bug)
     writeProjectPlan(
       root,
       '# Project Plan\n\n## 任务 F (2026-08-01)\n\n' +
@@ -333,7 +388,6 @@ test('豁免: 章节日期 2026-07-10(规则未立)→ 通过', () => {
 test('合法: 不同章节分别含完整收尾类 / 后续工作类 → 通过(不在同一章节不算矛盾)', () => {
   const root = createTempProject()
   try {
-    // 用"完整收尾"避开"无后续建议"子串 bug
     writeProjectPlan(
       root,
       '# Project Plan\n\n' +
@@ -386,7 +440,6 @@ test('staged: 暂存 .md 文件含矛盾 → 检测到 exit 1', () => {
 test('staged: 暂存 .md 文件无矛盾 → 通过', () => {
   const root = createTempRepo()
   try {
-    // 用"完整收尾"避开"无后续建议"子串 bug
     stageMd(
       root,
       'docs/report.md',
@@ -416,7 +469,6 @@ test('staged: 历史违规章节(无新增行)不检查,只检查 staged 新增�
   const root = createTempRepo()
   try {
     // baseline: 含违规的旧章节(已 commit)
-    // 用"完整收尾"+"TODO"作为历史违规(避免"无后续建议"子串 bug 干扰)
     const baselineContent =
       '# Report\n\n## 旧任务 (2026-07-10)\n\n完整收尾,仍有 TODO 项。\n'
     mkdirSync(join(root, 'docs'), { recursive: true })

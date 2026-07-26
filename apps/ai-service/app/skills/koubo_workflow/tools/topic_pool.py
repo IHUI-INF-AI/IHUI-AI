@@ -21,6 +21,7 @@
 输出：选题池 markdown 到 stdout（可重定向到文件）。
 """
 import sys, os, json, urllib.request, urllib.parse, datetime, re
+from typing import Any, cast
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from all_sources import (ALL_SOURCES, PLATFORM_LABELS, by_platform,
@@ -35,26 +36,25 @@ AI_KW = re.compile(r'\b(ai|llm|gpt|chatgpt|openai|anthropic|claude|gemini|google
                    r'neural|transformer|rag|fine-tun|multimodal|embedding)\b', re.I)
 
 
-def _get(url, timeout=20):
+def _get(url: str, timeout: int = 20) -> str:
     req = urllib.request.Request(url, headers={'User-Agent': UA})
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode('utf-8', 'ignore')
+        return cast(str, r.read().decode('utf-8', 'ignore'))
 
 
 # ── aihot ────────────────────────────────────────────────────────
-def fetch_aihot(take=60):
+def fetch_aihot(take: int = 60) -> list[dict[str, Any]]:
     url = f"{AIHOT_BASE}/api/public/items?mode=selected&take={take}"
     data = json.loads(_get(url))
-    return data.get('items', [])
-
+    return cast(list[dict[str, Any]], data.get('items', []))
 
 # ── Hacker News ──────────────────────────────────────────────────
-def fetch_hn(limit=25):
+def fetch_hn(limit: int = 25) -> list[dict[str, Any]]:
     try:
         ids = json.loads(_get('https://hacker-news.firebaseio.com/v0/topstories.json'))[:100]
     except Exception:
         return []
-    out = []
+    out: list[dict[str, Any]] = []
     for iid in ids:
         try:
             it = json.loads(_get(f'https://hacker-news.firebaseio.com/v0/item/{iid}.json'))
@@ -70,8 +70,8 @@ def fetch_hn(limit=25):
 
 
 # ── arXiv ────────────────────────────────────────────────────────
-def fetch_arxiv(cats=('cs.AI', 'cs.CL', 'cs.CV'), per=10):
-    out = []
+def fetch_arxiv(cats: tuple[str, ...] = ('cs.AI', 'cs.CL', 'cs.CV'), per: int = 10) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
     for c in cats:
         url = ('http://export.arxiv.org/api/query?search_query=cat:%s'
                '&sortBy=submittedDate&sortOrder=descending&max_results=%d' % (c, per))
@@ -92,7 +92,7 @@ def fetch_arxiv(cats=('cs.AI', 'cs.CL', 'cs.CV'), per=10):
     return out
 
 
-def main():
+def main() -> None:
     take = 60
     if '--take' in sys.argv:
         take = int(sys.argv[sys.argv.index('--take') + 1])
@@ -136,8 +136,8 @@ def main():
         L.append('')
 
         L.append(f'## 三、arXiv 最新论文（{len(arx)} 篇·自动拉取）')
-        for p in arx:
-            L.append(f"- **{p['title']}** — {p['cat']} · {p['published']}")
+        for paper in arx:
+            L.append(f"- **{paper['title']}** — {paper['cat']} · {paper['published']}")
         L.append('')
 
     # ── WebFetch / 手动核查清单 ──

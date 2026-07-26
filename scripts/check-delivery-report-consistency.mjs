@@ -134,6 +134,25 @@ function splitSections(md) {
   return sections
 }
 
+/** 转义正则元字符,用于把字面量字符串安全嵌入 RegExp */
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 检查文本是否真正包含"后续工作类"keyword(排除前面紧邻否定前缀的位置)。
+ *
+ * 修复 bug:`text.includes('后续建议')` 会因子串匹配命中"无后续建议"中的"后续建议",
+ * 导致同一文本被误判为"同时声明无后续建议 + 列出后续建议"→ 自相矛盾误报。
+ *
+ * 方案:用 lookbehind 排除前面紧邻 `无 / 无任何 / 没有 / 不存在` 等否定前缀的位置。
+ * JS V8 引擎支持变长 lookbehind,各分支长度可不同。
+ */
+function containsRemainingKeyword(text, kw) {
+  const pattern = new RegExp(`(?<!无|无任何|没有|不存在)${escapeRegExp(kw)}`)
+  return pattern.test(text)
+}
+
 /** 在一个章节文本里扫描互斥违规 */
 function checkSection(section) {
   if (isExemptSection(section)) return []
@@ -143,7 +162,7 @@ function checkSection(section) {
     if (text.includes(phrase)) hits.complete.push(phrase)
   }
   for (const kw of REMAINING_KEYWORDS) {
-    if (text.includes(kw)) hits.remaining.push(kw)
+    if (containsRemainingKeyword(text, kw)) hits.remaining.push(kw)
   }
   if (hits.complete.length > 0 && hits.remaining.length > 0) {
     return [{ section: section.title, hits }]

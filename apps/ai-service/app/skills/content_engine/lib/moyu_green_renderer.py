@@ -20,10 +20,13 @@
   1. 2. 3. → ordered-list(绿圆圈有序列表)
   - 或 * → pill-list(药丸标签列表)
 """
+from __future__ import annotations
+
 import re
 import os
 import io
 import time
+from typing import Any
 
 # ===== 官方摸鱼绿 设计变量(emerald + 黄色点睛) =====
 C_PRIMARY  = '#059669'   # emerald-600 主色
@@ -63,7 +66,7 @@ EDITOR_KEYWORDS = ['编者按', '悄悄话', '悄悄说', '划重点', '写在�
 
 # 章节编号 -> 英文副标题
 
-def _ensure_text(md_text):
+def _ensure_text(md_text: Any) -> str:
     if isinstance(md_text, (bytes, bytearray, memoryview, io.BytesIO)):
         if isinstance(md_text, io.BytesIO):
             return md_text.read().decode('utf-8')
@@ -97,26 +100,26 @@ DEFAULT_COVER = {
 
 
 # ============ 行内样式处理 ============
-def render_inline(text):
+def render_inline(text: str) -> str:
     """处理 **加粗**(绿) / `代码`(标签) / ==高亮==(黄) / 关键词(绿下划线)，返回内联HTML。"""
-    protected = []
+    protected: list[str] = []
 
-    def stash(html):
+    def stash(html: str) -> str:
         protected.append(html)
         return '\x00%d\x00' % (len(protected) - 1)
 
     # ==highlight== -> 黄色渐变高亮 (组件6c) — 必须先于 **,否则 == 被吞进 strong
-    def hl_repl(m):
+    def hl_repl(m: re.Match[str]) -> str:
         return stash('<span style="background:linear-gradient(120deg,%s 0%%,rgba(255,255,255,0) 100%%);padding:0 4px;border-radius:2px;font-weight:600;color:%s;"><span leaf="">%s</span></span>' % (C_YELLOW, C_TITLE, m.group(1)))
     text = re.sub(r'==(.+?)==', hl_repl, text)
 
     # **bold** -> 绿色加粗 (组件6a)
-    def bold_repl(m):
+    def bold_repl(m: re.Match[str]) -> str:
         return stash('<strong style="color:%s;"><span leaf="">%s</span></strong>' % (C_PRIMARY, m.group(1)))
     text = re.sub(r'\*\*(.+?)\*\*', bold_repl, text)
 
     # `code` -> 代码标签 (组件6g)
-    def code_repl(m):
+    def code_repl(m: re.Match[str]) -> str:
         return stash('<span style="background:%s;color:#1F2937;padding:2px 6px;border-radius:4px;font-size:13px;font-weight:600;"><span leaf="">%s</span></span>' % (C_GRAY_BG, m.group(1)))
     text = re.sub(r'`([^`]+?)`', code_repl, text)
 
@@ -126,10 +129,10 @@ def render_inline(text):
             text = text.replace(kw, stash('<span style="border-bottom:2px solid %s;font-weight:600;"><span leaf="">%s</span></span>' % (C_LIGHT3, kw)))
 
     # 还原占位符（必须递归：==/ 关键词占位符可能已被外层 ** 包裹进 protected）
-    def unstash(m):
+    def unstash(m: re.Match[str]) -> str:
         idx = int(m.group(1))
         return protected[idx] if 0 <= idx < len(protected) else m.group(0)
-    prev = None
+    prev: str | None = None
     while prev != text:
         prev = text
         text = re.sub(r'\x00(\d+)\x00', unstash, text)
@@ -137,7 +140,7 @@ def render_inline(text):
 
 
 # ============ 组件 2 封面 cover-breaking(无图版) ============
-def render_cover(c):
+def render_cover(c: dict[str, Any]) -> str:
     tag_html = ''.join(
         '<span style="background:rgba(255,255,255,0.2);padding:1px 6px;border-radius:3px;font-size:8px;color:#fff;font-weight:600;"><span leaf="">%s</span></span>' % t
         for t in c.get('tags', ['AI', '深度']))
@@ -172,9 +175,9 @@ def render_cover(c):
 
 
 # ============ 组件 3 目录 toc-scroll ============
-def render_toc(chapters):
+def render_toc(chapters: list[tuple[str, str]]) -> str:
     n = len(chapters)
-    cards = []
+    cards: list[str] = []
     for idx, (num, zh) in enumerate(chapters):
         if idx == 0:
             part = 'PART %s' % num if num else 'PART 01'
@@ -204,7 +207,7 @@ def render_toc(chapters):
 
 
 # ============ 组件 4 章节标题 chapter-title ============
-def render_chapter(num, zh, is_first):
+def render_chapter(num: str | None, zh: str, is_first: bool) -> str:
     mt = '16px' if is_first else '48px'
     if num:
         part_no = num
@@ -230,13 +233,13 @@ def render_chapter(num, zh, is_first):
 
 
 # ============ 组件 5 正文段落 paragraph ============
-def render_paragraph(text):
+def render_paragraph(text: str) -> str:
     inner = render_inline(text)
     return '<p style="margin:0 0 16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">%s</span></p>' % inner
 
 
 # ============ 组件 6f 章节内小标题 subtitle-highlight(黄高亮) ============
-def render_subtitle(text):
+def render_subtitle(text: str) -> str:
     inner = render_inline(text)
     return '''<p style="font-size:15px;font-weight:900;color:%s;margin:32px 0 16px;">
   <span style="background:linear-gradient(180deg,transparent 65%%,%s 65%%);padding:0 4px;"><span leaf="">%s</span></span>
@@ -244,7 +247,7 @@ def render_subtitle(text):
 
 
 # ============ 组件 3 开头引言 oneliner-card(金句卡, 黄下划线) ============
-def render_oneliner(text, prefix=None):
+def render_oneliner(text: str, prefix: str | None = None) -> str:
     inner = render_inline(text)
     prefix_html = '<p style="font-size:12px;color:%s;margin:0 0 6px;line-height:1.5;"><span leaf="">%s</span></p>' % (C_NOTE2, prefix) if prefix else ''
     return '''<section style="margin:0 0 24px;">
@@ -258,7 +261,7 @@ def render_oneliner(text, prefix=None):
 
 
 # ============ 组件 9 引用块 quote-box(灰虚线) ============
-def render_quote(text):
+def render_quote(text: str) -> str:
     inner = render_inline(text)
     return '''<section style="background:%s;border:1px dashed %s;border-radius:8px;padding:12px 16px;margin:0 0 24px;text-align:justify;">
   <p style="font-size:13px;color:%s;margin:0;line-height:1.6;"><span leaf="">%s</span></p>
@@ -267,19 +270,19 @@ def render_quote(text):
 
 # ============ 组件 10 提示块 tip(左竖条emerald + 类型标签) ============
 # block_type: 'tip' 绿 / 'warning' 橙 / 'note' 灰
-TIP_COLORS = {
+TIP_COLORS: dict[str, dict[str, str]] = {
     'tip':     {'bg': C_BG_L2,  'bar': C_PRIMARY, 'tag_bg': C_PRIMARY,  'tag_fg': '#FFFFFF', 'body': C_BODY},
     'warning': {'bg': '#FFF7ED', 'bar': '#EA580C', 'tag_bg': '#EA580C', 'tag_fg': '#FFFFFF', 'body': C_BODY},
     'note':    {'bg': C_GRAY_BG2, 'bar': C_NOTE2, 'tag_bg': C_NOTE,   'tag_fg': '#FFFFFF', 'body': C_BODY},
 }
 TIP_DEFAULT_LABEL = {'tip': '关键洞察', 'warning': '避坑提示', 'note': '延伸阅读'}
 
-def render_tip(label, body, block_type='tip'):
+def render_tip(label: str, body: str, block_type: str = 'tip') -> str:
     """block_type 决定配色: tip(绿) / warning(橙) / note(灰)。
        body 允许多行,按 \n 拆成多个 <p>。"""
     col = TIP_COLORS.get(block_type, TIP_COLORS['tip'])
     body_lines = [l for l in (body or '').split('\n') if l is not None]
-    paras = []
+    paras: list[str] = []
     for ln in body_lines:
         s = ln.strip()
         if not s:
@@ -301,7 +304,7 @@ def render_tip(label, body, block_type='tip'):
 
 
 # ============ 组件 11.5 ::: 块渲染分发 (tip / warning / note / oneliner / quote) ============
-def render_colon_block(block_type, arg, body_lines):
+def render_colon_block(block_type: str, arg: str, body_lines: list[str]) -> str:
     """处理 :::tip 关键洞察 ... ::: / :::warning ... ::: / :::oneliner ... :::"""
     body = '\n'.join([l for l in body_lines if l is not None])
     if block_type in ('tip', 'warning', 'note'):
@@ -325,8 +328,8 @@ def render_colon_block(block_type, arg, body_lines):
 
 
 # ============ 组件 11 有序列表 ordered-list(绿圆圈) ============
-def render_ordered_list(items):
-    parts = []
+def render_ordered_list(items: list[str]) -> str:
+    parts: list[str] = []
     for i, it in enumerate(items, 1):
         inner = render_inline(it)
         parts.append('''<section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
@@ -337,8 +340,8 @@ def render_ordered_list(items):
 
 
 # ============ 组件 11 药丸标签列表 pill-list ============
-def render_pill_list(items):
-    parts = []
+def render_pill_list(items: list[tuple[str, str]]) -> str:
+    parts: list[str] = []
     for label, desc in items:
         parts.append('''<section style="margin:0 0 14px;">
   <p style="margin:0 0 6px;">
@@ -350,7 +353,7 @@ def render_pill_list(items):
 
 
 # ============ 组件 11 居中金句 center-divider ============
-def render_center_quote(text):
+def render_center_quote(text: str) -> str:
     inner = render_inline(text)
     return '''<p style="font-size:14px;margin:0 0 20px;text-align:center;color:%s;font-weight:700;letter-spacing:1px;border-top:1px solid %s;border-bottom:1px solid %s;padding:12px 0;">
   <span leaf="">%s</span>
@@ -358,11 +361,11 @@ def render_center_quote(text):
 
 
 # ============ 组件 8 代码块 code-block(深色) ============
-def render_code_block(lang, code):
+def render_code_block(lang: str, code: str) -> str:
     lines = code.split('\n')
     if lines and lines[-1] == '':
         lines = lines[:-1]
-    plines = []
+    plines: list[str] = []
     for ln in lines:
         disp = ln.replace('  ', '　　')  # 全角空格保留缩进, 避免 pre 空白
         plines.append('<p style="margin:0;font-family:Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">%s</span></p>' % disp)
@@ -381,7 +384,7 @@ def render_code_block(lang, code):
 
 
 # ============ 组件 12a 图片 image ============
-def render_image(alt, src):
+def render_image(alt: str, src: str) -> str:
     img_html = '''<section style="margin:0 0 8px;">
   <section style="background:#FFF;border-radius:12px;padding:6px;border:1px solid %s;box-shadow:0 4px 12px -2px rgba(0,0,0,0.08);">
     <section style="margin:0;border-radius:8px;overflow:hidden;">
@@ -403,7 +406,7 @@ def render_image(alt, src):
 #   - 左: emerald 主色实心按钮「👍 看完点个赞」
 #   - 右: 白底 emerald 描边按钮「➕ 想看更多请关注」
 # DOCX 路径不受影响, build_gpt56_sol.py 继续保留这两张图
-def render_end_support():
+def render_end_support() -> str:
     like_btn = '''<section style="display:inline-block;background:%s;border-radius:999px;padding:10px 22px;margin:0 4px;box-shadow:0 4px 12px -2px rgba(5,150,105,0.35);">
   <p style="margin:0;font-size:14px;font-weight:700;color:#FFFFFF;letter-spacing:0.5px;"><span leaf="">👍 看完点个赞</span></p>
 </section>''' % C_PRIMARY
@@ -420,7 +423,7 @@ def render_end_support():
 
 
 # ============ 编辑按语区块 green-info 风格 ============
-def render_editor_section(label, body_html):
+def render_editor_section(label: str, body_html: str) -> str:
     return '''<section style="margin:0 0 24px;background:%s;padding:14px 18px;border-radius:8px;border:1px solid %s;">
   <p style="margin:0 0 10px;">
     <span style="display:inline-block;background:%s;color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:4px;letter-spacing:1px;"><span leaf="">%s</span></span>
@@ -430,7 +433,7 @@ def render_editor_section(label, body_html):
 
 
 
-def self_quote_continue(lines, i):
+def self_quote_continue(lines: list[str], i: int) -> bool:
     """判断空行后是否还能接 > 引用块（用于连续 > 中间空行合并）"""
     j = i
     while j < len(lines) and lines[j].rstrip() == '':
@@ -438,9 +441,9 @@ def self_quote_continue(lines, i):
     return j < len(lines) and lines[j].rstrip().startswith('>')
 
 
-def flush_quote(out, quote_buf):
+def flush_quote(out: list[str], quote_buf: list[str]) -> None:
     """把累计的 > 引用行合并渲染成一个引用块,空行保留为段落分隔"""
-    paras = []
+    paras: list[str] = []
     for q in quote_buf:
         s = q.strip()
         if not s:
@@ -450,7 +453,7 @@ def flush_quote(out, quote_buf):
     out.append('<section style="background:%s;border:1px dashed %s;border-radius:8px;padding:12px 16px;margin:0 0 24px;text-align:justify;">%s</section>' % (C_GRAY_BG2, C_DIVIDER, ''.join(paras)))
 
 
-def flush_editor(out, label, paras):
+def flush_editor(out: list[str], label: str | None, paras: list[str]) -> None:
     """渲染智汇AI悄悄话 / 编者按 等编辑按语区块"""
     out.append('<section style="margin:0 0 24px;background:%s;padding:14px 18px;border-radius:8px;border:1px solid %s;">' % (C_BG_L2, C_BORDER_L))
     out.append('<p style="margin:0 0 10px;"><span style="display:inline-block;background:%s;color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:4px;letter-spacing:1px;"><span leaf="">%s</span></span></p>' % (C_PRIMARY, label))
@@ -458,11 +461,16 @@ def flush_editor(out, label, paras):
     out.append('</section>')
 
 
-def md_to_moyu_green_html(md_text, cover=None, title=None, digest=None):
+def md_to_moyu_green_html(
+    md_text: str,
+    cover: dict[str, Any] | None = None,
+    title: str | None = None,
+    digest: str | None = None,
+) -> str:
     md_text = md_text or ''
     title = title or ''
     digest = digest or ''
-    out = []
+    out: list[str] = []
     out.append('<section style="max-width:677px;margin:0 auto;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,sans-serif;color:#374151;line-height:1.75;letter-spacing:0.5px;overflow-x:hidden;">')
     out.append('<section style="margin:0 0 32px;background:#fff;border:1.5px solid rgba(5,150,105,0.15);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);width:100%;">')
     out.append('<section style="padding:32px 28px 28px;">')
@@ -479,8 +487,8 @@ def md_to_moyu_green_html(md_text, cover=None, title=None, digest=None):
     in_editor = False
     editor_label: str | None = '智汇AI悄悄话'
     editor_paras: list[str] = []
-    buf = []
-    buf_type = None
+    buf: list[str] = []
+    buf_type: str | None = None
     chapter_count = 0
     quote_buf: list[str] = []  # 收集连续 > 行,合并成一个引用块
     # 2026-07-14: 末尾点赞/关注双按钮状态 (一次渲染,后续同源图 skip)

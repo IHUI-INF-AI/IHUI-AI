@@ -36,7 +36,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
 
-// 豁免词（出现在 token 中即豁免，大小写不敏感）
+// 豁免词（完整 token 等于 或 按 -/_/. 分段后任一段等于，大小写不敏感）
+// 注意：不用子串包含匹配，避免 "M3" 误豁免 "M3SubAI" 等 CamelCase token
 const WHITELIST_TOKENS = [
   'AI', 'GPT', 'LLM', 'API', 'HTML', 'CSS', 'SDK', 'IO', 'SaaS', 'PaaS', 'IaaS',
   'JSON', 'XML', 'HTTP', 'HTTPS', 'URL', 'URI', 'UUID', 'SSO', 'OAuth', 'JWT',
@@ -50,6 +51,14 @@ const WHITELIST_TOKENS = [
   'B2B', 'B2C', 'C2C', 'O2O',
   'PR', 'MR', 'CR', 'LGTM',
 ]
+const WHITELIST_SET = new Set(WHITELIST_TOKENS.map(w => w.toLowerCase()))
+// 完整 token 等于白名单项，或按 -/_/. 分段后任一段等于（合法复合词如 GPT-4 / DALL-E / iOS-15 / GPT_4）
+// 不用子串包含：避免 "M3" 误豁免 "M3SubAI"、"ORM" 误豁免 "AgentDevPlatform"
+function isWhitelistedToken(tok) {
+  if (WHITELIST_SET.has(tok.toLowerCase())) return true
+  const parts = tok.split(/[-_.]+/).filter(Boolean)
+  return parts.some(p => WHITELIST_SET.has(p.toLowerCase()))
+}
 
 // 语言原生名称(autoglossonym)白名单 — 语言选择器中显示各语言的本名,
 // 即使在非中文 locale 文件中也保留原文字符(如 en.json 中 "zhCN": "简体中文")。
@@ -108,8 +117,8 @@ function detectBroken(value) {
     if (/^[A-Z]+$/.test(tok)) continue
     // 豁免：单词单大写开头
     if (/^[A-Z][a-z]+$/.test(tok)) continue
-    // 豁免：含白名单 token
-    if (WHITELIST_TOKENS.some(w => tok.toLowerCase().includes(w.toLowerCase()))) continue
+    // 豁免：含白名单 token（完整等于 或 按 -/_/. 分段后任一段等于）
+    if (isWhitelistedToken(tok)) continue
     // 豁免：版本号/路径
     if (/[0-9]\.[0-9]/.test(tok) || tok.includes('/')) continue
 

@@ -4,7 +4,11 @@
 API 文档：https://imgchr.com/page/api-docs.html
 注册获取 Token：https://imgchr.com/login
 """
+from __future__ import annotations
+
 import os
+from typing import Any, cast
+
 import requests
 import urllib3
 
@@ -13,7 +17,7 @@ urllib3.disable_warnings()
 API_URL = 'https://imgchr.com/api/upload'
 
 
-def upload_image(file_path, token):
+def upload_image(file_path: str, token: str) -> str | None:
     """
     上传单张图片到路过图床。
     返回远程 URL 字符串，失败返回 None。
@@ -28,9 +32,9 @@ def upload_image(file_path, token):
     try:
         resp = requests.post(API_URL, headers=headers, files=files, timeout=30, verify=False)
         if resp.status_code == 200:
-            data = resp.json()
+            data = cast(dict[str, Any], resp.json())
             if data.get('status_code') == 200:
-                return data['data']['url']
+                return cast(str, data['data']['url'])
             else:
                 print(f'  ❌ 上传失败: {data}')
                 return None
@@ -44,11 +48,15 @@ def upload_image(file_path, token):
         files['file'].close()
 
 
-def upload_batch(image_dir, token, extensions=('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+def upload_batch(
+    image_dir: str,
+    token: str,
+    extensions: tuple[str, ...] = ('.jpg', '.jpeg', '.png', '.gif', '.webp'),
+) -> dict[str, str]:
     """
     批量上传目录中的图片，返回 {local_path: remote_url} 字典。
     """
-    results = {}
+    results: dict[str, str] = {}
     for fname in sorted(os.listdir(image_dir)):
         if not fname.lower().endswith(extensions):
             continue

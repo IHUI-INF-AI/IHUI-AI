@@ -11,12 +11,14 @@
 3项可读性/传播性/受众对齐检测（2026-07-01新增）：可读性、传播力、受众对齐
 5项补充评分（2026-07-09新增）：配图重复检测等
 """
+from __future__ import annotations
+
 import sys
 import os
 import re
 import io
 import json
-from typing import cast
+from typing import Any, cast
 
 
 # ===== 技术自检常量（原有） =====
@@ -97,10 +99,10 @@ CSDN_TECH_NEGATIVE_PATTERNS = [
 ]
 
 
-def _check_csdn_content_fit(full_text):
+def _check_csdn_content_fit(full_text: str) -> tuple[int, int, str]:
     """检测文章是否适合CSDN技术社区发布（信息性检测，不影响通过/失败）"""
-    positive_hits = []
-    negative_hits = []
+    positive_hits: list[str] = []
+    negative_hits: list[str] = []
 
     for pattern in CSDN_TECH_POSITIVE_PATTERNS:
         matches = re.findall(pattern, full_text)
@@ -271,7 +273,7 @@ AUDIENCE_DEVIATION_KEYWORDS = [
 
 # ===== 辅助函数 =====
 
-def _extract_title_from_md(text):
+def _extract_title_from_md(text: str) -> str:
     """从Markdown文本中提取标题（第一个# heading行）"""
     for line in text.split('\n'):
         line = line.strip().lstrip('\ufeff')
@@ -280,13 +282,13 @@ def _extract_title_from_md(text):
     return ''
 
 
-def _count_sentences(text):
+def _count_sentences(text: str) -> int:
     """统计句子数（按句号、问号、感叹号分句）"""
     sentences = re.split(r'[。！？]', text)
     return len([s for s in sentences if s.strip()])
 
 
-def _load_published_memory(md_path):
+def _load_published_memory(md_path: str) -> dict[str, Any] | None:
     """加载已发布内容记忆JSON (优先 BASE 根, 兼容老路径)"""
     # 优先: BASE 根目录 (lib 在 BASE/lib 下, BASE = lib 的父目录)
     base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -298,18 +300,18 @@ def _load_published_memory(md_path):
         if os.path.exists(cand):
             try:
                 with open(cand, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    return cast(dict[str, Any], json.load(f))
             except (json.JSONDecodeError, IOError) as e:
                 print(f'[validate] 读已发布记忆失败({cand}): {e}')
                 return None
     return None
 
 
-def _check_duplicate_paragraphs(full_text):
+def _check_duplicate_paragraphs(full_text: str) -> list[tuple[int, int, str]]:
     """Check for completely duplicate paragraphs in text"""
     paragraphs = [p.strip() for p in full_text.split('\n\n') if p.strip()]
     seen: dict[str, int] = {}
-    duplicates = []
+    duplicates: list[tuple[int, int, str]] = []
     for i, para in enumerate(paragraphs):
         if len(para) < 10:
             continue
@@ -320,12 +322,12 @@ def _check_duplicate_paragraphs(full_text):
     return duplicates
 
 
-def _check_originality(full_text, title, md_path):
+def _check_originality(full_text: str, title: str, md_path: str) -> tuple[int, str]:
     """原创度检测：主题对比 + 独特观点密度 + 数据引用密度 + 综述性表述
     返回: (score, detail_str)
     """
     score = 100
-    details = []
+    details: list[str] = []
 
     # 1. 主题对比：与已发布文章对比（排除自身）
     memory = _load_published_memory(md_path)
@@ -398,7 +400,7 @@ def _check_originality(full_text, title, md_path):
     return max(score, 0), '; '.join(details)
 
 
-def _check_ai_flavor(full_text):
+def _check_ai_flavor(full_text: str) -> tuple[float, str]:
     """AI味检测：过渡词频率 + 对称句式
     返回: (ai_percent, detail_str)
     """
@@ -407,7 +409,7 @@ def _check_ai_flavor(full_text):
         return 0, '无句子'
 
     ai_count = 0.0
-    details = []
+    details: list[str] = []
 
     # 1. 强AI过渡词（句首出现，权重1.0）
     strong_hits = []
@@ -449,11 +451,11 @@ def _check_ai_flavor(full_text):
     return ai_percent, detail_str
 
 
-def _check_platform_risk(full_text, title_text):
+def _check_platform_risk(full_text: str, title_text: str) -> tuple[int, str]:
     """平台审核风险：汇总营销词+推荐语+违规短语+绝对化用语+CSDN广告模式 -> 风险百分比
     返回: (risk_percent, detail_str)
     """
-    risks = []
+    risks: list[str] = []
 
     found_marketing = [w for w in MARKETING_WORDS if w in full_text]
     if found_marketing:
@@ -488,12 +490,12 @@ def _check_platform_risk(full_text, title_text):
     return 0, '无风险项'
 
 
-def _check_traffic_score(full_text, title, md_path):
+def _check_traffic_score(full_text: str, title: str, md_path: str) -> tuple[int, str]:
     """流量预测：时效性+冲突性+共鸣度+稀缺性+传播力 = 10分
     返回: (score, detail_str)
     """
     text = title + ' ' + full_text
-    details = []
+    details: list[str] = []
 
     # 1. 时效性（0-2分）
     timeliness_score = 0
@@ -551,7 +553,7 @@ def _check_traffic_score(full_text, title, md_path):
 
 # ==================== 可读性/传播性/受众对齐检测（2026-07-01新增） ====================
 
-def _check_readability(full_text):
+def _check_readability(full_text: str) -> tuple[int, bool, str]:
     """可读性检测（2026-07-01新增）：
     检测文章是否适合普通人阅读。
     核心逻辑：技术术语密度 + 术语解释率 + 类比数量
@@ -562,7 +564,7 @@ def _check_readability(full_text):
         return 0, False, '无中文内容'
 
     score = 100
-    details = []
+    details: list[str] = []
 
     # 1. 技术术语密度检测
     jargon_count = 0
@@ -650,14 +652,14 @@ def _check_readability(full_text):
     return score, passed, detail_str
 
 
-def _check_shareability(full_text, title):
+def _check_shareability(full_text: str, title: str) -> tuple[int, bool, str]:
     """传播力检测（2026-07-01新增）：
     检测文章是否具备社交传播动力（用户为什么愿意转发）。
     4维度：身份信号 + 情感共鸣 + 实用价值 + 分享触发器
     返回: (score, passed, detail_str)
     """
     score = 0
-    details = []
+    details: list[str] = []
 
     # 1. 身份信号（0-3分）：文章是否让特定人群觉得"这说的就是我"
     identity_count = 0
@@ -722,14 +724,14 @@ def _check_shareability(full_text, title):
     return score, passed, detail_str
 
 
-def _check_audience_alignment(full_text, title):
+def _check_audience_alignment(full_text: str, title: str) -> tuple[int, bool, str]:
     """受众对齐检测（2026-07-01新增）：
     检测文章是否偏离"普通人"定位，滑向"开发者/投资人"导向。
     核心逻辑：统计受众偏离关键词数量
     返回: (score, passed, detail_str)
     """
     text = title + ' ' + full_text
-    violations = []
+    violations: list[str] = []
     violation_count = 0
 
     for kw in AUDIENCE_DEVIATION_KEYWORDS:
@@ -769,7 +771,7 @@ def _check_audience_alignment(full_text, title):
 
 # ===== 主检测函数 =====
 
-def validate(md_path):
+def validate(md_path: str) -> tuple[bool, list[str]]:
     """执行22项自检，返回(全部通过, 报告列表)
     第0-8项：基础技术自检（段落重复/字数/配图/格式/营销词/推荐语/违规短语/标题绝对化/output目录）
     第9-12项：内容质量自检（原创度/AI味/平台风险/流量预测）
@@ -785,7 +787,7 @@ def validate(md_path):
     with open(md_path, 'r', encoding='utf-8') as f:
         full_text = f.read()
     title_text = _extract_title_from_md(full_text)
-    reports = []
+    reports: list[str] = []
     all_pass = True
 
     # === 8项技术自检（原有） ===
@@ -1068,7 +1070,7 @@ TITLE_BENEFIT_KEYWORDS = [
 ]
 
 
-def _check_title_quality(title_text):
+def _check_title_quality(title_text: str) -> tuple[bool, str]:
     """标题质量检测（2026-07-02重构）：
     核心改变：去掉产品名/品牌名强制要求（旧规则逼出别扭标题），
     改为「点击冲动测试」——标题是否让人忍不住想点？
@@ -1086,8 +1088,8 @@ def _check_title_quality(title_text):
 
     title = title_text.strip()
     title_len = len(title)
-    fails = []
-    warns = []
+    fails: list[str] = []
+    warns: list[str] = []
 
     # 条件1：点击冲动测试（替代旧版"产品名"要求）
     # 至少满足以下2项：
@@ -1155,7 +1157,7 @@ def _check_title_quality(title_text):
 
 # ==================== 标题吸引力评分（2026-07-02新增，信息性评分） ====================
 
-def _score_title_attractiveness(title_text):
+def _score_title_attractiveness(title_text: str) -> tuple[int, str]:
     """标题吸引力评分（0-10分）：衡量标题让人想点进来的程度。
     不是通过/失败检测，而是帮助判断标题的点击潜力。
     返回: (score, detail_str)
@@ -1230,7 +1232,7 @@ def _score_title_attractiveness(title_text):
 
 # ==================== 标题候选排名（2026-07-02新增） ====================
 
-def rank_title_candidates(candidates):
+def rank_title_candidates(candidates: list[str]) -> list[tuple[int, str, str]]:
     """
     对多个标题候选进行打分排名。
 
@@ -1240,7 +1242,7 @@ def rank_title_candidates(candidates):
     Returns:
         list of (score, title, detail) 按分数降序排列
     """
-    results = []
+    results: list[tuple[int, str, str]] = []
     for title in candidates:
         score, detail = _score_title_attractiveness(title)
         results.append((score, title, detail))
@@ -1300,7 +1302,7 @@ OPENING_HOOK_PATTERNS = {
 }
 
 
-def _score_opening_hook(full_text):
+def _score_opening_hook(full_text: str) -> tuple[int, str]:
     """开头钩子评分（0-10分）：衡量文章开头让人想继续读的程度。
     检测前3句（约前100字）是否包含经过验证的钩子模式。
     返回: (score, detail_str)
@@ -1354,7 +1356,7 @@ def _score_opening_hook(full_text):
 
 # ==================== GEO优化检测（第13项，2026-06-22新增） ====================
 
-def _check_geo_optimization(full_text, title_text):
+def _check_geo_optimization(full_text: str, title_text: str) -> tuple[int, str]:
     """
     GEO优化检测：检测文章是否具备被AI搜索引擎检索和引用的优化要素。
     返回(geo_score, detail_string)
@@ -1365,7 +1367,7 @@ def _check_geo_optimization(full_text, title_text):
         return 0, '无中文内容'
 
     score = 0
-    details = []
+    details: list[str] = []
 
     # 1. 结构化内容检测（15分）
     # 检测章节标题格式（数字+冒号/编号/模板渲染格式）
@@ -1638,7 +1640,7 @@ def _check_geo_optimization(full_text, title_text):
     return score, detail_str
 
 
-def main():
+def main() -> None:
     import sys
     try:
         # sys.stdout 可能是 TextIO(无 reconfigure)或 TextIOWrapper(有),运行时判断后调用
