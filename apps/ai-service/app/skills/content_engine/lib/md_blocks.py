@@ -24,6 +24,8 @@ md_blocks.py — 公众号 / DOCX 流水线【唯一】markdown 语法解析源�
 """
 
 import re
+from typing import Any
+
 
 # 编辑按语段标题前缀（startswith 对齐 HTML 渲染器的判定口径）
 _EDITOR_PREFIXES = ('## 智汇AI悄悄话', '## 编者按', '## 悄悄话', '## 写在最后')
@@ -40,11 +42,11 @@ def parse_blocks(md_text):
     解析语义严格对齐已充分验证的 HTML 渲染器主循环，确保下游 renderer
     改写后产物与旧版一致。
     """
-    blocks = []
+    blocks: list[dict[str, Any]] = []
     lines = (md_text or '').splitlines()
     n = len(lines)
     i = 0
-    editor = None  # {'type':'editor','title':str,'children':[block],'end_support':bool}
+    editor: dict[str, Any] | None = None  # {'type':'editor','title':str,'children':[block],'end_support':bool}
 
     def close_editor():
         nonlocal editor
