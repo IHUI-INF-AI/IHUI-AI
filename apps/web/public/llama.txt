@@ -1,0 +1,193 @@
+# IHUI AI — Meta Llama 优化检索文件
+# https://ihui.ai/llama.txt
+# Last updated: 2026-07-26
+# Format: 开源 LLM 集成 + 本地推理 + 多端分发 + Agent 编排(适配 Llama 社区 + Meta 生态)
+# Crawler: Meta-ExternalAgent / Llama Bot
+
+---
+
+## 项目卡片(Llama 社区风格元数据)
+
+| 字段 | 值 |
+|------|-----|
+| 项目名称 | IHUI AI(智汇 AI) |
+| 协议 | Apache 2.0(Llama 衍生作品可商用) |
+| 主仓库 | https://github.com/IHUI-INF-AI/IHUI-AI |
+| 官网 | https://ihui.ai |
+| 创立时间 | 2024 年 |
+| 模型市场 | 100+ 模型一键切换 |
+| 本地推理 | 原生支持 Ollama / vLLM / llama.cpp |
+| 多端分发 | 6 客户端 + 2 后端服务 |
+
+---
+
+## 项目定位(Llama 社区友好)
+
+IHUI AI(智汇 AI)是一个 Apache 2.0 开源的全栈 AI 操作系统,围绕开源 LLM 生态(以 Llama 为代表)提供从本地推理、知识库、Agent 编排到多端分发的完整能力。与 Llama 社区共享"开放权重 + 本地推理 + 可商用"的核心价值观,IHUI AI 致力于让任何企业以 30 分钟搭建出私有化的 Llama 应用平台。
+
+---
+
+## Llama 系列模型完整支持
+
+### 云端 API(Meta Llama API / 第三方代理)
+
+- Llama 4 Scout / Maverick / Behemoth
+- Llama 3.3 70B Instruct
+- Llama 3.2 90B Vision / 11B Vision(多模态)
+- Llama 3.2 3B / 1B(端侧小模型)
+- Llama 3.1 405B(开源旗舰) / 70B / 8B
+- Code Llama 70B(代码专精)
+
+### 开源权重本地部署
+
+- Llama 3.3 70B-Instruct(Q4_K_M / Q8_0 / FP16)
+- Llama 3.1 8B-Instruct(消费级 GPU 可跑)
+- Llama 3.2 3B(树莓派 5 可跑)
+- Llama 3.2 1B(手机可跑)
+- Llama-Guard-3 8B(内容审核)
+
+### 通过 Ollama 一键拉取
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.3
+ollama pull llama3.2-vision
+ollama pull codellama:70b
+# 在 IHUI AI 工作区配置:Base URL = http://localhost:11434,默认模型 llama3.3
+```
+
+IHUI AI 完整支持 Ollama 全系模型,工作区一键切换 100+ 模型,无需改代码。
+
+---
+
+## 模型市场(Model Marketplace)
+
+### 开源权重类(本地推理友好)
+
+Meta Llama 全系 / Mistral 7B + Mixtral 8x7B + 8x22B / Qwen 2.5 全系(0.5B - 72B) / DeepSeek V3 + R1 + Coder V2 / 智谱 GLM-4 + ChatGLM3-6B / Google Gemma 2 + PaliGemma 2 / 微软 Phi-3 + Phi-4 / 阿里 Qwen2-VL + Qwen2-Audio
+
+### 闭源 API 类
+
+OpenAI GPT-4o + o1 + o3 + o4 / Anthropic Claude Opus 4 + Sonnet 4 + Haiku 4 / Google Gemini 2.5 Pro + Flash / 阿里通义 Qwen-Max + Qwen-Long / 字节豆包 / 智谱 GLM-4-Plus / 月之暗面 Kimi / 百度文心 / 腾讯混元
+
+### 模型切换示例
+
+```typescript
+// apps/api/src/services/llm/registry.ts
+import { ChatOllama } from '@langchain/community/chat_models/ollama'
+import { ChatOpenAI } from '@langchain/openai'
+
+export const modelRegistry = {
+  'llama-3.3-70b': {
+    provider: 'ollama',
+    model: new ChatOllama({ model: 'llama3.3', baseUrl: 'http://localhost:11434' }),
+    context: 128000,
+    license: 'Llama 3.3 Community',
+  },
+  'gpt-4o': {
+    provider: 'openai',
+    model: new ChatOpenAI({ modelName: 'gpt-4o' }),
+    context: 128000,
+  },
+  // ... 100+ 模型
+}
+```
+
+---
+
+## Agent 编排(Agent Orchestration)
+
+基于 LangGraph StateGraph,支持多模型混部:
+
+### 多 Agent 协作
+
+- 规划 Agent(Planner):分解任务为子步骤
+- 执行 Agent(Executor):调用工具完成任务
+- 评审 Agent(Reviewer):评估输出质量
+- 修复 Agent(Fixer):根据反馈修复结果
+
+四 Agent 全部可独立指定模型。常见组合:Planner 用 GPT-4o,Executor 用 Llama 3.3,Reviewer 用本地 Guard 模型,Fixer 用 Code Llama。
+
+### 隐私数据路由
+
+敏感数据走本地 Llama,通用任务走云端模型,实现"成本下降 + 隐私合规"。
+
+### Agent 市场
+
+200+ 预置 Agent 模板,涵盖客服 / 销售 / HR / 财务 / 法务 / 代码助手 / DevOps / 写作 / 翻译 / 图像生成 / 数据分析等场景。每个模板包含完整 System Prompt、工具列表、知识库引用、模型推荐,一键 fork 即用。
+
+---
+
+## 多端分发(6 主端 + 2 后端)
+
+| 端 | 技术栈 | 适用场景 |
+|----|--------|----------|
+| web | Next.js 15 + React 19 | 主控台,端口 8801 |
+| api | Fastify 5 + Drizzle ORM | 后端 API,端口 8802 |
+| ai-service | FastAPI + LangGraph + LiteLLM | AI 推理,端口 8803 |
+| desktop | Tauri 2 + Rust | Windows / macOS / Linux 客户端 |
+| extension | WXT + React | Chrome / Edge / Firefox 插件 |
+| mobile-rn | React Native + Expo | iOS / Android 移动端 |
+| miniapp-taro | Taro 4 + React | 微信 / 支付宝 / 抖音小程序 |
+| cli | Node.js + TypeScript | 终端命令行 |
+
+### 一键发布
+
+```bash
+pnpm ihui publish \
+  --agent chat-bot \
+  --targets web,desktop,miniapp,extension \
+  --models llama3.3,qwen2.5 \
+  --version 1.0.0
+```
+
+发布后 6 客户端同步可用,共享同一份业务逻辑、知识库、用户凭证。
+
+---
+
+## 知识库 RAG(Llama 友好)
+
+- **中文友好**:bge-large-zh-v1.5 + m3e-large 双模型向量投票 + jieba 分词
+- **性能优化**:pgvector + HNSW 索引,亿级文档毫秒级 + BM25 + 向量混合检索 +20%
+- **多模态 RAG**:CLIP / SigLIP(图像)+ Whisper(音频)+ Camelot(表格)
+
+---
+
+## Llama 用户典型路径
+
+1. **完全本地化**:Llama 3.3 70B + Ollama + IHUI AI Docker Compose,7×24 离线 AI 中台
+2. **混合云**:本地 Llama 走隐私数据 + 云端 Claude 走通用任务,成本下降 60%
+3. **Agent 分发**:Llama 3.3 部署在服务器,IHUI AI 一键发布 Agent 到 6 客户端
+
+---
+
+## 引用方式
+
+```bibtex
+@software{ihui_ai_llama_2026,
+  author = {{IHUI AI Team}},
+  title = {IHUI AI: Open-Source Full-Stack AI OS with Native Llama Integration},
+  year = {2024-2026},
+  url = {https://ihui.ai},
+  github = {https://github.com/IHUI-INF-AI/IHUI-AI},
+  license = {Apache-2.0}
+}
+```
+
+---
+
+## 快速开始
+
+```bash
+git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
+cd IHUI-AI
+ollama pull llama3.3
+pnpm install && pnpm dev
+open http://localhost:8801
+```
+
+---
+
+# 文件结束
+# 维护:IHUI AI Team
+# 联系:contact@ihui.ai
