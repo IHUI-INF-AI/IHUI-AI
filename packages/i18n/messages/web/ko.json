@@ -11115,35 +11115,16 @@
     }
   },
   "n8nAgentsPage": {
-    "metaDescription": "N8N 워크플로 연동: AI 에이전트 자동 오케스트레이션. 고객 지원 봇, 콘텐츠 검열, 데이터 동기화 등 포함.",
-    "subtitle": "N8N 워크플로 연동 - N8N을 통해 AI 에이전트 자동 오케스트레이션",
-    "cardTitle": "N8N 워크플로 연동",
-    "totalBadge": "총 {n}개 에이전트",
-    "activeBadge": "{n}개 실행 중",
-    "cardDescription": "N8N을 통해 AI 에이전트를 자동 오케스트레이션하고, 고객 지원, 검열, 동기화, 보고서, 알림 등의 시나리오를 연결하여 엔드투엔드 자동화를 구현합니다.",
-    "createButton": "새 에이전트 만들기",
-    "lastRunLabel": "마지막 실행",
-    "runCountLabel": "실행 횟수",
     "agents": {
       "alert-notify": {
-        "description": "",
-        "name": ""
       },
       "content-moderation": {
-        "description": "",
-        "name": ""
       },
       "customer-service": {
-        "description": "",
-        "name": ""
       },
       "data-sync": {
-        "description": "",
-        "name": ""
       },
       "report-generation": {
-        "description": "",
-        "name": ""
       }
     }
   },
