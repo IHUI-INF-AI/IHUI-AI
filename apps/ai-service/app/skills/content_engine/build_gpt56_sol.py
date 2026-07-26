@@ -481,7 +481,7 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
     total = len(lines)
     i = 0
     block_type = None
-    block_buf = []
+    block_buf: list[str] = []
     block_meta = None
     chapter_idx = 0
 
