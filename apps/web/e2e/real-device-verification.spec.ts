@@ -320,7 +320,7 @@ test.describe('真机验证 - 已登录状态', () => {
         request,
         baseURL ?? 'http://localhost:8801',
         {
-          email: process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
+          account: process.env.E2E_USER_ACCOUNT ?? 'test@ihui.ai',
           password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
         },
         USER_STORAGE_STATE,
@@ -372,7 +372,7 @@ test.describe('真机验证 - 已登录状态', () => {
         request,
         baseURL ?? 'http://localhost:8801',
         {
-          email: process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
+          account: process.env.E2E_USER_ACCOUNT ?? 'test@ihui.ai',
           password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
         },
         USER_STORAGE_STATE,
@@ -416,7 +416,7 @@ test.describe('真机验证 - 已登录状态', () => {
         request,
         baseURL ?? 'http://localhost:8801',
         {
-          email: process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
+          account: process.env.E2E_USER_ACCOUNT ?? 'test@ihui.ai',
           password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
         },
         USER_STORAGE_STATE,
