@@ -150,7 +150,8 @@ export default function RankingIndex() {
       </View>
 
       {/* 文件类型筛选 tab */}
-      <ScrollView scrollX className="whitespace-nowrap py-[16rpx] px-[24rpx] bg-card">
+      <ScrollView scrollX className="whitespace-nowrap bg-card">
+        <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
         {FILE_TABS.map((tab) => (
           <View
             key={tab.key}
@@ -164,6 +165,7 @@ export default function RankingIndex() {
             </Text>
           </View>
         ))}
+        </View>
       </ScrollView>
 
       {/* 榜单列表 */}

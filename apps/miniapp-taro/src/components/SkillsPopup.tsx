@@ -83,7 +83,8 @@ export default function SkillsPopup({
         />
       </View>
 
-      <ScrollView scrollX className="whitespace-nowrap px-3 py-2 mb-2">
+      <ScrollView scrollX className="whitespace-nowrap mb-2">
+        <View className="px-3 py-2">
         {CATEGORIES.map((c) => (
           <View
             key={c.key}
@@ -93,6 +94,7 @@ export default function SkillsPopup({
             <Text>{t(c.labelKey)}</Text>
           </View>
         ))}
+        </View>
       </ScrollView>
 
       <ScrollView scrollY className="flex-1" style={{ maxHeight: '50vh' }}>

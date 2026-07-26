@@ -262,7 +262,8 @@ export default function AgentPage() {
         {quickTab === 'all' && (
           <>
             <ModelTypeButtonGroup activeType={activeType} onSelect={(tp) => setActiveType(tp)} />
-            <ScrollView scrollX enhanced showScrollbar={false} className="whitespace-nowrap px-3 pt-1">
+            <ScrollView scrollX enhanced showScrollbar={false} className="whitespace-nowrap">
+              <View className="whitespace-nowrap px-3 pt-1">
               {categories.map((cat) => {
                 const active = activeCategory === cat.key
                 return (
@@ -275,6 +276,7 @@ export default function AgentPage() {
                   </View>
                 )
               })}
+              </View>
             </ScrollView>
             {/* 排序选项 */}
             <View className="flex items-center px-3 pt-2 pb-1">
