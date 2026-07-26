@@ -16,7 +16,7 @@
 
 ### P2 维护成本优化后续
 
-- [ ] i18n 死 key 清理(每代 10-20 个,从 about.* / home.* / market.* 等高频 namespace 入手,基于 `.trae-cn/tmp/i18n-dead-keys-2026-07-26.md` 报告,`scan-dead-i18n-keys.mjs --exit 1` 挂 CI)
+- [x] ✅(2026-07-26) i18n 死 key 清理 — 2 轮共清理 36 个死 key(commit 345f3253d 清 19 个 n8nAgentsPage + commit 60a664658 清 17 个 design/modelsBillingPage/modelsGroupsPage/modelsReferralPage),5 语言同步,`scan-dead-i18n-keys.mjs` 复扫死 key=0(0.0%),`--exit 1` 待挂 CI
 - [ ] LLM provider 字典化阶段 2 全量改造(1-2 周,5.5 人天,基于 `docs/llm-provider-dict-design.md` §6 实施步骤)
 
 ---
