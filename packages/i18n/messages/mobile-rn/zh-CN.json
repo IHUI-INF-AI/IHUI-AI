@@ -24,12 +24,8 @@
   "profile": {
     "title": "我的",
     "myCourses": "我的课程",
-    "myOrders": "我的订单",
     "myFavorites": "我的收藏",
-    "feedback": "意见反馈",
-    "logout": "退出登录",
-    "nickname": "昵称",
-    "editProfile": "编辑资料"
+    "feedback": "意见反馈"
   },
   "payment": {
     "title": "支付订单",
@@ -74,13 +70,6 @@
       "failed": "失败"
     }
   },
-  "wallet": {
-    "points": "积分"
-  },
-  "community": {
-    "follow": "关注",
-    "follower": "粉丝"
-  },
   "agent": {
     "config": "配置",
     "runtimeTitle": "运行时",
@@ -101,23 +90,7 @@
     "voice": "语音"
   },
   "settings": {
-    "account": "账号与安全",
-    "notification": "消息通知",
     "about": "关于智汇 AI",
-    "version": "版本",
-    "notifPush": "推送通知",
-    "notifMessage": "消息提醒",
-    "notifEmail": "邮件通知",
-    "changePassword": "修改密码",
-    "oldPassword": "旧密码",
-    "newPassword": "新密码",
-    "confirmPassword": "确认密码",
-    "pwdFieldsRequired": "请填写所有密码字段",
-    "pwdTooShort": "密码至少 6 位",
-    "pwdNotMatch": "两次输入的密码不一致",
-    "pwdChanged": "密码已修改",
-    "pwdChangeFailed": "密码修改失败",
-    "logoutConfirm": "确定退出登录吗?",
     "lang_zhCN": "简体中文",
     "lang_en": "English",
     "lang_ja": "日本語",
@@ -128,15 +101,6 @@
     "theme_system": "跟随系统",
     "languageChanged": "语言已切换",
     "themeChanged": "主题已切换"
-  },
-  "about": {
-    "title": "关于",
-    "appName": "应用名称",
-    "version": "版本",
-    "description": "描述",
-    "officialSite": "官网",
-    "contactEmail": "联系邮箱",
-    "license": "许可证"
   },
   "menu": {
     "about": "关于",
