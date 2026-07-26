@@ -21,7 +21,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
-// @ts-ignore - @ihui/types module not resolvable in current tsconfig (transpilePackages only affects runtime, not typecheck)
 import type { RotateApiKeyResponse } from '@ihui/types'
 import type { ApiKey, WebhookConfig, SdkItem } from './types'
 
