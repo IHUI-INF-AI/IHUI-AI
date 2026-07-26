@@ -70,27 +70,8 @@ line-length = 100
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 
 [tool.mypy]
-# 2026-07-26 立:mypy 集成 typecheck:full CI(从 informational 升级为 blocking)
-# 由 GitHub Actions `test-python` 任务 + pnpm `typecheck:full` 共同执行。
-# 阶段一:strict=false 渐进启用,先捕获基础类型错误(no-any-return / name-defined 等);
-# 阶段二:后续按模块逐个 enable strict 检查项(strict_optional / disallow_untyped_defs 等)。
 python_version = "3.12"
-strict = false
-warn_unused_ignores = true
-warn_redundant_casts = true
-no_implicit_optional = true
-check_untyped_defs = true
-ignore_missing_imports = true
-plugins = ["pydantic.mypy"]
-exclude = [
-  "tests/",
-  "migrations/",
-  "alembic/",
-]
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-ignore_errors = true
+strict = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
