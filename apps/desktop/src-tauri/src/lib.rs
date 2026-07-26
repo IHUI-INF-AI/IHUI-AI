@@ -925,6 +925,22 @@ fn clipboard_set(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
+    // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
+    // - 每次 dev 启动清空 EBWebView 目录,强制重新加载 dev server 的最新 HTML/CSS
+    // - 仅 dev 模式生效(release 模式加载 frontendDist 静态产物,不需要清缓存)
+    #[cfg(all(dev, target_os = "windows"))]
+    {
+        if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+            let webview_cache = std::path::Path::new(&local_app_data)
+                .join("com.ihui.desktop")
+                .join("EBWebView");
+            if webview_cache.exists() {
+                let _ = std::fs::remove_dir_all(&webview_cache);
+                println!("[desktop] WebView2 cache cleared: {}", webview_cache.display());
+            }
+        }
+    }
     tauri::Builder::default()
         // single-instance 必须在 plugin chain 最前,防止多开 + 唤起已有窗口
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
