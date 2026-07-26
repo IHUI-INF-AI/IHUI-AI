@@ -29,10 +29,12 @@ import { TooltipProvider } from '@/components/feedback'
 
 const SITE_URL = 'https://ihui.ai'
 const SITE_DESCRIPTION =
-  'IHUI AI(智汇 AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,Apache 2.0 开源,支持私有化部署。'
+  'IHUI AI(智汇 AI 社区)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp 8 端同源分发,Apache 2.0 开源,支持私有化部署。'
 const SITE_KEYWORDS = [
   'IHUI AI',
+  'iHuiAI',
   '智汇AI',
+  '智汇 AI 社区',
   'AI Agent',
   'AI 智能体',
   'Agent 市场',
@@ -44,6 +46,9 @@ const SITE_KEYWORDS = [
   'AI 工作流',
   'AI SaaS',
   'AI 平台',
+  '8 端',
+  '8 端同源',
+  'monorepo AI',
   'OpenAI',
   'Claude',
   '通义千问',
@@ -59,6 +64,7 @@ const SITE_KEYWORDS = [
   'Coze 替代',
   'FastGPT 替代',
   'n8n 替代',
+  'Open WebUI 替代',
 ]
 
 export const metadata: Metadata = {
@@ -95,20 +101,20 @@ export const metadata: Metadata = {
     alternateLocale: ['zh_TW', 'en_US', 'ko_KR', 'ja_JP'],
     url: SITE_URL,
     siteName: 'IHUI AI',
-    title: 'IHUI AI — 全栈 AI 操作系统',
+    title: 'IHUI AI — 8 端全栈 AI 操作系统',
     description: SITE_DESCRIPTION,
     images: [
       {
         url: '/images/logo.png?v=20260719-unify',
         width: 1200,
         height: 630,
-        alt: 'IHUI AI — 全栈 AI 操作系统',
+        alt: 'IHUI AI — 8 端全栈 AI 操作系统',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'IHUI AI — 全栈 AI 操作系统',
+    title: 'IHUI AI — 8 端全栈 AI 操作系统',
     description: SITE_DESCRIPTION,
     images: ['/images/logo.png?v=20260719-unify'],
     creator: '@ihui_ai',
@@ -199,7 +205,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   '@type': 'Organization',
                   '@id': 'https://ihui.ai/#organization',
                   name: 'IHUI AI',
-                  alternateName: '智汇AI',
+                  alternateName: ['智汇AI', '智汇 AI 社区', 'iHuiAI', '智汇AI社区', '智汇 AI'],
                   url: 'https://ihui.ai',
                   logo: {
                     '@type': 'ImageObject',
@@ -208,7 +214,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     height: 512,
                   },
                   description:
-                    '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,提供 Agent 市场、知识库 RAG、多模型统一调度、跨端协作,支持六端同源,Apache 2.0 开源。',
+                    '智汇 AI 社区(IHUI AI)是一站式 8 端全栈 AI 操作系统,提供 Agent 市场、知识库 RAG、多模型统一调度、跨端协作,支持 Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp 8 端同源,Apache 2.0 开源。',
                   foundingDate: '2024',
                   founder: { '@type': 'Person', name: 'IHUI AI Team' },
                   address: {
@@ -232,7 +238,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     },
                   ],
                   sameAs: [
-                    'https://github.com/ihui-ai',
+                    'https://github.com/IHUI-INF-AI/IHUI-AI',
                     'https://zhuanlan.zhihu.com/ihui-ai',
                     'https://juejin.cn/ihui-ai',
                     'https://twitter.com/ihui_ai',
@@ -242,9 +248,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   '@type': 'WebSite',
                   '@id': 'https://ihui.ai/#website',
                   url: 'https://ihui.ai',
-                  name: 'IHUI AI',
+                  name: 'IHUI AI — 8 端全栈 AI 操作系统',
                   description:
-                    '全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、六端同源分发。',
+                    '8 端全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、8 端同源分发(Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp)。',
                   inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
                   publisher: { '@id': 'https://ihui.ai/#organization' },
                   potentialAction: {
@@ -260,14 +266,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   '@type': 'SoftwareApplication',
                   '@id': 'https://ihui.ai/#software',
                   name: 'IHUI AI',
-                  alternateName: '智汇AI',
+                  alternateName: ['智汇AI', '智汇 AI 社区', 'iHuiAI', '智汇AI社区'],
                   applicationCategory: 'BusinessApplication',
                   applicationSubCategory: 'AI Agent Platform',
-                  operatingSystem: 'Web, Windows, macOS, Linux, iOS, Android, WeChat Mini Program',
+                  operatingSystem:
+                    'Web, Windows, macOS, Linux, iOS, Android, WeChat Mini Program, Chrome/Firefox/Edge',
                   description:
-                    '全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型调度(MCP)、工作流编排、六端同源分发(Web/桌面/小程序/浏览器插件/RN/CLI),Apache 2.0 开源。',
+                    '8 端全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型调度(MCP)、工作流编排、8 端同源分发(Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp),Apache 2.0 开源。',
                   url: 'https://ihui.ai',
-                  downloadUrl: 'https://github.com/ihui-ai',
+                  downloadUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI',
+                  codeRepository: 'https://github.com/IHUI-INF-AI/IHUI-AI',
                   softwareVersion: '2026.07',
                   datePublished: '2024-01-01',
                   dateModified: '2026-07-26',
@@ -287,7 +295,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     worstRating: '1',
                   },
                   featureList:
-                    'AI Agent 市场,可视化拖拽 Agent 构建器,知识库 RAG,多模型统一调度(OpenAI/Claude/通义/DeepSeek/智谱/文心/豆包/Kimi/Ollama),MCP 工具协议,工作流编排,团队协作,六端同源分发,积分通兑,SSO/OAuth,私有化部署',
+                    '8 端同源分发 (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp),AI Agent 市场,可视化拖拽 Agent 构建器,知识库 RAG,多模型统一调度(OpenAI/Claude/通义/DeepSeek/智谱/文心/豆包/Kimi/Ollama/Mistral/Llama),MCP 工具协议,工作流编排,团队协作,积分通兑,SSO/OAuth,Apache 2.0 开源,私有化部署,Docker Compose 一键部署',
                   screenshot: 'https://ihui.ai/images/logo.png',
                   softwareRequirements: 'Node.js 20+, PostgreSQL 16+, Redis 7+',
                   memoryRequirements: '4GB RAM minimum, 8GB recommended',
