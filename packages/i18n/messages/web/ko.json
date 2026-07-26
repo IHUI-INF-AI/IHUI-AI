@@ -12174,10 +12174,7 @@
       "hideGuides": "가이드 숨기기"
     },
     "commentPlaceholder": "이 요소에 대한 댓글…",
-    "saved": "저장됨: {name}",
-    "saveFailed": "저장 실패: {error}",
     "errorPrefix": "오류",
-    "commented": "댓글 작성됨 {tagName}#{elementId}: {comment}",
     "undo": "실행 취소",
     "redo": "다시 실행",
     "previewList": "미리보기 목록",
@@ -12210,28 +12207,16 @@
       "exportButton": "코드 내보내기",
       "exportReact": "React 컴포넌트",
       "exportVue": "Vue 컴포넌트",
-      "exportHtml": "순수 HTML",
-      "exportSuccess": "{filename} 내보냈습니다"
+      "exportHtml": "순수 HTML"
     },
     "responsive": {
       "customWidth": "사용자 지정 너비",
       "apply": "적용",
-      "deviceFrame": "장치 프레임",
-      "deviceCustom": "",
-      "deviceDesktop": "",
-      "deviceMobileLandscape": "",
-      "deviceMobilePortrait": "",
-      "deviceTabletLandscape": "",
-      "deviceTabletPortrait": ""
+      "deviceFrame": "장치 프레임"
     },
     "templates": {
       "title": "템플릿",
       "categories": {
-        "blank": "빈 화면",
-        "marketing": "마케팅",
-        "app": "앱",
-        "content": "콘텐츠",
-        "commerce": "커머스"
       }
     }
   },

@@ -11987,10 +11987,7 @@
       "hideGuides": "隐藏参考线"
     },
     "commentPlaceholder": "对该元素的评论…",
-    "saved": "已保存: {name}",
-    "saveFailed": "保存失败: {error}",
     "errorPrefix": "异常",
-    "commented": "已评论 {tagName}#{elementId}: {comment}",
     "undo": "撤销",
     "redo": "重做",
     "previewList": "预览列表",
@@ -12023,28 +12020,16 @@
       "exportButton": "导出代码",
       "exportReact": "React 组件",
       "exportVue": "Vue 组件",
-      "exportHtml": "纯 HTML",
-      "exportSuccess": "已导出 {filename}"
+      "exportHtml": "纯 HTML"
     },
     "responsive": {
       "customWidth": "自定义宽度",
       "apply": "应用",
-      "deviceFrame": "设备外框",
-      "deviceCustom": "",
-      "deviceDesktop": "",
-      "deviceMobileLandscape": "",
-      "deviceMobilePortrait": "",
-      "deviceTabletLandscape": "",
-      "deviceTabletPortrait": ""
+      "deviceFrame": "设备外框"
     },
     "templates": {
       "title": "模板",
       "categories": {
-        "blank": "空白",
-        "marketing": "营销",
-        "app": "应用",
-        "content": "内容",
-        "commerce": "电商"
       }
     }
   },

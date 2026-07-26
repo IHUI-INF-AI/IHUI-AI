@@ -12212,10 +12212,7 @@
       "hideGuides": "ガイドを非表示"
     },
     "commentPlaceholder": "この要素へのコメント…",
-    "saved": "保存済み: {name}",
-    "saveFailed": "保存失敗: {error}",
     "errorPrefix": "エラー",
-    "commented": "コメント済み {tagName}#{elementId}: {comment}",
     "undo": "元に戻す",
     "redo": "やり直し",
     "previewList": "プレビューリスト",
@@ -12248,28 +12245,16 @@
       "exportButton": "コードをエクスポート",
       "exportReact": "Reactコンポーネント",
       "exportVue": "Vueコンポーネント",
-      "exportHtml": "プレーンHTML",
-      "exportSuccess": "{filename}をエクスポートしました"
+      "exportHtml": "プレーンHTML"
     },
     "responsive": {
       "customWidth": "カスタム幅",
       "apply": "適用",
-      "deviceFrame": "デバイスフレーム",
-      "deviceCustom": "",
-      "deviceDesktop": "",
-      "deviceMobileLandscape": "",
-      "deviceMobilePortrait": "",
-      "deviceTabletLandscape": "",
-      "deviceTabletPortrait": ""
+      "deviceFrame": "デバイスフレーム"
     },
     "templates": {
       "title": "テンプレート",
       "categories": {
-        "blank": "ブランク",
-        "marketing": "マーケティング",
-        "app": "アプリ",
-        "content": "コンテンツ",
-        "commerce": "コマース"
       }
     }
   },
