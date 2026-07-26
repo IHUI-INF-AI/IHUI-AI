@@ -29,7 +29,7 @@ import { Tooltip } from '@/components/feedback'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { getConversation, getMessages } from '@/lib/chat-api'
+import { getConversation, getMessages } from '@ihui/api-client'
 import { parsePendingQuestion } from '@/lib/pending-question'
 import { fetchApi } from '@/lib/api'
 
