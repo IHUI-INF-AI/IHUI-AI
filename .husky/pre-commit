@@ -46,6 +46,29 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
   console.log('⏭  i18n 死 key 扫描(HUSKY_SKIP_I18N_DEAD_KEY=1, 跳过)')
 }
 
+// 🌐 4 端 i18n 死 key 扫描(miniapp-taro / mobile-rn / extension,warn-only 起步,2026-07-26 立)
+// 背景:web 端已 blocking(上方 HUSKY_SKIP_I18N_DEAD_KEY 段),其余 3 端死 key 比例高
+//      (miniapp-taro 66.9% / mobile-rn 36.4% / extension 43.1%),立即 blocking 会阻塞所有 commit。
+// 策略:warn-only 起步(用 || true 吞掉 exit 1),1 周后(2026-08-02)评估升级 blocking。
+// 跳过方法:HUSKY_SKIP_I18N_DEAD_KEY_OTHER=1 git commit ...
+// 注:3 端扫描器内置 5 语言 JSON 加载,key 不一致会直接报错(隐式 parity 校验)。
+if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '1') {
+  console.log('🌐 4 端 i18n 死 key 扫描(miniapp-taro/mobile-rn/extension,warn-only)')
+  for (const target of ['miniapp-taro', 'mobile-rn', 'extension']) {
+    try {
+      execSync(`node scripts/scan-${target}-dead-i18n-keys.mjs --exit 1`, {
+        stdio: 'inherit',
+        cwd: process.cwd(),
+      })
+      console.log(`  ✅ ${target}: 死 key = 0`)
+    } catch (e) {
+      console.warn(`  ⚠️  ${target}: 发现死 key(warn-only,不阻塞 commit;1 周后升级 blocking)`)
+    }
+  }
+} else {
+  console.log('⏭  4 端 i18n 死 key 扫描(HUSKY_SKIP_I18N_DEAD_KEY_OTHER=1, 跳过)')
+}
+
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
 // 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度
