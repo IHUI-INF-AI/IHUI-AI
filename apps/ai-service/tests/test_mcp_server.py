@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import json
 import os as _os
 import pytest
 from unittest.mock import AsyncMock, patch
@@ -1232,8 +1233,9 @@ async def test_fetch_url_missing_params():
 async def test_image_generation_success(monkeypatch):
     """mock httpx 返回 data[0].url,验证 image_url。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "stepfun_api_key", "fake-key")
-    monkeypatch.setattr(settings, "stepfun_api_base", "https://fake.stepfun.com/v1")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "stepfun": {"api_key": "fake-key", "api_base": "https://fake.stepfun.com/v1"},
+    }))
 
     def handler(method, url):
         return _FakeHttpxResponse(
@@ -1253,8 +1255,10 @@ async def test_image_generation_success(monkeypatch):
 async def test_image_generation_no_provider(monkeypatch):
     """两 provider 都无 api_key → ok=False + errorCode=PROVIDER_NOT_CONFIGURED。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "stepfun_api_key", "")
-    monkeypatch.setattr(settings, "agnes_api_key", "")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "stepfun": {"api_key": ""},
+        "agnes": {"api_key": ""},
+    }))
     out = await _tool_image_generation({"prompt": "a cat"})
     assert out["tool"] == "image_generation"
     assert out["ok"] is False
