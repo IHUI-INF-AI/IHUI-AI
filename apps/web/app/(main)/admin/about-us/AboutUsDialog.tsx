@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { Loader2 } from 'lucide-react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
 import {
   Button,
@@ -14,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-// @ts-ignore
 } from '@ihui/ui-react'
 import { FIELDS, TEXTAREA_CLASS } from './helpers'
 import type { AboutUsItem } from './types'

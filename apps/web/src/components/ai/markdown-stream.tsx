@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils'
 import { useWorkPanelStore } from '@/stores/work-panel'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 // P2 中期增强:亮色模式用 oneLight,暗色模式用 oneDark(此前固定 oneDark,亮色模式下代码块偏暗)
-// @ts-ignore - react-syntax-highlighter missing types
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 // MermaidDiagram 仅在客户端加载,不影响首屏 bundle
@@ -27,7 +26,6 @@ interface SyntaxHighlighterProps {
   children?: string
 }
 const SyntaxHighlighter = dynamic(
-  // @ts-ignore - react-syntax-highlighter missing types
   () =>
     import('react-syntax-highlighter').then(
       (m: any) => m.Prism as React.ComponentType<SyntaxHighlighterProps>,
