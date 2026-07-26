@@ -60,37 +60,10 @@
 
 /* @theme + vcenter 全局规则 + .dark 深色覆盖 已移至 packages/design-tokens/src/styles/tokens.css — 共享单一来源(2026-07-23 立) */
 
-/* 登录栏 hover 高亮(2026-07-20 立,2026-07-20 M-70 增强版)
- * 浅色模式:登录栏(.login-scope)内所有 hover:bg-accent / hover:bg-muted 按钮,
- *   hover 背景色强制为纯白(与 sidebar-item-hover-bg 同逻辑:高亮凸出);
- *   + --color-accent-foreground 改为与 --color-foreground 一致,让 hover:text-accent-foreground
- *     不改变文字颜色 → 与第三方按钮 icon(始终保持品牌色)视觉一致。
- * 暗色模式:.dark .login-scope 显式恢复默认 --color-accent / --color-muted,
- *   但 --color-accent 从默认 17% 提到 22%(14% bg-background → 22% hover,8% L 跳跃更明显);
- *   + muted 同理提到 22%,保持与 accent 同步。
- *   accent-foreground 暗色下默认 #fafafa 与 foreground 同色,无需调整。
- * 作用域:AuthShell 弹窗外壳(主站 LoginDialog + /sso/login + /sso/register)+ LoginPopup。
- * 不影响主"登录"按钮(bg-primary / hover:bg-primary/90,因为它们不读 accent/muted)。
- *
- * outline 按钮 hover 边框(.login-scope .border-input:hover):
- *   默认 border-input 在浅色 = 89.8% L 极浅灰、暗色 = 22% L 深灰,hover 时视觉无变化。
- *   改为 foreground/20:浅色下 = #0a0a0a / 0.2 微微变深,暗色下 = #fafafa / 0.2 微微变浅,
- *   与 bg-accent hover 行为同步,提供边框级 hover 反馈。 */
-.login-scope {
-  --color-accent: hsl(0 0% 100%);
-  --color-accent-foreground: hsl(0 0% 3.9%);
-  --color-muted: hsl(0 0% 100%);
-}
-.dark .login-scope {
-  --color-accent: hsl(0 0% 22%);
-  --color-muted: hsl(0 0% 22%);
-}
-.login-scope .border-input:hover {
-  border-color: hsl(0 0% 3.9% / 0.2);
-}
-:where(.dark) .login-scope .border-input:hover {
-  border-color: hsl(0 0% 98% / 0.2);
-}
+/* 登录栏 hover 高亮(.login-scope 内 CSS 变量覆盖 + outline 按钮 hover 边框 + welcome 图浅/深切换)
+   已抽到 packages/ui-react/src/styles/auth-shell.css(2026-07-26 立,根治 web/extension 登录界面不一致)。
+   通过 @source '../../../packages/ui-react/src' + ui-react index.ts 的 import 自动加载,无需重复定义。
+   此处只保留 web 端专属的 tablist / 密码强度条轨道 覆盖(主站 LoginDialog 才有 Tabs + 密码强度条)。 */
 
 /* 登录弹窗内 TabsList 容器专属背景 (2026-07-22 ihui-m3-fix-tabs-bg 立)
    根因:.login-scope 把 --color-muted 强制为 100% 白(为 hover 凸出语义),
@@ -483,17 +456,8 @@ h6 {
 }
 
 /* 登录页 welcome 图:浅色 welcome.svg,深色 baiwelcome.svg,配合 next-themes attribute="class" */
-/* 默认(浅色):显示 welcome.svg,隐藏 baiwelcome.svg */
-.welcome-img-dark {
-  display: none;
-}
-/* 深色模式:反之 */
-.dark .welcome-img {
-  display: none;
-}
-.dark .welcome-img-dark {
-  display: block;
-}
+/* 已抽到 packages/ui-react/src/styles/auth-shell.css(2026-07-26 立,根治 web/extension 不一致),
+   通过 @source '../../../packages/ui-react/src' + ui-react index.ts 的 import 自动加载,无需重复定义。 */
 
 /* 拖拽手柄可见线:中间蓝色,向上下两端渐变为浅蓝直至透明("消失"效果)。
    适用于侧边栏与 AI 面板的右侧 resize handle 内层 1px 线条。
