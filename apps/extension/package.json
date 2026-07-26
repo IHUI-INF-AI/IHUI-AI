@@ -14,11 +14,11 @@
   },
   "dependencies": {
     "@ihui/api-client": "workspace:*",
+    "@ihui/design-tokens": "workspace:*",
     "@ihui/i18n": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "@ihui/ui-react": "workspace:*",
-    "@ihui/design-tokens": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^6.28.0"
@@ -30,6 +30,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@wxt-dev/module-react": "^1.1.0",
+    "@wxt-dev/storage": "^1.2.8",
     "eslint": "^9.16.0",
     "rimraf": "^6.0.1",
     "tailwindcss": "^4.0.0",
