@@ -156,7 +156,7 @@ def _format_location(loc: dict, workspace_path: str) -> dict:
 def _format_diagnostic(d: dict) -> dict:
     """对外暴露的 Diagnostic 结构(对齐 lsp.ts formatDiagnostic)。"""
     sev = d.get("severity")
-    severity = {1: "Error", 2: "Warning", 3: "Info", 4: "Hint"}.get(sev, "Unknown")
+    severity = {1: "Error", 2: "Warning", 3: "Info", 4: "Hint"}.get(sev, "Unknown") if isinstance(sev, int) else "Unknown"
     start = (d.get("range") or {}).get("start", {})
     return {
         "severity": severity,

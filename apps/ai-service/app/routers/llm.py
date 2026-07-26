@@ -237,8 +237,8 @@ class LLMCompleteRequest(BaseModel):
     plan_mode: str | None = Field(None, description="Plan/Act 模式:'plan'=只制定计划,'act'=正常执行(默认)")
 
 
-@router.post("/llm/complete")
-async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
+@router.post("/llm/complete", response_model=None)
+async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
     owner_uuid = (req.metadata or {}).get("userId")
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
@@ -937,8 +937,8 @@ class EmbeddingsRequest(BaseModel):
     dimensions: int | None = Field(None, description="输出维度(部分模型支持)")
 
 
-@router.post("/llm/embeddings")
-async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any]:
+@router.post("/llm/embeddings", response_model=None)
+async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any] | JSONResponse:
     """生成文本嵌入向量(OpenAI 兼容格式)。
 
     返回格式:
