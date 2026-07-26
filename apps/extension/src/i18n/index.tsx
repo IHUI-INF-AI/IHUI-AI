@@ -1,25 +1,31 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { mergeMessages, translate } from '@ihui/i18n/loader'
+import type { Locale, Messages } from '@ihui/i18n/types'
 // 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/extension/
-import zhCN from '@ihui/i18n/messages/extension/zh-CN.json'
-import en from '@ihui/i18n/messages/extension/en.json'
-import ja from '@ihui/i18n/messages/extension/ja.json'
-import ko from '@ihui/i18n/messages/extension/ko.json'
-import zhTW from '@ihui/i18n/messages/extension/zh-TW.json'
+// 2026-07-26 改用 @ihui/i18n/loader 的 mergeMessages + translate,加载 shared + extension 合并集
+import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
+import sharedEn from '@ihui/i18n/messages/shared/en.json'
+import sharedJa from '@ihui/i18n/messages/shared/ja.json'
+import sharedKo from '@ihui/i18n/messages/shared/ko.json'
+import sharedZhTW from '@ihui/i18n/messages/shared/zh-TW.json'
+import extZhCN from '@ihui/i18n/messages/extension/zh-CN.json'
+import extEn from '@ihui/i18n/messages/extension/en.json'
+import extJa from '@ihui/i18n/messages/extension/ja.json'
+import extKo from '@ihui/i18n/messages/extension/ko.json'
+import extZhTW from '@ihui/i18n/messages/extension/zh-TW.json'
 
-export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
+export type { Locale }
 
 const LOCALE_STORAGE_KEY = 'ihui_locale'
 const DEFAULT_LOCALE: Locale = 'zh-CN'
 const SUPPORTED_LOCALES: Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 
-type Messages = Record<Locale, Record<string, Record<string, string>>>
-
-const messages: Messages = {
-  'zh-CN': zhCN,
-  en,
-  ja,
-  ko,
-  'zh-TW': zhTW,
+const messages: Record<Locale, Messages> = {
+  'zh-CN': mergeMessages(sharedZhCN, extZhCN),
+  en: mergeMessages(sharedEn, extEn),
+  ja: mergeMessages(sharedJa, extJa),
+  ko: mergeMessages(sharedKo, extKo),
+  'zh-TW': mergeMessages(sharedZhTW, extZhTW),
 }
 
 interface I18nContextValue {
@@ -32,19 +38,6 @@ const I18nContext = createContext<I18nContextValue | null>(null)
 
 function isLocale(value: string): value is Locale {
   return SUPPORTED_LOCALES.includes(value as Locale)
-}
-
-function getFallbackValue(obj: unknown, key: string): string | undefined {
-  const parts = key.split('.')
-  let current: unknown = obj
-  for (const part of parts) {
-    if (current && typeof current === 'object' && part in current) {
-      current = (current as Record<string, unknown>)[part]
-    } else {
-      return undefined
-    }
-  }
-  return typeof current === 'string' ? current : undefined
 }
 
 async function readLocale(): Promise<Locale> {
@@ -113,15 +106,9 @@ export function I18nProvider({ children }: I18nProviderProps) {
 
   const t = useCallback(
     (key: string, params?: Record<string, string | number>): string => {
-      let text = getFallbackValue(messages[locale], key)
-      if (text === undefined && locale !== DEFAULT_LOCALE) {
-        text = getFallbackValue(messages[DEFAULT_LOCALE], key)
-      }
-      if (text === undefined) return key
-      if (!params) return text
-      return text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
-        const value = params[name]
-        return value !== undefined ? String(value) : ''
+      return translate(messages[locale], key, {
+        fallback: messages[DEFAULT_LOCALE],
+        params,
       })
     },
     [locale],
