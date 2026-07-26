@@ -176,7 +176,7 @@ SENT_SPLIT = re.compile(r'[。！？]')
 SEP_RE = re.compile(r'^\s*[-─]{8,}\s*$')
 
 
-def parse_scripts(content):
+def parse_scripts(content: str) -> list[dict[str, str]]:
     """按长破折号分篇；每篇：标题 / 话题词(#) / [置顶]行 / 正文。返回含置顶行。"""
     lines = content.split('\n')
     blocks: list[list[str]] = []
@@ -191,12 +191,12 @@ def parse_scripts(content):
     if cur:
         blocks.append(cur)
 
-    scripts = []
+    scripts: list[dict[str, str]] = []
     for block in blocks:
-        title = None
-        kw = None
-        top = None
-        body_parts = []
+        title: str | None = None
+        kw: str | None = None
+        top: str | None = None
+        body_parts: list[str] = []
         for raw in block:
             s = raw.strip()
             if not s:
@@ -223,7 +223,7 @@ def parse_scripts(content):
 
 
 # ===================== 单篇检测 =====================
-def check_script(sc, strict=False):
+def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], list[str], list[str]]:
     body = sc['body']
     fails = []
     warns = []
@@ -291,15 +291,15 @@ def check_script(sc, strict=False):
             first_clause = tail.split('。')[0]
             jpos = 10**9
             for w in HOLLOW_JUDGE:
-                p = first_clause.find(w)
-                if p >= 0:
-                    jpos = p
+                _jp = first_clause.find(w)
+                if _jp >= 0:
+                    jpos = _jp
                     break
             apos = 10**9
             for w in HOLLOW_ACTION:
-                p = first_clause.find(w)
-                if p >= 0:
-                    apos = p
+                _ap = first_clause.find(w)
+                if _ap >= 0:
+                    apos = _ap
                     break
             if apos < jpos:
                 fails.append('空头论点：承诺「%s」后直接跳行动、未先立住论点（必须先给明确判断，再接行动引导）' % anc)
@@ -458,7 +458,7 @@ def check_script(sc, strict=False):
 
 
 # ===================== 主流程 =====================
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print('用法: python koubo_quality_gate.py <MMDD.txt> [--strict]')
         sys.exit(2)
@@ -490,8 +490,8 @@ def main():
             all_ok = False
         bar = {'FAIL': '✗', 'WARN': '△', 'PASS': '✓'}[status]
         print('\n%s 第%d篇: %s  [%s]' % (bar, i + 1, sc['title'][:30], status))
-        for f in fails:
-            print('    ✗ %s' % f)
+        for fail in fails:
+            print('    ✗ %s' % fail)
         for w in warns:
             print('    △ %s' % w)
         # ⑫ 2026-07-14 软警告：·符号显示，不影响all_ok/--strict
