@@ -258,7 +258,7 @@ export class ShareManager {
 </head>
 <body>
 <div class="meta">
-  <span class="hash-badge" title="防篡改 SHA-256 前 8 位">${hash8}</span>
+  <span class="hash-badge" data-tip="防篡改 SHA-256 前 8 位">${hash8}</span>
   <strong>IHUI-AI 会话快照</strong> · 完整 hash: <code>${hash}</code>
 </div>
 <div id="content" data-hash="${hash8}"></div>
