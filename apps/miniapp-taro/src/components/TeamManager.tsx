@@ -31,14 +31,18 @@ export default function TeamManager({
   return (
     <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
       <View className="flex items-center justify-between px-4 py-3 mb-2">
-        <Text className="text-sm font-medium text-foreground">{tt('distribution.myTeam', '我的团队')}</Text>
+        <Text className="text-sm font-medium text-foreground">
+          {tt('distribution.myTeam', '我的团队')}
+        </Text>
         <Text className="text-xs text-muted-foreground">{totalCount ?? members.length} 人</Text>
       </View>
 
       <ScrollView scrollY style={{ maxHeight: '40vh' }}>
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
+            <Text className="text-sm text-muted-foreground">
+              {tt('common.loadingShort', '加载中...')}
+            </Text>
           </View>
         ) : members.length === 0 ? (
           <EmptyState text="暂无团队成员" />
@@ -52,9 +56,11 @@ export default function TeamManager({
               <Avatar src={member.avatar} name={member.name} size="md" />
               <View className="flex-1 ml-3 min-w-0">
                 <View className="flex items-center">
-                  <Text className="text-sm font-medium text-foreground truncate">{member.name}</Text>
+                  <Text className="text-sm font-medium text-foreground truncate">
+                    {member.name}
+                  </Text>
                   {member.level && (
-                    <Text className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                       L{member.level}
                     </Text>
                   )}
