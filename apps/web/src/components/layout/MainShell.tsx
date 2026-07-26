@@ -65,13 +65,16 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       <div
         data-tauri-drag-region
         data-is-desktop={isDesktop ? 'true' : 'false'}
-        className="flex h-[36px] shrink-0 items-center gap-2 select-none"
+        className="flex h-[32px] shrink-0 items-center gap-2 select-none"
       >
         <React.Suspense fallback={null}>
-          {/* 包装层:flex-1 让 TagsView 占满中间区域,与右侧按钮同一排 */}
+          {/* 包装层:flex-1 让 TagsView 占满中间区域,与右侧按钮同一排
+              2026-07-26 加 data-tauri-drag-region:标签栏空白区域(标签右侧)也可拖拽窗口,
+              TagsView 内部 <a>/<button> 是交互元素,Tauri 2 自动识别不触发拖拽 */}
           <div
             className="flex h-full min-w-0 flex-1 items-center overflow-hidden"
             data-tagsview-wrapper
+            data-tauri-drag-region
           >
             <TagsView />
           </div>
@@ -114,7 +117,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         <main
           id="main"
           tabIndex={-1}
-          className="thin-scroll flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
+          className="no-scrollbar flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
         >
           {children}
         </main>
