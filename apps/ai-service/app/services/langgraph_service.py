@@ -567,6 +567,13 @@ class LangGraphService:
         }
 
         try:
+            if self._graph is None:
+                return {
+                    "status": "failed",
+                    "error": "graph not initialized",
+                    "session_id": session_id,
+                    "user_id": user_id,
+                }
             final_state = await self._graph.ainvoke(initial_state)
             return self._build_result_from_state(final_state)
         except asyncio.CancelledError:

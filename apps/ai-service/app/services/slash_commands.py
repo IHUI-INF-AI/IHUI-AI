@@ -48,7 +48,7 @@ async def _loop_handler(args: list[str], ctx: dict[str, Any]) -> str:
 async def _skill_handler(args: list[str], ctx: dict[str, Any]) -> str:
     """/skill — 列出或选择预置 skill。"""
     if not args:
-        skills = skill_registry.list()
+        skills = skill_registry.list_skills()
         lines = [f"- {s.name}: {s.description}" for s in skills]
         return "可用 skill:\n" + "\n".join(lines)
     name = args[0]
@@ -195,8 +195,13 @@ class SlashCommandRegistry:
     def __init__(self) -> None:
         self._commands: dict[str, SlashCommand] = {c.name: c for c in _BUILTIN_COMMANDS}
 
-    def list(self) -> list[SlashCommand]:
-        """列出全部 slash 命令。"""
+    def list_commands(self) -> list[SlashCommand]:
+        """列出全部 slash 命令。
+
+        方法名避开内置 list(2026-07-26):原方法名 list 与内置 list 冲突,
+        导致 mypy 全库模式下类作用域内 list[str] 类型注解被解析为方法引用,
+        触发 [valid-type] 错误。
+        """
         return list(self._commands.values())
 
     def get(self, name: str) -> SlashCommand | None:

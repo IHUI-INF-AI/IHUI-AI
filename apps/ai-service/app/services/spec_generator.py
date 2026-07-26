@@ -1677,7 +1677,7 @@ class SpecGenerator:
             return {"tasks": tasks, "fallback": True}
 
         # G2 后置防御:即使 structured_completion 已校验 schema,仍防御性 normalize
-        tasks: list[dict[str, Any]] = []
+        tasks: list[dict[str, Any]] = []  # type: ignore[no-redef]  # 上面分支均 return,此处为唯一到达路径
         for t in tasks_raw:
             if not isinstance(t, dict):
                 continue
