@@ -21,9 +21,6 @@ import type {
   RegistrySourceType,
   RegistryInstallStatus,
   RegistryItem,
-// @ts-ignore
-// @ts-ignore
-// @ts-ignore
 } from '@ihui/types'
 
 const FILTERS: Array<{ key: RegistrySourceType | 'all'; label: string }> = [
