@@ -11,11 +11,23 @@
  * 检测策略: 对比每个包 src/index.ts 的 export 名称集合
  *           与 dist/index.js 的 export 名称集合,不一致则报错。
  *
- * 用法: node scripts/check-stale-dist.mjs
+ * 用法:
+ *   node scripts/check-stale-dist.mjs                       全 workspace 检查(默认,向后兼容)
+ *   node scripts/check-stale-dist.mjs --staged-only         只检查 staged 涉及的 packages/* dist
+ *   node scripts/check-stale-dist.mjs --staged              (pre-commit 透传标志)等价于 --staged-only
+ *   node scripts/check-stale-dist.mjs --help                打印帮助
+ *
  *   exit 0 = 所有 dist 与源码同步
  *   exit 1 = 发现陈旧 dist(需要重建对应包)
+ *
+ * 多 agent 并行场景:
+ *   guardian-runner.mjs 在 pre-commit 阶段会向所有子脚本透传 --staged。
+ *   本脚本识别该 flag 后自动切换 staged-only 模式,只检查本批次 staged 的 packages/*,
+ *   避免其他 agent 改 src 未 rebuild dist 导致本批次 --no-verify 误拦。
+ *   若 staged 文件不涉及任何 packages/*,直接 exit 0(无检查)。
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { join } from 'node:path'
 
 const ROOT = process.cwd()
@@ -153,11 +165,104 @@ function findPackagesWithBuild() {
   return packages
 }
 
+/**
+ * 从 `git diff --cached --name-only` 输出中提取涉及的 packages/* 短名集合。
+ * 路径分隔符兼容(正斜杠 + Windows 反斜杠),跨平台稳定。
+ *
+ * @returns {string[]} 涉及的 package 目录短名,例如 ['ui-react', 'auth']
+ */
+function getStagedPackageDirs() {
+  const out = new Set()
+  let raw
+  try {
+    raw = execSync('git diff --cached --name-only --diff-filter=ACMR', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+  } catch {
+    // 非 git 环境 / 无 staged
+    return []
+  }
+  // 同时匹配 packages/foo/... 和 packages\foo\... (Windows git 输出)
+  const re = /^packages[\\/]([^\\/]+)[\\/]/
+  for (const line of raw.split('\n')) {
+    const file = line.trim()
+    if (!file) continue
+    const m = file.match(re)
+    if (m) out.add(m[1])
+  }
+  return [...out]
+}
+
+function printHelp() {
+  console.log(`
+check-stale-dist.mjs — packages 陈旧 dist 检测
+
+用法:
+  node scripts/check-stale-dist.mjs [选项]
+
+选项:
+  (无)         全 workspace 检查(默认,向后兼容)
+  --staged-only 只检查 staged 涉及的 packages/* dist(本批次精准检查)
+  --staged     等价于 --staged-only(pre-commit 透传标志,guardian-runner.mjs 透传)
+  --help       打印此帮助
+
+退出码:
+  0  所有 dist 与源码同步
+  1  发现陈旧 dist(需 pnpm --filter <包名> build 重建)
+
+多 agent 并行场景:
+  --staged-only 模式下,只检查本批次 git staged 中涉及的 packages/* dist。
+  其他 agent 改动 packages/*/src 但未 rebuild dist 不会误拦本批次 commit。
+  staged 文件不涉及任何 packages/* 时直接 exit 0(无检查)。
+`)
+}
+
 function main() {
-  const packages = findPackagesWithBuild()
-  if (packages.length === 0) {
+  const cliArgs = process.argv.slice(2)
+  if (cliArgs.includes('--help') || cliArgs.includes('-h')) {
+    printHelp()
+    process.exit(0)
+  }
+  // --staged 由 guardian-runner.mjs 在 pre-commit 阶段透传给所有子脚本
+  // 本脚本将其视为 staged-only 触发条件,避免多 agent 改动互相误拦
+  const stagedOnly = cliArgs.includes('--staged-only') || cliArgs.includes('--staged')
+
+  const allPackages = findPackagesWithBuild()
+  if (allPackages.length === 0) {
     console.log(`${C.yellow}⚠${C.reset} 未找到任何 packages/* (有 build 脚本 + src/index.ts)`)
     process.exit(0)
+  }
+
+  // === 解析待检查的包集合 ===
+  let packages = allPackages
+  if (stagedOnly) {
+    const stagedPkgDirs = getStagedPackageDirs()
+    if (stagedPkgDirs.length === 0) {
+      console.log(
+        `${C.green}✅${C.reset} Staged files 不涉及 packages/*,跳过 dist 检查(staged-only 模式)`,
+      )
+      process.exit(0)
+    }
+    // 通过目录短名匹配(如 packages/ui-react → ui-react)
+    const stagedSet = new Set(stagedPkgDirs)
+    packages = allPackages.filter((p) => {
+      const shortName = p.dir.split(/[\\/]/).pop()
+      return stagedSet.has(shortName)
+    })
+    if (packages.length === 0) {
+      console.log(
+        `${C.green}✅${C.reset} Staged 涉及 ${stagedPkgDirs.length} 个 packages/*,但均无 build 脚本,跳过`,
+      )
+      process.exit(0)
+    }
+    console.log(
+      `${C.cyan}📦${C.reset} Staged-only 模式:检查 ${packages.length} 个 packages/* (${packages.map((p) => p.name).join(', ')})`,
+    )
+  } else {
+    console.log(
+      `${C.cyan}📦${C.reset} 检测 ${allPackages.length} 个 packages/* 的 dist 同步状态(全 workspace 模式)`,
+    )
   }
 
   const stale = []
@@ -197,8 +302,6 @@ function main() {
 
     ok.push(pkg.name)
   }
-
-  console.log(`${C.cyan}📦${C.reset} 检测 ${packages.length} 个 packages/* 的 dist 同步状态\n`)
 
   if (ok.length > 0) {
     console.log(`${C.green}✓${C.reset} 同步 (${ok.length}):`)
