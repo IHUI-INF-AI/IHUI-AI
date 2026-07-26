@@ -196,7 +196,7 @@ class LLMBudgetGovernor:
         if not url:
             return None
         try:
-            import redis.asyncio as aioredis  # type: ignore[import-untyped]
+            import redis.asyncio as aioredis
 
             self._redis = aioredis.from_url(url, decode_responses=True)
         except Exception as e:
@@ -579,8 +579,9 @@ class LLMBudgetGovernor:
             agg = {"tokens": 0, "cost": 0.0}
             for d in range(7):
                 dk = _date_from_days_ago(d)
+                captured_dk = dk
                 u = await self._get_period_usage(
-                    lambda dk=dk: _REDIS_KEY_DAILY.format(date=dk),
+                    lambda: _REDIS_KEY_DAILY.format(date=captured_dk),
                     self._memory_daily,
                 )
                 agg["tokens"] += u["tokens"]
@@ -628,8 +629,9 @@ class LLMBudgetGovernor:
         trend: list[dict] = []
         for d in range(days - 1, -1, -1):
             dk = _date_from_days_ago(d)
+            captured_dk = dk
             usage = await self._get_period_usage(
-                lambda dk=dk: _REDIS_KEY_DAILY.format(date=dk),
+                lambda: _REDIS_KEY_DAILY.format(date=captured_dk),
                 self._memory_daily,
             )
             # 按支柱分解当日
