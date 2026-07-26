@@ -14,6 +14,7 @@
 
 import { createRequire } from 'node:module'
 import type { AgentRoleConfig } from './crew-agent-registry.js'
+import { logger } from '../utils/logger.js'
 
 // =============================================================================
 // Fallback (与历史硬编码默认值保持一致, 加载失败时兜底)
@@ -82,11 +83,11 @@ function parseRoles(json: string, source: string): Record<string, AgentRoleConfi
   try {
     parsed = JSON.parse(json)
   } catch (err) {
-    console.warn(`[crew-role-loader] ${source} JSON 解析失败, 使用 fallback:`, err)
+    logger.warn(`[crew-role-loader] ${source} JSON 解析失败, 使用 fallback:`, { err: err as Error })
     return FALLBACK_ROLES
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    console.warn(`[crew-role-loader] ${source} 顶层不是对象, 使用 fallback`)
+    logger.warn(`[crew-role-loader] ${source} 顶层不是对象, 使用 fallback`)
     return FALLBACK_ROLES
   }
   const result: Record<string, AgentRoleConfig> = {}
@@ -99,7 +100,7 @@ function parseRoles(json: string, source: string): Record<string, AgentRoleConfi
       typeof c.goal !== 'string' ||
       typeof c.backstory !== 'string'
     ) {
-      console.warn(`[crew-role-loader] ${source} 角色 ${name} 缺少必要字段, 已跳过`)
+      logger.warn(`[crew-role-loader] ${source} 角色 ${name} 缺少必要字段, 已跳过`)
       continue
     }
     result[name] = {
@@ -124,7 +125,7 @@ function loadBuiltin(): Record<string, AgentRoleConfig> {
     const json = require('./crew-roles.json') as string
     return parseRoles(json, '内置 crew-roles.json')
   } catch (err) {
-    console.warn('[crew-role-loader] 加载内置 crew-roles.json 失败, 使用 fallback:', err)
+    logger.warn('[crew-role-loader] 加载内置 crew-roles.json 失败, 使用 fallback:', { err: err as Error })
     return FALLBACK_ROLES
   }
 }
