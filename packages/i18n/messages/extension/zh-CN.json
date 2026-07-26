@@ -122,8 +122,6 @@
   },
   "auth": {
     "logout": "退出登录",
-    "loginRequired": "请输入账号和密码",
-    "phoneOrEmail": "手机号 / 邮箱",
     "roleAdmin": "管理员",
     "roleUser": "普通用户"
   },
@@ -232,15 +230,5 @@
     "balance": "可用余额",
     "totalRecharge": "累计充值",
     "loadFailed": "加载失败"
-  },
-  "login": {
-    "title": "登录 IHUI AI",
-    "account": "账号",
-    "password": "密码",
-    "phoneOrEmailHint": "手机号 / 邮箱",
-    "loading": "登录中...",
-    "requireInput": "请输入账号和密码",
-    "button": "登录",
-    "loadFailed": "登录失败"
   }
 }
