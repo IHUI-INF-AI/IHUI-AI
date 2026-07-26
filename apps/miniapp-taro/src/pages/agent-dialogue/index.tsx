@@ -558,14 +558,14 @@ export default function AgentDialogue() {
   return (
     <View className="flex flex-col h-screen bg-background">
       <ScrollView
-        className="flex-1 min-h-0 pb-[180rpx]"
+        className="flex-1 min-h-0"
         scrollY
         scrollTop={scrollTop}
         scrollWithAnimation
         onScrollToUpper={loadMoreHistory}
         upperThreshold={50}
       >
-        <View className="flex flex-col gap-[24rpx] p-[20rpx]">
+        <View className="flex flex-col gap-[24rpx] p-[20rpx] pb-[180rpx]">
           {chatList.length === 0 && !loading ? (
             <View className="flex justify-center py-[120rpx] px-[40rpx]">
               <Text className="text-[28rpx] text-muted-foreground text-center">

@@ -5,12 +5,12 @@
 """
 
 import logging
-from typing import Optional
+from typing import Any, Awaitable, Callable, Optional, cast
 
 import jwt
 from fastapi import Request, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from app.core.config import settings
 
@@ -28,12 +28,14 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     - 验证成功将 userId/roleId 注入 request.state
     """
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         if not settings.jwt_secret:
             # 生产环境 fail-fast:jwt_secret 为空是严重配置错误,拒绝所有请求
             # 开发环境(node_env == "development")允许跳过验证
             if settings.node_env == "development":
-                return await call_next(request)
+                return cast(Response, await call_next(request))
             logger.error(
                 "[security] JWT_SECRET 未配置但 node_env=%s,拒绝请求(fail-closed)",
                 settings.node_env,
@@ -48,10 +50,10 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path
         if any(path.startswith(p) for p in PUBLIC_PATHS):
-            return await call_next(request)
+            return cast(Response, await call_next(request))
 
         if request.method == "OPTIONS":
-            return await call_next(request)
+            return cast(Response, await call_next(request))
 
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
@@ -78,10 +80,10 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         request.state.role_id = payload.get("roleId", 0)
         request.state.jwt_payload = payload
 
-        return await call_next(request)
+        return cast(Response, await call_next(request))
 
     @staticmethod
-    def _verify_token(token: str) -> Optional[dict]:
+    def _verify_token(token: str) -> Optional[dict[str, Any]]:
         try:
             payload = jwt.decode(
                 token,
@@ -92,7 +94,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             )
             if payload.get("type") and payload["type"] != "access":
                 return None
-            return payload
+            return cast(dict[str, Any], payload)
         except jwt.ExpiredSignatureError:
             logger.debug("JWT expired")
             return None
@@ -106,4 +108,4 @@ async def get_current_user_id(request: Request) -> str:
     user_id = getattr(request.state, "user_id", None)
     if not user_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return user_id
+    return cast(str, user_id)

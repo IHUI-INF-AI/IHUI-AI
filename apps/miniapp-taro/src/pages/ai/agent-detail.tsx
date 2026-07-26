@@ -509,29 +509,31 @@ export default function AgentDetailPage() {
                 scrollX
                 enhanced
                 showScrollbar={false}
-                className="whitespace-nowrap px-[24rpx]"
+                className="whitespace-nowrap"
               >
-                {related.map((r) => (
-                  <View
-                    key={r.id}
-                    className="inline-block w-[200rpx] bg-card rounded-[16rpx] p-[24rpx] mr-[24rpx] align-top"
-                    onClick={() => onRelatedClick(r.id)}
-                  >
-                    <Image
-                      className="w-[80rpx] h-[80rpx] rounded-md bg-muted"
-                      src={r.avatar || '/static/default-agent.png'}
-                      mode="aspectFill"
-                    />
-                    <Text className="block text-[26rpx] text-foreground font-medium mt-[8rpx] truncate">
-                      {r.name}
-                    </Text>
-                    {r.description && (
-                      <Text className="block text-[22rpx] text-muted-foreground mt-[4rpx] truncate">
-                        {r.description}
+                <View className="inline-flex px-[24rpx]">
+                  {related.map((r) => (
+                    <View
+                      key={r.id}
+                      className="inline-block w-[200rpx] bg-card rounded-[16rpx] p-[24rpx] mr-[24rpx] align-top"
+                      onClick={() => onRelatedClick(r.id)}
+                    >
+                      <Image
+                        className="w-[80rpx] h-[80rpx] rounded-md bg-muted"
+                        src={r.avatar || '/static/default-agent.png'}
+                        mode="aspectFill"
+                      />
+                      <Text className="block text-[26rpx] text-foreground font-medium mt-[8rpx] truncate">
+                        {r.name}
                       </Text>
-                    )}
-                  </View>
-                ))}
+                      {r.description && (
+                        <Text className="block text-[22rpx] text-muted-foreground mt-[4rpx] truncate">
+                          {r.description}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
               </ScrollView>
             </View>
           )}

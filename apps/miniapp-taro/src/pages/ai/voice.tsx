@@ -210,46 +210,48 @@ export default function VoicePage() {
       </View>
 
       <ScrollView
-        className="flex-1 py-[24rpx] px-[32rpx]"
+        className="flex-1"
         scrollY
         scrollTop={scrollTop}
       >
-        {messages.map((m, i) => (
-          <View key={i} className={`flex mb-[32rpx] items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <View className={`w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 ${m.role === 'user' ? 'bg-primary' : 'bg-[#4cd964]'}`}>{m.role === 'user' ? '我' : 'AI'}</View>
-            <View className={`max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] ${m.role === 'user' ? 'bg-primary' : 'bg-card'}`}>
-              {m.isVoice ? (
-                <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)}>
-                  <Text className="text-[32rpx] text-foreground">{playingIdx === i ? '⏸' : '▶'}</Text>
-                  <Text className="text-[24rpx] text-foreground">{fmtDuration(m.duration || 0)}</Text>
-                  <View className="flex items-center gap-[4rpx] h-[40rpx]">
-                    {WAVE_DELAYS.map((delay, n) => (
-                      <View
-                        key={n}
-                        className="w-[6rpx] h-[12rpx] bg-foreground rounded-[3rpx] animate-pulse"
-                        style={{ animationDelay: `${delay}s` }}
-                      />
-                    ))}
+        <View className="py-[24rpx] px-[32rpx]">
+          {messages.map((m, i) => (
+            <View key={i} className={`flex mb-[32rpx] items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+              <View className={`w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 ${m.role === 'user' ? 'bg-primary' : 'bg-[#4cd964]'}`}>{m.role === 'user' ? '我' : 'AI'}</View>
+              <View className={`max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] ${m.role === 'user' ? 'bg-primary' : 'bg-card'}`}>
+                {m.isVoice ? (
+                  <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)}>
+                    <Text className="text-[32rpx] text-foreground">{playingIdx === i ? '⏸' : '▶'}</Text>
+                    <Text className="text-[24rpx] text-foreground">{fmtDuration(m.duration || 0)}</Text>
+                    <View className="flex items-center gap-[4rpx] h-[40rpx]">
+                      {WAVE_DELAYS.map((delay, n) => (
+                        <View
+                          key={n}
+                          className="w-[6rpx] h-[12rpx] bg-foreground rounded-[3rpx] animate-pulse"
+                          style={{ animationDelay: `${delay}s` }}
+                        />
+                      ))}
+                    </View>
                   </View>
-                </View>
-              ) : (
-                <Text className="text-[28rpx] leading-[1.6] text-foreground">{m.content}</Text>
-              )}
-            </View>
-          </View>
-        ))}
-        {loading ? (
-          <View className="flex mb-[32rpx] items-start">
-            <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 bg-[#4cd964]">AI</View>
-            <View className="max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] bg-card">
-              <View className="flex gap-[8rpx] items-center">
-                <Text className="text-[40rpx] text-muted-foreground animate-pulse">·</Text>
-                <Text className="text-[40rpx] text-muted-foreground animate-pulse" style={{ animationDelay: '0.2s' }}>·</Text>
-                <Text className="text-[40rpx] text-muted-foreground animate-pulse" style={{ animationDelay: '0.4s' }}>·</Text>
+                ) : (
+                  <Text className="text-[28rpx] leading-[1.6] text-foreground">{m.content}</Text>
+                )}
               </View>
             </View>
-          </View>
-        ) : null}
+          ))}
+          {loading ? (
+            <View className="flex mb-[32rpx] items-start">
+              <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 bg-[#4cd964]">AI</View>
+              <View className="max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] bg-card">
+                <View className="flex gap-[8rpx] items-center">
+                  <Text className="text-[40rpx] text-muted-foreground animate-pulse">·</Text>
+                  <Text className="text-[40rpx] text-muted-foreground animate-pulse" style={{ animationDelay: '0.2s' }}>·</Text>
+                  <Text className="text-[40rpx] text-muted-foreground animate-pulse" style={{ animationDelay: '0.4s' }}>·</Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
 
       <View className="py-[16rpx] px-[32rpx] bg-card">

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, cast
 
 import httpx
 
@@ -80,7 +80,7 @@ class BaseProvider(ABC):
                     f"{self.__class__.__name__} 调用失败: {resp.status_code} {str(data)[:300]}",
                     resp.status_code,
                 )
-            return data
+            return cast(dict[str, Any], data)
         except httpx.HTTPError as e:
             raise ProviderError(f"{self.__class__.__name__} 网络异常: {e}") from e
 

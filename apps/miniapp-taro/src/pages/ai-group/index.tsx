@@ -99,17 +99,19 @@ export default function AiGroup() {
         scrollX
         enhanced
         showScrollbar={false}
-        className="whitespace-nowrap py-[16rpx] px-[24rpx] bg-card"
+        className="whitespace-nowrap bg-card"
       >
-        {categories.map((cat) => (
-          <View
-            key={cat.key}
-            className={`inline-block py-[12rpx] px-[28rpx] mr-[16rpx] rounded-[8rpx] text-[26rpx] ${activeCategory === cat.key ? 'text-primary font-semibold' : 'text-muted-foreground bg-background'}`}
-            onClick={() => setActiveCategory(cat.key)}
-          >
-            <Text>{cat.label}</Text>
-          </View>
-        ))}
+        <View className="inline-flex py-[16rpx] px-[24rpx]">
+          {categories.map((cat) => (
+            <View
+              key={cat.key}
+              className={`inline-block py-[12rpx] px-[28rpx] mr-[16rpx] rounded-[8rpx] text-[26rpx] ${activeCategory === cat.key ? 'text-primary font-semibold' : 'text-muted-foreground bg-background'}`}
+              onClick={() => setActiveCategory(cat.key)}
+            >
+              <Text>{cat.label}</Text>
+            </View>
+          ))}
+        </View>
       </ScrollView>
       <View className="p-[24rpx]">
         {loading ? (

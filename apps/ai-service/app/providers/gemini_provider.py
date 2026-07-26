@@ -16,7 +16,7 @@ safety_settings 默认策略(2026-07-19 修订):
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, cast
 
 import httpx
 
@@ -238,4 +238,4 @@ class GeminiProvider(BaseProvider):
     async def list_models(self) -> list[dict[str, Any]]:
         url = f"{self.base_url}/v1beta/models?key={self.api_key}"
         data = await self._request("GET", url)
-        return data.get("models", [])
+        return cast(list[dict[str, Any]], data.get("models", []))

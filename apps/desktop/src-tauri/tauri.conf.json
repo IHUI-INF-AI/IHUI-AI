@@ -16,6 +16,7 @@
         "label": "main",
         "title": "IHUI AI",
         "url": "/agents",
+        "background": "#0a0a0a",
         "width": 1200,
         "height": 780,
         "minWidth": 880,

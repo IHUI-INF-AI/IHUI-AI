@@ -88,18 +88,20 @@ export default function MaterialPopup({
 
       <ScrollView
         scrollX
-        className="whitespace-nowrap px-3 py-2 mb-2"
+        className="whitespace-nowrap mb-2"
       >
-        {TABS.map((tabItem) => (
-          <View
-            key={tabItem.key}
-            className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-primary text-white' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
-            onClick={() => onTabChange?.(tabItem.key)}
-          >
-            <Text className="mr-1">{tabItem.icon}</Text>
-            <Text>{t(tabItem.labelKey)}</Text>
-          </View>
-        ))}
+        <View className="inline-flex px-3 py-2">
+          {TABS.map((tabItem) => (
+            <View
+              key={tabItem.key}
+              className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-primary text-white' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+              onClick={() => onTabChange?.(tabItem.key)}
+            >
+              <Text className="mr-1">{tabItem.icon}</Text>
+              <Text>{t(tabItem.labelKey)}</Text>
+            </View>
+          ))}
+        </View>
       </ScrollView>
 
       <ScrollView
