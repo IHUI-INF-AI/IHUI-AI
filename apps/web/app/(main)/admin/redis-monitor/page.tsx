@@ -25,7 +25,7 @@ export default function RedisMonitorPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'monitor', 'redis'],
     queryFn: async () => {
-      const r = await fetchApi<RedisMonitorResponse>('/api/v1/admin/monitor/redis')
+      const r = await fetchApi<RedisMonitorResponse>('/api/admin/monitor/redis')
       if (!r.success) throw new Error(r.error)
       return r.data
     },
@@ -33,7 +33,7 @@ export default function RedisMonitorPage() {
   })
   const delMut = useMutation({
     mutationFn: async (key: string) => {
-      const r = await fetchApi<{ ok: boolean }>(`/api/v1/admin/monitor/redis/${encodeURIComponent(key)}`, { method: 'DELETE' })
+      const r = await fetchApi<{ ok: boolean }>(`/api/admin/monitor/redis/${encodeURIComponent(key)}`, { method: 'DELETE' })
       if (!r.success) throw new Error(r.error)
       return r.data
     },
