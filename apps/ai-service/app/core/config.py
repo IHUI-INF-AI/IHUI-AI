@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
 
+    # CSDN 自动发布凭证(content_engine skill 使用,逆向自 editor.csdn.net 内部 API)
+    # 空字符串=未配置,签名会失败并提示用户配置;非生产必填项,按需启用
+    csdn_app_key: str = ""
+    csdn_app_secret: str = ""
+
     # mTLS 双向证书认证(2026-07-24 立,打通 api ↔ ai-service 链路)
     # MTLS_ENABLED=true 时,ai-service 调用 api 必须携带客户端证书 + 校验服务端证书
     # MTLS_ENABLED=false(默认)→ 降级模式,httpx 正常无证书请求(开发环境)
