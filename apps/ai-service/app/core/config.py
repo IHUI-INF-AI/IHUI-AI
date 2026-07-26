@@ -149,23 +149,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-
-# =============================================================================
-# PoC: LLM Provider 字典化方案(2026-07-26 立,不动现有 Settings,见 docs/llm-provider-dict-design.md)
-# =============================================================================
-# 阶段 1:独立 LLMSettings 子类,演示 JSON → dict[str, ProviderConfig] 解析路径。
-# 100% 向后兼容 — 旧 24 + 7 扁平字段 + Settings 类均保持不变,LLMSettings 与 Settings 并存。
-# 阶段 2 计划:迁移到 Pydantic ProviderConfig 强类型 + 删除扁平字段 + .env 迁移脚本。
-class LLMSettings(BaseSettings):
-    """PoC:JSON 化 LLM provider 配置(2026-07-26 设计,不动现有 Settings)."""
-    llm_providers_json: str = ""  # JSON string: {"openai":{"api_key":"...","api_base":"..."},...}
-
-    @property
-    def llm_providers(self) -> dict[str, dict[str, str]]:
-        if not self.llm_providers_json:
-            return {}
-        import json
-        return json.loads(self.llm_providers_json)
-
-    model_config = {"env_file": ".env", "extra": "ignore"}
