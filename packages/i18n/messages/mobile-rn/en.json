@@ -24,12 +24,8 @@
   "profile": {
     "title": "Profile",
     "myCourses": "My courses",
-    "myOrders": "My orders",
     "myFavorites": "My favorites",
-    "feedback": "Feedback",
-    "logout": "Log out",
-    "nickname": "Nickname",
-    "editProfile": "Edit profile"
+    "feedback": "Feedback"
   },
   "payment": {
     "title": "Payment Orders",
@@ -74,13 +70,6 @@
       "failed": "Failed"
     }
   },
-  "wallet": {
-    "points": "Points"
-  },
-  "community": {
-    "follow": "Follow",
-    "follower": "Followers"
-  },
   "agent": {
     "config": "Config",
     "runtimeTitle": "Runtime",
@@ -101,23 +90,7 @@
     "voice": "Voice"
   },
   "settings": {
-    "account": "Account & security",
-    "notification": "Notifications",
     "about": "About IHUI AI",
-    "version": "Version",
-    "notifPush": "Push notifications",
-    "notifMessage": "Message alerts",
-    "notifEmail": "Email notifications",
-    "changePassword": "Change password",
-    "oldPassword": "Old password",
-    "newPassword": "New password",
-    "confirmPassword": "Confirm password",
-    "pwdFieldsRequired": "Please fill all password fields",
-    "pwdTooShort": "Password must be at least 6 characters",
-    "pwdNotMatch": "Passwords do not match",
-    "pwdChanged": "Password changed",
-    "pwdChangeFailed": "Password change failed",
-    "logoutConfirm": "Are you sure you want to log out?",
     "lang_zhCN": "Simplified Chinese",
     "lang_en": "English",
     "lang_ja": "Japanese",
@@ -128,15 +101,6 @@
     "theme_system": "System",
     "languageChanged": "Language changed",
     "themeChanged": "Theme changed"
-  },
-  "about": {
-    "title": "About",
-    "appName": "App name",
-    "version": "Version",
-    "description": "Description",
-    "officialSite": "Official site",
-    "contactEmail": "Contact email",
-    "license": "License"
   },
   "menu": {
     "about": "About",

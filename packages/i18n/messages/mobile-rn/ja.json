@@ -24,12 +24,8 @@
   "profile": {
     "title": "マイページ",
     "myCourses": "マイコース",
-    "myOrders": "マイ注文",
     "myFavorites": "お気に入り",
-    "feedback": "フィードバック",
-    "logout": "ログアウト",
-    "nickname": "ニックネーム",
-    "editProfile": "プロフィール編集"
+    "feedback": "フィードバック"
   },
   "payment": {
     "title": "支払い注文",
@@ -74,13 +70,6 @@
       "failed": "失敗"
     }
   },
-  "wallet": {
-    "points": "ポイント"
-  },
-  "community": {
-    "follow": "フォロー",
-    "follower": "フォロワー"
-  },
   "agent": {
     "config": "設定",
     "runtimeTitle": "ランタイム",
@@ -101,23 +90,7 @@
     "voice": "音声"
   },
   "settings": {
-    "account": "アカウントとセキュリティ",
-    "notification": "通知",
     "about": "IHUI AI について",
-    "version": "バージョン",
-    "notifPush": "プッシュ通知",
-    "notifMessage": "メッセージ通知",
-    "notifEmail": "メール通知",
-    "changePassword": "パスワード変更",
-    "oldPassword": "旧パスワード",
-    "newPassword": "新パスワード",
-    "confirmPassword": "パスワード確認",
-    "pwdFieldsRequired": "すべてのパスワード欄を入力してください",
-    "pwdTooShort": "パスワードは6文字以上必要です",
-    "pwdNotMatch": "パスワードが一致しません",
-    "pwdChanged": "パスワードを変更しました",
-    "pwdChangeFailed": "パスワード変更に失敗しました",
-    "logoutConfirm": "ログアウトしますか?",
     "lang_zhCN": "簡体字中国語",
     "lang_en": "英語",
     "lang_ja": "日本語",
@@ -128,15 +101,6 @@
     "theme_system": "システム",
     "languageChanged": "言語が切り替わりました",
     "themeChanged": "テーマが切り替わりました"
-  },
-  "about": {
-    "title": "について",
-    "appName": "アプリ名",
-    "version": "バージョン",
-    "description": "説明",
-    "officialSite": "公式サイト",
-    "contactEmail": "連絡先メール",
-    "license": "ライセンス"
   },
   "menu": {
     "about": "について",
