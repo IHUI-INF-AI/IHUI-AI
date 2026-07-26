@@ -11,17 +11,17 @@ import { TagsView } from '@/components/layout/TagsView'
 /**
  * MainShell — (main) 路由组的工作区面板容器
  *
- * 2026-07-26 用户反馈(第九次修订):
+ * 2026-07-26 用户反馈(第十次修订):
  * - TagsView 放到 MainShell 卡片容器**外面、上方**(不再是容器内部最顶部子元素)
- * - 顶栏(h-[44px])与工作区卡片(rounded-xl bg-shell-panel)是兄弟节点,垂直排列
- * - 总顶部 = my-2(8px) + 44px = 52px(用户要求"统一减52"给标签组件)
+ * - 顶栏(h-[32px])与工作区卡片(rounded-xl bg-shell-panel)是兄弟节点,垂直排列
+ * - 总顶部 = my-2(8px) + 32px = 40px(再缩窄 4px 让工作区顶部上扩)
  * - 顶栏无卡片背景(透明),让 TagsView 自身 bg-muted/70 圆角样式独立呈现
  * - 工作区卡片 mt-2 与顶栏分隔 8px,只包含 main 内容
  * - 窗口控制按钮(Min/Max/Close)仅桌面端 isDesktop 显示,与 TagsView 同一排
  *
  * 布局:
  *   <div my-2 mr-2 flex flex-col>     ← 外层 wrapper(顶栏 + 工作区卡片)
- *     <div h-[44px] drag-region>      ← 顶栏(独立,无卡片背景)
+ *     <div h-[32px] drag-region>      ← 顶栏(独立,无卡片背景)
  *       <TagsView flex-1 />            ← 页面标签容器(自带 bg-muted/70 rounded-lg)
  *       <Min|Max|Close />              ← 仅桌面端 isDesktop
  *     </div>
@@ -55,8 +55,8 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   return (
     // 外层 wrapper:顶栏 + 工作区卡片垂直排列,my-2 mr-2 与 Sidebar/AISidePanel 对齐
     <div className="relative flex min-h-0 flex-1 flex-col my-2 mr-2">
-      {/* 顶栏:TagsView 在 MainShell 卡片外面上方(2026-07-26 第九次修订)
-          - 高度 h-[44px],总顶部 = my-2(8px) + 44px = 52px(用户要求"统一减52")
+      {/* 顶栏:TagsView 在 MainShell 卡片外面上方(2026-07-26 第十次修订)
+          - 高度 h-[32px],总顶部 = my-2(8px) + 32px = 40px(再缩窄 4px 让工作区顶部上扩)
           - 无卡片背景(透明),TagsView 自带 bg-muted/70 rounded-lg 独立呈现
           - 桌面端 data-tauri-drag-region 作为 Tauri 拖拽区
           - 历史教训:之前 TagsView 在 MainShell 卡片内部最顶部,用户反馈
@@ -65,7 +65,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       <div
         data-tauri-drag-region
         data-is-desktop={isDesktop ? 'true' : 'false'}
-        className="flex h-[36px] shrink-0 items-center gap-2 select-none"
+        className="flex h-[32px] shrink-0 items-center gap-2 select-none"
       >
         <React.Suspense fallback={null}>
           {/* 包装层:flex-1 让 TagsView 占满中间区域,与右侧按钮同一排 */}

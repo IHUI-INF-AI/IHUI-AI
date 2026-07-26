@@ -79,16 +79,16 @@ export default function CustomTabBar() {
         return (
           <View
             key={item.pagePath}
-            className="flex-1 flex flex-col items-center justify-center pt-[6px] pb-[2px]"
+            className="flex-1 flex flex-col items-center justify-center pt-[12rpx] pb-[4rpx]"
             onClick={() => switchTab(item)}
           >
             <Image
-              className="w-[24px] h-[24px]"
+              className="w-[48rpx] h-[48rpx]"
               src={active ? item.activeIcon : item.icon}
               mode="aspectFit"
             />
             <Text
-              className="mt-[2px] text-[10px]"
+              className="mt-[4rpx] text-[20rpx]"
               style={{ color: active ? ACTIVE_COLOR : INACTIVE_COLOR }}
             >
               {t(item.i18nKey)}
