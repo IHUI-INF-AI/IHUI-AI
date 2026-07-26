@@ -91,6 +91,11 @@ jobs:
           DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
         run: pnpm exec drizzle-kit migrate
 
+      - name: Seed E2E 测试用户(test@ihui.ai)
+        env:
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+        run: pnpm --filter @ihui/api run seed:test-users
+
       - name: Build API
         run: pnpm --filter @ihui/api run build
 

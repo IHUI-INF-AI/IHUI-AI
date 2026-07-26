@@ -195,40 +195,43 @@ class Settings(BaseSettings):
                 + "\n请配置正确的证书路径,或设置 MTLS_ENABLED=false 进入降级模式(仅开发环境)"
             )
 
-    def get_provider_config(self, name: str) -> dict:
+    def get_provider_config(self, name: str) -> "ProviderConfig":
         """读取 provider 配置,优先 llm_providers JSON,降级旧扁平字段。
 
         name 示例: 'openai' / 'anthropic' / 'stepfun' / 'agnes' / 'groq' / ...
-        返回: {'api_key': str, 'api_base': str} (api_base 可空)
+        返回: ProviderConfig(强类型,2026-07-26 阶段 2 改造后从 dict 升级)
 
         优先级:
-        1. settings.llm_providers JSON 中 [name] 节点
+        1. settings.llm_providers JSON 中 [name] 节点 → ProviderConfig(**data)
         2. settings.{name}_api_key + settings.{name}_api_base(旧扁平字段,
            支持 _PROVIDER_KEY_ALIASES 别名,如 cloudflare → cloudflare_api_token)
-        3. 空 dict({'api_key': '', 'api_base': ''})
+        3. 空 ProviderConfig(api_key='', api_base=None)  # 100% 向后兼容旧语义
 
-        JSON 解析失败时静默返回空 dict(不抛异常,避免启动崩溃)。
-        未知 provider 返回空 dict(不抛 KeyError,便于调用方 fallback)。
+        JSON 解析失败时降级到扁平字段(不抛异常,避免启动崩溃)。
+        未知 provider 返回空 ProviderConfig(不抛 KeyError,便于调用方 fallback)。
         """
+        # 延迟 import 避免循环依赖(config.py → provider_config.py)
+        from pydantic import ValidationError
+
+        from app.core.provider_config import ProviderConfig
+
         # 1. 优先 JSON 配置
         if self.llm_providers:
             try:
                 providers = json.loads(self.llm_providers)
                 if isinstance(providers, dict) and isinstance(providers.get(name), dict):
-                    cfg = providers[name]
-                    return {
-                        "api_key": str(cfg.get("api_key", "") or ""),
-                        "api_base": str(cfg.get("api_base", "") or ""),
-                    }
-            except (json.JSONDecodeError, TypeError, ValueError):
-                # JSON 解析失败时静默返回空 dict(不抛异常,避免启动崩溃)
+                    # 阶段 2:用 Pydantic 强类型校验 + 构造
+                    return ProviderConfig(**providers[name])
+            except (json.JSONDecodeError, TypeError, ValueError, ValidationError):
+                # JSON 解析失败 / 字段类型异常时降级到扁平字段
                 pass
 
         # 2. 降级旧扁平字段(支持别名映射)
         key_field = _PROVIDER_KEY_ALIASES.get(name, f"{name}_api_key")
         api_key = str(getattr(self, key_field, "") or "")
-        api_base = str(getattr(self, f"{name}_api_base", "") or "")
-        return {"api_key": api_key, "api_base": api_base}
+        api_base_raw = getattr(self, f"{name}_api_base", None)
+        api_base = str(api_base_raw) if api_base_raw else None
+        return ProviderConfig(api_key=api_key, api_base=api_base)
 
 
 settings = Settings()
