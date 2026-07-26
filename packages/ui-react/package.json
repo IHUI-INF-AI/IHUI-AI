@@ -13,6 +13,7 @@
     }
   },
   "scripts": {
+    "prebuild": "rimraf dist && tsc",
     "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
