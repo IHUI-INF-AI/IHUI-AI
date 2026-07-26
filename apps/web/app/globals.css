@@ -706,3 +706,32 @@ body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-content
 .animate-pulse-soft {
   animation: ihui-pulse-soft 2.4s ease-in-out infinite;
 }
+
+/* 2026-07-26 立:全局滚动条彻底隐藏(用户要求"我不需要页面滑动滚动条")
+   - html/body overflow:hidden 防止 body 级竖向滚动条
+   - 全局 * 选择器隐藏所有元素滚动条(保留滚动功能,仅隐藏视觉滚动条)
+   - 覆盖 Tailwind v4 的 overflow-y-auto / thin-scroll / hover-scroll 等 utility
+   - Firefox: scrollbar-width:none / IE: -ms-overflow-style:none / WebKit: ::-webkit-scrollbar display:none
+   - 彻底杜绝任何容器(包括 main / AISidePanel / Sidebar / MessageList)显示滚动条 */
+html,
+body {
+  height: 100%;
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
