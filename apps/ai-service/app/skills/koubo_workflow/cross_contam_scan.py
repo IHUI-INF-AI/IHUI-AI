@@ -27,7 +27,7 @@ KOUBO_OK_EXT = {".txt"}
 
 
 def scan_dir(root, forbidden_ext, label):
-    problems = []
+    problems: list[str] = []
     if not os.path.isdir(root):
         return problems
     for f in sorted(os.listdir(root)):

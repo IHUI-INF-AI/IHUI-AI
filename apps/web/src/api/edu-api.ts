@@ -107,7 +107,7 @@ export async function explainConcept(
   question: string,
   context?: unknown,
 ): Promise<ExplainResult> {
-  return aiPost<ExplainResult>('/api/ai-tutor/explain', { subject, question, context })
+  return aiPost<ExplainResult>('/api/ai-tutor/explain', { subject, question, context }) // method: POST
 }
 
 /** 提示引导 */
@@ -116,7 +116,7 @@ export async function getHint(
   question: string,
   context?: unknown,
 ): Promise<HintResult> {
-  return aiPost<HintResult>('/api/ai-tutor/hint', { subject, question, context })
+  return aiPost<HintResult>('/api/ai-tutor/hint', { subject, question, context }) // method: POST
 }
 
 /** 生成练习题 */
@@ -125,5 +125,5 @@ export async function generateQuiz(
   context?: unknown,
   count = 1,
 ): Promise<QuizResult> {
-  return aiPost<QuizResult>('/api/ai-tutor/quiz', { subject, context, count })
+  return aiPost<QuizResult>('/api/ai-tutor/quiz', { subject, context, count }) // method: POST
 }
