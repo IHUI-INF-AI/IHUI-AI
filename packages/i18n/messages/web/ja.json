@@ -10256,6 +10256,26 @@
       "join": "今すぐ参加",
       "sectionLabel": "ボトム行動喚起",
       "dashboard": "ワークスペースへ"
+    },
+    "articleSchema": {
+      "headline": "AI ニュース · 全網リアルタイム集約",
+      "description": "IHUI AI ニュース:41 の権威あるソース(微博/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv など)を集約し、6 時間ごとに自動収集。モデル/製品/業界/論文のカテゴリとトレンドシグナルをリアルタイムで提供。",
+      "author": "IHUI AI 編集部",
+      "datePublished": "2026-07-26",
+      "articleBody": "IHUI AI ニュースは、国内外の主要メディア、ソーシャルプラットフォーム、一次技術ブログをカバーする 7x24 自動集約チャネルです。各記事は自然言語処理によりモデル/製品/業界/論文へ自動分類され、感情タグも付与されます。購読、ブックマーク、共有、トレンドランキングなどの読者機能を備え、開発者、プロダクトマネージャー、意思決定者が AI 業界の脈動を一目で把握できます。",
+      "articleSection": "AI ニュース",
+      "keywords": [
+        "AI ニュース",
+        "LLM",
+        "OpenAI",
+        "GPT",
+        "Claude",
+        "HackerNews",
+        "TechCrunch",
+        "Arxiv",
+        "トレンドシグナル",
+        "IHUI AI"
+      ]
     }
   },
   "cliImport": {
@@ -12176,7 +12196,13 @@
     "responsive": {
       "customWidth": "カスタム幅",
       "apply": "適用",
-      "deviceFrame": "デバイスフレーム"
+      "deviceFrame": "デバイスフレーム",
+      "deviceMobilePortrait": "Mobile Portrait",
+      "deviceMobileLandscape": "Mobile Landscape",
+      "deviceTabletPortrait": "Tablet Portrait",
+      "deviceTabletLandscape": "Tablet Landscape",
+      "deviceDesktop": "Desktop",
+      "deviceCustom": "Custom"
     },
     "templates": {
       "title": "テンプレート"
@@ -12342,6 +12368,30 @@
           "SLA 99.95%"
         ]
       }
+    },
+    "productSchema": {
+      "name": "IHUI AI チャージパッケージ",
+      "description": "IHUI AI フルスタック AI OS の API チャージパッケージ。個人開発者/小規模チーム/エンタープライズに対応し、従量課金と月額プランをサポート。",
+      "brand": "IHUI AI",
+      "category": "Software > AI Development Platform > API Credits",
+      "currency": "JPY",
+      "offers": {
+        "starter": {
+          "name": "スターター",
+          "price": 9.9,
+          "description": "1M トークン枠、基本モデル、5 個の API トークン、コミュニティサポート。"
+        },
+        "pro": {
+          "name": "プロ",
+          "price": 99,
+          "description": "15M トークン枠、全モデル、20 個の API トークン、優先サポート、90 日間の呼び出しログ。"
+        },
+        "enterprise": {
+          "name": "エンタープライズ",
+          "price": 999,
+          "description": "200M トークン枠、専用モデルチャネル、無制限 API トークン、専任アカウントマネージャー、永久ログ、SLA 99.95%。"
+        }
+      }
     }
   },
   "modelsReferralPage": {
@@ -12402,5 +12452,93 @@
         "description": "異常指標を監視し、担当者に自動通知。多段階エスカレーション戦略をサポート。"
       }
     }
+  },
+  "modelsGroupsPage": {
+    "title": "モデルグループ",
+    "description": "シナリオ/能力別に分類したモデル一覧",
+    "group": {
+      "1": { "name": "汎用会話", "desc": "汎用シナリオ向けの会話モデル" },
+      "2": { "name": "コード生成", "desc": "コード補完 / リファクタ / レビュー" },
+      "3": { "name": "マルチモーダル", "desc": "画像とテキストの理解 / 生成" },
+      "4": { "name": "推論分析", "desc": "数学 / 論理 / 分析" },
+      "5": { "name": "長文コンテキスト", "desc": "長文コンテキストの要約 / 分析" }
+    }
+  },
+  "modelsPage": "Models",
+  "seo": {
+    "imageSitemap": {
+      "title": "画像サイトマップ — IHUI AI",
+      "description": "IHUI AI 画像サイトマップ。public/images/ 配下の公式ブランド素材、アイコン、第三者ログイン素材を網羅し、Google Images のクロールに対応します。"
+    },
+    "newsSitemap": {
+      "title": "ニュースサイトマップ — IHUI AI",
+      "description": "IHUI AI ニュースサイトマップ。過去 30 日間の製品リリース、セキュリティ強化、機能追加を docs/CHANGELOG.md と照合して掲載します。"
+    },
+    "jsonFeed": {
+      "title": "JSON Feed — IHUI AI",
+      "description": "IHUI AI JSON Feed 1.1 購読。5 言語切替対応の構造化フィードで、LLM および MCP クライアントの解析に適しています。"
+    },
+    "opml": {
+      "title": "OPML 購読アウトライン — IHUI AI",
+      "description": "IHUI AI 全購読ソースの OPML 2.0 アウトライン。主要フィード、リアルタイムプッシュ、検索エンジン用 sitemap、5 言語バージョンごとにグループ化し、リーダーにワンクリックで取り込めます。"
+    }
+  },
+  "useCasesAiEdu": {
+    "metaTitle": "AI 教育 Agent ユースケース — コース設計/自動答疑/学習推薦 | IHUI AI",
+    "metaDescription": "IHUI AI フルスタック AI OS で構築する AI 教育 Agent:コース構造化設計、自動答疑、添削、パーソナライズ学習パス、学習ダッシュボード、8 エンド同期配信。",
+    "courseSchema": {
+      "name": "IHUI AI 教育 Agent ブートキャンプ",
+      "description": "K12/職業訓練/企業内研修向けの AI 教育 Agent 構築ハンズオン。コース構造化設計、自動答疑、添削、学習ダッシュボード、パーソナライズ推薦をカバー。30 分で公開可能。",
+      "provider": "IHUI AI",
+      "startDate": "2026-08-01",
+      "endDate": "2026-12-31",
+      "courseWorkload": "PT16H",
+      "about": [
+        "AI 教育",
+        "コース設計",
+        "自動答疑",
+        "添削",
+        "学習推薦",
+        "MCP ツールプロトコル",
+        "ナレッジベース RAG",
+        "マルチモデルルーティング"
+      ],
+      "teaches": [
+        "コース構造化設計",
+        "自動答疑ワークフロー設計",
+        "添削自動化実装",
+        "学習ダッシュボード構築",
+        "パーソナライズ学習パス推薦"
+      ]
+    }
+  },
+  "useCasesCustomerSupport": {
+    "reviewSchema": {
+      "itemReviewed": "IHUI AI スマートカスタマーサービス Agent",
+      "reviewBody": "IHUI AI スマートカスタマーサービスを 3 ヶ月導入した結果、人間の日次対応件数は 800 から 240 へ減少(70% 削減)。夜間・休日の問い合わせは 100% AI が対応し、顧客満足度は 4.1 から 4.7 へ上昇。ナレッジベースが WeChat/Web/ミニプログラム全チャネルで回答を一貫させ、複雑ケースは AI 提案付きでシームレスに人間へエスカレーション。サポートチームは本来判断力を要するチケットに集中できるようになりました。",
+      "author": "陳暁彤",
+      "authorJobTitle": "カスタマーサクセスディレクター",
+      "authorAffiliation": "SaaS スタートアップ企業",
+      "datePublished": "2026-07-26",
+      "reviewRating": {
+        "ratingValue": 4.8
+      }
+    }
+  },
+  "useCasesAiDesign": {
+    "metaTitle": "AI デザイン協業 Agent — ポスター/Logo コンセプト/スケッチをコードへ | IHUI AI",
+    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI デザイン協業 Agent を構築:ポスター/Logo コンセプト + スケッチをコードへ + ブランド資産管理 + デザインレビュー + デザインシステム検索,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
+  },
+  "useCasesAiMarketing": {
+    "metaTitle": "AI マーケティングコンテンツ生成 Agent — マルチプラットフォーム/SEO/A/B | IHUI AI",
+    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI マーケティングコンテンツ生成 Agent を構築:マルチプラットフォームコピー + SEO ブログ + ブランドトーン一貫性 + A/B テスト + ペルソナ駆動,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
+  },
+  "useCasesAiResearch": {
+    "metaTitle": "AI 学術研究アシスタント — 論文検索/レビュー/引用管理 | IHUI AI",
+    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI 学術研究アシスタントを構築:論文検索 + PDF パース + 引用管理 + レビュー生成 + 知識グラフ + 動態分析,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
+  },
+  "useCasesAiTranslation": {
+    "metaTitle": "AI 多言語翻訳 Agent — 文書翻訳/ローカライズ/用語集/字幕 | IHUI AI",
+    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI 多言語翻訳 Agent を構築:多言語文書翻訳 + ローカライズワークフロー + 用語集管理 + 翻訳レビュー + 文化適応 + 字幕翻訳,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
   }
 }
