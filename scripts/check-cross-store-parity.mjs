@@ -38,7 +38,6 @@ const REQUIRED_EXPORTS = {
   extension: ['createChromeStorageTransport'],
 }
 
-const STORAGE_KEY = 'ihui-auth-user'
 const PERSIST_KEY = 'ihui-auth-user' // shared/src/stores/auth-store.ts userPersistKey default
 
 const issues = []
