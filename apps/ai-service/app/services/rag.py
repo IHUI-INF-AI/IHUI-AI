@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import uuid as _uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -162,7 +163,15 @@ class RAGService:
         metadata: dict[str, Any] | None = None,
     ) -> None:
         """向 RAG 知识库添加文档(写入 vector_memory + memory)。"""
-        await vector_memory.add(session_id, role, content, metadata)
+        entry_id = _uuid.uuid4().hex
+        entry: dict[str, Any] = {
+            "session_id": session_id,
+            "role": role,
+            "content": content,
+            **(metadata or {}),
+        }
+        embedding = await vector_memory.embed(content)
+        await vector_memory.add_entry(entry_id, entry, embedding)
         await memory_store.add(session_id, role, content, metadata)
 
     async def retrieve_only(
@@ -198,22 +207,31 @@ class RAGService:
     ) -> list[RAGSource]:
         """向量检索,失败 fallback 关键词检索。"""
         try:
+            query_embedding = await vector_memory.embed(query)
             results = await vector_memory.search(
-                query=query, top_k=top_k, session_id=session_id
+                query_embedding=query_embedding,
+                top_k=max(top_k * 2, 10),
+                threshold=0.0,
             )
         except Exception:
             results = []
         if results:
-            return [
-                RAGSource(
-                    session_id=str(r.get("session_id", "")),
-                    role=str(r.get("role", "")),
-                    content=str(r.get("content", "")),
-                    score=float(r.get("score", 0.0)),
-                    timestamp=str(r.get("timestamp", "")),
+            sources: list[RAGSource] = []
+            for _entry_id, entry, score in results:
+                if session_id is not None and entry.get("session_id") != session_id:
+                    continue
+                sources.append(
+                    RAGSource(
+                        session_id=str(entry.get("session_id", "")),
+                        role=str(entry.get("role", "")),
+                        content=str(entry.get("content", "")),
+                        score=float(score),
+                        timestamp=str(entry.get("timestamp", "")),
+                    )
                 )
-                for r in results
-            ]
+                if len(sources) >= top_k:
+                    break
+            return sources
         # Fallback: 关键词检索 memory_store
         return await self._keyword_fallback(query, top_k=top_k, session_id=session_id)
 
