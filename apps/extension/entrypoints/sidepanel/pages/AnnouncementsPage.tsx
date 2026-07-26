@@ -51,7 +51,7 @@ export default function AnnouncementsPage() {
 
   useEffect(() => {
     void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
 
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }))
