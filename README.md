@@ -1315,6 +1315,8 @@ IHUI-AI/
 | 30c     | check-cross-store-parity.mjs          | **跨端 storage-adapter 一致性守门(blocking,AGENTS.md §12):4 端(web/mobile-rn/miniapp-taro/extension)必需导出 + 共享 userPersistKey + partialize 不持久化 token** |
 | 16      | 条件 typecheck                        | apps/web staged 时跑 typecheck                                  |
 | 16b     | 条件 database build                   | packages/database/src staged 时跑 build                         |
+| 16c     | 条件 RN global.css 同步               | mobile-rn/global.css 或 tokens.css staged 时跑同步检查           |
+| 16d     | 条件 miniapp-taro dist 清理提示       | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆) |
 | 17-post | git-push-guard.mjs(post-commit)       | 自动 push + 验证 local == remote(防遗漏)                        |
 | 5-post  | sync-lost-commit-tags.mjs(post-commit)| commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
 
