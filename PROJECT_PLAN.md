@@ -58,13 +58,14 @@
 
 ### P1 UX 深度优化
 
-- [ ] 新增 Codex 风格 agent 任务进度查看弹窗(平台独占:仅 apps/web,2026-07-27 立)
+- [x] ✅(2026-07-27) 新增 Codex 风格 agent 任务进度查看弹窗(平台独占:仅 apps/web,2026-07-27 立)
   - **触发**:用户明确要求"深度调研 codex 并且深度开发这个功能"——一个统一的、Codex 风格的弹窗式任务进度查看容器
   - **现状**:项目已有零散组件(AgentRuntimePanel/AgentProgressPanel/TaskListPanel/BackgroundAgentsPanel/SubAgentActivityFeed)+ SSE 基础设施(useAgentStream hook + AgentSSEEvent 类型),但**没有一个统一的弹窗式容器整合所有进度信息**
   - **Codex 风格核心特征**(WebSearch 调研):① 弹窗/侧边滑出容器(非独立页面);② 可折叠任务清单 + 当前步骤进度计数器;③ 分区展示 Runs(运行日志)/ Diffs(变更)/ Tools(工具调用);④ 实时状态指示(spinner/paused/error/cleared);⑤ SSE 实时流式更新
   - **MVP 范围**:① 新增 `apps/web/src/stores/agent-progress-drawer.ts`(zustand store:open/close + 当前 threadId + 聚合事件);② 新增 `apps/web/src/hooks/use-agent-progress.ts`(整合 useAgentStream + 聚合 SSE 事件为各 tab 数据);③ 新增 `apps/web/src/components/ai/agent-task-progress-drawer.tsx`(Codex 风格 4 tab:概览/步骤/工具/变更);④ 新增 `apps/web/src/components/ai/agent-progress-trigger.tsx`(浮动按钮 + Ctrl+Shift+J 快捷键);⑤ 在根 layout 挂载 Drawer + Trigger;⑥ 测试文件;⑦ 复用现有 ToolCallCard / DiffPreview / feedback/Drawer
   - **复用清单**:`feedback/Drawer.tsx` 容器、`ai/tool-call-card.tsx` 渲染工具调用、`ai/diff-preview.tsx` 渲染 diff、`hooks/use-agent-stream.ts` SSE 流消费、`packages/types/src/agent-runtime.ts` 的 `AgentSSEEvent` 类型、`@ihui/ui-react` 的 Button/Card/Tabs
-  - **验证**:typecheck + lint + test + browser_use 4 状态截图(默认/hover/active/dark mode)
+  - **验证**:typecheck exit 0 + 21/21 测试全绿 + browser_use 4 状态截图(默认/hover/active/dark mode)全 PASS + DOM 验证(trigger position=fixed/zIndex=990、drawer role=dialog、4 个 role=tab)
+  - **交付物**:① `apps/web/src/stores/agent-progress-drawer.ts`(80 行 zustand store);② `apps/web/src/hooks/use-agent-progress.ts`(283 行 SSE 事件聚合 hook);③ `apps/web/src/components/ai/agent-task-progress-drawer.tsx`(468 行主组件,4 tab + threadId 输入 + 控制按钮);④ `apps/web/src/components/ai/agent-progress-trigger.tsx`(75 行浮动按钮 + 快捷键);⑤ `apps/web/tests/agent-task-progress-drawer.test.tsx`(264 行,21 个测试覆盖 store/trigger/drawer);⑥ `apps/web/src/components/ai/index.ts` 导出;⑦ `apps/web/src/components/layout/GlobalShell.tsx` 全局挂载
 
 ### P2 工程卫生与维护成本优化
 
