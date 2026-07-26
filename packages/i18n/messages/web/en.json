@@ -9031,22 +9031,6 @@
       "tabBrowser": "Browser"
     }
   },
-  "devTools": {
-    "trigger": "Developer Tools",
-    "title": "Developer Tools",
-    "envSection": "Environment",
-    "path": "Current Path",
-    "viewport": "Viewport",
-    "now": "Current Time",
-    "toolsSection": "Quick Tools",
-    "reload": "Reload Page",
-    "clearStorage": "Clear Local Cache (ihui- prefix only)",
-    "copyInfo": "Copy Environment Info",
-    "copied": "Copied to clipboard",
-    "tip": "Tip: this panel is only visible on localhost or intranet; public domain access shows \"Dev mode only\".",
-    "prodModeTitle": "Dev mode only",
-    "prodModeHint": "Developer tools are only visible on localhost or intranet. You are accessing via a public domain, so the tool panel is hidden."
-  },
   "aiChat": {
     "title": "AIChat",
     "history": "HistoryChat",
