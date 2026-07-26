@@ -165,6 +165,27 @@ class RAGService:
         await vector_memory.add(session_id, role, content, metadata)
         await memory_store.add(session_id, role, content, metadata)
 
+    async def retrieve_only(
+        self,
+        query: str,
+        top_k: int = 5,
+        session_id: str | None = None,
+    ) -> list[RAGSource]:
+        """仅检索(不生成),返回 RAGSource 列表。公有 API,替代直接调 _retrieve。
+
+        内部委托给 _retrieve(),失败 fallback 关键词检索(同 _retrieve 行为)。
+        供 knowledge_lookup 等外部门面使用,避免它们调私有方法。
+
+        Args:
+            query: 自然语言查询。
+            top_k: 返回 top-K,默认 5。
+            session_id: 限定会话(为空则跨会话)。
+
+        Returns:
+            list[RAGSource],失败返回 []。
+        """
+        return await self._retrieve(query, top_k=top_k, session_id=session_id)
+
     # =========================================================================
     # 私有:检索
     # =========================================================================
