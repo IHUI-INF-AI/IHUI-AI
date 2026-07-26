@@ -1,0 +1,67 @@
+name: i18n Dead Key Audit
+
+# =============================================================================
+# i18n 死 key 审计 workflow(2026-07-26 立)
+#
+# 扫描 packages/i18n/messages/web/zh-CN.json 中已声明但代码中无任何
+# t() / useTranslations() 引用的"死 key",防止 PR 引入新的死 key 增量。
+# 脚本: scripts/scan-dead-i18n-keys.mjs
+# 退出码:发现死 key → exit 1(blocking);无死 key → exit 0
+# 报告:.trae-cn/tmp/i18n-dead-keys-YYYY-MM-DD.md(无论成败均上传 artifact)
+# =============================================================================
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/i18n/messages/**'
+      - 'apps/web/src/**'
+      - 'apps/miniapp-taro/src/**'
+      - 'apps/cli/src/**'
+      - 'scripts/scan-dead-i18n-keys.mjs'
+      - '.github/workflows/i18n-dead-key-audit.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'packages/i18n/messages/**'
+      - 'apps/web/src/**'
+      - 'apps/miniapp-taro/src/**'
+      - 'apps/cli/src/**'
+      - 'scripts/scan-dead-i18n-keys.mjs'
+      - '.github/workflows/i18n-dead-key-audit.yml'
+
+concurrency:
+  group: i18n-dead-key-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  dead-key-audit:
+    name: i18n 死 key 审计
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 扫描死 key(失败即阻塞 PR)
+        run: node scripts/scan-dead-i18n-keys.mjs --exit 1
+
+      - name: 上传死 key 审计报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-dead-key-report
+          path: .trae-cn/tmp/i18n-dead-keys-*.md
+          if-no-files-found: ignore
