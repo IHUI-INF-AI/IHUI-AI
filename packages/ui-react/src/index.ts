@@ -98,5 +98,37 @@ export type { WorkPanelProps, WorkPanelTabItem } from './components/work-panel'
 // AuthShell 统一登录弹窗外壳(2026-07-26 抽取到共享包,web + extension 共用)
 export { AuthShell, AuthShellCompact } from './components/auth-shell'
 export type { AuthShellProps } from './components/auth-shell'
-// AuthShell 共享样式(单一来源,web + extension globals.css 都 @import 这份)
+// LoginForm 共享登录表单(2026-07-26 抽取到共享包,4 tab + 8 第三方登录 + 协议复选框 + 协议弹窗)
+export {
+  LoginForm,
+  PasswordLoginForm,
+  EmailCodeLoginForm,
+  PhoneCodeLoginForm,
+  QrTab,
+  ThirdPartyLoginButtons,
+  AgreementCheckbox,
+  AgreementNoticeDialog,
+  ALL_THIRD_PARTY_PLATFORMS,
+  isValidEmail,
+  isValidPhone,
+} from './components/login-form'
+export type {
+  LoginFormProps,
+  LoginApiClient,
+  LoginResult,
+  LoginTab,
+  ThirdPartyPlatform,
+  ThirdPartyProvider,
+  ThirdPartyConfig,
+  QrPlatformConfig,
+  PasswordLoginFormProps,
+  EmailCodeLoginFormProps,
+  PhoneCodeLoginFormProps,
+  QrTabProps,
+  ThirdPartyLoginButtonsProps,
+  AgreementCheckboxProps,
+  AgreementNoticeDialogProps,
+} from './components/login-form'
+// AuthShell + LoginForm 共享样式(单一来源,web + extension globals.css 都 @import 这份)
 import './styles/auth-shell.css'
+import './styles/login-form.css'
