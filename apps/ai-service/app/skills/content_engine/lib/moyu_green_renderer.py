@@ -48,6 +48,9 @@ FONT = "-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Micro
 
 LEAF = '<span leaf=""><br></span>'
 
+# 末尾点赞/关注双按钮是否已渲染(全局单例, 防止重复 emit)
+_end_support_emitted: bool = False
+
 # 自动绿色下划线关键词(技术/品牌术语, 渲染时自动加 emerald 下划线)
 GREEN_U = ['1000倍', 'Full Access', 'rm -rf', '$HOME', 'GPT-5.6-Sol', 'Time Machine',
            '完全磁盘访问', '完全访问', 'Anthropic', 'Fable', 'Matt Shumer', 'Matt', 'OpenAI',
@@ -64,7 +67,7 @@ def _ensure_text(md_text):
     if isinstance(md_text, (bytes, bytearray, memoryview, io.BytesIO)):
         if isinstance(md_text, io.BytesIO):
             return md_text.read().decode('utf-8')
-        return md_text.decode('utf-8')
+        return bytes(md_text).decode('utf-8')
     if not isinstance(md_text, str):
         raise TypeError('md_text must be a string, bytes, or file-like object')
     return md_text
@@ -474,12 +477,12 @@ def md_to_moyu_green_html(md_text, cover=None, title=None, digest=None):
     out.append('</section>')
     out.append('<section style="margin:0 20px 32px;">')
     in_editor = False
-    editor_label = '智汇AI悄悄话'
-    editor_paras = []
+    editor_label: str | None = '智汇AI悄悄话'
+    editor_paras: list[str] = []
     buf = []
     buf_type = None
     chapter_count = 0
-    quote_buf = []  # 收集连续 > 行,合并成一个引用块
+    quote_buf: list[str] = []  # 收集连续 > 行,合并成一个引用块
     # 2026-07-14: 末尾点赞/关注双按钮状态 (一次渲染,后续同源图 skip)
     global _end_support_emitted
     _end_support_emitted = False
