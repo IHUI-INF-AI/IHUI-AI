@@ -146,7 +146,7 @@ export default function LearnDevelop() {
                     {tt('learnDevelop.teacher', '讲师')}: {item.teacher}
                   </Text>
                 ) : null}
-                {item.price != null ? (
+                {item.price !== null && item.price !== undefined ? (
                   <Text className="text-[32rpx] text-[#f44336] font-bold">
                     {item.price === 0
                       ? tt('learnDevelop.free', '免费')
