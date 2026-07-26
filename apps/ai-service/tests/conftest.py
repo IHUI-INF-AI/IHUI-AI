@@ -49,24 +49,13 @@ _VENDOR_ENV_KEYS = (
 
 @pytest.fixture(autouse=True)
 def _isolate_llm_env(monkeypatch):
-    """隔离 .env 真实 API key:每个测试前清空所有 7 个 settings key + 50+ os.environ vendor key,
+    """隔离 .env 真实 API key:每个测试前清空 50+ os.environ vendor key,
     确保从干净状态开始。避免测试因 .env 中的真实 key 意外调用真实 API。
     需要真实模式的测试自行 monkeypatch 设置对应 key。
     同时 mock _resolve_from_db 避免 asyncpg 连接数据库(测试环境无 DB)。
+
+    阶段 3 主体(2026-07-26):扁平字段已从 Settings 删除,无需再清空 settings.*_api_key。
     """
-    from app.core.config import settings
-
-    for key in (
-        "openai_api_key",
-        "anthropic_api_key",
-        "groq_api_key",
-        "gemini_api_key",
-        "openrouter_api_key",
-        "agnes_api_key",
-        "stepfun_api_key",
-    ):
-        monkeypatch.setattr(settings, key, "")
-
     # 清空 os.environ 里的 vendor key(app.main 启动时同步过)
     for k in _VENDOR_ENV_KEYS:
         monkeypatch.delenv(k, raising=False)
