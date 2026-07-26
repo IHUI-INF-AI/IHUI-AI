@@ -1,15 +1,7 @@
 {
-  "common": {
-    "loading": "Loading…"
-  },
   "nav": {
-    "courses": "Courses",
-    "live": "Live",
     "profile": "Profile",
     "agents": "Agents"
-  },
-  "auth": {
-    "login": "Log in"
   },
   "home": {
     "welcome": "Welcome to IHUI AI"
@@ -17,8 +9,6 @@
   "course": {
     "title": "Courses",
     "studentCount": "{{count}} learners",
-    "rating": "Rating",
-    "free": "Free",
     "pay": "Pay ¥{{amount}}",
     "enroll": "Enroll now",
     "enrolled": "Enrolled",
@@ -80,12 +70,9 @@
       "paid": "Paid",
       "cancelled": "Cancelled",
       "refunding": "Refunding",
-      "refunded": "Refunded",
       "completed": "Completed",
       "failed": "Failed"
-    },
-    "empty": "No orders",
-    "orderNo": "Order No."
+    }
   },
   "wallet": {
     "points": "Points"

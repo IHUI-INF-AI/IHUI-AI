@@ -1,6 +1,5 @@
 {
   "common": {
-    "loading": "加载中…",
     "failed": "失败"
   },
   "nav": {
@@ -122,7 +121,6 @@
     "pricing": "定价方案"
   },
   "auth": {
-    "login": "登录",
     "logout": "退出登录",
     "loginRequired": "请输入账号和密码",
     "phoneOrEmail": "手机号 / 邮箱",
@@ -208,12 +206,10 @@
   "course": {
     "title": "课程",
     "empty": "暂无课程",
-    "free": "免费",
     "loadFailed": "加载失败"
   },
   "order": {
     "title": "我的订单",
-    "empty": "暂无订单",
     "loadFailed": "加载失败",
     "statusPending": "待支付",
     "statusPaid": "已支付",
