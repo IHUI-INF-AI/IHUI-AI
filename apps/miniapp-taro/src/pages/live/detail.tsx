@@ -72,7 +72,7 @@ export default function LiveDetail() {
   return (
     <View className="min-h-screen">
       {/* 播放区 */}
-      <View className="w-full h-[210px] bg-black">
+      <View className="w-full h-[420rpx] bg-black">
         {live.playUrl ? (
           <Video
             className="w-full h-full"

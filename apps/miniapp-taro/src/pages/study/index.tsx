@@ -62,7 +62,7 @@ export default function StudyIndex() {
   ]
 
   return (
-    <View className="min-h-screen bg-background pb-[72px]">
+    <View className="min-h-screen bg-background pb-[144rpx]">
       <View className="p-6 bg-gradient-to-br from-[#00f2ff] to-[#8b5cf6]">
         <View className="flex flex-wrap">
           <View className="w-1/2 text-center mb-3 text-white">

@@ -123,7 +123,7 @@ export default function CategoryDetailPage() {
                     {agent.tags.slice(0, 2).map((tag, i) => (
                       <Text
                         key={i}
-                        className="text-[10px] px-1.5 py-0.5 mr-1 rounded bg-muted text-muted-foreground"
+                        className="text-[20rpx] px-1.5 py-0.5 mr-1 rounded bg-muted text-muted-foreground"
                       >
                         {tag}
                       </Text>

@@ -88,7 +88,7 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
                 <Text className="text-xs text-muted-foreground line-clamp-1">@{item.targetTitle}</Text>
               </View>
             )}
-            <Text className="text-[10px] text-muted-foreground mt-1">{item.createdAt}</Text>
+            <Text className="text-[20rpx] text-muted-foreground mt-1">{item.createdAt}</Text>
           </View>
         </View>
       ))}

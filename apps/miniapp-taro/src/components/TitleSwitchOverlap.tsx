@@ -121,7 +121,7 @@ export default function TitleSwitchOverlap({
           {mainList.map((item, index) => (
             <View
               key={index}
-              className="w-[200px] h-[50px] flex items-center justify-center relative"
+              className="w-[400rpx] h-[100rpx] flex items-center justify-center relative"
             >
               <View
                 className="tso-scroll-content"
@@ -134,14 +134,14 @@ export default function TitleSwitchOverlap({
           <View style={{ padding: '140px' }} />
         </View>
       </ScrollView>
-      <View className="flex items-center justify-around box-border w-[60%] gap-[20px]">
+      <View className="flex items-center justify-around box-border w-[60%] gap-[40rpx]">
         <Image
-          className="w-[40px] h-[40px]"
+          className="w-[80rpx] h-[80rpx]"
           src="/static/images/saidao_title_left.png"
           onClick={prev}
         />
         <Image
-          className="w-[40px] h-[40px]"
+          className="w-[80rpx] h-[80rpx]"
           src="/static/images/saidao_title_right.png"
           onClick={next}
         />

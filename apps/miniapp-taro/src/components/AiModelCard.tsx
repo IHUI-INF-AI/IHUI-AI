@@ -64,7 +64,7 @@ export default function AiModelCard({
         <View className="flex flex-wrap gap-1.5 mt-2">
           {tags.map((tag, index) => (
             <View key={index} className="px-2 py-0.5 rounded-sm bg-primary/10">
-              <Text className="text-[10px] text-primary">{tag}</Text>
+              <Text className="text-[20rpx] text-primary">{tag}</Text>
             </View>
           ))}
         </View>

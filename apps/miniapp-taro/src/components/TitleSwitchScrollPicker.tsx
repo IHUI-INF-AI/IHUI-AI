@@ -109,14 +109,14 @@ export default function TitleSwitchScrollPicker({
         className="absolute top-0 left-0 z-[9995] flex flex-col items-center justify-between"
         style={{ height: '140px' }}
       >
-        <View className="w-full h-[20px]" onClick={prev} />
-        <View className="w-full h-[20px]" onClick={next} />
+        <View className="w-full h-[40rpx]" onClick={prev} />
+        <View className="w-full h-[40rpx]" onClick={next} />
       </View>
       <PickerView
         value={itemIndex}
         onChange={handleChange}
         immediateChange
-        className="w-[210px] h-[140px]"
+        className="w-[420rpx] h-[280rpx]"
       >
         <PickerViewColumn className="relative" style={{ paddingLeft: '4px' }}>
           {mainList.map((item, index) => (

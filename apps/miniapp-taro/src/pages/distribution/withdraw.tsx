@@ -61,32 +61,32 @@ export default function DistributionWithdraw() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="mx-[12px] mt-[12px] bg-card rounded-[8px] p-[16px]">
-        <Text className="text-[12px] text-muted-foreground">{t('distribution.withdraw.available')}</Text>
-        <Text className="block text-[40px] text-foreground font-bold mt-[4px]">¥{available}</Text>
-        <View className="flex items-center py-[12px] mt-[16px]">
-          <Text className="text-[24px] text-foreground font-semibold">¥</Text>
+      <View className="mx-[24rpx] mt-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
+        <Text className="text-[24rpx] text-muted-foreground">{t('distribution.withdraw.available')}</Text>
+        <Text className="block text-[80rpx] text-foreground font-bold mt-[8rpx]">¥{available}</Text>
+        <View className="flex items-center py-[24rpx] mt-[32rpx]">
+          <Text className="text-[48rpx] text-foreground font-semibold">¥</Text>
           <Input
-            className="flex-1 ml-[8px] text-[24px]"
+            className="flex-1 ml-[16rpx] text-[48rpx]"
             type="digit"
             value={amount}
             onInput={(e) => setAmount(e.detail.value)}
             placeholder={t('distribution.withdraw.amountPlaceholder')}
           />
           <Button
-            className="text-[12px] text-[#ff6b35] bg-transparent border-none leading-[24px]"
+            className="text-[24rpx] text-[#ff6b35] bg-transparent border-none leading-[48rpx]"
             onClick={fillAll}
           >
             {t('distribution.withdraw.all')}
           </Button>
         </View>
-        <View className="mt-[16px]">
-          <Text className="text-[12px] text-muted-foreground">{t('distribution.withdraw.method')}</Text>
-          <View className="flex mt-[8px] gap-[12px]">
+        <View className="mt-[32rpx]">
+          <Text className="text-[24rpx] text-muted-foreground">{t('distribution.withdraw.method')}</Text>
+          <View className="flex mt-[16rpx] gap-[24rpx]">
             {payTypes.map((pt) => (
               <View
                 key={pt.value}
-                className={`flex-1 py-[10px] text-center rounded-[8px] text-[14px] ${payType === pt.value ? 'bg-[#ff6b35] text-white' : 'bg-muted text-foreground'}`}
+                className={`flex-1 py-[20rpx] text-center rounded-[16rpx] text-[28rpx] ${payType === pt.value ? 'bg-[#ff6b35] text-white' : 'bg-muted text-foreground'}`}
                 onClick={() => setPayType(pt.value)}
               >
                 <Text>{pt.label}</Text>
@@ -96,7 +96,7 @@ export default function DistributionWithdraw() {
         </View>
       </View>
       <Button
-        className="mx-[12px] mt-[24px] bg-[#ff6b35] text-white rounded-[8px] text-[16px]"
+        className="mx-[24rpx] mt-[48rpx] bg-[#ff6b35] text-white rounded-[16rpx] text-[32rpx]"
         disabled={submitting}
         onClick={onSubmit}
       >

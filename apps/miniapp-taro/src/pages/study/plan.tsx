@@ -63,7 +63,7 @@ export default function StudyPlan() {
   })
 
   return (
-    <View className="min-h-screen bg-background pb-[60px]">
+    <View className="min-h-screen bg-background pb-[120rpx]">
       {list.length > 0 && (
         <View className="p-3">
           {list.map((p) => (
@@ -108,7 +108,7 @@ export default function StudyPlan() {
       {showAdd && (
         <View className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40" onClick={() => setShowAdd(false)}>
           <View
-            className="mx-6 w-full max-w-[300px] bg-card rounded-xl p-4"
+            className="mx-6 w-full max-w-[600rpx] bg-card rounded-xl p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <Text className="block text-base text-foreground font-semibold mb-3">

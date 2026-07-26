@@ -169,7 +169,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
             placeholder={t('ai.agentDetail.runtimeInputPlaceholder')}
             disabled={status === 'running'}
             maxlength={-1}
-            className="flex-1 min-h-[60px] p-2 text-sm rounded-md border border-border bg-card"
+            className="flex-1 min-h-[120rpx] p-2 text-sm rounded-md border border-border bg-card"
           />
           {status === 'running' ? (
             <Button

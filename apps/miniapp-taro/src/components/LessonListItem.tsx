@@ -62,7 +62,7 @@ export default function LessonListItem({
       </View>
 
       {data.isFree && (
-        <Text className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary mr-2">
+        <Text className="text-[20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary mr-2">
           {tt('lesson.preview', '试看')}
         </Text>
       )}

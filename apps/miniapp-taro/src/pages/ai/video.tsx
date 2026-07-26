@@ -214,7 +214,7 @@ export default function VideoPage() {
             >
               <Text className="block">{t(v.nameKey)}</Text>
               {!v.available ? (
-                <Text className="block text-[10px] opacity-70">{t('ai.video.notAvailable')}</Text>
+                <Text className="block text-[20rpx] opacity-70">{t('ai.video.notAvailable')}</Text>
               ) : null}
             </View>
           ))}
@@ -266,7 +266,7 @@ export default function VideoPage() {
             {resultUrl ? (
               <VideoPlayer src={resultUrl} />
             ) : (
-              <View className="h-[210px] flex items-center justify-center bg-black rounded-md">
+              <View className="h-[420rpx] flex items-center justify-center bg-black rounded-md">
                 <Text className="text-sm text-muted-foreground">{statusText}</Text>
               </View>
             )}
@@ -309,7 +309,7 @@ export default function VideoPage() {
                   onClick={() => replayHistory(h)}
                 >
                   <Text className="flex-1 text-xs text-foreground truncate">{h.prompt}</Text>
-                  <Text className="text-[10px] text-muted-foreground ml-2">
+                  <Text className="text-[20rpx] text-muted-foreground ml-2">
                     {t(VENDORS.find((v) => v.key === h.vendor)?.nameKey ?? '')} · {fmtTime(h.createdAt)}
                   </Text>
                 </View>
