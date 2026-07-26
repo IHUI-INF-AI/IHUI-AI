@@ -17,7 +17,7 @@ jobs:
             const stargazer = context.actor;
             const repo = context.repo.repo;
             const owner = context.repo.owner;
-            
+
             // 检查是否已经感谢过这个用户
             const issues = await github.rest.issues.listForRepo({
               owner,
@@ -25,12 +25,12 @@ jobs:
               labels: ['thank-you', `star-${stargazer}`],
               state: 'all'
             });
-            
+
             if (issues.data.length > 0) {
               console.log(`Already thanked ${stargazer}, skipping.`);
               return;
             }
-            
+
             // 创建感谢 Issue
             await github.rest.issues.create({
               owner,
@@ -62,7 +62,7 @@ jobs:
               `,
               labels: ['thank-you', `star-${stargazer}`]
             });
-            
+
             console.log(`Created thank you issue for ${stargazer}`);
       - name: Create label if not exists
         uses: actions/github-script@v7
