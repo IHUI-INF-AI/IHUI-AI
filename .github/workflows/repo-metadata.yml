@@ -2,6 +2,7 @@ name: Update Repository Metadata
 
 # 自动更新仓库元数据(description / homepage / topics)
 # 2026-07-26 立,提升 GitHub SEO 与曝光度
+# 2026-07-26 触发:Workflow permissions 已启用 Read and write,GITHUB_TOKEN 可更新 topics
 #
 # 触发条件:
 # 1. push 到 main(本文件改动时)
