@@ -32,7 +32,12 @@ export default defineConfig(async (merge) => {
     //   (reading 'type')`。webpack5 runner 的 modifyBuildAssets 实现支持
     //   新增 asset,故 alipay 走 webpack5 绕过此 bug。
     // weapp 等其他端继续用 Vite (已验证 100+ 页面正常)
-    compiler: process.env.TARO_ENV === 'h5' || process.env.TARO_ENV === 'alipay' ? 'webpack5' : 'vite',
+    compiler: process.env.TARO_ENV === 'h5' || process.env.TARO_ENV === 'alipay'
+      // 对象形式禁用 prebundle:@tarojs/webpack5-prebundle@4.2.0 与 webpack 5.91.0 不兼容
+      // (finalInputFileSystem._writeVirtualFile is not a function +
+      //  enhanced-resolve options.roots.map is not a function)
+      ? { type: 'webpack5', prebundle: { enable: false } }
+      : 'vite',
     cache: { enable: true },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
