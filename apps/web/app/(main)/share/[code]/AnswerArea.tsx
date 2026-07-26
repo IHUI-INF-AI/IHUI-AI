@@ -7,7 +7,7 @@ import Image from 'next/image'
 import { ChevronDown, Pause, Play, Volume2, X, Lightbulb } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { type ShareContent, type ShareListItem } from '@/lib/share-api'
+import { type ShareContent, type ShareListItem } from '@ihui/api-client'
 import { VideoPlayer } from '@/components/media'
 import { formatAudioTime } from './helpers'
 

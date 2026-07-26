@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { getInvitedUsers, type InvitedUser } from '@/lib/distribution-api'
+import { getInvitedUsers, type InvitedUser } from '@ihui/api-client'
 
 export interface UseDistributionInvitesReturn {
   invites: InvitedUser[]

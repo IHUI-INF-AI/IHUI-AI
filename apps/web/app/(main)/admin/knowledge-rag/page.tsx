@@ -33,7 +33,7 @@ import {
   ingestKnowledgeText,
   listKnowledgeDocs,
   searchKnowledge,
-} from '@/lib/knowledge-rag-api'
+} from '@ihui/api-client'
 import { EMPTY_INGEST, EMPTY_SEARCH, fmtScore, fmtTime } from './helpers'
 import type { IngestForm, KnowledgeChunkPreview, SearchForm } from './types'
 

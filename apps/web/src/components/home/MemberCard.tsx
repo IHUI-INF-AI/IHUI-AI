@@ -10,8 +10,7 @@ import { Avatar } from '@/components/data/Avatar'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
-import { getUserStatistics } from '@/lib/user-api'
-import { getBalance } from '@/lib/wallet-api'
+import { getUserStatistics, getBalance } from '@ihui/api-client'
 
 function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {
   if (!r.success) throw new Error(r.error)

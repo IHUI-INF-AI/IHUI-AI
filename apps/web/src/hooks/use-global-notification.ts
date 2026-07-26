@@ -5,7 +5,7 @@ import * as React from 'react'
 import { useNotificationStore } from '@/stores/notification'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocket } from '@/hooks/use-websocket'
-import { getUnreadCount } from '@/lib/notification-api'
+import { getUnreadCount } from '@ihui/api-client'
 
 export interface UseGlobalNotificationReturn {
   unreadCount: number
