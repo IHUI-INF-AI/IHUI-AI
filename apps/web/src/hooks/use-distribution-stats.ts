@@ -7,7 +7,7 @@ import {
   getRanking,
   type CommissionOverview,
   type CommissionRanking,
-} from '@/lib/distribution-api'
+} from '@ihui/api-client/endpoints/distribution'
 
 export interface UseDistributionStatsReturn {
   overview: CommissionOverview | null

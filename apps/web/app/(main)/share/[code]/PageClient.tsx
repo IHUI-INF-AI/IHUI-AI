@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, Loader2 } from 'lucide-react'
 
-import { fetchShareContent } from '@/lib/share-api'
+import { fetchShareContent } from '@ihui/api-client'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { ShareContent } from './ShareContent'
 
