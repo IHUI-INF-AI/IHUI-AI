@@ -2,17 +2,20 @@
  * Popup — 登录入口 + 用户信息 + 快捷操作(打开侧边栏 / 收藏 / 通知 / 复制 URL / 打开网页版)。
  *
  * 快捷操作依赖 background 通过 message-router 提供的 api.proxy + sidePanel.open 能力。
+ *
+ * 2026-07-26 改造:登录外壳从本地 ExtensionAuthShell 改为共享 @ihui/ui-react.AuthShellCompact,
+ * 与 web 端主站登录弹窗用同一份组件 + 同一份 CSS(.login-scope / .welcome-img),
+ * 真正"一模一样"。ExtensionAuthShell.tsx 已删除。
  */
 import { useEffect, useState } from 'react'
 import { loginByAccount, getMe, logout, type AuthUser } from '@ihui/api-client'
-import { Button, Input, Label } from '@ihui/ui-react'
+import { Button, Input, Label, AuthShellCompact } from '@ihui/ui-react'
 import { initApi, setTokenPair, getToken, getRefreshToken, clearAllTokens } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm } from '../../lib/token-utils'
 import { useI18n } from '../../src/i18n'
 import { sendMessage } from '../../lib/message-router'
 import { QuickActionButton } from '../components/QuickActionButton'
 import { NotificationBell } from '../components/NotificationBell'
-import { ExtensionAuthShellCompact } from '../components/ExtensionAuthShell'
 
 interface ActiveTab {
   tabId?: number
@@ -142,7 +145,11 @@ export default function App() {
   if (!user) {
     return (
       <div className="p-3 min-w-[320px] bg-background">
-        <ExtensionAuthShellCompact title={t('auth.login')} subtitle={t('auth.loginSubtitle')}>
+        <AuthShellCompact
+          title={t('auth.login')}
+          subtitle={t('auth.loginSubtitle')}
+          closeAriaLabel={t('common.close') || 'Close'}
+        >
           <form onSubmit={onLogin} className="space-y-3 pt-1">
             {error ? (
               <div
@@ -189,7 +196,7 @@ export default function App() {
               variant="default"
             />
           </form>
-        </ExtensionAuthShellCompact>
+        </AuthShellCompact>
       </div>
     )
   }
