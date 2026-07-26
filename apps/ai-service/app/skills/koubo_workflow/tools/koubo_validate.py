@@ -45,7 +45,7 @@ PASS_ALL = '[**]'
 SEPARATOR = '──────────────────────────────'
 
 class Article:
-    def __init__(self, aid, title, hashtags, pinned_comment, body, raw):
+    def __init__(self, aid: str, title: str, hashtags: list[str], pinned_comment: str, body: str, raw: str) -> None:
         self.aid = aid
         self.title = title
         self.hashtags = hashtags
@@ -53,7 +53,7 @@ class Article:
         self.body = body
         self.raw = raw
 
-def parse_articles(filepath):
+def parse_articles(filepath: str) -> list[Article]:
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
     blocks = re.split(r'─{5,}', content)
@@ -264,7 +264,7 @@ EN_BLACKLIST_EXAMPLES = ['m3', 'msa', 'tps', 'codex', 'finfet', 'risc-v']
 # 工具函数
 # ════════════════════════════════════════════════
 
-def split_sentences(text):
+def split_sentences(text: str) -> list[str]:
     """按中文标点断句，返回含标点的句子列表（标点计入字数）"""
     parts = re.split(f'([{SENT_ENDS}{SENT_MIDS}])', text)
     sentences = []
@@ -277,14 +277,14 @@ def split_sentences(text):
         sentences.append(parts[-1].strip())
     return sentences
 
-def first_clause(text):
+def first_clause(text: str) -> str:
     """取第一个分句（到第一个标点，无论哪种标点）"""
     for i, ch in enumerate(text):
         if ch in ALL_PUNCT:
             return text[:i]
     return text[:30] + '(无标点)' if len(text) > 30 else text  # 无标点时截断并标记
 
-def classify_opening(sents):
+def classify_opening(sents: list[str]) -> str:
     """开头结构族分类，用于跨篇多样性硬门禁（2026-07-16 用户质疑修复）。
     旧逻辑按首字分类且豁免'其他'类，换首字即可躲过>2上限（0715八篇中招）。
     新逻辑按 S1结构 + S2/S3死模板组合分类，取消'其他'豁免，任何族>2即FAIL。
@@ -317,10 +317,10 @@ def classify_opening(sents):
         return '身份自述式'
     return '其他自由式'
 
-def count_in_text(text, phrase):
+def count_in_text(text: str, phrase: str) -> int:
     return len(re.findall(re.escape(phrase), text))
 
-def find_en_words(text):
+def find_en_words(text: str) -> list[str]:
     """找出文本中的英文词"""
     return re.findall(r'[A-Za-z]{2,}', text)
 
@@ -380,8 +380,8 @@ SOFT_NONFAIL = {'抖音安全', '标题情绪类型', '英文词'}
 SOFT_CROSS = {'转折表达去重', '跨篇逐句去重'}
 
 
-def check_article(art, all_articles):
-    R = []  # (check_name, pass_bool, detail)
+def check_article(art: Article, all_articles: list[Article]) -> list[tuple[str, bool, str]]:
+    R: list[tuple[str, bool, str]] = []  # (check_name, pass_bool, detail)
 
     # ── 1. 正文字数 470-490 ──
     blen = len(art.body)
@@ -487,9 +487,9 @@ def check_article(art, all_articles):
     # 2026-07-20 用户铁律：口播稿不再写「关注我，···」类 CTA 收束（翻转为硬禁止）。
     # 命中「关注我」即计入 CTA残留 → FAIL。其余订阅/私信/导流类（点个关注/来找我/私信我/加我/下期/下集）仍禁。
     found_cta = []
-    for c in CTA_PATTERNS:
-        if c in art.body:
-            found_cta.append(c)
+    for cta in CTA_PATTERNS:
+        if cta in art.body:
+            found_cta.append(cta)
     ok = len(found_cta) == 0
     R.append(('CTA残留', ok, f'发现: {",".join(found_cta)}' if found_cta else '0次'))
 
@@ -694,15 +694,15 @@ def check_article(art, all_articles):
             tail_clause = tail.split('。')[0]
             jpos = 10**9
             for w in HOLLOW_JUDGMENT:
-                p = tail_clause.find(w)
-                if p >= 0:
-                    jpos = p
+                pos_j = tail_clause.find(w)
+                if pos_j >= 0:
+                    jpos = pos_j
                     break
             apos = 10**9
             for w in HOLLOW_ACTION:
-                p = tail_clause.find(w)
-                if p >= 0:
-                    apos = p
+                pos_a = tail_clause.find(w)
+                if pos_a >= 0:
+                    apos = pos_a
                     break
             if apos < jpos:
                 hollow_hit = anc
@@ -858,8 +858,8 @@ def check_article(art, all_articles):
 # 跨篇验证
 # ════════════════════════════════════════════════
 
-def cross_article_checks(articles, filepath=''):
-    R = []
+def cross_article_checks(articles: list[Article], filepath: str = '') -> list[tuple[str, bool, str]]:
+    R: list[tuple[str, bool, str]] = []
 
     # ── 跨篇去重: 高频表达扫描 ──
     phrase_articles = defaultdict(set)
@@ -1140,7 +1140,7 @@ def cross_article_checks(articles, filepath=''):
             rhythm_detail += ' 节奏偏科(某类>=5)'
         R.append(('置顶评论节奏', rhythm_ok, rhythm_detail))
     # ── 跨篇逐句去重（≥8字公共子串检测）──
-    def longest_common_substring(s1, s2, min_len=8):
+    def longest_common_substring(s1: str, s2: str, min_len: int = 8) -> str:
         """找两个字符串中最长的公共连续子串"""
         m, n = len(s1), len(s2)
         max_len = 0
@@ -1331,7 +1331,7 @@ def cross_article_checks(articles, filepath=''):
 # ════════════════════════════════════════════════════════════════════════
 DISPLAY_HASH_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.cache', 'koubo_display_hash')
 
-def _display_checkpoint(filepath, n_articles):
+def _display_checkpoint(filepath: str, n_articles: int) -> tuple[bool, str]:
     try:
         text = open(filepath, encoding='utf-8').read()
     except Exception as e:
@@ -1347,7 +1347,7 @@ def _display_checkpoint(filepath, n_articles):
                    f'输出并粘贴全部{n_articles}篇正文+评估数据到对话框，再跑 koubo_display.py --mark 更新检查点。')
 
 
-def display(filepath, articles, per_results, cross_results):
+def display(filepath: str, articles: list[Article], per_results: dict[str, list[tuple[str, bool, str]]], cross_results: list[tuple[str, bool, str]]) -> int:
     print(f'\n{"═"*62}')
     print(f' 口播稿全量验证  {filepath}')
     print(f' 文章数: {len(articles)}  时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
@@ -1409,7 +1409,7 @@ def display(filepath, articles, per_results, cross_results):
 # 主函数
 # ════════════════════════════════════════════════
 
-def main():
+def main() -> None:
     if len(sys.argv) > 1:
         filepath = sys.argv[1]
     else:
