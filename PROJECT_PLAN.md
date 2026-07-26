@@ -5630,10 +5630,10 @@ P1(5 项):
 
 **Git 同步证据**:
 
-- 本地 commit: <待 push 后填入>
-- origin commit: <待 push 后填入>
-- 同步状态: local == remote ✅ / 待验证
-- 守门脚本: node scripts/git-push-guard.mjs exit 0(待 push 后验证)
+- 本地 commit: d8bb2eafbc6e61098503078b2fe3a977bafb7d22
+- origin commit: d8bb2eafbc6e61098503078b2fe3a977bafb7d22
+- 同步状态: local == remote ✅
+- 守门脚本: node scripts/git-push-guard.mjs exit 0 ✅(本地与 origin/main 已同步,5 项硬定义全满足)
 
 **§9 多端同步豁免**:本任务仅触及 `packages/i18n/messages/web/*.json`(翻译文件)+ 2 个 web 端 tsx(i18n key 引用修复),已在标题标注"平台独占 — 跨端:仅 web i18n 翻译文件",符合 §9 平台独占豁免(翻译文件单端维护,不影响跨端契约)。
 
