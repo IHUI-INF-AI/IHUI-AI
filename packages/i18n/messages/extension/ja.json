@@ -122,8 +122,6 @@
   },
   "auth": {
     "logout": "ログアウト",
-    "loginRequired": "アカウントとパスワードを入力してください",
-    "phoneOrEmail": "電話番号 / メール",
     "roleAdmin": "管理者",
     "roleUser": "一般ユーザー"
   },
@@ -232,15 +230,5 @@
     "balance": "利用可能残高",
     "totalRecharge": "累計チャージ",
     "loadFailed": "読み込み失敗"
-  },
-  "login": {
-    "title": "IHUI AI にログイン",
-    "account": "アカウント",
-    "password": "パスワード",
-    "phoneOrEmailHint": "電話番号 / メール",
-    "loading": "ログイン中...",
-    "requireInput": "アカウントとパスワードを入力してください",
-    "button": "ログイン",
-    "loadFailed": "ログイン失敗"
   }
 }

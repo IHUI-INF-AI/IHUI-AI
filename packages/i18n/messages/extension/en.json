@@ -122,8 +122,6 @@
   },
   "auth": {
     "logout": "Log out",
-    "loginRequired": "Please enter account and password",
-    "phoneOrEmail": "Phone / Email",
     "roleAdmin": "Admin",
     "roleUser": "User"
   },
@@ -232,15 +230,5 @@
     "balance": "Available balance",
     "totalRecharge": "Total recharged",
     "loadFailed": "Load failed"
-  },
-  "login": {
-    "title": "Log in to IHUI AI",
-    "account": "Account",
-    "password": "Password",
-    "phoneOrEmailHint": "Phone / Email",
-    "loading": "Logging in...",
-    "requireInput": "Please enter account and password",
-    "button": "Log in",
-    "loadFailed": "Login failed"
   }
 }

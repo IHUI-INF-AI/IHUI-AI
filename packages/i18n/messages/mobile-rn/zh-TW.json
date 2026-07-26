@@ -24,12 +24,8 @@
   "profile": {
     "title": "我的",
     "myCourses": "我的課程",
-    "myOrders": "我的訂單",
     "myFavorites": "我的收藏",
-    "feedback": "意見回饋",
-    "logout": "登出",
-    "nickname": "暱稱",
-    "editProfile": "編輯資料"
+    "feedback": "意見回饋"
   },
   "payment": {
     "title": "支付訂單",
@@ -74,13 +70,6 @@
       "failed": "失敗"
     }
   },
-  "wallet": {
-    "points": "積分"
-  },
-  "community": {
-    "follow": "追蹤",
-    "follower": "粉絲"
-  },
   "agent": {
     "config": "設定",
     "runtimeTitle": "執行階段",
@@ -101,23 +90,7 @@
     "voice": "語音"
   },
   "settings": {
-    "account": "帳號與安全",
-    "notification": "訊息通知",
     "about": "關於智匯 AI",
-    "version": "版本",
-    "notifPush": "推送通知",
-    "notifMessage": "訊息提醒",
-    "notifEmail": "郵件通知",
-    "changePassword": "修改密碼",
-    "oldPassword": "舊密碼",
-    "newPassword": "新密碼",
-    "confirmPassword": "確認密碼",
-    "pwdFieldsRequired": "請填寫所有密碼欄位",
-    "pwdTooShort": "密碼至少 6 位",
-    "pwdNotMatch": "兩次輸入的密碼不一致",
-    "pwdChanged": "密碼已修改",
-    "pwdChangeFailed": "密碼修改失敗",
-    "logoutConfirm": "確定退出登入嗎?",
     "lang_zhCN": "簡體中文",
     "lang_en": "English",
     "lang_ja": "日本語",
@@ -128,15 +101,6 @@
     "theme_system": "跟隨系統",
     "languageChanged": "語言已切換",
     "themeChanged": "主題已切換"
-  },
-  "about": {
-    "title": "關於",
-    "appName": "應用名稱",
-    "version": "版本",
-    "description": "描述",
-    "officialSite": "官網",
-    "contactEmail": "聯繫郵箱",
-    "license": "許可證"
   },
   "menu": {
     "about": "關於",
