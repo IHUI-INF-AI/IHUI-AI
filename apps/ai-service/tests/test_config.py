@@ -84,8 +84,8 @@ def test_default_redis_url(monkeypatch):
 
 
 def test_default_litellm_model():
-    """litellm_model 默认为 stepfun/step-3.7-flash。"""
-    assert Settings().litellm_model == "stepfun/step-3.7-flash"
+    """litellm_model 默认为 stepfun/step-router-v1(2026-07-24 从 step-3.7-flash 升级)。"""
+    assert Settings().litellm_model == "stepfun/step-router-v1"
 
 
 def test_default_chat_history_window():
@@ -94,8 +94,8 @@ def test_default_chat_history_window():
 
 
 def test_default_max_agent_iterations():
-    """max_agent_iterations 默认为 10。"""
-    assert Settings().max_agent_iterations == 10
+    """max_agent_iterations 默认为 8(2026-07-24 从硬编码 3 升级,覆盖多步浏览器/电脑操作)。"""
+    assert Settings().max_agent_iterations == 8
 
 
 def test_default_api_service_url():
@@ -131,9 +131,19 @@ def test_default_anthropic_api_key_empty():
     assert Settings().anthropic_api_key == ""
 
 
-def test_default_all_provider_keys_empty():
-    """所有 provider key 默认应为空字符串(全空 → stub 模式)。"""
-    s = Settings()
+def test_default_all_provider_keys_empty(monkeypatch):
+    """所有 provider key 默认应为空字符串(全空 → stub 模式)。
+
+    隔离 .env + os.environ:.env 里有真实 STEPFUN_API_KEY / AGNES_API_KEY,
+    必须 _env_file=None 跳过 .env 加载,且 monkeypatch.delenv 显式清空环境变量,
+    否则从 .env 加载后 api_key 非空 → 违反"全空→stub"契约。
+    """
+    for env_key in (
+        "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
+        "OPENROUTER_API_KEY", "AGNES_API_KEY", "STEPFUN_API_KEY",
+    ):
+        monkeypatch.delenv(env_key, raising=False)
+    s = Settings(_env_file=None)
     for key in (
         "openai_api_key", "anthropic_api_key", "groq_api_key",
         "gemini_api_key", "openrouter_api_key", "agnes_api_key",
@@ -356,7 +366,17 @@ def test_conftest_isolation_keeps_settings_keys_empty(monkeypatch):
 
 
 def test_conftest_isolation_does_not_affect_new_instance(monkeypatch):
-    """新建 Settings() 实例默认 key 为空(conftest 不破坏新实例化路径)。"""
-    s = Settings()
+    """新建 Settings() 实例默认 key 为空(conftest 不破坏新实例化路径)。
+
+    隔离 .env + os.environ:与 test_default_all_provider_keys_empty 同样的隔离策略,
+    _env_file=None 跳过 .env 加载,monkeypatch.delenv 清空 os.environ 残留 key,
+    验证新 Settings() 实例从类默认值加载,而不是从 .env 拿真实 key。
+    """
+    for env_key in (
+        "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
+        "OPENROUTER_API_KEY", "AGNES_API_KEY", "STEPFUN_API_KEY",
+    ):
+        monkeypatch.delenv(env_key, raising=False)
+    s = Settings(_env_file=None)
     assert s.openai_api_key == ""
     assert s.stepfun_api_key == ""
