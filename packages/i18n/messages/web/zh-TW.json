@@ -11068,30 +11068,12 @@
     "anonymous": "匿名用戶"
   },
   "modelsBillingPage": {
-    "consumeTrend": "+{n}% vs 上月",
-    "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["每月 1000 次 AI 呼叫", "基礎模型存取(3 個)", "標準 API 速率", "社群支援"]
       },
       "pro": {
-        "features": [
-          "每月 20000 次 AI 呼叫",
-          "全部模型存取(15+)",
-          "高優先 API 速率",
-          "電子郵件技術支援(24h 回應)",
-          "進階 Agent 工作流程"
-        ]
       },
       "enterprise": {
-        "features": [
-          "無限次 AI 呼叫",
-          "全部模型 + 自訂微調",
-          "專屬 API 速率 + SLA 99.99%",
-          "7×24 專屬客戶經理",
-          "私有化部署 + 資料隔離",
-          "客製功能開發支援"
-        ]
       }
     }
   },
