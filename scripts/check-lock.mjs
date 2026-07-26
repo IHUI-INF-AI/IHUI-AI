@@ -20,7 +20,7 @@
  *   2 : stale 警告 (不阻塞, 仅 WARN)
  */
 
-import { existsSync, readFileSync, statSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs'
 import { dirname, resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 

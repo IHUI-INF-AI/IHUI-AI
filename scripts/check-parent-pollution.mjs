@@ -293,7 +293,7 @@ function main() {
         try {
           unlinkSync(p.file);
           cleaned.push(p);
-        } catch (e) {
+        } catch (_e) {
           remaining.push(p);
         }
       } else {
