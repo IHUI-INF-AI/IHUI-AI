@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Card, CardContent, CardFooter, CardHeader, Button, Badge } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import type {
   RegistryItem,
   RegistryInstallStatus,
@@ -57,9 +58,11 @@ export function RegistryItemCard({ item, installStatus, installing, onInstall }:
               <Badge variant="outline" className="shrink-0 text-xs font-medium text-muted-foreground">
                 {TYPE_LABEL[item.sourceType]}
               </Badge>
-              <h3 className="truncate font-semibold leading-tight" title={item.name}>
-                {item.name}
-              </h3>
+              <Tooltip content={item.name}>
+                <h3 className="truncate font-semibold leading-tight">
+                  {item.name}
+                </h3>
+              </Tooltip>
             </div>
             {item.description && (
               <p className="line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
