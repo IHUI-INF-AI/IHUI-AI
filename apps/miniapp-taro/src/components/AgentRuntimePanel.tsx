@@ -111,7 +111,8 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
         </Button>
       </View>
 
-      <ScrollView scrollY className="p-3" style={{ maxHeight: '40vh', minHeight: '120px' }}>
+      <ScrollView scrollY className="" style={{ maxHeight: '40vh', minHeight: '120px' }}>
+        <View className="p-3">
         {plan && (
           <View className="mb-3 p-3 rounded-md bg-muted border border-border">
             <Text className="block mb-1.5 text-xs font-medium text-muted-foreground">
@@ -163,6 +164,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
             </Text>
           </View>
         )}
+        </View>
       </ScrollView>
 
       <View className="p-3 mt-2">

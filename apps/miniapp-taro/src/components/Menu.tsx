@@ -16,14 +16,14 @@ export interface MenuProps {
 }
 
 const DEFAULT_ITEMS: MenuItem[] = [
-  { id: 1, name: '图片', icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/8.png' },
-  { id: 2, name: '视频', icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/4.png' },
-  { id: 3, name: '文案', icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/2.png' },
-  { id: 4, name: '智能体', icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/11.png' },
-  { id: 5, name: 'RPA', icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/5.png' },
-  { id: 6, name: '编程', icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/7.png' },
-  { id: 7, name: '音乐', icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/3.png' },
-  { id: 8, name: '其他', icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/10.png' },
+  { id: 1, name: '图片', icon: '🖼️' },
+  { id: 2, name: '视频', icon: '🎬' },
+  { id: 3, name: '文案', icon: '📝' },
+  { id: 4, name: '智能体', icon: '🤖' },
+  { id: 5, name: 'RPA', icon: '⚙️' },
+  { id: 6, name: '编程', icon: '💻' },
+  { id: 7, name: '音乐', icon: '🎵' },
+  { id: 8, name: '其他', icon: '📦' },
 ]
 
 export default function Menu({
@@ -42,11 +42,17 @@ export default function Menu({
           onClick={() => onItemClick?.(item, index)}
         >
           {item.icon ? (
-            <Image
-              src={item.icon}
-              mode="aspectFill"
-              className="w-10 h-10 rounded-md"
-            />
+            /^(https?:)?\/\//.test(item.icon) || item.icon.startsWith('/') ? (
+              <Image
+                src={item.icon}
+                mode="aspectFill"
+                className="w-10 h-10 rounded-md"
+              />
+            ) : (
+              <View className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                <Text className="text-2xl">{item.icon}</Text>
+              </View>
+            )
           ) : (
             <View className="w-10 h-10 rounded-md bg-primary/10" />
           )}
