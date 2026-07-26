@@ -33,6 +33,8 @@
  * 超时 10s,失败降级返回空数组 + warning header(由调用方处理)。
  */
 
+import { logger } from '../utils/logger.js'
+
 const AI_SERVICE_URL =
   process.env.AI_SERVICE_URL || 'http://localhost:8000'
 const TIMEOUT_MS = 10_000
@@ -389,7 +391,7 @@ class RulesService {
     try {
       return await this.request<RuleListDto>('')
     } catch (e) {
-      console.warn('[rules-service] listRules 降级返回空:', (e as Error).message)
+      logger.warn('[rules-service] listRules 降级返回空:', { err: e as Error })
       return { rules: [], total: 0 }
     }
   }
@@ -455,7 +457,7 @@ class RulesService {
         body: JSON.stringify({ message, scope }),
       })
     } catch (e) {
-      console.warn('[rules-service] matchRules 降级返回空:', (e as Error).message)
+      logger.warn('[rules-service] matchRules 降级返回空:', { err: e as Error })
       return { appliedRules: [], promptSuffix: '' }
     }
   }
@@ -472,9 +474,9 @@ class RulesService {
     try {
       return await this.request<RuleConflictsDto>('/conflicts')
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] detectConflicts 降级为本地计算:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return this._detectConflictsLocal()
     }
@@ -489,9 +491,9 @@ class RulesService {
     try {
       return await this.request<RuleTemplatesDto>('/templates')
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] listTemplates 降级为本地静态模板:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return { templates: RULE_TEMPLATES_FALLBACK }
     }
@@ -506,9 +508,9 @@ class RulesService {
     try {
       return await this.request<RuleAuditLogDto>('/audit-log')
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] getAuditLog 降级返回空:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return { entries: [], total: 0 }
     }
@@ -531,9 +533,9 @@ class RulesService {
       if (agentId) qs.set('agentId', agentId)
       return await this.request<ResolvedRulesDto>(`/resolved?${qs.toString()}`)
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] getResolvedRules 降级为 listRules:',
-        (e as Error).message,
+        { err: e as Error }
       )
       const list = await this.listRules()
       const filtered = list.rules.filter(
@@ -555,9 +557,9 @@ class RulesService {
         `/${encodeURIComponent(id)}/history`,
       )
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] getRuleHistory 降级返回空:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return { history: [] }
     }
@@ -580,9 +582,9 @@ class RulesService {
         { method: 'POST' },
       )
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] rollbackRule 失败:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return null
     }
@@ -605,9 +607,9 @@ class RulesService {
         `/${encodeURIComponent(id)}/diff?${qs.toString()}`,
       )
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] diffRuleVersions 降级返回空:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return { diff: '' }
     }
@@ -629,9 +631,9 @@ class RulesService {
         { method: 'POST', body: JSON.stringify({ feedback }) },
       )
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] recordFeedback 失败:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return { success: false }
     }
@@ -649,9 +651,9 @@ class RulesService {
         `/${encodeURIComponent(id)}/stats`,
       )
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] getRuleStats 降级返回零值:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return {
         ruleId: id,
@@ -687,9 +689,9 @@ class RulesService {
         }),
       })
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] abTestRules 降级为本地实现:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return this._abTestLocal(ruleIdA, ruleIdB, message)
     }
@@ -705,9 +707,9 @@ class RulesService {
     try {
       return await this.request<RuleGlobalStatsDto>('/stats')
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] getGlobalStats 降级为本地计算:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return this._getGlobalStatsLocal()
     }
@@ -889,9 +891,9 @@ class RulesService {
         body: JSON.stringify({ userId }),
       })
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] autoGenerateRules 降级返回空:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return { drafts: [], degraded: true }
     }
@@ -912,9 +914,9 @@ class RulesService {
         body: JSON.stringify({ conflicts }),
       })
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] resolveConflicts 降级返回空:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return { resolutions: [], degraded: true }
     }
@@ -939,9 +941,9 @@ class RulesService {
         },
       )
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] predictRuleEffect 降级返回零值:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return {
         ruleId: id,
@@ -969,9 +971,9 @@ class RulesService {
       const path = query ? `/knowledge-graph?${query}` : '/knowledge-graph'
       return await this.request<RuleKnowledgeGraphDto>(path)
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] getRulesKnowledgeGraph 降级返回空:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return { nodes: [], edges: [], degraded: true }
     }
@@ -997,9 +999,9 @@ class RulesService {
         },
       )
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[rules-service] recordLearnFeedback 失败:',
-        (e as Error).message,
+        { err: e as Error }
       )
       return { success: false }
     }

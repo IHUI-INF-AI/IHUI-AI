@@ -21,6 +21,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
+import { config as appConfig } from '../config/index.js'
 import type {
   WebhookTriggerConfig,
   WebhookTriggerEvent,
@@ -184,9 +185,29 @@ async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
   event.executedAt = new Date().toISOString()
 
   try {
-    // 真实集成:const resp = await fetch(`http://ai-service:8803/api/agents/${event.agentId}/run`, { ... })
-    // 此处模拟调用(生产环境替换为真实 ai-service 调用)
-    await simulateAgentCall(event.agentId, event.payload)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 30000)
+    let resp: Response
+    try {
+      resp = await fetch(
+        `${appConfig.AI_SERVICE_URL}/api/agents/${event.agentId}/run`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload: event.payload, triggeredBy: 'webhook' }),
+          signal: controller.signal,
+        },
+      )
+    } catch (e) {
+      // 超时(controller.abort)或网络错误:抛带原因的 Error
+      if (controller.signal.aborted) {
+        throw new Error('ai-service 超时(30s)')
+      }
+      throw e
+    } finally {
+      clearTimeout(timer)
+    }
+    if (!resp.ok) throw new Error(`ai-service 返回 ${resp.status}`)
 
     // 成功
     event.status = 'success'
@@ -210,30 +231,6 @@ async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
       event.status = 'failed'
       event.completedAt = new Date().toISOString()
     }
-  }
-}
-
-/**
- * 模拟 agent 调用(生产环境替换为真实 fetch ai-service)。
- * 此处 95% 概率成功,用于演示重试机制。
- */
-async function simulateAgentCall(agentId: string, _payload: unknown): Promise<void> {
-  // 真实集成:
-  // const controller = new AbortController()
-  // const timer = setTimeout(() => controller.abort(), 30000)
-  // const resp = await fetch(`http://ai-service:8803/api/agents/${agentId}/run`, {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ payload: _payload, triggeredBy: 'webhook' }),
-  //   signal: controller.signal,
-  // })
-  // clearTimeout(timer)
-  // if (!resp.ok) throw new Error(`ai-service 返回 ${resp.status}`)
-
-  // 模拟实现(5% 概率失败,演示重试)
-  void agentId
-  if (Math.random() < 0.05) {
-    throw new Error('模拟执行失败(演示重试机制)')
   }
 }
 
