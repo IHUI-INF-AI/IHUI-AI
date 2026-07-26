@@ -11805,28 +11805,12 @@
     "cancel": "Cancel"
   },
   "modelsReferralPage": {
-    "title": "Referral Rewards",
-    "subtitle": "Invite friends to register, both of you will receive rewards",
     "link": {
-      "title": "My Referral Link",
-      "tip": "Share your exclusive referral link with friends",
-      "copy": "Copy Link",
-      "reward": "When a friend registers and spends ¥10 or more, you will receive {amount} reward"
     },
     "stats": {
-      "invited": "Invited",
-      "activated": "Activated",
-      "reward": "Total Rewards"
     },
     "list": {
-      "title": "Referral Records",
-      "user": "User",
-      "joined": "Joined At",
-      "reward": "Reward",
-      "status": "Status",
       "statusLabels": {
-        "activated": "",
-        "pending": ""
       }
     }
   },
