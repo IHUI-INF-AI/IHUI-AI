@@ -12,7 +12,7 @@
  *  - /content/home          → carousels(position=home,status=1,前 5)+ lessons(isPublished,前 10)+ announcements(前 5)
  *  - /content/banner/list   → carousels(status=1,支持 position 筛选,分页)
  *  - /content/course/list   → lessons(isPublished + status=1,支持 categoryId,分页)
- *  - /study/info            → 保持空数据(真实学习统计走鉴权路由 /study/*,需 userId)
+ *  - /study/info            → 已迁出,鉴权版(返回真实 lessonRecords 聚合)在 miniapp-compat-routes.ts
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -138,10 +138,5 @@ export const miniappPublicFallbackRoutes: FastifyPluginAsync = async (server) =>
         .where(where),
     ])
     return reply.send(success({ list, total: totalRows[0]?.total ?? 0, page, pageSize }))
-  })
-
-  // GET /study/info - 学习统计(公开 fallback 保持空数据;真实数据走鉴权路由 /study/*,需 userId)
-  server.get('/study/info', async (_request, reply) => {
-    return reply.send(success({ todayMinutes: 0, totalMinutes: 0, continuousDays: 0, courses: 0 }))
   })
 }
