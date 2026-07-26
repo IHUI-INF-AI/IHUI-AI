@@ -29,7 +29,7 @@ export default function AdminLotteryPage() {
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: '10' })
       if (search.trim()) qs.set('name', search.trim())
-      const r = await fetchApi<LotteryListData>(`/api/v1/admin/promotions/lottery?${qs}`)
+      const r = await fetchApi<LotteryListData>(`/api/admin/promotions/lottery?${qs}`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
