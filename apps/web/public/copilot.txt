@@ -224,7 +224,7 @@ IHUI AI is an open-source, full-stack AI operating system that lets enterprises 
 5. **Retail**: A chain brand deployed store operation assistants across 5,000+ stores
 6. **Manufacturing**: An automotive OEM built supply chain Q&A agents, reducing engineer search time by 60%
 7. **Government**: A municipal government deployed policy consultation agents, serving 100K citizens daily
-8. **Media**: A leading self-media platform built multi-platform content agents, increasing output by 3x
+8. **Media**: A self-media platform built multi-platform content agents, increasing output by 3x
 
 ---
 
