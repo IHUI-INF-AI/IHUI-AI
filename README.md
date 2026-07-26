@@ -1819,11 +1819,54 @@ node apps/api/scripts/pg-backup.mjs
 
 ---
 
+## CI 工作流(2026-07-26 新增)
+
+| Workflow | 触发条件 | 失败阻塞 |
+|----------|----------|----------|
+| [`i18n-dead-key-audit.yml`](./.github/workflows/i18n-dead-key-audit.yml) | PR 改 i18n 字典 / web/src / miniapp-taro/src / cli/src / 扫描脚本 | 是(死 key > 0 → exit 1) |
+| [`ci.yml`](./.github/workflows/ci.yml) | PR 推 main / develop | 是 |
+| [`build.yml`](./.github/workflows/build.yml) | tag 推送 / main 合并 | 是(构建产物) |
+| [`e2e.yml`](./.github/workflows/e2e.yml) | PR 标 `e2e` 标签 | 是(Playwright) |
+| [`knip.yml`](./.github/workflows/knip.yml) | PR 改源码 | 是(未使用代码) |
+
+**i18n-dead-key-audit 流程**:`scripts/scan-dead-i18n-keys.mjs --target web`(默认)→ 扫描 `apps/web/src + apps/web/app + apps/miniapp-taro/src + apps/cli/src + apps/mobile-rn/src` 找代码未引用的 zh-CN 声明 → 写报告到 `.trae-cn/tmp/i18n-dead-keys-YYYY-MM-DD.md`(artifact)→ 死 key > 0 → exit 1 → PR 阻塞。
+
+---
+
 ## 国际化
 
 5 语言 parity(键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验)),由 4 守门脚本 + 19 i18n 工具链保证质量:
 
 详细清单见 [核心能力 E3 节](#e3-国际化5-语言-parity)。
+
+### I18n 治理(2026-07-26 新增)
+
+5 语言 i18n 通过 `scripts/scan-dead-i18n-keys.mjs` 系列自动审计,死 key 比例从 43.1% 降至 0.0%(已清零)。
+
+- **基准语言**:`packages/i18n/messages/web/zh-CN.json`(10,174 leaf key,5 语言同步)
+- **多端字典目录**:`packages/i18n/messages/{web,extension,miniapp-taro,mobile-rn,shared}/` 5 端独立字典,各 5 语言文件
+- **扫描工具**:
+  - `scripts/scan-dead-i18n-keys.mjs --target {web|miniapp-taro|mobile-rn|extension}`(主入口,默认 `--target web` 跨端共享)
+  - `scripts/scan-extension-dead-i18n-keys.mjs`(extension 端独立)
+  - `scripts/scan-miniapp-taro-dead-i18n-keys.mjs`(miniapp-taro 端独立)
+  - `scripts/scan-mobile-rn-dead-i18n-keys.mjs`(mobile-rn 端独立)
+  - `scripts/scan-desktop-dead-i18n-keys.mjs`(desktop 端独立)
+- **CI 集成**:`.github/workflows/i18n-dead-key-audit.yml`(PR 触发,失败即阻塞)
+- **AI 翻译流水线**:`pnpm i18n:apply`(从 zh-CN 差异 → 4 语言补全,parity 校验,brand-glossary 约束)
+- **死 key 审计**:`node scripts/scan-dead-i18n-keys.mjs --dry-run` 一键查看本端死 key 清单(终端输出统计 + `.trae-cn/tmp/i18n-dead-keys-YYYY-MM-DD.md` 报告)
+
+---
+
+## LLM Provider 字典化(2026-07-26 阶段 2 完成)
+
+LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `ProviderConfig` + JSON 配置(24+7 provider 统一管理)。
+
+- **设计文档**:`docs/llm-provider-dict-design.md`(7 章节,3 阶段实施路线)
+- **运行时强类型**:`apps/ai-service/app/core/provider_config.py`(`ProviderConfig` Pydantic 模型,字段校验 + 默认值 + 类型提示)
+- **配置格式**:`LLM_PROVIDERS_JSON='{"openai":{...},"anthropic":{...},"deepseek":{...},...}'`(环境变量或 `llm_providers.json` 文件,统一管理 base_url / api_key / models / proxy / timeout)
+- **迁移工具**:`scripts/migrate-llm-providers.mjs`(从扁平 `*_api_key` 字段 → JSON 字典格式,支持 `--dry-run` 预览)
+- **测试**:`apps/ai-service/tests/test_provider_config.py`(36+ 单测,覆盖字段校验 / 环境变量解析 / 迁移一致性)
+- **向后兼容**:1 版本 deprecation 期,旧 `*_api_key` 字段仍可工作(运行时自动 fallback 到 JSON 配置)
 
 ---
 
