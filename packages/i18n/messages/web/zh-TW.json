@@ -11078,35 +11078,16 @@
     }
   },
   "n8nAgentsPage": {
-    "metaDescription": "N8N 工作流程整合：自動化編排 AI agent，含客服機器人、內容審核、數據同步等。",
-    "subtitle": "N8N 工作流程整合 - 透過 N8N 自動化編排 AI agent",
-    "cardTitle": "N8N 工作流程整合",
-    "totalBadge": "共 {n} 個 Agent",
-    "activeBadge": "{n} 執行中",
-    "cardDescription": "透過 N8N 自動化編排 AI agent，串聯客服、審核、同步、報表與告警等場景，實現端到端流程自動化。",
-    "createButton": "建立新 Agent",
-    "lastRunLabel": "最後執行",
-    "runCountLabel": "執行次數",
     "agents": {
       "alert-notify": {
-        "description": "",
-        "name": ""
       },
       "content-moderation": {
-        "description": "",
-        "name": ""
       },
       "customer-service": {
-        "description": "",
-        "name": ""
       },
       "data-sync": {
-        "description": "",
-        "name": ""
       },
       "report-generation": {
-        "description": "",
-        "name": ""
       }
     }
   },
