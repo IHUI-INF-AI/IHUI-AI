@@ -72,7 +72,7 @@ def test_registry_exists_unknown_returns_false():
 
 def test_registry_list_returns_all():
     """list 返回全部 skill(6 个预置 + 19 个 AI Skills TOP + auto 动态 = 至少 25)。"""
-    skills = skill_registry.list()
+    skills = skill_registry.list_skills()
     # 2026-07-23 新增 19 个 AI Skills TOP 后,总数从 6 提升到至少 25
     assert len(skills) >= 25
     names = {s.name for s in skills}
@@ -88,9 +88,9 @@ def test_registry_list_returns_all():
 
 def test_registry_list_returns_copy():
     """list 返回的列表是副本,修改不影响内部状态。"""
-    lst = skill_registry.list()
+    lst = skill_registry.list_skills()
     lst.clear()
-    assert len(skill_registry.list()) >= 25
+    assert len(skill_registry.list_skills()) >= 25
 
 
 def test_registry_independent_instance():
@@ -400,7 +400,7 @@ class TestSkillRegistryConstruction:
         r2 = SkillRegistry()
         assert r1 is not r2
         # 独立实例的 list() 返回不同列表对象
-        assert r1.list() is not r2.list()
+        assert r1.list_skills() is not r2.list_skills()
 
     def test_construction_private_skills_dict(self):
         r = SkillRegistry()
@@ -598,7 +598,7 @@ class TestLoadAutoSkills:
         monkeypatch.setattr(SkillRegistry, "_auto_dir", staticmethod(lambda: str(tmp_path)))
         r = SkillRegistry()
         # 不应注册空 name
-        names = [s.name for s in r.list()]
+        names = [s.name for s in r.list_skills()]
         assert "" not in names
 
     def test_load_auto_skips_invalid_md(self, tmp_path, monkeypatch):
@@ -1298,7 +1298,7 @@ class TestGlobalSingletons:
 
     def test_registry_singleton_loaded_skills(self):
         # 单例已加载至少 25 个 skill
-        assert len(skill_registry.list()) >= 25
+        assert len(skill_registry.list_skills()) >= 25
 
     def test_loop_singleton_has_evolve_and_iterate_methods(self):
         assert hasattr(skill_evolution_loop, "evolve")

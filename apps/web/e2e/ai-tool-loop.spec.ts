@@ -117,7 +117,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
 
     if (toolRequestBodies.length > 0) {
       try {
-        const parsed = JSON.parse(toolRequestBodies[0])
+        const parsed = JSON.parse(toolRequestBodies[0] ?? '')
         if (parsed && typeof parsed === 'object') {
           expect('agent_tools' in parsed || 'agentTools' in parsed).toBeTruthy()
         }

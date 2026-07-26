@@ -124,7 +124,7 @@ class ContextEngine:
         优先用 tiktoken(若安装),否则降级为字符数 / CHARS_PER_TOKEN_ESTIMATE。
         """
         try:
-            import tiktoken  # type: ignore[import-untyped]
+            import tiktoken
 
             try:
                 enc = tiktoken.encoding_for_model(model)
@@ -765,7 +765,7 @@ class ContextEngine:
             if not getattr(settings, "redis_url", ""):
                 return None
             try:
-                import redis.asyncio as aioredis  # type: ignore[import-not-found]
+                import redis.asyncio as aioredis
             except ImportError:
                 return None
             self._redis_client = aioredis.from_url(

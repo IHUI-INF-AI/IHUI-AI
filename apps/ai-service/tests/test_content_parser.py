@@ -194,14 +194,12 @@ def test_parse_md_empty_string(monkeypatch):
 
 
 def test_parse_md_without_library_raises_runtime_error(monkeypatch):
-    """未安装 markdown 库时抛 RuntimeError(含 'markdown library not installed')。"""
-    monkeypatch.setitem(sys.modules, "markdown", None)
-    # 强制重新 import 触发 ImportError
-    import importlib
+    """未安装 markdown 库时抛 RuntimeError(含 'markdown library not installed')。
 
-    # 移除模块,触发 ImportError
-    if "markdown" in sys.modules:
-        monkeypatch.delitem(sys.modules, "markdown", raising=False)
+    用 sys.modules["markdown"] = None 阻断 import(Python 对 None 值抛 ImportError)。
+    不能用 delitem:删除后 import 会重新加载已安装的真实库,导致 mock 失效。
+    """
+    monkeypatch.setitem(sys.modules, "markdown", None)
     with pytest.raises(RuntimeError, match="markdown library not installed"):
         parse_md("text")
 
@@ -219,9 +217,21 @@ def test_parse_html_returns_cleaned(monkeypatch):
 
 
 def test_parse_html_without_bs4_raises(monkeypatch):
-    """未安装 bs4 时抛 RuntimeError(含 'beautifulsoup4 not installed')。"""
-    if "bs4" in sys.modules:
-        monkeypatch.delitem(sys.modules, "bs4", raising=False)
+    """未安装 bs4 时抛 RuntimeError(含 'beautifulsoup4 not installed')。
+
+    用 mock __import__ 阻断 from bs4 import BeautifulSoup。
+    sys.modules["bs4"] = None 在本环境无法阻止 from bs4 import(bs4 可能注册了
+    meta_path finder 绕过 None 检查);mock __import__ 是最可靠的方式。
+    """
+    import builtins
+    real_import = builtins.__import__
+
+    def mock_import(name, *args, **kwargs):
+        if name == "bs4":
+            raise ImportError("mocked: bs4 not available")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", mock_import)
     with pytest.raises(RuntimeError, match="beautifulsoup4 not installed"):
         parse_html("<p>x</p>")
 
@@ -270,9 +280,13 @@ def test_parse_docx_falls_back_to_python_docx(monkeypatch, tmp_path):
 
 
 def test_parse_docx_neither_lib_raises(monkeypatch, tmp_path):
-    """mammoth 和 python-docx 都未安装时抛 RuntimeError。"""
-    monkeypatch.delitem(sys.modules, "mammoth", raising=False)
-    monkeypatch.delitem(sys.modules, "docx", raising=False)
+    """mammoth 和 python-docx 都未安装时抛 RuntimeError。
+
+    用 sys.modules[name] = None 阻断 import(不能 delitem,否则重新加载真实库,
+    mammoth/docx 已安装会走真实路径抛 PackageNotFoundError 而非 RuntimeError)。
+    """
+    monkeypatch.setitem(sys.modules, "mammoth", None)
+    monkeypatch.setitem(sys.modules, "docx", None)
     p = tmp_path / "f.docx"
     p.write_bytes(b"fake")
     with pytest.raises(RuntimeError, match="neither mammoth nor python-docx"):
@@ -306,8 +320,12 @@ def test_parse_pdf_empty_pages(monkeypatch, tmp_path):
 
 
 def test_parse_pdf_without_pdfplumber_raises(monkeypatch, tmp_path):
-    """未安装 pdfplumber 时抛 RuntimeError。"""
-    monkeypatch.delitem(sys.modules, "pdfplumber", raising=False)
+    """未安装 pdfplumber 时抛 RuntimeError。
+
+    用 sys.modules["pdfplumber"] = None 阻断 import(不能 delitem,否则重新加载
+    真实库,parse_pdf 会尝试解析假 PDF 抛 PdfminerException 而非 RuntimeError)。
+    """
+    monkeypatch.setitem(sys.modules, "pdfplumber", None)
     p = tmp_path / "f.pdf"
     p.write_bytes(b"fake")
     with pytest.raises(RuntimeError, match="pdfplumber not installed"):
@@ -469,8 +487,9 @@ def test_enrich_content_fills_html_on_success(monkeypatch):
 
 def test_enrich_content_parse_failure_does_not_raise(monkeypatch):
     """解析失败时 enrich_content 不抛异常,html 设为空字符串。"""
-    # 不安装 markdown → parse_md 抛 RuntimeError
-    monkeypatch.delitem(sys.modules, "markdown", raising=False)
+    # 模拟 markdown 库未安装 → parse_md 抛 RuntimeError
+    # 用 sys.modules["markdown"] = None 阻断 import(不能 delitem,否则重新加载真实库)
+    monkeypatch.setitem(sys.modules, "markdown", None)
     c = _FakeContent(format="md", text="# title", html=None)
     result = enrich_content(c)  # 不抛
     assert result.html == ""

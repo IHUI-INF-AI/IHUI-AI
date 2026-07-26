@@ -14,7 +14,11 @@ import { test, expect } from '@playwright/test'
  * 降级场景:若 window.__workPanelStore 未暴露,跳过测试并标注。
  */
 
-const STORE_KEY = 'ihui-work-panel'
+declare global {
+  interface Window {
+    __workPanelStore?: unknown
+  }
+}
 
 test.beforeEach(async ({ page }) => {
   // 清理 localStorage 避免前一个测试残留状态

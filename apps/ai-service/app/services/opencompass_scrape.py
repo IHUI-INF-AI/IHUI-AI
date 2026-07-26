@@ -237,13 +237,13 @@ def _scrape_opencompass_sync(timeout_ms: int = 30000) -> dict[str, Any]:
             })
 
         # 若分数是数值,按分数降序重排 rank
-        if any(_try_float(e.get("score")) is not None for e in entries):
+        if any(_try_float(entry.get("score")) is not None for entry in entries):
             entries.sort(
-                key=lambda e: _try_float(e.get("score")) or 0.0,
+                key=lambda entry: _try_float(entry.get("score")) or 0.0,
                 reverse=True,
             )
-            for idx, e in enumerate(entries):
-                e["rank"] = idx + 1
+            for idx, entry in enumerate(entries):
+                entry["rank"] = idx + 1
 
         logger.info(
             "[opencompass_scrape] 提取 %d 条记录(列:%s)",

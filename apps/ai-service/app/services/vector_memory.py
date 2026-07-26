@@ -21,7 +21,7 @@ _HASH_DIM = 128  # hash 伪向量维度
 
 # redis.asyncio(异步客户端;无 redis 包时降级为纯内存 L1)
 try:
-    import redis.asyncio as aioredis  # type: ignore[import-not-found]
+    import redis.asyncio as aioredis
 except ImportError:  # pragma: no cover - 依赖存在时不触发
     aioredis = None  # type: ignore[assignment]
 
@@ -54,7 +54,7 @@ async def _get_redis() -> Any:
             if not url or aioredis is None:
                 return None
             client = aioredis.from_url(url, decode_responses=True)
-            await client.ping()
+            await client.ping()  # type: ignore[misc]  # redis-py stubs: async ping 返回类型为 Awaitable[bool] | bool
             _redis_client = client
             return _redis_client
         except Exception as e:
@@ -330,6 +330,26 @@ class VectorMemoryStore:
         """删除记忆 + 向量,并触发异步持久化。"""
         self._entries.pop(entry_id, None)
         self._vectors.pop(entry_id, None)
+        self._dirty = True
+        await self._persist_async()
+
+    async def clear(self, session_id: str | None = None) -> None:
+        """清空记忆(可选按 session_id 过滤,未匹配 session_id 时清空全部)。
+
+        session_id 过滤依赖 entry 内的 session_id 字段;未提供 session_id 或
+        entry 无该字段时,清空全部记忆。
+        """
+        if session_id is None:
+            self._entries.clear()
+            self._vectors.clear()
+        else:
+            to_remove = [
+                eid for eid, entry in self._entries.items()
+                if entry.get("session_id") == session_id
+            ]
+            for eid in to_remove:
+                self._entries.pop(eid, None)
+                self._vectors.pop(eid, None)
         self._dirty = True
         await self._persist_async()
 

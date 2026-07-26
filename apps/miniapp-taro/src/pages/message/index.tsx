@@ -432,7 +432,7 @@ export default function MessageIndex() {
       </ScrollView>
 
       {showSettings && (
-        <View className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowSettings(false)}>
+        <View className="fixed inset-0 z-[2000] bg-black/50" onClick={() => setShowSettings(false)}>
           <View
             className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
