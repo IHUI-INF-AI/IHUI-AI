@@ -5,6 +5,11 @@
 </p>
 
 <p align="center">
+  <strong>在线 Demo</strong> · <a href="https://ihui.ai">https://ihui.ai</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star 感谢支持</a><br/>
+  <sub>5 分钟 Fork 到上线 · 8 端同源 + 176 模型 + LangGraph+MCP+A2A 三栈 · Apache 2.0 商业可用</sub>
+</p>
+
+<p align="center">
   <strong>🚀 一个仓库,干翻 40+ 商业产品</strong><br/>
   <sub><strong>开源 AI 商业级一体化超级平台</strong> · 8 端全覆盖 · 176 模型 · LangGraph+MCP+A2A 三栈 · P3 深度层 · 5 分钟 Fork 到上线</sub>
 </p>
