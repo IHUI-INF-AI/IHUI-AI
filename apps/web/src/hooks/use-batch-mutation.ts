@@ -15,7 +15,7 @@ import { fetchApi } from '@/lib/api'
  * 用法:
  * ```ts
  * const { mutate, isPending } = useBatchMutation({
- *   endpoint: '/api/v1/admin/<resource>',
+ *   endpoint: '/api/admin/<resource>',
  *   method: 'DELETE',
  *   queryKey: ['admin', '<resource>'],
  *   ids: [...selected],
@@ -25,7 +25,7 @@ import { fetchApi } from '@/lib/api'
  * ```
  */
 export interface UseBatchMutationOptions {
-  /** 后端资源路径,如 `/api/v1/admin/<resource>` */
+  /** 后端资源路径,如 `/api/admin/<resource>` */
   endpoint: string
   /** HTTP 方法,默认 `DELETE`(admin 场景绝大多数为批量删除) */
   method?: 'POST' | 'DELETE' | 'PUT'
