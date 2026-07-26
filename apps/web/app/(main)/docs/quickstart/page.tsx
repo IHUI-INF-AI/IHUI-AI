@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 const SITE_URL = 'https://ihui.ai'
 
 /**
- * Quickstart 页面 JSON-LD(2026-07-26 立,极致 SEO):
+ * Quickstart 页面 JSON-LD(2026-07-26 立,SEO 强化):
  * - HowTo schema:Google Rich Results 直接显示"如何开始"步骤卡
  * - SoftwareApplication:与首页一致,产品实体强化
  * - BreadcrumbList:面包屑结构化,提升 SERP 显示
