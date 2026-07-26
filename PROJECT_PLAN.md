@@ -125,9 +125,46 @@
 
 **§20 Git 同步证据**:
 
-- 本任务 commit: `<待填入>`
+- 本任务 commit: `84565fa05` "feat(api): 小程序兼容路由 53 个 stub 真实化 — 接入 packages/database 真实表 CRUD"
 - 改动文件:`apps/api/src/routes/miniapp-compat-routes.ts` + `apps/api/src/routes/miniapp-public-fallback-routes.ts` + `PROJECT_PLAN.md`
 - 4 端 typecheck:`@ihui/api` ✅ / `@ihui/web` ✅ / `@ihui/database` ✅ / `@ihui/ui-react` ✅
+
+---
+
+### [x] ✅(2026-07-26) 小程序联调 P0 阻碍修复 + /study/* 鉴权路由补全 — 端到端真实数据验证通过
+
+**触发**:上一任务 53 stub 真实化后,联调验证发现 3 个 P0 阻碍 + 6 个鉴权版 `/study/*` 端点缺失,本任务并行修复并端到端验证 API 返回真实数据。
+
+**3 个 P0 阻碍修复**(3 个并行 subagent):
+
+- **oss.ts:410 parser 冲突**:`oss.ts:410-414` 整段删除(子插件继承 server.ts:204 已注册的同名 parser),根除 `FST_ERR_CTP_ALREADY_PRESENT` 启动崩溃
+- **miniapp-taro H5 dev server schema**:`config/dev.ts:4` 移除 `strictPort: true` + `host: 'localhost'` → `'0.0.0.0'`,绕过 webpack-dev-server v5 schema `additionalProperties: false` 拒绝
+- **agents 表 migration 0099 漂移**:用 `packages/database/scripts/apply-migration.mjs` 应用 `0099_skinny_wallow.sql`,为 `agents` 表补 `is_vip_exclusive boolean DEFAULT false NOT NULL` 字段,根除 `/agents/list` 500
+
+**/study/* 6 个鉴权端点补全**(1 个 subagent):
+`GET /study/info` / `POST /study/signin` / `POST /study/clockin` / `POST /study/progress` / `POST /study/share` / `GET /study/calendar`,接入 `lessonRecords` / `lessonRecordLogs` / `lessonSignUps` 真实表 SQL 聚合 + 业务逻辑(连续签到/进度计算/当日时长/日历补全)。
+
+**冲突修复**:`miniapp-public-fallback-routes.ts:144-146` 公开版 `/study/info` 与鉴权版重复,触发 `FST_ERR_DUPLICATED_ROUTE`,删除公开版(注释同步更新)保留鉴权版作为唯一 `/study/info` 入口。
+
+**端到端真实数据验证**(HTTP 200 + 真实数据):
+
+- `GET /api/content/home` → 200,返回 10 门真实课程(Git/Docker/React18/Node/TS/Vue3/AI绘画/SD/LoRA/Agent)
+- `GET /api/content/course/list` → 200,`total=110`(lessons 表真实分页)
+- `GET /api/agents/list` → 401(需鉴权,符合设计;500 已修复)
+- `GET /api/study/info` → 401(新端点已注册,鉴权拦截生效)
+- `POST /api/study/signin` → 403(CSRF 保护触发,端点 + 安全中间件正常工作)
+- `GET /api/study/calendar` → 401(新端点已注册)
+
+**§11 多 Subagent 并行规则应用**:3 个 P0 修复 + 1 个端点补全 = 4 个并行 subagent,主 agent 负责冲突协调(/study/info 重复)+ 端到端验证。
+
+**§14 自主验证应用**:实际启动 dev server + curl 6 个端点验证 HTTP code + JSON 响应内容,无幻觉。
+
+**§20 Git 同步证据**:
+
+- 本任务 commit: `<待填入>`
+- 改动文件:`apps/api/src/routes/oss.ts` + `apps/api/src/routes/miniapp-compat-routes.ts` + `apps/api/src/routes/miniapp-public-fallback-routes.ts` + `apps/miniapp-taro/config/dev.ts` + `PROJECT_PLAN.md`
+- 4 端 typecheck:`@ihui/api` ✅ / `@ihui/web` ✅ / `@ihui/database` ✅ / `@ihui/miniapp-taro` ✅
+- API 联调:`/content/home` 200 / `/content/course/list` 200 / `/study/info` 401 / `/study/signin` 403 / `/study/calendar` 401
 
 ---
 
