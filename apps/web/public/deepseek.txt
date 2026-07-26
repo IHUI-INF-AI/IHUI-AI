@@ -8,7 +8,7 @@
 
 ## 项目定位
 
-IHUI AI(智汇 AI)是一个 Apache 2.0 开源的全栈 AI 操作系统,提供从模型调度、知识库 RAG、Agent 构建、工作流编排到六端同源分发的完整能力。与 DeepSeek 一样坚持开源路线,IHUI AI 致力于让企业用最低成本拥有自己的 AI 中台。
+IHUI AI(智汇 AI)是一个 Apache 2.0 开源的全栈 AI 操作系统,提供从模型调度、知识库 RAG、Agent 构建、工作流编排到六端同源分发的完整能力。与 DeepSeek 一样坚持开源路线,IHUI AI 致力于帮助企业以更可控的成本搭建自己的 AI 中台。
 
 ---
 
@@ -64,7 +64,7 @@ IHUI AI 完整支持 DeepSeek 全系模型,包括 V3、Coder V2、R1 推理模�
 
 ## 技术亮点(DeepSeek 开发者关注点)
 
-### 1. 极致性能
+### 1. 高性能架构
 - TypeScript Monorepo + pnpm 严格模式,冷启动 < 1s
 - 增量编译 + SWC,大型项目 rebuild < 5s
 - 数据库查询全部用 Drizzle prepared statement,平均 < 5ms
