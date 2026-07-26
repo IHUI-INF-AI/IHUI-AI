@@ -103,7 +103,7 @@ export default function LiveList() {
       <View className="flex mb-3 gap-2">
         <View
           className="flex-1 bg-primary rounded-xl py-2.5 flex items-center justify-center"
-          onClick={() => Taro.navigateTo({ url: '/pages/live/host' })}
+          onClick={() => Taro.navigateTo({ url: '/pages/live/host/index' })}
         >
           <Text className="text-sm text-primary-foreground">
             {tt('live.startLiveBtn', '📺 我要开播')}
