@@ -144,7 +144,7 @@ export default function LiveList() {
               className="bg-card rounded-2xl overflow-hidden mb-3"
               onClick={() => goDetail(item.id)}
             >
-              <View className="relative w-full h-[160px]">
+              <View className="relative w-full h-[320rpx]">
                 <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
                 <View
                   className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-xs ${

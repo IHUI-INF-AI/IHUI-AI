@@ -28,10 +28,16 @@ export default function LearningStreak({
     <View className="bg-card rounded-xl px-4 py-4">
       <View className="flex items-center justify-between mb-3">
         <View className="flex items-center">
-          <Text className="text-base font-semibold text-foreground">{tt('streak.title', '学习连签')}</Text>
-          <Text className="ml-2 text-xs text-[#f59e0b]">🔥 {tt('streak.continuousDays', '连续 {{n}} 天').replace('{{n}}', String(streakDays))}</Text>
+          <Text className="text-base font-semibold text-foreground">
+            {tt('streak.title', '学习连签')}
+          </Text>
+          <Text className="ml-2 text-xs text-[#f59e0b]">
+            🔥 {tt('streak.continuousDays', '连续 {{n}} 天').replace('{{n}}', String(streakDays))}
+          </Text>
         </View>
-        <Text className="text-xs text-muted-foreground">{t('streak.totalDays', { n: totalSigned })}</Text>
+        <Text className="text-xs text-muted-foreground">
+          {t('streak.totalDays', { n: totalSigned })}
+        </Text>
       </View>
 
       <View className="flex justify-between mb-4">
@@ -46,10 +52,14 @@ export default function LearningStreak({
                   : 'bg-muted'
             }`}
           >
-            <Text className={`text-[10px] ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>
+            <Text
+              className={`text-[20rpx] ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}
+            >
               {day.date}
             </Text>
-            <Text className={`text-sm mt-0.5 ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>
+            <Text
+              className={`text-sm mt-0.5 ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}
+            >
               {day.signed ? '✓' : '·'}
             </Text>
           </View>
@@ -64,7 +74,9 @@ export default function LearningStreak({
         }`}
         onClick={() => !signedToday && onSign?.()}
       >
-        {signedToday ? tt('streak.signedToday', '今日已签到') : tt('streak.signNow', '立即签到 +5 积分')}
+        {signedToday
+          ? tt('streak.signedToday', '今日已签到')
+          : tt('streak.signNow', '立即签到 +5 积分')}
       </View>
     </View>
   )

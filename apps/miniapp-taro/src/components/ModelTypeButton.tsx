@@ -25,7 +25,7 @@ export default function ModelTypeButton({
       onClick={() => onClick?.(type)}
     >
       <Image className="w-5 h-5 mb-1" src={icon} mode="aspectFit" />
-      <Text className={`text-[11px] ${active ? 'text-primary' : 'text-foreground'}`}>{label}</Text>
+      <Text className={`text-[22rpx] ${active ? 'text-primary' : 'text-foreground'}`}>{label}</Text>
     </View>
   )
 }
