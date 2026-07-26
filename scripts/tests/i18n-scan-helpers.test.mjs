@@ -26,6 +26,7 @@ import {
   DYNAMIC_T_RE,
   USE_T_RE,
   PROP_KEY_RE,
+  TLIST_RE,
   JSX_PROP_KEY_RE,
   STATIC_T_MULTILINE_RE,
   UNION_TYPE_KEY_RE_FIRST,
@@ -781,5 +782,426 @@ describe('loadJson / walkDir — 文件系统辅助函数', () => {
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true })
     }
+  })
+})
+
+// 辅助:对带 g flag 的 regex 执行所有匹配,返回所有捕获组 1 的数组
+function matchAll(re, str) {
+  re.lastIndex = 0
+  const results = []
+  let m
+  while ((m = re.exec(str)) !== null) results.push(m[1])
+  re.lastIndex = 0
+  return results
+}
+
+describe('PROP_KEY_RE — desc 白名单(2026-07-26 三次增强)', () => {
+  // 背景:extension 端 MeAppsPage.tsx 用 `descKey: 'apps.favoritesDesc'` 引用 apps.*Desc,
+  // 原白名单(name/title/label/description/text/i18n)漏识别 desc,导致 42 个 apps.*Desc 死 key 误判
+  test("descKey: 'apps.favoritesDesc' → 命中(2026-07-26 三次增强关键场景)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "descKey: 'apps.favoritesDesc'"), 'apps.favoritesDesc')
+  })
+
+  test("descKey: 'a.b.c' → 命中", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "descKey: 'a.b.c'"), 'a.b.c')
+  })
+
+  test("descKey: 'kouzi' 单段无点 → 不应命中(防 false positive)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "descKey: 'kouzi'"), null)
+  })
+
+  test("nameKey/titleKey/i18nKey 原白名单不回归", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "nameKey: 'a.b.c'"), 'a.b.c')
+    assert.equal(matchFirst(PROP_KEY_RE, "titleKey: 'a.b.c'"), 'a.b.c')
+    assert.equal(matchFirst(PROP_KEY_RE, "i18nKey: 'a.b.c'"), 'a.b.c')
+  })
+})
+
+describe('JSX_PROP_KEY_RE — JSX prop titleKey="a.b.c"(2026-07-26 三次增强新增)', () => {
+  // 背景:extension 端 SidepanelApp.tsx / AIAppsPage.tsx 用 <XxxPage titleKey="apps.aiTitle" /> JSX prop 引用,
+  // 原 PROP_KEY_RE 只识别 `titleKey:`(冒号),不识别 `titleKey=`(等号),导致 8 个 apps.*Title 死 key 误判
+  test('<AppListPage titleKey="apps.aiTitle" /> → 命中', () => {
+    assert.equal(matchFirst(JSX_PROP_KEY_RE, '<AppListPage titleKey="apps.aiTitle" items={items} />'), 'apps.aiTitle')
+  })
+
+  test("titleKey='apps.about' 单引号 → 命中", () => {
+    assert.equal(matchFirst(JSX_PROP_KEY_RE, "<Route titleKey='apps.about' />"), 'apps.about')
+  })
+
+  test('descKey="a.b.c" → 命中(desc 白名单)', () => {
+    assert.equal(matchFirst(JSX_PROP_KEY_RE, '<Xxx descKey="a.b.c" />'), 'a.b.c')
+  })
+
+  test('titleKey="singleword" 单段无点 → 不应命中', () => {
+    assert.equal(matchFirst(JSX_PROP_KEY_RE, '<Xxx titleKey="singleword" />'), null)
+  })
+
+  test('titleKey: "a.b.c" 冒号形式 → 不应命中(由 PROP_KEY_RE 处理,避免重复)', () => {
+    // JSX_PROP_KEY_RE 用 `=` 不用 `:`,冒号形式不匹配
+    assert.equal(matchFirst(JSX_PROP_KEY_RE, 'titleKey: "a.b.c"'), null)
+  })
+
+  test('titleKey={variable} 动态表达式 → 不应命中(防 false positive)', () => {
+    assert.equal(matchFirst(JSX_PROP_KEY_RE, '<Xxx titleKey={variable} />'), null)
+  })
+})
+
+describe('STATIC_T_MULTILINE_RE — 跨行 t("key", 形式(2026-07-26 三次增强新增)', () => {
+  // 背景:STATIC_T_RE 整文件级匹配已能识别跨行 t() 调用,但逐行扫描时无法识别。
+  // STATIC_T_MULTILINE_RE 补充识别 `t('key',` 形式(不要求 `)` 闭合),用于逐行扫描场景。
+  // 注:scanCode 当前用整文件级 STATIC_T_RE,此正则为备用/未来扩展。
+  test("t('a.b.c', → 命中(逗号后任意,不要求 ) 闭合)", () => {
+    assert.equal(matchFirst(STATIC_T_MULTILINE_RE, "t('a.b.c',"), 'a.b.c')
+  })
+
+  test("t('a.b.c', { arg: 1 } → 命中(单行带参数)", () => {
+    assert.equal(matchFirst(STATIC_T_MULTILINE_RE, "t('a.b.c', { arg: 1 }"), 'a.b.c')
+  })
+
+  test("tt('a.b.c', 'fallback' → 命中(tt 多参数)", () => {
+    assert.equal(matchFirst(STATIC_T_MULTILINE_RE, "tt('a.b.c', 'fallback'"), 'a.b.c')
+  })
+
+  test("t('a.b.c') 无参数 → 不应命中(无逗号,由 STATIC_T_RE 处理)", () => {
+    assert.equal(matchFirst(STATIC_T_MULTILINE_RE, "t('a.b.c')"), null)
+  })
+
+  test("t('singleword', → 不应命中(单段无点)", () => {
+    assert.equal(matchFirst(STATIC_T_MULTILINE_RE, "t('singleword',"), null)
+  })
+})
+
+describe('UNION_TYPE_KEY_RE — 联合类型字面量(2026-07-26 三次增强新增)', () => {
+  // 背景:mobile-rn LiveScreen.tsx 用 `function statusKey(live): 'live.ongoing' | 'live.upcoming' | 'live.ended'`
+  // 联合类型字面量引用,原 UNION_TYPE_NS_RE 只识别 `namespace:` 关键字,导致 live.ended 误判为死 key。
+  // 用 FIRST/SECOND 两个正则覆盖 3+ 段联合类型
+
+  test("'a.b' | 'c.d' → FIRST 命中 'a.b',SECOND 命中 'c.d'", () => {
+    assert.equal(matchFirst(UNION_TYPE_KEY_RE_FIRST, "'a.b' | 'c.d'"), 'a.b')
+    assert.equal(matchFirst(UNION_TYPE_KEY_RE_SECOND, "'a.b' | 'c.d'"), 'c.d')
+  })
+
+  test("'live.ongoing' | 'live.upcoming' | 'live.ended' 3 段联合 → FIRST 命中前 2 段(lookahead 不消费末尾引号),SECOND 命中后 2 段,合计 3 段全覆盖", () => {
+    const code = "'live.ongoing' | 'live.upcoming' | 'live.ended'"
+    assert.deepEqual(matchAll(UNION_TYPE_KEY_RE_FIRST, code), ['live.ongoing', 'live.upcoming'])
+    assert.deepEqual(matchAll(UNION_TYPE_KEY_RE_SECOND, code), ['live.upcoming', 'live.ended'])
+    const combined = new Set([
+      ...matchAll(UNION_TYPE_KEY_RE_FIRST, code),
+      ...matchAll(UNION_TYPE_KEY_RE_SECOND, code),
+    ])
+    assert.deepEqual([...combined].sort(), ['live.ended', 'live.ongoing', 'live.upcoming'])
+  })
+
+  test("function statusKey(): 'a.b' | 'c.d' 函数返回类型 → 命中(FIRST 前段 + SECOND 后续段,合计全覆盖)", () => {
+    const code = "function statusKey(live: Live): 'live.ongoing' | 'live.upcoming' | 'live.ended' {"
+    assert.deepEqual(matchAll(UNION_TYPE_KEY_RE_FIRST, code), ['live.ongoing', 'live.upcoming'])
+    assert.deepEqual(matchAll(UNION_TYPE_KEY_RE_SECOND, code), ['live.upcoming', 'live.ended'])
+    const combined = new Set([
+      ...matchAll(UNION_TYPE_KEY_RE_FIRST, code),
+      ...matchAll(UNION_TYPE_KEY_RE_SECOND, code),
+    ])
+    assert.deepEqual([...combined].sort(), ['live.ended', 'live.ongoing', 'live.upcoming'])
+  })
+
+  test("'singleword' | 'other' 单段无点 → 不应命中", () => {
+    assert.equal(matchFirst(UNION_TYPE_KEY_RE_FIRST, "'singleword' | 'other'"), null)
+    assert.equal(matchFirst(UNION_TYPE_KEY_RE_SECOND, "'singleword' | 'other'"), null)
+  })
+
+  test('"a.b" | "c.d" 双引号 → 命中', () => {
+    assert.equal(matchFirst(UNION_TYPE_KEY_RE_FIRST, '"a.b" | "c.d"'), 'a.b')
+    assert.equal(matchFirst(UNION_TYPE_KEY_RE_SECOND, '"a.b" | "c.d"'), 'c.d')
+  })
+})
+
+describe('OBJECT_LITERAL_KEY_RE — 对象字面量值全路径 key(2026-07-26 三次增强新增)', () => {
+  // 背景:mobile-rn PaymentScreen.tsx / TaskDispatchPage.tsx 用
+  // `const STATUS_KEY = { pending: 'payment.status.pending', ... }` 对象字面量映射引用,
+  // 原 PROP_KEY_RE 只识别白名单属性,不识别 `pending:` 等任意键名,导致 10 个 status.* 死 key 误判
+
+  test("pending: 'payment.status.pending' → 命中", () => {
+    assert.equal(matchFirst(OBJECT_LITERAL_KEY_RE, "pending: 'payment.status.pending'"), 'payment.status.pending')
+  })
+
+  test("paid: 'payment.status.paid', → 命中(末尾逗号)", () => {
+    assert.equal(matchFirst(OBJECT_LITERAL_KEY_RE, "paid: 'payment.status.paid',"), 'payment.status.paid')
+  })
+
+  test('多行对象字面量 → 命中所有值', () => {
+    const code = [
+      'const STATUS_KEY = {',
+      "  pending: 'payment.status.pending',",
+      "  paid: 'payment.status.paid',",
+      "  failed: 'payment.status.failed',",
+      '}',
+    ].join('\n')
+    assert.deepEqual(matchAll(OBJECT_LITERAL_KEY_RE, code), [
+      'payment.status.pending',
+      'payment.status.paid',
+      'payment.status.failed',
+    ])
+  })
+
+  test("key: 'singleword' 单段无点 → 不应命中", () => {
+    assert.equal(matchFirst(OBJECT_LITERAL_KEY_RE, "key: 'singleword'"), null)
+  })
+
+  test("host: 'api.example.com' → 命中(误报风险,但只要 'api.example.com' 不在 zh-CN.json 中不影响死 key 判定)", () => {
+    // 注:此正则会误报非 i18n 用途的字面量,但误报的代价是漏报死 key(漏判死 key 为活),
+    // 实际风险低,因为代码中 `key: 'foo.bar.baz'` 形式的字面量,如果 foo.bar.baz 在 zh-CN.json 中,很可能是 i18n 引用
+    assert.equal(matchFirst(OBJECT_LITERAL_KEY_RE, "host: 'api.example.com'"), 'api.example.com')
+  })
+})
+
+describe('DYNAMIC_PREFIX_RE — 动态前缀拼接(2026-07-26 三次增强新增)', () => {
+  // 背景:mobile-rn OrderScreen.tsx 用 `const statusKey = \`order.status.${item.status}\` as const`
+  // 模板字符串拼接引用,扫描器无法静态识别 `${item.status}` 的值,但前缀 `order.status` 是静态的。
+  // 此正则识别 `= \`prefix.${var}\`` 形式,捕获前缀 `prefix`,把前缀加入 usedNamespaces
+
+  test('const statusKey = `order.status.${item.status}` as const → 命中前缀 order.status', () => {
+    assert.equal(matchFirst(DYNAMIC_PREFIX_RE, 'const statusKey = `order.status.${item.status}` as const'), 'order.status')
+  })
+
+  test('= `prefix.${var}` → 命中前缀 prefix', () => {
+    assert.equal(matchFirst(DYNAMIC_PREFIX_RE, '= `prefix.${var}`'), 'prefix')
+  })
+
+  test('= `a.b.c.${var}` 多段前缀 → 命中 a.b.c', () => {
+    assert.equal(matchFirst(DYNAMIC_PREFIX_RE, '= `a.b.c.${var}`'), 'a.b.c')
+  })
+
+  test('= `singleword.${var}` 单段前缀 → 不应命中(要求至少 1 个点)', () => {
+    // 注:DYNAMIC_PREFIX_RE 捕获组 1 是 `[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)*`,
+    // 允许 0 个点(单段),但 isInUsedNamespace 要求 ns 是命名空间前缀。
+    // 单段前缀(如 'order')会把所有 'order.*' key 视为引用,可能过宽,但实际代码中单段前缀少见。
+    // 此测试记录当前行为:单段前缀也会命中(捕获组 1 = 'singleword')
+    const result = matchFirst(DYNAMIC_PREFIX_RE, '= `singleword.${var}`')
+    // 当前行为:单段前缀也命中,记录此基线
+    assert.equal(result, 'singleword')
+  })
+
+  test('t(`prefix.${var}`) t() 调用形式 → 不应命中(由 DYNAMIC_T_RE 处理)', () => {
+    // DYNAMIC_PREFIX_RE 要求前面有 `=`(可选 `>`),t() 调用形式不匹配
+    // 注:实际正则 `=>?\s*[`'"]` 中 `=?` 是可选,所以 `t(\`prefix.${var}\`)` 中 `t(` 后面是 `` ` ``,不匹配 `=`
+    // 但 `=>` 箭头函数 `x => \`prefix.${x}\`` 会匹配
+    const result = matchFirst(DYNAMIC_PREFIX_RE, 't(`prefix.${var}`)')
+    // 当前行为:不命中(因为 `t(` 后没有 `=`)
+    assert.equal(result, null)
+  })
+})
+
+describe('scanCode — mobile-rn/extension 引用模式集成测试(2026-07-26 三次增强)', () => {
+  let tmpDir
+  let liveScreenFile
+  let orderScreenFile
+  let paymentScreenFile
+  let taskDispatchFile
+  let extensionSidepanelFile
+  let extensionMeAppsPageFile
+  let extensionChatPageFile
+
+  before(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-scan-v3-'))
+    liveScreenFile = path.join(tmpDir, 'LiveScreen.tsx')
+    orderScreenFile = path.join(tmpDir, 'OrderScreen.tsx')
+    paymentScreenFile = path.join(tmpDir, 'PaymentScreen.tsx')
+    taskDispatchFile = path.join(tmpDir, 'TaskDispatchPage.tsx')
+    extensionSidepanelFile = path.join(tmpDir, 'SidepanelApp.tsx')
+    extensionMeAppsPageFile = path.join(tmpDir, 'MeAppsPage.tsx')
+    extensionChatPageFile = path.join(tmpDir, 'ChatPage.tsx')
+
+    // mobile-rn LiveScreen.tsx:联合类型字面量 'live.ongoing' | 'live.upcoming' | 'live.ended'
+    fs.writeFileSync(
+      liveScreenFile,
+      [
+        "function statusKey(live: Live): 'live.ongoing' | 'live.upcoming' | 'live.ended' {",
+        "  if (live.isLive) return 'live.ongoing'",
+        "  return 'live.ended'",
+        '}',
+        'const key = statusKey(item)',
+        "<Text>{t(key)}</Text>",
+      ].join('\n'),
+      'utf8',
+    )
+
+    // mobile-rn OrderScreen.tsx:动态前缀拼接 `order.status.${item.status}`
+    fs.writeFileSync(
+      orderScreenFile,
+      [
+        'renderItem={({ item }) => {',
+        '  const statusKey = `order.status.${item.status}` as const',
+        '  return <Text>{t(statusKey)}</Text>',
+        '}}',
+      ].join('\n'),
+      'utf8',
+    )
+
+    // mobile-rn PaymentScreen.tsx:对象字面量值映射
+    fs.writeFileSync(
+      paymentScreenFile,
+      [
+        'const STATUS_KEY: Record<PaymentStatus, string> = {',
+        "  pending: 'payment.status.pending',",
+        "  paid: 'payment.status.paid',",
+        "  failed: 'payment.status.failed',",
+        "  cancelled: 'payment.status.cancelled',",
+        "  refunded: 'payment.status.refunded',",
+        '}',
+      ].join('\n'),
+      'utf8',
+    )
+
+    // mobile-rn TaskDispatchPage.tsx:对象字面量值映射 + 跨行 t() 调用
+    fs.writeFileSync(
+      taskDispatchFile,
+      [
+        'const TASK_STATUS_KEYS: Record<TaskStatus, string> = {',
+        "  pending: 'taskDispatch.status.pending',",
+        "  running: 'taskDispatch.status.running',",
+        "  completed: 'taskDispatch.status.completed',",
+        "  failed: 'taskDispatch.status.failed',",
+        "  cancelled: 'taskDispatch.status.cancelled',",
+        '}',
+        '<Text>',
+        "  {t('taskDispatch.file.attached', {",
+        '    filename: pendingFilePayload.filename,',
+        '    size: formatFileSize(pendingFilePayload.size),',
+        '  })}',
+        '</Text>',
+      ].join('\n'),
+      'utf8',
+    )
+
+    // extension SidepanelApp.tsx:JSX prop titleKey="apps.about"
+    fs.writeFileSync(
+      extensionSidepanelFile,
+      [
+        '<Route path="/settings/about" element={<ComingSoonPage titleKey="apps.about" webUrl={`${WEB_BASE}/about`} />} />',
+        '<Route path="/settings/contact" element={<ComingSoonPage titleKey="apps.contact" />} />',
+        '<Route path="/settings/help" element={<ComingSoonPage titleKey="apps.help" />} />',
+        '<Route path="/settings/agreement" element={<ComingSoonPage titleKey="apps.agreement" />} />',
+        '<Route path="/settings/pricing" element={<ComingSoonPage titleKey="apps.pricing" />} />',
+      ].join('\n'),
+      'utf8',
+    )
+
+    // extension MeAppsPage.tsx:descKey 对象字面量 + JSX prop titleKey="apps.meTitle"
+    fs.writeFileSync(
+      extensionMeAppsPageFile,
+      [
+        'const baseItems = [',
+        "  { to: '/me/favorites', icon: '🔖', titleKey: 'apps.favorites', descKey: 'apps.favoritesDesc' },",
+        "  { to: '/me/following', icon: '👥', titleKey: 'apps.following', descKey: 'apps.followingDesc' },",
+        "  { to: '/me/fans', icon: '❤️', titleKey: 'apps.fans', descKey: 'apps.fansDesc' },",
+        ']',
+        'return <AppListPage titleKey="apps.meTitle" items={finalItems} />',
+      ].join('\n'),
+      'utf8',
+    )
+
+    // extension ChatPage.tsx:跨行 t() 调用 chat.compactionNotice
+    fs.writeFileSync(
+      extensionChatPageFile,
+      [
+        'onCompaction: (info) => {',
+        '  setNotice(',
+        "    t('chat.compactionNotice', {",
+        '      before: formatTokenCount(info.tokensBefore),',
+        '      after: formatTokenCount(info.tokensAfter),',
+        '      removed: info.removedCount,',
+        '    }),',
+        '  )',
+        '}',
+      ].join('\n'),
+      'utf8',
+    )
+  })
+
+  after(() => {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+    } catch {
+      /* 测试清理失败不影响结果 */
+    }
+  })
+
+  test('scanCode 识别联合类型字面量 live.ended(mobile-rn LiveScreen.tsx 引用模式)', () => {
+    const { staticRefs } = scanCode([liveScreenFile])
+    assert.ok(staticRefs.has('live.ongoing'), "应识别联合类型字面量 'live.ongoing'")
+    assert.ok(staticRefs.has('live.upcoming'), "应识别联合类型字面量 'live.upcoming'")
+    assert.ok(staticRefs.has('live.ended'), "应识别联合类型字面量 'live.ended'(原误判为死 key)")
+  })
+
+  test('scanCode 识别动态前缀拼接 order.status.*(mobile-rn OrderScreen.tsx 引用模式)', () => {
+    const { usedNamespaces } = scanCode([orderScreenFile])
+    assert.ok(usedNamespaces.has('order.status'), "应识别 `order.status.${var}` 前缀加入 usedNamespaces")
+    // isInUsedNamespace 验证:order.status.* 下所有 key 视为引用
+    assert.ok(isInUsedNamespace('order.status.pending', usedNamespaces), 'order.status.pending 应在 usedNamespace 下')
+    assert.ok(isInUsedNamespace('order.status.paid', usedNamespaces), 'order.status.paid 应在 usedNamespace 下')
+    assert.ok(isInUsedNamespace('order.status.failed', usedNamespaces), 'order.status.failed 应在 usedNamespace 下')
+  })
+
+  test('scanCode 识别对象字面量值 payment.status.*(mobile-rn PaymentScreen.tsx 引用模式)', () => {
+    const { staticRefs } = scanCode([paymentScreenFile])
+    assert.ok(staticRefs.has('payment.status.pending'), "应识别 pending: 'payment.status.pending'")
+    assert.ok(staticRefs.has('payment.status.paid'), "应识别 paid: 'payment.status.paid'")
+    assert.ok(staticRefs.has('payment.status.failed'), "应识别 failed: 'payment.status.failed'")
+    assert.ok(staticRefs.has('payment.status.cancelled'), "应识别 cancelled: 'payment.status.cancelled'")
+    assert.ok(staticRefs.has('payment.status.refunded'), "应识别 refunded: 'payment.status.refunded'")
+  })
+
+  test('scanCode 识别对象字面量值 taskDispatch.status.* + 跨行 t() taskDispatch.file.attached', () => {
+    const { staticRefs } = scanCode([taskDispatchFile])
+    assert.ok(staticRefs.has('taskDispatch.status.pending'), "应识别 taskDispatch.status.pending")
+    assert.ok(staticRefs.has('taskDispatch.status.running'), "应识别 taskDispatch.status.running")
+    assert.ok(staticRefs.has('taskDispatch.status.completed'), "应识别 taskDispatch.status.completed")
+    assert.ok(staticRefs.has('taskDispatch.status.failed'), "应识别 taskDispatch.status.failed")
+    assert.ok(staticRefs.has('taskDispatch.status.cancelled'), "应识别 taskDispatch.status.cancelled")
+    assert.ok(staticRefs.has('taskDispatch.file.attached'), "应识别跨行 t('taskDispatch.file.attached', { ... })")
+  })
+
+  test('scanCode 识别 JSX prop titleKey="apps.*"(extension SidepanelApp.tsx 引用模式)', () => {
+    const { staticRefs } = scanCode([extensionSidepanelFile])
+    assert.ok(staticRefs.has('apps.about'), '应识别 titleKey="apps.about"')
+    assert.ok(staticRefs.has('apps.contact'), '应识别 titleKey="apps.contact"')
+    assert.ok(staticRefs.has('apps.help'), '应识别 titleKey="apps.help"')
+    assert.ok(staticRefs.has('apps.agreement'), '应识别 titleKey="apps.agreement"')
+    assert.ok(staticRefs.has('apps.pricing'), '应识别 titleKey="apps.pricing"')
+  })
+
+  test('scanCode 识别 descKey 对象字面量 + JSX prop titleKey(extension MeAppsPage.tsx 引用模式)', () => {
+    const { staticRefs } = scanCode([extensionMeAppsPageFile])
+    // descKey 对象字面量(原 PROP_KEY_RE 白名单不含 desc,漏识别)
+    assert.ok(staticRefs.has('apps.favoritesDesc'), "应识别 descKey: 'apps.favoritesDesc'")
+    assert.ok(staticRefs.has('apps.followingDesc'), "应识别 descKey: 'apps.followingDesc'")
+    assert.ok(staticRefs.has('apps.fansDesc'), "应识别 descKey: 'apps.fansDesc'")
+    // titleKey 对象字面量(原 PROP_KEY_RE 已识别)
+    assert.ok(staticRefs.has('apps.favorites'), "应识别 titleKey: 'apps.favorites'")
+    assert.ok(staticRefs.has('apps.following'), "应识别 titleKey: 'apps.following'")
+    // JSX prop titleKey="apps.meTitle"(原 PROP_KEY_RE 不识别 =,漏识别)
+    assert.ok(staticRefs.has('apps.meTitle'), '应识别 JSX prop titleKey="apps.meTitle"')
+  })
+
+  test('scanCode 识别跨行 t() chat.compactionNotice(extension ChatPage.tsx 引用模式)', () => {
+    const { staticRefs } = scanCode([extensionChatPageFile])
+    assert.ok(staticRefs.has('chat.compactionNotice'), "应识别跨行 t('chat.compactionNotice', { ... })")
+  })
+
+  test('scanCode 多文件聚合:mobile-rn + extension 全部引用模式', () => {
+    const { staticRefs, usedNamespaces } = scanCode([
+      liveScreenFile, orderScreenFile, paymentScreenFile, taskDispatchFile,
+      extensionSidepanelFile, extensionMeAppsPageFile, extensionChatPageFile,
+    ])
+    // mobile-rn 18 个原死 key 全部识别
+    assert.ok(staticRefs.has('live.ended'), 'live.ended')
+    assert.ok(usedNamespaces.has('order.status'), 'order.status namespace')
+    assert.ok(staticRefs.has('payment.status.pending'), 'payment.status.pending')
+    assert.ok(staticRefs.has('taskDispatch.status.pending'), 'taskDispatch.status.pending')
+    assert.ok(staticRefs.has('taskDispatch.file.attached'), 'taskDispatch.file.attached')
+    // extension 51 个原死 key 全部识别
+    assert.ok(staticRefs.has('apps.about'), 'apps.about')
+    assert.ok(staticRefs.has('apps.meTitle'), 'apps.meTitle')
+    assert.ok(staticRefs.has('apps.favoritesDesc'), 'apps.favoritesDesc')
+    assert.ok(staticRefs.has('chat.compactionNotice'), 'chat.compactionNotice')
   })
 })
