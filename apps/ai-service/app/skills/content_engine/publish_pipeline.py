@@ -33,10 +33,12 @@ import re
 import json
 import time
 import argparse
+from typing import cast
 
 try:
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
+    # sys.stdout 可能是 TextIO(无 reconfigure)或 TextIOWrapper(有),运行时判断后调用
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8')
 except Exception:
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
@@ -217,7 +219,7 @@ def _purge_old_outputs(safe_title, output_dir):
     """清掉 output 目录里所有非本次标题的 html/docx 旧版（2026-07-17 零容忍铁律）。
     CSDN docx 按 `_CSDN.docx` 后缀保护，`archive/`/`images/`/`_visual/` 目录保留不动。
     返回被清的清单。"""
-    purged = []
+    purged: list[str] = []
     if not os.path.isdir(output_dir):
         return purged
     for f in os.listdir(output_dir):
