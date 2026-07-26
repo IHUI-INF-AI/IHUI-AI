@@ -12,13 +12,13 @@
     "dev:swan": "taro build --type swan --watch",
     "dev:tt": "taro build --type tt --watch",
     "dev:h5": "taro build --type h5 --watch",
-    "build": "taro build --type weapp && node scripts/strip-tailwind-backslash.mjs",
-    "build:weapp": "taro build --type weapp && node scripts/strip-tailwind-backslash.mjs",
-    "build:alipay": "taro build --type alipay && node scripts/strip-tailwind-backslash.mjs",
-    "build:weapp:clean": "rimraf dist-alipay && taro build --type weapp && node scripts/strip-tailwind-backslash.mjs",
-    "build:alipay:clean": "rimraf dist && taro build --type alipay && node scripts/strip-tailwind-backslash.mjs",
-    "build:swan": "taro build --type swan && node scripts/strip-tailwind-backslash.mjs",
-    "build:tt": "taro build --type tt && node scripts/strip-tailwind-backslash.mjs",
+    "build": "taro build --type weapp",
+    "build:weapp": "taro build --type weapp",
+    "build:alipay": "taro build --type alipay",
+    "build:weapp:clean": "rimraf dist-alipay && taro build --type weapp",
+    "build:alipay:clean": "rimraf dist && taro build --type alipay",
+    "build:swan": "taro build --type swan",
+    "build:tt": "taro build --type tt",
     "build:h5": "taro build --type h5",
     "strip-wxss": "node scripts/strip-tailwind-backslash.mjs",
     "lint": "eslint .",
@@ -65,6 +65,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
     "vite": "^4.5.5",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "weapp-tailwindcss": "5.1.16"
   }
 }
