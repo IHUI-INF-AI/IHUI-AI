@@ -48,7 +48,7 @@ import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
-import { getRecentFilesForMention } from '@/lib/workspace-api'
+import { getRecentFilesForMention } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
