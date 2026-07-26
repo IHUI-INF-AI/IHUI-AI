@@ -1,31 +1,33 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-// 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/mobile-rn/
+import { mergeMessages, translate, getValueByPath } from '@ihui/i18n/loader'
+import type { Locale, Messages } from '@ihui/i18n/types'
+// shared 通用 + mobile-rn 端 override,mergeMessages 深合并修复浅 spread bug
+import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
+import sharedEn from '@ihui/i18n/messages/shared/en.json'
+import sharedJa from '@ihui/i18n/messages/shared/ja.json'
+import sharedKo from '@ihui/i18n/messages/shared/ko.json'
+import sharedZhTW from '@ihui/i18n/messages/shared/zh-TW.json'
 import zhCN from '@ihui/i18n/messages/mobile-rn/zh-CN.json'
 import en from '@ihui/i18n/messages/mobile-rn/en.json'
 import ja from '@ihui/i18n/messages/mobile-rn/ja.json'
 import ko from '@ihui/i18n/messages/mobile-rn/ko.json'
 import zhTW from '@ihui/i18n/messages/mobile-rn/zh-TW.json'
 
-export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
-
-type Messages = Record<string, unknown>
+export type { Locale }
 
 const STORAGE_KEY = 'ihui_locale'
 
-function isMessagesObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
+// ja/ko/zh-TW 保留 zhCN 兜底深合并(原浅 spread 升级为深合并,修复嵌套 namespace 翻译丢失)
 const messages: Record<Locale, Messages> = {
-  'zh-CN': zhCN as Messages,
-  en: en as Messages,
-  ja: { ...zhCN, ...ja } as Messages,
-  ko: { ...zhCN, ...ko } as Messages,
-  'zh-TW': { ...zhCN, ...zhTW } as Messages,
+  'zh-CN': mergeMessages(sharedZhCN as Messages, zhCN as Messages),
+  en: mergeMessages(sharedEn as Messages, en as Messages),
+  ja: mergeMessages(sharedJa as Messages, mergeMessages(zhCN as Messages, ja as Messages)),
+  ko: mergeMessages(sharedKo as Messages, mergeMessages(zhCN as Messages, ko as Messages)),
+  'zh-TW': mergeMessages(sharedZhTW as Messages, mergeMessages(zhCN as Messages, zhTW as Messages)),
 }
 
-export { messages }
+export { messages, getValueByPath }
 
 interface I18nContextValue {
   locale: Locale
@@ -34,16 +36,6 @@ interface I18nContextValue {
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null)
-
-export function getValueByPath(obj: unknown, path: string): string | undefined {
-  const parts = path.split('.')
-  let current: unknown = obj
-  for (const part of parts) {
-    if (!isMessagesObject(current)) return undefined
-    current = current[part]
-  }
-  return typeof current === 'string' ? current : undefined
-}
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('zh-CN')
@@ -62,16 +54,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setLocaleState(next)
   }
 
-  const t = (key: string, params?: Record<string, string | number>): string => {
-    const active = messages[locale] ?? zhCN
-    let value = getValueByPath(active, key) ?? getValueByPath(zhCN, key) ?? key
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        value = value.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(v))
-      }
-    }
-    return value
-  }
+  const t = (key: string, params?: Record<string, string | number>): string =>
+    translate(messages[locale], key, { fallback: messages['zh-CN'], params })
 
   return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>
 }

@@ -1,26 +1,8 @@
 {
   "common": {
-    "save": "保存",
-    "cancel": "キャンセル",
-    "delete": "削除",
-    "back": "戻る",
-    "confirm": "確認",
-    "loading": "読み込み中…",
-    "empty": "データなし",
-    "retry": "再試行",
-    "all": "すべて",
-    "hint": "ヒント",
-    "success": "成功",
-    "failed": "操作に失敗しました",
-    "user": "ユーザー",
-    "uploading": "アップロード中",
-    "noMore": "これ以上なし",
-    "consult": "相談",
-    "loadingShort": "読み込み中...",
-    "free": "無料"
+    "loading": "読み込み中…"
   },
   "nav": {
-    "home": "ホーム",
     "courses": "コース",
     "live": "ライブ",
     "profile": "マイページ",
@@ -122,14 +104,7 @@
       "empty": "コースなし"
     },
     "ratingTitle": "コースを評価",
-    "ratingLabels": [
-      "",
-      "非常に悪い",
-      "悪い",
-      "普通",
-      "良い",
-      "非常に良い"
-    ],
+    "ratingLabels": ["", "非常に悪い", "悪い", "普通", "良い", "非常に良い"],
     "ratingPlaceholder": "評価してください",
     "ratingDescLabel": "レビューを書く",
     "ratingInputPlaceholder": "コースはどうでしたか?感想を共有してください...",
@@ -323,9 +298,6 @@
   "agent": {
     "title": "エージェント"
   },
-  "chat": {
-    "send": "送信"
-  },
   "setting": {
     "hint": "ヒント",
     "setSuccess": "設定成功",
@@ -477,12 +449,7 @@
       "timbre": "音色"
     },
     "image": {
-      "examples": [
-        "可愛い猫",
-        "夕日の山風景",
-        "未来都市",
-        "抽象芸術"
-      ],
+      "examples": ["可愛い猫", "夕日の山風景", "未来都市", "抽象芸術"],
       "emptyHint": "画像生成の説明を入力",
       "tryThese": "これらを試す",
       "placeholder": "生成したい画像を説明",
@@ -496,14 +463,7 @@
       "favorited": "お気に入り済み",
       "history": "履歴",
       "empty": "生成記録なし",
-      "styles": [
-        "リアル",
-        "アニメ",
-        "油絵",
-        "水彩",
-        "3D",
-        "ピクセル"
-      ],
+      "styles": ["リアル", "アニメ", "油絵", "水彩", "3D", "ピクセル"],
       "generateFailed": "生成失敗、再試行してください",
       "downloadSuccess": "アルバムに保存しました",
       "downloadFailed": "ダウンロード失敗、再試行してください",
@@ -914,10 +874,7 @@
       "starting": "試験にアクセスしています…"
     },
     "answer": {
-      "judgmentOptions": [
-        "正しい",
-        "間違い"
-      ],
+      "judgmentOptions": ["正しい", "間違い"],
       "loadFailed": "問題の読み込み失敗",
       "answerPlaceholder": "答えを入力",
       "prev": "前の問題",
@@ -1196,13 +1153,7 @@
       }
     },
     "appPermission": {
-      "names": [
-        "アルバム権限",
-        "カメラ権限",
-        "マイク権限",
-        "位置権限",
-        "通知権限"
-      ],
+      "names": ["アルバム権限", "カメラ権限", "マイク権限", "位置権限", "通知権限"],
       "descs": [
         "画像をアルバムに保存・アップロード",
         "写真撮影・動画録画",
@@ -1541,18 +1492,8 @@
         "質問求助",
         "経験まとめ"
       ],
-      "levels": [
-        "初級",
-        "中級",
-        "上級",
-        "エキスパート"
-      ],
-      "budgets": [
-        "1000元以下",
-        "1000-5000元",
-        "5000-10000元",
-        "10000元以上"
-      ],
+      "levels": ["初級", "中級", "上級", "エキスパート"],
+      "budgets": ["1000元以下", "1000-5000元", "5000-10000元", "10000元以上"],
       "selectAtLeast": "1つ以上選択",
       "saved": "保存しました",
       "directionTitle": "学習方向",
@@ -1867,11 +1808,7 @@
         "質問求助",
         "経験まとめ"
       ],
-      "visibilityOptions": [
-        "公開",
-        "フレンドのみ",
-        "プライベート"
-      ],
+      "visibilityOptions": ["公開", "フレンドのみ", "プライベート"],
       "enterTitle": "タイトルを入力",
       "enterContent": "内容を入力",
       "published": "公開しました",
@@ -2065,11 +2002,8 @@
     },
     "profile": {
       "avatar": "アバター",
-      "nickname": "ニックネーム",
       "notSet": "未設定",
-      "phone": "電話番号",
       "unbound": "未登録",
-      "email": "メール",
       "password": "パスワード",
       "realname": "実名認証",
       "verified": "認証済み",
@@ -2153,14 +2087,7 @@
       "bannerTitle": "VIP会員へアップグレード",
       "bannerDesc": "さらに専用特権を解放",
       "rightsTitle": "会員特典",
-      "rights": [
-        "専用サポート",
-        "優先体験",
-        "高级機能",
-        "広告除去",
-        "専用バッジ",
-        "割引特典"
-      ],
+      "rights": ["専用サポート", "優先体験", "高级機能", "広告除去", "専用バッジ", "割引特典"],
       "loadFailed": "読み込み失敗",
       "operationFailed": "操作失敗",
       "originalPrice": "通常¥{{n}}",
@@ -2279,7 +2206,6 @@
       "bug": "Bug"
     },
     "uploadFailed": "アップロード失敗",
-    "type": "タイプ",
     "content": "内容",
     "contact": "連絡先",
     "contactPlaceholder": "連絡先を入力してください(任意)"
