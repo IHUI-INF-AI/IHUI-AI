@@ -18,36 +18,37 @@ scan_canonical.py — 跨稿统一词表一致性深度扫描 v1.1
 import os
 import re
 import sys
+from typing import Any
 
 # 统一从 koubo_terms 导入
 from koubo_terms import TERM_CANONICAL_DICT, find_alias_issues
 
 
-def scan_file(filepath, strict=False):
+def scan_file(filepath: str, strict: bool = False) -> list[dict[str, Any]]:
     with open(filepath, 'r', encoding='utf-8') as fp:
         content = fp.read()
-    issues = []
+    issues: list[dict[str, Any]] = []
     for issue in find_alias_issues(content, strict=strict):
         issue['file'] = filepath
         issues.append(issue)
     return issues
 
 
-def main():
+def main() -> None:
     strict = '--strict' in sys.argv
     files = [f for f in os.listdir('.') if re.match(r'^\d{4}\.txt$', f)]
     files.sort()
     if not files:
         print("未找到 MMDD.txt")
         return
-    all_issues = []
+    all_issues: list[dict[str, Any]] = []
     for f in files:
         issues = scan_file(f, strict=strict)
         all_issues.extend(issues)
     if not all_issues:
         print("=== 跨稿统一词表 0 处问题 ===" + (' [STRICT模式]' if strict else ''))
         return
-    by_type: dict[str, list[dict[str, str]]] = {}
+    by_type: dict[str, list[dict[str, Any]]] = {}
     for i in all_issues:
         by_type.setdefault(i['type'], []).append(i)
     for t, lst in by_type.items():

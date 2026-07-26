@@ -87,8 +87,13 @@ class ResponseSanitizerMiddleware(BaseHTTPMiddleware):
             return response
 
         # 消费响应 body(流式 → 缓冲到内存)
+        # 注:StreamingResponse 才有 body_iterator;普通 Response 没有。
+        # 用 getattr + Any 处理两种情况(mypy 严格模式下 Response 类型不含该属性)。
+        body_iter = getattr(response, "body_iterator", None)
+        if body_iter is None:
+            return response
         body_chunks: list[bytes] = []
-        async for chunk in response.body_iterator:
+        async for chunk in body_iter:
             if isinstance(chunk, str):
                 chunk = chunk.encode("utf-8")
             body_chunks.append(chunk)
