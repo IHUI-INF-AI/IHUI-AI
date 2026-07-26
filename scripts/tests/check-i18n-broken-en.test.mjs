@@ -138,17 +138,66 @@ test('违规: BigModelAppDev (3 CamelCase 词) → exit 1 (no-space-concat)', ()
   }
 })
 
-// ─── 4c. 白名单子串豁免(AgentDevPlatform 含 'orm' → 豁免) ─
-test('豁免: AgentDevPlatform 含 "orm"(Platform 子串)匹配白名单 ORM → exit 0', () => {
+// ─── 4c. 白名单精确匹配(AgentDevPlatform 不再被 ORM 子串误豁免) ─
+// 修复前:'agentdevplatform'.includes('orm') = true → 白名单豁免(误,已知 bug)
+// 修复后:完整 token 不等、按 -/_/. 分段也不等 → 不豁免 → 检测为 no-space-concat
+test('违规: AgentDevPlatform (3 CamelCase 词) 不再被 ORM 子串误豁免 → exit 1 (no-space-concat)', () => {
   const root = createTempProject()
   try {
     writeWebEn(root, {
       label: { x: 'AgentDevPlatform' },
     })
     const r = runScript([], { cwd: root })
-    // 'agentdevplatform'.includes('orm') = true → 白名单豁免
-    // 注:这是源脚本的白名单子串匹配机制(已知行为)
-    assert.equal(r.status, 0, `AgentDevPlatform 含 'orm' 应被白名单豁免,实际 ${r.status}`)
+    // 修复后:AgentDevPlatform 不再被 'orm' 子串误豁免,检测为 no-space-concat
+    assert.equal(r.status, 1, `AgentDevPlatform 应检测为 no-space-concat,实际 ${r.status}`)
+    assert.match(r.stdout, /no-space-concat/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 4d. 白名单短 token 不再子串误豁免(M3SubAI → case-chaos) ─────
+// Bug:WHITELIST_TOKENS 中的 'M3' 因子串包含匹配命中 "M3SubAI" → 错误豁免
+// 修复:M3 完整 token 不等、按 -/_/. 分段也不等 → 不豁免 → 检测为 case-chaos
+test('违规: M3SubAI 不再被 M3 子串误豁免 → exit 1 (case-chaos)', () => {
+  const root = createTempProject()
+  try {
+    writeWebEn(root, {
+      models: { x: 'M3SubAI' },
+    })
+    const r = runScript([], { cwd: root })
+    assert.equal(r.status, 1, `M3SubAI 应检测为 case-chaos,实际 ${r.status}`)
+    assert.match(r.stdout, /case-chaos/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 4e. 合法连字符复合词仍豁免(GPT-4) ─────────────────────
+// 注:GPT-4 在 token 分割阶段被 - 切成 ["GPT", "4"],均 <4 字符跳过,合法通过
+test('豁免: GPT-4 连字符复合词(GPT 在白名单)→ exit 0', () => {
+  const root = createTempProject()
+  try {
+    writeWebEn(root, {
+      models: { x: 'GPT-4' },
+    })
+    const r = runScript([], { cwd: root })
+    assert.equal(r.status, 0, `GPT-4 应豁免,实际 ${r.status}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 4f. 白名单完整 token 等于(M3 单独 → 豁免) ─────────────
+// 注:M3 长度 2 < 4,detectBroken 早返回 null;此处验证 M3 不会被误判
+test('豁免: M3 单独(完整 token 等于白名单项)→ exit 0', () => {
+  const root = createTempProject()
+  try {
+    writeWebEn(root, {
+      models: { x: 'M3' },
+    })
+    const r = runScript([], { cwd: root })
+    assert.equal(r.status, 0, `M3 单独应豁免,实际 ${r.status}`)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
