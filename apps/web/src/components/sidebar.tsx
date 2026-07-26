@@ -120,6 +120,8 @@ import { useAnalytics } from '@/hooks/use-analytics'
 import { DOWNLOADS, isExternalDownloadHref } from '@/lib/downloads'
 import { ADMIN_NAV_GROUPS, type AdminNavGroup } from '@/components/layout/AdminNav'
 import { useAdminRouters } from '@/hooks/use-admin-routers'
+import { startWindowDrag } from '@/lib/tauri-bridge'
+import { useDesktop } from '@/hooks/use-desktop'
 
 interface NavItem {
   href: string
@@ -1875,6 +1877,25 @@ export function Sidebar({
     </TooltipProvider>
   )
 
+  // 桌面端 logo 长按拖拽窗口(Tauri decorations:false 无边框窗口)。
+  // 短按(< 300ms)→ ThemeLogo 自身 onClick 跳首页保持不变;长按(≥ 300ms)→ startWindowDrag()。
+  const isDesktop = useDesktop()
+  const logoDragTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleLogoMouseDown = (e: React.MouseEvent) => {
+    if (!isDesktop || e.button !== 0) return
+    logoDragTimer.current = setTimeout(() => {
+      void startWindowDrag()
+    }, 300)
+  }
+
+  const handleLogoDragEnd = () => {
+    if (logoDragTimer.current) {
+      clearTimeout(logoDragTimer.current)
+      logoDragTimer.current = null
+    }
+  }
+
   const header = (
     <div
       className={cn(
@@ -1884,7 +1905,12 @@ export function Sidebar({
         // 折叠态:aside 的 border-r(1px)使内容区 59px,header 居中后按钮会偏左 0.5px。
         // 用 pl-[9px] pr-2 补偿,让按钮回到 60px 视觉中心。
         collapsed && 'justify-center pl-[9px] pr-2 mx-0',
+        // 桌面端长按可拖拽窗口,显示 move 光标提示;非桌面端不加(避免误导)。
+        isDesktop && 'cursor-move',
       )}
+      onMouseDown={handleLogoMouseDown}
+      onMouseUp={handleLogoDragEnd}
+      onMouseLeave={handleLogoDragEnd}
     >
       {!collapsed && (
         <ThemeLogo
