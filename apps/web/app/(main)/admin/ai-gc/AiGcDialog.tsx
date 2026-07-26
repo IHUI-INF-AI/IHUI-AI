@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -14,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-// @ts-ignore
 } from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import { TEXT_FIELDS, textareaClass } from './helpers'
