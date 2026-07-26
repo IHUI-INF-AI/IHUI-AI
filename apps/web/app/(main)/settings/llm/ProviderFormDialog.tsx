@@ -165,9 +165,11 @@ export function ProviderFormDialog({
                 className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm text-muted-foreground"
               >
                 {templatesError ? (
-                  <span className="truncate" title={templatesError}>
-                    {t('templatesLoadError', { error: templatesError })}
-                  </span>
+                  <Tooltip content={templatesError}>
+                    <span className="truncate">
+                      {t('templatesLoadError', { error: templatesError })}
+                    </span>
+                  </Tooltip>
                 ) : templatesLoading ? (
                   <>
                     <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />

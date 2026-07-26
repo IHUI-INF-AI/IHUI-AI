@@ -32,7 +32,7 @@ import { Clock4, History, Trash2, ShieldAlert, ShieldCheck, Hand, BellRing } fro
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
-import { Popover } from '@/components/feedback'
+import { Popover, Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import {
   getRecentHistory,
@@ -137,9 +137,11 @@ function HistoryList({ entries, now }: HistoryListProps) {
                 {entry.workspacePath && (
                   <>
                     <span aria-hidden="true">·</span>
-                    <span className="truncate font-mono" title={entry.workspacePath}>
-                      {shortenPath(entry.workspacePath)}
-                    </span>
+                    <Tooltip content={entry.workspacePath}>
+                      <span className="truncate font-mono">
+                        {shortenPath(entry.workspacePath)}
+                      </span>
+                    </Tooltip>
                   </>
                 )}
               </div>
