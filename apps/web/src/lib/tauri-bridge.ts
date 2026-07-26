@@ -166,6 +166,24 @@ export async function startResize(
 }
 
 /**
+ * 切换窗口全屏状态(P2:桌面端标配,2026-07-27 立)。
+ * @returns 切换后的全屏状态(true=全屏,false=窗口模式)
+ */
+export async function toggleFullscreen(): Promise<boolean> {
+  if (!isTauri()) return false
+  return invoke<boolean>('toggle_fullscreen')
+}
+
+/**
+ * 切换窗口置顶状态(P2:AI 对话悬浮场景,2026-07-27 立)。
+ * @returns 切换后的置顶状态(true=置顶,false=普通)
+ */
+export async function toggleAlwaysOnTop(): Promise<boolean> {
+  if (!isTauri()) return false
+  return invoke<boolean>('toggle_always_on_top')
+}
+
+/**
  * 监听窗口最大化状态变化(P0-2:最大化按钮图标切换,2026-07-27 立)。
  * 返回清理函数。非桌面端返回 no-op。
  */
@@ -247,7 +265,13 @@ export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
 
 /** 原生菜单 ID 联合类型(HTML 顶栏 + web 端快捷键共用,前端 dispatcher 严格 switch)。 */
 export type MenuActionId =
-  'file.open_admin' | 'file.quit' | 'view.reload' | 'view.devtools' | 'help.about'
+  | 'file.open_admin'
+  | 'file.quit'
+  | 'view.reload'
+  | 'view.devtools'
+  | 'view.fullscreen'
+  | 'view.always_on_top'
+  | 'help.about'
 
 /** 唤起 / 创建 admin 窗口(Rust 端 open_admin_window)。已存在则 show + focus。 */
 export async function openAdminWindow(): Promise<void> {
