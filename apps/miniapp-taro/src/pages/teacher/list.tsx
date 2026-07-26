@@ -80,7 +80,7 @@ export default function TeacherList() {
               onClick={() => goDetail(item.id)}
             >
               <Image
-                className="w-[60px] h-[60px] rounded-md bg-muted flex-shrink-0"
+                className="w-[120rpx] h-[120rpx] rounded-md bg-muted flex-shrink-0"
                 src={item.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
