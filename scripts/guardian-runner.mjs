@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * 守门脚本批量执行器。
  *
  * 接收配置数组,单进程顺序执行所有检查,输出汇总。
- * 将 pre-commit 中 51 个独立 `node scripts/xxx.mjs` 调用合并为单进程批量执行,
+ * 将 pre-commit 中 52 个独立 `node scripts/xxx.mjs` 调用合并为单进程批量执行,
  * 降低 commit 耗时,提供统一汇总输出。
  *
  * CLI 用法:
@@ -32,7 +32,7 @@ const C = {
   reset: '\x1b[0m',
 }
 
-// === 检查配置(51 项,顺序与原 pre-commit 一致) ===
+// === 检查配置(52 项,顺序与原 pre-commit 一致) ===
 
 const checks = [
   // --- blocking (36 项) ---
@@ -468,6 +468,29 @@ const checks = [
     script: 'verify-auth-shell.mjs',
     args: [],
     mode: 'warn',
+  },
+
+  // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
+  // warn-only:本批次刚清理 215 处历史遗留 @ts-ignore(早期 workspace 包未导出类型时的压制),
+  //   包已修复导出,@ts-ignore 是无效历史遗留。warn 级别原因:@ts-ignore 有时是合理压制
+  //   (如第三方库类型缺陷),不强制阻塞 commit,只提醒开发者审视。
+  // 跳过白名单:e2e/ 目录(@playwright/test 类型解析场景)、node_modules/ / dist/ / .next/ / build/。
+  // 失败含义:staged 文件中新增 @ts-ignore / @ts-nocheck 注释,需审视是否真的需要。
+  // id 说明:任务原话"第 31 项"但 id '31' 已被 AuthShell 占用(同日 2026-07-26 新增),
+  //   故用 id '34'(33 LLM provider 之后的下一个可用编号)。
+  {
+    id: '34',
+    label: '🔍 @ts-ignore 新增检测(warn-only,防 215 处历史遗留复发)',
+    script: 'check-ts-ignore.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 @ts-ignore 是类型安全压制,本仓库刚清理 215 处历史遗留',
+      '     请审视是否真的需要,或改用 e2e/tsconfig.json 独立配置',
+      '     跳过白名单:e2e/ / node_modules/ / dist/ / .next/ / build/',
+      '',
+    ].join('\n'),
   },
 
   // --- 33 (2026-07-26 新增,LLM provider 字典化阶段 3 主体 blocking 守门) ---
