@@ -26,6 +26,12 @@ import {
   DYNAMIC_T_RE,
   USE_T_RE,
   PROP_KEY_RE,
+  JSX_PROP_KEY_RE,
+  STATIC_T_MULTILINE_RE,
+  UNION_TYPE_KEY_RE_FIRST,
+  UNION_TYPE_KEY_RE_SECOND,
+  OBJECT_LITERAL_KEY_RE,
+  DYNAMIC_PREFIX_RE,
   flatten,
   loadJson,
   walkDir,
@@ -255,6 +261,111 @@ describe('PROP_KEY_RE — 属性赋值全路径 i18n key 识别(2026-07-26 增�
     // nameKeys(复数)不是 i18n 约定属性,Key 后必须紧跟冒号(允许空格)
     assert.equal(matchFirst(PROP_KEY_RE, "nameKeys: 'a.b.c'"), null)
   })
+
+  // 2026-07-26 二次增强:PROP_KEY_RE 白名单新增 i18nKey
+  // 背景:miniapp-taro custom-tab-bar/index.tsx 用 `i18nKey: 'nav.community'` / `i18nKey: 'nav.profile'`
+  // 引用 tab 标签 i18n key,原白名单漏识别 i18nKey,导致 nav.community / nav.profile 2 个 key 被误判为死 key。
+  test("i18nKey: 'nav.community' → 命中(2026-07-26 二次增强:i18nKey 白名单)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "i18nKey: 'nav.community'"), 'nav.community')
+  })
+
+  test("i18nKey: 'nav.profile' → 命中", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "i18nKey: 'nav.profile'"), 'nav.profile')
+  })
+
+  test('i18nKey: "nav.home" 双引号 → 命中', () => {
+    assert.equal(matchFirst(PROP_KEY_RE, 'i18nKey: "nav.home"'), 'nav.home')
+  })
+
+  test("i18nKey: `nav.live` 模板字面量 → 命中", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, 'i18nKey: `nav.live`'), 'nav.live')
+  })
+
+  test("i18nKey:'nav.courses' 无空格 → 命中(容错)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "i18nKey:'nav.courses'"), 'nav.courses')
+  })
+
+  test("i18nKey: 'kouzi' 单段无点 → 不应命中(防 false positive,单段是相对引用)", () => {
+    // 与 nameKey: 'kouzi' 同理,单段值(无点)是运行时解析的相对引用,不是静态全路径 i18n key
+    assert.equal(matchFirst(PROP_KEY_RE, "i18nKey: 'kouzi'"), null)
+  })
+
+  test("i18nKeys: 'a.b.c' 复数形式 → 不应命中(防 false positive,Key 后缀精确匹配)", () => {
+    // 与 nameKeys 同理,Key 后必须紧跟冒号
+    assert.equal(matchFirst(PROP_KEY_RE, "i18nKeys: 'a.b.c'"), null)
+  })
+
+  test("myI18nKey: 'a.b.c' 非白名单(前缀附加)→ 不应命中(\\b 词边界)", () => {
+    // \b 要求 i18nKey 前是词边界,myI18nKey 中的 i18nKey 前是字母(非词边界)
+    assert.equal(matchFirst(PROP_KEY_RE, "myI18nKey: 'a.b.c'"), null)
+  })
+})
+
+describe('TLIST_RE — tList("a.b.c") 字符串数组辅助函数识别(2026-07-26 新增)', () => {
+  // 背景:miniapp-taro useI18n() 返回 tList 函数,用于读取字符串数组
+  // (appPermission.names/descs, course.ratingLabels 等),原扫描器仅识别 t/tt,
+  // 漏识别 tList,导致 16 个 key 被误判为死 key(about.appPermission.names/descs, ai.suggestions,
+  // ai.image.examples/styles, course.suitableFor/ratingLabels, exam.answer.judgmentOptions,
+  // plaza.setNeed.categories/levels/budgets, study.publish.categories/visibilityOptions,
+  // vip.upgrade.rights, about.businessLicense.labels)。
+
+  test("tList('about.appPermission.names') → 命中 key='about.appPermission.names'", () => {
+    assert.equal(matchFirst(TLIST_RE, "const names = tList('about.appPermission.names')"), 'about.appPermission.names')
+  })
+
+  test("tList('about.appPermission.descs') → 命中", () => {
+    assert.equal(matchFirst(TLIST_RE, "const descs = tList('about.appPermission.descs')"), 'about.appPermission.descs')
+  })
+
+  test('tList("course.ratingLabels") 双引号 → 命中', () => {
+    assert.equal(matchFirst(TLIST_RE, 'const labels = tList("course.ratingLabels")'), 'course.ratingLabels')
+  })
+
+  test('tList(`ai.suggestions`) 模板字面量 → 命中', () => {
+    assert.equal(matchFirst(TLIST_RE, 'const s = tList(`ai.suggestions`)'), 'ai.suggestions')
+  })
+
+  test("tList('vip.upgrade.rights') → 命中", () => {
+    assert.equal(matchFirst(TLIST_RE, "const rights = tList('vip.upgrade.rights')"), 'vip.upgrade.rights')
+  })
+
+  test("tList('plaza.setNeed.categories') 多段点分 → 命中", () => {
+    assert.equal(matchFirst(TLIST_RE, "const c = tList('plaza.setNeed.categories')"), 'plaza.setNeed.categories')
+  })
+
+  test("tList('a.b.c.d.e') 多段点分 → 命中", () => {
+    assert.equal(matchFirst(TLIST_RE, "tList('a.b.c.d.e')"), 'a.b.c.d.e')
+  })
+
+  test("tList('a.b', 'fallback') 带字符串 fallback 参数 → 命中", () => {
+    assert.equal(matchFirst(TLIST_RE, "tList('a.b', 'fallback')"), 'a.b')
+  })
+
+  test("tList('a.b', { fallback: ['x'] }) 带对象参数 → 命中", () => {
+    assert.equal(matchFirst(TLIST_RE, "tList('a.b', { fallback: ['x'] })"), 'a.b')
+  })
+
+  test('tList(key) 动态变量 → 不应命中(防 false positive)', () => {
+    assert.equal(matchFirst(TLIST_RE, 'tList(key)'), null)
+  })
+
+  test("tList('singleword') 单段无点 → 不应命中(要求至少 1 个点)", () => {
+    assert.equal(matchFirst(TLIST_RE, "tList('singleword')"), null)
+  })
+
+  test("atList('a.b') 不应误命中(防 false positive,\\b 词边界)", () => {
+    // \b 要求 tList 前是词边界,atList 前的 tList 不是词边界(是单词中间)
+    assert.equal(matchFirst(TLIST_RE, "atList('a.b')"), null)
+  })
+
+  test("tLists('a.b') 不应命中(防 false positive,函数名精确匹配)", () => {
+    // tLists(复数)不是 tList 函数,\b 后必须紧跟 (
+    assert.equal(matchFirst(TLIST_RE, "tLists('a.b')"), null)
+  })
+
+  test("myTList('a.b') 不应误命中(防 false positive,\\b 词边界)", () => {
+    assert.equal(matchFirst(TLIST_RE, "myTList('a.b')"), null)
+  })
 })
 
 describe('DYNAMIC_T_RE — 动态 t(`prefix.${var}`) 模板字符串拼接识别', () => {
@@ -359,12 +470,18 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
   let clientFile
   let serverFile
   let propKeyFile
+  let multiLineFile
+  let tListFile
+  let i18nKeyFile
 
   before(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-scan-test-'))
     clientFile = path.join(tmpDir, 'page.tsx')
     serverFile = path.join(tmpDir, 'server-page.tsx')
     propKeyFile = path.join(tmpDir, 'devices.ts')
+    multiLineFile = path.join(tmpDir, 'multi-line.tsx')
+    tListFile = path.join(tmpDir, 'tlist-page.tsx')
+    i18nKeyFile = path.join(tmpDir, 'tab-bar.tsx')
     fs.writeFileSync(
       clientFile,
       [
@@ -392,6 +509,73 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
         "export const devices = [",
         "  { id: 'mobile-portrait', nameKey: 'design.responsive.deviceMobilePortrait', width: 375 },",
         "  { id: 'desktop', nameKey: 'design.responsive.deviceDesktop', width: 1440 },",
+        "]",
+      ].join('\n'),
+      'utf8',
+    )
+    // 2026-07-26 三次增强:多行 tt/t 调用 fixture(模拟 miniapp-taro exam/result.tsx)
+    // 第一行 `tt('a.b', '默认值', {` 没有 `)`,按行扫描整体匹配失败,
+    // 整文件级匹配时 `[^)]*` 跨行匹配非 `)` 字符直到第一个 `)`,可正确命中。
+    fs.writeFileSync(
+      multiLineFile,
+      [
+        "const tt = (k, fb) => t(k) === k ? fb : t(k)",
+        "function render() {",
+        "  return (",
+        "    <View>",
+        "      {tt('exam.result.rankValue', '第 {n} 名 / 共 {total} 人', {",
+        "        n: info.rank,",
+        "        total: info.total ?? 0,",
+        "      })}",
+        "      {t('course.nextLesson', {",
+        "        title: course.outline?.[0]?.title || t('course.startLearning'),",
+        "      })}",
+        "      {tt('member.coupon.thresholdText', '满{threshold}可用', {",
+        "        threshold: 100,",
+        "      })}",
+        "    </View>",
+        "  )",
+        "}",
+      ].join('\n'),
+      'utf8',
+    )
+    // 2026-07-26 新增:tList() 调用 fixture(模拟 miniapp-taro app-permission/index.tsx)
+    fs.writeFileSync(
+      tListFile,
+      [
+        "import { useI18n } from '@/i18n'",
+        "function AppPermission() {",
+        "  const { t, tList } = useI18n()",
+        "  const names = tList('about.appPermission.names')",
+        "  const descs = tList('about.appPermission.descs')",
+        "  const labels = tList('about.businessLicense.labels')",
+        "  const suggestions = tList('ai.suggestions')",
+        "  const examples = tList('ai.image.examples')",
+        "  const styles = tList('ai.image.styles')",
+        "  const suitableFor = tList('course.suitableFor')",
+        "  const ratingLabels = tList('course.ratingLabels')",
+        "  const judgmentOptions = tList('exam.answer.judgmentOptions')",
+        "  const categories = tList('plaza.setNeed.categories')",
+        "  const levels = tList('plaza.setNeed.levels')",
+        "  const budgets = tList('plaza.setNeed.budgets')",
+        "  const pubCategories = tList('study.publish.categories')",
+        "  const visibilityOptions = tList('study.publish.visibilityOptions')",
+        "  const rights = tList('vip.upgrade.rights')",
+        "  return <Text>{t('about.appPermission.intro')}</Text>",
+        "}",
+      ].join('\n'),
+      'utf8',
+    )
+    // 2026-07-26 二次增强:i18nKey 属性赋值 fixture(模拟 miniapp-taro custom-tab-bar/index.tsx)
+    fs.writeFileSync(
+      i18nKeyFile,
+      [
+        "export const tabs = [",
+        "  { key: 'home', i18nKey: 'nav.home', icon: 'home' },",
+        "  { key: 'community', i18nKey: 'nav.community', icon: 'users' },",
+        "  { key: 'courses', i18nKey: 'nav.courses', icon: 'book' },",
+        "  { key: 'live', i18nKey: 'nav.live', icon: 'video' },",
+        "  { key: 'profile', i18nKey: 'nav.profile', icon: 'user' },",
         "]",
       ].join('\n'),
       'utf8',
@@ -446,14 +630,99 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
     )
   })
 
-  test('scanCode 多文件聚合(client + server + propKey 混合)', () => {
-    const { staticRefs, usedNamespaces, scanned } = scanCode([clientFile, serverFile, propKeyFile])
-    assert.equal(scanned, 3)
+  test('scanCode 识别多行 tt/t 调用(2026-07-26 三次增强:整文件级匹配,4 个 miniapp-taro 死 key 关键场景)', () => {
+    // 关键回归测试:miniapp-taro 普遍存在 `tt('a.b', '默认值', {\n  n: x,\n})` 跨多行调用,
+    // 第一行没有 `)`,按行扫描整体匹配失败,导致以下 4 个 key 被误判为死 key:
+    //   - exam.result.rankValue(在 exam/result.tsx)
+    //   - course.nextLesson(在 course/detail.tsx)
+    //   - member.coupon.thresholdText(在 member/coupon.tsx)
+    //   - member.couponList.thresholdText(在 member/coupon-list.tsx)
+    // 修复:scanCode 改为整文件级匹配 STATIC_T_RE(`[^)]*` 字符类天然跨行),配合 stripComments 剥离注释
+    const { staticRefs, scanned } = scanCode([multiLineFile])
+    assert.equal(scanned, 1)
+    assert.ok(
+      staticRefs.has('exam.result.rankValue'),
+      "应识别多行 tt('exam.result.rankValue', '...', {\\n  n: ...,\\n}) 为静态引用",
+    )
+    assert.ok(
+      staticRefs.has('course.nextLesson'),
+      "应识别多行 t('course.nextLesson', {\\n  title: ...,\\n}) 为静态引用",
+    )
+    assert.ok(
+      staticRefs.has('member.coupon.thresholdText'),
+      "应识别多行 tt('member.coupon.thresholdText', '...', {\\n  threshold: ...,\\n}) 为静态引用",
+    )
+    // 2026-07-26 四次增强:简化 STATIC_T_RE(只匹配到引号结束,不要求 `)`),
+    // 让嵌套调用内层 key 也被识别 — `t('course.nextLesson', { title: ... || t('course.startLearning') })`
+    // 中 `course.startLearning` 此前被外层 `[^)]*` 贪婪消费漏识别,简化后正确识别。
+    assert.ok(
+      staticRefs.has('course.startLearning'),
+      "应识别嵌套内层 t('course.startLearning') 为静态引用(2026-07-26 四次增强关键场景)",
+    )
+  })
+
+  test('scanCode 识别 tList() 字符串数组辅助函数调用(2026-07-26 新增 TLIST_RE,16 个 miniapp-taro 死 key 关键场景)', () => {
+    // 关键回归测试:miniapp-taro useI18n() 返回 tList 函数,用于读取字符串数组,
+    // 原扫描器仅识别 t/tt,漏识别 tList,导致 16 个 key 被误判为死 key:
+    //   - about.businessLicense.labels / about.appPermission.names / about.appPermission.descs
+    //   - ai.suggestions / ai.image.examples / ai.image.styles
+    //   - course.suitableFor / course.ratingLabels
+    //   - exam.answer.judgmentOptions
+    //   - plaza.setNeed.categories / levels / budgets
+    //   - study.publish.categories / visibilityOptions
+    //   - vip.upgrade.rights
+    // 修复:新增 TLIST_RE 正则 + scanCode 整文件级匹配
+    const { staticRefs, scanned } = scanCode([tListFile])
+    assert.equal(scanned, 1)
+    assert.ok(staticRefs.has('about.appPermission.names'), "应识别 tList('about.appPermission.names')")
+    assert.ok(staticRefs.has('about.appPermission.descs'), "应识别 tList('about.appPermission.descs')")
+    assert.ok(staticRefs.has('about.businessLicense.labels'), "应识别 tList('about.businessLicense.labels')")
+    assert.ok(staticRefs.has('ai.suggestions'), "应识别 tList('ai.suggestions')")
+    assert.ok(staticRefs.has('ai.image.examples'), "应识别 tList('ai.image.examples')")
+    assert.ok(staticRefs.has('ai.image.styles'), "应识别 tList('ai.image.styles')")
+    assert.ok(staticRefs.has('course.suitableFor'), "应识别 tList('course.suitableFor')")
+    assert.ok(staticRefs.has('course.ratingLabels'), "应识别 tList('course.ratingLabels')")
+    assert.ok(staticRefs.has('exam.answer.judgmentOptions'), "应识别 tList('exam.answer.judgmentOptions')")
+    assert.ok(staticRefs.has('plaza.setNeed.categories'), "应识别 tList('plaza.setNeed.categories')")
+    assert.ok(staticRefs.has('plaza.setNeed.levels'), "应识别 tList('plaza.setNeed.levels')")
+    assert.ok(staticRefs.has('plaza.setNeed.budgets'), "应识别 tList('plaza.setNeed.budgets')")
+    assert.ok(staticRefs.has('study.publish.categories'), "应识别 tList('study.publish.categories')")
+    assert.ok(staticRefs.has('study.publish.visibilityOptions'), "应识别 tList('study.publish.visibilityOptions')")
+    assert.ok(staticRefs.has('vip.upgrade.rights'), "应识别 tList('vip.upgrade.rights')")
+    // 也应识别同行单参 t() 调用
+    assert.ok(staticRefs.has('about.appPermission.intro'), "应识别 t('about.appPermission.intro') 同行调用")
+  })
+
+  test('scanCode 识别 i18nKey 属性赋值(2026-07-26 二次增强 PROP_KEY_RE,2 个 miniapp-taro 死 key 关键场景)', () => {
+    // 关键回归测试:miniapp-taro custom-tab-bar/index.tsx 用 `i18nKey: 'nav.xxx'` 引用 tab 标签,
+    // 原白名单(name/title/label/description/text)漏识别 i18nKey,
+    // 导致 nav.community / nav.profile 2 个 key 被误判为死 key
+    // 修复:PROP_KEY_RE 白名单新增 i18n
+    const { staticRefs, scanned } = scanCode([i18nKeyFile])
+    assert.equal(scanned, 1)
+    assert.ok(staticRefs.has('nav.home'), "应识别 i18nKey: 'nav.home'")
+    assert.ok(staticRefs.has('nav.community'), "应识别 i18nKey: 'nav.community'(原误判为死 key)")
+    assert.ok(staticRefs.has('nav.courses'), "应识别 i18nKey: 'nav.courses'")
+    assert.ok(staticRefs.has('nav.live'), "应识别 i18nKey: 'nav.live'")
+    assert.ok(staticRefs.has('nav.profile'), "应识别 i18nKey: 'nav.profile'(原误判为死 key)")
+  })
+
+  test('scanCode 多文件聚合(client + server + propKey + multiLine + tList + i18nKey 混合)', () => {
+    const { staticRefs, usedNamespaces, scanned } = scanCode([
+      clientFile, serverFile, propKeyFile, multiLineFile, tListFile, i18nKeyFile,
+    ])
+    assert.equal(scanned, 6)
     assert.ok(usedNamespaces.has('about'))
     assert.ok(usedNamespaces.has('modelsReferralPage'))
     assert.ok(staticRefs.has('about.heroTitle'))
     assert.ok(staticRefs.has('modelsReferralPage.title'))
     assert.ok(staticRefs.has('design.responsive.deviceMobilePortrait'))
+    assert.ok(staticRefs.has('exam.result.rankValue'), '多行 tt() 调用应被识别')
+    assert.ok(staticRefs.has('course.nextLesson'), '多行 t() 调用应被识别')
+    assert.ok(staticRefs.has('about.appPermission.names'), 'tList() 调用应被识别')
+    assert.ok(staticRefs.has('vip.upgrade.rights'), 'tList() 调用应被识别')
+    assert.ok(staticRefs.has('nav.community'), 'i18nKey 属性赋值应被识别')
+    assert.ok(staticRefs.has('nav.profile'), 'i18nKey 属性赋值应被识别')
   })
 
   test('scanCode 空数组 → scanned=0,所有集合为空', () => {
