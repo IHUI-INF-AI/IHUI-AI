@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * PROJECT_PLAN.md 已完成任务条目防误删守门(2026-07-20 立,commit 守门第 13c 项)
  *
