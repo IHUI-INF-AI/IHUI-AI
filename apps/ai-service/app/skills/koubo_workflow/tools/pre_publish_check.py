@@ -36,12 +36,12 @@ KOUBO_ROOT = os.path.dirname(SCRIPT_DIR)
 OUTPUT_DIR = os.path.join(KOUBO_ROOT, 'Output')
 
 
-def _resolve_script(name):
+def _resolve_script(name: str) -> str:
     """子脚本与本品同目录（工具脚本/），用绝对路径调用，避免 cwd 影响。"""
     return os.path.join(SCRIPT_DIR, name)
 
 
-def _resolve_target(arg):
+def _resolve_target(arg: str) -> str:
     """支持 Output/0714.txt / 0714.txt（自动去 Output/ 找）/ 绝对路径。"""
     if os.path.exists(arg):
         return arg
@@ -56,7 +56,7 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 
-def run_script(cmd, label):
+def run_script(cmd: list[str], label: str) -> tuple[int, str]:
     """运行子脚本，返回 (returncode, output)"""
     print(f'\n{"=" * 70}')
     print(f'  ▶ {label}')
@@ -72,7 +72,7 @@ def run_script(cmd, label):
     return result.returncode, (result.stdout + result.stderr)
 
 
-def main():
+def main() -> None:
     # 解析参数
     if len(sys.argv) < 2:
         print('用法: python pre_publish_check.py Output/0714.txt  或  python pre_publish_check.py --all')
