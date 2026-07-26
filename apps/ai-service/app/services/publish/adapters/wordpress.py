@@ -146,7 +146,7 @@ class WordPressAdapter(BasePlatformAdapter):
             return child.text or ""
         return child.text or ""
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         site_url = credentials.get("site_url", "").strip()
         username = credentials.get("username", "").strip()
         app_pwd = credentials.get("application_password", "").strip()
@@ -178,8 +178,8 @@ class WordPressAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         site_url = credentials.get("site_url", "").strip()
         username = credentials.get("username", "").strip()

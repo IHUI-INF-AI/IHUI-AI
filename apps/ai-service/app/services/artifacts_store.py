@@ -20,7 +20,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from ..core.config import settings
 
@@ -37,7 +37,7 @@ _ARTIFACTS_KEY_PREFIX = "mcp:artifacts:"
 _ARTIFACTS_TTL_SECONDS = 7 * 24 * 60 * 60
 
 # 进程内降级 dict(Redis 不可用时使用;mcp_server._ARTIFACTS_CACHE 别名引用本对象)
-_fallback_cache: dict[str, dict] = {}
+_fallback_cache: dict[str, dict[str, Any]] = {}
 
 # 惰性 Redis 客户端(同步;小块数据 HSET/HGETALL 同步开销可忽略,且便于测试 mock)
 _redis_client: Any = None
@@ -117,7 +117,7 @@ def load_artifacts(conv_id: str) -> dict[str, Any]:
         try:
             data = client.hgetall(_key(conv_id))
             if data and "payload" in data:
-                return json.loads(data["payload"])
+                return cast(dict[str, Any], json.loads(data["payload"]))
         except Exception as e:
             logger.warning("load_artifacts Redis 读取失败,降级进程内: %s", e)
 

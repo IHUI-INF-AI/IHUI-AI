@@ -1,6 +1,6 @@
 """ai-service 上下文压缩服务(2026-07-22 立,与 TS 端 @ihui/context-compaction 对等)。
 
-核心能力:
+核心能力：
 - token 估算(tiktoken,与 TS 端 gpt-tokenizer 对等)
 - 上下文压缩(百分比阈值触发 + 绝对值阈值触发)
 - 结构化摘要(提取 tool_call 名称 / 工具结果状态 / 代码块语言 / 首句)
@@ -52,14 +52,14 @@ class ContextCompactor:
     def __init__(self, config: Optional[CompactionConfig] = None, token_counter: Optional[Callable[[str], int]] = None):
         self.config = config or CompactionConfig()
         self._token_counter = token_counter or self._default_token_counter
-        self._pre_hooks: list[Callable] = []
-        self._post_hooks: list[Callable] = []
+        self._pre_hooks: list[Callable[..., Any]] = []
+        self._post_hooks: list[Callable[..., Any]] = []
     
-    def add_pre_hook(self, hook: Callable):
+    def add_pre_hook(self, hook: Callable[..., Any]) -> None:
         """注册压缩前 hook。"""
         self._pre_hooks.append(hook)
     
-    def add_post_hook(self, hook: Callable):
+    def add_post_hook(self, hook: Callable[..., Any]) -> None:
         """注册压缩后 hook。"""
         self._post_hooks.append(hook)
     
