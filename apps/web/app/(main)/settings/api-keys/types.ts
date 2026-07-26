@@ -12,14 +12,8 @@ export type {
   ApiKeyPermission,
   CreateApiKeyRequest,
   ApiKeyQuotaInfo,
-// @ts-ignore
-// @ts-ignore
-// @ts-ignore
-// @ts-ignore
 } from '@ihui/types'
-// @ts-ignore
 
-// @ts-ignore
 import type { ApiKeyInfo, ApiKeyQuotaInfo, ApiKeyPermission } from '@ihui/types'
 
 /** 列表项附带用量信息(展开时按需加载)。 */
