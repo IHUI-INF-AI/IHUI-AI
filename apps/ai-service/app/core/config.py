@@ -7,8 +7,13 @@ Pydantic Settings 默认大小写不敏感匹配环境变量,因此小写字段�
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic_settings import BaseSettings
+
+if TYPE_CHECKING:
+    # 延迟 import 避免循环依赖(config.py → provider_config.py),仅用于类型注解
+    from app.core.provider_config import ProviderConfig
 
 
 class Settings(BaseSettings):
