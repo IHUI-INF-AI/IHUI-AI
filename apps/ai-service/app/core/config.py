@@ -6,6 +6,7 @@ Pydantic Settings 默认大小写不敏感匹配环境变量,因此小写字段�
 """
 
 import json
+import warnings
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
@@ -18,6 +19,11 @@ _PROVIDER_KEY_ALIASES: dict[str, str] = {
     "vercel": "vercel_ai_gateway_key",  # Vercel AI Gateway
     "opencode": "opencode_zen_key",  # OpenCode Zen
 }
+
+# 阶段 3 前置(2026-07-26):fallback 路径加 DeprecationWarning,
+# 用于阶段 3 主体触发条件观测(changelog §1.3.4:日志中 DeprecationWarning 计数)
+# 一次性去重:每个 provider name 只 warn 一次,避免日志噪音
+_warned_providers: set[str] = set()  # 模块级,跨 settings 实例共享
 
 
 class Settings(BaseSettings):
@@ -231,6 +237,18 @@ class Settings(BaseSettings):
         api_key = str(getattr(self, key_field, "") or "")
         api_base_raw = getattr(self, f"{name}_api_base", None)
         api_base = str(api_base_raw) if api_base_raw else None
+
+        # 阶段 3 前置:warn fallback 命中(每个 provider 只 warn 一次,避免日志噪音)
+        if name not in _warned_providers:
+            _warned_providers.add(name)
+            warnings.warn(
+                f"LLM provider '{name}' using legacy flat-field fallback; "
+                f"please migrate to LLM_PROVIDERS JSON (see docs/llm-provider-stage3-changelog.md §4). "
+                f"Flat fields will be removed in stage 3 main work.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         return ProviderConfig(api_key=api_key, api_base=api_base)
 
 
