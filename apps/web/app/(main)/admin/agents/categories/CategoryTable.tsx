@@ -1,8 +1,5 @@
 'use client'
-
-// @ts-ignore
 import { Loader2, Tag, Pencil, Trash2 } from 'lucide-react'
-// @ts-ignore
 import { useTranslations, useLocale } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -15,7 +12,6 @@ import {
   TableCell,
   Button,
   Switch,
-// @ts-ignore
 } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import type { Category } from './types'
