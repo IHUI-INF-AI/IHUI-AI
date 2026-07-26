@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os as _os
 import pytest
+from unittest.mock import AsyncMock, patch
 
 # 项目根目录(tests/ → ai-service/ → IHUI-AI/)
 _REPO = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
@@ -39,6 +40,7 @@ from app.services.mcp_server import (
     _tool_file_search,
     _tool_git_operations,
     _tool_db_query,
+    _tool_knowledge_lookup,
 )
 
 
@@ -83,7 +85,7 @@ def test_tools_count_matches_registry():
 
 @pytest.mark.parametrize(
     "name",
-    ["search_codebase", "read_file", "write_file", "run_command", "web_search",
+    ["search_codebase", "knowledge_lookup", "read_file", "write_file", "run_command", "web_search",
      "search_web", "analyze_code", "generate_test", "file_search",
      "git_operations", "db_query"],
 )
@@ -1434,3 +1436,291 @@ async def test_proactive_suggestion_with_bug_context():
     assert out["ok"] is True
     types = {s["type"] for s in out["suggestions"]}
     assert "test" in types
+
+
+# =============================================================================
+# 工具实现: knowledge_lookup (G5 生产调用点接入,2026-07-26)
+# 统一知识查询门面(三源并发:codebase + RAG + long_term_memory)
+# =============================================================================
+
+
+class TestKnowledgeLookupToolRegistration:
+    """knowledge_lookup 工具注册测试。"""
+
+    def test_tool_in_tools_registry(self):
+        """knowledge_lookup 在 _TOOLS 注册表中。"""
+        tool_names = {t.name for t in _TOOLS}
+        assert "knowledge_lookup" in tool_names
+
+    def test_tool_in_handlers_registry(self):
+        """knowledge_lookup 在 _TOOL_HANDLERS 调度表中。"""
+        assert "knowledge_lookup" in _TOOL_HANDLERS
+        assert _TOOL_HANDLERS["knowledge_lookup"] is _tool_knowledge_lookup
+
+    def test_tool_not_in_admin_only(self):
+        """knowledge_lookup 不在 _ADMIN_ONLY_TOOLS(查询类,所有用户可用)。"""
+        from app.services.mcp_server import _ADMIN_ONLY_TOOLS
+        assert "knowledge_lookup" not in _ADMIN_ONLY_TOOLS
+
+    def test_tool_schema_complete(self):
+        """knowledge_lookup 的 MCPTool schema 完整。"""
+        tool = next(t for t in _TOOLS if t.name == "knowledge_lookup")
+        assert tool.input_schema["type"] == "object"
+        assert "query" in tool.input_schema["properties"]
+        assert tool.input_schema["properties"]["query"]["type"] == "string"
+        assert "top_k_per_source" in tool.input_schema["properties"]
+        assert tool.input_schema["properties"]["top_k_per_source"]["type"] == "integer"
+        assert tool.input_schema["required"] == ["query"]
+        assert tool.input_schema.get("additionalProperties") is False
+        assert tool.description  # 非空
+
+
+class TestKnowledgeLookupToolExecution:
+    """knowledge_lookup 工具执行测试(mock knowledge_lookup 函数)。"""
+
+    async def test_empty_query_returns_ok_false(self):
+        """空 query → ok=False + message 含'不能为空'。"""
+        out = await _tool_knowledge_lookup({"query": ""})
+        assert out["tool"] == "knowledge_lookup"
+        assert out["ok"] is False
+        assert out["hits"] == []
+        assert "不能为空" in out["message"]
+        assert out["duration_ms"] == 0.0
+
+    async def test_whitespace_query_returns_ok_false(self):
+        """纯空格 query 被 strip 后视为空 → ok=False。"""
+        out = await _tool_knowledge_lookup({"query": "   "})
+        assert out["ok"] is False
+        assert out["hits"] == []
+
+    async def test_missing_query_key_returns_ok_false(self):
+        """args 不含 query key → ok=False。"""
+        out = await _tool_knowledge_lookup({})
+        assert out["ok"] is False
+
+    async def test_successful_lookup_with_hits(self):
+        """knowledge_lookup 返回 hits → 工具返回 ok=True + hits 序列化。"""
+        from app.services.knowledge_lookup import KnowledgeHit, KnowledgeLookupResult
+        fake_result = KnowledgeLookupResult(
+            query="auth logic",
+            hits=[
+                KnowledgeHit(
+                    source="codebase",
+                    score=0.95,
+                    content="[codebase:function authenticate] src/auth.ts:10-30\n...",
+                    raw={"secret": "should_not_leak"},
+                ),
+                KnowledgeHit(
+                    source="rag",
+                    score=0.85,
+                    content="[rag:assistant] 2026-07-25\n用户认证基于 JWT",
+                ),
+            ],
+            errors=[],
+            duration_ms=42.5,
+        )
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=fake_result),
+        ) as mock_kl:
+            out = await _tool_knowledge_lookup({"query": "auth logic"})
+
+        assert out["tool"] == "knowledge_lookup"
+        assert out["ok"] is True
+        assert out["query"] == "auth logic"
+        assert out["total_hits"] == 2
+        assert len(out["hits"]) == 2
+        assert out["hits"][0]["source"] == "codebase"
+        assert out["hits"][0]["score"] == 0.95  # round(0.95, 4) = 0.95
+        assert "authenticate" in out["hits"][0]["content"]
+        assert out["hits"][1]["source"] == "rag"
+        assert out["errors"] == []
+        assert out["duration_ms"] == 42.5
+        assert "找到 2 条知识" in out["message"]
+        # 验证 knowledge_lookup 被正确调用,user_id=None(跳过 LTM)
+        mock_kl.assert_awaited_once()
+        args, kwargs = mock_kl.call_args
+        assert kwargs.get("user_id") is None
+        assert kwargs.get("repo_id") is None
+        assert kwargs.get("session_id") is None
+        assert kwargs.get("top_k_per_source") == 5  # 默认值
+
+    async def test_all_sources_failure_degrades_gracefully(self):
+        """knowledge_lookup 三源全失败(返回空 hits + errors)→ ok=False + errors 透传。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        fake_result = KnowledgeLookupResult(
+            query="test",
+            hits=[],
+            errors=[
+                {"source": "codebase", "error": "RuntimeError: cb 500"},
+                {"source": "rag", "error": "RuntimeError: rag 500"},
+                {"source": "long_term_memory", "error": "ConnectionError: db down"},
+            ],
+            duration_ms=100.0,
+        )
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=fake_result),
+        ):
+            out = await _tool_knowledge_lookup({"query": "test"})
+
+        assert out["ok"] is False  # 全失败 + 无 hits
+        assert out["hits"] == []
+        assert len(out["errors"]) == 3
+        assert "三源全失败" in out["message"]
+
+    async def test_empty_results_no_errors_returns_ok_true(self):
+        """各源返回空 list 但无错误 → ok=True(空结果不算失败)。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        fake_result = KnowledgeLookupResult(
+            query="不存在概念",
+            hits=[],
+            errors=[],
+            duration_ms=10.0,
+        )
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=fake_result),
+        ):
+            out = await _tool_knowledge_lookup({"query": "不存在概念"})
+
+        # ok = len(hits) > 0 or len(errors) == 0 → True(因为 errors==0)
+        assert out["ok"] is True
+        assert out["hits"] == []
+        assert "无匹配知识" in out["message"]
+
+    async def test_top_k_per_source_passed_through(self):
+        """top_k_per_source 透传给 knowledge_lookup。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=KnowledgeLookupResult(query="q")),
+        ) as mock_kl:
+            await _tool_knowledge_lookup({"query": "q", "top_k_per_source": 15})
+        args, kwargs = mock_kl.call_args
+        assert kwargs.get("top_k_per_source") == 15
+
+    async def test_top_k_clamped_to_min_1(self):
+        """top_k_per_source < 1 → clamp 到 1。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=KnowledgeLookupResult(query="q")),
+        ) as mock_kl:
+            await _tool_knowledge_lookup({"query": "q", "top_k_per_source": 0})
+        args, kwargs = mock_kl.call_args
+        assert kwargs.get("top_k_per_source") == 1
+
+    async def test_top_k_clamped_to_max_20(self):
+        """top_k_per_source > 20 → clamp 到 20。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=KnowledgeLookupResult(query="q")),
+        ) as mock_kl:
+            await _tool_knowledge_lookup({"query": "q", "top_k_per_source": 100})
+        args, kwargs = mock_kl.call_args
+        assert kwargs.get("top_k_per_source") == 20
+
+    async def test_top_k_default_5_when_not_specified(self):
+        """不传 top_k_per_source → 默认 5。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=KnowledgeLookupResult(query="q")),
+        ) as mock_kl:
+            await _tool_knowledge_lookup({"query": "q"})
+        args, kwargs = mock_kl.call_args
+        assert kwargs.get("top_k_per_source") == 5
+
+    async def test_value_error_degrades_to_ok_false(self):
+        """knowledge_lookup 抛 ValueError → 降级返回 ok=False(不抛异常)。"""
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(side_effect=ValueError("invalid source_priority")),
+        ):
+            out = await _tool_knowledge_lookup({"query": "q"})
+        assert out["ok"] is False
+        assert "参数校验失败" in out["message"]
+        assert "ValueError" in out["errors"][0]["error"]
+
+    async def test_hits_does_not_include_raw_field(self):
+        """hits 序列化后不含 raw 字段(避免 LLM 上下文冗长 + 防泄露)。"""
+        from app.services.knowledge_lookup import KnowledgeHit, KnowledgeLookupResult
+        fake_result = KnowledgeLookupResult(
+            query="q",
+            hits=[
+                KnowledgeHit(
+                    source="codebase",
+                    score=0.9,
+                    content="x",
+                    raw={"secret_key": "leak_if_serialized"},
+                )
+            ],
+        )
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=fake_result),
+        ):
+            out = await _tool_knowledge_lookup({"query": "q"})
+        assert "raw" not in out["hits"][0]
+        # 确保 raw 内容没泄露到其他字段
+        assert "leak_if_serialized" not in str(out["hits"])
+
+    async def test_query_striped_before_passing(self):
+        """query 前后空格被 strip 后传给 knowledge_lookup。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=KnowledgeLookupResult(query="  test  ")),
+        ) as mock_kl:
+            await _tool_knowledge_lookup({"query": "  test  "})
+        args, kwargs = mock_kl.call_args
+        assert args[0] == "test" or kwargs.get("query") == "test"
+
+
+class TestKnowledgeLookupViaMCPServer:
+    """通过 MCPServer.call_tool 调用 knowledge_lookup(权限矩阵 + 调度)。"""
+
+    async def test_call_tool_knowledge_lookup_normal_user_allowed(self):
+        """普通用户(user_role=0)可调 knowledge_lookup(不在 _ADMIN_ONLY_TOOLS)。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=KnowledgeLookupResult(query="q")),
+        ):
+            out = await mcp_server.call_tool(
+                "knowledge_lookup", {"query": "q"}, user_role=0
+            )
+        # 不应返回 PERMISSION_DENIED
+        assert out.get("errorCode") != "PERMISSION_DENIED"
+        assert out["tool"] == "knowledge_lookup"
+
+    async def test_call_tool_knowledge_lookup_admin_allowed(self):
+        """admin(user_role=1)可调 knowledge_lookup。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=KnowledgeLookupResult(query="q")),
+        ):
+            out = await mcp_server.call_tool(
+                "knowledge_lookup", {"query": "q"}, user_role=1
+            )
+        assert out["tool"] == "knowledge_lookup"
+
+    async def test_call_tool_knowledge_lookup_returns_ok_structure(self):
+        """call_tool 返回结构含 tool/query/hits/errors/duration_ms/ok。"""
+        from app.services.knowledge_lookup import KnowledgeLookupResult
+        with patch(
+            "app.services.knowledge_lookup.knowledge_lookup",
+            new=AsyncMock(return_value=KnowledgeLookupResult(query="q")),
+        ):
+            out = await mcp_server.call_tool(
+                "knowledge_lookup", {"query": "q"}, user_role=0
+            )
+        assert "tool" in out
+        assert "query" in out
+        assert "hits" in out
+        assert "errors" in out
+        assert "duration_ms" in out
+        assert "ok" in out
