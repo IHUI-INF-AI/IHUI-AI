@@ -8,7 +8,7 @@
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from app.core.logging import get_logger
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
@@ -21,6 +21,9 @@ try:
 except ImportError:
     _HAS_PLAYWRIGHT = False
 
+if TYPE_CHECKING:
+    from playwright._impl._api_structures import SetCookieParam
+
 
 class JuejinAdapter(BasePlatformAdapter):
     platform_id = "juejin"
@@ -29,7 +32,7 @@ class JuejinAdapter(BasePlatformAdapter):
     requires_credentials = ["sessionid", "signatureId"]
     needs_browser = True
 
-    def _cookies(self, credentials: dict) -> list[dict[str, Any]]:
+    def _cookies(self, credentials: dict) -> list[SetCookieParam]:
         return [
             {
                 "name": "sessionid",

@@ -14,7 +14,9 @@
 import sys
 import os
 import re
+import io
 import json
+from typing import cast
 
 
 # ===== 技术自检常量（原有） =====
@@ -306,7 +308,7 @@ def _load_published_memory(md_path):
 def _check_duplicate_paragraphs(full_text):
     """Check for completely duplicate paragraphs in text"""
     paragraphs = [p.strip() for p in full_text.split('\n\n') if p.strip()]
-    seen = {}
+    seen: dict[str, int] = {}
     duplicates = []
     for i, para in enumerate(paragraphs):
         if len(para) < 10:
@@ -1639,8 +1641,9 @@ def _check_geo_optimization(full_text, title_text):
 def main():
     import sys
     try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
+        # sys.stdout 可能是 TextIO(无 reconfigure)或 TextIOWrapper(有),运行时判断后调用
+        cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
+        cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8')
     except Exception:
         pass
     if len(sys.argv) < 2:
