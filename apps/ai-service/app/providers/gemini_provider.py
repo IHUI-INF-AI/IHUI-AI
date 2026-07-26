@@ -179,7 +179,7 @@ class GeminiProvider(BaseProvider):
             result["tool_calls"] = tool_calls
         return result
 
-    async def astream(  # type: ignore[misc,override]  # 根因:base_provider.BaseProvider.astream 是 `async def -> AsyncIterator`,mypy 推断返回 Coroutine 而非 AsyncIterator;修复需改基类签名(不在本任务清单),此处单行压制
+    async def astream(
         self,
         messages: list[dict[str, Any]],
         model: str,
