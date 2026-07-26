@@ -1,31 +1,19 @@
-// dev-weapp.mjs — wraps `taro build --type weapp --watch` + strip-tailwind-backslash --watch
+// dev-weapp.mjs — wraps `taro build --type weapp --watch`
 //
 // Why:
-//   pnpm dev runs taro in watch mode. Taro regenerates .wxss on every rebuild,
-//   re-introducing Tailwind backslash escapes that the WeChat WXSS parser
-//   rejects ("unexpected `\` at pos X"). The strip script must run in watch
-//   mode too, in parallel, so each .wxss change is re-stripped immediately.
+//   pnpm dev runs taro in watch mode. 2026-07-26 起改用 weapp-tailwindcss
+//   插件(在 config/index.ts 的 vitePlugins 注册),由插件在编译时同步处理
+//   WXSS 选择器转义和 wxml/js class 匹配,无需 strip-tailwind-backslash.mjs。
 //
-//   Windows PowerShell does not support `&` for parallel npm scripts, so we
-//   spawn both processes here and forward signals/exit codes correctly.
+//   历史背景:之前用 strip-tailwind-backslash.mjs 在 taro 构建后异步删除
+//   WXSS 中的反斜杠转义,但无法处理 Tailwind 任意值语法 [xxx](541 个规则),
+//   WXSS parser 把 [2px] 当属性选择器报错。weapp-tailwindcss 在编译时同步
+//   把 .-bottom-[2px] 重写为 .-bottom-_b2px_B,WXSS 和 wxml 同步匹配。
 import { spawn } from 'node:child_process'
 
 // shell:true so Windows resolves `taro` -> `taro.cmd` automatically
 const taro = spawn('taro', ['build', '--type', 'weapp', '--watch'],
   { stdio: 'inherit', shell: true })
-
-// Give taro a head start so dist/ exists before strip-watch starts polling
-setTimeout(() => {
-  const strip = spawn('node', ['scripts/strip-tailwind-backslash.mjs', '--watch'],
-    { stdio: 'inherit', shell: true })
-
-  strip.on('exit', (code) => {
-    if (code !== 0) console.warn(`[dev-weapp] strip-watch exited with ${code}`)
-  })
-
-  process.on('SIGINT', () => { strip.kill('SIGINT'); taro.kill('SIGINT') })
-  process.on('SIGTERM', () => { strip.kill('SIGTERM'); taro.kill('SIGTERM') })
-}, 1500)
 
 taro.on('exit', (code) => {
   console.log(`[dev-weapp] taro exited with ${code}`)
