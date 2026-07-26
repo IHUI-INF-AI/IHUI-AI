@@ -10,7 +10,7 @@ import {
   TableRow,
   TableCell,
 } from '@ihui/ui-react'
-import type { TokenFlowItem } from '@/lib/token-api'
+import type { TokenFlowItem } from '@ihui/api-client'
 
 interface Props {
   items: TokenFlowItem[]
