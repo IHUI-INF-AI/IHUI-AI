@@ -11677,28 +11677,12 @@
     "cancel": "取消"
   },
   "modelsReferralPage": {
-    "title": "邀请奖励",
-    "subtitle": "邀请好友注册,双方均可获得奖励",
     "link": {
-      "title": "我的邀请链接",
-      "tip": "分享您的专属邀请链接给好友",
-      "copy": "复制链接",
-      "reward": "好友注册并消费满 ¥10 后,您将获得 {amount} 奖励"
     },
     "stats": {
-      "invited": "已邀请",
-      "activated": "已激活",
-      "reward": "累计奖励"
     },
     "list": {
-      "title": "邀请记录",
-      "user": "用户",
-      "joined": "注册时间",
-      "reward": "奖励",
-      "status": "状态",
       "statusLabels": {
-        "activated": "",
-        "pending": ""
       }
     }
   },

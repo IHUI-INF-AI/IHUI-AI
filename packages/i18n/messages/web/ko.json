@@ -11787,28 +11787,12 @@
     "cancel": "취소"
   },
   "modelsReferralPage": {
-    "title": "초대 보상",
-    "subtitle": "친구를 초대하면 양쪽 모두 보상을 받을 수 있습니다",
     "link": {
-      "title": "내 초대 링크",
-      "tip": "전용 초대 링크를 친구에게 공유하세요",
-      "copy": "링크 복사",
-      "reward": "친구가 가입하고 ¥10 이상 소비하면 {amount} 보상을 받습니다"
     },
     "stats": {
-      "invited": "초대됨",
-      "activated": "활성화됨",
-      "reward": "누적 보상"
     },
     "list": {
-      "title": "초대 기록",
-      "user": "사용자",
-      "joined": "가입 시간",
-      "reward": "보상",
-      "status": "상태",
       "statusLabels": {
-        "activated": "",
-        "pending": ""
       }
     }
   },
