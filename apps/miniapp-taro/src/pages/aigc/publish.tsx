@@ -130,7 +130,8 @@ export default function AigcPublish() {
         <Text className="text-[36rpx] font-bold text-foreground">{t('aigc.publish.title')}</Text>
       </View>
 
-      <ScrollView scrollY className="flex-1 p-[20rpx] box-border">
+      <ScrollView scrollY className="flex-1 box-border">
+        <View className="p-[20rpx]">
         {/* 上传作品 */}
         <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
           <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('aigc.publish.workLabel')}</Text>
@@ -195,6 +196,7 @@ export default function AigcPublish() {
           {t('aigc.publish.publish')}
         </Button>
         <View className="h-[60rpx]" />
+        </View>
       </ScrollView>
     </View>
   )
