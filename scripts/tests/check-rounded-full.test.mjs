@@ -30,6 +30,40 @@ function runScript(cwd) {
   })
 }
 
+// 辅助:运行 check-rounded-full.mjs --staged(staged 模式)
+function runStaged(cwd) {
+  return spawnSync('node', [SCRIPT_PATH, '--staged'], {
+    cwd: cwd || process.cwd(),
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+}
+
+// 辅助:创建临时 git repo(含 baseline commit),用于 staged 模式测试
+function createTempGitRepo(files) {
+  const dir = mkdtempSync(join(tmpdir(), 'ihui-rounded-git-'))
+  spawnSync('git', ['init', '-q'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  for (const [relPath, content] of Object.entries(files)) {
+    const fullPath = join(dir, relPath)
+    mkdirSync(join(fullPath, '..'), { recursive: true })
+    writeFileSync(fullPath, content)
+  }
+  spawnSync('git', ['add', '-A'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  return dir
+}
+
+// 辅助:在 git repo 中写入文件并 stage
+function stageFile(repoDir, relPath, content) {
+  const fullPath = join(repoDir, relPath)
+  mkdirSync(join(fullPath, '..'), { recursive: true })
+  writeFileSync(fullPath, content)
+  spawnSync('git', ['add', relPath], { cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+}
+
 // 辅助:断言 stdout 含违规标记
 function assertHasViolation(r, pattern) {
   assert.ok(
@@ -330,22 +364,59 @@ test('CSS 小装饰点 border-radius:50% + width:8px + height:8px → 豁免', (
   }
 })
 
-// ─── staged 模式 bug 记录(源脚本 bug,不修改) ──────────
-// 发现:源脚本 getStagedAddedLines() 在 'diff --git' 行上匹配 '\+\+\+\s+b\/(.+)$',
-// 但 '+++' 是 diff 输出中的独立行,不在 'diff --git' 行上。
-// 导致 staged 模式下 addedLinesMap 始终为空 → files 为空 → 脚本报
-// "暂存区无 .ts/.tsx/.js/.jsx/.css/.scss 变更,跳过" 并 exit 0。
-// 本测试记录此 bug,待源脚本修复后可移除。
+// ─── staged 模式(已修复 ✅ 2026-07-27) ───────────────────
+// 历史 bug:源脚本 getStagedAddedLines() 曾在 'diff --git' 行上匹配 '\+\+\+\s+b\/(.+)$',
+// 但 '+++' 是 git diff 输出中的独立行(紧跟 'diff --git' 后),不在 'diff --git' 行上,
+// 导致 curFile 始终为 null → addedLinesMap 始终为空 → files 为空 → 脚本始终输出
+// "暂存区无 .ts/.tsx/.js/.jsx/.css/.scss 变更,跳过" 并 exit 0(即使有违规文件)。
+// 修复:把 '+++ b/' 解析从 'diff --git' 块中分离为独立判断,staged 模式恢复检测能力。
 
-test('已知 bug: staged 模式无法检测违规(getStagedAddedLines 正则错位)', () => {
-  const dir = createTempScanDir({
-    'apps/web/Bad.tsx': `export function Bad() {\n  return <div className="rounded-full p-4">Bad</div>\n}\n`,
+test('staged 模式(已修复): 暂存含 rounded-full 违规 → 检测到并 exit 1', () => {
+  const dir = createTempGitRepo({
+    'apps/web/Base.tsx': `export function Base() {\n  return <div className="rounded-lg p-4">Base</div>\n}\n`,
   })
   try {
-    const r = spawnSync('node', [SCRIPT_PATH, '--staged'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-    // bug:staged 模式总是跳过(exit 0),即使有违规文件
-    assert.equal(r.status, 0, 'staged 模式因 bug 总是 exit 0')
-    assert.match(r.stdout, /跳过|暂存区无/, '应显示跳过消息(bug 行为)')
+    stageFile(
+      dir,
+      'apps/web/Bad.tsx',
+      `export function Bad() {\n  return <div className="rounded-full p-4">Bad</div>\n}\n`,
+    )
+    const r = runStaged(dir)
+    assert.equal(r.status, 1, 'staged 模式应检测到 rounded-full 违规并 exit 1')
+    assert.match(r.stdout, /rounded-full/, 'stdout 应报告 rounded-full 违规')
+    assert.match(r.stdout, /Bad\.tsx/, 'stdout 应列出违规文件 Bad.tsx')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('staged 模式(已修复): 暂存合法文件(无违规) → exit 0 通过', () => {
+  const dir = createTempGitRepo({
+    'apps/web/Base.tsx': `export function Base() {\n  return <div>Base</div>\n}\n`,
+  })
+  try {
+    stageFile(
+      dir,
+      'apps/web/Good.tsx',
+      `export function Good() {\n  return <div className="rounded-xl p-4">Good</div>\n}\n`,
+    )
+    const r = runStaged(dir)
+    assert.equal(r.status, 0, 'staged 模式无违规应 exit 0')
+    assertPass(r)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('staged 模式(已修复): 空暂存区(无 .ts/.tsx 变更) → exit 0 跳过', () => {
+  const dir = createTempGitRepo({
+    'apps/web/Base.tsx': `export function Base() {\n  return <div>Base</div>\n}\n`,
+  })
+  try {
+    // 不 stage 任何新文件,baseline 之后暂存区为空
+    const r = runStaged(dir)
+    assert.equal(r.status, 0, '空暂存区应 exit 0')
+    assert.match(r.stdout, /跳过|暂存区无/, '应显示跳过消息')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
