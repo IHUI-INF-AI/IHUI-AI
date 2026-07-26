@@ -876,6 +876,110 @@ class LLMGateway:
                 "errorCode": err_code,
             }
 
+    async def structured_completion(
+        self,
+        messages: list[dict[str, Any]],
+        schema: dict[str, Any],
+        model: str | None = None,
+        *,
+        owner_uuid: Optional[str] = None,
+        schema_name: str = "structured_response",
+        max_retries: int = 1,
+    ) -> dict[str, Any]:
+        """调用 LLM 并强制返回符合 JSON Schema 的结构化输出(G2 字典化闭环 PoC)。
+
+        走 OpenAI 原生 `response_format: { type: "json_schema" }` 协议,
+        LiteLLM 自动适配到 OpenAI/Anthropic(通过 tool_use 模拟)/其他厂商降级。
+        相比 `complete()` + 后置 `json.loads()`,本方法:
+        1. **强约束**:LLM 必定返回符合 schema 的 JSON(字段名/类型/required 全部强制)
+        2. **零解析成本**:无 markdown 代码块剥离 / 无 JSON 修复 / 无 try/except
+        3. **字段零漂移**:schema 是 source of truth,LLM 不能乱加字段
+
+        Args:
+            messages: OpenAI 格式消息列表。
+            schema: JSON Schema 字典(Draft-07 子集),如 persona_registry 的 output_schema。
+            model: 模型名称。
+            owner_uuid: 用户 UUID。
+            schema_name: OpenAI json_schema 模式要求的 schema 名(避免与历史 OpenAI 模式冲突)。
+            max_retries: schema 校验失败时的重试次数(默认 1,失败即返回 error)。
+
+        Returns:
+            符合 schema 的 dict 字典,或
+            { "error": True, "error_message": ..., "errorCode": ..., "schema_errors": [...] }
+        """
+        used_model = model or settings.litellm_model
+        repaired_messages, repair_removed, _ = repair_messages(messages)
+        if repair_removed > 0:
+            logger.info("repair_messages 修复 %d 条异常消息(structured_completion)", repair_removed)
+        trimmed_messages = trim_messages(repaired_messages)
+
+        # OpenAI 原生 json_schema 模式(其他厂商通过 LiteLLM 适配)
+        response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema_name,
+                "schema": schema,
+                "strict": True,
+            },
+        }
+
+        last_error: str = ""
+        for attempt in range(max_retries + 1):
+            try:
+                result = await self.complete(
+                    trimmed_messages,
+                    model=used_model,
+                    owner_uuid=owner_uuid,
+                    response_format=response_format,
+                )
+            except Exception as e:
+                last_error = f"{type(e).__name__}: {e}"
+                logger.warning("structured_completion 调用异常(attempt=%d): %s", attempt, last_error)
+                continue
+
+            if result.get("error") or result.get("stub"):
+                last_error = str(result.get("error_message", "LLM 调用失败"))
+                logger.debug("structured_completion 失败(attempt=%d): %s", attempt, last_error)
+                continue
+
+            content = str(result.get("content", "") or "").strip()
+            if not content:
+                last_error = "LLM 返回空内容"
+                continue
+
+            # LLM 已按 schema 输出,直接 json.loads + 字段必填校验
+            try:
+                parsed = json.loads(content)
+            except json.JSONDecodeError as e:
+                last_error = f"JSON 解析失败: {e}"
+                logger.debug("structured_completion JSON 解析失败(attempt=%d): %s", attempt, last_error)
+                continue
+
+            # 校验 required 字段(JSON Schema 强制约束)
+            required = schema.get("required", []) if isinstance(schema, dict) else []
+            missing = [k for k in required if k not in parsed]
+            if missing:
+                last_error = f"missing required fields: {missing}"
+                logger.debug("structured_completion 缺字段(attempt=%d): %s", attempt, last_error)
+                continue
+
+            # 校验 additionalProperties: False
+            if isinstance(schema, dict) and schema.get("additionalProperties") is False:
+                allowed = set(schema.get("properties", {}).keys())
+                extra = [k for k in parsed.keys() if k not in allowed]
+                if extra:
+                    last_error = f"unexpected fields: {extra}"
+                    logger.debug("structured_completion 额外字段(attempt=%d): %s", attempt, extra)
+                    continue
+
+            return parsed
+
+        return {
+            "error": True,
+            "error_message": last_error or "structured_completion 失败",
+            "errorCode": "structured_completion_failed",
+        }
+
     async def astream(
         self,
         messages: list[dict[str, Any]],
