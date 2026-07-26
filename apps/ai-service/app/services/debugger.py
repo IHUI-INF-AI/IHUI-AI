@@ -17,7 +17,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class DapProtocolReader:
         body = self._buffer[body_start : body_start + content_length]
         self._buffer = self._buffer[body_start + content_length :]
         try:
-            return json.loads(body.decode("utf-8"))
+            return cast(dict[str, Any], json.loads(body.decode("utf-8")))
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             logger.warning("DAP 消息 JSON 解析失败: %s", e)
             return None

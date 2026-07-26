@@ -8,7 +8,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from ..core.config import settings
 
@@ -142,8 +142,8 @@ class UnifiedMemoryClient:
                 resp.raise_for_status()
                 data = resp.json()
                 if isinstance(data, dict):
-                    return data.get("data")
-                return data
+                    return cast(dict[str, Any] | None, data.get("data"))
+                return cast(dict[str, Any] | None, data)
         except Exception:
             return None
 
@@ -386,7 +386,7 @@ class MemorySystem:
     async def get_user_profile(self, user_id: str) -> dict[str, Any]:
         """获取用户画像(委托 UserProfileBuilder)。"""
         self._ensure_services()
-        return await self._profile_builder.build_profile(user_id)
+        return cast(dict[str, Any], await self._profile_builder.build_profile(user_id))
 
     # ==================================================================
     # 衰减管理
@@ -409,9 +409,9 @@ class MemorySystem:
             "minRetentionScore": 0.2,
             "accessBoost": 0.1,
         }
-        return await self._decay_manager.apply_decay(
+        return cast(dict[str, Any], await self._decay_manager.apply_decay(
             user_id, decay_config, self._client,
-        )
+        ))
 
     # ==================================================================
     # 检索引擎(内部方法)
