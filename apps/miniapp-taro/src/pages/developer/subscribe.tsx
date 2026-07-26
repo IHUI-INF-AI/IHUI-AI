@@ -32,7 +32,7 @@ interface DevPost {
   createTime: string
 }
 
-const toStr = (v: unknown, fb = '') => (v == null ? fb : String(v))
+const toStr = (v: unknown, fb = '') => (v === null || v === undefined ? fb : String(v))
 const toNum = (v: unknown) => Number(v) || 0
 
 export default function DeveloperSubscribePage() {
@@ -137,7 +137,7 @@ export default function DeveloperSubscribePage() {
     }
   }, [subscribing, dev.subscribed, devId, t])
 
-  const useModel = (m: DevModel) => {
+  const handleUseModel = (m: DevModel) => {
     Taro.navigateTo({ url: `/pages/ai/agent-detail?id=${m.id}` })
   }
 
@@ -228,7 +228,7 @@ export default function DeveloperSubscribePage() {
                     {m.description || tt('developer.subscribe.noDesc', '暂无描述')}
                   </Text>
                 </View>
-                <Text className="flex-shrink-0 px-[24rpx] py-[10rpx] text-[24rpx] text-primary bg-[rgba(0,242,255,0.1)] border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[8rpx]" onClick={() => useModel(m)}>
+                <Text className="flex-shrink-0 px-[24rpx] py-[10rpx] text-[24rpx] text-primary bg-[rgba(0,242,255,0.1)] border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[8rpx]" onClick={() => handleUseModel(m)}>
                   {tt('developer.subscribe.use', '使用')}
                 </Text>
               </View>
