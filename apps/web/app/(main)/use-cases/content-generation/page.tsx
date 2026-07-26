@@ -24,7 +24,7 @@ const jsonLd = {
         { '@type': 'ListItem', position: 3, name: '内容创作', item: 'https://ihui.ai/use-cases/content-generation' },
       ],
     },
-    // 2026-07-26 极致 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建 AI 内容创作流水线"类检索)
+    // 2026-07-26 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建 AI 内容创作流水线"类检索)
     {
       '@type': 'HowTo',
       '@id': 'https://ihui.ai/use-cases/content-generation#howto',

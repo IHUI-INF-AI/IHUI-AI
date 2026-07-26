@@ -9667,6 +9667,9 @@
     },
     "welcome": {
       "title": "Welcome to the Zhihui AI Community",
+      "subtitle": "Full-stack AI Operating System · 8-Platform Coverage · One-Stop Agent Collaboration",
+      "description": "Zhihui AI integrates Agent marketplace, knowledge base RAG, multi-model unified dispatch, MCP tool protocol. Supports Web / Desktop / Mini Program / Browser Extension / React Native / CLI — 6 platforms, Apache 2.0 open source, supports private deployment.",
+      "perYear": "/year",
       "brandSubtitle": "8 Platforms · 100+ LLMs · 1029+ API · Save ¥180K/year",
       "seats": "Limited to 18 Seats · Decision-Makers Only",
       "earlyBird": "Early-Bird ¥6000/year · 67% Off",
@@ -9693,7 +9696,11 @@
     "indicator": {
       "label": "Page Navigation",
       "switchTo": "Switch to page {index}",
-      "page1": "Home"
+      "page1": "Home",
+      "page2": "Welcome",
+      "page3": "Features",
+      "page4": "Magazine",
+      "page5": "Pricing"
     },
     "scrollDown": {
       "label": "Scroll down"
@@ -9960,6 +9967,14 @@
         "title": "",
         "value": ""
       }
+    },
+    "cta": {
+      "label": "Bottom CTA",
+      "title": "Never miss the next AI milestone",
+      "subtitle": "Subscribe to our daily AI briefing and join the IHUI AI community to stay ahead.",
+      "join": "Join Now",
+      "sectionLabel": "Bottom Call-to-Action",
+      "dashboard": "Go to Workspace"
     }
   },
   "aiNews": {
@@ -10153,7 +10168,10 @@
       "title": "Never miss the next AI milestone",
       "subtitle": "Subscribe to our daily AI briefing and join the IHUI AI community to stay ahead.",
       "subscribe": "Subscribe Daily",
-      "community": "Join Community"
+      "community": "Join Community",
+      "join": "Join Now",
+      "sectionLabel": "Bottom Call-to-Action",
+      "dashboard": "Go to Workspace"
     }
   },
   "cliImport": {
