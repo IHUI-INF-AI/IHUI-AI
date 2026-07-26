@@ -113,7 +113,8 @@ function migrate(env) {
     }
   }
 
-  const json = JSON.stringify(providers, null, 2);
+  // 单行 JSON:写入 .env 文件时用(多行 JSON 会被守门脚本/部分 dotenv 解析器按行 split 失败)
+  const json = JSON.stringify(providers);
   return { providers, json, stats };
 }
 
@@ -284,11 +285,11 @@ if (Object.keys(providers).length === 0) {
 }
 
 if (dryRun) {
-  console.log('\n--- 📋 预览(JSON 格式)---');
+  console.log('\n--- 📋 预览(JSON 格式,写入文件为单行)---');
   if (redact) {
     console.log(JSON.stringify(redactProviders(providers), null, 2));
   } else {
-    console.log(json);
+    console.log(JSON.stringify(providers, null, 2));
     console.log('⚠️  api_key 未脱敏,建议加 --redact 参数防止终端日志泄露');
   }
 
