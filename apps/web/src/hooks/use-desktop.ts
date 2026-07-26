@@ -45,13 +45,13 @@ export function useDesktop() {
   // 2026-07-26 用户反馈(第八次):useEffect 一次检查仍可能为 false,因为 Tauri 2.x
   //   在 WebView 创建后会异步注入 __TAURI_INTERNALS__,首次 useEffect 执行时
   //   window.__TAURI_INTERNALS__ 可能尚未存在。
-  // 解决方案:轮询直到检测到 Tauri 或超时(2 秒)。
+  // 解决方案:轮询直到检测到 Tauri 或超时(10 秒,2026-07-26 从 2 秒增加,解决注入时机问题)。
   // 浏览器端永远检测不到,稳定 false。
   React.useEffect(() => {
     let cancelled = false
     const start = Date.now()
-    const TIMEOUT_MS = 2000
-    const INTERVAL_MS = 30
+    const TIMEOUT_MS = 10000
+    const INTERVAL_MS = 50
     const check = () => {
       if (cancelled) return
       if (isTauri()) {
@@ -131,12 +131,9 @@ export function useDesktop() {
     await resetWindowState()
   }, [])
 
-  const notify = React.useCallback(
-    async (title: string, body: string) => {
-      await sendDesktopNotification(title, body)
-    },
-    [],
-  )
+  const notify = React.useCallback(async (title: string, body: string) => {
+    await sendDesktopNotification(title, body)
+  }, [])
 
   return {
     isDesktop,
