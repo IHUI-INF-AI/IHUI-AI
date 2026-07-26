@@ -83,6 +83,10 @@ _MODULE_ALIASES: dict[str, str] = {
     "REG": "Persona Registry(persona_registry.py,JSON Schema 契约)",
     "CBI": "Codebase Indexer(codebase_indexer.py,tree-sitter + embedding)",
     "SCH": "Schema Check(schema_check.py,DB schema 字段对照守门)",
+    "MCP": "Model Context Protocol(mcp_server.py,工具/资源/提示词三类 + 工作区白名单 + 全局超时)",
+    "LG":  "LangGraph 工作流(langgraph_service.py,StateGraph plan→execute→summarize + checkpoint + interrupt HITL)",
+    "A2A": "Agent-to-Agent 任务队列(a2a_service.py,Redis 持久化 + 内存热缓存 + 能力发现)",
+    "SIO": "Socket.IO 实时双向通信(sio/handlers.py,/socket.io/* 路径,多端房间广播 + chunk 推送)",
 }
 
 # ════════════════════════════════════════════════
