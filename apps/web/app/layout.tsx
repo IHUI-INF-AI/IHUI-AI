@@ -301,7 +301,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
         {/*
-          Feed 自动发现(2026-07-26 立,极致 SEO):
+          Feed 自动发现(2026-07-26 立,SEO 强化):
           RSS / Atom feed 是搜索引擎、内容聚合器、内容订阅系统的标准入口。
           - 浏览器/阅读器访问首页时自动发现 feed 入口
           - Google News / Bing News 优先通过 feed 发现更新
@@ -344,7 +344,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           title="IHUI AI — Perplexity Optimized"
           href="https://ihui.ai/perplexity.md"
         />
-        {/* 2026-07-26 极致曝光度强化:国内主流 AI 引擎 + 微软 Copilot 专用文件 */}
+        {/* 2026-07-26 高密度曝光度强化:国内主流 AI 引擎 + 微软 Copilot 专用文件 */}
         <link
           rel="alternate"
           type="text/plain"
@@ -393,7 +393,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           title="IHUI AI — Microsoft Copilot Optimized"
           href="https://ihui.ai/copilot.txt"
         />
-        {/* 2026-07-26 极致 GEO 强化:行业垂直 + 角色垂直 + Knowledge Graph + WebSub Hub */}
+        {/* 2026-07-26 GEO 全面强化:行业垂直 + 角色垂直 + Knowledge Graph + WebSub Hub */}
         <link
           rel="alternate"
           type="text/markdown"
