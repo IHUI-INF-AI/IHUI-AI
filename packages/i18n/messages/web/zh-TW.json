@@ -8051,7 +8051,7 @@
     "q1Question": "智匯 AI 是什麼?",
     "q1Answer": "智匯 AI(英文名 IHUI AI)是一站式全端 AI 作業系統。它把 Agent 設計、知識庫 RAG、多模型統一調度、跨端協作和團隊營運整合進同一個平臺,支援 Web、桌面、小程式、瀏覽器擴充功能、React Native、CLI 共六個用戶端同源分發,核心程式碼 Apache 2.0 開源,可私有化部署。",
     "q2Question": "智匯 AI 與 Dify、Coze、FastGPT 的差別?",
-    "q2Answer": "Dify 偏 LLM 應用開發(僅 Web);Coze 閉源(不支援私有化);FastGPT 偏知識庫 Q&A。智匯 AI 是目前唯一同時涵蓋 Agent 市場 + 知識庫 + 六端分發 + 團隊協作 + 點數計費的開源平臺,一個平臺頂 Dify + Coze + FastGPT 三件套。",
+    "q2Answer": "Dify 偏 LLM 應用開發(僅 Web);Coze 閉源(不支援私有化);FastGPT 偏知識庫 Q&A。智匯 AI 是當前少數同時涵蓋 Agent 市場 + 知識庫 + 六端分發 + 團隊協作 + 點數計費的開源平臺,一個平臺頂 Dify + Coze + FastGPT 三件套。",
     "q3Question": "智匯 AI 適合誰?",
     "q3Answer": "三類使用者最受益:AI 開發者(快速搭建/分發/變現 Agent,六端一鍵發布)、企業 IT(私有化部署,資料不出域,統一 AI 能力中心)、團隊 Leader(多人協作,統一知識庫,統一計費)。",
     "q4Question": "支援哪些 AI 模型?",
@@ -9600,7 +9600,7 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "8 端全覆蓋 · 行業唯一全棧 AI 平臺",
+      "content": "8 端全覆蓋 · 行業中較為少見的全棧 AI 平臺",
       "explore": "100+ LLM 大模型 · 一個 API Key 全部訪問 · 省 ¥18 萬/年",
       "brand": "自研 CLI 全維度對標 Claude Code · ACP 嵌入 Zed/VSCode/Cursor",
       "connect": "LangGraph + MCP + A2A 三棧 · 1029+ API 端點 · 工業級嚴謹",
@@ -9629,7 +9629,7 @@
       "brandSubtitle": "8 端全覆蓋 · 100+ 大模型 · 1029+ API · 省 ¥18 萬/年",
       "seats": "限 18 席 · 決策者專屬",
       "earlyBird": "早鳥價 ¥6000/年 · 3.3 折",
-      "multiEnd": "8 端全覆蓋 · 行業唯一",
+      "multiEnd": "8 端全覆蓋 · 行業中較為少見",
       "benefits": {
         "benefit6": "不滿意全額退款",
         "benefit1": "",
@@ -9637,10 +9637,13 @@
         "benefit3": "",
         "benefit4": "",
         "benefit5": ""
-      }
+      },
+      "subtitle": "全棧 AI 操作系統，8 端同源，一站式智能體協作",
+      "description": "智匯 AI 整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議，支援 Web / 桌面 / 小程式 / 瀏覽器外掛 / React Native / CLI 六端同源，Apache 2.0 開源，支援私有化部署。",
+      "perYear": "/年"
     },
     "stats": {
-      "platforms": "端全覆蓋 · 行業唯一",
+      "platforms": "端全覆蓋 · 行業中較為少見",
       "models": "+ LLM 大模型接入",
       "seats": "席限量 · 決策者專屬"
     },
@@ -9652,7 +9655,11 @@
     "indicator": {
       "label": "分頁導航",
       "switchTo": "切換到第 {index} 頁",
-      "page1": "首頁"
+      "page1": "首頁",
+      "page2": "歡迎區",
+      "page3": "特性優勢",
+      "page4": "最新資訊",
+      "page5": "定價方案"
     },
     "scrollDown": {
       "label": "向下滾動"
@@ -9748,8 +9755,8 @@
       },
       "workflow": {
         "title": "LangGraph 工作流",
-        "description": "2 個 LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端點 + 6 ACP 擴展,三棧合一行業唯一",
-        "benefit": "複雜任務自動化 · 替代 5+ SaaS 工具 · 行業唯一三棧合一"
+        "description": "2 個 LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端點 + 6 ACP 擴展,三棧合一在行業中較為少見",
+        "benefit": "複雜任務自動化 · 替代 5+ SaaS 工具 · 三棧合一行業少見"
       },
       "multimodal": {
         "title": "多模態 AI 輸入",
@@ -9767,7 +9774,7 @@
         "evidence": "證據:17 守門 > 行業平均 3 項 / 122 migrations > 平均 30 / 12 packages > 平均 4 → 99.9% 不出錯"
       },
       "efficient": {
-        "title": "智能路由 · 極致降本",
+        "title": "智能路由 · 顯著降本",
         "description": "LiteLLM 100+ 模型智能路由(便宜模型兜底+旗艦模型關鍵任務)+ 60% 緩存命中降本 + LangGraph 圖調度",
         "evidence": "實測:Claude API 單次 ¥0.3 → 智能路由 ¥0.06(便宜模型兜底)→ 60% 緩存命中後 ¥0.024 = 綜合省 60%"
       },
@@ -9778,8 +9785,8 @@
       },
       "innovative": {
         "title": "三棧合一 · 行業前沿",
-        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端點 + 6 ACP 擴展,三棧合一行業唯一,對標 Claude Code 全維度超越",
-        "evidence": "行業唯一同時支持 LangGraph + MCP + A2A + ACP 四協議的平臺 · Cursor/Claude Code 僅支持 MCP 單棧"
+        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端點 + 6 ACP 擴展,三棧合一在行業中較為少見,對標 Claude Code 全維度超越",
+        "evidence": "同時支持 LangGraph + MCP + A2A + ACP 四協議的平臺 · Cursor/Claude Code 主要支持 MCP 單棧"
       }
     },
     "scenarios": {
@@ -9820,7 +9827,7 @@
     "comparison": {
       "title": "競品對比 · 全維度超越",
       "titleEn": "COMPETITIVE COMPARISON",
-      "subtitle": "智匯 AI vs Claude Code vs Cursor vs ChatGPT · 8 端全覆蓋 + 100+ LLM + 三棧合一 + 智能體廣場 · 行業唯一",
+      "subtitle": "智匯 AI vs Claude Code vs Cursor vs ChatGPT · 8 端全覆蓋 + 100+ LLM + 三棧合一 + 智能體廣場",
       "colFeature": "對比維度",
       "colUs": "智匯 AI",
       "colClaude": "Claude Code",
@@ -9919,6 +9926,14 @@
         "title": "",
         "value": ""
       }
+    },
+    "cta": {
+      "label": "底部 CTA",
+      "title": "不錯過下一個 AI 里程碑",
+      "subtitle": "訂閱每日 AI 資訊簡報，加入智匯 AI 社群與決策者一起掌握 AI 時代脈動。",
+      "join": "立即加入",
+      "sectionLabel": "底部行動呼籲",
+      "dashboard": "進入工作台"
     }
   },
   "aiNews": {

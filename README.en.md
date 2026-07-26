@@ -108,7 +108,7 @@ Fundraising can fail, but open source doesn't.
 | --- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | 1   | ⭐ **Star this repo**                      | It'll appear on your GitHub timeline, visible to your followers                                            |
 | 2   | 📲 **Copy the 2 lines above to your feed** | See images below — you'll be "the first to bring this story to your friends"                               |
-| 3   | 💬 **Write your own story in Issues**      | [Enter here](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — we'll pin the best ones for the world to see |
+| 3   | 💬 **Write your own story in Issues**      | [Enter here](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — we'll pin the most useful ones for the world to see |
 
 ---
 
@@ -317,7 +317,7 @@ IHUI-AI is not trying to replace any single project—it integrates the capabili
 
 > **Core Insight**: In the open-source AI ecosystem, you can find projects **more specialized** than IHUI-AI (e.g., RAGFlow goes deeper on RAG, Claude Code is more mature on CLI, LangChain is more flexible at the framework layer), but you won't find an open-source Foundation **more comprehensive** than IHUI-AI — integrating six major categories of capabilities in a single Apache 2.0 repository is IHUI-AI's core differentiation.
 >
-> **Not replacing anyone, but open-sourcing the capabilities of 6 product categories**: If you want RAGFlow's RAG, you can use RAGFlow alone; if you want Claude Code's CLI, you can use Claude Code alone; but if you want a **complete commercially viable AI product** (chat + coding + education + publishing + billing + enterprise security), IHUI-AI is the only choice in the global open-source ecosystem.
+> **Not replacing anyone, but open-sourcing the capabilities of 6 product categories**: If you want RAGFlow's RAG, you can use RAGFlow alone; if you want Claude Code's CLI, you can use Claude Code alone; but if you want a **complete commercially viable AI product** (chat + coding + education + publishing + billing + enterprise security), IHUI-AI is a notable option in the global open-source ecosystem.
 
 ---
 
@@ -1766,7 +1766,7 @@ He did it for one reason, a conviction so simple it borders on the naive:
 
 > **"AI shouldn't be just a game for a few big tech companies and capital players. Everyone deserves to own their own AI program."**
 
-It sounds like a slogan. But at minus 25 degrees Celsius in a Changchun winter, in the small hours when the heating has gone quiet, after being politely declined by the Nth investor—it was the only thing that kept one person writing another thousand lines of code.
+It sounds like a slogan. But at minus 25 degrees Celsius in a Changchun winter, in the small hours when the heating has gone quiet, after being politely declined by the Nth investor—it was the key thing that kept one person writing another thousand lines of code.
 
 This is the story of how that conviction was, slowly, poured into shape by time and sweat.
 
@@ -1876,7 +1876,7 @@ Of course, the cost was real: countless 3 AM commits, countless rollbacks after 
 > imperfect, but moving forward.
 > Just like this project itself.
 
-This experience is, in itself, the best footnote to the Vibe Coding era:
+This experience is, in itself, a vivid footnote to the Vibe Coding era:
 
 > **AI will not replace developers.**
 > **But developers who use AI will leave those who don't an entire era behind.**
@@ -1891,7 +1891,7 @@ In reality, that moment never came.
 
 Over the past year, the founder kept seeking capital:
 
-- **Investment institutions**: From top-tier USD funds to local state capital, from AI-focused funds to generalist VCs—first meetings, pitches, due-diligence checklists, and the endless refrain of "let's discuss further"
+- **Investment institutions**: From well-known USD funds to local state capital, from AI-focused funds to generalist VCs—first meetings, pitches, due-diligence checklists, and the endless refrain of "let's discuss further"
 - **Strategic capital**: From cloud-vendor strategics to AI platform partners, from listed-company CVCs to upstream-and-downstream players—endless "great strategic synergy," followed by "but our fund's term is tight this round"
 - **Local funds and FAs**: From government guidance funds to industry FA referrals—endless intro meetings, endless "let's wait and see"
 
@@ -1903,7 +1903,7 @@ In China's AI startup scene, there's an unflattering word for this state: **"run
 
 Many times, he thought about giving up.
 
-Many times, at 3 or 4 AM in Changchun, the screen was the only thing still lit in the room. Outside, minus 20 degrees. Inside, a lamp and lines of code still growing. The phone held a few unanswered WeChat messages from investors—not blocked, just "no conclusion yet."
+Many times, at 3 or 4 AM in Changchun, the screen remained the brightest light in the room. Outside, minus 20 degrees. Inside, a lamp and lines of code still growing. The phone held a few unanswered WeChat messages from investors—not blocked, just "no conclusion yet."
 
 But he didn't stop.
 
@@ -1944,7 +1944,7 @@ But because:
 
 If you've read this far, we'd like to say a few things to you:
 
-**To developers** — Fork it. Modify it. Make it your own. Every commit you make is the best continuation of this story. We're not asking you to "contribute back." We want to see you build something even greater with it.
+**To developers** — Fork it. Modify it. Make it your own. Every commit you make is the most heartfelt continuation of this story. We're not asking you to "contribute back." We want to see you build something even greater with it.
 
 **To educators** — Use it to build your AI course platform, so more students aren't left behind in the AI era. AI education shouldn't be a privilege of expensive SaaS. It should be as accessible as water and electricity.
 
