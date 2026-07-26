@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { getVipLevels, type VipLevel } from '@/lib/vip-api'
+import { getVipLevels, type VipLevel } from '@ihui/api-client'
 
 export interface UseVipPricingReturn {
   levels: VipLevel[]
