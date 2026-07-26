@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Minus, Square, X } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { useDesktop } from '@/hooks/use-desktop'
-import { minimizeWindow, toggleMaximizeWindow, closeWindow } from '@/lib/tauri-bridge'
+import { minimizeWindow, toggleMaximizeWindow, closeWindow, startWindowDrag } from '@/lib/tauri-bridge'
 import { cn } from '@/lib/utils'
 import { TagsView } from '@/components/layout/TagsView'
 
@@ -48,6 +48,24 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     const next = await toggleMaximizeWindow()
     setLocalMaximized(next)
   }
+
+  // 2026-07-26 立:窗口拖拽 + 双击最大化(用户反馈 data-tauri-drag-region 不生效)
+  // - onMouseDown:左键 + 非交互元素(空白区域)时调用 startWindowDrag()
+  // - onDoubleClick:非交互元素时调用 toggleMaximizeWindow()
+  // - 检查 closest('a,button,[role=button],input,textarea,select') 避免影响子元素交互
+  const handleDragRegionMouseDown = (e: React.MouseEvent) => {
+    if (!isDesktop || e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest('a, button, [role="button"], input, textarea, select')) return
+    void startWindowDrag()
+  }
+
+  const handleDragRegionDoubleClick = (e: React.MouseEvent) => {
+    if (!isDesktop) return
+    const target = e.target as HTMLElement
+    if (target.closest('a, button, [role="button"], input, textarea, select')) return
+    void handleToggleMax()
+  }
   const handleClose = async () => {
     await closeWindow()
   }
@@ -65,6 +83,8 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       <div
         data-tauri-drag-region
         data-is-desktop={isDesktop ? 'true' : 'false'}
+        onMouseDown={handleDragRegionMouseDown}
+        onDoubleClick={handleDragRegionDoubleClick}
         className="flex h-[32px] shrink-0 items-center gap-2 select-none"
       >
         <React.Suspense fallback={null}>
@@ -82,7 +102,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
 
         {/* 右侧:窗口控制按钮(Min/Max/Close),仅桌面端 isDesktop 显示 */}
         {isDesktop && (
-          <div className="flex h-full shrink-0 items-center" data-window-controls>
+          <div className="flex h-6 shrink-0 items-center gap-0.5 rounded-md" data-window-controls>
             <WindowControlButton
               onClick={handleMinimize}
               ariaLabel="最小化"
@@ -146,7 +166,7 @@ function WindowControlButton({
       onClick={onClick}
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex h-full w-11 items-center justify-center',
+        'inline-flex h-6 w-6 items-center justify-center rounded-sm',
         'text-foreground/80 transition-colors',
         'hover:bg-accent hover:text-foreground',
         'focus:outline-none focus-visible:bg-accent',
