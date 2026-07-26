@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING
 
 from app.core.logging import get_logger
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
@@ -27,6 +27,9 @@ except ImportError:
     _HAS_PLAYWRIGHT = False
     Browser = BrowserContext = Page = None  # type: ignore[assignment,misc]
 
+if TYPE_CHECKING:
+    from playwright._impl._api_structures import SetCookieParam
+
 
 class ZhihuAdapter(BasePlatformAdapter):
     platform_id = "zhihu"
@@ -35,7 +38,7 @@ class ZhihuAdapter(BasePlatformAdapter):
     requires_credentials = ["z_c0"]
     needs_browser = True
 
-    def _cookies(self, credentials: dict) -> list[dict[str, Any]]:
+    def _cookies(self, credentials: dict) -> list[SetCookieParam]:
         return [{
             "name": "z_c0",
             "value": credentials.get("z_c0", ""),
