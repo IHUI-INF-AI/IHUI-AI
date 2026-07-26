@@ -75,7 +75,7 @@ class LearnFeedbackBody(BaseModel):
 @router.get("/rules")
 async def list_rules() -> dict[str, Any]:
     """列出全部规则(按 priority DESC 排序)。"""
-    rules = rules_engine.list()
+    rules = rules_engine.list_rules()
     return {
         "code": 0,
         "message": "success",

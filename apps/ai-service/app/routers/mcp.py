@@ -118,7 +118,7 @@ async def list_skills() -> dict[str, Any]:
     """列出全部预置 skill。"""
     skills = [
         {"name": s.name, "description": s.description, "prompt_template": s.prompt_template}
-        for s in skill_registry.list()
+        for s in skill_registry.list_skills()
     ]
     return {"skills": skills, "count": len(skills)}
 
@@ -144,7 +144,7 @@ async def get_skill(name: str) -> dict[str, Any]:
 @router.get("/mcp/slash-commands")
 async def list_slash_commands() -> dict[str, Any]:
     """列出全部 slash 命令。"""
-    commands = [{"name": c.name, "description": c.description} for c in slash_command_registry.list()]
+    commands = [{"name": c.name, "description": c.description} for c in slash_command_registry.list_commands()]
     return {"commands": commands, "count": len(commands)}
 
 

@@ -185,7 +185,7 @@ async def get_session_messages(
 async def clear_session(session_id: str) -> dict[str, Any]:
     """清除指定会话的全部消息。"""
     await memory_store.clear(session_id)
-    vector_memory.clear(session_id)
+    await vector_memory.clear(session_id)
     return {"session_id": session_id, "cleared": True}
 
 
@@ -196,10 +196,10 @@ async def search_memory(req: MemorySearchRequest) -> dict[str, Any]:
     通过 LLM 嵌入向量 + 余弦相似度检索最相关的历史记忆。
     支持跨会话搜索或限定在指定会话内搜索。
     """
+    query_embedding = await vector_memory.embed(req.query)
     results = await vector_memory.search(
-        query=req.query,
+        query_embedding=query_embedding,
         top_k=req.top_k,
-        session_id=req.session_id,
     )
     return {"query": req.query, "results": results, "count": len(results)}
 
@@ -220,7 +220,8 @@ async def cancel_task(task_id: str) -> dict[str, Any]:
     if not info:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
     ok = agent_executor.cancel(task_id)
-    return {"task_id": task_id, "canceled": ok, "status": agent_executor.status(task_id)["status"]}
+    latest_info = agent_executor.status(task_id)
+    return {"task_id": task_id, "canceled": ok, "status": latest_info["status"] if latest_info else "cancelled"}
 
 
 @router.post("/agents/skill-evolution")

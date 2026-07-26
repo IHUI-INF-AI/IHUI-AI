@@ -32,7 +32,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from .codebase_indexer import codebase_indexer
 from .long_term_memory import long_term_memory
@@ -154,7 +154,7 @@ async def knowledge_lookup(
                 err_msg,
             )
             continue
-        raw_by_source[src] = res
+        raw_by_source[src] = cast(list[KnowledgeHit], res)
 
     for src in priority:
         source_hits = raw_by_source.get(src, [])
