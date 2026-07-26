@@ -92,62 +92,62 @@ export default function Profile() {
   return (
     <View className="min-h-screen bg-background">
       {/* 身份标签(对标原项目 settings/account)*/}
-      <View className="mx-[12px] mt-[12px] tech-card px-[16px] py-[12px] flex items-center justify-between">
-        <Text className="text-[14px] text-foreground">{t('user.identity')}</Text>
+      <View className="mx-[24rpx] mt-[24rpx] tech-card px-[32rpx] py-[24rpx] flex items-center justify-between">
+        <Text className="text-[28rpx] text-foreground">{t('user.identity')}</Text>
         <View className="flex items-center">
           {form.isVip ? (
-            <Text className="px-[8px] py-[2px] bg-[#8b5cf6] text-white text-[11px] rounded-[4px]">
+            <Text className="px-[16rpx] py-[4rpx] bg-[#8b5cf6] text-white text-[22rpx] rounded-[8rpx]">
               {t('user.vipMember')}
             </Text>
           ) : null}
           {(form.roleId ?? 0) >= 1 ? (
-            <Text className="ml-[6px] px-[8px] py-[2px] bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-[11px] rounded-[4px]">
+            <Text className="ml-[12rpx] px-[16rpx] py-[4rpx] bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-[22rpx] rounded-[8rpx]">
               {t('user.admin')}
             </Text>
           ) : null}
           {!form.isVip && (form.roleId ?? 0) < 1 ? (
-            <Text className="px-[8px] py-[2px] bg-muted text-muted-foreground text-[11px] rounded-[4px]">
+            <Text className="px-[16rpx] py-[4rpx] bg-muted text-muted-foreground text-[22rpx] rounded-[8rpx]">
               {t('user.normalUser')}
             </Text>
           ) : null}
         </View>
       </View>
-      <View className="mx-[12px] bg-card rounded-[8px] overflow-hidden">
+      <View className="mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         {rows.map((row, idx) => (
           <View
             key={row.path}
-            className={`flex justify-between items-center px-[16px] py-[16px] ${
-              idx < rows.length - 1 ? 'mb-[4px]' : ''
+            className={`flex justify-between items-center px-[32rpx] py-[32rpx] ${
+              idx < rows.length - 1 ? 'mb-[8rpx]' : ''
             }`}
             onClick={() => (row.isAvatar ? chooseAvatar() : navigate(row.path))}
           >
-            <Text className="text-[14px] text-foreground">{row.label}</Text>
-            <View className="flex items-center text-[13px] text-muted-foreground">
+            <Text className="text-[28rpx] text-foreground">{row.label}</Text>
+            <View className="flex items-center text-[26rpx] text-muted-foreground">
               {row.isAvatar ? (
                 <View className="relative">
                   <Image
-                    className="w-[40px] h-[40px] rounded-md bg-muted"
+                    className="w-[80rpx] h-[80rpx] rounded-md bg-muted"
                     src={form.avatar || '/static/default-avatar.png'}
                     mode="aspectFill"
                   />
-                  <View className="absolute -bottom-[2px] -right-[2px] w-[14px] h-[14px] bg-primary rounded-sm flex items-center justify-center">
-                    <Text className="text-[9px] text-white leading-none">📷</Text>
+                  <View className="absolute -bottom-[4rpx] -right-[4rpx] w-[28rpx] h-[28rpx] bg-primary rounded-sm flex items-center justify-center">
+                    <Text className="text-[18rpx] text-white leading-none">📷</Text>
                   </View>
                 </View>
               ) : (
                 <Text>{row.value}</Text>
               )}
-              <Text className="text-muted-foreground ml-[8px]">›</Text>
+              <Text className="text-muted-foreground ml-[16rpx]">›</Text>
             </View>
           </View>
         ))}
       </View>
-      <View className="mx-[12px] bg-card rounded-[8px] overflow-hidden">
+      <View className="mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         <View
-          className="flex justify-between items-center px-[16px] py-[16px]"
+          className="flex justify-between items-center px-[32rpx] py-[32rpx]"
           onClick={() => navigate('/pages/user/feedback')}
         >
-          <Text className="text-[14px] text-foreground">{t('user.profile.feedback')}</Text>
+          <Text className="text-[28rpx] text-foreground">{t('user.profile.feedback')}</Text>
           <View className="flex items-center text-muted-foreground">
             <Text>›</Text>
           </View>
