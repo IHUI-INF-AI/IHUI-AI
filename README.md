@@ -1893,24 +1893,31 @@ LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `Pro
 - **迁移调用点**:`spec_generator.split_tasks()`(从 `_call_llm + _parse_tasks_json` 改为 `structured_completion`)+ 失败降级到 `mechanical_split`
 - **测试**:`tests/test_llm_gateway.py::TestStructuredCompletion*`(15 单测,全绿,覆盖 Success/Validation/Error/Retry 四类)+ `tests/test_spec_generator.py::TestSplitTasks`(10 单测,全绿,验证迁移后等价)
 
-### G4 — 知识查询统一门面(`apps/ai-service/app/services/knowledge_lookup.py` + `agent_tools.py`)
+### G4 + G5 — 知识查询统一门面 + 生产调用点接入
 
-把三个独立的知识检索子系统聚合为一个统一入口,对应"LLM 字典化 4 场景"中的**场景 3 记忆分离式字典化**:模型只负责推理,外部知识统一查表,不与模型权重绑定。G4 完整迁移已落地,AgentLoopV2 调用方可一行接入知识查询工具。
+把三个独立的知识检索子系统聚合为一个统一入口,对应"LLM 字典化 4 场景"中的**场景 3 记忆分离式字典化**:模型只负责推理,外部知识统一查表,不与模型权重绑定。G4 完整迁移 + G5 生产调用点接入已落地,LLM 可通过 MCP 协议直接调用知识查询工具。
+
+**G4 完整迁移(基础层):**
 
 - **核心 API**:`knowledge_lookup(query, *, user_id, repo_id, session_id, top_k_per_source, source_priority, api_token)` → `KnowledgeLookupResult(hits, errors, duration_ms)`
 - **三源并发**:`codebase_indexer`(代码库 AST 切片 + embedding)+ `rag_service.retrieve_only()`(向量检索 + rerank,只取 retrieve 阶段,跳过 generate)+ `long_term_memory`(跨会话摘要),`asyncio.gather(return_exceptions=True)` 任一源失败不阻塞其他
 - **降级策略**:IO 失败 → 错误记入 `errors` 字段,`hits` 返回空;`user_id` 为空自动跳过 `long_term_memory`(不报错);`source_priority` 不合法抛 `ValueError`
 - **统一格式**:`KnowledgeHit(source, score, content, raw)`,`content` 已格式化为 `[codebase:function name] file:ls-le\n...` / `[rag:role] ts\n...` / `[long_term_memory] summary\n关键事实: ...`,可直接注入 prompt
 - **RAGService.retrieve_only() 公有 API**:G4 完整迁移新增,替代 PoC 阶段的 `_retrieve` 私有调用。委托给 `_retrieve()`,无额外逻辑(§3 做减法)
-- **AgentLoopV2 接入工厂**:`make_knowledge_lookup_tool(user_id, repo_id, session_id, top_k_per_source, source_priority, api_token)` → `ToolDefinition`,调用方一行接入:
-  ```python
-  from app.services.agent_tools import make_knowledge_lookup_tool
-  from app.services.agent_loop_v2 import AgentLoopV2
-  tools = [make_knowledge_lookup_tool(user_id="u1", repo_id="my-repo")]
-  loop = AgentLoopV2(llm_complete_fn=..., tools=tools)
-  ```
-  闭包绑定参数(user_id/repo_id 等),LLM 只能控制 `query` 和 `top_k_per_source`;空 query / ValueError 降级返回 error dict 不抛异常;hits 不含 raw 字段(避免 LLM 上下文冗长)
-- **测试**:`tests/test_knowledge_lookup.py`(25 单测,已迁移到 retrieve_only)+ `tests/test_rag.py::TestRetrieveOnly`(5 单测)+ `tests/test_agent_tools.py`(14 单测),共 44 个新单测全绿,联合 278/278 全绿
+- **AgentLoopV2 接入工厂**(`agent_tools.py`):`make_knowledge_lookup_tool(user_id, repo_id, session_id, top_k_per_source, source_priority, api_token)` → `ToolDefinition`,调用方一行接入(闭包绑定参数,LLM 只控 query + top_k_per_source)
+
+**G5 生产调用点接入(MCP 工具注册表):**
+
+- **MCP 工具注册**(`mcp_server.py`):新增 `_tool_knowledge_lookup(arguments)` 函数,注册到 `_TOOLS`(MCPTool schema)+ `_TOOL_HANDLERS`(handler 调度表),LLM 可通过 MCP 协议直接调 `knowledge_lookup` 工具
+- **不在 `_ADMIN_ONLY_TOOLS`**:查询类工具,所有用户可用(类比 `search_codebase`),普通用户(user_role=0)和 admin(user_role>=1)均可调
+- **LLM 可控参数**:`query`(required string)+ `top_k_per_source`(optional int,1-20,默认 5)
+- **服务端固定(安全)**:`user_id`/`session_id`/`repo_id`/`api_token`/`source_priority` 均为 None(mcp_server `call_tool` 无 session context 注入,跳过 long_term_memory 源;LTM 接入需后续 mcp_server 架构改动)
+- **降级策略**:空 query → ok=False;三源全失败 → ok=False + errors 透传;ValueError → ok=False;各源空结果(无 errors)→ ok=True(空结果不算失败)
+- **`top_k_per_source` 防御性 clamp**:LLM 传越界值(< 1 或 > 20)自动 clamp 到 1-20
+- **hits 序列化**:不含 `raw` 字段(避免 LLM 上下文冗长 + 防泄露),含 `source` / `score`(round 4 位)/ `content`
+- **测试**:`tests/test_mcp_server.py` 新增 20 个测试(TestKnowledgeLookupToolRegistration 4 + TestKnowledgeLookupToolExecution 13 + TestKnowledgeLookupViaMCPServer 3),覆盖工具注册 / 权限矩阵 / 空查询 / 三源成功 / 全失败降级 / 空结果 / top_k 透传 + clamp / ValueError 降级 / hits 不含 raw / query strip / MCPServer.call_tool 调度
+
+**测试覆盖总览**:G4+G5 共 64 个新单测全绿(test_knowledge_lookup 25 + TestRetrieveOnly 5 + test_agent_tools 14 + test_mcp_server knowledge_lookup 20),联合 313/313 全绿(test_mcp_server 全量 + test_knowledge_lookup + test_rag + test_agent_tools + test_agent_loop_v2)。
 
 ### 字典化四层能力对照
 
@@ -1919,7 +1926,7 @@ LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `Pro
 | L1 数据层       | 24+7 LLM provider 字段字典化 | `provider_config.py` + `LLM_PROVIDERS_JSON` | ✅ 阶段 2 |
 | L2 业务代号     | 8 端 + UI 组件 + 模块短代号  | `prompt_dict.py` + `project_memory.py`      | ✅ G1 PoC |
 | L3 输出结构化   | LLM 输出强 JSON Schema 约束  | `llm_gateway.structured_completion`         | ✅ G2 PoC |
-| L4 知识查询门面 | 三源并发统一查询 + 降级 + AgentLoopV2 工厂接入 | `knowledge_lookup.py` + `agent_tools.py` + `rag.retrieve_only` | ✅ G4 完整迁移 |
+| L4 知识查询门面 | 三源并发统一查询 + 降级 + AgentLoopV2 工厂 + MCP 工具注册 | `knowledge_lookup.py` + `agent_tools.py` + `rag.retrieve_only` + `mcp_server._tool_knowledge_lookup` | ✅ G4+G5 完整迁移 |
 
 ---
 
