@@ -1,5 +1,10 @@
 import type { RegistrySourceType } from '@ihui/types'
-import { type RawRegistryItem, type RegistryAdapter, type SyncOptions, fetchWithTimeout } from './types.js'
+import {
+  type RawRegistryItem,
+  type RegistryAdapter,
+  type SyncOptions,
+  fetchWithTimeout,
+} from './types.js'
 
 const MARKETPLACE_SOURCES = [
   { name: 'mcp.so', url: 'https://mcp.so/api/items' },
@@ -39,12 +44,20 @@ function mapMarketplaceItem(item: unknown, market: string): RawRegistryItem | nu
     source: 'mcp_marketplace',
     sourceId: String(obj.id ?? obj.slug ?? `${market}:${name}`),
     name,
-    description: obj.description ? String(obj.description) : obj.summary ? String(obj.summary) : null,
+    description: obj.description
+      ? String(obj.description)
+      : obj.summary
+        ? String(obj.summary)
+        : null,
     version: obj.version ? String(obj.version) : null,
     author,
     homepage: obj.homepage ? String(obj.homepage) : obj.url ? String(obj.url) : null,
     repoUrl: obj.repository ? String(obj.repository) : obj.github ? String(obj.github) : null,
-    downloadUrl: obj.downloadUrl ? String(obj.downloadUrl) : obj.installUrl ? String(obj.installUrl) : null,
+    downloadUrl: obj.downloadUrl
+      ? String(obj.downloadUrl)
+      : obj.installUrl
+        ? String(obj.installUrl)
+        : null,
     categories: Array.isArray(obj.categories) ? obj.categories.map(String) : [],
     tags: Array.isArray(obj.tags)
       ? obj.tags.map(String)
@@ -54,7 +67,9 @@ function mapMarketplaceItem(item: unknown, market: string): RawRegistryItem | nu
     payload: obj,
     meta: {
       stars: typeof starsRaw === 'number' ? starsRaw : undefined,
-      hasDocumentation: obj.documentation != null || obj.readme != null,
+      hasDocumentation:
+        (obj.documentation !== null && obj.documentation !== undefined) ||
+        (obj.readme !== null && obj.readme !== undefined),
     },
   }
 }
@@ -75,7 +90,7 @@ async function fetchFromMarket(
     }
     const data = await res.json()
     const items = extractArray(data)
-      .map(item => mapMarketplaceItem(item, source.name))
+      .map((item) => mapMarketplaceItem(item, source.name))
       .filter((item): item is RawRegistryItem => item !== null)
     return { items, error: null }
   } catch (e) {
@@ -92,27 +107,19 @@ export const mcpMarketplaceAdapter: RegistryAdapter = {
   async fetch(sourceType: RegistrySourceType, options?: SyncOptions): Promise<RawRegistryItem[]> {
     if (sourceType !== 'mcp') return []
     const timeoutMs = options?.timeoutMs ?? 20000
-    const results = await Promise.all(
-      MARKETPLACE_SOURCES.map(s => fetchFromMarket(s, timeoutMs)),
-    )
+    const results = await Promise.all(MARKETPLACE_SOURCES.map((s) => fetchFromMarket(s, timeoutMs)))
     const errors = results
-      .map((r, i) =>
-        r.error ? `${MARKETPLACE_SOURCES[i]?.name ?? 'unknown'}: ${r.error}` : null,
-      )
+      .map((r, i) => (r.error ? `${MARKETPLACE_SOURCES[i]?.name ?? 'unknown'}: ${r.error}` : null))
       .filter((e): e is string => e !== null)
 
     // 全部源都失败 → 抛错(让上层调度器感知并记录)
-    if (errors.length > 0 && results.every(r => r.items.length === 0)) {
-      throw new Error(
-        `All marketplace sources failed: ${errors.join('; ')}`,
-      )
+    if (errors.length > 0 && results.every((r) => r.items.length === 0)) {
+      throw new Error(`All marketplace sources failed: ${errors.join('; ')}`)
     }
     // 部分失败 → 仅 warn(仍有部分源返回数据,不阻塞同步)
     if (errors.length > 0) {
-      console.warn(
-        `[registry-sync] mcp_marketplace partial failures: ${errors.join('; ')}`,
-      )
+      console.warn(`[registry-sync] mcp_marketplace partial failures: ${errors.join('; ')}`)
     }
-    return results.flatMap(r => r.items)
+    return results.flatMap((r) => r.items)
   },
 }
