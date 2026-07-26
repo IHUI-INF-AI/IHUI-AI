@@ -18,7 +18,7 @@ const EMPTY: ResourceProductForm = {
   isPublished: true,
   sort: '0',
 }
-const API = '/api/v1/admin/resource/products'
+const API = '/api/admin/resource/products'
 
 export default function AdminResourceProductPage() {
   const qc = useQueryClient()

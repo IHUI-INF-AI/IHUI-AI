@@ -179,7 +179,7 @@ def check_path(path):
 
 def check_content(text, role='koubo'):
     """检查文件内容是否含跨项目词。role: 'koubo' 检查口播稿内容纯度；'gzh' 检查公众号纯净度。"""
-    fails = []
+    fails: list[str] = []
     if not text:
         return fails
     if role == 'koubo':
@@ -196,7 +196,7 @@ def check_content(text, role='koubo'):
 
 def check_duplicate(path):
     """检查目标路径是否已存在（避免覆盖现有文件）。"""
-    fails = []
+    fails: list[str] = []
     if os.path.exists(path):
         # 这是 warn 不是 fail，因为可能是有意覆盖
         # 但 pre-flight 必须打印 WARN

@@ -43,14 +43,14 @@ export default function AdminSensitiveWordPage() {
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: '10' })
       if (search.trim()) qs.set('word', search.trim())
-      const r = await fetchApi<SensitiveWordListData>(`/api/v1/admin/security/sensitive-words?${qs}`)
+      const r = await fetchApi<SensitiveWordListData>(`/api/admin/security/sensitive-words?${qs}`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
   })
   const audit = useMutation({
     mutationFn: ({ id, status }: { id: string; status: SensitiveWordStatus }) =>
-      fetchApi(`/api/v1/admin/security/sensitive-words/${id}/audit`, { method: 'PUT', body: JSON.stringify({ status }) }),
+      fetchApi(`/api/admin/security/sensitive-words/${id}/audit`, { method: 'PUT', body: JSON.stringify({ status }) }),
     onSuccess: (_d, v) => { toast.success(v.status === 'published' ? '已通过' : '已拒绝'); qc.invalidateQueries({ queryKey: ['admin', 'sensitive-word'] }) },
     onError: (e: Error) => toast.error(e.message),
   })
