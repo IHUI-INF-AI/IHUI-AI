@@ -36,7 +36,7 @@ def _safe_read(path: str, max_bytes: int = 50 * 1024 * 1024) -> bytes:
 def parse_md(text: str) -> str:
     """markdown → html。"""
     try:
-        import markdown as md_lib  # type: ignore[import-untyped]
+        import markdown as md_lib
     except ImportError as e:
         raise RuntimeError(f"markdown library not installed: {e}. pip install markdown")
 
@@ -47,7 +47,7 @@ def parse_md(text: str) -> str:
 def parse_docx(file_path: str) -> str:
     """docx → html。优先 mammoth(语义化 HTML),降级 python-docx(简单段落拼接)。"""
     try:
-        import mammoth  # type: ignore[import-untyped]
+        import mammoth
         with open(file_path, "rb") as f:
             result = mammoth.convert_to_html(f)
             return result.value
@@ -55,7 +55,7 @@ def parse_docx(file_path: str) -> str:
         pass
 
     try:
-        from docx import Document  # type: ignore[import-untyped]
+        from docx import Document
         doc = Document(file_path)
         parts: list[str] = []
         for para in doc.paragraphs:
@@ -63,7 +63,8 @@ def parse_docx(file_path: str) -> str:
             if not text:
                 parts.append("<p></p>")
                 continue
-            style = (para.style.name or "").lower()
+            para_style = para.style
+            style = (para_style.name if para_style is not None else "").lower()
             if "heading 1" in style:
                 parts.append(f"<h1>{text}</h1>")
             elif "heading 2" in style:
@@ -82,7 +83,7 @@ def parse_docx(file_path: str) -> str:
 def parse_html(text: str) -> str:
     """html → 清洗后的 html(移除 script/style/iframe/on* 属性)。"""
     try:
-        from bs4 import BeautifulSoup  # type: ignore[import-untyped]
+        from bs4 import BeautifulSoup
     except ImportError as e:
         raise RuntimeError(f"beautifulsoup4 not installed: {e}. pip install beautifulsoup4")
 
@@ -101,7 +102,7 @@ def parse_html(text: str) -> str:
 def parse_pdf(file_path: str) -> str:
     """pdf → text → html(每页一个 <h2> + 段落)。"""
     try:
-        import pdfplumber  # type: ignore[import-untyped]
+        import pdfplumber
     except ImportError as e:
         raise RuntimeError(f"pdfplumber not installed: {e}. pip install pdfplumber")
 

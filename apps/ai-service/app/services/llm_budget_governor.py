@@ -196,7 +196,7 @@ class LLMBudgetGovernor:
         if not url:
             return None
         try:
-            import redis.asyncio as aioredis  # type: ignore[import-untyped]
+            import redis.asyncio as aioredis
 
             self._redis = aioredis.from_url(url, decode_responses=True)
         except Exception as e:
@@ -355,7 +355,7 @@ class LLMBudgetGovernor:
     async def _emit_event(self, event_type: str, payload: dict) -> None:
         """发射事件到 orchestration_hub(延迟 import 避免循环依赖;import 失败静默跳过)。"""
         try:
-            from .orchestration_hub import orchestration_hub  # type: ignore[import-untyped]
+            from .orchestration_hub import orchestration_hub
         except Exception:
             return  # orchestration_hub 不存在或 import 失败,静默跳过
         try:
@@ -491,7 +491,7 @@ class LLMBudgetGovernor:
             pillar_usage["tokens"] / pillar_token_limit if pillar_token_limit > 0 else 0.0
         )
 
-        remaining_tokens = max(0, self.config.daily_token_limit - daily_tokens)
+        remaining_tokens = int(max(0, self.config.daily_token_limit - daily_tokens))
         remaining_cost = max(0.0, self.config.daily_cost_limit_usd - daily_cost)
 
         # 硬停止
@@ -579,8 +579,9 @@ class LLMBudgetGovernor:
             agg = {"tokens": 0, "cost": 0.0}
             for d in range(7):
                 dk = _date_from_days_ago(d)
+                captured_dk = dk
                 u = await self._get_period_usage(
-                    lambda dk=dk: _REDIS_KEY_DAILY.format(date=dk),
+                    lambda: _REDIS_KEY_DAILY.format(date=captured_dk),
                     self._memory_daily,
                 )
                 agg["tokens"] += u["tokens"]
@@ -628,8 +629,9 @@ class LLMBudgetGovernor:
         trend: list[dict] = []
         for d in range(days - 1, -1, -1):
             dk = _date_from_days_ago(d)
+            captured_dk = dk
             usage = await self._get_period_usage(
-                lambda dk=dk: _REDIS_KEY_DAILY.format(date=dk),
+                lambda: _REDIS_KEY_DAILY.format(date=captured_dk),
                 self._memory_daily,
             )
             # 按支柱分解当日
