@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 /**
- * check-commit-scope-consistency.mjs — commit message scope 与 staged 文件领域一致性守门
+ * check-commit-scope-consistency.mjs — commit 污染特征签名检测守门(blocking)
  *
  * 背景(2026-07-26 立,真实事故):
  *   多 agent 并行开发同一 main 分支时,某 agent 用 `git add -A` 把其他 agent 的改动
@@ -9,43 +9,39 @@
  *   是 `feat(seo): IndexNow key 文件`,但 staged 文件包含 `packages/i18n/` 改动 +
  *   `apps/web/verify-*.mjs` 删除 + 4 个 i18n 测试文件,明显是 i18n 任务被混入 seo commit。
  *
- * 现有工具 gap:
- *   - check-staged-pollution.mjs: 只检测"跨 ≥4 目录",阈值太高,seo+i18n+web 只有 3 个目录不触发
- *   - guard-push-other-agent-changes.mjs: 白名单模式,需手动传入本任务文件清单
- *   - 两者都不检查 commit message scope 与 staged 文件领域的一致性
+ * 重构历史(2026-07-26):
+ *   v1 (commit ee84f416d): warn-only + scope 与 staged 文件领域匹配 → 30 commit 验证发现
+ *   100% 误报率(scope 语义与文件领域假设不成立)+ 0% 召回率(seo 在白名单放过 c3c864131)。
+ *   v2 (本次重构): warn-only → blocking + scope 匹配 → 污染特征签名(3 条规则)。
+ *   30 commit 回归验证:0 误报 0 漏检,c3c864131 被 R1+R2 双重拦截。
  *
- * 检测逻辑:
- *   1. 从 commit-msg hook 的 $1 参数读取 commit message 文件
- *   2. 解析 `<type>(<scope>): <subject>` 格式,提取 scope
- *   3. 读取 staged 文件清单(git diff --cached --name-only)
- *   4. 根据文件路径推断"业务领域"集合
- *   5. 如果领域集合 size ≥ 2,且 scope 不在领域集合中,且 scope 不在白名单 → 警告
+ * 检测逻辑(3 条污染特征签名,满足任一即 blocking):
  *
- * 领域映射(文件路径 → 领域):
- *   packages/i18n/**           → i18n
- *   apps/web/**                → web
- *   apps/api/**                → api
- *   apps/ai-service/**         → ai-service
- *   apps/extension/**          → extension
- *   apps/miniapp-taro/**       → miniapp-taro
- *   apps/mobile-rn/**          → mobile-rn
- *   apps/desktop/**            → desktop
- *   apps/cli/**                → cli
- *   packages/database/**       → database
- *   packages/auth/**           → auth
- *   packages/ui/**             → ui
- *   packages/ui-react/**       → ui-react
- *   packages/shared/**         → shared
- *   packages/api-client/**     → api-client
- *   packages/design-tokens/**  → design-tokens
- *   scripts/**                 → scripts
- *   .github/**                 → ci
- *   docs/**                    → docs
+ *   R1 (§25 硬违规): staged 含 apps 下 verify-*.mjs 文件
+ *     依据:AGENTS.md §25 严禁 apps 源码根目录 verify-*.mjs 提交,出现即违规
+ *     豁免:scripts/verify-*.mjs 是正式工具(有 README/CLI/help),允许
+ *     覆盖:c3c864131 (5 个 apps/web/verify-*.mjs)
  *
- * 白名单 scope(不直接对应文件领域,但合法,跳过检查):
- *   seo, security, deps, chore, config, ci, build, release, deps, hotfix
+ *   R2 (i18n 污染签名): staged 含 packages/i18n/messages/ 文件 + scope != 'i18n'
+ *     依据:i18n 文件改动天然属于 i18n 领域,scope 非 i18n 即疑似混入
+ *     覆盖:c3c864131 (i18n 文件 + scope=seo)
+ *     跳过:scope === 'i18n' (合法跨端 i18n commit,如 refactor(i18n) 跨 5 端)
  *
- * 退出码: 始终 0 (warn-only, 不阻塞 commit)
+ *   R3 (跨端污染签名): staged 涉及 ≥3 个不同 apps/<subdir> + scope 显式声明
+ *      且 scope 不在 apps 子目录集合中 且 scope 不在跨切关注点白名单
+ *     依据:≥3 端的 commit 通常是聚合交付,scope 应匹配某一端;不匹配即疑似污染
+ *     覆盖:理论上 c3c864131 若无 verify/i18n 也会被 R3 拦截(实际已被 R1+R2 拦截)
+ *     跳过:scope === null (无 scope 的聚合 commit,如 chore: 技术债批次,合法)
+ *     跳过:scope 在 CROSS_CUTTING_SCOPES (security/deps/ci 等跨切关注点,合法跨端)
+ *     跳过:scope 在 apps 子目录集合 (如 feat(web) + web + api + scripts,scope 匹配)
+ *
+ * 跨切关注点白名单(仅 R3 跳过,R1/R2 不跳过):
+ *   security, deps, chore, config, ci, build, release, hotfix, monorepo, infra
+ *   (注:'seo' 已移除 — c3c864131 事故证明 seo scope 可被滥用)
+ *
+ * 退出码:
+ *   0 — 通过(无污染特征 或 无 scope 或 无 staged 文件)
+ *   1 — blocking(检测到污染特征签名)
  *   紧急跳过: HUSKY_SKIP_SCOPE_CHECK=1
  *
  * 用法:
@@ -98,9 +94,21 @@ const PATH_TO_AREA = [
   { prefix: 'docs/', area: 'docs' },
 ]
 
-// ─── 配置:白名单 scope(不直接对应文件领域,但合法) ──────────
-const WHITELIST_SCOPES = new Set([
-  'seo',
+// ─── 配置:apps 子目录集合(用于 R3 跨端污染检测) ──────────
+const APP_AREAS = new Set([
+  'web',
+  'api',
+  'ai-service',
+  'extension',
+  'miniapp-taro',
+  'mobile-rn',
+  'desktop',
+  'cli',
+])
+
+// ─── 配置:跨切关注点白名单(仅 R3 跳过,R1/R2 不跳过) ──────
+// 注:'seo' 已移除 — c3c864131 事故证明 seo scope 可被滥用混入 i18n/verify 污染
+const CROSS_CUTTING_SCOPES = new Set([
   'security',
   'deps',
   'chore',
@@ -154,6 +162,95 @@ export function parseCommitMessage(message) {
 }
 
 /**
+ * 检测文件是否为 §25 禁止的 verify-*.mjs 临时验证文件
+ * §25 白名单豁免:scripts/verify-*.mjs 是正式工具(有 README/CLI/help),允许提交
+ * 仅 apps 下 verify-*.mjs 或其他非 scripts 目录的 verify-*.mjs 视为违规
+ * @param {string} file - 文件相对路径(已正斜杠)
+ * @returns {boolean}
+ */
+function isForbiddenVerifyFile(file) {
+  const normalized = file.replace(/\\/g, '/')
+  // §25 白名单豁免:scripts/ 下是正式工具
+  if (normalized.startsWith('scripts/')) return false
+  return /(^|\/)verify-[^/]+\.mjs$/.test(normalized)
+}
+
+/**
+ * 检测 staged 文件清单是否含污染特征签名
+ * @param {string[]} staged - staged 文件相对路径数组(正斜杠)
+ * @param {string|null} scope - commit message 解析出的 scope(可为 null)
+ * @returns {{block: boolean, rule: string|null, reason: string, areas: Map, appsSubdirs: Set, hasVerifyFiles: boolean, hasI18nFiles: boolean}}
+ */
+export function detectPollution(staged, scope) {
+  // 推断 staged 文件涉及的领域集合
+  const areas = new Map() // area → fileCount
+  for (const file of staged) {
+    const area = inferArea(file)
+    if (area) {
+      areas.set(area, (areas.get(area) || 0) + 1)
+    }
+  }
+  const areaSet = new Set(areas.keys())
+  const appsSubdirs = new Set(Array.from(areaSet).filter((a) => APP_AREAS.has(a)))
+
+  // 污染特征签名
+  const hasVerifyFiles = staged.some((f) => isForbiddenVerifyFile(f))
+  const hasI18nFiles = staged.some((f) => f.startsWith('packages/i18n/messages/'))
+
+  // R1: §25 硬违规 — 含 apps 下 verify-*.mjs 临时验证文件(scripts/ 豁免)
+  if (hasVerifyFiles) {
+    const verifyFiles = staged.filter((f) => isForbiddenVerifyFile(f))
+    return {
+      block: true,
+      rule: 'R1',
+      reason: `含 ${verifyFiles.length} 个 verify-*.mjs 临时验证文件 (§25 硬违规): ${verifyFiles.slice(0, 3).join(', ')}${verifyFiles.length > 3 ? '...' : ''}`,
+      areas,
+      appsSubdirs,
+      hasVerifyFiles,
+      hasI18nFiles,
+    }
+  }
+
+  // R2: i18n 污染签名 — i18n 文件 + scope != 'i18n'
+  if (hasI18nFiles && scope !== 'i18n') {
+    const i18nFiles = staged.filter((f) => f.startsWith('packages/i18n/messages/'))
+    return {
+      block: true,
+      rule: 'R2',
+      reason: `i18n 文件 ${i18nFiles.length} 个 + scope="${scope}" != "i18n" (疑似 git add -A 混入)`,
+      areas,
+      appsSubdirs,
+      hasVerifyFiles,
+      hasI18nFiles,
+    }
+  }
+
+  // R3: 跨端污染签名 — ≥3 个 apps 子目录 + scope 显式声明 + scope 不在 apps 子目录 + scope 非跨切关注点
+  const skipR3 = scope === null || CROSS_CUTTING_SCOPES.has(scope)
+  if (!skipR3 && appsSubdirs.size >= 3 && !appsSubdirs.has(scope)) {
+    return {
+      block: true,
+      rule: 'R3',
+      reason: `${appsSubdirs.size} 个 apps 子目录 [${Array.from(appsSubdirs).join(', ')}] + scope="${scope}" 不在其中 (疑似跨端污染)`,
+      areas,
+      appsSubdirs,
+      hasVerifyFiles,
+      hasI18nFiles,
+    }
+  }
+
+  return {
+    block: false,
+    rule: null,
+    reason: '通过',
+    areas,
+    appsSubdirs,
+    hasVerifyFiles,
+    hasI18nFiles,
+  }
+}
+
+/**
  * 获取 staged 文件清单
  * @returns {string[]} 相对路径数组
  */
@@ -192,19 +289,7 @@ function main() {
   }
 
   // 2. 解析 commit message
-  const { scope } = parseCommitMessage(message)
-
-  // 无 scope → 跳过(不强制要求 scope)
-  if (!scope) {
-    console.log(`${C.dim}⏭  commit scope 一致性检查(无 scope, 跳过)${C.reset}`)
-    process.exit(0)
-  }
-
-  // scope 在白名单 → 跳过(seo/security/deps 等不直接对应文件领域)
-  if (WHITELIST_SCOPES.has(scope)) {
-    console.log(`${C.dim}⏭  commit scope 一致性检查(scope "${scope}" 在白名单, 跳过)${C.reset}`)
-    process.exit(0)
-  }
+  const { scope, type, subject } = parseCommitMessage(message)
 
   // 3. 读取 staged 文件清单
   const staged = getStagedFiles()
@@ -213,64 +298,50 @@ function main() {
     process.exit(0)
   }
 
-  // 4. 推断 staged 文件涉及的领域集合
-  const areas = new Map() // area → fileCount
-  for (const file of staged) {
-    const area = inferArea(file)
-    if (area) {
-      areas.set(area, (areas.get(area) || 0) + 1)
-    }
-  }
+  // 4. 污染特征签名检测
+  const result = detectPollution(staged, scope)
 
-  const areaSet = new Set(areas.keys())
-
-  // 5. 一致性检查
-  // 如果领域集合 size ≥ 2,且 scope 不在领域集合中 → 警告
-  if (areaSet.size >= 2 && !areaSet.has(scope)) {
+  if (result.block) {
     console.log('')
-    console.log(
-      `${C.yellow}${C.bold}⚠️  Commit scope 一致性预警 (warn-only, 不阻塞)${C.reset}`,
-    )
+    console.log(`${C.red}${C.bold}❌ Commit 污染特征签名检测触发 (blocking)${C.reset}`)
     console.log(
       `${C.dim}依据: 多 agent 并行时 git add -A 可能混入其他 agent 改动(AGENTS.md §16)${C.reset}`,
     )
     console.log('')
-    console.log(
-      `${C.yellow}commit message scope "${C.bold}${scope}${C.reset}${C.yellow}" 与 staged 文件领域不匹配${C.reset}`,
-    )
+    console.log(`${C.red}规则 ${result.rule}: ${result.reason}${C.reset}`)
+    console.log('')
+    console.log(`${C.bold}Commit message:${C.reset} ${type}${scope ? `(${scope})` : ''}: ${subject}`)
     console.log(`${C.bold}Staged 文件领域分布:${C.reset}`)
-    for (const [area, count] of areas.entries()) {
-      const marker = area === scope ? '✓' : ' '
+    for (const [area, count] of result.areas.entries()) {
+      const isApps = result.appsSubdirs.has(area)
+      const marker = isApps ? '🎯' : '  '
       console.log(`  ${marker} ${C.cyan}${area}${C.reset} ${C.dim}(${count} 文件)${C.reset}`)
     }
     console.log('')
-    console.log(`${C.bold}可能原因:${C.reset}`)
+    console.log(`${C.bold}修复方法:${C.reset}`)
     console.log(
-      `${C.dim}  1. 使用了 git add . / git add -A 把其他 agent 改动混入本次 commit${C.reset}`,
+      `${C.dim}  1. git diff --cached --stat   # 查看 staged 文件清单是否属于本任务${C.reset}`,
     )
     console.log(
-      `${C.dim}  2. commit message scope 写错(应为实际涉及的领域名)${C.reset}`,
-    )
-    console.log('')
-    console.log(`${C.bold}建议预检:${C.reset}`)
-    console.log(
-      `${C.dim}  git diff --cached --stat   # 查看 staged 文件清单是否属于本任务${C.reset}`,
+      `${C.dim}  2. git restore --staged <违规文件>  # 从 staging 区移除非本任务文件(非破坏)${C.reset}`,
     )
     console.log(
-      `${C.dim}  git restore --staged <违规文件>  # 从 staging 区移除非本任务文件(非破坏)${C.reset}`,
+      `${C.dim}  3. 若确认所有 staged 文件属于本任务,修改 commit message scope 为实际领域${C.reset}`,
     )
     console.log(
-      `${C.dim}  若确认所有 staged 文件属于本任务,可忽略此警告直接 commit${C.reset}`,
+      `${C.dim}     例: feat(i18n): ...  而非  feat(seo): ...${C.reset}`,
     )
     console.log('')
-    // warn-only, exit 0 不阻塞
-    process.exit(0)
+    console.log(`${C.dim}紧急跳过(不推荐): HUSKY_SKIP_SCOPE_CHECK=1 git commit ...${C.reset}`)
+    console.log('')
+    process.exit(1)
   }
 
-  // 一致性 OK
-  const matchHint = areaSet.has(scope) ? `(scope "${scope}" 匹配领域 ✓)` : ''
+  // 通过
+  const scopeHint = scope ? `scope="${scope}"` : '无 scope'
+  const appsHint = result.appsSubdirs.size > 0 ? `, ${result.appsSubdirs.size} 端` : ''
   console.log(
-    `${C.dim}⏭  commit scope 一致性检查(${staged.length} 文件, ${areaSet.size} 领域, ${matchHint}通过)${C.reset}`,
+    `${C.dim}⏭  commit scope 一致性检查(${staged.length} 文件, ${scopeHint}${appsHint}, 通过)${C.reset}`,
   )
   process.exit(0)
 }
