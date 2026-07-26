@@ -70,7 +70,7 @@ const formatDate = (v: string | number | undefined): string => {
 /** 从 UserInfo 索引签名安全取值 */
 const readStr = (obj: Record<string, unknown>, key: string): string | undefined => {
   const v = obj[key]
-  return typeof v === 'string' ? v : v != null ? String(v) : undefined
+  return typeof v === 'string' ? v : v !== null && v !== undefined ? String(v) : undefined
 }
 
 export default function MemberIndexPage() {
