@@ -466,7 +466,7 @@ console.log(`${C.red}错误: ${errors.length}${C.reset}`);
 if (errors.length > 0) {
   console.log(`\n${C.red}阻断 commit:${C.reset}`);
   for (const e of errors) console.log(`  - ${e}`);
-  console.log(`\n修复方法: 参考 G:\\IHUI-AI\\audit_*.md / d_*_audit_report.txt 报告, 补齐缺失项`);
+  console.log(`\n修复方法: 参考 ${path.join(ROOT, 'audit_*.md')} / d_*_audit_report.txt 报告, 补齐缺失项`);
   process.exit(1);
 }
 
