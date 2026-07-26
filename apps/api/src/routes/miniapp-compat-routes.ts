@@ -14,7 +14,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新增 gte/lt(2026-07-26 /study/calendar 范围查询)
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
@@ -123,6 +123,68 @@ const studyGroupsQuerySchema = z.object({
 const rankingQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 })
+
+// /study/* 鉴权版端点(2026-07-26 真实化)
+const studySigninSchema = z.object({
+  lessonId: z.string().uuid('无效的课程 ID'),
+})
+
+const studyClockinSchema = z.object({
+  lessonId: z.string().uuid('无效的课程 ID'),
+  duration: z.number().int().min(0),
+  content: z.string().max(5000).optional(),
+})
+
+const studyProgressSchema = z.object({
+  lessonId: z.string().uuid('无效的课程 ID'),
+  chapterId: z.string().uuid().optional(),
+  sectionId: z.string().uuid().optional(),
+  position: z.number().int().min(0),
+  duration: z.number().int().min(0),
+})
+
+const studyShareSchema = z.object({
+  lessonId: z.string().uuid('无效的课程 ID'),
+  platform: z.enum(['wechat', 'moments', 'link']).default('link'),
+})
+
+const studyCalendarQuerySchema = z.object({
+  month: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, '月份格式错误(YYYY-MM)')
+    .optional(),
+})
+
+/**
+ * 计算用户截至 refDate(默认今天)的连续签到天数。
+ * schema 的 lessonSignUps 不存 continuousDays 字段,基于 createdAt::date 倒序扫描统计。
+ * 最多扫 60 天(连续签到上限保护),数据库索引 lesson_sign_ups_user_idx 保证高效。
+ */
+async function calcContinuousDays(userId: string, refDate: Date = new Date()): Promise<number> {
+  const rows = await db
+    .selectDistinct({ d: sql<string>`${lessonSignUps.createdAt}::date::text` })
+    .from(lessonSignUps)
+    .where(eq(lessonSignUps.userId, userId))
+    .orderBy(desc(sql`${lessonSignUps.createdAt}::date`))
+    .limit(60)
+
+  if (!rows.length) return 0
+
+  const cursor = new Date(refDate)
+  cursor.setHours(0, 0, 0, 0)
+  let days = 0
+  for (const row of rows) {
+    const rowDate = new Date(`${row.d}T00:00:00`)
+    if (Number.isNaN(rowDate.getTime())) continue
+    if (rowDate.getTime() === cursor.getTime()) {
+      days++
+      cursor.setDate(cursor.getDate() - 1)
+    } else if (rowDate.getTime() < cursor.getTime()) {
+      break
+    }
+  }
+  return days
+}
 
 export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
@@ -536,6 +598,407 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       LIMIT ${parsed.data.limit}
     `)
     return reply.send(success({ list: rows as Record<string, unknown>[] }))
+  })
+
+  // ==========================================================================
+  // /study/* 鉴权版(6 个,2026-07-26 真实化 — 接入 lessonRecords / lessonRecordLogs / lessonSignUps)
+  // 注:lessonSignUps 实际表无 signinAt/continuousDays 字段,基于 createdAt 倒序计算连续天数
+  //     lessonRecords 无 content/meta,progress 上报基于 watchDuration + lastPosition 计算
+  //     lessonRecordLogs 无 chapterId/sectionId/meta,chapter/section 维度通过 recordId 关联 lessonRecords
+  // ==========================================================================
+
+  // GET /study/info — 学习概览(已登录)
+  // 数据源:lessonRecords 聚合(todayMinutes/totalMinutes/courses/completedLessons)
+  //        + lesson_sign_ups 派生连续签到天数
+  server.get('/study/info', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+
+    const [aggr] = await db
+      .select({
+        todayMinutes: sql<number>`COALESCE(SUM(CASE WHEN ${lessonRecords.createdAt}::date = current_date THEN ${lessonRecords.watchDuration} ELSE 0 END) / 60, 0)::int`,
+        totalMinutes: sql<number>`COALESCE(SUM(${lessonRecords.watchDuration}) / 60, 0)::int`,
+        courses: sql<number>`COUNT(DISTINCT ${lessonRecords.lessonId})::int`,
+        totalLessons: sql<number>`COUNT(*)::int`,
+        completedLessons: sql<number>`COUNT(*) FILTER (WHERE ${lessonRecords.status} = 2)::int`,
+      })
+      .from(lessonRecords)
+      .where(eq(lessonRecords.userId, userId))
+
+    const continuousDays = await calcContinuousDays(userId)
+
+    return reply.send(
+      success({
+        todayMinutes: aggr?.todayMinutes ?? 0,
+        totalMinutes: aggr?.totalMinutes ?? 0,
+        continuousDays,
+        courses: aggr?.courses ?? 0,
+        totalLessons: aggr?.totalLessons ?? 0,
+        completedLessons: aggr?.completedLessons ?? 0,
+      }),
+    )
+  })
+
+  // POST /study/signin — 学习签到(已登录)
+  // 业务逻辑:今天已签到→409;上次签到为昨天→连续+1;否则→重置为 1
+  server.post('/study/signin', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const parsed = studySigninSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    // 取最近一次签到(避免对全表 DISTINCT 扫描,仅取 top1)
+    const [latest] = await db
+      .select({ d: sql<string>`${lessonSignUps.createdAt}::date::text` })
+      .from(lessonSignUps)
+      .where(eq(lessonSignUps.userId, userId))
+      .orderBy(desc(sql`${lessonSignUps.createdAt}::date`))
+      .limit(1)
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().slice(0, 10)
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().slice(0, 10)
+
+    if (latest?.d === todayStr) {
+      return reply.status(409).send(error(409, '今日已签到'))
+    }
+
+    let continuousDays = 1
+    if (latest?.d === yesterdayStr) {
+      // 以昨天为锚点计算历史连续天数
+      const prevStreak = await calcContinuousDays(userId, yesterday)
+      continuousDays = prevStreak + 1
+    }
+
+    const [inserted] = await db
+      .insert(lessonSignUps)
+      .values({
+        userId,
+        lessonId: parsed.data.lessonId,
+        status: 1,
+        progress: 0,
+      })
+      .returning({ id: lessonSignUps.id, createdAt: lessonSignUps.createdAt })
+
+    return reply.status(201).send(
+      success({
+        id: inserted!.id,
+        signinAt: inserted!.createdAt,
+        continuousDays,
+      }),
+    )
+  })
+
+  // POST /study/clockin — 打卡(已登录)
+  // 数据源:upsert lessonRecords(userId + lessonId + sectionId IS NULL)累加 watchDuration
+  //        + 今日 lesson_records 聚合返回 todayDuration
+  //        + lessonSignUps 派生 streak
+  server.post('/study/clockin', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const parsed = studyClockinSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { lessonId, duration } = parsed.data
+
+    // 查找或创建 lesson_record(sectionId=NULL 视为课程级打卡)
+    const [existing] = await db
+      .select({ id: lessonRecords.id })
+      .from(lessonRecords)
+      .where(
+        and(
+          eq(lessonRecords.userId, userId),
+          eq(lessonRecords.lessonId, lessonId),
+          sql`${lessonRecords.sectionId} IS NULL`,
+        ),
+      )
+      .limit(1)
+
+    let recordId: string
+    if (existing) {
+      await db
+        .update(lessonRecords)
+        .set({
+          watchDuration: sql`${lessonRecords.watchDuration} + ${duration}`,
+          status: sql`GREATEST(${lessonRecords.status}, 1)`,
+          updatedAt: new Date(),
+        })
+        .where(eq(lessonRecords.id, existing.id))
+      recordId = existing.id
+    } else {
+      const [inserted] = await db
+        .insert(lessonRecords)
+        .values({
+          userId,
+          lessonId,
+          watchDuration: duration,
+          status: 1,
+        })
+        .returning({ id: lessonRecords.id })
+      recordId = inserted!.id
+    }
+
+    // 今日累计观看时长(秒)+ 连续签到天数
+    const [todayAgg] = await db
+      .select({
+        todayDuration: sql<number>`COALESCE(SUM(${lessonRecords.watchDuration}), 0)::int`,
+      })
+      .from(lessonRecords)
+      .where(
+        and(
+          eq(lessonRecords.userId, userId),
+          sql`${lessonRecords.createdAt}::date = current_date`,
+        ),
+      )
+
+    const streak = await calcContinuousDays(userId)
+
+    return reply.send(
+      success({
+        id: recordId,
+        todayDuration: todayAgg?.todayDuration ?? 0,
+        streak,
+      }),
+    )
+  })
+
+  // POST /study/progress — 进度上报(已登录)
+  // 数据源:find/create lessonRecord(by userId + lessonId + sectionId),progress = position/totalDuration*100
+  //        + append lessonRecordLogs(action='progress'|'complete')
+  // 业务逻辑:progress >= 100 → status=2 + completedAt=now + action='complete'
+  server.post('/study/progress', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const parsed = studyProgressSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { lessonId, chapterId, sectionId, position, duration } = parsed.data
+
+    // 解析 section 总时长(用于计算 progress)
+    let totalDuration = 0
+    if (sectionId) {
+      const [section] = await db
+        .select({ duration: lessonChapterSections.duration })
+        .from(lessonChapterSections)
+        .where(eq(lessonChapterSections.id, sectionId))
+        .limit(1)
+      totalDuration = section?.duration ?? 0
+    }
+
+    // 定位已有记录
+    const conds = [
+      eq(lessonRecords.userId, userId),
+      eq(lessonRecords.lessonId, lessonId),
+      sectionId
+        ? eq(lessonRecords.sectionId, sectionId)
+        : sql`${lessonRecords.sectionId} IS NULL`,
+    ]
+    if (chapterId) conds.push(eq(lessonRecords.chapterId, chapterId))
+
+    const [existing] = await db
+      .select({ id: lessonRecords.id, totalDuration: lessonRecords.totalDuration })
+      .from(lessonRecords)
+      .where(and(...conds))
+      .limit(1)
+
+    const effectiveTotal = existing?.totalDuration ?? totalDuration
+    const progress =
+      effectiveTotal > 0 ? Math.min(100, Math.round((position / effectiveTotal) * 100)) : 0
+    const completed = progress >= 100
+
+    let recordId: string
+    if (existing) {
+      await db
+        .update(lessonRecords)
+        .set({
+          progress,
+          status: completed ? 2 : sql`GREATEST(${lessonRecords.status}, 1)`,
+          lastPosition: position,
+          watchDuration: sql`${lessonRecords.watchDuration} + ${duration}`,
+          ...(totalDuration > 0 && existing.totalDuration === 0
+            ? { totalDuration }
+            : {}),
+          ...(completed ? { completedAt: new Date() } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(lessonRecords.id, existing.id))
+      recordId = existing.id
+    } else {
+      const [inserted] = await db
+        .insert(lessonRecords)
+        .values({
+          userId,
+          lessonId,
+          chapterId: chapterId ?? null,
+          sectionId: sectionId ?? null,
+          watchDuration: duration,
+          totalDuration,
+          lastPosition: position,
+          progress,
+          status: completed ? 2 : 1,
+          ...(completed ? { completedAt: new Date() } : {}),
+        })
+        .returning({ id: lessonRecords.id })
+      recordId = inserted!.id
+    }
+
+    const [log] = await db
+      .insert(lessonRecordLogs)
+      .values({
+        recordId,
+        userId,
+        action: completed ? 'complete' : 'progress',
+        position,
+        duration,
+      })
+      .returning({ id: lessonRecordLogs.id })
+
+    return reply.send(
+      success({
+        id: log!.id,
+        progress,
+        completed,
+      }),
+    )
+  })
+
+  // POST /study/share — 分享(已登录)
+  // 数据源:find/create lessonRecord + insert lessonRecordLog(action='share')
+  //        + 统计 userId 当日 action='share' 条数作为 shareCount
+  // 注:lessonRecordLogs 实际表无 meta/platform 字段,platform 仅在响应中透传
+  server.post('/study/share', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const parsed = studyShareSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { lessonId, platform } = parsed.data
+
+    const [existing] = await db
+      .select({ id: lessonRecords.id })
+      .from(lessonRecords)
+      .where(
+        and(
+          eq(lessonRecords.userId, userId),
+          eq(lessonRecords.lessonId, lessonId),
+          sql`${lessonRecords.sectionId} IS NULL`,
+        ),
+      )
+      .limit(1)
+
+    let recordId: string
+    if (existing) {
+      recordId = existing.id
+    } else {
+      const [inserted] = await db
+        .insert(lessonRecords)
+        .values({
+          userId,
+          lessonId,
+          status: 1,
+        })
+        .returning({ id: lessonRecords.id })
+      recordId = inserted!.id
+    }
+
+    const [log] = await db
+      .insert(lessonRecordLogs)
+      .values({
+        recordId,
+        userId,
+        action: 'share',
+        position: 0,
+        duration: 0,
+      })
+      .returning({ id: lessonRecordLogs.id })
+
+    const [shareAgg] = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(lessonRecordLogs)
+      .where(
+        and(
+          eq(lessonRecordLogs.userId, userId),
+          eq(lessonRecordLogs.action, 'share'),
+          sql`${lessonRecordLogs.createdAt}::date = current_date`,
+        ),
+      )
+
+    return reply.send(
+      success({
+        shareId: log!.id,
+        shareCount: shareAgg?.count ?? 0,
+        platform,
+      }),
+    )
+  })
+
+  // GET /study/calendar — 学习日历(已登录,最近 30 天或指定月份)
+  // 数据源:lessonRecords 按 createdAt::date 聚合,无数据的日期填 0
+  server.get('/study/calendar', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const parsed = studyCalendarQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    let startDate: Date
+    let endDate: Date
+    if (parsed.data.month) {
+      const [yStr, mStr] = parsed.data.month.split('-')
+      const y = Number(yStr)
+      const m = Number(mStr)
+      startDate = new Date(y, m - 1, 1)
+      endDate = new Date(y, m, 1)
+    } else {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      endDate = new Date(today)
+      endDate.setDate(endDate.getDate() + 1)
+      startDate = new Date(today)
+      startDate.setDate(startDate.getDate() - 29)
+    }
+
+    const rows = await db
+      .select({
+        date: sql<string>`${lessonRecords.createdAt}::date::text`,
+        duration: sql<number>`COALESCE(SUM(${lessonRecords.watchDuration}), 0)::int`,
+        lessonCount: sql<number>`COUNT(DISTINCT ${lessonRecords.lessonId})::int`,
+      })
+      .from(lessonRecords)
+      .where(
+        and(
+          eq(lessonRecords.userId, userId),
+          gte(lessonRecords.createdAt, startDate),
+          lt(lessonRecords.createdAt, endDate),
+        ),
+      )
+      .groupBy(sql`${lessonRecords.createdAt}::date`)
+      .orderBy(sql`${lessonRecords.createdAt}::date`)
+
+    const dataMap = new Map(rows.map((r) => [r.date, r]))
+    const days: Array<{ date: string; duration: number; lessonCount: number }> = []
+    const cursor = new Date(startDate)
+    while (cursor < endDate) {
+      const dateStr = cursor.toISOString().slice(0, 10)
+      const data = dataMap.get(dateStr)
+      days.push({
+        date: dateStr,
+        duration: data?.duration ?? 0,
+        lessonCount: data?.lessonCount ?? 0,
+      })
+      cursor.setDate(cursor.getDate() + 1)
+    }
+
+    return reply.send(success({ days }))
   })
 
   // ==========================================================================
