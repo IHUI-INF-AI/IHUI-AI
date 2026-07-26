@@ -169,7 +169,7 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     const stateValues = await adminPage.evaluate(() => {
       const re = /state:\s*(draft|submitted|approved|rejected|cancelled)/gi
       const body = document.body.innerText
-      return [...body.matchAll(re)].map((m) => m[1].toLowerCase())
+      return [...body.matchAll(re)].map((m) => m[1]!.toLowerCase())
     })
     // 允许为空(无 dialog 打开时),但任何出现的状态必须是合法状态名
     const VALID = new Set(['draft', 'submitted', 'approved', 'rejected', 'cancelled'])

@@ -35,7 +35,7 @@ test.describe('Sidebar 视觉守门', () => {
     expect(firstSrc).toMatch(/\/images\/(logo|bailogo)\.svg\?v=/)
 
     // 拉取 SVG,确认 HTTP 200 + 非空 + 是合法 SVG(含 <svg 或 xmlns)
-    const src = await logoImgs.first().evaluate((img) => img.src)
+    const src = await logoImgs.first().evaluate((img) => (img as HTMLImageElement).src)
     const resp = await page.request.get(src)
     expect(resp.status()).toBe(200)
     const svg = await resp.text()
