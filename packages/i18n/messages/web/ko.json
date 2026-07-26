@@ -12354,25 +12354,6 @@
       }
     }
   },
-  "modelsPage": "Models",
-  "seo": {
-    "imageSitemap": {
-      "title": "이미지 사이트맵 — IHUI AI",
-      "description": "IHUI AI 이미지 사이트맵. public/images/ 하위의 모든 공식 브랜드 자료, 아이콘, 제3자 로그인 자료를 포함하여 Google Images 크롤링에 대응합니다."
-    },
-    "newsSitemap": {
-      "title": "뉴스 사이트맵 — IHUI AI",
-      "description": "IHUI AI 뉴스 사이트맵. 최근 30일 동안의 제품 릴리스, 보안 강화, 기능 출시 항목을 docs/CHANGELOG.md 기준으로 정리합니다."
-    },
-    "jsonFeed": {
-      "title": "JSON Feed — IHUI AI",
-      "description": "IHUI AI JSON Feed 1.1 구독. 5개 언어 전환을 지원하며 LLM 및 MCP 클라이언트 파싱에 적합한 구조화된 피드를 제공합니다."
-    },
-    "opml": {
-      "title": "OPML 구독 윤곽 — IHUI AI",
-      "description": "IHUI AI 전체 구독 소스의 OPML 2.0 윤곽. 주요 피드, 실시간 푸시, 검색 엔진 사이트맵, 5개 언어 버전 그룹으로 분류되어 리더에 원클릭으로 가져올 수 있습니다."
-    }
-  },
   "useCasesAiEdu": {
     "metaTitle": "AI 교육 Agent 사용 사례 — 코스 설계/지능형 Q&A/학습 추천 | IHUI AI",
     "metaDescription": "IHUI AI 풀스택 AI OS로 구축하는 AI 교육 Agent: 코스 구조화 설계, 지능형 Q&A, 자동 채점, 개인화 학습 경로, 학습 대시보드, 8단 동시 배포.",
@@ -12414,21 +12395,5 @@
         "ratingValue": 4.8
       }
     }
-  },
-  "useCasesAiDesign": {
-    "metaTitle": "AI 디자인 협업 Agent — 포스터/Logo 콘셉트/스케치를 코드로 | IHUI AI",
-    "metaDescription": "IHUI AI 풀스택 AI OS 기반의 AI 디자인 협업 Agent:포스터/Logo 콘셉트 + 스케치를 코드로 + 브랜드 자산 관리 + 디자인 리뷰 + 디자인 시스템 검색, 8엔드포인트 동기 배포, Apache 2.0 오픈소스."
-  },
-  "useCasesAiMarketing": {
-    "metaTitle": "AI 마케팅 콘텐츠 생성 Agent — 멀티 플랫폼/SEO/A/B | IHUI AI",
-    "metaDescription": "IHUI AI 풀스택 AI OS 기반의 AI 마케팅 콘텐츠 생성 Agent:멀티 플랫폼 카피 + SEO 블로그 + 브랜드 톤 일관성 + A/B 테스트 + 페르소나 기반, 8엔드포인트 동기 배포, Apache 2.0 오픈소스."
-  },
-  "useCasesAiResearch": {
-    "metaTitle": "AI 학술 연구 어시스턴트 — 논문 검색/리뷰/인용 관리 | IHUI AI",
-    "metaDescription": "IHUI AI 풀스택 AI OS 기반의 AI 학술 연구 어시스턴트:논문 검색 + PDF 파싱 + 인용 관리 + 리뷰 생성 + 지식 그래프 + 동향 분석, 8엔드포인트 동기 배포, Apache 2.0 오픈소스."
-  },
-  "useCasesAiTranslation": {
-    "metaTitle": "AI 다국어 번역 Agent — 문서 번역/로컬라이제이션/용어집/자막 | IHUI AI",
-    "metaDescription": "IHUI AI 풀스택 AI OS 기반의 AI 다국어 번역 Agent:다국어 문서 번역 + 로컬라이제이션 워크플로우 + 용어집 관리 + 번역 리뷰 + 문화 적응 + 자막 번역, 8엔드포인트 동기 배포, Apache 2.0 오픈소스."
   }
 }
