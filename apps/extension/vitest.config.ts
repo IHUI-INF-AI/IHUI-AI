@@ -9,7 +9,7 @@ export default defineConfig({
       'lib/**/*.test.ts',
       'entrypoints/**/*.test.ts',
       'entrypoints/**/*.test.tsx',
-      'src/stores/tests/**/*.test.ts',
+      'src/stores/__tests__/**/*.test.ts',
     ],
     passWithNoTests: true,
   },
