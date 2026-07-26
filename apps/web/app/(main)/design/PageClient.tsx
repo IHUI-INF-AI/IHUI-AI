@@ -22,6 +22,7 @@ import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import type { DesignComment, DesignPreview, DesignPreviewResponse } from '@ihui/shared/design/element'
 import { useTheme } from '@/hooks/use-theme'
+import { Tooltip } from '@/components/feedback'
 import { createComment, exportCode, generateHtml, listComments } from '@/lib/design/design-api'
 import type { ExportFormat } from '@/lib/design/code-exporter'
 import { applySnap, computeGuides } from '@/lib/design/alignment-guides'
@@ -1283,12 +1284,16 @@ export default function DesignPage({ onComment }: DesignPageProps) {
             style={{ flex: 1, resize: 'none', fontFamily: 'monospace', fontSize: 12, minHeight: 0 }}
           />
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={onUndo} disabled={!canUndo} style={{ flex: 1 }} title={t('design.undo')}>
-              {t('design.undo')}
-            </button>
-            <button type="button" onClick={onRedo} disabled={!canRedo} style={{ flex: 1 }} title={t('design.redo')}>
-              {t('design.redo')}
-            </button>
+            <Tooltip content={t('design.undo')}>
+              <button type="button" onClick={onUndo} disabled={!canUndo} style={{ flex: 1 }}>
+                {t('design.undo')}
+              </button>
+            </Tooltip>
+            <Tooltip content={t('design.redo')}>
+              <button type="button" onClick={onRedo} disabled={!canRedo} style={{ flex: 1 }}>
+                {t('design.redo')}
+              </button>
+            </Tooltip>
             <button type="button" onClick={onRender} style={{ flex: 1 }}>
               {t('design.render')}
             </button>
