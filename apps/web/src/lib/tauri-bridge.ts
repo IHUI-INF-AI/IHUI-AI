@@ -77,24 +77,27 @@ export async function isAutostartEnabled(): Promise<boolean> {
 /** 显示主窗口(用于 TS 侧主动唤起,如托盘菜单的 TS 调用)。 */
 export async function showMainWindow(): Promise<void> {
   if (!isTauri()) return
-  await invoke('plugin:window|show', { label: 'main' })
+  const label = getCurrentWindow().label
+  await invoke('plugin:window|show', { label })
 }
 
 /** 隐藏主窗口(最小化到托盘)。 */
 export async function hideMainWindow(): Promise<void> {
   if (!isTauri()) return
-  await invoke('plugin:window|hide', { label: 'main' })
+  const label = getCurrentWindow().label
+  await invoke('plugin:window|hide', { label })
 }
 
 /** 切换主窗口显示/隐藏(用于全局快捷键的 TS 侧调用,如果需要)。 */
 export async function toggleMainWindow(): Promise<boolean> {
   if (!isTauri()) return false
-  const visible = await invoke<boolean>('plugin:window|is_visible', { label: 'main' })
+  const label = getCurrentWindow().label
+  const visible = await invoke<boolean>('plugin:window|is_visible', { label })
   if (visible) {
-    await invoke('plugin:window|hide', { label: 'main' })
+    await invoke('plugin:window|hide', { label })
   } else {
-    await invoke('plugin:window|show', { label: 'main' })
-    await invoke('plugin:window|set_focus', { label: 'main' })
+    await invoke('plugin:window|show', { label })
+    await invoke('plugin:window|set_focus', { label })
   }
   return !visible
 }
@@ -102,44 +105,51 @@ export async function toggleMainWindow(): Promise<boolean> {
 /** 最小化主窗口。非 Tauri 环境静默忽略。 */
 export async function minimizeWindow(): Promise<void> {
   if (!isTauri()) return
-  await invoke('plugin:window|minimize', { label: 'main' })
+  const label = getCurrentWindow().label
+  await invoke('plugin:window|minimize', { label })
 }
 
 /** 最大化主窗口(已最大化则无变化)。非 Tauri 环境静默忽略。 */
 export async function maximizeWindow(): Promise<void> {
   if (!isTauri()) return
-  await invoke('plugin:window|maximize', { label: 'main' })
+  const label = getCurrentWindow().label
+  await invoke('plugin:window|maximize', { label })
 }
 
 /** 还原最大化窗口。非 Tauri 环境静默忽略。 */
 export async function unmaximizeWindow(): Promise<void> {
   if (!isTauri()) return
-  await invoke('plugin:window|unmaximize', { label: 'main' })
+  const label = getCurrentWindow().label
+  await invoke('plugin:window|unmaximize', { label })
 }
 
 /** 切换最大化/还原(双击标题栏等场景)。非 Tauri 环境静默忽略。 */
 export async function toggleMaximizeWindow(): Promise<boolean> {
   if (!isTauri()) return false
-  await invoke('plugin:window|toggle_maximize', { label: 'main' })
-  return await invoke<boolean>('plugin:window|is_maximized', { label: 'main' })
+  const label = getCurrentWindow().label
+  await invoke('plugin:window|toggle_maximize', { label })
+  return await invoke<boolean>('plugin:window|is_maximized', { label })
 }
 
 /** 查询主窗口是否已最大化。非 Tauri 环境返回 false。 */
 export async function isWindowMaximized(): Promise<boolean> {
   if (!isTauri()) return false
-  return await invoke<boolean>('plugin:window|is_maximized', { label: 'main' })
+  const label = getCurrentWindow().label
+  return await invoke<boolean>('plugin:window|is_maximized', { label })
 }
 
 /** 关闭主窗口(实际行为由 Rust 端 on_window_event 决定:最小化到托盘而非退出)。 */
 export async function closeWindow(): Promise<void> {
   if (!isTauri()) return
-  await invoke('plugin:window|close', { label: 'main' })
+  const label = getCurrentWindow().label
+  await invoke('plugin:window|close', { label })
 }
 
 /** 启动窗口拖拽(自定义标题栏用,鼠标按下时调用,系统接管移动)。 */
 export async function startWindowDrag(): Promise<void> {
   if (!isTauri()) return
-  await invoke('plugin:window|start_dragging', { label: 'main' })
+  const label = getCurrentWindow().label
+  await invoke('plugin:window|start_dragging', { label })
 }
 
 /**
@@ -151,7 +161,8 @@ export async function startResize(
   direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw',
 ): Promise<void> {
   if (!isTauri()) return
-  await invoke('start_resize', { direction })
+  const label = getCurrentWindow().label
+  await invoke('start_resize', { direction, label })
 }
 
 /**
@@ -437,7 +448,8 @@ export async function pickSavePath(
 export async function saveWindowState(): Promise<void> {
   if (!isTauri()) return
   try {
-    await invoke('save_window_state')
+    const label = getCurrentWindow().label
+    await invoke('save_window_state', { label })
   } catch {
     // 非 Tauri 环境或调用失败,静默忽略
   }
@@ -447,7 +459,8 @@ export async function saveWindowState(): Promise<void> {
 export async function restoreWindowState(): Promise<void> {
   if (!isTauri()) return
   try {
-    await invoke('restore_window_state')
+    const label = getCurrentWindow().label
+    await invoke('restore_window_state', { label })
   } catch {
     // 非 Tauri 环境或调用失败,静默忽略
   }
@@ -457,7 +470,8 @@ export async function restoreWindowState(): Promise<void> {
 export async function resetWindowState(): Promise<void> {
   if (!isTauri()) return
   try {
-    await invoke('reset_window_state')
+    const label = getCurrentWindow().label
+    await invoke('reset_window_state', { label })
   } catch {
     // 非 Tauri 环境或调用失败,静默忽略
   }
