@@ -11,6 +11,8 @@
 用法: python full_audit.py [--md articles/xxx.md] [--title "..."]
       AUDIIT_DRY_RUN=1 python full_audit.py --title "..."  # 跳过需真推的维度
 """
+from __future__ import annotations
+
 import io
 import os
 import sys
@@ -20,7 +22,7 @@ import time
 import argparse
 import urllib.request
 import subprocess
-from typing import cast
+from typing import Any, cast
 
 try:
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
@@ -39,7 +41,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 import project_boundary
 project_boundary.check_action(tool="full_audit.py")
 
-results: list[tuple] = []  # (维度, 状态, 详情)
+results: list[tuple[str, str, str]] = []  # (维度, 状态, 详情)
 IS_DRY_RUN = 'AUDIIT_DRY_RUN' in os.environ
 
 # === 项目边界硬检测（2026-07-14 用户强制·零容忍） ===
@@ -66,7 +68,7 @@ KOUBO_KEYWORDS = (
 )
 
 
-def _scan_koubo_pollution(root_dir):
+def _scan_koubo_pollution(root_dir: str) -> list[tuple[str, str]]:
     """递归扫描 root_dir，查找所有疑似口播稿文件。返回命中列表。
 
     排除合法的规则文档（AGENTS.md / MEMORY.md / SKILL.md / README.md），
@@ -83,7 +85,7 @@ def _scan_koubo_pollution(root_dir):
     }
     # 整个 .workbuddy 目录属于 agent 记忆,内容是规则说明,跳过
     SKIP_DIRS = {'.workbuddy', '__pycache__'}
-    hits = []
+    hits: list[tuple[str, str]] = []
     for cur, subdirs, files in os.walk(root_dir):
         # 跳过 .workbuddy 整个目录
         subdirs[:] = [d for d in subdirs if d not in SKIP_DIRS]
@@ -114,7 +116,7 @@ def _scan_koubo_pollution(root_dir):
     return hits
 
 
-def add(dim, ok, detail='', warn=False):
+def add(dim: str, ok: bool, detail: str = '', warn: bool = False) -> None:
     if warn:
         results.append((dim, '⚠️ WARN', detail))
         print(f"  ⚠️ {dim} (WARN): {detail}")
@@ -123,11 +125,11 @@ def add(dim, ok, detail='', warn=False):
         print(f"  {'✅' if ok else '❌'} {dim}: {detail}")
 
 
-def section(title):
+def section(title: str) -> None:
     print(f"\n{'='*64}\n  {title}\n{'='*64}")
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, str, str]]]:
     ap = argparse.ArgumentParser()
     ap.add_argument('--md', default='', help='可选,源md路径')
     ap.add_argument('--title', default='', help='可选,标题')
@@ -311,7 +313,7 @@ def main(argv=None):
             else f'❌ 检测到 {fake_count} 张假图: {fake_details[:3]}')
         # C3++ 无水印铁律 (2026-07-15 用户强制): 只检测典型水印位（底边三处），
         # 避免把自然纯色天空/墙面/纸张误判为水印。
-        def _has_watermark(img):
+        def _has_watermark(img: Any) -> tuple[bool, str]:
             w, h = img.size
             # 只检查底边区域（水印最常见位置），降低自然场景误报
             regs = {
@@ -689,14 +691,14 @@ def main(argv=None):
     print(f'  PASS: {passed}  FAIL: {failed}  WARN: {warns}  总计: {len(results)}')
     if failed > 0:
         print(f'\n  ❌ 存在 {failed} 个不达标维度:')
-        for d, s, x in results:
-            if 'FAIL' in s:
-                print(f'    {d}: {x}')
+        for dim_name, status_name, detail_name in results:
+            if 'FAIL' in status_name:
+                print(f'    {dim_name}: {detail_name}')
         return 1, passed, failed, results
     print(f'\n  ✅ 42 维度全部通过 — 流水线可彻底交付')
     return 0, passed, failed, results
 
 
 if __name__ == '__main__':
-    exit_code, _, _, _ = main()
+    exit_code, _passed, _failed, _results = main()
     sys.exit(exit_code)

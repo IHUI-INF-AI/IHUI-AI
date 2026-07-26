@@ -33,7 +33,7 @@ class WeiboAdapter(BasePlatformAdapter):
     supported_formats = ["md", "html", "image", "video"]
     requires_credentials = ["access_token", "uid"]
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         access_token = credentials.get("access_token", "").strip()
         if not access_token:
             return False, "missing access_token"
@@ -77,8 +77,8 @@ class WeiboAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         access_token = credentials.get("access_token", "").strip()
         if not access_token:

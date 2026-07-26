@@ -33,7 +33,7 @@ class KuaishouAdapter(BasePlatformAdapter):
     supported_formats = ["video"]
     requires_credentials = ["access_token", "app_id", "app_secret"]
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         access_token = credentials.get("access_token", "").strip()
         app_id = credentials.get("app_id", "").strip()
         if not (access_token and app_id):
@@ -63,7 +63,7 @@ class KuaishouAdapter(BasePlatformAdapter):
         name = uinfo.get("name") or uinfo.get("kwai_id") or "?"
         return True, f"connected as {name}"
 
-    async def _upload_video(self, token: str, app_id: str, open_id: str, video_path: str) -> tuple[bool, str, dict]:
+    async def _upload_video(self, token: str, app_id: str, open_id: str, video_path: str) -> tuple[bool, str, dict[str, Any]]:
         """上传视频,返回 (ok, video_id_or_error, payload)。"""
         p = Path(video_path)
         if not p.is_file():
@@ -110,8 +110,8 @@ class KuaishouAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         if content.format != "video":
             return PublishResult(
