@@ -29,7 +29,9 @@
         "skipTaskbar": false,
         "maximized": false,
         "decorations": false,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "backgroundColor": "#0a0a0a",
+        "shadow": true
       },
       {
         "label": "admin",
@@ -46,7 +48,9 @@
         "theme": "Dark",
         "dragDropEnabled": true,
         "decorations": false,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "backgroundColor": "#0a0a0a",
+        "shadow": true
       }
     ],
     "security": {
