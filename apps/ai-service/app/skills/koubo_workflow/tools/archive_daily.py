@@ -47,11 +47,11 @@ DATE_RE = re.compile(r'^\d{4}\.txt$')
 SEG_RE = re.compile(r'^# (\d{4})\s*$', re.MULTILINE)
 
 
-def today_mmdd():
+def today_mmdd() -> str:
     return datetime.now().strftime('%m%d')
 
 
-def main():
+def main() -> None:
     dry = '--dry' in sys.argv
     finalize = '--finalize' in sys.argv
     check = '--check' in sys.argv
