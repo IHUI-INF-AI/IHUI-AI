@@ -179,8 +179,8 @@ SEP_RE = re.compile(r'^\s*[-─]{8,}\s*$')
 def parse_scripts(content):
     """按长破折号分篇；每篇：标题 / 话题词(#) / [置顶]行 / 正文。返回含置顶行。"""
     lines = content.split('\n')
-    blocks = []
-    cur = []
+    blocks: list[list[str]] = []
+    cur: list[str] = []
     for ln in lines:
         if SEP_RE.match(ln):
             if cur:
@@ -416,9 +416,9 @@ def check_script(sc, strict=False):
         soft_warns.append('开头3句钩子公式: 缺%s（S2=身份+承诺, S3=锁钩）' % ','.join(miss))
 
     # 优化2·段落收尾金句类型（每篇≥2种）
-    ptypes = []
-    for ptype, pat in PUNCHLINE_PATTERNS.items():
-        if pat.search(body):
+    ptypes: list[str] = []
+    for ptype, pattern in PUNCHLINE_PATTERNS.items():
+        if pattern.search(body):
             ptypes.append(ptype)
     if len(ptypes) < 2:
         soft_warns.append('收尾金句类型: 仅%d种(%s)，需≥2种(概念反转/类比画面/数据落差/反共识)' % (len(ptypes), ','.join(ptypes) if ptypes else '无'))

@@ -22,6 +22,7 @@ koubo_live_check.py — 口播稿实时约束校验器 v1.0
 
 import sys, re, os
 from collections import Counter
+from typing import Any
 
 # ========== 阈值（与 koubo_validate.py 完全对齐） ==========
 WORD_MIN, WORD_MAX = 470, 490
@@ -98,9 +99,9 @@ ENDING_DIAG_PATS = ['你对照', '你想想', '你琢磨', '等着看', '你猜'
 from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT, find_ambig_hits, find_alias_issues
 
 
-def analyze_body(body, idx=None):
+def analyze_body(body: str, idx: int | None = None) -> dict[str, Any]:
     """分析单篇正文，返回约束报告"""
-    r = {}
+    r: dict[str, Any] = {}
     body = body.strip()
 
     # 1. 字数
@@ -200,9 +201,9 @@ def analyze_body(body, idx=None):
     ]
     r['ai_taste_hits'] = []
     for pat, atype in AI_TASTE_PATTERNS:
-        m = re.search(pat, body)
-        if m:
-            r['ai_taste_hits'].append((atype, m.group(0)))
+        match = re.search(pat, body)
+        if match:
+            r['ai_taste_hits'].append((atype, match.group(0)))
     r['ai_taste_ok'] = len(r['ai_taste_hits']) == 0
 
     # 8. 跨篇词频
@@ -229,8 +230,8 @@ def analyze_body(body, idx=None):
 
     # 优化2·段落收尾金句类型（每篇≥2种）
     r['punchline_types'] = []
-    for ptype, pat in PUNCHLINE_PATTERNS.items():
-        if pat.search(body):
+    for ptype, pattern in PUNCHLINE_PATTERNS.items():
+        if pattern.search(body):
             r['punchline_types'].append(ptype)
     r['punchline_ok'] = len(r['punchline_types']) >= 2
 
@@ -263,7 +264,7 @@ def analyze_body(body, idx=None):
     return r
 
 
-def print_report(idx, body, r):
+def print_report(idx: int | None, body: str, r: dict[str, Any]) -> None:
     """打印单篇报告"""
     art_label = f'A{idx + 1}' if idx is not None else 'DRAFT'
 
@@ -393,7 +394,7 @@ def print_report(idx, body, r):
     print(f"  {'=' * 20}")
 
 
-def check_cross(all_reports):
+def check_cross(all_reports: list[dict[str, Any]]) -> None:
     """跨篇检查"""
     print(f"\n{'=' * 50}")
     print(f" 跨篇约束报告")
@@ -404,8 +405,8 @@ def check_cross(all_reports):
     total_qishi = 0
     total_woziji = 0
     total_zhenzheng = 0
-    ending_types = Counter()
-    high_freq = Counter()
+    ending_types: Counter[str] = Counter()
+    high_freq: Counter[str] = Counter()
 
     for r in all_reports:
         total_but += 1 if '但' in r.get('cross_hits', {}) else 0
