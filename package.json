@@ -24,6 +24,8 @@
     "check:api-routes:strict": "node scripts/check-api-routes.mjs --strict",
     "check:api-routes:warn": "node scripts/check-api-routes.mjs --warn-only",
     "check:safe-parse": "node scripts/check-safe-parse.mjs",
+    "check:llm-provider-schema": "node scripts/check-llm-provider-schema.mjs",
+    "migrate:llm-providers": "node scripts/migrate-llm-providers.mjs",
     "check:stale-dist": "node scripts/check-stale-dist.mjs",
     "check:dedupe": "node scripts/check-dedupe.mjs",
     "check:orphan-images": "node apps/web/scripts/scan-orphan-images.cjs",
