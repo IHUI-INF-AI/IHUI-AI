@@ -166,7 +166,7 @@ async def post_resume(req: ResumeRequest) -> dict[str, Any]:
             # (非流式;流式恢复走 /stream?input=null)
             try:
                 # 软依赖 langgraph.types.Command
-                from langgraph.types import Command  # type: ignore[import-not-found]
+                from langgraph.types import Command
 
                 config = {"configurable": {"thread_id": req.thread_id}}
                 if req.action == "resume":
