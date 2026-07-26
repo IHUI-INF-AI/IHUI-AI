@@ -9,14 +9,14 @@
  *   4. 术语统一: 11 处具体覆盖
  *
  * 用法: node scripts/fix-i18n-deep.mjs
- * 修改: apps/web/messages/{zh-TW,ja,ko}.json (不修改 en.json / zh-CN.json)
+ * 修改: packages/i18n/messages/web/{zh-TW,ja,ko}.json (不修改 en.json / zh-CN.json)
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import * as OpenCC from 'opencc-js'
 
 const ROOT = process.cwd()
-const MSG_DIR = path.join(ROOT, 'apps/web/messages')
+const MSG_DIR = path.join(ROOT, 'packages/i18n/messages/web')
 const REPORT_PATH = path.join(ROOT, '.trae-cn/goal-runtime/deep-i18n-audit-report.json')
 
 const C = {
