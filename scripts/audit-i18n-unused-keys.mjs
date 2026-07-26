@@ -59,6 +59,14 @@ const TARGET_CONFIG = {
     searchDirs: ['apps/mobile-rn/src', 'apps/mobile-rn/App.tsx', 'packages/app/src'],
     usesNamespaces: false, // 自定义 useI18n():t('full.path') 直传完整路径
   },
+  shared: {
+    name: 'shared',
+    messagesFile: 'packages/i18n/messages/shared/zh-CN.json',
+    // shared 为跨端共享基础 key,无直接源码消费方(各端通过 @ihui/i18n 包导入合并)
+    // parity-only 模式:跳过源码扫描,只做 5 语言 key 集合 parity 校验
+    searchDirs: [],
+    usesNamespaces: false,
+  },
 }
 
 // ripgrep 广义匹配模式:捕获所有可能包含 i18n 引用的行
@@ -81,8 +89,8 @@ function parseArgs(argv) {
   }
   const targetArg = args.find((a) => a.startsWith('--target='))
   const target = targetArg ? targetArg.slice('--target='.length) : null
-  if (target !== null && target !== 'web' && target !== 'miniapp-taro' && target !== 'extension' && target !== 'mobile-rn') {
-    return { error: `无效的 --target 值: ${target}(可选: web | miniapp-taro | extension | mobile-rn)` }
+  if (target !== null && target !== 'web' && target !== 'miniapp-taro' && target !== 'extension' && target !== 'mobile-rn' && target !== 'shared') {
+    return { error: `无效的 --target 值: ${target}(可选: web | miniapp-taro | extension | mobile-rn | shared)` }
   }
   const dryRun = args.includes('--dry-run')
   const outputArg = args.find((a) => a.startsWith('--output='))
@@ -111,7 +119,7 @@ function showHelp() {
   node scripts/audit-i18n-unused-keys.mjs --output-keys=<path>          # 输出完整 key 列表 JSON
 
 选项:
-  --target=<web|miniapp-taro>   指定扫描目标(默认两端都扫)
+  --target=<web|miniapp-taro|extension|mobile-rn|shared>   指定扫描目标(默认扫前 4 端)
   --dry-run                     输出到 stdout,不写文件
   --output=<path>               输出 markdown 审计报告到指定文件(目录不存在自动创建)
   --output-keys=<path>          输出完整无引用 key 列表 JSON 数组到指定文件(用于分批清理)
@@ -122,6 +130,7 @@ function showHelp() {
   miniapp-taro 基准 packages/i18n/messages/miniapp-taro/zh-CN.json,搜索 apps/miniapp-taro/src
   extension    基准 packages/i18n/messages/extension/zh-CN.json,搜索 apps/extension/entrypoints + src + lib
   mobile-rn    基准 packages/i18n/messages/mobile-rn/zh-CN.json,搜索 apps/mobile-rn/src + App.tsx + packages/app/src
+  shared       基准 packages/i18n/messages/shared/zh-CN.json,parity-only(无源码消费方,跳过源码扫描)
 
 退出码:
   0 = 审计完成(无论是否发现无引用 key)
