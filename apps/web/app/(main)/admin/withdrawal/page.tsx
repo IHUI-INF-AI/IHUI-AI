@@ -45,7 +45,7 @@ export default function AdminWithdrawalPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'withdrawal', search, status, page],
     queryFn: async () => {
-      const r = await fetchApi<WithdrawalListData>(`/api/v1/admin/finance/withdrawal?${qs.toString()}`)
+      const r = await fetchApi<WithdrawalListData>(`/api/admin/finance/withdrawal?${qs.toString()}`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
@@ -53,7 +53,7 @@ export default function AdminWithdrawalPage() {
 
   const auditMut = useMutation({
     mutationFn: ({ id, body }: { id: string; body: { status: 'approved' | 'rejected'; remark?: string } }) =>
-      fetchApi(`/api/v1/admin/finance/withdrawal/${id}/audit`, {
+      fetchApi(`/api/admin/finance/withdrawal/${id}/audit`, {
         method: 'PUT',
         body: JSON.stringify(body),
       }),
