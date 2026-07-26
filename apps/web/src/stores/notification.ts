@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import type { WSNotification } from '@/hooks/use-websocket'
-import type { NotificationItem, MessageItem } from '@/lib/notification-api'
+import type { NotificationItem, MessageItem } from '@ihui/api-client'
 import { transformWsNotification } from '@ihui/shared/notifications/ws-notification-adapter'
 import type { WsNotificationLike } from '@ihui/shared/notifications/ws-notification-adapter'
 
@@ -28,75 +28,75 @@ interface NotificationState {
 export const useNotificationStore = create<NotificationState>()(
   persist(
     (set) => ({
-  notifications: [],
-  unreadCount: 0,
-  messages: [],
-  unreadMessageCount: 0,
-
-  setNotifications: (notifications) =>
-    set({ notifications, unreadCount: notifications.filter((n) => !n.isRead).length }),
-
-  addNotification: (item) =>
-    set((s) => ({
-      notifications: [item, ...s.notifications],
-      unreadCount: s.unreadCount + (item.isRead ? 0 : 1),
-    })),
-
-  markAsRead: (id) =>
-    set((s) => {
-      let decremented = false
-      const notifications = s.notifications.map((n) => {
-        if (n.id === id && !n.isRead) {
-          decremented = true
-          return { ...n, isRead: true }
-        }
-        return n
-      })
-      return { notifications, unreadCount: Math.max(0, s.unreadCount - (decremented ? 1 : 0)) }
-    }),
-
-  markAllAsRead: () =>
-    set((s) => ({
-      notifications: s.notifications.map((n) => ({ ...n, isRead: true })),
+      notifications: [],
       unreadCount: 0,
-    })),
+      messages: [],
+      unreadMessageCount: 0,
 
-  setMessages: (messages) =>
-    set({ messages, unreadMessageCount: messages.filter((m) => !m.isRead).length }),
+      setNotifications: (notifications) =>
+        set({ notifications, unreadCount: notifications.filter((n) => !n.isRead).length }),
 
-  addMessage: (msg) =>
-    set((s) => ({
-      messages: [msg, ...s.messages],
-      unreadMessageCount: s.unreadMessageCount + (msg.isRead ? 0 : 1),
-    })),
+      addNotification: (item) =>
+        set((s) => ({
+          notifications: [item, ...s.notifications],
+          unreadCount: s.unreadCount + (item.isRead ? 0 : 1),
+        })),
 
-  markMessageAsRead: (id) =>
-    set((s) => {
-      let decremented = false
-      const messages = s.messages.map((m) => {
-        if (m.id === id && !m.isRead) {
-          decremented = true
-          return { ...m, isRead: true }
+      markAsRead: (id) =>
+        set((s) => {
+          let decremented = false
+          const notifications = s.notifications.map((n) => {
+            if (n.id === id && !n.isRead) {
+              decremented = true
+              return { ...n, isRead: true }
+            }
+            return n
+          })
+          return { notifications, unreadCount: Math.max(0, s.unreadCount - (decremented ? 1 : 0)) }
+        }),
+
+      markAllAsRead: () =>
+        set((s) => ({
+          notifications: s.notifications.map((n) => ({ ...n, isRead: true })),
+          unreadCount: 0,
+        })),
+
+      setMessages: (messages) =>
+        set({ messages, unreadMessageCount: messages.filter((m) => !m.isRead).length }),
+
+      addMessage: (msg) =>
+        set((s) => ({
+          messages: [msg, ...s.messages],
+          unreadMessageCount: s.unreadMessageCount + (msg.isRead ? 0 : 1),
+        })),
+
+      markMessageAsRead: (id) =>
+        set((s) => {
+          let decremented = false
+          const messages = s.messages.map((m) => {
+            if (m.id === id && !m.isRead) {
+              decremented = true
+              return { ...m, isRead: true }
+            }
+            return m
+          })
+          return {
+            messages,
+            unreadMessageCount: Math.max(0, s.unreadMessageCount - (decremented ? 1 : 0)),
+          }
+        }),
+
+      clearAll: () => set({ notifications: [], unreadCount: 0 }),
+
+      setUnreadCounts: (counts) =>
+        set({ unreadCount: counts.notifications, unreadMessageCount: counts.messages }),
+
+      handleWsMessage: (msg) => {
+        const entry = transformWsNotification(msg as unknown as WsNotificationLike)
+        if (entry) {
+          useNotificationStore.getState().addNotification(entry as NotificationItem)
         }
-        return m
-      })
-      return {
-        messages,
-        unreadMessageCount: Math.max(0, s.unreadMessageCount - (decremented ? 1 : 0)),
-      }
-    }),
-
-  clearAll: () => set({ notifications: [], unreadCount: 0 }),
-
-  setUnreadCounts: (counts) =>
-    set({ unreadCount: counts.notifications, unreadMessageCount: counts.messages }),
-
-  handleWsMessage: (msg) => {
-    const entry = transformWsNotification(msg as unknown as WsNotificationLike)
-    if (entry) {
-      useNotificationStore.getState().addNotification(entry as NotificationItem)
-    }
-  },
+      },
     }),
     {
       name: 'ihui-notification',
