@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 import { formatNumber } from '@/lib/date-utils'
 
@@ -938,9 +939,11 @@ function TelemetryTab() {
                 ) : (
                   <XCircle className="h-3 w-3 shrink-0 text-red-400" />
                 )}
-                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground" title={id}>
-                  #{id.slice(0, 10)}
-                </span>
+                <Tooltip content={id}>
+                  <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                    #{id.slice(0, 10)}
+                  </span>
+                </Tooltip>
                 <span
                   className={cn(
                     'rounded border px-1.5 py-0.5 text-[10px]',
