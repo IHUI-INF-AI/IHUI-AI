@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#1a1a2e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <circle cx="120" cy="180" r="56" fill="none" stroke="#e5e5e5" stroke-width="3"/>
+  <text x="120" y="196" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="700" fill="#e5e5e5" text-anchor="middle">IH</text>
+  <text x="200" y="170" font-family="system-ui, -apple-system, sans-serif" font-size="60" font-weight="700" fill="#ffffff">IHUI-AI</text>
+  <text x="200" y="215" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="400" fill="#a3a3a3">全栈 AI 操作系统 · 8 端同源 · 176 模型 · Apache 2.0</text>
+  <text x="120" y="330" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600" fill="#fafafa">340 表 · 144 迁移 · 1300+ API 端点 · 5346 测试 · 63 e2e spec</text>
+  <text x="120" y="370" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600" fill="#fafafa">LangGraph + MCP + A2A 三栈 · P3 深度层 · 5 语言 i18n · 14 平台自动发布</text>
+  <text x="120" y="450" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="400" fill="#a3a3a3">一站式对标 40+ 商业产品:Dify / Coze / FastGPT / LangChain / Cursor / Claude Code / Stripe / Auth0 / Tauri ...</text>
+  <text x="120" y="560" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600" fill="#ffffff">ihui.ai  |  github.com/IHUI-INF-AI/IHUI-AI</text>
+</svg>
