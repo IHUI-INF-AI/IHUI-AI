@@ -21,6 +21,7 @@
  *   node scripts/check-i18n-broken-en.mjs --fix                    # 输出修复建议（不写文件）
  *   node scripts/check-i18n-broken-en.mjs --readme                 # 扫描根目录 README.en.md
  *   node scripts/check-i18n-broken-en.mjs --target=extension       # 扫描 packages/i18n/messages/extension/en.json
+ *   node scripts/check-i18n-broken-en.mjs --target=shared          # 扫描 packages/i18n/messages/shared/en.json
  *
  * Markdown 模式 (--readme):
  *   扫描 README.en.md 检测破碎机翻英文，跳过:
@@ -209,12 +210,15 @@ function main() {
   const targetArg = args.find((a) => a.startsWith('--target='))
   const target = targetArg ? targetArg.split('=')[1] : 'web'
   const isExtension = target === 'extension'
+  const isShared = target === 'shared'
 
   let relPath
   if (readme) {
     relPath = 'README.en.md'
   } else if (isExtension) {
     relPath = 'packages/i18n/messages/extension/en.json'
+  } else if (isShared) {
+    relPath = 'packages/i18n/messages/shared/en.json'
   } else {
     // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
     relPath = 'packages/i18n/messages/web/en.json'

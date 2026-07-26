@@ -1,16 +1,8 @@
 {
   "common": {
-    "save": "保存",
-    "cancel": "取消",
-    "delete": "删除",
-    "back": "返回",
-    "confirm": "确认",
-    "loading": "加载中…",
-    "empty": "暂无数据",
-    "search": "搜索"
+    "loading": "加载中…"
   },
   "nav": {
-    "home": "首页",
     "courses": "课程",
     "live": "直播",
     "profile": "我的",
@@ -122,11 +114,8 @@
     "voice": "语音"
   },
   "settings": {
-    "title": "设置",
     "account": "账号与安全",
     "notification": "消息通知",
-    "language": "语言",
-    "theme": "主题",
     "about": "关于智汇 AI",
     "version": "版本",
     "notifPush": "推送通知",
