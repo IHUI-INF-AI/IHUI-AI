@@ -376,7 +376,7 @@ export function AISidePanel() {
     // hasMoreHistory 用于切换会话前保存旧会话到缓存,但不放入依赖:
     // 避免 hasMoreHistory 变化触发 loadHistory 重载(分页加载由 handleLoadMoreHistory +
     // messages 同步 effect 处理缓存更新)
-  }, [storeConversationId, setConversationId, open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [storeConversationId, setConversationId, open]) // eslint-disable-line react-hooks/exhaustive-deps -- hasMoreHistory 故意不放入依赖,避免其变化触发 loadHistory 重载
 
   // #11 LRU 缓存同步(2026-07-25 立):
   // messages 变化时(用户发送新消息、收到 AI 回复、流式增量、WebSocket 多端同步等)
