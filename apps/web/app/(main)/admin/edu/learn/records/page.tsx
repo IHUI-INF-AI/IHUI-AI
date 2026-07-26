@@ -97,7 +97,7 @@ export default function EduLearnRecordsPage() {
         </div>
         <div className="w-full max-w-[160px]">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className={selectClass} aria-label={t('type')}>
+            <SelectTrigger className={selectClass} aria-label={t('type.label')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
