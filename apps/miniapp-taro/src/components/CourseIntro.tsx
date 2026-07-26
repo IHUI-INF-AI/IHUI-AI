@@ -19,14 +19,20 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
     <View className="bg-card px-4 py-3">
       {data.description && (
         <View className="mb-4">
-          <Text className="block text-sm font-medium text-foreground mb-2">{tt('course.intro', '课程介绍')}</Text>
-          <Text className="block text-xs text-muted-foreground leading-relaxed">{data.description}</Text>
+          <Text className="block text-sm font-medium text-foreground mb-2">
+            {tt('course.intro', '课程介绍')}
+          </Text>
+          <Text className="block text-xs text-muted-foreground leading-relaxed">
+            {data.description}
+          </Text>
         </View>
       )}
 
       {data.objectives && data.objectives.length > 0 && (
         <View className="mb-4">
-          <Text className="block text-sm font-medium text-foreground mb-2">{tt('course.objectives', '学习目标')}</Text>
+          <Text className="block text-sm font-medium text-foreground mb-2">
+            {tt('course.objectives', '学习目标')}
+          </Text>
           {data.objectives.map((obj, i) => (
             <View key={i} className="flex items-start mb-1.5">
               <Text className="text-xs text-primary mr-2">✓</Text>
@@ -38,12 +44,14 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
 
       {data.highlights && data.highlights.length > 0 && (
         <View className="mb-4">
-          <Text className="block text-sm font-medium text-foreground mb-2">{tt('course.highlights', '课程亮点')}</Text>
+          <Text className="block text-sm font-medium text-foreground mb-2">
+            {tt('course.highlights', '课程亮点')}
+          </Text>
           <View className="flex flex-wrap">
             {data.highlights.map((h, i) => (
               <Text
                 key={i}
-                className="text-[11px] px-2 py-1 mr-1.5 mb-1 rounded bg-primary/10 text-primary"
+                className="text-[22rpx] px-2 py-1 mr-1.5 mb-1 rounded bg-primary/10 text-primary"
               >
                 {h}
               </Text>
@@ -54,7 +62,9 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
 
       {data.suitableFor && data.suitableFor.length > 0 && (
         <View>
-          <Text className="block text-sm font-medium text-foreground mb-2">{tt('course.audience', '适合人群')}</Text>
+          <Text className="block text-sm font-medium text-foreground mb-2">
+            {tt('course.audience', '适合人群')}
+          </Text>
           {data.suitableFor.map((s, i) => (
             <View key={i} className="flex items-start mb-1.5">
               <Text className="text-xs text-primary mr-2">·</Text>

@@ -78,14 +78,14 @@ export default function NavBar({
       )}
       {notification && (
         <View
-          className="absolute left-0 right-0 flex items-center justify-between px-[16px] py-[8px]"
+          className="absolute left-0 right-0 flex items-center justify-between px-[32rpx] py-[16rpx]"
           style={{ top: `${statusBarHeight + navBarHeight}px`, backgroundColor: '#fff8e1' }}
         >
-          <Text className="flex-1 truncate text-[12px]" style={{ color: '#7c5e1e' }}>
+          <Text className="flex-1 truncate text-[24rpx]" style={{ color: '#7c5e1e' }}>
             {notification.text}
           </Text>
           <Text
-            className="ml-[8px] text-[16px] leading-none"
+            className="ml-[16rpx] text-[32rpx] leading-none"
             style={{ color: '#7c5e1e' }}
             onClick={notification.onClose}
           >
