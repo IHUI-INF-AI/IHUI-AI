@@ -1,0 +1,58 @@
+name: LLM Provider Schema Test
+
+# =============================================================================
+# LLM provider schema 守门脚本测试 workflow(2026-07-26 立)
+#
+# 跑 scripts/tests/check-llm-provider-schema.test.mjs(44 个端到端测试),
+# 覆盖 7 条校验规则 + CLI 参数 + 边界情况,防止守门脚本重构引入回归。
+#
+# 触发条件:scripts/check-llm-provider-schema.mjs / 测试文件 / .env / provider_config.py 变更
+# =============================================================================
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'scripts/check-llm-provider-schema.mjs'
+      - 'scripts/tests/check-llm-provider-schema.test.mjs'
+      - 'apps/ai-service/.env'
+      - 'apps/ai-service/app/core/provider_config.py'
+      - '.github/workflows/llm-provider-schema-test.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'scripts/check-llm-provider-schema.mjs'
+      - 'scripts/tests/check-llm-provider-schema.test.mjs'
+      - 'apps/ai-service/.env'
+      - 'apps/ai-service/app/core/provider_config.py'
+      - '.github/workflows/llm-provider-schema-test.yml'
+
+concurrency:
+  group: llm-provider-schema-test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  test:
+    name: LLM provider schema 守门脚本测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 运行 check-llm-provider-schema 守门脚本测试
+        # 44 个测试用例,覆盖 7 条校验规则 + CLI 参数 + 边界情况
+        # 用 Node.js 内置 test runner,无第三方依赖
+        run: node --test scripts/tests/check-llm-provider-schema.test.mjs
