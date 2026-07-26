@@ -139,52 +139,70 @@ export function WebWorkPanel() {
   if (!effectiveOpen) return null
 
   return (
-    <WorkPanel
-      open={effectiveOpen}
-      width={effectiveWidth}
-      onResize={handleResize}
-      onResizeStart={() => setResizing(true)}
-      onResizeEnd={() => setResizing(false)}
-      onClose={closePanel}
-      addressValue={addressInput}
-      onAddressChange={setAddressInput}
-      onAddressSubmit={() => navigate(addressInput, 'user')}
-      onBack={back}
-      onForward={forward}
-      onReload={reload}
-      onStop={stop}
-      onOpenExternal={handleOpenExternal}
-      isFavorite={isFavorite}
-      onToggleFavorite={handleToggleFavorite}
-      favorites={favorites}
-      recentUrls={recentUrls}
-      onSelectFromList={(url) => navigate(url, 'user')}
-      onRemoveFavorite={removeFavorite}
-      onClearHistory={clearHistory}
-      canBack={canBack}
-      canForward={canForward}
-      isLoading={isLoading}
-      isSecure={url.startsWith('https://')}
-      tabs={uiTabs}
-      activeTabId={activeTabId}
-      onTabChange={setActiveTab}
-      onTabClose={closeTab}
-      onTabReorder={reorderTabs}
-      onNewTab={() => newTab()}
-      className={isResizing ? 'select-none' : undefined}
-    >
-      <WebViewFrame
-        url={url}
-        mode={mode}
-        status={status}
-        screenshot={screenshot}
-        title={title}
-        error={error}
-        onLoad={onLoaded}
-        onError={onFailed}
+    // 2026-07-26 用户反馈(第十一次,修底部间距裁剪):WebWorkPanel 容器
+    // 用 `h-[calc(100%-16px)]` + my-2 mr-2,而不是 `h-full` + my-2 mr-2。
+    // 根因:GlobalShell 父容器 `<div className="flex flex-row overflow-hidden">`
+    // 高度 = 视口 900px,WebWorkPanel 用 h-full + my-2 时:
+    //   - 父 div 高度 = 900px
+    //   - my-2 上下 8+8 = 16px margin 在 flex-row 中溢出(底部 8px 被 overflow-hidden 裁掉)
+    //   - 视觉:WebWorkPanel 顶部 8px ✅,底部贴边 0px ❌
+    // 修复:把 h-full 改为 h-[calc(100%-16px)] = 884px(父容器 - my-2 总占位),
+    //   my-2 的 16px 全部落在父容器可见范围内,顶部/底部/右侧各 8px 视觉间距生效。
+    // 设计目标:让 WebWorkPanel 与 AISidePanel (mr-2) + MainShell (my-2 mr-2) 形成对称卡片化视觉。
+    // - my-2:顶部/底部 8px 间距,WebWorkPanel 不再贴到右列顶部/底部
+    // - mr-2:右侧 8px 间距,WebWorkPanel 不再贴到右屏边缘
+    // - 左侧 0 间距(无 ml-2),由父容器 flex 流自然紧贴 work-area,
+    //   中部与 main 的 8px 视觉间距由 MainShell 自己的 mr-2 自然形成
+    // - WebWorkPanel 关闭时 return null,不影响布局
+    // - WorkPanel 高度从 900 变成 884(缩 16px),内部 flex-1 内容区自动适应,不影响视觉
+    <div className="my-2 mr-2 h-[calc(100%-16px)]">
+      <WorkPanel
+        open={effectiveOpen}
+        width={effectiveWidth}
+        onResize={handleResize}
+        onResizeStart={() => setResizing(true)}
+        onResizeEnd={() => setResizing(false)}
+        onClose={closePanel}
+        addressValue={addressInput}
+        onAddressChange={setAddressInput}
+        onAddressSubmit={() => navigate(addressInput, 'user')}
+        onBack={back}
+        onForward={forward}
+        onReload={reload}
+        onStop={stop}
         onOpenExternal={handleOpenExternal}
-        onRetry={reload}
-      />
-    </WorkPanel>
+        isFavorite={isFavorite}
+        onToggleFavorite={handleToggleFavorite}
+        favorites={favorites}
+        recentUrls={recentUrls}
+        onSelectFromList={(url) => navigate(url, 'user')}
+        onRemoveFavorite={removeFavorite}
+        onClearHistory={clearHistory}
+        canBack={canBack}
+        canForward={canForward}
+        isLoading={isLoading}
+        isSecure={url.startsWith('https://')}
+        tabs={uiTabs}
+        activeTabId={activeTabId}
+        onTabChange={setActiveTab}
+        onTabClose={closeTab}
+        onTabReorder={reorderTabs}
+        onNewTab={() => newTab()}
+        className={isResizing ? 'select-none' : undefined}
+      >
+        <WebViewFrame
+          url={url}
+          mode={mode}
+          status={status}
+          screenshot={screenshot}
+          title={title}
+          error={error}
+          onLoad={onLoaded}
+          onError={onFailed}
+          onOpenExternal={handleOpenExternal}
+          onRetry={reload}
+        />
+      </WorkPanel>
+    </div>
   )
 }
