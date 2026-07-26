@@ -30,11 +30,13 @@
 from lib.fact_check import fact_check
 passed, report = fact_check(article_dict)
 """
+from __future__ import annotations
+
 import re
 import sys
 import os
 from datetime import datetime
-from typing import cast
+from typing import Any, Callable, cast
 
 # ===== 严重级别 =====
 HIGH = 'HIGH'
@@ -121,9 +123,9 @@ NO_SOURCE = [
 ]
 
 
-def _extract_all_text(article):
+def _extract_all_text(article: dict[str, Any]) -> list[tuple[str, str]]:
     """从article dict提取全部文本内容"""
-    texts = []
+    texts: list[tuple[str, str]] = []
     if article.get('title'):
         texts.append(('title', article['title']))
     if article.get('subtitle'):
@@ -166,12 +168,12 @@ def _extract_all_text(article):
     return texts
 
 
-def _full_text(texts):
+def _full_text(texts: list[tuple[str, str]]) -> str:
     """拼接全部文本"""
     return '\n'.join(t for _, t in texts)
 
 
-def _context_around(text, pattern, window=60):
+def _context_around(text: str, pattern: str, window: int = 60) -> str:
     """提取匹配位置的上下文"""
     m = re.search(pattern, text)
     if not m:
@@ -184,7 +186,7 @@ def _context_around(text, pattern, window=60):
 # ============================================================
 #  C1: 数据信源检查 — 每个具体数字必须有来源
 # ============================================================
-def check_data_sources(article, texts):
+def check_data_sources(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查文章中的具体数字是否标注了来源"""
     issues = []
     registry = article.get('claims_registry', [])
@@ -271,7 +273,7 @@ def check_data_sources(article, texts):
 # ============================================================
 #  C2: 引用归属检查 — 所有引用必须有具名来源
 # ============================================================
-def check_quote_attribution(article, texts):
+def check_quote_attribution(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查引用是否有明确归属"""
     issues = []
     full = _full_text(texts)
@@ -329,7 +331,7 @@ KNOWN_PLATFORMS = [
     'WorkBuddy', '腾讯云', '阿里云', '百度智能云',
 ]
 
-def check_ranking_claims(article, texts):
+def check_ranking_claims(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查排名/第一/最强声明是否指明具体评测或平台"""
     issues = []
     full = _full_text(texts)
@@ -369,7 +371,7 @@ def check_ranking_claims(article, texts):
 # ============================================================
 #  C4: 数学自洽检查 — 百分比/计算必须正确
 # ============================================================
-def check_math_consistency(article, texts):
+def check_math_consistency(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查数学计算是否正确"""
     issues = []
     full = _full_text(texts)
@@ -444,7 +446,7 @@ def check_math_consistency(article, texts):
 # ============================================================
 #  C5: 数据一致性检查 — 同一数据点在全文中必须一致
 # ============================================================
-def check_data_consistency(article, texts):
+def check_data_consistency(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查同一数据点在全文中是否一致"""
     issues = []
     full = _full_text(texts)
@@ -516,7 +518,7 @@ def check_data_consistency(article, texts):
 # ============================================================
 #  C6: 产品/版本检查 — 标记可疑的产品名或版本号
 # ============================================================
-def check_product_versions(article, texts):
+def check_product_versions(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查产品名/版本号是否可疑"""
     issues = []
     full = _full_text(texts)
@@ -587,7 +589,7 @@ def check_product_versions(article, texts):
 # ============================================================
 #  C7: 时间线检查 — 日期和时间线是否合理
 # ============================================================
-def check_temporal_claims(article, texts):
+def check_temporal_claims(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查时间线声明"""
     issues = []
     full = _full_text(texts)
@@ -662,7 +664,7 @@ def check_temporal_claims(article, texts):
 # ============================================================
 #  C8: 能力声明检查 — 区分官方数据 vs 个人体验
 # ============================================================
-def check_capability_claims(article, texts):
+def check_capability_claims(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查能力声明是否标注了来源类型"""
     issues = []
     registry = article.get('claims_registry', [])
@@ -715,7 +717,7 @@ def check_capability_claims(article, texts):
 # ============================================================
 #  C9: 匿名信源风险检查
 # ============================================================
-def check_anonymous_sources(article, texts):
+def check_anonymous_sources(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查匿名信源的使用"""
     issues = []
     full = _full_text(texts)
@@ -750,7 +752,7 @@ def check_anonymous_sources(article, texts):
 # ============================================================
 #  C10: 图片说明准确性检查
 # ============================================================
-def check_image_captions(article, texts):
+def check_image_captions(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查图片说明是否与正文声明一致"""
     issues = []
 
@@ -797,7 +799,7 @@ def check_image_captions(article, texts):
 # ============================================================
 #  C11: 主观伪装客观检查
 # ============================================================
-def check_subjective_as_objective(article, texts):
+def check_subjective_as_objective(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查主观判断是否伪装成客观事实"""
     issues = []
     full = _full_text(texts)
@@ -843,7 +845,7 @@ def check_subjective_as_objective(article, texts):
 # ============================================================
 #  C12: 信源注册表完整性检查
 # ============================================================
-def check_claims_registry(article, texts):
+def check_claims_registry(article: dict[str, Any], texts: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """检查信源注册表是否完整"""
     issues = []
     registry = article.get('claims_registry', [])
@@ -905,7 +907,7 @@ def check_claims_registry(article, texts):
 # ============================================================
 #  主函数
 # ============================================================
-def fact_check(article):
+def fact_check(article: dict[str, Any]) -> tuple[bool, list[dict[str, Any]]]:
     """
     执行完整事实核查
 
@@ -924,10 +926,10 @@ def fact_check(article):
     texts = _extract_all_text(article)
     full = _full_text(texts)
 
-    all_issues = []
+    all_issues: list[dict[str, Any]] = []
 
     # 运行12项子检查
-    checks = [
+    checks: list[tuple[str, str, Callable[[dict[str, Any], list[tuple[str, str]]], list[dict[str, Any]]]]] = [
         ('C1', '数据信源', check_data_sources),
         ('C2', '引用归属', check_quote_attribution),
         ('C3', '排名基准', check_ranking_claims),
@@ -989,14 +991,14 @@ def fact_check(article):
 # ============================================================
 #  辅助：从article dict自动提取claims（供人工审核后填入注册表）
 # ============================================================
-def auto_extract_claims(article):
+def auto_extract_claims(article: dict[str, Any]) -> list[dict[str, Any]]:
     """
     自动从文章中提取所有可能的的事实声明
     输出为claims_registry格式的初稿，供人工审核后使用
     """
     texts = _extract_all_text(article)
     full = _full_text(texts)
-    claims = []
+    claims: list[dict[str, Any]] = []
 
     # 提取所有数字+上下文
     number_pattern = r'([\d][\d,.]*[%％万亿万]?)'

@@ -48,7 +48,7 @@ class ResourceMonitor:
     cpu_seconds: Optional[float] = None
     poll_interval_s: float = 2.0
     kill_on_violation: bool = True
-    _task: Optional[asyncio.Task] = None
+    _task: Optional[asyncio.Task[None]] = None
     _violations: list[ResourceViolation] = field(default_factory=list)
     _terminated: bool = False
 
