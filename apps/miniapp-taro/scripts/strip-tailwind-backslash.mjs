@@ -29,10 +29,17 @@ import { join, resolve, basename } from 'node:path'
 // WXSS handling:
 // - Most chars (. [ ] / : ( ) , % # & * ' +): strip the backslash, WXSS accepts
 //   the bare char inside a class selector.
-// - `!` is special: WXSS treats leading `!` as important marker, so `.!visible`
-//   is rejected ("unexpected `!` at pos X"). Use CSS hex escape `\21 ` instead
-//   (U+0021 = !), which WXSS parses as an IDENT token. The trailing space is
-//   required to terminate the hex escape.
+// - `\!` is special: WXSS rejects both `\` (no escape support) AND leading `!`
+//   (treated as important marker). Tried CSS hex escape `\21 ` first — WXSS
+//   still rejects the `\`. Final fix: strip BOTH the backslash AND the `!`,
+//   so `.\!visible` -> `.visible`. Safe because:
+//   (a) `!visible` is Tailwind's important modifier for `visibility:visible`,
+//       merging into `.visible { visibility: visible }` is functionally
+//       equivalent for the visibility property (visible is visible).
+//   (b) For color utilities like `!bg-primary`, source uses `!bg-primary`
+//       only to win specificity over `bg-muted` on the same element — the
+//       non-important `.bg-primary` rule still applies, just without
+//       `!important`. Acceptable tradeoff vs WXSS compile failure.
 const RE = /\\([.\\[\]!/:(),%#&*'+])/g
 
 function walk(dir, out = []) {
@@ -51,7 +58,8 @@ function stripFile(file) {
   let count = 0
   const next = orig.replace(RE, (_, ch) => {
     count++
-    return ch === '!' ? '\\21 ' : ch
+    // `\!` -> delete both chars (WXSS accepts neither `\` nor leading `!`)
+    return ch === '!' ? '' : ch
   })
   if (count > 0) {
     writeFileSync(file, next, 'utf8')
