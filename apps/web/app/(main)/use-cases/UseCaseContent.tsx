@@ -2,7 +2,19 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Sparkles, Check, ArrowRight, MessageSquare, Code, FileText, Database, Brain, Users, Zap, Shield } from 'lucide-react'
+import {
+  Sparkles,
+  Check,
+  ArrowRight,
+  MessageSquare,
+  Code,
+  FileText,
+  Database,
+  Brain,
+  Users,
+  Zap,
+  Shield,
+} from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
 export interface UseCase {
@@ -17,7 +29,11 @@ export interface UseCase {
   solutionTitle: string
   solutionPoints: Array<{ title: string; desc: string }>
   howItWorks: Array<{ step: number; title: string; desc: string }>
-  benefits: Array<{ title: string; desc: string; icon: React.ComponentType<{ className?: string }> }>
+  benefits: Array<{
+    title: string
+    desc: string
+    icon: React.ComponentType<{ className?: string }>
+  }>
   metrics: Array<{ value: string; label: string }>
 }
 
@@ -61,14 +77,30 @@ export const USE_CASES: Record<UseCase['id'], UseCase> = {
       },
     ],
     howItWorks: [
-      { step: 1, title: '上传知识库', desc: '导入产品手册/FAQ/历史工单,AI 自动向量化,5 分钟即可上线。' },
-      { step: 2, title: '配置 Agent', desc: '从客服场景模板 fork,配置欢迎语/转人工规则/品牌话术。' },
-      { step: 3, title: '多渠道发布', desc: '一键发布到 Web/微信/小程序/邮件,所有渠道共享同一知识库。' },
+      {
+        step: 1,
+        title: '上传知识库',
+        desc: '导入产品手册/FAQ/历史工单,AI 自动向量化,5 分钟即可上线。',
+      },
+      {
+        step: 2,
+        title: '配置 Agent',
+        desc: '从客服场景模板 fork,配置欢迎语/转人工规则/品牌话术。',
+      },
+      {
+        step: 3,
+        title: '多渠道发布',
+        desc: '一键发布到 Web/微信/小程序/邮件,所有渠道共享同一知识库。',
+      },
       { step: 4, title: '持续优化', desc: '查看对话日志,标注 AI 错误答案,系统自动迭代知识库。' },
     ],
     benefits: [
       { title: '成本降低 70%', desc: 'AI 解决 80% 常见问题,人工只需处理复杂咨询。', icon: Zap },
-      { title: '响应时间 0 秒', desc: '7×24 即时响应,无排队,客户满意度提升 40%。', icon: MessageSquare },
+      {
+        title: '响应时间 0 秒',
+        desc: '7×24 即时响应,无排队,客户满意度提升 40%。',
+        icon: MessageSquare,
+      },
       { title: '答案一致性', desc: '统一知识库,所有客服(AI/人工)给出标准答案。', icon: Shield },
       { title: '数据驱动改进', desc: '所有对话可分析,识别高频问题,反哺产品改进。', icon: Brain },
     ],
@@ -118,16 +150,40 @@ export const USE_CASES: Record<UseCase['id'], UseCase> = {
       },
     ],
     howItWorks: [
-      { step: 1, title: '连接数据源', desc: '对接 Confluence/Notion/SharePoint/S3 等 30+ 数据源,自动同步。' },
-      { step: 2, title: '智能解析', desc: 'PDF 表格、Word 图片、Markdown 链接自动抽取,无信息丢失。' },
-      { step: 3, title: '向量化索引', desc: '选择嵌入模型(支持中文优化版),构建混合索引,分钟级完成。' },
-      { step: 4, title: '智能问答', desc: '员工提问,AI 给出答案 + 引用来源,点击可跳转到原文段落。' },
+      {
+        step: 1,
+        title: '连接数据源',
+        desc: '对接 Confluence/Notion/SharePoint/S3 等 30+ 数据源,自动同步。',
+      },
+      {
+        step: 2,
+        title: '智能解析',
+        desc: 'PDF 表格、Word 图片、Markdown 链接自动抽取,无信息丢失。',
+      },
+      {
+        step: 3,
+        title: '向量化索引',
+        desc: '选择嵌入模型(支持中文优化版),构建混合索引,分钟级完成。',
+      },
+      {
+        step: 4,
+        title: '智能问答',
+        desc: '员工提问,AI 给出答案 + 引用来源,点击可跳转到原文段落。',
+      },
     ],
     benefits: [
-      { title: '找信息时间 -70%', desc: '从平均 30 分钟找一份文档到 30 秒获得精准答案。', icon: Zap },
+      {
+        title: '找信息时间 -70%',
+        desc: '从平均 30 分钟找一份文档到 30 秒获得精准答案。',
+        icon: Zap,
+      },
       { title: '准确率 95%+', desc: '混合检索 + 引用回溯,每个答案都可追溯到原文。', icon: Check },
       { title: '零培训上手', desc: '自然语言提问,无需学习复杂搜索语法。', icon: Users },
-      { title: '合规安全', desc: '细粒度权限 + 审计日志,满足金融/医疗/政企合规要求。', icon: Shield },
+      {
+        title: '合规安全',
+        desc: '细粒度权限 + 审计日志,满足金融/医疗/政企合规要求。',
+        icon: Shield,
+      },
     ],
     metrics: [
       { value: '70%', label: '找信息时间降低' },
@@ -176,9 +232,21 @@ export const USE_CASES: Record<UseCase['id'], UseCase> = {
     ],
     howItWorks: [
       { step: 1, title: '仓库索引', desc: '连接 GitHub/GitLab,索引代码/Issue/PR/Wiki,自动同步。' },
-      { step: 2, title: 'Agent 训练', desc: '从团队历史 PR/Code Review 中学习代码风格,自动生成团队规范文档。' },
-      { step: 3, title: 'IDE 集成', desc: '通过 MCP Server 接入 VSCode/Cursor/JetBrains,代码补全/解释/重构一键完成。' },
-      { step: 4, title: 'PR 智能审查', desc: 'PR 提交时自动触发,AI 给出 review 意见,标记需要人类 review 的关键变更。' },
+      {
+        step: 2,
+        title: 'Agent 训练',
+        desc: '从团队历史 PR/Code Review 中学习代码风格,自动生成团队规范文档。',
+      },
+      {
+        step: 3,
+        title: 'IDE 集成',
+        desc: '通过 MCP Server 接入 VSCode/Cursor/JetBrains,代码补全/解释/重构一键完成。',
+      },
+      {
+        step: 4,
+        title: 'PR 智能审查',
+        desc: 'PR 提交时自动触发,AI 给出 review 意见,标记需要人类 review 的关键变更。',
+      },
     ],
     benefits: [
       { title: '新人上手 1 周', desc: '从 2-3 月缩到 1 周,Agent 7×24 答疑。', icon: Zap },
@@ -232,8 +300,16 @@ export const USE_CASES: Record<UseCase['id'], UseCase> = {
       },
     ],
     howItWorks: [
-      { step: 1, title: '上传品牌资料', desc: '上传品牌指南/历史爆款文章/产品文档,AI 学习品牌调性。' },
-      { step: 2, title: '选题策划', desc: '输入关键词或行业趋势,AI 生成 20+ 选题方案 + 预估流量价值。' },
+      {
+        step: 1,
+        title: '上传品牌资料',
+        desc: '上传品牌指南/历史爆款文章/产品文档,AI 学习品牌调性。',
+      },
+      {
+        step: 2,
+        title: '选题策划',
+        desc: '输入关键词或行业趋势,AI 生成 20+ 选题方案 + 预估流量价值。',
+      },
       { step: 3, title: '一键生成', desc: '选定选题,AI 生成多平台多语言版本,人工微调后发布。' },
       { step: 4, title: '效果追踪', desc: '接入平台数据,AI 复盘高表现内容,持续优化生成策略。' },
     ],
@@ -288,7 +364,10 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{uc.problemTitle}</h2>
         <ul className="mt-6 space-y-3">
           {uc.problems.map((p, i) => (
-            <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground md:text-base">
+            <li
+              key={i}
+              className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground md:text-base"
+            >
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
               {p}
             </li>
@@ -316,13 +395,11 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
 
       {/* 工作流程 */}
       <section className="mt-16">
-        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">
-          4 步落地
-        </h2>
+        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">4 步落地</h2>
         <div className="mt-8 grid gap-4 md:grid-cols-4">
           {uc.howItWorks.map((hw) => (
             <div key={hw.step} className="rounded-2xl border bg-card p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-foreground">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-base font-semibold text-primary-foreground">
                 {hw.step}
               </div>
               <h3 className="mt-4 text-base font-semibold">{hw.title}</h3>
@@ -334,9 +411,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
 
       {/* 核心收益 */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-8 md:p-12">
-        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">
-          核心收益
-        </h2>
+        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">核心收益</h2>
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {uc.benefits.map((b, i) => {
             const BIcon = b.icon
@@ -356,9 +431,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       {/* CTA */}
       <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">
-          开始你的 AI 用例
-        </h2>
+        <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">开始你的 AI 用例</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
           注册即得 1000 积分,从用例模板一键 fork,5 分钟体验。
         </p>
@@ -367,7 +440,9 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
             <Link href="/sso/register">免费注册</Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
-            <Link href="/use-cases">查看其他用例 <ArrowRight className="ml-2 h-4 w-4" /></Link>
+            <Link href="/use-cases">
+              查看其他用例 <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </Button>
         </div>
       </section>
