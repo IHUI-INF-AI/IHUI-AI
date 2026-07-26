@@ -67,7 +67,6 @@ test.describe('键盘导航', () => {
       if (tag === 'BUTTON' || tag === 'A') break
     }
 
-    const urlBefore = page.url()
     await page.keyboard.press('Enter')
     await page.waitForTimeout(500)
     const urlAfter = page.url()
