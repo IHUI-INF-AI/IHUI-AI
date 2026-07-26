@@ -50,7 +50,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ class BudgetConfig:
     auto_degrade_at: float = 0.9             # 90% 自动降级(切换到更便宜模型)
     hard_stop_at: float = 1.0                # 100% 硬停止
     # 按支柱分配预算比例
-    pillar_ratios: dict = field(default_factory=lambda: {
+    pillar_ratios: dict[str, float] = field(default_factory=lambda: {
         "rules": 0.10,
         "hook": 0.10,
         "spec": 0.20,
@@ -107,7 +107,7 @@ class BudgetConfig:
         "terminal": 0.10,
     })
     # 模型成本表(每 1K token 美元)
-    model_cost_table: dict = field(default_factory=lambda: {
+    model_cost_table: dict[str, dict[str, float]] = field(default_factory=lambda: {
         "gpt-4o": {"input": 0.0025, "output": 0.01},
         "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
         "gpt-4-turbo": {"input": 0.01, "output": 0.03},
@@ -117,7 +117,7 @@ class BudgetConfig:
         "default": {"input": 0.002, "output": 0.008},
     })
     # 降级链(预算紧张时切换,从贵到便宜)
-    degrade_chain: list = field(default_factory=lambda: [
+    degrade_chain: list[str] = field(default_factory=lambda: [
         "gpt-4o", "gpt-4o-mini",  # 优先降级到 mini
     ])
 
@@ -177,7 +177,7 @@ class LLMBudgetGovernor:
         self._redis: Any = None
         self._redis_inited = False
         # 内存降级:用量记录 deque + 累加器
-        self._memory_usage: deque = deque(maxlen=_MEMORY_USAGE_MAX)
+        self._memory_usage: deque[UsageRecord] = deque(maxlen=_MEMORY_USAGE_MAX)
         self._memory_daily: dict[str, dict[str, float]] = {}    # date -> {tokens, cost}
         self._memory_hourly: dict[str, dict[str, float]] = {}   # hour -> {tokens, cost}
         self._memory_pillar: dict[str, dict[str, dict[str, float]]] = {}  # pillar -> date -> {tokens, cost}
@@ -305,7 +305,7 @@ class LLMBudgetGovernor:
         bucket = self._memory_pillar.get(pillar, {}).get(pkey, {"tokens": 0, "cost": 0.0})
         return {"tokens": int(bucket["tokens"]), "cost": float(bucket["cost"])}
 
-    async def _scan_records(self, period: str) -> list[dict]:
+    async def _scan_records(self, period: str) -> list[dict[str, Any]]:
         """扫描某周期的用量记录(用于按支柱/模型/action 分解)。"""
         now = datetime.now(timezone.utc)
         if period == "today":
@@ -320,7 +320,7 @@ class LLMBudgetGovernor:
         else:
             start = end = now
 
-        records: list[dict] = []
+        records: list[dict[str, Any]] = []
         redis = await self._ensure_redis()
         if redis is not None:
             try:
@@ -331,7 +331,7 @@ class LLMBudgetGovernor:
                 )
                 for m in members:
                     try:
-                        records.append(json.loads(m))
+                        records.append(cast(dict[str, Any], json.loads(m)))
                     except Exception:
                         continue
                 return records
@@ -352,7 +352,7 @@ class LLMBudgetGovernor:
                 })
         return records
 
-    async def _emit_event(self, event_type: str, payload: dict) -> None:
+    async def _emit_event(self, event_type: str, payload: dict[str, Any]) -> None:
         """发射事件到 orchestration_hub(延迟 import 避免循环依赖;import 失败静默跳过)。"""
         try:
             from .orchestration_hub import orchestration_hub
@@ -547,7 +547,7 @@ class LLMBudgetGovernor:
             remaining_cost_usd=remaining_cost,
         )
 
-    async def get_usage_summary(self, period: str = "today") -> dict:
+    async def get_usage_summary(self, period: str = "today") -> dict[str, Any]:
         """用量汇总。
 
         - period: today/hour/week/pillar:{name}
@@ -624,9 +624,9 @@ class LLMBudgetGovernor:
             "usage_percent": round(usage_percent, 4),
         }
 
-    async def get_usage_trend(self, days: int = 7) -> list[dict]:
+    async def get_usage_trend(self, days: int = 7) -> list[dict[str, Any]]:
         """用量趋势(最近 N 天,按天聚合)。返回 [{date, tokens, cost, by_pillar: {...}}]"""
-        trend: list[dict] = []
+        trend: list[dict[str, Any]] = []
         for d in range(days - 1, -1, -1):
             dk = _date_from_days_ago(d)
             captured_dk = dk
@@ -648,7 +648,7 @@ class LLMBudgetGovernor:
             })
         return trend
 
-    async def get_pillar_budget(self, pillar: str) -> dict:
+    async def get_pillar_budget(self, pillar: str) -> dict[str, Any]:
         """单支柱预算详情。返回 {allocated_limit, used_tokens, used_cost, remaining, usage_percent, degraded_model}"""
         date_key = _today_key()
         usage = await self._get_pillar_usage(pillar, date_key)
@@ -681,7 +681,7 @@ class LLMBudgetGovernor:
             return True
         return False
 
-    async def update_config(self, config: dict) -> BudgetConfig:
+    async def update_config(self, config: dict[str, Any]) -> BudgetConfig:
         """更新预算配置(部分更新,存 Redis hash hub:budget:config)。"""
         if "daily_token_limit" in config:
             self.config.daily_token_limit = int(config["daily_token_limit"])
@@ -727,7 +727,7 @@ class LLMBudgetGovernor:
                 logger.debug("Redis 配置持久化失败(忽略): %s", e)
         return self.config
 
-    async def get_cost_breakdown(self, period: str = "today") -> dict:
+    async def get_cost_breakdown(self, period: str = "today") -> dict[str, Any]:
         """成本分解(按支柱 + 按模型 + 按 action)。返回 {by_pillar, by_model, by_action, total}"""
         records = await self._scan_records(period)
         by_pillar: dict[str, dict[str, float]] = {}
@@ -755,7 +755,7 @@ class LLMBudgetGovernor:
         }
 
 
-def with_budget(pillar: str, action: str) -> Callable:
+def with_budget(pillar: str, action: str) -> Callable[..., Any]:
     """装饰器:自动检查预算 + 记录用量。
 
     用法:
@@ -769,9 +769,9 @@ def with_budget(pillar: str, action: str) -> Callable:
     否则仅检查不记录(避免对无 LLM 调用的函数误记)。
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # 调用前:检查预算
             check = await llm_budget_governor.check_budget(pillar)
             if not check.allowed:

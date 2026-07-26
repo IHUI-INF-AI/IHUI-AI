@@ -31,7 +31,7 @@ class DAGNode:
     retry_delay: float = 1.0  # 基础重试延迟(秒),指数退避:delay * 2^(attempt-1)
     timeout: float = 300.0  # 单节点超时(秒)
     continue_on_fail: bool = False  # 本节点失败后是否继续执行后续依赖节点
-    condition: Optional[Callable[[dict], bool]] = None  # 条件函数,返回 False 则跳过本节点
+    condition: Optional[Callable[[dict[str, Any]], bool]] = None  # 条件函数,返回 False 则跳过本节点
 
 
 @dataclass
@@ -40,7 +40,7 @@ class NodeResult:
 
     node_id: str
     status: str  # success / failed / skipped / timeout
-    output: Optional[dict] = None
+    output: Optional[dict[str, Any]] = None
     error: Optional[str] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
@@ -56,8 +56,8 @@ class DAGResult:
     status: str  # success / partial / failed
     node_results: dict[str, NodeResult]  # node_id -> result
     total_duration_ms: float
-    context: dict  # 最终上下文(所有节点输出合并)
-    trace: list[dict]  # 执行轨迹(按完成时间排序)
+    context: dict[str, Any]  # 最终上下文(所有节点输出合并)
+    trace: list[dict[str, Any]]  # 执行轨迹(按完成时间排序)
 
 
 class DAGValidationError(Exception):
@@ -84,10 +84,10 @@ class DAGScheduler:
         result = await scheduler.execute({"input": "build a feature"})
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: dict[str, DAGNode] = {}
 
-    def add_node(self, node: DAGNode):
+    def add_node(self, node: DAGNode) -> None:
         """添加节点。"""
         if node.id in self.nodes:
             raise DAGValidationError(f"节点 {node.id} 已存在")
@@ -145,7 +145,7 @@ class DAGScheduler:
 
         return levels
 
-    async def execute(self, initial_context: Optional[dict] = None) -> DAGResult:
+    async def execute(self, initial_context: Optional[dict[str, Any]] = None) -> DAGResult:
         """执行 DAG。
 
         - 按拓扑分层逐层执行
@@ -156,9 +156,9 @@ class DAGScheduler:
         """
         self.validate()
 
-        context = dict(initial_context or {})
+        context: dict[str, Any] = dict(initial_context or {})
         node_results: dict[str, NodeResult] = {}
-        trace: list[dict] = []
+        trace: list[dict[str, Any]] = []
         start_time = datetime.now(timezone.utc)
         skipped_nodes: set[str] = set()  # 因条件/上游失败被跳过的节点
 
@@ -210,7 +210,7 @@ class DAGScheduler:
         )
 
     async def _execute_node(
-        self, node_id: str, context: dict, node_results: dict, trace: list
+        self, node_id: str, context: dict[str, Any], node_results: dict[str, NodeResult], trace: list[dict[str, Any]]
     ) -> NodeResult:
         """执行单个节点(含重试 + 超时 + 条件检查)。"""
         node = self.nodes[node_id]
@@ -292,7 +292,7 @@ class DAGScheduler:
         )
         return result
 
-    def _mark_downstream_skipped(self, node_id: str, skipped: set):
+    def _mark_downstream_skipped(self, node_id: str, skipped: set[str]) -> None:
         """递归标记所有下游节点为 skipped。"""
         for nid, node in self.nodes.items():
             if node_id in node.dependencies and nid not in skipped:
@@ -364,9 +364,9 @@ class KanbanTask:
     name: str
     status: AgentTaskStatus = "triage"
     priority: int = 0
-    payload: dict = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     description: Optional[str] = None
-    result: Optional[dict] = None
+    result: Optional[dict[str, Any]] = None
     scheduled_at: Optional[str] = None
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
@@ -382,7 +382,7 @@ class KanbanTask:
     workspace_path: Optional[str] = None
     workspace_branch: Optional[str] = None
 
-    def to_camel_dict(self) -> dict:
+    def to_camel_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "agentId": self.agent_id,
@@ -423,11 +423,11 @@ class WorkerPoolConfig:
     # P1-1 修复:watchdog 心跳超时秒数(默认 60,executor 超此时长无心跳判定卡死)
     heartbeat_timeout_seconds: float = 60.0
     # P1-3 修复:资源限制(可选,不设=不限)
-    resource_limits: Optional[dict] = None  # {memoryMb?, cpuCores?, cpuSeconds?}
+    resource_limits: Optional[dict[str, Any]] = None  # {memoryMb?, cpuCores?, cpuSeconds?}
     # P1-5 修复:网络出站策略(可选,不设=open 不限制)
-    network_egress_policy: Optional[dict] = None  # {mode, domains[], allowLocalhost}
+    network_egress_policy: Optional[dict[str, Any]] = None  # {mode, domains[], allowLocalhost}
 
-    def to_camel_dict(self) -> dict:
+    def to_camel_dict(self) -> dict[str, Any]:
         return {
             "maxWorkers": self.max_workers,
             "taskTimeoutSeconds": self.task_timeout_seconds,
@@ -455,7 +455,7 @@ class WorkerState:
     started_at: str = ""
     last_heartbeat_at: str = ""
 
-    def to_camel_dict(self) -> dict:
+    def to_camel_dict(self) -> dict[str, Any]:
         return {
             "workerId": self.worker_id,
             "type": self.type,
@@ -475,10 +475,10 @@ class AgentSSEEvent:
     type: str  # task_created | task_status_changed | task_completed | task_failed | ...
     task_id: Optional[str] = None
     worker_id: Optional[str] = None
-    payload: dict = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     timestamp: str = ""
 
-    def to_camel_dict(self) -> dict:
+    def to_camel_dict(self) -> dict[str, Any]:
         return {
             "type": self.type,
             "taskId": self.task_id,
@@ -497,9 +497,9 @@ class ParallelExecutionResult:
     task_results: dict[str, KanbanTask] = field(default_factory=dict)
     total_duration_ms: float = 0.0
     worker_count: int = 0
-    trace: list[dict] = field(default_factory=list)
+    trace: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_camel_dict(self) -> dict:
+    def to_camel_dict(self) -> dict[str, Any]:
         return {
             "executionId": self.execution_id,
             "status": self.status,
@@ -510,7 +510,7 @@ class ParallelExecutionResult:
         }
 
 
-async def _default_executor(task: KanbanTask) -> dict:
+async def _default_executor(task: KanbanTask) -> dict[str, Any]:
     """默认 executor:回显任务 id + payload。"""
     return {"executed": True, "taskId": task.id, "echo": task.payload}
 
@@ -538,29 +538,29 @@ class WorkerPool:
     def __init__(
         self,
         config: WorkerPoolConfig,
-        executor_factory: Optional[Callable[[KanbanTask], Coroutine[Any, Any, dict]]] = None,
+        executor_factory: Optional[Callable[[KanbanTask], Coroutine[Any, Any, dict[str, Any]]]] = None,
         on_event: Optional[Callable[[AgentSSEEvent], None]] = None,
-    ):
+    ) -> None:
         self.config = config
         self.executor_factory = executor_factory or _default_executor
         self.on_event = on_event
         # 优先级队列元素:(-priority, scheduled_at_ts, seq, task);seq 保证不比较 task
-        self._queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
+        self._queue: asyncio.PriorityQueue[tuple[int, float, int, KanbanTask]] = asyncio.PriorityQueue()
         self._tasks: dict[str, KanbanTask] = {}  # task_id -> task(状态存储)
-        self._workers: list[asyncio.Task] = []
+        self._workers: list[asyncio.Task[None]] = []
         self._workers_state: dict[str, WorkerState] = {}
         self._wait_retries: dict[str, int] = {}  # 依赖等待重试计数(防死循环)
         # P0-2 修复:保存运行中 executor 的 asyncio.Task 对象,用于超时强制 cancel + shutdown 取消
         # 解决 sync 阻塞代码卡死 event loop 时 asyncio.wait_for 无法触发的问题
         # 注意:对真正 sync 阻塞(sync 代码在 coroutine 内跑阻塞 loop)cancel 仍无效
         # 根本方案是 executor_factory 必须 async,sync 代码必须 asyncio.to_thread() 包装
-        self._executing_tasks: dict[str, asyncio.Task] = {}  # task_id -> executor Task
+        self._executing_tasks: dict[str, asyncio.Task[dict[str, Any]]] = {}  # task_id -> executor Task
         self._seq = 0
         self._shutdown = False
         self._started = False
-        self._redis = self._init_redis()
+        self._redis: Any = self._init_redis()
 
-    def _init_redis(self):
+    def _init_redis(self) -> Any:
         """REDIS_URL 可用时创建异步 redis 客户端,否则 None(纯内存)。"""
         url = _os.environ.get("REDIS_URL")
         if not url:
