@@ -25,30 +25,27 @@ logger = logging.getLogger(__name__)
 
 # 软依赖:缺失时降级,保证模块可导入 + typecheck 通过
 try:
-    import psycopg  # type: ignore[import-not-found]
-    from psycopg.rows import dict_row  # type: ignore[import-not-found]
-    from psycopg_pool import AsyncConnectionPool  # type: ignore[import-not-found]
+    import psycopg
+    from psycopg.rows import dict_row
+    from psycopg_pool import AsyncConnectionPool
 
     _PSYCOPG_AVAILABLE = True
 except ImportError:  # pragma: no cover - 依赖未安装时走降级路径
-    psycopg = None  # type: ignore[assignment]
-    dict_row = None  # type: ignore[assignment]
-    AsyncConnectionPool = None  # type: ignore[assignment]
+    psycopg = None
+    dict_row = None
+    AsyncConnectionPool = None
     _PSYCOPG_AVAILABLE = False
 
 try:
-    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver  # type: ignore[import-not-found]
-    from langgraph.types import Command, interrupt  # type: ignore[import-not-found]
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
     _LANGGRAPH_AVAILABLE = True
 except ImportError:  # pragma: no cover - 依赖未安装时走降级路径
-    AsyncPostgresSaver = None  # type: ignore[assignment]
-    Command = None  # type: ignore[assignment]
-    interrupt = None  # type: ignore[assignment]
+    AsyncPostgresSaver = None
     _LANGGRAPH_AVAILABLE = False
 
 if TYPE_CHECKING:  # 仅类型检查时引入,运行时不强依赖
-    from langgraph.checkpoint.base import BaseCheckpointSaver  # type: ignore[import-not-found]
+    from langgraph.checkpoint.base import BaseCheckpointSaver
 
 
 def _utcnow_iso() -> str:

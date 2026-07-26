@@ -179,15 +179,15 @@ class GeminiProvider(BaseProvider):
             result["tool_calls"] = tool_calls
         return result
 
-    async def astream(
+    async def astream(  # type: ignore[misc,override]  # 根因:base_provider.BaseProvider.astream 是 `async def -> AsyncIterator`,mypy 推断返回 Coroutine 而非 AsyncIterator;修复需改基类签名(不在本任务清单),此处单行压制
         self,
         messages: list[dict[str, Any]],
         model: str,
         *,
         tools: list[dict[str, Any]] | None = None,
-        safety_settings: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
+        safety_settings = kwargs.pop("safety_settings", None)
         payload = self._build_payload(messages, model, tools=tools, safety_settings=safety_settings, **kwargs)
         real_model = self._strip_prefix(model)
         url = f"{self.base_url}/v1beta/models/{real_model}:streamGenerateContent?key={self.api_key}&alt=sse"
