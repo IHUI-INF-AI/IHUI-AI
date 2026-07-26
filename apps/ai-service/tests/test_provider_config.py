@@ -364,3 +364,72 @@ def test_provider_config_api_base_strips_trailing_slash_via_env(provider, monkey
             f"provider={provider}: expected {test_url.rstrip('/')!r}, "
             f"got {cfg.api_base!r}"
         )
+
+
+# =============================================================================
+# 7. fallback 路径 DeprecationWarning 测试(2026-07-26 阶段 3 前置)
+# =============================================================================
+
+
+def test_fallback_path_emits_deprecation_warning(monkeypatch):
+    """fallback 路径(无 LLM_PROVIDERS,有扁平字段)应触发 DeprecationWarning。"""
+    import app.core.config as config_module
+    # 重置模块级 _warned_providers(避免跨测试污染)
+    config_module._warned_providers.clear()
+
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-flat-legacy-key")
+    s = Settings()
+
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        cfg = s.get_provider_config("openai")
+
+    assert cfg.api_key == "sk-flat-legacy-key"
+    deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert len(deprecation_warnings) >= 1, "fallback 路径必须触发 DeprecationWarning"
+    msg = str(deprecation_warnings[0].message)
+    assert "openai" in msg
+    assert "LLM_PROVIDERS" in msg or "flat-field" in msg.lower()
+
+
+def test_json_path_does_not_emit_deprecation_warning(monkeypatch):
+    """JSON 优先路径不应触发 DeprecationWarning(只在 fallback 路径触发)。"""
+    import app.core.config as config_module
+    config_module._warned_providers.clear()
+
+    monkeypatch.setenv(
+        "LLM_PROVIDERS",
+        '{"openai":{"api_key":"sk-test","api_base":"https://custom.api/v1"}}',
+    )
+    s = Settings()
+
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        cfg = s.get_provider_config("openai")
+
+    assert cfg.api_key == "sk-test"
+    deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert len(deprecation_warnings) == 0, "JSON 路径不应触发 DeprecationWarning"
+
+
+def test_fallback_warning_dedup_per_provider(monkeypatch):
+    """同一 provider 多次调用只 warn 一次(避免日志噪音)。"""
+    import app.core.config as config_module
+    config_module._warned_providers.clear()
+
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-flat-legacy-key")
+    s = Settings()
+
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        s.get_provider_config("openai")
+        s.get_provider_config("openai")  # 第二次,不应再 warn
+        s.get_provider_config("openai")  # 第三次,不应再 warn
+
+    deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert len(deprecation_warnings) == 1, f"同一 provider 应只 warn 一次,实际 {len(deprecation_warnings)}"
