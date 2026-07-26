@@ -14,7 +14,7 @@ vi.mock('../src/config/index.js', () => ({
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8000',
-    TBOX_WEBHOOK_SECRET: 'test-secret',
+    TBOX_WEBHOOK_SECRET: process.env.TBOX_WEBHOOK_SECRET || 'test-secret',
   },
 }))
 
@@ -30,7 +30,7 @@ vi.mock('../src/db/index.js', () => ({
 
 import tboxRoutes from '../src/routes/tbox.js'
 
-const SECRET = 'test-secret'
+const SECRET = process.env.TBOX_WEBHOOK_SECRET || 'test-secret'
 
 function sign(body: unknown): { headers: Record<string, string>; payload: string } {
   const raw = JSON.stringify(body)
