@@ -1017,27 +1017,34 @@ class TestSplitTasks:
 
     @pytest.mark.asyncio
     async def test_split_llm_success(self, generator, ts_workspace):
-        """LLM 成功拆分任务。"""
+        """G2 字典化闭环:LLM 成功返回符合 schema 的结构化输出 → 直接 dict 走通。"""
         await generator.generate(str(ts_workspace), {"type": "workspace"})
         mock_gateway = MagicMock()
-        mock_gateway.complete = AsyncMock(return_value={
-            "content": json.dumps({"tasks": [
+        # G2 迁移后:split_tasks 走 structured_completion,直接返回解析后的 dict
+        mock_gateway.structured_completion = AsyncMock(return_value={
+            "tasks": [
                 {"title": "Task1", "description": "desc1", "priority": "P0", "estimated_complexity": "S"},
                 {"title": "Task2", "description": "desc2", "priority": "P1", "estimated_complexity": "M"},
-            ]}),
-            "error": None,
+            ],
         })
         with patch("app.core.llm_gateway.llm_gateway", mock_gateway):
             result = await generator.split_tasks(str(ts_workspace), {"type": "workspace"})
         assert len(result["tasks"]) == 2
         assert result["tasks"][0]["title"] == "Task1"
+        assert result["tasks"][1]["priority"] == "P1"
+        # 验证 G2 调用:structured_completion 接收了正确的 schema
+        call_kwargs = mock_gateway.structured_completion.call_args.kwargs
+        assert "schema" in call_kwargs
+        assert call_kwargs["schema_name"] == "spec_task_split"
+        assert call_kwargs["schema"]["required"] == ["tasks"]
 
     @pytest.mark.asyncio
     async def test_split_llm_fail_fallback(self, generator, ts_workspace):
         """LLM 失败 → 降级机械拆分。"""
         await generator.generate(str(ts_workspace), {"type": "workspace"})
         mock_gateway = MagicMock()
-        mock_gateway.complete = AsyncMock(return_value={
+        # G2 路径:structured_completion 返回 error dict
+        mock_gateway.structured_completion = AsyncMock(return_value={
             "error": True, "error_message": "llm down",
         })
         with patch("app.core.llm_gateway.llm_gateway", mock_gateway):
@@ -1047,12 +1054,12 @@ class TestSplitTasks:
 
     @pytest.mark.asyncio
     async def test_split_llm_invalid_json_fallback(self, generator, ts_workspace):
-        """LLM 返回非法 JSON → 降级机械拆分。"""
+        """G2 升级:LLM 返回非法 JSON 已被 structured_completion 拦截,返回 error dict → 降级机械拆分。"""
         await generator.generate(str(ts_workspace), {"type": "workspace"})
         mock_gateway = MagicMock()
-        mock_gateway.complete = AsyncMock(return_value={
-            "content": "not json at all",
-            "error": None,
+        # G2 路径:JSON 解析失败在 structured_completion 内部已被处理,返回 error dict
+        mock_gateway.structured_completion = AsyncMock(return_value={
+            "error": True, "error_message": "JSON 解析失败: Expecting value",
         })
         with patch("app.core.llm_gateway.llm_gateway", mock_gateway):
             result = await generator.split_tasks(str(ts_workspace), {"type": "workspace"})
