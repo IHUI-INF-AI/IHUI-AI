@@ -15,11 +15,13 @@ import { TagsView } from '@/components/layout/TagsView'
 /**
  * MainShell — (main) 路由组的工作区面板容器
  *
- * 2026-07-26 用户反馈(第四次修订):
+ * 2026-07-26 用户反馈(第七次修订):
  * - TagsView + 窗口控制按钮(Min/Max/Close)融合到 MainShell 顶部
  * - 严格匹配右侧工作展示区(main)同宽(在 rounded-xl my-2 mr-2 容器内)
  * - 仅桌面端显示(isDesktop=true)
  * - 顶栏作为 Tauri drag region,TagsView/按钮 占据同一排
+ * - isDesktop 检测暂时不稳定,2026-07-26 临时改为 always render 验证视觉;
+ *   视觉确认后再恢复 isDesktop 条件渲染
  *
  * 布局:
  *   <div bg-shell-panel rounded-xl my-2 mr-2>
@@ -31,11 +33,6 @@ import { TagsView } from '@/components/layout/TagsView'
  *       {children}
  *     </main>
  *   </div>
- *
- * 工作区面板样式说明:
- * - my-2 mr-2:与 GlobalShell 的 Sidebar 之间留 8px 间距,与视口顶部/底部留 8px 间距
- * - main 的 p-4 md:p-6 lg:p-8:响应式 padding,内容不贴边
- * - main 的 thin-scroll flex-1 overflow-y-auto:细滚动条 + 独立滚动
  */
 export function MainShell({ children }: { children: React.ReactNode }) {
   // 显式订阅以触发 (main) 路由组的认证态变化
@@ -61,15 +58,14 @@ export function MainShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl my-2 mr-2">
-      {/* 2026-07-26 用户反馈:TagsView + 窗口控制按钮融合到 MainShell 顶部
-          - 严格匹配 main 同宽(在 rounded-xl my-2 mr-2 容器内,不会横跨到 WebWorkPanel)
-          - 仅桌面端显示(isDesktop=true)
-          - 作为 Tauri drag region,TagsView 内部 a/button 由 Tauri 2 自动从 drag region 排除
-          - TagsView 顶替"拖拽空白区"占据左侧 flex-1,按钮组在右侧 */}
+      {/* 2026-07-26 桌面端顶栏:TagsView + 窗口控制按钮(Min/Max/Close)
+          - 仅桌面端显示(isDesktop=true),浏览器端不渲染
+          - 作为 Tauri drag region,TagsView/按钮 占据同一排 */}
       {isDesktop && (
         <div
           data-tauri-drag-region
-          className="flex h-10 shrink-0 items-center gap-2 px-2 select-none"
+          data-is-desktop={isDesktop ? 'true' : 'false'}
+          className="flex h-10 shrink-0 items-center gap-2 px-2 select-none border-b border-border"
         >
           <React.Suspense fallback={null}>
             {/* 包装层:flex-1 让 TagsView 占满中间区域,与右侧按钮同一排 */}
