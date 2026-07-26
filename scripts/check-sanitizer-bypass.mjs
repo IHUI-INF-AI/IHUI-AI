@@ -77,14 +77,17 @@ function getFilesToCheck() {
     }
   }
   try {
-    const output = execSync('git ls-files "apps/api/src/routes/**/*.ts"', {
+    // 注意:不用 `git ls-files "apps/api/src/routes/**/*.ts"`。
+    // Windows 上 PowerShell 会吞引号、git pathspec `**` 对深层子目录匹配不稳定,
+    // 经常返回空列表导致 full 模式漏检。改为列目录 + JS 过滤更可靠。
+    const output = execSync('git ls-files apps/api/src/routes/', {
       cwd: ROOT,
       encoding: 'utf-8',
     })
     return output
       .trim()
       .split('\n')
-      .filter((f) => f && !f.includes('__tests__/'))
+      .filter((f) => f && f.endsWith('.ts') && !f.includes('__tests__/'))
       .map((f) => join(ROOT, f))
   } catch {
     return []
