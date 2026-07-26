@@ -36,11 +36,18 @@
  *   0 = 全部 7 项通过
  *   1 = 任一项失败
  *
- * 注意: 本脚本不接 .husky/pre-commit (留给主 agent 决定接入策略)。
+ * 注意: 本脚本已接入 .husky/pre-commit(经 scripts/guardian-runner.mjs 第 31 项,
+ *       warn-only),在 pre-commit 时自动跑(guardian-runner 会传 --staged,本脚本
+ *       纯静态扫描不依赖 staged,接收并忽略此标记保持接口兼容)。
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, relative, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// === CLI 解析(接受 guardian-runner 自动传的 --staged,纯静态扫描不依赖 staged) ===
+// eslint-disable-next-line no-unused-vars
+const _argv = process.argv.slice(2).filter((a) => a === '--staged' || a === '--strict' || a.startsWith('--'))
+// 接受并忽略这些标记,避免 "unrecognized flag" 警告。--strict 保留位(当前实现无 warn 路径)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
