@@ -321,7 +321,7 @@ function fetchMode() {
     if (stdout) console.log(stdout)
     console.log(`\n${C.green}✅ fetch 完成,正在校验一致性...${C.reset}`)
     // fetch 后自动 check
-    isCheck && (args.delete('--check')) // 防止递归
+    if (isCheck) args.delete('--check') // 防止递归
     checkMode()
   } catch (e) {
     console.error(`${C.red}❌ fetch 失败:${C.reset}`, e?.message ?? e)
