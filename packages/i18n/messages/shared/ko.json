@@ -135,7 +135,8 @@
     "toLogin": "로그인으로 이동",
     "username": "사용자명",
     "usernamePlaceholder": "사용자명을 입력해 주십시오",
-    "wechatLogin": "WeChat"
+    "wechatLogin": "WeChat",
+    "login": "로그인"
   },
   "chat": {
     "send": "전송"
@@ -183,7 +184,7 @@
     "hint": "힌트",
     "levelLabel": "레벨",
     "loadFailed": "로드 실패",
-    "loading": "로딩 중...",
+    "loading": "로딩 중…",
     "loadingShort": "로딩 중...",
     "login": "로그인",
     "logout": "로그아웃",
@@ -288,7 +289,9 @@
   "nav": {
     "home": "홈",
     "settings": "설정",
-    "wallet": "지갑"
+    "wallet": "지갑",
+    "live": "라이브",
+    "courses": "강의"
   },
   "routes": {
     "aboutUs": "우리 소개",
@@ -500,5 +503,25 @@
       "subtitle": "VIP 구독 및 갱신 관리",
       "title": "구독 관리"
     }
+  },
+  "exam": {
+    "result": {
+      "correct": "정답",
+      "wrong": "오답"
+    }
+  },
+  "live": {
+    "empty": "라이브 없음"
+  },
+  "course": {
+    "free": "무료",
+    "rating": "평점"
+  },
+  "order": {
+    "empty": "주문 없음",
+    "status": {
+      "refunded": "환불됨"
+    },
+    "orderNo": "주문 번호"
   }
 }

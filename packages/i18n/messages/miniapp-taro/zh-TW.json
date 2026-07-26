@@ -1,10 +1,5 @@
 {
-  "common": {
-    "loading": "載入中…"
-  },
   "nav": {
-    "courses": "課程",
-    "live": "直播",
     "profile": "我的",
     "community": "社群"
   },
@@ -76,7 +71,6 @@
   "course": {
     "learningProgress": "學習進度",
     "note": "筆記",
-    "rating": "評分",
     "share": "分享",
     "teacher": "講師",
     "goldTeacher": "金牌講師",
@@ -115,7 +109,6 @@
   "live": {
     "viewers": "{{n}} 人觀看",
     "preview": "預告",
-    "empty": "暫無直播",
     "detail": {
       "loadFailed": "直播載入失敗",
       "loading": "直播載入中…",
@@ -193,11 +186,7 @@
   },
   "order": {
     "title": "訂單",
-    "status": {
-      "refunded": "已退款"
-    },
     "cancel": "取消訂單",
-    "orderNo": "訂單編號",
     "loadFailed": "訂單載入失敗",
     "createTime": "建立時間",
     "orderType": "訂單類型",
@@ -835,8 +824,6 @@
       "scoreValue": "{{n}} 分",
       "rankValue": "第 {{n}} 名 / 共 {{total}} 人",
       "goList": "查看考試列表",
-      "correct": "答對",
-      "wrong": "答錯",
       "pageTitle": "考試結果",
       "reviewTitle": "題目回顧",
       "reviewCorrect": "正確",
