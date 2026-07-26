@@ -8078,7 +8078,7 @@
     "q1Question": "IHUI AI란 무엇인가요?",
     "q1Answer": "IHUI AI(중국어: 지후이 AI)는 원스톱 풀스택 AI 운영 체제입니다. Agent 설계, 지식 베이스 RAG, 다중 모델 통합 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합하며, Web, Desktop, 미니프로그램, 브라우저 확장, React Native, CLI 등 6개 클라이언트를 하나의 코드베이스로 지원하고, Apache 2.0 오픈 소스 코어 및 자체 호스팅을 지원합니다.",
     "q2Question": "IHUI AI는 Dify, Coze, FastGPT와 어떻게 다른가요?",
-    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); Coze는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q&A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 6개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 유일한 오픈 소스 플랫폼으로, Dify + Coze + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
+    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); Coze는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q&A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 6개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 드문 오픈 소스 플랫폼으로, Dify + Coze + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
     "q3Question": "IHUI AI는 누구를 위한 제품인가요?",
     "q3Answer": "세 가지 사용자가 가장 큰 혜택을 봅니다: AI 개발자(Agent를 빠르게 구축/배포/수익화, 6개 클라이언트 원클릭 게시), 엔터프라이즈 IT(데이터 주권 및 통합 AI 역량 허브를 위한 자체 호스팅), 팀 리더(다중 사용자 협업, 통합 지식 베이스, 통합 과금).",
     "q4Question": "어떤 AI 모델이 지원되나요?",
@@ -9670,7 +9670,10 @@
         "benefit3": "",
         "benefit4": "",
         "benefit5": ""
-      }
+      },
+      "subtitle": "풀스택 AI OS · 8개 플랫폼 지원 · 원스톱 에이전트 협업",
+      "description": "Zhihui AI는 Agent 마켓플레이스, 지식 베이스 RAG, 다중 모델 통합 디스패치, MCP 도구 프로토콜을 통합합니다. Web / Desktop / 미니 프로그램 / 브라우저 확장 / React Native / CLI 6개 플랫폼을 지원하며 Apache 2.0 오픈소스, 프라이빗 배포를 지원합니다.",
+      "perYear": "/년"
     },
     "stats": {
       "platforms": "플랫폼 커버리지",
@@ -9685,7 +9688,11 @@
     "indicator": {
       "label": "페이지 내비게이션",
       "switchTo": "{index}페이지로 전환",
-      "page1": "홈"
+      "page1": "홈",
+      "page2": "환영",
+      "page3": "기능",
+      "page4": "매거진",
+      "page5": "가격"
     },
     "scrollDown": {
       "label": "아래로 스크롤"
@@ -9751,7 +9758,7 @@
       "subtitle": "8플랫폼 전체 커버 기업급 AI 플랫폼 · 100+ LLM · 자체 개발 CLI · 공업급 엔지니어링 엄격함 · 의사결정자가 원스톱으로 모든 AI 능력 획득",
       "modelIntegration": {
         "title": "8플랫폼 전체 커버 아키텍처",
-        "description": "웹/데스크톱/모바일/미니프로그램/CLI/확장 6플랫폼 + API/AI-Service 2플랫폼, 업계 유일 풀스택, 통합 계정 원활한 전환",
+        "description": "웹/데스크톱/모바일/미니프로그램/CLI/확장 6플랫폼 + API/AI-Service 2플랫폼, 업계에서도 드문 풀스택, 통합 계정 원활한 전환",
         "benefit": "8배 중복 구매 비용 절약 · 1개 계정으로 8플랫폼 공용 · 데이터 마이그레이션 제로"
       },
       "appStore": {
@@ -9781,8 +9788,8 @@
       },
       "workflow": {
         "title": "LangGraph 워크플로우",
-        "description": "2개 LangGraph 워크플로우 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 트리플 스택결합 업계 유일",
-        "benefit": "복잡 작업 자동화 · 5+ SaaS 도구 대체 · 업계 유일 트리플 스택결합"
+        "description": "2개 LangGraph 워크플로우 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 트리플 스택결합 업계에서도 드문",
+        "benefit": "복잡 작업 자동화 · 5+ SaaS 도구 대체 · 트리플 스택결합 업계에서도 드문"
       },
       "multimodal": {
         "title": "멀티모달 AI 입력",
@@ -9811,8 +9818,8 @@
       },
       "innovative": {
         "title": "트리플 스택결합 · 업계 프론티어",
-        "description": "LangGraph 워크플로우 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 트리플 스택결합 업계 유일, Claude Code 전 차원 초과",
-        "evidence": "업계 유일 동시 LangGraph + MCP + A2A + ACP 4프로토콜 지원 플랫폼 · Cursor/Claude Code는 MCP 단일 스택만 지원"
+        "description": "LangGraph 워크플로우 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 트리플 스택결합 업계에서도 드문, Claude Code와 다차원 비교 가능",
+        "evidence": "LangGraph + MCP + A2A + ACP 4프로토콜 동시 지원 플랫폼 · Cursor/Claude Code는 MCP 단일 스택만 지원"
       }
     },
     "scenarios": {
@@ -9851,9 +9858,9 @@
       }
     },
     "comparison": {
-      "title": "경쟁사 대비 · 전 차원 초과",
+      "title": "경쟁사 대비 · 다차원 비교",
       "titleEn": "COMPETITIVE COMPARISON",
-      "subtitle": "지후이 AI vs Claude Code vs Cursor vs ChatGPT · 8플랫폼 전체 커버 + 100+ LLM + 트리플 스택결합 + 에이전트 광장 · 업계 유일",
+      "subtitle": "지후이 AI vs Claude Code vs Cursor vs ChatGPT · 8플랫폼 전체 커버 + 100+ LLM + 트리플 스택결합 + 에이전트 광장",
       "colFeature": "비교 차원",
       "colUs": "지후이 AI",
       "colClaude": "Claude Code",
@@ -9952,6 +9959,14 @@
         "title": "",
         "value": ""
       }
+    },
+    "cta": {
+      "label": "하단 CTA",
+      "title": "다음 AI 마일스톤을 놓치지 마세요",
+      "subtitle": "매일 AI 브리핑을 구독하고 IHUI AI 커뮤니티에 참여하여 시대의 흐름을 파악하세요.",
+      "join": "지금 참여",
+      "sectionLabel": "하단 행동 유도",
+      "dashboard": "작업 공간으로"
     }
   },
   "aiNews": {

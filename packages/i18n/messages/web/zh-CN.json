@@ -7980,7 +7980,7 @@
     "q1Question": "智汇 AI 是什么?",
     "q1Answer": "智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统。它把 Agent 设计、知识库 RAG、多模型统一调度、跨端协作和团队运营装进同一个平台,支持 Web、桌面、小程序、浏览器插件、React Native、CLI 共六个客户端同源分发,核心代码 Apache 2.0 开源,可私有化部署。",
     "q2Question": "智汇 AI 与 Dify、Coze、FastGPT 的区别?",
-    "q2Answer": "Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是目前唯一同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。",
+    "q2Answer": "Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。",
     "q3Question": "智汇 AI 适合谁?",
     "q3Answer": "三类用户最受益:AI 开发者(快速搭建/分发/变现 Agent,六端一键发布)、企业 IT(私有化部署,数据不出域,统一 AI 能力中心)、团队 Leader(多人协作,统一知识库,统一计费)。",
     "q4Question": "支持哪些 AI 模型?",
@@ -9553,6 +9553,9 @@
     },
     "welcome": {
       "title": "欢迎来到智汇 AI 社区",
+      "subtitle": "全栈 AI 操作系统,8 端同源,一站式智能体协作",
+      "description": "智汇 AI 集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,Apache 2.0 开源,支持私有化部署。",
+      "perYear": "/年",
       "brandSubtitle": "8 端全覆盖 · 100+ 大模型 · 1029+ API · 省 ¥18 万/年",
       "seats": "限 18 席 · 决策者专属",
       "earlyBird": "早鸟价 ¥6000/年 · 3.3 折",
@@ -9579,7 +9582,11 @@
     "indicator": {
       "label": "分页导航",
       "switchTo": "切换到第 {index} 页",
-      "page1": "首页"
+      "page1": "首页",
+      "page2": "欢迎区",
+      "page3": "特性优势",
+      "page4": "最新资讯",
+      "page5": "定价方案"
     },
     "scrollDown": {
       "label": "向下滚动"
@@ -9846,6 +9853,14 @@
         "title": "",
         "value": ""
       }
+    },
+    "cta": {
+      "label": "底部 CTA",
+      "title": "不错过下一个 AI 里程碑",
+      "subtitle": "订阅每日 AI 资讯简报,加入智汇 AI 社区与决策者一起把握 AI 时代脉搏。",
+      "join": "立即加入",
+      "sectionLabel": "底部行动召唤",
+      "dashboard": "进入工作台"
     }
   },
   "aiNews": {
@@ -10039,7 +10054,10 @@
       "title": "不错过下一个 AI 里程碑",
       "subtitle": "订阅每日 AI 资讯简报,加入智汇 AI 社区与决策者一起把握 AI 时代脉搏。",
       "subscribe": "订阅每日简报",
-      "community": "加入智汇 AI 社区"
+      "community": "加入智汇 AI 社区",
+      "join": "立即加入",
+      "sectionLabel": "底部行动召唤",
+      "dashboard": "进入工作台"
     }
   },
   "cliImport": {
