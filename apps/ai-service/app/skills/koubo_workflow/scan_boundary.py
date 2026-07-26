@@ -33,10 +33,10 @@ SKIP_DIRS = {'.git', '__pycache__', '.workbuddy', '_archive', 'assets', 'lib',
 
 issues: list[str] = []
 
-def add(where, detail):
+def add(where: str, detail: str) -> None:
     issues.append(f"[{where}] {detail}")
 
-def scan_tree(root, side):
+def scan_tree(root: str, side: str) -> None:
     if not os.path.isdir(root):
         return
     for cur, subdirs, files in os.walk(root):
@@ -67,7 +67,7 @@ def scan_tree(root, side):
                 if fn in WECHAT_SCRIPTS:
                     add("口播稿", f"公众号专属脚本出现在口播稿树: {rel}")
 
-def main():
+def main() -> None:
     scan_tree(WECHAT, "wechat")
     scan_tree(KOUBO, "koubo")
     if len(sys.argv) > 2 and sys.argv[1] == "--json":
