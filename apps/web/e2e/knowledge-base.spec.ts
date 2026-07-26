@@ -15,8 +15,6 @@ import { test, expect } from '@playwright/test'
  * 5. 点击卡片可跳转到详情页
  */
 
-const KNOWLEDGE_API = /\/api\/knowledge(\?|$)/
-
 test.describe('知识库板块回归', () => {
   test('dashboard 可访问且无 5xx', async ({ page }) => {
     const serverErrors: string[] = []
