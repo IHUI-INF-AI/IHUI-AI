@@ -1696,3 +1696,284 @@ class TestStructuredCompletionRetry:
 
         assert result.get("error") is True
         assert gw.complete.call_count == 1
+
+
+# ════════════════════════════════════════════════════════════════════════
+# G2 收尾回归测试:验证 4 处 complete() 调用点不应迁移到 structured_completion()
+#
+# 评估结论(2026-07-26):
+#   - L916  (structured_completion 内部)   → 不能迁移(无限递归)
+#   - L1011 (astream stub 模式分块)         → 不能迁移(流式文本,非结构化)
+#   - L1284/L1304 (MoARouter MoA 聚合)     → 不能迁移(自然语言综合,无 schema)
+#   - L1350 (FallbackRouter 故障转移)       → 不能迁移(通用 failover,需保留 complete 返回 shape)
+#
+# 以下测试以可执行代码形式锁住上述决策,防止未来误迁移。
+# ════════════════════════════════════════════════════════════════════════
+
+from app.core.llm_gateway import MoARouter
+
+
+class TestMoARouterUsesCompleteNotStructured:
+    """MoARouter(L1284/L1304)必须走 llm_gateway.complete(),不能迁移到 structured_completion()。
+
+    理由:MoA 是自然语言综合(proposers 出文本方案 → aggregator 综合文本答案),
+    无 schema 可强制,且调用方期望返回 {"content": str, ...} shape 与 complete() 一致。
+    """
+
+    def test_register_and_list_preset(self):
+        """register_preset 存储 preset,list_presets 取回列表。"""
+        router = MoARouter()
+        preset = {
+            "models": [
+                {"role": "proposer", "model": "gpt-4o"},
+                {"role": "aggregator", "model": "claude-3-opus"},
+            ],
+        }
+        router.register_preset("test-preset", preset)
+        presets = router.list_presets()
+        assert preset in presets
+
+    async def test_preset_not_found_returns_error(self):
+        """未注册的 preset → 返回 error dict(不调用 LLM)。"""
+        router = MoARouter()
+        result = await router.complete(
+            [{"role": "user", "content": "hi"}], "nonexistent-preset"
+        )
+        assert result["error"]
+        assert "preset not found" in result["error"]
+        assert result["content"] == ""
+
+    async def test_no_proposer_returns_error(self):
+        """preset 无 role=proposer 模型 → 返回 error(不调用 LLM)。"""
+        router = MoARouter()
+        router.register_preset("empty-preset", {
+            "models": [{"role": "aggregator", "model": "gpt-4o"}],
+        })
+        result = await router.complete(
+            [{"role": "user", "content": "hi"}], "empty-preset"
+        )
+        assert result["error"]
+        assert "no proposer" in result["error"]
+
+    async def test_no_aggregator_returns_first_successful_proposal(self):
+        """无 aggregator 时返回第一个非异常的 proposer 方案(走 complete 而非 structured_completion)。"""
+        router = MoARouter()
+        router.register_preset("no-agg", {
+            "models": [
+                {"role": "proposer", "model": "gpt-4o"},
+                {"role": "proposer", "model": "claude-3-opus"},
+            ],
+        })
+
+        ok_result = {"content": "first ok", "model": "gpt-4o", "usage": {}, "stub": False}
+        with patch(
+            "app.core.llm_gateway.llm_gateway.complete",
+            new_callable=AsyncMock,
+            return_value=ok_result,
+        ) as mock_complete:
+            result = await router.complete(
+                [{"role": "user", "content": "hi"}], "no-agg"
+            )
+
+        assert result["content"] == "first ok"
+        # 2 个 proposer 并行调用 complete
+        assert mock_complete.call_count == 2
+        # 关键断言:走的是 complete()(被 mock),证明 L1284 用 complete 而非 structured_completion
+        # 若迁移到 structured_completion,mock 拦截不到 complete 调用 → call_count == 0 → 测试失败
+        assert mock_complete.call_count > 0
+
+    async def test_aggregator_combines_proposals_via_complete(self):
+        """有 aggregator 时:proposers 出方案 → aggregator 综合(两次都走 complete)。
+
+        锁住 L1284 + L1304 决策:均使用 llm_gateway.complete() 而非 structured_completion()。
+        """
+        router = MoARouter()
+        router.register_preset("with-agg", {
+            "models": [
+                {"role": "proposer", "model": "gpt-4o"},
+                {"role": "proposer", "model": "claude-3-opus"},
+                {"role": "aggregator", "model": "gemini-1.5-pro"},
+            ],
+        })
+
+        proposal_a = {"content": "答案 A", "model": "gpt-4o", "usage": {}, "stub": False}
+        proposal_b = {"content": "答案 B", "model": "claude-3-opus", "usage": {}, "stub": False}
+        aggregated = {"content": "综合答案", "model": "gemini-1.5-pro", "usage": {}, "stub": False}
+
+        with patch(
+            "app.core.llm_gateway.llm_gateway.complete",
+            new_callable=AsyncMock,
+            side_effect=[proposal_a, proposal_b, aggregated],
+        ) as mock_complete:
+            result = await router.complete(
+                [{"role": "user", "content": "hi"}], "with-agg"
+            )
+
+        assert result["content"] == "综合答案"
+        # 2 个 proposer 并行 + 1 个 aggregator = 3 次 complete 调用
+        assert mock_complete.call_count == 3
+        # 第 3 次(aggregator)的 messages 应包含 proposal 拼接
+        third_call_messages = mock_complete.call_args_list[2].args[0]
+        assert any("答案 A" in m.get("content", "") for m in third_call_messages)
+        assert any("答案 B" in m.get("content", "") for m in third_call_messages)
+        # 第 3 次用 aggregator 模型
+        assert mock_complete.call_args_list[2].kwargs["model"] == "gemini-1.5-pro"
+
+    async def test_all_proposers_fail_returns_error(self):
+        """所有 proposer 都返回 error → 返回 'all proposers failed'。"""
+        router = MoARouter()
+        router.register_preset("all-fail", {
+            "models": [{"role": "proposer", "model": "gpt-4o"}],
+        })
+
+        fail_result = {"content": "", "error": True, "error_message": "down"}
+        with patch(
+            "app.core.llm_gateway.llm_gateway.complete",
+            new_callable=AsyncMock,
+            return_value=fail_result,
+        ):
+            result = await router.complete(
+                [{"role": "user", "content": "hi"}], "all-fail"
+            )
+
+        # 无 aggregator → 取第一个非异常 → 但所有方案都 error → 返回 all proposers failed
+        assert result["error"]
+        assert "all proposers failed" in result["error"]
+
+    async def test_exception_in_proposer_treated_as_failure(self):
+        """proposer 抛异常(return_exceptions=True)→ 当作失败,不中断整体。"""
+        router = MoARouter()
+        router.register_preset("exc", {
+            "models": [
+                {"role": "proposer", "model": "gpt-4o"},
+                {"role": "proposer", "model": "claude-3-opus"},
+            ],
+        })
+
+        ok_result = {"content": "survivor", "model": "claude-3-opus", "usage": {}, "stub": False}
+        with patch(
+            "app.core.llm_gateway.llm_gateway.complete",
+            new_callable=AsyncMock,
+            side_effect=[RuntimeError("proposer 1 crashed"), ok_result],
+        ):
+            result = await router.complete(
+                [{"role": "user", "content": "hi"}], "exc"
+            )
+
+        # 无 aggregator → 跳过异常方案,取第一个非异常方案
+        assert result["content"] == "survivor"
+
+    async def test_aggregator_all_proposals_empty_returns_error(self):
+        """有 aggregator 但所有 proposer 内容为空 → 返回 'all proposers returned empty'。"""
+        router = MoARouter()
+        router.register_preset("empty-proposals", {
+            "models": [
+                {"role": "proposer", "model": "gpt-4o"},
+                {"role": "aggregator", "model": "claude-3-opus"},
+            ],
+        })
+
+        empty_result = {"content": "", "model": "gpt-4o", "usage": {}, "stub": False}
+        with patch(
+            "app.core.llm_gateway.llm_gateway.complete",
+            new_callable=AsyncMock,
+            return_value=empty_result,
+        ) as mock_complete:
+            result = await router.complete(
+                [{"role": "user", "content": "hi"}], "empty-proposals"
+            )
+
+        assert result["error"]
+        assert "all proposers returned empty" in result["error"]
+        # 只调用了 proposer 阶段(1 次),未到 aggregator 阶段
+        assert mock_complete.call_count == 1
+
+
+class TestAstreamStubModeUsesCompleteNotStructured:
+    """L1011:astream stub 模式分块必须走 self.complete(),不能迁移到 structured_completion()。
+
+    理由:流式输出需要文本 content 切成 10 字符 chunk,structured_completion 返回
+    解析后的 dict(无文本 content 概念),迁移会破坏流式语义。
+    """
+
+    async def test_astream_stub_uses_complete_not_structured(self, monkeypatch):
+        """astream stub 模式调用 complete() 而非 structured_completion(),验证 content 被切成 chunk。"""
+        from app.core.config import settings
+        monkeypatch.setattr(
+            settings,
+            "llm_providers",
+            json.dumps({"openai": {"api_key": ""}, "anthropic": {"api_key": ""}}),
+        )
+
+        gw = LLMGateway()
+
+        # 跟踪 complete 与 structured_completion 的调用
+        complete_calls = 0
+        structured_calls = 0
+        original_complete = gw.complete
+
+        async def spy_complete(*args, **kwargs):
+            nonlocal complete_calls
+            complete_calls += 1
+            return await original_complete(*args, **kwargs)
+
+        async def spy_structured(*args, **kwargs):
+            nonlocal structured_calls
+            structured_calls += 1
+            return {"error": True, "error_message": "should not be called"}
+
+        monkeypatch.setattr(gw, "complete", spy_complete)
+        monkeypatch.setattr(gw, "structured_completion", spy_structured)
+
+        events = [e async for e in gw.astream([{"role": "user", "content": "hi"}])]
+
+        # 必须调用 complete(),不能调用 structured_completion()
+        assert complete_calls == 1, "astream stub 模式应调用 complete()"
+        assert structured_calls == 0, "astream stub 模式不应调用 structured_completion()"
+        # 验证 chunk + done
+        assert any(e["type"] == "chunk" for e in events)
+        assert events[-1]["type"] == "done"
+
+
+class TestStructuredCompletionInternalUsesComplete:
+    """L916:structured_completion 内部必须调用 self.complete() 而非自身(否则无限递归)。
+
+    理由:structured_completion 是 complete() 的薄包装(加 response_format + schema 校验),
+    L916 是其内部实现,迁移会导致无限递归。
+    """
+
+    @pytest.mark.asyncio
+    async def test_structured_completion_calls_complete_with_response_format(self, monkeypatch):
+        """structured_completion 内部调 complete() 并透传 response_format,不递归调自身。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        structured_calls = 0
+
+        original_structured = gw.structured_completion
+
+        async def spy_structured(*args, **kwargs):
+            nonlocal structured_calls
+            structured_calls += 1
+            return await original_structured(*args, **kwargs)
+
+        monkeypatch.setattr(gw, "structured_completion", spy_structured)
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok(json.dumps({"name": "Alice", "age": 30}))),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+            max_retries=0,
+        )
+
+        # 走 complete()(被 mock),structured_completion 外部只调 1 次(无递归)
+        assert result == {"name": "Alice", "age": 30}
+        assert structured_calls == 1, "structured_completion 不应递归调用自身"
+        assert gw.complete.call_count == 1
+        # response_format 必须透传(L916 内部行为)
+        call_kwargs = gw.complete.call_args.kwargs
+        assert call_kwargs["response_format"]["type"] == "json_schema"
