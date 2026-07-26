@@ -11,6 +11,11 @@ from __future__ import annotations
 
 import pytest
 
+from app.services.persona_registry import (
+    build_persona_system_prompt,
+    get_persona_contract,
+    list_persona_names,
+)
 from app.services.project_memory import (
     DEFAULT_SYSTEM_PROMPT,
     MEMORY_FILENAMES,
@@ -66,7 +71,18 @@ class TestLoadProjectMemory:
 
 class TestBuildSystemPrompt:
     def test_returns_default_when_no_memory(self, tmp_path):
-        assert build_system_prompt(workspace_path=str(tmp_path)) == DEFAULT_SYSTEM_PROMPT
+        result = build_system_prompt(workspace_path=str(tmp_path))
+        # G1 升级:无记忆时仍注入业务代号字典(不再是纯 DEFAULT)
+        assert DEFAULT_SYSTEM_PROMPT in result
+        assert "## 业务代号字典" in result
+
+    def test_injects_domain_dict(self, tmp_path):
+        """G1 字典化闭环:业务代号字典必须出现在 system prompt。"""
+        result = build_system_prompt(workspace_path=str(tmp_path))
+        assert "## 业务代号字典" in result
+        # 关键代号必须出现
+        for code in ("D1", "T1", "SSR", "RAG", "LTM", "PA"):
+            assert f"- {code}:" in result, f"代号 {code} 未注入 system prompt"
 
     def test_injects_memory_into_prompt(self, tmp_path):
         (tmp_path / "CLAUDE.md").write_text("My project rules", encoding="utf-8")
@@ -74,16 +90,41 @@ class TestBuildSystemPrompt:
         assert DEFAULT_SYSTEM_PROMPT in result
         assert "My project rules" in result
         assert "## 项目记忆" in result
+        assert "## 业务代号字典" in result
 
     def test_session_id_param_accepted(self, tmp_path):
         result = build_system_prompt(session_id="sess-123", workspace_path=str(tmp_path))
-        assert result == DEFAULT_SYSTEM_PROMPT
+        assert DEFAULT_SYSTEM_PROMPT in result
+        assert "## 业务代号字典" in result
 
     def test_none_workspace_uses_cwd(self, tmp_path, monkeypatch):
         (tmp_path / "CLAUDE.md").write_text("cwd prompt", encoding="utf-8")
         monkeypatch.chdir(str(tmp_path))
         result = build_system_prompt(workspace_path=None)
         assert "cwd prompt" in result
+        assert "## 业务代号字典" in result
+
+
+class TestBuildPersonaSystemPrompt:
+    """G1 第 3 轮:persona_registry 接入示例测试。"""
+
+    def test_returns_none_for_unknown_persona(self, tmp_path):
+        assert build_persona_system_prompt("nonexistent", workspace_path=str(tmp_path)) is None
+
+    def test_includes_domain_dict_and_persona_contract(self, tmp_path):
+        result = build_persona_system_prompt("coder", workspace_path=str(tmp_path))
+        assert result is not None
+        assert "## 业务代号字典" in result
+        assert "## persona 契约:coder" in result
+        # coder persona 的 output_schema 必有 verification 字段
+        assert "verification" in result
+
+    def test_all_five_personas_supported(self, tmp_path):
+        for name in list_persona_names():
+            result = build_persona_system_prompt(name, workspace_path=str(tmp_path))
+            assert result is not None, f"persona {name} 接入失败"
+            assert "## 业务代号字典" in result
+            assert f"## persona 契约:{name}" in result
 
 
 class TestConstants:
