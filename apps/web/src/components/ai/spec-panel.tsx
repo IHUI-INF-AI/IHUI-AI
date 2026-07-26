@@ -13,6 +13,7 @@ import { fetchApi } from '@/lib/api'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { cn } from '@/lib/utils'
 import { MarkdownViewer } from '@/components/media/MarkdownViewer'
+import { Tooltip } from '@/components/feedback'
 
 /**
  * Spec 模式专用面板(2026-07-22 立,对标 Trae IDE Spec 模式)。
@@ -1784,9 +1785,11 @@ export function SpecPanel({ className }: { className?: string }) {
                           <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', BRANCH_STATUS_BADGE[b.status] || BRANCH_STATUS_BADGE.active)}>
                             {BRANCH_STATUS_LABEL[b.status] || b.status}
                           </span>
-                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title={b.specId}>
-                            spec: {b.specId.slice(0, 8)}
-                          </span>
+                          <Tooltip content={b.specId}>
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              spec: {b.specId.slice(0, 8)}
+                            </span>
+                          </Tooltip>
                           <span className="text-[10px] text-muted-foreground">
                             base: {b.baseVersion === 'latest' ? '最新' : b.baseVersion.slice(0, 8)}
                           </span>

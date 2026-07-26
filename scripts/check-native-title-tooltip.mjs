@@ -48,7 +48,7 @@ const C = {
 const EXCLUDE_DIRS = new Set([
   'node_modules', '.git', '.next', '.turbo', 'dist', 'build',
   '.worktrees', '.venv', 'tests', '__tests__', '.trae-cn',
-  '.output', '.wxt', 'coverage',
+  '.output', '.wxt', 'coverage', 'out',
 ])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
