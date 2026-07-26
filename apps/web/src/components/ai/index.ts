@@ -20,6 +20,8 @@ export { PermissionConfirmDialog } from './permission-confirm-dialog'
 export { SubAgentActivityFeed } from './sub-agent-activity-feed'
 export { AgentRuntimePanel } from './agent-runtime-panel'
 export { default as AgentRuntimePanelDefault } from './agent-runtime-panel'
+export { AgentTaskProgressDrawer } from './agent-task-progress-drawer'
+export { AgentProgressTrigger } from './agent-progress-trigger'
 
 // 语音组件
 export { VoiceInput } from './voice-input'
