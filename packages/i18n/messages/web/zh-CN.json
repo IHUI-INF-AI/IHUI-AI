@@ -157,7 +157,6 @@
     "adminDynamic": "动态路由",
     "overview": "总览",
     "learn": "学习",
-    "live": "直播",
     "exam": "考试",
     "lecturers": "讲师",
     "schedule": "课表",
@@ -908,8 +907,6 @@
       "total": "共 {total} 条"
     },
     "result": {
-      "correct": "答对",
-      "wrong": "答错",
       "unanswered": "未答",
       "duration": "用时",
       "minutes": "{n}分",
@@ -6797,7 +6794,6 @@
     "title": "直播课程",
     "subtitle": "实时互动学习",
     "loading": "加载中...",
-    "empty": "暂无直播",
     "category": "分类",
     "allCategories": "全部分类",
     "search": "搜索直播",
@@ -12192,11 +12188,26 @@
     "title": "模型分组",
     "description": "按场景/能力分组的模型清单",
     "group": {
-      "1": { "name": "通用对话", "desc": "通用场景对话模型" },
-      "2": { "name": "代码生成", "desc": "代码补全/重构/审查" },
-      "3": { "name": "多模态", "desc": "图文理解/生成" },
-      "4": { "name": "推理分析", "desc": "数学/逻辑/分析" },
-      "5": { "name": "长文本", "desc": "长上下文摘要/分析" }
+      "1": {
+        "name": "通用对话",
+        "desc": "通用场景对话模型"
+      },
+      "2": {
+        "name": "代码生成",
+        "desc": "代码补全/重构/审查"
+      },
+      "3": {
+        "name": "多模态",
+        "desc": "图文理解/生成"
+      },
+      "4": {
+        "name": "推理分析",
+        "desc": "数学/逻辑/分析"
+      },
+      "5": {
+        "name": "长文本",
+        "desc": "长上下文摘要/分析"
+      }
     }
   },
   "modelsPage": "Models",

@@ -135,7 +135,8 @@
     "toLogin": "去登入",
     "username": "用戶名稱",
     "usernamePlaceholder": "請輸入用戶名稱",
-    "wechatLogin": "微信"
+    "wechatLogin": "微信",
+    "login": "登入"
   },
   "chat": {
     "send": "發送"
@@ -183,7 +184,7 @@
     "hint": "提示",
     "levelLabel": "等級",
     "loadFailed": "載入失敗",
-    "loading": "載入中...",
+    "loading": "載入中…",
     "loadingShort": "載入中...",
     "login": "登入",
     "logout": "登出",
@@ -288,7 +289,9 @@
   "nav": {
     "home": "首頁",
     "settings": "設定",
-    "wallet": "錢包"
+    "wallet": "錢包",
+    "live": "直播",
+    "courses": "課程"
   },
   "routes": {
     "aboutUs": "關於我們",
@@ -500,5 +503,25 @@
       "subtitle": "管理您的 VIP 訂閱與續費",
       "title": "訂閱管理"
     }
+  },
+  "exam": {
+    "result": {
+      "correct": "答對",
+      "wrong": "答錯"
+    }
+  },
+  "live": {
+    "empty": "暫無直播"
+  },
+  "course": {
+    "free": "免費",
+    "rating": "評分"
+  },
+  "order": {
+    "empty": "暫無訂單",
+    "status": {
+      "refunded": "已退款"
+    },
+    "orderNo": "訂單編號"
   }
 }

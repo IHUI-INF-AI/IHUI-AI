@@ -176,7 +176,6 @@
     "adminDynamic": "Dynamic Routes",
     "overview": "Overview",
     "learn": "Learn",
-    "live": "Live",
     "exam": "Exam",
     "lecturers": "Lecturers",
     "schedule": "Schedule",
@@ -927,8 +926,6 @@
       "total": "{total} items"
     },
     "result": {
-      "correct": "Correct",
-      "wrong": "Wrong",
       "unanswered": "Unanswered",
       "duration": "Duration",
       "minutes": "{n} min",
@@ -6892,7 +6889,6 @@
     "title": "Live Courses",
     "subtitle": "Real-time interactive learning",
     "loading": "Loading...",
-    "empty": "No live sessions",
     "category": "Category",
     "allCategories": "All Categories",
     "search": "Search live sessions",
@@ -12388,11 +12384,26 @@
     "title": "Model Groups",
     "description": "Models grouped by scenario and capability",
     "group": {
-      "1": { "name": "General Chat", "desc": "General-purpose conversational models" },
-      "2": { "name": "Code Generation", "desc": "Code completion / refactor / review" },
-      "3": { "name": "Multimodal", "desc": "Image and text understanding / generation" },
-      "4": { "name": "Reasoning & Analysis", "desc": "Math / logic / analysis" },
-      "5": { "name": "Long Context", "desc": "Long-context summarization / analysis" }
+      "1": {
+        "name": "General Chat",
+        "desc": "General-purpose conversational models"
+      },
+      "2": {
+        "name": "Code Generation",
+        "desc": "Code completion / refactor / review"
+      },
+      "3": {
+        "name": "Multimodal",
+        "desc": "Image and text understanding / generation"
+      },
+      "4": {
+        "name": "Reasoning & Analysis",
+        "desc": "Math / logic / analysis"
+      },
+      "5": {
+        "name": "Long Context",
+        "desc": "Long-context summarization / analysis"
+      }
     }
   },
   "modelsPage": "Models",

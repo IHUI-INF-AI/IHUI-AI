@@ -175,7 +175,6 @@
     "adminDynamic": "動態路由",
     "overview": "總覽",
     "learn": "學習",
-    "live": "直播",
     "exam": "考試",
     "lecturers": "講師",
     "schedule": "課表",
@@ -927,8 +926,6 @@
       "total": "共 {total} 條"
     },
     "result": {
-      "correct": "答對",
-      "wrong": "答錯",
       "unanswered": "未答",
       "duration": "用時",
       "minutes": "{n}分",
@@ -6866,7 +6863,6 @@
     "title": "直播課程",
     "subtitle": "實時互動學習",
     "loading": "加載中...",
-    "empty": "暫無直播",
     "category": "分類",
     "allCategories": "全部分類",
     "search": "搜尋直播",
@@ -12329,11 +12325,26 @@
     "title": "模型分組",
     "description": "依場景/能力分組的模型清單",
     "group": {
-      "1": { "name": "通用對話", "desc": "通用場景對話模型" },
-      "2": { "name": "代碼生成", "desc": "代碼補完/重構/審查" },
-      "3": { "name": "多模態", "desc": "圖文理解/生成" },
-      "4": { "name": "推理分析", "desc": "數學/邏輯/分析" },
-      "5": { "name": "長文本", "desc": "長上下文摘要/分析" }
+      "1": {
+        "name": "通用對話",
+        "desc": "通用場景對話模型"
+      },
+      "2": {
+        "name": "代碼生成",
+        "desc": "代碼補完/重構/審查"
+      },
+      "3": {
+        "name": "多模態",
+        "desc": "圖文理解/生成"
+      },
+      "4": {
+        "name": "推理分析",
+        "desc": "數學/邏輯/分析"
+      },
+      "5": {
+        "name": "長文本",
+        "desc": "長上下文摘要/分析"
+      }
     }
   },
   "modelsPage": "Models",
