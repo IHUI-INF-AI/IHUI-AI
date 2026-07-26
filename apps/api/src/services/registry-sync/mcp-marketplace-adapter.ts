@@ -54,7 +54,9 @@ function mapMarketplaceItem(item: unknown, market: string): RawRegistryItem | nu
     payload: obj,
     meta: {
       stars: typeof starsRaw === 'number' ? starsRaw : undefined,
-      hasDocumentation: obj.documentation != null || obj.readme != null,
+      hasDocumentation:
+        (obj.documentation !== null && obj.documentation !== undefined) ||
+        (obj.readme !== null && obj.readme !== undefined),
     },
   }
 }

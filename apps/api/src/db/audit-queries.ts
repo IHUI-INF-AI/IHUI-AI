@@ -83,14 +83,14 @@ function mapRow(r: Record<string, unknown>): AuditLogChainRow {
   return {
     id: String(r['id']),
     timestamp: ts instanceof Date ? ts.toISOString() : String(ts ?? ''),
-    userId: r['user_id'] == null ? null : String(r['user_id']),
+    userId: r['user_id'] === null || r['user_id'] === undefined ? null : String(r['user_id']),
     action: String(r['action']),
-    resourceType: r['resource_type'] == null ? null : String(r['resource_type']),
-    resourceId: r['resource_id'] == null ? null : String(r['resource_id']),
-    ip: r['ip'] == null ? null : String(r['ip']),
-    userAgent: r['user_agent'] == null ? null : String(r['user_agent']),
-    result: r['result'] == null ? null : String(r['result']),
-    metadata: r['metadata'] == null ? null : (r['metadata'] as Record<string, unknown>),
+    resourceType: r['resource_type'] === null || r['resource_type'] === undefined ? null : String(r['resource_type']),
+    resourceId: r['resource_id'] === null || r['resource_id'] === undefined ? null : String(r['resource_id']),
+    ip: r['ip'] === null || r['ip'] === undefined ? null : String(r['ip']),
+    userAgent: r['user_agent'] === null || r['user_agent'] === undefined ? null : String(r['user_agent']),
+    result: r['result'] === null || r['result'] === undefined ? null : String(r['result']),
+    metadata: r['metadata'] === null || r['metadata'] === undefined ? null : (r['metadata'] as Record<string, unknown>),
     prevHash: String(r['prev_hash']),
     currentHash: String(r['current_hash']),
   }
@@ -136,7 +136,7 @@ export async function insertAuditLog(input: InsertAuditLogInput): Promise<string
     `)
     const rows = toRows(raw)
     const id = rows[0]?.['id']
-    return id == null ? undefined : String(id)
+    return id === null || id === undefined ? undefined : String(id)
   } catch (e) {
     logger.warn('[audit-queries] insertAuditLog failed (table not ready?)', {
       error: (e as Error).message,
@@ -250,7 +250,7 @@ export async function getLastAuditLogHash(): Promise<string> {
     `)
     const row = toRows(raw)[0]
     const h = row?.['current_hash']
-    return h == null ? GENESIS : String(h)
+    return h === null || h === undefined ? GENESIS : String(h)
   } catch {
     return GENESIS
   }

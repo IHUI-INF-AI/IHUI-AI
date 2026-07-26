@@ -20,7 +20,6 @@ import Fastify from 'fastify'
 import { sql, eq } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import {
-  users,
   lessons,
   learnCategories,
   lessonChapters,

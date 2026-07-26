@@ -18,12 +18,12 @@ import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
 import {
-  CaptchaService,
+  type CaptchaService,
   type ChallengeType,
   getCaptchaService,
 } from '../services/captcha-service.js'
-import { IpReputationService, getIpReputationService } from '../services/ip-reputation.js'
-import { AnomalyDetector, getAnomalyDetector } from '../services/anomaly-detector.js'
+import { type IpReputationService, getIpReputationService } from '../services/ip-reputation.js'
+import { type AnomalyDetector, getAnomalyDetector } from '../services/anomaly-detector.js'
 
 /* -------------------------------------------------------------------------- */
 /* 校验 schema                                                                 */
