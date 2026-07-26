@@ -3,17 +3,23 @@
  *
  * 快捷操作依赖 background 通过 message-router 提供的 api.proxy + sidePanel.open 能力。
  *
- * 2026-07-26 改造:登录外壳从本地 ExtensionAuthShell 改为共享 @ihui/ui-react.AuthShellCompact,
- * 与 web 端主站登录弹窗用同一份组件 + 同一份 CSS(.login-scope / .welcome-img),
- * 真正"一模一样"。ExtensionAuthShell.tsx 已删除。
+ * 2026-07-26 改造:登录外壳用共享 @ihui/ui-react.AuthShell(完整版,跟 web 端 LoginDialog
+ * 完全一致),popup 跟 web 端用同一份 React 组件 + 同一份 CSS(.login-scope / .welcome-img),
+ * 真正"一模一样"。ExtensionAuthShell.tsx 已删除,AuthShellCompact 不再使用。
+ *
+ * 物理空间约束:Chrome 扩展 popup 默认 800x600(pwa 窗口硬限制),AuthShell 完整版外壳
+ * (logo + welcome + p-7 + 容器)约占 286px 高度,业务简化后能完全装下;但 4 tab + 8 第三方
+ * 登录 + 服务条款勾选 + 注册入口会超 600px,所以 popup 业务保留最简版(2 input + 1 登录按钮
+ * + 1 打开网页版链接,引导用户去 web 端做完整登录)。
  */
 import { useEffect, useState } from 'react'
 import { loginByAccount, getMe, logout, type AuthUser } from '@ihui/api-client'
-import { Button, Input, Label, AuthShellCompact } from '@ihui/ui-react'
+import { Button, Input, Label, AuthShell } from '@ihui/ui-react'
 import { initApi, setTokenPair, getToken, getRefreshToken, clearAllTokens } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm } from '../../lib/token-utils'
 import { useI18n } from '../../src/i18n'
 import { sendMessage } from '../../lib/message-router'
+import { useSystemTheme } from '../../src/hooks/use-system-theme'
 import { QuickActionButton } from '../components/QuickActionButton'
 import { NotificationBell } from '../components/NotificationBell'
 
@@ -25,6 +31,9 @@ interface ActiveTab {
 
 export default function App() {
   const { t } = useI18n()
+  // 2026-07-26 改造:popup 启用系统主题跟随(浅/深模式由 OS 决定),让 popup 跟 web 端
+  // LoginDialog 用同一份 .login-scope / .welcome-img 共享 CSS,深色模式视觉一致。
+  useSystemTheme()
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [account, setAccount] = useState('')
@@ -144,11 +153,19 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="p-3 min-w-[320px] bg-background">
-        <AuthShellCompact
+      <div className="p-3 min-w-[360px] max-w-[460px] bg-background">
+        {/* 2026-07-26 改造:popup 改用完整 AuthShell(去掉 compact),跟 web 端 LoginDialog
+            用同一份共享组件 + 同一份 .login-scope / .welcome-img 共享 CSS。
+            - 外壳:圆角边框、阴影、p-7、logo + welcome.svg/baiwelcome.svg 浅/深主题切换
+            - 业务简化(popup 物理空间 ~460×600 限制):
+              去掉 4 tab 切换、8 个第三方登录、服务条款勾选、注册/忘记密码入口
+              保留 2 input(账号+密码)+ 1 登录按钮 + 1 打开网页版链接
+            - 关闭按钮:popup 不需要(点击外部自动关闭,跟 web 端弹窗不同)
+            - 深色主题:由 useSystemTheme 根据 OS 偏好自动切换(.dark class) */}
+        <AuthShell
           title={t('auth.login')}
           subtitle={t('auth.loginSubtitle')}
-          closeAriaLabel={t('common.close') || 'Close'}
+          className="w-full"
         >
           <form onSubmit={onLogin} className="space-y-3 pt-1">
             {error ? (
@@ -196,7 +213,7 @@ export default function App() {
               variant="default"
             />
           </form>
-        </AuthShellCompact>
+        </AuthShell>
       </div>
     )
   }
