@@ -13,6 +13,8 @@ import {
   disableAutostart,
   resetWindowState,
   sendDesktopNotification,
+  getSystemTheme,
+  onSystemThemeChange,
   type DesktopAppInfo,
 } from '@/lib/tauri-bridge'
 
@@ -148,4 +150,42 @@ export function useDesktop() {
     resetWindow,
     notify,
   }
+}
+
+/**
+ * useSystemTheme — 监听系统主题(深色/浅色)实时变化(2026-07-27 立,P1-7)
+ *
+ * - 挂载时一次性获取当前系统主题
+ * - 监听 OS 主题切换事件,实时同步
+ * - 浏览器端返回 null(无系统主题能力)
+ *
+ * 用于:主题跟随、与 next-themes setTheme 联动
+ *
+ * 注意:onSystemThemeChange 返回同步清理函数 `() => void`,非 Promise。
+ */
+export function useSystemTheme(): 'light' | 'dark' | null {
+  const [systemTheme, setSystemTheme] = React.useState<'light' | 'dark' | null>(null)
+
+  React.useEffect(() => {
+    if (!isTauri()) return
+    let cancelled = false
+
+    // 挂载时一次性获取当前系统主题
+    void getSystemTheme().then((theme) => {
+      if (cancelled) return
+      if (theme) setSystemTheme(theme)
+    })
+
+    // 监听 OS 主题切换事件(onSystemThemeChange 返回同步清理函数)
+    const unlisten = onSystemThemeChange((theme) => {
+      setSystemTheme(theme)
+    })
+
+    return () => {
+      cancelled = true
+      unlisten()
+    }
+  }, [])
+
+  return systemTheme
 }
