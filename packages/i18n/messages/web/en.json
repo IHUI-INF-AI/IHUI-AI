@@ -12241,5 +12241,97 @@
     "title": "No Permission",
     "description": "Sorry, you do not have permission to access this page. Please contact the administrator to request access.",
     "backToHome": "Back to Home"
+  },
+  "modelsBillingPage": {
+    "consumeTrend": "+{n}% vs last month",
+    "rechargeCount": "Total {n} recharges",
+    "packages": {
+      "starter": {
+        "features": [
+          "1M tokens quota",
+          "Basic models available",
+          "5 API tokens",
+          "Community support"
+        ]
+      },
+      "pro": {
+        "features": [
+          "15M tokens quota",
+          "All models available",
+          "20 API tokens",
+          "Priority support",
+          "90-day call logs"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "200M tokens quota",
+          "Dedicated model channel",
+          "Unlimited API tokens",
+          "Dedicated account manager",
+          "Permanent call logs",
+          "SLA 99.95%"
+        ]
+      }
+    }
+  },
+  "modelsReferralPage": {
+    "title": "Referral Rewards",
+    "subtitle": "Invite friends to register, both of you will receive rewards",
+    "link": {
+      "title": "My Referral Link",
+      "tip": "Share your exclusive referral link with friends",
+      "copy": "Copy Link",
+      "reward": "When a friend registers and spends ¥10 or more, you will receive {amount} reward"
+    },
+    "stats": {
+      "invited": "Invited",
+      "activated": "Activated",
+      "reward": "Total Rewards"
+    },
+    "list": {
+      "title": "Referral Records",
+      "user": "User",
+      "joined": "Joined At",
+      "reward": "Reward",
+      "status": "Status",
+      "statusLabels": {
+        "activated": "Activated",
+        "pending": "Pending"
+      }
+    }
+  },
+  "n8nAgentsPage": {
+    "metaDescription": "N8N workflow integration: orchestrate AI agents automatically, including customer service bot, content moderation, data sync, etc.",
+    "subtitle": "N8N workflow integration - orchestrate AI agents automatically via N8N",
+    "cardTitle": "N8N Workflow Integration",
+    "totalBadge": "{n} Agents total",
+    "activeBadge": "{n} running",
+    "cardDescription": "Orchestrate AI agents automatically via N8N, connecting customer service, moderation, sync, reporting, and alerting scenarios to achieve end-to-end workflow automation.",
+    "createButton": "Create new Agent",
+    "lastRunLabel": "Last run",
+    "runCountLabel": "Run count",
+    "agents": {
+      "customer-service": {
+        "name": "Customer Service Bot",
+        "description": "Automatically replies to user inquiries, matches answers based on knowledge base, and supports human handoff."
+      },
+      "content-moderation": {
+        "name": "Content Moderation",
+        "description": "Automatically moderates UGC content, detects inappropriate text/images, and triggers handling workflows."
+      },
+      "data-sync": {
+        "name": "Data Sync",
+        "description": "Periodically syncs external data sources to local database, supporting incremental and full sync."
+      },
+      "report-generation": {
+        "name": "Report Generation",
+        "description": "Generates daily business reports and pushes to specified channels, including email, IM, and object storage."
+      },
+      "alert-notify": {
+        "name": "Alert Notification",
+        "description": "Monitors abnormal metrics and auto-notifies on-call personnel, supporting multi-level escalation strategies."
+      }
+    }
   }
 }

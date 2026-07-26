@@ -18,7 +18,7 @@
  *   })
  *   process.exit(code)
  *
- * 死 key 判定:zh-CN.json 存在 + 代码无静态 t('key') 引用 + 不在任何 useTranslations namespace 下 = 死 key
+ * 死 key 判定:zh-CN.json 存在 + 代码无静态 t('key') 引用 + 不在任何 useTranslations/getTranslations namespace 下 = 死 key
  * 翻译不完整:5 语言任一缺该 key(不计入死 key,单列)
  * 动态 key:t(`prefix.${var}`) 模板字符串不算静态引用,会列在"动态 key 提示"段
  *
@@ -47,8 +47,10 @@ const EXCLUDE_FILE_PATTERNS = [
 export const STATIC_T_RE = /\bt\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*\)/g
 // 动态 t(`prefix.${var}`) - 仅提示用
 export const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]\s*\)/g
-// useTranslations('namespace') - 命名空间下所有 key 视为潜在引用(启发式)
-export const USE_T_RE = /\buseTranslations\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]\s*\)/g
+// useTranslations('namespace') / getTranslations('namespace') - 命名空间下所有 key 视为潜在引用(启发式)
+// 2026-07-26 增强:getTranslations 是 next-intl/server 在 server component 使用的 API(等价于 useTranslations),
+// subagent-D commit 5ebb17915 仅识别 useTranslations 模式,导致 server component 引用 namespace 被误判为死 key。
+export const USE_T_RE = /\b(?:useTranslations|getTranslations)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]\s*\)/g
 // 备用:i18n.t / getFixedT 链式调用
 export const I18N_T_RE = /\b(?:i18n\.t|getFixedT|useTranslations)\s*\(\s*['"`]?[a-zA-Z-]*['"`]?\s*\)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 // JSX prop 字面量: <Xxx namespace="literal" />
@@ -219,7 +221,7 @@ export function main(opts) {
   console.log(`[${TAG}] 扫描代码: ${files.length} 个文件`)
   const { staticRefs, usedNamespaces, dynamicHits } = scanCode(files)
   console.log(`[${TAG}] 静态引用 key: ${staticRefs.size} 个(去重)`)
-  console.log(`[${TAG}] useTranslations namespace: ${usedNamespaces.size} 个`)
+  console.log(`[${TAG}] useTranslations/getTranslations namespace: ${usedNamespaces.size} 个`)
 
   // 3. 死 key
   const deadKeys = new Set()
@@ -254,7 +256,7 @@ export function main(opts) {
   console.log('\n=== 总览 ===')
   console.log(`  基准语言 leaf keys: ${totalLeaves}`)
   console.log(`  代码静态引用 key: ${totalRefs}`)
-  console.log(`  useTranslations namespace: ${totalNamespaces}`)
+  console.log(`  useTranslations/getTranslations namespace: ${totalNamespaces}`)
   console.log(`  死 key: ${deadCount} (${deadRatio}%)`)
   console.log(`  翻译不完整 key: ${incompleteCount}`)
   console.log(`  动态 t(\`prefix.\${var}\`) 命中: ${dynamicHits.length} 处`)
@@ -277,7 +279,7 @@ export function main(opts) {
   L(`- 扫描文件:5 语言(\`${LOCALES.map((l) => path.relative(ROOT, LOCALE_PATHS[l])).join('`, `')}\`)`)
   L(`- 递归 leaf key 总数:**${totalLeaves}**`)
   L(`- 代码静态引用 key(全路径 \`t('a.b.c')\` 形式):**${totalRefs}**(去重)`)
-  L(`- \`useTranslations('namespace')\` 命名空间:**${totalNamespaces}** 个(命名空间下所有 key 视作潜在引用,启发式)`)
+  L(`- \`useTranslations/getTranslations('namespace')\` 命名空间:**${totalNamespaces}** 个(命名空间下所有 key 视作潜在引用,启发式)`)
   L(`- 死 key 数量:**${deadCount}**(占比 **${deadRatio}%**)`)
   L(`- 翻译不完整 key 数量:**${incompleteCount}**`)
   L(`- 动态 t(\`prefix.\${var}\`) 命中:${dynamicHits.length} 处`)
