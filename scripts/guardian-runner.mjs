@@ -424,19 +424,23 @@ const checks = [
     mode: 'warn',
   },
 
-  // --- 31 (2026-07-26 新增,扩展端登录界面与 web 端视觉一致任务收尾) ---
+  // --- 31 (2026-07-26 新增,扩展端登录界面与 web 端视觉一致任务收尾; 同日 升级为 verify-shared-auth.mjs 覆盖 LoginForm 共用) ---
   // warn-only:脚本刚建,先观察一周,后续可升级 blocking。
-  // 静态扫描 7 项:web 端 AuthShell re-export + thin wrapper 仅透传 SharedAuthShell、
-  // 共享 .login-scope/.welcome-img-dark 单一来源、web+extension globals.css 无根级
-  // .login-scope 重复、extension 必须从 @ihui/ui-react import。
-  // 失败含义:有人重新写了一份本地 AuthShell,导致 web/extension 视觉漂移。
+  // 静态扫描 11 项 = AuthShell 共享 (7 项) + LoginForm 共享 (4 项):
+  //   - 1-7: web 端 AuthShell re-export + thin wrapper 仅透传 SharedAuthShell、
+  //          共享 .login-scope/.welcome-img-dark 单一来源、web+extension globals.css 无根级
+  //          .login-scope 重复、extension 必须从 @ihui/ui-react import AuthShell。
+  //   - 8-11: 共享 packages/ui-react/src/components/login-form/login-form.tsx 必须存在 +
+  //          extension popup/sidepanel 必须 import LoginForm + 8 个第三方登录不能省略
+  //          (等共享 LoginForm 落地后, 8-11 项从 pending 切到 strict 自动启用)。
+  // 失败含义:有人重新写了一份本地 AuthShell/LoginForm,导致 web/extension 视觉/功能漂移。
   // 接入原因:commit 1f6f35cf9 + 09db8938e 已把 AuthShell 抽到 packages/ui-react 共享,
   // 但若不接 pre-commit 守门,后续会被无意回退。AGENTS.md §4 圆角守门 + 本脚本 =
-  // 共享组件"单一来源"双保险。
+  // 共享组件"单一来源"双保险。2026-07-26 用户反馈 LoginForm 没共用 → 升级为 verify-shared-auth.mjs。
   {
     id: '31',
-    label: '🛡️  AuthShell 共享实现静态守门(warn-only,防 web/extension 视觉漂移)',
-    script: 'verify-auth-shell.mjs',
+    label: '🛡️  Shared Auth 静态守门 (AuthShell 7 项 + LoginForm 4 项, warn-only, 防 web/extension 视觉/功能漂移)',
+    script: 'verify-shared-auth.mjs',
     args: [],
     mode: 'warn',
   },
