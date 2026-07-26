@@ -10,7 +10,7 @@ import {
   TableRow,
   TableCell,
 } from '@ihui/ui-react'
-import type { TokenFlowItem } from '@/lib/token-api'
+import type { TokenFlowItem } from '@ihui/api-client'
 
 interface Props {
   items: TokenFlowItem[]
@@ -80,7 +80,9 @@ export function TokenValueTable({
                     {fmtDate(it.createdAt)}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 font-medium">{it.agentName}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">{it.modelName}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-muted-foreground">
+                    {it.modelName}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5 text-right font-medium text-red-600 dark:text-red-400">
                     -{it.token}
                   </TableCell>
