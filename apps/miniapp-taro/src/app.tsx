@@ -10,7 +10,6 @@ import {
   tokenStore,
 } from './utils/auth'
 import { exchangeSsoCode } from './utils/sso'
-import { showShareMenu } from './utils/share'
 import { initPrivacyGuard } from './utils/privacy'
 import { initPushSubscription } from './utils/push-init'
 import { isMiniAppEnvironment } from './utils/miniapp-login'
@@ -115,17 +114,13 @@ function MemoryWarningHandler() {
 function SsoLaunchHandler() {
   const { t } = useI18n()
   useLaunch((options) => {
-    // fail 静默:字体 URL 未在小程序合法域名白名单 / 网络断开时报
-    // "loadFontFace:fail Client network socket disconnected"(2026-07-26)
-    // 字体加载失败不影响功能,系统字体兜底
-    Taro.loadFontFace({
-      family: 'HarmonyOS Sans SC',
-      source: 'url("https://ihui.ai/fonts/HarmonyOS_SansSC_Regular.ttf")',
-      global: true,
-      fail: () => {},
-    })
+    // 2026-07-27 移除 loadFontFace:远程字体 https://ihui.ai/fonts/ 在小程序环境
+    // TLS 连接失败 + 渲染层 ERR_CACHE_MISS/ERR_CONNECTION_CLOSED,fail 回调只能
+    // 抑制 JS 层错误,渲染层网络错误仍上报控制台。系统字体兜底,功能不受影响。
     initPrivacyGuard()
-    showShareMenu()
+    // 2026-07-27 移除 showShareMenu:未认证 appId(wx27028e276ffdbc5d)调用报
+    // "no permission",fail 回调无法抑制微信框架内部 thirdErrorReport 上报。
+    // useShareAppMessage/useShareTimeline hook 已自动启用分享,无需手动调用。
     initPushSubscription()
 
     // 启动时主流程:

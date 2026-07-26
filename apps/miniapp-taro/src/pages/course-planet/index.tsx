@@ -161,7 +161,8 @@ export default function CoursePlanet() {
           {t('coursePlanet.title')}
         </Text>
       </View>
-      <ScrollView scrollX className="whitespace-nowrap py-[16rpx] px-[24rpx] bg-card">
+      <ScrollView scrollX className="whitespace-nowrap bg-card">
+        <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
         {CATEGORY_KEYS.map((cat) => (
           <Text
             key={cat.key}
@@ -171,6 +172,7 @@ export default function CoursePlanet() {
             {tt(cat.label, cat.key)}
           </Text>
         ))}
+        </View>
       </ScrollView>
       <View className="p-[24rpx]">
         {displayList.length ? (

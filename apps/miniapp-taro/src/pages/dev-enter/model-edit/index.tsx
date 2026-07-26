@@ -208,7 +208,8 @@ export default function ModelEdit() {
         </Text>
       </View>
 
-      <ScrollView scrollY className="flex-1 p-[24rpx] box-border">
+      <ScrollView scrollY className="flex-1 box-border">
+        <View className="p-[24rpx]">
         {/* 智能体信息 */}
         <View className="flex items-center bg-card p-[24rpx] rounded-[16rpx] mb-[16rpx] gap-[20rpx] border border-border">
           {agentInfo.avatar ? (
@@ -337,6 +338,7 @@ export default function ModelEdit() {
           </Text>
         </View>
         <View className="h-[60rpx]" />
+        </View>
       </ScrollView>
     </View>
   )
