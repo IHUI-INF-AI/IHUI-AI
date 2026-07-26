@@ -198,12 +198,13 @@ test('migration: 跨文件 0000 CREATE + 0001 DROP + 0002 CREATE → 表存在',
   }
 })
 
-// ─── 7b. 同文件 CREATE + DROP → 表被 DROP(脚本行为:同文件先收集 CREATE 再应用 DROP) ──
-test('migration: 同文件 CREATE + DROP → 表不存在(脚本同文件先全收集 CREATE 再应用 DROP)', () => {
+// ─── 7b. 同文件 CREATE + DROP → 表被 DROP(按 SQL 顺序应用) ──
+test('migration: 同文件 CREATE + DROP → 表不存在(按 SQL 出现顺序应用:CREATE users → CREATE orders → DROP users)', () => {
   const root = createTempProject()
   try {
     writeSchema(root, 'users.ts', [['users', 'users']])
-    // 同文件 CREATE "users" + DROP "users" → 脚本先收集 CREATE{users} + 再应用 DROP{users} → 空
+    // 同文件 CREATE "users" + CREATE "orders" + DROP "users"
+    // 按 SQL 顺序应用:ADD users → ADD orders → DELETE users → finalTables={orders}
     // 再加一个 orders 表验证 partial 行为:CREATE orders 不被 DROP → finalTables 含 orders
     writeMigration(
       root,
@@ -214,6 +215,71 @@ test('migration: 同文件 CREATE + DROP → 表不存在(脚本同文件先全�
     // users 被 DROP,orders 仍在 → users 缺失(missing) → exit 1
     assertFail(r, /migration 缺失/)
     assert.match(r.stdout, /users/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 7c. 同文件 DROP + CREATE(drop-and-recreate)→ 表存在(按 SQL 顺序应用,不误报 dead migration) ──
+test('migration: 同文件 DROP TABLE X + CREATE TABLE X(drop-and-recreate)→ finalTables 含 X,不误报 dead migration', () => {
+  const root = createTempProject()
+  try {
+    writeSchema(root, 'users.ts', [['users', 'users']])
+    // 同文件先 DROP "users" 再 CREATE "users"(drop-and-recreate 模式)
+    // 按 SQL 顺序应用:DELETE users(no-op,集合本无 users)→ ADD users → finalTables 含 users
+    // 修复前 bug:先扫 CREATE(add users)再扫 DROP(delete users)→ 误报 dead migration
+    writeMigration(
+      root,
+      '0005_drop_and_recreate.sql',
+      `DROP TABLE IF EXISTS "users";\nCREATE TABLE "users" (\n  "id" text PRIMARY KEY\n);\n`,
+    )
+    const r = runScript(root)
+    assertPass(r)
+    assert.match(r.stdout, /missing migrations:\s+0/)
+    assert.match(r.stdout, /dead migrations:\s+0/, '不应误报 dead migration')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 7d. 同文件 CREATE + DROP → 表不存在(按 SQL 顺序应用,与 7b 单表场景一致) ──
+test('migration: 同文件 CREATE TABLE X + DROP TABLE X → finalTables 不含 X', () => {
+  const root = createTempProject()
+  try {
+    writeSchema(root, 'users.ts', [['users', 'users']])
+    // 同文件先 CREATE "users" 再 DROP "users"
+    // 按 SQL 顺序应用:ADD users → DELETE users → finalTables 不含 users
+    writeMigration(
+      root,
+      '0005_create_then_drop.sql',
+      `CREATE TABLE "users" (\n  "id" text PRIMARY KEY\n);\nDROP TABLE "users";\n`,
+    )
+    const r = runScript(root)
+    // users 被 DROP → finalTables 不含 users → TS schema 有 users → missing → exit 1
+    assertFail(r, /migration 缺失/)
+    assert.match(r.stdout, /users/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 7e. 同文件 DROP X + CREATE Y → finalTables 含 Y(无 X,顺序正确) ──
+test('migration: 同文件 DROP TABLE X + CREATE TABLE Y → finalTables 含 Y(无 X,顺序正确)', () => {
+  const root = createTempProject()
+  try {
+    // TS schema 只有 orders(Y),无 users(X)
+    writeSchema(root, 'orders.ts', [['orders', 'orders']])
+    // 同文件先 DROP "users"(X)再 CREATE "orders"(Y)
+    // 按 SQL 顺序应用:DELETE users(no-op)→ ADD orders → finalTables={orders}
+    writeMigration(
+      root,
+      '0005_drop_x_create_y.sql',
+      `DROP TABLE IF EXISTS "users";\nCREATE TABLE "orders" (\n  "id" text PRIMARY KEY\n);\n`,
+    )
+    const r = runScript(root)
+    assertPass(r)
+    assert.match(r.stdout, /missing migrations:\s+0/)
+    assert.match(r.stdout, /dead migrations:\s+0/, '不应误报 dead migration(orders 在 TS schema 中存在)')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
