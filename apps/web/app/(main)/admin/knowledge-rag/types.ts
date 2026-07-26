@@ -3,7 +3,7 @@ export type {
   KnowledgeDocDetail,
   KnowledgeSearchHit,
   KnowledgeChunkPreview,
-} from '@/lib/knowledge-rag-api'
+} from '@ihui/api-client'
 
 /** 入库表单 */
 export interface IngestForm {

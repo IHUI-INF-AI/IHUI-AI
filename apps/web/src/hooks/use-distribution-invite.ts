@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { getInviteInfo, type InviteInfo } from '@/lib/distribution-api'
+import { getInviteInfo, type InviteInfo } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 
 export interface UseDistributionInviteReturn {
