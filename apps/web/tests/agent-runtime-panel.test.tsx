@@ -8,6 +8,39 @@ vi.mock('@ihui/api-client', () => ({
   executeAgentRuntimeStream: vi.fn(),
 }))
 
+// Mock next-intl:AgentRuntimePanel 内调 useTranslations('agentRuntimePanel'),
+// 测试不依赖真实 messages 文件,直接提供与测试断言一致的字面值
+// (title='Agent Runtime' 来自 en.json,其他用例期望中文 — 是测试自定义字面值,
+// 既不来自 zh-CN.json 也不来自 en.json;messages 文件逗号风格不同,故用 mock 兜底)
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string, params?: Record<string, string>) => {
+    const map: Record<string, string> = {
+      title: 'Agent Runtime',
+      clear: '清空',
+      plan: '执行计划',
+      permissionDecision: '权限决策:{decision}',
+      permissionMeta: '工具:{tool} · 等级:{level} · 模式:{mode}',
+      unknownTool: '未知',
+      defaultLevel: '读取',
+      output: '输出',
+      error: '错误',
+      cancelledTitle: '任务已取消',
+      cancelledBody: '已停止当前执行。如需继续,请修改输入后再次执行。',
+      emptyState: '输入任务,开始 Agent 执行',
+      placeholder: '输入任务...',
+      stop: '停止',
+      execute: '执行',
+    }
+    let v = map[key] ?? key
+    if (params) {
+      for (const [k, val] of Object.entries(params)) {
+        v = v.replace(`{${k}}`, val)
+      }
+    }
+    return v
+  },
+}))
+
 import { AgentRuntimePanel } from '../src/components/ai/agent-runtime-panel'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
 

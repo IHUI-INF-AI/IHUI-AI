@@ -226,7 +226,7 @@ export default function KouboPage() {
             <div className="flex flex-wrap gap-2 pt-2">
               <Button
                 onClick={() =>
-                  run('generate', '/api/self-media/koubo/generate', {
+                  run('generate', '/api/self-media/koubo/generate', { // method: POST
                     date,
                     topic,
                     dryRun: true,
@@ -244,7 +244,7 @@ export default function KouboPage() {
               <Button
                 variant="outline"
                 onClick={() =>
-                  run('validate', '/api/self-media/koubo/validate', { filePath })
+                  run('validate', '/api/self-media/koubo/validate', { filePath }) // method: POST
                 }
                 disabled={!filePath || running !== null}
               >
