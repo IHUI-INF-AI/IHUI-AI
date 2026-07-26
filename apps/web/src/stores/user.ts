@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import { getProfile, type UserProfile, type UserStatistics } from '@/lib/user-api'
+import { getProfile, type UserProfile, type UserStatistics } from '@ihui/api-client'
 import { createPersistConfig } from './persist-helpers'
 
 interface UserState {

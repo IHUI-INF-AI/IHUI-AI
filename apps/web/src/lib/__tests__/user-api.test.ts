@@ -6,7 +6,7 @@ vi.mock('@ihui/api-client/client', () => ({
 }))
 
 import { fetchApi } from '@ihui/api-client/client'
-import { getProfile, updateProfile } from '../user-api'
+import { getProfile, updateProfile } from '@ihui/api-client'
 
 describe('user-api', () => {
   beforeEach(() => vi.clearAllMocks())
