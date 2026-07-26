@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { ExternalLink, Loader2, AlertTriangle, ImageIcon } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { Tooltip, TooltipTrigger, TooltipContent } from './tooltip'
 
 /**
  * 通用 WebView 抽象组件。
@@ -227,9 +228,14 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
                     ? '加载失败'
                     : '无法在面板内嵌入'}
               </p>
-              <p className="max-w-xs truncate text-xs text-muted-foreground" title={url}>
-                {url}
-              </p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="max-w-xs truncate text-xs text-muted-foreground">
+                    {url}
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent>{url}</TooltipContent>
+              </Tooltip>
               {error && <p className="text-xs text-muted-foreground">{error}</p>}
             </div>
             <div className="flex gap-2">
