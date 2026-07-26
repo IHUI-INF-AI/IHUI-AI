@@ -313,38 +313,38 @@ export default function AgentDetailPage() {
       {tab === 'info' && (
         <View>
           {agent && (
-            <View className="mx-[12px] my-[12px] bg-card rounded-[8px] p-[16px]">
+            <View className="mx-[24rpx] my-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
               <View className="flex items-center">
                 <Image
-                  className="w-[80px] h-[80px] rounded-md bg-muted"
+                  className="w-[160rpx] h-[160rpx] rounded-md bg-muted"
                   src={agent.avatar || '/static/default-agent.png'}
                   mode="aspectFill"
                 />
-                <View className="ml-[12px] flex-1">
+                <View className="ml-[24rpx] flex-1">
                   <View className="flex items-center">
-                    <Text className="text-[18px] text-foreground font-bold">{agent.name}</Text>
+                    <Text className="text-[36rpx] text-foreground font-bold">{agent.name}</Text>
                     {agent.isVipExclusive && (
-                      <Text className="ml-[8px] text-[11px] px-[6px] py-[2px] rounded bg-amber-50 text-amber-600">
+                      <Text className="ml-[16rpx] text-[22rpx] px-[12rpx] py-[4rpx] rounded bg-amber-50 text-amber-600">
                         {t('ai.agentDetail.vipExclusive')}
                       </Text>
                     )}
                   </View>
-                  <Text className="block text-[14px] text-muted-foreground mt-[4px]">
+                  <Text className="block text-[28rpx] text-muted-foreground mt-[8rpx]">
                     {agent.description}
                   </Text>
-                  <View className="flex items-center mt-[6px]">
+                  <View className="flex items-center mt-[12rpx]">
                     {categoryLabel && (
-                      <Text className="text-[11px] px-[6px] py-[2px] mr-[8px] rounded bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                      <Text className="text-[22rpx] px-[12rpx] py-[4rpx] mr-[16rpx] rounded bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
                         {categoryLabel}
                       </Text>
                     )}
                     {rating > 0 && (
-                      <Text className="text-[11px] text-amber-500 mr-[8px]">
+                      <Text className="text-[22rpx] text-amber-500 mr-[16rpx]">
                         ★ {rating.toFixed(1)}
                       </Text>
                     )}
                     {useCount !== undefined && (
-                      <Text className="text-[11px] text-muted-foreground">
+                      <Text className="text-[22rpx] text-muted-foreground">
                         {t('ai.agentDetail.useCount', { n: useCount })}
                       </Text>
                     )}
@@ -353,11 +353,11 @@ export default function AgentDetailPage() {
               </View>
               {/* 标签区(对标原项目 tags 字段) */}
               {tags.length > 0 && (
-                <View className="flex flex-wrap mt-[12px]">
+                <View className="flex flex-wrap mt-[24rpx]">
                   {tags.map((tag, idx) => (
                     <Text
                       key={`${tag}-${idx}`}
-                      className="text-[11px] px-[8px] py-[2px] mr-[6px] mb-[4px] rounded bg-muted text-muted-foreground"
+                      className="text-[22rpx] px-[16rpx] py-[4rpx] mr-[12rpx] mb-[8rpx] rounded bg-muted text-muted-foreground"
                     >
                       #{tag}
                     </Text>
@@ -365,19 +365,19 @@ export default function AgentDetailPage() {
                 </View>
               )}
               {permLoading ? (
-                <View className="mt-[12px] py-[8px] px-[10px] rounded bg-muted">
-                  <Text className="text-[12px] text-muted-foreground">
+                <View className="mt-[24rpx] py-[16rpx] px-[20rpx] rounded bg-muted">
+                  <Text className="text-[24rpx] text-muted-foreground">
                     {t('ai.agentDetail.permissionLoading')}
                   </Text>
                 </View>
               ) : permission ? (
                 <View
-                  className={`mt-[12px] py-[8px] px-[10px] rounded ${
+                  className={`mt-[24rpx] py-[16rpx] px-[20rpx] rounded ${
                     permission.hasPermission ? 'bg-emerald-50' : 'bg-amber-50'
                   }`}
                 >
                   <Text
-                    className={`text-[12px] ${
+                    className={`text-[24rpx] ${
                       permission.hasPermission ? 'text-emerald-700' : 'text-amber-700'
                     }`}
                   >
@@ -391,37 +391,37 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent?.prologue && (
-            <View className="mx-[12px] mb-[12px] bg-muted rounded-[8px] p-[16px]">
-              <Text className="text-[14px] text-foreground font-semibold mb-[8px] block">
+            <View className="mx-[24rpx] mb-[24rpx] bg-muted rounded-[16rpx] p-[32rpx]">
+              <Text className="text-[28rpx] text-foreground font-semibold mb-[16rpx] block">
                 {t('ai.agentDetail.prologue')}
               </Text>
-              <Text className="text-[14px] text-muted-foreground leading-[22px]">
+              <Text className="text-[28rpx] text-muted-foreground leading-[44rpx]">
                 {agent.prologue}
               </Text>
             </View>
           )}
           {/* 使用教程 / 示例对话(对标原项目 exampleDialog) */}
           {exampleDialogs.length > 0 && (
-            <View className="mx-[12px] mb-[12px] bg-muted rounded-[8px] p-[16px]">
-              <Text className="text-[14px] text-foreground font-semibold mb-[8px] block">
+            <View className="mx-[24rpx] mb-[24rpx] bg-muted rounded-[16rpx] p-[32rpx]">
+              <Text className="text-[28rpx] text-foreground font-semibold mb-[16rpx] block">
                 {t('ai.agentDetail.exampleDialog')}
               </Text>
               {exampleDialogs.map((dialog, idx) => (
-                <View key={idx} className="mb-[10px]">
+                <View key={idx} className="mb-[20rpx]">
                   {dialog.q && (
-                    <View className="flex mb-[4px]">
-                      <Text className="text-[12px] text-[var(--color-primary)] font-medium mr-[6px]">
+                    <View className="flex mb-[8rpx]">
+                      <Text className="text-[24rpx] text-[var(--color-primary)] font-medium mr-[12rpx]">
                         Q:
                       </Text>
-                      <Text className="flex-1 text-[13px] text-foreground">{dialog.q}</Text>
+                      <Text className="flex-1 text-[26rpx] text-foreground">{dialog.q}</Text>
                     </View>
                   )}
                   {dialog.a && (
                     <View className="flex">
-                      <Text className="text-[12px] text-muted-foreground font-medium mr-[6px]">
+                      <Text className="text-[24rpx] text-muted-foreground font-medium mr-[12rpx]">
                         A:
                       </Text>
-                      <Text className="flex-1 text-[13px] text-muted-foreground leading-[20px]">
+                      <Text className="flex-1 text-[26rpx] text-muted-foreground leading-[40rpx]">
                         {dialog.a}
                       </Text>
                     </View>
@@ -431,52 +431,52 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent?.systemPrompt && (
-            <View className="mx-[12px] mb-[12px] bg-muted rounded-[8px] p-[16px]">
-              <Text className="text-[14px] text-foreground font-semibold mb-[8px] block">
+            <View className="mx-[24rpx] mb-[24rpx] bg-muted rounded-[16rpx] p-[32rpx]">
+              <Text className="text-[28rpx] text-foreground font-semibold mb-[16rpx] block">
                 {t('ai.agentDetail.promptLabel')}
               </Text>
-              <Text className="text-[14px] text-muted-foreground leading-[22px]">
+              <Text className="text-[28rpx] text-muted-foreground leading-[44rpx]">
                 {agent.systemPrompt}
               </Text>
             </View>
           )}
           {/* 评价区(对标原项目 RateController 评分系统) */}
           {useCount !== undefined && useCount > 0 && (
-            <View className="mx-[12px] mb-[12px] bg-card rounded-[8px] p-[16px]">
-              <View className="flex items-center justify-between mb-[10px]">
-                <Text className="text-[14px] text-foreground font-semibold">
+            <View className="mx-[24rpx] mb-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
+              <View className="flex items-center justify-between mb-[20rpx]">
+                <Text className="text-[28rpx] text-foreground font-semibold">
                   {t('ai.agentDetail.reviews')}
                 </Text>
                 {rating > 0 && (
                   <View className="flex items-center">
-                    <Text className="text-[18px] text-amber-500 font-bold mr-[4px]">
+                    <Text className="text-[36rpx] text-amber-500 font-bold mr-[8rpx]">
                       {rating.toFixed(1)}
                     </Text>
-                    <Text className="text-[12px] text-muted-foreground">
+                    <Text className="text-[24rpx] text-muted-foreground">
                       {t('ai.agentDetail.reviewCount', { n: useCount })}
                     </Text>
                   </View>
                 )}
               </View>
               {/* 评分分布 */}
-              <Text className="block text-[12px] text-muted-foreground mb-[6px]">
+              <Text className="block text-[24rpx] text-muted-foreground mb-[12rpx]">
                 {t('ai.agentDetail.ratingDistribution')}
               </Text>
               {ratingDist.map((item) => {
                 const total = ratingDist.reduce((sum, d) => sum + d.count, 0) || 1
                 const percent = Math.round((item.count / total) * 100)
                 return (
-                  <View key={item.star} className="flex items-center mb-[4px]">
-                    <Text className="text-[11px] text-muted-foreground w-[40rpx]">
+                  <View key={item.star} className="flex items-center mb-[8rpx]">
+                    <Text className="text-[22rpx] text-muted-foreground w-[40rpx]">
                       {item.star}★
                     </Text>
-                    <View className="flex-1 h-[8px] bg-muted rounded mx-[8px] overflow-hidden">
+                    <View className="flex-1 h-[16rpx] bg-muted rounded mx-[16rpx] overflow-hidden">
                       <View
                         className="h-full bg-amber-400 rounded"
                         style={{ width: `${percent}%` }}
                       />
                     </View>
-                    <Text className="text-[11px] text-muted-foreground w-[60rpx] text-right">
+                    <Text className="text-[22rpx] text-muted-foreground w-[60rpx] text-right">
                       {percent}%
                     </Text>
                   </View>
@@ -485,15 +485,15 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent && (
-            <View className="mx-[12px] my-[12px] flex gap-[12px]">
+            <View className="mx-[24rpx] my-[24rpx] flex gap-[24rpx]">
               <Button
-                className="flex-1 bg-[var(--color-primary)] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
+                className="flex-1 bg-[var(--color-primary)] text-white text-[32rpx] rounded-[16rpx] h-[88rpx] leading-[88rpx]"
                 onClick={onChat}
               >
                 {t('ai.agentDetail.startChat')}
               </Button>
               <Button
-                className={`px-[20px] text-[14px] rounded-[8px] h-[44px] leading-[44px] ${favorited ? 'bg-amber-50 text-amber-600' : 'bg-muted text-muted-foreground'}`}
+                className={`px-[40rpx] text-[28rpx] rounded-[16rpx] h-[88rpx] leading-[88rpx] ${favorited ? 'bg-amber-50 text-amber-600' : 'bg-muted text-muted-foreground'}`}
                 onClick={onToggleFavorite}
               >
                 {favorited ? t('ai.agentDetail.favorited') : t('ai.agentDetail.favoriteAgent')}
@@ -501,20 +501,20 @@ export default function AgentDetailPage() {
             </View>
           )}
           {related.length > 0 && (
-            <View className="mb-[24px]">
-              <Text className="block text-[15px] text-foreground font-semibold mx-[12px] mb-[12px]">
+            <View className="mb-[48rpx]">
+              <Text className="block text-[30rpx] text-foreground font-semibold mx-[24rpx] mb-[24rpx]">
                 {t('ai.agentDetail.relatedAgents')}
               </Text>
               <ScrollView
                 scrollX
                 enhanced
                 showScrollbar={false}
-                className="whitespace-nowrap px-[12px]"
+                className="whitespace-nowrap px-[24rpx]"
               >
                 {related.map((r) => (
                   <View
                     key={r.id}
-                    className="inline-block w-[200rpx] bg-card rounded-[8px] p-[12px] mr-[12px] align-top"
+                    className="inline-block w-[200rpx] bg-card rounded-[16rpx] p-[24rpx] mr-[24rpx] align-top"
                     onClick={() => onRelatedClick(r.id)}
                   >
                     <Image
@@ -539,7 +539,7 @@ export default function AgentDetailPage() {
       )}
 
       {tab === 'runtime' && agent && (
-        <View className="mx-[12px] my-[12px]">
+        <View className="mx-[24rpx] my-[24rpx]">
           <AgentRuntimePanel />
         </View>
       )}

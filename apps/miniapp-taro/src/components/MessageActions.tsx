@@ -29,7 +29,7 @@ export default function MessageActions({
       </View>
 
       {expanded && (
-        <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-lg py-1 min-w-[120px]">
+        <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-lg py-1 min-w-[240rpx]">
           <View
             className="flex items-center px-3 py-2 hover:bg-muted"
             onClick={() => {
@@ -46,7 +46,9 @@ export default function MessageActions({
               setExpanded(false)
             }}
           >
-            <Text className="text-sm text-foreground">{pinned ? tt('message.unpin', '取消置顶') : tt('message.pin', '置顶会话')}</Text>
+            <Text className="text-sm text-foreground">
+              {pinned ? tt('message.unpin', '取消置顶') : tt('message.pin', '置顶会话')}
+            </Text>
           </View>
           <View
             className="flex items-center px-3 py-2 hover:bg-muted"
