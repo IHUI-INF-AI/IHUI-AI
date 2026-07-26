@@ -32,8 +32,8 @@ export default function ToolsPage() {
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['tools'],
     queryFn: async () => {
-      const r = await fetchApi<ToolItem[]>('/api/tools')
-      if (r.success && r.data) return r.data
+      const r = await fetchApi<{ list: ToolItem[] }>('/api/tools')
+      if (r.success && r.data && Array.isArray(r.data.list)) return r.data.list
       return []
     },
   })
