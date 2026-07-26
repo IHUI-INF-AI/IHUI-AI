@@ -165,7 +165,7 @@ async function calcContinuousDays(userId: string, refDate: Date = new Date()): P
     .selectDistinct({ d: sql<string>`${lessonSignUps.createdAt}::date::text` })
     .from(lessonSignUps)
     .where(eq(lessonSignUps.userId, userId))
-    .orderBy(desc(sql`${lessonSignUps.createdAt}::date`))
+    .orderBy(desc(sql<string>`${lessonSignUps.createdAt}::date::text`))
     .limit(60)
 
   if (!rows.length) return 0
@@ -649,28 +649,38 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    // 取最近一次签到(避免对全表 DISTINCT 扫描,仅取 top1)
-    const [latest] = await db
+    // 用 DB 端 current_date 统一时区,避免 JS toISOString 在 +08 时区下偏移一天
+    const [todaySignIn] = await db
       .select({ d: sql<string>`${lessonSignUps.createdAt}::date::text` })
       .from(lessonSignUps)
-      .where(eq(lessonSignUps.userId, userId))
-      .orderBy(desc(sql`${lessonSignUps.createdAt}::date`))
+      .where(
+        and(
+          eq(lessonSignUps.userId, userId),
+          sql`${lessonSignUps.createdAt}::date = current_date`,
+        ),
+      )
       .limit(1)
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayStr = today.toISOString().slice(0, 10)
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayStr = yesterday.toISOString().slice(0, 10)
-
-    if (latest?.d === todayStr) {
+    if (todaySignIn) {
       return reply.status(409).send(error(409, '今日已签到'))
     }
 
+    const [yesterdaySignIn] = await db
+      .select({ d: sql<string>`${lessonSignUps.createdAt}::date::text` })
+      .from(lessonSignUps)
+      .where(
+        and(
+          eq(lessonSignUps.userId, userId),
+          sql`${lessonSignUps.createdAt}::date = current_date - interval '1 day'`,
+        ),
+      )
+      .limit(1)
+
     let continuousDays = 1
-    if (latest?.d === yesterdayStr) {
+    if (yesterdaySignIn) {
       // 以昨天为锚点计算历史连续天数
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
       const prevStreak = await calcContinuousDays(userId, yesterday)
       continuousDays = prevStreak + 1
     }
@@ -956,15 +966,16 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       const [yStr, mStr] = parsed.data.month.split('-')
       const y = Number(yStr)
       const m = Number(mStr)
-      startDate = new Date(y, m - 1, 1)
-      endDate = new Date(y, m, 1)
+      startDate = new Date(Date.UTC(y, m - 1, 1))
+      endDate = new Date(Date.UTC(y, m, 1))
     } else {
+      // 用 UTC 零点与 DB current_date(UTC)对齐,避免 setHours(本地零点)+toISOString 偏移一天
       const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      today.setUTCHours(0, 0, 0, 0)
       endDate = new Date(today)
-      endDate.setDate(endDate.getDate() + 1)
+      endDate.setUTCDate(endDate.getUTCDate() + 1)
       startDate = new Date(today)
-      startDate.setDate(startDate.getDate() - 29)
+      startDate.setUTCDate(startDate.getUTCDate() - 29)
     }
 
     const rows = await db
