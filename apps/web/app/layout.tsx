@@ -131,6 +131,19 @@ export const metadata: Metadata = {
       'max-video-preview': -1,
     },
   },
+  verification: {
+    // 站长平台所有权验证 — 用户注册各站长平台后,在 .env(或 Vercel 后台)填入验证码即可
+    // 详见 docs/seo-submit-guide.md
+    google: process.env.GOOGLE_SITE_VERIFICATION,
+    other: {
+      ...(process.env.BAIDU_SITE_VERIFICATION && { 'baidu-site-verification': process.env.BAIDU_SITE_VERIFICATION }),
+      ...(process.env.BING_SITE_VERIFICATION && { 'msvalidate.01': process.env.BING_SITE_VERIFICATION }),
+      ...(process.env.QIHU_SITE_VERIFICATION && { '360-site-verification': process.env.QIHU_SITE_VERIFICATION }),
+      ...(process.env.SOGOU_SITE_VERIFICATION && { 'sogou_site_verification': process.env.SOGOU_SITE_VERIFICATION }),
+      ...(process.env.TOUTIAO_SITE_VERIFICATION && { 'toutiao-site-verification': process.env.TOUTIAO_SITE_VERIFICATION }),
+      ...(process.env.SHENMA_SITE_VERIFICATION && { 'shenma-site-verification': process.env.SHENMA_SITE_VERIFICATION }),
+    },
+  },
   other: {
     'geo.region': 'CN',
     'geo.placename': 'Shanghai',
