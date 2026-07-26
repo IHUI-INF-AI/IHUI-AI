@@ -47,17 +47,7 @@
     }
   },
   "common": {
-    "closeOther": "他を閉じる",
-    "resize": "ドラッグで幅を調整",
-    "noPosts": "まだ投稿がありません",
-    "noAnswers": "まだ回答がありません",
-    "accepted": "承認済み",
     "refundTime": "返金日時",
-    "originalPrice": "定価",
-    "discountAmount": "割引額",
-    "errorDescription": "ページでエラーが発生しました。もう一度お試しください。",
-    "notFoundDescription": "お探しのページが見つからないか、移動された可能性があります。",
-    "followed": "フォロー",
     "tools": {
       "title": "ツールセンター",
       "subtitle": "プラットフォームが提供するツールを閲覧・使用",
@@ -93,6 +83,18 @@
         "updatedAt": "更新時間"
       }
     },
+    "dismiss": "閉じる",
+    "empty": "記録がありません",
+    "closeOther": "他を閉じる",
+    "resize": "ドラッグで幅を調整",
+    "noPosts": "まだ投稿がありません",
+    "noAnswers": "まだ回答がありません",
+    "accepted": "承認済み",
+    "originalPrice": "定価",
+    "discountAmount": "割引額",
+    "errorDescription": "ページでエラーが発生しました。もう一度お試しください。",
+    "notFoundDescription": "お探しのページが見つからないか、移動された可能性があります。",
+    "followed": "フォロー",
     "noData": "データなし",
     "batchDelete": "バッチ",
     "actions": "操作",
@@ -100,19 +102,9 @@
     "moreActions": "もっとActions",
     "loadFailed": "読み込み失敗",
     "deleteSuccess": "しました",
-    "dismiss": "閉じる",
     "withdraw": "出金",
     "viewDetail": "詳細を見る",
-    "colToken": "トークン",
-    "empty": "記録がありません"
-  },
-  "a11y": {
-    "copyResponse": "レスポンスをコピー",
-    "searchOption": "オプションを検索",
-    "addAttachment": "添付ファイルを追加(画像/動画/ファイル)",
-    "codeCopied": "コピー済み",
-    "breadcrumb": "パンくずナビ",
-    "hidePassword": "パスワードを隠す"
+    "colToken": "トークン"
   },
   "taskReceiver": {
     "title": "タスク受信",
@@ -317,74 +309,6 @@
       "developer": "開発者センター",
       "saas": "SaaS プラットフォーム"
     }
-  },
-  "auth": {
-    "noAccount": "まだアカウントをおちでないですか？",
-    "registerNow": "しみ",
-    "forgotPassword": "パスワードをれた",
-    "rememberPassword": "パスワードを記憶する",
-    "noHistory": "履歴なし",
-    "removeAccount": "アカウントを削除",
-    "clearHistory": "履歴を全て削除",
-    "registerTitle": "アカウント",
-    "registerSubtitle": "しいアカウントを",
-    "phonePlaceholder": "ご",
-    "passwordPlaceholder": "ごパスワード",
-    "code": "コード",
-    "codePlaceholder": "ご",
-    "confirmPassword": "パスワード",
-    "sendCode": "コード取得",
-    "resendCode": "{seconds}sに",
-    "registerBtn": "しみ",
-    "hasAccount": "アカウントをおちですか？",
-    "wechatLogin": "微信",
-    "googleLogin": "Googleログイン",
-    "loginFailed": "Login Failed",
-    "registerSuccess": "登録成功，ログインしてください",
-    "registerFailed": "登録失敗",
-    "codeSent": "み，SMS",
-    "passwordMismatch": "のパスワード",
-    "invalidPhone": "しいをしてください",
-    "invalidPassword": "パスワードは6でしてください",
-    "resetPassword": "パスワードリセット",
-    "newPassword": "しいパスワード",
-    "resetSuccess": "Presets reset",
-    "enterPhone": "ご",
-    "enterCode": "ご",
-    "enterNewPassword": "ごしいパスワード",
-    "emailLogin": "メール",
-    "username": "ユーザー",
-    "usernamePlaceholder": "ごユーザー",
-    "emailPlaceholder": "ごメール",
-    "enterpriseWechat": "エンタープライズWeChat",
-    "captcha": "コード",
-    "captchaPlaceholder": "ご",
-    "phoneCodeLogin": "コードログイン",
-    "invalidEmail": "しいメールアドレスをしてください",
-    "invalidUsername": "ユーザーは3でしてください",
-    "googleNotConfigured": "Googleログインログインがです",
-    "invalidCredentials": "アカウントまたはパスワードがっています",
-    "dingtalkLogin": "钉钉",
-    "appleLogin": "アップル",
-    "appleComingSoon": "Appleログインは近日公開予定",
-    "githubLogin": "ギットハブ",
-    "feishuLogin": "飞书",
-    "qrLogin": "QRコードログイン",
-    "qrRefresh": "QRコードを更新",
-    "qrSwitchMethod": "他のログイン方法",
-    "qrSdkLoadFailed": "QRコードコンポーネントの読み込みに失敗しました",
-    "qrNotConfigured": "{platform} スキャンログインが設定されていません、管理者にお問い合わせください",
-    "qrScanTipPlatform": "{platform} アプリでQRコードをスキャンしてログインしてください",
-    "accountPlaceholder": "電話番号 / メール / アカウント",
-    "agreeRequired": "をんでしてください",
-    "agreePrefix": "み",
-    "termsOfService": "サービス",
-    "agreementNoticeTitle": "同意して続行してください",
-    "agreementNoticeDesc": "アカウントのセキュリティを保護するため、以下の規約に同意の上ログインしてください",
-    "agreementNoticeSafe": "情報は暗号化チャネルを通じて安全に送信されます",
-    "and": "と",
-    "getVerificationCode": "コード取得",
-    "alipayLogin": "Alipayログイン"
   },
   "home": {
     "announcement": {
@@ -5549,9 +5473,6 @@
   },
   "user": {
     "profile": {
-      "subtitle": "のなドキュメントとAPIリファレンス",
-      "avatar": "アバター",
-      "avatarHint": "JPG / PNG、200x200",
       "cropTitle": "アバターを切り抜き",
       "cropDesc": "枠をドラッグしてアバターの位置を調整、1:1比率固定",
       "cropPreview": "プレビュー",
@@ -5562,15 +5483,9 @@
       "cropScale": "ズーム",
       "cropRotateLeft": "左に 90° 回転",
       "cropRotateRight": "右に 90° 回転",
-      "nicknamePlaceholder": "ごニックネーム",
       "nicknameError": "ニックネームは2〜20でしてください",
-      "emailPlaceholder": "メールアドレスをしてください",
       "emailError": "メールアドレスのがしくありません",
-      "bio": "から",
-      "bioPlaceholder": "からをおいします",
       "bioError": "は200でしてください",
-      "saving": "...",
-      "saved": "しました",
       "following": "みフォロー",
       "followers": "フォロワー",
       "favorites": "おにり",
@@ -5581,16 +5496,18 @@
       "voiceRecord": "音声録音",
       "gender_female": "",
       "gender_male": "",
-      "gender_unknown": ""
+      "gender_unknown": "",
+      "subtitle": "のなドキュメントとAPIリファレンス",
+      "avatar": "アバター",
+      "avatarHint": "JPG / PNG、200x200",
+      "nicknamePlaceholder": "ごニックネーム",
+      "emailPlaceholder": "メールアドレスをしてください",
+      "bio": "から",
+      "bioPlaceholder": "からをおいします",
+      "saving": "...",
+      "saved": "しました"
     },
     "security": {
-      "title": "セキュリティ",
-      "subtitle": "のなドキュメントとAPIリファレンス",
-      "password": "パスワード",
-      "currentPassword": "のパスワード",
-      "newPassword": "しいパスワード",
-      "confirmPassword": "ごしいパスワード",
-      "updatePassword": "パスワードを",
       "passwordHint": "6-20文字、< > \" ' | \\ などの特殊文字は使用不可",
       "passwordTooShort": "パスワードは6文字以上で入力してください",
       "passwordTooLong": "パスワードは20文字以内で入力してください",
@@ -5603,20 +5520,22 @@
       "changePhoneDesc": "バインディングしたを",
       "newPhone": "しい",
       "newPhonePlaceholder": "しいをしてください",
+      "resend": "{seconds}sに",
+      "phoneChanged": "をしました",
+      "title": "セキュリティ",
+      "subtitle": "のなドキュメントとAPIリファレンス",
+      "password": "パスワード",
+      "currentPassword": "のパスワード",
+      "newPassword": "しいパスワード",
+      "confirmPassword": "ごしいパスワード",
+      "updatePassword": "パスワードを",
       "code": "コード",
       "codePlaceholder": "ご",
       "sendCode": "コード取得",
-      "resend": "{seconds}sに",
-      "phoneChanged": "をしました",
       "devices": "デバイス",
       "currentDevice": "のデバイス"
     },
     "notifications": {
-      "title": "通知",
-      "unreadCount": "{count}",
-      "allRead": "すべてにする",
-      "markAllRead": "すべてにする",
-      "noData": "なし",
       "viewList": "リストビュー",
       "viewTimeline": "タイムラインビュー",
       "justNow": "たった",
@@ -5630,22 +5549,27 @@
         "order": "",
         "project": "",
         "system": ""
-      }
+      },
+      "title": "通知",
+      "unreadCount": "{count}",
+      "allRead": "すべてにする",
+      "markAllRead": "すべてにする",
+      "noData": "なし"
     },
     "public": {
-      "unfollow": "フォロー",
+      "follow": "フォロー",
+      "unfollow": "フォロー解除",
       "isYou": "これはあなたです",
       "notFound": "つかりません",
-      "statsFollowing": "みフォロー",
-      "statsFavorites": "おにり",
-      "sendMessage": "メッセージを"
+      "loading": "読み込み中...",
+      "statsFollowing": "フォロー中",
+      "statsFollowers": "フォロワー",
+      "statsFavorites": "お気に入り",
+      "sendMessage": "メッセージを送信"
     },
     "realname": {
-      "subtitle": "をしてよりくのを",
-      "approvedTitle": "み",
       "auditTime": "認証時間",
       "pendingHint": "はです。しばらくおちください。",
-      "rejectedTitle": "認証不合格",
       "noReason": "なし",
       "form": {
         "name": "本名",
@@ -5662,18 +5586,14 @@
       "sourceMiniapp": "ミニプログラム",
       "rejectedReason": "いいえから",
       "success": "のにしました",
-      "error": "のにしました"
+      "error": "のにしました",
+      "subtitle": "をしてよりくのを",
+      "approvedTitle": "み",
+      "rejectedTitle": "認証不合格"
     },
     "subscription": {
-      "title": "サブスクリプション",
-      "subtitle": "VIPアドレスサブスクリプションとを",
-      "current": "のサブスクリプション",
-      "activated": "ありみ",
-      "expireTime": "あり",
-      "autoRenew": "から",
       "autoRenewOn": "あり",
       "autoRenewOff": "無効",
-      "notSubscribed": "VIPアドレス",
       "notSubscribedHint": "VIPアドレスにしてよりくのを",
       "renewTitle": "サブスクリプション",
       "openTitle": "サブスクリプション",
@@ -5695,7 +5615,14 @@
       "nextCharge": "次回引き落とし:",
       "manage": "管理",
       "autoRenewClosed": "自動更新は無効です",
-      "openAutoRenew": "自動更新を有効化"
+      "openAutoRenew": "自動更新を有効化",
+      "title": "サブスクリプション",
+      "subtitle": "VIPアドレスサブスクリプションとを",
+      "current": "のサブスクリプション",
+      "activated": "ありみ",
+      "expireTime": "あり",
+      "autoRenew": "から",
+      "notSubscribed": "VIPアドレス"
     },
     "articles": {
       "title": "の",
@@ -5968,27 +5895,12 @@
     }
   },
   "settings": {
-    "subtitle": "のなドキュメントとAPIリファレンス",
-    "dashboardTitle": "設定概要",
-    "dashboardDesc": "すべてのオプションにすばやくアクセス",
-    "preferencesTitle": "通用設定",
-    "preferencesDesc": "アプリのをカスタマイズ",
-    "activityTitle": "アクティビティ",
-    "activityDesc": "アカウントのアクティビティを",
-    "billingTitle": "账単管理",
-    "billingDesc": "といを",
-    "connectedAccountsTitle": "アカウント",
-    "connectedAccountsDesc": "しているサードパーティアカウントを",
     "activityLoading": "読み込み中...",
     "activityEmpty": "アクティビティはありません",
     "activityLoadFailed": "読み込みに失敗しました。しばらくしてから再試行してください",
     "activityPrev": "へ",
     "activityNext": "へ",
     "activityPageInfo": "{page}/{totalPages} ページ",
-    "theme": "テーマ：",
-    "themeSystem": "システム",
-    "sidebarCollapsed": "デフォルトでりたたむ",
-    "sidebarExpanded": "デフォルトで",
     "securityCenter": "セキュリティセンター",
     "device": {
       "title": "デバイス",
@@ -6054,41 +5966,7 @@
       "saveFailed": "保存に失敗しました。もう一度お試しください",
       "rememberDays": "{days}日間記憶"
     },
-    "subPagesTitle": "そのの",
-    "accountDeletionTitle": "アカウント",
-    "accountDeletionDesc": "アカウントとデータをにします",
-    "accountDeletionWarning": "このはりせません。すべてのデータがにわれます。",
-    "accountDeletionConfirm": "をし、アカウントをします",
-    "accountDeletionCodeLabel": "コード",
-    "accountDeletionCodePlaceholder": "コードを",
     "accountDeletionSendCode": "コード",
-    "accountDeletionSubmit": "アカウント削除を確認",
-    "accountDeletionSuccess": "アカウントを削除しました。ログインページに遷移します",
-    "accountDeletionPhonePlaceholder": "電話番号を入力",
-    "accountDeletionResend": "{seconds}秒後に再送信可能",
-    "accountDeletionStatusScheduled": "アカウントの削除が予約されています",
-    "accountDeletionCancel": "削除を取り消す",
-    "accountDeletionCancelSuccess": "削除を取り消しました",
-    "privacyTitle": "プライバシー",
-    "privacyDesc": "データのとプライバシーを",
-    "dataVisibility": "データ",
-    "dataVisibilityDesc": "プロフィールのを",
-    "adTracking": "トラッキング",
-    "adTrackingDesc": "アクティビティにづくパーソナライズを",
-    "personalizedRecommendation": "パーソナライズ",
-    "personalizedRecommendationDesc": "にづくコンテンツ",
-    "dataExportDesc": "データのコピーをダウンロード",
-    "exportJson": "JSON",
-    "exportJsonDesc": "JSONデータをエクスポート",
-    "exportCsv": "CSV",
-    "exportCsvDesc": "CSVデータをエクスポート",
-    "exportScope": "エクスポート",
-    "exportScopeDesc": "プロフィール、チャット、、せるなどをむ",
-    "exportCreating": "エクスポート生成中...",
-    "exportSuccess": "エクスポート完了",
-    "exportFailed": "エクスポート失敗。再試行してください",
-    "exportLastExport": "最終エクスポート",
-    "exportNoHistory": "エクスポート履歴なし",
     "authorizationsTitle": "セッション管理",
     "authorizationsDesc": "アクティブなログインセッションを表示・管理",
     "revokeAuth": "セッション無効化",
@@ -6115,23 +5993,6 @@
     "eventPasswordChange": "パスワード",
     "eventAbnormalLogin": "ログイン",
     "event2faEnabled": "2FAあり",
-    "notificationsDesc": "を",
-    "emailNotif": "メール",
-    "emailNotifDesc": "なをメールで",
-    "systemNotif": "システム",
-    "smsNotif": "SMS",
-    "smsNotifDesc": "SMSでコードとを",
-    "pushNotif": "アプリ",
-    "pushNotifDesc": "プラットフォームでメッセージを",
-    "billingOrders": "リスト",
-    "billingInvoices": "請求書申請",
-    "connectedAccountsUnbound": "未バインディング",
-    "connectedAccountsBind": "バインディング",
-    "connectedAccountsUnbindConfirm": "{platform} アカウントのをしますか？",
-    "connectedAccountsBoundAt": "バインド",
-    "connectedAccountsUnbindSuccess": "をしました",
-    "connectedAccountsUnbindFail": "にしました",
-    "connectedAccountsLoading": "みみ...",
     "icpRecordTitle": "ICP届出情報",
     "icpRecordDesc": "プラットフォームのICP届出情報を表示",
     "icpRecordCardTitle": "届出登録情報",
@@ -6184,35 +6045,73 @@
     "profileDesc": "",
     "profileTitle": "",
     "securityDesc": "",
-    "securityTitle": ""
-  },
-  "help": {
-    "title": "APIテスト",
+    "securityTitle": "",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "allArticles": "すべての",
-    "searchPlaceholder": "を",
-    "empty": "がありません",
-    "backToList": "るリスト",
-    "updatedAt": "しいしい",
-    "viewCount": "{count}",
-    "prev": "へ",
-    "next": "へ",
-    "notFound": "つかりません"
-  },
-  "search": {
-    "loading": "読み込み中...",
-    "emptyKeyword": "キーワードをしてください",
-    "emptyResult": "するがつかりません",
-    "sort": "ソート",
-    "sortName": "氏名",
-    "resultsCount": "{total} (ユーザー {users} / プロジェクト {projects} / ファイル {files})"
-  },
-  "searchHistory": {
-    "title": "APIテスト",
-    "subtitle": "のなドキュメントとAPIリファレンス",
-    "clearAll": "クリアて",
-    "empty": "コンテンツはまだありません。おしみに",
-    "resultCount": "{count}の"
+    "dashboardTitle": "設定概要",
+    "dashboardDesc": "すべてのオプションにすばやくアクセス",
+    "preferencesTitle": "通用設定",
+    "preferencesDesc": "アプリのをカスタマイズ",
+    "activityTitle": "アクティビティ",
+    "activityDesc": "アカウントのアクティビティを",
+    "billingTitle": "账単管理",
+    "billingDesc": "といを",
+    "connectedAccountsTitle": "アカウント",
+    "connectedAccountsDesc": "しているサードパーティアカウントを",
+    "theme": "テーマ：",
+    "themeSystem": "システム",
+    "sidebarCollapsed": "デフォルトでりたたむ",
+    "sidebarExpanded": "デフォルトで",
+    "subPagesTitle": "そのの",
+    "accountDeletionTitle": "アカウント",
+    "accountDeletionDesc": "アカウントとデータをにします",
+    "accountDeletionWarning": "このはりせません。すべてのデータがにわれます。",
+    "accountDeletionConfirm": "をし、アカウントをします",
+    "accountDeletionCodeLabel": "コード",
+    "accountDeletionCodePlaceholder": "コードを",
+    "accountDeletionSubmit": "アカウント削除を確認",
+    "accountDeletionSuccess": "アカウントを削除しました。ログインページに遷移します",
+    "accountDeletionPhonePlaceholder": "電話番号を入力",
+    "accountDeletionResend": "{seconds}秒後に再送信可能",
+    "accountDeletionStatusScheduled": "アカウントの削除が予約されています",
+    "accountDeletionCancel": "削除を取り消す",
+    "accountDeletionCancelSuccess": "削除を取り消しました",
+    "privacyTitle": "プライバシー",
+    "privacyDesc": "データのとプライバシーを",
+    "dataVisibility": "データ",
+    "dataVisibilityDesc": "プロフィールのを",
+    "adTracking": "トラッキング",
+    "adTrackingDesc": "アクティビティにづくパーソナライズを",
+    "personalizedRecommendation": "パーソナライズ",
+    "personalizedRecommendationDesc": "にづくコンテンツ",
+    "dataExportDesc": "データのコピーをダウンロード",
+    "exportJson": "JSON",
+    "exportJsonDesc": "JSONデータをエクスポート",
+    "exportCsv": "CSV",
+    "exportCsvDesc": "CSVデータをエクスポート",
+    "exportScope": "エクスポート",
+    "exportScopeDesc": "プロフィール、チャット、、せるなどをむ",
+    "exportCreating": "エクスポート生成中...",
+    "exportSuccess": "エクスポート完了",
+    "exportFailed": "エクスポート失敗。再試行してください",
+    "exportLastExport": "最終エクスポート",
+    "exportNoHistory": "エクスポート履歴なし",
+    "notificationsDesc": "を",
+    "emailNotif": "メール",
+    "emailNotifDesc": "なをメールで",
+    "systemNotif": "システム",
+    "smsNotif": "SMS",
+    "smsNotifDesc": "SMSでコードとを",
+    "pushNotif": "アプリ",
+    "pushNotifDesc": "プラットフォームでメッセージを",
+    "billingOrders": "リスト",
+    "billingInvoices": "請求書申請",
+    "connectedAccountsUnbound": "未バインディング",
+    "connectedAccountsBind": "バインディング",
+    "connectedAccountsUnbindConfirm": "{platform} アカウントのをしますか？",
+    "connectedAccountsBoundAt": "バインド",
+    "connectedAccountsUnbindSuccess": "をしました",
+    "connectedAccountsUnbindFail": "にしました",
+    "connectedAccountsLoading": "みみ..."
   },
   "favorites": {
     "title": "おにり",
@@ -6906,9 +6805,6 @@
     "rewardValue": "+{inviter} / られる +{invitee} ポイント"
   },
   "feedback": {
-    "title": "APIテスト",
-    "subtitle": "のなドキュメントとAPIリファレンス",
-    "type": "タイプ",
     "field_title": "タイトル",
     "field_content": "コンテンツ",
     "field_contact": "連絡先",
@@ -6917,15 +6813,18 @@
     "titlePlaceholder": "titleRequired",
     "contentPlaceholder": "をに（10-2000）",
     "contactPlaceholder": "、ご",
-    "submitting": "...",
     "required": "{label}はです",
-    "empty": "フィードバックなし",
-    "backToList": "るリスト",
-    "notFound": "つかりません",
     "field_images": "画像",
     "imagesPlaceholder": "画像を貼り付けまたはドラッグしてください",
     "tab_list": "",
-    "tab_new": ""
+    "tab_new": "",
+    "title": "APIテスト",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "type": "タイプ",
+    "submitting": "...",
+    "empty": "フィードバックなし",
+    "backToList": "るリスト",
+    "notFound": "つかりません"
   },
   "comments": {
     "replyTitle": "管理者返信",
@@ -8173,8 +8072,6 @@
     "executePrompt": "プロンプトを"
   },
   "about": {
-    "metaTitle": "会社概要 — IHUI AI",
-    "metaDescription": "IHUI AI(智匯 AI)はワンストップのフルスタック AI オペレーティングシステム: Agent マーケット、ナレッジベース RAG、マルチモデル統合スケジューリング、MCP ツールプロトコルを統合し、Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI の6クライアントを1つのコードベースでサポート、Apache 2.0 オープンソース。",
     "heroBadge": "智匯 AI について",
     "heroTitle": "1コード6クライアント、1つの AI",
     "heroSubtitle": "IHUI AI はオープンソースのフルスタック AI オペレーティングシステムで、Agent 設計、ナレッジベース、マルチモデルスケジューリング、クロスプラットフォーム协作とチーム運営を1つのプラットフォームに統合します。",
@@ -8215,17 +8112,14 @@
     "ctaTitle": "30分で AI の旅を始めよう",
     "ctaDesc": "登録で 1,000 クレジットを獲得、全モデル無料体験、クレジットカート不要。",
     "ctaPrimary": "無料登録",
-    "ctaSecondary": "ドキュメントを見る"
+    "ctaSecondary": "ドキュメントを見る",
+    "metaTitle": "会社概要 — IHUI AI",
+    "metaDescription": "IHUI AI(智匯 AI)はワンストップのフルスタック AI オペレーティングシステム: Agent マーケット、ナレッジベース RAG、マルチモデル統合スケジューリング、MCP ツールプロトコルを統合し、Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI の6クライアントを1つのコードベースでサポート、Apache 2.0 オープンソース。"
   },
   "faq": {
     "metaTitle": "よくある質問 — IHUI AI",
     "metaDescription": "IHUI AI よくある質問: プラットフォーム紹介、Dify/Coze/FastGPT との比較、価格、展開、API、モデル対応、データセキュリティなど12のよくある質問。",
     "heroBadge": "ヘルプセンター",
-    "heroSubtitle": "IHUI AI に関する12のよくある質問、30秒で答えが見つかります。",
-    "categoryTech": "技術 & 開発",
-    "categoryPricing": "価格 & 課金",
-    "categoryDeploy": "展開 & 運用",
-    "categoryPrivacy": "データ & セキュリティ",
     "q1Question": "智匯 AI とは何ですか?",
     "q1Answer": "智匯 AI(英語名 IHUI AI)はワンストップのフルスタック AI オペレーティングシステムです。Agent 設計、ナレッジベース RAG、マルチモデル統合スケジューリング、クロスプラットフォーム协作とチーム運営を1つのプラットフォームに統合し、Web、デスクトップ、ミニプログラム、ブラウザ拡張、React Native、CLI の6クライアントを1コードベースで配信、Apache 2.0 オープンソースのコアコードとセルフホスト展開をサポートします。",
     "q2Question": "智匯 AI と Dify、Coze、FastGPT の違いは?",
@@ -8252,16 +8146,12 @@
     "q12Answer": "絶対ありません。当社は自社モデルを学習せず、ユーザーのデータを使って第三者モデルを学習することもありません。OpenAI/Anthropic などの API プロバイダーのデータ保持ポリシーについては、各公式ドキュメントを参照してください(いずれもデフォルトでは学習せず、API モードでは30日後にデータは自動削除されます)。",
     "ctaTitle": "答えが見つかりませんか?",
     "ctaDesc": "技術チームまでご連絡ください、2時間以内に返信します。",
-    "ctaButton": "テクニカルサポートに連絡"
-  },
-  "agreement": {
-    "title": "と",
-    "subtitle": "请仔细閲覧以下利用規約",
-    "userAgreement": "ユーザー",
-    "effectiveDate": "生效日付",
-    "staticContent1": "ようこそせるプラットフォーム。せるプラットフォームサービスのすべて。",
-    "staticContent2": "のメッセージセンター，のへ。",
-    "staticContent3": "へあり，プラットフォームカスタマーサポート。"
+    "ctaButton": "テクニカルサポートに連絡",
+    "heroSubtitle": "IHUI AI に関する12のよくある質問、30秒で答えが見つかります。",
+    "categoryTech": "技術 & 開発",
+    "categoryPricing": "価格 & 課金",
+    "categoryDeploy": "展開 & 運用",
+    "categoryPrivacy": "データ & セキュリティ"
   },
   "articles": {
     "title": "記事",
@@ -8897,39 +8787,58 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI"]
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI"]
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI"
+        ]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "検索", "search"]
+        "keywords": [
+          "検索",
+          "検索",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"]
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"]
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"]
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ]
       }
     }
-  },
-  "routes": {
-    "userAgreement": "ユーザー",
-    "aboutUs": "について",
-    "contactUs": "おいわせ"
   },
   "footer": {
     "companyName": "吉林省愛智匯AI科技有限公司",
@@ -8938,8 +8847,6 @@
     "companyContact": "電話: 18643389808",
     "companyEmail": "メール: 502319984@qq.com",
     "officialPromotion": "公式プロモートプラットフォーム",
-    "agreementSubtitle": "以下の契約条件を注意深くお読みください",
-    "contactSubtitle": "以下の方法でお問い合わせください",
     "contactWechat": "WeChat QRコード",
     "contactWechatHint": "QRコードでカスタマーサービスWeChatを追加、またはID ok502319984を検索",
     "ecosystem": "エコシステムパートナー",
@@ -8998,7 +8905,9 @@
       "xiaohongshu": "",
       "youtube": ""
     },
-    "supportedPlatforms": ""
+    "supportedPlatforms": "",
+    "agreementSubtitle": "以下の契約条件を注意深くお読みください",
+    "contactSubtitle": "以下の方法でお問い合わせください"
   },
   "plugins": {
     "title": "プラグイン市場",
@@ -9186,10 +9095,6 @@
       "tabBrowser": "ブラウザ"
     }
   },
-  "themeToggle": {
-    "lightMode": "ライト模式",
-    "darkMode": "ダーク模式"
-  },
   "devTools": {
     "trigger": "開発者ツール",
     "title": "開発者ツール",
@@ -9205,9 +9110,6 @@
     "tip": "ヒント：localhost またはイントラ環境でのみ表示されます。",
     "prodModeTitle": "開発モードのみ利用可能",
     "prodModeHint": "開発者ツールは localhost またはイントラ環境でのみ表示されます。パブリックドメインからアクセスしているため、ツールパネルは非表示です。"
-  },
-  "themeBackup": {
-    "title": "テーマ"
   },
   "aiChat": {
     "title": "aiチャット",
@@ -9296,19 +9198,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -9429,25 +9343,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -9796,10 +9722,6 @@
       "answered": "回答済み",
       "pending": "未回答"
     }
-  },
-  "forbidden": {
-    "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
-    "backToHome": "ホームへ戻る"
   },
   "marketing": {
     "typewriter": {
@@ -10742,7 +10664,15 @@
       "sessions": "セッション数",
       "crashRate": "クラッシュ率"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ],
     "dauTrend": {
       "title": "直近7日間のDAU推移",
       "subtitle": "日次アクティブユーザー数推移曲線"
@@ -10886,8 +10816,18 @@
     "title": "AI キャリア指導",
     "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
     "options": {
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"],
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -12356,5 +12296,134 @@
         "desc": "新モデル試験・プロトタイプ検証、柔軟切替"
       }
     }
+  },
+  "a11y": {
+    "copyResponse": "レスポンスをコピー",
+    "searchOption": "オプションを検索",
+    "addAttachment": "添付ファイルを追加(画像/動画/ファイル)",
+    "codeCopied": "コピー済み",
+    "breadcrumb": "パンくずナビ",
+    "hidePassword": "パスワードを隠す"
+  },
+  "auth": {
+    "noAccount": "まだアカウントをおちでないですか？",
+    "registerNow": "しみ",
+    "forgotPassword": "パスワードをれた",
+    "rememberPassword": "パスワードを記憶する",
+    "noHistory": "履歴なし",
+    "removeAccount": "アカウントを削除",
+    "clearHistory": "履歴を全て削除",
+    "registerTitle": "アカウント",
+    "registerSubtitle": "しいアカウントを",
+    "phonePlaceholder": "ご",
+    "passwordPlaceholder": "ごパスワード",
+    "code": "コード",
+    "codePlaceholder": "ご",
+    "confirmPassword": "パスワード",
+    "sendCode": "コード取得",
+    "resendCode": "{seconds}sに",
+    "registerBtn": "しみ",
+    "hasAccount": "アカウントをおちですか？",
+    "wechatLogin": "微信",
+    "googleLogin": "Googleログイン",
+    "loginFailed": "Login Failed",
+    "registerSuccess": "登録成功，ログインしてください",
+    "registerFailed": "登録失敗",
+    "codeSent": "み，SMS",
+    "passwordMismatch": "のパスワード",
+    "invalidPhone": "しいをしてください",
+    "invalidPassword": "パスワードは6でしてください",
+    "resetPassword": "パスワードリセット",
+    "newPassword": "しいパスワード",
+    "resetSuccess": "Presets reset",
+    "enterPhone": "ご",
+    "enterCode": "ご",
+    "enterNewPassword": "ごしいパスワード",
+    "emailLogin": "メール",
+    "username": "ユーザー",
+    "usernamePlaceholder": "ごユーザー",
+    "emailPlaceholder": "ごメール",
+    "enterpriseWechat": "エンタープライズWeChat",
+    "captcha": "コード",
+    "captchaPlaceholder": "ご",
+    "phoneCodeLogin": "コードログイン",
+    "invalidEmail": "しいメールアドレスをしてください",
+    "invalidUsername": "ユーザーは3でしてください",
+    "googleNotConfigured": "Googleログインログインがです",
+    "invalidCredentials": "アカウントまたはパスワードがっています",
+    "dingtalkLogin": "钉钉",
+    "appleLogin": "アップル",
+    "appleComingSoon": "Appleログインは近日公開予定",
+    "githubLogin": "ギットハブ",
+    "feishuLogin": "飞书",
+    "qrLogin": "QRコードログイン",
+    "qrRefresh": "QRコードを更新",
+    "qrSwitchMethod": "他のログイン方法",
+    "qrSdkLoadFailed": "QRコードコンポーネントの読み込みに失敗しました",
+    "qrNotConfigured": "{platform} スキャンログインが設定されていません、管理者にお問い合わせください",
+    "qrScanTipPlatform": "{platform} アプリでQRコードをスキャンしてログインしてください",
+    "accountPlaceholder": "電話番号 / メール / アカウント",
+    "agreeRequired": "をんでしてください",
+    "agreePrefix": "み",
+    "termsOfService": "サービス",
+    "agreementNoticeTitle": "同意して続行してください",
+    "agreementNoticeDesc": "アカウントのセキュリティを保護するため、以下の規約に同意の上ログインしてください",
+    "agreementNoticeSafe": "情報は暗号化チャネルを通じて安全に送信されます",
+    "and": "と",
+    "getVerificationCode": "コード取得",
+    "alipayLogin": "Alipayログイン"
+  },
+  "help": {
+    "title": "APIテスト",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "allArticles": "すべての",
+    "searchPlaceholder": "を",
+    "empty": "がありません",
+    "backToList": "るリスト",
+    "updatedAt": "しいしい",
+    "viewCount": "{count}",
+    "prev": "へ",
+    "next": "へ",
+    "notFound": "つかりません"
+  },
+  "search": {
+    "loading": "読み込み中...",
+    "emptyKeyword": "キーワードをしてください",
+    "emptyResult": "するがつかりません",
+    "sort": "ソート",
+    "sortName": "氏名",
+    "resultsCount": "{total} (ユーザー {users} / プロジェクト {projects} / ファイル {files})"
+  },
+  "searchHistory": {
+    "title": "APIテスト",
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "clearAll": "クリアて",
+    "empty": "コンテンツはまだありません。おしみに",
+    "resultCount": "{count}の"
+  },
+  "agreement": {
+    "title": "と",
+    "subtitle": "请仔细閲覧以下利用規約",
+    "userAgreement": "ユーザー",
+    "effectiveDate": "生效日付",
+    "staticContent1": "ようこそせるプラットフォーム。せるプラットフォームサービスのすべて。",
+    "staticContent2": "のメッセージセンター，のへ。",
+    "staticContent3": "へあり，プラットフォームカスタマーサポート。"
+  },
+  "routes": {
+    "userAgreement": "ユーザー",
+    "aboutUs": "について",
+    "contactUs": "おいわせ"
+  },
+  "themeToggle": {
+    "lightMode": "ライト模式",
+    "darkMode": "ダーク模式"
+  },
+  "themeBackup": {
+    "title": "テーマ"
+  },
+  "forbidden": {
+    "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
+    "backToHome": "ホームへ戻る"
   }
 }
