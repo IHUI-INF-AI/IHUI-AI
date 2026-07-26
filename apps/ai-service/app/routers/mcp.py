@@ -144,7 +144,7 @@ async def get_skill(name: str) -> dict[str, Any]:
 @router.get("/mcp/slash-commands")
 async def list_slash_commands() -> dict[str, Any]:
     """列出全部 slash 命令。"""
-    commands = [{"name": c.name, "description": c.description} for c in slash_command_registry.list()]
+    commands = [{"name": c.name, "description": c.description} for c in slash_command_registry.list_commands()]
     return {"commands": commands, "count": len(commands)}
 
 

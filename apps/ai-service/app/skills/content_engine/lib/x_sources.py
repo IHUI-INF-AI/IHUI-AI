@@ -35,9 +35,22 @@ X 平台在沙箱的可达性（已实测 2026-07-16）：
 import json
 import os
 from datetime import datetime
+from typing import Any, TypedDict
+
+
+class XSource(TypedDict):
+    """X 信源条目结构(注册表 X_SOURCES 的元素类型)。"""
+
+    handle: str
+    name: str
+    official: bool
+    priority: int
+    covers: list[str]
+    verified: bool
+
 
 # ===================== X 信源注册表 =====================
-X_SOURCES = {
+X_SOURCES: dict[str, list[XSource]] = {
     # ---------- 国内官方模型实验室（发布潮核心信源） ----------
     'official_domestic': [
         {'handle': 'kimi_moonshot', 'name': 'Kimi / 月之暗面', 'official': True, 'priority': 1,
@@ -166,11 +179,10 @@ def pick_for_topic(keywords, limit=None):
     limit: 截断数量；None = 不截断（全量输出）
     """
     kw = [k.strip().lower() for k in keywords.replace('，', ' ').split() if k.strip()]
-    scored = []
+    scored: list[tuple[int, dict[str, Any]]] = []
     for cat, items in X_SOURCES.items():
         for it in items:
-            it2 = dict(it)
-            it2['cat'] = cat
+            it2: dict[str, Any] = {**it, 'cat': cat}
             score = 0
             hay = ' '.join(it['covers']).lower() + ' ' + it['name'].lower() + ' ' + it['handle'].lower()
             for k in kw:

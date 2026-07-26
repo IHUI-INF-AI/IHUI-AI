@@ -598,7 +598,7 @@ class TestLoadAutoSkills:
         monkeypatch.setattr(SkillRegistry, "_auto_dir", staticmethod(lambda: str(tmp_path)))
         r = SkillRegistry()
         # 不应注册空 name
-        names = [s.name for s in r.list()]
+        names = [s.name for s in r.list_skills()]
         assert "" not in names
 
     def test_load_auto_skips_invalid_md(self, tmp_path, monkeypatch):

@@ -4,7 +4,7 @@
  * 迁移自 D6 StringUtils(Java)+ D4 utils(index.ts),纯 TS 实现,零新依赖。
  */
 
-type AnyFn = (...args: any[]) => void // eslint-disable-line @typescript-eslint/no-explicit-any
+type AnyFn = (...args: any[]) => void // eslint-disable-line @typescript-eslint/no-explicit-any -- AnyFn 作为通用函数约束,unknown[] 会破坏逆变,必须用 any[]
 
 /** 可取消的防抖/节流函数(调用签名 + cancel)。 */
 export interface CancelableFn<T extends AnyFn> {

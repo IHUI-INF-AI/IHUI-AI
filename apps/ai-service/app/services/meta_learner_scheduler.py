@@ -276,7 +276,7 @@ class MetaLearnerScheduler:
         from .skill_feedback import skill_feedback_tracker
 
         try:
-            all_skills = skill_registry.list()
+            all_skills = skill_registry.list_skills()
         except Exception as e:
             logger.warning(
                 "[meta_learner_scheduler] list skills failed: %s: %s",

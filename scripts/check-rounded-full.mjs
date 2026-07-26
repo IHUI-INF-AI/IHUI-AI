@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * 容器圆角守门 — 防止新增 rounded-full / rounded-pill / 9999px / 50% 用于容器。
  *
