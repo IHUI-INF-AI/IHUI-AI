@@ -23,13 +23,13 @@ import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
 # redis 包未安装时降级为纯内存模式(与 hook_engine.py / agent_checkpoint.py 一致)
 try:
-    import redis.asyncio as aioredis  # type: ignore[import-not-found]
+    import redis.asyncio as aioredis
 except ImportError:
     aioredis = None  # type: ignore[assignment]
 
@@ -572,14 +572,14 @@ class TelemetryService:
             m_cost = self.registry.get_metric("llm_cost_usd_total")
             m_dur = self.registry.get_metric("llm_request_duration_ms")
             if m_req is not None:
-                m_req.inc(pillar=pillar, model=model, status=status)  # type: ignore[union-attr]
+                cast("Counter", m_req).inc(pillar=pillar, model=model, status=status)
             if m_tok is not None:
-                m_tok.inc(input_tokens, pillar=pillar, model=model, type="input")  # type: ignore[union-attr]
-                m_tok.inc(output_tokens, pillar=pillar, model=model, type="output")  # type: ignore[union-attr]
+                cast("Counter", m_tok).inc(input_tokens, pillar=pillar, model=model, type="input")
+                cast("Counter", m_tok).inc(output_tokens, pillar=pillar, model=model, type="output")
             if m_cost is not None:
-                m_cost.inc(cost_usd, pillar=pillar, model=model)  # type: ignore[union-attr]
+                cast("Counter", m_cost).inc(cost_usd, pillar=pillar, model=model)
             if m_dur is not None:
-                m_dur.observe(duration_ms, pillar=pillar, model=model)  # type: ignore[union-attr]
+                cast("Histogram", m_dur).observe(duration_ms, pillar=pillar, model=model)
         except Exception as e:
             logger.warning("[telemetry] record_llm_call 失败(忽略,不阻塞业务): %s", e)
 
@@ -809,7 +809,7 @@ def _h_counter_inc(registry: MetricsRegistry, metric_name: str, **labels) -> Non
     """通用 counter.inc(1) 调度。"""
     m = registry.get_metric(metric_name)
     if m is not None:
-        m.inc(1, **labels)  # type: ignore[union-attr]
+        cast("Counter", m).inc(1, **labels)
 
 
 def _h_gauge_set(registry: MetricsRegistry, metric_name: str,
@@ -817,7 +817,7 @@ def _h_gauge_set(registry: MetricsRegistry, metric_name: str,
     """通用 gauge.set(value) 调度。"""
     m = registry.get_metric(metric_name)
     if m is not None:
-        m.set(float(value), **labels)  # type: ignore[union-attr]
+        cast("Gauge", m).set(float(value), **labels)
 
 
 def _h_histogram_observe(registry: MetricsRegistry, metric_name: str,
@@ -825,7 +825,7 @@ def _h_histogram_observe(registry: MetricsRegistry, metric_name: str,
     """通用 histogram.observe(value) 调度。"""
     m = registry.get_metric(metric_name)
     if m is not None:
-        m.observe(float(value), **labels)  # type: ignore[union-attr]
+        cast("Histogram", m).observe(float(value), **labels)
 
 
 _EVENT_HANDLERS: dict[tuple[str, str], Any] = {
