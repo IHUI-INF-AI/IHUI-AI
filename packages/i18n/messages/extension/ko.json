@@ -1,23 +1,13 @@
 {
   "common": {
-    "cancel": "취소",
-    "delete": "삭제",
-    "back": "뒤로",
     "loading": "로딩 중…",
-    "empty": "데이터 없음",
-    "retry": "재시도",
-    "submit": "제출",
-    "search": "검색",
-    "all": "전체",
     "failed": "실패"
   },
   "nav": {
     "chat": "AI 채팅",
-    "settings": "설정",
     "agents": "AI 어시스턴트",
     "vocabulary": "단어장",
     "profile": "내 정보",
-    "wallet": "지갑",
     "notifications": "알림",
     "tabRuntime": "런타임",
     "ai": "AI",
@@ -136,7 +126,6 @@
     "logout": "로그아웃",
     "loginRequired": "계정과 비밀번호를 입력하세요",
     "phoneOrEmail": "전화번호 / 이메일",
-    "password": "비밀번호",
     "roleAdmin": "관리자",
     "roleUser": "일반 사용자"
   },
@@ -162,7 +151,6 @@
     "emptyHint": "단어장이 비어 있습니다, 단어를 조회하고 저장하세요"
   },
   "chat": {
-    "send": "전송",
     "history": "기록",
     "title": "AI 채팅",
     "exit": "종료",
@@ -172,7 +160,6 @@
     "compactionNotice": "컨텍스트 자동 압축:{{before}} → {{after}}({{removed}}개 기록 제거)"
   },
   "settings": {
-    "title": "설정",
     "language": "인터페이스 언어",
     "appearance": "외관",
     "darkMode": "다크 모드",
