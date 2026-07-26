@@ -8,6 +8,7 @@ import { success, error } from '../../utils/response.js'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../../utils/crypto.js'
 import {
   roles,
+  users,
   withdrawalFlows,
   productIdentities,
   statisticsSnapshots,
@@ -544,24 +545,114 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  server.get('/stats/users', async (_request, reply) => {
-    return reply.send(
-      success({
-        overview: {
-          totalUsers: 0,
-          todayNew: 0,
-          weekNew: 0,
-          monthNew: 0,
-          dau: 0,
-          mau: 0,
-          retention7d: 0,
-          retention30d: 0,
-        },
-        growth: [],
-        byRole: [],
-        byRegion: [],
-      }),
-    )
+  server.get('/stats/users', async (request, reply) => {
+    try {
+      const now = new Date()
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const weekStart = new Date(todayStart)
+      weekStart.setDate(weekStart.getDate() - 7)
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+      const [totalRow, todayRow, weekRow, monthRow, dauRow, mauRow, byRoleRows, growthRows] =
+        await Promise.all([
+          // totalUsers: users 表总数
+          db.select({ c: sql<number>`count(*)::int` }).from(users),
+          // todayNew: 今日新增(users.createdAt >= todayStart)
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(users)
+            .where(gte(users.createdAt, todayStart)),
+          // weekNew: 本周新增(users.createdAt >= weekStart)
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(users)
+            .where(gte(users.createdAt, weekStart)),
+          // monthNew: 本月新增(users.createdAt >= monthStart)
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(users)
+            .where(gte(users.createdAt, monthStart)),
+          // dau: 日活(visitLogs.userId 去重,排除 null,今日)
+          db
+            .select({
+              c: sql<number>`count(distinct user_id) filter (where user_id is not null)::int`,
+            })
+            .from(visitLogs)
+            .where(gte(visitLogs.createdAt, todayStart)),
+          // mau: 月活(visitLogs.userId 去重,排除 null,本月)
+          db
+            .select({
+              c: sql<number>`count(distinct user_id) filter (where user_id is not null)::int`,
+            })
+            .from(visitLogs)
+            .where(gte(visitLogs.createdAt, monthStart)),
+          // byRole: 按 users.roleId 分组计数(legacy 数值角色)
+          db
+            .select({ roleId: users.roleId, count: sql<number>`count(*)::int` })
+            .from(users)
+            .groupBy(users.roleId),
+          // growth: 按天分组,最近 30 天新增(users.createdAt 分组)
+          db
+            .select({
+              day: sql<string>`to_char(created_at, 'YYYY-MM-DD')`,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(users)
+            .where(gte(users.createdAt, since30d))
+            .groupBy(sql`to_char(created_at, 'YYYY-MM-DD')`)
+            .orderBy(sql`to_char(created_at, 'YYYY-MM-DD')`),
+        ])
+
+      const totalUsers = totalRow[0]?.c ?? 0
+      const todayNew = todayRow[0]?.c ?? 0
+      const weekNew = weekRow[0]?.c ?? 0
+      const monthNew = monthRow[0]?.c ?? 0
+      const dau = dauRow[0]?.c ?? 0
+      const mau = mauRow[0]?.c ?? 0
+
+      // 留存率计算(简化版,需复杂 SQL 跨表关联 users + visitLogs 按注册日 + 活跃日,保留 0 占位)
+      const retention7d = 0
+      const retention30d = 0
+
+      return reply.send(
+        success({
+          overview: {
+            totalUsers,
+            todayNew,
+            weekNew,
+            monthNew,
+            dau,
+            mau,
+            retention7d,
+            retention30d,
+          },
+          growth: growthRows.map((r) => ({ day: r.day, count: r.count })),
+          byRole: byRoleRows.map((r) => ({ roleId: r.roleId, count: r.count })),
+          byRegion: [], // users 表无地区字段,visitLogs.city 可作为近似但语义不同,留空
+        }),
+      )
+    } catch (e) {
+      request.log.error({ err: e }, 'stats/users 查询失败')
+      // 表不存在或查询异常时返回零值,避免阻塞 admin 看板
+      return reply.send(
+        success({
+          overview: {
+            totalUsers: 0,
+            todayNew: 0,
+            weekNew: 0,
+            monthNew: 0,
+            dau: 0,
+            mau: 0,
+            retention7d: 0,
+            retention30d: 0,
+          },
+          growth: [],
+          byRole: [],
+          byRegion: [],
+        }),
+      )
+    }
   })
 
   // ===========================================================================
