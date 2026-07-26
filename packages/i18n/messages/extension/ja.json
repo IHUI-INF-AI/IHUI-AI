@@ -1,6 +1,5 @@
 {
   "common": {
-    "loading": "読み込み中…",
     "failed": "失敗"
   },
   "nav": {
@@ -122,7 +121,6 @@
     "pricing": "料金プラン"
   },
   "auth": {
-    "login": "ログイン",
     "logout": "ログアウト",
     "loginRequired": "アカウントとパスワードを入力してください",
     "phoneOrEmail": "電話番号 / メール",
@@ -208,12 +206,10 @@
   "course": {
     "title": "コース",
     "empty": "コースなし",
-    "free": "無料",
     "loadFailed": "読み込み失敗"
   },
   "order": {
     "title": "注文履歴",
-    "empty": "注文なし",
     "loadFailed": "読み込み失敗",
     "statusPending": "支払い待ち",
     "statusPaid": "支払済み",
