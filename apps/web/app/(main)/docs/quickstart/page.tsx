@@ -281,7 +281,7 @@ export default function QuickstartPage() {
         <ol className="space-y-6">
           <li className="rounded-2xl border bg-card p-6">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 1
               </span>
               <div className="flex-1 space-y-2">
@@ -305,7 +305,7 @@ export default function QuickstartPage() {
 
           <li className="rounded-2xl border bg-card p-6">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 2
               </span>
               <div className="flex-1 space-y-2">
@@ -332,7 +332,7 @@ export default function QuickstartPage() {
 
           <li className="rounded-2xl border bg-card p-6">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 3
               </span>
               <div className="flex-1 space-y-2">
@@ -359,7 +359,7 @@ export default function QuickstartPage() {
 
           <li className="rounded-2xl border bg-card p-6">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 4
               </span>
               <div className="flex-1 space-y-2">
@@ -382,7 +382,7 @@ export default function QuickstartPage() {
 
           <li className="rounded-2xl border bg-card p-6">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 5
               </span>
               <div className="flex-1 space-y-2">
