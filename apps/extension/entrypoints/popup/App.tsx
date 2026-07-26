@@ -5,12 +5,14 @@
  */
 import { useEffect, useState } from 'react'
 import { loginByAccount, getMe, logout, type AuthUser } from '@ihui/api-client'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { initApi, setTokenPair, getToken, getRefreshToken, clearAllTokens } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm } from '../../lib/token-utils'
 import { useI18n } from '../../src/i18n'
 import { sendMessage } from '../../lib/message-router'
 import { QuickActionButton } from '../components/QuickActionButton'
 import { NotificationBell } from '../components/NotificationBell'
+import { ExtensionAuthShellCompact } from '../components/ExtensionAuthShell'
 
 interface ActiveTab {
   tabId?: number
@@ -139,44 +141,66 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="flex flex-col gap-3 p-4 min-w-[280px]">
-        <h1 className="m-0 text-base font-semibold text-foreground">IHUI AI</h1>
-        <form onSubmit={onLogin} className="flex flex-col gap-2.5">
-          <input
-            type="text"
-            value={account}
-            onChange={(e) => setAccount(e.target.value)}
-            placeholder={t('auth.phoneOrEmail')}
-            className="w-full bg-background text-foreground border border-border rounded-md px-2.5 py-1.5 text-[13px] focus:outline-none focus:border-muted-foreground"
-            disabled={loading}
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={t('auth.password')}
-            className="w-full bg-background text-foreground border border-border rounded-md px-2.5 py-1.5 text-[13px] focus:outline-none focus:border-muted-foreground"
-            disabled={loading}
-          />
-          {error ? (
-            <div className="text-destructive bg-destructive/10 px-2.5 py-1.5 rounded-md text-xs border border-destructive">
-              {error}
+      <div className="p-3 min-w-[320px] bg-background">
+        <ExtensionAuthShellCompact
+          title={t('auth.login')}
+          subtitle={t('auth.loginSubtitle')}
+        >
+          <form onSubmit={onLogin} className="space-y-3 pt-1">
+            {error ? (
+              <div
+                role="alert"
+                className="border border-red-500/30 bg-red-500/5 text-red-500 rounded-md px-3 py-2 text-xs flex items-start gap-2"
+              >
+                <span className="shrink-0 leading-none">⚠</span>
+                <span className="flex-1">{error}</span>
+              </div>
+            ) : null}
+            <div className="space-y-1.5">
+              <Label htmlFor="popup-account">
+                {t('auth.phoneOrEmail')}
+              </Label>
+              <Input
+                id="popup-account"
+                type="text"
+                value={account}
+                onChange={(e) => setAccount(e.target.value)}
+                placeholder={t('auth.phoneOrEmail')}
+                disabled={loading}
+                className="h-9"
+                autoComplete="username"
+              />
             </div>
-          ) : null}
-          <button
-            type="submit"
-            className="bg-primary text-primary-foreground border-none rounded-md px-3.5 py-2 text-[13px] cursor-pointer font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={loading}
-          >
-            {loading ? t('common.loading') : t('auth.login')}
-          </button>
-        </form>
-        <QuickActionButton
-          label={t('popup.openWeb')}
-          icon="🌐"
-          onClick={openWeb}
-          variant="default"
-        />
+            <div className="space-y-1.5">
+              <Label htmlFor="popup-password">
+                {t('auth.password')}
+              </Label>
+              <Input
+                id="popup-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t('auth.password')}
+                disabled={loading}
+                className="h-9"
+                autoComplete="current-password"
+              />
+            </div>
+            <Button
+              type="submit"
+              className="h-9 w-full"
+              disabled={loading}
+            >
+              {loading ? t('common.loading') : t('auth.login')}
+            </Button>
+            <QuickActionButton
+              label={t('popup.openWeb')}
+              icon="🌐"
+              onClick={openWeb}
+              variant="default"
+            />
+          </form>
+        </ExtensionAuthShellCompact>
       </div>
     )
   }
