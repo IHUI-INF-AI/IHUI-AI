@@ -22,9 +22,17 @@
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync, watch } from 'node:fs'
 import { join, resolve, basename } from 'node:path'
 
-// Tailwind 3.4 escape set: backslash before any of these chars is stripped.
+// Tailwind 3.4 escape set: backslash before any of these chars is processed.
 // Observed in build output: . \ [ ] ! / : ( ) , % # & * ' +
 // (verified against dist/app-origin.wxss 2026-07-26, including calc(16rpx\+env(...)))
+//
+// WXSS handling:
+// - Most chars (. [ ] / : ( ) , % # & * ' +): strip the backslash, WXSS accepts
+//   the bare char inside a class selector.
+// - `!` is special: WXSS treats leading `!` as important marker, so `.!visible`
+//   is rejected ("unexpected `!` at pos X"). Use CSS hex escape `\21 ` instead
+//   (U+0021 = !), which WXSS parses as an IDENT token. The trailing space is
+//   required to terminate the hex escape.
 const RE = /\\([.\\[\]!/:(),%#&*'+])/g
 
 function walk(dir, out = []) {
@@ -40,13 +48,15 @@ function walk(dir, out = []) {
 
 function stripFile(file) {
   const orig = readFileSync(file, 'utf8')
-  const next = orig.replace(RE, '$1')
-  if (next !== orig) {
-    const diff = (orig.match(RE) || []).length
+  let count = 0
+  const next = orig.replace(RE, (_, ch) => {
+    count++
+    return ch === '!' ? '\\21 ' : ch
+  })
+  if (count > 0) {
     writeFileSync(file, next, 'utf8')
-    return diff
   }
-  return 0
+  return count
 }
 
 function stripAll(root) {
