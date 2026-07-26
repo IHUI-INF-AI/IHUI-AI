@@ -16,9 +16,24 @@
  * - mobile-rn: createThemeStore({ transport: asyncStorageTransport, onChange: (s) => NativeTheme.set(s.theme) })
  * - miniapp-taro: createThemeStore({ transport: taroStorageTransport, onChange: (s) => Taro.setNavigationBarColor(...) })
  * - extension: createThemeStore({ transport: chromeStorageTransport, onChange: (s) => document.body.dataset.theme = s.theme })
+ *
+ * ============================================================================
+ * 修复说明(2026-07-26 立):
+ * Taro 4.2.0 Vite runner 把 `import { create } from 'zustand'` 错误归并为
+ * `taro.react_production_min.create`(React 上无此函数),导致运行时抛
+ * `TypeError: taro.react_production_min.create is not a function`。
+ *
+ * 解决方案:用 `createStore` from 'zustand/vanilla'(纯 store,无 React 绑定)
+ * + `useStore` from 'zustand/react'(React hook 绑定,显式传入 storeApi)
+ * 替换 `create` from 'zustand'(在 Taro Vite 下被错误归并)。
+ *
+ * 手动构造 UseBoundStore 兼容对象,既可作为 hook 调用,又保留
+ * .getState() / .setState() / .subscribe() 接口,确保调用方 API 完全兼容。
+ * ============================================================================
  */
 
-import { create, type StoreApi, type UseBoundStore } from 'zustand'
+import { createStore, type StoreApi } from 'zustand/vanilla'
+import { useStore, type UseBoundStore } from 'zustand/react'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import type { PersistTransport } from './transport'
 
@@ -103,34 +118,37 @@ export function createThemeStore(
     if (onChange) onChange(state)
   }
 
+  // storeApi 在下方声明,这里通过闭包引用(运行时 storeApi 已初始化)
   const initialState: ThemeStoreState = {
     theme: initialTheme,
     accentColor: initialAccentColor,
     fontSize: initialFontSize,
     highContrast: false,
     setTheme: (theme) => {
-      useStore.setState({ theme })
-      emit(useStore.getState())
+      storeApi.setState({ theme })
+      emit(storeApi.getState())
     },
     setAccentColor: (accentColor) => {
-      useStore.setState({ accentColor })
-      emit(useStore.getState())
+      storeApi.setState({ accentColor })
+      emit(storeApi.getState())
     },
     setFontSize: (fontSize) => {
-      useStore.setState({ fontSize })
-      emit(useStore.getState())
+      storeApi.setState({ fontSize })
+      emit(storeApi.getState())
     },
     toggleHighContrast: () => {
-      useStore.setState((s) => ({ highContrast: !s.highContrast }))
-      emit(useStore.getState())
+      storeApi.setState((s) => ({ highContrast: !s.highContrast }))
+      emit(storeApi.getState())
     },
     reset: () => {
-      useStore.setState({ ...DEFAULT_STATE })
-      emit(useStore.getState())
+      storeApi.setState({ ...DEFAULT_STATE })
+      emit(storeApi.getState())
     },
   }
 
-  const useStore = create<ThemeStoreState>()(
+  // 使用 createStore(zustand/vanilla)避免 Taro Vite 把 `create` 归并到
+  // taro.react_production_min.create 的问题
+  const storeApi = createStore<ThemeStoreState>()(
     persist(() => initialState, {
       name: persistKey,
       storage: createJSONStorage(() => persistStorage),
@@ -138,14 +156,28 @@ export function createThemeStore(
     }),
   )
 
+  // 手动构造 UseBoundStore:既可作为 hook 调用,又保留 .getState/.setState/.subscribe
+  const useBoundStore = Object.assign(
+    function useThemeStoreHook<U>(
+      selector?: (state: ThemeStoreState) => U,
+    ): U {
+      return useStore(storeApi, selector as (state: ThemeStoreState) => U)
+    } as UseBoundStore<StoreApi<ThemeStoreState>>,
+    {
+      getState: storeApi.getState,
+      setState: storeApi.setState,
+      subscribe: storeApi.subscribe,
+    },
+  )
+
   return {
-    useThemeStore: useStore,
-    getState: useStore.getState,
-    setState: useStore.setState,
-    subscribe: useStore.subscribe,
+    useThemeStore: useBoundStore,
+    getState: storeApi.getState,
+    setState: storeApi.setState,
+    subscribe: storeApi.subscribe,
     reset: () => {
-      useStore.setState({ ...DEFAULT_STATE })
-      emit(useStore.getState())
+      storeApi.setState({ ...DEFAULT_STATE })
+      emit(storeApi.getState())
     },
   }
 }
