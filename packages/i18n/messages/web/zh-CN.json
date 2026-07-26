@@ -10994,30 +10994,6 @@
     "noRates": "暂无评价，快来发表第一条评价吧",
     "anonymous": "匿名用户"
   },
-  "modelsBillingPage": {
-    "packages": {
-      "starter": {
-      },
-      "pro": {
-      },
-      "enterprise": {
-      }
-    }
-  },
-  "n8nAgentsPage": {
-    "agents": {
-      "alert-notify": {
-      },
-      "content-moderation": {
-      },
-      "customer-service": {
-      },
-      "data-sync": {
-      },
-      "report-generation": {
-      }
-    }
-  },
   "agentsMyPage": {
     "back": "返回",
     "title": "我的智能体",
@@ -11657,16 +11633,6 @@
     "save": "保存",
     "cancel": "取消"
   },
-  "modelsReferralPage": {
-    "link": {
-    },
-    "stats": {
-    },
-    "list": {
-      "statusLabels": {
-      }
-    }
-  },
   "knowledgeRag": {
     "list": {
       "title": "知识库 RAG",
@@ -11975,22 +11941,7 @@
       "deviceFrame": "设备外框"
     },
     "templates": {
-      "title": "模板",
-      "categories": {}
-    }
-  },
-  "modelsGroupsPage": {
-    "group": {
-      "1": {
-      },
-      "2": {
-      },
-      "3": {
-      },
-      "4": {
-      },
-      "5": {
-      }
+      "title": "模板"
     }
   }
 }
