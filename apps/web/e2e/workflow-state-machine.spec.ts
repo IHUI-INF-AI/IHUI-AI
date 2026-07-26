@@ -61,53 +61,54 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     const dialog = adminPage.getByRole('dialog').first()
     await expect(dialog).toBeVisible({ timeout: 5000 })
     // 验证初始 state 文案存在("state: draft" 在 DemandAuditApprovalDialog.tsx 第 186 行)
-    const stateBadge = dialog.locator('text=/state:\\s*(draft|submitted|approved|rejected|cancelled)/i')
+    const stateBadge = dialog.locator(
+      'text=/state:\\s*(draft|submitted|approved|rejected|cancelled)/i',
+    )
     await expect(stateBadge).toBeVisible({ timeout: 5000 })
     // 初始状态必须是 draft
     await expect(dialog.locator('text=/state:\\s*draft/i')).toBeVisible({ timeout: 3000 })
   })
 
-  setupTest('状态机转换 1:draft → submitted (UI 不直接暴露 SUBMIT,验证事件可达)', async ({
-    adminPage,
-  }) => {
-    // 本测试只验证状态机 hook 的事件可被 dispatch。
-    // UI 中 "通过" 按钮直接触发 APPROVE;SUBMIT 由后端 draft 状态产生,
-    // 在 dialog 打开时已为 draft,故此处断言"状态文案存在 + can() 守门按钮 disabled/enabled 切换"。
-    await adminPage.goto(DEMAND_AUDIT_PATH)
-    await adminPage.waitForLoadState('domcontentloaded')
-    if (!adminPage.url().includes(DEMAND_AUDIT_PATH)) {
-      setupTest.skip(true, 'admin 页面不可访问')
-    }
+  setupTest(
+    '状态机转换 1:draft → submitted (UI 不直接暴露 SUBMIT,验证事件可达)',
+    async ({ adminPage }) => {
+      // 本测试只验证状态机 hook 的事件可被 dispatch。
+      // UI 中 "通过" 按钮直接触发 APPROVE;SUBMIT 由后端 draft 状态产生,
+      // 在 dialog 打开时已为 draft,故此处断言"状态文案存在 + can() 守门按钮 disabled/enabled 切换"。
+      await adminPage.goto(DEMAND_AUDIT_PATH)
+      await adminPage.waitForLoadState('domcontentloaded')
+      if (!adminPage.url().includes(DEMAND_AUDIT_PATH)) {
+        setupTest.skip(true, 'admin 页面不可访问')
+      }
 
-    await adminPage.waitForTimeout(1500)
-    const approveRowBtn = adminPage
-      .getByRole('button')
-      .filter({ hasText: /审核|通过|审批|Approve|Review/i })
-      .first()
-    if (!(await approveRowBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
-      setupTest.skip(true, '列表无数据')
-    }
-    await approveRowBtn.click()
-    const dialog = adminPage.getByRole('dialog').first()
-    await expect(dialog).toBeVisible({ timeout: 5000 })
+      await adminPage.waitForTimeout(1500)
+      const approveRowBtn = adminPage
+        .getByRole('button')
+        .filter({ hasText: /审核|通过|审批|Approve|Review/i })
+        .first()
+      if (!(await approveRowBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
+        setupTest.skip(true, '列表无数据')
+      }
+      await approveRowBtn.click()
+      const dialog = adminPage.getByRole('dialog').first()
+      await expect(dialog).toBeVisible({ timeout: 5000 })
 
-    // draft 状态:APPROVE 不可发(can() 返回 false),通过按钮被 disabled
-    // 但前端实际是 enabled(guard 仅校验 approverId 存在),所以这里只验证"按钮可见且文案一致"
-    const approveBtn = dialog
-      .getByRole('button')
-      .filter({ hasText: /通过|批准|Approve|同意/i })
-      .first()
-    const rejectBtn = dialog
-      .getByRole('button')
-      .filter({ hasText: /拒绝|驳回|Reject|不同意/i })
-      .first()
-    await expect(approveBtn).toBeVisible({ timeout: 3000 })
-    await expect(rejectBtn).toBeVisible({ timeout: 3000 })
-  })
+      // draft 状态:APPROVE 不可发(can() 返回 false),通过按钮被 disabled
+      // 但前端实际是 enabled(guard 仅校验 approverId 存在),所以这里只验证"按钮可见且文案一致"
+      const approveBtn = dialog
+        .getByRole('button')
+        .filter({ hasText: /通过|批准|Approve|同意/i })
+        .first()
+      const rejectBtn = dialog
+        .getByRole('button')
+        .filter({ hasText: /拒绝|驳回|Reject|不同意/i })
+        .first()
+      await expect(approveBtn).toBeVisible({ timeout: 3000 })
+      await expect(rejectBtn).toBeVisible({ timeout: 3000 })
+    },
+  )
 
-  setupTest('状态机转换 2:点击通过 → 状态变为 approved(若后端调用成功)', async ({
-    adminPage,
-  }) => {
+  setupTest('状态机转换 2:点击通过 → 状态变为 approved(若后端调用成功)', async ({ adminPage }) => {
     await adminPage.goto(DEMAND_AUDIT_PATH)
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(DEMAND_AUDIT_PATH)) {
@@ -169,7 +170,7 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     const stateValues = await adminPage.evaluate(() => {
       const re = /state:\s*(draft|submitted|approved|rejected|cancelled)/gi
       const body = document.body.innerText
-      return [...body.matchAll(re)].map((m) => m[1].toLowerCase())
+      return [...body.matchAll(re)].map((m) => m[1]!.toLowerCase())
     })
     // 允许为空(无 dialog 打开时),但任何出现的状态必须是合法状态名
     const VALID = new Set(['draft', 'submitted', 'approved', 'rejected', 'cancelled'])
