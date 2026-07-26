@@ -72,7 +72,7 @@ export default function Email() {
       // 优先调用专用邮箱验证码接口;后端未提供时降级为通用短信接口
       try {
         await post('/auth/email/send', { email: target })
-      } catch (e) {
+      } catch (_e) {
         // 邮箱验证码端点不存在时,降级用通用 sms/send(scene=email) 占位
         await post('/auth/sms/send', { phone: target, scene: 'email' })
       }
