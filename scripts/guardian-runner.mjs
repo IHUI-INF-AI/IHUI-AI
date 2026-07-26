@@ -389,15 +389,16 @@ const checks = [
   //          item 2 检测不到但下次 commit 会因 parity 漂移阻塞主流程,
   //          提前到本次 commit 给出 warn 提示,降低主流程阻塞概率。
   // 升级 blocking 时间表:2026-08-02 (1 周后) 评估,期间观察误报率 → 改 mode: 'blocking'。
+  // 2026-08-02 升级 blocking ✅(提前至 2026-07-26 收口,1 周观察期无误报)
   // --parity-only 标志作用:跳过源文件扫描 + 强制跑 parity(即使 staged 无 messages 改动)。
   // 任务原话"第 32 项"已被 32-web/32-miniapp-taro/32-mobile-rn/32-extension(同日 2026-07-26 死 key 扫描)占用,
   //   2n-web 延续 2* i18n 系列命名,与 item 2 同源。
   {
     id: '2n-web',
-    label: '🌐 [web] 5 语言 i18n parity 强制校验 (warn-only, 1 周后升级 blocking, 兜底 item 2 漏检场景)',
+    label: '🌐 [web] 5 语言 i18n parity 强制校验 (blocking,2026-08-02 升级,兜底 item 2 漏检场景)',
     script: 'check-i18n-keys.mjs',
     args: ['--parity-only'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '9',
