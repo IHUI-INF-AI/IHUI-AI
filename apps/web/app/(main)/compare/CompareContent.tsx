@@ -10,51 +10,215 @@ type Cell = { t: string; ok?: boolean }
 const COLS = ['特性', 'IHUI-AI', 'ChatGPT Plus', 'Dify', 'LangChain', 'Coze', 'FastGPT'] as const
 
 const ROWS: [string, Cell, Cell, Cell, Cell, Cell, Cell][] = [
-  ['开源协议', { t: 'Apache 2.0', ok: true }, { t: '闭源', ok: false }, { t: 'Apache 2.0', ok: true }, { t: 'MIT', ok: true }, { t: '闭源', ok: false }, { t: 'Apache 2.0', ok: true }],
-  ['私有化部署', { t: '免费', ok: true }, { t: '不支持', ok: false }, { t: '付费', ok: true }, { t: '支持', ok: true }, { t: '不支持', ok: false }, { t: '付费', ok: true }],
-  ['8 端同源', { t: 'Web/API/CLI/Desktop/Ext/Mobile/Miniapp', ok: true }, { t: '仅 Web', ok: false }, { t: '仅 Web', ok: false }, { t: '库', ok: false }, { t: '仅 Web', ok: false }, { t: '仅 Web', ok: false }],
-  ['LLM 模型数', { t: '176', ok: true }, { t: '1 (GPT)', ok: false }, { t: '50+', ok: true }, { t: '100+', ok: true }, { t: '10+', ok: true }, { t: '50+', ok: true }],
-  ['MCP 协议', { t: '支持', ok: true }, { t: '不支持', ok: false }, { t: '不支持', ok: false }, { t: '不支持', ok: false }, { t: '不支持', ok: false }, { t: '不支持', ok: false }],
-  ['A2A 协议', { t: '支持', ok: true }, { t: '不支持', ok: false }, { t: '不支持', ok: false }, { t: '不支持', ok: false }, { t: '不支持', ok: false }, { t: '不支持', ok: false }],
-  ['RAG 知识库', { t: '引用追溯', ok: true }, { t: '支持', ok: true }, { t: '支持', ok: true }, { t: '库', ok: false }, { t: '支持', ok: true }, { t: '支持', ok: true }],
-  ['Agent 市场', { t: '支持', ok: true }, { t: 'GPT Store', ok: true }, { t: '不支持', ok: false }, { t: '不支持', ok: false }, { t: '支持', ok: true }, { t: '不支持', ok: false }],
-  ['SaaS 计费', { t: '内置', ok: true }, { t: '不支持', ok: false }, { t: '支持', ok: true }, { t: '不支持', ok: false }, { t: '不支持', ok: false }, { t: '支持', ok: true }],
-  ['数据库表', { t: '340', ok: true }, { t: '?', ok: false }, { t: '?', ok: false }, { t: '无', ok: false }, { t: '?', ok: false }, { t: '?', ok: false }],
-  ['测试覆盖', { t: '5346', ok: true }, { t: '?', ok: false }, { t: '?', ok: false }, { t: '?', ok: false }, { t: '?', ok: false }, { t: '?', ok: false }],
-  ['价格', { t: '免费/¥99月起', ok: true }, { t: '$20/月起', ok: false }, { t: '免费/付费', ok: true }, { t: '免费', ok: true }, { t: '免费/付费', ok: true }, { t: '免费/付费', ok: true }],
+  [
+    '开源协议',
+    { t: 'Apache 2.0', ok: true },
+    { t: '闭源', ok: false },
+    { t: 'Apache 2.0', ok: true },
+    { t: 'MIT', ok: true },
+    { t: '闭源', ok: false },
+    { t: 'Apache 2.0', ok: true },
+  ],
+  [
+    '私有化部署',
+    { t: '免费', ok: true },
+    { t: '不支持', ok: false },
+    { t: '付费', ok: true },
+    { t: '支持', ok: true },
+    { t: '不支持', ok: false },
+    { t: '付费', ok: true },
+  ],
+  [
+    '8 端同源',
+    { t: 'Web/API/CLI/Desktop/Ext/Mobile/Miniapp', ok: true },
+    { t: '仅 Web', ok: false },
+    { t: '仅 Web', ok: false },
+    { t: '库', ok: false },
+    { t: '仅 Web', ok: false },
+    { t: '仅 Web', ok: false },
+  ],
+  [
+    'LLM 模型数',
+    { t: '176', ok: true },
+    { t: '1 (GPT)', ok: false },
+    { t: '50+', ok: true },
+    { t: '100+', ok: true },
+    { t: '10+', ok: true },
+    { t: '50+', ok: true },
+  ],
+  [
+    'MCP 协议',
+    { t: '支持', ok: true },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+  ],
+  [
+    'A2A 协议',
+    { t: '支持', ok: true },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+  ],
+  [
+    'RAG 知识库',
+    { t: '引用追溯', ok: true },
+    { t: '支持', ok: true },
+    { t: '支持', ok: true },
+    { t: '库', ok: false },
+    { t: '支持', ok: true },
+    { t: '支持', ok: true },
+  ],
+  [
+    'Agent 市场',
+    { t: '支持', ok: true },
+    { t: 'GPT Store', ok: true },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+    { t: '支持', ok: true },
+    { t: '不支持', ok: false },
+  ],
+  [
+    'SaaS 计费',
+    { t: '内置', ok: true },
+    { t: '不支持', ok: false },
+    { t: '支持', ok: true },
+    { t: '不支持', ok: false },
+    { t: '不支持', ok: false },
+    { t: '支持', ok: true },
+  ],
+  [
+    '数据库表',
+    { t: '340', ok: true },
+    { t: '?', ok: false },
+    { t: '?', ok: false },
+    { t: '无', ok: false },
+    { t: '?', ok: false },
+    { t: '?', ok: false },
+  ],
+  [
+    '测试覆盖',
+    { t: '5346', ok: true },
+    { t: '?', ok: false },
+    { t: '?', ok: false },
+    { t: '?', ok: false },
+    { t: '?', ok: false },
+    { t: '?', ok: false },
+  ],
+  [
+    '价格',
+    { t: '免费/¥99月起', ok: true },
+    { t: '$20/月起', ok: false },
+    { t: '免费/付费', ok: true },
+    { t: '免费', ok: true },
+    { t: '免费/付费', ok: true },
+    { t: '免费/付费', ok: true },
+  ],
 ]
 
 const ADVANTAGES = [
-  { icon: Layers, title: '完全开源', desc: 'Apache 2.0 商用无限制,可审计可定制', vs: 'ChatGPT/Coze 闭源,Dify BSL 限制商业竞争' },
-  { icon: Boxes, title: '8 端同源', desc: '一份代码,Web/API/CLI/Desktop/Extension/Mobile/Miniapp 多端运行', vs: '竞品仅 Web 端,需自建其他端' },
-  { icon: Network, title: '三栈合一', desc: 'LangGraph + MCP + A2A 三协议原生支持', vs: '竞品单一栈,无 MCP/A2A' },
+  {
+    icon: Layers,
+    title: '完全开源',
+    desc: 'Apache 2.0 商用无限制,可审计可定制',
+    vs: 'ChatGPT/Coze 闭源,Dify BSL 限制商业竞争',
+  },
+  {
+    icon: Boxes,
+    title: '8 端同源',
+    desc: '一份代码,Web/API/CLI/Desktop/Extension/Mobile/Miniapp 多端运行',
+    vs: '竞品仅 Web 端,需自建其他端',
+  },
+  {
+    icon: Network,
+    title: '三栈合一',
+    desc: 'LangGraph + MCP + A2A 三协议原生支持',
+    vs: '竞品单一栈,无 MCP/A2A',
+  },
 ]
 
 const SUB_COMPARISONS = [
   { group: 'AI 应用平台', items: ['dify', 'coze', 'fastgpt', 'flowise', 'typebot', 'stack-ai'] },
   { group: 'AI 编排框架', items: ['langchain', 'llamaindex', 'crewai', 'autogen', 'openai-agent'] },
   { group: '自动化工具', items: ['n8n', 'make', 'zapier-ai', 'wordware', 'spark', 'relevance-ai'] },
-  { group: 'AI 编程助手', items: ['cursor', 'github-copilot', 'claude-code', 'bolt-new', 'v0-dev', 'lovable', 'replit-agent', 'windsurf', 'devin', 'manus'] },
-  { group: '国内大模型平台', items: ['qwen-platform', 'deepseek-platform', 'doubao', 'kimi-platform', 'minimax', 'zhipu', 'ernie'] },
+  {
+    group: 'AI 编程助手',
+    items: [
+      'cursor',
+      'github-copilot',
+      'claude-code',
+      'bolt-new',
+      'v0-dev',
+      'lovable',
+      'replit-agent',
+      'windsurf',
+      'devin',
+      'manus',
+    ],
+  },
+  {
+    group: '国内大模型平台',
+    items: [
+      'qwen-platform',
+      'deepseek-platform',
+      'doubao',
+      'kimi-platform',
+      'minimax',
+      'zhipu',
+      'ernie',
+    ],
+  },
   { group: '企业级', items: ['copilot-studio', 'voiceflow'] },
 ]
 
 const labelMap: Record<string, string> = {
-  'dify': 'Dify', 'coze': 'Coze', 'fastgpt': 'FastGPT', 'flowise': 'Flowise', 'typebot': 'Typebot',
-  'stack-ai': 'Stack AI', 'langchain': 'LangChain', 'llamaindex': 'LlamaIndex', 'crewai': 'CrewAI',
-  'autogen': 'AutoGen', 'openai-agent': 'OpenAI Agent', 'n8n': 'n8n', 'make': 'Make',
-  'zapier-ai': 'Zapier AI', 'wordware': 'Wordware', 'spark': 'Spark', 'relevance-ai': 'Relevance AI',
-  'cursor': 'Cursor', 'github-copilot': 'GitHub Copilot', 'claude-code': 'Claude Code',
-  'bolt-new': 'Bolt.new', 'v0-dev': 'v0.dev', 'lovable': 'Lovable', 'replit-agent': 'Replit Agent',
-  'windsurf': 'Windsurf', 'devin': 'Devin', 'manus': 'Manus', 'qwen-platform': '通义千问平台',
-  'deepseek-platform': 'DeepSeek 平台', 'doubao': '豆包', 'kimi-platform': 'Kimi 平台',
-  'minimax': 'MiniMax', 'zhipu': '智谱', 'ernie': '文心一言', 'copilot-studio': 'Copilot Studio',
-  'voiceflow': 'Voiceflow',
+  dify: 'Dify',
+  coze: 'Coze',
+  fastgpt: 'FastGPT',
+  flowise: 'Flowise',
+  typebot: 'Typebot',
+  'stack-ai': 'Stack AI',
+  langchain: 'LangChain',
+  llamaindex: 'LlamaIndex',
+  crewai: 'CrewAI',
+  autogen: 'AutoGen',
+  'openai-agent': 'OpenAI Agent',
+  n8n: 'n8n',
+  make: 'Make',
+  'zapier-ai': 'Zapier AI',
+  wordware: 'Wordware',
+  spark: 'Spark',
+  'relevance-ai': 'Relevance AI',
+  cursor: 'Cursor',
+  'github-copilot': 'GitHub Copilot',
+  'claude-code': 'Claude Code',
+  'bolt-new': 'Bolt.new',
+  'v0-dev': 'v0.dev',
+  lovable: 'Lovable',
+  'replit-agent': 'Replit Agent',
+  windsurf: 'Windsurf',
+  devin: 'Devin',
+  manus: 'Manus',
+  'qwen-platform': '通义千问平台',
+  'deepseek-platform': 'DeepSeek 平台',
+  doubao: '豆包',
+  'kimi-platform': 'Kimi 平台',
+  minimax: 'MiniMax',
+  zhipu: '智谱',
+  ernie: '文心一言',
+  'copilot-studio': 'Copilot Studio',
+  voiceflow: 'Voiceflow',
 }
 
 function CellView({ cell, isIhui = false }: { cell: Cell; isIhui?: boolean }) {
   return (
-    <td className={`px-3 py-3 text-center text-sm md:px-4 ${isIhui ? 'bg-primary/5 font-medium' : ''}`}>
+    <td
+      className={`px-3 py-3 text-center text-sm md:px-4 ${isIhui ? 'bg-primary/5 font-medium' : ''}`}
+    >
       <span className="inline-flex items-center gap-1.5">
         {cell.ok === true && <Check className="h-4 w-4 shrink-0 text-green-600" aria-hidden />}
         {cell.ok === false && <X className="h-4 w-4 shrink-0 text-red-600" aria-hidden />}
@@ -163,7 +327,11 @@ export function CompareContent(): React.JSX.Element {
             <Link href="/pricing">立即开始</Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
-            <a href="https://github.com/IHUI-INF-AI/IHUI-AI" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://github.com/IHUI-INF-AI/IHUI-AI"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <Github className="mr-2 h-4 w-4" />
               查看 GitHub
             </a>
