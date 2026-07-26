@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import sys
 import types
 from pathlib import Path
@@ -124,10 +125,10 @@ def stepfun_configured(monkeypatch):
     """配置 stepfun provider(settings 已被 conftest 清空,需重新设置)。"""
     from app.core.config import settings
 
-    monkeypatch.setattr(settings, "stepfun_api_key", "test_stepfun_key")
-    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
-    monkeypatch.setattr(settings, "agnes_api_key", "")
-    monkeypatch.setattr(settings, "agnes_api_base", "")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "stepfun": {"api_key": "test_stepfun_key", "api_base": "https://api.stepfun.com/step_plan/v1"},
+        "agnes": {"api_key": "", "api_base": ""},
+    }))
 
 
 @pytest.fixture
@@ -135,10 +136,10 @@ def agnes_configured(monkeypatch):
     """配置 agnes provider。"""
     from app.core.config import settings
 
-    monkeypatch.setattr(settings, "stepfun_api_key", "")
-    monkeypatch.setattr(settings, "stepfun_api_base", "")
-    monkeypatch.setattr(settings, "agnes_api_key", "test_agnes_key")
-    monkeypatch.setattr(settings, "agnes_api_base", "https://apihub.agnes-ai.com/v1")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "stepfun": {"api_key": "", "api_base": ""},
+        "agnes": {"api_key": "test_agnes_key", "api_base": "https://apihub.agnes-ai.com/v1"},
+    }))
 
 
 @pytest.fixture
@@ -146,10 +147,10 @@ def both_configured(monkeypatch):
     """同时配置两个 provider。"""
     from app.core.config import settings
 
-    monkeypatch.setattr(settings, "stepfun_api_key", "test_stepfun_key")
-    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
-    monkeypatch.setattr(settings, "agnes_api_key", "test_agnes_key")
-    monkeypatch.setattr(settings, "agnes_api_base", "https://apihub.agnes-ai.com/v1")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "stepfun": {"api_key": "test_stepfun_key", "api_base": "https://api.stepfun.com/step_plan/v1"},
+        "agnes": {"api_key": "test_agnes_key", "api_base": "https://apihub.agnes-ai.com/v1"},
+    }))
 
 
 @pytest.fixture
@@ -431,8 +432,10 @@ async def test_image_gen_provider_not_configured(monkeypatch):
     """两个 provider 都无 key → PROVIDER_NOT_CONFIGURED。"""
     from app.core.config import settings
 
-    monkeypatch.setattr(settings, "stepfun_api_key", "")
-    monkeypatch.setattr(settings, "agnes_api_key", "")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "stepfun": {"api_key": ""},
+        "agnes": {"api_key": ""},
+    }))
 
     out = await _tool_image_generation({"prompt": "test", "provider": "stepfun"})
     assert out["ok"] is False
