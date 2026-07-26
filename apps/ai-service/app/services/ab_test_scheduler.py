@@ -95,10 +95,10 @@ class ABTestScheduler:
     """
 
     def __init__(self) -> None:
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
         self._history: list[ABTestHistoryEntry] = []
         self._lock = asyncio.Lock()
-        self._pending_tasks: set[asyncio.Task] = set()
+        self._pending_tasks: set[asyncio.Task[None]] = set()
         # 可注入的决策回调(默认 None,仅 mark_decided 不做 skill 替换)
         self._promote_callback: PromoteCallback | None = None
         self._rollback_callback: RollbackCallback | None = None
