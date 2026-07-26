@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { Loader2 } from 'lucide-react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
 
 import {
@@ -21,7 +19,6 @@ import {
   SelectItem,
   SelectValue,
   Switch,
-// @ts-ignore
 } from '@ihui/ui-react'
 import { STATUS_OPTIONS, STATUS_KEY, selectClassLg } from './helpers'
 import type { AgentForm, Category } from './types'

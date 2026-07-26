@@ -16,9 +16,7 @@ import {
   DialogFooter,
   Checkbox,
 } from '@ihui/ui-react'
-// @ts-ignore - @ihui/types module not resolvable in current tsconfig (transpilePackages only affects runtime, not typecheck)
 import { API_KEY_PERMISSIONS, isValidApiKeyPermission } from '@ihui/types'
-// @ts-ignore - @ihui/types module not resolvable in current tsconfig (transpilePackages only affects runtime, not typecheck)
 import type { ApiKeyPermission } from '@ihui/types'
 import { textareaClass } from './helpers'
 
