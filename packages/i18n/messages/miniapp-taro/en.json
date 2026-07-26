@@ -1,10 +1,5 @@
 {
-  "common": {
-    "loading": "Loading…"
-  },
   "nav": {
-    "courses": "Courses",
-    "live": "Live",
     "profile": "Profile",
     "community": "Community"
   },
@@ -76,7 +71,6 @@
   "course": {
     "learningProgress": "Progress",
     "note": "Notes",
-    "rating": "Rating",
     "share": "Share",
     "teacher": "Instructor",
     "goldTeacher": "Top instructor",
@@ -115,7 +109,6 @@
   "live": {
     "viewers": "{{n}} viewers",
     "preview": "Preview",
-    "empty": "No live sessions",
     "detail": {
       "loadFailed": "Live load failed",
       "loading": "Loading live…",
@@ -193,11 +186,7 @@
   },
   "order": {
     "title": "Orders",
-    "status": {
-      "refunded": "Refunded"
-    },
     "cancel": "Cancel order",
-    "orderNo": "Order No.",
     "loadFailed": "Order load failed",
     "createTime": "Created at",
     "orderType": "Order type",
@@ -840,8 +829,6 @@
       "scoreValue": "{{n}} points",
       "rankValue": "#{{n}} of {{total}}",
       "goList": "View exam list",
-      "correct": "Correct",
-      "wrong": "Wrong",
       "pageTitle": "Exam result",
       "reviewTitle": "Question review",
       "reviewCorrect": "Correct",

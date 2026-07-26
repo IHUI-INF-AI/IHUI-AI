@@ -1,15 +1,7 @@
 {
-  "common": {
-    "loading": "読み込み中…"
-  },
   "nav": {
-    "courses": "コース",
-    "live": "ライブ",
     "profile": "マイページ",
     "agents": "エージェント"
-  },
-  "auth": {
-    "login": "ログイン"
   },
   "home": {
     "welcome": "IHUI AI へようこそ"
@@ -17,8 +9,6 @@
   "course": {
     "title": "コース",
     "studentCount": "{{count}} 人が学習",
-    "rating": "評価",
-    "free": "無料",
     "pay": "¥{{amount}} を支払う",
     "enroll": "今すぐ登録",
     "enrolled": "登録済み",
@@ -80,12 +70,9 @@
       "paid": "支払い済み",
       "cancelled": "キャンセル済み",
       "refunding": "返金中",
-      "refunded": "返金済み",
       "completed": "完了",
       "failed": "失敗"
-    },
-    "empty": "注文なし",
-    "orderNo": "注文番号"
+    }
   },
   "wallet": {
     "points": "ポイント"

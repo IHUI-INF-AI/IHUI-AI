@@ -135,7 +135,8 @@
     "toLogin": "Go to login",
     "username": "Username",
     "usernamePlaceholder": "Please enter your username",
-    "wechatLogin": "WeChat"
+    "wechatLogin": "WeChat",
+    "login": "Log in"
   },
   "chat": {
     "send": "Send"
@@ -183,7 +184,7 @@
     "hint": "Hint",
     "levelLabel": "Level",
     "loadFailed": "Load failed",
-    "loading": "Loading...",
+    "loading": "Loading…",
     "loadingShort": "Loading...",
     "login": "Login",
     "logout": "Logout",
@@ -288,7 +289,9 @@
   "nav": {
     "home": "Home",
     "settings": "Settings",
-    "wallet": "Wallet"
+    "wallet": "Wallet",
+    "live": "Live",
+    "courses": "Courses"
   },
   "routes": {
     "aboutUs": "About Us",
@@ -500,5 +503,25 @@
       "subtitle": "Manage your VIP subscription and renewal",
       "title": "Subscription Management"
     }
+  },
+  "exam": {
+    "result": {
+      "correct": "Correct",
+      "wrong": "Wrong"
+    }
+  },
+  "live": {
+    "empty": "No live sessions"
+  },
+  "course": {
+    "free": "Free",
+    "rating": "Rating"
+  },
+  "order": {
+    "empty": "No orders",
+    "status": {
+      "refunded": "Refunded"
+    },
+    "orderNo": "Order No."
   }
 }

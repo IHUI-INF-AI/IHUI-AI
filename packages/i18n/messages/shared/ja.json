@@ -135,7 +135,8 @@
     "toLogin": "ログインへ",
     "username": "ユーザー名",
     "usernamePlaceholder": "ユーザー名を入力してください",
-    "wechatLogin": "WeChat"
+    "wechatLogin": "WeChat",
+    "login": "ログイン"
   },
   "chat": {
     "send": "送信"
@@ -183,7 +184,7 @@
     "hint": "ヒント",
     "levelLabel": "レベル",
     "loadFailed": "読み込みに失敗しました",
-    "loading": "読み込み中...",
+    "loading": "読み込み中…",
     "loadingShort": "読み込み中...",
     "login": "ログイン",
     "logout": "ログアウト",
@@ -288,7 +289,9 @@
   "nav": {
     "home": "ホーム",
     "settings": "設定",
-    "wallet": "ウォレット"
+    "wallet": "ウォレット",
+    "live": "ライブ",
+    "courses": "コース"
   },
   "routes": {
     "aboutUs": "私たちについて",
@@ -500,5 +503,25 @@
       "subtitle": "VIP サブスクリプションと更新を管理",
       "title": "サブスクリプション管理"
     }
+  },
+  "exam": {
+    "result": {
+      "correct": "正解",
+      "wrong": "不正解"
+    }
+  },
+  "live": {
+    "empty": "ライブなし"
+  },
+  "course": {
+    "free": "無料",
+    "rating": "評価"
+  },
+  "order": {
+    "empty": "注文なし",
+    "status": {
+      "refunded": "返金済み"
+    },
+    "orderNo": "注文番号"
   }
 }
