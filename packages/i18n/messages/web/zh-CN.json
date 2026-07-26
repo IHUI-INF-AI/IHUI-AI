@@ -1469,7 +1469,14 @@
           "prevPage": "上一页",
           "pageInfo": "第 {page} / {totalPages} 页",
           "nextPage": "下一页",
-          "type": "类型"
+          "type": {
+            "study": "学习",
+            "exam": "考试",
+            "live": "直播",
+            "offline": "线下",
+            "other": "其他",
+            "unknown": "未知"
+          }
         },
         "ranking": {
           "title": "学习排行",
@@ -1491,7 +1498,12 @@
           "prevPage": "上一页",
           "pageInfo": "第 {page} / {totalPages} 页",
           "nextPage": "下一页",
-          "period": "周期"
+          "period": {
+            "week": "本周",
+            "month": "本月",
+            "total": "全部",
+            "unknown": "未知"
+          }
         },
         "recorded": {
           "title": "课程视频",

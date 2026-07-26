@@ -2,7 +2,8 @@
 
 import type { Locale, Messages } from './types'
 
-export function getValueByPath(obj: unknown, path: string): string | undefined {
+/** 按点分路径查找原始值(支持 string / 对象 / 数组等任意类型) */
+export function getValueByPath(obj: unknown, path: string): unknown {
   if (!obj || typeof obj !== 'object') return undefined
   const parts = path.split('.')
   let current: unknown = obj
@@ -13,7 +14,7 @@ export function getValueByPath(obj: unknown, path: string): string | undefined {
       return undefined
     }
   }
-  return typeof current === 'string' ? current : undefined
+  return current
 }
 
 export interface TranslateOptions {
@@ -26,7 +27,7 @@ export function translate(messages: Messages, key: string, options?: TranslateOp
   if (value === undefined && options?.fallback) {
     value = getValueByPath(options.fallback, key)
   }
-  if (value === undefined) return key
+  if (typeof value !== 'string') return key
   if (!options?.params) return value
   const params = options.params
   return value
@@ -40,9 +41,18 @@ export function translate(messages: Messages, key: string, options?: TranslateOp
     })
 }
 
-export function resolveList(messages: Messages, key: string): string[] {
+export function resolveList(messages: Messages, key: string, fallback?: Messages): string[] {
   const value = getValueByPath(messages, key)
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+  if (Array.isArray(value)) {
+    return value.filter((v): v is string => typeof v === 'string')
+  }
+  if (fallback) {
+    const fb = getValueByPath(fallback, key)
+    if (Array.isArray(fb)) {
+      return fb.filter((v): v is string => typeof v === 'string')
+    }
+  }
+  return []
 }
 
 export function mergeMessages(base: Messages, override: Messages): Messages {
