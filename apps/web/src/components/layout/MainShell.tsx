@@ -65,7 +65,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       <div
         data-tauri-drag-region
         data-is-desktop={isDesktop ? 'true' : 'false'}
-        className="flex h-[44px] shrink-0 items-center gap-2 px-2 select-none"
+        className="flex h-[36px] shrink-0 items-center gap-2 select-none"
       >
         <React.Suspense fallback={null}>
           {/* 包装层:flex-1 让 TagsView 占满中间区域,与右侧按钮同一排 */}
