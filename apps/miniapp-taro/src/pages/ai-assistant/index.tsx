@@ -218,7 +218,8 @@ export default function AiAssistantPage() {
         <View className="w-[80rpx]" />
       </View>
 
-      <ScrollView scrollY className="flex-1 px-[40rpx]" scrollTop={scrollTop}>
+      <ScrollView scrollY className="flex-1" scrollTop={scrollTop}>
+        <View className="px-[40rpx]">
         <View
           className="flex items-center py-[32rpx] mb-[24rpx] bg-card rounded-lg px-[32rpx]"
           onClick={() => setTishiShow((v) => !v)}
@@ -305,6 +306,7 @@ export default function AiAssistantPage() {
             </View>
           ))
         )}
+        </View>
       </ScrollView>
 
       {thinking ? (

@@ -250,7 +250,8 @@ export default function SpecialModelsPage() {
       ) : null}
 
       {/* 分类 Tab */}
-      <ScrollView scrollX className="whitespace-nowrap px-[24rpx] mb-[16rpx]" enhanced showScrollbar={false}>
+      <ScrollView scrollX className="whitespace-nowrap mb-[16rpx]" enhanced showScrollbar={false}>
+        <View className="whitespace-nowrap px-[24rpx]">
         {categories.map((c) => {
           const active = activeCategory === c.key
           return (
@@ -268,6 +269,7 @@ export default function SpecialModelsPage() {
             </View>
           )
         })}
+        </View>
       </ScrollView>
 
       {/* 应用列表 */}
