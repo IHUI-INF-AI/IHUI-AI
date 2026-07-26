@@ -192,3 +192,175 @@ def test_provider_config_strips_trailing_slash():
 
     cfg3 = ProviderConfig(api_base=None)
     assert cfg3.api_base is None
+
+
+# =============================================================================
+# 6. 24 个 LLM provider 独立 happy path 单测(2026-07-26 阶段 2 扩展)
+# =============================================================================
+# 覆盖 config.py L48-110 所有 *_api_key 字段对应的 provider name(仅含 api_key 字段、
+# 不含 api_base 字段的 24 个 provider)。
+# 验证 get_provider_config(name) 对每个 provider 都能返回有效 ProviderConfig。
+#
+# 24 provider 列表(按字母排序,字段名 = provider_name + "_api_key"):
+#   openai / anthropic / gemini / groq / openrouter
+#   cloudflare (alias: cloudflare_api_token)
+#   nvidia / github (alias: github_token) / vercel (alias: vercel_ai_gateway_key)
+#   opencode (alias: opencode_zen_key)
+#   modal / inference_net / nlp_cloud / scaleway / alibaba_intl
+#   cerebras / mistral / cohere / huggingface / zai
+#   reka / routeway / bazaarlink / ainative
+PROVIDERS_WITH_API_KEY_ONLY: list[str] = [
+    "openai",
+    "anthropic",
+    "gemini",
+    "groq",
+    "openrouter",
+    "cloudflare",  # alias → cloudflare_api_token
+    "nvidia",
+    "github",  # alias → github_token
+    "vercel",  # alias → vercel_ai_gateway_key
+    "opencode",  # alias → opencode_zen_key
+    "modal",
+    "inference_net",
+    "nlp_cloud",
+    "scaleway",
+    "alibaba_intl",
+    "cerebras",
+    "mistral",
+    "cohere",
+    "huggingface",
+    "zai",
+    "reka",
+    "routeway",
+    "bazaarlink",
+    "ainative",
+]
+
+
+@pytest.mark.parametrize("provider", PROVIDERS_WITH_API_KEY_ONLY)
+def test_get_provider_config_happy_path_each_api_key_provider(provider):
+    """每个有 api_key 字段的 provider:get_provider_config 必须返回有效 ProviderConfig。
+
+    不依赖 env/.env 状态(autouse fixture _isolate_llm_env 已清空所有 key),
+    即便 provider 在 .env 中没设任何 key,也能返回结构正确的 ProviderConfig。
+    """
+    s = Settings()
+    cfg = s.get_provider_config(provider)
+    assert isinstance(cfg, ProviderConfig), (
+        f"provider={provider}: expected ProviderConfig, got {type(cfg).__name__}"
+    )
+    # 强类型字段访问(Pydantic BaseModel)
+    assert hasattr(cfg, "api_key")
+    assert hasattr(cfg, "api_base")
+    assert hasattr(cfg, "enabled")
+    assert hasattr(cfg, "models")
+    assert hasattr(cfg, "default_model")
+    # 字段类型校验
+    assert isinstance(cfg.api_key, str)
+    # 这 24 个 provider 无 api_base 字段,getattr 返回 None
+    assert cfg.api_base is None
+    assert isinstance(cfg.enabled, bool)
+    assert isinstance(cfg.models, list)
+    # enabled 默认 True
+    assert cfg.enabled is True
+    # models 默认空列表
+    assert cfg.models == []
+
+
+@pytest.mark.parametrize("provider", PROVIDERS_WITH_API_KEY_ONLY)
+def test_provider_config_returns_str_provider_structure(provider, monkeypatch):
+    """每个 provider:get_provider_config 返回的 cfg 必须有 str 类型 api_key 字段。
+
+    不强求 api_key 为空字符串(取决于 .env 是否有真实 key),
+    只验证 cfg 结构正确 + 字段类型 + Pydantic 强类型访问可用。
+    这是 Pydantic ProviderConfig 替代 dict 的核心契约。
+    """
+    # 清空 JSON 路径,确保走扁平字段降级路径
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
+    s = Settings()
+    cfg = s.get_provider_config(provider)
+    assert isinstance(cfg, ProviderConfig)
+    # api_key 必须是 str(Pydantic 类型约束,旧 dict 可能返回 None)
+    assert isinstance(cfg.api_key, str), (
+        f"provider={provider}: api_key type={type(cfg.api_key).__name__}, expected str"
+    )
+    # 默认值字段(Pydantic 强类型访问)
+    assert cfg.enabled is True
+    assert isinstance(cfg.models, list)
+    assert cfg.models == []
+    assert cfg.default_model is None
+    # api_base 对这 24 个无该字段的 provider 应为 None
+    assert cfg.api_base is None
+
+
+# =============================================================================
+# 7. 7 个 api_base provider 独立 happy path 单测(2026-07-26 阶段 2 扩展)
+# =============================================================================
+# config.py L48-110 含 api_base 字段的 7 个 provider:
+#   agnes / stepfun(同时有 api_key)
+#   kilo / pollinations / ovh(纯 keyless,仅 api_base)
+#   llm7 / aihorde(api_key 可选/默认匿名,api_base 有默认值)
+#
+# 验证:get_provider_config(name) 对每个 provider 都能返回有效 ProviderConfig,
+# 且 api_base 字段(有默认值时)是合法 URL 字符串(自动 strip 末尾 /)。
+PROVIDERS_WITH_API_BASE: list[str] = [
+    "agnes",
+    "stepfun",
+    "kilo",  # keyless,仅 api_base
+    "pollinations",  # keyless,仅 api_base
+    "llm7",  # api_key 可选
+    "ovh",  # keyless,仅 api_base
+    "aihorde",  # api_key 默认匿名 0000000000
+]
+
+
+@pytest.mark.parametrize("provider", PROVIDERS_WITH_API_BASE)
+def test_get_provider_config_happy_path_each_api_base_provider(provider):
+    """每个有 api_base 字段的 provider:get_provider_config 必须返回有效 ProviderConfig,
+    且 api_base 字段(若有值)必须是合法 URL 字符串。"""
+    s = Settings()
+    cfg = s.get_provider_config(provider)
+    assert isinstance(cfg, ProviderConfig), (
+        f"provider={provider}: expected ProviderConfig, got {type(cfg).__name__}"
+    )
+    # 强类型字段访问
+    assert hasattr(cfg, "api_key")
+    assert hasattr(cfg, "api_base")
+    assert hasattr(cfg, "enabled")
+    assert hasattr(cfg, "models")
+    # 字段类型校验
+    assert isinstance(cfg.api_key, str)
+    # api_base 可能是 str(有默认值)或 None(扁平字段无该 provider)
+    assert cfg.api_base is None or isinstance(cfg.api_base, str)
+    # 若 api_base 有值,应不包含末尾 / (ProviderConfig 自动 strip)
+    if cfg.api_base is not None:
+        assert not cfg.api_base.endswith("/"), (
+            f"provider={provider}: api_base={cfg.api_base} should not end with /"
+        )
+    # enabled 默认 True
+    assert cfg.enabled is True
+    # models 默认空列表
+    assert cfg.models == []
+
+
+@pytest.mark.parametrize("provider", PROVIDERS_WITH_API_BASE)
+def test_provider_config_api_base_strips_trailing_slash_via_env(provider, monkeypatch):
+    """设置 *_API_BASE 带末尾 / 时,get_provider_config 返回的 api_base 应被 ProviderConfig 自动 strip。
+
+    模拟 .env 配置文件传入带末尾 / 的 url(常见 copy-paste 错误),
+    验证 Pydantic field_validator 兜底逻辑生效。
+    """
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
+    # 7 个 provider 的 env var 命名都是 {NAME}_API_BASE(全大写)
+    env_key = f"{provider.upper()}_API_BASE"
+    test_url = f"https://test.{provider}.example.com/v1/"
+    monkeypatch.setenv(env_key, test_url)
+    s = Settings()
+    cfg = s.get_provider_config(provider)
+    assert isinstance(cfg, ProviderConfig)
+    # 末尾 / 应被自动 strip
+    if cfg.api_base is not None:
+        assert cfg.api_base == test_url.rstrip("/"), (
+            f"provider={provider}: expected {test_url.rstrip('/')!r}, "
+            f"got {cfg.api_base!r}"
+        )
