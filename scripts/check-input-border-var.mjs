@@ -46,11 +46,11 @@ function getTargetFiles() {
       process.exit(2)
     }
   }
-  // 全量模式: 递归扫描 apps/web/src + packages/ui/src + apps/web/app + src/styles
+  // 全量模式: 递归扫描 apps/web/src + packages/ui/src + apps/web/app
   const roots = [
     'apps/web/src',
     'apps/web/app',
-    'apps/web/src/styles',
+    // 注:apps/web/src/styles 已被 apps/web/src 递归覆盖,不再单独列出(避免双重扫描导致 violations 翻倍)
     'packages/ui/src',
   ]
   const files = []
