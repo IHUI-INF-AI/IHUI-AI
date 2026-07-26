@@ -100,3 +100,29 @@ export { AuthShell, AuthShellCompact } from './components/auth-shell'
 export type { AuthShellProps } from './components/auth-shell'
 // AuthShell 共享样式(单一来源,web + extension globals.css 都 @import 这份)
 import './styles/auth-shell.css'
+// 共享 LoginForm 组件(2026-07-26 立,web + extension 共用同一份登录表单)
+export {
+  LoginForm,
+  PasswordLoginForm,
+  EmailCodeLoginForm,
+  PhoneCodeLoginForm,
+  QrCodeLogin,
+  ThirdPartyLoginButtons,
+  AgreementCheckbox,
+  AgreementNoticeDialog,
+  PasswordInput as SharedPasswordInput,
+  OtpInput,
+  Alert as SharedAlert,
+} from './components/login-form'
+export type {
+  LoginFormProps,
+  LoginTab,
+  ThirdPartyPlatform,
+  LoginResult,
+  LoginApiClient,
+  ThirdPartyProvider,
+  ThirdPartyConfig,
+  TFunc,
+} from './components/login-form'
+// LoginForm 共享样式
+import './styles/login-form.css'
