@@ -107,6 +107,15 @@ const PAGES: Array<{
   { path: '/compare/ihui-vs-stack-ai', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/compare/ihui-vs-wordware', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/compare/ihui-vs-voiceflow', changeFrequency: 'monthly', priority: 0.85 },
+  // 2026-07-26 阶段 9 新增:AI 编程助手 8 个(2025-2026 现象级,搜索量极高)
+  { path: '/compare/ihui-vs-claude-code', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-cursor', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-github-copilot', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-windsurf', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-bolt-new', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-replit-agent', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-lovable', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/compare/ihui-vs-v0-dev', changeFrequency: 'monthly', priority: 0.85 },
 
   // SEO 长尾 — 行业用例(2026-07-26 极端曝光度优化)
   // 高频场景搜索:AI 客服 / 企业知识库 / AI 代码助手 / AI 内容创作
