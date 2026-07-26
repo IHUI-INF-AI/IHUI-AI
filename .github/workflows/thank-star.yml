@@ -1,0 +1,85 @@
+name: Thank New Stargazers
+
+on:
+  watch:
+    types: [started]
+
+jobs:
+  thank:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create thank you issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const stargazer = context.actor;
+            const repo = context.repo.repo;
+            const owner = context.repo.owner;
+            
+            // 检查是否已经感谢过这个用户
+            const issues = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              labels: ['thank-you', `star-${stargazer}`],
+              state: 'all'
+            });
+            
+            if (issues.data.length > 0) {
+              console.log(`Already thanked ${stargazer}, skipping.`);
+              return;
+            }
+            
+            // 创建感谢 Issue
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title: `⭐ 感谢 @${stargazer} 的 Star!`,
+              body: `## 谢谢你的 Star ⭐
+              
+              @${stargazer},感谢你 Star 了 IHUI-AI!
+              
+              你的支持是我们持续迭代的动力。
+              
+              ### 接下来你可以
+              
+              - 📖 阅读 [README](https://github.com/${owner}/${repo}#readme) 了解项目全貌
+              - 🚀 按 [快速开始](https://github.com/${owner}/${repo}#快速开始) 本地启动
+              - 💬 在 [Discussions](https://github.com/${owner}/${repo}/discussions) 参与讨论
+              - 🐛 在 [Issues](https://github.com/${owner}/${repo}/issues) 反馈建议
+              - 🌐 访问 [官网](https://ihui.ai) 体验在线版
+              - 💰 查看 [定价方案](https://ihui.ai/pricing) 升级 Pro
+              
+              ### 社区
+              
+              - 邮箱:502319984@qq.com
+              - 微信:ok502319984
+              
+              ---
+              
+              *这是自动生成的感谢消息。如果你不想收到这类通知,可以 unsubscribe 这个 Issue。*
+              `,
+              labels: ['thank-you', `star-${stargazer}`]
+            });
+            
+            console.log(`Created thank you issue for ${stargazer}`);
+      - name: Create label if not exists
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'thank-you'
+              });
+            } catch (e) {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'thank-you',
+                color: 'ffeb3b',
+                description: '自动感谢 Star 用户'
+              });
+            }
