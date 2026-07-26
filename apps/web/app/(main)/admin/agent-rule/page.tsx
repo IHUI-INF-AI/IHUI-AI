@@ -1,19 +1,14 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { useRouter } from 'next/navigation'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-// @ts-ignore
 import { toast } from 'sonner'
-// @ts-ignore
 import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-// @ts-ignore
 import { Button } from '@ihui/ui-react'
 
 import { AgentRuleFilter } from './AgentRuleFilter'
