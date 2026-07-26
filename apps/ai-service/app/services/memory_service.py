@@ -814,7 +814,7 @@ class MemoryService:
     async def save_insights_from_conversation(
         self,
         user_id: str,
-        messages: list,
+        messages: list[Any],
         session_id: str | None = None,
     ) -> None:
         """LangGraph memory_save 节点:用 LLM 从对话中提取 preference/decision/feedback 三类记忆,批量保存到 API。

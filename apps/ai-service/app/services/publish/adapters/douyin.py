@@ -33,7 +33,7 @@ class DouyinAdapter(BasePlatformAdapter):
     supported_formats = ["video"]
     requires_credentials = ["access_token", "open_id", "client_key", "client_secret"]
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         access_token = credentials.get("access_token", "").strip()
         open_id = credentials.get("open_id", "").strip()
         client_key = credentials.get("client_key", "").strip()
@@ -70,7 +70,7 @@ class DouyinAdapter(BasePlatformAdapter):
             return False, f"verify failed: {data}"
         return True, "connected"
 
-    async def _upload_video(self, token: str, open_id: str, video_path: str) -> tuple[bool, str, dict]:
+    async def _upload_video(self, token: str, open_id: str, video_path: str) -> tuple[bool, str, dict[str, Any]]:
         """上传视频,返回 (ok, video_id_or_error, payload)。"""
         p = Path(video_path)
         if not p.is_file():
@@ -143,8 +143,8 @@ class DouyinAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         if content.format != "video":
             return PublishResult(
