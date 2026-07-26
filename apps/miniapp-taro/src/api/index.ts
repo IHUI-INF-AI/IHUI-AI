@@ -145,8 +145,18 @@ export interface Live {
 }
 
 /** 直播列表 */
-export const getLiveList = (params?: { page?: number; pageSize?: number; status?: string }) =>
-  get<{ list: Live[]; total: number }>('/live/list', params)
+export const getLiveList = (params?: { page?: number; pageSize?: number; status?: string }) => {
+  // 后端 /live/list 的 status 查询参数是数字(频道状态 0/1),不接受字符串 'upcoming'/'living'/'ended'
+  // 改用 isLive 布尔筛选等价语义:
+  //   'living' → isLive=true(直播中)
+  //   'upcoming'/'ended' → isLive=false(非直播中,含预告和回放)
+  //   '' / undefined → 不传(返回所有)
+  const { status, ...rest } = params || {}
+  const query: Record<string, unknown> = { ...rest }
+  if (status === 'living') query.isLive = true
+  else if (status === 'upcoming' || status === 'ended') query.isLive = false
+  return get<{ list: Live[]; total: number }>('/live/list', query)
+}
 
 /** 直播详情 */
 export const getLiveDetail = (id: string | number) => get<Live>(`/live/${id}`)
