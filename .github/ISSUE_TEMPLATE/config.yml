@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 文档
+    url: https://ihui.ai/docs
+    about: 查阅官方文档与快速开始指南
+  - name: 💬 社区讨论
+    url: https://github.com/IHUI-INF-AI/IHUI-AI/discussions
+    about: 提问与社区交流请使用 Discussions
+  - name: 🔒 安全漏洞
+    url: https://github.com/IHUI-INF-AI/IHUI-AI/security/advisories/new
+    about: 安全漏洞请私密报告,勿在 Issue 公开
+  - name: 🏢 企业咨询
+    url: https://ihui.ai/enterprise
+    about: 私有化部署与企业版咨询
