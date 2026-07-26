@@ -12,10 +12,14 @@
  * 重构历史(2026-07-26):
  *   v1 (commit ee84f416d): warn-only + scope 与 staged 文件领域匹配 → 30 commit 验证发现
  *   100% 误报率(scope 语义与文件领域假设不成立)+ 0% 召回率(seo 在白名单放过 c3c864131)。
- *   v2 (本次重构): warn-only → blocking + scope 匹配 → 污染特征签名(3 条规则)。
+ *   v2 (commit ee84f416d+1): warn-only → blocking + scope 匹配 → 污染特征签名(3 条规则)。
  *   30 commit 回归验证:0 误报 0 漏检,c3c864131 被 R1+R2 双重拦截。
+ *   v2.1 (本次优化,基于 50 commit 审计报告):
+ *     - 误报修复:scope=multi 加入白名单(多任务聚合 commit 合法)
+ *     - 漏检修复:新增 R4(2 apps + scope 严重不匹配,覆盖 8099029e5 / 5a82c1408 模式)
+ *     - 体验改进:detectPollution 返回多规则命中(rules 数组),主流程打印所有命中规则
  *
- * 检测逻辑(3 条污染特征签名,满足任一即 blocking):
+ * 检测逻辑(4 条污染特征签名,满足任一即 blocking):
  *
  *   R1 (§25 硬违规): staged 含 apps 下 verify-*.mjs 文件
  *     依据:AGENTS.md §25 严禁 apps 源码根目录 verify-*.mjs 提交,出现即违规
@@ -32,12 +36,21 @@
  *     依据:≥3 端的 commit 通常是聚合交付,scope 应匹配某一端;不匹配即疑似污染
  *     覆盖:理论上 c3c864131 若无 verify/i18n 也会被 R3 拦截(实际已被 R1+R2 拦截)
  *     跳过:scope === null (无 scope 的聚合 commit,如 chore: 技术债批次,合法)
- *     跳过:scope 在 CROSS_CUTTING_SCOPES (security/deps/ci 等跨切关注点,合法跨端)
+ *     跳过:scope 在 CROSS_CUTTING_SCOPES (security/deps/ci/multi 等跨切关注点,合法跨端)
  *     跳过:scope 在 apps 子目录集合 (如 feat(web) + web + api + scripts,scope 匹配)
  *
- * 跨切关注点白名单(仅 R3 跳过,R1/R2 不跳过):
- *   security, deps, chore, config, ci, build, release, hotfix, monorepo, infra
+ *   R4 (2 端 + scope 严重不匹配,2026-07-26 立): staged 涉及 2 个不同 apps/<subdir>
+ *      + scope 显式声明 + scope 是端名(在 APP_AREAS)+ scope 对应端文件占比 < 30%
+ *     依据:scope 声明某端但该端文件占比极低,说明 scope 被滥用混入其他端改动
+ *     覆盖:8099029e5 / 5a82c1408 (2 apps + scope 严重不匹配,R3 阈值未到漏检)
+ *     跳过:scope === null (无 scope 不判)
+ *     跳过:scope 不在 APP_AREAS (非端名 scope,如 p2/p3/seo 等任务编号或业务领域)
+ *     跳过:scope 在 appsSubdirs 且占比 ≥ 30% (scope 端是主要改动端,合法)
+ *
+ * 跨切关注点白名单(R3/R4 跳过,R1/R2 不跳过):
+ *   security, deps, chore, config, ci, build, release, hotfix, monorepo, infra, multi
  *   (注:'seo' 已移除 — c3c864131 事故证明 seo scope 可被滥用)
+ *   (注:'multi' 2026-07-26 新增 — 多任务聚合 commit 合法,误报修复)
  *
  * 退出码:
  *   0 — 通过(无污染特征 或 无 scope 或 无 staged 文件)
@@ -106,8 +119,9 @@ const APP_AREAS = new Set([
   'cli',
 ])
 
-// ─── 配置:跨切关注点白名单(仅 R3 跳过,R1/R2 不跳过) ──────
+// ─── 配置:跨切关注点白名单(R3/R4 跳过,R1/R2 不跳过) ──────
 // 注:'seo' 已移除 — c3c864131 事故证明 seo scope 可被滥用混入 i18n/verify 污染
+// 注:'multi' 2026-07-26 新增 — 多任务聚合 commit (feat(multi): ...) 合法,误报修复
 const CROSS_CUTTING_SCOPES = new Set([
   'security',
   'deps',
@@ -119,7 +133,13 @@ const CROSS_CUTTING_SCOPES = new Set([
   'hotfix',
   'monorepo',
   'infra',
+  'multi', // 2026-07-26 新增:多任务聚合 commit 合法
 ])
+
+// ─── 配置:R4 触发阈值 ─────────────────────────────────────
+// scope 对应端文件数 / 总 apps 文件数 < R4_SCOPE_RATIO_THRESHOLD → 触发 R4
+// 30%:scope 声明的端文件占比 < 30%,说明 scope 被滥用混入其他端改动
+const R4_SCOPE_RATIO_THRESHOLD = 0.3
 
 // ─── 工具函数 ─────────────────────────────────────────────
 
@@ -143,13 +163,21 @@ export function inferArea(file) {
 /**
  * 解析 commit message,提取 type 和 scope
  * 支持格式: <type>(<scope>): <subject>  或  <type>: <subject>
+ *
+ * BOM 鲁棒性(2026-07-26 立):
+ *   git log 输出在某些环境下首字符含 BOM(U+FEFF),会导致正则 /^([a-z]+).../ 不匹配。
+ *   入口去除 BOM,确保 BOM 残留 commit 也能正确解析 scope。
+ *   影响 commit:d92f9560 / 832742c4 / eebf68c9(均已验证不影响 v2.1 准确率,本修复为防御性)。
+ *
  * @param {string} message - commit message 文本(可含多行,取第一行)
  * @returns {{type: string|null, scope: string|null, subject: string|null}}
  */
 export function parseCommitMessage(message) {
   if (!message) return { type: null, scope: null, subject: null }
+  // 去除 BOM(U+FEFF),防御 git log 输出残留
+  const cleaned = message.replace(/^\uFEFF/, '')
   // 取第一行,去掉注释行(git commit 模板可能含 # 开头注释)
-  const lines = message.split('\n')
+  const lines = cleaned.split('\n')
   const firstLine = lines.find((l) => l.trim() && !l.trim().startsWith('#')) || ''
   // 匹配 <type>(<scope>): <subject>  或  <type>: <subject>
   const match = firstLine.match(/^([a-z]+)(?:\(([^)]+)\))?:\s*(.+)$/)
@@ -177,9 +205,14 @@ function isForbiddenVerifyFile(file) {
 
 /**
  * 检测 staged 文件清单是否含污染特征签名
+ *
+ * 返回 rules 数组(命中规则列表,按优先级 R1 > R2 > R3 > R4 排序),
+ * 同时保留 rule 字段(最高优先级命中规则,向后兼容)。
+ * 主流程可读取 rules 数组打印所有命中规则,提供更全面的反馈。
+ *
  * @param {string[]} staged - staged 文件相对路径数组(正斜杠)
  * @param {string|null} scope - commit message 解析出的 scope(可为 null)
- * @returns {{block: boolean, rule: string|null, reason: string, areas: Map, appsSubdirs: Set, hasVerifyFiles: boolean, hasI18nFiles: boolean}}
+ * @returns {{block: boolean, rule: string|null, rules: string[], reasons: string[], reason: string, areas: Map, appsSubdirs: Set, hasVerifyFiles: boolean, hasI18nFiles: boolean}}
  */
 export function detectPollution(staged, scope) {
   // 推断 staged 文件涉及的领域集合
@@ -197,41 +230,65 @@ export function detectPollution(staged, scope) {
   const hasVerifyFiles = staged.some((f) => isForbiddenVerifyFile(f))
   const hasI18nFiles = staged.some((f) => f.startsWith('packages/i18n/messages/'))
 
+  // 多规则命中收集(按优先级顺序)
+  const rules = []
+  const reasons = []
+
   // R1: §25 硬违规 — 含 apps 下 verify-*.mjs 临时验证文件(scripts/ 豁免)
   if (hasVerifyFiles) {
     const verifyFiles = staged.filter((f) => isForbiddenVerifyFile(f))
-    return {
-      block: true,
-      rule: 'R1',
-      reason: `含 ${verifyFiles.length} 个 verify-*.mjs 临时验证文件 (§25 硬违规): ${verifyFiles.slice(0, 3).join(', ')}${verifyFiles.length > 3 ? '...' : ''}`,
-      areas,
-      appsSubdirs,
-      hasVerifyFiles,
-      hasI18nFiles,
-    }
+    rules.push('R1')
+    reasons.push(
+      `含 ${verifyFiles.length} 个 verify-*.mjs 临时验证文件 (§25 硬违规): ${verifyFiles.slice(0, 3).join(', ')}${verifyFiles.length > 3 ? '...' : ''}`,
+    )
   }
 
   // R2: i18n 污染签名 — i18n 文件 + scope != 'i18n'
   if (hasI18nFiles && scope !== 'i18n') {
     const i18nFiles = staged.filter((f) => f.startsWith('packages/i18n/messages/'))
-    return {
-      block: true,
-      rule: 'R2',
-      reason: `i18n 文件 ${i18nFiles.length} 个 + scope="${scope}" != "i18n" (疑似 git add -A 混入)`,
-      areas,
-      appsSubdirs,
-      hasVerifyFiles,
-      hasI18nFiles,
-    }
+    rules.push('R2')
+    reasons.push(
+      `i18n 文件 ${i18nFiles.length} 个 + scope="${scope}" != "i18n" (疑似 git add -A 混入)`,
+    )
   }
 
   // R3: 跨端污染签名 — ≥3 个 apps 子目录 + scope 显式声明 + scope 不在 apps 子目录 + scope 非跨切关注点
-  const skipR3 = scope === null || CROSS_CUTTING_SCOPES.has(scope)
-  if (!skipR3 && appsSubdirs.size >= 3 && !appsSubdirs.has(scope)) {
+  const skipR3R4 = scope === null || CROSS_CUTTING_SCOPES.has(scope)
+  if (!skipR3R4 && appsSubdirs.size >= 3 && !appsSubdirs.has(scope)) {
+    rules.push('R3')
+    reasons.push(
+      `${appsSubdirs.size} 个 apps 子目录 [${Array.from(appsSubdirs).join(', ')}] + scope="${scope}" 不在其中 (疑似跨端污染)`,
+    )
+  }
+
+  // R4: 2 端 + scope 严重不匹配(2026-07-26 立)
+  // 触发条件:appsSubdirs.size === 2 + scope 显式声明 + scope 是端名(在 APP_AREAS)
+  //          + scope 对应端文件占比 < 30%(或 scope 端根本不在 appsSubdirs)
+  // 依据:R3 阈值 ≥3 漏检 2 端场景;scope 声明某端但该端文件占比极低 → scope 被滥用
+  if (!skipR3R4 && appsSubdirs.size === 2 && scope && APP_AREAS.has(scope)) {
+    const totalAppsFiles = Array.from(appsSubdirs).reduce(
+      (sum, app) => sum + (areas.get(app) || 0),
+      0,
+    )
+    const scopeAppFiles = areas.get(scope) || 0
+    // scope 端不在 appsSubdirs(占比 0)或占比 < 阈值
+    const scopeRatio = totalAppsFiles > 0 ? scopeAppFiles / totalAppsFiles : 0
+    if (scopeRatio < R4_SCOPE_RATIO_THRESHOLD) {
+      rules.push('R4')
+      reasons.push(
+        `2 个 apps 子目录 [${Array.from(appsSubdirs).join(', ')}] + scope="${scope}" 文件占比 ${(scopeRatio * 100).toFixed(1)}% < ${(R4_SCOPE_RATIO_THRESHOLD * 100).toFixed(0)}% (疑似跨端污染,R3 阈值未到)`,
+      )
+    }
+  }
+
+  // 返回结果(多规则命中 + 向后兼容的 rule/reason 字段)
+  if (rules.length > 0) {
     return {
       block: true,
-      rule: 'R3',
-      reason: `${appsSubdirs.size} 个 apps 子目录 [${Array.from(appsSubdirs).join(', ')}] + scope="${scope}" 不在其中 (疑似跨端污染)`,
+      rule: rules[0], // 最高优先级规则(向后兼容)
+      rules, // 所有命中规则数组
+      reason: reasons[0], // 最高优先级原因(向后兼容)
+      reasons, // 所有命中原因数组
       areas,
       appsSubdirs,
       hasVerifyFiles,
@@ -242,7 +299,9 @@ export function detectPollution(staged, scope) {
   return {
     block: false,
     rule: null,
+    rules: [],
     reason: '通过',
+    reasons: [],
     areas,
     appsSubdirs,
     hasVerifyFiles,
@@ -308,7 +367,15 @@ function main() {
       `${C.dim}依据: 多 agent 并行时 git add -A 可能混入其他 agent 改动(AGENTS.md §16)${C.reset}`,
     )
     console.log('')
-    console.log(`${C.red}规则 ${result.rule}: ${result.reason}${C.reset}`)
+    // 打印所有命中规则(多规则命中时全部显示,提供更全面的反馈)
+    if (result.rules.length > 1) {
+      console.log(`${C.bold}命中 ${result.rules.length} 条规则:${C.reset}`)
+      for (let i = 0; i < result.rules.length; i++) {
+        console.log(`${C.red}  规则 ${result.rules[i]}: ${result.reasons[i]}${C.reset}`)
+      }
+    } else {
+      console.log(`${C.red}规则 ${result.rule}: ${result.reason}${C.reset}`)
+    }
     console.log('')
     console.log(`${C.bold}Commit message:${C.reset} ${type}${scope ? `(${scope})` : ''}: ${subject}`)
     console.log(`${C.bold}Staged 文件领域分布:${C.reset}`)
