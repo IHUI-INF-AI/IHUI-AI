@@ -74,12 +74,19 @@ export default function AiCareer() {
       <View className="p-[24rpx]">
         {loading ? (
           <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">{t('common.loading')}</Text>
+            <Text className="text-center text-muted-foreground text-[26rpx]">
+              {t('common.loading')}
+            </Text>
           </View>
         ) : error ? (
           <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">{tt('aiCareer.loadFailed', '加载失败')}</Text>
-            <View className="mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[26rpx]" onClick={loadData}>
+            <Text className="text-center text-muted-foreground text-[26rpx]">
+              {tt('aiCareer.loadFailed', '加载失败')}
+            </Text>
+            <View
+              className="mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[26rpx]"
+              onClick={loadData}
+            >
               <Text>{t('common.retry')}</Text>
             </View>
           </View>
@@ -93,18 +100,35 @@ export default function AiCareer() {
               const tags = extractTags(name, desc)
               const uses = Number(item.uses || 0)
               return (
-                <View key={id} className="p-[24rpx] bg-card rounded-[12rpx]" onClick={() => onItemClick(id)}>
+                <View
+                  key={id}
+                  className="p-[24rpx] bg-card rounded-[12rpx]"
+                  onClick={() => onItemClick(id)}
+                >
                   <View className="flex items-start">
-                    <Image className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background flex-shrink-0" src={avatar} mode="aspectFill" />
+                    <Image
+                      className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background flex-shrink-0"
+                      src={avatar}
+                      mode="aspectFill"
+                    />
                     <View className="flex-1 min-w-0 ml-[24rpx]">
-                      <Text className="text-[30rpx] font-semibold text-foreground">{name || t('aiCareer.guide')}</Text>
-                      {desc ? <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground line-clamp-2">{desc}</Text> : null}
+                      <Text className="text-[30rpx] font-semibold text-foreground">
+                        {name || t('aiCareer.guide')}
+                      </Text>
+                      {desc ? (
+                        <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground line-clamp-2">
+                          {desc}
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                   {(tags.length > 0 || uses > 0) && (
                     <View className="flex items-center flex-wrap gap-[12rpx] mt-[16rpx]">
                       {tags.map((tag, idx) => (
-                        <Text key={idx} className="py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] text-primary bg-[rgba(0,122,255,0.08)]">
+                        <Text
+                          key={idx}
+                          className="py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] text-primary bg-[rgba(0,122,255,0.08)]"
+                        >
                           {tag}
                         </Text>
                       ))}
@@ -121,7 +145,9 @@ export default function AiCareer() {
           </View>
         ) : (
           <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">{t('aiCareer.empty')}</Text>
+            <Text className="text-center text-muted-foreground text-[26rpx]">
+              {t('aiCareer.empty')}
+            </Text>
           </View>
         )}
       </View>
