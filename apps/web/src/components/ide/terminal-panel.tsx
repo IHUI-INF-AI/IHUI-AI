@@ -1445,8 +1445,8 @@ function SplitPaneContainer({
   // 多 pane 用 CSS Grid 布局
   const gridStyle: React.CSSProperties =
     direction === 'vertical'
-      ? { display: 'grid', gridTemplateColumns: `repeat(${paneIds.length}, 1fr)`, gap: '1px', background: 'var(--border, hsl(var(--border)))', height: '100%', width: '100%' }
-      : { display: 'grid', gridTemplateRows: `repeat(${paneIds.length}, 1fr)`, gap: '1px', background: 'var(--border, hsl(var(--border)))', height: '100%', width: '100%' }
+      ? { display: 'grid', gridTemplateColumns: `repeat(${paneIds.length}, 1fr)`, gap: '1px', background: 'var(--border, var(--border))', height: '100%', width: '100%' }
+      : { display: 'grid', gridTemplateRows: `repeat(${paneIds.length}, 1fr)`, gap: '1px', background: 'var(--border, var(--border))', height: '100%', width: '100%' }
 
   return (
     <div style={gridStyle}>

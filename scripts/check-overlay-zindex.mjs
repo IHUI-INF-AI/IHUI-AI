@@ -58,8 +58,8 @@ function walkDir(dir, results = []) {
   const entries = readdirSync(dir)
   for (const entry of entries) {
     const fullPath = join(dir, entry)
-    // 跳过 node_modules / .next / dist / .git 等
-    if (entry === 'node_modules' || entry === '.next' || entry === 'dist' || entry === '.git' || entry.startsWith('.')) {
+    // 跳过 node_modules / .next / dist / build / out / .git 等(构建产物 + 依赖)
+    if (entry === 'node_modules' || entry === '.next' || entry === 'dist' || entry === 'build' || entry === 'out' || entry === '.turbo' || entry === '.git' || entry.startsWith('.')) {
       continue
     }
     const stat = statSync(fullPath)
