@@ -322,7 +322,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         <div className="mt-8 grid gap-4 md:grid-cols-4">
           {uc.howItWorks.map((hw) => (
             <div key={hw.step} className="rounded-2xl border bg-card p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-foreground">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-base font-semibold text-primary-foreground">
                 {hw.step}
               </div>
               <h3 className="mt-4 text-base font-semibold">{hw.title}</h3>

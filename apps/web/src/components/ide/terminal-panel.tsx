@@ -1267,7 +1267,7 @@ function TerminalViewport({
         </div>
       )}
 
-      {/* 连接状态指示器(左下角,不使用 rounded-full,用 rounded 紧凑) */}
+      {/* 连接状态指示器(左下角,不使用纯圆形,用 rounded 紧凑) */}
       <div className="pointer-events-none absolute bottom-1 left-2 flex items-center gap-1.5 rounded bg-background/80 px-2 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
         <span
           className={cn(
