@@ -22,7 +22,6 @@ import {
   createKanbanTask,
   getKanbanStreamUrl,
 } from '@/lib/agent-kanban-api'
-// @ts-ignore - @ihui/types not resolved in typecheck
 import type { KanbanTask } from '@ihui/types'
 import { KanbanColumn } from './KanbanColumn'
 import { TaskDetailDialog } from './TaskDetailDialog'

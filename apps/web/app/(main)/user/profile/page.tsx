@@ -2,8 +2,6 @@
 
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
-// @ts-ignore
-// @ts-ignore
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
