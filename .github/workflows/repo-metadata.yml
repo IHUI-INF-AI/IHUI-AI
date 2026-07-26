@@ -38,35 +38,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -e
           gh api -X PATCH /repos/${{ github.repository }} \
             -f description="IHUI AI — 全栈 AI 操作系统:Agent 市场 / 知识库 RAG / 多模型调度 / MCP / 8 端同源(Web/API/CLI/Desktop/Extension/Mobile/Miniapp)。Apache 2.0 开源,私有化部署。Dify/Coze/FastGPT/n8n 替代。" \
-            -f homepage="https://ihui.ai" || echo "⚠️ 更新 description/homepage 失败(权限不足,需在 Settings → Actions → Workflow permissions 调整)"
+            -f homepage="https://ihui.ai"
+          echo "✅ description & homepage updated"
 
       - name: Update repository topics
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api -X PUT /repos/${{ github.repository }}/topics \
-            -f names[]=ai \
-            -f names[]=ai-agent \
-            -f names[]=ai-platform \
-            -f names[]=llm \
-            -f names[]=chatgpt \
-            -f names[]=claude \
-            -f names[]=rag \
-            -f names[]=knowledge-base \
-            -f names[]=mcp \
-            -f names[]=model-context-protocol \
-            -f names[]=agent-marketplace \
-            -f names[]=langgraph \
-            -f names[]=litellm \
-            -f names[]=nextjs \
-            -f names[]=fastify \
-            -f names[]=react \
-            -f names[]=typescript \
-            -f names[]=monorepo \
-            -f names[]=open-source \
-            -f names[]=apache-2 || echo "⚠️ 更新 topics 失败(权限不足)"
+          set -e
+          # topics 端点需要 JSON body {"names":[...]} + Content-Type: application/json
+          # 用 --input - 从 stdin 读 JSON
+          cat <<'EOF' | gh api -X PUT /repos/${{ github.repository }}/topics \
+            --input - \
+            -H "Accept: application/vnd.github+json"
+          {"names":["ai","ai-agent","ai-platform","llm","chatgpt","claude","rag","knowledge-base","mcp","model-context-protocol","agent-marketplace","langgraph","litellm","nextjs","fastify","react","typescript","monorepo","open-source","apache-2"]}
+          EOF
+          echo "✅ topics updated (20 topics)"
 
       - name: Verify metadata
         env:
