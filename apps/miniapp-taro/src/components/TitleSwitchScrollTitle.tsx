@@ -73,7 +73,7 @@ export default function TitleSwitchScrollTitle({
   )
 
   return (
-    <View className="w-full rounded-b-[15px] bg-white pb-[12px] shadow-[0_4px_2px_-4px_rgba(0,0,0,0.3)]">
+    <View className="w-full rounded-b-[15px] bg-white pb-[12px] shadow-[0_4rpx_2rpx_-4rpx_rgba(0,0,0,0.3)]">
       <View className="w-full px-[28px] box-border mb-[18px]">
         <View className="text-[30px] font-bold tracking-[0.08em] text-black">主赛道:</View>
         <Swiper

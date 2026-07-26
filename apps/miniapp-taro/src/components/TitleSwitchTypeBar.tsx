@@ -85,7 +85,7 @@ export default function TitleSwitchTypeBar({
         {showAll ? (
           <View
             className={`flex items-center justify-center h-[44px] px-[8px] rounded-[8px] font-bold text-[26px] mr-[16px] whitespace-nowrap ${
-              all ? 'text-black bg-[rgba(205,208,255,0.6)] shadow-[0_0_2px_0_rgba(0,0,0,0.3)]' : 'text-[rgba(0,0,0,0.3)]'
+              all ? 'text-black bg-[rgba(205,208,255,0.6)] shadow-[0_0_2rpx_0_rgba(0,0,0,0.3)]' : 'text-[rgba(0,0,0,0.3)]'
             }`}
             onClick={selectAllTab}
           >
@@ -103,7 +103,7 @@ export default function TitleSwitchTypeBar({
               key={item.id}
               className={`flex items-center justify-center h-[44px] px-[8px] rounded-[8px] font-bold text-[26px] mr-[16px] whitespace-nowrap ${
                 selected
-                  ? 'text-black bg-[rgba(248,249,252,0.65)] border border-[#e0e8ff] shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
+                  ? 'text-black bg-[rgba(248,249,252,0.65)] border border-[#e0e8ff] shadow-[0_1rpx_3rpx_rgba(0,0,0,0.06)]'
                   : 'text-[rgba(0,0,0,0.3)]'
               }`}
               onClick={() => select(item)}
@@ -121,7 +121,7 @@ export default function TitleSwitchTypeBar({
           <View
             className={`flex items-center justify-center h-[44px] px-[8px] rounded-[8px] font-bold text-[26px] mr-[16px] whitespace-nowrap ${
               addType
-                ? 'text-black bg-[rgba(205,208,255,0.6)] shadow-[0_0_2px_0_rgba(0,0,0,0.3)]'
+                ? 'text-black bg-[rgba(205,208,255,0.6)] shadow-[0_0_2rpx_0_rgba(0,0,0,0.3)]'
                 : 'text-[rgba(0,0,0,0.3)]'
             }`}
             onClick={() => setAddType(true)}
