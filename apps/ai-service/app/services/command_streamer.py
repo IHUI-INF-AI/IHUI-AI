@@ -88,9 +88,12 @@ def _clamp_timeout(timeout: int) -> int:
 
 
 async def _read_stream(
-    stream: asyncio.StreamReader, ev_type: str, queue: asyncio.Queue
+    stream: asyncio.StreamReader | None, ev_type: str, queue: asyncio.Queue
 ) -> None:
-    """逐行读取 stream,put 事件到 queue;结束时 put None 哨兵。"""
+    """逐行读取 stream,put 事件到 queue;结束时 put None 哨兵。stream 为 None 时直接 put 哨兵。"""
+    if stream is None:
+        await queue.put(None)
+        return
     try:
         while True:
             line = await stream.readline()

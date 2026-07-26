@@ -53,7 +53,7 @@ class MetaLearnerHistoryEntry(TypedDict):
     """单次元学习循环的历史记录。"""
 
     triggered_at: str  # ISO8601 UTC
-    status: Literal["success", "failed", "skipped"]
+    status: Literal["running", "success", "failed", "skipped"]
     duration_ms: int
     total_failures_collected: int  # 收集到的失败案例总数
     patterns_count: int  # 聚类出的失败模式数
@@ -276,7 +276,7 @@ class MetaLearnerScheduler:
         from .skill_feedback import skill_feedback_tracker
 
         try:
-            all_skills = skill_registry.list()
+            all_skills = skill_registry.list_skills()
         except Exception as e:
             logger.warning(
                 "[meta_learner_scheduler] list skills failed: %s: %s",

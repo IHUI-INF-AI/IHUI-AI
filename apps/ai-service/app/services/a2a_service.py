@@ -132,7 +132,7 @@ class A2AServer:
     def __init__(self) -> None:
         self._agents: dict[str, A2AAgent] = {}
         self._tasks: dict[str, A2ATask] = {}  # 内存热缓存
-        self._redis = None
+        self._redis: Any = None
         self._redis_available = False
         # 持有 create_task 引用,防止 CPython GC 回收未完成的 task
         self._pending_tasks: set[asyncio.Task] = set()

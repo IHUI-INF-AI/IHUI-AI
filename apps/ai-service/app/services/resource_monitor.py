@@ -20,7 +20,7 @@ try:
 
     _PSUTIL_AVAILABLE = True
 except ImportError:
-    psutil = None  # type: ignore
+    psutil = None
     _PSUTIL_AVAILABLE = False
 
 
