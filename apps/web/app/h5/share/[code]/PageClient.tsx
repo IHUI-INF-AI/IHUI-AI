@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { AlertCircle, Loader2, Bot, Link2, Check, Share2, RotateCcw } from 'lucide-react'
-import { fetchShareContent, type ShareContent } from '@/lib/share-api'
+import { fetchShareContent, type ShareContent } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 
 export default function H5SharePage(): React.JSX.Element {

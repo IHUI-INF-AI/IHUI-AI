@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Popover } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
-import { compressConversation } from '@/lib/chat-api'
+import { compressConversation } from '@ihui/api-client'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import { estimateChatMessagesTokens } from '@/lib/token-estimate'
 

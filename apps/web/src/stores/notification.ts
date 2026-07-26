@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import type { WSNotification } from '@/hooks/use-websocket'
-import type { NotificationItem, MessageItem } from '@/lib/notification-api'
+import type { NotificationItem, MessageItem } from '@ihui/api-client'
 import { transformWsNotification } from '@ihui/shared/notifications/ws-notification-adapter'
 import type { WsNotificationLike } from '@ihui/shared/notifications/ws-notification-adapter'
 
