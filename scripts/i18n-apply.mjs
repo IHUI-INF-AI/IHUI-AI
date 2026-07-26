@@ -47,6 +47,7 @@ const TARGET_CONFIG = {
   web: { dir: 'packages/i18n/messages/web', ext: '.json' },
   extension: { dir: 'packages/i18n/messages/extension', ext: '.json' },
   'miniapp-taro': { dir: 'packages/i18n/messages/miniapp-taro', ext: '.json' },
+  shared: { dir: 'packages/i18n/messages/shared', ext: '.json' },
 }
 const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
 

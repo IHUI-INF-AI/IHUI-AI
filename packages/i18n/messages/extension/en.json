@@ -1,23 +1,13 @@
 {
   "common": {
-    "cancel": "Cancel",
-    "delete": "Delete",
-    "back": "Back",
     "loading": "Loading…",
-    "empty": "No data",
-    "retry": "Retry",
-    "submit": "Submit",
-    "search": "Search",
-    "all": "All",
     "failed": "Failed"
   },
   "nav": {
     "chat": "AI Chat",
-    "settings": "Settings",
     "agents": "AI Assistant",
     "vocabulary": "Vocabulary",
     "profile": "Profile",
-    "wallet": "Wallet",
     "notifications": "Notifications",
     "tabRuntime": "Runtime",
     "ai": "AI",
@@ -136,7 +126,6 @@
     "logout": "Log out",
     "loginRequired": "Please enter account and password",
     "phoneOrEmail": "Phone / Email",
-    "password": "Password",
     "roleAdmin": "Admin",
     "roleUser": "User"
   },
@@ -162,7 +151,6 @@
     "emptyHint": "Wordbook is empty, look up a word and save it"
   },
   "chat": {
-    "send": "Send",
     "history": "History",
     "title": "AI Chat",
     "exit": "Exit",
@@ -172,7 +160,6 @@
     "compactionNotice": "Context auto-compacted: {{before}} → {{after}} (removed {{removed}} messages)"
   },
   "settings": {
-    "title": "Settings",
     "language": "Interface language",
     "appearance": "Appearance",
     "darkMode": "Dark mode",
