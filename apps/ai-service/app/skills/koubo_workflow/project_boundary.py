@@ -61,10 +61,10 @@ try:
 except Exception:
     _HAVE_COLOR = False
 
-def _c(s):
+def _c(s: str) -> str:
     return f"{RED}{s}{RESET}" if _HAVE_COLOR else s
 
-def _under(path, root):
+def _under(path: str, root: str) -> bool:
     """path 是否落在 root 目录树内（含 root 自身）。"""
     try:
         p = os.path.normpath(path)
@@ -73,7 +73,7 @@ def _under(path, root):
     except Exception:
         return False
 
-def read_session():
+def read_session() -> str | None:
     """返回当前会话 domain；未声明/非法/过期 均返回 None（fail-closed）。"""
     try:
         with open(SESSION_FILE, encoding="utf-8") as f:
@@ -95,7 +95,7 @@ def read_session():
             pass
     return domain
 
-def init_session(domain):
+def init_session(domain: str) -> None:
     if domain not in FORBID:
         print(f"[边界] 未知 domain: {domain}", file=sys.stderr)
         sys.exit(2)
@@ -106,7 +106,7 @@ def init_session(domain):
     print(f"[边界] 已声明本次会话项目 = {domain}（有效期24h，过期需重新 init）。"
           f"后续写/发布操作将受该边界硬门禁保护。")
 
-def _banner(domain, reason):
+def _banner(domain: str, reason: str) -> None:
     bar = "=" * 64
     sys.stderr.write(bar + "\n")
     sys.stderr.write(_c(f"[边界硬门禁·已拦截] 当前会话项目 = {domain}\n"))
@@ -115,7 +115,7 @@ def _banner(domain, reason):
         sys.stderr.write(f"  规则: {FORBID[domain]['note']}\n")
     sys.stderr.write(bar + "\n")
 
-def check_write(path, tool=None, silent=False):
+def check_write(path: str, tool: str | None = None, silent: bool = False) -> bool:
     """在真正写文件前调用。拒绝跨域产物类型 / 跨域目录写入。"""
     p = os.path.normpath(path)
     ext = os.path.splitext(p)[1].lower()
@@ -155,7 +155,7 @@ def check_write(path, tool=None, silent=False):
         print(f"[边界] 写校验通过（会话={domain}）: {path}")
     return True
 
-def check_action(tool=None, paths=None, cwd=None, silent=False):
+def check_action(tool: str | None = None, paths: list[str] | None = None, cwd: str | None = None, silent: bool = False) -> bool:
     domain = read_session()
     if domain is None:
         # 未声明：跨项目流水线一律拦截，强制先 init（fail-closed）
@@ -192,7 +192,7 @@ def check_action(tool=None, paths=None, cwd=None, silent=False):
         print(f"[边界] 校验通过（会话={domain}）：tool={tool} paths={paths}")
     return True
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print("usage: project_boundary.py init|check|check-write ...")
         sys.exit(2)
