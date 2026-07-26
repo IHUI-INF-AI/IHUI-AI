@@ -76,12 +76,9 @@ export function HomeScenarios() {
             delay={0.05 * (i + 1)}
             className="group relative flex flex-col gap-2 overflow-hidden rounded-lg border bg-card p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/10 sm:p-5"
           >
-            {/* 卡片顶部渐变高光 */}
-            <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
             <div className="flex items-center gap-2">
-              {/* 图标背景圆 - 渐变背景 + hover 放大旋转 */}
+              {/* 图标背景圆 - hover 放大旋转 */}
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
-                <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/20 to-emerald-500/10 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
                 <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary transition-transform duration-300 group-hover:scale-110">
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </div>
