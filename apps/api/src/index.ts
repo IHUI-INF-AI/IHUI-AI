@@ -7,6 +7,7 @@ import { initVendorConfigs } from './lifecycle/init-vendor-configs.js'
 import { initOtel } from './plugins/otel.js'
 import { isWechatPayConfigured, isPlatformCertConfigured } from './services/wechat-pay.js'
 import { startAiWorldSyncScheduler, stopAiWorldSyncScheduler } from './jobs/ai-world-sync.js'
+import { logger } from './utils/logger.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -29,9 +30,9 @@ function checkProductionConfig(): void {
     errors.push('WX_PAY_PLATFORM_CERT / WX_PAY_PLATFORM_CERT_PATH 至少配置一项')
   }
   if (errors.length === 0) return
-  console.error('❌ 生产环境微信支付配置不完整,启动中止:')
-  for (const e of errors) console.error(`   - ${e}`)
-  console.error('   参考 .env.production.example 补齐证书配置(证书放置项目内 cert/ 目录)')
+  logger.error('❌ 生产环境微信支付配置不完整,启动中止:')
+  for (const e of errors) logger.error(`   - ${e}`)
+  logger.error('   参考 .env.production.example 补齐证书配置(证书放置项目内 cert/ 目录)')
   process.exit(1)
 }
 
