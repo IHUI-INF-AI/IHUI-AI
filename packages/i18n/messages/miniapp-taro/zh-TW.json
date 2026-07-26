@@ -1,26 +1,8 @@
 {
   "common": {
-    "save": "儲存",
-    "cancel": "取消",
-    "delete": "刪除",
-    "back": "返回",
-    "confirm": "確認",
-    "loading": "載入中…",
-    "empty": "暫無資料",
-    "retry": "重試",
-    "all": "全部",
-    "hint": "提示",
-    "success": "成功",
-    "failed": "操作失敗",
-    "user": "使用者",
-    "uploading": "上傳中",
-    "noMore": "沒有更多了",
-    "consult": "諮詢",
-    "loadingShort": "載入中...",
-    "free": "免費"
+    "loading": "載入中…"
   },
   "nav": {
-    "home": "首頁",
     "courses": "課程",
     "live": "直播",
     "profile": "我的",
@@ -322,9 +304,6 @@
   },
   "agent": {
     "title": "智慧體"
-  },
-  "chat": {
-    "send": "傳送"
   },
   "setting": {
     "hint": "提示",
@@ -2065,11 +2044,8 @@
     },
     "profile": {
       "avatar": "頭像",
-      "nickname": "暱稱",
       "notSet": "未設定",
-      "phone": "手機號碼",
       "unbound": "未綁定",
-      "email": "郵箱",
       "password": "密碼",
       "realname": "實名認證",
       "verified": "已認證",
@@ -2279,7 +2255,6 @@
       "bug": "Bug"
     },
     "uploadFailed": "上傳失敗",
-    "type": "型別",
     "content": "內容",
     "contact": "聯絡方式",
     "contactPlaceholder": "請輸入聯絡方式(選填)"

@@ -1,26 +1,8 @@
 {
   "common": {
-    "save": "저장",
-    "cancel": "취소",
-    "delete": "삭제",
-    "back": "뒤로",
-    "confirm": "확인",
-    "loading": "로딩 중…",
-    "empty": "데이터 없음",
-    "retry": "재시도",
-    "all": "전체",
-    "hint": "알림",
-    "success": "성공",
-    "failed": "작업 실패",
-    "user": "사용자",
-    "uploading": "업로드 중",
-    "noMore": "더 이상 없음",
-    "consult": "상담",
-    "loadingShort": "로딩중...",
-    "free": "무료"
+    "loading": "로딩 중…"
   },
   "nav": {
-    "home": "홈",
     "courses": "강의",
     "live": "라이브",
     "profile": "마이페이지",
@@ -322,9 +304,6 @@
   },
   "agent": {
     "title": "에이전트"
-  },
-  "chat": {
-    "send": "전송"
   },
   "setting": {
     "hint": "알림",
@@ -2065,11 +2044,8 @@
     },
     "profile": {
       "avatar": "아바타",
-      "nickname": "닉네임",
       "notSet": "미설정",
-      "phone": "전화번호",
       "unbound": "미연결",
-      "email": "이메일",
       "password": "비밀번호",
       "realname": "실명 인증",
       "verified": "인증됨",
@@ -2279,7 +2255,6 @@
       "bug": "버그"
     },
     "uploadFailed": "업로드 실패",
-    "type": "유형",
     "content": "내용",
     "contact": "연락처",
     "contactPlaceholder": "연락처를 입력하세요(선택)"

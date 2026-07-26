@@ -11,7 +11,7 @@
  *   <locale>  必填，翻译文件名 (不含 .json)，如 ko / ja / zh-TW / vi
  *   --staged  可选，仅当对应 locale 文件在 git 暂存区时检查 (pre-commit 用)
  *   --readme  可选，扫描根目录 README.<locale>.md 而非 apps/web/messages/<locale>.json
- *   --target  可选，扫描目标 web(默认 apps/web/messages/) | extension(packages/i18n/messages/extension/)
+ *   --target  可选，扫描目标 web(默认 apps/web/messages/) | extension(packages/i18n/messages/extension/) | shared(packages/i18n/messages/shared/)
  *             与 --readme 互斥(--readme 优先扫描 README)
  *
  * 检测逻辑 (按 locale 分支):
@@ -77,7 +77,7 @@ function parseArgs(argv) {
       isReadme = true
     } else if (arg.startsWith('--target=')) {
       const val = arg.split('=')[1]
-      if (val === 'web' || val === 'extension') {
+      if (val === 'web' || val === 'extension' || val === 'shared') {
         target = val
       }
     } else if (arg.startsWith('--')) {
@@ -228,10 +228,10 @@ function main() {
   const { locale, isStaged, isReadme, target } = parseArgs(process.argv.slice(2))
 
   if (!locale) {
-    console.error('用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension]')
+    console.error('用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension|shared]')
     console.error('  <locale>: ko / ja / zh-TW / vi ...')
     console.error('  --readme: 扫描根目录 README.<locale>.md')
-    console.error('  --target: web (默认) | extension')
+    console.error('  --target: web (默认) | extension | shared')
     process.exit(2)
   }
 
@@ -244,6 +244,9 @@ function main() {
   } else if (target === 'extension') {
     relPath = `packages/i18n/messages/extension/${locale}.json`
     fileLabel = `extension/${locale}.json`
+  } else if (target === 'shared') {
+    relPath = `packages/i18n/messages/shared/${locale}.json`
+    fileLabel = `shared/${locale}.json`
   } else {
     // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
     relPath = `packages/i18n/messages/web/${locale}.json`

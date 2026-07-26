@@ -1,26 +1,8 @@
 {
   "common": {
-    "save": "保存",
-    "cancel": "取消",
-    "delete": "删除",
-    "back": "返回",
-    "confirm": "确认",
-    "loading": "加载中…",
-    "empty": "暂无数据",
-    "retry": "重试",
-    "all": "全部",
-    "hint": "提示",
-    "success": "成功",
-    "failed": "操作失败",
-    "user": "用户",
-    "uploading": "上传中",
-    "noMore": "没有更多了",
-    "consult": "咨询",
-    "loadingShort": "加载中...",
-    "free": "免费"
+    "loading": "加载中…"
   },
   "nav": {
-    "home": "首页",
     "courses": "课程",
     "live": "直播",
     "profile": "我的",
@@ -322,9 +304,6 @@
   },
   "agent": {
     "title": "智能体"
-  },
-  "chat": {
-    "send": "发送"
   },
   "setting": {
     "hint": "提示",
@@ -2065,11 +2044,8 @@
     },
     "profile": {
       "avatar": "头像",
-      "nickname": "昵称",
       "notSet": "未设置",
-      "phone": "手机号",
       "unbound": "未绑定",
-      "email": "邮箱",
       "password": "密码",
       "realname": "实名认证",
       "verified": "已认证",
@@ -2279,7 +2255,6 @@
       "bug": "Bug"
     },
     "uploadFailed": "上传失败",
-    "type": "类型",
     "content": "内容",
     "contact": "联系方式",
     "contactPlaceholder": "请输入联系方式(选填)"
