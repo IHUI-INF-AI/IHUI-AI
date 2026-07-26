@@ -33,6 +33,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { execSync } from 'node:child_process'
 
 const ROOT = process.cwd()
 const isCheck = process.argv.includes('--check')
@@ -280,6 +281,23 @@ function main() {
 
   console.log(`${C.green}✅ parity 校验通过${C.reset}`)
   console.log('')
+
+  // 异常大 diff 检测(2026-07-26 工程债 #11):i18n-apply 不应触发 >100 行改动
+  // 原因:reorderToBase 重排 5 语言时,如果 base 顺序变更,4 语言整段 reorder 会产生大量 diff
+  // 仅警告,不阻断;--strict 标志可升级为 blocking
+  try {
+    const diffStat = execSync('git diff --stat -- packages/i18n/messages/', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+    const totalLine = diffStat.split('\n').slice(-2, -1)[0] || ''
+    const m = totalLine.match(/(\d+)\s+insertions?\(\+\)/)
+    const insertions = m ? parseInt(m[1], 10) : 0
+    if (insertions > 100) {
+      console.warn(`${C.yellow}⚠️ i18n apply 触发 ${insertions} 行 insertions(>100 阈值),可能 reorderToBase 重排了 5 语言${C.reset}`)
+      console.warn(`${C.yellow}   建议:git diff --stat 核对是否仅预期小 diff(只新增翻译 key 即可,不应大量 reorder)${C.reset}`)
+    }
+  } catch {
+    // git 不可用时静默跳过
+  }
+
   console.log(`${C.bold}下一步:${C.reset}`)
   console.log(`  1. ${C.cyan}node scripts/check-i18n-keys.mjs${C.reset} 完整守门`)
   console.log(`  2. ${C.cyan}node scripts/scan-i18n-zh-residue.mjs ko --staged${C.reset} 中文残留检测`)
