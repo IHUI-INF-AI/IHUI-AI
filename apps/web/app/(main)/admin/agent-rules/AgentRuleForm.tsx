@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -18,7 +16,6 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-// @ts-ignore
 } from '@ihui/ui-react'
 import type { RuleForm } from './types'
 

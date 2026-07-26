@@ -5,7 +5,6 @@ import { Code2, Copy, Check } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
 // P2 中期增强:按主题切换语法高亮样式(dark → oneDark,其他 → oneLight)
-// @ts-ignore - react-syntax-highlighter missing types
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'

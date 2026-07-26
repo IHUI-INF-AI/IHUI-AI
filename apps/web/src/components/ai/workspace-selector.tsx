@@ -2,8 +2,6 @@
 
 import * as React from 'react'
 import * as DropdownMenuOrig from '@radix-ui/react-dropdown-menu'
-
-// @ts-ignore - Radix UI type augmentation needed for asChild/onSelect etc
 const DropdownMenu: any = DropdownMenuOrig
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'

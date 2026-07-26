@@ -1,11 +1,8 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { Search } from 'lucide-react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Button, Input, Label } from '@ihui/ui-react'
 import { SEARCH_KEYS, FIELDS } from './helpers'
 

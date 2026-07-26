@@ -1,10 +1,6 @@
 'use client'
-
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Loader2, Edit, Trash2 } from 'lucide-react'
-// @ts-ignore
 import { Button } from '@ihui/ui-react'
 import { COLS, th } from './helpers'
 import type { AiGcItem } from './types'

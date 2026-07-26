@@ -1,8 +1,5 @@
 'use client'
-
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Input } from '@ihui/ui-react'
 
 interface ExamineFilterProps {
