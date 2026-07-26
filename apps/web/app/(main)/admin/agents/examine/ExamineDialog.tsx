@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Loader2 } from 'lucide-react'
 
 import {
@@ -16,7 +14,6 @@ import {
   Input,
   Label,
   Switch,
-// @ts-ignore
 } from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 import type { ExamineForm } from './types'
