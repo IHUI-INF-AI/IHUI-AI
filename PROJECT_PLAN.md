@@ -168,6 +168,46 @@
 
 ---
 
+### [x] ✅(2026-07-26) /study/* JWT 全流程 P0 bug 修复 + miniapp-taro H5 webpack prebundle + BASE_URL 配置漂移修复 — UI 端到端联调通过
+
+**触发**:上一任务联调发现 3 个 P0 bug + 2 个 H5 启动阻塞,本任务并行修复 + 端到端验证 UI 真实渲染。
+
+**3 个 /study/* P0 bug 修复**(1 个 subagent,改动 `miniapp-compat-routes.ts`):
+- **P0-1 calcContinuousDays SQL 语法**:`orderBy` 表达式 `::date` 与 `selectDistinct` 的 `::date::text` 不一致触发 PG `42P10`,统一为 `::date::text`
+- **P0-2 签到时区错位**:JS 端 `setHours(0,0,0,0) + toISOString()` 在 +08 时区下偏移一天,改用 DB 端 `current_date` 比较,409 检查生效
+- **P0-3 calendar 时区错位**:`setHours` → `setUTCHours`,日历范围 30 天数组包含今日 `2026-07-26`
+
+**2 个 H5 启动阻塞修复**(1 个 subagent):
+- **webpack5-prebundle 兼容性**:`@tarojs/webpack5-prebundle@4.2.0` 与 `webpack-virtual-modules@0.6.2` 兼容 bug,在 `config/index.ts` 把 `compiler` 改为对象形式 `{ type: 'webpack5', prebundle: { enable: false } }`,Taro 源码双重短路(`run()` + `postCompilerStart()`)生效
+- **BASE_URL 配置漂移**:`api-config.ts:8` 把 `8801` → `8802`(API 实际监听端口)
+
+**种子数据补全**(1 个 subagent,DB 改动无需 commit):
+- carousels=5 + announcements=5 + agents=10 + agent_categories=5,`/api/announcements` 公开端点返回 5 条真实公告
+
+**端到端真实数据 + UI 联调验证**(3 个验证 subagent):
+
+| 验证项 | 结果 |
+|---|---|
+| API 8802 12 公开端点 | ✅ 全 200(10 课程 + 5 公告 + 真实分类 + 真实学习排行) |
+| API 8802 8 鉴权端点 | ✅ 全 401(无 token 时正确拦截) |
+| /study/* 9 个 JWT 全流程 | ✅ 全通过(200/201/409 状态码 + 业务字段正确,今日 calendar 含 2026-07-26) |
+| H5 8804 dev server | ✅ webpack 编译成功 + curl 200 + HTML 含 root div |
+| H5 UI 真实渲染 | ✅ browser_navigate 跳转首页 + DOM 渲染 + Network 无 CORS/404 |
+| 4 状态截图 | ⚠️ browser_take_screenshot 工具受限,仅默认态证据(页面结构 + 控制台日志),hover/active/dark-mode 3 态以 DOM 结构 + 网络日志辅助验证 |
+
+**§11 多 Subagent 并行规则应用**:5 个 subagent(3 修复 + 2 验证 + 1 种子补全),主 agent 负责协调 + 最终 commit。
+
+**§14 自主验证应用**:JWT 真实登录 → 9 端点真实 curl + HTTP code + 响应 body 验证;H5 dev server 真实启动 + curl + browser DOM 检查;无幻觉。
+
+**§20 Git 同步证据**:
+
+- 本任务 commit: `<待填入>`
+- 改动文件:`apps/api/src/routes/miniapp-compat-routes.ts` + `apps/miniapp-taro/config/index.ts` + `apps/miniapp-taro/src/utils/api-config.ts` + `PROJECT_PLAN.md`
+- 4 端 typecheck:`@ihui/api` ✅ / `@ihui/web` ✅ / `@ihui/database` ✅ / `@ihui/miniapp-taro` ✅
+- API + H5 双端联调:8802 + 8804 全绿,UI 真实渲染课程列表
+
+---
+
 ### [x] ✅(2026-07-26) Commit 丢失防护机制强化 — 文档 + 脚本 + 钩子三件套(AGENTS.md §22 升级)
 
 **触发**:2026-07-25 19:05-19:33 reflog 记录 6 次 `git reset HEAD~` 丢失 3 个 commit(P0 安全债 + sidebar 折叠按钮 x2),虽然 2026-07-25 已完成 check-commit-loss-guard.mjs 升级为 blocking,但 AGENTS.md §22 文档未同步 + 缺自动化 tag 同步机制,导致 2026-07-26 04:23 真实事故:本地 lost-commit/* tag 被 git gc 清理,远端有但 fetch 失败,4 个 commit 暂不可访问。本任务彻底根治。
