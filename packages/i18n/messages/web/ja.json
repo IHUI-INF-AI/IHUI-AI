@@ -11159,35 +11159,16 @@
     }
   },
   "n8nAgentsPage": {
-    "metaDescription": "N8N ワークフロー連携：AIエージェントを自動オーケストレーション。カスタマーサポートボット、コンテンツモデレーション、データ同期などに対応。",
-    "subtitle": "N8N ワークフロー連携 - N8N経由でAIエージェントを自動オーケストレーション",
-    "cardTitle": "N8N ワークフロー連携",
-    "totalBadge": "合計 {n} エージェント",
-    "activeBadge": "{n} 件実行中",
-    "cardDescription": "N8N経由でAIエージェントを自動オーケストレーションし、カスタマーサポート、モデレーション、同期、レポート、アラートなどのシナリオを連携してエンドツーエンドの自動化を実現。",
-    "createButton": "新規エージェント作成",
-    "lastRunLabel": "最終実行",
-    "runCountLabel": "実行回数",
     "agents": {
       "alert-notify": {
-        "description": "",
-        "name": ""
       },
       "content-moderation": {
-        "description": "",
-        "name": ""
       },
       "customer-service": {
-        "description": "",
-        "name": ""
       },
       "data-sync": {
-        "description": "",
-        "name": ""
       },
       "report-generation": {
-        "description": "",
-        "name": ""
       }
     }
   },
