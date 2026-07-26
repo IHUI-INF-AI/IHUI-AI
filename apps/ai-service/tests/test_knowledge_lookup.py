@@ -118,7 +118,7 @@ def _patch_all(
         new=AsyncMock(**cb_kwargs),
     )
     rag_patch = patch(
-        "app.services.knowledge_lookup.rag_service._retrieve",
+        "app.services.knowledge_lookup.rag_service.retrieve_only",
         new=AsyncMock(**rag_kwargs),
     )
     ltm_patch = patch(
@@ -366,7 +366,7 @@ class TestParameterPassThrough:
         assert kwargs.get("repo_id") == "my-repo" or (len(args) >= 2 and args[1] == "my-repo")
 
     async def test_session_id_passed_to_rag(self):
-        """session_id 透传给 rag_service._retrieve。"""
+        """session_id 透传给 rag_service.retrieve_only。"""
         cb_p, rag_p, ltm_p = _patch_all(
             codebase_return=[], rag_return=[], ltm_return=[]
         )
