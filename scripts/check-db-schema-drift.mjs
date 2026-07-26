@@ -91,12 +91,10 @@ function scanMigrations() {
   }
   files.sort()
 
-  // CREATE TABLE IF NOT EXISTS "table_name" / CREATE TABLE "table_name"
-  const createRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`]([^"'`]+)["'`]/gi
-  // DROP TABLE IF EXISTS "table_name" / DROP TABLE "table_name" (可能带 CASCADE)
-  const dropRe = /DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?["'`]([^"'`]+)["'`]/gi
-  // ALTER TABLE RENAME TO "new_name" — 重命名
-  const renameToRe = /ALTER\s+TABLE\s+["'`]([^"'`]+)["'`]\s+RENAME\s+TO\s+["'`]([^"'`]+)["'`]/gi
+  // 合并 CREATE/DROP/RENAME 为单一正则,按 SQL 文件中实际出现顺序应用
+  // (避免同文件 drop-and-recreate 模式下 CREATE+DROP 顺序错乱导致误报 dead migration)
+  // 捕获组:1=CREATE 表名 / 2=DROP 表名 / 3=RENAME 旧名 / 4=RENAME 新名
+  const combinedRe = /(?:CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`]([^"'`]+)["'`])|(?:DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?["'`]([^"'`]+)["'`])|(?:ALTER\s+TABLE\s+["'`]([^"'`]+)["'`]\s+RENAME\s+TO\s+["'`]([^"'`]+)["'`])/gi
 
   for (const file of files) {
     let src
@@ -106,23 +104,26 @@ function scanMigrations() {
       continue
     }
     let match
-    while ((match = createRe.exec(src)) !== null) {
-      const t = match[1].toLowerCase()
-      finalTables.add(t)
-      if (!createdTables.has(t)) createdTables.set(t, [])
-      createdTables.get(t).push(file)
-    }
-    while ((match = dropRe.exec(src)) !== null) {
-      const t = match[1].toLowerCase()
-      finalTables.delete(t)
-      if (!droppedTables.has(t)) droppedTables.set(t, [])
-      droppedTables.get(t).push(file)
-    }
-    while ((match = renameToRe.exec(src)) !== null) {
-      const oldName = match[1].toLowerCase()
-      const newName = match[2].toLowerCase()
-      finalTables.delete(oldName)
-      finalTables.add(newName)
+    while ((match = combinedRe.exec(src)) !== null) {
+      if (match[1] !== undefined) {
+        // CREATE TABLE
+        const t = match[1].toLowerCase()
+        finalTables.add(t)
+        if (!createdTables.has(t)) createdTables.set(t, [])
+        createdTables.get(t).push(file)
+      } else if (match[2] !== undefined) {
+        // DROP TABLE
+        const t = match[2].toLowerCase()
+        finalTables.delete(t)
+        if (!droppedTables.has(t)) droppedTables.set(t, [])
+        droppedTables.get(t).push(file)
+      } else if (match[3] !== undefined && match[4] !== undefined) {
+        // ALTER TABLE RENAME TO
+        const oldName = match[3].toLowerCase()
+        const newName = match[4].toLowerCase()
+        finalTables.delete(oldName)
+        finalTables.add(newName)
+      }
     }
   }
 
