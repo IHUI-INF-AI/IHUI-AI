@@ -39,7 +39,7 @@ class DreamHistoryEntry(TypedDict):
     """单次梦境循环的历史记录。"""
 
     triggered_at: str  # ISO8601 UTC
-    status: Literal["success", "failed", "skipped"]
+    status: Literal["running", "success", "failed", "skipped"]
     duration_ms: int
     users_processed: int
     total_consolidated: int

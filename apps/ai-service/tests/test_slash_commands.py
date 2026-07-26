@@ -45,7 +45,7 @@ def test_builtin_commands_count():
 
 def test_registry_list_returns_all():
     """list 返回全部 12 个命令。"""
-    cmds = slash_command_registry.list()
+    cmds = slash_command_registry.list_commands()
     assert len(cmds) == 12
 
 
@@ -64,9 +64,9 @@ def test_registry_get_unknown_returns_none():
 
 def test_registry_list_returns_copy():
     """list 返回的列表是副本,修改不影响内部状态。"""
-    lst = slash_command_registry.list()
+    lst = slash_command_registry.list_commands()
     lst.clear()
-    assert len(slash_command_registry.list()) == 12
+    assert len(slash_command_registry.list_commands()) == 12
 
 
 @pytest.mark.parametrize(
@@ -83,7 +83,7 @@ def test_registry_independent_instance():
     """SlashCommandRegistry 独立实例不共享状态。"""
     r = SlashCommandRegistry()
     assert r.get("help") is not None
-    assert len(r.list()) == 12
+    assert len(r.list_commands()) == 12
 
 
 # =============================================================================

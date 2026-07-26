@@ -33,7 +33,7 @@ export default function VipBenefitsPopup({
   if (!visible) return null
 
   return (
-    <View className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+    <View className="fixed inset-0 z-[2000] flex items-end" onClick={onClose}>
       <View className="absolute inset-0 bg-black/50" />
       <View className="relative bg-card rounded-t-2xl w-full" onClick={(e) => e.stopPropagation()}>
         <View className="flex items-center justify-between px-4 py-3">
