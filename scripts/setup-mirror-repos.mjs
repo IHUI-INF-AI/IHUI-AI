@@ -89,7 +89,7 @@ async function firstPush({ label, remote, token, owner }) {
   try {
     execSync(`git lfs push --all "${url}"`, { stdio: 'inherit', env });
     console.log(`[${label}] ✅ LFS 对象推送完成`);
-  } catch (e) {
+  } catch (_e) {
     console.warn(`[${label}] ⚠️ LFS 推送跳过（平台不支持或无 LFS 对象）`);
   }
   // 2. 推 branches + tags（refspec 方式，不推 refs/remotes/origin/* 避免被平台拒绝）
