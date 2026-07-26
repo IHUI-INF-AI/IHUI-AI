@@ -13,6 +13,8 @@ import {
   disableAutostart,
   resetWindowState,
   sendDesktopNotification,
+  getSystemTheme,
+  onSystemThemeChange,
   type DesktopAppInfo,
 } from '@/lib/tauri-bridge'
 
@@ -149,3 +151,34 @@ export function useDesktop() {
     notify,
   }
 }
+
+/**
+ * useSystemTheme — 系统主题跟随 hook(2026-07-27 立,P1-7)
+ *
+ * 封装:
+ * - systemTheme:当前系统主题('light'/'dark'),null 表示未检测到(非 Tauri 环境或 OS 插件未启用)
+ * - 自动监听系统主题变化,实时更新
+ *
+ * 浏览器环境下 systemTheme 始终为 null。
+ * 注意:此 hook 不依赖 isDesktop 轮询,getSystemTheme/onSystemThemeChange 内部已检查 isTauri()。
+ * 若 Tauri 注入时机晚于首次挂载,需用 useDesktop().isDesktop 触发重新渲染后在 MainShell 中直接调用。
+ */
+export function useSystemTheme() {
+  const [systemTheme, setSystemTheme] = React.useState<'light' | 'dark' | null>(null)
+
+  React.useEffect(() => {
+    let cleanup: (() => void) | undefined
+    // 首次获取当前系统主题
+    void getSystemTheme().then((t) => {
+      if (t) setSystemTheme(t)
+    })
+    // 监听系统主题变化
+    cleanup = onSystemThemeChange(setSystemTheme)
+    return () => {
+      cleanup?.()
+    }
+  }, [])
+
+  return systemTheme
+}
+

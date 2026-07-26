@@ -427,6 +427,7 @@ export default function N8nModel() {
         </Text>
       </View>
       <ScrollView scrollY className="nm-body">
+        <View className="nm-body-inner">
         {/* 头像 */}
         <Text className="nm-label">
           {tt('devEnter.n8nModel.avatarLabel', '智能体头像')}
@@ -524,6 +525,7 @@ export default function N8nModel() {
           </Text>
         </View>
         <View className="nm-bottom-space" />
+        </View>
       </ScrollView>
     </View>
   )

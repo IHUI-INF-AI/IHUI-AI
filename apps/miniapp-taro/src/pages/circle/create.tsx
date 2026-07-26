@@ -284,6 +284,7 @@ export default function CircleCreatePage() {
               </Text>
             </View>
             <ScrollView scrollY className="cc-sheet-list">
+              <View className="cc-sheet-list-inner">
               {aigcWorks.length ? (
                 aigcWorks.map((w) => (
                   <View key={w.id} className="cc-aigc-option" onClick={() => pickAigc(w)}>
@@ -298,6 +299,7 @@ export default function CircleCreatePage() {
                   <Text>{tt('circle.create.noAigc', '暂无可关联的 AI 作品')}</Text>
                 </View>
               )}
+              </View>
             </ScrollView>
           </View>
         </View>

@@ -259,6 +259,7 @@ export default function PlazaIndex() {
 
       {/* 状态筛选 tab */}
       <ScrollView scrollX className="pza-tabs">
+        <View className="pza-tabs-inner">
         {STATUS_TABS.map((tab) => (
           <View
             key={tab.key}
@@ -268,10 +269,12 @@ export default function PlazaIndex() {
             <Text>{tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成')}</Text>
           </View>
         ))}
+        </View>
       </ScrollView>
 
       {/* 瀑布流双列 */}
       <ScrollView scrollY className="pza-scroll">
+        <View className="pza-scroll-inner">
         {loading && leftList.length === 0 ? (
           <View className="pza-empty">
             <Text>{tt('common.loading', '加载中…')}</Text>
@@ -298,6 +301,7 @@ export default function PlazaIndex() {
           <Text className="pza-load-more">{tt('common.noMore', '没有更多了')}</Text>
         ) : null}
         <View className="pza-bottom-space" />
+        </View>
       </ScrollView>
 
       {/* 悬浮发布按钮 */}
@@ -318,6 +322,7 @@ export default function PlazaIndex() {
               </Text>
             </View>
             <ScrollView scrollX className="pza-track-scroll">
+              <View className="pza-track-scroll-inner">
               {TRACKS.map((tr) => (
                 <View
                   key={tr.key || 'all'}
@@ -342,6 +347,7 @@ export default function PlazaIndex() {
                   </Text>
                 </View>
               ))}
+              </View>
             </ScrollView>
           </View>
         </View>

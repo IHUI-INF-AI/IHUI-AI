@@ -69,8 +69,10 @@
 .detail-body {
   flex: 1;
   height: 0;
-  padding: 24rpx;
   box-sizing: border-box;
+}
+.detail-body-inner {
+  padding: 24rpx;
 }
 
 .loading-text {

@@ -4,7 +4,18 @@ import * as React from 'react'
 import { Minus, Square, X } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { useDesktop } from '@/hooks/use-desktop'
-import { minimizeWindow, toggleMaximizeWindow, closeWindow, startWindowDrag } from '@/lib/tauri-bridge'
+import { useTheme } from '@/hooks/use-theme'
+import {
+  minimizeWindow,
+  toggleMaximizeWindow,
+  closeWindow,
+  startWindowDrag,
+  startResize,
+  onMaximizeChange,
+  restoreWindowState,
+  saveWindowState,
+  onSystemThemeChange,
+} from '@/lib/tauri-bridge'
 import { cn } from '@/lib/utils'
 import { TagsView } from '@/components/layout/TagsView'
 
@@ -35,11 +46,46 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   useAuthStore((s) => s.isAuthenticated)
 
   const { isDesktop, isMaximized } = useDesktop()
+  const { setTheme } = useTheme()
   const [localMaximized, setLocalMaximized] = React.useState(isMaximized)
 
   React.useEffect(() => {
     setLocalMaximized(isMaximized)
   }, [isMaximized])
+
+  // P0-2: 监听窗口最大化状态变化(Tauri onResized 事件,2026-07-27 立)
+  // 补充 useDesktop 里的浏览器 window.resize 监听:Tauri 最大化时 webview resize 事件可能不触发,
+  // 用 Tauri 原生 onResized 更可靠。两条监听都 setLocalMaximized,收敛到同一值不冲突。
+  React.useEffect(() => {
+    if (!isDesktop) return
+    const cleanup = onMaximizeChange(setLocalMaximized)
+    return cleanup
+  }, [isDesktop])
+
+  // P1-7: 系统主题跟随(桌面端监听 OS 主题变化,自动切换应用主题,2026-07-27 立)
+  // next-themes 的 prefers-color-scheme 在 Tauri WebView 中可能不响应 OS 主题切换,
+  // 用 Tauri onThemeChanged 事件主动推送,调用 setTheme 强制更新应用主题。
+  React.useEffect(() => {
+    if (!isDesktop) return
+    const cleanup = onSystemThemeChange((t) => setTheme(t))
+    return cleanup
+  }, [isDesktop, setTheme])
+
+  // P1-8: 窗口位置记忆(挂载时恢复 + 卸载/关闭时保存,2026-07-27 立)
+  // restoreWindowState 在 Rust 端启动时已自动调用,此处前端再调一次作双保险。
+  // saveWindowState 在组件卸载 + beforeunload 时保存,确保位置/尺寸/最大化状态持久化。
+  React.useEffect(() => {
+    if (!isDesktop) return
+    void restoreWindowState()
+    const handleBeforeUnload = () => {
+      void saveWindowState()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      void saveWindowState()
+    }
+  }, [isDesktop])
 
   const handleMinimize = async () => {
     await minimizeWindow()
@@ -81,6 +127,59 @@ export function MainShell({ children }: { children: React.ReactNode }) {
       onMouseDown={handleDragRegionMouseDown}
       onDoubleClick={handleDragRegionDoubleClick}
     >
+      {/* P0-1: 8 个透明 resize 区域(4 边 + 4 角,2026-07-27 立)
+          - fixed 定位相对于窗口(非文档),z-index 9999/10000 在所有内容之上
+          - 4 边:h-1/w-1(4px)细长条,内缩 8px(left-2/right-2/top-2/bottom-2)避免挡角落
+          - 4 角:w-2 h-2(8px)小方块,在窗口四角方便抓取
+          - 鼠标移到边缘显示对应方向 resize 光标(cursor-n-resize 等)
+          - 仅桌面端 isDesktop 显示;左键按下(e.button===0)才触发 startResize
+          - 顶栏右侧窗口控制按钮在 resize 区域之上(按钮 z-index 更高,且 resize 仅 4-8px 不挡按钮中心) */}
+      {isDesktop && (
+        <>
+          {/* 4 边:上/下/左/右 */}
+          <div
+            onMouseDown={(e) => { if (e.button === 0) void startResize('n') }}
+            className="fixed top-0 left-2 right-2 h-1 z-[9999] cursor-n-resize"
+            aria-hidden="true"
+          />
+          <div
+            onMouseDown={(e) => { if (e.button === 0) void startResize('s') }}
+            className="fixed bottom-0 left-2 right-2 h-1 z-[9999] cursor-s-resize"
+            aria-hidden="true"
+          />
+          <div
+            onMouseDown={(e) => { if (e.button === 0) void startResize('w') }}
+            className="fixed left-0 top-2 bottom-2 w-1 z-[9999] cursor-w-resize"
+            aria-hidden="true"
+          />
+          <div
+            onMouseDown={(e) => { if (e.button === 0) void startResize('e') }}
+            className="fixed right-0 top-2 bottom-2 w-1 z-[9999] cursor-e-resize"
+            aria-hidden="true"
+          />
+          {/* 4 角:左上/右上/左下/右下(z-10000 比边更高,覆盖边的交叉点) */}
+          <div
+            onMouseDown={(e) => { if (e.button === 0) void startResize('nw') }}
+            className="fixed top-0 left-0 w-2 h-2 z-[10000] cursor-nw-resize"
+            aria-hidden="true"
+          />
+          <div
+            onMouseDown={(e) => { if (e.button === 0) void startResize('ne') }}
+            className="fixed top-0 right-0 w-2 h-2 z-[10000] cursor-ne-resize"
+            aria-hidden="true"
+          />
+          <div
+            onMouseDown={(e) => { if (e.button === 0) void startResize('sw') }}
+            className="fixed bottom-0 left-0 w-2 h-2 z-[10000] cursor-sw-resize"
+            aria-hidden="true"
+          />
+          <div
+            onMouseDown={(e) => { if (e.button === 0) void startResize('se') }}
+            className="fixed bottom-0 right-0 w-2 h-2 z-[10000] cursor-se-resize"
+            aria-hidden="true"
+          />
+        </>
+      )}
       {/* 顶栏:TagsView 在 MainShell 卡片外面上方(2026-07-26 第九次修订)
           - 高度 h-[44px],总顶部 = my-2(8px) + 44px = 52px(用户要求"统一减52")
           - 无卡片背景(透明),TagsView 自带 bg-muted/70 rounded-lg 独立呈现

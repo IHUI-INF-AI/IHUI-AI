@@ -44,12 +44,13 @@ export default function Catalog({
   return (
     <ScrollView
       scrollY
-      className="px-3 py-2"
+      className=""
       style={{ maxHeight: '50vh' }}
       onScrollToLower={() => onReachBottom?.()}
       lowerThreshold={50}
     >
-      {chapters.map((chapter, idx) => {
+      <View className="px-3 py-2">
+        {chapters.map((chapter, idx) => {
         const active = chapter.id === currentId
         return (
           <View

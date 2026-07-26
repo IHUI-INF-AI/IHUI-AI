@@ -127,6 +127,7 @@ export default function ExamResult() {
     <View className="exam-result-page">
       <NavBar title={tt('exam.result.pageTitle', '考试结果')} showBack />
       <ScrollView scrollY className="exam-result-body">
+        <View className="exam-result-body-inner">
         {loading ? (
           <View className="exam-result-loading">
             <Text>{tt('exam.result.loading', '加载中…')}</Text>
@@ -243,6 +244,7 @@ export default function ExamResult() {
             </View>
           </View>
         ) : null}
+        </View>
       </ScrollView>
 
       {/* 底部按钮 */}

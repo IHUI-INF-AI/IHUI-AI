@@ -128,6 +128,7 @@ export default function ExamDetail() {
     <View className="exam-detail-page">
       <NavBar title={tt('exam.detail.pageTitle', '考试详情')} showBack />
       <ScrollView scrollY className="exam-detail-body">
+        <View className="exam-detail-body-inner">
         {loading ? (
           <View className="exam-detail-loading">
             <Text>{tt('exam.detail.loading', '加载中…')}</Text>
@@ -237,6 +238,7 @@ export default function ExamDetail() {
             </Text>
           </View>
         ) : null}
+        </View>
       </ScrollView>
 
       {/* 开始考试按钮 */}

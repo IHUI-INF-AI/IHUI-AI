@@ -1,6 +1,7 @@
 // tauri 桥接依赖:运行时由 Tauri WebView 注入,构建时 next.config.ts transpilePackages 解析。
 // pnpm workspace 已将 @tauri-apps/api 与 @tauri-apps/plugin-dialog 链接到 web node_modules。
 import { invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 
 export { formatFileSize } from '@ihui/shared/utils/format'
@@ -139,6 +140,74 @@ export async function closeWindow(): Promise<void> {
 export async function startWindowDrag(): Promise<void> {
   if (!isTauri()) return
   await invoke('plugin:window|start_dragging', { label: 'main' })
+}
+
+// ================== 窗口缩放与系统主题(2026-07-27 立) ==================
+
+/** P0-1: 窗口缩放方向(8 方向:上/下/左/右 + 4 角)。 */
+export type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+/**
+ * P0-1: 启动窗口缩放(自定义无边框窗口的 resize 区域用)。
+ * 鼠标按下时调用,系统接管缩放操作直至松开。非 Tauri 环境静默忽略。
+ * 使用 Tauri 2 内置 plugin:window|start_resize 命令,与 start_dragging 同一插件。
+ */
+export async function startResize(direction: ResizeDirection): Promise<void> {
+  if (!isTauri()) return
+  await invoke('plugin:window|start_resize', { direction, label: 'main' })
+}
+
+/**
+ * P0-2: 监听窗口最大化状态变化(基于 Tauri onResized 事件)。
+ * 比 useDesktop 里的浏览器 window.resize 监听更可靠(Tauri 最大化时 webview resize 事件可能不触发)。
+ * @param callback 最大化状态回调(true=已最大化,false=已还原)
+ * @returns 清理函数(组件卸载时调用,移除监听)
+ */
+export function onMaximizeChange(callback: (maximized: boolean) => void): () => void {
+  if (!isTauri()) return () => {}
+  const win = getCurrentWindow()
+  const unlisten = win.onResized(async () => {
+    const max = await win.isMaximized()
+    callback(max)
+  })
+  // onResized 返回 Promise<UnlistenFn>,清理时 await 后调用
+  return () => {
+    void unlisten.then((fn) => fn())
+  }
+}
+
+/**
+ * P1-7: 获取系统当前主题(light/dark)。
+ * 通过 Tauri OS 插件 plugin:os|theme 获取,非 Tauri 环境或插件未启用返回 undefined。
+ */
+export async function getSystemTheme(): Promise<'light' | 'dark' | undefined> {
+  if (!isTauri()) return undefined
+  try {
+    const theme = await invoke<string>('plugin:os|theme')
+    return theme as 'light' | 'dark'
+  } catch {
+    // OS 插件未启用或调用失败,静默返回 undefined
+    return undefined
+  }
+}
+
+/**
+ * P1-7: 监听系统主题变化(基于 Tauri onThemeChanged 事件)。
+ * 系统切换深色/浅色模式时触发回调,桌面端应用主题自动跟随。
+ * @param callback 系统主题回调('light' 或 'dark')
+ * @returns 清理函数(组件卸载时调用,移除监听)
+ */
+export function onSystemThemeChange(callback: (theme: 'light' | 'dark') => void): () => void {
+  if (!isTauri()) return () => {}
+  const win = getCurrentWindow()
+  const unlisten = win.onThemeChanged(async () => {
+    // onThemeChanged 触发后重新查询 OS 主题(比事件 payload 更可靠)
+    const theme = await getSystemTheme()
+    if (theme) callback(theme)
+  })
+  return () => {
+    void unlisten.then((fn) => fn())
+  }
 }
 
 // ================== 应用信息 ==================

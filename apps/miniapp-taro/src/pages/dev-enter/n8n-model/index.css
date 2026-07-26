@@ -49,8 +49,10 @@
 }
 .nm-body {
   flex: 1;
-  padding: 24rpx;
   box-sizing: border-box;
+}
+.nm-body-inner {
+  padding: 24rpx;
 }
 .nm-label {
   display: block;

@@ -25,6 +25,8 @@
 }
 .msg-list {
   flex: 1;
+}
+.msg-list-inner {
   padding: 24rpx 32rpx;
 }
 .welcome {

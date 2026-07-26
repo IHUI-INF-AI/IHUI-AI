@@ -667,6 +667,7 @@ export default function ChatPage() {
       </View>
 
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
+        <View className="msg-list-inner">
         {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
         {agent ? (
           <View className="tishi-block" onClick={() => setTishiShow((v) => !v)}>
@@ -776,6 +777,7 @@ export default function ChatPage() {
             </View>
           </View>
         ) : null}
+        </View>
       </ScrollView>
 
       {selectedMaterial ? (

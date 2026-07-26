@@ -211,6 +211,7 @@ export default function RankingDetailPage() {
       </View>
 
       <ScrollView scrollY className="detail-body">
+        <View className="detail-body-inner">
         {/* row-1:Logo + 标题 + 简介(排名/机构/关注度) */}
         <View className="tech-card head-card">
           {data.logo ? <Image className="logo" src={data.logo} mode="aspectFill" /> : null}
@@ -297,6 +298,7 @@ export default function RankingDetailPage() {
         ) : null}
 
         <View className="detail-bottom-spacer" />
+        </View>
       </ScrollView>
 
       {/* 侧边栏抽屉(showMenu/showFenLei 触发,对标原项目 DrawerComponent) */}

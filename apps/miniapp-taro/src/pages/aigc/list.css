@@ -48,13 +48,12 @@
   width: 100%;
   white-space: nowrap;
   background: var(--color-card);
-  padding: 16rpx 24rpx;
   box-sizing: border-box;
 }
 .category-inner {
   display: inline-flex;
   gap: 16rpx;
-  padding: 4rpx 0;
+  padding: 20rpx 24rpx;
 }
 .category-tab {
   flex-shrink: 0;

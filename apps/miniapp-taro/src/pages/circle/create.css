@@ -218,6 +218,8 @@
 }
 .cc-sheet-list {
   max-height: 50vh;
+}
+.cc-sheet-list-inner {
   padding: 0 32rpx 32rpx;
 }
 .cc-aigc-option {

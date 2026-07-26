@@ -7,9 +7,11 @@
 
 .exam-detail-body {
   flex: 1;
+  box-sizing: border-box;
+}
+.exam-detail-body-inner {
   padding: 24rpx;
   padding-bottom: 160rpx;
-  box-sizing: border-box;
 }
 
 .exam-detail-loading {

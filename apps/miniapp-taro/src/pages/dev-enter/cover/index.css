@@ -2,8 +2,10 @@
 .dev-cover-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx;
   box-sizing: border-box;
+}
+.dev-cover-page-inner {
+  padding: 24rpx;
 }
 
 /* ===== 用户信息卡 ===== */

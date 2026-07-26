@@ -171,6 +171,7 @@ export default function AskCreatePage() {
     <View className="ask-create-page">
       <NavBar title={tt('ask.create.pageTitle', '提问')} showBack />
       <ScrollView scrollY className="ask-create-body">
+        <View className="ask-create-body-inner">
         {/* 标题 */}
         <View className="ask-create-card">
           <View className="ask-create-label-row">
@@ -269,6 +270,7 @@ export default function AskCreatePage() {
             color="#00f2ff"
             onChange={(e) => updateForm({ anonymous: e.detail.value })}
           />
+        </View>
         </View>
       </ScrollView>
 

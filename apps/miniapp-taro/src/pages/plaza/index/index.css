@@ -51,8 +51,11 @@
 
 .pza-tabs {
   white-space: nowrap;
-  padding: 16rpx 24rpx;
   background: var(--color-card);
+}
+.pza-tabs-inner {
+  display: inline-block;
+  padding: 16rpx 24rpx;
 }
 
 .pza-tab {
@@ -80,6 +83,8 @@
 
 .pza-scroll {
   flex: 1;
+}
+.pza-scroll-inner {
   padding: 16rpx 24rpx 0;
 }
 
@@ -264,6 +269,9 @@
 
 .pza-track-scroll {
   white-space: nowrap;
+}
+.pza-track-scroll-inner {
+  display: inline-block;
   padding: 8rpx 28rpx 28rpx;
 }
 
@@ -324,6 +332,8 @@
 }
 
 .pza-center-body {
+}
+.pza-center-body-inner {
   padding: 0 28rpx 28rpx;
 }
 

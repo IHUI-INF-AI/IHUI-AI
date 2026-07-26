@@ -178,6 +178,7 @@ export default function DevEnterCover() {
 
   return (
     <ScrollView className="dev-cover-page" scrollY>
+      <View className="dev-cover-page-inner">
       {/* 用户信息卡 */}
       <View className="dc-header-card">
         <Image className="dc-avatar" src={avatar} mode="aspectFill" />
@@ -315,6 +316,7 @@ export default function DevEnterCover() {
       {loading ? (
         <Text className="dc-loading">{t('common.loading')}</Text>
       ) : null}
+      </View>
     </ScrollView>
   )
 }

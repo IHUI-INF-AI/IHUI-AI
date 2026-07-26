@@ -46,12 +46,11 @@
   width: 100%;
   white-space: nowrap;
   background: var(--color-card);
-  padding: 20rpx 0;
 }
 .ci-hottopic-list {
   display: inline-flex;
   align-items: center;
-  padding: 0 24rpx;
+  padding: 20rpx 24rpx;
   gap: 16rpx;
 }
 .ci-hottopic-chip {
@@ -88,12 +87,11 @@
 .ci-users-scroll {
   width: 100%;
   white-space: nowrap;
-  padding: 24rpx 0;
 }
 .ci-users-list {
   display: inline-flex;
   align-items: stretch;
-  padding: 0 24rpx;
+  padding: 24rpx 24rpx;
   gap: 16rpx;
 }
 .ci-user-card {

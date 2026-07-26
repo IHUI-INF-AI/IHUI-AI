@@ -156,6 +156,31 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// P0-1: 启动窗口 resize 拖拽(前端自定义边框 resize 手柄调用,2026-07-27 立)。
+/// 接收方向字符串(n/s/e/w/ne/nw/se/sw),映射到 tauri_runtime::ResizeDirection,
+/// 通过 AppHandle 获取 main 窗口的 Window,调用 start_resize_dragging 让 OS 接管 resize 手势。
+/// 注意:Tauri 2.x 中 WebviewWindow 没有 start_resize_dragging 方法,必须用 Window。
+#[tauri::command]
+fn start_resize(direction: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    use tauri_runtime::ResizeDirection;
+    let window = app
+        .get_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let dir = match direction.as_str() {
+        "n" => ResizeDirection::North,
+        "s" => ResizeDirection::South,
+        "e" => ResizeDirection::East,
+        "w" => ResizeDirection::West,
+        "ne" => ResizeDirection::NorthEast,
+        "nw" => ResizeDirection::NorthWest,
+        "se" => ResizeDirection::SouthEast,
+        "sw" => ResizeDirection::SouthWest,
+        _ => return Err(format!("unknown direction: {}", direction)),
+    };
+    window.start_resize_dragging(dir).map_err(|e| e.to_string())
+}
+
 /// 构建系统托盘(显示主窗口 / 隐藏主窗口 / 退出)+ 双击托盘唤起。
 fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
     let show_item = MenuItemBuilder::with_id("tray.show", "显示主窗口")
@@ -944,9 +969,11 @@ pub fn run() {
     tauri::Builder::default()
         // single-instance 必须在 plugin chain 最前,防止多开 + 唤起已有窗口
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // 单实例唤起时:显示 + 聚焦 + 取消最小化(覆盖最小化到托盘 / 最小化到任务栏场景)
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
+                let _ = window.unminimize();
             }
         }))
         .plugin(tauri_plugin_shell::init())
@@ -1008,6 +1035,8 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("admin") {
                 let _ = window.set_title(&format!("{} 管理后台", app_name));
             }
+            // P1-6: 窗口阴影通过 tauri.conf.json 的 "shadow": true 配置实现(Tauri 2.x 原生支持)。
+            // 注意:Tauri 2.11.5 的 WindowEffect 枚举没有 SystemShadow 变体,不能用 set_effects 实现。
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             let _ = restore_window_state(app.handle().clone());
             // 注册全局快捷键 Ctrl+Shift+I 唤起/隐藏主窗口
@@ -1032,6 +1061,7 @@ pub fn run() {
             toggle_devtools,
             quit_app,
             open_admin_window,
+            start_resize,
             screenshot_screen,
             mouse_move,
             mouse_click,
