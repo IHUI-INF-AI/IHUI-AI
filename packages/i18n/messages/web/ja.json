@@ -11831,28 +11831,12 @@
     "cancel": "キャンセル"
   },
   "modelsReferralPage": {
-    "title": "招待報酬",
-    "subtitle": "友人を招待して登録すると、双方に報酬が付与されます",
     "link": {
-      "title": "私の招待リンク",
-      "tip": "専用の招待リンクを友人に共有",
-      "copy": "リンクをコピー",
-      "reward": "友人が登録し ¥10 以上消費すると、{amount} の報酬を獲得できます"
     },
     "stats": {
-      "invited": "招待済み",
-      "activated": "有効化済み",
-      "reward": "累計報酬"
     },
     "list": {
-      "title": "招待記録",
-      "user": "ユーザー",
-      "joined": "登録時間",
-      "reward": "報酬",
-      "status": "ステータス",
       "statusLabels": {
-        "activated": "",
-        "pending": ""
       }
     }
   },
