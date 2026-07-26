@@ -13,6 +13,8 @@
 """
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 
 from app.services.meta_learner import meta_learner
@@ -23,7 +25,7 @@ router = APIRouter(prefix="/api/admin/meta-learner", tags=["meta-learner"])
 
 
 @router.get("/status")
-async def get_status() -> dict:
+async def get_status() -> dict[str, Any]:
     """获取自进化系统状态(learner + meta_learner_scheduler + skill_evolution_scheduler)。"""
     return {
         "learner": meta_learner.get_status(),
@@ -33,7 +35,7 @@ async def get_status() -> dict:
 
 
 @router.get("/lessons")
-async def get_lessons(limit: int = 50) -> dict:
+async def get_lessons(limit: int = 50) -> dict[str, Any]:
     """获取内存缓存的 meta_lessons 列表(按 confidence + occurrence_count 倒序)。
 
     Args:
@@ -44,7 +46,7 @@ async def get_lessons(limit: int = 50) -> dict:
 
 
 @router.get("/history")
-async def get_history(limit: int = 10) -> dict:
+async def get_history(limit: int = 10) -> dict[str, Any]:
     """获取 meta_learner_scheduler 最近 N 条历史运行记录。
 
     Args:
@@ -55,7 +57,7 @@ async def get_history(limit: int = 10) -> dict:
 
 
 @router.post("/trigger")
-async def trigger_now() -> dict:
+async def trigger_now() -> dict[str, Any]:
     """手动触发一次元学习聚类(不影响下次定时触发)。
 
     内部调 meta_learner_scheduler.trigger_now → _run_once:

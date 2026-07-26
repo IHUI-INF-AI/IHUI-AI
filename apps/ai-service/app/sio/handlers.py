@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, Callable, TypeVar, cast
 from urllib.parse import parse_qs
 
 import httpx
@@ -37,6 +37,24 @@ logger = logging.getLogger(__name__)
 _sessions: dict[str, dict[str, Any]] = {}
 _MAX_SESSIONS = 500
 _SESSION_TTL_SEC = 1800
+
+
+# Typed wrapper for sio.event / sio.on decorators (which are themselves untyped
+# in the socketio library). Wrapping with a generic identity function preserves
+# the wrapped function's type signature while still registering the handler.
+_T = TypeVar("_T")
+
+
+def _typed_event(handler: _T) -> _T:
+    """Typed wrapper around sio.event decorator to preserve handler types."""
+    return cast(_T, sio.event(handler))
+
+
+def _typed_on(event_name: str) -> Callable[[_T], _T]:
+    """Typed wrapper factory around sio.on decorator."""
+    def _wrap(handler: _T) -> _T:
+        return cast(_T, sio.on(event_name)(handler))
+    return _wrap
 
 
 def _touch_session(sid: str) -> dict[str, Any] | None:
@@ -148,7 +166,7 @@ async def _verify_token(token: str) -> dict[str, Any] | None:
 # =============================================================================
 
 
-@sio.event
+@_typed_event
 async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> bool:
     """握手鉴权:从 query/auth 提取 token,失败拒绝连接。"""
     query = environ.get("QUERY_STRING", "") if isinstance(environ, dict) else ""
@@ -181,7 +199,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> bool:
     return True
 
 
-@sio.event
+@_typed_event
 async def disconnect(sid: str) -> None:
     """清理会话资源。"""
     session = _sessions.pop(sid, None)
@@ -193,7 +211,7 @@ async def disconnect(sid: str) -> None:
     )
 
 
-@sio.on("join_room")
+@_typed_on("join_room")
 async def on_join_room(sid: str, data: Any) -> None:
     """加入 chat_id 房间(同一 chat 多端订阅广播用)。
 
@@ -229,7 +247,7 @@ async def on_join_room(sid: str, data: Any) -> None:
     logger.debug("[sio] sid=%s joined room=%s", sid, room)
 
 
-@sio.on("leave_room")
+@_typed_on("leave_room")
 async def on_leave_room(sid: str, data: Any) -> None:
     """离开房间。"""
     chat_id = _extract_chat_id(data)
@@ -247,7 +265,7 @@ async def on_leave_room(sid: str, data: Any) -> None:
     )
 
 
-@sio.on("chat_message")
+@_typed_on("chat_message")
 async def on_chat_message(sid: str, data: Any) -> None:
     """客户端发送消息,服务端流式返回 AI 响应。
 
