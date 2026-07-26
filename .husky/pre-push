@@ -33,3 +33,9 @@ else
   pnpm typecheck:full || { printf '%s\n' "❌ 全量 typecheck 失败,推送已阻止" >&2; exit 1; }
   printf '%s\n' "✅ 全量 typecheck 验证通过" >&2
 fi
+
+# ─── i18n 死 key 审计警告(2026-07-26 集成,非阻塞) ─────────────────────
+# 扫描 zh-CN.json 中已声明但代码无 t()/useTranslations() 引用的死 key,
+# 仅打印末尾 3 行摘要,exit 1 由 || true 吞掉,不阻塞 push(对应 CI 阻塞).
+# 跳过方法:HUSKY_SKIP_I18N_AUDIT=1(不推荐,CI 仍会阻塞).
+node scripts/scan-dead-i18n-keys.mjs --dry-run 2>&1 | tail -3 || true
