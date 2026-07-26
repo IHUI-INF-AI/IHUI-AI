@@ -10,27 +10,53 @@
 
 ---
 
+## §1 后续任务建议(2026-07-26 维护成本优化批次)
+
+> 2026-07-26 维护成本优化批次(死 key 审计 + LLM 字典化阶段 1)完成后衍生 P2 任务清单。
+
+### P2 维护成本优化后续
+
+- [ ] i18n 死 key 清理(每代 10-20 个,从 about.* / home.* / market.* 等高频 namespace 入手,基于 `.trae-cn/tmp/i18n-dead-keys-2026-07-26.md` 报告,`scan-dead-i18n-keys.mjs --exit 1` 挂 CI)
+- [ ] LLM provider 字典化阶段 2 全量改造(1-2 周,5.5 人天,基于 `docs/llm-provider-dict-design.md` §6 实施步骤)
+
+---
+
 ## 历史归档占位(2026-07-26 批次)
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移完整性审计 — 5 维度对照 + 缺失项识别(/goal 模式),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移 100% 达成 — 11 项缺失修复复核(/goal 模式轮 3,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) 小程序兼容路由 53 个 stub 真实化 — 接入 packages/databa,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) 小程序联调 P0 阻碍修复 + /study/* 鉴权路由补全 — 端到端真实数据验,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) /study/* JWT 全流程 P0 bug 修复 + miniapp-taro ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) Commit 丢失防护机制强化 — 文档 + 脚本 + 钩子三件套(AGENTS.m,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) GEO/SEO 内容层 + 5 语言 i18n parity 完成,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
+---
+
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) i18n 死 key 审计(commit 73197f3e1)— scripts/scan-dead-i18n-keys.mjs 305 行 + 报告 10255 leaf key / 4415 死 key 43.1% 写入 .trae-cn/tmp/i18n-dead-keys-2026-07-26.md(143KB),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
+---
+
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) LLM provider 字典化阶段 1(commit d7d0b9c40)— docs/llm-provider-dict-design.md 277 行 7 章节 + LLMSettings PoC(+20 行,100% 向后兼容)+ LLM_PROVIDERS_JSON 注释示例,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 ## 历史归档占位(2026-07-25 批次)
@@ -41,6 +67,7 @@
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 对话 P2/P3 遗留项执行 — SSE retry-after + Prom,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26 手动):P3-3 admin 看板 UI 接入 + SSE retry-after e2e 测试(2026-07-25),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
@@ -48,146 +75,193 @@
 <!-- 已归档(2026-07-26 手动):P3-4 DB migration 补全 + retryAfter 传递链路修复(2026-07-25),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 13 — audit 脚本 6 类误判修复 + web 端 5 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P0 安全债收尾 — IDOR 防护集成测试 + payment-gateway 全,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 输入框「添加」下拉菜单整合修复 — 9e90351d3 patch 重建时丢失,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 切换会话 LRU 缓存 + store messages 持久化 — 无闪烁体验(跨,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 桌面端顶栏终极简化 + Popover 受控模式 — 消除视觉噪音(平台独占:des,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 桌面端移除 Rust 原生菜单 — 根治"两层菜单割裂"(平台独占:desktop ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P0 安全债并行修复 — 3 条 IDOR/支付金额漏洞收口(跨端:仅 api,平台,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 12 — adminGroup.* 嵌套化 + download,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 11 — 侧边栏 nav.* 158 key + marketi,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 11 — useAgents/useArticles/useCh,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 10 — extension + miniapp-taro 端 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 9(收尾)— shared parity 升级 blocking,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 8 — 三端接入 bindTokenStoreToApiClie,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 7 — useAuth 跨端集成测试(mobile-rn 端 1,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 6 — 三端 token.ts 类型层接入 TokenStore,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 5 — mobile-rn TokenStore 适配器接入试点,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 4 — useAuth 跨端共享 hook 落地(@ihui/s,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 3 — token-store 通用契约 + i18n shar,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 2 — formatTokenCount 从 @ihui/api,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 1 — extension 14 页面 fmtDate 迁移到 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 输入框权限按钮深化(第二批) — 高风险模式 1h 自动撤销 + 首启确认弹窗,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 输入框权限按钮深化(第三批) — 快到期双提醒(5min/1min) + 撤销,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理 phase 2 收尾 — mobile-rn 34 处动态拼接全面静,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第七轮 — web i18n 动态拼接第三批治理 status.* 遗漏,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第八轮 — web i18n 动态拼接第四批治理(clean 模式 5 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第九轮 — web i18n 动态拼接第五至第八批治理 misc 模式收,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第十轮 — i18n 阶段 4 无引用 key 清理完成(跨端:仅 we,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第十一轮 — extension 端 i18n 4 语言翻译补齐(跨端:,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第十二轮 — audit 脚本误判修复 + extension/mobi,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第六轮 — web i18n 动态拼接第二批治理 Top 10 命名空间,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第五轮 — P0 删 jsonwebtoken + P1 统一 zod ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 动态拼接全面治理收尾 — web 260→2 + miniapp-taro,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第四轮 — 守门脚本精简 93→78 + web i18n status,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第三轮 — miniapp-taro i18n 13 处动态拼接静态化 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 1 — miniapp-taro 13 处动态拼接改静态映射(跨,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 2 — web 动态拼接静态化(多 agent 并行协同,部分完,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P2-2 续: @ihui/app 卡片 Props 扩展 + mobile-rn ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第二轮 — reports 清理 + 守门脚本索引 + docs 一致性,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 命名空间统一执行 + mobile-rn 卡片接入评估 — web age,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 架构优化 4 项 + P3 评估 — api-client 共享层扩展 + ui-n,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化 5 项 — 端口 docs 统一 + audit-migration ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal 阶段 1 统一 i18n 单一来源 — 4 端翻译合并到 package,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P2 直播主播端迁移补齐 — miniapp-taro 补建主播端页面(,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P0+P1 旧项目迁移补齐 — 11 项页面/组件两端同步(跨端:min,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P3 全端统一迁移 — miniapp-taro API/类型迁移到 @,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P0+P1 架构优化 8 项 — 类型契约包 + i18n 清理 + l,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 登录弹窗自动弹出回归深度根治 — 共享决策中心 + 统一去重 guard(跨端:we,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal D 盘旧项目迁移完整性补齐 — 11 项 P0+P1 任务 + 4 模块,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro API 契约对齐 Round 2 — 补建 24 个 P0,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal 资源上游自动同步中心 — MCP/Skill/Plugin/Provid,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
@@ -195,15 +269,19 @@
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal 架构终极验证修复 — 8 缺口收敛 + 6 路审计 + 4 路并行修复(,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) i18n AI 翻译流水线(零 LLM API 调用,开发成本降 70%+)(跨端:,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round17:i18n 5 语言补全 387 key(z,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) AI 对话框体验对标 Trae Work + Codex 第一轮 — 6 工具 + ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) AI 对话框体验对标 Trae Work + Codex 第二轮 — 9 大缺口并行,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) Wave 21 Phase 2 SSR 消除静态导出收尾 — robots/site,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) Wave 24e 跨范围 UTF-8 编码修复 — api-client resou,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
@@ -227,50 +305,64 @@
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) admin 路由深化 P0 批次 — orders/refund/wallet/us,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) admin 路由深化 P0 批次单元测试 — wallet/batch/stats ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round7:P0 缺口全量扫描 + 12 项 P0 修复,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round9:5 subagent 并行修复 P1 缺口 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round10:5 subagent 并行深化 24 个空,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round11:5 subagent 并行深化 5 个核心,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round12:5 subagent 并行深化 P1 级 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round13:多 subagent 并行深化 9 域页面,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 23:web ↔ extension 前端统一改造(跨端:web + ex,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) A 套壳方案迁移:Desktop 端 Vite React 页面全部删除,统一由 w,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 14 个免费 LLM provider 内化到 LLMGateway(平台独占:仅 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) Wave 21:桌面端架构收敛 + 安装更新链路闭环(跨端:web + deskto,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) /goal 深度开发:巨型路由文件拆分 + stub 清除 + 业务域深化(平台独占,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 22:desktop typecheck 3 errors → 0(Mar,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24:web 包体积优化 — hls.js 动态导入 + 移除 9 个冗余,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24b:全端测试覆盖深化 + web lint 清零(平台独占:多端独立),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-23):Wave 20:ai-service pytest 覆盖强化 — 10 模块 275 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 <!-- 已归档(2026-07-23):AI Skills TOP 19 个 skill 集成 + 19 真集成(全部实装,无占位),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) AI Skills 系列后续增强:SkillLibrary 弹窗动态变量 + 详情页,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) (main) 目录页面整合 P0/P1:ask/article 重复路由改重定向 +,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-23):桌面端 Tauri 2 自动更新链路代码层(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
@@ -296,6 +388,7 @@
 <!-- 已归档(2026-07-23):桌面端字号缩放快捷键持久化(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-23):ai-news 组件深度优化七轮:TrendChartDialog 无障碍闭环 + EmptyState 统一组件(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
@@ -427,15 +520,19 @@
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 21:ai-service 5 P3 大模块零覆盖补齐 651 用例(平台,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 23:ai-service 12 P3 中小模块 + publish 全链,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 进程僵尸守护者 v1.0:根治开发期内存占用 96%(僵尸 pip + dev se,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 进程僵尸守护者 v2.0 实时 daemon 升级 — 30 分钟定时 → 60 秒,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 自主记忆更新优化强化 L1 接入激活 + L2-1 语义去重深度(跨端:ai-ser,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
@@ -444,6 +541,7 @@
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P4 系列:AI 对话体验深度优化(L4 自进化闭环 + SSE fallback ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) i18n 多语言 parity 修复 + git stash 冲突标记清理 + ho,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
