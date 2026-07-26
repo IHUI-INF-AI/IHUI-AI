@@ -13,15 +13,19 @@
  *   (web 默认 apps/web/messages/; extension packages/i18n/messages/extension/; shared packages/i18n/messages/shared/)
  *   extension / shared 模式只做 key parity 校验,跳过源码使用检测与翻译完整性检测
  *   (extension 用 useI18n(),namespace 提取逻辑不适用;shared 为跨端共享基础 key 无源码消费方)
+ * - --parity-only: 仅做 5 语言 key parity 校验,跳过源码使用检测
+ *   (用于 guardian-runner 第 32 项,即使暂存区无 i18n JSON 改动也强制跑 parity 校验,
+ *    防止"5 语言 parity 漂移但 commit 漏检"——item 2 现有逻辑只在 messages 改动时跑 parity)
  * - 方案 A(2026-07-26):web/extension 非 shared 模式下 loadMessages() 返回
  *   mergeMessages(shared[lang], target[lang]),parity 校验在合并集上进行,
  *   源码缺失键检测也查合并集。这样把 common.save 等基础 key 迁移到 shared 后,
  *   web 端不会误报"缺失键 common.save"。shared 模式保持 parity-only 不变。
  *
- * 用法: node scripts/check-i18n-keys.mjs [--staged] [--target=web|extension|shared]
- *   --staged: 只检查 git 暂存区涉及的文件(pre-commit 用, 有问题则 exit 1)
- *   --target: 扫描目标,web(默认)、extension 或 shared
- *   无参数:   全量检查(CI 用, 历史遗留问题标 warning, exit 0)
+ * 用法: node scripts/check-i18n-keys.mjs [--staged] [--target=web|extension|shared] [--parity-only]
+ *   --staged:      只检查 git 暂存区涉及的文件(pre-commit 用, 有问题则 exit 1)
+ *   --target:      扫描目标,web(默认)、extension 或 shared
+ *   --parity-only: 仅做 5 语言 parity 校验,跳过源文件扫描;与 --staged 一起用时强制跑 parity
+ *   无参数:        全量检查(CI 用, 历史遗留问题标 warning, exit 0)
  */
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
