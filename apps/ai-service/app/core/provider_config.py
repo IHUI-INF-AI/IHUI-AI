@@ -1,14 +1,10 @@
-"""LLM provider 强类型配置(2026-07-26 阶段 2 改造).
+"""LLM provider 强类型配置(2026-07-26 阶段 3 主体已落地).
 
 设计参考 docs/llm-provider-dict-design.md §2 目标架构 + §3 向后兼容策略.
 
-阶段 2 关键改造:把 apps/ai-service 当前的 24 个 *_api_key + 7 个 *_api_base
-扁平字段(在 Settings 中)升级为强类型 Pydantic ProviderConfig.
-Settings.get_provider_config() 返回类型从 dict → ProviderConfig(强类型),
-行为 100% 向后兼容(优先读 llm_providers JSON,缺省回退扁平字段).
-
-阶段 3 计划:删除 24+7 扁平字段,LLM 调用层(apps/ai-service/app/llm/*.py)
-直接消费 ProviderConfig 实例。
+阶段 3 主体(2026-07-26):24 个 *_api_key + 7 个 *_api_base 扁平字段已删除,
+Settings.get_provider_config() 只走 llm_providers JSON 路径(失败返回空 ProviderConfig).
+LLM 调用层(llm_gateway.py / mcp_server.py 等)直接消费 ProviderConfig 实例。
 """
 from __future__ import annotations
 
