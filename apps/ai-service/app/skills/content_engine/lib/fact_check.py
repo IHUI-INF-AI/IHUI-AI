@@ -34,6 +34,7 @@ import re
 import sys
 import os
 from datetime import datetime
+from typing import cast
 
 # ===== 严重级别 =====
 HIGH = 'HIGH'
@@ -42,7 +43,7 @@ LOW = 'LOW'
 
 # ===== 已知产品/版本知识库（持续更新） =====
 # 用于标记完全不存在的产品名或可疑版本号
-KNOWN_PRODUCTS = {
+KNOWN_PRODUCTS: dict[str, dict[str, list[str] | str]] = {
     # OpenAI
     'GPT-4': {'versions': ['turbo', 'o', 'o-mini'], 'maker': 'OpenAI'},
     'GPT-4o': {'versions': ['mini', 'nano'], 'maker': 'OpenAI'},
@@ -449,7 +450,7 @@ def check_data_consistency(article, texts):
     full = _full_text(texts)
 
     # 提取所有"X万词元"格式的数据点
-    context_numbers = {}
+    context_numbers: dict[str, dict[str, list[str]]] = {}
     patterns = {
         'context_万词元': r'([\d.]+)\s*万\s*词元',
         'context_tokens': r'([\d.]+)\s*万?\s*tokens?',
@@ -540,7 +541,7 @@ def check_product_versions(article, texts):
             for known_product, info in KNOWN_PRODUCTS.items():
                 if product.lower() == known_product.lower() or known_product.lower() in product.lower():
                     matched = True
-                    known_versions = info.get('versions', [])
+                    known_versions = cast(list[str], info.get('versions', []))
                     if known_versions and version not in known_versions:
                         # 版本号不在已知列表中，标记为待核实
                         issues.append({
@@ -609,8 +610,8 @@ def check_temporal_claims(article, texts):
 
     # 检查日期合理性
     for d in found_dates:
-        month = d.get('month', 0)
-        day = d.get('day', 0)
+        month = cast(int, d.get('month', 0))
+        day = cast(int, d.get('day', 0))
         if month < 1 or month > 12:
             issues.append({
                 'check': 'C7',
@@ -860,7 +861,7 @@ def check_claims_registry(article, texts):
         return issues
 
     # 统计各类声明
-    categories = {}
+    categories: dict[str, int] = {}
     for claim in registry:
         cat = claim.get('category', 'unknown')
         categories[cat] = categories.get(cat, 0) + 1
