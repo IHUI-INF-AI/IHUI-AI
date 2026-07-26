@@ -134,6 +134,34 @@ function splitSections(md) {
   return sections
 }
 
+/** 转义正则元字符,用于构造字面量 keyword 的精确匹配正则 */
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 检查 text 中是否含"后续工作类"keyword,排除被否定前缀修饰的位置。
+ *
+ * Bug 背景:REMAINING_KEYWORDS 含 '后续建议',而 COMPLETE_PHRASES 含 '无后续建议'。
+ * 用 text.includes('后续建议') 会命中 "无后续建议" 中的子串,导致同一文本被误判为
+ * "同时声明无后续建议 + 列出后续建议" → 自相矛盾误报。
+ *
+ * 修复:用 lookbehind 排除前面紧邻否定前缀(无 / 无任何 / 没有 / 不存在 / 并无 / 全无)的位置。
+ * 仅当 '后续建议' 出现在非否定上下文时才算命中。
+ *
+ * 注意:lookbehind 在 Node.js 10+ 支持(ES2018)。
+ */
+function containsRemainingKeyword(text, kw) {
+  // 否定前缀清单:紧邻 keyword 之前出现这些前缀时,该 keyword 出现不算"后续工作类"
+  const NEGATIVE_PREFIXES = ['无任何', '无', '没有', '不存在', '并无', '全无', '无需']
+  // 构造 lookbehind:排除前面紧邻任一否定前缀的位置
+  // (?<!无|无任何|没有|不存在|并无|全无|无需) + escaped(kw)
+  const prefixPattern = NEGATIVE_PREFIXES.map(escapeRegExp).join('|')
+  // 注意 lookbehind 分支长度可变时,部分老引擎不支持;Node 12+ 支持,这里用 alternation
+  const re = new RegExp(`(?<!${prefixPattern})${escapeRegExp(kw)}`)
+  return re.test(text)
+}
+
 /** 在一个章节文本里扫描互斥违规 */
 function checkSection(section) {
   if (isExemptSection(section)) return []
@@ -143,7 +171,7 @@ function checkSection(section) {
     if (text.includes(phrase)) hits.complete.push(phrase)
   }
   for (const kw of REMAINING_KEYWORDS) {
-    if (text.includes(kw)) hits.remaining.push(kw)
+    if (containsRemainingKeyword(text, kw)) hits.remaining.push(kw)
   }
   if (hits.complete.length > 0 && hits.remaining.length > 0) {
     return [{ section: section.title, hits }]
