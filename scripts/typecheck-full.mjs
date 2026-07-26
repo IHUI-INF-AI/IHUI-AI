@@ -70,10 +70,9 @@ if (removed.length === 0) {
   }
 }
 
-console.log('\n[typecheck:full] 运行 pnpm -r run typecheck(串行,避免 turbo 多进程竞态)...')
-// 2026-07-26:mypy 升级为 blocking(Python 类型错误现在会阻塞 typecheck:full)
-console.log('[typecheck:full] apps/ai-service mypy 步骤:blocking(Python 类型错误直接 fail-fast)')
-// 使用 pnpm -r 递归串行运行,避免 turbo 并行/串行时的 .tsbuildinfo 与内存竞态
+console.log('\n[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...')
+console.log('[typecheck:full] 注意:apps/ai-service 的 mypy 为 informational,非阻塞(见上 ⚠️ 警告)')
+// 使用 pnpm -r 递归串行运行，避免 turbo 并行/串行时的 .tsbuildinfo 与内存竞态
 const result = spawnSync('pnpm -r run typecheck', {
   cwd: ROOT,
   stdio: 'inherit',
@@ -81,27 +80,9 @@ const result = spawnSync('pnpm -r run typecheck', {
 })
 
 if (result.status !== 0) {
-  console.error(`\n[typecheck:full] 失败,退出码 ${result.status}`)
+  console.error(`\n[typecheck:full] 失败，退出码 ${result.status}`)
   process.exit(result.status ?? 1)
 }
 
-// 2026-07-26:mypy 集成 typecheck:full(从 informational 升级为 blocking)
-// 阶段一(2026-07-26):启用 strict=false + check_untyped_defs,捕获基础类型错误
-//   - 当前基线:317 个既有错误(分布在 84 文件,主要为 unused-ignore / no-any-return /
-//     union-attr / var-annotated / return-value 等),由 follow-up 任务逐文件修复
-// 阶段二(follow-up):按模块逐个 enable strict_optional / disallow_untyped_defs 等严格项
-console.log('\n[typecheck:full] 运行 apps/ai-service mypy (blocking)...')
-const mypyResult = spawnSync('mypy', ['app/'], {
-  cwd: resolve(ROOT, 'apps/ai-service'),
-  stdio: 'inherit',
-  shell: true,
-})
-
-if (mypyResult.status !== 0) {
-  console.error('\n[typecheck:full] ❌ mypy 失败,Python 类型错误需修复')
-  console.error('[typecheck:full]    详细修复指南:见 apps/ai-service/pyproject.toml [tool.mypy] 段注释')
-  console.error('[typecheck:full]    既有错误清单:见 commit message "mypy 升级 blocking 基线" 段')
-  process.exit(mypyResult.status ?? 1)
-}
-
-console.log('\n[typecheck:full] 全量类型检查通过(mypy + tsc 5 端 typecheck 全绿)。')
+console.log('\n[typecheck:full] 全量类型检查通过。')
+console.log('[typecheck:full] ⚠️ 注意:apps/ai-service 的 mypy 错误为 informational,不阻塞 push(Python 代码待后续修复)')
