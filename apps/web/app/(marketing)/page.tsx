@@ -15,8 +15,6 @@ import { HomeComparison } from '@/components/marketing/HomeComparison'
 import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
-import { HomeDecor } from '@/components/marketing/HomeDecor'
-import { SectionDecor } from '@/components/marketing/SectionDecor'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
 
@@ -37,6 +35,9 @@ import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
  * - 拆分原 Page 3(5 Scenarios + 8 ROI + 8 行对比表)为 3 个独立 snap section
  * - 解决用户反馈"内容太拥挤了,再分个页面出来,为什么要这么做"
  * - 每页信息密度降低 30-40%,字号 / 间距 / 行高全部放大一档,移动端阅读更舒服
+ *
+ * 2026-07-26 改:移除 HomeDecor / SectionDecor 装饰组件(用户反馈"左上角微弱光圈"
+ * 不易发现 + 偏好简洁 UI),marketing 首页改纯色背景,做减法。
  */
 const BENEFITS_KEYS = ['benefit1', 'benefit2', 'benefit3', 'benefit4', 'benefit5', 'benefit6'] as const
 const BENEFITS_I18N_KEYS: readonly string[] = BENEFITS_KEYS.map((k) => `welcome.benefits.${k}`)
@@ -79,9 +80,6 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('indicator.page1', { fallback: 'Hero' })}
         >
-          {/* Hero 区装饰光斑 — absolute,在内容下方,打破"纯文字卡片"单调感 */}
-          <HomeDecor />
-
           {/* 顶部固定区:Marquee 通知跑马灯(2026-07-20 用户反馈:从底部上移到顶部,
               像 banner 一样最先被看到) */}
           <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
@@ -160,7 +158,6 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('features.title', { fallback: 'Features' })}
         >
-          <SectionDecor variant="features" />
           <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
               <HomeFeatureGrid />
@@ -178,7 +175,6 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('scenarios.title', { fallback: 'Scenarios' })}
         >
-          <SectionDecor variant="scenarios" />
           <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
               <HomeScenarios />
@@ -195,7 +191,6 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={tr('title', { fallback: 'ROI' })}
         >
-          <SectionDecor variant="roi" />
           <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
               <HomeRoi />
@@ -212,7 +207,6 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={tc('title', { fallback: 'Comparison' })}
         >
-          <SectionDecor variant="comparison" />
           <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
               <HomeComparison />
@@ -235,7 +229,6 @@ export default function HomePage() {
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('pricing.title', { fallback: 'Pricing' })}
         >
-          <SectionDecor variant="pricing" />
           <div className="relative z-10 flex h-full w-full flex-1 flex-col items-center justify-center gap-3 overflow-hidden">
             {/* Pricing 4 卡(顶部,自然高度,不再 flex-1 撑大) */}
             <div className="w-full">

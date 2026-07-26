@@ -13,15 +13,19 @@
  *   (web 默认 apps/web/messages/; extension packages/i18n/messages/extension/; shared packages/i18n/messages/shared/)
  *   extension / shared 模式只做 key parity 校验,跳过源码使用检测与翻译完整性检测
  *   (extension 用 useI18n(),namespace 提取逻辑不适用;shared 为跨端共享基础 key 无源码消费方)
+ * - --parity-only: 仅做 5 语言 key parity 校验,跳过源码使用检测
+ *   (用于 guardian-runner 2n-web 项,即使暂存区无 i18n JSON 改动也强制跑 parity 校验,
+ *    防止"5 语言 parity 漂移但 commit 漏检"——item 2 现有逻辑只在 messages 改动时跑 parity)
  * - 方案 A(2026-07-26):web/extension 非 shared 模式下 loadMessages() 返回
  *   mergeMessages(shared[lang], target[lang]),parity 校验在合并集上进行,
  *   源码缺失键检测也查合并集。这样把 common.save 等基础 key 迁移到 shared 后,
  *   web 端不会误报"缺失键 common.save"。shared 模式保持 parity-only 不变。
  *
- * 用法: node scripts/check-i18n-keys.mjs [--staged] [--target=web|extension|shared]
- *   --staged: 只检查 git 暂存区涉及的文件(pre-commit 用, 有问题则 exit 1)
- *   --target: 扫描目标,web(默认)、extension 或 shared
- *   无参数:   全量检查(CI 用, 历史遗留问题标 warning, exit 0)
+ * 用法: node scripts/check-i18n-keys.mjs [--staged] [--target=web|extension|shared] [--parity-only]
+ *   --staged:      只检查 git 暂存区涉及的文件(pre-commit 用, 有问题则 exit 1)
+ *   --target:      扫描目标,web(默认)、extension 或 shared
+ *   --parity-only: 仅做 5 语言 parity 校验,跳过源文件扫描;与 --staged 一起用时强制跑 parity
+ *   无参数:        全量检查(CI 用, 历史遗留问题标 warning, exit 0)
  */
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
@@ -33,9 +37,13 @@ const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 const isExtension = TARGET === 'extension'
 const isShared = TARGET === 'shared'
+// 2026-07-26: --parity-only 强制仅做 5 语言 parity 校验(不扫描源文件)
+// 用途:guardian-runner 2n-web 项,即使暂存区无 i18n JSON 改动也强制跑 parity
+const isParityOnlyFlag = process.argv.includes('--parity-only')
 // parity-only 模式:仅做 5 语言 key parity 校验,跳过源码使用检测与翻译完整性检测
-// (extension 用 useI18n() namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方)
-const isParityOnly = isExtension || isShared
+// (extension 用 useI18n() namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方;
+//  --parity-only 用于 guardian-runner 2n-web 项兜底,防止 i18n JSON 没动时 parity 漂移漏检)
+const isParityOnly = isExtension || isShared || isParityOnlyFlag
 const WEB_DIR = join(ROOT, 'apps/web')
 // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
 const MESSAGES_DIR = isExtension
@@ -337,14 +345,16 @@ if (!isParityOnly && sourceFiles.length === 0 && !messagesChanged) {
 }
 
 // parity-only 暂存区无 i18n JSON 改动时跳过(避免无关 commit 触发 parity 校验)
-if (isParityOnly && isStaged && !messagesChanged) {
+// 例外: --parity-only 显式标记必须跑(guardian-runner 2n-web 项,即使没改 i18n JSON 也要验)
+if (isParityOnly && isStaged && !messagesChanged && !isParityOnlyFlag) {
   console.log(`${C.green}[i18n 键检查] ${TARGET} 模式:暂存区无 i18n JSON 改动,跳过${C.reset}`)
   process.exit(0)
 }
 
 const parityIssues = []
 
-if (!isStaged || messagesChanged) {
+// 严格 parity 模式(--parity-only 显式标记):即使 staged + 无 messagesChanged 也跑 parity
+if (!isStaged || messagesChanged || isParityOnlyFlag) {
   for (const lang of langNames) {
     if (lang === BASE_LANG) continue
     const langLeaves = new Set(collectLeafKeys(messages[lang]))
@@ -538,7 +548,9 @@ if (issueCount > 0) {
     ? `packages/i18n/messages/extension/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
     : isShared
       ? `packages/i18n/messages/shared/${BASE_LANG}.json`
-      : `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
+      : isParityOnlyFlag
+        ? `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
+        : `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
   console.log(
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
@@ -552,7 +564,13 @@ if (issueCount > 0) {
   process.exit(1)
 }
 
-const targetLabel = isExtension ? '[extension] ' : isShared ? '[shared] ' : ''
+const targetLabel = isExtension
+  ? '[extension] '
+  : isShared
+    ? '[shared] '
+    : isParityOnlyFlag
+      ? '[parity-only] '
+      : ''
 console.log(
   `${C.green}[i18n 键检查] ${targetLabel}通过,已检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 parity OK${C.reset}`,
 )
