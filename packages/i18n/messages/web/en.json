@@ -47,17 +47,7 @@
     }
   },
   "common": {
-    "closeOther": "Close Others",
-    "closeAll": "Close All",
-    "resize": "Drag to resize",
-    "payTime": "Pay Time",
-    "cancelTime": "Cancel Time",
     "refundTime": "Refund Time",
-    "reasonRequired": "Reason is required",
-    "originalPrice": "Original Price",
-    "notFoundTitle": "Page Not Found",
-    "backHome": "Back to Home",
-    "searchHistory": "Search History",
     "tools": {
       "title": "Tools",
       "subtitle": "Browse and use various tools provided by the platform",
@@ -93,6 +83,18 @@
         "updatedAt": "Updated"
       }
     },
+    "dismiss": "Dismiss",
+    "empty": "No records",
+    "closeOther": "Close Others",
+    "closeAll": "Close All",
+    "resize": "Drag to resize",
+    "payTime": "Pay Time",
+    "cancelTime": "Cancel Time",
+    "reasonRequired": "Reason is required",
+    "originalPrice": "Original Price",
+    "notFoundTitle": "Page Not Found",
+    "backHome": "Back to Home",
+    "searchHistory": "Search History",
     "noData": "No Data",
     "batchDelete": "Batch Delete",
     "exportSuccess": "Export succeeded",
@@ -100,15 +102,8 @@
     "comingSoon": "Coming Soon",
     "moreActions": "MoreActions",
     "loadFailed": "Load Failed",
-    "dismiss": "Dismiss",
     "viewDetail": "View Details",
-    "colToken": "Tokens",
-    "empty": "No records"
-  },
-  "a11y": {
-    "searchOption": "Search options",
-    "addAttachment": "Add attachment (image / video / file)",
-    "breadcrumb": "Breadcrumb"
+    "colToken": "Tokens"
   },
   "taskReceiver": {
     "title": "Task Receiver",
@@ -313,58 +308,6 @@
       "developer": "Developer Center",
       "saas": "SaaS Platform"
     }
-  },
-  "auth": {
-    "loginTitle": "Welcome Back",
-    "loginSubtitle": "Sign in to your account",
-    "loginBtn": "Sign In",
-    "noAccount": "Don't have an account?",
-    "registerNow": "Sign up",
-    "forgotPassword": "Forgot password?",
-    "accountHistory": "Account History",
-    "removeAccount": "Remove account",
-    "registerTitle": "Create Account",
-    "phonePlaceholder": "Enter your phone number",
-    "passwordPlaceholder": "Enter your password",
-    "code": "Code",
-    "codePlaceholder": "Enter verification code",
-    "confirmPassword": "Confirm Password",
-    "sendCode": "Send Code",
-    "registerBtn": "Sign Up",
-    "phoneRegister": "Phone",
-    "emailRegister": "Email",
-    "toLogin": "Sign in",
-    "thirdPartyLogin": "Or continue with",
-    "registerSuccess": "Registration successful, please sign in",
-    "passwordMismatch": "Passwords do not match",
-    "resetPassword": "Reset Password",
-    "newPassword": "New Password",
-    "resetSuccess": "Password reset successful, please sign in",
-    "enterPhone": "Enter your phone number",
-    "enterCode": "Enter verification code",
-    "enterNewPassword": "Enter new password",
-    "emailLogin": "Email",
-    "usernamePlaceholder": "Enter username",
-    "emailPlaceholder": "Enter email",
-    "enterpriseWechat": "Enterprise WeChat",
-    "captchaPlaceholder": "Enter captcha",
-    "phoneCodeLogin": "Code Login",
-    "passwordLogin": "Password Login",
-    "invalidEmail": "Invalid email",
-    "googleNotConfigured": "Google login not configured",
-    "appleComingSoon": "Apple login coming soon",
-    "qrLogin": "Scan QR",
-    "qrNotConfigured": "{platform} scan login is not configured, please contact the administrator",
-    "qrScanTipPlatform": "Scan the QR code with your {platform} app to log in",
-    "agreeRequired": "Please read and agree to the terms",
-    "agreePrefix": "I have read and agree to the",
-    "agreementNoticeTitle": "Please Agree to Continue",
-    "agreementNoticeDesc": "To protect your account security, please read and agree to the following terms before logging in",
-    "agreementNoticeSafe": "Your information is transmitted securely via an encrypted channel",
-    "agreementNoticeAgree": "Agree & Continue",
-    "autoLogin": "Auto-login",
-    "getVerificationCode": "Get Code",
-    "alipayLogin": "AlipayLogin"
   },
   "home": {
     "announcement": {
@@ -5529,7 +5472,6 @@
   },
   "user": {
     "profile": {
-      "avatarHint": "JPG / PNG, 200x200 recommended",
       "cropTitle": "Crop Avatar",
       "cropDesc": "Drag the box to position, fixed 1:1 ratio",
       "cropPreview": "Preview",
@@ -5540,9 +5482,7 @@
       "cropScale": "Zoom",
       "cropRotateLeft": "Rotate left",
       "cropRotateRight": "Rotate right",
-      "nicknamePlaceholder": "Enter your nickname",
       "nicknameError": "Nickname must be 2-20 characters",
-      "emailPlaceholder": "Enter your email",
       "emailError": "Invalid email format",
       "bioError": "Bio must be under 200 characters",
       "following": "Following",
@@ -5555,16 +5495,12 @@
       "voiceRecord": "Voice Recording",
       "gender_female": "",
       "gender_male": "",
-      "gender_unknown": ""
+      "gender_unknown": "",
+      "avatarHint": "JPG / PNG, 200x200 recommended",
+      "nicknamePlaceholder": "Enter your nickname",
+      "emailPlaceholder": "Enter your email"
     },
     "security": {
-      "title": "Security",
-      "subtitle": "Keep your account secure",
-      "password": "Change Password",
-      "currentPassword": "Current Password",
-      "newPassword": "New Password",
-      "confirmPassword": "Confirm New Password",
-      "updatePassword": "Update Password",
       "passwordHint": "6-20 chars, no < > \" ' | \\ allowed",
       "passwordTooShort": "Password must be at least 6 characters",
       "passwordTooLong": "Password must be at most 20 characters",
@@ -5577,17 +5513,21 @@
       "changePhoneDesc": "Change your bound phone number",
       "newPhone": "New Phone",
       "newPhonePlaceholder": "Enter new phone number",
+      "resend": "Resend in {seconds}s",
+      "phoneChanged": "Phone number changed",
+      "title": "Security",
+      "subtitle": "Keep your account secure",
+      "password": "Change Password",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm New Password",
+      "updatePassword": "Update Password",
       "code": "Verification Code",
       "codePlaceholder": "Enter verification code",
       "sendCode": "Send Code",
-      "resend": "Resend in {seconds}s",
-      "phoneChanged": "Phone number changed",
       "devices": "Login Devices"
     },
     "notifications": {
-      "title": "Notifications",
-      "allRead": "All read",
-      "markAllRead": "Mark all read",
       "viewList": "List View",
       "viewTimeline": "Timeline View",
       "justNow": "just now",
@@ -5601,20 +5541,25 @@
         "order": "",
         "project": "",
         "system": ""
-      }
+      },
+      "title": "Notifications",
+      "allRead": "All read",
+      "markAllRead": "Mark all read"
     },
     "public": {
+      "follow": "Follow",
+      "unfollow": "Unfollow",
+      "isYou": "This is you",
       "notFound": "User not found or no access",
+      "loading": "Loading...",
+      "statsFollowing": "Following",
+      "statsFollowers": "Followers",
+      "statsFavorites": "Favorites",
       "sendMessage": "Send Message"
     },
     "realname": {
-      "title": "Real Name Verification",
-      "subtitle": "Complete real name verification to unlock more features",
-      "approvedTitle": "Verification Approved",
       "auditTime": "Verified At",
-      "pendingTitle": "Under Review",
       "pendingHint": "Your real name verification is under review. Please be patient.",
-      "rejectedTitle": "Verification Rejected",
       "noReason": "Not provided",
       "form": {
         "name": "Real Name",
@@ -5631,12 +5576,14 @@
       "sourceMiniapp": "Mini Program",
       "rejectedReason": "Rejection Reason",
       "success": "Verification submitted successfully",
-      "error": "Verification submission failed"
+      "error": "Verification submission failed",
+      "title": "Real Name Verification",
+      "subtitle": "Complete real name verification to unlock more features",
+      "approvedTitle": "Verification Approved",
+      "pendingTitle": "Under Review",
+      "rejectedTitle": "Verification Rejected"
     },
     "subscription": {
-      "current": "Current Subscription",
-      "expireTime": "Expire Time",
-      "autoRenew": "Auto Renew",
       "autoRenewOn": "Enabled",
       "autoRenewOff": "Disabled",
       "notSubscribedHint": "Subscribe to VIP to enjoy more exclusive benefits",
@@ -5660,7 +5607,10 @@
       "nextCharge": "Next charge:",
       "manage": "Manage",
       "autoRenewClosed": "Auto-renew not enabled",
-      "openAutoRenew": "Enable Auto-Renew"
+      "openAutoRenew": "Enable Auto-Renew",
+      "current": "Current Subscription",
+      "expireTime": "Expire Time",
+      "autoRenew": "Auto Renew"
     },
     "articles": {
       "title": "My Articles",
@@ -5933,17 +5883,12 @@
     }
   },
   "settings": {
-    "dashboardDesc": "Quick access to all settings options",
     "activityLoading": "Loading...",
     "activityEmpty": "No activity records",
     "activityLoadFailed": "Loading failed, please try again later",
     "activityPrev": "Previous",
     "activityNext": "Next",
     "activityPageInfo": "Page {page}/{totalPages}",
-    "themeSystem": "System",
-    "langZh": "mid",
-    "sidebarCollapsed": "Collapse by default",
-    "sidebarExpanded": "Expand by default",
     "securityCenter": "Security Center",
     "device": {
       "title": "Device Management",
@@ -6009,35 +5954,7 @@
       "saveFailed": "Save failed, please retry",
       "rememberDays": "Remember for {days} days"
     },
-    "subPagesTitle": "More Settings",
-    "accountDeletionWarning": "This action is irreversible. All data will be permanently lost.",
-    "accountDeletionCodeLabel": "Verification Code",
-    "accountDeletionCodePlaceholder": "Enter verification code",
     "accountDeletionSendCode": "Send Code",
-    "accountDeletionSubmit": "Confirm Deletion",
-    "accountDeletionCodeSent": "Code sent",
-    "accountDeletionCodeSendFailed": "Failed to send code",
-    "accountDeletionSuccess": "Account deleted, redirecting to login",
-    "accountDeletionFailed": "Deletion failed, please retry",
-    "accountDeletionPhonePlaceholder": "Enter phone number",
-    "accountDeletionResend": "Resend in {seconds}s",
-    "accountDeletionCancel": "Cancel Deletion",
-    "dataVisibility": "Data Visibility",
-    "dataVisibilityDesc": "Control who can see your profile information",
-    "adTracking": "Ad Tracking",
-    "personalizedRecommendation": "Personalized Recommendations",
-    "privacySaveFailed": "Save failed",
-    "exportJson": "JSON Format",
-    "exportCsv": "CSV Format",
-    "exportCsvDesc": "Export tabular CSV data",
-    "exportScope": "Export Scope",
-    "exportScopeDesc": "Includes: profile, chat history, orders, usage statistics, etc.",
-    "exportCreating": "Generating export...",
-    "exportSuccess": "Export ready",
-    "exportFailed": "Export failed, please retry",
-    "exportExpiresAt": "Expires At",
-    "exportLastExport": "Last Export",
-    "exportNoHistory": "No export history",
     "authorizationsTitle": "Session Management",
     "authorizationsDesc": "View and manage your active login sessions",
     "revokeAuth": "Revoke Session",
@@ -6064,21 +5981,6 @@
     "eventPasswordChange": "Password Change",
     "eventAbnormalLogin": "Abnormal Login",
     "event2faEnabled": "2FA Enabled",
-    "emailNotif": "Email Notifications",
-    "systemNotif": "System Notifications",
-    "marketingEmail": "Marketing Emails",
-    "smsNotif": "SMS Notifications",
-    "smsNotifDesc": "Receive verification codes and alerts via SMS",
-    "pushNotif": "In-App Notifications",
-    "pushNotifDesc": "Receive messages within the platform",
-    "notificationsSaveFailed": "Save failed",
-    "billingOrders": "Orders",
-    "billingInvoices": "Invoice Requests",
-    "connectedAccountsUnbound": "Unbound",
-    "connectedAccountsUnbindConfirm": "Are you sure to unbind {platform} account?",
-    "connectedAccountsPlatform": "Platform Account",
-    "connectedAccountsBoundAt": "Bound At",
-    "connectedAccountsUnbindFail": "Unbind failed",
     "icpRecordTitle": "ICP Record Information",
     "icpRecordDesc": "View platform ICP record information",
     "icpRecordCardTitle": "Record Information",
@@ -6131,25 +6033,55 @@
     "profileDesc": "",
     "profileTitle": "",
     "securityDesc": "",
-    "securityTitle": ""
-  },
-  "help": {
-    "contactSupport": "Contact Support",
-    "empty": "No articles found",
-    "backToList": "Back to Help",
-    "updatedAt": "Updated",
-    "viewCount": "{count} views",
-    "toc": "On this page",
-    "related": "Related Articles",
-    "notFound": "Article not found or offline"
-  },
-  "search": {
-    "emptyKeyword": "Enter a keyword to search",
-    "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})"
-  },
-  "searchHistory": {
-    "subtitle": "Your recent searches",
-    "clearAll": "Clear All"
+    "securityTitle": "",
+    "dashboardDesc": "Quick access to all settings options",
+    "themeSystem": "System",
+    "langZh": "mid",
+    "sidebarCollapsed": "Collapse by default",
+    "sidebarExpanded": "Expand by default",
+    "subPagesTitle": "More Settings",
+    "accountDeletionWarning": "This action is irreversible. All data will be permanently lost.",
+    "accountDeletionCodeLabel": "Verification Code",
+    "accountDeletionCodePlaceholder": "Enter verification code",
+    "accountDeletionSubmit": "Confirm Deletion",
+    "accountDeletionCodeSent": "Code sent",
+    "accountDeletionCodeSendFailed": "Failed to send code",
+    "accountDeletionSuccess": "Account deleted, redirecting to login",
+    "accountDeletionFailed": "Deletion failed, please retry",
+    "accountDeletionPhonePlaceholder": "Enter phone number",
+    "accountDeletionResend": "Resend in {seconds}s",
+    "accountDeletionCancel": "Cancel Deletion",
+    "dataVisibility": "Data Visibility",
+    "dataVisibilityDesc": "Control who can see your profile information",
+    "adTracking": "Ad Tracking",
+    "personalizedRecommendation": "Personalized Recommendations",
+    "privacySaveFailed": "Save failed",
+    "exportJson": "JSON Format",
+    "exportCsv": "CSV Format",
+    "exportCsvDesc": "Export tabular CSV data",
+    "exportScope": "Export Scope",
+    "exportScopeDesc": "Includes: profile, chat history, orders, usage statistics, etc.",
+    "exportCreating": "Generating export...",
+    "exportSuccess": "Export ready",
+    "exportFailed": "Export failed, please retry",
+    "exportExpiresAt": "Expires At",
+    "exportLastExport": "Last Export",
+    "exportNoHistory": "No export history",
+    "emailNotif": "Email Notifications",
+    "systemNotif": "System Notifications",
+    "marketingEmail": "Marketing Emails",
+    "smsNotif": "SMS Notifications",
+    "smsNotifDesc": "Receive verification codes and alerts via SMS",
+    "pushNotif": "In-App Notifications",
+    "pushNotifDesc": "Receive messages within the platform",
+    "notificationsSaveFailed": "Save failed",
+    "billingOrders": "Orders",
+    "billingInvoices": "Invoice Requests",
+    "connectedAccountsUnbound": "Unbound",
+    "connectedAccountsUnbindConfirm": "Are you sure to unbind {platform} account?",
+    "connectedAccountsPlatform": "Platform Account",
+    "connectedAccountsBoundAt": "Bound At",
+    "connectedAccountsUnbindFail": "Unbind failed"
   },
   "favorites": {
     "title": "Favorites",
@@ -6852,13 +6784,13 @@
     "contentPlaceholder": "Describe your issue or suggestion...",
     "contactPlaceholder": "Optional, so we can reach you",
     "required": "Title and content are required",
-    "empty": "No feedback yet",
-    "backToList": "Back to feedback",
-    "notFound": "Feedback not found or no access",
     "field_images": "Images",
     "imagesPlaceholder": "Paste or drag images here",
     "tab_list": "",
-    "tab_new": ""
+    "tab_new": "",
+    "empty": "No feedback yet",
+    "backToList": "Back to feedback",
+    "notFound": "Feedback not found or no access"
   },
   "comments": {
     "replyTitle": "Admin Reply",
@@ -8106,7 +8038,6 @@
     "executePrompt": "Execute Prompt"
   },
   "about": {
-    "metaDescription": "IHUI AI (智汇 AI) is an all-in-one full-stack AI operating system: Agent marketplace, knowledge-base RAG, multi-model unified dispatch, MCP tool protocol, supports Web / Desktop / Mini Program / Browser Extension / React Native / CLI six clients from one codebase, Apache 2.0 open source.",
     "heroBadge": "About IHUI AI",
     "heroTitle": "One codebase, six clients, one AI",
     "heroSubtitle": "IHUI AI is an open-source full-stack AI operating system that brings Agent design, knowledge base, multi-model dispatch, cross-platform collaboration and team operations into a single platform.",
@@ -8147,17 +8078,13 @@
     "ctaTitle": "Start your AI journey in 30 minutes",
     "ctaDesc": "Sign up and get 1,000 credits, free trial of all models, no credit card required.",
     "ctaPrimary": "Free Sign Up",
-    "ctaSecondary": "View Documentation"
+    "ctaSecondary": "View Documentation",
+    "metaDescription": "IHUI AI (智汇 AI) is an all-in-one full-stack AI operating system: Agent marketplace, knowledge-base RAG, multi-model unified dispatch, MCP tool protocol, supports Web / Desktop / Mini Program / Browser Extension / React Native / CLI six clients from one codebase, Apache 2.0 open source."
   },
   "faq": {
     "metaTitle": "FAQ — IHUI AI",
     "metaDescription": "IHUI AI FAQ: platform introduction, comparison with Dify/Coze/FastGPT, pricing, deployment, API, model support, data security — 12 frequently asked questions.",
     "heroBadge": "Help Center",
-    "heroTitle": "Frequently Asked Questions",
-    "heroSubtitle": "12 frequently asked questions about IHUI AI, find your answer in 30 seconds.",
-    "categoryGeneral": "Platform",
-    "categoryTech": "Tech & Development",
-    "categoryDeploy": "Deployment & Ops",
     "q1Question": "What is IHUI AI?",
     "q1Answer": "IHUI AI (Chinese: 智汇 AI) is an all-in-one full-stack AI operating system. It unifies Agent design, knowledge-base RAG, multi-model dispatch, cross-platform collaboration and team operations in a single platform, supporting six clients (Web, Desktop, Mini Program, Browser Extension, React Native, CLI) from one codebase, with Apache 2.0 open-source core and self-hosting support.",
     "q2Question": "How is IHUI AI different from Dify, Coze, and FastGPT?",
@@ -8184,14 +8111,12 @@
     "q12Answer": "Absolutely not. We neither train our own models nor use your data to train any third-party models. For data retention policies of OpenAI/Anthropic and other API providers, please refer to their official documentation (all default to no-training; in API mode, data is automatically deleted after 30 days).",
     "ctaTitle": "Didn't find your answer?",
     "ctaDesc": "Contact our technical team, we respond within 2 hours.",
-    "ctaButton": "Contact Technical Support"
-  },
-  "agreement": {
-    "title": "Agreements & Policies",
-    "effectiveDate": "Effective Date",
-    "staticContent1": "Welcome to our platform. By using our services, you agree to all terms of this agreement.",
-    "staticContent2": "We strictly protect your personal privacy and will not disclose it to third parties without your permission.",
-    "staticContent3": "If you have any questions about this agreement, please contact customer service."
+    "ctaButton": "Contact Technical Support",
+    "heroTitle": "Frequently Asked Questions",
+    "heroSubtitle": "12 frequently asked questions about IHUI AI, find your answer in 30 seconds.",
+    "categoryGeneral": "Platform",
+    "categoryTech": "Tech & Development",
+    "categoryDeploy": "Deployment & Ops"
   },
   "articles": {
     "title": "Articles",
@@ -8827,32 +8752,58 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
@@ -8863,7 +8814,6 @@
     "companyContact": "Phone: 18643389808",
     "companyEmail": "Email: 502319984@qq.com",
     "officialPromotion": "Official Promotion Platforms",
-    "contactSubtitle": "Reach us through the following channels",
     "contactWechat": "WeChat QR Code",
     "contactWechatHint": "Scan to add customer service WeChat, or search ID ok502319984",
     "ecosystem": "Ecosystem Partners",
@@ -8922,7 +8872,8 @@
       "xiaohongshu": "",
       "youtube": ""
     },
-    "supportedPlatforms": ""
+    "supportedPlatforms": "",
+    "contactSubtitle": "Reach us through the following channels"
   },
   "plugins": {
     "title": "Plugin Market",
@@ -9110,10 +9061,6 @@
       "tabBrowser": "Browser"
     }
   },
-  "themeToggle": {
-    "lightMode": "Light",
-    "darkMode": "Dark"
-  },
   "devTools": {
     "trigger": "Developer Tools",
     "title": "Developer Tools",
@@ -9129,9 +9076,6 @@
     "tip": "Tip: this panel is only visible on localhost or intranet; public domain access shows \"Dev mode only\".",
     "prodModeTitle": "Dev mode only",
     "prodModeHint": "Developer tools are only visible on localhost or intranet. You are accessing via a public domain, so the tool panel is hidden."
-  },
-  "themeBackup": {
-    "title": "Theme"
   },
   "aiChat": {
     "title": "AIChat",
@@ -9220,19 +9164,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -9353,25 +9309,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -9720,11 +9688,6 @@
       "answered": "Answered",
       "pending": "Pending"
     }
-  },
-  "forbidden": {
-    "title": "No Permission",
-    "description": "Sorry, you do not have permission to access this page. Please contact the administrator to request access.",
-    "backToHome": "Back to Home"
   },
   "marketing": {
     "typewriter": {
@@ -10667,7 +10630,15 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"
@@ -12291,5 +12262,99 @@
         "desc": "New model testing and prototyping, flexible switching"
       }
     }
+  },
+  "a11y": {
+    "searchOption": "Search options",
+    "addAttachment": "Add attachment (image / video / file)",
+    "breadcrumb": "Breadcrumb"
+  },
+  "auth": {
+    "loginTitle": "Welcome Back",
+    "loginSubtitle": "Sign in to your account",
+    "loginBtn": "Sign In",
+    "noAccount": "Don't have an account?",
+    "registerNow": "Sign up",
+    "forgotPassword": "Forgot password?",
+    "accountHistory": "Account History",
+    "removeAccount": "Remove account",
+    "registerTitle": "Create Account",
+    "phonePlaceholder": "Enter your phone number",
+    "passwordPlaceholder": "Enter your password",
+    "code": "Code",
+    "codePlaceholder": "Enter verification code",
+    "confirmPassword": "Confirm Password",
+    "sendCode": "Send Code",
+    "registerBtn": "Sign Up",
+    "phoneRegister": "Phone",
+    "emailRegister": "Email",
+    "toLogin": "Sign in",
+    "thirdPartyLogin": "Or continue with",
+    "registerSuccess": "Registration successful, please sign in",
+    "passwordMismatch": "Passwords do not match",
+    "resetPassword": "Reset Password",
+    "newPassword": "New Password",
+    "resetSuccess": "Password reset successful, please sign in",
+    "enterPhone": "Enter your phone number",
+    "enterCode": "Enter verification code",
+    "enterNewPassword": "Enter new password",
+    "emailLogin": "Email",
+    "usernamePlaceholder": "Enter username",
+    "emailPlaceholder": "Enter email",
+    "enterpriseWechat": "Enterprise WeChat",
+    "captchaPlaceholder": "Enter captcha",
+    "phoneCodeLogin": "Code Login",
+    "passwordLogin": "Password Login",
+    "invalidEmail": "Invalid email",
+    "googleNotConfigured": "Google login not configured",
+    "appleComingSoon": "Apple login coming soon",
+    "qrLogin": "Scan QR",
+    "qrNotConfigured": "{platform} scan login is not configured, please contact the administrator",
+    "qrScanTipPlatform": "Scan the QR code with your {platform} app to log in",
+    "agreeRequired": "Please read and agree to the terms",
+    "agreePrefix": "I have read and agree to the",
+    "agreementNoticeTitle": "Please Agree to Continue",
+    "agreementNoticeDesc": "To protect your account security, please read and agree to the following terms before logging in",
+    "agreementNoticeSafe": "Your information is transmitted securely via an encrypted channel",
+    "agreementNoticeAgree": "Agree & Continue",
+    "autoLogin": "Auto-login",
+    "getVerificationCode": "Get Code",
+    "alipayLogin": "AlipayLogin"
+  },
+  "help": {
+    "contactSupport": "Contact Support",
+    "empty": "No articles found",
+    "backToList": "Back to Help",
+    "updatedAt": "Updated",
+    "viewCount": "{count} views",
+    "toc": "On this page",
+    "related": "Related Articles",
+    "notFound": "Article not found or offline"
+  },
+  "search": {
+    "emptyKeyword": "Enter a keyword to search",
+    "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})"
+  },
+  "searchHistory": {
+    "subtitle": "Your recent searches",
+    "clearAll": "Clear All"
+  },
+  "agreement": {
+    "title": "Agreements & Policies",
+    "effectiveDate": "Effective Date",
+    "staticContent1": "Welcome to our platform. By using our services, you agree to all terms of this agreement.",
+    "staticContent2": "We strictly protect your personal privacy and will not disclose it to third parties without your permission.",
+    "staticContent3": "If you have any questions about this agreement, please contact customer service."
+  },
+  "themeToggle": {
+    "lightMode": "Light",
+    "darkMode": "Dark"
+  },
+  "themeBackup": {
+    "title": "Theme"
+  },
+  "forbidden": {
+    "title": "No Permission",
+    "description": "Sorry, you do not have permission to access this page. Please contact the administrator to request access.",
+    "backToHome": "Back to Home"
   }
 }
