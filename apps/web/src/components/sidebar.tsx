@@ -169,7 +169,7 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
  *      在 line-box 中心**下方 0.4-0.5px**(HarmonyOS Sans SC @ 14px 测得);
  *      icon 是 SVG 居中填充,box 中心 = ink 中心,二者视觉中心累积 0.4-0.5px 偏差
  *   4) 根治:用 `translateY(0.3px)` (GPU 视觉位移)替代 margin 微调,
- *      让 text ink 视觉下移 0.3px,实测 delta 收敛到 0.000(完美居中,跨 11 个 nav 验证);
+ *      让 text ink 视觉下移 0.3px,实测 delta 收敛到 0.000(完全居中,跨 11 个 nav 验证);
  *      0.3px = 14px 字号下肉眼可识别阈值(7%=1px)的 1/3 以下,任何 DPR 下都安全。
  *      不用 margin 是因为 margin 走 flex 布局通道会同时改变 box,可能与 align-items 冲突;
  *      不用 leading-tight 是因为 line-height 改大撑高 line-box,破坏 button 36px 高度;

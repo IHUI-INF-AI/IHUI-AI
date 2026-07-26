@@ -1,5 +1,5 @@
 /**
- * WebSub Hub endpoint(2026-07-26 立,极致 GEO 强化)
+ * WebSub Hub endpoint(2026-07-26 立,GEO 全面强化)
  *
  * WebSub(原 PubSubHubbub)是 W3C 推荐标准,允许订阅者实时接收
  * RSS/Atom feed 更新通知。与 RSS/Atom 的"拉取"模式互补,WebSub 提供
