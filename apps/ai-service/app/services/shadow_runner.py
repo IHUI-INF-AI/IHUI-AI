@@ -122,6 +122,8 @@ class ShadowRunner:
                 return  # 无 active test,跳过
 
             test_id = test.get("testId")
+            if not isinstance(test_id, str):
+                return
             shadow_ratio = float(test.get("shadowRatio", 0.0))
             if shadow_ratio <= 0.0:
                 return

@@ -92,7 +92,7 @@ def _validate_url_ssrf(url: str) -> tuple[bool, str]:
             return False, f"DNS 解析失败: {hostname}"
         seen: set[str] = set()
         for _family, _type, _proto, _canon, sockaddr in addrs:
-            ip = sockaddr[0]
+            ip = str(sockaddr[0])
             if ip in seen:
                 continue
             seen.add(ip)
