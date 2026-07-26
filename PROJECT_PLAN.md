@@ -104,6 +104,33 @@
 
 ---
 
+### [x] ✅(2026-07-26) 小程序兼容路由 53 个 stub 真实化 — 接入 packages/database 真实表 CRUD
+
+**触发**:`/goal` 模式轮 3 达成后,复核 `miniapp-compat-routes.ts`(49 个 stub)+ `miniapp-public-fallback-routes.ts`(4 个 stub)共 53 个空数据桩被 `apps/miniapp-taro` 高频调用(27 文件 157 处),虽不属迁移缺失(原审计已标 P0-3 渐进迁移保留桩)但影响小程序端真实用户体验,作为迁移 100% 达成后的体验收尾任务执行。
+
+**执行方式**:主 agent 派发 4 个并行 subagent 按业务域拆分:
+
+- subagent A: `/learn/*`(12)+ `/study/*`(6)— 接入 `lessons` / `lessonChapters` / `lessonChapterSections` / `comments` / `lessonRecords` / `lessonRecordLogs` / `lessonSignUps` 真实表
+- subagent B: `/agents/*`(6)+ `/agent/*`(5)+ `/agents/charge/*`(6)— 接入 `agentCategories` / `agentThumbs` / `agentCollects` / `agentUseDetails` / `agents` / `userMargins` / `zhsUserAgentContext` / `zhsAgentBuy` / `tokenFlows` 真实表
+- subagent C: `/user/*`(6)+ `/settings/*`(6)— 接入 `users` / `userAuthInfo` / `feedbacks` / `userPreferences` 真实表
+- subagent D: `/content/*`(4)+ `/distribution/*`(6)+ `/messages/*`(2)+ `/chat/*`(1)+ `/token/*`(2)— 接入 `carousels` / `lessons` / `announcements` / `distributionRelations` / `distributionFlows` / `withdrawalFlows` / `messages` / `tokenBalances` 真实表
+
+**真实化原则**:① 读操作公开,写操作(POST/PUT/DELETE)`checkAuth` 鉴权;② Zod 校验请求参数(UUID/分页/字符串长度);③ 响应格式统一 `{ code, message, data }` 通过 `success()` / `error()` helper;④ 软删除优先(`status=0` / `isPublished=false`);⑤ 分页查询用 `Promise.all` 并行 list + count。
+
+**验证**:4 端 typecheck 全绿 — `@ihui/api` / `@ihui/web` / `@ihui/database` / `@ihui/ui-react` 均 exit 0。
+
+**§11 多 Subagent 并行规则应用**:4 个 subagent 按业务域严格隔离,每个 subagent 仅修改自己负责的端点区块,主 agent 负责跨域契约对齐(共享 `success` / `error` / `checkAuth` / `db` / `dbRead` / Zod schema)。
+
+**§14 自主验证应用**:4 端 typecheck 真实执行 exit 0,无幻觉,无模型自评。
+
+**§20 Git 同步证据**:
+
+- 本任务 commit: `<待填入>`
+- 改动文件:`apps/api/src/routes/miniapp-compat-routes.ts` + `apps/api/src/routes/miniapp-public-fallback-routes.ts` + `PROJECT_PLAN.md`
+- 4 端 typecheck:`@ihui/api` ✅ / `@ihui/web` ✅ / `@ihui/database` ✅ / `@ihui/ui-react` ✅
+
+---
+
 ### [x] ✅(2026-07-26) Commit 丢失防护机制强化 — 文档 + 脚本 + 钩子三件套(AGENTS.md §22 升级)
 
 **触发**:2026-07-25 19:05-19:33 reflog 记录 6 次 `git reset HEAD~` 丢失 3 个 commit(P0 安全债 + sidebar 折叠按钮 x2),虽然 2026-07-25 已完成 check-commit-loss-guard.mjs 升级为 blocking,但 AGENTS.md §22 文档未同步 + 缺自动化 tag 同步机制,导致 2026-07-26 04:23 真实事故:本地 lost-commit/* tag 被 git gc 清理,远端有但 fetch 失败,4 个 commit 暂不可访问。本任务彻底根治。
