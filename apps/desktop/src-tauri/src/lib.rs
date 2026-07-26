@@ -94,8 +94,13 @@ fn get_app_info() -> AppInfo {
 
 /// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
 /// direction: n/s/e/w/ne/nw/se/sw
+/// label: 窗口标签(main/admin),默认 "main"。2026-07-27 立:支持 admin 窗口独立 resize。
 #[tauri::command]
-fn start_resize(direction: String, app: tauri::AppHandle) -> Result<(), String> {
+fn start_resize(
+    direction: String,
+    label: Option<String>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
     let dir_name = match direction.as_str() {
         "n" => "North",
         "s" => "South",
@@ -107,9 +112,10 @@ fn start_resize(direction: String, app: tauri::AppHandle) -> Result<(), String> 
         "sw" => "SouthWest",
         _ => return Err(format!("unknown direction: {}", direction)),
     };
+    let label = label.as_deref().unwrap_or("main");
     let webview = app
-        .get_webview_window("main")
-        .ok_or_else(|| "main window not found".to_string())?;
+        .get_webview_window(label)
+        .ok_or_else(|| format!("window {} not found", label))?;
     let win = webview.as_ref().window();
     let dir = serde_json::from_value(serde_json::Value::String(dir_name.to_string()))
         .map_err(|e| e.to_string())?;
@@ -152,14 +158,17 @@ fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 
 /// 真正退出应用(供前端 menu dispatcher 调用,2026-07-25 立)。
 /// 绕过 closeWindow 的"隐藏到托盘"语义,直接走 `app.exit(0)`。
+/// 2026-07-27 立:退出时持久化所有窗口状态(main + admin)。
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
-    let _ = save_window_state(app.clone());
+    let _ = save_window_state(Some("main".to_string()), app.clone());
+    let _ = save_window_state(Some("admin".to_string()), app.clone());
     app.exit(0);
 }
 
 /// 唤起 / 创建 admin 窗口(2026-07-25 立,供前端 menu dispatcher 调用)。
 /// admin 已存在则 show + focus;否则按 tauri.conf.json admin 配置新建。
+/// 2026-07-27 立:新建后恢复 admin 窗口上次位置/尺寸(若有保存)+ 添加窗口阴影。
 #[tauri::command]
 async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("admin") {
@@ -169,27 +178,41 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     }
     use tauri::{WebviewUrl, WebviewWindowBuilder};
     let app_name = localized_app_name();
-    WebviewWindowBuilder::new(&app, "admin", WebviewUrl::App("admin".into()))
+    let _admin_window = WebviewWindowBuilder::new(&app, "admin", WebviewUrl::App("admin".into()))
         .title(&format!("{} 管理后台", app_name))
         .inner_size(1280.0, 820.0)
         .min_inner_size(960.0, 640.0)
         .resizable(true)
         .center()
         .decorations(false)
+        .shadow(true)
         .build()
         .map_err(|e| e.to_string())?;
+    // 创建后恢复 admin 窗口上次位置/尺寸(若有保存)
+    let _ = restore_window_state(Some("admin".to_string()), app.clone());
     Ok(())
+}
+
+/// 返回托盘菜单三项的本地化文案(中文系统 → 中文,其他 → 英文)。
+/// 2026-07-27 立:配合 AGENTS.md §19 i18n 约束,避免 ko/ja/en 用户看到中文菜单。
+fn tray_menu_labels() -> (&'static str, &'static str, &'static str) {
+    if is_chinese_locale() {
+        ("显示主窗口", "隐藏主窗口", "退出")
+    } else {
+        ("Show Main Window", "Hide Main Window", "Quit")
+    }
 }
 
 /// 构建系统托盘(显示主窗口 / 隐藏主窗口 / 退出)+ 双击托盘唤起。
 fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
-    let show_item = MenuItemBuilder::with_id("tray.show", "显示主窗口")
+    let (show_text, hide_text, quit_text) = tray_menu_labels();
+    let show_item = MenuItemBuilder::with_id("tray.show", show_text)
         .build(app)
         .map_err(|e| e.to_string())?;
-    let hide_item = MenuItemBuilder::with_id("tray.hide", "隐藏主窗口")
+    let hide_item = MenuItemBuilder::with_id("tray.hide", hide_text)
         .build(app)
         .map_err(|e| e.to_string())?;
-    let quit_item = MenuItemBuilder::with_id("tray.quit", "退出")
+    let quit_item = MenuItemBuilder::with_id("tray.quit", quit_text)
         .build(app)
         .map_err(|e| e.to_string())?;
     let menu = MenuBuilder::new(app)
@@ -221,26 +244,49 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 }
             }
             "tray.quit" => {
-                let _ = save_window_state(app.clone());
+                // 退出时持久化所有窗口状态(main + admin)
+                let _ = save_window_state(Some("main".to_string()), app.clone());
+                let _ = save_window_state(Some("admin".to_string()), app.clone());
                 app.exit(0);
             }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::DoubleClick {
-                button: MouseButton::Left,
-                ..
-            } = event
-            {
-                let app = tray.app_handle();
-                if let Some(window) = app.get_webview_window("main") {
-                    if window.is_visible().unwrap_or(false) {
-                        let _ = window.hide();
-                    } else {
-                        let _ = window.show();
-                        let _ = window.set_focus();
+            let app = tray.app_handle();
+            match event {
+                TrayIconEvent::DoubleClick {
+                    button: MouseButton::Left,
+                    ..
+                } => {
+                    // 双击:切换显示/隐藏(原有行为)
+                    if let Some(window) = app.get_webview_window("main") {
+                        if window.is_visible().unwrap_or(false) {
+                            let _ = window.hide();
+                        } else {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
                     }
                 }
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    ..
+                } => {
+                    // Windows 习惯:左键单击托盘图标显示主窗口并聚焦
+                    // macOS 已通过 menu 显示菜单,不重复处理
+                    #[cfg(target_os = "windows")]
+                    {
+                        if let Some(window) = app.get_webview_window("main") {
+                            if window.is_visible().unwrap_or(false) {
+                                let _ = window.set_focus();
+                            } else {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    }
+                }
+                _ => {}
             }
         })
         .build(app)
@@ -658,72 +704,121 @@ fn mime_from_extension(path: &str) -> String {
 use tauri_plugin_store::StoreExt;
 
 const WINDOW_STORE_FILE: &str = "window-state.json";
-const KEY_WIN_X: &str = "window.x";
-const KEY_WIN_Y: &str = "window.y";
-const KEY_WIN_W: &str = "window.width";
-const KEY_WIN_H: &str = "window.height";
-const KEY_WIN_MAX: &str = "window.maximized";
 
-/// 保存主窗口当前位置 / 尺寸 / 最大化状态到 store。
+/// 生成窗口状态 store key(格式: window.<label>.<field>),区分 main/admin 窗口。
+/// 2026-07-27 立:支持多窗口独立持久化位置/尺寸/最大化状态。
+fn win_key(label: &str, field: &str) -> String {
+    format!("window.{}.{}", label, field)
+}
+
+/// 保存指定窗口当前位置 / 尺寸 / 最大化状态到 store。
+/// label: 窗口标签(main/admin),默认 "main"。2026-07-27 立:支持多窗口独立持久化。
 #[tauri::command]
-fn save_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
+fn save_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<OkResult, String> {
+    let label = label.as_deref().unwrap_or("main");
     let window = app
-        .get_webview_window("main")
-        .ok_or_else(|| "main window not found".to_string())?;
-    let store = app
-        .store(WINDOW_STORE_FILE)
-        .map_err(|e| e.to_string())?;
+        .get_webview_window(label)
+        .ok_or_else(|| format!("window {} not found", label))?;
+    let store = app.store(WINDOW_STORE_FILE).map_err(|e| e.to_string())?;
     let pos = window.outer_position().map_err(|e| e.to_string())?;
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let maximized = window.is_maximized().unwrap_or(false);
-    store.set(KEY_WIN_X, pos.x);
-    store.set(KEY_WIN_Y, pos.y);
-    store.set(KEY_WIN_W, size.width);
-    store.set(KEY_WIN_H, size.height);
-    store.set(KEY_WIN_MAX, maximized);
+    store.set(win_key(label, "x"), pos.x);
+    store.set(win_key(label, "y"), pos.y);
+    store.set(win_key(label, "width"), size.width);
+    store.set(win_key(label, "height"), size.height);
+    store.set(win_key(label, "maximized"), maximized);
     store.save().map_err(|e| e.to_string())?;
     Ok(OkResult { ok: true })
 }
 
-/// 从 store 恢复主窗口位置 / 尺寸 / 最大化状态(应用启动时调用)。
+/// 从 store 恢复指定窗口位置 / 尺寸 / 最大化状态(应用启动时调用)。
+/// label: 窗口标签(main/admin),默认 "main"。
+/// 多显示器校验:若窗口中心点不在任何显示器内(外接显示器已断开),fallback 到 center()。
 #[tauri::command]
-fn restore_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
+fn restore_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<OkResult, String> {
+    let label = label.as_deref().unwrap_or("main");
     let window = app
-        .get_webview_window("main")
-        .ok_or_else(|| "main window not found".to_string())?;
-    let store = app
-        .store(WINDOW_STORE_FILE)
-        .map_err(|e| e.to_string())?;
+        .get_webview_window(label)
+        .ok_or_else(|| format!("window {} not found", label))?;
+    let store = app.store(WINDOW_STORE_FILE).map_err(|e| e.to_string())?;
     // 优先恢复最大化状态
-    if let Some(true) = store.get(KEY_WIN_MAX).and_then(|v| v.as_bool()) {
+    if let Some(true) = store
+        .get(win_key(label, "maximized"))
+        .and_then(|v| v.as_bool())
+    {
         let _ = window.maximize();
         return Ok(OkResult { ok: true });
     }
-    let x = store.get(KEY_WIN_X).and_then(|v| v.as_i64());
-    let y = store.get(KEY_WIN_Y).and_then(|v| v.as_i64());
-    let w = store.get(KEY_WIN_W).and_then(|v| v.as_u64());
-    let h = store.get(KEY_WIN_H).and_then(|v| v.as_u64());
+    let x = store.get(win_key(label, "x")).and_then(|v| v.as_i64());
+    let y = store.get(win_key(label, "y")).and_then(|v| v.as_i64());
+    let w = store.get(win_key(label, "width")).and_then(|v| v.as_u64());
+    let h = store
+        .get(win_key(label, "height"))
+        .and_then(|v| v.as_u64());
     if let (Some(x), Some(y), Some(w), Some(h)) = (x, y, w, h) {
         use tauri::PhysicalPosition;
         use tauri::PhysicalSize;
         // 先设置 size,再设置 position,避免最大化状态下 set_position 失效
         let _ = window.set_size(PhysicalSize::new(w as u32, h as u32));
         let _ = window.set_position(PhysicalPosition::new(x as i32, y as i32));
+        // 多显示器校验:窗口中心点不在任何显示器内时 fallback 到 center()
+        // 场景:上次关闭时窗口在外接显示器,本次启动未接外接显示器
+        if !is_window_visible_on_any_monitor(&window) {
+            let _ = window.center();
+        }
     }
     Ok(OkResult { ok: true })
 }
 
-/// 重置窗口状态(清除 store 中的窗口记录,下次启动用默认尺寸)。
+/// 校验窗口中心点是否在任意一个显示器可见区域内。
+/// 用于 restore_window_state 时防止窗口恢复到已断开的外接显示器坐标。
+fn is_window_visible_on_any_monitor(window: &tauri::WebviewWindow) -> bool {
+    // Manager trait 提供 available_monitors()(已 use tauri::Manager)
+    let monitors = match window.available_monitors() {
+        Ok(m) => m,
+        Err(_) => return true, // 无法获取显示器列表时不拦截,保持原行为
+    };
+    if monitors.is_empty() {
+        return true;
+    }
+    let win_pos = match window.outer_position() {
+        Ok(p) => p,
+        Err(_) => return true,
+    };
+    let win_size = match window.outer_size() {
+        Ok(s) => s,
+        Err(_) => return true,
+    };
+    // 窗口中心点
+    let center_x = win_pos.x + (win_size.width as i32) / 2;
+    let center_y = win_pos.y + (win_size.height as i32) / 2;
+    // 中心点在任意显示器范围内即视为可见
+    for monitor in monitors {
+        let mon_pos = monitor.position();
+        let mon_size = monitor.size();
+        if center_x >= mon_pos.x
+            && center_x <= mon_pos.x + mon_size.width as i32
+            && center_y >= mon_pos.y
+            && center_y <= mon_pos.y + mon_size.height as i32
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// 重置指定窗口状态(清除 store 中的窗口记录,下次启动用默认尺寸)。
+/// label: 窗口标签(main/admin),默认 "main"。2026-07-27 立:支持多窗口独立重置。
 #[tauri::command]
-fn reset_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
-    let store = app
-        .store(WINDOW_STORE_FILE)
-        .map_err(|e| e.to_string())?;
-    store.delete(KEY_WIN_X);
-    store.delete(KEY_WIN_Y);
-    store.delete(KEY_WIN_W);
-    store.delete(KEY_WIN_H);
-    store.delete(KEY_WIN_MAX);
+fn reset_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<OkResult, String> {
+    let label = label.as_deref().unwrap_or("main");
+    let store = app.store(WINDOW_STORE_FILE).map_err(|e| e.to_string())?;
+    store.delete(win_key(label, "x"));
+    store.delete(win_key(label, "y"));
+    store.delete(win_key(label, "width"));
+    store.delete(win_key(label, "height"));
+    store.delete(win_key(label, "maximized"));
     store.save().map_err(|e| e.to_string())?;
     Ok(OkResult { ok: true })
 }
@@ -992,33 +1087,36 @@ pub fn run() {
         // 全局快捷键 plugin(handler 在 setup 中通过 on_shortcut 注册)
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .on_window_event(|window, event| {
-            // 关闭主窗口时最小化到托盘,而不是退出应用(真正退出走托盘菜单"退出")
+            let label = window.label().to_string();
+            // main 窗口关闭时最小化到托盘,而不是退出应用(真正退出走托盘菜单"退出")
+            // admin 窗口直接关闭(辅助窗口,不需要最小化到托盘)
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "main" {
+                if label == "main" {
                     api.prevent_close();
                     let _ = window.hide();
                     // 隐藏到托盘时持久化窗口状态
                     let app = window.app_handle().clone();
-                    let _ = save_window_state(app);
+                    let _ = save_window_state(Some(label.clone()), app);
                 }
             }
             // 窗口移动 / 缩放结束时持久化(避免每次拖动都写盘)
+            // 2026-07-27 立:扩展 admin 窗口也持久化位置/尺寸
             if let tauri::WindowEvent::Resized(_) = event {
-                if window.label() == "main" {
+                if label == "main" || label == "admin" {
                     let app = window.app_handle().clone();
-                    let _ = save_window_state(app);
+                    let _ = save_window_state(Some(label.clone()), app);
                 }
             }
             if let tauri::WindowEvent::Moved(_) = event {
-                if window.label() == "main" {
+                if label == "main" || label == "admin" {
                     let app = window.app_handle().clone();
-                    let _ = save_window_state(app);
+                    let _ = save_window_state(Some(label.clone()), app);
                 }
             }
             if let tauri::WindowEvent::Destroyed = event {
-                if window.label() == "main" {
+                if label == "main" || label == "admin" {
                     let app = window.app_handle().clone();
-                    let _ = save_window_state(app);
+                    let _ = save_window_state(Some(label.clone()), app);
                 }
             }
         })
@@ -1041,7 +1139,8 @@ pub fn run() {
                 let _ = window.set_title(&format!("{} 管理后台", app_name));
             }
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
-            let _ = restore_window_state(app.handle().clone());
+            // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
+            let _ = restore_window_state(Some("main".to_string()), app.handle().clone());
             // 注册全局快捷键 Ctrl+Shift+I 唤起/隐藏主窗口
             let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+I", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
