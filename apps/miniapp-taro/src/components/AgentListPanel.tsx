@@ -37,7 +37,8 @@ export default function AgentListPanel({
       <View className="flex items-center justify-between px-4 py-3 mb-2">
         <Text className="text-sm font-medium text-foreground">{tt('agent.title', '智能体')}</Text>
       </View>
-      <ScrollView scrollY className="px-3 py-2" style={{ maxHeight: '40vh' }}>
+      <ScrollView scrollY className="" style={{ maxHeight: '40vh' }}>
+        <View className="px-3 py-2">
         {loading ? (
           <View className="py-8 text-center">
             <Text className="text-sm text-muted-foreground">
@@ -87,6 +88,7 @@ export default function AgentListPanel({
             </View>
           ))
         )}
+        </View>
       </ScrollView>
     </View>
   )
