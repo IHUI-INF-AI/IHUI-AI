@@ -1,0 +1,54 @@
+name: Release on Tag
+
+# 在 push tag v* 时自动创建 GitHub Release(用 GITHUB_TOKEN,无需用户操作)
+# 用法:git tag v1.0.0 && git push origin v1.0.0
+# Release notes 优先级:.github/RELEASE_NOTES_<tag>.md → .github/RELEASE_NOTES_v1.0.md → 默认
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          echo "Creating release for tag: $TAG_NAME"
+
+          # 优先级:精确匹配 → v1.0 系列通用 → v1 通用 → 默认
+          NOTES_FILE=""
+          for f in ".github/RELEASE_NOTES_${TAG_NAME}.md" ".github/RELEASE_NOTES_v1.0.md" ".github/RELEASE_NOTES_v1.md" ".github/RELEASE_NOTES.md"; do
+            if [ -f "$f" ]; then
+              NOTES_FILE="$f"
+              break
+            fi
+          done
+
+          if [ -n "$NOTES_FILE" ]; then
+            echo "Using release notes from: $NOTES_FILE"
+            gh release create "$TAG_NAME" \
+              --title "$TAG_NAME — 全栈 AI 操作系统正式发布" \
+              --notes-file "$NOTES_FILE" \
+              --latest
+          else
+            echo "No release notes file found, using default"
+            gh release create "$TAG_NAME" \
+              --title "$TAG_NAME — 发布" \
+              --notes "详见 [README](https://github.com/${{ github.repository }}#readme)" \
+              --latest
+          fi
+
+          echo "✅ Release $TAG_NAME created successfully"
+          echo "🔗 https://github.com/${{ github.repository }}/releases/tag/$TAG_NAME"
