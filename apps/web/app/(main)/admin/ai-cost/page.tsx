@@ -2,16 +2,12 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-// @ts-ignore
 import { useTranslations, useLocale } from 'next-intl'
-// @ts-ignore
 import { Coins, TrendingUp, Database, BarChart3, Zap, Loader2, Layers, Boxes, AlertCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-// @ts-ignore
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-// @ts-ignore
 import { formatNumber as fmtNum } from '@/lib/date-utils'
 
 interface AiCostSummary {
