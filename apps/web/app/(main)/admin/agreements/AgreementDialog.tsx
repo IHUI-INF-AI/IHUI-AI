@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -20,7 +18,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-// @ts-ignore
 } from '@ihui/ui-react'
 import { AGREEMENT_TYPES, selectClass } from './helpers'
 import type { Agreement, AgreementForm } from './types'
