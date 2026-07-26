@@ -1,4 +1,11 @@
-import { type MenuActionId, openAdminWindow, quitApp, toggleDevtools } from './tauri-bridge'
+import {
+  type MenuActionId,
+  openAdminWindow,
+  quitApp,
+  toggleAlwaysOnTop,
+  toggleDevtools,
+  toggleFullscreen,
+} from './tauri-bridge'
 
 /**
  * 应用菜单 dispatcher(2026-07-25 立,深度对标 Codex / Claude Desktop 菜单架构)
@@ -43,6 +50,12 @@ export async function dispatchMenuAction(id: MenuActionId): Promise<void> {
       return
     case 'view.devtools':
       await toggleDevtools()
+      return
+    case 'view.fullscreen':
+      await toggleFullscreen()
+      return
+    case 'view.always_on_top':
+      await toggleAlwaysOnTop()
       return
     case 'help.about': {
       // 简单 toast 占位(后续可换 Modal 显示版本号/版权/快捷键 cheat sheet)
