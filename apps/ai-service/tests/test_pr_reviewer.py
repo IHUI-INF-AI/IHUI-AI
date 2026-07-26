@@ -69,7 +69,9 @@ class _MockClient:
 class TestFetchPrDiff:
     async def test_success(self, monkeypatch: pytest.MonkeyPatch):
         """成功获取 diff + metadata。"""
-        monkeypatch.setattr("app.core.config.settings.github_token", "")
+        # 阶段 3 主体:github_token 字段已删除,改为通过 LLM_PROVIDERS JSON 配置
+        # pr_reviewer 用 getattr(settings, "github_token", "") 安全取值,字段删除后自动返回 ""
+        monkeypatch.delenv("LLM_PROVIDERS", raising=False)
 
         diff_text = (
             "diff --git a/foo.py b/foo.py\n"

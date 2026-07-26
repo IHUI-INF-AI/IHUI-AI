@@ -121,45 +121,42 @@ def test_default_jwt_public_paths():
 # =============================================================================
 
 
-def test_default_openai_api_key_empty():
-    """openai_api_key 默认空。"""
-    assert Settings().openai_api_key == ""
+def test_default_openai_provider_config_empty(monkeypatch):
+    """openai provider 配置默认空(阶段 3 主体:LLM_PROVIDERS 未配置时 api_key 为空字符串)。"""
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
+    assert Settings().get_provider_config("openai").api_key == ""
 
 
-def test_default_anthropic_api_key_empty():
-    """anthropic_api_key 默认空。"""
-    assert Settings().anthropic_api_key == ""
+def test_default_anthropic_provider_config_empty(monkeypatch):
+    """anthropic provider 配置默认空(阶段 3 主体:LLM_PROVIDERS 未配置时 api_key 为空字符串)。"""
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
+    assert Settings().get_provider_config("anthropic").api_key == ""
 
 
 def test_default_all_provider_keys_empty(monkeypatch):
-    """所有 provider key 默认应为空字符串(全空 → stub 模式)。
+    """所有 provider key 默认应为空(全空 → stub 模式)。
 
-    隔离 .env + os.environ:.env 里有真实 STEPFUN_API_KEY / AGNES_API_KEY,
-    必须 _env_file=None 跳过 .env 加载,且 monkeypatch.delenv 显式清空环境变量,
-    否则从 .env 加载后 api_key 非空 → 违反"全空→stub"契约。
+    阶段 3 主体(2026-07-26):扁平字段已删除,统一走 get_provider_config。
+    LLM_PROVIDERS 未配置时,7 个核心 provider 的 api_key 应为空字符串、api_base 应为 None。
     """
-    for env_key in (
-        "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
-        "OPENROUTER_API_KEY", "AGNES_API_KEY", "STEPFUN_API_KEY",
-    ):
-        monkeypatch.delenv(env_key, raising=False)
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
     s = Settings(_env_file=None)
-    for key in (
-        "openai_api_key", "anthropic_api_key", "groq_api_key",
-        "gemini_api_key", "openrouter_api_key", "agnes_api_key",
-        "stepfun_api_key",
-    ):
-        assert getattr(s, key) == "", f"{key} 默认应为空字符串"
+    for name in ("openai", "anthropic", "groq", "gemini", "openrouter", "agnes", "stepfun"):
+        cfg = s.get_provider_config(name)
+        assert cfg.api_key == "", f"{name} api_key 默认应为空字符串"
+        assert cfg.api_base is None, f"{name} api_base 默认应为 None"
 
 
-def test_default_agnes_api_base():
-    """agnes_api_base 默认指向 apihub.agnes-ai.com。"""
-    assert "agnes-ai.com" in Settings().agnes_api_base
+def test_default_agnes_api_base(monkeypatch):
+    """agnes provider api_base 默认 None(阶段 3 主体:LLM_PROVIDERS 未配置时)。"""
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
+    assert Settings(_env_file=None).get_provider_config("agnes").api_base is None
 
 
-def test_default_stepfun_api_base():
-    """stepfun_api_base 默认指向 api.stepfun.com。"""
-    assert "stepfun.com" in Settings().stepfun_api_base
+def test_default_stepfun_api_base(monkeypatch):
+    """stepfun provider api_base 默认 None(阶段 3 主体:LLM_PROVIDERS 未配置时)。"""
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
+    assert Settings(_env_file=None).get_provider_config("stepfun").api_base is None
 
 
 # =============================================================================
@@ -219,11 +216,11 @@ def test_env_override_multiple_fields(monkeypatch):
     assert s.log_level == "debug"
 
 
-def test_env_override_openai_api_key(monkeypatch):
-    """OPENAI_API_KEY 环境变量应覆盖 openai_api_key 字段。"""
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-12345")
+def test_env_override_openai_provider_via_llm_providers(monkeypatch):
+    """LLM_PROVIDERS JSON 应覆盖 openai provider 配置(阶段 3 主体:扁平字段已删除,统一走 llm_providers)。"""
+    monkeypatch.setenv("LLM_PROVIDERS", '{"openai":{"api_key":"sk-test-12345"}}')
     s = Settings()
-    assert s.openai_api_key == "sk-test-12345"
+    assert s.get_provider_config("openai").api_key == "sk-test-12345"
 
 
 def test_env_override_litellm_model(monkeypatch):
@@ -350,33 +347,27 @@ def test_default_agent_control_internal_secret_empty(monkeypatch):
 
 
 def test_conftest_isolation_keeps_settings_keys_empty(monkeypatch):
-    """conftest._isolate_llm_env 应已把全局 settings 的 7 个 key 清空。
+    """conftest._isolate_llm_env 应已清空 os.environ vendor key,确保 LLM_PROVIDERS 未配置时返回空。
 
-    本测试验证:从全局 settings 读到的 7 个 key 应为空字符串,
-    证明 conftest autouse fixture 工作正常。
+    阶段 3 主体(2026-07-26):扁平字段已删除,改为验证 get_provider_config 返回空 ProviderConfig。
+    注意:全局 settings 在 import 时从 .env 加载 llm_providers,需 monkeypatch 清空以模拟"未配置"。
     """
-    # conftest 已 autouse 清空,直接断言
-    assert settings.openai_api_key == ""
-    assert settings.anthropic_api_key == ""
-    assert settings.groq_api_key == ""
-    assert settings.gemini_api_key == ""
-    assert settings.openrouter_api_key == ""
-    assert settings.agnes_api_key == ""
-    assert settings.stepfun_api_key == ""
+    # conftest autouse 已清空 os.environ vendor keys
+    # 全局 settings.llm_providers 在 import 时已从 .env 加载,需 monkeypatch 清空以模拟"未配置"
+    monkeypatch.setattr(settings, "llm_providers", "")
+    for name in ("openai", "anthropic", "groq", "gemini", "openrouter", "agnes", "stepfun"):
+        cfg = settings.get_provider_config(name)
+        assert cfg.api_key == "", f"{name} api_key 应为空"
+        assert cfg.api_base is None, f"{name} api_base 应为 None"
 
 
 def test_conftest_isolation_does_not_affect_new_instance(monkeypatch):
-    """新建 Settings() 实例默认 key 为空(conftest 不破坏新实例化路径)。
+    """新建 Settings() 实例默认 provider 配置为空(conftest 不破坏新实例化路径)。
 
-    隔离 .env + os.environ:与 test_default_all_provider_keys_empty 同样的隔离策略,
-    _env_file=None 跳过 .env 加载,monkeypatch.delenv 清空 os.environ 残留 key,
-    验证新 Settings() 实例从类默认值加载,而不是从 .env 拿真实 key。
+    阶段 3 主体(2026-07-26):扁平字段已删除,统一走 get_provider_config。
+    LLM_PROVIDERS 未配置时,新 Settings() 实例的 provider 配置应为空。
     """
-    for env_key in (
-        "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
-        "OPENROUTER_API_KEY", "AGNES_API_KEY", "STEPFUN_API_KEY",
-    ):
-        monkeypatch.delenv(env_key, raising=False)
+    monkeypatch.delenv("LLM_PROVIDERS", raising=False)
     s = Settings(_env_file=None)
-    assert s.openai_api_key == ""
-    assert s.stepfun_api_key == ""
+    assert s.get_provider_config("openai").api_key == ""
+    assert s.get_provider_config("stepfun").api_key == ""
