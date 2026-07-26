@@ -5,6 +5,7 @@ import { GitBranch, RefreshCw, AlertCircle, AlertTriangle, Bell, Sun, Moon, Chev
 import { useTheme } from 'next-themes'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 
 type GitSyncState = 'synced' | 'unsynced' | 'conflict'
 
@@ -41,7 +42,9 @@ export function StatusBar() {
       <button className="flex items-center gap-1 hover:opacity-80">
         <GitBranch className="h-3 w-3" />
         <span>{gitCurrentBranch}</span>
-        <span className={cn('h-2 w-2 rounded', syncMeta.dot)} aria-label={syncTip} title={syncTip} />
+        <Tooltip content={syncTip}>
+          <span className={cn('h-2 w-2 rounded', syncMeta.dot)} aria-label={syncTip} />
+        </Tooltip>
       </button>
       <button className="flex items-center gap-1 hover:opacity-80">
         <RefreshCw className="h-3 w-3" />
