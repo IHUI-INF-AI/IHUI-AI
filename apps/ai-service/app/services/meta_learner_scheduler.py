@@ -81,12 +81,12 @@ class MetaLearnerScheduler:
     """
 
     def __init__(self) -> None:
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
         self._history: list[MetaLearnerHistoryEntry] = []
         # 运行时锁:防止 start() 重复创建 task / stop() 与 start() 并发
         self._lock = asyncio.Lock()
         # 持有 create_task 引用,防止 CPython GC 回收未完成的子任务
-        self._pending_tasks: set[asyncio.Task] = set()
+        self._pending_tasks: set[asyncio.Task[None]] = set()
         self._init_config()
 
     def _init_config(self) -> None:

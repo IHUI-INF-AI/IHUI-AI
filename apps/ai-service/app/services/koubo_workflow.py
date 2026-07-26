@@ -215,7 +215,7 @@ class KouboWorkflowService:
             return {**state, "error": "hot_topics 为空,无法选题", "status": "error",
                     "trace": trace + [_trace("topic_select", t0, time.monotonic(), "error", error="empty hot_topics")]}
         # 按五维评分排序,取前 8
-        def score(t: dict) -> int:
+        def score(t: dict[str, Any]) -> int:
             s = t.get("five_dim_score", 0)
             if isinstance(s, dict):
                 return sum(s.values())

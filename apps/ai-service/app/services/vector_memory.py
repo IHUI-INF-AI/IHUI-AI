@@ -13,7 +13,7 @@ import logging
 import math
 import os
 from collections import OrderedDict
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +270,7 @@ class VectorMemoryStore:
         # 2. 查缓存,命中直接返回(embedding 确定性,同文本同向量)
         cached = await _embedding_cache.get(cache_key)
         if cached is not None:
-            return cached
+            return cast(list[float], cached)
         # 3. 未命中:调 llm_gateway.embed
         try:
             from ..core.llm_gateway import llm_gateway

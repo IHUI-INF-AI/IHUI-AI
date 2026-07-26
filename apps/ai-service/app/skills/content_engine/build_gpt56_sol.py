@@ -22,11 +22,14 @@ v7 终极版（2026-07-13，DOCX样式层级化+间距统一+真编号+字体fal
   保留：emerald 色系 + 13组件全标记兼容 + 零容忍禁令（禁止封面页/目录页/图片caption/页眉页脚）
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import re
 import time
 import glob
+from typing import Any, cast
 
 # ===== 路径设置 =====
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -71,7 +74,7 @@ COLOR_AMBER = (0xF5, 0x9E, 0x0B)       # mac 圆点 黄
 COLOR_GREEN_DOT = (0x10, 0xB9, 0x81)   # mac 圆点 绿
 
 
-def _load_body_from_md():
+def _load_body_from_md() -> str:
     """从已修复的md文件读取正文，确保脚本与md始终同步"""
     if os.path.exists(MD_PATH):
         with open(MD_PATH, 'r', encoding='utf-8') as f:
@@ -83,7 +86,7 @@ BODY = _load_body_from_md()
 
 
 # ===== 写入Markdown =====
-def write_md():
+def write_md() -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     project_boundary.check_write(MD_PATH)
     with open(MD_PATH, 'w', encoding='utf-8') as f:
@@ -94,20 +97,20 @@ def write_md():
 
 
 # ===== 验证 =====
-def run_validate():
+def run_validate() -> bool:
     print(f"\n[2/4] 执行22项自检...")
     all_pass, reports = validate(MD_PATH)
     for r in reports:
         print(f"  {r}")
     print(f"\n  {'✅ 22项自检全部通过' if all_pass else '❌ 存在未通过项，需修复'}")
-    return all_pass
+    return cast(bool, all_pass)
 
 
 # ===== 构建DOCX（摸鱼绿主题 v5 极致美化，兼容全标记） =====
 # 参数化：可被统一流水线 publish_pipeline.py 复用，不再依赖全局常量
-def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
-               images_dir=IMAGES_DIR, assets_dir=ASSETS_IMAGES_DIR,
-               cover_img=None, digest=SUBTITLE):
+def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
+               images_dir: str = IMAGES_DIR, assets_dir: str = ASSETS_IMAGES_DIR,
+               cover_img: str | None = None, digest: str = SUBTITLE) -> str | None:
     project_boundary.check_write(docx_path)
     from docx import Document
     from docx.shared import Pt, Inches, Cm, RGBColor, Emu
@@ -204,7 +207,7 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
         sectPr.append(bg)
 
     # ===== 辅助函数 =====
-    def set_east_asia(run, font_name='Microsoft YaHei'):
+    def set_east_asia(run: Any, font_name: str = 'Microsoft YaHei') -> None:
         rpr = run._element.get_or_add_rPr()
         rf = rpr.find(qn('w:rFonts'))
         if rf is None:
@@ -214,7 +217,7 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
         rf.set(qn('w:hAnsi'), font_name)
         rf.set(qn('w:eastAsia'), font_name)
 
-    def add_shading(paragraph, fill_hex):
+    def add_shading(paragraph: Any, fill_hex: str) -> None:
         pPr = paragraph._element.get_or_add_pPr()
         shd = OxmlElement('w:shd')
         shd.set(qn('w:val'), 'clear')
@@ -222,7 +225,7 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
         shd.set(qn('w:fill'), fill_hex)
         pPr.append(shd)
 
-    def _add_side_border(paragraph, side, color_hex, sz='24', space='8', val='single'):
+    def _add_side_border(paragraph: Any, side: str, color_hex: str, sz: str = '24', space: str = '8', val: str = 'single') -> None:
         pPr = paragraph._element.get_or_add_pPr()
         pBdr = pPr.find(qn('w:pBdr'))
         if pBdr is None:
@@ -235,13 +238,13 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
         e.set(qn('w:color'), color_hex)
         pBdr.append(e)
 
-    def add_left_border(paragraph, color_hex, sz='24', space='8'):
+    def add_left_border(paragraph: Any, color_hex: str, sz: str = '24', space: str = '8') -> None:
         _add_side_border(paragraph, 'left', color_hex, sz, space, 'single')
 
-    def add_bottom_border(paragraph, color_hex='E5E7EB', sz='6', space='1'):
+    def add_bottom_border(paragraph: Any, color_hex: str = 'E5E7EB', sz: str = '6', space: str = '1') -> None:
         _add_side_border(paragraph, 'bottom', color_hex, sz, space, 'single')
 
-    def add_dashed_border(paragraph, color_hex='D1D5DB', sz='12', space='6'):
+    def add_dashed_border(paragraph: Any, color_hex: str = 'D1D5DB', sz: str = '12', space: str = '6') -> None:
         pPr = paragraph._element.get_or_add_pPr()
         pBdr = OxmlElement('w:pBdr')
         for side in ['top', 'left', 'bottom', 'right']:
@@ -253,14 +256,14 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
             pBdr.append(e)
         pPr.append(pBdr)
 
-    def add_card_border(paragraph, left_color='059669', side_color='BBF7D0',
-                        left_sz='28', side_sz='6'):
+    def add_card_border(paragraph: Any, left_color: str = '059669', side_color: str = 'BBF7D0',
+                        left_sz: str = '28', side_sz: str = '6') -> None:
         """卡片盒：左侧 emerald 粗竖条 + 其余三边浅绿细边框"""
         _add_side_border(paragraph, 'left', left_color, left_sz, '10', 'single')
         for sd in ['top', 'right', 'bottom']:
             _add_side_border(paragraph, sd, side_color, side_sz, '6', 'single')
 
-    def add_decoration_bar(fill_hex, height_pt=10):
+    def add_decoration_bar(fill_hex: str, height_pt: int = 10) -> Any:
         """装饰色条（封面顶部/底部）：段落底色模拟横幅，height 由字号撑起"""
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(0)
@@ -273,7 +276,7 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
         return p
 
     # 图片边框加深 + 阴影加强（相框质感 v2）
-    def add_picture_frame(shape, color='D1D5DB', w=19050):
+    def add_picture_frame(shape: Any, color: str = 'D1D5DB', w: int = 19050) -> None:
         """给图片加浅灰细边框 + 轻微外阴影（相框质感），直接操作 drawing xml"""
         try:
             spPr = shape._inline.graphic.graphicData.pic.spPr
@@ -307,7 +310,7 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
     # ===== 行内标记解析：**加粗**(绿) / ==高亮==(黄底) / `代码`(浅灰等宽) =====
     TOKEN_RE = re.compile(r'(\*\*[^*]+\*\*|==[^=]+==|`[^`]+`)')
 
-    def add_inline_runs(paragraph, text, base_size=11, base_color=COLOR_TEXT_MAIN):
+    def add_inline_runs(paragraph: Any, text: str, base_size: float = 11, base_color: tuple[int, int, int] = COLOR_TEXT_MAIN) -> None:
         for tok in TOKEN_RE.split(text):
             if not tok:
                 continue
@@ -333,7 +336,7 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
             set_east_asia(r)
 
     # ===== 区块 flush（oneliner/quote/tip/code）=====
-    def flush_block(btype, buf, meta):
+    def flush_block(btype: str, buf: list[str], meta: str | None) -> None:
         if btype == 'code':
             lang = (meta or 'code').strip() or 'code'
             # 顶部语言条 + mac 三色圆点
@@ -748,7 +751,7 @@ def build_docx(md_path=MD_PATH, docx_path=DOCX_PATH,
 
 
 # ===== 验证DOCX内嵌图片数 =====
-def verify_docx_images(docx_path=DOCX_PATH):
+def verify_docx_images(docx_path: str = DOCX_PATH) -> int:
     from docx import Document
     print(f"\n[验证] 验证DOCX内嵌图片...")
     doc = Document(docx_path)

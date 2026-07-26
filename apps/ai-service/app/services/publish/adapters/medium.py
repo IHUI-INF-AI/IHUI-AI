@@ -36,7 +36,7 @@ class MediumAdapter(BasePlatformAdapter):
             "Accept-Charset": "utf-8",
         }
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         token = credentials.get("integration_token", "").strip()
         if not token:
             return False, "missing integration_token"
@@ -59,8 +59,8 @@ class MediumAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         token = credentials.get("integration_token", "").strip()
         publication_id = (credentials.get("publication_id") or "").strip()

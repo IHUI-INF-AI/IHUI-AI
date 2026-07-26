@@ -60,7 +60,7 @@ class AutoGenerateBody(BaseModel):
 
 
 class ResolveConflictsBody(BaseModel):
-    conflicts: list[dict] = Field(..., description="detect_conflicts 输出的冲突列表")
+    conflicts: list[dict[str, Any]] = Field(..., description="detect_conflicts 输出的冲突列表")
 
 
 class PredictEffectBody(BaseModel):

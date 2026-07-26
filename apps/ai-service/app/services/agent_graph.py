@@ -4,7 +4,7 @@
 不实现完整 tool calling / permission 阻断 / 多轮交互。
 """
 
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, StateGraph
 
@@ -14,7 +14,7 @@ _DEFAULT_MODEL = "stepfun/step-3.7-flash"
 
 
 class AgentState(TypedDict, total=False):
-    messages: list[dict]
+    messages: list[dict[str, Any]]
     mode: str
     session_id: str
     plan: str
@@ -23,7 +23,7 @@ class AgentState(TypedDict, total=False):
     error: str | None
 
 
-async def plan_node(state: AgentState) -> dict:
+async def plan_node(state: AgentState) -> dict[str, Any]:
     """规划节点:基于用户消息生成执行计划。"""
     messages = state.get("messages", [])
     mode = state.get("mode", "default")
@@ -50,7 +50,7 @@ async def plan_node(state: AgentState) -> dict:
         return {"plan": "", "error": f"plan failed: {e}"}
 
 
-async def execute_node(state: AgentState) -> dict:
+async def execute_node(state: AgentState) -> dict[str, Any]:
     """执行节点:基于计划执行实际任务。"""
     messages = state.get("messages", [])
     plan = state.get("plan", "")
@@ -74,7 +74,7 @@ async def execute_node(state: AgentState) -> dict:
         return {"execution_result": "", "error": f"execute failed: {e}"}
 
 
-async def summarize_node(state: AgentState) -> dict:
+async def summarize_node(state: AgentState) -> dict[str, Any]:
     """总结节点:做减法 — 直接返回执行结果,不再调用 LLM(避免延迟)。"""
     result = state.get("execution_result", "")
     if not result:
@@ -89,7 +89,7 @@ def should_continue(state: AgentState) -> Literal["execute", "summarize"]:
     return "execute"
 
 
-def build_agent_graph():
+def build_agent_graph() -> Any:
     """构建 LangGraph StateGraph(plan → execute → summarize)。"""
     graph = StateGraph(AgentState)
     graph.add_node("plan", plan_node)
@@ -104,10 +104,10 @@ def build_agent_graph():
     return graph.compile()
 
 
-_agent_graph = None
+_agent_graph: Any = None
 
 
-def get_agent_graph():
+def get_agent_graph() -> Any:
     """模块级单例,避免每次请求重新编译 graph。"""
     global _agent_graph
     if _agent_graph is None:

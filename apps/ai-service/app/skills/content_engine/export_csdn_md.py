@@ -22,10 +22,13 @@ CSDN 兼容 Markdown 导出（微信公众号摸鱼绿文章的「通用版」�
   python export_csdn_md.py --md articles/标题.md [--out output/标题.md]
 被 publish_pipeline.py 导入时调用 export_csdn_md(md_path, out_path)。
 """
+from __future__ import annotations
+
 import os
 import sys
 import re
 import argparse
+from typing import Any
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -48,7 +51,7 @@ except ImportError:
     HAS_CSDN_UPLOAD = False
 
 
-def export_csdn_md(md_path, out_path=None):
+def export_csdn_md(md_path: str, out_path: str | None = None) -> str:
     if out_path is None:
         base = os.path.splitext(md_path)[0]
         out_path = base + '.md'
@@ -56,14 +59,14 @@ def export_csdn_md(md_path, out_path=None):
     with open(md_path, 'r', encoding='utf-8') as f:
         lines = f.read().split('\n')
 
-    out = []
-    img_list = []  # (alt, local_path)
+    out: list[str] = []
+    img_list: list[tuple[str, str]] = []  # (alt, local_path)
     i = 0
     n = len(lines)
-    block = None          # 'code' / 'fence'
-    block_kind = None     # oneliner / quote / tip / warning / note / ...
+    block: str | None = None          # 'code' / 'fence'
+    block_kind: str | None = None     # oneliner / quote / tip / warning / note / ...
     buf: list[str] = []
-    meta = None
+    meta: str | None = None
 
     while i < n:
         line = lines[i]

@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any, TypedDict
 
@@ -97,12 +98,12 @@ def _trace_entry(
 class LangGraphService:
     """LangGraph 工作流服务。"""
 
-    def __init__(self):
-        self._graph = None
+    def __init__(self) -> None:
+        self._graph: Any = None
         self._available = False
         self._init_graph()
 
-    def _init_graph(self):
+    def _init_graph(self) -> None:
         """尝试初始化 LangGraph 图,失败则降级。
 
         图结构(对标 TRAE Work Memory 自动读写):
@@ -662,7 +663,7 @@ class LangGraphService:
         session_id: str | None = None,
         model: str | None = None,
         user_id: str = "",
-    ):
+    ) -> AsyncIterator[dict[str, Any]]:
         """流式运行工作流,yield 每个节点的事件(含 trace)。
 
         完整流程:memory_load → plan → execute → summarize → memory_save
@@ -786,7 +787,7 @@ class LangGraphService:
     # 手动降级模式节点实现(带 trace 计时)
     # =========================================================================
 
-    async def _plan_manual(self, state: WorkflowState):
+    async def _plan_manual(self, state: WorkflowState) -> None:
         """手动模式:规划节点。"""
         start = time.monotonic()
         try:
@@ -833,7 +834,7 @@ class LangGraphService:
             ))
             raise
 
-    async def _execute_manual(self, state: WorkflowState):
+    async def _execute_manual(self, state: WorkflowState) -> None:
         """手动模式:执行节点。"""
         history = await memory_store.get(state.session_id)
         messages = trim_messages(
@@ -897,7 +898,7 @@ class LangGraphService:
                 ))
                 raise
 
-    async def _execute_stream_manual(self, state: WorkflowState):
+    async def _execute_stream_manual(self, state: WorkflowState) -> AsyncIterator[dict[str, Any]]:
         """手动模式:执行节点的流式版本(带 trace)。"""
         history = await memory_store.get(state.session_id)
         messages = trim_messages(
@@ -977,7 +978,7 @@ class LangGraphService:
                 ))
                 raise
 
-    async def _summarize_manual(self, state: WorkflowState):
+    async def _summarize_manual(self, state: WorkflowState) -> None:
         """手动模式:总结节点。"""
         start = time.monotonic()
         try:
