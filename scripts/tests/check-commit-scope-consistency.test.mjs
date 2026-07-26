@@ -152,6 +152,20 @@ test('parseCommitMessage: type 大写不匹配(只匹配小写)', () => {
   assert.deepEqual(result, { type: null, scope: null, subject: null })
 })
 
+test('parseCommitMessage: 含 BOM (U+FEFF) 头部 → 正确解析(2026-07-26 防御性补丁)', () => {
+  // git log 输出在某些环境下首字符含 BOM,导致正则不匹配
+  // 影响 commit:d92f9560 / 832742c4 / eebf68c9
+  const result = parseCommitMessage('\uFEFFfeat(web): P0.5 删除 26 个纯 re-export 桥接')
+  assert.equal(result.type, 'feat')
+  assert.equal(result.scope, 'web')
+  assert.equal(result.subject, 'P0.5 删除 26 个纯 re-export 桥接')
+})
+
+test('parseCommitMessage: 含 BOM 但格式不匹配 → null (BOM 去除后仍要符合 type: subject)', () => {
+  const result = parseCommitMessage('\uFEFFrandom text')
+  assert.deepEqual(result, { type: null, scope: null, subject: null })
+})
+
 // ─── detectPollution 测试:R1 §25 硬违规(verify-*.mjs) ────
 
 test('R1: staged 含 verify-*.mjs → block', () => {
@@ -375,9 +389,10 @@ test('R3: seo 不在跨切关注点白名单(已移除) → block', () => {
   assert.equal(result.rule, 'R3')
 })
 
-// ─── detectPollution 测试:规则优先级(R1 > R2 > R3) ─────
+// ─── detectPollution 测试:多规则命中(v2.1 改造,2026-07-26) ─
+// v2.1 起 detectPollution 返回 rules 数组(所有命中规则),rule 字段保留为最高优先级
 
-test('规则优先级: R1 + R2 同时触发 → 返回 R1 (优先级最高)', () => {
+test('多规则命中: R1 + R2 同时触发 → rules=[R1, R2], rule=R1 (优先级最高)', () => {
   // c3c864131 完整场景:verify + i18n + seo
   const staged = [
     'apps/web/verify-dangerous-command.mjs',
@@ -387,12 +402,14 @@ test('规则优先级: R1 + R2 同时触发 → 返回 R1 (优先级最高)', ()
   ]
   const result = detectPollution(staged, 'seo')
   assert.equal(result.block, true)
-  assert.equal(result.rule, 'R1')
+  assert.equal(result.rule, 'R1') // 向后兼容:最高优先级
+  assert.deepEqual(result.rules, ['R1', 'R2']) // 多规则命中
+  assert.equal(result.reasons.length, 2)
   assert.equal(result.hasVerifyFiles, true)
   assert.equal(result.hasI18nFiles, true)
 })
 
-test('规则优先级: R2 + R3 同时触发 → 返回 R2 (R1 不触发, R2 优先)', () => {
+test('多规则命中: R2 + R3 同时触发 → rules=[R2, R3], rule=R2', () => {
   // i18n 文件 + 3 端 + scope=seo
   const staged = [
     'packages/i18n/messages/web/zh-CN.json',
@@ -403,13 +420,34 @@ test('规则优先级: R2 + R3 同时触发 → 返回 R2 (R1 不触发, R2 优�
   const result = detectPollution(staged, 'seo')
   assert.equal(result.block, true)
   assert.equal(result.rule, 'R2')
+  assert.deepEqual(result.rules, ['R2', 'R3'])
+  assert.equal(result.reasons.length, 2)
   assert.equal(result.hasI18nFiles, true)
   assert.equal(result.appsSubdirs.size, 3)
 })
 
+test('多规则命中: 仅 R1 触发 → rules=[R1], rule=R1 (单规则)', () => {
+  const staged = ['apps/web/verify-tmp.mjs', 'apps/web/src/page.tsx']
+  const result = detectPollution(staged, 'web')
+  assert.equal(result.block, true)
+  assert.equal(result.rule, 'R1')
+  assert.deepEqual(result.rules, ['R1'])
+  assert.equal(result.reasons.length, 1)
+})
+
+test('多规则命中: 无规则触发 → rules=[], rule=null (通过)', () => {
+  const staged = ['apps/web/src/page.tsx']
+  const result = detectPollution(staged, 'web')
+  assert.equal(result.block, false)
+  assert.equal(result.rule, null)
+  assert.deepEqual(result.rules, [])
+  assert.deepEqual(result.reasons, [])
+  assert.equal(result.reason, '通过')
+})
+
 // ─── detectPollution 测试:历史 commit 回归验证 ──────────
 
-test('回归: c3c864131 (feat(seo) 混入 i18n + verify) → block', () => {
+test('回归: c3c864131 (feat(seo) 混入 i18n + verify) → block (R1+R2 多规则命中)', () => {
   // 模拟 c3c864131 完整 staged 文件
   const staged = [
     'packages/i18n/messages/extension/zh-CN.json',
@@ -431,8 +469,11 @@ test('回归: c3c864131 (feat(seo) 混入 i18n + verify) → block', () => {
   assert.equal(scope, 'seo')
   const result = detectPollution(staged, scope)
   assert.equal(result.block, true)
-  // R1 优先级最高(含 verify-*.mjs)
-  assert.equal(result.rule, 'R1')
+  // v2.1:多规则命中,R1(verify)+ R2(i18n) 同时触发
+  assert.equal(result.rule, 'R1') // 最高优先级
+  assert.ok(result.rules.includes('R1'))
+  assert.ok(result.rules.includes('R2'))
+  assert.ok(result.rules.length >= 2, `应至少命中 2 条规则,实际: ${result.rules.join(',')}`)
 })
 
 test('回归: eebf68c92 (chore 技术债批次 + 3 apps 无 scope) → pass (无 scope 跳过 R3)', () => {
@@ -541,4 +582,139 @@ test('边界: verify-foo.mjs 在根目录 → block (正则匹配根级)', () =>
   assert.equal(result.hasVerifyFiles, true)
   assert.equal(result.block, true)
   assert.equal(result.rule, 'R1')
+})
+
+// ─── detectPollution 测试:R4 2 端 + scope 严重不匹配(2026-07-26 立) ───
+// 漏检案例修复:8099029e5 / 5a82c1408 模式 — 2 apps + scope 严重不匹配,R3 阈值未到漏检
+
+test('R4: 2 apps + scope=web 占比 0% (web 端无文件) → block', () => {
+  // scope 声明 web 但 staged 文件全是 api + ai-service → scope 被滥用
+  const staged = [
+    'apps/api/src/routes/user.ts',
+    'apps/api/src/routes/spec.ts',
+    'apps/api/src/routes/foo.ts',
+    'apps/ai-service/app/main.py',
+  ]
+  const result = detectPollution(staged, 'web')
+  assert.equal(result.block, true)
+  assert.equal(result.rule, 'R4')
+  assert.ok(result.rules.includes('R4'))
+  assert.equal(result.appsSubdirs.size, 2)
+  assert.match(result.reason, /2 个 apps 子目录/)
+  assert.match(result.reason, /scope="web"/)
+  assert.match(result.reason, /0\.0%/)
+})
+
+test('R4: 2 apps + scope=api 占比 25% (< 30% 阈值) → block', () => {
+  // 4 个文件:1 个 api + 3 个 web,scope=api 占比 25% < 30% → 触发
+  const staged = [
+    'apps/api/src/routes/user.ts', // api 1 个
+    'apps/web/src/page.tsx', // web 3 个
+    'apps/web/src/lib/utils.ts',
+    'apps/web/src/components/Button.tsx',
+  ]
+  const result = detectPollution(staged, 'api')
+  assert.equal(result.block, true)
+  assert.equal(result.rule, 'R4')
+  assert.match(result.reason, /25\.0%/)
+})
+
+test('R4: 2 apps + scope=web 占比 75% (≥ 30% 阈值) → pass (scope 是主要端)', () => {
+  // 4 个文件:3 个 web + 1 个 api,scope=web 占比 75% ≥ 30% → 不触发 R4
+  const staged = [
+    'apps/web/src/page.tsx',
+    'apps/web/src/lib/utils.ts',
+    'apps/web/src/components/Button.tsx',
+    'apps/api/src/routes/user.ts',
+  ]
+  const result = detectPollution(staged, 'web')
+  assert.equal(result.block, false)
+  assert.ok(!result.rules.includes('R4'))
+})
+
+test('R4: 2 apps + scope=web 占比 50% (≥ 30% 阈值) → pass', () => {
+  // 2 个文件:1 web + 1 api,scope=web 占比 50% ≥ 30% → 不触发
+  const staged = ['apps/web/src/page.tsx', 'apps/api/src/routes/user.ts']
+  const result = detectPollution(staged, 'web')
+  assert.equal(result.block, false)
+})
+
+test('R4: 2 apps + scope=null → pass (无 scope 不判 R4)', () => {
+  const staged = ['apps/web/src/page.tsx', 'apps/api/src/routes/user.ts']
+  const result = detectPollution(staged, null)
+  assert.equal(result.block, false)
+})
+
+test('R4: 2 apps + scope=p2 (非端名) → pass (scope 不在 APP_AREAS)', () => {
+  // scope=p2 是任务编号,不是端名,R4 不判(仅判端名 scope 的滥用)
+  const staged = ['apps/web/src/page.tsx', 'apps/api/src/routes/user.ts']
+  const result = detectPollution(staged, 'p2')
+  assert.equal(result.block, false)
+})
+
+test('R4: 2 apps + scope=multi (跨切关注点白名单) → pass', () => {
+  // scope=multi 是多任务聚合 commit,合法
+  const staged = ['apps/web/src/page.tsx', 'apps/api/src/routes/user.ts']
+  const result = detectPollution(staged, 'multi')
+  assert.equal(result.block, false)
+})
+
+test('R4: 2 apps + scope=security (跨切关注点白名单) → pass', () => {
+  const staged = ['apps/web/src/page.tsx', 'apps/api/src/routes/user.ts']
+  const result = detectPollution(staged, 'security')
+  assert.equal(result.block, false)
+})
+
+test('R4: 1 apps (单端) → pass (R4 要求恰好 2 端)', () => {
+  // R4 只检测 2 端场景,1 端不判(单端 commit 合法)
+  const staged = ['apps/web/src/page.tsx', 'apps/web/src/lib/utils.ts']
+  const result = detectPollution(staged, 'api') // scope=api 但 staged 只有 web
+  assert.equal(result.block, false)
+  assert.ok(!result.rules.includes('R4'))
+})
+
+test('R4: 3 apps + scope 严重不匹配 → R3 优先(R4 不触发,appsSubdirs.size !== 2)', () => {
+  // 3 端场景由 R3 处理,R4 只处理 2 端
+  const staged = [
+    'apps/api/src/routes/user.ts',
+    'apps/ai-service/app/main.py',
+    'apps/extension/src/index.tsx',
+  ]
+  const result = detectPollution(staged, 'web') // scope=web 但 staged 无 web
+  assert.equal(result.block, true)
+  assert.ok(result.rules.includes('R3'))
+  assert.ok(!result.rules.includes('R4'), 'R4 不应触发(appsSubdirs.size=3,不是 2)')
+})
+
+// ─── detectPollution 测试:multi 白名单(2026-07-26 误报修复) ────────
+
+test('multi 白名单: scope=multi + 3 apps → pass (多任务聚合 commit 合法)', () => {
+  // 4fa5f2da0 场景:feat(multi): ... 多 subagent 并行交付
+  const staged = [
+    'apps/web/src/page.tsx',
+    'apps/api/src/routes/user.ts',
+    'apps/ai-service/app/main.py',
+  ]
+  const result = detectPollution(staged, 'multi')
+  assert.equal(result.block, false)
+  assert.equal(result.appsSubdirs.size, 3)
+})
+
+test('multi 白名单: scope=multi + i18n 文件 → R2 仍触发(白名单只豁免 R3/R4)', () => {
+  // multi 白名单不豁免 R2(i18n 污染仍要拦截)
+  const staged = [
+    'packages/i18n/messages/web/zh-CN.json',
+    'apps/web/src/page.tsx',
+  ]
+  const result = detectPollution(staged, 'multi')
+  assert.equal(result.block, true)
+  assert.ok(result.rules.includes('R2'))
+  assert.ok(!result.rules.includes('R3')) // multi 豁免 R3
+})
+
+test('multi 白名单: scope=multi + verify-*.mjs → R1 仍触发(白名单只豁免 R3/R4)', () => {
+  const staged = ['apps/web/verify-tmp.mjs', 'apps/api/src/routes/user.ts']
+  const result = detectPollution(staged, 'multi')
+  assert.equal(result.block, true)
+  assert.ok(result.rules.includes('R1'))
 })
