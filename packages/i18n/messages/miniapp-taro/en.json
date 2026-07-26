@@ -1,26 +1,8 @@
 {
   "common": {
-    "save": "Save",
-    "cancel": "Cancel",
-    "delete": "Delete",
-    "back": "Back",
-    "confirm": "Confirm",
-    "loading": "Loading…",
-    "empty": "No data",
-    "retry": "Retry",
-    "all": "All",
-    "hint": "Hint",
-    "success": "Success",
-    "failed": "Operation failed",
-    "user": "User",
-    "uploading": "Uploading",
-    "noMore": "No more",
-    "consult": "Consult",
-    "loadingShort": "Loading...",
-    "free": "Free"
+    "loading": "Loading…"
   },
   "nav": {
-    "home": "Home",
     "courses": "Courses",
     "live": "Live",
     "profile": "Profile",
@@ -322,9 +304,6 @@
   },
   "agent": {
     "title": "Agents"
-  },
-  "chat": {
-    "send": "Send"
   },
   "setting": {
     "hint": "Hint",
@@ -2065,11 +2044,8 @@
     },
     "profile": {
       "avatar": "Avatar",
-      "nickname": "Nickname",
       "notSet": "Not set",
-      "phone": "Phone",
       "unbound": "Not bound",
-      "email": "Email",
       "password": "Password",
       "realname": "Real-name verification",
       "verified": "Verified",
@@ -2279,7 +2255,6 @@
       "bug": "Bug"
     },
     "uploadFailed": "Upload failed",
-    "type": "Type",
     "content": "Content",
     "contact": "Contact",
     "contactPlaceholder": "Please enter contact information (optional)"
