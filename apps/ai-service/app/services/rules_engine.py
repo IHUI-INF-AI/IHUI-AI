@@ -484,8 +484,13 @@ class RulesEngine:
                     logger.warning("[rules_engine] 加载规则文件 %s 失败: %s", fname, e)
         return len(self._rules)
 
-    def list(self) -> list[Rule]:
-        """列出全部规则(按 priority DESC 排序)。"""
+    def list_rules(self) -> list[Rule]:
+        """列出全部规则(按 priority DESC 排序)。
+
+        方法名避开内置 list(2026-07-26):原方法名 list 与内置 list 冲突,
+        导致 mypy 全库模式下类作用域内 list[...] 类型注解被解析为方法引用,
+        触发 [valid-type] / [attr-defined] / [index] 连锁错误。
+        """
         self.reload()
         with self._lock:
             rules = list(self._rules.values())
@@ -1834,7 +1839,7 @@ class RulesEngine:
         except Exception as e:
             logger.debug("[rules_engine] LLM 冲突仲裁降级: %s", e)
         # 降级:按 created_at 时间戳保留较新规则,禁用较旧规则
-        resolutions: list[dict[str, Any]] = []
+        fallback_resolutions: list[dict[str, Any]] = []
         for idx, conflict in enumerate(conflicts):
             rule_ids = list(conflict.get("ruleIds", []) or [])
             rules_meta: list[tuple[str, str]] = []
@@ -1845,7 +1850,7 @@ class RulesEngine:
             rules_meta.sort(key=lambda x: x[1], reverse=True)
             keep_id = rules_meta[0][0] if rules_meta else None
             disable_ids = [rid for rid, _ in rules_meta[1:]]
-            resolutions.append(
+            fallback_resolutions.append(
                 {
                     "conflict_id": idx,
                     "resolution": "disable",
@@ -1868,14 +1873,14 @@ class RulesEngine:
                     "conflict_count": len(conflicts),
                     "resolutions": [
                         {"resolution": r.get("resolution", ""), "reason": r.get("reason", "")}
-                        for r in resolutions[:5]
+                        for r in fallback_resolutions[:5]
                     ],
                 },
                 severity="info",
             )
         except Exception:
             pass
-        return resolutions
+        return fallback_resolutions
 
     async def predict_effect(
         self, rule_id: str, dry_run_message: str = ""
