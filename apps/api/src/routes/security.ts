@@ -18,12 +18,12 @@ import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
 import {
-  CaptchaService,
+  type CaptchaService,
   type ChallengeType,
   getCaptchaService,
 } from '../services/captcha-service.js'
-import { IpReputationService, getIpReputationService } from '../services/ip-reputation.js'
-import { AnomalyDetector, getAnomalyDetector } from '../services/anomaly-detector.js'
+import { type IpReputationService, getIpReputationService } from '../services/ip-reputation.js'
+import { type AnomalyDetector, getAnomalyDetector } from '../services/anomaly-detector.js'
 
 /* -------------------------------------------------------------------------- */
 /* 校验 schema                                                                 */
@@ -40,7 +40,12 @@ const verifySchema = z.object({
 
 const blockIpSchema = z.object({
   ip: z.string().min(1),
-  duration: z.number().int().positive().max(30 * 24 * 3600).default(3600),
+  duration: z
+    .number()
+    .int()
+    .positive()
+    .max(30 * 24 * 3600)
+    .default(3600),
   reason: z.string().max(500).optional(),
 })
 
@@ -62,10 +67,7 @@ const reportSchema = z.object({
 /* admin 守卫                                                                   */
 /* -------------------------------------------------------------------------- */
 
-async function requireAdmin(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<boolean> {
+async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   try {
     await authenticate(request)
   } catch {
@@ -125,15 +127,12 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
   })
 
   /* ---------------------- 3. 查询 IP 信誉(仅 admin) ---------------------- */
-  server.get<{ Params: { ip: string } }>(
-    '/ip-reputation/:ip',
-    async (request, reply) => {
-      if (!(await requireAdmin(request, reply))) return
-      const { ip } = request.params
-      const rep = await ipRep.getIpReputation(ip)
-      return success(rep)
-    },
-  )
+  server.get<{ Params: { ip: string } }>('/ip-reputation/:ip', async (request, reply) => {
+    if (!(await requireAdmin(request, reply))) return
+    const { ip } = request.params
+    const rep = await ipRep.getIpReputation(ip)
+    return success(rep)
+  })
 
   /* ---------------------- 4. 封禁 IP(仅 admin) ---------------------- */
   server.post('/block-ip', async (request, reply) => {
@@ -150,16 +149,13 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
   })
 
   /* ---------------------- 5. 解封 IP(仅 admin) ---------------------- */
-  server.delete<{ Params: { ip: string } }>(
-    '/block-ip/:ip',
-    async (request, reply) => {
-      if (!(await requireAdmin(request, reply))) return
-      const { ip } = request.params
-      await ipRep.unblockIp(ip)
-      logger.info('security: admin unblocked ip', { ip, by: request.userId })
-      return success({ ip, blocked: false })
-    },
-  )
+  server.delete<{ Params: { ip: string } }>('/block-ip/:ip', async (request, reply) => {
+    if (!(await requireAdmin(request, reply))) return
+    const { ip } = request.params
+    await ipRep.unblockIp(ip)
+    logger.info('security: admin unblocked ip', { ip, by: request.userId })
+    return success({ ip, blocked: false })
+  })
 
   /* ---------------------- 6. 查询异常事件列表(仅 admin) ---------------------- */
   server.get('/anomalies', async (request, reply) => {
@@ -201,9 +197,7 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
       url: '/api/security/report',
       score: 50,
       recommendation: 'monitor' as const,
-      dimensions: [
-        { name: 'user-report', score: 50, weight: 1 },
-      ],
+      dimensions: [{ name: 'user-report', score: 50, weight: 1 }],
     }
     await anomaly.recordEvent(event)
 
@@ -219,7 +213,15 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
   server.get('/threat-dashboard', async (request, reply) => {
     if (!(await requireAdmin(request, reply))) return
     const stats = request.server.threatDetector?.getStats()
-    return success(stats ?? { totalChecks: 0, totalAutoBlocks: 0, totalWarnings: 0, watchedIps: [], recentBlocks: [] })
+    return success(
+      stats ?? {
+        totalChecks: 0,
+        totalAutoBlocks: 0,
+        totalWarnings: 0,
+        watchedIps: [],
+        recentBlocks: [],
+      },
+    )
   })
 }
 
