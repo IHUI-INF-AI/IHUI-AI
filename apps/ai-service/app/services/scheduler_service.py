@@ -40,7 +40,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _build_trigger(trigger_type: str, trigger_config: dict[str, Any]):
+def _build_trigger(trigger_type: str, trigger_config: dict[str, Any]) -> Any:
     """根据 trigger_type 构造 APScheduler Trigger,失败抛 ValueError。"""
     if trigger_type == "cron":
         kwargs = {k: v for k, v in trigger_config.items() if k in _CRON_FIELDS}

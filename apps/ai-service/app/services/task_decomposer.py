@@ -19,7 +19,7 @@ import logging
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from ..core.llm_gateway import llm_gateway
 
@@ -234,7 +234,7 @@ class TaskDecomposer:
         if start == -1 or end == -1 or end <= start:
             return None
         try:
-            return json.loads(cleaned[start : end + 1])
+            return cast(dict[str, Any], json.loads(cleaned[start : end + 1]))
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning("JSON 解析失败: %s", e)
             return None

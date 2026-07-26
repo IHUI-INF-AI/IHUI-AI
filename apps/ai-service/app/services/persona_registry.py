@@ -6,6 +6,7 @@
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from .project_memory import build_system_prompt
 
@@ -14,8 +15,8 @@ from .project_memory import build_system_prompt
 class PersonaContract:
     """Persona 输入/输出契约。"""
 
-    input_schema: dict
-    output_schema: dict
+    input_schema: dict[str, Any]
+    output_schema: dict[str, Any]
 
 
 PERSONAS_CONTRACTS: dict[str, PersonaContract] = {
