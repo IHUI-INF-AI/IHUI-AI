@@ -11122,30 +11122,6 @@
     "noRates": "No reviews yet. Be the first to share your thoughts!",
     "anonymous": "Anonymous"
   },
-  "modelsBillingPage": {
-    "packages": {
-      "starter": {
-      },
-      "pro": {
-      },
-      "enterprise": {
-      }
-    }
-  },
-  "n8nAgentsPage": {
-    "agents": {
-      "alert-notify": {
-      },
-      "content-moderation": {
-      },
-      "customer-service": {
-      },
-      "data-sync": {
-      },
-      "report-generation": {
-      }
-    }
-  },
   "agentsMyPage": {
     "back": "Back",
     "title": "My Agents",
@@ -11785,16 +11761,6 @@
     "save": "Save",
     "cancel": "Cancel"
   },
-  "modelsReferralPage": {
-    "link": {
-    },
-    "stats": {
-    },
-    "list": {
-      "statusLabels": {
-      }
-    }
-  },
   "knowledgeRag": {
     "list": {
       "title": "Knowledge Base RAG",
@@ -12103,22 +12069,7 @@
       "deviceFrame": "Device Frame"
     },
     "templates": {
-      "title": "Templates",
-      "categories": {}
-    }
-  },
-  "modelsGroupsPage": {
-    "group": {
-      "1": {
-      },
-      "2": {
-      },
-      "3": {
-      },
-      "4": {
-      },
-      "5": {
-      }
+      "title": "Templates"
     }
   },
   "a11y": {
