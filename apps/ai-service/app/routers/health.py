@@ -1,4 +1,6 @@
 """健康检查路由。"""
+from typing import Any
+
 from fastapi import APIRouter
 
 from app import __version__
@@ -9,7 +11,7 @@ router = APIRouter()
 
 
 @router.get("/")
-async def root():
+async def root() -> dict[str, Any]:
     """服务根端点,返回基本信息。"""
     return {
         "service": "ihui-ai-service",
@@ -20,19 +22,19 @@ async def root():
 
 
 @router.get("/health")
-async def health():
+async def health() -> dict[str, Any]:
     """综合健康检查(liveness,不检查依赖)。"""
     return {"status": "ok", "service": "ihui-ai-service"}
 
 
 @router.get("/health/live")
-async def health_live():
+async def health_live() -> dict[str, Any]:
     """Liveness 探针。"""
     return {"status": "alive"}
 
 
 @router.get("/health/ready")
-async def health_ready():
+async def health_ready() -> dict[str, Any]:
     """Readiness 探针(检查 LLM 配置 + litellm 可用性)。
 
     检查项:

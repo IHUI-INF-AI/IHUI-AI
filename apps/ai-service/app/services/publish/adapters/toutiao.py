@@ -31,7 +31,7 @@ class ToutiaoAdapter(BasePlatformAdapter):
     supported_formats = ["md", "html"]
     requires_credentials = ["app_id", "app_secret"]
 
-    async def _get_access_token(self, credentials: dict) -> tuple[bool, str]:
+    async def _get_access_token(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         """头条号 client_credentials 模式获取 access_token。"""
         app_id = credentials.get("app_id", "").strip()
         app_secret = credentials.get("app_secret", "").strip()
@@ -60,7 +60,7 @@ class ToutiaoAdapter(BasePlatformAdapter):
             return False, f"no access_token: {data}"
         return True, token
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         ok, msg_or_token = await self._get_access_token(credentials)
         if not ok:
             return False, msg_or_token
@@ -92,8 +92,8 @@ class ToutiaoAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         ok, msg_or_token = await self._get_access_token(credentials)
         if not ok:

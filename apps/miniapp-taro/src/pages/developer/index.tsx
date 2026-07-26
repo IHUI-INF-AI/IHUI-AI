@@ -274,11 +274,12 @@ export default function DeveloperIndex() {
       ) : null}
 
       <ScrollView
-        className="flex-1 h-0 px-[20rpx] pb-[20rpx]"
+        className="flex-1 h-0"
         scrollY
         lowerThreshold={50}
         onScrollToLower={onScrollToLower}
       >
+        <View className="px-[20rpx] pb-[20rpx]">
         {loading && list.length === 0 ? (
           <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">{t('common.loading')}</Text>
         ) : list.length ? (
@@ -321,6 +322,7 @@ export default function DeveloperIndex() {
         {list.length > 0 && !hasMore ? (
           <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">{tt('developer.index.noMore', '没有更多了')}</Text>
         ) : null}
+        </View>
       </ScrollView>
     </View>
   )

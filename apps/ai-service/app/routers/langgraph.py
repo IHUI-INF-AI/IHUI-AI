@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import AsyncGenerator
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -307,7 +308,7 @@ async def get_stream(
                 detail=f"非法 stream_mode: {invalid},允许 {sorted(VALID_STREAM_MODES)}",
             )
 
-    async def event_stream():
+    async def event_stream() -> AsyncGenerator[str, None]:
         try:
             async for evt in stream_agent_execution(
                 graph=graph,

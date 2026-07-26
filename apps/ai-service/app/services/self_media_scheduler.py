@@ -12,7 +12,7 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timezone, timedelta
-from typing import Any, Literal, TypedDict
+from typing import Any, Coroutine, Literal, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -81,16 +81,16 @@ class SelfMediaScheduler:
     """自媒体定时任务调度器(单例)。"""
 
     def __init__(self) -> None:
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
         self._last_run_date: dict[str, str] = {}  # task_id -> YYYY-MM-DD,防同日重复触发
         self._configs: dict[str, TaskConfig] = {}  # task_id -> 运行时配置
         self._history: list[HistoryEntry] = []  # 全局历史(LRU)
         self._running_tasks: set[str] = set()  # 正在执行的 task_id 集合
         # 持有 create_task 引用,防止 CPython GC 回收未完成的 task
-        self._pending_tasks: set[asyncio.Task] = set()
+        self._pending_tasks: set[asyncio.Task[None]] = set()
         self._init_configs()
 
-    def _spawn_task(self, coro) -> asyncio.Task:
+    def _spawn_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[None]:
         """创建 task 并持有引用,完成后自动从集合移除。"""
         task = asyncio.create_task(coro)
         self._pending_tasks.add(task)

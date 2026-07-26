@@ -99,7 +99,7 @@ class InvokeResponse(BaseModel):
 
 # ===== 内部工具 =====
 
-def _serialize_skill(s) -> SkillMeta:
+def _serialize_skill(s: Any) -> SkillMeta:
     """把 Skill dataclass 序列化为 API 响应模型。"""
     return SkillMeta(
         id=s.name,

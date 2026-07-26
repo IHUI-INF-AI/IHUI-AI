@@ -210,10 +210,11 @@ export default function VoicePage() {
       </View>
 
       <ScrollView
-        className="flex-1 py-[24rpx] px-[32rpx]"
+        className="flex-1"
         scrollY
         scrollTop={scrollTop}
       >
+        <View className="py-[24rpx] px-[32rpx]">
         {messages.map((m, i) => (
           <View key={i} className={`flex mb-[32rpx] items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
             <View className={`w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 ${m.role === 'user' ? 'bg-primary' : 'bg-[#4cd964]'}`}>{m.role === 'user' ? '我' : 'AI'}</View>
@@ -250,6 +251,7 @@ export default function VoicePage() {
             </View>
           </View>
         ) : null}
+        </View>
       </ScrollView>
 
       <View className="py-[16rpx] px-[32rpx] bg-card">

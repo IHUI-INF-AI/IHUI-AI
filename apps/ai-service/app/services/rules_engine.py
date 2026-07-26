@@ -78,7 +78,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, List, Optional
+from typing import Any, List, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -1627,7 +1627,7 @@ class RulesEngine:
         user_id: str,
         action: str,
         rule_id: str,
-        details: Optional[dict] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> None:
         """记录用户行为到 Redis hash(失败降级到内存)。
 
@@ -2072,7 +2072,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     norm_b = sum(y * y for y in b) ** 0.5
     if norm_a == 0 or norm_b == 0:
         return 0.0
-    return dot / (norm_a * norm_b)
+    return cast(float, dot / (norm_a * norm_b))
 
 
 # 全局单例

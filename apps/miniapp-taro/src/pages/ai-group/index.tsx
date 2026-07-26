@@ -99,8 +99,9 @@ export default function AiGroup() {
         scrollX
         enhanced
         showScrollbar={false}
-        className="whitespace-nowrap py-[16rpx] px-[24rpx] bg-card"
+        className="whitespace-nowrap bg-card"
       >
+        <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
         {categories.map((cat) => (
           <View
             key={cat.key}
@@ -110,6 +111,7 @@ export default function AiGroup() {
             <Text>{cat.label}</Text>
           </View>
         ))}
+        </View>
       </ScrollView>
       <View className="p-[24rpx]">
         {loading ? (

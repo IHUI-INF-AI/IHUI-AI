@@ -15,7 +15,7 @@ DB 异常降级:仅写内存,不阻塞主流程。
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import asyncpg
 
@@ -135,7 +135,7 @@ class MemoryDecayManager:
             days = (now - last).total_seconds() / 86400.0
             if days <= 0:
                 return 1.0
-            return 0.5 ** (days / half_life_days)
+            return cast(float, 0.5 ** (days / half_life_days))
         except Exception:
             return 1.0
 

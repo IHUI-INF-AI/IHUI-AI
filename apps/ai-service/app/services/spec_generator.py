@@ -195,12 +195,12 @@ class SpecGenerator:
             symbols = self._extract_symbols_regex(content, language, rel_path)
         return symbols
 
-    def _walk_ast(self, node, content: str, language: str, rel_path: str) -> list[ExtractedSymbol]:
+    def _walk_ast(self, node: Any, content: str, language: str, rel_path: str) -> list[ExtractedSymbol]:
         """遍历 AST 提取符号(复用 codebase_indexer._SYMBOL_NODE_TYPES 映射)。"""
         symbols: list[ExtractedSymbol] = []
         symbol_node_types = self._indexer._SYMBOL_NODE_TYPES
 
-        def walk(n):
+        def walk(n: Any) -> None:
             node_type = n.type
             if node_type in symbol_node_types:
                 symbol_type, name_field = symbol_node_types[node_type]
@@ -225,7 +225,7 @@ class SpecGenerator:
         walk(node)
         return symbols
 
-    def _extract_doc(self, node, content: str) -> Optional[str]:
+    def _extract_doc(self, node: Any, content: str) -> Optional[str]:
         """提取符号前的文档注释(JSDoc / docstring 首行)。"""
         try:
             prev = node.prev_sibling
@@ -1398,14 +1398,14 @@ class SpecGenerator:
         debounce_seconds = 5.0
 
         class SpecRegenHandler(FileSystemEventHandler):
-            def __init__(self_outer):
+            def __init__(self_outer: Any) -> None:
                 super().__init__()
                 self_outer._workspace = workspace_path
                 self_outer._scope = scope
                 self_outer._webhook = webhook_url
                 self_outer._watch_id = watch_id
 
-            def on_any_event(self_outer, event):
+            def on_any_event(self_outer: Any, event: Any) -> None:
                 if event.is_directory:
                     return
                 now = time.time()
@@ -1418,7 +1418,7 @@ class SpecGenerator:
                     daemon=True,
                 ).start()
 
-            def _regen_and_notify(self_outer):
+            def _regen_and_notify(self_outer: Any) -> None:
                 try:
                     # 运行 async generate_diff in new thread
                     loop = asyncio.new_event_loop()
@@ -1429,7 +1429,7 @@ class SpecGenerator:
                 except Exception as e:
                     logger.warning("watch regen 失败: %s", e)
 
-            async def _do_regen(self_outer):
+            async def _do_regen(self_outer: Any) -> None:
                 try:
                     diff_result = await spec_generator.generate_diff(
                         self_outer._workspace, self_outer._scope
@@ -1870,7 +1870,7 @@ if _EXTRA_ROUTER_AVAILABLE:
             return {"code": 1, "message": f"patch 应用失败: {e}", "data": None}
 
     class SpecWatchStartRequest(BaseModel):
-        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        scope: dict[str, Any] = Field(default_factory=lambda: {"type": "workspace"})
         workspacePath: str = Field(...)
         webhookUrl: Optional[str] = Field(None)
 
@@ -1909,7 +1909,7 @@ if _EXTRA_ROUTER_AVAILABLE:
             return {"code": 1, "message": f"watch 状态获取失败: {e}", "data": None}
 
     class SpecReviewRequest(BaseModel):
-        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        scope: dict[str, Any] = Field(default_factory=lambda: {"type": "workspace"})
         workspacePath: str = Field(...)
         reviewer: Optional[str] = Field(None)
         comment: Optional[str] = Field(None)
@@ -1964,7 +1964,7 @@ if _EXTRA_ROUTER_AVAILABLE:
             return {"code": 1, "message": f"获取待评审列表失败: {e}", "data": None}
 
     class SpecSplitTasksRequest(BaseModel):
-        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        scope: dict[str, Any] = Field(default_factory=lambda: {"type": "workspace"})
         workspacePath: str = Field(...)
 
     @extra_router.post("/spec/split-tasks")
@@ -1979,7 +1979,7 @@ if _EXTRA_ROUTER_AVAILABLE:
             return {"code": 1, "message": f"任务拆分失败: {e}", "data": None}
 
     class SpecEnhanceRequest(BaseModel):
-        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        scope: dict[str, Any] = Field(default_factory=lambda: {"type": "workspace"})
         workspacePath: str = Field(...)
 
     @extra_router.post("/spec/enhance")

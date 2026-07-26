@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def _sanitize_response(data: Any) -> Any:
 class ResponseSanitizerMiddleware(BaseHTTPMiddleware):
     """响应脱敏中间件 — 拦截 JSON 响应,递归替换敏感字段值为 ***。"""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
 
         # 数据主体访问自身数据时跳过脱敏(GDPR 导出等场景)
@@ -85,10 +85,14 @@ class ResponseSanitizerMiddleware(BaseHTTPMiddleware):
             return response
 
         # 消费响应 body(流式 → 缓冲到内存)
+        # BaseHTTPMiddleware 的 call_next 返回 StreamingResponse,有 body_iterator
+        streaming_resp = cast(StreamingResponse, response)
         body_chunks: list[bytes] = []
-        async for chunk in response.body_iterator:
+        async for chunk in streaming_resp.body_iterator:
             if isinstance(chunk, str):
                 chunk = chunk.encode("utf-8")
+            elif not isinstance(chunk, bytes):
+                chunk = bytes(chunk)
             body_chunks.append(chunk)
         body_bytes = b"".join(body_chunks)
 
@@ -116,6 +120,6 @@ class ResponseSanitizerMiddleware(BaseHTTPMiddleware):
         return new_response
 
 
-def setup_response_sanitizer_middleware(app) -> None:
+def setup_response_sanitizer_middleware(app: Any) -> None:
     """注册响应脱敏中间件到 FastAPI app。"""
     app.add_middleware(ResponseSanitizerMiddleware)

@@ -17,7 +17,7 @@ import asyncio
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Coroutine, Optional
 
 import asyncpg
 
@@ -42,15 +42,15 @@ class PublishScheduler:
     """多平台发布调度器(单例)。"""
 
     def __init__(self) -> None:
-        self._poll_task: Optional[asyncio.Task] = None
-        self._running: dict[str, asyncio.Task] = {}  # task_id -> asyncio.Task
+        self._poll_task: Optional[asyncio.Task[None]] = None
+        self._running: dict[str, asyncio.Task[None]] = {}  # task_id -> asyncio.Task
         self._user_running: dict[str, int] = {}  # user_id -> 正在执行的任务数
         self._history: list[dict[str, Any]] = []  # 内存 LRU 历史
         self._started = False
         # 持有 spawn 出的 task 引用,避免 CPython GC 回收未完成的 task
-        self._pending_tasks: set[asyncio.Task] = set()
+        self._pending_tasks: set[asyncio.Task[None]] = set()
 
-    def _spawn_task(self, coro) -> asyncio.Task:
+    def _spawn_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[None]:
         """创建 task 并持有引用,完成后自动从集合移除。"""
         task = asyncio.create_task(coro)
         self._pending_tasks.add(task)

@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, Request, Response
 
@@ -94,7 +94,7 @@ async def telemetry_middleware(request: Request, call_next: Any) -> Response:
     解析失败/无 traceparent 头时保持原行为（开 root span）。
     """
     if _tracer is None:
-        return await call_next(request)
+        return cast(Response, await call_next(request))
 
     import opentelemetry.trace as trace_api
     from opentelemetry.propagate import extract
@@ -135,7 +135,7 @@ async def telemetry_middleware(request: Request, call_next: Any) -> Response:
             span.set_attribute("http.response.status_code", response.status_code)
             if response.status_code >= 500:
                 span.set_status(trace_api.Status(trace_api.StatusCode.ERROR))
-            return response
+            return cast(Response, response)
         except Exception as e:
             span.set_status(trace_api.Status(trace_api.StatusCode.ERROR, str(e)))
             span.record_exception(e)

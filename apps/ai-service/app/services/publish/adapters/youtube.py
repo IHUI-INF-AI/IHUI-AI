@@ -36,7 +36,7 @@ class YouTubeAdapter(BasePlatformAdapter):
     supported_formats = ["video"]
     requires_credentials = ["access_token", "refresh_token", "client_id", "client_secret"]
 
-    async def _refresh_access_token(self, credentials: dict) -> tuple[bool, str, dict]:
+    async def _refresh_access_token(self, credentials: dict[str, Any]) -> tuple[bool, str, dict[str, Any]]:
         """用 refresh_token 刷新 access_token。
 
         Returns:
@@ -72,8 +72,8 @@ class YouTubeAdapter(BasePlatformAdapter):
         return True, new_token, new_creds
 
     async def _call_with_refresh(
-        self, credentials: dict, fn
-    ) -> tuple[Any, dict]:
+        self, credentials: dict[str, Any], fn: Any
+    ) -> tuple[Any, dict[str, Any]]:
         """调用 fn(credentials) → response;若 401,刷新 token 后重试一次。
 
         Returns:
@@ -86,14 +86,14 @@ class YouTubeAdapter(BasePlatformAdapter):
                 resp, creds = await fn(creds)
         return resp, creds
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         access_token = credentials.get("access_token", "").strip()
         if not access_token:
             return False, "missing access_token"
 
         headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
 
-        async def _call(creds: dict) -> tuple[httpx.Response, dict]:
+        async def _call(creds: dict[str, Any]) -> tuple[httpx.Response, dict[str, Any]]:
             tok = creds.get("access_token", "")
             async with httpx.AsyncClient(timeout=20.0) as client:
                 r = await client.get(
@@ -129,8 +129,8 @@ class YouTubeAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         if content.format != "video":
             return PublishResult(
@@ -181,7 +181,7 @@ class YouTubeAdapter(BasePlatformAdapter):
                 error_message=f"read video file failed: {type(e).__name__}: {e}",
             )
 
-        async def _start_upload(creds: dict) -> tuple[httpx.Response, dict]:
+        async def _start_upload(creds: dict[str, Any]) -> tuple[httpx.Response, dict[str, Any]]:
             tok = creds.get("access_token", "")
             headers = {
                 "Authorization": f"Bearer {tok}",

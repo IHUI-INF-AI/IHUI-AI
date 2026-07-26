@@ -7,14 +7,16 @@
 """
 
 import logging
-from typing import Optional
-from starlette.middleware.base import BaseHTTPMiddleware
+from typing import Any, Optional
+
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
+from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
 
-def parse_traceparent(traceparent: str) -> Optional[dict]:
+def parse_traceparent(traceparent: str) -> Optional[dict[str, str]]:
     """解析 W3C traceparent 字符串。
 
     格式:version-trace_id-parent_id-flags
@@ -51,7 +53,7 @@ class TraceContextMiddleware(BaseHTTPMiddleware):
     - 不阻塞请求(解析失败也不报错)
     """
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         traceparent = request.headers.get("traceparent")
         ctx = parse_traceparent(traceparent) if traceparent else None
 
@@ -72,6 +74,6 @@ class TraceContextMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def setup_trace_context_middleware(app):
+def setup_trace_context_middleware(app: Any) -> None:
     """注册 trace 上下文中间件到 FastAPI app。"""
     app.add_middleware(TraceContextMiddleware)

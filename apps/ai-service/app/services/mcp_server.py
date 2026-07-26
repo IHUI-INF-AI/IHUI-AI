@@ -10,7 +10,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Callable, Awaitable, cast
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 if TYPE_CHECKING:
@@ -553,7 +553,7 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     对标 Trae Edit 工具:replace_all=false 时要求 old_string 唯一匹配,
     多个匹配报 AMBIGUOUS_MATCH 错误,避免误改多处。
     """
-    def _err(code: str, msg: str, **extra) -> dict[str, Any]:
+    def _err(code: str, msg: str, **extra: Any) -> dict[str, Any]:
         return {"tool": "file_edit", "file_path": resolved_path, "ok": False,
                 "error": msg, "errorCode": code, **extra}
 
@@ -628,7 +628,7 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
             "diff_preview": "".join(diff[:20])}
 
 
-async def _drain_stream(stream, lines_list: list[str]) -> None:
+async def _drain_stream(stream: Any, lines_list: list[str]) -> None:
     """逐行读取 asyncio subprocess stream,累积到 lines_list(防长命令一次性读阻塞)。"""
     while True:
         line_bytes = await stream.readline()
@@ -637,7 +637,7 @@ async def _drain_stream(stream, lines_list: list[str]) -> None:
         lines_list.append(line_bytes.decode("utf-8", errors="replace").rstrip("\r\n"))
 
 
-def _build_subprocess_env(user_env: dict | None) -> dict:
+def _build_subprocess_env(user_env: dict[str, str] | None) -> dict[str, str]:
     """构建 subprocess env:复制 os.environ,合并用户 env(禁止覆盖 PATH/HOME)。
 
     2026-07-24 流式升级:支持 env 参数透传,但不允许覆盖 PATH/HOME(防劫持命令查找)。
@@ -1651,7 +1651,9 @@ async def _tool_agent_control(
         }
 
 
-def _make_agent_control_handler(category: str, action: str):
+def _make_agent_control_handler(
+    category: str, action: str,
+) -> Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]:
     """生成 agent control handler 闭包,绑定 category + action。"""
 
     async def handler(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -2110,7 +2112,7 @@ from .artifacts_store import (  # noqa: E402
 )
 
 # 进程内调度任务列表(schedule_task 用,内存镜像;Redis 为持久化真相源)
-_SCHEDULED_TASKS: list[dict] = []
+_SCHEDULED_TASKS: list[dict[str, Any]] = []
 
 # 调度任务 Redis 持久化层(2026-07-24 立,对标 Codex Automations)
 # key 规范:mcp:schedule:<task_id> hash,字段见 _SCHEDULE_REDIS_FIELDS
@@ -2556,7 +2558,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _fetch_image_bytes(
-    item: dict, image_url: str, httpx_mod
+    item: dict[str, Any], image_url: str, httpx_mod: Any,
 ) -> bytes | None:
     """从 provider 响应提取图片字节:优先 b64_json,降级 URL 下载。"""
     b64 = item.get("b64_json")
@@ -2572,14 +2574,14 @@ async def _fetch_image_bytes(
             async with httpx_mod.AsyncClient(timeout=60.0) as dl:
                 dl_resp = await dl.get(image_url)
             if dl_resp.status_code < 400:
-                return dl_resp.content
+                return cast(bytes, dl_resp.content)
         except Exception:
             return None
     return None
 
 
 def _scan_pr_files_for_findings(
-    files: list[dict], focus: str
+    files: list[dict[str, Any]], focus: str
 ) -> list[dict[str, Any]]:
     """扫描 PR 文件 diff,用正则模式匹配潜在问题(零 LLM)。"""
     findings: list[dict[str, Any]] = []
@@ -2656,14 +2658,14 @@ def _set_cached_pr_diff(key: str, diff_text: str) -> None:
     _PR_DIFF_CACHE[key] = (diff_text, time.time())
 
 
-def _parse_unified_diff(diff_text: str) -> list[dict]:
+def _parse_unified_diff(diff_text: str) -> list[dict[str, Any]]:
     """解析 unified diff 文本为文件列表。
 
     每项: {filename, patch(原始 diff 行), additions, deletions}
     以 '+++ b/<path>' 行作为文件边界。
     """
-    files: list[dict] = []
-    current: dict | None = None
+    files: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
     for line in diff_text.splitlines():
         m = re.match(r"^\+\+\+ b/(.+?)(?:\s|$)", line)
         if m:
@@ -2689,7 +2691,7 @@ def _parse_unified_diff(diff_text: str) -> list[dict]:
     return files
 
 
-def _compute_diff_stats(files: list[dict]) -> dict[str, Any]:
+def _compute_diff_stats(files: list[dict[str, Any]]) -> dict[str, Any]:
     """从解析后的文件列表计算 files_changed/added_lines/removed_lines/complexity/risk。"""
     files_changed = len(files)
     added = sum(f.get("additions", 0) for f in files)
@@ -2856,7 +2858,7 @@ async def _tool_review_pr(arguments: dict[str, Any]) -> dict[str, Any]:
 def _build_review_result(
     repo: str, pr_number: int | None, source: str, pr_url: str | None,
     title: str, author: str, additions: int, deletions: int,
-    files_reviewed: int, findings: list, stats: dict, focus: str,
+    files_reviewed: int, findings: list[dict[str, Any]], stats: dict[str, Any], focus: str,
 ) -> dict[str, Any]:
     """组装 review_pr 返回结构(避免主函数超 80 行)。"""
     high = sum(1 for f in findings if f["severity"] == "high")

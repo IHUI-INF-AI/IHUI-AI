@@ -11,7 +11,7 @@ psutil 可选:未安装时降级为仅超时控制(不监控 RSS/CPU)。
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class ResourceMonitor:
     cpu_seconds: Optional[float] = None
     poll_interval_s: float = 2.0
     kill_on_violation: bool = True
-    _task: Optional[asyncio.Task] = None
+    _task: Optional[asyncio.Task[Any]] = None
     _violations: list[ResourceViolation] = field(default_factory=list)
     _terminated: bool = False
 

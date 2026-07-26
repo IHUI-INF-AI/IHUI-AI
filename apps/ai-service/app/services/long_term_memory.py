@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import asyncpg
 
@@ -349,7 +349,7 @@ class LongTermMemory:
                 dt = __import__("datetime").datetime.fromisoformat(text)
             else:
                 dt = end_time
-            return dt.strftime("%Y-%m-%d")
+            return cast(str, dt.strftime("%Y-%m-%d"))
         except (ValueError, TypeError):
             return "未知日期"
 

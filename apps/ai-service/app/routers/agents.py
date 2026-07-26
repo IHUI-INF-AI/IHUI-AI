@@ -6,6 +6,7 @@
 
 import asyncio
 import json
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -89,7 +90,7 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
 
     last_event_id = request.headers.get("last-event-id")
 
-    async def event_generator():
+    async def event_generator() -> AsyncGenerator[str, None]:
         task_id = f"task-{asyncio.get_event_loop().time()}"
 
         # 断线重连: 先重放缺失事件

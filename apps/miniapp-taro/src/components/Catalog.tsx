@@ -44,56 +44,57 @@ export default function Catalog({
   return (
     <ScrollView
       scrollY
-      className="px-3 py-2"
       style={{ maxHeight: '50vh' }}
       onScrollToLower={() => onReachBottom?.()}
       lowerThreshold={50}
     >
-      {chapters.map((chapter, idx) => {
-        const active = chapter.id === currentId
-        return (
-          <View
-            key={chapter.id}
-            className={`flex py-2.5 px-3 mb-2 rounded-lg transition-colors ${
-              active ? 'bg-primary/10' : 'bg-muted'
-            }`}
-            onClick={() => onSelect?.(chapter)}
-          >
-            {chapter.cover ? (
-              <Image
-                className="mr-3 rounded bg-muted"
-                style={{ width: '120px', height: '68px' }}
-                src={chapter.cover}
-                mode="aspectFill"
-              />
-            ) : (
-              <View
-                className="flex items-center justify-center mr-3 rounded bg-muted"
-                style={{ width: '120px', height: '68px' }}
-              >
-                <Text className="text-xs text-muted-foreground">{tt('catalog.noCover', '无封面')}</Text>
-              </View>
-            )}
-            <View className="flex-1 min-w-0">
-              <Text className="block text-sm font-medium text-foreground truncate">
-                {idx + 1}. {chapter.title}
-              </Text>
-              {chapter.content && (
-                <Text className="block text-xs text-muted-foreground truncate mt-0.5">
-                  {chapter.content}
-                </Text>
+      <View className="px-3 py-2">
+        {chapters.map((chapter, idx) => {
+          const active = chapter.id === currentId
+          return (
+            <View
+              key={chapter.id}
+              className={`flex py-2.5 px-3 mb-2 rounded-lg transition-colors ${
+                active ? 'bg-primary/10' : 'bg-muted'
+              }`}
+              onClick={() => onSelect?.(chapter)}
+            >
+              {chapter.cover ? (
+                <Image
+                  className="mr-3 rounded bg-muted"
+                  style={{ width: '120px', height: '68px' }}
+                  src={chapter.cover}
+                  mode="aspectFill"
+                />
+              ) : (
+                <View
+                  className="flex items-center justify-center mr-3 rounded bg-muted"
+                  style={{ width: '120px', height: '68px' }}
+                >
+                  <Text className="text-xs text-muted-foreground">{tt('catalog.noCover', '无封面')}</Text>
+                </View>
               )}
-              <View className="flex items-center mt-1">
-                {chapter.duration && (
-                  <Text className="text-xs text-muted-foreground mr-2">{chapter.duration}</Text>
+              <View className="flex-1 min-w-0">
+                <Text className="block text-sm font-medium text-foreground truncate">
+                  {idx + 1}. {chapter.title}
+                </Text>
+                {chapter.content && (
+                  <Text className="block text-xs text-muted-foreground truncate mt-0.5">
+                    {chapter.content}
+                  </Text>
                 )}
-                {chapter.watched && <Text className="text-xs text-primary">{tt('catalog.watched', '已观看')}</Text>}
-                {active && <Text className="text-xs text-primary ml-auto">{tt('catalog.playing', '播放中')}</Text>}
+                <View className="flex items-center mt-1">
+                  {chapter.duration && (
+                    <Text className="text-xs text-muted-foreground mr-2">{chapter.duration}</Text>
+                  )}
+                  {chapter.watched && <Text className="text-xs text-primary">{tt('catalog.watched', '已观看')}</Text>}
+                  {active && <Text className="text-xs text-primary ml-auto">{tt('catalog.playing', '播放中')}</Text>}
+                </View>
               </View>
             </View>
-          </View>
-        )
-      })}
+          )
+        })}
+      </View>
     </ScrollView>
   )
 }

@@ -509,8 +509,9 @@ export default function AgentDetailPage() {
                 scrollX
                 enhanced
                 showScrollbar={false}
-                className="whitespace-nowrap px-[24rpx]"
+                className="whitespace-nowrap"
               >
+                <View className="whitespace-nowrap px-[24rpx]">
                 {related.map((r) => (
                   <View
                     key={r.id}
@@ -532,6 +533,7 @@ export default function AgentDetailPage() {
                     )}
                   </View>
                 ))}
+                </View>
               </ScrollView>
             </View>
           )}

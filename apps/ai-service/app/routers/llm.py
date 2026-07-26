@@ -12,6 +12,7 @@
 import asyncio
 import json
 import logging
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # 持有待完成的回调 task 引用,防止 CPython GC 回收未持有的 task
-_pending_callbacks: set[asyncio.Task] = set()
+_pending_callbacks: set[asyncio.Task[None]] = set()
 
 # 默认模型清单 JSON 文件路径(运行时按需加载,修改无需重启)
 _DEFAULT_MODELS_FILE = Path(__file__).resolve().parent.parent / "data" / "default_models.json"
@@ -387,7 +388,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 },
             )
 
-    async def gen():
+    async def gen() -> AsyncGenerator[str, None]:
         # 提问标记解析器:检测 LLM 输出中的 [[ASK_USER:JSON]] 标记,转换为结构化 question 事件
         # 标记本身从内容中剥离,不污染对话文本;跨 chunk 分片自动累积
         question_parser = QuestionStreamParser()

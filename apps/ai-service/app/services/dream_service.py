@@ -19,7 +19,7 @@ import logging
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from ..core.llm_gateway import llm_gateway
 from .memory_service import MemoryService, memory_service
@@ -272,7 +272,7 @@ class DreamService:
                     {"role": "user", "content": prompt},
                 ],
             )
-            return resp.get("content", "主题生成失败").strip()
+            return cast(str, resp.get("content", "主题生成失败").strip())
         except Exception as e:
             logger.warning("[dream] 主题生成失败: %s", e)
             return "主题生成失败"
