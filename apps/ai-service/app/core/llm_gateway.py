@@ -999,12 +999,8 @@ class LLMGateway:
             provider = await self._get_provider(used_model, owner_uuid)
             if provider is not None:
                 tools = kwargs.pop("tools", None)
-                # cast 绕过 mypy 把 async generator 推断为 Coroutine 的 quirk
-                astream_iter = cast(
-                    AsyncIterator[dict[str, Any]],
-                    provider.astream(
-                        trimmed_messages, used_model, tools=tools, **kwargs
-                    ),
+                astream_iter = provider.astream(
+                    trimmed_messages, used_model, tools=tools, **kwargs
                 )
                 async for evt in astream_iter:
                     yield evt

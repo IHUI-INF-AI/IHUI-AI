@@ -35,7 +35,10 @@ router = APIRouter(prefix="/ai-skills", tags=["ai-skills"])
 
 # ===== 统一响应信封(对齐 AGENTS.md §5)=====
 
-class ApiEnvelope(BaseModel, Generic[TypeVar("T")]):  # type: ignore[valid-type]
+T = TypeVar("T")
+
+
+class ApiEnvelope(BaseModel, Generic[T]):
     """统一 API 信封:{code, message, data}。"""
 
     code: int = 0
