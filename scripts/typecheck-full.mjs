@@ -83,6 +83,46 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1)
 }
 
+// ─── Phase 1.5:e2e typecheck 阻断门(2026-07-26 立) ──
+// 背景:apps/web/e2e/ 有独立 tsconfig.json(extends tsconfig.base.json),
+//       主 typecheck (apps/web/tsconfig.json) exclude e2e/,
+//       历史 27 处 e2e TS 错误长期无 CI 捕获,2026-07-26 已清零并接入 CI。
+// 升级:把 e2e typecheck 加入 typecheck:full,pre-push 钩子相应阻止 push,
+//       防止 e2e 类型错误再次回流(本地 push 时也会跑,跳过用 HUSKY_SKIP_E2E_TYPECHECK=1)。
+//
+// 跳过:HUSKY_SKIP_E2E_TYPECHECK=1(紧急 push 时使用,但建议修复后正常 push)。
+const webE2eTsconfig = resolve(ROOT, 'apps/web/e2e/tsconfig.json')
+if (existsSync(webE2eTsconfig)) {
+  if (process.env.HUSKY_SKIP_E2E_TYPECHECK === '1') {
+    console.log(
+      '\n[typecheck:full] ⚠️  HUSKY_SKIP_E2E_TYPECHECK=1 — 已跳过 e2e typecheck(不推荐, e2e 类型错误不会阻塞 push)',
+    )
+  } else {
+    console.log('\n[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...')
+    const e2eResult = spawnSync('pnpm', ['--filter', '@ihui/web', 'typecheck:e2e'], {
+      cwd: ROOT,
+      stdio: 'inherit',
+      shell: true,
+    })
+
+    if (e2eResult.status !== 0) {
+      console.error(
+        `\n[typecheck:full] ❌ e2e typecheck 失败(exit ${e2eResult.status ?? 'unknown'}),apps/web/e2e/ 类型错误需修复`,
+      )
+      console.error(
+        '[typecheck:full]    修复后验证:pnpm --filter @ihui/web typecheck:e2e',
+      )
+      console.error(
+        '[typecheck:full]    跳过(不推荐):HUSKY_SKIP_E2E_TYPECHECK=1 pnpm typecheck:full',
+      )
+      process.exit(e2eResult.status ?? 1)
+    }
+    console.log('[typecheck:full] ✅ e2e typecheck 通过(apps/web/e2e/ 无类型错误)')
+  }
+} else {
+  console.log('\n[typecheck:full] 未发现 apps/web/e2e/tsconfig.json,跳过 e2e typecheck 阶段')
+}
+
 // ─── Phase 2:mypy 阻断门(2026-07-26 立, AGENTS_history 见 mypy-blocking 段) ──
 // 背景:apps/ai-service 是核心 AI 服务(FastAPI + LangGraph + LiteLLM),
 //       Python 类型错误长期无 CI 捕获,mypy 仅作 informational 提示。
