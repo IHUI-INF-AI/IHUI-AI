@@ -28,6 +28,8 @@ import {
   orders,
   eduRefunds,
   visitLogs,
+  // 用户统计聚合所需表(2026-07-26 补建)
+  users,
 } from '@ihui/database'
 import { eq, ilike, desc, sql, and, gte, lte } from 'drizzle-orm'
 import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared.js'
@@ -544,24 +546,104 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  server.get('/stats/users', async (_request, reply) => {
-    return reply.send(
-      success({
-        overview: {
-          totalUsers: 0,
-          todayNew: 0,
-          weekNew: 0,
-          monthNew: 0,
-          dau: 0,
-          mau: 0,
-          retention7d: 0,
-          retention30d: 0,
-        },
-        growth: [],
-        byRole: [],
-        byRegion: [],
-      }),
-    )
+  server.get('/stats/users', async (request, reply) => {
+    try {
+      const now = new Date()
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const weekStart = new Date(now)
+      weekStart.setDate(now.getDate() - 7)
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      const [
+        totalRow,
+        todayRow,
+        weekRow,
+        monthRow,
+        dauRow,
+        mauRow,
+        byRoleRows,
+        growthRows,
+      ] = await Promise.all([
+        db.select({ c: sql<number>`count(*)::int` }).from(users),
+        db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(users)
+          .where(gte(users.createdAt, todayStart)),
+        db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(users)
+          .where(gte(users.createdAt, weekStart)),
+        db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(users)
+          .where(gte(users.createdAt, monthStart)),
+        // DAU: 今日访问过站点的去重登录用户(visitLogs.userId 非空去重)
+        db
+          .select({ c: sql<number>`count(distinct user_id)::int` })
+          .from(visitLogs)
+          .where(and(sql`user_id is not null`, gte(visitLogs.createdAt, todayStart))),
+        // MAU: 本月访问过站点的去重登录用户
+        db
+          .select({ c: sql<number>`count(distinct user_id)::int` })
+          .from(visitLogs)
+          .where(and(sql`user_id is not null`, gte(visitLogs.createdAt, monthStart))),
+        // byRole: 按 users.roleId 分组计数(roleId 字段存在,L54 schema)
+        db
+          .select({ roleId: users.roleId, count: sql<number>`count(*)::int` })
+          .from(users)
+          .groupBy(users.roleId),
+        // growth: 最近 7 天每日新增用户数趋势
+        db
+          .select({
+            day: sql<string>`to_char(created_at, 'YYYY-MM-DD')`,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(users)
+          .where(gte(users.createdAt, weekStart))
+          .groupBy(sql`to_char(created_at, 'YYYY-MM-DD')`)
+          .orderBy(sql`to_char(created_at, 'YYYY-MM-DD')`),
+      ])
+
+      return reply.send(
+        success({
+          overview: {
+            totalUsers: totalRow[0]?.c ?? 0,
+            todayNew: todayRow[0]?.c ?? 0,
+            weekNew: weekRow[0]?.c ?? 0,
+            monthNew: monthRow[0]?.c ?? 0,
+            dau: dauRow[0]?.c ?? 0,
+            mau: mauRow[0]?.c ?? 0,
+            // 留存率需多日 join 物化视图,降级返回 0,待后续物化视图补建
+            retention7d: 0,
+            retention30d: 0,
+          },
+          growth: growthRows.map((r) => ({ day: r.day, count: r.count })),
+          byRole: byRoleRows.map((r) => ({ roleId: r.roleId, count: r.count })),
+          // users 表无 region/province 字段,降级返回空数组
+          byRegion: [],
+        }),
+      )
+    } catch (e) {
+      request.log.error({ err: e }, 'stats/users 查询失败')
+      // 表不存在或查询异常时返回零值,避免阻塞 admin 看板
+      return reply.send(
+        success({
+          overview: {
+            totalUsers: 0,
+            todayNew: 0,
+            weekNew: 0,
+            monthNew: 0,
+            dau: 0,
+            mau: 0,
+            retention7d: 0,
+            retention30d: 0,
+          },
+          growth: [],
+          byRole: [],
+          byRegion: [],
+        }),
+      )
+    }
   })
 
   // ===========================================================================
