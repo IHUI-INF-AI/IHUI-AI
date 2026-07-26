@@ -341,7 +341,7 @@ class SelfMediaScheduler:
                     return False
                 if k == "minute" and not (0 <= int(kwargs[k]) <= 59):
                     return False
-                cfg[k] = kwargs[k]  # type: ignore[literal-required]
+                cfg[k] = kwargs[k]
         # enabled 单独走 set_task_enabled
         if "enabled" in kwargs and kwargs["enabled"] is not None:
             cfg["enabled"] = bool(kwargs["enabled"])
