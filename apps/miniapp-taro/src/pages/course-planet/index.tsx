@@ -63,17 +63,14 @@ export default function CoursePlanet() {
           (item.thumbnail as string) ||
           '',
         teacher:
-          (item.teacher as string) ||
-          (item.instructor as string) ||
-          (item.author as string) ||
-          '',
-        price: item.price != null ? Number(item.price) : undefined,
+          (item.teacher as string) || (item.instructor as string) || (item.author as string) || '',
+        price: item.price !== null && item.price !== undefined ? Number(item.price) : undefined,
         students:
-          item.students != null
+          item.students !== null && item.students !== undefined
             ? Number(item.students)
-            : item.studyCount != null
+            : item.studyCount !== null && item.studyCount !== undefined
               ? Number(item.studyCount)
-              : item.learnCount != null
+              : item.learnCount !== null && item.learnCount !== undefined
                 ? Number(item.learnCount)
                 : undefined,
         category: (item.category as string) || (item.tag as string) || (item.type as string) || '',
@@ -101,9 +98,7 @@ export default function CoursePlanet() {
   const filteredList = useMemo(() => {
     if (activeCategory === 'all') return allList
     if (activeCategory === 'free') return allList.filter((c) => !c.price || c.price === 0)
-    return allList.filter(
-      (c) => c.category && c.category.toLowerCase().includes(activeCategory),
-    )
+    return allList.filter((c) => c.category && c.category.toLowerCase().includes(activeCategory))
   }, [allList, activeCategory])
 
   const displayList = filteredList.slice(0, displayCount)
@@ -123,10 +118,14 @@ export default function CoursePlanet() {
     return (
       <View className="min-h-screen bg-background">
         <View className="p-[24rpx] bg-card">
-          <Text className="text-[36rpx] font-semibold text-foreground">{t('coursePlanet.title')}</Text>
+          <Text className="text-[36rpx] font-semibold text-foreground">
+            {t('coursePlanet.title')}
+          </Text>
         </View>
         <View className="p-[24rpx]">
-          <Text className="block text-center text-muted-foreground py-[80rpx]">{t('common.loading')}</Text>
+          <Text className="block text-center text-muted-foreground py-[80rpx]">
+            {t('common.loading')}
+          </Text>
         </View>
       </View>
     )
@@ -136,11 +135,18 @@ export default function CoursePlanet() {
     return (
       <View className="min-h-screen bg-background">
         <View className="p-[24rpx] bg-card">
-          <Text className="text-[36rpx] font-semibold text-foreground">{t('coursePlanet.title')}</Text>
+          <Text className="text-[36rpx] font-semibold text-foreground">
+            {t('coursePlanet.title')}
+          </Text>
         </View>
         <View className="p-[24rpx]">
-          <Text className="block text-center text-muted-foreground py-[40rpx]">{tt('coursePlanet.loadFailed', '加载失败')}</Text>
-          <Text className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]" onClick={loadData}>
+          <Text className="block text-center text-muted-foreground py-[40rpx]">
+            {tt('coursePlanet.loadFailed', '加载失败')}
+          </Text>
+          <Text
+            className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
+            onClick={loadData}
+          >
             {t('common.retry')}
           </Text>
         </View>
@@ -151,7 +157,9 @@ export default function CoursePlanet() {
   return (
     <View className="min-h-screen bg-background">
       <View className="p-[24rpx] bg-card">
-        <Text className="text-[36rpx] font-semibold text-foreground">{t('coursePlanet.title')}</Text>
+        <Text className="text-[36rpx] font-semibold text-foreground">
+          {t('coursePlanet.title')}
+        </Text>
       </View>
       <ScrollView scrollX className="whitespace-nowrap py-[16rpx] px-[24rpx] bg-card">
         {CATEGORY_KEYS.map((cat) => (
@@ -167,30 +175,40 @@ export default function CoursePlanet() {
       <View className="p-[24rpx]">
         {displayList.length ? (
           displayList.map((item) => (
-            <View key={item.id} className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]" onClick={() => onItemClick(item.id)}>
+            <View
+              key={item.id}
+              className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
+              onClick={() => onItemClick(item.id)}
+            >
               {item.coverUrl ? (
-                <Image className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted" src={item.coverUrl} mode="aspectFill" />
+                <Image
+                  className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted"
+                  src={item.coverUrl}
+                  mode="aspectFill"
+                />
               ) : (
                 <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
                   <Text className="text-[48rpx]">📚</Text>
                 </View>
               )}
               <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
-                <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">{item.title}</Text>
+                <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
+                  {item.title}
+                </Text>
                 {item.teacher ? (
                   <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
                     {tt('coursePlanet.teacher', '讲师')}: {item.teacher}
                   </Text>
                 ) : null}
                 <View className="flex items-center justify-between mt-[8rpx]">
-                  {item.price != null ? (
+                  {item.price !== null && item.price !== undefined ? (
                     <Text className="text-[32rpx] text-[#f44336] font-bold">
                       {item.price === 0
                         ? tt('coursePlanet.free', '免费')
                         : `¥${item.price.toFixed(2)}`}
                     </Text>
                   ) : null}
-                  {item.students != null ? (
+                  {item.students !== null && item.students !== undefined ? (
                     <Text className="text-[22rpx] text-muted-foreground">
                       {item.students} {tt('coursePlanet.studentsUnit', '人学习')}
                     </Text>
@@ -202,14 +220,20 @@ export default function CoursePlanet() {
         ) : (
           <View className="flex flex-col items-center py-[120rpx]">
             <Text className="text-[80rpx] mb-[16rpx]">🪐</Text>
-            <Text className="block text-center text-muted-foreground py-[40rpx]">{t('coursePlanet.empty')}</Text>
+            <Text className="block text-center text-muted-foreground py-[40rpx]">
+              {t('coursePlanet.empty')}
+            </Text>
           </View>
         )}
         {hasMore && displayList.length > 0 ? (
-          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">{tt('coursePlanet.loadingMore', '加载中…')}</Text>
+          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
+            {tt('coursePlanet.loadingMore', '加载中…')}
+          </Text>
         ) : null}
         {!hasMore && displayList.length > 0 ? (
-          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">{t('common.noMore')}</Text>
+          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
+            {t('common.noMore')}
+          </Text>
         ) : null}
       </View>
     </View>

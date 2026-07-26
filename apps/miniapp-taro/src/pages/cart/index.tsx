@@ -204,10 +204,7 @@ export default function Cart() {
                       −
                     </Text>
                     <Text className="quantity-value">{item.quantity}</Text>
-                    <Text
-                      className="quantity-btn"
-                      onClick={() => onQuantityChange(item.id, 1)}
-                    >
+                    <Text className="quantity-btn" onClick={() => onQuantityChange(item.id, 1)}>
                       +
                     </Text>
                   </View>
