@@ -424,6 +424,23 @@ const checks = [
     mode: 'warn',
   },
 
+  // --- 31 (2026-07-26 新增,扩展端登录界面与 web 端视觉一致任务收尾) ---
+  // warn-only:脚本刚建,先观察一周,后续可升级 blocking。
+  // 静态扫描 7 项:web 端 AuthShell re-export + thin wrapper 仅透传 SharedAuthShell、
+  // 共享 .login-scope/.welcome-img-dark 单一来源、web+extension globals.css 无根级
+  // .login-scope 重复、extension 必须从 @ihui/ui-react import。
+  // 失败含义:有人重新写了一份本地 AuthShell,导致 web/extension 视觉漂移。
+  // 接入原因:commit 1f6f35cf9 + 09db8938e 已把 AuthShell 抽到 packages/ui-react 共享,
+  // 但若不接 pre-commit 守门,后续会被无意回退。AGENTS.md §4 圆角守门 + 本脚本 =
+  // 共享组件"单一来源"双保险。
+  {
+    id: '31',
+    label: '🛡️  AuthShell 共享实现静态守门(warn-only,防 web/extension 视觉漂移)',
+    script: 'verify-auth-shell.mjs',
+    args: [],
+    mode: 'warn',
+  },
+
   // --- info (2 项) ---
   {
     id: '10',
