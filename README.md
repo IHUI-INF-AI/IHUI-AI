@@ -2016,7 +2016,7 @@ IHUI-AI 不是单一 AI 工具,而是**开源 AI 商业级一体化基座**,把�
 <details>
 <summary><strong>Q7:为什么用 pnpm 而不是 npm / yarn?</strong></summary>
 
-pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖)+ 硬链接节省磁盘 + 工作空间协议 + 与 Turborepo 配合最佳。项目固定 `pnpm@9.15.0`,`corepack enable` 自动激活,无需手动管理版本。
+pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖)+ 硬链接节省磁盘 + 工作空间协议 + 与 Turborepo 配合良好。项目固定 `pnpm@9.15.0`,`corepack enable` 自动激活,无需手动管理版本。
 </details>
 
 <details>
@@ -2102,7 +2102,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 > 完整文档中心索引:[docs/README.md](docs/README.md)(87 个文档,10 大分类:API / SDK / 集成 / 激励计划 / 入门 / 功能 / 用户 / 指南 / 企业服务 / 开发)
 
-### 在线文档中心(运行时直读,唯一文档入口)
+### 在线文档中心(运行时直读,统一文档入口)
 
 工程文档同步到 Web 端「特性中心 → 文档」页面(`/feature-center/documents`),无需手动录入。**旧 `/docs` SSG 页面已删除**,所有文档统一从 `/feature-center/documents` 入口访问:
 
