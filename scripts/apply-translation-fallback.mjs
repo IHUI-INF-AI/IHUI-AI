@@ -25,7 +25,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = process.cwd()
-const MESSAGES = join(ROOT, 'apps/web/messages')
+const MESSAGES = join(ROOT, 'packages/i18n/messages/web')
 const ASCII_RE = /^[A-Za-z0-9 ._!?'",:;\-/()&+@#$%^*=]+$/
 
 /**
