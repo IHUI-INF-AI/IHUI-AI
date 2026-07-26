@@ -513,13 +513,22 @@ export default function AgentDialogue() {
     }
     if (msg.mediaType === 'video' || msg.messageType === 5) {
       const url = msg.mediaUrl || msg.content
-      return <Video className="max-w-[480rpx] max-h-[600rpx] rounded-[8rpx] block" src={url} controls poster={msg.poster || ''} />
+      return (
+        <Video
+          className="max-w-[480rpx] max-h-[600rpx] rounded-[8rpx] block"
+          src={url}
+          controls
+          poster={msg.poster || ''}
+        />
+      )
     }
     if (msg.mediaType === 'audio' || msg.messageType === 3) {
       const url = msg.mediaUrl || msg.content
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
-          <Text className={`text-[26rpx] ${mediaTextColor}`}>🎵 {tt('agentDialogue.audioMessage', '音频消息')}</Text>
+          <Text className={`text-[26rpx] ${mediaTextColor}`}>
+            🎵 {tt('agentDialogue.audioMessage', '音频消息')}
+          </Text>
           <Text className="text-[24rpx] text-accent" onClick={() => openAudio(url)}>
             {tt('agentDialogue.clickPlay', '点击播放')}
           </Text>
@@ -530,14 +539,20 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
-          <Text className={`text-[26rpx] ${mediaTextColor}`}>📄 {tt('agentDialogue.fileMessage', '文件消息')}</Text>
+          <Text className={`text-[26rpx] ${mediaTextColor}`}>
+            📄 {tt('agentDialogue.fileMessage', '文件消息')}
+          </Text>
           <Text className="text-[24rpx] text-accent" onClick={() => openFile(url)}>
             {tt('agentDialogue.clickView', '点击查看')}
           </Text>
         </View>
       )
     }
-    return <Text className="text-[28rpx] leading-[1.5] break-words whitespace-pre-wrap">{msg.content}</Text>
+    return (
+      <Text className="text-[28rpx] leading-[1.5] break-words whitespace-pre-wrap">
+        {msg.content}
+      </Text>
+    )
   }
 
   return (
@@ -559,13 +574,20 @@ export default function AgentDialogue() {
             </View>
           ) : null}
           {chatList.map((msg) => (
-            <View key={String(msg.id)} className={`flex items-start gap-[16rpx] ${msg.type === 'user' ? 'flex-row-reverse items-end' : msg.type === 'system' ? 'justify-center' : ''}`}>
+            <View
+              key={String(msg.id)}
+              className={`flex items-start gap-[16rpx] ${msg.type === 'user' ? 'flex-row-reverse items-end' : msg.type === 'system' ? 'justify-center' : ''}`}
+            >
               {msg.type === 'user' ? (
                 <>
-                  <View className={`max-w-[480rpx] p-[20rpx] px-[24rpx] rounded-[12rpx] relative bg-primary text-primary-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}>
+                  <View
+                    className={`max-w-[480rpx] p-[20rpx] px-[24rpx] rounded-[12rpx] relative bg-primary text-primary-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
+                  >
                     {renderBubble(msg)}
                     {msg.read ? (
-                      <Text className="block text-[20rpx] text-muted-foreground mt-[8rpx] text-right">{tt('agentDialogue.read', '已读')}</Text>
+                      <Text className="block text-[20rpx] text-muted-foreground mt-[8rpx] text-right">
+                        {tt('agentDialogue.read', '已读')}
+                      </Text>
                     ) : null}
                   </View>
                   <View className="w-[72rpx] h-[72rpx] rounded-[12rpx] overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
@@ -585,7 +607,9 @@ export default function AgentDialogue() {
                       <Text className="text-[32rpx]">🤖</Text>
                     )}
                   </View>
-                  <View className={`max-w-[480rpx] p-[20rpx] px-[24rpx] rounded-[12rpx] relative bg-card text-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}>
+                  <View
+                    className={`max-w-[480rpx] p-[20rpx] px-[24rpx] rounded-[12rpx] relative bg-card text-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
+                  >
                     {renderBubble(msg)}
                   </View>
                 </>
