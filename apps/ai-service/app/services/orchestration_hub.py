@@ -236,7 +236,7 @@ class PillarEvent:
     event_type: str           # PILLAR_EVENTS 的 key
     source_pillar: str        # rules/hook/spec/context/subagent/terminal/budget
     timestamp: str            # ISO 8601
-    payload: dict             # 事件数据
+    payload: dict[str, Any]             # 事件数据
     dispatch_id: str = ""     # 关联编排 ID(可选)
     severity: str = "info"    # info/warning/critical
 
@@ -271,9 +271,9 @@ class OrchestrationDecision:
     decision_id: str         # uuid
     trigger_event: PillarEvent
     playbook_id: str
-    actions: list[dict]      # 从 playbook 复制
+    actions: list[dict[str, Any]]      # 从 playbook 复制
     status: str = "pending"  # pending/executing/completed/partially_failed/failed/skipped
-    results: list[dict] = field(default_factory=list)  # 每个 action 的执行结果
+    results: list[dict[str, Any]] = field(default_factory=list)  # 每个 action 的执行结果
     created_at: str = ""
     executed_at: str = ""
     duration_ms: int = 0
