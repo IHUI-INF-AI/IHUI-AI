@@ -122,8 +122,6 @@
   },
   "auth": {
     "logout": "登出",
-    "loginRequired": "請輸入帳號和密碼",
-    "phoneOrEmail": "手機號 / 信箱",
     "roleAdmin": "管理員",
     "roleUser": "一般使用者"
   },
@@ -232,15 +230,5 @@
     "balance": "可用餘額",
     "totalRecharge": "累計儲值",
     "loadFailed": "載入失敗"
-  },
-  "login": {
-    "title": "登入 IHUI AI",
-    "account": "帳號",
-    "password": "密碼",
-    "phoneOrEmailHint": "手機號 / 信箱",
-    "loading": "登入中...",
-    "requireInput": "請輸入帳號和密碼",
-    "button": "登入",
-    "loadFailed": "登入失敗"
   }
 }
