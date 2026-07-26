@@ -31,7 +31,7 @@ export default function UserStatPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'stats', 'users'],
     queryFn: async () => {
-      const r = await fetchApi<UserStatResponse>('/api/v1/admin/stats/users')
+      const r = await fetchApi<UserStatResponse>('/api/admin/stats/users')
       if (!r.success) throw new Error(r.error)
       return r.data
     },

@@ -61,9 +61,12 @@ vi.mock('@/components/feedback', () => ({
 // 返回稳定引用(useCallback 依赖 useTranslations 结果,若每次返回新函数会导致 useEffect 重复触发)
 //
 // locale 切换模拟:用 vi.hoisted 提升状态,使 mock 工厂能感知 currentLocale 变化。
-// 切换 locale 时,(ns, locale) 组合键不同 → 返回新引用的 t 函数 →
-// TagsView 中 nsTranslators useMemo 依赖变化 → resolveTitle 重算 → 标签文字更新。
-const { mockLocale, MESSAGES } = vi.hoisted(() => {
+// 关键:TagLabel 子组件被 React.memo 包裹,path prop 不变时父组件 rerender 不会下钻,
+// 故必须让 useTranslations 在 locale 变化时主动触发组件 rerender。
+// 实现:mockLocale 实现 useSyncExternalStore 协议(subscribe + getSnapshot),
+// useTranslations 内用 React.useSyncExternalStore 订阅 locale,locale 变化时所有调用
+// useTranslations 的组件(含 React.memo 包裹的 TagLabel)自动 rerender,用新 locale 重算 t。
+const { mockLocale, MESSAGES, setMockLocale } = vi.hoisted(() => {
   const messages = {
     'zh-CN': {
       common: {
@@ -87,21 +90,46 @@ const { mockLocale, MESSAGES } = vi.hoisted(() => {
       nav: { home: 'Home', workspace: 'Workspace' },
     },
   }
-  return { mockLocale: { value: 'zh-CN' as 'zh-CN' | 'en' }, MESSAGES: messages }
+  const listeners = new Set<() => void>()
+  const state = {
+    value: 'zh-CN' as 'zh-CN' | 'en',
+    subscribe(l: () => void) {
+      listeners.add(l)
+      return () => {
+        listeners.delete(l)
+      }
+    },
+    getSnapshot() {
+      return state.value
+    },
+  }
+  const setMockLocale = (v: 'zh-CN' | 'en') => {
+    if (state.value === v) return
+    state.value = v
+    listeners.forEach((l) => l())
+  }
+  return { mockLocale: state, MESSAGES: messages, setMockLocale }
 })
 
 // 测试用 helper:切换 mock locale(测试用例用 __setMockLocale('en') 模拟语言切换)
 function __setMockLocale(l: 'zh-CN' | 'en') {
-  mockLocale.value = l
+  setMockLocale(l)
 }
 
-vi.mock('next-intl', () => {
+vi.mock('next-intl', async () => {
+  // 用 dynamic import 拿到 React(vi.mock 工厂先于顶层 import 执行)
+  const React = await import('react')
   // 按 (ns, locale) 二维缓存,确保同一 (ns, locale) 返回稳定引用(避免 useEffect 重复触发),
   // 但 locale 变化时返回新引用(触发 nsTranslators 重建,从而重算 title)
   const cache = new Map<string, (key: string) => string>()
   return {
     useTranslations: (ns: string) => {
-      const locale = mockLocale.value
+      // 订阅外部 locale store:locale 变化时所有调用 useTranslations 的组件自动 rerender
+      const locale = React.useSyncExternalStore(
+        mockLocale.subscribe,
+        mockLocale.getSnapshot,
+        mockLocale.getSnapshot,
+      )
       const key = `${ns}:${locale}`
       let t = cache.get(key)
       if (!t) {

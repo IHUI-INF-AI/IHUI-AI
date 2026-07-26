@@ -47,7 +47,9 @@ const EXCLUDE_FILE_PATTERNS = [
 // 2026-07-26 增强:支持 t('key', { args }) / t('key', count) 带参数调用形式(原正则要求引号后紧跟 `)`,导致带参数时漏报)
 // 新增 `(?:,[^)]*)?` 可选组:逗号 + 非 `)` 字符序列(到第一个 `)` 前,可跨嵌套 `(`),保证向后兼容(无参数形式仍命中)
 // 注:`[^)]*` 不能跨 `)`,所以 `t('a.b', { x: foo(y) })` 匹配到 `t('a.b', { x: foo(y)` 即停,捕获组 1 = 'a.b' 正确
-export const STATIC_T_RE = /\bt\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*(?:,[^)]*)?\)/g
+// 2026-07-26 二次增强:识别 tt('key', fallback) 多参数调用(miniapp-taro/mobile-rn 普遍使用 const tt = (k, fb) => ... fallback wrapper)
+// 原 `\bt\(` 只匹配单字母 t,导致 miniapp-taro 1230 个 tt() 调用全部漏识别,1244 死 key 中 1227 个为误判
+export const STATIC_T_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*(?:,[^)]*)?\)/g
 // 动态 t(`prefix.${var}`) - 仅提示用
 export const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]\s*\)/g
 // useTranslations('namespace') / getTranslations('namespace') - 命名空间下所有 key 视为潜在引用(启发式)
