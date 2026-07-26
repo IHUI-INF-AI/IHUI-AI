@@ -185,7 +185,7 @@ export function TagsView() {
     <div
       data-tagsview
       data-empty={tags.length === 0 ? 'true' : 'false'}
-      className="mx-2 mt-2 flex h-9 items-center gap-1 rounded-lg bg-muted/70 px-2 dark:bg-white/[0.07]"
+      className="flex h-full min-w-0 flex-1 items-center gap-1"
     >
       <div className="hover-scroll flex flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
         {tags.length === 0 ? (

@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 // Pre-commit 守门钩子（跨平台兼容 Windows）
 // lint-staged + guardian-runner 批量守门 + 条件 typecheck/database 闸门
+// + staging area 快照还原(防 lint-staged/IDE 副作用污染 commit,2026-07-26 立)
 const { execSync } = require('child_process')
+const {
+  takeStagingSnapshot,
+  restoreStaging,
+} = require('../scripts/lib/staging-snapshot.cjs')
 
 function run(label, cmd) {
   console.log(label)
@@ -13,6 +18,20 @@ function run(label, cmd) {
     return false
   }
 }
+
+// ─── staging area 入口快照(2026-07-26 立) ──────────────────
+// 背景:多 agent 并行时曾出现非本任务文件被 commit 的事故(IDE 自动 stage / 未察觉的
+//       git add / lint-staged 副作用)。本机制在 pre-commit 入口快照 staging area,
+//       在 hook 退出前(无论成功失败)对比当前 staged 与快照,自动 unstage 新增文件,
+//       确保 commit 仅包含用户显式 staged 的文件。
+// 豁免:HUSKY_SKIP_STAGING_RESTORE=1 跳过还原(紧急情况用)
+// 详见:scripts/lib/staging-snapshot.cjs
+const INITIAL_STAGED_SNAPSHOT = takeStagingSnapshot()
+process.on('exit', () => {
+  restoreStaging(INITIAL_STAGED_SNAPSHOT, {
+    skip: process.env.HUSKY_SKIP_STAGING_RESTORE === '1',
+  })
+})
 
 // 5. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
 if (!run('🎨 运行 lint-staged...', 'npx lint-staged')) {
