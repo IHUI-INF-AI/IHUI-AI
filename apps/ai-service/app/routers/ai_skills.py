@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field
 
 from app.core.llm_gateway import llm_gateway
 from app.services.skill_scheduler import SkillScheduler  # 2026-07-23:可选 LangGraph 调度器
-from app.services.skills import skill_registry
+from app.services.skills import Skill, skill_registry
 
 router = APIRouter(prefix="/ai-skills", tags=["ai-skills"])
 
@@ -99,7 +99,7 @@ class InvokeResponse(BaseModel):
 
 # ===== 内部工具 =====
 
-def _serialize_skill(s) -> SkillMeta:
+def _serialize_skill(s: Skill) -> SkillMeta:
     """把 Skill dataclass 序列化为 API 响应模型。"""
     return SkillMeta(
         id=s.name,

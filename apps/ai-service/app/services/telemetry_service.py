@@ -23,6 +23,7 @@ import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
+from types import TracebackType
 from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
@@ -68,9 +69,9 @@ class Metric:
         self.type = metric_type
         self.help = help
         self.labels = list(labels)
-        self.values: dict[tuple, Any] = {}
+        self.values: dict[tuple[str, ...], Any] = {}
 
-    def _label_key(self, **labels) -> tuple:
+    def _label_key(self, **labels: Any) -> tuple[str, ...]:
         """把 kwargs 转成与 self.labels 顺序一致的 tuple(缺失标签默认空串)。"""
         return tuple(str(labels.get(name, "")) for name in self.labels)
 
@@ -81,12 +82,12 @@ class Counter(Metric):
     def __init__(self, name: str, help: str, labels: list[str]) -> None:
         super().__init__(name, "counter", help, labels)
 
-    def inc(self, value: float = 1.0, **labels) -> None:
+    def inc(self, value: float = 1.0, **labels: Any) -> None:
         """增加 value(默认 1)。"""
         key = self._label_key(**labels)
         self.values[key] = self.values.get(key, 0.0) + float(value)
 
-    def get(self, **labels) -> float:
+    def get(self, **labels: Any) -> float:
         """读取当前值。"""
         return float(self.values.get(self._label_key(**labels), 0.0))
 
@@ -97,21 +98,21 @@ class Gauge(Metric):
     def __init__(self, name: str, help: str, labels: list[str]) -> None:
         super().__init__(name, "gauge", help, labels)
 
-    def set(self, value: float, **labels) -> None:
+    def set(self, value: float, **labels: Any) -> None:
         """设置为 value。"""
         self.values[self._label_key(**labels)] = float(value)
 
-    def inc(self, value: float = 1.0, **labels) -> None:
+    def inc(self, value: float = 1.0, **labels: Any) -> None:
         """增加 value。"""
         key = self._label_key(**labels)
         self.values[key] = float(self.values.get(key, 0.0)) + value
 
-    def dec(self, value: float = 1.0, **labels) -> None:
+    def dec(self, value: float = 1.0, **labels: Any) -> None:
         """减少 value。"""
         key = self._label_key(**labels)
         self.values[key] = float(self.values.get(key, 0.0)) - value
 
-    def get(self, **labels) -> float:
+    def get(self, **labels: Any) -> float:
         return float(self.values.get(self._label_key(**labels), 0.0))
 
 
@@ -122,11 +123,11 @@ class Histogram(Metric):
     """
 
     def __init__(self, name: str, help: str, labels: list[str],
-                 buckets: Optional[tuple] = None) -> None:
+                 buckets: Optional[tuple[float, ...]] = None) -> None:
         super().__init__(name, "histogram", help, labels)
         self.buckets = tuple(buckets) if buckets else DEFAULT_HISTOGRAM_BUCKETS_MS
 
-    def observe(self, value: float, **labels) -> None:
+    def observe(self, value: float, **labels: Any) -> None:
         """观察一个值(更新 buckets / sum / count)。"""
         key = self._label_key(**labels)
         entry = self.values.get(key)
@@ -140,12 +141,15 @@ class Histogram(Metric):
         entry["sum"] += float(value)
         entry["count"] += 1
 
-    def get(self, **labels) -> dict:
+    def get(self, **labels: Any) -> dict[str, Any]:
         """读取当前聚合结构(无数据返回空结构)。"""
         key = self._label_key(**labels)
-        return self.values.get(
-            key,
-            {"buckets": [0] * len(self.buckets), "sum": 0.0, "count": 0},
+        return cast(
+            dict[str, Any],
+            self.values.get(
+                key,
+                {"buckets": [0] * len(self.buckets), "sum": 0.0, "count": 0},
+            ),
         )
 
 
@@ -161,7 +165,7 @@ def _format_value(value: float) -> str:
     return f"{value:.6g}"
 
 
-def _format_labels(label_names: list[str], label_values: tuple) -> str:
+def _format_labels(label_names: list[str], label_values: tuple[str, ...]) -> str:
     """格式化 Prometheus 标签段。无标签返回空串。"""
     if not label_names:
         return ""
@@ -213,7 +217,7 @@ class MetricsRegistry:
         return m
 
     def histogram(self, name: str, help: str, labels: Optional[list[str]] = None,
-                  buckets: Optional[tuple] = None) -> Histogram:
+                  buckets: Optional[tuple[float, ...]] = None) -> Histogram:
         """注册 histogram。"""
         existing = self._metrics.get(name)
         if existing is not None:
@@ -260,7 +264,7 @@ class MetricsRegistry:
                     lines.append(f"{m.name}{lbl} {_format_value(value)}")
         return "\n".join(lines) + ("\n" if lines else "")
 
-    def get_all_metrics(self) -> dict:
+    def get_all_metrics(self) -> dict[str, Any]:
         """JSON 格式(供 API 查询)。"""
         result: dict[str, Any] = {}
         for name, m in self._metrics.items():
@@ -362,7 +366,7 @@ class TraceContext:
 
     def __init__(self, telemetry: "TelemetryService", name: str, pillar: str,
                  trace_id: Optional[str] = None, parent_span_id: Optional[str] = None,
-                 attributes: Optional[dict] = None) -> None:
+                 attributes: Optional[dict[str, Any]] = None) -> None:
         self._telemetry = telemetry
         self.span = Span(
             trace_id=trace_id or _gen_trace_id(),
@@ -379,7 +383,12 @@ class TraceContext:
         self.span.start_time = time.monotonic()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """结束 span,记录 end_time + duration_ms + status,存入 Redis/内存。"""
         self.span.end_time = time.monotonic()
         self.span.duration_ms = (self.span.end_time - self.span.start_time) * 1000.0
@@ -388,7 +397,7 @@ class TraceContext:
             self.span.attributes.setdefault("error", str(exc_val))
         await self._telemetry._store_span(self.span)
 
-    def add_event(self, name: str, attributes: Optional[dict] = None) -> None:
+    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
         """添加事件到当前 span。"""
         self.span.events.append({
             "name": name,
@@ -415,9 +424,9 @@ class TelemetryService:
         self.registry = MetricsRegistry()
         self._redis: Any = None
         self._use_redis = True  # 默认尝试,首次 _ensure_redis 失败置 False
-        self._memory_spans: deque = deque(maxlen=MEMORY_SPANS_MAX)
+        self._memory_spans: deque[dict[str, Any]] = deque(maxlen=MEMORY_SPANS_MAX)
         # trace_id -> 根 span 摘要(用于 get_recent_traces)
-        self._memory_trace_roots: deque = deque(maxlen=MEMORY_TRACE_ROOTS_MAX)
+        self._memory_trace_roots: deque[dict[str, Any]] = deque(maxlen=MEMORY_TRACE_ROOTS_MAX)
         self._init_metrics()
 
     # ---------- Metrics 注册 ----------
@@ -533,7 +542,7 @@ class TelemetryService:
         if not span.parent_span_id:
             self._memory_trace_roots.append(span_dict)
 
-    async def _record_trace_root(self, span_dict: dict, redis: Any) -> None:
+    async def _record_trace_root(self, span_dict: dict[str, Any], redis: Any) -> None:
         """记录 trace 根 span 摘要到 Redis list(用于 get_recent_traces)。"""
         try:
             summary = {
@@ -585,7 +594,7 @@ class TelemetryService:
 
     # ---------- 公共 API:支柱事件 ----------
 
-    async def record_pillar_event(self, pillar: str, event_type: str, **labels) -> None:
+    async def record_pillar_event(self, pillar: str, event_type: str, **labels: Any) -> None:
         """记录支柱事件(更新对应 pillar 的 metrics)。
 
         约定:
@@ -612,7 +621,7 @@ class TelemetryService:
 
     def start_trace(self, name: str, pillar: str, trace_id: Optional[str] = None,
                     parent_span_id: Optional[str] = None,
-                    attributes: Optional[dict] = None) -> TraceContext:
+                    attributes: Optional[dict[str, Any]] = None) -> TraceContext:
         """开始一个 trace span(返回 TraceContext,用 async with)。
 
         同步工厂方法 — 本身不做异步 IO,只构造 TraceContext;
@@ -636,9 +645,9 @@ class TelemetryService:
         return TraceContext(self, name, pillar, trace_id=trace_id,
                             parent_span_id=parent_span_id, attributes=attributes)
 
-    async def get_trace(self, trace_id: str) -> list[dict]:
+    async def get_trace(self, trace_id: str) -> list[dict[str, Any]]:
         """获取 trace 的所有 spans(按 start_time 升序排序)。"""
-        spans: list[dict] = []
+        spans: list[dict[str, Any]] = []
         redis = await self._ensure_redis()
         if redis is not None:
             try:
@@ -646,7 +655,7 @@ class TelemetryService:
                 raw_list = await redis.lrange(key, 0, -1)
                 for raw in raw_list:
                     try:
-                        spans.append(json.loads(raw))
+                        spans.append(cast(dict[str, Any], json.loads(raw)))
                     except Exception:
                         continue
             except Exception as e:
@@ -657,7 +666,7 @@ class TelemetryService:
                 spans.append(span_dict)
         # 去重(span_id)+ 按 start_time 升序
         seen: set[str] = set()
-        unique: list[dict] = []
+        unique: list[dict[str, Any]] = []
         for s in spans:
             sid = s.get("span_id")
             if sid and sid not in seen:
@@ -666,16 +675,16 @@ class TelemetryService:
         unique.sort(key=lambda s: s.get("start_time", 0))
         return unique
 
-    async def get_recent_traces(self, limit: int = 20) -> list[dict]:
+    async def get_recent_traces(self, limit: int = 20) -> list[dict[str, Any]]:
         """获取最近的 trace(每个 trace 的根 span 摘要,按 start_time 倒序)。"""
-        roots: list[dict] = []
+        roots: list[dict[str, Any]] = []
         redis = await self._ensure_redis()
         if redis is not None:
             try:
                 raw_list = await redis.lrange(REDIS_TRACE_ROOTS_KEY, 0, limit - 1)
                 for raw in raw_list:
                     try:
-                        roots.append(json.loads(raw))
+                        roots.append(cast(dict[str, Any], json.loads(raw)))
                     except Exception:
                         continue
             except Exception as e:
@@ -684,7 +693,7 @@ class TelemetryService:
         roots.extend(list(self._memory_trace_roots))
         # 按 trace_id 去重 + 按 start_time 倒序 + 截断
         seen: set[str] = set()
-        unique: list[dict] = []
+        unique: list[dict[str, Any]] = []
         for r in roots:
             tid = r.get("trace_id")
             if tid and tid not in seen:
@@ -695,7 +704,7 @@ class TelemetryService:
 
     # ---------- 公共 API:查询 ----------
 
-    async def get_metrics(self, format: str = "json") -> dict | str:
+    async def get_metrics(self, format: str = "json") -> dict[str, Any] | str:
         """获取所有 metrics。
 
         Args:
@@ -705,7 +714,7 @@ class TelemetryService:
             return self.registry.export_prometheus()
         return self.registry.get_all_metrics()
 
-    async def get_pillar_health(self) -> dict:
+    async def get_pillar_health(self) -> dict[str, Any]:
         """各支柱健康状态(基于 metrics 计算)。
 
         Returns:
@@ -763,7 +772,7 @@ class TelemetryService:
         }
         return mapping.get(pillar, [])
 
-    async def get_dashboard(self) -> dict:
+    async def get_dashboard(self) -> dict[str, Any]:
         """遥测仪表盘(metrics 摘要 + 各支柱健康 + 最近 traces + 系统总览)。"""
         all_metrics = self.registry.get_all_metrics()
         # 系统总览:统计 metric 数 / span 数
@@ -805,7 +814,7 @@ class TelemetryService:
 #   - histogram 事件:必须传 value= kwarg(observe 语义)
 
 
-def _h_counter_inc(registry: MetricsRegistry, metric_name: str, **labels) -> None:
+def _h_counter_inc(registry: MetricsRegistry, metric_name: str, **labels: Any) -> None:
     """通用 counter.inc(1) 调度。"""
     m = registry.get_metric(metric_name)
     if m is not None:
@@ -813,7 +822,7 @@ def _h_counter_inc(registry: MetricsRegistry, metric_name: str, **labels) -> Non
 
 
 def _h_gauge_set(registry: MetricsRegistry, metric_name: str,
-                 value: Any = 0, **labels) -> None:
+                 value: Any = 0, **labels: Any) -> None:
     """通用 gauge.set(value) 调度。"""
     m = registry.get_metric(metric_name)
     if m is not None:
@@ -821,7 +830,7 @@ def _h_gauge_set(registry: MetricsRegistry, metric_name: str,
 
 
 def _h_histogram_observe(registry: MetricsRegistry, metric_name: str,
-                         value: Any = 0, **labels) -> None:
+                         value: Any = 0, **labels: Any) -> None:
     """通用 histogram.observe(value) 调度。"""
     m = registry.get_metric(metric_name)
     if m is not None:

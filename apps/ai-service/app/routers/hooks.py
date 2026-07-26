@@ -92,7 +92,7 @@ class CreateAbTestBody(BaseModel):
 
 
 class InstantiateTemplateBody(BaseModel):
-    overrides: dict = Field(default_factory=dict)
+    overrides: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

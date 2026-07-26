@@ -1,8 +1,11 @@
 """历史项目迁移补齐：集中实现 coze_zhs_py 缺失的端点。"""
+from __future__ import annotations
+
+import json
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List, Any
-import json
 
 from app.core.config import settings
 
@@ -38,14 +41,14 @@ async def _get_redis() -> Any:
 
 # ============ Socket.IO 兼容端点 ============
 @router.get("/socketio/status")
-async def socketio_status():
+async def socketio_status() -> dict[str, Any]:
     """Socket.IO 兼容状态查询。新架构使用原生 WebSocket，此端点用于旧客户端兼容检测。"""
     return {"supported": False, "alternative": "/ws/chat", "message": "请使用原生 WebSocket 端点 /ws/chat"}
 
 
 # ============ 卡片转换工具 ============
 @router.post("/card/convert")
-async def convert_card(data: dict):
+async def convert_card(data: dict[str, Any]) -> dict[str, Any]:
     """Coze 卡片数据格式转换。将 Coze 卡片结构转换为前端展示格式。"""
     card_data = data.get("card", {})
     display_format = {
@@ -61,7 +64,7 @@ async def convert_card(data: dict):
 
 # ============ 分类缓存(Redis) ============
 @router.get("/category/cache")
-async def get_category_cache(category_type: str = "agent"):
+async def get_category_cache(category_type: str = "agent") -> dict[str, Any]:
     """从 Redis 读取分类字典缓存(key: agent:category:dict)。"""
     redis = await _get_redis()
     if redis is None:
@@ -84,7 +87,7 @@ async def get_category_cache(category_type: str = "agent"):
 
 
 @router.post("/category/cache/refresh")
-async def refresh_category_cache():
+async def refresh_category_cache() -> dict[str, Any]:
     """触发缓存刷新：删除 Redis key,下次请求时由调用方重建。"""
     redis = await _get_redis()
     if redis is None:
@@ -98,7 +101,7 @@ async def refresh_category_cache():
 
 # ============ 公共 Socket 状态 ============
 @router.get("/public-socket/status")
-async def public_socket_status():
+async def public_socket_status() -> dict[str, Any]:
     """公共 Socket 推送状态查询。"""
     return {
         "supported": False,
@@ -109,7 +112,7 @@ async def public_socket_status():
 
 # ============ WebSocket 音频状态 ============
 @router.get("/ws-audio/status")
-async def ws_audio_status():
+async def ws_audio_status() -> dict[str, Any]:
     """WebSocket 独立音频流状态查询。"""
     return {
         "supported": True,
@@ -120,7 +123,7 @@ async def ws_audio_status():
 
 # ============ Coze 兼容提示 ============
 @router.get("/coze/compat")
-async def coze_compat():
+async def coze_compat() -> dict[str, Any]:
     """Coze 兼容接口提示。"""
     return {
         "supported": True,
@@ -131,7 +134,7 @@ async def coze_compat():
 
 # ============ 旧 API 迁移状态 ============
 @router.get("/old-api/status")
-async def old_api_status():
+async def old_api_status() -> dict[str, Any]:
     """旧 API 迁移状态查询。"""
     return {"migrated": True, "newApi": "/api/agents"}
 
@@ -142,4 +145,3 @@ async def old_api_status():
 # - sync_agents.py: 旧架构用于跨数据源同步智能体数据,单库架构下无需跨源同步
 # - category_converter.py / category_sync_tool.py: 旧架构分类转换工具,单库架构下无需
 # =============================================================================
-
