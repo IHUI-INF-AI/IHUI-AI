@@ -30,7 +30,11 @@
  *   const { takeStagingSnapshot, restoreStaging } = require('./scripts/lib/staging-snapshot.js')
  *   const snapshot = takeStagingSnapshot()
  *   // ... hook 逻辑 ...
- *   process.on('exit', () => restoreStaging(snapshot))
+ *   setupRestoreOnExit(snapshot)  // 或 process.on('exit', () => restoreStaging(snapshot))
+ *
+ * 信号处理(2026-07-26 立):
+ *   process.on('exit') 在 SIGINT(Ctrl+C)/SIGTERM 时不触发,需要单独监听。
+ *   setupRestoreOnExit() 封装 exit + SIGINT + SIGTERM 三种退出路径的还原逻辑。
  */
 const { execSync } = require('child_process')
 
@@ -126,4 +130,49 @@ function restoreStaging(initialSnapshot, options = {}) {
   }
 }
 
-module.exports = { takeStagingSnapshot, restoreStaging }
+/**
+ * 注册 staging area 还原到进程退出钩子(包括正常退出 + SIGINT + SIGTERM)
+ *
+ * 背景(2026-07-26 立):
+ *   process.on('exit') 在 SIGINT(Ctrl+C)/SIGTERM 时不触发,需要单独监听。
+ *   否则用户在 pre-commit hook 期间按 Ctrl+C 会导致 staging area 不还原,
+ *   非本任务文件残留 staged,下次 commit 可能被混入。
+ *
+ * 退出码约定:
+ *   - 正常退出: 不改退出码(由调用方控制)
+ *   - SIGINT: 130 (128 + 2,POSIX 约定)
+ *   - SIGTERM: 143 (128 + 15,POSIX 约定)
+ *
+ * @param {Set<string>|null} initialSnapshot takeStagingSnapshot() 返回的初始快照
+ * @param {object} [options] 透传给 restoreStaging 的选项(skip/silent/cwd)
+ * @returns {void}
+ */
+function setupRestoreOnExit(initialSnapshot, options = {}) {
+  const restore = () => {
+    try {
+      restoreStaging(initialSnapshot, options)
+    } catch (e) {
+      // 还原失败不阻塞进程退出(避免 hook 卡死)
+      if (!options.silent) {
+        console.warn(`⚠️  staging area 还原失败(信号退出路径): ${e.message}`)
+      }
+    }
+  }
+
+  // 正常退出路径(process.exit() / 事件循环空了 / 未捕获异常后)
+  process.on('exit', restore)
+
+  // SIGINT(Ctrl+C):用户中断 hook,需要还原 staging area 后退出码 130
+  process.on('SIGINT', () => {
+    restore()
+    process.exit(130)
+  })
+
+  // SIGTERM(kill 默认信号):被其他进程 kill,需要还原 staging area 后退出码 143
+  process.on('SIGTERM', () => {
+    restore()
+    process.exit(143)
+  })
+}
+
+module.exports = { takeStagingSnapshot, restoreStaging, setupRestoreOnExit }
