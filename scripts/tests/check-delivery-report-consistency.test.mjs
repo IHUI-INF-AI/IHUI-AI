@@ -137,18 +137,73 @@ test('合法: 章节只含"完整收尾"(避开"无后续建议"子串 bug)→ �
   }
 })
 
-// ─── 4b. 源脚本已知 bug:"无后续建议"被误判含"后续建议"子串 → 误报矛盾 ──
-test('行为(源脚本 bug): 含"无后续建议"会被误判含"后续建议" → 误报矛盾', () => {
+// ─── 4b. 修复后:"无后续建议"不再被误判含"后续建议"子串 → 通过 ──
+// 源脚本旧 bug:REMAINING_KEYWORDS 含 '后续建议',用 text.includes('后续建议') 检查时
+// 会命中"无后续建议"中的子串 → 误报矛盾。修复:用 lookbehind 排除否定前缀(无/无任何/没有/不存在/并无/全无/无需)。
+test('修复后: 含"无后续建议"不被误判含"后续建议" → 通过', () => {
   const root = createTempProject()
   try {
     writeProjectPlan(
       root,
-      '# Project Plan\n\n## 任务 A-bug (2026-08-01)\n\n任务已完成,无后续建议。\n',
+      '# Project Plan\n\n## 任务 A-fixed (2026-08-01)\n\n任务已完成,无后续建议。\n',
     )
     const r = runScript(root)
-    // 源脚本用 text.includes('后续建议') 检查,而"无后续建议"含"后续建议"子串 → 误报
-    assertFail(r, /无后续建议/)
-    assert.match(r.stdout, /后续建议/, '应误报含"后续建议"')
+    // 修复后:lookbehind 排除"无"前缀,"无后续建议"中的"后续建议"不算后续工作类
+    assertPass(r)
+    // 不应误报含"后续建议"
+    assert.doesNotMatch(r.stdout, /后续工作类条目:.*后续建议/, '不应误报含"后续建议"')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 4c. "无后续建议" + "TODO" → 违规(后续工作类只含 TODO,不含"后续建议"误判)──
+test('违规: 含"无后续建议" + "TODO" → 检测到矛盾(后续建议不被误判)', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 任务 A-todo (2026-08-01)\n\n任务已完成,无后续建议。\n\n仍有 TODO 项待跟进。\n',
+    )
+    const r = runScript(root)
+    // 修复后:"无后续建议"不算后续工作类,但"TODO"是真正的后续工作类 → 仍违规
+    assertFail(r, /无后续建议|TODO/)
+    // 后续工作类条目应含 TODO,但不应含"后续建议"(因为"无后续建议"被排除)
+    assert.match(r.stdout, /TODO/, '后续工作类应含 TODO')
+    assert.doesNotMatch(r.stdout, /后续工作类条目:.*后续建议/, '不应误报含"后续建议"')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 4d. "后续建议:P1 修复" 单独出现 → 通过(只触发后续工作类,无完整收尾类)──
+test('合法: 章节只含"后续建议:P1 修复"无完整收尾类 → 通过', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 任务 A-only-remaining (2026-08-01)\n\n后续建议:P1 修复 X 模块。\n',
+    )
+    const r = runScript(root)
+    // "后续建议:" 前面无否定前缀 → 算后续工作类;但无完整收尾类 → 不算矛盾
+    assertPass(r)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 4e. "无后续建议" + "后续可改进:X" → 违规(真正的后续工作类)──
+test('违规: 含"无后续建议" + "后续可改进" → 检测到矛盾(真正的后续工作类)', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 任务 A-real-remaining (2026-08-01)\n\n任务已完成,无后续建议。\n\n后续可改进:优化 X。\n',
+    )
+    const r = runScript(root)
+    // "无后续建议"被排除,但"后续可改进"是真正的后续工作类 → 违规
+    assertFail(r, /无后续建议|后续可改进/)
+    assert.match(r.stdout, /后续可改进/, '后续工作类应含"后续可改进"')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
