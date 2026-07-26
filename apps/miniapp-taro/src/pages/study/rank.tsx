@@ -42,7 +42,7 @@ export default function StudyRank() {
         <View className="flex items-end justify-center py-4 bg-card">
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[55px] h-[55px] rounded-md bg-muted border-2 border-[#c0c0c0]"
+              className="w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 border-[#c0c0c0]"
               src={list[1]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -56,7 +56,7 @@ export default function StudyRank() {
           </View>
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[70px] h-[70px] rounded-md bg-muted border-2 border-[#ffd700]"
+              className="w-[140rpx] h-[140rpx] rounded-md bg-muted border-2 border-[#ffd700]"
               src={list[0]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -70,7 +70,7 @@ export default function StudyRank() {
           </View>
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[55px] h-[55px] rounded-md bg-muted border-2 border-[#cd7f32]"
+              className="w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 border-[#cd7f32]"
               src={list[2]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -88,13 +88,10 @@ export default function StudyRank() {
       {list.length > 3 && (
         <View className="m-3 bg-card rounded-2xl p-2 flex flex-col gap-1">
           {list.slice(3).map((u, i) => (
-            <View
-              key={u.id}
-              className="flex items-center p-3"
-            >
+            <View key={u.id} className="flex items-center p-3">
               <Text className="w-8 text-sm text-muted-foreground">{i + 4}</Text>
               <Image
-                className="w-[30px] h-[30px] rounded-md bg-muted"
+                className="w-[60rpx] h-[60rpx] rounded-md bg-muted"
                 src={u.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />

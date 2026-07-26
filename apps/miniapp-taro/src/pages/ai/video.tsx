@@ -24,10 +24,30 @@ interface VendorMeta {
 }
 
 const VENDORS: VendorMeta[] = [
-  { key: 'sora2', nameKey: 'ai.video.vendors.sora2', descKey: 'ai.video.vendors.sora2Desc', available: false },
-  { key: 'kling', nameKey: 'ai.video.vendors.kling', descKey: 'ai.video.vendors.klingDesc', available: true },
-  { key: 'doubao', nameKey: 'ai.video.vendors.doubao', descKey: 'ai.video.vendors.doubaoDesc', available: true },
-  { key: 'dashscope', nameKey: 'ai.video.vendors.dashscope', descKey: 'ai.video.vendors.dashscopeDesc', available: true },
+  {
+    key: 'sora2',
+    nameKey: 'ai.video.vendors.sora2',
+    descKey: 'ai.video.vendors.sora2Desc',
+    available: false,
+  },
+  {
+    key: 'kling',
+    nameKey: 'ai.video.vendors.kling',
+    descKey: 'ai.video.vendors.klingDesc',
+    available: true,
+  },
+  {
+    key: 'doubao',
+    nameKey: 'ai.video.vendors.doubao',
+    descKey: 'ai.video.vendors.doubaoDesc',
+    available: true,
+  },
+  {
+    key: 'dashscope',
+    nameKey: 'ai.video.vendors.dashscope',
+    descKey: 'ai.video.vendors.dashscopeDesc',
+    available: true,
+  },
 ]
 
 interface ParamMeta {
@@ -214,14 +234,16 @@ export default function VideoPage() {
             >
               <Text className="block">{t(v.nameKey)}</Text>
               {!v.available ? (
-                <Text className="block text-[10px] opacity-70">{t('ai.video.notAvailable')}</Text>
+                <Text className="block text-[20rpx] opacity-70">{t('ai.video.notAvailable')}</Text>
               ) : null}
             </View>
           ))}
         </View>
 
         <View className="mx-3 mt-2 bg-card rounded-lg p-3">
-          <Text className="block text-xs text-muted-foreground mb-2">{t(currentVendor.descKey)}</Text>
+          <Text className="block text-xs text-muted-foreground mb-2">
+            {t(currentVendor.descKey)}
+          </Text>
           <Textarea
             className="w-full min-h-[120rpx] p-2 text-sm bg-background rounded-md box-border"
             placeholder={t('ai.video.promptPlaceholder')}
@@ -238,9 +260,7 @@ export default function VideoPage() {
                     <Text
                       key={opt}
                       className={`flex-1 py-1 text-center text-xs rounded ${
-                        params[p.key] === opt
-                          ? 'bg-primary text-white'
-                          : 'bg-muted text-foreground'
+                        params[p.key] === opt ? 'bg-primary text-white' : 'bg-muted text-foreground'
                       }`}
                       onClick={() => setParams((prev) => ({ ...prev, [p.key]: opt }))}
                     >
@@ -266,7 +286,7 @@ export default function VideoPage() {
             {resultUrl ? (
               <VideoPlayer src={resultUrl} />
             ) : (
-              <View className="h-[210px] flex items-center justify-center bg-black rounded-md">
+              <View className="h-[420rpx] flex items-center justify-center bg-black rounded-md">
                 <Text className="text-sm text-muted-foreground">{statusText}</Text>
               </View>
             )}
@@ -309,8 +329,9 @@ export default function VideoPage() {
                   onClick={() => replayHistory(h)}
                 >
                   <Text className="flex-1 text-xs text-foreground truncate">{h.prompt}</Text>
-                  <Text className="text-[10px] text-muted-foreground ml-2">
-                    {t(VENDORS.find((v) => v.key === h.vendor)?.nameKey ?? '')} · {fmtTime(h.createdAt)}
+                  <Text className="text-[20rpx] text-muted-foreground ml-2">
+                    {t(VENDORS.find((v) => v.key === h.vendor)?.nameKey ?? '')} ·{' '}
+                    {fmtTime(h.createdAt)}
                   </Text>
                 </View>
               ))}
