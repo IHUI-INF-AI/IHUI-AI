@@ -123,25 +123,25 @@ export default function Community() {
   }))
 
   return (
-    <View className="min-h-screen pb-[60px]">
+    <View className="min-h-screen pb-[120rpx]">
       {/* 顶部用户信息条 — 青→紫赛博朋克渐变 + 科技网格 */}
       <View
-        className="flex items-center pt-[60px] px-[16px] pb-[16px] tech-grid"
+        className="flex items-center pt-[120rpx] px-[32rpx] pb-[32rpx] tech-grid"
         style={{ background: 'linear-gradient(135deg, #00f2ff, #8b5cf6)' }}
       >
         <Image
-          className="w-[40px] h-[40px] rounded-md border-[1px] border-solid border-white"
+          className="w-[80rpx] h-[80rpx] rounded-md border-[2rpx] border-solid border-white"
           src={userInfo?.avatar || defaultAvatar}
           mode="aspectFill"
         />
-        <View className="ml-[10px] flex flex-col">
-          <Text className="text-white text-[15px] font-semibold">
+        <View className="ml-[20rpx] flex flex-col">
+          <Text className="text-white text-[30rpx] font-semibold">
             {userInfo?.userName ||
               userInfo?.nickname ||
               (isLogin ? t('common.user') : t('home.tapLogin'))}
           </Text>
           <Text
-            className="text-white text-[11px] opacity-90"
+            className="text-white text-[22rpx] opacity-90"
             onClick={!isLogin ? goLogin : undefined}
           >
             {t('community.title')} · {t('community.posts')}
@@ -150,11 +150,11 @@ export default function Community() {
       </View>
 
       {/* 8 类模型切换 — 对标原项目 ai_index.vue */}
-      <View className="mx-[16px] my-[12px] tech-card p-[12px]">
-        <View className="flex justify-between items-center mb-[10px]">
-          <Text className="text-[15px] font-semibold text-neon">{t('agent.title')}</Text>
+      <View className="mx-[32rpx] my-[24rpx] tech-card p-[24rpx]">
+        <View className="flex justify-between items-center mb-[20rpx]">
+          <Text className="text-[30rpx] font-semibold text-neon">{t('agent.title')}</Text>
           <Text
-            className="text-[12px] text-muted-foreground"
+            className="text-[24rpx] text-muted-foreground"
             onClick={() => goPage('/pages/ai/agent')}
           >
             {t('home.more')} {'>'}
@@ -164,96 +164,96 @@ export default function Community() {
           {modelTypes.map((item) => (
             <View
               key={item.path + item.key}
-              className="w-1/4 flex flex-col items-center py-[10px]"
+              className="w-1/4 flex flex-col items-center py-[20rpx]"
               onClick={() => goPage(item.path)}
             >
-              <View className="w-[44px] h-[44px] rounded-[10px] gradient-cyber flex items-center justify-center mb-[4px]">
-                <Text className="text-[22px]">{item.icon}</Text>
+              <View className="w-[88rpx] h-[88rpx] rounded-[20rpx] gradient-cyber flex items-center justify-center mb-[8rpx]">
+                <Text className="text-[44rpx]">{item.icon}</Text>
               </View>
-              <Text className="text-[11px] text-white">{t(item.key)}</Text>
+              <Text className="text-[22rpx] text-white">{t(item.key)}</Text>
             </View>
           ))}
         </View>
       </View>
 
       {/* 快捷入口 */}
-      <View className="mx-[16px] my-[12px] tech-card p-[12px]">
+      <View className="mx-[32rpx] my-[24rpx] tech-card p-[24rpx]">
         <View className="flex">
           {quickEntries.map((entry) => (
             <View
               key={entry.path + entry.key}
-              className="flex-1 flex flex-col items-center py-[8px]"
+              className="flex-1 flex flex-col items-center py-[16rpx]"
               onClick={() => goPage(entry.path)}
             >
-              <Text className="text-[22px]">{entry.icon}</Text>
-              <Text className="mt-[3px] text-[11px] text-white">{t(entry.key)}</Text>
+              <Text className="text-[44rpx]">{entry.icon}</Text>
+              <Text className="mt-[6rpx] text-[22rpx] text-white">{t(entry.key)}</Text>
             </View>
           ))}
         </View>
       </View>
 
       {/* 社区动态流 */}
-      <View className="mx-[16px] my-[12px]">
-        <View className="flex justify-between items-center mb-[10px]">
-          <Text className="text-[15px] font-semibold text-neon">{t('community.posts')}</Text>
+      <View className="mx-[32rpx] my-[24rpx]">
+        <View className="flex justify-between items-center mb-[20rpx]">
+          <Text className="text-[30rpx] font-semibold text-neon">{t('community.posts')}</Text>
           <Text
-            className="text-[12px] text-muted-foreground"
+            className="text-[24rpx] text-muted-foreground"
             onClick={() => Taro.navigateTo({ url: '/pages/circle/index' })}
           >
             {t('home.more')} {'>'}
           </Text>
         </View>
         {loading ? (
-          <View className="tech-card px-[16px] py-[20px] text-center">
-            <Text className="text-[13px] text-muted-foreground">{t('common.loading')}</Text>
+          <View className="tech-card px-[32rpx] py-[40rpx] text-center">
+            <Text className="text-[26rpx] text-muted-foreground">{t('common.loading')}</Text>
           </View>
         ) : list.length > 0 ? (
           list.map((item) => (
             <View
               key={item.id}
-              className="tech-card px-[12px] py-[12px] mb-[10px]"
+              className="tech-card px-[24rpx] py-[24rpx] mb-[20rpx]"
               onClick={() => onItemClick(item.id)}
             >
-              <View className="flex items-center mb-[6px]">
+              <View className="flex items-center mb-[12rpx]">
                 <Image
-                  className="w-[24px] h-[24px] rounded-md bg-muted"
+                  className="w-[48rpx] h-[48rpx] rounded-md bg-muted"
                   src={item.authorAvatar || defaultAvatar}
                   mode="aspectFill"
                 />
-                <Text className="ml-[6px] text-[12px] text-muted-foreground">
+                <Text className="ml-[12rpx] text-[24rpx] text-muted-foreground">
                   {item.authorName || t('common.user')}
                 </Text>
               </View>
-              <Text className="block text-[14px] text-white font-semibold mb-[4px]">
+              <Text className="block text-[28rpx] text-white font-semibold mb-[8rpx]">
                 {item.title || t('aiCircle.post')}
               </Text>
               {item.content ? (
-                <Text className="block text-[12px] text-muted-foreground text-ellipsis-2">
+                <Text className="block text-[24rpx] text-muted-foreground text-ellipsis-2">
                   {item.content}
                 </Text>
               ) : null}
               {item.likeCount ? (
-                <Text className="block mt-[6px] text-[11px] text-[var(--color-primary)]">
+                <Text className="block mt-[12rpx] text-[22rpx] text-[var(--color-primary)]">
                   ♥ {item.likeCount}
                 </Text>
               ) : null}
             </View>
           ))
         ) : (
-          <View className="tech-card px-[16px] py-[40px] text-center">
-            <Text className="text-[13px] text-muted-foreground">{t('common.empty')}</Text>
+          <View className="tech-card px-[32rpx] py-[80rpx] text-center">
+            <Text className="text-[26rpx] text-muted-foreground">{t('common.empty')}</Text>
           </View>
         )}
 
         {/* 分页加载状态 */}
         {loading && list.length > 0 ? (
-          <View className="tech-card px-[16px] py-[12px] text-center">
-            <Text className="text-[12px] text-muted-foreground">{t('common.loading')}</Text>
+          <View className="tech-card px-[32rpx] py-[24rpx] text-center">
+            <Text className="text-[24rpx] text-muted-foreground">{t('common.loading')}</Text>
           </View>
         ) : null}
         {!loading && !hasMore && list.length > 0 ? (
-          <View className="tech-card px-[16px] py-[12px] text-center">
-            <Text className="text-[12px] text-muted-foreground">{t('common.noMore')}</Text>
+          <View className="tech-card px-[32rpx] py-[24rpx] text-center">
+            <Text className="text-[24rpx] text-muted-foreground">{t('common.noMore')}</Text>
           </View>
         ) : null}
       </View>
