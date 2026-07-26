@@ -1,9 +1,9 @@
 /**
- * LoginPage — 扩展端登录页(2026-07-26 改造:改用共享 AuthShell)
+ * LoginPage - 扩展端登录页(2026-07-26 改造:用共享 AuthShell + 系统主题跟随)
  *
  * 视觉对齐 apps/web/src/components/auth/AuthShell.tsx + apps/web/src/components/login/PasswordLoginForm.tsx:
  *   - 外壳:共享 @ihui/ui-react.AuthShell(rounded-xl + border + bg-card + 双层阴影 + p-7)
- *   - 顶部:logo (31×31) + welcome.svg/baiwelcome.svg 浅/深主题并排
+ *   - 顶部:logo (31x31) + welcome.svg/baiwelcome.svg 浅/深主题并排
  *   - 表单:space-y-4 + Label + Input h-10 + PasswordInput(带 show/hide 切换)
  *   - 错误:Alert 风格(红色 destructive/10 背景 + 边框)
  *   - 按钮:h-10 w-full
@@ -17,11 +17,17 @@
  *   - 旧代码用本地 ExtensionAuthShell(2026-07-25 立),与 web 端 AuthShell 视觉有肉眼差异
  *   - 改为共享 @ihui/ui-react.AuthShell,与 web 端主站登录弹窗用同一份组件 + 同一份 CSS
  *   - 本地 ExtensionAuthShell.tsx 已删除
+ *
+ * 2026-07-26 主题跟随:
+ *   - useSystemTheme hook 监听 OS prefers-color-scheme,自动给 html 加 .dark class
+ *   - 让 sidepanel 跟 web 端 + popup 用同一份 .login-scope / .welcome-img 共享 CSS,
+ *     浅/深主题切换视觉一致
  */
 import { useState } from 'react'
 import { loginByAccount, type LoginResult } from '@ihui/api-client'
 import { Button, Input, Label, AuthShell } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { useSystemTheme } from '../../../src/hooks/use-system-theme'
 
 interface Props {
   onSuccess: (result: LoginResult) => void | Promise<void>
@@ -92,6 +98,9 @@ function PasswordInput({
 
 export default function LoginPage({ onSuccess }: Props) {
   const { t } = useI18n()
+  // 2026-07-26 改造:sidepanel 启用系统主题跟随,跟 web 端 + popup 用同一份 .login-scope
+  // 共享 CSS,深色模式视觉一致。
+  useSystemTheme()
   const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
