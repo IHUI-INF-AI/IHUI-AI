@@ -26,7 +26,7 @@ WECHAT_OK_EXT = {".html", ".docx", ".json", ".png", ".jpg", ".jpeg", ".gif", ".w
 KOUBO_OK_EXT = {".txt"}
 
 
-def scan_dir(root, forbidden_ext, label):
+def scan_dir(root: str, forbidden_ext: set[str], label: str) -> list[str]:
     problems: list[str] = []
     if not os.path.isdir(root):
         return problems
@@ -40,8 +40,8 @@ def scan_dir(root, forbidden_ext, label):
     return problems
 
 
-def main():
-    problems = []
+def main() -> None:
+    problems: list[str] = []
     # 口播稿 Output 不应出现公众号产物
     problems += scan_dir(KOUBO_OUT, {".html", ".docx", ".md"}, "口播稿污染")
     # 公众号 output 不应出现口播稿 .txt
