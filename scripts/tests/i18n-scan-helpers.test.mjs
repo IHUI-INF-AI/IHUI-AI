@@ -42,11 +42,11 @@ import {
 } from '../_i18n-scan-helpers.mjs'
 
 // 辅助:对带 g flag 的 regex 执行首次匹配,返回捕获组或 null
-// 注意:g flag 的 regex 有 lastIndex 状态,每次调用前必须 reset
+// 注意:g flag 的 regex 有 lastIndex 状态,node --test 并发执行时共享实例会 race condition,
+// 因此每次创建新的 RegExp 实例(从 source/flags 复制),避免共享 lastIndex 状态。
 function matchFirst(re, str) {
-  re.lastIndex = 0
-  const m = re.exec(str)
-  re.lastIndex = 0
+  const local = new RegExp(re.source, re.flags)
+  const m = local.exec(str)
   return m ? m[1] : null
 }
 
@@ -786,12 +786,12 @@ describe('loadJson / walkDir — 文件系统辅助函数', () => {
 })
 
 // 辅助:对带 g flag 的 regex 执行所有匹配,返回所有捕获组 1 的数组
+// 同 matchFirst:每次创建新的 RegExp 实例,避免并发测试共享 lastIndex race condition
 function matchAll(re, str) {
-  re.lastIndex = 0
+  const local = new RegExp(re.source, re.flags)
   const results = []
   let m
-  while ((m = re.exec(str)) !== null) results.push(m[1])
-  re.lastIndex = 0
+  while ((m = local.exec(str)) !== null) results.push(m[1])
   return results
 }
 
