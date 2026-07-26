@@ -819,4 +819,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(500).send(error(500, `报名报表查询失败: ${(e as Error).message}`))
     }
   })
+
+  // GET /token-balance/metrics 由 token-balance-service.ts 注册(真实实现,VIP 折扣实时计数器)
+  // 此处原 501 stub 已删除,避免与 token-balance-service.ts:267 路由重复声明冲突
 }
