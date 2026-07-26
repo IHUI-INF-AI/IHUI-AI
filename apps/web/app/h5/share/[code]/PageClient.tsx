@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { AlertCircle, Loader2, Bot, Link2, Check, Share2, RotateCcw } from 'lucide-react'
-import { fetchShareContent, type ShareContent } from '@/lib/share-api'
+import { fetchShareContent, type ShareContent } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 
 export default function H5SharePage(): React.JSX.Element {
@@ -139,7 +139,9 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
         <div className="space-y-4 p-4">
           <section>
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('questionLabel')}</div>
+            <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+              {t('questionLabel')}
+            </div>
             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
               {data.question}
             </p>
@@ -147,7 +149,9 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
           {data.answer?.thinking && (
             <section className="rounded-lg bg-muted/40 p-3">
-              <div className="mb-1 text-xs font-medium text-muted-foreground">{t('thinkingLabel')}</div>
+              <div className="mb-1 text-xs font-medium text-muted-foreground">
+                {t('thinkingLabel')}
+              </div>
               <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">
                 {data.answer.thinking}
               </p>
@@ -156,7 +160,9 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
           {data.answer?.text && (
             <section>
-              <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('answerLabel')}</div>
+              <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+                {t('answerLabel')}
+              </div>
               <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
                 {data.answer.text}
               </p>
