@@ -1,4 +1,4 @@
-/* eslint-disable */
+/* eslint-disable -- 一次性 bug 扫描脚本,不参与生产 lint 规范 */
 // 批量测试关键页面,捕获 console error / page error / network 失败
 // 用法: PLAYWRIGHT_BASE_URL=http://localhost:3100 npx tsx scripts/bug-scan.ts
 import { chromium } from 'playwright'
