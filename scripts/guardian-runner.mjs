@@ -291,6 +291,29 @@ const checks = [
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
   },
+  // --- 35 (2026-07-26 新增,mypy 防回归守门,防 ai-service Python 类型回退) ---
+  // blocking:项目刚完成 mypy 全库清零(4 批次 256→0 errors,226 source files),
+  //   但 mypy 检查只在 pnpm typecheck:full 手工运行,无 pre-commit 守门。
+  //   typecheck:full 可能被 --no-verify 跳过 → mypy errors 回退。本守门在 staged
+  //   涉及 apps/ai-service/**/*.py 时触发 mypy 检查,0 errors 才通过。
+  // 失败含义:staged 的 Python 代码引入类型错误,需修复后重新 commit。
+  // id 说明:任务原话要求 id '31',但 '31' 已被 verify-auth-shell.mjs 占用
+  //   (同日 2026-07-26 新增),'34' 也被 check-ts-ignore.mjs 占用,故用下一个可用
+  //   编号 '35'。插入位置:30a 之后、2d(warn-only 区)之前(blocking 区末尾)。
+  {
+    id: '35',
+    label: '🐍 mypy 类型检查(防 ai-service Python 类型回退)',
+    script: 'check-mypy.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/ai-service 的 Python 代码有 mypy 类型错误,',
+      '     修复:cd apps/ai-service && mypy app --ignore-missing-imports',
+      '     紧急跳过(不推荐):HUSKY_SKIP_MYPY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
   {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',
