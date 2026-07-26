@@ -91,6 +91,11 @@ jobs:
           DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
         run: pnpm exec drizzle-kit migrate
 
+      - name: Seed E2E 测试用户(test@ihui.ai)
+        env:
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+        run: pnpm --filter @ihui/api run seed:test-users
+
       - name: Build API
         run: pnpm --filter @ihui/api run build
 
@@ -125,6 +130,10 @@ jobs:
         working-directory: apps/web
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
+          # CI 已在上方 "Seed E2E 测试用户" step 显式 seed,跳过 globalSetup 的重复 seed
+          E2E_SKIP_SEED: '1'
+          # CI 数据库为临时容器,跑完即销毁,无需 globalTeardown cleanup 节省时间
+          E2E_AUTO_CLEANUP: '0'
         run: pnpm exec playwright test
 
       - name: Upload test report
