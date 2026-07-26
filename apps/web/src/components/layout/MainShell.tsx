@@ -57,6 +57,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     if (!isDesktop || e.button !== 0) return
     const target = e.target as HTMLElement
     if (target.closest('a, button, [role="button"], input, textarea, select')) return
+    if (target.closest('[data-workspace-card]')) return
     void startWindowDrag()
   }
 
@@ -64,6 +65,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     if (!isDesktop) return
     const target = e.target as HTMLElement
     if (target.closest('a, button, [role="button"], input, textarea, select')) return
+    if (target.closest('[data-workspace-card]')) return
     void handleToggleMax()
   }
   const handleClose = async () => {
@@ -71,8 +73,14 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    // 外层 wrapper:顶栏 + 工作区卡片垂直排列,my-2 mr-2 与 Sidebar/AISidePanel 对齐
-    <div className="relative flex min-h-0 flex-1 flex-col my-2 mr-2">
+    // 外层 wrapper:顶栏 + 工作区卡片垂直排列
+    // 2026-07-26:my-2 -> pt-2 mb-2,让顶部 8px 间距在 wrapper 内部(可响应鼠标事件)
+    // 加 onMouseDown/onDoubleClick/cursor-move:顶部间距区域也可拖拽窗口 + 双击最大化
+    <div
+      className="relative flex min-h-0 flex-1 flex-col pt-2 mb-2 mr-2 cursor-move"
+      onMouseDown={handleDragRegionMouseDown}
+      onDoubleClick={handleDragRegionDoubleClick}
+    >
       {/* 顶栏:TagsView 在 MainShell 卡片外面上方(2026-07-26 第九次修订)
           - 高度 h-[44px],总顶部 = my-2(8px) + 44px = 52px(用户要求"统一减52")
           - 无卡片背景(透明),TagsView 自带 bg-muted/70 rounded-lg 独立呈现
@@ -133,7 +141,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           - bg-shell-panel rounded-xl 保持卡片视觉
           - flex-1 + min-h-0 填充剩余高度
           - overflow-hidden 裁剪子元素溢出 + 保持圆角不被覆盖 */}
-      <div className="bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl mt-2">
+      <div className="bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl mt-2 cursor-default" data-workspace-card>
         <main
           id="main"
           tabIndex={-1}
