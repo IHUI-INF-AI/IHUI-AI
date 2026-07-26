@@ -21,7 +21,7 @@ export default function UnreadBadge({
           size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'
         }`}
       >
-        <Text className="text-[10px] text-white">0</Text>
+        <Text className="text-[20rpx] text-white">0</Text>
       </View>
     )
   }
@@ -39,7 +39,7 @@ export default function UnreadBadge({
       className="flex items-center justify-center bg-destructive rounded-md px-1"
       style={{ minWidth, height: size === 'sm' ? 16 : 20 }}
     >
-      <Text className={`text-white ${size === 'sm' ? 'text-[10px]' : 'text-xs'}`}>{display}</Text>
+      <Text className={`text-white ${size === 'sm' ? 'text-[20rpx]' : 'text-xs'}`}>{display}</Text>
     </View>
   )
 }

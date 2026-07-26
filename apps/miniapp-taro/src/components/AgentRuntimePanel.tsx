@@ -92,7 +92,9 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
         <Text className="text-sm font-semibold text-foreground">
           {t('ai.agentDetail.runtimeTitle')}
         </Text>
-        {sessionId && <Text className="ml-2 text-xs text-muted-foreground">#{sessionId.slice(0, 8)}</Text>}
+        {sessionId && (
+          <Text className="ml-2 text-xs text-muted-foreground">#{sessionId.slice(0, 8)}</Text>
+        )}
         {status === 'running' && (
           <Text className="ml-2 text-xs text-primary">{t('ai.common.loading')}</Text>
         )}
@@ -156,7 +158,9 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
         {!plan && !output && !error && !permission && (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">{t('ai.agentDetail.runtimeEmpty')}</Text>
+            <Text className="text-sm text-muted-foreground">
+              {t('ai.agentDetail.runtimeEmpty')}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -169,7 +173,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
             placeholder={t('ai.agentDetail.runtimeInputPlaceholder')}
             disabled={status === 'running'}
             maxlength={-1}
-            className="flex-1 min-h-[60px] p-2 text-sm rounded-md border border-border bg-card"
+            className="flex-1 min-h-[120rpx] p-2 text-sm rounded-md border border-border bg-card"
           />
           {status === 'running' ? (
             <Button
