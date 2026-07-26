@@ -1,12 +1,21 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execSync } from 'node:child_process'
+import { execSync, spawnSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 
 // 动态导入 .js 模块(CommonJS → ESM 互操作)
-const { takeStagingSnapshot, restoreStaging } = await import('../lib/staging-snapshot.js')
+const { takeStagingSnapshot, restoreStaging, setupRestoreOnExit } = await import('../lib/staging-snapshot.js')
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const STAGING_SNAPSHOT_PATH = join(__dirname, '..', 'lib', 'staging-snapshot.js').replace(/\\/g, '/')
+
+// 辅助:在子进程中跑脚本(避免污染当前测试进程的 process.on 监听器)
+function runInChild(script, cwd) {
+  return spawnSync('node', ['-e', script], { cwd: cwd || process.cwd(), encoding: 'utf8' })
+}
 
 // ─── 测试辅助:创建临时 git 仓库 ─────────────────────────────
 function createTempGitRepo() {
@@ -326,6 +335,166 @@ test('E2E: 还原后 commit 不含被 unstage 的文件', () => {
     assert.equal(lastCommitFiles.length, 1)
     assert.ok(lastCommitFiles[0].includes('task.ts'))
     assert.ok(!lastCommitFiles.some((f) => f.includes('pollution.ts')))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── setupRestoreOnExit 测试(2026-07-26 立,SIGINT/SIGTERM 信号处理) ───
+// 这些测试在子进程中跑 setupRestoreOnExit,避免污染当前测试进程的 process.on 监听器。
+
+test('setupRestoreOnExit: 注册 exit/SIGINT/SIGTERM 3 个监听器', () => {
+  const script = `
+    const { setupRestoreOnExit } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+    setupRestoreOnExit(null, { silent: true })
+    console.log(JSON.stringify({
+      exit: process.listenerCount('exit'),
+      sigint: process.listenerCount('SIGINT'),
+      sigterm: process.listenerCount('SIGTERM'),
+    }))
+  `
+  const result = runInChild(script)
+  assert.equal(result.status, 0, `子进程应正常退出,stderr: ${result.stderr}`)
+  const counts = JSON.parse(result.stdout.trim())
+  assert.equal(counts.exit, 1, '应注册 1 个 exit 监听器')
+  assert.equal(counts.sigint, 1, '应注册 1 个 SIGINT 监听器')
+  assert.equal(counts.sigterm, 1, '应注册 1 个 SIGTERM 监听器')
+})
+
+test('setupRestoreOnExit: 正常退出(process.exit(0))时还原 staging area', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'file1.ts', 'a')
+    const script = `
+      const { takeStagingSnapshot, setupRestoreOnExit } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      const dir = ${JSON.stringify(dir.replace(/\\/g, '/'))}
+      const snapshot = takeStagingSnapshot({ cwd: dir })
+      setupRestoreOnExit(snapshot, { cwd: dir, silent: true })
+      // 模拟 hook 期间新增 staged 文件
+      require('fs').writeFileSync(dir + '/file2.ts', 'b')
+      require('child_process').execSync('git add file2.ts', { cwd: dir, stdio: 'pipe' })
+      // 正常退出(触发 process.on('exit'))
+      process.exit(0)
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0, `子进程应正常退出,stderr: ${result.stderr}`)
+    // 检查 staging area 只剩 file1.ts(file2.ts 被 unstage)
+    const staged = getStagedFiles(dir)
+    assert.equal(staged.length, 1, 'file2.ts 应被 unstage')
+    assert.ok(staged[0].includes('file1.ts'))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('setupRestoreOnExit: options.skip=true 时不还原 staging area', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'file1.ts', 'a')
+    const script = `
+      const { takeStagingSnapshot, setupRestoreOnExit } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      const dir = ${JSON.stringify(dir.replace(/\\/g, '/'))}
+      const snapshot = takeStagingSnapshot({ cwd: dir })
+      setupRestoreOnExit(snapshot, { cwd: dir, silent: true, skip: true })
+      require('fs').writeFileSync(dir + '/file2.ts', 'b')
+      require('child_process').execSync('git add file2.ts', { cwd: dir, stdio: 'pipe' })
+      process.exit(0)
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0)
+    // skip=true 时 file2.ts 不应被 unstage
+    const staged = getStagedFiles(dir)
+    assert.equal(staged.length, 2, 'skip=true 时不应 unstage')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('setupRestoreOnExit: null 快照时不阻塞退出', () => {
+  const script = `
+    const { setupRestoreOnExit } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+    setupRestoreOnExit(null, { silent: true })
+    process.exit(0)
+  `
+  const result = runInChild(script)
+  assert.equal(result.status, 0, 'null 快照应跳过还原,正常退出')
+})
+
+test('setupRestoreOnExit: 未捕获异常后仍还原 staging area', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'file1.ts', 'a')
+    const script = `
+      const { takeStagingSnapshot, setupRestoreOnExit } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      const dir = ${JSON.stringify(dir.replace(/\\/g, '/'))}
+      const snapshot = takeStagingSnapshot({ cwd: dir })
+      setupRestoreOnExit(snapshot, { cwd: dir, silent: true })
+      require('fs').writeFileSync(dir + '/file2.ts', 'b')
+      require('child_process').execSync('git add file2.ts', { cwd: dir, stdio: 'pipe' })
+      // 抛未捕获异常(触发 process.on('exit'))
+      throw new Error('simulated hook failure')
+    `
+    const result = runInChild(script, dir)
+    // 未捕获异常 → 退出码 1
+    assert.equal(result.status, 1, '未捕获异常应退出码 1')
+    // 但 staging area 仍应被还原(process.on('exit') 触发)
+    const staged = getStagedFiles(dir)
+    assert.equal(staged.length, 1, 'file2.ts 应被 unstage(异常后还原)')
+    assert.ok(staged[0].includes('file1.ts'))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('setupRestoreOnExit: process.exit(1) 时仍还原 staging area', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'file1.ts', 'a')
+    const script = `
+      const { takeStagingSnapshot, setupRestoreOnExit } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      const dir = ${JSON.stringify(dir.replace(/\\/g, '/'))}
+      const snapshot = takeStagingSnapshot({ cwd: dir })
+      setupRestoreOnExit(snapshot, { cwd: dir, silent: true })
+      require('fs').writeFileSync(dir + '/file2.ts', 'b')
+      require('child_process').execSync('git add file2.ts', { cwd: dir, stdio: 'pipe' })
+      // 模拟 hook 检查失败,显式 exit(1)
+      process.exit(1)
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 1, '应退出码 1')
+    // staging area 应被还原
+    const staged = getStagedFiles(dir)
+    assert.equal(staged.length, 1, 'file2.ts 应被 unstage(exit(1) 后还原)')
+    assert.ok(staged[0].includes('file1.ts'))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('setupRestoreOnExit: 多文件 hook 期间新增 → 全部 unstage', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'task1.ts', 'a')
+    stageFile(dir, 'task2.ts', 'b')
+    const script = `
+      const { takeStagingSnapshot, setupRestoreOnExit } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      const dir = ${JSON.stringify(dir.replace(/\\/g, '/'))}
+      const snapshot = takeStagingSnapshot({ cwd: dir })
+      setupRestoreOnExit(snapshot, { cwd: dir, silent: true })
+      // 模拟 hook 期间新增多个 staged 文件
+      require('fs').writeFileSync(dir + '/pollution1.ts', 'x')
+      require('fs').writeFileSync(dir + '/pollution2.ts', 'y')
+      require('fs').writeFileSync(dir + '/pollution3.ts', 'z')
+      require('child_process').execSync('git add pollution1.ts pollution2.ts pollution3.ts', { cwd: dir, stdio: 'pipe' })
+      process.exit(0)
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0)
+    const staged = getStagedFiles(dir)
+    assert.equal(staged.length, 2, '3 个 pollution 文件应被 unstage')
+    assert.ok(staged.some((f) => f.includes('task1.ts')))
+    assert.ok(staged.some((f) => f.includes('task2.ts')))
+    assert.ok(!staged.some((f) => f.includes('pollution')))
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
