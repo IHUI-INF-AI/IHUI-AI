@@ -156,7 +156,11 @@ export default function ImagePage() {
     <View className="min-h-screen bg-background flex flex-col">
       {result ? (
         <View className="flex-1 flex items-center justify-center p-[32rpx]">
-          <Image className="max-w-full max-h-[600rpx] rounded-[16rpx]" src={result} mode="aspectFit" />
+          <Image
+            className="max-w-full max-h-[600rpx] rounded-[16rpx]"
+            src={result}
+            mode="aspectFit"
+          />
         </View>
       ) : (
         <View className="flex-1 flex flex-col items-center justify-center">
@@ -168,13 +172,13 @@ export default function ImagePage() {
       )}
       {result ? (
         <View className="flex gap-2 px-4 pb-2">
-          <Button className="flex-1 text-sm rounded-md !bg-muted !text-foreground" onClick={onDownload}>
-            {t('ai.image.download')}
-          </Button>
           <Button
             className="flex-1 text-sm rounded-md !bg-muted !text-foreground"
-            openType="share"
+            onClick={onDownload}
           >
+            {t('ai.image.download')}
+          </Button>
+          <Button className="flex-1 text-sm rounded-md !bg-muted !text-foreground" openType="share">
             {t('ai.image.share')}
           </Button>
           <Button
@@ -264,13 +268,11 @@ export default function ImagePage() {
                 className="flex items-center py-2 bg-background rounded-md px-2"
                 onClick={() => replayHistory(h)}
               >
-                <Image
-                  className="w-10 h-10 rounded-md mr-2"
-                  src={h.url}
-                  mode="aspectFill"
-                />
+                <Image className="w-10 h-10 rounded-md mr-2" src={h.url} mode="aspectFill" />
                 <Text className="flex-1 text-xs text-foreground truncate">{h.prompt}</Text>
-                <Text className="text-[10px] text-muted-foreground ml-2">{fmtTime(h.createdAt)}</Text>
+                <Text className="text-[20rpx] text-muted-foreground ml-2">
+                  {fmtTime(h.createdAt)}
+                </Text>
               </View>
             ))}
           </View>

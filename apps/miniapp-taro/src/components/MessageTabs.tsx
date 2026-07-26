@@ -14,12 +14,7 @@ export interface MessageTabsProps {
 
 export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps) {
   return (
-    <ScrollView
-      scrollX
-      className="bg-card mb-2"
-      enhanced
-      showScrollbar={false}
-    >
+    <ScrollView scrollX className="bg-card mb-2" enhanced showScrollbar={false}>
       <View className="flex">
         {tabs.map((tab) => {
           const isActive = tab.key === active
@@ -39,8 +34,8 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
                   {tab.label}
                 </Text>
                 {showUnread && (
-                  <View className="ml-1 min-w-[16px] h-4 px-1 rounded-md bg-destructive flex items-center justify-center">
-                    <Text className="text-[10px] text-white">
+                  <View className="ml-1 min-w-[32rpx] h-4 px-1 rounded-md bg-destructive flex items-center justify-center">
+                    <Text className="text-[20rpx] text-white">
                       {tab.unread! > 99 ? '99+' : tab.unread}
                     </Text>
                   </View>
