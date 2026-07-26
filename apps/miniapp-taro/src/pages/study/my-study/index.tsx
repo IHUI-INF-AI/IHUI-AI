@@ -140,7 +140,8 @@ export default function MyStudy() {
           </Text>
         ))}
       </View>
-      <ScrollView scrollY className="flex-1 min-h-[0] p-[24rpx]">
+      <ScrollView scrollY className="flex-1 min-h-[0]">
+        <View className="p-[24rpx]">
         {displayList.length > 0 ? (
           displayList.map((item) => (
             <View key={item.id} className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
@@ -182,6 +183,7 @@ export default function MyStudy() {
             <Text className="block text-center text-muted-foreground px-[0] py-[40rpx]">{getEmptyText(activeTab)}</Text>
           </View>
         )}
+        </View>
       </ScrollView>
     </View>
   )

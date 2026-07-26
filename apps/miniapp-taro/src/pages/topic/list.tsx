@@ -129,7 +129,8 @@ export default function TopicListPage() {
   return (
     <View className="min-h-screen bg-background flex flex-col">
       <NavBar title={tt('topic.list.pageTitle', '话题')} showBack />
-      <ScrollView scrollY className="flex-1 p-[24rpx] pb-[60rpx] box-border">
+      <ScrollView scrollY className="flex-1 box-border">
+        <View className="p-[24rpx] pb-[60rpx]">
         {/* 搜索栏 */}
         <View className="flex items-center h-[72rpx] px-[20rpx] bg-card rounded-[12rpx] mb-[20rpx]">
           <Text className="mr-[12rpx] text-[28rpx] text-muted-foreground shrink-0">🔍</Text>
@@ -240,6 +241,7 @@ export default function TopicListPage() {
             <Text>{tt('topic.list.noMore', '没有更多了')}</Text>
           </View>
         ) : null}
+        </View>
       </ScrollView>
     </View>
   )
