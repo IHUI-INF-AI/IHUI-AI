@@ -32,7 +32,6 @@ import {
   updateNewsRecommendSort,
 } from '../db/misc-extended-queries.js'
 import { success, error } from '../utils/response.js'
-import { modelsRoutes } from './models.js'
 
 // =============================================================================
 // Zod schemas
@@ -100,9 +99,6 @@ const topOrRecommendSchema = z.object({
 // =============================================================================
 
 export const newsRoutes: FastifyPluginAsync = async (server) => {
-  // 模型市场路由(挂载 /models → 最终 URL /api/models/market,公开)
-  server.register(modelsRoutes, { prefix: '/models' })
-
   // GET /news/categories - 启用的分类列表（公开）
   server.get('/news/categories', async (_request, reply) => {
     const list = await findPublishedNewsCategories()
