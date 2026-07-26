@@ -66,7 +66,10 @@ test.describe.parallel('Web Vitals 性能专项', () => {
       await new Promise<void>((resolve) => {
         const obs = new PerformanceObserver((list) => {
           const entries = list.getEntries()
-          if (entries.length > 0) m.lcp = entries[entries.length - 1].startTime
+          if (entries.length > 0) {
+            const last = entries[entries.length - 1]
+            if (last) m.lcp = last.startTime
+          }
         })
         obs.observe({ type: 'largest-contentful-paint', buffered: true })
         setTimeout(() => {
@@ -79,7 +82,7 @@ test.describe.parallel('Web Vitals 性能专项', () => {
       const clsObs = new PerformanceObserver((list) => {
         for (const e of list.getEntries()) {
           if (!(e as { hadRecentInput?: boolean }).hadRecentInput) {
-            m.cls += (e as { value: number }).value
+            m.cls += (e as unknown as { value: number }).value
           }
         }
       })
