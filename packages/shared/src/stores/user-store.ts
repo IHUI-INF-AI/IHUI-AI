@@ -16,9 +16,19 @@
  * - web: createUserStore<UserProfile>({ transport: localStorageTransport, persistKey: 'ihui-user' })
  *        useEffect(() => { fetchProfile().then(p => setProfile(p)) }, [])
  * - mobile-rn: 同上,transport 用 AsyncStorage
+ *
+ * 修复说明(2026-07-26 立):
+ * Taro 4.2.0 Vite runner 把 `import { create } from 'zustand'` 错误归并为
+ * `taro.react_production_min.create`(React 上无此函数),导致 miniapp-taro 端运行时抛
+ * `TypeError: taro.react_production_min.create is not a function`。
+ * 修复方案:改用 `createStore` from 'zustand/vanilla' 创建 vanilla store,
+ * 再用 `useStore` from 'zustand/react' 绑定 React hook,
+ * 拆分 vanilla store 与 React hook 绑定,避开 Taro Vite 的归并 bug。
+ * 行为保持不变:useUserStore 仍可作 hook 调用,且支持 .getState()/.setState()/.subscribe()。
  */
 
-import { create, type StoreApi, type UseBoundStore } from 'zustand'
+import { createStore, type StoreApi } from 'zustand/vanilla'
+import { useStore, type UseBoundStore } from 'zustand/react'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import type { PersistTransport } from './transport'
 
@@ -86,25 +96,25 @@ export function createUserStore<TProfile>(
     loading: false,
     error: null,
     setProfile: (profile) => {
-      useStore.setState({ profile })
+      storeApi.setState({ profile })
     },
     updateProfile: (patch) => {
-      useStore.setState((s) =>
+      storeApi.setState((s) =>
         s.profile ? { profile: { ...s.profile, ...patch } } : s,
       )
     },
     setLoading: (loading) => {
-      useStore.setState({ loading })
+      storeApi.setState({ loading })
     },
     setError: (error) => {
-      useStore.setState({ error })
+      storeApi.setState({ error })
     },
     reset: () => {
-      useStore.setState({ profile: null, loading: false, error: null })
+      storeApi.setState({ profile: null, loading: false, error: null })
     },
   }
 
-  const useStore = create<UserStoreState<TProfile>>()(
+  const storeApi = createStore<UserStoreState<TProfile>>()(
     persist(() => initialState, {
       name: persistKey,
       storage: createJSONStorage(() => persistStorage),
@@ -115,13 +125,32 @@ export function createUserStore<TProfile>(
     }),
   )
 
+  // 用 Object.assign 把 React hook 与 vanilla store API 合并成 UseBoundStore 兼容对象,
+  // 这样 useUserStore 既能作 hook 调用,又能访问 .getState()/.setState()/.subscribe()
+  const useBoundStore = Object.assign(
+    function useUserStoreHook<U>(
+      selector?: (state: UserStoreState<TProfile>) => U,
+    ): U {
+      return useStore(
+        storeApi,
+        selector as (state: UserStoreState<TProfile>) => U,
+      )
+    } as UseBoundStore<StoreApi<UserStoreState<TProfile>>>,
+    {
+      getState: storeApi.getState,
+      setState: storeApi.setState,
+      subscribe: storeApi.subscribe,
+      getInitialState: storeApi.getInitialState,
+    },
+  )
+
   return {
-    useUserStore: useStore,
-    getState: useStore.getState,
-    setState: useStore.setState,
-    subscribe: useStore.subscribe,
+    useUserStore: useBoundStore,
+    getState: storeApi.getState,
+    setState: storeApi.setState,
+    subscribe: storeApi.subscribe,
     reset: () => {
-      useStore.setState({ profile: null, loading: false, error: null })
+      storeApi.setState({ profile: null, loading: false, error: null })
     },
   }
 }
