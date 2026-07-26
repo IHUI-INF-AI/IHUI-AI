@@ -1319,6 +1319,7 @@ IHUI-AI/
 | 30a        | check-commit-loss-guard.mjs            | _*Commit 丢失防护(blocking,AGENTS.md §22):reflog 50 步 reset 检测 + fsck 悬空 + lost-commit/* + backup/_ tag 完整性(本地+远端+对象可达)+ `sync-lost-commit-tags.mjs` 自动化 push** |
 | 30b        | check-test-paths.mjs                   | **测试目录命名守门(blocking,AGENTS.md §23):`__tests__/` 被 `.gitignore __*` 静默忽略扫描 + `.gitkeep` 复核 + 隐藏/临时目录检测**                                                   |
 | 30c        | check-cross-store-parity.mjs           | **跨端 storage-adapter 一致性守门(blocking,AGENTS.md §12):4 端(web/mobile-rn/miniapp-taro/extension)必需导出 + 共享 userPersistKey + partialize 不持久化 token**                   |
+| 35         | check-mypy.mjs                         | **mypy 类型检查守门(blocking,防 ai-service Python 类型回退):staged 涉及 `apps/ai-service/**/*.py` 时触发 `cd apps/ai-service && mypy app --ignore-missing-imports`,0 errors 才通过。背景:项目刚完成 mypy 全库清零(4 批次 256→0 errors,226 files)。跳过:`HUSKY_SKIP_MYPY=1 git commit ...`** |
 | 16         | 条件 typecheck                         | apps/web staged 时跑 typecheck                                                                                                                                                     |
 | 16b        | 条件 database build                    | packages/database/src staged 时跑 build                                                                                                                                            |
 | 16c        | 条件 RN global.css 同步                | mobile-rn/global.css 或 tokens.css staged 时跑同步检查                                                                                                                             |
@@ -2467,6 +2468,72 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 更多 i18n locale(阿拉伯语 / 葡萄牙语 / 西班牙语)
 
 完整任务计划与历史归档见 [PROJECT_PLAN.md](PROJECT_PLAN.md)。
+
+---
+
+## 盈利模式(开源 + 商业双轨)
+
+> **开源引流 + SaaS 变现 + 企业服务高利润**。Apache 2.0 开源,商业增值服务收费。完整设计见 [docs/monetization.md](docs/monetization.md)。
+
+### 7 大收入流
+
+| # | 收入流 | 月收入潜力 | 启动周期 |
+| --- | --- | --- | --- |
+| 1 | **SaaS 订阅**(免费/Pro/团队/企业分层) | ¥10K-100K+ | 1-2 周 |
+| 2 | **私有化部署服务**(¥30K-100K/单) | ¥5K-50K/单 | 立即 |
+| 3 | **API 计费**(按 Token,176 模型) | ¥3K-30K | 1 周 |
+| 4 | **企业定制开发**(¥3K/人天) | ¥30K-300K/单 | 按项目 |
+| 5 | **Agent 市场分成**(平台抽 25%) | ¥2K-20K | 2-4 周 |
+| 6 | **培训认证**(¥1K-30K/期) | ¥5K-50K/期 | 3-4 周 |
+| 7 | **GitHub Sponsors / Open Collective** | ¥1K-10K | 立即 |
+
+### SaaS 订阅定价(对标 ChatGPT 省 70%)
+
+| 套餐 | 价格 | 对标 | 功能要点 |
+| --- | --- | --- | --- |
+| **Free** | ¥0/月 | ChatGPT Free | 100 对话/月 + 1 知识库 + 1 Agent + Web/CLI |
+| **Pro** | ¥49/月 \| ¥499/年 | ChatGPT Plus ¥160/月(**省 70%**) | 无限对话 + 10 知识库 + 20 Agent + 全 8 端 + MCP |
+| **Team** | ¥199/人/月(5 人起) | ChatGPT Team ¥200/人/月 | Pro 全部 + 团队协作 + SSO + 审计日志 + 私有模型 |
+| **Enterprise** | ¥2999/月起(含 10 席) | Notion AI ¥800/人/月 | Team 全部 + 私有化部署 + SLA 99.9% + 定制开发 |
+
+**核心优势**:价格仅 ChatGPT 30%,但提供 **8 端覆盖 + 176 模型 + 私有部署 + 开源可审计**。
+
+### 私有化部署包
+
+- **标准包 ¥29,999**:Docker Compose 一键部署 + 176 模型配置 + 1 天远程协助 + 1 年维保
+- **高级包 ¥99,999**:内网离线部署 + 国产化适配(麒麟/统信/达梦) + 3 天现场 + 定制开发 10 人天
+
+### 6 个月目标
+
+| 指标 | 3 个月 | 6 个月 | 12 个月 |
+| --- | --- | --- | --- |
+| 注册用户 | 1,000 | 5,000 | 20,000 |
+| 付费用户 | 50 | 300 | 1,500 |
+| 月收入(MRR) | ¥10K | ¥50K | ¥200K |
+| GitHub Star | 100 | 500 | 2,000 |
+
+**立即行动**:配置支付(Stripe/微信/支付宝)+ 上线 SaaS 定价页面 + 创建企业版销售文案。
+
+---
+
+## Star 历史
+
+<a href="https://star-history.com/#IHUI-INF-AI/IHUI-AI&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=IHUI-INF-AI/IHUI-AI&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=IHUI-INF-AI/IHUI-AI&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=IHUI-INF-AI/IHUI-AI&type=Date" />
+  </picture>
+</a>
+
+---
+
+## 多语言 README
+
+| 语言 | 文件 |
+| --- | --- |
+| 简体中文 | [README.md](README.md) |
+| English | [README.en.md](README.en.md) |
 
 ---
 
