@@ -11123,35 +11123,12 @@
     "anonymous": "Anonymous"
   },
   "modelsBillingPage": {
-    "consumeTrend": "+{n}% vs last month",
-    "rechargeCount": "Total {n} recharges",
     "packages": {
       "starter": {
-        "features": [
-          "1,000 AI calls per month",
-          "Access to 3 base models",
-          "Standard API rate",
-          "Community support"
-        ]
       },
       "pro": {
-        "features": [
-          "20,000 AI calls per month",
-          "Access to all 15+ models",
-          "High-priority API rate",
-          "Email support (24h response)",
-          "Advanced Agent workflows"
-        ]
       },
       "enterprise": {
-        "features": [
-          "Unlimited AI calls",
-          "All models + custom fine-tuning",
-          "Dedicated API rate + 99.99% SLA",
-          "24/7 dedicated account manager",
-          "On-premise deployment + data isolation",
-          "Custom feature development support"
-        ]
       }
     }
   },
