@@ -22,15 +22,16 @@ scan_ambig.py — 口播稿歧义压缩扫描器 v1.1
 import os
 import re
 import sys
+from typing import Any
 
 # 统一从 koubo_terms 导入
 from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT, find_ambig_hits, find_alias_issues
 
 
-def scan_file(filepath, strict=False):
+def scan_file(filepath: str, strict: bool = False) -> list[dict[str, Any]]:
     with open(filepath, 'r', encoding='utf-8') as fp:
         content = fp.read()
-    issues = []
+    issues: list[dict[str, Any]] = []
     # 1) 4 类歧义压缩正则
     for hit in find_ambig_hits(content):
         hit['file'] = filepath
@@ -42,7 +43,7 @@ def scan_file(filepath, strict=False):
     return issues
 
 
-def main():
+def main() -> None:
     strict = False
     if len(sys.argv) > 1 and sys.argv[1] == '--strict':
         strict = True
