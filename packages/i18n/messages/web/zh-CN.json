@@ -11005,35 +11005,16 @@
     }
   },
   "n8nAgentsPage": {
-    "metaDescription": "N8N 工作流集成：自动化编排 AI agent，含客服机器人、内容审核、数据同步等。",
-    "subtitle": "N8N 工作流集成 - 通过 N8N 自动化编排 AI agent",
-    "cardTitle": "N8N 工作流集成",
-    "totalBadge": "共 {n} 个 Agent",
-    "activeBadge": "{n} 运行中",
-    "cardDescription": "通过 N8N 自动化编排 AI agent，串联客服、审核、同步、报表与告警等场景，实现端到端流程自动化。",
-    "createButton": "创建新 Agent",
-    "lastRunLabel": "最后执行",
-    "runCountLabel": "执行次数",
     "agents": {
       "alert-notify": {
-        "description": "",
-        "name": ""
       },
       "content-moderation": {
-        "description": "",
-        "name": ""
       },
       "customer-service": {
-        "description": "",
-        "name": ""
       },
       "data-sync": {
-        "description": "",
-        "name": ""
       },
       "report-generation": {
-        "description": "",
-        "name": ""
       }
     }
   },
