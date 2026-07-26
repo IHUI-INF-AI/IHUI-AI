@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * Shared Auth 静态回归守门脚本 (2026-07-26 升级,前身为 verify-auth-shell.mjs)
  *
@@ -43,7 +43,7 @@ import { join, relative, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // === CLI 解析(接受 guardian-runner 自动传的 --staged / --strict,纯静态扫描不依赖 staged) ===
-// eslint-disable-next-line no-unused-vars
+// eslint-disable-next-line no-unused-vars -- 保留签名兼容性,虽未直接调用但作为公开 API 占位
 const _argv = process.argv.slice(2).filter((a) => a === '--staged' || a === '--strict' || a.startsWith('--'))
 // 接受并忽略这些标记,避免 "unrecognized flag" 警告。--strict 保留位(当前实现无 warn 路径)
 

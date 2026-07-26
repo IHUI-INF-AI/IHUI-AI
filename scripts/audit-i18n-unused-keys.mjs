@@ -17,7 +17,7 @@
  *
  * 退出码:0 = 审计完成,1 = 参数错误 / 文件不存在
  */
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 import fs from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'

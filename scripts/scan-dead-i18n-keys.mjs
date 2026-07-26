@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * i18n 死 key 审计器 — web 兼容入口(2026-07-26 重构,2026-07-26 抽出公共函数到 _i18n-scan-helpers.mjs)
  *

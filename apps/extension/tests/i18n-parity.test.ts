@@ -78,7 +78,7 @@ describe('Extension i18n key parity', () => {
       expect.soft(count).toBe(first)
     }
     // 打印统计(调试用)
-    // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console -- 测试统计输出,允许 console
     console.log('[i18n parity] key counts:', counts.map((c) => `${c.lang}=${c.count}`).join(', '))
   })
 })
