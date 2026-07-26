@@ -10,6 +10,15 @@
 
 ---
 
+## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
+
+> 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:
+>
+> - **apps/desktop 平台独占豁免**:Tauri 桌面端,空壳待开发,仅桌面系统托盘/原生菜单等桌面专属能力,不参与 web/api/ai-service 跨端契约同步
+> - **apps/ai-service 平台独占豁免**:跨语言 Python 服务(FastAPI + LangGraph + LiteLLM + MCP),与 TS monorepo 共享 schema/types 但独立于前端构建链,不参与 web/api 的 TS typecheck/lint/build 同步
+
+---
+
 ## §1 后续任务建议(2026-07-26 维护成本优化批次)
 
 > 2026-07-26 维护成本优化批次(死 key 审计 + LLM 字典化阶段 1)完成后衍生 P2 任务清单。
