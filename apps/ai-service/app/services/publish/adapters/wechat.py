@@ -35,7 +35,7 @@ class WechatAdapter(BasePlatformAdapter):
     supported_formats = ["md", "html"]
     requires_credentials = ["app_id", "app_secret"]
 
-    async def _get_access_token(self, credentials: dict) -> tuple[bool, str]:
+    async def _get_access_token(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         """获取 access_token。
 
         Returns:
@@ -70,7 +70,7 @@ class WechatAdapter(BasePlatformAdapter):
             return False, f"get token failed: errcode={errcode} errmsg={errmsg}"
         return True, token
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         ok, msg_or_token = await self._get_access_token(credentials)
         if not ok:
             return False, msg_or_token
@@ -119,8 +119,8 @@ class WechatAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         ok, msg_or_token = await self._get_access_token(credentials)
         if not ok:
