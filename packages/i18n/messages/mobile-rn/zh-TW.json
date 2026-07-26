@@ -1,16 +1,8 @@
 {
   "common": {
-    "save": "儲存",
-    "cancel": "取消",
-    "delete": "刪除",
-    "back": "返回",
-    "confirm": "確認",
-    "loading": "載入中…",
-    "empty": "暫無資料",
-    "search": "搜尋"
+    "loading": "載入中…"
   },
   "nav": {
-    "home": "首頁",
     "courses": "課程",
     "live": "直播",
     "profile": "我的",
@@ -122,11 +114,8 @@
     "voice": "語音"
   },
   "settings": {
-    "title": "設定",
     "account": "帳號與安全",
     "notification": "訊息通知",
-    "language": "語言",
-    "theme": "主題",
     "about": "關於智匯 AI",
     "version": "版本",
     "notifPush": "推送通知",
