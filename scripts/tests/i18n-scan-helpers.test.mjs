@@ -97,11 +97,42 @@ describe('STATIC_T_RE — 静态 t("a.b.c") 全路径点分识别', () => {
     assert.equal(matchFirst(STATIC_T_RE, "t('a.b.c.d.e')"), 'a.b.c.d.e')
   })
 
-  test("t('about.heroTitle', { fallback: 'xxx' }) 带参数 → 当前不被 STATIC_T_RE 命中(已知限制,回归基线)", () => {
-    // STATIC_T_RE 要求 `)` 紧跟字符串引号,带参数(逗号分隔)时不匹配
-    // 这是扫描器的已知行为,本测试断言该行为作为回归基线
-    // 未来若增强 regex 支持带参数,需同步更新此测试为 assert.notEqual(null)
-    assert.equal(matchFirst(STATIC_T_RE, "t('about.heroTitle', { fallback: 'xxx' })"), null)
+  test("t('about.heroTitle', { fallback: 'xxx' }) 带对象参数 → 命中(2026-07-26 STATIC_T_RE 增强后)", () => {
+    // 2026-07-26 STATIC_T_RE 增强:新增 `(?:,[^)]*)?` 可选组支持带参数调用
+    // 修复前漏报场景:t('key', { args }) / t('key', count) 等带参数形式
+    assert.equal(matchFirst(STATIC_T_RE, "t('about.heroTitle', { fallback: 'xxx' })"), 'about.heroTitle')
+  })
+
+  test("t('about.heroTitle', { count: 5 }) 复数形式参数 → 命中", () => {
+    // next-intl 复数形式:t('key', { count: 5 }),增强前漏报
+    assert.equal(matchFirst(STATIC_T_RE, "t('about.heroTitle', { count: 5 })"), 'about.heroTitle')
+  })
+
+  test("t('a.b.c', 'default value') 字符串参数 → 命中(增强前漏报)", () => {
+    // 非对象参数也能识别(虽然 next-intl 不推荐这种用法)
+    assert.equal(matchFirst(STATIC_T_RE, "t('a.b.c', 'default value')"), 'a.b.c')
+  })
+
+  test("t('a.b.c', { x: foo(y) }) 嵌套括号参数 → 命中(捕获组仍正确)", () => {
+    // `[^)]*` 在第一个 `)` 前停止,捕获组 1 = 'a.b.c' 正确
+    assert.equal(matchFirst(STATIC_T_RE, "t('a.b.c', { x: foo(y) })"), 'a.b.c')
+  })
+
+  test("t('a.b.c', { deep: { nested: value } }) 深嵌套对象参数 → 命中", () => {
+    // 多层嵌套对象,只要不含 `)` 字符即可命中
+    assert.equal(matchFirst(STATIC_T_RE, "t('a.b.c', { deep: { nested: value } })"), 'a.b.c')
+  })
+
+  test("t('a.b', { x: 1 }) + t('c.d', { y: 2 }) 同行多调用 → 都命中", () => {
+    // g flag 在 while 循环中持续 exec,两处调用都应捕获
+    const results = []
+    STATIC_T_RE.lastIndex = 0
+    let m
+    while ((m = STATIC_T_RE.exec("t('a.b', { x: 1 }) + t('c.d', { y: 2 })")) !== null) {
+      results.push(m[1])
+    }
+    STATIC_T_RE.lastIndex = 0
+    assert.deepEqual(results.sort(), ['a.b', 'c.d'])
   })
 
   test('t(key) 动态变量 → 不应命中(防 false positive)', () => {
