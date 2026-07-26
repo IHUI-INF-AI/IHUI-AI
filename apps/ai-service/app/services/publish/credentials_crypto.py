@@ -13,7 +13,7 @@ import base64
 import json
 import os
 import secrets
-from typing import Any
+from typing import Any, cast
 
 from app.core.logging import get_logger
 
@@ -99,7 +99,7 @@ def decrypt(cipher_str: str) -> dict[str, Any]:
     ct_and_tag = blob[_IV_LEN:]
     aesgcm = AESGCM(key)
     plaintext = aesgcm.decrypt(iv, ct_and_tag, associated_data=None)
-    return json.loads(plaintext.decode("utf-8"))
+    return cast(dict[str, Any], json.loads(plaintext.decode("utf-8")))
 
 
 def generate_key_b64() -> str:

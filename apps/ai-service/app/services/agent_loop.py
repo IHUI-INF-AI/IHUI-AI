@@ -31,7 +31,7 @@ class AgentExecutor:
         # 运行中任务: task_id -> 状态信息
         self._running: dict[str, dict[str, Any]] = {}
         # 持有 create_task 引用,防止 CPython GC 回收未完成的 task
-        self._pending_tasks: set[asyncio.Task] = set()
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
 
     @staticmethod
     def _now() -> str:
