@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * 机器翻译 fallback 脚本:为 ja.json / ko.json 补全 ASCII(===en)未翻译键。
  *

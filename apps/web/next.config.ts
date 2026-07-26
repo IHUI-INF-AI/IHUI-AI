@@ -66,9 +66,9 @@ const nextConfig: NextConfig = {
       // 最小化内联类型,避免依赖 @types/webpack(Next.js 内置 webpack 但未导出类型声明)
       apply(compiler: { hooks: { afterEmit: { tap: (name: string, fn: () => void) => void } } }) {
         compiler.hooks.afterEmit.tap('EnsurePagesManifest', () => {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports
+          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports -- next.config webpack 钩子需用 require 加载 fs/path,as typeof import() 是动态类型导入
           const fs = require('fs') as typeof import('fs')
-          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports
+          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports -- next.config webpack 钩子需用 require 加载 fs/path,as typeof import() 是动态类型导入
           const path = require('path') as typeof import('path')
           const manifestPath = path.join(__dirname, '.next', 'server', 'pages-manifest.json')
           if (!fs.existsSync(manifestPath)) {

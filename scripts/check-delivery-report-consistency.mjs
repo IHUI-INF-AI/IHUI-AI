@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * 交付报告一致性守门 — 防止"声明无后续建议 + 列出后续建议"自相矛盾。
  *
