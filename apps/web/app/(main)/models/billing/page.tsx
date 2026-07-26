@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { ArrowUpRight, Check, DollarSign, Wallet } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { generateProductSchema, type ProductSchema } from '@/lib/seo/schema-product'
 
 /** i18n 静态映射表 — 用于消除 `t(`billing.transactions.types.${var}`)` 动态拼接 */
 const BILLING_TX_TYPE_KEY: Record<string, string> = {
@@ -17,6 +18,36 @@ const BILLING_TX_STATUS_KEY: Record<string, string> = {
 export default async function BillingPage() {
   const t = await getTranslations('models')
   const tp = await getTranslations('modelsBillingPage')
+
+  // 2026-07-26 GEO 强化:Product schema(适配 AI 引擎对"充值套餐"页面的结构化抓取)
+  let productJsonLd: ProductSchema | null = null
+  try {
+    const productT = await getTranslations('modelsBillingPage.productSchema')
+    const offerNames = ['starter', 'pro', 'enterprise'] as const
+    type OfferKey = (typeof offerNames)[number]
+    const offers: Array<{
+      name: string
+      price: number
+      priceCurrency: string
+      description: string
+    }> = offerNames.map((k: OfferKey) => ({
+      name: productT(`offers.${k}.name`),
+      price: Number(productT(`offers.${k}.price`)),
+      priceCurrency: productT('currency'),
+      description: productT(`offers.${k}.description`),
+    }))
+    productJsonLd = generateProductSchema({
+      name: productT('name'),
+      description: productT('description'),
+      url: 'https://ihui.ai/models/billing',
+      brand: productT('brand'),
+      category: productT('category'),
+      offers,
+      inLanguage: 'zh-CN',
+    })
+  } catch {
+    productJsonLd = null
+  }
 
   const packages = [
     {
@@ -97,11 +128,18 @@ export default async function BillingPage() {
   ]
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('billing.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('billing.subtitle')}</p>
-      </header>
+    <>
+      {productJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        />
+      ) : null}
+      <div className="space-y-6">
+        <header className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">{t('billing.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('billing.subtitle')}</p>
+        </header>
 
       {/* 余额卡片 */}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -241,6 +279,7 @@ export default async function BillingPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   )
 }
