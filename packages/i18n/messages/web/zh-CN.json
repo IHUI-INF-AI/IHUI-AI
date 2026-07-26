@@ -10995,30 +10995,12 @@
     "anonymous": "匿名用户"
   },
   "modelsBillingPage": {
-    "consumeTrend": "+{n}% vs 上月",
-    "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["每月 1000 次 AI 调用", "基础模型访问(3 个)", "标准 API 速率", "社区支持"]
       },
       "pro": {
-        "features": [
-          "每月 20000 次 AI 调用",
-          "全部模型访问(15+)",
-          "高优先级 API 速率",
-          "邮件技术支持(24h 响应)",
-          "高级 Agent 工作流"
-        ]
       },
       "enterprise": {
-        "features": [
-          "无限次 AI 调用",
-          "全部模型 + 自定义微调",
-          "专属 API 速率 + SLA 99.99%",
-          "7×24 专属客户经理",
-          "私有化部署 + 数据隔离",
-          "定制功能开发支持"
-        ]
       }
     }
   },
