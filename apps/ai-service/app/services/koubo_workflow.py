@@ -24,10 +24,13 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncIterator, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, AsyncIterator, Optional, TypedDict
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
+
+if TYPE_CHECKING:
+    from langgraph.graph.state import CompiledStateGraph
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +130,7 @@ class KouboWorkflowService:
 
     def __init__(self) -> None:
         self._available = False
-        self._graph = None
+        self._graph: Optional["CompiledStateGraph[KouboState, None, KouboState, KouboState]"] = None
         self._init_graph()
 
     def _init_graph(self) -> None:
