@@ -67,6 +67,7 @@ export default defineConfig(async (merge) => {
                   }
                 },
               },
+
               // weapp-tailwindcss:同时处理 WXSS 选择器转义和 wxml class 匹配
               // 让 .-bottom-[2px] 在 WXSS 中编译通过且 wxml class 匹配生效
               // 返回值为 WeappTailwindcssVitePlugin[],用展开运算符注入
