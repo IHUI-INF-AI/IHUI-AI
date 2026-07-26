@@ -13,7 +13,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { getMyRecords, getResult, type ExamResult, type ExamResultDetail } from '@/lib/exam-api'
+import { getMyRecords, getResult, type ExamResult, type ExamResultDetail } from '@ihui/api-client'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'

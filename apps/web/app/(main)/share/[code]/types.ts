@@ -1,4 +1,4 @@
-import type { ShareContent } from '@/lib/share-api'
+import type { ShareContent } from '@ihui/api-client'
 
 export interface ShareContentProps {
   shareData: ShareContent
