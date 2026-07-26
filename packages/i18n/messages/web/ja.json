@@ -8123,7 +8123,7 @@
     "q1Question": "智匯 AI とは何ですか?",
     "q1Answer": "智匯 AI(英語名 IHUI AI)はワンストップのフルスタック AI オペレーティングシステムです。Agent 設計、ナレッジベース RAG、マルチモデル統合スケジューリング、クロスプラットフォーム协作とチーム運営を1つのプラットフォームに統合し、Web、デスクトップ、ミニプログラム、ブラウザ拡張、React Native、CLI の6クライアントを1コードベースで配信、Apache 2.0 オープンソースのコアコードとセルフホスト展開をサポートします。",
     "q2Question": "智匯 AI と Dify、Coze、FastGPT の違いは?",
-    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。智匯 AI は現在唯一、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム协作 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
+    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。智匯 AI は現在少数、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム协作 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
     "q3Question": "智匯 AI は誰向けですか?",
     "q3Answer": "3タイプのユーザーが最も恩恵を受けます: AI 開発者(Agent の迅速な構築/配信/収益化、6クライアントへのワンクリック发布)、エンタープライズ IT(データ主権のためのセルフホスト展開、統合 AI 機能ハブ)、チームリーダー(マルチユーザー协作、統一ナレッジベース、統一課金)。",
     "q4Question": "どの AI モデルに対応していますか?",
@@ -9677,7 +9677,7 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "8プラットフォーム全面カバー · 業界唯一フルスタック AI プラットフォーム",
+      "content": "8プラットフォーム全面カバー · 業界でも比較的珍しいフルスタック AI プラットフォーム",
       "explore": "100+ LLM大モデル · 1つの API キーで全部アクセス · 年間 ¥18万節約",
       "brand": "独自 CLI、Claude Code 全次元対抗 · ACP が Zed/VSCode/Cursor に埋め込み",
       "connect": "LangGraph + MCP + A2A トリプルスタック · 1029+ API エンドポイント · 工業級厳格",
@@ -9706,7 +9706,7 @@
       "brandSubtitle": "8プラットフォーム · 100+ 大モデル · 1029+ API · 年間 ¥18万節約",
       "seats": "18席限定 · 意思決定者専用",
       "earlyBird": "アーリーバード ¥6000/年 · 67%オフ",
-      "multiEnd": "8プラットフォーム全面カバー · 業界唯一",
+      "multiEnd": "8プラットフォーム全面カバー · 業界でも比較的珍しい",
       "benefits": {
         "benefit6": "不満の場合は全額返金",
         "benefit1": "",
@@ -9714,10 +9714,13 @@
         "benefit3": "",
         "benefit4": "",
         "benefit5": ""
-      }
+      },
+      "subtitle": "フルスタック AI OS・8 プラットフォーム対応・ワンストップエージェント連携",
+      "description": "Zhihui AI は Agent マーケットプレイス、ナレッジベース RAG、マルチモデル統合ディスパッチ、MCP ツールプロトコルを統合。Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI の 6 プラットフォームに対応、Apache 2.0 オープンソース、プライベート展開をサポート。",
+      "perYear": "/年"
     },
     "stats": {
-      "platforms": "プラットフォームカバー · 業界唯一",
+      "platforms": "プラットフォームカバー · 業界でも比較的珍しい",
       "models": "+ LLM大モデル統合",
       "seats": "席限定 · 意思決定者専用"
     },
@@ -9729,7 +9732,11 @@
     "indicator": {
       "label": "ページナビゲーション",
       "switchTo": "第 {index} ページへ",
-      "page1": "ホーム"
+      "page1": "ホーム",
+      "page2": "ようこそ",
+      "page3": "機能",
+      "page4": "マガジン",
+      "page5": "料金"
     },
     "scrollDown": {
       "label": "下にスクロール"
@@ -9795,7 +9802,7 @@
       "subtitle": "8 プラットフォーム全面カバーの企業級 AI プラットフォーム · 100+ 大モデル · 独自 CLI · 工業級エンジニアリング厳格 · 意思決定者にすべての AI 能力をワンストップで",
       "modelIntegration": {
         "title": "8 プラットフォームフルスタックアーキテクチャ",
-        "description": "Web/デスクトップ/モバイル/ミニプログラム/CLI/拡張 6 端 + API/AI-Service 2 端、業界唯一フルスタック、統一アカウントシームレス切替",
+        "description": "Web/デスクトップ/モバイル/ミニプログラム/CLI/拡張 6 端 + API/AI-Service 2 端、業界でも比較的珍しいフルスタック、統一アカウントシームレス切替",
         "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 8 端汎用 · データゼロ移行"
       },
       "appStore": {
@@ -9825,8 +9832,8 @@
       },
       "workflow": {
         "title": "LangGraph ワークフロー",
-        "description": "2 個 LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、トリプルスタック合一業界唯一",
-        "benefit": "複雑タスク自動化 · 5+ SaaS ツール代替 · 業界唯一トリプルスタック合一"
+        "description": "2 個 LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、トリプルスタック合一業界でも比較的珍しい",
+        "benefit": "複雑タスク自動化 · 5+ SaaS ツール代替 · トリプルスタック合一業界でも比較的珍しい"
       },
       "multimodal": {
         "title": "マルチモーダル AI 入力",
@@ -9844,7 +9851,7 @@
         "evidence": "証拠:17 ガード > 業界平均 3 項目 / 122 migrations > 平均 30 / 12 packages > 平均 4 → 99.9% エラーフリー"
       },
       "efficient": {
-        "title": "スマートルーティング · 極致コスト削減",
+        "title": "スマートルーティング · 大幅コスト削減",
         "description": "LiteLLM 100+ モデルスマートルーティング(安価モデルフォールバック+旗艦モデル重要タスク)+ 60% キャッシュ命中降本 + LangGraph オーケストレーション",
         "evidence": "実測:Claude API 単回 ¥0.3 → スマートルーティング ¥0.06(安価モデルフォールバック)→ 60% キャッシュ命中後 ¥0.024 = 総合 60% 節約"
       },
@@ -9855,8 +9862,8 @@
       },
       "innovative": {
         "title": "トリプルスタック · 業界最先端",
-        "description": "LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、トリプルスタック業界唯一、Claude Code を全次元で超越",
-        "evidence": "業界唯一同時に LangGraph + MCP + A2A + ACP 四プロトコルをサポートするプラットフォーム · Cursor/Claude Code は MCP 単栈のみ"
+        "description": "LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、トリプルスタック業界でも比較的珍しい、Claude Code と複数次元で比較可能",
+        "evidence": "LangGraph + MCP + A2A + ACP 四プロトコルを同時にサポートするプラットフォーム · Cursor/Claude Code は MCP 単栈のみ"
       }
     },
     "scenarios": {
@@ -9897,7 +9904,7 @@
     "comparison": {
       "title": "競品対比 · 全次元超越",
       "titleEn": "COMPETITIVE COMPARISON",
-      "subtitle": "智匯AI vs Claude Code vs Cursor vs ChatGPT · 8 プラットフォーム全面カバー + 100+ LLM + トリプルスタック + エージェント広場 · 業界唯一",
+      "subtitle": "智匯AI vs Claude Code vs Cursor vs ChatGPT · 8 プラットフォーム全面カバー + 100+ LLM + トリプルスタック + エージェント広場",
       "colFeature": "対比次元",
       "colUs": "智匯AI",
       "colClaude": "Claude Code",
@@ -9996,6 +10003,14 @@
         "title": "",
         "value": ""
       }
+    },
+    "cta": {
+      "label": "ボトム CTA",
+      "title": "次の AI マイルストーンを見逃さない",
+      "subtitle": "毎日の AI ブリーフを購読し、IHUI AI コミュニティに参加して時代の波に乗りましょう。",
+      "join": "今すぐ参加",
+      "sectionLabel": "ボトムコールトゥアクション",
+      "dashboard": "ワークスペースへ"
     }
   },
   "aiNews": {
