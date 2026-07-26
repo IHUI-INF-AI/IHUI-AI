@@ -522,6 +522,53 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(502).send(error(502, `spec 增强失败: ${msg}`))
     }
   })
+
+  // ===========================================================================
+  // 以下 7 个端点为前端 spec-panel.tsx 已调用的 spec 高阶能力,后端 spec-service
+  // 尚未实现。补 501 stub 防止 404,并通过守门脚本第 8 项"前端↔后端路由一致性"。
+  // TODO: 待 spec-service 实装后逐个替换为真实业务逻辑。
+  // ===========================================================================
+  server.post('/spec/full-pipeline', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+  })
+
+  server.post('/spec/pipeline-rollback', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+  })
+
+  server.post('/spec/impact-analysis', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+  })
+
+  server.post('/spec/branch', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+  })
+
+  server.post('/spec/branch/merge', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+  })
+
+  server.post('/spec/branch/abandon', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+  })
+
+  server.post('/spec/generate-from-requirement', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+  })
 }
 
 export default specRoutes
