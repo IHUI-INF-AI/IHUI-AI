@@ -10,13 +10,9 @@ curl -sI http://localhost:3000 | head -1   # → HTTP/1.1 200
 curl -sI http://localhost:8802/api/health  # → HTTP/1.1 200
 curl -sI http://localhost:8803/health      # → HTTP/1.1 200
 
-# 2. 跑单个 spec(如 4 状态自验)
+# 2. 跑全套 visual 回归
 cd apps/web
 $env:PLAYWRIGHT_REUSE_SERVER='1'
-npx playwright test tests/visual/login-dialog-verify.spec.ts \
-  --config=playwright.visual.config.ts --reporter=line
-
-# 3. 跑全套 visual 回归
 npx playwright test --config=playwright.visual.config.ts --reporter=line
 ```
 
@@ -24,7 +20,6 @@ npx playwright test --config=playwright.visual.config.ts --reporter=line
 
 | spec                            | 场景                | 4 状态                                           |
 | ------------------------------- | ------------------- | ------------------------------------------------ |
-| `login-dialog-verify.spec.ts`   | AI 登录框视觉/结构  | ✅ default / hover / active / dark               |
 | `model-selector.spec.ts`        | 模型选择器下拉菜单  | ✅ default / hover / active / dark               |
 | `prompt-templates.spec.ts`      | AI 对话框提示词模板 | ✅ default / hover / popover / empty / dark      |
 | `sidebar-height-verify.spec.ts` | 侧边栏按钮高度统一  | ✅ default                                       |
