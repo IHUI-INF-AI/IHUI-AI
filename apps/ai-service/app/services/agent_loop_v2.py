@@ -654,8 +654,8 @@ class AgentLoopV2:
         if self.parallel_tool_calls and len(tool_calls) > 1:
             # 并行执行
             tasks = [self._execute_single(tc) for tc in tool_calls]
-            results = await asyncio.gather(*tasks, return_exceptions=False)
-            return list(results)
+            gathered = await asyncio.gather(*tasks, return_exceptions=False)
+            return list(gathered)
         else:
             # 串行执行
             results: list[ToolResult] = []

@@ -250,7 +250,7 @@ class AgentExecutor:
                     "goal": goal,
                     "steps": steps,
                     "finalResult": final_content,
-                    "existingSkills": [s.name for s in skill_registry.list()],
+                    "existingSkills": [s.name for s in skill_registry.list_skills()],
                 }))
                 self._pending_tasks.add(task)
                 task.add_done_callback(self._pending_tasks.discard)

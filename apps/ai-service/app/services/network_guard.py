@@ -90,6 +90,7 @@ class NetworkEgressPolicy:
         except Exception as e:  # noqa: BLE001
             logger.warning("网络策略检查异常: %s, url=%s", e, url)
             return False, f"check error: {e}"
+        return False, "unreachable"
 
     def _match_domains(self, host: str) -> bool:
         """检查 host 是否匹配域名列表(支持通配符 *.example.com)。"""
