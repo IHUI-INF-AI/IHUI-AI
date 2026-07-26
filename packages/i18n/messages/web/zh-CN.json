@@ -12121,7 +12121,6 @@
       }
     }
   },
-  "modelsPage": "Models",
   "useCasesAiEdu": {
     "metaTitle": "AI 教育 Agent 用例 — 课程编排/智能答疑/学习推荐 | IHUI AI",
     "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建的 AI 教育 Agent:课程结构化编排、智能答疑、作业批改、个性化学习路径、学习数据看板,8 端同源分发。",
@@ -12163,39 +12162,5 @@
         "ratingValue": 4.8
       }
     }
-  },
-  "seo": {
-    "imageSitemap": {
-      "title": "图片站点地图 — 智汇 AI",
-      "description": "智汇 AI 图片站点地图,涵盖 public/images/ 下所有官方品牌素材、图标、登录三方素材,供 Google Images 抓取。"
-    },
-    "newsSitemap": {
-      "title": "新闻站点地图 — 智汇 AI",
-      "description": "智汇 AI 新闻站点地图,过去 30 天内的产品发布、安全加固、能力上线条目,内容追溯 docs/CHANGELOG.md。"
-    },
-    "jsonFeed": {
-      "title": "JSON Feed — 智汇 AI",
-      "description": "智汇 AI JSON Feed 1.1 订阅,支持 5 语言切换,提供结构化订阅源,适合 LLM 与 MCP 客户端解析。"
-    },
-    "opml": {
-      "title": "OPML 订阅源大纲 — 智汇 AI",
-      "description": "智汇 AI 全订阅源 OPML 2.0 索引:主订阅源、实时推送、搜索引擎 sitemap、5 语言版本分组,一键导入阅读器。"
-    }
-  },
-  "useCasesAiDesign": {
-    "metaTitle": "AI 设计协作 Agent — 海报/Logo 概念/UI 转代码/设计审查 | IHUI AI",
-    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 设计协作 Agent:海报 Logo 概念 + UI 转代码 + 品牌资产管理 + 设计审查 + 设计系统检索,8 端同源分发,Apache 2.0 开源。"
-  },
-  "useCasesAiMarketing": {
-    "metaTitle": "AI 营销内容生成 Agent — 多平台文案/SEO/A/B 测试 | IHUI AI",
-    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 营销内容生成 Agent:多平台文案 + SEO 博客 + 品牌调性一致 + A/B 测试 + 受众画像,8 端同源分发,Apache 2.0 开源。"
-  },
-  "useCasesAiResearch": {
-    "metaTitle": "AI 学术研究助手 Agent — 论文检索/综述/引用管理 | IHUI AI",
-    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 学术研究助手:论文检索 + PDF 解析 + 引用管理 + 综述生成 + 知识图谱 + 趋势分析,8 端同源分发,Apache 2.0 开源。"
-  },
-  "useCasesAiTranslation": {
-    "metaTitle": "AI 多语言翻译 Agent — 文档翻译/本地化/术语库/字幕 | IHUI AI",
-    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 多语言翻译 Agent:多语言文档翻译 + 本地化工作流 + 术语库管理 + 翻译审校 + 文化适配 + 字幕翻译,8 端同源分发,Apache 2.0 开源。"
   }
 }

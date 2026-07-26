@@ -25,6 +25,7 @@ import {
   STATIC_T_RE,
   DYNAMIC_T_RE,
   USE_T_RE,
+  PROP_KEY_RE,
   flatten,
   loadJson,
   walkDir,
@@ -178,6 +179,84 @@ describe('STATIC_T_RE — 静态 t("a.b.c") 全路径点分识别', () => {
   })
 })
 
+describe('PROP_KEY_RE — 属性赋值全路径 i18n key 识别(2026-07-26 增强)', () => {
+  // 背景:design.responsive.device* 6 个 key 在 responsive-devices.ts 中以
+  // { nameKey: 'design.responsive.deviceMobilePortrait' } 属性赋值形式引用,
+  // 原扫描器仅识别 t('a.b.c') / useTranslations('ns') 模式,漏识别属性赋值,
+  // 导致这 6 个 key 被误判为死 key。PROP_KEY_RE 补此缺口。
+
+  test("nameKey: 'design.responsive.deviceMobilePortrait' → 命中全路径 key", () => {
+    assert.equal(
+      matchFirst(PROP_KEY_RE, "  { id: 'mobile-portrait', nameKey: 'design.responsive.deviceMobilePortrait', width: 375 }"),
+      'design.responsive.deviceMobilePortrait',
+    )
+  })
+
+  test("titleKey: 'a.b.c' → 命中(titleKey 白名单)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "titleKey: 'a.b.c'"), 'a.b.c')
+  })
+
+  test("labelKey: 'a.b.c' → 命中(labelKey 白名单)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "labelKey: 'a.b.c'"), 'a.b.c')
+  })
+
+  test("descriptionKey: 'a.b.c' → 命中(descriptionKey 白名单)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "descriptionKey: 'a.b.c'"), 'a.b.c')
+  })
+
+  test("textKey: 'a.b.c' → 命中(textKey 白名单)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "textKey: 'a.b.c'"), 'a.b.c')
+  })
+
+  test('titleKey: "a.b.c" 双引号 → 命中', () => {
+    assert.equal(matchFirst(PROP_KEY_RE, 'titleKey: "a.b.c"'), 'a.b.c')
+  })
+
+  test('titleKey: `a.b.c` 模板字面量 → 命中', () => {
+    assert.equal(matchFirst(PROP_KEY_RE, 'titleKey: `a.b.c`'), 'a.b.c')
+  })
+
+  test("nameKey:'a.b.c' 无空格 → 命中(容错)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "nameKey:'a.b.c'"), 'a.b.c')
+  })
+
+  test("nameKey:  'a.b.c' 多空格 → 命中(容错)", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "nameKey:  'a.b.c'"), 'a.b.c')
+  })
+
+  test("nameKey: 'kouzi' 单段无点 → 不应命中(防 false positive,单段是相对引用)", () => {
+    // 关键:单段值(无点)是运行时解析的相对引用,不是静态全路径 i18n key
+    assert.equal(matchFirst(PROP_KEY_RE, "nameKey: 'kouzi'"), null)
+  })
+
+  test("nameKey: 'example1Name' 单段无点 → 不应命中", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "nameKey: 'example1Name'"), null)
+  })
+
+  test("dataKey: 'a.b.c' 非白名单属性 → 不应命中(防 false positive)", () => {
+    // dataKey/idKey/valueKey 等非 i18n 约定属性不命中
+    assert.equal(matchFirst(PROP_KEY_RE, "dataKey: 'a.b.c'"), null)
+  })
+
+  test("idKey: 'a.b.c' 非白名单属性 → 不应命中", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "idKey: 'a.b.c'"), null)
+  })
+
+  test("myNameKey: 'a.b.c' 非白名单(前缀附加)→ 不应命中(\\b 词边界)", () => {
+    // \b 要求 nameKey 前是词边界,myNameKey 中的 nameKey 前是字母(非词边界)
+    assert.equal(matchFirst(PROP_KEY_RE, "myNameKey: 'a.b.c'"), null)
+  })
+
+  test("nameKey: 'a.b.c.d.e' 多段点分 → 命中", () => {
+    assert.equal(matchFirst(PROP_KEY_RE, "nameKey: 'a.b.c.d.e'"), 'a.b.c.d.e')
+  })
+
+  test("nameKeys: 'a.b.c' 复数形式 → 不应命中(防 false positive,Key 后缀精确匹配)", () => {
+    // nameKeys(复数)不是 i18n 约定属性,Key 后必须紧跟冒号(允许空格)
+    assert.equal(matchFirst(PROP_KEY_RE, "nameKeys: 'a.b.c'"), null)
+  })
+})
+
 describe('DYNAMIC_T_RE — 动态 t(`prefix.${var}`) 模板字符串拼接识别', () => {
   test('t(`home.marquee.${var}`) → 命中(模板字符串拼接,2026-07-26 关键场景)', () => {
     // DYNAMIC_T_RE 不捕获 key(因为 key 是动态的),只验证命中
@@ -279,11 +358,13 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
   let tmpDir
   let clientFile
   let serverFile
+  let propKeyFile
 
   before(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-scan-test-'))
     clientFile = path.join(tmpDir, 'page.tsx')
     serverFile = path.join(tmpDir, 'server-page.tsx')
+    propKeyFile = path.join(tmpDir, 'devices.ts')
     fs.writeFileSync(
       clientFile,
       [
@@ -301,6 +382,17 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
         "import { getTranslations } from 'next-intl/server'",
         "const t = await getTranslations('modelsReferralPage')",
         "t('modelsReferralPage.title')",
+      ].join('\n'),
+      'utf8',
+    )
+    fs.writeFileSync(
+      propKeyFile,
+      [
+        "// 模拟 responsive-devices.ts 的 nameKey 属性赋值形式",
+        "export const devices = [",
+        "  { id: 'mobile-portrait', nameKey: 'design.responsive.deviceMobilePortrait', width: 375 },",
+        "  { id: 'desktop', nameKey: 'design.responsive.deviceDesktop', width: 1440 },",
+        "]",
       ].join('\n'),
       'utf8',
     )
@@ -338,13 +430,30 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
     )
   })
 
-  test('scanCode 多文件聚合(client + server 混合)', () => {
-    const { staticRefs, usedNamespaces, scanned } = scanCode([clientFile, serverFile])
-    assert.equal(scanned, 2)
+  test('scanCode 识别 nameKey 属性赋值形式的全路径 i18n key(2026-07-26 PROP_KEY_RE 增强)', () => {
+    // 关键回归测试:design.responsive.device* 6 个 key 在 responsive-devices.ts 中
+    // 以 { nameKey: 'design.responsive.deviceXxx' } 属性赋值形式引用,
+    // 原扫描器漏识别,导致这 6 个 key 被误判为死 key
+    const { staticRefs, scanned } = scanCode([propKeyFile])
+    assert.equal(scanned, 1)
+    assert.ok(
+      staticRefs.has('design.responsive.deviceMobilePortrait'),
+      "应识别 nameKey: 'design.responsive.deviceMobilePortrait' 为静态引用",
+    )
+    assert.ok(
+      staticRefs.has('design.responsive.deviceDesktop'),
+      "应识别 nameKey: 'design.responsive.deviceDesktop' 为静态引用",
+    )
+  })
+
+  test('scanCode 多文件聚合(client + server + propKey 混合)', () => {
+    const { staticRefs, usedNamespaces, scanned } = scanCode([clientFile, serverFile, propKeyFile])
+    assert.equal(scanned, 3)
     assert.ok(usedNamespaces.has('about'))
     assert.ok(usedNamespaces.has('modelsReferralPage'))
     assert.ok(staticRefs.has('about.heroTitle'))
     assert.ok(staticRefs.has('modelsReferralPage.title'))
+    assert.ok(staticRefs.has('design.responsive.deviceMobilePortrait'))
   })
 
   test('scanCode 空数组 → scanned=0,所有集合为空', () => {
