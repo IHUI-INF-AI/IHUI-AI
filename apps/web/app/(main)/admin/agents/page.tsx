@@ -1,17 +1,11 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { toast } from 'sonner'
-// @ts-ignore
 import { Plus, ChevronLeft, ChevronRight, Bot } from 'lucide-react'
-
-// @ts-ignore
 import { Button } from '@ihui/ui-react'
 import { AgentsFilter } from './AgentsFilter'
 import { AgentsTable } from './AgentsTable'

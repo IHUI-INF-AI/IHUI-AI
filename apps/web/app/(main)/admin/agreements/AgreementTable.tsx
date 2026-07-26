@@ -1,8 +1,5 @@
 'use client'
-
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Loader2, FileText } from 'lucide-react'
 import { th } from './helpers'
 import type { Agreement } from './types'

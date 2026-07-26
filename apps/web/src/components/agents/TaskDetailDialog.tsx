@@ -15,7 +15,6 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { CenteredText } from '@/components/common/CenteredText'
 import { transitionKanbanTask, deleteKanbanTask } from '@/lib/agent-kanban-api'
-// @ts-ignore - @ihui/types not resolved in typecheck
 import type { AgentTaskStatus, KanbanTask } from '@ihui/types'
 import {
   STATUS_BADGE_CLASS,
