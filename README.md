@@ -310,9 +310,9 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
 | 标语                              | 价值锚点                                                                                |
 | --------------------------------- | --------------------------------------------------------------------------------------- |
 | **"一个仓库集成 6 类 SaaS 能力"** | 对齐 Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code 能力(部分覆盖),月省 $300+ |
-| **"5 分钟从 Fork 到商用"**        | Docker Compose 一键启动 14 服务,从克隆到上线约 5 分钟,传统方案 3-6 个月               |
+| **"5 分钟从 Fork 到商用"**        | Docker Compose 一键启动 14 服务,从克隆到上线约 5 分钟,传统方案 3-6 个月                 |
 | **"AI 应用界的 Kubernetes"**      | 把"基础设施搭建"标准化、可复用,任何团队都能在统一基座上跑自己的 AI 应用                 |
-| **"8 端 + 176 模型 + 三栈"**      | 8 端代码 + 176 模型 + LangGraph+MCP+A2A 三栈,开源 AI 生态中覆盖较广                 |
+| **"8 端 + 176 模型 + 三栈"**      | 8 端代码 + 176 模型 + LangGraph+MCP+A2A 三栈,开源 AI 生态中覆盖较广                     |
 | **"Apache 2.0,商用零限制"**       | License 商用友好,无 copyleft 约束,允许闭源商用,企业可放心 Fork                          |
 | **"数据 100% 主权"**              | 完全自托管,凭证 AES-256-GCM 加密,无任何外部回传,符合 GDPR / 等保要求                    |
 
@@ -1867,6 +1867,39 @@ LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `Pro
 - **迁移工具**:`scripts/migrate-llm-providers.mjs`(从扁平 `*_api_key` 字段 → JSON 字典格式,支持 `--dry-run` 预览)
 - **测试**:`apps/ai-service/tests/test_provider_config.py`(36+ 单测,覆盖字段校验 / 环境变量解析 / 迁移一致性)
 - **向后兼容**:1 版本 deprecation 期,旧 `*_api_key` 字段仍可工作(运行时自动 fallback 到 JSON 配置)
+
+---
+
+## LLM 字典化闭环 PoC(2026-07-26 G1+G2 完成)
+
+把"LLM 字典化"从 provider 字段层面推进到 **subagent 长任务**与 **结构化输出**两个层面,PoC 已落地。
+
+### G1 — 业务代号字典(`apps/ai-service/app/core/prompt_dict.py`)
+
+把 IHUI-AI 8 端 + 通用 LLM/Agent 概念映射成短代号,序列化到 system prompt,让 subagent 长任务里反复使用短代号,减少 token 消耗 + 降低假阳性。
+
+- **字典规模**:`DOMAIN_ALIASES` ≥20 条(覆盖 UI 组件 / 渲染方式 / 端 / 模块 / 数据形态 5 类)
+- **注入入口**:`project_memory.build_system_prompt()` 自动把 `## 业务代号字典` 段拼接到 system prompt 头部
+- **调用方**:`persona_registry.build_persona_system_prompt()` 透传 5 个 persona,所有走 persona 的 LLM 调用自动获得代号字典
+- **测试**:`tests/test_prompt_dict.py`(9 单测,全绿)+ `tests/test_project_memory.py` 新增注入验证(19 单测,全绿)
+
+### G2 — LLM 自由输出统一 JSON Schema(`llm_gateway.structured_completion`)
+
+强制 LLM 返回符合 JSON Schema 的结构化输出,替代松散的"prompt 里写'请输出 JSON'+ 后置正则解析"路径。
+
+- **核心 API**:`LLMGateway.structured_completion(messages, schema, model, schema_name, max_retries)` → 解析后的 dict,或 error dict(由调用方降级)
+- **协议**:走 OpenAI 原生 `response_format: { type: "json_schema", json_schema: { name, schema, strict: true } }`(LiteLLM 透传给各厂商)
+- **校验**:required 字段 + `additionalProperties: False` 强制校验,失败自动 retry(默认 1 次)
+- **迁移调用点**:`spec_generator.split_tasks()`(从 `_call_llm + _parse_tasks_json` 改为 `structured_completion`)+ 失败降级到 `mechanical_split`
+- **测试**:`tests/test_llm_gateway.py::TestStructuredCompletion*`(15 单测,全绿,覆盖 Success/Validation/Error/Retry 四类)+ `tests/test_spec_generator.py::TestSplitTasks`(10 单测,全绿,验证迁移后等价)
+
+### 字典化三层能力对照
+
+| 层级          | 内容                         | 落地位置                                    | 状态      |
+| ------------- | ---------------------------- | ------------------------------------------- | --------- |
+| L1 数据层     | 24+7 LLM provider 字段字典化 | `provider_config.py` + `LLM_PROVIDERS_JSON` | ✅ 阶段 2 |
+| L2 业务代号   | 8 端 + UI 组件 + 模块短代号  | `prompt_dict.py` + `project_memory.py`      | ✅ G1 PoC |
+| L3 输出结构化 | LLM 输出强 JSON Schema 约束  | `llm_gateway.structured_completion`         | ✅ G2 PoC |
 
 ---
 
