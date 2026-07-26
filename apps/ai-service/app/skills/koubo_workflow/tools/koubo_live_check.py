@@ -425,7 +425,7 @@ def check_cross(all_reports: list[dict[str, Any]]) -> None:
     print(f"  {'✓' if avg_score >= 5 else '✗'} 收藏均分: {avg_score:.1f} (需≥5.0)")
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print("用法:")
         print("  python koubo_live_check.py \"正文内容...\"     # 单篇检查")
