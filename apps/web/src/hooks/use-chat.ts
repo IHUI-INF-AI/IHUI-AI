@@ -56,7 +56,7 @@ interface SlashCommandResult {
 //   titleTemplate: 可选,仅 wechat_daily 用,支持 {date} 占位符
 const SELF_MEDIA_SLASH_MAP = {
   '/wechat-article': {
-    endpoint: '/api/self-media/wechat/generate',
+    endpoint: '/api/self-media/wechat/generate', // method: POST
     parseArgs: (rest: string) => ({ title: rest || '今日公众号文章' }),
     format: (r: SlashCommandResult) => {
       if (!r.success) return `❌ 公众号文章生成失败: ${r.error || '未知错误'}`

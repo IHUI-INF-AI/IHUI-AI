@@ -1,15 +1,7 @@
 {
-  "common": {
-    "loading": "載入中…"
-  },
   "nav": {
-    "courses": "課程",
-    "live": "直播",
     "profile": "我的",
     "agents": "智慧體"
-  },
-  "auth": {
-    "login": "登入"
   },
   "home": {
     "welcome": "歡迎使用智匯 AI"
@@ -17,8 +9,6 @@
   "course": {
     "title": "課程",
     "studentCount": "{{count}} 人學過",
-    "rating": "評分",
-    "free": "免費",
     "pay": "支付 ¥{{amount}}",
     "enroll": "立即報名",
     "enrolled": "已報名",
@@ -80,12 +70,9 @@
       "paid": "已付款",
       "cancelled": "已取消",
       "refunding": "退款中",
-      "refunded": "已退款",
       "completed": "已完成",
       "failed": "失敗"
-    },
-    "empty": "暫無訂單",
-    "orderNo": "訂單編號"
+    }
   },
   "wallet": {
     "points": "積分"

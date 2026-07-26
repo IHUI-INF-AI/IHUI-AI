@@ -174,7 +174,6 @@
     "adminDynamic": "동적 라우트",
     "overview": "개요",
     "learn": "학습",
-    "live": "라이브",
     "exam": "시험",
     "lecturers": "강사",
     "schedule": "일정",
@@ -925,8 +924,6 @@
       "total": "총 {total}개"
     },
     "result": {
-      "correct": "정답",
-      "wrong": "오답",
       "unanswered": "미응답",
       "duration": "소요 시간",
       "minutes": "{n}분",
@@ -6887,7 +6884,6 @@
     "title": "AI인마음페이스테스트",
     "subtitle": "포괄적인의개발문서및API참조",
     "loading": "로딩 중...",
-    "empty": "라이브 없음",
     "category": "카테고리",
     "allCategories": "All categories",
     "search": "검색",
@@ -12413,11 +12409,26 @@
     "title": "모델 그룹",
     "description": "시나리오/능력별로 그룹화된 모델 목록",
     "group": {
-      "1": { "name": "일반 대화", "desc": "범용 시나리오 대화 모델" },
-      "2": { "name": "코드 생성", "desc": "코드 자동완성 / 리팩터 / 리뷰" },
-      "3": { "name": "멀티모달", "desc": "이미지·텍스트 이해 / 생성" },
-      "4": { "name": "추론 분석", "desc": "수학 / 논리 / 분석" },
-      "5": { "name": "장문 컨텍스트", "desc": "장문 컨텍스트 요약 / 분석" }
+      "1": {
+        "name": "일반 대화",
+        "desc": "범용 시나리오 대화 모델"
+      },
+      "2": {
+        "name": "코드 생성",
+        "desc": "코드 자동완성 / 리팩터 / 리뷰"
+      },
+      "3": {
+        "name": "멀티모달",
+        "desc": "이미지·텍스트 이해 / 생성"
+      },
+      "4": {
+        "name": "추론 분석",
+        "desc": "수학 / 논리 / 분석"
+      },
+      "5": {
+        "name": "장문 컨텍스트",
+        "desc": "장문 컨텍스트 요약 / 분석"
+      }
     }
   },
   "modelsPage": "Models",
