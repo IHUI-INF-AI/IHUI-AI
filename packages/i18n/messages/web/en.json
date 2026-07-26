@@ -7966,7 +7966,7 @@
     "qwenVideoTitle": "Qwen Video Generation",
     "qwenVideoSubtitle": "Generate videos with Qwen",
     "oneClickVideoTitle": "One-Click Video Generation",
-    "oneClickVideoSubtitle": "Auto-select the best model to generate video",
+    "oneClickVideoSubtitle": "Auto-select the recommended model to generate video",
     "sora2VideoTitle": "Sora2 Video Generation",
     "sora2VideoSubtitle": "Generate videos with Sora2",
     "visionAnalysisTitle": "Vision Analysis",
@@ -10222,6 +10222,26 @@
       "join": "Join Now",
       "sectionLabel": "Bottom Call-to-Action",
       "dashboard": "Go to Workspace"
+    },
+    "articleSchema": {
+      "headline": "AI News · Real-time Aggregation",
+      "description": "IHUI AI News: aggregating 41 authoritative sources (Weibo/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv, etc.), auto-collected every 6 hours, with real-time category tags (models/products/industry/papers) and trend signals.",
+      "author": "IHUI AI Editorial Team",
+      "datePublished": "2026-07-26",
+      "articleBody": "IHUI AI News delivers 7x24 automated AI industry aggregation across domestic and international mainstream media, social platforms, and first-party technical blogs. Every item is auto-classified (model/product/industry/paper) and sentiment-tagged via natural language processing, with subscription, bookmark, share, and trending features for readers, helping developers, product managers, and decision-makers stay on the AI pulse.",
+      "articleSection": "AI News",
+      "keywords": [
+        "AI News",
+        "LLM",
+        "OpenAI",
+        "GPT",
+        "Claude",
+        "HackerNews",
+        "TechCrunch",
+        "Arxiv",
+        "Trend Signals",
+        "IHUI AI"
+      ]
     }
   },
   "cliImport": {
@@ -12142,7 +12162,13 @@
     "responsive": {
       "customWidth": "Custom Width",
       "apply": "Apply",
-      "deviceFrame": "Device Frame"
+      "deviceFrame": "Device Frame",
+      "deviceMobilePortrait": "Mobile Portrait",
+      "deviceMobileLandscape": "Mobile Landscape",
+      "deviceTabletPortrait": "Tablet Portrait",
+      "deviceTabletLandscape": "Tablet Landscape",
+      "deviceDesktop": "Desktop",
+      "deviceCustom": "Custom"
     },
     "templates": {
       "title": "Templates"
@@ -12273,6 +12299,30 @@
           "SLA 99.95%"
         ]
       }
+    },
+    "productSchema": {
+      "name": "IHUI AI Top-up Packages",
+      "description": "API top-up packages for the IHUI AI full-stack AI OS, covering individual developers, small teams, and enterprise needs, supporting both usage-based billing and monthly subscriptions.",
+      "brand": "IHUI AI",
+      "category": "Software > AI Development Platform > API Credits",
+      "currency": "USD",
+      "offers": {
+        "starter": {
+          "name": "Starter",
+          "price": 9.9,
+          "description": "1M tokens quota, basic models, 5 API tokens, community support."
+        },
+        "pro": {
+          "name": "Pro",
+          "price": 99,
+          "description": "15M tokens quota, all models, 20 API tokens, priority support, 90-day call logs."
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "price": 999,
+          "description": "200M tokens quota, dedicated model channel, unlimited API tokens, dedicated account manager, permanent call logs, SLA 99.95%."
+        }
+      }
     }
   },
   "modelsReferralPage": {
@@ -12333,5 +12383,93 @@
         "description": "Monitors abnormal metrics and auto-notifies on-call personnel, supporting multi-level escalation strategies."
       }
     }
+  },
+  "modelsGroupsPage": {
+    "title": "Model Groups",
+    "description": "Models grouped by scenario and capability",
+    "group": {
+      "1": { "name": "General Chat", "desc": "General-purpose conversational models" },
+      "2": { "name": "Code Generation", "desc": "Code completion / refactor / review" },
+      "3": { "name": "Multimodal", "desc": "Image and text understanding / generation" },
+      "4": { "name": "Reasoning & Analysis", "desc": "Math / logic / analysis" },
+      "5": { "name": "Long Context", "desc": "Long-context summarization / analysis" }
+    }
+  },
+  "modelsPage": "Models",
+  "useCasesAiEdu": {
+    "metaTitle": "AI Education Agent Use Case — Course Authoring / Q&A / Learning Path | IHUI AI",
+    "metaDescription": "Build AI Education Agent with IHUI AI full-stack AI OS: structured course authoring, smart Q&A, auto-grading, personalized learning paths, learning dashboard, 8-end sync distribution.",
+    "courseSchema": {
+      "name": "IHUI AI Education Agent Bootcamp",
+      "description": "Hands-on course for building AI Education Agents targeting K12, vocational training, and corporate L&D, covering structured course authoring, smart Q&A, auto-grading, learning dashboards, and personalized recommendations. Go live in 30 minutes.",
+      "provider": "IHUI AI",
+      "startDate": "2026-08-01",
+      "endDate": "2026-12-31",
+      "courseWorkload": "PT16H",
+      "about": [
+        "AI Education",
+        "Course Authoring",
+        "Smart Q&A",
+        "Auto-grading",
+        "Learning Recommendation",
+        "MCP Tool Protocol",
+        "Knowledge Base RAG",
+        "Multi-model Routing"
+      ],
+      "teaches": [
+        "Structured course authoring",
+        "Smart Q&A workflow design",
+        "Auto-grading implementation",
+        "Learning dashboard construction",
+        "Personalized learning path recommendation"
+      ]
+    }
+  },
+  "useCasesCustomerSupport": {
+    "reviewSchema": {
+      "itemReviewed": "IHUI AI Smart Customer Service Agent",
+      "reviewBody": "After three months of integrating IHUI AI Smart Customer Service, daily human-agent volume dropped from 800 to 240 (a 70% reduction). Night and holiday inquiries are now 100% handled by AI. Customer satisfaction rose from 4.1 to 4.7. The unified knowledge base keeps answers consistent across all channels (WeChat / web / miniapp), and human-AI handoff seamlessly escalates complex issues with AI-suggested responses, so the support team finally focuses on tickets that need real judgment.",
+      "author": "Chen Xiaotong",
+      "authorJobTitle": "Director of Customer Success",
+      "authorAffiliation": "A SaaS Startup",
+      "datePublished": "2026-07-26",
+      "reviewRating": {
+        "ratingValue": 4.8
+      }
+    }
+  },
+  "seo": {
+    "imageSitemap": {
+      "title": "Image Sitemap — IHUI AI",
+      "description": "IHUI AI image sitemap covering all official brand assets, icons, and third-party login materials under public/images/, for Google Images crawling."
+    },
+    "newsSitemap": {
+      "title": "News Sitemap — IHUI AI",
+      "description": "IHUI AI news sitemap listing product releases, security hardening, and capability launches from the past 30 days, traced to docs/CHANGELOG.md."
+    },
+    "jsonFeed": {
+      "title": "JSON Feed — IHUI AI",
+      "description": "IHUI AI JSON Feed 1.1 subscription with 5-language switch support, providing structured feed data suitable for LLM and MCP client parsing."
+    },
+    "opml": {
+      "title": "OPML Subscription Outline — IHUI AI",
+      "description": "IHUI AI full-feed OPML 2.0 outline: main feeds, real-time push, search-engine sitemaps, and 5-language version groups, one-click import into any reader."
+    }
+  },
+  "useCasesAiDesign": {
+    "metaTitle": "AI Design Collaboration Agent — Poster/Logo Concept / Sketch to Code / Review | IHUI AI",
+    "metaDescription": "Build an AI design collaboration agent on IHUI AI full-stack AI OS: poster/Logo concepts + sketch-to-code + brand asset management + design review + design system retrieval, 8-endpoint sync distribution, Apache 2.0 open source."
+  },
+  "useCasesAiMarketing": {
+    "metaTitle": "AI Marketing Content Generation Agent — Multi-platform Copy / SEO / A/B | IHUI AI",
+    "metaDescription": "Build an AI marketing content generation agent on IHUI AI full-stack AI OS: multi-platform copy + SEO blog + brand voice consistency + A/B testing + persona-driven content, 8-endpoint sync distribution, Apache 2.0 open source."
+  },
+  "useCasesAiResearch": {
+    "metaTitle": "AI Academic Research Assistant — Paper Retrieval / Review / Citation | IHUI AI",
+    "metaDescription": "Build an AI academic research assistant on IHUI AI full-stack AI OS: paper retrieval + PDF parsing + citation management + review generation + knowledge graph + trend analysis, 8-endpoint sync distribution, Apache 2.0 open source."
+  },
+  "useCasesAiTranslation": {
+    "metaTitle": "AI Multilingual Translation Agent — Document / Localization / Glossary / Subtitle | IHUI AI",
+    "metaDescription": "Build an AI multilingual translation agent on IHUI AI full-stack AI OS: multilingual document translation + localization workflow + glossary management + translation review + cultural adaptation + subtitle translation, 8-endpoint sync distribution, Apache 2.0 open source."
   }
 }
