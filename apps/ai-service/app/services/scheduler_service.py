@@ -10,7 +10,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Awaitable, cast
 
 import httpx
 import redis.asyncio as aioredis
@@ -84,7 +84,7 @@ class TaskScheduler:
         if redis_url:
             try:
                 self._redis = aioredis.from_url(redis_url, decode_responses=True)
-                await self._redis.ping()
+                await cast(Awaitable[bool], self._redis.ping())
                 logger.info("[scheduler_service] Redis connected")
             except Exception as e:
                 logger.warning("[scheduler_service] Redis 不可用,降级内存: %s", e)
@@ -204,7 +204,7 @@ class TaskScheduler:
         tasks: list[dict[str, Any]] = []
         if self._redis is not None:
             async for key in self._redis.scan_iter(match=_REDIS_KEY_PREFIX + "*"):
-                raw = await self._redis.hgetall(key)
+                raw = await cast(Awaitable[dict[str, str]], self._redis.hgetall(key))
                 if raw:
                     tasks.append(self._decode_task(raw))
         else:
@@ -218,7 +218,7 @@ class TaskScheduler:
             return {"ok": True, "task": None, "stub": True}
         task: dict[str, Any] | None = None
         if self._redis is not None:
-            raw = await self._redis.hgetall(_REDIS_KEY_PREFIX + task_id)
+            raw = await cast(Awaitable[dict[str, str]], self._redis.hgetall(_REDIS_KEY_PREFIX + task_id))
             if raw:
                 task = self._decode_task(raw)
         else:
@@ -242,7 +242,7 @@ class TaskScheduler:
             return {"ok": True, "stub": True}
         current: dict[str, Any] | None = None
         if self._redis is not None:
-            raw = await self._redis.hgetall(_REDIS_KEY_PREFIX + task_id)
+            raw = await cast(Awaitable[dict[str, str]], self._redis.hgetall(_REDIS_KEY_PREFIX + task_id))
             if raw:
                 current = self._decode_task(raw)
         else:
@@ -363,7 +363,7 @@ class TaskScheduler:
                 "created_at": task.get("created_at", ""),
                 "next_run_at": task.get("next_run_at", ""),
             }
-            await self._redis.hset(key, mapping=mapping)
+            await cast(Awaitable[int], self._redis.hset(key, mapping=mapping))
             await self._redis.expire(key, _REDIS_TTL_SECONDS)
         else:
             self._memory_fallback[task["task_id"]] = task
@@ -385,8 +385,8 @@ class TaskScheduler:
         entry = {"at": _now_iso(), "error": message}
         if self._redis is not None:
             key = _REDIS_LOG_PREFIX + task_id
-            await self._redis.lpush(key, json.dumps(entry, ensure_ascii=False))
-            await self._redis.ltrim(key, 0, _LOG_KEEP - 1)
+            await cast(Awaitable[int], self._redis.lpush(key, json.dumps(entry, ensure_ascii=False)))
+            await cast(Awaitable[str], self._redis.ltrim(key, 0, _LOG_KEEP - 1))
             await self._redis.expire(key, _REDIS_TTL_SECONDS)
         else:
             self._memory_logs.setdefault(task_id, []).insert(0, entry)
@@ -397,7 +397,7 @@ class TaskScheduler:
             return
         loaded = 0
         async for key in self._redis.scan_iter(match=_REDIS_KEY_PREFIX + "*"):
-            raw = await self._redis.hgetall(key)
+            raw = await cast(Awaitable[dict[str, str]], self._redis.hgetall(key))
             if not raw:
                 continue
             task = self._decode_task(raw)
