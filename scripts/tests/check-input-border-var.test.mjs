@@ -196,8 +196,7 @@ test('豁免: 行首 // 注释 hsl(var(--xxx)) → 跳过 exit 0', () => {
 })
 
 // ─── 11. 批量扫描:多文件(2 违规 + 1 合法)──────────────
-// 注:源脚本 roots 含 'apps/web/src' + 'apps/web/src/styles'(后者是前者子目录),
-// 放在 styles/ 下的文件会被扫描两次(双重计数)。用 apps/web/app/ 避免重复扫描。
+// 注:用 apps/web/app/(独立 root)测试批量扫描,与 apps/web/src 互不重叠。
 test('批量: apps/web/app 含 3 文件(2 违规 + 1 合法)→ 报告 2 违规', () => {
   const dir = createTempScanDir({
     'apps/web/app/styles/bad1.css': `.a {\n  color: hsl(var(--color-a));\n}\n`,
@@ -276,6 +275,42 @@ test('空目录: 无 apps/web/src 等 → 扫描 0 文件 exit 0', () => {
     const r = runScript(dir)
     assert.equal(r.status, 0, `空目录应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /扫描 0 文件/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 17. 双重扫描修复:styles 子目录文件只被扫一次(扫描计数)──
+// 回归:修复前 roots 同时含 'apps/web/src' 与 'apps/web/src/styles'(后者是前者子目录),
+//      walk 递归会把 styles/ 下文件加入 targets 两次 → "扫描 2 文件"。
+//      修复后删除嵌套子路径 → "扫描 1 文件"。
+test('双重扫描修复: apps/web/src/styles 下 1 文件 → 扫描 1 文件(非 2)', () => {
+  const dir = createTempScanDir({
+    'apps/web/src/styles/only.css': `.x {\n  color: var(--color-border);\n}\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `无违规应 exit 0,实际 ${r.status}\nstderr: ${r.stderr}`)
+    assert.match(r.stdout, /扫描 1 文件/, `应只扫 1 次,stdout: ${r.stdout}`)
+    assert.doesNotMatch(r.stdout, /扫描 2 文件/, `不应双重扫描,stdout: ${r.stdout}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 18. 双重扫描修复:styles 子目录 1 违规 → violations 计为 1(非 2)──
+// 回归:修复前 styles/ 下文件被扫两次,同一处违规被计入两次 → "2 处违规"。
+//      修复后只扫一次 → "1 处违规"。
+test('双重扫描修复: apps/web/src/styles 下 1 违规文件 → 报告 1 处违规(非 2)', () => {
+  const dir = createTempScanDir({
+    'apps/web/src/styles/bad.css': `.x {\n  color: hsl(var(--color-primary));\n}\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `1 违规应 exit 1,实际 ${r.status}`)
+    // 脚本输出格式:"找到 N 处 CSS 颜色 token 嵌套违规"(N 与"违规"间有文字,用"找到 N 处"匹配)
+    assert.match(r.stderr, /找到 1 处/, `应计为 1 处违规,stderr: ${r.stderr}`)
+    assert.doesNotMatch(r.stderr, /找到 2 处/, `不应翻倍计为 2 处,stderr: ${r.stderr}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
