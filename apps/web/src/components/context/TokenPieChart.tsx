@@ -76,14 +76,14 @@ export function TokenPieChart({ distribution, size = 220 }: TokenPieChartProps) 
         aria-label="Token 分布饼图"
       >
         {total === 0 ? (
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth={2} />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--muted)" strokeWidth={2} />
         ) : (
           paths.map((p) => (
             <path
               key={p.key}
               d={p.d}
               fill={TOKEN_COLORS[p.key]}
-              stroke="hsl(var(--card))"
+              stroke="var(--card)"
               strokeWidth={1.5}
             >
               <title>
@@ -92,7 +92,7 @@ export function TokenPieChart({ distribution, size = 220 }: TokenPieChartProps) 
             </path>
           ))
         )}
-        <circle cx={cx} cy={cy} r={r * 0.55} fill="hsl(var(--card))" />
+        <circle cx={cx} cy={cy} r={r * 0.55} fill="var(--card)" />
         <text
           x={cx}
           y={cy - 6}

@@ -232,8 +232,8 @@ check('apps/api/src/routes/oauth-keys.ts 存在并注册', () => {
   for (const ep of ['/generate', '/rotate', '/revoke', '/list', '/active']) {
     if (!text.includes(ep)) throw new Error(`oauth-keys.ts 缺端点: ${ep}`);
   }
-  const server = readFileSync(path.join(ROOT, 'apps/api/src/server.ts'), 'utf-8');
-  if (!server.includes('oauthKeysRoutes')) throw new Error('server.ts 未注册 oauthKeysRoutes');
+  const routesIdx = readFileSync(path.join(ROOT, 'apps/api/src/routes/index.ts'), 'utf-8');
+  if (!routesIdx.includes('oauthKeysRoutes')) throw new Error('routes/index.ts 未注册 oauthKeysRoutes');
   return true;
 });
 
@@ -329,16 +329,16 @@ for (const { file, endpoints } of java17Checks) {
   });
 }
 
-// 5. 路径别名 redirect 必须在 server.ts 中
+// 5. 路径别名 redirect 必须在 routes/index.ts 中
 console.log(`\n${C.cyan}[5/7] 路径别名重定向${C.reset}`);
-check('server.ts 含 3 个路径别名 redirect (agents/agent-withdrawal-detail/ai-model-info)', () => {
-  const text = readFileSync(path.join(ROOT, 'apps/api/src/server.ts'), 'utf-8');
+check('routes/index.ts 含 3 个路径别名 redirect (agents/agent-withdrawal-detail/ai-model-info)', () => {
+  const text = readFileSync(path.join(ROOT, 'apps/api/src/routes/index.ts'), 'utf-8');
   for (const r of [
     "redirect('/api/agents/list'",
     "redirect('/api/agent-ext/withdrawal/list'",
     "redirect('/api/llm/models'",
   ]) {
-    if (!text.includes(r)) throw new Error(`server.ts 缺 redirect: ${r}`);
+    if (!text.includes(r)) throw new Error(`routes/index.ts 缺 redirect: ${r}`);
   }
   return true;
 });
@@ -385,8 +385,8 @@ check('后端 /api/auth/qr/status + /qr/generate 端点存在', () => {
   return true;
 });
 
-check('server.ts 含 5+ 个路径别名 redirect (agents/withdrawal/ai-model-info/customer-service/ai-capabilities)', () => {
-  const text = readFileSync(path.join(ROOT, 'apps/api/src/server.ts'), 'utf-8');
+check('routes/index.ts 含 5+ 个路径别名 redirect (agents/withdrawal/ai-model-info/customer-service/ai-capabilities)', () => {
+  const text = readFileSync(path.join(ROOT, 'apps/api/src/routes/index.ts'), 'utf-8');
   for (const r of [
     "redirect('/api/agents/list'",
     "redirect('/api/agent-ext/withdrawal/list'",
@@ -394,7 +394,7 @@ check('server.ts 含 5+ 个路径别名 redirect (agents/withdrawal/ai-model-inf
     "redirect('/api/v1/customer_service/faqs'",
     "redirect('/api/ai-ext/capabilities'",
   ]) {
-    if (!text.includes(r)) throw new Error(`server.ts 缺 redirect: ${r}`);
+    if (!text.includes(r)) throw new Error(`routes/index.ts 缺 redirect: ${r}`);
   }
   return true;
 });
