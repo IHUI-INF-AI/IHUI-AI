@@ -43,12 +43,15 @@ export default function TitleSwitchScrollTitle({
     setSubList(first?.children || [])
   }, [mainList])
 
-  const mainChange = useCallback((e: { detail: { current: number } }) => {
-    const idx = e.detail.current
-    setCurrent(idx)
-    setSubList(mainList[idx]?.children || [])
-    setSubSelected(null)
-  }, [mainList])
+  const mainChange = useCallback(
+    (e: { detail: { current: number } }) => {
+      const idx = e.detail.current
+      setCurrent(idx)
+      setSubList(mainList[idx]?.children || [])
+      setSubSelected(null)
+    },
+    [mainList],
+  )
 
   const selectMain = useCallback(
     (idx: number) => {
@@ -73,9 +76,9 @@ export default function TitleSwitchScrollTitle({
   )
 
   return (
-    <View className="w-full rounded-b-[15px] bg-white pb-[12px] shadow-[0_4px_2px_-4px_rgba(0,0,0,0.3)]">
-      <View className="w-full px-[28px] box-border mb-[18px]">
-        <View className="text-[30px] font-bold tracking-[0.08em] text-black">主赛道:</View>
+    <View className="w-full rounded-b-[30rpx] bg-white pb-[24rpx] shadow-[0_4px_2px_-4px_rgba(0,0,0,0.3)]">
+      <View className="w-full px-[56rpx] box-border mb-[36rpx]">
+        <View className="text-[60rpx] font-bold tracking-[0.08em] text-black">主赛道:</View>
         <Swiper
           circular
           duration={500}
@@ -83,14 +86,14 @@ export default function TitleSwitchScrollTitle({
           nextMargin={mainSwiperMargin}
           current={current}
           onChange={mainChange}
-          className="w-[calc(100vw-60px)] box-border h-[60px]"
+          className="w-[calc(100vw-60px)] box-border h-[120rpx]"
         >
           {mainList.map((item, index) => (
             <SwiperItem
               key={index}
-              className={`flex items-center justify-center h-[46px] mr-[30px] box-border rounded-[6px] whitespace-nowrap text-[24px] text-black ${
+              className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-[12rpx] whitespace-nowrap text-[48rpx] text-black ${
                 current === index
-                  ? 'font-bold text-[#7361FF] border-[7px] border-transparent'
+                  ? 'font-bold text-[#7361FF] border-[14rpx] border-transparent'
                   : ''
               }`}
               onClick={() => selectMain(index)}
@@ -101,8 +104,8 @@ export default function TitleSwitchScrollTitle({
         </Swiper>
       </View>
       {subList && subList.length > 0 ? (
-        <View className="w-full px-[28px] box-border mb-[18px]">
-          <View className="text-[30px] font-bold tracking-[0.08em] text-black">子赛道:</View>
+        <View className="w-full px-[56rpx] box-border mb-[36rpx]">
+          <View className="text-[60rpx] font-bold tracking-[0.08em] text-black">子赛道:</View>
           <Swiper
             circular
             duration={500}
@@ -110,14 +113,14 @@ export default function TitleSwitchScrollTitle({
             nextMargin={subSwiperMargin}
             current={subSelected ?? 0}
             onChange={subChange}
-            className="w-[calc(100vw-60px)] box-border h-[60px]"
+            className="w-[calc(100vw-60px)] box-border h-[120rpx]"
           >
             {subList.map((item, index) => (
               <SwiperItem
                 key={index}
-                className={`flex items-center justify-center h-[46px] mr-[30px] box-border rounded-[6px] whitespace-nowrap text-[24px] text-black ${
+                className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-[12rpx] whitespace-nowrap text-[48rpx] text-black ${
                   subSelected === index
-                    ? 'font-bold text-[#7361FF] border-[7px] border-transparent'
+                    ? 'font-bold text-[#7361FF] border-[14rpx] border-transparent'
                     : ''
                 }`}
                 onClick={() => selectSub(index)}
