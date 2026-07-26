@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Check, Globe, ShieldCheck, Users, Zap } from 'lucide-react'
 import { AnimatedNumber, RevealOnView } from '@/components/common'
 import { Marquee } from '@/components/marketing/Marquee'
+import { GithubStarBanner } from '@/components/marketing/GithubStarBanner'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
 import { BrandMarquee } from '@/components/marketing/BrandMarquee'
@@ -91,6 +92,7 @@ export default function HomePage() {
               像 banner 一样最先被看到) */}
           <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
             <Marquee />
+            <GithubStarBanner />
           </div>
 
           {/* 主区:hero + 信任行,flex-1 占满所有剩余空间 */}
@@ -145,7 +147,10 @@ export default function HomePage() {
                   delay={0.5 + i * 0.06}
                   className="group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md md:text-sm"
                 >
-                  <Check className="h-3.5 w-3.5 shrink-0 text-success transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                  <Check
+                    className="h-3.5 w-3.5 shrink-0 text-success transition-transform duration-200 group-hover:scale-110"
+                    aria-hidden="true"
+                  />
                   <span className="truncate">{b}</span>
                 </RevealOnView>
               ))}
