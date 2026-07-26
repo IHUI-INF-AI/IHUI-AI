@@ -392,7 +392,16 @@
       "close": "お知らせを閉じる"
     },
     "banner": {
-      "switchTo": "第 {index} 枚目に切り替え"
+      "switchTo": "第 {index} 枚目に切り替え",
+      "slide1Cta": "今すぐ学習",
+      "slide1Subtitle": "パーソナライズ学習パス、AI チュータリングで効率的成長",
+      "slide1Title": "AI スマート学習プラットフォーム",
+      "slide2Cta": "配信ルームへ",
+      "slide2Subtitle": "専門家によるライブ配信、リアルタイム Q&A",
+      "slide2Title": "リアルタイムインタラクティブ配信",
+      "slide3Cta": "評価を開始",
+      "slide3Subtitle": "スマート出題、学習成果を精緻に評価",
+      "slide3Title": "AI スマート評価"
     },
     "memberCard": {
       "points": "ポイント",
@@ -440,6 +449,22 @@
       "questions": "{count}問",
       "answers": "{count}回答",
       "members": "{count}人"
+    },
+    "marquee": {
+      "kouzi": "コウズ",
+      "bbxLogo": "BBX",
+      "zhipu": "Zhipu AI",
+      "brand8": "ブランド 8",
+      "ali": "アリババ",
+      "baidu": "バイドゥ",
+      "dbsfdx": "東北師範大学",
+      "gork": "Gork",
+      "huawei": "ファーウェイ",
+      "jldx": "吉林大学",
+      "openai": "OpenAI",
+      "tencent": "テンセント",
+      "yuanbaoxiang": "元宝箱",
+      "yushu": "宇樹科技"
     }
   },
   "announcements": {
@@ -1060,16 +1085,48 @@
     "answerCount": "{count} 回答",
     "viewCount": "{count}",
     "required": "{label}はです",
-    "answerQuestion": "："
+    "answerQuestion": "：",
+    "all": ""
   },
   "payment": {
-    "title": "APIテスト",
-    "subtitle": "のなドキュメントとAPIリファレンス",
+    "title": "料金プラン",
+    "subtitle": "あなたに合ったプランを選択",
     "popular": "推奨",
-    "perMonth": "月",
+    "perMonth": "/月",
     "plans": {
+      "free": {
+        "name": "無料版",
+        "cta": "今すぐ始める",
+        "features": [
+          "月額 1000 クレジット",
+          "すべての AI モデル",
+          "全 6 クライアント",
+          "API アクセス",
+          "コミュニティサポート"
+        ]
+      },
+      "pro": {
+        "name": "プロ版",
+        "cta": "Pro にアップグレード",
+        "features": [
+          "月額 10000 クレジット",
+          "優先キュー",
+          "高度なモデル(GPT-4o/Claude Opus)",
+          "チーム協業(5 席)",
+          "メールサポート"
+        ]
+      },
       "enterprise": {
-        "contactSales": "おいわせ"
+        "name": "エンタープライズ版",
+        "contactSales": "おいわせ",
+        "cta": "おいわせ",
+        "features": [
+          "無制限クレジット",
+          "オンプレミス展開",
+          "SSO/SAML 2.0",
+          "監査ログ",
+          "専属テクニカルサポート"
+        ]
       }
     },
     "checkout": {
@@ -1566,6 +1623,7 @@
           "pageInfo": "{page} / {totalPages} ページ",
           "nextPage": "へ",
           "type": {
+            "label": "タイプ",
             "study": "学習",
             "exam": "試験",
             "live": "ライブ",
@@ -1595,6 +1653,7 @@
           "pageInfo": "{page} / {totalPages} ページ",
           "nextPage": "へ",
           "period": {
+            "label": "期間",
             "week": "今週",
             "month": "今月",
             "total": "すべて",
@@ -5519,7 +5578,10 @@
       "userId": "ユーザー ID",
       "aiUsage": "ai せる",
       "routines": "ルーティン",
-      "voiceRecord": "音声録音"
+      "voiceRecord": "音声録音",
+      "gender_female": "",
+      "gender_male": "",
+      "gender_unknown": ""
     },
     "security": {
       "title": "セキュリティ",
@@ -5560,7 +5622,15 @@
       "justNow": "たった",
       "minutesAgo": "{min}",
       "hoursAgo": "{hr}",
-      "daysAgo": "{day}"
+      "daysAgo": "{day}",
+      "tab": {
+        "all": "",
+        "comment": "",
+        "follow": "",
+        "order": "",
+        "project": "",
+        "system": ""
+      }
     },
     "public": {
       "unfollow": "フォロー",
@@ -5798,7 +5868,10 @@
       "useRefTemplate": "このテンプレートを参考にする",
       "templateLoaded": "AI パネルを開き、{name} 自動化タスクを作成しています",
       "exampleInvokePrompt": "自動化タスクを作成してください。タスク名:{name}。説明:{desc}。実行時間:{schedule}。期待される出力:{output}。このテンプレートに基づいて、実行時間、コンテンツソース、出力方法などの詳細を確認しながら設定を案内してください。"
-    }
+    },
+    "automation": "",
+    "koubo": "",
+    "wechat": ""
   },
   "publish": {
     "title": "マルチプラットフォーム公開",
@@ -5845,7 +5918,13 @@
       "uploading": "アップロード中...",
       "uploadSuccess": "アップロード済み: {filename}",
       "uploadFailed": "アップロード失敗",
-      "uploadedHint": "ファイルがアップロードされました。再選択で置換できます。"
+      "uploadedHint": "ファイルがアップロードされました。再選択で置換できます。",
+      "contentFormatDocx": "",
+      "contentFormatHtml": "",
+      "contentFormatImage": "",
+      "contentFormatMd": "",
+      "contentFormatPdf": "",
+      "contentFormatVideo": ""
     },
     "history": {
       "duration": "所要時間",
@@ -5865,6 +5944,27 @@
       "totalSuccess": "成功回数",
       "totalFailed": "失敗回数",
       "successRate": "成功率"
+    },
+    "platforms": {
+      "bilibili": "",
+      "csdn": "",
+      "douyin": "",
+      "juejin": "",
+      "kuaishou": "",
+      "medium": "",
+      "shipinhao": "",
+      "toutiao": "",
+      "wechat": "",
+      "weibo": "",
+      "wordpress": "",
+      "xiaohongshu": "",
+      "youtube": "",
+      "zhihu": ""
+    },
+    "tabs": {
+      "accounts": "",
+      "history": "",
+      "new": ""
     }
   },
   "settings": {
@@ -6052,7 +6152,39 @@
     },
     "desc": {
       "notificationSound": "通知受信時に音声を再生"
-    }
+    },
+    "billingAmount": "",
+    "billingCreatedAt": "",
+    "billingLoading": "",
+    "billingNext": "",
+    "billingOrderNo": "",
+    "billingPageInfo": "",
+    "billingPrev": "",
+    "billingStatus": "",
+    "billingTotal": "",
+    "cliImportDesc": "",
+    "cliImportTitle": "",
+    "icpRecordEntity": "",
+    "icpRecordEntityType": "",
+    "icpRecordNumber": "",
+    "icpRecordScope": "",
+    "icpRecordTime": "",
+    "icpRecordUrl": "",
+    "llmConfigsDesc": "",
+    "llmConfigsTitle": "",
+    "miniappQr": "",
+    "miniappQrDesc": "",
+    "modelRecordAlgorithmType": "",
+    "modelRecordApplicant": "",
+    "modelRecordApplyDate": "",
+    "modelRecordModelName": "",
+    "modelRecordNumber": "",
+    "modelRecordScope": "",
+    "modelRecordStatus": "",
+    "profileDesc": "",
+    "profileTitle": "",
+    "securityDesc": "",
+    "securityTitle": ""
   },
   "help": {
     "title": "APIテスト",
@@ -6087,7 +6219,12 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "remove": "favorite",
     "empty": "コンテンツはまだありません。おしみに",
-    "loading": "読み込み中..."
+    "loading": "読み込み中...",
+    "tabs": {
+      "all": "",
+      "file": "",
+      "project": ""
+    }
   },
   "follows": {
     "title": "みフォロー",
@@ -6099,7 +6236,13 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "cancel": "キャンセル",
     "empty": "コンテンツはまだありません。おしみに",
-    "loading": "読み込み中..."
+    "loading": "読み込み中...",
+    "tabs": {
+      "all": "",
+      "project": "",
+      "tag": "",
+      "user": ""
+    }
   },
   "tags": {
     "title": "タグ",
@@ -6419,7 +6562,11 @@
         "code": "コード",
         "amount": "金額",
         "time": "引換時間",
-        "status": "ステータス"
+        "status": "ステータス",
+        "statusLabels": {
+          "failed": "",
+          "success": ""
+        }
       }
     },
     "openclaw": {
@@ -6453,7 +6600,15 @@
           "title": "ワンクリック起動",
           "desc": "デプロイコマンドを実行し、サービスの準備完了を待機"
         }
-      ]
+      ],
+      "features": {
+        "cache": "",
+        "loadBalance": "",
+        "monitor": "",
+        "multiModel": "",
+        "oneClick": "",
+        "scale": ""
+      }
     },
     "apiDocs": {
       "title": "API ドキュメント",
@@ -6488,7 +6643,55 @@
       "allTitle": "すべての Skills",
       "featured": "注目",
       "install": "インストール",
-      "installs": "{count} インストール"
+      "installs": "{count} インストール",
+      "categories": {
+        "code": "",
+        "communication": "",
+        "data": "",
+        "media": "",
+        "productivity": "",
+        "search": "",
+        "system": "",
+        "weather": ""
+      },
+      "items": {
+        "audioTranscribe": {
+          "desc": ""
+        },
+        "calendar": {
+          "desc": ""
+        },
+        "codeRunner": {
+          "desc": ""
+        },
+        "dataViz": {
+          "desc": ""
+        },
+        "databaseQuery": {
+          "desc": ""
+        },
+        "emailSender": {
+          "desc": ""
+        },
+        "healthcheck": {
+          "desc": ""
+        },
+        "imageGen": {
+          "desc": ""
+        },
+        "nodeConnect": {
+          "desc": ""
+        },
+        "pdfToolkit": {
+          "desc": ""
+        },
+        "weather": {
+          "desc": ""
+        },
+        "webSearch": {
+          "desc": ""
+        }
+      }
     },
     "groupsMgmt": {
       "title": "グループ管理",
@@ -6516,7 +6719,9 @@
       },
       "statusLabels": {
         "success": "成功",
-        "failed": "失敗"
+        "failed": "失敗",
+        "disabled": "",
+        "enabled": ""
       }
     },
     "chats": {
@@ -6548,6 +6753,15 @@
         "totalCalls": "総呼び出し",
         "status": "ステータス",
         "createdAt": "作成日時"
+      },
+      "roleLabels": {
+        "admin": "",
+        "user": "",
+        "vip": ""
+      },
+      "statusLabels": {
+        "active": "",
+        "disabled": ""
       }
     },
     "contact": {
@@ -6709,7 +6923,9 @@
     "backToList": "るリスト",
     "notFound": "つかりません",
     "field_images": "画像",
-    "imagesPlaceholder": "画像を貼り付けまたはドラッグしてください"
+    "imagesPlaceholder": "画像を貼り付けまたはドラッグしてください",
+    "tab_list": "",
+    "tab_new": ""
   },
   "comments": {
     "replyTitle": "管理者返信",
@@ -6766,7 +6982,19 @@
       "consecutiveLabel": "連続日数",
       "loading": "読み込み中...",
       "empty": "コンテンツはまだありません。おしみに",
-      "backToPoints": "ポイントセンターにる"
+      "backToPoints": "ポイントセンターにる",
+      "day0": "",
+      "day1": "",
+      "day2": "",
+      "day3": "",
+      "day4": "",
+      "day5": "",
+      "day6": ""
+    },
+    "tab": {
+      "lb": "",
+      "redeem": "",
+      "tx": ""
     }
   },
   "orders": {
@@ -6781,7 +7009,19 @@
     "statusLabel": "ステータス",
     "createdAt": "作成日時",
     "total": ": {n}",
-    "orderType": "タイプ"
+    "orderType": "タイプ",
+    "status": {
+      "all": "",
+      "cancelled": "",
+      "paid": "",
+      "pending": "",
+      "refunded": ""
+    },
+    "type": {
+      "all": "",
+      "card": "",
+      "course": ""
+    }
   },
   "live": {
     "title": "APIテスト",
@@ -7225,8 +7465,15 @@
       "priority": "優先度",
       "cancel": "キャンセル",
       "connected": "接続済み",
-      "disconnected": "切断済み"
-    }
+      "disconnected": "切断済み",
+      "high": "",
+      "low": "",
+      "medium": ""
+    },
+    "statusOffline": "",
+    "statusPending": "",
+    "statusPublished": "",
+    "statusRejected": ""
   },
   "agents": {
     "kanban": {
@@ -7313,14 +7560,30 @@
     "colActualAmount": "の",
     "colFee": "手数料",
     "colMethod": "メソッド",
-    "colProcessedAt": "Process"
+    "colProcessedAt": "Process",
+    "orderStatusPending": "支払い待ち",
+    "orderStatusPaid": "支払済み",
+    "orderStatusCancelled": "キャンセル済み",
+    "orderStatusRefunded": "返金済み",
+    "flowRecharge": "チャージ",
+    "flowDeduct": "減算",
+    "flowExpire": "期限切れ"
   },
   "tokenValue": {
     "title": "の",
     "subtitle": "せると",
     "currentBalance": "現在の残高",
     "totalEarned": "累計獲得",
-    "totalUsed": "累計使用"
+    "totalUsed": "累計使用",
+    "colAgent": "",
+    "colAmount": "",
+    "colModel": "",
+    "colTime": "",
+    "colToken": "",
+    "range30d": "",
+    "range7d": "",
+    "rangeCustom": "",
+    "rangeToday": ""
   },
   "distributionCompany": {
     "title": "の",
@@ -7349,9 +7612,18 @@
     "inviteCode": "招待コード",
     "inviteLinkPlaceholder": "招待リンクを生成中...",
     "levelsTitle": "レベル別コミッション率",
+    "level1": "1次配信",
+    "level2": "2次配信",
+    "level3": "3次配信",
     "commissionRate": "コミッション率",
     "copied": "コピー済み",
-    "copy": "コピー"
+    "copy": "コピー",
+    "rule1Title": "1級コミッション",
+    "rule1": "被招待者の初回課金で、招待者に 10% コミッションを付与。",
+    "rule2Title": "2級コミッション",
+    "rule2": "被招待者が発展させた下位課金で、招待者に 15% コミッションを付与。",
+    "rule3Title": "3級コミッション",
+    "rule3": "被招待者が発展させた三級下位課金で、招待者に 20% コミッションを付与。"
   },
   "oauthPlatform": {
     "featureApiTitle": "API",
@@ -7846,7 +8118,9 @@
     "styleElectronic": "エレクトロニック",
     "pageTitle": "ai コンテンツ",
     "pageSubtitle": "タイプをして、テキスト、、、、3Dモデルなどを",
-    "clear": "クリア"
+    "clear": "クリア",
+    "tabCode": "",
+    "tabText": ""
   },
   "mcp": {
     "noParameters": "このツールにはパラメータがありません",
@@ -8047,25 +8321,35 @@
   },
   "myAsks": {
     "delete": "削除",
-    "deleteConfirm": "Question？"
+    "deleteConfirm": "Question？",
+    "subtitle": "",
+    "title": ""
   },
   "myCircles": {
     "leave": "ログアウト",
-    "leaveConfirm": "ログアウト？"
+    "leaveConfirm": "ログアウト？",
+    "subtitle": "",
+    "title": ""
   },
   "myArticles": {
     "create": "記事を書く",
     "edit": "編集",
     "delete": "削除",
-    "deleteConfirm": "？"
+    "deleteConfirm": "？",
+    "subtitle": "",
+    "title": ""
   },
   "myResources": {
-    "deleteConfirm": "Resource？"
+    "deleteConfirm": "Resource？",
+    "subtitle": "",
+    "title": ""
   },
   "myComments": {
     "delete": "削除",
     "deleteConfirm": "コメント？",
-    "targetType": "へ"
+    "targetType": "へ",
+    "subtitle": "",
+    "title": ""
   },
   "sso": {
     "title": "ログイン",
@@ -8440,7 +8724,13 @@
       "description": "オープンAPIのと",
       "searchPlaceholder": "APIやを...",
       "loading": "読み込み中...",
-      "noMatch": "するAPIはありません"
+      "noMatch": "するAPIはありません",
+      "catAll": "",
+      "catAudio": "",
+      "catChat": "",
+      "catImage": "",
+      "catTool": "",
+      "catVideo": ""
     },
     "models": {
       "title": "モデルマーケット",
@@ -8457,7 +8747,13 @@
       "description": "なai Agentを",
       "searchPlaceholder": "Agentやを...",
       "loading": "読み込み中...",
-      "noMatch": "するAgentはありません"
+      "noMatch": "するAgentはありません",
+      "catAll": "",
+      "catAnalysis": "",
+      "catChat": "",
+      "catCoding": "",
+      "catTool": "",
+      "catWriting": ""
     },
     "documents": {
       "title": "ドキュメントマーケット",
@@ -8617,32 +8913,56 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI"]
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI"]
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI"
+        ]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "検索", "search"]
+        "keywords": [
+          "検索",
+          "検索",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"]
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"]
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"]
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ]
       }
     }
   },
@@ -8663,7 +8983,62 @@
     "contactWechat": "WeChat QRコード",
     "contactWechatHint": "QRコードでカスタマーサービスWeChatを追加、またはID ok502319984を検索",
     "ecosystem": "エコシステムパートナー",
-    "copyright": "© 2025 智匯AIグループ · 中国"
+    "icp": "吉ICP備2025027274号",
+    "copyright": "© 2025 智匯AIグループ · 中国",
+    "modelRecord": "モデル届出",
+    "cloudDatabases": "",
+    "communityGroup": "",
+    "databases": {
+      "mongodb": "",
+      "mysql": "",
+      "postgresql": "",
+      "redis": "",
+      "sqlite": ""
+    },
+    "modelItems": {
+      "claude": "",
+      "deepseek": "",
+      "doubao": "",
+      "gemini": "",
+      "gpt": "",
+      "llama": "",
+      "mistral": "",
+      "qwen": ""
+    },
+    "models": "",
+    "officialApp": "",
+    "officialWechat": "",
+    "paymentPlatforms": "",
+    "payments": {
+      "alipay": "",
+      "douyin": "",
+      "unionpay": "",
+      "visa": "",
+      "wechat": ""
+    },
+    "platforms": {
+      "coze": "",
+      "n8n": ""
+    },
+    "promos": {
+      "baidu": "",
+      "bilibili": "",
+      "douyin": "",
+      "facebook": "",
+      "github": "",
+      "google": "",
+      "kuaishou": "",
+      "qq": "",
+      "reddit": "",
+      "telegram": "",
+      "wechat": "",
+      "wechatChannels": "",
+      "weibo": "",
+      "x": "",
+      "xiaohongshu": "",
+      "youtube": ""
+    },
+    "supportedPlatforms": ""
   },
   "plugins": {
     "title": "プラグイン市場",
@@ -8727,7 +9102,10 @@
     "addedToChatReal": "{name}をチャットに追加しました。LLMが実際に対応するMCPツールを呼び出せます",
     "addedToChatModel": "{name}をチャットに追加しました。.envで対応するAPI Keyを設定してモデルを有効化してください",
     "addedToChatPrompt": "{name}をチャットに追加しました（プロンプト意図のみ、バックエンドに対応ツールなし）",
-    "removedFromChat": "{name}をチャットから削除しました"
+    "removedFromChat": "{name}をチャットから削除しました",
+    "sortDefault": "",
+    "sortInstalled": "",
+    "sortName": ""
   },
   "aiWorld": {
     "admin": {
@@ -8947,7 +9325,8 @@
     "positioning": {
       "label": "コアポジショニング",
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ",
-      "description": "IHUI AIコミュニティは、企業の意思決定者がAIと企業の関係を深く理解できるよう支援することに尽力しています。体系化されたコース、実践的な探求、コミュニティの相互支援を通じて、人機協同のスーパー組織を構築し、企業の合理的効率向上を実現します。"
+      "description": "IHUI AIコミュニティは、企業の意思決定者がAIと企業の関係を深く理解できるよう支援することに尽力しています。体系化されたコース、実践的な探求、コミュニティの相互支援を通じて、人機協同のスーパー組織を構築し、企業の合理的効率向上を実現します。",
+      "tags": []
     },
     "modules": {
       "label": "三大サービスモジュール",
@@ -8957,19 +9336,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -8979,7 +9370,8 @@
       "subtitle": "先着18名限定 · アーリーバード価格 ¥6000/人/年 · 満足できない場合全額返金",
       "perYear": "/人/年",
       "joinNow": "今すぐ参加",
-      "consultHint": "スキャンして相談、または直接お問い合わせください"
+      "consultHint": "スキャンして相談、または直接お問い合わせください",
+      "benefits": []
     },
     "courses": {
       "label": "カリキュラム",
@@ -9089,25 +9481,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -9132,7 +9536,30 @@
           "title": "人本価値",
           "desc": "企業文化、ミッションとビジョン、批判的思考と謙虚な態度"
         }
-      ]
+      ],
+      "effectFlow": [],
+      "effectMetrics": [],
+      "infoAdvanced": [],
+      "infoBasic": []
+    },
+    "carousel": {
+      "slide1Title": "エンタープライズ AI オペレーティングシステム",
+      "slide1Subtitle": "企業 AI アプリの構築・デプロイ・管理をワンストップで",
+      "slide1Cta": "デモ予約",
+      "slide2Title": "エージェント協業プラットフォーム",
+      "slide2Subtitle": "マルチ Agent オーケストレーションで複雑業務を自動化",
+      "slide2Cta": "ユースケースを見る",
+      "slide3Title": "フルスタ AI ツールチェーン",
+      "slide3Subtitle": "モデルゲートウェイからナレッジベースまで、すぐ使える",
+      "slide3Cta": "製品を探索",
+      "slide4Title": "専用シートプラン",
+      "slide4Subtitle": "チームに最適化、柔軟に拡張",
+      "slide4Cta": "シート相談",
+      "slide5Title": "返金保証",
+      "slide5Subtitle": "満足いただけなければ返金、リスクなし体験",
+      "slide5Cta": "返金ポリシー",
+      "brandLabel": "IHUI AI",
+      "switchTo": "第 {index} 枚に切り替え"
     }
   },
   "drama": {
@@ -9471,7 +9898,12 @@
       "earlyBird": "アーリーバード ¥6000/年 · 67%オフ",
       "multiEnd": "8プラットフォーム全面カバー · 業界唯一",
       "benefits": {
-        "benefit6": "不満の場合は全額返金"
+        "benefit6": "不満の場合は全額返金",
+        "benefit1": "",
+        "benefit2": "",
+        "benefit3": "",
+        "benefit4": "",
+        "benefit5": ""
       }
     },
     "stats": {
@@ -9509,7 +9941,43 @@
       "subtitle": "異なるニーズに応える柔軟な料金プラン",
       "period": "/年",
       "cta": "今すぐ登録",
-      "recommended": "おすすめ"
+      "recommended": "おすすめ",
+      "basic": {
+        "name": "ベーシック",
+        "description": "個人開発者や小規模チーム向け",
+        "feature1": "月額 10000 クレジット",
+        "feature2": "すべての AI モデル",
+        "feature3": "Web + デスクトップ",
+        "feature4": "コミュニティサポート",
+        "feature5": "API アクセス"
+      },
+      "professional": {
+        "name": "プロフェッショナル",
+        "description": "成長中のチーム向け、優先サポート",
+        "feature1": "月額 50000 クレジット",
+        "feature2": "高度なモデル(GPT-4o/Claude Opus)",
+        "feature3": "全 6 クライアント",
+        "feature4": "チーム協業(10 席)",
+        "feature5": "メールサポート"
+      },
+      "enterprise": {
+        "name": "エンタープライズ",
+        "description": "中堅〜大企業向け、オンプレミス展開",
+        "feature1": "月額 200000 クレジット",
+        "feature2": "オンプレミス展開",
+        "feature3": "SSO/SAML 2.0",
+        "feature4": "監査ログ",
+        "feature5": "専属テクニカルサポート"
+      },
+      "flagship": {
+        "name": "フラッグシップ",
+        "description": "グループ企業向け、カスタムサービス",
+        "feature1": "無制限クレジット",
+        "feature2": "マルチリージョン展開",
+        "feature3": "専属アカウントマネージャー",
+        "feature4": "SLA 99.9%",
+        "feature5": "24/7 サポート"
+      }
     },
     "features": {
       "title": "8 大コア能力 · フルスタックカバー",
@@ -9584,7 +10052,37 @@
     "scenarios": {
       "title": "5 大意思決定者シーン · 痛点 → 解決 → 収益",
       "titleEn": "DECISION-MAKER SCENARIOS",
-      "subtitle": "智匯AIコミュニティは企業意思決定者が最も関心する 5 大シーンをカバー · 痛点共鳴 → 解決策 → 定量収益 · AI を真に落地させ ROI を生み出す"
+      "subtitle": "智匯AIコミュニティは企業意思決定者が最も関心する 5 大シーンをカバー · 痛点共鳴 → 解決策 → 定量収益 · AI を真に落地させ ROI を生み出す",
+      "costReduction": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "decision": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "efficiency": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "innovation": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "learning": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      }
     },
     "comparison": {
       "title": "競品対比 · 全次元超越",
@@ -9594,12 +10092,100 @@
       "colUs": "智匯AI",
       "colClaude": "Claude Code",
       "colCursor": "Cursor",
-      "colChatgpt": "ChatGPT"
+      "colChatgpt": "ChatGPT",
+      "row1Chatgpt": "",
+      "row1Claude": "",
+      "row1Cursor": "",
+      "row1Feature": "",
+      "row1Us": "",
+      "row2Chatgpt": "",
+      "row2Claude": "",
+      "row2Cursor": "",
+      "row2Feature": "",
+      "row2Us": "",
+      "row3Chatgpt": "",
+      "row3Claude": "",
+      "row3Cursor": "",
+      "row3Feature": "",
+      "row3Us": "",
+      "row4Chatgpt": "",
+      "row4Claude": "",
+      "row4Cursor": "",
+      "row4Feature": "",
+      "row4Us": "",
+      "row5Chatgpt": "",
+      "row5Claude": "",
+      "row5Cursor": "",
+      "row5Feature": "",
+      "row5Us": "",
+      "row6Chatgpt": "",
+      "row6Claude": "",
+      "row6Cursor": "",
+      "row6Feature": "",
+      "row6Us": "",
+      "row7Chatgpt": "",
+      "row7Claude": "",
+      "row7Cursor": "",
+      "row7Feature": "",
+      "row7Us": "",
+      "row8Chatgpt": "",
+      "row8Claude": "",
+      "row8Cursor": "",
+      "row8Feature": "",
+      "row8Us": ""
     },
     "roi": {
       "title": "定量 ROI · データ裏付け収益",
       "titleEn": "QUANTIFIED ROI",
-      "subtitle": "智匯AIコミュニティが意思決定者にもたらす定量収益 · 詳細計算公式 · データは実ユーザーケースと業界ベンチマークから"
+      "subtitle": "智匯AIコミュニティが意思決定者にもたらす定量収益 · 詳細計算公式 · データは実ユーザーケースと業界ベンチマークから",
+      "cache": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "cost": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "learning": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "models": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "quality": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "seats": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "sla": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "speed": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      }
     }
   },
   "aiNews": {
@@ -9625,7 +10211,23 @@
       "favOnly": "お気に入り",
       "favToggle": "お気に入り切替",
       "colVisibility": "列表示",
-      "colVisibilityHint": "表示列を選択"
+      "colVisibilityHint": "表示列を選択",
+      "categoryAgent": "",
+      "categoryAudio": "",
+      "categoryEmbedding": "",
+      "categoryImage": "",
+      "categoryLlm": "",
+      "categoryMultimodal": "",
+      "categoryOverall": "",
+      "categoryVideo": "",
+      "colArenaScore": "",
+      "colContextWindow": "",
+      "colInputPrice": "",
+      "colMaxOutput": "",
+      "colOutputPrice": "",
+      "colReleaseDate": "",
+      "colVoteCount": "",
+      "colWinRate": ""
     },
     "hero": {
       "label": "AI ニュース Hero",
@@ -9662,7 +10264,22 @@
       "trendNotifyExpand": "すべて表示",
       "trendNotifyCollapse": "折りたたむ",
       "trendNotifyClose": "閉じる",
-      "langSwitch": "タイトル言語を{lang}に切り替え"
+      "langSwitch": "タイトル言語を{lang}に切り替え",
+      "categoryAll": "",
+      "categoryIndustry": "",
+      "categoryModel": "",
+      "categoryPaper": "",
+      "categoryProduct": "",
+      "categoryTip": "",
+      "channelAll": "",
+      "channelFirstParty": "",
+      "channelHotlist": "",
+      "channelNews": "",
+      "channelPaper": "",
+      "trendAll": "",
+      "trendCooling": "",
+      "trendNew": "",
+      "trendRising": ""
     },
     "hotRanking": {
       "label": "ホットランキング",
@@ -9687,7 +10304,9 @@
       "empty": "資金調達情報なし",
       "sortLabel": "ソート",
       "searchPlaceholder": "タイトル / 概要 / 出典を検索…",
-      "resultCount": "{count} / {total} 件"
+      "resultCount": "{count} / {total} 件",
+      "sortByAmount": "",
+      "sortByDate": ""
     },
     "detailDialog": {
       "arenaScore": "Arena スコア",
@@ -9748,7 +10367,12 @@
       "speedTest": "測速",
       "speedTesting": "測速中...",
       "sortBySpeed": "遅延順",
-      "speedError": "タイムアウト"
+      "speedError": "タイムアウト",
+      "allBilling": "",
+      "billingFree": "",
+      "billingGpu": "",
+      "billingSubscription": "",
+      "billingToken": ""
     },
     "cta": {
       "label": "ボトム CTA",
@@ -10109,35 +10733,88 @@
       "originalPrice": "¥18000",
       "period": "/人/年",
       "desc": "先着18席限定、売切後は通常価格に戻ります",
-      "cta": "今すぐ参加"
+      "cta": "今すぐ参加",
+      "features": [
+        "年間全講座無料受講",
+        "オフライン探索活動優先参加枠",
+        "智匯 AI 会員コミュニティ無制限交流",
+        "アーリーバード限定メンター 1 対 1 相談 1 回",
+        "アーリーバード限定資料パック(価値 ¥3000)"
+      ]
     },
     "standard": {
       "name": "通常会員",
       "price": "¥18000",
       "period": "/人/年",
       "desc": "アーリーバード売切後、自動的にこのプランに切替",
-      "cta": "詳細を見る"
+      "cta": "詳細を見る",
+      "features": [
+        "年間全講座無料受講",
+        "オフライン探索活動優先参加枠",
+        "智匯 AI 会員コミュニティ無制限交流"
+      ]
     },
     "enterprise": {
       "name": "エンタープライズサービス",
       "price": "お問い合わせ",
       "period": "",
       "desc": "企業意思決定者チーム向けカスタムプラン",
-      "cta": "お問い合わせ"
+      "cta": "お問い合わせ",
+      "features": [
+        "専任アカウントマネージャー + カスタムデプロイ",
+        "チーム研修 + 社内ナレッジベース連携",
+        "API 高同時接続クォータ + SLA 保証",
+        "プライベートデプロイ選択可",
+        "四半期レビュー + 戦略コンサルティング"
+      ]
     }
   },
   "enterpriseTools": {
     "sectionLabel": "企業AIツール一覧",
     "title": "汎用AIツールから業界特化エージェントまで",
     "subtitle": "企業AI化ニーズを全面的にサポート",
-    "partnersTitle": "エコシステムパートナー"
+    "partnersTitle": "エコシステムパートナー",
+    "categories": {
+      "general": "汎用能力",
+      "industry": "業界特化",
+      "function": "職能シーン",
+      "unknown": "その他"
+    },
+    "items": {
+      "textGeneration": "テキスト生成",
+      "imageGeneration": "画像生成",
+      "voiceProcessing": "音声処理",
+      "videoGeneration": "動画生成",
+      "manufacturing": "製造業",
+      "education": "教育・研修",
+      "healthcare": "医療・ヘルスケア",
+      "government": "政務・公共",
+      "marketingService": "マーケティング・サービス",
+      "productionManufacturing": "生産・製造",
+      "rdInnovation": "R&D イノベーション",
+      "officeCollaboration": "オフィス協業",
+      "unknown": "その他ツール"
+    }
   },
   "mobileDashboardPage": {
     "title": "モバイルダッシュボード",
     "subtitle": "モバイルのコア運営指標を監視。データはモックデモデータ。",
     "stats": {
-      "trendSuffix": "前日比"
+      "trendSuffix": "前日比",
+      "dau": "DAU",
+      "newUsers": "新規ユーザー",
+      "sessions": "セッション数",
+      "crashRate": "クラッシュ率"
     },
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ],
     "dauTrend": {
       "title": "直近7日間のDAU推移",
       "subtitle": "日次アクティブユーザー数推移曲線"
@@ -10172,7 +10849,18 @@
     "placeholder": "透かし",
     "defaultText": "社外秘",
     "submitting": "追加中...",
-    "submit": "透かしを追加"
+    "submit": "透かしを追加",
+    "positions": {
+      "bottomCenter": "",
+      "bottomLeft": "",
+      "bottomRight": "",
+      "middleCenter": "",
+      "middleLeft": "",
+      "middleRight": "",
+      "topCenter": "",
+      "topLeft": "",
+      "topRight": ""
+    }
   },
   "businessCardEditPage": {
     "editTitle": "名刺を編集",
@@ -10269,6 +10957,36 @@
   "aiCareerPage": {
     "title": "AI キャリア指導",
     "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
+    "options": {
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
+      "difficulty": [
+        "国語読解",
+        "英語ヒアリング・スピーキング",
+        "数学計算",
+        "物理概念",
+        "化学暗記",
+        "文系暗記"
+      ],
+      "obstacle": [
+        "集中力不足",
+        "時間管理が苦手",
+        "学習方法が不適切",
+        "学習意欲が低い",
+        "試験不安",
+        "家庭環境の影響"
+      ]
+    },
     "fields": {
       "school": "学校の種類",
       "classLevel": "クラスのレベル",
@@ -10432,7 +11150,13 @@
     "recentOrders": "最近の注文",
     "viewAll": "すべて表示",
     "loading": "読み込み中...",
-    "empty": "注文記録はありません"
+    "empty": "注文記録はありません",
+    "stats": {
+      "coupon": "",
+      "level": "",
+      "orders": "",
+      "points": ""
+    }
   },
   "developerHomePage": {
     "statCalls": "呼出回数(今月)",
@@ -10634,7 +11358,36 @@
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 先月",
-    "rechargeCount": "合計 {n} 回チャージ"
+    "rechargeCount": "合計 {n} 回チャージ",
+    "packages": {
+      "starter": {
+        "features": [
+          "月間 1000 回 AI 呼び出し",
+          "基本モデルアクセス(3 つ)",
+          "標準 API レート",
+          "コミュニティサポート"
+        ]
+      },
+      "pro": {
+        "features": [
+          "月間 20000 回 AI 呼び出し",
+          "全モデルアクセス(15+)",
+          "高優先度 API レート",
+          "メール技術サポート(24h 対応)",
+          "高度な Agent ワークフロー"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "無制限 AI 呼び出し",
+          "全モデル + カスタムファインチューニング",
+          "専用 API レート + SLA 99.99%",
+          "7×24 専任アカウントマネージャー",
+          "プライベートデプロイ + データ隔離",
+          "カスタム機能開発サポート"
+        ]
+      }
+    }
   },
   "n8nAgentsPage": {
     "metaDescription": "N8N ワークフロー連携：AIエージェントを自動オーケストレーション。カスタマーサポートボット、コンテンツモデレーション、データ同期などに対応。",
@@ -10645,7 +11398,29 @@
     "cardDescription": "N8N経由でAIエージェントを自動オーケストレーションし、カスタマーサポート、モデレーション、同期、レポート、アラートなどのシナリオを連携してエンドツーエンドの自動化を実現。",
     "createButton": "新規エージェント作成",
     "lastRunLabel": "最終実行",
-    "runCountLabel": "実行回数"
+    "runCountLabel": "実行回数",
+    "agents": {
+      "alert-notify": {
+        "description": "",
+        "name": ""
+      },
+      "content-moderation": {
+        "description": "",
+        "name": ""
+      },
+      "customer-service": {
+        "description": "",
+        "name": ""
+      },
+      "data-sync": {
+        "description": "",
+        "name": ""
+      },
+      "report-generation": {
+        "description": "",
+        "name": ""
+      }
+    }
   },
   "agentsMyPage": {
     "back": "戻る",
@@ -10655,7 +11430,14 @@
     "loading": "読み込み中...",
     "empty": "エージェントがありません",
     "noDescription": "説明なし",
-    "free": "無料"
+    "free": "無料",
+    "statusFilters": {
+      "all": "",
+      "offline": "",
+      "pending": "",
+      "published": "",
+      "rejected": ""
+    }
   },
   "businessCardPage": {
     "title": "デジタル名刺",
@@ -10736,7 +11518,13 @@
     "empty": "呼び出しログがありません",
     "keyValue": "キー: {value}",
     "requestBody": "リクエストボディ",
-    "responseBody": "レスポンスボディ"
+    "responseBody": "レスポンスボディ",
+    "statusFilter": {
+      "2xx": "",
+      "4xx": "",
+      "5xx": "",
+      "all": ""
+    }
   },
   "eduCertificatesPage": {
     "loading": "読み込み中...",
@@ -10789,7 +11577,8 @@
     "loading": "読み込み中...",
     "empty": "今週の授業はありません",
     "today": "今日",
-    "noClass": "授業なし"
+    "noClass": "授業なし",
+    "weekdays": []
   },
   "recruitmentDetailPage": {
     "loading": "読み込み中...",
@@ -10882,7 +11671,12 @@
     "discount": "割引",
     "yuan": "元",
     "minSpend": "最低利用額 {amount}",
-    "validUntil": "有効期限:{date}"
+    "validUntil": "有効期限:{date}",
+    "tab": {
+      "expired": "",
+      "unused": "",
+      "used": ""
+    }
   },
   "answerArea": {
     "thinking": {
@@ -11033,7 +11827,12 @@
     "bookmarksHint": "PDF の組み込みブックマーク（レベル 1）に基づいて自動的に複数ファイルに分割します。",
     "submit": "分割",
     "submitting": "分割中...",
-    "resultHint": "分割が完了しました。結果は ZIP にパッケージ化されています："
+    "resultHint": "分割が完了しました。結果は ZIP にパッケージ化されています：",
+    "mode": {
+      "bookmarks": "",
+      "every": "",
+      "range": ""
+    }
   },
   "supportNewTicketForm": {
     "errTitleMin": "タイトルは 2 文字以上で入力してください",
@@ -11158,6 +11957,11 @@
       "rank": "ランク",
       "user": "ユーザー",
       "score": "ポイント"
+    },
+    "range": {
+      "month": "",
+      "total": "",
+      "week": ""
     }
   },
   "recruitmentPage": {
@@ -11276,7 +12080,11 @@
       "user": "ユーザー",
       "joined": "登録時間",
       "reward": "報酬",
-      "status": "ステータス"
+      "status": "ステータス",
+      "statusLabels": {
+        "activated": "",
+        "pending": ""
+      }
     }
   },
   "knowledgeRag": {
@@ -11354,7 +12162,12 @@
   },
   "ide": {
     "activityBar": {
-      "settings": "設定"
+      "settings": "設定",
+      "applications": "",
+      "debug": "",
+      "files": "",
+      "search": "",
+      "sourceControl": ""
     },
     "topBar": {
       "editor": "エディタ",
@@ -11393,7 +12206,14 @@
       "subtitle": "ファイルを選択するか、下のクイック操作から開始",
       "browseFiles": "ファイルを参照",
       "recentFiles": "最近開いた",
-      "shortcuts": "ショートカット"
+      "shortcuts": "ショートカット",
+      "scGlobalSearch": "",
+      "scGotoLine": "",
+      "scOpenFile": "",
+      "scToggleSidebar": "",
+      "scToggleTerminal": "",
+      "settings": "",
+      "viewChanges": ""
     },
     "editorTabBar": {
       "closeTab": "タブを閉じる",
@@ -11483,7 +12303,8 @@
     },
     "statusBar": {
       "sync": "同期",
-      "toggleTheme": "テーマ切替"
+      "toggleTheme": "テーマ切替",
+      "unsynced": ""
     }
   },
   "aiSkillsPage": {
@@ -11575,7 +12396,13 @@
     "responsive": {
       "customWidth": "カスタム幅",
       "apply": "適用",
-      "deviceFrame": "デバイスフレーム"
+      "deviceFrame": "デバイスフレーム",
+      "deviceCustom": "",
+      "deviceDesktop": "",
+      "deviceMobileLandscape": "",
+      "deviceMobilePortrait": "",
+      "deviceTabletLandscape": "",
+      "deviceTabletPortrait": ""
     },
     "templates": {
       "title": "テンプレート",
@@ -11585,6 +12412,30 @@
         "app": "アプリ",
         "content": "コンテンツ",
         "commerce": "コマース"
+      }
+    }
+  },
+  "modelsGroupsPage": {
+    "group": {
+      "1": {
+        "name": "企業コアグループ",
+        "desc": "企業コア業務向け、高並列・高可用サポート"
+      },
+      "2": {
+        "name": "R&D 協業グループ",
+        "desc": "R&D チーム協業シーン、性能と費用のバランス"
+      },
+      "3": {
+        "name": "カスタマーサービスグループ",
+        "desc": "顧客相談・サービス向け、低レイテンシ優先"
+      },
+      "4": {
+        "name": "データ分析グループ",
+        "desc": "データ分析・レポートシーン、大コンテキスト優先"
+      },
+      "5": {
+        "name": "サンドボックス試験グループ",
+        "desc": "新モデル試験・プロトタイプ検証、柔軟切替"
       }
     }
   }
