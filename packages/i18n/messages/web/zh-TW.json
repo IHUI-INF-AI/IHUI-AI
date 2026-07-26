@@ -1020,13 +1020,7 @@
       "free": {
         "name": "免費版",
         "cta": "立即開始",
-        "features": [
-          "每月 1000 積分",
-          "所有 AI 模型",
-          "所有 6 個用戶端",
-          "API 存取",
-          "社群支援"
-        ]
+        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個用戶端", "API 存取", "社群支援"]
       },
       "pro": {
         "name": "專業版",
@@ -1043,13 +1037,7 @@
         "name": "企業版",
         "contactSales": "聯繫銷售",
         "cta": "聯繫銷售",
-        "features": [
-          "不限積分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "稽核日誌",
-          "專屬技術支援"
-        ]
+        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "稽核日誌", "專屬技術支援"]
       }
     },
     "checkout": {
@@ -8722,56 +8710,32 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": [
-          "對話",
-          "聊天",
-          "AI"
-        ]
+        "keywords": ["對話", "聊天", "AI"]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": [
-          "短劇",
-          "視頻",
-          "AI"
-        ]
+        "keywords": ["短劇", "視頻", "AI"]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": [
-          "搜尋",
-          "查找",
-          "search"
-        ]
+        "keywords": ["搜尋", "查找", "search"]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "應用"
-        ]
+        "keywords": ["AI", "世界", "應用"]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": [
-          "個人",
-          "資料",
-          "設置"
-        ]
+        "keywords": ["個人", "資料", "設置"]
       },
       "settings": {
         "label": "系統設置",
         "description": "系統偏好與配置",
-        "keywords": [
-          "設置",
-          "偏好",
-          "配置"
-        ]
+        "keywords": ["設置", "偏好", "配置"]
       }
     }
   },
@@ -9133,31 +9097,19 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": [
-            "系統化課程",
-            "實踐探索",
-            "社群互助"
-          ]
+          "features": ["系統化課程", "實踐探索", "社群互助"]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": [
-            "交流平臺",
-            "經驗共享",
-            "資源對接"
-          ]
+          "features": ["交流平臺", "經驗共享", "資源對接"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": [
-            "專業大模型",
-            "智能體服務",
-            "諮詢服務"
-          ]
+          "features": ["專業大模型", "智能體服務", "諮詢服務"]
         }
       ]
     },
@@ -9278,37 +9230,25 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": [
-            "知識問答",
-            "流程自動化"
-          ]
+          "examples": ["知識問答", "流程自動化"]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": [
-            "數據分析",
-            "決策支持"
-          ]
+          "examples": ["數據分析", "決策支持"]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": [
-            "會議安排",
-            "審批流程"
-          ]
+          "examples": ["會議安排", "審批流程"]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": [
-            "營銷自動化",
-            "多智能體協同"
-          ]
+          "examples": ["營銷自動化", "多智能體協同"]
         }
       ]
     },
@@ -10541,11 +10481,7 @@
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
       "cta": "瞭解詳情",
-      "features": [
-        "全年所有課程免費參加",
-        "線下探索活動優先參與名額",
-        "智匯 AI 會員社群無限次互動"
-      ]
+      "features": ["全年所有課程免費參加", "線下探索活動優先參與名額", "智匯 AI 會員社群無限次互動"]
     },
     "enterprise": {
       "name": "企業服務",
@@ -10599,15 +10535,7 @@
       "sessions": "工作階段數",
       "crashRate": "當機率"
     },
-    "weekdays": [
-      "週一",
-      "週二",
-      "週三",
-      "週四",
-      "週五",
-      "週六",
-      "週日"
-    ],
+    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
     "dauTrend": {
       "title": "最近 7 天 DAU 趨勢",
       "subtitle": "每日活躍使用者數變化曲線"
@@ -10751,18 +10679,8 @@
     "title": "AI 生涯指導",
     "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
     "options": {
-      "school": [
-        "重點中學",
-        "普通中學",
-        "國際學校",
-        "私立學校"
-      ],
-      "classLevel": [
-        "優秀(班級前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(後 30%)"
-      ],
+      "school": ["重點中學", "普通中學", "國際學校", "私立學校"],
+      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -11154,12 +11072,7 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": [
-          "每月 1000 次 AI 呼叫",
-          "基礎模型存取(3 個)",
-          "標準 API 速率",
-          "社群支援"
-        ]
+        "features": ["每月 1000 次 AI 呼叫", "基礎模型存取(3 個)", "標準 API 速率", "社群支援"]
       },
       "pro": {
         "features": [
@@ -12147,10 +12060,7 @@
       "hideGuides": "隱藏參考線"
     },
     "commentPlaceholder": "對該元素的評論…",
-    "saved": "已儲存: {name}",
-    "saveFailed": "儲存失敗: {error}",
     "errorPrefix": "異常",
-    "commented": "已評論 {tagName}#{elementId}: {comment}",
     "undo": "復原",
     "redo": "重做",
     "previewList": "預覽列表",
@@ -12183,29 +12093,16 @@
       "exportButton": "匯出程式碼",
       "exportReact": "React 元件",
       "exportVue": "Vue 元件",
-      "exportHtml": "純 HTML",
-      "exportSuccess": "已匯出 {filename}"
+      "exportHtml": "純 HTML"
     },
     "responsive": {
       "customWidth": "自訂寬度",
       "apply": "套用",
-      "deviceFrame": "裝置外框",
-      "deviceCustom": "",
-      "deviceDesktop": "",
-      "deviceMobileLandscape": "",
-      "deviceMobilePortrait": "",
-      "deviceTabletLandscape": "",
-      "deviceTabletPortrait": ""
+      "deviceFrame": "裝置外框"
     },
     "templates": {
       "title": "範本",
-      "categories": {
-        "blank": "空白",
-        "marketing": "行銷",
-        "app": "應用",
-        "content": "內容",
-        "commerce": "電商"
-      }
+      "categories": {}
     }
   },
   "modelsGroupsPage": {
