@@ -22,7 +22,7 @@ import {
   listCrewSessionTasks,
   listCrewRunArtifacts,
   streamCrewRun,
-} from '@/lib/crew-api'
+} from '@ihui/api-client'
 import { fmtTime, parseSseChunk, sseToLogEntry, statusBadgeClass } from '../helpers'
 import type { StreamLogEntry } from '../types'
 
