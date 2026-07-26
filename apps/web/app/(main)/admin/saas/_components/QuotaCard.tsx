@@ -59,7 +59,7 @@ export function QuotaCard({ slug }: QuotaCardProps) {
           <span>{t('title')}</span>
           {data.placeholder ? (
             <span
-              className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
+              className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
               title={data.expectedFrom}
             >
               <Info className="h-3 w-3" />
@@ -120,9 +120,9 @@ function QuotaRow({
           {limit === null ? t('unlimited') : format === 'bytes' ? formatBytes(limit) : formatNumber(limit)}
         </span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
         <div
-          className="h-full rounded-full bg-primary/60"
+          className="h-full rounded bg-primary/60"
           style={{
             width:
               limit && limit > 0

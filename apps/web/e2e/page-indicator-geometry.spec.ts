@@ -107,7 +107,7 @@ test.describe('PageIndicator 几何守门', () => {
     expect(sb?.height).toBeLessThanOrEqual(10.5)
   })
 
-  test('所有态 rounded-full(borderRadius ≥ 9999px)', async ({ page }) => {
+  test('所有态 纯圆形(borderRadius ≥ 9999px)', async ({ page }) => {
     const { dots, error } = await getDotMetrics(page)
     if (error) throw new Error(error)
     for (const d of dots) {
