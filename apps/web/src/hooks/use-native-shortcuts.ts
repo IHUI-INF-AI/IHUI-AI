@@ -58,6 +58,13 @@ export function useNativeShortcuts(handler: (id: MenuActionId) => void) {
         return
       }
 
+      // F11 = 切换全屏(桌面端标配,2026-07-27 立)
+      if (key === 'f11' && !ctrl && !shift && !alt) {
+        e.preventDefault()
+        handlerRef.current('view.fullscreen')
+        return
+      }
+
       if (ctrl && shift && (key === 'a' || key === 'a')) {
         e.preventDefault()
         handlerRef.current('file.open_admin')
