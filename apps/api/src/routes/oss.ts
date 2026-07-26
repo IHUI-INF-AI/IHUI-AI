@@ -407,11 +407,8 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
     sub.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) =>
       done(null, body),
     )
-    sub.addContentTypeParser(
-      'application/x-www-form-urlencoded',
-      { parseAs: 'string' },
-      (_req, body, done) => done(null, body),
-    )
+    // application/x-www-form-urlencoded 已在 server.ts:204 注册,子插件继承即可,
+    // 重复注册会触发 FST_ERR_CTP_ALREADY_PRESENT 导致进程崩溃
 
     sub.post(
       '/oss/callback',
