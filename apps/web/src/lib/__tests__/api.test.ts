@@ -6,7 +6,12 @@ describe('fetchApi', () => {
   const originalFetch = global.fetch
 
   beforeEach(() => {
-    useAuthStore.setState({ token: null })
+    // 2026-07-26 修复:用 setToken(null) 而非 setState({ token: null }),
+    // 因为 api.ts 的 tokenProvider 是 `useAuthStore.getState().token ?? getAuthCookie()`。
+    // setState 只清内存 token,不清 auth_token cookie;前一个测试 setToken('mytoken')
+    // 写入的 cookie 会残留,导致"无 token"测试实际读到 cookie 里的 'mytoken'。
+    // setToken(null) 内部调 setAuthCookie(null) + clearRefreshTokenCookie(),彻底清理。
+    useAuthStore.getState().setToken(null)
   })
 
   afterEach(() => {

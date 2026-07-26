@@ -13,6 +13,7 @@ import { join, relative } from 'node:path'
 const ROOT = process.cwd()
 const WEB_DIR = join(ROOT, 'apps/web')
 const API_ROUTES_DIR = join(ROOT, 'apps/api/src/routes')
+const API_PLUGINS_DIR = join(ROOT, 'apps/api/src/plugins')
 const SERVER_FILE = join(ROOT, 'apps/api/src/server.ts')
 
 const C = {
@@ -254,6 +255,26 @@ function extractBackendRoutes() {
       routes.push({ method: 'DELETE', localPath: basePath, file: rel })
     }
   }
+  // plugins 目录中带完整 /api/ 前缀的动态注册
+  // (如 token-balance-service.ts:267 注册 /api/admin/token-balance/metrics,
+  //  ai-cost.ts:467 注册 /api/admin/ai/cost/budgets;相对路径无 prefix 上下文,跳过)
+  if (existsSync(API_PLUGINS_DIR)) {
+    const pluginFiles = collectFiles(API_PLUGINS_DIR, ['.ts'])
+    for (const file of pluginFiles) {
+      const src = readFileSync(file, 'utf8')
+      methodRe.lastIndex = 0
+      let m
+      while ((m = methodRe.exec(src)) !== null) {
+        if (m[2].startsWith('/api/')) {
+          routes.push({
+            method: m[1].toUpperCase(),
+            localPath: m[2],
+            file: relative(ROOT, file),
+          })
+        }
+      }
+    }
+  }
   // 展开为完整路径（localPath + prefix）
   // 注意：这是简化匹配，实际 Fastify 会合并 prefix
   return { routes, prefixes }
@@ -359,19 +380,6 @@ for (const call of allCalls) {
     if (methodOk && pathMatches(call.path, bp2)) {
       found = true
       break
-    }
-  }
-  // 兜底:前端路径含 /api/v1/ 段时,后端可能注册的是无 /v1 版本(历史 API 版本前缀遗留)
-  // 尝试剥除 /v1 段重试匹配,命中则视为已注册(避免误报,同时不掩盖真正 404 风险)
-  if (!found && call.path.includes('/api/v1/')) {
-    const strippedPath = call.path.replace('/api/v1/', '/api/')
-    for (const bp of backendPathSet) {
-      const [bm, bp2] = bp.split(' ')
-      const methodOk = call.method === 'ANY' || bm === call.method
-      if (methodOk && pathMatches(strippedPath, bp2)) {
-        found = true
-        break
-      }
     }
   }
   if (!found) {

@@ -20,7 +20,7 @@ export default function AdminTaxPage() {
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: '10' })
       if (search.trim()) qs.set('name', search.trim())
-      const r = await fetchApi<TaxListData>(`/api/v1/admin/billing/tax?${qs}`)
+      const r = await fetchApi<TaxListData>(`/api/admin/billing/tax?${qs}`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
