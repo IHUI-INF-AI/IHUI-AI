@@ -119,10 +119,14 @@ function MemoryWarningHandler() {
 function SsoLaunchHandler() {
   const { t } = useI18n()
   useLaunch((options) => {
+    // fail 静默:字体 URL 未在小程序合法域名白名单 / 网络断开时报
+    // "loadFontFace:fail Client network socket disconnected"(2026-07-26)
+    // 字体加载失败不影响功能,系统字体兜底
     Taro.loadFontFace({
       family: 'HarmonyOS Sans SC',
       source: 'url("https://ihui.ai/fonts/HarmonyOS_SansSC_Regular.ttf")',
       global: true,
+      fail: () => {},
     })
     initPrivacyGuard()
     showShareMenu()
