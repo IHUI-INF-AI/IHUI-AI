@@ -302,7 +302,7 @@
 
 ### Case Studies
 
-#### Case Study 1: A Top-Tier Law Firm (Red Circle Firm)
+#### Case Study 1: A Major Law Firm
 - Deployment: Contract Review + Due Diligence Agent
 - Data: 50,000 contracts, 2,000 due diligence projects
 - Results: Review time 8h -> 1h, due diligence cycle -50%

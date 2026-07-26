@@ -131,7 +131,7 @@ All six share the same React component library (`@ihui/ui`), same API contracts,
 |---|---|---|
 | Primary focus | LLM app development | Full-stack AI OS |
 | Clients | Web only | Web + Desktop + Mini Program + Extension + RN + CLI |
-| Agent marketplace | No (community only) | First-class, with monetization |
+| Agent marketplace | No (community only) | Built-in, with monetization |
 | Multi-model | Yes | Yes + local model + custom endpoint |
 | RAG | Yes | Yes + knowledge graph |
 | Workflow | Yes | Yes + n8n-style + human-in-loop |
@@ -244,7 +244,7 @@ A: IHUI AI (Chinese: 智汇 AI) is a full-stack AI operating system. It provides
 
 ### Q2: How is IHUI AI different from Dify / Coze / FastGPT?
 
-A: Dify focuses on LLM app dev (web only); Coze is closed-source (no self-host); FastGPT is knowledge-base Q&A. IHUI AI is the only one that combines all three plus 6-client distribution, Agent marketplace, and team collaboration. See Section 3 for detailed comparison.
+A: Dify focuses on LLM app dev (web only); Coze is closed-source (no self-host); FastGPT is knowledge-base Q&A. IHUI AI combines these areas with 6-client distribution, Agent marketplace, and team collaboration. See Section 3 for detailed comparison.
 
 ### Q3: Who is IHUI AI for?
 
