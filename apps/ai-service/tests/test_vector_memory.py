@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 
 import pytest
@@ -318,8 +319,10 @@ def test_global_vector_memory_shared():
 async def test_embed_stub_returns_deterministic_vector(monkeypatch):
     """stub 模式 embed 返回确定性向量(相同文本相同向量)。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "openai": {"api_key": ""},
+        "anthropic": {"api_key": ""},
+    }))
 
     gw = LLMGateway()
     v1 = await gw.embed("hello")
@@ -333,8 +336,10 @@ async def test_embed_stub_returns_deterministic_vector(monkeypatch):
 async def test_embed_stub_different_text_different_vector(monkeypatch):
     """stub 模式不同文本生成不同向量。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "openai": {"api_key": ""},
+        "anthropic": {"api_key": ""},
+    }))
 
     gw = LLMGateway()
     v1 = await gw.embed("hello")
@@ -346,8 +351,10 @@ async def test_embed_stub_different_text_different_vector(monkeypatch):
 async def test_embed_stub_vector_values_in_range(monkeypatch):
     """stub 模式向量值在 [0, 1) 范围内。"""
     from app.core.config import settings
-    monkeypatch.setattr(settings, "openai_api_key", "")
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "openai": {"api_key": ""},
+        "anthropic": {"api_key": ""},
+    }))
 
     gw = LLMGateway()
     v = await gw.embed("test")
