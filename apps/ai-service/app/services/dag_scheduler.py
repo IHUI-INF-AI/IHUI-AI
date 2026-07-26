@@ -14,7 +14,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Coroutine, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ class DAGScheduler:
 
         # 检查环(Kahn 算法)
         in_degree = {nid: 0 for nid in self.nodes}
-        adj = {nid: [] for nid in self.nodes}
+        adj: dict[str, list[str]] = {nid: [] for nid in self.nodes}
         for node in self.nodes.values():
             for dep in node.dependencies:
                 adj[dep].append(node.id)
@@ -125,7 +125,7 @@ class DAGScheduler:
     def _topological_levels(self) -> list[list[str]]:
         """拓扑分层(Kahn 算法变体):返回每层可并行执行的节点 id 列表。"""
         in_degree = {nid: len(node.dependencies) for nid, node in self.nodes.items()}
-        adj = {nid: [] for nid in self.nodes}
+        adj: dict[str, list[str]] = {nid: [] for nid in self.nodes}
         for node in self.nodes.values():
             for dep in node.dependencies:
                 adj[dep].append(node.id)
@@ -538,7 +538,7 @@ class WorkerPool:
     def __init__(
         self,
         config: WorkerPoolConfig,
-        executor_factory: Optional[Callable[[KanbanTask], Awaitable[dict]]] = None,
+        executor_factory: Optional[Callable[[KanbanTask], Coroutine[Any, Any, dict]]] = None,
         on_event: Optional[Callable[[AgentSSEEvent], None]] = None,
     ):
         self.config = config
@@ -566,7 +566,7 @@ class WorkerPool:
         if not url:
             return None
         try:
-            import redis.asyncio as aioredis  # type: ignore
+            import redis.asyncio as aioredis
 
             return aioredis.from_url(url, decode_responses=True)
         except Exception:

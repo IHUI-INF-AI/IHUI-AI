@@ -78,7 +78,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
