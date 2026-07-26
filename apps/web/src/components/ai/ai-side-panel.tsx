@@ -573,14 +573,18 @@ export function AISidePanel() {
         // 全局 fixed 面板(与 Sidebar 同性质,作为 MainShell 的兄弟节点而非 flex 子元素):
         // - fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 跟随 Sidebar 折叠/展开/拖拽)
         // - 2026-07-26 用户反馈:恢复原 top-2(8px)顶部间距
-        //   - 之前 2026-07-25 改 top-[84px] 是为了适配"右列顶部 TagsView",但用户反馈 TagsView 不该放在右列,
-        //     改放到 MainShell 内部(只覆盖 main 同宽),AI 面板可以回到原 top-2 间距
-        //   - 原 top-2 让 AISidePanel 与 work-area(my-2=8px)视觉顶边对齐
+        //   - 2026-07-25 改 top-[84px] 是为了适配"右列顶部 TagsView",但用户反馈 TagsView 不该放在右列,
+        //     改放到 MainShell 内部(只覆盖 main 同宽)
+        //   - 2026-07-26 关键修复:AISidePanel 之前 top-2(8px)与 MainShell 标题栏重叠
+        //     - MainShell 在 (main) 路由组中以 my-2 + 内部 h-10 title bar 占据顶部 48px(8+40)
+        //     - AISidePanel 用 fixed top-2 直接覆盖 MainShell title bar + 3 个窗口控制按钮
+        //     - 表现:用户看到 AI 面板的 4 个按钮(▶+📋+×)而不是 MainShell 的 Min/Max/Close
+        //     - 修复:top-[52px] = 8px(顶部间距)+40px(title bar)+4px(视觉缓冲),完整让出 title bar
         // - bottom-2 与 work-area 的 my-2 垂直对齐(底部留出 8px 间距)
         // - mr-2 在可见面板右边缘与 work-area 内容间形成 8px 视觉间距
         // - z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)
         // - width 由 useAiPanelStore.width 控制(320-720px);不挤压右侧 work-area 宽度
-        className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky"
+        className="fixed top-[52px] bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky"
         style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
       >
         <aside
