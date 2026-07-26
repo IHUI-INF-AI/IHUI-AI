@@ -1240,7 +1240,7 @@ export function MessageInput({
                 {isStreaming ? (
                   <>
                     {/* 流式生成状态指示(2026-07-25 补回,深度对标 Cursor/ChatGPT):
-                        - 圆角矩形容器(rounded-md,避免 rounded-full 违反圆角守门)
+                        - 圆角矩形容器(rounded-md,避免纯圆形违反圆角守门)
                         - 左侧 1.5x1.5 脉冲点 + 右侧中文小字,紧凑不抢戏
                         - 用 Tooltip 包裹提供详细提示,aria-live=polite 让屏幕阅读器感知
                         - 仅 isStreaming=true 时渲染,否则零开销 */}
