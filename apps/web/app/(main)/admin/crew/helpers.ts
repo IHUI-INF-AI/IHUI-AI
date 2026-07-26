@@ -1,5 +1,5 @@
 import type { CreateSessionForm, ParsedSseEvent, StreamLogEntry } from './types'
-import type { CrewStreamEvent } from '@/lib/crew-api'
+import type { CrewStreamEvent } from '@ihui/api-client'
 
 export const EMPTY_FORM: CreateSessionForm = {
   userId: '',
