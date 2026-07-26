@@ -290,29 +290,29 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
 
 > **结论**:同样的能力组合,等价 SaaS 月度成本约 $1,013,3 年 $36,468;IHUI-AI 自托管仅服务器成本约 $30/月,3 年 $1,080。**省下 $35,000+ 即可拥有 100% 数据主权 + 完整定制能力**。
 
-### IHUI-AI 的独特价值(开源生态唯一)
+### IHUI-AI 的差异化价值(在开源生态中较为少见)
 
-经全面市场对标(覆盖 40+ 国际/国内产品,详见下方对比表),以下能力组合在**全球开源 AI 项目中唯一同时具备**:
+经全面市场对标(覆盖 40+ 国际/国内产品,详见下方对比表),以下能力组合在**全球开源 AI 项目中较少同时具备**:
 
-1. **8 端全覆盖**:Web / API / AI 服务 / CLI / 桌面 Tauri / 浏览器扩展 WXT / 移动 RN / 微信小程序 Taro — 同类型开源 AI 项目最多 2 端(Dify/FastGPT),行业唯一 8 端
-2. **LangGraph + MCP + A2A 三栈协同**:工作流 + 工具协议 + Agent 互通一体化,其他开源 AI 平台最多单栈(Langflow 仅 LangChain DAG,Dify 自研工作流无 MCP/A2A,LangChain/LlamaIndex 仅框架层)
-3. **自研 CLI 对标 Claude Code**:21 命令 + 36 内置工具 + ACP Server + 24 源配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)+ Skills 系统 — 开源 AI 应用平台中**唯一**带自研 CLI 的项目(Cursor / Copilot / Windsurf / Amazon Q / Cline / Aider / Cody 都是闭源或纯 CLI 工具)
-4. **完整商业闭环**:VIP / 订阅 recurring / 钱包 / 积分 / 退款审计 / 发票 / 汇率 / 8 支付网关 / 分销佣金 / 邀请返佣 — 开源 AI 平台中**唯一**带金融级商业闭环(Dify/FastGPT/Langflow 均无)
-5. **14 平台一键自动发布**:7 文章平台 + 2 图片平台 + 5 视频平台 + AES-256-GCM 凭证加密 + 14 adapter — 开源项目中**唯一**完整覆盖公众号/知乎/CSDN/掘金/小红书/微博/B 站/YouTube/抖音等 14 平台(蚁客/新媒体管家是闭源 SaaS)
-6. **AI 教育全栈**:课程 / 题库 / 考试 / 直播流媒体(SRS) / 学习报告 / 证书 / 讲师 / 学生端 12 子页 / 45 表 edu-full schema — 开源 AI 平台中**唯一**完整 AI 教育全栈(Khan Academy/Coursera 是闭源 SaaS)
-7. **企业级安全栈**:RBAC + 多租户 + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + GDPR + 2FA + IDOR 防护 — 开源 AI 平台中**唯一**完整企业级安全栈
-8. **21 道工程守门 + 11 迁移审计 + post-commit 自动 push**:从机制上杜绝协作事故 — 开源 AI 项目中**唯一**把工程守门做到机制级(Dify/FastGPT 仅有基础 lint)
-9. **三支柱可观测性 + 21 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中**唯一**带完整 SRE 级可观测性栈(其他项目最多基础日志)
-10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中**唯一**把 i18n 做到 parity + 守门级(其他项目最多中英文)+ i18n 治理 4 阶段(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679,无引用率 4.6%→0%)
+1. **8 端全覆盖**:Web / API / AI 服务 / CLI / 桌面 Tauri / 浏览器扩展 WXT / 移动 RN / 微信小程序 Taro — 同类型开源 AI 项目一般最多 2 端(Dify/FastGPT),本项目覆盖 8 端
+2. **LangGraph + MCP + A2A 三栈协同**:工作流 + 工具协议 + Agent 互通一体化,其他开源 AI 平台通常只支持单栈(Langflow 仅 LangChain DAG,Dify 自研工作流无 MCP/A2A,LangChain/LlamaIndex 仅框架层)
+3. **自研 CLI 对标 Claude Code**:21 命令 + 36 内置工具 + ACP Server + 24 源配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)+ Skills 系统 — 开源 AI 应用平台中较为少见的自带自研 CLI 的项目(Cursor / Copilot / Windsurf / Amazon Q / Cline / Aider / Cody 都是闭源或纯 CLI 工具)
+4. **完整商业闭环**:VIP / 订阅 recurring / 钱包 / 积分 / 退款审计 / 发票 / 汇率 / 8 支付网关 / 分销佣金 / 邀请返佣 — 开源 AI 平台中较少见的金融级商业闭环(Dify/FastGPT/Langflow 均无)
+5. **14 平台一键自动发布**:7 文章平台 + 2 图片平台 + 5 视频平台 + AES-256-GCM 凭证加密 + 14 adapter — 开源项目中较为少见的完整覆盖公众号/知乎/CSDN/掘金/小红书/微博/B 站/YouTube/抖音等 14 平台(蚁客/新媒体管家是闭源 SaaS)
+6. **AI 教育全栈**:课程 / 题库 / 考试 / 直播流媒体(SRS) / 学习报告 / 证书 / 讲师 / 学生端 12 子页 / 45 表 edu-full schema — 开源 AI 平台中较为少见的 AI 教育全栈(Khan Academy/Coursera 是闭源 SaaS)
+7. **企业级安全栈**:RBAC + 多租户 + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + GDPR + 2FA + IDOR 防护 — 开源 AI 平台中较为少见的完整企业级安全栈
+8. **21 道工程守门 + 11 迁移审计 + post-commit 自动 push**:从机制上减少协作事故 — 开源 AI 项目中较为少见的把工程守门做到机制级(Dify/FastGPT 仅有基础 lint)
+9. **三支柱可观测性 + 21 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
+10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中较为少见的把 i18n 做到 parity + 守门级(其他项目最多中英文)+ i18n 治理 4 阶段(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679,无引用率 4.6%→0%)
 
 ### 记忆点标语(可传播)
 
 | 标语                              | 价值锚点                                                                                |
 | --------------------------------- | --------------------------------------------------------------------------------------- |
 | **"一个仓库集成 6 类 SaaS 能力"** | 对齐 Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code 能力(部分覆盖),月省 $300+ |
-| **"5 分钟从 Fork 到商用"**        | Docker Compose 一键启动 14 服务,从克隆到上线最快 5 分钟,传统方案 3-6 个月               |
+| **"5 分钟从 Fork 到商用"**        | Docker Compose 一键启动 14 服务,从克隆到上线约 5 分钟,传统方案 3-6 个月               |
 | **"AI 应用界的 Kubernetes"**      | 把"基础设施搭建"标准化、可复用,任何团队都能在统一基座上跑自己的 AI 应用                 |
-| **"8 端 + 176 模型 + 三栈"**      | 8 端代码 + 176 模型 + LangGraph+MCP+A2A 三栈,开源 AI 生态最全                           |
+| **"8 端 + 176 模型 + 三栈"**      | 8 端代码 + 176 模型 + LangGraph+MCP+A2A 三栈,开源 AI 生态中覆盖较广                 |
 | **"Apache 2.0,商用零限制"**       | License 商用友好,无 copyleft 约束,允许闭源商用,企业可放心 Fork                          |
 | **"数据 100% 主权"**              | 完全自托管,凭证 AES-256-GCM 加密,无任何外部回传,符合 GDPR / 等保要求                    |
 
@@ -333,7 +333,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 > **核心洞察**:在开源 AI 生态里,你能找到比 IHUI-AI **更专**的项目(如 RAGFlow 在 RAG 维度更深、Claude Code 在 CLI 维度更成熟、LangChain 在框架层更灵活),但找不到比 IHUI-AI **更全**的开源基座 — 把 6 大类能力整合在一个 Apache 2.0 仓库里,是 IHUI-AI 的核心差异化。
 >
-> **不是替代谁,而是把 6 个产品的能力以 Apache 2.0 开源出来**:你想要 RAGFlow 的 RAG,可以单用 RAGFlow;你想要 Claude Code 的 CLI,可以单用 Claude Code;但如果你想要一个**完整可商用的 AI 产品**(对话+编程+教育+发布+计费+企业安全),IHUI-AI 是全球开源生态里唯一的选择。
+> **不是替代谁,而是把 6 个产品的能力以 Apache 2.0 开源出来**:你想要 RAGFlow 的 RAG,可以单用 RAGFlow;你想要 Claude Code 的 CLI,可以单用 Claude Code;但如果你想要一个**完整可商用的 AI 产品**(对话+编程+教育+发布+计费+企业安全),IHUI-AI 是全球开源生态里值得评估的选项之一。
 
 ---
 
@@ -1893,18 +1893,18 @@ IHUI-AI 不是单一 AI 工具,而是**开源 AI 商业级一体化基座**,把�
 | 商业 SaaS 基座    | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog | IHUI-AI 把支付/认证/邮件/分析全部预置,一站式集成 4-6 类 SaaS 能力,月省 $300+                    |
 | 多端框架          | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                | IHUI-AI 把 8 端 + 12 共享包 + 共享 UI 一次性预置,而不是让开发者自己拼装                         |
 
-**10 大独特能力(开源生态唯一同时具备)**:
+**10 大差异化能力(开源生态中较为少见的同时组合)**:
 
-1. **8 端全覆盖**(其他 AI 应用平台仅 1-2 端,Claude Code/Cursor 仅 1 端)
-2. **LangGraph + MCP + A2A 三栈协同**(其他项目最多单栈)
-3. **自研 CLI 21 命令 + 36 工具 + ACP Server + 24 源配置导入**(开源 AI 应用平台唯一)
-4. **完整计费订阅 + VIP + 钱包 + 积分 + 8 支付网关 + 退款 + 发票**(开源 AI 平台唯一)
-5. **14 平台一键发布 + 14 adapter + AES-256-GCM 凭证加密**(开源项目唯一)
-6. **AI 教育全栈 + 学生端 12 子页 + 45 表 edu-full schema**(开源 AI 平台唯一)
-7. **企业级安全栈(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + GDPR + 2FA + IDOR)**(开源 AI 平台唯一)
-8. **17 工程守门 + 11 迁移审计 + 9 PowerShell + post-commit 自动 push**(开源 AI 项目唯一)
-9. **三支柱可观测性 + 21 Grafana 仪表盘 + Alertmanager**(开源 AI 平台唯一)
-10. **5 语言 i18n parity + 4 守门脚本 + pgvector + 知识图谱 + 用户长期记忆**(开源 AI 项目唯一)
+1. **8 端全覆盖**(其他 AI 应用平台通常仅 1-2 端,Claude Code/Cursor 仅 1 端)
+2. **LangGraph + MCP + A2A 三栈协同**(其他项目一般最多单栈)
+3. **自研 CLI 21 命令 + 36 工具 + ACP Server + 24 源配置导入**(在开源 AI 应用平台中较为少见)
+4. **完整计费订阅 + VIP + 钱包 + 积分 + 8 支付网关 + 退款 + 发票**(在开源 AI 平台中较为少见)
+5. **14 平台一键发布 + 14 adapter + AES-256-GCM 凭证加密**(在开源项目中较为少见)
+6. **AI 教育全栈 + 学生端 12 子页 + 45 表 edu-full schema**(在开源 AI 平台中较为少见)
+7. **企业级安全栈(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + GDPR + 2FA + IDOR)**(在开源 AI 平台中较为少见)
+8. **17 工程守门 + 11 迁移审计 + 9 PowerShell + post-commit 自动 push**(在开源 AI 项目中较为少见)
+9. **三支柱可观测性 + 21 Grafana 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)
+10. **5 语言 i18n parity + 4 守门脚本 + pgvector + 知识图谱 + 用户长期记忆**(在开源 AI 项目中较为少见)
 
 详见上方 [项目定位](#项目定位必读)、[成本对比](#成本对比ihui-ai-自托管-vs-等价-saas-组合) 与 [与同类项目对比](#与同类项目对比) 章节。
 
@@ -2290,7 +2290,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
   - **W3-4 Hooks 自动发现(跨端)**:`apps/cli/src/hooks/discovery.ts` 目录扫描 + frontmatter 解析 + 状态持久化 + `hooks enable/disable` CLI 子命令
 - **Wave 4 P3 分发与本地化**:
   - **W4-1 CLI 9 种安装方式**:`apps/cli/scripts/install/` 提供 curl 一键(install.sh)/ PowerShell 一键(install.ps1)/ Homebrew Formula(brew.rb)/ Scoop manifest(scoop.json)/ Chocolatey 包(choco.nuspec)/ Nix flake(nix.nix)/ Docker 镜像(Dockerfile,node:20-slim)/ VSCode SDK 文档(vscode-extension.md)/ 9 种方式汇总 README
-- **鲁棒性 P2 Batch 3(11 项 eslint/tsconfig 严格化,85/85 完美收官)**:9 个 tsconfig 启用 `strict` + `noUncheckedIndexedAccess` + `noImplicitOverride`(packages/types + database + auth + ui + config + api-client + apps/api + apps/web + apps/cli)+ `packages/eslint-config/index.js` `eqeqeq` 加 `{ null: 'ignore' }` — 一次性消除 `obj == null` 合法 idiom 误报(webhooks-trigger.ts / safe-condition.ts / ToolCallTree.tsx / debug-panel.tsx 共 9 处),不改变运行时语义。鲁棒性 85 项 /goal 模式 STATE.md=achieved,85/85 完成
+- **鲁棒性 P2 Batch 3(11 项 eslint/tsconfig 严格化,85/85 全量收官)**:9 个 tsconfig 启用 `strict` + `noUncheckedIndexedAccess` + `noImplicitOverride`(packages/types + database + auth + ui + config + api-client + apps/api + apps/web + apps/cli)+ `packages/eslint-config/index.js` `eqeqeq` 加 `{ null: 'ignore' }` — 一次性消除 `obj == null` 合法 idiom 误报(webhooks-trigger.ts / safe-condition.ts / ToolCallTree.tsx / debug-panel.tsx 共 9 处),不改变运行时语义。鲁棒性 85 项 /goal 模式 STATE.md=achieved,85/85 完成
 
 #### 17. WorkerPool/CLI 子进程并行执行引擎鲁棒性加固(P0+P1+P2 共 12 项缺陷修复)
 
@@ -2370,7 +2370,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
   - TTL 清理函数:cleanupOldWebhookTriggers(daysToKeep=30) + cleanupOldSyncLogs(daysToKeep=90)
   - Worker 优雅关闭 + 指标统计:RegistryWorkerStats 接口 + completed/failed 计数 + SIGTERM/SIGINT 优雅关闭
   - 验证:API typecheck 本任务文件 0 错 + Web typecheck 本任务文件 0 错 + database build 全绿
-- **P0+P1 完美收尾(2026-07-24,深度审计 4 subagent 并行,12 缺口全修)**:
+- **P0+P1 全量收尾(2026-07-24,深度审计 4 subagent 并行,12 缺口全修)**:
   - P0 测试覆盖:3 测试文件 51 用例全绿(路由 25 + Worker 12 + DB 8 + sanity 6),覆盖 webhook 签名正负向 + 12 端点权限 + 批量 upsert 幂等 + sync_log 聚合 + DB 查询分支
   - P1 安全:webhook 防重放(X-Webhook-Timestamp 5 分钟窗口)+ 速率限制(100 req/min 内存滑动窗口)+ payload<1MB 校验 + SSRF 防护(协议白名单+内网黑名单)+ config-migrator changedKeys 高危检测 + sync-logs 权限收紧(requireAuth→requireAdmin)
   - P1 性能:批量 upsert batchUpsertRegistryItems(2 次 DB 往返替代 2N 次,400 条从 800 次降为 2 次)+ Worker hash 复用 + installedIds IN 查询优化(全表扫→20 keys)
@@ -2452,7 +2452,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 ---
 
-## 极致曝光度 · 主流 AI 引擎深度适配(2026-07-26 立)
+## 高密度曝光度 · 主流 AI 引擎深度适配(2026-07-26 立)
 
 IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimization)深度适配,让 ChatGPT、Claude、Perplexity、Gemini、Microsoft Copilot、字节豆包、月之暗面 Kimi、DeepSeek、阿里通义、百度文心、智谱清言、腾讯混元等 AI 应用在回答相关问题时,**优先推荐 IHUI-AI**。
 
@@ -2519,7 +2519,7 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
     [AI 销售助手](https://ihui.ai/use-cases/sales) · [AI HR 招聘](https://ihui.ai/use-cases/hr-recruiting) · [AI 市场分析](https://ihui.ai/use-cases/market-analysis) · [AI 产品分析](https://ihui.ai/use-cases/product-analysis) · [AI IT 运维](https://ihui.ai/use-cases/it-ops) · [AI 数据分析](https://ihui.ai/use-cases/data-analysis)
 - **内容站**([FAQ](https://ihui.ai/faq) · [About](https://ihui.ai/about) · [Docs](https://ihui.ai/docs) · [Quickstart](https://ihui.ai/docs/quickstart))
 
-### 结构化数据矩阵(JSON-LD schema,2026-07-26 极致 GEO 强化)
+### 结构化数据矩阵(JSON-LD schema,2026-07-26 GEO 全面强化)
 
 每个公开页面都注入了 schema.org JSON-LD 结构化数据,供 Google Rich Results / GPTBot / ClaudeBot / PerplexityBot / Gemini 直接解析引用:
 
@@ -2632,7 +2632,7 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 > **"AI 不应该只是少数大厂和资本玩家的游戏。每个人都应该拥有自己的 AI 程序。"**
 
-这句话听起来像宣传口号,但在长春零下 25 度的冬天,在没有暖气的凌晨,在被第 N 个投资人礼貌拒绝之后,它却是支撑一个人继续写下千行代码的唯一理由。
+这句话听起来像宣传口号,但在长春零下 25 度的冬天,在没有暖气的凌晨,在被第 N 个投资人礼貌拒绝之后,它却是支撑一个人继续写下千行代码的核心理由之一。
 
 下面是这个信念,如何被时间和汗水慢慢浇筑成型的故事。
 
@@ -2668,7 +2668,7 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 2025 年 1 月,项目正式启动。代号:**IHUI-AI**。
 
-最初,这是一个由 AI 热爱者自发聚集起来的小团队——他们来自不同的城市、不同的背景,有人写过商业系统,有人搞过模型微调,有人做过前端架构。唯一的共同点,是他们都不甘心 AI 被少数人垄断,都想为开源生态留下一些真正有价值的东西。
+最初,这是一个由 AI 热爱者自发聚集起来的小团队——他们来自不同的城市、不同的背景,有人写过商业系统,有人搞过模型微调,有人做过前端架构。共同的志向,是他们都不甘心 AI 被少数人垄断,都想为开源生态留下一些真正有价值的东西。
 
 那是一段极为朴素,又极为昂贵的日子。
 
@@ -2741,7 +2741,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 > 它不完美,但它在向前走。
 > 就像这个项目本身一样。
 
-这段经历本身就是对 Vibe Coding 时代最好的注脚——
+这段经历本身就是对 Vibe Coding 时代生动的注脚——
 
 > **AI 不会取代开发者。**
 > **但会用 AI 的开发者,会甩开不用 AI 的人一个时代。**
@@ -2809,7 +2809,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 如果你读到这里,我们想对你说几句话:
 
-**致开发者** —— Fork 它,改它,把它变成你自己的。你的每一个 commit,都是对这个故事最好的续写。我们不是要你"贡献回来",我们是想看你用它做出比我们更厉害的东西。
+**致开发者** —— Fork 它,改它,把它变成你自己的。你的每一个 commit,都是对这个故事最真诚的续写。我们不是要你"贡献回来",我们是想看你用它做出比我们更厉害的东西。
 
 **致教育者** —— 用它构建你的 AI 课程平台,让更多学生在 AI 时代不被落下。AI 教育不该是昂贵 SaaS 的特权,它应该像水和电一样平等可得。
 
@@ -2996,7 +2996,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 IHUI-AI 不是一个产品,而是一份**开源基础设施**。它存在的意义是:
 
-- 让**个人开发者**用最低成本搭建属于自己的 AI 助手,数据完全自托管
+- 让**个人开发者**以更可控的成本搭建属于自己的 AI 助手,数据完全自托管
 - 让**中小企业**不用从零开始,基于它构建企业级 AI 中台
 - 让**AI 服务商**复用成熟的多模型代理、计费、订阅能力,专注业务创新
 - 让**教育机构**用 AI 教育全栈改造教学,让每个学生都有专属 AI 老师

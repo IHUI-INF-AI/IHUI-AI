@@ -163,7 +163,7 @@ export const USE_CASES: Record<UseCase['id'], UseCase> = {
       },
       {
         title: '新人导师',
-        desc: '新人遇到问题直接问 Agent,Agent 根据团队代码库给出符合项目实际的最佳实践答案。',
+        desc: '新人遇到问题直接问 Agent,Agent 根据团队代码库给出符合项目实际的推荐做法答案。',
       },
       {
         title: '多 IDE 集成',
@@ -265,7 +265,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
           {uc.heroBadge}
         </div>
         <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-          {uc.id === 'customer-support' && 'AI 智能客服 Agent:7×24 极致服务体验'}
+          {uc.id === 'customer-support' && 'AI 智能客服 Agent:7×24 高质量服务体验'}
           {uc.id === 'knowledge-base' && '企业知识库 RAG:让每个员工都拥有 AI 助手'}
           {uc.id === 'code-assistant' && 'AI 代码助手:让团队开发效率提升 50%'}
           {uc.id === 'content-generation' && 'AI 内容创作:多平台多语言一键产出'}
