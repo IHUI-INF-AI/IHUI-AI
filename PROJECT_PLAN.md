@@ -10,6 +10,17 @@
 
 ---
 
+## §1 后续任务建议(2026-07-26 维护成本优化批次)
+
+> 2026-07-26 维护成本优化批次(死 key 审计 + LLM 字典化阶段 1)完成后衍生 P2 任务清单。
+
+### P2 维护成本优化后续
+
+- [ ] i18n 死 key 清理(每代 10-20 个,从 about.* / home.* / market.* 等高频 namespace 入手,基于 `.trae-cn/tmp/i18n-dead-keys-2026-07-26.md` 报告,`scan-dead-i18n-keys.mjs --exit 1` 挂 CI)
+- [ ] LLM provider 字典化阶段 2 全量改造(1-2 周,5.5 人天,基于 `docs/llm-provider-dict-design.md` §6 实施步骤)
+
+---
+
 ## 历史归档占位(2026-07-26 批次)
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移完整性审计 — 5 维度对照 + 缺失项识别(/goal 模式),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
@@ -31,6 +42,10 @@
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) GEO/SEO 内容层 + 5 语言 i18n parity 完成,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+---
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) i18n 死 key 审计(commit 73197f3e1)— scripts/scan-dead-i18n-keys.mjs 305 行 + 报告 10255 leaf key / 4415 死 key 43.1% 写入 .trae-cn/tmp/i18n-dead-keys-2026-07-26.md(143KB),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+---
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) LLM provider 字典化阶段 1(commit d7d0b9c40)— docs/llm-provider-dict-design.md 277 行 7 章节 + LLMSettings PoC(+20 行,100% 向后兼容)+ LLM_PROVIDERS_JSON 注释示例,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 ---
 
 ## 历史归档占位(2026-07-25 批次)

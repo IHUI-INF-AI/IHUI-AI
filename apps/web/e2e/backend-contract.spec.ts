@@ -13,7 +13,7 @@ import { test, expect, type Page } from '@playwright/test'
  */
 
 const TEST_USER = {
-  account: process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
+  account: process.env.E2E_USER_ACCOUNT ?? 'test@ihui.ai',
   password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
 }
 
