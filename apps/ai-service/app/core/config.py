@@ -6,24 +6,9 @@ Pydantic Settings 默认大小写不敏感匹配环境变量,因此小写字段�
 """
 
 import json
-import warnings
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
-
-# Provider key 字段别名(用于不遵循 {name}_api_key 命名约定的 provider)
-# get_provider_config 优先用此映射查找扁平字段名,缺省回退到 {name}_api_key
-_PROVIDER_KEY_ALIASES: dict[str, str] = {
-    "cloudflare": "cloudflare_api_token",  # Cloudflare Workers AI 用 token 而非 key
-    "github": "github_token",  # GitHub Models 用 GITHUB_TOKEN
-    "vercel": "vercel_ai_gateway_key",  # Vercel AI Gateway
-    "opencode": "opencode_zen_key",  # OpenCode Zen
-}
-
-# 阶段 3 前置(2026-07-26):fallback 路径加 DeprecationWarning,
-# 用于阶段 3 主体触发条件观测(changelog §1.3.4:日志中 DeprecationWarning 计数)
-# 一次性去重:每个 provider name 只 warn 一次,避免日志噪音
-_warned_providers: set[str] = set()  # 模块级,跨 settings 实例共享
 
 
 class Settings(BaseSettings):
@@ -50,77 +35,9 @@ class Settings(BaseSettings):
     schedule_enabled: bool = True
     schedule_redis_url: str = ""
 
-    # LLM 配置(多 provider 支持,OpenAI 兼容 endpoint 优先)
-    # 任意一个 key 配置即激活真实调用,全部为空降级 stub
-    openai_api_key: str = ""
-    anthropic_api_key: str = ""
-    groq_api_key: str = ""  # 免费 https://console.groq.com/keys
-    gemini_api_key: str = ""  # 免费 https://aistudio.google.com/apikey
-    openrouter_api_key: str = ""  # 有 free tier https://openrouter.ai/keys
-    # OpenAI 兼容 endpoint(用户提供的 plan 套餐)
-    agnes_api_key: str = ""  # https://apihub.agnes-ai.com/v1
-    agnes_api_base: str = "https://apihub.agnes-ai.com/v1"
-    stepfun_api_key: str = ""  # https://api.stepfun.com/step_plan/v1
-    stepfun_api_base: str = "https://api.stepfun.com/step_plan/v1"
-
-    # 免费 / 试用 credits provider(2026-07-22 接入,参考 cheahjs/free-llm-api-resources)
-    # Cloudflare Workers AI(10,000 neurons/day 免费,需 API Token + Account ID)
-    cloudflare_api_token: str = ""  # https://dash.cloudflare.com/profile/api-tokens
-    cloudflare_account_id: str = ""  # https://dash.cloudflare.com/ 右侧 Account ID
-    # NVIDIA NIM(40 req/min,需手机号验证)
-    nvidia_api_key: str = ""  # https://build.nvidia.com/explore/discover
-    # GitHub Models(Copilot Free tier 可用)
-    github_token: str = ""  # https://github.com/settings/tokens
-    # Vercel AI Gateway($5/月免费额度)
-    vercel_ai_gateway_key: str = ""  # https://vercel.com/docs/ai-gateway
-    # OpenCode Zen(完全免费,公开示例 key 见 .env.example 注释)
-    opencode_zen_key: str = ""  # https://opencode.ai/docs/zen/
-    # Modal($5/月注册赠送,加支付方式 $30/月)
-    modal_api_key: str = ""  # https://modal.com/settings/tokens
-    # Inference.net($1 注册送 + 回邮件调查 +$25)
-    inference_net_api_key: str = ""  # https://inference.net
-    # NLP Cloud($15 注册送,需手机号验证)
-    nlp_cloud_api_key: str = ""  # https://nlpcloud.com/home
-    # Scaleway(1M tokens 免费)
-    scaleway_api_key: str = ""  # https://console.scaleway.com/generative-api/models
-    # Alibaba Cloud International Model Studio(1M tokens/模型免费)
-    alibaba_intl_api_key: str = ""  # https://bailian.console.alibabacloud.com/
-
-    # 2026-07-24 接入:14 个免费 LLM provider 内化(OpenAI 兼容,非外部代理)
-    # Cerebras(Qwen3 235B 免费,OpenAI 兼容)
-    cerebras_api_key: str = ""  # https://cloud.cerebras.ai/
-    # Mistral(Large 3 / Codestral / Devstral,OpenAI 兼容)
-    mistral_api_key: str = ""  # https://console.mistral.ai/api-keys/
-    # Cohere(Command R+ / Command-A,OpenAI 兼容端点)
-    cohere_api_key: str = ""  # https://dashboard.cohere.com/api-keys
-    # HuggingFace Inference Router(DeepSeek/Kimi/Qwen3,OpenAI 兼容)
-    huggingface_api_key: str = ""  # https://huggingface.co/settings/tokens
-    # Z.ai / 智谱 OpenAI 兼容端点(GLM-4.5 / GLM-4.7 Flash,区别于 glm- 前缀的智谱国内原生)
-    zai_api_key: str = ""  # https://z.ai/ 或 https://open.bigmodel.cn/
-    # Kilo Gateway(匿名 keyless,:free 路由)
-    kilo_api_base: str = "https://api.kilo.ai/api/gateway/v1"
-    # Pollinations(匿名 keyless,GPT-OSS 20B)
-    pollinations_api_base: str = "https://text.pollinations.ai/openai/v1"
-    # LLM7.io(匿名可用,也可配 key 提升 100 req/hr)
-    llm7_api_key: str = ""  # 可选,https://llm7.io/
-    llm7_api_base: str = "https://api.llm7.io/v1"
-    # OVH AI Endpoints(匿名 keyless,2 req/min)
-    ovh_api_base: str = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
-    # AI Horde(社区,匿名 key 0000000000,注册 key 提升优先级)
-    aihorde_api_key: str = "0000000000"  # 默认匿名 key
-    aihorde_api_base: str = "https://aihorde.net/v1"
-    # Reka(每月免费 credit 赠送,无信用卡,OpenAI 兼容;reka-flash-3 / reka-edge-2603)
-    reka_api_key: str = ""  # https://platform.reka.ai/
-    # Routeway(OpenAI 兼容聚合,:free 后缀模型 $0,~5 rpm)
-    routeway_api_key: str = ""  # https://routeway.ai/
-    # BazaarLink(OpenAI 兼容聚合,auto:free 路由零成本)
-    bazaarlink_api_key: str = ""  # https://bazaarlink.ai/
-    # AINative Studio(OpenAI 兼容聚合,每月 ~10M tokens 免费,无信用卡)
-    ainative_api_key: str = ""  # https://api.ainative.studio/
-
-    # LLM_PROVIDERS — 字典化配置(2026-07-25 立,优先于扁平字段)
-    # JSON 字符串,格式:{"<provider_name>": {"api_key": "...", "api_base": "..."}, ...}
-    # get_provider_config(name) 优先读此 JSON,扁平字段作为 fallback(向后兼容)
+    # LLM 配置(阶段 3 主体:已完全字典化,旧 24+7 扁平字段 + _PROVIDER_KEY_ALIASES 已删除)
+    # 唯一配置源:LLM_PROVIDERS JSON 字符串
+    # 格式:{"<provider_name>": {"api_key": "...", "api_base": "..."}, ...}
     # 新增 provider 只需改 .env 的 LLM_PROVIDERS,零代码改动(config.py 自动识别)
     llm_providers: str = ""
 
@@ -202,18 +119,15 @@ class Settings(BaseSettings):
             )
 
     def get_provider_config(self, name: str) -> "ProviderConfig":
-        """读取 provider 配置,优先 llm_providers JSON,降级旧扁平字段。
+        """读取 provider 配置(阶段 3 主体:只走 JSON 路径,扁平字段已删除)。
 
         name 示例: 'openai' / 'anthropic' / 'stepfun' / 'agnes' / 'groq' / ...
-        返回: ProviderConfig(强类型,2026-07-26 阶段 2 改造后从 dict 升级)
+        返回: ProviderConfig(强类型)
 
-        优先级:
-        1. settings.llm_providers JSON 中 [name] 节点 → ProviderConfig(**data)
-        2. settings.{name}_api_key + settings.{name}_api_base(旧扁平字段,
-           支持 _PROVIDER_KEY_ALIASES 别名,如 cloudflare → cloudflare_api_token)
-        3. 空 ProviderConfig(api_key='', api_base=None)  # 100% 向后兼容旧语义
+        配置来源:settings.llm_providers JSON 字符串
+        JSON 格式: {"<provider_name>": {"api_key": "...", "api_base": "..."}, ...}
 
-        JSON 解析失败时降级到扁平字段(不抛异常,避免启动崩溃)。
+        JSON 解析失败时返回空 ProviderConfig(不抛异常,避免启动崩溃)。
         未知 provider 返回空 ProviderConfig(不抛 KeyError,便于调用方 fallback)。
         """
         # 延迟 import 避免循环依赖(config.py → provider_config.py)
@@ -221,35 +135,17 @@ class Settings(BaseSettings):
 
         from app.core.provider_config import ProviderConfig
 
-        # 1. 优先 JSON 配置
-        if self.llm_providers:
-            try:
-                providers = json.loads(self.llm_providers)
-                if isinstance(providers, dict) and isinstance(providers.get(name), dict):
-                    # 阶段 2:用 Pydantic 强类型校验 + 构造
-                    return ProviderConfig(**providers[name])
-            except (json.JSONDecodeError, TypeError, ValueError, ValidationError):
-                # JSON 解析失败 / 字段类型异常时降级到扁平字段
-                pass
+        if not self.llm_providers:
+            return ProviderConfig()  # 空 ProviderConfig(api_key='', api_base=None)
 
-        # 2. 降级旧扁平字段(支持别名映射)
-        key_field = _PROVIDER_KEY_ALIASES.get(name, f"{name}_api_key")
-        api_key = str(getattr(self, key_field, "") or "")
-        api_base_raw = getattr(self, f"{name}_api_base", None)
-        api_base = str(api_base_raw) if api_base_raw else None
+        try:
+            providers = json.loads(self.llm_providers)
+            if isinstance(providers, dict) and isinstance(providers.get(name), dict):
+                return ProviderConfig(**providers[name])
+        except (json.JSONDecodeError, TypeError, ValueError, ValidationError):
+            pass  # 解析失败返回空配置
 
-        # 阶段 3 前置:warn fallback 命中(每个 provider 只 warn 一次,避免日志噪音)
-        if name not in _warned_providers:
-            _warned_providers.add(name)
-            warnings.warn(
-                f"LLM provider '{name}' using legacy flat-field fallback; "
-                f"please migrate to LLM_PROVIDERS JSON (see docs/llm-provider-stage3-changelog.md §4). "
-                f"Flat fields will be removed in stage 3 main work.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-        return ProviderConfig(api_key=api_key, api_base=api_base)
+        return ProviderConfig()  # 未知 provider 或解析失败
 
 
 settings = Settings()
