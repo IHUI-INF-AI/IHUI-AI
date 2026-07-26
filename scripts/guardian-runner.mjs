@@ -4,7 +4,7 @@
  * 守门脚本批量执行器。
  *
  * 接收配置数组,单进程顺序执行所有检查,输出汇总。
- * 将 pre-commit 中 38 个独立 `node scripts/xxx.mjs` 调用合并为单进程批量执行,
+ * 将 pre-commit 中 51 个独立 `node scripts/xxx.mjs` 调用合并为单进程批量执行,
  * 降低 commit 耗时,提供统一汇总输出。
  *
  * CLI 用法:
@@ -32,10 +32,10 @@ const C = {
   reset: '\x1b[0m',
 }
 
-// === 检查配置(38 项,顺序与原 pre-commit 一致) ===
+// === 检查配置(51 项,顺序与原 pre-commit 一致) ===
 
 const checks = [
-  // --- blocking (24 项) ---
+  // --- blocking (36 项) ---
   {
     id: '1',
     label: '🔐 API key 泄露',
@@ -458,6 +458,35 @@ const checks = [
     script: 'verify-auth-shell.mjs',
     args: [],
     mode: 'warn',
+  },
+
+  // --- 33 (2026-07-26 新增,LLM provider 字典化阶段 3 主体 blocking 守门) ---
+  // blocking:阶段 3 主体已落地(2026-07-26),扁平字段已从 config.py 删除,
+  //   LLM_PROVIDERS JSON 是唯一配置源,守门必须 blocking 防止 .env 配置错误导致运行时崩。
+  //   详见 docs/llm-provider-stage3-changelog.md §3.2 步骤 3.4。
+  // 校验 apps/ai-service/.env 的 LLM_PROVIDERS 字段是否符合
+  //   ProviderConfig schema(apps/ai-service/app/core/provider_config.py),
+  //   提前发现 JSON 格式错 / 字段类型错 / 未知 provider,避免运行时 Pydantic ValidationError。
+  // 校验规则(7 条):JSON 解析 / 顶层对象 / 31 个 provider 白名单 / 字段类型 / 未知字段 / 空值 / 重复。
+  // 失败含义:用户 .env 中 LLM_PROVIDERS JSON 字段不符合 schema,ai-service 启动后会运行时崩。
+  // 已有依赖:scripts/check-llm-provider-schema.mjs(2026-07-26),3 退出码(0/1/2)。
+  // 注意:LLM_PROVIDERS 为空是合法的(降级 stub 模式),info 不阻塞。
+  {
+    id: '33',
+    label: '🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地)',
+    script: 'check-llm-provider-schema.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/ai-service/.env 的 LLM_PROVIDERS 字段不符合 ProviderConfig schema。',
+      '     常见错误:JSON 解析失败 / 字段类型错(api_key 必须是字符串、enabled 必须是布尔值) / 未知 provider。',
+      '     修复方法:',
+      '       ① 跑迁移脚本生成标准 JSON: node scripts/migrate-llm-providers.mjs --input apps/ai-service/.env --output apps/ai-service/.env.migrated --apply --backup',
+      '       ② 用 --strict 模式定位具体错误: node scripts/check-llm-provider-schema.mjs --strict --json',
+      '     详见 docs/llm-provider-stage3-changelog.md §4 用户升级指南',
+      '',
+    ].join('\n'),
   },
 
   // --- info (2 项) ---
