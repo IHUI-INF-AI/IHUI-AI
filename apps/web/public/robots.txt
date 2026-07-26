@@ -93,7 +93,7 @@ Allow: /
 User-agent: BingPreview
 Allow: /
 
-# 站点地图 + GEO 入口(2026-07-26 极致曝光度:8 主流 AI 引擎 + 微软 Copilot + Feed)
+# 站点地图 + GEO 入口(2026-07-26 高密度曝光度:8 主流 AI 引擎 + 微软 Copilot + Feed)
 Sitemap: https://ihui.ai/sitemap.xml
 Sitemap: https://ihui.ai/llms.txt
 Sitemap: https://ihui.ai/llms-full.txt
