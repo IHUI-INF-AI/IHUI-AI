@@ -130,7 +130,7 @@ export default function VerifyCodeModal({
   const sendText = countdown > 0 ? `${countdown}s 后重发` : '重新发送'
 
   return (
-    <View className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+    <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
       <View className="absolute inset-0 bg-black/40" />
       <View
         className="relative bg-card rounded-xl mx-8 px-5 py-4 max-w-xs w-full"
