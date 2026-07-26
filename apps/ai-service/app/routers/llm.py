@@ -587,8 +587,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             executed_tool_keys.add(dedup_key)
 
                             # 执行工具(异常保护:网络/超时/JSON 错误不应崩溃 SSE 流)
+                            # G6(2026-07-26):透传 owner_uuid(user_id)给 knowledge_lookup 查 LTM 源
                             try:
-                                exec_result = await _mcp.call_tool(tool_name, args)
+                                exec_result = await _mcp.call_tool(tool_name, args, user_id=owner_uuid)
                             except Exception as e:
                                 logger.exception("Tool execution exception: %s", tool_name)
                                 exec_result = {
