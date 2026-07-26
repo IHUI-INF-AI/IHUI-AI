@@ -44,7 +44,7 @@ class SkillEvolutionHistoryEntry(TypedDict):
     """单次自进化循环的历史记录。"""
 
     triggered_at: str  # ISO8601 UTC
-    status: Literal["success", "failed", "skipped"]
+    status: Literal["running", "success", "failed", "skipped"]
     duration_ms: int
     skills_processed: int
     total_iterated: int  # shouldIterate=True 的数量
@@ -286,7 +286,7 @@ class SkillEvolutionScheduler:
         from .skill_feedback import skill_feedback_tracker
 
         try:
-            all_skills = skill_registry.list()
+            all_skills = skill_registry.list_skills()
         except Exception as e:
             logger.warning(
                 "[skill_evolution_scheduler] list skills failed: %s: %s",
