@@ -24,6 +24,10 @@ import {
   docs,
   newsArticles,
   resources,
+  // 营收 / 仪表板统计所需表(2026-07-26 补建)
+  orders,
+  eduRefunds,
+  visitLogs,
 } from '@ihui/database'
 import { eq, ilike, desc, sql, and, gte, lte } from 'drizzle-orm'
 import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared.js'
@@ -404,37 +408,140 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 10. 统计聚合端点 — dashboard / revenue / users(空数据桩,后续接真实聚合)
+  // 10. 统计聚合端点 — dashboard / revenue / users
+  // dashboard / revenue: 2026-07-26 从空数据桩升级为真实 DB 聚合(orders/visitLogs/eduRefunds)
   // ===========================================================================
-  server.get('/stats/dashboard', async (_request, reply) => {
-    return reply.send(
-      success({
-        overview: { pv: 0, uv: 0, orders: 0, revenue: 0 },
-        trend: [],
-        metrics: [],
-      }),
-    )
+  server.get('/stats/dashboard', async (request, reply) => {
+    try {
+      const [pvRow, uvRow, ordersRow, revenueRow] = await Promise.all([
+        db.select({ c: sql<number>`count(*)::int` }).from(visitLogs),
+        db
+          .select({ c: sql<number>`count(distinct coalesce(session_id, ip))::int` })
+          .from(visitLogs),
+        db.select({ c: sql<number>`count(*)::int` }).from(orders),
+        db
+          .select({
+            total: sql<number>`coalesce(sum(amount), 0)::int`,
+          })
+          .from(orders)
+          .where(eq(orders.status, 'paid')),
+      ])
+
+      const pv = pvRow[0]?.c ?? 0
+      const uv = uvRow[0]?.c ?? 0
+      const ordersCount = ordersRow[0]?.c ?? 0
+      // orders.amount 以分为单位,转换为元(保留 2 位小数)
+      const revenueCents = revenueRow[0]?.total ?? 0
+      const revenue = Number((revenueCents / 100).toFixed(2))
+
+      return reply.send(
+        success({
+          overview: { pv, uv, orders: ordersCount, revenue },
+          trend: [],
+          metrics: [],
+        }),
+      )
+    } catch (e) {
+      request.log.error({ err: e }, 'stats/dashboard 查询失败')
+      // 表不存在或查询异常时返回零值,避免阻塞 admin 看板
+      return reply.send(
+        success({
+          overview: { pv: 0, uv: 0, orders: 0, revenue: 0 },
+          trend: [],
+          metrics: [],
+        }),
+      )
+    }
   })
 
-  server.get('/stats/revenue', async (_request, reply) => {
-    return reply.send(
-      success({
-        overview: {
-          totalRevenue: 0,
-          monthRevenue: 0,
-          todayRevenue: 0,
-          totalOrders: 0,
-          paidOrders: 0,
-          refundAmount: 0,
-          refundCount: 0,
-          netRevenue: 0,
-          arpu: 0,
-        },
-        trend: [],
-        byChannel: [],
-        byProduct: [],
-      }),
-    )
+  server.get('/stats/revenue', async (request, reply) => {
+    try {
+      const now = new Date()
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      const [totalRow, monthRow, todayRow, totalOrdersRow, paidOrdersRow, refundRow] =
+        await Promise.all([
+          db
+            .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+            .from(orders)
+            .where(eq(orders.status, 'paid')),
+          db
+            .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+            .from(orders)
+            .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, monthStart))),
+          db
+            .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+            .from(orders)
+            .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, todayStart))),
+          db.select({ c: sql<number>`count(*)::int` }).from(orders),
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(orders)
+            .where(eq(orders.status, 'paid')),
+          db
+            .select({
+              amount: sql<number>`coalesce(sum(refund_amount), 0)::numeric(12,2)::float8`,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(eduRefunds)
+            .where(eq(eduRefunds.status, 'completed')),
+        ])
+
+      const totalRevenueCents = totalRow[0]?.total ?? 0
+      const monthRevenueCents = monthRow[0]?.total ?? 0
+      const todayRevenueCents = todayRow[0]?.total ?? 0
+      const totalOrders = totalOrdersRow[0]?.c ?? 0
+      const paidOrders = paidOrdersRow[0]?.c ?? 0
+      const refundAmount = Number(refundRow[0]?.amount ?? 0)
+      const refundCount = refundRow[0]?.count ?? 0
+
+      const totalRevenue = Number((totalRevenueCents / 100).toFixed(2))
+      const monthRevenue = Number((monthRevenueCents / 100).toFixed(2))
+      const todayRevenue = Number((todayRevenueCents / 100).toFixed(2))
+      const netRevenue = Number((totalRevenue - refundAmount).toFixed(2))
+      const arpu = paidOrders > 0 ? Number((totalRevenue / paidOrders).toFixed(2)) : 0
+
+      return reply.send(
+        success({
+          overview: {
+            totalRevenue,
+            monthRevenue,
+            todayRevenue,
+            totalOrders,
+            paidOrders,
+            refundAmount,
+            refundCount,
+            netRevenue,
+            arpu,
+          },
+          trend: [],
+          byChannel: [],
+          byProduct: [],
+        }),
+      )
+    } catch (e) {
+      request.log.error({ err: e }, 'stats/revenue 查询失败')
+      // 表不存在或查询异常时返回零值,避免阻塞 admin 看板
+      return reply.send(
+        success({
+          overview: {
+            totalRevenue: 0,
+            monthRevenue: 0,
+            todayRevenue: 0,
+            totalOrders: 0,
+            paidOrders: 0,
+            refundAmount: 0,
+            refundCount: 0,
+            netRevenue: 0,
+            arpu: 0,
+          },
+          trend: [],
+          byChannel: [],
+          byProduct: [],
+        }),
+      )
+    }
   })
 
   server.get('/stats/users', async (_request, reply) => {
