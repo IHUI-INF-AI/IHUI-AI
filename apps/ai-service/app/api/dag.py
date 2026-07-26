@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Optional
+from typing import Any, Callable, Optional, cast
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -48,7 +48,7 @@ class KanbanTaskCreate(BaseModel):
     name: str
     description: Optional[str] = None
     priority: int = 0
-    payload: dict = Field(default_factory=dict)
+    payload: dict[str, Any] = Field(default_factory=dict)
     scheduled_at: Optional[str] = Field(None, alias="scheduledAt")
     dependencies: list[str] = Field(default_factory=list)
     created_by: Optional[str] = Field(None, alias="createdBy")
@@ -72,8 +72,8 @@ class DAGExecuteRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     nodes: list[DAGNodeSpec]
-    edges: list[dict] = Field(default_factory=list)  # 保留字段,实际依赖由 node.dependencies 表达
-    initial_context: dict = Field(default_factory=dict, alias="initialContext")
+    edges: list[dict[str, Any]] = Field(default_factory=list)  # 保留字段,实际依赖由 node.dependencies 表达
+    initial_context: dict[str, Any] = Field(default_factory=dict, alias="initialContext")
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +82,7 @@ class DAGExecuteRequest(BaseModel):
 
 
 _pool: Optional[WorkerPool] = None
-_executions: dict[str, dict] = {}
+_executions: dict[str, dict[str, Any]] = {}
 
 
 def _get_pool() -> WorkerPool:
@@ -104,18 +104,18 @@ async def _ensure_pool_started() -> WorkerPool:
 # ---------------------------------------------------------------------------
 
 
-async def _default_node_executor(context: dict) -> dict:
+async def _default_node_executor(context: dict[str, Any]) -> dict[str, Any]:
     """DAG 节点默认 executor:回显 context keys(无业务 executor 时兜底)。"""
     return {"executed": True, "contextKeys": list(context.keys())}
 
 
 @router.post("/dag/execute")
-async def execute_dag(req: DAGExecuteRequest):
+async def execute_dag(req: DAGExecuteRequest) -> dict[str, Any]:
     """提交 DAG 执行,返回 executionId。
 
     节点 executor 用默认回显实现(真实业务应通过 WorkerPool + executor_factory 注册)。
     """
-    scheduler = DAGScheduler()
+    scheduler = cast(Callable[[], DAGScheduler], DAGScheduler)()
     try:
         for node_spec in req.nodes:
             scheduler.add_node(
@@ -161,7 +161,7 @@ async def execute_dag(req: DAGExecuteRequest):
 
 
 @router.get("/dag/execute/{execution_id}")
-async def get_execution(execution_id: str):
+async def get_execution(execution_id: str) -> dict[str, Any]:
     """查询 DAG 执行状态。"""
     data = _executions.get(execution_id)
     if data is None:
@@ -175,7 +175,7 @@ async def get_execution(execution_id: str):
 
 
 @router.post("/dag/tasks")
-async def submit_task(task_in: KanbanTaskCreate):
+async def submit_task(task_in: KanbanTaskCreate) -> dict[str, Any]:
     """提交单个 KanbanTask 到 WorkerPool。"""
     pool = await _ensure_pool_started()
     task = KanbanTask(
@@ -197,7 +197,7 @@ async def submit_task(task_in: KanbanTaskCreate):
 
 
 @router.get("/dag/tasks/{task_id}")
-async def get_task(task_id: str):
+async def get_task(task_id: str) -> dict[str, Any]:
     """查询任务状态。"""
     pool = _get_pool()
     task = await pool.get_status(task_id)
@@ -207,7 +207,7 @@ async def get_task(task_id: str):
 
 
 @router.get("/dag/tasks")
-async def list_tasks(status: Optional[str] = Query(default=None, description="按状态过滤")):
+async def list_tasks(status: Optional[str] = Query(default=None, description="按状态过滤")) -> dict[str, Any]:
     """列出所有任务(支持 status 过滤)。"""
     pool = _get_pool()
     tasks = pool.list_tasks(status=status)
@@ -220,7 +220,7 @@ async def list_tasks(status: Optional[str] = Query(default=None, description="�
 
 
 @router.get("/dag/workers")
-async def list_workers():
+async def list_workers() -> dict[str, Any]:
     """列出所有 worker 状态(辅助端点)。"""
     pool = _get_pool()
     return {

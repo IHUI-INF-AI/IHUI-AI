@@ -35,7 +35,7 @@ X 平台在沙箱的可达性（已实测 2026-07-16）：
 import json
 import os
 from datetime import datetime
-from typing import Any, TypedDict
+from typing import Any, Optional, TypedDict
 
 
 class XSource(TypedDict):
@@ -164,15 +164,15 @@ CAT_LABELS = {
 
 
 # ===================== 查询辅助 =====================
-def all_handles():
-    out = []
+def all_handles() -> list[str]:
+    out: list[str] = []
     for cat, items in X_SOURCES.items():
         for it in items:
             out.append(it['handle'])
     return out
 
 
-def pick_for_topic(keywords, limit=None):
+def pick_for_topic(keywords: str, limit: Optional[int] = None) -> list[dict[str, Any]]:
     """返回与主题相关的 X 账号（官方+高优先级优先）。
 
     keywords: 空格分隔的主题词（如 "Kimi K3 DeepSeek V4"）
@@ -199,7 +199,7 @@ def pick_for_topic(keywords, limit=None):
     return [it for _, it in scored]
 
 
-def full_checklist():
+def full_checklist() -> str:
     """返回注册表【全量】信源清单（按分类+优先级，不依赖主题打分）。
     写稿前 X 核查基准：官方账号【发布源】必拉；媒体/研究者/聚合按优先级全扫。"""
     total = sum(len(v) for v in X_SOURCES.values())
@@ -217,7 +217,7 @@ def full_checklist():
     return '\n'.join(lines)
 
 
-def checklist_for_topic(keywords, limit=None):
+def checklist_for_topic(keywords: str, limit: Optional[int] = None) -> str:
     """生成写稿前应核查的 X 账号 Markdown 清单（主题聚焦，默认全量不截断）。"""
     picks = pick_for_topic(keywords, limit=limit)
     lines = [f'# X 平台信源核查清单（主题：{keywords}）', '',
@@ -238,14 +238,14 @@ def checklist_for_topic(keywords, limit=None):
     return '\n'.join(lines)
 
 
-def coverage_dir():
+def coverage_dir() -> str:
     d = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                      '.workbuddy', 'x_coverage')
     os.makedirs(d, exist_ok=True)
     return d
 
 
-def log_coverage(topic, checked_handles, notes=''):
+def log_coverage(topic: str, checked_handles: list[str], notes: str = '') -> str:
     """记录本次 X 信源核查覆盖，供审计/复盘。"""
     date = datetime.now().strftime('%Y-%m-%d')
     path = os.path.join(coverage_dir(), f'{date}.json')
@@ -257,7 +257,7 @@ def log_coverage(topic, checked_handles, notes=''):
         'ts': datetime.now().isoformat(timespec='seconds'),
     }
     # 同主题追加，不覆盖
-    data = []
+    data: list[Any] = []
     if os.path.exists(path):
         try:
             data = json.load(open(path, encoding='utf-8'))

@@ -26,7 +26,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Iterator, Optional, cast
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -718,7 +718,7 @@ class ContextEngine:
         norm_b = sum(y * y for y in b) ** 0.5
         if norm_a == 0 or norm_b == 0:
             return 0.0
-        return dot / (norm_a * norm_b)
+        return float(dot / (norm_a * norm_b))
 
     @staticmethod
     def _make_cache_key(messages: list[dict[str, Any]]) -> str:
@@ -909,7 +909,7 @@ class ContextEngine:
         return None
 
     @staticmethod
-    def _walk_ast(root: Any):
+    def _walk_ast(root: Any) -> Iterator[Any]:
         """先序遍历 AST 节点生成器。"""
         stack = [root]
         while stack:
@@ -925,7 +925,7 @@ class ContextEngine:
         if node is None or not getattr(node, "text", None):
             return ""
         try:
-            return node.text.decode("utf-8", errors="replace")
+            return cast(str, node.text.decode("utf-8", errors="replace"))
         except Exception:
             return ""
 

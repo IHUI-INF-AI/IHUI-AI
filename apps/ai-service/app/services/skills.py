@@ -681,7 +681,7 @@ class SkillEvolutionService:
     """
 
     @staticmethod
-    def _build_eval_prompt(request: dict) -> list[dict[str, Any]]:
+    def _build_eval_prompt(request: dict[str, Any]) -> list[dict[str, Any]]:
         """构建评估 prompt(明确约束:仅可复用模式才生成,kebab-case 命名)。"""
         goal = request.get("goal", "")
         steps = request.get("steps", [])
@@ -715,7 +715,7 @@ class SkillEvolutionService:
             },
         ]
 
-    async def evaluate(self, request: dict) -> dict:
+    async def evaluate(self, request: dict[str, Any]) -> dict[str, Any]:
         """评估任务是否值得沉淀为 skill。
 
         Args:
@@ -782,7 +782,7 @@ class SkillEvolutionService:
 
     async def _run_quality_gate(
         self, skill_name: str, skill_content: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         """P3-2:生成测试用例 + 执行测试,返回 SkillTestResult。
 
         降级:LLM 失败或异常返回 passRate=0 的空结果(触发质量门拒绝)。
@@ -809,7 +809,7 @@ class SkillEvolutionService:
             }
 
     @staticmethod
-    def _parse_eval_output(content: str) -> dict:
+    def _parse_eval_output(content: str) -> dict[str, Any]:
         """解析 LLM 评估输出为 SkillEvolutionResult 字典(容错)。"""
         # 优先提取 JSON 对象(兼容 ```json 包裹与裸 JSON)
         match = re.search(r"\{.*\}", content, re.DOTALL)
@@ -870,7 +870,7 @@ class SkillEvolutionLoop:
     SkillTester / SkillFeedbackTracker / SkillIterator 四组件。
     """
 
-    async def evolve(self, request: dict) -> dict:
+    async def evolve(self, request: dict[str, Any]) -> dict[str, Any]:
         """完整闭环:生成 skill → 自动测试 → 质量门落盘 → 初始化反馈追踪。
 
         Args:
@@ -885,7 +885,7 @@ class SkillEvolutionLoop:
         # 生成 → 自动测试 → 质量门(通过率 < 0.6 拒绝)→ 落盘 → 反馈追踪初始化
         return await skill_evolution_service.evaluate(request)
 
-    async def iterate_on_feedback(self, skill_name: str) -> dict:
+    async def iterate_on_feedback(self, skill_name: str) -> dict[str, Any]:
         """基于使用反馈迭代优化 skill。
 
         流程:

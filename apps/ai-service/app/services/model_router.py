@@ -82,12 +82,12 @@ class ModelRouter:
         TaskComplexity.EXPERT: {"min_reasoning": 9, "prefer_speed": False, "max_price": 50.0},
     }
     
-    def __init__(self, models: Optional[list[ModelCapability]] = None):
+    def __init__(self, models: Optional[list[ModelCapability]] = None) -> None:
         self.models: dict[str, ModelCapability] = {}
         for m in (models or self.DEFAULT_MODELS):
             self.register_model(m)
-    
-    def register_model(self, model: ModelCapability):
+
+    def register_model(self, model: ModelCapability) -> None:
         """注册模型。"""
         self.models[model.model_id] = model
     
@@ -184,7 +184,7 @@ class ModelRouter:
             )
         
         # 排序:优先本地(免费)→ 速度(如果 prefer_speed)→ 价格 → 推理能力
-        def sort_key(m: ModelCapability):
+        def sort_key(m: ModelCapability) -> tuple[int, int, float]:
             cost_score = 0 if m.input_price == 0 else 1  # 本地优先
             speed_score = -m.speed_tps if req["prefer_speed"] else 0  # 速度优先时取负(越大越前)
             price_score = m.input_price
