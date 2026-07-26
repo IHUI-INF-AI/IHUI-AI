@@ -87,7 +87,7 @@ class KnowledgeGraphService:
         self._gateway = gateway or llm_gateway
 
     @staticmethod
-    def _stub_extract(text: str) -> dict[str, list[dict[str, Any]]]:
+    def _stub_extract(text: str) -> dict[str, Any]:
         """无 LLM 时的关键词 NER fallback(简易启发式)。
 
         规则:

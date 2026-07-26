@@ -279,7 +279,7 @@ export default function CourseDetail() {
       <CourseRating visible={showRating} initialRating={0} onSubmit={handleSubmitRating} />
 
       {showShare && (
-        <View className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowShare(false)}>
+        <View className="fixed inset-0 z-[2000] bg-black/50" onClick={() => setShowShare(false)}>
           <View
             className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl"
             onClick={(e) => e.stopPropagation()}

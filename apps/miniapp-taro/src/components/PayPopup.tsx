@@ -29,7 +29,7 @@ export default function PayPopup({ visible = false, pay = {}, onClose, onPay }: 
   const displayAmount = (amount / 100).toFixed(2)
 
   return (
-    <View className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+    <View className="fixed inset-0 z-[2000] flex items-end" onClick={onClose}>
       <View className="absolute inset-0 bg-black/40" />
       <View
         className="relative bg-card rounded-t-2xl w-full px-6 pb-6 pt-4"
