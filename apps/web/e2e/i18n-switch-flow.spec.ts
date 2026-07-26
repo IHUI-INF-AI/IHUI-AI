@@ -90,7 +90,7 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
     const { serverErrors } = attachErrorGuards(page)
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
-    const hit = await waitForAnyText(page, I18N_KEYWORDS['zh-CN'], 8000)
+    const hit = await waitForAnyText(page, I18N_KEYWORDS['zh-CN'] ?? [], 8000)
     expect(hit).toBeTruthy()
     expect(filterServerErrorsLocal(serverErrors)).toHaveLength(0)
   })
@@ -104,7 +104,7 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
       // 切换
       await switchLocale(page, locale)
       // 等待目标语言关键字出现
-      const hit = await waitForAnyText(page, I18N_KEYWORDS[locale], 10000)
+      const hit = await waitForAnyText(page, I18N_KEYWORDS[locale] ?? [], 10000)
       // 5 语言是项目硬约束,必须命中;若失败先核对 messages/<locale>.json
       expect(
         hit,
@@ -135,7 +135,7 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
     await page.waitForLoadState('domcontentloaded')
     for (const locale of LOCALES) {
       await switchLocale(page, locale)
-      const hit = await waitForAnyText(page, I18N_KEYWORDS[locale], 8000)
+      const hit = await waitForAnyText(page, I18N_KEYWORDS[locale] ?? [], 8000)
       expect(hit, `连续切换中 ${locale} 未生效`).toBeTruthy()
     }
     const real = consoleErrors.filter(
@@ -152,7 +152,7 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
     await page.goto('/login')
     await page.waitForLoadState('domcontentloaded')
     // 英文关键字应出现在 /login 页面(可能重定向到 /sso/login)
-    const hit = await waitForAnyText(page, I18N_KEYWORDS.en, 8000)
+    const hit = await waitForAnyText(page, I18N_KEYWORDS.en ?? [], 8000)
     expect(hit).toBeTruthy()
     expect(filterServerErrorsLocal(serverErrors)).toHaveLength(0)
     const real = consoleErrors.filter(

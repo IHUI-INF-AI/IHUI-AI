@@ -192,7 +192,7 @@ test.describe('CLI 配置导入', () => {
       await fileInput.setInputFiles({
         name: 'settings.json',
         mimeType: 'application/json',
-        buffer: Buffer.fromString('{"env": {}}'),
+        buffer: Buffer.from('{"env": {}}', 'utf-8'),
       })
       // 点击解析按钮
       await page.getByRole('button', { name: /解析/ }).click()
