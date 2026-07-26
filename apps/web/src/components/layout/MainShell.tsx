@@ -11,22 +11,23 @@ import { TagsView } from '@/components/layout/TagsView'
 /**
  * MainShell — (main) 路由组的工作区面板容器
  *
- * 2026-07-26 用户反馈(第八次修订):
- * - 顶部 TagsView 区域所有端都显示(web + 桌面端统一),高度 h-[44px]
+ * 2026-07-26 用户反馈(第九次修订):
+ * - TagsView 放到 MainShell 卡片容器**外面、上方**(不再是容器内部最顶部子元素)
+ * - 顶栏(h-[44px])与工作区卡片(rounded-xl bg-shell-panel)是兄弟节点,垂直排列
  * - 总顶部 = my-2(8px) + 44px = 52px(用户要求"统一减52"给标签组件)
- * - AISidePanel 所有端统一 top-2(8px),不需要避开 TagsView(AI 面板无标签栏)
- * - 窗口控制按钮(Min/Max/Close)仅桌面端 isDesktop 显示
- * - 顶栏作为 Tauri drag region(桌面端拖拽),TagsView/按钮 占据同一排
+ * - 顶栏无卡片背景(透明),让 TagsView 自身 bg-muted/70 圆角样式独立呈现
+ * - 工作区卡片 mt-2 与顶栏分隔 8px,只包含 main 内容
+ * - 窗口控制按钮(Min/Max/Close)仅桌面端 isDesktop 显示,与 TagsView 同一排
  *
  * 布局:
- *   <div bg-shell-panel rounded-xl my-2 mr-2>
- *     <div h-[44px] drag-region>      ← 所有端都有顶栏
- *       <TagsView flex-1 />            ← 页面标签容器
+ *   <div my-2 mr-2 flex flex-col>     ← 外层 wrapper(顶栏 + 工作区卡片)
+ *     <div h-[44px] drag-region>      ← 顶栏(独立,无卡片背景)
+ *       <TagsView flex-1 />            ← 页面标签容器(自带 bg-muted/70 rounded-lg)
  *       <Min|Max|Close />              ← 仅桌面端 isDesktop
  *     </div>
- *     <main p-4>                       ← 工作区内容
- *       {children}
- *     </main>
+ *     <div bg-shell-panel rounded-xl mt-2 flex-1>  ← 工作区卡片(只含 main)
+ *       <main p-4>{children}</main>
+ *     </div>
  *   </div>
  */
 export function MainShell({ children }: { children: React.ReactNode }) {
@@ -52,17 +53,19 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl my-2 mr-2">
-      {/* 顶部 TagsView 区域:所有端都显示(2026-07-26 修复)
+    // 外层 wrapper:顶栏 + 工作区卡片垂直排列,my-2 mr-2 与 Sidebar/AISidePanel 对齐
+    <div className="relative flex min-h-0 flex-1 flex-col my-2 mr-2">
+      {/* 顶栏:TagsView 在 MainShell 卡片外面上方(2026-07-26 第九次修订)
           - 高度 h-[44px],总顶部 = my-2(8px) + 44px = 52px(用户要求"统一减52")
-          - TagsView 占据左侧 flex-1,窗口控制按钮(仅桌面端)在右侧
+          - 无卡片背景(透明),TagsView 自带 bg-muted/70 rounded-lg 独立呈现
           - 桌面端 data-tauri-drag-region 作为 Tauri 拖拽区
-          - 历史教训:之前仅桌面端 isDesktop 渲染顶栏,web 端无 TagsView;
-            用户反馈"把标签组件放到这52的区域",改为所有端都渲染,TagsView 统一显示 */}
+          - 历史教训:之前 TagsView 在 MainShell 卡片内部最顶部,用户反馈
+            "div 应该在右侧工作展示区容器的外面 上面 而不是包含在里头放到最顶部",
+            改为兄弟节点结构(顶栏在外,工作区卡片在下) */}
       <div
         data-tauri-drag-region
         data-is-desktop={isDesktop ? 'true' : 'false'}
-        className="flex h-[44px] shrink-0 items-center gap-2 px-2 select-none border-b border-border"
+        className="flex h-[44px] shrink-0 items-center gap-2 px-2 select-none"
       >
         <React.Suspense fallback={null}>
           {/* 包装层:flex-1 让 TagsView 占满中间区域,与右侧按钮同一排 */}
@@ -103,13 +106,19 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      <main
-        id="main"
-        tabIndex={-1}
-        className="thin-scroll flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
-      >
-        {children}
-      </main>
+      {/* 工作区卡片:只包含 main 内容,mt-2 与顶栏分隔 8px
+          - bg-shell-panel rounded-xl 保持卡片视觉
+          - flex-1 + min-h-0 填充剩余高度
+          - overflow-hidden 裁剪子元素溢出 + 保持圆角不被覆盖 */}
+      <div className="bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl mt-2">
+        <main
+          id="main"
+          tabIndex={-1}
+          className="thin-scroll flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
+        >
+          {children}
+        </main>
+      </div>
     </div>
   )
 }
