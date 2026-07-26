@@ -97,15 +97,12 @@ def _make_event(
 
 
 def _patch_record_decision(engine: JointDecisionEngine):
-    """Patch 源码 _record_decision 的 walrus 操作符 bug(L679)。
+    """提供等价于源码 _record_decision 的可用实现,供需要隔离其副作用的测试使用。
 
-    源码:
-        self._stats[total_key := decision.status] = self._stats.get(total_key, 0) + 1
-    Python 先求值 RHS,self._stats.get(total_key, 0) 在 total_key 赋值前执行
-    → UnboundLocalError。
-
-    这里提供一个等价于"源码意图"的可用实现,供需要 _record_decision 副作用的测试使用。
-    bug 本身由 TestJointDecisionEngineRecordDecisionBug 类直接验证。
+    源码 walrus 操作符 bug 已于 2026-07-26 批次 4 修复(L679-680 拆分为独立语句),
+    修复后源码与本 helper 的 `_working_record` 行为一致。
+    helper 现在仅作为"等价于源码意图的可用实现"供需要隔离 _record_decision 副作用
+    (例如避开 Redis 持久化路径)的测试使用。
     """
 
     async def _working_record(decision: OrchestrationDecision) -> None:
@@ -937,16 +934,20 @@ class TestJointDecisionEngineExecuteDecision:
         assert len(recorded["results"]) == len(decision.actions)
 
 
-class TestJointDecisionEngineRecordDecisionBug:
-    """源码 _record_decision 的 walrus 操作符 bug 验证(L679)。
+class TestJointDecisionEngineRecordDecisionFixed:
+    """验证源码 _record_decision 的 walrus 操作符 bug 已修复(L679-680)。
 
-    源码:
-        self._stats[total_key := decision.status] = self._stats.get(total_key, 0) + 1
-    Python 求值顺序:先 RHS → self._stats.get(total_key, 0) → total_key 未定义
-    → UnboundLocalError(因 walrus 使 total_key 成为局部变量)。
+    历史 bug(已于 2026-07-26 批次 4 修复):
+        源码旧实现 `self._stats[total_key := decision.status] = self._stats.get(total_key, 0) + 1`
+        Python 求值顺序:先 RHS → self._stats.get(total_key, 0) → total_key 未定义
+        → UnboundLocalError(因 walrus 使 total_key 成为局部变量)。
+    修复后源码拆分为独立语句:
+        total_key = decision.status
+        self._stats[total_key] = self._stats.get(total_key, 0) + 1
+    本类验证修复后的正确行为:不再抛异常,且统计正确更新。
     """
 
-    async def test_record_decision_raises_unbound_local_error(
+    async def test_record_decision_no_longer_raises_unbound_local_error(
         self, decision_engine: JointDecisionEngine
     ):
         evt = _make_event()
@@ -956,9 +957,15 @@ class TestJointDecisionEngineRecordDecisionBug:
             playbook_id="",
             actions=[],
             status="skipped",
+            duration_ms=42,
         )
-        with pytest.raises(UnboundLocalError):
-            await decision_engine._record_decision(decision)
+        # 不再抛 UnboundLocalError,正常执行并更新统计
+        await decision_engine._record_decision(decision)
+        assert decision_engine._stats["total_decisions"] == 1
+        assert decision_engine._stats["skipped"] == 1
+        assert decision_engine._stats["total_duration_ms"] == 42
+        assert len(decision_engine._memory_decisions) == 1
+        assert decision_engine._memory_decisions[0]["decision_id"] == "d-bug"
 
 
 class TestJointDecisionEngineRecordDecision:
