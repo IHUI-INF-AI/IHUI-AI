@@ -31,7 +31,12 @@ const DEFAULT_TODAY = new Date().toISOString().slice(0, 10)
 const ZH_CN_PATH = path.join(ROOT, 'packages/i18n/messages/web/zh-CN.json')
 const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 const LOCALE_PATHS = Object.fromEntries(LOCALES.map((l) => [l, path.join(ROOT, `packages/i18n/messages/web/${l}.json`)]))
-const SCAN_TARGETS = [path.join(ROOT, 'apps/web/src'), path.join(ROOT, 'apps/miniapp-taro/src'), path.join(ROOT, 'apps/cli/src')]
+const SCAN_TARGETS = [
+  path.join(ROOT, 'apps/web/src'),
+  path.join(ROOT, 'apps/web/app'), // Next.js 15 App Router(2026-07-26 漏扫 bug 修复)
+  path.join(ROOT, 'apps/miniapp-taro/src'),
+  path.join(ROOT, 'apps/cli/src'),
+]
 const EXCLUDE_DIRS = new Set(['node_modules', '.next', '.git', 'dist', 'build', 'coverage', '__tests__', 'tests', 'test', '__mocks__', 'fixtures'])
 const EXCLUDE_FILE_PATTERNS = [/\.test\.(ts|tsx)$/, /\.spec\.(ts|tsx)$/, /\.d\.ts$/, /messages\//]
 
