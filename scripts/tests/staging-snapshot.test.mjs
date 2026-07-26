@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, existsSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -496,6 +496,138 @@ test('setupRestoreOnExit: 多文件 hook 期间新增 → 全部 unstage', () =>
     assert.ok(staged.some((f) => f.includes('task2.ts')))
     assert.ok(!staged.some((f) => f.includes('pollution')))
   } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 边界场景测试(2026-07-26 立:空格路径/中文路径/git restore 失败/监控日志) ───
+
+test('restoreStaging: 含空格的文件路径 → 正确 unstage', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'task-file.ts', 'a')
+    const snapshot = takeStagingSnapshot({ cwd: dir })
+    stageFile(dir, 'my file.ts', 'b') // 含空格
+    assert.equal(getStagedFiles(dir).length, 2)
+    const result = restoreStaging(snapshot, { cwd: dir, silent: true })
+    assert.equal(result.restored.length, 1)
+    assert.ok(result.restored.some((f) => f.includes('my file.ts')))
+    const staged = getStagedFiles(dir)
+    assert.equal(staged.length, 1)
+    assert.ok(staged[0].includes('task-file.ts'))
+    assert.ok(!staged.some((f) => f.includes('my file.ts')))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('restoreStaging: 含中文的文件路径 → 正确 unstage(路径归一化 + git restore)', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'task-file.ts', 'a')
+    const snapshot = takeStagingSnapshot({ cwd: dir })
+    stageFile(dir, '任务文件.ts', 'b') // 含中文
+    assert.equal(getStagedFiles(dir).length, 2)
+    const result = restoreStaging(snapshot, { cwd: dir, silent: true })
+    assert.equal(result.restored.length, 1)
+    assert.ok(result.restored.some((f) => f.includes('任务文件.ts')))
+    const staged = getStagedFiles(dir)
+    assert.equal(staged.length, 1)
+    assert.ok(staged[0].includes('task-file.ts'))
+    assert.ok(!staged.some((f) => f.includes('任务文件.ts')))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('restoreStaging: git restore 失败时不阻塞(非 git cwd + 非 null 快照 → fallback)', () => {
+  const nonGitDir = mkdtempSync(join(tmpdir(), 'ihui-non-git-restore-'))
+  try {
+    // 非 null 快照(模拟 takeStagingSnapshot 在 git 环境取到的快照)
+    const snapshot = new Set(['existing-file.ts'])
+    // cwd 指向非 git 目录,git diff 必然失败 → 走 catch 分支
+    const result = restoreStaging(snapshot, { cwd: nonGitDir, silent: true })
+    // 不抛异常 + 返回对象结构正确
+    assert.ok(result !== null && typeof result === 'object')
+    assert.ok(Array.isArray(result.restored))
+    assert.equal(result.restored.length, 0)
+    // catch 分支设置 skipped=true(non-git-env)
+    assert.equal(result.skipped, true)
+  } finally {
+    rmSync(nonGitDir, { recursive: true, force: true })
+  }
+})
+
+test('setupRestoreOnExit: 含中文路径文件在子进程中被还原', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'task-file.ts', 'a')
+    const script = `
+      const { takeStagingSnapshot, setupRestoreOnExit } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
+      const dir = ${JSON.stringify(dir.replace(/\\/g, '/'))}
+      const snapshot = takeStagingSnapshot({ cwd: dir })
+      setupRestoreOnExit(snapshot, { cwd: dir, silent: true })
+      // 模拟 hook 期间 stage 含中文路径文件
+      require('fs').writeFileSync(dir + '/任务文件.ts', 'b')
+      require('child_process').execSync('git add 任务文件.ts', { cwd: dir, stdio: 'pipe' })
+      process.exit(0)
+    `
+    const result = runInChild(script, dir)
+    assert.equal(result.status, 0, `子进程应正常退出,stderr: ${result.stderr}`)
+    const staged = getStagedFiles(dir)
+    assert.equal(staged.length, 1, '中文路径文件应被 unstage')
+    assert.ok(staged[0].includes('task-file.ts'))
+    assert.ok(!staged.some((f) => f.includes('任务文件.ts')))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('restoreStaging: HUSKY_STAGING_RESTORE_LOG=1 时写入监控日志(JSON Lines)', () => {
+  const dir = createTempGitRepo()
+  const originalEnv = process.env.HUSKY_STAGING_RESTORE_LOG
+  process.env.HUSKY_STAGING_RESTORE_LOG = '1'
+  try {
+    stageFile(dir, 'task-file.ts', 'a')
+    const snapshot = takeStagingSnapshot({ cwd: dir })
+    stageFile(dir, 'pollution.ts', 'b')
+    const logPath = join(dir, '.trae-cn', 'tmp', 'staging-restore.log')
+    // 非 silent 模式 + 环境变量=1 + restored.length>0 → 应写日志
+    const result = restoreStaging(snapshot, { cwd: dir, silent: false })
+    assert.equal(result.restored.length, 1)
+    assert.ok(existsSync(logPath), '日志文件应被创建')
+    const logContent = readFileSync(logPath, 'utf8').trim().split('\n')
+    assert.equal(logContent.length, 1, '应写入 1 行 JSON')
+    const entry = JSON.parse(logContent[0])
+    assert.ok(entry.timestamp, '应含 timestamp 字段')
+    assert.equal(entry.cwd, dir.replace(/\\/g, '/'), 'cwd 应为 POSIX 路径')
+    assert.ok(Array.isArray(entry.restored), 'restored 应为数组')
+    assert.equal(entry.restoredCount, 1, 'restoredCount 应为 1')
+    assert.equal(entry.skipped, false, 'skipped 应为 false')
+    assert.equal(entry.skipReason, null, 'skipReason 应为 null')
+  } finally {
+    if (originalEnv === undefined) delete process.env.HUSKY_STAGING_RESTORE_LOG
+    else process.env.HUSKY_STAGING_RESTORE_LOG = originalEnv
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('restoreStaging: silent 模式不写监控日志(即使 HUSKY_STAGING_RESTORE_LOG=1)', () => {
+  const dir = createTempGitRepo()
+  const originalEnv = process.env.HUSKY_STAGING_RESTORE_LOG
+  process.env.HUSKY_STAGING_RESTORE_LOG = '1'
+  try {
+    stageFile(dir, 'task-file.ts', 'a')
+    const snapshot = takeStagingSnapshot({ cwd: dir })
+    stageFile(dir, 'pollution.ts', 'b')
+    const logPath = join(dir, '.trae-cn', 'tmp', 'staging-restore.log')
+    // silent=true → 即使环境变量=1 也不应写日志
+    const result = restoreStaging(snapshot, { cwd: dir, silent: true })
+    assert.equal(result.restored.length, 1)
+    assert.ok(!existsSync(logPath), 'silent 模式不应创建日志文件')
+  } finally {
+    if (originalEnv === undefined) delete process.env.HUSKY_STAGING_RESTORE_LOG
+    else process.env.HUSKY_STAGING_RESTORE_LOG = originalEnv
     rmSync(dir, { recursive: true, force: true })
   }
 })
