@@ -6,7 +6,7 @@ import { StatChart } from '@/components/bi/stat-chart'
 /**
  * 仪表板统计管理
  *
- * 数据源:`/api/v1/admin/stats/dashboard`(后端未实装前为空态兜底)
+ * 数据源:`/api/admin/stats/dashboard`(后端未实装前为空态兜底)
  * 路由:`/admin/dashboard-stat`
  *
  * ECharts 集成:展示 7 日趋势折线 + 4 类指标分布柱状 + 占比饼图(均使用 in-memory demo 数据)。
@@ -58,7 +58,7 @@ export default function DashboardStatPage() {
 
       <Card className="flex flex-col items-center justify-center gap-2 p-8 text-center text-sm text-muted-foreground">
         <p>完整仪表板功能待后端 API 实装后启用</p>
-        <p className="text-xs">预计接口:GET /api/v1/admin/stats/dashboard</p>
+        <p className="text-xs">预计接口:GET /api/admin/stats/dashboard</p>
       </Card>
     </div>
   )
