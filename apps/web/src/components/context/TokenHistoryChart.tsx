@@ -80,7 +80,7 @@ export function TokenHistoryChart({
               x2={width - padR}
               y1={y}
               y2={y}
-              stroke="hsl(var(--border))"
+              stroke="var(--border)"
               strokeWidth={1}
               strokeDasharray={i === 0 ? '' : '3 3'}
             />
