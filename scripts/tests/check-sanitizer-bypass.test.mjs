@@ -31,6 +31,18 @@ function writeRoute(root, fileName, content) {
   execSync(`git add apps/api/src/routes/${fileName}`, { cwd: root, stdio: 'pipe' })
 }
 
+// 辅助:在 routes 子目录下写入文件并 git add(验证 full 模式递归扫描子目录)
+function writeRouteInSubdir(root, subdir, fileName, content) {
+  const dir = join(root, 'apps', 'api', 'src', 'routes', subdir)
+  mkdirSync(dir, { recursive: true })
+  const fullPath = join(dir, fileName)
+  writeFileSync(fullPath, content)
+  execSync(`git add apps/api/src/routes/${subdir}/${fileName}`, {
+    cwd: root,
+    stdio: 'pipe',
+  })
+}
+
 // 辅助:写入 __tests__ 目录下的文件并 git add
 function writeTestFile(root, fileName, content) {
   const dir = join(root, 'apps', 'api', 'src', 'routes', '__tests__')
@@ -80,10 +92,10 @@ function assertFail(r, pattern) {
   }
 }
 
-// 注:源脚本全量模式用 `git ls-files "apps/api/src/routes/**/*.ts"`,
-// 该 glob 在 Windows + Git for Windows 默认 pathspec 下不工作(返回空)。
-// 这是源脚本已知 bug(任务约束不修改源脚本),所以本测试文件统一用 --staged 模式
-// 验证违规检测——这也是脚本在实际 pre-commit 场景下的使用方式。
+// 注:源脚本全量模式用 `git ls-files apps/api/src/routes/`(列目录 + JS 过滤 .ts),
+// 不再用 `git ls-files "apps/api/src/routes/**/*.ts"` —— 该 glob 在 Windows +
+// Git for Windows 默认 pathspec 下不工作(返回空)。修复后 full 模式可在 Windows
+// 正常扫描子目录,见下方 full 模式测试用例。
 
 // ─── 1. CLI --help 不崩溃(脚本未实现 --help,按默认模式运行) ───
 test('CLI: --help 不崩溃(脚本未实现 --help,直接走默认全量扫描)', () => {
@@ -480,12 +492,11 @@ test('批量: 2 个违规文件 + 1 个白名单 → 报告 2 个违规', () => 
   }
 })
 
-// ─── 18. 全量模式(无 --staged)在 Windows 下不工作(源脚本已知 bug) ──
-// 源脚本用 `git ls-files "apps/api/src/routes/**/*.ts"`,该 glob 在
-// Windows + Git for Windows 默认 pathspec 下返回空(`**` 需 `:(glob)` magic)。
-// 这里仅验证脚本不 crash(exit 0/1),不验证检测行为。
-// 任务约束:不修改源脚本,bug 已记录在交付总结里。
-test('全量模式(已知 bug): 无 --staged → 不 crash(Windows 下 git ls-files glob 失效)', () => {
+// ─── 18. 全量模式(无 --staged)不 crash(烟雾测试) ──
+// 修复后源脚本用 `git ls-files apps/api/src/routes/`(列目录 + JS 过滤),
+// 在 Windows 下也能正常工作。这里仅做烟雾测试(不 crash),
+// 完整的 full 模式违规检测见下方测试 19 / 20。
+test('全量模式(烟雾): 无 --staged → 不 crash(Windows 下 git ls-files 列目录生效)', () => {
   const root = createTempRepo()
   try {
     writeRoute(
@@ -499,13 +510,79 @@ test('全量模式(已知 bug): 无 --staged → 不 crash(Windows 下 git ls-fi
         `}\n`,
     )
     // 全量模式下,文件已 git add 进 staged 区但未 commit → git ls-files 仍能列出来
-    // 但 `**/*.ts` glob 在 Windows 不工作 → 返回空 → 脚本认为无文件 → exit 0
+    // 修复后列目录 + JS 过滤 .ts 可正常匹配 → 检测到违规 → exit 1
     const r = runScript(root)
     assert.ok(
       r.status === 0 || r.status === 1,
       `全量模式不应 crash,实际 exit ${r.status}\nstderr: ${r.stderr}`,
     )
     assert.ok(!r.stderr.includes('Error:'), `不应产生未捕获 Error`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 19. full 模式:子目录 .ts 文件扫描(admin/foo.ts 扫到,__tests__/foo.ts 跳过) ──
+// 修复前 `git ls-files "apps/api/src/routes/**/*.ts"` 在 Windows 下对子目录匹配
+// 不稳定,经常漏检 admin/ 等子目录下的违规文件。修复后改用列目录 + JS 过滤,
+// 可正确扫描所有子目录(仅排除 __tests__/)。
+test('full 模式: admin/ 子目录违规被扫描,__tests__/ 跳过', () => {
+  const root = createTempRepo()
+  try {
+    // admin/ 子目录下违规文件 → 应被检测(验证递归扫描)
+    writeRouteInSubdir(
+      root,
+      'admin',
+      'subdir-bad.ts',
+      `export default async function (fastify) {\n` +
+        `  fastify.post('/admin/x', async (req, reply) => {\n` +
+        `    const accessToken = gen()\n` +
+        `    reply.send({ accessToken })\n` +
+        `  })\n` +
+        `}\n`,
+    )
+    // __tests__/ 目录下同样违规的文件 → 应被跳过(脚本过滤 __tests__/)
+    writeTestFile(
+      root,
+      'test-bad.ts',
+      `export default async function (fastify) {\n` +
+        `  fastify.post('/test', async (req, reply) => {\n` +
+        `    const accessToken = gen()\n` +
+        `    reply.send({ accessToken })\n` +
+        `  })\n` +
+        `}\n`,
+    )
+    const r = runScript(root) // 无 --staged → full 模式
+    // admin/subdir-bad.ts 应被检测到
+    assertFail(r, /subdir-bad\.ts/)
+    assert.match(r.stderr, /accessToken/)
+    // __tests__/test-bad.ts 不应被报告(脚本过滤 __tests__/)
+    assert.ok(
+      !/test-bad\.ts/.test(r.stderr),
+      '__tests__/test-bad.ts 不应被报告为违规(脚本过滤 __tests__/)',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 20. full 模式: apps/api/src/routes/test-file.ts 违规 → 检测到 exit 1 ──
+test('full 模式: test-file.ts 含 skipResponseSanitization 违规 → 检测到 exit 1', () => {
+  const root = createTempRepo()
+  try {
+    writeRoute(
+      root,
+      'test-file.ts',
+      `export default async function (fastify) {\n` +
+        `  fastify.post('/token', async (request, reply) => {\n` +
+        `    const accessToken = generateToken()\n` +
+        `    reply.send({ accessToken })\n` +
+        `  })\n` +
+        `}\n`,
+    )
+    const r = runScript(root) // 无 --staged → full 模式
+    assertFail(r, /test-file\.ts/)
+    assert.match(r.stderr, /accessToken/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
