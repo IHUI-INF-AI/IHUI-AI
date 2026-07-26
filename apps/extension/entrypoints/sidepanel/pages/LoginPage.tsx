@@ -92,6 +92,9 @@ function PasswordInput({
 
 export default function LoginPage({ onSuccess }: Props) {
   const { t } = useI18n()
+  // 2026-07-26 改造:sidepanel 启用系统主题跟随,跟 web 端 + popup 用同一份 .login-scope
+  // 共享 CSS,深色模式视觉一致。
+  useSystemTheme()
   const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
