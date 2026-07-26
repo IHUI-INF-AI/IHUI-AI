@@ -190,7 +190,7 @@ export default function CoursePlanet() {
                         : `¥${item.price.toFixed(2)}`}
                     </Text>
                   ) : null}
-                  {item.students != null ? (
+                  {item.students !== null && item.students !== undefined ? (
                     <Text className="text-[22rpx] text-muted-foreground">
                       {item.students} {tt('coursePlanet.studentsUnit', '人学习')}
                     </Text>
