@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * settings.json 模板生成端到端验证 — 验证 settings init --force 能正确生成模板
  * 把 IHUI_HOME 重定向到临时目录,避免污染真实 ~/.ihui/settings.json

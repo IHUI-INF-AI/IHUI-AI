@@ -113,7 +113,7 @@ export function OtpInput({
           maxLength={1}
           value={digits[i]?.trim() ?? ''}
           disabled={disabled}
-          autoFocus={autoFocus && i === 0} // eslint-disable-line jsx-a11y/no-autofocus
+          autoFocus={autoFocus && i === 0} // eslint-disable-line jsx-a11y/no-autofocus -- OTP 输入框首格自动聚焦提升 UX,无障碍用户通过 label 可识别
           onChange={handleChange(i)}
           onKeyDown={handleKeyDown(i)}
           onPaste={handlePaste}
