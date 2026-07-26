@@ -1893,9 +1893,9 @@ LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `Pro
 - **迁移调用点**:`spec_generator.split_tasks()`(从 `_call_llm + _parse_tasks_json` 改为 `structured_completion`)+ 失败降级到 `mechanical_split`
 - **测试**:`tests/test_llm_gateway.py::TestStructuredCompletion*`(15 单测,全绿,覆盖 Success/Validation/Error/Retry 四类)+ `tests/test_spec_generator.py::TestSplitTasks`(10 单测,全绿,验证迁移后等价)
 
-### G4 + G5 — 知识查询统一门面 + 生产调用点接入
+### G4 + G5 + G6 — 知识查询统一门面 + 生产调用点接入 + LTM 源接入
 
-把三个独立的知识检索子系统聚合为一个统一入口,对应"LLM 字典化 4 场景"中的**场景 3 记忆分离式字典化**:模型只负责推理,外部知识统一查表,不与模型权重绑定。G4 完整迁移 + G5 生产调用点接入已落地,LLM 可通过 MCP 协议直接调用知识查询工具。
+把三个独立的知识检索子系统聚合为一个统一入口,对应"LLM 字典化 4 场景"中的**场景 3 记忆分离式字典化**:模型只负责推理,外部知识统一查表,不与模型权重绑定。G4 完整迁移 + G5 生产调用点接入 + G6 LTM 源接入已落地,LLM 可通过 MCP 协议直接调用知识查询工具查完整三源(代码库 + RAG + 跨会话历史)。
 
 **G4 完整迁移(基础层):**
 
@@ -1911,13 +1911,23 @@ LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `Pro
 - **MCP 工具注册**(`mcp_server.py`):新增 `_tool_knowledge_lookup(arguments)` 函数,注册到 `_TOOLS`(MCPTool schema)+ `_TOOL_HANDLERS`(handler 调度表),LLM 可通过 MCP 协议直接调 `knowledge_lookup` 工具
 - **不在 `_ADMIN_ONLY_TOOLS`**:查询类工具,所有用户可用(类比 `search_codebase`),普通用户(user_role=0)和 admin(user_role>=1)均可调
 - **LLM 可控参数**:`query`(required string)+ `top_k_per_source`(optional int,1-20,默认 5)
-- **服务端固定(安全)**:`user_id`/`session_id`/`repo_id`/`api_token`/`source_priority` 均为 None(mcp_server `call_tool` 无 session context 注入,跳过 long_term_memory 源;LTM 接入需后续 mcp_server 架构改动)
+- **服务端注入(G6,2026-07-26)**:`user_id`/`session_id` 从 FastAPI request 上下文透传(routers/mcp.py 从 `request.state.user_id`,routers/llm.py 从 `req.metadata.userId`),`call_tool` 注入 `__user_id`/`__session_id` 到 arguments 副本(复用 `__user_role` 模式),`_tool_knowledge_lookup` 提取后传给 `knowledge_lookup(user_id=...)` 启用 `long_term_memory` 源(完整三源)。service 层(agent_loop/orchestrator/conversation)无 request 上下文,保持 None 跳过 LTM(不回归)
+- **服务端固定(安全)**:`repo_id`/`api_token`/`source_priority` 仍 None(用 knowledge_lookup 默认值)
 - **降级策略**:空 query → ok=False;三源全失败 → ok=False + errors 透传;ValueError → ok=False;各源空结果(无 errors)→ ok=True(空结果不算失败)
 - **`top_k_per_source` 防御性 clamp**:LLM 传越界值(< 1 或 > 20)自动 clamp 到 1-20
 - **hits 序列化**:不含 `raw` 字段(避免 LLM 上下文冗长 + 防泄露),含 `source` / `score`(round 4 位)/ `content`
-- **测试**:`tests/test_mcp_server.py` 新增 20 个测试(TestKnowledgeLookupToolRegistration 4 + TestKnowledgeLookupToolExecution 13 + TestKnowledgeLookupViaMCPServer 3),覆盖工具注册 / 权限矩阵 / 空查询 / 三源成功 / 全失败降级 / 空结果 / top_k 透传 + clamp / ValueError 降级 / hits 不含 raw / query strip / MCPServer.call_tool 调度
+- **G5 测试**:`tests/test_mcp_server.py` 新增 20 个测试(TestKnowledgeLookupToolRegistration 4 + TestKnowledgeLookupToolExecution 13 + TestKnowledgeLookupViaMCPServer 3),覆盖工具注册 / 权限矩阵 / 空查询 / 三源成功 / 全失败降级 / 空结果 / top_k 透传 + clamp / ValueError 降级 / hits 不含 raw / query strip / MCPServer.call_tool 调度
 
-**测试覆盖总览**:G4+G5 共 64 个新单测全绿(test_knowledge_lookup 25 + TestRetrieveOnly 5 + test_agent_tools 14 + test_mcp_server knowledge_lookup 20),联合 313/313 全绿(test_mcp_server 全量 + test_knowledge_lookup + test_rag + test_agent_tools + test_agent_loop_v2)。
+**G6 LTM 源接入(2026-07-26,架构改动):**
+
+- **call_tool 签名扩展**:`MCPServer.call_tool(name, arguments, *, user_role, user_id, session_id)`,新增 `user_id`/`session_id` kwargs(可选,默认 None,向后兼容)
+- **session context 注入**:复用 Wave 8 的 `__user_role` 注入模式,在 arguments 副本里同时注入 `__user_id`/`__session_id`(LLM 不可控,从 FastAPI request 透传)
+- **`_tool_knowledge_lookup` 改动**:从 arguments 提取 `__user_id`/`__session_id`,传给 `knowledge_lookup(user_id=..., session_id=...)`,启用 `long_term_memory` 源(此前 G5 固定 None 跳过 LTM)
+- **调用方**:routers/mcp.py 从 `request.state.user_id` 拿(JWTAuthMiddleware 已注入),routers/llm.py 从 `owner_uuid`(`req.metadata.userId`)透传;service 层(agent_loop/orchestrator/conversation)无 request 上下文,保持 None 跳过 LTM(与 G5 旧行为一致,不回归)
+- **价值**:把 knowledge_lookup 从"两源(codebase+RAG)"升级为"完整三源(+跨会话历史)",LLM 可查用户历史对话,实现"记忆分离式字典化"完整闭环
+- **G6 测试**:`tests/test_mcp_server.py::TestKnowledgeLookupG6SessionContext` 新增 6 个测试,覆盖 user_id 透传 / session_id 透传 / 默认 None 向后兼容 / 同时传两者 / 不污染 LLM 可控参数(query/top_k)/ `_tool_knowledge_lookup` 直接提取注入值
+
+**测试覆盖总览**:G4+G5+G6 共 70 个新单测全绿(test_knowledge_lookup 25 + TestRetrieveOnly 5 + test_agent_tools 14 + test_mcp_server knowledge_lookup 20 + G6 session context 6),联合 211/211 全绿(test_mcp_server 全量 + test_knowledge_lookup + test_agent_tools)。
 
 ### 字典化四层能力对照
 
@@ -1926,7 +1936,7 @@ LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `Pro
 | L1 数据层       | 24+7 LLM provider 字段字典化 | `provider_config.py` + `LLM_PROVIDERS_JSON` | ✅ 阶段 2 |
 | L2 业务代号     | 8 端 + UI 组件 + 模块短代号  | `prompt_dict.py` + `project_memory.py`      | ✅ G1 PoC |
 | L3 输出结构化   | LLM 输出强 JSON Schema 约束  | `llm_gateway.structured_completion`         | ✅ G2 PoC |
-| L4 知识查询门面 | 三源并发统一查询 + 降级 + AgentLoopV2 工厂 + MCP 工具注册 | `knowledge_lookup.py` + `agent_tools.py` + `rag.retrieve_only` + `mcp_server._tool_knowledge_lookup` | ✅ G4+G5 完整迁移 |
+| L4 知识查询门面 | 三源并发统一查询 + 降级 + AgentLoopV2 工厂 + MCP 工具注册 + LTM 源接入 | `knowledge_lookup.py` + `agent_tools.py` + `rag.retrieve_only` + `mcp_server._tool_knowledge_lookup` + `mcp_server.call_tool(user_id/session_id 注入)` | ✅ G4+G5+G6 完整三源 |
 
 ---
 

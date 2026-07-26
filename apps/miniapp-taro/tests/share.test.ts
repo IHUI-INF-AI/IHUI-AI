@@ -131,6 +131,7 @@ describe('miniapp-taro 分享功能', () => {
       expect(fns.showShareMenu).toHaveBeenCalledWith({
         withShareTicket: true,
         showShareItems: ['shareAppMessage', 'shareTimeline'],
+        fail: expect.any(Function),
       })
     })
 
@@ -139,6 +140,7 @@ describe('miniapp-taro 分享功能', () => {
       expect(fns.showShareMenu).toHaveBeenCalledWith({
         withShareTicket: false,
         showShareItems: ['shareAppMessage', 'shareTimeline'],
+        fail: expect.any(Function),
       })
     })
 
@@ -147,6 +149,7 @@ describe('miniapp-taro 分享功能', () => {
       expect(fns.showShareMenu).toHaveBeenCalledWith({
         withShareTicket: true,
         showShareItems: ['shareAppMessage'],
+        fail: expect.any(Function),
       })
     })
   })
@@ -162,7 +165,9 @@ describe('miniapp-taro 分享功能', () => {
     it('显示分享成功 toast', () => {
       onShareSuccess()
       expect(fns.showToast).toHaveBeenCalledWith({
-        title: '分享成功', icon: 'success', duration: 2000,
+        title: '分享成功',
+        icon: 'success',
+        duration: 2000,
       })
     })
   })
