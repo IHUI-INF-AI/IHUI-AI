@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * ACP (Agent Client Protocol) server 启动验证 — 验证 ihui acp 命令能正确启动并响应 initialize 请求
  * 模拟一个最小的 ACP 客户端,发 initialize + session/new 请求,验证响应格式

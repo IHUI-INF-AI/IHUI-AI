@@ -167,7 +167,7 @@ function ImageResultBlock({ imageUrl, prompt }: { imageUrl: string; prompt?: str
             图片加载失败
           </div>
         )}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- next/image 不适用动态远程图片,降级用 img */}
         <img
           src={imageUrl}
           alt={prompt || 'AI 生成图片'}

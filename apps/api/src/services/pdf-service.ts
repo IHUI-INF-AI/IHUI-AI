@@ -246,7 +246,7 @@ export function isPdfConfigured(): boolean {
 class WritableBuffer extends Writable {
   private chunks: Buffer[] = []
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- node:stream WritableOptions 跨版本兼容用 any 简化
   constructor(opts: any = {}) {
     super(opts)
   }

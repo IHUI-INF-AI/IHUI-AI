@@ -46,7 +46,7 @@ const { sqlEventBus } = await import('../src/db/sql-event-bus.ts')
 import { appendFileSync } from 'node:fs'
 const debugLogPath = process.env.TEST_DEBUG_LOG
 sqlEventBus.on((e) => {
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console -- 测试诊断输出 SQL,允许 console
   console.log('SQL>', e.query)
   if (debugLogPath) {
     try {
