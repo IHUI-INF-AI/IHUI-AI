@@ -10147,7 +10147,7 @@
     },
     "articleSchema": {
       "headline": "AI 뉴스 · 전망 실시간 집계",
-      "description": "IHUI AI 뉴스: 41개의 권위 있는 소스(微博/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv 등)를 집계하여 6시간마다 자동 수집. 모델/제품/산업/논문 분류 및 트렌드 시그널을 실시간으로 제공합니다.",
+      "description": "IHUI AI 뉴스: 41개의 권위 있는 소스(Weibo/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv 등)를 집계하여 6시간마다 자동 수집. 모델/제품/산업/논문 분류 및 트렌드 시그널을 실시간으로 제공합니다.",
       "author": "IHUI AI 편집부",
       "datePublished": "2026-07-26",
       "articleBody": "IHUI AI 뉴스는 국내외 주요 미디어, 소셜 플랫폼 및 1차 기술 블로그를 아우르는 7x24 자동화 산업 집계 채널입니다. 각 기사는 자연어 처리로 모델/제품/산업/논문으로 자동 분류되며 감정 태그도 부여됩니다. 구독, 북마크, 공유, 트렌드 차트 등 독자 기능을 제공하여 개발자, 프로덕트 매니저, 의사 결정자가 AI 산업의 흐름을 한눈에 파악할 수 있도록 돕습니다.",
