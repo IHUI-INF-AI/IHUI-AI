@@ -1,23 +1,13 @@
 {
   "common": {
-    "cancel": "キャンセル",
-    "delete": "削除",
-    "back": "戻る",
     "loading": "読み込み中…",
-    "empty": "データなし",
-    "retry": "再試行",
-    "submit": "送信",
-    "search": "検索",
-    "all": "すべて",
     "failed": "失敗"
   },
   "nav": {
     "chat": "AI チャット",
-    "settings": "設定",
     "agents": "AI アシスタント",
     "vocabulary": "単語帳",
     "profile": "マイページ",
-    "wallet": "ウォレット",
     "notifications": "通知",
     "tabRuntime": "ランタイム",
     "ai": "AI",
@@ -136,7 +126,6 @@
     "logout": "ログアウト",
     "loginRequired": "アカウントとパスワードを入力してください",
     "phoneOrEmail": "電話番号 / メール",
-    "password": "パスワード",
     "roleAdmin": "管理者",
     "roleUser": "一般ユーザー"
   },
@@ -162,7 +151,6 @@
     "emptyHint": "単語帳は空です,単語を検索して保存してください"
   },
   "chat": {
-    "send": "送信",
     "history": "履歴",
     "title": "AI チャット",
     "exit": "終了",
@@ -172,7 +160,6 @@
     "compactionNotice": "コンテキストを自動圧縮しました:{{before}} → {{after}}({{removed}} 件の履歴を削除)"
   },
   "settings": {
-    "title": "設定",
     "language": "インターフェース言語",
     "appearance": "外観",
     "darkMode": "ダークモード",

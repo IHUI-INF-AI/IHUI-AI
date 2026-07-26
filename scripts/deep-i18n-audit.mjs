@@ -14,7 +14,7 @@
  *   node scripts/deep-i18n-audit.mjs --quiet  # 仅输出汇总,不打印明细
  *   node scripts/deep-i18n-audit.mjs --report # 同时写出 JSON 报告到 .trae-cn/goal-runtime/
  *
- * 不修改 apps/web/messages/en.json (英文为源语言)。
+ * 不修改 packages/i18n/messages/web/en.json (英文为源语言)。
  * 不修改 JSON 结构 (仅输出问题清单,由 fix-* 脚本修复)。
  */
 import fs from 'node:fs'
@@ -22,7 +22,7 @@ import path from 'node:path'
 import * as OpenCC from 'opencc-js'
 
 const ROOT = process.cwd()
-const MSG_DIR = path.join(ROOT, 'apps/web/messages')
+const MSG_DIR = path.join(ROOT, 'packages/i18n/messages/web')
 const WEB_DIR = path.join(ROOT, 'apps/web')
 const EXCLUDE_DIRS = new Set(['messages', '.next', 'node_modules', '.git'])
 
