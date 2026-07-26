@@ -109,7 +109,7 @@ export const STATIC_T_MULTILINE_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*
 // 原 UNION_TYPE_NS_RE 只识别 `namespace:` 关键字,无法识别函数返回类型的联合类型字面量,导致 live.ended 误判为死 key。
 // 用两个正则覆盖多个联合(3+ 段):FIRST 识别"字面量后跟 |",SECOND 识别"| 后跟字面量"。
 // 误报风险:SECOND 会匹配任何 `| 'a.b'` 形式(包括 `if (x || 'a.b')` 逻辑或),但只要 'a.b' 不在 zh-CN.json 中不影响死 key 刡定。
-export const UNION_TYPE_KEY_RE_FIRST = /['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*\|\s*['"`]/g
+export const UNION_TYPE_KEY_RE_FIRST = /['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*\|\s*(?=['"`])/g
 export const UNION_TYPE_KEY_RE_SECOND = /\|\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 // 对象字面量值全路径 i18n key:key: 'namespace.leaf'(2026-07-26 三次增强新增)
 // 背景:mobile-rn PaymentScreen.tsx / TaskDispatchPage.tsx 通过 `const STATUS_KEY = { pending: 'payment.status.pending', ... }` 对象字面量映射引用,
