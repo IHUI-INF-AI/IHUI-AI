@@ -1,10 +1,6 @@
 'use client'
-
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Search } from 'lucide-react'
-// @ts-ignore
 import { Input } from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 

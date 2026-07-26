@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { Loader2 } from 'lucide-react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
 import {
   Dialog,
@@ -20,7 +18,6 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-// @ts-ignore
 } from '@ihui/ui-react'
 import { selectClass } from './helpers'
 import type { AgentRule, AgentRuleForm } from './types'
