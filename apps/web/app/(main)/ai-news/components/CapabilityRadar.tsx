@@ -96,9 +96,9 @@ export function CapabilityRadar({ capabilities, size = 200 }: Props) {
       {/* 数据多边形 */}
       <polygon
         points={polygonPoints}
-        fill="hsl(var(--primary))"
+        fill="var(--primary)"
         fillOpacity={0.15}
-        stroke="hsl(var(--primary))"
+        stroke="var(--primary)"
         strokeWidth={1.5}
       />
       {/* 数据点 */}
