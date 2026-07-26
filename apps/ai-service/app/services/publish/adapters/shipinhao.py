@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from app.core.logging import get_logger
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
@@ -39,7 +39,7 @@ class ShipinhaoAdapter(BasePlatformAdapter):
     requires_credentials = ["wechat_channels"]
     needs_browser = True
 
-    def _parse_cookies(self, credentials: dict) -> list[SetCookieParam]:
+    def _parse_cookies(self, credentials: dict[str, Any]) -> list[SetCookieParam]:
         """解析 cookie 凭证。
 
         支持两种格式:
@@ -90,7 +90,7 @@ class ShipinhaoAdapter(BasePlatformAdapter):
                 result.append(cookie)
         return result
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         if not _HAS_PLAYWRIGHT:
             return False, "Playwright not installed. Run: pip install playwright && playwright install chromium"
         cookies = self._parse_cookies(credentials)
@@ -120,8 +120,8 @@ class ShipinhaoAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         if not _HAS_PLAYWRIGHT:
             return PublishResult(

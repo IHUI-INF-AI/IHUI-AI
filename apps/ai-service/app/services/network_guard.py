@@ -6,7 +6,7 @@
 接入方式(dag_scheduler._worker_loop):
   1. executor 启动前用 set_current_policy(policy) 注入策略到 contextvar
   2. executor 内部 HTTP 客户端调用 check_current(url) 校验出站请求
-  3. executor 完成后 reset_current_policy(token) 清理
+  3. executor 完成后用 reset_current_policy(token) 清理
 """
 
 from __future__ import annotations
@@ -17,13 +17,13 @@ import ipaddress
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional, cast
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 # 当前任务的网络策略 contextvar(asyncio.create_task 自动复制 context,executor Task 可读)
-_current_policy: contextvars.ContextVar = contextvars.ContextVar(
+_current_policy: contextvars.ContextVar[Optional["NetworkEgressPolicy"]] = contextvars.ContextVar(
     "network_egress_policy", default=None
 )
 
@@ -131,7 +131,7 @@ class NetworkEgressPolicy:
             return False
 
 
-def from_config(config: Optional[dict]) -> Optional[NetworkEgressPolicy]:
+def from_config(config: Optional[dict[str, Any]]) -> Optional[NetworkEgressPolicy]:
     """从 WorkerPoolConfig.network_egress_policy 字典创建策略。
 
     config 示例:
@@ -139,17 +139,21 @@ def from_config(config: Optional[dict]) -> Optional[NetworkEgressPolicy]:
     """
     if config is None:
         return None
-    mode = config.get("mode", "open")
+    mode = cast(str, config.get("mode", "open"))
     if mode == "open":
         return None
+    domains_val = config.get("domains", [])
+    domains = cast(list[str], domains_val) if isinstance(domains_val, list) else []
+    allow_localhost_val = config.get("allow_localhost", True)
+    allow_localhost = bool(allow_localhost_val) if not isinstance(allow_localhost_val, bool) else allow_localhost_val
     return NetworkEgressPolicy(
         mode=mode,
-        domains=config.get("domains", []),
-        allow_localhost=config.get("allow_localhost", True),
+        domains=domains,
+        allow_localhost=allow_localhost,
     )
 
 
-def set_current_policy(policy):
+def set_current_policy(policy: Optional[NetworkEgressPolicy]) -> contextvars.Token[Optional["NetworkEgressPolicy"]]:
     """设置当前任务的网络策略(在 executor 启动前调用)。
 
     Returns: token,executor 完成后用 reset_current_policy(token) 清理。
@@ -157,12 +161,12 @@ def set_current_policy(policy):
     return _current_policy.set(policy)
 
 
-def reset_current_policy(token) -> None:
+def reset_current_policy(token: contextvars.Token[Optional["NetworkEgressPolicy"]]) -> None:
     """清理 contextvar(在 executor finally 块调用)。"""
     _current_policy.reset(token)
 
 
-def get_current_policy():
+def get_current_policy() -> Optional[NetworkEgressPolicy]:
     """获取当前任务的网络策略(executor 内部 HTTP 客户端调用)。"""
     return _current_policy.get()
 
