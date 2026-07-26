@@ -25,11 +25,11 @@ logger = logging.getLogger(__name__)
 
 # 软依赖:langgraph 缺失时仍可导入本模块,stream_agent_execution 会 yield error
 try:
-    from langgraph.types import Command  # type: ignore[import-not-found]  # noqa: F401
+    from langgraph.types import Command  # noqa: F401
 
     _LANGGRAPH_AVAILABLE = True
 except ImportError:  # pragma: no cover
-    Command = None  # type: ignore[assignment]
+    Command = None  # type: ignore[assignment, misc]  # 软依赖降级:类降级为 None
     _LANGGRAPH_AVAILABLE = False
 
 # ----------------------------------------------------------------------
@@ -224,7 +224,7 @@ async def stream_agent_execution(
         isinstance(graph_input, dict)
         and bool(graph_input.get("memory_context"))
     )
-    if injected_memory:
+    if injected_memory and graph_input is not None:
         memory_len = len(str(graph_input.get("memory_context", "")))
         yield _make_event(
             "custom",

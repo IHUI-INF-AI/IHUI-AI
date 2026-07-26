@@ -32,7 +32,7 @@ DEFAULT_MAX_IN_MEMORY = 1000
 
 # redis 包未安装时降级为纯内存模式
 try:
-    import redis.asyncio as aioredis  # type: ignore[import-not-found]
+    import redis.asyncio as aioredis
 except ImportError:
     aioredis = None  # type: ignore[assignment]
 
@@ -117,7 +117,7 @@ class AgentCheckpointManager:
         """获取 redis 客户端,连接失败时降级为内存模式。"""
         if self._redis is None and self._use_redis:
             try:
-                self._redis = aioredis.from_url(self._redis_url, decode_responses=True)
+                self._redis = aioredis.from_url(self._redis_url or "", decode_responses=True)
                 await self._redis.ping()
             except Exception as e:
                 logger.warning("AgentCheckpointManager redis 不可达,降级为纯内存: %s", e)
