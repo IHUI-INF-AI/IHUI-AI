@@ -1,0 +1,58 @@
+/**
+ * LoginForm 共享样式(2026-07-26 抽取到共享包,根治 web/extension 登录界面不一致)
+ *
+ * 与 packages/ui-react/src/styles/auth-shell.css 协作:本文件负责 LoginForm 组件
+ * 内部细节(.login-form-scope 内部),auth-shell.css 负责外壳 hover 高亮等
+ * 跨组件复用的视觉规范。
+ *
+ * 大部分样式通过 Tailwind className 内联,本 CSS 只放必要的:
+ *   1. .login-form-scope TabsList 自适应:当启用的 tab < 4 时,空出的列不显示
+ *   2. .login-form-scope TabsTrigger 内部小图标 + 文字垂直对齐(在第三方登录按钮处复用)
+ *   3. .login-form-scope ErrorAlert 文案溢出处理
+ *   4. .login-form-scope 协议复选框 nested span 行内布局微调
+ *   5. .login-form-scope 第三方登录按钮 dark mode mono 图标自动 invert
+ *
+ * 不包含(只 web 端需要,保留在 apps/web/app/globals.css):
+ *   - 字体栈、@apply globals
+ *   - shadcn 主题色覆盖
+ */
+
+/* ===== 1. .login-form-scope Tabs 自适应网格 =====
+ * 当 tabs prop 限制(如 popup 模式只启用 email + password)时,TabsList grid-cols-4
+ * 仍会渲染 4 列,空 tab 隐藏。激活 tab 自动均分剩余列宽。 */
+.login-form-scope [role='tablist'] {
+  display: grid;
+  grid-template-columns: repeat(var(--login-form-tabs-count, 4), minmax(0, 1fr));
+}
+
+/* ===== 2. .login-form-scope ErrorAlert 文案溢出处理 ===== */
+.login-form-scope [role='alert'] {
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+/* ===== 3. .login-form-scope 协议复选框行内布局 =====
+ * 复选框 [role='checkbox'] 是 block 元素(独立一行),文字 span 与其在同一 label 内 flex 横排。
+ * 文字中的 <a> 链接 + 普通文字 + 链接,需保持 inline 不换行。 */
+.login-form-scope [role='checkbox'] {
+  user-select: none;
+}
+.login-form-scope label:has([role='checkbox']) {
+  line-height: 1.4;
+}
+
+/* ===== 4. .login-form-scope TabsContent 顶部间距 =====
+ * Radix TabsContent 自身有 mt-2,但 web 端原本用 space-y-4 父容器已处理。
+ * 在共享包里显式加 padding-top,确保 4 tab 切换时内容位置稳定。 */
+.login-form-scope [role='tabpanel'] {
+  padding-top: 0.5rem;
+  outline: none;
+}
+
+/* ===== 5. .login-form-scope 协议弹窗内部 z-index 修复 =====
+ * 当 LoginForm 在 modal / sheet 内嵌时,协议弹窗(Dialog)需要浮在外层容器之上。
+ * 共享包不强制重写 z-index,只确保 .login-form-scope 容器创建 stacking context。 */
+.login-form-scope {
+  position: relative;
+  isolation: isolate;
+}
