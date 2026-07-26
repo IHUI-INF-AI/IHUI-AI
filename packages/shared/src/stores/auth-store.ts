@@ -22,7 +22,22 @@
  * 前置依赖:packages/shared/src/auth/token-store.ts(已存在)
  */
 
-import { create, type StoreApi, type UseBoundStore } from 'zustand'
+/**
+ * 修复说明(2026-07-26 立,Taro Vite 归并 bug):
+ * Taro 4.2.0 Vite runner 把 `import { create } from 'zustand'` 错误归并为
+ * `taro.react_production_min.create`(React 上无此函数),导致 miniapp-taro 运行时抛
+ * `TypeError: taro.react_production_min.create is not a function`。
+ *
+ * 修复方案:用 `createStore` from 'zustand/vanilla' + `useStore` from 'zustand/react'
+ * 替换 `create` from 'zustand'。`createStore` 不依赖 React(可被 Vite 正确打包),
+ * `useStore` 用 `React.useSyncExternalStore`(在 Taro 中存在)。
+ *
+ * 注意:导出的 useAuthStore 仍保持原 UseBoundStore 类型签名,既可作 hook 调用
+ * (useAuthStore((s) => s.user) 或 useAuthStore()),又可访问 .getState()/.setState()/.subscribe()。
+ */
+
+import { createStore, type StoreApi } from 'zustand/vanilla'
+import { useStore, type UseBoundStore } from 'zustand/react'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import type { AuthUser } from '@ihui/api-client'
 import type { TokenStore } from '../auth/token-store'
@@ -150,6 +165,8 @@ export function createAuthStore<TUser = AuthUser>(
     },
   }
 
+  // storeApi 在下方 createStore 调用后初始化,initialState 内的方法体在运行时
+  // 才被调用(闭包延迟解析),故此处引用 storeApi 不会触发 TDZ。
   const initialState: AuthStoreState<TUser> = {
     token: null,
     refreshToken: null,
@@ -163,23 +180,23 @@ export function createAuthStore<TUser = AuthUser>(
         await tokenStore.setRefreshToken(input.refreshToken)
       }
       // 同步镜像
-      useStore.setState({
+      storeApi.setState({
         token: input.token,
-        refreshToken: input.refreshToken ?? useStore.getState().refreshToken,
-        expiresIn: input.expiresIn ?? useStore.getState().expiresIn,
+        refreshToken: input.refreshToken ?? storeApi.getState().refreshToken,
+        expiresIn: input.expiresIn ?? storeApi.getState().expiresIn,
         isAuthenticated: true,
-        user: input.user !== undefined ? input.user : useStore.getState().user,
+        user: input.user !== undefined ? input.user : storeApi.getState().user,
       })
       if (onLogin) {
-        await onLogin(input.user !== undefined ? input.user : useStore.getState().user)
+        await onLogin(input.user !== undefined ? input.user : storeApi.getState().user)
       }
     },
     setUser: (user) => {
-      useStore.setState({ user })
+      storeApi.setState({ user })
     },
     logout: async () => {
       await tokenStore.clearAll?.()
-      useStore.setState({
+      storeApi.setState({
         token: null,
         refreshToken: null,
         expiresIn: null,
@@ -193,19 +210,21 @@ export function createAuthStore<TUser = AuthUser>(
     hydrate: () => {
       const token = tokenStore.getToken()
       const refreshToken = tokenStore.getRefreshToken()
-      useStore.setState({
+      storeApi.setState({
         token,
         refreshToken,
-        expiresIn: useStore.getState().expiresIn,
+        expiresIn: storeApi.getState().expiresIn,
         isAuthenticated: !!token,
       })
     },
     setReady: (ready) => {
-      useStore.setState({ ready })
+      storeApi.setState({ ready })
     },
   }
 
-  const useStore = create<AuthStoreState<TUser>>()(
+  // 用 createStore from 'zustand/vanilla' 替代 create from 'zustand'
+  // createStore 不依赖 React,可被 Taro Vite runner 正确打包(详见文件顶部修复说明)
+  const storeApi = createStore<AuthStoreState<TUser>>()(
     persist(() => initialState, {
       name: userPersistKey,
       storage: createJSONStorage(() => persistStorage),
@@ -233,15 +252,33 @@ export function createAuthStore<TUser = AuthUser>(
     }),
   )
 
+  // 创建 bound hook:兼容原 UseBoundStore 类型签名
+  // - 无参调用 useAuthStore() → 返回整个 state(useStore 的 selector 默认 identity)
+  // - selector 调用 useAuthStore((s) => s.user) → 返回切片
+  // - .getState()/.setState()/.subscribe() → 转发到 storeApi
+  // storeApi 的方法基于闭包 state(非 this),作为引用赋值给 useBoundStore 后仍正确工作。
+  const useBoundStore = Object.assign(
+    function useAuthStoreHook<U>(
+      selector?: (state: AuthStoreState<TUser>) => U,
+    ): U {
+      return useStore(storeApi, selector as (state: AuthStoreState<TUser>) => U)
+    } as UseBoundStore<StoreApi<AuthStoreState<TUser>>>,
+    {
+      getState: storeApi.getState,
+      setState: storeApi.setState,
+      subscribe: storeApi.subscribe,
+    },
+  )
+
   return {
-    useAuthStore: useStore,
-    getState: useStore.getState,
-    setState: useStore.setState,
-    subscribe: useStore.subscribe,
+    useAuthStore: useBoundStore,
+    getState: storeApi.getState,
+    setState: storeApi.setState,
+    subscribe: storeApi.subscribe,
     hydrate: () => {
       const token = tokenStore.getToken()
       const refreshToken = tokenStore.getRefreshToken()
-      useStore.setState({ token, refreshToken, isAuthenticated: !!token })
+      storeApi.setState({ token, refreshToken, isAuthenticated: !!token })
     },
   }
 }
