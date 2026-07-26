@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 from app.core.logging import get_logger
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
@@ -28,6 +28,9 @@ try:
 except ImportError:
     _HAS_PLAYWRIGHT = False
 
+if TYPE_CHECKING:
+    from playwright._impl._api_structures import SetCookieParam
+
 
 class ShipinhaoAdapter(BasePlatformAdapter):
     platform_id = "shipinhao"
@@ -36,7 +39,7 @@ class ShipinhaoAdapter(BasePlatformAdapter):
     requires_credentials = ["wechat_channels"]
     needs_browser = True
 
-    def _parse_cookies(self, credentials: dict) -> list[dict[str, Any]]:
+    def _parse_cookies(self, credentials: dict) -> list[SetCookieParam]:
         """解析 cookie 凭证。
 
         支持两种格式:
@@ -51,7 +54,7 @@ class ShipinhaoAdapter(BasePlatformAdapter):
                 parsed = json.loads(raw)
             except Exception:
                 # 尝试 cookie 字符串格式:k1=v1; k2=v2
-                cookies = []
+                cookies: list[SetCookieParam] = []
                 for pair in raw.split(";"):
                     if "=" in pair:
                         k, v = pair.strip().split("=", 1)
@@ -71,10 +74,10 @@ class ShipinhaoAdapter(BasePlatformAdapter):
             return []
 
         # 标准化:list of dict → Playwright cookie list
-        result = []
+        result: list[SetCookieParam] = []
         for c in parsed:
             if isinstance(c, dict) and "name" in c and "value" in c:
-                cookie = {
+                cookie: SetCookieParam = {
                     "name": str(c["name"]),
                     "value": str(c["value"]),
                     "domain": c.get("domain", ".qq.com"),
