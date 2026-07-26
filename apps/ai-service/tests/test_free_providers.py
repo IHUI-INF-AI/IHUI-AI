@@ -19,6 +19,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.core.llm_gateway import LLMGateway
@@ -34,8 +36,9 @@ class TestResolveProvider:
     """10 个 provider 的 _resolve_provider 前缀路由测试。"""
 
     def test_resolve_cloudflare_at_cf_prefix(self, monkeypatch):
-        monkeypatch.setattr(settings, "cloudflare_api_token", "cf-token-xxx")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "abc123")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cloudflare": {"api_key": "cf-token-xxx", "api_base": "https://api.cloudflare.com/client/v4/accounts/abc123/ai/v1"},
+        }))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("@cf/llama-3.1-8b-instruct")
         assert api_key == "cf-token-xxx"
@@ -44,8 +47,9 @@ class TestResolveProvider:
         assert litellm_model == "openai/@cf/llama-3.1-8b-instruct"
 
     def test_resolve_cloudflare_slash_prefix(self, monkeypatch):
-        monkeypatch.setattr(settings, "cloudflare_api_token", "cf-token")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "acc456")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cloudflare": {"api_key": "cf-token", "api_base": "https://api.cloudflare.com/client/v4/accounts/acc456/ai/v1"},
+        }))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("cloudflare/llama-3.1-8b-instruct")
         assert api_key == "cf-token"
@@ -53,7 +57,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/llama-3.1-8b-instruct"
 
     def test_resolve_nvidia(self, monkeypatch):
-        monkeypatch.setattr(settings, "nvidia_api_key", "nv-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"nvidia": {"api_key": "nv-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("nvidia/llama-3.1-nemotron-70b")
         assert api_key == "nv-key"
@@ -61,7 +65,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/llama-3.1-nemotron-70b"
 
     def test_resolve_github(self, monkeypatch):
-        monkeypatch.setattr(settings, "github_token", "gh-token")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"github": {"api_key": "gh-token"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("github/gpt-4o")
         assert api_key == "gh-token"
@@ -69,7 +73,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/gpt-4o"
 
     def test_resolve_vercel(self, monkeypatch):
-        monkeypatch.setattr(settings, "vercel_ai_gateway_key", "vc-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"vercel": {"api_key": "vc-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("vercel/gpt-4o")
         assert api_key == "vc-key"
@@ -77,7 +81,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/gpt-4o"
 
     def test_resolve_opencode(self, monkeypatch):
-        monkeypatch.setattr(settings, "opencode_zen_key", "oc-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"opencode": {"api_key": "oc-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("opencode/llama-3.1-8b")
         assert api_key == "oc-key"
@@ -85,7 +89,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/llama-3.1-8b"
 
     def test_resolve_modal(self, monkeypatch):
-        monkeypatch.setattr(settings, "modal_api_key", "md-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"modal": {"api_key": "md-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("modal/llama-3.1-8b")
         assert api_key == "md-key"
@@ -93,7 +97,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/llama-3.1-8b"
 
     def test_resolve_inferencenet(self, monkeypatch):
-        monkeypatch.setattr(settings, "inference_net_api_key", "in-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"inference_net": {"api_key": "in-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("inferencenet/llama-3.1-8b")
         assert api_key == "in-key"
@@ -101,7 +105,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/llama-3.1-8b"
 
     def test_resolve_nlpcloud(self, monkeypatch):
-        monkeypatch.setattr(settings, "nlp_cloud_api_key", "np-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"nlp_cloud": {"api_key": "np-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("nlpcloud/finetuned-gpt-neo-2-7b")
         assert api_key == "np-key"
@@ -109,7 +113,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/finetuned-gpt-neo-2-7b"
 
     def test_resolve_scaleway(self, monkeypatch):
-        monkeypatch.setattr(settings, "scaleway_api_key", "sc-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"scaleway": {"api_key": "sc-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("scaleway/llama-3.1-8b")
         assert api_key == "sc-key"
@@ -117,7 +121,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/llama-3.1-8b"
 
     def test_resolve_alibaba_intl(self, monkeypatch):
-        monkeypatch.setattr(settings, "alibaba_intl_api_key", "al-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"alibaba_intl": {"api_key": "al-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("alibaba-intl/qwen-plus")
         assert api_key == "al-key"
@@ -126,7 +130,7 @@ class TestResolveProvider:
 
     # 2026-07-24 接入:10 个免费 LLM provider 内化
     def test_resolve_cerebras(self, monkeypatch):
-        monkeypatch.setattr(settings, "cerebras_api_key", "cb-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"cerebras": {"api_key": "cb-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("cerebras/qwen3-235b")
         assert api_key == "cb-key"
@@ -134,7 +138,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/qwen3-235b"
 
     def test_resolve_mistral(self, monkeypatch):
-        monkeypatch.setattr(settings, "mistral_api_key", "ms-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"mistral": {"api_key": "ms-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("mistral/mistral-large-latest")
         assert api_key == "ms-key"
@@ -143,7 +147,7 @@ class TestResolveProvider:
 
     def test_resolve_mistral_codestral_prefix(self, monkeypatch):
         """codestral- 前缀也走 mistral 分支(无 / 分隔,real_model = model 本身)。"""
-        monkeypatch.setattr(settings, "mistral_api_key", "ms-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"mistral": {"api_key": "ms-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("codestral-latest")
         assert api_key == "ms-key"
@@ -152,7 +156,7 @@ class TestResolveProvider:
 
     def test_resolve_mistral_pixtral_prefix(self, monkeypatch):
         """pixtral- 前缀也走 mistral 分支。"""
-        monkeypatch.setattr(settings, "mistral_api_key", "ms-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"mistral": {"api_key": "ms-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("pixtral-12b-2409")
         assert api_key == "ms-key"
@@ -160,7 +164,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/pixtral-12b-2409"
 
     def test_resolve_cohere(self, monkeypatch):
-        monkeypatch.setattr(settings, "cohere_api_key", "ch-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"cohere": {"api_key": "ch-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("cohere/command-r-plus")
         assert api_key == "ch-key"
@@ -168,7 +172,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/command-r-plus"
 
     def test_resolve_huggingface(self, monkeypatch):
-        monkeypatch.setattr(settings, "huggingface_api_key", "hf-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"huggingface": {"api_key": "hf-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("huggingface/deepseek-v3")
         assert api_key == "hf-key"
@@ -176,7 +180,7 @@ class TestResolveProvider:
         assert litellm_model == "openai/deepseek-v3"
 
     def test_resolve_zai(self, monkeypatch):
-        monkeypatch.setattr(settings, "zai_api_key", "za-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"zai": {"api_key": "za-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("zai/glm-4.5-flash")
         assert api_key == "za-key"
@@ -185,7 +189,7 @@ class TestResolveProvider:
 
     def test_resolve_kilo(self, monkeypatch):
         """keyless provider:api_key=None 但 api_base 有效。"""
-        monkeypatch.setattr(settings, "kilo_api_base", "https://api.kilo.ai/api/gateway/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"kilo": {"api_base": "https://api.kilo.ai/api/gateway/v1"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("kilo/llama-3.1-8b")
         assert api_key is None
@@ -194,7 +198,7 @@ class TestResolveProvider:
 
     def test_resolve_pollinations(self, monkeypatch):
         """keyless provider:api_key=None 但 api_base 有效。"""
-        monkeypatch.setattr(settings, "pollinations_api_base", "https://text.pollinations.ai/openai/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"pollinations": {"api_base": "https://text.pollinations.ai/openai/v1"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("pollinations/gpt-oss-20b")
         assert api_key is None
@@ -203,8 +207,9 @@ class TestResolveProvider:
 
     def test_resolve_llm7(self, monkeypatch):
         """LLM7 key 可选,有 key 时返回 key。"""
-        monkeypatch.setattr(settings, "llm7_api_key", "l7-key")
-        monkeypatch.setattr(settings, "llm7_api_base", "https://api.llm7.io/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "llm7": {"api_key": "l7-key", "api_base": "https://api.llm7.io/v1"},
+        }))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("llm7/gpt-oss-20b")
         assert api_key == "l7-key"
@@ -213,7 +218,7 @@ class TestResolveProvider:
 
     def test_resolve_ovh(self, monkeypatch):
         """keyless provider:api_key=None 但 api_base 有效。"""
-        monkeypatch.setattr(settings, "ovh_api_base", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"ovh": {"api_base": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("ovh/qwen3.5-397b")
         assert api_key is None
@@ -222,8 +227,9 @@ class TestResolveProvider:
 
     def test_resolve_aihorde(self, monkeypatch):
         """AI Horde 默认 key 0000000000,有自定义 key 时返回自定义 key。"""
-        monkeypatch.setattr(settings, "aihorde_api_key", "ah-key")
-        monkeypatch.setattr(settings, "aihorde_api_base", "https://aihorde.net/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "aihorde": {"api_key": "ah-key", "api_base": "https://aihorde.net/v1"},
+        }))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("aihorde/llama-3.1-8b")
         assert api_key == "ah-key"
@@ -232,7 +238,7 @@ class TestResolveProvider:
 
     def test_resolve_reka(self, monkeypatch):
         """Reka:每月免费 credit,OpenAI 兼容。"""
-        monkeypatch.setattr(settings, "reka_api_key", "rk-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"reka": {"api_key": "rk-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("reka/reka-flash-3")
         assert api_key == "rk-key"
@@ -241,7 +247,7 @@ class TestResolveProvider:
 
     def test_resolve_routeway(self, monkeypatch):
         """Routeway:OpenAI 兼容聚合,:free 后缀模型 $0。"""
-        monkeypatch.setattr(settings, "routeway_api_key", "rw-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"routeway": {"api_key": "rw-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("routeway/llama-3.3-70b:free")
         assert api_key == "rw-key"
@@ -250,7 +256,7 @@ class TestResolveProvider:
 
     def test_resolve_bazaarlink(self, monkeypatch):
         """BazaarLink:OpenAI 兼容聚合,auto:free 路由零成本。"""
-        monkeypatch.setattr(settings, "bazaarlink_api_key", "bl-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"bazaarlink": {"api_key": "bl-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("bazaarlink/auto:free")
         assert api_key == "bl-key"
@@ -259,7 +265,7 @@ class TestResolveProvider:
 
     def test_resolve_ainative(self, monkeypatch):
         """AINative Studio:OpenAI 兼容聚合,每月 ~10M tokens 免费。"""
-        monkeypatch.setattr(settings, "ainative_api_key", "an-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"ainative": {"api_key": "an-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("ainative/llama-3.1-70b")
         assert api_key == "an-key"
@@ -276,127 +282,127 @@ class TestResolveProviderMissingKey:
     """key 缺失时 _resolve_provider 返回 None 或空配置。"""
 
     def test_cloudflare_missing_token_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "cloudflare_api_token", "")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "acc123")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cloudflare": {"api_key": "", "api_base": "https://api.cloudflare.com/client/v4/accounts/acc123/ai/v1"},
+        }))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("@cf/llama-3.1-8b")
         assert api_key is None
         assert api_base is None
 
     def test_cloudflare_missing_account_id_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "cloudflare_api_token", "tok")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"cloudflare": {"api_key": "tok"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("@cf/llama-3.1-8b")
         assert api_key is None
         assert api_base is None
 
     def test_nvidia_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "nvidia_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"nvidia": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("nvidia/llama-3.1-nemotron-70b")
         assert api_key is None
 
     def test_github_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "github_token", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"github": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("github/gpt-4o")
         assert api_key is None
 
     def test_vercel_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "vercel_ai_gateway_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"vercel": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("vercel/gpt-4o")
         assert api_key is None
 
     def test_opencode_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "opencode_zen_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"opencode": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("opencode/llama-3.1-8b")
         assert api_key is None
 
     def test_modal_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "modal_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"modal": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("modal/llama-3.1-8b")
         assert api_key is None
 
     def test_inferencenet_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "inference_net_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"inference_net": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("inferencenet/llama-3.1-8b")
         assert api_key is None
 
     def test_nlpcloud_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "nlp_cloud_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"nlp_cloud": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("nlpcloud/gpt-neo")
         assert api_key is None
 
     def test_scaleway_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "scaleway_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"scaleway": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("scaleway/llama-3.1-8b")
         assert api_key is None
 
     def test_alibaba_intl_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "alibaba_intl_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"alibaba_intl": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("alibaba-intl/qwen-plus")
         assert api_key is None
 
     # 2026-07-24 接入:5 个需 key provider 的 missing key 测试
     def test_cerebras_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "cerebras_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"cerebras": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("cerebras/qwen3-235b")
         assert api_key is None
 
     def test_mistral_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "mistral_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"mistral": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("mistral/mistral-large-latest")
         assert api_key is None
 
     def test_cohere_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "cohere_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"cohere": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("cohere/command-r-plus")
         assert api_key is None
 
     def test_huggingface_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "huggingface_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"huggingface": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("huggingface/deepseek-v3")
         assert api_key is None
 
     def test_zai_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "zai_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"zai": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("zai/glm-4.5-flash")
         assert api_key is None
 
     # 2026-07-24 接入:4 个需 key provider 的 missing key 测试
     def test_reka_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "reka_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"reka": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("reka/reka-flash-3")
         assert api_key is None
 
     def test_routeway_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "routeway_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"routeway": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("routeway/llama-3.3-70b:free")
         assert api_key is None
 
     def test_bazaarlink_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "bazaarlink_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"bazaarlink": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("bazaarlink/auto:free")
         assert api_key is None
 
     def test_ainative_missing_key_returns_none(self, monkeypatch):
-        monkeypatch.setattr(settings, "ainative_api_key", "")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"ainative": {"api_key": ""}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("ainative/llama-3.1-70b")
         assert api_key is None
@@ -404,8 +410,9 @@ class TestResolveProviderMissingKey:
     # keyless / 可选 key provider:空 key 时仍返回有效配置
     def test_llm7_empty_key_returns_valid_base(self, monkeypatch):
         """LLM7 key 可选,空 key 时 api_key=None 但 api_base 有效。"""
-        monkeypatch.setattr(settings, "llm7_api_key", "")
-        monkeypatch.setattr(settings, "llm7_api_base", "https://api.llm7.io/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "llm7": {"api_key": "", "api_base": "https://api.llm7.io/v1"},
+        }))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("llm7/gpt-oss-20b")
         assert api_key is None
@@ -414,8 +421,9 @@ class TestResolveProviderMissingKey:
 
     def test_aihorde_empty_key_returns_default_key(self, monkeypatch):
         """AI Horde 默认 key 0000000000,空 key 时回退默认匿名 key。"""
-        monkeypatch.setattr(settings, "aihorde_api_key", "")
-        monkeypatch.setattr(settings, "aihorde_api_base", "https://aihorde.net/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "aihorde": {"api_key": "", "api_base": "https://aihorde.net/v1"},
+        }))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("aihorde/llama-3.1-8b")
         assert api_key == "0000000000"
@@ -432,126 +440,129 @@ class TestResolveProviderCaseInsensitive:
     """model 前缀大小写不敏感(_resolve_provider 用 model.lower() 匹配)。"""
 
     def test_cloudflare_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "cloudflare_api_token", "tok")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "acc")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cloudflare": {"api_key": "tok", "api_base": "https://api.cloudflare.com/client/v4/accounts/acc/ai/v1"},
+        }))
         gw = LLMGateway()
         api_key, _, litellm_model = gw._resolve_provider("@CF/LLAMA-3.1-8B")
         assert api_key == "tok"
         assert "openai/" in litellm_model
 
     def test_nvidia_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "nvidia_api_key", "nv")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"nvidia": {"api_key": "nv"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("NVIDIA/LLAMA-3.1-NEMOTRON-70B")
         assert api_key == "nv"
 
     def test_github_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "github_token", "gh")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"github": {"api_key": "gh"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("GITHUB/GPT-4O")
         assert api_key == "gh"
 
     def test_vercel_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "vercel_ai_gateway_key", "vc")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"vercel": {"api_key": "vc"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("VERCEL/GPT-4O")
         assert api_key == "vc"
 
     def test_opencode_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "opencode_zen_key", "oc")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"opencode": {"api_key": "oc"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("OPENCODE/LLAMA-3.1-8B")
         assert api_key == "oc"
 
     def test_modal_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "modal_api_key", "md")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"modal": {"api_key": "md"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("MODAL/LLAMA-3.1-8B")
         assert api_key == "md"
 
     def test_inferencenet_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "inference_net_api_key", "in")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"inference_net": {"api_key": "in"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("INFERENCENET/LLAMA-3.1-8B")
         assert api_key == "in"
 
     def test_nlpcloud_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "nlp_cloud_api_key", "np")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"nlp_cloud": {"api_key": "np"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("NLPCLOUD/GPT-NEO")
         assert api_key == "np"
 
     def test_scaleway_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "scaleway_api_key", "sc")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"scaleway": {"api_key": "sc"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("SCALEWAY/LLAMA-3.1-8B")
         assert api_key == "sc"
 
     def test_alibaba_intl_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "alibaba_intl_api_key", "al")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"alibaba_intl": {"api_key": "al"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("ALIBABA-INTL/QWEN-PLUS")
         assert api_key == "al"
 
     # 2026-07-24 接入:10 个新 provider 大小写不敏感
     def test_cerebras_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "cerebras_api_key", "cb")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"cerebras": {"api_key": "cb"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("CEREBRAS/QWEN3-235B")
         assert api_key == "cb"
 
     def test_mistral_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "mistral_api_key", "ms")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"mistral": {"api_key": "ms"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("MISTRAL/MISTRAL-LARGE-LATEST")
         assert api_key == "ms"
 
     def test_cohere_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "cohere_api_key", "ch")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"cohere": {"api_key": "ch"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("COHERE/COMMAND-R-PLUS")
         assert api_key == "ch"
 
     def test_huggingface_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "huggingface_api_key", "hf")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"huggingface": {"api_key": "hf"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("HUGGINGFACE/DEEPSEEK-V3")
         assert api_key == "hf"
 
     def test_zai_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "zai_api_key", "za")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"zai": {"api_key": "za"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("ZAI/GLM-4.5-FLASH")
         assert api_key == "za"
 
     def test_kilo_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "kilo_api_base", "https://api.kilo.ai/api/gateway/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"kilo": {"api_base": "https://api.kilo.ai/api/gateway/v1"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("KILO/LLAMA-3.1-8B")
         assert api_key is None
 
     def test_pollinations_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "pollinations_api_base", "https://text.pollinations.ai/openai/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"pollinations": {"api_base": "https://text.pollinations.ai/openai/v1"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("POLLINATIONS/GPT-OSS-20B")
         assert api_key is None
 
     def test_llm7_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "llm7_api_key", "l7")
-        monkeypatch.setattr(settings, "llm7_api_base", "https://api.llm7.io/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "llm7": {"api_key": "l7", "api_base": "https://api.llm7.io/v1"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("LLM7/GPT-OSS-20B")
         assert api_key == "l7"
 
     def test_ovh_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "ovh_api_base", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"ovh": {"api_base": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("OVH/QWEN3.5-397B")
         assert api_key is None
 
     def test_aihorde_uppercase(self, monkeypatch):
-        monkeypatch.setattr(settings, "aihorde_api_key", "ah")
-        monkeypatch.setattr(settings, "aihorde_api_base", "https://aihorde.net/v1")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "aihorde": {"api_key": "ah", "api_base": "https://aihorde.net/v1"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("AIHORDE/LLAMA-3.1-8B")
         assert api_key == "ah"
@@ -567,16 +578,18 @@ class TestCloudflareSpecial:
 
     def test_at_cf_prefix_preserves_full_model(self, monkeypatch):
         """@cf/ 前缀的 litellm_model 保留完整的 @cf/xxx 格式。"""
-        monkeypatch.setattr(settings, "cloudflare_api_token", "tok")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "acc")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cloudflare": {"api_key": "tok", "api_base": "https://api.cloudflare.com/client/v4/accounts/acc/ai/v1"},
+        }))
         gw = LLMGateway()
         _, _, litellm_model = gw._resolve_provider("@cf/llama-3.1-8b-instruct")
         assert litellm_model == "openai/@cf/llama-3.1-8b-instruct"
 
     def test_cloudflare_slash_strips_prefix(self, monkeypatch):
         """cloudflare/ 前缀的 litellm_model 去掉 cloudflare/ 前缀。"""
-        monkeypatch.setattr(settings, "cloudflare_api_token", "tok")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "acc")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cloudflare": {"api_key": "tok", "api_base": "https://api.cloudflare.com/client/v4/accounts/acc/ai/v1"},
+        }))
         gw = LLMGateway()
         _, _, litellm_model = gw._resolve_provider("cloudflare/llama-3.1-8b-instruct")
         assert litellm_model == "openai/llama-3.1-8b-instruct"
@@ -584,8 +597,9 @@ class TestCloudflareSpecial:
 
     def test_api_base_contains_account_id(self, monkeypatch):
         """api_base 中嵌入 account_id。"""
-        monkeypatch.setattr(settings, "cloudflare_api_token", "tok")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "my-account-123")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cloudflare": {"api_key": "tok", "api_base": "https://api.cloudflare.com/client/v4/accounts/my-account-123/ai/v1"},
+        }))
         gw = LLMGateway()
         _, api_base, _ = gw._resolve_provider("@cf/llama-3.1-8b")
         assert "my-account-123" in api_base
@@ -593,9 +607,8 @@ class TestCloudflareSpecial:
 
     def test_both_fields_required(self, monkeypatch):
         """token + account_id 必须同时存在才返回有效配置。"""
-        # 只有 token,缺 account_id
-        monkeypatch.setattr(settings, "cloudflare_api_token", "tok")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "")
+        # 只有 token,缺 account_id(api_base)
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"cloudflare": {"api_key": "tok"}}))
         gw = LLMGateway()
         api_key, api_base, _ = gw._resolve_provider("@cf/llama-3.1-8b")
         assert api_key is None
@@ -603,8 +616,9 @@ class TestCloudflareSpecial:
 
     def test_cloudflare_base_url_format(self, monkeypatch):
         """验证 Cloudflare API base URL 格式。"""
-        monkeypatch.setattr(settings, "cloudflare_api_token", "tok")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "abc")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cloudflare": {"api_key": "tok", "api_base": "https://api.cloudflare.com/client/v4/accounts/abc/ai/v1"},
+        }))
         gw = LLMGateway()
         _, api_base, _ = gw._resolve_provider("@cf/llama-3.1-8b")
         assert api_base == "https://api.cloudflare.com/client/v4/accounts/abc/ai/v1"
@@ -620,7 +634,7 @@ class TestModalSpecial:
 
     def test_modal_multi_segment_model(self, monkeypatch):
         """Modal 模型名可能含多段斜线(如 modal/workspace/llama-3.1-8b)。"""
-        monkeypatch.setattr(settings, "modal_api_key", "md-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"modal": {"api_key": "md-key"}}))
         gw = LLMGateway()
         api_key, api_base, litellm_model = gw._resolve_provider("modal/llama-3.1-8b-instruct")
         assert api_key == "md-key"
@@ -860,8 +874,10 @@ class TestProviderIsolation:
 
     def test_nvidia_not_openai(self, monkeypatch):
         """nvidia/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "nvidia_api_key", "nv-key")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "nvidia": {"api_key": "nv-key"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, litellm_model = gw._resolve_provider("nvidia/llama-3.1-nemotron")
         assert api_key == "nv-key"
@@ -870,8 +886,10 @@ class TestProviderIsolation:
 
     def test_github_not_openai(self, monkeypatch):
         """github/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "github_token", "gh-token")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "github": {"api_key": "gh-token"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("github/gpt-4o")
         assert api_key == "gh-token"
@@ -879,9 +897,10 @@ class TestProviderIsolation:
 
     def test_cloudflare_not_openai(self, monkeypatch):
         """@cf/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "cloudflare_api_token", "cf-tok")
-        monkeypatch.setattr(settings, "cloudflare_account_id", "acc")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cloudflare": {"api_key": "cf-tok", "api_base": "https://api.cloudflare.com/client/v4/accounts/acc/ai/v1"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("@cf/llama-3.1-8b")
         assert api_key == "cf-tok"
@@ -889,7 +908,7 @@ class TestProviderIsolation:
 
     def test_alibaba_intl_not_qwen(self, monkeypatch):
         """alibaba-intl/ 不应匹配 qwen 前缀。"""
-        monkeypatch.setattr(settings, "alibaba_intl_api_key", "al-key")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({"alibaba_intl": {"api_key": "al-key"}}))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("alibaba-intl/qwen-plus")
         assert api_key == "al-key"
@@ -899,8 +918,10 @@ class TestProviderIsolation:
 
     def test_scaleway_not_openai(self, monkeypatch):
         """scaleway/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "scaleway_api_key", "sc-key")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "scaleway": {"api_key": "sc-key"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("scaleway/llama-3.1-8b")
         assert api_key == "sc-key"
@@ -909,8 +930,10 @@ class TestProviderIsolation:
     # 2026-07-24 接入:10 个新 provider 跨 provider 隔离验证
     def test_cerebras_not_openai(self, monkeypatch):
         """cerebras/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "cerebras_api_key", "cb-key")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cerebras": {"api_key": "cb-key"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("cerebras/qwen3-235b")
         assert api_key == "cb-key"
@@ -918,8 +941,10 @@ class TestProviderIsolation:
 
     def test_mistral_not_openai(self, monkeypatch):
         """mistral/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "mistral_api_key", "ms-key")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "mistral": {"api_key": "ms-key"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("mistral/mistral-large-latest")
         assert api_key == "ms-key"
@@ -927,8 +952,10 @@ class TestProviderIsolation:
 
     def test_cohere_not_openai(self, monkeypatch):
         """cohere/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "cohere_api_key", "ch-key")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "cohere": {"api_key": "ch-key"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("cohere/command-r-plus")
         assert api_key == "ch-key"
@@ -936,7 +963,10 @@ class TestProviderIsolation:
 
     def test_kilo_not_openai(self, monkeypatch):
         """kilo/ 前缀(keyless)不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "openai": {"api_key": "sk-openai"},
+            "kilo": {"api_base": "https://api.kilo.ai/api/gateway/v1"},
+        }))
         gw = LLMGateway()
         api_key, api_base, _ = gw._resolve_provider("kilo/llama-3.1-8b")
         assert api_key is None
@@ -945,8 +975,10 @@ class TestProviderIsolation:
 
     def test_aihorde_returns_default_key_not_openai(self, monkeypatch):
         """aihorde/ 默认返回匿名 key 0000000000,不是 openai key。"""
-        monkeypatch.setattr(settings, "aihorde_api_key", "")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "aihorde": {"api_key": ""},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("aihorde/llama-3.1-8b")
         assert api_key == "0000000000"
@@ -955,8 +987,10 @@ class TestProviderIsolation:
     # 2026-07-24 接入:4 个新 provider 跨 provider 隔离验证
     def test_reka_not_openai(self, monkeypatch):
         """reka/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "reka_api_key", "rk-key")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "reka": {"api_key": "rk-key"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("reka/reka-flash-3")
         assert api_key == "rk-key"
@@ -964,8 +998,10 @@ class TestProviderIsolation:
 
     def test_routeway_not_openai(self, monkeypatch):
         """routeway/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "routeway_api_key", "rw-key")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "routeway": {"api_key": "rw-key"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("routeway/llama-3.3-70b:free")
         assert api_key == "rw-key"
@@ -973,8 +1009,10 @@ class TestProviderIsolation:
 
     def test_bazaarlink_not_openai(self, monkeypatch):
         """bazaarlink/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "bazaarlink_api_key", "bl-key")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "bazaarlink": {"api_key": "bl-key"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("bazaarlink/auto:free")
         assert api_key == "bl-key"
@@ -982,8 +1020,10 @@ class TestProviderIsolation:
 
     def test_ainative_not_openai(self, monkeypatch):
         """ainative/ 前缀不应 fallback 到 openai。"""
-        monkeypatch.setattr(settings, "ainative_api_key", "an-key")
-        monkeypatch.setattr(settings, "openai_api_key", "sk-openai")
+        monkeypatch.setattr(settings, "llm_providers", json.dumps({
+            "ainative": {"api_key": "an-key"},
+            "openai": {"api_key": "sk-openai"},
+        }))
         gw = LLMGateway()
         api_key, _, _ = gw._resolve_provider("ainative/llama-3.1-70b")
         assert api_key == "an-key"
