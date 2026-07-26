@@ -4,7 +4,16 @@ import prodConfig from './prod'
 import path from 'path'
 
 export default defineConfig(async (merge) => {
-  const outputRoot = process.env.TARO_ENV === 'alipay' ? 'dist-alipay' : 'dist'
+  // Taro CLI 在调用 config 前会用 --type 覆盖 process.env.TARO_ENV(见
+  // node_modules/@tarojs/cli/src/cli.ts:66),此处读到的值即真实平台。
+  // 显式 fallback 到 'weapp' 防御 shell 注入 TARO_ENV 但 --type 缺失的边界场景。
+  const taroEnv = process.env.TARO_ENV || 'weapp'
+  const outputRoot = taroEnv === 'alipay' ? 'dist-alipay' : 'dist'
+  // 显式日志,排查"alipay 编译到 wechat dist"类问题(用户常因 WeChat IDE
+  // 仍指向 ./dist 看到陈旧产物,误判本次编译走错目录)
+  // eslint-disable-next-line no-console
+  console.log(`\n[Taro Config] platform=${taroEnv} → outputRoot=${outputRoot}/\n`)
+
   const base = {
     projectName: 'ihui-miniapp',
     date: '2026-7-10',

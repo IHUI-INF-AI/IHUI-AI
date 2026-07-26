@@ -95,3 +95,8 @@ export { WebViewFrame } from './components/webview-frame'
 export type { WebViewFrameProps, WebViewMode, WebViewStatus } from './components/webview-frame'
 export { WorkPanel } from './components/work-panel'
 export type { WorkPanelProps, WorkPanelTabItem } from './components/work-panel'
+// AuthShell 统一登录弹窗外壳(2026-07-26 抽取到共享包,web + extension 共用)
+export { AuthShell, AuthShellCompact } from './components/auth-shell'
+export type { AuthShellProps } from './components/auth-shell'
+// AuthShell 共享样式(单一来源,web + extension globals.css 都 @import 这份)
+import './styles/auth-shell.css'
