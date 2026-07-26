@@ -1341,10 +1341,385 @@ async def test_astream_no_fallback_when_configs_empty(monkeypatch):
             model="stepfun/step-3.7-flash",
         )]
 
-        # 只应有 error 事件
+        # 鍙簲鏈?error 浜嬩欢
         assert len(events) == 1
         assert events[0]["type"] == "error"
         assert "stream failed" in events[0]["message"]
     finally:
         fallback_router._configs.clear()
         fallback_router._configs.update(saved)
+
+
+# ════════════════════════════════════════════════════════════════════════
+# structured_completion (G2 字典化闭环)
+# ════════════════════════════════════════════════════════════════════════
+
+import json
+from typing import Any
+from unittest.mock import AsyncMock
+
+
+def _complete_ok(content: str) -> dict[str, Any]:
+    """构造 complete() 成功响应的辅助函数。"""
+    return {
+        "content": content,
+        "model": "gpt-4o-mini",
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+        "stub": False,
+        "error": False,
+    }
+
+
+def _complete_error(message: str = "LLM down") -> dict[str, Any]:
+    """构造 complete() 错误响应的辅助函数。"""
+    return {
+        "content": "",
+        "model": "gpt-4o-mini",
+        "usage": {},
+        "stub": False,
+        "error": True,
+        "error_message": message,
+    }
+
+
+SAMPLE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "age": {"type": "integer"},
+    },
+    "required": ["name", "age"],
+    "additionalProperties": False,
+}
+
+
+class TestStructuredCompletionSuccess:
+    @pytest.mark.asyncio
+    async def test_returns_parsed_dict_on_valid_json(self, monkeypatch):
+        """有效 JSON + 满足 schema → 返回解析后的 dict。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok(json.dumps({"name": "Alice", "age": 30}))),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+        )
+
+        assert result == {"name": "Alice", "age": 30}
+        assert "error" not in result
+        # 验证 response_format 透传
+        call_kwargs = gw.complete.call_args.kwargs
+        assert "response_format" in call_kwargs
+        assert call_kwargs["response_format"]["type"] == "json_schema"
+        assert call_kwargs["response_format"]["json_schema"]["schema"] == SAMPLE_SCHEMA
+        assert call_kwargs["response_format"]["json_schema"]["name"] == "structured_response"
+        assert call_kwargs["response_format"]["json_schema"]["strict"] is True
+
+    @pytest.mark.asyncio
+    async def test_custom_schema_name(self, monkeypatch):
+        """schema_name 参数透传到 response_format。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok(json.dumps({"name": "Bob", "age": 25}))),
+        )
+
+        await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+            schema_name="custom_schema",
+        )
+
+        assert gw.complete.call_args.kwargs["response_format"]["json_schema"]["name"] == "custom_schema"
+
+    @pytest.mark.asyncio
+    async def test_owner_uuid_passed_through(self, monkeypatch):
+        """owner_uuid 参数透传给 complete()。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok(json.dumps({"name": "X", "age": 1}))),
+        )
+
+        await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+            owner_uuid="user-123",
+        )
+
+        assert gw.complete.call_args.kwargs["owner_uuid"] == "user-123"
+
+    @pytest.mark.asyncio
+    async def test_model_passed_through(self, monkeypatch):
+        """model 参数透传给 complete()。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok(json.dumps({"name": "X", "age": 1}))),
+        )
+
+        await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+            model="gpt-4o",
+        )
+
+        assert gw.complete.call_args.kwargs["model"] == "gpt-4o"
+
+
+class TestStructuredCompletionValidation:
+    @pytest.mark.asyncio
+    async def test_missing_required_field_returns_error(self, monkeypatch):
+        """缺 required 字段 → 返回 error dict(无 retry 时直接失败)。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok(json.dumps({"name": "Alice"}))),  # 缺 age
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+        )
+
+        assert result.get("error") is True
+        assert "missing required fields" in result["error_message"]
+        assert "age" in result["error_message"]
+
+    @pytest.mark.asyncio
+    async def test_extra_field_with_additional_properties_false(self, monkeypatch):
+        """additionalProperties: False 时多出字段 → 返回 error dict。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok(json.dumps(
+                {"name": "Alice", "age": 30, "extra_field": "x"}
+            ))),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+        )
+
+        assert result.get("error") is True
+        assert "unexpected fields" in result["error_message"]
+
+    @pytest.mark.asyncio
+    async def test_extra_field_allowed_when_additional_properties_true(self, monkeypatch):
+        """additionalProperties 未指定(False 或缺失)时多出字段被允许(本次实现:仅 strict False 校验)。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        # schema 缺 additionalProperties → 不强制额外字段校验
+        schema_no_strict = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        }
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok(json.dumps({"name": "Alice", "extra": "ok"}))),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=schema_no_strict,
+        )
+
+        assert result == {"name": "Alice", "extra": "ok"}
+
+    @pytest.mark.asyncio
+    async def test_invalid_json_returns_error(self, monkeypatch):
+        """LLM 返回非 JSON 文本 → 返回 error dict。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok("not json at all")),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+        )
+
+        assert result.get("error") is True
+        assert "JSON 解析失败" in result["error_message"]
+
+    @pytest.mark.asyncio
+    async def test_empty_content_returns_error(self, monkeypatch):
+        """LLM 返回空 content → 返回 error dict。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(gw, "complete", AsyncMock(return_value=_complete_ok("")))
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+        )
+
+        assert result.get("error") is True
+        assert "空内容" in result["error_message"]
+
+    @pytest.mark.asyncio
+    async def test_top_level_not_object_returns_error(self, monkeypatch):
+        """LLM 返回顶层 array/非 dict → 返回 error dict。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok(json.dumps([1, 2, 3]))),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+        )
+
+        assert result.get("error") is True
+        assert "顶层非 object" in result["error_message"]
+
+
+class TestStructuredCompletionError:
+    @pytest.mark.asyncio
+    async def test_complete_error_returns_error_dict(self, monkeypatch):
+        """complete() 返回 error → 直接透传 error dict(max_retries=0 时不重试)。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_error("upstream down")),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+            max_retries=0,
+        )
+
+        assert result.get("error") is True
+        assert "upstream down" in result["error_message"]
+        # max_retries=0 → 只调用 1 次
+        assert gw.complete.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_complete_error_retries_then_fails(self, monkeypatch):
+        """complete() 持续返回 error + max_retries=1 → 调 2 次后返回 error dict。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_error("upstream down")),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+            max_retries=1,
+        )
+
+        assert result.get("error") is True
+        assert gw.complete.call_count == 2
+
+
+class TestStructuredCompletionRetry:
+    @pytest.mark.asyncio
+    async def test_retry_on_invalid_json_then_success(self, monkeypatch):
+        """第 1 次返回非 JSON,第 2 次返回有效 JSON → 重试后成功。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(side_effect=[
+                _complete_ok("not json"),
+                _complete_ok(json.dumps({"name": "Alice", "age": 30})),
+            ]),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+            max_retries=1,
+        )
+
+        assert result == {"name": "Alice", "age": 30}
+        assert gw.complete.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_exhausted_returns_error(self, monkeypatch):
+        """重试次数用尽仍失败 → 返回 error dict。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(side_effect=[
+                _complete_ok("not json 1"),
+                _complete_ok("not json 2"),
+            ]),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+            max_retries=1,
+        )
+
+        assert result.get("error") is True
+        assert gw.complete.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_no_retry_when_max_retries_zero(self, monkeypatch):
+        """max_retries=0 → 只调用 1 次。"""
+        from app.core.llm_gateway import LLMGateway
+
+        gw = LLMGateway()
+        monkeypatch.setattr(
+            gw,
+            "complete",
+            AsyncMock(return_value=_complete_ok("not json")),
+        )
+
+        result = await gw.structured_completion(
+            [{"role": "user", "content": "hi"}],
+            schema=SAMPLE_SCHEMA,
+            max_retries=0,
+        )
+
+        assert result.get("error") is True
+        assert gw.complete.call_count == 1
