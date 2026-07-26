@@ -49,6 +49,7 @@ const EXCLUDE_DIRS = new Set([
   'node_modules', '.git', '.next', '.turbo', 'dist', 'build',
   '.worktrees', '.venv', 'tests', '__tests__', '.trae-cn',
   '.output', '.wxt', 'coverage', 'out',
+  'target', // Rust/Cargo 构建输出(rustdoc 生成的 JS 含 HTML 模板字符串,非 JSX,gitignored)
 ])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']

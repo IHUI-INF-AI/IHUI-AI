@@ -93,7 +93,7 @@ export function AgreementNoticeDialog({ open, onAgree, onCancel }: AgreementNoti
         <div className="flex flex-col items-center text-center">
           <div
             className={cn(
-              'mb-4 flex h-12 w-12 items-center justify-center rounded-full',
+              'mb-4 flex h-12 w-12 items-center justify-center rounded-lg',
               'bg-primary/10 text-primary ring-1 ring-primary/20',
             )}
           >
