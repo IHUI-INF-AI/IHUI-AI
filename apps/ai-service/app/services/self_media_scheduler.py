@@ -11,6 +11,7 @@
 import asyncio
 import logging
 import os
+from collections.abc import Coroutine
 from datetime import datetime, timezone, timedelta
 from typing import Any, Literal, TypedDict
 
