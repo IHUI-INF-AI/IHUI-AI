@@ -1416,9 +1416,9 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
   'kimi-platform': {
     id: 'kimi-platform',
     name: 'Kimi / 月之暗面',
-    tagline: 'Kimi 是长文本对话王者;IHUI AI 是全栈 Agent 操作系统(含 Kimi 模型)',
+    tagline: 'Kimi 在长文本对话方面有特色;IHUI AI 是全栈 Agent 操作系统(含 Kimi 模型)',
     verdict:
-      '如果只需要长文本阅读/对话,Kimi 体验最佳;如果需要构建 Agent 产品 + 知识库 + 跨端分发 + 团队协作,IHUI AI 是更完整方案(且可接入 Kimi 模型)。',
+      '如果只需要长文本阅读/对话,Kimi 体验较好;如果需要构建 Agent 产品 + 知识库 + 跨端分发 + 团队协作,IHUI AI 是更完整方案(且可接入 Kimi 模型)。',
     rows: [
       {
         dimension: '定位',
@@ -1562,7 +1562,7 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
     name: 'DeepSeek Platform',
     tagline: 'DeepSeek 是推理模型 API;IHUI AI 含 DeepSeek + 30+ 模型 + Agent 编排',
     verdict:
-      '如果只需调用 DeepSeek API,官方平台最直接;如果需要 Agent 编排 + 知识库 + 工作流 + 六端分发 + 团队协作,IHUI AI 是更完整方案(且原生支持 DeepSeek 模型)。',
+      '如果只需调用 DeepSeek API,官方平台较直接;如果需要 Agent 编排 + 知识库 + 工作流 + 六端分发 + 团队协作,IHUI AI 是更完整方案(且原生支持 DeepSeek 模型)。',
     rows: [
       {
         dimension: '定位',
@@ -1739,7 +1739,7 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
       {
         dimension: '语音能力',
         ihui: '可对接讯飞/百度/Whisper',
-        competitor: '原生最强(TTS/ASR)',
+        competitor: '原生支持(TTS/ASR) 较完善',
         ihuiDetail: '灵活对接多家语音',
         competitorDetail: '讯飞语音原生集成',
       },
@@ -1811,7 +1811,7 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
       {
         dimension: '多模态',
         ihui: '可对接 MiniMax/百度/字节',
-        competitor: '原生最强',
+        competitor: '原生支持',
         ihuiDetail: '灵活对接多家',
         competitorDetail: '文本/语音/视频原生',
       },
@@ -1851,7 +1851,7 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
     name: 'Zapier AI Actions',
     tagline: 'Zapier 偏自动化集成;IHUI AI 在工作流上叠加 LLM + Agent + 六端',
     verdict:
-      '如果只需连接 SaaS 工具做自动化,Zapier 集成生态最丰富;如果需要 LLM/Agent 作为工作流核心 + 知识库 + 六端分发 + 团队协作,IHUI AI 是更 AI-native 的选择。',
+      '如果只需连接 SaaS 工具做自动化,Zapier 集成生态较丰富;如果需要 LLM/Agent 作为工作流核心 + 知识库 + 六端分发 + 团队协作,IHUI AI 是更 AI-native 的选择。',
     rows: [
       {
         dimension: '定位',
@@ -2176,7 +2176,7 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
     name: 'Voiceflow',
     tagline: 'Voiceflow 偏语音对话 AI;IHUI AI 是全栈 Agent 操作系统(含语音)',
     verdict:
-      '如果专注构建语音/聊天对话 IVR,Voiceflow 体验最佳;如果需要全栈 Agent(语音 + 文本 + 工作流 + 知识库)+ 六端分发 + 团队协作,IHUI AI 更完整。',
+      '如果专注构建语音/聊天对话 IVR,Voiceflow 体验较好;如果需要全栈 Agent(语音 + 文本 + 工作流 + 知识库)+ 六端分发 + 团队协作,IHUI AI 更完整。',
     rows: [
       {
         dimension: '定位',
@@ -2188,7 +2188,7 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
       {
         dimension: '语音能力',
         ihui: '可对接讯飞/百度/Whisper/11Labs',
-        competitor: '原生最强',
+        competitor: '原生支持',
         ihuiDetail: '灵活对接多家',
         competitorDetail: '原生 STT/TTS/语音对话',
       },
@@ -2412,7 +2412,7 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
         ihui: '六端含 CLI + 扩展',
         competitor: '原生 IDE',
         ihuiDetail: 'CLI 端 + 浏览器扩展端原生集成',
-        competitorDetail: 'Cursor 本身即 IDE,体验最佳',
+        competitorDetail: 'Cursor 本身即 IDE,体验较为完善',
       },
       {
         dimension: '定价',
@@ -2428,7 +2428,7 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
     name: 'GitHub Copilot',
     tagline: 'GitHub Copilot 是老牌 AI 编程助手;IHUI AI 是含代码 Agent 的全栈操作系统',
     verdict:
-      '如果你的团队已深度使用 GitHub + VS Code 生态,GitHub Copilot 集成最自然;如果需要 Agent 编排 + 知识库 + 工作流 + 六端分发 + 私有化部署,IHUI AI 是更完整的企业级方案。',
+      '如果你的团队已深度使用 GitHub + VS Code 生态,GitHub Copilot 集成较自然;如果需要 Agent 编排 + 知识库 + 工作流 + 六端分发 + 私有化部署,IHUI AI 是更完整的企业级方案。',
     rows: [
       {
         dimension: '定位',

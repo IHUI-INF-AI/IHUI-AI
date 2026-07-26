@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: '%s | 智汇 AI',
   },
   description:
-    '行业唯一 8 端全覆盖(Web/桌面/移动/小程序/CLI/扩展/API/AI-Service)企业级 AI 平台。100+ LLM 大模型一个 API Key 全访问(国际 30+/国产 15+/云 40+),LangGraph+MCP+A2A 三栈合一,11 MCP 工具+5 A2A 端点+6 ACP 扩展,17 项 pre-commit 守门+122+ migrations 工业级严谨。5 大决策者场景(降本/提效/学习/创新/决策)· 8 项可量化 ROI(省 ¥18-30 万/年 · 10× 加速 · 60% 降本 · 99.9% SLA)· 8 行竞品对比全维度超越 Claude Code/Cursor/ChatGPT。限 18 席决策者 · 早鸟价 ¥6000/年(3.3 折)· 不满意全额退款 · 1v1 AI 顾问 + AI 文化落地陪跑。',
+    '8 端全覆盖(Web/桌面/移动/小程序/CLI/扩展/API/AI-Service)企业级 AI 平台,覆盖范围较广。100+ LLM 大模型一个 API Key 全访问(国际 30+/国产 15+/云 40+),LangGraph+MCP+A2A 三栈合一,11 MCP 工具+5 A2A 端点+6 ACP 扩展,17 项 pre-commit 守门+122+ migrations 工业级严谨。5 大决策者场景(降本/提效/学习/创新/决策)· 8 项可量化 ROI(省 ¥18-30 万/年 · 10× 加速 · 60% 降本 · 99.9% SLA)· 8 行竞品对比多维度可对标 Claude Code/Cursor/ChatGPT。限 18 席决策者 · 早鸟价 ¥6000/年(3.3 折)· 不满意全额退款 · 1v1 AI 顾问 + AI 文化落地陪跑。',
   keywords: [
     'AI 平台', '8 端全覆盖', '100+ LLM', 'LangGraph', 'MCP', 'A2A', 'ACP Server',
     '自研 CLI', 'Claude Code 替代', 'Cursor 替代', 'ChatGPT 替代', '企业 AI',
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     locale: 'zh_CN',
     siteName: '智汇 AI 社区',
     title: '智汇 AI 社区 — 8 端全覆盖 · 100+ LLM · 自研 CLI · 省 ¥18 万/年',
-    description: '行业唯一 8 端全覆盖企业级 AI 平台 · 5 大决策者场景 · 8 项可量化 ROI · 8 行竞品对比全维度超越 · 限 18 席 · 早鸟价 ¥6000/年 · 不满意全额退款',
+    description: '8 端全覆盖企业级 AI 平台 · 5 大决策者场景 · 8 项可量化 ROI · 8 行竞品对比多维度可对标 · 限 18 席 · 早鸟价 ¥6000/年 · 不满意全额退款',
   },
 }
 
