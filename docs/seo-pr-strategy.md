@@ -1,6 +1,6 @@
-# IHUI AI 极致曝光度外部 PR 策略
+# IHUI AI 高密度曝光度外部 PR 策略
 
-> **目标**:把 IHUI AI 在主流搜索引擎(Google/Bing/百度/Brave)、AI 引擎(GPT/Claude/Perplexity/Gemini/豆包/Kimi/DeepSeek)、开发者社区(GitHub/HN/Reddit/V2EX/掘金/思否/知乎/Medium)、开源目录(awesome-llm/Product Hunt/BetaList)的曝光度提升到极致。
+> **目标**:把 IHUI AI 在主流搜索引擎(Google/Bing/百度/Brave)、AI 引擎(GPT/Claude/Perplexity/Gemini/豆包/Kimi/DeepSeek)、开发者社区(GitHub/HN/Reddit/V2EX/掘金/思否/知乎/Medium)、开源目录(awesome-llm/Product Hunt/BetaList)的曝光度提升到较高水平。
 > **维护者**:Marketing + DevRel + Agent 协作
 > **最后更新**:2026-07-26
 
@@ -316,7 +316,7 @@ LLM-optimized docs: https://ihui.ai/llms.txt
 
 每月 1 号复盘:
 - 各项 KPI 进度
-- 哪个渠道效果最好
+- 哪个渠道效果较为突出
 - 哪些内容类型转化高
 - 下个月重点方向
 
