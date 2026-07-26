@@ -100,13 +100,13 @@ export default function Orders() {
   ]
 
   return (
-    <View className="min-h-screen px-[16px] py-[12px]">
+    <View className="min-h-screen px-[32rpx] py-[24rpx]">
       {/* 状态筛选 */}
-      <View className="flex mb-[12px] bg-card rounded-[6px]">
+      <View className="flex mb-[24rpx] bg-card rounded-[12rpx]">
         {tabs.map((tab) => (
           <View
             key={tab.key}
-            className={`flex-1 text-center py-[10px] text-[13px] ${
+            className={`flex-1 text-center py-[20rpx] text-[26rpx] ${
               status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'
             }`}
             onClick={() => switchStatus(tab.key)}
@@ -122,31 +122,31 @@ export default function Orders() {
           {list.map((item) => (
             <View
               key={item.id}
-              className="bg-card rounded-[8px] px-[12px] py-[12px] mb-[12px]"
+              className="bg-card rounded-[16rpx] px-[24rpx] py-[24rpx] mb-[24rpx]"
               onClick={() => goDetail(item)}
             >
               <View className="flex justify-between items-center">
-                <Text className="text-[12px] text-muted-foreground">
+                <Text className="text-[24rpx] text-muted-foreground">
                   {t('user.orders.orderNo')}
                   {item.orderNo}
                 </Text>
-                <Text className={`text-[13px] ${STATUS_COLOR[item.status] || 'text-muted-foreground'}`}>
+                <Text className={`text-[26rpx] ${STATUS_COLOR[item.status] || 'text-muted-foreground'}`}>
                   {statusText(item.status)}
                 </Text>
               </View>
-              <View className="flex flex-col my-[10px]">
-                <Text className="text-[15px] text-foreground font-semibold">{item.title}</Text>
-                <Text className="mt-[4px] text-[12px] text-muted-foreground">{item.type}</Text>
+              <View className="flex flex-col my-[20rpx]">
+                <Text className="text-[30rpx] text-foreground font-semibold">{item.title}</Text>
+                <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground">{item.type}</Text>
               </View>
-              <View className="flex items-center pt-[10px]">
-                <Text className="flex-1 text-[12px] text-muted-foreground">{item.createTime}</Text>
-                <View className="mr-[12px]">
-                  <Text className="text-[12px] text-[#dd524d]">¥</Text>
-                  <Text className="text-[17px] text-[#dd524d] font-bold">{item.amount}</Text>
+              <View className="flex items-center pt-[20rpx]">
+                <Text className="flex-1 text-[24rpx] text-muted-foreground">{item.createTime}</Text>
+                <View className="mr-[24rpx]">
+                  <Text className="text-[24rpx] text-[#dd524d]">¥</Text>
+                  <Text className="text-[34rpx] text-[#dd524d] font-bold">{item.amount}</Text>
                 </View>
                 {item.status === 'pending' ? (
                   <View
-                    className="px-[16px] py-[5px] bg-primary text-white rounded-[6px] text-[13px]"
+                    className="px-[32rpx] py-[10rpx] bg-primary text-white rounded-[12rpx] text-[26rpx]"
                     onClick={(e) => {
                       e.stopPropagation()
                       handlePay(item)
@@ -162,12 +162,12 @@ export default function Orders() {
       ) : null}
 
       {!loading && list.length === 0 ? (
-        <View className="text-center py-[60px] text-muted-foreground text-[13px]">
+        <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{t('user.orders.empty')}</Text>
         </View>
       ) : null}
       {loading ? (
-        <View className="text-center py-[60px] text-muted-foreground text-[13px]">
+        <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{t('common.loading')}</Text>
         </View>
       ) : null}

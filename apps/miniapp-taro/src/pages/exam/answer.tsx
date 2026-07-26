@@ -135,7 +135,7 @@ export default function ExamAnswer() {
     if (current.type === 'subjective') {
       return (
         <Textarea
-          className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl min-h-[160px]"
+          className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl min-h-[320rpx]"
           placeholder={t('exam.answer.answerPlaceholder')}
           value={typeof ans === 'string' ? ans : ''}
           onInput={(e) => select(e.detail.value)}

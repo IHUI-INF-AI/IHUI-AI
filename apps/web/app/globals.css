@@ -98,6 +98,23 @@ body {
   color: var(--color-foreground);
 }
 
+/* 2026-07-26 用户要求:最右侧竖向滚动条彻底去掉(桌面端 + web 端同步生效)
+   - html/body 固定 100% 高度 + overflow:hidden,内容超出由内部容器 overflow-y-auto 滚动
+   - 隐藏 webkit 滚动条 + Firefox scrollbar-width:none + IE -ms-overflow-style:none
+   - 彻底杜绝 body 级滚动条出现(主布局 MainShell 已是 h-screen flex,内部 main 有 overflow-y-auto) */
+html, body {
+  height: 100%;
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
 /* AI 对话 markdown 渲染样式 */
 .chat-markdown {
   font-size: 0.875rem;

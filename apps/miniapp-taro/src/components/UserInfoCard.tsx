@@ -55,7 +55,7 @@ export default function UserInfoCard({
             </Text>
             {isVip && (
               <View className="px-1.5 py-0.5 rounded-sm bg-[#f59e0b]/10">
-                <Text className="text-[10px] text-[#f59e0b] font-medium">
+                <Text className="text-[20rpx] text-[#f59e0b] font-medium">
                   {vipTitle || 'VIP'}
                 </Text>
               </View>
@@ -64,7 +64,7 @@ export default function UserInfoCard({
           <View className="flex items-center gap-2 mt-1">
             {displayLevel && (
               <View className="px-1.5 py-0.5 rounded-sm bg-primary/10">
-                <Text className="text-[10px] text-primary font-medium">
+                <Text className="text-[20rpx] text-primary font-medium">
                   {displayLevel}
                 </Text>
               </View>

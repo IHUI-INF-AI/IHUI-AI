@@ -270,7 +270,7 @@ export default function ImagePage() {
                   mode="aspectFill"
                 />
                 <Text className="flex-1 text-xs text-foreground truncate">{h.prompt}</Text>
-                <Text className="text-[10px] text-muted-foreground ml-2">{fmtTime(h.createdAt)}</Text>
+                <Text className="text-[20rpx] text-muted-foreground ml-2">{fmtTime(h.createdAt)}</Text>
               </View>
             ))}
           </View>

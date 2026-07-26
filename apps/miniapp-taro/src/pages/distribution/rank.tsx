@@ -49,58 +49,58 @@ export default function DistributionRank() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="py-[20px] text-center bg-gradient-to-b from-[#ff6b35] to-[#ff8e53]">
-        <Text className="text-white text-[18px] font-bold">{tt('distribution.rankTitle', '分销排行榜')}</Text>
+      <View className="py-[40rpx] text-center bg-gradient-to-b from-[#ff6b35] to-[#ff8e53]">
+        <Text className="text-white text-[36rpx] font-bold">{tt('distribution.rankTitle', '分销排行榜')}</Text>
       </View>
       {top3.length >= 3 && (
-        <View className="flex items-end justify-center py-[24px] bg-card">
+        <View className="flex items-end justify-center py-[48rpx] bg-card">
           {/* 2nd */}
-          <View className="flex flex-col items-center mx-[12px] relative">
+          <View className="flex flex-col items-center mx-[24rpx] relative">
             <Image
-              className="w-[55px] h-[55px] rounded-md bg-muted border-2 ${RANK_BORDER['2']}"
+              className="w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 ${RANK_BORDER['2']}"
               src={top3[1]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-[12px] text-foreground mt-[8px]">{top3[1]!.nickname}</Text>
-            <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">
+            <Text className="text-[24rpx] text-foreground mt-[16rpx]">{top3[1]!.nickname}</Text>
+            <Text className="text-[28rpx] text-[#ff6b35] font-semibold mt-[4rpx]">
               ¥{top3[1]!.commission}
             </Text>
             <Text
-              className={`absolute -top-[12px] w-[24px] h-[24px] leading-[24px] text-center rounded-md text-white text-[12px] ${RANK_BG['2']}`}
+              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-white text-[24rpx] ${RANK_BG['2']}`}
             >
               2
             </Text>
           </View>
           {/* 1st */}
-          <View className="flex flex-col items-center mx-[12px] relative">
+          <View className="flex flex-col items-center mx-[24rpx] relative">
             <Image
-              className="w-[70px] h-[70px] rounded-md bg-muted border-2 ${RANK_BORDER['1']}"
+              className="w-[140rpx] h-[140rpx] rounded-md bg-muted border-2 ${RANK_BORDER['1']}"
               src={top3[0]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-[12px] text-foreground mt-[8px]">{top3[0]!.nickname}</Text>
-            <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">
+            <Text className="text-[24rpx] text-foreground mt-[16rpx]">{top3[0]!.nickname}</Text>
+            <Text className="text-[28rpx] text-[#ff6b35] font-semibold mt-[4rpx]">
               ¥{top3[0]!.commission}
             </Text>
             <Text
-              className={`absolute -top-[12px] w-[24px] h-[24px] leading-[24px] text-center rounded-md text-white text-[12px] ${RANK_BG['1']}`}
+              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-white text-[24rpx] ${RANK_BG['1']}`}
             >
               1
             </Text>
           </View>
           {/* 3rd */}
-          <View className="flex flex-col items-center mx-[12px] relative">
+          <View className="flex flex-col items-center mx-[24rpx] relative">
             <Image
-              className={`w-[55px] h-[55px] rounded-md bg-muted border-2 ${RANK_BORDER['3']}`}
+              className={`w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 ${RANK_BORDER['3']}`}
               src={top3[2]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-[12px] text-foreground mt-[8px]">{top3[2]!.nickname}</Text>
-            <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">
+            <Text className="text-[24rpx] text-foreground mt-[16rpx]">{top3[2]!.nickname}</Text>
+            <Text className="text-[28rpx] text-[#ff6b35] font-semibold mt-[4rpx]">
               ¥{top3[2]!.commission}
             </Text>
             <Text
-              className={`absolute -top-[12px] w-[24px] h-[24px] leading-[24px] text-center rounded-md text-white text-[12px] ${RANK_BG['3']}`}
+              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-white text-[24rpx] ${RANK_BG['3']}`}
             >
               3
             </Text>
@@ -108,23 +108,23 @@ export default function DistributionRank() {
         </View>
       )}
       {rest.length > 0 && (
-        <View className="m-[12px] bg-card rounded-[8px] overflow-hidden flex flex-col">
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden flex flex-col">
           {rest.map((u, i) => (
-            <View key={u.id} className="flex items-center p-[12px] mb-2 last:mb-0">
-              <Text className="w-[30px] text-[14px] text-muted-foreground">{i + 4}</Text>
+            <View key={u.id} className="flex items-center p-[24rpx] mb-2 last:mb-0">
+              <Text className="w-[60rpx] text-[28rpx] text-muted-foreground">{i + 4}</Text>
               <Image
-                className="w-[32px] h-[32px] rounded-md bg-muted"
+                className="w-[64rpx] h-[64rpx] rounded-md bg-muted"
                 src={u.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
-              <Text className="flex-1 ml-[12px] text-[14px] text-foreground">{u.nickname}</Text>
-              <Text className="text-[14px] text-[#ff6b35] font-semibold">¥{u.commission}</Text>
+              <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">{u.nickname}</Text>
+              <Text className="text-[28rpx] text-[#ff6b35] font-semibold">¥{u.commission}</Text>
             </View>
           ))}
         </View>
       )}
       {!loading && list.length === 0 && (
-        <View className="text-center py-[60px] text-muted-foreground">
+        <View className="text-center py-[120rpx] text-muted-foreground">
           <Text>{tt('distribution.rankEmpty', '暂无排行数据')}</Text>
         </View>
       )}

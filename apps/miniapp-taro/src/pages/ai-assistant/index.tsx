@@ -181,56 +181,56 @@ export default function AiAssistantPage() {
 
   return (
     <View className="flex flex-col h-screen bg-background box-border">
-      <View className="flex items-center px-[20px] py-[12px] bg-card">
-        <Text className="text-[28px] text-foreground" onClick={() => Taro.navigateBack()}>←</Text>
-        <Text className="flex-1 text-center text-[32px] font-semibold text-foreground truncate">{pageTitle}</Text>
-        <View className="w-[40px]" />
+      <View className="flex items-center px-[40rpx] py-[24rpx] bg-card">
+        <Text className="text-[56rpx] text-foreground" onClick={() => Taro.navigateBack()}>←</Text>
+        <Text className="flex-1 text-center text-[64rpx] font-semibold text-foreground truncate">{pageTitle}</Text>
+        <View className="w-[80rpx]" />
       </View>
 
-      <ScrollView scrollY className="flex-1 px-[20px]" scrollTop={scrollTop}>
-        <View className="flex items-center py-[16px] mb-[12px] bg-card rounded-lg px-[16px]" onClick={() => setTishiShow((v) => !v)}>
-          <Text className="text-[26px] text-foreground">{tishiShow ? '关闭' : '查看'}智能体引导说明</Text>
+      <ScrollView scrollY className="flex-1 px-[40rpx]" scrollTop={scrollTop}>
+        <View className="flex items-center py-[32rpx] mb-[24rpx] bg-card rounded-lg px-[32rpx]" onClick={() => setTishiShow((v) => !v)}>
+          <Text className="text-[52rpx] text-foreground">{tishiShow ? '关闭' : '查看'}智能体引导说明</Text>
         </View>
         {tishiShow && agentPrologue ? (
-          <View className="mb-[16px] p-[20px] bg-card rounded-lg">
-            <Text className="text-[26px] text-muted-foreground">{agentPrologue}</Text>
+          <View className="mb-[32rpx] p-[40rpx] bg-card rounded-lg">
+            <Text className="text-[52rpx] text-muted-foreground">{agentPrologue}</Text>
           </View>
         ) : null}
 
         {list.length === 0 ? (
-          <View className="flex flex-col items-center py-[80px]">
-            <Text className="text-[26px] text-muted-foreground">请在下方输入您的问题</Text>
+          <View className="flex flex-col items-center py-[160rpx]">
+            <Text className="text-[52rpx] text-muted-foreground">请在下方输入您的问题</Text>
           </View>
         ) : (
           list.map((item, idx) => (
-            <View key={idx} className="mb-[20px]">
-              <View className="flex justify-end mb-[12px]">
-                <View className="max-w-[70%] px-[20px] py-[16px] bg-primary text-foreground rounded-lg text-[26px]" onClick={() => setPrompt(item.question)}>
+            <View key={idx} className="mb-[40rpx]">
+              <View className="flex justify-end mb-[24rpx]">
+                <View className="max-w-[70%] px-[40rpx] py-[32rpx] bg-primary text-foreground rounded-lg text-[52rpx]" onClick={() => setPrompt(item.question)}>
                   <Text>{item.question}</Text>
                 </View>
               </View>
               {item.visible ? (
-                <View className="p-[20px] bg-card rounded-lg">
-                  <Text className="block text-[26px] text-foreground whitespace-pre-wrap break-words">{item.answer}</Text>
+                <View className="p-[40rpx] bg-card rounded-lg">
+                  <Text className="block text-[52rpx] text-foreground whitespace-pre-wrap break-words">{item.answer}</Text>
                   {item.images.map((url, i) => (
-                    <Image key={i} className="w-full mt-[12px] rounded-lg" src={url} mode="widthFix" onClick={() => Taro.previewImage({ current: url, urls: item.images })} />
+                    <Image key={i} className="w-full mt-[24rpx] rounded-lg" src={url} mode="widthFix" onClick={() => Taro.previewImage({ current: url, urls: item.images })} />
                   ))}
                   {item.videos.map((url, i) => (
-                    <Video key={`v-${i}`} className="w-full mt-[12px]" src={url} controls showPlayBtn showCenterPlayBtn />
+                    <Video key={`v-${i}`} className="w-full mt-[24rpx]" src={url} controls showPlayBtn showCenterPlayBtn />
                   ))}
-                  <View className="flex items-center justify-between mt-[12px]">
-                    <Text className="text-[22px] text-muted-foreground">
+                  <View className="flex items-center justify-between mt-[24rpx]">
+                    <Text className="text-[44rpx] text-muted-foreground">
                       智汇AI生成{item.totalTokens !== undefined ? ` · 智汇值:${formatTokens(item.totalTokens)}` : ''}
                     </Text>
-                    <View className="flex gap-[16px]">
-                      <Text className="text-[22px] text-primary" onClick={() => toggleVisible(idx)}>隐藏</Text>
-                      <Text className="text-[22px] text-primary" onClick={() => copyHandle(item.answer)}>复制</Text>
+                    <View className="flex gap-[32rpx]">
+                      <Text className="text-[44rpx] text-primary" onClick={() => toggleVisible(idx)}>隐藏</Text>
+                      <Text className="text-[44rpx] text-primary" onClick={() => copyHandle(item.answer)}>复制</Text>
                     </View>
                   </View>
                 </View>
               ) : (
-                <View className="p-[20px] bg-card rounded-lg flex justify-center">
-                  <Text className="text-[22px] text-primary" onClick={() => toggleVisible(idx)}>显示回答</Text>
+                <View className="p-[40rpx] bg-card rounded-lg flex justify-center">
+                  <Text className="text-[44rpx] text-primary" onClick={() => toggleVisible(idx)}>显示回答</Text>
                 </View>
               )}
             </View>
@@ -239,30 +239,30 @@ export default function AiAssistantPage() {
       </ScrollView>
 
       {thinking ? (
-        <View className="px-[20px] py-[12px] bg-card border-t border-border">
-          <View className="flex items-center mb-[8px]">
-            <Text className="text-[24px] text-foreground mr-[8px]">正在极速生成中</Text>
-            <Text className="text-[24px] text-primary">{Math.floor(thinkingProgress)}%</Text>
+        <View className="px-[40rpx] py-[24rpx] bg-card border-t border-border">
+          <View className="flex items-center mb-[16rpx]">
+            <Text className="text-[48rpx] text-foreground mr-[16rpx]">正在极速生成中</Text>
+            <Text className="text-[48rpx] text-primary">{Math.floor(thinkingProgress)}%</Text>
           </View>
-          <View className="w-full h-[8px] bg-muted rounded">
+          <View className="w-full h-[16rpx] bg-muted rounded">
             <View className="h-full bg-primary rounded transition-all duration-300" style={{ width: `${thinkingProgress}%` }} />
           </View>
         </View>
       ) : null}
 
-      <View className="bg-card border-t border-border px-[20px] py-[12px]">
-        <ScrollView scrollX className="mb-[8px]">
-          <View className="flex gap-[12px]">
+      <View className="bg-card border-t border-border px-[40rpx] py-[24rpx]">
+        <ScrollView scrollX className="mb-[16rpx]">
+          <View className="flex gap-[24rpx]">
             {SUGGESTED.map((q) => (
-              <View key={q} className="px-[16px] py-[6px] rounded border border-border text-[24px] text-foreground whitespace-nowrap" onClick={() => { setPrompt(q); setTimeout(() => handleSend(), 0) }}>
+              <View key={q} className="px-[32rpx] py-[12rpx] rounded border border-border text-[48rpx] text-foreground whitespace-nowrap" onClick={() => { setPrompt(q); setTimeout(() => handleSend(), 0) }}>
                 <Text>{q}</Text>
               </View>
             ))}
           </View>
         </ScrollView>
-        <View className="flex items-center gap-[12px]">
-          <Input className="flex-1 h-[64px] px-[20px] bg-muted rounded text-[28px] text-foreground" placeholder="请输入描述" value={prompt} onInput={(e) => setPrompt(e.detail.value)} onConfirm={handleSend} />
-          <View className={`px-[24px] h-[64px] flex items-center justify-center rounded text-[28px] text-foreground ${loading ? 'bg-muted' : 'bg-primary'}`} onClick={handleSend}>
+        <View className="flex items-center gap-[24rpx]">
+          <Input className="flex-1 h-[128rpx] px-[40rpx] bg-muted rounded text-[56rpx] text-foreground" placeholder="请输入描述" value={prompt} onInput={(e) => setPrompt(e.detail.value)} onConfirm={handleSend} />
+          <View className={`px-[48rpx] h-[128rpx] flex items-center justify-center rounded text-[56rpx] text-foreground ${loading ? 'bg-muted' : 'bg-primary'}`} onClick={handleSend}>
             <Text>{loading ? '生成中' : '发送'}</Text>
           </View>
         </View>

@@ -108,15 +108,15 @@ export default function Login() {
   }
 
   return (
-    <View className="min-h-screen px-[24px] bg-card">
-      <View className="pt-[80px] pb-[40px] text-center">
-        <Text className="text-[28px] font-bold text-primary">{t('login.brand')}</Text>
-        <Text className="block mt-[8px] text-[13px] text-muted-foreground">{t('login.slogan')}</Text>
+    <View className="min-h-screen px-[48rpx] bg-card">
+      <View className="pt-[160rpx] pb-[80rpx] text-center">
+        <Text className="text-[56rpx] font-bold text-primary">{t('login.brand')}</Text>
+        <Text className="block mt-[16rpx] text-[26rpx] text-muted-foreground">{t('login.slogan')}</Text>
       </View>
 
-      <View className="flex mb-[24px] bg-muted rounded-md">
+      <View className="flex mb-[48rpx] bg-muted rounded-md">
         <View
-          className={`flex-1 text-center py-[10px] text-[15px] rounded-md ${
+          className={`flex-1 text-center py-[20rpx] text-[30rpx] rounded-md ${
             loginType === 'phone'
               ? 'text-primary font-semibold bg-card'
               : 'text-muted-foreground'
@@ -126,7 +126,7 @@ export default function Login() {
           <Text>{t('login.phoneLogin')}</Text>
         </View>
         <View
-          className={`flex-1 text-center py-[10px] text-[15px] rounded-md ${
+          className={`flex-1 text-center py-[20rpx] text-[30rpx] rounded-md ${
             loginType === 'password'
               ? 'text-primary font-semibold bg-card'
               : 'text-muted-foreground'
@@ -137,9 +137,9 @@ export default function Login() {
         </View>
       </View>
 
-      <View className="flex items-center h-[48px] mb-[16px] border border-solid border-[var(--color-border)] rounded-md px-[12px]">
+      <View className="flex items-center h-[96rpx] mb-[32rpx] border border-solid border-[var(--color-border)] rounded-md px-[24rpx]">
         <Input
-          className="flex-1 h-[48px] text-[15px]"
+          className="flex-1 h-[96rpx] text-[30rpx]"
           type="number"
           maxlength={11}
           placeholder={t('login.phonePlaceholder')}
@@ -149,9 +149,9 @@ export default function Login() {
       </View>
 
       {loginType === 'phone' ? (
-        <View className="flex items-center h-[48px] mb-[16px] border border-solid border-[var(--color-border)] rounded-md px-[12px]">
+        <View className="flex items-center h-[96rpx] mb-[32rpx] border border-solid border-[var(--color-border)] rounded-md px-[24rpx]">
           <Input
-            className="flex-1 h-[48px] text-[15px]"
+            className="flex-1 h-[96rpx] text-[30rpx]"
             type="number"
             maxlength={6}
             placeholder={t('login.codePlaceholder')}
@@ -159,7 +159,7 @@ export default function Login() {
             onInput={(e) => setCode(e.detail.value)}
           />
           <View
-            className={`px-[10px] text-[13px] ${codeBtnDisabled ? 'text-muted-foreground' : 'text-primary'}`}
+            className={`px-[20rpx] text-[26rpx] ${codeBtnDisabled ? 'text-muted-foreground' : 'text-primary'}`}
             onClick={sendCode}
           >
             <Text>{codeBtnText}</Text>
@@ -168,9 +168,9 @@ export default function Login() {
       ) : null}
 
       {loginType === 'password' ? (
-        <View className="flex items-center h-[48px] mb-[16px] border border-solid border-[var(--color-border)] rounded-md px-[12px]">
+        <View className="flex items-center h-[96rpx] mb-[32rpx] border border-solid border-[var(--color-border)] rounded-md px-[24rpx]">
           <Input
-            className="flex-1 h-[48px] text-[15px]"
+            className="flex-1 h-[96rpx] text-[30rpx]"
             password
             placeholder={t('login.passwordPlaceholder')}
             value={password}
@@ -181,7 +181,7 @@ export default function Login() {
 
       {loginType === 'password' ? (
         <View
-          className="mb-[12px] text-right text-[13px] text-primary"
+          className="mb-[24rpx] text-right text-[26rpx] text-primary"
           onClick={() => Taro.navigateTo({ url: '/pages/forgot-password/index' })}
         >
           <Text>{t('login.forgotPassword')}</Text>
@@ -189,7 +189,7 @@ export default function Login() {
       ) : null}
 
       <View
-        className={`h-[48px] mt-[12px] rounded-[24px] flex items-center justify-center text-white text-[16px] bg-primary ${
+        className={`h-[96rpx] mt-[24rpx] rounded-[48rpx] flex items-center justify-center text-white text-[32rpx] bg-primary ${
           isLogging ? 'opacity-60' : ''
         }`}
         onClick={handleLogin}
@@ -198,21 +198,21 @@ export default function Login() {
       </View>
 
       <View
-        className="mt-[24px] text-center text-[14px] text-primary"
+        className="mt-[48rpx] text-center text-[28rpx] text-primary"
         onClick={handleWechatLogin}
       >
         <Text>{t('login.wechatLogin')}</Text>
       </View>
 
       <View
-        className="mt-[24px] text-center text-[13px] text-muted-foreground pt-[16px]"
+        className="mt-[48rpx] text-center text-[26rpx] text-muted-foreground pt-[32rpx]"
         onClick={handleSsoLogin}
       >
         <Text>{t('login.ssoLogin')}</Text>
-        <Text className="block mt-[4px] text-[11px] text-muted-foreground">{t('login.ssoLoginHint')}</Text>
+        <Text className="block mt-[8rpx] text-[22rpx] text-muted-foreground">{t('login.ssoLoginHint')}</Text>
       </View>
 
-      <View className="mt-[30px] text-center text-[11px] text-muted-foreground">
+      <View className="mt-[60rpx] text-center text-[22rpx] text-muted-foreground">
         <Text>{t('login.agreement')}</Text>
       </View>
     </View>

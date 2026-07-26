@@ -58,7 +58,7 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
             <View className="flex items-center">
               {item.type && (
                 <Text
-                  className={`text-[10px] px-1.5 py-0.5 rounded mr-2 ${
+                  className={`text-[20rpx] px-1.5 py-0.5 rounded mr-2 ${
                     TYPE_STYLE[item.type] || TYPE_STYLE.system
                   }`}
                 >
@@ -71,7 +71,7 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
               {!item.read && <View className="w-2 h-2 rounded-full bg-destructive ml-2" />}
             </View>
             <Text className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.content}</Text>
-            <Text className="text-[10px] text-muted-foreground mt-1">{item.createdAt}</Text>
+            <Text className="text-[20rpx] text-muted-foreground mt-1">{item.createdAt}</Text>
           </View>
         </View>
       ))}

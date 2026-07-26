@@ -46,7 +46,7 @@ export default function LearningStreak({
                   : 'bg-muted'
             }`}
           >
-            <Text className={`text-[10px] ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>
+            <Text className={`text-[20rpx] ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>
               {day.date}
             </Text>
             <Text className={`text-sm mt-0.5 ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>

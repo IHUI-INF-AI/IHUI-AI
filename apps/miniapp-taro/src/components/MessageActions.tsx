@@ -29,7 +29,7 @@ export default function MessageActions({
       </View>
 
       {expanded && (
-        <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-lg py-1 min-w-[120px]">
+        <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-lg py-1 min-w-[240rpx]">
           <View
             className="flex items-center px-3 py-2 hover:bg-muted"
             onClick={() => {

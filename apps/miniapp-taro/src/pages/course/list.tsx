@@ -106,12 +106,12 @@ export default function CourseList() {
               onClick={() => goDetail(item.id)}
             >
               <Image
-                className="w-[110px] h-[80px] flex-shrink-0"
+                className="w-[220rpx] h-[160rpx] flex-shrink-0"
                 src={item.coverUrl}
                 mode="aspectFill"
               />
               <View className="flex-1 p-2 flex flex-col justify-between">
-                <Text className="text-[15px] text-foreground font-semibold">{item.title}</Text>
+                <Text className="text-[30rpx] text-foreground font-semibold">{item.title}</Text>
                 {item.subtitle && <Text className="text-xs text-muted-foreground mt-1">{item.subtitle}</Text>}
                 <View className="flex justify-between items-center mt-2">
                   {item.teacher && <Text className="text-xs text-muted-foreground">{item.teacher}</Text>}

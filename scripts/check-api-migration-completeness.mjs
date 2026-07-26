@@ -232,8 +232,8 @@ check('apps/api/src/routes/oauth-keys.ts 存在并注册', () => {
   for (const ep of ['/generate', '/rotate', '/revoke', '/list', '/active']) {
     if (!text.includes(ep)) throw new Error(`oauth-keys.ts 缺端点: ${ep}`);
   }
-  const server = readFileSync(path.join(ROOT, 'apps/api/src/server.ts'), 'utf-8');
-  if (!server.includes('oauthKeysRoutes')) throw new Error('server.ts 未注册 oauthKeysRoutes');
+  const routesIdx = readFileSync(path.join(ROOT, 'apps/api/src/routes/index.ts'), 'utf-8');
+  if (!routesIdx.includes('oauthKeysRoutes')) throw new Error('routes/index.ts 未注册 oauthKeysRoutes');
   return true;
 });
 
@@ -385,8 +385,8 @@ check('后端 /api/auth/qr/status + /qr/generate 端点存在', () => {
   return true;
 });
 
-check('server.ts 含 5+ 个路径别名 redirect (agents/withdrawal/ai-model-info/customer-service/ai-capabilities)', () => {
-  const text = readFileSync(path.join(ROOT, 'apps/api/src/server.ts'), 'utf-8');
+check('routes/index.ts 含 5+ 个路径别名 redirect (agents/withdrawal/ai-model-info/customer-service/ai-capabilities)', () => {
+  const text = readFileSync(path.join(ROOT, 'apps/api/src/routes/index.ts'), 'utf-8');
   for (const r of [
     "redirect('/api/agents/list'",
     "redirect('/api/agent-ext/withdrawal/list'",
@@ -394,7 +394,7 @@ check('server.ts 含 5+ 个路径别名 redirect (agents/withdrawal/ai-model-inf
     "redirect('/api/v1/customer_service/faqs'",
     "redirect('/api/ai-ext/capabilities'",
   ]) {
-    if (!text.includes(r)) throw new Error(`server.ts 缺 redirect: ${r}`);
+    if (!text.includes(r)) throw new Error(`routes/index.ts 缺 redirect: ${r}`);
   }
   return true;
 });
