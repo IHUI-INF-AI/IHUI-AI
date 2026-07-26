@@ -12409,25 +12409,6 @@
       }
     }
   },
-  "modelsPage": "Models",
-  "seo": {
-    "imageSitemap": {
-      "title": "画像サイトマップ — IHUI AI",
-      "description": "IHUI AI 画像サイトマップ。public/images/ 配下の公式ブランド素材、アイコン、第三者ログイン素材を網羅し、Google Images のクロールに対応します。"
-    },
-    "newsSitemap": {
-      "title": "ニュースサイトマップ — IHUI AI",
-      "description": "IHUI AI ニュースサイトマップ。過去 30 日間の製品リリース、セキュリティ強化、機能追加を docs/CHANGELOG.md と照合して掲載します。"
-    },
-    "jsonFeed": {
-      "title": "JSON Feed — IHUI AI",
-      "description": "IHUI AI JSON Feed 1.1 購読。5 言語切替対応の構造化フィードで、LLM および MCP クライアントの解析に適しています。"
-    },
-    "opml": {
-      "title": "OPML 購読アウトライン — IHUI AI",
-      "description": "IHUI AI 全購読ソースの OPML 2.0 アウトライン。主要フィード、リアルタイムプッシュ、検索エンジン用 sitemap、5 言語バージョンごとにグループ化し、リーダーにワンクリックで取り込めます。"
-    }
-  },
   "useCasesAiEdu": {
     "metaTitle": "AI 教育 Agent ユースケース — コース設計/自動答疑/学習推薦 | IHUI AI",
     "metaDescription": "IHUI AI フルスタック AI OS で構築する AI 教育 Agent:コース構造化設計、自動答疑、添削、パーソナライズ学習パス、学習ダッシュボード、8 エンド同期配信。",
@@ -12469,21 +12450,5 @@
         "ratingValue": 4.8
       }
     }
-  },
-  "useCasesAiDesign": {
-    "metaTitle": "AI デザイン協業 Agent — ポスター/Logo コンセプト/スケッチをコードへ | IHUI AI",
-    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI デザイン協業 Agent を構築:ポスター/Logo コンセプト + スケッチをコードへ + ブランド資産管理 + デザインレビュー + デザインシステム検索,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
-  },
-  "useCasesAiMarketing": {
-    "metaTitle": "AI マーケティングコンテンツ生成 Agent — マルチプラットフォーム/SEO/A/B | IHUI AI",
-    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI マーケティングコンテンツ生成 Agent を構築:マルチプラットフォームコピー + SEO ブログ + ブランドトーン一貫性 + A/B テスト + ペルソナ駆動,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
-  },
-  "useCasesAiResearch": {
-    "metaTitle": "AI 学術研究アシスタント — 論文検索/レビュー/引用管理 | IHUI AI",
-    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI 学術研究アシスタントを構築:論文検索 + PDF パース + 引用管理 + レビュー生成 + 知識グラフ + 動態分析,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
-  },
-  "useCasesAiTranslation": {
-    "metaTitle": "AI 多言語翻訳 Agent — 文書翻訳/ローカライズ/用語集/字幕 | IHUI AI",
-    "metaDescription": "IHUI AI フルスタック AI OS を基盤に AI 多言語翻訳 Agent を構築:多言語文書翻訳 + ローカライズワークフロー + 用語集管理 + 翻訳レビュー + 文化適応 + 字幕翻訳,8 エンドポイント同期配信,Apache 2.0 オープンソース。"
   }
 }
