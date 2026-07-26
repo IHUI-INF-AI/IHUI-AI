@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <strong>340 张表 · 144 迁移 · 1300+ API 端点 · 21 Grafana 仪表盘 · 32+ pre-commit 守门 · 5346 API 测试 · 63 e2e spec</strong><br/>
+  <strong>340 张表 · 144 迁移 · 1300+ API 端点 · 21 Grafana 仪表盘 · 33+ 守门(32 pre-commit + 1 commit-msg) · 5346 API 测试 · 63 e2e spec</strong><br/>
   <sub>不是 PPT,不是画饼,不是占位 —— 每一个数字都能在代码里 grep 到</sub>
 </p>
 
@@ -134,7 +134,7 @@
 | **Monorepo** | pnpm 9.15 workspace + Turborepo 2.3 + 12 共享包(@ihui/auth / database / types / ui 等)                                                                                 |
 | **多端实现** | 8 端**独立代码**(非"一套代码编译适配"),各端完成度详见[项目状态矩阵](#项目状态矩阵)                                                                                     |
 | **代码规模** | 8 端代码 / 100+ schema 文件 / **340 数据库表**(实测 340 张 pgTable)/ 144 迁移 / **1300+ API 端点**(实测 grep)/ 200+ Web 页面 / 12 共享包 / 5 语言 i18n parity          |
-| **工程守门** | **30+ pre-commit 钩子**(实测,见 [.husky/pre-commit](./.husky/pre-commit))+ post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                     |
+| **工程守门** | **30+ pre-commit 钩子 + 1 commit-msg 守门**(实测,见 [.husky/pre-commit](./.husky/pre-commit) + [.husky/commit-msg](./.husky/commit-msg))+ post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                     |
 | **测试覆盖** | **237 API 测试 + 63 e2e spec**(实测,见 [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/))+ pytest(AI 服务)+ Locust 压测 + Lighthouse 性能        |
 | **可观测性** | Prometheus + Grafana(**21 仪表盘**实测,见 [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/))+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
 | **AI 编排**  | LangGraph 真接入(21 文件使用:`langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`),不是"接入级编排"            |
@@ -1307,6 +1307,7 @@ IHUI-AI/
 | 17      | check-input-border-var.mjs             | CSS 颜色 token 嵌套(hsl(hsl(...)))                                                                                                                                                 |
 | 18      | check-native-title-tooltip.mjs         | 原生 title tooltip 违规                                                                                                                                                            |
 | 19      | check-staged-pollution.mjs             | **staged 污染预警(warn-only,跨 ≥ 4 目录)**                                                                                                                                         |
+| commit-msg | check-commit-scope-consistency.mjs | **commit scope 一致性预警(warn-only,scope 与 staged 领域不匹配)**                                                                                                              |
 | 20      | check-tailwind-class-conflict.mjs      | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)**                                                                                                                               |
 | 21      | check-multi-end-sync.mjs               | **多端同步守门(warn-only,单端未标注平台独占)**                                                                                                                                     |
 | 22      | check-readme-sync.mjs                  | **README 同步守门(warn-only,功能代码改动但 README 未更新)**                                                                                                                        |
@@ -1684,6 +1685,7 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 | **依赖碎片化检测**          | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs)(pre-commit 第 7 项)                                    | 检测重复依赖版本,统一对齐              |
 | **Tailwind class 冲突检测** | [scripts/check-tailwind-class-conflict.mjs](./scripts/check-tailwind-class-conflict.mjs)(pre-commit 第 20 项) | 检测模板字面量 BASE/BRANCH size 冲突   |
 | **staged 污染预警**         | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs)(pre-commit 第 19 项)               | 检测跨 ≥4 目录的 staged 改动           |
+| **commit scope 一致性预警** | [scripts/check-commit-scope-consistency.mjs](./scripts/check-commit-scope-consistency.mjs)(commit-msg hook) | 检测 scope 与 staged 文件领域不匹配(防 git add -A 污染) |
 
 ### 通病 ② 边界条件处理不足 → 实际:237 API 测试 + 63 e2e + 微服务工程模式
 
