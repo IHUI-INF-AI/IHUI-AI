@@ -35,6 +35,37 @@ def executor():
     return AgentExecutor()
 
 
+@pytest.fixture(autouse=True)
+def mock_llm_complete(monkeypatch):
+    """Mock llm_gateway.complete 返回 stub 响应。
+
+    测试环境 .env 可能配置了 LLM_PROVIDERS JSON(含真实 api_key),导致
+    _is_stub_mode() 第一层检查(settings.get_provider_config(name).api_key)返回
+    False,llm_gateway.complete 发起真实 API 调用(慢、不确定、依赖网络)。
+    conftest._isolate_llm_env 只清 os.environ vendor key,不清 LLM_PROVIDERS 配置。
+    本 fixture 强制 mock complete() 返回 stub 响应,确保测试快速、确定性、
+    聚焦 agent_loop 逻辑而非 LLM 网关。
+    """
+
+    async def fake_complete(messages, model=None, **kwargs):
+        last_user = ""
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                last_user = str(msg.get("content", ""))
+                break
+        return {
+            "content": (
+                "[stub] AI 服务未配置 API key,返回模拟响应。"
+                f"最后一条用户消息: {last_user[:200]}"
+            ),
+            "model": model or "stub-model",
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "stub": True,
+        }
+
+    monkeypatch.setattr("app.services.agent_loop.llm_gateway.complete", fake_complete)
+
+
 # =============================================================================
 # 辅助方法
 # =============================================================================
