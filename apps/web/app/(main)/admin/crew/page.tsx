@@ -32,7 +32,7 @@ import {
   listCrewSessions,
   listCrewModels,
   createCrewSession,
-} from '@/lib/crew-api'
+} from '@ihui/api-client'
 import { EMPTY_FORM, fmtTime, statusBadgeClass } from './helpers'
 import type { CreateSessionForm, HealthState } from './types'
 

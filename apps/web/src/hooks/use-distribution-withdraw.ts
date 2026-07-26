@@ -6,7 +6,7 @@ import {
   getWithdrawList,
   requestWithdraw,
   type CommissionWithdrawRecord,
-} from '@/lib/distribution-api'
+} from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 
 export interface UseDistributionWithdrawReturn {
