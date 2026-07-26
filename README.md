@@ -5,6 +5,11 @@
 </p>
 
 <p align="center">
+  <strong>在线 Demo</strong> · <a href="https://ihui.ai">https://ihui.ai</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star 感谢支持</a><br/>
+  <sub>5 分钟 Fork 到上线 · 8 端同源 + 176 模型 + LangGraph+MCP+A2A 三栈 · Apache 2.0 商业可用</sub>
+</p>
+
+<p align="center">
   <strong>🚀 一个仓库,干翻 40+ 商业产品</strong><br/>
   <sub><strong>开源 AI 商业级一体化超级平台</strong> · 8 端全覆盖 · 176 模型 · LangGraph+MCP+A2A 三栈 · P3 深度层 · 5 分钟 Fork 到上线</sub>
 </p>
@@ -1931,11 +1936,11 @@ LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `Pro
 
 ### 字典化四层能力对照
 
-| 层级            | 内容                         | 落地位置                                    | 状态      |
-| --------------- | ---------------------------- | ------------------------------------------- | --------- |
-| L1 数据层       | 24+7 LLM provider 字段字典化 | `provider_config.py` + `LLM_PROVIDERS_JSON` | ✅ 阶段 2 |
-| L2 业务代号     | 8 端 + UI 组件 + 模块短代号  | `prompt_dict.py` + `project_memory.py`      | ✅ G1 PoC |
-| L3 输出结构化   | LLM 输出强 JSON Schema 约束  | `llm_gateway.structured_completion`         | ✅ G2 PoC |
+| 层级            | 内容                                                                   | 落地位置                                                                                                                                               | 状态                 |
+| --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| L1 数据层       | 24+7 LLM provider 字段字典化                                           | `provider_config.py` + `LLM_PROVIDERS_JSON`                                                                                                            | ✅ 阶段 2            |
+| L2 业务代号     | 8 端 + UI 组件 + 模块短代号                                            | `prompt_dict.py` + `project_memory.py`                                                                                                                 | ✅ G1 PoC            |
+| L3 输出结构化   | LLM 输出强 JSON Schema 约束                                            | `llm_gateway.structured_completion`                                                                                                                    | ✅ G2 PoC            |
 | L4 知识查询门面 | 三源并发统一查询 + 降级 + AgentLoopV2 工厂 + MCP 工具注册 + LTM 源接入 | `knowledge_lookup.py` + `agent_tools.py` + `rag.retrieve_only` + `mcp_server._tool_knowledge_lookup` + `mcp_server.call_tool(user_id/session_id 注入)` | ✅ G4+G5+G6 完整三源 |
 
 ---
