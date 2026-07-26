@@ -1,0 +1,89 @@
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "@version": "2026.07-26",
+  "name": "IHUI AI",
+  "alternateName": [
+    "智汇 AI",
+    "智汇AI",
+    "IHUI-AI",
+    "IHUI",
+    "iHui AI"
+  ],
+  "url": "https://ihui.ai",
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "AI Operating System",
+  "operatingSystem": [
+    "Web",
+    "macOS",
+    "Windows",
+    "Linux",
+    "iOS",
+    "Android",
+    "HarmonyOS",
+    "WeChat Mini-Program"
+  ],
+  "softwareVersion": "0.1.0",
+  "dateCreated": "2024-01-01",
+  "license": "https://www.apache.org/licenses/LICENSE-2.0",
+  "codeRepository": "https://github.com/IHUI-INF-AI/IHUI-AI",
+  "isAccessibleForFree": true,
+  "keywords": [
+    "AI",
+    "AI Agent",
+    "Agent Marketplace",
+    "RAG",
+    "LangGraph",
+    "MCP",
+    "Knowledge Graph",
+    "Multi-Model Orchestration",
+    "Open Source",
+    "Apache 2.0",
+    "Full-Stack",
+    "Multi-Client"
+  ],
+  "description": "IHUI AI(智汇 AI)is an open-source full-stack AI operating system. It ships 8 clients from a single TypeScript monorepo and bundles an Agent marketplace, knowledge-base RAG, multi-model orchestration, and the MCP tool protocol. The platform supports 176 LLM providers and 14 deployment targets.",
+  "inLanguage": [
+    "zh-Hans",
+    "zh-Hant",
+    "en",
+    "ko",
+    "ja"
+  ],
+  "author": {
+    "@type": "Organization",
+    "name": "AI 智汇社 (AIZHS2025)",
+    "url": "https://github.com/AIZHS2025"
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "availability": "https://schema.org/InStock"
+  },
+  "sameAs": [
+    "https://github.com/IHUI-INF-AI/IHUI-AI",
+    "https://github.com/AIZHS2025",
+    "https://github.com/ihui-ai",
+    "https://x.com/ok502319984",
+    "https://www.facebook.com/share/17kQMPNhQb/"
+  ],
+  "wikidata": {
+    "entityId": null,
+    "entityUrl": null,
+    "submissionStatus": "pending-submission",
+    "submissionPackage": {
+      "entityDraft": ".trae-cn/tmp/wikidata/entity-draft.json",
+      "quickStatements": ".trae-cn/tmp/wikidata/quickstatements.txt",
+      "report": "docs/wikidata-submission.md",
+      "generationScript": ".trae-cn/tmp/wikidata/submit.mjs"
+    },
+    "reference": {
+      "langchain": "Q117340550",
+      "schema": "https://schema.org/SoftwareApplication",
+      "knowledgeGraph": "/knowledge-graph.json",
+      "llmsTxt": "/llms.txt"
+    },
+    "generatedAt": "2026-07-26T08:57:56.932Z"
+  }
+}
