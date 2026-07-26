@@ -11750,28 +11750,12 @@
     "cancel": "取消"
   },
   "modelsReferralPage": {
-    "title": "邀請獎勵",
-    "subtitle": "邀請好友註冊,雙方均可獲得獎勵",
     "link": {
-      "title": "我的邀請連結",
-      "tip": "分享您的專屬邀請連結給好友",
-      "copy": "複製連結",
-      "reward": "好友註冊並消費滿 ¥10 後,您將獲得 {amount} 獎勵"
     },
     "stats": {
-      "invited": "已邀請",
-      "activated": "已啟用",
-      "reward": "累計獎勵"
     },
     "list": {
-      "title": "邀請記錄",
-      "user": "使用者",
-      "joined": "註冊時間",
-      "reward": "獎勵",
-      "status": "狀態",
       "statusLabels": {
-        "activated": "",
-        "pending": ""
       }
     }
   },
