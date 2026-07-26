@@ -15,11 +15,17 @@ import {
 } from 'lucide-react'
 import { ModuleSection } from './ModuleSection'
 import { fetchApi } from '@/lib/api'
-import { getLearnCourses, getRecommendLearnCourses, getHotLearnCourses } from '@/lib/learn-api'
-import { getLiveList } from '@/lib/live-api'
-import { getExams } from '@/lib/exam-api'
-import { getNews, getAsks, getCircles } from '@/lib/community-api'
-import { getKnowledgeList } from '@/lib/resource-api'
+import {
+  getLearnCourses,
+  getRecommendLearnCourses,
+  getHotLearnCourses,
+  getLiveList,
+  getExams,
+  getNews,
+  getAsks,
+  getCircles,
+  getKnowledgeList,
+} from '@ihui/api-client'
 
 function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {
   if (!r.success) throw new Error(r.error)
