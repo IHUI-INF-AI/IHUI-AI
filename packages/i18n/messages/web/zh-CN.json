@@ -12045,5 +12045,97 @@
     "templates": {
       "title": "模板"
     }
+  },
+  "modelsBillingPage": {
+    "consumeTrend": "+{n}% vs 上月",
+    "rechargeCount": "累计 {n} 次充值",
+    "packages": {
+      "starter": {
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
+      },
+      "pro": {
+        "features": [
+          "15M tokens 额度",
+          "全部模型可用",
+          "20 个 API 令牌",
+          "优先技术支持",
+          "调用日志 90 天"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "200M tokens 额度",
+          "专属模型通道",
+          "无限 API 令牌",
+          "专属客户经理",
+          "调用日志永久",
+          "SLA 99.95%"
+        ]
+      }
+    }
+  },
+  "modelsReferralPage": {
+    "title": "邀请奖励",
+    "subtitle": "邀请好友注册,双方均可获得奖励",
+    "link": {
+      "title": "我的邀请链接",
+      "tip": "分享您的专属邀请链接给好友",
+      "copy": "复制链接",
+      "reward": "好友注册并消费满 ¥10 后,您将获得 {amount} 奖励"
+    },
+    "stats": {
+      "invited": "已邀请",
+      "activated": "已激活",
+      "reward": "累计奖励"
+    },
+    "list": {
+      "title": "邀请记录",
+      "user": "用户",
+      "joined": "注册时间",
+      "reward": "奖励",
+      "status": "状态",
+      "statusLabels": {
+        "activated": "已激活",
+        "pending": "待激活"
+      }
+    }
+  },
+  "n8nAgentsPage": {
+    "metaDescription": "N8N 工作流集成：自动化编排 AI agent，含客服机器人、内容审核、数据同步等。",
+    "subtitle": "N8N 工作流集成 - 通过 N8N 自动化编排 AI agent",
+    "cardTitle": "N8N 工作流集成",
+    "totalBadge": "共 {n} 个 Agent",
+    "activeBadge": "{n} 运行中",
+    "cardDescription": "通过 N8N 自动化编排 AI agent,串联客服、审核、同步、报表与告警等场景,实现端到端流程自动化。",
+    "createButton": "创建新 Agent",
+    "lastRunLabel": "最后执行",
+    "runCountLabel": "执行次数",
+    "agents": {
+      "customer-service": {
+        "name": "客服机器人",
+        "description": "自动回复用户咨询,依据知识库匹配答案并支持人工转接。"
+      },
+      "content-moderation": {
+        "name": "内容审核",
+        "description": "自动审核 UGC 内容,识别违规文本/图片并触发处置流程。"
+      },
+      "data-sync": {
+        "name": "数据同步",
+        "description": "定期同步外部数据源至本地数据库,支持增量与全量同步。"
+      },
+      "report-generation": {
+        "name": "报表生成",
+        "description": "每日生成业务报表并推送到指定渠道,含邮件、IM 与对象存储。"
+      },
+      "alert-notify": {
+        "name": "告警通知",
+        "description": "监控异常指标并自动通知值班人员,支持多级升级策略。"
+      }
+    }
   }
 }
