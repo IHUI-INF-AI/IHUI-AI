@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 _VALID_TASK_TYPES = {"browser_automation", "computer_automation", "data_pipeline", "workflow"}
 
 
-def validate_task_config(task_config: dict) -> tuple[bool, str]:
+def validate_task_config(task_config: dict[str, Any]) -> tuple[bool, str]:
     """校验必填字段 task_id / task_type / steps。Returns (ok, message)。"""
     if not isinstance(task_config, dict):
         return False, "task_config must be a dict"
