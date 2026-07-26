@@ -132,14 +132,54 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           每个 onMouseDown 调用 startResize(direction),cursor 显示对应方向 */}
       {isDesktop && (
         <>
-          <div onMouseDown={(e) => { if (e.button === 0) void startResize('n') }} className="fixed top-0 left-2 right-2 h-1 z-[9999] cursor-n-resize" />
-          <div onMouseDown={(e) => { if (e.button === 0) void startResize('s') }} className="fixed bottom-0 left-2 right-2 h-1 z-[9999] cursor-s-resize" />
-          <div onMouseDown={(e) => { if (e.button === 0) void startResize('w') }} className="fixed left-0 top-2 bottom-2 w-1 z-[9999] cursor-w-resize" />
-          <div onMouseDown={(e) => { if (e.button === 0) void startResize('e') }} className="fixed right-0 top-2 bottom-2 w-1 z-[9999] cursor-e-resize" />
-          <div onMouseDown={(e) => { if (e.button === 0) void startResize('nw') }} className="fixed top-0 left-0 w-2 h-2 z-[10000] cursor-nw-resize" />
-          <div onMouseDown={(e) => { if (e.button === 0) void startResize('ne') }} className="fixed top-0 right-0 w-2 h-2 z-[10000] cursor-ne-resize" />
-          <div onMouseDown={(e) => { if (e.button === 0) void startResize('sw') }} className="fixed bottom-0 left-0 w-2 h-2 z-[10000] cursor-sw-resize" />
-          <div onMouseDown={(e) => { if (e.button === 0) void startResize('se') }} className="fixed bottom-0 right-0 w-2 h-2 z-[10000] cursor-se-resize" />
+          <div
+            onMouseDown={(e) => {
+              if (e.button === 0) void startResize('n')
+            }}
+            className="fixed top-0 left-2 right-2 h-1 z-[9999] cursor-n-resize"
+          />
+          <div
+            onMouseDown={(e) => {
+              if (e.button === 0) void startResize('s')
+            }}
+            className="fixed bottom-0 left-2 right-2 h-1 z-[9999] cursor-s-resize"
+          />
+          <div
+            onMouseDown={(e) => {
+              if (e.button === 0) void startResize('w')
+            }}
+            className="fixed left-0 top-2 bottom-2 w-1 z-[9999] cursor-w-resize"
+          />
+          <div
+            onMouseDown={(e) => {
+              if (e.button === 0) void startResize('e')
+            }}
+            className="fixed right-0 top-2 bottom-2 w-1 z-[9999] cursor-e-resize"
+          />
+          <div
+            onMouseDown={(e) => {
+              if (e.button === 0) void startResize('nw')
+            }}
+            className="fixed top-0 left-0 w-2 h-2 z-[10000] cursor-nw-resize"
+          />
+          <div
+            onMouseDown={(e) => {
+              if (e.button === 0) void startResize('ne')
+            }}
+            className="fixed top-0 right-0 w-2 h-2 z-[10000] cursor-ne-resize"
+          />
+          <div
+            onMouseDown={(e) => {
+              if (e.button === 0) void startResize('sw')
+            }}
+            className="fixed bottom-0 left-0 w-2 h-2 z-[10000] cursor-sw-resize"
+          />
+          <div
+            onMouseDown={(e) => {
+              if (e.button === 0) void startResize('se')
+            }}
+            className="fixed bottom-0 right-0 w-2 h-2 z-[10000] cursor-se-resize"
+          />
         </>
       )}
 
@@ -202,7 +242,10 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           - flex-1 + min-h-0 填充剩余高度
           - overflow-hidden 裁剪子元素溢出 + 保持圆角不被覆盖
           - cursor-default:覆盖外层 cursor-move,工作区内是默认光标 */}
-      <div className="bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl mt-2 cursor-default" data-workspace-card>
+      <div
+        className="bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl mt-2 cursor-default"
+        data-workspace-card
+      >
         <main
           id="main"
           tabIndex={-1}
