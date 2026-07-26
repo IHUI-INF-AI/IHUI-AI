@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -202,3 +203,59 @@ def test_result_to_dict_truncates_long_content():
     )
     d = RAGService.result_to_dict(result)
     assert len(d["sources"][0]["content"]) <= 500
+
+
+# =============================================================================
+# retrieve_only 公有方法(2026-07-26 G4 完整迁移)
+# =============================================================================
+
+
+class TestRetrieveOnly:
+    """retrieve_only 公有方法测试。
+
+    验证:① 公有方法存在 ② 委托给 _retrieve ③ 失败降级返回 [] ④ 参数透传。
+    """
+
+    async def test_retrieve_only_is_public_method(self):
+        """retrieve_only 是 RAGService 的公有方法。"""
+        assert hasattr(rag_service, "retrieve_only")
+        assert callable(getattr(rag_service, "retrieve_only"))
+
+    async def test_retrieve_only_delegates_to_private_retrieve(self):
+        """retrieve_only 内部调 _retrieve,参数透传正确。"""
+        with patch.object(
+            rag_service, "_retrieve", new=AsyncMock(return_value=[])
+        ) as mock_retrieve:
+            await rag_service.retrieve_only("test query", top_k=7, session_id="s1")
+        mock_retrieve.assert_awaited_once_with(
+            "test query", top_k=7, session_id="s1"
+        )
+
+    async def test_retrieve_only_returns_list(self):
+        """retrieve_only 返回 list(空结果时也返回 [] 不抛异常)。"""
+        with patch.object(
+            rag_service, "_retrieve", new=AsyncMock(return_value=[])
+        ):
+            result = await rag_service.retrieve_only("any query")
+        assert isinstance(result, list)
+
+    async def test_retrieve_only_default_params(self):
+        """不传 top_k/session_id 时用默认值。"""
+        with patch.object(
+            rag_service, "_retrieve", new=AsyncMock(return_value=[])
+        ) as mock_retrieve:
+            await rag_service.retrieve_only("q")
+        mock_retrieve.assert_awaited_once_with("q", top_k=5, session_id=None)
+
+    async def test_retrieve_only_propagates_retrieve_results(self):
+        """retrieve_only 返回 _retrieve 的结果(不改变内容)。"""
+        fake_sources = [
+            RAGSource(session_id="s1", role="user", content="hello", score=0.9),
+            RAGSource(session_id="s2", role="assistant", content="hi", score=0.8),
+        ]
+        with patch.object(
+            rag_service, "_retrieve", new=AsyncMock(return_value=fake_sources)
+        ):
+            result = await rag_service.retrieve_only("q")
+        assert result == fake_sources
+        assert len(result) == 2
