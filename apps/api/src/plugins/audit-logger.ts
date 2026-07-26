@@ -161,7 +161,7 @@ const auditLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
     // 计算响应耗时(ms)
     const start = request.auditStartTime
     const responseTimeMs =
-      start != null ? Number(process.hrtime.bigint() - start) / 1e6 : undefined
+      start !== null && start !== undefined ? Number(process.hrtime.bigint() - start) / 1e6 : undefined
 
     const sanitizedPath = sanitizePath(path)
     const action = classifyAction(method, path)
@@ -174,7 +174,7 @@ const auditLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
     if (
       method !== 'GET' &&
       method !== 'HEAD' &&
-      request.body != null &&
+      request.body !== null && request.body !== undefined &&
       typeof request.body === 'object'
     ) {
       try {

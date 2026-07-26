@@ -9,7 +9,7 @@
  * mock 策略:mock drizzle-orm 操作符 + mock @ihui/database 表 schema + mock db/dbRead,
  * 被测查询逻辑(排序条件 / where 组装 / installedIds 匹配 / upsert 分支)保持真实。
  */
-import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // =============================================================================
 // Mock 函数(vi.hoisted 确保在 vi.mock 之前可用)
@@ -88,7 +88,6 @@ import {
   upsertRegistryItem,
   cleanupOldWebhookTriggers,
 } from '../src/db/registry-queries.js'
-import { eq, desc, sql as sqlOp } from 'drizzle-orm'
 
 // =============================================================================
 // 辅助:构建 thenable 查询链(drizzle 查询构建器是链式 + thenable)
