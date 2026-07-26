@@ -14,6 +14,7 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Badge, cn } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
 import {
   fetchAnomalies,
   formatTime,
@@ -154,8 +155,12 @@ export default function AnomaliesPage() {
                           <td className="px-3 py-2 text-xs">
                             {ev.userId ? ev.userId.slice(0, 8) : '-'}
                           </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground" title={ev.url}>
-                            {ev.url.length > 50 ? ev.url.slice(0, 50) + '…' : ev.url}
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                            <Tooltip content={ev.url}>
+                              <span className="block truncate">
+                                {ev.url.length > 50 ? ev.url.slice(0, 50) + '…' : ev.url}
+                              </span>
+                            </Tooltip>
                           </td>
                           <td
                             className={cn(
