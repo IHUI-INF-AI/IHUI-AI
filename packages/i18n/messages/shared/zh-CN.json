@@ -135,7 +135,8 @@
     "toLogin": "去登录",
     "username": "用户名",
     "usernamePlaceholder": "请输入用户名",
-    "wechatLogin": "微信"
+    "wechatLogin": "微信",
+    "login": "登录"
   },
   "chat": {
     "send": "发送"
@@ -183,7 +184,7 @@
     "hint": "提示",
     "levelLabel": "等级",
     "loadFailed": "加载失败",
-    "loading": "加载中...",
+    "loading": "加载中…",
     "loadingShort": "加载中...",
     "login": "登录",
     "logout": "退出登录",
@@ -288,7 +289,9 @@
   "nav": {
     "home": "首页",
     "settings": "设置",
-    "wallet": "钱包"
+    "wallet": "钱包",
+    "live": "直播",
+    "courses": "课程"
   },
   "routes": {
     "aboutUs": "关于我们",
@@ -500,5 +503,25 @@
       "subtitle": "管理您的VIP订阅与续费",
       "title": "订阅管理"
     }
+  },
+  "exam": {
+    "result": {
+      "correct": "答对",
+      "wrong": "答错"
+    }
+  },
+  "live": {
+    "empty": "暂无直播"
+  },
+  "course": {
+    "free": "免费",
+    "rating": "评分"
+  },
+  "order": {
+    "empty": "暂无订单",
+    "status": {
+      "refunded": "已退款"
+    },
+    "orderNo": "订单号"
   }
 }

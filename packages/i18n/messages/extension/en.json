@@ -1,6 +1,5 @@
 {
   "common": {
-    "loading": "Loading…",
     "failed": "Failed"
   },
   "nav": {
@@ -122,7 +121,6 @@
     "pricing": "Pricing"
   },
   "auth": {
-    "login": "Log in",
     "logout": "Log out",
     "loginRequired": "Please enter account and password",
     "phoneOrEmail": "Phone / Email",
@@ -208,12 +206,10 @@
   "course": {
     "title": "Courses",
     "empty": "No courses",
-    "free": "Free",
     "loadFailed": "Load failed"
   },
   "order": {
     "title": "My Orders",
-    "empty": "No orders",
     "loadFailed": "Load failed",
     "statusPending": "Pending",
     "statusPaid": "Paid",
