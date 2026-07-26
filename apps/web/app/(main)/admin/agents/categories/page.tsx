@@ -2,14 +2,9 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { toast } from 'sonner'
-// @ts-ignore
 import { Plus, Tag } from 'lucide-react'
-
-// @ts-ignore
 import { Button } from '@ihui/ui-react'
 import { CategoryFilter } from './CategoryFilter'
 import { CategoryTable } from './CategoryTable'

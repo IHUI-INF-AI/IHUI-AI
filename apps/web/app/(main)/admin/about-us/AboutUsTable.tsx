@@ -1,10 +1,6 @@
 'use client'
-
-// @ts-ignore
 import { Edit, Trash2, Loader2 } from 'lucide-react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { COLS, TH_CLASS, PERM } from './helpers'
