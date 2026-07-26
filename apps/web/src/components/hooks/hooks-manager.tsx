@@ -348,7 +348,7 @@ function HookEditor({
 }: HookEditorProps) {
   const isEdit = mode === 'edit'
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
     <div
       role="dialog"
       aria-modal="true"
@@ -631,7 +631,7 @@ function HookLogsDialog({
 }) {
   const { logs, isLoading } = useHookLogs(hookId)
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
     <div
       role="dialog"
       aria-modal="true"
