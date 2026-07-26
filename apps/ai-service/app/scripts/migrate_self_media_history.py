@@ -19,7 +19,10 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import asyncpg
 
 # 让脚本可独立运行(不依赖 app 包导入)
 ROOT = Path(__file__).resolve().parent.parent.parent  # apps/ai-service/

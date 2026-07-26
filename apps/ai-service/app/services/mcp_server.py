@@ -4186,7 +4186,7 @@ class MCPServer:
                 data[sid] = await memory_store.get(sid, limit=10)
             return {"uri": uri, "content": data, "ok": True}
         if uri == "skills://available":
-            skills = skill_registry.list()
+            skills = skill_registry.list_skills()
             return {
                 "uri": uri,
                 "content": [

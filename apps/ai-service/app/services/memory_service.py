@@ -149,6 +149,8 @@ def _resolve_importance_score(
         if md.get("confidence") is not None
         else default_user_feedback
     )
+    if user_feedback is None:
+        user_feedback = default_user_feedback
     try:
         user_feedback = float(user_feedback)
     except (TypeError, ValueError):
