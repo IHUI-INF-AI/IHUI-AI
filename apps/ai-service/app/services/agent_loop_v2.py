@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 # L4 自进化:持有 fire-and-forget evaluate_and_record task 引用,
 # 防止 CPython GC 在 task 完成前回收(与 agent_loop.py 的 _pending_tasks 同模式)
-_pending_meta_eval_tasks: set[asyncio.Task] = set()
+_pending_meta_eval_tasks: set[asyncio.Task[Any]] = set()
 
 
 @dataclass
@@ -43,7 +43,7 @@ class ToolDefinition:
 
     name: str
     description: str
-    parameters: dict  # JSON Schema
+    parameters: dict[str, Any]  # JSON Schema
     executor: Callable[..., Any]  # async (args: dict) -> dict
 
 
@@ -53,7 +53,7 @@ class ToolCall:
 
     id: str
     name: str
-    args: dict
+    args: dict[str, Any]
 
 
 @dataclass
@@ -706,7 +706,7 @@ class AgentLoopV2:
                 duration_ms=(time.time() - start) * 1000,
             )
 
-    def _build_tools_schema(self) -> list[dict]:
+    def _build_tools_schema(self) -> list[dict[str, Any]]:
         """构建 tools schema(给 LLM 的 function calling 格式)。"""
         return [
             {

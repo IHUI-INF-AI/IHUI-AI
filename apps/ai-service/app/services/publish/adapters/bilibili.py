@@ -39,14 +39,14 @@ class BilibiliAdapter(BasePlatformAdapter):
     supported_formats = ["video"]
     requires_credentials = ["sessdata", "bili_jct", "dedeuserid"]
 
-    def _cookies(self, credentials: dict) -> dict[str, str]:
+    def _cookies(self, credentials: dict[str, Any]) -> dict[str, str]:
         return {
             "SESSDATA": credentials.get("sessdata", ""),
             "bili_jct": credentials.get("bili_jct", ""),
             "DedeUserID": credentials.get("dedeuserid", ""),
         }
 
-    def _headers(self, credentials: dict) -> dict[str, str]:
+    def _headers(self, credentials: dict[str, Any]) -> dict[str, str]:
         return {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                           "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -54,7 +54,7 @@ class BilibiliAdapter(BasePlatformAdapter):
             "Origin": "https://member.bilibili.com",
         }
 
-    async def verify_credentials(self, credentials: dict) -> tuple[bool, str]:
+    async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         sessdata = credentials.get("sessdata", "").strip()
         if not sessdata:
             return False, "missing sessdata cookie"
@@ -89,8 +89,8 @@ class BilibiliAdapter(BasePlatformAdapter):
     async def publish(
         self,
         content: PublishContent,
-        credentials: dict,
-        platform_config: dict,
+        credentials: dict[str, Any],
+        platform_config: dict[str, Any],
     ) -> PublishResult:
         if content.format != "video":
             return PublishResult(
