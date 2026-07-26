@@ -59,11 +59,15 @@ async def list_tools() -> dict[str, Any]:
 async def call_tool(req: ToolCallRequest, request: Request) -> dict[str, Any]:
     """调用指定 MCP 工具(带权限矩阵校验)。
 
-    从 request.state.role_id 读取用户角色(JWTAuthMiddleware 注入),
-    传给 mcp_server.call_tool 做 admin 专属工具权限校验。
+    从 request.state 读取用户上下文(JWTAuthMiddleware 注入):
+    - role_id: 传给 mcp_server.call_tool 做 admin 专属工具权限校验
+    - user_id: G6(2026-07-26)透传给 knowledge_lookup 查 long_term_memory 源
     """
     user_role = getattr(request.state, "role_id", 0) or 0
-    result = await mcp_server.call_tool(req.name, req.arguments, user_role=user_role)
+    user_id = getattr(request.state, "user_id", None)
+    result = await mcp_server.call_tool(
+        req.name, req.arguments, user_role=user_role, user_id=user_id
+    )
     return result
 
 
