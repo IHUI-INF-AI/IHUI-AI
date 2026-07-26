@@ -203,8 +203,8 @@ export function TagsView() {
           const isOver = overIndex === index && dragIndex !== null
           const isDirty = dirtyPaths.has(tag.path)
           return (
-            // 标签宽度契约:右侧 = gap-1 (4px) + X (w-5=20px) + pr-1 (4px) = 28px
-            // 左侧 pl-7 (28px) 与右侧对称,文字几何居中
+            // 标签宽度契约(2026-07-26 第十次修订):右侧 = gap-1 (4px) + X (w-6=24px) + pr-1 (4px) = 32px
+            // 左侧 pl-8 (32px) 与右侧对称,文字几何居中
             // X 宽度若调整,需同步修改 pl 值(每 ±4px X 宽度 → ±4px pl)
             <Link
               key={tag.path}
@@ -216,7 +216,7 @@ export function TagsView() {
               onDragEnd={onDragEnd}
               onContextMenu={(e) => handleContextMenu(e, tag.path)}
               className={cn(
-                'group inline-flex h-full shrink-0 items-center gap-1 rounded-md border py-0 pl-7 pr-1 text-xs leading-none transition-colors',
+                'group inline-flex h-full shrink-0 items-center gap-1 rounded-md border py-0 pl-8 pr-1 text-xs leading-none transition-colors',
                 active
                   ? 'border-primary/30 bg-primary/10 font-medium text-primary'
                   : 'border-border/40 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -252,7 +252,7 @@ export function TagsView() {
                   }
                 }}
                 className={cn(
-                  'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 transition-opacity duration-150',
+                  'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 transition-opacity duration-150',
                   'hover:bg-destructive/10 hover:text-destructive',
                   // 默认 hidden hover 显示;减少动画偏好的用户始终可见 60% 不透明
                   'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60',
@@ -261,7 +261,7 @@ export function TagsView() {
                 )}
                 aria-label={tCommon('close')}
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </span>
             </Link>
           )
@@ -282,10 +282,10 @@ export function TagsView() {
           trigger={
             <button
               type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label={tCommon('moreActions')}
             >
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-3.5 w-3.5" />
             </button>
           }
         />
@@ -356,14 +356,16 @@ const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
   const spec = resolvePathLabelSpec(path)
   // spec 为 null 时也必须无条件调用 useTranslations(React hook 规则)
   const t = useTranslations(spec?.ns ?? 'common')
-  if (!spec) return <span className="text-sm leading-none">{deriveTitle(path)}</span>
+  // 文字盒子高度与关闭按钮(h-6=24px)一致,确保 flex items-center 下两者几何中心对齐
+  // — 修复"文字偏上 4px 没居中"问题(2026-07-26 第十次修订)
+  if (!spec) return <span className="flex h-6 items-center text-sm leading-none">{deriveTitle(path)}</span>
   let title: string
   try {
     title = t(spec.key)
   } catch {
     title = deriveTitle(path)
   }
-  return <span className="text-sm leading-none">{title}</span>
+  return <span className="flex h-6 items-center text-sm leading-none">{title}</span>
 })
 
 export default TagsView
