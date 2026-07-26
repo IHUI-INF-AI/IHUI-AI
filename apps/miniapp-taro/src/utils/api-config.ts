@@ -5,4 +5,4 @@
  * 各端点请求统一走 @ihui/api-client 的 fetchApi(经 Taro transport 适配),
  * 仅 SSE 流式与展示场景需直接引用 BASE_URL。
  */
-export const BASE_URL = 'http://localhost:8801/api'
+export const BASE_URL = 'http://localhost:8802/api'
