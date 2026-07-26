@@ -43,7 +43,9 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
   if (!list.length) {
     return (
       <View className="flex items-center justify-center py-16">
-        <Text className="text-sm text-muted-foreground">{tt('message.noInteraction', '暂无互动消息')}</Text>
+        <Text className="text-sm text-muted-foreground">
+          {tt('message.noInteraction', '暂无互动消息')}
+        </Text>
       </View>
     )
   }
@@ -85,10 +87,12 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
             <Text className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.content}</Text>
             {item.targetTitle && (
               <View className="mt-1.5 px-2 py-1 bg-muted rounded">
-                <Text className="text-xs text-muted-foreground line-clamp-1">@{item.targetTitle}</Text>
+                <Text className="text-xs text-muted-foreground line-clamp-1">
+                  @{item.targetTitle}
+                </Text>
               </View>
             )}
-            <Text className="text-[10px] text-muted-foreground mt-1">{item.createdAt}</Text>
+            <Text className="text-[20rpx] text-muted-foreground mt-1">{item.createdAt}</Text>
           </View>
         </View>
       ))}
