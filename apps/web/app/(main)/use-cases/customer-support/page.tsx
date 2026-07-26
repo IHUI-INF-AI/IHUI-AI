@@ -24,7 +24,7 @@ const jsonLd = {
         { '@type': 'ListItem', position: 3, name: '智能客服', item: 'https://ihui.ai/use-cases/customer-support' },
       ],
     },
-    // 2026-07-26 极致 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建智能客服 Agent"类检索)
+    // 2026-07-26 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建智能客服 Agent"类检索)
     {
       '@type': 'HowTo',
       '@id': 'https://ihui.ai/use-cases/customer-support#howto',
@@ -70,12 +70,12 @@ const jsonLd = {
 }
 
 export const metadata: Metadata = {
-  title: 'AI 智能客服 Agent 用例 — 7×24 极致服务 | IHUI AI',
+  title: 'AI 智能客服 Agent 用例 — 7×24 高质量服务 | IHUI AI',
   description:
     '基于 IHUI AI 全栈 AI 操作系统搭建的智能客服 Agent:7×24 在线响应、统一知识库、多模型路由、多渠道部署、人机协同,成本降低 70%,响应时间 0 秒。',
   alternates: { canonical: '/use-cases/customer-support' },
   openGraph: {
-    title: 'AI 智能客服 Agent — 7×24 极致服务体验',
+    title: 'AI 智能客服 Agent — 7×24 高质量服务体验',
     description: '成本降低 70%,响应 0 秒,80% 问题 AI 解决。',
     url: 'https://ihui.ai/use-cases/customer-support',
     type: 'article',
