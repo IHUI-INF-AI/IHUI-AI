@@ -47,7 +47,7 @@ def main():
     if not all_issues:
         print("=== 跨稿统一词表 0 处问题 ===" + (' [STRICT模式]' if strict else ''))
         return
-    by_type = {}
+    by_type: dict[str, list[dict[str, str]]] = {}
     for i in all_issues:
         by_type.setdefault(i['type'], []).append(i)
     for t, lst in by_type.items():
