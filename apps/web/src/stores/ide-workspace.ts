@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { logger } from '@/lib/logger'
 import {
   browseDirectory,
   readFile,
@@ -291,7 +292,7 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
         }
       }
     } catch (e) {
-      console.error('fetchFolderChildren error:', e)
+      logger.error('fetchFolderChildren error:', e)
     }
   },
 
@@ -303,7 +304,7 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
       if (result.success) return result.data.content
       return ''
     } catch (e) {
-      console.error('fetchFileContent error:', e)
+      logger.error('fetchFileContent error:', e)
       return ''
     }
   },
@@ -356,7 +357,7 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
       }
       set({ diffFiles, activeDiffFileId: diffFiles[0]?.id ?? null })
     } catch (e) {
-      console.error('fetchDiffFiles error:', e)
+      logger.error('fetchDiffFiles error:', e)
       set({ diffFiles: [] })
     }
   },
@@ -388,7 +389,7 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
         })
       set({ gitCommits: commits })
     } catch (e) {
-      console.error('fetchGitLog error:', e)
+      logger.error('fetchGitLog error:', e)
       set({ gitCommits: [] })
     }
   },
@@ -407,7 +408,7 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
       const current = lines.find((l) => l.startsWith('*'))?.replace(/^\*\s+/, '').trim() ?? 'main'
       set({ gitBranches: branches, gitCurrentBranch: current })
     } catch (e) {
-      console.error('fetchGitBranches error:', e)
+      logger.error('fetchGitBranches error:', e)
     }
   },
 }))
