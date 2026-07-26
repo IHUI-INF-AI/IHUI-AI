@@ -578,6 +578,9 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+      weapp-tailwindcss:
+        specifier: 5.1.16
+        version: 5.1.16(jiti@1.21.7)(tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0))(tsx@4.23.0)
 
   apps/mobile-rn:
     dependencies:
@@ -6964,6 +6967,15 @@ packages:
     resolution: {integrity: sha512-XIB2XbzHTN6ieIjfIMV9hlVcfPU26s2vafYWQcZHWXHOxiaRZYEDKEwdl129Zyg50+foYV2jCgtrqSA6qNuNSA==}
     engines: {node: '>=6'}
 
+  '@tailwindcss-mangle/engine@0.1.3':
+    resolution: {integrity: sha512-ChEDnwpMgeNKN7fekKkPfJ1rcmdY9MiqmGtKjIA+ULj4iTt7cOJqLlh0oHXaZc4m5rtC8rVv0hEern2snVvdYA==}
+    engines: {node: '>=18.20.0'}
+    peerDependencies:
+      tailwindcss: '>=2.0.0'
+    peerDependenciesMeta:
+      tailwindcss:
+        optional: true
+
   '@tailwindcss/node@4.3.2':
     resolution: {integrity: sha512-yWP/sqEcBLaD8JuA6zNwxoYKr75qxTioYwlRwekj5Jr/I5GXnoJfjetH/psLUIv74cYTH2lBUEzBkinthoYcBg==}
 
@@ -8699,6 +8711,33 @@ packages:
   '@vue/shared@3.5.39':
     resolution: {integrity: sha512-l1rrBtBfTnmxvtsvdQDXltUUy8S1Y+ZaqdfUzmAnJkTd8Z8rv5v/ytW+TKiqEOWyHPoqtPlNFSs0lhRmYVSHVA==}
 
+  '@weapp-core/escape@8.0.0':
+    resolution: {integrity: sha512-dH2zPSfsqEoIuAVLUu1UCEubfFdQoJo6gUneTpvUjz30hss/MgAkj6b1WEylCqOPT6g8d4bj66TWPRsg6QGcLA==}
+
+  '@weapp-tailwindcss/logger@2.0.0':
+    resolution: {integrity: sha512-SLy1wAeIJ6HjX1KY0PCirOT5VcIgw0AffG+qpnebR3DJwSGAYOdStnukdk5CU+eIK7aELu7ba4FZVKtfraIRBg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
+  '@weapp-tailwindcss/postcss-calc@1.0.3':
+    resolution: {integrity: sha512-HaSkSlgrGoCAXBS2T4A1ngNtZca1LmRdSkfd/bFZiRO7irH260dEdz+L21D0l0P1VIlOwgHJgs8++c71Mw3Gcg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      postcss: ^8.4.38
+
+  '@weapp-tailwindcss/postcss@3.1.12':
+    resolution: {integrity: sha512-TdTBTvlTVVTcdX/xNiBEMCOTXioIjAErEg73lkhHLYTAJQ4c9tKZ4yvyfN7jFOBDv/QH1lEoxraOlWb28b1y/A==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
+  '@weapp-tailwindcss/reset@0.1.1':
+    resolution: {integrity: sha512-gQbYnKuKjaKHSuWRZBEZo6VGsLAx5CTT5VNavUp8mwx7H76kXhxS2eA7924nAbcUnDWeHSYRlDp8JD1z2kBPGg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      tailwindcss: ^3.0.0 || ^4.0.0
+
+  '@weapp-tailwindcss/shared@2.0.0':
+    resolution: {integrity: sha512-0ZPMAsITrm+4/G96ZTBin9aObVy9tnzUHJf2/Z3iKnaAn/fp8q/WolQzxzFSdOoZUvZ4M2ABAfkE0QGxCOgOXg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
   '@webassemblyjs/ast@1.14.1':
     resolution: {integrity: sha512-nuBEDgQfm1ccRp/8bCQrx1frohyufl4JlbMMZ4P1wpeOfDhF6FQkxZJ1b/e+PLwr6X1Nhw6OLme5usuBWYBvuQ==}
 
@@ -9194,6 +9233,13 @@ packages:
     peerDependencies:
       postcss: ^8.1.0
 
+  autoprefixer@10.5.4:
+    resolution: {integrity: sha512-MaU0U/za7N3r6brxD4YB/l4NSrFzLPlANv6wEuQVaIPlD3L4W9rFcQPbL/EilY9BHhHvhfcz3gInDLrEtWT4EA==}
+    engines: {node: ^10 || ^12 || >=14}
+    hasBin: true
+    peerDependencies:
+      postcss: ^8.1.0
+
   available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
@@ -9388,6 +9434,11 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
+  baseline-browser-mapping@2.11.3:
+    resolution: {integrity: sha512-sbT0Ui/CZwyAyy7icT1Gw5P1LKRlFaHwaF6tDCW5YHq2X5SeeZFphBuIagopSfwSSZq3sQcbmEL072yphxm7ew==}
+    engines: {node: '>=6.0.0'}
+    hasBin: true
+
   batch@0.6.1:
     resolution: {integrity: sha512-x+VAiMRL6UPkx+kudNvxTl6hB2XNNCG2r+7wixVfIYwu/2HKRXimwQyaumLjMveWvT2Hkd/cAJw+QBMfJ/EKVw==}
 
@@ -9518,6 +9569,11 @@ packages:
 
   browserslist@4.28.5:
     resolution: {integrity: sha512-Cu2E6QejHWzuDMTkuwgpABFgDfZrXLQq5V13YOACZx4mFAG4IwGTbTfHPMr4WtxlHoXSM8FIuRwYYCz5XiabaQ==}
+    engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
+    hasBin: true
+
+  browserslist@4.28.7:
+    resolution: {integrity: sha512-JxV13hNrFxqjOc8alRbq9dK1MM79NEXYpma2B2J4wAtpWS5zIEIKqWPGCl7N4o7Uc7B7itylh7SuDujATRyyTw==}
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
 
@@ -9667,6 +9723,9 @@ packages:
 
   caniuse-lite@1.0.30001803:
     resolution: {integrity: sha512-g/uHREV2ZpK9qMalCsWaxmA6ol+DX8GYhuf3T40RKoP+oL7vhRJh8LNt73PCjpnR6l14FzfPrB5Yux4PKm2meg==}
+
+  caniuse-lite@1.0.30001806:
+    resolution: {integrity: sha512-72Cuvd95zbSYPKq6Fhg8eDJRlzgWDf7/mtoZv6Qe/DYNCEBdNxoA3+rZAU2ZhGCpZlns3EssFavaZomckT5Uuw==}
 
   capital-case@1.0.4:
     resolution: {integrity: sha512-ds37W8CytHgwnhGGTi88pcPyR15qoNkOpYwmMMfnWqqWgESapLqvDx6huFjQ5vqWSn2Z06173XNA7LtMOeUh1A==}
@@ -10001,6 +10060,10 @@ packages:
 
   comment-json@4.6.2:
     resolution: {integrity: sha512-R2rze/hDX30uul4NZoIZ76ImSJLFxn/1/ZxtKC1L77y2X1k+yYu1joKbAtMA2Fg3hZrTOiw0I5mwVMo0cf250w==}
+    engines: {node: '>= 6'}
+
+  comment-json@5.0.0:
+    resolution: {integrity: sha512-uiqLcOiVDJtBP8WGkZHEP+FZIhTzP1dxvn59EfoYUi9gqupjrBWVQkO2atDrbnKPwLeotFYDsuNb26uBMqB+hw==}
     engines: {node: '>= 6'}
 
   common-path-prefix@3.0.0:
@@ -11043,6 +11106,9 @@ packages:
 
   electron-to-chromium@1.5.388:
     resolution: {integrity: sha512-Pl/aJaqOOxYxda3vcx1IKSJimwYXHDkEnGn0F+kG2EE68dDtx2uCinaS+Vih8Z91B9t8CSAbiF/HKyWcnXjhzw==}
+
+  electron-to-chromium@1.5.396:
+    resolution: {integrity: sha512-yHiw2Y3C3H9U6TMbOfoWK/BPreiOPXRfTWPBwQBoZG6/8TB6eOPnsy5oaRYuatR7Fw2SJ4kKforgufeo7fq0EQ==}
 
   elliptic@6.6.1:
     resolution: {integrity: sha512-RaddvvMatK2LJHqFJ+YA4WysVN5Ita9E35botqIYspQ4TkRAlCicdzKOjlyv/1Za5RyTNn7di//eEV0uTAfe3g==}
@@ -12204,6 +12270,9 @@ packages:
   get-value@2.0.6:
     resolution: {integrity: sha512-Ln0UQDlxH1BapMu3GPtf7CuYNwRZf2gwCuPqbyG6pB8WfmFpzqcy4xtAaAMUhnNqjMKTiCPZG2oMT3YSx8U2NA==}
     engines: {node: '>=0.10.0'}
+
+  get-value@4.1.0:
+    resolution: {integrity: sha512-mKjrL73VxCUixi0Qe9OuerDVkm+475FeNwM5zZpjK6TK/a7fqv/dGI7vkRgvWkyw1xQ9Fl+wKuOUgPkE6aYB3w==}
 
   getenv@2.0.0:
     resolution: {integrity: sha512-VilgtJj/ALgGY77fiLam5iD336eSWi96Q15JSAG1zi8NRBysm3LXKdGnHb4m5cuyxvOLQQKWpBZAT6ni4FI2iQ==}
@@ -13964,6 +14033,10 @@ packages:
     resolution: {integrity: sha512-RPimw/7aMdv2oqRrxKwvZXcPfwBrn/JZ2xYcY9Hus/6LaS3VOAKVWKWgNLCFSiOm1ESXinjsDlidVU7JlnCN2A==}
     engines: {node: 20 || >=22}
 
+  lru-cache@11.5.2:
+    resolution: {integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==}
+    engines: {node: 20 || >=22}
+
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
@@ -14762,6 +14835,11 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  nanoid@3.3.16:
+    resolution: {integrity: sha512-bzlKTyNJ7+LdGIIwy8ijFpIqEQIvafahV7eYykJ8Cvh42EdJeODoJ6gUJXpQJvej1BddH8OqTXZNE/KfbWAu8Q==}
+    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
   nanomatch@1.2.13:
     resolution: {integrity: sha512-fpoe2T0RbHwBTBUOftAfBPaDEi06ufaUai0mE6Yn1kacc3SnTErfb/h+X94VXzI64rKFHYImXSvdwGGCmwOqCA==}
     engines: {node: '>=0.10.0'}
@@ -14926,6 +15004,10 @@ packages:
 
   node-releases@2.0.50:
     resolution: {integrity: sha512-J6l92tKHX6w8Jy5nO1Vuc01NoIiRGi/d6qBKVxh+IQ8Cr3b6HbVNfKiF8ZpFKufTwpwxMmce2W3iQZ861ZRyTg==}
+    engines: {node: '>=18'}
+
+  node-releases@2.0.51:
+    resolution: {integrity: sha512-wRNIrw4DmVLKQlbgOMdkMx27Wrpzes2hh5Jtbi2bjPd+4wJstWIqP5A+lscnqbm0xxmT5Bpg8Lec5ItEBwx6BQ==}
     engines: {node: '>=18'}
 
   node-stream-zip@1.15.0:
@@ -15845,6 +15927,16 @@ packages:
     peerDependencies:
       postcss: ^8
 
+  postcss-plugin-shared@1.1.5:
+    resolution: {integrity: sha512-lYn9dyw3+BDpK39DI9HdMdDfdPnPKnIMA4OJnkodWnZ0OOZrDCUafpQaIUcBLXlInLBGYFo3YhB/BwyuwUY1Kw==}
+    peerDependencies:
+      postcss: ^8
+
+  postcss-pxtrans@1.0.4:
+    resolution: {integrity: sha512-AETi28AKg2ImSCkVIden6xOaPjy8CeauLNb5EImdsIpft7vXmsqvYWcfu2yy8rcHr7RCq6raCufwl6EuobiIgA==}
+    peerDependencies:
+      postcss: ^8
+
   postcss-pxtransform@4.2.0:
     resolution: {integrity: sha512-KjOAP2X43Y9RHvKy8ILy9wzChlNzraLol50pU+Tg8/9+SEdjZ0qEhgKEtAMyRr4Fjf++nlW9oOdRcv7qIxq9Qw==}
     engines: {node: '>= 18'}
@@ -15863,8 +15955,19 @@ packages:
     peerDependencies:
       postcss: ^8.4.31
 
+  postcss-rem-to-responsive-pixel@7.0.4:
+    resolution: {integrity: sha512-KLWSuwZotO0RBRboavb1Ui0W1EjempzgnvvNJqQ2BOduTBIiJJhrizZpglVBkcwF3EXqhRv/kER0zHi+Wxr5Mg==}
+    engines: {node: '>=16.6.0'}
+    peerDependencies:
+      postcss: ^8
+
   postcss-resolve-nested-selector@0.1.6:
     resolution: {integrity: sha512-0sglIs9Wmkzbr8lQwEyIzlDOOC9bGmfVKcJTaxv3vMmd3uo4o4DerC3En0bnmgceeql9BfC8hRkp7cg0fjdVqw==}
+
+  postcss-rule-unit-converter@0.2.2:
+    resolution: {integrity: sha512-6+/zbOOPLLThV/8hBz8tU8ftcGw6VEpwdtpdJMyfUZllsinmRc1cUDI5B9AWkkOThCI+IcnJS8he4zkERQnEOA==}
+    peerDependencies:
+      postcss: ^8
 
   postcss-safe-parser@7.0.1:
     resolution: {integrity: sha512-0AioNCJZ2DPYz5ABT6bddIqlhgwhpHZ/l65YAYo0BCIn0xiDpsnTHz0gnoTGk0OXZW0JRs+cDwL8u/teRdz+8A==}
@@ -15919,6 +16022,10 @@ packages:
 
   postcss@8.5.16:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
+    engines: {node: ^10 || ^12 || >=14}
+
+  postcss@8.5.23:
+    resolution: {integrity: sha512-g50586zr4bZmwFiTlflMu8E0bDTb5I5gertgwAKmsdUlTQIhZtunzUlD1WSzwcVWPoAVpsrA6vlfCD7oXvRwgg==}
     engines: {node: ^10 || ^12 || >=14}
 
   postgres-array@2.0.0:
@@ -17947,6 +18054,10 @@ packages:
     peerDependencies:
       tailwindcss: '>=3.0.0 || insiders'
 
+  tailwindcss-config@2.0.1:
+    resolution: {integrity: sha512-FSdvTNxlO51+yK/kVV6PwYsJAwxHEV7+3bnojq2/kUUyAL8ZxfVqwmasuYFSWhFq8o9vijYky8yuiHQXYQaoVA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
   tailwindcss@3.4.19:
     resolution: {integrity: sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ==}
     engines: {node: '>=14.0.0'}
@@ -18897,6 +19008,20 @@ packages:
 
   wcwidth@1.0.1:
     resolution: {integrity: sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg==}
+
+  weapp-style-injector@1.0.1:
+    resolution: {integrity: sha512-tc4s7+OlKKg4343Bfm/ZkhBhnvRJbpP4Wyr97p8lTIPVkGQTerWWVhUO/WAcSg+mKbEGey2Zzm54gok7V6mL6A==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
+  weapp-tailwindcss@5.1.16:
+    resolution: {integrity: sha512-vF5+/zWuAQLZMdp68YOoebgnxLkBPmjrmbvl3ahFEAODNb/nDJ+3mIHzk3+2mqvXVMk7nPULtFmKfF0omZItRg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    hasBin: true
+    peerDependencies:
+      '@mpxjs/webpack-plugin': '>=2.0.0 <3.0.0'
+    peerDependenciesMeta:
+      '@mpxjs/webpack-plugin':
+        optional: true
 
   web-ext-run@0.2.4:
     resolution: {integrity: sha512-rQicL7OwuqWdQWI33JkSXKcp7cuv1mJG8u3jRQwx/8aDsmhbTHs9ZRmNYOL+LX0wX8edIEQX8jj4bB60GoXtKA==}
@@ -26035,6 +26160,16 @@ snapshots:
     dependencies:
       defer-to-connect: 1.1.3
 
+  '@tailwindcss-mangle/engine@0.1.3(tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0))':
+    dependencies:
+      '@tailwindcss/node': 4.3.3
+      '@tailwindcss/oxide': 4.3.3
+      micromatch: 4.0.8
+      pathe: 2.0.3
+      postcss: 8.5.16
+    optionalDependencies:
+      tailwindcss: 3.4.19(tsx@4.23.0)(yaml@2.9.0)
+
   '@tailwindcss/node@4.3.2':
     dependencies:
       '@jridgewell/remapping': 2.3.5
@@ -28030,13 +28165,11 @@ snapshots:
       entities: 7.0.1
       estree-walker: 2.0.2
       source-map-js: 1.2.1
-    optional: true
 
   '@vue/compiler-dom@3.5.39':
     dependencies:
       '@vue/compiler-core': 3.5.39
       '@vue/shared': 3.5.39
-    optional: true
 
   '@vue/compiler-sfc@3.5.39':
     dependencies:
@@ -28083,8 +28216,50 @@ snapshots:
       vue: 3.5.39(typescript@5.9.3)
     optional: true
 
-  '@vue/shared@3.5.39':
-    optional: true
+  '@vue/shared@3.5.39': {}
+
+  '@weapp-core/escape@8.0.0': {}
+
+  '@weapp-tailwindcss/logger@2.0.0': {}
+
+  '@weapp-tailwindcss/postcss-calc@1.0.3(postcss@8.5.23)':
+    dependencies:
+      postcss: 8.5.23
+      postcss-selector-parser: 7.1.4
+      postcss-value-parser: 4.2.0
+
+  '@weapp-tailwindcss/postcss@3.1.12(jiti@1.21.7)(tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0))(tsx@4.23.0)(yaml@2.9.0)':
+    dependencies:
+      '@tailwindcss-mangle/engine': 0.1.3(tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0))
+      '@weapp-core/escape': 8.0.0
+      '@weapp-tailwindcss/postcss-calc': 1.0.3(postcss@8.5.23)
+      '@weapp-tailwindcss/shared': 2.0.0
+      autoprefixer: 10.5.4(postcss@8.5.23)
+      lru-cache: 11.5.2
+      micromatch: 4.0.8
+      postcss: 8.5.23
+      postcss-load-config: 6.0.1(jiti@1.21.7)(postcss@8.5.23)(tsx@4.23.0)(yaml@2.9.0)
+      postcss-pxtrans: 1.0.4(postcss@8.5.23)
+      postcss-rem-to-responsive-pixel: 7.0.4(postcss@8.5.23)
+      postcss-rule-unit-converter: 0.2.2(postcss@8.5.23)
+      postcss-selector-parser: 7.1.4
+      postcss-value-parser: 4.2.0
+      tailwindcss-config: 2.0.1
+    transitivePeerDependencies:
+      - jiti
+      - tailwindcss
+      - tsx
+      - yaml
+
+  '@weapp-tailwindcss/reset@0.1.1(tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0))':
+    dependencies:
+      tailwindcss: 3.4.19(tsx@4.23.0)(yaml@2.9.0)
+
+  '@weapp-tailwindcss/shared@2.0.0':
+    dependencies:
+      defu: 6.1.7
+      get-value: 4.1.0
+      set-value: 4.1.0
 
   '@webassemblyjs/ast@1.14.1':
     dependencies:
@@ -28705,6 +28880,15 @@ snapshots:
       postcss: 8.5.16
       postcss-value-parser: 4.2.0
 
+  autoprefixer@10.5.4(postcss@8.5.23):
+    dependencies:
+      browserslist: 4.28.7
+      caniuse-lite: 1.0.30001806
+      fraction.js: 5.3.4
+      picocolors: 1.1.1
+      postcss: 8.5.23
+      postcss-value-parser: 4.2.0
+
   available-typed-arrays@1.0.7:
     dependencies:
       possible-typed-array-names: 1.1.0
@@ -28982,6 +29166,8 @@ snapshots:
 
   baseline-browser-mapping@2.10.42: {}
 
+  baseline-browser-mapping@2.11.3: {}
+
   batch@0.6.1: {}
 
   bcryptjs@2.4.3: {}
@@ -29172,6 +29358,14 @@ snapshots:
       node-releases: 2.0.50
       update-browserslist-db: 1.2.3(browserslist@4.28.5)
 
+  browserslist@4.28.7:
+    dependencies:
+      baseline-browser-mapping: 2.11.3
+      caniuse-lite: 1.0.30001806
+      electron-to-chromium: 1.5.396
+      node-releases: 2.0.51
+      update-browserslist-db: 1.2.3(browserslist@4.28.7)
+
   bser@2.1.1:
     dependencies:
       node-int64: 0.4.0
@@ -29346,6 +29540,8 @@ snapshots:
       lodash.uniq: 4.5.0
 
   caniuse-lite@1.0.30001803: {}
+
+  caniuse-lite@1.0.30001806: {}
 
   capital-case@1.0.4:
     dependencies:
@@ -29704,6 +29900,11 @@ snapshots:
   commander@9.5.0: {}
 
   comment-json@4.6.2:
+    dependencies:
+      array-timsort: 1.0.3
+      esprima: 4.0.1
+
+  comment-json@5.0.0:
     dependencies:
       array-timsort: 1.0.3
       esprima: 4.0.1
@@ -30765,6 +30966,8 @@ snapshots:
   ee-first@1.1.1: {}
 
   electron-to-chromium@1.5.388: {}
+
+  electron-to-chromium@1.5.396: {}
 
   elliptic@6.6.1:
     dependencies:
@@ -32513,6 +32716,8 @@ snapshots:
       resolve-pkg-maps: 1.0.0
 
   get-value@2.0.6: {}
+
+  get-value@4.1.0: {}
 
   getenv@2.0.0: {}
 
@@ -34539,6 +34744,8 @@ snapshots:
 
   lru-cache@11.5.1: {}
 
+  lru-cache@11.5.2: {}
+
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
@@ -35854,6 +36061,8 @@ snapshots:
 
   nanoid@3.3.15: {}
 
+  nanoid@3.3.16: {}
+
   nanomatch@1.2.13:
     dependencies:
       arr-diff: 4.0.0
@@ -36068,6 +36277,8 @@ snapshots:
       node-addon-api: 7.1.1
 
   node-releases@2.0.50: {}
+
+  node-releases@2.0.51: {}
 
   node-stream-zip@1.15.0: {}
 
@@ -36886,6 +37097,15 @@ snapshots:
       tsx: 4.23.0
       yaml: 2.9.0
 
+  postcss-load-config@6.0.1(jiti@1.21.7)(postcss@8.5.23)(tsx@4.23.0)(yaml@2.9.0):
+    dependencies:
+      lilconfig: 3.1.3
+    optionalDependencies:
+      jiti: 1.21.7
+      postcss: 8.5.23
+      tsx: 4.23.0
+      yaml: 2.9.0
+
   postcss-loader@8.2.1(postcss@8.5.16)(typescript@5.9.3)(webpack@5.91.0(@swc/core@1.3.96(@swc/helpers@0.5.15))(lightningcss@1.32.0)(postcss@8.5.16)):
     dependencies:
       cosmiconfig: 9.0.2(typescript@5.9.3)
@@ -37039,6 +37259,16 @@ snapshots:
     dependencies:
       postcss: 8.5.16
 
+  postcss-plugin-shared@1.1.5(postcss@8.5.23):
+    dependencies:
+      defu: 6.1.7
+      postcss: 8.5.23
+
+  postcss-pxtrans@1.0.4(postcss@8.5.23):
+    dependencies:
+      postcss: 8.5.23
+      postcss-plugin-shared: 1.1.5(postcss@8.5.23)
+
   postcss-pxtransform@4.2.0(postcss@8.5.16):
     dependencies:
       postcss: 8.5.16
@@ -37054,7 +37284,17 @@ snapshots:
       postcss: 8.5.16
       postcss-value-parser: 4.2.0
 
+  postcss-rem-to-responsive-pixel@7.0.4(postcss@8.5.23):
+    dependencies:
+      postcss: 8.5.23
+      postcss-plugin-shared: 1.1.5(postcss@8.5.23)
+
   postcss-resolve-nested-selector@0.1.6: {}
+
+  postcss-rule-unit-converter@0.2.2(postcss@8.5.23):
+    dependencies:
+      postcss: 8.5.23
+      postcss-plugin-shared: 1.1.5(postcss@8.5.23)
 
   postcss-safe-parser@7.0.1(postcss@8.5.16):
     dependencies:
@@ -37116,6 +37356,12 @@ snapshots:
   postcss@8.5.16:
     dependencies:
       nanoid: 3.3.15
+      picocolors: 1.1.1
+      source-map-js: 1.2.1
+
+  postcss@8.5.23:
+    dependencies:
+      nanoid: 3.3.16
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
@@ -39864,6 +40110,11 @@ snapshots:
     dependencies:
       tailwindcss: 4.3.3
 
+  tailwindcss-config@2.0.1:
+    dependencies:
+      '@weapp-tailwindcss/shared': 2.0.0
+      jiti: 2.7.0
+
   tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0):
     dependencies:
       '@alloc/quick-lru': 5.2.0
@@ -40558,6 +40809,12 @@ snapshots:
       escalade: 3.2.0
       picocolors: 1.1.1
 
+  update-browserslist-db@1.2.3(browserslist@4.28.7):
+    dependencies:
+      browserslist: 4.28.7
+      escalade: 3.2.0
+      picocolors: 1.1.1
+
   update-notifier@7.3.1:
     dependencies:
       boxen: 8.0.1
@@ -40912,6 +41169,40 @@ snapshots:
   wcwidth@1.0.1:
     dependencies:
       defaults: 1.0.4
+
+  weapp-style-injector@1.0.1:
+    dependencies:
+      '@weapp-tailwindcss/shared': 2.0.0
+      micromatch: 4.0.8
+
+  weapp-tailwindcss@5.1.16(jiti@1.21.7)(tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0))(tsx@4.23.0):
+    dependencies:
+      '@babel/parser': 7.29.7
+      '@babel/traverse': 7.29.7
+      '@babel/types': 7.29.7
+      '@tailwindcss-mangle/engine': 0.1.3(tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0))
+      '@vue/compiler-dom': 3.5.39
+      '@weapp-core/escape': 8.0.0
+      '@weapp-tailwindcss/logger': 2.0.0
+      '@weapp-tailwindcss/postcss': 3.1.12(jiti@1.21.7)(tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0))(tsx@4.23.0)(yaml@2.9.0)
+      '@weapp-tailwindcss/reset': 0.1.1(tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0))
+      '@weapp-tailwindcss/shared': 2.0.0
+      comment-json: 5.0.0
+      debug: 4.4.3
+      fast-glob: 3.3.3
+      local-pkg: 1.2.1
+      lru-cache: 11.5.2
+      magic-string: 0.30.21
+      micromatch: 4.0.8
+      semver: 7.8.5
+      tailwindcss-config: 2.0.1
+      weapp-style-injector: 1.0.1
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - jiti
+      - supports-color
+      - tailwindcss
+      - tsx
 
   web-ext-run@0.2.4:
     dependencies:

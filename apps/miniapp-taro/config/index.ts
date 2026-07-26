@@ -2,6 +2,12 @@ import { defineConfig } from '@tarojs/cli'
 import devConfig from './dev'
 import prodConfig from './prod'
 import path from 'path'
+// 2026-07-26 修复 WXSS 不支持 Tailwind 任意值语法 [xxx] 的编译错误
+// (541 个规则如 .-bottom-[2px]{bottom:-2rpx} 被 WXSS parser 当作属性选择器报错)
+// weapp-tailwindcss 同时处理 WXSS 选择器转义和 wxml class 匹配,保留全部样式
+import type { Plugin } from 'vite'
+import tailwindcss from 'tailwindcss'
+import { WeappTailwindcss } from 'weapp-tailwindcss/vite'
 
 export default defineConfig(async (merge) => {
   // Taro CLI 在调用 config 前会用 --type 覆盖 process.env.TARO_ENV(见
@@ -41,12 +47,37 @@ export default defineConfig(async (merge) => {
     //   (reading 'type')`。webpack5 runner 的 modifyBuildAssets 实现支持
     //   新增 asset,故 alipay 走 webpack5 绕过此 bug。
     // weapp 等其他端继续用 Vite (已验证 100+ 页面正常)
+    // 2026-07-26 weapp 端 vite 注册 weapp-tailwindcss 插件,处理 Tailwind 任意值
+    // 语法 [xxx] 在 WXSS 中的转义问题(WXSS parser 把 [2px] 当属性选择器报错)
     compiler: process.env.TARO_ENV === 'h5' || process.env.TARO_ENV === 'alipay'
       // 对象形式禁用 prebundle:@tarojs/webpack5-prebundle@4.2.0 与 webpack 5.91.0 不兼容
       // (finalInputFileSystem._writeVirtualFile is not a function +
       //  enhanced-resolve options.roots.map is not a function)
       ? { type: 'webpack5', prebundle: { enable: false } }
-      : 'vite',
+      : {
+          type: 'vite',
+          vitePlugins: [
+            // Taro 4 vite 不读 postcss.config.js,需程序化注入 tailwindcss postcss 插件
+            {
+              name: 'postcss-config-loader-plugin',
+              config(config: any) {
+                if (typeof config.css?.postcss === 'object') {
+                  config.css?.postcss?.plugins?.unshift(tailwindcss())
+                }
+              },
+            },
+            // weapp-tailwindcss:同时处理 WXSS 选择器转义和 wxml class 匹配
+            // 让 .-bottom-[2px] 在 WXSS 中编译通过且 wxml class 匹配生效
+            // 返回值为 WeappTailwindcssVitePlugin[],用展开运算符注入
+            ...WeappTailwindcss({
+              rem2rpx: true,
+              // 仅 weapp 端启用,其他端(h5/rn/harmony)禁用
+              disabled: ['h5', 'rn', 'harmony'].includes(process.env.TARO_ENV || ''),
+              // Taro vite 默认移除 tailwindcss CSS 变量,需重新注入
+              injectAdditionalCssVarScope: true,
+            }) as unknown as Plugin[],
+          ],
+        },
     cache: { enable: true },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
