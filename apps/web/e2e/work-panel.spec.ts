@@ -14,7 +14,11 @@ import { test, expect } from '@playwright/test'
  * 降级场景:若 window.__workPanelStore 未暴露,跳过测试并标注。
  */
 
-const STORE_KEY = 'ihui-work-panel'
+declare global {
+  interface Window {
+    __workPanelStore?: unknown
+  }
+}
 
 test.beforeEach(async ({ page }) => {
   // 清理 localStorage 避免前一个测试残留状态
@@ -25,7 +29,8 @@ test.beforeEach(async ({ page }) => {
   })
   await page.goto('/')
   // 等待 dev 模式暴露 store
-  await page.waitForFunction(() => typeof window.__workPanelStore !== 'undefined', { timeout: 5000 })
+  await page
+    .waitForFunction(() => typeof window.__workPanelStore !== 'undefined', { timeout: 5000 })
     .catch(() => null) // dev mode store 未暴露时降级
 })
 
@@ -195,9 +200,7 @@ test('P3++: 拖拽排序(reorderTabs API 验证 + DOM 顺序)', async ({ page })
   // 3. 验证 DOM 顺序与 store 一致
   await page.waitForTimeout(500)
   const domOrder = await page.evaluate(() => {
-    const tabBtns = Array.from(
-      document.querySelectorAll('div.flex.flex-1.items-center > button'),
-    )
+    const tabBtns = Array.from(document.querySelectorAll('div.flex.flex-1.items-center > button'))
       .filter((b) => b.querySelector('span.max-w-\\[120px\\]'))
       .map((b) => b.querySelector('span')?.textContent?.trim())
     return tabBtns
@@ -331,9 +334,7 @@ test('P4-5: drop indicator DOM 渲染(before/after position)', async ({ page }) 
 
   // 2. 用 Playwright 的 dispatchEvent 触发 React 17+ 合成事件链路
   // (用 new DragEvent + dispatchEvent 在 React 17+ 不走 root 委托,会失败)
-  const firstTab = page
-    .locator('button:has(span.max-w-\\[120px\\])')
-    .first()
+  const firstTab = page.locator('button:has(span.max-w-\\[120px\\])').first()
   const firstTabCount = await firstTab.count()
   test.skip(firstTabCount === 0, 'tab buttons 未渲染,跳过')
 

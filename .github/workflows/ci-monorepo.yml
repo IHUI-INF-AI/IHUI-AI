@@ -68,6 +68,8 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
+      - name: e2e typecheck (@ihui/web)
+        run: pnpm --filter @ihui/web typecheck:e2e
 
   source-check:
     runs-on: ubuntu-latest

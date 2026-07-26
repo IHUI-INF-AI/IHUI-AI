@@ -117,7 +117,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
 
     if (toolRequestBodies.length > 0) {
       try {
-        const parsed = JSON.parse(toolRequestBodies[0])
+        const parsed = JSON.parse(toolRequestBodies[0] ?? '')
         if (parsed && typeof parsed === 'object') {
           expect('agent_tools' in parsed || 'agentTools' in parsed).toBeTruthy()
         }
@@ -350,9 +350,7 @@ test.describe('SSE retry-after 限流降级', () => {
         async () => {
           const text = (await page.locator('body').textContent()) ?? ''
           return (
-            text.includes('限流') ||
-            text.includes('1 秒后重试') ||
-            text.includes('AI 服务异常')
+            text.includes('限流') || text.includes('1 秒后重试') || text.includes('AI 服务异常')
           )
         },
         { timeout: 12000 },
