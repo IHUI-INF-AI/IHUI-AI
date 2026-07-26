@@ -10,7 +10,7 @@ import type { ResourceTag, ResourceTagListData, ResourceTagForm } from './types'
 
 const PAGE_SIZE = 20
 const EMPTY: ResourceTagForm = { pid: '', name: '', sort: '0', status: true }
-const API = '/api/v1/admin/resource/tags'
+const API = '/api/admin/resource/tags'
 
 export default function AdminResourceTagPage() {
   const qc = useQueryClient()

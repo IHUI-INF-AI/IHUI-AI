@@ -46,7 +46,7 @@ export default function AdminWalletPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'wallet', search, page],
     queryFn: async () => {
-      const r = await fetchApi<WalletListData>(`/api/v1/admin/finance/wallet?${qs.toString()}`)
+      const r = await fetchApi<WalletListData>(`/api/admin/finance/wallet?${qs.toString()}`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
