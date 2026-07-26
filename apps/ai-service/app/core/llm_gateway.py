@@ -9,7 +9,7 @@ import base64
 import json
 import logging
 import os
-from typing import Any, AsyncIterator, Optional, TYPE_CHECKING
+from typing import Any, AsyncIterator, Optional, TYPE_CHECKING, cast
 
 import asyncpg
 import httpx
@@ -242,7 +242,7 @@ def _model_to_provider_code(model: str) -> str:
 async def _resolve_from_db(
     model: str,
     owner_uuid: Optional[str] = None,
-) -> Optional[tuple[str, Optional[str], str]]:
+) -> Optional[tuple[str | None, str | None, str | None]]:
     """从 ai_model_config 表查询配置,返回 (api_key, api_base, litellm_model) 或 None。
 
     优先 owner_uuid 匹配的用户私有配置,兜底 owner_uuid IS NULL 的全局配置。
@@ -999,9 +999,14 @@ class LLMGateway:
             provider = await self._get_provider(used_model, owner_uuid)
             if provider is not None:
                 tools = kwargs.pop("tools", None)
-                async for evt in provider.astream(
-                    trimmed_messages, used_model, tools=tools, **kwargs
-                ):
+                # cast 绕过 mypy 把 async generator 推断为 Coroutine 的 quirk
+                astream_iter = cast(
+                    AsyncIterator[dict[str, Any]],
+                    provider.astream(
+                        trimmed_messages, used_model, tools=tools, **kwargs
+                    ),
+                )
+                async for evt in astream_iter:
                     yield evt
                 return
 
