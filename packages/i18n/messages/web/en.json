@@ -12348,7 +12348,6 @@
       }
     }
   },
-  "modelsPage": "Models",
   "useCasesAiEdu": {
     "metaTitle": "AI Education Agent Use Case — Course Authoring / Q&A / Learning Path | IHUI AI",
     "metaDescription": "Build AI Education Agent with IHUI AI full-stack AI OS: structured course authoring, smart Q&A, auto-grading, personalized learning paths, learning dashboard, 8-end sync distribution.",
@@ -12390,39 +12389,5 @@
         "ratingValue": 4.8
       }
     }
-  },
-  "seo": {
-    "imageSitemap": {
-      "title": "Image Sitemap — IHUI AI",
-      "description": "IHUI AI image sitemap covering all official brand assets, icons, and third-party login materials under public/images/, for Google Images crawling."
-    },
-    "newsSitemap": {
-      "title": "News Sitemap — IHUI AI",
-      "description": "IHUI AI news sitemap listing product releases, security hardening, and capability launches from the past 30 days, traced to docs/CHANGELOG.md."
-    },
-    "jsonFeed": {
-      "title": "JSON Feed — IHUI AI",
-      "description": "IHUI AI JSON Feed 1.1 subscription with 5-language switch support, providing structured feed data suitable for LLM and MCP client parsing."
-    },
-    "opml": {
-      "title": "OPML Subscription Outline — IHUI AI",
-      "description": "IHUI AI full-feed OPML 2.0 outline: main feeds, real-time push, search-engine sitemaps, and 5-language version groups, one-click import into any reader."
-    }
-  },
-  "useCasesAiDesign": {
-    "metaTitle": "AI Design Collaboration Agent — Poster/Logo Concept / Sketch to Code / Review | IHUI AI",
-    "metaDescription": "Build an AI design collaboration agent on IHUI AI full-stack AI OS: poster/Logo concepts + sketch-to-code + brand asset management + design review + design system retrieval, 8-endpoint sync distribution, Apache 2.0 open source."
-  },
-  "useCasesAiMarketing": {
-    "metaTitle": "AI Marketing Content Generation Agent — Multi-platform Copy / SEO / A/B | IHUI AI",
-    "metaDescription": "Build an AI marketing content generation agent on IHUI AI full-stack AI OS: multi-platform copy + SEO blog + brand voice consistency + A/B testing + persona-driven content, 8-endpoint sync distribution, Apache 2.0 open source."
-  },
-  "useCasesAiResearch": {
-    "metaTitle": "AI Academic Research Assistant — Paper Retrieval / Review / Citation | IHUI AI",
-    "metaDescription": "Build an AI academic research assistant on IHUI AI full-stack AI OS: paper retrieval + PDF parsing + citation management + review generation + knowledge graph + trend analysis, 8-endpoint sync distribution, Apache 2.0 open source."
-  },
-  "useCasesAiTranslation": {
-    "metaTitle": "AI Multilingual Translation Agent — Document / Localization / Glossary / Subtitle | IHUI AI",
-    "metaDescription": "Build an AI multilingual translation agent on IHUI AI full-stack AI OS: multilingual document translation + localization workflow + glossary management + translation review + cultural adaptation + subtitle translation, 8-endpoint sync distribution, Apache 2.0 open source."
   }
 }
