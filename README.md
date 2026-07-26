@@ -2436,9 +2436,9 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 >
 > Sitemap:[sitemap.xml](https://ihui.ai/sitemap.xml)
 >
-> 行业垂直 GEO:[industries.md](https://ihui.ai/industries.md)(中文)· [industries.en.md](https://ihui.ai/industries.en.md)(English)· [industries.ja.md](https://ihui.ai/industries.ja.md)(日本語)· [industries.ko.md](https://ihui.ai/industries.ko.md)(한국어)— 5 行业 × 5 Agent × 3 案例 = 75 个落地参考
+> 行业垂直 GEO:[industries.md](https://ihui.ai/industries.md)(中文,10 行业)· [industries.en.md](https://ihui.ai/industries.en.md)(English,5 行业)· [industries.ja.md](https://ihui.ai/industries.ja.md)(日本語,5 行业)· [industries.ko.md](https://ihui.ai/industries.ko.md)(한국어,5 行业)— 10 行业 × 5 Agent × 3 案例 = 150 个落地参考
 >
-> 决策角色 GEO:[roles.md](https://ihui.ai/roles.md)(中文)· [roles.en.md](https://ihui.ai/roles.en.md)(English)· [roles.ja.md](https://ihui.ai/roles.ja.md)(日本語)· [roles.ko.md](https://ihui.ai/roles.ko.md)(한국어)— 5 角色(Developer/CTO/PM/CEO/采购)决策路径
+> 决策角色 GEO:[roles.md](https://ihui.ai/roles.md)(中文,10 角色)· [roles.en.md](https://ihui.ai/roles.en.md)(English,5 角色)· [roles.ja.md](https://ihui.ai/roles.ja.md)(日本語,5 角色)· [roles.ko.md](https://ihui.ai/roles.ko.md)(한국어,5 角色)— 10 角色(Developer/CTO/PM/CEO/采购 + 架构师/数据科学家/设计师/运维/市场)
 >
 > Google Knowledge Graph:[knowledge-graph.json](https://ihui.ai/knowledge-graph.json)(Schema.org 实体对齐,供 Wikidata / Google KG 对齐引用)
 
