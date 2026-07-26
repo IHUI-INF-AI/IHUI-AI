@@ -296,7 +296,7 @@ class TestCRUD:
         engine.create({"name": "Low", "content": "b", "priority": 10})
         engine.create({"name": "High", "content": "b", "priority": 100})
         engine.create({"name": "Mid", "content": "b", "priority": 50})
-        rules = engine.list()
+        rules = engine.list_rules()
         assert len(rules) == 3
         assert rules[0].name == "High"
         assert rules[1].name == "Mid"

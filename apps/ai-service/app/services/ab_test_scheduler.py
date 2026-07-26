@@ -67,7 +67,7 @@ class ABTestHistoryEntry(TypedDict):
     """单次 A/B 测试循环的历史记录。"""
 
     triggered_at: str  # ISO8601 UTC
-    status: Literal["success", "failed", "skipped"]
+    status: Literal["running", "success", "failed", "skipped"]
     duration_ms: int
     flushed_count: int  # flush 到 DB 的测试数
     checked_count: int  # 检验的 running 测试数

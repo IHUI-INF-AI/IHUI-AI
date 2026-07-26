@@ -29,7 +29,7 @@ export default function CourseRating({
 
   return (
     <View
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-[2000] flex items-center justify-center"
       onClick={() => onSubmit?.(rating, comment)}
     >
       <View className="absolute inset-0 bg-black/50" />

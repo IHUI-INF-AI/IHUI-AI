@@ -27,7 +27,7 @@ export default function VipPayConfirm({
   if (!visible) return null
 
   return (
-    <View className="fixed inset-0 z-50 flex items-end" onClick={onCancel}>
+    <View className="fixed inset-0 z-[2000] flex items-end" onClick={onCancel}>
       <View className="absolute inset-0 bg-black/50" />
       <View
         className="relative bg-card rounded-t-2xl w-full px-6 pb-6 pt-4"
