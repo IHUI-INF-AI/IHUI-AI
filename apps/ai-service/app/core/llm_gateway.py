@@ -876,6 +876,104 @@ class LLMGateway:
                 "errorCode": err_code,
             }
 
+    async def structured_completion(
+        self,
+        messages: list[dict[str, Any]],
+        schema: dict[str, Any],
+        model: str | None = None,
+        *,
+        owner_uuid: Optional[str] = None,
+        schema_name: str = "structured_response",
+        max_retries: int = 1,
+    ) -> dict[str, Any]:
+        """强制 LLM 返回符合 JSON Schema 的结构化输出(G2 字典化闭环 PoC)。
+
+        走 OpenAI 原生 `response_format: { type: "json_schema" }` 协议(其他厂商通过
+        LiteLLM 适配)。返回解析后的 dict + 强 schema 校验,失败时返回 error dict(由
+        调用方决定降级策略)。
+
+        Args:
+            messages: OpenAI 格式消息列表。
+            schema: JSON Schema(Draft-07 子集),约束 LLM 输出结构。
+            model: 模型名称,为空则使用默认模型。
+            owner_uuid: 用户 UUID(走 ai_model_config 私有配置)。
+            schema_name: schema 标识符(部分厂商用 name 区分不同 schema)。
+            max_retries: 解析失败时的重试次数(不含首次)。
+
+        Returns:
+            成功:`{"tasks": [...], ...}` 解析后的 dict(无 error 字段)。
+            失败:`{"error": True, "error_message": "..."}` 错误 dict。
+        """
+        # OpenAI 原生 json_schema 协议(LiteLLM 透传给各厂商)
+        response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema_name,
+                "schema": schema,
+                "strict": True,
+            },
+        }
+
+        last_error: str = ""
+        for attempt in range(max_retries + 1):
+            result = await self.complete(
+                messages,
+                model=model,
+                owner_uuid=owner_uuid,
+                response_format=response_format,
+            )
+
+            if result.get("error"):
+                last_error = result.get("error_message", "LLM 调用失败")
+                if attempt < max_retries:
+                    continue
+                return {"error": True, "error_message": last_error}
+
+            content = result.get("content", "")
+            if not content:
+                last_error = "LLM 返回空内容"
+                if attempt < max_retries:
+                    continue
+                return {"error": True, "error_message": last_error}
+
+            try:
+                parsed = json.loads(content)
+            except (json.JSONDecodeError, TypeError) as e:
+                last_error = f"JSON 解析失败: {e}"
+                if attempt < max_retries:
+                    continue
+                return {"error": True, "error_message": last_error}
+
+            if not isinstance(parsed, dict):
+                last_error = f"JSON 顶层非 object,实际类型: {type(parsed).__name__}"
+                if attempt < max_retries:
+                    continue
+                return {"error": True, "error_message": last_error}
+
+            # required 字段校验(JSON Schema 强制约束)
+            if isinstance(schema, dict):
+                required = schema.get("required", [])
+                missing = [k for k in required if k not in parsed]
+                if missing:
+                    last_error = f"missing required fields: {missing}"
+                    if attempt < max_retries:
+                        continue
+                    return {"error": True, "error_message": last_error}
+
+                # additionalProperties: False 校验
+                if schema.get("additionalProperties") is False:
+                    allowed = set(schema.get("properties", {}).keys())
+                    extra = [k for k in parsed.keys() if k not in allowed]
+                    if extra:
+                        last_error = f"unexpected fields: {extra}"
+                        if attempt < max_retries:
+                            continue
+                        return {"error": True, "error_message": last_error}
+
+            return parsed
+
+        return {"error": True, "error_message": last_error or "unknown"}
+
     async def astream(
         self,
         messages: list[dict[str, Any]],
