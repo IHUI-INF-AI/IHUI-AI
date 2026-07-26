@@ -1,10 +1,6 @@
 'use client'
-
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Edit, Trash2, Loader2, Shield } from 'lucide-react'
-// @ts-ignore
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { badgeCls, dotCls } from './helpers'
