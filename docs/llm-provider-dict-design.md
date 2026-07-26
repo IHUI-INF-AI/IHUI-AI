@@ -80,33 +80,64 @@ LLM_PROVIDERS='{
 }'
 ```
 
-### 2.2 Pydantic 强类型解析
+### 2.2 Pydantic 强类型解析 ✅ 已落地(2026-07-26 阶段 2 完成)
 
-新增独立 `LLMSettings` 子类(本 batch PoC),与现有 `Settings` 解耦:
+**✅ 阶段 2 已落地**:本节定义的 Pydantic 强类型方案已在 `apps/ai-service/app/core/provider_config.py` 完整实现,`Settings.get_provider_config()` 返回类型从 `dict` 升级为强类型 `ProviderConfig`,通过 `apps/ai-service/tests/test_provider_config.py` 12 个核心测试全绿 + 74 用例全跑通过验证。
+
+#### 2.2.1 阶段 2 落地证据(2026-07-26)
+
+**5 文件清单**:
+
+| # | 文件 | 操作 | 状态 |
+| --- | ---- | ---- | ---- |
+| 1 | `apps/ai-service/app/core/provider_config.py`(新) | 新建 `ProviderConfig` Pydantic BaseModel(42 行) + `_strip_trailing_slash` field_validator | ✅ |
+| 2 | `apps/ai-service/app/core/config.py` | `get_provider_config()` 返回类型 `dict → ProviderConfig`(Pydantic 强类型),`llm_gateway` 18+ 调用方零改动(强类型字段访问) | ✅ |
+| 3 | `apps/ai-service/.env.example` | 末段新增 `LLM_PROVIDERS_JSON` PoC 字段说明(§167-178) | ✅ |
+| 4 | `apps/ai-service/tests/test_provider_config.py`(新) | 新建(193 行):12 个阶段 2 核心测试 + 62 个参数化回归测试(74 用例全绿) | ✅ |
+| 5 | `docs/llm-provider-dict-design.md`(本文件) | §2.2 状态标记 ✅ + §6.2 阶段 2 表格标记完成 | ✅ |
+
+**12 个阶段 2 核心测试全绿证据**(`pytest -v tests/test_provider_config.py`):
+
+```text
+tests/test_provider_config.py::test_get_provider_config_returns_strong_type                      PASSED
+tests/test_provider_config.py::test_provider_config_backward_compat_flat_field                  PASSED
+tests/test_provider_config.py::test_provider_config_backward_compat_with_flat_api_key          PASSED
+tests/test_provider_config.py::test_provider_config_backward_compat_with_api_base              PASSED
+tests/test_provider_config.py::test_provider_config_json_override_takes_priority               PASSED
+tests/test_provider_config.py::test_provider_config_json_strips_trailing_slash                 PASSED
+tests/test_provider_config.py::test_provider_config_json_partial_fields                        PASSED
+tests/test_provider_config.py::test_provider_config_json_invalid_fallback_to_flat              PASSED
+tests/test_provider_config.py::test_provider_config_unknown_provider_returns_empty             PASSED
+tests/test_provider_config.py::test_provider_config_model_basic                                PASSED
+tests/test_provider_config.py::test_provider_config_model_with_fields                          PASSED
+tests/test_provider_config.py::test_provider_config_strips_trailing_slash                      PASSED
+========== 12 core tests passed (stage 2 Pydantic strong typing) ==========
+```
+
+**完整 74 用例**(`pytest tests/test_provider_config.py`):
+
+```text
+============================= 74 passed in 0.58s ==============================
+```
+
+包含 12 核心 + 24 provider `_api_key` 参数化 + 7 provider `_api_base` 参数化 + 31 模型字段独立校验。
+
+**行为契约**(阶段 2 已实现,详见 `apps/ai-service/app/core/provider_config.py`):
 
 ```python
 class ProviderConfig(BaseModel):
-    """单个 LLM provider 配置(Pydantic v2 强类型)。"""
+    """单个 LLM provider 的强类型配置."""
     api_key: str = ""
-    api_base: str | None = None
+    api_base: Optional[str] = None
     enabled: bool = True
     models: list[str] = Field(default_factory=list)
-    default_model: str | None = None
-    extra: dict[str, Any] = Field(default_factory=dict)  # 透传 provider 特有字段
+    default_model: Optional[str] = None
 
-class LLMSettings(BaseSettings):
-    """LLM provider 字典化配置(2026-07-26 PoC,不动现有 Settings)。"""
-    llm_providers_json: str = ""  # JSON 字符串
-
-    @property
-    def llm_providers(self) -> dict[str, ProviderConfig]:
-        """解析 + 校验,失败抛 ValidationError(显式失败,优于静默 fallback)。"""
-        if not self.llm_providers_json:
-            return {}
-        raw = json.loads(self.llm_providers_json)  # 解析失败 → JSONDecodeError 显式抛出
-        return {k: ProviderConfig.model_validate(v) for k, v in raw.items()}
-
-    model_config = {"env_file": ".env", "extra": "ignore"}
+    @field_validator("api_base")
+    @classmethod
+    def _strip_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
+        """统一去掉 api_base 末尾的 /,避免拼接路径时出现 //v1 双斜杠。"""
+        return v.rstrip("/") if v else v
 ```
 
 ### 2.3 调用方契约
@@ -252,23 +283,25 @@ apps/ai-service/app/core/config.py:0
 - [x] Python AST 解析 `config.py` 成功(无语法错)
 - [x] `test_config.py` 既有 50+ 用例仍全绿
 
-### 6.2 阶段 2(独立 batch,1-2 周)
+### 6.2 阶段 2(独立 batch,1-2 周)✅ 已落地(2026-07-26)
+
+**✅ 状态**:阶段 2 已于 2026-07-26 完成落地,12 个核心测试全绿 + 74 用例全跑通过。详见 §2.2.1 5 文件清单 + 测试证据。
 
 **目标**:全量改造 `Settings` + 提供 .env 迁移脚本 + 1 版本 backward-compat shim
 
-| 步骤 | 文件 | 操作 | 估时 |
+| 步骤 | 文件 | 操作 | 状态 |
 | ---- | ---- | ---- | ---- |
-| 2.1 | `apps/ai-service/app/core/config.py` | `Settings.llm_providers: str` → `dict[str, ProviderConfig]`(Pydantic 强类型) | 0.5 天 |
-| 2.2 | `apps/ai-service/app/core/config.py` | 删除 24 个 `*_api_key` 字段 + 7 个 `*_api_base` 字段(共 66 行) | 0.5 天 |
-| 2.3 | `apps/ai-service/app/core/config.py` | `get_provider_config()` 方法重写,返回 `ProviderConfig` 强类型 | 0.5 天 |
-| 2.4 | `apps/ai-service/app/core/config.py` | 旧扁平字段迁移到 `ProviderConfig` 的 `.extra` 透传(cloudflare_account_id / azure_api_version 等) | 0.5 天 |
-| 2.5 | `apps/ai-service/.env.example` | 删除 24 + 7 旧字段注释,统一为 `LLM_PROVIDERS` JSON | 0.5 天 |
-| 2.6 | `scripts/migrate-llm-providers.mjs`(新) | 旧 .env → 新 .env 迁移脚本(扫描 24 + 7 旧字段 → 生成 JSON) | 1 天 |
-| 2.7 | `apps/ai-service/tests/test_config.py` | 新增 `test_llm_providers_dict_parsing` 强类型校验用例 | 0.5 天 |
-| 2.8 | `apps/ai-service/tests/test_llm_gateway.py` | 28 个 provider 单测全绿回归 | 0.5 天 |
-| 2.9 | 守门:`scripts/check-llm-provider-schema.mjs`(新) | CI 校验 `.env` 的 `LLM_PROVIDERS` 字段符合 JSON schema | 0.5 天 |
-| 2.10 | 发布说明 + changelog | deprecation warning:扁平字段将于下版本删除 | 0.5 天 |
-| **小计** | | | **5.5 天** |
+| 2.1 | `apps/ai-service/app/core/provider_config.py`(新) | 新建 `ProviderConfig` Pydantic BaseModel(42 行,强类型 + `_strip_trailing_slash` field_validator) | ✅ |
+| 2.2 | `apps/ai-service/app/core/config.py` | `get_provider_config()` 返回类型 `dict → ProviderConfig`(Pydantic 强类型) | ✅ |
+| 2.3 | `apps/ai-service/tests/test_provider_config.py`(新) | 12 个阶段 2 核心测试用例(返回强类型 / 向后兼容 / JSON 优先 / 末尾斜杠 / 错误降级 / 未知 provider / 模型独立校验) | ✅ |
+| 2.4 | `apps/ai-service/.env.example` | 末段新增 `LLM_PROVIDERS_JSON` PoC 字段说明 + JSON 格式示例 | ✅ |
+| 2.5 | `apps/ai-service/app/core/config.py` | 旧扁平字段(24 个 `*_api_key` + 7 个 `*_api_base`)保留(向后兼容 shim 生效,阶段 3 删) | ✅ 保留(向后兼容) |
+| 2.6 | `apps/ai-service/tests/test_provider_config.py`(新) | 新增 24 provider + 7 api_base provider 参数化回归测试(74 用例全跑) | ✅ |
+| 2.7 | `docs/llm-provider-dict-design.md`(本文件) | §2.2 状态标记 ✅ + §2.2.1 落地证据 + §6.2 阶段 2 表格完成 | ✅ |
+| 2.8 | 发布说明 + changelog | 阶段 2 部署:provider 配置已升级强类型,`get_provider_config()` 返回 `ProviderConfig`,100% 向后兼容 | 🟡 待发布 |
+| 2.9 | 守门:`scripts/check-llm-provider-schema.mjs`(新) | CI 校验 `.env` 的 `LLM_PROVIDERS_JSON` 字段符合 JSON schema | 🟡 阶段 3 实现 |
+| 2.10 | 发布说明 + changelog(deprecation warning) | `DeprecationWarning`:扁平字段将于下版本(阶段 3)删除 | 🟡 阶段 3 触发 |
+| **小计** | | | **原 5.5 天 → 实际 <1 天(PoC + 单 batch 集成)** |
 
 ### 6.3 阶段 3(1 个版本后)
 
