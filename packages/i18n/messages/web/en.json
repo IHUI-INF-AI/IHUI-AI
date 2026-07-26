@@ -11133,35 +11133,16 @@
     }
   },
   "n8nAgentsPage": {
-    "metaDescription": "N8N workflow integration: orchestrate AI agents automatically, including customer service bot, content moderation, data sync, etc.",
-    "subtitle": "N8N workflow integration - orchestrate AI agents automatically via N8N",
-    "cardTitle": "N8N Workflow Integration",
-    "totalBadge": "{n} Agents total",
-    "activeBadge": "{n} running",
-    "cardDescription": "Orchestrate AI agents automatically via N8N, connecting customer service, moderation, sync, reporting, and alerting scenarios to achieve end-to-end workflow automation.",
-    "createButton": "Create new Agent",
-    "lastRunLabel": "Last run",
-    "runCountLabel": "Run count",
     "agents": {
       "alert-notify": {
-        "description": "",
-        "name": ""
       },
       "content-moderation": {
-        "description": "",
-        "name": ""
       },
       "customer-service": {
-        "description": "",
-        "name": ""
       },
       "data-sync": {
-        "description": "",
-        "name": ""
       },
       "report-generation": {
-        "description": "",
-        "name": ""
       }
     }
   },
