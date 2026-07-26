@@ -15,7 +15,11 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { useModeStore } from '@/stores/mode'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useApplyDiff } from '@/hooks/use-apply-diff'
-import { createConversation, sendMessage as persistMessage, persistQuestion } from '@/lib/chat-api'
+import {
+  createConversation,
+  sendMessage as persistMessage,
+  persistQuestion,
+} from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
@@ -184,15 +188,12 @@ function tryHandlePlanModeSlash(text: string): boolean {
     return true
   }
   store.setPlanMode(target)
-  toast.success(
-    target === 'plan' ? '已切换到规划模式' : '已切换到执行模式',
-    {
-      description:
-        target === 'plan'
-          ? 'AI 将只制定计划,不执行工具(Alt+P 可快速切换)'
-          : 'AI 将正常执行工具(Alt+P 可快速切换)',
-    },
-  )
+  toast.success(target === 'plan' ? '已切换到规划模式' : '已切换到执行模式', {
+    description:
+      target === 'plan'
+        ? 'AI 将只制定计划,不执行工具(Alt+P 可快速切换)'
+        : 'AI 将正常执行工具(Alt+P 可快速切换)',
+  })
   return true
 }
 
@@ -1107,10 +1108,7 @@ export function useChat(): UseChatReturn {
           // #13 区分两种超时:15s 完全冷启动 vs 60s reasoning 已收到但 content 未到
           // 用户主动 stop 触发的 abort(abortedByTimeout* 均为 false)静默不报错
           if (abortedByTimeout15s) {
-            const formatted = formatSSEError(
-              err,
-              'AI 响应超时(15 秒内未收到任何内容),请稍后重试',
-            )
+            const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
           } else if (abortedByTimeout60s) {
@@ -1333,10 +1331,7 @@ export function useChat(): UseChatReturn {
       if (err instanceof DOMException && err.name === 'AbortError') {
         // #13 区分两种超时,用户主动 stop 静默不报错
         if (abortedByTimeout15s) {
-          const formatted = formatSSEError(
-            err,
-            'AI 响应超时(15 秒内未收到任何内容),请稍后重试',
-          )
+          const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
         } else if (abortedByTimeout60s) {

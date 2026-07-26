@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import { getBalance, getWithdrawRecords, type WalletRecord } from '@/lib/wallet-api'
+import { getBalance, getWithdrawRecords, type WalletRecord } from '@ihui/api-client'
 import { createPersistConfig } from './persist-helpers'
 
 interface WalletState {
