@@ -1893,16 +1893,24 @@ LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `Pro
 - **迁移调用点**:`spec_generator.split_tasks()`(从 `_call_llm + _parse_tasks_json` 改为 `structured_completion`)+ 失败降级到 `mechanical_split`
 - **测试**:`tests/test_llm_gateway.py::TestStructuredCompletion*`(15 单测,全绿,覆盖 Success/Validation/Error/Retry 四类)+ `tests/test_spec_generator.py::TestSplitTasks`(10 单测,全绿,验证迁移后等价)
 
-### G4 — 知识查询统一门面(`apps/ai-service/app/services/knowledge_lookup.py`)
+### G4 — 知识查询统一门面(`apps/ai-service/app/services/knowledge_lookup.py` + `agent_tools.py`)
 
-把三个独立的知识检索子系统聚合为一个统一入口,对应"LLM 字典化 4 场景"中的**场景 3 记忆分离式字典化**:模型只负责推理,外部知识统一查表,不与模型权重绑定。
+把三个独立的知识检索子系统聚合为一个统一入口,对应"LLM 字典化 4 场景"中的**场景 3 记忆分离式字典化**:模型只负责推理,外部知识统一查表,不与模型权重绑定。G4 完整迁移已落地,AgentLoopV2 调用方可一行接入知识查询工具。
 
 - **核心 API**:`knowledge_lookup(query, *, user_id, repo_id, session_id, top_k_per_source, source_priority, api_token)` → `KnowledgeLookupResult(hits, errors, duration_ms)`
-- **三源并发**:`codebase_indexer`(代码库 AST 切片 + embedding)+ `rag_service`(向量检索 + rerank,只取 retrieve 阶段)+ `long_term_memory`(跨会话摘要),`asyncio.gather(return_exceptions=True)` 任一源失败不阻塞其他
+- **三源并发**:`codebase_indexer`(代码库 AST 切片 + embedding)+ `rag_service.retrieve_only()`(向量检索 + rerank,只取 retrieve 阶段,跳过 generate)+ `long_term_memory`(跨会话摘要),`asyncio.gather(return_exceptions=True)` 任一源失败不阻塞其他
 - **降级策略**:IO 失败 → 错误记入 `errors` 字段,`hits` 返回空;`user_id` 为空自动跳过 `long_term_memory`(不报错);`source_priority` 不合法抛 `ValueError`
 - **统一格式**:`KnowledgeHit(source, score, content, raw)`,`content` 已格式化为 `[codebase:function name] file:ls-le\n...` / `[rag:role] ts\n...` / `[long_term_memory] summary\n关键事实: ...`,可直接注入 prompt
-- **PoC 边界(§3 最小化)**:仅门面 + 单测 + README,**不接入** agent_loop / spec_generator 等调用点,迁移留后续 task;RAG 源直接调 `_retrieve` 私有方法跳过 generate,后续应在 `RAGService` 暴露 `retrieve_only()` 公有方法替代
-- **测试**:`tests/test_knowledge_lookup.py`(25 单测,全绿,覆盖三源成功 / 各源失败降级 / 全失败 / 空结果 / priority 自定义排序 / priority 子集 / 无效源 ValueError / user_id 跳过 LTM / 参数透传 / 格式化函数 / 常量)
+- **RAGService.retrieve_only() 公有 API**:G4 完整迁移新增,替代 PoC 阶段的 `_retrieve` 私有调用。委托给 `_retrieve()`,无额外逻辑(§3 做减法)
+- **AgentLoopV2 接入工厂**:`make_knowledge_lookup_tool(user_id, repo_id, session_id, top_k_per_source, source_priority, api_token)` → `ToolDefinition`,调用方一行接入:
+  ```python
+  from app.services.agent_tools import make_knowledge_lookup_tool
+  from app.services.agent_loop_v2 import AgentLoopV2
+  tools = [make_knowledge_lookup_tool(user_id="u1", repo_id="my-repo")]
+  loop = AgentLoopV2(llm_complete_fn=..., tools=tools)
+  ```
+  闭包绑定参数(user_id/repo_id 等),LLM 只能控制 `query` 和 `top_k_per_source`;空 query / ValueError 降级返回 error dict 不抛异常;hits 不含 raw 字段(避免 LLM 上下文冗长)
+- **测试**:`tests/test_knowledge_lookup.py`(25 单测,已迁移到 retrieve_only)+ `tests/test_rag.py::TestRetrieveOnly`(5 单测)+ `tests/test_agent_tools.py`(14 单测),共 44 个新单测全绿,联合 278/278 全绿
 
 ### 字典化四层能力对照
 
@@ -1911,7 +1919,7 @@ LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `Pro
 | L1 数据层       | 24+7 LLM provider 字段字典化 | `provider_config.py` + `LLM_PROVIDERS_JSON` | ✅ 阶段 2 |
 | L2 业务代号     | 8 端 + UI 组件 + 模块短代号  | `prompt_dict.py` + `project_memory.py`      | ✅ G1 PoC |
 | L3 输出结构化   | LLM 输出强 JSON Schema 约束  | `llm_gateway.structured_completion`         | ✅ G2 PoC |
-| L4 知识查询门面 | 三源并发统一查询 + 降级      | `knowledge_lookup.py`                       | ✅ G4 PoC |
+| L4 知识查询门面 | 三源并发统一查询 + 降级 + AgentLoopV2 工厂接入 | `knowledge_lookup.py` + `agent_tools.py` + `rag.retrieve_only` | ✅ G4 完整迁移 |
 
 ---
 
