@@ -167,7 +167,7 @@ function TenantsRankingTable({
             >
               <div className="sm:col-span-2">
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
                     {idx + 1}
                   </span>
                   <Link
@@ -226,9 +226,9 @@ function BarRow({
         </span>
         <span className="font-mono tabular-nums">{value}</span>
       </div>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-muted">
         <div
-          className="h-full rounded-full bg-primary/60"
+          className="h-full rounded bg-primary/60"
           style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
           role="progressbar"
           aria-valuenow={Math.round(pct)}
