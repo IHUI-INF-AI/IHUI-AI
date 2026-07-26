@@ -23,7 +23,7 @@ import {
   type CommissionOverview,
   type InviteInfo,
   type DayMonthSummary,
-} from '@/lib/distribution-api'
+} from '@ihui/api-client'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Avatar } from '@/components/data'
 import { useAuthStore } from '@/stores/auth'
