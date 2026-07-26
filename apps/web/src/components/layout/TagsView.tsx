@@ -185,9 +185,9 @@ export function TagsView() {
     <div
       data-tagsview
       data-empty={tags.length === 0 ? 'true' : 'false'}
-      className="mx-2 mt-2 flex h-9 items-center gap-1 rounded-lg bg-muted/70 px-2 dark:bg-white/[0.07]"
+      className="flex h-full min-w-0 flex-1 items-center gap-1"
     >
-      <div className="hover-scroll flex flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
+      <div className="hover-scroll flex h-full flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
         {tags.length === 0 ? (
           // 2026-07-25 用户反馈:无 tag 时不返回 null,显示一行 placeholder 占位文本
           <span
@@ -216,7 +216,7 @@ export function TagsView() {
               onDragEnd={onDragEnd}
               onContextMenu={(e) => handleContextMenu(e, tag.path)}
               className={cn(
-                'group inline-flex h-7 shrink-0 items-center gap-1 rounded-md border py-0 pl-7 pr-1 text-xs leading-none transition-colors',
+                'group inline-flex h-full shrink-0 items-center gap-1 rounded-md border py-0 pl-7 pr-1 text-xs leading-none transition-colors',
                 active
                   ? 'border-primary/30 bg-primary/10 font-medium text-primary'
                   : 'border-border/40 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -252,7 +252,7 @@ export function TagsView() {
                   }
                 }}
                 className={cn(
-                  'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 transition-opacity duration-150',
+                  'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 transition-opacity duration-150',
                   'hover:bg-destructive/10 hover:text-destructive',
                   // 默认 hidden hover 显示;减少动画偏好的用户始终可见 60% 不透明
                   'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60',
@@ -261,7 +261,7 @@ export function TagsView() {
                 )}
                 aria-label={tCommon('close')}
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
               </span>
             </Link>
           )
@@ -356,14 +356,14 @@ const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
   const spec = resolvePathLabelSpec(path)
   // spec 为 null 时也必须无条件调用 useTranslations(React hook 规则)
   const t = useTranslations(spec?.ns ?? 'common')
-  if (!spec) return <span className="leading-none">{deriveTitle(path)}</span>
+  if (!spec) return <span className="text-sm leading-none">{deriveTitle(path)}</span>
   let title: string
   try {
     title = t(spec.key)
   } catch {
     title = deriveTitle(path)
   }
-  return <span className="leading-none">{title}</span>
+  return <span className="text-sm leading-none">{title}</span>
 })
 
 export default TagsView
