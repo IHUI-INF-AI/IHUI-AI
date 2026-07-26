@@ -14,6 +14,7 @@ const { mockAuthenticate } = vi.hoisted(() => ({
 }))
 
 vi.mock('../../plugins/auth.js', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const actual = await importOriginal<typeof import('../../plugins/auth.js')>()
   return {
     ...actual,

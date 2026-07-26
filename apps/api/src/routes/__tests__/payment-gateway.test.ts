@@ -9,6 +9,7 @@ vi.hoisted(() => {
 
 // Mock alipay verifyNotify:测试 alipay/notify 公开回调时跳过真实验签。
 vi.mock('../../services/alipay.js', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const actual = await importOriginal<typeof import('../../services/alipay.js')>()
   return {
     ...actual,
