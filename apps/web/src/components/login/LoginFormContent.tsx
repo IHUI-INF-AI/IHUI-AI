@@ -4,127 +4,92 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
-import { ThirdPartyLoginButtons } from './ThirdPartyLoginButtons'
-import { QrCodeLogin } from './QrCodeLogin'
-import { PasswordLoginForm } from './PasswordLoginForm'
-import { EmailCodeLoginForm } from './EmailCodeLoginForm'
-import { PhoneCodeLoginForm } from './PhoneCodeLoginForm'
-import { AgreementNoticeDialog } from './AgreementNoticeDialog'
-import { useLoginDialogStore } from '@/stores/login-dialog'
+import { LoginForm, type LoginApiClient, type LoginResult } from '@ihui/ui-react'
 
-type LoginTab = 'email' | 'phone' | 'password' | 'qr'
+import { useAuthStore, type AuthUser } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
+import { fetchApi } from '@/lib/api'
+import { useThirdPartyConfig } from '@/hooks/use-third-party-config'
+import { QrCodeLogin } from './QrCodeLogin'
 
 interface LoginFormContentProps {
   onSuccess?: () => void
 }
 
+/**
+ * web 端 LoginApiClient(2026-07-26 改用共享 LoginForm)
+ *
+ * 基于本地 fetchApi 包装 5 个共享 LoginForm 期望的 API 端点。
+ * 后端实际返回的 user 字段比共享 LoginResult.user 更丰富(包含 username/bio/permissions 等),
+ * 结构上向后兼容(共享类型只取 id/phone/email/nickname/avatar 5 个字段)。
+ */
+const webLoginApiClient: LoginApiClient = {
+  loginByAccount: async (account, password, captcha) =>
+    fetchApi<LoginResult>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(captcha ? { account, password, captcha } : { account, password }),
+    }),
+  loginByEmailCode: async (email, code) =>
+    fetchApi<LoginResult>('/api/auth/login/email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    }),
+  loginBySms: async (phone, code) =>
+    fetchApi<LoginResult>('/api/auth/login/sms', {
+      method: 'POST',
+      body: JSON.stringify({ phone, code }),
+    }),
+  sendEmailCode: async (email) =>
+    fetchApi<{ sent: boolean }>('/api/auth/email/code', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  sendSmsCode: async (phone) =>
+    fetchApi<{ sent: boolean }>('/api/auth/sms/send', {
+      method: 'POST',
+      body: JSON.stringify({ phone, scene: 'login' }),
+    }),
+}
+
+/**
+ * 共享 LoginForm 的 QR tab 注入 web 端 QrCodeLogin(SDK 二维码)
+ * 简化方案:QrCodeLogin 内部管理 platform/refreshKey,共享 QrTab 的注入参数可忽略。
+ */
+function QrCodeLoginEmbedded() {
+  return <QrCodeLogin onSwitchMethod={() => {}} />
+}
+
 export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   const t = useTranslations('auth')
   const qc = useQueryClient()
+  const setToken = useAuthStore((s) => s.setToken)
+  const setUser = useAuthStore((s) => s.setUser)
   const setMode = useLoginDialogStore((s) => s.setMode)
-  const [tab, setTab] = React.useState<LoginTab>('email')
-  const [agreed, setAgreed] = React.useState(false)
-  const [showAgreeErr, setShowAgreeErr] = React.useState(false)
-  const [noticeOpen, setNoticeOpen] = React.useState(false)
+  const thirdParty = useThirdPartyConfig()
 
-  const handleSuccess = () => {
-    onSuccess?.()
-    qc.invalidateQueries({ queryKey: ['header'] })
-    qc.invalidateQueries({ queryKey: ['announcements'] })
-  }
-
-  const handleRequireAgree = React.useCallback(() => {
-    setShowAgreeErr(true)
-    setNoticeOpen(true)
-  }, [])
-
-  const handleAgree = React.useCallback(() => {
-    setAgreed(true)
-    setShowAgreeErr(false)
-    setNoticeOpen(false)
-    // 弹窗关闭后,把焦点恢复到表单最后一个输入框
-    // 三步 Enter 的第 3 步需要焦点在表单内才能触发 submit
-    requestAnimationFrame(() => {
-      const dialog = document.querySelector('[data-testid="login-dialog"]')
-      const form = dialog?.querySelector('form')
-      if (form) {
-        const inputs = form.querySelectorAll(
-          'input:not([type="hidden"]):not([disabled])',
-        )
-        const lastInput = inputs[inputs.length - 1] as HTMLInputElement | null
-        lastInput?.focus()
-      }
-    })
-  }, [])
-
-  const handleCancelNotice = React.useCallback(() => {
-    setNoticeOpen(false)
-  }, [])
-
-  const agreedProps = {
-    agreed,
-    onAgreedChange: (v: boolean) => {
-      setAgreed(v)
-      if (v) setShowAgreeErr(false)
+  const handleSuccess = React.useCallback(
+    async (data: LoginResult) => {
+      setToken(data.accessToken, data.refreshToken)
+      if (data.user) setUser(data.user as unknown as AuthUser)
+      qc.invalidateQueries({ queryKey: ['header'] })
+      qc.invalidateQueries({ queryKey: ['announcements'] })
+      onSuccess?.()
     },
-    onRequireAgree: handleRequireAgree,
-    showAgreeErr,
-  }
+    [setToken, setUser, qc, onSuccess],
+  )
 
   return (
-    <div className="space-y-4">
-      <Tabs value={tab} onValueChange={(v) => setTab(v as LoginTab)}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="email" data-testid="login-tab-email">
-            {t('emailLogin')}
-          </TabsTrigger>
-          <TabsTrigger value="phone" data-testid="login-tab-phone">
-            {t('phoneCodeLogin')}
-          </TabsTrigger>
-          <TabsTrigger value="password" data-testid="login-tab-password">
-            {t('passwordLogin')}
-          </TabsTrigger>
-          <TabsTrigger value="qr" data-testid="login-tab-qr">
-            {t('qrLogin')}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="email">
-          <EmailCodeLoginForm active={tab === 'email'} onSuccess={handleSuccess} {...agreedProps} />
-        </TabsContent>
-
-        <TabsContent value="phone">
-          <PhoneCodeLoginForm active={tab === 'phone'} onSuccess={handleSuccess} {...agreedProps} />
-        </TabsContent>
-
-        <TabsContent value="password">
-          <PasswordLoginForm
-            active={tab === 'password'}
-            onSuccess={handleSuccess}
-            {...agreedProps}
-          />
-        </TabsContent>
-
-        <TabsContent value="qr">
-          <QrCodeLogin onSwitchMethod={() => setTab('email')} />
-        </TabsContent>
-      </Tabs>
-
-      <ThirdPartyLoginButtons />
-
-      <p className="text-center text-sm text-muted-foreground">
-        {t('noAccount')}{' '}
-        <button
-          type="button"
-          onClick={() => setMode('register')}
-          className="font-medium text-primary hover:underline"
-        >
-          {t('registerNow')}
-        </button>
-      </p>
-
-      <AgreementNoticeDialog open={noticeOpen} onAgree={handleAgree} onCancel={handleCancelNotice} />
-    </div>
+    <LoginForm
+      t={t}
+      apiClient={webLoginApiClient}
+      onSuccess={handleSuccess}
+      thirdParty={thirdParty}
+      showAgreement
+      agreementMode="notice-dialog"
+      onRegister={() => setMode('register')}
+      showForgotPassword
+      onForgotPassword={() => setMode('forgot')}
+      qrComponent={() => <QrCodeLoginEmbedded />}
+    />
   )
 }
