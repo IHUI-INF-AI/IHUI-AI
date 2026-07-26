@@ -404,6 +404,96 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
+    """knowledge_lookup: 统一知识查询(三源并发,代码库 + RAG + 跨会话历史)。
+
+    包装 app.services.knowledge_lookup.knowledge_lookup(),供 LLM 通过 MCP 协议
+    查外部知识,减少 hallucination + 重复 token 消耗。
+
+    LLM 可控参数:
+    - query (required): 自然语言查询
+    - top_k_per_source (optional): 每源 top-K,默认 5,1-20
+
+    服务端固定(不暴露给 LLM,安全考虑):
+    - user_id/session_id: None(mcp_server call_tool 无 session context 注入,
+      跳过 long_term_memory 源;LTM 接入需后续 mcp_server 架构改动)
+    - repo_id/api_token/source_priority: None(用 knowledge_lookup 默认值)
+
+    返回:
+        {tool, query, hits, errors, duration_ms, ok}
+        hits: list[{source, score, content}](不含 raw,避免 LLM 上下文冗长)
+        空 query → ok=False
+        三源全失败 → ok=False + errors(降级不抛异常)
+    """
+    query = str(arguments.get("query", "")).strip()
+    if not query:
+        return {
+            "tool": "knowledge_lookup",
+            "query": "",
+            "hits": [],
+            "errors": [],
+            "duration_ms": 0.0,
+            "ok": False,
+            "message": "query 不能为空",
+        }
+
+    top_k = int(arguments.get("top_k_per_source", 5))
+    # 防御性 clamp(1-20,即使 LLM 传越界值也安全)
+    top_k = max(1, min(20, top_k))
+
+    try:
+        from .knowledge_lookup import knowledge_lookup
+        result = await knowledge_lookup(
+            query,
+            user_id=None,  # mcp_server 无 session context,跳过 LTM 源
+            repo_id=None,
+            session_id=None,
+            top_k_per_source=top_k,
+            source_priority=None,  # 用默认 [codebase, rag, long_term_memory]
+            api_token=None,
+        )
+    except ValueError as e:
+        # source_priority 不合法(理论上不会,因为没传,但防御性处理)
+        return {
+            "tool": "knowledge_lookup",
+            "query": query,
+            "hits": [],
+            "errors": [{"source": "knowledge_lookup", "error": f"ValueError: {e}"}],
+            "duration_ms": 0.0,
+            "ok": False,
+            "message": f"参数校验失败: {e}",
+        }
+
+    # 序列化 hits(不含 raw,避免 LLM 上下文冗长)
+    hits_serialized = [
+        {
+            "source": h.source,
+            "score": round(h.score, 4),
+            "content": h.content,
+        }
+        for h in result.hits
+    ]
+
+    return {
+        "tool": "knowledge_lookup",
+        "query": result.query,
+        "hits": hits_serialized,
+        "errors": result.errors,
+        "duration_ms": result.duration_ms,
+        "total_hits": len(hits_serialized),
+        "ok": len(hits_serialized) > 0 or len(result.errors) == 0,
+        "message": (
+            f"找到 {len(hits_serialized)} 条知识"
+            if hits_serialized
+            else (
+                "三源全失败,无知识返回"
+                if result.errors and not hits_serialized
+                else "无匹配知识(各源空结果)"
+            )
+        ),
+    }
+
+
 async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """read_file: 读取文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
     path = arguments.get("path", "")
@@ -2338,23 +2428,26 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
     # 选 provider(优先用户指定;若未配置 api_key 则降级尝试另一个)
+    # 阶段 3 主体(2026-07-26):扁平字段已删除,统一走 get_provider_config
+    stepfun_cfg = settings.get_provider_config("stepfun")
+    agnes_cfg = settings.get_provider_config("agnes")
     if provider == "stepfun":
-        api_key, api_base, model = settings.stepfun_api_key, settings.stepfun_api_base, "step-1v-8k"
+        api_key, api_base, model = stepfun_cfg.api_key, stepfun_cfg.api_base or "https://api.stepfun.com/step_plan/v1", "step-1v-8k"
     else:
-        api_key, api_base, model = settings.agnes_api_key, settings.agnes_api_base, "agnes-image-v1"
+        api_key, api_base, model = agnes_cfg.api_key, agnes_cfg.api_base or "https://apihub.agnes-ai.com/v1", "agnes-image-v1"
 
     if not api_key:
-        if provider == "stepfun" and settings.agnes_api_key:
-            api_key, api_base, model = settings.agnes_api_key, settings.agnes_api_base, "agnes-image-v1"
+        if provider == "stepfun" and agnes_cfg.api_key:
+            api_key, api_base, model = agnes_cfg.api_key, agnes_cfg.api_base or "https://apihub.agnes-ai.com/v1", "agnes-image-v1"
             provider = "agnes"
-        elif provider == "agnes" and settings.stepfun_api_key:
-            api_key, api_base, model = settings.stepfun_api_key, settings.stepfun_api_base, "step-1v-8k"
+        elif provider == "agnes" and stepfun_cfg.api_key:
+            api_key, api_base, model = stepfun_cfg.api_key, stepfun_cfg.api_base or "https://api.stepfun.com/step_plan/v1", "step-1v-8k"
             provider = "stepfun"
         else:
             return {
                 "tool": "image_generation", "ok": False,
                 "errorCode": "PROVIDER_NOT_CONFIGURED", "saved_path": None,
-                "message": "未配置图片生成 provider,请在 .env 设置 STEPFUN_API_KEY 或 AGNES_API_KEY",
+                "message": "未配置图片生成 provider,请在 .env 的 LLM_PROVIDERS JSON 配置 stepfun 或 agnes 的 api_key",
             }
 
     try:
@@ -3088,6 +3181,19 @@ _TOOLS: list[MCPTool] = [
                 "use_semantic": {"type": "boolean", "description": "是否使用语义搜索(pgvector ANN,默认 True;失败/无结果时自动 fallback 到 regex)", "default": True},
             },
             "required": ["query"],
+        },
+    ),
+    MCPTool(
+        name="knowledge_lookup",
+        description="统一知识查询(三源并发:代码库语义检索 + RAG 向量检索 + 跨会话历史摘要)。用于查找代码实现/历史对话/相关文档,减少 hallucination。返回 hits 列表,每个含 source/score/content。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "自然语言查询,如 '用户认证逻辑实现' 或 'JWT 相关代码'"},
+                "top_k_per_source": {"type": "integer", "description": "每个源返回 top-K,默认 5(范围 1-20)", "default": 5, "minimum": 1, "maximum": 20},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
         },
     ),
     MCPTool(
@@ -3844,6 +3950,7 @@ _TOOLS: list[MCPTool] = [
 
 _TOOL_HANDLERS: dict[str, Any] = {
     "search_codebase": _tool_search_codebase,
+    "knowledge_lookup": _tool_knowledge_lookup,
     "read_file": _tool_read_file,
     "write_file": _tool_write_file,
     "file_edit": _tool_file_edit,
