@@ -92,6 +92,30 @@ fn get_app_info() -> AppInfo {
     }
 }
 
+/// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
+/// direction: n/s/e/w/ne/nw/se/sw
+#[tauri::command]
+fn start_resize(direction: String, app: tauri::AppHandle) -> Result<(), String> {
+    let dir_name = match direction.as_str() {
+        "n" => "North",
+        "s" => "South",
+        "e" => "East",
+        "w" => "West",
+        "ne" => "NorthEast",
+        "nw" => "NorthWest",
+        "se" => "SouthEast",
+        "sw" => "SouthWest",
+        _ => return Err(format!("unknown direction: {}", direction)),
+    };
+    let webview = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let win = webview.as_ref().window();
+    let dir = serde_json::from_value(serde_json::Value::String(dir_name.to_string()))
+        .map_err(|e| e.to_string())?;
+    win.start_resize_dragging(dir).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_admin_window_info() -> AdminWindowInfo {
     AdminWindowInfo {
@@ -1032,6 +1056,7 @@ pub fn run() {
             toggle_devtools,
             quit_app,
             open_admin_window,
+            start_resize,
             screenshot_screen,
             mouse_move,
             mouse_click,
