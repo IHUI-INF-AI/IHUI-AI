@@ -35,7 +35,7 @@ test.describe('Sidebar 视觉守门', () => {
     expect(firstSrc).toMatch(/\/images\/(logo|bailogo)\.svg\?v=/)
 
     // 拉取 SVG,确认 HTTP 200 + 非空 + 是合法 SVG(含 <svg 或 xmlns)
-    const src = await logoImgs.first().evaluate((img) => img.src)
+    const src = await logoImgs.first().evaluate((img) => (img as HTMLImageElement).src)
     const resp = await page.request.get(src)
     expect(resp.status()).toBe(200)
     const svg = await resp.text()
@@ -416,7 +416,10 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
   })
 
   // 提取核心几何断言,light/dark 共用
-  async function assertUserRowGeometry(page: import('@playwright/test').Page, mode: 'light' | 'dark') {
+  async function assertUserRowGeometry(
+    page: import('@playwright/test').Page,
+    mode: 'light' | 'dark',
+  ) {
     const data = await page.evaluate((evalMode) => {
       const aside = document.querySelector('aside')
       if (!aside) return { error: 'no aside' }
@@ -506,7 +509,9 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     await page.waitForTimeout(300)
 
     const data = await assertUserRowGeometry(page, 'light')
-    expect(data, `应能读取 SidebarUserRow DOM 数据: ${JSON.stringify(data)}`).not.toHaveProperty('error')
+    expect(data, `应能读取 SidebarUserRow DOM 数据: ${JSON.stringify(data)}`).not.toHaveProperty(
+      'error',
+    )
 
     const d = data as Exclude<typeof data, { error: string }>
     expect(d.mode).toBe('light')
@@ -519,24 +524,45 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     expect(d.btnW, `btnW 应为 36 (w-9),实际 ${d.btnW}`).toBeCloseTo(36, 0)
 
     // 3. 三中心对齐(diff ≤ 0.5px)
-    expect(d.midYDiffBtnRow, `btnMidY vs rowMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffBtnRow}`).toBeLessThanOrEqual(0.5)
-    expect(d.midYDiffSpanRow, `spanMidY vs rowMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffSpanRow}`).toBeLessThanOrEqual(0.5)
-    expect(d.midYDiffBtnSpan, `btnMidY vs spanMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffBtnSpan}`).toBeLessThanOrEqual(0.5)
+    expect(
+      d.midYDiffBtnRow,
+      `btnMidY vs rowMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffBtnRow}`,
+    ).toBeLessThanOrEqual(0.5)
+    expect(
+      d.midYDiffSpanRow,
+      `spanMidY vs rowMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffSpanRow}`,
+    ).toBeLessThanOrEqual(0.5)
+    expect(
+      d.midYDiffBtnSpan,
+      `btnMidY vs spanMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffBtnSpan}`,
+    ).toBeLessThanOrEqual(0.5)
 
     // 4. button 不超出 row 边界(diff ≤ 0.5px)
-    expect(d.btnOverRowTop, `btn 超出 row 顶部应 ≤ 0.5px,实际 ${d.btnOverRowTop}`).toBeGreaterThanOrEqual(-0.5)
-    expect(d.btnOverRowBottom, `btn 超出 row 底部应 ≤ 0.5px,实际 ${d.btnOverRowBottom}`).toBeGreaterThanOrEqual(-0.5)
+    expect(
+      d.btnOverRowTop,
+      `btn 超出 row 顶部应 ≤ 0.5px,实际 ${d.btnOverRowTop}`,
+    ).toBeGreaterThanOrEqual(-0.5)
+    expect(
+      d.btnOverRowBottom,
+      `btn 超出 row 底部应 ≤ 0.5px,实际 ${d.btnOverRowBottom}`,
+    ).toBeGreaterThanOrEqual(-0.5)
 
     // 5. 左右 padding 对称(px-2 = 8px,左右各 8px,差 ≤ 0.5px)
     expect(d.leftPadding, `leftPadding 应 ≈ 8px (px-2),实际 ${d.leftPadding}`).toBeCloseTo(8, 0)
     expect(d.rightPadding, `rightPadding 应 ≈ 8px (px-2),实际 ${d.rightPadding}`).toBeCloseTo(8, 0)
-    expect(d.paddingSymmetryDiff, `左右 padding 对称性 diff 应 ≤ 0.5px,实际 ${d.paddingSymmetryDiff}`).toBeLessThanOrEqual(0.5)
+    expect(
+      d.paddingSymmetryDiff,
+      `左右 padding 对称性 diff 应 ≤ 0.5px,实际 ${d.paddingSymmetryDiff}`,
+    ).toBeLessThanOrEqual(0.5)
 
     // 6. gap-2 = 8px(button 跟 span 之间)
     expect(d.gapBetween, `gapBetween 应 ≈ 8px (gap-2),实际 ${d.gapBetween}`).toBeCloseTo(8, 0)
 
     // 7. 父容器 flex justify-center 居中(左右空白对称,差 ≤ 1px)
-    expect(d.parentSymmetryDiff, `父容器左右空白对称 diff 应 ≤ 1px,实际 ${d.parentSymmetryDiff}`).toBeLessThanOrEqual(1)
+    expect(
+      d.parentSymmetryDiff,
+      `父容器左右空白对称 diff 应 ≤ 1px,实际 ${d.parentSymmetryDiff}`,
+    ).toBeLessThanOrEqual(1)
 
     // 8. span 不应被 truncate(昵称"系统管理员"5 字在 200px sidebar 内应完整显示)
     expect(d.spanTruncated, `span 不应被 truncate(昵称应完整显示)`).toBe(false)
@@ -551,7 +577,9 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     await page.waitForTimeout(300)
 
     const data = await assertUserRowGeometry(page, 'dark')
-    expect(data, `应能读取 SidebarUserRow DOM 数据: ${JSON.stringify(data)}`).not.toHaveProperty('error')
+    expect(data, `应能读取 SidebarUserRow DOM 数据: ${JSON.stringify(data)}`).not.toHaveProperty(
+      'error',
+    )
 
     const d = data as Exclude<typeof data, { error: string }>
     expect(d.mode).toBe('dark')
@@ -560,11 +588,23 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     expect(d.rowH, `dark: rowH 应为 36,实际 ${d.rowH}`).toBeCloseTo(36, 0)
     expect(d.btnH, `dark: btnH 应为 36,实际 ${d.btnH}`).toBeCloseTo(36, 0)
     expect(d.btnW, `dark: btnW 应为 36,实际 ${d.btnW}`).toBeCloseTo(36, 0)
-    expect(d.midYDiffBtnRow, `dark: btnMidY vs rowMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffBtnRow}`).toBeLessThanOrEqual(0.5)
-    expect(d.midYDiffSpanRow, `dark: spanMidY vs rowMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffSpanRow}`).toBeLessThanOrEqual(0.5)
-    expect(d.paddingSymmetryDiff, `dark: 左右 padding 对称 diff 应 ≤ 0.5px,实际 ${d.paddingSymmetryDiff}`).toBeLessThanOrEqual(0.5)
+    expect(
+      d.midYDiffBtnRow,
+      `dark: btnMidY vs rowMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffBtnRow}`,
+    ).toBeLessThanOrEqual(0.5)
+    expect(
+      d.midYDiffSpanRow,
+      `dark: spanMidY vs rowMidY 偏差应 ≤ 0.5px,实际 ${d.midYDiffSpanRow}`,
+    ).toBeLessThanOrEqual(0.5)
+    expect(
+      d.paddingSymmetryDiff,
+      `dark: 左右 padding 对称 diff 应 ≤ 0.5px,实际 ${d.paddingSymmetryDiff}`,
+    ).toBeLessThanOrEqual(0.5)
     expect(d.gapBetween, `dark: gapBetween 应 ≈ 8px,实际 ${d.gapBetween}`).toBeCloseTo(8, 0)
-    expect(d.parentSymmetryDiff, `dark: 父容器左右空白对称 diff 应 ≤ 1px,实际 ${d.parentSymmetryDiff}`).toBeLessThanOrEqual(1)
+    expect(
+      d.parentSymmetryDiff,
+      `dark: 父容器左右空白对称 diff 应 ≤ 1px,实际 ${d.parentSymmetryDiff}`,
+    ).toBeLessThanOrEqual(1)
   })
 
   test('已登录态 hover row 时背景覆盖 button+span+padding(不溢出 row 边界)', async ({ page }) => {
@@ -595,10 +635,18 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     const hd = hoverData as Exclude<typeof hoverData, { error: string }>
 
     // hover 背景应非透明(说明 hover:bg-sidebar-item-hover-bg 已应用)
-    expect(hd.bg, `hover bg 应非透明,实际 ${hd.bg}`).not.toMatch(/rgba?\(0,\s*0,\s*0,\s*0\)|rgba?\(0\s+0\s+0\s+\/\s+0\)/)
+    expect(hd.bg, `hover bg 应非透明,实际 ${hd.bg}`).not.toMatch(
+      /rgba?\(0,\s*0,\s*0,\s*0\)|rgba?\(0\s+0\s+0\s+\/\s+0\)/,
+    )
 
     // button 应在 row 内部,不贴边(有 padding-x = 8px)
-    expect(hd.btnInsideRowLeft, `hover 时 button 左侧应 ≈ 8px (px-2),实际 ${hd.btnInsideRowLeft}`).toBeCloseTo(8, 0)
-    expect(hd.btnInsideRowRight, `hover 时 button 右侧应 > 8px(右侧还有 span + gap + px-2),实际 ${hd.btnInsideRowRight}`).toBeGreaterThan(8)
+    expect(
+      hd.btnInsideRowLeft,
+      `hover 时 button 左侧应 ≈ 8px (px-2),实际 ${hd.btnInsideRowLeft}`,
+    ).toBeCloseTo(8, 0)
+    expect(
+      hd.btnInsideRowRight,
+      `hover 时 button 右侧应 > 8px(右侧还有 span + gap + px-2),实际 ${hd.btnInsideRowRight}`,
+    ).toBeGreaterThan(8)
   })
 })

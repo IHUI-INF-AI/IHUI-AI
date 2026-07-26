@@ -20,9 +20,6 @@ import { test, expect } from '@playwright/test'
  */
 
 const INDICATOR_SELECTOR = '.group\\/indicator'
-const ACTIVE_DOT_SELECTOR = 'span[aria-current="true"]' // button[aria-current] 包裹
-const ACTIVE_INNER_SELECTOR = 'span[aria-current="true"] > span, button[aria-current="true"] > span'
-const PX_TOLERANCE = 0.5
 
 async function getDotMetrics(page: import('@playwright/test').Page) {
   return await page.evaluate((selector) => {
@@ -32,6 +29,7 @@ async function getDotMetrics(page: import('@playwright/test').Page) {
     const dots = []
     for (let i = 0; i < buttons.length; i++) {
       const btn = buttons[i]
+      if (!btn) continue
       const span = btn.querySelector('span') as HTMLElement | null
       if (!span) continue
       const sb = span.getBoundingClientRect()
