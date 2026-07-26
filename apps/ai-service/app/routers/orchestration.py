@@ -51,7 +51,7 @@ router = APIRouter()
 class EmitEventBody(BaseModel):
     event_type: str = Field(..., description="事件类型")
     source_pillar: str = Field(..., description="来源支柱")
-    payload: dict = Field(default_factory=dict)
+    payload: dict[str, Any] = Field(default_factory=dict)
     severity: str = Field("info", description="info/warning/critical")
 
 
