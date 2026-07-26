@@ -18,6 +18,7 @@
 
 - [x] ✅(2026-07-26) i18n 死 key 清理 — 2 轮共清理 36 个死 key(commit 345f3253d 清 19 个 n8nAgentsPage + commit 60a664658 清 17 个 design/modelsBillingPage/modelsGroupsPage/modelsReferralPage),5 语言同步,`scan-dead-i18n-keys.mjs` 复扫死 key=0(0.0%),`--exit 1` 待挂 CI
 - [x] ✅(2026-07-26) LLM provider 字典化阶段 2 全量改造 — `ProviderConfig` Pydantic BaseModel + `get_provider_config()` 返回强类型 + 12 个核心测试全绿(commit f9ca34a60 G1 闭环 + commit 60ef869e9 24+7 provider 独立单测),详见 `docs/llm-provider-dict-design.md` §2.2.1 / §6.2
+- [x] ✅(2026-07-26) LLM 字典化闭环 PoC(G1+G2)— G1 业务代号字典 51 条 DOMAIN_ALIASES(`apps/ai-service/app/core/prompt_dict.py` + `project_memory.py` 注入 + `persona_registry.py` 集成),G2 LLM 自由输出统一 JSON Schema(`llm_gateway.structured_completion()` + OpenAI `response_format: { type: "json_schema" }` + `spec_generator.split_tasks` 迁移 + 15 个单测);commit `2621e7bff` G2(本地 `26d83555e` 经他 agent rebase),53 个 pytest 全绿,README 字典化三层能力对照表
 - [ ] LLM provider 字典化阶段 3(全量迁移 + .env 迁移脚本)— 触发条件:第 N+1 版本发布后,所有用户已升级 .env 格式(暂不执行);前置工作可做:① `scripts/migrate-llm-providers-env.mjs`(扁平字段 → JSON 迁移脚本);② `scripts/check-llm-provider-schema.mjs`(warn-only 守门);③ 发布说明 + changelog 草稿
 
 ---
