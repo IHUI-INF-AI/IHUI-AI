@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Layers, ArrowRight } from 'lucide-react'
+import { Layers, ArrowRight, Check, X, Sparkles, Github } from 'lucide-react'
+import { Button } from '@ihui/ui-react'
 
 const compareJsonLd = {
   '@context': 'https://schema.org',
@@ -67,6 +68,44 @@ const COMPARISONS = [
   },
 ]
 
+const TABLE_COLS = ['IHUI-AI', 'ChatGPT Plus', 'Dify', 'LangChain', 'Coze', 'FastGPT'] as const
+const TABLE_ROWS: [string, string, boolean, string, boolean, string, boolean, string, boolean, string, boolean, string, boolean][] = [
+  ['开源协议', 'Apache 2.0', true, '闭源', false, 'Apache 2.0', true, 'MIT', true, '闭源', false, 'Apache 2.0', true],
+  ['私有化部署', '免费', true, '不支持', false, '付费', true, '支持', true, '不支持', false, '付费', true],
+  ['8 端同源', 'Web/API/CLI/Desktop/Ext/Mobile/Miniapp', true, '仅 Web', false, '仅 Web', false, '库', false, '仅 Web', false, '仅 Web', false],
+  ['LLM 模型数', '176', true, '1 (GPT)', false, '50+', true, '100+', true, '10+', true, '50+', true],
+  ['MCP 协议', '支持', true, '不支持', false, '不支持', false, '不支持', false, '不支持', false, '不支持', false],
+  ['A2A 协议', '支持', true, '不支持', false, '不支持', false, '不支持', false, '不支持', false, '不支持', false],
+  ['RAG 知识库', '引用追溯', true, '支持', true, '支持', true, '库', false, '支持', true, '支持', true],
+  ['Agent 市场', '支持', true, 'GPT Store', true, '不支持', false, '不支持', false, '支持', true, '不支持', false],
+  ['SaaS 计费', '内置', true, '不支持', false, '支持', true, '不支持', false, '不支持', false, '支持', true],
+  ['数据库表', '340', true, '?', false, '?', false, '无', false, '?', false, '?', false],
+  ['测试覆盖', '5346', true, '?', false, '?', false, '?', false, '?', false, '?', false],
+  ['价格', '免费/¥99月起', true, '$20/月起', false, '免费/付费', true, '免费', true, '免费/付费', true, '免费/付费', true],
+]
+
+const ALL_COMPARISONS = [
+  { group: 'AI 应用平台', items: ['dify', 'coze', 'fastgpt', 'flowise', 'typebot', 'stack-ai'] },
+  { group: 'AI 编排框架', items: ['langchain', 'llamaindex', 'crewai', 'autogen', 'openai-agent'] },
+  { group: '自动化工具', items: ['n8n', 'make', 'zapier-ai', 'wordware', 'spark', 'relevance-ai'] },
+  { group: 'AI 编程助手', items: ['cursor', 'github-copilot', 'claude-code', 'bolt-new', 'v0-dev', 'lovable', 'replit-agent', 'windsurf', 'devin', 'manus'] },
+  { group: '国内大模型平台', items: ['qwen-platform', 'deepseek-platform', 'doubao', 'kimi-platform', 'minimax', 'zhipu', 'ernie'] },
+  { group: '企业级', items: ['copilot-studio', 'voiceflow'] },
+]
+
+const LABELS: Record<string, string> = {
+  'dify': 'Dify', 'coze': 'Coze', 'fastgpt': 'FastGPT', 'flowise': 'Flowise', 'typebot': 'Typebot',
+  'stack-ai': 'Stack AI', 'langchain': 'LangChain', 'llamaindex': 'LlamaIndex', 'crewai': 'CrewAI',
+  'autogen': 'AutoGen', 'openai-agent': 'OpenAI Agent', 'n8n': 'n8n', 'make': 'Make',
+  'zapier-ai': 'Zapier AI', 'wordware': 'Wordware', 'spark': 'Spark', 'relevance-ai': 'Relevance AI',
+  'cursor': 'Cursor', 'github-copilot': 'GitHub Copilot', 'claude-code': 'Claude Code',
+  'bolt-new': 'Bolt.new', 'v0-dev': 'v0.dev', 'lovable': 'Lovable', 'replit-agent': 'Replit Agent',
+  'windsurf': 'Windsurf', 'devin': 'Devin', 'manus': 'Manus', 'qwen-platform': '通义千问平台',
+  'deepseek-platform': 'DeepSeek 平台', 'doubao': '豆包', 'kimi-platform': 'Kimi 平台',
+  'minimax': 'MiniMax', 'zhipu': '智谱', 'ernie': '文心一言', 'copilot-studio': 'Copilot Studio',
+  'voiceflow': 'Voiceflow',
+}
+
 export default function CompareIndexPage() {
   return (
     <>
@@ -110,6 +149,80 @@ export default function CompareIndexPage() {
               </ul>
             </Link>
           ))}
+        </section>
+
+        {/* 综合对比表格 */}
+        <section className="mt-12">
+          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">综合对比表</h2>
+          <p className="mt-1 text-sm text-muted-foreground">7 大平台 12 项指标一目了然</p>
+          <div className="mt-6 overflow-x-auto rounded-lg border bg-card shadow-sm">
+            <table className="w-full min-w-[760px]">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="px-3 py-3 text-left text-sm font-semibold md:px-4">特性</th>
+                  {TABLE_COLS.map((col, i) => (
+                    <th key={col} className={`px-3 py-3 text-center text-sm font-semibold md:px-4 ${i === 0 ? 'text-primary' : ''}`}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {TABLE_ROWS.map((row, idx) => (
+                  <tr key={row[0]} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}>
+                    <td className="px-3 py-3 text-sm font-medium md:px-4">{row[0]}</td>
+                    {TABLE_COLS.map((_, ci) => {
+                      const text = row[ci * 2 + 1]
+                      const ok = row[ci * 2 + 2]
+                      return (
+                        <td key={ci} className={`px-3 py-3 text-center text-sm md:px-4 ${ci === 0 ? 'bg-primary/5 font-medium' : ''}`}>
+                          <span className="inline-flex items-center gap-1.5">
+                            {ok === true && <Check className="h-4 w-4 shrink-0 text-green-600" aria-hidden />}
+                            {ok === false && <X className="h-4 w-4 shrink-0 text-red-600" aria-hidden />}
+                            <span className={ok === false ? 'text-red-600' : ''}>{text}</span>
+                          </span>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* 全部 36 个深度对比 */}
+        <section className="mt-12">
+          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">全部深度对比</h2>
+          <p className="mt-1 text-sm text-muted-foreground">IHUI-AI 与 36 个竞品的逐一深度对比</p>
+          <div className="mt-6 space-y-6">
+            {ALL_COMPARISONS.map(({ group, items }) => (
+              <div key={group}>
+                <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {items.map((slug) => (
+                    <Link key={slug} href={`/compare/ihui-vs-${slug}`} className="inline-flex items-center rounded-md border bg-card px-2.5 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5">
+                      {LABELS[slug] ?? slug}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="mt-12 rounded-lg border bg-primary/5 p-8 text-center md:p-12">
+          <Sparkles className="mx-auto h-10 w-10 text-primary" />
+          <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">立即开始使用 IHUI-AI</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">开源、免费、8 端同源,176 模型 + LangGraph + MCP + A2A 三栈合一。</p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Button size="lg" asChild><Link href="/pricing">立即开始</Link></Button>
+            <Button size="lg" variant="outline" asChild>
+              <a href="https://github.com/IHUI-INF-AI/IHUI-AI" target="_blank" rel="noopener noreferrer">
+                <Github className="mr-2 h-4 w-4" />
+                查看 GitHub
+              </a>
+            </Button>
+          </div>
         </section>
       </main>
     </>
