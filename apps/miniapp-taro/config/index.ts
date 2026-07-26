@@ -23,9 +23,16 @@ export default defineConfig(async (merge) => {
       options: {},
     },
     framework: 'react',
-    // H5 切 webpack5 编译器规避 Taro 4.2.0 Vite runner 缺陷 (GitHub #17978/#18415)
+    // H5 + alipay 切 webpack5 编译器规避 Taro 4.2.0 Vite runner 缺陷:
+    // - H5: GitHub #17978/#18415 (custom-tab-bar 不输出)
+    // - alipay: vite-runner `taro:vite-mini-emit-post` 的 Proxy.set 未防御
+    //   chunk=undefined,而 @tarojs/plugin-platform-alipay 的
+    //   generateBrowserslistConfig 会向 assets proxy 写入 bundle 中不存在的
+    //   `.browserslistrc` key,触发 `Cannot read properties of undefined
+    //   (reading 'type')`。webpack5 runner 的 modifyBuildAssets 实现支持
+    //   新增 asset,故 alipay 走 webpack5 绕过此 bug。
     // weapp 等其他端继续用 Vite (已验证 100+ 页面正常)
-    compiler: process.env.TARO_ENV === 'h5' ? 'webpack5' : 'vite',
+    compiler: process.env.TARO_ENV === 'h5' || process.env.TARO_ENV === 'alipay' ? 'webpack5' : 'vite',
     cache: { enable: true },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
@@ -43,6 +50,32 @@ export default defineConfig(async (merge) => {
           },
         },
       },
+      // alipay 切 webpack5 后,需让 babel-loader 处理 @ihui/* workspace 包 TS 源码
+      // (这些包 main 字段直接指向 src/*.ts,未预编译,默认 babel-loader exclude 会跳过)
+      // 项目无 babel.config.js,需在 babel-loader 程序化注入 babel-preset-taro
+      // (与 H5 同模式,但 mini 端不配置 splitChunks/runtimeChunk: 小程序对
+      // 异步 chunk 数量与 import() 加载有限制,保留 Taro 默认打包策略)
+      ...(process.env.TARO_ENV === 'alipay'
+        ? {
+            compile: {
+              include: [
+                path.resolve(__dirname, '..', '..', '..', 'packages', 'api-client', 'src'),
+                path.resolve(__dirname, '..', '..', '..', 'packages', 'design-tokens', 'src'),
+                path.resolve(__dirname, '..', '..', '..', 'packages', 'i18n', 'src'),
+                path.resolve(__dirname, '..', '..', '..', 'packages', 'shared', 'src'),
+                path.resolve(__dirname, '..', '..', '..', 'packages', 'types', 'src'),
+              ],
+            },
+            webpackChain: (chain: any) => {
+              chain.module.rule('script').use('babelLoader').tap((options: any) => ({
+                ...options,
+                presets: [
+                  ['taro', { framework: 'react', ts: true, compiler: 'webpack5' }],
+                ],
+              }))
+            },
+          }
+        : {}),
     },
     h5: {
       publicPath: '/',
