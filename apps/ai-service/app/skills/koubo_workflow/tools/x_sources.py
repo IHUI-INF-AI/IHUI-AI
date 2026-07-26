@@ -35,9 +35,21 @@ X 平台在沙箱的可达性（已实测 2026-07-16）：
 import json
 import os
 from datetime import datetime
+from typing import TypedDict, cast
+
+
+class XSource(TypedDict):
+    """X 平台信源条目结构。"""
+    handle: str
+    name: str
+    official: bool
+    priority: int
+    covers: list[str]
+    verified: bool
+
 
 # ===================== X 信源注册表 =====================
-X_SOURCES = {
+X_SOURCES: dict[str, list[XSource]] = {
     # ---------- 国内官方模型实验室（发布潮核心信源） ----------
     'official_domestic': [
         {'handle': 'kimi_moonshot', 'name': 'Kimi / 月之暗面', 'official': True, 'priority': 1,
@@ -211,9 +223,9 @@ def checklist_for_topic(keywords, limit=None):
     lines = [f'# X 平台信源核查清单（主题：{keywords}）', '',
              '> 用 WebFetch 逐一打开 https://x.com/<handle> 取最新推文；',
              '> 并补一轮 WebSearch "site:x.com <主题关键词>"。', '']
-    by_cat = {}
+    by_cat: dict[str, list[dict[str, object]]] = {}
     for it in picks:
-        by_cat.setdefault(it['cat'], []).append(it)
+        by_cat.setdefault(cast(str, it['cat']), []).append(it)
     for cat in ['official_domestic', 'official_intl', 'media', 'researchers', 'aggregators']:
         if cat not in by_cat:
             continue
