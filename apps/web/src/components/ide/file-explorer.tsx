@@ -5,6 +5,7 @@ import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { FileTreeNode } from './file-tree-node'
 import { getFileIcon, getFileColor } from './file-icons'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import {
   Search, FilePlus, RefreshCw,
   FunctionSquare, Box, Variable, Type,
@@ -118,9 +119,11 @@ export function FileExplorer() {
               className="w-full rounded-md border border-border bg-background py-1 pl-7 pr-2 text-xs focus:outline-none"
             />
           </div>
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" title={t('fileExplorer.newFile')}>
-            <FilePlus className="h-3.5 w-3.5" />
-          </button>
+          <Tooltip content={t('fileExplorer.newFile')}>
+            <button className="rounded p-1 text-muted-foreground hover:bg-muted/50">
+              <FilePlus className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
           <button
             onClick={() => void fetchFileTree()}
             className="rounded p-1 text-muted-foreground hover:bg-muted/50"
