@@ -86,7 +86,7 @@ export default function EduLearnRankingPage() {
         </Button>
         <div className="w-full max-w-[140px]">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className={selectClass} aria-label={t('period')}>
+            <SelectTrigger className={selectClass} aria-label={t('period.label')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -372,7 +372,16 @@
       "close": "Close announcement"
     },
     "banner": {
-      "switchTo": "Switch to slide {index}"
+      "switchTo": "Switch to slide {index}",
+      "slide1Cta": "Start Learning",
+      "slide1Subtitle": "Personalized learning paths with AI tutoring for efficient growth",
+      "slide1Title": "AI Smart Learning Platform",
+      "slide2Cta": "Enter Live Room",
+      "slide2Subtitle": "Expert live streaming with real-time Q&A",
+      "slide2Title": "Live Interactive Streaming",
+      "slide3Cta": "Start Assessment",
+      "slide3Subtitle": "Intelligent test generation for accurate evaluation",
+      "slide3Title": "AI Smart Assessment"
     },
     "memberCard": {
       "points": "Points",
@@ -420,6 +429,22 @@
       "questions": "{count} Q",
       "answers": "{count} answers",
       "members": "{count} members"
+    },
+    "marquee": {
+      "kouzi": "Coze",
+      "bbxLogo": "BBX",
+      "zhipu": "Zhipu AI",
+      "brand8": "Brand 8",
+      "ali": "Alibaba",
+      "baidu": "Baidu",
+      "dbsfdx": "Northeast Normal University",
+      "gork": "Gork",
+      "huawei": "Huawei",
+      "jldx": "Jilin University",
+      "openai": "OpenAI",
+      "tencent": "Tencent",
+      "yuanbaoxiang": "Yuanbao Box",
+      "yushu": "Unitree Robotics"
     }
   },
   "announcements": {
@@ -1040,7 +1065,8 @@
     "answerCount": "{count} answers",
     "viewCount": "{count} views",
     "required": "Title and content are required",
-    "answerQuestion": "Answer"
+    "answerQuestion": "Answer",
+    "all": ""
   },
   "payment": {
     "title": "Pricing Plans",
@@ -1048,8 +1074,39 @@
     "popular": "Popular",
     "perMonth": "/mo",
     "plans": {
+      "free": {
+        "name": "Free",
+        "cta": "Get Started",
+        "features": [
+          "1,000 credits per month",
+          "All AI models",
+          "All 6 clients",
+          "API access",
+          "Community support"
+        ]
+      },
+      "pro": {
+        "name": "Pro",
+        "cta": "Upgrade to Pro",
+        "features": [
+          "10,000 credits per month",
+          "Priority queue",
+          "Advanced models (GPT-4o/Claude Opus)",
+          "Team collaboration (5 seats)",
+          "Email support"
+        ]
+      },
       "enterprise": {
-        "contactSales": "Contact Sales"
+        "name": "Enterprise",
+        "contactSales": "Contact Sales",
+        "cta": "Contact Sales",
+        "features": [
+          "Unlimited credits",
+          "Self-hosted deployment",
+          "SSO/SAML 2.0",
+          "Audit logs",
+          "Dedicated technical support"
+        ]
       }
     },
     "checkout": {
@@ -1546,6 +1603,7 @@
           "pageInfo": "Page {page} / {totalPages}",
           "nextPage": "Next",
           "type": {
+            "label": "Type",
             "study": "Study",
             "exam": "Exam",
             "live": "Live",
@@ -1575,6 +1633,7 @@
           "pageInfo": "Page {page} / {totalPages}",
           "nextPage": "Next",
           "period": {
+            "label": "Period",
             "week": "This Week",
             "month": "This Month",
             "total": "All",
@@ -5493,7 +5552,10 @@
       "userId": "User ID",
       "aiUsage": "AI Usage Stats",
       "routines": "Routines",
-      "voiceRecord": "Voice Recording"
+      "voiceRecord": "Voice Recording",
+      "gender_female": "",
+      "gender_male": "",
+      "gender_unknown": ""
     },
     "security": {
       "title": "Security",
@@ -5530,7 +5592,16 @@
       "viewTimeline": "Timeline View",
       "justNow": "just now",
       "minutesAgo": "{min} min ago",
-      "hoursAgo": "{hr} hr ago"
+      "hoursAgo": "{hr} hr ago",
+      "daysAgo": "{day} days ago",
+      "tab": {
+        "all": "",
+        "comment": "",
+        "follow": "",
+        "order": "",
+        "project": "",
+        "system": ""
+      }
     },
     "public": {
       "notFound": "User not found or no access",
@@ -5762,7 +5833,10 @@
       "useRefTemplate": "Use This Template",
       "templateLoaded": "Opened AI panel, creating {name} automation task for you",
       "exampleInvokePrompt": "Please help me create an automation task. Task name: {name}. Description: {desc}. Schedule: {schedule}. Expected output: {output}. Please guide me through the configuration based on this template, including confirming execution time, content sources, output methods, and other details."
-    }
+    },
+    "automation": "",
+    "koubo": "",
+    "wechat": ""
   },
   "publish": {
     "title": "Multi-Platform Publishing",
@@ -5809,7 +5883,13 @@
       "uploading": "Uploading...",
       "uploadSuccess": "Uploaded: {filename}",
       "uploadFailed": "Upload Failed",
-      "uploadedHint": "File uploaded. Click to replace."
+      "uploadedHint": "File uploaded. Click to replace.",
+      "contentFormatDocx": "",
+      "contentFormatHtml": "",
+      "contentFormatImage": "",
+      "contentFormatMd": "",
+      "contentFormatPdf": "",
+      "contentFormatVideo": ""
     },
     "history": {
       "duration": "Duration",
@@ -5829,6 +5909,27 @@
       "totalSuccess": "Success Count",
       "totalFailed": "Failed Count",
       "successRate": "Success Rate"
+    },
+    "platforms": {
+      "bilibili": "",
+      "csdn": "",
+      "douyin": "",
+      "juejin": "",
+      "kuaishou": "",
+      "medium": "",
+      "shipinhao": "",
+      "toutiao": "",
+      "wechat": "",
+      "weibo": "",
+      "wordpress": "",
+      "xiaohongshu": "",
+      "youtube": "",
+      "zhihu": ""
+    },
+    "tabs": {
+      "accounts": "",
+      "history": "",
+      "new": ""
     }
   },
   "settings": {
@@ -5998,7 +6099,39 @@
     },
     "desc": {
       "notificationSound": "Receive Notice H"
-    }
+    },
+    "billingAmount": "",
+    "billingCreatedAt": "",
+    "billingLoading": "",
+    "billingNext": "",
+    "billingOrderNo": "",
+    "billingPageInfo": "",
+    "billingPrev": "",
+    "billingStatus": "",
+    "billingTotal": "",
+    "cliImportDesc": "",
+    "cliImportTitle": "",
+    "icpRecordEntity": "",
+    "icpRecordEntityType": "",
+    "icpRecordNumber": "",
+    "icpRecordScope": "",
+    "icpRecordTime": "",
+    "icpRecordUrl": "",
+    "llmConfigsDesc": "",
+    "llmConfigsTitle": "",
+    "miniappQr": "",
+    "miniappQrDesc": "",
+    "modelRecordAlgorithmType": "",
+    "modelRecordApplicant": "",
+    "modelRecordApplyDate": "",
+    "modelRecordModelName": "",
+    "modelRecordNumber": "",
+    "modelRecordScope": "",
+    "modelRecordStatus": "",
+    "profileDesc": "",
+    "profileTitle": "",
+    "securityDesc": "",
+    "securityTitle": ""
   },
   "help": {
     "contactSupport": "Contact Support",
@@ -6023,7 +6156,12 @@
     "subtitle": "Your saved items",
     "remove": "Remove",
     "empty": "No favorites yet",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "tabs": {
+      "all": "",
+      "file": "",
+      "project": ""
+    }
   },
   "follows": {
     "title": "Following",
@@ -6035,7 +6173,13 @@
     "subtitle": "Manage your subscriptions",
     "cancel": "Unsubscribe",
     "empty": "No subscriptions",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "tabs": {
+      "all": "",
+      "project": "",
+      "tag": "",
+      "user": ""
+    }
   },
   "tags": {
     "title": "Tags",
@@ -6355,7 +6499,11 @@
         "code": "Code",
         "amount": "Amount",
         "time": "Redeem Time",
-        "status": "Status"
+        "status": "Status",
+        "statusLabels": {
+          "failed": "",
+          "success": ""
+        }
       }
     },
     "openclaw": {
@@ -6389,7 +6537,15 @@
           "title": "One-Click Launch",
           "desc": "Execute the deploy command and wait for the service to be ready"
         }
-      ]
+      ],
+      "features": {
+        "cache": "",
+        "loadBalance": "",
+        "monitor": "",
+        "multiModel": "",
+        "oneClick": "",
+        "scale": ""
+      }
     },
     "apiDocs": {
       "title": "API Documentation",
@@ -6424,7 +6580,55 @@
       "allTitle": "All Skills",
       "featured": "Featured",
       "install": "Install",
-      "installs": "{count} installs"
+      "installs": "{count} installs",
+      "categories": {
+        "code": "",
+        "communication": "",
+        "data": "",
+        "media": "",
+        "productivity": "",
+        "search": "",
+        "system": "",
+        "weather": ""
+      },
+      "items": {
+        "audioTranscribe": {
+          "desc": ""
+        },
+        "calendar": {
+          "desc": ""
+        },
+        "codeRunner": {
+          "desc": ""
+        },
+        "dataViz": {
+          "desc": ""
+        },
+        "databaseQuery": {
+          "desc": ""
+        },
+        "emailSender": {
+          "desc": ""
+        },
+        "healthcheck": {
+          "desc": ""
+        },
+        "imageGen": {
+          "desc": ""
+        },
+        "nodeConnect": {
+          "desc": ""
+        },
+        "pdfToolkit": {
+          "desc": ""
+        },
+        "weather": {
+          "desc": ""
+        },
+        "webSearch": {
+          "desc": ""
+        }
+      }
     },
     "groupsMgmt": {
       "title": "Groups",
@@ -6452,7 +6656,9 @@
       },
       "statusLabels": {
         "success": "Success",
-        "failed": "Failed"
+        "failed": "Failed",
+        "disabled": "",
+        "enabled": ""
       }
     },
     "chats": {
@@ -6484,6 +6690,15 @@
         "totalCalls": "Total Calls",
         "status": "Status",
         "createdAt": "Created At"
+      },
+      "roleLabels": {
+        "admin": "",
+        "user": "",
+        "vip": ""
+      },
+      "statusLabels": {
+        "active": "",
+        "disabled": ""
       }
     },
     "contact": {
@@ -6641,7 +6856,9 @@
     "backToList": "Back to feedback",
     "notFound": "Feedback not found or no access",
     "field_images": "Images",
-    "imagesPlaceholder": "Paste or drag images here"
+    "imagesPlaceholder": "Paste or drag images here",
+    "tab_list": "",
+    "tab_new": ""
   },
   "comments": {
     "replyTitle": "Admin Reply",
@@ -6698,7 +6915,19 @@
       "consecutiveLabel": "Streak",
       "loading": "Loading...",
       "empty": "No sign-in records",
-      "backToPoints": "Back to Points"
+      "backToPoints": "Back to Points",
+      "day0": "",
+      "day1": "",
+      "day2": "",
+      "day3": "",
+      "day4": "",
+      "day5": "",
+      "day6": ""
+    },
+    "tab": {
+      "lb": "",
+      "redeem": "",
+      "tx": ""
     }
   },
   "orders": {
@@ -6713,7 +6942,19 @@
     "statusLabel": "Status",
     "createdAt": "Created At",
     "total": "{total} total",
-    "orderType": "Order Type"
+    "orderType": "Order Type",
+    "status": {
+      "all": "",
+      "cancelled": "",
+      "paid": "",
+      "pending": "",
+      "refunded": ""
+    },
+    "type": {
+      "all": "",
+      "card": "",
+      "course": ""
+    }
   },
   "live": {
     "title": "Live Courses",
@@ -7157,8 +7398,15 @@
       "priority": "Priority",
       "cancel": "Cancel",
       "connected": "Connected",
-      "disconnected": "Disconnected"
-    }
+      "disconnected": "Disconnected",
+      "high": "",
+      "low": "",
+      "medium": ""
+    },
+    "statusOffline": "",
+    "statusPending": "",
+    "statusPublished": "",
+    "statusRejected": ""
   },
   "agents": {
     "kanban": {
@@ -7245,14 +7493,30 @@
     "colActualAmount": "Actual amount",
     "colFee": "Fee",
     "colMethod": "Method",
-    "colProcessedAt": "Processed at"
+    "colProcessedAt": "Processed at",
+    "orderStatusPending": "Pending",
+    "orderStatusPaid": "Paid",
+    "orderStatusCancelled": "Cancelled",
+    "orderStatusRefunded": "Refunded",
+    "flowRecharge": "Recharge",
+    "flowDeduct": "Deduct",
+    "flowExpire": "Expired"
   },
   "tokenValue": {
     "title": "I Value",
     "subtitle": "View Value Apply Recordand Balance",
     "currentBalance": "Current Balance",
     "totalEarned": "Total Earned",
-    "totalUsed": "Total Used"
+    "totalUsed": "Total Used",
+    "colAgent": "",
+    "colAmount": "",
+    "colModel": "",
+    "colTime": "",
+    "colToken": "",
+    "range30d": "",
+    "range7d": "",
+    "rangeCustom": "",
+    "rangeToday": ""
   },
   "distributionCompany": {
     "title": "I Company",
@@ -7270,20 +7534,29 @@
     "viewDetail": "View Detail"
   },
   "commissionPlan": {
-    "title": "MinPlan",
-    "subtitle": "Invitationsgood，Commission",
-    "rulesTitle": "Min",
-    "joinVip": "OnVIPMember andMinPlan",
+    "title": "Commission Plan",
+    "subtitle": "Invite friends and earn commissions",
+    "rulesTitle": "Commission Rules",
+    "joinVip": "Activate VIP membership to join the commission plan",
     "totalEarnings": "Total Earnings",
-    "totalInvites": "Invitationspeople",
+    "totalInvites": "Total Invites",
     "pendingSettlement": "Pending Settlement",
     "inviteTitle": "Invite Code",
     "inviteCode": "Invite Code",
     "inviteLinkPlaceholder": "Generating invite link...",
     "levelsTitle": "Commission Rates by Level",
+    "level1": "Tier 1 Distribution",
+    "level2": "Tier 2 Distribution",
+    "level3": "Tier 3 Distribution",
     "commissionRate": "Commission Rate",
     "copied": "Copied",
-    "copy": "Copy"
+    "copy": "Copy",
+    "rule1Title": "Tier 1 Commission",
+    "rule1": "When the invitee first tops up, the inviter earns a 10% commission.",
+    "rule2Title": "Tier 2 Commission",
+    "rule2": "When the invitee's sub-tier tops up, the inviter earns a 15% commission.",
+    "rule3Title": "Tier 3 Commission",
+    "rule3": "When the invitee's tier-3 sub-tier tops up, the inviter earns a 20% commission."
   },
   "oauthPlatform": {
     "featureApiTitle": "Open API",
@@ -7778,7 +8051,9 @@
     "styleElectronic": "Electronic",
     "pageTitle": "AI Content Generation",
     "pageSubtitle": "Select a type to generate text, images, videos, audio, 3D models and more",
-    "clear": "Clear"
+    "clear": "Clear",
+    "tabCode": "",
+    "tabText": ""
   },
   "mcp": {
     "noParameters": "This tool has no parameters",
@@ -7902,7 +8177,7 @@
     "q1Question": "What is IHUI AI?",
     "q1Answer": "IHUI AI (Chinese: 智汇 AI) is an all-in-one full-stack AI operating system. It unifies Agent design, knowledge-base RAG, multi-model dispatch, cross-platform collaboration and team operations in a single platform, supporting six clients (Web, Desktop, Mini Program, Browser Extension, React Native, CLI) from one codebase, with Apache 2.0 open-source core and self-hosting support.",
     "q2Question": "How is IHUI AI different from Dify, Coze, and FastGPT?",
-    "q2Answer": "Dify focuses on LLM app development (web only); Coze is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q&A. IHUI AI is the only open-source platform that simultaneously covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing — one platform that replaces the Dify + Coze + FastGPT trio.",
+    "q2Answer": "Dify focuses on LLM app development (web only); Coze is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q&A. IHUI AI is an open-source platform that simultaneously covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing — one platform that replaces the Dify + Coze + FastGPT trio.",
     "q3Question": "Who is IHUI AI for?",
     "q3Answer": "Three audiences benefit most: AI developers (rapidly build/distribute/monetize Agents, publish to all six clients in one click), enterprise IT (self-host for data sovereignty, unified AI capability hub), and team leaders (multi-user collaboration, unified knowledge base, unified billing).",
     "q4Question": "Which AI models are supported?",
@@ -7976,25 +8251,35 @@
   },
   "myAsks": {
     "delete": "Delete",
-    "deleteConfirm": "Are you sure to delete this question?"
+    "deleteConfirm": "Are you sure to delete this question?",
+    "subtitle": "",
+    "title": ""
   },
   "myCircles": {
     "leave": "Leave",
-    "leaveConfirm": "Are you sure to leave this circle?"
+    "leaveConfirm": "Are you sure to leave this circle?",
+    "subtitle": "",
+    "title": ""
   },
   "myArticles": {
     "create": "Write Article",
     "edit": "Edit",
     "delete": "Delete",
-    "deleteConfirm": "Are you sure to delete this article?"
+    "deleteConfirm": "Are you sure to delete this article?",
+    "subtitle": "",
+    "title": ""
   },
   "myResources": {
-    "deleteConfirm": "Are you sure to delete this resource?"
+    "deleteConfirm": "Are you sure to delete this resource?",
+    "subtitle": "",
+    "title": ""
   },
   "myComments": {
     "delete": "Delete",
     "deleteConfirm": "Are you sure to delete this comment?",
-    "targetType": "Target"
+    "targetType": "Target",
+    "subtitle": "",
+    "title": ""
   },
   "sso": {
     "title": "Unified Login",
@@ -8369,7 +8654,13 @@
       "description": "Browse and integrate open APIs",
       "searchPlaceholder": "Search API name or description...",
       "loading": "Loading...",
-      "noMatch": "No matching APIs"
+      "noMatch": "No matching APIs",
+      "catAll": "",
+      "catAudio": "",
+      "catChat": "",
+      "catImage": "",
+      "catTool": "",
+      "catVideo": ""
     },
     "models": {
       "title": "Model Marketplace",
@@ -8386,7 +8677,13 @@
       "description": "Discover reusable AI Agents",
       "searchPlaceholder": "Search Agent name or description...",
       "loading": "Loading...",
-      "noMatch": "No matching Agents"
+      "noMatch": "No matching Agents",
+      "catAll": "",
+      "catAnalysis": "",
+      "catChat": "",
+      "catCoding": "",
+      "catTool": "",
+      "catWriting": ""
     },
     "documents": {
       "title": "Docs Marketplace",
@@ -8546,32 +8843,58 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
@@ -8586,7 +8909,62 @@
     "contactWechat": "WeChat QR Code",
     "contactWechatHint": "Scan to add customer service WeChat, or search ID ok502319984",
     "ecosystem": "Ecosystem Partners",
-    "copyright": "© 2025 Zhihui AI Group · China"
+    "icp": "Ji ICP No. 2025027274",
+    "copyright": "© 2025 Zhihui AI Group · China",
+    "modelRecord": "Model Filing",
+    "cloudDatabases": "",
+    "communityGroup": "",
+    "databases": {
+      "mongodb": "",
+      "mysql": "",
+      "postgresql": "",
+      "redis": "",
+      "sqlite": ""
+    },
+    "modelItems": {
+      "claude": "",
+      "deepseek": "",
+      "doubao": "",
+      "gemini": "",
+      "gpt": "",
+      "llama": "",
+      "mistral": "",
+      "qwen": ""
+    },
+    "models": "",
+    "officialApp": "",
+    "officialWechat": "",
+    "paymentPlatforms": "",
+    "payments": {
+      "alipay": "",
+      "douyin": "",
+      "unionpay": "",
+      "visa": "",
+      "wechat": ""
+    },
+    "platforms": {
+      "coze": "",
+      "n8n": ""
+    },
+    "promos": {
+      "baidu": "",
+      "bilibili": "",
+      "douyin": "",
+      "facebook": "",
+      "github": "",
+      "google": "",
+      "kuaishou": "",
+      "qq": "",
+      "reddit": "",
+      "telegram": "",
+      "wechat": "",
+      "wechatChannels": "",
+      "weibo": "",
+      "x": "",
+      "xiaohongshu": "",
+      "youtube": ""
+    },
+    "supportedPlatforms": ""
   },
   "plugins": {
     "title": "Plugin Market",
@@ -8650,7 +9028,10 @@
     "addedToChatReal": "Added {name} to chat. LLM can actually call the corresponding MCP tool",
     "addedToChatModel": "Added {name} to chat. Configure the API Key in .env to activate the model",
     "addedToChatPrompt": "Added {name} to chat (prompt intent only, no corresponding backend tool)",
-    "removedFromChat": "Removed {name} from chat"
+    "removedFromChat": "Removed {name} from chat",
+    "sortDefault": "",
+    "sortInstalled": "",
+    "sortName": ""
   },
   "aiWorld": {
     "admin": {
@@ -8870,7 +9251,8 @@
     "positioning": {
       "label": "Core Positioning",
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era",
-      "description": "IHUI AI Community is dedicated to helping enterprise decision-makers deeply understand the relationship between AI and enterprises. Through systematic courses, hands-on exploration, and community mutual aid, we build human-machine collaborative super organizations and achieve rational efficiency gains for enterprises."
+      "description": "IHUI AI Community is dedicated to helping enterprise decision-makers deeply understand the relationship between AI and enterprises. Through systematic courses, hands-on exploration, and community mutual aid, we build human-machine collaborative super organizations and achieve rational efficiency gains for enterprises.",
+      "tags": []
     },
     "modules": {
       "label": "Three Service Modules",
@@ -8880,19 +9262,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -8902,7 +9296,8 @@
       "subtitle": "Limited to the first 18 members · Early-bird price ¥6000/person/year · Full refund if not satisfied",
       "perYear": "/person/year",
       "joinNow": "Join Now",
-      "consultHint": "Scan to consult or contact us directly"
+      "consultHint": "Scan to consult or contact us directly",
+      "benefits": []
     },
     "courses": {
       "label": "Curriculum",
@@ -9012,25 +9407,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -9055,7 +9462,30 @@
           "title": "Human-Centric Value",
           "desc": "Corporate culture, mission and vision, critical thinking, and humble attitude"
         }
-      ]
+      ],
+      "effectFlow": [],
+      "effectMetrics": [],
+      "infoAdvanced": [],
+      "infoBasic": []
+    },
+    "carousel": {
+      "slide1Title": "Enterprise AI Operating System",
+      "slide1Subtitle": "Build, deploy, and manage enterprise AI applications in one platform",
+      "slide1Cta": "Request Demo",
+      "slide2Title": "Agent Collaboration Platform",
+      "slide2Subtitle": "Multi-agent orchestration for complex business automation",
+      "slide2Cta": "View Use Cases",
+      "slide3Title": "Full-Stack AI Toolchain",
+      "slide3Subtitle": "From model gateway to knowledge base, out of the box",
+      "slide3Cta": "Explore Products",
+      "slide4Title": "Dedicated Seat Plans",
+      "slide4Subtitle": "Tailored for teams, flexible scaling",
+      "slide4Cta": "Consult Seats",
+      "slide5Title": "Worry-Free Refund Guarantee",
+      "slide5Subtitle": "Refundable if not satisfied, zero-risk trial",
+      "slide5Cta": "Refund Policy",
+      "brandLabel": "IHUI AI",
+      "switchTo": "Switch to slide {index}"
     }
   },
   "drama": {
@@ -9364,9 +9794,9 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "8-Platform Coverage · Industry's Only Full-Stack AI Platform",
+      "content": "8-Platform Coverage · Broad Full-Stack AI Platform",
       "explore": "100+ LLMs · One API Key for All · Save ¥180K/year",
-      "brand": "Self-Developed CLI vs. Claude Code · ACP Embedded in Zed/VSCode/Cursor",
+      "brand": "Self-Developed CLI Comparable to Claude Code · ACP Embedded in Zed/VSCode/Cursor",
       "connect": "LangGraph + MCP + A2A Triple Stack · 1029+ API Endpoints · Industrial-Grade",
       "ctaPrimary": "Try Now",
       "ctaSecondary": "Learn More",
@@ -9395,7 +9825,12 @@
       "earlyBird": "Early-Bird ¥6000/year · 67% Off",
       "multiEnd": "8-Platform Coverage · Industry's Only",
       "benefits": {
-        "benefit6": "Full refund if not satisfied"
+        "benefit6": "Full refund if not satisfied",
+        "benefit1": "",
+        "benefit2": "",
+        "benefit3": "",
+        "benefit4": "",
+        "benefit5": ""
       }
     },
     "stats": {
@@ -9433,7 +9868,43 @@
       "subtitle": "Flexible pricing plans for different needs",
       "period": "/year",
       "cta": "Subscribe Now",
-      "recommended": "Recommended"
+      "recommended": "Recommended",
+      "basic": {
+        "name": "Basic",
+        "description": "For individual developers and small teams",
+        "feature1": "10,000 credits per month",
+        "feature2": "All AI models",
+        "feature3": "Web + Desktop",
+        "feature4": "Community support",
+        "feature5": "API access"
+      },
+      "professional": {
+        "name": "Professional",
+        "description": "For growing teams with priority support",
+        "feature1": "50,000 credits per month",
+        "feature2": "Advanced models (GPT-4o/Claude Opus)",
+        "feature3": "All 6 clients",
+        "feature4": "Team collaboration (10 seats)",
+        "feature5": "Email support"
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "description": "For mid-large enterprises with self-hosting",
+        "feature1": "200,000 credits per month",
+        "feature2": "Self-hosted deployment",
+        "feature3": "SSO/SAML 2.0",
+        "feature4": "Audit logs",
+        "feature5": "Dedicated technical support"
+      },
+      "flagship": {
+        "name": "Flagship",
+        "description": "For enterprise groups with custom service",
+        "feature1": "Unlimited credits",
+        "feature2": "Multi-region deployment",
+        "feature3": "Dedicated account manager",
+        "feature4": "SLA 99.9%",
+        "feature5": "24/7 support"
+      }
     },
     "features": {
       "title": "8 Core Capabilities · Full-Stack Coverage",
@@ -9441,7 +9912,7 @@
       "subtitle": "8-platform enterprise-grade AI · 100+ LLMs · self-developed CLI · industrial-grade rigor · all AI capabilities in one platform for decision-makers",
       "modelIntegration": {
         "title": "8-Platform Full-Stack Architecture",
-        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension 6 + API/AI-Service 2, industry's only full-stack, unified account seamless switching",
+        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension 6 + API/AI-Service 2, broad full-stack, unified account seamless switching",
         "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration"
       },
       "appStore": {
@@ -9471,8 +9942,8 @@
       },
       "workflow": {
         "title": "LangGraph Workflow",
-        "description": "2 LangGraph workflows + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, triple stack industry's only",
-        "benefit": "Complex task automation · replaces 5+ SaaS tools · industry's only triple stack"
+        "description": "2 LangGraph workflows + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, triple stack relatively rare",
+        "benefit": "Complex task automation · replaces 5+ SaaS tools · triple stack relatively rare"
       },
       "multimodal": {
         "title": "Multimodal AI Input",
@@ -9483,7 +9954,7 @@
     "advantages": {
       "title": "Core Advantages · Industry Benchmark",
       "titleEn": "CORE ADVANTAGES",
-      "subtitle": "Why choose Zhihui AI · Engineering rigor · Smart cost-down · Enterprise security · Triple stack · Vs. Claude Code across the board",
+      "subtitle": "Why choose Zhihui AI · Engineering rigor · Smart cost-down · Enterprise security · Triple stack · Comparable to Claude Code across dimensions",
       "professional": {
         "title": "Engineering Rigor · Industry Benchmark",
         "description": "17 pre-commit guardrails + 4 husky hooks + 122+ migrations + 12 shared packages, code quality beats 95% of peers",
@@ -9500,30 +9971,148 @@
         "evidence": "AES-256-GCM = bank-grade encryption / RBAC button-level = beyond finance industry / 99.9% SLA = downtime < 8.76 hours/year"
       },
       "innovative": {
-        "title": "Triple Stack · Industry Frontier",
-        "description": "LangGraph workflow + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, industry's only triple stack, surpassing Claude Code across the board",
-        "evidence": "Industry's only platform supporting LangGraph + MCP + A2A + ACP four protocols · Cursor/Claude Code only support MCP single stack"
+        "title": "Triple Stack · Relatively Rare",
+        "description": "LangGraph workflow + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, triple stack relatively rare, comparable to Claude Code across multiple dimensions",
+        "evidence": "Covers LangGraph + MCP + A2A + ACP four protocols; Cursor/Claude Code mainly support MCP single stack"
       }
     },
     "scenarios": {
       "title": "5 Decision-Maker Scenarios · Pain Point → Solution → Benefit",
       "titleEn": "DECISION-MAKER SCENARIOS",
-      "subtitle": "Pain Point → Solution → Quantified Benefit · Make AI Truly Land with ROI"
+      "subtitle": "Pain Point → Solution → Quantified Benefit · Make AI Truly Land with ROI",
+      "costReduction": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "decision": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "efficiency": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "innovation": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "learning": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      }
     },
     "comparison": {
-      "title": "Competitive Comparison · Across-the-Board Superiority",
+      "title": "Competitive Comparison · Multi-Dimensional",
       "titleEn": "COMPETITIVE COMPARISON",
-      "subtitle": "Zhihui AI vs Claude Code vs Cursor vs ChatGPT · 8 platforms + 100+ LLMs + triple stack + Agent Square · Industry's only",
+      "subtitle": "Zhihui AI vs Claude Code vs Cursor vs ChatGPT · 8 platforms + 100+ LLMs + triple stack + Agent Square",
       "colFeature": "Dimension",
       "colUs": "Zhihui AI",
       "colClaude": "Claude Code",
       "colCursor": "Cursor",
-      "colChatgpt": "ChatGPT"
+      "colChatgpt": "ChatGPT",
+      "row1Chatgpt": "",
+      "row1Claude": "",
+      "row1Cursor": "",
+      "row1Feature": "",
+      "row1Us": "",
+      "row2Chatgpt": "",
+      "row2Claude": "",
+      "row2Cursor": "",
+      "row2Feature": "",
+      "row2Us": "",
+      "row3Chatgpt": "",
+      "row3Claude": "",
+      "row3Cursor": "",
+      "row3Feature": "",
+      "row3Us": "",
+      "row4Chatgpt": "",
+      "row4Claude": "",
+      "row4Cursor": "",
+      "row4Feature": "",
+      "row4Us": "",
+      "row5Chatgpt": "",
+      "row5Claude": "",
+      "row5Cursor": "",
+      "row5Feature": "",
+      "row5Us": "",
+      "row6Chatgpt": "",
+      "row6Claude": "",
+      "row6Cursor": "",
+      "row6Feature": "",
+      "row6Us": "",
+      "row7Chatgpt": "",
+      "row7Claude": "",
+      "row7Cursor": "",
+      "row7Feature": "",
+      "row7Us": "",
+      "row8Chatgpt": "",
+      "row8Claude": "",
+      "row8Cursor": "",
+      "row8Feature": "",
+      "row8Us": ""
     },
     "roi": {
       "title": "Quantified ROI · Data-Backed Benefits",
       "titleEn": "QUANTIFIED ROI",
-      "subtitle": "Quantified benefits Zhihui AI Community brings to decision-makers · Detailed calculation formulas · Data from real user cases and industry benchmarks"
+      "subtitle": "Quantified benefits Zhihui AI Community brings to decision-makers · Detailed calculation formulas · Data from real user cases and industry benchmarks",
+      "cache": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "cost": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "learning": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "models": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "quality": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "seats": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "sla": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "speed": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      }
     }
   },
   "aiNews": {
@@ -9549,7 +10138,23 @@
       "favOnly": "Favorites",
       "favToggle": "Toggle favorite",
       "colVisibility": "Columns",
-      "colVisibilityHint": "Select columns to show"
+      "colVisibilityHint": "Select columns to show",
+      "categoryAgent": "",
+      "categoryAudio": "",
+      "categoryEmbedding": "",
+      "categoryImage": "",
+      "categoryLlm": "",
+      "categoryMultimodal": "",
+      "categoryOverall": "",
+      "categoryVideo": "",
+      "colArenaScore": "",
+      "colContextWindow": "",
+      "colInputPrice": "",
+      "colMaxOutput": "",
+      "colOutputPrice": "",
+      "colReleaseDate": "",
+      "colVoteCount": "",
+      "colWinRate": ""
     },
     "hero": {
       "label": "AI News Hero",
@@ -9586,7 +10191,22 @@
       "trendNotifyExpand": "Show all",
       "trendNotifyCollapse": "Collapse",
       "trendNotifyClose": "Close",
-      "langSwitch": "Switch title language to {lang}"
+      "langSwitch": "Switch title language to {lang}",
+      "categoryAll": "",
+      "categoryIndustry": "",
+      "categoryModel": "",
+      "categoryPaper": "",
+      "categoryProduct": "",
+      "categoryTip": "",
+      "channelAll": "",
+      "channelFirstParty": "",
+      "channelHotlist": "",
+      "channelNews": "",
+      "channelPaper": "",
+      "trendAll": "",
+      "trendCooling": "",
+      "trendNew": "",
+      "trendRising": ""
     },
     "hotRanking": {
       "label": "Hot Ranking",
@@ -9611,7 +10231,9 @@
       "empty": "No funding updates",
       "sortLabel": "Sort",
       "searchPlaceholder": "Search title / summary / source…",
-      "resultCount": "{count} / {total} entries"
+      "resultCount": "{count} / {total} entries",
+      "sortByAmount": "",
+      "sortByDate": ""
     },
     "detailDialog": {
       "arenaScore": "Arena Score",
@@ -9672,7 +10294,12 @@
       "speedTest": "Speed Test",
       "speedTesting": "Testing...",
       "sortBySpeed": "By Latency",
-      "speedError": "Timeout"
+      "speedError": "Timeout",
+      "allBilling": "",
+      "billingFree": "",
+      "billingGpu": "",
+      "billingSubscription": "",
+      "billingToken": ""
     },
     "cta": {
       "label": "Bottom CTA",
@@ -10033,35 +10660,88 @@
       "originalPrice": "¥18000",
       "period": "/person/year",
       "desc": "Limited to first 18 seats, regular price after sold out",
-      "cta": "Join Now"
+      "cta": "Join Now",
+      "features": [
+        "All courses free for the year",
+        "Priority access to offline exploration events",
+        "Unlimited IHUI AI community interaction",
+        "1-on-1 mentor consultation (1 session, early-bird exclusive)",
+        "Early-bird resource pack (valued ¥3000)"
+      ]
     },
     "standard": {
       "name": "Standard Member",
       "price": "¥18000",
       "period": "/person/year",
       "desc": "Automatically switches to this plan after early bird sold out",
-      "cta": "Learn More"
+      "cta": "Learn More",
+      "features": [
+        "All courses free for the year",
+        "Priority access to offline exploration events",
+        "Unlimited IHUI AI community interaction"
+      ]
     },
     "enterprise": {
       "name": "Enterprise Service",
       "price": "Contact Sales",
       "period": "",
       "desc": "Customized plan for enterprise decision-maker teams",
-      "cta": "Contact Sales"
+      "cta": "Contact Sales",
+      "features": [
+        "Dedicated account manager + custom deployment",
+        "Team training + internal knowledge base integration",
+        "High-concurrency API quota + SLA guarantee",
+        "Optional on-premise deployment",
+        "Quarterly review + strategy consulting"
+      ]
     }
   },
   "enterpriseTools": {
     "sectionLabel": "Enterprise AI Tools Overview",
     "title": "From General AI Tools to Industry-Specific Agents",
     "subtitle": "Comprehensively meet enterprise AI needs",
-    "partnersTitle": "Ecosystem Partners"
+    "partnersTitle": "Ecosystem Partners",
+    "categories": {
+      "general": "General Capability",
+      "industry": "Industry-Specific",
+      "function": "Functional Scenario",
+      "unknown": "Other"
+    },
+    "items": {
+      "textGeneration": "Text Generation",
+      "imageGeneration": "Image Generation",
+      "voiceProcessing": "Voice Processing",
+      "videoGeneration": "Video Generation",
+      "manufacturing": "Manufacturing",
+      "education": "Education & Training",
+      "healthcare": "Healthcare",
+      "government": "Government & Public",
+      "marketingService": "Marketing & Service",
+      "productionManufacturing": "Production & Manufacturing",
+      "rdInnovation": "R&D Innovation",
+      "officeCollaboration": "Office Collaboration",
+      "unknown": "Other Tools"
+    }
   },
   "mobileDashboardPage": {
     "title": "Mobile Dashboard",
     "subtitle": "Monitor mobile core operational metrics. Data is mock demo data.",
     "stats": {
-      "trendSuffix": "vs yesterday"
+      "trendSuffix": "vs yesterday",
+      "dau": "DAU",
+      "newUsers": "New Users",
+      "sessions": "Sessions",
+      "crashRate": "Crash Rate"
     },
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"
@@ -10096,7 +10776,18 @@
     "placeholder": "Watermark",
     "defaultText": "Confidential",
     "submitting": "Adding...",
-    "submit": "Add Watermark"
+    "submit": "Add Watermark",
+    "positions": {
+      "bottomCenter": "",
+      "bottomLeft": "",
+      "bottomRight": "",
+      "middleCenter": "",
+      "middleLeft": "",
+      "middleRight": "",
+      "topCenter": "",
+      "topLeft": "",
+      "topRight": ""
+    }
   },
   "businessCardEditPage": {
     "editTitle": "Edit Business Card",
@@ -10193,6 +10884,36 @@
   "aiCareerPage": {
     "title": "AI Career Guidance",
     "subtitle": "Fill in your child's learning profile, AI will generate personalized career guidance",
+    "options": {
+      "school": [
+        "Key Middle School",
+        "Regular Middle School",
+        "International School",
+        "Private School"
+      ],
+      "classLevel": [
+        "Excellent (Top 10%)",
+        "Good (10-30%)",
+        "Average (30-70%)",
+        "Below Average (Bottom 30%)"
+      ],
+      "difficulty": [
+        "Chinese Reading Comprehension",
+        "English Listening & Speaking",
+        "Math Calculation",
+        "Physics Concepts",
+        "Chemistry Memorization",
+        "Liberal Arts Recitation"
+      ],
+      "obstacle": [
+        "Lack of focus",
+        "Poor time management",
+        "Improper study methods",
+        "Low learning motivation",
+        "Test anxiety",
+        "Family environment impact"
+      ]
+    },
     "fields": {
       "school": "School Type",
       "classLevel": "Class Level",
@@ -10356,7 +11077,13 @@
     "recentOrders": "Recent Orders",
     "viewAll": "View All",
     "loading": "Loading...",
-    "empty": "No order records"
+    "empty": "No order records",
+    "stats": {
+      "coupon": "",
+      "level": "",
+      "orders": "",
+      "points": ""
+    }
   },
   "developerHomePage": {
     "statCalls": "Calls (This Month)",
@@ -10558,7 +11285,36 @@
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs last month",
-    "rechargeCount": "Total {n} recharges"
+    "rechargeCount": "Total {n} recharges",
+    "packages": {
+      "starter": {
+        "features": [
+          "1,000 AI calls per month",
+          "Access to 3 base models",
+          "Standard API rate",
+          "Community support"
+        ]
+      },
+      "pro": {
+        "features": [
+          "20,000 AI calls per month",
+          "Access to all 15+ models",
+          "High-priority API rate",
+          "Email support (24h response)",
+          "Advanced Agent workflows"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "Unlimited AI calls",
+          "All models + custom fine-tuning",
+          "Dedicated API rate + 99.99% SLA",
+          "24/7 dedicated account manager",
+          "On-premise deployment + data isolation",
+          "Custom feature development support"
+        ]
+      }
+    }
   },
   "n8nAgentsPage": {
     "metaDescription": "N8N workflow integration: orchestrate AI agents automatically, including customer service bot, content moderation, data sync, etc.",
@@ -10569,7 +11325,29 @@
     "cardDescription": "Orchestrate AI agents automatically via N8N, connecting customer service, moderation, sync, reporting, and alerting scenarios to achieve end-to-end workflow automation.",
     "createButton": "Create new Agent",
     "lastRunLabel": "Last run",
-    "runCountLabel": "Run count"
+    "runCountLabel": "Run count",
+    "agents": {
+      "alert-notify": {
+        "description": "",
+        "name": ""
+      },
+      "content-moderation": {
+        "description": "",
+        "name": ""
+      },
+      "customer-service": {
+        "description": "",
+        "name": ""
+      },
+      "data-sync": {
+        "description": "",
+        "name": ""
+      },
+      "report-generation": {
+        "description": "",
+        "name": ""
+      }
+    }
   },
   "agentsMyPage": {
     "back": "Back",
@@ -10579,7 +11357,14 @@
     "loading": "Loading...",
     "empty": "No agents yet",
     "noDescription": "No description",
-    "free": "Free"
+    "free": "Free",
+    "statusFilters": {
+      "all": "",
+      "offline": "",
+      "pending": "",
+      "published": "",
+      "rejected": ""
+    }
   },
   "businessCardPage": {
     "title": "Digital Business Card",
@@ -10660,7 +11445,13 @@
     "empty": "No call logs",
     "keyValue": "Key: {value}",
     "requestBody": "Request body",
-    "responseBody": "Response body"
+    "responseBody": "Response body",
+    "statusFilter": {
+      "2xx": "",
+      "4xx": "",
+      "5xx": "",
+      "all": ""
+    }
   },
   "eduCertificatesPage": {
     "loading": "Loading...",
@@ -10713,7 +11504,8 @@
     "loading": "Loading...",
     "empty": "No classes this week",
     "today": "Today",
-    "noClass": "No class"
+    "noClass": "No class",
+    "weekdays": []
   },
   "recruitmentDetailPage": {
     "loading": "Loading...",
@@ -10806,7 +11598,12 @@
     "discount": "OFF",
     "yuan": "CNY",
     "minSpend": "Min spend {amount}",
-    "validUntil": "Valid until: {date}"
+    "validUntil": "Valid until: {date}",
+    "tab": {
+      "expired": "",
+      "unused": "",
+      "used": ""
+    }
   },
   "answerArea": {
     "thinking": {
@@ -10957,7 +11754,12 @@
     "bookmarksHint": "Will automatically split into multiple files based on the PDF's built-in bookmarks (level 1).",
     "submit": "Split",
     "submitting": "Splitting...",
-    "resultHint": "Split complete. The result has been packaged as a ZIP:"
+    "resultHint": "Split complete. The result has been packaged as a ZIP:",
+    "mode": {
+      "bookmarks": "",
+      "every": "",
+      "range": ""
+    }
   },
   "supportNewTicketForm": {
     "errTitleMin": "Title must be at least 2 characters",
@@ -11082,6 +11884,11 @@
       "rank": "Rank",
       "user": "User",
       "score": "Score"
+    },
+    "range": {
+      "month": "",
+      "total": "",
+      "week": ""
     }
   },
   "recruitmentPage": {
@@ -11200,7 +12007,11 @@
       "user": "User",
       "joined": "Joined At",
       "reward": "Reward",
-      "status": "Status"
+      "status": "Status",
+      "statusLabels": {
+        "activated": "",
+        "pending": ""
+      }
     }
   },
   "knowledgeRag": {
@@ -11278,7 +12089,12 @@
   },
   "ide": {
     "activityBar": {
-      "settings": "Settings"
+      "settings": "Settings",
+      "applications": "",
+      "debug": "",
+      "files": "",
+      "search": "",
+      "sourceControl": ""
     },
     "topBar": {
       "editor": "Editor",
@@ -11317,7 +12133,14 @@
       "subtitle": "Select a file or start from quick actions below",
       "browseFiles": "Browse Files",
       "recentFiles": "Recent",
-      "shortcuts": "Shortcuts"
+      "shortcuts": "Shortcuts",
+      "scGlobalSearch": "",
+      "scGotoLine": "",
+      "scOpenFile": "",
+      "scToggleSidebar": "",
+      "scToggleTerminal": "",
+      "settings": "",
+      "viewChanges": ""
     },
     "editorTabBar": {
       "closeTab": "Close tab",
@@ -11407,7 +12230,8 @@
     },
     "statusBar": {
       "sync": "Sync",
-      "toggleTheme": "Toggle theme"
+      "toggleTheme": "Toggle theme",
+      "unsynced": ""
     }
   },
   "aiSkillsPage": {
@@ -11499,7 +12323,13 @@
     "responsive": {
       "customWidth": "Custom Width",
       "apply": "Apply",
-      "deviceFrame": "Device Frame"
+      "deviceFrame": "Device Frame",
+      "deviceCustom": "",
+      "deviceDesktop": "",
+      "deviceMobileLandscape": "",
+      "deviceMobilePortrait": "",
+      "deviceTabletLandscape": "",
+      "deviceTabletPortrait": ""
     },
     "templates": {
       "title": "Templates",
@@ -11509,6 +12339,30 @@
         "app": "App",
         "content": "Content",
         "commerce": "Commerce"
+      }
+    }
+  },
+  "modelsGroupsPage": {
+    "group": {
+      "1": {
+        "name": "Enterprise Core Group",
+        "desc": "For core business, supports high concurrency and availability"
+      },
+      "2": {
+        "name": "R&D Collaboration Group",
+        "desc": "R&D team collaboration, balancing performance and cost"
+      },
+      "3": {
+        "name": "Customer Service Group",
+        "desc": "For customer support, prioritizes low latency"
+      },
+      "4": {
+        "name": "Data Analysis Group",
+        "desc": "Data analysis and reporting, prioritizes large context"
+      },
+      "5": {
+        "name": "Sandbox Testing Group",
+        "desc": "New model testing and prototyping, flexible switching"
       }
     }
   }
