@@ -1,0 +1,18 @@
+fix(scripts/i18n): 审计工具支持对象字面量映射表 + 短键 + 字符串赋值识别
+
+新增 extractObjectLiteralKeys 函数(第三遍文件级扫描):
+1. 对象属性 { labelKey: 'value', nameKey: 'ns.path' }
+   - 完整路径:检查第一段是否已知顶层命名空间
+   - 短键:与文件 useTranslations 命名空间拼接(labelKey/nameKey/label/title 等)
+2. 字符串赋值 const key = 'ns.path' / 三元运算 'path1' : 'path2'
+   - 完整路径:第一段是顶层 key 直接加入
+   - 子路径:与文件命名空间拼接(chat + permission.xxx → chat.permission.xxx)
+
+效果:web 无引用 key 9 → 0(0.0%),miniapp-taro 12 → 7(0.4%)
+解决剩余 5 个 design.templates.categories.*(TEMPLATE_CATEGORY_KEY 静态映射表)
++ 4 个 chat.permission.switchedToMode*(t(key) 间接引用)
+
+至此 i18n 审计工具三层 bug 全部修复:
+1. stripComments(注释误识别,动态拼接 48→0)
+2. varNames + t.raw + await(变量名/数组对象/async 漏识别,假阳性 -208)
+3. 对象字面量映射表 + 短键 + 字符串赋值(间接引用漏识别,9→0)
