@@ -20,14 +20,18 @@ import Fastify from 'fastify'
 import { sql, eq } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import {
-  users,
   lessons,
   learnCategories,
   lessonChapters,
   lessonChapterSections,
   lessonSignUps,
 } from '@ihui/database'
-import { mockAuthenticate, setMockUser, setMockUnauthorized, resetMockAuth } from './helpers/mock-auth.js'
+import {
+  mockAuthenticate,
+  setMockUser,
+  setMockUnauthorized,
+  resetMockAuth,
+} from './helpers/mock-auth.js'
 import { userAuthPreHandler } from '../src/routes/user/_shared.ts'
 
 vi.mock('../src/plugins/auth.js', () => ({
@@ -55,7 +59,7 @@ sqlEventBus.on((e) => {
 
 // 把 unhandled rejection 打到 stderr,方便定位 500 原因(测试需要时启用 TEST_DEBUG_LOG)
 process.on('unhandledRejection', (err) => {
-  // eslint-disable-next-line no-console
+   
   console.error('UNHANDLED REJECTION:', err)
   if (debugLogPath) {
     try {
@@ -80,14 +84,15 @@ async function createUser(phone: string, nickname?: string) {
 }
 
 async function createCategory(name: string) {
-  const [row] = await db
-    .insert(learnCategories)
-    .values({ name, status: 1, sort: 0 })
-    .returning()
+  const [row] = await db.insert(learnCategories).values({ name, status: 1, sort: 0 }).returning()
   return row
 }
 
-async function createLesson(data: { title: string; categoryId?: string | null; isPublished?: boolean }) {
+async function createLesson(data: {
+  title: string
+  categoryId?: string | null
+  isPublished?: boolean
+}) {
   const [row] = await db
     .insert(lessons)
     .values({
@@ -240,8 +245,12 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     const userB = await createUser('1002', '用户B')
     const cat = await createCategory('编程')
     const lesson = await createLesson({ title: 'TS 入门', categoryId: cat.id })
-    await db.insert(lessonSignUps).values({ userId: userA.id, lessonId: lesson.id, progress: 30, status: 1 })
-    await db.insert(lessonSignUps).values({ userId: userB.id, lessonId: lesson.id, progress: 80, status: 1 })
+    await db
+      .insert(lessonSignUps)
+      .values({ userId: userA.id, lessonId: lesson.id, progress: 30, status: 1 })
+    await db
+      .insert(lessonSignUps)
+      .values({ userId: userB.id, lessonId: lesson.id, progress: 80, status: 1 })
 
     setMockUser(userA.id)
     const res = await server.inject({ method: 'GET', url: '/api/study/records' })
@@ -259,7 +268,9 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     const user = await createUser('1001', '用户')
     const cat = await createCategory('设计')
     const lesson = await createLesson({ title: '设计基础', categoryId: cat.id })
-    await db.insert(lessonSignUps).values({ userId: user.id, lessonId: lesson.id, progress: 100, status: 2 })
+    await db
+      .insert(lessonSignUps)
+      .values({ userId: user.id, lessonId: lesson.id, progress: 100, status: 2 })
 
     setMockUser(user.id)
     const res = await server.inject({ method: 'GET', url: '/api/study/records' })
@@ -506,9 +517,15 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     const lesson1 = await createLesson({ title: '课1' })
     const lesson2 = await createLesson({ title: '课2' })
     const lesson3 = await createLesson({ title: '课3' })
-    await db.insert(lessonSignUps).values({ userId: user.id, lessonId: lesson1.id, progress: 100, status: 2 })
-    await db.insert(lessonSignUps).values({ userId: user.id, lessonId: lesson2.id, progress: 50, status: 1 })
-    await db.insert(lessonSignUps).values({ userId: user.id, lessonId: lesson3.id, progress: 0, status: 1 })
+    await db
+      .insert(lessonSignUps)
+      .values({ userId: user.id, lessonId: lesson1.id, progress: 100, status: 2 })
+    await db
+      .insert(lessonSignUps)
+      .values({ userId: user.id, lessonId: lesson2.id, progress: 50, status: 1 })
+    await db
+      .insert(lessonSignUps)
+      .values({ userId: user.id, lessonId: lesson3.id, progress: 0, status: 1 })
 
     setMockUser(user.id)
     const res = await server.inject({ method: 'GET', url: '/api/study/progress' })
@@ -537,7 +554,9 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     const user = await createUser('1001', '用户')
     const cat = await createCategory('艺术')
     const lesson = await createLesson({ title: '绘画', categoryId: cat.id })
-    await db.insert(lessonSignUps).values({ userId: user.id, lessonId: lesson.id, progress: 60, status: 1 })
+    await db
+      .insert(lessonSignUps)
+      .values({ userId: user.id, lessonId: lesson.id, progress: 60, status: 1 })
 
     setMockUser(user.id)
     const res = await server.inject({ method: 'GET', url: '/api/study/progress/all' })
