@@ -11104,30 +11104,6 @@
     "noRates": "아직 리뷰가 없습니다. 첫 리뷰를 작성해 보세요!",
     "anonymous": "익명 사용자"
   },
-  "modelsBillingPage": {
-    "packages": {
-      "starter": {
-      },
-      "pro": {
-      },
-      "enterprise": {
-      }
-    }
-  },
-  "n8nAgentsPage": {
-    "agents": {
-      "alert-notify": {
-      },
-      "content-moderation": {
-      },
-      "customer-service": {
-      },
-      "data-sync": {
-      },
-      "report-generation": {
-      }
-    }
-  },
   "agentsMyPage": {
     "back": "뒤로",
     "title": "내 에이전트",
@@ -11767,16 +11743,6 @@
     "save": "저장",
     "cancel": "취소"
   },
-  "modelsReferralPage": {
-    "link": {
-    },
-    "stats": {
-    },
-    "list": {
-      "statusLabels": {
-      }
-    }
-  },
   "knowledgeRag": {
     "list": {
       "title": "지식 베이스 RAG",
@@ -12085,22 +12051,7 @@
       "deviceFrame": "장치 프레임"
     },
     "templates": {
-      "title": "템플릿",
-      "categories": {}
-    }
-  },
-  "modelsGroupsPage": {
-    "group": {
-      "1": {
-      },
-      "2": {
-      },
-      "3": {
-      },
-      "4": {
-      },
-      "5": {
-      }
+      "title": "템플릿"
     }
   },
   "a11y": {

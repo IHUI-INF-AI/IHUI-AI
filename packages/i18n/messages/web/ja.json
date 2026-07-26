@@ -11148,30 +11148,6 @@
     "noRates": "まだレビューがありません。最初のレビューを投稿しましょう！",
     "anonymous": "匿名ユーザー"
   },
-  "modelsBillingPage": {
-    "packages": {
-      "starter": {
-      },
-      "pro": {
-      },
-      "enterprise": {
-      }
-    }
-  },
-  "n8nAgentsPage": {
-    "agents": {
-      "alert-notify": {
-      },
-      "content-moderation": {
-      },
-      "customer-service": {
-      },
-      "data-sync": {
-      },
-      "report-generation": {
-      }
-    }
-  },
   "agentsMyPage": {
     "back": "戻る",
     "title": "マイエージェント",
@@ -11811,16 +11787,6 @@
     "save": "保存",
     "cancel": "キャンセル"
   },
-  "modelsReferralPage": {
-    "link": {
-    },
-    "stats": {
-    },
-    "list": {
-      "statusLabels": {
-      }
-    }
-  },
   "knowledgeRag": {
     "list": {
       "title": "ナレッジベース RAG",
@@ -12129,22 +12095,7 @@
       "deviceFrame": "デバイスフレーム"
     },
     "templates": {
-      "title": "テンプレート",
-      "categories": {}
-    }
-  },
-  "modelsGroupsPage": {
-    "group": {
-      "1": {
-      },
-      "2": {
-      },
-      "3": {
-      },
-      "4": {
-      },
-      "5": {
-      }
+      "title": "テンプレート"
     }
   },
   "a11y": {
