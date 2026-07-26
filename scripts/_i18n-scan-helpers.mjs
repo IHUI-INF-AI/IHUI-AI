@@ -62,6 +62,13 @@ export const I18N_T_RE = /\b(?:i18n\.t|getFixedT|useTranslations)\s*\(\s*['"`]?[
 export const JSX_PROP_NS_RE = /\bnamespace\s*=\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]/g
 // TypeScript 联合类型字面量: namespace?: 'a' | 'b'
 export const UNION_TYPE_NS_RE = /\bnamespace\s*\??\s*:\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`](\s*\|\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`])*/g
+// 属性赋值全路径 i18n key:nameKey/titleKey/labelKey/descriptionKey/textKey: 'a.b.c'
+// 2026-07-26 增强:识别 { nameKey: 'design.responsive.deviceMobilePortrait' } 等属性赋值形式的全路径 i18n key 引用
+// 原扫描器仅识别 t('a.b.c') / useTranslations('ns') 模式,漏识别属性赋值形式,
+// 导致 design.responsive.device* 6 个 key(在 responsive-devices.ts 中以 nameKey 属性赋值引用)被误判为死 key。
+// 限定:值必须含至少 1 个点(多段全路径),避免误命中 nameKey: 'kouzi' 等单段相对引用(运行时解析,非静态全路径)。
+// 属性名白名单:name/title/label/description/text + Key 后缀(常见 i18n 相关属性命名约定)
+export const PROP_KEY_RE = /\b(?:name|title|label|description|text)Key\s*:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 
 // 递归展开 JSON → 点分 key 集合(叶子值才算 key,纯命名空间不计)
 export function flatten(obj, prefix = '', out = new Set()) {
@@ -124,6 +131,8 @@ export function scanCode(files) {
       while ((m = STATIC_T_RE.exec(line)) !== null) staticRefs.add(m[1])
       I18N_T_RE.lastIndex = 0
       while ((m = I18N_T_RE.exec(line)) !== null) staticRefs.add(m[1])
+      PROP_KEY_RE.lastIndex = 0
+      while ((m = PROP_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
       USE_T_RE.lastIndex = 0
       while ((m = USE_T_RE.exec(line)) !== null) usedNamespaces.add(m[1])
       JSX_PROP_NS_RE.lastIndex = 0
