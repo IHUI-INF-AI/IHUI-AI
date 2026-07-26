@@ -127,9 +127,8 @@ export class WebSocketClient<TMessage = WSNotification> {
     }
 
     // WebSocket onmessage 在 DOM(MessageEvent)和 RN(WebSocketMessageEvent)类型不同,
-    // 用 any 兼容跨端(共享层代码需同时通过 web/RN/desktop/extension 的 typecheck)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ws.onmessage = (event: any) => {
+    // 用 WebSocketLike 的 { data: unknown } 统一签名兼容跨端(web/RN/desktop/extension)
+    ws.onmessage = (event: { data: unknown }) => {
       const raw = event?.data
       if (raw === 'pong' || raw === '"pong"') return
       if (typeof raw !== 'string') return

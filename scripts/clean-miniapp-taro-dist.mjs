@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * MiniApp Taro 编译产物清理脚本(2026-07-26 立)
  *
@@ -66,7 +66,7 @@ function fmtSize(bytes) {
 function dirSize(p) {
   // 简易递归大小统计(仅用于展示,实际删除由 rmSync recursive 完成)
   try {
-    const { readdirSync } = require('node:fs') // eslint-disable-line @typescript-eslint/no-require-imports
+    const { readdirSync } = require('node:fs') // eslint-disable-line @typescript-eslint/no-require-imports -- CJS 动态 require 同步 readdirSync 避免顶层 await
     let total = 0
     const stack = [p]
     while (stack.length) {
