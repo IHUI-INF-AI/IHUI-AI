@@ -144,6 +144,8 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
+    // 返回 access_token,旁路 response-sanitizer 防止脱敏
+    request.skipResponseSanitization = true
     try {
       if (b.type === 'jwt') {
         const accessToken = await getCozeAccessToken({
@@ -207,6 +209,8 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
+    // 返回 access_token,旁路 response-sanitizer 防止脱敏
+    request.skipResponseSanitization = true
     try {
       if (b.type === 'jwt') {
         const accessToken = await getCozeAccessToken({
@@ -257,6 +261,8 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
+    // 返回 access_token,旁路 response-sanitizer 防止脱敏
+    request.skipResponseSanitization = true
     try {
       const app = new JWTOAuthApp()
       const result = await app.getAccessToken({
