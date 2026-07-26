@@ -401,11 +401,21 @@ const checks = [
     mode: 'blocking',
   },
   {
+    // 2026-07-26 升级 blocking:11 天观察期(2026-07-15 引入)零误报,
+    // 当前 3344 路由 / 2180 safeParse / 0 silent-ignore;AGENTS.md §5 强制 Zod 校验,
+    // silent-ignore 是明确反模式,误报风险低。任务候选之一,符合"所有 parse 已加 safeParse"条件。
     id: '9',
-    label: '🔍 safeParse 静默忽略(warn-only)',
+    label: '🔍 safeParse 静默忽略(blocking,2026-07-26 升级)',
     script: 'check-safe-parse.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 Fastify 路由存在 safeParse 静默忽略反模式(result.success === false 不返回/不日志)。',
+      '     修复:对 parse 失败明确返回 400 + 错误信息,或记日志后返回,禁止 silent-ignore。',
+      '     详见 AGENTS.md §5 后端约束(Zod 校验请求参数)。',
+      '',
+    ].join('\n'),
   },
   {
     id: '13b',
