@@ -39,7 +39,7 @@ export default function AdminTicketPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'ticket', qs.toString()],
     queryFn: async () => {
-      const r = await fetchApi<TicketListData>(`/api/v1/admin/support/tickets?${qs}`)
+      const r = await fetchApi<TicketListData>(`/api/admin/support/tickets?${qs}`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
@@ -51,13 +51,13 @@ export default function AdminTicketPage() {
 
   const statusMut = useMutation({
     mutationFn: ({ id, s }: { id: string; s: TicketStatus }) =>
-      fetchApi(`/api/v1/admin/support/tickets/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: s }) }),
+      fetchApi(`/api/admin/support/tickets/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: s }) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'ticket'] }); toast.success('状态已更新') },
     onError: (e: Error) => toast.error(e.message),
   })
   const replyMut = useMutation({
     mutationFn: ({ id, body }: { id: string; body: TicketReplyBody }) =>
-      fetchApi(`/api/v1/admin/support/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify(body) }),
+      fetchApi(`/api/admin/support/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => { setReply(null); qc.invalidateQueries({ queryKey: ['admin', 'ticket'] }); toast.success('已回复') },
     onError: (e: Error) => toast.error(e.message),
   })
