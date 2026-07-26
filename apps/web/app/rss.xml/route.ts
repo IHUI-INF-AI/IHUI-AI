@@ -1,5 +1,5 @@
 /**
- * RSS 2.0 Feed(2026-07-26 立,极致 SEO):
+ * RSS 2.0 Feed(2026-07-26 立,SEO 强化):
  * - 覆盖 16+ 高价值页面,提升内容分发和搜索引擎抓取频率
  * - 帮助 Google News / Bing News 收录
  * - 与 sitemap.xml 互补:RSS 强调"最近更新"信号
