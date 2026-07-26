@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 _VALID_TASK_TYPES = {"browser_automation", "computer_automation", "data_pipeline", "workflow"}
 
 
-def validate_task_config(task_config: dict) -> tuple[bool, str]:
+def validate_task_config(task_config: dict[str, Any]) -> tuple[bool, str]:
     """校验必填字段 task_id / task_type / steps。Returns (ok, message)。"""
     if not isinstance(task_config, dict):
         return False, "task_config must be a dict"
@@ -33,7 +33,7 @@ def validate_task_config(task_config: dict) -> tuple[bool, str]:
     return True, ""
 
 
-async def execute_step(step: dict, context: dict) -> dict[str, Any]:
+async def execute_step(step: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     """执行单步:动态 import mcp_server,调用 _TOOL_HANDLERS[step.tool](step.args)。
 
     Returns: trace 项 {step_index, tool, args, result, duration_ms, ok, error_code?}
@@ -76,7 +76,7 @@ async def execute_step(step: dict, context: dict) -> dict[str, Any]:
     return trace
 
 
-async def handle_success(task_config: dict, trace: list[dict]) -> dict[str, Any]:
+async def handle_success(task_config: dict[str, Any], trace: list[dict[str, Any]]) -> dict[str, Any]:
     """全步骤成功后执行 on_success action(callback / save_artifact / next_workflow)。"""
     on_success = task_config.get("on_success") or {}
     action = on_success.get("action", "")
@@ -91,7 +91,7 @@ async def handle_success(task_config: dict, trace: list[dict]) -> dict[str, Any]
     return info
 
 
-async def handle_failure(task_config: dict, failed_step: dict) -> dict[str, Any]:
+async def handle_failure(task_config: dict[str, Any], failed_step: dict[str, Any]) -> dict[str, Any]:
     """步骤失败时按 on_failure.action 决定后续动作(retry / abort / fallback)。"""
     on_failure = task_config.get("on_failure") or {}
     action = on_failure.get("action", "abort")
@@ -102,7 +102,7 @@ async def handle_failure(task_config: dict, failed_step: dict) -> dict[str, Any]
     return info
 
 
-async def execute_automation_task(task_config: dict) -> dict[str, Any]:
+async def execute_automation_task(task_config: dict[str, Any]) -> dict[str, Any]:
     """执行自动化任务。遍历 steps,记录 trace,按 on_failure / on_success 控制流程。"""
     ok, msg = validate_task_config(task_config)
     if not ok:

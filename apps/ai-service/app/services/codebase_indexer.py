@@ -20,7 +20,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from ..core.llm_gateway import llm_gateway
 
@@ -128,12 +128,12 @@ class CodebaseIndexer:
             )
             return False
 
-    def _get_parser(self, language: str):
+    def _get_parser(self, language: str) -> Any:
         """获取 tree-sitter parser(语言不可用时返回 None)。"""
         if not self._tree_sitter_available:
             return None
         try:
-            from tree_sitter import Language, Parser
+            from tree_sitter import Language, Parser  # noqa: F401
             from tree_sitter_language_pack import get_language
 
             lang_map = {
@@ -189,11 +189,11 @@ class CodebaseIndexer:
         "impl_item": ("method", "name"),
     }
 
-    def _extract_symbol_name(self, node, name_field: str) -> Optional[str]:
+    def _extract_symbol_name(self, node: Any, name_field: str) -> Optional[str]:
         """从 AST 节点提取符号名。"""
         child = node.child_by_field_name(name_field)
         if child and child.text:
-            return child.text.decode("utf-8", errors="replace")
+            return cast(str, child.text.decode("utf-8", errors="replace"))
         return None
 
     def _chunk_by_ast(self, content: str, language: str) -> list[CodeChunk]:
@@ -211,7 +211,7 @@ class CodebaseIndexer:
         lines = content.splitlines()
         chunks: list[CodeChunk] = []
 
-        def walk(node):
+        def walk(node: Any) -> None:
             node_type = node.type
             if node_type in self._SYMBOL_NODE_TYPES:
                 symbol_type, name_field = self._SYMBOL_NODE_TYPES[node_type]
@@ -424,7 +424,7 @@ class CodebaseIndexer:
                 raise RuntimeError(
                     f"API 写入失败 HTTP {resp.status_code}: {resp.text[:200]}"
                 )
-            return resp.json()
+            return cast(dict[str, Any], resp.json())
 
     async def index_repository(
         self,
@@ -578,7 +578,7 @@ class CodebaseIndexer:
                 data = resp.json()
                 # API 返回 { code, message, data: { chunks: [...] } }
                 inner = data.get("data", data) if isinstance(data, dict) else {}
-                return inner.get("chunks", [])
+                return cast(list[dict[str, Any]], inner.get("chunks", []))
         except Exception as e:
             logger.warning("语义搜索失败: %s", e)
             return []

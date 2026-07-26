@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from app.core.logging import get_logger
 
@@ -41,7 +41,7 @@ def parse_md(text: str) -> str:
         raise RuntimeError(f"markdown library not installed: {e}. pip install markdown")
 
     extensions = ["tables", "fenced_code", "footnotes", "toc", "attr_list"]
-    return md_lib.markdown(text, extensions=extensions, output_format="html5")
+    return cast(str, md_lib.markdown(text, extensions=extensions, output_format="html5"))
 
 
 def parse_docx(file_path: str) -> str:
@@ -50,7 +50,7 @@ def parse_docx(file_path: str) -> str:
         import mammoth
         with open(file_path, "rb") as f:
             result = mammoth.convert_to_html(f)
-            return result.value
+            return cast(str, result.value)
     except ImportError:
         pass
 
