@@ -12,6 +12,7 @@
 import asyncio
 import json
 import logging
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 
@@ -387,7 +388,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 },
             )
 
-    async def gen():
+    async def gen() -> AsyncGenerator[str, None]:
         # 提问标记解析器:检测 LLM 输出中的 [[ASK_USER:JSON]] 标记,转换为结构化 question 事件
         # 标记本身从内容中剥离,不污染对话文本;跨 chunk 分片自动累积
         question_parser = QuestionStreamParser()

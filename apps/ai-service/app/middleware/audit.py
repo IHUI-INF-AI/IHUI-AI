@@ -7,9 +7,11 @@
 """
 
 import time
+from typing import Any
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
+from starlette.responses import Response
 
 from ..services.audit_service import audit_service
 
@@ -20,7 +22,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
     GET/HEAD/OPTIONS 不记录(读操作不产生审计事件)。
     """
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         # 只记录写操作
         if request.method not in ("POST", "PATCH", "PUT", "DELETE"):
             return await call_next(request)
@@ -46,6 +48,6 @@ class AuditMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def setup_audit_middleware(app):
+def setup_audit_middleware(app: Any) -> None:
     """注册审计中间件到 FastAPI app。"""
     app.add_middleware(AuditMiddleware)

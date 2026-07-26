@@ -72,7 +72,7 @@ GZH_FORBIDDEN_KEYWORDS = (
 )
 
 
-def _is_under(path, parent):
+def _is_under(path: str, parent: str) -> bool:
     """判断 path 是否在 parent 目录下（Windows 大小写不敏感）。"""
     abs_p = os.path.normpath(os.path.abspath(path))
     abs_parent = os.path.normpath(os.path.abspath(parent))
@@ -85,7 +85,7 @@ def _is_under(path, parent):
         return False
 
 
-def _print_fail(checks):
+def _print_fail(checks: list[str]) -> None:
     print()
     print('=' * 64)
     print('  ❌ pre-flight FAIL · 禁止写文件 · 必须修复后重试')
@@ -103,18 +103,18 @@ def _print_fail(checks):
     print('=' * 64)
 
 
-def _print_pass():
+def _print_pass() -> None:
     print('=' * 64)
     print('  ✅ pre-flight PASS · 路径与内容合规 · 可以安全写文件')
     print('=' * 64)
 
 
-def check_path(path):
+def check_path(path: str) -> list[str]:
     """检查目标路径是否在正确项目目录。返回 list of fail msg（空=PASS）。"""
     if not path:
         return ['未指定 --path']
     abs_path = os.path.normpath(os.path.abspath(path))
-    fails = []
+    fails: list[str] = []
     f = os.path.basename(abs_path)
     parent = os.path.dirname(abs_path)
 
@@ -177,7 +177,7 @@ def check_path(path):
     return fails
 
 
-def check_content(text, role='koubo'):
+def check_content(text: str, role: str = 'koubo') -> list[str]:
     """检查文件内容是否含跨项目词。role: 'koubo' 检查口播稿内容纯度；'gzh' 检查公众号纯净度。"""
     fails: list[str] = []
     if not text:
@@ -194,7 +194,7 @@ def check_content(text, role='koubo'):
     return fails
 
 
-def check_duplicate(path):
+def check_duplicate(path: str) -> list[str]:
     """检查目标路径是否已存在（避免覆盖现有文件）。"""
     fails: list[str] = []
     if os.path.exists(path):
@@ -204,9 +204,9 @@ def check_duplicate(path):
     return fails
 
 
-def cmd_check(args):
+def cmd_check(args: argparse.Namespace) -> int:
     """执行 pre-flight check。"""
-    all_fails = []
+    all_fails: list[str] = []
     all_fails.extend(check_path(args.path))
     if args.title:
         all_fails.extend(check_content(args.title, role='gzh'))
@@ -228,7 +228,7 @@ def cmd_check(args):
     return 0
 
 
-def cmd_scan(args):
+def cmd_scan(args: argparse.Namespace) -> int:
     """扫描整个工作区，输出当前越界清单。
 
     白名单设计:
@@ -240,7 +240,7 @@ def cmd_scan(args):
     print('=' * 64)
     print('  pre-flight 全工作区越界扫描')
     print('=' * 64)
-    all_hits = []
+    all_hits: list[str] = []
 
     # === koubo/ 扫描 ===
     if os.path.isdir(KOUBO_DIR):
@@ -291,7 +291,7 @@ def cmd_scan(args):
     return 0
 
 
-def main():
+def main() -> int:
     ap = argparse.ArgumentParser(description='项目文件越界 pre-flight 自检（写作前必跑）')
     sub = ap.add_subparsers(dest='cmd')
 

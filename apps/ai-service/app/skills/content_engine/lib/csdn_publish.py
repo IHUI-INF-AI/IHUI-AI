@@ -19,6 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from base64 import b64encode
+from typing import Any
 
 # ===== 常量 =====
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,7 +39,7 @@ USER_AGENT = (
 
 # ===== 配置加载 =====
 
-def _load_env():
+def _load_env() -> str:
     """从.env文件加载配置"""
     env_path = os.path.join(PROJECT_ROOT, '.env')
     if os.path.exists(env_path):
@@ -61,7 +62,7 @@ CSDN_APP_KEY = os.getenv('CSDN_APP_KEY', '')
 CSDN_APP_SECRET = os.getenv('CSDN_APP_SECRET', '')
 
 
-def _get_cookie():
+def _get_cookie() -> str:
     """获取CSDN Cookie"""
     cookie = _load_env()
     if not cookie:
@@ -74,7 +75,7 @@ def _get_cookie():
 
 # ===== 签名算法 =====
 
-def _create_uuid():
+def _create_uuid() -> str:
     """生成CSDN要求的UUID（字符池限定a-f和1-9）"""
     chars = [chr(c) for c in range(97, 103)] + [chr(c) for c in range(49, 58)]
     text = ''
@@ -88,7 +89,7 @@ def _create_uuid():
     return text
 
 
-def _sign_post(nonce, url_path):
+def _sign_post(nonce: str, url_path: str) -> str:
     """
     生成POST请求的x-ca-signature。
     签名串格式（每行\\n分隔）：
@@ -118,7 +119,7 @@ def _sign_post(nonce, url_path):
     return sig
 
 
-def _sign_get(nonce, url_path, query_string):
+def _sign_get(nonce: str, url_path: str, query_string: str) -> str:
     """
     生成GET请求的x-ca-signature。
     签名串格式：
@@ -149,7 +150,7 @@ def _sign_get(nonce, url_path, query_string):
     return sig
 
 
-def _build_headers(url, method='POST'):
+def _build_headers(url: str, method: str = 'POST') -> dict[str, str] | None:
     """构建带签名的完整请求头"""
     nonce = _create_uuid()
     parsed = urllib.parse.urlparse(url)
@@ -164,7 +165,7 @@ def _build_headers(url, method='POST'):
     if not cookie:
         return None
 
-    headers = {
+    headers: dict[str, str] = {
         'Accept': '*/*',
         'User-Agent': USER_AGENT,
         'Origin': 'https://editor.csdn.net',
@@ -183,7 +184,7 @@ def _build_headers(url, method='POST'):
 
 # ===== HTTP工具函数 =====
 
-def _api_post_json(url, data):
+def _api_post_json(url: str, data: dict[str, Any]) -> dict[str, Any]:
     """POST JSON请求，返回响应JSON"""
     headers = _build_headers(url, 'POST')
     if not headers:
@@ -193,7 +194,8 @@ def _api_post_json(url, data):
     req = urllib.request.Request(url, data=body, headers=headers, method='POST')
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode('utf-8'))
+            loaded: Any = json.loads(resp.read().decode('utf-8'))
+            return loaded if isinstance(loaded, dict) else {'code': -1, 'msg': 'invalid response'}
     except urllib.error.HTTPError as e:
         error_body = e.read().decode('utf-8', errors='replace')
         print(f'  HTTP {e.code}: {error_body[:200]}')
@@ -202,7 +204,7 @@ def _api_post_json(url, data):
         return {'code': -1, 'msg': str(e)}
 
 
-def _api_get_json(url):
+def _api_get_json(url: str) -> dict[str, Any]:
     """GET请求，返回响应JSON"""
     headers = _build_headers(url, 'GET')
     if not headers:
@@ -211,7 +213,8 @@ def _api_get_json(url):
     req = urllib.request.Request(url, headers=headers, method='GET')
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode('utf-8'))
+            loaded: Any = json.loads(resp.read().decode('utf-8'))
+            return loaded if isinstance(loaded, dict) else {'code': -1, 'msg': 'invalid response'}
     except urllib.error.HTTPError as e:
         error_body = e.read().decode('utf-8', errors='replace')
         print(f'  HTTP {e.code}: {error_body[:200]}')
@@ -222,7 +225,7 @@ def _api_get_json(url):
 
 # ===== 图片上传（两步：获取参数→上传OSS） =====
 
-def _get_image_upload_params(suffix='png'):
+def _get_image_upload_params(suffix: str = 'png') -> dict[str, Any] | None:
     """
     Step 1: 向CSDN图片服务获取OSS上传参数。
     返回 {accessId, policy, signature, filePath, host, callbackUrl} 或 None。
@@ -241,9 +244,11 @@ def _get_image_upload_params(suffix='png'):
     req = urllib.request.Request(url, headers=headers, method='GET')
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read().decode('utf-8'))
+            loaded: Any = json.loads(resp.read().decode('utf-8'))
+            result = loaded if isinstance(loaded, dict) else {}
         if result.get('code') == 200:
-            return result.get('data')
+            data = result.get('data')
+            return data if isinstance(data, dict) else None
         else:
             print(f'  获取上传参数失败: {result.get("msg", "未知错误")}')
             return None
@@ -252,7 +257,7 @@ def _get_image_upload_params(suffix='png'):
         return None
 
 
-def _upload_to_oss(params, image_path):
+def _upload_to_oss(params: dict[str, Any], image_path: str) -> str | None:
     """
     Step 2: 用Step 1拿到的参数，把图片POST到阿里云OSS。
     返回图片URL或None。
@@ -268,12 +273,12 @@ def _upload_to_oss(params, image_path):
     )
 
     fields = [
-        ('OSSAccessKeyId', params['accessId']),
-        ('policy', params['policy']),
-        ('key', params['filePath']),
+        ('OSSAccessKeyId', str(params.get('accessId', ''))),
+        ('policy', str(params.get('policy', ''))),
+        ('key', str(params.get('filePath', ''))),
         ('success_action_status', '200'),
-        ('signature', params['signature']),
-        ('callback', params.get('callbackUrl', '')),
+        ('signature', str(params.get('signature', ''))),
+        ('callback', str(params.get('callbackUrl', ''))),
     ]
 
     body = b''
@@ -290,7 +295,7 @@ def _upload_to_oss(params, image_path):
         f'Content-Type: {content_type}\r\n\r\n'
     ).encode('utf-8') + file_data + f'\r\n--{boundary}--\r\n'.encode('utf-8')
 
-    oss_url = params['host']
+    oss_url = str(params.get('host', ''))
     req = urllib.request.Request(
         oss_url, data=body,
         headers={'Content-Type': f'multipart/form-data; boundary={boundary}'},
@@ -300,11 +305,16 @@ def _upload_to_oss(params, image_path):
         with urllib.request.urlopen(req, timeout=60) as resp:
             resp_text = resp.read().decode('utf-8')
         # OSS callback返回的JSON里包含imageUrl
-        resp_json = json.loads(resp_text)
-        if 'data' in resp_json and 'imageUrl' in resp_json['data']:
-            return resp_json['data']['imageUrl']
-        elif 'imageUrl' in resp_json:
-            return resp_json['imageUrl']
+        loaded: Any = json.loads(resp_text)
+        resp_json = loaded if isinstance(loaded, dict) else {}
+        if 'data' in resp_json:
+            data_val = resp_json['data']
+            if isinstance(data_val, dict) and 'imageUrl' in data_val:
+                url_val = data_val['imageUrl']
+                return url_val if isinstance(url_val, str) else None
+        if 'imageUrl' in resp_json:
+            url_val = resp_json['imageUrl']
+            return url_val if isinstance(url_val, str) else None
         # 有些情况URL在filePath拼接
         if 'AccessDenied' in resp_text:
             print('  OSS参数过期，需要重新获取')
@@ -316,7 +326,7 @@ def _upload_to_oss(params, image_path):
         return None
 
 
-def upload_image(image_path):
+def upload_image(image_path: str) -> str | None:
     """上传图片到CSDN图床，返回图片URL"""
     if not os.path.exists(image_path):
         print(f'❌ 图片文件不存在: {image_path}')
@@ -352,9 +362,9 @@ def upload_image(image_path):
 
 # ===== 文章发布 =====
 
-def publish_article(title, markdown_content, html_content='',
-                    tags='', status=0, article_type='original',
-                    read_type='public', description=''):
+def publish_article(title: str, markdown_content: str, html_content: str = '',
+                    tags: str = '', status: int = 0, article_type: str = 'original',
+                    read_type: str = 'public', description: str = '') -> dict[str, Any] | None:
     """
     发布文章到CSDN。
     参数：
@@ -399,9 +409,11 @@ def publish_article(title, markdown_content, html_content='',
 
     code = result.get('code', -1)
     if code == 200:
-        data = result.get('data', {})
-        article_url = data.get('url', '')
-        article_id = data.get('id', data.get('article_id', ''))
+        data_val = result.get('data')
+        data = data_val if isinstance(data_val, dict) else {}
+        article_url = str(data.get('url', ''))
+        article_id_val = data.get('id', data.get('article_id', ''))
+        article_id = str(article_id_val) if article_id_val != '' else ''
         print(f'✅ {status_text}成功！')
         if article_url:
             print(f'   文章URL: {article_url}')
@@ -416,7 +428,8 @@ def publish_article(title, markdown_content, html_content='',
         return None
 
 
-def save_draft(title, markdown_content, tags='', article_type='original', description=''):
+def save_draft(title: str, markdown_content: str, tags: str = '',
+               article_type: str = 'original', description: str = '') -> dict[str, Any] | None:
     """保存为草稿（status=1的快捷方法）"""
     return publish_article(
         title, markdown_content,
@@ -427,7 +440,7 @@ def save_draft(title, markdown_content, tags='', article_type='original', descri
 
 # ===== 文章列表 =====
 
-def list_articles(page=1, size=10):
+def list_articles(page: int = 1, size: int = 10) -> dict[str, Any] | None:
     """获取文章列表"""
     cookie = _get_cookie()
     if not cookie:
@@ -438,13 +451,18 @@ def list_articles(page=1, size=10):
 
     code = result.get('code', -1)
     if code == 200:
-        data = result.get('data', {})
-        articles = data.get('list', [])
+        data_val = result.get('data')
+        data = data_val if isinstance(data_val, dict) else {}
+        articles_val = data.get('list', [])
+        articles = articles_val if isinstance(articles_val, list) else []
         total = data.get('total', 0)
         print(f'\n✅ 文章列表（第{page}页，共{total}篇）：')
         for i, art in enumerate(articles):
-            title = art.get('title', '无标题')
-            art_id = art.get('articleId', art.get('id', ''))
+            if not isinstance(art, dict):
+                continue
+            title = str(art.get('title', '无标题'))
+            art_id_val = art.get('articleId', art.get('id', ''))
+            art_id = str(art_id_val) if art_id_val != '' else ''
             status_map = {0: '已发布', 1: '草稿'}
             st = status_map.get(art.get('status', 0), '未知')
             print(f'  {i + 1}. [{st}] {title} (ID={art_id})')
@@ -459,7 +477,7 @@ def list_articles(page=1, size=10):
 
 # ===== 测试连接 =====
 
-def test_connection():
+def test_connection() -> bool:
     """测试Cookie是否有效（尝试获取文章列表）"""
     cookie = _get_cookie()
     if not cookie:
@@ -471,7 +489,8 @@ def test_connection():
     code = result.get('code', -1)
 
     if code == 200:
-        data = result.get('data', {})
+        data_val = result.get('data')
+        data = data_val if isinstance(data_val, dict) else {}
         total = data.get('total', 0)
         print(f'✅ 连接正常，当前共{total}篇文章')
         return True
@@ -486,7 +505,7 @@ def test_connection():
 
 # ===== Markdown图片替换 =====
 
-def replace_local_images(markdown_text, image_dir=''):
+def replace_local_images(markdown_text: str, image_dir: str = '') -> str:
     """
     扫描Markdown中的本地图片引用，上传到CSDN图床后替换为在线URL。
     返回替换后的Markdown文本。
@@ -532,8 +551,9 @@ def replace_local_images(markdown_text, image_dir=''):
 
 # ===== 一键发布流程 =====
 
-def auto_publish(md_file, title, tags='', html_file=None,
-                 status=0, read_type='public', article_type='original'):
+def auto_publish(md_file: str, title: str, tags: str = '', html_file: str | None = None,
+                 status: int = 0, read_type: str = 'public',
+                 article_type: str = 'original') -> dict[str, Any] | None:
     """
     一键发布流程：
     1. 读取Markdown文件
@@ -588,7 +608,7 @@ def auto_publish(md_file, title, tags='', html_file=None,
 
 # ===== Markdown标题提取 =====
 
-def extract_title_from_md(md_file):
+def extract_title_from_md(md_file: str) -> str:
     """从Markdown文件中提取第一个#标题"""
     if not os.path.exists(md_file):
         return ''
@@ -602,7 +622,7 @@ def extract_title_from_md(md_file):
 
 # ===== CLI入口 =====
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         _print_help()
         return
@@ -655,7 +675,7 @@ def main():
         _print_help()
 
 
-def _print_help():
+def _print_help() -> None:
     print('CSDN自动发布工具（零依赖，纯stdlib）')
     print()
     print('前置条件：在 .env 中配置 CSDN_COOKIE=<浏览器Cookie>')

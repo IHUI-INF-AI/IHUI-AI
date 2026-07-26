@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Optional
+from typing import Any, Callable, Optional, cast
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -72,8 +72,8 @@ class DAGExecuteRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     nodes: list[DAGNodeSpec]
-    edges: list[dict] = Field(default_factory=list)  # 保留字段,实际依赖由 node.dependencies 表达
-    initial_context: dict = Field(default_factory=dict, alias="initialContext")
+    edges: list[dict[str, Any]] = Field(default_factory=list)  # 保留字段,实际依赖由 node.dependencies 表达
+    initial_context: dict[str, Any] = Field(default_factory=dict, alias="initialContext")
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +82,7 @@ class DAGExecuteRequest(BaseModel):
 
 
 _pool: Optional[WorkerPool] = None
-_executions: dict[str, dict] = {}
+_executions: dict[str, dict[str, Any]] = {}
 
 
 def _get_pool() -> WorkerPool:
@@ -104,7 +104,7 @@ async def _ensure_pool_started() -> WorkerPool:
 # ---------------------------------------------------------------------------
 
 
-async def _default_node_executor(context: dict) -> dict:
+async def _default_node_executor(context: dict[str, Any]) -> dict[str, Any]:
     """DAG 节点默认 executor:回显 context keys(无业务 executor 时兜底)。"""
     return {"executed": True, "contextKeys": list(context.keys())}
 
@@ -161,7 +161,7 @@ async def execute_dag(req: DAGExecuteRequest):
 
 
 @router.get("/dag/execute/{execution_id}")
-async def get_execution(execution_id: str):
+async def get_execution(execution_id: str) -> dict[str, Any]:
     """查询 DAG 执行状态。"""
     data = _executions.get(execution_id)
     if data is None:
@@ -197,7 +197,7 @@ async def submit_task(task_in: KanbanTaskCreate):
 
 
 @router.get("/dag/tasks/{task_id}")
-async def get_task(task_id: str):
+async def get_task(task_id: str) -> dict[str, Any]:
     """查询任务状态。"""
     pool = _get_pool()
     task = await pool.get_status(task_id)
@@ -220,7 +220,7 @@ async def list_tasks(status: Optional[str] = Query(default=None, description="�
 
 
 @router.get("/dag/workers")
-async def list_workers():
+async def list_workers() -> dict[str, Any]:
     """列出所有 worker 状态(辅助端点)。"""
     pool = _get_pool()
     return {

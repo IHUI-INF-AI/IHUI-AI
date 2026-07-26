@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Check, Globe, ShieldCheck, Users, Zap } from 'lucide-react'
 import { AnimatedNumber, RevealOnView } from '@/components/common'
 import { Marquee } from '@/components/marketing/Marquee'
+import { GithubStarBanner } from '@/components/marketing/GithubStarBanner'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
 import { BrandMarquee } from '@/components/marketing/BrandMarquee'
@@ -91,6 +92,7 @@ export default function HomePage() {
               像 banner 一样最先被看到) */}
           <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
             <Marquee />
+            <GithubStarBanner />
           </div>
 
           {/* 主区:hero + 信任行,flex-1 占满所有剩余空间 */}

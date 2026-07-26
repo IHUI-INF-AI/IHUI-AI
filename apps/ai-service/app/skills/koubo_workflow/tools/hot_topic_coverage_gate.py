@@ -35,6 +35,7 @@ import sys
 import json
 import urllib.request
 import urllib.error
+from typing import Any
 
 # ── 项目边界硬门禁（缺省 fail-closed：未声明会话 / 公众号会话均拦截） ──
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # koubo_workflow/
@@ -83,21 +84,21 @@ MODEL_PATTERNS = [
 _MODEL_RE = [re.compile(p, re.IGNORECASE) for p in MODEL_PATTERNS]
 
 
-def _norm(s):
+def _norm(s: str) -> str:
     """归一化：去空格/连字符、转小写，用于实体匹配（兼容「Gemini-3.5 Pro」与「Gemini 3.5 Pro」）。"""
     return re.sub(r'[\s\-]', '', s).lower()
 
 
-def extract_entities(text):
+def extract_entities(text: str) -> set[str]:
     """从文本抽取去重后的模型发布实体（归一化集合）。"""
-    found = set()
+    found: set[str] = set()
     for rx in _MODEL_RE:
         for m in rx.findall(text):
             found.add(_norm(m))
     return found
 
 
-def pull_aihot(category=None, since_days=7, take=50):
+def pull_aihot(category: str | None = None, since_days: int = 7, take: int = 50) -> list[dict[str, Any]]:
     """拉 aihot 精选条目；返回 list[dict]。网络失败抛异常。"""
     since = _iso_since(since_days)
     url = f"{AIHOT_BASE}?mode=selected&since={since}&take={take}"
@@ -106,22 +107,23 @@ def pull_aihot(category=None, since_days=7, take=50):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=20) as resp:
         data = json.loads(resp.read().decode('utf-8'))
-    return data.get('items', [])
+    items: list[dict[str, Any]] = data.get('items', [])
+    return items
 
 
-def _iso_since(days):
+def _iso_since(days: int) -> str:
     """生成 since=now-days 的 ISO8601 UTC。"""
     from datetime import datetime, timedelta, timezone
     dt = datetime.now(timezone.utc) - timedelta(days=days)
     return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
-def parse_articles(path):
+def parse_articles(path: str) -> list[dict[str, str]]:
     """解析 MMDD.txt 为 [{title, text}] 列表。以全 ─ 行分隔各篇。"""
     with open(path, 'r', encoding='utf-8') as f:
         raw = f.read()
     blocks = re.split(r'\n─{10,}\n', raw)
-    articles = []
+    articles: list[dict[str, str]] = []
     for blk in blocks:
         lines = [l for l in blk.split('\n') if l.strip()]
         if not lines:
@@ -132,7 +134,7 @@ def parse_articles(path):
     return articles
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print('用法: python hot_topic_coverage_gate.py Output/0716.txt '
               '[--extra-keywords "Kimi K3,..."] [--ack-offline]')

@@ -69,14 +69,14 @@ MIN_EMPHASIS_BLOCKS = 3     # oneliner+tip+quote+code+subtitle+ordered 至少3�
 MIN_GREEN_BOLD = 5          # 绿色加粗 strong 至少5处
 
 
-def render_html(md_path, title, digest):
+def render_html(md_path: str, title: str, digest: str) -> str:
     with open(md_path, 'r', encoding='utf-8') as f:
         md_text = f.read()
     html = md_to_moyu_green_html(md_text, title=title, digest=digest)
-    return html
+    return cast(str, html)
 
 
-def gate_selfcheck(md_path):
+def gate_selfcheck(md_path: str) -> bool:
     """门禁A：22项自检必须全过（含三项满分）"""
     print('\n[门禁A] 22项自检（可读性/传播力/开头钩子满分 + GEO/原创度/AI味/风险）...')
     all_pass, reports = validate(md_path)
@@ -89,7 +89,7 @@ def gate_selfcheck(md_path):
     return True
 
 
-def gate_fact_check(md_path, title):
+def gate_fact_check(md_path: str, title: str) -> bool:
     """门禁A+：事实核查（第23项，12子检查；HIGH级问题=0才通过）。
     2026-07-12 集成：之前 SKILL 宣传有,实际流水线没调,等于死代码。"""
     print('\n[门禁A+] 事实核查（第23项，12子检查，HIGH级阻断）...')
@@ -128,7 +128,7 @@ def gate_fact_check(md_path, title):
     return True
 
 
-def gate_emphasis_components(html):
+def gate_emphasis_components(html: str) -> bool:
     """门禁B：渲染HTML必须含足够多的重点颜色区分组件"""
     print('\n[门禁B] 重点颜色组件检查（防止"文章无重点标注"）...')
     c_oneliner = html.count('border:1px dashed')          # 金句卡
@@ -157,7 +157,7 @@ def gate_emphasis_components(html):
     return True
 
 
-def upload_and_replace_images(html, html_base_dir, images_dir):
+def upload_and_replace_images(html: str, html_base_dir: str, images_dir: str) -> tuple[str, dict[str, str], list[str]]:
     # 2026-07-14 兼容: images_dir 可能是逗号分隔的文件列表 (publish_pipeline --images 入参)
     # 这种情况下,绝对路径应该用文件列表里的每一项,而不是当作目录
     images_list = None
@@ -215,7 +215,7 @@ def upload_and_replace_images(html, html_base_dir, images_dir):
     return html, url_map, []
 
 
-def _purge_old_outputs(safe_title, output_dir):
+def _purge_old_outputs(safe_title: str, output_dir: str) -> list[str]:
     """清掉 output 目录里所有非本次标题的 html/docx 旧版（2026-07-17 零容忍铁律）。
     CSDN docx 按 `_CSDN.docx` 后缀保护，`archive/`/`images/`/`_visual/` 目录保留不动。
     返回被清的清单。"""
@@ -242,7 +242,7 @@ def _purge_old_outputs(safe_title, output_dir):
     return purged
 
 
-def push_draft(html, title, digest, author, cover_path, images, account='A'):
+def push_draft(html: str, title: str, digest: str, author: str, cover_path: str, images: str, account: str = 'A') -> str | None:
     print('\n[推送] 上传图片+封面 → 删旧草稿 → 建新草稿...')
     # 切换 .env 账号 (优先: 命令行 --account > 默认 A)
     if account and account != 'A':
@@ -307,10 +307,10 @@ def push_draft(html, title, digest, author, cover_path, images, account='A'):
         _update_published_memory(title, draft_id, html, cover_path)
     else:
         print('\n❌ 草稿创建失败')
-    return draft_id
+    return cast(str | None, draft_id)
 
 
-def _update_published_memory(title, draft_id, html, cover_path):
+def _update_published_memory(title: str, draft_id: str, html: str, cover_path: str) -> None:
     """推送成功后更新 已发布内容记忆.json (published + image_registry)
     2026-07-12 集成：之前要手动跑 update_memory.py 临时脚本,易漏更新导致配图查重/主题查重失灵"""
     mem_path = os.path.join(BASE, '已发布内容记忆.json')
@@ -345,7 +345,7 @@ def _update_published_memory(title, draft_id, html, cover_path):
         print(f'  ⚠️ 自动更新已发布记忆失败(非阻断): {e}')
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description='摸鱼绿公众号统一发布流水线')
     ap.add_argument('--md', required=True, help='源 md 路径(放 articles/)')
     ap.add_argument('--title', required=False, help='文章标题（决定 output 三件套文件名）')
@@ -366,7 +366,7 @@ def main():
 
     # === 项目边界铁律·入口守卫（2026-07-14 用户强制·零容忍） ===
     # 杜绝 AI 误把口播稿 .txt 文件 / 口播稿目录路径作为公众号流水线 --md 入参
-    def _fail_guard(msg):
+    def _fail_guard(msg: str) -> None:
         print(f'\n❌ 入口守卫 FAIL: {msg}')
         print('   公众号流水线只接收 .md 文件,口播稿 .txt 属于另一个项目')
         print('   → 检查是否项目路径写反 (公众号 articles/ vs 口播稿 koubo/)')
@@ -584,7 +584,7 @@ def main():
     # 清理(删 html/docx/images + 源md归档)只能在用户明确说"今天文章发完了"时，
     # 通过 `publish_pipeline.py --md <源> --only-cleanup` 触发。绝不在 push 流程里删。
 
-def _archive_source(md_path):
+def _archive_source(md_path: str) -> None:
     """清理阶段把源 md 从 articles/ 移到 articles/archive/(按日期号存档)。仅 --only-cleanup 调用。"""
     import shutil as _sh
     src = os.path.normpath(os.path.abspath(md_path))
@@ -605,7 +605,7 @@ def _archive_source(md_path):
         print(f'    ⚠️ 归档失败 {src}: {e}')
 
 
-def _cleanup_output():
+def _cleanup_output() -> None:
     """删除 output/ 下的交付物和图片，保留 archive/ 和核心系统文件"""
     import glob, shutil
     # 1. 删除 output/*.html + output/*.docx（含 CSDN 专用 DOCX，发布完随微信产物一起删）

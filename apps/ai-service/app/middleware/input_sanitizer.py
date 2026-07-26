@@ -16,9 +16,10 @@ import re
 import time
 from typing import Any, Optional
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
+from starlette.types import ASGIApp
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ class InputSanitizerMiddleware(BaseHTTPMiddleware):
     - 不阻塞合法请求
     """
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         method = request.method
         if method not in ("POST", "PATCH", "PUT"):
             return await call_next(request)
@@ -134,7 +135,7 @@ class InputSanitizerMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-def setup_input_sanitizer_middleware(app) -> None:
+def setup_input_sanitizer_middleware(app: Any) -> None:
     """注册输入净化中间件到 FastAPI app。"""
     app.add_middleware(InputSanitizerMiddleware)
 
@@ -222,6 +223,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-def setup_rate_limit_middleware(app) -> None:
+def setup_rate_limit_middleware(app: Any) -> None:
     """注册限流中间件到 FastAPI app。"""
     app.add_middleware(RateLimitMiddleware)

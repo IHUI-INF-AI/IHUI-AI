@@ -21,7 +21,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from urllib.parse import urlparse
 from urllib.request import pathname2url, url2pathname
 
@@ -127,7 +127,7 @@ def _normalize_locations(result: Any) -> list[dict]:
     if not result:
         return []
     items = result if isinstance(result, list) else [result]
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for it in items:
         if not isinstance(it, dict):
             continue
@@ -138,7 +138,7 @@ def _normalize_locations(result: Any) -> list[dict]:
     return out
 
 
-def _format_location(loc: dict, workspace_path: str) -> dict:
+def _format_location(loc: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """对外暴露的 Location 结构(relpath + 1-based line/col)。"""
     try:
         abs_path = _from_uri(loc.get("uri", ""))
@@ -153,7 +153,7 @@ def _format_location(loc: dict, workspace_path: str) -> dict:
     }
 
 
-def _format_diagnostic(d: dict) -> dict:
+def _format_diagnostic(d: dict[str, Any]) -> dict[str, Any]:
     """对外暴露的 Diagnostic 结构(对齐 lsp.ts formatDiagnostic)。"""
     sev = d.get("severity")
     severity = {1: "Error", 2: "Warning", 3: "Info", 4: "Hint"}.get(sev, "Unknown") if isinstance(sev, int) else "Unknown"
@@ -168,7 +168,7 @@ def _format_diagnostic(d: dict) -> dict:
     }
 
 
-def _format_hover(hover: dict | None) -> str:
+def _format_hover(hover: dict[str, Any] | None) -> str:
     """对外暴露的 hover 字符串(对齐 lsp.ts formatHover)。"""
     if not hover:
         return "(无 hover 信息)"
@@ -209,10 +209,10 @@ class LspClient:
         self.workspace_path = workspace_path
         self.proc: asyncio.subprocess.Process | None = None
         self._next_id = 1
-        self._responses: dict[int, asyncio.Future] = {}
-        self._diagnostics: dict[str, list] = {}
+        self._responses: dict[int, asyncio.Future[Any]] = {}
+        self._diagnostics: dict[str, list[dict[str, Any]]] = {}
         self._opened: set[str] = set()
-        self._reader_task: asyncio.Task | None = None
+        self._reader_task: asyncio.Task[None] | None = None
         self._init_lock = asyncio.Lock()
         self._initialized = False
 
@@ -288,17 +288,17 @@ class LspClient:
         except Exception as e:
             logger.warning("[lsp] reader loop exit: %s", e)
 
-    async def _send(self, payload: dict) -> None:
+    async def _send(self, payload: dict[str, Any]) -> None:
         assert self.proc and self.proc.stdin
         body = json.dumps(payload).encode("utf-8")
         header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
         self.proc.stdin.write(header + body)
         await self.proc.stdin.drain()
 
-    async def _request(self, method: str, params: dict, timeout: float) -> Any:
+    async def _request(self, method: str, params: dict[str, Any], timeout: float) -> Any:
         msg_id = self._next_id
         self._next_id += 1
-        fut: asyncio.Future = asyncio.get_running_loop().create_future()
+        fut: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
         self._responses[msg_id] = fut
         await self._send(
             {"jsonrpc": "2.0", "id": msg_id, "method": method, "params": params}
@@ -309,7 +309,7 @@ class LspClient:
             self._responses.pop(msg_id, None)
             raise RuntimeError(f"LSP request {method} 超时")
 
-    async def _notify(self, method: str, params: dict) -> None:
+    async def _notify(self, method: str, params: dict[str, Any]) -> None:
         await self._send({"jsonrpc": "2.0", "method": method, "params": params})
 
     async def _ensure_open(self, file_path: str) -> str:
@@ -351,7 +351,7 @@ class LspClient:
 
     async def find_references(
         self, file_path: str, line: int, col: int, include_declaration: bool
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         uri = await self._ensure_open(file_path)
         result = await self._request(
             "textDocument/references",
@@ -373,16 +373,16 @@ class LspClient:
             await asyncio.sleep(DIAGNOSTICS_POLL_S)
         return self._diagnostics.get(uri, [])
 
-    async def hover(self, file_path: str, line: int, col: int) -> dict | None:
+    async def hover(self, file_path: str, line: int, col: int) -> dict[str, Any] | None:
         uri = await self._ensure_open(file_path)
-        return await self._request(
+        return cast(dict[str, Any] | None, await self._request(
             "textDocument/hover",
             {
                 "textDocument": {"uri": uri},
                 "position": {"line": line - 1, "character": col - 1},
             },
             LSP_REQUEST_TIMEOUT_S,
-        )
+        ))
 
     async def dispose(self) -> None:
         if self._reader_task:
