@@ -1,10 +1,5 @@
 {
-  "common": {
-    "loading": "加载中…"
-  },
   "nav": {
-    "courses": "课程",
-    "live": "直播",
     "profile": "我的",
     "community": "社区"
   },
@@ -76,7 +71,6 @@
   "course": {
     "learningProgress": "学习进度",
     "note": "笔记",
-    "rating": "评分",
     "share": "分享",
     "teacher": "讲师",
     "goldTeacher": "金牌讲师",
@@ -115,7 +109,6 @@
   "live": {
     "viewers": "{{n}} 人观看",
     "preview": "预告",
-    "empty": "暂无直播",
     "detail": {
       "loadFailed": "直播加载失败",
       "loading": "直播加载中…",
@@ -193,11 +186,7 @@
   },
   "order": {
     "title": "订单",
-    "status": {
-      "refunded": "已退款"
-    },
     "cancel": "取消订单",
-    "orderNo": "订单号",
     "loadFailed": "订单加载失败",
     "createTime": "创建时间",
     "orderType": "订单类型",
@@ -835,8 +824,6 @@
       "scoreValue": "{{n}} 分",
       "rankValue": "第 {{n}} 名 / 共 {{total}} 人",
       "goList": "查看考试列表",
-      "correct": "答对",
-      "wrong": "答错",
       "pageTitle": "考试结果",
       "reviewTitle": "题目回顾",
       "reviewCorrect": "正确",
