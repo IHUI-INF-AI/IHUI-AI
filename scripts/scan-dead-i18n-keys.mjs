@@ -49,6 +49,12 @@ const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]\s*\)/g
 const USE_T_RE = /\buseTranslations\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]\s*\)/g
 // 备用:i18n.t / getFixedT 链式调用
 const I18N_T_RE = /\b(?:i18n\.t|getFixedT|useTranslations)\s*\(\s*['"`]?[a-zA-Z-]*['"`]?\s*\)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// JSX prop 字面量: <Xxx namespace="literal" /> —— 启发式识别 namespace 变量传参
+// 2026-07-26 home.marquee.* 误判修复:BrandMarquee.tsx 51 行 useTranslations(namespace) 用变量传参
+//   但 121 行 JSX 传字面量 'home.marquee',通过此正则识别
+const JSX_PROP_NS_RE = /\bnamespace\s*=\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]/g
+// TypeScript 联合类型字面量: namespace?: 'a' | 'b' —— 备用启发式
+const UNION_TYPE_NS_RE = /\bnamespace\s*\??\s*:\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`](\s*\|\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`])*/g
 
 // 解析 argv
 function parseArgs(argv) {
@@ -144,6 +150,15 @@ function scanCode(files) {
       while ((m = I18N_T_RE.exec(line)) !== null) staticRefs.add(m[1])
       USE_T_RE.lastIndex = 0
       while ((m = USE_T_RE.exec(line)) !== null) usedNamespaces.add(m[1])
+      // JSX prop 字面量: namespace="literal" → 加入 usedNamespaces(2026-07-26 home.marquee.* 修复)
+      JSX_PROP_NS_RE.lastIndex = 0
+      while ((m = JSX_PROP_NS_RE.exec(line)) !== null) usedNamespaces.add(m[1])
+      // TypeScript 联合类型字面量: namespace?: 'a' | 'b'
+      UNION_TYPE_NS_RE.lastIndex = 0
+      while ((m = UNION_TYPE_NS_RE.exec(line)) !== null) {
+        usedNamespaces.add(m[1])
+        if (m[3]) usedNamespaces.add(m[3])
+      }
       DYNAMIC_T_RE.lastIndex = 0
       while ((m = DYNAMIC_T_RE.exec(line)) !== null) {
         dynamicHits.push({ file: path.relative(ROOT, f), line: i + 1, snippet: trimmed.slice(0, 200) })
