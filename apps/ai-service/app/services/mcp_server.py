@@ -414,9 +414,12 @@ async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
     - query (required): 自然语言查询
     - top_k_per_source (optional): 每源 top-K,默认 5,1-20
 
+    服务端注入(G6,2026-07-26,从 call_tool 的 user_id/session_id 透传,LLM 不可控):
+    - __user_id: 从 FastAPI request.state.user_id 注入;非空时启用 long_term_memory 源
+      (跨会话历史检索),None 时跳过 LTM(与 G5 旧行为一致,service 层无 request 上下文)
+    - __session_id: 从 request 上下文注入;非空时限定 RAG 检索会话范围
+
     服务端固定(不暴露给 LLM,安全考虑):
-    - user_id/session_id: None(mcp_server call_tool 无 session context 注入,
-      跳过 long_term_memory 源;LTM 接入需后续 mcp_server 架构改动)
     - repo_id/api_token/source_priority: None(用 knowledge_lookup 默认值)
 
     返回:
@@ -441,13 +444,18 @@ async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
     # 防御性 clamp(1-20,即使 LLM 传越界值也安全)
     top_k = max(1, min(20, top_k))
 
+    # G6(2026-07-26):从 arguments 提取 call_tool 注入的 session context
+    # (LLM 不可控,从 FastAPI request 透传;None 时 knowledge_lookup 跳过 LTM 源)
+    user_id = arguments.get("__user_id")
+    session_id = arguments.get("__session_id")
+
     try:
         from .knowledge_lookup import knowledge_lookup
         result = await knowledge_lookup(
             query,
-            user_id=None,  # mcp_server 无 session context,跳过 LTM 源
+            user_id=user_id,  # G6:None 跳过 LTM,非空启用跨会话历史检索
             repo_id=None,
-            session_id=None,
+            session_id=session_id,  # G6:None 时 RAG 跨会话,非空限定会话范围
             top_k_per_source=top_k,
             source_priority=None,  # 用默认 [codebase, rag, long_term_memory]
             api_token=None,
@@ -4103,6 +4111,8 @@ class MCPServer:
         arguments: dict[str, Any] | None = None,
         *,
         user_role: int = 0,
+        user_id: str | None = None,
+        session_id: str | None = None,
     ) -> dict[str, Any]:
         """调用指定工具(带权限矩阵校验)。
 
@@ -4111,6 +4121,11 @@ class MCPServer:
             arguments: 工具参数
             user_role: 调用者角色 ID(0=普通用户,>=1=admin)。admin 专属工具
                        需 user_role >= 1,其他工具所有用户可用。
+            user_id: 调用者用户 ID(可选)。从 FastAPI request 上下文注入,
+                     供 knowledge_lookup 查 long_term_memory 源(跨会话历史)。
+                     service 层(agent_loop/orchestrator/conversation)无 request 上下文,
+                     传 None 时 _tool_knowledge_lookup 跳过 LTM(与 G5 旧行为一致)。
+            session_id: 会话 ID(可选)。供 knowledge_lookup 限定 RAG 检索会话范围。
         """
         handler = _TOOL_HANDLERS.get(name)
         if not handler:
@@ -4127,8 +4142,12 @@ class MCPServer:
         try:
             # Wave 8:注入 __user_role 供 handler 内的写操作权限校验使用
             # (git_operations 写操作在 handler 内部做 defense-in-depth 校验)
+            # G6(2026-07-26):同时注入 __user_id/__session_id 供 knowledge_lookup
+            # 查 long_term_memory 源(从 FastAPI request 上下文透传,LLM 不可控)
             args_with_role = dict(arguments or {})
             args_with_role["__user_role"] = user_role
+            args_with_role["__user_id"] = user_id
+            args_with_role["__session_id"] = session_id
             # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
             return await asyncio.wait_for(handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT)
         except asyncio.TimeoutError:
