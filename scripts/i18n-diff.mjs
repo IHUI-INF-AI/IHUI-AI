@@ -48,6 +48,7 @@ const TARGET_CONFIG = {
   web: { dir: 'packages/i18n/messages/web', ext: '.json', stagedPrefix: 'packages/i18n/messages/web/' },
   extension: { dir: 'packages/i18n/messages/extension', ext: '.json', stagedPrefix: 'packages/i18n/messages/extension/' },
   'miniapp-taro': { dir: 'packages/i18n/messages/miniapp-taro', ext: '.json', stagedPrefix: 'packages/i18n/messages/miniapp-taro/' },
+  shared: { dir: 'packages/i18n/messages/shared', ext: '.json', stagedPrefix: 'packages/i18n/messages/shared/' },
 }
 const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
 
