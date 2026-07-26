@@ -1,12 +1,9 @@
 'use client'
 
 import * as React from 'react'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-// @ts-ignore
 import { Sparkles, Plus } from 'lucide-react'
-// @ts-ignore
 import { Button } from '@ihui/ui-react'
 
 import { AiGcTable } from './AiGcTable'

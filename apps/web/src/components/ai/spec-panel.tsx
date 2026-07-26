@@ -7,7 +7,6 @@ import {
   Workflow, AlertTriangle, GitBranch, Wand2, GitMerge, RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
-// @ts-ignore - @ihui/types not resolved in typecheck
 import type { SpecGenerateOutput } from '@ihui/types'
 import type { SpecScopeType } from '@ihui/shared/spec'
 import { fetchApi } from '@/lib/api'
