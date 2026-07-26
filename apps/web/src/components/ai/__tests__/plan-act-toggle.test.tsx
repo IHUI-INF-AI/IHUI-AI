@@ -21,9 +21,14 @@ import { PlanActToggle } from '../plan-act-toggle'
 
 /** 2026-07-25 重写:避免 @testing-library/react 16.x types 解析在 apps/web tsc 下
  * 报 TS2305(screen/fireEvent no exported)。改用 render 返回的 container + DOM API,
- * 不依赖 screen/fireEvent 的 types。语义与原测试一致。 */
+ * 不依赖 screen/fireEvent 的 types。语义与原测试一致。
+ *
+ * 2026-07-26 修正:查询所有 button 元素(不再限定 role="radio")。
+ * 原因:variant="icon" 的按钮无 role="radio"(只有 aria-label),原选择器返回空数组
+ * 导致 3 个 icon 测试失败。variant="text" 的按钮有 role="radio",不受影响。
+ * 组件内只有 render 的按钮,无其他 button 元素,查询全量 button 安全。 */
 function getButtons(container: HTMLElement): HTMLButtonElement[] {
-  return Array.from(container.querySelectorAll<HTMLButtonElement>('button[role="radio"]'))
+  return Array.from(container.querySelectorAll<HTMLButtonElement>('button'))
 }
 
 function getGroup(container: HTMLElement): HTMLElement | null {
@@ -39,8 +44,12 @@ function clickByText(container: HTMLElement, text: string) {
 describe('PlanActToggle', () => {
   afterEach(() => cleanup())
 
+  // 2026-07-26 修复:happy-dom 默认 getBoundingClientRect().width=0,auto 模式测量得
+  // compact=true 走 icon 分支(1 按钮)。这里测文字按钮语义,显式传 variant="text"。
   it('mode=plan 时 规划 按钮选中(aria-checked=true)', () => {
-    const { container } = render(<PlanActToggle mode="plan" onChange={() => {}} />)
+    const { container } = render(
+      <PlanActToggle mode="plan" onChange={() => {}} variant="text" />,
+    )
     const radios = getButtons(container)
     expect(radios).toHaveLength(2)
     expect(radios[0]!.getAttribute('aria-checked')).toBe('true')
@@ -49,7 +58,9 @@ describe('PlanActToggle', () => {
 
   it('点击 执行 触发 onChange("act")', () => {
     const onChange = vi.fn()
-    const { container } = render(<PlanActToggle mode="plan" onChange={onChange} />)
+    const { container } = render(
+      <PlanActToggle mode="plan" onChange={onChange} variant="text" />,
+    )
     clickByText(container, '执行')
     expect(onChange).toHaveBeenCalledWith('act')
     expect(onChange).toHaveBeenCalledTimes(1)
@@ -57,13 +68,17 @@ describe('PlanActToggle', () => {
 
   it('点击 规划 触发 onChange("plan")', () => {
     const onChange = vi.fn()
-    const { container } = render(<PlanActToggle mode="act" onChange={onChange} />)
+    const { container } = render(
+      <PlanActToggle mode="act" onChange={onChange} variant="text" />,
+    )
     clickByText(container, '规划')
     expect(onChange).toHaveBeenCalledWith('plan')
   })
 
   it('选中态含 primary 背景类,未选中不含', () => {
-    const { container } = render(<PlanActToggle mode="plan" onChange={() => {}} />)
+    const { container } = render(
+      <PlanActToggle mode="plan" onChange={() => {}} variant="text" />,
+    )
     const radios = getButtons(container)
     expect(radios[0]!.getAttribute('class')).toContain('bg-primary')
     expect(radios[0]!.getAttribute('class')).toContain('text-primary-foreground')
@@ -72,7 +87,9 @@ describe('PlanActToggle', () => {
   })
 
   it('radiogroup 容器用 rounded-md(非 rounded-full)', () => {
-    const { container } = render(<PlanActToggle mode="plan" onChange={() => {}} />)
+    const { container } = render(
+      <PlanActToggle mode="plan" onChange={() => {}} variant="text" />,
+    )
     const group = getGroup(container)
     expect(group).not.toBeNull()
     expect(group!.getAttribute('class')).toContain('rounded-md')
