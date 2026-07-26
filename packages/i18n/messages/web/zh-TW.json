@@ -7940,7 +7940,7 @@
     "qwenVideoTitle": "通義千問影片生成",
     "qwenVideoSubtitle": "使用通義千問生成影片",
     "oneClickVideoTitle": "一鍵影片生成",
-    "oneClickVideoSubtitle": "自動選擇最佳模型生成影片",
+    "oneClickVideoSubtitle": "自動選擇推薦模型生成影片",
     "sora2VideoTitle": "Sora2 影片生成",
     "sora2VideoSubtitle": "使用 Sora2 生成影片",
     "visionAnalysisTitle": "圖像理解分析",
@@ -9785,7 +9785,7 @@
       "subtitle": "8 端全覆蓋的企業級 AI 平臺 · 100+ 大模型 · 自研 CLI · 工業級工程嚴謹 · 讓決策者一站式拿到所有 AI 能力",
       "modelIntegration": {
         "title": "8 端全覆蓋架構",
-        "description": "Web/桌面/移動/小程式/CLI/擴展 6 端 + API/AI-Service 2 端,行業唯一全棧,統一帳號無縫切換",
+        "description": "Web/桌面/移動/小程式/CLI/擴展 6 端 + API/AI-Service 2 端,提供數不多的全棧方案,統一帳號無縫切換",
         "benefit": "省 8 倍重複購買成本 · 1 個帳號通用 8 端 · 數據零遷移"
       },
       "appStore": {
@@ -10191,6 +10191,26 @@
       "join": "立即加入",
       "sectionLabel": "底部行動呼籲",
       "dashboard": "進入工作臺"
+    },
+    "articleSchema": {
+      "headline": "AI 資訊 · 全網即時聚合流",
+      "description": "智匯 AI 資訊頻道:聚合 41 個權威信源(微博/知乎/36 氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小時自動採集,模型/產品/行業/論文分類與趨勢信號即時更新。",
+      "author": "智匯 AI 編輯部",
+      "datePublished": "2026-07-26",
+      "articleBody": "智匯 AI 資訊頻道提供 7x24 自動化的 AI 行業資訊聚合,涵蓋國內外主流媒體、社群平臺與一手技術部落格,透過自然語言處理對每條資訊進行主題歸類(模型/產品/行業/論文)與情緒標記,並提供訂閱、收藏、分享、趨勢熱榜等讀者側能力,協助開發者、產品經理與決策者一站式掌握 AI 行業脈搏。",
+      "articleSection": "AI 資訊",
+      "keywords": [
+        "AI 資訊",
+        "大模型",
+        "OpenAI",
+        "GPT",
+        "Claude",
+        "HackerNews",
+        "TechCrunch",
+        "Arxiv",
+        "趨勢信號",
+        "智匯 AI"
+      ]
     }
   },
   "cliImport": {
@@ -12111,7 +12131,13 @@
     "responsive": {
       "customWidth": "自訂寬度",
       "apply": "套用",
-      "deviceFrame": "裝置外框"
+      "deviceFrame": "裝置外框",
+      "deviceMobilePortrait": "Mobile Portrait",
+      "deviceMobileLandscape": "Mobile Landscape",
+      "deviceTabletPortrait": "Tablet Portrait",
+      "deviceTabletLandscape": "Tablet Landscape",
+      "deviceDesktop": "Desktop",
+      "deviceCustom": "Custom"
     },
     "templates": {
       "title": "範本"
@@ -12214,6 +12240,30 @@
           "SLA 99.95%"
         ]
       }
+    },
+    "productSchema": {
+      "name": "智匯 AI 儲值套餐",
+      "description": "智匯 AI 全棧 AI 作業系統的 API 儲值套餐,涵蓋個人開發者/小團隊/企業級需求,支援按量計費與包月套餐。",
+      "brand": "智匯 AI",
+      "category": "Software > AI Development Platform > API Credits",
+      "currency": "TWD",
+      "offers": {
+        "starter": {
+          "name": "入門包",
+          "price": 9.9,
+          "description": "1M tokens 額度,基礎模型可用,5 個 API 令牌,社群支援。"
+        },
+        "pro": {
+          "name": "專業包",
+          "price": 99,
+          "description": "15M tokens 額度,全部模型可用,20 個 API 令牌,優先技術支援,呼叫日誌 90 天。"
+        },
+        "enterprise": {
+          "name": "企業包",
+          "price": 999,
+          "description": "200M tokens 額度,專屬模型通道,無限 API 令牌,專屬客戶經理,呼叫日誌永久,SLA 99.95%。"
+        }
+      }
     }
   },
   "modelsReferralPage": {
@@ -12274,5 +12324,93 @@
         "description": "監控異常指標並自動通知值班人員,支援多級升級策略。"
       }
     }
+  },
+  "modelsGroupsPage": {
+    "title": "模型分組",
+    "description": "依場景/能力分組的模型清單",
+    "group": {
+      "1": { "name": "通用對話", "desc": "通用場景對話模型" },
+      "2": { "name": "代碼生成", "desc": "代碼補完/重構/審查" },
+      "3": { "name": "多模態", "desc": "圖文理解/生成" },
+      "4": { "name": "推理分析", "desc": "數學/邏輯/分析" },
+      "5": { "name": "長文本", "desc": "長上下文摘要/分析" }
+    }
+  },
+  "modelsPage": "Models",
+  "seo": {
+    "imageSitemap": {
+      "title": "圖片站點地圖 — 智匯 AI",
+      "description": "智匯 AI 圖片站點地圖,涵蓋 public/images/ 下所有官方品牌素材、圖示、登入三方素材,供 Google Images 抓取。"
+    },
+    "newsSitemap": {
+      "title": "新聞站點地圖 — 智匯 AI",
+      "description": "智匯 AI 新聞站點地圖,過去 30 天內的產品發佈、安全加固、能力上線條目,內容追溯 docs/CHANGELOG.md。"
+    },
+    "jsonFeed": {
+      "title": "JSON Feed — 智匯 AI",
+      "description": "智匯 AI JSON Feed 1.1 訂閱,支援 5 語言切換,提供結構化訂閱源,適合 LLM 與 MCP 客戶端解析。"
+    },
+    "opml": {
+      "title": "OPML 訂閱源大綱 — 智匯 AI",
+      "description": "智匯 AI 全訂閱源 OPML 2.0 索引:主訂閱源、即時推送、搜尋引擎 sitemap、5 語言版本分組,一鍵匯入閱讀器。"
+    }
+  },
+  "useCasesAiEdu": {
+    "metaTitle": "AI 教育 Agent 用例 — 課程編排/智能答疑/學習推薦 | IHUI AI",
+    "metaDescription": "基於智匯 AI 全棧 AI 作業系統搭建的 AI 教育 Agent:課程結構化編排、智能答疑、作業批改、個性化學習路徑、學習資料看板,8 端同源分發。",
+    "courseSchema": {
+      "name": "智匯 AI 教育 Agent 實戰課",
+      "description": "面向 K12/職業培訓/企業內訓的 AI 教育 Agent 搭建實戰課,涵蓋課程結構化編排、智能答疑、作業批改、學習資料看板、個性化推薦,30 分鐘即可上線。",
+      "provider": "智匯 AI",
+      "startDate": "2026-08-01",
+      "endDate": "2026-12-31",
+      "courseWorkload": "PT16H",
+      "about": [
+        "AI 教育",
+        "課程編排",
+        "智能答疑",
+        "作業批改",
+        "學習推薦",
+        "MCP 工具協議",
+        "知識庫 RAG",
+        "多模型調度"
+      ],
+      "teaches": [
+        "課程結構化編排",
+        "智能答疑工作流設計",
+        "作業自動批改實現",
+        "學習資料看板搭建",
+        "個性化學習路徑推薦"
+      ]
+    }
+  },
+  "useCasesCustomerSupport": {
+    "reviewSchema": {
+      "itemReviewed": "智匯 AI 智能客服 Agent",
+      "reviewBody": "接入智匯 AI 智能客服 3 個月,人工客服日均接待量從 800 降至 240(降幅 70%),夜間與節假日諮詢 100% 由 AI 處理,客戶滿意度從 4.1 提升到 4.7。統一知識庫讓所有管道(微信/網頁/小程序)答案一致,人機協同把複雜問題無縫轉人工並附 AI 推薦答覆,客服團隊終於把時間花在真正需要判斷力的工單上。",
+      "author": "陳曉彤",
+      "authorJobTitle": "客戶成功總監",
+      "authorAffiliation": "某 SaaS 新創公司",
+      "datePublished": "2026-07-26",
+      "reviewRating": {
+        "ratingValue": 4.8
+      }
+    }
+  },
+  "useCasesAiDesign": {
+    "metaTitle": "AI 設計協作 Agent — 海報/Logo 概念/UI 轉代碼/設計審查 | IHUI AI",
+    "metaDescription": "基於 IHUI AI 全端 AI 操作系統搭建 AI 設計協作 Agent:海報 Logo 概念 + UI 轉代碼 + 品牌資產管理 + 設計審查 + 設計系統檢索,8 端同源分發,Apache 2.0 開源。"
+  },
+  "useCasesAiMarketing": {
+    "metaTitle": "AI 營銷內容生成 Agent — 多平臺文案/SEO/A/B 測試 | IHUI AI",
+    "metaDescription": "基於 IHUI AI 全端 AI 操作系統搭建 AI 營銷內容生成 Agent:多平臺文案 + SEO 部落格 + 品牌調性一致 + A/B 測試 + 受眾畫像,8 端同源分發,Apache 2.0 開源。"
+  },
+  "useCasesAiResearch": {
+    "metaTitle": "AI 學術研究助手 — 論文檢索/綜述/引用管理 | IHUI AI",
+    "metaDescription": "基於 IHUI AI 全端 AI 操作系統搭建 AI 學術研究助手:論文檢索 + PDF 解析 + 引用管理 + 綜述生成 + 知識圖譜 + 趨勢分析,8 端同源分發,Apache 2.0 開源。"
+  },
+  "useCasesAiTranslation": {
+    "metaTitle": "AI 多語言翻譯 Agent — 文件翻譯/本地化/術語庫/字幕 | IHUI AI",
+    "metaDescription": "基於 IHUI AI 全端 AI 操作系統搭建 AI 多語言翻譯 Agent:多語言文件翻譯 + 本地化工作流 + 術語庫管理 + 翻譯審校 + 文化適配 + 字幕翻譯,8 端同源分發,Apache 2.0 開源。"
   }
 }
