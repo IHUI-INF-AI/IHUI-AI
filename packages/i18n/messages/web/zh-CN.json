@@ -7871,7 +7871,7 @@
     "qwenVideoTitle": "通义千问视频生成",
     "qwenVideoSubtitle": "使用通义千问生成视频",
     "oneClickVideoTitle": "一键视频生成",
-    "oneClickVideoSubtitle": "自动选择最佳模型生成视频",
+    "oneClickVideoSubtitle": "自动选择推荐模型生成视频",
     "sora2VideoTitle": "Sora2 视频生成",
     "sora2VideoSubtitle": "使用 Sora2 生成视频",
     "visionAnalysisTitle": "图像理解分析",
@@ -10120,6 +10120,26 @@
       "join": "立即加入",
       "sectionLabel": "底部行动召唤",
       "dashboard": "进入工作台"
+    },
+    "articleSchema": {
+      "headline": "AI 资讯 · 全网实时聚合流",
+      "description": "智汇 AI 资讯频道:聚合 41 个权威信源(微博/知乎/36 氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小时自动采集,模型/产品/行业/论文分类与趋势信号实时更新。",
+      "author": "智汇 AI 编辑部",
+      "datePublished": "2026-07-26",
+      "articleBody": "智汇 AI 资讯频道提供 7×24 自动化的 AI 行业资讯聚合,覆盖国内外主流媒体、社交平台与一手技术博客,通过自然语言处理对每条资讯进行主题归类(模型/产品/行业/论文)与情绪标记,并提供订阅、收藏、分享、趋势热榜等读者侧能力,帮助开发者、产品经理与决策者一站式掌握 AI 行业脉搏。",
+      "articleSection": "AI 资讯",
+      "keywords": [
+        "AI 资讯",
+        "大模型",
+        "OpenAI",
+        "GPT",
+        "Claude",
+        "HackerNews",
+        "TechCrunch",
+        "Arxiv",
+        "趋势信号",
+        "智汇 AI"
+      ]
     }
   },
   "cliImport": {
@@ -12040,7 +12060,13 @@
     "responsive": {
       "customWidth": "自定义宽度",
       "apply": "应用",
-      "deviceFrame": "设备外框"
+      "deviceFrame": "设备外框",
+      "deviceMobilePortrait": "Mobile Portrait",
+      "deviceMobileLandscape": "Mobile Landscape",
+      "deviceTabletPortrait": "Tablet Portrait",
+      "deviceTabletLandscape": "Tablet Landscape",
+      "deviceDesktop": "Desktop",
+      "deviceCustom": "Custom"
     },
     "templates": {
       "title": "模板"
@@ -12076,6 +12102,30 @@
           "调用日志永久",
           "SLA 99.95%"
         ]
+      }
+    },
+    "productSchema": {
+      "name": "智汇 AI 充值套餐",
+      "description": "智汇 AI 全栈 AI 操作系统的 API 充值套餐,覆盖个人开发者/小团队/企业级需求,支持按量计费与包月套餐。",
+      "brand": "智汇 AI",
+      "category": "Software > AI Development Platform > API Credits",
+      "currency": "CNY",
+      "offers": {
+        "starter": {
+          "name": "入门包",
+          "price": 9.9,
+          "description": "1M tokens 额度,基础模型可用,5 个 API 令牌,社区支持。"
+        },
+        "pro": {
+          "name": "专业包",
+          "price": 99,
+          "description": "15M tokens 额度,全部模型可用,20 个 API 令牌,优先技术支持,调用日志 90 天。"
+        },
+        "enterprise": {
+          "name": "企业包",
+          "price": 999,
+          "description": "200M tokens 额度,专属模型通道,无限 API 令牌,专属客户经理,调用日志永久,SLA 99.95%。"
+        }
       }
     }
   },
@@ -12137,5 +12187,93 @@
         "description": "监控异常指标并自动通知值班人员,支持多级升级策略。"
       }
     }
+  },
+  "modelsGroupsPage": {
+    "title": "模型分组",
+    "description": "按场景/能力分组的模型清单",
+    "group": {
+      "1": { "name": "通用对话", "desc": "通用场景对话模型" },
+      "2": { "name": "代码生成", "desc": "代码补全/重构/审查" },
+      "3": { "name": "多模态", "desc": "图文理解/生成" },
+      "4": { "name": "推理分析", "desc": "数学/逻辑/分析" },
+      "5": { "name": "长文本", "desc": "长上下文摘要/分析" }
+    }
+  },
+  "modelsPage": "Models",
+  "useCasesAiEdu": {
+    "metaTitle": "AI 教育 Agent 用例 — 课程编排/智能答疑/学习推荐 | IHUI AI",
+    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建的 AI 教育 Agent:课程结构化编排、智能答疑、作业批改、个性化学习路径、学习数据看板,8 端同源分发。",
+    "courseSchema": {
+      "name": "IHUI AI 教育 Agent 实战课",
+      "description": "面向 K12/职业培训/企业内训的 AI 教育 Agent 搭建实战课,涵盖课程结构化编排、智能答疑、作业批改、学习数据看板、个性化推荐,30 分钟即可上线。",
+      "provider": "智汇 AI",
+      "startDate": "2026-08-01",
+      "endDate": "2026-12-31",
+      "courseWorkload": "PT16H",
+      "about": [
+        "AI 教育",
+        "课程编排",
+        "智能答疑",
+        "作业批改",
+        "学习推荐",
+        "MCP 工具协议",
+        "知识库 RAG",
+        "多模型调度"
+      ],
+      "teaches": [
+        "课程结构化编排",
+        "智能答疑工作流设计",
+        "作业自动批改实现",
+        "学习数据看板搭建",
+        "个性化学习路径推荐"
+      ]
+    }
+  },
+  "useCasesCustomerSupport": {
+    "reviewSchema": {
+      "itemReviewed": "智汇 AI 智能客服 Agent",
+      "reviewBody": "接入智汇 AI 智能客服 3 个月,人工客服日均接待量从 800 降至 240(降幅 70%),夜间与节假日咨询 100% 由 AI 处理,客户满意度从 4.1 提升到 4.7。统一知识库让所有渠道(微信/网页/小程序)答案一致,人机协同把复杂问题无缝转人工并附 AI 推荐答复,客服团队终于把时间花在真正需要判断力的工单上。",
+      "author": "陈晓彤",
+      "authorJobTitle": "客户成功总监",
+      "authorAffiliation": "某 SaaS 创业公司",
+      "datePublished": "2026-07-26",
+      "reviewRating": {
+        "ratingValue": 4.8
+      }
+    }
+  },
+  "seo": {
+    "imageSitemap": {
+      "title": "图片站点地图 — 智汇 AI",
+      "description": "智汇 AI 图片站点地图,涵盖 public/images/ 下所有官方品牌素材、图标、登录三方素材,供 Google Images 抓取。"
+    },
+    "newsSitemap": {
+      "title": "新闻站点地图 — 智汇 AI",
+      "description": "智汇 AI 新闻站点地图,过去 30 天内的产品发布、安全加固、能力上线条目,内容追溯 docs/CHANGELOG.md。"
+    },
+    "jsonFeed": {
+      "title": "JSON Feed — 智汇 AI",
+      "description": "智汇 AI JSON Feed 1.1 订阅,支持 5 语言切换,提供结构化订阅源,适合 LLM 与 MCP 客户端解析。"
+    },
+    "opml": {
+      "title": "OPML 订阅源大纲 — 智汇 AI",
+      "description": "智汇 AI 全订阅源 OPML 2.0 索引:主订阅源、实时推送、搜索引擎 sitemap、5 语言版本分组,一键导入阅读器。"
+    }
+  },
+  "useCasesAiDesign": {
+    "metaTitle": "AI 设计协作 Agent — 海报/Logo 概念/UI 转代码/设计审查 | IHUI AI",
+    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 设计协作 Agent:海报 Logo 概念 + UI 转代码 + 品牌资产管理 + 设计审查 + 设计系统检索,8 端同源分发,Apache 2.0 开源。"
+  },
+  "useCasesAiMarketing": {
+    "metaTitle": "AI 营销内容生成 Agent — 多平台文案/SEO/A/B 测试 | IHUI AI",
+    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 营销内容生成 Agent:多平台文案 + SEO 博客 + 品牌调性一致 + A/B 测试 + 受众画像,8 端同源分发,Apache 2.0 开源。"
+  },
+  "useCasesAiResearch": {
+    "metaTitle": "AI 学术研究助手 Agent — 论文检索/综述/引用管理 | IHUI AI",
+    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 学术研究助手:论文检索 + PDF 解析 + 引用管理 + 综述生成 + 知识图谱 + 趋势分析,8 端同源分发,Apache 2.0 开源。"
+  },
+  "useCasesAiTranslation": {
+    "metaTitle": "AI 多语言翻译 Agent — 文档翻译/本地化/术语库/字幕 | IHUI AI",
+    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 多语言翻译 Agent:多语言文档翻译 + 本地化工作流 + 术语库管理 + 翻译审校 + 文化适配 + 字幕翻译,8 端同源分发,Apache 2.0 开源。"
   }
 }

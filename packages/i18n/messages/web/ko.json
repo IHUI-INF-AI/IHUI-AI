@@ -7504,7 +7504,7 @@
     "step4Desc": "앱을 배포하고 사용자 서비스를 시작하세요",
     "heroBadge": "오픈플랫폼",
     "heroTitle": "One-stop AI Innovation Ecosystem Hub",
-    "heroSubtitle": "Midjourney, DALL-E, Sora, Suno 등 최고 AI 작품 수집",
+    "heroSubtitle": "Midjourney, DALL-E, Sora, Suno 등 고품질 AI 작품 수집",
     "heroCta": "getStarted",
     "featuresTitle": "VIP전담특권",
     "featuresSubtitle": "개발자에게 종합적인 지원 제공",
@@ -10218,6 +10218,26 @@
       "join": "지금 참여",
       "sectionLabel": "하단 행동 유도",
       "dashboard": "워크스페이스로"
+    },
+    "articleSchema": {
+      "headline": "AI 뉴스 · 전망 실시간 집계",
+      "description": "IHUI AI 뉴스: 41개의 권위 있는 소스(微博/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv 등)를 집계하여 6시간마다 자동 수집. 모델/제품/산업/논문 분류 및 트렌드 시그널을 실시간으로 제공합니다.",
+      "author": "IHUI AI 편집부",
+      "datePublished": "2026-07-26",
+      "articleBody": "IHUI AI 뉴스는 국내외 주요 미디어, 소셜 플랫폼 및 1차 기술 블로그를 아우르는 7x24 자동화 산업 집계 채널입니다. 각 기사는 자연어 처리로 모델/제품/산업/논문으로 자동 분류되며 감정 태그도 부여됩니다. 구독, 북마크, 공유, 트렌드 차트 등 독자 기능을 제공하여 개발자, 프로덕트 매니저, 의사 결정자가 AI 산업의 흐름을 한눈에 파악할 수 있도록 돕습니다.",
+      "articleSection": "AI 뉴스",
+      "keywords": [
+        "AI 뉴스",
+        "LLM",
+        "OpenAI",
+        "GPT",
+        "Claude",
+        "HackerNews",
+        "TechCrunch",
+        "Arxiv",
+        "트렌드 시그널",
+        "IHUI AI"
+      ]
     }
   },
   "cliImport": {
@@ -12138,7 +12158,13 @@
     "responsive": {
       "customWidth": "사용자 지정 너비",
       "apply": "적용",
-      "deviceFrame": "장치 프레임"
+      "deviceFrame": "장치 프레임",
+      "deviceMobilePortrait": "Mobile Portrait",
+      "deviceMobileLandscape": "Mobile Landscape",
+      "deviceTabletPortrait": "Tablet Portrait",
+      "deviceTabletLandscape": "Tablet Landscape",
+      "deviceDesktop": "Desktop",
+      "deviceCustom": "Custom"
     },
     "templates": {
       "title": "템플릿"
@@ -12298,6 +12324,30 @@
           "SLA 99.95%"
         ]
       }
+    },
+    "productSchema": {
+      "name": "IHUI AI 충전 패키지",
+      "description": "IHUI AI 풀스택 AI OS의 API 충전 패키지. 개인 개발자/소규모 팀/기업급 요구를 커버하며, 사용량 기반 과금과 월간 구독을 모두 지원합니다.",
+      "brand": "IHUI AI",
+      "category": "Software > AI Development Platform > API Credits",
+      "currency": "KRW",
+      "offers": {
+        "starter": {
+          "name": "스타터",
+          "price": 9.9,
+          "description": "1M 토큰 한도, 기본 모델, 5개 API 토큰, 커뮤니티 지원."
+        },
+        "pro": {
+          "name": "프로",
+          "price": 99,
+          "description": "15M 토큰 한도, 모든 모델, 20개 API 토큰, 우선 기술 지원, 90일 호출 로그."
+        },
+        "enterprise": {
+          "name": "엔터프라이즈",
+          "price": 999,
+          "description": "200M 토큰 한도, 전용 모델 채널, 무제한 API 토큰, 전담 계정 매니저, 영구 호출 로그, SLA 99.95%."
+        }
+      }
     }
   },
   "modelsReferralPage": {
@@ -12358,5 +12408,93 @@
         "description": "이상 지표를 모니터링하고 당직 인원에게 자동 알림을 전송하며, 다단계 에스컬레이션 전략을 지원합니다."
       }
     }
+  },
+  "modelsGroupsPage": {
+    "title": "모델 그룹",
+    "description": "시나리오/능력별로 그룹화된 모델 목록",
+    "group": {
+      "1": { "name": "일반 대화", "desc": "범용 시나리오 대화 모델" },
+      "2": { "name": "코드 생성", "desc": "코드 자동완성 / 리팩터 / 리뷰" },
+      "3": { "name": "멀티모달", "desc": "이미지·텍스트 이해 / 생성" },
+      "4": { "name": "추론 분석", "desc": "수학 / 논리 / 분석" },
+      "5": { "name": "장문 컨텍스트", "desc": "장문 컨텍스트 요약 / 분석" }
+    }
+  },
+  "modelsPage": "Models",
+  "seo": {
+    "imageSitemap": {
+      "title": "이미지 사이트맵 — IHUI AI",
+      "description": "IHUI AI 이미지 사이트맵. public/images/ 하위의 모든 공식 브랜드 자료, 아이콘, 제3자 로그인 자료를 포함하여 Google Images 크롤링에 대응합니다."
+    },
+    "newsSitemap": {
+      "title": "뉴스 사이트맵 — IHUI AI",
+      "description": "IHUI AI 뉴스 사이트맵. 최근 30일 동안의 제품 릴리스, 보안 강화, 기능 출시 항목을 docs/CHANGELOG.md 기준으로 정리합니다."
+    },
+    "jsonFeed": {
+      "title": "JSON Feed — IHUI AI",
+      "description": "IHUI AI JSON Feed 1.1 구독. 5개 언어 전환을 지원하며 LLM 및 MCP 클라이언트 파싱에 적합한 구조화된 피드를 제공합니다."
+    },
+    "opml": {
+      "title": "OPML 구독 윤곽 — IHUI AI",
+      "description": "IHUI AI 전체 구독 소스의 OPML 2.0 윤곽. 주요 피드, 실시간 푸시, 검색 엔진 사이트맵, 5개 언어 버전 그룹으로 분류되어 리더에 원클릭으로 가져올 수 있습니다."
+    }
+  },
+  "useCasesAiEdu": {
+    "metaTitle": "AI 교육 Agent 사용 사례 — 코스 설계/지능형 Q&A/학습 추천 | IHUI AI",
+    "metaDescription": "IHUI AI 풀스택 AI OS로 구축하는 AI 교육 Agent: 코스 구조화 설계, 지능형 Q&A, 자동 채점, 개인화 학습 경로, 학습 대시보드, 8단 동시 배포.",
+    "courseSchema": {
+      "name": "IHUI AI 교육 Agent 부트캠프",
+      "description": "K12/직업 교육/기업 내 교육을 위한 AI 교육 Agent 구축 실전 강좌. 코스 구조화 설계, 지능형 Q&A, 자동 채점, 학습 대시보드, 개인화 추천을 다룹니다. 30분 만에 출시 가능.",
+      "provider": "IHUI AI",
+      "startDate": "2026-08-01",
+      "endDate": "2026-12-31",
+      "courseWorkload": "PT16H",
+      "about": [
+        "AI 교육",
+        "코스 설계",
+        "지능형 Q&A",
+        "자동 채점",
+        "학습 추천",
+        "MCP 도구 프로토콜",
+        "지식 베이스 RAG",
+        "멀티 모델 라우팅"
+      ],
+      "teaches": [
+        "코스 구조화 설계",
+        "지능형 Q&A 워크플로 설계",
+        "자동 채점 구현",
+        "학습 대시보드 구축",
+        "개인화 학습 경로 추천"
+      ]
+    }
+  },
+  "useCasesCustomerSupport": {
+    "reviewSchema": {
+      "itemReviewed": "IHUI AI 스마트 고객 서비스 Agent",
+      "reviewBody": "IHUI AI 스마트 고객 서비스를 3개월 도입한 결과, 상담원의 일일 응대 건수는 800건에서 240건으로 감소(70% 감소). 야간 및 공휴일 문의는 100% AI가 처리하며, 고객 만족도는 4.1에서 4.7로 상승했습니다. 통합 지식 베이스로 WeChat/웹/미니프로그램 모든 채널의 답변이 일관되고, 복잡한 케이스는 AI 추천 답변과 함께 상담원에게 매끄럽게 인계되어 지원 팀이 진정한 판단력이 필요한 티켓에 집중할 수 있게 되었습니다.",
+      "author": "천샤오퉁",
+      "authorJobTitle": "고객 성공 디렉터",
+      "authorAffiliation": "SaaS 스타트업",
+      "datePublished": "2026-07-26",
+      "reviewRating": {
+        "ratingValue": 4.8
+      }
+    }
+  },
+  "useCasesAiDesign": {
+    "metaTitle": "AI 디자인 협업 Agent — 포스터/Logo 콘셉트/스케치를 코드로 | IHUI AI",
+    "metaDescription": "IHUI AI 풀스택 AI OS 기반의 AI 디자인 협업 Agent:포스터/Logo 콘셉트 + 스케치를 코드로 + 브랜드 자산 관리 + 디자인 리뷰 + 디자인 시스템 검색, 8엔드포인트 동기 배포, Apache 2.0 오픈소스."
+  },
+  "useCasesAiMarketing": {
+    "metaTitle": "AI 마케팅 콘텐츠 생성 Agent — 멀티 플랫폼/SEO/A/B | IHUI AI",
+    "metaDescription": "IHUI AI 풀스택 AI OS 기반의 AI 마케팅 콘텐츠 생성 Agent:멀티 플랫폼 카피 + SEO 블로그 + 브랜드 톤 일관성 + A/B 테스트 + 페르소나 기반, 8엔드포인트 동기 배포, Apache 2.0 오픈소스."
+  },
+  "useCasesAiResearch": {
+    "metaTitle": "AI 학술 연구 어시스턴트 — 논문 검색/리뷰/인용 관리 | IHUI AI",
+    "metaDescription": "IHUI AI 풀스택 AI OS 기반의 AI 학술 연구 어시스턴트:논문 검색 + PDF 파싱 + 인용 관리 + 리뷰 생성 + 지식 그래프 + 동향 분석, 8엔드포인트 동기 배포, Apache 2.0 오픈소스."
+  },
+  "useCasesAiTranslation": {
+    "metaTitle": "AI 다국어 번역 Agent — 문서 번역/로컬라이제이션/용어집/자막 | IHUI AI",
+    "metaDescription": "IHUI AI 풀스택 AI OS 기반의 AI 다국어 번역 Agent:다국어 문서 번역 + 로컬라이제이션 워크플로우 + 용어집 관리 + 번역 리뷰 + 문화 적응 + 자막 번역, 8엔드포인트 동기 배포, Apache 2.0 오픈소스."
   }
 }
