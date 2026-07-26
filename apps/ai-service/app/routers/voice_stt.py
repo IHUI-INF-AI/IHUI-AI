@@ -12,7 +12,7 @@ POST /api/voice/stt 接收 multipart/form-data 音频文件,调用 LiteLLM 的 t
 
 import logging
 import tempfile
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, File, Form, UploadFile
 from pydantic import BaseModel
@@ -85,7 +85,7 @@ async def voice_stt(
             tmp.flush()
             tmp.seek(0)
             # litellm.atranscription 需要 file 参数为 tuple (filename, fileobj)
-            call_kwargs: dict = {
+            call_kwargs: dict[str, Any] = {
                 "model": _DEFAULT_STT_MODEL,
                 "file": (file.filename or "audio.wav", tmp),
             }
