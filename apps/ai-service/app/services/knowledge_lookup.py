@@ -16,8 +16,8 @@ tool loop 里"一站式"查询外部知识,避免 hallucination + 减少重复 t
 
 PoC 边界(§3 最小化):
 - 仅门面 + 单测 + README,不接入 agent_loop / spec_generator 等调用点
-- RAG 源直接调 _retrieve 私有方法(跳过 generate 阶段),后续应在 RAGService
-  暴露 retrieve_only() 公有方法替代
+- RAG 源走 retrieve_only() 公有方法(跳过 generate 阶段),
+  G4 完整迁移后已替代 PoC 阶段的 _retrieve 私有调用
 
 使用方式:
     from app.services.knowledge_lookup import knowledge_lookup
@@ -210,10 +210,11 @@ async def _query_rag(
 ) -> list[KnowledgeHit]:
     """查 rag_service,返回 list[KnowledgeHit]。
 
-    PoC 简化:直接调 _retrieve 私有方法跳过 generate 阶段(避免触发 LLM 调用,
-    节省 token + 提速)。后续应在 RAGService 暴露 retrieve_only() 公有方法替代。
+    走 retrieve_only() 公有方法(跳过 generate 阶段,避免触发 LLM 调用,
+    节省 token + 提速)。retrieve_only() 是 _retrieve() 的公有包装,
+    G4 完整迁移后替代了直接调私有 _retrieve 的 PoC 路径。
     """
-    sources = await rag_service._retrieve(
+    sources = await rag_service.retrieve_only(
         query, top_k=top_k, session_id=session_id
     )
     return [
