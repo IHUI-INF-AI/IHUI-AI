@@ -11067,30 +11067,6 @@
     "noRates": "暫無評價，快來發表第一條評價吧",
     "anonymous": "匿名用戶"
   },
-  "modelsBillingPage": {
-    "packages": {
-      "starter": {
-      },
-      "pro": {
-      },
-      "enterprise": {
-      }
-    }
-  },
-  "n8nAgentsPage": {
-    "agents": {
-      "alert-notify": {
-      },
-      "content-moderation": {
-      },
-      "customer-service": {
-      },
-      "data-sync": {
-      },
-      "report-generation": {
-      }
-    }
-  },
   "agentsMyPage": {
     "back": "返回",
     "title": "我的智能體",
@@ -11730,16 +11706,6 @@
     "save": "儲存",
     "cancel": "取消"
   },
-  "modelsReferralPage": {
-    "link": {
-    },
-    "stats": {
-    },
-    "list": {
-      "statusLabels": {
-      }
-    }
-  },
   "knowledgeRag": {
     "list": {
       "title": "知識庫 RAG",
@@ -12048,22 +12014,7 @@
       "deviceFrame": "裝置外框"
     },
     "templates": {
-      "title": "範本",
-      "categories": {}
-    }
-  },
-  "modelsGroupsPage": {
-    "group": {
-      "1": {
-      },
-      "2": {
-      },
-      "3": {
-      },
-      "4": {
-      },
-      "5": {
-      }
+      "title": "範本"
     }
   },
   "a11y": {
