@@ -1,3 +1,5 @@
-# GitHub Sponsors / Sponsor 按钮(用户点 repo 右上角 "Sponsor" 可见)
-# 文档:https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
-custom: ['https://ihui.ai']
+# GitHub Sponsors / 赞助渠道(2026-07-26 立,提升社区友好度)
+# 这些链接会显示在仓库主页的 "Sponsor this project" 按钮
+
+github: [IHUI-INF-AI]
+custom: ['https://ihui.ai/pricing', 'https://ihui.ai/enterprise']
