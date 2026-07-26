@@ -59,7 +59,7 @@ def _get_redis() -> Any:
         if not url:
             return None
         try:
-            import redis  # type: ignore[import-not-found]
+            import redis
         except ImportError:
             logger.warning("artifacts_store: redis 包未安装,降级进程内 dict")
             return None

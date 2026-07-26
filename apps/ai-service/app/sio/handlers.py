@@ -297,7 +297,7 @@ async def on_chat_message(sid: str, data: Any) -> None:
 
     session_id = str(data.get("session_id") or chat_id)
     model = data.get("model")
-    owner_uuid = session.get("user_id")
+    owner_uuid = str(session.get("user_id") or "")
 
     # 房间:同一 chat 多端订阅广播 chunk
     room = f"chat:{owner_uuid}:{chat_id}"

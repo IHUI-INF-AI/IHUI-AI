@@ -106,7 +106,7 @@ export default function StudyPlan() {
       </Button>
 
       {showAdd && (
-        <View className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowAdd(false)}>
+        <View className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40" onClick={() => setShowAdd(false)}>
           <View
             className="mx-6 w-full max-w-[300px] bg-card rounded-xl p-4"
             onClick={(e) => e.stopPropagation()}

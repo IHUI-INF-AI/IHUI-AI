@@ -42,7 +42,7 @@ class BaseProvider(ABC):
         """同步完成对话,返回 {content, model, usage, tool_calls?} 格式。"""
 
     @abstractmethod
-    async def astream(
+    def astream(
         self,
         messages: list[dict[str, Any]],
         model: str,
@@ -50,7 +50,13 @@ class BaseProvider(ABC):
         tools: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
-        """流式对话,yield {type: chunk|tool_call|done|error, ...}。"""
+        """流式对话,yield {type: chunk|tool_call|done|error, ...}。
+
+        Note: 基类不带 ``async`` —— 子类用 ``async def`` + ``yield`` 实现为
+        async generator,返回 ``AsyncGenerator`` (``AsyncIterator`` 的子类型)。
+        若基类写 ``async def`` 则返回 ``Coroutine[..., AsyncIterator]``,与子类
+        async generator 不兼容(mypy [override] 报错)。
+        """
 
     async def list_models(self) -> list[dict[str, Any]]:
         """列出厂商可用模型(尽力而为,默认空列表)。"""
