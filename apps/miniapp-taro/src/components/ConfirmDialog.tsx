@@ -22,7 +22,7 @@ export default function ConfirmDialog({
   if (!visible) return null
 
   return (
-    <View className="fixed inset-0 z-50 flex items-center justify-center" onClick={onCancel}>
+    <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onCancel}>
       <View className="absolute inset-0 bg-black/40" />
       <View
         className="relative bg-card rounded-xl mx-8 px-6 py-5 max-w-xs w-full"

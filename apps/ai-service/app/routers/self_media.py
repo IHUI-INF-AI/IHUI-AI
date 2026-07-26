@@ -227,6 +227,8 @@ def _serialize_history(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """把 asyncpg Record dict 序列化为 JSON 友好格式。"""
     out = []
     for r in rows:
+        created_at = r.get("created_at")
+        updated_at = r.get("updated_at")
         item = {
             "id": str(r.get("id", "")),
             "category": r.get("category", ""),
@@ -234,8 +236,8 @@ def _serialize_history(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "status": r.get("status", ""),
             "draftId": r.get("draft_id", ""),
             "topicKeyword": r.get("topic_keyword", ""),
-            "createdAt": r.get("created_at").isoformat() if r.get("created_at") else None,
-            "updatedAt": r.get("updated_at").isoformat() if r.get("updated_at") else None,
+            "createdAt": created_at.isoformat() if created_at else None,
+            "updatedAt": updated_at.isoformat() if updated_at else None,
         }
         payload = r.get("payload")
         if isinstance(payload, str):
@@ -705,7 +707,8 @@ async def automation_update_config(
     )
     if not ok:
         raise HTTPException(status_code=404, detail=f"task not found: {task_id}")
-    return {"ok": True, "task_id": task_id, "config": self_media_scheduler.get_task(task_id).get("config")}
+    task_info = self_media_scheduler.get_task(task_id)
+    return {"ok": True, "task_id": task_id, "config": (task_info or {}).get("config")}
 
 
 @router.post("/automation/tasks/{task_id}/trigger")
