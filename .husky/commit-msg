@@ -3,3 +3,8 @@
 # .css 改动时要求 commit message 附 Verified-DOM trailer
 # 跳过:HUSKY_SKIP_STYLE_VERIFY=1
 node scripts/check-style-verification.mjs "$1"
+
+# Commit scope 一致性预警(2026-07-26 立,AGENTS.md §16 配套)
+# 检测 commit message scope 与 staged 文件领域是否匹配,防止 git add -A 混入其他 agent 改动
+# warn-only,不阻塞 commit;跳过:HUSKY_SKIP_SCOPE_CHECK=1
+node scripts/check-commit-scope-consistency.mjs "$1"
