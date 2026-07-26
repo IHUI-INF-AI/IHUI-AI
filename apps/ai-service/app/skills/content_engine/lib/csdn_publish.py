@@ -24,8 +24,6 @@ from base64 import b64encode
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # CSDN内部API（逆向自editor.csdn.net，非官方公开接口）
-CSDN_APP_KEY = '203803574'
-CSDN_APP_SECRET = '9znpamsyl2c7cdrr9sas0le9vbc3r6ba'
 CSDN_SAVE_URL = 'https://bizapi.csdn.net/blog-console-api/v3/mdeditor/saveArticle'
 CSDN_IMG_PARAMS_URL = 'https://imgservice.csdn.net/direct/v1.0/image/upload'
 CSDN_ARTICLE_LIST_URL = 'https://bizapi.csdn.net/blog-console-api/v3/editor/articles'
@@ -51,6 +49,16 @@ def _load_env():
                     key, val = line.split('=', 1)
                     os.environ.setdefault(key.strip(), val.strip())
     return os.environ.get('CSDN_COOKIE', '')
+
+
+# 模块导入时加载.env，确保后续 os.getenv 能读到 CSDN_APP_KEY / CSDN_APP_SECRET
+_load_env()
+
+# CSDN 内部 API 凭证（从环境变量读取，fallback 空字符串）
+# .env 中配置：CSDN_APP_KEY / CSDN_APP_SECRET
+# 未配置时返回空字符串，签名会失败并提示用户配置（不抛异常，保持向后兼容）
+CSDN_APP_KEY = os.getenv('CSDN_APP_KEY', '')
+CSDN_APP_SECRET = os.getenv('CSDN_APP_SECRET', '')
 
 
 def _get_cookie():
@@ -89,7 +97,7 @@ def _sign_post(nonce, url_path):
       （空，Content-MD5不参与）
       application/json
       （空，Date不参与）
-      x-ca-key:203803574
+      x-ca-key:{CSDN_APP_KEY}
       x-ca-nonce:{uuid}
       {url_path}
     """
@@ -119,7 +127,7 @@ def _sign_get(nonce, url_path, query_string):
       （空）
       （空，GET无Content-Type）
       （空）
-      x-ca-key:203803574
+      x-ca-key:{CSDN_APP_KEY}
       x-ca-nonce:{uuid}
       {path}?{query去掉最后一个字符}
     """
