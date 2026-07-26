@@ -16,7 +16,7 @@ koubo_quality_gate.py / scan_ambig.py / scan_canonical.py 重复定义。
   from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT, ALL_BANNED_ALIASES
 """
 import re
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 # ════════════════════════════════════════════════
 # 1. 歧义压缩 4 类正则（BANNED_AMBIG_COMP）
@@ -25,7 +25,7 @@ from typing import List, Tuple
 # ② 模糊倍数：动词+可选修饰+中文数字+倍（"差了一倍""涨了3倍"听者无法精确判断）
 # ③ 未核实具体数字：动词+数字+量词+未核实的"订阅/销量"等
 # ④ 行业术语嵌套生造：agent/智能体/AI/大模型+壳/芯/核等+再次壳/芯/核等
-BANNED_AMBIG_COMP: List[re.Pattern] = [
+BANNED_AMBIG_COMP: List[re.Pattern[str]] = [
     re.compile(r'AI[\u4e00-\u9fff]?(老师|博士|医生|律师|教练|经理|教授|总监|主任|同学|学员|校长|教练员)'),
     re.compile(r'(差|涨|跌|降|多|少|高|低|大|小|快|慢|翻|多花了|少花了|省了|亏了|赚了|多赚|少赚|多花|少花)(了|了整整|了近|了足足)?(差不多|大概)?[一二两三四五六七八九]倍'),
     re.compile(r'(多卖|少卖|多赚|少赚|多花|少花|多省|少省|多占|少占)(了)?[\d一二三四五六七八九十百千万]+(万|千|百|个|套|件|份|元|块|%)[^，。！？]{0,4}(订阅|销量|份额|用户|客户|下载|安装)'),
@@ -79,12 +79,12 @@ for _tuple in TERM_CANONICAL_DICT:
 # ════════════════════════════════════════════════
 # 4. 检测函数（统一入口）
 # ════════════════════════════════════════════════
-def find_ambig_hits(text: str) -> List[dict]:
+def find_ambig_hits(text: str) -> List[dict[str, Any]]:
     """
     扫描文本中的 BANNED_AMBIG_COMP 命中
     返回: [{'type': 'BANNED_AMBIG', 'hit': str, 'ctx': str, 'pattern_idx': int}, ...]
     """
-    hits = []
+    hits: List[dict[str, Any]] = []
     for idx, pat in enumerate(BANNED_AMBIG_COMP):
         for m in pat.finditer(text):
             ctx = text[max(0, m.start() - 25):m.end() + 25]
@@ -97,14 +97,14 @@ def find_ambig_hits(text: str) -> List[dict]:
     return hits
 
 
-def find_alias_issues(text: str, strict: bool = False) -> List[dict]:
+def find_alias_issues(text: str, strict: bool = False) -> List[dict[str, Any]]:
     """
     扫描文本中的 TERM_CANONICAL_DICT 别名命中
 
     strict=False (默认): 别名出现但推荐写法未出现 → 报错；两者都出现 → 报错（混用）
     strict=True:          任何别名出现即报错（包括别名为推荐写法子串的情况）
     """
-    issues = []
+    issues: List[dict[str, Any]] = []
     for _tuple in TERM_CANONICAL_DICT:
         canonical = _tuple[0]
         aliases = _tuple[1:]
@@ -145,7 +145,7 @@ def find_alias_issues(text: str, strict: bool = False) -> List[dict]:
     return issues
 
 
-def check_text(text: str, strict: bool = False) -> dict:
+def check_text(text: str, strict: bool = False) -> dict[str, Any]:
     """
     一站式检查入口
     返回: {'ambig_hits': [...], 'alias_issues': [...], 'total': int}

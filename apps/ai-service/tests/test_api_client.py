@@ -367,7 +367,13 @@ def test_apiresult_union_type():
 def test_apiresult_success_protocol_members():
     """_ApiResultSuccess Protocol 应有 success + data 成员。"""
     cls = api_client._ApiResultSuccess
-    assert hasattr(cls, "__protocol_attrs__") or "success" in dir(cls)
+    # Protocol 成员声明在 __annotations__ 中(跨 Python 版本稳定)。
+    # 注:Python 3.11 的 typing._ProtocolMeta 不再设置 __protocol_attrs__ 类属性,
+    # 改为动态调用 _get_protocol_attrs(cls);纯注解成员也不出现在 dir(cls)。
+    assert cls._is_protocol is True
+    annotations = getattr(cls, "__annotations__", {})
+    assert "success" in annotations
+    assert "data" in annotations
 
 
 # =============================================================================

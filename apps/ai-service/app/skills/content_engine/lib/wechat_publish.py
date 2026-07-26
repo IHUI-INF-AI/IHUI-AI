@@ -15,6 +15,7 @@ import urllib.parse
 import urllib.error
 import mimetypes
 import uuid
+from typing import Any
 
 # ===== 配置 =====
 # 在项目根目录的 .env 文件中设置（和现有API凭证放一起）：
@@ -26,7 +27,7 @@ TOKEN_CACHE = os.path.join(PROJECT_ROOT, '.wechat_token_cache.json')
 API_BASE = 'https://api.weixin.qq.com/cgi-bin'
 
 
-def _load_env():
+def _load_env() -> tuple[str, str]:
     """从.env文件加载配置"""
     env_path = os.path.join(PROJECT_ROOT, '.env')
     if os.path.exists(env_path):
@@ -39,28 +40,35 @@ def _load_env():
     return os.environ.get('WECHAT_APP_ID', ''), os.environ.get('WECHAT_APP_SECRET', '')
 
 
-def _api_get(url):
+def _api_get(url: str) -> dict[str, Any]:
     """GET请求，返回JSON"""
     try:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode('utf-8'))
+            loaded: Any = json.loads(resp.read().decode('utf-8'))
+            return loaded if isinstance(loaded, dict) else {'errcode': -1, 'errmsg': 'invalid response'}
     except urllib.error.URLError as e:
         return {'errcode': -1, 'errmsg': str(e)}
 
 
-def _api_post_json(url, data):
+def _api_post_json(url: str, data: dict[str, Any]) -> dict[str, Any]:
     """POST JSON请求"""
     body = json.dumps(data, ensure_ascii=False).encode('utf-8')
     req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'})
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode('utf-8'))
+            loaded: Any = json.loads(resp.read().decode('utf-8'))
+            return loaded if isinstance(loaded, dict) else {'errcode': -1, 'errmsg': 'invalid response'}
     except urllib.error.URLError as e:
         return {'errcode': -1, 'errmsg': str(e)}
 
 
-def _multipart_upload(url, filepath, field='media', content_type=None):
+def _multipart_upload(
+    url: str,
+    filepath: str,
+    field: str = 'media',
+    content_type: str | None = None,
+) -> dict[str, Any]:
     """multipart/form-data文件上传"""
     boundary = uuid.uuid4().hex
     filename = os.path.basename(filepath)
@@ -81,14 +89,15 @@ def _multipart_upload(url, filepath, field='media', content_type=None):
     })
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
-            return json.loads(resp.read().decode('utf-8'))
+            loaded: Any = json.loads(resp.read().decode('utf-8'))
+            return loaded if isinstance(loaded, dict) else {'errcode': -1, 'errmsg': 'invalid response'}
     except urllib.error.URLError as e:
         return {'errcode': -1, 'errmsg': str(e)}
 
 
 # ===== Token管理 =====
 
-def get_access_token(force_refresh=False):
+def get_access_token(force_refresh: bool = False) -> str | None:
     """获取access_token，自动缓存2小时"""
     app_id, app_secret = _load_env()
     if not app_id or not app_secret:
@@ -99,9 +108,11 @@ def get_access_token(force_refresh=False):
     if not force_refresh and os.path.exists(TOKEN_CACHE):
         try:
             with open(TOKEN_CACHE, 'r') as f:
-                cache = json.load(f)
+                cache_any: Any = json.load(f)
+            cache = cache_any if isinstance(cache_any, dict) else {}
             if cache.get('expires_at', 0) > time.time() + 300:  # 提前5分钟刷新
-                return cache['access_token']
+                token = cache.get('access_token')
+                return token if isinstance(token, str) else None
         except (json.JSONDecodeError, KeyError):
             pass
 
@@ -117,7 +128,8 @@ def get_access_token(force_refresh=False):
         with open(TOKEN_CACHE, 'w') as f:
             json.dump(cache, f)
         print(f'✅ access_token获取成功（有效期{result.get("expires_in", 7200)}秒）')
-        return result['access_token']
+        token_val = result['access_token']
+        return token_val if isinstance(token_val, str) else None
     else:
         print(f'❌ 获取token失败: {result.get("errmsg", "未知错误")} (errcode={result.get("errcode")})')
         return None
@@ -125,7 +137,7 @@ def get_access_token(force_refresh=False):
 
 # ===== 素材上传 =====
 
-def upload_image(image_path):
+def upload_image(image_path: str) -> str | None:
     """上传文章内图片（不占素材库配额，返回URL）"""
     token = get_access_token()
     if not token:
@@ -133,14 +145,18 @@ def upload_image(image_path):
     url = f'{API_BASE}/media/uploadimg?access_token={token}'
     result = _multipart_upload(url, image_path)
     if 'url' in result:
-        print(f'✅ 图片上传成功: {result["url"][:60]}...')
-        return result['url']
+        url_val = result['url']
+        if isinstance(url_val, str):
+            print(f'✅ 图片上传成功: {url_val[:60]}...')
+            return url_val
+        print(f'❌ 图片上传失败: url字段类型异常')
+        return None
     else:
         print(f'❌ 图片上传失败: {result.get("errmsg", "未知错误")}')
         return None
 
 
-def upload_media(media_path, media_type='image'):
+def upload_media(media_path: str, media_type: str = 'image') -> dict[str, Any] | None:
     """上传临时素材（image/voice/video/thumb）"""
     token = get_access_token()
     if not token:
@@ -155,7 +171,7 @@ def upload_media(media_path, media_type='image'):
         return None
 
 
-def upload_permanent_media(media_path, media_type='image'):
+def upload_permanent_media(media_path: str, media_type: str = 'image') -> dict[str, Any] | None:
     """上传永久素材"""
     token = get_access_token()
     if not token:
@@ -172,7 +188,7 @@ def upload_permanent_media(media_path, media_type='image'):
 
 # ===== 草稿箱 =====
 
-def create_draft(articles):
+def create_draft(articles: list[dict[str, Any]]) -> str | None:
     """
     创建草稿。articles是文章列表，每篇格式：
     {
@@ -193,14 +209,18 @@ def create_draft(articles):
     data = {'articles': articles}
     result = _api_post_json(url, data)
     if 'media_id' in result:
-        print(f'✅ 草稿创建成功: media_id={result["media_id"]}')
-        return result['media_id']
+        media_id = result['media_id']
+        if isinstance(media_id, str):
+            print(f'✅ 草稿创建成功: media_id={media_id}')
+            return media_id
+        print(f'❌ 草稿创建失败: media_id字段类型异常')
+        return None
     else:
         print(f'❌ 草稿创建失败: {result.get("errmsg", "未知错误")} (errcode={result.get("errcode")})')
         return None
 
 
-def list_drafts(offset=0, count=10):
+def list_drafts(offset: int = 0, count: int = 10) -> dict[str, Any] | None:
     """获取草稿列表"""
     token = get_access_token()
     if not token:
@@ -210,16 +230,24 @@ def list_drafts(offset=0, count=10):
     result = _api_post_json(url, data)
     if 'item' in result:
         print(f'✅ 草稿列表: 共{result.get("total_count", 0)}篇')
-        for item in result['item']:
-            for art in item.get('content', {}).get('news_item', []):
-                print(f'  - {art.get("title", "无标题")} (media_id={item["media_id"]})')
+        items = result['item']
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, dict):
+                    content_val = item.get('content', {})
+                    content = content_val if isinstance(content_val, dict) else {}
+                    news_item = content.get('news_item', [])
+                    if isinstance(news_item, list):
+                        for art in news_item:
+                            if isinstance(art, dict):
+                                print(f'  - {art.get("title", "无标题")} (media_id={item.get("media_id", "")})')
         return result
     else:
         print(f'❌ 获取草稿失败: {result.get("errmsg", "未知错误")}')
         return None
 
 
-def delete_draft(media_id):
+def delete_draft(media_id: str) -> bool:
     """删除草稿"""
     token = get_access_token()
     if not token:
@@ -236,7 +264,7 @@ def delete_draft(media_id):
 
 # ===== 发布 =====
 
-def publish_draft(media_id):
+def publish_draft(media_id: str) -> str | None:
     """提交草稿发布（异步，返回publish_id用于查询状态）"""
     token = get_access_token()
     if not token:
@@ -244,14 +272,18 @@ def publish_draft(media_id):
     url = f'{API_BASE}/freepublish/submit?access_token={token}'
     result = _api_post_json(url, {'media_id': media_id})
     if 'publish_id' in result:
-        print(f'✅ 发布提交成功: publish_id={result["publish_id"]}')
-        return result['publish_id']
+        pid = result['publish_id']
+        if isinstance(pid, str):
+            print(f'✅ 发布提交成功: publish_id={pid}')
+            return pid
+        print(f'❌ 发布提交失败: publish_id字段类型异常')
+        return None
     else:
         print(f'❌ 发布提交失败: {result.get("errmsg", "未知错误")} (errcode={result.get("errcode")})')
         return None
 
 
-def check_publish_status(publish_id):
+def check_publish_status(publish_id: str) -> dict[str, Any] | None:
     """查询发布状态"""
     token = get_access_token()
     if not token:
@@ -262,13 +294,21 @@ def check_publish_status(publish_id):
     status = result.get('publish_status', -1)
     print(f'发布状态: {status_map.get(status, f"未知({status})")}')
     if status == 1 and 'article_id' in result:
-        print(f'  article_id: {result["article_id"]}')
+        article_id = result['article_id']
+        if isinstance(article_id, str):
+            print(f'  article_id: {article_id}')
     return result
 
 
 # ===== 一键发布流程 =====
 
-def auto_publish(html_file, title, thumb_image=None, author='智汇AI', digest=''):
+def auto_publish(
+    html_file: str,
+    title: str,
+    thumb_image: str | None = None,
+    author: str = '智汇AI',
+    digest: str = '',
+) -> dict[str, Any] | None:
     """
     一键发布：HTML文件 → 上传封面 → 创建草稿 → 提交发布
     html_file: gzh-design生成的HTML文件路径
@@ -295,7 +335,9 @@ def auto_publish(html_file, title, thumb_image=None, author='智汇AI', digest='
         print(f'\n--- 上传封面图 ---')
         result = upload_permanent_media(thumb_image, 'thumb')
         if result:
-            thumb_media_id = result.get('media_id', '')
+            media_id_val = result.get('media_id', '')
+            if isinstance(media_id_val, str):
+                thumb_media_id = media_id_val
 
     # 3. 创建草稿
     print(f'\n--- 创建草稿 ---')
@@ -326,7 +368,7 @@ def auto_publish(html_file, title, thumb_image=None, author='智汇AI', digest='
 
 # ===== CLI入口 =====
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print('公众号自动发布工具')
         print('用法:')

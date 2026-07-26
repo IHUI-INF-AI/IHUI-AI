@@ -163,25 +163,25 @@ CAT_LABELS = {
 
 
 # ===================== 查询辅助 =====================
-def all_handles():
-    out = []
+def all_handles() -> list[str]:
+    out: list[str] = []
     for cat, items in X_SOURCES.items():
         for it in items:
             out.append(it['handle'])
     return out
 
 
-def pick_for_topic(keywords, limit=None):
+def pick_for_topic(keywords: str, limit: int | None = None) -> list[dict[str, object]]:
     """返回与主题相关的 X 账号（官方+高优先级优先）。
 
     keywords: 空格分隔的主题词（如 "Kimi K3 DeepSeek V4"）
     limit: 截断数量；None = 不截断（全量输出）
     """
     kw = [k.strip().lower() for k in keywords.replace('，', ' ').split() if k.strip()]
-    scored = []
+    scored: list[tuple[int, dict[str, object]]] = []
     for cat, items in X_SOURCES.items():
         for it in items:
-            it2 = dict(it)
+            it2: dict[str, object] = dict(it)
             it2['cat'] = cat
             score = 0
             hay = ' '.join(it['covers']).lower() + ' ' + it['name'].lower() + ' ' + it['handle'].lower()
@@ -193,13 +193,13 @@ def pick_for_topic(keywords, limit=None):
             score += (4 - it.get('priority', 3))  # priority1 加 3，priority3 加 1
             if score > 0:
                 scored.append((score, it2))
-    scored.sort(key=lambda x: (-x[0], x[1].get('priority', 3), x[1]['handle']))
+    scored.sort(key=lambda x: (-x[0], x[1].get('priority', 3), str(x[1]['handle'])))
     if limit:
         scored = scored[:limit]
     return [it for _, it in scored]
 
 
-def full_checklist():
+def full_checklist() -> str:
     """返回注册表【全量】信源清单（按分类+优先级，不依赖主题打分）。
     写稿前 X 核查基准：官方账号【发布源】必拉；媒体/研究者/聚合按优先级全扫。"""
     total = sum(len(v) for v in X_SOURCES.values())
@@ -217,7 +217,7 @@ def full_checklist():
     return '\n'.join(lines)
 
 
-def checklist_for_topic(keywords, limit=None):
+def checklist_for_topic(keywords: str, limit: int | None = None) -> str:
     """生成写稿前应核查的 X 账号 Markdown 清单（主题聚焦，默认全量不截断）。"""
     picks = pick_for_topic(keywords, limit=limit)
     lines = [f'# X 平台信源核查清单（主题：{keywords}）', '',
@@ -238,14 +238,14 @@ def checklist_for_topic(keywords, limit=None):
     return '\n'.join(lines)
 
 
-def coverage_dir():
+def coverage_dir() -> str:
     d = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                      '.workbuddy', 'x_coverage')
     os.makedirs(d, exist_ok=True)
     return d
 
 
-def log_coverage(topic, checked_handles, notes=''):
+def log_coverage(topic: str, checked_handles: list[str], notes: str = '') -> str:
     """记录本次 X 信源核查覆盖，供审计/复盘。"""
     date = datetime.now().strftime('%Y-%m-%d')
     path = os.path.join(coverage_dir(), f'{date}.json')
@@ -257,7 +257,7 @@ def log_coverage(topic, checked_handles, notes=''):
         'ts': datetime.now().isoformat(timespec='seconds'),
     }
     # 同主题追加，不覆盖
-    data = []
+    data: list[dict[str, object]] = []
     if os.path.exists(path):
         try:
             data = json.load(open(path, encoding='utf-8'))
