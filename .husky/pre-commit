@@ -5,7 +5,7 @@
 const { execSync } = require('child_process')
 const {
   takeStagingSnapshot,
-  restoreStaging,
+  setupRestoreOnExit,
 } = require('../scripts/lib/staging-snapshot.js')
 
 function run(label, cmd) {
@@ -24,13 +24,13 @@ function run(label, cmd) {
 //       git add / lint-staged 副作用)。本机制在 pre-commit 入口快照 staging area,
 //       在 hook 退出前(无论成功失败)对比当前 staged 与快照,自动 unstage 新增文件,
 //       确保 commit 仅包含用户显式 staged 的文件。
+// 信号处理(2026-07-26 立):setupRestoreOnExit 封装 exit + SIGINT + SIGTERM 三种退出路径,
+//       避免 Ctrl+C 时 staging area 不还原(process.on('exit') 在 SIGINT 时不触发)。
 // 豁免:HUSKY_SKIP_STAGING_RESTORE=1 跳过还原(紧急情况用)
 // 详见:scripts/lib/staging-snapshot.js
 const INITIAL_STAGED_SNAPSHOT = takeStagingSnapshot()
-process.on('exit', () => {
-  restoreStaging(INITIAL_STAGED_SNAPSHOT, {
-    skip: process.env.HUSKY_SKIP_STAGING_RESTORE === '1',
-  })
+setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
+  skip: process.env.HUSKY_SKIP_STAGING_RESTORE === '1',
 })
 
 // 5. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
