@@ -1248,17 +1248,17 @@ class MoARouter:
     """
 
     def __init__(self) -> None:
-        self._presets: dict[str, dict] = {}
+        self._presets: dict[str, dict[str, Any]] = {}
 
-    def register_preset(self, name: str, preset: dict) -> None:
+    def register_preset(self, name: str, preset: dict[str, Any]) -> None:
         """注册 MoA 预设。"""
         self._presets[name] = preset
 
-    def list_presets(self) -> list[dict]:
+    def list_presets(self) -> list[dict[str, Any]]:
         """列出所有预设。"""
         return list(self._presets.values())
 
-    async def complete(self, messages: list[dict], preset_name: str) -> dict:
+    async def complete(self, messages: list[dict[str, Any]], preset_name: str) -> dict[str, Any]:
         """MoA 推理:多 proposer 出方案 → aggregator 聚合。
 
         流程:
@@ -1321,19 +1321,19 @@ class FallbackRouter:
     """
 
     def __init__(self) -> None:
-        self._configs: dict[str, dict] = {}
+        self._configs: dict[str, dict[str, Any]] = {}
 
-    def configure(self, provider: str, config: dict) -> None:
+    def configure(self, provider: str, config: dict[str, Any]) -> None:
         """配置故障转移。"""
         self._configs[provider] = config
 
-    def get_config(self, provider: str) -> dict:
+    def get_config(self, provider: str) -> dict[str, Any]:
         """获取故障转移配置。"""
         return self._configs.get(provider, {})
 
     async def complete_with_fallback(
-        self, messages: list[dict], primary: str
-    ) -> dict:
+        self, messages: list[dict[str, Any]], primary: str
+    ) -> dict[str, Any]:
         """带故障转移的推理。
 
         primary 已在 llm_gateway.complete() 的 except 块中失败,此处只尝试 fallbacks。
@@ -1369,7 +1369,7 @@ class CredentialPool:
     """
 
     def __init__(self) -> None:
-        self._pools: dict[str, dict] = {}
+        self._pools: dict[str, dict[str, Any]] = {}
 
     def configure(
         self, provider: str, keys: list[str], strategy: str = "round_robin"
@@ -1385,13 +1385,13 @@ class CredentialPool:
         keys = pool["keys"]
         if pool["strategy"] == "random":
             import random
-            return random.choice(keys)
+            return cast(str, random.choice(keys))
         # round_robin(默认)
         key = keys[pool["index"] % len(keys)]
         pool["index"] += 1
-        return key
+        return cast(str, key)
 
-    def get_pool_info(self, provider: str) -> dict:
+    def get_pool_info(self, provider: str) -> dict[str, Any]:
         """获取凭证池信息(不含实际 key)。"""
         pool = self._pools.get(provider)
         if not pool:
