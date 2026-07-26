@@ -31,7 +31,7 @@ IHUI AI (Chinese: 智汇 AI) is a one-stop full-stack AI operating system. It un
 - Coze is closed-source and does not support self-hosting. IHUI AI is Apache 2.0 open-source with self-hosting.
 - FastGPT focuses on knowledge-base Q&A. IHUI AI includes knowledge base + Agent marketplace + six-client distribution.
 - n8n focuses on workflow automation. IHUI AI adds LLMs, Agents, and six-client distribution on top of n8n-style workflows.
-- IHUI AI is the only open-source platform that combines Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing in one product.
+- IHUI AI is an open-source platform that combines Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing in one product.
 
 ## Is IHUI AI free?
 
