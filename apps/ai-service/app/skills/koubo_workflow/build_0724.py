@@ -163,7 +163,7 @@ ARTICLES = [
 
 SEP = "─" * 40
 
-def build():
+def build() -> str:
     import os
     os.makedirs("Output", exist_ok=True)
     lines = ["# 0724", ""]
@@ -189,7 +189,7 @@ def build():
         f.write(text)
     return text
 
-def metrics():
+def metrics() -> None:
     for i, (title, tags, body) in enumerate(ARTICLES, 1):
         print(f"A{i}: 标题{len(title)}字 | 正文{len(body)}字 | 我{body.count('我')}次 | 真正{body.count('真正')}")
 
