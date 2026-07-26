@@ -17,6 +17,7 @@ import {
   fetchAllLeaderboardEntries,
   getFundingItems,
 } from '@/lib/ai-news-api'
+import { generateArticleSchema, type ArticleSchema } from '@/lib/seo/schema-article'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('aiNews')
@@ -44,16 +45,45 @@ export default async function AiNewsPage() {
   const leaderboardData = leaderboard.status === 'fulfilled' ? leaderboard.value : []
   const fundingData = funding.status === 'fulfilled' ? funding.value : []
 
+  // 2026-07-26 GEO 强化:Article schema(适配 AI 引擎对"AI 资讯流"页面的结构化抓取)
+  // 翻译加载失败不阻塞渲染,降级为无 schema(SEO 仍可用基础 meta)
+  let articleJsonLd: ArticleSchema | null = null
+  try {
+    const articleT = await getTranslations('aiNews.articleSchema')
+    const keywords = (articleT.raw('keywords') as string[] | undefined) ?? []
+    articleJsonLd = generateArticleSchema({
+      headline: articleT('headline'),
+      description: articleT('description'),
+      url: 'https://ihui.ai/ai-news',
+      datePublished: articleT('datePublished'),
+      authorName: articleT('author'),
+      keywords,
+      articleBody: articleT('articleBody'),
+      articleSection: articleT('articleSection'),
+      inLanguage: 'zh-CN',
+    })
+  } catch {
+    articleJsonLd = null
+  }
+
   return (
-    <div className="mx-auto w-full max-w-[1240px] space-y-6">
-      <Hero />
-      <Leaderboard entries={leaderboardData} />
-      <ApiRelaysSection />
-      <LiveChannelsBlock channels={channelsData} />
-      <AiFeedTimeline items={feedData.items} sources={sourcesData} total={feedData.total} />
-      {hotData.length > 0 ? <HotRanking items={hotData} sources={sourcesData} /> : null}
-      <FundingSection items={fundingData} />
-      <CtaSection />
-    </div>
+    <>
+      {articleJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        />
+      ) : null}
+      <div className="mx-auto w-full max-w-[1240px] space-y-6">
+        <Hero />
+        <Leaderboard entries={leaderboardData} />
+        <ApiRelaysSection />
+        <LiveChannelsBlock channels={channelsData} />
+        <AiFeedTimeline items={feedData.items} sources={sourcesData} total={feedData.total} />
+        {hotData.length > 0 ? <HotRanking items={hotData} sources={sourcesData} /> : null}
+        <FundingSection items={fundingData} />
+        <CtaSection />
+      </div>
+    </>
   )
 }
