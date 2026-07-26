@@ -2,13 +2,9 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-// @ts-ignore
 import { toast } from 'sonner'
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Plus, Download } from 'lucide-react'
-// @ts-ignore
 import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { exportFromApi } from '@/lib/export-utils'
 

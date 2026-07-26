@@ -1,10 +1,6 @@
 'use client'
-
-// @ts-ignore
 import { useTranslations } from 'next-intl'
-// @ts-ignore
 import { Loader2, Edit, Trash2, CheckCircle, XCircle, ClipboardList } from 'lucide-react'
-// @ts-ignore
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'

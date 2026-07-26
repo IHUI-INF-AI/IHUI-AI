@@ -2,14 +2,10 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-// @ts-ignore
 import { useTranslations, useLocale } from 'next-intl'
-// @ts-ignore
 import { toast } from 'sonner'
-// @ts-ignore
 import { Wallet, CircleDollarSign, CheckCircle2, Hourglass } from 'lucide-react'
 import { cn } from '@/lib/utils'
-// @ts-ignore
 import { Button } from '@ihui/ui-react'
 
 import { SettlementFilter } from './SettlementFilter'
