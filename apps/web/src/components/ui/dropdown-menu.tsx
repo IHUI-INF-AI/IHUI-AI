@@ -6,8 +6,7 @@ import { Check, ChevronRight, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const DropdownMenu = DropdownMenuPrimitive.Root
-// @ts-ignore - Radix UI Trigger type augmentation for asChild
-const DropdownMenuTrigger: any = DropdownMenuPrimitive.Trigger
+const DropdownMenuTrigger: React.ComponentType<any> = DropdownMenuPrimitive.Trigger
 const DropdownMenuGroup = DropdownMenuPrimitive.Group
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal
 const DropdownMenuSub = DropdownMenuPrimitive.Sub
@@ -15,7 +14,6 @@ const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
 
 const DropdownMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
-  // @ts-ignore - Radix UI SubTrigger type augmentation
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
     inset?: boolean
   }
@@ -37,7 +35,6 @@ DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayNam
 
 const DropdownMenuSubContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
-  // @ts-ignore - Radix UI SubContent type augmentation
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
 >(({ className, ...props }: any, ref) => (
   <DropdownMenuPrimitive.SubContent
@@ -53,7 +50,6 @@ DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayNam
 
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
-  // @ts-ignore - Radix UI Content type augmentation
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
 >(({ className, sideOffset = 4, ...props }: any, ref) => (
   <DropdownMenuPrimitive.Portal>
@@ -72,7 +68,6 @@ DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
 
 const DropdownMenuItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Item>,
-  // @ts-ignore - Radix UI Item type augmentation
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean
   }
@@ -91,7 +86,6 @@ DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
 
 const DropdownMenuCheckboxItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
-  // @ts-ignore - Radix UI CheckboxItem type augmentation
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
 >(({ className, children, checked, ...props }: any, ref) => (
   <DropdownMenuPrimitive.CheckboxItem
@@ -115,7 +109,6 @@ DropdownMenuCheckboxItem.displayName = DropdownMenuPrimitive.CheckboxItem.displa
 
 const DropdownMenuRadioItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
-  // @ts-ignore - Radix UI RadioItem type augmentation
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
 >(({ className, children, ...props }: any, ref) => (
   <DropdownMenuPrimitive.RadioItem
@@ -138,7 +131,6 @@ DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName
 
 const DropdownMenuLabel = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Label>,
-  // @ts-ignore - Radix UI Label type augmentation
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label> & {
     inset?: boolean
   }
@@ -153,7 +145,6 @@ DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName
 
 const DropdownMenuSeparator = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Separator>,
-  // @ts-ignore - Radix UI Separator type augmentation
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
 >(({ className, ...props }: any, ref) => (
   <DropdownMenuPrimitive.Separator
