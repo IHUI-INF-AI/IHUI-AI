@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -210,9 +210,9 @@ def _resolve_path(data: dict[str, Any], path: str) -> Any:
 def _apply_operator(op: str, left: Any, right: Any, data: dict[str, Any]) -> bool:
     """应用单个 JSONLogic 操作符。"""
     if op == "==":
-        return left == right
+        return cast(bool, left == right)
     if op == "!=":
-        return left != right
+        return cast(bool, left != right)
     if op == "contains":
         if left is None:
             return False
@@ -1051,7 +1051,7 @@ class HookEngine:
                 key = f"{REDIS_DLQ_KEY_PREFIX}{hook_id}"
                 count = await redis.llen(key)
                 await redis.delete(key)
-                return count
+                return cast(int, count)
             except Exception as e:
                 logger.warning("[hook_engine] DLQ 清空 Redis 失败: %s", e)
         count = len(self._dlq.get(hook_id, []))
@@ -1486,7 +1486,7 @@ class HookEngine:
 
         if bucketing == "random":
             import random
-            return ab_test["hook_a_id"] if random.random() < traffic_split else ab_test["hook_b_id"]
+            return cast(str, ab_test["hook_a_id"] if random.random() < traffic_split else ab_test["hook_b_id"])
 
         # hash(默认)/ sticky:基于标识 hash 分流
         if bucketing == "sticky":
@@ -1495,7 +1495,7 @@ class HookEngine:
             sticky_key = ""
         hash_input = sticky_key or json.dumps(context, sort_keys=True, default=str)
         bucket = int(hashlib.md5(hash_input.encode("utf-8")).hexdigest(), 16) % 100
-        return ab_test["hook_a_id"] if bucket < traffic_split * 100 else ab_test["hook_b_id"]
+        return cast(str, ab_test["hook_a_id"] if bucket < traffic_split * 100 else ab_test["hook_b_id"])
 
     # ===== 3. Gantt 可视化 =====
 
