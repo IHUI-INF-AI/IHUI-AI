@@ -435,7 +435,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **AI 编排三栈**      | LangGraph(工作流)+ MCP(工具协议)+ A2A(Agent 互通)                                                                                                                                                                                                                                                                    | 工作流、工具、智能体协同一体化                                  |
 | **自研 CLI**         | 21 命令 + 36 内置工具 + ACP Server,对标 Claude Code                                                                                                                                                                                                                                                                  | 命令行原生 AI 编程体验                                          |
 | **CLI 配置无缝导入** | 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)+ providerCode/apiFormat 智能推断(modelId 前缀优先,URL 兜底) | 跨 CLI 工具配置零迁移成本                                       |
-| **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗 + 键盘导航 + 5s 切换撤销 | 决策者级风险控制 + Codex CLI safety guard                                  |
+| **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗 + 键盘导航 + 5s 切换撤销                                                                                                                                                                                             | 决策者级风险控制 + Codex CLI safety guard                       |
 | **数据加密**         | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单                                                                                                                                                                                                                                                | 金融级数据保护                                                  |
 | **可观测性**         | Prometheus + Grafana(**21 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                                                                                                                                                                                         | 全链路指标 / 日志 / 追踪 / 告警                                 |
 | **工程守门**         | 30+ pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计                                                                                                                                                                                                                                                | 杜绝协作事故,99.9% SLA                                          |
@@ -1276,49 +1276,49 @@ IHUI-AI/
 
 项目通过 23 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计脚本杜绝协作事故:
 
-| #       | 脚本                                  | 用途                                                            |
-| ------- | ------------------------------------- | --------------------------------------------------------------- |
-| 1       | check-api-key-leak.mjs                | API key 泄露                                                    |
-| 2       | check-i18n-keys.mjs                   | i18n 键完整性                                                   |
-| 2b      | scan-i18n-zh-residue.mjs zh-TW        | zh-TW 简体字残留 (opencc 字形转换)                              |
-| 2c      | scan-i18n-zh-residue.mjs ko           | ko.json 中文残留 (字符范围检测)                                 |
-| 2d      | scan-i18n-zh-residue.mjs ja           | ja.json 中文残留 (warn-only,不阻塞)                             |
-| 2e      | check-i18n-broken-en.mjs              | en.json 破碎机翻英文                                            |
-| 3       | check-db-schema-drift.mjs             | schema drift                                                    |
-| 4       | check-stale-dist.mjs                  | packages 陈旧 dist                                              |
-| 4b      | check-dist-encoding.mjs               | packages/*/dist UTF-8 BOM 守门                                  |
-| 4c      | check-api-client-utf8.mjs             | api-client 源码字节级 UTF-8 完整性                              |
-| 5       | lint-staged                           | eslint + prettier                                               |
-| 6       | check-sanitizer-bypass.mjs            | skipResponseSanitization                                        |
-| 7       | check-dedupe.mjs                      | 依赖碎片化                                                      |
-| 8       | check-api-routes.mjs                  | 前后端路由一致性                                                |
-| 9       | check-safe-parse.mjs                  | safeParse 静默忽略(warn-only)                                   |
-| 10      | openapi-check.mjs                     | OpenAPI spec 存在性(informational)                              |
-| 11      | check-rounded-full.mjs                | 容器圆角违规                                                    |
-| 12      | check-delivery-report-consistency.mjs | 交付报告一致性                                                  |
-| 13b     | check-project-plan-size.mjs           | **PROJECT_PLAN.md 体积(<50KB)**                                 |
-| 13c     | check-project-plan-archive.mjs        | **PROJECT_PLAN.md 已完成任务条目防误删**                        |
-| 15      | check-api-migration-completeness.mjs  | 迁移完整性                                                      |
-| 17      | check-input-border-var.mjs            | CSS 颜色 token 嵌套(hsl(hsl(...)))                              |
-| 18      | check-native-title-tooltip.mjs        | 原生 title tooltip 违规                                         |
-| 19      | check-staged-pollution.mjs            | **staged 污染预警(warn-only,跨 ≥ 4 目录)**                      |
-| 20      | check-tailwind-class-conflict.mjs     | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)**            |
-| 21      | check-multi-end-sync.mjs              | **多端同步守门(warn-only,单端未标注平台独占)**                  |
-| 22      | check-readme-sync.mjs                 | **README 同步守门(warn-only,功能代码改动但 README 未更新)**     |
-| 23      | check-staged-files.mjs                | **staged 文件清单打印(info-only)**                              |
-| 24a     | check-sidebar-width-consistency.mjs   | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**              |
-| 24b     | check-port-registry.mjs               | **端口注册表守门(warn-only,非 88xx)**                           |
-| 25      | check-workspace-hygiene.mjs           | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)** |
-| 26      | check-parent-pollution.mjs            | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**     |
-| 30a     | check-commit-loss-guard.mjs           | **Commit 丢失防护(blocking,AGENTS.md §22):reflog 50 步 reset 检测 + fsck 悬空 + lost-commit/* + backup/* tag 完整性(本地+远端+对象可达)+ `sync-lost-commit-tags.mjs` 自动化 push** |
-| 30b     | check-test-paths.mjs                  | **测试目录命名守门(blocking,AGENTS.md §23):`__tests__/` 被 `.gitignore __*` 静默忽略扫描 + `.gitkeep` 复核 + 隐藏/临时目录检测** |
-| 30c     | check-cross-store-parity.mjs          | **跨端 storage-adapter 一致性守门(blocking,AGENTS.md §12):4 端(web/mobile-rn/miniapp-taro/extension)必需导出 + 共享 userPersistKey + partialize 不持久化 token** |
-| 16      | 条件 typecheck                        | apps/web staged 时跑 typecheck                                  |
-| 16b     | 条件 database build                   | packages/database/src staged 时跑 build                         |
-| 16c     | 条件 RN global.css 同步               | mobile-rn/global.css 或 tokens.css staged 时跑同步检查           |
-| 16d     | 条件 miniapp-taro dist 清理提示       | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆) |
-| 17-post | git-push-guard.mjs(post-commit)       | 自动 push + 验证 local == remote(防遗漏)                        |
-| 5-post  | sync-lost-commit-tags.mjs(post-commit)| commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
+| #       | 脚本                                   | 用途                                                                                                                                                                               |
+| ------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1       | check-api-key-leak.mjs                 | API key 泄露                                                                                                                                                                       |
+| 2       | check-i18n-keys.mjs                    | i18n 键完整性                                                                                                                                                                      |
+| 2b      | scan-i18n-zh-residue.mjs zh-TW         | zh-TW 简体字残留 (opencc 字形转换)                                                                                                                                                 |
+| 2c      | scan-i18n-zh-residue.mjs ko            | ko.json 中文残留 (字符范围检测)                                                                                                                                                    |
+| 2d      | scan-i18n-zh-residue.mjs ja            | ja.json 中文残留 (warn-only,不阻塞)                                                                                                                                                |
+| 2e      | check-i18n-broken-en.mjs               | en.json 破碎机翻英文                                                                                                                                                               |
+| 3       | check-db-schema-drift.mjs              | schema drift                                                                                                                                                                       |
+| 4       | check-stale-dist.mjs                   | packages 陈旧 dist                                                                                                                                                                 |
+| 4b      | check-dist-encoding.mjs                | packages/*/dist UTF-8 BOM 守门                                                                                                                                                     |
+| 4c      | check-api-client-utf8.mjs              | api-client 源码字节级 UTF-8 完整性                                                                                                                                                 |
+| 5       | lint-staged                            | eslint + prettier                                                                                                                                                                  |
+| 6       | check-sanitizer-bypass.mjs             | skipResponseSanitization                                                                                                                                                           |
+| 7       | check-dedupe.mjs                       | 依赖碎片化                                                                                                                                                                         |
+| 8       | check-api-routes.mjs                   | 前后端路由一致性                                                                                                                                                                   |
+| 9       | check-safe-parse.mjs                   | safeParse 静默忽略(warn-only)                                                                                                                                                      |
+| 10      | openapi-check.mjs                      | OpenAPI spec 存在性(informational)                                                                                                                                                 |
+| 11      | check-rounded-full.mjs                 | 容器圆角违规                                                                                                                                                                       |
+| 12      | check-delivery-report-consistency.mjs  | 交付报告一致性                                                                                                                                                                     |
+| 13b     | check-project-plan-size.mjs            | **PROJECT_PLAN.md 体积(<50KB)**                                                                                                                                                    |
+| 13c     | check-project-plan-archive.mjs         | **PROJECT_PLAN.md 已完成任务条目防误删**                                                                                                                                           |
+| 15      | check-api-migration-completeness.mjs   | 迁移完整性                                                                                                                                                                         |
+| 17      | check-input-border-var.mjs             | CSS 颜色 token 嵌套(hsl(hsl(...)))                                                                                                                                                 |
+| 18      | check-native-title-tooltip.mjs         | 原生 title tooltip 违规                                                                                                                                                            |
+| 19      | check-staged-pollution.mjs             | **staged 污染预警(warn-only,跨 ≥ 4 目录)**                                                                                                                                         |
+| 20      | check-tailwind-class-conflict.mjs      | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)**                                                                                                                               |
+| 21      | check-multi-end-sync.mjs               | **多端同步守门(warn-only,单端未标注平台独占)**                                                                                                                                     |
+| 22      | check-readme-sync.mjs                  | **README 同步守门(warn-only,功能代码改动但 README 未更新)**                                                                                                                        |
+| 23      | check-staged-files.mjs                 | **staged 文件清单打印(info-only)**                                                                                                                                                 |
+| 24a     | check-sidebar-width-consistency.mjs    | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**                                                                                                                                 |
+| 24b     | check-port-registry.mjs                | **端口注册表守门(warn-only,非 88xx)**                                                                                                                                              |
+| 25      | check-workspace-hygiene.mjs            | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)**                                                                                                                    |
+| 26      | check-parent-pollution.mjs             | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**                                                                                                                        |
+| 30a     | check-commit-loss-guard.mjs            | _*Commit 丢失防护(blocking,AGENTS.md §22):reflog 50 步 reset 检测 + fsck 悬空 + lost-commit/* + backup/_ tag 完整性(本地+远端+对象可达)+ `sync-lost-commit-tags.mjs` 自动化 push** |
+| 30b     | check-test-paths.mjs                   | **测试目录命名守门(blocking,AGENTS.md §23):`__tests__/` 被 `.gitignore __*` 静默忽略扫描 + `.gitkeep` 复核 + 隐藏/临时目录检测**                                                   |
+| 30c     | check-cross-store-parity.mjs           | **跨端 storage-adapter 一致性守门(blocking,AGENTS.md §12):4 端(web/mobile-rn/miniapp-taro/extension)必需导出 + 共享 userPersistKey + partialize 不持久化 token**                   |
+| 16      | 条件 typecheck                         | apps/web staged 时跑 typecheck                                                                                                                                                     |
+| 16b     | 条件 database build                    | packages/database/src staged 时跑 build                                                                                                                                            |
+| 16c     | 条件 RN global.css 同步                | mobile-rn/global.css 或 tokens.css staged 时跑同步检查                                                                                                                             |
+| 16d     | 条件 miniapp-taro dist 清理提示        | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆)                                                                                                         |
+| 17-post | git-push-guard.mjs(post-commit)        | 自动 push + 验证 local == remote(防遗漏)                                                                                                                                           |
+| 5-post  | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22)                                                                                                  |
 
 **10 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立) / `cleanup-i18n-unused-keys.mjs`(无引用 key 批量清理,5 语言同步,2026-07-25 立)
 
@@ -1560,7 +1560,7 @@ pnpm turbo build typecheck lint test
 | **XSS**          | sanitizer 绕过检测脚本守门(pre-commit 第 6 项)                                        |
 | **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项)                                     |
 | **RBAC**         | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 + data-scope 5 级    |
-| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗         |
+| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗           |
 | **多租户**       | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS                               |
 | **OAuth 私钥**   | oauth-private-keys schema 加密存储                                                    |
 | **2FA/MFA**      | TOTP RFC 6238 + 备份恢复码 + 设备指纹 + 信任设备管理                                  |
@@ -1819,11 +1819,54 @@ node apps/api/scripts/pg-backup.mjs
 
 ---
 
+## CI 工作流(2026-07-26 新增)
+
+| Workflow                                                                 | 触发条件                                                          | 失败阻塞                |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------- | ----------------------- |
+| [`i18n-dead-key-audit.yml`](./.github/workflows/i18n-dead-key-audit.yml) | PR 改 i18n 字典 / web/src / miniapp-taro/src / cli/src / 扫描脚本 | 是(死 key > 0 → exit 1) |
+| [`ci.yml`](./.github/workflows/ci.yml)                                   | PR 推 main / develop                                              | 是                      |
+| [`build.yml`](./.github/workflows/build.yml)                             | tag 推送 / main 合并                                              | 是(构建产物)            |
+| [`e2e.yml`](./.github/workflows/e2e.yml)                                 | PR 标 `e2e` 标签                                                  | 是(Playwright)          |
+| [`knip.yml`](./.github/workflows/knip.yml)                               | PR 改源码                                                         | 是(未使用代码)          |
+
+**i18n-dead-key-audit 流程**:`scripts/scan-dead-i18n-keys.mjs --target web`(默认)→ 扫描 `apps/web/src + apps/web/app + apps/miniapp-taro/src + apps/cli/src + apps/mobile-rn/src` 找代码未引用的 zh-CN 声明 → 写报告到 `.trae-cn/tmp/i18n-dead-keys-YYYY-MM-DD.md`(artifact)→ 死 key > 0 → exit 1 → PR 阻塞。
+
+---
+
 ## 国际化
 
 5 语言 parity(键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验)),由 4 守门脚本 + 19 i18n 工具链保证质量:
 
 详细清单见 [核心能力 E3 节](#e3-国际化5-语言-parity)。
+
+### I18n 治理(2026-07-26 新增)
+
+5 语言 i18n 通过 `scripts/scan-dead-i18n-keys.mjs` 系列自动审计,死 key 比例从 43.1% 降至 0.0%(已清零)。
+
+- **基准语言**:`packages/i18n/messages/web/zh-CN.json`(10,174 leaf key,5 语言同步)
+- **多端字典目录**:`packages/i18n/messages/{web,extension,miniapp-taro,mobile-rn,shared}/` 5 端独立字典,各 5 语言文件
+- **扫描工具**:
+  - `scripts/scan-dead-i18n-keys.mjs --target {web|miniapp-taro|mobile-rn|extension}`(主入口,默认 `--target web` 跨端共享)
+  - `scripts/scan-extension-dead-i18n-keys.mjs`(extension 端独立)
+  - `scripts/scan-miniapp-taro-dead-i18n-keys.mjs`(miniapp-taro 端独立)
+  - `scripts/scan-mobile-rn-dead-i18n-keys.mjs`(mobile-rn 端独立)
+  - `scripts/scan-desktop-dead-i18n-keys.mjs`(desktop 端独立)
+- **CI 集成**:`.github/workflows/i18n-dead-key-audit.yml`(PR 触发,失败即阻塞)
+- **AI 翻译流水线**:`pnpm i18n:apply`(从 zh-CN 差异 → 4 语言补全,parity 校验,brand-glossary 约束)
+- **死 key 审计**:`node scripts/scan-dead-i18n-keys.mjs --dry-run` 一键查看本端死 key 清单(终端输出统计 + `.trae-cn/tmp/i18n-dead-keys-YYYY-MM-DD.md` 报告)
+
+---
+
+## LLM Provider 字典化(2026-07-26 阶段 2 完成)
+
+LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `ProviderConfig` + JSON 配置(24+7 provider 统一管理)。
+
+- **设计文档**:`docs/llm-provider-dict-design.md`(7 章节,3 阶段实施路线)
+- **运行时强类型**:`apps/ai-service/app/core/provider_config.py`(`ProviderConfig` Pydantic 模型,字段校验 + 默认值 + 类型提示)
+- **配置格式**:`LLM_PROVIDERS_JSON='{"openai":{...},"anthropic":{...},"deepseek":{...},...}'`(环境变量或 `llm_providers.json` 文件,统一管理 base_url / api_key / models / proxy / timeout)
+- **迁移工具**:`scripts/migrate-llm-providers.mjs`(从扁平 `*_api_key` 字段 → JSON 字典格式,支持 `--dry-run` 预览)
+- **测试**:`apps/ai-service/tests/test_provider_config.py`(36+ 单测,覆盖字段校验 / 环境变量解析 / 迁移一致性)
+- **向后兼容**:1 版本 deprecation 期,旧 `*_api_key` 字段仍可工作(运行时自动 fallback 到 JSON 配置)
 
 ---
 
@@ -2417,20 +2460,20 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 每个 AI 引擎的语义索引、引用习惯、知识库偏好都不同,IHUI-AI 为每个引擎定制了独立的 GEO 入口文件:
 
-| AI 引擎 | 入口文件 | 适配重点 |
-|---------|----------|----------|
-| **OpenAI** (ChatGPT / GPTBot) | https://ihui.ai/gpt.txt | Q&A 问答对格式,适配 ChatGPT 检索 |
-| **Anthropic** (Claude) | https://ihui.ai/claude.md | 长篇叙述格式,适配 Claude 长上下文 |
-| **Perplexity** | https://ihui.ai/perplexity.md | 引用就绪事实卡片,适配 Perplexity 引用 |
-| **Google Gemini** | https://ihui.ai/gemini.txt | 实体中心知识库,适配 Knowledge Graph |
-| **Microsoft Copilot** | https://ihui.ai/copilot.txt | 英文 Bing 索引,适配 Microsoft Learn |
-| **字节豆包** (Doubao) | https://ihui.ai/doubao.txt | 对话场景 Q&A,适配豆包对话引擎 |
-| **月之暗面 Kimi** | https://ihui.ai/kimi.txt | 长文本+学术风,适配 Moonshot 学术检索 |
-| **DeepSeek** | https://ihui.ai/deepseek.txt | 技术细节+开源友好,适配 DeepSeek 开发者 |
-| **阿里通义 Qwen** | https://ihui.ai/qwen.txt | 阿里云生态集成,适配 Qwen + ACK |
-| **百度文心 ERNIE** | https://ihui.ai/wenxin.txt | 百度 SEO + 百科化,适配文心 + 百度搜索 |
-| **智谱清言 GLM** | https://ihui.ai/zhipu.txt | 学术机构 + 政企信创,适配 GLM 学术引用 |
-| **腾讯混元 Hunyuan** | https://ihui.ai/hunyuan.txt | 微信生态 + 腾讯云,适配混元 + 微信小程序 |
+| AI 引擎                       | 入口文件                      | 适配重点                                |
+| ----------------------------- | ----------------------------- | --------------------------------------- |
+| **OpenAI** (ChatGPT / GPTBot) | https://ihui.ai/gpt.txt       | Q&A 问答对格式,适配 ChatGPT 检索        |
+| **Anthropic** (Claude)        | https://ihui.ai/claude.md     | 长篇叙述格式,适配 Claude 长上下文       |
+| **Perplexity**                | https://ihui.ai/perplexity.md | 引用就绪事实卡片,适配 Perplexity 引用   |
+| **Google Gemini**             | https://ihui.ai/gemini.txt    | 实体中心知识库,适配 Knowledge Graph     |
+| **Microsoft Copilot**         | https://ihui.ai/copilot.txt   | 英文 Bing 索引,适配 Microsoft Learn     |
+| **字节豆包** (Doubao)         | https://ihui.ai/doubao.txt    | 对话场景 Q&A,适配豆包对话引擎           |
+| **月之暗面 Kimi**             | https://ihui.ai/kimi.txt      | 长文本+学术风,适配 Moonshot 学术检索    |
+| **DeepSeek**                  | https://ihui.ai/deepseek.txt  | 技术细节+开源友好,适配 DeepSeek 开发者  |
+| **阿里通义 Qwen**             | https://ihui.ai/qwen.txt      | 阿里云生态集成,适配 Qwen + ACK          |
+| **百度文心 ERNIE**            | https://ihui.ai/wenxin.txt    | 百度 SEO + 百科化,适配文心 + 百度搜索   |
+| **智谱清言 GLM**              | https://ihui.ai/zhipu.txt     | 学术机构 + 政企信创,适配 GLM 学术引用   |
+| **腾讯混元 Hunyuan**          | https://ihui.ai/hunyuan.txt   | 微信生态 + 腾讯云,适配混元 + 微信小程序 |
 
 > 通用 LLM 索引(LLMs.txt 标准):[llms.txt](https://ihui.ai/llms.txt) · [llms-full.txt](https://ihui.ai/llms-full.txt)
 >
@@ -2480,25 +2523,25 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 每个公开页面都注入了 schema.org JSON-LD 结构化数据,供 Google Rich Results / GPTBot / ClaudeBot / PerplexityBot / Gemini 直接解析引用:
 
-| Schema 类型 | 覆盖页面 | 作用 |
-|-------------|----------|------|
-| `Organization` + `WebSite` + `SoftwareApplication` | 全站(layout.tsx) | 品牌实体对齐,Knowledge Graph 收录 |
-| `FAQPage` | [/faq](https://ihui.ai/faq)(12 个 Q&A) | Google FAQ Rich Results,ChatGPT/Claude 直接引用 |
-| `HowTo` | 10 个 use case 页面(客服/知识库/代码/内容 + 销售/HR/市场/产品/IT/数据) | Google HowTo Rich Results,适配"如何搭建 X"类检索 |
-| `BreadcrumbList` | 所有 use case + compare 页面 | 面包屑导航 Rich Results |
-| `WebPage` + `@graph` | 所有 use case + compare 页面 | 页面级实体声明 |
-| `Knowledge Graph`(`@type: Graph`) | [knowledge-graph.json](https://ihui.ai/knowledge-graph.json) | Wikidata / Google KG / 各大 AI 引擎实体对齐 |
+| Schema 类型                                        | 覆盖页面                                                               | 作用                                             |
+| -------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------ |
+| `Organization` + `WebSite` + `SoftwareApplication` | 全站(layout.tsx)                                                       | 品牌实体对齐,Knowledge Graph 收录                |
+| `FAQPage`                                          | [/faq](https://ihui.ai/faq)(12 个 Q&A)                                 | Google FAQ Rich Results,ChatGPT/Claude 直接引用  |
+| `HowTo`                                            | 10 个 use case 页面(客服/知识库/代码/内容 + 销售/HR/市场/产品/IT/数据) | Google HowTo Rich Results,适配"如何搭建 X"类检索 |
+| `BreadcrumbList`                                   | 所有 use case + compare 页面                                           | 面包屑导航 Rich Results                          |
+| `WebPage` + `@graph`                               | 所有 use case + compare 页面                                           | 页面级实体声明                                   |
+| `Knowledge Graph`(`@type: Graph`)                  | [knowledge-graph.json](https://ihui.ai/knowledge-graph.json)           | Wikidata / Google KG / 各大 AI 引擎实体对齐      |
 
 ### 站长工具收录状态(2026-07-26)
 
-| 平台 | 状态 | 备注 |
-|------|------|------|
+| 平台                  | 状态      | 备注                                  |
+| --------------------- | --------- | ------------------------------------- |
 | Google Search Console | ✅ 已认证 | 提交 sitemap + llms.txt + 12 GEO 文件 |
-| Bing Webmaster Tools | ✅ 已认证 | 提交 sitemap + llms.txt + 12 GEO 文件 |
-| 百度搜索资源平台 | ✅ 已认证 | 提交 sitemap + 7 中文 GEO 文件 |
-| Yandex Webmaster | ✅ 已认证 | 提交 sitemap + llms.txt |
-| Naver Search Advisor | ✅ 已认证 | 提交 sitemap + llms.txt |
-| Sogou Webmaster | ✅ 已认证 | 提交 sitemap + llms.txt |
+| Bing Webmaster Tools  | ✅ 已认证 | 提交 sitemap + llms.txt + 12 GEO 文件 |
+| 百度搜索资源平台      | ✅ 已认证 | 提交 sitemap + 7 中文 GEO 文件        |
+| Yandex Webmaster      | ✅ 已认证 | 提交 sitemap + llms.txt               |
+| Naver Search Advisor  | ✅ 已认证 | 提交 sitemap + llms.txt               |
+| Sogou Webmaster       | ✅ 已认证 | 提交 sitemap + llms.txt               |
 
 完整 SEO/PR 推广策略见 [docs/seo-pr-strategy.md](docs/seo-pr-strategy.md)。
 
