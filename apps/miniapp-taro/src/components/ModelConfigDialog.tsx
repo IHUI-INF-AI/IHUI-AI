@@ -52,7 +52,7 @@ export default function ModelConfigDialog({
   const showAudio = modelType === 'audio'
 
   return (
-    <View className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+    <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
       <View className="absolute inset-0 bg-black/40" />
       <View
         className="relative bg-card rounded-xl mx-6 w-full max-w-sm max-h-[80vh] overflow-y-auto"
