@@ -67,13 +67,13 @@ export default function CoursePlanet() {
           (item.instructor as string) ||
           (item.author as string) ||
           '',
-        price: item.price != null ? Number(item.price) : undefined,
+        price: item.price !== null && item.price !== undefined ? Number(item.price) : undefined,
         students:
-          item.students != null
+          item.students !== null && item.students !== undefined
             ? Number(item.students)
-            : item.studyCount != null
+            : item.studyCount !== null && item.studyCount !== undefined
               ? Number(item.studyCount)
-              : item.learnCount != null
+              : item.learnCount !== null && item.learnCount !== undefined
                 ? Number(item.learnCount)
                 : undefined,
         category: (item.category as string) || (item.tag as string) || (item.type as string) || '',
@@ -183,14 +183,14 @@ export default function CoursePlanet() {
                   </Text>
                 ) : null}
                 <View className="flex items-center justify-between mt-[8rpx]">
-                  {item.price != null ? (
+                  {item.price !== null && item.price !== undefined ? (
                     <Text className="text-[32rpx] text-[#f44336] font-bold">
                       {item.price === 0
                         ? tt('coursePlanet.free', '免费')
                         : `¥${item.price.toFixed(2)}`}
                     </Text>
                   ) : null}
-                  {item.students != null ? (
+                  {item.students !== null && item.students !== undefined ? (
                     <Text className="text-[22rpx] text-muted-foreground">
                       {item.students} {tt('coursePlanet.studentsUnit', '人学习')}
                     </Text>

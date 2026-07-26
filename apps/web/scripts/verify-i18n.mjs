@@ -8,12 +8,29 @@
  * 用法: node scripts/verify-i18n.mjs
  * 退出码: 0 = 全部通过, 1 = 有错误
  */
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const messagesDir = join(__dirname, '..', 'messages')
+// 推导:apps/web/scripts/ -> ../../../ -> monorepo 根 -> packages/i18n/messages/
+const messagesDir = join(__dirname, '..', '..', '..', 'packages', 'i18n', 'messages')
+
+/**
+ * 递归收集目录及其子目录下所有 *.json 文件
+ */
+function collectJsonFiles(dir, acc = []) {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    const st = statSync(full)
+    if (st.isDirectory()) {
+      collectJsonFiles(full, acc)
+    } else if (st.isFile() && entry.endsWith('.json')) {
+      acc.push(full)
+    }
+  }
+  return acc
+}
 
 /**
  * 递归检测同一对象层级中大小写不敏感的重复键
@@ -37,26 +54,26 @@ function findDuplicateKeys(obj, path = '', seen = new Map(), dups = []) {
   return dups
 }
 
-const files = readdirSync(messagesDir).filter((f) => f.endsWith('.json'))
+const filePaths = collectJsonFiles(messagesDir).sort()
 let hasError = false
 
-console.log(`\n=== i18n JSON 验证(${files.length} 个文件) ===\n`)
+console.log(`\n=== i18n JSON 验证(${filePaths.length} 个文件) ===\n`)
 
-for (const file of files) {
-  const filePath = join(messagesDir, file)
+for (const filePath of filePaths) {
+  const rel = filePath.slice(messagesDir.length + 1)
   const raw = readFileSync(filePath, 'utf-8')
   try {
     const data = JSON.parse(raw)
     const dups = findDuplicateKeys(data)
     if (dups.length === 0) {
-      console.log(`✓ ${file}: 有效 (无大小写敏感重复键)`)
+      console.log(`✓ ${rel}: 有效 (无大小写敏感重复键)`)
     } else {
-      console.log(`⚠ ${file}: 有效,但发现 ${dups.length} 个大小写敏感重复键(可能是合法命名空间):`)
+      console.log(`⚠ ${rel}: 有效,但发现 ${dups.length} 个大小写敏感重复键(可能是合法命名空间):`)
       dups.slice(0, 10).forEach((d) => console.log(`    - ${d}`))
       if (dups.length > 10) console.log(`    ... 还有 ${dups.length - 10} 个`)
     }
   } catch (e) {
-    console.error(`✗ ${file}: JSON 语法错误 - ${e.message}`)
+    console.error(`✗ ${rel}: JSON 语法错误 - ${e.message}`)
     hasError = true
   }
 }
