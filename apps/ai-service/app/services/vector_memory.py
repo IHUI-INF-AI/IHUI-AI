@@ -21,7 +21,7 @@ _HASH_DIM = 128  # hash 伪向量维度
 
 # redis.asyncio(异步客户端;无 redis 包时降级为纯内存 L1)
 try:
-    import redis.asyncio as aioredis  # type: ignore[import-not-found]
+    import redis.asyncio as aioredis
 except ImportError:  # pragma: no cover - 依赖存在时不触发
     aioredis = None  # type: ignore[assignment]
 
@@ -54,7 +54,7 @@ async def _get_redis() -> Any:
             if not url or aioredis is None:
                 return None
             client = aioredis.from_url(url, decode_responses=True)
-            await client.ping()
+            await client.ping()  # type: ignore[misc]  # redis-py stubs: async ping 返回类型为 Awaitable[bool] | bool
             _redis_client = client
             return _redis_client
         except Exception as e:

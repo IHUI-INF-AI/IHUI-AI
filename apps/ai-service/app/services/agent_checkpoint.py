@@ -32,7 +32,7 @@ DEFAULT_MAX_IN_MEMORY = 1000
 
 # redis 包未安装时降级为纯内存模式
 try:
-    import redis.asyncio as aioredis  # type: ignore[import-not-found]
+    import redis.asyncio as aioredis
 except ImportError:
     aioredis = None  # type: ignore[assignment]
 

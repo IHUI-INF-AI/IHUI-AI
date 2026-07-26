@@ -111,7 +111,7 @@ _TEMPLATE_RE = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
 # redis 包未安装时降级为纯内存模式(与 memory.py / agent_comm.py 一致)
 try:
-    import redis.asyncio as aioredis  # type: ignore[import-not-found]
+    import redis.asyncio as aioredis
 except ImportError:
     aioredis = None  # type: ignore[assignment]
 
@@ -1353,7 +1353,7 @@ class HookEngine:
     def _ab_tests_store(self) -> dict[str, dict[str, Any]]:
         """A/B 测试内存存储(惰性初始化,避免修改 __init__)。"""
         if not hasattr(self, "_ab_tests"):
-            self._ab_tests = {}
+            self._ab_tests: dict[str, dict[str, Any]] = {}
         return self._ab_tests
 
     async def _persist_ab_test(self, ab_test: dict[str, Any]) -> None:

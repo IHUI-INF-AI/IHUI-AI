@@ -124,7 +124,7 @@ class ContextEngine:
         优先用 tiktoken(若安装),否则降级为字符数 / CHARS_PER_TOKEN_ESTIMATE。
         """
         try:
-            import tiktoken  # type: ignore[import-untyped]
+            import tiktoken
 
             try:
                 enc = tiktoken.encoding_for_model(model)

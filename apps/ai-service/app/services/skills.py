@@ -638,10 +638,14 @@ class SkillRegistry:
         """重新加载 auto 目录(自进化写入新 skill 后调用)。"""
         self._load_auto_skills()
 
-    def list(self) -> list[Skill]:
-        """列出全部 skill。"""
-        import builtins
-        return builtins.list(self._skills.values())
+    def list_skills(self) -> list[Skill]:
+        """列出全部 skill。
+
+        方法名避开内置 list(2026-07-26):原方法名 list 与内置 list 冲突,
+        导致 mypy 全库模式下类作用域内 list[Skill] 类型注解被解析为方法引用,
+        触发 [valid-type] 错误。
+        """
+        return list(self._skills.values())
 
     def list_by_category(self, category: str) -> list[Skill]:
         """按 category 过滤 skill(2026-07-23 新增,供 ai_skills 路由分类查询)。
@@ -649,9 +653,8 @@ class SkillRegistry:
         Args:
             category: 'code' | 'media' | 'ai-top' | 'all'
         """
-        import builtins
         if category == "all" or not category:
-            return self.list()
+            return self.list_skills()
         return [s for s in self._skills.values() if s.category == category]
 
     def list_ai_top(self) -> list[Skill]:

@@ -10,7 +10,7 @@ import sys
 from typing import Any
 
 try:
-    import structlog  # type: ignore[import-untyped]
+    import structlog
     _HAS_STRUCTLOG = True
 except ImportError:  # pragma: no cover - structlog is in pyproject deps
     structlog = None  # type: ignore[assignment]

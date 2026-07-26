@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # ====================== Redis 客户端(惰性导入,降级 None) ======================
 
 try:
-    import redis.asyncio as aioredis  # type: ignore[import-not-found]
+    import redis.asyncio as aioredis
 except ImportError:  # pragma: no cover
     aioredis = None  # type: ignore[assignment]
 
@@ -676,7 +676,8 @@ class JointDecisionEngine:
 
         # 更新统计
         self._stats["total_decisions"] += 1
-        self._stats[total_key := decision.status] = self._stats.get(total_key, 0) + 1
+        total_key = decision.status
+        self._stats[total_key] = self._stats.get(total_key, 0) + 1
         self._stats["total_duration_ms"] += decision.duration_ms
         if decision.playbook_id:
             self._stats["playbook_triggers"][decision.playbook_id] = (
