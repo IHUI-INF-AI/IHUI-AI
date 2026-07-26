@@ -1588,6 +1588,10 @@ class SpecGenerator:
     ) -> dict[str, Any]:
         """从 spec 章节自动拆分任务(LLM 智能分析 + 章节降级)。
 
+        G2 字典化闭环 PoC:用 llm_gateway.structured_completion() 强制 LLM 返回
+        符合 schema 的 JSON,替代原 _call_llm + 后置 _parse_tasks_json 解析路径。
+        失败时降级到 mechanical_split(章节标题机械拆分)。
+
         Returns:
             { tasks: [{ title, description, priority, estimated_complexity }] }
         """
@@ -1601,6 +1605,37 @@ class SpecGenerator:
         if not sections:
             return {"tasks": []}
 
+        # G2 字典化闭环:tasks JSON Schema,LLM 强约束输出
+        tasks_schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string", "description": "任务标题"},
+                            "description": {"type": "string", "description": "任务详细描述"},
+                            "priority": {
+                                "type": "string",
+                                "enum": ["P0", "P1", "P2", "P3"],
+                                "description": "优先级",
+                            },
+                            "estimated_complexity": {
+                                "type": "string",
+                                "enum": ["S", "M", "L", "XL"],
+                                "description": "预估复杂度",
+                            },
+                        },
+                        "required": ["title", "description", "priority", "estimated_complexity"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            "required": ["tasks"],
+            "additionalProperties": False,
+        }
+
         prompt = (
             "你是项目管理专家。从以下 spec 章节拆分任务,输出严格 JSON。\n\n"
             f"## Spec 内容\n{spec_md[:10000]}\n\n"
@@ -1613,17 +1648,45 @@ class SpecGenerator:
             "6. 仅输出 JSON,不要 markdown 代码块\n"
         )
 
-        content, ok = await self._call_llm(prompt, system="你是专业的技术项目经理。")
-        if not ok:
-            # 降级:按章节标题机械拆分
+        # G2 字典化闭环:走 structured_completion,直接拿到符合 schema 的 dict
+        try:
+            from ..core.llm_gateway import llm_gateway
+        except Exception as e:
             tasks = self._mechanical_split(sections)
-            return {"tasks": tasks, "fallback": True, "error": content}
+            return {"tasks": tasks, "fallback": True, "error": f"llm_gateway 导入失败: {e}"}
 
-        # 解析 LLM 返回的 JSON
-        tasks = self._parse_tasks_json(content)
-        if not tasks:
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": "你是专业的技术项目经理。"},
+            {"role": "user", "content": prompt},
+        ]
+
+        parsed = await llm_gateway.structured_completion(
+            messages,
+            schema=tasks_schema,
+            schema_name="spec_task_split",
+        )
+
+        if parsed.get("error"):
+            # LLM 调用失败 / 解析失败 / 缺字段 — 降级到机械拆分
+            tasks = self._mechanical_split(sections)
+            return {"tasks": tasks, "fallback": True, "error": parsed.get("error_message")}
+
+        tasks_raw = parsed.get("tasks", [])
+        if not isinstance(tasks_raw, list) or not tasks_raw:
             tasks = self._mechanical_split(sections)
             return {"tasks": tasks, "fallback": True}
+
+        # G2 后置防御:即使 structured_completion 已校验 schema,仍防御性 normalize
+        tasks: list[dict[str, Any]] = []
+        for t in tasks_raw:
+            if not isinstance(t, dict):
+                continue
+            tasks.append({
+                "title": str(t.get("title", "")),
+                "description": str(t.get("description", "")),
+                "priority": str(t.get("priority", "P2")),
+                "estimated_complexity": str(t.get("estimated_complexity", "M")),
+            })
         return {"tasks": tasks}
 
     def _split_spec_sections(self, spec_md: str) -> list[tuple[str, str]]:
