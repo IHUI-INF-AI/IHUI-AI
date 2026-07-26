@@ -62,7 +62,7 @@ export default function StudyIndex() {
   ]
 
   return (
-    <View className="min-h-screen bg-background pb-[72px]">
+    <View className="min-h-screen bg-background pb-[144rpx]">
       <View className="p-6 bg-gradient-to-br from-[#00f2ff] to-[#8b5cf6]">
         <View className="flex flex-wrap">
           <View className="w-1/2 text-center mb-3 text-white">
@@ -86,11 +86,7 @@ export default function StudyIndex() {
 
       <View className="m-3 bg-card rounded-2xl p-2 flex flex-col gap-1">
         {entries.map((e) => (
-          <View
-            key={e.url}
-            className="flex items-center p-3"
-            onClick={() => navigate(e.url)}
-          >
+          <View key={e.url} className="flex items-center p-3" onClick={() => navigate(e.url)}>
             <Text>{e.icon}</Text>
             <Text className="flex-1 ml-3 text-sm text-foreground">{t(e.labelKey)}</Text>
             <Text className="text-muted-foreground">›</Text>
@@ -109,11 +105,7 @@ export default function StudyIndex() {
         ) : recent.length > 0 ? (
           <View className="flex flex-col gap-1">
             {recent.map((r) => (
-              <View
-                key={r.id}
-                className="flex items-center p-2"
-                onClick={() => goVideo(r)}
-              >
+              <View key={r.id} className="flex items-center p-2" onClick={() => goVideo(r)}>
                 <View className="flex-1">
                   <Text className="block text-sm text-foreground">{r.courseTitle}</Text>
                   <Text className="block text-xs text-muted-foreground mt-1">

@@ -67,26 +67,30 @@ export default function DistributionCommission() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="mx-[12px] mt-[12px] bg-card rounded-[8px] p-[16px]">
-        <Text className="text-[12px] text-muted-foreground">{t('distribution.commission.total')}</Text>
-        <Text className="block text-[32px] text-foreground font-bold mt-[4px]">¥{totalCommission}</Text>
+      <View className="mx-[24rpx] mt-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
+        <Text className="text-[24rpx] text-muted-foreground">
+          {t('distribution.commission.total')}
+        </Text>
+        <Text className="block text-[64rpx] text-foreground font-bold mt-[8rpx]">
+          ¥{totalCommission}
+        </Text>
       </View>
       {list.length > 0 && (
-        <View className="p-[12px]">
+        <View className="p-[24rpx]">
           {list.map((r) => (
             <View
               key={r.id}
-              className="flex justify-between items-center bg-card p-[12px] mb-[12px] rounded-[8px]"
+              className="flex justify-between items-center bg-card p-[24rpx] mb-[24rpx] rounded-[16rpx]"
             >
               <View className="flex-1">
-                <Text className="block text-[14px] text-foreground">{r.type}</Text>
-                <Text className="block text-[12px] text-muted-foreground mt-[4px]">
+                <Text className="block text-[28rpx] text-foreground">{r.type}</Text>
+                <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx]">
                   {r.time}
                   {r.nickname ? ` · ${r.nickname}` : ''}
                 </Text>
               </View>
               <Text
-                className={`text-[16px] font-semibold ${r.amount > 0 ? 'text-[#4caf50]' : 'text-[#f44336]'}`}
+                className={`text-[32rpx] font-semibold ${r.amount > 0 ? 'text-[#4caf50]' : 'text-[#f44336]'}`}
               >
                 {r.amount > 0 ? '+' : ''}¥{r.amount}
               </Text>
@@ -95,12 +99,12 @@ export default function DistributionCommission() {
         </View>
       )}
       {list.length === 0 && !loading && (
-        <View className="text-center py-[60px] text-muted-foreground">
+        <View className="text-center py-[120rpx] text-muted-foreground">
           <Text>{t('distribution.commission.empty')}</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-[20px] text-muted-foreground">
+        <View className="text-center py-[40rpx] text-muted-foreground">
           <Text>{t('distribution.commission.loading')}</Text>
         </View>
       )}

@@ -61,10 +61,22 @@ function getItemStyle(delta: number): CSSProperties {
     return { ...base, transform: 'translateY(90px) scale(0.6)', opacity: 0.8, zIndex: -1 }
   }
   if (delta === 1) {
-    return { ...base, transform: 'translateY(-38px) scale(0.8)', opacity: 0.8, zIndex: -10, position: 'relative' }
+    return {
+      ...base,
+      transform: 'translateY(-38px) scale(0.8)',
+      opacity: 0.8,
+      zIndex: -10,
+      position: 'relative',
+    }
   }
   if (delta === 2) {
-    return { ...base, transform: 'translateY(-90px) scale(0.6)', opacity: 0.8, zIndex: -100, position: 'relative' }
+    return {
+      ...base,
+      transform: 'translateY(-90px) scale(0.6)',
+      opacity: 0.8,
+      zIndex: -100,
+      position: 'relative',
+    }
   }
   return { ...base, transform: 'scale(0.6)', opacity: 0.3 }
 }
@@ -93,13 +105,10 @@ export default function TitleSwitchScrollPicker({
     setItemIndex(([v]) => [Math.min(mainList.length - 1, (v ?? 0) + 1)])
   }, [mainList.length])
 
-  const handleChange = useCallback(
-    (e: { detail: { value: number[] } }) => {
-      const next = Array.isArray(e.detail.value) ? e.detail.value : [0]
-      setItemIndex(next)
-    },
-    [],
-  )
+  const handleChange = useCallback((e: { detail: { value: number[] } }) => {
+    const next = Array.isArray(e.detail.value) ? e.detail.value : [0]
+    setItemIndex(next)
+  }, [])
 
   const cur = itemIndex[0] ?? 0
 
@@ -109,14 +118,14 @@ export default function TitleSwitchScrollPicker({
         className="absolute top-0 left-0 z-[9995] flex flex-col items-center justify-between"
         style={{ height: '140px' }}
       >
-        <View className="w-full h-[20px]" onClick={prev} />
-        <View className="w-full h-[20px]" onClick={next} />
+        <View className="w-full h-[40rpx]" onClick={prev} />
+        <View className="w-full h-[40rpx]" onClick={next} />
       </View>
       <PickerView
         value={itemIndex}
         onChange={handleChange}
         immediateChange
-        className="w-[210px] h-[140px]"
+        className="w-[420rpx] h-[280rpx]"
       >
         <PickerViewColumn className="relative" style={{ paddingLeft: '4px' }}>
           {mainList.map((item, index) => (

@@ -34,9 +34,7 @@ export default function LessonListItem({
   }
   return (
     <View
-      className={`flex items-center px-4 py-3 mb-2 ${
-        active ? 'bg-primary/10' : ''
-      }`}
+      className={`flex items-center px-4 py-3 mb-2 ${active ? 'bg-primary/10' : ''}`}
       onClick={onClick}
     >
       <View
@@ -49,7 +47,9 @@ export default function LessonListItem({
 
       <View className="flex-1 min-w-0">
         <View className="flex items-center">
-          {data.type && <Text className="text-xs text-muted-foreground mr-2">{TYPE_ICONS[data.type]}</Text>}
+          {data.type && (
+            <Text className="text-xs text-muted-foreground mr-2">{TYPE_ICONS[data.type]}</Text>
+          )}
           <Text
             className={`text-sm truncate ${active ? 'text-primary font-medium' : 'text-foreground'}`}
           >
@@ -62,7 +62,7 @@ export default function LessonListItem({
       </View>
 
       {data.isFree && (
-        <Text className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary mr-2">
+        <Text className="text-[20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary mr-2">
           {tt('lesson.preview', '试看')}
         </Text>
       )}

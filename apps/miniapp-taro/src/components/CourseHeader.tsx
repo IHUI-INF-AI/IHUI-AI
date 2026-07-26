@@ -35,7 +35,7 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
             {data.tags.map((tag, i) => (
               <Text
                 key={i}
-                className="text-[11px] px-2 py-0.5 mr-1.5 mb-1 rounded bg-primary/10 text-primary"
+                className="text-[22rpx] px-2 py-0.5 mr-1.5 mb-1 rounded bg-primary/10 text-primary"
               >
                 {tag}
               </Text>
@@ -56,10 +56,14 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
           </View>
           <View className="flex items-center">
             {data.lessonCount !== undefined && (
-              <Text className="text-xs text-muted-foreground mr-2">{data.lessonCount} {tt('course.lessonUnit', '节')}</Text>
+              <Text className="text-xs text-muted-foreground mr-2">
+                {data.lessonCount} {tt('course.lessonUnit', '节')}
+              </Text>
             )}
             {data.studentCount !== undefined && (
-              <Text className="text-xs text-muted-foreground mr-2">{data.studentCount} {tt('course.studentUnit', '人学')}</Text>
+              <Text className="text-xs text-muted-foreground mr-2">
+                {data.studentCount} {tt('course.studentUnit', '人学')}
+              </Text>
             )}
             {data.rating !== undefined && (
               <Text className="text-xs text-[#f59e0b]">★ {data.rating.toFixed(1)}</Text>
@@ -72,7 +76,9 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
             <Text className="text-xs text-destructive mr-1">¥</Text>
             <Text className="text-xl font-bold text-destructive">{data.price}</Text>
             {data.originalPrice && (
-              <Text className="text-xs text-muted-foreground line-through ml-2">¥{data.originalPrice}</Text>
+              <Text className="text-xs text-muted-foreground line-through ml-2">
+                ¥{data.originalPrice}
+              </Text>
             )}
           </View>
         )}
