@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { UseCaseContent } from '../UseCaseContent'
+import { generateReviewSchema, type ReviewSchema } from '@/lib/seo/schema-review'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -82,10 +84,35 @@ export const metadata: Metadata = {
   },
 }
 
-export default function CustomerSupportPage() {
+export default async function CustomerSupportPage() {
+  // 2026-07-26 GEO 强化:Review schema(适配 AI 引擎对"智能客服"客户评价的结构化抓取)
+  let reviewJsonLd: ReviewSchema | null = null
+  try {
+    const reviewT = await getTranslations('useCasesCustomerSupport.reviewSchema')
+    reviewJsonLd = generateReviewSchema({
+      itemReviewedName: reviewT('itemReviewed'),
+      itemReviewedUrl: 'https://ihui.ai/use-cases/customer-support',
+      reviewBody: reviewT('reviewBody'),
+      ratingValue: Number(reviewT('reviewRating.ratingValue')),
+      authorName: reviewT('author'),
+      authorJobTitle: reviewT('authorJobTitle'),
+      authorAffiliation: reviewT('authorAffiliation'),
+      datePublished: reviewT('datePublished'),
+      inLanguage: 'zh-CN',
+    })
+  } catch {
+    reviewJsonLd = null
+  }
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {reviewJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewJsonLd) }}
+        />
+      ) : null}
       <UseCaseContent useCaseId="customer-support" />
     </>
   )
