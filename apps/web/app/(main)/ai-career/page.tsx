@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Textarea } from '@/components/form'
-import { getCareerAdvice } from '@/lib/ai-api'
+import { getCareerAdvice } from '@ihui/api-client'
 
 interface CareerForm {
   school: string
