@@ -1,16 +1,8 @@
 {
   "common": {
-    "save": "저장",
-    "cancel": "취소",
-    "delete": "삭제",
-    "back": "뒤로",
-    "confirm": "확인",
-    "loading": "로딩 중…",
-    "empty": "데이터 없음",
-    "search": "검색"
+    "loading": "로딩 중…"
   },
   "nav": {
-    "home": "홈",
     "courses": "강의",
     "live": "라이브",
     "profile": "마이",
@@ -122,11 +114,8 @@
     "voice": "음성"
   },
   "settings": {
-    "title": "설정",
     "account": "계정 및 보안",
     "notification": "알림",
-    "language": "언어",
-    "theme": "테마",
     "about": "IHUI AI 정보",
     "version": "버전",
     "notifPush": "푸시 알림",

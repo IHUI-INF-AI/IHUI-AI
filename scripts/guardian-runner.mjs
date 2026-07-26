@@ -333,6 +333,54 @@ const checks = [
     args: ['--target=extension'],
     mode: 'warn',
   },
+  // --- shared 守门(5 项,2026-07-26 i18n shared/ 抽取重构前置条件) ---
+  // 与 2f-shared(已存在,跑 check-i18n-keys.mjs --target=shared)独立,不冲突
+  // shared/{en,ja,ko,zh-TW}.json 当前可能为 19 行,后续阶段同步到 505 行
+  {
+    id: '2j-shared',
+    label: '🔍 [shared] zh-TW 简体字残留(blocking)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=shared'],
+    mode: 'blocking',
+  },
+  {
+    id: '2k-shared',
+    label: '🔍 [shared] ko.json 中文残留(blocking)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=shared'],
+    mode: 'blocking',
+  },
+  {
+    id: '2l-shared',
+    label: '🔍 [shared] ja.json 中文残留(warn-only)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ja', '--target=shared'],
+    mode: 'warn',
+  },
+  {
+    id: '2m-shared',
+    label: '🔍 [shared] en.json 破碎英文(blocking)',
+    script: 'check-i18n-broken-en.mjs',
+    args: ['--target=shared'],
+    mode: 'blocking',
+  },
+  {
+    id: '2f-shared-diff',
+    label: '🌐 [shared] i18n AI 翻译流水线(blocking)',
+    script: 'i18n-diff.mjs',
+    args: ['--target=shared'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 shared/zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:',
+      '     1. node scripts/i18n-diff.mjs --target=shared  (检测差异,生成 pending 清单)',
+      '     2. AI agent 翻译 → .trae-cn/tmp/i18n-translations.json',
+      '     3. node scripts/i18n-apply.mjs --target=shared  (应用翻译)',
+      '     4. node scripts/check-i18n-keys.mjs --target=shared  (验证 parity)',
+      '     5. git add packages/i18n/messages/shared/{en,ja,ko,zh-TW}.json 重新 commit',
+      '',
+    ].join('\n'),
+  },
   {
     id: '9',
     label: '🔍 safeParse 静默忽略(warn-only)',

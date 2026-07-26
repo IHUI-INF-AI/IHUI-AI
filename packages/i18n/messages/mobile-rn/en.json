@@ -1,16 +1,8 @@
 {
   "common": {
-    "save": "Save",
-    "cancel": "Cancel",
-    "delete": "Delete",
-    "back": "Back",
-    "confirm": "Confirm",
-    "loading": "Loading…",
-    "empty": "No data",
-    "search": "Search"
+    "loading": "Loading…"
   },
   "nav": {
-    "home": "Home",
     "courses": "Courses",
     "live": "Live",
     "profile": "Profile",
@@ -122,11 +114,8 @@
     "voice": "Voice"
   },
   "settings": {
-    "title": "Settings",
     "account": "Account & security",
     "notification": "Notifications",
-    "language": "Language",
-    "theme": "Theme",
     "about": "About IHUI AI",
     "version": "Version",
     "notifPush": "Push notifications",
