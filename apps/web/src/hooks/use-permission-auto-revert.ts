@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
+import { logger } from '@/lib/logger'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { switchPermissionMode } from '@/components/ai/permission-mode-popover'
 
@@ -113,7 +114,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   React.useEffect(() => {
     if (hydrated) return
     const loaded = readRecord()
-    console.log('[auto-revert:hydration] readRecord', { hasLoaded: !!loaded, version: loaded?.version, ws: loaded?.workspacePath, startedAt: loaded?.startedAt, startedAtAgo: loaded ? Date.now() - loaded.startedAt : null })
+    logger.info('[auto-revert:hydration] readRecord', { hasLoaded: !!loaded, version: loaded?.version, ws: loaded?.workspacePath, startedAt: loaded?.startedAt, startedAtAgo: loaded ? Date.now() - loaded.startedAt : null })
     setRecord(loaded)
     watchedRecordRef.current = loaded
     setHydrated(true)
@@ -138,12 +139,12 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
         if (prev && prev.workspacePath === currentPath) {
           const elapsed = Date.now() - prev.startedAt
           if (elapsed < prev.durationMs) {
-            console.log('[auto-revert:mode-effect] 保持同工作区未到期 record', { prevVersion: prev.version, currentPath })
+            logger.info('[auto-revert:mode-effect] 保持同工作区未到期 record', { prevVersion: prev.version, currentPath })
             return prev
           }
           // 2026-07-25 修复:同工作区已到期 → 不重启 record,
           // 让归零 effect 走自动切回逻辑(否则模式 effect 永久覆盖归零时刻)
-          console.log('[auto-revert:mode-effect] 保持同工作区已到期 record 让 auto-switch 处理', { prevVersion: prev.version, currentPath })
+          logger.info('[auto-revert:mode-effect] 保持同工作区已到期 record 让 auto-switch 处理', { prevVersion: prev.version, currentPath })
           return prev
         }
         // 跨工作区 或 无 record → 启动新 record
@@ -153,7 +154,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
           workspacePath: currentPath ?? '',
           version: ++globalRecordVersion,
         }
-        console.log('[auto-revert:mode-effect] 启动新 record', { prev: prev ? { version: prev.version, ws: prev.workspacePath, expired: Date.now() - prev.startedAt >= prev.durationMs } : null, nextVersion: next.version, currentPath })
+        logger.info('[auto-revert:mode-effect] 启动新 record', { prev: prev ? { version: prev.version, ws: prev.workspacePath, expired: Date.now() - prev.startedAt >= prev.durationMs } : null, nextVersion: next.version, currentPath })
         writeRecord(next)
         watchedRecordRef.current = next
         return next
@@ -251,16 +252,16 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
     }
     if (remainingMs > 0) return
     if (autoSwitchedRef.current) {
-      console.log('[auto-revert:auto-switch] 跳过:已触发过', { autoSwitchedRef: autoSwitchedRef.current })
+      logger.info('[auto-revert:auto-switch] 跳过:已触发过', { autoSwitchedRef: autoSwitchedRef.current })
       return
     }
     // 2026-07-25 race condition 防御:当前 record 不是我们 watch 的那个
     // (用户已重启 record / 切走模式 / 跨标签页 cancel),跳过自动切回
     if (watchedRecordRef.current !== record) {
-      console.log('[auto-revert:auto-switch] 跳过:watchedRecordRef !== record', { watched: watchedRecordRef.current?.version, record: record.version })
+      logger.info('[auto-revert:auto-switch] 跳过:watchedRecordRef !== record', { watched: watchedRecordRef.current?.version, record: record.version })
       return
     }
-    console.log('[auto-revert:auto-switch] 通过所有检查,准备切回')
+    logger.info('[auto-revert:auto-switch] 通过所有检查,准备切回')
     // 当前模式已被切走 → 清 record 退出
     const current = useAiPanelStore.getState().activeWorkspace?.mode
     if (current !== 'bypass-permissions') {
@@ -273,14 +274,14 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
     // 计算本次完全访问累计时长(2026-07-25 深化):让用户知道"我开了多久"
     const usedMs = record ? Math.min(Date.now() - record.startedAt, record.durationMs) : 0
     const usedMin = Math.round(usedMs / 60000)
-    console.log('[auto-revert:auto-switch] 触发自动切回', { usedMin, currentMode: useAiPanelStore.getState().activeWorkspace?.mode })
+    logger.info('[auto-revert:auto-switch] 触发自动切回', { usedMin, currentMode: useAiPanelStore.getState().activeWorkspace?.mode })
     // 立即本地切回(安全护栏兜底,不能被 API 失败阻断)
     const store = useAiPanelStore.getState()
     if (store.activeWorkspace) {
       store.setActiveWorkspace({ ...store.activeWorkspace, mode: 'default' })
-      console.log('[auto-revert:auto-switch] 已设 store mode=default', { newMode: useAiPanelStore.getState().activeWorkspace?.mode })
+      logger.info('[auto-revert:auto-switch] 已设 store mode=default', { newMode: useAiPanelStore.getState().activeWorkspace?.mode })
     } else {
-      console.log('[auto-revert:auto-switch] store.activeWorkspace 为空,无法切回')
+      logger.info('[auto-revert:auto-switch] store.activeWorkspace 为空,无法切回')
     }
     setRecord(null)
     writeRecord(null)
@@ -309,7 +310,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
         await new Promise((r) => setTimeout(r, 1500))
       }
       // 2 次都失败:记录到 console(不阻塞 UI,本地已切回)
-      console.warn('[usePermissionAutoRevert] 自动切回 default 后落库失败,已本地切回')
+      logger.warn('[usePermissionAutoRevert] 自动切回 default 后落库失败,已本地切回')
     })()
   }, [remainingMs, record, t])
 
