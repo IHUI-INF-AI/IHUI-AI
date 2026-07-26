@@ -1,5 +1,25 @@
 /**
  * 学习记录 /study/*(6 个端点)。
+ *
+ * ## 设计行为说明(2026-07-26 立,防前端误用)
+ *
+ * - `GET /study/progress`:返回**当前用户已报名课程的平均 progress 百分比**(`Math.round(Σ progress / N)`)。
+ *   当用户**无任何学习记录**时,`progress = 0`(不是错误)。前端展示可据此显示"未开始学习"占位。
+ *   **该端点不接受 sectionId 参数**(只按 userId 全局聚合);章节级进度请走 `/study/records`。
+ *
+ * - `GET /study/statistics`:返回用户**总学时 / 课程数 / 完成数 / 连续天数(continuousDays)**。
+ *   `continuousDays` 从 lessonSignUps.createdAt DISTINCT DATE 反推,基于**数据库 UTC 时间**与服务器当前时间比较;
+ *   若客户端时区偏移(例如 +08:00)且服务器使用 UTC,跨日边界可能在用户视角偏移 8 小时。
+ *   (2026-07-26 已修 calcContinuousDays 时区 SQL,见 commit `ad8e96536`。)
+ *
+ * - `POST /study/records`:**幂等报名**(调用 `signUpLesson`),重复报名同一 lessonId 不会重复插入。
+ *
+ * - `PUT /study/records/:id`:仅更新 `progress` / `status` 字段;status 映射 `in_progress=1 / completed=2 / paused=1`。
+ *
+ * ## 鉴权
+ *
+ * 所有端点通过 `preHandler: [authenticate]` 注入 `request.userId`;
+ * 无 token 或 token 过期 → 401;非当前用户的记录访问 → 404(防 IDOR 越权)。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -177,11 +197,16 @@ const studyRoutes: FastifyPluginAsync = async (server) => {
       .innerJoin(lessonChapterSections, eq(lessonChapterSections.chapterId, lessonChapters.id))
       .where(activeCond)
 
+    // P0 fix(2026-07-26):PG session timezone=Asia/Shanghai,
+    // DATE(timestamptz) 返回本地日期导致 UTC 边界错位。
+    // AT TIME ZONE 'UTC' 强制按 UTC 提取日期,与 streak 循环 toISOString 一致。
     const dateRows = await db
-      .select({ d: sql<string>`DISTINCT DATE(${lessonSignUps.createdAt})::text` })
+      .select({
+        d: sql<string>`DISTINCT (${lessonSignUps.createdAt} AT TIME ZONE 'UTC')::date::text`,
+      })
       .from(lessonSignUps)
       .where(activeCond)
-      .orderBy(sql`d DESC`)
+      .orderBy(sql`((${lessonSignUps.createdAt} AT TIME ZONE 'UTC')::date)::text DESC`)
       .limit(365)
 
     const dateSet = new Set(dateRows.map((r) => r.d))
