@@ -47,16 +47,7 @@
     }
   },
   "common": {
-    "logout": "退出登入",
-    "create": "創建",
-    "reset": "重置",
-    "posts": "帖子",
-    "noPosts": "暫無帖子",
-    "payTime": "支付時間",
     "refundTime": "退款時間",
-    "errorDescription": "頁面加載時發生錯誤，請重試。",
-    "follow": "關注",
-    "followed": "已關注",
     "tools": {
       "title": "工具中心",
       "subtitle": "瀏覽並使用平臺提供的各類工具",
@@ -92,6 +83,17 @@
         "updatedAt": "更新時間"
       }
     },
+    "dismiss": "忽略",
+    "empty": "暫無記錄",
+    "logout": "退出登入",
+    "create": "創建",
+    "reset": "重置",
+    "posts": "帖子",
+    "noPosts": "暫無帖子",
+    "payTime": "支付時間",
+    "errorDescription": "頁面加載時發生錯誤，請重試。",
+    "follow": "關注",
+    "followed": "已關注",
     "batchDelete": "批量刪除",
     "loading": "加載中...",
     "disabled": "已禁用",
@@ -100,16 +102,7 @@
     "moreActions": "更多Actions",
     "view": "查看",
     "loadFailed": "加載失敗",
-    "dismiss": "忽略",
-    "viewDetail": "查看詳情",
-    "empty": "暫無記錄"
-  },
-  "a11y": {
-    "pieChart": "圓餅圖",
-    "send": "傳送",
-    "uploadAvatar": "上傳大頭貼",
-    "copyCode": "複製程式碼",
-    "collapse": "摺疊"
+    "viewDetail": "查看詳情"
   },
   "taskReceiver": {
     "title": "任務接收",
@@ -131,7 +124,6 @@
     "title": "主導航",
     "vip": "VIP 會員",
     "user": "個人中心",
-    "settings": "設置",
     "messages": "站內消息",
     "expand": "展開",
     "collapse": "收起",
@@ -314,31 +306,8 @@
       "resource": "資源中心",
       "developer": "開發者中心",
       "saas": "SaaS 平臺"
-    }
-  },
-  "auth": {
-    "loginSubtitle": "登入您的賬號",
-    "noAccount": "還沒有賬號？",
-    "registerTitle": "創建賬號",
-    "registerSubtitle": "註冊一個新賬號",
-    "sendCode": "獲取驗證碼",
-    "resendCode": "{seconds}s 後重發",
-    "hasAccount": "已有賬號？",
-    "registerSuccess": "註冊成功，請登入",
-    "resetPassword": "重置密碼",
-    "resetSuccess": "密碼重置成功，請重新登入",
-    "username": "使用者名",
-    "usernamePlaceholder": "請輸入使用者名",
-    "invalidUsername": "使用者名至少 3 位",
-    "googleNotConfigured": "Google 登入未配置",
-    "invalidCredentials": "賬號或密碼錯誤",
-    "qrRefresh": "刷新二維碼",
-    "qrSdkLoadFailed": "二維碼元件載入失敗",
-    "qrNotConfigured": "{platform} 掃碼登入未設定,請聯絡管理員",
-    "qrScanTipPlatform": "請使用 {platform} APP 掃描二維碼登入",
-    "accountPlaceholder": "手機號 / 郵箱 / 帳號",
-    "agreementNoticeDesc": "為了保障您的帳號安全，請閱讀並同意以下協議後繼續登入",
-    "getVerificationCode": "獲取驗證碼"
+    },
+    "settings": "設置"
   },
   "home": {
     "announcement": {
@@ -1051,7 +1020,13 @@
       "free": {
         "name": "免費版",
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個用戶端", "API 存取", "社群支援"]
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個用戶端",
+          "API 存取",
+          "社群支援"
+        ]
       },
       "pro": {
         "name": "專業版",
@@ -1068,7 +1043,13 @@
         "name": "企業版",
         "contactSales": "聯繫銷售",
         "cta": "聯繫銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "稽核日誌", "專屬技術支援"]
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "稽核日誌",
+          "專屬技術支援"
+        ]
       }
     },
     "checkout": {
@@ -5491,8 +5472,6 @@
   },
   "user": {
     "profile": {
-      "subtitle": "管理您的個人信息",
-      "avatarHint": "支持 JPG / PNG，建議 200x200",
       "cropTitle": "裁剪頭像",
       "cropDesc": "拖動方框調整頭像位置,固定 1:1 比例",
       "cropPreview": "預覽",
@@ -5516,12 +5495,11 @@
       "voiceRecord": "語音錄製",
       "gender_female": "",
       "gender_male": "",
-      "gender_unknown": ""
+      "gender_unknown": "",
+      "subtitle": "管理您的個人信息",
+      "avatarHint": "支持 JPG / PNG，建議 200x200"
     },
     "security": {
-      "title": "安全設置",
-      "subtitle": "保護您的賬號安全",
-      "currentPassword": "當前密碼",
       "passwordHint": "6-20 位,不能包含 < > \" ' | \\ 等特殊字符",
       "passwordTooShort": "密碼長度不能少於 6 位",
       "passwordTooLong": "密碼長度不能超過 20 位",
@@ -5534,15 +5512,17 @@
       "changePhoneDesc": "更換綁定的手機號",
       "newPhone": "新手機號",
       "newPhonePlaceholder": "請輸入新手機號",
-      "sendCode": "獲取驗證碼",
       "resend": "{seconds}s 後重發",
       "phoneChanged": "手機號已更換",
+      "title": "安全設置",
+      "subtitle": "保護您的賬號安全",
+      "currentPassword": "當前密碼",
+      "sendCode": "獲取驗證碼",
       "devices": "登入設備",
       "currentDevice": "當前設備",
       "logout": "退出登入"
     },
     "notifications": {
-      "loading": "加載中...",
       "viewList": "列表視圖",
       "viewTimeline": "時間線視圖",
       "justNow": "剛剛",
@@ -5556,18 +5536,21 @@
         "order": "",
         "project": "",
         "system": ""
-      }
+      },
+      "loading": "加載中..."
     },
     "public": {
       "follow": "關注",
       "unfollow": "取消關注",
+      "isYou": "這是你",
       "notFound": "使用者不存在或無權造訪",
       "loading": "加載中...",
-      "statsFollowing": "關注",
+      "statsFollowing": "關注中",
+      "statsFollowers": "粉絲",
+      "statsFavorites": "收藏",
       "sendMessage": "發消息"
     },
     "realname": {
-      "loading": "加載中...",
       "auditTime": "認證時間",
       "pendingHint": "您的實名認證正在審核中，請耐心等待",
       "noReason": "未提供",
@@ -5586,16 +5569,12 @@
       "sourceMiniapp": "小程式",
       "rejectedReason": "拒絕原因",
       "success": "實名認證已提交，請等待審核",
-      "error": "提交失敗"
+      "error": "提交失敗",
+      "loading": "加載中..."
     },
     "subscription": {
-      "subtitle": "管理您的VIP訂閱與續費",
-      "loading": "加載中...",
-      "current": "當前訂閱",
-      "activated": "已激活",
       "autoRenewOn": "已開啟",
       "autoRenewOff": "未開啟",
-      "notSubscribed": "未訂閱VIP",
       "notSubscribedHint": "開通VIP會員，享受更多專屬權益",
       "renewTitle": "續費訂閱",
       "openTitle": "開通訂閱",
@@ -5617,7 +5596,12 @@
       "nextCharge": "下次扣款:",
       "manage": "管理",
       "autoRenewClosed": "未開通自動續費",
-      "openAutoRenew": "開通自動續費"
+      "openAutoRenew": "開通自動續費",
+      "subtitle": "管理您的VIP訂閱與續費",
+      "loading": "加載中...",
+      "current": "當前訂閱",
+      "activated": "已激活",
+      "notSubscribed": "未訂閱VIP"
     },
     "articles": {
       "title": "我的文章",
@@ -5890,16 +5874,6 @@
     }
   },
   "settings": {
-    "title": "設置",
-    "subtitle": "管理您的偏好設置",
-    "dashboardTitle": "設置概覽",
-    "dashboardDesc": "快速造訪所有設置選項",
-    "preferencesDesc": "自定義您的應用體驗",
-    "activityDesc": "查看您的賬號活動記錄",
-    "billingTitle": "賬單管理",
-    "billingDesc": "查看您的賬單和支付記錄",
-    "connectedAccountsTitle": "關聯賬號",
-    "connectedAccountsDesc": "管理您關聯的第三方賬號",
     "activityLoading": "加載中...",
     "activityEmpty": "暫無活動記錄",
     "activityLoadFailed": "加載失敗,請稍後重試",
@@ -5971,18 +5945,7 @@
       "saveFailed": "儲存失敗，請重試",
       "rememberDays": "記住 {days} 天"
     },
-    "subPagesTitle": "更多設置",
-    "accountDeletionTitle": "賬號註銷",
-    "accountDeletionDesc": "永久刪除您的賬號和所有相關資料",
-    "accountDeletionWarning": "此操作不可撤銷,刪除後所有資料將無法恢復",
-    "accountDeletionConfirm": "我已瞭解後果並確認刪除賬號",
     "accountDeletionSendCode": "發送驗證碼",
-    "accountDeletionStatusScheduled": "您的帳戶已計劃註銷",
-    "privacyTitle": "隱私設置",
-    "dataVisibilityDesc": "控制您的個人資料對其他使用者的可見性",
-    "adTrackingDesc": "允許基於您的活動展示個性化廣告",
-    "personalizedRecommendation": "個性化推薦",
-    "exportCreating": "正在生成匯出檔案...",
     "authorizationsTitle": "會話管理",
     "authorizationsDesc": "查看並管理您的活躍登入會話",
     "revokeAuth": "撤銷會話",
@@ -6009,17 +5972,6 @@
     "eventPasswordChange": "密碼修改",
     "eventAbnormalLogin": "異常登入",
     "event2faEnabled": "2FA 開啟",
-    "notificationsDesc": "管理您的通知設置",
-    "emailNotif": "郵件通知",
-    "emailNotifDesc": "通過郵件接收重要通知",
-    "marketingEmail": "營銷郵件",
-    "smsNotif": "短信通知",
-    "smsNotifDesc": "通過短信接收驗證碼和提醒",
-    "pushNotif": "站內信",
-    "pushNotifDesc": "在平臺內接收消息通知",
-    "connectedAccountsUnbindConfirm": "確認解綁 {platform} 賬號嗎？",
-    "connectedAccountsPlatform": "平臺賬號",
-    "connectedAccountsLoading": "加載中...",
     "icpRecordTitle": "ICP備案信息",
     "icpRecordDesc": "查看平臺ICP備案登記信息",
     "icpRecordCardTitle": "備案登記信息",
@@ -6072,25 +6024,39 @@
     "profileDesc": "",
     "profileTitle": "",
     "securityDesc": "",
-    "securityTitle": ""
-  },
-  "help": {
-    "title": "幫助中心",
-    "contactSupport": "聯繫支持",
-    "loading": "加載中...",
-    "backToList": "返回幫助中心"
-  },
-  "search": {
-    "emptyKeyword": "請輸入搜尋關鍵詞",
-    "open": "打開",
-    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})",
-    "tabs": {
-      "users": "使用者",
-      "files": "文件"
-    }
-  },
-  "searchHistory": {
-    "loading": "加載中..."
+    "securityTitle": "",
+    "title": "設置",
+    "subtitle": "管理您的偏好設置",
+    "dashboardTitle": "設置概覽",
+    "dashboardDesc": "快速造訪所有設置選項",
+    "preferencesDesc": "自定義您的應用體驗",
+    "activityDesc": "查看您的賬號活動記錄",
+    "billingTitle": "賬單管理",
+    "billingDesc": "查看您的賬單和支付記錄",
+    "connectedAccountsTitle": "關聯賬號",
+    "connectedAccountsDesc": "管理您關聯的第三方賬號",
+    "subPagesTitle": "更多設置",
+    "accountDeletionTitle": "賬號註銷",
+    "accountDeletionDesc": "永久刪除您的賬號和所有相關資料",
+    "accountDeletionWarning": "此操作不可撤銷,刪除後所有資料將無法恢復",
+    "accountDeletionConfirm": "我已瞭解後果並確認刪除賬號",
+    "accountDeletionStatusScheduled": "您的帳戶已計劃註銷",
+    "privacyTitle": "隱私設置",
+    "dataVisibilityDesc": "控制您的個人資料對其他使用者的可見性",
+    "adTrackingDesc": "允許基於您的活動展示個性化廣告",
+    "personalizedRecommendation": "個性化推薦",
+    "exportCreating": "正在生成匯出檔案...",
+    "notificationsDesc": "管理您的通知設置",
+    "emailNotif": "郵件通知",
+    "emailNotifDesc": "通過郵件接收重要通知",
+    "marketingEmail": "營銷郵件",
+    "smsNotif": "短信通知",
+    "smsNotifDesc": "通過短信接收驗證碼和提醒",
+    "pushNotif": "站內信",
+    "pushNotifDesc": "在平臺內接收消息通知",
+    "connectedAccountsUnbindConfirm": "確認解綁 {platform} 賬號嗎？",
+    "connectedAccountsPlatform": "平臺賬號",
+    "connectedAccountsLoading": "加載中..."
   },
   "favorites": {
     "title": "收藏夾",
@@ -6793,12 +6759,12 @@
     "contentPlaceholder": "請描述您遇到的問題或建議...",
     "contactPlaceholder": "選填，方便我們聯繫您",
     "required": "標題和內容不能為空",
-    "loading": "加載中...",
-    "notFound": "反饋不存在或無權造訪",
     "field_images": "截圖",
     "imagesPlaceholder": "粘貼或拖拽圖片到此處",
     "tab_list": "",
-    "tab_new": ""
+    "tab_new": "",
+    "loading": "加載中...",
+    "notFound": "反饋不存在或無權造訪"
   },
   "comments": {
     "replyTitle": "管理員回覆",
@@ -8046,8 +8012,6 @@
     "executePrompt": "執行提示詞"
   },
   "about": {
-    "metaDescription": "智匯 AI(IHUI AI)是一站式全端 AI 作業系統:整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協定,支援 Web / 桌面 / 小程式 / 瀏覽器擴充功能 / React Native / CLI 六端同源,Apache 2.0 開源。",
-    "loading": "加載中...",
     "heroBadge": "關於智匯 AI",
     "heroTitle": "一碼六端,一站 AI",
     "heroSubtitle": "智匯 AI(IHUI AI)是開源的全端 AI 作業系統,把 Agent 設計、知識庫、多模型調度、跨端協作和團隊營運整合進同一個平臺。",
@@ -8088,7 +8052,9 @@
     "ctaTitle": "30 分鐘開始你的 AI 之旅",
     "ctaDesc": "註冊即得 1000 點數,全模型免費試用,無需信用卡。",
     "ctaPrimary": "免費註冊",
-    "ctaSecondary": "查看文件"
+    "ctaSecondary": "查看文件",
+    "metaDescription": "智匯 AI(IHUI AI)是一站式全端 AI 作業系統:整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協定,支援 Web / 桌面 / 小程式 / 瀏覽器擴充功能 / React Native / CLI 六端同源,Apache 2.0 開源。",
+    "loading": "加載中..."
   },
   "faq": {
     "metaTitle": "常見問題 — 智匯 AI",
@@ -8121,12 +8087,6 @@
     "ctaTitle": "沒找到答案?",
     "ctaDesc": "聯絡我們的技術團隊,2 小時內回覆。",
     "ctaButton": "聯絡技術支援"
-  },
-  "agreement": {
-    "loading": "加載中...",
-    "userAgreement": "使用者協議",
-    "staticContent2": "我們將嚴格保護您的個人隱私信息，不會在未經您許可的情況下向第三方洩露。",
-    "staticContent3": "如對本協議有任何疑問，請聯繫平臺客戶服務。"
   },
   "articles": {
     "title": "文章",
@@ -8762,38 +8722,58 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI"]
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI"]
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI"
+        ]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": ["搜尋", "查找", "search"]
+        "keywords": [
+          "搜尋",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": ["個人", "資料", "設置"]
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ]
       },
       "settings": {
         "label": "系統設置",
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"]
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ]
       }
     }
-  },
-  "routes": {
-    "userAgreement": "使用者協議",
-    "contactUs": "聯繫我們"
   },
   "footer": {
     "companyName": "吉林省愛智匯人工智能科技有限公司",
@@ -8802,8 +8782,6 @@
     "companyContact": "電話: 18643389808",
     "companyEmail": "郵箱: 502319984@qq.com",
     "officialPromotion": "官方推廣平臺",
-    "contactUs": "聯繫我們",
-    "contactSubtitle": "通過以下方式聯繫我們",
     "contactWechat": "微信二維碼",
     "contactWechatHint": "掃碼添加客服微信,或搜索微信號 ok502319984",
     "ecosystem": "生態合作",
@@ -8862,7 +8840,9 @@
       "xiaohongshu": "",
       "youtube": ""
     },
-    "supportedPlatforms": ""
+    "supportedPlatforms": "",
+    "contactUs": "聯繫我們",
+    "contactSubtitle": "通過以下方式聯繫我們"
   },
   "plugins": {
     "title": "外掛市場",
@@ -9066,9 +9046,6 @@
     "prodModeTitle": "僅開發模式可用",
     "prodModeHint": "開發者工具僅在 localhost 或內網環境可見。目前為公網域名訪問，因此工具面板已自動隱藏。"
   },
-  "themeBackup": {
-    "import": "導入"
-  },
   "aiChat": {
     "title": "AI對話",
     "history": "歷史對話",
@@ -9156,19 +9133,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -9289,25 +9278,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"]
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ]
         }
       ]
     },
@@ -9656,10 +9657,6 @@
       "answered": "已回答",
       "pending": "待回答"
     }
-  },
-  "forbidden": {
-    "title": "無權限造訪",
-    "description": "抱歉，您沒有造訪該頁面的權限。如需開通權限，請聯繫管理員。"
   },
   "marketing": {
     "typewriter": {
@@ -10544,7 +10541,11 @@
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
       "cta": "瞭解詳情",
-      "features": ["全年所有課程免費參加", "線下探索活動優先參與名額", "智匯 AI 會員社群無限次互動"]
+      "features": [
+        "全年所有課程免費參加",
+        "線下探索活動優先參與名額",
+        "智匯 AI 會員社群無限次互動"
+      ]
     },
     "enterprise": {
       "name": "企業服務",
@@ -10598,7 +10599,15 @@
       "sessions": "工作階段數",
       "crashRate": "當機率"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趨勢",
       "subtitle": "每日活躍使用者數變化曲線"
@@ -10742,8 +10751,18 @@
     "title": "AI 生涯指導",
     "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
     "options": {
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"],
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -11135,7 +11154,12 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["每月 1000 次 AI 呼叫", "基礎模型存取(3 個)", "標準 API 速率", "社群支援"]
+        "features": [
+          "每月 1000 次 AI 呼叫",
+          "基礎模型存取(3 個)",
+          "標準 API 速率",
+          "社群支援"
+        ]
       },
       "pro": {
         "features": [
@@ -12207,5 +12231,71 @@
         "desc": "新模型試驗與原型驗證,靈活切換"
       }
     }
+  },
+  "a11y": {
+    "pieChart": "圓餅圖",
+    "send": "傳送",
+    "uploadAvatar": "上傳大頭貼",
+    "copyCode": "複製程式碼",
+    "collapse": "摺疊"
+  },
+  "auth": {
+    "loginSubtitle": "登入您的賬號",
+    "noAccount": "還沒有賬號？",
+    "registerTitle": "創建賬號",
+    "registerSubtitle": "註冊一個新賬號",
+    "sendCode": "獲取驗證碼",
+    "resendCode": "{seconds}s 後重發",
+    "hasAccount": "已有賬號？",
+    "registerSuccess": "註冊成功，請登入",
+    "resetPassword": "重置密碼",
+    "resetSuccess": "密碼重置成功，請重新登入",
+    "username": "使用者名",
+    "usernamePlaceholder": "請輸入使用者名",
+    "invalidUsername": "使用者名至少 3 位",
+    "googleNotConfigured": "Google 登入未配置",
+    "invalidCredentials": "賬號或密碼錯誤",
+    "qrRefresh": "刷新二維碼",
+    "qrSdkLoadFailed": "二維碼元件載入失敗",
+    "qrNotConfigured": "{platform} 掃碼登入未設定,請聯絡管理員",
+    "qrScanTipPlatform": "請使用 {platform} APP 掃描二維碼登入",
+    "accountPlaceholder": "手機號 / 郵箱 / 帳號",
+    "agreementNoticeDesc": "為了保障您的帳號安全，請閱讀並同意以下協議後繼續登入",
+    "getVerificationCode": "獲取驗證碼"
+  },
+  "help": {
+    "title": "幫助中心",
+    "contactSupport": "聯繫支持",
+    "loading": "加載中...",
+    "backToList": "返回幫助中心"
+  },
+  "search": {
+    "emptyKeyword": "請輸入搜尋關鍵詞",
+    "open": "打開",
+    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})",
+    "tabs": {
+      "users": "使用者",
+      "files": "文件"
+    }
+  },
+  "searchHistory": {
+    "loading": "加載中..."
+  },
+  "agreement": {
+    "loading": "加載中...",
+    "userAgreement": "使用者協議",
+    "staticContent2": "我們將嚴格保護您的個人隱私信息，不會在未經您許可的情況下向第三方洩露。",
+    "staticContent3": "如對本協議有任何疑問，請聯繫平臺客戶服務。"
+  },
+  "routes": {
+    "userAgreement": "使用者協議",
+    "contactUs": "聯繫我們"
+  },
+  "themeBackup": {
+    "import": "導入"
+  },
+  "forbidden": {
+    "title": "無權限造訪",
+    "description": "抱歉，您沒有造訪該頁面的權限。如需開通權限，請聯繫管理員。"
   }
 }
