@@ -91,7 +91,6 @@ function deleteKey(obj, keyPath) {
 function pruneEmptyParents(obj, keyPath) {
   const parts = keyPath.split('.')
   for (let i = parts.length - 1; i > 0; i--) {
-    const parentPath = parts.slice(0, i).join('.')
     let cur = obj
     for (let j = 0; j < i; j++) {
       if (!cur || typeof cur !== 'object' || !(parts[j] in cur)) break
