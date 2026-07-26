@@ -1017,7 +1017,13 @@
       "free": {
         "name": "免費版",
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個用戶端", "API 存取", "社群支援"]
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個用戶端",
+          "API 存取",
+          "社群支援"
+        ]
       },
       "pro": {
         "name": "專業版",
@@ -1034,7 +1040,13 @@
         "name": "企業版",
         "contactSales": "聯繫銷售",
         "cta": "聯繫銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "稽核日誌", "專屬技術支援"]
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "稽核日誌",
+          "專屬技術支援"
+        ]
       }
     },
     "checkout": {
@@ -8706,32 +8718,56 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI"]
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI"]
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI"
+        ]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": ["搜尋", "查找", "search"]
+        "keywords": [
+          "搜尋",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": ["個人", "資料", "設置"]
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ]
       },
       "settings": {
         "label": "系統設置",
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"]
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -9093,19 +9129,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -9226,25 +9274,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"]
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ]
         }
       ]
     },
@@ -10515,7 +10575,11 @@
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
       "cta": "瞭解詳情",
-      "features": ["全年所有課程免費參加", "線下探索活動優先參與名額", "智匯 AI 會員社群無限次互動"]
+      "features": [
+        "全年所有課程免費參加",
+        "線下探索活動優先參與名額",
+        "智匯 AI 會員社群無限次互動"
+      ]
     },
     "enterprise": {
       "name": "企業服務",
@@ -10569,7 +10633,15 @@
       "sessions": "工作階段數",
       "crashRate": "當機率"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趨勢",
       "subtitle": "每日活躍使用者數變化曲線"
@@ -10713,8 +10785,18 @@
     "title": "AI 生涯指導",
     "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
     "options": {
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"],
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -12128,7 +12210,12 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社群支援"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社群支援"
+        ]
       },
       "pro": {
         "features": [
@@ -12260,25 +12347,6 @@
       }
     }
   },
-  "modelsPage": "Models",
-  "seo": {
-    "imageSitemap": {
-      "title": "圖片站點地圖 — 智匯 AI",
-      "description": "智匯 AI 圖片站點地圖,涵蓋 public/images/ 下所有官方品牌素材、圖示、登入三方素材,供 Google Images 抓取。"
-    },
-    "newsSitemap": {
-      "title": "新聞站點地圖 — 智匯 AI",
-      "description": "智匯 AI 新聞站點地圖,過去 30 天內的產品發佈、安全加固、能力上線條目,內容追溯 docs/CHANGELOG.md。"
-    },
-    "jsonFeed": {
-      "title": "JSON Feed — 智匯 AI",
-      "description": "智匯 AI JSON Feed 1.1 訂閱,支援 5 語言切換,提供結構化訂閱源,適合 LLM 與 MCP 客戶端解析。"
-    },
-    "opml": {
-      "title": "OPML 訂閱源大綱 — 智匯 AI",
-      "description": "智匯 AI 全訂閱源 OPML 2.0 索引:主訂閱源、即時推送、搜尋引擎 sitemap、5 語言版本分組,一鍵匯入閱讀器。"
-    }
-  },
   "useCasesAiEdu": {
     "metaTitle": "AI 教育 Agent 用例 — 課程編排/智能答疑/學習推薦 | IHUI AI",
     "metaDescription": "基於智匯 AI 全棧 AI 作業系統搭建的 AI 教育 Agent:課程結構化編排、智能答疑、作業批改、個性化學習路徑、學習資料看板,8 端同源分發。",
@@ -12320,21 +12388,5 @@
         "ratingValue": 4.8
       }
     }
-  },
-  "useCasesAiDesign": {
-    "metaTitle": "AI 設計協作 Agent — 海報/Logo 概念/UI 轉代碼/設計審查 | IHUI AI",
-    "metaDescription": "基於 IHUI AI 全端 AI 操作系統搭建 AI 設計協作 Agent:海報 Logo 概念 + UI 轉代碼 + 品牌資產管理 + 設計審查 + 設計系統檢索,8 端同源分發,Apache 2.0 開源。"
-  },
-  "useCasesAiMarketing": {
-    "metaTitle": "AI 營銷內容生成 Agent — 多平臺文案/SEO/A/B 測試 | IHUI AI",
-    "metaDescription": "基於 IHUI AI 全端 AI 操作系統搭建 AI 營銷內容生成 Agent:多平臺文案 + SEO 部落格 + 品牌調性一致 + A/B 測試 + 受眾畫像,8 端同源分發,Apache 2.0 開源。"
-  },
-  "useCasesAiResearch": {
-    "metaTitle": "AI 學術研究助手 — 論文檢索/綜述/引用管理 | IHUI AI",
-    "metaDescription": "基於 IHUI AI 全端 AI 操作系統搭建 AI 學術研究助手:論文檢索 + PDF 解析 + 引用管理 + 綜述生成 + 知識圖譜 + 趨勢分析,8 端同源分發,Apache 2.0 開源。"
-  },
-  "useCasesAiTranslation": {
-    "metaTitle": "AI 多語言翻譯 Agent — 文件翻譯/本地化/術語庫/字幕 | IHUI AI",
-    "metaDescription": "基於 IHUI AI 全端 AI 操作系統搭建 AI 多語言翻譯 Agent:多語言文件翻譯 + 本地化工作流 + 術語庫管理 + 翻譯審校 + 文化適配 + 字幕翻譯,8 端同源分發,Apache 2.0 開源。"
   }
 }

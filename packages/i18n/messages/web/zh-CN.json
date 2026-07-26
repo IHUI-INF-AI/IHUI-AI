@@ -998,7 +998,13 @@
       "free": {
         "name": "免费版",
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"]
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
@@ -1015,7 +1021,13 @@
         "name": "企业版",
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"]
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ]
       }
     },
     "checkout": {
@@ -8635,32 +8647,58 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"]
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"]
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"]
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"]
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"]
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -9020,19 +9058,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -9153,25 +9203,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -10442,7 +10504,11 @@
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
       "cta": "了解详情",
-      "features": ["全年所有课程免费参加", "线下探索活动优先参与名额", "智汇 AI 会员社群无限次互动"]
+      "features": [
+        "全年所有课程免费参加",
+        "线下探索活动优先参与名额",
+        "智汇 AI 会员社群无限次互动"
+      ]
     },
     "enterprise": {
       "name": "企业服务",
@@ -10496,7 +10562,15 @@
       "sessions": "会话数",
       "crashRate": "崩溃率"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趋势",
       "subtitle": "每日活跃用户数变化曲线"
@@ -10640,8 +10714,18 @@
     "title": "AI 生涯指导",
     "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
     "options": {
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"],
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -11989,7 +12073,12 @@
     "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       },
       "pro": {
         "features": [
@@ -12121,7 +12210,6 @@
       }
     }
   },
-  "modelsPage": "Models",
   "useCasesAiEdu": {
     "metaTitle": "AI 教育 Agent 用例 — 课程编排/智能答疑/学习推荐 | IHUI AI",
     "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建的 AI 教育 Agent:课程结构化编排、智能答疑、作业批改、个性化学习路径、学习数据看板,8 端同源分发。",
@@ -12163,39 +12251,5 @@
         "ratingValue": 4.8
       }
     }
-  },
-  "seo": {
-    "imageSitemap": {
-      "title": "图片站点地图 — 智汇 AI",
-      "description": "智汇 AI 图片站点地图,涵盖 public/images/ 下所有官方品牌素材、图标、登录三方素材,供 Google Images 抓取。"
-    },
-    "newsSitemap": {
-      "title": "新闻站点地图 — 智汇 AI",
-      "description": "智汇 AI 新闻站点地图,过去 30 天内的产品发布、安全加固、能力上线条目,内容追溯 docs/CHANGELOG.md。"
-    },
-    "jsonFeed": {
-      "title": "JSON Feed — 智汇 AI",
-      "description": "智汇 AI JSON Feed 1.1 订阅,支持 5 语言切换,提供结构化订阅源,适合 LLM 与 MCP 客户端解析。"
-    },
-    "opml": {
-      "title": "OPML 订阅源大纲 — 智汇 AI",
-      "description": "智汇 AI 全订阅源 OPML 2.0 索引:主订阅源、实时推送、搜索引擎 sitemap、5 语言版本分组,一键导入阅读器。"
-    }
-  },
-  "useCasesAiDesign": {
-    "metaTitle": "AI 设计协作 Agent — 海报/Logo 概念/UI 转代码/设计审查 | IHUI AI",
-    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 设计协作 Agent:海报 Logo 概念 + UI 转代码 + 品牌资产管理 + 设计审查 + 设计系统检索,8 端同源分发,Apache 2.0 开源。"
-  },
-  "useCasesAiMarketing": {
-    "metaTitle": "AI 营销内容生成 Agent — 多平台文案/SEO/A/B 测试 | IHUI AI",
-    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 营销内容生成 Agent:多平台文案 + SEO 博客 + 品牌调性一致 + A/B 测试 + 受众画像,8 端同源分发,Apache 2.0 开源。"
-  },
-  "useCasesAiResearch": {
-    "metaTitle": "AI 学术研究助手 Agent — 论文检索/综述/引用管理 | IHUI AI",
-    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 学术研究助手:论文检索 + PDF 解析 + 引用管理 + 综述生成 + 知识图谱 + 趋势分析,8 端同源分发,Apache 2.0 开源。"
-  },
-  "useCasesAiTranslation": {
-    "metaTitle": "AI 多语言翻译 Agent — 文档翻译/本地化/术语库/字幕 | IHUI AI",
-    "metaDescription": "基于 IHUI AI 全栈 AI 操作系统搭建 AI 多语言翻译 Agent:多语言文档翻译 + 本地化工作流 + 术语库管理 + 翻译审校 + 文化适配 + 字幕翻译,8 端同源分发,Apache 2.0 开源。"
   }
 }

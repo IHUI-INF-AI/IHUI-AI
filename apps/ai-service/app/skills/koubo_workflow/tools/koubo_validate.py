@@ -84,7 +84,9 @@ def parse_articles(filepath):
             continue
         aid = f'A{idx}'
         if title[:1] == 'A' and len(title) > 1 and title[1].isdigit():
-            aid = re.match(r'A\d+', title).group()
+            _aid_m = re.match(r'A\d+', title)
+            if _aid_m is not None:
+                aid = _aid_m.group()
             title = re.sub(r'^A\d+\s*', '', title)
         articles.append(Article(aid, title, hashtags, pinned_comment, body, block.strip()))
         idx += 1
@@ -513,7 +515,7 @@ def check_article(art, all_articles):
     found_ban = [b for b in BANNED_PHRASES if b in art.body]
     found_low = [b for b in BANNED_LOW_MARKERS if b in art.body]
     found_sent = [b for b in BANNED_SENTENCES_PLAIN if b in art.body]
-    found_pat = [p.search(art.body).group() for p in BANNED_SENTENCE_PATTERNS if p.search(art.body)]
+    found_pat = [_bm.group() for p in BANNED_SENTENCE_PATTERNS if (_bm := p.search(art.body))]
     found_formal = [b for b in BANNED_FORMAL if b in art.body]
     found_slang = [b for b in BANNED_SLANG if b in art.body]
     found_fake_ne = [b for b in BANNED_FAKE_NE if b in art.body]
@@ -591,10 +593,10 @@ def check_article(art, all_articles):
     coach_count = 0
     coach_found = []
     for p in COACH_PATTERNS:
-        m = p.findall(art.body)
-        if m:
-            coach_count += len(m)
-            coach_found.append(m[0])
+        found = p.findall(art.body)
+        if found:
+            coach_count += len(found)
+            coach_found.append(found[0])
     ok = coach_count >= 1
     R.append(('教练穿插', ok, f'{coach_count}处: {",".join(coach_found[:3])}' if coach_found else '0处'))
 
@@ -743,8 +745,8 @@ def check_article(art, all_articles):
     # ── 虚构社会关系/人设检测（2026-07-11 用户铁律·杜绝"假人设/编亲戚"）──
     _fake_text = art.body + (getattr(art, 'top', '') or '')
     _fake_hits = []
-    for _pat, _ftype in FAKE_THIRD_PATTERNS:
-        _m = re.search(_pat, _fake_text)
+    for _fake_pat, _ftype in FAKE_THIRD_PATTERNS:
+        _m = re.search(_fake_pat, _fake_text)
         if _m:
             _fake_hits.append('[%s]%s' % (_ftype, _m.group(0)))
     _ok_fake = len(_fake_hits) == 0
@@ -867,15 +869,15 @@ def cross_article_checks(articles, filepath=''):
             if phrase in text:
                 phrase_articles[phrase].add(art.aid)
     # 转为排序列表用于显示
-    phrase_articles = {p: sorted(aids, key=lambda x: int(x[1:])) for p, aids in phrase_articles.items()}
-    overused = {p: aids for p, aids in phrase_articles.items() if len(aids) > 2}
+    phrase_articles_sorted: dict[str, list[str]] = {p: sorted(aids, key=lambda x: int(x[1:])) for p, aids in phrase_articles.items()}
+    overused = {p: aids for p, aids in phrase_articles_sorted.items() if len(aids) > 2}
     ok = len(overused) == 0
     detail = ''
     if overused:
         parts = [f'"{p}"({len(a)}篇:{",".join(a)})' for p, a in overused.items()]
         detail = f'{len(overused)}个超标: {"; ".join(parts[:5])}'
     else:
-        near = {p: aids for p, aids in phrase_articles.items() if len(aids) == 2}
+        near = {p: aids for p, aids in phrase_articles_sorted.items() if len(aids) == 2}
         if near:
             detail = f'{len(near)}个=2次(临界)'
         else:

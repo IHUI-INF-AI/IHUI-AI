@@ -13,7 +13,21 @@ import { join } from 'node:path'
  * 5. 值不含原始 key 名(防 next-intl fallback 显示 key)
  * 6. ICU 插值占位符 parity(zh/en 的 {xxx} 数量一致)
  */
-const MESSAGES_DIR = join(process.cwd(), 'messages')
+// 2026-07-26 修复:messages 实际在 packages/i18n/messages/web/(共享 i18n 包),
+// 原 process.cwd()/messages/ 路径不存在(apps/web/messages/ 未创建),导致 readFileSync 抛错
+// 整个 suite failed to load。改用 __dirname 相对路径定位到 packages/i18n/messages/web/。
+const MESSAGES_DIR = join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  'packages',
+  'i18n',
+  'messages',
+  'web',
+)
 const zh = JSON.parse(readFileSync(join(MESSAGES_DIR, 'zh-CN.json'), 'utf8'))
 const en = JSON.parse(readFileSync(join(MESSAGES_DIR, 'en.json'), 'utf8'))
 

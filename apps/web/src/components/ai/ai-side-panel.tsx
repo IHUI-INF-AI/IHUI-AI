@@ -10,6 +10,7 @@ import { X, Plus, Bot } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
+import { useDesktop } from '@/hooks/use-desktop'
 import {
   useWebSocket,
   type WSNotification,
@@ -60,6 +61,9 @@ export function AISidePanel() {
   const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
   const pendingPermissionSetup = useAiPanelStore((s) => s.pendingPermissionSetup)
   const setPendingPermissionSetup = useAiPanelStore((s) => s.setPendingPermissionSetup)
+  // 端区分(2026-07-26 修复):web 端无 MainShell title bar,top 用 8px 对齐 my-2;
+  // 桌面端 isDesktop=true 渲染 title bar(h-10=40px),top 用 52px(8+40+4)避开 title bar。
+  const { isDesktop } = useDesktop()
   const {
     messages,
     currentModel,
@@ -572,19 +576,21 @@ export function AISidePanel() {
       <div
         // 全局 fixed 面板(与 Sidebar 同性质,作为 MainShell 的兄弟节点而非 flex 子元素):
         // - fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 跟随 Sidebar 折叠/展开/拖拽)
-        // - 2026-07-26 用户反馈:恢复原 top-2(8px)顶部间距
-        //   - 2026-07-25 改 top-[84px] 是为了适配"右列顶部 TagsView",但用户反馈 TagsView 不该放在右列,
-        //     改放到 MainShell 内部(只覆盖 main 同宽)
-        //   - 2026-07-26 关键修复:AISidePanel 之前 top-2(8px)与 MainShell 标题栏重叠
-        //     - MainShell 在 (main) 路由组中以 my-2 + 内部 h-10 title bar 占据顶部 48px(8+40)
-        //     - AISidePanel 用 fixed top-2 直接覆盖 MainShell title bar + 3 个窗口控制按钮
-        //     - 表现:用户看到 AI 面板的 4 个按钮(▶+📋+×)而不是 MainShell 的 Min/Max/Close
-        //     - 修复:top-[52px] = 8px(顶部间距)+40px(title bar)+4px(视觉缓冲),完整让出 title bar
+        // - top 值按端区分(2026-07-26 修复):
+        //   - web 端(isDesktop=false):MainShell title bar 不渲染,顶部只有 my-2(8px),
+        //     AISidePanel 用 top-2(8px)与 MainShell 工作区顶部视觉对齐
+        //   - 桌面端(isDesktop=true):MainShell 渲染 title bar(h-10=40px + data-tauri-drag-region),
+        //     AISidePanel 用 top-[52px](8px 顶间距 + 40px title bar + 4px 视觉缓冲)完整让出 title bar,
+        //     避免覆盖 Min/Max/Close 三按钮
+        //   - 历史教训:之前不分端统一用 52px,web 端 AI 面板顶部比工作区顶部低 44px,用户反馈"间距不对"
         // - bottom-2 与 work-area 的 my-2 垂直对齐(底部留出 8px 间距)
         // - mr-2 在可见面板右边缘与 work-area 内容间形成 8px 视觉间距
         // - z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)
         // - width 由 useAiPanelStore.width 控制(320-720px);不挤压右侧 work-area 宽度
-        className="fixed top-[52px] bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky"
+        className={cn(
+          'fixed bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky',
+          isDesktop ? 'top-[52px]' : 'top-2',
+        )}
         style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
       >
         <aside
