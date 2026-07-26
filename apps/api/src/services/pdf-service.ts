@@ -11,6 +11,8 @@
 import { env } from 'node:process'
 import { Writable } from 'node:stream'
 
+import { logger } from '../utils/logger.js'
+
 // 最小类型描摹，避免未安装时类型解析失败
 type PDFTextOptions = {
   align?: 'left' | 'center' | 'right' | 'justify'
@@ -102,7 +104,7 @@ export async function generateCertificatePDF(input: CertificatePDFInput): Promis
       doc.text(`签发日期: ${input.issuedAt.toISOString().slice(0, 10)}`, 50, 210)
       doc.end()
     } catch (err) {
-      console.error('[pdf-service] generateCertificatePDF error:', err)
+      logger.error('[pdf-service] generateCertificatePDF error:', { err: err as Error })
       resolve(stub(`[certificate-stub-error] ${input.certificateNo} ${input.title}`))
     }
   })
@@ -138,7 +140,7 @@ export async function generateInvoicePDF(input: InvoicePDFInput): Promise<PDFRes
       }
       doc.end()
     } catch (err) {
-      console.error('[pdf-service] generateInvoicePDF error:', err)
+      logger.error('[pdf-service] generateInvoicePDF error:', { err: err as Error })
       resolve(stub(`[invoice-stub-error] ${input.invoiceNo} ${input.title}`))
     }
   })
@@ -182,7 +184,7 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
       doc.end()
     } catch (err) {
       // pdfkit 实例化/调用失败(字体缺失/WritableBuffer 接口不全等),降级到 stub 避免阻塞导出链路
-      console.error('[pdf-service] generateReportPDF error:', err)
+      logger.error('[pdf-service] generateReportPDF error:', { err: err as Error })
       resolve(stub(`[report-stub-error] ${input.title} (${input.sections.length} sections)`))
     }
   })
