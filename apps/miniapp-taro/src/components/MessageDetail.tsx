@@ -32,7 +32,9 @@ export default function MessageDetail({
       <View className="flex-1 px-3 py-3 overflow-y-auto">
         {messages.length === 0 && (
           <View className="flex items-center justify-center py-12">
-            <Text className="text-sm text-muted-foreground">{tt('message.startConversation', '开始你们的对话')}</Text>
+            <Text className="text-sm text-muted-foreground">
+              {tt('message.startConversation', '开始你们的对话')}
+            </Text>
           </View>
         )}
         {messages.map((msg) => (
@@ -59,7 +61,7 @@ export default function MessageDetail({
               >
                 <Text className="text-sm">{msg.content}</Text>
               </View>
-              <Text className="text-[10px] text-muted-foreground mt-1">{msg.createdAt}</Text>
+              <Text className="text-[20rpx] text-muted-foreground mt-1">{msg.createdAt}</Text>
             </View>
           </View>
         ))}
