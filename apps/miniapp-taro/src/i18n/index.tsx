@@ -1,12 +1,10 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import Taro from '@tarojs/taro'
-import { mergeMessages, translate } from '@ihui/i18n/loader'
+import { mergeMessages, translate, resolveList } from '@ihui/i18n/loader'
 import type { Locale, Messages } from '@ihui/i18n/types'
 // 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/{shared,miniapp-taro}/
-// 阶段 2:用 mergeMessages 合并 shared + miniapp-taro(端 key 覆盖 shared,功能无变化)
-// 删除本地 mergeDict/resolve,改用 @ihui/i18n/loader 的 mergeMessages + translate
-// 注:loader.getValueByPath 仅返回 string,无法解析数组型文案,
-// tList 保留本地数组解析以保持对外 API 行为不变(loader API 后续扩展后可切换)
+// 2026-07-26 loader.getValueByPath 扩展为返回 unknown,resolveList 支持 fallback,
+// 删除本地 mergeDict/resolveRaw,完全复用 @ihui/i18n/loader
 import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
 import sharedEn from '@ihui/i18n/messages/shared/en.json'
 import sharedJa from '@ihui/i18n/messages/shared/ja.json'
@@ -45,16 +43,6 @@ const messages: Record<Locale, Messages> = {
 
 const LOCALES: Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 
-/** 按点分路径查找原始值(数组型文案用;loader.getValueByPath 仅返回 string 无法处理数组) */
-function resolveRaw(obj: unknown, key: string): unknown {
-  return key.split('.').reduce<unknown>((acc, k) => {
-    if (acc && typeof acc === 'object' && k in (acc as Record<string, unknown>)) {
-      return (acc as Record<string, unknown>)[k]
-    }
-    return undefined
-  }, obj)
-}
-
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
     const stored = Taro.getStorageSync('lang')
@@ -74,17 +62,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   )
 
   const tList = useCallback(
-    (key: string) => {
-      const value = resolveRaw(messages[locale], key)
-      if (Array.isArray(value)) {
-        return value.filter((v): v is string => typeof v === 'string')
-      }
-      // fallback 到 zh-CN(保留原 mergeDict(zhCN, partial) 行为)
-      const fallback = resolveRaw(messages['zh-CN'], key)
-      return Array.isArray(fallback)
-        ? fallback.filter((v): v is string => typeof v === 'string')
-        : []
-    },
+    (key: string) => resolveList(messages[locale], key, messages['zh-CN']),
     [locale],
   )
 
