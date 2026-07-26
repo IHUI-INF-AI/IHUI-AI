@@ -8,6 +8,10 @@ name: i18n Dead Key Audit
 # 脚本: scripts/scan-dead-i18n-keys.mjs
 # 退出码:发现死 key → exit 1(blocking);无死 key → exit 0
 # 报告:.trae-cn/tmp/i18n-dead-keys-YYYY-MM-DD.md(无论成败均上传 artifact)
+#
+# 2026-07-26 增强:新增 unit-tests job 挂载 i18n 扫描器单测 + 4 端集成测试,
+#   覆盖 _i18n-scan-helpers.mjs 的 STATIC_T_RE / USE_T_RE / DYNAMIC_T_RE 等正则
+#   + main() 端到端入口,防止正则重构引入回归(如 commit 5ebb17915 漏识别 getTranslations)。
 # =============================================================================
 
 on:
@@ -19,6 +23,8 @@ on:
       - 'apps/miniapp-taro/src/**'
       - 'apps/cli/src/**'
       - 'scripts/scan-dead-i18n-keys.mjs'
+      - 'scripts/_i18n-scan-helpers.mjs'
+      - 'scripts/tests/**'
       - '.github/workflows/i18n-dead-key-audit.yml'
   pull_request:
     branches: [main, develop]
@@ -28,6 +34,8 @@ on:
       - 'apps/miniapp-taro/src/**'
       - 'apps/cli/src/**'
       - 'scripts/scan-dead-i18n-keys.mjs'
+      - 'scripts/_i18n-scan-helpers.mjs'
+      - 'scripts/tests/**'
       - '.github/workflows/i18n-dead-key-audit.yml'
 
 concurrency:
@@ -41,10 +49,38 @@ env:
   NODE_VERSION: '20'
 
 jobs:
+  unit-tests:
+    name: i18n 扫描器单测 + 集成测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 运行 i18n 扫描器单测 + 4 端集成测试
+        # 5 个测试文件:
+        #   - i18n-scan-helpers.test.mjs:正则单元测试(STATIC_T_RE / USE_T_RE / DYNAMIC_T_RE)
+        #   - scan-{web,miniapp-taro,mobile-rn,extension}-dead-i18n-keys.test.mjs:4 端 main() 端到端集成测试
+        # 用 Node.js 内置 test runner,无第三方依赖
+        run: |
+          node --test \
+            scripts/tests/i18n-scan-helpers.test.mjs \
+            scripts/tests/scan-web-dead-i18n-keys.test.mjs \
+            scripts/tests/scan-miniapp-taro-dead-i18n-keys.test.mjs \
+            scripts/tests/scan-mobile-rn-dead-i18n-keys.test.mjs \
+            scripts/tests/scan-extension-dead-i18n-keys.test.mjs
+
   dead-key-audit:
     name: i18n 死 key 审计
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    needs: unit-tests
 
     steps:
       - name: Checkout
