@@ -2463,6 +2463,8 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
     [vs 文心一言 ERNIE](https://ihui.ai/compare/ihui-vs-ernie) · [vs 通义千问平台](https://ihui.ai/compare/ihui-vs-qwen-platform) · [vs Kimi 平台](https://ihui.ai/compare/ihui-vs-kimi-platform) · [vs 豆包平台](https://ihui.ai/compare/ihui-vs-doubao) · [vs DeepSeek 平台](https://ihui.ai/compare/ihui-vs-deepseek-platform) · [vs 智谱开放平台](https://ihui.ai/compare/ihui-vs-zhipu) · [vs 讯飞星火](https://ihui.ai/compare/ihui-vs-spark) · [vs MiniMax](https://ihui.ai/compare/ihui-vs-minimax)
   - **2026-07-26 阶段 8 新增 — 国际 SaaS 6 个**(海外 AI 检索长尾):
     [vs Zapier AI Actions](https://ihui.ai/compare/ihui-vs-zapier-ai) · [vs Make.com](https://ihui.ai/compare/ihui-vs-make) · [vs Relevance AI](https://ihui.ai/compare/ihui-vs-relevance-ai) · [vs Stack AI](https://ihui.ai/compare/ihui-vs-stack-ai) · [vs Wordware](https://ihui.ai/compare/ihui-vs-wordware) · [vs Voiceflow](https://ihui.ai/compare/ihui-vs-voiceflow)
+  - **2026-07-26 阶段 9 新增 — AI 编程助手 8 个**(2025-2026 现象级,搜索量极高):
+    [vs Claude Code](https://ihui.ai/compare/ihui-vs-claude-code) · [vs Cursor IDE](https://ihui.ai/compare/ihui-vs-cursor) · [vs GitHub Copilot](https://ihui.ai/compare/ihui-vs-github-copilot) · [vs Windsurf](https://ihui.ai/compare/ihui-vs-windsurf) · [vs Bolt.new](https://ihui.ai/compare/ihui-vs-bolt-new) · [vs Replit Agent](https://ihui.ai/compare/ihui-vs-replit-agent) · [vs Lovable](https://ihui.ai/compare/ihui-vs-lovable) · [vs v0.dev](https://ihui.ai/compare/ihui-vs-v0-dev)
 - **行业用例页**(场景化关键词,2026-07-26 阶段 8 扩展到 10 个)
   - [AI 智能客服 Agent](https://ihui.ai/use-cases/customer-support)
   - [企业知识库 RAG](https://ihui.ai/use-cases/knowledge-base)
