@@ -296,7 +296,16 @@
       "close": "关闭公告"
     },
     "banner": {
-      "switchTo": "切换到第 {index} 张"
+      "switchTo": "切换到第 {index} 张",
+      "slide1Cta": "立即学习",
+      "slide1Subtitle": "个性化学习路径,智能辅导,助你高效成长",
+      "slide1Title": "AI 智能学习平台",
+      "slide2Cta": "进入直播间",
+      "slide2Subtitle": "名师在线直播,实时互动答疑",
+      "slide2Title": "实时互动直播",
+      "slide3Cta": "开始测评",
+      "slide3Subtitle": "智能组卷,精准评估学习成果",
+      "slide3Title": "AI 智能测评"
     },
     "memberCard": {
       "points": "积分",
@@ -344,6 +353,22 @@
       "questions": "{count}题",
       "answers": "{count}回答",
       "members": "{count}成员"
+    },
+    "marquee": {
+      "kouzi": "扣子",
+      "bbxLogo": "BBX",
+      "zhipu": "智谱 AI",
+      "brand8": "品牌 8",
+      "ali": "阿里巴巴",
+      "baidu": "百度",
+      "dbsfdx": "东北师范大学",
+      "gork": "Gork",
+      "huawei": "华为",
+      "jldx": "吉林大学",
+      "openai": "OpenAI",
+      "tencent": "腾讯",
+      "yuanbaoxiang": "元宝箱",
+      "yushu": "宇树科技"
     }
   },
   "announcements": {
@@ -964,7 +989,8 @@
     "answerCount": "{count} 回答",
     "viewCount": "{count} 浏览",
     "required": "标题和内容不能为空",
-    "answerQuestion": "回答问题"
+    "answerQuestion": "回答问题",
+    "all": ""
   },
   "payment": {
     "title": "定价方案",
@@ -972,8 +998,39 @@
     "popular": "推荐",
     "perMonth": "/月",
     "plans": {
+      "free": {
+        "name": "免费版",
+        "cta": "立即开始",
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ]
+      },
+      "pro": {
+        "name": "专业版",
+        "cta": "升级到 Pro",
+        "features": [
+          "每月 10000 积分",
+          "优先级队列",
+          "高级模型(GPT-4o/Claude Opus)",
+          "团队协作(5 席位)",
+          "邮件支持"
+        ]
+      },
       "enterprise": {
-        "contactSales": "联系销售"
+        "name": "企业版",
+        "contactSales": "联系销售",
+        "cta": "联系销售",
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ]
       }
     },
     "checkout": {
@@ -1470,6 +1527,7 @@
           "pageInfo": "第 {page} / {totalPages} 页",
           "nextPage": "下一页",
           "type": {
+            "label": "类型",
             "study": "学习",
             "exam": "考试",
             "live": "直播",
@@ -1499,6 +1557,7 @@
           "pageInfo": "第 {page} / {totalPages} 页",
           "nextPage": "下一页",
           "period": {
+            "label": "周期",
             "week": "本周",
             "month": "本月",
             "total": "全部",
@@ -5414,7 +5473,10 @@
       "userId": "用户 ID",
       "aiUsage": "AI 用量统计",
       "routines": "例行程序",
-      "voiceRecord": "语音录制"
+      "voiceRecord": "语音录制",
+      "gender_female": "",
+      "gender_male": "",
+      "gender_unknown": ""
     },
     "security": {
       "passwordHint": "6-20 位,不能包含 < > \" ' | \\ 等特殊字符",
@@ -5434,7 +5496,30 @@
     },
     "notifications": {
       "viewList": "列表视图",
-      "viewTimeline": "时间线视图"
+      "viewTimeline": "时间线视图",
+      "justNow": "刚刚",
+      "minutesAgo": "{min} 分钟前",
+      "hoursAgo": "{hr} 小时前",
+      "daysAgo": "{day} 天前",
+      "tab": {
+        "all": "",
+        "comment": "",
+        "follow": "",
+        "order": "",
+        "project": "",
+        "system": ""
+      }
+    },
+    "public": {
+      "follow": "关注",
+      "unfollow": "取消关注",
+      "isYou": "这是你",
+      "notFound": "用户不存在或无权访问",
+      "loading": "加载中...",
+      "statsFollowing": "关注",
+      "statsFollowers": "粉丝",
+      "statsFavorites": "收藏",
+      "sendMessage": "发消息"
     },
     "realname": {
       "auditTime": "认证时间",
@@ -5654,7 +5739,10 @@
       "useRefTemplate": "参考此模板",
       "templateLoaded": "已打开 AI 对话面板,正在为你创建 {name} 自动化任务",
       "exampleInvokePrompt": "请帮我创建一个自动化任务。任务名称:{name}。任务描述:{desc}。执行时间:{schedule}。预期产出:{output}。请根据这个模板引导我完成配置,包括确认执行时间、内容来源、输出方式等细节。"
-    }
+    },
+    "automation": "",
+    "koubo": "",
+    "wechat": ""
   },
   "publish": {
     "title": "多平台一键发布",
@@ -5701,7 +5789,13 @@
       "uploading": "上传中...",
       "uploadSuccess": "已上传: {filename}",
       "uploadFailed": "上传失败",
-      "uploadedHint": "文件已上传,可重新选择替换"
+      "uploadedHint": "文件已上传,可重新选择替换",
+      "contentFormatDocx": "",
+      "contentFormatHtml": "",
+      "contentFormatImage": "",
+      "contentFormatMd": "",
+      "contentFormatPdf": "",
+      "contentFormatVideo": ""
     },
     "history": {
       "duration": "耗时",
@@ -5721,6 +5815,27 @@
       "totalSuccess": "成功次数",
       "totalFailed": "失败次数",
       "successRate": "成功率"
+    },
+    "platforms": {
+      "bilibili": "",
+      "csdn": "",
+      "douyin": "",
+      "juejin": "",
+      "kuaishou": "",
+      "medium": "",
+      "shipinhao": "",
+      "toutiao": "",
+      "wechat": "",
+      "weibo": "",
+      "wordpress": "",
+      "xiaohongshu": "",
+      "youtube": "",
+      "zhihu": ""
+    },
+    "tabs": {
+      "accounts": "",
+      "history": "",
+      "new": ""
     }
   },
   "settings": {
@@ -5842,14 +5957,51 @@
     },
     "desc": {
       "notificationSound": "接收通知时播放声音"
-    }
+    },
+    "billingAmount": "",
+    "billingCreatedAt": "",
+    "billingLoading": "",
+    "billingNext": "",
+    "billingOrderNo": "",
+    "billingPageInfo": "",
+    "billingPrev": "",
+    "billingStatus": "",
+    "billingTotal": "",
+    "cliImportDesc": "",
+    "cliImportTitle": "",
+    "icpRecordEntity": "",
+    "icpRecordEntityType": "",
+    "icpRecordNumber": "",
+    "icpRecordScope": "",
+    "icpRecordTime": "",
+    "icpRecordUrl": "",
+    "llmConfigsDesc": "",
+    "llmConfigsTitle": "",
+    "miniappQr": "",
+    "miniappQrDesc": "",
+    "modelRecordAlgorithmType": "",
+    "modelRecordApplicant": "",
+    "modelRecordApplyDate": "",
+    "modelRecordModelName": "",
+    "modelRecordNumber": "",
+    "modelRecordScope": "",
+    "modelRecordStatus": "",
+    "profileDesc": "",
+    "profileTitle": "",
+    "securityDesc": "",
+    "securityTitle": ""
   },
   "favorites": {
     "title": "收藏夹",
     "subtitle": "您收藏的内容",
     "remove": "取消收藏",
     "empty": "暂无收藏内容",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "tabs": {
+      "all": "",
+      "file": "",
+      "project": ""
+    }
   },
   "follows": {
     "title": "关注",
@@ -5861,7 +6013,13 @@
     "subtitle": "管理您的订阅",
     "cancel": "取消订阅",
     "empty": "暂无订阅",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "tabs": {
+      "all": "",
+      "project": "",
+      "tag": "",
+      "user": ""
+    }
   },
   "tags": {
     "title": "标签中心",
@@ -6181,7 +6339,11 @@
         "code": "兑换码",
         "amount": "金额",
         "time": "兑换时间",
-        "status": "状态"
+        "status": "状态",
+        "statusLabels": {
+          "failed": "",
+          "success": ""
+        }
       }
     },
     "openclaw": {
@@ -6215,7 +6377,15 @@
           "title": "一键启动",
           "desc": "执行部署命令,等待服务就绪"
         }
-      ]
+      ],
+      "features": {
+        "cache": "",
+        "loadBalance": "",
+        "monitor": "",
+        "multiModel": "",
+        "oneClick": "",
+        "scale": ""
+      }
     },
     "apiDocs": {
       "title": "API 文档",
@@ -6250,7 +6420,55 @@
       "allTitle": "全部 Skills",
       "featured": "精选",
       "install": "安装",
-      "installs": "{count} 安装"
+      "installs": "{count} 安装",
+      "categories": {
+        "code": "",
+        "communication": "",
+        "data": "",
+        "media": "",
+        "productivity": "",
+        "search": "",
+        "system": "",
+        "weather": ""
+      },
+      "items": {
+        "audioTranscribe": {
+          "desc": ""
+        },
+        "calendar": {
+          "desc": ""
+        },
+        "codeRunner": {
+          "desc": ""
+        },
+        "dataViz": {
+          "desc": ""
+        },
+        "databaseQuery": {
+          "desc": ""
+        },
+        "emailSender": {
+          "desc": ""
+        },
+        "healthcheck": {
+          "desc": ""
+        },
+        "imageGen": {
+          "desc": ""
+        },
+        "nodeConnect": {
+          "desc": ""
+        },
+        "pdfToolkit": {
+          "desc": ""
+        },
+        "weather": {
+          "desc": ""
+        },
+        "webSearch": {
+          "desc": ""
+        }
+      }
     },
     "groupsMgmt": {
       "title": "分组管理",
@@ -6278,7 +6496,9 @@
       },
       "statusLabels": {
         "success": "成功",
-        "failed": "失败"
+        "failed": "失败",
+        "disabled": "",
+        "enabled": ""
       }
     },
     "chats": {
@@ -6310,6 +6530,15 @@
         "totalCalls": "总调用",
         "status": "状态",
         "createdAt": "创建时间"
+      },
+      "roleLabels": {
+        "admin": "",
+        "user": "",
+        "vip": ""
+      },
+      "statusLabels": {
+        "active": "",
+        "disabled": ""
       }
     },
     "contact": {
@@ -6464,7 +6693,9 @@
     "contactPlaceholder": "选填，方便我们联系您",
     "required": "标题和内容不能为空",
     "field_images": "截图",
-    "imagesPlaceholder": "粘贴或拖拽图片到此处"
+    "imagesPlaceholder": "粘贴或拖拽图片到此处",
+    "tab_list": "",
+    "tab_new": ""
   },
   "comments": {
     "replyTitle": "管理员回复",
@@ -6521,7 +6752,19 @@
       "consecutiveLabel": "连续天数",
       "loading": "加载中...",
       "empty": "暂无签到记录",
-      "backToPoints": "返回积分中心"
+      "backToPoints": "返回积分中心",
+      "day0": "",
+      "day1": "",
+      "day2": "",
+      "day3": "",
+      "day4": "",
+      "day5": "",
+      "day6": ""
+    },
+    "tab": {
+      "lb": "",
+      "redeem": "",
+      "tx": ""
     }
   },
   "orders": {
@@ -6536,7 +6779,19 @@
     "statusLabel": "状态",
     "createdAt": "创建时间",
     "total": "共 {total} 条",
-    "orderType": "订单类型"
+    "orderType": "订单类型",
+    "status": {
+      "all": "",
+      "cancelled": "",
+      "paid": "",
+      "pending": "",
+      "refunded": ""
+    },
+    "type": {
+      "all": "",
+      "card": "",
+      "course": ""
+    }
   },
   "live": {
     "title": "直播课程",
@@ -6980,8 +7235,15 @@
       "priority": "优先级",
       "cancel": "取消",
       "connected": "已连接",
-      "disconnected": "已断开"
-    }
+      "disconnected": "已断开",
+      "high": "",
+      "low": "",
+      "medium": ""
+    },
+    "statusOffline": "",
+    "statusPending": "",
+    "statusPublished": "",
+    "statusRejected": ""
   },
   "agents": {
     "kanban": {
@@ -7068,14 +7330,30 @@
     "colActualAmount": "实际金额",
     "colFee": "手续费",
     "colMethod": "方式",
-    "colProcessedAt": "处理时间"
+    "colProcessedAt": "处理时间",
+    "orderStatusPending": "待支付",
+    "orderStatusPaid": "已支付",
+    "orderStatusCancelled": "已取消",
+    "orderStatusRefunded": "已退款",
+    "flowRecharge": "充值",
+    "flowDeduct": "扣减",
+    "flowExpire": "过期"
   },
   "tokenValue": {
     "title": "我的智汇值",
     "subtitle": "查看智汇值使用记录和余额",
     "currentBalance": "当前余额",
     "totalEarned": "累计获得",
-    "totalUsed": "累计使用"
+    "totalUsed": "累计使用",
+    "colAgent": "",
+    "colAmount": "",
+    "colModel": "",
+    "colTime": "",
+    "colToken": "",
+    "range30d": "",
+    "range7d": "",
+    "rangeCustom": "",
+    "rangeToday": ""
   },
   "distributionCompany": {
     "title": "我的公司",
@@ -7104,9 +7382,18 @@
     "inviteCode": "邀请码",
     "inviteLinkPlaceholder": "正在生成邀请链接...",
     "levelsTitle": "各等级佣金比例",
+    "level1": "一级分销",
+    "level2": "二级分销",
+    "level3": "三级分销",
     "commissionRate": "佣金比例",
     "copied": "已复制",
-    "copy": "复制"
+    "copy": "复制",
+    "rule1Title": "一级佣金",
+    "rule1": "被邀请人首次充值,邀请人获得 10% 佣金奖励。",
+    "rule2Title": "二级佣金",
+    "rule2": "被邀请人发展的下级充值,邀请人获得 15% 佣金奖励。",
+    "rule3Title": "三级佣金",
+    "rule3": "被邀请人发展的三级下级充值,邀请人获得 20% 佣金奖励。"
   },
   "oauthPlatform": {
     "featureApiTitle": "开放 API",
@@ -7601,7 +7888,9 @@
     "styleElectronic": "电子",
     "pageTitle": "AI 内容生成",
     "pageSubtitle": "选择类型，生成文本、图像、视频、音频、3D 模型等内容",
-    "clear": "清除"
+    "clear": "清除",
+    "tabCode": "",
+    "tabText": ""
   },
   "mcp": {
     "noParameters": "该工具没有参数",
@@ -7786,25 +8075,35 @@
   },
   "myAsks": {
     "delete": "删除",
-    "deleteConfirm": "确定删除此问题？"
+    "deleteConfirm": "确定删除此问题？",
+    "subtitle": "",
+    "title": ""
   },
   "myCircles": {
     "leave": "退出",
-    "leaveConfirm": "确定退出此圈子？"
+    "leaveConfirm": "确定退出此圈子？",
+    "subtitle": "",
+    "title": ""
   },
   "myArticles": {
     "create": "写文章",
     "edit": "编辑",
     "delete": "删除",
-    "deleteConfirm": "确定删除此文章？"
+    "deleteConfirm": "确定删除此文章？",
+    "subtitle": "",
+    "title": ""
   },
   "myResources": {
-    "deleteConfirm": "确定删除此资源？"
+    "deleteConfirm": "确定删除此资源？",
+    "subtitle": "",
+    "title": ""
   },
   "myComments": {
     "delete": "删除",
     "deleteConfirm": "确定删除此评论？",
-    "targetType": "关联对象"
+    "targetType": "关联对象",
+    "subtitle": "",
+    "title": ""
   },
   "sso": {
     "title": "统一登录",
@@ -8179,7 +8478,13 @@
       "description": "浏览与接入开放 API",
       "searchPlaceholder": "搜索 API 名称或描述...",
       "loading": "加载中...",
-      "noMatch": "暂无匹配的 API"
+      "noMatch": "暂无匹配的 API",
+      "catAll": "",
+      "catAudio": "",
+      "catChat": "",
+      "catImage": "",
+      "catTool": "",
+      "catVideo": ""
     },
     "models": {
       "title": "模型集市",
@@ -8196,7 +8501,13 @@
       "description": "发现可复用的 AI Agent",
       "searchPlaceholder": "搜索 Agent 名称或描述...",
       "loading": "加载中...",
-      "noMatch": "暂无匹配的 Agent"
+      "noMatch": "暂无匹配的 Agent",
+      "catAll": "",
+      "catAnalysis": "",
+      "catChat": "",
+      "catCoding": "",
+      "catTool": "",
+      "catWriting": ""
     },
     "documents": {
       "title": "文档集市",
@@ -8356,32 +8667,58 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"]
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"]
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"]
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"]
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"]
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -8393,7 +8730,64 @@
     "companyEmail": "邮箱: 502319984@qq.com",
     "officialPromotion": "官方推广平台",
     "contactWechat": "微信二维码",
-    "contactWechatHint": "扫码添加客服微信,或搜索微信号 ok502319984"
+    "contactWechatHint": "扫码添加客服微信,或搜索微信号 ok502319984",
+    "ecosystem": "生态合作",
+    "icp": "吉ICP备2025027274号",
+    "copyright": "© 2025 智汇AI集团 · 中国",
+    "modelRecord": "模型备案",
+    "cloudDatabases": "",
+    "communityGroup": "",
+    "databases": {
+      "mongodb": "",
+      "mysql": "",
+      "postgresql": "",
+      "redis": "",
+      "sqlite": ""
+    },
+    "modelItems": {
+      "claude": "",
+      "deepseek": "",
+      "doubao": "",
+      "gemini": "",
+      "gpt": "",
+      "llama": "",
+      "mistral": "",
+      "qwen": ""
+    },
+    "models": "",
+    "officialApp": "",
+    "officialWechat": "",
+    "paymentPlatforms": "",
+    "payments": {
+      "alipay": "",
+      "douyin": "",
+      "unionpay": "",
+      "visa": "",
+      "wechat": ""
+    },
+    "platforms": {
+      "coze": "",
+      "n8n": ""
+    },
+    "promos": {
+      "baidu": "",
+      "bilibili": "",
+      "douyin": "",
+      "facebook": "",
+      "github": "",
+      "google": "",
+      "kuaishou": "",
+      "qq": "",
+      "reddit": "",
+      "telegram": "",
+      "wechat": "",
+      "wechatChannels": "",
+      "weibo": "",
+      "x": "",
+      "xiaohongshu": "",
+      "youtube": ""
+    },
+    "supportedPlatforms": ""
   },
   "plugins": {
     "title": "插件市场",
@@ -8457,7 +8851,10 @@
     "addedToChatReal": "已添加 {name} 到对话,LLM 可真实调用对应 MCP 工具",
     "addedToChatModel": "已添加 {name} 到对话,需在 .env 配置对应 API Key 激活模型",
     "addedToChatPrompt": "已添加 {name} 到对话(仅 prompt 意图,后端暂无对应工具)",
-    "removedFromChat": "已从对话移除 {name}"
+    "removedFromChat": "已从对话移除 {name}",
+    "sortDefault": "",
+    "sortInstalled": "",
+    "sortName": ""
   },
   "aiWorld": {
     "admin": {
@@ -8670,7 +9067,8 @@
     "positioning": {
       "label": "核心定位",
       "title": "AI时代企业理性效率服务与互助社群",
-      "description": "智汇 AI社致力于帮助企业决策者深度理解AI与企业的关系,通过系统化的课程、实践探索和社群互助,构建人机协同的超级组织,实现企业的理性效率提升。"
+      "description": "智汇 AI社致力于帮助企业决策者深度理解AI与企业的关系,通过系统化的课程、实践探索和社群互助,构建人机协同的超级组织,实现企业的理性效率提升。",
+      "tags": []
     },
     "modules": {
       "label": "三大服务模块",
@@ -8680,19 +9078,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -8702,7 +9112,8 @@
       "subtitle": "仅限前18位会员 · 早鸟价 ¥6000/人/年 · 不满意全额退款",
       "perYear": "/人/年",
       "joinNow": "立即加入",
-      "consultHint": "扫码咨询或直接联系我们"
+      "consultHint": "扫码咨询或直接联系我们",
+      "benefits": []
     },
     "courses": {
       "label": "课程体系",
@@ -8812,25 +9223,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -8855,7 +9278,30 @@
           "title": "人本价值",
           "desc": "企业文化、使命愿景、批判性思维与谦卑态度"
         }
-      ]
+      ],
+      "effectFlow": [],
+      "effectMetrics": [],
+      "infoAdvanced": [],
+      "infoBasic": []
+    },
+    "carousel": {
+      "slide1Title": "企业级 AI 操作系统",
+      "slide1Subtitle": "一站式构建、部署与管理企业 AI 应用",
+      "slide1Cta": "预约演示",
+      "slide2Title": "智能体协作平台",
+      "slide2Subtitle": "多 Agent 编排,复杂业务流程自动化",
+      "slide2Cta": "查看用例",
+      "slide3Title": "全栈 AI 工具链",
+      "slide3Subtitle": "从模型网关到知识库,开箱即用",
+      "slide3Cta": "探索产品",
+      "slide4Title": "专属席位方案",
+      "slide4Subtitle": "为团队量身定制,灵活扩容",
+      "slide4Cta": "咨询席位",
+      "slide5Title": "无忧退款保障",
+      "slide5Subtitle": "不满意可退款,体验零风险",
+      "slide5Cta": "了解退款政策",
+      "brandLabel": "智汇 AI",
+      "switchTo": "切换到第 {index} 张"
     }
   },
   "drama": {
@@ -9159,9 +9605,9 @@
   },
   "marketing": {
     "typewriter": {
-      "content": "8 端全覆盖 · 行业唯一全栈 AI 平台",
+      "content": "8 端全覆盖 · 覆盖较广的全栈 AI 平台",
       "explore": "100+ LLM 大模型 · 一个 API Key 全部访问 · 省 ¥18 万/年",
-      "brand": "自研 CLI 全维度对标 Claude Code · ACP 嵌入 Zed/VSCode/Cursor",
+      "brand": "自研 CLI 多维对标 Claude Code · ACP 嵌入 Zed/VSCode/Cursor",
       "connect": "LangGraph + MCP + A2A 三栈 · 1029+ API 端点 · 工业级严谨",
       "ctaPrimary": "立即体验",
       "ctaSecondary": "了解更多",
@@ -9188,13 +9634,18 @@
       "brandSubtitle": "8 端全覆盖 · 100+ 大模型 · 1029+ API · 省 ¥18 万/年",
       "seats": "限 18 席 · 决策者专属",
       "earlyBird": "早鸟价 ¥6000/年 · 3.3 折",
-      "multiEnd": "8 端全覆盖 · 行业唯一",
+      "multiEnd": "8 端全覆盖 · 覆盖范围较广",
       "benefits": {
-        "benefit6": "不满意全额退款"
+        "benefit6": "不满意全额退款",
+        "benefit1": "",
+        "benefit2": "",
+        "benefit3": "",
+        "benefit4": "",
+        "benefit5": ""
       }
     },
     "stats": {
-      "platforms": "端全覆盖 · 行业唯一",
+      "platforms": "端全覆盖 · 覆盖范围较广",
       "models": "+ LLM 大模型接入",
       "seats": "席限量 · 决策者专属"
     },
@@ -9228,7 +9679,43 @@
       "subtitle": "灵活的定价方案,满足不同需求",
       "period": "/年",
       "cta": "立即开通",
-      "recommended": "推荐"
+      "recommended": "推荐",
+      "basic": {
+        "name": "基础版",
+        "description": "适合个人开发者和小团队",
+        "feature1": "每月 10000 积分",
+        "feature2": "所有 AI 模型",
+        "feature3": "Web + 桌面端",
+        "feature4": "社区支持",
+        "feature5": "API 访问"
+      },
+      "professional": {
+        "name": "专业版",
+        "description": "适合成长型团队,优先支持",
+        "feature1": "每月 50000 积分",
+        "feature2": "高级模型(GPT-4o/Claude Opus)",
+        "feature3": "全 6 端访问",
+        "feature4": "团队协作(10 席位)",
+        "feature5": "邮件支持"
+      },
+      "enterprise": {
+        "name": "企业版",
+        "description": "适合中大型企业,私有化部署",
+        "feature1": "每月 200000 积分",
+        "feature2": "私有化部署",
+        "feature3": "SSO/SAML 2.0",
+        "feature4": "审计日志",
+        "feature5": "专属技术支持"
+      },
+      "flagship": {
+        "name": "旗舰版",
+        "description": "适合集团客户,定制化服务",
+        "feature1": "不限积分",
+        "feature2": "多区域部署",
+        "feature3": "专属客户经理",
+        "feature4": "SLA 99.9%",
+        "feature5": "7×24 小时支持"
+      }
     },
     "features": {
       "title": "8 大核心能力 · 全栈覆盖",
@@ -9236,7 +9723,7 @@
       "subtitle": "8 端全覆盖的企业级 AI 平台 · 100+ 大模型 · 自研 CLI · 工业级工程严谨 · 让决策者一站式拿到所有 AI 能力",
       "modelIntegration": {
         "title": "8 端全覆盖架构",
-        "description": "Web/桌面/移动/小程序/CLI/扩展 6 端 + API/AI-Service 2 端,行业唯一全栈,统一账号无缝切换",
+        "description": "Web/桌面/移动/小程序/CLI/扩展 6 端 + API/AI-Service 2 端,覆盖范围较广的全栈,统一账号无缝切换",
         "benefit": "省 8 倍重复购买成本 · 1 个账号通用 8 端 · 数据零迁移"
       },
       "appStore": {
@@ -9266,8 +9753,8 @@
       },
       "workflow": {
         "title": "LangGraph 工作流",
-        "description": "2 个 LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一行业唯一",
-        "benefit": "复杂任务自动化 · 替代 5+ SaaS 工具 · 行业唯一三栈合一"
+        "description": "2 个 LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一较为少见",
+        "benefit": "复杂任务自动化 · 替代 5+ SaaS 工具 · 三栈合一较为少见"
       },
       "multimodal": {
         "title": "多模态 AI 输入",
@@ -9278,14 +9765,14 @@
     "advantages": {
       "title": "核心优势 · 对标行业标杆",
       "titleEn": "CORE ADVANTAGES",
-      "subtitle": "为什么选择智汇 AI · 工程严谨 · 智能降本 · 企业安全 · 三栈合一 · 全维度对标 Claude Code",
+      "subtitle": "为什么选择智汇 AI · 工程严谨 · 智能降本 · 企业安全 · 三栈合一 · 多维对标 Claude Code",
       "professional": {
         "title": "工程严谨 · 行业标杆",
         "description": "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations + 12 共享 packages,代码质量超 95% 同类项目",
         "evidence": "证据:17 守门 > 行业平均 3 项 / 122 migrations > 平均 30 / 12 packages > 平均 4 → 99.9% 不出错"
       },
       "efficient": {
-        "title": "智能路由 · 极致降本",
+        "title": "智能路由 · 显著降本",
         "description": "LiteLLM 100+ 模型智能路由(便宜模型兜底+旗舰模型关键任务)+ 60% 缓存命中降本 + LangGraph 图调度",
         "evidence": "实测:Claude API 单次 ¥0.3 → 智能路由 ¥0.06(便宜模型兜底)→ 60% 缓存命中后 ¥0.024 = 综合省 60%"
       },
@@ -9295,30 +9782,148 @@
         "evidence": "AES-256-GCM = 银行级加密 / RBAC 颗粒到按钮级 = 超金融行业 / 99.9% SLA = 全年停机 < 8.76 小时"
       },
       "innovative": {
-        "title": "三栈合一 · 行业前沿",
-        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一行业唯一,对标 Claude Code 全维度超越",
-        "evidence": "行业唯一同时支持 LangGraph + MCP + A2A + ACP 四协议的平台 · Cursor/Claude Code 仅支持 MCP 单栈"
+        "title": "三栈合一 · 较为少见",
+        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一较为少见,在多个维度可对标 Claude Code",
+        "evidence": "覆盖 LangGraph + MCP + A2A + ACP 四协议;Cursor/Claude Code 主要支持 MCP 单栈"
       }
     },
     "scenarios": {
       "title": "5 大决策者场景 · 痛点 → 解决 → 收益",
       "titleEn": "DECISION-MAKER SCENARIOS",
-      "subtitle": "智汇 AI 社区覆盖企业决策者最关心的 5 大场景 · 痛点共鸣 → 解决方案 → 可量化收益 · 让 AI 真正落地产生 ROI"
+      "subtitle": "智汇 AI 社区覆盖企业决策者最关心的 5 大场景 · 痛点共鸣 → 解决方案 → 可量化收益 · 让 AI 真正落地产生 ROI",
+      "costReduction": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "decision": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "efficiency": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "innovation": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      },
+      "learning": {
+        "benefit": "",
+        "description": "",
+        "painPoint": "",
+        "title": ""
+      }
     },
     "comparison": {
-      "title": "竞品对比 · 全维度超越",
+      "title": "竞品对比 · 多维对标",
       "titleEn": "COMPETITIVE COMPARISON",
-      "subtitle": "智汇 AI vs Claude Code vs Cursor vs ChatGPT · 8 端全覆盖 + 100+ LLM + 三栈合一 + 智能体广场 · 行业唯一",
+      "subtitle": "智汇 AI vs Claude Code vs Cursor vs ChatGPT · 8 端 + 100+ LLM + 三栈合一 + 智能体广场",
       "colFeature": "对比维度",
       "colUs": "智汇 AI",
       "colClaude": "Claude Code",
       "colCursor": "Cursor",
-      "colChatgpt": "ChatGPT"
+      "colChatgpt": "ChatGPT",
+      "row1Chatgpt": "",
+      "row1Claude": "",
+      "row1Cursor": "",
+      "row1Feature": "",
+      "row1Us": "",
+      "row2Chatgpt": "",
+      "row2Claude": "",
+      "row2Cursor": "",
+      "row2Feature": "",
+      "row2Us": "",
+      "row3Chatgpt": "",
+      "row3Claude": "",
+      "row3Cursor": "",
+      "row3Feature": "",
+      "row3Us": "",
+      "row4Chatgpt": "",
+      "row4Claude": "",
+      "row4Cursor": "",
+      "row4Feature": "",
+      "row4Us": "",
+      "row5Chatgpt": "",
+      "row5Claude": "",
+      "row5Cursor": "",
+      "row5Feature": "",
+      "row5Us": "",
+      "row6Chatgpt": "",
+      "row6Claude": "",
+      "row6Cursor": "",
+      "row6Feature": "",
+      "row6Us": "",
+      "row7Chatgpt": "",
+      "row7Claude": "",
+      "row7Cursor": "",
+      "row7Feature": "",
+      "row7Us": "",
+      "row8Chatgpt": "",
+      "row8Claude": "",
+      "row8Cursor": "",
+      "row8Feature": "",
+      "row8Us": ""
     },
     "roi": {
       "title": "可量化收益 · ROI 数据",
       "titleEn": "QUANTIFIED ROI",
-      "subtitle": "智汇 AI 社区为决策者带来的可量化收益 · 详细计算公式 · 数据来自真实用户案例与行业基准"
+      "subtitle": "智汇 AI 社区为决策者带来的可量化收益 · 详细计算公式 · 数据来自真实用户案例与行业基准",
+      "cache": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "cost": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "learning": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "models": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "quality": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "seats": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "sla": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      },
+      "speed": {
+        "calculation": "",
+        "description": "",
+        "title": "",
+        "value": ""
+      }
     }
   },
   "aiNews": {
@@ -9344,7 +9949,23 @@
       "favOnly": "收藏",
       "favToggle": "收藏/取消收藏",
       "colVisibility": "列显隐",
-      "colVisibilityHint": "勾选显示列"
+      "colVisibilityHint": "勾选显示列",
+      "categoryAgent": "",
+      "categoryAudio": "",
+      "categoryEmbedding": "",
+      "categoryImage": "",
+      "categoryLlm": "",
+      "categoryMultimodal": "",
+      "categoryOverall": "",
+      "categoryVideo": "",
+      "colArenaScore": "",
+      "colContextWindow": "",
+      "colInputPrice": "",
+      "colMaxOutput": "",
+      "colOutputPrice": "",
+      "colReleaseDate": "",
+      "colVoteCount": "",
+      "colWinRate": ""
     },
     "hero": {
       "label": "AI 资讯 Hero",
@@ -9381,7 +10002,22 @@
       "trendNotifyExpand": "展开全部",
       "trendNotifyCollapse": "收起",
       "trendNotifyClose": "关闭",
-      "langSwitch": "切换标题语言为{lang}"
+      "langSwitch": "切换标题语言为{lang}",
+      "categoryAll": "",
+      "categoryIndustry": "",
+      "categoryModel": "",
+      "categoryPaper": "",
+      "categoryProduct": "",
+      "categoryTip": "",
+      "channelAll": "",
+      "channelFirstParty": "",
+      "channelHotlist": "",
+      "channelNews": "",
+      "channelPaper": "",
+      "trendAll": "",
+      "trendCooling": "",
+      "trendNew": "",
+      "trendRising": ""
     },
     "hotRanking": {
       "label": "热度排行榜",
@@ -9406,7 +10042,9 @@
       "empty": "暂无融资动态",
       "sortLabel": "排序",
       "searchPlaceholder": "搜索标题 / 摘要 / 来源…",
-      "resultCount": "共 {count} / {total} 条"
+      "resultCount": "共 {count} / {total} 条",
+      "sortByAmount": "",
+      "sortByDate": ""
     },
     "detailDialog": {
       "arenaScore": "Arena 评分",
@@ -9467,7 +10105,12 @@
       "speedTest": "测速",
       "speedTesting": "测速中...",
       "sortBySpeed": "按延迟",
-      "speedError": "超时"
+      "speedError": "超时",
+      "allBilling": "",
+      "billingFree": "",
+      "billingGpu": "",
+      "billingSubscription": "",
+      "billingToken": ""
     },
     "cta": {
       "label": "底部 CTA",
@@ -9828,35 +10471,88 @@
       "originalPrice": "¥18000",
       "period": "/人/年",
       "desc": "限前 18 席,售完即恢复原价",
-      "cta": "立即加入"
+      "cta": "立即加入",
+      "features": [
+        "全年所有课程免费参加",
+        "线下探索活动优先参与名额",
+        "智汇 AI 会员社群无限次互动",
+        "早鸟专属导师 1v1 咨询 1 次",
+        "早鸟专属资料包(价值 ¥3000)"
+      ]
     },
     "standard": {
       "name": "标准会员",
       "price": "¥18000",
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
-      "cta": "了解详情"
+      "cta": "了解详情",
+      "features": [
+        "全年所有课程免费参加",
+        "线下探索活动优先参与名额",
+        "智汇 AI 会员社群无限次互动"
+      ]
     },
     "enterprise": {
       "name": "企业服务",
       "price": "商务洽谈",
       "period": "",
       "desc": "面向企业决策者团队的定制方案",
-      "cta": "联系商务"
+      "cta": "联系商务",
+      "features": [
+        "专属客户经理 + 定制化部署",
+        "团队培训 + 内部知识库接入",
+        "API 高并发配额 + SLA 保障",
+        "私有化部署可选",
+        "季度复盘 + 战略咨询"
+      ]
     }
   },
   "enterpriseTools": {
     "sectionLabel": "企业AI工具一览",
     "title": "从通用AI工具到行业专属智能体",
     "subtitle": "全方位满足企业AI化需求",
-    "partnersTitle": "生态合作伙伴"
+    "partnersTitle": "生态合作伙伴",
+    "categories": {
+      "general": "通用能力",
+      "industry": "行业专属",
+      "function": "职能场景",
+      "unknown": "其他"
+    },
+    "items": {
+      "textGeneration": "文本生成",
+      "imageGeneration": "图像生成",
+      "voiceProcessing": "语音处理",
+      "videoGeneration": "视频生成",
+      "manufacturing": "制造业",
+      "education": "教育培训",
+      "healthcare": "医疗健康",
+      "government": "政务公共",
+      "marketingService": "营销服务",
+      "productionManufacturing": "生产制造",
+      "rdInnovation": "研发创新",
+      "officeCollaboration": "办公协同",
+      "unknown": "其他工具"
+    }
   },
   "mobileDashboardPage": {
     "title": "移动端仪表盘",
     "subtitle": "监控移动端核心运营指标，数据为 Mock 演示数据。",
     "stats": {
-      "trendSuffix": "较昨日"
+      "trendSuffix": "较昨日",
+      "dau": "日活用户",
+      "newUsers": "新增用户",
+      "sessions": "会话数",
+      "crashRate": "崩溃率"
     },
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趋势",
       "subtitle": "每日活跃用户数变化曲线"
@@ -9891,7 +10587,18 @@
     "placeholder": "水印",
     "defaultText": "机密",
     "submitting": "添加中...",
-    "submit": "添加水印"
+    "submit": "添加水印",
+    "positions": {
+      "bottomCenter": "",
+      "bottomLeft": "",
+      "bottomRight": "",
+      "middleCenter": "",
+      "middleLeft": "",
+      "middleRight": "",
+      "topCenter": "",
+      "topLeft": "",
+      "topRight": ""
+    }
   },
   "businessCardEditPage": {
     "editTitle": "编辑名片",
@@ -9988,6 +10695,36 @@
   "aiCareerPage": {
     "title": "AI 生涯指导",
     "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
+    "options": {
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
+      "difficulty": [
+        "语文阅读理解",
+        "英语听力口语",
+        "数学计算",
+        "物理概念",
+        "化学记忆",
+        "文科背诵"
+      ],
+      "obstacle": [
+        "注意力不集中",
+        "时间管理差",
+        "学习方法不当",
+        "缺乏学习动力",
+        "考试焦虑",
+        "家庭环境影响"
+      ]
+    },
     "fields": {
       "school": "孩子就读学校类型",
       "classLevel": "班级整体水平",
@@ -10151,7 +10888,13 @@
     "recentOrders": "最近订单",
     "viewAll": "查看全部",
     "loading": "加载中...",
-    "empty": "暂无订单记录"
+    "empty": "暂无订单记录",
+    "stats": {
+      "coupon": "",
+      "level": "",
+      "orders": "",
+      "points": ""
+    }
   },
   "developerHomePage": {
     "statCalls": "调用次数(本月)",
@@ -10353,7 +11096,36 @@
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 上月",
-    "rechargeCount": "累计 {n} 次充值"
+    "rechargeCount": "累计 {n} 次充值",
+    "packages": {
+      "starter": {
+        "features": [
+          "每月 1000 次 AI 调用",
+          "基础模型访问(3 个)",
+          "标准 API 速率",
+          "社区支持"
+        ]
+      },
+      "pro": {
+        "features": [
+          "每月 20000 次 AI 调用",
+          "全部模型访问(15+)",
+          "高优先级 API 速率",
+          "邮件技术支持(24h 响应)",
+          "高级 Agent 工作流"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "无限次 AI 调用",
+          "全部模型 + 自定义微调",
+          "专属 API 速率 + SLA 99.99%",
+          "7×24 专属客户经理",
+          "私有化部署 + 数据隔离",
+          "定制功能开发支持"
+        ]
+      }
+    }
   },
   "n8nAgentsPage": {
     "metaDescription": "N8N 工作流集成：自动化编排 AI agent，含客服机器人、内容审核、数据同步等。",
@@ -10364,7 +11136,29 @@
     "cardDescription": "通过 N8N 自动化编排 AI agent，串联客服、审核、同步、报表与告警等场景，实现端到端流程自动化。",
     "createButton": "创建新 Agent",
     "lastRunLabel": "最后执行",
-    "runCountLabel": "执行次数"
+    "runCountLabel": "执行次数",
+    "agents": {
+      "alert-notify": {
+        "description": "",
+        "name": ""
+      },
+      "content-moderation": {
+        "description": "",
+        "name": ""
+      },
+      "customer-service": {
+        "description": "",
+        "name": ""
+      },
+      "data-sync": {
+        "description": "",
+        "name": ""
+      },
+      "report-generation": {
+        "description": "",
+        "name": ""
+      }
+    }
   },
   "agentsMyPage": {
     "back": "返回",
@@ -10374,7 +11168,14 @@
     "loading": "加载中...",
     "empty": "暂无智能体",
     "noDescription": "暂无描述",
-    "free": "免费"
+    "free": "免费",
+    "statusFilters": {
+      "all": "",
+      "offline": "",
+      "pending": "",
+      "published": "",
+      "rejected": ""
+    }
   },
   "businessCardPage": {
     "title": "电子名片",
@@ -10455,7 +11256,13 @@
     "empty": "暂无调用日志",
     "keyValue": "密钥: {value}",
     "requestBody": "请求体",
-    "responseBody": "响应体"
+    "responseBody": "响应体",
+    "statusFilter": {
+      "2xx": "",
+      "4xx": "",
+      "5xx": "",
+      "all": ""
+    }
   },
   "eduCertificatesPage": {
     "loading": "加载中...",
@@ -10508,7 +11315,8 @@
     "loading": "加载中...",
     "empty": "本周暂无课程",
     "today": "今天",
-    "noClass": "无课"
+    "noClass": "无课",
+    "weekdays": []
   },
   "recruitmentDetailPage": {
     "loading": "加载中...",
@@ -10601,7 +11409,12 @@
     "discount": "折扣",
     "yuan": "元",
     "minSpend": "满 {amount} 可用",
-    "validUntil": "有效期至:{date}"
+    "validUntil": "有效期至:{date}",
+    "tab": {
+      "expired": "",
+      "unused": "",
+      "used": ""
+    }
   },
   "answerArea": {
     "thinking": {
@@ -10752,7 +11565,12 @@
     "bookmarksHint": "将按 PDF 内置书签（一级）自动拆分为多个文件。",
     "submit": "拆分",
     "submitting": "拆分中...",
-    "resultHint": "拆分完成，结果已打包为 ZIP："
+    "resultHint": "拆分完成，结果已打包为 ZIP：",
+    "mode": {
+      "bookmarks": "",
+      "every": "",
+      "range": ""
+    }
   },
   "supportNewTicketForm": {
     "errTitleMin": "标题至少 2 个字符",
@@ -10877,6 +11695,11 @@
       "rank": "排名",
       "user": "用户",
       "score": "积分"
+    },
+    "range": {
+      "month": "",
+      "total": "",
+      "week": ""
     }
   },
   "recruitmentPage": {
@@ -10995,7 +11818,11 @@
       "user": "用户",
       "joined": "注册时间",
       "reward": "奖励",
-      "status": "状态"
+      "status": "状态",
+      "statusLabels": {
+        "activated": "",
+        "pending": ""
+      }
     }
   },
   "knowledgeRag": {
@@ -11073,7 +11900,12 @@
   },
   "ide": {
     "activityBar": {
-      "settings": "设置"
+      "settings": "设置",
+      "applications": "",
+      "debug": "",
+      "files": "",
+      "search": "",
+      "sourceControl": ""
     },
     "topBar": {
       "editor": "编辑器",
@@ -11112,7 +11944,14 @@
       "subtitle": "选择文件或从下方快捷操作开始",
       "browseFiles": "浏览文件",
       "recentFiles": "最近打开",
-      "shortcuts": "快捷键"
+      "shortcuts": "快捷键",
+      "scGlobalSearch": "",
+      "scGotoLine": "",
+      "scOpenFile": "",
+      "scToggleSidebar": "",
+      "scToggleTerminal": "",
+      "settings": "",
+      "viewChanges": ""
     },
     "editorTabBar": {
       "closeTab": "关闭标签",
@@ -11202,7 +12041,8 @@
     },
     "statusBar": {
       "sync": "同步",
-      "toggleTheme": "切换主题"
+      "toggleTheme": "切换主题",
+      "unsynced": ""
     }
   },
   "aiSkillsPage": {
@@ -11294,7 +12134,13 @@
     "responsive": {
       "customWidth": "自定义宽度",
       "apply": "应用",
-      "deviceFrame": "设备外框"
+      "deviceFrame": "设备外框",
+      "deviceCustom": "",
+      "deviceDesktop": "",
+      "deviceMobileLandscape": "",
+      "deviceMobilePortrait": "",
+      "deviceTabletLandscape": "",
+      "deviceTabletPortrait": ""
     },
     "templates": {
       "title": "模板",
@@ -11304,6 +12150,30 @@
         "app": "应用",
         "content": "内容",
         "commerce": "电商"
+      }
+    }
+  },
+  "modelsGroupsPage": {
+    "group": {
+      "1": {
+        "name": "企业核心组",
+        "desc": "面向企业核心业务,支持高并发与高可用"
+      },
+      "2": {
+        "name": "研发协作组",
+        "desc": "研发团队协作场景,平衡性能与成本"
+      },
+      "3": {
+        "name": "客户服务组",
+        "desc": "面向客户咨询与服务,低延迟优先"
+      },
+      "4": {
+        "name": "数据分析组",
+        "desc": "数据分析与报表场景,大上下文优先"
+      },
+      "5": {
+        "name": "试验沙箱组",
+        "desc": "新模型试验与原型验证,灵活切换"
       }
     }
   }
