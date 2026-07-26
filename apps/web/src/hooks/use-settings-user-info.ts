@@ -3,7 +3,7 @@
 import * as React from 'react'
 
 import { useUserStore } from '@/stores/user'
-import { updateProfile, bindPhone, type UserProfile } from '@/lib/user-api'
+import { updateProfile, bindPhone, type UserProfile } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 
 export interface UseSettingsUserInfoReturn {

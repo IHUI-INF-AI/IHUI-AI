@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Textarea } from '@/components/form'
-import { getCareerAdvice } from '@/lib/ai-api'
+import { getCareerAdvice } from '@ihui/api-client'
 
 interface CareerForm {
   school: string
@@ -158,7 +158,9 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">{t('fields.scienceCharacteristics')}</span>
+            <span className="mb-2 block text-sm font-medium">
+              {t('fields.scienceCharacteristics')}
+            </span>
             <Textarea
               value={form.scienceCharacteristics}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>

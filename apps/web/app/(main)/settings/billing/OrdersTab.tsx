@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import type { useTranslations } from 'next-intl'
 import { StatusBadge } from './StatusBadge'
 import { thCls, tdCls } from './helpers'
-import type { Order } from '@/lib/order-api'
+import type { Order } from '@ihui/api-client'
 
 type Translator = ReturnType<typeof useTranslations<'settings'>>
 
