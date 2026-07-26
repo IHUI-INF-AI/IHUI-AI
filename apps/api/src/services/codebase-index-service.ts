@@ -22,6 +22,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { codebaseChunks } from '@ihui/database'
 import { getEmbeddingProvider } from './embedding-provider.js'
+import { logger } from '../utils/logger.js'
 
 export interface ChunkInput {
   filePath: string
@@ -104,9 +105,9 @@ class CodebaseIndexService {
           }
         }
       } catch (e) {
-        console.warn(
+        logger.warn(
           '[codebase-index-service.indexChunks] batch embedding failed, chunks stored without vector:',
-          (e as Error).message,
+          { err: e as Error }
         )
       }
     }
@@ -221,9 +222,9 @@ class CodebaseIndexService {
       }
       return results.slice(0, topK)
     } catch (e) {
-      console.warn(
+      logger.warn(
         '[codebase-index-service.search] pgvector query failed:',
-        (e as Error).message,
+        { err: e as Error },
       )
       return []
     }
