@@ -2,7 +2,22 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 
-const GLOBALS_CSS = path.resolve(__dirname, '../../../app/globals.css')
+// 2026-07-26 修复:@theme + .dark 块已于 2026-07-23 从 globals.css 迁移到
+// packages/design-tokens/src/styles/tokens.css(共享单一来源,web/extension/desktop 共用)。
+// globals.css 只 @import 该文件,自身不再定义色变量。守门测试改读 tokens.css。
+const TOKENS_CSS = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  'packages',
+  'design-tokens',
+  'src',
+  'styles',
+  'tokens.css',
+)
 
 // 核心色族:必须在 @theme(light) 与 .dark 块都有定义。
 // 防止浮层透明 bug 复发(2026-07-17:popover/popover-foreground 漏定义导致 Tooltip/Popover/Dropdown 透明)。
@@ -40,7 +55,7 @@ const CORE_COLORS = [
 ]
 
 describe('色变量守门:防浮层透明 bug 复发', () => {
-  const css = fs.readFileSync(GLOBALS_CSS, 'utf8')
+  const css = fs.readFileSync(TOKENS_CSS, 'utf8')
   const themeBlock = css.match(/@theme\s*{([\s\S]*?)}/)?.[1] ?? ''
   const darkBlock = css.match(/\.dark\s*{([\s\S]*?)}/)?.[1] ?? ''
 
