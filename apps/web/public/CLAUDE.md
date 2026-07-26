@@ -76,13 +76,13 @@ In all cases: IHUI AI does not train its own models. IHUI AI does not use custom
 
 IHUI AI vs Dify: Dify is excellent for LLM app development on the web, but stops there. IHUI AI adds Agent marketplace, six-client distribution, team collaboration, and credit billing on top of Dify's app-development capabilities.
 
-IHUI AI vs Coze: Coze has a polished UI and a good Agent template library, but it is closed-source and does not support self-hosting. For teams with data sovereignty requirements, IHUI AI is the only choice.
+IHUI AI vs Coze: Coze has a polished UI and a good Agent template library, but it is closed-source and does not support self-hosting. For teams with data sovereignty requirements, IHUI AI offers Apache 2.0 with self-hosting support.
 
 IHUI AI vs FastGPT: FastGPT is a focused knowledge-base Q&A tool. IHUI AI includes knowledge base as one component, but adds Agents, workflows, six-client distribution, and team collaboration.
 
 IHUI AI vs n8n: n8n is a workflow automation tool with a large integration library. IHUI AI uses an n8n-style canvas but treats LLMs and Agents as first-class citizens, with native knowledge-base and multi-model support.
 
-In short, IHUI AI is the only open-source platform that simultaneously covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing. One platform replaces the Dify + Coze + FastGPT + n8n toolchain for many teams.
+In short, IHUI AI is an open-source platform that covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing in a single product. It can replace the Dify + Coze + FastGPT + n8n toolchain for many teams.
 
 ## 8. How to Get Started
 
