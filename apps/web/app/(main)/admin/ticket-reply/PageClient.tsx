@@ -16,7 +16,7 @@ export default function AdminTicketReplyPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'ticket-reply', ticketId],
     queryFn: async () => {
-      const r = await fetchApi<TicketReplyListData>(`/api/v1/admin/support/tickets/${ticketId}/replies`)
+      const r = await fetchApi<TicketReplyListData>(`/api/admin/support/tickets/${ticketId}/replies`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },

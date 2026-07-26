@@ -14,7 +14,7 @@ const BADGE: Record<OssConfigStatus, string> = {
   recycled: 'bg-muted text-muted-foreground',
 }
 const LABEL: Record<OssConfigStatus, string> = { active: '激活', shared: '共享', recycled: '回收' }
-const RES = '/api/v1/admin/oss/config'
+const RES = '/api/admin/oss/config'
 
 export default function AdminOssConfigPage() {
   const qc = useQueryClient()
