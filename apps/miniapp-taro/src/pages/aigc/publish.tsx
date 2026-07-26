@@ -11,34 +11,27 @@ interface UpFile {
 
 const MAX_FILES = 5
 
-/** 解析路由参数(对标原项目 onLoad options:contextId/title/prompt/imgUrlList) */
-function parseRouteParams(): {
-  contextId: string
-  prompt: string
-  fileList: UpFile[]
-} {
-  const router = useRouter()
-  const ctxId = (router.params.contextId as string) || ''
-  let prompt = ''
-  if (router.params.title) prompt = decodeURIComponent(router.params.title)
-  if (router.params.prompt) prompt = decodeURIComponent(router.params.prompt)
-  const fileList: UpFile[] = []
-  if (router.params.imgUrlList) {
-    try {
-      const arr = JSON.parse(decodeURIComponent(router.params.imgUrlList)) as string[]
-      ;(arr || []).forEach((u) => {
-        if (u) fileList.push({ url: u, type: 'image' })
-      })
-    } catch {
-      // ignore
-    }
-  }
-  return { contextId: ctxId, prompt, fileList }
-}
-
 export default function AigcPublish() {
   const { t } = useI18n()
-  const params = useMemo(parseRouteParams, [])
+  const router = useRouter()
+  const params = useMemo(() => {
+    const ctxId = (router.params.contextId as string) || ''
+    let prompt = ''
+    if (router.params.title) prompt = decodeURIComponent(router.params.title)
+    if (router.params.prompt) prompt = decodeURIComponent(router.params.prompt)
+    const fileList: UpFile[] = []
+    if (router.params.imgUrlList) {
+      try {
+        const arr = JSON.parse(decodeURIComponent(router.params.imgUrlList)) as string[]
+        ;(arr || []).forEach((u) => {
+          if (u) fileList.push({ url: u, type: 'image' })
+        })
+      } catch {
+        // ignore
+      }
+    }
+    return { contextId: ctxId, prompt, fileList }
+  }, [router.params.contextId, router.params.title, router.params.prompt, router.params.imgUrlList])
   const [title, setTitle] = useState('')
   const [desc, setDesc] = useState('')
   const [prompt, setPrompt] = useState(params.prompt)
