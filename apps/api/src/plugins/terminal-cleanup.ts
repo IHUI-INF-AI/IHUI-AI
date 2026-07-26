@@ -34,7 +34,7 @@ function registerSignalHandlers(): void {
     try {
       const count = getActiveSessionCount()
       if (count > 0) {
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- 进程信号钩子内 server.log 不可用,用 console 兜底
         console.log(`[terminal-cleanup] ${signal}: killing ${count} PTY sessions`)
         killAllSessions()
       }

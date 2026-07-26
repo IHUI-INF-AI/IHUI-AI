@@ -522,7 +522,7 @@ export function Leaderboard({ entries }: Props) {
             {showColMenu ? (
               <>
                 {/* 点击外部关闭 */}
-                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 下拉菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互 */}
                 <div
                   className="fixed inset-0 z-10"
                   onClick={() => setShowColMenu(false)}
