@@ -55,9 +55,13 @@ export function showShareMenu(
   withShareTicket = true,
   showShareItems: string[] = ['shareAppMessage', 'shareTimeline'],
 ): void {
+  // fail 静默:小程序后台未开通分享权限 / 个人主体 appId 时会报
+  // "showShareMenu:fail no permission"(2026-07-26 真实事故 wx27028e276ffdbc5d)
+  // 此处不阻塞启动流程,只静默忽略
   Taro.showShareMenu({
     withShareTicket,
     showShareItems,
+    fail: () => {},
   })
 }
 
