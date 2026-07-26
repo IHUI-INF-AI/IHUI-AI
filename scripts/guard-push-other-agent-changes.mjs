@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * 跨 Agent 改动保护守门 — 防止 commit/push 阶段混入其他 agent 改动。
  *

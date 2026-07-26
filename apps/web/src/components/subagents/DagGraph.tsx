@@ -131,7 +131,7 @@ function DagGraphInner({ dag, className }: DagGraphProps) {
     setNodes(nextNodes)
     setEdges(nextEdges)
     // 仅依赖 signature(内容指纹),避免 dag 引用变化但内容相同时重置拖拽位置
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅依赖 signature 内容指纹,避免内容相同时重置拖拽位置
   }, [signature])
 
   const onNodesChange: OnNodesChange = useCallback(
