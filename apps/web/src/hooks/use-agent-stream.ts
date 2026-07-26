@@ -260,7 +260,7 @@ export function useAgentStream(
           const decoder = new TextDecoder()
           let buffer = ''
 
-          // eslint-disable-next-line no-constant-condition
+          // SSE 流式响应的标准模式:while(true) 持续读取直到 done
           while (true) {
             const { done, value } = await reader.read()
             if (done) break

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-ignore-todos.mjs — .check-api-routes-ignore.json TODO 标记监控 (warn-only, 2026-07-21 立)
  *

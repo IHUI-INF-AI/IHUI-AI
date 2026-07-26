@@ -205,7 +205,7 @@ export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
         void loadAiSkills()
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅 activeTab 变化时加载,loadAiSkills 通过 store 引用避免重跑
   }, [activeTab])
 
   const builtinSkills = React.useMemo<BuiltinSkill[]>(() => {
