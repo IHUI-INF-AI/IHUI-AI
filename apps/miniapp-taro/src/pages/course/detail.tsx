@@ -61,7 +61,7 @@ export default function CourseDetail() {
 
   const handleBuy = useCallback(async () => {
     const courseId = course?.id
-    if (courseId == null) return
+    if (courseId === null || courseId === undefined) return
     try {
       const res = await post<{ orderId?: string; orderNo?: string; amount?: number }>(
         '/courses/buy',
