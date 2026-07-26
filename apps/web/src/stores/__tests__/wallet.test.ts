@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-vi.mock('@/lib/wallet-api', () => ({
+vi.mock('@ihui/api-client', () => ({
   getBalance: vi.fn(),
   getWithdrawRecords: vi.fn(),
 }))
 
 import { useWalletStore } from '../wallet'
-import { getBalance, getWithdrawRecords } from '@/lib/wallet-api'
+import { getBalance, getWithdrawRecords } from '@ihui/api-client'
 
 describe('useWalletStore', () => {
   beforeEach(() => {

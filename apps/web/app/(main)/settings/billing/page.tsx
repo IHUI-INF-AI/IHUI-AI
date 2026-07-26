@@ -18,7 +18,7 @@ import {
 import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
-import type { Order } from '@/lib/order-api'
+import type { Order } from '@ihui/api-client'
 
 import { OrdersTab } from './OrdersTab'
 import { InvoicesTab } from './InvoicesTab'
