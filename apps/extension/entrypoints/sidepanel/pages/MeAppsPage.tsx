@@ -3,8 +3,7 @@
  */
 import { AppListPage, type AppItem } from '../components/AppListPage'
 import { useNotificationStore } from '../../../lib/notification-store'
-
-const WEB_BASE = 'https://ihui.ai'
+import { WEB_BASE } from '../../../lib/open-in-web'
 
 const baseItems: AppItem[] = [
   { to: '/me/dashboard', icon: '📊', titleKey: 'apps.dashboard', descKey: 'apps.dashboardDesc' },
@@ -17,9 +16,24 @@ const baseItems: AppItem[] = [
   { to: '/me/following', icon: '👥', titleKey: 'apps.following', descKey: 'apps.followingDesc' },
   { to: '/me/fans', icon: '❤️', titleKey: 'apps.fans', descKey: 'apps.fansDesc' },
   { to: '/me/member', icon: '💎', titleKey: 'apps.member', descKey: 'apps.memberDesc' },
-  { to: '/me/distribution', icon: '📈', titleKey: 'apps.distribution', descKey: 'apps.distributionDesc' },
-  { to: '/me/invitations', icon: '🎁', titleKey: 'apps.invitations', descKey: 'apps.invitationsDesc' },
-  { externalUrl: `${WEB_BASE}/teams`, icon: '🤝', titleKey: 'apps.teams', descKey: 'apps.teamsDesc' },
+  {
+    to: '/me/distribution',
+    icon: '📈',
+    titleKey: 'apps.distribution',
+    descKey: 'apps.distributionDesc',
+  },
+  {
+    to: '/me/invitations',
+    icon: '🎁',
+    titleKey: 'apps.invitations',
+    descKey: 'apps.invitationsDesc',
+  },
+  {
+    externalUrl: `${WEB_BASE}/teams`,
+    icon: '🤝',
+    titleKey: 'apps.teams',
+    descKey: 'apps.teamsDesc',
+  },
   {
     externalUrl: `${WEB_BASE}/ranking`,
     icon: '🏅',
@@ -87,9 +101,7 @@ const baseItems: AppItem[] = [
 export default function MeAppsPage() {
   const { unreadCount } = useNotificationStore()
   const items = baseItems.map((item) =>
-    item.to === '/me/dashboard' && unreadCount > 0
-      ? { ...item, badge: unreadCount }
-      : item,
+    item.to === '/me/dashboard' && unreadCount > 0 ? { ...item, badge: unreadCount } : item,
   )
   // 通知入口单独加 badge
   const notifItem: AppItem = {
