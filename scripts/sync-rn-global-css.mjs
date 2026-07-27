@@ -7,7 +7,7 @@
  *
  * 与 scripts/check-rn-global-css-sync.mjs 的关系:
  * - check 脚本只检测漂移(不修复),本脚本既能检测(--check)又能修复(默认写回)。
- * - 主 agent 后续会更新 check 脚本调用本脚本的 --check 模式。
+ * - 两者独立运行:check 输出详细差异(调试友好),sync 输出简洁提示(CI 友好)。职责分离,不互相委托。
  *
  * 用法:
  *   node scripts/sync-rn-global-css.mjs          # 同步并写回 global.css
