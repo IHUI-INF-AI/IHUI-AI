@@ -131,8 +131,8 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
             mod = __import__(f"app.services.publish.adapters.{mod_name}", fromlist=[cls_name])
             cls = getattr(mod, cls_name)
             classes.append(cls)
-        except Exception:
-            # Playwright 未安装时跳过,不影响其他适配器
+        except Exception as e:
+            logger.debug("base_adapter.list_all_adapter_classes 加载适配器 %s 失败(可能缺依赖): %s", mod_name, e, exc_info=True)
             continue
 
     return classes
@@ -144,6 +144,7 @@ def get_adapter(platform_id: str) -> Optional[BasePlatformAdapter]:
         if cls.platform_id == platform_id:
             try:
                 return cls()
-            except Exception:
+            except Exception as e:
+                logger.warning("base_adapter.get_adapter 实例化适配器 %s 失败: %s", platform_id, e, exc_info=True)
                 return None
     return None

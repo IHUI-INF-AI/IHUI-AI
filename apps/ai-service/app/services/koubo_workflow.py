@@ -221,7 +221,8 @@ class KouboWorkflowService:
                 return sum(s.values())
             try:
                 return int(s)
-            except Exception:
+            except Exception as e:
+                logger.warning("koubo_workflow.score 五维评分转换失败: %s", e, exc_info=True)
                 return 0
         selected = sorted(hot, key=score, reverse=True)[:8]
         if len(selected) < 8:

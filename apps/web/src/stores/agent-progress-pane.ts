@@ -2,72 +2,43 @@ import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 
 /**
- * Agent 任务进度查看 Bottom Pane 全局状态(2026-07-27 v4 重构,Codex 流式对齐)
+ * Agent 任务进度 popover 全局状态(2026-07-27 v6 重构)
  *
- * Codex 真实样式对齐(v4):
- * - 单栏流式事件日志(非三栏 TUI 数据浏览器)
- * - 事件按时间顺序流式追加,自动滚到底部
- * - 简洁事件项:`• <event-type> <summary>` + 可展开 ` └ <details>`
- * - 当前运行项:spinner `⠏ <running-task>`
- * - plan 用 □/✔ 嵌入流中
- * - 关闭按钮 ✕ 可见(右上角)
+ * v6 改动(用户规则):
+ * - 从底部 fixed 大弹窗改为输入容器右上角的小 popover
+ * - 删除 threadId 输入框(自动从 useChatStore.conversationId 同步)
+ * - 删除 verbose/autoScroll/paneHeight/expandedIds 等 v4 残留状态
+ * - 新增 pinned 状态(钉住/取消置顶切换)
  *
- * 快捷键(简化):
- *   - Ctrl+Shift+J 切换开关 / ArrowDown 打开 / Esc 关闭
- *   - v 切换 verbose(显示原始 ID)
- *   - Enter 展开当前 hover 事件详情
- *
- * localStorage 持久化:open / paneHeight / verbose / autoScroll
+ * 持久化:open / pinned(localStorage)
  */
 interface AgentProgressPaneState {
   /** Pane 是否展开 */
   open: boolean
-  /** 当前查看的 threadId(null = 空状态,显示输入框) */
+  /** 当前查看的 threadId(自动从 useChatStore.conversationId 同步,无需用户输入) */
   threadId: string | null
-  /** 输入框中的 threadId 草稿(未提交) */
-  threadIdInput: string
-  /** verbose 模式(显示原始 ID,默认 false 显示人类可读昵称) */
-  verbose: boolean
-  /** 是否自动滚到底部(流式追加时,默认 true) */
-  autoScroll: boolean
-  /** 展开的事件 ID 集合(默认折叠,点击展开详情) */
-  expandedIds: Set<string>
-  /** Pane 高度(px,默认 240 紧凑,可 drag resize,范围 [160, 600]) */
-  paneHeight: number
+  /** 是否钉住(pinned=true 时点击外部不关闭;unpin 时点击外部关闭) */
+  pinned: boolean
   /** 当前进度:正在执行的步骤序号(1-based,0 = 无进行中) */
   progressCurrent: number
   /** 当前进度:总步骤数(0 = 无任务计划) */
   progressTotal: number
 
   // actions
-  openPane: (threadId?: string) => void
+  openPane: () => void
   closePane: () => void
   toggle: () => void
   setThreadId: (threadId: string | null) => void
-  setThreadIdInput: (value: string) => void
-  submitThreadId: () => void
-  toggleVerbose: () => void
-  setAutoScroll: (auto: boolean) => void
-  toggleExpanded: (id: string) => void
-  isExpanded: (id: string) => boolean
-  setPaneHeight: (height: number) => void
+  togglePin: () => void
   setProgress: (current: number, total: number) => void
   reset: () => void
 }
 
-const DEFAULT_PANE_HEIGHT = 240
-const MIN_PANE_HEIGHT = 160
-const MAX_PANE_HEIGHT = 600
-
-export const PANE_HEIGHT_BOUNDS = { min: MIN_PANE_HEIGHT, max: MAX_PANE_HEIGHT }
-
-const STORAGE_KEY = 'ihui-agent-progress-pane-v4'
+const STORAGE_KEY = 'ihui-agent-progress-pane-v6'
 
 interface PersistedState {
   open: boolean
-  paneHeight: number
-  verbose: boolean
-  autoScroll: boolean
+  pinned: boolean
 }
 
 function loadPersisted(): Partial<PersistedState> {
@@ -78,11 +49,7 @@ function loadPersisted(): Partial<PersistedState> {
     const parsed = JSON.parse(raw) as Partial<PersistedState>
     const out: Partial<PersistedState> = {}
     if (typeof parsed.open === 'boolean') out.open = parsed.open
-    if (typeof parsed.paneHeight === 'number') {
-      out.paneHeight = Math.min(MAX_PANE_HEIGHT, Math.max(MIN_PANE_HEIGHT, parsed.paneHeight))
-    }
-    if (typeof parsed.verbose === 'boolean') out.verbose = parsed.verbose
-    if (typeof parsed.autoScroll === 'boolean') out.autoScroll = parsed.autoScroll
+    if (typeof parsed.pinned === 'boolean') out.pinned = parsed.pinned
     return out
   } catch {
     return {}
@@ -105,57 +72,22 @@ function schedulePersistWrite(state: PersistedState) {
 }
 
 export const useAgentProgressPaneStore = create<AgentProgressPaneState>()(
-  subscribeWithSelector((set, get) => ({
+  subscribeWithSelector((set) => ({
     open: persisted.open ?? false,
     threadId: null,
-    threadIdInput: '',
-    verbose: persisted.verbose ?? false,
-    autoScroll: persisted.autoScroll ?? true,
-    expandedIds: new Set<string>(),
-    paneHeight: persisted.paneHeight ?? DEFAULT_PANE_HEIGHT,
+    pinned: persisted.pinned ?? true,
     progressCurrent: 0,
     progressTotal: 0,
 
-    openPane: (threadId) =>
-      set((s) => ({
-        open: true,
-        threadId: threadId ?? s.threadId,
-        threadIdInput: threadId ?? s.threadIdInput,
-      })),
+    openPane: () => set({ open: true }),
 
     closePane: () => set({ open: false }),
 
     toggle: () => set((s) => ({ open: !s.open })),
 
-    setThreadId: (threadId) =>
-      set((s) => ({ threadId, threadIdInput: threadId ?? s.threadIdInput })),
+    setThreadId: (threadId) => set({ threadId }),
 
-    setThreadIdInput: (value) => set({ threadIdInput: value }),
-
-    submitThreadId: () => {
-      const input = useAgentProgressPaneStore.getState().threadIdInput.trim()
-      if (!input) return
-      set({ threadId: input })
-    },
-
-    toggleVerbose: () => set((s) => ({ verbose: !s.verbose })),
-
-    setAutoScroll: (auto) => set({ autoScroll: auto }),
-
-    toggleExpanded: (id) =>
-      set((s) => {
-        const next = new Set(s.expandedIds)
-        if (next.has(id)) next.delete(id)
-        else next.add(id)
-        return { expandedIds: next }
-      }),
-
-    isExpanded: (id) => get().expandedIds.has(id),
-
-    setPaneHeight: (height) =>
-      set({
-        paneHeight: Math.min(MAX_PANE_HEIGHT, Math.max(MIN_PANE_HEIGHT, Math.round(height))),
-      }),
+    togglePin: () => set((s) => ({ pinned: !s.pinned })),
 
     setProgress: (current, total) => set({ progressCurrent: current, progressTotal: total }),
 
@@ -163,25 +95,19 @@ export const useAgentProgressPaneStore = create<AgentProgressPaneState>()(
       set({
         open: false,
         threadId: null,
-        threadIdInput: '',
-        verbose: false,
-        autoScroll: true,
-        expandedIds: new Set<string>(),
-        paneHeight: DEFAULT_PANE_HEIGHT,
+        pinned: true,
         progressCurrent: 0,
         progressTotal: 0,
       }),
   })),
 )
 
-// 持久化订阅(仅持久化 open/paneHeight/verbose/autoScroll)
+// 持久化订阅(仅持久化 open/pinned)
 if (typeof window !== 'undefined') {
   useAgentProgressPaneStore.subscribe(
     (s) => ({
       open: s.open,
-      paneHeight: s.paneHeight,
-      verbose: s.verbose,
-      autoScroll: s.autoScroll,
+      pinned: s.pinned,
     }),
     (persistedState) => schedulePersistWrite(persistedState),
     { fireImmediately: false },

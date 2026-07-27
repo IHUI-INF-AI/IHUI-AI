@@ -167,8 +167,8 @@ class LangGraphService:
             self._available = True
         except ImportError:
             self._available = False
-        except Exception:
-            # 图构建失败也降级
+        except Exception as e:
+            logger.warning("langgraph_service._init_graph 图构建失败降级: %s", e, exc_info=True)
             self._available = False
 
     @property

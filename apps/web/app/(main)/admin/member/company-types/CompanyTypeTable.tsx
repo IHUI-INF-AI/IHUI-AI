@@ -4,6 +4,7 @@ import { Loader2, Edit, Trash2, Building2 } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { formatDateOnly } from '@/lib/date-utils'
 import type { CompanyType } from './types'
 
 interface Props {
@@ -84,7 +85,7 @@ export function CompanyTypeTable({
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {type.createdAt ? new Date(type.createdAt).toLocaleDateString() : '-'}
+                    {type.createdAt ? formatDateOnly(type.createdAt) : '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
