@@ -9,6 +9,7 @@ import { Loader2, Users, Search, ChevronLeft, ChevronRight, UserCheck, UserX } f
 import { fetchApi } from '@/lib/api'
 import { Input, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface MemberUser {
   id: string
@@ -163,7 +164,7 @@ export default function AdminMemberUnauditedPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}
+                      {u.createdAt ? formatDateOnly(u.createdAt) : '-'}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
