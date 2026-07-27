@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration } from './foldable-section'
+import { CopyButton } from './copy-button'
 import type { AgentToolCall } from '@/hooks/use-agent-progress'
 
 interface ToolCallsSectionProps {
@@ -201,7 +202,14 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
             <div className="space-y-1 px-3 pb-1 pt-0.5 text-[10px] leading-relaxed">
               {Object.keys(tool.args).length > 0 && (
                 <div>
-                  <div className="font-medium text-muted-foreground/60">参数</div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium text-muted-foreground/60">参数</span>
+                    <CopyButton
+                      text={formatArgsJson(tool.args)}
+                      aria-label="复制参数"
+                      data-testid={`tool-copy-args-${tool.id}`}
+                    />
+                  </div>
                   <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-muted/40 p-1 font-mono text-[10px] text-muted-foreground/80">
                     {truncateForDisplay(formatArgsJson(tool.args))}
                   </pre>
@@ -209,7 +217,14 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
               )}
               {resultText && (
                 <div>
-                  <div className="font-medium text-muted-foreground/60">结果</div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium text-muted-foreground/60">结果</span>
+                    <CopyButton
+                      text={resultText}
+                      aria-label="复制结果"
+                      data-testid={`tool-copy-result-${tool.id}`}
+                    />
+                  </div>
                   <pre
                     className={cn(
                       'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[10px]',
@@ -224,7 +239,14 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
               )}
               {tool.error && (
                 <div>
-                  <div className="font-medium text-red-500/70">错误</div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium text-red-500/70">错误</span>
+                    <CopyButton
+                      text={tool.error}
+                      aria-label="复制错误信息"
+                      data-testid={`tool-copy-error-${tool.id}`}
+                    />
+                  </div>
                   <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/5 p-1 font-mono text-[10px] text-red-500/80">
                     {tool.error}
                   </pre>
@@ -237,6 +259,15 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
     </div>
   )
 })
+
+type ToolStatusFilter = 'all' | 'running' | 'success' | 'error'
+
+const STATUS_FILTER_LABEL: Record<ToolStatusFilter, string> = {
+  all: '全部',
+  running: '运行中',
+  success: '成功',
+  error: '失败',
+}
 
 /**
  * ToolCallsSection — 工具调用折叠子区
@@ -252,21 +283,38 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
  * - React.memo 包装,tools 引用稳定时跳过重渲染
  * - ToolCallItem 子组件 memo 化,单个 tool 变化不影响其他 tool
  * - 点击工具行展开完整 args + result(CSS grid 动画)
+ *
+ * v11: 复制按钮 + 状态过滤
  */
 export const ToolCallsSection = React.memo(function ToolCallsSection({
   tools,
 }: ToolCallsSectionProps) {
   // v9: 搜索过滤(hooks 必须在条件返回之前调用)
   const [searchQuery, setSearchQuery] = React.useState('')
+  // v11: 状态过滤
+  const [statusFilter, setStatusFilter] = React.useState<ToolStatusFilter>('all')
+
+  const statusCounts = React.useMemo(() => {
+    const counts = { all: tools.length, running: 0, success: 0, error: 0 }
+    for (const t of tools) {
+      counts[t.status]++
+    }
+    return counts
+  }, [tools])
+
   const filteredTools = React.useMemo(() => {
-    if (!searchQuery.trim()) return tools
+    let result = tools
+    if (statusFilter !== 'all') {
+      result = result.filter((t) => t.status === statusFilter)
+    }
+    if (!searchQuery.trim()) return result
     const q = searchQuery.toLowerCase()
-    return tools.filter(
+    return result.filter(
       (t) =>
         t.toolName.toLowerCase().includes(q) ||
         JSON.stringify(t.args).toLowerCase().includes(q),
     )
-  }, [tools, searchQuery])
+  }, [tools, searchQuery, statusFilter])
 
   // v10: 分类计数 + 摘要用 useMemo 缓存(避免每次 render 重新计算)
   const { summary, recentTools } = React.useMemo(() => {
@@ -295,6 +343,8 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
 
   if (tools.length === 0) return null
 
+  const showStatusFilter = statusCounts.error > 0 || statusCounts.running > 0
+
   return (
     <FoldableSection
       title="工具调用"
@@ -304,6 +354,32 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
     >
       <div className="space-y-0.5 text-[11px] leading-relaxed">
         {summary && <div className="text-[10px] text-muted-foreground/60">{summary}</div>}
+        {/* v11: 状态过滤 chips(有失败/运行中时显示) */}
+        {showStatusFilter && (
+          <div className="flex items-center gap-0.5" data-testid="tool-status-filter">
+            {(['all', 'running', 'success', 'error'] as const).map((f) => {
+              const count = statusCounts[f]
+              if (f !== 'all' && count === 0) return null
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setStatusFilter(f)}
+                  aria-pressed={statusFilter === f}
+                  className={cn(
+                    'rounded-sm px-1 py-0.5 text-[10px] transition-colors',
+                    statusFilter === f
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground/60 hover:bg-accent/40 hover:text-foreground',
+                  )}
+                  data-testid={`tool-filter-${f}`}
+                >
+                  {STATUS_FILTER_LABEL[f]} {count}
+                </button>
+              )
+            })}
+          </div>
+        )}
         {/* v9: 搜索框(工具数量>5时显示) */}
         {tools.length > 5 && (
           <div className="relative mb-1">
