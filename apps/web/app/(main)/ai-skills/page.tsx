@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -25,7 +25,10 @@ import { cn } from '@/lib/utils'
 
 type TabKey = 'all' | 'available' | 'coming'
 
-const CATEGORY_ICON: Record<AiSkillMeta['category'], React.ComponentType<{ className?: string }>> = {
+const CATEGORY_ICON: Record<
+  AiSkillMeta['category'],
+  React.ComponentType<{ className?: string }>
+> = {
   code: Code,
   media: FileText,
   'ai-top': Sparkles,
@@ -54,23 +57,23 @@ export default function AiSkillsPage() {
   })
 
   const all = data ?? []
-  const availableCount = all.filter((s: any) => s.available).length
+  const availableCount = all.filter((s) => s.available).length
   const comingCount = all.length - availableCount
 
   const filtered = React.useMemo(() => {
     const k = keyword.trim().toLowerCase()
     return all
-      .filter((s: any) => {
+      .filter((s) => {
         if (activeTab === 'available' && !s.available) return false
         if (activeTab === 'coming' && s.available) return false
         if (!k) return true
         return (
           s.name.toLowerCase().includes(k) ||
           s.description.toLowerCase().includes(k) ||
-          s.tags.some((tag: any) => tag.toLowerCase().includes(k))
+          s.tags.some((tag) => tag.toLowerCase().includes(k))
         )
       })
-      .sort((a: any, b: any) => {
+      .sort((a, b) => {
         // 已上线优先 + 同状态按 name 升序
         if (a.available !== b.available) return a.available ? -1 : 1
         return a.name.localeCompare(b.name)
@@ -87,9 +90,7 @@ export default function AiSkillsPage() {
         </div>
         <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
-          <span>
-            {t('totalCount', { total: all.length, available: availableCount })}
-          </span>
+          <span>{t('totalCount', { total: all.length, available: availableCount })}</span>
           <Badge variant="success">{t('availableCount', { count: availableCount })}</Badge>
           <Badge variant="default">{t('comingCount', { count: comingCount })}</Badge>
         </div>
@@ -155,7 +156,7 @@ export default function AiSkillsPage() {
 
       {filtered.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((skill: any) => (
+          {filtered.map((skill) => (
             <SkillCard key={skill.id} skill={skill} />
           ))}
         </div>

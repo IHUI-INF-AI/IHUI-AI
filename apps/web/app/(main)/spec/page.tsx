@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -45,9 +45,7 @@ function HistoryRow({ entry }: { entry: SpecHistoryEntry }) {
                 {scopeLabel(entry.scope.type)}
               </span>
               {entry.scope.path && (
-                <span className="truncate text-xs text-muted-foreground">
-                  {entry.scope.path}
-                </span>
+                <span className="truncate text-xs text-muted-foreground">{entry.scope.path}</span>
               )}
             </div>
             <p className="truncate text-sm text-foreground">{entry.summary}</p>
@@ -100,7 +98,7 @@ export default function SpecListPage() {
             </div>
           ) : data && data.length > 0 ? (
             <div className="space-y-2">
-              {data.map((entry: any) => (
+              {data.map((entry) => (
                 <HistoryRow key={entry.id} entry={entry} />
               ))}
             </div>

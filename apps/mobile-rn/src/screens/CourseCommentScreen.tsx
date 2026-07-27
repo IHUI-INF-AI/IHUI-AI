@@ -5,9 +5,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { CommentRecord } from '@ihui/types'
 import { Card } from '@ihui/ui-native'
 
-interface Comment { id: string; user: string; content: string; rating: number; createdAt: string }
+interface Comment extends Pick<CommentRecord, 'content'> {
+  id: string  // 本地是 string,共享是 number,保留本地类型
+  user: string  // = user_name 别名
+  rating: number  // 本地特有
+  createdAt: string  // = created_at 别名
+}
 
 type Route = RouteProp<RootStackParamList, 'CourseComment'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>

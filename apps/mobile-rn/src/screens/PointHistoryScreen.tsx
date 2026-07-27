@@ -6,10 +6,15 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { PointRecord } from '@ihui/types'
 
 import { Loading } from '@ihui/ui-native'
 type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Item { id: string; action: string; points: number; balance: number; createdAt: string }
+interface Item extends Pick<PointRecord, 'id' | 'createdAt'> {
+  action: string  // = type 别名(本地用 action 字段名)
+  points: number  // = amount 别名(本地用 points 字段名)
+  balance: number  // 本地必填,共享可选,协变合法
+}
 
 export function PointHistoryScreen() {
   const { t } = useI18n()
