@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { FileEdit, FilePlus, ChevronRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { FoldableSection } from './foldable-section'
 import { CopyButton } from './copy-button'
@@ -32,6 +33,7 @@ function truncateForDisplay(s: string, max = 500): string {
 
 /** v11: 单个文件变更项(可点击展开 diff 预览) */
 const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentChange }) {
+  const t = useTranslations('ai.progressPane')
   const [expanded, setExpanded] = React.useState(false)
   const isNew = change.diffInfo.is_new_file
   const Icon = isNew ? FilePlus : FileEdit
@@ -94,10 +96,10 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
               {!isNew && change.diffInfo.old_content && (
                 <div>
                   <div className="flex items-center gap-1">
-                    <span className="font-medium text-red-500/60">原内容</span>
+                    <span className="font-medium text-red-500/60">{t('changes.oldContent')}</span>
                     <CopyButton
                       text={change.diffInfo.old_content}
-                      aria-label="复制原内容"
+                      aria-label={t('changes.copyOldContent')}
                       data-testid={`change-copy-old-${change.id}`}
                     />
                   </div>
@@ -110,11 +112,11 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
                 <div>
                   <div className="flex items-center gap-1">
                     <span className="font-medium text-emerald-500/60">
-                      {isNew ? '新文件' : '新内容'}
+                      {isNew ? t('changes.newFile') : t('changes.newContent')}
                     </span>
                     <CopyButton
                       text={change.diffInfo.new_content}
-                      aria-label="复制新内容"
+                      aria-label={t('changes.copyNewContent')}
                       data-testid={`change-copy-new-${change.id}`}
                     />
                   </div>
@@ -140,20 +142,21 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
 export const ChangesSection = React.memo(function ChangesSection({
   changes,
 }: ChangesSectionProps) {
+  const t = useTranslations('ai.progressPane')
   if (changes.length === 0) return null
 
   const newCount = changes.filter((c) => c.diffInfo.is_new_file).length
   const modifyCount = changes.length - newCount
 
   const summaryParts: string[] = []
-  if (newCount > 0) summaryParts.push(`新增 ${newCount}`)
-  if (modifyCount > 0) summaryParts.push(`修改 ${modifyCount}`)
+  if (newCount > 0) summaryParts.push(t('changes.added', { n: newCount }))
+  if (modifyCount > 0) summaryParts.push(t('changes.modified', { n: modifyCount }))
   const summary = summaryParts.join(' · ')
 
   const recentChanges = changes.slice(-10)
 
   return (
-    <FoldableSection title="文件变更" count={changes.length} icon={FileEdit} data-testid="changes-section">
+    <FoldableSection title={t('changes.title')} count={changes.length} icon={FileEdit} data-testid="changes-section">
       <div className="space-y-0.5 text-[11px] leading-relaxed">
         {summary && (
           <div className="text-[10px] text-muted-foreground/60">{summary}</div>
@@ -163,7 +166,7 @@ export const ChangesSection = React.memo(function ChangesSection({
         ))}
         {changes.length > 10 && (
           <div className="text-[10px] text-muted-foreground/60">
-            …还有 {changes.length - 10} 项
+            {t('changes.moreItems', { n: changes.length - 10 })}
           </div>
         )}
       </div>
