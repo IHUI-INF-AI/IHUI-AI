@@ -18,7 +18,7 @@ vi.mock('@ihui/api-client', () => ({
 vi.mock('lucide-react', () => ({
   Pin: () => <span data-testid="pin-icon">pin</span>,
   PinOff: () => <span data-testid="pinoff-icon">pinoff</span>,
-  X: () => <span data-testid="x-icon">x</span>,
+  Minimize2: () => <span data-testid="minimize-icon">minimize</span>,
 }))
 
 // Mock useChatStore.conversationId(避免引入整个 chat store)
@@ -206,13 +206,18 @@ describe('AgentTaskProgressPane — v6.1 popover 渲染', () => {
     expect(screen.getByText('开始对话后显示任务计划')).toBeTruthy()
   })
 
-  it('关闭按钮 ✕ 可见且可点击', () => {
+  it('最小化按钮可见且与 trigger 联动(点击 toggle,open 从 true 变 false)', () => {
     useAgentProgressPaneStore.getState().openPane()
     render(<AgentTaskProgressPane />)
-    const closeBtn = screen.getByTestId('pane-close')
-    expect(closeBtn).toBeTruthy()
-    fireEvent.click(closeBtn)
+    const minimizeBtn = screen.getByTestId('pane-minimize')
+    expect(minimizeBtn).toBeTruthy()
+    // 点击最小化 → toggle → open=false(与 trigger 按钮点击行为一致:popover 关闭)
+    fireEvent.click(minimizeBtn)
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
+    // popover 关闭后组件 return null,minimize 按钮不再渲染
+    // 再次打开需通过 trigger 按钮(或 openPane),体现"与 trigger 联动"
+    useAgentProgressPaneStore.getState().openPane()
+    expect(useAgentProgressPaneStore.getState().open).toBe(true)
   })
 
   it('pin 按钮存在且可切换 pinned 状态', () => {
