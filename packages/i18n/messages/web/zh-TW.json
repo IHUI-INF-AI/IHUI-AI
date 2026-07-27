@@ -12552,5 +12552,30 @@
         "sla": "工作時間內 2 小時回應,非工作時間 24 小時回應"
       }
     }
+  },
+  "crypto": {
+    "title": "加密貨幣捐贈",
+    "subtitle": "直接轉帳,無需中間平臺,0 手續費",
+    "bitcoin": {
+      "name": "Bitcoin",
+      "network": "BTC 網路"
+    },
+    "ethereum": {
+      "name": "Ethereum",
+      "network": "ETH 網路"
+    },
+    "usdtTrc20": {
+      "name": "USDT (TRC20)",
+      "network": "Tron 網路",
+      "recommended": "推薦:手續費最低 (~$1)"
+    },
+    "usdtErc20": {
+      "name": "USDT (ERC20)",
+      "network": "ETH 網路"
+    },
+    "copyButton": "複製地址",
+    "copied": "已複製!",
+    "disclaimer": "您的捐贈將直接進入我們的錢包,無中間平臺手續費。USDT-TRC20 手續費最低(~$1),推薦使用。",
+    "qrCode": "二維碼"
   }
 }

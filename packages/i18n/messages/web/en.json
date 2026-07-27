@@ -12651,6 +12651,31 @@
                     "sponsorsDesc":  "Thanks to the following sponsors for supporting IHUI AI.",
                     "sponsorsEmpty":  "Be the first sponsor, your name will be shown here."
                 },
+    "crypto":  {
+        "title":  "Crypto Donations",
+        "subtitle":  "Direct transfer, no middleman, 0 platform fees",
+        "bitcoin":  {
+            "name":  "Bitcoin",
+            "network":  "BTC Network"
+        },
+        "ethereum":  {
+            "name":  "Ethereum",
+            "network":  "ETH Network"
+        },
+        "usdtTrc20":  {
+            "name":  "USDT (TRC20)",
+            "network":  "Tron Network",
+            "recommended":  "Recommended: lowest fee (~$1)"
+        },
+        "usdtErc20":  {
+            "name":  "USDT (ERC20)",
+            "network":  "ETH Network"
+        },
+        "copyButton":  "Copy Address",
+        "copied":  "Copied!",
+        "disclaimer":  "Your donation goes directly to our wallet with no middleman fees. USDT-TRC20 has the lowest fee (~$1) and is recommended.",
+        "qrCode":  "QR Code"
+    },
     "affiliates":  {
                        "heroBadge":  "Recommended Resources",
                        "heroTitle":  "Recommended AI Tools",
