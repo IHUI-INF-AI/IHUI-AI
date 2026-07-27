@@ -172,7 +172,7 @@ async function getApiKey(row: { apiKeyEnc: string | null }): Promise<string | nu
 }
 
 function aiServiceUrl(): string {
-  return process.env.AI_SERVICE_URL || 'http://localhost:8000'
+  return process.env.AI_SERVICE_URL || 'http://localhost:8803'
 }
 
 interface TestResult {

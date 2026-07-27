@@ -154,7 +154,7 @@ cp .env.example .env
 docker compose up -d postgres redis
 pnpm dev
 # web: localhost:3000
-# api: localhost:3001
+# api: localhost:8802
 # ai-service: localhost:8000
 ```
 

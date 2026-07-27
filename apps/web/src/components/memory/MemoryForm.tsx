@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { Button, Input } from '@ihui/ui-react'
 import { Loader2 } from 'lucide-react'
 import { MEMORY_SCOPE_OPTIONS, MEMORY_TYPE_OPTIONS } from '@/lib/memory-api'
@@ -23,6 +23,7 @@ const textareaCls =
 const labelCls = 'text-xs font-medium text-muted-foreground'
 
 export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: MemoryFormProps) {
+  const fid = useId()
   const [scope, setScope] = useState<MemoryScope>(initial?.scope ?? 'session')
   const [type, setType] = useState<MemoryEntryType>(initial?.type ?? 'fact')
   const [category, setCategory] = useState(initial?.category ?? '')
@@ -61,8 +62,9 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label className={labelCls}>作用域</label>
+          <label htmlFor={`${fid}-scope`} className={labelCls}>作用域</label>
           <select
+            id={`${fid}-scope`}
             value={scope}
             onChange={(e) => setScope(e.target.value as MemoryScope)}
             className={fieldCls}
@@ -75,8 +77,9 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
           </select>
         </div>
         <div className="space-y-1.5">
-          <label className={labelCls}>类型</label>
+          <label htmlFor={`${fid}-type`} className={labelCls}>类型</label>
           <select
+            id={`${fid}-type`}
             value={type}
             onChange={(e) => setType(e.target.value as MemoryEntryType)}
             className={fieldCls}
@@ -91,8 +94,9 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
       </div>
 
       <div className="space-y-1.5">
-        <label className={labelCls}>分类</label>
+        <label htmlFor={`${fid}-category`} className={labelCls}>分类</label>
         <Input
+          id={`${fid}-category`}
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           placeholder="如:UI 偏好 / API 约定"
@@ -100,10 +104,11 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
       </div>
 
       <div className="space-y-1.5">
-        <label className={cn(labelCls, 'flex items-center gap-1')}>
+        <label htmlFor={`${fid}-text`} className={cn(labelCls, 'flex items-center gap-1')}>
           记忆内容 <span className="text-destructive">*</span>
         </label>
         <textarea
+          id={`${fid}-text`}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="详细描述这条记忆..."
@@ -114,16 +119,18 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label className={labelCls}>会话 ID(可选)</label>
+          <label htmlFor={`${fid}-session`} className={labelCls}>会话 ID(可选)</label>
           <Input
+            id={`${fid}-session`}
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
             placeholder="scope=session 时填写"
           />
         </div>
         <div className="space-y-1.5">
-          <label className={labelCls}>项目标识(可选)</label>
+          <label htmlFor={`${fid}-project`} className={labelCls}>项目标识(可选)</label>
           <Input
+            id={`${fid}-project`}
             value={projectKey}
             onChange={(e) => setProjectKey(e.target.value)}
             placeholder="scope=project 时填写"
