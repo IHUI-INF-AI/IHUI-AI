@@ -79,27 +79,27 @@ export default function UserIndex() {
     <View className="min-h-screen pb-[40rpx]">
       {/* 用户信息头部 — 青→紫赛博朋克渐变 + 科技网格 */}
       <View
-        className="pt-[120rpx] px-[32rpx] pb-[48rpx] tech-grid"
-        style={{ background: 'linear-gradient(135deg, #00f2ff, #8b5cf6)' }}
+        className="pt-[120rpx] px-[32rpx] pb-[48rpx]"
+        style={{ background: 'var(--color-primary)' }}
       >
         {userInfo ? (
           <View className="flex items-center">
             <Image
-              className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-white"
+              className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary-foreground"
               src={userInfo.avatar || defaultAvatar}
               mode="aspectFill"
             />
             <View className="ml-[24rpx]">
-              <Text className="block text-white text-[36rpx] font-semibold">
+              <Text className="block text-primary-foreground text-[36rpx] font-semibold">
                 {userInfo.userName || userInfo.nickname || t('common.user')}
               </Text>
               {userInfo.phone ? (
-                <Text className="block mt-[8rpx] text-white text-[24rpx] opacity-85">
+                <Text className="block mt-[8rpx] text-primary-foreground text-[24rpx] opacity-85">
                   {maskPhone(userInfo.phone)}
                 </Text>
               ) : null}
               {userInfo.isVip ? (
-                <Text className="inline-block mt-[12rpx] px-[16rpx] py-[4rpx] bg-[#8b5cf6] text-white text-[20rpx] rounded-[20rpx]">
+                <Text className="inline-block mt-[12rpx] px-[16rpx] py-[4rpx] bg-accent text-accent-foreground text-[20rpx] rounded-[20rpx]">
                   {t('user.vipMember')}
                 </Text>
               ) : null}
@@ -108,15 +108,15 @@ export default function UserIndex() {
         ) : (
           <View className="flex items-center" onClick={goLogin}>
             <Image
-              className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-white"
+              className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary-foreground"
               src={defaultAvatar}
               mode="aspectFill"
             />
             <View className="ml-[24rpx]">
-              <Text className="block text-white text-[36rpx] font-semibold">
+              <Text className="block text-primary-foreground text-[36rpx] font-semibold">
                 {t('user.tapLogin')}
               </Text>
-              <Text className="block mt-[8rpx] text-white text-[24rpx] opacity-85">
+              <Text className="block mt-[8rpx] text-primary-foreground text-[24rpx] opacity-85">
                 {t('user.loginHint')}
               </Text>
             </View>
@@ -124,8 +124,8 @@ export default function UserIndex() {
         )}
       </View>
 
-      {/* 快捷入口(订单/收藏/关注/订阅)— tech-card */}
-      <View className="mx-[32rpx] my-[24rpx] tech-card py-[28rpx]">
+      {/* 快捷入口(订单/收藏/关注/订阅)— */}
+      <View className="mx-[32rpx] my-[24rpx] py-[28rpx]">
         <View className="flex">
           {quickEntries.map((entry) => (
             <View
@@ -134,14 +134,14 @@ export default function UserIndex() {
               onClick={() => goPage(entry.path)}
             >
               <Text className="text-[44rpx]">{entry.icon}</Text>
-              <Text className="mt-[6rpx] text-[24rpx] text-white">{t(entry.key)}</Text>
+              <Text className="mt-[6rpx] text-[24rpx] text-foreground">{t(entry.key)}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      {/* 功能列表 — tech-card + list-cell-cyber 分隔 */}
-      <View className="mx-[32rpx] my-[24rpx] tech-card overflow-hidden">
+      {/* 功能列表 — + list-cell-cyber 分隔 */}
+      <View className="mx-[32rpx] my-[24rpx] overflow-hidden">
         {menus.map((item, idx) => (
           <View
             key={item.path}
@@ -151,7 +151,7 @@ export default function UserIndex() {
             onClick={() => goPage(item.path)}
           >
             <Text className="text-[40rpx]">{item.icon}</Text>
-            <Text className="flex-1 ml-[20rpx] text-[30rpx] text-white">{t(item.key)}</Text>
+            <Text className="flex-1 ml-[20rpx] text-[30rpx] text-foreground">{t(item.key)}</Text>
             <Text className="text-[26rpx] text-[var(--color-primary)]">{'>'}</Text>
           </View>
         ))}
@@ -160,7 +160,7 @@ export default function UserIndex() {
       {/* 退出登录 — btn-outline */}
       {isLogin ? (
         <View
-          className="mx-[32rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center btn-outline text-[30rpx]"
+          className="mx-[32rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[30rpx]"
           onClick={handleLogout}
         >
           <Text>{t('user.logout')}</Text>

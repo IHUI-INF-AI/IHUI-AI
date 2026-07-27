@@ -215,7 +215,7 @@ export default function RankingDetailPage() {
         <View className="tech-card head-card">
           {data.logo ? <Image className="logo" src={data.logo} mode="aspectFill" /> : null}
           <View className="head-info">
-            <Text className="title text-neon">{data.name || '-'}</Text>
+            <Text className="title text-primary">{data.name || '-'}</Text>
             {data.intro ? <Text className="desc">{data.intro}</Text> : null}
             <View className="head-meta">
               {data.org ? (

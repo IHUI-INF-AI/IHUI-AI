@@ -49,7 +49,7 @@
 }
 .dc-become-btn {
   padding: 16rpx 48rpx;
-  background: rgba(0, 242, 255, 0.12);
+  background: var(--color-border);
   border-radius: 10rpx;
   border: 1px solid var(--color-primary);
   color: var(--color-primary);
@@ -58,7 +58,7 @@
   text-align: center;
 }
 .dc-become-btn:active {
-  background: rgba(0, 242, 255, 0.2);
+  background: var(--color-border);
 }
 
 /* ===== 3 个功能入口 ===== */
@@ -143,12 +143,12 @@
   color: var(--color-primary);
 }
 .dc-copy-btn:active {
-  background: rgba(0, 242, 255, 0.12);
+  background: var(--color-border);
 }
 .dc-renew-btn {
   flex-shrink: 0;
   padding: 8rpx 24rpx;
-  background: rgba(0, 242, 255, 0.12);
+  background: var(--color-border);
   border-radius: 8rpx;
   border: 1px solid var(--color-primary);
   font-size: 24rpx;
@@ -156,7 +156,7 @@
   font-weight: 600;
 }
 .dc-renew-btn:active {
-  background: rgba(0, 242, 255, 0.2);
+  background: var(--color-border);
 }
 
 /* ===== 开发者须知 + 继续接单 ===== */
@@ -175,9 +175,9 @@
 }
 .dc-plaza-btn {
   padding: 16rpx 40rpx;
-  background: linear-gradient(90deg, #00f2ff, #8b5cf6);
+  background: var(--color-primary);
   border-radius: 12rpx;
-  color: #121217;
+  color: var(--color-primary-foreground);
   font-size: 28rpx;
   font-weight: 600;
   text-align: center;

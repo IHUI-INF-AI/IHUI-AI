@@ -197,7 +197,7 @@ export default function SpecialModelsPage() {
       <View className="relative m-[24rpx] p-[32rpx] rounded-[16rpx] overflow-hidden bg-card">
         <View
           className="absolute top-0 left-0 right-0 bottom-0 z-0"
-          style={{ background: 'linear-gradient(135deg, rgba(0, 242, 255, 0.18), rgba(99, 102, 241, 0.12))' }}
+          style={{ background: 'var(--color-secondary)' }}
         />
         <View className="relative z-10">
           <Text className="block text-[38rpx] font-bold text-foreground leading-[1.4]">
@@ -211,7 +211,7 @@ export default function SpecialModelsPage() {
           </Text>
         </View>
         <View
-          className="relative z-10 inline-flex items-center gap-[8rpx] mt-[24rpx] py-[12rpx] px-[20rpx] bg-[rgba(0,242,255,0.12)] border-[2rpx] border-[rgba(0,242,255,0.35)] rounded-[10rpx]"
+          className="relative z-10 inline-flex items-center gap-[8rpx] mt-[24rpx] py-[12rpx] px-[20rpx] bg-primary/10 border border-primary rounded-[10rpx]"
           onClick={goHistory}
         >
           <Text className="text-[26rpx]">🕘</Text>
@@ -231,7 +231,7 @@ export default function SpecialModelsPage() {
             {featured.map((m) => (
               <View
                 key={`f-${m.key}`}
-                className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.12)] rounded-[12rpx] align-top"
+                className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border border-border rounded-[12rpx] align-top"
                 onClick={() => onEnter(m)}
               >
                 <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-background rounded-[12rpx] text-[40rpx]">
@@ -257,7 +257,7 @@ export default function SpecialModelsPage() {
           return (
             <View
               key={c.key}
-              className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[24rpx] mr-[12rpx] bg-card border-[2rpx] rounded-[10rpx] align-middle ${active ? 'bg-[rgba(0,242,255,0.12)] border-primary' : 'border-[rgba(0,242,255,0.1)]'}`}
+              className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[24rpx] mr-[12rpx] bg-card border-[2rpx] rounded-[10rpx] align-middle ${active ? 'bg-primary/10 border-primary' : 'border-border'}`}
               onClick={() => setActiveCategory(c.key)}
             >
               <Text className="text-[26rpx]">{c.icon}</Text>
@@ -278,7 +278,7 @@ export default function SpecialModelsPage() {
           {filtered.map((m) => (
             <View
               key={m.key}
-              className="flex p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]"
+              className="flex p-[24rpx] bg-card border border-border rounded-[12rpx]"
             >
               <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-background rounded-[12rpx] text-[44rpx] flex-shrink-0">
                 <Text>{m.icon}</Text>
@@ -296,7 +296,7 @@ export default function SpecialModelsPage() {
                   {m.desc}
                 </Text>
                 <View
-                  className="self-start mt-[16rpx] py-[10rpx] px-[28rpx] bg-[rgba(0,242,255,0.14)] border-[2rpx] border-[rgba(0,242,255,0.4)] rounded-[8rpx]"
+                  className="self-start mt-[16rpx] py-[10rpx] px-[28rpx] bg-primary/10 border border-primary rounded-[8rpx]"
                   onClick={() => onEnter(m)}
                 >
                   <Text className="text-[24rpx] text-primary font-semibold">
