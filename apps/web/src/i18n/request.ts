@@ -37,6 +37,8 @@ export default getRequestConfig(async () => {
   const locale = 'zh-CN'
   return {
     locale,
+    // 显式 timeZone 避免 next-intl dev 模式 ENVIRONMENT_FALLBACK 错误(SSR/CSR 时区不一致)
+    timeZone: 'Asia/Shanghai',
     // next-intl AbstractIntlMessages 类型不接受数组(string[]),但运行时支持;用 as never 绕过类型限制
     messages: (messages[locale] ?? webZhCN) as never,
   }
