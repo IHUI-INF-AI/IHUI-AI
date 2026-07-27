@@ -20,8 +20,14 @@ interface ThinkingSectionProps {
  * - 标题带 Brain 图标
  * - 折叠时:标题 "思考过程" + streaming 时 Loader2 旋转
  * - 展开时:当前节点 + LLM 累积内容(可滚动,max-h-20)
+ *
+ * v10 memo:React.memo 包装,content/currentNode/isStreaming 引用稳定时跳过重渲染
  */
-export function ThinkingSection({ content, currentNode, isStreaming }: ThinkingSectionProps) {
+export const ThinkingSection = React.memo(function ThinkingSection({
+  content,
+  currentNode,
+  isStreaming,
+}: ThinkingSectionProps) {
   const hasContent = content.length > 0 || currentNode !== null
   if (!hasContent) return null
 
@@ -51,6 +57,6 @@ export function ThinkingSection({ content, currentNode, isStreaming }: ThinkingS
       </div>
     </FoldableSection>
   )
-}
+})
 
 export default ThinkingSection
