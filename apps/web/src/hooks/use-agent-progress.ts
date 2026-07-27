@@ -33,6 +33,8 @@ export interface PlanStep {
   startedAt?: string
   endedAt?: string
   durationMs?: number
+  /** Codex:step 累计 token 消耗(可选,由 status 事件更新) */
+  tokenUsage?: number
 }
 
 /** 子代理状态(spawned → running → done/failed,失败/完成保留为 dead) */
@@ -58,6 +60,12 @@ export interface Subagent {
   currentTask?: string
   /** 是否需要审批(child-thread approval) */
   pendingApproval?: boolean
+  /** Codex:累计 token 消耗(由 status 事件更新) */
+  tokenUsage?: number
+  /** Codex:工具调用次数 */
+  toolCalls?: number
+  /** Codex:死亡原因(failed/dead 时的 error message) */
+  failureReason?: string
 }
 
 /** 子代理颜色(ANSI 风格,Web 适配为 Tailwind 类) */
@@ -75,6 +83,8 @@ export interface TerminalTask {
   startedAt: string
   endedAt?: string
   durationMs?: number
+  /** Codex:退出码(completed=0 / failed=非 0) */
+  exitCode?: number
 }
 
 /** 工具调用(保留原有,用于 changes 派生) */
@@ -121,6 +131,8 @@ export interface AgentOverview {
   totalChanges: number
   /** 历史耗时样本(用于 bracket 分位数计算) */
   historicalDurations: number[]
+  /** 当前重连尝试次数(0=正常,>0=正在重连) */
+  reconnectAttempt: number
 }
 
 export interface UseAgentProgressReturn {
@@ -238,14 +250,40 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
     const lastSnapshot = planSnapshots[planSnapshots.length - 1]
     if (!lastSnapshot) return []
     const data = lastSnapshot.data as
-      { explanation?: string; plan?: Array<{ step: string; status: PlanStepStatus }> } | undefined
+      | {
+          explanation?: string
+          plan?: Array<{
+            step: string
+            status: PlanStepStatus
+            startedAt?: string
+            endedAt?: string
+            durationMs?: number
+            tokenUsage?: number
+          }>
+        }
+      | undefined
     if (data?.plan && Array.isArray(data.plan)) {
-      const steps: PlanStep[] = data.plan.map((item, idx) => ({
-        id: `plan-${idx}`,
-        step: item.step,
-        status: item.status,
-        explanation: data.explanation,
-      }))
+      const steps: PlanStep[] = data.plan.map((item, idx) => {
+        const step: PlanStep = {
+          id: `plan-${idx}`,
+          step: item.step,
+          status: item.status,
+          explanation: data.explanation,
+        }
+        // Codex:从 plan_updated 快照中提取时间戳(若上游提供)
+        if (item.startedAt) step.startedAt = item.startedAt
+        if (item.endedAt) step.endedAt = item.endedAt
+        if (item.durationMs !== undefined) step.durationMs = item.durationMs
+        if (item.tokenUsage !== undefined) step.tokenUsage = item.tokenUsage
+        // 若有 startedAt 但无 durationMs,基于当前时间计算 in_progress 的 elapsedMs
+        if (step.status === 'in_progress' && step.startedAt && step.durationMs === undefined) {
+          const startMs = Date.parse(step.startedAt)
+          if (!Number.isNaN(startMs)) {
+            step.durationMs = Math.max(0, Date.now() - startMs)
+          }
+        }
+        return step
+      })
       // 硬规则:最多一个 in_progress(冗余校验,违反时只保留第一个,其余降级为 pending)
       const inProgressCount = steps.filter((s) => s.status === 'in_progress').length
       if (inProgressCount > 1) {
@@ -336,7 +374,16 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
       })
     } else if ((evt.type as string) === 'subagent_end') {
       const data = evt.data as
-        { id?: string; threadId?: string; status?: 'done' | 'failed' } | undefined
+        | {
+            id?: string
+            threadId?: string
+            status?: 'done' | 'failed'
+            error?: string
+            failureReason?: string
+            tokenUsage?: number
+            toolCalls?: number
+          }
+        | undefined
       const id = data?.id ?? data?.threadId ?? ''
       const existing = id ? map.get(id) : undefined
       if (existing) {
@@ -347,6 +394,11 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
         if (!Number.isNaN(startMs) && !Number.isNaN(endMs)) {
           existing.durationMs = Math.max(0, endMs - startMs)
         }
+        // Codex:提取死亡原因 + 最终 token/工具调用统计
+        const reason = data?.failureReason ?? data?.error
+        if (reason) existing.failureReason = reason
+        if (data?.tokenUsage !== undefined) existing.tokenUsage = data.tokenUsage
+        if (data?.toolCalls !== undefined) existing.toolCalls = data.toolCalls
       }
     } else if ((evt.type as string) === 'subagent_status') {
       const data = evt.data as
@@ -356,6 +408,10 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
             status?: SubagentStatus
             task?: string
             pendingApproval?: boolean
+            tokenUsage?: number
+            toolCalls?: number
+            error?: string
+            failureReason?: string
           }
         | undefined
       const id = data?.id ?? data?.threadId ?? ''
@@ -364,6 +420,11 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
         if (data?.status) existing.status = data.status
         if (data?.task !== undefined) existing.currentTask = data.task
         if (data?.pendingApproval !== undefined) existing.pendingApproval = data.pendingApproval
+        // Codex:实时 token / tool 调用累计 + 死亡原因
+        if (data?.tokenUsage !== undefined) existing.tokenUsage = data.tokenUsage
+        if (data?.toolCalls !== undefined) existing.toolCalls = data.toolCalls
+        const reason = data?.failureReason ?? data?.error
+        if (reason) existing.failureReason = reason
       }
     }
   }
@@ -384,7 +445,9 @@ function extractTerminalsFromEvents(events: SSEEvent[]): TerminalTask[] {
         startedAt: evt.timestamp,
       })
     } else if ((evt.type as string) === 'terminal_end') {
-      const data = evt.data as { id?: string; status?: TerminalStatus; output?: string } | undefined
+      const data = evt.data as
+        | { id?: string; status?: TerminalStatus; output?: string; exitCode?: number }
+        | undefined
       const id = data?.id ?? ''
       const existing = id ? map.get(id) : undefined
       if (existing) {
@@ -396,6 +459,14 @@ function extractTerminalsFromEvents(events: SSEEvent[]): TerminalTask[] {
         if (!Number.isNaN(startMs) && !Number.isNaN(endMs)) {
           existing.durationMs = Math.max(0, endMs - startMs)
         }
+        // Codex:提取退出码(若未提供,根据 status 推导:completed=0 / failed=1)
+        if (data?.exitCode !== undefined) {
+          existing.exitCode = data.exitCode
+        } else if (existing.status === 'completed') {
+          existing.exitCode = 0
+        } else if (existing.status === 'failed') {
+          existing.exitCode = 1
+        }
       }
     }
   }
@@ -403,7 +474,7 @@ function extractTerminalsFromEvents(events: SSEEvent[]): TerminalTask[] {
 }
 
 /**
- * 主 hook:传入 threadId,返回聚合后的三栏数据(Codex 对齐)
+ * 主 hook:传入 threadId,返回聚合后的三栏数据
  */
 export function useAgentProgress(threadId: string | null): UseAgentProgressReturn {
   const effectiveThreadId = threadId ?? ''
@@ -411,9 +482,10 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     threadId: effectiveThreadId,
     onDone: () => {},
     onError: () => {},
+    autoReconnect: true,
   })
 
-  const { events, isStreaming, currentNode, content, lastPlan, error, interruptEvent } = stream
+  const { events, isStreaming, currentNode, content, lastPlan, error, interruptEvent, reconnectAttempt } = stream
 
   // 聚合 planSteps(Codex 三状态 + explanation + 最多一个 in_progress 硬规则)
   const planSteps = React.useMemo<PlanStep[]>(() => extractPlanFromEvents(events), [events])
@@ -526,6 +598,7 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
       runningTerminals,
       totalChanges: changes.length,
       historicalDurations,
+      reconnectAttempt,
     }
   }, [
     events,
@@ -539,6 +612,7 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     subagents,
     terminals,
     changes,
+    reconnectAttempt,
   ])
 
   return {
