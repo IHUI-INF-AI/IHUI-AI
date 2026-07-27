@@ -15,7 +15,7 @@ vi.mock('../src/db/index.js', () => ({
 
 vi.mock('../src/config/index.js', () => ({
   config: {
-    AI_SERVICE_URL: 'http://localhost:8000',
+    AI_SERVICE_URL: 'http://localhost:8803',
     DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock',
     REDIS_URL: 'redis://localhost:6379/0',
     NODE_ENV: 'test',
@@ -146,9 +146,7 @@ describe('Health API', () => {
     })
 
     it('AI service 不可达时不阻塞 ready(降级为 unreachable)', async () => {
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new Error('network error'),
-      )
+      ;(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('network error'))
       const res = await app.inject({ method: 'GET', url: '/api/health/ready' })
       expect(res.statusCode).toBe(200)
       const body = res.json()

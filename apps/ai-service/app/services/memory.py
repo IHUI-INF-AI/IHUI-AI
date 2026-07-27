@@ -35,7 +35,8 @@ class MemoryStore:
             try:
                 self._redis = aioredis.from_url(settings.redis_url, decode_responses=True)
                 await self._redis.ping()
-            except Exception:
+            except Exception as e:
+                logger.warning("memory._get_redis 失败: %s", e, exc_info=True)
                 self._use_redis = False
                 self._redis = None
         return self._redis
@@ -126,7 +127,8 @@ class UnifiedMemoryClient:
                     entries = data.get("data", [])
                     return entries if isinstance(entries, list) else []
             return []
-        except Exception:
+        except Exception as e:
+            logger.warning("memory.UnifiedMemoryClient.get_entries 失败: %s", e, exc_info=True)
             return []
 
     async def add_entry(self, user_id: str, entry: dict[str, Any]) -> dict[str, Any] | None:
@@ -144,7 +146,8 @@ class UnifiedMemoryClient:
                 if isinstance(data, dict):
                     return cast(dict[str, Any] | None, data.get("data"))
                 return cast(dict[str, Any] | None, data)
-        except Exception:
+        except Exception as e:
+            logger.warning("memory.UnifiedMemoryClient.add_entry 失败: %s", e, exc_info=True)
             return None
 
 
@@ -276,15 +279,15 @@ class MemorySystem:
             try:
                 embedding = await self._vector_store.embed(item["text"])
                 await self._vector_store.add_entry(entry_id, entry, embedding)
-            except Exception:
-                pass  # embedding 失败不阻塞,记忆仍写入 API
+            except Exception as e:
+                logger.warning("memory.add_with_extraction embed 失败: %s", e, exc_info=True)  # embedding 失败不阻塞,记忆仍写入 API
             # 写入 API(跨端同步)
             await self._client.add_entry(user_id, entry)
             # 增量更新画像
             try:
                 await self._profile_builder.update_profile(user_id, entry)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("memory.add_with_extraction update_profile 失败: %s", e, exc_info=True)
 
         duration_ms = int((time.time() - start) * 1000)
         return {

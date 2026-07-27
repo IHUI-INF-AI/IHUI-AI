@@ -74,7 +74,8 @@ class BilibiliAdapter(BasePlatformAdapter):
 
         try:
             data = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("bilibili.verify_credentials JSON parse 失败: %s", e, exc_info=True)
             return False, f"invalid json response: {resp.text[:200]}"
 
         if data.get("code") != 0:
@@ -149,7 +150,8 @@ class BilibiliAdapter(BasePlatformAdapter):
 
         try:
             pre_data = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("bilibili.publish preupload JSON parse 失败: %s", e, exc_info=True)
             return PublishResult(
                 success=False, platform=self.platform_id,
                 error_message=f"preupload invalid json: {resp.text[:300]}",
@@ -198,8 +200,8 @@ class BilibiliAdapter(BasePlatformAdapter):
         upload_id = ""
         try:
             upload_id = init_resp.json().get("upload_id", "")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("bilibili.publish upload_id parse 失败: %s", e, exc_info=True)
 
         try:
             with open(video_path, "rb") as f:
@@ -289,7 +291,8 @@ class BilibiliAdapter(BasePlatformAdapter):
 
         try:
             sdata = submit_resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("bilibili.publish submit JSON parse 失败: %s", e, exc_info=True)
             sdata = {}
 
         if sdata.get("code") != 0:
