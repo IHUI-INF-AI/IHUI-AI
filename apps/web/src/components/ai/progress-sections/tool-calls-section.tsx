@@ -140,7 +140,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
   }
 
   return (
-    <div className="rounded-sm transition-colors hover:bg-accent/20">
+    <div className="rounded-sm transition-colors hover:bg-accent/40">
       <div
         className={cn(
           'flex items-center gap-1.5 px-1 py-0.5',
@@ -161,7 +161,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
         {hasDetail && (
           <ChevronRight
             className={cn(
-              'h-2 w-2 shrink-0 text-muted-foreground/40 transition-transform duration-150',
+              'h-2 w-2 shrink-0 text-muted-foreground/60 transition-transform duration-150',
               expanded && 'rotate-90',
             )}
           />
@@ -180,14 +180,14 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
         </code>
         {argPreview && (
           <span
-            className="flex-1 truncate font-mono text-[10px] text-muted-foreground/50"
+            className="flex-1 truncate font-mono text-[10px] text-muted-foreground/70"
             title={argPreview}
           >
             {argPreview}
           </span>
         )}
         {tool.durationMs !== undefined && tool.status !== 'running' && (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
             {formatDuration(tool.durationMs)}
           </span>
         )}
@@ -229,8 +229,8 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
                     className={cn(
                       'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[10px]',
                       tool.status === 'error'
-                        ? 'bg-red-500/5 text-red-500/80'
-                        : 'bg-muted/40 text-muted-foreground/80',
+                        ? 'bg-red-500/10 text-red-500/90'
+                        : 'bg-muted/60 text-muted-foreground/90',
                     )}
                   >
                     {truncateForDisplay(resultText)}
@@ -240,7 +240,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
               {tool.error && (
                 <div>
                   <div className="flex items-center gap-1">
-                    <span className="font-medium text-red-500/70">错误</span>
+                    <span className="font-medium text-red-500/80">错误</span>
                     <CopyButton
                       text={tool.error}
                       aria-label="复制错误信息"
@@ -383,13 +383,13 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
         {/* v9: 搜索框(工具数量>5时显示) */}
         {tools.length > 5 && (
           <div className="relative mb-1">
-            <Search className="absolute left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-muted-foreground/40" />
+            <Search className="absolute left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-muted-foreground/60" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="搜索工具..."
-              className="w-full rounded-sm border border-border/40 bg-muted/30 py-0.5 pl-5 pr-2 text-[10px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="w-full rounded-sm border border-border/60 bg-muted/50 py-0.5 pl-5 pr-2 text-[10px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
               data-testid="tool-search-input"
             />
           </div>
@@ -398,12 +398,12 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
           <ToolCallItem key={tool.id} tool={tool} />
         ))}
         {filteredTools.length > 10 && (
-          <div className="text-[10px] text-muted-foreground/40">
+          <div className="text-[10px] text-muted-foreground/60">
             …还有 {filteredTools.length - 10} 项
           </div>
         )}
         {searchQuery && filteredTools.length === 0 && (
-          <div className="text-[10px] text-muted-foreground/40">无匹配结果</div>
+          <div className="text-[10px] text-muted-foreground/60">无匹配结果</div>
         )}
       </div>
     </FoldableSection>
