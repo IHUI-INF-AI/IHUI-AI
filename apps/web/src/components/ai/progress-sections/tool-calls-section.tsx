@@ -1,7 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { Wrench, Loader2, Check, X, FileText, Search, FileEdit, Terminal } from 'lucide-react'
+import {
+  Wrench,
+  Loader2,
+  Check,
+  X,
+  FileText,
+  Search,
+  FileEdit,
+  Terminal,
+  ChevronRight,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration } from './foldable-section'
 import type { AgentToolCall } from '@/hooks/use-agent-progress'
@@ -79,6 +89,153 @@ function extractArgPreview(args: Record<string, unknown>): string {
   return ''
 }
 
+/** 格式化 args 为可读 JSON 字符串(用于详情展开) */
+function formatArgsJson(args: Record<string, unknown>): string {
+  try {
+    return JSON.stringify(args, null, 2)
+  } catch {
+    return String(args)
+  }
+}
+
+/** 格式化 result 为可读字符串(用于详情展开) */
+function formatResultJson(result: unknown): string {
+  if (result === undefined || result === null) return ''
+  if (typeof result === 'string') return result
+  try {
+    return JSON.stringify(result, null, 2)
+  } catch {
+    return String(result)
+  }
+}
+
+/** 截断超长字符串(详情区最大 500 字符) */
+function truncateForDisplay(s: string, max = 500): string {
+  if (s.length <= max) return s
+  return s.slice(0, max) + `\n…(已截断,共 ${s.length} 字符)`
+}
+
+/**
+ * ToolCallItem — 单个工具调用项(可点击展开详情)
+ *
+ * v10 Phase 4.3:
+ * - 点击工具行展开/折叠完整 args + result
+ * - CSS grid 平滑高度动画(复用 foldable-section 模式)
+ * - memo 化:tool 引用稳定时跳过重渲染
+ */
+const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: AgentToolCall }) {
+  const [expanded, setExpanded] = React.useState(false)
+  const cat = categorize(tool.toolName)
+  const CatIcon = CATEGORY_ICON[cat]
+  const StatusIcon = TOOL_STATUS_ICON[tool.status]
+  const argPreview = extractArgPreview(tool.args)
+  const resultText = formatResultJson(tool.result)
+  const hasDetail = Object.keys(tool.args).length > 0 || resultText.length > 0
+
+  const toggleExpand = () => {
+    if (hasDetail) setExpanded((v) => !v)
+  }
+
+  return (
+    <div className="rounded-sm transition-colors hover:bg-accent/20">
+      <div
+        className={cn(
+          'flex items-center gap-1.5 px-1 py-0.5',
+          hasDetail && 'cursor-pointer',
+        )}
+        onClick={toggleExpand}
+        role={hasDetail ? 'button' : undefined}
+        aria-expanded={hasDetail ? expanded : undefined}
+        tabIndex={hasDetail ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (hasDetail && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            toggleExpand()
+          }
+        }}
+        data-testid={`tool-item-${tool.id}`}
+      >
+        {hasDetail && (
+          <ChevronRight
+            className={cn(
+              'h-2 w-2 shrink-0 text-muted-foreground/40 transition-transform duration-150',
+              expanded && 'rotate-90',
+            )}
+          />
+        )}
+        {!hasDetail && <span className="w-2 shrink-0" />}
+        <CatIcon className={cn('h-2.5 w-2.5 shrink-0', CATEGORY_CLS[cat])} />
+        <StatusIcon
+          className={cn(
+            'h-2.5 w-2.5 shrink-0',
+            TOOL_STATUS_CLS[tool.status],
+            tool.status === 'running' && 'animate-spin',
+          )}
+        />
+        <code className="shrink-0 font-mono text-[10px] text-muted-foreground">
+          {tool.toolName}
+        </code>
+        {argPreview && (
+          <span
+            className="flex-1 truncate font-mono text-[10px] text-muted-foreground/50"
+            title={argPreview}
+          >
+            {argPreview}
+          </span>
+        )}
+        {tool.durationMs !== undefined && tool.status !== 'running' && (
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+            {formatDuration(tool.durationMs)}
+          </span>
+        )}
+      </div>
+      {/* 详情展开区:完整 args + result */}
+      {hasDetail && (
+        <div
+          className="grid transition-[grid-template-rows] duration-150 ease-out"
+          style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-1 px-3 pb-1 pt-0.5 text-[10px] leading-relaxed">
+              {Object.keys(tool.args).length > 0 && (
+                <div>
+                  <div className="font-medium text-muted-foreground/60">参数</div>
+                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-muted/40 p-1 font-mono text-[10px] text-muted-foreground/80">
+                    {truncateForDisplay(formatArgsJson(tool.args))}
+                  </pre>
+                </div>
+              )}
+              {resultText && (
+                <div>
+                  <div className="font-medium text-muted-foreground/60">结果</div>
+                  <pre
+                    className={cn(
+                      'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[10px]',
+                      tool.status === 'error'
+                        ? 'bg-red-500/5 text-red-500/80'
+                        : 'bg-muted/40 text-muted-foreground/80',
+                    )}
+                  >
+                    {truncateForDisplay(resultText)}
+                  </pre>
+                </div>
+              )}
+              {tool.error && (
+                <div>
+                  <div className="font-medium text-red-500/70">错误</div>
+                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/5 p-1 font-mono text-[10px] text-red-500/80">
+                    {tool.error}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+})
+
 /**
  * ToolCallsSection — 工具调用折叠子区
  *
@@ -88,8 +245,15 @@ function extractArgPreview(args: Record<string, unknown>): string {
  * - 分类图标(FileText/Search/FileEdit/Terminal)
  * - 参数预览(file_path basename / query / command)
  * - 状态 SVG 图标(Loader2/Check/X)
+ *
+ * v10 Phase 4.1 memo + Phase 4.3 详情展开:
+ * - React.memo 包装,tools 引用稳定时跳过重渲染
+ * - ToolCallItem 子组件 memo 化,单个 tool 变化不影响其他 tool
+ * - 点击工具行展开完整 args + result(CSS grid 动画)
  */
-export function ToolCallsSection({ tools }: ToolCallsSectionProps) {
+export const ToolCallsSection = React.memo(function ToolCallsSection({
+  tools,
+}: ToolCallsSectionProps) {
   // v9: 搜索过滤(hooks 必须在条件返回之前调用)
   const [searchQuery, setSearchQuery] = React.useState('')
   const filteredTools = React.useMemo(() => {
@@ -102,30 +266,32 @@ export function ToolCallsSection({ tools }: ToolCallsSectionProps) {
     )
   }, [tools, searchQuery])
 
-  if (tools.length === 0) return null
-
-  // 分类计数
-  const categoryCounts: Record<ToolCategory, number> = {
-    read: 0,
-    search: 0,
-    write: 0,
-    exec: 0,
-    other: 0,
-  }
-  for (const t of tools) {
-    categoryCounts[categorize(t.toolName)]++
-  }
-
-  // 摘要(仅显示 >0 的分类)
-  const summaryParts: string[] = []
-  for (const cat of ['read', 'search', 'write', 'exec', 'other'] as const) {
-    if (categoryCounts[cat] > 0) {
-      summaryParts.push(`${CATEGORY_LABEL[cat]} ${categoryCounts[cat]}`)
+  // v10: 分类计数 + 摘要用 useMemo 缓存(避免每次 render 重新计算)
+  const { summary, recentTools } = React.useMemo(() => {
+    if (tools.length === 0) return { summary: '', recentTools: [] }
+    const categoryCounts: Record<ToolCategory, number> = {
+      read: 0,
+      search: 0,
+      write: 0,
+      exec: 0,
+      other: 0,
     }
-  }
-  const summary = summaryParts.join(' · ')
+    for (const t of tools) {
+      categoryCounts[categorize(t.toolName)]++
+    }
+    const summaryParts: string[] = []
+    for (const cat of ['read', 'search', 'write', 'exec', 'other'] as const) {
+      if (categoryCounts[cat] > 0) {
+        summaryParts.push(`${CATEGORY_LABEL[cat]} ${categoryCounts[cat]}`)
+      }
+    }
+    return {
+      summary: summaryParts.join(' · '),
+      recentTools: filteredTools.slice(-10),
+    }
+  }, [tools, filteredTools])
 
-  const recentTools = filteredTools.slice(-10)
+  if (tools.length === 0) return null
 
   return (
     <FoldableSection
@@ -150,42 +316,13 @@ export function ToolCallsSection({ tools }: ToolCallsSectionProps) {
             />
           </div>
         )}
-        {recentTools.map((tool) => {
-          const cat = categorize(tool.toolName)
-          const CatIcon = CATEGORY_ICON[cat]
-          const StatusIcon = TOOL_STATUS_ICON[tool.status]
-          const argPreview = extractArgPreview(tool.args)
-          return (
-            <div key={tool.id} className="flex items-center gap-1.5">
-              <CatIcon className={cn('h-2.5 w-2.5 shrink-0', CATEGORY_CLS[cat])} />
-              <StatusIcon
-                className={cn(
-                  'h-2.5 w-2.5 shrink-0',
-                  TOOL_STATUS_CLS[tool.status],
-                  tool.status === 'running' && 'animate-spin',
-                )}
-              />
-              <code className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                {tool.toolName}
-              </code>
-              {argPreview && (
-                <span
-                  className="flex-1 truncate font-mono text-[10px] text-muted-foreground/50"
-                  title={argPreview}
-                >
-                  {argPreview}
-                </span>
-              )}
-              {tool.durationMs !== undefined && tool.status !== 'running' && (
-                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
-                  {formatDuration(tool.durationMs)}
-                </span>
-              )}
-            </div>
-          )
-        })}
+        {recentTools.map((tool) => (
+          <ToolCallItem key={tool.id} tool={tool} />
+        ))}
         {filteredTools.length > 10 && (
-          <div className="text-[10px] text-muted-foreground/40">…还有 {filteredTools.length - 10} 项</div>
+          <div className="text-[10px] text-muted-foreground/40">
+            …还有 {filteredTools.length - 10} 项
+          </div>
         )}
         {searchQuery && filteredTools.length === 0 && (
           <div className="text-[10px] text-muted-foreground/40">无匹配结果</div>
@@ -193,6 +330,6 @@ export function ToolCallsSection({ tools }: ToolCallsSectionProps) {
       </div>
     </FoldableSection>
   )
-}
+})
 
 export default ToolCallsSection
