@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Users, Loader2, Check, X, AlertTriangle, ChevronRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration, formatRelativeTime } from './foldable-section'
 import { CopyButton } from './copy-button'
@@ -27,12 +28,12 @@ const SUBAGENT_STATUS_CLS: Record<SubagentStatus, string> = {
   failed: 'text-red-500',
   dead: 'text-amber-500',
 }
-const SUBAGENT_STATUS_LABEL: Record<SubagentStatus, string> = {
-  spawned: '已派发',
-  running: '运行中',
-  done: '已完成',
-  failed: '失败',
-  dead: '已死亡',
+const SUBAGENT_STATUS_TKEY: Record<SubagentStatus, string> = {
+  spawned: 'subagent.statusSpawned',
+  running: 'subagent.statusRunning',
+  done: 'subagent.statusDone',
+  failed: 'subagent.statusFailed',
+  dead: 'subagent.statusDead',
 }
 
 /** 格式化 ISO 时间为本地短时间(HH:MM:SS) */
@@ -55,6 +56,7 @@ function formatTime(iso: string): string {
  * - memo 化:单个 subagent 变化不影响其他 subagent
  */
 const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) {
+  const t = useTranslations('ai.progressPane')
   const [expanded, setExpanded] = React.useState(false)
   const Icon = SUBAGENT_STATUS_ICON[sa.status]
   const hasTools = sa.tools !== undefined && sa.tools.length > 0
@@ -133,9 +135,9 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
         {sa.toolCalls !== undefined && sa.toolCalls > 0 && (
           <span
             className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
-            title={`${sa.toolCalls} 次工具调用`}
+            title={t('subagent.toolCallsTitle', { n: sa.toolCalls })}
           >
-            {sa.toolCalls}次
+            {t('subagent.toolCallsCount', { n: sa.toolCalls })}
           </span>
         )}
         {sa.tokenUsage !== undefined && sa.tokenUsage > 0 && (
@@ -155,26 +157,26 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
               {/* 元信息行 */}
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground/70">
                 <span>
-                  状态:<span className={SUBAGENT_STATUS_CLS[sa.status]}>{SUBAGENT_STATUS_LABEL[sa.status]}</span>
+                  {t('subagent.state')}<span className={SUBAGENT_STATUS_CLS[sa.status]}>{t(SUBAGENT_STATUS_TKEY[sa.status])}</span>
                 </span>
-                {sa.role && <span>角色:<span className="font-mono">{sa.role}</span></span>}
+                {sa.role && <span>{t('subagent.role')}<span className="font-mono">{sa.role}</span></span>}
                 {sa.pendingApproval && (
-                  <span className="text-amber-500">待审批</span>
+                  <span className="text-amber-500">{t('subagent.pendingApproval')}</span>
                 )}
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground/70">
                         {sa.spawnedAt && (
                           <span title={formatTime(sa.spawnedAt)}>
-                            启动:{formatTime(sa.spawnedAt)} ({formatRelativeTime(sa.spawnedAt)})
+                            {t('subagent.startedAt')}{formatTime(sa.spawnedAt)} ({formatRelativeTime(sa.spawnedAt, t)})
                           </span>
                         )}
                         {sa.endedAt && (
                           <span title={formatTime(sa.endedAt)}>
-                            结束:{formatTime(sa.endedAt)} ({formatRelativeTime(sa.endedAt)})
+                            {t('subagent.endedAt')}{formatTime(sa.endedAt)} ({formatRelativeTime(sa.endedAt, t)})
                           </span>
                         )}
                         {sa.durationMs !== undefined && sa.status !== 'running' && (
-                          <span>耗时:{formatDuration(sa.durationMs)}</span>
+                          <span>{t('subagent.duration')}{formatDuration(sa.durationMs)}</span>
                         )}
                       </div>
               {sa.threadId && (
@@ -182,7 +184,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
                   <span className="font-mono">threadId: {sa.threadId}</span>
                   <CopyButton
                     text={sa.threadId}
-                    aria-label="复制 threadId"
+                    aria-label={t('subagent.copyThreadId')}
                     data-testid={`subagent-copy-thread-${sa.id}`}
                   />
                 </div>
@@ -191,7 +193,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
               {hasTools && (
                 <div className="mt-1 space-y-0.5">
                   <div className="font-medium text-muted-foreground/60">
-                    工具调用({sa.tools!.length})
+                    {t('subagent.toolsCount', { n: sa.tools!.length })}
                   </div>
                   {sa.tools!.map((tool) => (
                     <ToolCallItem key={tool.id} tool={tool} />
@@ -221,6 +223,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
 export const SubagentSection = React.memo(function SubagentSection({
   subagents,
 }: SubagentSectionProps) {
+  const t = useTranslations('ai.progressPane')
   // v10: 摘要统计(活跃/死亡/失败)— useMemo 必须在 early return 之前
   const summary = React.useMemo(() => {
     if (subagents.length === 0) return ''
@@ -230,17 +233,17 @@ export const SubagentSection = React.memo(function SubagentSection({
     const done = subagents.filter((s) => s.status === 'done').length
     const failed = subagents.filter((s) => s.status === 'failed' || s.status === 'dead').length
     const parts: string[] = []
-    if (active > 0) parts.push(`${active} 活跃`)
-    if (done > 0) parts.push(`${done} 完成`)
-    if (failed > 0) parts.push(`${failed} 失败`)
+    if (active > 0) parts.push(t('subagent.active', { n: active }))
+    if (done > 0) parts.push(t('subagent.done', { n: done }))
+    if (failed > 0) parts.push(t('subagent.failed', { n: failed }))
     return parts.join(' · ')
-  }, [subagents])
+  }, [subagents, t])
 
   if (subagents.length === 0) return null
 
   return (
     <FoldableSection
-      title="Subagent 派单"
+      title={t('subagent.title')}
       count={subagents.length}
       icon={Users}
       data-testid="subagent-section"

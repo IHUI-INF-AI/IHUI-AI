@@ -3,9 +3,116 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 
-// Mock next-intl
+// Mock next-intl — vi.hoisted 确保 mockT 在 vi.mock 工厂和测试体中均可使用
+const { mockT } = vi.hoisted(() => {
+  const map: Record<string, string> = {
+    'pane.title': '任务计划',
+    'pane.ariaLabel': 'Agent 任务进度面板',
+    'pane.pin': '置顶',
+    'pane.unpin': '取消置顶',
+    'pane.minimize': '最小化',
+    'pane.expandAll': '展开全部',
+    'pane.collapseAll': '折叠全部',
+    'pane.reconnecting': 'SSE 断连,正在重连(第 {n}/5 次)',
+    'pane.stepInProgress': '步骤 {n}: {step} (进行中)',
+    'pane.stepCompleted': '步骤 {n}: {step} (已完成)',
+    'pane.stepPending': '步骤 {n}: {step} (待执行)',
+    'pane.toolCallsCount': '{n} 次工具调用',
+    'copy': '复制',
+    'copied': '已复制',
+    'relativeTime.justNow': '刚刚',
+    'relativeTime.secondsAgo': '{n}s前',
+    'relativeTime.minutesAgo': '{n}m前',
+    'relativeTime.hoursAgo': '{n}h前',
+    'relativeTime.daysAgo': '{n}d前',
+    'changes.title': '文件变更',
+    'changes.oldContent': '原内容',
+    'changes.copyOldContent': '复制原内容',
+    'changes.newFile': '新文件',
+    'changes.newContent': '新内容',
+    'changes.copyNewContent': '复制新内容',
+    'changes.added': '新增 {n}',
+    'changes.modified': '修改 {n}',
+    'changes.moreItems': '…还有 {n} 项',
+    'terminal.title': '终端任务',
+    'terminal.output': '输出',
+    'terminal.copyOutput': '复制终端输出',
+    'terminal.running': '{n} 运行中',
+    'terminal.failed': '{n} 失败',
+    'terminal.moreItems': '…还有 {n} 项',
+    'tools.title': '工具调用',
+    'tools.categoryRead': '读取',
+    'tools.categorySearch': '搜索',
+    'tools.categoryWrite': '编辑',
+    'tools.categoryExec': '执行',
+    'tools.categoryOther': '其他',
+    'tools.args': '参数',
+    'tools.copyArgs': '复制参数',
+    'tools.result': '结果',
+    'tools.copyResult': '复制结果',
+    'tools.error': '错误',
+    'tools.copyError': '复制错误信息',
+    'tools.filterAll': '全部',
+    'tools.filterRunning': '运行中',
+    'tools.filterSuccess': '成功',
+    'tools.filterError': '失败',
+    'tools.searchPlaceholder': '搜索工具...',
+    'tools.moreItems': '…还有 {n} 项',
+    'tools.noMatch': '无匹配结果',
+    'subagent.title': 'Subagent 派单',
+    'subagent.statusSpawned': '已派发',
+    'subagent.statusRunning': '运行中',
+    'subagent.statusDone': '已完成',
+    'subagent.statusFailed': '失败',
+    'subagent.statusDead': '已死亡',
+    'subagent.toolCallsTitle': '{n} 次工具调用',
+    'subagent.toolCallsCount': '{n}次',
+    'subagent.state': '状态:',
+    'subagent.role': '角色:',
+    'subagent.pendingApproval': '待审批',
+    'subagent.startedAt': '启动:',
+    'subagent.endedAt': '结束:',
+    'subagent.duration': '耗时:',
+    'subagent.copyThreadId': '复制 threadId',
+    'subagent.toolsCount': '工具调用({n})',
+    'subagent.active': '{n} 活跃',
+    'subagent.done': '{n} 完成',
+    'subagent.failed': '{n} 失败',
+    'overview.title': '任务总览',
+    'overview.statusIdle': '空闲',
+    'overview.statusRunning': '运行中',
+    'overview.statusCompleted': '已完成',
+    'overview.statusFailed': '失败',
+    'overview.statusInterrupted': '已中断',
+    'overview.steps': '步骤',
+    'overview.subagents': '子代理',
+    'overview.active': '活跃',
+    'overview.total': '总',
+    'overview.dead': '死亡',
+    'overview.terminals': '终端',
+    'overview.running': '运行',
+    'overview.changes': '变更',
+    'overview.files': '文件',
+    'overview.duration': '耗时',
+    'overview.token': 'Token',
+    'overview.rate': '速率',
+    'overview.eta': '预计',
+    'overview.context': '上下文',
+  }
+  const mockT = (key: string, params?: Record<string, unknown>) => {
+    let v = map[key] ?? key
+    if (params) {
+      for (const [k, val] of Object.entries(params)) {
+        v = v.replace(`{${k}}`, String(val))
+      }
+    }
+    return v
+  }
+  return { mockT }
+})
+
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => mockT,
 }))
 
 // Mock @ihui/api-client
@@ -1054,26 +1161,26 @@ describe('AgentTaskProgressPane — v11 复制计划 + 相对时间', () => {
 
   it('formatRelativeTime — 刚刚(<10s)', () => {
     const recent = new Date(Date.now() - 5000).toISOString()
-    expect(formatRelativeTime(recent)).toBe('刚刚')
+    expect(formatRelativeTime(recent, mockT)).toBe('刚刚')
   })
 
   it('formatRelativeTime — 30s前', () => {
     const ts = new Date(Date.now() - 30000).toISOString()
-    expect(formatRelativeTime(ts)).toBe('30s前')
+    expect(formatRelativeTime(ts, mockT)).toBe('30s前')
   })
 
   it('formatRelativeTime — 2m前', () => {
     const ts = new Date(Date.now() - 120000).toISOString()
-    expect(formatRelativeTime(ts)).toBe('2m前')
+    expect(formatRelativeTime(ts, mockT)).toBe('2m前')
   })
 
   it('formatRelativeTime — 1h前', () => {
     const ts = new Date(Date.now() - 3600000).toISOString()
-    expect(formatRelativeTime(ts)).toBe('1h前')
+    expect(formatRelativeTime(ts, mockT)).toBe('1h前')
   })
 
   it('formatRelativeTime — 无效时间戳返回空字符串', () => {
-    expect(formatRelativeTime('invalid')).toBe('')
+    expect(formatRelativeTime('invalid', mockT)).toBe('')
   })
 
   it('SubagentItem threadId 含复制按钮', () => {
