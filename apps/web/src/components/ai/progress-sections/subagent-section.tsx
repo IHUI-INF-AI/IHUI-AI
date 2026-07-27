@@ -32,8 +32,12 @@ const SUBAGENT_STATUS_CLS: Record<SubagentStatus, string> = {
  * 对齐 Trae Work Subagent 展示:
  * - 标题带 Users 图标
  * - @handle 彩色标签 + 状态 SVG 图标 + 当前任务 + 耗时 + token 消耗
+ *
+ * v10 memo:React.memo 包装,subagents 引用稳定时跳过重渲染
  */
-export function SubagentSection({ subagents }: SubagentSectionProps) {
+export const SubagentSection = React.memo(function SubagentSection({
+  subagents,
+}: SubagentSectionProps) {
   if (subagents.length === 0) return null
 
   return (
@@ -99,6 +103,6 @@ export function SubagentSection({ subagents }: SubagentSectionProps) {
       </div>
     </FoldableSection>
   )
-}
+})
 
 export default SubagentSection
