@@ -7,68 +7,16 @@
  * 与 Taro 的 postcss 配置体系不兼容,升级风险高。
  * web 端使用 Next.js + Turbopack,原生支持 v4。
  *
- * 语义色对齐 web 端 packages/design-tokens/src/styles/tokens.css @theme 块。
- * CSS 变量值通过 `node scripts/sync-design-tokens.mjs` 自动同步到 src/app.css 的 :root 和 .dark 块
- * (因 v3 不识别 @theme,无法直接 @import tokens.css)。
+ * 语义色 + 圆角映射已抽取到 @ihui/design-tokens/tailwind-preset 共享 preset,
+ * 与 mobile-rn 端共用,消除重复定义 + 统一 borderRadius.sm = 0.25rem。
+ * CSS 变量值通过 `node scripts/sync-design-tokens.mjs` 自动同步到 src/app.css。
  */
 import type { Config } from 'tailwindcss'
+import sharedPreset from '@ihui/design-tokens/tailwind-preset'
 
 export default {
   content: ['./src/**/*.{ts,tsx}'],
-  darkMode: 'class',
-  theme: {
-    extend: {
-      colors: {
-        border: 'var(--color-border)',
-        input: 'var(--color-input)',
-        ring: 'var(--color-ring)',
-        background: 'var(--color-background)',
-        foreground: 'var(--color-foreground)',
-        primary: {
-          DEFAULT: 'var(--color-primary)',
-          foreground: 'var(--color-primary-foreground)',
-        },
-        secondary: {
-          DEFAULT: 'var(--color-secondary)',
-          foreground: 'var(--color-secondary-foreground)',
-        },
-        destructive: {
-          DEFAULT: 'var(--color-destructive)',
-          foreground: 'var(--color-destructive-foreground)',
-        },
-        muted: {
-          DEFAULT: 'var(--color-muted)',
-          foreground: 'var(--color-muted-foreground)',
-        },
-        accent: {
-          DEFAULT: 'var(--color-accent)',
-          foreground: 'var(--color-accent-foreground)',
-        },
-        card: {
-          DEFAULT: 'var(--color-card)',
-          foreground: 'var(--color-card-foreground)',
-        },
-        success: {
-          DEFAULT: 'var(--color-success)',
-          foreground: 'var(--color-success-foreground)',
-        },
-        warning: {
-          DEFAULT: 'var(--color-warning)',
-          foreground: 'var(--color-warning-foreground)',
-        },
-        info: {
-          DEFAULT: 'var(--color-info)',
-          foreground: 'var(--color-info-foreground)',
-        },
-      },
-      borderRadius: {
-        sm: '0.25rem',
-        md: '0.375rem',
-        lg: '0.5rem',
-        xl: '0.75rem',
-      },
-    },
-  },
+  presets: [sharedPreset],
   plugins: [],
   corePlugins: {
     preflight: false,
