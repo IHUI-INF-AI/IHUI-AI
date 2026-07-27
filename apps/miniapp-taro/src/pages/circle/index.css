@@ -60,8 +60,8 @@
   gap: 6rpx;
   height: 56rpx;
   padding: 0 20rpx;
-  background: rgba(0, 242, 255, 0.08);
-  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
   flex-shrink: 0;
 }
@@ -103,7 +103,7 @@
   width: 200rpx;
   padding: 24rpx 16rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   flex-shrink: 0;
   gap: 8rpx;
@@ -149,7 +149,7 @@
 }
 .ci-user-follow.followed {
   background: var(--color-background);
-  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  border: 2rpx solid var(--color-border);
 }
 .ci-user-follow.followed Text {
   color: var(--color-muted-foreground);
@@ -165,7 +165,7 @@
 }
 .ci-item {
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 16rpx;
   padding: 24rpx;
 }

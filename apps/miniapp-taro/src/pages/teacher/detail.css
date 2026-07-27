@@ -11,7 +11,7 @@
   display: flex;
   flex-direction: column;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.12);
+  border: 2rpx solid var(--color-border);
   border-radius: 16rpx;
   padding: 28rpx 24rpx;
 }
@@ -74,8 +74,8 @@
   padding: 12rpx 28rpx;
   font-size: 26rpx;
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
-  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-ring);
   border-radius: 8rpx;
   flex-shrink: 0;
 }
@@ -90,7 +90,7 @@
   margin-top: 24rpx;
   display: flex;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   padding: 24rpx 16rpx;
   gap: 12rpx;
@@ -117,7 +117,7 @@
 .tdetail-intro {
   margin-top: 24rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   padding: 24rpx;
 }
@@ -159,7 +159,7 @@
 .tdetail-course-card {
   display: flex;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   padding: 20rpx;
 }
@@ -214,7 +214,7 @@
 .tdetail-review-card {
   display: flex;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   padding: 20rpx;
 }
@@ -286,8 +286,8 @@
 }
 .tdetail-action-secondary {
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
-  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-ring);
 }
 
 /* ===== 状态文案 ===== */
