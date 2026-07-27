@@ -50,3 +50,31 @@ export function formatTokenCount(tokens: number): string {
   }
   return String(tokens)
 }
+
+/**
+ * 格式化金额(空值返回 fallback,默认 '—';千分位 + 2 位小数)。
+ * 跨端统一:mobile-rn 6 screens + UserInfoCard 共用。
+ * IncomeScreen 等需空值返回 '0.00' 的场景,传 fallback = '0.00'。
+ */
+export function formatAmount(
+  n: number | string | undefined | null,
+  fallback = '—',
+): string {
+  const num = typeof n === 'string' ? Number(n) : n
+  if (typeof num !== 'number' || isNaN(num)) return fallback
+  return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/**
+ * 中文金额格式化(≥10000→'X.XX万',≥100000000→'X.XX亿',其他→向下取整的数字字符串)。
+ * 跨端统一:mobile-rn/UserInfoCard + miniapp-taro/time.ts 共用(采用 mobile-rn 版本,支持亿)。
+ * 实现依据 mobile-rn/UserInfoCard.tsx 原始逻辑(parseFloat + Math.floor),miniapp-taro 旧版不支亿,统一升级。
+ */
+export function formatTokenValue(value: number | string | undefined): string {
+  if (value === undefined || value === null || value === '') return '0'
+  const num = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(num)) return '0'
+  if (num >= 100000000) return `${(num / 100000000).toFixed(2)}亿`
+  if (num >= 10000) return `${(num / 10000).toFixed(2)}万`
+  return String(Math.floor(num))
+}
