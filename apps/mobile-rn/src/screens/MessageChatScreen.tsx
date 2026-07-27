@@ -6,13 +6,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MessageItem } from '@ihui/types'
 
 import { Input, Loading } from '@ihui/ui-native'
-interface ChatMsg {
-  id: string
-  senderId: string
-  content: string
-  createdAt: string
+
+interface ChatMsg extends MessageItem {
+  senderId: string // = fromUserId 别名(业务字段,与 fromUserId 并存)
   isMine: boolean
 }
 
