@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -29,8 +29,22 @@ const TABS: TabDef[] = [
   { key: 'tools', label: '工具集', icon: Wrench, kind: 'tool', layout: 'grid', hasSidebar: true },
   { key: 'apps', label: '应用集', icon: AppWindow, kind: 'app', layout: 'grid', hasSidebar: true },
   { key: 'news', label: '资讯', icon: Newspaper, kind: 'news', layout: 'list', hasSidebar: false },
-  { key: 'papers', label: '论文', icon: FileText, kind: 'paper', layout: 'list', hasSidebar: false },
-  { key: 'projects', label: '项目', icon: Github, kind: 'project', layout: 'list', hasSidebar: false },
+  {
+    key: 'papers',
+    label: '论文',
+    icon: FileText,
+    kind: 'paper',
+    layout: 'list',
+    hasSidebar: false,
+  },
+  {
+    key: 'projects',
+    label: '项目',
+    icon: Github,
+    kind: 'project',
+    layout: 'list',
+    hasSidebar: false,
+  },
   { key: 'rankings', label: '模型排行', icon: Trophy, layout: 'list', hasSidebar: false },
 ]
 
@@ -54,7 +68,7 @@ export default function AiWorldPage() {
   })
 
   const categories = data?.categories ?? []
-  const hotApps = (data?.apps ?? []).slice(0, 6).map((a: any) => ({
+  const hotApps = (data?.apps ?? []).slice(0, 6).map((a) => ({
     id: a.id,
     name: a.title,
     href: a.url ?? `/ai-world/items/${a.id}`,
@@ -74,7 +88,9 @@ export default function AiWorldPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      {hotApps.length > 0 && <HotAppsCard hotApps={hotApps} onNavigate={() => setActiveTab('apps')} />}
+      {hotApps.length > 0 && (
+        <HotAppsCard hotApps={hotApps} onNavigate={() => setActiveTab('apps')} />
+      )}
 
       {/* Tab 切换 */}
       <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-card p-1">

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -78,7 +78,7 @@ export default function CirclesPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {circles.map((c: any) => (
+          {circles.map((c) => (
             <Link key={c.id} href={`/circles/${c.id}`}>
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="relative h-28 bg-gradient-to-br from-primary/10 to-primary/5">

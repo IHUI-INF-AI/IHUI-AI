@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -122,7 +122,7 @@ export default function MyCommentsPage() {
       ) : (
         <>
           <div className="space-y-3">
-            {list.map((comment: any) => {
+            {list.map((comment) => {
               const Icon = TARGET_ICONS[comment.targetType] ?? FileText
               return (
                 <Card key={comment.id} className="transition-colors hover:bg-accent">

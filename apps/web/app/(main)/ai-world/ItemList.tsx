@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -118,7 +118,7 @@ export function ItemList({
                 : 'space-y-2'
             }
           >
-            {items.map((item: any) => (
+            {items.map((item) => (
               <ItemCard key={item.id} item={item} layout={layout} />
             ))}
           </div>

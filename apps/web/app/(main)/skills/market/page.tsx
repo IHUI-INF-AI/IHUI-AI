@@ -1,11 +1,32 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Search, Star, Loader2, ChevronLeft, ChevronRight, Download, Check, Upload, Bell, BellRing } from 'lucide-react'
-import { Card, CardContent, Button, Input, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
+import {
+  Search,
+  Star,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Check,
+  Upload,
+  Bell,
+  BellRing,
+} from 'lucide-react'
+import {
+  Card,
+  CardContent,
+  Button,
+  Input,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { SkillMarketEntry, SkillNotification } from '@ihui/shared/skills/market'
 import {
@@ -37,7 +58,10 @@ export default function SkillsMarketPage() {
   const [notifOpen, setNotifOpen] = React.useState(false)
 
   React.useEffect(() => {
-    const tm = setTimeout(() => { setDebounced(q); setPage(1) }, 300)
+    const tm = setTimeout(() => {
+      setDebounced(q)
+      setPage(1)
+    }, 300)
     return () => clearTimeout(tm)
   }, [q])
 
@@ -54,7 +78,7 @@ export default function SkillsMarketPage() {
 
   const installMut = useMutation({
     mutationFn: installSkill,
-    onSuccess: (_r: any, name: any) => {
+    onSuccess: (_r, name) => {
       setInstalled((s) => new Set(s).add(name))
       toast.success(t('installSuccess'))
       qc.invalidateQueries({ queryKey: ['skills', 'market'] })
@@ -76,7 +100,12 @@ export default function SkillsMarketPage() {
             <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setNotifOpen(true)} className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setNotifOpen(true)}
+              className="relative"
+            >
               <Bell className="h-4 w-4" />
               <span>{t('notifications')}</span>
               {unreadCount > 0 && (
@@ -84,7 +113,8 @@ export default function SkillsMarketPage() {
               )}
             </Button>
             <Button onClick={() => setPublishOpen(true)}>
-              <Upload className="h-4 w-4" /><span>{t('publishButton')}</span>
+              <Upload className="h-4 w-4" />
+              <span>{t('publishButton')}</span>
             </Button>
           </div>
         </div>
@@ -92,12 +122,32 @@ export default function SkillsMarketPage() {
       <div className="space-y-3">
         <div className="relative w-full max-w-sm">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('searchPlaceholder')} className="h-9 pl-8" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t('searchPlaceholder')}
+            className="h-9 pl-8"
+          />
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-1">
-          <TagChip active={tag === ''} onClick={() => { setTag(''); setPage(1) }} label={t('tagAll')} />
+          <TagChip
+            active={tag === ''}
+            onClick={() => {
+              setTag('')
+              setPage(1)
+            }}
+            label={t('tagAll')}
+          />
           {TAGS.map((tg) => (
-            <TagChip key={tg} active={tag === tg} onClick={() => { setTag(tg); setPage(1) }} label={tg} />
+            <TagChip
+              key={tg}
+              active={tag === tg}
+              onClick={() => {
+                setTag(tg)
+                setPage(1)
+              }}
+              label={tg}
+            />
           ))}
         </div>
       </div>
@@ -115,7 +165,7 @@ export default function SkillsMarketPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((s: any) => (
+          {items.map((s) => (
             <SkillCard
               key={s.name}
               skill={s}
@@ -132,12 +182,26 @@ export default function SkillsMarketPage() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-              <ChevronLeft className="h-4 w-4" /><span>{t('prev')}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span>{t('prev')}</span>
             </Button>
-            <span className="text-sm text-muted-foreground">{t('page', { page, total: totalPages })}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              <span>{t('next')}</span><ChevronRight className="h-4 w-4" />
+            <span className="text-sm text-muted-foreground">
+              {t('page', { page, total: totalPages })}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              <span>{t('next')}</span>
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -150,14 +214,24 @@ export default function SkillsMarketPage() {
   )
 }
 
-function TagChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+function TagChip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
         'whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-        active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-muted text-muted-foreground hover:text-foreground',
       )}
     >
       {label}
@@ -169,13 +243,25 @@ function Stars({ value, size = 'h-3.5 w-3.5' }: { value: number; size?: string }
   return (
     <div className="flex">
       {Array.from({ length: 5 }).map((_, i) => (
-        <Star key={i} className={cn(size, i < Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')} />
+        <Star
+          key={i}
+          className={cn(
+            size,
+            i < Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30',
+          )}
+        />
       ))}
     </div>
   )
 }
 
-function SkillCard({ skill, installed, installing, onInstall, onRate }: {
+function SkillCard({
+  skill,
+  installed,
+  installing,
+  onInstall,
+  onRate,
+}: {
   skill: SkillMarketEntry
   installed: boolean
   installing: boolean
@@ -194,8 +280,9 @@ function SkillCard({ skill, installed, installing, onInstall, onRate }: {
   const subscriberCount = sub?.subscriberCount ?? 0
 
   const subscribeMut = useMutation({
-    mutationFn: async (on: boolean) => (on ? subscribeSkill(skill.name) : unsubscribeSkill(skill.name)),
-    onSuccess: (_r: any, on: any) => {
+    mutationFn: async (on: boolean) =>
+      on ? subscribeSkill(skill.name) : unsubscribeSkill(skill.name),
+    onSuccess: (_r, on) => {
       toast.success(on ? t('subscribeSuccess') : t('unsubscribeSuccess'))
       qc.invalidateQueries({ queryKey: ['skills', 'subscription', skill.name] })
     },
@@ -207,12 +294,21 @@ function SkillCard({ skill, installed, installing, onInstall, onRate }: {
       <CardContent className="flex flex-1 flex-col gap-2.5 p-4">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium leading-tight">{skill.name}</h3>
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">v{skill.version}</span>
+          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            v{skill.version}
+          </span>
         </div>
         <p className="flex-1 text-sm text-muted-foreground">{skill.description || '—'}</p>
         {skill.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {skill.tags.map((tg) => <span key={tg} className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{tg}</span>)}
+            {skill.tags.map((tg) => (
+              <span
+                key={tg}
+                className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+              >
+                {tg}
+              </span>
+            ))}
           </div>
         )}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -221,15 +317,29 @@ function SkillCard({ skill, installed, installing, onInstall, onRate }: {
         </div>
         <div className="flex items-center gap-1">
           <Stars value={skill.rating} />
-          <span className="text-xs text-muted-foreground">{skill.rating.toFixed(1)} ({skill.ratingCount})</span>
+          <span className="text-xs text-muted-foreground">
+            {skill.rating.toFixed(1)} ({skill.ratingCount})
+          </span>
         </div>
         <div className="flex items-center gap-2 pt-1">
-          <Button size="sm" className="flex-1" disabled={installed || installing} onClick={onInstall}>
-            {installing ? <Loader2 className="h-4 w-4 animate-spin" /> : installed ? <Check className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+          <Button
+            size="sm"
+            className="flex-1"
+            disabled={installed || installing}
+            onClick={onInstall}
+          >
+            {installing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : installed ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             <span>{installed ? t('installed') : t('install')}</span>
           </Button>
           <Button variant="outline" size="sm" onClick={onRate}>
-            <Star className="h-4 w-4" /><span>{t('rate')}</span>
+            <Star className="h-4 w-4" />
+            <span>{t('rate')}</span>
           </Button>
           <Button
             variant="outline"
@@ -277,19 +387,31 @@ function RatingDialog({ skill, onClose }: { skill: SkillMarketEntry | null; onCl
   })
 
   React.useEffect(() => {
-    if (skill) { setScore(5); setComment('') }
+    if (skill) {
+      setScore(5)
+      setComment('')
+    }
   }, [skill])
 
   return (
     <Dialog open={!!skill} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('rate')} — {skill?.name}</DialogTitle>
+          <DialogTitle>
+            {t('rate')} — {skill?.name}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="flex items-center gap-1">
             {Array.from({ length: 5 }).map((_, i) => (
-              <button key={i} type="button" onClick={() => setScore(i + 1)} className="p-0.5"><Star className={cn('h-6 w-6', i < score ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40')} /></button>
+              <button key={i} type="button" onClick={() => setScore(i + 1)} className="p-0.5">
+                <Star
+                  className={cn(
+                    'h-6 w-6',
+                    i < score ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40',
+                  )}
+                />
+              </button>
             ))}
           </div>
           <textarea
@@ -301,9 +423,12 @@ function RatingDialog({ skill, onClose }: { skill: SkillMarketEntry | null; onCl
           />
           {ratings && ratings.length > 0 && (
             <div className="space-y-2">
-              {ratings.slice(0, 3).map((r: any) => (
+              {ratings.slice(0, 3).map((r) => (
                 <div key={r.id} className="rounded-md bg-muted/60 p-2 text-sm">
-                  <div className="flex items-center justify-between"><span className="font-medium">{r.userName}</span><Stars value={r.score} size="h-3 w-3" /></div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{r.userName}</span>
+                    <Stars value={r.score} size="h-3 w-3" />
+                  </div>
                   {r.comment && <p className="mt-1 text-muted-foreground">{r.comment}</p>}
                 </div>
               ))}
@@ -311,8 +436,13 @@ function RatingDialog({ skill, onClose }: { skill: SkillMarketEntry | null; onCl
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}><span>{t('cancel')}</span></Button>
-          <Button disabled={rateMut.isPending} onClick={() => rateMut.mutate()}>{rateMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<span>{t('submit')}</span></Button>
+          <Button variant="outline" onClick={onClose}>
+            <span>{t('cancel')}</span>
+          </Button>
+          <Button disabled={rateMut.isPending} onClick={() => rateMut.mutate()}>
+            {rateMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <span>{t('submit')}</span>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -332,7 +462,13 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
 
   React.useEffect(() => {
     if (open) {
-      setName(''); setDescription(''); setTags(''); setAuthor(''); setVersion('1.0.0'); setLicense('MIT'); setContent('')
+      setName('')
+      setDescription('')
+      setTags('')
+      setAuthor('')
+      setVersion('1.0.0')
+      setLicense('MIT')
+      setContent('')
     }
   }, [open])
 
@@ -341,7 +477,10 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
       publishSkill({
         name: name.trim(),
         description: description.trim(),
-        tags: tags.split(',').map((s) => s.trim()).filter(Boolean),
+        tags: tags
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
         author: author.trim() || 'anonymous',
         version: version.trim() || '1.0.0',
         license: license.trim() || 'MIT',
@@ -370,26 +509,46 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium">{t('publishDescription')}</label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('publishDescription')} />
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t('publishDescription')}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm font-medium">{t('publishTags')}</label>
-              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="code, ai" />
+              <Input
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="code, ai"
+              />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">{t('publishAuthor')}</label>
-              <Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="your-name" />
+              <Input
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+                placeholder="your-name"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm font-medium">{t('publishVersion')}</label>
-              <Input value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.0.0" />
+              <Input
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                placeholder="1.0.0"
+              />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">{t('publishLicense')}</label>
-              <Input value={license} onChange={(e) => setLicense(e.target.value)} placeholder="MIT" />
+              <Input
+                value={license}
+                onChange={(e) => setLicense(e.target.value)}
+                placeholder="MIT"
+              />
             </div>
           </div>
           <div className="space-y-1">
@@ -404,7 +563,9 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}><span>{t('cancel')}</span></Button>
+          <Button variant="outline" onClick={onClose}>
+            <span>{t('cancel')}</span>
+          </Button>
           <Button disabled={!canSubmit} onClick={() => publishMut.mutate()}>
             {publishMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             <span>{t('publishSubmit')}</span>
@@ -444,7 +605,9 @@ function NotificationsDialog({ open, onClose }: { open: boolean; onClose: () => 
           {isLoading ? (
             <div className="py-8 text-center text-sm text-muted-foreground">{t('loading')}</div>
           ) : !items || items.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">{t('noNotifications')}</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              {t('noNotifications')}
+            </div>
           ) : (
             items.map((n: SkillNotification) => (
               <div key={n.id} className="rounded-md bg-muted/60 p-2.5 text-sm">
@@ -452,7 +615,12 @@ function NotificationsDialog({ open, onClose }: { open: boolean; onClose: () => 
                   <BellRing className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="font-medium">{n.skillName}</span>
                   <span className="ml-auto text-xs text-muted-foreground">
-                    {new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(n.timestamp))}
+                    {new Intl.DateTimeFormat('zh-CN', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }).format(new Date(n.timestamp))}
                   </span>
                 </div>
                 <p className="mt-1 text-muted-foreground">{n.message}</p>
@@ -461,8 +629,13 @@ function NotificationsDialog({ open, onClose }: { open: boolean; onClose: () => 
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}><span>{t('cancel')}</span></Button>
-          <Button disabled={!items?.length || markReadMut.isPending} onClick={() => markReadMut.mutate()}>
+          <Button variant="outline" onClick={onClose}>
+            <span>{t('cancel')}</span>
+          </Button>
+          <Button
+            disabled={!items?.length || markReadMut.isPending}
+            onClick={() => markReadMut.mutate()}
+          >
             {markReadMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             <span>{t('markRead')}</span>
           </Button>

@@ -3,7 +3,14 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Ticket } from 'lucide-react'
-import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
+import {
+  Button,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { useLocale, useTranslations } from 'next-intl'
 import {
@@ -112,7 +119,7 @@ export function TicketsPanel() {
                 </td>
               </tr>
             ) : (
-              list.map((tk: any) => (
+              list.map((tk) => (
                 <tr
                   key={tk.id}
                   className="cursor-pointer transition-colors hover:bg-muted/30"

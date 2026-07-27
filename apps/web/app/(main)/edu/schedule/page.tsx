@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -41,7 +41,7 @@ export default function EduSchedulePage() {
     const items = data ?? []
     const map: Record<number, ScheduleItem[]> = {}
     for (let i = 0; i < 7; i++) map[i] = []
-    items.forEach((it: any) => {
+    items.forEach((it) => {
       const arr = map[it.weekday] ?? (map[it.weekday] = [])
       arr.push(it)
     })

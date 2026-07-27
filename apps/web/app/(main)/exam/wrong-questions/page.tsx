@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -225,7 +225,7 @@ export default function WrongQuestionsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              list.map((wq: any) => (
+              list.map((wq) => (
                 <TableRow key={wq.id}>
                   <TableCell className="max-w-[280px] truncate">
                     {wq.questionTitle || wq.questionId.slice(0, 8)}

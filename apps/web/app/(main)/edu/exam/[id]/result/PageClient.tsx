@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
@@ -88,7 +88,7 @@ export default function EduExamResultPage() {
   }
 
   const result = data
-  const correctCount = result.results.filter((r: any) => r.correct).length
+  const correctCount = result.results.filter((r: QuestionResult) => r.correct).length
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
@@ -153,7 +153,7 @@ export default function EduExamResultPage() {
           {t('detail')}
         </h2>
         <div className="space-y-2">
-          {result.results.map((r: any, i: any) => (
+          {result.results.map((r: QuestionResult, i: number) => (
             <div key={r.questionId} className="rounded-md border p-3 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <span className="flex items-center gap-2">
