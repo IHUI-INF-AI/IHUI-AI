@@ -1,10 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { Heart, Check, Sparkles, Users, Code, Rocket } from 'lucide-react'
+import { Heart, Check, Sparkles, Users, Code, Rocket, Coffee, Wallet } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Card } from '@ihui/ui-react'
 import { CryptoDonation } from './CryptoDonation'
+
+const KOFI_LINK = 'https://ko-fi.com/ihuiai'
+const PAYPAL_LINK = 'https://paypal.me/李春川'
 
 const TIERS = [
   { id: 'bronze', emoji: '🥉', accent: false },
@@ -14,7 +17,7 @@ const TIERS = [
   { id: 'diamond', emoji: '🏆', accent: false },
 ] as const
 
-const SPONSOR_LINK = 'https://github.com/sponsors/IHUI-INF-AI'
+const SPONSOR_LINK = KOFI_LINK
 
 const REASONS = [
   { icon: Code, key: 'reasonOpen' },
@@ -120,6 +123,30 @@ export function SponsorContent(): React.JSX.Element {
           ))}
         </div>
         <p className="mt-6 text-xs text-muted-foreground">{t('sponsorsEmpty')}</p>
+      </section>
+
+      {/* Online donations: PayPal + Ko-fi */}
+      <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
+        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+          {t('onlineTitle')}
+        </h2>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+          {t('onlineDesc')}
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+          <Button size="lg" asChild>
+            <a href={KOFI_LINK} target="_blank" rel="noopener noreferrer">
+              <Coffee className="mr-2 h-5 w-5" />
+              Ko-fi
+            </a>
+          </Button>
+          <Button size="lg" variant="outline" asChild>
+            <a href={PAYPAL_LINK} target="_blank" rel="noopener noreferrer">
+              <Wallet className="mr-2 h-5 w-5" />
+              PayPal
+            </a>
+          </Button>
+        </div>
       </section>
 
       {/* Crypto donations */}

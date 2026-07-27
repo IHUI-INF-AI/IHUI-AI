@@ -12649,7 +12649,9 @@
                              },
                     "sponsorsTitle":  "Current Sponsors",
                     "sponsorsDesc":  "Thanks to the following sponsors for supporting IHUI AI.",
-                    "sponsorsEmpty":  "Be the first sponsor, your name will be shown here."
+                    "sponsorsEmpty":  "Be the first sponsor, your name will be shown here.",
+                    "onlineTitle":  "Donate Online",
+                    "onlineDesc":  "Support us via PayPal or Ko-fi — quick, secure, no signup needed."
                 },
     "crypto":  {
         "title":  "Crypto Donations",

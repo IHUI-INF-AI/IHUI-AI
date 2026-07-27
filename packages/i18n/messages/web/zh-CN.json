@@ -12453,7 +12453,9 @@
                              },
                     "sponsorsTitle":  "现有赞助者",
                     "sponsorsDesc":  "感谢以下赞助者对 IHUI AI 的支持。",
-                    "sponsorsEmpty":  "成为首位赞助者,您的名字将显示在这里。"
+                    "sponsorsEmpty":  "成为首位赞助者,您的名字将显示在这里。",
+                    "onlineTitle":  "在线捐赠",
+                    "onlineDesc":  "通过 PayPal 或 Ko-fi 快速支持我们 — 安全便捷,无需注册。"
                 },
     "crypto":  {
         "title":  "加密货币捐赠",
