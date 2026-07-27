@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -92,7 +92,7 @@ export default function RankingPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {list.map((item: any) => (
+                      {list.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="px-4 py-2.5 font-medium">
                             {item.rank <= 3 ? (

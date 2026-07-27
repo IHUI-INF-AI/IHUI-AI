@@ -49,7 +49,7 @@ export default function AdminCirclesDynamicsPage() {
   const auditMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: 'published' | 'pending' | 'rejected' }) =>
       auditDynamic(id, status),
-    onSuccess: (_data: any, { status }: any) => {
+    onSuccess: (_data, { status }) => {
       toast.success(status === 'published' ? t('auditPublishSuccess') : t('auditRejectSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'circlesDynamics'] })
     },

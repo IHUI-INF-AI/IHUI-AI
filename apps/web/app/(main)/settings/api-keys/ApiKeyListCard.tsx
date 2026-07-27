@@ -147,12 +147,12 @@ export function ApiKeyListCard({
                       {maskKey(k.key)}
                     </code>
                     <div className="flex flex-wrap gap-1">
-                      {k.permissions.map((p: any) => (
+                      {k.permissions.map((p) => (
                         <span
                           key={p}
                           className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
                         >
-                          {(PERM_LABELS as any)[p] ?? p}
+                          {PERM_LABELS[p] ?? p}
                         </span>
                       ))}
                     </div>

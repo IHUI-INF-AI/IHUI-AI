@@ -5,7 +5,7 @@ export interface MenuItem {
   id?: number | string
   name: string
   icon?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface MenuProps {

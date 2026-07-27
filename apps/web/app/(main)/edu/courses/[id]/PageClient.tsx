@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -50,7 +50,7 @@ export default function EduCourseDetailPage() {
 
   const handleSelectSection = (section: Section) => {
     setCurrentSection(section)
-    const chapter = course?.chapters?.find((c: any) => c.sections.some((s: any) => s.id === section.id))
+    const chapter = course?.chapters?.find((c: Chapter) => c.sections.some((s) => s.id === section.id))
     setCurrentChapterId(chapter?.id)
   }
 

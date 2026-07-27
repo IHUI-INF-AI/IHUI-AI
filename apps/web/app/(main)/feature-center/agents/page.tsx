@@ -48,7 +48,7 @@ export default function AgentsPage() {
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item: any) => {
+    return all.filter((item) => {
       const matchKeyword =
         !keyword ||
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -104,15 +104,15 @@ export default function AgentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <VirtualList items={list} itemKey={(item) => item.id as any} itemHeight={180}>
+        <VirtualList items={list} itemKey={(item) => item.id} itemHeight={180}>
           {(item) => (
             <FeatureCard
-              title={item.name as any}
-              description={item.description as any}
-              badge={item.category as any}
+              title={item.name}
+              description={item.description}
+              badge={item.category}
               footer={
                 <div className="flex flex-wrap gap-1">
-                  {item.capabilities.map((cap: any) => (
+                  {item.capabilities.map((cap) => (
                     <span
                       key={cap}
                       className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
