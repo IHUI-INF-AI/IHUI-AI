@@ -113,12 +113,24 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
     )
 
     if (collapsed) {
-      const Tag = href ? 'a' : 'button'
+      if (href) {
+        return (
+          <a
+            ref={ref as React.Ref<HTMLAnchorElement>}
+            href={href}
+            onClick={onClick}
+            title={label}
+            aria-label={label}
+            aria-current={active ? 'page' : undefined}
+            className={baseClass}
+          >
+            {content}
+          </a>
+        )
+      }
       return (
-        <Tag
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 动态 Tag(a/button)ref 类型无法静态 narrow,用 any 兼容
-          ref={ref as any}
-          href={href}
+        <button
+          ref={ref as React.Ref<HTMLButtonElement>}
           onClick={onClick}
           title={label}
           aria-label={label}
@@ -126,7 +138,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
           className={baseClass}
         >
           {content}
-        </Tag>
+        </button>
       )
     }
 

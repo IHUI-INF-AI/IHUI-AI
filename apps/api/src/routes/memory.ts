@@ -109,10 +109,10 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
       entries = await readEntries(server.redis, key)
     } else {
       // 无 scope:聚合所有作用域
-      for (const s of SCOPES) {
-        const key = buildKey(userId, s, sessionId, projectKey)
-        entries = entries.concat(await readEntries(server.redis, key))
-      }
+      const lists = await Promise.all(
+        SCOPES.map((s) => readEntries(server.redis, buildKey(userId, s, sessionId, projectKey))),
+      )
+      entries = lists.flat()
     }
 
     return reply.send(success({ entries, total: entries.length }))
@@ -150,32 +150,30 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /memory/:id — 删除指定记忆条目
-  server.delete<{ Params: { id: string } }>(
-    '/memory/:id',
-    async (request, reply) => {
-      if (!(await checkAuthOrInternalService(request, reply))) return
-      const userId = request.userId!
+  server.delete<{ Params: { id: string } }>('/memory/:id', async (request, reply) => {
+    if (!(await checkAuthOrInternalService(request, reply))) return
+    const userId = request.userId!
 
-      const parsed = deleteQuerySchema.safeParse(request.query)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = deleteQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const { scope, sessionId, projectKey } = parsed.data
+    const targetScopes = scope ? [scope as MemoryScope] : SCOPES
+    const targetKeys = targetScopes.map((s) => buildKey(userId, s, sessionId, projectKey))
+    const lists = await Promise.all(targetKeys.map((key) => readEntries(server.redis, key)))
+
+    for (let i = 0; i < targetScopes.length; i++) {
+      const entries = lists[i]!
+      const idx = entries.findIndex((e) => e.id === request.params.id)
+      if (idx >= 0) {
+        entries.splice(idx, 1)
+        await writeEntries(server.redis, targetKeys[i]!, entries)
+        return reply.send(success({ id: request.params.id, deleted: true }))
       }
+    }
 
-      const { scope, sessionId, projectKey } = parsed.data
-      const targetScopes = scope ? [scope as MemoryScope] : SCOPES
-
-      for (const s of targetScopes) {
-        const key = buildKey(userId, s, sessionId, projectKey)
-        const entries = await readEntries(server.redis, key)
-        const idx = entries.findIndex((e) => e.id === request.params.id)
-        if (idx >= 0) {
-          entries.splice(idx, 1)
-          await writeEntries(server.redis, key, entries)
-          return reply.send(success({ id: request.params.id, deleted: true }))
-        }
-      }
-
-      return reply.status(404).send(error(404, '记忆条目不存在'))
-    },
-  )
+    return reply.status(404).send(error(404, '记忆条目不存在'))
+  })
 }

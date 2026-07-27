@@ -45,7 +45,7 @@ export const ImageGenQwen = React.memo(function ImageGenQwen() {
       if (!res.success) throw new Error(res.error)
       return res.data
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       setTaskId(data.taskId)
       toast.success(t('taskSubmitted'))
     },
@@ -60,7 +60,7 @@ export const ImageGenQwen = React.memo(function ImageGenQwen() {
       return res.data
     },
     enabled: !!taskId,
-    refetchInterval: (query: any) => {
+    refetchInterval: (query) => {
       const status = query.state.data?.status
       return status === 'succeeded' || status === 'failed' ? false : 3000
     },

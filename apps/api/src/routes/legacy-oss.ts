@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { authenticate } from '../plugins/auth.js'
 import { z } from 'zod'
 import { deleteFile } from '../services/storage-service.js'
+import { error } from '../utils/response.js'
 
 /**
  * 历史项目缺失端点补齐 — OSS 模块(D10/D10补充)。
@@ -35,13 +36,13 @@ export const legacyOssRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       const base64 = `data:${response.headers.get('content-type') || 'image/png'};base64,${buffer.toString('base64')}`
       return { base64 }
     } catch {
-      return reply.code(400).send({ error: 'URL 转换失败' })
+      return reply.status(400).send(error(400, 'URL 转换失败'))
     }
   })
 
   // ========== D10补充: OSS 问答图片上传 ==========
   fastify.post('/oss/ask/question/image', { preHandler: authenticate }, async (_request, reply) => {
     // 复用现有上传逻辑
-    return reply.code(501).send({ error: '请使用 /api/oss/upload 端点' })
+    return reply.status(501).send(error(501, '请使用 /api/oss/upload 端点'))
   })
 }
