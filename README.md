@@ -948,7 +948,7 @@ IHUI-AI/
 │   └── web/                 # 前端 (Next.js 15 + React 19, 200+ 页面)
 ├── packages/                # 16 个共享包(5 个架构图核心 + 11 个基础设施)
 │   ├── api-client/          # @ihui/api-client (40+ endpoints 自动生成 SDK,6 端共享)
-│   ├── app/                 # @ihui/app (RN 业务逻辑共享:AboutScreen/ProfileScreen/SettingsScreen + RN tokens re-export)
+│   ├── app/                 # @ihui/rn-app (RN 业务逻辑共享:AboutScreen/ProfileScreen/SettingsScreen + RN tokens re-export)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
 │   ├── browser-platform/    # @ihui/browser-platform (浏览器平台适配层:抽象 chrome.*/window.*/webContents.* 为 5 个 adapter 接口,extension 已接入,web/desktop 后续,2026-07-27 立)
 │   ├── context-compaction/  # @ihui/context-compaction (上下文压缩)
