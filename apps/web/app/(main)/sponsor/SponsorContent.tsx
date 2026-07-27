@@ -7,7 +7,7 @@ import { Button, Card } from '@ihui/ui-react'
 import { CryptoDonation } from './CryptoDonation'
 
 const KOFI_LINK = 'https://ko-fi.com/ihuiai'
-const PAYPAL_LINK = 'https://paypal.me/李春川'
+const PAYPAL_LINK = 'https://www.paypal.com/donate/?business=ok502319984@gmail.com&item_name=IHUI+AI+Donation&currency_code=USD'
 
 const TIERS = [
   { id: 'bronze', emoji: '🥉', accent: false },
