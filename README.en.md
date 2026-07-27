@@ -522,7 +522,7 @@ pnpm turbo build typecheck lint test
 | `@ihui/ui-react`      | Web + extension shared UI (Card / Button / Resizable / WorkPanel)                                        |
 | `@ihui/ui-native`     | React Native shared UI primitives                                                                        |
 | `@ihui/design-tokens` | Cross-end design tokens (colors / radius / fonts / animations / 10 breakpoints) — single source of truth |
-| `@ihui/app`           | RN ↔ Web cross-end shared screens (About / Profile / Settings) via Solito + StyleSheet                   |
+| `@ihui/rn-app`         | RN ↔ Web cross-end shared screens (About / Profile / Settings) via Solito + StyleSheet                   |
 | `@ihui/config`        | Shared ESLint / TSConfig / Tailwind presets                                                              |
 | `@ihui/i18n`          | Cross-end i18n utilities                                                                                 |
 | `@ihui/api-client`    | Type-safe API client with onToolCall callbacks                                                           |
@@ -541,7 +541,7 @@ Each end ships with real code, tests, and a running dev server — not a placeho
 | **CLI** (`apps/cli`)               | 🟢 Production | 21 commands · 36 tools · ACP Server          | Interactive REPL · agent mode · MCP management · 24-source config import · skills · audit                    |
 | **Desktop** (`apps/desktop`)       | 🟢 Production | Tauri 2 + Rust shell · 25+ native commands   | Tray · single instance · autostart · global hotkeys · deep links · native notifications · computer control   |
 | **Extension** (`apps/extension`)   | 🟢 Production | Chrome/Edge/Firefox · sidebar + context menu | 5-language i18n · agent action bridge · content script executor · screenshot回传                             |
-| **Mobile** (`apps/mobile-rn`)      | 🟡 Beta       | iOS/Android · 3 shared screens               | SSO · AboutScreen · ProfileScreen · SettingsScreen (cross-end shared via `@ihui/app`)                        |
+| **Mobile** (`apps/mobile-rn`)      | 🟡 Beta       | iOS/Android · 3 shared screens               | SSO · AboutScreen · ProfileScreen · SettingsScreen (cross-end shared via `@ihui/rn-app`)                        |
 | **Miniapp** (`apps/miniapp-taro`)  | 🟡 Beta       | WeChat Mini Program · 3-language i18n        | WeChat Pay native integration · auth · core browse                                                           |
 
 Legend: 🟢 Production (running on the commercial platform) · 🟡 Beta (core flows working, feature parity in progress)

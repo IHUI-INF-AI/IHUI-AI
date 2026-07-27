@@ -4,7 +4,7 @@
  * 保留卡片样式 + 点击事件
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/AiModelCard/index.vue)
  *
- * 2026-07-27 重构:15+ 处硬编码颜色改用 @ihui/app 的 tokens.* 统一管理,
+ * 2026-07-27 重构:15+ 处硬编码颜色改用 @ihui/rn-app 的 tokens.* 统一管理,
  * tokens 未覆盖的语义色(品牌浅底/警告色)提取为 COLORS 常量集中管理。
  */
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
