@@ -111,6 +111,23 @@
   --color-rank-silver: #c0c0c0;
   --color-rank-bronze: #cd7f32;
 
+  /* ============ 图表色板(2026-07-27 立,统一 web 端图表硬编码色) ============
+   * 8 色主色板对应 Tailwind blue/emerald/amber/red/violet/pink/cyan/lime-500
+   * 用于 SVG fill/stroke / inline style / className;ECharts option 因 canvas 不支持 CSS var(),
+   * 各图表组件保留 hex 硬编码 + 行内注释指向本 token(技术约束,见 AGENTS §3)
+   * --chart-text:图表文字色  --chart-axis:轴线色  --chart-success:正向指标色(green-600) */
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #ef4444;
+  --chart-5: #8b5cf6;
+  --chart-6: #ec4899;
+  --chart-7: #06b6d4;
+  --chart-8: #84cc16;
+  --chart-text: #94a3b8;
+  --chart-axis: #e5e7eb;
+  --chart-success: #16a34a;
+
   /* 中文 + 图标垂直对齐偏移 (2026-07-19 立,实测精确调优)
    * 根因:中文字体 ascent(≈11px) ≠ descent(≈3px) 不对称,
    * 导致 ink 几何中心在 line-box 中心**下方 0.4-0.5px**(HarmonyOS Sans SC @ 14px 测得);
@@ -285,6 +302,10 @@
   --color-sidebar-item-hover-bg: hsl(0 0% 0%);
   /* 暗色模式:深灰色,与 14% L 偏白页面底形成反向对比 */
   --color-shell-panel: hsl(220 12% 5%);
+
+  /* 图表色板暗色覆盖(2026-07-27):8 主色沿用亮色,仅文字/轴线色下调 */
+  --chart-text: #64748b;
+  --chart-axis: #1e293b;
 }
 
 /* ============ 全局基础变量(2026-07-27 上提自 web 本地 design-tokens.css) ============

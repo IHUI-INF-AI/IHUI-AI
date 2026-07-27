@@ -1,8 +1,17 @@
 import { useState } from 'react'
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
+
+type AigcCoverRouteParamList = {
+  AigcCover: { id: string; title: string } | undefined
+}
+type Nav = NativeStackNavigationProp<RootStackParamList>
+type Route = RouteProp<AigcCoverRouteParamList, 'AigcCover'>
 
 interface CoverOption {
   id: string
@@ -51,8 +60,8 @@ const MOCK_COVERS: CoverOption[] = [
 ]
 
 export default function AigcCoverScreen() {
-  const navigation = useNavigation<any>()
-  const route = useRoute<RouteProp<any>>()
+  const navigation = useNavigation<Nav>()
+  const route = useRoute<Route>()
   const workTitle = (route.params?.title as string) ?? '未命名作品'
   const [selectedId, setSelectedId] = useState<string>(MOCK_COVERS[0]!.id)
   const [filter, setFilter] = useState<'all' | 'work' | 'ai'>('all')
@@ -146,15 +155,15 @@ export default function AigcCoverScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-  backText: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6b7280' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 16 },
   previewWrap: { position: 'relative', borderRadius: 8, overflow: 'hidden', marginBottom: 16 },
-  preview: { width: '100%', aspectRatio: 1, backgroundColor: '#e5e7eb' },
+  preview: { width: '100%', aspectRatio: 1, backgroundColor: tokens.border.light },
   previewBadge: {
     position: 'absolute',
     bottom: 8,
@@ -164,31 +173,31 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  previewBadgeText: { fontSize: 12, color: '#fff' },
+  previewBadgeText: { fontSize: 12, color: tokens.surface.light },
   filterRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.surface.card,
   },
   filterChipActive: { backgroundColor: PRIMARY },
-  filterText: { fontSize: 13, color: '#374151' },
-  filterTextActive: { color: '#fff', fontWeight: '600' },
+  filterText: { fontSize: 13, color: tokens.text.medium },
+  filterTextActive: { color: tokens.surface.light, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   coverItem: {
     width: '48%',
     flexGrow: 1,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#f9fafb',
+    backgroundColor: tokens.surface.muted,
     paddingBottom: 8,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   coverItemActive: { borderColor: PRIMARY },
-  coverImage: { width: '100%', aspectRatio: 1, backgroundColor: '#e5e7eb' },
-  coverLabel: { marginTop: 6, paddingHorizontal: 8, fontSize: 12, color: '#374151' },
+  coverImage: { width: '100%', aspectRatio: 1, backgroundColor: tokens.border.light },
+  coverLabel: { marginTop: 6, paddingHorizontal: 8, fontSize: 12, color: tokens.text.medium },
   selectedDot: {
     position: 'absolute',
     top: 6,
@@ -200,7 +209,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  selectedDotText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  selectedDotText: { color: tokens.surface.light, fontSize: 14, fontWeight: '700' },
   aiGenBtn: {
     marginTop: 16,
     paddingVertical: 12,
@@ -211,7 +220,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   aiGenText: { color: PRIMARY, fontSize: 14, fontWeight: '600' },
-  footer: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff' },
+  footer: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: tokens.surface.light },
   confirmBtn: {
     paddingVertical: 14,
     borderRadius: 8,
@@ -219,5 +228,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  confirmText: { color: tokens.surface.light, fontSize: 15, fontWeight: '600' },
 })
