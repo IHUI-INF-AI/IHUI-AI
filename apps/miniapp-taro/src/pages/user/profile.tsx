@@ -92,11 +92,11 @@ export default function Profile() {
   return (
     <View className="min-h-screen bg-background">
       {/* 身份标签(对标原项目 settings/account)*/}
-      <View className="mx-[24rpx] mt-[24rpx] tech-card px-[32rpx] py-[24rpx] flex items-center justify-between">
+      <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[24rpx] flex items-center justify-between">
         <Text className="text-[28rpx] text-foreground">{t('user.identity')}</Text>
         <View className="flex items-center">
           {form.isVip ? (
-            <Text className="px-[16rpx] py-[4rpx] bg-[#8b5cf6] text-white text-[22rpx] rounded-[8rpx]">
+            <Text className="px-[16rpx] py-[4rpx] bg-accent text-accent-foreground text-[22rpx] rounded-[8rpx]">
               {t('user.vipMember')}
             </Text>
           ) : null}
@@ -131,7 +131,7 @@ export default function Profile() {
                     mode="aspectFill"
                   />
                   <View className="absolute -bottom-[4rpx] -right-[4rpx] w-[28rpx] h-[28rpx] bg-primary rounded-sm flex items-center justify-center">
-                    <Text className="text-[18rpx] text-white leading-none">📷</Text>
+                    <Text className="text-[18rpx] text-primary-foreground leading-none">📷</Text>
                   </View>
                 </View>
               ) : (

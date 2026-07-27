@@ -30,8 +30,8 @@
   justify-content: center;
   font-size: 32rpx;
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
-  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-ring);
   border-radius: 8rpx;
 }
 .cal-today-btn {
@@ -39,7 +39,7 @@
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
   border-radius: 8rpx;
 }
 
@@ -73,7 +73,7 @@
   display: flex;
   flex-wrap: wrap;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   overflow: hidden;
 }
@@ -91,7 +91,7 @@
   padding: 8rpx 0;
 }
 .cal-cell-active {
-  background: rgba(0, 242, 255, 0.06);
+  background: var(--color-border);
 }
 .cal-cell-num {
   font-size: 26rpx;
@@ -118,7 +118,7 @@
 }
 .cal-card {
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   padding: 20rpx;
   margin-bottom: 16rpx;
@@ -176,8 +176,8 @@
 }
 .cal-action-upcoming {
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
-  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-ring);
 }
 .cal-action-living {
   color: #fff;
@@ -185,8 +185,8 @@
 }
 .cal-action-ended {
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.06);
-  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-border);
 }
 .cal-empty {
   text-align: center;

@@ -175,7 +175,7 @@ export default function FavoritesPage() {
           <Text className="mx-[8rpx] text-[40rpx] font-bold text-primary">{totalCount}</Text>
           <Text className="text-[24rpx] text-muted-foreground">{tt('favorites.itemsUnit', '项')}</Text>
           <Text
-            className="ml-auto py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-[rgba(0,242,255,0.08)] border-[2rpx] border-[rgba(0,242,255,0.2)] rounded-[8rpx]"
+            className="ml-auto py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/30 rounded-[8rpx]"
             onClick={() => {
               setManageMode((v) => !v)
               setSelectedIds(new Set())
@@ -184,7 +184,7 @@ export default function FavoritesPage() {
             {manageMode ? tt('favorites.done', '完成') : tt('favorites.manage', '管理')}
           </Text>
         </View>
-        <View className="flex items-center h-[72rpx] px-[20rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx]">
+        <View className="flex items-center h-[72rpx] px-[20rpx] bg-card border-[2rpx] border-primary/30 rounded-[12rpx]">
           <Text className="mr-[12rpx] text-[28rpx] text-muted-foreground shrink-0">🔍</Text>
           <Input
             className="flex-1 text-[28rpx] text-foreground"
@@ -200,7 +200,7 @@ export default function FavoritesPage() {
         {CATEGORY_TABS.map((tab) => (
           <View
             key={tab.key}
-            className={`inline-flex items-center justify-center h-[60rpx] px-[24rpx] mr-[12rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx] ${activeTab === tab.key ? 'text-primary border-primary font-semibold' : ''}`}
+            className={`inline-flex items-center justify-center h-[60rpx] px-[24rpx] mr-[12rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-primary/20 rounded-[10rpx] ${activeTab === tab.key ? 'text-primary border-primary font-semibold' : ''}`}
             onClick={() => setActiveTab(tab.key)}
           >
             <Text>{tt(tab.labelKey, tab.fallback)}</Text>
@@ -210,7 +210,7 @@ export default function FavoritesPage() {
 
       {/* 批量操作栏 */}
       {manageMode && displayList.length > 0 ? (
-        <View className="mt-[16rpx] flex items-center justify-between py-[16rpx] px-[20rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx]">
+        <View className="mt-[16rpx] flex items-center justify-between py-[16rpx] px-[20rpx] bg-card border-[2rpx] border-primary/20 rounded-[10rpx]">
           <View
             className="flex items-center"
             onClick={() => {
@@ -222,7 +222,7 @@ export default function FavoritesPage() {
             }}
           >
             <Text
-              className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[6rpx] shrink-0 ${allChecked ? 'text-foreground bg-primary border-primary' : ''}`}
+              className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-primary/40 rounded-[6rpx] shrink-0 ${allChecked ? 'text-foreground bg-primary border-primary' : ''}`}
             >
               {allChecked ? '✓' : ''}
             </Text>
@@ -245,12 +245,12 @@ export default function FavoritesPage() {
             return (
               <View
                 key={item.id}
-                className="flex items-center p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]"
+                className="flex items-center p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
                 onClick={() => (manageMode ? toggleSelect(item.id) : viewDetail(item))}
               >
                 {manageMode ? (
                   <Text
-                    className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[6rpx] shrink-0 ${checked ? 'text-foreground bg-primary border-primary' : ''}`}
+                    className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-primary/40 rounded-[6rpx] shrink-0 ${checked ? 'text-foreground bg-primary border-primary' : ''}`}
                   >
                     {checked ? '✓' : ''}
                   </Text>
