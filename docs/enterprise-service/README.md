@@ -1,127 +1,61 @@
-# 企业文档使用说明
+# IHUI-AI 企业版销售物料
 
-## 支持的文档格式
+> 本目录提供 IHUI-AI 企业版(私有化 / SaaS)销售全过程所需物料:报价、部署、功能对比、SLA、Demo 搭建。
+> 销售联系:**sales@ihui.ai**
 
-文档中心支持以下格式的文档显示：
+## 物料清单
 
-### 1. Markdown 文档（.md）
-- 纯文本格式，支持基本的格式化（标题、列表、表格、代码块等）
-- 适合技术文档、说明文档
-- 示例：`whitepaper.md`
+| 文档 | 用途 | 适用阶段 |
+|------|------|----------|
+| [报价单生成器](./quote-generator.mjs) | CLI 生成 4 档报价单(markdown,可选 PDF) | 商务报价 |
+| [部署指南](./deployment-guide.md) | 私有云 / 公有云 / 混合云三种部署模式 | 技术对接 |
+| [功能对比表](./feature-comparison.md) | 社区版 vs Starter/Business/Enterprise/Custom | 选型决策 |
+| [SLA 条款](./sla-terms.md) | 服务可用性 / 故障响应 / 赔偿条款 | 合同签订 |
+| [Demo 搭建脚本](./demo-setup.sh) | 一键拉起本地 Demo 环境(WSL/Linux/Mac) | 售前演示 |
 
-### 2. PDF 文档（.pdf）
-- 保留原始格式，支持图片、表格、图表
-- 浏览器直接预览
-- 配置方式：
-```javascript
-{ 
-  id: 'example-pdf', 
-  fileUrl: '/docs/enterprise-service/example.pdf', 
-  fileType: 'pdf', 
-  title: '示例PDF文档', 
-  category: '企业服务', 
-  type: 'file' 
-}
+## 报价档位速览
+
+| 档位 | 年费 | 用户上限 | SLA | 响应 | 部署 |
+|------|------|----------|-----|------|------|
+| Starter | 5 万 | ≤50 | 99.5% | 8h 邮件 | SaaS |
+| Business | 10 万 | ≤200 | 99.9% | 4h 工单+群 | SaaS |
+| Enterprise | 30 万 | 无限 | 99.9% | 2h 专属客户经理 | 私有/混合 |
+| Custom | 50 万+ | 无限 | 99.99% | 1h 专属团队 | 完全私有化(含源码) |
+
+## 快速生成报价单
+
+```bash
+# Business 档,150 用户,2 年订阅
+node docs/enterprise-service/quote-generator.mjs \
+  --tier=business --customers=150 --duration=24 --customer=ACME
+
+# Enterprise 档,生成 PDF(需项目已安装 puppeteer)
+node docs/enterprise-service/quote-generator.mjs \
+  --tier=enterprise --customers=1000 --duration=36 --pdf=quote.pdf
 ```
 
-### 3. PowerPoint 文档（.ppt, .pptx）
-- 完整保留幻灯片格式、动画、图片
-- 使用微软 Office Online 预览服务
-- 配置方式：
-```javascript
-{ 
-  id: 'example-ppt', 
-  fileUrl: '/docs/enterprise-service/example.pptx', 
-  fileType: 'pptx', 
-  title: '示例PPT文档', 
-  category: '企业服务', 
-  type: 'file' 
-}
+运行 `node docs/enterprise-service/quote-generator.mjs -h` 查看完整参数。
+
+## 售前 Demo 搭建
+
+```bash
+bash docs/enterprise-service/demo-setup.sh ./ihui-ai-demo
+# 启动后访问 http://localhost:8801
 ```
 
-### 4. Word 文档（.doc, .docx）
-- 完整保留文档格式、图片、表格
-- 使用微软 Office Online 预览服务
-- 配置方式：
-```javascript
-{ 
-  id: 'example-doc', 
-  fileUrl: '/docs/enterprise-service/example.docx', 
-  fileType: 'docx', 
-  title: '示例Word文档', 
-  category: '企业服务', 
-  type: 'file' 
-}
-```
+## 配套文档
 
-### 5. Excel 文档（.xls, .xlsx）
-- 完整保留表格数据、图表
-- 使用微软 Office Online 预览服务
-- 配置方式：
-```javascript
-{ 
-  id: 'example-xls', 
-  fileUrl: '/docs/enterprise-service/example.xlsx', 
-  fileType: 'xlsx', 
-  title: '示例Excel文档', 
-  category: '企业服务', 
-  type: 'file' 
-}
-```
+- 白皮书: [whitepaper.md](./whitepaper.md)
+- AI 社区介绍: [ai-community-intro.md](./ai-community-intro.md)
+- 决策者社群: [decision-maker-community.md](./decision-maker-community.md)
+- 人机协作: [human-ai-collaboration.md](./human-ai-collaboration.md)
 
-## 添加新文档的步骤
+## 端口规划
 
-1. **准备文档文件**
-   - 将文档文件（PPT/Word/PDF/Excel）放入 `public/docs/enterprise-service/` 目录
+Demo 环境使用 88xx 段(详见 [docs/port-management.md](../port-management.md)):
+Web `8801` / API `8802` / AI Service `8803` / PostgreSQL `8810` / Redis `8811`。
 
-2. **配置文档目录**
-   - 打开 `src/views/EduDocumentation.vue`
-   - 在 `DOC_CATALOG` 数组中添加新条目：
-   ```javascript
-   { 
-     id: 'unique-doc-id',           // 唯一标识符
-     fileUrl: '/docs/enterprise-service/filename.pptx',  // 文件路径
-     fileType: 'pptx',              // 文件类型
-     title: '文档标题',              // 显示标题
-     category: '企业服务',          // 分类
-     type: 'file'                   // 类型标记
-   }
-   ```
+## 销售联系
 
-3. **重启开发服务器**
-   - 如果是新添加的文件类型，可能需要重启 Vite 服务器
-
-## 注意事项
-
-1. **文件大小限制**
-   - 建议单个文件不超过 50MB
-   - 大文件可能影响加载速度
-
-2. **Office 文档预览**
-   - PPT/Word/Excel 使用微软 Office Online 预览服务
-   - 需要文件可以通过公网访问（或 localhost 开发环境）
-   - 如果文件无法访问，预览会失败
-
-3. **PDF 预览**
-   - 直接使用浏览器内置的 PDF 阅读器
-   - 不需要外部服务
-
-4. **安全性**
-   - 敏感文档建议转换为 PDF 后上传
-   - 避免上传包含敏感信息的可编辑文档
-
-## 示例
-
-当前目录中的示例文件：
-- `whitepaper.md` - Markdown 格式白皮书
-- `ai-community-intro.md` - Markdown 格式社区介绍
-- `decision-maker-community.md` - Markdown 格式决策者社群介绍
-- `human-ai-collaboration.md` - Markdown 格式人机协作介绍
-
-## 转换工具
-
-如果需要将现有文档转换为支持的格式，可以使用以下工具：
-
-- **PPT/Word/Excel 转 PDF**: Microsoft Office、WPS、Google Docs
-- **图片压缩**: TinyPNG、Squoosh
-- **PDF 优化**: Adobe Acrobat、PDF24
+- 邮箱:**sales@ihui.ai**
+- 报价单生成后请于 30 天内回传确认,过期需重新生成。
