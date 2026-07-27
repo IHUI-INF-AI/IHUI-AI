@@ -1,0 +1,153 @@
+name: Release SDK
+
+# 在 push tag v* 时自动发布 4 语言 SDK 到对应包仓库
+# 用法:git tag v0.1.0 && git push origin v0.1.0
+# - TypeScript → npm(@ihui/sdk)
+# - Python     → PyPI(ihui-sdk)
+# - Java       → Maven Central(com.ihui.ai:sdk)
+# - Go         → Go module proxy(proxy.golang.org)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------- Job 1: npm publish ----------
+  publish-npm:
+    name: Publish to npm
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/typescript
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: 'sdks/typescript/package.json'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### npm 发布完成" >> $GITHUB_STEP_SUMMARY
+          echo "包名: \`@ihui/sdk\`" >> $GITHUB_STEP_SUMMARY
+          echo "安装: \`npm install @ihui/sdk\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------- Job 2: PyPI publish ----------
+  publish-pypi:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/python
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to PyPI
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### PyPI 发布完成" >> $GITHUB_STEP_SUMMARY
+          echo "包名: \`ihui-sdk\`" >> $GITHUB_STEP_SUMMARY
+          echo "安装: \`pip install ihui-sdk\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------- Job 3: Maven Central publish ----------
+  publish-maven:
+    name: Publish to Maven Central
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/java
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+
+      - name: Build & Deploy
+        run: mvn -B clean deploy -DskipTests
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+
+      - name: Summary
+        run: |
+          echo "### Maven Central 发布完成" >> $GITHUB_STEP_SUMMARY
+          echo "坐标: \`com.ihui.ai:sdk:0.1.0\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------- Job 4: Go module publish ----------
+  publish-go:
+    name: Publish to Go module proxy
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Pull module to proxy
+        env:
+          GOPROXY: 'https://proxy.golang.org'
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          MODULE="github.com/IHUI-INF-AI/IHUI-AI/sdks/go"
+          echo "Triggering proxy fetch: ${MODULE}@${TAG}"
+          curl -fsS "https://proxy.golang.org/${MODULE}/@v/${TAG}.info" || echo "proxy fetch attempted"
+          go list -m "${MODULE}@${TAG}" || echo "go list attempted"
+
+      - name: Summary
+        run: |
+          echo "### Go module 发布完成" >> $GITHUB_STEP_SUMMARY
+          echo "module: \`github.com/IHUI-INF-AI/IHUI-AI/sdks/go\`" >> $GITHUB_STEP_SUMMARY
+          echo "安装: \`go get github.com/IHUI-INF-AI/IHUI-AI/sdks/go\`" >> $GITHUB_STEP_SUMMARY

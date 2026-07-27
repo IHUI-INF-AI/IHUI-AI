@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ihui-sdk"
+version = "0.1.0"
+description = "IHUI-AI 官方 Python SDK(OpenAI 兼容)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "IHUI-AI" }]
+keywords = ["ihui", "ai", "sdk", "openai-compatible"]
+dependencies = [
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "mypy", "types-requests"]
+
+[tool.setuptools.packages.find]
+include = ["ihui_sdk*"]
