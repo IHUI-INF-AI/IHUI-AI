@@ -6,7 +6,8 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Bot } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -25,12 +26,13 @@ import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { PlanActToggle } from '@/components/ai/plan-act-toggle'
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
-import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 import { Tooltip } from '@/components/feedback'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { useModeStore } from '@/stores/mode'
 import { getConversation, getMessages } from '@ihui/api-client'
+import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 import { fetchApi } from '@/lib/api'
 
@@ -481,6 +483,44 @@ export function AISidePanel() {
     }
     window.addEventListener('keydown', onAltP)
     return () => window.removeEventListener('keydown', onAltP)
+  }, [open])
+
+  // Ctrl+1/2/3/4 切换 ChatMode 4态(2026-07-28 立,补全三通道)
+  // - 仅当 AI 面板打开时生效,避免污染其他页面
+  // - Ctrl+数字 不与打字冲突,故无需排除 textarea/input 聚焦场景
+  // - 与 ModeSwitcher 按钮 / /build /plan /review /spec 斜杠命令三入口联动
+  // - Ctrl+数字 在浏览器默认切换 tab,需 preventDefault 阻止
+  React.useEffect(() => {
+    if (!open) return
+    const onModeShortcut = (e: KeyboardEvent) => {
+      // 仅匹配纯 Ctrl+数字(排除 Shift/Alt/Meta 组合,避免与浏览器其他快捷键冲突)
+      if (!e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+      const keyMap: Record<string, ChatMode> = {
+        '1': 'build',
+        '2': 'plan',
+        '3': 'review',
+        '4': 'spec',
+      }
+      const target = keyMap[e.key]
+      if (!target) return
+      e.preventDefault()
+      const labelMap: Record<ChatMode, string> = {
+        build: '构建',
+        plan: '计划',
+        review: '审查',
+        spec: '规格',
+      }
+      const label = labelMap[target]
+      const modeStore = useModeStore.getState()
+      if (modeStore.currentMode === target) {
+        toast.info(`当前已是${label}模式`)
+        return
+      }
+      modeStore.setMode(target)
+      toast.success(`已切换到${label}模式`)
+    }
+    window.addEventListener('keydown', onModeShortcut)
+    return () => window.removeEventListener('keydown', onModeShortcut)
   }, [open])
 
   // 拖拽调整宽度
