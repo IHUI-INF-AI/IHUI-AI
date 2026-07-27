@@ -108,7 +108,7 @@ class AgentLoopV2:
             {"role": "system", "content": "你是一个助手"},
             {"role": "user", "content": "帮我查一下天气"},
         ])
-        print(result.final_response)
+        logger.info("agent_loop_final_response", response=result.final_response)
     """
 
     def __init__(
