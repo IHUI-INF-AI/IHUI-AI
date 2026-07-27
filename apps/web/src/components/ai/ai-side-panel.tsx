@@ -363,6 +363,28 @@ export function AISidePanel() {
       // 重置分页状态(防止上一会话的游标残留)
       oldestCursorRef.current = null
       setHasMoreHistory(false)
+
+      // 2026-07-27 修复 React Hydration 失败导致 AI 回复未渲染:
+      // 原 chat.ts onRehydrateStorage 在 persist 初始化时同步把 recentMessages.messages
+      // 赋给 state.messages,因 localStorage 同步 API,赋值发生在 React hydration 之前,
+      // 导致 SSR(messages=[]) 与客户端 hydration(messages=50 条) 不一致 → hydration mismatch
+      // → React 丢弃服务端 DOM 重建 → store 状态错乱 → onDelta 更新旧引用 → AI 回复不渲染。
+      // 修复:onRehydrateStorage 移除 messages 赋值,改为此处 useEffect(hydration 后) 预填充。
+      // 条件:仅当 messages 为空(首次加载/无缓存)且 recentMessages 匹配当前会话时预填充,
+      // 避免覆盖缓存命中的数据(loadHistory 内部会先检查缓存)。
+      const currentStore = useChatStore.getState()
+      if (
+        currentStore.messages.length === 0 &&
+        currentStore.recentMessages &&
+        currentStore.recentMessages.conversationId === storeConversationId &&
+        Array.isArray(currentStore.recentMessages.messages)
+      ) {
+        useChatStore.setState({
+          messages: currentStore.recentMessages.messages,
+          error: null,
+        })
+      }
+
       void loadHistory(storeConversationId)
     } else {
       useChatStore.setState({ messages: [], error: null })

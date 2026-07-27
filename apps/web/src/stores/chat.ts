@@ -385,20 +385,16 @@ export const useChatStore = create<ChatState>()(
             }
           : null,
       }),
-      // #12 store messages 持久化(2026-07-25 立):
-      // 状态从 localStorage 恢复时,若 recentMessages.conversationId 与当前 conversationId 匹配,
-      // 预填充 messages 数组,避免首屏空状态闪烁。
-      // 后台 getMessages 拉取完整历史后会覆盖预填充数据(由 ai-side-panel loadHistory 处理)。
-      onRehydrateStorage: () => (state) => {
-        if (!state) return
-        if (
-          state.recentMessages &&
-          state.recentMessages.conversationId === state.conversationId &&
-          Array.isArray(state.recentMessages.messages)
-        ) {
-          state.messages = state.recentMessages.messages
-        }
-      },
+      // 2026-07-27 修复 React Hydration 失败导致 AI 回复未渲染:
+      // 原先 onRehydrateStorage 在 persist 初始化时同步把 recentMessages.messages 赋给 state.messages,
+      // 因 localStorage 是同步 API,此赋值发生在 React hydration 之前,导致:
+      //   SSR 渲染 messages=[] (noopStorage 返回 null)
+      //   客户端 hydration 时 messages=recentMessages.messages (50 条)
+      // React 18 检测到 hydration mismatch → 丢弃服务端 DOM 重建 → 重建过程中 store 状态错乱,
+      // onDelta 更新旧引用,最终 AI 回复不渲染。
+      // 修复:移除 onRehydrateStorage 对 messages 的同步赋值,改为在 ai-side-panel.tsx 的
+      // useEffect(hydration 后执行)中从 recentMessages 预填充,保证 SSR 与客户端首次渲染一致。
+      // recentMessages 仍被持久化(partialize 中),仅恢复时机推迟到 mount 后。
       // 2026-07-24 立:旧版本无 version,localStorage 中 currentModel='stepfun/step-3.7-flash'
       // 是历史默认值(非显式选择)。version=2 migrate 把旧默认值升级到 step-router-v1。
       // 用户若显式选了其他模型(gpt-4o / claude 等),migrate 不动,保留原值。
