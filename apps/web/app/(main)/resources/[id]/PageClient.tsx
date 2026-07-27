@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
 import { ImageViewer, CodeViewer } from '@/components/media'
+import { formatDateOnly } from '@/lib/date-utils'
 
 const CODE_EXTENSIONS = [
   'js',
@@ -86,11 +87,7 @@ export default function ResourceDetailPage() {
     queryFn: () => api<DetailResponse>(`/api/resources/${id}`),
   })
 
-  const fmtDate = (v?: string | null) => {
-    if (!v) return '-'
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
-  }
+  const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   const fmtSize = (bytes?: number | null) => {
     if (!bytes) return '-'
