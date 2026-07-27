@@ -50,12 +50,4 @@ export function getYMD(date: Date): string {
   return formatDate(date, 'YYYY-MM-DD')
 }
 
-export function formatTokenValue(value: number | string): string {
-  if (!value) return '0'
-  const num = parseInt(String(value), 10)
-  if (num >= 10000) {
-    const truncated = Math.floor((num / 10000) * 100) / 100
-    return `${truncated}万`
-  }
-  return num.toString()
-}
+export { formatTokenValue } from '@ihui/shared/utils'
