@@ -1,4 +1,4 @@
-﻿export {
+export {
   fetchApi,
   setTokenProvider,
   setBaseUrl,
@@ -21,6 +21,8 @@ export type {
   FetchApiOptions,
   ToolCallEvent,
   FallbackEvent,
+  SubagentSpawnEvent,
+  SubagentEndEvent,
 } from './client'
 export { ApiError, isNotFound, isErrorCode } from './api-error'
 export { setTransport, getTransport } from './transport'
