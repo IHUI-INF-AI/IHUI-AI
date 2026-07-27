@@ -1,24 +1,32 @@
 import { create } from 'zustand'
+import { subscribeWithSelector } from 'zustand/middleware'
 
 /**
- * Agent 任务进度查看 Bottom Pane 全局状态(2026-07-27 重构,Codex 对齐)
+ * Agent 任务进度查看 Bottom Pane 全局状态
  *
- * Codex CLI TUI 架构对齐:
- * - 持久化底部面板(Bottom Pane),非右侧 Drawer
- * - 三栏分离:Tasks / Subagents / Terminals(非 4 tab)
- * - 原地更新(同位置重绘,非事件流追加)
- * - 快捷键(Codex 标准):
- *   - Down 打开 / Esc 关闭 / q 关闭(Codex 标准)
- *   - j/k 上下移动 cursor / g/G 跳顶跳底 / space 翻页
+ * 设计参考:社区 fork "Open Codex CLI"(https://github.com/LEON-gittech/Open-Codex-CLI)
+ * 提出的 bottom pane 设计(Issue #22099),快捷键借鉴 vim/lazygit 风格自创,
+ * 非官方 Codex CLI 规范(Codex 官方无此功能)。
+ *
+ * 三栏分离:Tasks / Subagents / Terminals
+ * 原地更新(同位置重绘,非事件流追加)
+ * 快捷键:
+ *   - Down 打开 / Esc 关闭 / q 关闭
+ *   - j/k 上下移动 cursor / g/G 跳顶跳底 / space/PgDn 翻页 / PgUp 上翻
  *   - 1/2/3 切换 Tasks/Subagents/Terminals 栏
  *   - Tab 切换排序 / a 切换归档 / v 切换 verbose
  *   - Enter 展开/折叠当前项 / y/n 审批
  *   - / 进入搜索模式 / ? 切换帮助 / Ctrl+Shift+J 保留(Web 习惯)
  *
- * Codex 切栏 cursor 智能保持:
+ * 切栏 cursor 智能保持:
  * - 切栏时若新栏有足够条目,cursor 保持原位置
  * - 若新栏条目不足,clamp 到新栏 max-1
  * - 仅在首次打开或 threadId 切换时重置为 0
+ *
+ * localStorage 持久化(2026-07-27 立):
+ * - 持久化字段:open / paneHeight / verbose / showArchived / activeColumn
+ * - 不持久化:threadId / threadIdInput / cursorIndex / searchQuery / searchMode / showHelp / expandedIds(会话级)
+ * - key: `ihui-agent-progress-pane`
  *
  * 设计:仅管理 Pane 的 UI 状态(开关 / threadId / 当前栏 / cursor / verbose / 排序 / 折叠集合 / 搜索 / 高度 / 帮助),
  * 不缓存 SSE 事件流 — 事件聚合由 use-agent-progress.ts hook 负责。
@@ -101,20 +109,72 @@ const MAX_PANE_HEIGHT = 720
 
 export const PANE_HEIGHT_BOUNDS = { min: MIN_PANE_HEIGHT, max: MAX_PANE_HEIGHT }
 
-export const useAgentProgressPaneStore = create<AgentProgressPaneState>((set, get) => ({
-  open: false,
+const STORAGE_KEY = 'ihui-agent-progress-pane'
+
+/** 持久化字段子集(会话级字段不持久化) */
+interface PersistedState {
+  open: boolean
+  paneHeight: number
+  verbose: boolean
+  showArchived: boolean
+  activeColumn: AgentProgressColumn
+}
+
+/** 从 localStorage 读取持久化状态(SSR 安全) */
+function loadPersistedState(): Partial<PersistedState> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Partial<PersistedState>
+    // 校验 activeColumn 枚举
+    if (parsed.activeColumn && !['tasks', 'subagents', 'terminals'].includes(parsed.activeColumn)) {
+      delete parsed.activeColumn
+    }
+    // 校验 paneHeight 范围
+    if (typeof parsed.paneHeight === 'number') {
+      parsed.paneHeight = Math.max(MIN_PANE_HEIGHT, Math.min(MAX_PANE_HEIGHT, parsed.paneHeight))
+    }
+    return parsed
+  } catch {
+    return {}
+  }
+}
+
+/** 写入 localStorage(SSR 安全 + 节流避免高频写入) */
+let writeScheduled = false
+function schedulePersistWrite(state: PersistedState) {
+  if (typeof window === 'undefined') return
+  if (writeScheduled) return
+  writeScheduled = true
+  // 用 microtask 节流,同一 tick 内多次 set 只写一次
+  queueMicrotask(() => {
+    writeScheduled = false
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    } catch {
+      // localStorage 不可用或 quota exceeded,忽略
+    }
+  })
+}
+
+const persisted = loadPersistedState()
+
+export const useAgentProgressPaneStore = create<AgentProgressPaneState>()(
+  subscribeWithSelector((set, get) => ({
+  open: persisted.open ?? false,
   threadId: null,
-  activeColumn: 'tasks',
+  activeColumn: persisted.activeColumn ?? 'tasks',
   threadIdInput: '',
-  verbose: false,
-  showArchived: true,
+  verbose: persisted.verbose ?? false,
+  showArchived: persisted.showArchived ?? true,
   sortMode: 'recent',
   expandedIds: new Set<string>(),
   cursorIndex: 0,
   searchQuery: '',
   searchMode: false,
   showHelp: false,
-  paneHeight: DEFAULT_PANE_HEIGHT,
+  paneHeight: persisted.paneHeight ?? DEFAULT_PANE_HEIGHT,
 
   openPane: (threadId) =>
     set((s) => ({
@@ -224,4 +284,20 @@ export const useAgentProgressPaneStore = create<AgentProgressPaneState>((set, ge
       showHelp: false,
       paneHeight: DEFAULT_PANE_HEIGHT,
     }),
-}))
+  })),
+)
+
+// 持久化订阅:仅监听持久化字段变化时写入 localStorage(同 tick 多次 set 节流)
+if (typeof window !== 'undefined') {
+  useAgentProgressPaneStore.subscribe(
+    (s) => ({
+      open: s.open,
+      paneHeight: s.paneHeight,
+      verbose: s.verbose,
+      showArchived: s.showArchived,
+      activeColumn: s.activeColumn,
+    }),
+    (persistedState) => schedulePersistWrite(persistedState),
+    { fireImmediately: false },
+  )
+}
