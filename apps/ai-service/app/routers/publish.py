@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import asyncpg
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -112,6 +112,18 @@ def _serialize_account(row: asyncpg.Record, include_credentials: bool = False) -
         except Exception as e:
             out["credentials"] = {"_decrypt_error": str(e)}
     return out
+
+
+def _get_user_id(request: Request) -> str:
+    """从 request.state 取当前登录用户 ID(JWTAuthMiddleware 注入)。
+
+    IDOR 修复(2026-07-27):所有 publish 端点必须经此函数取用户身份,
+    禁止从请求体/查询参数/路径参数取 user_id。JWT 缺失返回 401。
+    """
+    uid = getattr(request.state, "user_id", None)
+    if not uid:
+        raise HTTPException(status_code=401, detail="未登录")
+    return str(uid)
 
 
 # ===== Pydantic 模型 =====
