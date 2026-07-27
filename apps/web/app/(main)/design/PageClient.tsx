@@ -1470,6 +1470,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
 
       {/* 模板库 Dialog(P2-a):网格展示 8 个模板卡片,点击应用 */}
       {templateDialogOpen && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮提供等价交互
         <div
           onClick={() => setTemplateDialogOpen(false)}
           style={{
@@ -1482,6 +1483,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
             background: 'rgba(0,0,0,0.4)',
           }}
         >
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 阻止点击冒泡到遮罩层(避免误关闭);键盘用户通过关闭按钮关闭 */}
           <div
             onClick={(e) => e.stopPropagation()}
             style={{

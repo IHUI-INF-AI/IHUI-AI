@@ -59,7 +59,7 @@ class ModelRouter:
             has_tools=True,
             has_code=True,
         )
-        print(decision.selected_model)  # gpt-4o(复杂任务)
+        logger.info("model_router_selected", model=decision.selected_model)  # gpt-4o(复杂任务)
     """
     
     # 默认模型库(可扩展)

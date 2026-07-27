@@ -237,7 +237,7 @@ class SpecGenerator:
                     if stripped and not stripped.startswith("@"):
                         return stripped[:120]
         except Exception:
-            pass
+            logger.exception("[spec_generator] extract_doc_failed")
         return None
 
     def _extract_symbols_regex(
@@ -538,7 +538,7 @@ class SpecGenerator:
             if result.returncode == 0 and result.stdout.strip():
                 author = result.stdout.strip()
         except Exception:
-            pass
+            logger.exception("[spec_generator] git_config_user_name_failed: path=%s", str(root))
 
         # date:当前日期 YYYY-MM-DD
         date_str = datetime.date.today().strftime("%Y-%m-%d")
@@ -555,7 +555,7 @@ class SpecGenerator:
                 if isinstance(pkg.get("name"), str):
                     project = pkg["name"]
         except Exception:
-            pass
+            logger.exception("[spec_generator] package_json_parse_failed: path=%s", str(pkg_path))
 
         return {
             "author": author,
@@ -921,7 +921,7 @@ class SpecGenerator:
                 severity="info",
             )
         except Exception:
-            pass
+            logger.exception("[spec_generator] spec_generated_event_failed: workspace=%s", workspace_path)
 
         return SpecResult(
             spec=spec_md,
@@ -1196,7 +1196,7 @@ class SpecGenerator:
                 try:
                     original = abs_path.read_text(encoding="utf-8", errors="replace")
                 except Exception:
-                    pass
+                    logger.exception("[spec_generator] read_file_failed: path=%s", str(abs_path))
             patched = self._apply_patch_to_content(original, file_patches.get(fpath, []))
             files_result.append({
                 "path": fpath,
@@ -1266,7 +1266,7 @@ class SpecGenerator:
             except RuntimeError:
                 pass  # 无运行中的事件循环,跳过
         except Exception:
-            pass
+            logger.exception("[spec_generator] patch_applied_event_failed: spec_hash=%s", spec_hash)
         return {
             "applied": applied,
             "failed": failed,
@@ -1745,7 +1745,7 @@ class SpecGenerator:
                     if isinstance(t, dict)
                 ]
         except Exception:
-            pass
+            logger.exception("[spec_generator] spec_to_tasks_parse_failed")
         return []
 
     # ------------------------------------------------------------------
