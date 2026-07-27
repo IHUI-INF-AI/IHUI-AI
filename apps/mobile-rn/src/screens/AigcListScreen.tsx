@@ -10,8 +10,18 @@ import {
   View,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PRIMARY = '#10B981'
+
+// Aigc 系列屏幕未注册到 RootStackParamList(独立 mock 屏幕),本地扩展导航类型
+// 避免 useNavigation<any>() 退化为 any,保留 navigate/goBack 的类型安全
+type AigcStackParamList = RootStackParamList & {
+  AigcCover: { id: string; title: string }
+  AigcPublish: undefined
+}
+type Nav = NativeStackNavigationProp<AigcStackParamList>
 
 type FileType = 0 | 1 | 3 | 4
 
@@ -121,7 +131,7 @@ const MOCK_WORKS: AigcWork[] = [
 ]
 
 export default function AigcListScreen() {
-  const navigation = useNavigation<any>()
+  const navigation = useNavigation<Nav>()
   const [category, setCategory] = useState<Category>('all')
   const [refreshing, setRefreshing] = useState(false)
 

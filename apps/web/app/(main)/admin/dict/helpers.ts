@@ -67,7 +67,7 @@ export async function fetchDictList(): Promise<DictType[]> {
       }>(`/api/admin/dict/data/type/${t.dictType}`)
       const items: DictItem[] =
         dr.success && dr.data?.list
-          ? dr.data.list.map((d: any) => ({
+          ? dr.data.list.map((d) => ({
               id: String(d.dictCode),
               label: d.dictLabel,
               value: d.dictValue,

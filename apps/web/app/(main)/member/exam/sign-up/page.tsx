@@ -61,7 +61,7 @@ export default function MemberExamSignUpPage() {
 
   const cancelMut = useMutation({
     mutationFn: (examId: string) => cancelSignUp(examId),
-    onSuccess: (r: any) => {
+    onSuccess: (r) => {
       if (r.success) {
         toast.success(t('cancelSuccess'))
         qc.invalidateQueries({ queryKey: ['member', 'exam', 'signups'] })
@@ -130,7 +130,7 @@ export default function MemberExamSignUpPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rows.map((r: any) => {
+              {rows.map((r) => {
                 const sc = statusClsOf(r.status)
                 const canCancel = r.status === 'pending'
                 return (

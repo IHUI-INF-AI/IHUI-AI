@@ -95,7 +95,7 @@ export default function TeamPage() {
 
   function handleSave() {
     if (editId) {
-      const m = list.find((x: any) => x.id === editId)
+      const m = list.find((x) => x.id === editId)
       if (m) updateRoleMut.mutate(m)
     } else {
       inviteMut.mutate()

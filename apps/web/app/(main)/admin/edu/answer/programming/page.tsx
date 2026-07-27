@@ -28,13 +28,13 @@ function ProgrammingContent() {
     queryFn: () =>
       eduApi<{ list: Paper[] }>(`/api/exam/papers${buildQs({ page: 1, pageSize: 100 })}`),
   })
-  const papers = (papersData?.list ?? []).filter((p: any) => p.isPublished)
+  const papers = (papersData?.list ?? []).filter((p) => p.isPublished)
 
   const { data: questionsData, isLoading } = useQuery({
     queryKey: ['edu', 'answer', 'prog', 'questions', paperId],
     queryFn: () =>
       eduApi<{ list: Question[] }>(`/api/exam/papers/${paperId}/questions`).then((d: any) =>
-        (d.list ?? []).filter((q: any) => q.type === 'programming'),
+        (d.list ?? []).filter((q) => q.type === 'programming'),
       ),
     enabled: !!paperId,
   })

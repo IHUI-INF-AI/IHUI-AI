@@ -59,9 +59,9 @@ export default function EduReportsMemberStudyPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const totalCourses = rows.reduce((a: any, r: any) => a + r.courseCount, 0)
-  const totalCompleted = rows.reduce((a: any, r: any) => a + r.completedCount, 0)
-  const totalHours = rows.reduce((a: any, r: any) => a + r.studyHours, 0)
+  const totalCourses = rows.reduce((a, r) => a + r.courseCount, 0)
+  const totalCompleted = rows.reduce((a, r) => a + r.completedCount, 0)
+  const totalHours = rows.reduce((a, r) => a + r.studyHours, 0)
   const noEndpoint = isNotFound(error)
   const dateFmt = new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 
@@ -163,7 +163,7 @@ export default function EduReportsMemberStudyPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r: any) => (
+              rows.map((r) => (
                 <TableRow key={r.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">{r.userName ?? r.userId.slice(0, 8)}</TableCell>
                   <TableCell className="px-4 py-2.5">{r.courseCount}</TableCell>

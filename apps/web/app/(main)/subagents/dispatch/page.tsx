@@ -16,7 +16,7 @@ export default function SubagentDispatchPage() {
 
   const mut = useMutation({
     mutationFn: (input: SubagentDispatchInput) => createDispatch(input),
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       if (data.outcome === 'success' && data.dispatch?.id) {
         qc.invalidateQueries({ queryKey: ['subagents'] })
         router.push(`/subagents/detail?id=${data.dispatch.id}`)

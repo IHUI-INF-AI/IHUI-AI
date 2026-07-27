@@ -124,7 +124,7 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
   const exportMut = React.useCallback(() => {
     const data = qc.getQueryData<{ groups: Array<{ providers: UserLlmProvider[] }> }>(['v2-providers'])
     const groups = data?.groups ?? []
-    const allProviders = groups.flatMap((g: any) => g.providers)
+    const allProviders = groups.flatMap((g) => g.providers)
     const dateStr = new Date().toISOString().slice(0, 10)
 
     if (exportFormat === 'env') {
@@ -206,7 +206,7 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
 
       return { provCount, modelCount, errors }
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['v2-providers'] })
       if (res.errors.length > 0) {
         toast.warning(t('importSuccess', { providers: res.provCount, models: res.modelCount }), {

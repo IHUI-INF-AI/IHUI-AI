@@ -70,7 +70,7 @@ export default function CirclePostPage() {
     onError: (e: Error) => setFormError(e.message),
   })
 
-  const circleOptions = (circlesData?.list ?? []).map((c: any) => ({ label: c.name, value: c.id }))
+  const circleOptions = (circlesData?.list ?? []).map((c) => ({ label: c.name, value: c.id }))
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">

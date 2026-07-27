@@ -89,7 +89,7 @@ export function ProviderCardV2({
   // Provider 级测试
   const testProvMut = useMutation({
     mutationFn: () => testProviderV2(provider.id),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success(t('testSuccess'), {
         description: res.message ?? t('testTimeOnly', { ms: res.responseMs ?? 0 }),
         icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
@@ -112,7 +112,7 @@ export function ProviderCardV2({
   // 拉取上游 model
   const fetchMut = useMutation({
     mutationFn: () => fetchUpstreamModelsV2(provider.id),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       setUpstreamModels(res.models)
       toast.success(res.message ?? t('fetchSuccess', { total: res.total }), {
         icon: <Sparkles className="h-4 w-4 text-amber-500" />,
@@ -144,7 +144,7 @@ export function ProviderCardV2({
 
   const testModelMut = useMutation({
     mutationFn: (mid: number) => testModelV2(provider.id, mid),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success(t('testSuccess'), {
         description: res.message ?? t('testTimeOnly', { ms: res.responseMs ?? 0 }),
       })
@@ -304,7 +304,7 @@ export function ProviderCardV2({
             </div>
           ) : (
             <ul className="space-y-1">
-              {models.map((m: any) => (
+              {models.map((m) => (
                 <li
                   key={m.id}
                   className={`flex items-center justify-between gap-2 rounded-md border bg-muted/20 px-2 py-1.5 text-xs ${

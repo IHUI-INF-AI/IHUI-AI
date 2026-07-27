@@ -59,7 +59,7 @@ export function RankingTable() {
   })
 
   const cats = React.useMemo(
-    () => leaderboardsData?.find((l: any) => l.leaderboard === leaderboard)?.categories ?? [],
+    () => leaderboardsData?.find((l) => l.leaderboard === leaderboard)?.categories ?? [],
     [leaderboardsData, leaderboard],
   )
 
@@ -111,7 +111,7 @@ export function RankingTable() {
 
         {cats.length > 0 && (
           <div className="flex flex-wrap items-center gap-1">
-            {cats.map((c: any) => (
+            {cats.map((c) => (
               <button
                 key={c}
                 type="button"

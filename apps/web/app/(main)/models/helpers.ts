@@ -1,5 +1,6 @@
 import type { Provider, Model, ProviderGroup, PresetPrompt } from './types'
 import { FAVORITE_MODELS_STORAGE_KEY } from './types'
+import { fetchModels as fetchLlmModels } from '@ihui/api-client'
 
 /**
  * 厂商分组定义:用于 ModelsNav 按分组展示 provider,降低 80+ 厂商的认知负担
@@ -1895,25 +1896,13 @@ export function enrichModels(list: Model[]): Model[] {
 
 export async function fetchModels(): Promise<Model[]> {
   try {
-    const res = await fetch('/api/llm/models', {
-      next: { revalidate: 300 },
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = (await res.json()) as {
-      models: Array<{
-        id: string
-        name: string
-        provider: Provider
-        context_length: number
-        input_price: number
-      }>
-    }
+    const data = await fetchLlmModels()
     const list: Model[] = data.models.map((m) => {
       const desc = MODEL_DESCRIPTIONS[m.id] ?? { description: '', features: [] }
       return {
         id: m.id,
         name: m.name,
-        provider: m.provider,
+        provider: m.provider as Provider,
         description: desc.description,
         contextLength: m.context_length,
         inputPrice: m.input_price,

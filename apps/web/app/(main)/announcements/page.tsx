@@ -30,7 +30,7 @@ export default function AnnouncementsPage() {
   }
 
   // Pinned first, then by publishedAt desc (defensive sort)
-  const list = (data ?? []).slice().sort((a: any, b: any) => {
+  const list = (data ?? []).slice().sort((a, b) => {
     if (!!a.isPinned !== !!b.isPinned) return a.isPinned ? -1 : 1
     return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   })
@@ -56,8 +56,8 @@ export default function AnnouncementsPage() {
         </div>
       ) : list.length > 0 ? (
         <div className="space-y-3">
-          {list.map((a: any) => {
-            const Icon = (ANN_TYPE_ICON as any)[a.type] ?? Megaphone
+          {list.map((a) => {
+            const Icon = (ANN_TYPE_ICON)[a.type] ?? Megaphone
             return (
               <Link key={a.id} href={`/announcements/${a.id}`} className="block">
                 <Card className="transition-colors hover:bg-accent">
@@ -70,10 +70,10 @@ export default function AnnouncementsPage() {
                         <span
                           className={cn(
                             'rounded-md px-2 py-0.5 text-xs font-medium',
-                            (ANN_TYPE_BADGE as any)[a.type],
+                            (ANN_TYPE_BADGE)[a.type],
                           )}
                         >
-                          {t((ANN_TYPE_KEY as any)[a.type] ?? 'types.unknown')}
+                          {t((ANN_TYPE_KEY)[a.type] ?? 'types.unknown')}
                         </span>
                         {a.isPinned && (
                           <span className="inline-flex items-center gap-0.5 text-xs text-primary">

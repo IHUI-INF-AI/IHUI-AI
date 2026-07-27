@@ -106,7 +106,7 @@ export default function MyArticlesPage() {
       ) : (
         <>
           <div className="space-y-3">
-            {list.map((article: any) => {
+            {list.map((article) => {
               const statusKey =
                 article.status === 1
                   ? 'statusPublished'

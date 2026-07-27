@@ -54,7 +54,7 @@ export default function SkillsMarketPage() {
 
   const installMut = useMutation({
     mutationFn: installSkill,
-    onSuccess: (_r: any, name: any) => {
+    onSuccess: (_r, name) => {
       setInstalled((s) => new Set(s).add(name))
       toast.success(t('installSuccess'))
       qc.invalidateQueries({ queryKey: ['skills', 'market'] })
@@ -115,7 +115,7 @@ export default function SkillsMarketPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((s: any) => (
+          {items.map((s) => (
             <SkillCard
               key={s.name}
               skill={s}
@@ -195,7 +195,7 @@ function SkillCard({ skill, installed, installing, onInstall, onRate }: {
 
   const subscribeMut = useMutation({
     mutationFn: async (on: boolean) => (on ? subscribeSkill(skill.name) : unsubscribeSkill(skill.name)),
-    onSuccess: (_r: any, on: any) => {
+    onSuccess: (_r, on) => {
       toast.success(on ? t('subscribeSuccess') : t('unsubscribeSuccess'))
       qc.invalidateQueries({ queryKey: ['skills', 'subscription', skill.name] })
     },
@@ -301,7 +301,7 @@ function RatingDialog({ skill, onClose }: { skill: SkillMarketEntry | null; onCl
           />
           {ratings && ratings.length > 0 && (
             <div className="space-y-2">
-              {ratings.slice(0, 3).map((r: any) => (
+              {ratings.slice(0, 3).map((r) => (
                 <div key={r.id} className="rounded-md bg-muted/60 p-2 text-sm">
                   <div className="flex items-center justify-between"><span className="font-medium">{r.userName}</span><Stars value={r.score} size="h-3 w-3" /></div>
                   {r.comment && <p className="mt-1 text-muted-foreground">{r.comment}</p>}

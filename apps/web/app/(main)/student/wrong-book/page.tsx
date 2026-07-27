@@ -69,7 +69,7 @@ export default function WrongBookPage() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((item: any) => (
+            {list.map((item) => (
               <Card key={item.recordId} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-center justify-between gap-2">

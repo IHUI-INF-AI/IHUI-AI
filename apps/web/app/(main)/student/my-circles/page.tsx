@@ -92,7 +92,7 @@ export default function MyCirclesPage() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((circle: any) => (
+            {list.map((circle) => (
               <Card key={circle.id} className="overflow-hidden transition-colors hover:bg-accent">
                 <Link href={`/circles/${circle.id}`}>
                   <div className="relative aspect-video w-full overflow-hidden bg-muted">

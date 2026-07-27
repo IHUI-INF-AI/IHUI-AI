@@ -271,7 +271,7 @@ export default function EduStudentDetailPage() {
             </TableHeader>
             <TableBody className="divide-y">
               {data.lessons?.length ? (
-                data.lessons.map((l: any) => (
+                data.lessons.map((l) => (
                   <TableRow key={l.id} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-2.5 font-medium">
                       {l.title ?? l.id.slice(0, 8)}

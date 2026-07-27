@@ -54,7 +54,7 @@ export default function ConnectedAccountsPage() {
   const unbindMut = useMutation({
     mutationFn: (id: string) =>
       fetchApi(`/auth/bindings/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       if (res.success) {
         toast.success(t('connectedAccountsUnbindSuccess'))
         qc.invalidateQueries({ queryKey: ['settings', 'connected-accounts'] })
@@ -66,7 +66,7 @@ export default function ConnectedAccountsPage() {
   })
 
   const bindings = data ?? []
-  const pendingBinding = bindings.find((b: any) => b.id === confirmId)
+  const pendingBinding = bindings.find((b) => b.id === confirmId)
 
   const onBind = (platform: string) => {
     window.location.href = `/api/auth/${platform}?redirect=${encodeURIComponent(window.location.pathname)}`
@@ -79,7 +79,7 @@ export default function ConnectedAccountsPage() {
   }
 
   const renderRow = (platform: (typeof PLATFORMS)[number]) => {
-    const binding = bindings.find((b: any) => b.platform === platform.key)
+    const binding = bindings.find((b) => b.platform === platform.key)
     const isBound = !!binding
     return (
       <div

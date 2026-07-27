@@ -103,7 +103,7 @@ export default function MyAsksPage() {
       ) : (
         <>
           <div className="space-y-3">
-            {list.map((ask: any) => {
+            {list.map((ask) => {
               const statusKey =
                 ask.status === 1
                   ? 'statusResolved'

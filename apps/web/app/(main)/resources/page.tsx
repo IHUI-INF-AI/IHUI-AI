@@ -135,7 +135,7 @@ export default function ResourcesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allCategories')}</SelectItem>
-            {(categories ?? []).map((c: any) => (
+            {(categories ?? []).map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
               </SelectItem>
@@ -160,7 +160,7 @@ export default function ResourcesPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <Link key={item.id} href={`/resources/${item.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="relative flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
