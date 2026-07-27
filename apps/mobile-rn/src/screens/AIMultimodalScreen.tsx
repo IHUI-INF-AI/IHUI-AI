@@ -12,6 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { sendAiChat } from '@ihui/api-client'
+import type { ChatMessage as AiChatMessage } from '@ihui/types'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -20,10 +21,10 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type Mode = 'text' | 'image' | 'audio'
 
-interface ChatMessage {
+// 接入 @ihui/types 跨端契约:role + content 继承自 AiChatMessage,
+// 本地仅保留 UI 扩展字段(id / createdAt)。
+interface ChatMessage extends AiChatMessage {
   id: string
-  role: 'user' | 'assistant'
-  content: string
   createdAt: number
 }
 
@@ -133,13 +134,10 @@ export function AIMultimodalScreen() {
         }
         renderItem={({ item }) => (
           <View
-            style={[
-              styles.msgBubble,
-              item.role === 'user' ? styles.msgUser : styles.msgAssistant,
-            ]}
+            style={[styles.msgBubble, item.role === 'user' ? styles.msgUser : styles.msgAssistant]}
           >
             <Text style={styles.msgRole}>
-              {item.role === 'user' ? user?.nickname ?? 'me' : 'AI'}
+              {item.role === 'user' ? (user?.nickname ?? 'me') : 'AI'}
             </Text>
             <Text style={styles.msgContent}>{item.content}</Text>
           </View>
@@ -233,9 +231,19 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlignVertical: 'top',
   },
-  sendBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: PRIMARY },
+  sendBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
   sendBtnDisabled: { backgroundColor: '#9ca3af' },
   sendText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  clearBtn: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: '#f3f4f6' },
+  clearBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
   clearText: { color: '#374151', fontSize: 13 },
 })
