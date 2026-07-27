@@ -124,6 +124,48 @@
 
 ---
 
+## 一键部署 · One-Click Deploy
+
+> **5 分钟 Fork 到上线** · 4 个平台任选 · 不懂代码也能部署 · 详细图文指南见 [docs/deployment/family-friends-guide.md](docs/deployment/family-friends-guide.md)
+
+<table align="center">
+  <tr>
+    <td align="center"><strong>Vercel</strong><br/><sub>前端 · 免费 · 全球 CDN</sub><br/><a href="https://vercel.com/new/clone?repository-url=https://github.com/IHUI-INF-AI/IHUI-AI&project-name=ihui-ai&repository-name=ihui-ai&env=NEXT_PUBLIC_API_URL&envDescription=API%20URL"><img src="https://vercel.com/button" alt="Deploy with Vercel" height="32" /></a></td>
+    <td align="center"><strong>Railway</strong><br/><sub>后端 API · 免费 $5/月额度</sub><br/><a href="https://railway.app/new/template?template=https://github.com/IHUI-INF-AI/IHUI-AI&envs=DATABASE_URL,JWT_SECRET,CREDENTIALS_ENCRYPTION_KEY&databases=postgresql,redis"><img src="https://railway.app/button.svg" alt="Deploy on Railway" height="32" /></a></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Render</strong><br/><sub>全栈 3 服务 · 免费层</sub><br/><a href="https://render.com/deploy?repo=https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render" height="32" /></a></td>
+    <td align="center"><strong>Heroku</strong><br/><sub>经典 PaaS · 免费 dyno</sub><br/><a href="https://heroku.com/deploy?template=https://github.com/IHUI-INF-AI/IHUI-AI"><img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy to Heroku" height="32" /></a></td>
+  </tr>
+</table>
+
+### Docker Compose(本地 / 自托管 · 推荐)
+
+```bash
+git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
+cd IHUI-AI
+cp .env.example .env              # 复制环境变量模板,按提示填入密码
+docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
+```
+
+访问 **http://localhost:8801** · 前端 / **http://localhost:8802** · API / **http://localhost:8803** · AI 服务
+
+> 完整端口表见 [docs/port-management.md](docs/port-management.md),生产部署/蓝绿/回滚见 [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)。
+
+### 推荐组合(零成本上线)
+
+| 角色 | 平台 | 免费额度 | 用途 |
+| ---- | ---- | -------- | ---- |
+| 前端 Web | Vercel | 100GB 流量/月 | 静态导出 + 全球 CDN |
+| 后端 API | Railway | $5 额度/月 | Fastify + Drizzle ORM |
+| AI 服务 | Render | 750 小时/月 | FastAPI + LangGraph |
+| 数据库 | Railway/Render | 免费 PostgreSQL | 1GB 存储 |
+| 缓存 | Railway/Render | 免费 Redis | 25MB 存储 |
+
+详细步骤见:[一键部署指南](docs/deployment/one-click-deploy.md) · [Vercel 部署](docs/deployment/vercel-deploy.md) · [Railway 部署](docs/deployment/railway-deploy.md) · [家人朋友代部署指南](docs/deployment/family-friends-guide.md)
+
+---
+
 ## 技术栈与项目规模速览(AI 检索友好)
 
 > **为什么这一段放在最前面**:让 AI 检索工具(Claude / GPT / Codex 等)和开发者第一眼拿到**准确**的技术栈与规模数据,避免误判为"情怀项目"或"营销项目"。所有数字均与代码实测一致(2026-07-22 核对)。
