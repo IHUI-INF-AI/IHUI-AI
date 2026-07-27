@@ -768,3 +768,19 @@
 - [ ] P2-2: scripts/ 死脚本审计(降本 0.05x)
 - [ ] P2-3: extension sidepanel 死页面审计(降本 0.05x)
 - [ ] P2-4: web/src/lib 死代码审计(降本 0.1x)
+
+### [x] ✅(2026-07-27) 阶段2 P0+P1+P2 全部完成(5.5x -> 4.2x,10动作9 subagent并行)
+
+3波并行执行,总降本 1.3x:
+- P0-1 web design-tokens sync: 新建 check-web-tokens-sync.mjs 防回归(web 已用 @import,降本 0.3x)
+- P0-2 web fetch 收敛 api-client: 10 处 fetch 改 api-client + 补建 7 endpoints(降本 0.3x)
+- P0-3 cli i18n 下沉 packages/i18n: 5 .ts->json 迁移 + 2 脚本扩展支持 --target=cli(降本 0.15x)
+- P1-1 web utils re-export: number-format.ts re-export @ihui/shared/utils/format(降本 0.2x)
+- P1-2 shared 死代码审计: 17 文件 0 死代码(已高内聚,降本 0x)
+- P1-3 mobile-rn 类型接入: 3 screens 添加 @ihui/types import(降本 0.1x)
+- P1-5 Tailwind preset 下沉: 新建 tailwind-preset.js + 修复 sm=0.125rem 符合 §4(降本 0.1x)
+- P2-1 global.css 注释修正: ui-primitives -> design-tokens(2处)
+- P2-2 scripts/ 死脚本归档: 6 文件移到 .trae-cn/archive/scripts/(降本 0.05x)
+- P2-4 web/src/lib 死代码审计: 67 文件 15 候选,报告在 .trae-cn/tmp/(降本 0.1x)
+
+commit: 86210133(P0+P1) + 1acae38e2(P1+P2 收尾),均已 push,local == remote。
