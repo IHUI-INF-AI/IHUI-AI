@@ -35,6 +35,7 @@ import {
   revokeRefreshToken,
   revokeRefreshTokenFamily,
 } from '../db/queries.js';
+import { logger } from '../utils/logger.js';
 
 /** access token TTL(毫秒),从 @ihui/auth 同步,默认 15min。 */
 const ACCESS_TTL_MS = ACCESS_TOKEN_TTL_SECONDS * 1000;
@@ -119,12 +120,12 @@ export async function refreshAccessToken(
           const expiresAt = stored.expiresAt ?? new Date(Date.now() + REFRESH_TTL_MS);
           await blacklist.add(refreshTokenStr, expiresAt);
         }
-        console.warn(
+        logger.warn(
           `[security] refresh token reuse detected: familyId=${payload.familyId} userId=${payload.userId} revoked=${revokedCount}`,
         )
       } catch (e) {
         // 撤销失败不应让攻击者得逞,继续抛错
-        console.error('[security] family revocation failed:', e);
+        logger.error('[security] family revocation failed:', { err: e as Error });
       }
     }
     throw new Error('Refresh token 已被吊销,可能存在重用攻击');
