@@ -209,7 +209,7 @@ LITELLM_MODEL=qwen-local/qwen2.5:7b
 
 ```bash
 LITELLM_MODEL=llamacpp/qwen2.5-7b
-LLAMACPP_API_BASE=http://localhost:8080
+LLAMACPP_API_BASE=http://localhost:8080  # 豁免:llama.cpp 第三方服务默认端口,不改动
 ```
 
 > 注:llama.cpp 走 OpenAI 兼容协议,无 ChatML stop 注入优化;若需 Qwen 专有优化,仍推荐方式 A。
@@ -231,7 +231,7 @@ vllm serve Qwen/Qwen2.5-7B-Instruct \
 
 ```bash
 LITELLM_MODEL=openai/qwen2.5-7b-instruct
-OPENAI_API_BASE=http://localhost:8000/v1
+OPENAI_API_BASE=http://localhost:8000/v1  # 豁免:vLLM 第三方服务默认端口,不改动
 OPENAI_API_KEY=vllm-dummy
 ```
 

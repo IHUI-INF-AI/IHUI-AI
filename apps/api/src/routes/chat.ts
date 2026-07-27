@@ -285,15 +285,22 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
-      const conversation = await createConversation({
-        userId,
-        title: parsed.data.title,
-        model: parsed.data.model,
-        systemPrompt: parsed.data.systemPrompt,
-        metadata: parsed.data.metadata,
-      })
+      try {
+        const conversation = await createConversation({
+          userId,
+          title: parsed.data.title,
+          model: parsed.data.model,
+          systemPrompt: parsed.data.systemPrompt,
+          metadata: parsed.data.metadata,
+        })
 
-      return reply.status(201).send(success({ conversation: serializeConversation(conversation) }))
+        return reply.status(201).send(success({ conversation: serializeConversation(conversation) }))
+      } catch (err) {
+        // 2026-07-27 修复:500 空 body 不友好,打印堆栈 + 返回错误消息
+        request.log.error({ err }, '创建对话失败')
+        const msg = err instanceof Error ? err.message : '创建对话失败'
+        return reply.status(500).send(error(500, msg))
+      }
     },
   )
 

@@ -332,7 +332,8 @@ class LLMBudgetGovernor:
                 for m in members:
                     try:
                         records.append(cast(dict[str, Any], json.loads(m)))
-                    except Exception:
+                    except Exception as e:
+                        logger.warning("llm_budget_governor._scan_records JSON parse 失败: %s", e, exc_info=True)
                         continue
                 return records
             except Exception as e:
@@ -341,7 +342,8 @@ class LLMBudgetGovernor:
         for r in self._memory_usage:
             try:
                 ts = datetime.fromisoformat(r.timestamp)
-            except Exception:
+            except Exception as e:
+                logger.warning("llm_budget_governor._scan_records timestamp parse 失败: %s", e, exc_info=True)
                 continue
             if start <= ts <= end:
                 records.append({
@@ -356,7 +358,8 @@ class LLMBudgetGovernor:
         """发射事件到 orchestration_hub(延迟 import 避免循环依赖;import 失败静默跳过)。"""
         try:
             from .orchestration_hub import orchestration_hub
-        except Exception:
+        except Exception as e:
+            logger.warning("llm_budget_governor._emit_event import 失败: %s", e, exc_info=True)
             return  # orchestration_hub 不存在或 import 失败,静默跳过
         try:
             emit = getattr(orchestration_hub, "emit_event", None) or \
