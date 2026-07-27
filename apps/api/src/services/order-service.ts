@@ -18,6 +18,7 @@ import type { Order } from '@ihui/database'
 import type { FastifyInstance } from 'fastify'
 import { executeSaga, type SagaResult } from './distributed-transaction.js'
 import { earnPoints, spendPoints } from './points-service.js'
+import { logger } from '../utils/logger.js'
 import { writeToOutbox } from '../utils/outbox.js'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
@@ -204,6 +205,14 @@ export async function activateOrderSubscription(order: Order): Promise<void> {
   if (order.orderType === 2) {
     const { purchaseVip } = await import('../db/vip-queries.js')
     await purchaseVip({ userId: order.userId, vipLevelId: order.productId, orderId: order.id })
+    // P0-2b: 订阅激活后自动应用 VIP 等级配额(upsert aiBudgets)
+    try {
+      const { applyPlanEntitlements } = await import('./plan-entitlement-service.js')
+      await applyPlanEntitlements(order.userId, order.productId)
+    } catch (e) {
+      // 配额应用失败不阻塞订阅激活(降级:用户保留旧配额或免费档默认值)
+      logger.warn('plan entitlement apply failed', { err: e, orderNo: order.orderNo })
+    }
   } else if (order.orderType === 5) {
     const { findDeveloperPricingById, activateDeveloperSubscription } =
       await import('../db/developer-queries.js')
