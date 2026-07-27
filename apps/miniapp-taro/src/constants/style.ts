@@ -1,27 +1,36 @@
 /**
  * 小程序样式统一常量(集中管理)
- * - light:对齐 apps/web/app/globals.css 亮色主题
- * - dark :对齐 apps/miniapp-taro/src/app.css 赛博朋克深色主题(D7 Ai-WXMiniVue uni.scss 迁移)
- * 圆角梯度严格遵守 AGENTS.md §4(禁止 rounded-full / 9999px / 50%)。
+ * - light:对齐 packages/design-tokens/src/styles/tokens.css @theme 块(亮色 shadcn/ui 风)
+ * - dark :对齐 tokens.css .dark 块(暗色 shadcn/ui 风)
+ * - 圆角梯度严格遵守 AGENTS.md §4(禁止 rounded-full / 9999px / 50%)
+ *
+ * 注意:色值用 hsl() 格式,与 web 端 tokens.css 完全一致(2026-07-27 重构)。
  */
 
-/** 语义色板(light/dark 双主题) */
+/** 语义色板(light/dark 双主题,同步自 tokens.css) */
 export const COLORS = {
-  primary: { light: '#22C55E', dark: '#00F2FF' },
-  secondary: { light: '#F5F5F5', dark: '#1A1A23' },
-  accent: { light: '#0EA5E9', dark: '#3B82F6' },
-  success: { light: '#22C55E', dark: '#22C55E' },
-  warning: { light: '#F59E0B', dark: '#F59E0B' },
-  danger: { light: '#FF3333', dark: '#FF3B3B' },
-  info: { light: '#0EA5E9', dark: '#3B82F6' },
-  textPrimary: { light: '#0A0A0A', dark: '#FFFFFF' },
-  textSecondary: { light: '#525252', dark: '#A3A3A3' },
-  textTertiary: { light: '#A3A3A3', dark: '#737373' },
-  bgPrimary: { light: '#FFFFFF', dark: '#121217' },
-  bgSecondary: { light: '#F5F5F5', dark: '#1F1F28' },
-  bgTertiary: { light: '#EBEBEB', dark: '#1A1A23' },
-  border: { light: '#E5E5E5', dark: '#00F2FF26' },
-  divider: { light: '#E5E5E5', dark: '#2A2A35' },
+  primary: { light: 'hsl(0 0% 0%)', dark: 'hsl(0 0% 100%)' },
+  primaryForeground: { light: 'hsl(0 0% 100%)', dark: 'hsl(0 0% 0%)' },
+  secondary: { light: 'hsl(0 0% 96.1%)', dark: 'hsl(0 0% 14.9%)' },
+  secondaryForeground: { light: 'hsl(0 0% 9%)', dark: 'hsl(0 0% 98%)' },
+  accent: { light: 'hsl(0 0% 88%)', dark: 'hsl(0 0% 17%)' },
+  accentForeground: { light: 'hsl(0 0% 9%)', dark: 'hsl(0 0% 98%)' },
+  success: { light: 'hsl(142 71% 45%)', dark: 'hsl(142 65% 50%)' },
+  successForeground: { light: 'hsl(0 0% 98%)', dark: 'hsl(0 0% 98%)' },
+  warning: { light: 'hsl(38 92% 50%)', dark: 'hsl(38 85% 55%)' },
+  warningForeground: { light: 'hsl(0 0% 98%)', dark: 'hsl(0 0% 98%)' },
+  danger: { light: 'hsl(0 100% 60%)', dark: 'hsl(0 100% 60%)' },
+  dangerForeground: { light: 'hsl(0 0% 98%)', dark: 'hsl(0 0% 98%)' },
+  info: { light: 'hsl(199 89% 48%)', dark: 'hsl(199 80% 55%)' },
+  infoForeground: { light: 'hsl(0 0% 98%)', dark: 'hsl(0 0% 98%)' },
+  textPrimary: { light: 'hsl(0 0% 3.9%)', dark: 'hsl(0 0% 98%)' },
+  textSecondary: { light: 'hsl(0 0% 40%)', dark: 'hsl(0 0% 63.9%)' },
+  textTertiary: { light: 'hsl(0 0% 40%)', dark: 'hsl(0 0% 63.9%)' },
+  bgPrimary: { light: 'hsl(0 0% 96.1%)', dark: 'hsl(0 0% 14%)' },
+  bgSecondary: { light: 'hsl(0 0% 100%)', dark: 'hsl(0 0% 10%)' },
+  bgTertiary: { light: 'hsl(0 0% 92%)', dark: 'hsl(0 0% 14.9%)' },
+  border: { light: 'hsl(0 0% 89.8%)', dark: 'hsl(0 0% 22%)' },
+  divider: { light: 'hsl(0 0% 89.8%)', dark: 'hsl(0 0% 22%)' },
 } as const
 
 /** 间距(px) */

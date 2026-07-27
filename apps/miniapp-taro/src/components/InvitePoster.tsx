@@ -25,8 +25,8 @@ export default function InvitePoster({
   return (
     <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
       <View
-        className="px-6 py-6 text-center text-white"
-        style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+        className="px-6 py-6 text-center text-accent-foreground"
+        style={{ background: 'var(--color-accent)' }}
       >
         <Text className="block text-base font-medium mb-1">{tt('invite.title', '邀请好友')}</Text>
         <Text className="block text-xs opacity-80">{reward}</Text>
@@ -67,11 +67,11 @@ export default function InvitePoster({
             <Text className="text-sm text-foreground">{tt('invite.saveImage', '保存图片')}</Text>
           </View>
           <View
-            className="flex-1 py-2.5 rounded-md text-center"
-            style={{ background: 'linear-gradient(90deg, #6366f1, #8b5cf6)' }}
+            className="flex-1 py-2.5 rounded-md text-center text-accent-foreground"
+            style={{ background: 'var(--color-accent)' }}
             onClick={onShare}
           >
-            <Text className="text-sm text-white">{tt('invite.shareNow', '立即分享')}</Text>
+            <Text className="text-sm text-accent-foreground">{tt('invite.shareNow', '立即分享')}</Text>
           </View>
         </View>
       </View>

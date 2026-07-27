@@ -93,7 +93,7 @@ export default function VipSuccessPage() {
   // 首次渲染时记录一次
   useEffect(() => {
     recordPayment()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次
   }, [])
 
   const goBenefits = () => {

@@ -33,9 +33,9 @@ export default function StudyRank() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="p-6 text-center bg-gradient-to-br from-[#00f2ff] to-[#8b5cf6]">
-        <Text className="block text-white text-lg font-bold">{t('study.rankPage.title')}</Text>
-        <Text className="block text-white/90 text-xs mt-1">{t('study.rankPage.subtitle')}</Text>
+      <View className="p-6 text-center bg-primary">
+        <Text className="block text-primary-foreground text-lg font-bold">{t('study.rankPage.title')}</Text>
+        <Text className="block text-primary-foreground/90 text-xs mt-1">{t('study.rankPage.subtitle')}</Text>
       </View>
 
       {list.length >= 3 && (
