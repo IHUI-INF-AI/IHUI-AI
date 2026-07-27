@@ -18,13 +18,24 @@ function parsePaging(q: { page?: string; pageSize?: string }): { page: number; p
   return { page, pageSize }
 }
 
+// 允许的 ORDER BY 白名单（key → 安全 SQL 片段，防止 sql.raw(order) 注入）
+const ALLOWED_ORDERS: Record<string, string> = {
+  id_desc: '"id" DESC',
+  id_asc: '"id" ASC',
+  sort_asc_id_asc: '"sort_order" ASC, "id" ASC',
+  created_desc: '"created_at" DESC',
+  created_asc: '"created_at" ASC',
+  updated_desc: '"updated_at" DESC',
+  updated_asc: '"updated_at" ASC',
+}
+
 async function rawList(
   table: string,
   opts: { page: number; pageSize: number; conds?: SQL[]; orderBy?: string },
 ) {
   const where =
     opts.conds && opts.conds.length > 0 ? sql`WHERE ${sql.join(opts.conds, sql` AND `)}` : sql``
-  const order = opts.orderBy ?? '"id" DESC'
+  const order = (opts.orderBy ? ALLOWED_ORDERS[opts.orderBy] : undefined) ?? '"id" DESC'
   const offset = (opts.page - 1) * opts.pageSize
   const rows = await db.execute(
     sql`SELECT * FROM ${sql.raw(`"${table}"`)} ${where} ORDER BY ${sql.raw(order)} LIMIT ${opts.pageSize} OFFSET ${offset}`,
@@ -131,7 +142,7 @@ function registerCategoryDictionaryRoutes(server: FastifyInstance) {
         page,
         pageSize,
         conds,
-        orderBy: '"sort_order" ASC, "id" ASC',
+        orderBy: 'sort_asc_id_asc',
       })
       return reply.send(success(result))
     } catch (e) {
