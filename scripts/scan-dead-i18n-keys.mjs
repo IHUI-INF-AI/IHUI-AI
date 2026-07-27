@@ -22,6 +22,7 @@
  *   - extension    (代码扫描 apps/extension/{entrypoints,src,lib})
  *   - miniapp-taro (代码扫描仅 apps/miniapp-taro/src)
  *   - mobile-rn    (代码扫描仅 apps/mobile-rn/src)
+ *   - cli          (Node.js CLI,代码扫描 apps/cli/src)
  *   - desktop      (Rust/Tauri 包装,无 JS 代码,messages 目录未建立,自动跳过 exit 0)
  *
  * 5 端 thin wrapper(向后兼容,委托本入口):
@@ -29,6 +30,7 @@
  *   node scripts/scan-extension-dead-i18n-keys.mjs    # → --target=extension
  *   node scripts/scan-miniapp-taro-dead-i18n-keys.mjs # → --target=miniapp-taro
  *   node scripts/scan-mobile-rn-dead-i18n-keys.mjs    # → --target=mobile-rn
+  # cli 无 thin wrapper,直接用 --target=cli
  *   node scripts/scan-desktop-dead-i18n-keys.mjs      # → --target=desktop
  *
  * 死 key 判定 / 翻译完整性 / 动态 key:见 _i18n-scan-helpers.mjs 注释
@@ -42,7 +44,6 @@ const TARGETS = {
       'apps/web/src',
       'apps/web/app', // Next.js 15 App Router(2026-07-26 漏扫 bug 修复)
       'apps/miniapp-taro/src',
-      'apps/cli/src',
       'apps/mobile-rn/src', // React Native 端,2026-07-26 mobile-rn 子任务补扫(与 web 共享部分 leaf key)
     ],
   },
@@ -53,6 +54,10 @@ const TARGETS = {
   'mobile-rn': {
     localeDir: 'packages/i18n/messages/mobile-rn',
     scanTargets: ['apps/mobile-rn/src'],
+  },
+  cli: {
+    localeDir: 'packages/i18n/messages/cli',
+    scanTargets: ['apps/cli/src'],
   },
   extension: {
     localeDir: 'packages/i18n/messages/extension',
@@ -101,7 +106,8 @@ function printHelp() {
   node scripts/scan-dead-i18n-keys.mjs --help                       # 帮助
 
 支持 target(5 端):
-  web          (默认,代码扫描含 web/miniapp-taro/cli/mobile-rn,因 web i18n 跨端共享)
+  web          (默认,代码扫描含 web/miniapp-taro/mobile-rn,因 web i18n 跨端共享)
+  cli          (代码扫描 apps/cli/src)
   extension    (代码扫描 apps/extension/{entrypoints,src,lib})
   miniapp-taro (代码扫描仅 apps/miniapp-taro/src)
   mobile-rn    (代码扫描仅 apps/mobile-rn/src)

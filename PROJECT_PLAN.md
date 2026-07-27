@@ -733,3 +733,38 @@
 ### 验证
 - rn-app/mobile-rn/extension/miniapp-taro/shared typecheck 全绿
 - 各端 lint 全绿(web 2个预先存在错误不属本任务)
+
+### [x] ✅(2026-07-27) 阶段1收尾: @ihui/app -> @ihui/rn-app 文档同步(commit 3310901d7)
+
+7 文件文档对齐消除"假共享包"误导残留引用:
+- README.md / README.en.md / docs/PACKAGES.md / docs/MULTI_END.md 表格更新
+- apps/mobile-rn/src/components/AiModelCard.tsx 注释更新
+- packages/types/src/app.ts 注释更新
+- scripts/sync-rn-global-css.mjs 注释更新(check/sync 职责分离说明)
+
+验证: check-rn-global-css-sync.mjs 测试 15/15 绿, 50 变量同步, 全局无 @ihui/app 残留(PROJECT_PLAN.md 归档注释保留历史)。
+
+## 多端维护成本优化阶段2(2026-07-27,P0+P1,目标 5.5x->4.0x)
+
+阶段1完成后剩余 5.5x,深度审计 6 维度识别 12 个优化动作,分 P0/P1/P2 三波。
+
+### P0 高降本(预计 0.7-0.8x,3 subagent 并行)
+
+- [ ] P0-1: web design-tokens sync 机制(消除 web 端 50+ CSS 变量手抄,降本 0.3x)
+- [ ] P0-2: web fetch 绕过 api-client 全量收敛(10 处 fetch 改 api-client,降本 0.3x)
+- [ ] P0-3: cli i18n 下沉 packages/i18n(5 语言参与 parity 守门,降本 0.1-0.2x)
+
+### P1 中降本(预计 0.6x,部分依赖 P0 完成)
+
+- [ ] P1-1: web utils re-export @ihui/shared(4 文件下沉,降本 0.2x,依赖 P0-1)
+- [ ] P1-2: packages/shared 死代码审计(52->~35 文件,降本 0.1x)
+- [ ] P1-3: mobile-rn 类型契约接入(添加 @ihui/types import,降本 0.1x)
+- [ ] P1-4: packages/types 类型整合(降本 0.1x,依赖 P1-2)
+- [ ] P1-5: Tailwind preset 下沉(降本 0.1x)
+
+### P2 低降本(预计 0.2x,审计为主)
+
+- [ ] P2-1: mobile-rn/global.css 注释修正(降本 0.0x)
+- [ ] P2-2: scripts/ 死脚本审计(降本 0.05x)
+- [ ] P2-3: extension sidepanel 死页面审计(降本 0.05x)
+- [ ] P2-4: web/src/lib 死代码审计(降本 0.1x)

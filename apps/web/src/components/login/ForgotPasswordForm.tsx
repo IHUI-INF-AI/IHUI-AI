@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
+import { sendCode, resetPassword } from '@ihui/api-client'
 import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
@@ -51,14 +52,9 @@ export function ForgotPasswordForm() {
     }
     setSending(true)
     try {
-      const res = await fetch('/api/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [method]: target, scene: 'reset' }),
-      })
-      const json = (await res.json()) as { code: number; message: string }
-      if (!res.ok || json.code !== 0) {
-        setError(json.message || t('registerFailed'))
+      const r = await sendCode(method, target, 'reset')
+      if (!r.success) {
+        setError(r.error || t('registerFailed'))
         return
       }
       toast.success(t('codeSent'))
@@ -77,14 +73,9 @@ export function ForgotPasswordForm() {
     if (newPassword !== confirmPassword) return setError(t('passwordMismatch'))
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method, target, code, newPassword }),
-      })
-      const json = (await res.json()) as { code: number; message: string }
-      if (!res.ok || json.code !== 0) {
-        setError(json.message || t('registerFailed'))
+      const r = await resetPassword({ method, target, code, newPassword })
+      if (!r.success) {
+        setError(r.error || t('registerFailed'))
         return
       }
       toast.success(t('resetSuccess'))
