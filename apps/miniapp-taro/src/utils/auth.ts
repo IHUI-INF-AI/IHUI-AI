@@ -1,6 +1,6 @@
 /**
  * 鉴权 Token 管理
- * 基于 Taro.storage 的本地持久化
+ * 基于 Taro.storage 持久化 + createInMemoryTokenStore 内存缓存工厂
  */
 import { getStorageSync, setStorageSync, removeStorageSync, reLaunch } from '@tarojs/taro'
 import type { LoginResult as SharedLoginResult, AuthUser } from '@ihui/api-client'
@@ -8,6 +8,7 @@ import {
   TOKEN_STORAGE_KEY as TOKEN_KEY,
   REFRESH_TOKEN_STORAGE_KEY as REFRESH_TOKEN_KEY,
 } from '@ihui/shared/constants'
+import { createInMemoryTokenStore } from '@ihui/shared/auth'
 import type { TokenStoreWithUserInfo } from '@ihui/shared/auth'
 
 const USER_INFO_KEY = 'ihui_user_info'
@@ -37,24 +38,50 @@ export interface LoginResult extends Omit<SharedLoginResult, 'user'> {
   user: UserInfo
 }
 
+/**
+ * 内存缓存 TokenStore(Taro.storage 持久化层)
+ *
+ * 工厂维护 token/refreshToken 内存缓存,通过回调将持久化下放到本端:
+ * - initial:模块加载时从 Taro.storage 同步 hydrate 缓存
+ * - onSetToken/onSetRefreshToken/onClearAll:同步写 Taro.storage(返回 void,
+ *   工厂接受 Promise<void> | void)
+ *
+ * 注意:token-store.ts 注释明确 miniapp-taro 因同步 storage 语义不匹配,通常不走
+ * bindTokenStoreToApiClient 适配器;app.tsx 仍调用 bindTokenStoreToApiClient(tokenStore)
+ * 仅做类型契约验证,实际 token 注入由 createNotificationClient 的 tokenProvider 负责。
+ */
+const tokenStoreCore = createInMemoryTokenStore({
+  initial: {
+    token: getStorageSync(TOKEN_KEY) || null,
+    refreshToken: getStorageSync(REFRESH_TOKEN_KEY) || null,
+  },
+  onSetToken: (token) => setStorageSync(TOKEN_KEY, token ?? ''),
+  onSetRefreshToken: (token) => setStorageSync(REFRESH_TOKEN_KEY, token ?? ''),
+  onClearAll: () => {
+    removeStorageSync(TOKEN_KEY)
+    removeStorageSync(REFRESH_TOKEN_KEY)
+    removeStorageSync(USER_INFO_KEY)
+  },
+})
+
 /** 获取 Token */
 export function getToken(): string {
-  return getStorageSync(TOKEN_KEY) || ''
+  return tokenStoreCore.getToken() ?? ''
 }
 
 /** 设置 Token */
 export function setToken(token: string): void {
-  setStorageSync(TOKEN_KEY, token)
+  void tokenStoreCore.setToken(token)
 }
 
 /** 获取 Refresh Token */
 export function getRefreshToken(): string {
-  return getStorageSync(REFRESH_TOKEN_KEY) || ''
+  return tokenStoreCore.getRefreshToken() ?? ''
 }
 
 /** 设置 Refresh Token */
 export function setRefreshToken(token: string): void {
-  setStorageSync(REFRESH_TOKEN_KEY, token)
+  void tokenStoreCore.setRefreshToken(token)
 }
 
 /** 获取用户信息 */
@@ -70,9 +97,7 @@ export function setUserInfo(info: UserInfo): void {
 
 /** 清除登录态 */
 export function clearAuth(): void {
-  removeStorageSync(TOKEN_KEY)
-  removeStorageSync(REFRESH_TOKEN_KEY)
-  removeStorageSync(USER_INFO_KEY)
+  void tokenStoreCore.clearAll()
 }
 
 /** 是否已登录 */
@@ -94,11 +119,12 @@ export function checkLoginStatus(redirect = false): boolean {
 }
 
 /**
- * TokenStore 契约接入(类型层验证,零运行时改动)
+ * TokenStore 契约接入(类型层验证 + UserInfo 扩展)
  *
- * 编译时验证本端 token 管理实现符合 @ihui/shared/auth TokenStoreWithUserInfo 接口,
- * 为后续跨端统一调用提供类型安全网。各调用方仍可直接用具体函数,
- * 此对象供后续重构或新代码通过 TokenStore 接口调用使用。
+ * 在 createInMemoryTokenStore 之上扩展 UserInfo 管理,构成 TokenStoreWithUserInfo。
+ * app.tsx 调用 bindTokenStoreToApiClient(tokenStore) 做类型契约验证;实际 token
+ * 注入由 createNotificationClient 的 tokenProvider 负责(因同步 storage 语义不匹配,
+ * 通常不走 bindTokenStoreToApiClient,见 token-store.ts 注释)。
  *
  * 注意:
  * - clearAuth 同时清除 token + refreshToken + userInfo,映射到 clearAll
