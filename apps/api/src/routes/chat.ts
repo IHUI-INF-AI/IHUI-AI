@@ -272,6 +272,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
           },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
     },
@@ -301,7 +305,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         // 2026-07-27 修复:500 空 body 不友好,打印堆栈 + 返回错误消息
         request.log.error({ err }, '创建对话失败')
         const msg = err instanceof Error ? err.message : '创建对话失败'
-        return reply.status(500).send(error(500, msg))
+        return reply.code(500).send(error(500, msg))
       }
     },
   )
