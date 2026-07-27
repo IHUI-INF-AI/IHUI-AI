@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
+import { formatHumanDuration } from '@ihui/shared/utils'
 
 import { Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -24,13 +25,7 @@ interface StudyStats {
   continuousDays: number
 }
 
-function formatDuration(minutes: number): string {
-  if (!minutes || minutes <= 0) return '0m'
-  if (minutes < 60) return `${minutes}m`
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return m > 0 ? `${h}h ${m}m` : `${h}h`
-}
+
 
 function statusKey(status: LearnRecord['status']): string {
   if (status === 'completed') return 'studyRecord.statusCompleted'
@@ -110,7 +105,7 @@ export function StudyRecordScreen() {
         <View style={styles.statsCard}>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{formatDuration(stats.totalDuration)}</Text>
+              <Text style={styles.statValue}>{formatHumanDuration(stats.totalDuration)}</Text>
               <Text style={styles.statLabel}>{t('studyRecord.totalDuration')}</Text>
             </View>
             <View style={styles.statItem}>
@@ -171,7 +166,7 @@ export function StudyRecordScreen() {
             <View style={styles.cardMetaRow}>
               {item.duration ? (
                 <Text style={styles.cardMetaText}>
-                  {t('studyRecord.duration')}:{formatDuration(item.duration)}
+                  {t('studyRecord.duration')}:{formatHumanDuration(item.duration)}
                 </Text>
               ) : null}
               {item.progress !== undefined ? (

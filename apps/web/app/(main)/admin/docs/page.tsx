@@ -130,7 +130,7 @@ export default function AdminDocsPage() {
             ) : list.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">{t('noData')}</td></tr>
             ) : (
-              list.map((d: any) => (
+              list.map((d) => (
                 <tr key={d.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{d.title}</td>
                   <td className="px-4 py-2.5">

@@ -16,23 +16,12 @@ import { Button, Input } from '@ihui/ui-native'
 import { getProfile, updateProfile, type AuthUser } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
+import { Gender, GENDERS, GENDER_KEYS } from '@ihui/shared/constants'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-type Gender = 0 | 1 | 2
 
-const GENDERS: Array<{ value: Gender; key: 'male' | 'female' | 'secret' }> = [
-  { value: 1, key: 'male' },
-  { value: 2, key: 'female' },
-  { value: 0, key: 'secret' },
-]
-
-const GENDER_KEYS: Record<'male' | 'female' | 'secret', string> = {
-  male: 'profileEdit.gender_male',
-  female: 'profileEdit.gender_female',
-  secret: 'profileEdit.gender_secret',
-}
 
 export function ProfileEditScreen() {
   const { t } = useI18n()

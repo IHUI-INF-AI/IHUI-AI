@@ -19,3 +19,29 @@ export const WEB_BASE = 'https://ihui.ai'
  * @see ./constants/error-codes.ts
  */
 export * from './constants/error-codes'
+
+/**
+ * 性别枚举(跨端统一:mobile-rn/ProfileEditScreen + miniapp-taro/ProfileEdit 共用)。
+ * 0 = 保密,1 = 男,2 = 女(后端 API 约定)。
+ */
+export type Gender = 0 | 1 | 2
+
+export const GENDERS: ReadonlyArray<{ value: Gender; key: 'male' | 'female' | 'secret' }> = [
+  { value: 1, key: 'male' },
+  { value: 2, key: 'female' },
+  { value: 0, key: 'secret' },
+] as const
+
+export const GENDER_KEYS: Record<'male' | 'female' | 'secret', string> = {
+  male: 'profileEdit.gender_male',
+  female: 'profileEdit.gender_female',
+  secret: 'profileEdit.gender_secret',
+}
+
+/**
+ * 持久化键名(跨端统一:web localStorage / mobile-rn AsyncStorage / miniapp-taro Taro.storage 共用)。
+ * 注意:theme 用连字符 'ihui-theme'(与 @ihui/shared/stores/theme-store 默认值一致),
+ * 避免历史下划线 'ihui_theme' 与连字符 'ihui-theme' 跨端漂移。
+ */
+export const THEME_STORAGE_KEY = 'ihui-theme'
+export const LOCALE_STORAGE_KEY = 'ihui-locale'
