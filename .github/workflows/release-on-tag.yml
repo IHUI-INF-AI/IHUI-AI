@@ -50,5 +50,15 @@ jobs:
               --latest
           fi
 
+          # 附加数字产品发布资产(zip 包),让用户可直接从 Release 页面下载
+          ASSET_DIR="products/ai-prompt-library/dist"
+          if [ -d "$ASSET_DIR" ] && ls "$ASSET_DIR"/*.zip >/dev/null 2>&1; then
+            echo "Attaching release assets from $ASSET_DIR"
+            gh release upload "$TAG_NAME" "$ASSET_DIR"/*.zip
+            echo "✅ Assets attached"
+          else
+            echo "ℹ️ No product assets to attach (directory $ASSET_DIR not found or empty)"
+          fi
+
           echo "✅ Release $TAG_NAME created successfully"
           echo "🔗 https://github.com/${{ github.repository }}/releases/tag/$TAG_NAME"
