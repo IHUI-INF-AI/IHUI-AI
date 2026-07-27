@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  FlatList,
+  Modal,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveList, type Live } from '@ihui/api-client'
@@ -124,7 +133,8 @@ export function LivePlaybackScreen() {
               </Text>
             ) : null}
             <Text style={styles.cardMeta}>
-              {t('livePlayback.startAt')}:{formatDateByTemplate(item.startTime, 'YYYY-MM-DD HH:mm') || '—'}
+              {t('livePlayback.startAt')}:
+              {formatDateByTemplate(item.startTime, 'YYYY-MM-DD HH:mm') || '—'}
             </Text>
             <View style={styles.cardMetaRow}>
               <Text style={styles.cardMetaText}>
@@ -136,10 +146,7 @@ export function LivePlaybackScreen() {
             </View>
             <View style={styles.cardFooter}>
               <TouchableOpacity
-                style={[
-                  styles.playBtn,
-                  !item.playUrl && styles.playBtnDisabled,
-                ]}
+                style={[styles.playBtn, !item.playUrl && styles.playBtnDisabled]}
                 onPress={() => handlePlay(item)}
                 disabled={!item.playUrl}
               >
@@ -175,42 +182,95 @@ export function LivePlaybackScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', paddingHorizontal: 16 },
-  loadingText: { marginTop: 8, fontSize: 13, color: '#6b7280' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.light,
+    paddingHorizontal: 16,
+  },
+  loadingText: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-  backText: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6b7280' },
-  userText: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
+  userText: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   list: { flex: 1, paddingHorizontal: 16 },
   empty: { paddingVertical: 40, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: '#9ca3af' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 10 },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  card: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    marginBottom: 10,
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827', marginRight: 8 },
-  badgeEnded: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: '#f3f4f6' },
-  badgeText: { fontSize: 11, color: '#6b7280' },
-  cardMeta: { marginTop: 4, fontSize: 12, color: '#6b7280' },
+  cardTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginRight: 8,
+  },
+  badgeEnded: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.card,
+  },
+  badgeText: { fontSize: 11, color: tokens.text.secondary },
+  cardMeta: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
   cardMetaRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  cardMetaText: { fontSize: 12, color: '#6b7280' },
+  cardMetaText: { fontSize: 12, color: tokens.text.secondary },
   cardFooter: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 },
   playBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  playBtnDisabled: { backgroundColor: '#d1d5db' },
-  playBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  retryText: { color: '#fff', fontSize: 14 },
-  errorText: { fontSize: 13, color: '#dc2626', textAlign: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  modalContent: { width: '100%', maxWidth: 400, backgroundColor: '#fff', borderRadius: 8, padding: 16 },
-  modalTitle: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  playerArea: { aspectRatio: 16 / 9, backgroundColor: '#000', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  playerIcon: { fontSize: 36, color: '#fff' },
-  playerHint: { marginTop: 8, fontSize: 13, color: '#9ca3af' },
-  playerUrl: { marginTop: 4, fontSize: 10, color: '#6b7280', paddingHorizontal: 16 },
-  closeBtn: { marginTop: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
-  closeBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  playBtnDisabled: { backgroundColor: tokens.border.medium },
+  playBtnText: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
+  retryBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
+  retryText: { color: tokens.surface.light, fontSize: 14 },
+  errorText: { fontSize: 13, color: tokens.error.text, textAlign: 'center' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: tokens.surface.light,
+    borderRadius: 8,
+    padding: 16,
+  },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
+  playerArea: {
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playerIcon: { fontSize: 36, color: tokens.surface.light },
+  playerHint: { marginTop: 8, fontSize: 13, color: tokens.text.tertiary },
+  playerUrl: { marginTop: 4, fontSize: 10, color: tokens.text.secondary, paddingHorizontal: 16 },
+  closeBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+  },
+  closeBtnText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
 })

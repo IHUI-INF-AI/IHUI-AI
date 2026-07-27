@@ -16,6 +16,7 @@ export interface EChartProps {
   loading?: boolean
 }
 
+// ECharts canvas 渲染不支持 CSS var(),#94a3b8 为 tokens.css --chart-text 的硬编码副本,修改需同步 tokens.css
 const darkTextStyle = { color: '#94a3b8' }
 
 export function EChart({ option, className, height = 300, loading }: EChartProps) {
