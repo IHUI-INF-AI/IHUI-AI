@@ -39,6 +39,7 @@ import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-m
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
+import { AgentTaskProgressPane } from '@/components/ai/agent-task-progress-pane'
 import {
   FullAccessConfirmDialog,
   isFullAccessConfirmSuppressed,
@@ -863,6 +864,13 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
+          {/* Agent 任务进度触发按钮 + popover(2026-07-27 v6,用户规则:
+              trigger 在输入容器 div 外面上方居中,点击弹出小 popover 显示 plan steps 列表,
+              不再是底部大弹窗。relative 容器让 popover 相对 trigger 定位。 */}
+          <div className="relative flex justify-center pb-1">
+            <AgentProgressTrigger />
+            <AgentTaskProgressPane />
+          </div>
           {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
               高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告 */}
           <div
@@ -885,16 +893,8 @@ export function MessageInput({
                 <p className="text-sm font-medium text-primary">释放鼠标以添加附件(图片/视频)</p>
               </div>
             )}
-            {/* 附加栏:输入框上方的功能条。
-                - 左侧:提示词模板 + 添加引用(并列,统一胶囊风格)
-                - 右侧:引用计数徽章
-                提示词模板按钮从底部工具栏上移至此(用户规则:挪到输入框上方附加栏),
-                与空状态 chips 共用同一组 5 个核心模板源,视觉风格协调。 */}
             <div className="flex items-center gap-1 bg-muted/30 px-2 py-1.5">
-              {/* Agent 任务进度触发按钮(2026-07-27 v5,用户规则:放到权限模式栏前面):
-                  - 无进度时显示"任务列表",有进度时显示"01/06"格式
-                  - 点击切换底部 Pane 开关,Ctrl+Shift+J 快捷键全局触发 */}
-              <AgentProgressTrigger />
+              {/* Agent 任务进度触发按钮已移至上方居中(v6) */}
               {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
                   盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
                   点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。 */}
