@@ -145,7 +145,7 @@
 #### P0-2 订阅档位扩展 + plan-driven 中间件
 
 - [x] ✅(2026-07-28) **P0-2a VIP levelValue 4 档扩展** — `packages/database/src/schema/vip.ts` levelValue 注释从"0=普通 1=VIP 2=操盘手"扩展为"0=免费 1=个人 2=团队 3=企业" + 4 个配额字段:`aiBudgetDefaults`(jsonb 默认 {dailyTokenLimit:10万, monthlyTokenLimit:100万, dailyCostLimit:10, monthlyCostLimit:100})+ `apiQps`(int 默认 10) + `maxConcurrency`(int 默认 3) + `modelWhitelist`(jsonb nullable,null=全部允许) + 迁移脚本 `drizzle/20260728120000_vip_levels_quota_fields.sql`(4 条 ALTER TABLE ADD COLUMN IF NOT EXISTS,幂等可重复执行) + database/api typecheck 全绿。P0-2b plan-driven 中间件将读取这些字段在订阅激活时 upsert aiBudgets
-- [ ] **P0-2b plan-driven 中间件** — 新建 `apps/api/src/services/plan-entitlement-service.ts`:订阅激活时自动 upsert aiBudgets(按 plan 默认值)+ API key 配额;用户升级/降级时自动调整;集成到 `activateOrderSubscription` 链路
+- [x] ✅(2026-07-28) **P0-2b plan-driven 中间件** — 新建 `apps/api/src/services/plan-entitlement-service.ts`:3 函数(getVipLevelEntitlements 读取 VIP 等级配额 / applyPlanEntitlements 订阅激活时 upsert aiBudgets scope='user' / getEntitlementsByLevelValue 运行时按 levelValue 查配额)+ 集成到 `activateOrderSubscription`(orderType=2 VIP 订阅后自动调用 applyPlanEntitlements,失败不阻塞订阅激活,logger.warn 降级)+ apiQps/maxConcurrency/modelWhitelist 运行时实时读取(不复制到用户表,避免数据冗余)+ typecheck + lint 全绿
 
 #### P0-3 模型价格 seed + 定价页
 
