@@ -71,7 +71,8 @@ const EXEMPT_PATH_PATTERNS = [
   /\.jpg$/,
   /\.gif$/,
   /\.ico$/,
-  /docs\/port-management\.md$/, // 本规则文件自身
+  /^docs\//, // docs/ 整目录豁免(文档端口是历史示例,非运行时配置)
+  /docs\/port-management\.md$/, // 本规则文件自身(已被 ^docs/ 覆盖,保留显式注释)
   /scripts\/check-port-registry\.mjs$/, // 本守门脚本自身
   /\.github\/workflows\//, // CI workflows(豁免)
   /apps\/api\/tests\//, // API 测试默认值(豁免)
