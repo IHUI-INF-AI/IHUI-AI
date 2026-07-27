@@ -46,8 +46,10 @@ const STATUS_CLS: Record<AgentOverview['status'], string> = {
  * 对齐 Trae Work 底部统计栏:
  * - 标题带 Activity 图标
  * - 会话状态 SVG 图标 + 步骤/子代理/终端/变更/耗时统计
+ *
+ * v10 memo:React.memo 包装,overview/统计 props 引用稳定时跳过重渲染
  */
-export function OverviewSection({
+export const OverviewSection = React.memo(function OverviewSection({
   overview,
   isStreaming,
   totalTokens,
@@ -153,6 +155,6 @@ export function OverviewSection({
       </div>
     </FoldableSection>
   )
-}
+})
 
 export default OverviewSection

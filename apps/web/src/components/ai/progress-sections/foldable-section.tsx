@@ -51,6 +51,8 @@ export function formatDuration(ms: number): string {
  * - 计数徽章(右对齐,tabular-nums)
  * - 平滑背景色 hover 反馈
  * - rounded-sm bg-muted/30 容器,无分割线
+ *
+ * 注:不 memo 化(children 是 React element,父组件每次 render 创建新引用,memo 无收益)
  */
 export function FoldableSection({
   title,
