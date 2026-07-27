@@ -1,0 +1,78 @@
+services:
+  - type: web
+    name: ihui-web
+    env: node
+    plan: free
+    rootDir: apps/web
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @ihui/web... build
+    startCommand: pnpm --filter @ihui/web start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_APP_NAME
+        value: IHUI AI
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+    healthCheckPath: /api/health
+
+  - type: web
+    name: ihui-api
+    env: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @ihui/api... build
+    startCommand: node apps/api/dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8802"
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CREDENTIALS_ENCRYPTION_KEY
+        generateValue: true
+      - key: AI_SERVICE_URL
+        value: https://ihui-ai-service.onrender.com
+      - key: CORS_ORIGIN
+        sync: false
+    healthCheckPath: /api/health
+
+  - type: web
+    name: ihui-ai-service
+    env: python
+    plan: free
+    rootDir: apps/ai-service
+    buildCommand: pip install --no-cache-dir .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: API_SERVICE_URL
+        value: https://ihui-api.onrender.com
+      - key: AI_CALLBACK_SECRET
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+    healthCheckPath: /health
+
+databases:
+  - name: ihui-postgres
+    plan: free
+    databaseName: ihui
+  - name: ihui-redis
+    plan: free
