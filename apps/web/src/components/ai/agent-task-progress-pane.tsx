@@ -61,10 +61,12 @@ const PlanStepItem = React.memo(function PlanStepItem({
   const Icon = PLAN_ICON[step.status]
   return (
     <div
+      role="listitem"
       className={cn(
         'flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
         step.status === 'in_progress' && 'bg-primary/5',
       )}
+      aria-label={`步骤 ${index + 1}: ${step.step} (${step.status === 'in_progress' ? '进行中' : step.status === 'completed' ? '已完成' : '待执行'})`}
     >
       <Icon
         className={cn(
@@ -200,6 +202,42 @@ export function AgentTaskProgressPane() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, pinned, closePane])
 
+  // v11: 折叠子区键盘导航(roving tabindex)
+  // ArrowUp/Down 在 section headers 间移动焦点,Home/End 跳首/末
+  const onSectionsKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (!target.matches('[data-section-header]')) return
+    const container = e.currentTarget
+    const headers = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('[data-section-header]'),
+    )
+    if (headers.length === 0) return
+    const currentIdx = headers.indexOf(target as HTMLButtonElement)
+    if (currentIdx === -1) return
+    let nextIdx = currentIdx
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        nextIdx = (currentIdx + 1) % headers.length
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        nextIdx = (currentIdx - 1 + headers.length) % headers.length
+        break
+      case 'Home':
+        e.preventDefault()
+        nextIdx = 0
+        break
+      case 'End':
+        e.preventDefault()
+        nextIdx = headers.length - 1
+        break
+      default:
+        return
+    }
+    headers[nextIdx]?.focus()
+  }
+
   // click-outside 关闭(仅 unpin 状态)
   const paneRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
@@ -236,6 +274,8 @@ export function AgentTaskProgressPane() {
         // 外观:圆角边框阴影,popover 风格
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
       )}
+      role="complementary"
+      aria-label="Agent 任务进度面板"
       data-testid="agent-progress-pane"
     >
       {/* Header:状态点 + 标题 + pin 按钮 + 关闭按钮 */}
@@ -358,14 +398,20 @@ export function AgentTaskProgressPane() {
         {/* plan steps 列表 + 进度条 */}
         {planSteps.length > 0 && (
           <>
-            {planSteps.map((step, idx) => (
-              <PlanStepItem key={step.id} step={step} index={idx} />
-            ))}
+            <div role="list" aria-label="任务步骤列表">
+              {planSteps.map((step, idx) => (
+                <PlanStepItem key={step.id} step={step} index={idx} />
+              ))}
+            </div>
             {/* v9: 统计文字(线性进度条已移除,改用 header 中的 SVG 圆环) */}
-            <div className="mx-2 mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/60">
+            <div
+              className="mx-2 mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/60"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               <span>{completedCount}/{planSteps.length} 已完成</span>
               {isStreaming && (
-                <span className="flex items-center gap-0.5 text-primary">
+                <span className="flex items-center gap-0.5 text-primary" role="status">
                   <Loader2 className="h-2.5 w-2.5 animate-spin" />
                   执行中
                 </span>
@@ -377,23 +423,25 @@ export function AgentTaskProgressPane() {
         {/* 折叠子区:思考过程 / 工具调用 / Subagent 派单 / 文件变更 / 终端任务 / 任务总览(对齐 Trae Work) */}
         {threadId && (
           <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
-            <ThinkingSection
-              content={overview.content}
-              currentNode={overview.currentNode}
-              isStreaming={isStreaming}
-            />
-            <ToolCallsSection tools={tools} />
-            <SubagentSection subagents={subagents} />
-            <ChangesSection changes={changes} />
-            <TerminalSection terminals={terminals} />
-            <OverviewSection
-              overview={overview}
-              isStreaming={isStreaming}
-              totalTokens={totalTokens}
-              tokenRate={tokenRate}
-              etaMs={etaMs}
-              contextUsage={contextUsage}
-            />
+            <div onKeyDown={onSectionsKeyDown} data-testid="sections-container">
+              <ThinkingSection
+                content={overview.content}
+                currentNode={overview.currentNode}
+                isStreaming={isStreaming}
+              />
+              <ToolCallsSection tools={tools} />
+              <SubagentSection subagents={subagents} />
+              <ChangesSection changes={changes} />
+              <TerminalSection terminals={terminals} />
+              <OverviewSection
+                overview={overview}
+                isStreaming={isStreaming}
+                totalTokens={totalTokens}
+                tokenRate={tokenRate}
+                etaMs={etaMs}
+                contextUsage={contextUsage}
+              />
+            </div>
           </FoldableSectionProvider>
         )}
       </div>
