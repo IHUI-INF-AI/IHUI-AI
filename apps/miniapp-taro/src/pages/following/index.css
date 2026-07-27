@@ -36,7 +36,7 @@
   height: 72rpx;
   padding: 0 20rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
 }
 .following-search-icon {
@@ -66,7 +66,7 @@
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
 }
 .following-sort-btn-active {
@@ -86,7 +86,7 @@
   display: flex;
   padding: 24rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
 }
 .following-avatar {
@@ -129,8 +129,8 @@
 }
 .following-status {
   padding: 4rpx 12rpx;
-  background: rgba(0, 242, 255, 0.08);
-  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-border);
   border-radius: 6rpx;
 }
 .following-status-text {

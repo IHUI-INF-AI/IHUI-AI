@@ -191,7 +191,7 @@ export default function PayIndex() {
   const payDisabled = submitting || expired || (payMethod === 'balance' && balanceInsufficient)
 
   const methodBase = 'flex items-center px-[12rpx] py-[20rpx] rounded-xl border-[2rpx] border-transparent'
-  const methodActive = 'bg-[rgba(0,242,255,0.08)] border-[rgba(0,242,255,0.3)]'
+  const methodActive = 'bg-primary/10 border-primary/40'
   const radioBase = 'w-[36rpx] h-[36rpx] border-[2rpx] border-border rounded-lg bg-secondary flex items-center justify-center'
   const radioOn = 'border-primary bg-primary'
 

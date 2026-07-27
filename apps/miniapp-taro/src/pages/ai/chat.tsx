@@ -754,7 +754,7 @@ export default function ChatPage() {
                   style={{
                     width: `${Math.floor(thinkingProgress)}%`,
                     height: '100%',
-                    background: 'linear-gradient(90deg, #00f2ff, #8b5cf6)',
+                    background: 'var(--color-primary)',
                     borderRadius: '4rpx',
                     transition: 'width 120ms linear',
                   }}

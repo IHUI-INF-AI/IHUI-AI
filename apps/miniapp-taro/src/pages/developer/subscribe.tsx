@@ -154,7 +154,7 @@ export default function DeveloperSubscribePage() {
 
   return (
     <View className="min-h-screen bg-background pb-[60rpx]">
-      <View className="flex items-start gap-[24rpx] px-[28rpx] py-[32rpx] m-[24rpx] bg-[linear-gradient(135deg,rgba(0,242,255,0.12),rgba(0,242,255,0.03))] border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx]">
+      <View className="flex items-start gap-[24rpx] px-[28rpx] py-[32rpx] m-[24rpx] bg-secondary border border-border rounded-[12rpx]">
         <View className="flex-shrink-0">
           {dev.avatar ? (
             <Image className="w-[112rpx] h-[112rpx] rounded-[12rpx] bg-muted" src={dev.avatar} mode="aspectFill" />
@@ -170,7 +170,7 @@ export default function DeveloperSubscribePage() {
             {dev.bio || tt('developer.subscribe.bioDefault', '暂无简介')}
           </Text>
           <Button
-            className={`self-start mt-[8rpx] px-[28rpx] h-[60rpx] leading-[60rpx] text-[26rpx] text-foreground bg-primary rounded-[8rpx] border-none disabled:opacity-60${dev.subscribed ? ' bg-card text-muted-foreground border-[2rpx] border-[rgba(0,242,255,0.2)]' : ''}`}
+            className={`self-start mt-[8rpx] px-[28rpx] h-[60rpx] leading-[60rpx] text-[26rpx] text-foreground bg-primary rounded-[8rpx] border-none disabled:opacity-60${dev.subscribed ? ' bg-card text-muted-foreground border border-border' : ''}`}
             disabled={subscribing}
             onClick={toggleSubscribe}
           >
@@ -181,7 +181,7 @@ export default function DeveloperSubscribePage() {
         </View>
       </View>
 
-      <View className="flex mx-[24rpx] py-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]">
+      <View className="flex mx-[24rpx] py-[24rpx] bg-card border border-border rounded-[12rpx]">
         <View className="flex-1 flex flex-col items-center gap-[8rpx]">
           <Text className="text-[36rpx] font-bold text-primary">{stats.subscribers}</Text>
           <Text className="text-[22rpx] text-muted-foreground">
@@ -207,7 +207,7 @@ export default function DeveloperSubscribePage() {
         {models.length > 0 ? (
           <View className="flex flex-col gap-[16rpx]">
             {models.map((m) => (
-              <View key={m.id} className="flex items-center gap-[20rpx] p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]">
+              <View key={m.id} className="flex items-center gap-[20rpx] p-[24rpx] bg-card border border-border rounded-[12rpx]">
                 <View className="flex-shrink-0">
                   {m.icon ? (
                     <Image className="w-[88rpx] h-[88rpx] rounded-[10rpx] bg-muted" src={m.icon} mode="aspectFill" />
@@ -228,7 +228,7 @@ export default function DeveloperSubscribePage() {
                     {m.description || tt('developer.subscribe.noDesc', '暂无描述')}
                   </Text>
                 </View>
-                <Text className="flex-shrink-0 px-[24rpx] py-[10rpx] text-[24rpx] text-primary bg-[rgba(0,242,255,0.1)] border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[8rpx]" onClick={() => handleUseModel(m)}>
+                <Text className="flex-shrink-0 px-[24rpx] py-[10rpx] text-[24rpx] text-primary bg-primary/10 border border-primary rounded-[8rpx]" onClick={() => handleUseModel(m)}>
                   {tt('developer.subscribe.use', '使用')}
                 </Text>
               </View>
@@ -243,24 +243,24 @@ export default function DeveloperSubscribePage() {
         <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
           {tt('developer.subscribe.notifyTitle', '通知设置')}
         </Text>
-        <View className="flex items-center justify-between p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx] mb-[16rpx]">
+        <View className="flex items-center justify-between p-[24rpx] bg-card border border-border rounded-[10rpx] mb-[16rpx]">
           <Text className="text-[28rpx] text-foreground">
             {tt('developer.subscribe.notifyNew', '新模型发布提醒')}
           </Text>
           <Switch
             checked={notifyNew}
             onChange={(e) => setNotifyNew(e.detail.value)}
-            color="#00f2ff"
+            color="var(--color-primary)"
           />
         </View>
-        <View className="flex items-center justify-between p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx] mb-[16rpx]">
+        <View className="flex items-center justify-between p-[24rpx] bg-card border border-border rounded-[10rpx] mb-[16rpx]">
           <Text className="text-[28rpx] text-foreground">
             {tt('developer.subscribe.notifyUpdate', '模型更新提醒')}
           </Text>
           <Switch
             checked={notifyUpdate}
             onChange={(e) => setNotifyUpdate(e.detail.value)}
-            color="#00f2ff"
+            color="var(--color-primary)"
           />
         </View>
       </View>
@@ -272,7 +272,7 @@ export default function DeveloperSubscribePage() {
         {posts.length > 0 ? (
           <View className="flex flex-col gap-[16rpx]">
             {posts.map((p) => (
-              <View key={p.id} className="p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx]">
+              <View key={p.id} className="p-[24rpx] bg-card border border-border rounded-[10rpx]">
                 <Text className="block text-[28rpx] font-semibold text-foreground">{p.title}</Text>
                 <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground leading-[1.5]">{p.content}</Text>
                 <Text className="block mt-[12rpx] text-[22rpx] text-muted-foreground">{p.createTime}</Text>

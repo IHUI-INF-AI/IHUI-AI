@@ -50,7 +50,7 @@
   border-radius: 12rpx;
 }
 .theme-item.active {
-  background: rgba(0, 242, 255, 0.06);
+  background: var(--color-border);
 }
 .theme-item-icon {
   margin-right: 24rpx;

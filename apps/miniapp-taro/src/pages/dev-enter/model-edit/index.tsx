@@ -29,9 +29,9 @@ interface Opt {
 }
 
 const OPT_BASE = 'py-[14rpx] px-[28rpx] bg-card rounded-[12rpx] text-[26rpx] text-secondary-foreground border border-border'
-const OPT_ACTIVE = 'bg-[rgba(0,242,255,0.12)] text-primary border-primary'
+const OPT_ACTIVE = 'bg-primary/10 text-primary border-primary'
 const TAG_BASE = 'py-[12rpx] px-[24rpx] bg-card rounded-[12rpx] text-[24rpx] text-secondary-foreground border border-border'
-const TAG_ACTIVE = 'bg-[rgba(0,242,255,0.12)] text-primary border-primary'
+const TAG_ACTIVE = 'bg-primary/10 text-primary border-primary'
 
 export default function ModelEdit() {
   const { t } = useI18n()
@@ -328,7 +328,7 @@ export default function ModelEdit() {
 
         {/* 提交审核 */}
         <View
-          className={`mt-[40rpx] p-[26rpx] bg-[linear-gradient(90deg,#00f2ff,#8b5cf6)] text-[#121217] text-center rounded-[16rpx] text-[30rpx] font-semibold ${submitting ? 'opacity-60' : ''}`}
+          className={`mt-[40rpx] p-[26rpx] bg-primary text-primary-foreground text-center rounded-[16rpx] text-[30rpx] font-semibold ${submitting ? 'opacity-60' : ''}`}
           onClick={onSubmit}
         >
           <Text>

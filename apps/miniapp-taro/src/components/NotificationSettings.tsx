@@ -34,7 +34,7 @@ export default function NotificationSettings({ items = [], onToggle }: Notificat
           </View>
           <Switch
             checked={item.enabled}
-            color="#00f2ff"
+            color="var(--color-primary)"
             onChange={(e) => onToggle(item.key, e.detail.value)}
           />
         </View>

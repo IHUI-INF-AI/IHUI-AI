@@ -65,7 +65,7 @@ export default function LanguagePage() {
   return (
     <View className="min-h-screen bg-background p-[24rpx] pb-[80rpx]">
       <View className="flex items-center p-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]">
-        <View className="w-[88rpx] h-[88rpx] rounded-[12rpx] bg-[rgba(0,242,255,0.1)] flex items-center justify-center flex-shrink-0">
+        <View className="w-[88rpx] h-[88rpx] rounded-[12rpx] bg-primary/10 flex items-center justify-center flex-shrink-0">
           <Text className="text-[44rpx] leading-none">🌐</Text>
         </View>
         <View className="flex-1">
@@ -83,7 +83,7 @@ export default function LanguagePage() {
 
       <RadioGroup className="flex flex-col gap-[16rpx]" onChange={(e) => onSelect(e.detail.value as Locale)}>
         {LANGS.map((l) => (
-          <View key={l.value} className={`flex items-center justify-between py-[28rpx] px-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]${current === l.value ? ' bg-[rgba(0,242,255,0.08)]' : ''}`}>
+          <View key={l.value} className={`flex items-center justify-between py-[28rpx] px-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]${current === l.value ? ' bg-primary/10' : ''}`}>
             <View className="flex-1">
               <Text className="text-[30rpx] text-foreground">{tt(LANG_KEY[l.key] ?? 'setting.zhCN', l.native)}</Text>
               <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">{l.english}</Text>

@@ -266,7 +266,7 @@ export default function AskCreatePage() {
           </View>
           <Switch
             checked={form.anonymous}
-            color="#00f2ff"
+            color="var(--color-primary)"
             onChange={(e) => updateForm({ anonymous: e.detail.value })}
           />
         </View>
