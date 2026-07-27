@@ -22,7 +22,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 from ..core.llm_gateway import llm_gateway
 from .agent_loop import agent_executor
@@ -277,8 +277,14 @@ class AgentOrchestrator:
         user_input: str,
         session_id: str | None = None,
         model_override: str | None = None,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> AgentStepResult:
-        """调用单个 agent 执行任务。"""
+        """调用单个 agent 执行任务。
+
+        Args:
+            progress_callback: 可选进度回调,在 LLM 调用/工具执行/输出生成等关键节点被调用,
+                                回调收到 {"phase": "thinking"|"tool_call"|"tool_result"|"output_ready", ...}。
+        """
         start = time.monotonic()
         agent = self._registry.get(agent_name)
         if not agent:
@@ -290,7 +296,7 @@ class AgentOrchestrator:
                 duration_ms=round((time.monotonic() - start) * 1000, 2),
                 error=f"Agent 不存在: {agent_name}",
             )
-        return await self._run_agent(agent, user_input, session_id, model_override)
+        return await self._run_agent(agent, user_input, session_id, model_override, progress_callback)
 
     # =========================================================================
     # Pipeline(串行)
@@ -1277,12 +1283,14 @@ class AgentOrchestrator:
         self,
         tasks: list[dict[str, Any]],
         max_concurrency: int = 5,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """并行派发多个 subagent,每个 task 独立执行,互不污染上下文。
 
         Args:
             tasks: [{"name": "agent-name", "task": "任务描述", "context": {...可选}}, ...]
             max_concurrency: 最大并发数(默认 5,防止资源耗尽)。
+            progress_callback: 可选进度回调,每个 task 的进度事件都会调用(含 task_index 用于区分)。
 
         Returns:
             成功时:
@@ -1303,11 +1311,20 @@ class AgentOrchestrator:
 
         semaphore = asyncio.Semaphore(max(1, max_concurrency))
 
-        async def _run_one(task_spec: dict[str, Any]) -> dict[str, Any]:
+        async def _run_one(task_index: int, task_spec: dict[str, Any]) -> dict[str, Any]:
             name = str(task_spec.get("name", ""))
             task_desc = str(task_spec.get("task", ""))
             context = task_spec.get("context") or {}
             t0 = time.monotonic()
+
+            # 为每个 task 创建带 index 的进度回调
+            task_cb: Callable[[dict[str, Any]], None] | None = None
+            if progress_callback:
+                def _task_cb(evt: dict[str, Any]) -> None:
+                    evt["task_index"] = task_index
+                    evt["agent_name"] = name
+                    progress_callback(evt)
+                task_cb = _task_cb
 
             # 先检查 agent 是否存在(不占用 semaphore,失败不影响其他 task)
             if not self._registry.get(name):
@@ -1327,7 +1344,9 @@ class AgentOrchestrator:
                         sid = context.get("session_id")
                         if isinstance(sid, str):
                             session_id = sid
-                    result = await self.invoke(name, task_desc, session_id=session_id)
+                    result = await self.invoke(
+                        name, task_desc, session_id=session_id, progress_callback=task_cb
+                    )
                     return {
                         "name": name,
                         "task": task_desc,
@@ -1346,7 +1365,7 @@ class AgentOrchestrator:
                         "duration_ms": round((time.monotonic() - t0) * 1000, 2),
                     }
 
-        results = await asyncio.gather(*[_run_one(t) for t in tasks])
+        results = await asyncio.gather(*[_run_one(i, t) for i, t in enumerate(tasks)])
         succeeded = sum(1 for r in results if r["status"] == "completed")
         failed = len(results) - succeeded
         return {
@@ -1374,8 +1393,17 @@ class AgentOrchestrator:
         user_input: str,
         session_id: str | None,
         model_override: str | None,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> AgentStepResult:
-        """执行单个 agent(直接调 LLM + tools,不走 agent_loop 任务管理)。"""
+        """执行单个 agent(直接调 LLM + tools,不走 agent_loop 任务管理)。
+
+        Args:
+            progress_callback: 可选进度回调,在关键节点调用:
+                - {"phase": "thinking", "iteration": N} — 开始 LLM 调用
+                - {"phase": "tool_call", "tool": name, "iteration": N} — 开始工具调用
+                - {"phase": "tool_result", "tool": name, "ok": bool, "iteration": N} — 工具返回
+                - {"phase": "output_ready", "output_preview": str} — 最终输出就绪
+        """
         start = time.monotonic()
         sid = session_id or f"agent-{agent.name}-{int(datetime.utcnow().timestamp())}"
         used_model = model_override or agent.model
@@ -1383,6 +1411,14 @@ class AgentOrchestrator:
         tool_calls: list[dict[str, Any]] = []
         iterations = 0
         error: str | None = None
+
+        # 安全调用进度回调(回调异常不影响执行)
+        def _emit(evt: dict[str, Any]) -> None:
+            if progress_callback:
+                try:
+                    progress_callback(evt)
+                except Exception:
+                    pass
 
         try:
             await memory_store.add(sid, "user", user_input)
@@ -1403,6 +1439,7 @@ class AgentOrchestrator:
             output = ""
             for it in range(agent.max_iterations):
                 iterations = it + 1
+                _emit({"phase": "thinking", "iteration": iterations})
                 kwargs: dict[str, Any] = {}
                 if tool_defs:
                     kwargs["tools"] = tool_defs
@@ -1426,6 +1463,7 @@ class AgentOrchestrator:
                             output = str(retry.get("content", "") or "")
                         except Exception as retry_e:
                             logger.warning("_run_agent 重试总结失败: %s", retry_e)
+                    _emit({"phase": "output_ready", "output_preview": output[:200]})
                     break
                 messages.append({
                     "role": "assistant",
@@ -1446,12 +1484,15 @@ class AgentOrchestrator:
                             args = {"_raw": raw_args}
                     else:
                         args = raw_args or {}
+                    _emit({"phase": "tool_call", "tool": tool_name, "iteration": iterations})
                     exec_result = await mcp_server.call_tool(tool_name, args)
+                    _tool_ok = bool(exec_result.get("ok"))
                     tool_calls.append({
                         "tool": tool_name,
                         "arguments": args,
-                        "ok": bool(exec_result.get("ok")),
+                        "ok": _tool_ok,
                     })
+                    _emit({"phase": "tool_result", "tool": tool_name, "ok": _tool_ok, "iteration": iterations})
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc.get("id", ""),
@@ -1463,9 +1504,11 @@ class AgentOrchestrator:
                     summary = await llm_gateway.complete(messages, model=used_model)
                     output = str(summary.get("content", "") or "")
                     stub = stub or bool(summary.get("stub", False))
+                    _emit({"phase": "output_ready", "output_preview": output[:200]})
                     break
             else:
                 output = content
+                _emit({"phase": "output_ready", "output_preview": output[:200]})
 
             try:
                 await memory_store.add(sid, "assistant", output)
