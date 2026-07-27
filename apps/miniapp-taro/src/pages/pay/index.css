@@ -100,8 +100,8 @@
   border: 2rpx solid transparent;
 }
 .py-method--active {
-  background: rgba(0, 242, 255, 0.08);
-  border-color: rgba(0, 242, 255, 0.3);
+  background: var(--color-border);
+  border-color: var(--color-ring);
 }
 .py-method-icon {
   width: 64rpx;

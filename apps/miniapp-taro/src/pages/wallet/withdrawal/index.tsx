@@ -78,11 +78,11 @@ export default function WithdrawalPage() {
 
   return (
     <View className="min-h-screen bg-background p-[24rpx]">
-      <View className="p-[48rpx_32rpx] bg-[linear-gradient(135deg,#1a1a2e,#16213e)] border-[2rpx] border-[rgba(0,242,255,0.2)] rounded-[16rpx] shadow-[0_4rpx_24rpx_rgba(0,242,255,0.1)]">
-        <Text className="block text-[26rpx] text-[rgba(255,255,255,0.7)]">
+      <View className="p-[48rpx_32rpx] bg-card border-[2rpx] border-primary/30 rounded-[16rpx] shadow-sm">
+        <Text className="block text-[26rpx] text-muted-foreground">
           {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
         </Text>
-        <Text className="block text-[64rpx] font-bold text-[#00f2ff] mt-[12rpx]">
+        <Text className="block text-[64rpx] font-bold text-primary mt-[12rpx]">
           {priceFmt.format(available)}
         </Text>
       </View>
@@ -100,7 +100,7 @@ export default function WithdrawalPage() {
             onInput={(e) => setAmount(e.detail.value)}
             placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
           />
-          <Text className="text-[26rpx] text-[#00f2ff] py-[8rpx] px-[16rpx]" onClick={fillAll}>
+          <Text className="text-[26rpx] text-primary py-[8rpx] px-[16rpx]" onClick={fillAll}>
             {tt('distribution.withdraw.all', '全部提现')}
           </Text>
         </View>
@@ -112,7 +112,7 @@ export default function WithdrawalPage() {
           {methods.map((m) => (
             <View
               key={m.value}
-              className={`flex-1 flex items-center p-[20rpx] border-[2rpx] rounded-[12rpx] ${method === m.value ? 'bg-[rgba(0,242,255,0.1)] border-[rgba(0,242,255,0.3)]' : 'bg-[rgba(255,255,255,0.05)] border-transparent'}`}
+              className={`flex-1 flex items-center p-[20rpx] border-[2rpx] rounded-[12rpx] ${method === m.value ? 'bg-primary/10 border-primary/40' : 'bg-muted border-transparent'}`}
               onClick={() => setMethod(m.value)}
             >
               <View
@@ -122,10 +122,10 @@ export default function WithdrawalPage() {
               </View>
               <Text className="flex-1 text-[28rpx] text-foreground">{m.label}</Text>
               <View
-                className={`w-[36rpx] h-[36rpx] border-[2rpx] rounded-[8rpx] flex items-center justify-center ${method === m.value ? 'bg-[#00f2ff] border-[#00f2ff]' : 'border-[rgba(255,255,255,0.3)]'}`}
+                className={`w-[36rpx] h-[36rpx] border-[2rpx] rounded-[8rpx] flex items-center justify-center ${method === m.value ? 'bg-primary border-primary' : 'border-border'}`}
               >
                 {method === m.value && (
-                  <Text className="text-[#1a1a2e] text-[24rpx] font-bold">✓</Text>
+                  <Text className="text-primary-foreground text-[24rpx] font-bold">✓</Text>
                 )}
               </View>
             </View>
@@ -134,7 +134,7 @@ export default function WithdrawalPage() {
       </View>
 
       <Button
-        className="mt-[40rpx] bg-[#00f2ff] text-[#1a1a2e] rounded-[12rpx] text-[32rpx] font-bold"
+        className="mt-[40rpx] bg-primary text-primary-foreground rounded-[12rpx] text-[32rpx] font-bold"
         loading={submitting}
         disabled={submitting}
         onClick={onSubmit}

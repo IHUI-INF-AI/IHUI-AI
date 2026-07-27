@@ -22,7 +22,7 @@
   height: 72rpx;
   padding: 0 24rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.12);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   font-size: 26rpx;
   color: var(--color-foreground);
@@ -41,12 +41,12 @@
   padding: 0 28rpx;
   margin-right: 12rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
   vertical-align: middle;
 }
 .tab-active {
-  background: rgba(0, 242, 255, 0.12);
+  background: var(--color-border);
   border-color: var(--color-primary);
 }
 .tab-label {
@@ -64,7 +64,7 @@
   margin: 0 24rpx 20rpx;
   padding: 24rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.25);
+  border: 2rpx solid var(--color-ring);
   border-radius: 14rpx;
 }
 .pinned-tag {
@@ -129,7 +129,7 @@
 .item {
   display: flex;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 14rpx;
   padding: 24rpx;
 }

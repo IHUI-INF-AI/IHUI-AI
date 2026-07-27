@@ -91,9 +91,9 @@ const TIERS: Tier[] = [
 
 const TIER_HEAD_CLASS: Record<string, string> = {
   normal: 'bg-[linear-gradient(135deg,#6b7280,#9ca3af)] text-white',
-  silver: 'bg-[linear-gradient(135deg,#b8c0c8,#e8edf2)] text-[#1f1f28]',
-  gold: 'bg-[linear-gradient(135deg,#d4af6a,#f5d98a)] text-[#1f1f28]',
-  diamond: 'bg-[linear-gradient(135deg,#6ec1e4,#b9f2ff)] text-[#1f1f28]',
+  silver: 'bg-[linear-gradient(135deg,#b8c0c8,#e8edf2)] text-foreground',
+  gold: 'bg-[linear-gradient(135deg,#d4af6a,#f5d98a)] text-foreground',
+  diamond: 'bg-[linear-gradient(135deg,#6ec1e4,#b9f2ff)] text-foreground',
 }
 
 export default function BenefitsPage() {
