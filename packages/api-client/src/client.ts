@@ -364,6 +364,10 @@ export interface StreamChatOptions {
   maxRetries?: number
   /** 自动重连前回调(前端可显示"网络波动,正在重连…") */
   onReconnect?: (attempt: number, delayMs: number) => void
+  /** 2026-07-27 立:fetch 成功(response.ok)后立即触发,早于 onDelta/onReasoning。
+   *  用途:前端收到 response 即清除"完全冷启动"超时(timeout15s),
+   *  避免"response 已到达但首个 token 未到达"时误 abort。 */
+  onResponse?: () => void
 }
 
 /** AI 工具调用 SSE 事件(跨端共享) */
@@ -1008,6 +1012,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      // 2026-07-27 立:response 已到达,立即触发 onResponse 回调,
+      // 让前端清除"完全冷启动"超时(timeout15s),避免"response 到达但首 token 未到达"时误 abort。
+      opts.onResponse?.()
       const hasReasoning = typeof opts.onReasoning === 'function'
       const hasCompaction = typeof opts.onCompaction === 'function'
       const hasQuestion = typeof opts.onQuestion === 'function'
