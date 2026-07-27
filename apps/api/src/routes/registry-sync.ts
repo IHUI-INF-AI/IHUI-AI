@@ -72,7 +72,6 @@ import {
   listMigrationHistory,
   migrateConfig,
 } from '../services/registry-sync/config-migrator.js'
-import type { RegistryWorkerStats } from '../workers/registry-sync-worker.js'
 
 // =============================================================================
 // Zod schemas — P0-2
@@ -668,7 +667,7 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /registry/worker-stats — Worker 运行时指标(管理员,供前端管理面板展示 worker 健康度)
   server.get('/registry/worker-stats', { preHandler: requireAdmin }, async (_request, reply) => {
-    const stats = (server as any).registryWorkerStats as RegistryWorkerStats | undefined
+    const stats = server.registryWorkerStats
     return reply.send(
       success({
         processed: stats?.processed ?? 0,

@@ -12,7 +12,7 @@
  * 注册(server.ts):
  *   server.register(cozeRoutes, { prefix: '/api/coze' })
  */
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply, FastifyBaseLogger } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -219,7 +219,7 @@ interface CardConvertResult {
  * 严格按源逻辑: 处理 stream_plugin_finish 嵌套、elements/variables 提取、
  * info_in_card / response_for_model fallback、card_type==3 视频卡片特殊处理。
  */
-function convertCardToSimpleFormat(cardDataInput: unknown): CardConvertResult {
+function convertCardToSimpleFormat(cardDataInput: unknown, logger?: FastifyBaseLogger): CardConvertResult {
   // 1. 如果输入是字符串, 先解析为字典
   let cardData: Record<string, unknown>
   if (typeof cardDataInput === 'string') {
@@ -272,7 +272,7 @@ function convertCardToSimpleFormat(cardDataInput: unknown): CardConvertResult {
         }
       }
     } catch (e) {
-      console.warn(`⚠️ 处理verbose类型消息失败: ${(e as Error).message}`)
+      logger?.warn({ err: e }, `⚠️ 处理verbose类型消息失败: ${(e as Error).message}`)
     }
   }
 
@@ -1317,7 +1317,7 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
     const b = z.object({ card: z.unknown() }).safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
-    const result = convertCardToSimpleFormat(b.data.card)
+    const result = convertCardToSimpleFormat(b.data.card, request.log)
     reply.send(success(result))
   })
 }
