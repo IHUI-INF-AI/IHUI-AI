@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -89,7 +89,7 @@ export default function StudentCenterPage() {
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <DropdownMenu>
-          <DropdownMenuTrigger as any asChild>
+          <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" disabled={generating}>
               {generating ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -100,15 +100,15 @@ export default function StudentCenterPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem {...({ onClick: () => handleExport('pdf') } as any)}>
+            <DropdownMenuItem onClick={() => handleExport('pdf')}>
               <FileText className="mr-2 h-4 w-4" />
               {t('exportPdf')}
             </DropdownMenuItem>
-            <DropdownMenuItem {...({ onClick: () => handleExport('excel') } as any)}>
+            <DropdownMenuItem onClick={() => handleExport('excel')}>
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               {t('exportExcel')}
             </DropdownMenuItem>
-            <DropdownMenuItem {...({ onClick: () => handleExport('json') } as any)}>
+            <DropdownMenuItem onClick={() => handleExport('json')}>
               <FileJson className="mr-2 h-4 w-4" />
               {t('exportJson')}
             </DropdownMenuItem>
