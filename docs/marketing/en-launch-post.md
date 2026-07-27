@@ -34,7 +34,7 @@
 
 Hi r/LocalLLaMA,
 
-I've been building an open-source AI platform for the past X months. It's Apache 2.0, self-hostable, and tries to combine what Dify / Coze / LangChain / Cursor / Claude Code each do separately into one repo.
+I've been building an open-source AI platform for the past 18 months. It's Apache 2.0, self-hostable, and tries to combine what Dify / Coze / LangChain / Cursor / Claude Code each do separately into one repo.
 
 **GitHub**: https://github.com/IHUI-INF-AI/IHUI-AI
 **Live demo**: https://ihui.ai
@@ -81,7 +81,7 @@ Happy to answer any architecture / engineering questions. Criticism welcome.
 
 ### Title
 ```
-After X months of building, I open-sourced an AI platform that tries to replace 40+ commercial products (Apache 2.0)
+After 18 months of building, I open-sourced an AI platform that tries to replace 40+ commercial products (Apache 2.0)
 ```
 
 ### Body
@@ -103,15 +103,19 @@ I've been working on IHUI-AI — an open-source AI platform that combines what 4
 - 5-language i18n
 - 14-platform CI/CD auto-publish
 
-**The story**: [Write 200-300 words on your actual journey — why you started, what hurt, what surprised you. r/SideProject loves authentic founder stories.]
+**The story**: Started in early 2024 because every AI client project repeated the same boilerplate: build an AI chat UI, wire up LLM APIs, add Stripe payments, add auth, add user management, add admin panel. After the third project with the same 60% of code, I decided to extract it into a reusable platform. Six months in, the platform itself became the product — a full-stack AI business platform that anyone can self-host under Apache 2.0. What surprised me most: the hardest parts weren't the AI orchestration (LangGraph is mature), but the engineering governance — making 32 pre-commit guards work, keeping 5-language i18n at 100% parity, and coordinating 4 AI agents coding in parallel without stepping on each other's commits.
 
 **Honest numbers**:
 - 9 stars (just launched, help me change that 😅)
 - 1 contributor (me)
-- X months of nights/weekends
+- 18 months of nights/weekends
 - Live demo running on https://ihui.ai
 
-**What I learned**: [3-5 bullet points — technical lessons, not marketing.]
+**What I learned**:
+- TypeScript monorepos scale beautifully if you enforce Zod schema as single source of truth — frontend types, backend validation, and DB schema all derive from one place.
+- AI agent coding is amazing for greenfield but terrifying for collaboration — invest in pre-commit guards before you start, not after.
+- 176 LLM routing is a solved problem (LiteLLM), but pricing/cost tracking is not — build a per-call cost dashboard from day one.
+- Open source distribution is harder than open source coding. Marketing, SEO, GEO, and community ops are 80% of the work, coding is 20%.
 
 If you want to try it: https://ihui.ai
 If you want to read the code: https://github.com/IHUI-INF-AI/IHUI-AI
@@ -196,7 +200,7 @@ I open-sourced a full-stack AI platform under Apache 2.0 — 8 platforms, 176 LL
 
 Hey r/opensource,
 
-After X months of building, I've open-sourced IHUI-AI under Apache 2.0 (commercial-friendly, no copyleft trap).
+After 18 months of building, I've open-sourced IHUI-AI under Apache 2.0 (commercial-friendly, no copyleft trap).
 
 **GitHub**: https://github.com/IHUI-INF-AI/IHUI-AI
 **Live demo**: https://ihui.ai
@@ -319,7 +323,7 @@ Happy to answer architecture / engineering questions. Criticism welcome.
 
    Hey Product Hunt! 👋
 
-   I'm the maker of IHUI-AI. After X months of nights/weekends, I open-sourced it under Apache 2.0.
+   I'm the maker of IHUI-AI. After 18 months of nights/weekends, I open-sourced it under Apache 2.0.
 
    **What it is**: A full-stack AI platform that combines what Dify / Coze / LangChain / Cursor / Claude Code / Stripe / Auth0 / Tauri each do — into one repo.
 
