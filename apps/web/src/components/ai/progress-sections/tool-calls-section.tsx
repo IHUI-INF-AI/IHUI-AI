@@ -90,6 +90,18 @@ function extractArgPreview(args: Record<string, unknown>): string {
  * - 状态 SVG 图标(Loader2/Check/X)
  */
 export function ToolCallsSection({ tools }: ToolCallsSectionProps) {
+  // v9: 搜索过滤(hooks 必须在条件返回之前调用)
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const filteredTools = React.useMemo(() => {
+    if (!searchQuery.trim()) return tools
+    const q = searchQuery.toLowerCase()
+    return tools.filter(
+      (t) =>
+        t.toolName.toLowerCase().includes(q) ||
+        JSON.stringify(t.args).toLowerCase().includes(q),
+    )
+  }, [tools, searchQuery])
+
   if (tools.length === 0) return null
 
   // 分类计数
@@ -113,7 +125,7 @@ export function ToolCallsSection({ tools }: ToolCallsSectionProps) {
   }
   const summary = summaryParts.join(' · ')
 
-  const recentTools = tools.slice(-10)
+  const recentTools = filteredTools.slice(-10)
 
   return (
     <FoldableSection
@@ -124,6 +136,20 @@ export function ToolCallsSection({ tools }: ToolCallsSectionProps) {
     >
       <div className="space-y-0.5 text-[11px] leading-relaxed">
         {summary && <div className="text-[10px] text-muted-foreground/60">{summary}</div>}
+        {/* v9: 搜索框(工具数量>5时显示) */}
+        {tools.length > 5 && (
+          <div className="relative mb-1">
+            <Search className="absolute left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-muted-foreground/40" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索工具..."
+              className="w-full rounded-sm border border-border/40 bg-muted/30 py-0.5 pl-5 pr-2 text-[10px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+              data-testid="tool-search-input"
+            />
+          </div>
+        )}
         {recentTools.map((tool) => {
           const cat = categorize(tool.toolName)
           const CatIcon = CATEGORY_ICON[cat]
@@ -158,8 +184,11 @@ export function ToolCallsSection({ tools }: ToolCallsSectionProps) {
             </div>
           )
         })}
-        {tools.length > 10 && (
-          <div className="text-[10px] text-muted-foreground/40">…还有 {tools.length - 10} 项</div>
+        {filteredTools.length > 10 && (
+          <div className="text-[10px] text-muted-foreground/40">…还有 {filteredTools.length - 10} 项</div>
+        )}
+        {searchQuery && filteredTools.length === 0 && (
+          <div className="text-[10px] text-muted-foreground/40">无匹配结果</div>
         )}
       </div>
     </FoldableSection>
