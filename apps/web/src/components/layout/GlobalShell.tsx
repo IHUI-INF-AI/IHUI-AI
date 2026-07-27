@@ -8,7 +8,7 @@ import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
-import { AgentTaskProgressDrawer, AgentProgressTrigger } from '@/components/ai'
+import { AgentTaskProgressPane, AgentProgressTrigger } from '@/components/ai'
 import { Button } from '@ihui/ui-react'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
@@ -238,7 +238,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         全局挂载,所有路由组均可触发,与 PWA 提示同区域但 z-sticky < z-modal
       */}
       <AgentProgressTrigger />
-      <AgentTaskProgressDrawer />
+      <AgentTaskProgressPane />
     </>
   )
 }
