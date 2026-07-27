@@ -151,19 +151,19 @@
 
 #### P1-1 SDK 发布 CI
 
-- [ ] **P1-1 4 语言 SDK 发布到包管理器** — npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven(com.ihui.ai:sdk)+ Go module;新建 `.github/workflows/release-sdk.yml` tag 触发自动发布
+- [x] ✅(2026-07-27) **P1-1 4 语言 SDK 发布到包管理器** — 新建 `sdks/typescript`(@ihui/sdk,fetch 封装 + interface)+ `sdks/python`(ihui-sdk,requests + dataclass)+ `sdks/go`(module github.com/IHUI-INF-AI/IHUI-AI/sdks/go,http.Client + struct)+ `sdks/java`(com.ihui.ai:sdk:0.1.0,HttpClient + record);每个 SDK 含 Client 类 + chat.completions.create(OpenAI 兼容)+ models.list + 错误处理;`.github/workflows/release-sdk.yml` 4 job 并行(tag v* 触发,needs npm/pypi/maven/go secrets)
 
 #### P1-2 企业私有化产品包装
 
-- [ ] **P1-2 企业版产品包装** — `docs/enterprise-service/` 补:报价单 PDF 模板(5/10/30/50 万 4 档)+ 部署文档(私有云/公有云/混合云)+ Demo 环境搭建脚本 + 功能对比表(社区版 vs 企业版)+ SLA 条款
+- [x] ✅(2026-07-27) **P1-2 企业版产品包装** — `docs/enterprise-service/` 6 文件 1554 行:quote-generator.mjs(4 档报价 CLI:Starter 5 万/Business 10 万/Enterprise 30 万/Custom 50 万+,--pdf 优雅降级)+ deployment-guide.md(私有云/公有云/混合云 3 模式 + mermaid 架构图 + 88xx 端口 + 备份恢复)+ feature-comparison.md(49 功能点 × 6 列)+ sla-terms.md(99.9%/99.99% 两档 + 4 级响应 + 三档赔偿)+ demo-setup.sh(bash 一键拉起)+ README.md(销售物料导航)
 
 #### P1-3 AI 教育课程 MVP
 
-- [ ] **P1-3 教育课程内容 seed + 证书视觉** — `apps/api/src/db/seed/courses-seed.ts` 导入 5-10 门示范课程(AI 编程入门/LangGraph 实战/MCP 开发/AI 教育方法论等)+ 证书视觉模板替换占位(`apps/web/src/components/certificate/`)
+- [x] ✅(2026-07-27) **P1-3 教育课程内容 seed + 证书视觉** — 新建 `apps/api/scripts/seed-courses.ts`(5 课程 35 章节占位:AI 编程入门/LangGraph 实战/MCP 开发/AI 教育方法论/Agent 工作流,按 title 去重 upsert,映射 lessons/lessonChapters/learnCategories)+ `apps/web/public/certificate-template.svg`(800x600,金 #C9A961 + 深蓝 #1E3A5F + 米白 #FAF8F3,占位 {studentName}/{courseName}/{durationHours}/{issuedAt}/{certificateNo})+ `apps/web/src/components/certificate/CertificateSvg.tsx`(React 组件 62 行,inline SVG 程序化签发)
 
 #### P1-4 SEO 资产补全
 
-- [ ] **P1-4 SEO 资产补全** — favicon/apple-touch-icon/OG image/sitemap.xml 补全 + `apps/web/src/app/(main)/sitemap.ts` 动态生成 + robots.txt
+- [x] ✅(2026-07-27) **P1-4 SEO 资产补全** — 新建 `apps/web/public/favicon.svg`(64x64 智字 logo,rounded-lg)+ `apps/web/public/og-image.svg`(1200x630 社交分享卡,linearGradient 深蓝→紫)+ `apps/web/app/opengraph-image.tsx`(Next.js ImageResponse 构建时生成 PNG)+ `scripts/indexnow-submit.mjs`(4 endpoint 批量提交:IndexNow/Bing/Yandex/Seznam,--site/--key CLI);robots.ts/sitemap.ts 已存在更优版本(AI 爬虫支持 + 100 URL + 5 语言 hreflang),保留不覆盖
 
 ---
 
