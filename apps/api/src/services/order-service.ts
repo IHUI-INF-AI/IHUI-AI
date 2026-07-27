@@ -195,15 +195,25 @@ export async function completeOrderWithSaga(
 
 /**
  * 根据订单类型激活对应的订阅（支付成功回调调用，失败不阻塞）。
- * - orderType=2: VIP 会员激活
+ * - orderType=2: VIP 会员激活 + plan-driven 配额自动 upsert(P0-2b)
  * - orderType=5: 开发者套餐订阅激活
  */
 export async function activateOrderSubscription(order: Order): Promise<void> {
   if (!order.productId) return
   if (!order.userId) return
   if (order.orderType === 2) {
-    const { purchaseVip } = await import('../db/vip-queries.js')
+    const { purchaseVip, findVipLevel } = await import('../db/vip-queries.js')
+    const { applyPlanEntitlements } = await import('./plan-entitlement-service.js')
     await purchaseVip({ userId: order.userId, vipLevelId: order.productId, orderId: order.id })
+    // P0-2b:订阅激活后自动 upsert aiBudgets(失败不阻塞支付完成)
+    const level = await findVipLevel(order.productId)
+    if (level) {
+      try {
+        await applyPlanEntitlements(order.userId, level)
+      } catch {
+        /* 配额写入失败不阻塞支付完成,后续可手动补齐 */
+      }
+    }
   } else if (order.orderType === 5) {
     const { findDeveloperPricingById, activateDeveloperSubscription } =
       await import('../db/developer-queries.js')
