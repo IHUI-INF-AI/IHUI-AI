@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { AlertCircle, Loader2, Bot, Link2, Check, Share2, RotateCcw } from 'lucide-react'
 import { fetchShareContent, type ShareContent } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/date-utils'
 
 export default function H5SharePage(): React.JSX.Element {
   const params = useParams<{ code: string }>()
@@ -105,7 +106,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
     setTimeout(() => setShareTip(''), 2500)
   }
 
-  const createdAt = data.createdAt ? new Date(data.createdAt).toLocaleString('zh-CN') : ''
+  const createdAt = data.createdAt ? formatDate(data.createdAt) : ''
 
   return (
     <div className="flex flex-1 flex-col px-4 pb-24 pt-6">
