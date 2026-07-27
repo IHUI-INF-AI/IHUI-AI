@@ -38,7 +38,7 @@ const STATUS_CHAR: Record<AgentOverview['status'], string> = {
 }
 const STATUS_CLS: Record<AgentOverview['status'], string> = {
   idle: 'text-muted-foreground',
-  running: 'text-primary animate-pulse',
+  running: 'text-primary',
   completed: 'text-emerald-500',
   failed: 'text-red-500',
   interrupted: 'text-amber-500',
@@ -51,8 +51,37 @@ const STEP_CHAR: Record<PlanStepStatus, string> = {
 }
 const STEP_CLS: Record<PlanStepStatus, string> = {
   pending: 'text-muted-foreground',
-  in_progress: 'text-primary animate-pulse',
+  in_progress: 'text-primary',
   completed: 'text-emerald-500',
+}
+
+// Codex 真正循环 braille spinner(8 帧 120ms)
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+function Spinner({ className }: { className?: string }) {
+  const [frame, setFrame] = React.useState(0)
+  React.useEffect(() => {
+    const id = window.setInterval(() => {
+      setFrame((f) => (f + 1) % SPINNER_FRAMES.length)
+    }, 120)
+    return () => window.clearInterval(id)
+  }, [])
+  return <span className={className}>{SPINNER_FRAMES[frame]}</span>
+}
+
+// 状态字符(in_progress 用真 Spinner,其他用静态字符)
+function StatusGlyph({
+  status,
+  char,
+  className,
+}: {
+  status: 'in_progress' | 'running' | 'static'
+  char: string
+  className?: string
+}) {
+  if (status === 'in_progress' || status === 'running') {
+    return <Spinner className={className} />
+  }
+  return <span className={className}>{char}</span>
 }
 
 const COLUMN_LABEL: Record<AgentProgressColumn, string> = {
@@ -186,40 +215,47 @@ function TasksColumn({
           <div
             key={step.id}
             className={cn(
-              'flex items-center gap-1.5 px-1 py-0.5',
-              isCursor && 'bg-primary/10',
+              'px-1 py-0.5',
+              isCursor && 'bg-primary/20 border-l-2 border-primary',
             )}
             data-testid="task-item"
             data-status={step.status}
             data-cursor={isCursor}
           >
-            <CursorPrefix active={isCursor} />
-            <span className="w-5 shrink-0 text-right tabular-nums text-muted-foreground/60">
-              {idx + 1}.
-            </span>
-            <span className={cn('w-3 shrink-0 text-center', STEP_CLS[step.status])}>
-              {STEP_CHAR[step.status]}
-            </span>
-            <span className="min-w-0 flex-1 truncate">{step.step}</span>
-            {step.status === 'in_progress' && (
-              <HistoryBracket
-                elapsedMs={step.durationMs}
-                historicalDurations={overview.historicalDurations}
-              />
-            )}
-            {step.status === 'completed' && step.durationMs !== undefined && (
-              <span className="shrink-0 tabular-nums text-muted-foreground">
-                {formatDuration(step.durationMs)}
+            <div className="flex items-start gap-1.5">
+              <CursorPrefix active={isCursor} />
+              <span className="w-5 shrink-0 text-right tabular-nums text-muted-foreground/60">
+                {idx + 1}.
               </span>
+              <StatusGlyph
+                status={step.status === 'in_progress' ? 'in_progress' : 'static'}
+                char={STEP_CHAR[step.status]}
+                className={cn('w-3 shrink-0 text-center', STEP_CLS[step.status])}
+              />
+              <span className="min-w-0 flex-1 break-words whitespace-pre-wrap">
+                {step.step}
+              </span>
+              {step.status === 'in_progress' && (
+                <HistoryBracket
+                  elapsedMs={step.durationMs}
+                  historicalDurations={overview.historicalDurations}
+                />
+              )}
+              {step.status === 'completed' && step.durationMs !== undefined && (
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {formatDuration(step.durationMs)}
+                </span>
+              )}
+            </div>
+            {/* Codex:explanation 默认显示在 step 下方缩进 */}
+            {step.explanation && (isCursor || verbose) && (
+              <div className="mt-0.5 pl-9 text-muted-foreground/80 break-words whitespace-pre-wrap">
+                └ {step.explanation}
+              </div>
             )}
           </div>
         )
       })}
-      {verbose && steps[cursorIndex]?.explanation && (
-        <div className="mt-1 px-7 text-muted-foreground">
-          └ {steps[cursorIndex]?.explanation}
-        </div>
-      )}
     </div>
   )
 }
@@ -256,17 +292,12 @@ function SubagentsColumn({
       {visible.map((sub, idx) => {
         const isCursor = idx === cursorIndex
         const colorCls = SUBAGENT_COLOR_CLASS[sub.color]
-        const statusChar =
-          sub.status === 'running'
-            ? '⠋'
-            : sub.status === 'done'
-              ? '✓'
-              : sub.status === 'failed'
-                ? '✗'
-                : '•'
+        // Codex:dead agents(done/failed/dead)变灰,running 保留彩色
+        const isDead = sub.status === 'done' || sub.status === 'failed' || sub.status === 'dead'
+        const deadCls = isDead ? 'opacity-50' : ''
         const statusCls =
           sub.status === 'running'
-            ? 'animate-pulse ' + colorCls
+            ? colorCls
             : sub.status === 'done'
               ? 'text-emerald-500'
               : sub.status === 'failed'
@@ -277,7 +308,8 @@ function SubagentsColumn({
             key={sub.id}
             className={cn(
               'px-1 py-0.5',
-              isCursor && 'bg-primary/10',
+              isCursor && 'bg-primary/20 border-l-2 border-primary',
+              deadCls,
             )}
             data-testid="subagent-item"
             data-status={sub.status}
@@ -285,7 +317,17 @@ function SubagentsColumn({
           >
             <div className="flex items-center gap-1.5">
               <CursorPrefix active={isCursor} />
-              <span className={cn('w-3 shrink-0 text-center', statusCls)}>{statusChar}</span>
+              <StatusGlyph
+                status={sub.status === 'running' ? 'running' : 'static'}
+                char={
+                  sub.status === 'done'
+                    ? '✓'
+                    : sub.status === 'failed'
+                      ? '✗'
+                      : '•'
+                }
+                className={cn('w-3 shrink-0 text-center', statusCls)}
+              />
               <span className={cn('shrink-0 font-semibold', colorCls)}>{sub.handle}</span>
               <span className="shrink-0 tabular-nums text-muted-foreground/70">
                 [{sub.status}]
@@ -297,9 +339,9 @@ function SubagentsColumn({
               )}
             </div>
             {(isCursor || verbose) && (sub.currentTask || sub.role) && (
-              <div className="pl-7 text-muted-foreground">
+              <div className="pl-7 text-muted-foreground break-words whitespace-pre-wrap">
                 {sub.role && <span className="mr-2">role:{sub.role}</span>}
-                {sub.currentTask && <span className="break-all">┆ {sub.currentTask}</span>}
+                {sub.currentTask && <span>┆ {sub.currentTask}</span>}
                 {verbose && (
                   <span className="ml-2 text-[10px] text-muted-foreground/50">{sub.threadId}</span>
                 )}
@@ -364,20 +406,22 @@ function TerminalsColumn({
         const isCursor = idx === cursorIndex
         const expanded = isExpanded(term.id)
         const isLong = term.output && term.output.length > 200
-        const showOutput = expanded || !isLong
-        const statusChar = term.status === 'running' ? '⠋' : term.status === 'completed' ? '✓' : '✗'
         const statusCls =
           term.status === 'running'
-            ? 'animate-pulse text-primary'
+            ? 'text-primary'
             : term.status === 'completed'
               ? 'text-emerald-500'
               : 'text-red-500'
+        // Codex:折叠态显示最后 2-3 行输出预览,展开态显示全部
+        const outputLines = term.output ? term.output.split('\n') : []
+        const previewLines = outputLines.slice(-3)
+        const showFull = expanded || !isLong
         return (
           <div
             key={term.id}
             className={cn(
               'px-1 py-0.5',
-              isCursor && 'bg-primary/10',
+              isCursor && 'bg-primary/20 border-l-2 border-primary',
             )}
             data-testid="terminal-item"
             data-status={term.status}
@@ -385,7 +429,11 @@ function TerminalsColumn({
           >
             <div className="flex items-center gap-1.5">
               <CursorPrefix active={isCursor} />
-              <span className={cn('w-3 shrink-0 text-center', statusCls)}>{statusChar}</span>
+              <StatusGlyph
+                status={term.status === 'running' ? 'running' : 'static'}
+                char={term.status === 'completed' ? '✓' : '✗'}
+                className={cn('w-3 shrink-0 text-center', statusCls)}
+              />
               <span className="shrink-0 text-muted-foreground">$</span>
               <code className="min-w-0 flex-1 break-all">{term.command}</code>
               {isLong && (
@@ -399,9 +447,15 @@ function TerminalsColumn({
                 </span>
               )}
             </div>
-            {isLong && showOutput && (
+            {/* Codex:展开态显示全部输出,折叠态显示最后 3 行预览 */}
+            {showFull && term.output && (
               <pre className="mt-0.5 ml-7 max-h-24 overflow-y-auto whitespace-pre-wrap break-all bg-muted/30 p-1 text-[10px] leading-relaxed">
                 {term.output}
+              </pre>
+            )}
+            {!showFull && previewLines.length > 0 && (
+              <pre className="mt-0.5 ml-7 whitespace-pre-wrap break-all text-[10px] leading-relaxed text-muted-foreground/60">
+                {previewLines.join('\n')}
               </pre>
             )}
           </div>
@@ -493,7 +547,7 @@ export function AgentTaskProgressPane() {
     void id
   }, [])
 
-  // Esc 关闭 + j/k/Enter/y/n(Codex 数据上下文快捷键,需在 Pane 内处理)
+  // Esc 关闭 + j/k/Enter/y/n/g/G/space(Codex 数据上下文快捷键)
   React.useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -526,7 +580,25 @@ export function AgentTaskProgressPane() {
         moveCursor(-1, visibleCount)
         return
       }
-      // Enter:展开/折叠当前项(tasks 无展开,subagents/terminals 展开)
+      // g:跳到第一项(Codex 标准)
+      if (key === 'g' && !ctrl && !shift && !alt) {
+        e.preventDefault()
+        useAgentProgressPaneStore.getState().setCursor(0)
+        return
+      }
+      // G:跳到最后一项(Codex 标准)
+      if (key === 'g' && !ctrl && shift && !alt) {
+        e.preventDefault()
+        useAgentProgressPaneStore.getState().setCursor(Math.max(0, visibleCount - 1))
+        return
+      }
+      // space/PgDn:向下翻页(5 项)
+      if ((e.key === ' ' || e.key === 'PageDown') && !ctrl && !shift && !alt) {
+        e.preventDefault()
+        moveCursor(5, visibleCount)
+        return
+      }
+      // Enter:展开/折叠当前项
       if (e.key === 'Enter' && !ctrl && !shift && !alt) {
         e.preventDefault()
         if (cursorId && (activeColumn === 'subagents' || activeColumn === 'terminals')) {
@@ -534,7 +606,7 @@ export function AgentTaskProgressPane() {
         }
         return
       }
-      // y:审批通过(仅 subagents 栏 cursor 在 pendingApproval 项时生效)
+      // y:审批通过
       if (key === 'y' && !ctrl && !shift && !alt) {
         if (cursorSubagent?.pendingApproval) {
           e.preventDefault()
@@ -555,10 +627,22 @@ export function AgentTaskProgressPane() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, closePane, moveCursor, visibleCount, cursorId, cursorSubagent, activeColumn, toggleExpanded, handleApprove])
 
+  // Codex:cursor 移动时自动滚动到可视区
+  const contentRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    if (!open) return
+    const root = contentRef.current
+    if (!root) return
+    const cursorEl = root.querySelector('[data-cursor="true"]') as HTMLElement | null
+    if (cursorEl) {
+      cursorEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [open, cursorIndex, activeColumn, visibleCount])
+
   if (!open) return null
 
-  const statusChar = STATUS_CHAR[overview.status]
   const statusCls = STATUS_CLS[overview.status]
+  const isRunning = overview.status === 'running'
 
   return (
     <div
@@ -570,13 +654,23 @@ export function AgentTaskProgressPane() {
       aria-label="Agent 任务进度底部面板"
       data-testid="agent-progress-pane"
     >
-      {/* Header:单行紧凑状态(Codex 风格) */}
+      {/* Header:单行紧凑状态(Codex 风格)+ currentNode */}
       <div className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
         <span className="shrink-0 font-semibold">Agent</span>
-        <span className={cn('shrink-0', statusCls)} data-testid={`status-${overview.status}`}>
-          {statusChar}
+        <StatusGlyph
+          status={isRunning ? 'running' : 'static'}
+          char={STATUS_CHAR[overview.status]}
+          className={cn('shrink-0', statusCls)}
+        />
+        <span className="shrink-0 text-muted-foreground" data-testid={`status-${overview.status}`}>
+          {overview.status}
         </span>
-        <span className="shrink-0 text-muted-foreground">{overview.status}</span>
+        {/* Codex:显示当前执行节点 */}
+        {overview.currentNode && (
+          <span className="shrink-0 text-muted-foreground/80" data-testid="current-node">
+            @ {overview.currentNode}
+          </span>
+        )}
         {threadId && (
           <span className="shrink-0 text-muted-foreground/70">
             #{verbose ? threadId : threadId.slice(0, 8)}
@@ -708,7 +802,7 @@ export function AgentTaskProgressPane() {
       </div>
 
       {/* 内容区:根据 activeColumn 渲染对应栏 */}
-      <div className="flex-1 overflow-y-auto px-1 py-1">
+      <div ref={contentRef} className="flex-1 overflow-y-auto px-1 py-1">
         {activeColumn === 'tasks' && (
           <TasksColumn
             steps={planSteps}
@@ -737,10 +831,16 @@ export function AgentTaskProgressPane() {
         )}
       </div>
 
-      {/* Footer:Codex 风格单行状态栏(替代 kbd 徽章) */}
+      {/* Footer:Codex 风格单行状态栏(含 g/G/space) */}
       <div className="flex items-center gap-3 border-t border-border px-2 py-0.5 text-[10px] text-muted-foreground/70">
         <span>
           <span className="text-muted-foreground">j/k</span> move
+        </span>
+        <span>
+          <span className="text-muted-foreground">g/G</span> top/bot
+        </span>
+        <span>
+          <span className="text-muted-foreground">space</span> pgdn
         </span>
         <span>
           <span className="text-muted-foreground">Enter</span> expand

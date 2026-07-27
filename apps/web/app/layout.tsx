@@ -1,14 +1,13 @@
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import Script from 'next/script'
-import { NextIntlClientProvider } from 'next-intl'
-import { getMessages, getLocale } from 'next-intl/server'
 import { Toaster } from '@/components/common'
 
 import './globals.css'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { QueryProvider } from '@/providers/query-provider'
 import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
+import { I18nProvider } from '@/providers/i18n-provider'
 import { LoginDialog } from '@/components/login/LoginDialog'
 import { LoginRedirectListener } from '@/components/login/LoginRedirectListener'
 import { GlobalShell } from '@/components/layout/GlobalShell'
@@ -169,7 +168,10 @@ export const viewport: Viewport = {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [messages, locale] = await Promise.all([getMessages(), getLocale()])
+  // 2026-07-27:语言切换改为客户端 I18nProvider 驱动(响应 useLanguageStore.locale 变化)。
+  // 服务端不再调用 getMessages/getLocale(原 i18n/request.ts 硬编码 zh-CN,Provider 无法响应切换)。
+  // html lang 固定 'zh-CN' 作为 SSR 默认值,客户端挂载后由 I18nProvider 接管,suppressHydrationWarning 兼容。
+  const locale = 'zh-CN'
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -489,7 +491,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           enableSystem
           disableTransitionOnChange
         >
-          <NextIntlClientProvider locale={locale} messages={messages}>
+          <I18nProvider>
             <QueryProvider>
               <TooltipProvider>
                 <GlobalHooksProvider>
@@ -510,7 +512,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </TooltipProvider>
             </QueryProvider>
             <Toaster position="top-center" richColors closeButton style={{ zIndex: 3000 }} />
-          </NextIntlClientProvider>
+          </I18nProvider>
         </ThemeProvider>
         <Script
           id="sw-register"

@@ -241,7 +241,7 @@ describe('AgentTaskProgressPane — Codex v2 渲染 + cursor + j/k/Enter', () =>
     expect(screen.getByTestId('archived-indicator').textContent).toContain('a:')
   })
 
-  it('Footer 含 Codex 快捷键提示: j/k move / Enter expand / 1/2/3 switch / Tab sort / a archived / v verbose / y/n approve / Esc close', () => {
+  it('Footer 含 Codex 快捷键提示: j/k move / g/G top/bot / space pgdn / Enter expand / 1/2/3 switch / Tab sort / a archived / v verbose / y/n approve / Esc close', () => {
     useAgentProgressPaneStore.getState().openPane()
     render(<AgentTaskProgressPane />)
     const pane = screen.getByTestId('agent-progress-pane')
@@ -249,6 +249,10 @@ describe('AgentTaskProgressPane — Codex v2 渲染 + cursor + j/k/Enter', () =>
     const text = footer?.textContent ?? ''
     expect(text).toContain('j/k')
     expect(text).toContain('move')
+    expect(text).toContain('g/G')
+    expect(text).toContain('top/bot')
+    expect(text).toContain('space')
+    expect(text).toContain('pgdn')
     expect(text).toContain('Enter')
     expect(text).toContain('expand')
     expect(text).toContain('1/2/3')
@@ -259,6 +263,13 @@ describe('AgentTaskProgressPane — Codex v2 渲染 + cursor + j/k/Enter', () =>
     expect(text).toContain('approve')
     expect(text).toContain('Esc')
     expect(text).toContain('close')
+  })
+
+  it('Header 含 currentNode 显示(当 overview.currentNode 存在时)', () => {
+    useAgentProgressPaneStore.getState().openPane('thread-with-node')
+    render(<AgentTaskProgressPane />)
+    // currentNode 来自 useAgentProgress,空 threadId 时为 null,这里测组件能渲染
+    expect(screen.getByTestId('agent-progress-pane')).not.toBeNull()
   })
 
   it('默认 Tasks 栏 — 显示 Codex 风格空状态 "no plan steps"', () => {

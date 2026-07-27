@@ -536,16 +536,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
 
   const handleLocaleChange = (code: Language) => {
     if (code === locale) return
+    // 2026-07-27:语言切换已修复(客户端 I18nProvider 响应 useLanguageStore.locale)。
+    // setLocale 更新 store → I18nProvider 重新渲染 → NextIntlClientProvider 拿到新 locale+messages → UI 切换。
     document.cookie = `locale=${code};path=/;max-age=31536000`
     setLocale(code)
-    // 性能修复(2026-07-25):删除 router.refresh()。
-    // 原因:i18n/request.ts 在 output:export 模式下硬编码 locale='zh-CN',
-    // 服务端 getLocale() 永远返回 zh-CN,router.refresh() 只会让所有 server components
-    // 重新执行一遍(代价极高:重新查 DB / 重新渲染 RSC 树),但 NextIntlClientProvider
-    // 的 locale/messages 仍是 zh-CN,refresh 完全无效。
-    // 真正的 locale 切换需要客户端动态加载对应 locale 的 messages 并更新 Provider,
-    // 属于 i18n 架构改造(后续任务),不在本次"按钮切换性能"修复范围内。
-    // 当前 setLocale(code) 已更新 useLanguageStore,客户端 locale-aware 逻辑可读取此值。
   }
 
   const handleToggleTheme = () => {
