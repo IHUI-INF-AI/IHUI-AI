@@ -50,7 +50,7 @@ interface DevInfoResp {
 }
 
 async function fetchDevInfo(): Promise<DeveloperInfo> {
-  const r = await fetchApi<DevInfoResp>('/api/developer/info')
+  const r = await fetchApi<DevInfoResp>('/api/developer/portal')
   if (!r.success || !r.data?.info) {
     throw new Error(r.error ?? '加载开发者信息失败')
   }
