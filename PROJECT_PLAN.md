@@ -140,7 +140,7 @@
 #### P0-1 海外支付(Stripe + PayPal)— 海外收款必需
 
 - [x] ✅(2026-07-27) **P0-1a Stripe SDK 集成** — 新建 `apps/api/src/services/stripe.ts`(Checkout Session/PaymentIntent 查询退款/Webhook HMAC-SHA256 验签 + 5 分钟防重放/DEV 降级 mock)+ `apps/api/src/routes/payment-gateway.ts` 4 端点(`/payments/stripe/create-checkout` 创建订单+Checkout Session、`/payments/stripe/webhook` 验签+幂等+订阅激活+返佣、`/payments/stripe/session-status` 查询、`/payments/stripe/refund` 退款)+ raw body parser(tbox.ts 同模式,插件作用域内覆盖)+ 商品金额服务端反查(VIP/Developer)+ provider 枚举 'stripe' 已存在(billing.ts)+ typecheck 全绿。对齐 wechat-pay.ts/alipay.ts 模式(裸 fetch,不引入 stripe SDK)。依赖:用户注册 Stripe 账户拿 publishable_key + secret_key + webhook_secret
-- [ ] **P0-1b PayPal REST SDK 集成** — 新建 `apps/api/src/services/paypal.ts`(Orders API v2/Webhook 验签/订阅/退款)+ `/payments/paypal/*` 端点。依赖:用户注册 PayPal Business 账户拿 client_id + client_secret
+- [x] ✅(2026-07-28) **P0-1b PayPal REST SDK 集成** — 新建 `apps/api/src/services/paypal.ts`(OAuth2 token 缓存/Orders API v2 创建+capture+查询/退款/Webhook Verify-API 验签 + DEV 降级)+ `apps/api/src/routes/payment-gateway.ts` 5 端点(`/payments/paypal/create-order` 下单+商品金额反查、`/payments/paypal/capture` 捕获+归属校验+金额校验+幂等(capture_id)+订阅激活+返佣、`/payments/paypal/webhook` 验签+事件过滤+幂等、`/payments/paypal/order-status` 查询+归属校验、`/payments/paypal/refund` 退款)+ `apps/api/tests/paypal.test.ts` 33 单测(配置检测/金额转换/事件订阅/验签 DEV 降级+生产拋错+Verify-API 成功/失败/HTTP 错误/token 缓存命中+过期/Orders API 成功+失败/退款全退+部分退)+ billing.ts provider 注释加 'paypal'+ .env.example + .env.production.example 加 7 个 PAYPAL_* 变量。对齐 stripe.ts/alipay.ts/wechat-pay.ts 模式(裸 fetch,不引入 PayPal SDK)。依赖:用户注册 PayPal Business 账户拿 client_id + client_secret + webhook_id
 
 #### P0-2 订阅档位扩展 + plan-driven 中间件
 
