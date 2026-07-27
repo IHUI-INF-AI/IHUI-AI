@@ -116,12 +116,21 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
   ): Promise<void> {
     reply.hijack()
     const raw = reply.raw
-    raw.writeHead(200, {
+    // 2026-07-27 修复跨域 SSE:reply.hijack() 绕过 @fastify/cors 插件,
+    // 实际 POST 响应头缺少 Access-Control-Allow-Origin,浏览器跨域 fetch 阻止响应(Failed to fetch)。
+    // 手动回显 Origin + Allow-Credentials(preflight OPTIONS 已由 cors 插件处理,origin 已校验)。
+    const origin = request.headers.origin as string | undefined
+    const sseHeaders: Record<string, string> = {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
-    })
+    }
+    if (origin) {
+      sseHeaders['Access-Control-Allow-Origin'] = origin
+      sseHeaders['Access-Control-Allow-Credentials'] = 'true'
+    }
+    raw.writeHead(200, sseHeaders)
 
     // 首事件:修复通知 / 压缩通知 / resumed 通知等
     // 若该流绑定到某个 agent(opts.agentId),在 chunk 顶层注入 agentId,
@@ -254,77 +263,79 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-    const parsed = chatStreamSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const {
-      messages: rawMessages,
-      sessionId,
-      model,
-      modelId,
-      agentId,
-      materialContent,
-      workspacePath,
-      contextLimit,
-      agentTools,
-      plan_mode: planMode,
-      metadata,
-    } = parsed.data
-    const resolvedModel = model ?? modelId
-
-    // P38 跨端同步:修复 messages 结构异常(非法 role/空 content/连续重复/开头 assistant/末尾无响应 user)
-    // 共享函数 @ihui/types/message-repair,与 CLI repairSessionHistory / ai-service repair_messages 同源
-    const { repaired: messages, removed: repairRemoved } = repairMessages(rawMessages)
-
-    // P39 跨端统一:88% 阈值自动压缩上下文(共享包 @ihui/context-compaction)
-    // CLI / API / ai-service 共用同一套规则,前端传 contextLimit 触发,压缩结果通过 SSE 通知前端
-    let finalMessages: ChatMessage[] = messages
-    const extraFirstEvents: Array<{ key: string; payload: unknown }> = []
-    if (repairRemoved > 0) {
-      extraFirstEvents.push({ key: 'repair', payload: { removed: repairRemoved } })
-    }
-
-    if (contextLimit && contextLimit > 0) {
-      const result = compressContextIfNeeded(messages, { contextLimit })
-      if (result.compressed) {
-        finalMessages = result.messages
-        extraFirstEvents.push({
-          key: 'compaction',
-          payload: {
-            triggered: true,
-            tokensBefore: result.originalTokens,
-            tokensAfter: result.compressedTokens,
-            removedCount: result.removedCount,
-            usageRatio: result.usageRatio ?? 0,
-          },
-        })
+      const parsed = chatStreamSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-    }
-
-    // Token 预算前置校验:超预算直接返回 429,不进入流式(避免无效消耗 ai-service 配额)
-    if (!(await checkTokenBudget(request, reply, metadata?.userId ?? request.userId, resolvedModel))) {
-      return
-    }
-
-    return streamToClient(
-      request,
-      reply,
-      finalMessages,
-      {
+      const {
+        messages: rawMessages,
         sessionId,
-        resolvedModel,
+        model,
+        modelId,
         agentId,
         materialContent,
         workspacePath,
         contextLimit,
         agentTools,
-        planMode,
+        plan_mode: planMode,
         metadata,
-      },
-      extraFirstEvents,
-    )
-  },
+      } = parsed.data
+      const resolvedModel = model ?? modelId
+
+      // P38 跨端同步:修复 messages 结构异常(非法 role/空 content/连续重复/开头 assistant/末尾无响应 user)
+      // 共享函数 @ihui/types/message-repair,与 CLI repairSessionHistory / ai-service repair_messages 同源
+      const { repaired: messages, removed: repairRemoved } = repairMessages(rawMessages)
+
+      // P39 跨端统一:88% 阈值自动压缩上下文(共享包 @ihui/context-compaction)
+      // CLI / API / ai-service 共用同一套规则,前端传 contextLimit 触发,压缩结果通过 SSE 通知前端
+      let finalMessages: ChatMessage[] = messages
+      const extraFirstEvents: Array<{ key: string; payload: unknown }> = []
+      if (repairRemoved > 0) {
+        extraFirstEvents.push({ key: 'repair', payload: { removed: repairRemoved } })
+      }
+
+      if (contextLimit && contextLimit > 0) {
+        const result = compressContextIfNeeded(messages, { contextLimit })
+        if (result.compressed) {
+          finalMessages = result.messages
+          extraFirstEvents.push({
+            key: 'compaction',
+            payload: {
+              triggered: true,
+              tokensBefore: result.originalTokens,
+              tokensAfter: result.compressedTokens,
+              removedCount: result.removedCount,
+              usageRatio: result.usageRatio ?? 0,
+            },
+          })
+        }
+      }
+
+      // Token 预算前置校验:超预算直接返回 429,不进入流式(避免无效消耗 ai-service 配额)
+      if (
+        !(await checkTokenBudget(request, reply, metadata?.userId ?? request.userId, resolvedModel))
+      ) {
+        return
+      }
+
+      return streamToClient(
+        request,
+        reply,
+        finalMessages,
+        {
+          sessionId,
+          resolvedModel,
+          agentId,
+          materialContent,
+          workspacePath,
+          contextLimit,
+          agentTools,
+          planMode,
+          metadata,
+        },
+        extraFirstEvents,
+      )
+    },
   )
 
   // POST /chat/answer — 用户回答 AI 主动提问,继续生成(不中断对话)
@@ -347,135 +358,135 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-    const parsed = chatAnswerSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const {
-      messages: rawMessages,
-      sessionId,
-      model,
-      modelId,
-      agentId,
-      materialContent,
-      workspacePath,
-      contextLimit,
-      agentTools,
-      plan_mode: planMode,
-      metadata,
-      questionId,
-      answer,
-    } = parsed.data
-    const resolvedModel = model ?? modelId
-    const userId = metadata?.userId ?? request.userId
-    const conversationId = metadata?.conversationId
-
-    // P2 多端同步:持久化 answer + 清挂起 + WS 广播(fire-and-forget,不阻塞 SSE 流)
-    // 失败仅打日志,不影响续流(参考 persistMessageSafe 的容错策略)
-    if (conversationId && userId) {
-      void (async () => {
-        try {
-          // 1. 持久化 answer 为 user 消息(metadata 标记 questionId + isAnswer,便于后续查询关联)
-          const savedAnswer = await createMessage({
-            conversationId,
-            role: 'user',
-            content: answer,
-            metadata: { questionId, isAnswer: true },
-          })
-
-          // 2. 清除 conversation.metadata.pendingQuestion(对话级挂起状态,标记已回答)
-          //    用 merge 模式,不覆盖 conversation.metadata 的其他 key
-          await patchConversationMetadata(conversationId, userId, {
-            pendingQuestion: null,
-            answeredQuestionId: questionId,
-          })
-
-          // 3. WS 广播 chat_question_answered 通知其他端关闭弹窗
-          //    pushNotification 已支持 Redis Pub/Sub 多实例,所有端都会收到
-          try {
-            const push = (
-              server as unknown as {
-                pushNotification?: (userId: string, payload: unknown) => void
-              }
-            ).pushNotification
-            // 3a. 推送 chat_message 让其他端看到用户回答(与 POST /conversations/:id/messages 同模式)
-            push?.(userId, {
-              type: 'chat_message',
-              conversationId,
-              message: savedAnswer,
-            })
-            // 3b. 推送 chat_question_answered 让其他端关闭弹窗
-            push?.(userId, {
-              type: 'chat_question_answered',
-              conversationId,
-              questionId,
-            })
-          } catch {
-            /* 推送失败不阻塞 */
-          }
-        } catch (e) {
-          request.log.error(
-            { err: e, questionId, conversationId },
-            'chat/answer persistence failed',
-          )
-        }
-      })()
-    }
-
-    // 把用户答案作为新 user 消息追加到 messages 末尾(在 repair 之前,让 repair 统一处理)
-    const messagesWithAnswer = [...rawMessages, { role: 'user' as const, content: answer }]
-
-    const { repaired: messages, removed: repairRemoved } = repairMessages(messagesWithAnswer)
-
-    let finalMessages: ChatMessage[] = messages
-    const extraFirstEvents: Array<{ key: string; payload: unknown }> = [
-      // 首事件通知前端:这是 question 已回答后的续流(前端可据此关闭弹窗)
-      { key: 'resumed', payload: { questionId, resumed: true } },
-    ]
-    if (repairRemoved > 0) {
-      extraFirstEvents.push({ key: 'repair', payload: { removed: repairRemoved } })
-    }
-
-    if (contextLimit && contextLimit > 0) {
-      const result = compressContextIfNeeded(messages, { contextLimit })
-      if (result.compressed) {
-        finalMessages = result.messages
-        extraFirstEvents.push({
-          key: 'compaction',
-          payload: {
-            triggered: true,
-            tokensBefore: result.originalTokens,
-            tokensAfter: result.compressedTokens,
-            removedCount: result.removedCount,
-            usageRatio: result.usageRatio ?? 0,
-          },
-        })
+      const parsed = chatAnswerSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-    }
-
-    // Token 预算前置校验:超预算直接返回 429,不进入流式(避免无效消耗 ai-service 配额)
-    if (!(await checkTokenBudget(request, reply, userId, resolvedModel))) {
-      return
-    }
-
-    return streamToClient(
-      request,
-      reply,
-      finalMessages,
-      {
+      const {
+        messages: rawMessages,
         sessionId,
-        resolvedModel,
+        model,
+        modelId,
         agentId,
         materialContent,
         workspacePath,
         contextLimit,
         agentTools,
-        planMode,
+        plan_mode: planMode,
         metadata,
-      },
-      extraFirstEvents,
-    )
-  },
+        questionId,
+        answer,
+      } = parsed.data
+      const resolvedModel = model ?? modelId
+      const userId = metadata?.userId ?? request.userId
+      const conversationId = metadata?.conversationId
+
+      // P2 多端同步:持久化 answer + 清挂起 + WS 广播(fire-and-forget,不阻塞 SSE 流)
+      // 失败仅打日志,不影响续流(参考 persistMessageSafe 的容错策略)
+      if (conversationId && userId) {
+        void (async () => {
+          try {
+            // 1. 持久化 answer 为 user 消息(metadata 标记 questionId + isAnswer,便于后续查询关联)
+            const savedAnswer = await createMessage({
+              conversationId,
+              role: 'user',
+              content: answer,
+              metadata: { questionId, isAnswer: true },
+            })
+
+            // 2. 清除 conversation.metadata.pendingQuestion(对话级挂起状态,标记已回答)
+            //    用 merge 模式,不覆盖 conversation.metadata 的其他 key
+            await patchConversationMetadata(conversationId, userId, {
+              pendingQuestion: null,
+              answeredQuestionId: questionId,
+            })
+
+            // 3. WS 广播 chat_question_answered 通知其他端关闭弹窗
+            //    pushNotification 已支持 Redis Pub/Sub 多实例,所有端都会收到
+            try {
+              const push = (
+                server as unknown as {
+                  pushNotification?: (userId: string, payload: unknown) => void
+                }
+              ).pushNotification
+              // 3a. 推送 chat_message 让其他端看到用户回答(与 POST /conversations/:id/messages 同模式)
+              push?.(userId, {
+                type: 'chat_message',
+                conversationId,
+                message: savedAnswer,
+              })
+              // 3b. 推送 chat_question_answered 让其他端关闭弹窗
+              push?.(userId, {
+                type: 'chat_question_answered',
+                conversationId,
+                questionId,
+              })
+            } catch {
+              /* 推送失败不阻塞 */
+            }
+          } catch (e) {
+            request.log.error(
+              { err: e, questionId, conversationId },
+              'chat/answer persistence failed',
+            )
+          }
+        })()
+      }
+
+      // 把用户答案作为新 user 消息追加到 messages 末尾(在 repair 之前,让 repair 统一处理)
+      const messagesWithAnswer = [...rawMessages, { role: 'user' as const, content: answer }]
+
+      const { repaired: messages, removed: repairRemoved } = repairMessages(messagesWithAnswer)
+
+      let finalMessages: ChatMessage[] = messages
+      const extraFirstEvents: Array<{ key: string; payload: unknown }> = [
+        // 首事件通知前端:这是 question 已回答后的续流(前端可据此关闭弹窗)
+        { key: 'resumed', payload: { questionId, resumed: true } },
+      ]
+      if (repairRemoved > 0) {
+        extraFirstEvents.push({ key: 'repair', payload: { removed: repairRemoved } })
+      }
+
+      if (contextLimit && contextLimit > 0) {
+        const result = compressContextIfNeeded(messages, { contextLimit })
+        if (result.compressed) {
+          finalMessages = result.messages
+          extraFirstEvents.push({
+            key: 'compaction',
+            payload: {
+              triggered: true,
+              tokensBefore: result.originalTokens,
+              tokensAfter: result.compressedTokens,
+              removedCount: result.removedCount,
+              usageRatio: result.usageRatio ?? 0,
+            },
+          })
+        }
+      }
+
+      // Token 预算前置校验:超预算直接返回 429,不进入流式(避免无效消耗 ai-service 配额)
+      if (!(await checkTokenBudget(request, reply, userId, resolvedModel))) {
+        return
+      }
+
+      return streamToClient(
+        request,
+        reply,
+        finalMessages,
+        {
+          sessionId,
+          resolvedModel,
+          agentId,
+          materialContent,
+          workspacePath,
+          contextLimit,
+          agentTools,
+          planMode,
+          metadata,
+        },
+        extraFirstEvents,
+      )
+    },
   )
 
   // POST /chat/questions — 持久化 AI 主动提问挂起状态 + WS 广播到多端
