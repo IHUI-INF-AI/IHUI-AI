@@ -1181,6 +1181,9 @@ IHUI-AI/
 - **发票**:增值税普票 / 专票 / 邮寄
 - **汇率**:多币种 / 实时汇率
 - **9 支付网关(含海外 Stripe)**:payment-gateway + payment-extended + wechat-pay-contracts + payment-callbacks + stripe.ts(Checkout Session/Webhook HMAC-SHA256 验签/退款/订阅激活)
+- **VIP 4 档订阅(免费/个人/团队/企业)**:vipLevels 4 档 levelValue(0/1/2/3)+ benefits jsonb 配额(dailyTokenLimit/monthlyTokenLimit/dailyCostLimit/monthlyCostLimit/apiQps/concurrency/modelWhitelist)+ plan-entitlement-service 订阅激活自动 upsert aiBudgets + seed-vip-levels.ts(¥29/¥99/¥499 月付)
+- **AI 模型定价表**:ai-pricing.ts 公开路由 GET /api/ai-pricing + seed-ai-pricing.ts(42 个主流模型:OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao/Kimi/Zhipu/MiniMax,分/千 token + regionPricing cn/us/eu + currency CNY)+ /models-pricing 前端页(9 厂商分组 + 搜索)
+- **开发者门户**:developer-portal.ts 公开路由 GET /api/developer/info(限流策略 4 档 + 支付方式 3 种 + 厂商 9 个 + SDK 计划 TS/Python + Bearer 鉴权)+ /developers 前端页(Hero + 限流表 + 厂商徽章 + SDK 计划 + 鉴权示例)
 
 #### D2. 社区与互动
 
