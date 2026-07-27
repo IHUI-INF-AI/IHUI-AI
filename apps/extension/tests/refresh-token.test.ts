@@ -291,18 +291,23 @@ describe('Extension refresh token 流程', () => {
     })
   })
 
-  describe('token-utils.ts — startAutoRefresh / stopAutoRefresh', () => {
-    it('startAutoRefresh 注册 onAlarm 监听,幂等', async () => {
+  describe('token-utils.ts — scheduleRefreshAlarm / stopAutoRefresh (scheduleOnce 模式)', () => {
+    // scheduleOnce 模式:startAutoRefresh 是 no-op,listener 由 scheduleRefreshAlarm 内部
+    // 随 handler 绑定注册(通过 platform.scheduler.scheduleOnce → chrome.alarms.onAlarm.addListener)。
+    it('scheduleRefreshAlarm 注册 onAlarm 监听', async () => {
       const { tokenUtils } = await loadFreshModules()
-      tokenUtils.startAutoRefresh()
-      tokenUtils.startAutoRefresh()
+      // 未来 1 小时过期的 token → delayMs > 0 → 走 scheduleOnce 路径
+      const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
+      tokenUtils.scheduleRefreshAlarm(futureJwt)
       expect(chromeAlarmsOnAlarmAdd).toHaveBeenCalledTimes(1)
+      expect(chromeAlarmsCreate).toHaveBeenCalledWith('ihui-refresh-token', expect.objectContaining({ delayInMinutes: expect.any(Number) }))
       tokenUtils.stopAutoRefresh()
     })
 
     it('stopAutoRefresh 清除 alarm + 移除监听', async () => {
       const { tokenUtils } = await loadFreshModules()
-      tokenUtils.startAutoRefresh()
+      const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
+      tokenUtils.scheduleRefreshAlarm(futureJwt)
       tokenUtils.stopAutoRefresh()
       expect(chromeAlarmsClear).toHaveBeenCalledWith('ihui-refresh-token')
       expect(chromeAlarmsOnAlarmRemove).toHaveBeenCalledTimes(1)
@@ -325,7 +330,8 @@ describe('Extension refresh token 流程', () => {
           user: { id: 'u1' },
         },
       })
-      tokenUtils.startAutoRefresh()
+      const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
+      tokenUtils.scheduleRefreshAlarm(futureJwt)
       const listener = chromeAlarmsOnAlarmAdd.mock.calls[0][0] as (a: { name: string }) => void
       listener({ name: 'ihui-refresh-token' })
       // 等待 doRefresh 异步完成
@@ -336,7 +342,8 @@ describe('Extension refresh token 流程', () => {
 
     it('onAlarm 监听器不匹配的 alarm name 不调用 doRefresh', async () => {
       const { tokenUtils } = await loadFreshModules()
-      tokenUtils.startAutoRefresh()
+      const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
+      tokenUtils.scheduleRefreshAlarm(futureJwt)
       const listener = chromeAlarmsOnAlarmAdd.mock.calls[0][0] as (a: { name: string }) => void
       listener({ name: 'other-alarm' })
       await new Promise((r) => setTimeout(r, 50))

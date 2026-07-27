@@ -3,8 +3,7 @@
  */
 import { AppListPage, type AppItem } from '../components/AppListPage'
 import { useNotificationStore } from '../../../lib/notification-store'
-
-const WEB_BASE = 'https://ihui.ai'
+import { WEB_BASE } from '../../../lib/open-in-web'
 
 const baseItems: AppItem[] = [
   { to: '/me/dashboard', icon: '📊', titleKey: 'apps.dashboard', descKey: 'apps.dashboardDesc' },
