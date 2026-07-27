@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -30,7 +30,7 @@ export default function AnnouncementsPage() {
   }
 
   // Pinned first, then by publishedAt desc (defensive sort)
-  const list = (data ?? []).slice().sort((a: any, b: any) => {
+  const list = (data ?? []).slice().sort((a, b) => {
     if (!!a.isPinned !== !!b.isPinned) return a.isPinned ? -1 : 1
     return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   })
@@ -56,7 +56,7 @@ export default function AnnouncementsPage() {
         </div>
       ) : list.length > 0 ? (
         <div className="space-y-3">
-          {list.map((a: any) => {
+          {list.map((a) => {
             const Icon = (ANN_TYPE_ICON as any)[a.type] ?? Megaphone
             return (
               <Link key={a.id} href={`/announcements/${a.id}`} className="block">

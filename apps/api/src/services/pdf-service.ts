@@ -9,7 +9,7 @@
  */
 
 import { env } from 'node:process'
-import { Writable } from 'node:stream'
+import { Writable, type WritableOptions } from 'node:stream'
 
 import { logger } from '../utils/logger.js'
 
@@ -246,8 +246,7 @@ export function isPdfConfigured(): boolean {
 class WritableBuffer extends Writable {
   private chunks: Buffer[] = []
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- node:stream WritableOptions 跨版本兼容用 any 简化
-  constructor(opts: any = {}) {
+  constructor(opts: WritableOptions = {}) {
     super(opts)
   }
 

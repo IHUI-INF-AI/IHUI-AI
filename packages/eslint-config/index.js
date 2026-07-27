@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @ihui/eslint-config base
  * TypeScript recommended + 基础最佳实践,无框架规则。
  * 适配 ESLint 9 flat config。
@@ -28,7 +28,7 @@ export default tseslint.config(
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
       'prefer-const': 'error',
       eqeqeq: ['error', 'always'],
@@ -39,6 +39,13 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-var-requires': 'off',
+    },
+  },
+  {
+    // 测试文件豁免 no-explicit-any(mock/stub 需要类型断言)
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx', '**/tests/**', '**/test/**', '**/e2e/**'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
 )

@@ -8,13 +8,11 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateWithYear } from '../utils/date-utils'
+import type { NotificationItem } from '@ihui/types'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-interface Announcement {
-  id: string
-  title: string
-  content: string
+interface Announcement extends NotificationItem {
   publishTime: string
   pinned: boolean
 }

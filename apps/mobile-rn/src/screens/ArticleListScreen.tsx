@@ -3,11 +3,17 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, Touchabl
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import type { Article as SharedArticle } from '@ihui/types'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Card } from '@ihui/ui-native'
 
-interface Article { id: string; title: string; author: string; cover?: string; views: number; publishedAt: string }
+interface Article extends SharedArticle {
+  author: string
+  cover?: string
+  views: number
+  publishedAt: string
+}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const PRIMARY = '#10B981'

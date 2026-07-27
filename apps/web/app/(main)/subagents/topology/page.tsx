@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -35,11 +35,11 @@ export default function SubagentTopologyPage() {
 
   const topology = topoQ.data?.topology
   const roles = React.useMemo(
-    () => Array.from(new Set(topology?.nodes.map((n: any) => n.agentRole) ?? [])),
+    () => Array.from(new Set(topology?.nodes.map((n) => n.agentRole) ?? [])),
     [topology],
   )
   const statuses = React.useMemo(
-    () => Array.from(new Set(topology?.nodes.map((n: any) => n.status) ?? [])),
+    () => Array.from(new Set(topology?.nodes.map((n) => n.status) ?? [])),
     [topology],
   )
 

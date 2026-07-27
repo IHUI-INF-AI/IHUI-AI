@@ -83,7 +83,7 @@ export default function RefundDetailPage() {
 
       const listRes = await fetchApi<RefundListData>(`/api/refunds/me?page=1&pageSize=100`)
       if (listRes.success && listRes.data) {
-        const found = listRes.data.list?.find((r: any) => r.id === params.id)
+        const found = listRes.data.list?.find((r) => r.id === params.id)
         if (found) return { refund: found, order: null, auditRecords: [] }
       }
       throw new Error(detailRes.error || t('notFound'))
@@ -197,7 +197,7 @@ export default function RefundDetailPage() {
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">{t('auditRecords')}</h2>
           <div className="space-y-2">
-            {auditRecords.map((record: any) => {
+            {auditRecords.map((record: AuditRecord) => {
               const cfg =
                 record.action === 'approve'
                   ? STATUS_CONFIG.approved

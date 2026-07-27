@@ -6,10 +6,14 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { NotificationItem } from '@ihui/types'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'AnnouncementDetail'>
-interface Detail { id: string; title: string; content: string; author: string; publishTime: string }
+interface Detail extends NotificationItem {
+  author: string
+  publishTime: string
+}
 
 export function AnnouncementDetailScreen() {
   const { t } = useI18n()

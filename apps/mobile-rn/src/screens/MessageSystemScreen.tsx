@@ -6,10 +6,15 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MessageItem } from '@ihui/types'
 
 import { Loading } from '@ihui/ui-native'
 type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Item { id: string; title: string; content: string; time: string; read: boolean }
+interface Item extends Pick<MessageItem, 'id' | 'content'> {
+  title: string
+  time: string
+  read: boolean
+}
 
 export function MessageSystemScreen() {
   const { t } = useI18n()

@@ -63,8 +63,8 @@ export default function EduExamRankingPage() {
   })
 
   const ranked = React.useMemo(() => {
-    const list = (data ?? []).filter((r: any) => r.status === 'submitted' || r.status === 'graded')
-    return list.sort((a: any, b: any) => Number(b.score) - Number(a.score))
+    const list = (data ?? []).filter((r) => r.status === 'submitted' || r.status === 'graded')
+    return list.sort((a, b) => Number(b.score) - Number(a.score))
   }, [data])
 
   return (
@@ -86,7 +86,7 @@ export default function EduExamRankingPage() {
               <SelectValue placeholder={t('paperPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              {papers.map((p: any) => (
+              {papers.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.title}
                 </SelectItem>
@@ -136,7 +136,7 @@ export default function EduExamRankingPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              ranked.map((r: any, idx: any) => (
+              ranked.map((r, idx) => (
                 <TableRow key={r.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5">
                     {idx < 3 ? (
