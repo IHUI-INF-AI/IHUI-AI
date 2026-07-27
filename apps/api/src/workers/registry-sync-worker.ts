@@ -34,6 +34,13 @@ export interface RegistryWorkerStats {
   lastProcessedAt: Date | null
 }
 
+// 扩展 FastifyInstance 类型,避免 as any 断言挂载 worker 指标
+declare module 'fastify' {
+  interface FastifyInstance {
+    registryWorkerStats?: RegistryWorkerStats
+  }
+}
+
 export function startRegistrySyncWorker(server: FastifyInstance): Worker {
   const connection = server.redisForQueue
   if (!connection) {
@@ -47,7 +54,7 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
     failed: 0,
     lastProcessedAt: null,
   }
-  ;(server as any).registryWorkerStats = stats
+  server.registryWorkerStats = stats
 
   const worker = new Worker<RegistrySyncJobData>(
     REGISTRY_SYNC_QUEUE_NAME,
@@ -74,11 +81,11 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
       // fetchAllRawItems 整体失败时写 sync_log 兜底,再 rethrow 让 BullMQ failed 也能捕获
       let items
       try {
-        items = await fetchAllRawItems(
-          sourceType ?? undefined,
-          source ?? undefined,
-          { githubToken, customRegistryUrl, force },
-        )
+        items = await fetchAllRawItems(sourceType ?? undefined, source ?? undefined, {
+          githubToken,
+          customRegistryUrl,
+          force,
+        })
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err)
         await insertSyncLog({
@@ -140,12 +147,10 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
 
       // 三态判定 — skipped(空结果)/ fail(全部失败)/ success(有成功)
       const status: 'success' | 'fail' | 'skipped' =
-        failed > 0 ? (synced > 0 ? 'success' : 'fail') : (items.length === 0 ? 'skipped' : 'success')
+        failed > 0 ? (synced > 0 ? 'success' : 'fail') : items.length === 0 ? 'skipped' : 'success'
 
       // hash 复用:用已计算的 per-item hash 聚合 sync_log payloadHash,避免重复 JSON.stringify + SHA-256
-      const payloadHash = hashList.length > 0
-        ? await computePayloadHash({ items: hashList })
-        : null
+      const payloadHash = hashList.length > 0 ? await computePayloadHash({ items: hashList }) : null
 
       await insertSyncLog({
         sourceType: sourceType ?? 'mcp',
@@ -178,7 +183,14 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
       }
 
       server.log.info(
-        { jobId: job.id, synced, failed, skipped, total: items.length, durationMs: Date.now() - startedAt.getTime() },
+        {
+          jobId: job.id,
+          synced,
+          failed,
+          skipped,
+          total: items.length,
+          durationMs: Date.now() - startedAt.getTime(),
+        },
         'registry-sync: 同步任务完成',
       )
 
@@ -187,8 +199,8 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
     {
       connection,
       concurrency: 1,
-      lockDuration: 60000,    // d1:60s,避免长任务被判定 stalled
-      maxStalledCount: 1,     // d1:最多 stall 1 次后判定失败,避免无限重试
+      lockDuration: 60000, // d1:60s,避免长任务被判定 stalled
+      maxStalledCount: 1, // d1:最多 stall 1 次后判定失败,避免无限重试
     },
   )
 
@@ -198,10 +210,7 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
   })
   worker.on('failed', (job, err) => {
     stats.failed++
-    server.log.error(
-      { jobId: job?.id, err: err.message },
-      'registry-sync: 同步任务异常',
-    )
+    server.log.error({ jobId: job?.id, err: err.message }, 'registry-sync: 同步任务异常')
     // webhook trigger 状态回写 — 失败时标记 failed
     const triggerId = job?.data?.triggerId
     if (triggerId) {

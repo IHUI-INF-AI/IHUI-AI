@@ -63,7 +63,9 @@ export function AgentRuleForm({
               <Input
                 id="r-agent"
                 value={form.agentId}
-                onChange={(e: any) => setForm({ ...form, agentId: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, agentId: e.target.value })
+                }
                 placeholder={t('agentIdPlaceholder')}
               />
             </div>
@@ -72,7 +74,9 @@ export function AgentRuleForm({
               <Input
                 id="r-name"
                 value={form.ruleName}
-                onChange={(e: any) => setForm({ ...form, ruleName: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, ruleName: e.target.value })
+                }
                 placeholder={t('namePlaceholder')}
               />
             </div>
@@ -81,7 +85,9 @@ export function AgentRuleForm({
               <Input
                 id="r-code"
                 value={form.ruleCode}
-                onChange={(e: any) => setForm({ ...form, ruleCode: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, ruleCode: e.target.value })
+                }
                 placeholder={t('codePlaceholder')}
               />
             </div>
@@ -89,7 +95,7 @@ export function AgentRuleForm({
               <Label htmlFor="r-type">{t('ruleType')}</Label>
               <Select
                 value={form.ruleType}
-                onValueChange={(v: any) => setForm({ ...form, ruleType: v })}
+                onValueChange={(v: string) => setForm({ ...form, ruleType: v })}
               >
                 <SelectTrigger id="r-type">
                   <SelectValue />
@@ -110,14 +116,16 @@ export function AgentRuleForm({
                 type="number"
                 min="0"
                 value={form.priority}
-                onChange={(e: any) => setForm({ ...form, priority: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, priority: e.target.value })
+                }
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="r-status">{t('status')}</Label>
               <Select
                 value={form.status ? '1' : '0'}
-                onValueChange={(v: any) => setForm({ ...form, status: v === '1' })}
+                onValueChange={(v: string) => setForm({ ...form, status: v === '1' })}
               >
                 <SelectTrigger id="r-status">
                   <SelectValue />
@@ -134,7 +142,9 @@ export function AgentRuleForm({
             <Input
               id="r-desc"
               value={form.description}
-              onChange={(e: any) => setForm({ ...form, description: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setForm({ ...form, description: e.target.value })
+              }
               placeholder={t('descriptionPlaceholder')}
             />
           </div>
