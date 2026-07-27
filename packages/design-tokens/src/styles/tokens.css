@@ -286,3 +286,179 @@
   /* 暗色模式:深灰色,与 14% L 偏白页面底形成反向对比 */
   --color-shell-panel: hsl(220 12% 5%);
 }
+
+/* ============ 全局基础变量(2026-07-27 上提自 web 本地 design-tokens.css) ============
+ * 源: _global-tokens.scss(历史项目迁移)
+ * --global-border-radius 被智能圆角 / header-dropdown 等引用 */
+:root {
+  --global-border-radius: 8px;
+  --global-header-height: 60px;
+}
+
+/* ============ 业务品牌色(2026-07-27 上提自 web 本地 design-tokens.css) ============
+ * 注:--color-rank-gold/-silver/-bronze/--color-vip-gold-start/-end 已在 @theme 块定义,此处不重复 */
+:root {
+  --color-miniapp-green: linear-gradient(135deg, #07c160, #06ad56);
+  --color-miniapp-green-dark: #06ad56;
+  --color-miniapp-green-darker: #059a4c;
+  --color-miniapp-green-darkest: #048040;
+  --color-rank-avatar-start: #6366f1;
+  --color-rank-avatar-end: #8b5cf6;
+  --color-rank-top1-bg: rgba(245, 158, 11, 0.04);
+  --color-payment-purple-start: #667eea;
+  --color-payment-purple-end: #764ba2;
+}
+/* 装饰性渐变(2026-07-27 上提自 web 本地 design-tokens.css)*/
+:root {
+  --color-gradient-purple-yellow: linear-gradient(
+    112deg,
+    rgba(205, 208, 255, 0.7) 0%,
+    rgba(253, 255, 225, 0.7) 100%
+  );
+  --color-gradient-purple-deep: linear-gradient(
+    269deg,
+    rgba(217, 219, 254, 0.8) 219%,
+    rgba(144, 125, 255, 0.8) 219%
+  );
+  --color-gradient-white-blue: linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 1) 1%,
+    rgba(77, 180, 232, 1) 77%
+  );
+  --color-gradient-card-left: linear-gradient(
+    116deg,
+    rgba(217, 219, 255, 0.8) 3%,
+    rgba(253, 255, 220, 0.8) 104%
+  );
+  --color-gradient-card-right: linear-gradient(
+    116deg,
+    rgba(0, 0, 0, 0.8) 3%,
+    rgba(0, 109, 11, 0.8) 104%
+  );
+  --color-gradient-group: linear-gradient(
+    106deg,
+    rgba(228, 229, 255, 0.25) 4%,
+    rgba(254, 255, 236, 0.25) 104%
+  );
+}
+/* ============ Premium 缓动函数(2026-07-27 上提自 web 本地 design-tokens.css) ============ */
+:root {
+  --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-premium-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-premium-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-premium-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============ 智能圆角(2026-07-27 上提自 web 本地 design-tokens.css) ============
+ * 4 档智能圆角统一引用 var(--global-border-radius) = 8px */
+:root {
+  --smart-radius-small: var(--global-border-radius);
+  --smart-radius-medium: var(--global-border-radius);
+  --smart-radius-large: var(--global-border-radius);
+  --smart-radius-xl: var(--global-border-radius);
+}
+
+/* ============ sidebar 布局变量(2026-07-27 上提自 web 本地 design-tokens.css) ============
+ * 2026-07-22 修复首屏宽度闪烁:--sidebar-width 从 200px 改为 130px,
+ * 与 sidebar.tsx 的 SIDEBAR_WIDTH 常量一致 */
+:root {
+  --sidebar-width: 130px;
+  --sidebar-collapsed-width: 54px;
+  --sidebar-menu-height: 24px;
+  --sidebar-indent-1: 20px;
+  --sidebar-indent-2: 40px;
+  --sidebar-dark-bg: #2a2a2a;
+  --sidebar-light-bg: #ffffff;
+}
+/* ============ header-dropdown 变量(2026-07-27 上提自 web 本地 design-tokens.css) ============
+ * 引用 --el-* Element Plus 兼容变量(下方独立 :root 块定义) */
+:root {
+  --header-dropdown-bg: var(--el-bg-color);
+  --header-dropdown-border: 1px solid var(--dropdown-border-color);
+  --header-dropdown-border-radius: var(--global-border-radius);
+  --header-dropdown-padding: 6px 8px;
+  --header-dropdown-shadow: none;
+  --header-dropdown-z-index: var(--z-max);
+  --header-dropdown-item-padding: 6px 16px;
+  --header-dropdown-item-font-size: 14px;
+  --header-dropdown-item-font-weight: 500;
+  --header-dropdown-item-border-radius: var(--global-border-radius);
+  --header-dropdown-item-color: var(--el-text-color-primary);
+  --header-dropdown-item-bg: transparent;
+  --header-dropdown-item-hover-bg: var(--el-fill-color-light);
+  --header-dropdown-item-hover-color: var(--el-color-primary);
+  --header-dropdown-item-active-bg: var(--el-fill-color-light);
+  --header-dropdown-item-active-color: var(--el-text-color-primary);
+  --header-dropdown-item-active-font-weight: 700;
+}
+
+/* ============ Element Plus 兼容变量(2026-07-27 上提自 web 本地 design-tokens.css) ============
+ * 映射到当前项目的 Tailwind 4 / shadcn 设计 token,保证引用有效 */
+:root {
+  --el-bg-color: var(--color-card);
+  --el-text-color-primary: var(--color-foreground);
+  --el-fill-color-light: var(--color-muted);
+  --el-fill-color-darker: var(--color-secondary);
+  --el-color-primary: var(--color-primary);
+  --dropdown-border-color: var(--color-border);
+}
+
+/* ============ App 语义层(2026-07-27 上提自 web 本地 design-tokens.css) ============ */
+:root {
+  --app-bg: var(--color-background);
+  --app-surface: var(--color-card);
+  --app-border: var(--color-border);
+  --app-text-primary: var(--color-foreground);
+  --app-text-secondary: var(--color-muted-foreground);
+  --app-text-muted: var(--color-muted-foreground);
+  --app-hover: var(--color-muted);
+  --app-active: var(--color-secondary);
+}
+/* ============ Header 按钮系统(2026-07-27 上提自 web 本地 design-tokens.css) ============ */
+:root {
+  --header-btn-bg: transparent;
+  --header-btn-bg-hover: var(--color-muted);
+  --header-btn-bg-active: var(--color-secondary);
+  --header-btn-text: var(--color-foreground);
+  --header-btn-border: transparent;
+}
+
+/* ============ 统一描边系统(2026-07-27 上提自 web 本地 design-tokens.css) ============ */
+:root {
+  --border-unified-default: var(--color-border);
+  --border-unified-strong: var(--color-ring);
+  --border-unified-subtle: var(--color-black-6);
+  --border-unified-inverse: var(--color-white-20);
+}
+
+/* ============ 暗色模式覆盖(2026-07-27 上提自 web 本地 design-tokens.css) ============
+ * 仅列出与亮色模式值不同的变量,相同的变量不重复声明 */
+.dark {
+  --el-bg-color: var(--color-card);
+  --el-text-color-primary: var(--color-foreground);
+  --el-fill-color-light: var(--color-secondary);
+  --el-fill-color-darker: var(--color-muted);
+  --el-color-primary: var(--color-primary);
+  --dropdown-border-color: var(--color-border);
+  --header-dropdown-item-hover-bg: var(--el-fill-color-darker);
+  --header-dropdown-item-hover-color: var(--el-text-color-primary);
+  --header-dropdown-item-active-bg: var(--el-fill-color-darker);
+  --sidebar-light-bg: #2a2a2a;
+  --app-bg: var(--color-background);
+  --app-surface: var(--color-card);
+  --app-border: var(--color-border);
+  --app-text-primary: var(--color-foreground);
+  --app-text-secondary: var(--color-muted-foreground);
+  --app-text-muted: var(--color-muted-foreground);
+  --app-hover: var(--color-secondary);
+  --app-active: var(--color-muted);
+  --header-btn-bg: transparent;
+  --header-btn-bg-hover: var(--color-secondary);
+  --header-btn-bg-active: var(--color-muted);
+  --header-btn-text: var(--color-foreground);
+  --header-btn-border: transparent;
+  --border-unified-default: var(--color-border);
+  --border-unified-strong: var(--color-ring);
+  --border-unified-subtle: var(--color-white-10);
+  --border-unified-inverse: var(--color-black-30);
+}
