@@ -19,17 +19,14 @@ const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram')
 })
 
 // 语法高亮组件懒加载,避免首屏 bundle 过大
-interface SyntaxHighlighterProps {
-  language?: string
-  style?: Record<string, React.CSSProperties>
-  customStyle?: React.CSSProperties
-  children?: string
-}
+// 注:react-syntax-highlighter 自带类型定义与 next/dynamic loader 签名存在 children 类型不兼容
+// (库内 SyntaxHighlighterProps.children 为 string|string[],next/dynamic 期望与 ComponentType 兼容)。
+// 用 unknown 接收 + 类型断言绕过,真实运行时类型由库自身保证。
+type SyntaxHighlighterModule = typeof import('react-syntax-highlighter')
+type PrismComponent = SyntaxHighlighterModule['Prism']
 const SyntaxHighlighter = dynamic(
-  () =>
-    import('react-syntax-highlighter').then(
-      (m: { Prism: React.ComponentType<SyntaxHighlighterProps> }) => m.Prism,
-    ),
+  (): Promise<PrismComponent> =>
+    import('react-syntax-highlighter').then((m: SyntaxHighlighterModule) => m.Prism),
   {
     ssr: false,
     loading: () => null,
