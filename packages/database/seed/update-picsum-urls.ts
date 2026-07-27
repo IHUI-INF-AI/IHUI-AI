@@ -5,6 +5,7 @@ import { liveChannels } from '../src/schema/live.js'
 import { circles } from '../src/schema/community.js'
 import { newsArticles } from '../src/schema/news.js'
 import { eq } from 'drizzle-orm'
+import type { PgTable, PgColumn } from 'drizzle-orm/pg-core'
 
 const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 
@@ -33,7 +34,12 @@ function nextUrl() {
   return u
 }
 
-async function updateTable(tableName: string, table: any, idCol: any, coverCol: any) {
+async function updateTable<TTable extends PgTable>(
+  tableName: string,
+  table: TTable,
+  idCol: PgColumn,
+  coverCol: PgColumn,
+) {
   const rows = await db.select({ id: idCol, cover: coverCol }).from(table)
   let updated = 0
   for (const r of rows) {
