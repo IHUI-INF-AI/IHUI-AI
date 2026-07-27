@@ -47,7 +47,7 @@ export function AgentRuleDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(o: any) => {
+      onOpenChange={(o: boolean) => {
         if (!o) onClose()
       }}
     >
@@ -65,7 +65,9 @@ export function AgentRuleDialog({
             <Label>{t('labelAgentId')}</Label>
             <Input
               value={form.agentId}
-              onChange={(e: any) => setForm({ ...form, agentId: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                setForm({ ...form, agentId: e.target.value })
+              }
               placeholder={t('placeholderAgentId')}
             />
           </div>
@@ -73,7 +75,9 @@ export function AgentRuleDialog({
             <Label>{t('labelRuleName')}</Label>
             <Input
               value={form.ruleName}
-              onChange={(e: any) => setForm({ ...form, ruleName: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                setForm({ ...form, ruleName: e.target.value })
+              }
               placeholder={t('placeholderRuleName')}
             />
           </div>
@@ -82,7 +86,9 @@ export function AgentRuleDialog({
               <Label>{t('labelRuleCode')}</Label>
               <Input
                 value={form.ruleCode}
-                onChange={(e: any) => setForm({ ...form, ruleCode: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                  setForm({ ...form, ruleCode: e.target.value })
+                }
                 placeholder={t('placeholderRuleCode')}
               />
             </div>
@@ -90,7 +96,7 @@ export function AgentRuleDialog({
               <Label>{t('labelRuleType')}</Label>
               <Select
                 value={form.ruleType}
-                onValueChange={(v: any) => setForm({ ...form, ruleType: v })}
+                onValueChange={(v: string) => setForm({ ...form, ruleType: v })}
               >
                 <SelectTrigger className={selectClass}>
                   <SelectValue />
@@ -109,13 +115,15 @@ export function AgentRuleDialog({
               <Input
                 type="number"
                 value={form.priority}
-                onChange={(e: any) => setForm({ ...form, priority: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                  setForm({ ...form, priority: e.target.value })
+                }
               />
             </div>
             <div className="flex items-center gap-2 pt-7">
               <Switch
                 checked={form.status}
-                onCheckedChange={(v: any) => setForm({ ...form, status: v })}
+                onCheckedChange={(v: boolean) => setForm({ ...form, status: v })}
               />
               <Label>{t('labelEnabled')}</Label>
             </div>

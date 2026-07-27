@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -133,7 +133,7 @@ export default function LogsPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
             <div className="divide-y">
-              {list.map((log: any) => (
+              {list.map((log) => (
                 <div key={log.id}>
                   <button
                     onClick={() => toggleExpand(log.id)}

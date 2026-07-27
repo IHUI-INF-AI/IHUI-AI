@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -179,7 +179,7 @@ export default function TokenWalletPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((it: any) => {
+                items.map((it) => {
                   const positive = it.opType === 0
                   return (
                     <TableRow key={it.id}>

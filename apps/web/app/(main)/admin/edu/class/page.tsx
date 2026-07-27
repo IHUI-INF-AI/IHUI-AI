@@ -126,7 +126,7 @@ export default function EduClassPage() {
           <CardContent className="p-5">
             <div className="text-sm text-muted-foreground">{t('active')}</div>
             <div className="mt-1 text-2xl font-semibold">
-              {rows.filter((c: any) => c.status === 'active').length}
+              {rows.filter((c) => c.status === 'active').length}
             </div>
           </CardContent>
         </Card>
@@ -134,7 +134,7 @@ export default function EduClassPage() {
           <CardContent className="p-5">
             <div className="text-sm text-muted-foreground">{t('currentPageStudents')}</div>
             <div className="mt-1 text-2xl font-semibold">
-              {rows.reduce((a: any, c: any) => a + c.studentCount, 0)}
+              {rows.reduce((a, c) => a + c.studentCount, 0)}
             </div>
           </CardContent>
         </Card>

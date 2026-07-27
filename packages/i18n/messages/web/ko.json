@@ -7002,7 +7002,9 @@
     "conversations": "대화 목록",
     "noMessages": "메시지 없음",
     "noMessagesHint": "메시지가 없습니다. 인사를 보내보세요!",
+    "noConversations":  "대화 없음",
     "selectHint": "대화를 선택하여 채팅 시작",
+    "searchPlaceholder":  "대화 검색",
     "input": {
       "placeholder": "메시지 입력..."
     },
