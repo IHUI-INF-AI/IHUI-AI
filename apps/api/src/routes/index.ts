@@ -124,6 +124,7 @@ import {
   adminUserAgentFreeTimesRoutes,
 } from './user-agent-free-times.js'
 import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './service-catalog.js'
+import { serviceInquiryRoutes } from './service-inquiry.js'
 import { shareContentRoutes } from './share-content.js'
 // 历史项目缺失端点补齐（从 legacy-completion.ts 拆分为 9 个业务模块文件,完整路径 /api/legacy/* 不变）
 import { legacyExamRoutes } from './legacy-exam.js'
@@ -346,6 +347,8 @@ import traderStatsRoutes from './trader-stats.js'
 import { subagentsExtendedRoutes } from './subagents-extended-routes.js'
 // AI 助教路由代理(把 /api/ai-tutor/* 透传到 ai-service,避免前端直连 CORS)
 import { aiTutorRoutes } from './ai-tutor-routes.js'
+// Newsletter 订阅路由(定价页转化率优化配套,lead capture)
+import newsletterRoutes from './newsletter.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
@@ -620,6 +623,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 服务注册发现：/api/service-catalog/* + /api/admin/service-catalog/*
   server.register(serviceCatalogRoutes, { prefix: '/api/service-catalog' })
   server.register(adminServiceCatalogRoutes, { prefix: '/api/admin/service-catalog' })
+  // 商业化服务询价(AGENTS.md §24 配套):POST /api/service-inquiry + admin 管理端点
+  server.register(serviceInquiryRoutes, { prefix: '/api/service-inquiry' })
 
   // 分享内容 H5：/api/share/content/:code（迁移自 share-h5 历史项目）
   server.register(shareContentRoutes, { prefix: '/api/share' })
@@ -941,4 +946,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(subagentsExtendedRoutes, { prefix: '/api' })
   // AI 助教路由代理(/api/ai-tutor/*:explain/hint/quiz → 透传到 ai-service)
   server.register(aiTutorRoutes, { prefix: '/api' })
+  // Newsletter 订阅(定价页转化率优化配套:subscribe/unsubscribe + admin list/send)
+  server.register(newsletterRoutes, { prefix: '/api/newsletter' })
 }
