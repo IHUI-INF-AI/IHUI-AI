@@ -108,7 +108,7 @@ export default function DatabaseOptimizationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {tablesList.map((tb: any) => (
+                {tablesList.map((tb) => (
                   <tr key={tb.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-xs font-medium">{tb.name}</td>
                     <td className="px-4 py-2.5">{formatNumber(tb.rows)}</td>
@@ -134,7 +134,7 @@ export default function DatabaseOptimizationPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {slowQueriesList.map((q: any) => (
+            {slowQueriesList.map((q) => (
               <div key={q.id} className="rounded-lg border p-3">
                 <div className="flex items-start justify-between gap-3">
                   <code className="flex-1 break-all rounded bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
@@ -172,7 +172,7 @@ export default function DatabaseOptimizationPage() {
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {suggestionsList.map((s: any) => {
+            {suggestionsList.map((s) => {
               const style = SUGGESTION_STYLE[s.type as keyof typeof SUGGESTION_STYLE]
               return (
                 <Card key={s.id}>

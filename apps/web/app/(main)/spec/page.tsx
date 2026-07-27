@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -100,7 +100,7 @@ export default function SpecListPage() {
             </div>
           ) : data && data.length > 0 ? (
             <div className="space-y-2">
-              {data.map((entry: any) => (
+              {data.map((entry) => (
                 <HistoryRow key={entry.id} entry={entry} />
               ))}
             </div>

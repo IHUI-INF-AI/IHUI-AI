@@ -130,7 +130,7 @@ export default function CourseHomeworkPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {list.map((item: any) => {
+          {list.map((item: HomeworkItem) => {
             const deadline = formatDeadline(item.deadline ?? item.endTime)
             const submitted = item.submitted ?? (item.status === 'submitted' || item.status === 1)
             return (

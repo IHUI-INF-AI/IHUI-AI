@@ -81,7 +81,7 @@ export default function CrewPage() {
           maxRetries: form.maxRetries,
         },
       }),
-    onSuccess: (r: any) => {
+    onSuccess: (r) => {
       toast.success('会话已创建')
       setOpen(false)
       setForm(EMPTY_FORM)
@@ -109,16 +109,16 @@ export default function CrewPage() {
   // 最近 10 次会话成功率 + 平均耗时(基于已加载的 sessions 列表)
   const recentSessions = sessions.slice(0, 10)
   const completedRecent = recentSessions.filter(
-    (s: any) => s.status === 'completed' || s.status === 'failed',
+    (s) => s.status === 'completed' || s.status === 'failed',
   )
-  const successCount = completedRecent.filter((s: any) => s.status === 'completed').length
+  const successCount = completedRecent.filter((s) => s.status === 'completed').length
   const successRate =
     completedRecent.length > 0 ? Math.round((successCount / completedRecent.length) * 100) : null
-  const completedWithTime = recentSessions.filter((s: any) => s.createdAt && s.completedAt)
+  const completedWithTime = recentSessions.filter((s) => s.createdAt && s.completedAt)
   const avgDurationMs =
     completedWithTime.length > 0
       ? Math.round(
-          completedWithTime.reduce((sum: number, s: any) => {
+          completedWithTime.reduce((sum, s) => {
             const start = new Date(s.createdAt!).getTime()
             const end = new Date(s.completedAt!).getTime()
             return sum + (end - start)
@@ -203,7 +203,7 @@ export default function CrewPage() {
             <p className="text-sm font-medium">角色配置</p>
           </div>
           <div className="grid grid-cols-1 gap-2 p-3 md:grid-cols-2 lg:grid-cols-3">
-            {agents.map((a: any) => (
+            {agents.map((a) => (
               <div key={a.role} className="rounded border p-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{a.role}</span>
@@ -212,7 +212,7 @@ export default function CrewPage() {
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{a.goal}</p>
                 {a.tools.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {a.tools.map((t: any) => (
+                    {a.tools.map((t) => (
                       <span
                         key={t}
                         className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
@@ -242,7 +242,7 @@ export default function CrewPage() {
           </div>
         ) : (
           <div className="divide-y">
-            {sessions.map((s: any) => (
+            {sessions.map((s) => (
               <Link
                 key={s.id}
                 href={`/admin/crew/${s.id}`}
@@ -285,7 +285,7 @@ export default function CrewPage() {
               <Input
                 id="title"
                 value={form.title}
-                onChange={(e: any) => setForm({ ...form, title: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, title: e.target.value })}
                 placeholder="可选,留空自动取消息前 40 字"
               />
             </div>
@@ -329,7 +329,7 @@ export default function CrewPage() {
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <option value="">默认 ({defaultModel})</option>
-                  {models.map((m: any) => (
+                  {models.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name} ({m.id})
                     </option>
@@ -350,7 +350,7 @@ export default function CrewPage() {
                 min={0}
                 max={5}
                 value={form.maxRetries}
-                onChange={(e: any) => setForm({ ...form, maxRetries: Number(e.target.value) || 0 })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, maxRetries: Number(e.target.value) || 0 })}
               />
             </div>
             <DialogFooter>

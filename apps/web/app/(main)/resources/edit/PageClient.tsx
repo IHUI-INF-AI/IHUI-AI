@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -126,7 +126,7 @@ export default function ResourceEditPage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    onSuccess: (d: any) => {
+    onSuccess: (d) => {
       setFileUrl(d.url)
       setFileName(file?.name ?? '')
     },

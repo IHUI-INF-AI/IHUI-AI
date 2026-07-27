@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -106,7 +106,7 @@ export default function ContextVisualizationPage() {
                 </div>
               ) : (
                 <ol className="space-y-2">
-                  {events.map((e: any, i: any) => {
+                  {events.map((e, i) => {
                     const ratio = e.compressionRatio
                     return (
                       <li
