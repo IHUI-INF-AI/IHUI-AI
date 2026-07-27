@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PRIMARY = '#10B981'
+
+type AigcCoverRouteParamList = {
+  AigcCover: { title?: string } | undefined
+}
+type Nav = NativeStackNavigationProp<RootStackParamList>
+type Route = RouteProp<AigcCoverRouteParamList, 'AigcCover'>
 
 interface CoverOption {
   id: string
@@ -51,8 +59,8 @@ const MOCK_COVERS: CoverOption[] = [
 ]
 
 export default function AigcCoverScreen() {
-  const navigation = useNavigation<any>()
-  const route = useRoute<RouteProp<any>>()
+  const navigation = useNavigation<Nav>()
+  const route = useRoute<Route>()
   const workTitle = (route.params?.title as string) ?? '未命名作品'
   const [selectedId, setSelectedId] = useState<string>(MOCK_COVERS[0]!.id)
   const [filter, setFilter] = useState<'all' | 'work' | 'ai'>('all')

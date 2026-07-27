@@ -127,7 +127,7 @@ export default function WorkflowDetailPage() {
             <p className="mt-0.5 text-sm text-muted-foreground">{wf.description || '-'}</p>
             <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
               <Zap className="h-3.5 w-3.5" />
-              {t((TRIGGER_KEYS as any)[wf.triggerType] ?? 'triggers.unknown')}
+              {t(TRIGGER_KEYS[wf.triggerType as keyof typeof TRIGGER_KEYS] ?? 'triggers.unknown')}
             </div>
           </div>
         </div>

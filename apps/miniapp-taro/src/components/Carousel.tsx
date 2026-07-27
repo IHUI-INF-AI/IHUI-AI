@@ -5,7 +5,7 @@ import { cn } from '@ihui/design-tokens'
 export interface CarouselItem {
   img: string
   link?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface CarouselProps {
