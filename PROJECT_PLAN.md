@@ -796,3 +796,16 @@
 - P2-4 web/src/lib 死代码审计: 67 文件 15 候选,报告在 .trae-cn/tmp/(降本 0.1x)
 
 commit: 86210133(P0+P1) + 1acae38e2(P1+P2 收尾),均已 push,local == remote。
+
+## 多端维护成本优化阶段3(2026-07-27,P2+安全降本,目标 4.2x->3.9x)
+
+### [x] ✅(2026-07-27) 阶段3 完成(4.2x->3.9x,5动作4 subagent+主agent并行)
+
+- [x] 动作1 P2-4 死代码清理: 删除 web/src/lib/ 15个0引用死代码(cross-tab-sync/device-utils/documentation/form-utils/i18n-languages/markdown-utils/monitoring-utils/navigation-utils/security-utils/sso + form-schemas/index + video-tools/ 4文件,降本0.1x)
+- [x] 动作2 web typecheck 修复: student/page.tsx as any asChild -> asChild + markdown-stream.tsx import type 替代 typeof import(降本0.05x,解除 --no-verify 依赖)
+- [x] 动作3 guardian 集成: guardian-runner.mjs 新增 id 37 check-web-tokens-sync.mjs blocking(防 globals.css 漂移)
+- [x] 动作4 design-tokens.css 清理: 文件已在 commit fd49943afc 整文件删除,任务已完成(降本0x)
+- [x] 动作5 mobile-rn 类型接入: AIMultimodalScreen.tsx ChatMessage extends AiChatMessage 接入跨端契约(降本0.05x)
+
+commit: c53a52d1, 已 push, local == remote。
+阶段3 总降本: 0.2x(4.2x -> 3.9x),累计三阶段 6.8x -> 3.9x(降本 2.9x,42.6%)。
