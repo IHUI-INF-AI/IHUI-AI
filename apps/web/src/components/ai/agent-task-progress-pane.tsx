@@ -10,13 +10,15 @@ import {
   Check,
   ListTodo,
   MessageSquare,
+  ChevronsUpDown,
+  ChevronsDownUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
-import { formatDuration } from './progress-sections/foldable-section'
+import { formatDuration, FoldableSectionProvider } from './progress-sections/foldable-section'
 import { ThinkingSection } from './progress-sections/thinking-section'
 import { ToolCallsSection } from './progress-sections/tool-calls-section'
 import { SubagentSection } from './progress-sections/subagent-section'
@@ -110,6 +112,9 @@ export function AgentTaskProgressPane() {
   const toggle = useAgentProgressPaneStore((s) => s.toggle)
   const closePane = useAgentProgressPaneStore((s) => s.closePane)
   const setProgress = useAgentProgressPaneStore((s) => s.setProgress)
+
+  // v9: 展开全部/折叠全部控制(null=各子区独立 / true=强制展开 / false=强制折叠)
+  const [expandAll, setExpandAll] = React.useState<boolean | null>(null)
 
   // 从 useChatStore 同步 conversationId 作为 threadId(无需用户手动输入)
   const conversationId = useChatStore((s) => s.conversationId)
@@ -216,6 +221,21 @@ export function AgentTaskProgressPane() {
           </span>
         )}
         <div className="flex-1" />
+        {/* v9: 展开全部/折叠全部按钮 */}
+        <button
+          type="button"
+          onClick={() => setExpandAll(expandAll === true ? false : true)}
+          aria-label={expandAll === true ? '折叠全部' : '展开全部'}
+          title={expandAll === true ? '折叠全部' : '展开全部'}
+          className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          data-testid="pane-expand-all"
+        >
+          {expandAll === true ? (
+            <ChevronsDownUp className="h-3 w-3" />
+          ) : (
+            <ChevronsUpDown className="h-3 w-3" />
+          )}
+        </button>
         {/* pin/unpin 按钮 */}
         <button
           type="button"
@@ -296,7 +316,7 @@ export function AgentTaskProgressPane() {
 
         {/* 折叠子区:思考过程 / 工具调用 / Subagent 派单 / 文件变更 / 终端任务 / 任务总览(对齐 Trae Work) */}
         {threadId && (
-          <>
+          <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
             <ThinkingSection
               content={overview.content}
               currentNode={overview.currentNode}
@@ -307,7 +327,7 @@ export function AgentTaskProgressPane() {
             <ChangesSection changes={changes} />
             <TerminalSection terminals={terminals} />
             <OverviewSection overview={overview} isStreaming={isStreaming} />
-          </>
+          </FoldableSectionProvider>
         )}
       </div>
     </div>
