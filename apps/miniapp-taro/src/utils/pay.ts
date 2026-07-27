@@ -1,4 +1,5 @@
 import Taro from '@tarojs/taro'
+import { isAlipaySuccess, isAlipayCancel, isAlipayPending } from '@ihui/shared/constants'
 
 export type PayPlatform = 'wechat' | 'alipay'
 
@@ -225,12 +226,12 @@ export function requestAliPayment(payParams: AnyPayParams): Promise<unknown> {
           Taro.hideLoading()
           const code = String(res?.resultCode ?? '')
           // 9000=成功 8000=待确认 4000=失败 6001=取消 6002=网络异常
-          if (code === '9000') {
+          if (isAlipaySuccess(code)) {
             resolve(res)
-          } else if (code === '6001') {
+          } else if (isAlipayCancel(code)) {
             Taro.showToast({ title: '您已取消支付', icon: 'none' })
             reject(new Error('cancel'))
-          } else if (code === '8000') {
+          } else if (isAlipayPending(code)) {
             Taro.showToast({ title: '支付结果待确认', icon: 'none', duration: 2000 })
             reject(new Error(`alipay pending: ${code}`))
           } else {
