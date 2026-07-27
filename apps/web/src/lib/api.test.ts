@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type * as Api from './api'
 
 /**
  * fetchApi 401 懒触发策略契约测试。
@@ -45,7 +46,7 @@ vi.mock('@/stores/auth', () => ({
 const TEST_PATH = '/dashboard?tab=1'
 
 describe('fetchApi 401 懒触发策略', () => {
-  let fetchApi: typeof import('./api').fetchApi
+  let fetchApi: typeof Api.fetchApi
 
   beforeEach(async () => {
     // resetModules 重建 api.ts 模块,重置模块级 loginDialogOpenGuard 防风暴标志
