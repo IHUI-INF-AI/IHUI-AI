@@ -8,13 +8,11 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateWithYear } from '../utils/date-utils'
+import type { NotificationItem } from '@ihui/types'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-interface Announcement {
-  id: string
-  title: string
-  content: string
+interface Announcement extends NotificationItem {
   publishTime: string
   pinned: boolean
 }
@@ -92,10 +90,16 @@ export function AnnouncementScreen() {
                   <Text style={styles.pinnedText}>{t('announcement.pinned')}</Text>
                 </View>
               ) : null}
-              <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
+              <Text style={styles.itemTitle} numberOfLines={2}>
+                {item.title}
+              </Text>
             </View>
-            <Text style={styles.itemContent} numberOfLines={3}>{item.content}</Text>
-            <Text style={styles.publishTime}>{t('announcement.publishTime')}: {formatShortDateWithYear(item.publishTime)}</Text>
+            <Text style={styles.itemContent} numberOfLines={3}>
+              {item.content}
+            </Text>
+            <Text style={styles.publishTime}>
+              {t('announcement.publishTime')}: {formatShortDateWithYear(item.publishTime)}
+            </Text>
           </Card>
         )}
       />
@@ -105,14 +109,25 @@ export function AnnouncementScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
   errorText: { fontSize: 12, color: '#DC2626' },
   card: { padding: 12, borderRadius: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pinnedBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: '#FEF3C7' },
+  pinnedBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+  },
   pinnedText: { fontSize: 10, color: '#92400E' },
   itemTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' },
   itemContent: { marginTop: 6, fontSize: 12, color: '#374151', lineHeight: 18 },
