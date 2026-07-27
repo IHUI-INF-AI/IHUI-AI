@@ -28,7 +28,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ===== 配置加载 =====
 
-def _load_env() -> str:
+def _load_env() -> None:
     """从.env文件加载配置"""
     env_path = os.path.join(PROJECT_ROOT, '.env')
     if os.path.exists(env_path):
@@ -39,12 +39,16 @@ def _load_env() -> str:
                     key, val = line.split('=', 1)
                     os.environ.setdefault(key.strip(), val.strip())
 
-# 初始化加载环境变量
+# 模块导入时加载.env，确保后续 os.getenv 能读到 CSDN_APP_KEY / CSDN_APP_SECRET
 _load_env()
 
+# CSDN 内部 API 凭证（从环境变量读取，fallback 空字符串）
+# .env 中配置：CSDN_APP_KEY / CSDN_APP_SECRET
+# 未配置时返回空字符串，签名会失败并提示用户配置（不抛异常，保持向后兼容）
+CSDN_APP_KEY = os.getenv('CSDN_APP_KEY', '')
+CSDN_APP_SECRET = os.getenv('CSDN_APP_SECRET', '')
+
 # CSDN内部API（逆向自editor.csdn.net，非官方公开接口）
-CSDN_APP_KEY = '203803574'
-CSDN_APP_SECRET = os.environ.get('CSDN_APP_SECRET', '')
 CSDN_SAVE_URL = 'https://bizapi.csdn.net/blog-console-api/v3/mdeditor/saveArticle'
 CSDN_IMG_PARAMS_URL = 'https://imgservice.csdn.net/direct/v1.0/image/upload'
 CSDN_ARTICLE_LIST_URL = 'https://bizapi.csdn.net/blog-console-api/v3/editor/articles'
@@ -55,15 +59,6 @@ USER_AGENT = (
     'AppleWebKit/537.36 (KHTML, like Gecko) '
     'Chrome/126.0.0.0 Safari/537.36'
 )
-
-# 模块导入时加载.env，确保后续 os.getenv 能读到 CSDN_APP_KEY / CSDN_APP_SECRET
-_load_env()
-
-# CSDN 内部 API 凭证（从环境变量读取，fallback 空字符串）
-# .env 中配置：CSDN_APP_KEY / CSDN_APP_SECRET
-# 未配置时返回空字符串，签名会失败并提示用户配置（不抛异常，保持向后兼容）
-CSDN_APP_KEY = os.getenv('CSDN_APP_KEY', '')
-CSDN_APP_SECRET = os.getenv('CSDN_APP_SECRET', '')
 
 
 def _get_cookie() -> str:
