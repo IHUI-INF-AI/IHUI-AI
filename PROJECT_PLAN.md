@@ -101,11 +101,11 @@
 
 ### P1 extension 维护成本优化批次(2026-07-27 立,平台独占:仅 apps/extension + packages/dom-actions)
 
-> 共用率从 50-60% 提升到 ~70%,消除 sidepanel 低频页面手动同步维护痛点。
+> 共用率从 50-60% 提升到 ~75%(P0-1 低频页跳 web + P1 dom-actions 下沉 + P2 browser-platform 适配层),消除 sidepanel 低频页面手动同步维护痛点 + chrome.* 调用散落各处问题。
 
 - [x] ✅(2026-07-27) P0-1 低频 sidepanel 页面改跳 web — 扩展 ComingSoonPage 加 `mode: 'coming_soon' | 'open_in_web'` prop,删除 7 个低频页面文件(VipPage/MemberPage/DistributionPage/InvitationsPage/PointsPage/FansPage/FollowingPage),SidepanelApp.tsx 路由表 7 个路由改用 `<ComingSoonPage mode="open_in_web" webUrl={...} />` 用 chrome.tabs.create 打开 web 端对应页面,i18n 5 语言加 `apps.openInWebDesc` 文案;验证:extension typecheck + lint 全绿,i18n parity 5 语言 OK,extension zh-TW/ko 无中文残留
 - [x] ✅(2026-07-27) P1 抽 @ihui/dom-actions 共享包 — 新建 `packages/dom-actions/`(package.json + tsconfig.json + src/index.ts 266 行),从 `apps/extension/lib/agent-control.ts` 提取 8 个纯 DOM 操作函数(domClick/domType/domScroll/domExtract/domWaitForElement/domGetAttribute/domHover/domSelectOption)+ setNativeValue + DomActionResult 类型 + isDomAction/executeDomAction/DOM_ACTIONS 常量,agent-control.ts 改 import @ihui/dom-actions + re-export 保持下游 import 路径不变(content.ts / tests 不动);验证:dom-actions typecheck + lint 全绿,extension typecheck + lint 全绿,共享包数量 13 → 15(含 i18n + dom-actions),README 同步更新
-- [ ] P2(后续,本轮不做)抽 @ihui/browser-platform 适配层 — 当前只有 extension 用 chrome.*,无第二个实现,ROI 低。等 desktop/mobile-rn 真要接入时再做。登记此处防遗忘
+- [x] ✅(2026-07-27) P2 抽 @ihui/browser-platform 适配层 — 调研 93 处 chrome.* 调用点,识别 5 类平台硬边界(sidePanel/contextMenus/action/onInstalled/onStartup/alarms 生命周期)+ 11 个可抽象接口。新建 `packages/browser-platform/`(package.json + tsconfig.json + src/index.ts 接口定义 5 个 adapter:Storage/Tabs/Messaging/Runtime/Scheduler + BrowserPlatform 聚合 + src/chrome-impl.ts chrome.* 实现 220 行 + createChromePlatform 工厂);extension 4 核心文件迁移:① token.ts 9 处 chrome.storage.local → platform.storage.localGet/Set/Remove + onStorageChanged(多键 get/set/remove 拆 Promise.all);② config.ts 1 处 chrome.storage.local.get → platform.storage.localGet;③ message-router.ts 2 处 chrome.runtime.sendMessage + lastError callback → platform.messaging.sendRuntimeMessage Promise;④ agent-control.ts 17 处 chrome.tabs(captureVisibleTab/query/update/remove/sendMessage/onUpdated)+ chrome.runtime.lastError → platform.tabs.captureVisibleTab/queryActiveTab/navigateTab/activateTab/closeTab/listTabs/sendMessageToTab/waitForTabComplete(新增 activateTab 接口);保留硬边界(chrome.alarms/sidePanel/contextMenus/action/onInstalled/onStartup 在 background.ts 不迁移);验证:browser-platform typecheck + lint 全绿,extension typecheck + lint 全绿,共享包数量 15 → 16,README 同步更新
 
 ### P1 曝光度提升(2026-07-27 立,平台独占:仅 docs/ + 临时脚本)
 
