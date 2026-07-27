@@ -11,6 +11,8 @@ interface FoldableSectionProps {
   children: React.ReactNode
   icon?: React.ComponentType<{ className?: string }>
   'data-testid'?: string
+  /** v11: 可访问性 — section 标题用于 aria-label */
+  'aria-label'?: string
 }
 
 /** FoldableSection context:支持"展开全部/折叠全部"批量控制 */
@@ -61,6 +63,7 @@ export function FoldableSection({
   children,
   icon: Icon,
   'data-testid': testId,
+  'aria-label': ariaLabel,
 }: FoldableSectionProps) {
   const ctx = React.useContext(FoldableSectionContext)
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen)
@@ -84,7 +87,9 @@ export function FoldableSection({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex w-full items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+        aria-label={ariaLabel ?? title}
+        data-section-header="true"
+        className="flex w-full items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0"
       >
         <ChevronRight
           className={cn(
