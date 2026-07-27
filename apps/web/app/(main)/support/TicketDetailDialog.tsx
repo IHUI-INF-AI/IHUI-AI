@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -129,7 +129,7 @@ export function TicketDetailDialog({
               <p className="text-sm text-muted-foreground">{t('noComments')}</p>
             ) : (
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
-                {comments.map((c: any) => (
+                {comments.map((c) => (
                   <div
                     key={c.id}
                     className={cn(

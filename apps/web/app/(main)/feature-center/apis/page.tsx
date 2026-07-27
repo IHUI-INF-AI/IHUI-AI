@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -49,7 +49,7 @@ export default function ApisPage() {
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item: any) => {
+    return all.filter((item) => {
       const matchKeyword =
         !keyword ||
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -113,7 +113,7 @@ export default function ApisPage() {
               badge={item.version as any}
               footer={
                 <div className="flex flex-wrap gap-1">
-                  {item.endpoints.map((ep: any) => (
+                  {item.endpoints.map((ep) => (
                     <span
                       key={ep}
                       className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"

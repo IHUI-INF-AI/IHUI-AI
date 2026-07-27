@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -93,7 +93,7 @@ export default function SubagentDetailClient() {
     refetchInterval: 3000,
   })
 
-  const dispatch = activeQ.data?.dispatches.find((d: any) => d.id === id)
+  const dispatch = activeQ.data?.dispatches.find((d) => d.id === id)
 
   const cancelMut = useMutation({
     mutationFn: () => cancelDispatch(id),

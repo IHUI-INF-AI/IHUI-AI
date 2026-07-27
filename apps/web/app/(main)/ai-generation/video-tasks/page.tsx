@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -66,9 +66,9 @@ export default function VideoTasksPage() {
   const listQuery = useQuery({
     queryKey: ['jimeng-video-tasks'],
     queryFn: () => api<ListData>('/api/ai/jimeng4/video/tasks?page=1&pageSize=20'),
-    refetchInterval: (q: any) => {
+    refetchInterval: (q) => {
       const list = q.state.data?.list ?? []
-      return list.some((t: any) => t.status === 'accepted' || t.status === 'running') ? 5000 : false
+      return list.some((t) => t.status === 'accepted' || t.status === 'running') ? 5000 : false
     },
   })
 
@@ -76,7 +76,7 @@ export default function VideoTasksPage() {
     queryKey: ['jimeng-video-task', expandedId],
     queryFn: () => api<DetailData>(`/api/ai/jimeng4/video/tasks/${expandedId}`),
     enabled: expandedId !== null,
-    refetchInterval: (q: any) => {
+    refetchInterval: (q) => {
       const task = q.state.data?.task
       if (!task) return false
       return task.status === 'accepted' || task.status === 'running' ? 5000 : false
@@ -144,7 +144,7 @@ export default function VideoTasksPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.map((task: any) => {
+                {tasks.map((task) => {
                   const isExpanded = expandedId === task.id
                   return (
                     <React.Fragment key={task.id}>

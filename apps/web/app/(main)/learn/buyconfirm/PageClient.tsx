@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -85,7 +85,7 @@ function BuyConfirmContent() {
         body: JSON.stringify(body),
       })
     },
-    onSuccess: (d: any) =>
+    onSuccess: (d) =>
       router.push(`/learn/payment/confirm?orderNo=${encodeURIComponent(d.orderNo)}`),
     onError: (e: Error) => setFormError(e.message),
   })

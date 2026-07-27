@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -68,7 +68,7 @@ export default function LearnRecordPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {items.map((item: any) => {
+          {items.map((item) => {
             const progress =
               typeof item.progress === 'number' ? Math.min(100, Math.max(0, item.progress)) : 0
             return (

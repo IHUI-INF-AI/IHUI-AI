@@ -170,7 +170,7 @@ export function TicketDetailDialog({
                 <SelectValue placeholder={t('selectAgent')} />
               </SelectTrigger>
               <SelectContent>
-                {agents.map((a: any) => (
+                {agents.map((a) => (
                   <SelectItem key={a.id} value={a.id}>
                     {a.nickname}（{AGENT_STATUS_LABEL[a.status as keyof typeof AGENT_STATUS_LABEL]}，{a.currentLoad}/{a.maxConcurrent}）
                   </SelectItem>
@@ -197,7 +197,7 @@ export function TicketDetailDialog({
               <p className="text-sm text-muted-foreground">{t('noReply')}</p>
             ) : (
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
-                {comments.map((c: any) => (
+                {comments.map((c) => (
                   <div
                     key={c.id}
                     className={cn(

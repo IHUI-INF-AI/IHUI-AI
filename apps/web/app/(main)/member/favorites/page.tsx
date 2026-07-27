@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -111,7 +111,7 @@ export default function MemberFavoritesPage() {
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {items.map((item: any) => {
+          {items.map((item) => {
             const Icon = (TYPE_ICON as any)[item.resourceType] ?? FileText
             return (
               <li

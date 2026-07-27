@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -124,7 +124,7 @@ export default function SubscriptionsPage() {
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {items.map((s: any) => {
+          {items.map((s) => {
             const Icon = (TYPE_ICON as any)[s.targetType]
             return (
               <li

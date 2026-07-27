@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useAuth } from '@/hooks/use-auth'
@@ -148,7 +148,7 @@ export default function RegistryPage() {
             {drift.report && (
               <div className="rounded-md bg-muted p-3 text: any-xs">
                 {drift.report.hasDrift
-                  ? `检测到 ${drift.report.reports.filter((r: any) => r.drifted).length} 个文件存在配置漂移`
+                  ? `检测到 ${drift.report.reports.filter((r) => r.drifted).length} 个文件存在配置漂移`
                   : '未检测到配置漂移'}
               </div>
             )}
