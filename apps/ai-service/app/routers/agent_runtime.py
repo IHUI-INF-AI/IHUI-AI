@@ -144,7 +144,7 @@ def _save_session_redis(session: SessionState) -> None:
     try:
         r.set(f"agent_session:{session.id}", session.model_dump_json(), ex=86400)
     except Exception:
-        pass
+        logger.exception("redis_session_save_failed", extra={"session_id": session.id})
 
 
 def _load_session_redis(session_id: str) -> SessionState | None:
