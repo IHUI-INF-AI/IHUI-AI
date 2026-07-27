@@ -11,8 +11,8 @@
   gap: 24rpx;
   padding: 32rpx 28rpx;
   margin: 24rpx;
-  background: linear-gradient(135deg, rgba(0, 242, 255, 0.12), rgba(0, 242, 255, 0.03));
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
 }
 .dev-avatar-wrap {
@@ -73,7 +73,7 @@
 .dev-sub-btn-active {
   background: var(--color-card);
   color: var(--color-muted-foreground);
-  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  border: 2rpx solid var(--color-border);
 }
 
 /* ===== 订阅统计 ===== */
@@ -82,7 +82,7 @@
   margin: 0 24rpx;
   padding: 24rpx 0;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
 }
 .dev-stat {
@@ -126,7 +126,7 @@
   gap: 20rpx;
   padding: 24rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
 }
 .dev-model-left {
@@ -181,8 +181,8 @@
   padding: 10rpx 24rpx;
   font-size: 24rpx;
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
-  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-ring);
   border-radius: 8rpx;
 }
 
@@ -193,7 +193,7 @@
   justify-content: space-between;
   padding: 24rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
   margin-bottom: 16rpx;
 }
@@ -211,7 +211,7 @@
 .dev-post-card {
   padding: 24rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
 }
 .dev-post-title {

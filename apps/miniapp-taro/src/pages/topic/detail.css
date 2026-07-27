@@ -96,7 +96,7 @@
   padding: 8rpx 24rpx;
   font-size: 24rpx;
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
+  background: var(--color-border);
   border-radius: 8rpx;
   font-weight: 600;
 }

@@ -63,21 +63,21 @@ export default function StudyIndex() {
 
   return (
     <View className="min-h-screen bg-background pb-[144rpx]">
-      <View className="p-6 bg-gradient-to-br from-[#00f2ff] to-[#8b5cf6]">
+      <View className="p-6 bg-primary">
         <View className="flex flex-wrap">
-          <View className="w-1/2 text-center mb-3 text-white">
+          <View className="w-1/2 text-center mb-3 text-primary-foreground">
             <Text className="block text-xl font-bold">{info.todayMinutes}</Text>
             <Text className="block text-xs opacity-90 mt-0.5">{t('study.todayMinutes')}</Text>
           </View>
-          <View className="w-1/2 text-center mb-3 text-white">
+          <View className="w-1/2 text-center mb-3 text-primary-foreground">
             <Text className="block text-xl font-bold">{info.totalMinutes}</Text>
             <Text className="block text-xs opacity-90 mt-0.5">{t('study.totalMinutes')}</Text>
           </View>
-          <View className="w-1/2 text-center mb-3 text-white">
+          <View className="w-1/2 text-center mb-3 text-primary-foreground">
             <Text className="block text-xl font-bold">{info.continuousDays}</Text>
             <Text className="block text-xs opacity-90 mt-0.5">{t('study.continuousDays')}</Text>
           </View>
-          <View className="w-1/2 text-center mb-3 text-white">
+          <View className="w-1/2 text-center mb-3 text-primary-foreground">
             <Text className="block text-xl font-bold">{info.courses}</Text>
             <Text className="block text-xs opacity-90 mt-0.5">{t('study.courses')}</Text>
           </View>
@@ -124,7 +124,7 @@ export default function StudyIndex() {
       </View>
 
       <View
-        className="fixed bottom-5 right-4 w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center text-xl shadow-md"
+        className="fixed bottom-5 right-4 w-12 h-12 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center text-xl shadow-md"
         onClick={() => navigate('/pages/study/publish/index')}
       >
         <Text>+</Text>
