@@ -116,7 +116,7 @@ export default function LiveHistory() {
         {FILTER_TABS.map((tab) => (
           <Text
             key={tab.key}
-            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx]${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
+            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-primary/20 rounded-[10rpx]${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
             onClick={() => setFilter(tab.key)}
           >
             {tt(tab.i18nKey, tab.fb)}
@@ -130,7 +130,7 @@ export default function LiveHistory() {
             const progress = item.progress ?? 0
             const completed = progress >= 100
             return (
-              <View key={item.id} className="flex p-[20rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]" onClick={() => goDetail(item.id)}>
+              <View key={item.id} className="flex p-[20rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]" onClick={() => goDetail(item.id)}>
                 <Image className="w-[200rpx] h-[130rpx] flex-shrink-0 bg-muted rounded-[8rpx]" src={item.coverUrl} mode="aspectFill" />
                 <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col justify-between">
                   <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
@@ -152,7 +152,7 @@ export default function LiveHistory() {
                         : item.watchTime || item.startTime || ''}
                     </Text>
                     <Text
-                      className="py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-[rgba(0,242,255,0.1)] border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[8rpx]"
+                      className="py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/40 rounded-[8rpx]"
                       onClick={(e) => {
                         e.stopPropagation()
                         goDetail(item.id)

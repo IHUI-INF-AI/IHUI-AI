@@ -9,7 +9,7 @@
 /* ===== 卡片 ===== */
 .cc-card {
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 16rpx;
   padding: 24rpx;
   margin-bottom: 24rpx;
@@ -93,7 +93,7 @@
   justify-content: center;
   gap: 8rpx;
   background: var(--color-background);
-  border: 2rpx dashed rgba(0, 242, 255, 0.3);
+  border: 2rpx dashed var(--color-ring);
   border-radius: 12rpx;
 }
 .cc-add-icon {
@@ -114,14 +114,14 @@
   padding: 0 20rpx;
   margin-right: 16rpx;
   background: var(--color-background);
-  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
   font-size: 24rpx;
   color: var(--color-primary);
   flex-shrink: 0;
 }
 .cc-topic-chip-active {
-  background: rgba(0, 242, 255, 0.12);
+  background: var(--color-border);
   border-color: var(--color-primary);
   color: var(--color-primary);
   margin-bottom: 16rpx;
@@ -133,7 +133,7 @@
 }
 .cc-topic-more {
   color: var(--color-muted-foreground);
-  border-color: rgba(0, 242, 255, 0.1);
+  border-color: var(--color-border);
 }
 .cc-topic-scroll {
   width: 100%;
@@ -162,8 +162,8 @@
   justify-content: space-between;
   height: 72rpx;
   padding: 0 24rpx;
-  background: rgba(0, 242, 255, 0.08);
-  border: 2rpx solid rgba(0, 242, 255, 0.25);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-ring);
   border-radius: 10rpx;
 }
 .cc-aigc-picked-title {
@@ -276,13 +276,13 @@
   height: 56rpx;
   padding: 0 20rpx;
   background: var(--color-background);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
 .cc-vis-chip.active {
-  background: rgba(0, 242, 255, 0.12);
+  background: var(--color-border);
   border-color: var(--color-primary);
   color: var(--color-primary);
 }

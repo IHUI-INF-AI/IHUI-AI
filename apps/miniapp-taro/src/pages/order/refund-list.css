@@ -22,7 +22,7 @@
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
 }
 .refund-tab-active {
@@ -46,7 +46,7 @@
 }
 .refund-card {
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   padding: 28rpx;
 }
@@ -138,13 +138,13 @@
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   background: var(--color-background);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
   border-radius: 8rpx;
 }
 .refund-action-primary {
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
-  border-color: rgba(0, 242, 255, 0.3);
+  background: var(--color-border);
+  border-color: var(--color-ring);
 }
 
 /* ===== 退款进度时间线 ===== */
@@ -152,7 +152,7 @@
   margin-top: 20rpx;
   padding: 24rpx;
   background: var(--color-background);
-  border: 2rpx solid rgba(0, 242, 255, 0.08);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
 }
 .refund-step {
@@ -176,7 +176,7 @@
   width: 2rpx;
   flex: 1;
   min-height: 32rpx;
-  background: rgba(0, 242, 255, 0.15);
+  background: var(--color-border);
   margin: 6rpx 0;
 }
 .refund-step-done .refund-step-dot {
