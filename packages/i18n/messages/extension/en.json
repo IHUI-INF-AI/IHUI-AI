@@ -18,6 +18,7 @@
     "contentTitle": "Content Center",
     "meTitle": "My Center",
     "openInWeb": "Open in Web",
+    "openInWebDesc": "This feature is best experienced on the web version",
     "comingSoon": "Coming Soon",
     "dashboard": "Dashboard",
     "dashboardDesc": "Data overview and quick access",
