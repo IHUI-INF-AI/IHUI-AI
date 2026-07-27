@@ -9,8 +9,7 @@ import { useState, type FormEvent } from 'react'
 import { searchContent, type SearchResult } from '@ihui/api-client'
 import { Badge, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb, openWebUrl } from '../../../lib/open-in-web'
 
 type ItemType = 'lesson' | 'live' | 'article' | 'news' | 'ask' | 'resource' | 'exam'
 
@@ -55,8 +54,11 @@ export default function SearchPage() {
   }
 
   const openItem = (url?: string, id?: string) => {
-    const target = url || (id ? `${WEB_BASE}/search?q=${encodeURIComponent(submitted)}` : `${WEB_BASE}/search`)
-    void chrome.tabs.create({ url: target })
+    if (url) {
+      openWebUrl(url)
+      return
+    }
+    openItemInWeb(id ? `/search?q=${encodeURIComponent(submitted)}` : '/search')
   }
 
   return (
@@ -108,7 +110,7 @@ export default function SearchPage() {
               <Card
                 key={`${it.type}-${it.id}`}
                 className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => openItem(it.url, it.id)}
+                onClick={() => openItem(it.url)}
               >
                 <CardHeader className="px-3 py-2">
                   <div className="flex items-center gap-1.5">
