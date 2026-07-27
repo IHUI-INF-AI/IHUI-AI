@@ -8,6 +8,7 @@ import { FileText, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, Download } f
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface MyResource {
   id: string

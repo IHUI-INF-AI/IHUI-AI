@@ -1053,6 +1053,7 @@ export function useChat(): UseChatReturn {
           // P4-2: 后端 fallback 触发时设置通知状态,UI 展示"已切换到备用模型"横幅
           onFallback: (event) => setFallbackNotice(event),
           onDelta: (delta) => {
+            console.log('[use-chat DIAG] onDelta called, delta=', JSON.stringify(delta).slice(0, 100))
             if (!firstContentTokenReceived) {
               firstContentTokenReceived = true
               clearTimeout(timeout15sId)
@@ -1158,7 +1159,13 @@ export function useChat(): UseChatReturn {
       } finally {
         clearTimeout(timeout15sId)
         clearTimeout(timeout60sId)
-        // #9 finally 取消 raf,清空累积(防止内存泄漏 + 下次调用残留)
+        // 2026-07-27 修复"AI 响应不显示":finally 必须先 flush 再 cancel,
+        // 否则最后一批 token(还在 pending 未触发 rAF)会被 cancel 直接丢弃,
+        // 导致 streamChat 成功返回后 UI 仍为空。
+        // flush 内部已 cancelAnimationFrame + 清 pending,后续 cancel 仅兜底。
+        contentBatcher.flush()
+        reasoningBatcher.flush()
+        agentBatcher.flushAll()
         contentBatcher.cancel()
         reasoningBatcher.cancel()
         agentBatcher.cancelAll()
@@ -1395,7 +1402,10 @@ export function useChat(): UseChatReturn {
     } finally {
       clearTimeout(timeout15sId)
       clearTimeout(timeout60sId)
-      // #9 finally 取消 raf,清空累积
+      // 2026-07-27 修复"AI 响应不显示"(与 sendMessage 对称):先 flush 再 cancel
+      contentBatcher.flush()
+      reasoningBatcher.flush()
+      agentBatcher.flushAll()
       contentBatcher.cancel()
       reasoningBatcher.cancel()
       agentBatcher.cancelAll()
