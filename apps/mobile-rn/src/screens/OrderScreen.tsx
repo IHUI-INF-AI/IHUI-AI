@@ -3,6 +3,7 @@ import { FlatList, Text, View } from 'react-native'
 import { Card } from '@ihui/ui-native'
 import { getOrders, type Order, type OrderStatus } from '@ihui/api-client'
 import { useI18n } from '../i18n'
+import { formatDateByTemplate } from '../utils/date-utils'
 
 const PAGE_SIZE = 20
 
@@ -19,20 +20,6 @@ const STATUS_STYLE: Record<OrderStatus, string> = {
 function formatAmount(n: number | undefined | null): string {
   if (typeof n !== 'number') return '—'
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return ''
-  }
 }
 
 export function OrderScreen() {
@@ -107,7 +94,7 @@ export function OrderScreen() {
                 <Text className="text-xs text-neutral-500">
                   {t('order.orderNo')}:{item.orderNo}
                 </Text>
-                <Text className="text-xs text-neutral-500">{formatTime(item.createdAt)}</Text>
+                <Text className="text-xs text-neutral-500">{formatDateByTemplate(item.createdAt, 'YYYY-MM-DD HH:mm')}</Text>
               </View>
               <View className="mt-2 flex-row items-end justify-between">
                 <Text className="text-xs text-neutral-500">{t('order.payAmount')}</Text>

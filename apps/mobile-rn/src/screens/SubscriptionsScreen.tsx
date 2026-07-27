@@ -7,18 +7,11 @@ import { getSubscriptions, cancelSubscription, type SubscriptionItem } from '../
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateWithYear } from '../utils/date-utils'
 
 const PAGE_SIZE = 20
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
-}
 
 export function SubscriptionsScreen() {
   const { t } = useI18n()
@@ -106,7 +99,7 @@ export function SubscriptionsScreen() {
               >
                 {item.targetId}
               </Text>
-              <Text className="mt-0.5 text-xs text-neutral-500">{formatDate(item.createdAt)}</Text>
+              <Text className="mt-0.5 text-xs text-neutral-500">{formatShortDateWithYear(item.createdAt)}</Text>
             </View>
             <Button onPress={() => onCancel(item)} variant="outline" size="sm">
               {t('subscriptions.cancel')}
