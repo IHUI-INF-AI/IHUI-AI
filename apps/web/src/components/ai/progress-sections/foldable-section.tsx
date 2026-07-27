@@ -45,16 +45,19 @@ export function formatDuration(ms: number): string {
 }
 
 /** 格式化 ISO 时间戳为相对时间字符串(刚刚 / 5s前 / 2m前 / 1h前)v11 */
-export function formatRelativeTime(timestamp: string): string {
+export function formatRelativeTime(
+  timestamp: string,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
   const ms = Date.parse(timestamp)
   if (Number.isNaN(ms)) return ''
   const diff = Date.now() - ms
-  if (diff < 0) return '刚刚'
-  if (diff < 10_000) return '刚刚'
-  if (diff < 60_000) return `${Math.floor(diff / 1000)}s前`
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m前`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h前`
-  return `${Math.floor(diff / 86_400_000)}d前`
+  if (diff < 0) return t('relativeTime.justNow')
+  if (diff < 10_000) return t('relativeTime.justNow')
+  if (diff < 60_000) return t('relativeTime.secondsAgo', { n: Math.floor(diff / 1000) })
+  if (diff < 3_600_000) return t('relativeTime.minutesAgo', { n: Math.floor(diff / 60_000) })
+  if (diff < 86_400_000) return t('relativeTime.hoursAgo', { n: Math.floor(diff / 3_600_000) })
+  return t('relativeTime.daysAgo', { n: Math.floor(diff / 86_400_000) })
 }
 
 /**
