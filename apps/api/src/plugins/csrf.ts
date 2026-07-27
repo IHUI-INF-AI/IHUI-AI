@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+﻿import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import cookie from '@fastify/cookie'
@@ -37,6 +37,8 @@ const PUBLIC_PREFIXES = [
   '/api/ai/callback',
   '/api/payments/',
   '/api/tbox/events',
+  // VIP 购买/订阅:需 authenticate 鉴权(未登录返 401 引导登录,而非 CSRF 403)
+  '/api/vip/',
 ]
 
 function secret(): string {
