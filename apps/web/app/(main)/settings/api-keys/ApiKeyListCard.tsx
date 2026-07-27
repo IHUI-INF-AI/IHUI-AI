@@ -121,7 +121,9 @@ export function ApiKeyListCard({
               <KeyRound className="h-6 w-6 text-muted-foreground" />
             </div>
             <p className="text-sm font-medium">尚未创建 API 密钥</p>
-            <p className="text-xs text-muted-foreground">点击右上角「创建密钥」生成您的第一把密钥</p>
+            <p className="text-xs text-muted-foreground">
+              点击右上角「创建密钥」生成您的第一把密钥
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -147,12 +149,12 @@ export function ApiKeyListCard({
                       {maskKey(k.key)}
                     </code>
                     <div className="flex flex-wrap gap-1">
-                      {k.permissions.map((p: any) => (
+                      {k.permissions.map((p) => (
                         <span
                           key={p}
                           className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
                         >
-                          {(PERM_LABELS as any)[p] ?? p}
+                          {PERM_LABELS[p] ?? p}
                         </span>
                       ))}
                     </div>
@@ -218,7 +220,12 @@ export function ApiKeyListCard({
           </DialogHeader>
           <p className="text-sm text-muted-foreground">{confirm.desc}</p>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={closeConfirm} disabled={confirm.pending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeConfirm}
+              disabled={confirm.pending}
+            >
               {tc('cancel')}
             </Button>
             <Button

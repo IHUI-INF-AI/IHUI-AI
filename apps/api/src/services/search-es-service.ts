@@ -38,20 +38,24 @@ export interface SearchResponse {
 // 表名 ↔ searchContents.topicType 映射(articles/news/resources/asks 对应枚举值)
 // =============================================================================
 
-const TABLE_TO_TOPIC_TYPE: Record<Exclude<SearchTable, 'all'>, 'article' | 'news' | 'question' | 'resource'> = {
+const TABLE_TO_TOPIC_TYPE: Record<
+  Exclude<SearchTable, 'all'>,
+  'article' | 'news' | 'question' | 'resource'
+> = {
   articles: 'article',
   news: 'news',
   resources: 'resource',
   asks: 'question',
 }
 
-const TOPIC_TYPE_TO_TABLE: Record<'article' | 'news' | 'question' | 'resource' | 'lesson', string> = {
-  article: 'articles',
-  news: 'news',
-  question: 'asks',
-  resource: 'resources',
-  lesson: 'lessons',
-}
+const TOPIC_TYPE_TO_TABLE: Record<'article' | 'news' | 'question' | 'resource' | 'lesson', string> =
+  {
+    article: 'articles',
+    news: 'news',
+    question: 'asks',
+    resource: 'resources',
+    lesson: 'lessons',
+  }
 
 // =============================================================================
 // ES 索引配置
@@ -61,13 +65,35 @@ const ES_INDEX_NAME = process.env.ELASTICSEARCH_INDEX ?? 'ihui-search-contents'
 const ES_DOC_TYPE = 'search_content'
 const REINDEX_BATCH_SIZE = 500
 
+// @elastic/elasticsearch 为可选依赖(未安装时降级到 PostgreSQL),
+// 此处定义最小接口描摹供类型检查,避免使用 any
+interface EsSearchHits {
+  total?: { value?: number } | number
+  hits?: Array<Record<string, unknown>>
+}
+interface EsClient {
+  ping(): Promise<unknown>
+  search(params: {
+    index: string
+    body: unknown
+  }): Promise<{ body?: { hits?: EsSearchHits }; hits?: EsSearchHits }>
+  index(params: { index: string; id: string; body: unknown }): Promise<unknown>
+  bulk(params: { body: unknown[] }): Promise<{ body?: { errors?: boolean }; errors?: boolean }>
+  count(params: { index: string }): Promise<{ body?: { count?: number }; count?: number }>
+  indices: {
+    delete(params: { index: string; ignore_unavailable?: boolean }): Promise<unknown>
+    create(params: { index: string; body?: unknown }): Promise<unknown>
+    refresh(params: { index: string }): Promise<unknown>
+  }
+}
+
 // =============================================================================
 // SearchEsService 单例
 // =============================================================================
 
 export class SearchEsService {
   /** ES 客户端实例(动态 import,失败为 null) */
-  private esClient: any | null = null
+  private esClient: EsClient | null = null
   /** ES 客户端初始化 Promise(避免并发重复初始化) */
   private esClientInitPromise: Promise<void> | null = null
   /** 是否启用 ES(基于 ELASTICSEARCH_URL 环境变量) */
@@ -94,7 +120,7 @@ export class SearchEsService {
         maxRetries: 3,
       })
       // 探活:失败则置 null 降级
-      await this.esClient.ping()
+      await this.esClient!.ping()
     } catch {
       this.esClient = null
     }
@@ -184,13 +210,14 @@ export class SearchEsService {
       sort: [{ _score: 'desc' }, { viewCount: 'desc' }],
     }
 
-    const resp = await this.esClient.search({
+    const resp = await this.esClient!.search({
       index: ES_INDEX_NAME,
       body,
     })
 
     const hits = resp?.body?.hits ?? resp?.hits ?? { total: { value: 0 }, hits: [] }
-    const total: number = hits.total?.value ?? hits.total ?? 0
+    const t = hits.total
+    const total: number = t === undefined ? 0 : typeof t === 'number' ? t : (t.value ?? 0)
     const rows: Array<Record<string, unknown>> = hits.hits ?? []
 
     const results: SearchResult[] = rows.map((row) => {
@@ -199,7 +226,10 @@ export class SearchEsService {
       const topicType = (src.topicType as string) ?? 'article'
       return {
         id: String(src.topicId ?? src.id ?? row._id ?? ''),
-        table: TOPIC_TYPE_TO_TABLE[topicType as 'article' | 'news' | 'question' | 'resource' | 'lesson'] ?? topicType,
+        table:
+          TOPIC_TYPE_TO_TABLE[
+            topicType as 'article' | 'news' | 'question' | 'resource' | 'lesson'
+          ] ?? topicType,
         title: String(src.topicTitle ?? ''),
         content: String(src.topicSummary ?? src.searchText ?? ''),
         score: Number(row._score ?? 0),
@@ -278,7 +308,7 @@ export class SearchEsService {
     if (!this.isEsEnabled()) return
 
     const topicType = TABLE_TO_TOPIC_TYPE[table as Exclude<SearchTable, 'all'>] ?? table
-    await this.esClient.index({
+    await this.esClient!.index({
       index: ES_INDEX_NAME,
       id: `${topicType}:${doc.id}`,
       body: {
@@ -302,11 +332,11 @@ export class SearchEsService {
 
     // 删除旧索引(若存在)并新建
     try {
-      await this.esClient.indices.delete({ index: ES_INDEX_NAME, ignore_unavailable: true })
+      await this.esClient!.indices.delete({ index: ES_INDEX_NAME, ignore_unavailable: true })
     } catch {
       /* 索引不存在时忽略 */
     }
-    await this.esClient.indices.create({
+    await this.esClient!.indices.create({
       index: ES_INDEX_NAME,
       body: {
         mappings: {
@@ -340,7 +370,9 @@ export class SearchEsService {
 
       const operations: Array<Record<string, unknown>> = []
       for (const row of batch) {
-        operations.push({ index: { _index: ES_INDEX_NAME, _id: `${row.topicType}:${row.topicId}` } })
+        operations.push({
+          index: { _index: ES_INDEX_NAME, _id: `${row.topicType}:${row.topicId}` },
+        })
         operations.push({
           topicId: row.topicId,
           topicType: row.topicType,
@@ -354,7 +386,7 @@ export class SearchEsService {
           docType: ES_DOC_TYPE,
         })
       }
-      const bulkResp = await this.esClient.bulk({ body: operations })
+      const bulkResp = await this.esClient!.bulk({ body: operations })
       if (bulkResp?.errors) {
         throw new Error(`ES bulk index partial failure at offset ${offset}`)
       }
@@ -363,7 +395,7 @@ export class SearchEsService {
       if (batch.length < REINDEX_BATCH_SIZE) break
     }
 
-    await this.esClient.indices.refresh({ index: ES_INDEX_NAME })
+    await this.esClient!.indices.refresh({ index: ES_INDEX_NAME })
     return { indexed: total, table: ES_INDEX_NAME }
   }
 
@@ -372,7 +404,7 @@ export class SearchEsService {
     await this.ensureClientReady()
     if (!this.isEsEnabled()) return 0
     try {
-      const resp = await this.esClient.count({ index: ES_INDEX_NAME })
+      const resp = await this.esClient!.count({ index: ES_INDEX_NAME })
       return Number(resp?.body?.count ?? resp?.count ?? 0)
     } catch {
       return 0
