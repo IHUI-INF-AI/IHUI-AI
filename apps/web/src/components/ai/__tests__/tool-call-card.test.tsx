@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import React from 'react'
-// @ts-ignore - @testing-library/react no exported member screen/fireEvent
+// @ts-expect-error - @testing-library/react no exported member screen/fireEvent
 import { render, cleanup, screen, fireEvent } from '@testing-library/react'
 
 import { ToolCallCard } from '../tool-call-card'

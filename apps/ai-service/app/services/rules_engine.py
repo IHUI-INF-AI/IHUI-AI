@@ -1041,9 +1041,9 @@ class RulesEngine:
                                 severity="info",
                             )
                         except Exception:
-                            pass
+                            logger.exception("[rules_engine] rule_matched_event_failed: rule_id=%s", rule.id)
                 except Exception:
-                    pass
+                    logger.exception("[rules_engine] rules_emit_failed: message=%s", message[:100])
             return result
 
         # Scope 继承链匹配
@@ -1084,9 +1084,9 @@ class RulesEngine:
                             severity="info",
                         )
                     except Exception:
-                        pass
+                        logger.exception("[rules_engine] rule_matched_event_failed: rule_id=%s", rule.id)
             except Exception:
-                pass
+                logger.exception("[rules_engine] rules_emit_failed: message=%s", message[:100])
         return result
 
     async def _match_semantic_async(self, rule: Rule, message: str) -> bool:
@@ -1790,7 +1790,7 @@ class RulesEngine:
                 severity="info",
             )
         except Exception:
-            pass
+            logger.exception("[rules_engine] rules_auto_generated_event_failed: user_id=%s", user_id)
         return drafts
 
     async def _auto_resolve_conflicts(
@@ -1841,7 +1841,7 @@ class RulesEngine:
                                 severity="info",
                             )
                         except Exception:
-                            pass
+                            logger.exception("[rules_engine] conflict_resolved_event_failed: count=%s", len(conflicts))
                         return resolutions
         except Exception as e:
             logger.debug("[rules_engine] LLM 冲突仲裁降级: %s", e)

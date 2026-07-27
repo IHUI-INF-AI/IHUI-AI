@@ -102,7 +102,7 @@
 .ask-create-reward.active {
   border-color: var(--color-primary);
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
+  background: var(--color-border);
   font-weight: 600;
 }
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type * as Api from './api'
 
 /**
  * fetchApi 401 懒触发策略契约测试。
