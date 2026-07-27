@@ -158,9 +158,9 @@ export function ModelsPricingContent(): React.JSX.Element {
                     {items.map((p) => {
                       const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
                       const regions = [
-                        p.regionPricing?.cn != null && `CN ${p.regionPricing.cn}`,
-                        p.regionPricing?.us != null && `US ${p.regionPricing.us}`,
-                        p.regionPricing?.eu != null && `EU ${p.regionPricing.eu}`,
+                        p.regionPricing?.cn != null && `CN ${p.regionPricing.cn}`, // eslint-disable-line eqeqeq
+                        p.regionPricing?.us != null && `US ${p.regionPricing.us}`, // eslint-disable-line eqeqeq
+                        p.regionPricing?.eu != null && `EU ${p.regionPricing.eu}`, // eslint-disable-line eqeqeq
                       ]
                         .filter(Boolean)
                         .join(' / ')
