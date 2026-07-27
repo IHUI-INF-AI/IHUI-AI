@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Brain, Loader2, Trash2, AlertCircle, Save, Pencil, X } from 'lucide-react'
@@ -23,6 +23,7 @@ export default function MemoryDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const id = params?.id
+  const fid = useId()
 
   const [entry, setEntry] = useState<MemoryEntry | null>(null)
   const [loading, setLoading] = useState(true)
@@ -147,16 +148,18 @@ export default function MemoryDetailPage() {
           {editing ? (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">分类</label>
+                <label htmlFor={`${fid}-editCategory`} className="text-xs font-medium text-muted-foreground">分类</label>
                 <Input
+                  id={`${fid}-editCategory`}
                   value={editCategory}
                   onChange={(e) => setEditCategory(e.target.value)}
                   placeholder="分类名称"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">内容</label>
+                <label htmlFor={`${fid}-editText`} className="text-xs font-medium text-muted-foreground">内容</label>
                 <textarea
+                  id={`${fid}-editText`}
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
                   rows={6}
