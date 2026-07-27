@@ -12,14 +12,11 @@ import {
 } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
+import { formatAmount } from '@ihui/shared/utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-function formatAmount(n: number | undefined | null): string {
-  if (typeof n !== 'number') return '—'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 export function VipScreen() {
   const { t } = useI18n()

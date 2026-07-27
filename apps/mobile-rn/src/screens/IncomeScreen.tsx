@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
+import { formatAmount } from '@ihui/shared/utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -34,12 +35,6 @@ interface CommissionData {
   commission_list: CommissionItem[]
 }
 
-function formatAmount(v: string | number | undefined | null): string {
-  if (v === null || v === undefined || v === '') return '0.00'
-  const n = Number(v)
-  if (!Number.isFinite(n)) return '0.00'
-  return n.toFixed(2)
-}
 
 const MOCK_FALLBACK: CommissionData = {
   total_earnings: '0',
@@ -110,9 +105,9 @@ export function IncomeScreen() {
   }
 
   const stats = [
-    { label: '今日收益', value: formatAmount(data.today_commission), tone: 'primary' as const },
-    { label: '累计收益', value: formatAmount(data.total_earnings), tone: 'primary' as const },
-    { label: '可提现', value: formatAmount(data.balance), tone: 'accent' as const },
+    { label: '今日收益', value: formatAmount(data.today_commission, '0.00'), tone: 'primary' as const },
+    { label: '累计收益', value: formatAmount(data.total_earnings, '0.00'), tone: 'primary' as const },
+    { label: '可提现', value: formatAmount(data.balance, '0.00'), tone: 'accent' as const },
   ]
 
   return (
@@ -157,7 +152,7 @@ export function IncomeScreen() {
               </Text>
             </View>
             <Text style={s.cardTime}>{item.time}</Text>
-            <Text style={s.cardAmount}>+¥ {formatAmount(item.amount)}</Text>
+            <Text style={s.cardAmount}>+¥ {formatAmount(item.amount, '0.00')}</Text>
           </View>
         )}
       />
