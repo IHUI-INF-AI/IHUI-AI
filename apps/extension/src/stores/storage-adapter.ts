@@ -32,11 +32,14 @@
  * ```
  */
 
+import { createChromePlatform } from '@ihui/browser-platform'
 import {
   createAsyncTransport,
   createMemoryTransport,
   type PersistTransport,
 } from '@ihui/shared/stores'
+
+const platform = createChromePlatform()
 
 /**
  * 检测 chrome.storage.local 是否可用
@@ -89,19 +92,18 @@ export function createChromeStorageTransport(): PersistTransport {
 
   return createAsyncTransport({
     getItem: async (key) => {
-      const result = await chrome.storage.local.get(key)
-      const value = result?.[key]
-      // chrome.storage 接受任意 JSON-serializable 值,但本 transport 契约是 string|null
-      // 非 string 值(数字/布尔/对象)统一转为 null,避免 zustand persist 解析异常
+      const value = await platform.storage.localGet<string>(key)
+      // platform.storage.localGet 内部用 as T 强转,运行时可能返回非 string
+      // 本 transport 契约是 string|null,非 string 值统一转为 null,避免 zustand persist 解析异常
       if (value === undefined || value === null) return null
       if (typeof value === 'string') return value
       return null
     },
     setItem: async (key, value) => {
-      await chrome.storage.local.set({ [key]: value })
+      await platform.storage.localSet(key, value)
     },
     removeItem: async (key) => {
-      await chrome.storage.local.remove(key)
+      await platform.storage.localRemove(key)
     },
   })
 }
