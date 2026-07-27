@@ -116,12 +116,21 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
   ): Promise<void> {
     reply.hijack()
     const raw = reply.raw
-    raw.writeHead(200, {
+    // 2026-07-27 修复跨域 SSE:reply.hijack() 绕过 @fastify/cors 插件,
+    // 实际 POST 响应头缺少 Access-Control-Allow-Origin,浏览器跨域 fetch 阻止响应(Failed to fetch)。
+    // 手动回显 Origin + Allow-Credentials(preflight OPTIONS 已由 cors 插件处理,origin 已校验)。
+    const origin = request.headers.origin as string | undefined
+    const sseHeaders: Record<string, string> = {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
-    })
+    }
+    if (origin) {
+      sseHeaders['Access-Control-Allow-Origin'] = origin
+      sseHeaders['Access-Control-Allow-Credentials'] = 'true'
+    }
+    raw.writeHead(200, sseHeaders)
 
     // 首事件:修复通知 / 压缩通知 / resumed 通知等
     // 若该流绑定到某个 agent(opts.agentId),在 chunk 顶层注入 agentId,

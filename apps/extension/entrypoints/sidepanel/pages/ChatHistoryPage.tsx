@@ -69,10 +69,6 @@ export default function ChatHistoryPage() {
     }
   }
 
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/chat/${encodeURIComponent(id)}` })
-  }
-
   if (loading) {
     return (
       <div className="text-center text-muted-foreground py-8 px-4 text-sm">
@@ -112,7 +108,7 @@ export default function ChatHistoryPage() {
           <Card
             key={c.id}
             className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => openInWeb(c.id)}
+            onClick={() => openItemInWeb(`/chat/${encodeURIComponent(c.id)}`)}
           >
             <CardContent className="p-3">
               <div className="flex items-start justify-between gap-2">

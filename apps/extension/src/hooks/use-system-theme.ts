@@ -17,6 +17,9 @@
  *   useSystemTheme()  // 仅调用一次,无返回值
  */
 import { useEffect } from 'react'
+import { createChromePlatform, type StorageChange } from '@ihui/browser-platform'
+
+const platform = createChromePlatform()
 
 const STORAGE_KEY = 'ihui.theme.preference' // 'system' | 'light' | 'dark'
 
