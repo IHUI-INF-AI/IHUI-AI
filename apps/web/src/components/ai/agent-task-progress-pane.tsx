@@ -62,7 +62,7 @@ function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
     >
       <Icon
         className={cn(
-          'mt-0.5 h-3 w-3 shrink-0',
+          'mt-0.5 h-3 w-3 shrink-0 transition-colors duration-300',
           PLAN_CLS[step.status],
           step.status === 'in_progress' && 'animate-spin',
         )}
@@ -211,6 +211,29 @@ export function AgentTaskProgressPane() {
         />
         <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
         <span className="shrink-0 text-xs font-medium">任务计划</span>
+        {/* v9: SVG 圆环进度(有 planSteps 时显示) */}
+        {planSteps.length > 0 && (
+          <svg
+            className="h-4 w-4 shrink-0 -rotate-90"
+            viewBox="0 0 16 16"
+            data-testid="progress-ring"
+            aria-label={`${Math.round(progressPct)}% 已完成`}
+          >
+            <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted" />
+            <circle
+              cx="8"
+              cy="8"
+              r="6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              className="text-emerald-500 transition-all duration-300"
+              strokeDasharray={2 * Math.PI * 6}
+              strokeDashoffset={2 * Math.PI * 6 * (1 - progressPct / 100)}
+            />
+          </svg>
+        )}
         {/* SSE 重连指示 */}
         {progress.overview.reconnectAttempt > 0 && (
           <span
@@ -275,11 +298,18 @@ export function AgentTaskProgressPane() {
           </div>
         )}
 
-        {/* 有 threadId 但无 planSteps */}
+        {/* v9: 有 threadId 但无 planSteps — 骨架屏加载效果 */}
         {threadId && planSteps.length === 0 && (
-          <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
-            <span className="text-[11px] text-muted-foreground/60">等待 agent 规划任务...</span>
+          <div className="space-y-1 px-2 py-2" data-testid="plan-skeleton">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div className="h-3 w-3 shrink-0 animate-pulse rounded-sm bg-muted/60" />
+                <div
+                  className="h-2.5 animate-pulse rounded-sm bg-muted/40"
+                  style={{ width: `${60 + i * 10}%` }}
+                />
+              </div>
+            ))}
           </div>
         )}
 
@@ -289,27 +319,15 @@ export function AgentTaskProgressPane() {
             {planSteps.map((step, idx) => (
               <PlanStepItem key={step.id} step={step} index={idx} />
             ))}
-            {/* 进度条 + 统计 */}
-            <div className="mx-2 mt-1.5">
-              {/* 细线进度条 */}
-              <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              {/* 统计文字 */}
-              <div className="mt-0.5 flex items-center justify-between text-[10px] text-muted-foreground/60">
-                <span>
-                  {completedCount}/{planSteps.length} 已完成
+            {/* v9: 统计文字(线性进度条已移除,改用 header 中的 SVG 圆环) */}
+            <div className="mx-2 mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/60">
+              <span>{completedCount}/{planSteps.length} 已完成</span>
+              {isStreaming && (
+                <span className="flex items-center gap-0.5 text-primary">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                  执行中
                 </span>
-                {isStreaming && (
-                  <span className="flex items-center gap-0.5 text-primary">
-                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                    执行中
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </>
         )}
