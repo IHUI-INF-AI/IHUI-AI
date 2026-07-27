@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -126,7 +126,7 @@ export default function ResourceEditPage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    onSuccess: (d: any) => {
+    onSuccess: (d) => {
       setFileUrl(d.url)
       setFileName(file?.name ?? '')
     },
@@ -164,7 +164,9 @@ export default function ResourceEditPage() {
         {t('backToList')}
       </Link>
 
-      <h1 className="text-2xl font-bold tracking-tight">{id ? t('editTitle') : t('createTitle')}</h1>
+      <h1 className="text-2xl font-bold tracking-tight">
+        {id ? t('editTitle') : t('createTitle')}
+      </h1>
 
       <ResourceForm
         title={title}

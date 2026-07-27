@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -17,13 +17,14 @@ import {
 import { cn } from '@/lib/utils'
 import { api, STATUS_BADGE, textareaClass } from './helpers'
 
-const TICKET_STATUS_KEYS: Record<'pending' | 'open' | 'resolved' | 'closed' | 'rejected', string> = {
-  pending: 'status.pending',
-  open: 'status.open',
-  resolved: 'status.resolved',
-  closed: 'status.closed',
-  rejected: 'status.rejected',
-}
+const TICKET_STATUS_KEYS: Record<'pending' | 'open' | 'resolved' | 'closed' | 'rejected', string> =
+  {
+    pending: 'status.pending',
+    open: 'status.open',
+    resolved: 'status.resolved',
+    closed: 'status.closed',
+    rejected: 'status.rejected',
+  }
 
 const TICKET_PRIORITY_KEYS: Record<'low' | 'medium' | 'high' | 'urgent', string> = {
   low: 'priority.low',
@@ -107,7 +108,10 @@ export function TicketDetailDialog({
             >
               {t(TICKET_STATUS_KEYS[ticket.status]!)}
             </span>
-            <span className="ml-2">{t('priorityPrefix')}{t(TICKET_PRIORITY_KEYS[ticket.priority]!)}</span>
+            <span className="ml-2">
+              {t('priorityPrefix')}
+              {t(TICKET_PRIORITY_KEYS[ticket.priority]!)}
+            </span>
           </DialogDescription>
         </DialogHeader>
 
@@ -119,7 +123,9 @@ export function TicketDetailDialog({
           )}
 
           <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
-            <div className="mb-1 text-xs font-medium text-muted-foreground">{t('descriptionLabel')}</div>
+            <div className="mb-1 text-xs font-medium text-muted-foreground">
+              {t('descriptionLabel')}
+            </div>
             <p className="whitespace-pre-wrap">{ticket.description}</p>
           </div>
 
@@ -129,7 +135,7 @@ export function TicketDetailDialog({
               <p className="text-sm text-muted-foreground">{t('noComments')}</p>
             ) : (
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
-                {comments.map((c: any) => (
+                {comments.map((c) => (
                   <div
                     key={c.id}
                     className={cn(
@@ -138,7 +144,9 @@ export function TicketDetailDialog({
                     )}
                   >
                     <div className="mb-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-medium">{c.isAdmin ? t('adminRole') : t('userRole')}</span>
+                      <span className="font-medium">
+                        {c.isAdmin ? t('adminRole') : t('userRole')}
+                      </span>
                       <span>{formatDate(c.createdAt)}</span>
                     </div>
                     <p className="whitespace-pre-wrap">{c.content}</p>
