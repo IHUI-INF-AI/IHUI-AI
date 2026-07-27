@@ -77,7 +77,8 @@ def _try_float(s: Any) -> float | None:
     try:
         cleaned = str(s).replace("%", "").replace("分", "").strip()
         return float(cleaned)
-    except Exception:
+    except Exception as e:
+        logger.warning("opencompass_scrape._try_float 数值转换失败: %s", e, exc_info=True)
         return None
 
 
@@ -222,8 +223,8 @@ def _scrape_opencompass_sync(timeout_ms: int = 30000) -> dict[str, Any]:
                         # OpenCompass 格式:2026/3/5
                         from datetime import datetime
                         published_at = datetime.strptime(date_str, "%Y/%m/%d").isoformat()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("opencompass_scrape._scrape 日期解析失败(date_str=%s): %s", date_str, e, exc_info=True)
 
             entries.append({
                 "leaderboard": "opencompass",

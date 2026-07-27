@@ -84,7 +84,7 @@ class TaskScheduler:
         if redis_url:
             try:
                 self._redis = aioredis.from_url(redis_url, decode_responses=True)
-                await cast(Awaitable[bool], self._redis.ping())
+                await self._redis.ping()
                 logger.info("[scheduler_service] Redis connected")
             except Exception as e:
                 logger.warning("[scheduler_service] Redis 不可用,降级内存: %s", e)
@@ -115,8 +115,8 @@ class TaskScheduler:
         if self._redis is not None:
             try:
                 await self._redis.aclose()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("scheduler_service.close redis aclose 失败: %s", e, exc_info=True)
         self._redis = None
         self._scheduler = None
         self._started = False
@@ -188,8 +188,8 @@ class TaskScheduler:
         if self._scheduler is not None:
             try:
                 self._scheduler.remove_job(task_id)
-            except Exception:
-                pass  # job 可能不存在或已执行完
+            except Exception as e:
+                logger.debug("scheduler_service.remove_task 移除 job 失败(task_id=%s,可能不存在): %s", task_id, e, exc_info=True)
         if self._redis is not None:
             await self._redis.delete(_REDIS_KEY_PREFIX + task_id)
             await self._redis.delete(_REDIS_LOG_PREFIX + task_id)
@@ -269,8 +269,8 @@ class TaskScheduler:
         if self._scheduler is not None:
             try:
                 self._scheduler.remove_job(task_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("scheduler_service.update_task 移除旧 job 失败(task_id=%s): %s", task_id, e, exc_info=True)
             current["next_run_at"] = ""
             if new_enabled:
                 try:
@@ -353,7 +353,13 @@ class TaskScheduler:
     async def _persist_task(self, task: dict[str, Any]) -> None:
         if self._redis is not None:
             key = _REDIS_KEY_PREFIX + task["task_id"]
-            mapping = {
+            # 显式标注为 redis-py stubs 期望的 field 类型 union,避免 dict[str, Any]
+            # 与 Mapping[bytes | bytearray | memoryview[int] | str | int | float, ...]
+            # 之间的 invariance 不兼容。
+            mapping: dict[
+                bytes | bytearray | memoryview[int] | str | int | float,
+                bytes | bytearray | memoryview[int] | str | int | float,
+            ] = {
                 "task_id": task["task_id"],
                 "trigger_type": task["trigger_type"],
                 "trigger_config": json.dumps(task["trigger_config"], ensure_ascii=False),
@@ -363,7 +369,7 @@ class TaskScheduler:
                 "created_at": task.get("created_at", ""),
                 "next_run_at": task.get("next_run_at", ""),
             }
-            await cast(Awaitable[int], self._redis.hset(key, mapping=mapping))
+            await self._redis.hset(key, mapping=mapping)
             await self._redis.expire(key, _REDIS_TTL_SECONDS)
         else:
             self._memory_fallback[task["task_id"]] = task
@@ -385,7 +391,7 @@ class TaskScheduler:
         entry = {"at": _now_iso(), "error": message}
         if self._redis is not None:
             key = _REDIS_LOG_PREFIX + task_id
-            await cast(Awaitable[int], self._redis.lpush(key, json.dumps(entry, ensure_ascii=False)))
+            await self._redis.lpush(key, json.dumps(entry, ensure_ascii=False))
             await cast(Awaitable[str], self._redis.ltrim(key, 0, _LOG_KEEP - 1))
             await self._redis.expire(key, _REDIS_TTL_SECONDS)
         else:

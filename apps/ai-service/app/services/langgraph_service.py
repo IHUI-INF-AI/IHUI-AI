@@ -167,8 +167,8 @@ class LangGraphService:
             self._available = True
         except ImportError:
             self._available = False
-        except Exception:
-            # 图构建失败也降级
+        except Exception as e:
+            logger.warning("langgraph_service._init_graph 图构建失败降级: %s", e, exc_info=True)
             self._available = False
 
     @property
@@ -235,6 +235,7 @@ class LangGraphService:
                 "trace": trace,
             }
         except Exception as e:
+            logger.warning("langgraph_service._plan_node 计划生成失败: %s", e, exc_info=True)
             end = time.monotonic()
             trace.append(_trace_entry(
                 "plan", start, end, status="error", error=str(e),
@@ -580,6 +581,7 @@ class LangGraphService:
         except asyncio.CancelledError:
             raise
         except Exception as e:
+            logger.warning("langgraph_service._run_with_graph 图执行失败: %s", e, exc_info=True)
             return {
                 "status": "failed",
                 "goal": goal,

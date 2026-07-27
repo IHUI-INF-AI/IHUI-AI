@@ -52,7 +52,8 @@ class WeiboAdapter(BasePlatformAdapter):
 
         try:
             data = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("weibo.verify_credentials JSON 解析失败: %s", e, exc_info=True)
             return False, f"invalid json: {resp.text[:200]}"
 
         uid = data.get("uid")
@@ -70,8 +71,8 @@ class WeiboAdapter(BasePlatformAdapter):
                 udata = u_resp.json()
                 name = udata.get("screen_name") or udata.get("name") or "?"
                 return True, f"connected as {name} (uid={uid})"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("weibo.verify_credentials 拉取用户信息失败: %s", e, exc_info=True)
         return True, f"connected (uid={uid})"
 
     async def publish(
@@ -187,7 +188,8 @@ class WeiboAdapter(BasePlatformAdapter):
 
         try:
             rdata = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("weibo.publish 响应 JSON 解析失败,降级空 dict: %s", e, exc_info=True)
             rdata = {}
 
         if "error" in rdata or "error_code" in rdata:
