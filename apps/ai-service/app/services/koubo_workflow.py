@@ -101,6 +101,7 @@ async def _run_koubo_script(script_name: str, args: list[str], timeout_sec: int 
             stderr_b.decode("utf-8", "ignore"),
         )
     except Exception as e:
+        logger.warning("koubo_workflow._run_koubo_script 脚本执行失败: %s", e, exc_info=True)
         return 1, "", f"{type(e).__name__}: {e}"
 
 
@@ -192,6 +193,7 @@ class KouboWorkflowService:
                 max_tokens=2500,
             )
         except Exception as e:
+            logger.warning("koubo_workflow._hot_scan_node LLM 调用失败: %s", e, exc_info=True)
             return {**state, "error": f"hot_scan LLM 异常: {e}", "status": "error",
                     "trace": trace + [_trace("hot_scan", t0, time.monotonic(), "error", error=str(e))]}
         if result.get("error"):
@@ -201,6 +203,7 @@ class KouboWorkflowService:
         try:
             hot_topics = self._parse_json_array(result["content"])
         except Exception as e:
+            logger.warning("koubo_workflow._hot_scan_node JSON 解析失败: %s", e, exc_info=True)
             return {**state, "error": f"hot_scan JSON 解析失败: {e}", "status": "error",
                     "trace": trace + [_trace("hot_scan", t0, time.monotonic(), "error", error=str(e))]}
         return {**state, "hot_topics": hot_topics,
@@ -221,7 +224,8 @@ class KouboWorkflowService:
                 return sum(s.values())
             try:
                 return int(s)
-            except Exception:
+            except Exception as e:
+                logger.warning("koubo_workflow.score 五维评分转换失败: %s", e, exc_info=True)
                 return 0
         selected = sorted(hot, key=score, reverse=True)[:8]
         if len(selected) < 8:
@@ -256,6 +260,7 @@ class KouboWorkflowService:
                     max_tokens=800,
                 )
             except Exception as e:
+                logger.warning("koubo_workflow._write_articles_node LLM 写作失败: %s", e, exc_info=True)
                 return {**state, "error": f"第 {i+1} 篇 LLM 异常: {e}", "status": "error",
                         "trace": trace + [_trace("write_articles", t0, time.monotonic(), "error", error=str(e), article=i+1)]}
             if result.get("error"):
