@@ -164,8 +164,8 @@ export function AgentTaskProgressPane() {
     <div
       ref={paneRef}
       className={cn(
-        // 位置:trigger 容器右下方(对应"右上角"语义,带 4px 间距)
-        'absolute top-full right-0 z-50 mt-1',
+        // 位置:消息区右上角(固定,带 8px 间距,不随滚动移动)
+        'absolute right-2 top-2 z-50',
         // 尺寸:紧凑 popover
         'w-[280px]',
         // 外观:圆角边框阴影,popover 风格
