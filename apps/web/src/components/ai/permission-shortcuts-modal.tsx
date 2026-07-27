@@ -82,7 +82,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
  * 对话模式切换分组(2026-07-28 立,补全 ChatMode 4态三通道可发现性)。
  *
  * 与 SHORTCUT_GROUPS 分离的设计考量:
- * - SHORTCUT_GROUPS 走 next-intl t() 渲染,本组中文硬编码,i18n key 由后续 PR 注入
+ * - 两组均走 next-intl t() 渲染(chat.permission 命名空间),本组用独立 rows 模型便于挂载 Ctrl+1-4 图标
  * - 视觉风格(分组标题/行/kbd)与现有分组完全一致,无新增组件抽象
  *
  * 三通道可发现性:
@@ -93,18 +93,18 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
 interface ModeSwitchRow {
   /** 按键标签(如 "Ctrl+1" / "/build /plan /review /spec") */
   key: string
-  /** 动作描述(中文硬编码,待 i18n) */
-  desc: string
+  /** 动作描述 i18n key(chat.permission 命名空间) */
+  descKey: string
   /** 可选图标 */
   icon?: React.ComponentType<{ className?: string }>
 }
 
 const MODE_SWITCH_ROWS: ModeSwitchRow[] = [
-  { key: 'Ctrl+1', desc: '切换到构建模式(正常执行,全工具开放)', icon: Hammer },
-  { key: 'Ctrl+2', desc: '切换到计划模式(只读分析,deny write 工具)', icon: BookOpen },
-  { key: 'Ctrl+3', desc: '切换到审查模式(只读审查 + 强化审查 prompt)', icon: Search },
-  { key: 'Ctrl+4', desc: '切换到规格模式(从代码反向生成 spec 文档)', icon: FileText },
-  { key: '/build /plan /review /spec', desc: '斜杠命令切换(也可用 Ctrl+1-4)', icon: SquareSlash },
+  { key: 'Ctrl+1', descKey: 'shortcutsItemModeBuildKbd', icon: Hammer },
+  { key: 'Ctrl+2', descKey: 'shortcutsItemModePlanKbd', icon: BookOpen },
+  { key: 'Ctrl+3', descKey: 'shortcutsItemModeReviewKbd', icon: Search },
+  { key: 'Ctrl+4', descKey: 'shortcutsItemModeSpecKbd', icon: FileText },
+  { key: '/build /plan /review /spec', descKey: 'shortcutsItemModeCmdHint', icon: SquareSlash },
 ]
 
 export interface PermissionShortcutsModalProps {
@@ -135,7 +135,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
           <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Layers className="h-3 w-3" aria-hidden="true" />
-              <span>对话模式切换</span>
+              <span>{t('shortcutsSectionChatMode')}</span>
             </div>
             <ul className="space-y-1.5">
               {MODE_SWITCH_ROWS.map((row) => {
@@ -154,7 +154,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
                       {Icon ? <Icon className="h-3 w-3" aria-hidden="true" /> : null}
                       {row.key}
                     </kbd>
-                    <span className="text-xs text-muted-foreground">{row.desc}</span>
+                    <span className="text-xs text-muted-foreground">{t(row.descKey)}</span>
                   </li>
                 )
               })}

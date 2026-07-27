@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Hammer, BookOpen, Search, FileText, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import type { ChatMode } from '@ihui/types'
 import { useModeStore } from '@/stores/mode'
 import { Tooltip } from '@/components/feedback'
@@ -37,12 +38,13 @@ interface ModeOption {
   tooltipText: string
 }
 
-const MODE_OPTIONS: readonly ModeOption[] = [
-  { mode: 'build', label: '构建', icon: Hammer, toastText: '已切换到构建模式', tooltipText: '构建模式 · Ctrl+1 或 /build' },
-  { mode: 'plan', label: '计划', icon: BookOpen, toastText: '已切换到计划模式(只读分析)', tooltipText: '计划模式(只读分析) · Ctrl+2 或 /plan' },
-  { mode: 'review', label: '审查', icon: Search, toastText: '已切换到审查模式(只读审查)', tooltipText: '审查模式(只读审查) · Ctrl+3 或 /review' },
-  { mode: 'spec', label: '规格', icon: FileText, toastText: '已切换到规格模式(生成 spec 文档)', tooltipText: '规格模式(生成 spec 文档) · Ctrl+4 或 /spec' },
-]
+/** suggestMode 用的硬编码中文标签(reason 文案保持硬编码中文,不在 i18n 范围) */
+const MODE_LABEL_FALLBACK: Record<ChatMode, string> = {
+  build: '构建',
+  plan: '计划',
+  review: '审查',
+  spec: '规格',
+}
 
 /** 关键词 → 模式映射(对齐 CLI SUGGEST_KEYWORDS,扩展 spec) */
 const SUGGEST_KEYWORDS: { mode: ChatMode; keywords: string[] }[] = [
@@ -64,24 +66,72 @@ function suggestMode(userInput: string): ModeSuggestion | null {
   for (const { mode, keywords } of SUGGEST_KEYWORDS) {
     const hit = keywords.find((kw) => text.includes(kw.toLowerCase()))
     if (hit) {
-      const label = MODE_OPTIONS.find((o) => o.mode === mode)?.label ?? mode
+      const label = MODE_LABEL_FALLBACK[mode] ?? mode
       return { mode, reason: `命中关键词"${hit}",建议切换到${label}模式` }
     }
   }
   return null
 }
 
-const MODE_LABEL: Record<ChatMode, string> = {
-  build: '构建',
-  plan: '计划',
-  review: '审查',
-  spec: '规格',
+/** safeT:i18n key 不存在或未解析时回退到 fallback(对齐 plan-act-toggle.tsx 模式) */
+function safeT(t: (key: string) => string, key: string, fallback: string): string {
+  try {
+    const v = t(key)
+    return v === key || v.endsWith(`.${key}`) ? fallback : v
+  } catch {
+    return fallback
+  }
 }
 
 export function ModeSwitcher({ className }: { className?: string }) {
   const currentMode = useModeStore((s) => s.currentMode)
   const setMode = useModeStore((s) => s.setMode)
   const [suggestion, setSuggestion] = React.useState<ModeSuggestion | null>(null)
+  const t = useTranslations('chat')
+
+  const MODE_OPTIONS: readonly ModeOption[] = React.useMemo(
+    () => [
+      {
+        mode: 'build',
+        label: safeT(t, 'modeBuild', '构建'),
+        icon: Hammer,
+        toastText: safeT(t, 'modeBuildToast', '已切换到构建模式'),
+        tooltipText: safeT(t, 'modeBuildTooltip', '构建模式 · Ctrl+1 或 /build'),
+      },
+      {
+        mode: 'plan',
+        label: safeT(t, 'modePlan', '计划'),
+        icon: BookOpen,
+        toastText: safeT(t, 'modePlanToast', '已切换到计划模式(只读分析)'),
+        tooltipText: safeT(t, 'modePlanTooltip', '计划模式(只读分析) · Ctrl+2 或 /plan'),
+      },
+      {
+        mode: 'review',
+        label: safeT(t, 'modeReview', '审查'),
+        icon: Search,
+        toastText: safeT(t, 'modeReviewToast', '已切换到审查模式(只读审查)'),
+        tooltipText: safeT(t, 'modeReviewTooltip', '审查模式(只读审查) · Ctrl+3 或 /review'),
+      },
+      {
+        mode: 'spec',
+        label: safeT(t, 'modeSpec', '规格'),
+        icon: FileText,
+        toastText: safeT(t, 'modeSpecToast', '已切换到规格模式(生成 spec 文档)'),
+        tooltipText: safeT(t, 'modeSpecTooltip', '规格模式(生成 spec 文档) · Ctrl+4 或 /spec'),
+      },
+    ],
+    [t],
+  )
+
+  const MODE_LABEL: Record<ChatMode, string> = React.useMemo(
+    () => ({
+      build: safeT(t, 'modeBuild', '构建'),
+      plan: safeT(t, 'modePlan', '计划'),
+      review: safeT(t, 'modeReview', '审查'),
+      spec: safeT(t, 'modeSpec', '规格'),
+    }),
+    [t],
+  )
 
   const handleSelect = React.useCallback(
     (option: ModeOption) => {
@@ -111,7 +161,7 @@ export function ModeSwitcher({ className }: { className?: string }) {
     setMode(option.mode)
     toast.success(option.toastText)
     setSuggestion(null)
-  }, [suggestion, currentMode, setMode])
+  }, [suggestion, currentMode, setMode, MODE_OPTIONS])
 
   const showSuggestion = suggestion !== null && suggestion.mode !== currentMode
 

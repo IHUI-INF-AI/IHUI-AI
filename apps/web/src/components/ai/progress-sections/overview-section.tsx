@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Activity, Loader2, CheckCircle2, XCircle, AlertCircle, Circle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration } from './foldable-section'
 import type { AgentOverview } from '@/hooks/use-agent-progress'
@@ -25,12 +26,12 @@ const STATUS_ICON: Record<AgentOverview['status'], React.ComponentType<{ classNa
   failed: XCircle,
   interrupted: AlertCircle,
 }
-const STATUS_LABEL: Record<AgentOverview['status'], string> = {
-  idle: '空闲',
-  running: '运行中',
-  completed: '已完成',
-  failed: '失败',
-  interrupted: '已中断',
+const STATUS_TKEY: Record<AgentOverview['status'], string> = {
+  idle: 'overview.statusIdle',
+  running: 'overview.statusRunning',
+  completed: 'overview.statusCompleted',
+  failed: 'overview.statusFailed',
+  interrupted: 'overview.statusInterrupted',
 }
 const STATUS_CLS: Record<AgentOverview['status'], string> = {
   idle: 'text-muted-foreground/60',
@@ -57,6 +58,7 @@ export const OverviewSection = React.memo(function OverviewSection({
   etaMs,
   contextUsage,
 }: OverviewSectionProps) {
+  const t = useTranslations('ai.progressPane')
   const hasData =
     overview.sessionStart !== null ||
     overview.totalSteps > 0 ||
@@ -78,43 +80,43 @@ export const OverviewSection = React.memo(function OverviewSection({
   const stats: Array<{ label: string; value: string; cls?: string }> = []
   if (overview.totalSteps > 0) {
     stats.push({
-      label: '步骤',
+      label: t('overview.steps'),
       value: `${overview.completedSteps}/${overview.totalSteps}`,
     })
   }
   if (overview.totalSubagents > 0) {
-    const parts = [`${overview.activeSubagents}活跃`, `${overview.totalSubagents}总`]
-    if (overview.deadSubagents > 0) parts.push(`${overview.deadSubagents}死亡`)
-    stats.push({ label: '子代理', value: parts.join(' · ') })
+    const parts = [`${overview.activeSubagents}${t('overview.active')}`, `${overview.totalSubagents}${t('overview.total')}`]
+    if (overview.deadSubagents > 0) parts.push(`${overview.deadSubagents}${t('overview.dead')}`)
+    stats.push({ label: t('overview.subagents'), value: parts.join(' · ') })
   }
   if (overview.totalTerminals > 0) {
     stats.push({
-      label: '终端',
-      value: `${overview.runningTerminals}运行 · ${overview.totalTerminals}总`,
+      label: t('overview.terminals'),
+      value: `${overview.runningTerminals}${t('overview.running')} · ${overview.totalTerminals}${t('overview.total')}`,
     })
   }
   if (overview.totalChanges > 0) {
-    stats.push({ label: '变更', value: `${overview.totalChanges}文件` })
+    stats.push({ label: t('overview.changes'), value: `${overview.totalChanges}${t('overview.files')}` })
   }
   if (sessionDuration) {
-    stats.push({ label: '耗时', value: sessionDuration })
+    stats.push({ label: t('overview.duration'), value: sessionDuration })
   }
   // v9: token 统计
   if (totalTokens !== undefined && totalTokens > 0) {
     stats.push({
-      label: 'Token',
+      label: t('overview.token'),
       value: totalTokens >= 1000 ? `${Math.round(totalTokens / 1000)}k` : `${totalTokens}`,
     })
   }
   if (tokenRate !== undefined && tokenRate > 0) {
-    stats.push({ label: '速率', value: `${tokenRate}/s` })
+    stats.push({ label: t('overview.rate'), value: `${tokenRate}/s` })
   }
   if (etaMs !== undefined && etaMs !== null && etaMs > 0) {
-    stats.push({ label: '预计', value: formatDuration(etaMs) })
+    stats.push({ label: t('overview.eta'), value: formatDuration(etaMs) })
   }
   if (contextUsage !== undefined && contextUsage > 0) {
     stats.push({
-      label: '上下文',
+      label: t('overview.context'),
       value: `${Math.round(contextUsage)}%`,
       cls: contextUsage > 80 ? 'text-amber-500' : undefined,
     })
@@ -123,7 +125,7 @@ export const OverviewSection = React.memo(function OverviewSection({
   const Icon = STATUS_ICON[overview.status]
 
   return (
-    <FoldableSection title="任务总览" icon={Activity} data-testid="overview-section">
+    <FoldableSection title={t('overview.title')} icon={Activity} data-testid="overview-section">
       <div className="space-y-0.5 text-[11px] leading-relaxed">
         {/* 会话状态 */}
         <div className="flex items-center gap-1.5">
@@ -135,7 +137,7 @@ export const OverviewSection = React.memo(function OverviewSection({
             )}
           />
           <span className={cn('font-medium', STATUS_CLS[overview.status])}>
-            {STATUS_LABEL[overview.status]}
+            {t(STATUS_TKEY[overview.status])}
           </span>
           {overview.error && (
             <span className="flex-1 break-all text-[10px] text-red-500/80" title={overview.error}>
