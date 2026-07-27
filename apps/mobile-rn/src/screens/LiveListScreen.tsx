@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateTime } from '../utils/date-utils'
 
 import { Card, Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -34,20 +35,6 @@ const LIVE_TAB_KEYS: Record<(typeof STATUS_TABS)[number], string> = {
   upcoming: 'liveList.tab_upcoming',
   ongoing: 'liveList.tab_ongoing',
   ended: 'liveList.tab_ended',
-}
-
-function formatDateTime(iso: string): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
 }
 
 function statusColor(status: LiveItem['status']): string {
@@ -153,7 +140,7 @@ export function LiveListScreen() {
               </Text>
               <View style={styles.cardMetaRow}>
                 <Text style={styles.cardMetaText}>
-                  {t('liveList.startAt')}: {formatDateTime(item.startAt)}
+                  {t('liveList.startAt')}: {formatShortDateTime(item.startAt) || '—'}
                 </Text>
                 <Text style={styles.cardMetaText}>
                   {t('liveList.viewerCount', { count: item.viewerCount })}

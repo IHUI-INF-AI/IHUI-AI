@@ -17,21 +17,8 @@ import {
 } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-
-const WEB_BASE = 'https://ihui.ai'
-
-function fmtTime(s: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(s))
-  } catch {
-    return ''
-  }
-}
+import { fmtDate } from '../../../lib/date-utils'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 function initials(name: string): string {
   return name?.trim().charAt(0).toUpperCase() || '?'
@@ -71,10 +58,6 @@ export default function MessagesPage() {
     if (res.success) {
       setItems((prev) => prev.map((m) => ({ ...m, isRead: true })))
     }
-  }
-
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/messages/${encodeURIComponent(id)}` })
   }
 
   if (loading) {
@@ -124,7 +107,7 @@ export default function MessagesPage() {
           <Card
             key={m.id}
             className={`rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors ${m.isRead ? '' : 'border-primary/40'}`}
-            onClick={() => openInWeb(m.id)}
+            onClick={() => openItemInWeb(`/messages/${encodeURIComponent(m.id)}`)}
           >
             <CardContent className="p-3 flex items-start gap-2.5">
               <div className="w-9 h-9 rounded-md bg-muted shrink-0 flex items-center justify-center text-sm font-medium text-muted-foreground">
@@ -134,7 +117,7 @@ export default function MessagesPage() {
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-sm truncate">{m.fromNickname}</span>
                   <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    {fmtTime(m.createdAt)}
+                    {fmtDate(m.createdAt)}
                   </span>
                 </div>
                 <p className="m-0 mt-0.5 text-xs text-muted-foreground line-clamp-2">{m.content}</p>
