@@ -14,6 +14,7 @@ import {
   ChevronsDownUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslations } from 'next-intl'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
@@ -59,7 +60,14 @@ const PlanStepItem = React.memo(function PlanStepItem({
   step: PlanStep
   index: number
 }) {
+  const t = useTranslations('ai.progressPane')
   const Icon = PLAN_ICON[step.status]
+  const stepLabel =
+    step.status === 'in_progress'
+      ? t('pane.stepInProgress', { n: index + 1, step: step.step })
+      : step.status === 'completed'
+        ? t('pane.stepCompleted', { n: index + 1, step: step.step })
+        : t('pane.stepPending', { n: index + 1, step: step.step })
   return (
     <div
       role="listitem"
@@ -67,7 +75,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
         'flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
         step.status === 'in_progress' && 'bg-primary/5',
       )}
-      aria-label={`步骤 ${index + 1}: ${step.step} (${step.status === 'in_progress' ? '进行中' : step.status === 'completed' ? '已完成' : '待执行'})`}
+      aria-label={stepLabel}
     >
       <Icon
         className={cn(
@@ -113,6 +121,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
 
 // ─── 主组件 ──────────────────────────────────────────────────────────
 export function AgentTaskProgressPane() {
+  const t = useTranslations('ai.progressPane')
   const open = useAgentProgressPaneStore((s) => s.open)
   const threadId = useAgentProgressPaneStore((s) => s.threadId)
   const setThreadId = useAgentProgressPaneStore((s) => s.setThreadId)
@@ -276,7 +285,7 @@ export function AgentTaskProgressPane() {
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
       )}
       role="complementary"
-      aria-label="Agent 任务进度面板"
+      aria-label={t('pane.ariaLabel')}
       data-testid="agent-progress-pane"
     >
       {/* Header:状态点 + 标题 + pin 按钮 + 关闭按钮 */}
@@ -293,7 +302,7 @@ export function AgentTaskProgressPane() {
           )}
         />
         <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-        <span className="shrink-0 text-xs font-medium">任务计划</span>
+        <span className="shrink-0 text-xs font-medium">{t('pane.title')}</span>
         {/* v9: SVG 圆环进度(有 planSteps 时显示) */}
         {planSteps.length > 0 && (
           <svg
@@ -321,7 +330,7 @@ export function AgentTaskProgressPane() {
         {progress.overview.reconnectAttempt > 0 && (
           <span
             className="shrink-0 animate-pulse text-[10px] text-amber-500"
-            title={`SSE 断连,正在重连(第 ${progress.overview.reconnectAttempt}/5 次)`}
+            title={t('pane.reconnecting', { n: progress.overview.reconnectAttempt })}
           >
             ↻{progress.overview.reconnectAttempt}/5
           </span>
@@ -331,8 +340,8 @@ export function AgentTaskProgressPane() {
         <button
           type="button"
           onClick={() => setExpandAll(expandAll === true ? false : true)}
-          aria-label={expandAll === true ? '折叠全部' : '展开全部'}
-          title={expandAll === true ? '折叠全部' : '展开全部'}
+          aria-label={expandAll === true ? t('pane.collapseAll') : t('pane.expandAll')}
+          title={expandAll === true ? t('pane.collapseAll') : t('pane.expandAll')}
           className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           data-testid="pane-expand-all"
         >
@@ -346,14 +355,14 @@ export function AgentTaskProgressPane() {
         <button
           type="button"
           onClick={togglePin}
-          aria-label={pinned ? '取消置顶' : '置顶'}
+          aria-label={pinned ? t('pane.unpin') : t('pane.pin')}
           className={cn(
             'inline-flex h-5 w-5 items-center justify-center rounded-sm transition-colors',
             pinned
               ? 'text-primary hover:bg-accent'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
           )}
-          title={pinned ? '取消置顶(点击外部可关闭)' : '置顶(钉住,点击外部不关闭)'}
+          title={pinned ? `${t('pane.unpin')}(点击外部可关闭)` : `${t('pane.pin')}(钉住,点击外部不关闭)`}
           data-testid="pane-pin"
         >
           {pinned ? <Pin className="h-3 w-3" /> : <PinOff className="h-3 w-3" />}
@@ -362,9 +371,9 @@ export function AgentTaskProgressPane() {
         <button
           type="button"
           onClick={toggle}
-          aria-label="最小化"
+          aria-label={t('pane.minimize')}
           className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          title="最小化(与触发按钮联动)"
+          title={`${t('pane.minimize')}(与触发按钮联动)`}
           data-testid="pane-minimize"
         >
           <Minimize2 className="h-3 w-3" />
