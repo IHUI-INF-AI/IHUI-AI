@@ -73,7 +73,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
       role="listitem"
       className={cn(
         'flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
-        step.status === 'in_progress' && 'bg-primary/5',
+        step.status === 'in_progress' && 'bg-primary/10',
       )}
       aria-label={stepLabel}
     >
@@ -385,7 +385,7 @@ export function AgentTaskProgressPane() {
         {/* 无 conversationId */}
         {!threadId && (
           <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
-            <MessageSquare className="h-4 w-4 text-muted-foreground/50" />
+            <MessageSquare className="h-4 w-4 text-muted-foreground/60" />
             <span className="text-[11px] text-muted-foreground/60">开始对话后显示任务计划</span>
           </div>
         )}
