@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -85,7 +85,7 @@ function BuyConfirmContent() {
         body: JSON.stringify(body),
       })
     },
-    onSuccess: (d: any) =>
+    onSuccess: (d) =>
       router.push(`/learn/payment/confirm?orderNo=${encodeURIComponent(d.orderNo)}`),
     onError: (e: Error) => setFormError(e.message),
   })
@@ -147,9 +147,7 @@ function BuyConfirmContent() {
                 <p className="line-clamp-2 text-xs text-muted-foreground">{course.description}</p>
               )}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {course.teacherName && (
-                  <span>{t('instructor', { name: course.teacherName })}</span>
-                )}
+                {course.teacherName && <span>{t('instructor', { name: course.teacherName })}</span>}
                 {typeof course.lessonCount === 'number' && (
                   <span>{t('lessonCount', { n: course.lessonCount })}</span>
                 )}

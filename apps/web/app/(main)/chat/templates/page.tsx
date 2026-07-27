@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -59,7 +59,7 @@ export default function ChatTemplatesPage() {
   const categories = data?.categories ?? []
   const allTemplates = data?.list ?? []
   const templates =
-    activeCat === 'all' ? allTemplates : allTemplates.filter((t: any) => t.categoryId === activeCat)
+    activeCat === 'all' ? allTemplates : allTemplates.filter((t) => t.categoryId === activeCat)
 
   function applyTemplate(content: string) {
     sessionStorage.setItem('chat-draft', content)
@@ -97,7 +97,7 @@ export default function ChatTemplatesPage() {
           >
             全部
           </button>
-          {categories.map((c: any) => (
+          {categories.map((c) => (
             <button
               key={c.id}
               onClick={() => setActiveCat(c.id)}
@@ -130,7 +130,7 @@ export default function ChatTemplatesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {templates.map((tpl: any) => (
+          {templates.map((tpl) => (
             <Card
               key={tpl.id}
               className="cursor-pointer transition-colors hover:bg-accent/40"

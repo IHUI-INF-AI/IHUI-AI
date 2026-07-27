@@ -101,5 +101,5 @@ export function sourceLabelKey(source: CliConfigSource): string {
     zed: 'sourceZed',
     antigravity: 'sourceAntigravity',
   }
-  return map[source] as any
+  return map[source]
 }

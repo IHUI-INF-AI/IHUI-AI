@@ -119,7 +119,7 @@ export function CategoryTable({
                     <Switch
                       checked={c.isPaid}
                       disabled={togglePaidPending}
-                      onCheckedChange={(v: any) => onTogglePaid(c, v)}
+                      onCheckedChange={(v: boolean) => onTogglePaid(c, v)}
                       aria-label={t('colPaid')}
                     />
                   </TableCell>
@@ -129,11 +129,7 @@ export function CategoryTable({
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
                       <Tooltip content={tc('edit')}>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => onEdit(c)}
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => onEdit(c)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                       </Tooltip>

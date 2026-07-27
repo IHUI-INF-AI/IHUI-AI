@@ -7041,7 +7041,9 @@
     "conversations": "リスト",
     "noMessages": "メッセージがありません",
     "noMessagesHint": "メッセージがありません。をってみましょう！",
+    "noConversations":  "会話なし",
     "selectHint": "をしてチャットを",
+    "searchPlaceholder":  "会話を検索",
     "input": {
       "placeholder": "メッセージを..."
     },

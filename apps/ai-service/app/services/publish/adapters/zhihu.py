@@ -25,7 +25,9 @@ try:
     _HAS_PLAYWRIGHT = True
 except ImportError:
     _HAS_PLAYWRIGHT = False
-    Browser = BrowserContext = Page = None
+    # playwright 未安装时 None 赋值给类型变量仅用于 is None 判定,
+    # 真正使用前会先检查 _HAS_PLAYWRIGHT 标志,运行时不会访问这些占位符。
+    Browser = BrowserContext = Page = None  # type: ignore[assignment,misc]
 
 if TYPE_CHECKING:
     from playwright._impl._api_structures import SetCookieParam
