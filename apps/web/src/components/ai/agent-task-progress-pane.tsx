@@ -440,7 +440,12 @@ export function AgentTaskProgressPane() {
         {/* 折叠子区:思考过程 / 工具调用 / Subagent 派单 / 文件变更 / 终端任务 / 任务总览(对齐 Trae Work) */}
         {threadId && (
           <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
-            <div onKeyDown={onSectionsKeyDown} data-testid="sections-container">
+            <div
+              onKeyDown={onSectionsKeyDown}
+              role="toolbar"
+              aria-label={t('pane.sectionsToolbarLabel')}
+              data-testid="sections-container"
+            >
               <ThinkingSection
                 content={overview.content}
                 currentNode={overview.currentNode}
