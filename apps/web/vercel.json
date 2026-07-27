@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @ihui/web... build",
+  "outputDirectory": "out",
+  "regions": ["hkg1", "sin1"],
+  "github": {
+    "silent": true
+  },
+  "env": {
+    "NEXT_PUBLIC_APP_NAME": "IHUI AI",
+    "NEXT_TELEMETRY_DISABLED": "1"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_APP_NAME": "IHUI AI",
+      "NEXT_TELEMETRY_DISABLED": "1"
+    }
+  }
+}
