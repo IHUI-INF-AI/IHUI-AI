@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -78,7 +78,7 @@ export default function KnowledgeRagManagePage() {
 
   const docs = data ?? []
   const allSelected = docs.length > 0 && selected.size === docs.length
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(docs.map((d: any) => d.id)))
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(docs.map((d) => d.id)))
   const toggleOne = (id: number) =>
     setSelected((prev) => {
       const next = new Set(prev)
@@ -90,7 +90,7 @@ export default function KnowledgeRagManagePage() {
   const singleDeleteMut = useMutation({
     mutationFn: (docId: number) =>
       api<{ deleted: boolean }>(`/api/knowledge/docs/${docId}`, { method: 'DELETE' }),
-    onSuccess: (_d: any, docId: any) => {
+    onSuccess: (_d, docId) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setSelected((p) => {
         const n = new Set(p)
@@ -99,7 +99,7 @@ export default function KnowledgeRagManagePage() {
       })
       setFeedback({ type: 'success', msg: t('deleteSuccess') })
     },
-    onError: (e: any) => setFeedback({ type: 'error', msg: (e as Error).message }),
+    onError: (e) => setFeedback({ type: 'error', msg: (e as Error).message }),
   })
 
   const batchDeleteMut = useMutation({
@@ -108,7 +108,7 @@ export default function KnowledgeRagManagePage() {
         method: 'POST',
         body: JSON.stringify({ docIds, ownerUuid: '' }),
       }),
-    onSuccess: (result: any) => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setSelected(new Set())
       setConfirmOpen(false)
@@ -118,7 +118,7 @@ export default function KnowledgeRagManagePage() {
         msg: failed === 0 ? t('deleteSuccess') : t('partialFailed', { failed }),
       })
     },
-    onError: (e: any) => setFeedback({ type: 'error', msg: (e as Error).message }),
+    onError: (e) => setFeedback({ type: 'error', msg: (e as Error).message }),
   })
 
   return (
@@ -191,7 +191,7 @@ export default function KnowledgeRagManagePage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {docs.map((d: any) => (
+          {docs.map((d) => (
             <ManageRow
               key={d.id}
               doc={d}

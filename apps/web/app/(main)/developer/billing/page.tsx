@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -121,7 +121,7 @@ export default function BillingPage() {
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {paymentMethods.map((p: any) => (
+              {paymentMethods.map((p) => (
                 <div
                   key={p.id}
                   className={cn(
@@ -157,7 +157,7 @@ export default function BillingPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">{t('noBills')}</p>
           ) : (
             <div className="divide-y">
-              {bills.map((b: any) => {
+              {bills.map((b) => {
                 const cls = (STATUS_CLASS as any)[b.status]
                 return (
                   <div key={b.id} className="flex items-center gap-3 px-4 py-3">

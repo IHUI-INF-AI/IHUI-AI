@@ -58,7 +58,7 @@ export default function AdminMonitorDashboardPage() {
     queryFn: () => api<PerfItem>('/api/admin/monitor/perf'),
   })
 
-  const healthyCount = services.filter((s: any) => s.status === 'healthy').length
+  const healthyCount = services.filter((s) => s.status === 'healthy').length
   const perfCards = [
     { label: 'CPU', value: perf?.cpu ?? 0, unit: '%', max: 100, cls: 'text-primary' },
     { label: '内存', value: perf?.memory ?? 0, unit: '%', max: 100, cls: 'text-primary' },
@@ -106,7 +106,7 @@ export default function AdminMonitorDashboardPage() {
               <p className="py-6 text-center text-sm text-muted-foreground">暂无服务数据</p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {services.map((s: any) => {
+                {services.map((s) => {
                   const Icon = SERVICE_ICONS[s.name] ?? Server
                   const ok = s.status === 'healthy'
                   return (

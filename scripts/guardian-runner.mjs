@@ -351,6 +351,20 @@ const checks = [
     ].join('\n'),
   },
   {
+    id: '37',
+    label: '🎨 [web] design-tokens 同步(防 globals.css 漂移)',
+    script: 'check-web-tokens-sync.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/web/app/globals.css 未 @import tokens.css 或顶层手抄 :root/.dark 变量,',
+      '     修复:确认 globals.css 含 @import ''../../../packages/design-tokens/src/styles/tokens.css'';',
+      '     删除顶层 :root/.dark 块中与 tokens.css @theme 重复的变量',
+      '',
+    ].join('\n'),
+  },
+  {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',
     script: 'scan-i18n-zh-residue.mjs',

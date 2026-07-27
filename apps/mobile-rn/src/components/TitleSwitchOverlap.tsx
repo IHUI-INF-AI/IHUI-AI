@@ -12,6 +12,7 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 
 export interface TitleSwitchItem {
   name: string
@@ -112,8 +113,8 @@ const s = StyleSheet.create({
   itemText: { color: '#000', fontSize: 14 },
   itemTextActive: { fontWeight: '700', color: '#000' },
   btns: { flexDirection: 'row', justifyContent: 'space-around', width: '60%', alignSelf: 'center', paddingVertical: 8 },
-  btn: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  btnText: { fontSize: 22, color: '#374151' },
+  btn: { width: 40, height: 40, borderRadius: 8, backgroundColor: tokens.surface.card, alignItems: 'center', justifyContent: 'center' },
+  btnText: { fontSize: 22, color: tokens.text.medium },
 })
 
 export default TitleSwitchOverlap

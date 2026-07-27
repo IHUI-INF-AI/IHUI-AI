@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -91,7 +91,7 @@ export default function HotArticlesPage() {
       ) : (
         <>
           <div className="space-y-3">
-            {items.map((item: any, idx: any) => (
+            {items.map((item, idx) => (
               <Link key={item.id} href={`/articles/${item.id}`} className="block">
                 <Card className="overflow-hidden transition-colors hover:bg-accent">
                   <CardContent className="flex items-center gap-4 p-4">

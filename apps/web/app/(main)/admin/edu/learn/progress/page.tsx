@@ -59,8 +59,8 @@ export default function EduLearnProgressPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
   const avgProgress =
-    rows.length > 0 ? Math.round(rows.reduce((a: any, r: any) => a + r.progress, 0) / rows.length) : 0
-  const completed = rows.filter((r: any) => r.progress >= 100).length
+    rows.length > 0 ? Math.round(rows.reduce((a, r) => a + r.progress, 0) / rows.length) : 0
+  const completed = rows.filter((r) => r.progress >= 100).length
   const noEndpoint = isNotFound(error)
 
   return (
@@ -140,7 +140,7 @@ export default function EduLearnProgressPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r: any) => (
+              rows.map((r) => (
                 <TableRow key={r.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">
                     {r.userName ?? r.userId.slice(0, 8)}
