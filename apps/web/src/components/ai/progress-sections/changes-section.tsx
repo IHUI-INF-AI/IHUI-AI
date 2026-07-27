@@ -41,7 +41,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
   }
 
   return (
-    <div className="rounded-sm transition-colors hover:bg-accent/20">
+    <div className="rounded-sm transition-colors hover:bg-accent/40">
       <div
         className={cn(
           'flex items-center gap-1.5 px-1 py-0.5',
@@ -62,7 +62,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
         {hasDiff && (
           <ChevronRight
             className={cn(
-              'h-2 w-2 shrink-0 text-muted-foreground/40 transition-transform duration-150',
+              'h-2 w-2 shrink-0 text-muted-foreground/60 transition-transform duration-150',
               expanded && 'rotate-90',
             )}
           />
@@ -80,7 +80,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
         >
           {basename(change.filePath)}
         </span>
-        <span className="shrink-0 text-[10px] text-muted-foreground/40">
+        <span className="shrink-0 text-[10px] text-muted-foreground/60">
           {shortDir(change.filePath)}
         </span>
       </div>
@@ -101,7 +101,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
                       data-testid={`change-copy-old-${change.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/5 p-1 font-mono text-[10px] text-red-500/70">
+                  <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/10 p-1 font-mono text-[10px] text-red-500/80">
                     {truncateForDisplay(change.diffInfo.old_content)}
                   </pre>
                 </div>
@@ -118,7 +118,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
                       data-testid={`change-copy-new-${change.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-emerald-500/5 p-1 font-mono text-[10px] text-emerald-500/70">
+                  <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-emerald-500/10 p-1 font-mono text-[10px] text-emerald-500/80">
                     {truncateForDisplay(change.diffInfo.new_content)}
                   </pre>
                 </div>
@@ -162,7 +162,7 @@ export const ChangesSection = React.memo(function ChangesSection({
           <ChangeItem key={change.id} change={change} />
         ))}
         {changes.length > 10 && (
-          <div className="text-[10px] text-muted-foreground/40">
+          <div className="text-[10px] text-muted-foreground/60">
             …还有 {changes.length - 10} 项
           </div>
         )}
