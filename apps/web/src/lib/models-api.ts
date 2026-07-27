@@ -19,6 +19,7 @@
  */
 
 import { fetchApi } from './api'
+import { logger } from './logger'
 import type { Model } from '../../app/(main)/models/types'
 
 // ============================================================================
@@ -62,7 +63,7 @@ export async function getMarketModels(): Promise<Model[]> {
     return []
   } catch (err) {
     if (typeof window !== 'undefined') {
-      console.warn('[models-api] getMarketModels fetch 失败,使用 fallback', err)
+      logger.warn('[models-api] getMarketModels fetch 失败,使用 fallback', err)
     }
     return []
   }
@@ -117,7 +118,7 @@ export async function getAiNewsFeed(limit = 6): Promise<AiNewsItem[]> {
     }
   } catch (err) {
     if (typeof window !== 'undefined') {
-      console.warn('[models-api] getAiNewsFeed fallback 失败', err)
+      logger.warn('[models-api] getAiNewsFeed fallback 失败', err)
     }
   }
   return out
