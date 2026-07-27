@@ -41,7 +41,7 @@ export function AiGcDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(o: any) => {
+      onOpenChange={(o: boolean) => {
         if (!o) onClose()
       }}
     >
@@ -66,7 +66,7 @@ export function AiGcDialog({
                 <Input
                   id={`f-${f.key}`}
                   value={form[f.key]}
-                  onChange={(e: any) => setForm({ ...form, [f.key]: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [f.key]: e.target.value })}
                   placeholder={t('inputPlaceholder', { label: f.label })}
                 />
               )}

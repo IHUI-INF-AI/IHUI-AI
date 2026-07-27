@@ -111,7 +111,7 @@ export default function KnowledgeRagChunksPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((c: any) => {
+          {items.map((c: ChunkItem) => {
             const isExpanded = expanded.has(c.id)
             const tooLong = c.content.length > PREVIEW_LEN
             const display = tooLong && !isExpanded ? `${c.content.slice(0, PREVIEW_LEN)}…` : c.content

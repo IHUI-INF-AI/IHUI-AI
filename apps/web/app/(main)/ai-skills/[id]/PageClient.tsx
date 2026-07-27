@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -168,7 +168,7 @@ export default function AiSkillDetailPage() {
     )
   }
 
-  const Icon = (CATEGORY_ICON as any)[skill.category] ?? Wand2
+  const Icon = CATEGORY_ICON[skill.category] ?? Wand2
   const detectedVars = parseVariables(skill.promptTemplate)
   // 用 4 个已知变量的顺序 + 检测到的补全顺序
   const renderVars = detectedVars.length > 0
@@ -238,7 +238,7 @@ export default function AiSkillDetailPage() {
         <p className="text-sm leading-relaxed text-foreground/90">{skill.description}</p>
         {skill.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {skill.tags.map((tag: any) => (
+            {skill.tags.map((tag: string) => (
               <span
                 key={tag}
                 className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"

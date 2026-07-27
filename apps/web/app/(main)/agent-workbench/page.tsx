@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { Loader2, Plus, RefreshCw, Search, Sparkles, AlertCircle, GitBranch, Activity } from 'lucide-react'
@@ -54,7 +54,7 @@ export default function AgentWorkbenchPage() {
       if (res.success) {
         const normalized = (res.data.list ?? res.data.data ?? []).map(normalizeAgent)
         setAgents(normalized)
-        setSelectedId((prev) => (prev && normalized.find((a: any) => a.id === prev) ? prev : null))
+        setSelectedId((prev) => (prev && normalized.find((a) => a.id === prev) ? prev : null))
       } else {
         setErr(res.error || '加载失败')
         setAgents([])

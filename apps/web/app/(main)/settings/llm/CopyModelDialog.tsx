@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * CopyModelDialog — 把一个 model 的配置一键复制到其他 provider(2026-07-22 立,深度功能)
@@ -100,7 +100,7 @@ export function CopyModelDialog({
       }
       return createModelV2(targetProviderId, targetForm)
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       const modelIdEcho = 'modelId' in res ? res.modelId : undefined
       toast.success(t('success'), {
         description: modelIdEcho ? `「${modelIdEcho}」` : undefined,

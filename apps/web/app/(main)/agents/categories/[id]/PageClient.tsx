@@ -179,7 +179,7 @@ export default function AgentCategoryDetailPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {agents.map((agent: any) => (
+              {agents.map((agent: Agent) => (
                 <Link
                   key={agent.agentId}
                   href={`/agents/${agent.agentId}`}
