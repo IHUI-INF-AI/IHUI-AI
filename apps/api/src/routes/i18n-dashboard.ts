@@ -129,8 +129,11 @@ export const i18nDashboardRoutes: FastifyPluginAsync = async (server) => {
       let totalMissing = 0
       const allMissing: MissingKey[] = []
 
-      for (const locale of SUPPORTED_LOCALES) {
-        const dict = await loadDictCached(locale)
+      const localeDicts = await Promise.all(
+        SUPPORTED_LOCALES.map((locale) => loadDictCached(locale)),
+      )
+      for (const [i, locale] of SUPPORTED_LOCALES.entries()) {
+        const dict = localeDicts[i]
         const keys = flattenKeys(dict)
         const missing: MissingKey[] = []
         if (locale !== BASE_LOCALE) {
@@ -217,8 +220,9 @@ export const i18nDashboardRoutes: FastifyPluginAsync = async (server) => {
       const targetLocales =
         locale === 'all' ? SUPPORTED_LOCALES.filter((l) => l !== BASE_LOCALE) : [locale]
       const list: MissingKey[] = []
-      for (const loc of targetLocales) {
-        const dict = await loadDictCached(loc)
+      const targetDicts = await Promise.all(targetLocales.map((loc) => loadDictCached(loc)))
+      for (const [i, loc] of targetLocales.entries()) {
+        const dict = targetDicts[i]
         const keys = flattenKeys(dict)
         for (const [key] of baseKeys) {
           if (!keys.has(key) || keys.get(key) === '') {

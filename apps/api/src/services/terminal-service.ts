@@ -71,13 +71,22 @@ interface IPty {
   onData(cb: (data: string) => void): { dispose(): void }
   onExit(cb: (e: { exitCode: number; signal?: number }) => void): { dispose(): void }
 }
-type SpawnFn = (file: string, args: string[], options: {
-  name?: string
-  cols?: number
-  rows?: number
-  cwd?: string
-  env?: Record<string, string>
-}) => IPty
+// SSH wrapper 在 IPty 之上扩展的内部字段(attachSshStream 挂载,kill/write/resize 读取)
+interface PtyWithSshStream extends IPty {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 动态字段,无公开类型
+  _sshStream?: any
+}
+type SpawnFn = (
+  file: string,
+  args: string[],
+  options: {
+    name?: string
+    cols?: number
+    rows?: number
+    cwd?: string
+    env?: Record<string, string>
+  },
+) => IPty
 const spawn: SpawnFn | null = (ptyMod as { spawn?: SpawnFn } | null)?.spawn ?? null
 
 // SSH2 Client/Stream 最小接口(避开静态 import 失败)
@@ -85,7 +94,8 @@ interface Ssh2ClientLike {
   connect(opts: Record<string, unknown>): void
   on(event: 'ready' | 'error' | 'close' | 'end', cb: (...args: unknown[]) => void): this
   shell(
-    window: false | { term?: string; cols?: number; rows?: number; height?: number; width?: number },
+    window:
+      false | { term?: string; cols?: number; rows?: number; height?: number; width?: number },
     callback: (err: Error | undefined, stream: Ssh2StreamLike) => void,
   ): void
   end(): void
@@ -281,18 +291,27 @@ function getDefaultShell(): string {
 function resolveShellByName(name: string): string {
   if (process.platform === 'win32') {
     switch (name) {
-      case 'powershell': return 'powershell.exe'
-      case 'cmd': return process.env.COMSPEC || 'cmd.exe'
-      case 'bash': return 'bash'
-      case 'wsl': return 'wsl.exe'
-      default: return name
+      case 'powershell':
+        return 'powershell.exe'
+      case 'cmd':
+        return process.env.COMSPEC || 'cmd.exe'
+      case 'bash':
+        return 'bash'
+      case 'wsl':
+        return 'wsl.exe'
+      default:
+        return name
     }
   }
   switch (name) {
-    case 'bash': return '/bin/bash'
-    case 'zsh': return '/bin/zsh'
-    case 'sh': return '/bin/sh'
-    default: return name
+    case 'bash':
+      return '/bin/bash'
+    case 'zsh':
+      return '/bin/zsh'
+    case 'sh':
+      return '/bin/sh'
+    default:
+      return name
   }
 }
 
@@ -424,9 +443,7 @@ export function createSession(
   // 本地 PTY 会话(原逻辑)
   const cwd = opts.cwd && opts.cwd.length > 0 ? opts.cwd : process.cwd()
   const shell =
-    opts.shell && opts.shell.length > 0
-      ? resolveShellByName(opts.shell)
-      : getDefaultShell()
+    opts.shell && opts.shell.length > 0 ? resolveShellByName(opts.shell) : getDefaultShell()
 
   if (!spawn) {
     throw new Error(
@@ -515,9 +532,10 @@ function createSshSession(
   rows: number,
 ): TerminalSession {
   if (!ssh2Mod) {
-    const err = new Error(
-      'SSH 远程需要安装 ssh2: pnpm --filter @ihui/api add ssh2',
-    ) as Error & { statusCode?: number; errorCode?: string }
+    const err = new Error('SSH 远程需要安装 ssh2: pnpm --filter @ihui/api add ssh2') as Error & {
+      statusCode?: number
+      errorCode?: string
+    }
     err.statusCode = 501
     err.errorCode = 'ssh2_not_installed'
     throw err
@@ -571,10 +589,7 @@ function createSshSession(
       (err: Error | undefined, stream: Ssh2StreamLike) => {
         if (err) {
           // shell 创建失败 → 输出错误 + exit
-          handlePtyData(
-            entry,
-            `\r\n\x1b[31mSSH shell 创建失败: ${err.message}\x1b[0m\r\n`,
-          )
+          handlePtyData(entry, `\r\n\x1b[31mSSH shell 创建失败: ${err.message}\x1b[0m\r\n`)
           handlePtyExit(entry, { exitCode: 1 })
           return
         }
@@ -587,10 +602,7 @@ function createSshSession(
           handlePtyExit(entry, { exitCode: 0 })
         })
         stream.on('error', (streamErr: Error) => {
-          handlePtyData(
-            entry,
-            `\r\n\x1b[31mSSH stream 错误: ${streamErr.message}\x1b[0m\r\n`,
-          )
+          handlePtyData(entry, `\r\n\x1b[31mSSH stream 错误: ${streamErr.message}\x1b[0m\r\n`)
           handlePtyExit(entry, { exitCode: 1 })
         })
       },
@@ -599,10 +611,7 @@ function createSshSession(
 
   client.on('error', (err: unknown) => {
     const e = err as Error
-    handlePtyData(
-      entry,
-      `\r\n\x1b[31mSSH 连接错误: ${e.message}\x1b[0m\r\n`,
-    )
+    handlePtyData(entry, `\r\n\x1b[31mSSH 连接错误: ${e.message}\x1b[0m\r\n`)
     handlePtyExit(entry, { exitCode: 1 })
   })
 
@@ -631,7 +640,6 @@ function createSshSession(
  * ready 后由 attachSshStream 把 stream 挂到内部字段,write/resize 才真正生效。
  */
 function createSshPtyWrapper(client: Ssh2ClientLike): IPty {
-   
   const wrapper: IPty & { _sshStream?: Ssh2StreamLike } = {
     write: (data: string) => {
       try {
@@ -675,8 +683,7 @@ function createSshPtyWrapper(client: Ssh2ClientLike): IPty {
 
 /** 把 SSH stream 挂载到 wrapper 上(ready 后调用) */
 function attachSshStream(entry: PTYEntry, stream: Ssh2StreamLike): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 动态字段
-  ;(entry.pty as any)._sshStream = stream
+  ;(entry.pty as PtyWithSshStream)._sshStream = stream
 }
 
 // ==================== 公共 API:CRUD ====================
@@ -760,10 +767,7 @@ export function closeSession(sessionId: string, userId: string): boolean {
  * 深化(2026-07-22):注册后异步回放历史 scrollback(Redis 不可用时静默跳过),
  * 让 WS 客户端连接即可看到历史输出上下文。
  */
-export function onData(
-  sessionId: string,
-  cb: (data: string) => void,
-): (() => void) | null {
+export function onData(sessionId: string, cb: (data: string) => void): (() => void) | null {
   const entry = sessions.get(sessionId)
   if (!entry) return null
   entry.dataListeners.add(cb)
@@ -822,22 +826,14 @@ export function writeInput(sessionId: string, data: string): boolean {
  * 注意:此函数返回历史元数据(已退出的会话),不含实时数据流。
  * 配合 getScrollback 可恢复历史输出。
  */
-export async function listHistorySessions(
-  userId: string,
-): Promise<TerminalHistorySession[]> {
+export async function listHistorySessions(userId: string): Promise<TerminalHistorySession[]> {
   const redis = getRedis()
   if (!redis) return []
   try {
     const result: TerminalHistorySession[] = []
     let cursor = '0'
     do {
-      const [next, keys] = await redis.scan(
-        cursor,
-        'MATCH',
-        'terminal:session:*',
-        'COUNT',
-        100,
-      )
+      const [next, keys] = await redis.scan(cursor, 'MATCH', 'terminal:session:*', 'COUNT', 100)
       cursor = next
       for (const key of keys) {
         const meta = await redis.hgetall(key)

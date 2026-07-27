@@ -28,10 +28,11 @@ class WordPressAdapter(BasePlatformAdapter):
     supported_formats = ["md", "html", "docx", "pdf"]
     requires_credentials = ["site_url", "username", "application_password"]
 
-    def _xmlrpc(self, site_url: str, method: str, params: list[Any]) -> Any:
+    async def _xmlrpc(self, site_url: str, method: str, params: list[Any]) -> Any:
         """发送 XML-RPC 请求,返回解析后的 Python 对象。
 
         直接用 httpx POST XML body,不依赖 python-wordpress-xmlrpc 库。
+        使用 AsyncClient 避免阻塞事件循环。
         """
         xml_body = self._build_xmlrpc_request(method, params)
         # site_url 可能是首页路径,XML-RPC endpoint 固定为 /xmlrpc.php
@@ -39,14 +40,14 @@ class WordPressAdapter(BasePlatformAdapter):
         if not endpoint.endswith("xmlrpc.php"):
             endpoint = endpoint + "/xmlrpc.php"
 
-        resp = httpx.post(
-            endpoint,
-            content=xml_body,
-            headers={"Content-Type": "text/xml; charset=utf-8"},
-            timeout=30.0,
-        )
-        resp.raise_for_status()
-        return self._parse_xmlrpc_response(resp.content)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                endpoint,
+                content=xml_body,
+                headers={"Content-Type": "text/xml; charset=utf-8"},
+            )
+            resp.raise_for_status()
+            return self._parse_xmlrpc_response(resp.content)
 
     def _build_xmlrpc_request(self, method: str, params: list[Any]) -> str:
         """构造 XML-RPC request body。"""
@@ -155,7 +156,7 @@ class WordPressAdapter(BasePlatformAdapter):
 
         try:
             # wp.getProfiles 拿当前用户信息(WordPress 5.4+)
-            result = self._xmlrpc(site_url, "wp.getProfiles", [
+            result = await self._xmlrpc(site_url, "wp.getProfiles", [
                 1,  # blog_id (多站点时用,单站点填 1)
                 username,
                 app_pwd,
@@ -215,7 +216,7 @@ class WordPressAdapter(BasePlatformAdapter):
             post_data["terms_names"]["post_tag"] = tags
 
         try:
-            post_id = self._xmlrpc(site_url, "wp.newPost", [
+            post_id = await self._xmlrpc(site_url, "wp.newPost", [
                 1, username, app_pwd, post_data,
             ])
         except httpx.HTTPError as e:

@@ -27,10 +27,13 @@ from .skills import skill_registry
 # ---------------------------------------------------------------------------
 
 # 工作区根目录白名单:MCP read_file/write_file 只允许读写白名单内文件
-# 从 env MCP_WORKSPACE_ROOTS 读取(分隔符 os.pathsep),默认当前工作目录
+# 从 settings.mcp_workspace_roots 读取(分隔符 os.pathsep),空=用当前工作目录
+# 2026-07-27 统一 secret 管理:os.environ.get → settings.mcp_workspace_roots
+from ..core.config import settings as _settings
+
 _WORKSPACE_ROOTS: list[str] = [
     os.path.abspath(r)
-    for r in os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd()).split(os.pathsep)
+    for r in (_settings.mcp_workspace_roots or os.getcwd()).split(os.pathsep)
     if r.strip()
 ]
 
@@ -61,9 +64,10 @@ _ADMIN_ONLY_TOOLS: set[str] = {
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
 # 2026-07-22 修复:原 os.environ.get 在模块加载时求值,main.py 同步 os.environ 晚于本模块导入 → 永远为空
 # 改为函数调用时动态读取,确保 .env 配置已加载
+# 2026-07-27 统一 secret 管理:Pydantic Settings 已自动从环境变量加载,删除 os.environ.get 兜底
 def _get_agent_control_secret() -> str:
     from ..core.config import settings
-    return settings.agent_control_internal_secret or os.environ.get("AGENT_CONTROL_INTERNAL_SECRET", "")
+    return settings.agent_control_internal_secret
 
 
 def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
@@ -2789,7 +2793,7 @@ async def _tool_review_pr(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "httpx 未安装", "errorCode": "DEP_MISSING",
         }
 
-    gh_token = os.environ.get("GITHUB_TOKEN", "")
+    gh_token = _settings.github_token
     auth_hdr = f"Bearer {gh_token}" if gh_token else None
     headers_json = {"Accept": "application/vnd.github+json"}
     headers_diff = {"Accept": "application/vnd.github.v3.diff"}

@@ -2,9 +2,28 @@
 
 import * as React from 'react'
 import {
-  FileText, FolderTree, Box, Loader2, Download, Sparkles, History, GitCompare,
-  Code2, CheckCircle, ListTree, Brain, Eye, EyeOff, Play, Square,
-  Workflow, AlertTriangle, GitBranch, Wand2, GitMerge, RotateCcw,
+  FileText,
+  FolderTree,
+  Box,
+  Loader2,
+  Download,
+  Sparkles,
+  History,
+  GitCompare,
+  Code2,
+  CheckCircle,
+  ListTree,
+  Brain,
+  Eye,
+  EyeOff,
+  Play,
+  Square,
+  Workflow,
+  AlertTriangle,
+  GitBranch,
+  Wand2,
+  GitMerge,
+  RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SpecGenerateOutput } from '@ihui/types'
@@ -192,7 +211,17 @@ interface SpecGenerateFromRequirementResult {
   message?: string
 }
 
-type TabMode = 'spec' | 'diff' | 'codegen' | 'review' | 'tasks' | 'enhance' | 'pipeline' | 'impact' | 'branches' | 'generate'
+type TabMode =
+  | 'spec'
+  | 'diff'
+  | 'codegen'
+  | 'review'
+  | 'tasks'
+  | 'enhance'
+  | 'pipeline'
+  | 'impact'
+  | 'branches'
+  | 'generate'
 
 interface ScopeOption {
   type: SpecScopeType
@@ -206,7 +235,11 @@ const SCOPE_OPTIONS: readonly ScopeOption[] = [
   { type: 'file', label: '文件', icon: FileText },
 ]
 
-const TAB_OPTIONS: ReadonlyArray<{ mode: TabMode; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+const TAB_OPTIONS: ReadonlyArray<{
+  mode: TabMode
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+}> = [
   { mode: 'spec', label: 'spec', icon: FileText },
   { mode: 'diff', label: 'diff', icon: GitCompare },
   { mode: 'codegen', label: '代码生成', icon: Code2 },
@@ -363,22 +396,27 @@ export function SpecPanel({ className }: { className?: string }) {
 
   // 智能生成状态
   const [requirementInput, setRequirementInput] = React.useState('')
-  const [requirementFormat, setRequirementFormat] = React.useState<'text' | 'markdown' | 'image_description'>('text')
+  const [requirementFormat, setRequirementFormat] = React.useState<
+    'text' | 'markdown' | 'image_description'
+  >('text')
   const [genResult, setGenResult] = React.useState<SpecGenerateFromRequirementResult | null>(null)
   const [genLoading, setGenLoading] = React.useState(false)
 
   const activeWorkspacePath = useAiPanelStore((s) => s.activeWorkspace?.path)
 
   // 构造 query string
-  const buildQuery = React.useCallback((extra: Record<string, string> = {}) => {
-    const params = new URLSearchParams({
-      workspacePath: activeWorkspacePath || '',
-      scopeType,
-      ...extra,
-    })
-    if (scopePath.trim()) params.set('scopePath', scopePath.trim())
-    return params.toString()
-  }, [activeWorkspacePath, scopeType, scopePath])
+  const buildQuery = React.useCallback(
+    (extra: Record<string, string> = {}) => {
+      const params = new URLSearchParams({
+        workspacePath: activeWorkspacePath || '',
+        scopeType,
+        ...extra,
+      })
+      if (scopePath.trim()) params.set('scopePath', scopePath.trim())
+      return params.toString()
+    },
+    [activeWorkspacePath, scopeType, scopePath],
+  )
 
   const currentScope = React.useMemo(
     () => ({ type: scopeType, path: scopePath.trim() || undefined }),
@@ -389,9 +427,7 @@ export function SpecPanel({ className }: { className?: string }) {
   const refreshHistory = React.useCallback(async () => {
     if (!activeWorkspacePath) return
     try {
-      const r = await fetchApi<{ history: SpecHistoryEntry[] }>(
-        `/api/spec/history?${buildQuery()}`,
-      )
+      const r = await fetchApi<{ history: SpecHistoryEntry[] }>(`/api/spec/history?${buildQuery()}`)
       if (r.success && r.data) {
         setHistory(r.data.history)
       }
@@ -407,7 +443,9 @@ export function SpecPanel({ className }: { className?: string }) {
       return
     }
     if ((scopeType === 'file' || scopeType === 'dir') && !scopePath.trim()) {
-      toast.error('请填写路径', { description: `选择 ${scopeType === 'file' ? '文件' : '目录'} 范围时需填写相对路径` })
+      toast.error('请填写路径', {
+        description: `选择 ${scopeType === 'file' ? '文件' : '目录'} 范围时需填写相对路径`,
+      })
       return
     }
 
@@ -440,23 +478,26 @@ export function SpecPanel({ className }: { className?: string }) {
   }, [activeWorkspacePath, scopeType, scopePath, currentScope, refreshHistory])
 
   // 加载历史版本
-  const handleLoadVersion = React.useCallback(async (version: string) => {
-    if (!activeWorkspacePath) return
-    setSelectedVersion(version)
-    if (version === 'latest') return
-    try {
-      const r = await fetchApi<{ spec: string; filePath: string }>(
-        `/api/spec/load?${buildQuery({ version })}`,
-      )
-      if (r.success && r.data && r.data.spec) {
-        setResult((prev: any) => prev ? { ...prev, spec: r.data!.spec } : prev)
-        setTabMode('spec')
-        toast.success('已加载历史版本', { description: version })
+  const handleLoadVersion = React.useCallback(
+    async (version: string) => {
+      if (!activeWorkspacePath) return
+      setSelectedVersion(version)
+      if (version === 'latest') return
+      try {
+        const r = await fetchApi<{ spec: string; filePath: string }>(
+          `/api/spec/load?${buildQuery({ version })}`,
+        )
+        if (r.success && r.data && r.data.spec) {
+          setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
+          setTabMode('spec')
+          toast.success('已加载历史版本', { description: version })
+        }
+      } catch (e) {
+        toast.error('加载失败', { description: e instanceof Error ? e.message : String(e) })
       }
-    } catch (e) {
-      toast.error('加载失败', { description: e instanceof Error ? e.message : String(e) })
-    }
-  }, [activeWorkspacePath, buildQuery])
+    },
+    [activeWorkspacePath, buildQuery],
+  )
 
   // 对比当前(生成 diff)
   const handleDiff = React.useCallback(async () => {
@@ -478,7 +519,7 @@ export function SpecPanel({ className }: { className?: string }) {
       setDiffResult(r.data)
       setTabMode('diff')
       if (r.data.newSpec) {
-        setResult((prev: any) => prev ? { ...prev, spec: r.data!.newSpec } : prev)
+        setResult((prev) => (prev ? { ...prev, spec: r.data!.newSpec } : prev))
       }
       toast.success('diff 已生成', {
         description: `+${r.data.addedLines} 行 / -${r.data.removedLines} 行`,
@@ -563,9 +604,11 @@ export function SpecPanel({ className }: { className?: string }) {
         return
       }
       if (r.data.spec) {
-        setResult((prev: any) => prev ? { ...prev, spec: r.data!.spec } : prev)
+        setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
       }
-      toast.success('已提交评审', { description: `状态: ${STATUS_LABEL[r.data.status] || r.data.status}` })
+      toast.success('已提交评审', {
+        description: `状态: ${STATUS_LABEL[r.data.status] || r.data.status}`,
+      })
     } catch (e) {
       toast.error('提交评审失败', { description: e instanceof Error ? e.message : String(e) })
     } finally {
@@ -588,7 +631,7 @@ export function SpecPanel({ className }: { className?: string }) {
         return
       }
       if (r.data.spec) {
-        setResult((prev: any) => prev ? { ...prev, spec: r.data!.spec } : prev)
+        setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
       }
       toast.success('已通过评审')
     } catch (e) {
@@ -617,7 +660,7 @@ export function SpecPanel({ className }: { className?: string }) {
         return
       }
       if (r.data.spec) {
-        setResult((prev: any) => prev ? { ...prev, spec: r.data!.spec } : prev)
+        setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
       }
       toast.success('已拒绝')
     } catch (e) {
@@ -688,7 +731,7 @@ export function SpecPanel({ className }: { className?: string }) {
       }
       setEnhanceResult(r.data)
       if (r.data.spec) {
-        setResult((prev: any) => prev ? { ...prev, spec: r.data!.spec } : prev)
+        setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
       }
       toast.success('智能分析已生成')
     } catch (e) {
@@ -719,10 +762,13 @@ export function SpecPanel({ className }: { className?: string }) {
     }
     setWatchLoading(true)
     try {
-      const r = await fetchApi<{ watchId: string; status: string; watchPath: string }>('/api/spec/watch/start', {
-        method: 'POST',
-        body: JSON.stringify({ scope: currentScope, workspacePath }),
-      })
+      const r = await fetchApi<{ watchId: string; status: string; watchPath: string }>(
+        '/api/spec/watch/start',
+        {
+          method: 'POST',
+          body: JSON.stringify({ scope: currentScope, workspacePath }),
+        },
+      )
       if (!r.success || !r.data) {
         toast.error('watch 启动失败', { description: r.error || '未知错误' })
         return
@@ -737,25 +783,28 @@ export function SpecPanel({ className }: { className?: string }) {
   }, [activeWorkspacePath, currentScope, refreshWatchStatus])
 
   // Watch:停止监听
-  const handleStopWatch = React.useCallback(async (watchId: string) => {
-    setWatchLoading(true)
-    try {
-      const r = await fetchApi<{ watchId: string; status: string }>('/api/spec/watch/stop', {
-        method: 'POST',
-        body: JSON.stringify({ watchId }),
-      })
-      if (!r.success || !r.data) {
-        toast.error('watch 停止失败', { description: r.error || '未知错误' })
-        return
+  const handleStopWatch = React.useCallback(
+    async (watchId: string) => {
+      setWatchLoading(true)
+      try {
+        const r = await fetchApi<{ watchId: string; status: string }>('/api/spec/watch/stop', {
+          method: 'POST',
+          body: JSON.stringify({ watchId }),
+        })
+        if (!r.success || !r.data) {
+          toast.error('watch 停止失败', { description: r.error || '未知错误' })
+          return
+        }
+        toast.success('监听已停止')
+        void refreshWatchStatus()
+      } catch (e) {
+        toast.error('watch 停止失败', { description: e instanceof Error ? e.message : String(e) })
+      } finally {
+        setWatchLoading(false)
       }
-      toast.success('监听已停止')
-      void refreshWatchStatus()
-    } catch (e) {
-      toast.error('watch 停止失败', { description: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setWatchLoading(false)
-    }
-  }, [refreshWatchStatus])
+    },
+    [refreshWatchStatus],
+  )
 
   // -------------------------------------------------------------------------
   // 2026-07-23 超越创新:全流程 / 影响分析 / 版本树 / 智能生成 handlers
@@ -812,9 +861,7 @@ export function SpecPanel({ className }: { className?: string }) {
         pipelineId: pid,
       }).toString()
       if (scopePath.trim()) qs.concat(`&scopePath=${encodeURIComponent(scopePath.trim())}`)
-      const r = await fetchApi<SpecPipelineStatusResult>(
-        `/api/spec/pipeline-status?${qs}`,
-      )
+      const r = await fetchApi<SpecPipelineStatusResult>(`/api/spec/pipeline-status?${qs}`)
       if (!r.success || !r.data) {
         toast.error('状态查询失败', { description: r.error || '未知错误' })
         return
@@ -942,82 +989,96 @@ export function SpecPanel({ className }: { className?: string }) {
   }, [activeWorkspacePath, newBranchName, branchBaseVersion, currentScope, refreshBranches])
 
   // 版本树:合并分支
-  const handleMergeBranch = React.useCallback(async (branchName: string) => {
-    const workspacePath = activeWorkspacePath
-    if (!workspacePath) return
-    setBranchLoading(true)
-    setMergeConflicts(null)
-    try {
-      const r = await fetchApi<SpecBranchMergeResult>('/api/spec/branch/merge', {
-        method: 'POST',
-        body: JSON.stringify({ scope: currentScope, workspacePath, branchName }),
-      })
-      if (!r.success || !r.data) {
-        toast.error('合并失败', { description: r.error || '未知错误' })
-        return
+  const handleMergeBranch = React.useCallback(
+    async (branchName: string) => {
+      const workspacePath = activeWorkspacePath
+      if (!workspacePath) return
+      setBranchLoading(true)
+      setMergeConflicts(null)
+      try {
+        const r = await fetchApi<SpecBranchMergeResult>('/api/spec/branch/merge', {
+          method: 'POST',
+          body: JSON.stringify({ scope: currentScope, workspacePath, branchName }),
+        })
+        if (!r.success || !r.data) {
+          toast.error('合并失败', { description: r.error || '未知错误' })
+          return
+        }
+        if (r.data.conflicts.length > 0) {
+          setMergeConflicts(r.data.conflicts)
+          toast.warning('合并完成但有冲突', {
+            description: `${r.data.conflicts.length} 处冲突已用 LLM 解决`,
+          })
+        } else {
+          toast.success('分支已合并', { description: branchName })
+        }
+        void refreshBranches()
+      } catch (e) {
+        toast.error('合并失败', { description: e instanceof Error ? e.message : String(e) })
+      } finally {
+        setBranchLoading(false)
       }
-      if (r.data.conflicts.length > 0) {
-        setMergeConflicts(r.data.conflicts)
-        toast.warning('合并完成但有冲突', { description: `${r.data.conflicts.length} 处冲突已用 LLM 解决` })
-      } else {
-        toast.success('分支已合并', { description: branchName })
-      }
-      void refreshBranches()
-    } catch (e) {
-      toast.error('合并失败', { description: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setBranchLoading(false)
-    }
-  }, [activeWorkspacePath, currentScope, refreshBranches])
+    },
+    [activeWorkspacePath, currentScope, refreshBranches],
+  )
 
   // 版本树:废弃分支
-  const handleAbandonBranch = React.useCallback(async (branchName: string) => {
-    const workspacePath = activeWorkspacePath
-    if (!workspacePath) return
-    setBranchLoading(true)
-    try {
-      const r = await fetchApi<{ abandoned: boolean; branchName: string }>('/api/spec/branch/abandon', {
-        method: 'POST',
-        body: JSON.stringify({ scope: currentScope, workspacePath, branchName }),
-      })
-      if (!r.success || !r.data) {
-        toast.error('废弃失败', { description: r.error || '未知错误' })
-        return
+  const handleAbandonBranch = React.useCallback(
+    async (branchName: string) => {
+      const workspacePath = activeWorkspacePath
+      if (!workspacePath) return
+      setBranchLoading(true)
+      try {
+        const r = await fetchApi<{ abandoned: boolean; branchName: string }>(
+          '/api/spec/branch/abandon',
+          {
+            method: 'POST',
+            body: JSON.stringify({ scope: currentScope, workspacePath, branchName }),
+          },
+        )
+        if (!r.success || !r.data) {
+          toast.error('废弃失败', { description: r.error || '未知错误' })
+          return
+        }
+        toast.success('分支已废弃', { description: branchName })
+        void refreshBranches()
+      } catch (e) {
+        toast.error('废弃失败', { description: e instanceof Error ? e.message : String(e) })
+      } finally {
+        setBranchLoading(false)
       }
-      toast.success('分支已废弃', { description: branchName })
-      void refreshBranches()
-    } catch (e) {
-      toast.error('废弃失败', { description: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setBranchLoading(false)
-    }
-  }, [activeWorkspacePath, currentScope, refreshBranches])
+    },
+    [activeWorkspacePath, currentScope, refreshBranches],
+  )
 
   // 版本树:查看分支 diff
-  const handleDiffBranch = React.useCallback(async (branchName: string) => {
-    const workspacePath = activeWorkspacePath
-    if (!workspacePath) return
-    setBranchLoading(true)
-    setBranchDiffTarget(branchName)
-    try {
-      const qs = new URLSearchParams({
-        workspacePath,
-        scopeType,
-        branchName,
-      }).toString()
-      if (scopePath.trim()) qs.concat(`&scopePath=${encodeURIComponent(scopePath.trim())}`)
-      const r = await fetchApi<SpecBranchDiffResult>(`/api/spec/branch/diff?${qs}`)
-      if (!r.success || !r.data) {
-        toast.error('diff 失败', { description: r.error || '未知错误' })
-        return
+  const handleDiffBranch = React.useCallback(
+    async (branchName: string) => {
+      const workspacePath = activeWorkspacePath
+      if (!workspacePath) return
+      setBranchLoading(true)
+      setBranchDiffTarget(branchName)
+      try {
+        const qs = new URLSearchParams({
+          workspacePath,
+          scopeType,
+          branchName,
+        }).toString()
+        if (scopePath.trim()) qs.concat(`&scopePath=${encodeURIComponent(scopePath.trim())}`)
+        const r = await fetchApi<SpecBranchDiffResult>(`/api/spec/branch/diff?${qs}`)
+        if (!r.success || !r.data) {
+          toast.error('diff 失败', { description: r.error || '未知错误' })
+          return
+        }
+        setBranchDiffResult(r.data)
+      } catch (e) {
+        toast.error('diff 失败', { description: e instanceof Error ? e.message : String(e) })
+      } finally {
+        setBranchLoading(false)
       }
-      setBranchDiffResult(r.data)
-    } catch (e) {
-      toast.error('diff 失败', { description: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setBranchLoading(false)
-    }
-  }, [activeWorkspacePath, scopeType, scopePath])
+    },
+    [activeWorkspacePath, scopeType, scopePath],
+  )
 
   // 智能生成:从需求生成 spec 草稿
   const handleGenerateFromRequirement = React.useCallback(async () => {
@@ -1089,7 +1150,11 @@ export function SpecPanel({ className }: { className?: string }) {
       {/* 范围选择 */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">范围</span>
-        <div role="group" aria-label="spec 生成范围" className="flex items-center border border-border rounded-md overflow-hidden">
+        <div
+          role="group"
+          aria-label="spec 生成范围"
+          className="flex items-center border border-border rounded-md overflow-hidden"
+        >
           {SCOPE_OPTIONS.map((opt, idx) => {
             const isActive = opt.type === scopeType
             const Icon = opt.icon
@@ -1119,7 +1184,11 @@ export function SpecPanel({ className }: { className?: string }) {
             type="text"
             value={scopePath}
             onChange={(e) => setScopePath(e.target.value)}
-            placeholder={scopeType === 'file' ? '相对路径,如 apps/api/src/server.ts' : '相对路径,如 apps/api/src'}
+            placeholder={
+              scopeType === 'file'
+                ? '相对路径,如 apps/api/src/server.ts'
+                : '相对路径,如 apps/api/src'
+            }
             className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
           />
         )}
@@ -1279,7 +1348,11 @@ export function SpecPanel({ className }: { className?: string }) {
                       applyLoading && 'cursor-not-allowed opacity-60',
                     )}
                   >
-                    {applyLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Code2 className="h-3 w-3" />}
+                    {applyLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Code2 className="h-3 w-3" />
+                    )}
                     <span>{applyLoading ? '生成中' : '生成 patch'}</span>
                   </button>
                   {applyResult?.patch && (
@@ -1292,7 +1365,11 @@ export function SpecPanel({ className }: { className?: string }) {
                         confirmLoading && 'cursor-not-allowed opacity-60',
                       )}
                     >
-                      {confirmLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                      {confirmLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-3 w-3" />
+                      )}
                       <span>应用 patch</span>
                     </button>
                   )}
@@ -1328,7 +1405,9 @@ export function SpecPanel({ className }: { className?: string }) {
                   </div>
                 )}
                 {!applyResult?.patch && (
-                  <p className="text-xs text-muted-foreground p-2">点击「生成 patch」对比新旧 spec 生成代码补丁</p>
+                  <p className="text-xs text-muted-foreground p-2">
+                    点击「生成 patch」对比新旧 spec 生成代码补丁
+                  </p>
                 )}
               </div>
             )}
@@ -1338,7 +1417,12 @@ export function SpecPanel({ className }: { className?: string }) {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">当前状态:</span>
-                  <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', STATUS_BADGE[currentStatus] || STATUS_BADGE.draft)}>
+                  <span
+                    className={cn(
+                      'rounded-md px-2 py-0.5 text-xs font-medium',
+                      STATUS_BADGE[currentStatus] || STATUS_BADGE.draft,
+                    )}
+                  >
                     {STATUS_LABEL[currentStatus] || currentStatus}
                   </span>
                 </div>
@@ -1350,7 +1434,11 @@ export function SpecPanel({ className }: { className?: string }) {
                       disabled={reviewLoading}
                       className="flex h-7 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                     >
-                      {reviewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                      {reviewLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-3 w-3" />
+                      )}
                       <span>提交评审</span>
                     </button>
                   )}
@@ -1362,7 +1450,11 @@ export function SpecPanel({ className }: { className?: string }) {
                         disabled={reviewLoading}
                         className="flex h-7 items-center gap-1 rounded-md bg-green-600 px-3 text-xs font-medium text-white hover:bg-green-600/90 disabled:opacity-60"
                       >
-                        {reviewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                        {reviewLoading ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <CheckCircle className="h-3 w-3" />
+                        )}
                         <span>通过</span>
                       </button>
                       <button
@@ -1406,7 +1498,11 @@ export function SpecPanel({ className }: { className?: string }) {
                       tasksLoading && 'cursor-not-allowed opacity-60',
                     )}
                   >
-                    {tasksLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTree className="h-3 w-3" />}
+                    {tasksLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ListTree className="h-3 w-3" />
+                    )}
                     <span>{tasksLoading ? '拆分中' : '拆分任务'}</span>
                   </button>
                   {tasksResult?.tasks.length ? (
@@ -1428,7 +1524,12 @@ export function SpecPanel({ className }: { className?: string }) {
                     {tasksResult.tasks.map((task, idx) => (
                       <div key={idx} className="rounded-md bg-muted/40 p-2">
                         <div className="flex items-center gap-2">
-                          <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', PRIORITY_BADGE[task.priority] || PRIORITY_BADGE.P2)}>
+                          <span
+                            className={cn(
+                              'rounded px-1.5 py-0.5 text-[10px] font-bold',
+                              PRIORITY_BADGE[task.priority] || PRIORITY_BADGE.P2,
+                            )}
+                          >
                             {task.priority}
                           </span>
                           <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -1443,7 +1544,9 @@ export function SpecPanel({ className }: { className?: string }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground p-2">点击「拆分任务」从 spec 章节自动生成任务列表</p>
+                  <p className="text-xs text-muted-foreground p-2">
+                    点击「拆分任务」从 spec 章节自动生成任务列表
+                  </p>
                 )}
               </div>
             )}
@@ -1462,7 +1565,11 @@ export function SpecPanel({ className }: { className?: string }) {
                       enhanceLoading && 'cursor-not-allowed opacity-60',
                     )}
                   >
-                    {enhanceLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
+                    {enhanceLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Brain className="h-3 w-3" />
+                    )}
                     <span>{enhanceLoading ? '分析中' : '生成智能分析'}</span>
                   </button>
                 </div>
@@ -1492,7 +1599,11 @@ export function SpecPanel({ className }: { className?: string }) {
                       (pipelineLoading || !result?.spec) && 'cursor-not-allowed opacity-60',
                     )}
                   >
-                    {pipelineLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Workflow className="h-3 w-3" />}
+                    {pipelineLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Workflow className="h-3 w-3" />
+                    )}
                     <span>{pipelineLoading ? '执行中' : '启动全流程'}</span>
                   </button>
                   <label className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -1550,12 +1661,19 @@ export function SpecPanel({ className }: { className?: string }) {
                             <span className="text-xs font-medium text-foreground">
                               {idx + 1}. {STAGE_LABEL[stage.name] || stage.name}
                             </span>
-                            <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', STAGE_STATUS_BADGE[stage.status] || STAGE_STATUS_BADGE.pending)}>
+                            <span
+                              className={cn(
+                                'rounded px-1.5 py-0.5 text-[10px] font-bold',
+                                STAGE_STATUS_BADGE[stage.status] || STAGE_STATUS_BADGE.pending,
+                              )}
+                            >
                               {STAGE_STATUS_LABEL[stage.status] || stage.status}
                             </span>
                             {stage.finishedAt && stage.startedAt && (
                               <span className="text-[10px] text-muted-foreground">
-                                {new Date(stage.finishedAt).getTime() - new Date(stage.startedAt).getTime()}ms
+                                {new Date(stage.finishedAt).getTime() -
+                                  new Date(stage.startedAt).getTime()}
+                                ms
                               </span>
                             )}
                           </div>
@@ -1568,11 +1686,28 @@ export function SpecPanel({ className }: { className?: string }) {
                       ))}
                       <div className="flex items-center gap-2 pt-1">
                         <span className="text-xs text-muted-foreground">整体:</span>
-                        <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', STAGE_STATUS_BADGE[(pipelineStatus?.overallStatus || pipelineResult?.overallStatus || 'pending') as string] || STAGE_STATUS_BADGE.pending)}>
-                          {STAGE_STATUS_LABEL[(pipelineStatus?.overallStatus || pipelineResult?.overallStatus || 'pending') as string] || (pipelineStatus?.overallStatus || pipelineResult?.overallStatus)}
+                        <span
+                          className={cn(
+                            'rounded px-1.5 py-0.5 text-[10px] font-bold',
+                            STAGE_STATUS_BADGE[
+                              (pipelineStatus?.overallStatus ||
+                                pipelineResult?.overallStatus ||
+                                'pending') as string
+                            ] || STAGE_STATUS_BADGE.pending,
+                          )}
+                        >
+                          {STAGE_STATUS_LABEL[
+                            (pipelineStatus?.overallStatus ||
+                              pipelineResult?.overallStatus ||
+                              'pending') as string
+                          ] ||
+                            pipelineStatus?.overallStatus ||
+                            pipelineResult?.overallStatus}
                         </span>
                         {pipelineResult?.commitSha && (
-                          <span className="text-[10px] text-muted-foreground">commit: {pipelineResult.commitSha.slice(0, 8)}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            commit: {pipelineResult.commitSha.slice(0, 8)}
+                          </span>
                         )}
                       </div>
                       {/* 日志区域 */}
@@ -1601,7 +1736,11 @@ export function SpecPanel({ className }: { className?: string }) {
                       impactLoading && 'cursor-not-allowed opacity-60',
                     )}
                   >
-                    {impactLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
+                    {impactLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <AlertTriangle className="h-3 w-3" />
+                    )}
                     <span>{impactLoading ? '分析中' : '分析影响'}</span>
                   </button>
                 </div>
@@ -1616,47 +1755,75 @@ export function SpecPanel({ className }: { className?: string }) {
                   <div className="max-h-[45vh] space-y-2 overflow-auto rounded-md border border-border bg-background p-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">风险评分:</span>
-                      <span className={cn('rounded px-2 py-0.5 text-xs font-bold', RISK_BADGE[impactResult.riskLevel])}>
+                      <span
+                        className={cn(
+                          'rounded px-2 py-0.5 text-xs font-bold',
+                          RISK_BADGE[impactResult.riskLevel],
+                        )}
+                      >
                         {RISK_LABEL[impactResult.riskLevel] || impactResult.riskLevel}
                       </span>
                       {impactResult.llmAnalysis?.summary && (
-                        <span className="text-xs text-muted-foreground">{impactResult.llmAnalysis.summary}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {impactResult.llmAnalysis.summary}
+                        </span>
                       )}
                     </div>
                     {impactResult.llmAnalysis?.riskReason && (
-                      <p className="text-xs text-muted-foreground">{impactResult.llmAnalysis.riskReason}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {impactResult.llmAnalysis.riskReason}
+                      </p>
                     )}
                     <div>
-                      <p className="text-xs font-medium text-foreground">受影响文件 ({impactResult.affectedFiles.length})</p>
+                      <p className="text-xs font-medium text-foreground">
+                        受影响文件 ({impactResult.affectedFiles.length})
+                      </p>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {impactResult.affectedFiles.slice(0, 20).map((f, i) => (
-                          <span key={i} className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          <span
+                            key={i}
+                            className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                          >
                             {f}
                           </span>
                         ))}
                         {impactResult.affectedFiles.length > 20 && (
-                          <span className="text-[10px] text-muted-foreground">+{impactResult.affectedFiles.length - 20}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            +{impactResult.affectedFiles.length - 20}
+                          </span>
                         )}
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-foreground">受影响测试 ({impactResult.affectedTests.length})</p>
+                      <p className="text-xs font-medium text-foreground">
+                        受影响测试 ({impactResult.affectedTests.length})
+                      </p>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {impactResult.affectedTests.slice(0, 10).map((f, i) => (
-                          <span key={i} className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          <span
+                            key={i}
+                            className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                          >
                             {f}
                           </span>
                         ))}
                         {impactResult.affectedTests.length > 10 && (
-                          <span className="text-[10px] text-muted-foreground">+{impactResult.affectedTests.length - 10}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            +{impactResult.affectedTests.length - 10}
+                          </span>
                         )}
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-foreground">下游 spec ({impactResult.downstreamSpecs.length})</p>
+                      <p className="text-xs font-medium text-foreground">
+                        下游 spec ({impactResult.downstreamSpecs.length})
+                      </p>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {impactResult.downstreamSpecs.map((f, i) => (
-                          <span key={i} className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          <span
+                            key={i}
+                            className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                          >
                             {f}
                           </span>
                         ))}
@@ -1725,7 +1892,11 @@ export function SpecPanel({ className }: { className?: string }) {
                       (branchLoading || !newBranchName.trim()) && 'cursor-not-allowed opacity-60',
                     )}
                   >
-                    {branchLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <GitBranch className="h-3 w-3" />}
+                    {branchLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <GitBranch className="h-3 w-3" />
+                    )}
                     <span>创建分支</span>
                   </button>
                   <button
@@ -1743,9 +1914,24 @@ export function SpecPanel({ className }: { className?: string }) {
                   <div className="rounded-md border border-border bg-background p-2">
                     <svg width="100%" height="80" viewBox="0 0 600 80" className="block">
                       {/* main 线 */}
-                      <line x1="20" y1="40" x2="580" y2="40" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground" />
+                      <line
+                        x1="20"
+                        y1="40"
+                        x2="580"
+                        y2="40"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        className="text-muted-foreground"
+                      />
                       <circle cx="20" cy="40" r="4" className="fill-foreground" />
-                      <text x="20" y="60" textAnchor="middle" className="fill-muted-foreground text-[10px]">main</text>
+                      <text
+                        x="20"
+                        y="60"
+                        textAnchor="middle"
+                        className="fill-muted-foreground text-[10px]"
+                      >
+                        main
+                      </text>
                       {branchesResult.branches.map((b, idx) => {
                         const x = 80 + idx * 80
                         const isActive = b.status === 'active'
@@ -1762,9 +1948,20 @@ export function SpecPanel({ className }: { className?: string }) {
                               cx={x}
                               cy={15}
                               r="4"
-                              className={isActive ? 'fill-green-500' : b.status === 'merged' ? 'fill-blue-500' : 'fill-muted-foreground'}
+                              className={
+                                isActive
+                                  ? 'fill-green-500'
+                                  : b.status === 'merged'
+                                    ? 'fill-blue-500'
+                                    : 'fill-muted-foreground'
+                              }
                             />
-                            <text x={x} y="8" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                            <text
+                              x={x}
+                              y="8"
+                              textAnchor="middle"
+                              className="fill-muted-foreground text-[9px]"
+                            >
                               {b.name.slice(0, 8)}
                             </text>
                           </g>
@@ -1778,11 +1975,19 @@ export function SpecPanel({ className }: { className?: string }) {
                 {branchesResult?.branches.length ? (
                   <div className="max-h-[35vh] space-y-1 overflow-auto rounded-md border border-border bg-background p-2">
                     {branchesResult.branches.map((b, idx) => (
-                      <div key={`${b.specId}-${b.name}-${idx}`} className="rounded-md bg-muted/40 p-2">
+                      <div
+                        key={`${b.specId}-${b.name}-${idx}`}
+                        className="rounded-md bg-muted/40 p-2"
+                      >
                         <div className="flex flex-wrap items-center gap-2">
                           <GitBranch className="h-3 w-3 text-muted-foreground" />
                           <span className="text-xs font-medium text-foreground">{b.name}</span>
-                          <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', BRANCH_STATUS_BADGE[b.status] || BRANCH_STATUS_BADGE.active)}>
+                          <span
+                            className={cn(
+                              'rounded px-1.5 py-0.5 text-[10px] font-bold',
+                              BRANCH_STATUS_BADGE[b.status] || BRANCH_STATUS_BADGE.active,
+                            )}
+                          >
                             {BRANCH_STATUS_LABEL[b.status] || b.status}
                           </span>
                           <Tooltip content={b.specId}>
@@ -1843,7 +2048,9 @@ export function SpecPanel({ className }: { className?: string }) {
                     </p>
                     <ul className="mt-1 space-y-0.5">
                       {mergeConflicts.slice(0, 10).map((c, i) => (
-                        <li key={i} className="text-[10px] text-amber-700 dark:text-amber-400">{c}</li>
+                        <li key={i} className="text-[10px] text-amber-700 dark:text-amber-400">
+                          {c}
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -1856,8 +2063,12 @@ export function SpecPanel({ className }: { className?: string }) {
                       <span className="text-xs font-medium text-foreground">
                         {branchDiffTarget} vs main
                       </span>
-                      <span className="text-[10px] text-green-600">+{branchDiffResult.addedLines}</span>
-                      <span className="text-[10px] text-red-600">-{branchDiffResult.removedLines}</span>
+                      <span className="text-[10px] text-green-600">
+                        +{branchDiffResult.addedLines}
+                      </span>
+                      <span className="text-[10px] text-red-600">
+                        -{branchDiffResult.removedLines}
+                      </span>
                     </div>
                     <pre className="mt-1 max-h-40 overflow-auto text-[10px] leading-4 font-mono">
                       {branchDiffResult.diff.split('\n').map((line, i) => {
@@ -1890,7 +2101,11 @@ export function SpecPanel({ className }: { className?: string }) {
                   <Wand2 className="h-3 w-3 text-muted-foreground" />
                   <select
                     value={requirementFormat}
-                    onChange={(e) => setRequirementFormat(e.target.value as 'text' | 'markdown' | 'image_description')}
+                    onChange={(e) =>
+                      setRequirementFormat(
+                        e.target.value as 'text' | 'markdown' | 'image_description',
+                      )
+                    }
                     className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
                     title="需求格式"
                   >
@@ -1908,7 +2123,11 @@ export function SpecPanel({ className }: { className?: string }) {
                       (genLoading || !requirementInput.trim()) && 'cursor-not-allowed opacity-60',
                     )}
                   >
-                    {genLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                    {genLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-3 w-3" />
+                    )}
                     <span>{genLoading ? '生成中' : '生成 spec 草稿'}</span>
                   </button>
                 </div>
@@ -1928,7 +2147,10 @@ export function SpecPanel({ className }: { className?: string }) {
                     {genResult.sections.length > 0 && (
                       <div className="mb-2 flex flex-wrap gap-1">
                         {genResult.sections.map((s, i) => (
-                          <span key={i} className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          <span
+                            key={i}
+                            className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                          >
                             {s.title}
                           </span>
                         ))}
@@ -1938,7 +2160,8 @@ export function SpecPanel({ className }: { className?: string }) {
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground p-2">
-                    填写需求后点击「生成 spec 草稿」,LLM 生成包含 概述 / 模块结构 / API 契约 / 数据模型 / 测试用例 的 5 章节 spec
+                    填写需求后点击「生成 spec 草稿」,LLM 生成包含 概述 / 模块结构 / API 契约 /
+                    数据模型 / 测试用例 的 5 章节 spec
                   </p>
                 )}
               </div>
