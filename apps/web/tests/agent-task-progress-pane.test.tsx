@@ -41,6 +41,8 @@ vi.mock('lucide-react', () => ({
   Search: IconSpan,
   Terminal: IconSpan,
   TerminalSquare: IconSpan,
+  ChevronsUpDown: IconSpan,
+  ChevronsDownUp: IconSpan,
   Activity: IconSpan,
   CheckCircle2: IconSpan,
   XCircle: IconSpan,
@@ -278,6 +280,15 @@ describe('AgentTaskProgressPane — v6.1 popover 渲染', () => {
     expect(useAgentProgressPaneStore.getState().pinned).toBe(false)
   })
 
+  it('v9 展开全部/折叠全部按钮存在且可点击', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    render(<AgentTaskProgressPane />)
+    const expandBtn = screen.getByTestId('pane-expand-all')
+    expect(expandBtn).toBeTruthy()
+    fireEvent.click(expandBtn)
+    expect(useAgentProgressPaneStore.getState().open).toBe(true)
+  })
+
   it('pinned=true 时 Esc 不关闭(避免误操作)', () => {
     useAgentProgressPaneStore.getState().openPane()
     // 默认 pinned=true
@@ -393,6 +404,41 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     // v8:参数预览(basename)
     expect(container.textContent).toContain('Button.tsx')
     expect(container.textContent).toContain('utils.ts')
+  })
+
+  it('ToolCallsSection — v9 搜索过滤(工具数量>5时显示搜索框)', () => {
+    const tools: AgentToolCall[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `t${i}`,
+      toolName: i % 2 === 0 ? 'read_file' : 'search',
+      args: i % 2 === 0 ? { file_path: `src/File${i}.tsx` } : { query: `keyword${i}` },
+      status: 'success' as const,
+      startedAt: '2026-01-01T00:00:00Z',
+    }))
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const btn = container.querySelector('button')
+    fireEvent.click(btn!)
+    const searchInput = screen.getByTestId('tool-search-input')
+    expect(searchInput).toBeTruthy()
+    // 输入搜索关键词,过滤掉 search 工具
+    fireEvent.change(searchInput, { target: { value: 'read_file' } })
+    // 验证过滤生效(search 工具的 keyword 参数不显示)
+    expect(container.textContent).not.toContain('keyword')
+  })
+
+  it('ToolCallsSection — v9 搜索无匹配时显示"无匹配结果"', () => {
+    const tools: AgentToolCall[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `t${i}`,
+      toolName: 'read_file',
+      args: { file_path: `src/File${i}.tsx` },
+      status: 'success' as const,
+      startedAt: '2026-01-01T00:00:00Z',
+    }))
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const btn = container.querySelector('button')
+    fireEvent.click(btn!)
+    const searchInput = screen.getByTestId('tool-search-input')
+    fireEvent.change(searchInput, { target: { value: 'nonexistent_tool' } })
+    expect(container.textContent).toContain('无匹配结果')
   })
 
   it('SubagentSection — 无子代理时不渲染', () => {
