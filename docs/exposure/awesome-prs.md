@@ -4,6 +4,11 @@
 >
 > Purpose: Track IHUI-AI submissions to high-quality curated lists (Awesome-style) to build organic backlinks and discoverability.
 
+## 🎉 Latest: v1.1.0 released!
+
+- 🔗 [Release v1.1.0](https://github.com/IHUI-INF-AI/IHUI-AI/releases/tag/v1.1.0) — 5 Awesome PRs + 10 blog posts × 5 languages + 204 commits
+- 🔗 [Announcement Discussion #20](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/20)
+
 ## Active PRs
 
 | # | Target List | Stars | PR | Section | Status | Notes |
