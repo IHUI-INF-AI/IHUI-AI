@@ -24,8 +24,6 @@ import { ComingSoonPage } from './pages/ComingSoonPage'
 import DashboardPage from './pages/DashboardPage'
 import NotificationsPage from './pages/NotificationsPage'
 import FavoritesPage from './pages/FavoritesPage'
-import PointsPage from './pages/PointsPage'
-import VipPage from './pages/VipPage'
 import ArticlesPage from './pages/ArticlesPage'
 import NewsPage from './pages/NewsPage'
 import AnnouncementsPage from './pages/AnnouncementsPage'
@@ -35,7 +33,6 @@ import ImageGenPage from './pages/ImageGenPage'
 import MemoryPage from './pages/MemoryPage'
 // 阶段 4-5 实现的页面(2026-07-25)
 import MessagesPage from './pages/MessagesPage'
-import FollowingPage from './pages/FollowingPage'
 import AiNewsPage from './pages/AiNewsPage'
 import ModelsPage from './pages/ModelsPage'
 import ChatHistoryPage from './pages/ChatHistoryPage'
@@ -45,10 +42,6 @@ import PlazaPage from './pages/PlazaPage'
 import CirclesPage from './pages/CirclesPage'
 import TopicsPage from './pages/TopicsPage'
 import AsksPage from './pages/AsksPage'
-import FansPage from './pages/FansPage'
-import MemberPage from './pages/MemberPage'
-import DistributionPage from './pages/DistributionPage'
-import InvitationsPage from './pages/InvitationsPage'
 
 const WEB_BASE = 'https://ihui.ai'
 
@@ -297,23 +290,93 @@ export default function SidepanelApp() {
           <Route path="/me/notifications" element={<NotificationsPage />} />
           <Route path="/me/messages" element={<MessagesPage />} />
           <Route path="/me/favorites" element={<FavoritesPage />} />
-          <Route path="/me/following" element={<FollowingPage />} />
-          <Route path="/me/fans" element={<FansPage />} />
-          <Route path="/me/points" element={<PointsPage />} />
-          <Route path="/me/vip" element={<VipPage />} />
-          <Route path="/me/member" element={<MemberPage />} />
-          <Route path="/me/distribution" element={<DistributionPage />} />
-          <Route path="/me/invitations" element={<InvitationsPage />} />
+          <Route
+            path="/me/following"
+            element={
+              <ComingSoonPage
+                mode="open_in_web"
+                titleKey="apps.following"
+                webUrl={`${WEB_BASE}/following`}
+              />
+            }
+          />
+          <Route
+            path="/me/fans"
+            element={
+              <ComingSoonPage mode="open_in_web" titleKey="apps.fans" webUrl={`${WEB_BASE}/fans`} />
+            }
+          />
+          <Route
+            path="/me/points"
+            element={
+              <ComingSoonPage
+                mode="open_in_web"
+                titleKey="apps.points"
+                webUrl={`${WEB_BASE}/points`}
+              />
+            }
+          />
+          <Route
+            path="/me/vip"
+            element={
+              <ComingSoonPage mode="open_in_web" titleKey="apps.vip" webUrl={`${WEB_BASE}/vip`} />
+            }
+          />
+          <Route
+            path="/me/member"
+            element={
+              <ComingSoonPage
+                mode="open_in_web"
+                titleKey="apps.member"
+                webUrl={`${WEB_BASE}/member`}
+              />
+            }
+          />
+          <Route
+            path="/me/distribution"
+            element={
+              <ComingSoonPage
+                mode="open_in_web"
+                titleKey="apps.distribution"
+                webUrl={`${WEB_BASE}/distribution`}
+              />
+            }
+          />
+          <Route
+            path="/me/invitations"
+            element={
+              <ComingSoonPage
+                mode="open_in_web"
+                titleKey="apps.invitations"
+                webUrl={`${WEB_BASE}/invitations`}
+              />
+            }
+          />
           <Route path="/me/profile" element={<ProfilePage />} />
           <Route path="/me/wallet" element={<WalletPage />} />
           <Route path="/me/orders" element={<OrderPage />} />
           {/* 设置 */}
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/settings/about" element={<ComingSoonPage titleKey="apps.about" webUrl={`${WEB_BASE}/about`} />} />
-          <Route path="/settings/contact" element={<ComingSoonPage titleKey="apps.contact" webUrl={`${WEB_BASE}/contact`} />} />
-          <Route path="/settings/help" element={<ComingSoonPage titleKey="apps.help" webUrl={`${WEB_BASE}/help`} />} />
-          <Route path="/settings/agreement" element={<ComingSoonPage titleKey="apps.agreement" webUrl={`${WEB_BASE}/agreement`} />} />
-          <Route path="/settings/pricing" element={<ComingSoonPage titleKey="apps.pricing" webUrl={`${WEB_BASE}/pricing`} />} />
+          <Route
+            path="/settings/about"
+            element={<ComingSoonPage titleKey="apps.about" webUrl={`${WEB_BASE}/about`} />}
+          />
+          <Route
+            path="/settings/contact"
+            element={<ComingSoonPage titleKey="apps.contact" webUrl={`${WEB_BASE}/contact`} />}
+          />
+          <Route
+            path="/settings/help"
+            element={<ComingSoonPage titleKey="apps.help" webUrl={`${WEB_BASE}/help`} />}
+          />
+          <Route
+            path="/settings/agreement"
+            element={<ComingSoonPage titleKey="apps.agreement" webUrl={`${WEB_BASE}/agreement`} />}
+          />
+          <Route
+            path="/settings/pricing"
+            element={<ComingSoonPage titleKey="apps.pricing" webUrl={`${WEB_BASE}/pricing`} />}
+          />
           {/* 旧路由兼容重定向 */}
           <Route path="/agents" element={<Navigate to="/ai/agents" replace />} />
           <Route path="/agents/:id" element={<Navigate to="/ai/agents/:id" replace />} />
