@@ -19,3 +19,5 @@ export const WEB_BASE = 'https://ihui.ai'
  * @see ./constants/error-codes.ts
  */
 export * from './constants/error-codes'
+
+export * from './constants/theme'
