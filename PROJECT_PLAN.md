@@ -144,7 +144,7 @@
 
 #### P0-2 订阅档位扩展 + plan-driven 中间件
 
-- [ ] **P0-2a VIP levelValue 4 档扩展** — `packages/database/src/schema/vip.ts` levelValue 从 3 档(0/1/2)扩展为 4 档(0=免费/1=个人/2=团队/3=企业)+ 各档配额字段(aiBudgets 默认值 + API QPS + 并发数 + 模型白名单)+ 迁移脚本
+- [x] ✅(2026-07-28) **P0-2a VIP levelValue 4 档扩展** — `packages/database/src/schema/vip.ts` levelValue 注释从"0=普通 1=VIP 2=操盘手"扩展为"0=免费 1=个人 2=团队 3=企业" + 4 个配额字段:`aiBudgetDefaults`(jsonb 默认 {dailyTokenLimit:10万, monthlyTokenLimit:100万, dailyCostLimit:10, monthlyCostLimit:100})+ `apiQps`(int 默认 10) + `maxConcurrency`(int 默认 3) + `modelWhitelist`(jsonb nullable,null=全部允许) + 迁移脚本 `drizzle/20260728120000_vip_levels_quota_fields.sql`(4 条 ALTER TABLE ADD COLUMN IF NOT EXISTS,幂等可重复执行) + database/api typecheck 全绿。P0-2b plan-driven 中间件将读取这些字段在订阅激活时 upsert aiBudgets
 - [ ] **P0-2b plan-driven 中间件** — 新建 `apps/api/src/services/plan-entitlement-service.ts`:订阅激活时自动 upsert aiBudgets(按 plan 默认值)+ API key 配额;用户升级/降级时自动调整;集成到 `activateOrderSubscription` 链路
 
 #### P0-3 模型价格 seed + 定价页
