@@ -138,7 +138,7 @@ export const OverviewSection = React.memo(function OverviewSection({
             {STATUS_LABEL[overview.status]}
           </span>
           {overview.error && (
-            <span className="flex-1 break-all text-[10px] text-red-500/70" title={overview.error}>
+            <span className="flex-1 break-all text-[10px] text-red-500/80" title={overview.error}>
               {overview.error}
             </span>
           )}
@@ -146,7 +146,7 @@ export const OverviewSection = React.memo(function OverviewSection({
         {/* 统计行 */}
         {stats.map((s) => (
           <div key={s.label} className="flex items-center gap-1.5">
-            <span className="w-8 shrink-0 text-[10px] text-muted-foreground/40">{s.label}</span>
+            <span className="w-8 shrink-0 text-[10px] text-muted-foreground/60">{s.label}</span>
             <span className={cn('flex-1 break-all text-muted-foreground tabular-nums', s.cls)}>
               {s.value}
             </span>
