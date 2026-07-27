@@ -330,6 +330,26 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 36 (2026-07-27 新增,miniapp-taro token 同步守门,防 app.css 与 tokens.css 漂移) ---
+  // blocking:Taro 4 + Tailwind v3 不兼容 v4 @theme 语法,app.css 由 sync-design-tokens.mjs
+  //   自动生成 :root/.dark 块。若手动编辑 app.css 或 tokens.css 改后未运行 sync 脚本,
+  //   会导致 miniapp-taro 视觉与 web 端不一致。本守门在 pre-commit 校验,发现漂移阻塞 commit。
+  // 失败含义:app.css 的 --color-* 变量与 tokens.css 不一致,需运行:
+  //   pnpm --filter @ihui/miniapp-taro sync-tokens 重新同步后重新 commit。
+  {
+    id: '36',
+    label: '🎨 [miniapp-taro] design-tokens 同步(防 app.css 漂移)',
+    script: 'check-miniapp-tokens-sync.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/miniapp-taro/src/app.css 的 --color-* 变量与 packages/design-tokens/src/styles/tokens.css 不一致,',
+      '     修复:pnpm --filter @ihui/miniapp-taro sync-tokens',
+      '     然后重新 git add apps/miniapp-taro/src/app.css 并 commit',
+      '',
+    ].join('\n'),
+  },
   {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',
