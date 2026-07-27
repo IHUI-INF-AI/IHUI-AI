@@ -1,23 +1,18 @@
 // formatFileSize/formatPrice/formatMoney/formatPhone 复用 @ihui/shared/utils/format(单一来源)
 export { formatFileSize, formatPrice, formatMoney, formatPhone } from '@ihui/shared/utils/format'
 
-// formatDate/relativeTime 保留本地实现:miniapp-taro 使用 format 模板参数,与 shared 的 locale 参数签名不同
+// formatDate 复用 @ihui/shared/utils/date-utils 的 formatDateByTemplate(单一来源)
+// 底层用 Intl.DateTimeFormat + Asia/Shanghai 时区(AGENTS.md §4),保持 format 模板签名不变
+import { formatDateByTemplate } from '@ihui/shared/utils/date-utils'
 export function formatDate(date: Date | number | string, format = 'YYYY-MM-DD HH:mm:ss'): string {
-  const d = new Date(date)
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  const hours = String(d.getHours()).padStart(2, '0')
-  const minutes = String(d.getMinutes()).padStart(2, '0')
-  const seconds = String(d.getSeconds()).padStart(2, '0')
+  return formatDateByTemplate(date, format)
+}
 
-  return format
-    .replace('YYYY', String(year))
-    .replace('MM', month)
-    .replace('DD', day)
-    .replace('HH', hours)
-    .replace('mm', minutes)
-    .replace('ss', seconds)
+// relativeTime 复用 @ihui/shared/utils/date-utils 的 formatRelativeTime(单一来源)
+// 底层用 Intl.RelativeTimeFormat(zh-CN),输出 "3分钟前" 等标准格式
+import { formatRelativeTime } from '@ihui/shared/utils/date-utils'
+export function relativeTime(date: Date | number | string): string {
+  return formatRelativeTime(date, 'zh-CN')
 }
 
 export function nowDate(): string {
@@ -34,24 +29,6 @@ export function formatFullTime(timestamp: number): string {
 
 export function getYMD(date: Date): string {
   return formatDate(date, 'YYYY-MM-DD')
-}
-
-export function relativeTime(date: Date | number | string): string {
-  const d = new Date(date)
-  const now = Date.now()
-  const diff = now - d.getTime()
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-
-  if (seconds < 60) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-  if (days < 30) return `${Math.floor(days / 7)}周前`
-  if (days < 365) return `${Math.floor(days / 30)}个月前`
-  return `${Math.floor(days / 365)}年前`
 }
 
 export function formatTokenValue(value: number | string): string {
