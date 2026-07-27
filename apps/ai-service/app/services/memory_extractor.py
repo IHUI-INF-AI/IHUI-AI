@@ -181,7 +181,8 @@ class MemoryExtractor:
             )
             content = str(resp.get("content", "")) if isinstance(resp, dict) else ""
             return self._parse_extract_output(content)
-        except Exception:
+        except Exception as e:
+            logger.warning("memory_extractor._llm_extract LLM 提取失败: %s", e, exc_info=True)
             return []
 
     @staticmethod
