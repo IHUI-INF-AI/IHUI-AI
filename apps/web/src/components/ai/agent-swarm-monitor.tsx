@@ -6,6 +6,7 @@ import { RefreshCw, AlertCircle, List, Network } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
+import { formatTimeOnly } from '@/lib/date-utils'
 import { SwarmTopologyView } from '@/components/ai/swarm-topology-view'
 import type { SwarmData, SwarmPerformanceMetrics, AgentStatus } from './types'
 
@@ -221,7 +222,7 @@ export function AgentSwarmMonitor({
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{r.step_action}</span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(r.created_at).toLocaleTimeString()}
+                          {formatTimeOnly(r.created_at)}
                         </span>
                       </div>
                       {r.result && <p className="mt-1 text-xs text-muted-foreground">{r.result}</p>}
