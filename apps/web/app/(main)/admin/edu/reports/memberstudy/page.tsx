@@ -3,7 +3,15 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, ChevronLeft, ChevronRight, BarChart3, BookOpen, CheckCircle, Clock } from 'lucide-react'
+import {
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  BarChart3,
+  BookOpen,
+  CheckCircle,
+  Clock,
+} from 'lucide-react'
 
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
@@ -59,11 +67,16 @@ export default function EduReportsMemberStudyPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const totalCourses = rows.reduce((a: any, r: any) => a + r.courseCount, 0)
-  const totalCompleted = rows.reduce((a: any, r: any) => a + r.completedCount, 0)
-  const totalHours = rows.reduce((a: any, r: any) => a + r.studyHours, 0)
+  const totalCourses = rows.reduce((a, r) => a + r.courseCount, 0)
+  const totalCompleted = rows.reduce((a, r) => a + r.completedCount, 0)
+  const totalHours = rows.reduce((a, r) => a + r.studyHours, 0)
   const noEndpoint = isNotFound(error)
-  const dateFmt = new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
   return (
     <div className="space-y-4">
@@ -163,9 +176,11 @@ export default function EduReportsMemberStudyPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r: any) => (
+              rows.map((r) => (
                 <TableRow key={r.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-medium">{r.userName ?? r.userId.slice(0, 8)}</TableCell>
+                  <TableCell className="px-4 py-2.5 font-medium">
+                    {r.userName ?? r.userId.slice(0, 8)}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5">{r.courseCount}</TableCell>
                   <TableCell className="px-4 py-2.5 text-emerald-600">{r.completedCount}</TableCell>
                   <TableCell className="px-4 py-2.5">{r.studyHours.toFixed(1)}h</TableCell>
@@ -182,11 +197,23 @@ export default function EduReportsMemberStudyPage() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

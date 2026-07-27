@@ -8,7 +8,15 @@ import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, ShieldCheck, Check, X } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 
 interface Applicant {
   id: string
@@ -43,7 +51,7 @@ export default function EduTeacherReviewPage() {
         method: 'POST',
         body: JSON.stringify({ approved }),
       }),
-    onSuccess: (_d: any, vars: any) => {
+    onSuccess: (_d, vars) => {
       toast.success(vars.approved ? t('approveSuccess') : t('rejectSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'teacher', 'review'] })
     },
@@ -103,7 +111,7 @@ export default function EduTeacherReviewPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((a: any) => (
+              rows.map((a) => (
                 <TableRow key={a.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{a.nickname}</div>
