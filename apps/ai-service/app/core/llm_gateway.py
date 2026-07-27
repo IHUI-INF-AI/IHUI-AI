@@ -1025,6 +1025,13 @@ class LLMGateway:
         else:
             api_key, api_base, real_model = await self._resolve(used_model, owner_uuid)
 
+        # 累积 content/reasoning,用于 provider 不返回 stream_usage 时估算 token
+        # 必须在 try 块之前初始化:若 try 内 import/raise 在赋值前抛异常,
+        # except 块需引用 accumulated_content 判断是否已发送 chunk(决定是否 fallback)
+        # (2026-07-27 修复 UnboundLocalError:之前在 try 内 line 1048 赋值,
+        #  litellm import 失败或 api_key 校验 raise 时 except 引用未定义变量)
+        accumulated_content = ""
+        accumulated_reasoning = ""
         try:
             import litellm
 
@@ -1042,11 +1049,6 @@ class LLMGateway:
             if api_base:
                 call_kwargs["api_base"] = api_base
             call_kwargs.update(kwargs)
-            # 累积 content/reasoning,用于 provider 不返回 stream_usage 时估算 token
-            # 必须在 litellm.acompletion 之前初始化:若 acompletion 抛异常,
-            # except 块需引用 accumulated_content 判断是否已发送 chunk(决定是否 fallback)
-            accumulated_content = ""
-            accumulated_reasoning = ""
             response = await litellm.acompletion(**call_kwargs)
             final_model = used_model
             final_usage: dict[str, Any] = {}
