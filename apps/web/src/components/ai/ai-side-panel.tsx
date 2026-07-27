@@ -19,6 +19,7 @@ import {
 } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
+import { AgentTaskProgressPane } from '@/components/ai/agent-task-progress-pane'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
@@ -664,8 +665,8 @@ export function AISidePanel() {
             </Tooltip>
           </header>
 
-          {/* 消息区 */}
-          <div className="min-h-0 flex-1">
+          {/* 消息区(v6.3:加 relative 让 popover 可定位到本容器右上角) */}
+          <div className="relative min-h-0 flex-1">
             <MessageList
               messages={messages}
               isStreaming={isStreaming}
@@ -681,6 +682,9 @@ export function AISidePanel() {
                 useChatStore.setState({ draftInput: content })
               }}
             />
+            {/* Agent 任务进度 popover(v6.3:固定在消息区右上角,带间距;
+                由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store) */}
+            <AgentTaskProgressPane />
           </div>
 
           {/* Sub-agent 活动流:多 agent 多路复用时按 agentId 分流实时显示 token 输出。
