@@ -271,12 +271,13 @@ describe('zh-TW 专用规则 — 繁体字形匹配 + brands/fonts 子集', () =
   test('--locale=zh-TW:简体 key 转繁体后匹配(value 是繁体字形)', () => {
     // brand-glossary.json key 是简体"智谱清言",zh-TW value 是繁体"智譜清言"
     // 脚本用 OpenCC 转换 key 为繁体"智譜清言"后再匹配
+    // 字面量替换:"智譜清言" → "Zhipu AI"(无额外空格,split/join 语义)
     const root = createTempProject()
     try {
       writeLocale(root, 'zh-TW', { title: '歡迎使用智譜清言' })
       const r = runScript(['--locale=zh-TW'], { cwd: root })
       assert.equal(r.status, 0, `zh-TW 处理应 exit 0,实际 ${r.status}`)
-      assert.equal(readLocale(root, 'zh-TW').title, '歡迎使用 Zhipu AI')
+      assert.equal(readLocale(root, 'zh-TW').title, '歡迎使用Zhipu AI')
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }
