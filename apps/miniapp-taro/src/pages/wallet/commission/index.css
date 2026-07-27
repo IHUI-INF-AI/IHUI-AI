@@ -12,7 +12,7 @@
   flex: 1;
   padding: 24rpx 12rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   text-align: center;
 }
@@ -25,7 +25,7 @@
   display: block;
   font-size: 30rpx;
   font-weight: 700;
-  color: #00f2ff;
+  color: var(--color-primary);
   margin-top: 8rpx;
 }
 .wc-list-section {
@@ -88,8 +88,8 @@
   bottom: 32rpx;
   left: 32rpx;
   right: 32rpx;
-  background: #00f2ff;
-  color: #1a1a2e;
+  background: var(--color-primary);
+  color: var(--color-background);
   border-radius: 12rpx;
   font-size: 32rpx;
   font-weight: 700;

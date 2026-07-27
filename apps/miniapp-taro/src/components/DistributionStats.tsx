@@ -41,7 +41,7 @@ export default function DistributionStats({
           <Text className="text-xs text-muted-foreground">{tt('distribution.monthRevenue', '本月收益')}</Text>
           <Text className="text-xs text-muted-foreground">{tt('distribution.monthlyTarget', '目标')} ¥{monthlyTarget}</Text>
         </View>
-        <ProgressBar percent={monthlyPercent} color="#00f2ff" height={6} />
+        <ProgressBar percent={monthlyPercent} color="var(--color-primary)" height={6} />
       </View>
 
       <View className="grid grid-cols-3 gap-2 pt-3">
