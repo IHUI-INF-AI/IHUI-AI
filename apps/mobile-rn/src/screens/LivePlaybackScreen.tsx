@@ -6,24 +6,10 @@ import { getLiveList, type Live } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatDateByTemplate } from '../utils/date-utils'
 
 import { Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return '—'
-  }
-}
 
 function durationText(start: string, end: string | null): string {
   if (!end) return '—'
@@ -138,7 +124,7 @@ export function LivePlaybackScreen() {
               </Text>
             ) : null}
             <Text style={styles.cardMeta}>
-              {t('livePlayback.startAt')}:{formatDateTime(item.startTime)}
+              {t('livePlayback.startAt')}:{formatDateByTemplate(item.startTime, 'YYYY-MM-DD HH:mm') || '—'}
             </Text>
             <View style={styles.cardMetaRow}>
               <Text style={styles.cardMetaText}>

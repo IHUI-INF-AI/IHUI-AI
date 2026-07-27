@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
+import { formatShortDateWithYear } from '../utils/date-utils'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -25,14 +26,6 @@ interface Activity {
   endTime: string
   status: ActivityStatus
   participants: number
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
 }
 
 function statusColor(status: ActivityStatus): string {
@@ -117,10 +110,10 @@ export function ActivityScreen() {
               {item.description}
             </Text>
             <Text style={styles.meta}>
-              {t('activity.startTime')}: {formatDate(item.startTime)}
+              {t('activity.startTime')}: {formatShortDateWithYear(item.startTime)}
             </Text>
             <Text style={styles.meta}>
-              {t('activity.endTime')}: {formatDate(item.endTime)}
+              {t('activity.endTime')}: {formatShortDateWithYear(item.endTime)}
             </Text>
             <Text style={styles.meta}>
               {t('activity.participants')}: {item.participants}
