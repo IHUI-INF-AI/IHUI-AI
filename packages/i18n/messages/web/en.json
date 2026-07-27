@@ -816,6 +816,13 @@
                                     "shortcutsItemSlashAskKbd":  "Switch to Ask mode",
                                     "shortcutsItemSlashAutoKbd":  "Switch to Auto mode",
                                     "shortcutsItemSlashFullKbd":  "Switch to Full mode",
+                                    "shortcutsSectionChatMode":  "Chat Mode Switch",
+                                    "shortcutsItemChatModeDesc":  "Switch between Build/Plan/Review/Spec 4 chat modes",
+                                    "shortcutsItemModeBuildKbd":  "Switch to Build mode (normal execution, all tools enabled)",
+                                    "shortcutsItemModePlanKbd":  "Switch to Plan mode (read-only analysis, deny write tools)",
+                                    "shortcutsItemModeReviewKbd":  "Switch to Review mode (read-only review + enhanced review prompt)",
+                                    "shortcutsItemModeSpecKbd":  "Switch to Spec mode (reverse-generate spec docs from code)",
+                                    "shortcutsItemModeCmdHint":  "You can also type /build /plan /review /spec slash commands",
                                     "shortcutsLearnMore":  "Learn more about security design",
                                     "infoButtonLabel":  "View mode details",
                                     "infoButtonTitle":  "Detailed behavior of the current mode",
@@ -845,8 +852,25 @@
                                 },
                  "modePlan":  "Plan",
                  "modeAct":  "Act",
+                 "modeBuild":  "Build",
+                 "modeReview":  "Review",
+                 "modeSpec":  "Spec",
                  "planTooltip":  "Plan: AI plans only, no tool execution (Alt+P toggle / type /plan)",
-                 "actTooltip":  "Act: AI runs tools normally (Alt+P toggle / type /act)"
+                 "actTooltip":  "Act: AI runs tools normally (Alt+P toggle / type /act)",
+                 "modeBuildTooltip":  "Build mode · Ctrl+1 or /build",
+                 "modePlanTooltip":  "Plan mode (read-only analysis) · Ctrl+2 or /plan",
+                 "modeReviewTooltip":  "Review mode (read-only review) · Ctrl+3 or /review",
+                 "modeSpecTooltip":  "Spec mode (generate spec docs) · Ctrl+4 or /spec",
+                 "modeBuildToast":  "Switched to Build mode",
+                 "modePlanToast":  "Switched to Plan mode (read-only analysis)",
+                 "modeReviewToast":  "Switched to Review mode (read-only review)",
+                 "modeSpecToast":  "Switched to Spec mode (generate spec docs)",
+                 "modeAlreadyActive":  "Already in {mode} mode",
+                 "modeSwitched":  "Switched to {mode} mode",
+                 "modeBuildDesc":  "AI will execute normally with all tools enabled (Ctrl+1 to switch)",
+                 "modePlanDesc":  "AI will only plan, not execute tools (Ctrl+2 to switch)",
+                 "modeReviewDesc":  "AI will review code read-only (Ctrl+3 to switch)",
+                 "modeSpecDesc":  "AI will reverse-generate spec docs from code (Ctrl+4 to switch)"
              },
     "learn":  {
                   "title":  "Learning Center",
@@ -9629,7 +9653,113 @@
                                     "coordinated":  "Coordinated {count} sub-agents to complete",
                                     "totalSteps":  "({count} steps total)",
                                     "working":  "{count} sub-agents collaborating"
-                                }
+                                },
+               "progressPane":  {
+                                   "title":  "Task Plan",
+                                   "ariaLabel":  "Agent Task Progress Panel",
+                                   "pin":  "Pin",
+                                   "unpin":  "Unpin",
+                                   "minimize":  "Minimize",
+                                   "expandAll":  "Expand All",
+                                   "collapseAll":  "Collapse All",
+                                   "reconnecting":  "SSE disconnected, reconnecting (attempt {n}/5)",
+                                   "stepInProgress":  "Step {n}: {step} (in progress)",
+                                   "stepCompleted":  "Step {n}: {step} (completed)",
+                                   "stepPending":  "Step {n}: {step} (pending)",
+                                   "toolCallsCount":  "{n} tool calls",
+                                   "copy":  "Copy",
+                                   "copied":  "Copied",
+                                   "relativeTime":  {
+                                                       "justNow":  "just now",
+                                                       "secondsAgo":  "{n}s ago",
+                                                       "minutesAgo":  "{n}m ago",
+                                                       "hoursAgo":  "{n}h ago",
+                                                       "daysAgo":  "{n}d ago"
+                                                   },
+                                   "changes":  {
+                                                  "title":  "File Changes",
+                                                  "oldContent":  "Original",
+                                                  "copyOldContent":  "Copy original",
+                                                  "newFile":  "New File",
+                                                  "newContent":  "New Content",
+                                                  "copyNewContent":  "Copy new content",
+                                                  "added":  "Added {n}",
+                                                  "modified":  "Modified {n}",
+                                                  "moreItems":  "…{n} more"
+                                              },
+                                   "terminal":  {
+                                                  "title":  "Terminal Tasks",
+                                                  "output":  "Output",
+                                                  "copyOutput":  "Copy terminal output",
+                                                  "running":  "{n} running",
+                                                  "failed":  "{n} failed",
+                                                  "moreItems":  "…{n} more"
+                                              },
+                                   "tools":  {
+                                                "title":  "Tool Calls",
+                                                "categoryRead":  "Read",
+                                                "categorySearch":  "Search",
+                                                "categoryWrite":  "Edit",
+                                                "categoryExec":  "Execute",
+                                                "categoryOther":  "Other",
+                                                "args":  "Args",
+                                                "copyArgs":  "Copy args",
+                                                "result":  "Result",
+                                                "copyResult":  "Copy result",
+                                                "error":  "Error",
+                                                "copyError":  "Copy error",
+                                                "filterAll":  "All",
+                                                "filterRunning":  "Running",
+                                                "filterSuccess":  "Success",
+                                                "filterError":  "Failed",
+                                                "searchPlaceholder":  "Search tools...",
+                                                "moreItems":  "…{n} more",
+                                                "noMatch":  "No matches"
+                                            },
+                                   "subagent":  {
+                                                  "title":  "Subagent Dispatch",
+                                                  "statusSpawned":  "Dispatched",
+                                                  "statusRunning":  "Running",
+                                                  "statusDone":  "Completed",
+                                                  "statusFailed":  "Failed",
+                                                  "statusDead":  "Dead",
+                                                  "toolCallsTitle":  "{n} tool calls",
+                                                  "toolCallsCount":  "{n}",
+                                                  "state":  "State:",
+                                                  "role":  "Role:",
+                                                  "pendingApproval":  "Pending Approval",
+                                                  "startedAt":  "Started:",
+                                                  "endedAt":  "Ended:",
+                                                  "duration":  "Duration:",
+                                                  "copyThreadId":  "Copy threadId",
+                                                  "toolsCount":  "Tool Calls ({n})",
+                                                  "active":  "{n} active",
+                                                  "done":  "{n} done",
+                                                  "failed":  "{n} failed"
+                                              },
+                                   "overview":  {
+                                                  "title":  "Task Overview",
+                                                  "statusIdle":  "Idle",
+                                                  "statusRunning":  "Running",
+                                                  "statusCompleted":  "Completed",
+                                                  "statusFailed":  "Failed",
+                                                  "statusInterrupted":  "Interrupted",
+                                                  "steps":  "Steps",
+                                                  "subagents":  "Subagents",
+                                                  "active":  "active",
+                                                  "total":  "total",
+                                                  "dead":  "dead",
+                                                  "terminals":  "Terminals",
+                                                  "running":  "running",
+                                                  "changes":  "Changes",
+                                                  "files":  "files",
+                                                  "duration":  "Duration",
+                                                  "token":  "Token",
+                                                  "rate":  "Rate",
+                                                  "eta":  "ETA",
+                                                  "context":  "Context"
+                                              }
+                               }
            },
     "developer":  {
                       "settings":  {
@@ -10703,6 +10833,35 @@
                                           "openSourceDesc":  "Core code open-sourced under Apache 2.0, business-friendly, forever available"
                                       }
                     },
+    "modelsPricingPage":  {
+                              "hero":  {
+                                          "badge":  "Transparent Pricing",
+                                          "title":  "176 LLM Pricing Table",
+                                          "subtitle":  "Official prices from OpenAI, Anthropic, Google, DeepSeek, Qwen, Zhipu, Doubao, Kimi and more, synced in real time"
+                                      },
+                              "loading":  "Loading...",
+                              "empty":  "No matching models found",
+                              "search":  {
+                                             "placeholder":  "Search model ID, e.g. gpt-4o, claude-3-5-sonnet",
+                                             "resultCount":  "{count} models found"
+                                         },
+                              "vendor":  {
+                                             "all":  "All vendors"
+                                         },
+                              "stats":  {
+                                            "totalModels":  "Total models",
+                                            "totalVendors":  "Vendors",
+                                            "cheapest":  "Cheapest",
+                                            "mostExpensive":  "Most expensive"
+                                        },
+                              "note":  {
+                                          "title":  "Pricing Notes",
+                                          "unit":  "Unit: CNY per 1M tokens, aligned with vendor official pricing",
+                                          "region":  "Region multiplier: cn=1.0 baseline, us/eu coefficients reflect cross-border bandwidth and compliance costs",
+                                          "discount":  "Discount badge: green percentage indicates bulk usage discount, requires minTokens threshold",
+                                          "update":  "Pricing data imported from vendor official price lists via seed script, see effectiveAt for update date"
+                                      }
+                          },
     "enterpriseTools":  {
                             "sectionLabel":  "Enterprise AI Tools Overview",
                             "title":  "From General AI Tools to Industry-Specific Agents",

@@ -797,6 +797,13 @@
                                     "shortcutsItemSlashAskKbd":  "切换到请求批准",
                                     "shortcutsItemSlashAutoKbd":  "切换到替我审批",
                                     "shortcutsItemSlashFullKbd":  "切换到完全访问",
+                                    "shortcutsSectionChatMode":  "对话模式切换",
+                                    "shortcutsItemChatModeDesc":  "切换构建/计划/审查/规格 4 种对话模式",
+                                    "shortcutsItemModeBuildKbd":  "切换到构建模式(正常执行,全工具开放)",
+                                    "shortcutsItemModePlanKbd":  "切换到计划模式(只读分析,deny write 工具)",
+                                    "shortcutsItemModeReviewKbd":  "切换到审查模式(只读审查 + 强化审查 prompt)",
+                                    "shortcutsItemModeSpecKbd":  "切换到规格模式(从代码反向生成 spec 文档)",
+                                    "shortcutsItemModeCmdHint":  "也可输入 /build /plan /review /spec 斜杠命令切换",
                                     "shortcutsLearnMore":  "了解更多安全设计",
                                     "infoButtonLabel":  "查看模式说明",
                                     "infoButtonTitle":  "当前模式的详细行为",
@@ -826,8 +833,25 @@
                                 },
                  "modePlan":  "规划",
                  "modeAct":  "执行",
+                 "modeBuild":  "构建",
+                 "modeReview":  "审查",
+                 "modeSpec":  "规格",
                  "planTooltip":  "Plan:AI 只制定计划,不执行工具(Alt+P 切换 / 输入 /plan)",
-                 "actTooltip":  "Act:AI 正常执行工具(Alt+P 切换 / 输入 /act)"
+                 "actTooltip":  "Act:AI 正常执行工具(Alt+P 切换 / 输入 /act)",
+                 "modeBuildTooltip":  "构建模式 · Ctrl+1 或 /build",
+                 "modePlanTooltip":  "计划模式(只读分析) · Ctrl+2 或 /plan",
+                 "modeReviewTooltip":  "审查模式(只读审查) · Ctrl+3 或 /review",
+                 "modeSpecTooltip":  "规格模式(生成 spec 文档) · Ctrl+4 或 /spec",
+                 "modeBuildToast":  "已切换到构建模式",
+                 "modePlanToast":  "已切换到计划模式(只读分析)",
+                 "modeReviewToast":  "已切换到审查模式(只读审查)",
+                 "modeSpecToast":  "已切换到规格模式(生成 spec 文档)",
+                 "modeAlreadyActive":  "当前已是{mode}模式",
+                 "modeSwitched":  "已切换到{mode}模式",
+                 "modeBuildDesc":  "AI 将正常执行,全工具开放(Ctrl+1 可快速切换)",
+                 "modePlanDesc":  "AI 将只制定计划,不执行工具(Ctrl+2 可快速切换)",
+                 "modeReviewDesc":  "AI 将只读审查代码(Ctrl+3 可快速切换)",
+                 "modeSpecDesc":  "AI 将从代码反向生成 spec 文档(Ctrl+4 可快速切换)"
              },
     "learn":  {
                   "title":  "学习中心",
@@ -9527,7 +9551,113 @@
                                     "coordinated":  "已协调 {count} 个子智能体完成",
                                     "totalSteps":  "(共 {count} 步)",
                                     "working":  "{count} 个子智能体协作中"
-                                }
+                                },
+               "progressPane":  {
+                                   "title":  "任务计划",
+                                   "ariaLabel":  "Agent 任务进度面板",
+                                   "pin":  "置顶",
+                                   "unpin":  "取消置顶",
+                                   "minimize":  "最小化",
+                                   "expandAll":  "展开全部",
+                                   "collapseAll":  "折叠全部",
+                                   "reconnecting":  "SSE 断连,正在重连(第 {n}/5 次)",
+                                   "stepInProgress":  "步骤 {n}: {step} (进行中)",
+                                   "stepCompleted":  "步骤 {n}: {step} (已完成)",
+                                   "stepPending":  "步骤 {n}: {step} (待执行)",
+                                   "toolCallsCount":  "{n} 次工具调用",
+                                   "copy":  "复制",
+                                   "copied":  "已复制",
+                                   "relativeTime":  {
+                                                       "justNow":  "刚刚",
+                                                       "secondsAgo":  "{n}s前",
+                                                       "minutesAgo":  "{n}m前",
+                                                       "hoursAgo":  "{n}h前",
+                                                       "daysAgo":  "{n}d前"
+                                                   },
+                                   "changes":  {
+                                                  "title":  "文件变更",
+                                                  "oldContent":  "原内容",
+                                                  "copyOldContent":  "复制原内容",
+                                                  "newFile":  "新文件",
+                                                  "newContent":  "新内容",
+                                                  "copyNewContent":  "复制新内容",
+                                                  "added":  "新增 {n}",
+                                                  "modified":  "修改 {n}",
+                                                  "moreItems":  "…还有 {n} 项"
+                                              },
+                                   "terminal":  {
+                                                  "title":  "终端任务",
+                                                  "output":  "输出",
+                                                  "copyOutput":  "复制终端输出",
+                                                  "running":  "{n} 运行中",
+                                                  "failed":  "{n} 失败",
+                                                  "moreItems":  "…还有 {n} 项"
+                                              },
+                                   "tools":  {
+                                                "title":  "工具调用",
+                                                "categoryRead":  "读取",
+                                                "categorySearch":  "搜索",
+                                                "categoryWrite":  "编辑",
+                                                "categoryExec":  "执行",
+                                                "categoryOther":  "其他",
+                                                "args":  "参数",
+                                                "copyArgs":  "复制参数",
+                                                "result":  "结果",
+                                                "copyResult":  "复制结果",
+                                                "error":  "错误",
+                                                "copyError":  "复制错误信息",
+                                                "filterAll":  "全部",
+                                                "filterRunning":  "运行中",
+                                                "filterSuccess":  "成功",
+                                                "filterError":  "失败",
+                                                "searchPlaceholder":  "搜索工具...",
+                                                "moreItems":  "…还有 {n} 项",
+                                                "noMatch":  "无匹配结果"
+                                            },
+                                   "subagent":  {
+                                                  "title":  "Subagent 派单",
+                                                  "statusSpawned":  "已派发",
+                                                  "statusRunning":  "运行中",
+                                                  "statusDone":  "已完成",
+                                                  "statusFailed":  "失败",
+                                                  "statusDead":  "已死亡",
+                                                  "toolCallsTitle":  "{n} 次工具调用",
+                                                  "toolCallsCount":  "{n}次",
+                                                  "state":  "状态:",
+                                                  "role":  "角色:",
+                                                  "pendingApproval":  "待审批",
+                                                  "startedAt":  "启动:",
+                                                  "endedAt":  "结束:",
+                                                  "duration":  "耗时:",
+                                                  "copyThreadId":  "复制 threadId",
+                                                  "toolsCount":  "工具调用({n})",
+                                                  "active":  "{n} 活跃",
+                                                  "done":  "{n} 完成",
+                                                  "failed":  "{n} 失败"
+                                              },
+                                   "overview":  {
+                                                  "title":  "任务总览",
+                                                  "statusIdle":  "空闲",
+                                                  "statusRunning":  "运行中",
+                                                  "statusCompleted":  "已完成",
+                                                  "statusFailed":  "失败",
+                                                  "statusInterrupted":  "已中断",
+                                                  "steps":  "步骤",
+                                                  "subagents":  "子代理",
+                                                  "active":  "活跃",
+                                                  "total":  "总",
+                                                  "dead":  "死亡",
+                                                  "terminals":  "终端",
+                                                  "running":  "运行",
+                                                  "changes":  "变更",
+                                                  "files":  "文件",
+                                                  "duration":  "耗时",
+                                                  "token":  "Token",
+                                                  "rate":  "速率",
+                                                  "eta":  "预计",
+                                                  "context":  "上下文"
+                                              }
+                               }
            },
     "developer":  {
                       "settings":  {
@@ -10601,6 +10731,35 @@
                                           "openSourceDesc":  "核心代码 Apache 2.0 协议开源,商用友好,永久可用"
                                       }
                     },
+    "modelsPricingPage":  {
+                              "hero":  {
+                                          "badge":  "模型价格透明",
+                                          "title":  "176 个大模型价格表",
+                                          "subtitle":  "覆盖 OpenAI、Anthropic、Google、DeepSeek、通义千问、智谱、豆包、Kimi 等厂商官方价格,实时同步"
+                                      },
+                              "loading":  "加载中...",
+                              "empty":  "未找到匹配的模型",
+                              "search":  {
+                                             "placeholder":  "搜索模型 ID,如 gpt-4o、claude-3-5-sonnet",
+                                             "resultCount":  "找到 {count} 个模型"
+                                         },
+                              "vendor":  {
+                                             "all":  "全部厂商"
+                                         },
+                              "stats":  {
+                                            "totalModels":  "模型总数",
+                                            "totalVendors":  "厂商数量",
+                                            "cheapest":  "最便宜",
+                                            "mostExpensive":  "最贵"
+                                        },
+                              "note":  {
+                                          "title":  "价格说明",
+                                          "unit":  "价格单位:元/百万 token(CNY per 1M tokens),与厂商官方价格表口径一致",
+                                          "region":  "区域系数:cn=1.0 基准,us/eu 系数表示跨境带宽与合规成本加成",
+                                          "discount":  "折扣标签:绿色徽章表示批量用量折扣百分比,需达到 minTokens 阈值生效",
+                                          "update":  "价格数据通过 seed 脚本从各厂商官方价格表导入,更新日期见 effectiveAt 字段"
+                                      }
+                          },
     "enterpriseTools":  {
                             "sectionLabel":  "企业AI工具一览",
                             "title":  "从通用AI工具到行业专属智能体",

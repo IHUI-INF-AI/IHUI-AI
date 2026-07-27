@@ -816,6 +816,13 @@
       "shortcutsItemSlashAskKbd": "切換到請求批准",
       "shortcutsItemSlashAutoKbd": "切換到代替我審批",
       "shortcutsItemSlashFullKbd": "切換到完全存取",
+      "shortcutsSectionChatMode": "對話模式切換",
+      "shortcutsItemChatModeDesc": "切換構建/計劃/審查/規格 4 種對話模式",
+      "shortcutsItemModeBuildKbd": "切換到構建模式(正常執行,全工具開放)",
+      "shortcutsItemModePlanKbd": "切換到計劃模式(唯讀分析,deny write 工具)",
+      "shortcutsItemModeReviewKbd": "切換到審查模式(唯讀審查 + 強化審查 prompt)",
+      "shortcutsItemModeSpecKbd": "切換到規格模式(從程式碼反向生成 spec 文件)",
+      "shortcutsItemModeCmdHint": "也可輸入 /build /plan /review /spec 斜線命令切換",
       "shortcutsLearnMore": "深入瞭解安全設計",
       "infoButtonLabel": "查看模式說明",
       "infoButtonTitle": "目前模式的詳細行為",
@@ -845,8 +852,25 @@
     },
     "modePlan": "規劃",
     "modeAct": "執行",
+    "modeBuild": "構建",
+    "modeReview": "審查",
+    "modeSpec": "規格",
     "planTooltip": "Plan:AI 只制定計劃,不執行工具(Alt+P 切換 / 輸入 /plan)",
-    "actTooltip": "Act:AI 正常執行工具(Alt+P 切換 / 輸入 /act)"
+    "actTooltip": "Act:AI 正常執行工具(Alt+P 切換 / 輸入 /act)",
+    "modeBuildTooltip": "構建模式 · Ctrl+1 或 /build",
+    "modePlanTooltip": "計劃模式(唯讀分析) · Ctrl+2 或 /plan",
+    "modeReviewTooltip": "審查模式(唯讀審查) · Ctrl+3 或 /review",
+    "modeSpecTooltip": "規格模式(生成 spec 文件) · Ctrl+4 或 /spec",
+    "modeBuildToast": "已切換到構建模式",
+    "modePlanToast": "已切換到計劃模式(唯讀分析)",
+    "modeReviewToast": "已切換到審查模式(唯讀審查)",
+    "modeSpecToast": "已切換到規格模式(生成 spec 文件)",
+    "modeAlreadyActive": "當前已是{mode}模式",
+    "modeSwitched": "已切換到{mode}模式",
+    "modeBuildDesc": "AI 將正常執行,全工具開放(Ctrl+1 可快速切換)",
+    "modePlanDesc": "AI 將只制定計劃,不執行工具(Ctrl+2 可快速切換)",
+    "modeReviewDesc": "AI 將唯讀審查程式碼(Ctrl+3 可快速切換)",
+    "modeSpecDesc": "AI 將從程式碼反向生成 spec 文件(Ctrl+4 可快速切換)"
   },
   "learn": {
     "title": "學習中心",
@@ -9586,6 +9610,112 @@
       "coordinated": "已協調 {count} 個子智能體完成",
       "totalSteps": "(共 {count} 步)",
       "working": "{count} 個子智能體協作中"
+    },
+    "progressPane": {
+      "title": "任務計畫",
+      "ariaLabel": "Agent 任務進度面板",
+      "pin": "置頂",
+      "unpin": "取消置頂",
+      "minimize": "最小化",
+      "expandAll": "展開全部",
+      "collapseAll": "摺疊全部",
+      "reconnecting": "SSE 斷連,正在重連(第 {n}/5 次)",
+      "stepInProgress": "步驟 {n}: {step} (進行中)",
+      "stepCompleted": "步驟 {n}: {step} (已完成)",
+      "stepPending": "步驟 {n}: {step} (待執行)",
+      "toolCallsCount": "{n} 次工具呼叫",
+      "copy": "複製",
+      "copied": "已複製",
+      "relativeTime": {
+        "justNow": "剛剛",
+        "secondsAgo": "{n}s前",
+        "minutesAgo": "{n}m前",
+        "hoursAgo": "{n}h前",
+        "daysAgo": "{n}d前"
+      },
+      "changes": {
+        "title": "檔案變更",
+        "oldContent": "原內容",
+        "copyOldContent": "複製原內容",
+        "newFile": "新檔案",
+        "newContent": "新內容",
+        "copyNewContent": "複製新內容",
+        "added": "新增 {n}",
+        "modified": "修改 {n}",
+        "moreItems": "…還有 {n} 項"
+      },
+      "terminal": {
+        "title": "終端任務",
+        "output": "輸出",
+        "copyOutput": "複製終端輸出",
+        "running": "{n} 執行中",
+        "failed": "{n} 失敗",
+        "moreItems": "…還有 {n} 項"
+      },
+      "tools": {
+        "title": "工具呼叫",
+        "categoryRead": "讀取",
+        "categorySearch": "搜尋",
+        "categoryWrite": "編輯",
+        "categoryExec": "執行",
+        "categoryOther": "其他",
+        "args": "參數",
+        "copyArgs": "複製參數",
+        "result": "結果",
+        "copyResult": "複製結果",
+        "error": "錯誤",
+        "copyError": "複製錯誤訊息",
+        "filterAll": "全部",
+        "filterRunning": "執行中",
+        "filterSuccess": "成功",
+        "filterError": "失敗",
+        "searchPlaceholder": "搜尋工具...",
+        "moreItems": "…還有 {n} 項",
+        "noMatch": "無匹配結果"
+      },
+      "subagent": {
+        "title": "Subagent 派單",
+        "statusSpawned": "已派發",
+        "statusRunning": "執行中",
+        "statusDone": "已完成",
+        "statusFailed": "失敗",
+        "statusDead": "已死亡",
+        "toolCallsTitle": "{n} 次工具呼叫",
+        "toolCallsCount": "{n}次",
+        "state": "狀態:",
+        "role": "角色:",
+        "pendingApproval": "待審批",
+        "startedAt": "啟動:",
+        "endedAt": "結束:",
+        "duration": "耗時:",
+        "copyThreadId": "複製 threadId",
+        "toolsCount": "工具呼叫({n})",
+        "active": "{n} 活躍",
+        "done": "{n} 完成",
+        "failed": "{n} 失敗"
+      },
+      "overview": {
+        "title": "任務總覽",
+        "statusIdle": "空閒",
+        "statusRunning": "執行中",
+        "statusCompleted": "已完成",
+        "statusFailed": "失敗",
+        "statusInterrupted": "已中斷",
+        "steps": "步驟",
+        "subagents": "子代理",
+        "active": "活躍",
+        "total": "總",
+        "dead": "死亡",
+        "terminals": "終端",
+        "running": "執行",
+        "changes": "變更",
+        "files": "檔案",
+        "duration": "耗時",
+        "token": "Token",
+        "rate": "速率",
+        "eta": "預計",
+        "context": "上下文"
+      }
     }
   },
   "developer": {
@@ -10584,6 +10714,35 @@
         "私有化部署可選",
         "季度複盤 + 戰略諮詢"
       ]
+    }
+  },
+  "modelsPricingPage": {
+    "hero": {
+      "badge": "模型價格透明",
+      "title": "176 個大模型價格表",
+      "subtitle": "覆蓋 OpenAI、Anthropic、Google、DeepSeek、通義千問、智譜、豆包、Kimi 等廠商官方價格,即時同步"
+    },
+    "loading": "載入中...",
+    "empty": "未找到符合的模型",
+    "search": {
+      "placeholder": "搜尋模型 ID,如 gpt-4o、claude-3-5-sonnet",
+      "resultCount": "找到 {count} 個模型"
+    },
+    "vendor": {
+      "all": "全部廠商"
+    },
+    "stats": {
+      "totalModels": "模型總數",
+      "totalVendors": "廠商數量",
+      "cheapest": "最便宜",
+      "mostExpensive": "最貴"
+    },
+    "note": {
+      "title": "價格說明",
+      "unit": "價格單位:元/百萬 token(CNY per 1M tokens),與廠商官方價格表口徑一致",
+      "region": "區域係數:cn=1.0 基準,us/eu 係數表示跨境頻寬與合規成本加成",
+      "discount": "折扣標籤:綠色徽章表示批量用量折扣百分比,需達到 minTokens 閾值生效",
+      "update": "價格資料透過 seed 腳本從各廠商官方價格表匯入,更新日期見 effectiveAt 欄位"
     }
   },
   "enterpriseTools": {
