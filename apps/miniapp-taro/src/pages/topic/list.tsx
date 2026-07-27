@@ -149,7 +149,7 @@ export default function TopicListPage() {
           {tabs.map((tab) => (
             <View
               key={tab.key}
-              className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] rounded-[10rpx] ${activeTab === tab.key ? 'text-primary bg-[rgba(0,242,255,0.12)] font-semibold' : 'text-muted-foreground bg-card'}`}
+              className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] rounded-[10rpx] ${activeTab === tab.key ? 'text-primary bg-primary/10 font-semibold' : 'text-muted-foreground bg-card'}`}
               onClick={() => switchTab(tab.key)}
             >
               <Text>{tt(tab.label, tab.fb)}</Text>

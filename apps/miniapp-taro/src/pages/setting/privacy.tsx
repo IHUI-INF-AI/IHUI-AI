@@ -107,7 +107,7 @@ export default function PrivacySettingPage() {
     <View className="page">
       {/* 系统权限引导 */}
       <View className="group-title">{t('settingPrivacy.systemPermissions')}</View>
-      <View className="tech-card list">
+      <View className="list">
         {PERMISSIONS.map((item) => (
           <View className="perm-item" key={item.key}>
             <View className="perm-info">
@@ -125,13 +125,13 @@ export default function PrivacySettingPage() {
 
       {/* 隐私设置选项 */}
       <View className="group-title">{t('settingPrivacy.privacySettings')}</View>
-      <View className="tech-card list">
+      <View className="list">
         <View className="switch-item">
           <View className="switch-info">
             <Text className="switch-label">{t('settingPrivacy.mute')}</Text>
             <Text className="switch-desc">{t('settingPrivacy.muteDesc')}</Text>
           </View>
-          <Switch checked={mute} color="#00f2ff" onChange={(e) => onToggle('mute', e.detail.value)} />
+          <Switch checked={mute} color="var(--color-primary)" onChange={(e) => onToggle('mute', e.detail.value)} />
         </View>
         <View className="switch-item">
           <View className="switch-info">
@@ -140,7 +140,7 @@ export default function PrivacySettingPage() {
           </View>
           <Switch
             checked={recommend}
-            color="#00f2ff"
+            color="var(--color-primary)"
             onChange={(e) => onToggle('recommend', e.detail.value)}
           />
         </View>
@@ -151,7 +151,7 @@ export default function PrivacySettingPage() {
           </View>
           <Switch
             checked={personalize}
-            color="#00f2ff"
+            color="var(--color-primary)"
             onChange={(e) => onToggle('personalize', e.detail.value)}
           />
         </View>

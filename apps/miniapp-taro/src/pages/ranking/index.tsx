@@ -133,7 +133,7 @@ export default function RankingIndex() {
   return (
     <View className="min-h-screen bg-background pb-[48rpx]">
       <View className="pt-[24rpx] px-[32rpx] pb-[16rpx] bg-card">
-        <Text className="text-[36rpx] font-semibold text-primary [text-shadow:0_0_10rpx_rgba(0,242,255,0.6)]">
+        <Text className="text-[36rpx] font-semibold text-primary">
           {tt('ranking.listTitle', 'AI榜单')}
         </Text>
       </View>

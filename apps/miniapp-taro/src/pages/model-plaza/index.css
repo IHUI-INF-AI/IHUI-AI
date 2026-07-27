@@ -12,10 +12,7 @@
 .page-title {
   font-size: 36rpx;
   font-weight: 600;
-  background: linear-gradient(135deg, #00f2ff, #8b5cf6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-primary);
 }
 
 /* ===== 厂商分类横向滚动 ===== */
@@ -47,9 +44,8 @@
 }
 .provider-tab.active {
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
-  border: 1rpx solid rgba(0, 242, 255, 0.3);
-  box-shadow: 0 0 12rpx rgba(0, 242, 255, 0.2);
+  background: var(--color-border);
+  border: 1rpx solid var(--color-ring);
 }
 .provider-icon {
   font-size: 28rpx;
@@ -98,9 +94,8 @@
 }
 .type-tab.active {
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.1);
-  border: 1rpx solid rgba(0, 242, 255, 0.3);
-  box-shadow: 0 0 12rpx rgba(0, 242, 255, 0.2);
+  background: var(--color-border);
+  border: 1rpx solid var(--color-ring);
 }
 
 /* ===== 模型卡片列表 ===== */
@@ -143,15 +138,15 @@
   margin-left: 12rpx;
 }
 .model-type-tag.type-text {
-  background: rgba(0, 242, 255, 0.12);
-  color: #00f2ff;
+  background: var(--color-border);
+  color: var(--color-primary);
 }
 .model-type-tag.type-image {
   background: rgba(255, 100, 180, 0.12);
   color: rgba(255, 120, 200, 0.95);
 }
 .model-type-tag.type-av {
-  background: rgba(139, 92, 246, 0.15);
+  background: var(--color-accent);
   color: #b89dff;
 }
 

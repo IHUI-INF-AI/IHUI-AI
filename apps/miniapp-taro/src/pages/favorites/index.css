@@ -35,8 +35,8 @@
   padding: 8rpx 20rpx;
   font-size: 24rpx;
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.08);
-  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-border);
   border-radius: 8rpx;
 }
 .favorites-search {
@@ -45,7 +45,7 @@
   height: 72rpx;
   padding: 0 20rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
 }
 .favorites-search-icon {
@@ -76,7 +76,7 @@
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
 }
 .favorites-tab-active {
@@ -93,7 +93,7 @@
   justify-content: space-between;
   padding: 16rpx 20rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
 }
 .favorites-batch-check {
@@ -114,7 +114,7 @@
   font-size: 24rpx;
   color: transparent;
   background: var(--color-background);
-  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  border: 2rpx solid var(--color-ring);
   border-radius: 6rpx;
   flex-shrink: 0;
 }
@@ -147,7 +147,7 @@
   align-items: center;
   padding: 24rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
 }
 .favorites-cover {

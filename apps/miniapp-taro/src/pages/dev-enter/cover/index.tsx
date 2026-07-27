@@ -140,7 +140,7 @@ export default function DevEnterCover() {
         fail: () => Taro.showToast({ title: tt('common.failed', '复制失败'), icon: 'none' }),
       })
     },
-    [], // eslint-disable-line react-hooks/exhaustive-deps
+    [], // eslint-disable-line react-hooks/exhaustive-deps -- 挂载时加载一次
   )
 
   const toPay = useCallback(() => {

@@ -98,7 +98,7 @@ export default function DistributionPlan() {
       </View>
 
       <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[32rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card shadow-[0_-4rpx_16rpx_rgba(0,0,0,0.3)]">
-        <View className="h-[88rpx] leading-[88rpx] text-center bg-[linear-gradient(90deg,#00f2ff,#8b5cf6)] text-[#121217] text-[30rpx] font-semibold rounded-[12rpx] active:opacity-85" onClick={onOpenVip}>
+        <View className="h-[88rpx] leading-[88rpx] text-center bg-primary text-primary-foreground text-[30rpx] font-semibold rounded-[12rpx] active:opacity-85" onClick={onOpenVip}>
           <Text>{tt('distribution.plan.openVipBtn', '开通VIP会员 参与分佣计划')}</Text>
         </View>
       </View>
