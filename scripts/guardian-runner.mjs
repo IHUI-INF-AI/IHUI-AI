@@ -105,6 +105,22 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 2g-web (2026-07-27 新增,i18n 命名空间传递守门,warn-only 起步) ---
+  // 检测"useTranslations('xxx') 限定命名空间 + 把 t 传给 @ihui/ui-react 共享登录组件"bug 模式
+  // 背景:LoginFormContent.tsx 曾用 useTranslations('auth') 限定命名空间后把 t 传给共享 LoginForm,
+  //   共享组件内部调用 t('auth.emailLogin') 长 key 路径,实际查找 auth.auth.emailLogin 失败,
+  //   导致弹窗内全部显示 key 名。已修复(改用 useTranslations() 无命名空间),本守门防复发。
+  // 检测目标:apps/web/src/ 下所有 .tsx(8 个共享登录组件:LoginForm/EmailCodeLoginForm/
+  //   PhoneCodeLoginForm/PasswordLoginForm/AgreementCheckbox/AgreementNoticeDialog/
+  //   ThirdPartyLoginButtons/QrTab)
+  // 升级 blocking 评估:1 周观察期(2026-08-03)若无误报 → 改 mode: 'blocking'
+  {
+    id: '2g-web',
+    label: '🔍 i18n 命名空间传递(web→共享组件)',
+    script: 'check-i18n-namespace-passing.mjs',
+    args: [],
+    mode: 'warn',
+  },
   {
     id: '3',
     label: '🗄️ schema drift',
