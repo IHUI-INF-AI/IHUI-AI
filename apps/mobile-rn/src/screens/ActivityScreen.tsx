@@ -3,6 +3,8 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
+import { tokens } from '@ihui/rn-app'
+import type { ApiResponse } from '@ihui/types'
 import { useI18n } from '../i18n'
 import { formatShortDateWithYear } from '../utils/date-utils'
 import { API_BASE_URL } from '../lib/config'
@@ -29,9 +31,9 @@ interface Activity {
 }
 
 function statusColor(status: ActivityStatus): string {
-  if (status === 'ongoing') return '#10B981'
+  if (status === 'ongoing') return tokens.brand.DEFAULT
   if (status === 'upcoming') return '#F59E0B'
-  return '#9CA3AF'
+  return tokens.text.tertiary
 }
 
 export function ActivityScreen() {
@@ -47,7 +49,7 @@ export function ActivityScreen() {
     try {
       const resp = await fetch(`${API_BASE_URL}/api/activities`)
       if (!resp.ok) throw new Error('http')
-      const data = (await resp.json()) as { data?: Activity[] }
+      const data = (await resp.json()) as ApiResponse<Activity[]>
       setItems(data.data ?? [])
     } catch {
       setError(t('activity.loadFailed'))
@@ -129,7 +131,7 @@ export function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -137,19 +139,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  errorText: { fontSize: 12, color: '#DC2626' },
+  errorText: { fontSize: 12, color: tokens.error.text },
   card: { padding: 12, borderRadius: 8 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  itemTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' },
+  itemTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  badgeText: { fontSize: 10, color: '#FFFFFF' },
-  itemDesc: { marginTop: 6, fontSize: 12, color: '#374151', lineHeight: 18 },
-  meta: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
+  badgeText: { fontSize: 10, color: tokens.surface.light },
+  itemDesc: { marginTop: 6, fontSize: 12, color: tokens.text.medium, lineHeight: 18 },
+  meta: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   joinBtn: { marginTop: 8, paddingVertical: 6, alignItems: 'flex-end' },
-  joinText: { fontSize: 12, color: '#10B981' },
+  joinText: { fontSize: 12, color: tokens.brand.DEFAULT },
   emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: '#6B7280' },
+  muted: { fontSize: 12, color: tokens.text.secondary },
 })
