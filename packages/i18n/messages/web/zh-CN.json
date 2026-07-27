@@ -10520,7 +10520,81 @@
                                                             "私有化部署可选",
                                                             "季度复盘 + 战略咨询"
                                                         ]
-                                       }
+                                       },
+                        "socialProof":  {
+                                            "title":  "被全球开发者信赖",
+                                            "subtitle":  "从初创公司到世界 500 强,IHUI AI 服务于各类团队",
+                                            "registered":  "注册用户",
+                                            "monthlyActive":  "月活用户",
+                                            "apiCalls":  "API 调用 / 月",
+                                            "enterprise":  "企业客户"
+                                        },
+                        "testimonials":  {
+                                             "title":  "开发者怎么说",
+                                             "subtitle":  "真实用户反馈,来自不同行业与团队规模",
+                                             "items":  [
+                                                            {
+                                                                "name":  "张明",
+                                                                "role":  "CTO",
+                                                                "company":  "TechStart",
+                                                                "text":  "IHUI AI 让我们在 2 周内上线了企业 AI 助手,节省了 3 个月开发时间"
+                                                            },
+                                                            {
+                                                                "name":  "Sarah Chen",
+                                                                "role":  "Lead Engineer",
+                                                                "company":  "DataFlow",
+                                                                "text":  "多租户 RLS 设计非常专业,340 张表的隔离做得无可挑剔"
+                                                            },
+                                                            {
+                                                                "name":  "李华",
+                                                                "role":  "创始人",
+                                                                "company":  "创智科技",
+                                                                "text":  "176 个 LLM 统一适配,再也不用写 10 套 API 调用代码了"
+                                                            },
+                                                            {
+                                                                "name":  "Marcus Weber",
+                                                                "role":  "DevOps",
+                                                                "company":  "CloudSys",
+                                                                "text":  "从源码部署到生产只用了 3 天,文档非常详细"
+                                                            },
+                                                            {
+                                                                "name":  "王芳",
+                                                                "role":  "AI 架构师",
+                                                                "company":  "智云科技",
+                                                                "text":  "LangGraph + MCP + A2A 三栈协议,是我们见过最完整的 AI 框架"
+                                                            },
+                                                            {
+                                                                "name":  "Alex Kim",
+                                                                "role":  "CTO",
+                                                                "company":  "AIVentures",
+                                                                "text":  "Apache 2.0 商用友好,5346 个测试让人放心"
+                                                            }
+                                                        ]
+                                         },
+                        "comparison":  {
+                                           "title":  "与主流方案对比",
+                                           "subtitle":  "一个平台覆盖全栈 AI 能力,无需拼凑多个工具",
+                                           "feature":  "功能",
+                                           "price":  "免费起步",
+                                           "llmCount":  "176+ LLM 适配",
+                                           "multiTenant":  "多租户隔离",
+                                           "rag":  "RAG 知识库",
+                                           "agentMarket":  "Agent 市场",
+                                           "eightEnds":  "8 端覆盖",
+                                           "openSource":  "开源",
+                                           "selfHost":  "自托管",
+                                           "apache2":  "Apache 2.0",
+                                           "privateDeploy":  "私有化部署"
+                                       },
+                        "guarantee":  {
+                                          "title":  "我们的承诺",
+                                          "refundTitle":  "7 天无理由退款",
+                                          "refundDesc":  "订阅后 7 天内不满意,全额退款,无理由无门槛",
+                                          "dataTitle":  "数据所有权归您",
+                                          "dataDesc":  "您的数据始终归您所有,支持随时导出与删除",
+                                          "openSourceTitle":  "Apache 2.0 永久开源",
+                                          "openSourceDesc":  "核心代码 Apache 2.0 协议开源,商用友好,永久可用"
+                                      }
                     },
     "enterpriseTools":  {
                             "sectionLabel":  "企业AI工具一览",
@@ -12262,5 +12336,386 @@
                  "empty":  "暂无博客文章",
                  "relatedTitle":  "相关文章",
                  "notFound":  "文章不存在或已删除"
-             }
+             },
+    "products":  {
+                     "heroBadge":  "数字产品",
+                     "heroTitle":  "数字产品商店",
+                     "heroSubtitle":  "精选 AI 开发数字产品:提示词库、Agent 模板、部署指南、源码包、认证课程、定制开发,即买即用。",
+                     "popular":  "热门",
+                     "buyNow":  "立即购买",
+                     "buySubject":  "购买",
+                     "cards":  {
+                                   "1":  {
+                                            "title":  "AI Agent 提示词库",
+                                            "price":  "¥99",
+                                            "desc":  "200+ 精选 prompts,覆盖 20 个高频场景,可直接导入 IHUI AI 平台。",
+                                            "feature1":  "200+ 精选 prompts",
+                                            "feature2":  "覆盖 20 个场景",
+                                            "feature3":  "JSON + Markdown 格式,立即下载"
+                                        },
+                                   "2":  {
+                                            "title":  "企业 Agent 模板包",
+                                            "price":  "¥299",
+                                            "desc":  "10 个企业级 Agent 模板(客服/销售/HR/数据分析/代码审查),开箱即用。",
+                                            "feature1":  "10 个企业级 Agent 模板",
+                                            "feature2":  "含 LangGraph 完整代码 + MCP 工具集成",
+                                            "feature3":  "一年免费更新"
+                                        },
+                                   "3":  {
+                                            "title":  "IHUI-AI 部署指南 Pro",
+                                            "price":  "¥49",
+                                            "desc":  "PDF + 视频教程,涵盖 Docker / K8s / 裸机部署全流程。",
+                                            "feature1":  "PDF + 视频教程",
+                                            "feature2":  "涵盖 Docker / K8s / 裸机部署",
+                                            "feature3":  "性能调优 + 安全加固"
+                                        },
+                                   "4":  {
+                                            "title":  "企业级源码包",
+                                            "price":  "¥4,999",
+                                            "desc":  "IHUI-AI 全部源码 + 企业定制模块,私有部署授权。",
+                                            "feature1":  "全部源码 + 企业定制模块",
+                                            "feature2":  "私有部署授权(Apache 2.0 + 商业增强)",
+                                            "feature3":  "一年技术支持"
+                                        },
+                                   "5":  {
+                                            "title":  "AI 工程师认证课程",
+                                            "price":  "¥999",
+                                            "desc":  "12 小时视频 + 实操项目,系统掌握 AI 工程核心技能。",
+                                            "feature1":  "12 小时视频 + 实操项目",
+                                            "feature2":  "涵盖 LangGraph / MCP / RAG / 多租户",
+                                            "feature3":  "完成证书"
+                                        },
+                                   "6":  {
+                                            "title":  "定制 Agent 开发服务",
+                                            "price":  "¥1,999 起",
+                                            "desc":  "单个 Agent 定制开发,含需求确认与修改。",
+                                            "feature1":  "单个 Agent 定制开发",
+                                            "feature2":  "1 轮需求确认 + 1 轮修改",
+                                            "feature3":  "5 工时"
+                                        }
+                               },
+                     "ctaTitle":  "批量购买享专属优惠",
+                     "ctaDesc":  "企业批量采购多个产品享阶梯折扣,联系我们获取定制方案。",
+                     "ctaButton":  "联系商务咨询"
+                 },
+    "sponsor":  {
+                    "heroBadge":  "赞助开源",
+                    "heroTitle":  "赞助 IHUI AI",
+                    "heroSubtitle":  "您的赞助支持 IHUI AI 持续开源、迭代与社区运营,让全栈 AI 操作系统惠及更多开发者与企业。",
+                    "heroButton":  "成为赞助者",
+                    "whyTitle":  "为什么赞助 IHUI AI",
+                    "reasonOpenTitle":  "保持开源",
+                    "reasonOpenDesc":  "支持核心代码 Apache 2.0 永久开源,人人可用。",
+                    "reasonFastTitle":  "加速迭代",
+                    "reasonFastDesc":  "让团队全职投入,更快发布新功能与模型适配。",
+                    "reasonCommunityTitle":  "运营社区",
+                    "reasonCommunityDesc":  "维持 Discord/微信群、Issue 响应、文档维护。",
+                    "reasonIndependenceTitle":  "独立自主",
+                    "reasonIndependenceDesc":  "不依赖单一投资,保持产品独立性与中立性。",
+                    "tiersTitle":  "赞助等级",
+                    "becomeSponsor":  "成为赞助者",
+                    "tiers":  {
+                                 "bronze":  {
+                                               "name":  "Bronze",
+                                               "price":  "¥99/月",
+                                               "feature1":  "README 致谢",
+                                               "feature2":  "Discord/微信会员群",
+                                               "feature3":  "提前访问新功能"
+                                           },
+                                 "silver":  {
+                                               "name":  "Silver",
+                                               "price":  "¥299/月",
+                                               "feature1":  "Bronze 全部权益",
+                                               "feature2":  "月度开发进度报告",
+                                               "feature3":  "优先 Issue 响应(48h)"
+                                           },
+                                 "gold":  {
+                                             "name":  "Gold",
+                                             "price":  "¥999/月",
+                                             "feature1":  "Silver 全部权益",
+                                             "feature2":  "季度技术分享会",
+                                             "feature3":  "Logo 显示在 README"
+                                         },
+                                 "platinum":  {
+                                                 "name":  "Platinum",
+                                                 "price":  "¥2,999/月",
+                                                 "feature1":  "Gold 全部权益",
+                                                 "feature2":  "1 对 1 月度咨询(1 小时)",
+                                                 "feature3":  "优先新功能投票权"
+                                             },
+                                 "diamond":  {
+                                                "name":  "Diamond",
+                                                "price":  "¥9,999/月",
+                                                "feature1":  "半天线下工作坊",
+                                                "feature2":  "定制 Agent 开发(5 工时/月)",
+                                                "feature3":  "战略合作伙伴标识"
+                                            }
+                             },
+                    "sponsorsTitle":  "现有赞助者",
+                    "sponsorsDesc":  "感谢以下赞助者对 IHUI AI 的支持。",
+                    "sponsorsEmpty":  "成为首位赞助者,您的名字将显示在这里。",
+                    "onlineTitle":  "在线捐赠",
+                    "onlineDesc":  "通过 PayPal 或 Ko-fi 快速支持我们 — 安全便捷,无需注册。"
+                },
+    "crypto":  {
+        "title":  "加密货币捐赠",
+        "subtitle":  "直接转账,无需中间平台,0 手续费",
+        "bitcoin":  {
+            "name":  "Bitcoin",
+            "network":  "BTC 网络"
+        },
+        "ethereum":  {
+            "name":  "Ethereum",
+            "network":  "ETH 网络"
+        },
+        "usdtTrc20":  {
+            "name":  "USDT (TRC20)",
+            "network":  "Tron 网络",
+            "recommended":  "推荐:手续费最低 (~$1)"
+        },
+        "usdtErc20":  {
+            "name":  "USDT (ERC20)",
+            "network":  "ETH 网络"
+        },
+        "copyButton":  "复制地址",
+        "copied":  "已复制!",
+        "disclaimer":  "您的捐赠将直接进入我们的钱包,无中间平台手续费。USDT-TRC20 手续费最低(~$1),推荐使用。",
+        "qrCode":  "二维码"
+    },
+    "affiliates":  {
+                       "heroBadge":  "推荐资源",
+                       "heroTitle":  "推荐 AI 工具",
+                       "heroSubtitle":  "精选 10 个 AI 开发必备工具,通过推荐链接注册享专属优惠,同时支持 IHUI AI 持续开发。",
+                       "reasonLabel":  " 推荐理由",
+                       "signup":  "立即注册",
+                       "cards":  {
+                                    "1":  {
+                                             "name":  "OpenAI API",
+                                             "desc":  "GPT-4 / GPT-4o 等顶级大模型 API,行业标杆。",
+                                             "reason":  "推荐注册可赚 $5 额度。"
+                                         },
+                                    "2":  {
+                                             "name":  "Anthropic Claude",
+                                             "desc":  "Claude 3.5 Sonnet,长文本与代码能力出色。",
+                                             "reason":  "推荐注册享试用额度。"
+                                         },
+                                    "3":  {
+                                             "name":  "Google Gemini",
+                                             "desc":  "Gemini Pro / Flash,多模态与长上下文领先。",
+                                             "reason":  "新用户 $300 试用金。"
+                                         },
+                                    "4":  {
+                                             "name":  "Vercel",
+                                             "desc":  "Next.js 官方部署平台,前端应用首选。",
+                                             "reason":  "推荐注册得 $100 额度。"
+                                         },
+                                    "5":  {
+                                             "name":  "Railway",
+                                             "desc":  "后端应用一键部署,支持多种语言与数据库。",
+                                             "reason":  "推荐注册享试用额度。"
+                                         },
+                                    "6":  {
+                                             "name":  "Supabase",
+                                             "desc":  "PostgreSQL 托管 + Auth + Storage,开源 Firebase 替代。",
+                                             "reason":  "推荐注册享免费额度。"
+                                         },
+                                    "7":  {
+                                             "name":  "Pinecone",
+                                             "desc":  "托管向量数据库,RAG 检索性能优秀。",
+                                             "reason":  "推荐注册享免费额度。"
+                                         },
+                                    "8":  {
+                                             "name":  "LangSmith",
+                                             "desc":  "LangChain 官方监控与调试平台,LLM 应用可观测性。",
+                                             "reason":  "推荐注册享试用额度。"
+                                         },
+                                    "9":  {
+                                             "name":  "Cursor",
+                                             "desc":  "AI 代码编辑器,内置 GPT-4/Claude,编程效率倍增。",
+                                             "reason":  "推荐注册享试用 Pro。"
+                                         },
+                                    "10":  {
+                                              "name":  "GitHub Copilot",
+                                              "desc":  "GitHub 官方 AI 编程助手,IDE 集成体验佳。",
+                                              "reason":  "推荐注册享试用。"
+                                          }
+                                },
+                       "disclosure":  "以上链接为 affiliate 推荐链接,您通过这些链接注册不会增加额外费用,但我们可以获得少量佣金,用于支持 IHUI AI 项目持续开发。感谢您的支持!"
+                   },
+    "services":  {
+        "hero":  {
+            "title":  "专业服务",
+            "subtitle":  "从源码部署到定制开发,IHUI AI 团队提供全栈 AI 解决方案",
+            "cta":  "立即咨询"
+        },
+        "cards":  {
+            "deployment":  {
+                "title":  "私有化部署",
+                "price":  "¥4,999",
+                "unit":  "/次",
+                "desc":  "源码部署到您的服务器",
+                "features":  ["PostgreSQL + Redis 配置", "8 端构建", "2 小时线上培训", "30 天邮件支持", "3-5 工作日交付"]
+            },
+            "training":  {
+                "title":  "企业培训工作坊",
+                "price":  "¥9,999",
+                "unit":  "/场",
+                "desc":  "1 天线下 / 2 天线上深度培训",
+                "features":  ["架构原理 + 部署实操", "二次开发 + Agent 设计", "核心维护者授课", "20 人上限", "视频 + PPT + 实操环境"]
+            },
+            "custom":  {
+                "title":  "定制开发",
+                "price":  "¥19,999",
+                "unit":  "起",
+                "desc":  "基于 IHUI-AI 定制企业专属功能",
+                "features":  ["业务集成 / Agent 开发", "UI 定制 / API 扩展", "80 工时(约 2 周)", "3 个月保修", "源码 + 部署文档"]
+            },
+            "consulting":  {
+                "title":  "技术咨询",
+                "price":  "¥999",
+                "unit":  "/小时",
+                "desc":  "架构咨询 / 技术选型 / 代码 review",
+                "features":  ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"]
+            }
+        },
+        "socialProof":  {
+            "title":  "已服务客户",
+            "clients":  "客户数量",
+            "deployments":  "部署案例",
+            "satisfaction":  "平均满意度"
+        },
+        "faq":  {
+            "title":  "常见问题",
+            "items":  [
+                { "q":  "如何付款？", "a":  "支持微信支付、支付宝、对公转账、Stripe(海外)。定制开发分期付款:50% 启动 + 30% 中期 + 20% 验收。" },
+                { "q":  "可以开发票吗？", "a":  "可以开具增值税普通发票 / 专用发票。请在询价表单中备注开票信息。" },
+                { "q":  "退款政策？", "a":  "咨询类服务按小时计费,已消费不退款。部署/培训服务未启动可全额退款,启动后按已消费工时扣除。" },
+                { "q":  "交付周期？", "a":  "私有化部署 3-5 工作日,培训 1-2 周预约,定制开发按工时估算(80 工时约 2 周)。" },
+                { "q":  "售后支持？", "a":  "私有化部署含 30 天邮件支持,定制开发含 3 个月保修,咨询类按小时计费无固定售后。" },
+                { "q":  "源码归属？", "a":  "定制开发源码归客户所有,可申请版权转让。IHUI-AI 核心代码 Apache 2.0 开源。" }
+            ]
+        },
+        "inquiry":  {
+            "title":  "立即咨询",
+            "subtitle":  "填写下方表单,我们将在 24 小时内联系您",
+            "fields":  {
+                "name":  "姓名",
+                "namePlaceholder":  "您的姓名",
+                "company":  "公司",
+                "companyPlaceholder":  "公司名称(可选)",
+                "email":  "邮箱",
+                "emailPlaceholder":  "you@example.com",
+                "phone":  "电话",
+                "phonePlaceholder":  "138-xxxx-xxxx(可选)",
+                "serviceType":  "服务类型",
+                "budget":  "预算范围",
+                "description":  "需求描述",
+                "descriptionPlaceholder":  "请详细描述您的需求(至少 50 字)...",
+                "timeline":  "期望交付时间",
+                "agreeTerms":  "我已阅读并同意《隐私政策》和《服务协议》",
+                "submit":  "提交询价",
+                "submitting":  "提交中..."
+            },
+            "serviceTypes":  {
+                "deployment":  "私有化部署(¥4,999)",
+                "training":  "企业培训(¥9,999)",
+                "custom":  "定制开发(¥19,999 起)",
+                "consulting":  "技术咨询(¥999/小时)",
+                "other":  "其他"
+            },
+            "budgets":  {
+                "under5k":  "¥5,000 以下",
+                "5kTo20k":  "¥5,000 - ¥20,000",
+                "20kTo50k":  "¥20,000 - ¥50,000",
+                "over50k":  "¥50,000 以上"
+            },
+            "timelines":  {
+                "urgent":  "1 周内",
+                "month":  "1 个月内",
+                "flexible":  "不紧急"
+            },
+            "success":  {
+                "title":  "提交成功！",
+                "message":  "我们将在 24 小时内通过邮件联系您。",
+                "contact":  "或直接联系我们:"
+            },
+            "errors":  {
+                "nameRequired":  "请输入姓名",
+                "emailRequired":  "请输入邮箱",
+                "emailInvalid":  "邮箱格式不正确",
+                "serviceTypeRequired":  "请选择服务类型",
+                "budgetRequired":  "请选择预算范围",
+                "descriptionRequired":  "请描述您的需求",
+                "descriptionTooShort":  "需求描述至少 50 字",
+                "timelineRequired":  "请选择期望交付时间",
+                "agreeRequired":  "请同意服务条款",
+                "submitFailed":  "提交失败,请稍后重试"
+            }
+        },
+        "enterpriseInquiry":  {
+            "title":  "企业询价",
+            "subtitle":  "填写下方表单,我们的销售顾问将在 24 小时内联系您",
+            "contactEmail":  "邮箱",
+            "contactPhone":  "电话",
+            "sidebar":  {
+                "salesTitle":  "销售顾问",
+                "salesDesc":  "专属顾问 1 对 1 服务,帮您匹配最佳方案",
+                "workHoursTitle":  "工作时间",
+                "workHours":  "周一至周五 9:00-18:00",
+                "slaTitle":  "响应 SLA",
+                "sla":  "工作时间内 2 小时响应,非工作时间 24 小时响应"
+            }
+        }
+    },
+    "newsletter":  {
+        "hero":  {
+            "badge":  "IHUI AI 周报",
+            "title":  "订阅 IHUI AI 周报",
+            "subtitle":  "每周收到 AI 工程、Agent 开发、RAG、MCP 实战案例,8,392+ 开发者已订阅",
+            "subscriberPrefix":  "已有",
+            "subscriberSuffix":  "位开发者订阅"
+        },
+        "benefits":  {
+            "title":  "订阅福利",
+            "items":  [
+                "每周 AI 工程实战案例",
+                "新功能提前体验",
+                "独家 prompt 模板",
+                "行业趋势分析",
+                "社区活动通知"
+            ]
+        },
+        "form":  {
+            "email":  "邮箱",
+            "interests":  "兴趣标签(可多选)",
+            "tags":  {
+                "aiEng":  "AI 工程",
+                "agent":  "Agent 开发",
+                "rag":  "RAG",
+                "mcp":  "MCP",
+                "multiTenant":  "多租户",
+                "devops":  "部署运维",
+                "business":  "商业化"
+            },
+            "privacyPrefix":  "我已阅读并同意",
+            "privacyLink":  "隐私政策",
+            "submit":  "立即订阅",
+            "submitting":  "订阅中..."
+        },
+        "success":  {
+            "title":  "订阅成功!",
+            "desc":  "请检查您的邮箱确认订阅。下一期周报将于周五发送。",
+            "recommended":  "推荐阅读"
+        },
+        "articles":  {
+            "a1":  { "title":  "AI 工程实战:从 0 到 1 构建企业 AI 助手" },
+            "a2":  { "title":  "Agent 开发完全指南:LangGraph + MCP 协议" },
+            "a3":  { "title":  "RAG 实战:多租户知识库隔离设计" }
+        },
+        "errors":  {
+            "generic":  "订阅失败,请稍后重试",
+            "emailExists":  "该邮箱已订阅",
+            "invalidEmail":  "邮箱格式不正确"
+        }
+    }
 }
