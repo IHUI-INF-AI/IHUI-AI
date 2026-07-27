@@ -17,6 +17,9 @@
  *   useSystemTheme()  // 仅调用一次,无返回值
  */
 import { useEffect } from 'react'
+import { createChromePlatform, type StorageChange } from '@ihui/browser-platform'
+
+const platform = createChromePlatform()
 
 const STORAGE_KEY = 'ihui.theme.preference' // 'system' | 'light' | 'dark'
 
@@ -48,8 +51,13 @@ export function useSystemTheme() {
     // 1. 读持久化偏好(异步,不阻塞首次渲染)
     const loadPref = async () => {
       try {
-        const result = await chrome.storage?.local?.get(STORAGE_KEY)
-        const pref = (result?.[STORAGE_KEY] as 'system' | 'light' | 'dark' | undefined) ?? 'system'
+        // platform 直接调 chrome API,node/vitest 环境需 fallback 守卫
+        if (typeof chrome === 'undefined') {
+          applyTheme(resolveTheme('system'))
+          return
+        }
+        const stored = await platform.storage.localGet<string>(STORAGE_KEY)
+        const pref = (stored as 'system' | 'light' | 'dark' | null) ?? 'system'
         currentPref = pref
         applyTheme(resolveTheme(pref))
       } catch {
@@ -67,21 +75,21 @@ export function useSystemTheme() {
     }
     mediaQuery.addEventListener('change', onChange)
 
-    // 3. 监听其他标签页 / 弹窗的偏好变更(chrome.storage onChanged)
-    const onStorageChange = (
-      changes: Record<string, chrome.storage.StorageChange>,
-      area: string,
-    ) => {
-      if (area !== 'local' || !(STORAGE_KEY in changes)) return
-      const newPref = (changes[STORAGE_KEY].newValue as 'system' | 'light' | 'dark' | undefined) ?? 'system'
-      currentPref = newPref
-      applyTheme(resolveTheme(newPref))
+    // 3. 监听其他标签页 / 弹窗的偏好变更(platform.storage.onStorageChanged 已过滤 area)
+    let unsubscribe: (() => void) | null = null
+    if (typeof chrome !== 'undefined') {
+      const onStorageChange = (changes: Record<string, StorageChange>) => {
+        if (!(STORAGE_KEY in changes)) return
+        const newPref = (changes[STORAGE_KEY].newValue as 'system' | 'light' | 'dark' | undefined) ?? 'system'
+        currentPref = newPref
+        applyTheme(resolveTheme(newPref))
+      }
+      unsubscribe = platform.storage.onStorageChanged('local', onStorageChange)
     }
-    chrome.storage?.onChanged?.addListener?.(onStorageChange)
 
     return () => {
       mediaQuery.removeEventListener('change', onChange)
-      chrome.storage?.onChanged?.removeListener?.(onStorageChange)
+      unsubscribe?.()
     }
   }, [])
 }

@@ -55,8 +55,11 @@ export default function SearchPage() {
   }
 
   const openItem = (url?: string, id?: string) => {
-    const target = url || (id ? `${WEB_BASE}/search?q=${encodeURIComponent(submitted)}` : `${WEB_BASE}/search`)
-    void chrome.tabs.create({ url: target })
+    if (url) {
+      openWebUrl(url)
+      return
+    }
+    openItemInWeb(id ? `/search?q=${encodeURIComponent(submitted)}` : '/search')
   }
 
   return (
@@ -108,7 +111,7 @@ export default function SearchPage() {
               <Card
                 key={`${it.type}-${it.id}`}
                 className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => openItem(it.url, it.id)}
+                onClick={() => openItem(it.url)}
               >
                 <CardHeader className="px-3 py-2">
                   <div className="flex items-center gap-1.5">
