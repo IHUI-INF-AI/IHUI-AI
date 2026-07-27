@@ -20,7 +20,7 @@
  * 此处手抄 v3 兼容的 :root + .dark CSS 变量,值必须与 tokens.css 严格一致(值漂移即 bug)。
  */
 :root {
-  /* 亮色模式(对齐 tokens.css,2026-07-24 按钮改黑白) */
+  /* 语义色(自动同步自 tokens.css @theme 块,勿手动编辑) */
   --color-background: hsl(0 0% 96.1%);
   --color-foreground: hsl(0 0% 3.9%);
   --color-card: hsl(0 0% 100%);
@@ -49,7 +49,7 @@
 }
 
 .dark {
-  /* 暗色模式(对齐 tokens.css,2026-07-24 按钮改黑白) */
+  /* 暗色模式(自动同步自 tokens.css .dark 块,勿手动编辑) */
   --color-background: hsl(0 0% 14%);
   --color-foreground: hsl(0 0% 98%);
   --color-card: hsl(0 0% 10%);
