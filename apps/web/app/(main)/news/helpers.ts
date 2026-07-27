@@ -1,4 +1,5 @@
 import { fetchApi } from '@/lib/api'
+import { formatDateOnly } from '@/lib/date-utils'
 
 export const PAGE_SIZE = 20
 
@@ -9,7 +10,5 @@ export async function api<T>(url: string): Promise<T> {
 }
 
 export function fmtDate(v?: string | null): string {
-  if (!v) return '-'
-  const d = new Date(v)
-  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
+  return formatDateOnly(v)
 }

@@ -8,6 +8,7 @@ import { FileText, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, Download } f
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface MyResource {
   id: string
@@ -68,11 +69,7 @@ export default function MyResourcesPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const fmtDate = (v?: string | null) => {
-    if (!v) return '-'
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
-  }
+  const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   const fmtSize = (bytes?: number | null) => {
     if (!bytes) return '-'

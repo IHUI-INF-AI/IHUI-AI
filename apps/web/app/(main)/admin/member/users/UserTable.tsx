@@ -3,6 +3,7 @@
 import { Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { formatDateOnly } from '@/lib/date-utils'
 import type { MemberUser } from './types'
 
 interface Props {
@@ -100,7 +101,7 @@ export function UserTable({
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}
+                    {u.createdAt ? formatDateOnly(u.createdAt) : '-'}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">

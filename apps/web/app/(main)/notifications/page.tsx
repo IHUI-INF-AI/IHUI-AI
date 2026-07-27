@@ -24,6 +24,7 @@ import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { NotificationItem } from '@/components/business'
 import { Timeline } from '@/components/data/Timeline'
+import { formatDateOnly } from '@/lib/date-utils'
 
 type NotificationType = 'system' | 'order' | 'project' | 'comment' | 'mention' | 'follow'
 
@@ -76,7 +77,7 @@ function relativeTime(iso: string, t: ReturnType<typeof useTranslations>): strin
   if (hr < 24) return t('hoursAgo', { hr })
   const day = Math.floor(hr / 24)
   if (day < 30) return t('daysAgo', { day })
-  return new Date(iso).toLocaleDateString()
+  return formatDateOnly(iso)
 }
 
 async function unwrap<T>(p: Promise<{ success: boolean; data?: T; error?: string }>): Promise<T> {
