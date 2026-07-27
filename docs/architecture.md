@@ -85,7 +85,7 @@
 - **MCP**: MCP SDK(`app/services/mcp_server.py`,11 工具 + 3 资源 + 3 提示词)
 - **A2A**: Agent-to-Agent 协议(`app/services/a2a_service.py`,Redis 持久化 + 内存降级)
 - **向量记忆**: `app/services/vector_memory.py`(嵌入 + 余弦相似度语义搜索)
-- **端口**: 8000(docker-compose 编排,服务可正常启动)
+- **端口**: 8803
 
 ### 共享包(`packages/`)
 | 包名 | 用途 |

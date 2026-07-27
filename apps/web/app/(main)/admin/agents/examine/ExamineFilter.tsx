@@ -1,4 +1,5 @@
 'use client'
+import type React from 'react'
 import { useTranslations } from 'next-intl'
 import { Input } from '@ihui/ui-react'
 
@@ -13,7 +14,7 @@ export function ExamineFilter({ value, onChange }: ExamineFilterProps) {
     <div className="relative w-full max-w-xs">
       <Input
         value={value}
-        onChange={(e: any) => onChange(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
         placeholder={t('searchAgentPlaceholder')}
         className="h-9"
       />
