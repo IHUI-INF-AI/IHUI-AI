@@ -8,7 +8,7 @@
 
 用法：
   locust -f scripts/locustfile.py --headless \
-      --host http://localhost:3000 \
+      --host http://localhost:8801 \
       --users 100 --spawn-rate 10 --run-time 60s
 
 支持环境变量配置（便于 CI 注入）：
