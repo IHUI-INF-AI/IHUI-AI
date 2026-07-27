@@ -17,13 +17,23 @@ const tenantALS = new AsyncLocalStorage<TenantContext>()
 const schemaCache = new Map<string, string>()
 const MAX_CACHE_SIZE = 1000
 
+// 合法 schema 名正则（小写字母/下划线开头，后跟小写字母/数字/下划线）
+const SCHEMA_NAME_RE = /^[a-z_][a-z0-9_]*$/
+
 function getTenantSchema(tenantId: string): string {
   // 从缓存获取
   const cached = schemaCache.get(tenantId)
   if (cached) return cached
 
-  // 生成 schema 名（tenant_id 转换为合法 schema 名）
-  const schema = `tenant_${tenantId.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50)}`
+  // 生成 schema 名（tenant_id 转换为合法 schema 名：仅保留 [a-z0-9_]，小写化）
+  const sanitized = tenantId.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50).toLowerCase()
+  const schema = `tenant_${sanitized}`
+  // 防御性校验：最终 schema 必须匹配合法 identifier 正则，否则拒绝（防止 sql.raw(schema) 注入）
+  if (!SCHEMA_NAME_RE.test(schema)) {
+    const err = new Error(`Invalid tenant schema: ${schema}`) as Error & { statusCode: number }
+    err.statusCode = 400
+    throw err
+  }
 
   // LRU 淘汰
   if (schemaCache.size >= MAX_CACHE_SIZE) {

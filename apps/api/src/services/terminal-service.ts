@@ -71,6 +71,11 @@ interface IPty {
   onData(cb: (data: string) => void): { dispose(): void }
   onExit(cb: (e: { exitCode: number; signal?: number }) => void): { dispose(): void }
 }
+// SSH wrapper 在 IPty 之上扩展的内部字段(attachSshStream 挂载,kill/write/resize 读取)
+interface PtyWithSshStream extends IPty {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 动态字段,无公开类型
+  _sshStream?: any
+}
 type SpawnFn = (file: string, args: string[], options: {
   name?: string
   cols?: number
@@ -675,8 +680,7 @@ function createSshPtyWrapper(client: Ssh2ClientLike): IPty {
 
 /** 把 SSH stream 挂载到 wrapper 上(ready 后调用) */
 function attachSshStream(entry: PTYEntry, stream: Ssh2StreamLike): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 动态字段
-  ;(entry.pty as any)._sshStream = stream
+  ;(entry.pty as PtyWithSshStream)._sshStream = stream
 }
 
 // ==================== 公共 API:CRUD ====================

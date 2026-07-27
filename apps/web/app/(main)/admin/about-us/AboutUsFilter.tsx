@@ -25,7 +25,7 @@ export function AboutUsFilter({ search, setSearch, onSearch, onReset }: Props) {
             <Input
               className="h-9 w-40"
               value={search[k]}
-              onChange={(e: any) => setSearch({ ...search, [k]: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch({ ...search, [k]: e.target.value })}
               placeholder={t('searchPlaceholder', { field: label })}
             />
           </div>

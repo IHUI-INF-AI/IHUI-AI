@@ -43,6 +43,17 @@ function assertTable(table: string): void {
   }
 }
 
+// 允许的 ORDER BY 白名单（key → 安全 SQL 片段，防止 sql.raw(order) 注入）
+const ALLOWED_ORDERS: Record<string, string> = {
+  id_desc: '"id" DESC',
+  id_asc: '"id" ASC',
+  priority_desc_id_desc: '"priority" DESC, "id" DESC',
+  created_desc: '"created_at" DESC',
+  created_asc: '"created_at" ASC',
+  updated_desc: '"updated_at" DESC',
+  updated_asc: '"updated_at" ASC',
+}
+
 function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
   const page = Math.max(1, Math.floor(Number(q.page) || 1))
   const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
@@ -56,7 +67,7 @@ async function rawList(
   assertTable(table)
   const where =
     opts.conds && opts.conds.length > 0 ? sql`WHERE ${sql.join(opts.conds, sql` AND `)}` : sql``
-  const order = opts.orderBy ?? '"id" DESC'
+  const order = (opts.orderBy ? ALLOWED_ORDERS[opts.orderBy] : undefined) ?? '"id" DESC'
   const offset = (opts.page - 1) * opts.pageSize
   const rows = await db.execute(
     sql`SELECT * FROM ${sql.raw(`"${table}"`)} ${where} ORDER BY ${sql.raw(order)} LIMIT ${opts.pageSize} OFFSET ${offset}`,
@@ -138,6 +149,9 @@ async function rawDelete(table: string, id: string) {
 }
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  // P0 安全修复:所有路由默认要求登录;admin-only 端点在路由级用 requireAdmin 覆盖
+  server.addHook('preHandler', requireAuth)
+
   const buyListQuery = z.object({
     userId: z.string().optional(),
     agentId: z.string().optional(),
@@ -211,7 +225,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         page,
         pageSize,
         conds,
-        orderBy: '"priority" DESC, "id" DESC',
+        orderBy: 'priority_desc_id_desc',
       })
       return reply.send(success(result))
     } catch (e) {
@@ -476,6 +490,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 创建购买订单
   server.post('/buy/create', async (request, reply) => {
     const body = agentBuySchema.parse(request.body)
+    // P0 安全修复:禁止用其他用户 ID 创建订单(IDOR)
+    if (body.userId !== request.userId) {
+      return reply
+        .code(403)
+        .send({ code: 403, message: '无权为其他用户创建订单', data: null })
+    }
     // VIP 权限校验:VIP 专享智能体仅 VIP 用户可购买（对齐旧架构 group==1 && is_vip==0 拒绝）
     const permission = await calculateAgentPermission(body.agentId, body.userId)
     if (!permission.hasPermission) {
@@ -518,8 +538,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     return { code: 0, message: 'ok', data: permission }
   })
 
-  // 购买记录列表
-  server.get('/buy/list', async (request) => {
+  // 购买记录列表(管理员看所有;普通用户应通过自己的 userId 查询,由 requireAdmin 守门)
+  server.get('/buy/list', { preHandler: requireAdmin }, async (request) => {
     const { userId, agentId, page, pageSize } = buyListQuery.parse(request.query)
     const offset = (page - 1) * pageSize
     const conditions: SQL[] = []
@@ -545,6 +565,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 续费
   server.post('/developer/renew', async (request, reply) => {
     const { agentId, userId, duration } = renewBody.parse(request.body)
+    // P0 安全修复:禁止为其他用户续费(IDOR)
+    if (userId !== request.userId) {
+      return reply
+        .code(403)
+        .send({ code: 403, message: '无权为其他用户续费', data: null })
+    }
     const existing = await db
       .select()
       .from(zhsAgentBuy)
@@ -569,8 +595,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     return updated
   })
 
-  // 提现明细列表
-  server.get('/withdrawal/list', async (request) => {
+  // 提现明细列表(管理员看所有;由 requireAdmin 守门)
+  server.get('/withdrawal/list', { preHandler: requireAdmin }, async (request) => {
     const { userId, page, pageSize } = withdrawalListQuery.parse(request.query)
     const offset = (page - 1) * pageSize
     const conditions: SQL[] = []
@@ -589,8 +615,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     return { list, total: total[0]?.count ?? 0, page, pageSize }
   })
 
-  // 提现明细统计
-  server.get('/withdrawal/summary', async (request) => {
+  // 提现明细统计(支持不传 userId 查所有,属管理员能力,由 requireAdmin 守门)
+  server.get('/withdrawal/summary', { preHandler: requireAdmin }, async (request) => {
     const { userId } = optionalUserIdQuery.parse(request.query)
     const result = await db
       .select({
@@ -616,6 +642,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
   server.post('/withdrawal/create', async (request, reply) => {
     const body = withdrawalCreateSchema.parse(request.body)
+    // P0 安全修复:禁止为其他用户创建提现申请(IDOR)
+    if (body.userId !== request.userId) {
+      return reply
+        .code(403)
+        .send({ code: 403, message: '无权为其他用户创建提现申请', data: null })
+    }
     const [row] = await db
       .insert(zhsAgentWithdrawalDetail)
       .values({
@@ -686,13 +718,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     return { id, message: '已删除' }
   })
 
-  // 审核提现申请(status: approved/rejected)
+  // 审核提现申请(status: approved/rejected) — 仅管理员
   const withdrawalReviewSchema = z.object({
     status: z.enum(['approved', 'rejected']),
     reviewer: z.string().uuid(),
     rejectReason: z.string().optional(),
   })
-  server.post('/withdrawal/:id/review', async (request, reply) => {
+  server.post('/withdrawal/:id/review', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params)
     const body = withdrawalReviewSchema.parse(request.body)
     const rows = await db
@@ -718,12 +750,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     return row
   })
 
-  // 处理提现申请(status: processing/completed/failed)
+  // 处理提现申请(status: processing/completed/failed) — 仅管理员
   const withdrawalProcessSchema = z.object({
     status: z.enum(['processing', 'completed', 'failed']),
     rejectReason: z.string().optional(),
   })
-  server.post('/withdrawal/:id/process', async (request, reply) => {
+  server.post('/withdrawal/:id/process', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params)
     const body = withdrawalProcessSchema.parse(request.body)
     const rows = await db
@@ -766,8 +798,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     return { deletedCount: result.length, deletedIds: result.map((r) => r.id) }
   })
 
-  // 提现统计概览
-  server.get('/withdrawal/stats/overview', async (request) => {
+  // 提现统计概览(支持不传 userId 查所有,属管理员能力,由 requireAdmin 守门)
+  server.get('/withdrawal/stats/overview', { preHandler: requireAdmin }, async (request) => {
     const { userId } = optionalUserIdQuery.parse(request.query)
     const where = userId ? eq(zhsAgentWithdrawalDetail.userId, userId) : sql`TRUE`
     const result = await db
@@ -816,11 +848,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   ]
 
   /**
-   * 购买统计摘要。
+   * 购买统计摘要(支持不传 userId 查所有,属管理员能力,由 requireAdmin 守门)。
    * @query userId, agentId 可选过滤条件
    * @returns { total_count, total_amount, active_count, pending_count, expired_count, cancelled_count }
    */
-  server.get('/buy/stats/summary', async (request, reply) => {
+  server.get('/buy/stats/summary', { preHandler: requireAdmin }, async (request, reply) => {
     const { userId, agentId } = optionalUserIdAgentIdQuery.parse(request.query)
     try {
       const conds: SQL[] = []
@@ -1027,7 +1059,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
 
-  server.post('/rules', async (req, reply) => {
+  // 创建规则 — 仅管理员
+  server.post('/rules', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const body = req.body as {
         agentId: string
@@ -1059,7 +1092,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
 
-  server.put('/rules/:id', async (req, reply) => {
+  // 更新规则 — 仅管理员
+  server.put('/rules/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
@@ -1085,7 +1119,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
 
-  server.delete('/rules/:id', async (req, reply) => {
+  // 删除规则 — 仅管理员
+  server.delete('/rules/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
