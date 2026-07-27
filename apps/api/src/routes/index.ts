@@ -340,6 +340,10 @@ import agentCreationRoutes from './agent-creation.js'
 // 资源上下文管理(7 端点:列表/创建/详情/更新/删除/绑定/按会话查询)+ 交易员流水统计(4 端点:流水/汇总/按日/排行)
 import resourceContextRoutes from './resource-context.js'
 import traderStatsRoutes from './trader-stats.js'
+// Subagent 扩展路由(2026-07-24 立,补建前端调用但后端缺失的端点:/api/subagents/*)
+import { subagentsExtendedRoutes } from './subagents-extended-routes.js'
+// AI 助教路由代理(把 /api/ai-tutor/* 透传到 ai-service,避免前端直连 CORS)
+import { aiTutorRoutes } from './ai-tutor-routes.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
@@ -926,4 +930,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(resourceContextRoutes)
   // 交易员流水统计(4 端点,绝对路径字面量注册)
   server.register(traderStatsRoutes)
+
+  // Subagent 扩展路由(/api/subagents/*:auto-plan + roles/custom CRUD + evolution + collaboration)
+  server.register(subagentsExtendedRoutes, { prefix: '/api' })
+  // AI 助教路由代理(/api/ai-tutor/*:explain/hint/quiz → 透传到 ai-service)
+  server.register(aiTutorRoutes, { prefix: '/api' })
 }
