@@ -8,7 +8,7 @@
 /* ===== Header:用户信息 + VIP 状态 ===== */
 .member-header {
   padding: 60rpx 40rpx 40rpx;
-  background: linear-gradient(135deg, var(--color-primary), rgba(0, 242, 255, 0.6));
+  background: var(--color-primary);
 }
 .member-user {
   display: flex;
@@ -91,7 +91,7 @@
 }
 .member-level-current {
   border-color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.08);
+  background: var(--color-border);
 }
 .member-level-name {
   display: block;
@@ -159,7 +159,7 @@
   width: 72rpx;
   height: 72rpx;
   margin-right: 20rpx;
-  background: rgba(0, 242, 255, 0.12);
+  background: var(--color-border);
   border-radius: 12rpx;
   display: flex;
   align-items: center;

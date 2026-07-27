@@ -60,7 +60,7 @@ export default function WebviewIndex() {
     } catch {
       // ignore
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
 
   // 接收 H5 页面 postMessage 的消息(对标原项目 handleWebviewMessage)

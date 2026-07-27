@@ -112,20 +112,20 @@ export default function MemberDetail() {
   return (
     <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx]">
       <View className="flex gap-[16rpx]">
-        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx] text-center">
-          <Text className="block text-[34rpx] font-bold text-[#00f2ff]">{stats.teamCount}</Text>
+        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-primary/30 rounded-[12rpx] text-center">
+          <Text className="block text-[34rpx] font-bold text-primary">{stats.teamCount}</Text>
           <Text className="block text-[22rpx] text-muted-foreground mt-[8rpx]">
             {tt('distribution.memberDetail.teamCount', '团队人数')}
           </Text>
         </View>
-        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx] text-center">
-          <Text className="block text-[34rpx] font-bold text-[#00f2ff]">{stats.monthNew}</Text>
+        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-primary/30 rounded-[12rpx] text-center">
+          <Text className="block text-[34rpx] font-bold text-primary">{stats.monthNew}</Text>
           <Text className="block text-[22rpx] text-muted-foreground mt-[8rpx]">
             {tt('distribution.memberDetail.monthNew', '本月新增')}
           </Text>
         </View>
-        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx] text-center">
-          <Text className="block text-[34rpx] font-bold text-[#00f2ff]">¥{stats.totalCommission}</Text>
+        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-primary/30 rounded-[12rpx] text-center">
+          <Text className="block text-[34rpx] font-bold text-primary">¥{stats.totalCommission}</Text>
           <Text className="block text-[22rpx] text-muted-foreground mt-[8rpx]">
             {tt('distribution.memberDetail.totalCommission', '总佣金')}
           </Text>
@@ -140,7 +140,7 @@ export default function MemberDetail() {
         {list.length > 0 && (
           <View className="flex flex-col gap-[16rpx]">
             {list.map((m) => (
-              <View key={m.id} className="flex items-center p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]">
+              <View key={m.id} className="flex items-center p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]">
                 {m.avatar ? (
                   <Image className="w-[80rpx] h-[80rpx] rounded-[8rpx] bg-muted flex-shrink-0" src={m.avatar} mode="aspectFill" />
                 ) : (
@@ -151,7 +151,7 @@ export default function MemberDetail() {
                 <View className="flex-1 ml-[20rpx] min-w-0">
                   <View className="flex items-center justify-between">
                     <Text className="text-[28rpx] font-medium text-foreground truncate flex-1 min-w-0">{m.nickname}</Text>
-                    <Text className="text-[24rpx] font-semibold text-[#8b5cf6] ml-[16rpx] flex-shrink-0">V{m.level}</Text>
+                    <Text className="text-[24rpx] font-semibold text-accent ml-[16rpx] flex-shrink-0">V{m.level}</Text>
                   </View>
                   <View className="flex items-center justify-between mt-[10rpx]">
                     <Text className="text-[22rpx] text-muted-foreground truncate flex-1 min-w-0">
@@ -176,7 +176,7 @@ export default function MemberDetail() {
             <Text className="text-[26rpx] text-destructive">
               {tt('distribution.memberDetail.error', '加载失败')}
             </Text>
-            <Text className="text-[26rpx] text-[#00f2ff] mt-[12rpx]">
+            <Text className="text-[26rpx] text-primary mt-[12rpx]">
               {tt('distribution.memberDetail.retry', '点击重试')}
             </Text>
           </View>

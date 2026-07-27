@@ -90,7 +90,7 @@ export default function LiveSubscribe() {
         <Text>{tt('live.subscribe.unit', '场')}</Text>
       </View>
 
-      <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]">
+      <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] bg-card border border-border rounded-[12rpx]">
         <View>
           <Text className="text-[28rpx] text-foreground">
             {tt('live.subscribe.reminder', '开播前提醒')}
@@ -107,7 +107,7 @@ export default function LiveSubscribe() {
           {list.map((l) => (
             <View
               key={l.id}
-              className="flex items-stretch p-[20rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]"
+              className="flex items-stretch p-[20rpx] bg-card border border-border rounded-[12rpx]"
             >
               <Image
                 className="w-[160rpx] h-[120rpx] shrink-0 bg-muted rounded-[8rpx]"
@@ -150,7 +150,7 @@ export default function LiveSubscribe() {
             {tt('live.subscribe.empty', '暂无订阅')}
           </Text>
           <Text
-            className="mt-[24rpx] px-[48rpx] py-[16rpx] text-[28rpx] text-primary bg-[rgba(0,242,255,0.1)] border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[8rpx]"
+            className="mt-[24rpx] px-[48rpx] py-[16rpx] text-[28rpx] text-primary bg-primary/10 border border-primary rounded-[8rpx]"
             onClick={goDiscover}
           >
             {tt('live.subscribe.discover', '去发现直播')}

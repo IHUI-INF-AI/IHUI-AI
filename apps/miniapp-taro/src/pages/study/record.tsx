@@ -126,7 +126,7 @@ export default function StudyRecord() {
   const statusClass = (s: FilterTab): string => {
     if (s === 'completed') return `${STATUS_BASE} bg-[rgba(76,175,80,0.12)] text-[#4caf50]`
     if (s === 'abandoned') return `${STATUS_BASE} bg-[rgba(158,158,158,0.12)] text-[#9e9e9e]`
-    return `${STATUS_BASE} bg-[rgba(0,242,255,0.1)] text-primary`
+    return `${STATUS_BASE} bg-primary/10 text-primary`
   }
 
   const stats: Array<{ key: string; num: number; label: string; unit?: string }> = [
@@ -166,7 +166,7 @@ export default function StudyRecord() {
   return (
     <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       {/* 学习统计卡 */}
-      <View className="flex bg-card border-[2rpx] border-[rgba(0,242,255,0.12)] rounded-[16rpx] py-[28rpx] px-[16rpx] gap-[12rpx]">
+      <View className="flex bg-card border-[2rpx] border-primary/20 rounded-[16rpx] py-[28rpx] px-[16rpx] gap-[12rpx]">
         {stats.map((s) => (
           <View key={s.key} className="flex-1 flex flex-col items-center">
             <View className="flex items-baseline justify-center">
@@ -179,7 +179,7 @@ export default function StudyRecord() {
       </View>
 
       {/* 状态筛选 tab */}
-      <View className="flex mt-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx] p-[6rpx]">
+      <View className="flex mt-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx] p-[6rpx]">
         {tabs.map((tb) => (
           <View
             key={tb.key}
@@ -197,7 +197,7 @@ export default function StudyRecord() {
           {displayList.map((r) => {
             const st = deriveStatus(r.progress)
             return (
-              <View key={r.id} className="flex bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx] p-[20rpx]" onClick={() => goCourse(r.courseId)}>
+              <View key={r.id} className="flex bg-card border-[2rpx] border-primary/20 rounded-[12rpx] p-[20rpx]" onClick={() => goCourse(r.courseId)}>
                 {r.coverUrl ? (
                   <Image className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0" src={r.coverUrl} mode="aspectFill" />
                 ) : (
@@ -221,7 +221,7 @@ export default function StudyRecord() {
                     </Text>
                     <Text className={statusClass(st)}>{statusLabel(st)}</Text>
                   </View>
-                  <Text className="mt-[12rpx] self-end py-[8rpx] px-[24rpx] text-[24rpx] text-primary bg-[rgba(0,242,255,0.1)] border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[8rpx] leading-[1.4]">
+                  <Text className="mt-[12rpx] self-end py-[8rpx] px-[24rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/40 rounded-[8rpx] leading-[1.4]">
                     {tt('study.recordPage.continue', '继续学习')}
                   </Text>
                 </View>

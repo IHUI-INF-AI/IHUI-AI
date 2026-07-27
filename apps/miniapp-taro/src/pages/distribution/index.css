@@ -225,8 +225,8 @@
   border-radius: 12rpx;
   border: none;
   padding: 0;
-  background: linear-gradient(90deg, #00f2ff, #8b5cf6);
-  color: #121217;
+  background: var(--color-primary);
+  color: var(--color-background);
   font-weight: 600;
 }
 .dist-qrpop-btn::after {
@@ -292,8 +292,8 @@
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
-  background: linear-gradient(90deg, #00f2ff, #8b5cf6);
-  color: #121217;
+  background: var(--color-primary);
+  color: var(--color-background);
   font-size: 30rpx;
   font-weight: 600;
   border-radius: 12rpx;

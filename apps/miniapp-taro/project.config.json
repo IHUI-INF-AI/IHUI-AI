@@ -43,7 +43,8 @@
     "minifyWXSS": true,
     "condition": false,
     "bigPackageSizeSupport": true,
-    "crossOriginIsolation": true
+    "crossOriginIsolation": true,
+    "minifyWXML": true
   },
   "compileType": "miniprogram",
   "libVersion": "3.7.3",
