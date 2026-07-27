@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import * as React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-// @ts-ignore - @testing-library/react no exported member fireEvent/waitFor
 import { render, fireEvent, waitFor } from '@testing-library/react'
 
 // next-intl 在 vitest 下不接 NextIntlClientProvider 上下文,直接 mock 掉 useTranslations

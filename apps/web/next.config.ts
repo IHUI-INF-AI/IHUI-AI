@@ -4,9 +4,8 @@ import createNextIntlPlugin from 'next-intl/plugin'
 const nextConfig: NextConfig = {
   output: 'export', // A 套壳方案:静态导出供 Tauri WebView 加载(原 'standalone',见 commit ce1f12795)
   reactStrictMode: true,
-  typescript: { ignoreBuildErrors: true },
-  // 2026-07-22 临时:跳过构建时 ESLint(其他 agent 引入的 jsx-a11y/no-unused-vars 错误阻塞部署)
-  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: false },
+  eslint: { ignoreDuringBuilds: false },
   productionBrowserSourceMaps: false,
   // 关闭 Next.js 15 自带的左下角 N 圆圈 dev indicator (2026-07-21)
   devIndicators: false,
