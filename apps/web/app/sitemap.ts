@@ -54,6 +54,7 @@ const PAGES: Array<{
   { path: '/members', changeFrequency: 'weekly', priority: 0.6 },
   { path: '/topics', changeFrequency: 'weekly', priority: 0.5 },
   { path: '/tags', changeFrequency: 'weekly', priority: 0.5 },
+  { path: '/blog', changeFrequency: 'weekly', priority: 0.8 },
 
   // 资源/工具
   { path: '/plugins', changeFrequency: 'weekly', priority: 0.7 },
