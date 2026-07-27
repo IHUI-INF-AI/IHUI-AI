@@ -109,9 +109,9 @@ docker compose up -d postgres redis
 
 # 5. 启动全栈(web + api + ai-service)
 pnpm dev
-# web: http://localhost:3000
+# web: http://localhost:8801
 # api: http://localhost:8802
-# ai-service: http://localhost:8000
+# ai-service: http://localhost:8803
 ```
 
 国内镜像:
