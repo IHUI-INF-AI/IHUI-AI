@@ -7,7 +7,14 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
-interface Note { id: string; title: string; content: string; tags: string[]; views: number; likes: number; author: string; createdAt: string }
+import type { Article } from '@ihui/types'
+
+interface Note extends Pick<Article, 'id' | 'title' | 'content' | 'createdAt'> {
+  tags: string[]
+  views: number // = viewCount 别名
+  likes: number // = likeCount 别名
+  author: string // = authorName 别名
+}
 
 type Route = RouteProp<RootStackParamList, 'NoteDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -25,33 +32,55 @@ export function NoteDetailScreen() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      setLoading(true); setError('')
+      setLoading(true)
+      setError('')
       const res = await fetchApi<Note>(`/api/notes/${encodeURIComponent(id)}`)
       if (cancelled) return
       if (res.success) setNote(res.data)
       else setError(res.error || t('noteDetail.loadFailed'))
       setLoading(false)
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [id, t])
 
-  if (loading) return <View style={styles.center}><Loading /><Text style={styles.muted}>{t('common.loading')}</Text></View>
-  if (error || !note) return (
-    <View style={styles.center}>
-      <Text style={styles.error}>{error || t('noteDetail.loadFailed')}</Text>
-      <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}><Text style={styles.btnText}>{t('common.back')}</Text></TouchableOpacity>
-    </View>
-  )
+  if (loading)
+    return (
+      <View style={styles.center}>
+        <Loading />
+        <Text style={styles.muted}>{t('common.loading')}</Text>
+      </View>
+    )
+  if (error || !note)
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>{error || t('noteDetail.loadFailed')}</Text>
+        <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
+          <Text style={styles.btnText}>{t('common.back')}</Text>
+        </TouchableOpacity>
+      </View>
+    )
   return (
     <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>{t('common.back')}</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => navigation.goBack()}>
+        <Text style={styles.back}>{t('common.back')}</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>{note.title}</Text>
       <View style={styles.metaRow}>
         <Text style={styles.author}>{note.author}</Text>
-        <Text style={styles.meta}>{t('noteDetail.views', { count: note.views })} · {note.createdAt}</Text>
+        <Text style={styles.meta}>
+          {t('noteDetail.views', { count: note.views })} · {note.createdAt}
+        </Text>
       </View>
       {note.tags.length > 0 ? (
-        <View style={styles.tagRow}>{note.tags.map((tag) => <Text key={tag} style={styles.tag}>#{tag}</Text>)}</View>
+        <View style={styles.tagRow}>
+          {note.tags.map((tag) => (
+            <Text key={tag} style={styles.tag}>
+              #{tag}
+            </Text>
+          ))}
+        </View>
       ) : null}
       <Text style={styles.content}>{note.content}</Text>
       <View style={styles.statRow}>
@@ -62,8 +91,20 @@ export function NoteDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16 },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    paddingBottom: 32,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    padding: 16,
+  },
   muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
   error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
   back: { fontSize: 14, color: '#6b7280' },
@@ -72,10 +113,30 @@ const styles = StyleSheet.create({
   author: { fontSize: 13, color: PRIMARY, fontWeight: '500' },
   meta: { fontSize: 11, color: '#9ca3af' },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-  tag: { fontSize: 11, color: PRIMARY, backgroundColor: '#ecfdf5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  tag: {
+    fontSize: 11,
+    color: PRIMARY,
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
   content: { fontSize: 14, lineHeight: 22, color: '#374151' },
   statRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  stat: { fontSize: 12, color: '#374151', backgroundColor: '#f3f4f6', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
+  stat: {
+    fontSize: 12,
+    color: '#374151',
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  btn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
   btnText: { color: '#fff', fontSize: 14 },
 })
