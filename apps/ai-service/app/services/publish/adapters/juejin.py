@@ -141,8 +141,8 @@ class JuejinAdapter(BasePlatformAdapter):
                     if await md_tab.count() > 0:
                         await md_tab.click()
                         await page.wait_for_timeout(500)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("juejin.publish Markdown tab click 失败: %s", e, exc_info=True)
 
                 # 填正文
                 editor = page.locator('textarea.editor, .CodeMirror textarea, [mode="markdown"] textarea').first
@@ -189,8 +189,8 @@ class JuejinAdapter(BasePlatformAdapter):
                         cover_input = page.locator('input[placeholder*="封面"], .cover-input').first
                         if await cover_input.count() > 0:
                             await cover_input.fill(cover)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning("juejin.publish cover input 失败: %s", e, exc_info=True)
 
                 # 点发布(掘金需要先点 "发布" 弹窗,再确认)
                 publish_btn = page.locator('button:has-text("发布"), .publish-btn').first
@@ -211,7 +211,8 @@ class JuejinAdapter(BasePlatformAdapter):
                 # 等待跳转
                 try:
                     await page.wait_for_url("**/post/**", timeout=30000)
-                except Exception:
+                except Exception as e:
+                    logger.warning("juejin.publish wait_for_url 失败: %s", e, exc_info=True)
                     await browser.close()
                     return PublishResult(
                         success=False, platform=self.platform_id,

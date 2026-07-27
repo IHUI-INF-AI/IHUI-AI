@@ -37,7 +37,7 @@ const C = {
   reset: '\x1b[0m',
 }
 
-const EXCLUDE_DIRS = new Set(['node_modules', '.git', '.next', '.turbo', 'dist', 'build', '.worktrees', '.venv', 'tests', '__tests__'])
+const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.venv', '.worktrees', '__tests__', 'build', 'dist', 'e2e', 'node_modules', 'tests'])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss']
 

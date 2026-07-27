@@ -57,7 +57,7 @@ describe('resolveSandboxOptions', () => {
 
   it("无效 profile 不报错,返回原 opts(同一引用)", () => {
     const userOpts: Partial<SandboxOptions> = { timeoutMs: 9999 }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 测试 mock 简化
     expect(resolveSandboxOptions('invalid' as any, userOpts)).toBe(userOpts)
   })
 })

@@ -36,7 +36,7 @@ const C = {
   reset: '\x1b[0m',
 }
 
-const EXCLUDE_DIRS = new Set(['node_modules', '.git'])
+const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.worktrees', 'build', 'dist', 'node_modules'])
 
 function collectFiles(dir, exts, result = []) {
   if (!existsSync(dir)) return result

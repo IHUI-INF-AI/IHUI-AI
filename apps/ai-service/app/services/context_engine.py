@@ -128,7 +128,8 @@ class ContextEngine:
 
             try:
                 enc = tiktoken.encoding_for_model(model)
-            except Exception:
+            except Exception as e:
+                logger.warning("context_engine.count_tokens encoding_for_model 失败: %s", e, exc_info=True)
                 enc = tiktoken.get_encoding("cl100k_base")
             total = 0
             for m in messages:
@@ -884,7 +885,8 @@ class ContextEngine:
             from .codebase_indexer import codebase_indexer
 
             symbol_node_types = codebase_indexer._SYMBOL_NODE_TYPES
-        except Exception:
+        except Exception as e:
+            logger.warning("context_engine._find_symbol_node 失败: %s", e, exc_info=True)
             symbol_node_types = {}
 
         for node in self._walk_ast(root):
@@ -926,7 +928,8 @@ class ContextEngine:
             return ""
         try:
             return cast(str, node.text.decode("utf-8", errors="replace"))
-        except Exception:
+        except Exception as e:
+            logger.warning("context_engine._node_text 失败: %s", e, exc_info=True)
             return ""
 
     def _build_signature_dict(

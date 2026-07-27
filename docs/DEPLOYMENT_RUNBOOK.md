@@ -295,6 +295,6 @@ docker compose exec redis redis-cli -a $REDIS_PASSWORD PSUBSCRIBE '*'  # pub/sub
 
 ```bash
 docker compose ps ai-service && docker compose logs --tail=50 ai-service
-docker compose exec ai-service curl -s http://localhost:8000/health
+docker compose exec ai-service curl -s http://localhost:8000/health  # 容器内部端口(豁免:宿主映射 8810→5432 / 8811→6379 / 8803→8000)
 docker compose exec ai-service printenv | grep -E "STEPFUN|AGNES|OPENAI|ANTHROPIC|LITELLM_MODEL"
 ```

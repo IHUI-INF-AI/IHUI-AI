@@ -656,7 +656,8 @@ class TelemetryService:
                 for raw in raw_list:
                     try:
                         spans.append(cast(dict[str, Any], json.loads(raw)))
-                    except Exception:
+                    except Exception as e:
+                        logger.warning("telemetry_service.get_trace JSON parse 失败: %s", e, exc_info=True)
                         continue
             except Exception as e:
                 logger.warning("[telemetry] 从 Redis 读 trace 失败: %s", e)
@@ -685,7 +686,8 @@ class TelemetryService:
                 for raw in raw_list:
                     try:
                         roots.append(cast(dict[str, Any], json.loads(raw)))
-                    except Exception:
+                    except Exception as e:
+                        logger.warning("telemetry_service.get_recent_traces JSON parse 失败: %s", e, exc_info=True)
                         continue
             except Exception as e:
                 logger.warning("[telemetry] 从 Redis 读 trace roots 失败: %s", e)
@@ -784,8 +786,8 @@ class TelemetryService:
                 # 估算 trace 数(根 span 数)
                 root_count = await redis.llen(REDIS_TRACE_ROOTS_KEY)
                 total_spans_stored = max(total_spans_stored, root_count)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("telemetry_service.get_dashboard redis llen 失败: %s", e, exc_info=True)
         return {
             "system_overview": {
                 "metrics_count": len(all_metrics),
