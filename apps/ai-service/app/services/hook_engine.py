@@ -595,7 +595,7 @@ class HookEngine:
                 severity="info",
             )
         except Exception:
-            pass
+            logger.exception("[hook_engine] hook_emitted_event_failed: event=%s", event)
         return triggered_logs
 
     async def _execute_hook(
@@ -685,7 +685,7 @@ class HookEngine:
                     severity="warning",
                 )
             except Exception:
-                pass
+                logger.exception("[hook_engine] hook_failed_event_emit_failed: hook_id=%s event=%s", hook["id"], event)
         return log
 
     def _resolve_retry_count(self, action_type: str, config: dict[str, Any]) -> int:
@@ -773,7 +773,7 @@ class HookEngine:
         try:
             SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
         except Exception:
-            pass
+            logger.exception("[hook_engine] sandbox_dir_create_failed: path=%s", str(SANDBOX_DIR))
         try:
             # Windows 用 cmd /c,Unix 用 sh -c
             if os.name == "nt":
@@ -1140,7 +1140,7 @@ class HookEngine:
                 except RuntimeError:
                     pass  # 无运行中的事件循环,跳过
             except Exception:
-                pass
+                logger.exception("[hook_engine] hook_health_degraded_event_failed: hook_id=%s status=%s", r.get("hookId", ""), status)
         return {"summary": summary, "hooks": results}
 
     def _check_one_health(self, hook: dict[str, Any]) -> dict[str, Any]:
@@ -1176,7 +1176,7 @@ class HookEngine:
                 if last_ts < stale_threshold:
                     is_stale = True
             except Exception:
-                pass
+                logger.exception("[hook_engine] hook_last_triggered_parse_failed: last_triggered=%s", last_triggered)
         elif not all_logs:
             is_stale = True  # 从未触发 → stale
 
