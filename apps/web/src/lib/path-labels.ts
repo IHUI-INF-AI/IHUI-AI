@@ -64,6 +64,7 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   { href: '/mcp-projects', spec: { ns: 'nav', key: 'mcpProjects' } },
   { href: '/openclaw', spec: { ns: 'nav', key: 'openclaw' } },
   { href: '/recruitment', spec: { ns: 'nav', key: 'recruitment' } },
+  { href: '/blog', spec: { ns: 'blog', key: 'title' } },
 ]
 
 /** 合并所有路由 → 标签规格映射 */
