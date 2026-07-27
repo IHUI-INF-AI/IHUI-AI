@@ -15,6 +15,7 @@ import { Breadcrumb } from '@/components/layout'
 import { HotNews } from '@/components/operation/HotNews'
 import { NewsInteraction } from '@/components/news/NewsInteraction'
 import { NewsComments } from '@/components/news/NewsComments'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface NewsArticle {
   id: string

@@ -6,6 +6,7 @@ import { Loader2, Pencil, Play, Plus, ScrollText, Trash2 } from 'lucide-react'
 import { Button, Card, Input, Switch } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/components/common/Empty'
+import { formatDate } from '@/lib/date-utils'
 import { useHooks, useHookLogs } from '@/hooks/use-hooks'
 import {
   draftToCreateInput,
@@ -713,7 +714,7 @@ function LogRow({
         </span>
         <span className="text-muted-foreground">{log.duration} ms</span>
         <span className="text-muted-foreground">
-          {new Date(log.triggeredAt).toLocaleString()}
+          {formatDate(log.triggeredAt)}
         </span>
         {showHookId && (
           <span className="text-muted-foreground">#{log.hookId.slice(-8)}</span>

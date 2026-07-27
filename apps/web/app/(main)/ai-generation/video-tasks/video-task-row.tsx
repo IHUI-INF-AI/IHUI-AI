@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react'
 
 import { getVideoTaskStatusLabel } from './status-badge'
+import { formatDate } from '@/lib/date-utils'
 
 export interface VideoTask {
   id: number

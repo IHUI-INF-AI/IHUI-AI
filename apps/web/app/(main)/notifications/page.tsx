@@ -24,6 +24,7 @@ import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { NotificationItem } from '@/components/business'
 import { Timeline } from '@/components/data/Timeline'
+import { formatDateOnly } from '@/lib/date-utils'
 
 type NotificationType = 'system' | 'order' | 'project' | 'comment' | 'mention' | 'follow'
 
