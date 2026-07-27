@@ -33,7 +33,11 @@ export const ThinkingSection = React.memo(function ThinkingSection({
 
   return (
     <FoldableSection title="思考过程" icon={Brain} data-testid="thinking-section">
-      <div className="space-y-1 text-[11px] leading-relaxed">
+      <div
+        className="space-y-1 text-[11px] leading-relaxed"
+        aria-live={isStreaming ? 'polite' : undefined}
+        aria-atomic={isStreaming ? 'false' : undefined}
+      >
         {currentNode && (
           <div className="flex items-center gap-1">
             {isStreaming && <Loader2 className="h-2.5 w-2.5 animate-spin text-primary" />}

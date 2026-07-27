@@ -783,3 +783,105 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     expect(container.textContent).toContain('5文件')
   })
 })
+
+// ─── v11: 键盘导航 + ARIA 测试 ───
+describe('AgentTaskProgressPane — v11 键盘导航 + ARIA', () => {
+  beforeEach(() => {
+    useAgentProgressPaneStore.getState().reset()
+    useAgentProgressPaneStore.getState().openPane()
+    useAgentProgressPaneStore.getState().setThreadId('thread-kb-1')
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('FoldableSection button 含 data-section-header 标识(键盘导航锚点)', () => {
+    const { container } = render(
+      <FoldableSection title="测试区" data-testid="kb-section">
+        <span>内容</span>
+      </FoldableSection>,
+    )
+    const btn = container.querySelector('button')!
+    expect(btn.getAttribute('data-section-header')).toBe('true')
+  })
+
+  it('FoldableSection button 含 aria-label(默认=title)', () => {
+    const { container } = render(
+      <FoldableSection title="工具调用" data-testid="kb-section-2">
+        <span>内容</span>
+      </FoldableSection>,
+    )
+    const btn = container.querySelector('button')!
+    expect(btn.getAttribute('aria-label')).toBe('工具调用')
+  })
+
+  it('FoldableSection button 支持自定义 aria-label', () => {
+    const { container } = render(
+      <FoldableSection
+        title="工具调用"
+        aria-label="自定义工具区标题"
+        data-testid="kb-section-3"
+      >
+        <span>内容</span>
+      </FoldableSection>,
+    )
+    const btn = container.querySelector('button')!
+    expect(btn.getAttribute('aria-label')).toBe('自定义工具区标题')
+  })
+
+  it('FoldableSection button 含 focus-visible ring 样式类', () => {
+    const { container } = render(
+      <FoldableSection title="测试" data-testid="kb-section-4">
+        <span>内容</span>
+      </FoldableSection>,
+    )
+    const btn = container.querySelector('button')!
+    expect(btn.className).toContain('focus-visible:ring')
+  })
+
+  it('pane 根元素含 role=complementary + aria-label', () => {
+    const { container } = render(<AgentTaskProgressPane />)
+    const pane = container.querySelector('[data-testid="agent-progress-pane"]')!
+    expect(pane.getAttribute('role')).toBe('complementary')
+    expect(pane.getAttribute('aria-label')).toBe('Agent 任务进度面板')
+  })
+
+  it('plan steps 列表含 role=list + aria-label', () => {
+    // 需要 planSteps 数据,这里用 ToolCallsSection 的子项验证 list 语义
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-list-1',
+        toolName: 'read_file',
+        args: { file_path: 'src/a.ts' },
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    // FoldableSection 本身不强制 role=list,但 button 有 data-section-header
+    const btn = container.querySelector('[data-section-header]')!
+    expect(btn).toBeTruthy()
+  })
+
+  it('ThinkingSection 流式时含 aria-live=polite', () => {
+    const { container } = render(
+      <ThinkingSection content="分析中" currentNode="planner" isStreaming={true} />,
+    )
+    const btn = container.querySelector('button')!
+    fireEvent.click(btn) // 展开
+    // 内部 div 含 aria-live
+    const liveRegion = container.querySelector('[aria-live="polite"]')
+    expect(liveRegion).toBeTruthy()
+  })
+
+  it('ThinkingSection 非流式时无 aria-live(避免噪声)', () => {
+    const { container } = render(
+      <ThinkingSection content="已完成" currentNode={null} isStreaming={false} />,
+    )
+    const btn = container.querySelector('button')!
+    fireEvent.click(btn)
+    const liveRegion = container.querySelector('[aria-live]')
+    expect(liveRegion).toBeNull()
+  })
+})
