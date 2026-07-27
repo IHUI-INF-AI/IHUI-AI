@@ -1,4 +1,4 @@
-import { setTokenProvider, setBaseUrl, fetchApi as fetchApiShared } from '@ihui/api-client'
+import { setTokenProvider, setBaseUrl, setStreamBaseUrl, fetchApi as fetchApiShared } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
@@ -27,8 +27,33 @@ function detectApiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_BASE_URL || ''
 }
 
+// 2026-07-27 修复 SSE 流被 Next.js dev proxy 中断:
+// Next.js dev server 的 rewrite 代理对 SSE 流式响应有超时/缓冲问题,导致 net::ERR_ABORTED。
+// streamChat 用独立的 streamBaseUrl 直连 API 服务器,绕过 dev proxy。
+// 检测策略(按优先级):
+// 1. Tauri 环境:直连 http://127.0.0.1:8802
+// 2. 开发环境(localhost:8801):直连 http://127.0.0.1:8802(绕过 Next.js dev proxy)
+// 3. 显式 env 配置:NEXT_PUBLIC_STREAM_API_BASE_URL
+// 4. 生产环境:留空走同源(baseUrl 复用)
+function detectStreamBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    // Tauri 2 环境
+    if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
+      return 'http://127.0.0.1:8802'
+    }
+    // 开发环境:Next.js dev server 运行在 localhost:8801
+    // SSE 流直连 API 服务器 127.0.0.1:8802,绕过 dev proxy 的超时/缓冲
+    if (window.location.hostname === 'localhost' && window.location.port === '8801') {
+      return 'http://127.0.0.1:8802'
+    }
+  }
+  // 生产环境或显式配置(留空则复用 baseUrl,走同源反代)
+  return process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || ''
+}
+
 if (typeof window !== 'undefined') {
   setBaseUrl(detectApiBaseUrl())
+  setStreamBaseUrl(detectStreamBaseUrl())
 }
 
 /**
@@ -53,5 +78,5 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
   return result
 }
 
-export { setTokenProvider, setBaseUrl, streamChat } from '@ihui/api-client'
+export { setTokenProvider, setBaseUrl, setStreamBaseUrl, streamChat } from '@ihui/api-client'
 export type { ApiResult, ApiResponse } from '@ihui/types'

@@ -37,10 +37,6 @@ export default function AiNewsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
 
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/ai-news/${encodeURIComponent(id)}` })
-  }
-
   if (loading) {
     return (
       <div className="text-center text-muted-foreground py-8 px-4 text-sm">

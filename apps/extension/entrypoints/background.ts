@@ -435,7 +435,6 @@ export default defineBackground(() => {
   registerInstallHook()
   registerActionClick()
   registerContextMenu()
-  registerAlarmListener()
   initAgentControlBridge()
 
   // 监听 storage 变化(其他 context 改 token 时同步)
