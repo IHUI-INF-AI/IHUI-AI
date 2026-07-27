@@ -6,26 +6,13 @@ import { Button, Card, Input, Loading } from '@ihui/ui-native'
 import { getOrders, refundOrder, type Order } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatDateByTemplate } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 function formatAmount(n: number | undefined | null): string {
   if (typeof n !== 'number') return '—'
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return ''
-  }
 }
 
 export function OrderRefundScreen() {
@@ -146,7 +133,7 @@ export function OrderRefundScreen() {
                 <Text className="text-xs text-neutral-500">
                   {t('orderRefund.orderNo')}:{item.orderNo}
                 </Text>
-                <Text className="text-xs text-neutral-500">{formatTime(item.createdAt)}</Text>
+                <Text className="text-xs text-neutral-500">{formatDateByTemplate(item.createdAt, 'YYYY-MM-DD HH:mm')}</Text>
               </View>
 
               {isSelected ? (

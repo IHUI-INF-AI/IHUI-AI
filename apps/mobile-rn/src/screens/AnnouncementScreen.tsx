@@ -7,6 +7,7 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateWithYear } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -16,14 +17,6 @@ interface Announcement {
   content: string
   publishTime: string
   pinned: boolean
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
 }
 
 export function AnnouncementScreen() {
@@ -102,7 +95,7 @@ export function AnnouncementScreen() {
               <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
             </View>
             <Text style={styles.itemContent} numberOfLines={3}>{item.content}</Text>
-            <Text style={styles.publishTime}>{t('announcement.publishTime')}: {formatDate(item.publishTime)}</Text>
+            <Text style={styles.publishTime}>{t('announcement.publishTime')}: {formatShortDateWithYear(item.publishTime)}</Text>
           </Card>
         )}
       />
