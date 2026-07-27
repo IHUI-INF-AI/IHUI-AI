@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
-import { success } from '../utils/response.js'
 
 /**
  * OAuth 私钥管理路由
@@ -18,51 +17,46 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
       scopes: z.array(z.string()).optional().default([]),
     }).parse(request.body)
 
-    // TODO: 实现私钥生成逻辑(生成 RSA 密钥对,存储到 oauth_private_keys 表)
-    return reply.send(
-      success({
-        keyId: '',
-        publicKey: '',
-        createdAt: new Date().toISOString(),
-      }),
-    )
+    // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
+    return reply.code(501).send({
+      code: 501,
+      message: 'Not Implemented: oauth-keys /generate 尚未实装',
+      data: null,
+    })
   })
 
   // POST /rotate - 轮转私钥(生成新密钥,旧密钥标记为非活跃)
   server.post('/rotate', async (request, reply) => {
-    const { keyId } = z
-      .object({ keyId: z.string().min(1) })
-      .parse(request.body)
+    z.object({ keyId: z.string().min(1) }).parse(request.body)
 
-    // TODO: 实现密钥轮转逻辑
-    return reply.send(
-      success({
-        oldKeyId: keyId,
-        newKeyId: '',
-        rotatedAt: new Date().toISOString(),
-      }),
-    )
+    // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
+    return reply.code(501).send({
+      code: 501,
+      message: 'Not Implemented: oauth-keys /rotate 尚未实装',
+      data: null,
+    })
   })
 
   // POST /revoke - 吊销私钥
   server.post('/revoke', async (request, reply) => {
-    const { keyId } = z
-      .object({ keyId: z.string().min(1) })
-      .parse(request.body)
+    z.object({ keyId: z.string().min(1) }).parse(request.body)
 
-    // TODO: 实现密钥吊销逻辑
-    return reply.send(
-      success({
-        keyId,
-        revokedAt: new Date().toISOString(),
-      }),
-    )
+    // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
+    return reply.code(501).send({
+      code: 501,
+      message: 'Not Implemented: oauth-keys /revoke 尚未实装',
+      data: null,
+    })
   })
 
   // GET /list - 列出所有私钥
   server.get('/list', async (_request, reply) => {
-    // TODO: 实现密钥列表查询逻辑
-    return reply.send(success({ keys: [] }))
+    // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
+    return reply.code(501).send({
+      code: 501,
+      message: 'Not Implemented: oauth-keys /list 尚未实装',
+      data: null,
+    })
   })
 
   // GET /active - 查询当前活跃的私钥
@@ -71,7 +65,11 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
       provider: z.string().optional(),
     }).parse(request.query)
 
-    // TODO: 实现活跃密钥查询逻辑
-    return reply.send(success({ keyId: '', publicKey: '' }))
+    // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
+    return reply.code(501).send({
+      code: 501,
+      message: 'Not Implemented: oauth-keys /active 尚未实装',
+      data: null,
+    })
   })
 }

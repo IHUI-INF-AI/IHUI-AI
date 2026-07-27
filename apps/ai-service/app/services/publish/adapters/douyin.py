@@ -59,7 +59,8 @@ class DouyinAdapter(BasePlatformAdapter):
 
         try:
             data = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("douyin.verify_credentials JSON parse 失败: %s", e, exc_info=True)
             return False, f"invalid json: {resp.text[:200]}"
 
         d = data.get("data", {})
@@ -99,7 +100,8 @@ class DouyinAdapter(BasePlatformAdapter):
 
         try:
             idata = init_resp.json().get("data", {})
-        except Exception:
+        except Exception as e:
+            logger.warning("douyin._upload_video JSON parse 失败: %s", e, exc_info=True)
             idata = {}
         upload_token = idata.get("upload_token", "")
         video_id = idata.get("video", {}).get("video_id", "")
@@ -200,7 +202,8 @@ class DouyinAdapter(BasePlatformAdapter):
 
         try:
             rdata = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("douyin.publish JSON parse 失败: %s", e, exc_info=True)
             rdata = {}
 
         d = rdata.get("data", {})

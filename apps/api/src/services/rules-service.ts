@@ -36,7 +36,7 @@
 import { logger } from '../utils/logger.js'
 
 const AI_SERVICE_URL =
-  process.env.AI_SERVICE_URL || 'http://localhost:8000'
+  process.env.AI_SERVICE_URL || 'http://localhost:8803'
 const TIMEOUT_MS = 10_000
 
 export interface RuleDto {
