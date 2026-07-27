@@ -46,7 +46,7 @@ const PLAN_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string
   completed: Check,
 }
 const PLAN_CLS: Record<PlanStepStatus, string> = {
-  pending: 'text-muted-foreground/40',
+  pending: 'text-muted-foreground/60',
   in_progress: 'text-primary',
   completed: 'text-emerald-500',
 }
@@ -87,13 +87,13 @@ const PlanStepItem = React.memo(function PlanStepItem({
             {index + 1}. {step.step}
           </span>
           {step.durationMs !== undefined && step.status !== 'pending' && (
-            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
               {formatDuration(step.durationMs)}
             </span>
           )}
           {step.tokenUsage !== undefined && step.tokenUsage > 0 && (
             <span
-              className="shrink-0 text-[10px] tabular-nums text-muted-foreground/40"
+              className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
               title={`${step.tokenUsage} tokens`}
             >
               {Math.round(step.tokenUsage / 1000)}k
@@ -102,7 +102,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
         </div>
         {/* explanation 副标题:仅 in_progress 步骤显示(plan 级 explanation,避免重复) */}
         {step.status === 'in_progress' && step.explanation && (
-          <div className="mt-0.5 break-all text-[10px] text-muted-foreground/40">
+          <div className="mt-0.5 break-all text-[10px] text-muted-foreground/60">
             {step.explanation}
           </div>
         )}
@@ -289,7 +289,7 @@ export function AgentTaskProgressPane() {
               ? 'bg-primary animate-pulse'
               : planSteps.length > 0
                 ? 'bg-emerald-500'
-                : 'bg-muted-foreground/30',
+                : 'bg-muted-foreground/50',
           )}
         />
         <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
@@ -376,7 +376,7 @@ export function AgentTaskProgressPane() {
         {/* 无 conversationId */}
         {!threadId && (
           <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
-            <MessageSquare className="h-4 w-4 text-muted-foreground/30" />
+            <MessageSquare className="h-4 w-4 text-muted-foreground/50" />
             <span className="text-[11px] text-muted-foreground/60">开始对话后显示任务计划</span>
           </div>
         )}
@@ -388,7 +388,7 @@ export function AgentTaskProgressPane() {
               <div key={i} className="flex items-center gap-1.5">
                 <div className="h-3 w-3 shrink-0 animate-pulse rounded-sm bg-muted/60" />
                 <div
-                  className="h-2.5 animate-pulse rounded-sm bg-muted/40"
+                  className="h-2.5 animate-pulse rounded-sm bg-muted/60"
                   style={{ width: `${60 + i * 10}%` }}
                 />
               </div>
