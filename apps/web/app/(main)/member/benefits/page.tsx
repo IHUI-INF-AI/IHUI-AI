@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useQuery } from '@tanstack/react-query'
 import { Award, Loader2, Check, Crown } from 'lucide-react'
@@ -57,7 +57,7 @@ export default function MemberBenefitsPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {items.map((b: any) => {
+          {items.map((b) => {
             const benefits = Array.isArray(b.benefits) ? b.benefits : []
             return (
               <Card
@@ -81,7 +81,7 @@ export default function MemberBenefitsPage() {
                   </div>
                   {benefits.length > 0 ? (
                     <ul className="space-y-1.5 text-sm">
-                      {benefits.map((item: any, i: any) => (
+                      {benefits.map((item, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
                           <span className="text-muted-foreground">{item}</span>
