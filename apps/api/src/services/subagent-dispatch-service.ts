@@ -33,11 +33,11 @@ import type {
   DispatchStatus,
 } from '@ihui/shared/subagents'
 
-/** ai-service 基础 URL(优先 env,回退 AGENTS.md §6 文档值 8000) */
+/** ai-service 基础 URL(优先 env,回退 AGENTS.md §6 文档值 8803) */
 const AI_SERVICE_URL =
   process.env.AI_SERVICE_URL && process.env.AI_SERVICE_URL.length > 0
     ? process.env.AI_SERVICE_URL.replace(/\/$/, '')
-    : 'http://localhost:8000'
+    : 'http://localhost:8803'
 
 /** 跨服务调用超时(ms) */
 const AI_SERVICE_TIMEOUT_MS = 30_000
@@ -78,23 +78,14 @@ const ROLE_LABELS: Record<SubagentRole, string> = {
 }
 
 /** 所有默认 agent 角色(debate/vote/critique 多 agent 并发) */
-const ALL_ROLES: SubagentRole[] = [
-  'researcher',
-  'coder',
-  'reviewer',
-  'architect',
-  'debugger',
-]
+const ALL_ROLES: SubagentRole[] = ['researcher', 'coder', 'reviewer', 'architect', 'debugger']
 
 // ---------------------------------------------------------------------------
 // 扩展类型(深化新增)
 // ---------------------------------------------------------------------------
 
 /** 扩展 dispatch 状态(增加 preempted / quota_exceeded) */
-export type ExtendedDispatchStatus =
-  | DispatchStatus
-  | 'preempted'
-  | 'quota_exceeded'
+export type ExtendedDispatchStatus = DispatchStatus | 'preempted' | 'quota_exceeded'
 
 /** 派单优先级(调度队列排序) */
 export type DispatchPriority = 'low' | 'normal' | 'high' | 'urgent'
@@ -432,9 +423,7 @@ function buildDispatch(
     goal: input.goal,
     affectedFiles: input.affectedFiles,
     forbidden:
-      input.forbidden && input.forbidden.length > 0
-        ? input.forbidden
-        : ['任何不在上述清单的文件'],
+      input.forbidden && input.forbidden.length > 0 ? input.forbidden : ['任何不在上述清单的文件'],
     verifyCommands: input.verifyCommands,
     constraints: input.constraints,
     deliverables: input.deliverables,
@@ -455,9 +444,7 @@ function buildAgentPrompt(
   >,
 ): string {
   const forbidden: string[] =
-    input.forbidden && input.forbidden.length > 0
-      ? input.forbidden
-      : ['任何不在上述清单的文件']
+    input.forbidden && input.forbidden.length > 0 ? input.forbidden : ['任何不在上述清单的文件']
   return [
     '## 任务目标',
     input.goal,
@@ -491,10 +478,7 @@ function sleep(ms: number): Promise<void> {
  * 拓扑排序(Kahn 算法):返回按层级分组的节点 ID(同层可并行)。
  * 返回 null 表示有环。
  */
-function topologicalSort(
-  nodes: DagNode[],
-  edges: DagEdge[],
-): string[][] | null {
+function topologicalSort(nodes: DagNode[], edges: DagEdge[]): string[][] | null {
   const nodeIds = new Set(nodes.map((n) => n.id))
   const inDegree = new Map<string, number>()
   const adj = new Map<string, string[]>()
@@ -511,8 +495,7 @@ function topologicalSort(
   const visited = new Set<string>()
   while (visited.size < nodeIds.size) {
     const layer = Array.from(nodeIds).filter(
-      (id) =>
-        !visited.has(id) && (inDegree.get(id) ?? 0) === 0,
+      (id) => !visited.has(id) && (inDegree.get(id) ?? 0) === 0,
     )
     if (layer.length === 0) return null // 有环
     for (const id of layer) {
@@ -694,18 +677,16 @@ async function callAiServiceDebate(
   const parallelBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: prompt })),
   }
-  const parallelRes = await callAiServiceEndpoint(
-    '/api/v1/ai/agent/parallel',
-    parallelBody,
-  )
+  const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody)
   if (!parallelRes.ok) return parallelRes
 
   const parallelData = parallelRes.data
-  const allResults: Array<{ agent: string; output: string }> =
-    (parallelData?.steps ?? []).map((s) => ({
+  const allResults: Array<{ agent: string; output: string }> = (parallelData?.steps ?? []).map(
+    (s) => ({
       agent: s.agent_name ?? primaryRole,
       output: s.output ?? '',
-    }))
+    }),
+  )
 
   if (allResults.length === 0) {
     return { ok: true, finalOutput: parallelRes.finalOutput, data: parallelData }
@@ -721,23 +702,16 @@ async function callAiServiceDebate(
     ...allResults.map((r, i) => `--- Agent ${i + 1} (${r.agent}) ---\n${r.output}`),
   ].join('\n')
 
-  const arbiterRes = await callAiServiceEndpoint(
-    '/api/v1/ai/agent/run-decomposed',
-    { task: arbitrationPrompt, strategy: 'dag' },
-  )
+  const arbiterRes = await callAiServiceEndpoint('/api/v1/ai/agent/run-decomposed', {
+    task: arbitrationPrompt,
+    strategy: 'dag',
+  })
   if (!arbiterRes.ok) return arbiterRes
 
-  const winnerMatch = arbiterRes.finalOutput.match(
-    /\[winner:\s*([^\]]+)\]/i,
-  )
-  const winningAgent = winnerMatch
-    ? winnerMatch[1]!.trim()
-    : allResults[0]!.agent
+  const winnerMatch = arbiterRes.finalOutput.match(/\[winner:\s*([^\]]+)\]/i)
+  const winningAgent = winnerMatch ? winnerMatch[1]!.trim() : allResults[0]!.agent
 
-  const mergedResult = arbiterRes.finalOutput.replace(
-    /\[winner:\s*[^\]]+\]/i,
-    '',
-  ).trim()
+  const mergedResult = arbiterRes.finalOutput.replace(/\[winner:\s*[^\]]+\]/i, '').trim()
 
   const debateSummary = `共 ${allResults.length} 个 agent 参与辩论,胜出 agent: ${winningAgent}`
 
@@ -758,25 +732,20 @@ async function callAiServiceDebate(
 /**
  * vote 模式:多 agent 处理同一任务 → 每个 agent 对其他结果投票(1-5 分)→ 最高分胜出。
  */
-async function callAiServiceVote(
-  primaryRole: SubagentRole,
-  prompt: string,
-): Promise<AiCallResult> {
+async function callAiServiceVote(primaryRole: SubagentRole, prompt: string): Promise<AiCallResult> {
   const parallelBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: prompt })),
   }
-  const parallelRes = await callAiServiceEndpoint(
-    '/api/v1/ai/agent/parallel',
-    parallelBody,
-  )
+  const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody)
   if (!parallelRes.ok) return parallelRes
 
   const parallelData = parallelRes.data
-  const allResults: Array<{ agent: string; output: string }> =
-    (parallelData?.steps ?? []).map((s) => ({
+  const allResults: Array<{ agent: string; output: string }> = (parallelData?.steps ?? []).map(
+    (s) => ({
       agent: s.agent_name ?? primaryRole,
       output: s.output ?? '',
-    }))
+    }),
+  )
 
   if (allResults.length === 0) {
     return { ok: true, finalOutput: parallelRes.finalOutput, data: parallelData }
@@ -796,10 +765,7 @@ async function callAiServiceVote(
   const voteBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: votePromptBase })),
   }
-  const voteRes = await callAiServiceEndpoint(
-    '/api/v1/ai/agent/parallel',
-    voteBody,
-  )
+  const voteRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', voteBody)
   if (!voteRes.ok) return voteRes
 
   const votes: Array<{ voter: string; candidate: string; score: number }> = []
@@ -833,8 +799,7 @@ async function callAiServiceVote(
   }
 
   const winnerResult =
-    allResults.find((r) => r.agent === winningAgent)?.output ??
-    allResults[0]!.output
+    allResults.find((r) => r.agent === winningAgent)?.output ?? allResults[0]!.output
 
   const compositeOutput = JSON.stringify({
     winningAgent,
@@ -908,9 +873,7 @@ async function callAiServiceCritique(
 
     const data = json.data ?? {}
     const finalOutput =
-      typeof data.final_output === 'string' && data.final_output.length > 0
-        ? data.final_output
-        : ''
+      typeof data.final_output === 'string' && data.final_output.length > 0 ? data.final_output : ''
 
     // 尝试从 trace 中提取 rounds 信息
     const rounds: CritiqueRound[] = []
@@ -943,11 +906,10 @@ async function callAiServiceCritique(
 
     // 如果 trace 无结构化 rounds,构造简化版本
     if (rounds.length === 0) {
-      const allResults: Array<{ agent: string; output: string }> =
-        (data.steps ?? []).map((s) => ({
-          agent: s.agent_name ?? primaryRole,
-          output: s.output ?? '',
-        }))
+      const allResults: Array<{ agent: string; output: string }> = (data.steps ?? []).map((s) => ({
+        agent: s.agent_name ?? primaryRole,
+        output: s.output ?? '',
+      }))
       rounds.push({ round: 1, results: allResults, critiques: [] })
     }
 
@@ -1016,10 +978,7 @@ async function callAiServiceWithCommunication(
     // Redis inbox(降级安全)
     if (redisClient) {
       try {
-        await redisClient.lpush(
-          `${REDIS_KEY_INBOX}${msg.to}`,
-          JSON.stringify(msg),
-        )
+        await redisClient.lpush(`${REDIS_KEY_INBOX}${msg.to}`, JSON.stringify(msg))
       } catch {
         // Redis 不可用 → 内存降级
       }
@@ -1047,10 +1006,9 @@ async function callAiServiceWithCommunication(
     })
 
     // 并行调 ai-service
-    const parallelRes = await callAiServiceEndpoint(
-      '/api/v1/ai/agent/parallel',
-      { items: agentInputs },
-    )
+    const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', {
+      items: agentInputs,
+    })
 
     if (!parallelRes.ok) {
       // 第 1 轮失败 → 直接返回失败
@@ -1175,11 +1133,7 @@ class SubagentDispatchService {
       })
       await this.redisClient.sadd(REDIS_KEY_IDS, id)
       // 优先级队列
-      await this.redisClient.zadd(
-        REDIS_KEY_QUEUE,
-        PRIORITY_SCORE[runtime.priority],
-        id,
-      )
+      await this.redisClient.zadd(REDIS_KEY_QUEUE, PRIORITY_SCORE[runtime.priority], id)
     } catch {
       // Redis 不可用 → 降级内存,不抛异常
     }
@@ -1205,10 +1159,7 @@ class SubagentDispatchService {
   }
 
   /** 写 checkpoint 到 Redis hash(每步完成时调用) */
-  private async _writeCheckpoint(
-    dispatchId: string,
-    checkpoint: Checkpoint,
-  ): Promise<void> {
+  private async _writeCheckpoint(dispatchId: string, checkpoint: Checkpoint): Promise<void> {
     const runtime = this.runtimes.get(dispatchId)
     if (runtime) {
       runtime.checkpoints.set(checkpoint.stepId, checkpoint)
@@ -1280,16 +1231,10 @@ class SubagentDispatchService {
           createdAt: raw.createdAt || nowIso(),
           updatedAt: raw.updatedAt || nowIso(),
         }
-        const retry = raw.retry
-          ? (JSON.parse(raw.retry) as RetryConfig)
-          : undefined
-        const dag = raw.dag
-          ? (JSON.parse(raw.dag) as DagConfig)
-          : undefined
+        const retry = raw.retry ? (JSON.parse(raw.retry) as RetryConfig) : undefined
+        const dag = raw.dag ? (JSON.parse(raw.dag) as DagConfig) : undefined
         const priority = (raw.priority as DispatchPriority) || 'normal'
-        const quotas = raw.quotas
-          ? (JSON.parse(raw.quotas) as QuotaConfig)
-          : undefined
+        const quotas = raw.quotas ? (JSON.parse(raw.quotas) as QuotaConfig) : undefined
         this.runtimes.set(id, {
           dispatch,
           retry,
@@ -1312,9 +1257,7 @@ class SubagentDispatchService {
   // ---------- 主方法 ----------
 
   /** 创建并派发:检查并发 → 入 Map → DAG 校验 → 异步调 ai-service */
-  async dispatch(
-    input: ExtendedDispatchInput,
-  ): Promise<DispatchCallResult> {
+  async dispatch(input: ExtendedDispatchInput): Promise<DispatchCallResult> {
     // DAG 循环检测
     if (input.dag) {
       if (hasCycle(input.dag.nodes, input.dag.edges)) {
@@ -1361,10 +1304,7 @@ class SubagentDispatchService {
     // 校验 retry 配置
     const retry: RetryConfig | undefined = input.retry
       ? {
-          maxAttempts: Math.min(
-            MAX_RETRY_ATTEMPTS,
-            Math.max(1, input.retry.maxAttempts),
-          ),
+          maxAttempts: Math.min(MAX_RETRY_ATTEMPTS, Math.max(1, input.retry.maxAttempts)),
           delayMs: Math.max(0, input.retry.delayMs),
         }
       : undefined
@@ -1470,7 +1410,10 @@ class SubagentDispatchService {
       data: { mode, role },
     })
 
-    const maxAttempts = retry?.maxAttempts ?? quotas?.maxRetries ? Math.max(retry?.maxAttempts ?? 1, (quotas?.maxRetries ?? 0) + 1) : 1
+    const maxAttempts =
+      (retry?.maxAttempts ?? quotas?.maxRetries)
+        ? Math.max(retry?.maxAttempts ?? 1, (quotas?.maxRetries ?? 0) + 1)
+        : 1
     const delayMs = retry?.delayMs ?? 1000
     const timeoutMs = quotas?.timeoutMs ?? 0
     const tokenQuota = quotas?.tokenQuota ?? 0
@@ -1482,22 +1425,23 @@ class SubagentDispatchService {
 
       // 超时监控(用 Promise.race)
       const callPromise = callAiService(mode, role, prompt)
-      const result = timeoutMs > 0
-        ? await Promise.race([
-            callPromise,
-            new Promise<AiCallResult>((resolve) =>
-              setTimeout(
-                () =>
-                  resolve({
-                    ok: false,
-                    reason: 'failed',
-                    message: `agent 超时(> ${timeoutMs}ms)`,
-                  }),
-                timeoutMs,
+      const result =
+        timeoutMs > 0
+          ? await Promise.race([
+              callPromise,
+              new Promise<AiCallResult>((resolve) =>
+                setTimeout(
+                  () =>
+                    resolve({
+                      ok: false,
+                      reason: 'failed',
+                      message: `agent 超时(> ${timeoutMs}ms)`,
+                    }),
+                  timeoutMs,
+                ),
               ),
-            ),
-          ])
-        : await callPromise
+            ])
+          : await callPromise
 
       const stepDuration = Date.now() - stepStart
       const tokenUsage = result.ok
@@ -1605,7 +1549,7 @@ class SubagentDispatchService {
 
       // failed → 检查是否还有重试机会
       if (attempt < maxAttempts) {
-        const waitMs = delayMs * (2 ** (attempt - 1))
+        const waitMs = delayMs * 2 ** (attempt - 1)
         await this._persistLog(id, {
           ts: nowIso(),
           level: 'warn',
@@ -1774,9 +1718,7 @@ class SubagentDispatchService {
     const allResults = Array.from(results.entries())
       .map(([nid, output]) => `[${nid}]: ${output}`)
       .join('\n')
-    const hasFailed = Array.from(runtime.dagNodeStatus.values()).some(
-      (s) => s === 'failed',
-    )
+    const hasFailed = Array.from(runtime.dagNodeStatus.values()).some((s) => s === 'failed')
 
     dispatch.status = hasFailed ? 'failed' : 'completed'
     dispatch.result = allResults
@@ -1888,7 +1830,7 @@ class SubagentDispatchService {
       }
 
       if (attempt < maxAttempts) {
-        const waitMs = delayMs * (2 ** (attempt - 1))
+        const waitMs = delayMs * 2 ** (attempt - 1)
         await sleep(waitMs)
       } else {
         runtime.hasFailed = true
@@ -1910,12 +1852,8 @@ class SubagentDispatchService {
 
   /** 更新全局统计 */
   private _updateStats(runtime: DispatchRuntime): void {
-    const durationMs =
-      (runtime.completedAt ?? 0) - (runtime.startedAt ?? 0)
-    const tokens = runtime.steps.reduce(
-      (acc, s) => acc + s.tokenUsage.total,
-      0,
-    )
+    const durationMs = (runtime.completedAt ?? 0) - (runtime.startedAt ?? 0)
+    const tokens = runtime.steps.reduce((acc, s) => acc + s.tokenUsage.total, 0)
     this._stats.totalTokens += tokens
     this._stats.totalDurationMs += durationMs
   }
@@ -1942,9 +1880,7 @@ class SubagentDispatchService {
   listActive(): SubagentDispatch[] {
     return Array.from(this.runtimes.values())
       .map((r) => r.dispatch)
-      .filter(
-        (d) => d.status === 'pending' || d.status === 'running',
-      )
+      .filter((d) => d.status === 'pending' || d.status === 'running')
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   }
 
@@ -1958,16 +1894,11 @@ class SubagentDispatchService {
   /** 全局统计 */
   getStats(): DispatchStats {
     const all = Array.from(this.runtimes.values()).map((r) => r.dispatch)
-    const active = all.filter(
-      (d) => d.status === 'pending' || d.status === 'running',
-    ).length
+    const active = all.filter((d) => d.status === 'pending' || d.status === 'running').length
     const completed = all.filter((d) => d.status === 'completed').length
-    const failed = all.filter(
-      (d) => d.status === 'failed',
-    ).length
+    const failed = all.filter((d) => d.status === 'failed').length
     const total = this._stats.totalDispatches
-    const avgDurationMs =
-      total > 0 ? Math.round(this._stats.totalDurationMs / total) : 0
+    const avgDurationMs = total > 0 ? Math.round(this._stats.totalDurationMs / total) : 0
     return {
       active,
       completed,
@@ -1983,12 +1914,8 @@ class SubagentDispatchService {
     const runtime = this.runtimes.get(id)
     if (!runtime) return null
     const d = runtime.dispatch
-    const totalDurationMs =
-      (runtime.completedAt ?? Date.now()) - (runtime.startedAt ?? 0)
-    const totalTokens = runtime.steps.reduce(
-      (acc, s) => acc + s.tokenUsage.total,
-      0,
-    )
+    const totalDurationMs = (runtime.completedAt ?? Date.now()) - (runtime.startedAt ?? 0)
+    const totalTokens = runtime.steps.reduce((acc, s) => acc + s.tokenUsage.total, 0)
     return {
       dispatchId: id,
       status: d.status as ExtendedDispatchStatus,
@@ -2053,9 +1980,7 @@ class SubagentDispatchService {
     )
 
     // 找到第一个非 ok 的 checkpoint 作为恢复点
-    const failedStep = Array.from(checkpoints.entries()).find(
-      ([, cp]) => cp.status !== 'ok',
-    )
+    const failedStep = Array.from(checkpoints.entries()).find(([, cp]) => cp.status !== 'ok')
     const resumedFromStep = failedStep?.[0]
 
     // 重置 dispatch 状态为 running
@@ -2128,7 +2053,12 @@ class SubagentDispatchService {
     // 按 agent 聚合 steps
     const agentMap = new Map<
       string,
-      { durationMs: number; tokenUsage: number; retries: number; lastStatus: 'ok' | 'failed' | 'quota_exceeded' | 'running' | 'pending' }
+      {
+        durationMs: number
+        tokenUsage: number
+        retries: number
+        lastStatus: 'ok' | 'failed' | 'quota_exceeded' | 'running' | 'pending'
+      }
     >()
     for (const step of runtime.steps) {
       const existing = agentMap.get(step.agent) ?? {
@@ -2140,7 +2070,8 @@ class SubagentDispatchService {
       existing.durationMs += step.durationMs
       existing.tokenUsage += step.tokenUsage.total
       if (step.status === 'failed') existing.retries++
-      existing.lastStatus = step.status === 'ok' ? 'ok' : step.status === 'quota_exceeded' ? 'quota_exceeded' : 'failed'
+      existing.lastStatus =
+        step.status === 'ok' ? 'ok' : step.status === 'quota_exceeded' ? 'quota_exceeded' : 'failed'
       agentMap.set(step.agent, existing)
     }
     // DAG 节点状态
@@ -2152,7 +2083,8 @@ class SubagentDispatchService {
             durationMs: 0,
             tokenUsage: 0,
             retries: 0,
-            lastStatus: dagStatus === 'completed' ? 'ok' : dagStatus === 'running' ? 'running' : 'pending',
+            lastStatus:
+              dagStatus === 'completed' ? 'ok' : dagStatus === 'running' ? 'running' : 'pending',
           })
         }
       }
@@ -2215,10 +2147,7 @@ class SubagentDispatchService {
         runtime?.completedAt && runtime?.startedAt
           ? runtime.completedAt - runtime.startedAt
           : undefined
-      const tokenUsage = runtime?.steps.reduce(
-        (acc, s) => acc + s.tokenUsage.total,
-        0,
-      )
+      const tokenUsage = runtime?.steps.reduce((acc, s) => acc + s.tokenUsage.total, 0)
 
       // DAG 模式:渲染所有 DAG 节点 + 边
       if (runtime?.dag) {
@@ -2229,7 +2158,14 @@ class SubagentDispatchService {
             id: `${d.id}:${dagNode.id}`,
             label: `${ROLE_LABELS[dagNode.agentRole] ?? dagNode.agentRole}`,
             role: dagNode.agentRole,
-            status: dagStatus === 'completed' ? 'completed' : dagStatus === 'running' ? 'running' : dagStatus === 'failed' ? 'failed' : 'waiting',
+            status:
+              dagStatus === 'completed'
+                ? 'completed'
+                : dagStatus === 'running'
+                  ? 'running'
+                  : dagStatus === 'failed'
+                    ? 'failed'
+                    : 'waiting',
             dispatchStatus: dagStatus as ExtendedDispatchStatus,
             durationMs,
             tokenUsage,
@@ -2348,7 +2284,13 @@ class SubagentDispatchService {
     const simpleDispatches = all.filter((d) => {
       const mode = d.orchestration ?? 'parallel'
       const rt = this.runtimes.get(d.id)
-      return mode !== 'debate' && mode !== 'vote' && mode !== 'critique' && mode !== 'with_communication' && !rt?.dag
+      return (
+        mode !== 'debate' &&
+        mode !== 'vote' &&
+        mode !== 'critique' &&
+        mode !== 'with_communication' &&
+        !rt?.dag
+      )
     })
     for (let i = 1; i < simpleDispatches.length; i++) {
       const prev = simpleDispatches[i - 1]!

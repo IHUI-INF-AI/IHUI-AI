@@ -138,8 +138,8 @@ class CsdnAdapter(BasePlatformAdapter):
                     if await md_tab.count() > 0:
                         await md_tab.click()
                         await page.wait_for_timeout(1000)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("csdn.publish Markdown tab click 失败: %s", e, exc_info=True)
 
                 # 填正文(用 textarea)
                 editor = page.locator('textarea.editor, #editor, textarea[name="content"]').first
@@ -181,7 +181,8 @@ class CsdnAdapter(BasePlatformAdapter):
                 # 等待跳转
                 try:
                     await page.wait_for_url("**/article/details/**", timeout=30000)
-                except Exception:
+                except Exception as e:
+                    logger.warning("csdn.publish wait_for_url 失败: %s", e, exc_info=True)
                     # 检查是否有错误对话框
                     err_dialog = page.locator('.error-msg, .el-message--error').first
                     if await err_dialog.count() > 0:
