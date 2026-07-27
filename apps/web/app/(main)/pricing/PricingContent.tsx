@@ -2,184 +2,222 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { Check, Sparkles, Loader2 } from 'lucide-react'
-import { Button } from '@ihui/ui-react'
+import { Check, Crown, Loader2, Sparkles } from 'lucide-react'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
-export interface Plan {
-  name: string
-  price: string
-  originalPrice?: string
-  period: string
-  desc: string
-  features: string[]
-  cta: string
-  ctaHref: string
-  highlighted?: boolean
+interface VipBenefits {
+  dailyTokenLimit?: number | null
+  monthlyTokenLimit?: number | null
+  dailyCostLimit?: number | null
+  monthlyCostLimit?: number | null
+  apiQps?: number | null
+  concurrency?: number | null
+  modelWhitelist?: string[] | null
 }
 
-interface PricingSettingsResponse {
-  list: Array<{
-    key: string
-    value?: string | null
-  }>
+interface VipLevel {
+  id: string
+  levelName: string
+  levelValue: number
+  price: number
+  durationDays: number
+  benefits: VipBenefits
+  status: number
+  sortOrder: number
 }
 
-async function fetchPlans(): Promise<Plan[]> {
-  const r = await fetchApi<PricingSettingsResponse>(`/api/settings/pricing`)
-  if (!r.success || !r.data?.list?.length) {
-    throw new Error('pricing settings not configured')
+interface VipLevelsResponse {
+  items: VipLevel[]
+}
+
+async function fetchVipLevels(): Promise<VipLevel[]> {
+  const r = await fetchApi<VipLevelsResponse>(`/api/vip/levels`)
+  if (!r.success || !r.data?.items) {
+    throw new Error(r.error ?? '加载 VIP 定价失败')
   }
-  // 后端 settings 表的 key/value 可编码任意定价结构
-  // 约定:value 是 JSON 字符串,反序列化为 Plan
-  const plans: Plan[] = []
-  for (const item of r.data.list) {
-    if (!item.value) continue
-    try {
-      const parsed = JSON.parse(item.value) as Partial<Plan>
-      if (parsed.name && parsed.price) {
-        plans.push({
-          name: parsed.name,
-          price: parsed.price,
-          originalPrice: parsed.originalPrice,
-          period: parsed.period ?? '',
-          desc: parsed.desc ?? '',
-          features: parsed.features ?? [],
-          cta: parsed.cta ?? 'Learn More',
-          ctaHref: parsed.ctaHref ?? '/support',
-          highlighted: parsed.highlighted,
-        })
-      }
-    } catch {
-      // 非 JSON value,跳过
-    }
-  }
-  return plans
+  return r.data.items
 }
+
+const formatCNY = (cents: number) =>
+  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
+
+const TIER_BADGE: Record<number, string> = {
+  0: '免费',
+  1: '个人',
+  2: '团队',
+  3: '企业',
+}
+
+const BENEFIT_ROWS: Array<{ key: keyof VipBenefits; label: string; suffix?: string }> = [
+  { key: 'dailyTokenLimit', label: '每日 Token', suffix: ' / 天' },
+  { key: 'monthlyTokenLimit', label: '每月 Token', suffix: ' / 月' },
+  { key: 'dailyCostLimit', label: '每日消费上限', suffix: ' 元' },
+  { key: 'monthlyCostLimit', label: '每月消费上限', suffix: ' 元' },
+  { key: 'apiQps', label: 'API QPS' },
+  { key: 'concurrency', label: '并发数' },
+]
 
 export function PricingContent(): React.JSX.Element {
-  const t = useTranslations('pricingPage')
+  const [yearly, setYearly] = React.useState(false)
 
-  const fallbackPlans: Plan[] = [
-    {
-      name: t('earlyBird.name'),
-      price: t('earlyBird.price'),
-      originalPrice: t('earlyBird.originalPrice'),
-      period: t('earlyBird.period'),
-      desc: t('earlyBird.desc'),
-      features: t.raw('earlyBird.features') as string[],
-      cta: t('earlyBird.cta'),
-      ctaHref: '/support?source=pricing',
-      highlighted: true,
-    },
-    {
-      name: t('standard.name'),
-      price: t('standard.price'),
-      period: t('standard.period'),
-      desc: t('standard.desc'),
-      features: t.raw('standard.features') as string[],
-      cta: t('standard.cta'),
-      ctaHref: '/support?source=pricing-standard',
-    },
-    {
-      name: t('enterprise.name'),
-      price: t('enterprise.price'),
-      period: t('enterprise.period'),
-      desc: t('enterprise.desc'),
-      features: t.raw('enterprise.features') as string[],
-      cta: t('enterprise.cta'),
-      ctaHref: '/contact?source=pricing-enterprise',
-    },
-  ]
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['pricing'],
-    queryFn: fetchPlans,
-    retry: false,
-    // 降级:API 失败时使用静态方案
-    placeholderData: fallbackPlans,
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['pricing-vip-levels'],
+    queryFn: fetchVipLevels,
   })
 
-  const plans = data?.length ? data : fallbackPlans
+  const levels = React.useMemo(() => {
+    if (!data) return []
+    return [...data]
+      .filter((l) => l.status === 1)
+      .sort((a, b) => a.levelValue - b.levelValue)
+  }, [data])
+
+  // 推荐档:非免费档中的第一档(通常是个人档)
+  const popularIdx = levels.findIndex((l) => l.levelValue === 1)
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
-      {/* Hero */}
-      <section className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+    <main className="mx-auto w-full max-w-7xl px-4 py-10 md:px-8 md:py-14">
+      <section className="space-y-3 text-center">
+        <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          {t('hero.badge')}
+          VIP 会员权益
         </div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">{t('hero.title')}</h1>
-        <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
-          {t('hero.subtitle')}
+        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">选择适合你的方案</h1>
+        <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
+          4 档 VIP 会员,从免费到企业级,满足不同使用场景。年付享 2 个月免费。
         </p>
       </section>
 
-      {/* 定价卡片 */}
-      <section className="mt-16 grid gap-6 md:grid-cols-3">
-        {isLoading && (
+      {/* 月付/年付切换 */}
+      <section className="mt-8 flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={() => setYearly(false)}
+          className={cn(
+            'rounded-md px-4 py-1.5 text-sm transition-colors',
+            !yearly
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          月付
+        </button>
+        <button
+          type="button"
+          onClick={() => setYearly(true)}
+          className={cn(
+            'rounded-md px-4 py-1.5 text-sm transition-colors',
+            yearly
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          年付
+          <span className="ml-1 text-xs text-emerald-600">省 2 个月</span>
+        </button>
+      </section>
+
+      {/* 4 档对比卡片 */}
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-start">
+        {isLoading ? (
           <div className="col-span-full flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('loading')}
+            加载中...
           </div>
-        )}
-        {!isLoading &&
-          plans.map((plan: any) => (
-            <div
-              key={plan.name}
-              className={`relative flex flex-col rounded-2xl border bg-card p-6 shadow-sm transition-shadow hover:shadow-md ${
-                plan.highlighted ? 'border-primary ring-2 ring-primary/20' : ''
-              }`}
-            >
-              {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                  {t('badge')}
-                </div>
-              )}
-              <h2 className="text-lg font-semibold">{plan.name}</h2>
-              <p className="mt-1 text-xs text-muted-foreground">{plan.desc}</p>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-bold tracking-tight text-primary md:text-4xl">
-                  {plan.price}
-                </span>
-                {plan.originalPrice && (
-                  <span className="text-sm text-muted-foreground line-through">
-                    {plan.originalPrice}
+        ) : error ? (
+          <div className="col-span-full rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+            {(error as Error).message}
+          </div>
+        ) : levels.length === 0 ? (
+          <div className="col-span-full rounded-md border border-dashed py-12 text-center text-sm text-muted-foreground">
+            暂无定价方案
+          </div>
+        ) : (
+          levels.map((level, idx) => {
+            const isPopular = idx === popularIdx
+            const isFree = level.levelValue === 0
+            const monthlyPrice = level.price
+            const displayPrice = isFree ? 0 : yearly ? monthlyPrice * 10 : monthlyPrice
+            const benefits = level.benefits ?? {}
+            const whitelistCount = benefits.modelWhitelist?.length ?? 0
+
+            return (
+              <Card
+                key={level.id}
+                className={cn(
+                  'relative flex flex-col',
+                  isPopular && 'border-primary shadow-md lg:scale-[1.02]',
+                )}
+              >
+                {isPopular && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
+                    <Sparkles className="mr-1 inline h-3 w-3" />
+                    推荐
                   </span>
                 )}
-                {plan.period && (
-                  <span className="text-sm text-muted-foreground">{plan.period}</span>
-                )}
-              </div>
-              <ul className="mt-6 flex-1 space-y-2">
-                {plan.features.map((f: any) => (
-                  <li key={f} className="flex items-start gap-2 text-sm">
-                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                size="lg"
-                variant={plan.highlighted ? 'default' : 'outline'}
-                asChild
-                className="mt-6 w-full"
-              >
-                <Link href={plan.ctaHref}>{plan.cta}</Link>
-              </Button>
-            </div>
-          ))}
+                <CardContent className="flex flex-1 flex-col p-5">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">{level.levelName}</h2>
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {TIER_BADGE[level.levelValue] ?? ''}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex items-baseline gap-1">
+                    <span className="text-3xl font-bold tracking-tight text-primary">
+                      {isFree ? '免费' : formatCNY(displayPrice)}
+                    </span>
+                    {!isFree && (
+                      <span className="text-sm text-muted-foreground">/ {yearly ? '年' : '月'}</span>
+                    )}
+                  </div>
+
+                  <ul className="mt-5 flex-1 space-y-2 text-sm">
+                    {BENEFIT_ROWS.map(({ key, label, suffix }) => {
+                      const val = benefits[key]
+                      if (val === null || val === undefined) return null
+                      return (
+                        <li key={key} className="flex items-start gap-2">
+                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                          <span className="text-muted-foreground">{label}:</span>
+                          <span className="font-medium">
+                            {val}
+                            {suffix ?? ''}
+                          </span>
+                        </li>
+                      )
+                    })}
+                    <li className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      <span className="text-muted-foreground">模型白名单:</span>
+                      <span className="font-medium">
+                        {whitelistCount === 0 ? '全部模型' : `${whitelistCount} 个模型`}
+                      </span>
+                    </li>
+                  </ul>
+
+                  <Button
+                    asChild
+                    variant={isPopular ? 'default' : 'outline'}
+                    className="mt-5 w-full"
+                  >
+                    <Link href="/vip">
+                      <Crown className="mr-1 h-4 w-4" />
+                      立即订阅
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            )
+          })
+        )}
       </section>
 
-      {/* 退款保障 */}
-      <section className="mt-12 rounded-2xl border bg-primary/5 p-6 text-center md:p-8">
-        <h2 className="text-lg font-semibold">{t('refundTitle')}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-          {t('refundDesc')}
-        </p>
+      <section className="mt-10 rounded-md border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+        所有方案均含完整 API 接入权限,企业版支持定制 SLA 与私有部署。
       </section>
     </main>
   )
