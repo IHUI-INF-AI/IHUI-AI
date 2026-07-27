@@ -29,7 +29,8 @@
  *   编号 '35'。
  *
  * 依赖:apps/ai-service/pyproject.toml 的 [tool.mypy] 配置(已就绪,不修改)。
- *       mypy 命令继承 pyproject.toml 配置 + --ignore-missing-imports 兼容第三方库。
+ *   mypy 命令继承 pyproject.toml 配置 + --ignore-missing-imports 兼容第三方库
+ *   + --strict 强制严格模式(防止 pyproject.toml strict 被改回 false 降级)。
  */
 import { execSync } from 'node:child_process'
 import { join } from 'node:path'
@@ -68,8 +69,8 @@ check-mypy.mjs — mypy 类型检查守门(防 ai-service Python 类型回退)
   HUSKY_SKIP_MYPY=1 git commit ...
 
 执行命令:
-  cd apps/ai-service && mypy app --ignore-missing-imports
-  (继承 pyproject.toml [tool.mypy] 配置)
+  cd apps/ai-service && mypy app --ignore-missing-imports --strict
+  (继承 pyproject.toml [tool.mypy] 配置 + --strict 双保险)
 
 背景:
   项目刚完成 mypy 全库清零(4 批次 256→0 errors,226 source files),
@@ -122,16 +123,17 @@ if (isStaged) {
   console.log('')
 } else {
   console.log(
-    `${C.cyan}${C.bold}[mypy 守门] 全量检查 apps/ai-service/app/ (mypy --ignore-missing-imports)...${C.reset}`,
+    `${C.cyan}${C.bold}[mypy 守门] 全量检查 apps/ai-service/app/ (mypy --ignore-missing-imports --strict)...${C.reset}`,
   )
 }
 
 // === 执行 mypy ===
-// 命令:cd apps/ai-service && mypy app --ignore-missing-imports
-// - 继承 pyproject.toml [tool.mypy] 配置
+// 命令:cd apps/ai-service && mypy app --ignore-missing-imports --strict
+// - 继承 pyproject.toml [tool.mypy] 配置(strict=true 已就绪)
+// - --strict 显式传参作为双保险,防止有人改 pyproject.toml strict=false 降级守门
 // - --ignore-missing-imports 兼容第三方库无 stub 场景
 // - mypy exit 0 = 0 errors;exit 1 = 有 errors;exit 2 = 命令本身失败
-const MYPY_CMD = 'mypy app --ignore-missing-imports'
+const MYPY_CMD = 'mypy app --ignore-missing-imports --strict'
 const startTime = Date.now()
 
 try {
