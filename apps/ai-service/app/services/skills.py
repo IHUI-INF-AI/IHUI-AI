@@ -19,11 +19,14 @@ SkillLibrary 弹窗 ai-skills tab 展示,19 个全部真集成(基于 llm_gatewa
 from __future__ import annotations  # 2026-07-23:SkillRegistry.list() 方法名 shadow 内置 list,注解 lazy 化避免 class body 内 list[Skill] 求值失败
 
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -631,7 +634,8 @@ class SkillRegistry:
                     self._skills[name] = Skill(
                         name=name, description=desc, prompt_template=instructions
                     )
-            except Exception:
+            except Exception as e:
+                logger.warning("skills._load_auto_skills 加载 skill 文件失败(path=%s): %s", fname, e, exc_info=True)
                 continue
 
     def reload_auto(self) -> None:

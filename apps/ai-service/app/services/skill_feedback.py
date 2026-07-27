@@ -159,7 +159,8 @@ class SkillFeedbackTracker:
             # frontmatter 已被 _parse_skill_md 拆分,这里直接正则提取 version
             match = re.search(r"^version:\s*(.+?)\s*$", content, re.MULTILINE)
             return match.group(1) if match else "1.0.0"
-        except Exception:
+        except Exception as e:
+            logger.warning("skill_feedback._read_skill_version 读取版本失败: %s", e, exc_info=True)
             return "1.0.0"
 
     async def record_iteration(
