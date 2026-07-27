@@ -41,10 +41,10 @@ const BAR_LIST: Array<{ value: BarType; key: string; fb: string }> = [
 ]
 
 function getUuid(): string {
-  const a = Taro.getStorageSync('data')
+  const a = Taro.getStorageSync('ihui-token-balance-data')
   if (a && typeof a === 'object' && (a as { uuid?: string }).uuid)
     return (a as { uuid: string }).uuid
-  const b = Taro.getStorageSync('userInfo')
+  const b = Taro.getStorageSync('ihui-user-info')
   if (b && typeof b === 'object' && (b as { uuid?: string }).uuid)
     return (b as { uuid: string }).uuid
   return getUserInfo()?.uuid || ''
