@@ -131,6 +131,8 @@ export interface AgentOverview {
   totalChanges: number
   /** 历史耗时样本(用于 bracket 分位数计算) */
   historicalDurations: number[]
+  /** 当前重连尝试次数(0=正常,>0=正在重连) */
+  reconnectAttempt: number
 }
 
 export interface UseAgentProgressReturn {
@@ -472,7 +474,7 @@ function extractTerminalsFromEvents(events: SSEEvent[]): TerminalTask[] {
 }
 
 /**
- * 主 hook:传入 threadId,返回聚合后的三栏数据(Codex 对齐)
+ * 主 hook:传入 threadId,返回聚合后的三栏数据
  */
 export function useAgentProgress(threadId: string | null): UseAgentProgressReturn {
   const effectiveThreadId = threadId ?? ''
@@ -480,9 +482,10 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     threadId: effectiveThreadId,
     onDone: () => {},
     onError: () => {},
+    autoReconnect: true,
   })
 
-  const { events, isStreaming, currentNode, content, lastPlan, error, interruptEvent } = stream
+  const { events, isStreaming, currentNode, content, lastPlan, error, interruptEvent, reconnectAttempt } = stream
 
   // 聚合 planSteps(Codex 三状态 + explanation + 最多一个 in_progress 硬规则)
   const planSteps = React.useMemo<PlanStep[]>(() => extractPlanFromEvents(events), [events])
@@ -595,6 +598,7 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
       runningTerminals,
       totalChanges: changes.length,
       historicalDurations,
+      reconnectAttempt,
     }
   }, [
     events,
@@ -608,6 +612,7 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     subagents,
     terminals,
     changes,
+    reconnectAttempt,
   ])
 
   return {
