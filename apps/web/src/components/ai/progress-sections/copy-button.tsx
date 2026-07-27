@@ -53,7 +53,7 @@ export const CopyButton = React.memo(function CopyButton({
       title={copied ? '已复制' : ariaLabel}
       tabIndex={-1}
       className={cn(
-        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 transition-colors hover:bg-accent hover:text-foreground',
+        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground',
         copied && 'text-emerald-500',
         className,
       )}
