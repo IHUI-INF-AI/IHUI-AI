@@ -10,15 +10,13 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 
 import { Loading } from '@ihui/ui-native'
+import type { PointRecord } from '@ihui/types'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-interface PointsRecord {
-  id: string
-  amount: number
+interface PointsRecord extends Pick<PointRecord, 'id' | 'amount' | 'createdAt'> {
   type: 'earn' | 'spend'
   source: string
   balanceAfter: number
-  createdAt: string
 }
 
 interface RecordPage {
@@ -142,7 +140,9 @@ export function PointsRecordScreen() {
                 </Text>
               </View>
               <View style={styles.cardMetaRow}>
-                <Text style={styles.cardMetaText}>{formatShortDateTime(item.createdAt) || '—'}</Text>
+                <Text style={styles.cardMetaText}>
+                  {formatShortDateTime(item.createdAt) || '—'}
+                </Text>
                 <Text style={styles.cardMetaText}>
                   {t('pointsRecord.balanceAfter')}: {item.balanceAfter}
                 </Text>
