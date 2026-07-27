@@ -8,7 +8,7 @@
 import type { Settings } from '../commands/settings.js'
 
 export const DEFAULT_SETTINGS: Settings = {
-  apiUrl: 'http://localhost:8000',
+  apiUrl: 'http://localhost:8803',
   defaultModel: 'default',
   maxIterations: 25,
   auditEnabled: true,

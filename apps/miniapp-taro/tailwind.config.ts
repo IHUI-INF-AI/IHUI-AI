@@ -1,13 +1,14 @@
 /**
- * Tailwind CSS 配置
+ * Tailwind CSS 配置 — 与 web 端共享语义命名 (2026-07-27 重构)
  *
- * 注意：本项目使用 Tailwind v3（而非 v4），原因：
- * Taro 4.0.9 官方文档支持 Tailwind v3 的 postcss 插件格式（tailwindcss: {}）。
- * Tailwind v4 使用 @tailwindcss/postcss 替代，配置方式改为 CSS-based，
- * 与 Taro 的 postcss 配置体系不兼容，升级风险高。
- * web 端使用 Next.js + Turbopack，原生支持 v4。
+ * 注意:本项目使用 Tailwind v3(而非 v4),原因:
+ * Taro 4.0.9 官方文档支持 Tailwind v3 的 postcss 插件格式(tailwindcss: {})。
+ * Tailwind v4 使用 @tailwindcss/postcss 替代,配置方式改为 CSS-based,
+ * 与 Taro 的 postcss 配置体系不兼容,升级风险高。
+ * web 端使用 Next.js + Turbopack,原生支持 v4。
  *
- * 语义色对齐 web 端 apps/web/app/globals.css @theme 块。
+ * 语义色对齐 web 端 packages/design-tokens/src/styles/tokens.css @theme 块。
+ * CSS 变量值在 apps/miniapp-taro/src/app.css 的 :root 中手动同步(因 v3 不识别 @theme)。
  */
 import type { Config } from 'tailwindcss'
 
