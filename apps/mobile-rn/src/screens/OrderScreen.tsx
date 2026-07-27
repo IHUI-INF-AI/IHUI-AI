@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { FlatList, Text, View } from 'react-native'
 import { Card } from '@ihui/ui-native'
 import { getOrders, type Order, type OrderStatus } from '@ihui/api-client'
+import { formatAmount } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import { formatDateByTemplate } from '../utils/date-utils'
 
@@ -17,10 +18,6 @@ const STATUS_STYLE: Record<OrderStatus, string> = {
   failed: 'bg-red-100 text-red-700',
 }
 
-function formatAmount(n: number | undefined | null): string {
-  if (typeof n !== 'number') return '—'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 export function OrderScreen() {
   const { t } = useI18n()

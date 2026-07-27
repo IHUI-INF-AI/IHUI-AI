@@ -2,11 +2,8 @@ import { useEffect, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Card } from '@ihui/ui-native'
 import { getBalance, type WalletBalance } from '@ihui/api-client'
+import { formatAmount } from '@ihui/shared/utils'
 
-function formatAmount(n: number | undefined | null): string {
-  if (typeof n !== 'number') return '—'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 export function WalletScreen() {
   const [balance, setBalance] = useState<WalletBalance | null>(null)
