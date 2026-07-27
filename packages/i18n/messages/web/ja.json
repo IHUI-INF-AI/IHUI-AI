@@ -12514,6 +12514,31 @@
     "relatedTitle": "関連記事",
     "notFound": "記事が見つかりません"
   },
+  "crypto": {
+    "title": "暗号通貨寄付",
+    "subtitle": "直接送金、中間プラットフォーム不要、手数料 0",
+    "bitcoin": {
+      "name": "Bitcoin",
+      "network": "BTC ネットワーク"
+    },
+    "ethereum": {
+      "name": "Ethereum",
+      "network": "ETH ネットワーク"
+    },
+    "usdtTrc20": {
+      "name": "USDT (TRC20)",
+      "network": "Tron ネットワーク",
+      "recommended": "推奨:最安手数料 (~$1)"
+    },
+    "usdtErc20": {
+      "name": "USDT (ERC20)",
+      "network": "ETH ネットワーク"
+    },
+    "copyButton": "アドレスをコピー",
+    "copied": "コピーしました!",
+    "disclaimer": "寄付は直接私たちのウォレットに入り、中間手数料はかかりません。USDT-TRC20 は最安手数料 (~$1) で推奨です。",
+    "qrCode": "QR コード"
+  },
   "services": {
     "hero": {
       "title": "プロフェッショナルサービス",
