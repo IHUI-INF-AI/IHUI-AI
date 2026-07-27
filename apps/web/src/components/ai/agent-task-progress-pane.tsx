@@ -43,7 +43,12 @@ const PLAN_CLS: Record<PlanStepStatus, string> = {
 function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
   const Icon = PLAN_ICON[step.status]
   return (
-    <div className="flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed">
+    <div
+      className={cn(
+        'flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
+        step.status === 'in_progress' && 'bg-primary/5',
+      )}
+    >
       <Icon
         className={cn(
           'mt-0.5 h-3 w-3 shrink-0',
@@ -51,14 +56,37 @@ function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
           step.status === 'in_progress' && 'animate-spin',
         )}
       />
-      <span className={cn('flex-1 break-all', step.status === 'pending' && 'text-muted-foreground/60')}>
-        {index + 1}. {step.step}
-      </span>
-      {step.durationMs !== undefined && step.status !== 'pending' && (
-        <span className="shrink-0 text-[10px] text-muted-foreground/50">
-          {formatDuration(step.durationMs)}
-        </span>
-      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={cn(
+              'flex-1 break-all',
+              step.status === 'pending' && 'text-muted-foreground/60',
+            )}
+          >
+            {index + 1}. {step.step}
+          </span>
+          {step.durationMs !== undefined && step.status !== 'pending' && (
+            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+              {formatDuration(step.durationMs)}
+            </span>
+          )}
+          {step.tokenUsage !== undefined && step.tokenUsage > 0 && (
+            <span
+              className="shrink-0 text-[10px] tabular-nums text-muted-foreground/40"
+              title={`${step.tokenUsage} tokens`}
+            >
+              {Math.round(step.tokenUsage / 1000)}k
+            </span>
+          )}
+        </div>
+        {/* explanation 副标题:仅 in_progress 步骤显示(plan 级 explanation,避免重复) */}
+        {step.status === 'in_progress' && step.explanation && (
+          <div className="mt-0.5 break-all text-[10px] text-muted-foreground/40">
+            {step.explanation}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
