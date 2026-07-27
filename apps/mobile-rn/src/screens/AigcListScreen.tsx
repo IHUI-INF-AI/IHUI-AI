@@ -10,8 +10,12 @@ import {
   View,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PRIMARY = '#10B981'
+
+type Nav = NativeStackNavigationProp<RootStackParamList>
 
 type FileType = 0 | 1 | 3 | 4
 
@@ -121,7 +125,7 @@ const MOCK_WORKS: AigcWork[] = [
 ]
 
 export default function AigcListScreen() {
-  const navigation = useNavigation<any>()
+  const navigation = useNavigation<Nav>()
   const [category, setCategory] = useState<Category>('all')
   const [refreshing, setRefreshing] = useState(false)
 

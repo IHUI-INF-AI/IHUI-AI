@@ -1,6 +1,10 @@
 import { setBaseUrl } from '@ihui/api-client'
 import { type TokenPair } from '@ihui/types'
-import { bindTokenStoreToApiClient, type TokenStore } from '@ihui/shared/auth'
+import {
+  bindTokenStoreToApiClient,
+  createInMemoryTokenStore,
+  type TokenStore,
+} from '@ihui/shared/auth'
 import { createChromePlatform } from '@ihui/browser-platform'
 import {
   initApiBaseUrl,
@@ -12,9 +16,41 @@ import {
 
 const platform = createChromePlatform()
 
-let cachedToken: string | null = null
-let cachedRefreshToken: string | null = null
-let cachedExpiresIn: number | null = null
+/**
+ * 内存缓存 TokenStore:委托 @ihui/shared/auth 工厂统一管理 cachedToken /
+ * cachedRefreshToken / cachedExpiresIn,onSet* 回调下放 platform.storage 持久化。
+ * setCachedWithoutPersist 供 onStorageChanged 跨标签页同步(只更新缓存不回写)。
+ */
+const store = createInMemoryTokenStore({
+  onSetToken: async (token) => {
+    if (token) {
+      await platform.storage.localSet(TOKEN_STORAGE_KEY, token)
+    } else {
+      await platform.storage.localRemove(TOKEN_STORAGE_KEY)
+    }
+  },
+  onSetRefreshToken: async (token) => {
+    if (token) {
+      await platform.storage.localSet(REFRESH_TOKEN_STORAGE_KEY, token)
+    } else {
+      await platform.storage.localRemove(REFRESH_TOKEN_STORAGE_KEY)
+    }
+  },
+  onSetExpiresIn: async (expiresIn) => {
+    if (expiresIn !== null) {
+      await platform.storage.localSet(EXPIRES_IN_STORAGE_KEY, expiresIn)
+    } else {
+      await platform.storage.localRemove(EXPIRES_IN_STORAGE_KEY)
+    }
+  },
+  onClearAll: async () => {
+    await Promise.all([
+      platform.storage.localRemove(TOKEN_STORAGE_KEY),
+      platform.storage.localRemove(REFRESH_TOKEN_STORAGE_KEY),
+      platform.storage.localRemove(EXPIRES_IN_STORAGE_KEY),
+    ])
+  },
+})
 
 export async function initApi(): Promise<void> {
   await initApiBaseUrl()
@@ -25,100 +61,31 @@ export async function initApi(): Promise<void> {
     platform.storage.localGet<string>(REFRESH_TOKEN_STORAGE_KEY),
     platform.storage.localGet<number>(EXPIRES_IN_STORAGE_KEY),
   ])
-  cachedToken = typeof storedToken === 'string' ? storedToken : null
-  cachedRefreshToken = typeof storedRefresh === 'string' ? storedRefresh : null
-  cachedExpiresIn = typeof storedExpiresIn === 'number' ? storedExpiresIn : null
+  store.setCachedWithoutPersist({
+    token: typeof storedToken === 'string' ? storedToken : null,
+    refreshToken: typeof storedRefresh === 'string' ? storedRefresh : null,
+    expiresIn: typeof storedExpiresIn === 'number' ? storedExpiresIn : null,
+  })
 
   platform.storage.onStorageChanged('local', (changes) => {
+    const updates: {
+      token?: string | null
+      refreshToken?: string | null
+      expiresIn?: number | null
+    } = {}
     if (changes[TOKEN_STORAGE_KEY]) {
       const newValue = changes[TOKEN_STORAGE_KEY].newValue
-      cachedToken = typeof newValue === 'string' ? newValue : null
+      updates.token = typeof newValue === 'string' ? newValue : null
     }
     if (changes[REFRESH_TOKEN_STORAGE_KEY]) {
       const newValue = changes[REFRESH_TOKEN_STORAGE_KEY].newValue
-      cachedRefreshToken = typeof newValue === 'string' ? newValue : null
+      updates.refreshToken = typeof newValue === 'string' ? newValue : null
     }
     if (changes[EXPIRES_IN_STORAGE_KEY]) {
       const newValue = changes[EXPIRES_IN_STORAGE_KEY].newValue
-      cachedExpiresIn = typeof newValue === 'number' ? newValue : null
+      updates.expiresIn = typeof newValue === 'number' ? newValue : null
     }
+    store.setCachedWithoutPersist(updates)
   })
 
-  bindTokenStoreToApiClient(tokenStore)
-}
-
-export async function setToken(token: string | null): Promise<void> {
-  cachedToken = token
-  if (token) {
-    await platform.storage.localSet(TOKEN_STORAGE_KEY, token)
-  } else {
-    await platform.storage.localRemove(TOKEN_STORAGE_KEY)
-  }
-}
-
-/** 单独设置 refresh token(写存储 + 更新缓存),与 setToken 解耦 */
-export async function setRefreshToken(token: string | null): Promise<void> {
-  cachedRefreshToken = token
-  if (token) {
-    await platform.storage.localSet(REFRESH_TOKEN_STORAGE_KEY, token)
-  } else {
-    await platform.storage.localRemove(REFRESH_TOKEN_STORAGE_KEY)
-  }
-}
-
-export function getToken(): string | null {
-  return cachedToken
-}
-
-export function clearToken(): void {
-  cachedToken = null
-}
-
-export async function setTokenPair(pair: TokenPair): Promise<void> {
-  cachedToken = pair.accessToken
-  cachedRefreshToken = pair.refreshToken ?? null
-  if (pair.expiresIn !== undefined) cachedExpiresIn = pair.expiresIn
-  await Promise.all([
-    platform.storage.localSet(TOKEN_STORAGE_KEY, pair.accessToken),
-    platform.storage.localSet(REFRESH_TOKEN_STORAGE_KEY, pair.refreshToken),
-    ...(pair.expiresIn !== undefined
-      ? [platform.storage.localSet(EXPIRES_IN_STORAGE_KEY, pair.expiresIn)]
-      : []),
-  ])
-}
-
-export function getRefreshToken(): string | null {
-  return cachedRefreshToken
-}
-
-export function getExpiresIn(): number | null {
-  return cachedExpiresIn
-}
-
-export async function clearAllTokens(): Promise<void> {
-  cachedToken = null
-  cachedRefreshToken = null
-  cachedExpiresIn = null
-  await Promise.all([
-    platform.storage.localRemove(TOKEN_STORAGE_KEY),
-    platform.storage.localRemove(REFRESH_TOKEN_STORAGE_KEY),
-    platform.storage.localRemove(EXPIRES_IN_STORAGE_KEY),
-  ])
-  const { stopAutoRefresh } = await import('./token-utils')
-  stopAutoRefresh()
-}
-
-/**
- * TokenStore 契约接入(类型层验证,零运行时改动)
- *
- * 编译时验证本端 token 管理实现符合 @ihui/shared/auth TokenStore 接口,
- * 为后续跨端统一调用提供类型安全网。各调用方仍可直接用具体函数,
- * 此对象供后续重构或新代码通过 TokenStore 接口调用使用。
- */
-export const tokenStore: TokenStore = {
-  getToken,
-  getRefreshToken,
-  setToken,
-  setRefreshToken,
-  clearAll: clearAllTokens,
-}
+  bindTokenStoreToApiClient(tokenStore

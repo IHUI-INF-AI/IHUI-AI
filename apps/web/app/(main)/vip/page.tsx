@@ -75,10 +75,10 @@ export default function VipPage() {
   const levels = levelsData?.items ?? []
   const myVip = myData?.vip ?? null
   const billingPlans = plansData?.plans ?? []
-  const hasRecurring = billingPlans.some((p: any) => p.isRecurring === true)
+  const hasRecurring = billingPlans.some((p) => p.isRecurring === true)
   const maxTrialDays = billingPlans
-    .filter((p: any) => p.isRecurring === true)
-    .reduce((m: any, p: any) => Math.max(m, p.trialDays ?? 0), 0)
+    .filter((p) => p.isRecurring === true)
+    .reduce((m, p) => Math.max(m, p.trialDays ?? 0), 0)
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',

@@ -11,8 +11,12 @@ import {
   View,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PRIMARY = '#10B981'
+
+type Nav = NativeStackNavigationProp<RootStackParamList>
 
 type WorkType = 'image' | 'video' | 'audio' | 'text'
 
@@ -36,7 +40,7 @@ interface MockFile {
 }
 
 export default function AigcPublishScreen() {
-  const navigation = useNavigation<any>()
+  const navigation = useNavigation<Nav>()
   const [workType, setWorkType] = useState<WorkType>('image')
   const [files, setFiles] = useState<MockFile[]>([])
   const [textContent, setTextContent] = useState('')
