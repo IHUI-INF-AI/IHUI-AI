@@ -73,9 +73,8 @@ export default function CourseHomeworkPage() {
   const statusText = (status?: number | string) => {
     if (status === undefined || status === null) return t('status.notSubmitted')
     if (typeof status === 'number') {
-      const numKey = ['notSubmitted', 'submitted', 'passApproval', 'failApproval'][
-        status
-      ] as 'notSubmitted' | 'submitted' | 'passApproval' | 'failApproval'
+      const numKey = ['notSubmitted', 'submitted', 'passApproval', 'failApproval'][status] as
+        'notSubmitted' | 'submitted' | 'passApproval' | 'failApproval'
       return numKey ? t(STATUS_KEY[numKey] ?? 'status.unknown') : t('status.unknown')
     }
     return t(STATUS_KEY[status] ?? 'status.unknown')
@@ -130,7 +129,7 @@ export default function CourseHomeworkPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {list.map((item: any) => {
+          {list.map((item: HomeworkItem) => {
             const deadline = formatDeadline(item.deadline ?? item.endTime)
             const submitted = item.submitted ?? (item.status === 'submitted' || item.status === 1)
             return (

@@ -73,8 +73,7 @@ interface IPty {
 }
 // SSH wrapper 在 IPty 之上扩展的内部字段(attachSshStream 挂载,kill/write/resize 读取)
 interface PtyWithSshStream extends IPty {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 动态字段,无公开类型
-  _sshStream?: any
+  _sshStream?: Ssh2StreamLike
 }
 type SpawnFn = (
   file: string,

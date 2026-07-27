@@ -112,7 +112,7 @@ export default function KBDetailPage() {
         </div>
         {article.tags && article.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pt-1">
-            {article.tags.map((tag: any) => (
+            {article.tags.map((tag: string) => (
               <span key={tag} className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
                 {tag}
               </span>

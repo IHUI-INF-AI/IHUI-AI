@@ -139,7 +139,7 @@ export default function CircleDetailPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {posts.map((p: any) => (
+            {posts.map((p: PostItem) => (
               <Card key={p.id} className="transition-colors hover:bg-accent">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">

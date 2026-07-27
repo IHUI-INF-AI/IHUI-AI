@@ -1,11 +1,20 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import { ArrowLeft, Loader2, ListTree, Search, Calendar, FileText, ChevronRight, Hash } from 'lucide-react'
+import {
+  ArrowLeft,
+  Loader2,
+  ListTree,
+  Search,
+  Calendar,
+  FileText,
+  ChevronRight,
+  Hash,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
@@ -55,7 +64,7 @@ export default function KnowledgeRagDetailPage() {
         body: JSON.stringify({ query: data?.title ?? '', topK: 6 }),
       }),
     enabled: Boolean(data?.title),
-    select: (list: any) => list.filter((h: any) => String(h.docId) !== String(id)).slice(0, 5),
+    select: (list: SearchHit[]) => list.filter((h) => String(h.docId) !== String(id)).slice(0, 5),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -145,7 +154,7 @@ export default function KnowledgeRagDetailPage() {
         </h2>
         {hits && hits.length > 0 ? (
           <div className="space-y-2">
-            {hits.map((h: any) => (
+            {hits.map((h: SearchHit) => (
               <Link
                 key={h.id}
                 href={`/knowledge-rag/${h.docId}`}
