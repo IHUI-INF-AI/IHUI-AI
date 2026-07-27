@@ -4,7 +4,7 @@
  * 设计约束:
  * - 仅适用于 Tailwind v3(v3 preset 语法);web 端用 Tailwind v4 @theme,不走此 preset。
  * - 语义色映射到 CSS 变量 var(--color-*),实际值由 tokens.css 同步到各端 :root/.dark。
- * - borderRadius.sm 统一为 0.25rem(2px),符合 AGENTS.md §4 圆角守门 sm=2px。
+ * - borderRadius.sm 统一为 0.125rem(2px),符合 AGENTS.md §4 圆角守门 sm=2px。
  *
  * 消费方式:
  * - CommonJS(require): `const _p = require('@ihui/design-tokens/tailwind-preset'); const p = _p.default || _p`
@@ -64,7 +64,7 @@ export default {
         },
       },
       borderRadius: {
-        sm: '0.25rem',
+        sm: '0.125rem',
         DEFAULT: '0.25rem',
         md: '0.375rem',
         lg: '0.5rem',
