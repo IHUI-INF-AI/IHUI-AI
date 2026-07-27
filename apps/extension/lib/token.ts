@@ -1,6 +1,7 @@
 import { setBaseUrl } from '@ihui/api-client'
 import { type TokenPair } from '@ihui/types'
 import { bindTokenStoreToApiClient, type TokenStore } from '@ihui/shared/auth'
+import { createChromePlatform } from '@ihui/browser-platform'
 import {
   initApiBaseUrl,
   getApiBaseUrl,
@@ -8,6 +9,8 @@ import {
   REFRESH_TOKEN_STORAGE_KEY,
   EXPIRES_IN_STORAGE_KEY,
 } from './config'
+
+const platform = createChromePlatform()
 
 let cachedToken: string | null = null
 let cachedRefreshToken: string | null = null
@@ -17,19 +20,16 @@ export async function initApi(): Promise<void> {
   await initApiBaseUrl()
   setBaseUrl(getApiBaseUrl())
 
-  const result = await chrome.storage.local.get([
-    TOKEN_STORAGE_KEY,
-    REFRESH_TOKEN_STORAGE_KEY,
-    EXPIRES_IN_STORAGE_KEY,
+  const [storedToken, storedRefresh, storedExpiresIn] = await Promise.all([
+    platform.storage.localGet<string>(TOKEN_STORAGE_KEY),
+    platform.storage.localGet<string>(REFRESH_TOKEN_STORAGE_KEY),
+    platform.storage.localGet<number>(EXPIRES_IN_STORAGE_KEY),
   ])
-  const storedToken = result[TOKEN_STORAGE_KEY]
-  const storedRefresh = result[REFRESH_TOKEN_STORAGE_KEY]
-  const storedExpiresIn = result[EXPIRES_IN_STORAGE_KEY]
   cachedToken = typeof storedToken === 'string' ? storedToken : null
   cachedRefreshToken = typeof storedRefresh === 'string' ? storedRefresh : null
   cachedExpiresIn = typeof storedExpiresIn === 'number' ? storedExpiresIn : null
 
-  chrome.storage.local.onChanged.addListener((changes) => {
+  platform.storage.onStorageChanged('local', (changes) => {
     if (changes[TOKEN_STORAGE_KEY]) {
       const newValue = changes[TOKEN_STORAGE_KEY].newValue
       cachedToken = typeof newValue === 'string' ? newValue : null
@@ -50,9 +50,9 @@ export async function initApi(): Promise<void> {
 export async function setToken(token: string | null): Promise<void> {
   cachedToken = token
   if (token) {
-    await chrome.storage.local.set({ [TOKEN_STORAGE_KEY]: token })
+    await platform.storage.localSet(TOKEN_STORAGE_KEY, token)
   } else {
-    await chrome.storage.local.remove(TOKEN_STORAGE_KEY)
+    await platform.storage.localRemove(TOKEN_STORAGE_KEY)
   }
 }
 
@@ -60,9 +60,9 @@ export async function setToken(token: string | null): Promise<void> {
 export async function setRefreshToken(token: string | null): Promise<void> {
   cachedRefreshToken = token
   if (token) {
-    await chrome.storage.local.set({ [REFRESH_TOKEN_STORAGE_KEY]: token })
+    await platform.storage.localSet(REFRESH_TOKEN_STORAGE_KEY, token)
   } else {
-    await chrome.storage.local.remove(REFRESH_TOKEN_STORAGE_KEY)
+    await platform.storage.localRemove(REFRESH_TOKEN_STORAGE_KEY)
   }
 }
 
@@ -78,11 +78,13 @@ export async function setTokenPair(pair: TokenPair): Promise<void> {
   cachedToken = pair.accessToken
   cachedRefreshToken = pair.refreshToken ?? null
   if (pair.expiresIn !== undefined) cachedExpiresIn = pair.expiresIn
-  await chrome.storage.local.set({
-    [TOKEN_STORAGE_KEY]: pair.accessToken,
-    [REFRESH_TOKEN_STORAGE_KEY]: pair.refreshToken,
-    ...(pair.expiresIn !== undefined ? { [EXPIRES_IN_STORAGE_KEY]: pair.expiresIn } : {}),
-  })
+  await Promise.all([
+    platform.storage.localSet(TOKEN_STORAGE_KEY, pair.accessToken),
+    platform.storage.localSet(REFRESH_TOKEN_STORAGE_KEY, pair.refreshToken),
+    ...(pair.expiresIn !== undefined
+      ? [platform.storage.localSet(EXPIRES_IN_STORAGE_KEY, pair.expiresIn)]
+      : []),
+  ])
 }
 
 export function getRefreshToken(): string | null {
@@ -97,10 +99,10 @@ export async function clearAllTokens(): Promise<void> {
   cachedToken = null
   cachedRefreshToken = null
   cachedExpiresIn = null
-  await chrome.storage.local.remove([
-    TOKEN_STORAGE_KEY,
-    REFRESH_TOKEN_STORAGE_KEY,
-    EXPIRES_IN_STORAGE_KEY,
+  await Promise.all([
+    platform.storage.localRemove(TOKEN_STORAGE_KEY),
+    platform.storage.localRemove(REFRESH_TOKEN_STORAGE_KEY),
+    platform.storage.localRemove(EXPIRES_IN_STORAGE_KEY),
   ])
   const { stopAutoRefresh } = await import('./token-utils')
   stopAutoRefresh()
