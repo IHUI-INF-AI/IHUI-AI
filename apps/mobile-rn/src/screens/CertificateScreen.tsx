@@ -17,6 +17,7 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateWithYear } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -48,14 +49,6 @@ interface CertPage {
 }
 
 const PAGE_SIZE = 20
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
-}
 
 function statusColor(status: Certificate['status']): string {
   if (status === 'valid') return '#10B981'
@@ -94,7 +87,7 @@ export function CertificateScreen() {
   }
 
   const onItemPress = (item: Certificate) => {
-    Alert.alert(item.name, `${item.issuer}\n${formatDate(item.issueDate)}`)
+    Alert.alert(item.name, `${item.issuer}\n${formatShortDateWithYear(item.issueDate)}`)
   }
 
   return (
@@ -161,11 +154,11 @@ export function CertificateScreen() {
                   {item.issuer}
                 </Text>
                 <Text style={styles.itemDate}>
-                  {t('certificate.issueDate')}: {formatDate(item.issueDate)}
+                  {t('certificate.issueDate')}: {formatShortDateWithYear(item.issueDate)}
                 </Text>
                 {item.expireDate ? (
                   <Text style={styles.itemDate}>
-                    {t('certificate.expireDate')}: {formatDate(item.expireDate)}
+                    {t('certificate.expireDate')}: {formatShortDateWithYear(item.expireDate)}
                   </Text>
                 ) : null}
               </View>
