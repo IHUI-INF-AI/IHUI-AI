@@ -28,7 +28,7 @@ interface SyntaxHighlighterProps {
 const SyntaxHighlighter = dynamic(
   () =>
     import('react-syntax-highlighter').then(
-      (m: any) => m.Prism as React.ComponentType<SyntaxHighlighterProps>,
+      (m: { Prism: React.ComponentType<SyntaxHighlighterProps> }) => m.Prism,
     ),
   {
     ssr: false,
