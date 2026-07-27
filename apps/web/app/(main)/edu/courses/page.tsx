@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -108,7 +108,7 @@ export default function EduCoursesPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((c: any) => (
+          {courses.map((c) => (
             <Card
               key={c.id}
               className="flex cursor-pointer flex-col transition-colors hover:bg-accent"
@@ -149,7 +149,9 @@ export default function EduCoursesPage() {
                     style={{ width: `${c.progress}%` }}
                   />
                 </div>
-                <span className="text-xs text-muted-foreground">{t('progress', { n: c.progress })}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t('progress', { n: c.progress })}
+                </span>
               </CardContent>
             </Card>
           ))}

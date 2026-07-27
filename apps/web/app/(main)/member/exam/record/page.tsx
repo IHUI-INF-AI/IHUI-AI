@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -107,7 +107,7 @@ export default function MemberExamRecordPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rows.map((r: any) => {
+              {rows.map((r) => {
                 const passed = !!r.isPassed
                 return (
                   <tr key={r.id} className="transition-colors hover:bg-muted/30">

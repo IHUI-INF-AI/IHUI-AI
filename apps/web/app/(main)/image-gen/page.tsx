@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Image from 'next/image'
@@ -42,7 +42,7 @@ export default function ImageGenPage() {
         body: JSON.stringify(body),
       })
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       setResult(data)
       toast.success(t('success'))
     },

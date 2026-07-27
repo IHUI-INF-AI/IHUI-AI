@@ -102,7 +102,7 @@ export default function EduLearnRankingPage() {
 
       {!noEndpoint && top3.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {top3.map((r: any, i: any) => {
+          {top3.map((r, i) => {
             const icon = i === 0 ? Trophy : i === 1 ? Medal : Award
             const Icon = icon
             const cls =
@@ -177,7 +177,7 @@ export default function EduLearnRankingPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r: any, i: any) => {
+              rows.map((r, i) => {
                 const rank = r.rank ?? (page - 1) * PAGE_SIZE + i + 1
                 const isTop3 = rank <= 3
                 return (

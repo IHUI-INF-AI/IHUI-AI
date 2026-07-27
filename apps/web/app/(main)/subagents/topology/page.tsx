@@ -6,7 +6,11 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Network, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { fetchTopology } from '@/lib/subagents-api'
-import { SwarmTopologyView, SWARM_ROLE_LABEL, SWARM_STATUS_LABEL } from '@/components/subagents/SwarmTopologyView'
+import {
+  SwarmTopologyView,
+  SWARM_ROLE_LABEL,
+  SWARM_STATUS_LABEL,
+} from '@/components/subagents/SwarmTopologyView'
 import type { AgentRole, DispatchStatus } from '@ihui/shared/subagents/index'
 
 const ROLE_DOT: Record<AgentRole, string> = {
@@ -35,11 +39,11 @@ export default function SubagentTopologyPage() {
 
   const topology = topoQ.data?.topology
   const roles = React.useMemo(
-    () => Array.from(new Set(topology?.nodes.map((n: any) => n.agentRole) ?? [])),
+    () => Array.from(new Set(topology?.nodes.map((n) => n.agentRole) ?? [])),
     [topology],
   )
   const statuses = React.useMemo(
-    () => Array.from(new Set(topology?.nodes.map((n: any) => n.status) ?? [])),
+    () => Array.from(new Set(topology?.nodes.map((n) => n.status) ?? [])),
     [topology],
   )
 
@@ -69,15 +73,15 @@ export default function SubagentTopologyPage() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         {roles.map((r) => (
           <span key={r} className="inline-flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded ${(ROLE_DOT as any)[r]}`} />
-            {(SWARM_ROLE_LABEL as any)[r]}
+            <span className={`h-2 w-2 rounded ${ROLE_DOT[r]}`} />
+            {SWARM_ROLE_LABEL[r]}
           </span>
         ))}
         <span className="text-muted-foreground">·</span>
         {statuses.map((s) => (
           <span key={s} className="inline-flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded ${(STATUS_DOT as any)[s]}`} />
-            {(SWARM_STATUS_LABEL as any)[s]}
+            <span className={`h-2 w-2 rounded ${STATUS_DOT[s]}`} />
+            {SWARM_STATUS_LABEL[s]}
           </span>
         ))}
       </div>

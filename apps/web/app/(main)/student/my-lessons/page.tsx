@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -80,7 +80,7 @@ export default function MyLessonsPage() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((item: any) => {
+            {list.map((item) => {
               const statusKey =
                 item.status === 2
                   ? 'statusCompleted'
