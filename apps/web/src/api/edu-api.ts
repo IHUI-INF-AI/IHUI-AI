@@ -54,10 +54,7 @@ export async function getDueReviews(
 }
 
 /** 提交复习结果(quality: 0-5 SM-2 评分) */
-export async function submitReview(
-  questionId: string,
-  quality: number,
-): Promise<ReviewResult> {
+export async function submitReview(questionId: string, quality: number): Promise<ReviewResult> {
   return srsPost<ReviewResult>('/api/srs-review/review', { questionId, quality })
 }
 
@@ -66,10 +63,9 @@ export async function getReviewStats(): Promise<ReviewStats> {
   return srsGet<ReviewStats>('/api/srs-review/stats')
 }
 
-// ===== AI 助教(直连 ai-service 8000 端口)=====
+// ===== AI 助教(直连 ai-service 8803 端口)=====
 
-const AI_SERVICE_URL =
-  process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8000'
+const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
 
 export interface ExplainResult {
   answer: string

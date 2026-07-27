@@ -249,7 +249,7 @@ export function isWSNotification(data: unknown): data is WSNotification {
  * 根据当前页面协议自动选择 ws: / wss:。
  */
 export function buildNotificationWsUrl(baseUrl: string, token: string): string {
-  // baseUrl 形如 https://api.example.com 或 http://localhost:3000
+  // baseUrl 形如 https://api.example.com 或 http://localhost:8801
   const url = new URL(baseUrl)
   const proto = url.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${proto}//${url.host}/ws/notifications?token=${encodeURIComponent(token)}`

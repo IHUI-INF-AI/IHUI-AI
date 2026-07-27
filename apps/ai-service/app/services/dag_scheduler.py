@@ -346,7 +346,8 @@ def _parse_ts(s: Optional[str]) -> float:
         return 0.0
     try:
         return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
-    except Exception:
+    except Exception as e:
+        logger.warning("dag_scheduler._parse_ts 失败: %s", e, exc_info=True)
         return 0.0
 
 
@@ -675,8 +676,8 @@ class WorkerPool:
         if self._redis is not None:
             try:
                 await self._redis.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("dag_scheduler.stop redis close 失败: %s", e, exc_info=True)
             self._redis = None
 
     async def _cancel_executing_tasks(self) -> None:
@@ -826,13 +827,13 @@ class WorkerPool:
                     if res_monitor is not None and not res_monitor.terminated:
                         try:
                             await res_monitor.stop()
-                        except Exception:  # noqa: BLE001
-                            pass
+                        except Exception as e:  # noqa: BLE001
+                            logger.warning("dag_scheduler._worker_loop res_monitor.stop 失败: %s", e, exc_info=True)
                     if net_token is not None:
                         try:
                             _reset_net_policy(net_token)
-                        except Exception:  # noqa: BLE001
-                            pass
+                        except Exception as e:  # noqa: BLE001
+                            logger.warning("dag_scheduler._worker_loop _reset_net_policy 失败: %s", e, exc_info=True)
                     if wt_info:
                         try:
                             await remove_worktree(
@@ -883,7 +884,8 @@ class WorkerPool:
                         try:
                             violations = await res_monitor.stop()
                             vstr = "; ".join(f"{v.resource}={v.actual:.1f}>{v.limit}" for v in violations) or "unknown"
-                        except Exception:  # noqa: BLE001
+                        except Exception as e:  # noqa: BLE001
+                            logger.warning("dag_scheduler._worker_loop res_monitor.stop 失败: %s", e, exc_info=True)
                             vstr = "unknown"
                         task.error_message = f"[RESOURCE_LIMIT] timeout + resource violation: {vstr}"
                     else:
@@ -900,7 +902,8 @@ class WorkerPool:
                         try:
                             violations = await res_monitor.stop()
                             vstr = "; ".join(f"{v.resource}={v.actual:.1f}>{v.limit}" for v in violations) or "unknown"
-                        except Exception:  # noqa: BLE001
+                        except Exception as e:  # noqa: BLE001
+                            logger.warning("dag_scheduler._worker_loop res_monitor.stop 失败: %s", e, exc_info=True)
                             vstr = "unknown"
                         task.error_message = f"[RESOURCE_LIMIT] watchdog cancel + resource violation: {vstr}"
                     else:
@@ -915,7 +918,8 @@ class WorkerPool:
                         try:
                             violations = await res_monitor.stop()
                             vstr = "; ".join(f"{v.resource}={v.actual:.1f}>{v.limit}" for v in violations) or "unknown"
-                        except Exception:  # noqa: BLE001
+                        except Exception as inner_err:  # noqa: BLE001
+                            logger.warning("dag_scheduler._worker_loop res_monitor.stop 失败: %s", inner_err, exc_info=True)
                             vstr = "unknown"
                         task.error_message = f"[RESOURCE_LIMIT] exception + resource violation: {vstr} (orig: {e})"
                     else:

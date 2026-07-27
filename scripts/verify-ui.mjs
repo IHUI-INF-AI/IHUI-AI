@@ -47,14 +47,14 @@ function checkDevServer() {
   log('\n=== 检查 dev server 状态 ===', CYAN)
   const result = spawnSync(
     'node',
-    ['-e', 'fetch("http://localhost:3000").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'],
+    ['-e', 'fetch("http://localhost:8801").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'],
     { encoding: 'utf8', timeout: 5000 },
   )
   if (result.status === 0) {
-    log('  [OK]   web 服务在 http://localhost:3000 响应', GREEN)
+    log('  [OK]   web 服务在 http://localhost:8801 响应', GREEN)
     return true
   }
-  log('  [ERR]  web 服务未在 http://localhost:3000 响应', RED)
+  log('  [ERR]  web 服务未在 http://localhost:8801 响应', RED)
   log('         请先启动服务: powershell -ExecutionPolicy Bypass -File scripts/dev-all.ps1', GRAY)
   return false
 }

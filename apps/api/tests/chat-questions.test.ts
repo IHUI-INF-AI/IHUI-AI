@@ -25,7 +25,7 @@ vi.mock('../src/config/index.js', () => ({
     PORT: 8080,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
-    CORS_ORIGIN: 'http://localhost:3000',
+    CORS_ORIGIN: 'http://localhost:8801',
     DATABASE_URL: 'postgres://localhost:8810/test',
     REDIS_URL: 'redis://localhost:8811',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
@@ -465,8 +465,7 @@ describe('AI 主动提问多端同步持久化(P2)', () => {
 
         // 2. patchConversationMetadata 清挂起(merge 模式,不动其他 key)
         expect(mockPatchConversationMetadata).toHaveBeenCalledTimes(1)
-        const [patchId, patchUserId, patchMerge] =
-          mockPatchConversationMetadata.mock.calls[0]!
+        const [patchId, patchUserId, patchMerge] = mockPatchConversationMetadata.mock.calls[0]!
         expect(patchId).toBe('conv-1')
         expect(patchUserId).toBe(USER_ID)
         expect(patchMerge).toEqual({

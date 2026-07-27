@@ -90,7 +90,7 @@ if (-not $ApiOnly) {
 }
 
 Write-Step '开发环境已启动:'
-Write-Host '  Web:  http://localhost:3000' -ForegroundColor White
+Write-Host '  Web:  http://localhost:8801' -ForegroundColor White
 Write-Host '  API:  http://localhost:8801' -ForegroundColor White
 Write-Host '  Docs: http://localhost:8801/docs' -ForegroundColor White
 Write-Host "`n按 Ctrl+C 停止所有服务" -ForegroundColor Yellow

@@ -50,6 +50,9 @@ const ROOT = path.resolve(import.meta.dirname, '..')
 const SKIP_PATTERNS = [
   /[\\/]node_modules[\\/]/,
   /[\\/]\.next[\\/]/,
+  /[\\/]\.trae-cn[\\/]/,
+  /[\\/]\.turbo[\\/]/,
+  /[\\/]\.worktrees[\\/]/,
   /[\\/]dist[\\/]/,
   /[\\/]build[\\/]/,
   /[\\/]e2e[\\/]/, // @playwright/test 类型解析场景,合理保留

@@ -35,8 +35,7 @@
 
 import { logger } from '../utils/logger.js'
 
-const AI_SERVICE_URL =
-  process.env.AI_SERVICE_URL || 'http://localhost:8000'
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8803'
 const TIMEOUT_MS = 10_000
 
 export interface RuleDto {
@@ -159,10 +158,7 @@ export interface ResolvedRulesDto {
 }
 
 /** 冲突类型 */
-export type RuleConflictType =
-  | 'name_conflict'
-  | 'semantic_duplicate'
-  | 'priority_collision'
+export type RuleConflictType = 'name_conflict' | 'semantic_duplicate' | 'priority_collision'
 
 export interface RuleConflictDto {
   type: RuleConflictType
@@ -321,8 +317,7 @@ const RULE_TEMPLATES_FALLBACK: RuleTemplateDto[] = [
     name: 'commit_convention',
     description: '提交规范规则 — 校验 commit message 格式',
     matchType: 'regex',
-    pattern:
-      '^(feat|fix|docs|style|refactor|test|chore|perf|build|ci)(\\(.+\\))?: .{1,100}$',
+    pattern: '^(feat|fix|docs|style|refactor|test|chore|perf|build|ci)(\\(.+\\))?: .{1,100}$',
     priority: 50,
     scope: 'global',
     content:
@@ -357,10 +352,7 @@ class RulesService {
     this.baseUrl = (baseUrl || AI_SERVICE_URL).replace(/\/$/, '')
   }
 
-  private async request<T>(
-    path: string,
-    options: RequestInit = {},
-  ): Promise<T> {
+  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}/api/rules${path}`
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -411,10 +403,7 @@ class RulesService {
     }
   }
 
-  async updateRule(
-    id: string,
-    patch: Record<string, unknown>,
-  ): Promise<RuleDto | null> {
+  async updateRule(id: string, patch: Record<string, unknown>): Promise<RuleDto | null> {
     try {
       return await this.request<RuleDto>(`/${encodeURIComponent(id)}`, {
         method: 'PATCH',
@@ -427,30 +416,23 @@ class RulesService {
 
   async deleteRule(id: string): Promise<boolean> {
     try {
-      await this.request<{ id: string; deleted: boolean }>(
-        `/${encodeURIComponent(id)}`,
-        { method: 'DELETE' },
-      )
+      await this.request<{ id: string; deleted: boolean }>(`/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
       return true
     } catch {
       return false
     }
   }
 
-  async testRule(
-    id: string,
-    message: string,
-  ): Promise<RuleTestResultDto> {
-    return this.request<RuleTestResultDto>(
-      `/${encodeURIComponent(id)}/test`,
-      { method: 'POST', body: JSON.stringify({ message }) },
-    )
+  async testRule(id: string, message: string): Promise<RuleTestResultDto> {
+    return this.request<RuleTestResultDto>(`/${encodeURIComponent(id)}/test`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    })
   }
 
-  async matchRules(
-    message: string,
-    scope?: string,
-  ): Promise<RuleMatchResultDto> {
+  async matchRules(message: string, scope?: string): Promise<RuleMatchResultDto> {
     try {
       return await this.request<RuleMatchResultDto>('/match', {
         method: 'POST',
@@ -474,10 +456,7 @@ class RulesService {
     try {
       return await this.request<RuleConflictsDto>('/conflicts')
     } catch (e) {
-      logger.warn(
-        '[rules-service] detectConflicts 降级为本地计算:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] detectConflicts 降级为本地计算:', { err: e as Error })
       return this._detectConflictsLocal()
     }
   }
@@ -491,10 +470,7 @@ class RulesService {
     try {
       return await this.request<RuleTemplatesDto>('/templates')
     } catch (e) {
-      logger.warn(
-        '[rules-service] listTemplates 降级为本地静态模板:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] listTemplates 降级为本地静态模板:', { err: e as Error })
       return { templates: RULE_TEMPLATES_FALLBACK }
     }
   }
@@ -508,10 +484,7 @@ class RulesService {
     try {
       return await this.request<RuleAuditLogDto>('/audit-log')
     } catch (e) {
-      logger.warn(
-        '[rules-service] getAuditLog 降级返回空:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] getAuditLog 降级返回空:', { err: e as Error })
       return { entries: [], total: 0 }
     }
   }
@@ -524,19 +497,13 @@ class RulesService {
    * 转发到 ai-service GET /api/rules/resolved?scope=xxx&agentId=xxx。
    * 失败时降级为本地 listRules 结果(无 inheritedFrom 标记)。
    */
-  async getResolvedRules(
-    scope: string,
-    agentId?: string,
-  ): Promise<ResolvedRulesDto> {
+  async getResolvedRules(scope: string, agentId?: string): Promise<ResolvedRulesDto> {
     try {
       const qs = new URLSearchParams({ scope })
       if (agentId) qs.set('agentId', agentId)
       return await this.request<ResolvedRulesDto>(`/resolved?${qs.toString()}`)
     } catch (e) {
-      logger.warn(
-        '[rules-service] getResolvedRules 降级为 listRules:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] getResolvedRules 降级为 listRules:', { err: e as Error })
       const list = await this.listRules()
       const filtered = list.rules.filter(
         (r) => r.scope === scope || (scope === 'agent' && r.scope !== 'global'),
@@ -553,14 +520,9 @@ class RulesService {
    */
   async getRuleHistory(id: string): Promise<RuleHistoryDto> {
     try {
-      return await this.request<RuleHistoryDto>(
-        `/${encodeURIComponent(id)}/history`,
-      )
+      return await this.request<RuleHistoryDto>(`/${encodeURIComponent(id)}/history`)
     } catch (e) {
-      logger.warn(
-        '[rules-service] getRuleHistory 降级返回空:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] getRuleHistory 降级返回空:', { err: e as Error })
       return { history: [] }
     }
   }
@@ -571,21 +533,14 @@ class RulesService {
    * 转发到 ai-service POST /api/rules/:id/rollback?version=xxx。
    * 失败时返回 null(由调用方返回 502 或 404)。
    */
-  async rollbackRule(
-    id: string,
-    version: string,
-  ): Promise<RuleDto | null> {
+  async rollbackRule(id: string, version: string): Promise<RuleDto | null> {
     try {
       const qs = new URLSearchParams({ version })
-      return await this.request<RuleDto>(
-        `/${encodeURIComponent(id)}/rollback?${qs.toString()}`,
-        { method: 'POST' },
-      )
+      return await this.request<RuleDto>(`/${encodeURIComponent(id)}/rollback?${qs.toString()}`, {
+        method: 'POST',
+      })
     } catch (e) {
-      logger.warn(
-        '[rules-service] rollbackRule 失败:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] rollbackRule 失败:', { err: e as Error })
       return null
     }
   }
@@ -596,21 +551,12 @@ class RulesService {
    * 转发到 ai-service GET /api/rules/:id/diff?from=xxx&to=xxx。
    * 失败时降级为空字符串。
    */
-  async diffRuleVersions(
-    id: string,
-    from: string,
-    to: string,
-  ): Promise<RuleDiffDto> {
+  async diffRuleVersions(id: string, from: string, to: string): Promise<RuleDiffDto> {
     try {
       const qs = new URLSearchParams({ from, to })
-      return await this.request<RuleDiffDto>(
-        `/${encodeURIComponent(id)}/diff?${qs.toString()}`,
-      )
+      return await this.request<RuleDiffDto>(`/${encodeURIComponent(id)}/diff?${qs.toString()}`)
     } catch (e) {
-      logger.warn(
-        '[rules-service] diffRuleVersions 降级返回空:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] diffRuleVersions 降级返回空:', { err: e as Error })
       return { diff: '' }
     }
   }
@@ -621,20 +567,14 @@ class RulesService {
    * 转发到 ai-service POST /api/rules/:id/feedback。
    * 失败时返回 { success: false }。
    */
-  async recordFeedback(
-    id: string,
-    feedback: RuleFeedbackType,
-  ): Promise<RuleFeedbackResultDto> {
+  async recordFeedback(id: string, feedback: RuleFeedbackType): Promise<RuleFeedbackResultDto> {
     try {
-      return await this.request<RuleFeedbackResultDto>(
-        `/${encodeURIComponent(id)}/feedback`,
-        { method: 'POST', body: JSON.stringify({ feedback }) },
-      )
+      return await this.request<RuleFeedbackResultDto>(`/${encodeURIComponent(id)}/feedback`, {
+        method: 'POST',
+        body: JSON.stringify({ feedback }),
+      })
     } catch (e) {
-      logger.warn(
-        '[rules-service] recordFeedback 失败:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] recordFeedback 失败:', { err: e as Error })
       return { success: false }
     }
   }
@@ -647,14 +587,9 @@ class RulesService {
    */
   async getRuleStats(id: string): Promise<RuleStatsDto> {
     try {
-      return await this.request<RuleStatsDto>(
-        `/${encodeURIComponent(id)}/stats`,
-      )
+      return await this.request<RuleStatsDto>(`/${encodeURIComponent(id)}/stats`)
     } catch (e) {
-      logger.warn(
-        '[rules-service] getRuleStats 降级返回零值:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] getRuleStats 降级返回零值:', { err: e as Error })
       return {
         ruleId: id,
         hits7d: 0,
@@ -689,10 +624,7 @@ class RulesService {
         }),
       })
     } catch (e) {
-      logger.warn(
-        '[rules-service] abTestRules 降级为本地实现:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] abTestRules 降级为本地实现:', { err: e as Error })
       return this._abTestLocal(ruleIdA, ruleIdB, message)
     }
   }
@@ -707,10 +639,7 @@ class RulesService {
     try {
       return await this.request<RuleGlobalStatsDto>('/stats')
     } catch (e) {
-      logger.warn(
-        '[rules-service] getGlobalStats 降级为本地计算:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] getGlobalStats 降级为本地计算:', { err: e as Error })
       return this._getGlobalStatsLocal()
     }
   }
@@ -735,19 +664,13 @@ class RulesService {
         id: ruleIdA,
         name: ruleA?.name ?? ruleIdA,
         matched: matchedA,
-        output:
-          matchedA && ruleA
-            ? `## ${ruleA.name}\n${ruleA.content}`
-            : '',
+        output: matchedA && ruleA ? `## ${ruleA.name}\n${ruleA.content}` : '',
       },
       ruleB: {
         id: ruleIdB,
         name: ruleB?.name ?? ruleIdB,
         matched: matchedB,
-        output:
-          matchedB && ruleB
-            ? `## ${ruleB.name}\n${ruleB.content}`
-            : '',
+        output: matchedB && ruleB ? `## ${ruleB.name}\n${ruleB.content}` : '',
       },
       message,
     }
@@ -763,9 +686,7 @@ class RulesService {
         return true
       case 'keyword': {
         if (!rule.matchPattern) return false
-        return rule.matchPattern
-          .split(',')
-          .some((kw) => kw.trim() && message.includes(kw.trim()))
+        return rule.matchPattern.split(',').some((kw) => kw.trim() && message.includes(kw.trim()))
       }
       case 'regex': {
         if (!rule.matchPattern) return false
@@ -788,9 +709,7 @@ class RulesService {
     const now = Date.now()
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
     const active7d = rules.filter(
-      (r) =>
-        r.lastMatchedAt &&
-        new Date(r.lastMatchedAt).getTime() >= sevenDaysAgo,
+      (r) => r.lastMatchedAt && new Date(r.lastMatchedAt).getTime() >= sevenDaysAgo,
     ).length
     const top = [...rules]
       .sort((a, b) => (b.matchCount ?? 0) - (a.matchCount ?? 0))
@@ -835,9 +754,7 @@ class RulesService {
     }
 
     // b) 语义重复(本地降级:matchPattern 完全相同)
-    const semanticRules = rules.filter(
-      (r) => r.matchType === 'semantic' && r.matchPattern,
-    )
+    const semanticRules = rules.filter((r) => r.matchType === 'semantic' && r.matchPattern)
     for (let i = 0; i < semanticRules.length; i++) {
       for (let j = i + 1; j < semanticRules.length; j++) {
         const r1 = semanticRules[i]
@@ -891,10 +808,7 @@ class RulesService {
         body: JSON.stringify({ userId }),
       })
     } catch (e) {
-      logger.warn(
-        '[rules-service] autoGenerateRules 降级返回空:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] autoGenerateRules 降级返回空:', { err: e as Error })
       return { drafts: [], degraded: true }
     }
   }
@@ -905,19 +819,14 @@ class RulesService {
    * 转发到 ai-service POST /api/rules/resolve-conflicts。
    * 失败时降级返回空解决方案列表(degraded=true)。
    */
-  async resolveConflicts(
-    conflicts: RuleConflictDto[],
-  ): Promise<ResolveConflictsDto> {
+  async resolveConflicts(conflicts: RuleConflictDto[]): Promise<ResolveConflictsDto> {
     try {
       return await this.request<ResolveConflictsDto>('/resolve-conflicts', {
         method: 'POST',
         body: JSON.stringify({ conflicts }),
       })
     } catch (e) {
-      logger.warn(
-        '[rules-service] resolveConflicts 降级返回空:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] resolveConflicts 降级返回空:', { err: e as Error })
       return { resolutions: [], degraded: true }
     }
   }
@@ -928,23 +837,14 @@ class RulesService {
    * 转发到 ai-service POST /api/rules/:id/predict-effect。
    * 失败时降级返回零值预测(degraded=true)。
    */
-  async predictRuleEffect(
-    id: string,
-    dryRunMessage?: string,
-  ): Promise<RulePredictEffectDto> {
+  async predictRuleEffect(id: string, dryRunMessage?: string): Promise<RulePredictEffectDto> {
     try {
-      return await this.request<RulePredictEffectDto>(
-        `/${encodeURIComponent(id)}/predict-effect`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ dryRunMessage: dryRunMessage ?? '' }),
-        },
-      )
+      return await this.request<RulePredictEffectDto>(`/${encodeURIComponent(id)}/predict-effect`, {
+        method: 'POST',
+        body: JSON.stringify({ dryRunMessage: dryRunMessage ?? '' }),
+      })
     } catch (e) {
-      logger.warn(
-        '[rules-service] predictRuleEffect 降级返回零值:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] predictRuleEffect 降级返回零值:', { err: e as Error })
       return {
         ruleId: id,
         predictedMatchRate: 0,
@@ -961,9 +861,7 @@ class RulesService {
    * 转发到 ai-service GET /api/rules/knowledge-graph?scope=xxx。
    * 失败时降级为空图谱(degraded=true)。
    */
-  async getRulesKnowledgeGraph(
-    scope?: string,
-  ): Promise<RuleKnowledgeGraphDto> {
+  async getRulesKnowledgeGraph(scope?: string): Promise<RuleKnowledgeGraphDto> {
     try {
       const qs = new URLSearchParams()
       if (scope) qs.set('scope', scope)
@@ -971,10 +869,7 @@ class RulesService {
       const path = query ? `/knowledge-graph?${query}` : '/knowledge-graph'
       return await this.request<RuleKnowledgeGraphDto>(path)
     } catch (e) {
-      logger.warn(
-        '[rules-service] getRulesKnowledgeGraph 降级返回空:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] getRulesKnowledgeGraph 降级返回空:', { err: e as Error })
       return { nodes: [], edges: [], degraded: true }
     }
   }
@@ -999,10 +894,7 @@ class RulesService {
         },
       )
     } catch (e) {
-      logger.warn(
-        '[rules-service] recordLearnFeedback 失败:',
-        { err: e as Error }
-      )
+      logger.warn('[rules-service] recordLearnFeedback 失败:', { err: e as Error })
       return { success: false }
     }
   }

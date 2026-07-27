@@ -40,11 +40,11 @@ async function gotoAuthorize(page: Page) {
   // /oauth/authorize 检测未登录会 router.replace('/'),LoginDialog 全局挂载在首页 layout
   // 流程:goto /oauth/authorize → 自动跳 / → LoginDialog open → dialog 可见
   await page.goto(
-    'http://localhost:3000/oauth/authorize?client_id=test&redirect_uri=http://localhost:3000/&state=xyz',
+    'http://localhost:8801/oauth/authorize?client_id=test&redirect_uri=http://localhost:8801/&state=xyz',
     { waitUntil: 'domcontentloaded', timeout: 20000 },
   )
   // 等跳转完成(URL 变成 / 或带回调路径)
-  await page.waitForURL(/^(http:\/\/localhost:3000\/(\?.*)?)$/i, { timeout: 15000 }).catch(() => {})
+  await page.waitForURL(/^(http:\/\/localhost:8801\/(\?.*)?)$/i, { timeout: 15000 }).catch(() => {})
   // 清 theme 残留,确保从 light 开始
   await page.evaluate(() => {
     try {
@@ -84,9 +84,12 @@ test.describe('登录弹窗 TabsList 凹槽容器 + 密码强度条轨道视觉�
     await passwordInput.fill('TestXYZ123!@#')
     await page.waitForTimeout(500) // 等 PasswordStrengthIndicator 渲染
 
-    await page.locator(LOGIN_SCOPE).first().screenshot({
-      path: path.join(SHOT_DIR, '01_light_tabs_strength.png'),
-    })
+    await page
+      .locator(LOGIN_SCOPE)
+      .first()
+      .screenshot({
+        path: path.join(SHOT_DIR, '01_light_tabs_strength.png'),
+      })
 
     const data = await page.evaluate(() => {
       const d = document.querySelector('.login-scope')
@@ -180,9 +183,12 @@ test.describe('登录弹窗 TabsList 凹槽容器 + 密码强度条轨道视觉�
     await passwordInput.fill('TestXYZ123!@#')
     await page.waitForTimeout(500)
 
-    await page.locator(LOGIN_SCOPE).first().screenshot({
-      path: path.join(SHOT_DIR, '02_dark_tabs_strength.png'),
-    })
+    await page
+      .locator(LOGIN_SCOPE)
+      .first()
+      .screenshot({
+        path: path.join(SHOT_DIR, '02_dark_tabs_strength.png'),
+      })
 
     const data = await page.evaluate(() => {
       const d = document.querySelector('.login-scope')
