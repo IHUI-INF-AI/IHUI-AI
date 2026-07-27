@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import type { HomeStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateTime } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<HomeStackParamList>
 
@@ -25,19 +26,6 @@ function greetingKey():
   if (h < 13) return 'home.greetingNoon'
   if (h < 18) return 'home.greetingAfternoon'
   return 'home.greetingEvening'
-}
-
-function formatStart(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return ''
-  }
 }
 
 export function HomeScreen() {
@@ -207,7 +195,7 @@ export function HomeScreen() {
                   </Text>
                 ) : null}
                 <Text className="mt-1 text-xs text-neutral-400">
-                  {t('live.startAt')}:{formatStart(l.startTime)}
+                  {t('live.startAt')}:{formatShortDateTime(l.startTime)}
                 </Text>
               </Card>
             </TouchableOpacity>

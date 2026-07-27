@@ -1,18 +1,6 @@
 import { Modal, View, Text, TouchableOpacity, FlatList } from 'react-native'
 import { useNotificationStore } from '../stores/notification'
-
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return ''
-  }
-}
+import { formatShortDateTime } from '../utils/date-utils'
 
 export default function NotificationPanel() {
   const { notifications, visible, markAllRead, setVisible, clearAll } = useNotificationStore()
@@ -63,7 +51,7 @@ export default function NotificationPanel() {
                 {item.content ? (
                   <Text className="text-xs text-gray-500 mb-1">{item.content}</Text>
                 ) : null}
-                <Text className="text-[11px] text-gray-400">{formatTime(item.createdAt)}</Text>
+                <Text className="text-[11px] text-gray-400">{formatShortDateTime(item.createdAt)}</Text>
               </View>
             )}
             ListEmptyComponent={

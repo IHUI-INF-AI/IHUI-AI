@@ -6,6 +6,7 @@ import { fetchApi } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatDateByTemplate } from '../utils/date-utils'
 
 import { Input, Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -15,20 +16,6 @@ interface Note {
   title: string
   content: string
   updatedAt: string
-}
-
-function formatDateTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
 }
 
 export function NoteScreen() {
@@ -181,7 +168,7 @@ export function NoteScreen() {
               </Text>
             ) : null}
             <Text style={styles.cardMeta}>
-              {t('note.updatedAt')}:{formatDateTime(item.updatedAt)}
+              {t('note.updatedAt')}:{formatDateByTemplate(item.updatedAt, 'YYYY-MM-DD HH:mm')}
             </Text>
             <View style={styles.cardActions}>
               <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(item)}>

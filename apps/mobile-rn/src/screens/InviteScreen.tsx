@@ -15,6 +15,7 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateWithYear } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -31,14 +32,6 @@ interface InviteRecord {
   invitedAt: string
   reward: number
   status: 'pending' | 'completed'
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
 }
 
 export function InviteScreen() {
@@ -155,7 +148,7 @@ export function InviteScreen() {
               </Text>
               <Text style={styles.reward}>+¥{item.reward}</Text>
             </View>
-            <Text style={styles.date}>{formatDate(item.invitedAt)}</Text>
+            <Text style={styles.date}>{formatShortDateWithYear(item.invitedAt)}</Text>
           </Card>
         )}
       />
