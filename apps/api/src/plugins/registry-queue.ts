@@ -11,6 +11,7 @@
 import { Queue, Worker } from 'bullmq'
 import type { Redis } from 'ioredis'
 import { cleanupOldSyncLogs, cleanupOldWebhookTriggers } from '../db/registry-queries.js'
+import { logger } from '../utils/logger.js'
 
 export const REGISTRY_SYNC_QUEUE_NAME = 'registry-sync-queue'
 
@@ -130,7 +131,7 @@ export function startRegistryCleanupWorker(connection: Redis): Worker {
     async () => {
       const webhookDeleted = await cleanupOldWebhookTriggers(30)
       const logsDeleted = await cleanupOldSyncLogs(90)
-      console.log(
+      logger.info(
         `[registry-cleanup] 清理完成: webhook_triggers=${webhookDeleted} sync_logs=${logsDeleted}`,
       )
       return { webhookDeleted, logsDeleted }
@@ -138,8 +139,8 @@ export function startRegistryCleanupWorker(connection: Redis): Worker {
     { connection, concurrency: 1 },
   )
   worker.on('failed', (_job, err) => {
-    console.error('[registry-cleanup] 清理任务失败:', err.message)
+    logger.error('[registry-cleanup] 清理任务失败:', { err: err as Error })
   })
-  console.log('[registry-queue] 清理 Worker 已启动')
+  logger.info('[registry-queue] 清理 Worker 已启动')
   return worker
 }
