@@ -310,8 +310,24 @@ async function tryHandleSelfMediaSlash(
 /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
  *  传入 streamChat → api /ai/chat/stream → ai-service /api/llm/complete/stream
  *  ai-service 收到后从 mcp_server 加载完整 schema,走 tool loop(complete→tool_calls→execute→astream)
- *  12 browser tools + 10 computer tools = 22 个 */
+ *  2026-07-27 补齐 12 核心 MCP 工具(read_file/search_codebase/file_search 等),共 34 个 */
 const AGENT_TOOLS = [
+  // ===== 核心 MCP 工具(2026-07-27 补齐,对标 Trae Work + Codex 工具集)=====
+  // 之前只传 browser/computer 工具,LLM 看不到 read_file/search_codebase 等核心工具 schema,
+  // 导致用户问"读一下 xxx 文件"时 LLM 无法调用 read_file,只能瞎编。
+  // 现在补齐普通用户可用的核心工具(admin only 工具由后端 mcp_server 权限检查兜底)。
+  'read_file',
+  'search_codebase',
+  'file_search',
+  'analyze_code',
+  'generate_test',
+  'web_search',
+  'search_web',
+  'vision_analyze',
+  'knowledge_lookup',
+  'dispatch_subagent',
+  'summarize_artifacts',
+  'proactive_suggestion',
   // 12 browser tools
   'browser_screenshot',
   'browser_click_element',
@@ -966,7 +982,9 @@ export function useChat(): UseChatReturn {
 
       // #13 首 token 超时区分 reasoning(2026-07-25 立):
       // 双阶超时适配 reasoning 模型(o1/R1)长思考场景:
-      // - timeout15s:15s 内 reasoning + content 都未收到 → abort(完全冷启动)
+      // - timeout30s:30s 内 reasoning + content 都未收到 → abort(完全冷启动)
+      //   2026-07-27 修复:15s → 30s。StepFun step-router-v1 等推理模型首次请求冷启动
+      //   可能 >15s(含 CORS preflight + TCP + LLM 首 token 延迟),15s 误 abort 导致 net::ERR_ABORTED。
       // - timeout60s:60s 内 content 未收到但 reasoning 已收到 → abort(reasoning 模型可能长时间只产 reasoning)
       // - 任一 content token 到达 → clearTimeout 两个 timer(进入正常流式)
       // - 用户主动 stop 触发的 abort 不报错(由 abortedByTimeout* 标志区分)
@@ -979,7 +997,7 @@ export function useChat(): UseChatReturn {
           abortedByTimeout15s = true
           controller.abort()
         }
-      }, 15000)
+      }, 30000)
       const timeout60sId = setTimeout(() => {
         if (!firstContentTokenReceived && firstReasoningTokenReceived) {
           abortedByTimeout60s = true
@@ -1052,6 +1070,12 @@ export function useChat(): UseChatReturn {
           },
           // P4-2: 后端 fallback 触发时设置通知状态,UI 展示"已切换到备用模型"横幅
           onFallback: (event) => setFallbackNotice(event),
+          // 2026-07-27 修复:response 已到达即清除"完全冷启动"超时(timeout15s),
+          // 避免"response 到达但首 token 未到达"时误 abort 导致 net::ERR_ABORTED。
+          // 保留 timeout60s(防止 reasoning 模型长时间只产 reasoning 不产 content)。
+          onResponse: () => {
+            clearTimeout(timeout15sId)
+          },
           onDelta: (delta) => {
             if (!firstContentTokenReceived) {
               firstContentTokenReceived = true
@@ -1071,10 +1095,26 @@ export function useChat(): UseChatReturn {
           onReasoning: (delta) => {
             if (!firstReasoningTokenReceived) {
               firstReasoningTokenReceived = true
+              // 2026-07-27 修复:收到 reasoning token 即清除 timeout15s(完全冷启动超时),
+              // 避免冷启动延迟 + 首个 reasoning 到达间隔 >30s 时误 abort。
+              // 保留 timeout60s(防止 reasoning 模型长时间只产 reasoning 不产 content)。
+              clearTimeout(timeout15sId)
             }
             reasoningBatcher.batch(delta)
           },
-          onToolCall: createToolCallHandler(assistantId),
+          onToolCall: (event) => {
+            // 2026-07-27 修复工具调用场景下 15s 超时中断 SSE 流:
+            // 工具调用过程中 SSE 只发 tool-call-start/tool-result 事件,不发 content/reasoning token,
+            // 导致 firstContentTokenReceived 和 firstReasoningTokenReceived 都为 false,
+            // 15s 后 timeout15s 触发 controller.abort() 中断 SSE 流,UI 显示"无响应"。
+            // 修复:收到任意 tool-call 事件即视为正常响应,清除两个超时定时器。
+            if (!firstContentTokenReceived) {
+              firstContentTokenReceived = true
+              clearTimeout(timeout15sId)
+              clearTimeout(timeout60sId)
+            }
+            createToolCallHandler(assistantId)(event)
+          },
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
             // #9 错误前先 flush 累积 token,避免最后一批内容丢失
@@ -1225,6 +1265,7 @@ export function useChat(): UseChatReturn {
     abortRef.current = controller
 
     // #13 首 token 超时区分 reasoning(2026-07-25 立,与 sendMessage 对称)
+    // 2026-07-27 修复:15s → 30s(与 sendMessage 同步,防冷启动误 abort)
     let firstContentTokenReceived = false
     let firstReasoningTokenReceived = false
     let abortedByTimeout15s = false
@@ -1234,7 +1275,7 @@ export function useChat(): UseChatReturn {
         abortedByTimeout15s = true
         controller.abort()
       }
-    }, 15000)
+    }, 30000)
     const timeout60sId = setTimeout(() => {
       if (!firstContentTokenReceived && firstReasoningTokenReceived) {
         abortedByTimeout60s = true
@@ -1277,6 +1318,10 @@ export function useChat(): UseChatReturn {
         contextLimit: getModelContextCapacity(model),
         // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
         onFallback: (event) => setFallbackNotice(event),
+        // 2026-07-27 修复:与 sendMessage 同步,response 到达即清除 timeout15s
+        onResponse: () => {
+          clearTimeout(timeout15sId)
+        },
         onDelta: (delta) => {
           if (!firstContentTokenReceived) {
             firstContentTokenReceived = true
@@ -1296,6 +1341,8 @@ export function useChat(): UseChatReturn {
         onReasoning: (delta) => {
           if (!firstReasoningTokenReceived) {
             firstReasoningTokenReceived = true
+            // 2026-07-27 修复:与 sendMessage 同步,收到 reasoning 即清除 timeout15s
+            clearTimeout(timeout15sId)
           }
           reasoningBatcher.batch(delta)
         },
