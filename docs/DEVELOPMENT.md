@@ -110,7 +110,7 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 | `PORT` | ai-service 端口 | `3003`(独立测试用) | 是 |
 | `HOST` | 监听地址 | `0.0.0.0` | 是 |
 | `LOG_LEVEL` | 日志级别 | `info` | 否 |
-| `CORS_ORIGIN` | CORS 来源 | `http://localhost:3001` | 否 |
+| `CORS_ORIGIN` | CORS 来源 | `http://localhost:8802` | 否 |
 | `DATABASE_URL` | DB 连接串 | `postgres://postgres:postgres@localhost:5432/ihui_ai` | 是 |
 | `REDIS_URL` | Redis 连接串 | `redis://localhost:6379` | 是 |
 | `STEPFUN_API_KEY` / `STEPFUN_API_BASE` | StepFun LLM | - / `https://api.stepfun.com/step_plan/v1` | 否(空则 stub) |
@@ -210,8 +210,8 @@ node scripts/dev-web.mjs --port 3001      # 指定端口
 pnpm --filter @ihui/api dev
 # 等价于:tsx watch src/index.ts
 # 监听端口由 PORT 环境变量决定(根 .env API_PORT=3001)
-# Swagger 文档:http://localhost:3001/docs
-# 健康检查:http://localhost:3001/api/health
+# Swagger 文档:http://localhost:8802/docs
+# 健康检查:http://localhost:8802/api/health
 ```
 
 - 热重载:`tsx watch` 监听 `src/**/*.ts`,变更后整进程重启(非 HMR)。
