@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Switch, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
+import type { ApiResponse } from '@ihui/types'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Input, Loading } from '@ihui/ui-native'
@@ -26,7 +28,7 @@ export function AgentSettingScreen() {
     try {
       const r = await fetch(`${API_BASE_URL}/api/agent-setting`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Setting }
+      const d = (await r.json()) as ApiResponse<Setting>
       setSetting(d.data ?? { name: '', model: '', temperature: 0.7, enabled: true })
     } catch { setError(t('agentSetting.loadFailed')) } finally { setLoading(false) }
   }, [token, t])
@@ -66,7 +68,7 @@ export function AgentSettingScreen() {
         <Input className="mt-1" keyboardType="numeric" value={String(setting.temperature)} onChangeText={(v) => setSetting({ ...setting, temperature: Number(v) || 0 })} />
         <View className="mt-3 flex-row items-center justify-between">
           <Text className="text-xs text-muted-foreground">{t('agentSetting.enabled')}</Text>
-          <Switch value={setting.enabled} onValueChange={(v) => setSetting({ ...setting, enabled: v })} thumbColor="#10B981" />
+          <Switch value={setting.enabled} onValueChange={(v) => setSetting({ ...setting, enabled: v })} thumbColor={tokens.brand.DEFAULT} />
         </View>
         {error ? <Text className="mt-2 text-xs text-destructive">{error}</Text> : null}
         {toast ? <Text className="mt-2 text-xs text-primary">{toast}</Text> : null}
