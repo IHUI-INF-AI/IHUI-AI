@@ -140,8 +140,8 @@ async def _cleanup_proc(
                     pass
                 try:
                     await proc.wait()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("command_streamer._cleanup_proc 进程等待失败: %s", e, exc_info=True)
         else:
             try:
                 await asyncio.wait_for(proc.wait(), timeout=_GRACE_PERIOD)
@@ -149,8 +149,8 @@ async def _cleanup_proc(
                 try:
                     proc.kill()
                     await proc.wait()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("command_streamer._cleanup_proc 进程清理失败: %s", e, exc_info=True)
 
 
 async def stream_command(

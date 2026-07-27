@@ -5,15 +5,19 @@ log output. Falls back to stdlib logging when structlog is unavailable.
 """
 from __future__ import annotations
 
+import importlib
 import logging
 import sys
 from typing import Any
 
+# 软依赖:structlog 缺失时降级为 stdlib logging。
+# 用 importlib.import_module 避免直接 import 触发 mypy 的 Module 类型绑定,
+# 否则 except 中 structlog = None 会与 Module 类型不兼容。
+structlog: Any = None
 try:
-    import structlog
+    structlog = importlib.import_module("structlog")
     _HAS_STRUCTLOG = True
 except ImportError:  # pragma: no cover - structlog is in pyproject deps
-    structlog = None
     _HAS_STRUCTLOG = False
 
 

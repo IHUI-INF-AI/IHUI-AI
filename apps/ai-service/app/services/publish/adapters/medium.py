@@ -130,7 +130,8 @@ class MediumAdapter(BasePlatformAdapter):
 
         try:
             data = resp.json().get("data") or {}
-        except Exception:
+        except Exception as e:
+            logger.warning("medium.publish 响应 JSON 解析失败: %s", e, exc_info=True)
             data = {}
         post_id = data.get("id", "")
         published_url = data.get("url", "")

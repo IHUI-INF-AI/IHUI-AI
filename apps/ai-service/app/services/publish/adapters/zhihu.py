@@ -25,7 +25,7 @@ try:
     _HAS_PLAYWRIGHT = True
 except ImportError:
     _HAS_PLAYWRIGHT = False
-    Browser = BrowserContext = Page = None  # type: ignore[assignment,misc]
+    Browser = BrowserContext = Page = None
 
 if TYPE_CHECKING:
     from playwright._impl._api_structures import SetCookieParam
