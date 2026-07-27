@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Button } from '@ihui/ui-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import type { AgentProgressColumn, AgentProgressSortMode } from '@/stores/agent-progress-pane'
@@ -180,16 +181,19 @@ function HistoryBracket({
   )
 }
 
-// ─── Cursor 高亮行前缀(Codex 闪烁 ▶) ───────────────────────────────
-function CursorPrefix({ active }: { active: boolean }) {
+// ─── Cursor 高亮行前缀(闪烁 ▶,搜索模式时隐藏) ───────────────────
+function CursorPrefix({ active, hidden }: { active: boolean; hidden?: boolean }) {
   const [visible, setVisible] = React.useState(true)
   React.useEffect(() => {
-    if (!active) return
+    if (!active || hidden) return
     const id = window.setInterval(() => {
       setVisible((v) => !v)
     }, 600)
     return () => window.clearInterval(id)
-  }, [active])
+  }, [active, hidden])
+  if (hidden) {
+    return <span className="shrink-0 text-transparent"> </span>
+  }
   return (
     <span className={cn('shrink-0', active ? 'text-primary' : 'text-transparent')}>
       {active ? (visible ? '▶' : ' ') : ' '}
@@ -197,10 +201,108 @@ function CursorPrefix({ active }: { active: boolean }) {
   )
 }
 
+// ─── 搜索高亮文本(匹配部分用 <mark> 包裹) ─────────────────────────
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query) return <>{text}</>
+  const lowerText = text.toLowerCase()
+  const lowerQuery = query.toLowerCase()
+  const parts: React.ReactNode[] = []
+  let cursor = 0
+  let key = 0
+  while (cursor < text.length) {
+    const idx = lowerText.indexOf(lowerQuery, cursor)
+    if (idx === -1) {
+      parts.push(text.slice(cursor))
+      break
+    }
+    if (idx > cursor) parts.push(text.slice(cursor, idx))
+    parts.push(
+      <mark key={key++} className="bg-yellow-300/60 px-0 rounded-sm">
+        {text.slice(idx, idx + query.length)}
+      </mark>,
+    )
+    cursor = idx + query.length
+  }
+  return <>{parts}</>
+}
+
 // ─── 搜索过滤工具 ────────────────────────────────────────────────────
 function matchesQuery(text: string, query: string): boolean {
   if (!query) return true
   return text.toLowerCase().includes(query.toLowerCase())
+}
+
+// ─── ANSI 颜色码解析(终端输出彩色渲染) ─────────────────────────────
+// 支持:\x1b[0m reset / \x1b[1m bold / \x1b[3x/4x/9x 颜色码
+const ANSI_COLOR_MAP: Record<number, string> = {
+  30: '#000000', 31: '#cc0000', 32: '#4e9a06', 33: '#c4a000',
+  34: '#3465a4', 35: '#75507b', 36: '#06989a', 37: '#d3d7cf',
+  90: '#555753', 91: '#ef2929', 92: '#8ae234', 93: '#fce94f',
+  94: '#729fcf', 95: '#ad7fa8', 96: '#34e2e2', 97: '#eeeeec',
+}
+
+interface AnsiSegment {
+  text: string
+  color?: string
+  bg?: string
+  bold?: boolean
+}
+
+function parseAnsi(input: string): AnsiSegment[] {
+  if (!input.includes('\x1b[')) return [{ text: input }]
+  const segments: AnsiSegment[] = []
+  let current: AnsiSegment = { text: '' }
+  const regex = /\x1b\[([\d;]*)m/g
+  let lastIdx = 0
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(input)) !== null) {
+    // push pending text
+    if (match.index > lastIdx) {
+      segments.push({ ...current, text: input.slice(lastIdx, match.index) })
+    }
+    const codes = match[1] ? match[1].split(';').map((n) => parseInt(n, 10)) : [0]
+    for (const code of codes) {
+      if (code === 0) {
+        current = { text: '' }
+      } else if (code === 1) {
+        current.bold = true
+      } else if (ANSI_COLOR_MAP[code]) {
+        current.color = ANSI_COLOR_MAP[code]
+      } else if (code >= 40 && code <= 47) {
+        current.bg = ANSI_COLOR_MAP[code - 10]
+      } else if (code >= 100 && code <= 107) {
+        current.bg = ANSI_COLOR_MAP[code - 10]
+      }
+    }
+    lastIdx = regex.lastIndex
+  }
+  if (lastIdx < input.length) {
+    segments.push({ ...current, text: input.slice(lastIdx) })
+  }
+  return segments.filter((s) => s.text.length > 0)
+}
+
+function AnsiText({ text }: { text: string }) {
+  const segments = React.useMemo(() => parseAnsi(text), [text])
+  if (segments.length === 1 && !segments[0]?.color && !segments[0]?.bg && !segments[0]?.bold) {
+    return <>{segments[0]?.text}</>
+  }
+  return (
+    <>
+      {segments.map((seg, i) => (
+        <span
+          key={i}
+          style={{
+            color: seg.color,
+            backgroundColor: seg.bg,
+            fontWeight: seg.bold ? 'bold' : undefined,
+          }}
+        >
+          {seg.text}
+        </span>
+      ))}
+    </>
+  )
 }
 
 // ─── Tasks 栏 ────────────────────────────────────────────────────────
@@ -211,6 +313,8 @@ function TasksColumn({
   verbose,
   cursorIndex,
   searchQuery,
+  searchMode,
+  onSelectCursor,
 }: {
   steps: PlanStep[]
   overview: AgentOverview
@@ -218,6 +322,8 @@ function TasksColumn({
   verbose: boolean
   cursorIndex: number
   searchQuery: string
+  searchMode: boolean
+  onSelectCursor: (idx: number) => void
 }) {
   // 先搜索过滤,再排序
   const filtered = searchQuery
@@ -249,15 +355,16 @@ function TasksColumn({
           <div
             key={step.id}
             className={cn(
-              'px-1 py-0.5',
+              'cursor-pointer px-1 py-0.5 transition-colors hover:bg-accent/30',
               isCursor && 'bg-primary/20 border-l-2 border-primary',
             )}
+            onClick={() => onSelectCursor(idx)}
             data-testid="task-item"
             data-status={step.status}
             data-cursor={isCursor}
           >
             <div className="flex items-start gap-1.5">
-              <CursorPrefix active={isCursor} />
+              <CursorPrefix active={isCursor} hidden={searchMode} />
               <span className="w-5 shrink-0 text-right tabular-nums text-muted-foreground/60">
                 {idx + 1}.
               </span>
@@ -267,7 +374,7 @@ function TasksColumn({
                 className={cn('w-3 shrink-0 text-center', STEP_CLS[step.status])}
               />
               <span className="min-w-0 flex-1 break-words whitespace-pre-wrap">
-                {step.step}
+                <HighlightText text={step.step} query={searchQuery} />
               </span>
               {step.status === 'in_progress' && (
                 <HistoryBracket
@@ -286,10 +393,10 @@ function TasksColumn({
                 </span>
               )}
             </div>
-            {/* Codex:explanation 默认显示在 step 下方缩进 */}
+            {/* explanation 默认显示在 step 下方缩进 */}
             {step.explanation && (isCursor || verbose) && (
               <div className="mt-0.5 pl-9 text-muted-foreground/80 break-words whitespace-pre-wrap">
-                └ {step.explanation}
+                └ <HighlightText text={step.explanation} query={searchQuery} />
               </div>
             )}
           </div>
@@ -306,6 +413,9 @@ function SubagentsColumn({
   verbose,
   cursorIndex,
   searchQuery,
+  searchMode,
+  onSelectCursor,
+  onToggleExpand,
   onApprove,
 }: {
   subagents: Subagent[]
@@ -313,6 +423,9 @@ function SubagentsColumn({
   verbose: boolean
   cursorIndex: number
   searchQuery: string
+  searchMode: boolean
+  onSelectCursor: (idx: number) => void
+  onToggleExpand: (id: string) => void
   onApprove: (id: string, approve: boolean) => void
 }) {
   const archived = showArchived
@@ -349,9 +462,9 @@ function SubagentsColumn({
       {filtered.map((sub, idx) => {
         const isCursor = idx === cursorIndex
         const colorCls = SUBAGENT_COLOR_CLASS[sub.color]
-        // Codex:dead agents(done/failed/dead)变灰,running 保留彩色
+        // dead agents(done/failed/dead)变灰 + 删除线,running 保留彩色
         const isDead = sub.status === 'done' || sub.status === 'failed' || sub.status === 'dead'
-        const deadCls = isDead ? 'opacity-50' : ''
+        const deadCls = isDead ? 'opacity-50 line-through' : ''
         const statusCls =
           sub.status === 'running'
             ? colorCls
@@ -364,25 +477,27 @@ function SubagentsColumn({
           <div
             key={sub.id}
             className={cn(
-              'px-1 py-0.5',
+              'cursor-pointer px-1 py-0.5 transition-colors hover:bg-accent/30',
               isCursor && 'bg-primary/20 border-l-2 border-primary',
               deadCls,
             )}
+            onClick={() => onSelectCursor(idx)}
+            onDoubleClick={() => onToggleExpand(sub.id)}
             data-testid="subagent-item"
             data-status={sub.status}
             data-cursor={isCursor}
           >
             <div className="flex items-center gap-1.5">
-              <CursorPrefix active={isCursor} />
+              <CursorPrefix active={isCursor} hidden={searchMode} />
               <StatusGlyph
                 status={sub.status === 'running' ? 'running' : 'static'}
                 char={sub.status === 'done' ? '✓' : sub.status === 'failed' ? '✗' : '•'}
                 className={cn('w-3 shrink-0 text-center', statusCls)}
               />
-              <span className={cn('shrink-0 font-semibold', colorCls)}>{sub.handle}</span>
-              <span className="shrink-0 tabular-nums text-muted-foreground/70">
-                [{sub.status}]
+              <span className={cn('shrink-0 font-semibold', colorCls)}>
+                <HighlightText text={sub.handle} query={searchQuery} />
               </span>
+              {/* P2-2 修复:移除冗余 [status] 文字(已有颜色 + 图标 + 状态行) */}
               {sub.toolCalls !== undefined && sub.toolCalls > 0 && (
                 <span className="shrink-0 tabular-nums text-muted-foreground/60">
                   🛠{sub.toolCalls}
@@ -399,16 +514,19 @@ function SubagentsColumn({
                 </span>
               )}
             </div>
-            {(isCursor || verbose) && (sub.currentTask || sub.role) && (
+            {/* running 默认显示 currentTask;非 running 仅 cursor/verbose 显示 */}
+            {(sub.status === 'running' || isCursor || verbose) && (sub.currentTask || sub.role) && (
               <div className="pl-7 text-muted-foreground break-words whitespace-pre-wrap">
                 {sub.role && <span className="mr-2">role:{sub.role}</span>}
-                {sub.currentTask && <span>┆ {sub.currentTask}</span>}
+                {sub.currentTask && (
+                  <span>┆ <HighlightText text={sub.currentTask} query={searchQuery} /></span>
+                )}
                 {verbose && (
                   <span className="ml-2 text-[10px] text-muted-foreground/50">{sub.threadId}</span>
                 )}
               </div>
             )}
-            {/* Codex:死亡原因显示在 currentTask 下方 */}
+            {/* 死亡原因显示在 currentTask 下方 */}
             {isDead && sub.failureReason && (isCursor || verbose) && (
               <div className="pl-7 text-red-500/80 break-words whitespace-pre-wrap">
                 ✗ {sub.failureReason}
@@ -451,12 +569,18 @@ function TerminalsColumn({
   showArchived,
   cursorIndex,
   searchQuery,
+  searchMode,
+  onSelectCursor,
+  onToggleExpand,
 }: {
   terminals: TerminalTask[]
   isExpanded: (id: string) => boolean
   showArchived: boolean
   cursorIndex: number
   searchQuery: string
+  searchMode: boolean
+  onSelectCursor: (idx: number) => void
+  onToggleExpand: (id: string) => void
 }) {
   const archived = showArchived ? terminals : terminals.filter((t) => t.status === 'running')
   const filtered = searchQuery
@@ -492,7 +616,7 @@ function TerminalsColumn({
             : term.status === 'completed'
               ? 'text-emerald-500'
               : 'text-red-500'
-        // Codex:折叠态显示最后 2-3 行输出预览,展开态显示全部
+        // 折叠态显示最后 2-3 行输出预览,展开态显示全部
         const outputLines = term.output ? term.output.split('\n') : []
         const previewLines = outputLines.slice(-3)
         const showFull = expanded || !isLong
@@ -500,23 +624,27 @@ function TerminalsColumn({
           <div
             key={term.id}
             className={cn(
-              'px-1 py-0.5',
+              'cursor-pointer px-1 py-0.5 transition-colors hover:bg-accent/30',
               isCursor && 'bg-primary/20 border-l-2 border-primary',
             )}
+            onClick={() => onSelectCursor(idx)}
+            onDoubleClick={() => onToggleExpand(term.id)}
             data-testid="terminal-item"
             data-status={term.status}
             data-cursor={isCursor}
           >
             <div className="flex items-center gap-1.5">
-              <CursorPrefix active={isCursor} />
+              <CursorPrefix active={isCursor} hidden={searchMode} />
               <StatusGlyph
                 status={term.status === 'running' ? 'running' : 'static'}
                 char={term.status === 'completed' ? '✓' : '✗'}
                 className={cn('w-3 shrink-0 text-center', statusCls)}
               />
               <span className="shrink-0 text-muted-foreground">$</span>
-              <code className="min-w-0 flex-1 break-all">{term.command}</code>
-              {/* Codex:退出码显示 */}
+              <code className="min-w-0 flex-1 break-all">
+                <HighlightText text={term.command} query={searchQuery} />
+              </code>
+              {/* 退出码显示 */}
               {term.exitCode !== undefined && term.status !== 'running' && (
                 <span
                   className={cn(
@@ -539,15 +667,15 @@ function TerminalsColumn({
                 </span>
               )}
             </div>
-            {/* Codex:展开态显示全部输出,折叠态显示最后 3 行预览 */}
+            {/* 展开态显示全部输出(ANSI 彩色解析),折叠态显示最后 3 行预览 */}
             {showFull && term.output && (
-              <pre className="mt-0.5 ml-7 max-h-24 overflow-y-auto whitespace-pre-wrap break-all bg-muted/30 p-1 text-[10px] leading-relaxed">
-                {term.output}
+              <pre className="mt-0.5 ml-7 max-h-48 overflow-y-auto whitespace-pre-wrap break-all bg-muted/30 p-1 text-[10px] leading-relaxed">
+                <AnsiText text={term.output} />
               </pre>
             )}
             {!showFull && previewLines.length > 0 && (
               <pre className="mt-0.5 ml-7 whitespace-pre-wrap break-all text-[10px] leading-relaxed text-muted-foreground/60">
-                {previewLines.join('\n')}
+                <AnsiText text={previewLines.join('\n')} />
               </pre>
             )}
           </div>
@@ -566,13 +694,17 @@ function EmptyState({ text, hint }: { text: string; hint?: string }) {
   )
 }
 
-// ─── 搜索栏(/ 触发) ────────────────────────────────────────────────
+// ─── 搜索栏(/ 触发,带匹配数量) ────────────────────────────────────
 function SearchBar({
   query,
+  matchCount,
+  totalCount,
   onQueryChange,
   onExit,
 }: {
   query: string
+  matchCount: number
+  totalCount: number
   onQueryChange: (q: string) => void
   onExit: () => void
 }) {
@@ -598,7 +730,12 @@ function SearchBar({
         className="min-w-0 flex-1 bg-transparent font-mono text-xs placeholder:text-muted-foreground focus:outline-none"
         data-testid="search-input"
       />
-      <span className="text-[10px] text-muted-foreground/60">Esc to clear</span>
+      {query && (
+        <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70" data-testid="search-match-count">
+          {matchCount}/{totalCount}
+        </span>
+      )}
+      <span className="shrink-0 text-[10px] text-muted-foreground/60">Esc to clear</span>
     </div>
   )
 }
@@ -614,7 +751,7 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
     >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 阻止点击冒泡到遮罩层(避免误关闭);键盘用户通过关闭按钮关闭 */}
       <div
-        className="mx-4 max-w-md rounded-md border border-border bg-card p-4 font-mono text-xs shadow-lg"
+        className="mx-4 max-h-[80%] max-w-md overflow-y-auto rounded-md border border-border bg-card p-4 font-mono text-xs shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex items-center justify-between">
@@ -634,7 +771,10 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
           <div><span className="text-foreground">j/k</span> move cursor</div>
           <div><span className="text-foreground">g/G</span> top/bottom</div>
           <div><span className="text-foreground">space</span> page down</div>
+          <div><span className="text-foreground">PgUp</span> page up</div>
           <div><span className="text-foreground">Enter</span> expand</div>
+          <div><span className="text-foreground">dbl-click</span> expand(item)</div>
+          <div><span className="text-foreground">dbl-click</span> reset(resize)</div>
           <div><span className="text-foreground">1/2/3</span> switch column</div>
           <div><span className="text-foreground">Tab</span> cycle sort</div>
           <div><span className="text-foreground">a</span> toggle archived</div>
@@ -649,13 +789,15 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
   )
 }
 
-// ─── 高度调节手柄(drag resize) ────────────────────────────────────
+// ─── 高度调节手柄(drag resize + 双击重置) ──────────────────────────
 function ResizeHandle({
   height,
   onHeightChange,
+  onReset,
 }: {
   height: number
   onHeightChange: (h: number) => void
+  onReset: () => void
 }) {
   const draggingRef = React.useRef(false)
   const startYRef = React.useRef(0)
@@ -684,7 +826,7 @@ function ResizeHandle({
     <div
       role="separator"
       aria-orientation="horizontal"
-      aria-label="resize panel height"
+      aria-label="resize panel height (double-click to reset)"
       onMouseDown={(e) => {
         e.preventDefault()
         draggingRef.current = true
@@ -692,8 +834,13 @@ function ResizeHandle({
         startHeightRef.current = height
         document.body.style.cursor = 'ns-resize'
       }}
+      onDoubleClick={(e) => {
+        e.preventDefault()
+        onReset()
+      }}
       className="flex h-1 cursor-ns-resize items-center justify-center border-t border-border bg-transparent hover:bg-primary/10"
       data-testid="resize-handle"
+      title="drag to resize, double-click to reset"
     >
       <span className="h-0.5 w-10 rounded bg-muted-foreground/30" />
     </div>
@@ -766,7 +913,11 @@ export function AgentTaskProgressPane() {
   }, [activeColumn, subagents, showArchived, cursorIndex])
 
   const handleStart = React.useCallback(() => {
-    if (threadId) progress.start()
+    if (!threadId) {
+      toast.warning('请先输入 threadId', { description: '在上方输入框填入 Agent threadId 后再点 run' })
+      return
+    }
+    progress.start()
   }, [threadId, progress])
 
   const handleStop = React.useCallback(() => progress.stop(), [progress])
@@ -778,9 +929,53 @@ export function AgentTaskProgressPane() {
 
   const handleInputSubmit = React.useCallback(() => submitThreadId(), [submitThreadId])
 
-  const handleApprove = React.useCallback((id: string, _approve: boolean) => {
-    void id
+  // P1-1 修复:handleApprove 实际调用 toast 反馈(后端 approval API 待实现)
+  const handleApprove = React.useCallback((id: string, approve: boolean) => {
+    toast.info(approve ? `已批准 ${id}` : `已拒绝 ${id}`, { description: '子代理审批链路待后端实现' })
   }, [])
+
+  // 鼠标点击条目 → setCursor
+  const handleSelectCursor = React.useCallback((idx: number) => {
+    useAgentProgressPaneStore.getState().setCursor(idx)
+  }, [])
+
+  // 双击 resize handle → 重置默认高度
+  const handleResetHeight = React.useCallback(() => {
+    setPaneHeight(360)
+  }, [setPaneHeight])
+
+  // 搜索匹配数量(当前栏过滤后数量 + 总数量)
+  const searchMatchCount = React.useMemo(() => {
+    if (!searchQuery) return { match: 0, total: 0 }
+    const filter = (text: string) => matchesQuery(text, searchQuery)
+    if (activeColumn === 'tasks') {
+      const total = planSteps.length
+      const match = planSteps.filter(
+        (s) => filter(s.step) || filter(s.explanation ?? ''),
+      ).length
+      return { match, total }
+    }
+    if (activeColumn === 'subagents') {
+      const archived = showArchived
+        ? subagents
+        : subagents.filter((s) => s.status === 'running' || s.status === 'spawned')
+      const total = archived.length
+      const match = archived.filter(
+        (s) =>
+          filter(s.handle) ||
+          filter(s.nickname) ||
+          filter(s.currentTask ?? '') ||
+          filter(s.role ?? ''),
+      ).length
+      return { match, total }
+    }
+    const archived = showArchived ? terminals : terminals.filter((t) => t.status === 'running')
+    const total = archived.length
+    const match = archived.filter(
+      (t) => filter(t.command) || filter(t.output ?? ''),
+    ).length
+    return { match, total }
+  }, [searchQuery, activeColumn, planSteps, subagents, terminals, showArchived])
 
   // 全局快捷键:Esc/q 关闭 + j/k/Enter/y/n/g/G/space/?/q (Codex 数据上下文快捷键)
   React.useEffect(() => {
@@ -788,18 +983,20 @@ export function AgentTaskProgressPane() {
     const onKey = (e: KeyboardEvent) => {
       // 搜索模式下只处理 Esc/Enter(由 SearchBar 自身处理)
       if (useAgentProgressPaneStore.getState().searchMode) return
-      // 帮助面板打开时,任意键关闭
-      if (useAgentProgressPaneStore.getState().showHelp) {
-        e.preventDefault()
-        toggleHelp()
-        return
-      }
+      // 焦点在输入控件时不拦截(INPUT/TEXTAREA/SELECT/contentEditable)
+      // P1-3 修复:此检查必须在 showHelp 之前,否则帮助面板打开时输入框无法输入
       const el = e.target as HTMLElement | null
       if (el) {
         const tag = el.tagName
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable) {
           return
         }
+      }
+      // 帮助面板打开时,任意键关闭(输入框已 return,不影响输入)
+      if (useAgentProgressPaneStore.getState().showHelp) {
+        e.preventDefault()
+        toggleHelp()
+        return
       }
       const ctrl = e.ctrlKey || e.metaKey
       const shift = e.shiftKey
@@ -859,6 +1056,12 @@ export function AgentTaskProgressPane() {
         moveCursor(5, visibleCount)
         return
       }
+      // PgUp:向上翻页(5 项)
+      if (e.key === 'PageUp' && !ctrl && !shift && !alt) {
+        e.preventDefault()
+        moveCursor(-5, visibleCount)
+        return
+      }
       // Enter:展开/折叠当前项
       if (e.key === 'Enter' && !ctrl && !shift && !alt) {
         e.preventDefault()
@@ -899,6 +1102,22 @@ export function AgentTaskProgressPane() {
       cursorEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     }
   }, [open, cursorIndex, activeColumn, visibleCount])
+
+  // P1-2 修复:sortMode 变化时重置 cursor 到 0(避免排序后 cursor 指向错项)
+  React.useEffect(() => {
+    if (!open) return
+    useAgentProgressPaneStore.getState().setCursor(0)
+  }, [open, sortMode])
+
+  // P1-4 修复:showArchived / activeColumn 切换后 cursor 超出可见范围时 clamp 到 max-1
+  React.useEffect(() => {
+    if (!open) return
+    if (visibleCount <= 0) return
+    const cur = useAgentProgressPaneStore.getState().cursorIndex
+    if (cur >= visibleCount) {
+      useAgentProgressPaneStore.getState().setCursor(visibleCount - 1)
+    }
+  }, [open, visibleCount, showArchived, activeColumn])
 
   // 任务计时:从 sessionStart 累计
   const [elapsedSec, setElapsedSec] = React.useState(0)
@@ -960,10 +1179,10 @@ export function AgentTaskProgressPane() {
       aria-label="Agent 任务进度底部面板"
       data-testid="agent-progress-pane"
     >
-      {/* Resize 手柄(drag 调节面板高度) */}
-      <ResizeHandle height={paneHeight} onHeightChange={setPaneHeight} />
+      {/* Resize 手柄(drag 调节面板高度 + 双击重置) */}
+      <ResizeHandle height={paneHeight} onHeightChange={setPaneHeight} onReset={handleResetHeight} />
 
-      {/* Header:单行紧凑状态(Codex 风格)+ currentNode + 进度百分比 + 任务计时 */}
+      {/* Header:单行紧凑状态 + currentNode + 进度百分比 + 任务计时 + error */}
       <div className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
         <span className="shrink-0 font-semibold">Agent</span>
         <StatusGlyph
@@ -974,13 +1193,13 @@ export function AgentTaskProgressPane() {
         <span className="shrink-0 text-muted-foreground" data-testid={`status-${overview.status}`}>
           {overview.status}
         </span>
-        {/* Codex:显示当前执行节点 */}
+        {/* 显示当前执行节点 */}
         {overview.currentNode && (
           <span className="shrink-0 text-muted-foreground/80" data-testid="current-node">
             @ {overview.currentNode}
           </span>
         )}
-        {/* Codex:进度百分比 + 任务计时 */}
+        {/* 进度百分比 + 任务计时 */}
         {totalSteps > 0 && (
           <span
             className="shrink-0 tabular-nums text-muted-foreground/80"
@@ -1002,9 +1221,25 @@ export function AgentTaskProgressPane() {
             #{verbose ? threadId : threadId.slice(0, 8)}
           </span>
         )}
-        {isStreaming && (
-          <span className="shrink-0 animate-pulse text-primary" data-testid="pane-streaming">
-            ●
+        {/* P2-1 修复:移除冗余 ● 流式指示器(running 状态的 ⠋ spinner 已表示流式中) */}
+        {/* SSE error 状态展示 */}
+        {overview.error && (
+          <span
+            className="shrink-0 text-red-500"
+            data-testid="pane-error"
+            title={overview.error}
+          >
+            ⚠ {overview.error.length > 30 ? `${overview.error.slice(0, 30)}…` : overview.error}
+          </span>
+        )}
+        {/* 重连尝试指示器 */}
+        {overview.reconnectAttempt > 0 && (
+          <span
+            className="shrink-0 animate-pulse text-amber-500"
+            data-testid="pane-reconnect"
+            title={`SSE 断连,正在重连(第 ${overview.reconnectAttempt}/5 次)`}
+          >
+            ↻ {overview.reconnectAttempt}/5
           </span>
         )}
         {/* Codex 风格模式指示器:单行内联文本 */}
@@ -1056,38 +1291,49 @@ export function AgentTaskProgressPane() {
         )}
       </div>
 
-      {/* ThreadId 输入栏(仅 threadId 未设置时显示) */}
+      {/* ThreadId 输入栏(仅 threadId 未设置时显示)+ 引导文案 */}
       {!threadId && (
-        <div className="flex items-center gap-2 border-b border-border bg-muted/20 px-2 py-1">
-          <span className="text-muted-foreground">{'>'}</span>
-          <input
-            type="text"
-            value={threadIdInput}
-            onChange={(e) => setThreadIdInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                handleInputSubmit()
-              }
-            }}
-            placeholder="enter threadId..."
-            className="min-w-0 flex-1 bg-transparent font-mono text-xs placeholder:text-muted-foreground focus:outline-none"
-            data-testid="thread-id-input"
-          />
-          <Button
-            size="sm"
-            variant="default"
-            onClick={handleInputSubmit}
-            className="h-5 px-2 text-[10px]"
-          >
-            view
-          </Button>
+        <div className="border-b border-border bg-muted/20 px-2 py-1">
+          <div className="mb-1 text-[10px] text-muted-foreground/70" data-testid="thread-id-hint">
+            输入 Agent threadId 查看 SSE 流式进度(Tasks / Subagents / Terminals 三栏)
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">{'>'}</span>
+            <input
+              type="text"
+              value={threadIdInput}
+              onChange={(e) => setThreadIdInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleInputSubmit()
+                }
+              }}
+              placeholder="enter threadId..."
+              className="min-w-0 flex-1 bg-transparent font-mono text-xs placeholder:text-muted-foreground focus:outline-none"
+              data-testid="thread-id-input"
+            />
+            <Button
+              size="sm"
+              variant="default"
+              onClick={handleInputSubmit}
+              className="h-5 px-2 text-[10px]"
+            >
+              view
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* 搜索栏(/ 触发) */}
+      {/* 搜索栏(/ 触发,带匹配数量) */}
       {searchMode && (
-        <SearchBar query={searchQuery} onQueryChange={setSearchQuery} onExit={exitSearch} />
+        <SearchBar
+          query={searchQuery}
+          matchCount={searchMatchCount.match}
+          totalCount={searchMatchCount.total}
+          onQueryChange={setSearchQuery}
+          onExit={exitSearch}
+        />
       )}
 
       {/* 三栏切换:1/2/3 + 标签 + 计数(Codex 风格文本 tab) */}
@@ -1142,6 +1388,8 @@ export function AgentTaskProgressPane() {
             verbose={verbose}
             cursorIndex={cursorIndex}
             searchQuery={searchQuery}
+            searchMode={searchMode}
+            onSelectCursor={handleSelectCursor}
           />
         )}
         {activeColumn === 'subagents' && (
@@ -1151,6 +1399,9 @@ export function AgentTaskProgressPane() {
             verbose={verbose}
             cursorIndex={cursorIndex}
             searchQuery={searchQuery}
+            searchMode={searchMode}
+            onSelectCursor={handleSelectCursor}
+            onToggleExpand={toggleExpanded}
             onApprove={handleApprove}
           />
         )}
@@ -1161,6 +1412,9 @@ export function AgentTaskProgressPane() {
             showArchived={showArchived}
             cursorIndex={cursorIndex}
             searchQuery={searchQuery}
+            searchMode={searchMode}
+            onSelectCursor={handleSelectCursor}
+            onToggleExpand={toggleExpanded}
           />
         )}
       </div>
@@ -1175,6 +1429,9 @@ export function AgentTaskProgressPane() {
         </span>
         <span>
           <span className="text-muted-foreground">space</span> pgdn
+        </span>
+        <span>
+          <span className="text-muted-foreground">PgUp</span> pgup
         </span>
         <span>
           <span className="text-muted-foreground">Enter</span> expand
