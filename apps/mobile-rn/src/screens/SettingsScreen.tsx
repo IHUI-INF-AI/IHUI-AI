@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { SettingsScreen as SharedSettingsScreen } from '@ihui/app'
+import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
 import type {
   SharedLocaleOption,
   SharedThemeOption,
   SharedMenuItem,
   SharedNotificationToggles,
-} from '@ihui/app'
+} from '@ihui/rn-app'
 import { updatePassword } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'

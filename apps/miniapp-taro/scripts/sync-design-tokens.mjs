@@ -105,9 +105,7 @@ function filterTokens(lines) {
   ]
   return lines.filter((l) => {
     const name = l.split(':')[0].trim()
-    // --radius 保留,--radius-* 跳过(miniapp-taro 自己定义)
-    if (name === '--radius') return true
-    if (name.startsWith('--radius-')) return false
+    // --radius 与 --radius-* 都同步(2026-07-27 圆角 5 档已上提到 tokens.css)
     return !skipPrefixes.some((p) => name.startsWith(p))
   })
 }
@@ -138,16 +136,10 @@ function main() {
   }
 
   // 生成新的 :root 和 .dark 块
-  // 注意:miniapp-taro 额外保留 --radius-sm/md/lg/xl/2xl(在 tailwind.config 中引用)
+  // 注意:--radius 与 --radius-* 都从 tokens.css @theme 块同步(2026-07-27 圆角 5 档上提)
   const newRootBlock = `:root {
   /* ===== 语义色(自动同步自 tokens.css @theme 块,勿手动编辑)===== */
 ${formatBlock(themeLines, '  ')}
-  /* ===== 圆角 token(miniapp-taro 扩展,tailwind.config 引用)===== */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
 }`
 
   const newDarkBlock = `.dark {
