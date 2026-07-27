@@ -573,6 +573,82 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     expect(container.textContent).not.toContain('审查代码')
   })
 
+  it('SubagentSection — v10 点击 subagent 展开详情(role/time/threadId)', () => {
+    const subagents: Subagent[] = [
+      {
+        id: 's-expand-1',
+        threadId: 'thread-expand-1',
+        nickname: 'explorer',
+        handle: '@explorer',
+        color: 'cyan',
+        status: 'running',
+        role: 'researcher',
+        spawnedAt: '2026-01-01T10:00:00Z',
+        currentTask: '搜索文件',
+        tokenUsage: 5000,
+        toolCalls: 3,
+      },
+    ]
+    const { container } = render(<SubagentSection subagents={subagents} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const item = container.querySelector('[data-testid="subagent-item-s-expand-1"]')!
+    expect(item.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(item)
+    expect(item.getAttribute('aria-expanded')).toBe('true')
+    // 展开后显示详情
+    expect(container.textContent).toContain('运行中')
+    expect(container.textContent).toContain('researcher')
+    expect(container.textContent).toContain('thread-expand-1')
+  })
+
+  it('SubagentSection — v10 嵌套工具调用列表(subagent.tools)', () => {
+    const subagents: Subagent[] = [
+      {
+        id: 's-nested-1',
+        threadId: 'thread-nested-1',
+        nickname: 'implementer',
+        handle: '@implementer',
+        color: 'green',
+        status: 'done',
+        spawnedAt: '2026-01-01T10:00:00Z',
+        endedAt: '2026-01-01T10:05:00Z',
+        durationMs: 300000,
+        currentTask: '实现功能',
+        tokenUsage: 15000,
+        toolCalls: 2,
+        tools: [
+          {
+            id: 'nested-tool-1',
+            toolName: 'read_file',
+            args: { file_path: 'src/app.ts' },
+            status: 'success',
+            startedAt: '2026-01-01T10:01:00Z',
+            durationMs: 100,
+          },
+          {
+            id: 'nested-tool-2',
+            toolName: 'edit_file',
+            args: { file_path: 'src/app.ts' },
+            status: 'success',
+            startedAt: '2026-01-01T10:02:00Z',
+            durationMs: 200,
+          },
+        ],
+      },
+    ]
+    const { container } = render(<SubagentSection subagents={subagents} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const item = container.querySelector('[data-testid="subagent-item-s-nested-1"]')!
+    fireEvent.click(item)
+    // 展开后显示嵌套工具调用
+    expect(container.textContent).toContain('工具调用(2)')
+    expect(container.textContent).toContain('read_file')
+    expect(container.textContent).toContain('edit_file')
+    expect(container.textContent).toContain('app.ts')
+  })
+
   // ─── ChangesSection 测试 ───
 
   it('ChangesSection — 无文件变更时不渲染', () => {
