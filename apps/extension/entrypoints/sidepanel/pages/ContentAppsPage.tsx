@@ -2,8 +2,7 @@
  * ContentAppsPage — 内容中心首页,列出所有内容类功能入口。
  */
 import { AppListPage, type AppItem } from '../components/AppListPage'
-
-const WEB_BASE = 'https://ihui.ai'
+import { WEB_BASE } from '../../../lib/open-in-web'
 
 const items: AppItem[] = [
   { to: '/content/articles', icon: '📝', titleKey: 'apps.articles', descKey: 'apps.articlesDesc' },
