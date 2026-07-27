@@ -1,5 +1,6 @@
-import Taro from '@tarojs/taro'
+﻿import Taro from '@tarojs/taro'
 import { post } from './api-bridge'
+import { arrayBufferToBase64 } from '@ihui/shared/utils/base64'
 
 export interface RecognizerConfig {
   apiUrl?: string
@@ -132,37 +133,6 @@ class StreamingRecognizer {
   getResult(): string {
     return this.recognitionResult
   }
-}
-
-const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i] || 0)
-  }
-  return btoa(binary)
-}
-
-function btoa(input: string): string {
-  let output = ''
-  let i = 0
-  while (i < input.length) {
-    const a = input.charCodeAt(i++)
-    const b = i < input.length ? input.charCodeAt(i++) : NaN
-    const c = i < input.length ? input.charCodeAt(i++) : NaN
-    const enc1 = a >> 2
-    const enc2 = ((a & 3) << 4) | (b >> 4)
-    const enc3 = isNaN(b) ? 64 : ((b & 15) << 2) | (c >> 6)
-    const enc4 = isNaN(c) ? 64 : c & 63
-    output +=
-      (BASE64_CHARS[enc1] || '') +
-      (BASE64_CHARS[enc2] || '') +
-      (enc3 === 64 ? '=' : BASE64_CHARS[enc3] || '') +
-      (enc4 === 64 ? '=' : BASE64_CHARS[enc4] || '')
-  }
-  return output
 }
 
 const streamingRecognizer = new StreamingRecognizer()
