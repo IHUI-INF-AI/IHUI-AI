@@ -79,11 +79,11 @@ export default function VipSuccessPage() {
         duration,
         savedAt: Date.now(),
       }
-      const existing = Taro.getStorageSync('vipOrders') as Array<Record<string, unknown>> | null
+      const existing = Taro.getStorageSync('ihui-vip-orders') as Array<Record<string, unknown>> | null
       const list = Array.isArray(existing) ? existing : []
       list.push(orderData)
-      Taro.setStorageSync('vipOrders', list)
-      Taro.setStorageSync('paidStatus', true)
+      Taro.setStorageSync('ihui-vip-orders', list)
+      Taro.setStorageSync('ihui-paid-status', true)
       setSaved(true)
     } catch {
       // 静默忽略本地存储失败
