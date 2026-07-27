@@ -1,28 +1,3 @@
-type LogLevel = 'error' | 'warn' | 'info' | 'debug'
-
-const LOG_LEVELS: Record<LogLevel, number> = {
-  error: 0,
-  warn: 1,
-  info: 2,
-  debug: 3,
-}
-
-const currentLevel: LogLevel = 'error'
-
-export const logger = {
-  error: (module: string, action: string, err: unknown) => {
-    if (LOG_LEVELS[currentLevel] >= LOG_LEVELS.error) {
-      console.error(`[${module}] ${action} failed:`, err)
-    }
-  },
-  warn: (module: string, action: string, message: string) => {
-    if (LOG_LEVELS[currentLevel] >= LOG_LEVELS.warn) {
-      console.warn(`[${module}] ${action}: ${message}`)
-    }
-  },
-  info: (module: string, action: string, message: string) => {
-    if (LOG_LEVELS[currentLevel] >= LOG_LEVELS.info) {
-      console.info(`[${module}] ${action}: ${message}`)
-    }
-  },
-}
+// logger 已迁移到 @ihui/shared/utils/logger(2026-07-27,单一来源)
+// 本文件保留 re-export 保持外部 `import { logger } from '@/utils/logger'` 引用不变
+export { logger } from '@ihui/shared/utils/logger'

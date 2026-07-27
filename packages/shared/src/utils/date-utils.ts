@@ -158,3 +158,44 @@ export function formatRelativeTime(
   if (absDiff < 31536000) return rtf.format(Math.round(diffSec / 2592000), 'month')
   return rtf.format(Math.round(diffSec / 31536000), 'year')
 }
+
+// ---------------------------------------------------------------------------
+// 模板格式化(2026-07-27 立,从 miniapp-taro time.ts 迁移)
+// 支持 'YYYY-MM-DD HH:mm:ss' 等模板,底层用 Intl.DateTimeFormat 确保时区正确(AGENTS.md §4)
+// ---------------------------------------------------------------------------
+
+/**
+ * 按模板格式化日期,底层用 Intl.DateTimeFormat + Asia/Shanghai 时区(AGENTS.md §4)。
+ * @param input 日期(Date/timestamp/字符串/null/undefined)
+ * @param format 模板,支持 YYYY/MM/DD/HH/mm/ss 占位符,默认 'YYYY-MM-DD HH:mm:ss'
+ * @returns 格式化后的字符串,空值返回 '',无效日期返回 ''
+ */
+export function formatDateByTemplate(
+  input: string | number | Date | null | undefined,
+  format = 'YYYY-MM-DD HH:mm:ss',
+): string {
+  if (!input) return ''
+  const d = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(d.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: DEFAULT_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(d)
+  const map: Record<string, string> = {}
+  for (const p of parts) map[p.type] = p.value
+  // Intl hour12=false 在某些环境返回 "24",需归一为 "00"
+  const hour = map.hour === '24' ? '00' : (map.hour ?? '00')
+  return format
+    .replace('YYYY', map.year ?? '0000')
+    .replace('MM', map.month ?? '00')
+    .replace('DD', map.day ?? '00')
+    .replace('HH', hour)
+    .replace('mm', map.minute ?? '00')
+    .replace('ss', map.second ?? '00')
+}
