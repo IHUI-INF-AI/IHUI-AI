@@ -13,6 +13,26 @@ interface FoldableSectionProps {
   'data-testid'?: string
 }
 
+/** FoldableSection context:支持"展开全部/折叠全部"批量控制 */
+interface FoldableSectionContextValue {
+  /** null=各子区独立控制 / true=强制展开 / false=强制折叠 */
+  expandAll: boolean | null
+  setExpandAll: (v: boolean | null) => void
+}
+
+const FoldableSectionContext = React.createContext<FoldableSectionContextValue | null>(null)
+
+/** Provider:在父组件包裹所有 FoldableSection,提供批量展开/折叠控制 */
+export function FoldableSectionProvider({
+  children,
+  value,
+}: {
+  children: React.ReactNode
+  value: FoldableSectionContextValue
+}) {
+  return <FoldableSectionContext.Provider value={value}>{children}</FoldableSectionContext.Provider>
+}
+
 /** 格式化毫秒为紧凑耗时字符串 */
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`
@@ -40,7 +60,15 @@ export function FoldableSection({
   icon: Icon,
   'data-testid': testId,
 }: FoldableSectionProps) {
-  const [open, setOpen] = React.useState(defaultOpen)
+  const ctx = React.useContext(FoldableSectionContext)
+  const [internalOpen, setInternalOpen] = React.useState(defaultOpen)
+  // ctx.expandAll 优先(null 时回退到 internalOpen)
+  const open = ctx?.expandAll ?? internalOpen
+  const toggle = () => {
+    setInternalOpen((v) => !v)
+    // 用户手动操作后恢复独立控制
+    ctx?.setExpandAll(null)
+  }
 
   return (
     <div
@@ -52,7 +80,7 @@ export function FoldableSection({
     >
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
         className="flex w-full items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
       >
