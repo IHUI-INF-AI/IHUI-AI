@@ -4,7 +4,11 @@ import { persist } from 'zustand/middleware'
 import { ssrStorage } from './persist-helpers'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
-import type { SubagentSpawnEvent, SubagentEndEvent } from '@ihui/api-client'
+import type {
+  SubagentSpawnEvent,
+  SubagentEndEvent,
+  SubagentProgressEvent,
+} from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 
 export type { ChatRole } from '@ihui/shared'
@@ -139,6 +143,11 @@ interface ChatState {
    *  dispatch_subagent 工具执行完成后,后端发 subagent_end SSE 事件,
    *  前端通过 onSubagentEnd 回调更新 store 中对应条目状态为 completed/failed。 */
   markSubagentEnd: (event: SubagentEndEvent) => void
+  /** Subagent 执行进度更新(2026-07-28 立):
+   *  subagent 执行期间后端实时发 subagent_progress SSE 事件,
+   *  前端通过 onSubagentProgress 回调更新 store 中对应条目的 phase/iteration/tool 等字段,
+   *  UI 进度面板据此实时显示"思考中.../调用工具: xxx/输出就绪"等状态。 */
+  updateSubagentProgress: (event: SubagentProgressEvent) => void
   /** 添加工具调用到指定消息(SSE tool-call-start 事件触发)
    * 2026-07-22 立,P2 联动 WorkPanel */
   addToolCall: (
@@ -363,6 +372,53 @@ export const useChatStore = create<ChatState>()(
                     currentStep: '',
                   }),
               streamingDone: true,
+            }
+          }),
+        })),
+
+      updateSubagentProgress: (event) =>
+        set((s) => ({
+          subAgentActivities: s.subAgentActivities.map((a) => {
+            if (a.agentId !== event.id) return a
+            // 根据 phase 构造人类可读的 currentStep 文本
+            let stepText = a.currentStep
+            const iter = event.iteration ? ` (轮次 ${event.iteration})` : ''
+            switch (event.phase) {
+              case 'thinking':
+                stepText = `思考中…${iter}`
+                break
+              case 'tool_call':
+                stepText = `调用工具: ${event.tool ?? 'unknown'}${iter}`
+                break
+              case 'tool_result':
+                stepText = `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}${iter}`
+                break
+              case 'output_ready':
+                stepText = '输出就绪'
+                break
+            }
+            // tool_result 时把 tool_call 的 stepText 推入 completedSteps
+            let completedSteps = a.completedSteps
+            let toolCallsCount = a.toolCallsCount ?? 0
+            if (event.phase === 'tool_result') {
+              toolCallsCount += 1
+              completedSteps = [
+                ...completedSteps,
+                {
+                  stepAction: `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}`,
+                  createdAt: event.timestamp,
+                  status: (event.ok ? 'completed' : 'failed') as 'completed' | 'failed',
+                },
+              ]
+            }
+            return {
+              ...a,
+              currentStep: stepText,
+              progressPhase: event.phase,
+              progressIteration: event.iteration ?? a.progressIteration,
+              progressTool: event.tool ?? a.progressTool,
+              toolCallsCount,
+              outputPreview: event.outputPreview ?? a.outputPreview,
             }
           }),
         })),
