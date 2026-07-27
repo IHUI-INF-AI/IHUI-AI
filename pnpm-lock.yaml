@@ -597,15 +597,15 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@ihui/app':
-        specifier: workspace:*
-        version: link:../../packages/app
       '@ihui/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
       '@ihui/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@ihui/rn-app':
+        specifier: workspace:*
+        version: link:../../packages/app
       '@ihui/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -742,9 +742,6 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@ihui/app':
-        specifier: workspace:*
-        version: link:../../packages/app
       '@ihui/auth':
         specifier: workspace:*
         version: link:../../packages/auth
