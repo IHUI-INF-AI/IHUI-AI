@@ -6,34 +6,78 @@ import { useAgentStream } from './use-agent-stream'
 import type { InlineDiffInfo } from '@/components/ai/types'
 
 /**
- * use-agent-progress — Codex 风格 Agent 进度聚合 hook(2026-07-27 立)
+ * use-agent-progress — Codex 风格 Agent 进度聚合 hook(2026-07-27 重构,Codex 对齐)
  *
- * 职责:把 useAgentStream 收到的原始 SSEEvent 流聚合为 4 个 tab 的派生数据:
- * - overview:任务总览(状态 / 当前节点 / 计划 / 输出 / 错误 / 计数)
- * - steps:节点执行序列(node_start → node_end 配对)
- * - tools:工具调用序列(tool_call → tool_result 配对)
- * - changes:文件变更序列(edit_file / write_file 的 diff 信息)
+ * Codex 权威契约对齐:
+ * - Plan 步骤三状态:pending / in_progress / completed(非 running/done/error)
+ * - 可选 explanation 字段(Codex UpdatePlanArgs.explanation)
+ * - 硬规则:At most one step can be in_progress at a time(冗余校验,违反时自动降级为 pending)
+ * - 子代理(Subagent):昵称 + @handle + dead agents 可见
+ * - 终端任务(TerminalTask):后台终端执行
  *
  * 数据流:
  *   useAgentStream(threadId) → events[]
- *     → useMemo 聚合 → { overview, steps, tools, changes }
- *
- * 不在 store 中缓存派生数据:Drawer 关闭时 hook 卸载,数据自然释放;
- * 重新打开 Drawer 时 useAgentStream 会保留 events(内部 state),
- * 聚合 useMemo 重新计算,无性能问题(events ≤ MAX_EVENTS=200)。
+ *     → useMemo 聚合 → { planSteps, subagents, terminals, tools, changes, overview }
  */
 
-/** 节点步骤(对应 LangGraph node) */
-export interface AgentStep {
+/** Codex 对齐:Plan 步骤状态(三状态) */
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed'
+
+/** Codex 对齐:Plan 步骤(对应 Codex PlanItemArg + explanation) */
+export interface PlanStep {
   id: string
-  nodeId: string
-  status: 'running' | 'done' | 'error'
+  step: string
+  status: PlanStepStatus
+  /** 可选解释(Codex UpdatePlanArgs.explanation) */
+  explanation?: string
+  startedAt?: string
+  endedAt?: string
+  durationMs?: number
+}
+
+/** 子代理状态(spawned → running → done/failed,失败/完成保留为 dead) */
+export type SubagentStatus = 'spawned' | 'running' | 'done' | 'failed' | 'dead'
+
+/** 子代理(Codex v0.105.0:人类可读昵称 + @handle + 彩色标签) */
+export interface Subagent {
+  id: string
+  /** 原始 threadId(verbose 模式显示) */
+  threadId: string
+  /** 人类可读昵称(从 threadId 派生或事件提供) */
+  nickname: string
+  /** @handle 标签(如 @validator) */
+  handle: string
+  /** 彩色标签(循环分配) */
+  color: SubagentColor
+  status: SubagentStatus
+  role?: string
+  spawnedAt: string
+  endedAt?: string
+  durationMs?: number
+  /** 当前执行的任务摘要 */
+  currentTask?: string
+  /** 是否需要审批(child-thread approval) */
+  pendingApproval?: boolean
+}
+
+/** 子代理颜色(ANSI 风格,Web 适配为 Tailwind 类) */
+export type SubagentColor = 'cyan' | 'blue' | 'green' | 'yellow' | 'magenta' | 'red'
+
+/** 终端任务状态 */
+export type TerminalStatus = 'running' | 'completed' | 'failed'
+
+/** 终端任务(后台终端执行) */
+export interface TerminalTask {
+  id: string
+  command: string
+  status: TerminalStatus
+  output?: string
   startedAt: string
   endedAt?: string
   durationMs?: number
 }
 
-/** 工具调用(tool_call + tool_result 配对) */
+/** 工具调用(保留原有,用于 changes 派生) */
 export interface AgentToolCall {
   id: string
   toolName: string
@@ -47,7 +91,7 @@ export interface AgentToolCall {
   iteration?: number
 }
 
-/** 文件变更(edit_file / write_file 工具产生的 diff) */
+/** 文件变更 */
 export interface AgentChange {
   id: string
   filePath: string
@@ -67,20 +111,68 @@ export interface AgentOverview {
   sessionStart: string | null
   totalSteps: number
   completedSteps: number
-  totalTools: number
-  completedTools: number
+  inProgressSteps: number
+  pendingSteps: number
+  totalSubagents: number
+  activeSubagents: number
+  deadSubagents: number
+  totalTerminals: number
+  runningTerminals: number
   totalChanges: number
+  /** 历史耗时样本(用于 bracket 分位数计算) */
+  historicalDurations: number[]
 }
 
 export interface UseAgentProgressReturn {
   overview: AgentOverview
-  steps: AgentStep[]
+  planSteps: PlanStep[]
+  subagents: Subagent[]
+  terminals: TerminalTask[]
   tools: AgentToolCall[]
   changes: AgentChange[]
   isStreaming: boolean
   start: (input?: Record<string, unknown>) => void
   stop: () => void
   clear: () => void
+}
+
+/** 昵称池(Codex 风格:validator/reviewer/explorer/implementer 等) */
+const NICKNAME_POOL = [
+  'validator',
+  'reviewer',
+  'explorer',
+  'implementer',
+  'planner',
+  'tester',
+  'researcher',
+  'optimizer',
+  'debugger',
+  'refactorer',
+]
+
+/** 子代理颜色池(循环分配) */
+const COLOR_POOL: SubagentColor[] = ['cyan', 'blue', 'green', 'yellow', 'magenta', 'red']
+
+/** 颜色 → Tailwind 类映射 */
+export const SUBAGENT_COLOR_CLASS: Record<SubagentColor, string> = {
+  cyan: 'text-cyan-500',
+  blue: 'text-blue-500',
+  green: 'text-emerald-500',
+  yellow: 'text-amber-500',
+  magenta: 'text-fuchsia-500',
+  red: 'text-red-500',
+}
+
+/** 从 threadId 派生稳定昵称(同一 threadId 总是得到相同昵称) */
+function deriveNickname(threadId: string, index: number): string {
+  // 基于 threadId 哈希到 NICKNAME_POOL,保证稳定
+  let hash = 0
+  for (let i = 0; i < threadId.length; i++) {
+    hash = (hash * 31 + threadId.charCodeAt(i)) >>> 0
+  }
+  const name = NICKNAME_POOL[hash % NICKNAME_POOL.length] ?? 'agent'
+  // 若有多个同基础名,加序号
+  return index === 0 ? name : `${name}-${index + 1}`
 }
 
 /** 从 tool_call / tool_result 事件 data 中提取结构化字段 */
@@ -100,7 +192,7 @@ function parseToolData(data: unknown): ToolEventData {
   return data as ToolEventData
 }
 
-/** 从 tool args 推导 InlineDiffInfo(复用 tool-call-card.tsx 的同名逻辑,但解耦) */
+/** 从 tool args 推导 InlineDiffInfo */
 function deriveDiffInfoFromArgs(
   toolName: string,
   args: Record<string, unknown>,
@@ -136,18 +228,184 @@ function deriveDiffInfoFromArgs(
   return null
 }
 
-/** 工具名是否属于文件变更类(用于 changes tab) */
 const CHANGE_TOOL_NAMES = new Set(['edit_file', 'write_file'])
 
+/** 从 SSE 事件提取 PlanStep(支持 plan_updated / node_start / node_end) */
+function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
+  // 优先:Codex 风格 plan_updated 事件(权威快照)
+  const planSnapshots = events.filter((e) => (e.type as string) === 'plan_updated')
+  if (planSnapshots.length > 0) {
+    const lastSnapshot = planSnapshots[planSnapshots.length - 1]
+    if (!lastSnapshot) return []
+    const data = lastSnapshot.data as
+      { explanation?: string; plan?: Array<{ step: string; status: PlanStepStatus }> } | undefined
+    if (data?.plan && Array.isArray(data.plan)) {
+      const steps: PlanStep[] = data.plan.map((item, idx) => ({
+        id: `plan-${idx}`,
+        step: item.step,
+        status: item.status,
+        explanation: data.explanation,
+      }))
+      // 硬规则:最多一个 in_progress(冗余校验,违反时只保留第一个,其余降级为 pending)
+      const inProgressCount = steps.filter((s) => s.status === 'in_progress').length
+      if (inProgressCount > 1) {
+        let foundFirst = false
+        for (const s of steps) {
+          if (s.status === 'in_progress') {
+            if (foundFirst) s.status = 'pending'
+            foundFirst = true
+          }
+        }
+      }
+      return steps
+    }
+  }
+
+  // 降级:从 node_start / node_end 配对派生(兼容旧事件)
+  const map = new Map<string, PlanStep>()
+  for (const evt of events) {
+    if (evt.type === 'node_start') {
+      const nodeId = evt.nodeId ?? `node-${evt.timestamp}`
+      map.set(nodeId, {
+        id: nodeId,
+        step: nodeId,
+        status: 'in_progress',
+        startedAt: evt.timestamp,
+      })
+    } else if (evt.type === 'node_end') {
+      const nodeId = evt.nodeId ?? ''
+      const existing = nodeId ? map.get(nodeId) : undefined
+      if (existing) {
+        existing.status = 'completed'
+        existing.endedAt = evt.timestamp
+        const startMs = Date.parse(existing.startedAt ?? '')
+        const endMs = Date.parse(evt.timestamp)
+        if (!Number.isNaN(startMs) && !Number.isNaN(endMs)) {
+          existing.durationMs = Math.max(0, endMs - startMs)
+        }
+      }
+    }
+  }
+  const steps = Array.from(map.values())
+  // 硬规则:最多一个 in_progress
+  const inProgressCount = steps.filter((s) => s.status === 'in_progress').length
+  if (inProgressCount > 1) {
+    let foundFirst = false
+    for (const s of steps) {
+      if (s.status === 'in_progress') {
+        if (foundFirst) s.status = 'pending'
+        foundFirst = true
+      }
+    }
+  }
+  return steps
+}
+
+/** 从 SSE 事件提取 Subagent(支持 subagent_spawn / subagent_end / subagent_status) */
+function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
+  const map = new Map<string, Subagent>()
+  let nicknameIndex = 0
+  for (const evt of events) {
+    if ((evt.type as string) === 'subagent_spawn') {
+      const data = evt.data as
+        | {
+            threadId?: string
+            id?: string
+            role?: string
+            task?: string
+            nickname?: string
+            pendingApproval?: boolean
+          }
+        | undefined
+      const id = data?.id ?? data?.threadId ?? `sub-${evt.timestamp}`
+      const threadId = data?.threadId ?? id
+      const nickname = data?.nickname ?? deriveNickname(threadId, nicknameIndex)
+      const color = COLOR_POOL[nicknameIndex % COLOR_POOL.length] ?? 'cyan'
+      nicknameIndex++
+      map.set(id, {
+        id,
+        threadId,
+        nickname,
+        handle: `@${nickname}`,
+        color,
+        status: 'running',
+        role: data?.role,
+        spawnedAt: evt.timestamp,
+        currentTask: data?.task,
+        pendingApproval: data?.pendingApproval,
+      })
+    } else if ((evt.type as string) === 'subagent_end') {
+      const data = evt.data as
+        { id?: string; threadId?: string; status?: 'done' | 'failed' } | undefined
+      const id = data?.id ?? data?.threadId ?? ''
+      const existing = id ? map.get(id) : undefined
+      if (existing) {
+        existing.status = data?.status ?? 'done'
+        existing.endedAt = evt.timestamp
+        const startMs = Date.parse(existing.spawnedAt)
+        const endMs = Date.parse(evt.timestamp)
+        if (!Number.isNaN(startMs) && !Number.isNaN(endMs)) {
+          existing.durationMs = Math.max(0, endMs - startMs)
+        }
+      }
+    } else if ((evt.type as string) === 'subagent_status') {
+      const data = evt.data as
+        | {
+            id?: string
+            threadId?: string
+            status?: SubagentStatus
+            task?: string
+            pendingApproval?: boolean
+          }
+        | undefined
+      const id = data?.id ?? data?.threadId ?? ''
+      const existing = id ? map.get(id) : undefined
+      if (existing) {
+        if (data?.status) existing.status = data.status
+        if (data?.task !== undefined) existing.currentTask = data.task
+        if (data?.pendingApproval !== undefined) existing.pendingApproval = data.pendingApproval
+      }
+    }
+  }
+  return Array.from(map.values())
+}
+
+/** 从 SSE 事件提取 TerminalTask(支持 terminal_start / terminal_end) */
+function extractTerminalsFromEvents(events: SSEEvent[]): TerminalTask[] {
+  const map = new Map<string, TerminalTask>()
+  for (const evt of events) {
+    if ((evt.type as string) === 'terminal_start') {
+      const data = evt.data as { id?: string; command?: string } | undefined
+      const id = data?.id ?? `term-${evt.timestamp}`
+      map.set(id, {
+        id,
+        command: data?.command ?? '',
+        status: 'running',
+        startedAt: evt.timestamp,
+      })
+    } else if ((evt.type as string) === 'terminal_end') {
+      const data = evt.data as { id?: string; status?: TerminalStatus; output?: string } | undefined
+      const id = data?.id ?? ''
+      const existing = id ? map.get(id) : undefined
+      if (existing) {
+        existing.status = data?.status ?? 'completed'
+        existing.output = data?.output
+        existing.endedAt = evt.timestamp
+        const startMs = Date.parse(existing.startedAt)
+        const endMs = Date.parse(evt.timestamp)
+        if (!Number.isNaN(startMs) && !Number.isNaN(endMs)) {
+          existing.durationMs = Math.max(0, endMs - startMs)
+        }
+      }
+    }
+  }
+  return Array.from(map.values())
+}
+
 /**
- * 主 hook:传入 threadId,返回聚合后的 4 tab 数据
- *
- * 用法:
- *   const progress = useAgentProgress(threadId)
- *   progress.start({ message: '帮我看下这个仓库' })
+ * 主 hook:传入 threadId,返回聚合后的三栏数据(Codex 对齐)
  */
 export function useAgentProgress(threadId: string | null): UseAgentProgressReturn {
-  // useAgentStream 要求 threadId 为 string,空值传 '' 内部 start 会直接 return
   const effectiveThreadId = threadId ?? ''
   const stream = useAgentStream({
     threadId: effectiveThreadId,
@@ -157,36 +415,19 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
 
   const { events, isStreaming, currentNode, content, lastPlan, error, interruptEvent } = stream
 
-  // 聚合 steps:遍历 events,把 node_start / node_end 配对
-  const steps = React.useMemo<AgentStep[]>(() => {
-    const map = new Map<string, AgentStep>()
-    for (const evt of events) {
-      if (evt.type === 'node_start') {
-        const nodeId = evt.nodeId ?? `node-${evt.timestamp}`
-        map.set(nodeId, {
-          id: nodeId,
-          nodeId,
-          status: 'running',
-          startedAt: evt.timestamp,
-        })
-      } else if (evt.type === 'node_end') {
-        const nodeId = evt.nodeId ?? ''
-        const existing = nodeId ? map.get(nodeId) : undefined
-        if (existing) {
-          existing.status = 'done'
-          existing.endedAt = evt.timestamp
-          const startMs = Date.parse(existing.startedAt)
-          const endMs = Date.parse(evt.timestamp)
-          if (!Number.isNaN(startMs) && !Number.isNaN(endMs)) {
-            existing.durationMs = Math.max(0, endMs - startMs)
-          }
-        }
-      }
-    }
-    return Array.from(map.values())
-  }, [events])
+  // 聚合 planSteps(Codex 三状态 + explanation + 最多一个 in_progress 硬规则)
+  const planSteps = React.useMemo<PlanStep[]>(() => extractPlanFromEvents(events), [events])
 
-  // 聚合 tools:tool_call / tool_result 配对
+  // 聚合 subagents(Codex 昵称 + @handle + dead agents 可见)
+  const subagents = React.useMemo<Subagent[]>(() => extractSubagentsFromEvents(events), [events])
+
+  // 聚合 terminals
+  const terminals = React.useMemo<TerminalTask[]>(
+    () => extractTerminalsFromEvents(events),
+    [events],
+  )
+
+  // 聚合 tools(保留原有,用于 changes 派生)
   const tools = React.useMemo<AgentToolCall[]>(() => {
     const map = new Map<string, AgentToolCall>()
     for (const evt of events) {
@@ -223,7 +464,7 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     return Array.from(map.values())
   }, [events])
 
-  // 聚合 changes:从已完成的 tools 中提取 edit_file/write_file
+  // 聚合 changes
   const changes = React.useMemo<AgentChange[]>(() => {
     const result: AgentChange[] = []
     for (const tool of tools) {
@@ -250,8 +491,21 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     else if (events.some((e) => e.type === 'done')) status = 'completed'
 
     const sessionEvent = events.find((e) => e.type === 'session')
-    const completedSteps = steps.filter((s) => s.status === 'done').length
-    const completedTools = tools.filter((t) => t.status === 'success').length
+    const completedSteps = planSteps.filter((s) => s.status === 'completed').length
+    const inProgressSteps = planSteps.filter((s) => s.status === 'in_progress').length
+    const pendingSteps = planSteps.filter((s) => s.status === 'pending').length
+    const activeSubagents = subagents.filter(
+      (s) => s.status === 'running' || s.status === 'spawned',
+    ).length
+    const deadSubagents = subagents.filter(
+      (s) => s.status === 'done' || s.status === 'failed' || s.status === 'dead',
+    ).length
+    const runningTerminals = terminals.filter((t) => t.status === 'running').length
+
+    // 历史耗时样本(已完成的 plan steps duration,用于 bracket 分位数)
+    const historicalDurations = planSteps
+      .filter((s) => s.status === 'completed' && s.durationMs !== undefined)
+      .map((s) => s.durationMs as number)
 
     return {
       status,
@@ -261,11 +515,17 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
       error,
       interruptEvent,
       sessionStart: sessionEvent?.timestamp ?? null,
-      totalSteps: steps.length,
+      totalSteps: planSteps.length,
       completedSteps,
-      totalTools: tools.length,
-      completedTools,
+      inProgressSteps,
+      pendingSteps,
+      totalSubagents: subagents.length,
+      activeSubagents,
+      deadSubagents,
+      totalTerminals: terminals.length,
+      runningTerminals,
       totalChanges: changes.length,
+      historicalDurations,
     }
   }, [
     events,
@@ -275,14 +535,17 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     currentNode,
     lastPlan,
     content,
-    steps,
-    tools,
+    planSteps,
+    subagents,
+    terminals,
     changes,
   ])
 
   return {
     overview,
-    steps,
+    planSteps,
+    subagents,
+    terminals,
     tools,
     changes,
     isStreaming,
