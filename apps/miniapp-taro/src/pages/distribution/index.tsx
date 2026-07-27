@@ -192,8 +192,8 @@ export default function DistributionIndex() {
     <View className="dist-page">
       <NavBar
         title={tt('distribution.index.title', '我的公司')}
-        bgColor="#1a1a23"
-        textColor="#ffffff"
+        bgColor="var(--color-secondary)"
+        textColor="var(--color-secondary-foreground)"
       />
 
       <View className="dist-content">

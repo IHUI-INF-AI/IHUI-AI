@@ -53,7 +53,7 @@
   padding: 8rpx 16rpx;
   font-size: 24rpx;
   color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.08);
+  background: var(--color-border);
   border-radius: 8rpx;
 }
 .nick-rules {

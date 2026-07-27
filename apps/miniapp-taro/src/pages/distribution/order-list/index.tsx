@@ -130,7 +130,7 @@ export default function DistributionOrderList() {
         {TABS.map((tab) => (
           <View
             key={tab.value}
-            className={`flex-1 text-center py-[24rpx] text-[26rpx] text-muted-foreground relative ${activeTab === tab.value ? 'text-[#00f2ff] font-semibold' : ''}`}
+            className={`flex-1 text-center py-[24rpx] text-[26rpx] text-muted-foreground relative ${activeTab === tab.value ? 'text-primary font-semibold' : ''}`}
             onClick={() => switchTab(tab.value)}
           >
             <Text>{tt(tab.labelKey, tab.fallback)}</Text>
@@ -149,7 +149,7 @@ export default function DistributionOrderList() {
             return (
               <View
                 key={o.id}
-                className="p-[28rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]"
+                className="p-[28rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
                 onClick={() => onItemClick(o.id)}
               >
                 <View className="flex items-center justify-between">
@@ -170,7 +170,7 @@ export default function DistributionOrderList() {
                     <Text className="text-[24rpx] text-muted-foreground">
                       {tt('distribution.orderList.amount', '金额')} ¥{o.amount}
                     </Text>
-                    <Text className="text-[26rpx] font-semibold text-[#00f2ff]">
+                    <Text className="text-[26rpx] font-semibold text-primary">
                       {tt('distribution.orderList.commission', '佣金')} ¥{o.commission}
                     </Text>
                   </View>
@@ -193,7 +193,7 @@ export default function DistributionOrderList() {
           <Text className="text-[26rpx] text-destructive">
             {tt('distribution.orderList.error', '加载失败')}
           </Text>
-          <Text className="text-[26rpx] text-[#00f2ff] mt-[12rpx]">
+          <Text className="text-[26rpx] text-primary mt-[12rpx]">
             {tt('distribution.orderList.retry', '点击重试')}
           </Text>
         </View>

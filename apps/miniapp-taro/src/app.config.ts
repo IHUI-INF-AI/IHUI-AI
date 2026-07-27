@@ -156,20 +156,20 @@ export default defineAppConfig({
     },
   ],
   window: {
-    backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#121217',
+    backgroundTextStyle: 'dark',
+    navigationBarBackgroundColor: '#ffffff',
     navigationBarTitleText: '智汇AI',
-    navigationBarTextStyle: 'white',
-    backgroundColor: '#121217',
+    navigationBarTextStyle: 'black',
+    backgroundColor: '#f5f5f5',
   },
   tabBar: {
     // Taro 4 Vite 编译不输出 custom-tab-bar(GitHub #17978/#18415),暂用原生 tabBar
     // 后续改 webpack5 编译器后可恢复 custom: true
     custom: false,
-    color: 'rgba(255,255,255,0.5)',
-    selectedColor: '#00f2ff',
-    borderStyle: 'white',
-    backgroundColor: '#1f1f28',
+    color: 'rgba(0,0,0,0.5)',
+    selectedColor: '#000000',
+    borderStyle: 'black',
+    backgroundColor: '#ffffff',
     list: [
       {
         pagePath: 'pages/index/index',

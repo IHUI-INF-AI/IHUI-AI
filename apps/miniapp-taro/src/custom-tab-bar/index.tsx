@@ -50,9 +50,9 @@ const TABS: TabItem[] = [
   },
 ]
 
-// 赛博朋克配色:激活青 #00F2FF,未激活半透明白
-const ACTIVE_COLOR = '#00f2ff'
-const INACTIVE_COLOR = 'rgba(255,255,255,0.5)'
+// 配色:激活用 primary,未激活用 muted-foreground(对齐 shadcn/ui 亮色设计)
+const ACTIVE_COLOR = 'var(--color-primary)'
+const INACTIVE_COLOR = 'var(--color-muted-foreground)'
 
 export default function CustomTabBar() {
   const { t } = useI18n()

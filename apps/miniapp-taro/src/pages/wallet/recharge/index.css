@@ -19,7 +19,7 @@
   width: 64rpx;
   height: 64rpx;
   border: 6rpx solid rgba(255, 255, 255, 0.25);
-  border-top-color: #00f2ff;
+  border-top-color: var(--color-primary);
   border-radius: 16rpx;
   animation: rc-spin 0.8s linear infinite;
 }
@@ -51,7 +51,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #00f2ff;
+  color: var(--color-primary);
   font-size: 32rpx;
   font-weight: 700;
 }
@@ -100,7 +100,7 @@
 }
 .rc-preset--active {
   border-color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.08);
+  background: var(--color-border);
 }
 .rc-preset-text {
   display: block;
@@ -128,7 +128,7 @@
 }
 .rc-input--active {
   border-color: var(--color-primary);
-  background: rgba(0, 242, 255, 0.08);
+  background: var(--color-border);
 }
 .rc-token-tip {
   display: block;
@@ -142,7 +142,7 @@
   border-radius: 16rpx;
   overflow: hidden;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  border: 2rpx solid var(--color-ring);
 }
 .rc-activity-bg {
   width: 100%;
@@ -155,7 +155,7 @@
 .rc-activity-title {
   display: block;
   font-size: 30rpx;
-  color: #00f2ff;
+  color: var(--color-primary);
   font-weight: 700;
   margin-bottom: 16rpx;
 }
@@ -179,8 +179,8 @@
 }
 .rc-activity-btn {
   margin-top: 20rpx;
-  background: #00f2ff;
-  color: #1a1a2e;
+  background: var(--color-primary);
+  color: var(--color-background);
   border-radius: 12rpx;
   font-size: 30rpx;
   font-weight: 700;
@@ -194,8 +194,8 @@
   border: 2rpx solid transparent;
 }
 .rc-method--active {
-  background: rgba(0, 242, 255, 0.08);
-  border-color: rgba(0, 242, 255, 0.3);
+  background: var(--color-border);
+  border-color: var(--color-ring);
 }
 .rc-method-icon {
   width: 60rpx;
@@ -229,11 +229,11 @@
   justify-content: center;
 }
 .rc-radio--on {
-  border-color: #00f2ff;
-  background: #00f2ff;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
 }
 .rc-radio-mark {
-  color: #1a1a2e;
+  color: var(--color-background);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
@@ -244,8 +244,8 @@
   bottom: 32rpx;
   left: 32rpx;
   right: 32rpx;
-  background: #00f2ff;
-  color: #1a1a2e;
+  background: var(--color-primary);
+  color: var(--color-background);
   border-radius: 12rpx;
   font-size: 32rpx;
   font-weight: 700;
