@@ -9,6 +9,7 @@ import { fetchApi, type PageData } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 interface Article {
   id: string
@@ -22,8 +23,6 @@ interface Article {
   viewCount?: number
   isPinned?: boolean
 }
-
-const WEB_BASE = 'https://ihui.ai'
 
 export default function ArticlesPage() {
   const { t } = useI18n()
@@ -55,10 +54,6 @@ export default function ArticlesPage() {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
-
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/articles/${encodeURIComponent(id)}` })
-  }
 
   if (loading) {
     return (
@@ -99,7 +94,7 @@ export default function ArticlesPage() {
             <Card
               key={a.id}
               className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => openInWeb(a.id)}
+              onClick={() => openItemInWeb(`/articles/${encodeURIComponent(a.id)}`)}
             >
               <CardHeader className="px-3 py-2">
                 <CardTitle className="text-sm leading-snug line-clamp-2">{a.title}</CardTitle>

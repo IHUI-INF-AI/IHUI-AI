@@ -10,8 +10,7 @@ import { fetchApi, deleteConversation, type PageData } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDate } from '../../../lib/date-utils'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 interface ConversationSummary {
   id: string
@@ -112,7 +111,9 @@ export default function ChatHistoryPage() {
                 </button>
               </div>
               {c.lastMessage ? (
-                <p className="m-0 mt-1 text-xs text-muted-foreground line-clamp-1">{c.lastMessage}</p>
+                <p className="m-0 mt-1 text-xs text-muted-foreground line-clamp-1">
+                  {c.lastMessage}
+                </p>
               ) : null}
               <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
                 <span className="whitespace-nowrap">{fmtDate(c.lastMessageAt || c.updatedAt)}</span>

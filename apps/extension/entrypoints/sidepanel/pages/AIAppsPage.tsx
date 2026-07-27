@@ -2,8 +2,7 @@
  * AIAppsPage — AI 应用中心首页,列出所有 AI 类功能入口。
  */
 import { AppListPage, type AppItem } from '../components/AppListPage'
-
-const WEB_BASE = 'https://ihui.ai'
+import { WEB_BASE } from '../../../lib/open-in-web'
 
 const items: AppItem[] = [
   { to: '/ai/agents', icon: '🤖', titleKey: 'apps.aiAgents', descKey: 'apps.aiAgentsDesc' },
