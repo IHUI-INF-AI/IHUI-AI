@@ -7,7 +7,14 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
-interface Note { id: string; title: string; content: string; tags: string[]; views: number; likes: number; author: string; createdAt: string }
+import type { Article } from '@ihui/types'
+
+interface Note extends Pick<Article, 'id' | 'title' | 'content' | 'createdAt'> {
+  tags: string[]
+  views: number      // = viewCount 别名
+  likes: number      // = likeCount 别名
+  author: string     // = authorName 别名
+}
 
 type Route = RouteProp<RootStackParamList, 'NoteDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
