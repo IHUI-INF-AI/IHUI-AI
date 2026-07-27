@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- 智汇 AI OG 分享卡(2026-07-27 P1-4 SEO 资产补全)
+       - 1200x630 社交媒体分享标准尺寸(Open Graph / Twitter Card)
+       - 渐变背景:深蓝 #1E3A5F → 紫 #6B21A8(直接 linearGradient,不用 mask-image,AGENTS.md §4)
+       - 元素:Logo 智字 + 主标题 + 副标题 + 底部域名
+       - 字体:system-ui, sans-serif(SVG 原生渲染,无需加载字体)
+       - 与 app/opengraph-image.tsx 区别:tsx 是 Next.js 自动生成 PNG(运行时),本文件是静态 SVG 备用 -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1E3A5F"/>
+      <stop offset="1" stop-color="#6B21A8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 渐变背景 -->
+  <rect width="1200" height="630" fill="url(#bg-gradient)"/>
+
+  <!-- Logo:智字 + 圆角背景(rx=12 对应 rounded-xl) -->
+  <rect x="80" y="72" width="88" height="88" rx="12" fill="#FAF8F3" opacity="0.95"/>
+  <text x="124" y="136" text-anchor="middle" font-family="system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="52" font-weight="700" fill="#1E3A5F">智</text>
+
+  <!-- 主标题 -->
+  <text x="80" y="280" font-family="system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="64" font-weight="700" fill="#FAF8F3">智汇 AI — 全栈 AI 平台</text>
+
+  <!-- 副标题 -->
+  <text x="80" y="350" font-family="system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="32" font-weight="400" fill="#FAF8F3" opacity="0.85">8 端覆盖 · 9 支付网关 · 5 语言 · 开源</text>
+
+  <!-- 底部域名 -->
+  <text x="80" y="540" font-family="system-ui, sans-serif" font-size="28" font-weight="500" fill="#FAF8F3" opacity="0.7">ihui.ai</text>
+</svg>
