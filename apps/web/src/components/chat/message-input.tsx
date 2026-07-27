@@ -441,6 +441,26 @@ export function MessageInput({
       description: t('slashCmd.act'),
       kind: 'action' as const,
     },
+    // 对话模式动作型命令(2026-07-28 立,补全 ChatMode 4态三通道):
+    // /build /review /spec 切换 ChatMode,/plan /act 同时联动 ChatMode 和 Plan/Act
+    {
+      id: 'build',
+      label: '/build',
+      description: t('slashCmd.build'),
+      kind: 'action' as const,
+    },
+    {
+      id: 'review',
+      label: '/review',
+      description: t('slashCmd.review'),
+      kind: 'action' as const,
+    },
+    {
+      id: 'spec',
+      label: '/spec',
+      description: t('slashCmd.spec'),
+      kind: 'action' as const,
+    },
     // 权限模式动作型命令(2026-07-25 深化,深度对标 Codex approvalMode CLI):
     // /permission ask|auto|full 切换工作区权限模式(不进入 LLM 流,纯本地 UI 状态)
     // description 用 \n 拼接短描述 + 用法提示(2026-07-25 深化,提示用户支持的 3 个子命令)
@@ -533,6 +553,11 @@ export function MessageInput({
     if (
       id === 'plan' ||
       id === 'act' ||
+      // ChatMode 4态动作型命令(2026-07-28 立,补全三通道):
+      // /build /review /spec 走 onSend,由 use-chat.ts 的 tryHandleChatModeSlash 拦截
+      id === 'build' ||
+      id === 'review' ||
+      id === 'spec' ||
       // 权限模式动作型命令(2026-07-25 深化):/permission ask|auto|full 走 onSend
       // 由 use-chat.ts 的 tryHandlePermissionSlash 拦截(纯本地 UI 状态切换,无 LLM)
       id === 'permission-ask' ||
