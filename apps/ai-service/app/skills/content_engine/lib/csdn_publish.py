@@ -26,19 +26,6 @@ from typing import Any, Optional, cast
 # ===== 常量 =====
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# CSDN内部API（逆向自editor.csdn.net，非官方公开接口）
-CSDN_SAVE_URL = 'https://bizapi.csdn.net/blog-console-api/v3/mdeditor/saveArticle'
-CSDN_IMG_PARAMS_URL = 'https://imgservice.csdn.net/direct/v1.0/image/upload'
-CSDN_ARTICLE_LIST_URL = 'https://bizapi.csdn.net/blog-console-api/v3/editor/articles'
-
-# 浏览器UA（模拟Chrome）
-USER_AGENT = (
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-    'AppleWebKit/537.36 (KHTML, like Gecko) '
-    'Chrome/126.0.0.0 Safari/537.36'
-)
-
-
 # ===== 配置加载 =====
 
 def _load_env() -> str:
@@ -51,8 +38,23 @@ def _load_env() -> str:
                 if '=' in line and not line.startswith('#'):
                     key, val = line.split('=', 1)
                     os.environ.setdefault(key.strip(), val.strip())
-    return os.environ.get('CSDN_COOKIE', '')
 
+# 初始化加载环境变量
+_load_env()
+
+# CSDN内部API（逆向自editor.csdn.net，非官方公开接口）
+CSDN_APP_KEY = '203803574'
+CSDN_APP_SECRET = os.environ.get('CSDN_APP_SECRET', '')
+CSDN_SAVE_URL = 'https://bizapi.csdn.net/blog-console-api/v3/mdeditor/saveArticle'
+CSDN_IMG_PARAMS_URL = 'https://imgservice.csdn.net/direct/v1.0/image/upload'
+CSDN_ARTICLE_LIST_URL = 'https://bizapi.csdn.net/blog-console-api/v3/editor/articles'
+
+# 浏览器UA（模拟Chrome）
+USER_AGENT = (
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/126.0.0.0 Safari/537.36'
+)
 
 # 模块导入时加载.env，确保后续 os.getenv 能读到 CSDN_APP_KEY / CSDN_APP_SECRET
 _load_env()
@@ -66,7 +68,7 @@ CSDN_APP_SECRET = os.getenv('CSDN_APP_SECRET', '')
 
 def _get_cookie() -> str:
     """获取CSDN Cookie"""
-    cookie = _load_env()
+    cookie = os.environ.get('CSDN_COOKIE', '')
     if not cookie:
         print('❌ 未配置CSDN_COOKIE，请在.env文件中设置')
         print('   获取方法：浏览器登录CSDN → F12 → Network → 任意请求 → 复制Cookie头')
