@@ -672,7 +672,7 @@ cd IHUI-AI && docker compose up -d
 - **效果**:extension i18n 消息源从 5 个本地 TS(203 行/语言)迁移到共享包 JSON;typecheck / build / 4 个 extension 守门脚本全绿;build 产物 grep 验证 i18n 翻译已正确打包(55 处 autoglossonym + 30 处 i18n key 命中)
 - **web 端保持原状**:web 用 next-intl(587 namespace / 28,800 行 JSON),体积量级与 extension 差异 200×,强行统一会引入 next-intl 运行时依赖到 extension(浏览器扩展 WXT 0.19 不友好),保留双 runtime 但共享包可在未来扩展到 desktop 等端
 - **阶段 3(经评估暂不抽取)**:全量扫描 9 个 sidepanel 页面 + popup + content-toolbar,**0 个页面可抽取共享业务组件**。根因是技术栈分裂根本性(web: Next.js App Router + next-intl + zustand + react-query + shadcn vs extension: WXT + react-router-dom + 自研 Context + useState + 内联 CSSProperties),路由/i18n/状态/UI 4 个维度全部分裂。阶段 1+2 已消除最高频的"改一处同步两端"痛点,阶段 3 边际收益不显著,强行抽取会引入 4 套适配层复杂度。后续前置条件:需先做技术栈收敛(类似 Wave 21 阶段 2 的路线比选)
-- **阶段 4(2026-07-27 立,绕开技术栈分裂)**:不从"抽 sidepanel 页面"角度,而从"消除低频页面 + 下沉纯 DOM 操作"角度提升共用率从 50-60% 到 ~70%。① **低频页面改跳 web**:7 个 sidepanel 低频页面(vip/member/distribution/invitations/points/fans/following)删除,路由改为 `<ComingSoonPage mode="open_in_web" webUrl={...} />`,用 `chrome.tabs.create` 打开 web 端对应页面,扩展端不再维护这 7 个页面的手动同步;② **抽 @ihui/dom-actions 共享包**:把 `apps/extension/lib/agent-control.ts` 的 8 个纯 DOM 操作函数(click_element/type_text/scroll/extract_dom/wait_for_element/get_attribute/hover/select_option)+ setNativeValue + DomActionResult 类型 + isDomAction/executeDomAction 下沉到 `packages/dom-actions/`,8 端可复用,无 chrome.* 依赖,agent-control.ts 改 import + re-export 保持下游 import 路径不变;③ **剩余 ~25% 无法共用**:约 17% 为 chrome.* 平台 API 硬边界(background service worker / content script / chrome.tabs / chrome.alarms / chrome.runtime 等),约 8% 为可在 desktop/mobile-rn 接入时再下沉的代码(已登记 P2 @ihui/browser-platform 适配层,等第二个端接入时再做,当前 ROI 低)
+- **阶段 4(2026-07-27 立,绕开技术栈分裂)**:不从"抽 sidepanel 页面"角度,而从"消除低频页面 + 下沉纯 DOM 操作 + 抽平台适配层"角度提升共用率从 50-60% 到 ~75%。① **低频页面改跳 web**:7 个 sidepanel 低频页面(vip/member/distribution/invitations/points/fans/following)删除,路由改为 `<ComingSoonPage mode="open_in_web" webUrl={...} />`,用 `chrome.tabs.create` 打开 web 端对应页面,扩展端不再维护这 7 个页面的手动同步;② **抽 @ihui/dom-actions 共享包**:把 `apps/extension/lib/agent-control.ts` 的 8 个纯 DOM 操作函数(click_element/type_text/scroll/extract_dom/wait_for_element/get_attribute/hover/select_option)+ setNativeValue + DomActionResult 类型 + isDomAction/executeDomAction 下沉到 `packages/dom-actions/`,8 端可复用,无 chrome.* 依赖,agent-control.ts 改 import + re-export 保持下游 import 路径不变;③ **抽 @ihui/browser-platform 适配层**:调研 93 处 chrome.* 调用点,识别 5 类平台硬边界(sidePanel/contextMenus/action/onInstalled/onStartup/alarms 生命周期)+ 11 个可抽象接口,新建 `packages/browser-platform/`(5 个 adapter:Storage/Tabs/Messaging/Runtime/Scheduler + chrome 实现 + factory),extension 4 核心文件迁移(token.ts 9 处 storage + config.ts 1 处 storage + message-router.ts 2 处 messaging + agent-control.ts 17 处 tabs),保留硬边界调用在 extension 内;④ **剩余 ~17% 为 chrome.* 平台硬边界**:sidePanel/contextMenus/action/onInstalled/onStartup 等 MV3 平台独占 UI 容器与生命周期,无法跨端抽象
 
 ### RN ↔ Web 跨端共享组件层(packages/app,2026-07-24 立)
 
@@ -946,10 +946,11 @@ IHUI-AI/
 │   ├── miniapp-taro/        # 微信小程序 (Taro 4 + React, 多端产物分离:weapp→dist/ + alipay→dist-alipay/, 配 clean-miniapp-taro-dist.mjs 防 IDE 缓存混淆)
 │   ├── mobile-rn/           # 移动端 (React Native + Expo EAS)
 │   └── web/                 # 前端 (Next.js 15 + React 19, 200+ 页面)
-├── packages/                # 15 个共享包(5 个架构图核心 + 10 个基础设施)
+├── packages/                # 16 个共享包(5 个架构图核心 + 11 个基础设施)
 │   ├── api-client/          # @ihui/api-client (40+ endpoints 自动生成 SDK,6 端共享)
 │   ├── app/                 # @ihui/app (RN 业务逻辑共享:AboutScreen/ProfileScreen/SettingsScreen + RN tokens re-export)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
+│   ├── browser-platform/    # @ihui/browser-platform (浏览器平台适配层:抽象 chrome.*/window.*/webContents.* 为 5 个 adapter 接口,extension 已接入,web/desktop 后续,2026-07-27 立)
 │   ├── context-compaction/  # @ihui/context-compaction (上下文压缩)
 │   ├── database/            # @ihui/database (Drizzle, 340 表, 144 迁移, RLS, 租户路由, pgvector)
 │   ├── design-tokens/       # @ihui/design-tokens (8端共享设计令牌:cn() + HSL shadcn tokens + RN HEX tokens + CSS 变量)
@@ -2840,7 +2841,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 - 一次次推翻重构,一次次为某个 schema 是否合理争论到凌晨
 - 越来越紧的预算,越来越沉的肩
 
-他们从最底层的架构开始打磨——monorepo 怎么组织、15 个共享包怎么划分、8 端类型怎么对齐、数据库 schema 怎么按 30+ 业务域隔离、API 响应怎么统一 `{ code, message, data }` 格式、i18n 怎么保证 5 语言 parity、CI 怎么在 23 个 pre-commit 守门下还能保持敏捷……每一个决定,都要在未来数千次迭代中被反复验证。
+他们从最底层的架构开始打磨——monorepo 怎么组织、16 个共享包怎么划分、8 端类型怎么对齐、数据库 schema 怎么按 30+ 业务域隔离、API 响应怎么统一 `{ code, message, data }` 格式、i18n 怎么保证 5 语言 parity、CI 怎么在 23 个 pre-commit 守门下还能保持敏捷……每一个决定,都要在未来数千次迭代中被反复验证。
 
 这一段路,走得非常慢,也非常孤独。
 
