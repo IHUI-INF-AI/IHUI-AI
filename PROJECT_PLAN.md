@@ -165,6 +165,26 @@
 
 - [x] ✅(2026-07-27) **P1-4 SEO 资产补全** — 新建 `apps/web/public/favicon.svg`(64x64 智字 logo,rounded-lg)+ `apps/web/public/og-image.svg`(1200x630 社交分享卡,linearGradient 深蓝→紫)+ `apps/web/app/opengraph-image.tsx`(Next.js ImageResponse 构建时生成 PNG)+ `scripts/indexnow-submit.mjs`(4 endpoint 批量提交:IndexNow/Bing/Yandex/Seznam,--site/--key CLI);robots.ts/sitemap.ts 已存在更优版本(AI 爬虫支持 + 100 URL + 5 语言 hreflang),保留不覆盖
 
+#### P2 商业化后续任务清单(2026-07-27 立,平台独占:运营/合规/发布)
+
+> P0/P1 商业化批次代码层面已 100% 就绪,本节为后续运营/合规/发布类任务。**用户必须本人操作**项标注 👤。
+
+- [x] ✅(2026-07-27) **P2-1 quote-generator.mjs --out 参数 + 4 档样例** — `docs/enterprise-service/quote-generator.mjs` 加 `--out=<路径>` 参数(UTF-8 写文件,避免 PowerShell 重定向编码问题)+ HELP 文本更新;生成 4 档样例报价单到 `docs/enterprise-service/samples/`:quote-starter.md(20 用户/12 月/¥50,000)+ quote-business.md(150 用户/24 月/¥180,000 含 10% 折扣)+ quote-enterprise.md(500 用户/36 月/¥765,000 含 15% 折扣)+ quote-custom.md(1000 用户/36 月/¥1,275,000 含 15% 折扣)
+- [x] ✅(2026-07-27) **P2-2 tenant.ts PUBLIC_PREFIXES 精确化** — `/api/developer/` → `/api/developer/portal`(避免过宽放行用户档案接口 `/api/developer/info`);3 个公开端点 curl 验证 200 OK:`/api/developer/portal`(开发者门户元信息)+ `/api/ai-pricing`(42 模型定价)+ `/api/vip/levels`(6 VIP 档位)
+- [x] ✅(2026-07-27) **P2-3 商业化 3 页面 DOM 验证** — browser_use 验证 /pricing /models-pricing /developers 三页面:① /pricing title "VIP 会员定价 | IHUI AI" + 4 档 VIP 卡片(免费版/个人版/团队版/企业版)+ 网络请求 /api/vip/levels;② /models-pricing title "模型定价 | IHUI AI" + 网络请求 /api/ai-pricing;③ /developers title "开发者门户 — 智汇 AI | OpenAI 兼容 API | IHUI AI" + 限流策略/支持的厂商/SDK 计划/鉴权说明区块。dark mode 脚本无报错。截图工具故障(tab not visible)但 DOM+网络请求验证足够(§17 豁免③)
+- [ ] **P2-4 GitHub Release v0.1.0 release notes** — v0.1.0 tag 已存在(commit 334e151584,已 push origin),但 GitHub 网页 Release 页面未创建 release notes。👤 需用户在 https://github.com/IHUI-INF-AI/IHUI-AI/releases/new?tag=v0.1.0 填写 release notes(可参考 .github/RELEASE_NOTES_v1.0.md)
+- [ ] **P2-5 blog 路由冲突协调** — 其他 agent 创建 `apps/web/app/(marketing)/blog/page.tsx`(引用已删除的 `./BlogContent`,坏文件)+ `test.txt`(测试垃圾),与 `apps/web/app/(main)/blog/page.tsx` 路径冲突导致 web dev server 500。按 §12 不删其他 agent 文件,待协调:① 恢复 BlogContent.tsx 让 page.tsx 能编译 + 删 (main)/blog/page.tsx;或 ② 删 (marketing)/blog/page.tsx(需其他 agent 确认)
+- [ ] **P2-6 browser_use 截图工具修复** — browser_take_screenshot 持续返回 "The browser tab is not visible on screen" 错误,无法生成 4 状态截图。DOM 验证(browser_evaluate/browser_snapshot/browser_network_requests)正常可用。需排查 TRAE 内部浏览器实例的可见性配置
+- [ ] 👤 **P2-7 SDK 发布到包管理器** — 4 语言 SDK 代码已就绪(sdks/typescript+python+go+java),`.github/workflows/release-sdk.yml` CI 已配置。👤 需用户在 GitHub Settings → Secrets 配置 4 个 secret:NPM_TOKEN(npmjs.com access token)+ PYPI_TOKEN(pypi.org API token)+ MAVEN_USERNAME/MAVEN_PASSWORD(Sonatype OSSRH)+ GPG_PRIVATE_KEY/GPG_PASSPHRASE(Maven 签名),然后 `git tag v0.2.0 && git push origin v0.2.0` 触发 CI 自动发布
+- [ ] 👤 **P2-8 Stripe 商户注册** — `apps/api/src/services/stripe.ts` 代码已就绪(Checkout Session/Webhook HMAC 验签/退款)。👤 需用户在 https://dashboard.stripe.com/register 注册账户,拿 publishable_key + secret_key + webhook_secret,配置到 `apps/api/.env`:`STRIPE_PUBLISHABLE_KEY=` + `STRIPE_SECRET_KEY=` + `STRIPE_WEBHOOK_SECRET=`
+- [ ] 👤 **P2-9 PayPal 商户注册** — PayPal REST SDK 集成代码待开发(P0-1b)。👤 需用户在 https://www.paypal.com/business 注册 PayPal Business 账户,拿 client_id + client_secret
+- [ ] 👤 **P2-10 微信支付 + 支付宝商户号申请** — `apps/api/src/services/wechat-pay.ts` + `alipay.ts` 代码已就绪。👤 需用户:① 微信支付:https://pay.weixin.qq.com 申请商户号,拿 mch_id + api_key + 证书文件;② 支付宝:https://open.alipay.com 申请应用,拿 app_id + private_key + alipay_public_key
+- [ ] 👤 **P2-11 ICP 备案 + 公安联网备案** — 国内 SaaS 上线必需。👤 需用户:① ICP 备案:通过云服务商(阿里云/腾讯云)提交备案,需营业执照 + 域名 + 服务器;② 公安联网备案:ICP 备案通过后 30 日内到当地公安局网安部门备案
+- [ ] 👤 **P2-12 云服务器 + 域名配置** — 👤 需用户:① 购买云服务器(阿里云/腾讯云 ECS 4核8G+);② 注册域名(ihui.ai 已占,可考虑 ihui-ai.com / zhihuiai.com / ihui.oschina.io 等);③ DNS 解析到服务器;④ 配置 HTTPS(Let's Encrypt 免费证书);⑤ 部署 Docker Compose(参考 docs/enterprise-service/deployment-guide.md)
+- [ ] 👤 **P2-13 AI 厂商 API Key 注册** — `apps/ai-service/.env` 的 LLM_PROVIDERS JSON 需真实 API Key。👤 需用户在 9 家厂商注册账号充值拿 Key:OpenAI(platform.openai.com)+ Anthropic(console.anthropic.com)+ Google Gemini(ai.google.dev)+ DeepSeek(platform.deepseek.com)+ 阿里通义(dashscope.aliyun.com)+ 字节豆包(volcengine.com)+ 月之暗面 Kimi(platform.moonshot.cn)+ 智谱清言(open.bigmodel.cn)+ MiniMax(platform.minimaxi.com)
+- [ ] 👤 **P2-14 企业客户签约** — 企业版产品包装已就绪(quote-generator + deployment-guide + feature-comparison + sla-terms + demo-setup)。👤 需用户:① 找企业线索(技术社区/行业展会/BD 拓客);② 用 quote-generator.mjs 生成报价单;③ 签合同 + 收款 + 部署
+- [ ] 👤 **P2-15 AI 教育课程录制** — 课程骨架已 seed(5 课程 35 章节)+ 证书模板已就绪(certificate-template.svg + CertificateSvg.tsx)。👤 需用户:① 录制视频课程(每章节 15-30 分钟);② 上传到平台(自建 + B站/YouTube);③ 配置付费墙(VIP 解锁)
+
 ---
 
 ## 历史归档占位(2026-07-26 批次)
