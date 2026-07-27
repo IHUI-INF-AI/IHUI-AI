@@ -1,6 +1,14 @@
 'use client'
+import type React from 'react'
 import { useTranslations } from 'next-intl'
-import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
+import {
+  Input,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui-react'
 import { STATUS_OPTIONS, STATUS_KEY, selectClass } from './helpers'
 
 interface Props {
@@ -25,14 +33,14 @@ export function SettlementFilter({
     <div className="flex flex-wrap items-center gap-2">
       <Input
         value={orderNo}
-        onChange={(e: any) => setOrderNo(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderNo(e.target.value)}
         placeholder={t('orderNoPlaceholder')}
         className="h-9 w-full max-w-[200px]"
         aria-label={t('colOrderNo')}
       />
       <Input
         value={agentId}
-        onChange={(e: any) => setAgentId(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAgentId(e.target.value)}
         placeholder={t('agentIdPlaceholder')}
         className="h-9 w-full max-w-[200px]"
         aria-label={t('colAgent')}
