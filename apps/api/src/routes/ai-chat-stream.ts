@@ -173,7 +173,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           materialContent: opts.materialContent,
           workspacePath: opts.workspacePath,
           contextLimit: opts.contextLimit ?? 0,
-          agentTools: opts.agentTools,
+          // 2026-07-27 修复 tool loop 不触发:API 层接收前端驼峰 agentTools,
+          // 透传到 ai-service 必须用下划线 agent_tools(Pydantic schema 字段名)。
+          // 原代码透传 agentTools(驼峰)→ ai-service 端 Field(None) 默认值 None,
+          // tool loop 入口 `if req.agent_tools:` 永远 false,从未触发工具调用。
+          agent_tools: opts.agentTools,
           plan_mode: opts.planMode,
           metadata: mergedMetadata,
         }),
