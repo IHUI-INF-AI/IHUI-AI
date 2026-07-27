@@ -1,4 +1,5 @@
 import Taro from '@tarojs/taro'
+import { getExt, getMimeType } from '@ihui/shared/utils/file-helpers'
 import { BASE_URL } from './api-config'
 import { getToken } from './auth'
 import { readFileToBase64 } from './file-utils'
@@ -11,20 +12,6 @@ export interface UploadedPicture {
 export interface UploadResult {
   url: string
   fileName: string
-}
-
-function getExt(filePath: string): string {
-  const parts = filePath.substring(filePath.lastIndexOf('/') + 1).split('?')
-  const baseName = parts[0] || ''
-  const dotIdx = baseName.lastIndexOf('.')
-  return dotIdx > -1 ? baseName.substring(dotIdx + 1).toLowerCase() : 'jpg'
-}
-
-function getMimeType(ext: string): string {
-  if (ext === 'png') return 'image/png'
-  if (ext === 'gif') return 'image/gif'
-  if (ext === 'webp') return 'image/webp'
-  return 'image/jpeg'
 }
 
 export function chooseImages(maxCount = 9): Promise<string[]> {
