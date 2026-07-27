@@ -427,6 +427,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/self-media/koubo', labelKey: 'selfMediaKoubo', icon: Mic },
       // 多平台一键发布平台(2026-07-20 新增,支持 md/docx/html/pdf/图片/视频 → 14 平台)
       { href: '/publish', labelKey: 'publishPlatform', icon: Send },
+      // 技术博客(2026-07-27 新增,docs/blog 10 篇技术文章对外曝光用)
+      { href: '/blog', labelKey: 'blog', icon: BookOpen },
     ],
   },
   {
