@@ -21,7 +21,7 @@ pnpm install
 pnpm dev
 ```
 
-打开 http://localhost:3000 即可使用。
+打开 http://localhost:8801 即可使用。
 
 ## 🤝 参与方式
 

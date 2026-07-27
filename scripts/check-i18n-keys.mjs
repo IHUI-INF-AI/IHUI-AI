@@ -63,7 +63,7 @@ const STAGED_MESSAGES_PREFIXES = isShared
     ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
     : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
 const STAGED_SOURCE_PREFIX = isExtension ? 'apps/extension/' : 'apps/web/'
-const EXCLUDE_DIRS = new Set(['messages', '.next', 'node_modules', '.git'])
+const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.worktrees', 'build', 'dist', 'node_modules'])
 const BASE_LANG = 'zh-CN'
 
 const C = {

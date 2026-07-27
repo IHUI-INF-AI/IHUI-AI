@@ -29,24 +29,19 @@ vi.mock('../src/config/index.js', () => ({
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     DATABASE_URL: 'postgres://localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
-    AI_SERVICE_URL: 'http://localhost:8000',
+    AI_SERVICE_URL: 'http://localhost:8803',
   },
 }))
 
 // ---------- 业务服务 mock ----------
-const {
-  mockGetAgentDetail,
-  mockListAgents,
-  mockCreateAgent,
-  mockUpdateAgent,
-  mockDeleteAgent,
-} = vi.hoisted(() => ({
-  mockGetAgentDetail: vi.fn(),
-  mockListAgents: vi.fn(),
-  mockCreateAgent: vi.fn(),
-  mockUpdateAgent: vi.fn(),
-  mockDeleteAgent: vi.fn(),
-}))
+const { mockGetAgentDetail, mockListAgents, mockCreateAgent, mockUpdateAgent, mockDeleteAgent } =
+  vi.hoisted(() => ({
+    mockGetAgentDetail: vi.fn(),
+    mockListAgents: vi.fn(),
+    mockCreateAgent: vi.fn(),
+    mockUpdateAgent: vi.fn(),
+    mockDeleteAgent: vi.fn(),
+  }))
 
 vi.mock('../src/services/agent-service.js', () => ({
   getAgentDetail: mockGetAgentDetail,
