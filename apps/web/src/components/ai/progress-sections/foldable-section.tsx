@@ -70,7 +70,15 @@ export function FoldableSection({
           </span>
         )}
       </button>
-      {open && <div className="px-2 pb-1.5 pt-0.5">{children}</div>}
+      {/* CSS grid 平滑高度动画:grid-template-rows 0fr→1fr,无 height auto 跳变 */}
+      <div
+        className="grid transition-[grid-template-rows] duration-150 ease-out"
+        style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
+      >
+        <div className="overflow-hidden">
+          <div className="px-2 pb-1.5 pt-0.5">{children}</div>
+        </div>
+      </div>
     </div>
   )
 }
