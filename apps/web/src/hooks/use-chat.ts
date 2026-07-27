@@ -914,6 +914,17 @@ export function useChat(): UseChatReturn {
             useAuthStore.setState({ isAuthenticated: false, user: null })
             useLoginDialogStore.getState().open('login')
           } else {
+            // 2026-07-27 修复"登录后点击发送无反应":createConversation 非 401 失败时
+            // (如 500/502/网络错误)只调 store.setError 用户看不到任何反馈,误以为按钮失灵。
+            // 必须 toast.error 让用户看到错误原因,并附带重试按钮。
+            const errMsg = createRes.error || `服务异常(${createRes.status ?? '未知'})`
+            toast.error('创建会话失败', {
+              description: errMsg,
+              action: {
+                label: '重试',
+                onClick: () => sendMessage(lastSentContentRef.current),
+              },
+            })
             store.setError(createRes.error)
           }
           return false
