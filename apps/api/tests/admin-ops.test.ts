@@ -11,28 +11,24 @@ vi.mock('../src/config/index.js', () => ({
     PORT: 8080,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
-    CORS_ORIGIN: 'http://localhost:3000',
+    CORS_ORIGIN: 'http://localhost:8801',
     DATABASE_URL: 'postgres://localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
-    AI_SERVICE_URL: 'http://localhost:8000',
+    AI_SERVICE_URL: 'http://localhost:8803',
     CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(32),
   },
 }))
 
 // Hoisted mock 函数:供 vi.mock 工厂 + 测试用例共用
-const {
-  mockVerifyAccessToken,
-  mockUpdateReturning,
-  mockSelectResult,
-  mockUpdateSensitiveWord,
-} = vi.hoisted(() => ({
-  mockVerifyAccessToken: vi.fn(),
-  mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
-  mockSelectResult: vi.fn().mockResolvedValue([]),
-  mockUpdateSensitiveWord: vi.fn().mockResolvedValue({ id: 'mock-id', status: 1 }),
-}))
+const { mockVerifyAccessToken, mockUpdateReturning, mockSelectResult, mockUpdateSensitiveWord } =
+  vi.hoisted(() => ({
+    mockVerifyAccessToken: vi.fn(),
+    mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+    mockSelectResult: vi.fn().mockResolvedValue([]),
+    mockUpdateSensitiveWord: vi.fn().mockResolvedValue({ id: 'mock-id', status: 1 }),
+  }))
 
 vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),

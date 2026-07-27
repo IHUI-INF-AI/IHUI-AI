@@ -16,13 +16,13 @@ vi.mock('../src/config/index.js', () => ({
     PORT: 8080,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
-    CORS_ORIGIN: 'http://localhost:3000',
+    CORS_ORIGIN: 'http://localhost:8801',
     DATABASE_URL: 'postgres://localhost:5432/test',
     DATABASE_READ_REPLICA_URL: '',
     REDIS_URL: 'redis://localhost:6379',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
-    AI_SERVICE_URL: 'http://localhost:8000',
+    AI_SERVICE_URL: 'http://localhost:8803',
   },
 }))
 
@@ -30,7 +30,10 @@ const mockAuthenticate = vi.fn()
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: (...args: unknown[]) => mockAuthenticate(...args),
   // checkAuth 调用 authenticate,失败时 reply 401 并返回 false,与源码行为一致
-  checkAuth: async (request: unknown, reply: { status: (code: number) => { send: (body: unknown) => void } }) => {
+  checkAuth: async (
+    request: unknown,
+    reply: { status: (code: number) => { send: (body: unknown) => void } },
+  ) => {
     try {
       await mockAuthenticate(request)
       return true

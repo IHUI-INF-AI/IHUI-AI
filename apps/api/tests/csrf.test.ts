@@ -9,7 +9,7 @@ vi.mock('../src/config/index.js', () => ({
     DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock',
     REDIS_URL: 'redis://localhost:6379/0',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
-    AI_SERVICE_URL: 'http://localhost:8000',
+    AI_SERVICE_URL: 'http://localhost:8803',
   },
 }))
 
