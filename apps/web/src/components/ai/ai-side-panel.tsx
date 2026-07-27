@@ -6,7 +6,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Bot } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -26,7 +26,6 @@ import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { PlanActToggle } from '@/components/ai/plan-act-toggle'
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
-import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 import { Tooltip } from '@/components/feedback'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
@@ -84,7 +83,6 @@ export function AISidePanel() {
   const [loadingHistory, setLoadingHistory] = React.useState(false)
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
-  const [dispatchOpen, setDispatchOpen] = React.useState(false)
   // 分页状态(2026-07-25 立,#8 滚动到顶部加载更多历史)
   // - hasMoreHistory:当前会话是否还有更早的消息可加载
   // - oldestCursor:下一页 before 游标(当前已加载消息中最旧一条的 id)
@@ -682,18 +680,10 @@ export function AISidePanel() {
                 <Plus className="h-4 w-4" />
               </button>
             </Tooltip>
-            {/* 派发 Subagent 按钮(2026-07-22 立,对标 Trae Subagent 派单)
-              点击打开 DispatchSubagentDialog,落地 AGENTS.md §11 派单格式 */}
-            <Tooltip content={tc('dispatchSubagent')}>
-              <button
-                type="button"
-                onClick={() => setDispatchOpen(true)}
-                aria-label={tc('dispatchSubagent')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <Bot className="h-4 w-4" />
-              </button>
-            </Tooltip>
+            {/* 派发 Subagent 按钮(2026-07-28 移除):
+              subagent 现已改为自动派发(主 agent 在对话流中调用 dispatch_subagent 工具时,
+              后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
+              无需用户手动触发,移除手动派发按钮。 */}
             <Tooltip content={tcommon('close')}>
               <button
                 type="button"
@@ -751,8 +741,6 @@ export function AISidePanel() {
 
           {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
           <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
-          {/* Subagent 派单对话框(2026-07-22 立,对标 Trae Subagent) */}
-          <DispatchSubagentDialog open={dispatchOpen} onOpenChange={setDispatchOpen} />
           {/* 工作区权限确认弹窗(2026-07-25 立,深度对标 Codex):
             用户绑定新工作区但 perm=null 时,WorkspaceSelector 写入 pendingPermissionSetup,
             这里弹 Dialog 让用户主动选择权限模式(完全访问/请求批准/替我审批),
