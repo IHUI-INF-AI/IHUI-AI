@@ -33,11 +33,11 @@ import type {
   DispatchStatus,
 } from '@ihui/shared/subagents'
 
-/** ai-service 基础 URL(优先 env,回退 AGENTS.md §6 文档值 8000) */
+/** ai-service 基础 URL(优先 env,回退 AGENTS.md §6 文档值 8803) */
 const AI_SERVICE_URL =
   process.env.AI_SERVICE_URL && process.env.AI_SERVICE_URL.length > 0
     ? process.env.AI_SERVICE_URL.replace(/\/$/, '')
-    : 'http://localhost:8000'
+    : 'http://localhost:8803'
 
 /** 跨服务调用超时(ms) */
 const AI_SERVICE_TIMEOUT_MS = 30_000

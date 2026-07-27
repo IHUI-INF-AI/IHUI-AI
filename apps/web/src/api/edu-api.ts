@@ -66,10 +66,10 @@ export async function getReviewStats(): Promise<ReviewStats> {
   return srsGet<ReviewStats>('/api/srs-review/stats')
 }
 
-// ===== AI 助教(直连 ai-service 8000 端口)=====
+// ===== AI 助教(直连 ai-service 8803 端口)=====
 
 const AI_SERVICE_URL =
-  process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8000'
+  process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
 
 export interface ExplainResult {
   answer: string

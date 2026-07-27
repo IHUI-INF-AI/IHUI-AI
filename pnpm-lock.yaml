@@ -403,6 +403,9 @@ importers:
       '@ihui/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@ihui/dom-actions':
+        specifier: workspace:*
+        version: link:../../packages/dom-actions
       '@ihui/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -1153,6 +1156,22 @@ importers:
       tailwind-merge:
         specifier: ^2.5.5
         version: 2.6.1
+    devDependencies:
+      '@ihui/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/dom-actions:
+    dependencies:
+      '@ihui/types':
+        specifier: workspace:*
+        version: link:../types
     devDependencies:
       '@ihui/eslint-config':
         specifier: workspace:*

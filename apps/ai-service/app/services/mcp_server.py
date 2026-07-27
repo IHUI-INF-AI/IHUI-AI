@@ -804,8 +804,8 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                 pass
             try:
                 await proc.wait()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("mcp_server proc.wait 失败: %s", e, exc_info=True)
 
         stdout = "\n".join(stdout_lines)
         stderr = "\n".join(stderr_lines)
@@ -2565,7 +2565,8 @@ async def _fetch_image_bytes(
             import base64
 
             return base64.b64decode(b64)
-        except Exception:
+        except Exception as e:
+            logger.warning("mcp_server b64_json 解码失败: %s", e, exc_info=True)
             return None
     if image_url and not image_url.startswith("data:"):
         try:
@@ -2573,7 +2574,8 @@ async def _fetch_image_bytes(
                 dl_resp = await dl.get(image_url)
             if dl_resp.status_code < 400:
                 return cast(bytes, dl_resp.content)
-        except Exception:
+        except Exception as e:
+            logger.warning("mcp_server 图片 URL 下载失败: %s", e, exc_info=True)
             return None
     return None
 
