@@ -1,4 +1,8 @@
 /** 默认 API 地址(开发环境)。生产环境通过 chrome.storage.local 的 ihui_api_base_url 覆盖。 */
+import { createChromePlatform } from '@ihui/browser-platform'
+
+const platform = createChromePlatform()
+
 const DEFAULT_API_BASE_URL = 'http://localhost:8802'
 
 /** 当前运行时 API base URL(由 initApiBaseUrl() 初始化)。 */
@@ -21,8 +25,7 @@ export function getBridgeBaseUrl(): string {
  */
 export async function initApiBaseUrl(): Promise<void> {
   try {
-    const result = await chrome.storage.local.get('ihui_api_base_url')
-    const customUrl = result['ihui_api_base_url']
+    const customUrl = await platform.storage.localGet<string>('ihui_api_base_url')
     if (typeof customUrl === 'string' && customUrl.trim()) {
       _apiBaseUrl = customUrl.trim().replace(/\/+$/, '')
     }
