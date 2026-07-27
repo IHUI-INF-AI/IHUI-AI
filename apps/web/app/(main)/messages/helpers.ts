@@ -1,6 +1,7 @@
 import type { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
+import { formatDateOnly } from '@/lib/date-utils'
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -19,5 +20,5 @@ export function relativeTime(iso: string, t: ReturnType<typeof useTranslations>)
   if (hr < 24) return t('hoursAgo', { hr })
   const day = Math.floor(hr / 24)
   if (day < 30) return t('daysAgo', { day })
-  return new Date(iso).toLocaleDateString('zh-CN')
+  return formatDateOnly(iso)
 }

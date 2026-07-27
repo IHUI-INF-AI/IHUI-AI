@@ -6,6 +6,7 @@ import { Loader2, Mic, CheckCircle2, History, Wand2, Copy, Check } from 'lucide-
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface HistoryPayload {
   date?: string
@@ -408,7 +409,7 @@ export default function KouboPage() {
                     >
                       {h.status}
                     </span>
-                    {h.createdAt && <span>· {new Date(h.createdAt).toLocaleDateString()}</span>}
+                    {h.createdAt && <span>· {formatDateOnly(h.createdAt)}</span>}
                   </div>
                 </button>
               ))}

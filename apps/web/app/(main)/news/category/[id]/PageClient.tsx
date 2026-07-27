@@ -10,6 +10,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Pin, FileText, Newspaper, Fo
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface NewsCategory {
   id: string
@@ -78,11 +79,7 @@ export default function NewsCategoryPageClient() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const items = data?.list ?? []
 
-  const fmtDate = (v?: string | null) => {
-    if (!v) return '-'
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
-  }
+  const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   if (categoriesQuery.isLoading) {
     return (

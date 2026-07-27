@@ -23,6 +23,7 @@ import remarkGfm from 'remark-gfm'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Input, Button } from '@ihui/ui-react'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface DocItem {
   id: string
@@ -457,7 +458,7 @@ export default function DocumentsPage() {
                     {item.updatedAt ? (
                       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        {new Date(item.updatedAt).toLocaleDateString()}
+                        {formatDateOnly(item.updatedAt)}
                       </span>
                     ) : (
                       <span />
