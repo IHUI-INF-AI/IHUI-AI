@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateTime } from '../utils/date-utils'
 
 import { Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -29,20 +30,6 @@ function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
   return m > 0 ? `${h}h ${m}m` : `${h}h`
-}
-
-function formatDateTime(iso: string | undefined): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
 }
 
 function statusKey(status: LearnRecord['status']): string {
@@ -194,7 +181,7 @@ export function StudyRecordScreen() {
               ) : null}
             </View>
             <Text style={styles.cardMeta}>
-              {t('studyRecord.lastStudyAt')}:{formatDateTime(item.lastStudyAt)}
+              {t('studyRecord.lastStudyAt')}:{formatShortDateTime(item.lastStudyAt) || '—'}
             </Text>
           </View>
         )}
