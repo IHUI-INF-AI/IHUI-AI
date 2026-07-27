@@ -194,6 +194,9 @@ class ABTestScheduler:
             tracker_status = ab_test_tracker.get_status()
             runner_status = shadow_runner.get_status()
         except Exception as e:
+            logger.warning(
+                "ab_test_scheduler.get_status 状态查询失败: %s", e, exc_info=True,
+            )
             tracker_status = {"error": f"{type(e).__name__}: {e}"}
             runner_status = {"error": f"{type(e).__name__}: {e}"}
 
@@ -509,7 +512,8 @@ class ABTestScheduler:
                 started = started.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
             return (now - started).total_seconds() > max_duration_seconds
-        except Exception:
+        except Exception as e:
+            logger.warning("ab_test_scheduler._is_expired 超时检查失败: %s", e, exc_info=True)
             return False
 
 

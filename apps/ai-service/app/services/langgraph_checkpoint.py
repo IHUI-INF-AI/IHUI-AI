@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import uuid
@@ -23,25 +24,27 @@ from typing import TYPE_CHECKING, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# 软依赖:缺失时降级,保证模块可导入 + typecheck 通过
+# 软依赖:缺失时降级,保证模块可导入 + typecheck 通过。
+# 用 importlib.import_module 避免直接 import 触发 mypy 重新绑定类型,
+# 否则 except 中赋值 None 会与 Module/类类型不兼容。
+psycopg: Any = None
+dict_row: Any = None
+AsyncConnectionPool: Any = None
 try:
-    import psycopg
-    from psycopg.rows import dict_row
-    from psycopg_pool import AsyncConnectionPool
-
+    psycopg = importlib.import_module("psycopg")
+    dict_row = importlib.import_module("psycopg.rows").dict_row
+    AsyncConnectionPool = importlib.import_module("psycopg_pool").AsyncConnectionPool
     _PSYCOPG_AVAILABLE = True
 except ImportError:  # pragma: no cover - 依赖未安装时走降级路径
-    psycopg = None
-    dict_row = None
-    AsyncConnectionPool = None
     _PSYCOPG_AVAILABLE = False
 
+AsyncPostgresSaver: Any = None
 try:
-    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
+    AsyncPostgresSaver = importlib.import_module(
+        "langgraph.checkpoint.postgres.aio"
+    ).AsyncPostgresSaver
     _LANGGRAPH_AVAILABLE = True
 except ImportError:  # pragma: no cover - 依赖未安装时走降级路径
-    AsyncPostgresSaver = None
     _LANGGRAPH_AVAILABLE = False
 
 if TYPE_CHECKING:  # 仅类型检查时引入,运行时不强依赖

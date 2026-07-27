@@ -338,6 +338,10 @@ class AgentOrchestrator:
             try:
                 result = await self.invoke(agent_name, step_input, session_id=sid)
             except Exception as e:
+                logger.warning(
+                    "agent_orchestrator.run_pipeline invoke 失败(agent=%s): %s",
+                    agent_name, e, exc_info=True,
+                )
                 result = AgentStepResult(
                     agent_name=agent_name,
                     input=step_input,
@@ -519,6 +523,10 @@ class AgentOrchestrator:
                 try:
                     result = await self._run_agent(agent, user_input, sid, model_override)
                 except Exception as e:
+                    logger.warning(
+                        "agent_orchestrator.run_debate agent 发言失败(agent=%s): %s",
+                        agent_name, e, exc_info=True,
+                    )
                     result = AgentStepResult(
                         agent_name=agent_name, input=user_input, output="",
                         status="failed",
@@ -567,6 +575,7 @@ class AgentOrchestrator:
             )
             final_output = str(summary_result.get("content", "") or "")
         except Exception as e:
+            logger.warning("agent_orchestrator.run_debate 综合结论生成失败: %s", e, exc_info=True)
             final_output = f"[综合结论生成失败: {e}]\n\n" + all_speeches[:2000]
 
         return OrchestrationResult(
@@ -631,6 +640,10 @@ class AgentOrchestrator:
             try:
                 r = await self._run_agent(agent, user_input, sid, model_override)
             except Exception as e:
+                logger.warning(
+                    "agent_orchestrator.run_vote agent 方案生成失败(agent=%s): %s",
+                    agent_name, e, exc_info=True,
+                )
                 r = AgentStepResult(
                     agent_name=agent_name, input=user_input, output="",
                     status="failed",
@@ -681,7 +694,8 @@ class AgentOrchestrator:
             )
             try:
                 r = await self._run_agent(agent, user_input, sid, model_override)
-            except Exception:
+            except Exception as e:
+                logger.warning("agent_orchestrator._vote agent 投票失败(voter=%s): %s", voter_name, e, exc_info=True)
                 return voter_name, -1
             nums = _re.findall(r"\d+", r.output or "")
             if not nums:
@@ -793,6 +807,10 @@ class AgentOrchestrator:
                 sid, model_override,
             )
         except Exception as e:
+            logger.warning(
+                "agent_orchestrator.run_critique proposer 方案生成失败(agent=%s): %s",
+                proposer_name, e, exc_info=True,
+            )
             r0 = AgentStepResult(
                 agent_name=proposer_name, input="", output="",
                 status="failed",
@@ -826,6 +844,10 @@ class AgentOrchestrator:
                 try:
                     return await self._run_agent(agent, user_input, sid, model_override)
                 except Exception as e:
+                    logger.warning(
+                        "agent_orchestrator.run_critique critic 批判失败(agent=%s): %s",
+                        critic_name, e, exc_info=True,
+                    )
                     return AgentStepResult(
                         agent_name=critic_name, input=user_input, output="",
                         status="failed",
@@ -863,6 +885,10 @@ class AgentOrchestrator:
                     sid, model_override,
                 )
             except Exception as e:
+                logger.warning(
+                    "agent_orchestrator.run_critique proposer 改进失败(agent=%s): %s",
+                    proposer_name, e, exc_info=True,
+                )
                 rp = AgentStepResult(
                     agent_name=proposer_name, input="", output="",
                     status="failed",
@@ -948,6 +974,7 @@ class AgentOrchestrator:
         try:
             decomp_result = await task_decomposer.decompose(decomp_request)
         except Exception as e:
+            logger.warning("agent_orchestrator.run_decomposed 任务分解失败: %s", e, exc_info=True)
             return OrchestrationResult(
                 orchestration_id=orchestration_id,
                 steps=[],
@@ -1179,6 +1206,10 @@ class AgentOrchestrator:
             try:
                 result = await self._run_agent(agent, user_input, sid, model_override)
             except Exception as e:
+                logger.warning(
+                    "agent_orchestrator.run_with_communication agent 执行失败(agent=%s): %s",
+                    agent_name, e, exc_info=True,
+                )
                 result = AgentStepResult(
                     agent_name=agent_name, input=user_input, output="",
                     status="failed",

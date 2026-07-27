@@ -250,7 +250,8 @@ class UserProfileBuilder:
             )
             content = str(resp.get("content", "")) if isinstance(resp, dict) else ""
             return self._parse_profile_output(content, entries, user_id)
-        except Exception:
+        except Exception as e:
+            logger.warning("user_profile._llm_build_profile LLM 归纳失败: %s", e, exc_info=True)
             return []
 
     @staticmethod
@@ -414,8 +415,8 @@ class UserProfileBuilder:
             if hasattr(memory_client, "get_entries"):
                 result = await memory_client.get_entries(user_id, scope="user")
                 return result if isinstance(result, list) else []
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("user_profile._get_entries 读取用户记忆失败: %s", e, exc_info=True)
         return []
 
     # ==================================================================
