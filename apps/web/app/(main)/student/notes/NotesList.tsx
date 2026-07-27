@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { Note } from './types'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface Props {
   list: Note[]
@@ -63,7 +64,7 @@ export function NotesList({ list, isLoading, error, onEdit, onDelete, deletePend
             </div>
             <p className="text-sm text-muted-foreground">{note.content}</p>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{new Date(note.createdAt).toLocaleDateString('zh-CN')}</span>
+              <span>{formatDateOnly(note.createdAt)}</span>
               <div className="flex gap-1">
                 <Button size="sm" variant="ghost" onClick={() => onEdit(note)}>
                   <Edit className="h-4 w-4" />

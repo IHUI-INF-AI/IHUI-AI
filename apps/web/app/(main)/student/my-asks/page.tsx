@@ -16,6 +16,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface MyAsk {
   id: string
@@ -73,11 +74,7 @@ export default function MyAsksPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const fmtDate = (v?: string | null) => {
-    if (!v) return '-'
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
-  }
+  const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">

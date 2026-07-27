@@ -2,9 +2,18 @@
 
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, FileText } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { formatDateOnly } from '@/lib/date-utils'
 import type { Template } from './types'
 
 interface Props {
@@ -88,16 +97,12 @@ export function CertTemplateTable({
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {new Date(row.createdAt).toLocaleDateString()}
+                    {formatDateOnly(row.createdAt)}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Tooltip content={t('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(row)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(row)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

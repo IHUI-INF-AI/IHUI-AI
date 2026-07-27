@@ -18,6 +18,7 @@ import {
 import { useTranslations } from 'next-intl'
 import { SOURCE_LABEL_KEY } from './helpers'
 import { Tooltip } from '@/components/feedback'
+import { formatDateOnly } from '@/lib/date-utils'
 import type { Certificate } from './types'
 
 interface Props {
@@ -96,7 +97,7 @@ export function CertificateTable({
                       : (c.source ?? '-')}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {c.issuedAt ? new Date(c.issuedAt).toLocaleDateString() : '-'}
+                    {c.issuedAt ? formatDateOnly(c.issuedAt) : '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
                     <span
