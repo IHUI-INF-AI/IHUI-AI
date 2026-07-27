@@ -9,12 +9,12 @@ vi.mock('../src/config/index.js', () => ({
     PORT: 8080,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
-    CORS_ORIGIN: 'http://localhost:3000',
+    CORS_ORIGIN: 'http://localhost:8801',
     DATABASE_URL: 'postgres://localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
-    AI_SERVICE_URL: 'http://localhost:8000',
+    AI_SERVICE_URL: 'http://localhost:8803',
     CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(32),
   },
 }))
@@ -522,9 +522,7 @@ describe('admin-stats routes', () => {
         '2026-07-23',
       ])
       expect(
-        body.data.growth.every(
-          (g: { day: string; count: number }) => 'day' in g && 'count' in g,
-        ),
+        body.data.growth.every((g: { day: string; count: number }) => 'day' in g && 'count' in g),
       ).toBe(true)
     })
   })

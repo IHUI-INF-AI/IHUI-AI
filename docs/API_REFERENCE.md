@@ -604,7 +604,7 @@ eventSource.onerror = () => eventSource.close()
 
 - 由 `@fastify/swagger` + `@fastify/swagger-ui` 自动生成,仅在 `SWAGGER_ENABLED=true` 时挂载(默认关闭,生产环境防 API 路由枚举攻击)。
 - 暴露端点:`GET /docs`(Swagger UI)/ `GET /docs/json`(OpenAPI 3.0 JSON)。
-- 启动开发服务后访问 `http://localhost:8080/docs` 查看交互式文档。
+- 启动开发服务后访问 `http://localhost:8802/docs` 查看交互式文档。
 
 ### 11.2 守门脚本
 
@@ -626,29 +626,29 @@ eventSource.onerror = () => eventSource.close()
 
 ```bash
 # 1. 登录
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:8802/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"account":"13800138000","password":"yourpassword"}' \
   -c cookies.txt
 # 响应: { "code":0, "message":"success", "data":{ "token":"eyJ...", "refreshToken":"eyJ...", "user":{...} } }
 
 # 2. 调用受保护端点(Bearer JWT 或 cookie)
-curl http://localhost:8080/api/auth/me \
+curl http://localhost:8802/api/auth/me \
   -H "Authorization: Bearer eyJ..." \
   -b cookies.txt
 
 # 3. 多租户请求
-curl http://localhost:8080/api/users/me \
+curl http://localhost:8802/api/users/me \
   -H "Authorization: Bearer eyJ..." \
   -H "X-Tenant-Id: 00000000-0000-0000-0000-000000000000"
 
 # 4. 刷新 token
-curl -X POST http://localhost:8080/api/auth/refresh \
+curl -X POST http://localhost:8802/api/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"eyJ..."}'
 
 # 5. 登出
-curl -X POST http://localhost:8080/api/auth/logout \
+curl -X POST http://localhost:8802/api/auth/logout \
   -H "Authorization: Bearer eyJ..." \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"eyJ..."}'
@@ -690,7 +690,7 @@ import {
 } from '@ihui/api-client'
 
 // 1. 注入 base URL 和 token provider
-setBaseUrl('http://localhost:8080')
+setBaseUrl('http://localhost:8802')
 setTokenProvider({ getToken: () => localStorage.getItem('access_token') })
 
 // 2. 调用(自动拼接 /api 前缀 + 注入 Authorization + 熔断)

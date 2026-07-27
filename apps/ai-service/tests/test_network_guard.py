@@ -127,7 +127,7 @@ def test_blocklist_no_match_allowed():
 def test_localhost_allowed_by_default():
     """allow_localhost=True 时 localhost 放行。"""
     p = NetworkEgressPolicy(mode="allowlist", domains=[], allow_localhost=True)
-    ok, reason = p.check("http://localhost:3000/")
+    ok, reason = p.check("http://localhost:8801/")
     assert ok is True
     assert "localhost allowed" in reason
 

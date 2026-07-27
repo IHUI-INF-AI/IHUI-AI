@@ -30,7 +30,7 @@ const FETCH_TIMEOUT_MS = 15_000;
  * 网络失败降级返回 null,与 SkillSyncClient 一致(不抛错)。
  *
  * 用法:
- *   const client = new RegistryClient('http://localhost:8000', 'bearer-token');
+ *   const client = new RegistryClient('http://localhost:8802', 'bearer-token');
  *   const list = await client.list({ sort: 'hot' });
  *   const sync = await client.sync('mcp', 'github', true);
  */

@@ -51,18 +51,14 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specGenerateSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
       const data = await specService.generate(request, parsed.data)
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `spec 生成失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `spec 生成失败: ${(e as Error).message}`))
     }
   })
 
@@ -75,9 +71,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
       const templates = await specService.getTemplates(request)
       return reply.send(success({ templates }))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `模板获取失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `模板获取失败: ${(e as Error).message}`))
     }
   })
 
@@ -98,9 +92,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -111,9 +103,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
       })
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `历史版本获取失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `历史版本获取失败: ${(e as Error).message}`))
     }
   })
 
@@ -127,9 +117,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
     })
     const parsed = loadSchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -141,9 +129,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
       )
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `spec 加载失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `spec 加载失败: ${(e as Error).message}`))
     }
   })
 
@@ -159,9 +145,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specDiffSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -172,9 +156,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
       )
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `spec diff 生成失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `spec diff 生成失败: ${(e as Error).message}`))
     }
   })
 
@@ -183,22 +165,16 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
 
-    const parsed = z
-      .object({ workspacePath: z.string().min(1) })
-      .safeParse(request.query)
+    const parsed = z.object({ workspacePath: z.string().min(1) }).safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
       const data = await specService.getVariables(parsed.data.workspacePath)
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `模板变量获取失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `模板变量获取失败: ${(e as Error).message}`))
     }
   })
 
@@ -220,9 +196,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specApplySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -250,18 +224,14 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specPatchSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
       const data = await specService.applySpecPreview(request, parsed.data)
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `patch 预览失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `patch 预览失败: ${(e as Error).message}`))
     }
   })
 
@@ -272,18 +242,14 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specPatchSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
       const data = await specService.applySpecConfirm(request, parsed.data)
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `patch 应用失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `patch 应用失败: ${(e as Error).message}`))
     }
   })
 
@@ -300,9 +266,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specWatchStartSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -328,18 +292,14 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specWatchStopSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
       const data = await specService.stopWatch(request, parsed.data.watchId)
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `watch 停止失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `watch 停止失败: ${(e as Error).message}`))
     }
   })
 
@@ -352,9 +312,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
       const data = await specService.getWatchStatus(request)
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `watch 状态获取失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `watch 状态获取失败: ${(e as Error).message}`))
     }
   })
 
@@ -372,9 +330,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specReviewSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -384,9 +340,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
       })
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `提交评审失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `提交评审失败: ${(e as Error).message}`))
     }
   })
 
@@ -397,9 +351,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specReviewSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -411,9 +363,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
       })
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `审批失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `审批失败: ${(e as Error).message}`))
     }
   })
 
@@ -424,9 +374,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specReviewSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -439,9 +387,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
       })
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `拒绝失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `拒绝失败: ${(e as Error).message}`))
     }
   })
 
@@ -450,25 +396,16 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
 
-    const parsed = z
-      .object({ workspacePath: z.string().min(1) })
-      .safeParse(request.query)
+    const parsed = z.object({ workspacePath: z.string().min(1) }).safeParse(request.query)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
-      const data = await specService.getPendingReviews(
-        request,
-        parsed.data.workspacePath,
-      )
+      const data = await specService.getPendingReviews(request, parsed.data.workspacePath)
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `获取待评审列表失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `获取待评审列表失败: ${(e as Error).message}`))
     }
   })
 
@@ -484,18 +421,14 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specScopeOnlySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
       const data = await specService.splitTasks(request, parsed.data)
       return reply.send(success(data))
     } catch (e) {
-      return reply
-        .status(502)
-        .send(error(502, `任务拆分失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `任务拆分失败: ${(e as Error).message}`))
     }
   })
 
@@ -506,9 +439,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = specScopeOnlySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -526,48 +457,64 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 以下 7 个端点为前端 spec-panel.tsx 已调用的 spec 高阶能力,后端 spec-service
   // 尚未实现。补 501 stub 防止 404,并通过守门脚本第 8 项"前端↔后端路由一致性"。
-  // TODO: 待 spec-service 实装后逐个替换为真实业务逻辑。
+  // TODO: 待 spec-service 实装后逐个替换为真实业务逻辑(实装需用户确认,AGENTS.md §24)。
   // ===========================================================================
   server.post('/spec/full-pipeline', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+    return reply
+      .code(501)
+      .send({ code: 501, message: 'Not Implemented: spec /full-pipeline 尚未实装', data: null })
   })
 
   server.post('/spec/pipeline-rollback', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+    return reply
+      .code(501)
+      .send({ code: 501, message: 'Not Implemented: spec /pipeline-rollback 尚未实装', data: null })
   })
 
   server.post('/spec/impact-analysis', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+    return reply
+      .code(501)
+      .send({ code: 501, message: 'Not Implemented: spec /impact-analysis 尚未实装', data: null })
   })
 
   server.post('/spec/branch', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+    return reply
+      .code(501)
+      .send({ code: 501, message: 'Not Implemented: spec /branch 尚未实装', data: null })
   })
 
   server.post('/spec/branch/merge', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+    return reply
+      .code(501)
+      .send({ code: 501, message: 'Not Implemented: spec /branch/merge 尚未实装', data: null })
   })
 
   server.post('/spec/branch/abandon', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+    return reply
+      .code(501)
+      .send({ code: 501, message: 'Not Implemented: spec /branch/abandon 尚未实装', data: null })
   })
 
   server.post('/spec/generate-from-requirement', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.code(501).send({ code: 501, message: 'Not Implemented', data: null })
+    return reply.code(501).send({
+      code: 501,
+      message: 'Not Implemented: spec /generate-from-requirement 尚未实装',
+      data: null,
+    })
   })
 }
 

@@ -1348,17 +1348,23 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /qr/status - 查询扫码登录状态
   server.get('/qr/status', async (request, reply) => {
-    const { ticket } = z
-      .object({ ticket: z.string().min(1) })
-      .parse(request.query)
+    z.object({ ticket: z.string().min(1) }).parse(request.query)
 
-    // TODO: 实现扫码状态查询逻辑(ticket → status: pending/scanned/confirmed/expired)
-    return reply.send(success({ status: 'pending', ticket }))
+    // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
+    return reply.code(501).send({
+      code: 501,
+      message: 'Not Implemented: auth /qr/status 扫码状态查询尚未实装',
+      data: null,
+    })
   })
 
   // POST /qr/generate - 生成扫码登录二维码
   server.post('/qr/generate', async (_request, reply) => {
-    // TODO: 实现二维码生成逻辑(返回 ticket + qr_url)
-    return reply.send(success({ ticket: '', qrUrl: '' }))
+    // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
+    return reply.code(501).send({
+      code: 501,
+      message: 'Not Implemented: auth /qr/generate 二维码生成尚未实装',
+      data: null,
+    })
   })
 }

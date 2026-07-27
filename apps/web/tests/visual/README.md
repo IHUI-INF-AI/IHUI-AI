@@ -5,8 +5,8 @@
 ## 工作流
 
 ```bash
-# 1. 确保 web(3000) + api(8802) + ai-service(8803) 三个服务在线
-curl -sI http://localhost:3000 | head -1   # → HTTP/1.1 200
+# 1. 确保 web(8801) + api(8802) + ai-service(8803) 三个服务在线
+curl -sI http://localhost:8801 | head -1   # → HTTP/1.1 200
 curl -sI http://localhost:8802/api/health  # → HTTP/1.1 200
 curl -sI http://localhost:8803/health      # → HTTP/1.1 200
 
@@ -29,8 +29,8 @@ npx playwright test --config=playwright.visual.config.ts --reporter=line
 
 任何**UI 样式 / 前端组件 / Tailwind 类 / shadcn props** 的改动,**交付前**必须按以下流程自验:
 
-1. **改码前**:`browser subagent ping http://localhost:3000` 确认服务在线,不通则先启动 web + api + ai-service + 数据库/Redis
-2. **改码后**:实际访问 `localhost:3000` 确认页面渲染(不是假设)
+1. **改码前**:`browser subagent ping http://localhost:8801` 确认服务在线,不通则先启动 web + api + ai-service + 数据库/Redis
+2. **改码后**:实际访问 `localhost:8801` 确认页面渲染(不是假设)
 3. **强制 4 状态截图**:default / hover / active / dark
 4. **读 DOM 数值**:用 `getAttribute` / `getComputedStyle` 验证 Tailwind 类已应用(禁止只靠主观截图)
 5. **交付回复**附 4 状态截图证据 + "已自验通过"声明
