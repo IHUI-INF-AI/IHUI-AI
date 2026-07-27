@@ -9,8 +9,7 @@ import { getPlazaList, type PlazaItem } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 export default function PlazaPage() {
   const { t } = useI18n()
@@ -36,10 +35,6 @@ export default function PlazaPage() {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
-
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/plaza/${encodeURIComponent(id)}` })
-  }
 
   if (loading) {
     return (
@@ -81,7 +76,7 @@ export default function PlazaPage() {
             <Card
               key={p.id}
               className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => openInWeb(p.id)}
+              onClick={() => openItemInWeb(`/plaza/${encodeURIComponent(p.id)}`)}
             >
               <CardHeader className="px-3 py-2">
                 <CardTitle className="text-sm leading-snug line-clamp-2">{p.title}</CardTitle>
