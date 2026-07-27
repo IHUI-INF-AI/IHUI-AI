@@ -10,7 +10,8 @@ import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { PasswordInput } from '@/components/login'
-import { usernameSchema, type TokenResult } from './login-schemas'
+import { usernameSchema } from './login-schemas'
+import { loginByUsername } from '@ihui/api-client'
 
 interface UsernameLoginFormProps {
   active: boolean
@@ -60,21 +61,17 @@ export function UsernameLoginForm({
     }
     setUsernameSubmitting(true)
     try {
-      const res = await fetch('/api/auth/login/username', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password: usernamePassword }),
-      })
-      const json = (await res.json()) as { code: number; message: string; data?: TokenResult }
-      if (!res.ok || json.code !== 0 || !json.data?.accessToken) {
-        setUsernameErr(json.message || t('invalidCredentials'))
+      const r = await loginByUsername(username, usernamePassword)
+      if (!r.success || !r.data?.accessToken) {
+        setUsernameErr(r.error || t('invalidCredentials'))
         return
       }
-      setToken(json.data.accessToken, json.data.refreshToken)
-      if (json.data.userId) {
-        setUser({ id: json.data.userId, nickname: '' })
-        void fetchApi<{ user: AuthUser }>('/api/auth/me').then((r) => {
-          if (r.success) setUser(r.data.user)
+      setToken(r.data.accessToken, r.data.refreshToken)
+      const u = r.data.user
+      if (u?.id) {
+        setUser({ id: u.id, nickname: u.nickname ?? '' })
+        void fetchApi<{ user: AuthUser }>('/api/auth/me').then((rr) => {
+          if (rr.success) setUser(rr.data.user)
         }).catch(() => {})
       }
       onSuccess?.()
