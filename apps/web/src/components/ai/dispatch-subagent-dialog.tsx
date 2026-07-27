@@ -40,6 +40,7 @@ import {
 } from '@ihui/ui-react'
 
 import { fetchApi } from '@/lib/api'
+import { formatDate } from '@/lib/date-utils'
 import { activeDispatchesKey, swarmTopologyKey } from '@/hooks/use-subagent-dispatch'
 import type { SubagentRole, OrchestrationMode, SubagentDispatch } from '@ihui/shared/subagents'
 
@@ -1263,7 +1264,7 @@ function EvolutionPanel() {
                       {v.version}
                     </code>
                     <span className="text-[10px] text-muted-foreground">
-                      {new Date(v.createdAt).toLocaleString('zh-CN')}
+                      {formatDate(v.createdAt)}
                     </span>
                   </div>
                   <div className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
