@@ -37,6 +37,9 @@ vi.mock('lucide-react', () => ({
   AlertTriangle: IconSpan,
   FileEdit: IconSpan,
   FilePlus: IconSpan,
+  FileText: IconSpan,
+  Search: IconSpan,
+  Terminal: IconSpan,
   TerminalSquare: IconSpan,
   Activity: IconSpan,
   CheckCircle2: IconSpan,
@@ -60,7 +63,13 @@ import { SubagentSection } from '../src/components/ai/progress-sections/subagent
 import { ChangesSection } from '../src/components/ai/progress-sections/changes-section'
 import { TerminalSection } from '../src/components/ai/progress-sections/terminal-section'
 import { OverviewSection } from '../src/components/ai/progress-sections/overview-section'
-import type { AgentToolCall, Subagent, AgentChange, TerminalTask, AgentOverview } from '../src/hooks/use-agent-progress'
+import type {
+  AgentToolCall,
+  Subagent,
+  AgentChange,
+  TerminalTask,
+  AgentOverview,
+} from '../src/hooks/use-agent-progress'
 
 describe('AgentProgressPane Store — v6.1 popover 简化', () => {
   beforeEach(() => {
@@ -352,7 +361,7 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
       {
         id: 't1',
         toolName: 'read_file',
-        args: {},
+        args: { file_path: 'src/components/Button.tsx' },
         status: 'success',
         startedAt: '2026-01-01T00:00:00Z',
         durationMs: 1000,
@@ -360,7 +369,7 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
       {
         id: 't2',
         toolName: 'search',
-        args: {},
+        args: { query: 'useEffect' },
         status: 'success',
         startedAt: '2026-01-01T00:00:01Z',
         durationMs: 2000,
@@ -368,7 +377,7 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
       {
         id: 't3',
         toolName: 'edit_file',
-        args: {},
+        args: { file_path: 'src/lib/utils.ts' },
         status: 'running',
         startedAt: '2026-01-01T00:00:02Z',
       },
@@ -381,6 +390,9 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     expect(container.textContent).toContain('读取 1')
     expect(container.textContent).toContain('搜索 1')
     expect(container.textContent).toContain('编辑 1')
+    // v8:参数预览(basename)
+    expect(container.textContent).toContain('Button.tsx')
+    expect(container.textContent).toContain('utils.ts')
   })
 
   it('SubagentSection — 无子代理时不渲染', () => {
@@ -388,7 +400,7 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('SubagentSection — 有子代理时渲染并显示 @handle', () => {
+  it('SubagentSection — 有子代理时渲染并显示 @handle + toolCalls + tokenUsage', () => {
     const subagents: Subagent[] = [
       {
         id: 's1',
@@ -399,6 +411,8 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
         status: 'running',
         spawnedAt: '2026-01-01T00:00:00Z',
         currentTask: '验证类型',
+        toolCalls: 5,
+        tokenUsage: 12000,
       },
     ]
     const { container } = render(<SubagentSection subagents={subagents} />)
@@ -408,6 +422,33 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     fireEvent.click(btn!)
     expect(container.textContent).toContain('@validator')
     expect(container.textContent).toContain('验证类型')
+    // v8:toolCalls + tokenUsage
+    expect(container.textContent).toContain('5次')
+    expect(container.textContent).toContain('12k')
+  })
+
+  it('SubagentSection — failed 状态显示 failureReason 替代 currentTask', () => {
+    const subagents: Subagent[] = [
+      {
+        id: 's2',
+        threadId: 'thread-2',
+        nickname: 'reviewer',
+        handle: '@reviewer',
+        color: 'red',
+        status: 'failed',
+        spawnedAt: '2026-01-01T00:00:00Z',
+        endedAt: '2026-01-01T00:01:00Z',
+        durationMs: 60000,
+        currentTask: '审查代码',
+        failureReason: '连接超时',
+      },
+    ]
+    const { container } = render(<SubagentSection subagents={subagents} />)
+    const btn = container.querySelector('button')
+    fireEvent.click(btn!)
+    // v8:failed 时显示 failureReason,不显示 currentTask
+    expect(container.textContent).toContain('连接超时')
+    expect(container.textContent).not.toContain('审查代码')
   })
 
   // ─── ChangesSection 测试 ───
@@ -423,7 +464,12 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
         id: 'c1',
         filePath: 'src/components/Button.tsx',
         toolName: 'write_file',
-        diffInfo: { file_path: 'src/components/Button.tsx', old_content: '', new_content: 'export function Button() {}', is_new_file: true },
+        diffInfo: {
+          file_path: 'src/components/Button.tsx',
+          old_content: '',
+          new_content: 'export function Button() {}',
+          is_new_file: true,
+        },
         timestamp: '2026-01-01T00:00:00Z',
       },
       {
