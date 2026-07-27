@@ -15,6 +15,7 @@
   "dependencies": {
     "@ihui/api-client": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
+    "@ihui/dom-actions": "workspace:*",
     "@ihui/i18n": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
