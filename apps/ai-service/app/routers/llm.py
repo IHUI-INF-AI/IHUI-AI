@@ -12,6 +12,8 @@
 import asyncio
 import json
 import logging
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -531,6 +533,33 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             }
                             yield f"event: tool-call-start\ndata: {json.dumps(tc_start, ensure_ascii=False)}\n\n"
 
+                            # Subagent 派发生成事件(2026-07-28 立,对标 Trae Work 自动派发):
+                            # dispatch_subagent 工具执行前,解析 args.tasks 数组或 args.name+args.task 单任务,
+                            # 为每个子任务发 subagent_spawn SSE 事件,前端进度面板自动展示 subagent 生命周期。
+                            # _spawned_sub_ids 在本次 tool call 作用域内收集,执行后用于发 subagent_end 事件。
+                            _spawned_sub_ids: list[str] = []
+                            if tool_name == "dispatch_subagent":
+                                _sa_tasks: list[dict[str, str]] = []
+                                _tasks_field = args.get("tasks")
+                                if isinstance(_tasks_field, list):
+                                    for _tk in _tasks_field:
+                                        if isinstance(_tk, dict) and _tk.get("name") and _tk.get("task"):
+                                            _sa_tasks.append({"name": str(_tk["name"]), "task": str(_tk["task"])})
+                                elif args.get("name") and args.get("task"):
+                                    _sa_tasks.append({"name": str(args["name"]), "task": str(args["task"])})
+                                _spawn_now = datetime.now(timezone.utc).isoformat()
+                                for _sa_task in _sa_tasks:
+                                    _sa_id = f"sub-{uuid.uuid4().hex[:8]}"
+                                    _spawned_sub_ids.append(_sa_id)
+                                    _spawn_evt = {
+                                        "type": "subagent_spawn",
+                                        "id": _sa_id,
+                                        "role": _sa_task["name"],
+                                        "task": _sa_task["task"],
+                                        "timestamp": _spawn_now,
+                                    }
+                                    yield f"event: subagent_spawn\ndata: {json.dumps(_spawn_evt, ensure_ascii=False)}\n\n"
+
                             # 重复调用检测(2026-07-24 立,修复 stepfun/step-router-v1 在 tool loop 中重复调用
                             # search_codebase(query="config") 8 次耗尽 max_iterations 的问题):
                             # 命中已执行集合则跳过 _mcp.call_tool,构造简短 result,推送带 repeated: True 标记的
@@ -615,6 +644,28 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "iteration": _tool_iter + 1,
                             }
                             yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+
+                            # Subagent 派发结束事件(2026-07-28 立,对标 Trae Work 自动派发):
+                            # dispatch_subagent 工具执行后,为每个已 spawn 的 sub_id 发 subagent_end 事件,
+                            # status=done(成功)或 failed(失败),失败时附 failureReason(截断 500 字符)。
+                            # 重复调用分支(dedup)不发 end 事件:subagent 在首次调用时已发过 spawn+end,
+                            # 重复调用只是 LLM 决策被去重跳过,不应重复触发前端生命周期展示。
+                            if tool_name == "dispatch_subagent" and _spawned_sub_ids:
+                                _sa_status = "done" if ok else "failed"
+                                _sa_error_msg = None
+                                if not ok:
+                                    _sa_error_msg = exec_result.get("error") or exec_result.get("message")
+                                _end_now = datetime.now(timezone.utc).isoformat()
+                                for _sa_id in _spawned_sub_ids:
+                                    _end_evt = {
+                                        "type": "subagent_end",
+                                        "id": _sa_id,
+                                        "status": _sa_status,
+                                        "timestamp": _end_now,
+                                    }
+                                    if _sa_error_msg:
+                                        _end_evt["failureReason"] = str(_sa_error_msg)[:500]
+                                    yield f"event: subagent_end\ndata: {json.dumps(_end_evt, ensure_ascii=False)}\n\n"
 
                             # 回灌工具结果(失败时显式标注,防止 LLM 幻觉"已完成")
                             result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
