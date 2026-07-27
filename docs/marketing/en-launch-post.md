@@ -153,9 +153,9 @@ cd IHUI-AI && pnpm install
 cp .env.example .env
 docker compose up -d postgres redis
 pnpm dev
-# web: localhost:3000
+# web: localhost:8801
 # api: localhost:8802
-# ai-service: localhost:8000
+# ai-service: localhost:8803
 ```
 
 **What's included**:

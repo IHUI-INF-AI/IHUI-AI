@@ -66,7 +66,7 @@ git commit
 
 `.husky/commit-msg` 校验:
 - commit message 规范(`feat`/`fix`/`docs`/`chore`/`test`/`refactor` 前缀,见 [AGENTS.md §1](../AGENTS.md))
-- `Verified-DOM:` trailer:若 staged 含 `apps/web/**/*.css` 改动,必须附 `Verified-DOM: http://localhost:3000/<path> (<DOM 属性=数值> ...)` trailer(由 commit-msg hook 自动守门,见 [AGENTS.md §17](../AGENTS.md))
+- `Verified-DOM:` trailer:若 staged 含 `apps/web/**/*.css` 改动,必须附 `Verified-DOM: http://localhost:8801/<path> (<DOM 属性=数值> ...)` trailer(由 commit-msg hook 自动守门,见 [AGENTS.md §17](../AGENTS.md))
 
 ### 2.3 post-commit 流程
 

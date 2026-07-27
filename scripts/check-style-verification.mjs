@@ -66,7 +66,7 @@ if (!hasVerifiedDom) {
   console.error('     Verified-DOM: <URL> <验证的 DOM 数值摘要>')
   console.error('')
   console.error('示例:')
-  console.error('  Verified-DOM: http://localhost:3000/ai-world (textarea offsetHeight=58 scrollHeight=58 overflowY=hidden)')
+  console.error('  Verified-DOM: http://localhost:8801/ai-world (textarea offsetHeight=58 scrollHeight=58 overflowY=hidden)')
   console.error('')
   console.error('跳过方法:HUSKY_SKIP_STYLE_VERIFY=1 git commit ...(紧急 commit 时使用,但建议补验证)')
   console.error('')
