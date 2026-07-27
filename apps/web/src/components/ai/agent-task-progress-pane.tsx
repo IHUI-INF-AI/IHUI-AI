@@ -7,6 +7,10 @@ import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
+import { formatDuration } from './progress-sections/foldable-section'
+import { ThinkingSection } from './progress-sections/thinking-section'
+import { ToolCallsSection } from './progress-sections/tool-calls-section'
+import { SubagentSection } from './progress-sections/subagent-section'
 
 /**
  * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-27 v6.1 重构)
@@ -48,16 +52,6 @@ function Spinner({ className }: { className?: string }) {
     return () => window.clearInterval(id)
   }, [])
   return <span className={className}>{SPINNER_FRAMES[frame]}</span>
-}
-
-// ─── 辅助函数 ────────────────────────────────────────────────────────
-function formatDuration(ms?: number): string {
-  if (ms === undefined) return ''
-  if (ms < 1000) return ''
-  if (ms < 60_000) return `${Math.floor(ms / 1000)}s`
-  const m = Math.floor(ms / 60_000)
-  const s = Math.floor((ms % 60_000) / 1000)
-  return `${m}m${s}s`
 }
 
 // ─── 单个 plan step 渲染 ─────────────────────────────────────────────
@@ -103,7 +97,7 @@ export function AgentTaskProgressPane() {
   }, [conversationId, threadId, setThreadId])
 
   const progress = useAgentProgress(open ? threadId : null)
-  const { planSteps, isStreaming } = progress
+  const { planSteps, isStreaming, subagents, tools, overview } = progress
 
   // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
   React.useEffect(() => {
@@ -246,6 +240,19 @@ export function AgentTaskProgressPane() {
             <div className="mt-1 border-t border-border px-2 py-1 text-[10px] text-muted-foreground">
               {completedCount}/{planSteps.length} 已完成
             </div>
+          </>
+        )}
+
+        {/* 折叠子区:思考过程 / 工具调用 / Subagent 派单(对齐 Trae Work) */}
+        {threadId && (
+          <>
+            <ThinkingSection
+              content={overview.content}
+              currentNode={overview.currentNode}
+              isStreaming={isStreaming}
+            />
+            <ToolCallsSection tools={tools} />
+            <SubagentSection subagents={subagents} />
           </>
         )}
       </div>
