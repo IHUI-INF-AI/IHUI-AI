@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { NotificationItem } from '@ihui/types'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'AnnouncementDetail'>
-interface Detail { id: string; title: string; content: string; author: string; publishTime: string }
+interface Detail extends NotificationItem {
+  author: string
+  publishTime: string
+}
 
 export function AnnouncementDetailScreen() {
   const { t } = useI18n()
@@ -24,23 +35,38 @@ export function AnnouncementDetailScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/announcements/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      const r = await fetch(`${API_BASE_URL}/api/announcements/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       if (!r.ok) throw new Error()
       const d = (await r.json()) as { data?: Detail }
       setItem(d.data ?? null)
-    } catch { setError(t('announcementDetail.loadFailed')) } finally { setLoading(false) }
+    } catch {
+      setError(t('announcementDetail.loadFailed'))
+    } finally {
+      setLoading(false)
+    }
   }, [id, token, t])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   if (loading) {
-    return <View style={s.center}><ActivityIndicator /><Text style={s.muted}>{t('common.loading')}</Text></View>
+    return (
+      <View style={s.center}>
+        <ActivityIndicator />
+        <Text style={s.muted}>{t('common.loading')}</Text>
+      </View>
+    )
   }
   if (error || !item) {
     return (
       <View style={s.center}>
         <Text style={s.error}>{error || t('announcementDetail.empty')}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+          <Text style={s.back}>{t('common.back')}</Text>
+        </TouchableOpacity>
       </View>
     )
   }
@@ -48,14 +74,20 @@ export function AnnouncementDetailScreen() {
   return (
     <ScrollView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={s.back}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={s.title}>{t('announcementDetail.title')}</Text>
       </View>
       <View style={s.body}>
         <Text style={s.detailTitle}>{item.title}</Text>
         <View style={s.metaRow}>
-          <Text style={s.meta}>{t('announcementDetail.author')}: {item.author}</Text>
-          <Text style={s.meta}>{t('announcementDetail.publishTime')}: {item.publishTime}</Text>
+          <Text style={s.meta}>
+            {t('announcementDetail.author')}: {item.author}
+          </Text>
+          <Text style={s.meta}>
+            {t('announcementDetail.publishTime')}: {item.publishTime}
+          </Text>
         </View>
         <Text style={s.content}>{item.content}</Text>
       </View>
@@ -65,7 +97,13 @@ export function AnnouncementDetailScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   body: { padding: 16 },
   back: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
