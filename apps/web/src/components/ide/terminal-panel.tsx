@@ -8,6 +8,8 @@ import { useTerminalSession } from '@/hooks/use-terminal-session'
 import type { TerminalSplitDirection } from '@/stores/terminal'
 import { cn } from '@/lib/utils'
 import type { TerminalWSServerMessage } from '@ihui/types'
+import type { Terminal } from '@xterm/xterm'
+import type { FitAddon } from '@xterm/addon-fit'
 import {
   Search as SearchIcon,
   ChevronUp,
@@ -183,9 +185,9 @@ function TerminalViewport({
   } = useTerminalSession()
   const [connected, setConnected] = React.useState(false)
   const [wsError, setWsError] = React.useState<string | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- xterm 6.x 实例类型在动态 import 后才能确定,用 any 简化跨 API 调用
-  const termRef = React.useRef<any>(null)
-  const fitAddonRef = React.useRef<unknown>(null)
+  // xterm 实例引用
+  const termRef = React.useRef<(Terminal & { _terminalCleanup?: () => void }) | null>(null)
+  const fitAddonRef = React.useRef<FitAddon | null>(null)
   const wsHandleRef = React.useRef<ReturnType<typeof connectWS> | null>(null)
   const roRef = React.useRef<ResizeObserver | null>(null)
   const resizeDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -490,24 +492,14 @@ function TerminalViewport({
         // - Ctrl+R → 智能历史搜索(2026-07-23 立)
         term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
           // Ctrl+F → 搜索
-          if (
-            (event.ctrlKey || event.metaKey) &&
-            event.key === 'f' &&
-            !event.shiftKey &&
-            !event.altKey
-          ) {
+          if ((event.ctrlKey || event.metaKey) && event.key === 'f' && !event.shiftKey && !event.altKey) {
             if (event.type === 'keydown') {
               setSearchOpen(true)
             }
             return false
           }
           // Ctrl+R → 智能历史搜索(仅活跃 pane 响应)
-          if (
-            (event.ctrlKey || event.metaKey) &&
-            event.key === 'r' &&
-            !event.shiftKey &&
-            !event.altKey
-          ) {
+          if ((event.ctrlKey || event.metaKey) && event.key === 'r' && !event.shiftKey && !event.altKey) {
             if (event.type === 'keydown' && isActive) {
               setHistoryOpen(true)
               // 拉取智能历史(相关性打分排序)
@@ -537,11 +529,7 @@ function TerminalViewport({
             return false
           }
           // Ctrl+Shift+C 复制选中文本
-          if (
-            (event.ctrlKey || event.metaKey) &&
-            event.shiftKey &&
-            (event.key === 'c' || event.key === 'C')
-          ) {
+          if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'c' || event.key === 'C')) {
             if (event.type === 'keydown') {
               const sel = term.getSelection()
               if (sel) {
@@ -551,11 +539,7 @@ function TerminalViewport({
             return false
           }
           // Ctrl+Shift+V 粘贴
-          if (
-            (event.ctrlKey || event.metaKey) &&
-            event.shiftKey &&
-            (event.key === 'v' || event.key === 'V')
-          ) {
+          if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'v' || event.key === 'V')) {
             if (event.type === 'keydown') {
               void navigator.clipboard.readText().then((text) => {
                 term.paste(text)
@@ -564,22 +548,14 @@ function TerminalViewport({
             return false
           }
           // Ctrl+Shift+D → 垂直分屏(列并排)
-          if (
-            (event.ctrlKey || event.metaKey) &&
-            event.shiftKey &&
-            (event.key === 'd' || event.key === 'D')
-          ) {
+          if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'd' || event.key === 'D')) {
             if (event.type === 'keydown') {
               onSplitRequest('vertical')
             }
             return false
           }
           // Ctrl+Shift+H → 水平分屏(行堆叠)
-          if (
-            (event.ctrlKey || event.metaKey) &&
-            event.shiftKey &&
-            (event.key === 'h' || event.key === 'H')
-          ) {
+          if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'h' || event.key === 'H')) {
             if (event.type === 'keydown') {
               onSplitRequest('horizontal')
             }
@@ -696,8 +672,7 @@ function TerminalViewport({
         roRef.current = ro
 
         // 清理函数(挂到 term 实例上,组件卸载时调用)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- xterm Terminal 实例附加自定义 _terminalCleanup 属性,类型定义未涵盖
-        ;(term as any)._terminalCleanup = () => {
+        ;(term as Terminal & { _terminalCleanup?: () => void })._terminalCleanup = () => {
           inputDisposable.dispose()
           resizeDisposable.dispose()
           ro.disconnect()
@@ -754,7 +729,7 @@ function TerminalViewport({
       if (typeof term.rows === 'number' && term.rows > 0) {
         term.refresh(0, term.rows - 1)
       }
-      const fit = fitAddonRef.current as { fit?: () => void } | null
+      const fit = fitAddonRef.current
       fit?.fit?.()
     } catch {
       /* options setter 不可用时忽略 */
@@ -767,16 +742,13 @@ function TerminalViewport({
   }, [clearDecorations])
 
   /** 右键菜单:复制选中 / 粘贴 / 清屏 / 搜索 / 分屏 */
-  const handleContextMenu = React.useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault()
-      onFocusPane()
-      const t = termRef.current
-      const hasSelection = !!(t && t.getSelection && t.getSelection())
-      setContextMenu({ x: e.clientX, y: e.clientY, hasSelection })
-    },
-    [onFocusPane],
-  )
+  const handleContextMenu = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    onFocusPane()
+    const t = termRef.current
+    const hasSelection = !!(t && t.getSelection && t.getSelection())
+    setContextMenu({ x: e.clientX, y: e.clientY, hasSelection })
+  }, [onFocusPane])
 
   const handleCopy = React.useCallback(() => {
     const t = termRef.current
@@ -838,15 +810,12 @@ function TerminalViewport({
   }, [sessionId, suggestCommand])
 
   /** 插入建议命令到终端(term.paste 触发 onData → WS input) */
-  const handleInsertSuggestion = React.useCallback(
-    (command: string) => {
-      const t = termRef.current
-      if (!t) return
-      t.paste?.(command)
-      setAiSuggestOpen(false)
-    },
-    [setAiSuggestOpen],
-  )
+  const handleInsertSuggestion = React.useCallback((command: string) => {
+    const t = termRef.current
+    if (!t) return
+    t.paste?.(command)
+    setAiSuggestOpen(false)
+  }, [setAiSuggestOpen])
 
   /** 一键修复(把 fixCommand 写入 PTY 执行) */
   const handleAutoFix = React.useCallback(() => {
@@ -897,7 +866,7 @@ function TerminalViewport({
   }, [commandHistory, historyQuery])
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 终端容器需右键触发自定义菜单;键盘用户通过菜单项快捷键访问
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className={cn(
         'relative flex h-full w-full flex-col overflow-hidden',
@@ -1044,9 +1013,7 @@ function TerminalViewport({
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
-              onClick={() =>
-                setSearchOpts((p) => ({ ...p, wholeWord: !p.wholeWord, regex: false }))
-              }
+              onClick={() => setSearchOpts((p) => ({ ...p, wholeWord: !p.wholeWord, regex: false }))}
               title="全字匹配"
             >
               <span>W</span>
@@ -1077,7 +1044,11 @@ function TerminalViewport({
 
       {/* xterm 容器 */}
       <div className="min-h-0 flex-1">
-        <div ref={containerRef} className="h-full w-full" style={{ padding: '4px 8px' }} />
+        <div
+          ref={containerRef}
+          className="h-full w-full"
+          style={{ padding: '4px 8px' }}
+        />
       </div>
 
       {/* ==================== AI 建议浮层(2026-07-23 立,仅活跃 pane) ==================== */}
@@ -1086,9 +1057,7 @@ function TerminalViewport({
           <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
             <div className="flex items-center gap-1.5">
               <Sparkles className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                AI 命令建议
-              </span>
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">AI 命令建议</span>
             </div>
             <div className="flex items-center gap-0.5">
               <button
@@ -1116,9 +1085,7 @@ function TerminalViewport({
             {aiError ? (
               <div className="px-2.5 py-3 text-center text-xs text-destructive">
                 {aiError}
-                <div className="mt-1 text-[10px] text-muted-foreground">
-                  AI 服务暂不可用,请稍后重试
-                </div>
+                <div className="mt-1 text-[10px] text-muted-foreground">AI 服务暂不可用,请稍后重试</div>
               </div>
             ) : aiSuggestLoading ? (
               <div className="flex items-center gap-1.5 px-2.5 py-3 text-xs text-muted-foreground">
@@ -1160,9 +1127,7 @@ function TerminalViewport({
           <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
             <div className="flex items-center gap-1.5">
               <Stethoscope className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                AI 错误诊断
-              </span>
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">AI 错误诊断</span>
             </div>
             <button
               type="button"
@@ -1178,9 +1143,7 @@ function TerminalViewport({
             {aiError ? (
               <div className="text-center text-destructive">
                 {aiError}
-                <div className="mt-1 text-[10px] text-muted-foreground">
-                  AI 服务暂不可用,请稍后重试
-                </div>
+                <div className="mt-1 text-[10px] text-muted-foreground">AI 服务暂不可用,请稍后重试</div>
               </div>
             ) : aiDiagnoseLoading ? (
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -1293,14 +1256,10 @@ function TerminalViewport({
                     <span className="shrink-0 text-[10px] text-red-500">退出{entry.exitCode}</span>
                   )}
                   {entry.frequency > 1 && (
-                    <span className="shrink-0 text-[10px] text-muted-foreground">
-                      ×{entry.frequency}
-                    </span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">×{entry.frequency}</span>
                   )}
                   {entry.gitBranch && (
-                    <span className="shrink-0 text-[10px] text-muted-foreground">
-                      {entry.gitBranch}
-                    </span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">{entry.gitBranch}</span>
                   )}
                 </button>
               ))
@@ -1309,7 +1268,7 @@ function TerminalViewport({
         </div>
       )}
 
-      {/* 连接状态指示器(左下角,不使用纯圆形,用 rounded 紧凑) */}
+      {/* 连接状态指示器(左下角,不使用 rounded-full,用 rounded 紧凑) */}
       <div className="pointer-events-none absolute bottom-1 left-2 flex items-center gap-1.5 rounded bg-background/80 px-2 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
         <span
           className={cn(
@@ -1318,7 +1277,9 @@ function TerminalViewport({
           )}
           style={{ borderRadius: '50%' }}
         />
-        <span>{connected ? '已连接' : wsError ? '连接错误' : '连接中...'}</span>
+        <span>
+          {connected ? '已连接' : wsError ? '连接错误' : '连接中...'}
+        </span>
       </div>
 
       {/* 字号状态栏(右下角) */}
@@ -1335,7 +1296,7 @@ function TerminalViewport({
 
       {/* 右键菜单 */}
       {contextMenu && (
-        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed z-50 min-w-36 overflow-hidden rounded-md border border-border bg-popover py-0.5 shadow-md"
           style={{ left: contextMenu.x, top: contextMenu.y }}
@@ -1485,22 +1446,8 @@ function SplitPaneContainer({
   // 多 pane 用 CSS Grid 布局
   const gridStyle: React.CSSProperties =
     direction === 'vertical'
-      ? {
-          display: 'grid',
-          gridTemplateColumns: `repeat(${paneIds.length}, 1fr)`,
-          gap: '1px',
-          background: 'var(--border, var(--border))',
-          height: '100%',
-          width: '100%',
-        }
-      : {
-          display: 'grid',
-          gridTemplateRows: `repeat(${paneIds.length}, 1fr)`,
-          gap: '1px',
-          background: 'var(--border, var(--border))',
-          height: '100%',
-          width: '100%',
-        }
+      ? { display: 'grid', gridTemplateColumns: `repeat(${paneIds.length}, 1fr)`, gap: '1px', background: 'var(--border, hsl(var(--border)))', height: '100%', width: '100%' }
+      : { display: 'grid', gridTemplateRows: `repeat(${paneIds.length}, 1fr)`, gap: '1px', background: 'var(--border, hsl(var(--border)))', height: '100%', width: '100%' }
 
   return (
     <div style={gridStyle}>
