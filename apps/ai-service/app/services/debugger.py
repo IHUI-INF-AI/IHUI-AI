@@ -224,8 +224,8 @@ class DapClient:
             self._process.kill()
         except ProcessLookupError:
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("debugger.disconnect 进程 kill 失败: %s", e, exc_info=True)
 
 
 # ==================== DebugSession ====================
@@ -630,8 +630,8 @@ class DebugSessionManager:
         if session.client:
             try:
                 await session.client.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("debugger.disconnect session client 关闭失败: %s", e, exc_info=True)
         session.status = "terminated"
         return True
 

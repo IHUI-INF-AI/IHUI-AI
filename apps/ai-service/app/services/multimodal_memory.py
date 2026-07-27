@@ -109,7 +109,8 @@ def _row_to_record(row: Any) -> dict[str, Any]:
     if isinstance(meta_raw, str):
         try:
             meta = json.loads(meta_raw)
-        except Exception:
+        except Exception as e:
+            logger.warning("multimodal_memory._row_to_record metadata 解析失败: %s", e, exc_info=True)
             meta = {}
     else:
         meta = dict(meta_raw or {})

@@ -6,6 +6,7 @@
 
 import asyncio
 import json
+import logging
 from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request
@@ -19,6 +20,8 @@ from ..services.langgraph_service import langgraph_service
 from ..services.memory import memory_store
 from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -121,8 +124,9 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                         break
                     eid = sse_buffer.append(task_id, event)
                     yield _format_sse(eid, event)
-            except Exception:
+            except Exception as e:
                 # 降级为 agent_executor
+                logger.warning("agents.execute_agent_stream LangGraph 工作流执行失败,降级为 agent_executor: %s", e, exc_info=True)
                 async for event in agent_executor.run_stream(
                     goal=req.goal,
                     session_id=req.session_id,

@@ -1370,7 +1370,6 @@ class SpecGenerator:
         """
         try:
             from watchdog.observers import Observer
-            from watchdog.events import FileSystemEventHandler
         except ImportError:
             return {"error": "watchdog_not_installed"}
 

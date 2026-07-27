@@ -316,7 +316,8 @@ class A2AServer:
             if langgraph_service.available:
                 try:
                     result = await langgraph_service.run_graph(goal=goal, session_id=session_id)
-                except Exception:
+                except Exception as e:
+                    logger.warning("a2a_service._execute_task langgraph 执行失败降级 agent_executor: %s", e, exc_info=True)
                     result = await agent_executor.run(goal=goal, session_id=session_id)
             else:
                 result = await agent_executor.run(goal=goal, session_id=session_id)

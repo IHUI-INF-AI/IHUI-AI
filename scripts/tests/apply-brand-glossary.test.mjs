@@ -274,9 +274,9 @@ describe('zh-TW 专用规则 — 繁体字形匹配 + brands/fonts 子集', () =
     const root = createTempProject()
     try {
       writeLocale(root, 'zh-TW', { title: '歡迎使用智譜清言' })
-      const r = runScript(['--locale=zh-TW'], { cwd: root })
-      assert.equal(r.status, 0, `zh-TW 处理应 exit 0,实际 ${r.status}`)
-      assert.equal(readLocale(root, 'zh-TW').title, '歡迎使用 Zhipu AI')
+      const r = runScript(['--locale', 'zh-TW'], { cwd: root })
+      assert.equal(r.status, 0, `zh-TW 处理应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+      assert.equal(readLocale(root, 'zh-TW').title, '歡迎使用Zhipu AI')
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }
@@ -290,7 +290,7 @@ describe('zh-TW 专用规则 — 繁体字形匹配 + brands/fonts 子集', () =
         brand: '智譜清言',
         term: '大模型是技術術語',
       })
-      runScript(['--locale=zh-TW'], { cwd: root })
+      runScript(['--locale', 'zh-TW'], { cwd: root })
       const after = readLocale(root, 'zh-TW')
       assert.equal(after.brand, 'Zhipu AI', 'brand 应被替换')
       assert.equal(after.term, '大模型是技術術語', 'term 不应被替换(zh-TW 保留繁体术语)')
@@ -304,7 +304,7 @@ describe('边界场景 — 不存在 locale + 退出码', () => {
   test('--locale=fr 文件不存在 → 输出"跳过"且 exit 0', () => {
     const root = createTempProject()
     try {
-      const r = runScript(['--locale=fr'], { cwd: root })
+      const r = runScript(['--locale', 'fr'], { cwd: root })
       assert.equal(r.status, 0, `不存在 locale 应 exit 0,实际 ${r.status}`)
       assert.match(r.stdout, /跳过/)
     } finally {

@@ -24,6 +24,9 @@ from typing import TYPE_CHECKING, Any, Optional
 logger = logging.getLogger(__name__)
 
 # 软依赖:缺失时降级,保证模块可导入 + typecheck 通过
+psycopg: Any
+dict_row: Any
+AsyncConnectionPool: Any
 try:
     import psycopg
     from psycopg.rows import dict_row
@@ -36,6 +39,7 @@ except ImportError:  # pragma: no cover - 依赖未安装时走降级路径
     AsyncConnectionPool = None
     _PSYCOPG_AVAILABLE = False
 
+AsyncPostgresSaver: Any
 try:
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 

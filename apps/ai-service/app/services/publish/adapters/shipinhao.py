@@ -52,8 +52,9 @@ class ShipinhaoAdapter(BasePlatformAdapter):
                 return []
             try:
                 parsed = json.loads(raw)
-            except Exception:
+            except Exception as e:
                 # 尝试 cookie 字符串格式:k1=v1; k2=v2
+                logger.warning("shipinhao._parse_cookies cookie JSON 解析失败降级字符串格式: %s", e, exc_info=True)
                 cookies: list[SetCookieParam] = []
                 for pair in raw.split(";"):
                     if "=" in pair:
@@ -190,8 +191,9 @@ class ShipinhaoAdapter(BasePlatformAdapter):
                     await page.wait_for_selector(
                         '.upload-progress, .progress-bar', state='detached', timeout=600000
                     )
-                except Exception:
+                except Exception as e:
                     # 上传超时检查
+                    logger.warning("shipinhao.publish 视频上传等待失败: %s", e, exc_info=True)
                     await browser.close()
                     return PublishResult(
                         success=False, platform=self.platform_id,
@@ -238,8 +240,9 @@ class ShipinhaoAdapter(BasePlatformAdapter):
                         '.toast:has-text("成功"), .message:has-text("成功")'
                     ).first
                     await success_toast.wait_for(state="visible", timeout=30000)
-                except Exception:
+                except Exception as e:
                     # 检查 URL 跳转
+                    logger.warning("shipinhao.publish 发布成功提示等待失败: %s", e, exc_info=True)
                     if "create" in page.url:
                         await browser.close()
                         return PublishResult(

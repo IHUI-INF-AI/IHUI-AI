@@ -631,7 +631,8 @@ class SkillRegistry:
                     self._skills[name] = Skill(
                         name=name, description=desc, prompt_template=instructions
                     )
-            except Exception:
+            except Exception as e:
+                logger.warning("skills._load_auto_skills 加载 skill 文件失败: %s", e, exc_info=True)
                 continue
 
     def reload_auto(self) -> None:

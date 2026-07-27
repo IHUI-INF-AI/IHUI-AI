@@ -11,9 +11,12 @@
 """
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -144,6 +147,7 @@ def get_adapter(platform_id: str) -> Optional[BasePlatformAdapter]:
         if cls.platform_id == platform_id:
             try:
                 return cls()
-            except Exception:
+            except Exception as e:
+                logger.warning("base_adapter.get_adapter 实例化适配器 %s 失败: %s", platform_id, e, exc_info=True)
                 return None
     return None

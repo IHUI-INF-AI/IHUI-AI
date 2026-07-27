@@ -478,7 +478,8 @@ class ActiveForgetter:
                 ts = ts.replace(tzinfo=timezone.utc)
             delta = now - ts
             return max(0, int(delta.total_seconds() // 86400))
-        except Exception:
+        except Exception as e:
+            logger.warning("active_forgetter._compute_days_stale 天数计算失败: %s", e, exc_info=True)
             return 0
 
     @staticmethod

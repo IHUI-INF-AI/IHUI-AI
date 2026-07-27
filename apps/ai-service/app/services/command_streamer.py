@@ -149,8 +149,8 @@ async def _cleanup_proc(
                 try:
                     proc.kill()
                     await proc.wait()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("command_streamer._cleanup_proc 进程清理失败: %s", e, exc_info=True)
 
 
 async def stream_command(

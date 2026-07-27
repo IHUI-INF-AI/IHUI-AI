@@ -54,7 +54,7 @@ async def _get_redis() -> Any:
             if not url or aioredis is None:
                 return None
             client = aioredis.from_url(url, decode_responses=True)
-            await client.ping()  # type: ignore[misc]  # redis-py stubs: async ping 返回类型为 Awaitable[bool] | bool
+            await client.ping()  # redis-py stubs: async ping 返回类型为 Awaitable[bool] | bool
             _redis_client = client
             return _redis_client
         except Exception as e:

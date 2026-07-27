@@ -143,7 +143,8 @@ def _format_location(loc: dict[str, Any], workspace_path: str) -> dict[str, Any]
     try:
         abs_path = _from_uri(loc.get("uri", ""))
         rel = os.path.relpath(abs_path, workspace_path).replace(os.sep, "/")
-    except Exception:
+    except Exception as e:
+        logger.warning("lsp._format_location URI 路径转换失败: %s", e, exc_info=True)
         rel = loc.get("uri", "")
     start = (loc.get("range") or {}).get("start", {})
     return {
@@ -392,11 +393,12 @@ class LspClient:
             try:
                 self.proc.terminate()
                 await asyncio.wait_for(self.proc.wait(), timeout=2)
-            except Exception:
+            except Exception as e:
+                logger.warning("lsp.dispose terminate 进程失败: %s", e, exc_info=True)
                 try:
                     self.proc.kill()
-                except Exception:
-                    pass
+                except Exception as kill_err:
+                    logger.warning("lsp.dispose kill 进程失败: %s", kill_err, exc_info=True)
         self._initialized = False
 
 
