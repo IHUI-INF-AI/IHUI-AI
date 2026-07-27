@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import React from 'react'
-// @ts-ignore - @testing-library/react no exported member fireEvent/screen
 import { render, fireEvent, cleanup, screen } from '@testing-library/react'
 
 import { Switch } from '@ihui/ui-react'

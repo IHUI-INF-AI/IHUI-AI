@@ -342,7 +342,7 @@ export function saveSettingsTemplate(overwrite = false): boolean {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   if (fs.existsSync(p) && !overwrite) return false;
   const template: Settings = {
-    apiUrl: 'http://localhost:8000',
+    apiUrl: 'http://localhost:8802',
     defaultModel: 'default',
     maxIterations: 25,
     auditEnabled: true,
@@ -466,7 +466,7 @@ export function resolveEffectiveConfig(args: {
     args.cliApiUrl ||
     settings.apiUrl ||
     process.env.IHUI_API_URL ||
-    'http://localhost:8000';
+    'http://localhost:8803';
 
   const apiKey =
     args.cliApiKey ||
