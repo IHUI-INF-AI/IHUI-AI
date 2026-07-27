@@ -10,6 +10,7 @@ import {
   unique,
   jsonb,
   customType,
+  index,
 } from 'drizzle-orm/pg-core'
 import { sysDepts } from './admin-sys.js'
 
@@ -89,7 +90,13 @@ export const refreshTokens = pgTable('refresh_tokens', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-})
+}, (t) => ({
+  // P0 索引补全:revokeAllUserRefreshTokens(userId) / revokeRefreshTokenFamily(familyId) 高频查询
+  userIdIdx: index('refresh_tokens_user_idx').on(t.userId),
+  familyIdIdx: index('refresh_tokens_family_idx').on(t.familyId),
+  // 过期 token 清理任务按 expiresAt 扫描
+  expiresAtIdx: index('refresh_tokens_expires_idx').on(t.expiresAt),
+}))
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert

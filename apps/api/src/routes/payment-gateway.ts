@@ -1564,8 +1564,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const pending = await queryPendingOrders()
       const closed: string[] = []
       const failed: Array<{ outTradeNo: string; error: string }> = []
-      for (const order of pending) {
-        try {
+      const results = await Promise.allSettled(
+        pending.map(async (order) => {
           const payType = order.paymentMethod ?? ''
           if (payType.startsWith('alipay') && isAlipayConfigured()) {
             await aliCloseOrder(order.orderNo)
@@ -1573,11 +1573,19 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             await wxCloseOrder(order.orderNo)
           }
           await cancelOrder(order.orderNo)
-          closed.push(order.orderNo)
-        } catch (e) {
-          failed.push({ outTradeNo: order.orderNo, error: (e as Error).message })
+          return order.orderNo
+        }),
+      )
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+          closed.push(r.value)
+        } else {
+          failed.push({
+            outTradeNo: pending[i]!.orderNo,
+            error: (r.reason as Error)?.message ?? String(r.reason),
+          })
         }
-      }
+      })
       return reply.send(success({ scanned: pending.length, closed, failed }))
     },
   )
