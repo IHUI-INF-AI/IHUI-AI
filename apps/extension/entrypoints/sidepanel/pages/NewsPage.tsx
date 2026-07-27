@@ -9,8 +9,7 @@ import { getNews, type News } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 export default function NewsPage() {
   const { t } = useI18n()
@@ -36,10 +35,6 @@ export default function NewsPage() {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
-
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/news/${encodeURIComponent(id)}` })
-  }
 
   if (loading) {
     return (
@@ -80,7 +75,7 @@ export default function NewsPage() {
             <Card
               key={n.id}
               className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => openInWeb(n.id)}
+              onClick={() => openItemInWeb(`/news/${encodeURIComponent(n.id)}`)}
             >
               <CardHeader className="px-3 py-2">
                 <CardTitle className="text-sm leading-snug line-clamp-2">{n.title}</CardTitle>

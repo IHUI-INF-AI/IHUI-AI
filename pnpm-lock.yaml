@@ -400,6 +400,9 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@ihui/browser-platform':
+        specifier: workspace:*
+        version: link:../../packages/browser-platform
       '@ihui/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
