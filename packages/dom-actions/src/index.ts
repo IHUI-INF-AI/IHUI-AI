@@ -1,0 +1,287 @@
+/**
+ * @ihui/dom-actions — 共享纯 DOM 操作(2026-07-27 立)
+ *
+ * 从 apps/extension/lib/agent-control.ts 提取,提供 8 个 BrowserControlActionType 的纯 DOM
+ * API 实现:click_element / type_text / scroll / extract_dom / wait_for_element /
+ * get_attribute / hover / select_option。
+ *
+ * 设计目标:
+ * - 纯 DOM API 操作(document.querySelector / dispatchEvent / scrollBy 等),无 chrome.* 依赖
+ * - 可在任何浏览器环境运行(extension content script / web app / desktop webview / mobile-rn webview)
+ * - 函数签名与原 agent-control.ts 完全一致,只是物理位置迁移
+ *
+ * 调用方:@ihui/extension 的 agent-control.ts(re-export 给 content.ts)、其他端可按需 import
+ */
+import type { BrowserControlActionType, AgentActionErrorCode } from '@ihui/types'
+
+// ===== Result type =====
+
+export interface DomActionResult {
+  success: boolean
+  data?: Record<string, unknown>
+  error?: string
+  errorCode?: AgentActionErrorCode
+}
+
+// ===== Action classification =====
+
+export const DOM_ACTIONS = new Set<BrowserControlActionType>([
+  'click_element',
+  'type_text',
+  'scroll',
+  'extract_dom',
+  'wait_for_element',
+  'get_attribute',
+  'hover',
+  'select_option',
+])
+
+export function isDomAction(action: BrowserControlActionType): boolean {
+  return DOM_ACTIONS.has(action)
+}
+
+// ===== DOM action executor (runs in content script) =====
+
+export async function executeDomAction(
+  action: BrowserControlActionType,
+  params: Record<string, unknown>,
+  timeoutMs = 30000,
+): Promise<DomActionResult> {
+  if (!isDomAction(action)) {
+    return { success: false, errorCode: 'UNSUPPORTED_ACTION', error: `not a DOM action: ${action}` }
+  }
+  const exec = doDomAction(action, params)
+  const timeout = new Promise<DomActionResult>((resolve) => {
+    setTimeout(() => {
+      resolve({
+        success: false,
+        errorCode: 'TIMEOUT',
+        error: `action ${action} timed out after ${timeoutMs}ms`,
+      })
+    }, timeoutMs)
+  })
+  return Promise.race([exec, timeout])
+}
+
+async function doDomAction(
+  action: BrowserControlActionType,
+  params: Record<string, unknown>,
+): Promise<DomActionResult> {
+  switch (action) {
+    case 'click_element':
+      return domClick(params)
+    case 'type_text':
+      return domType(params)
+    case 'scroll':
+      return domScroll(params)
+    case 'extract_dom':
+      return domExtract(params)
+    case 'wait_for_element':
+      return domWaitForElement(params)
+    case 'get_attribute':
+      return domGetAttribute(params)
+    case 'hover':
+      return domHover(params)
+    case 'select_option':
+      return domSelectOption(params)
+    default:
+      return {
+        success: false,
+        errorCode: 'UNSUPPORTED_ACTION',
+        error: `unsupported DOM action: ${action}`,
+      }
+  }
+}
+
+function notFound(selector: string): DomActionResult {
+  return {
+    success: false,
+    errorCode: 'SELECTOR_NOT_FOUND',
+    error: `selector not found: ${selector}`,
+  }
+}
+
+function domClick(params: Record<string, unknown>): DomActionResult {
+  const selector = params.selector as string
+  const el = document.querySelector(selector) as HTMLElement | null
+  if (!el) return notFound(selector)
+  const button = (params.button as 'left' | 'right' | 'middle') ?? 'left'
+  const buttonCode = button === 'right' ? 2 : button === 'middle' ? 1 : 0
+  const count = (params.count as number) ?? 1
+  for (let i = 0; i < count; i++) {
+    el.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, button: buttonCode }),
+    )
+  }
+  return { success: true, data: { clicked: true, selector } }
+}
+
+/** React/Vue 受控组件需要通过原型链 setter 修改 value,直接赋值 el.value 不会触发 onChange */
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const proto =
+    el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+  const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
+  if (setter) {
+    setter.call(el, value)
+  } else {
+    el.value = value
+  }
+}
+
+async function domType(params: Record<string, unknown>): Promise<DomActionResult> {
+  const selector = params.selector as string
+  const text = params.text as string
+  const el = document.querySelector(selector) as (HTMLInputElement | HTMLTextAreaElement) | null
+  if (!el) return notFound(selector)
+  const clear = params.clear !== false
+  const delay = (params.delay as number) ?? 0
+  if (clear) {
+    setNativeValue(el, '')
+    el.dispatchEvent(new InputEvent('input', { bubbles: true }))
+  }
+  for (const char of text) {
+    setNativeValue(el, el.value + char)
+    el.dispatchEvent(new InputEvent('input', { bubbles: true, data: char }))
+    if (delay > 0) await new Promise((r) => setTimeout(r, delay))
+  }
+  el.dispatchEvent(new Event('change', { bubbles: true }))
+  return { success: true, data: { typed: true, length: text.length } }
+}
+
+function domScroll(params: Record<string, unknown>): DomActionResult {
+  const direction = params.direction as 'up' | 'down' | 'left' | 'right'
+  const amount = (params.amount as number) ?? 300
+  const selector = params.selector as string | undefined
+  let x = 0
+  let y = 0
+  if (direction === 'up') y = -amount
+  else if (direction === 'down') y = amount
+  else if (direction === 'left') x = -amount
+  else if (direction === 'right') x = amount
+  if (selector) {
+    const el = document.querySelector(selector)
+    if (!el) return notFound(selector)
+    el.scrollBy(x, y)
+  } else {
+    window.scrollBy(x, y)
+  }
+  return { success: true, data: { scrolled: true, direction, amount } }
+}
+
+function domExtract(params: Record<string, unknown>): DomActionResult {
+  const selector = params.selector as string | undefined
+  const attributes = (params.attributes as string[]) ?? ['text', 'href', 'src', 'value']
+  const maxNodes = (params.maxNodes as number) ?? 100
+  let elements: Element[]
+  let truncated = false
+  if (!selector) {
+    // 无 selector 时只扫描语义元素,避免 body * 在大页面上返回上万节点
+    elements = Array.from(
+      document.querySelectorAll(
+        'a, button, input, textarea, select, [role="button"], [role="link"], [role="menuitem"], h1, h2, h3, [data-testid]',
+      ),
+    )
+  } else if (selector === 'all') {
+    elements = Array.from(document.querySelectorAll('*'))
+  } else {
+    elements = Array.from(document.querySelectorAll(selector))
+  }
+  if (elements.length > maxNodes) truncated = true
+  const nodes = elements.slice(0, maxNodes).map((el) => {
+    const node: Record<string, unknown> = { tag: el.tagName.toLowerCase() }
+    for (const attr of attributes) {
+      if (attr === 'text') {
+        node[attr] = (el.textContent || '').trim().slice(0, 500)
+      } else {
+        node[attr] = el.getAttribute(attr)
+      }
+    }
+    return node
+  })
+  return {
+    success: true,
+    data: {
+      dom: nodes,
+      count: nodes.length,
+      totalMatched: elements.length,
+      ...(truncated ? { warning: `truncated from ${elements.length} to ${maxNodes} nodes` } : {}),
+    },
+  }
+}
+
+async function domWaitForElement(params: Record<string, unknown>): Promise<DomActionResult> {
+  const selector = params.selector as string
+  const state = (params.state as 'attached' | 'detached' | 'visible' | 'hidden') ?? 'visible'
+  const timeout = (params.timeout as number) ?? 30000
+  const start = Date.now()
+  return new Promise((resolve) => {
+    const check = () => {
+      const el = document.querySelector(selector)
+      let ready = false
+      if (state === 'attached') ready = !!el
+      else if (state === 'detached') ready = !el
+      else if (state === 'visible') ready = !!el && (el as HTMLElement).offsetParent !== null
+      else if (state === 'hidden') ready = !el || (el as HTMLElement).offsetParent === null
+      if (ready) {
+        resolve({ success: true, data: { found: true, selector, state } })
+        return
+      }
+      if (Date.now() - start > timeout) {
+        resolve({
+          success: false,
+          errorCode: 'TIMEOUT',
+          error: `wait for element timeout: ${selector}`,
+        })
+        return
+      }
+      setTimeout(check, 100)
+    }
+    check()
+  })
+}
+
+function domGetAttribute(params: Record<string, unknown>): DomActionResult {
+  const selector = params.selector as string
+  const attribute = params.attribute as string
+  const el = document.querySelector(selector)
+  if (!el) return notFound(selector)
+  let value: string | null = null
+  if (attribute === 'value') {
+    const inputEl = el as HTMLInputElement
+    if (typeof inputEl.value === 'string') value = inputEl.value
+  }
+  if (value === null) value = el.getAttribute(attribute)
+  return { success: true, data: { value: value ?? '' } }
+}
+
+function domHover(params: Record<string, unknown>): DomActionResult {
+  const selector = params.selector as string
+  const el = document.querySelector(selector)
+  if (!el) return notFound(selector)
+  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false, cancelable: true }))
+  return { success: true, data: { hovered: true, selector } }
+}
+
+function domSelectOption(params: Record<string, unknown>): DomActionResult {
+  const selector = params.selector as string
+  const value = params.value as string
+  const el = document.querySelector(selector) as HTMLSelectElement | null
+  if (!el) return notFound(selector)
+  if (el.tagName.toLowerCase() !== 'select') {
+    return { success: false, errorCode: 'EXECUTION_FAILED', error: 'element is not a <select>' }
+  }
+  let matched = false
+  for (const opt of Array.from(el.options)) {
+    if (opt.value === value || opt.text === value) {
+      el.value = opt.value
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+      matched = true
+      break
+    }
+  }
+  if (!matched) {
+    return { success: false, errorCode: 'EXECUTION_FAILED', error: `option not found: ${value}` }
+  }
+  return { success: true, data: { selected: true, value } }
+}
