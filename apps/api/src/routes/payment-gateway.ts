@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyBaseLogger } from 'fastify'
+import type { FastifyPluginAsync, FastifyBaseLogger, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { env } from 'node:process'
 import { authenticate } from '../plugins/auth.js'
@@ -39,6 +39,13 @@ import {
   closeOrder as aliCloseOrder,
   downloadBillUrl as aliDownloadBillUrl,
 } from '../services/alipay.js'
+import {
+  isStripeConfigured,
+  createCheckoutSession,
+  getCheckoutSession,
+  refundPaymentIntent,
+  verifyWebhookSignature as verifyStripeWebhook,
+} from '../services/stripe.js'
 import { applyWithdrawal, getBalance } from '../db/commission-queries.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
 import { db } from '../db/index.js'
@@ -181,6 +188,28 @@ const alipayRefundQuery = z.object({
   reason: z.string().optional().default('用户申请退款'),
 })
 
+// Stripe Checkout Session 创建参数(金额单位:分,Stripe 用最小货币单位 cents)
+const stripeCreateCheckoutQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  productId: z.string().optional(),
+  currency: z.string().optional().default('usd'),
+  productName: z.string().optional().default('IHUI-AI Purchase'),
+  successUrl: z.string().url().optional(),
+  cancelUrl: z.string().url().optional(),
+})
+
+const stripeRefundQuery = z.object({
+  outTradeNo: z.string(),
+  paymentIntentId: z.string().optional(),
+  refundAmount: z.coerce.number().optional(),
+  reason: z.string().optional().default('requested_by_customer'),
+})
+
+const stripeSessionStatusQuery = z.object({
+  sessionId: z.string(),
+})
+
 const fundCreateOrderQuery = z.object({
   amount: z.coerce.number(),
   orderType: z.coerce.number().optional().default(0),
@@ -205,6 +234,20 @@ const withdrawalQuery = z.object({
 const orderNoQuery = z.object({ orderNo: z.string().optional() })
 
 export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
+  // ==========================================================================
+  // Stripe webhook 原始请求体捕获(验签需要 raw body,与 tbox.ts 同模式)
+  // 仅在本插件作用域内覆盖默认 JSON parser,其他路由不受影响
+  // ==========================================================================
+  server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+    try {
+      const raw = body.toString()
+      ;(req as FastifyRequest & { rawBody?: string }).rawBody = raw
+      done(null, JSON.parse(raw))
+    } catch (err) {
+      done(err as Error, undefined)
+    }
+  })
+
   // ==========================================================================
   // 微信支付
   // ==========================================================================
@@ -1035,6 +1078,307 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       }
       await refundOrder(outTradeNo)
       return reply.send(success({ outTradeNo }))
+    },
+  )
+
+  // ==========================================================================
+  // Stripe 支付(海外收款,Checkout Session 模式)
+  // 文档:https://stripe.com/docs/payments/checkout
+  // 货币单位:分(cents),Stripe API 直接接收最小货币单位
+  // 订阅激活:复用 activateOrderSubscription(orderType=2 VIP / 5 开发者套餐)
+  // ==========================================================================
+
+  server.post(
+    '/payments/stripe/create-checkout',
+    {
+      schema: buildSchema({
+        summary: 'Stripe Checkout 下单(海外)',
+        description:
+          '创建 Stripe Checkout Session,返回 Stripe 托管支付页 URL(金额单位:分/cents,currency 默认 usd)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountCentsInitial,
+        orderType,
+        productId,
+        currency,
+        productName,
+        successUrl,
+        cancelUrl,
+      } = stripeCreateCheckoutQuery.parse(request.query)
+      let amountCents = amountCentsInitial
+      const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
+      }
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        productId,
+        payType: 'stripe',
+        description: productName,
+      })
+      if (!isStripeConfigured()) {
+        return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, mock: true }))
+      }
+      // success/cancel URL 默认值:从 CORS_ORIGIN 取第一个 origin(开发/生产都配置)
+      const webOrigin = ((env.CORS_ORIGIN ?? 'http://localhost:8801').split(',')[0] ?? '').trim()
+      const finalSuccessUrl =
+        successUrl ?? `${webOrigin}/payments/success?orderNo=${order.orderNo}`
+      const finalCancelUrl = cancelUrl ?? `${webOrigin}/payments/fail`
+      const session = await createCheckoutSession({
+        outTradeNo: order.orderNo,
+        amountCents,
+        currency,
+        productName,
+        successUrl: finalSuccessUrl,
+        cancelUrl: finalCancelUrl,
+        metadata: { userId, orderType: String(orderType) },
+      })
+      return reply.send(
+        success({
+          outTradeNo: order.orderNo,
+          amount: amountCents,
+          sessionId: session.id,
+          url: session.url,
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/payments/stripe/webhook',
+    {
+      schema: buildSchema({
+        summary: 'Stripe Webhook 回调',
+        description:
+          'Stripe 异步事件回调(无需登录,验签后处理 checkout.session.completed / payment_intent.succeeded)',
+        tags: ['Payment'],
+        auth: false,
+        response: swaggerSchemas.public,
+      }),
+    },
+    async (request, reply) => {
+      const signature = request.headers['stripe-signature'] as string
+      if (!signature) return reply.status(400).send(error(400, 'missing stripe-signature'))
+      const rawBody = (request as FastifyRequest & { rawBody?: string }).rawBody
+      if (!rawBody) return reply.status(400).send(error(400, 'no raw body'))
+      let event
+      try {
+        event = verifyStripeWebhook(rawBody, signature)
+      } catch (err) {
+        request.log.warn(
+          { err: (err as Error).message },
+          'stripe webhook signature verification failed',
+        )
+        return reply.status(400).send(error(400, 'signature verification failed'))
+      }
+      request.log.info({ eventId: event.id, eventType: event.type }, 'stripe webhook received')
+
+      // checkout.session.completed:Checkout 完成支付,client_reference_id = outTradeNo
+      if (event.type === 'checkout.session.completed') {
+        const obj = event.data.object as {
+          client_reference_id?: string
+          payment_intent?: string
+          amount_total?: number
+          payment_status?: string
+        }
+        const outTradeNo = obj.client_reference_id
+        const paymentIntentId = obj.payment_intent
+        if (!outTradeNo) {
+          request.log.warn({ eventId: event.id }, 'stripe webhook missing client_reference_id')
+          return reply.send(success({ received: true, skipped: 'no_out_trade_no' }))
+        }
+        // 校验金额(防篡改)
+        const localOrder = await getOrder(outTradeNo)
+        if (!localOrder) {
+          request.log.warn({ outTradeNo, eventId: event.id }, 'stripe webhook order not found')
+          return reply.send(success({ received: true, skipped: 'order_not_found' }))
+        }
+        if (obj.amount_total !== undefined && obj.amount_total !== localOrder.amount) {
+          request.log.error(
+            { outTradeNo, callbackAmount: obj.amount_total, orderAmount: localOrder.amount },
+            'stripe webhook amount mismatch',
+          )
+          return reply.status(400).send(error(400, 'amount mismatch'))
+        }
+        if (obj.payment_status !== 'paid') {
+          request.log.info(
+            { outTradeNo, paymentStatus: obj.payment_status },
+            'stripe payment not paid yet',
+          )
+          return reply.send(success({ received: true, skipped: 'not_paid' }))
+        }
+        // 幂等键:payment_intent_id(Stripe 保证全局唯一)
+        if (!paymentIntentId) {
+          request.log.warn(
+            { outTradeNo, eventId: event.id },
+            'stripe webhook missing payment_intent',
+          )
+          return reply.status(400).send(error(400, 'missing payment_intent'))
+        }
+        const idem = await server.paymentIdempotency.acquire(outTradeNo, paymentIntentId)
+        if (idem.status === 'completed') return reply.send(success({ received: true, dup: true }))
+        if (idem.status === 'processing')
+          return reply.send(success({ received: true, processing: true }))
+        try {
+          const result = await completeOrder(outTradeNo, paymentIntentId)
+          if (result.success && result.order) {
+            try {
+              await activateOrderSubscription(result.order)
+            } catch (ae) {
+              request.log.warn(
+                { err: ae, orderNo: outTradeNo },
+                'stripe subscription activation failed',
+              )
+            }
+            try {
+              if (!result.order.userId) throw new Error('order has no userId')
+              const tokenQuantity = await getBalance(result.order.userId)
+              await feedbackInvite(
+                { id: result.order.userId, tokenQuantity },
+                {
+                  id: result.order.id,
+                  amount: result.order.amount,
+                  orderType: result.order.orderType,
+                  productId: result.order.productId ?? null,
+                },
+              )
+            } catch (ce) {
+              request.log.warn(
+                { err: ce, orderNo: outTradeNo },
+                'stripe commission feedback failed',
+              )
+            }
+          }
+          await server.paymentIdempotency.complete(outTradeNo, paymentIntentId, {
+            outTradeNo,
+            eventId: event.id,
+          })
+        } catch (e) {
+          await server.paymentIdempotency.fail(
+            outTradeNo,
+            paymentIntentId,
+            (e as Error).message,
+          )
+          request.log.error(
+            { err: e, outTradeNo, eventId: event.id },
+            'stripe webhook process failed',
+          )
+          return reply.status(500).send(error(500, 'process failed'))
+        }
+      }
+      // 其他事件类型:ack 接收(Stripe 要求 2xx 才会停止重试)
+      return reply.send(success({ received: true }))
+    },
+  )
+
+  server.get(
+    '/payments/stripe/session-status',
+    {
+      schema: buildSchema({
+        summary: '查询 Stripe Checkout Session 状态',
+        description:
+          '按 sessionId 查询 Stripe Checkout Session 支付状态(管理员或订单归属人可查)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { sessionId } = stripeSessionStatusQuery.parse(request.query)
+      if (!isStripeConfigured()) {
+        return reply.send(success({ sessionId, mock: true }))
+      }
+      const session = await getCheckoutSession(sessionId)
+      // 校验订单归属:client_reference_id = outTradeNo
+      if (session.client_reference_id) {
+        const local = await getOrder(session.client_reference_id)
+        if (local && local.userId && local.userId !== request.userId) {
+          return reply.status(403).send(error(403, '无权查看此订单'))
+        }
+      }
+      return reply.send(
+        success({
+          sessionId: session.id,
+          paymentStatus: session.payment_status,
+          paymentIntent: session.payment_intent,
+          amountTotal: session.amount_total,
+          currency: session.currency,
+          outTradeNo: session.client_reference_id,
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/payments/stripe/refund',
+    {
+      schema: buildSchema({
+        summary: 'Stripe 退款',
+        description:
+          '发起 Stripe 退款并本地退款(订单需为 paid 状态,管理员或订单归属人可操作)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const { outTradeNo, paymentIntentId, refundAmount, reason } = stripeRefundQuery.parse(
+        request.query,
+      )
+      const order = await getOrder(outTradeNo)
+      if (!order) return reply.status(404).send(error(404, '订单不存在'))
+      if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权操作此订单'))
+      }
+      if (order.status !== 'paid')
+        return reply.status(400).send(error(400, '订单状态不允许退款'))
+      // 退款金额默认全退,部分退款不能超过订单金额
+      const refundCents = refundAmount ?? order.amount
+      if (refundCents > order.amount)
+        return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      // paymentIntentId 必传(Stripe 退款必需)
+      if (!paymentIntentId) {
+        return reply.status(400).send(error(400, 'Stripe 退款必须提供 paymentIntentId'))
+      }
+      if (isStripeConfigured()) {
+        const refundResult = await refundPaymentIntent({
+          paymentIntentId,
+          amountCents: refundCents,
+          reason,
+        })
+        // Stripe 退款是异步的(refund.status=pending/cancelled),本地先标记退款中
+        await refundOrder(outTradeNo)
+        return reply.send(
+          success({
+            outTradeNo,
+            refundId: refundResult.id,
+            amount: refundResult.amount,
+            status: refundResult.status,
+          }),
+        )
+      }
+      // 未配置 Stripe:仅本地退款
+      await refundOrder(outTradeNo)
+      return reply.send(success({ outTradeNo, mock: true }))
     },
   )
 
