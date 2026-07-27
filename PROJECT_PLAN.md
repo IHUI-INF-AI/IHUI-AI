@@ -66,6 +66,11 @@
   - **复用清单**:`feedback/Drawer.tsx` 容器、`ai/tool-call-card.tsx` 渲染工具调用、`ai/diff-preview.tsx` 渲染 diff、`hooks/use-agent-stream.ts` SSE 流消费、`packages/types/src/agent-runtime.ts` 的 `AgentSSEEvent` 类型、`@ihui/ui-react` 的 Button/Card/Tabs
   - **验证**:typecheck exit 0 + 21/21 测试全绿 + browser_use 4 状态截图(默认/hover/active/dark mode)全 PASS + DOM 验证(trigger position=fixed/zIndex=990、drawer role=dialog、4 个 role=tab)
   - **交付物**:① `apps/web/src/stores/agent-progress-drawer.ts`(80 行 zustand store);② `apps/web/src/hooks/use-agent-progress.ts`(283 行 SSE 事件聚合 hook);③ `apps/web/src/components/ai/agent-task-progress-drawer.tsx`(468 行主组件,4 tab + threadId 输入 + 控制按钮);④ `apps/web/src/components/ai/agent-progress-trigger.tsx`(75 行浮动按钮 + 快捷键);⑤ `apps/web/tests/agent-task-progress-drawer.test.tsx`(264 行,21 个测试覆盖 store/trigger/drawer);⑥ `apps/web/src/components/ai/index.ts` 导出;⑦ `apps/web/src/components/layout/GlobalShell.tsx` 全局挂载
+- [x] ✅(2026-07-27) Agent 任务进度查看器对齐 Codex CLI TUI 架构重构(/goal 模式,平台独占:仅 apps/web)
+  - **触发**:用户要求"界面样式交互逻辑跟 codex 没做到一模一样啊 不行啊这 必须要一模一样"——将右侧 Drawer 重构为与 Codex CLI TUI 完全一致的持久化底部面板
+  - **核心变更**:① 新增 `agent-task-progress-pane.tsx`(~730 行底部面板主组件,持久化底部 + 三栏 tab + threadId 输入栏 + 模式指示器 + footer 快捷键提示);② 新增 `agent-progress-pane.ts`(Zustand store:open/threadId/activeColumn/verbose/showArchived/sortMode/expandedIds);③ 修改 `use-agent-progress.ts`(Codex 三状态 pending/in_progress/completed + explanation + 最多一个 in_progress 硬规则 + 子代理昵称派生 + 终端任务);④ 修改 `agent-progress-trigger.tsx`(Down 打开 / Tab 切换排序 / a 切换归档 / v 切换 verbose + Ctrl+Shift+J 保留);⑤ 删除旧 Drawer 三件套(drawer.tsx + drawer.ts + drawer.test.tsx)
+  - **Codex 权威契约对齐**:Plan 三状态 + explanation + 最多一个 in_progress 硬规则;底部面板 + 三栏(Tasks/Subagents/Terminals)+ 原地更新;子代理昵称 + @handle + 彩色标签 + dead agents 可见 + inline 审批;spinner + ✓ + 历史 bracket `[====|====│=====> ]` + "无历史数据"降级;长输出默认折叠 + 折叠态显示耗时;Down/Tab/a/v 快捷键 + Ctrl+Shift+J 保留
+  - **验证**:typecheck exit 0 + 35/35 测试全绿 + browser_use 4 状态截图(默认/hover/active/dark mode)全 PASS + DOM 验证(pane role=region / tablist 3 tab Tasks/Subagents/Terminals / 5 kbd ↓/Tab/a/v/Ctrl+Shift+J / 模式指示器 v/a/Tab 可切换)全 PASS;commit `3843c773f`,§20 五条全绿(local HEAD == remote HEAD,git-push-guard exit 0)
 
 ### P2 工程卫生与维护成本优化
 
