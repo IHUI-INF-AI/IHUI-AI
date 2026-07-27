@@ -12470,6 +12470,31 @@
     "relatedTitle": "관련 글",
     "notFound": "글을 찾을 수 없습니다"
   },
+  "crypto": {
+    "title": "암호화폐 기부",
+    "subtitle": "직접 송금, 중개 플랫폼 없음, 수수료 0",
+    "bitcoin": {
+      "name": "Bitcoin",
+      "network": "BTC 네트워크"
+    },
+    "ethereum": {
+      "name": "Ethereum",
+      "network": "ETH 네트워크"
+    },
+    "usdtTrc20": {
+      "name": "USDT (TRC20)",
+      "network": "Tron 네트워크",
+      "recommended": "추천:최저 수수료 (~$1)"
+    },
+    "usdtErc20": {
+      "name": "USDT (ERC20)",
+      "network": "ETH 네트워크"
+    },
+    "copyButton": "주소 복사",
+    "copied": "복사됨!",
+    "disclaimer": "기부금은 중개 수수료 없이 직접 우리 지갑으로 들어갑니다. USDT-TRC20이 최저 수수료(~$1)로 추천됩니다.",
+    "qrCode": "QR 코드"
+  },
   "services": {
     "hero": {
       "title": "전문 서비스",
