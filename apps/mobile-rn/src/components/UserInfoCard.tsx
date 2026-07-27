@@ -6,6 +6,7 @@
  */
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
+import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatTokenValue } from '@ihui/shared/utils'
 import { getRoleLabel } from '@ihui/shared/utils'
 
@@ -26,9 +27,6 @@ export interface UserInfoCardProps {
   onRecharge?: () => void
   onLogin?: () => void
 }
-
-const AVATAR_FALLBACK = 'https://file.aizhs.top/sys-mini/daixaodiming.png'
-
 
 export default function UserInfoCard({
   userInfo,
@@ -51,7 +49,7 @@ export default function UserInfoCard({
   const role = getRoleLabel(userInfo.isVip, userInfo.identityType)
   const isVip = userInfo.isVip === 1
   const tokenStr = formatTokenValue(userInfo.tokenQuantity)
-  const avatar = userInfo.avatarUrl || AVATAR_FALLBACK
+  const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
 
   return (
     <View style={styles.card}>
