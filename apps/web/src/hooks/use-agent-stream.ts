@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SSEEvent, SSEEventType } from '@ihui/types'
 
 /**
@@ -28,6 +28,8 @@ import type { SSEEvent, SSEEventType } from '@ihui/types'
  */
 
 const MAX_EVENTS = 200
+const MAX_RECONNECT_ATTEMPTS = 5
+const RECONNECT_BASE_DELAY_MS = 3000
 
 export interface UseAgentStreamOptions {
   threadId: string
@@ -35,6 +37,8 @@ export interface UseAgentStreamOptions {
   onInterrupt?: (event: SSEEvent) => void
   onDone?: () => void
   onError?: (error: string) => void
+  /** 自动重连(stream 异常中断时,非主动 stop、非 done event),默认 false */
+  autoReconnect?: boolean
 }
 
 export interface UseAgentStreamReturn {
@@ -54,6 +58,8 @@ export interface UseAgentStreamReturn {
   lastPlan: unknown
   /** 最近错误信息 */
   error: string | null
+  /** 当前重连尝试次数(0=未重连,>0=正在重连第 N 次) */
+  reconnectAttempt: number
   /** 启动流(input 将 JSON 编码到 query) */
   start: (input?: Record<string, unknown>) => void
   /** 主动中断流 */
@@ -131,10 +137,11 @@ function parseSseFrame(frame: string): SSEEvent | null {
 export function useAgentStream(
   options: UseAgentStreamOptions,
 ): UseAgentStreamReturn {
-  const { threadId, onEvent, onInterrupt, onDone, onError } = options
+  const { threadId, onEvent, onInterrupt, onDone, onError, autoReconnect = false } = options
 
   const [state, setState] = useState<StreamState>(initialState)
   const [isStreaming, setIsStreaming] = useState(false)
+  const [reconnectAttempt, setReconnectAttempt] = useState(0)
 
   const abortRef = useRef<AbortController | null>(null)
   const streamRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
@@ -142,7 +149,27 @@ export function useAgentStream(
   const cbRef = useRef({ onEvent, onInterrupt, onDone, onError })
   cbRef.current = { onEvent, onInterrupt, onDone, onError }
 
+  // 重连相关 ref
+  const autoReconnectRef = useRef(autoReconnect)
+  autoReconnectRef.current = autoReconnect
+  const receivedDoneRef = useRef(false)
+  const userStoppedRef = useRef(false)
+  const lastInputRef = useRef<Record<string, unknown> | undefined>(undefined)
+  const reconnectAttemptRef = useRef(0)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // start 函数 ref(供重连递归调用,避免闭包陈旧)
+  const startRef = useRef<(input?: Record<string, unknown>) => void>(() => {})
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current)
+      reconnectTimerRef.current = null
+    }
+  }, [])
+
   const stop = useCallback(() => {
+    userStoppedRef.current = true
+    clearReconnectTimer()
     if (streamRef.current) {
       streamRef.current.cancel().catch(() => {})
       streamRef.current = null
@@ -151,11 +178,15 @@ export function useAgentStream(
       abortRef.current.abort()
       abortRef.current = null
     }
+    reconnectAttemptRef.current = 0
+    setReconnectAttempt(0)
     setIsStreaming(false)
-  }, [])
+  }, [clearReconnectTimer])
 
   const clear = useCallback(() => {
     setState(initialState)
+    reconnectAttemptRef.current = 0
+    setReconnectAttempt(0)
   }, [])
 
   const clearInterrupt = useCallback(() => {
@@ -168,6 +199,17 @@ export function useAgentStream(
       // 已在流中,先停止旧流
       if (abortRef.current) {
         stop()
+      }
+
+      clearReconnectTimer()
+      // 重置重连标志(每次主动 start 都视为新会话)
+      receivedDoneRef.current = false
+      userStoppedRef.current = false
+      lastInputRef.current = input
+      // 主动 start 时重置重连计数(但重连内部调用 start 时不重置)
+      // 用 reconnectAttemptRef > 0 判断是否为重连调用
+      if (reconnectAttemptRef.current === 0) {
+        setReconnectAttempt(0)
       }
 
       const query = input
@@ -229,6 +271,7 @@ export function useAgentStream(
         cb.onEvent?.(evt)
         if (evt.type === 'interrupt') cb.onInterrupt?.(evt)
         if (evt.type === 'done') {
+          receivedDoneRef.current = true
           cb.onDone?.()
           setIsStreaming(false)
         }
@@ -236,6 +279,28 @@ export function useAgentStream(
           cb.onError?.(String(evt.data ?? '未知错误'))
           setIsStreaming(false)
         }
+      }
+
+      // 尝试自动重连(stream 异常中断时)
+      const tryReconnect = () => {
+        if (!autoReconnectRef.current) return
+        if (userStoppedRef.current) return
+        if (receivedDoneRef.current) return
+        if (reconnectAttemptRef.current >= MAX_RECONNECT_ATTEMPTS) {
+          setReconnectAttempt(0)
+          reconnectAttemptRef.current = 0
+          return
+        }
+        reconnectAttemptRef.current += 1
+        const attempt = reconnectAttemptRef.current
+        setReconnectAttempt(attempt)
+        const delay = RECONNECT_BASE_DELAY_MS * Math.pow(2, attempt - 1)
+        reconnectTimerRef.current = setTimeout(() => {
+          reconnectTimerRef.current = null
+          // 重连前再次检查用户是否已 stop
+          if (userStoppedRef.current) return
+          startRef.current(lastInputRef.current)
+        }, delay)
       }
 
       ;(async () => {
@@ -251,11 +316,19 @@ export function useAgentStream(
             cbRef.current.onError?.(msg)
             setState((s) => ({ ...s, error: msg }))
             setIsStreaming(false)
+            // HTTP 错误也尝试重连
+            tryReconnect()
             return
           }
 
           const reader = res.body.getReader()
           streamRef.current = reader
+
+          // 重连成功后重置计数
+          if (reconnectAttemptRef.current > 0) {
+            reconnectAttemptRef.current = 0
+            setReconnectAttempt(0)
+          }
 
           const decoder = new TextDecoder()
           let buffer = ''
@@ -276,6 +349,8 @@ export function useAgentStream(
               idx = buffer.indexOf('\n\n')
             }
           }
+          // stream 正常结束但未收到 done event → 可能是 server 主动关闭,尝试重连
+          tryReconnect()
         } catch (err) {
           if (controller.signal.aborted) {
             // 主动 stop,不报错
@@ -284,6 +359,8 @@ export function useAgentStream(
           const msg = err instanceof Error ? err.message : String(err)
           cbRef.current.onError?.(msg)
           setState((s) => ({ ...s, error: msg }))
+          // 网络错误尝试重连
+          tryReconnect()
         } finally {
           setIsStreaming(false)
           streamRef.current = null
@@ -291,8 +368,21 @@ export function useAgentStream(
         }
       })()
     },
-    [threadId, stop],
+    [threadId, stop, clearReconnectTimer],
   )
+
+  // 保持 startRef 最新,供重连递归调用
+  startRef.current = start
+
+  // 卸载时清理重连定时器
+  useEffect(() => {
+    return () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
+    }
+  }, [])
 
   return {
     events: state.events,
@@ -303,6 +393,7 @@ export function useAgentStream(
     lastState: state.lastState,
     lastPlan: state.lastPlan,
     error: state.error,
+    reconnectAttempt,
     start,
     stop,
     clear,
