@@ -509,7 +509,8 @@ class ABTestScheduler:
                 started = started.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
             return (now - started).total_seconds() > max_duration_seconds
-        except Exception:
+        except Exception as e:
+            logger.warning("ab_test_scheduler._is_expired 超时检查失败: %s", e, exc_info=True)
             return False
 
 

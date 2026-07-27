@@ -81,7 +81,8 @@ class ToutiaoAdapter(BasePlatformAdapter):
 
         try:
             data = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("toutiao.verify_credentials 响应 JSON 解析失败: %s", e, exc_info=True)
             return False, f"invalid json: {resp.text[:200]}"
 
         if data.get("message") != "success":
@@ -139,7 +140,8 @@ class ToutiaoAdapter(BasePlatformAdapter):
 
         try:
             rdata = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("toutiao.publish 响应 JSON 解析失败: %s", e, exc_info=True)
             rdata = {}
 
         if rdata.get("message") != "success":
