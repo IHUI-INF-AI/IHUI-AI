@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -190,7 +190,7 @@ export default function SignInPage() {
         </h2>
         <div className="grid grid-cols-7 gap-2">
           {WEEKDAYS.map((d) => {
-            const item = week.find((w: any) => w.day === d)
+            const item = week.find((w) => w.day === d)
             const isSigned = item?.signed ?? false
             return (
               <div
@@ -200,7 +200,9 @@ export default function SignInPage() {
                   isSigned ? 'border-primary/40 bg-primary/5' : 'hover:bg-accent/50',
                 )}
               >
-                <span className="text-xs text-muted-foreground">{t(WEEKDAY_KEY[d] ?? 'dayUnknown')}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t(WEEKDAY_KEY[d] ?? 'dayUnknown')}
+                </span>
                 <span
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium',
@@ -245,7 +247,7 @@ export default function SignInPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {historyQ.data.map((h: any) => (
+                {historyQ.data.map((h) => (
                   <tr key={h.signInDate} className="transition-colors hover:bg-accent/50">
                     <td className="px-4 py-2 text-muted-foreground">{fmtFull(h.signInDate)}</td>
                     <td className="px-4 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400">

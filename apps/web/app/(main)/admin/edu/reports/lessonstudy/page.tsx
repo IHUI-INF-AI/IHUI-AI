@@ -65,9 +65,9 @@ export default function EduReportsLessonStudyPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const totalLearners = rows.reduce((a: any, r: any) => a + r.learnerCount, 0)
-  const totalCompleted = rows.reduce((a: any, r: any) => a + r.completedCount, 0)
-  const totalHours = rows.reduce((a: any, r: any) => a + r.totalHours, 0)
+  const totalLearners = rows.reduce((a, r) => a + r.learnerCount, 0)
+  const totalCompleted = rows.reduce((a, r) => a + r.completedCount, 0)
+  const totalHours = rows.reduce((a, r) => a + r.totalHours, 0)
   const noEndpoint = isNotFound(error)
 
   return (
@@ -168,7 +168,7 @@ export default function EduReportsLessonStudyPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r: any) => (
+              rows.map((r) => (
                 <TableRow key={r.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">{r.lessonTitle}</TableCell>
                   <TableCell className="px-4 py-2.5">{r.learnerCount}</TableCell>

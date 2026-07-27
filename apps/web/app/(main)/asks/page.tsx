@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -51,7 +51,7 @@ export default function AsksPage() {
     onError: (e: Error) => setFormError(e.message),
   })
 
-  const list = (data?.list ?? []).filter((a: any) =>
+  const list = (data?.list ?? []).filter((a) =>
     filter === 'all' ? true : filter === 'resolved' ? a.isResolved : !a.isResolved,
   )
 

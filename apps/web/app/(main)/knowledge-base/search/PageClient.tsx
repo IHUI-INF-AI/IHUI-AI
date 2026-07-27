@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -137,7 +137,7 @@ function SearchContent() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <Link key={item.id} href={`/knowledge-base/${item.id}`} className="block">
               <Card className={cn('transition-colors hover:bg-accent/50')}>
                 <CardHeader className="pb-2">

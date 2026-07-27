@@ -1,21 +1,62 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, Trophy } from 'lucide-react'
-import { Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Card,
+  CardContent,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { fetchAiWorldRankings, fetchLeaderboards } from './helpers'
 import type { LeaderboardId, AiWorldRanking } from './types'
 
-const LEADERBOARDS: LeaderboardId[] = ['lmsys', 'opencompass', 'hf-open-llm', 'superclue', 'artificial-analysis']
+const LEADERBOARDS: LeaderboardId[] = [
+  'lmsys',
+  'opencompass',
+  'hf-open-llm',
+  'superclue',
+  'artificial-analysis',
+]
 const KNOWN_CATS = [
-  'overall', 'coding', 'math', 'reasoning', 'chinese', 'english', 'multiturn', 'hard-prompts',
-  'expert', 'creative', 'instruction', 'longer-query',
-  'knowledge', 'agent', 'multimodal', 'safety', 'long-text', 'open-source', 'basic', 'subject',
-  'chat', 'small-10b', 'small-5b', 'finance', 'automotive', 'industrial', 'roleplay',
+  'overall',
+  'coding',
+  'math',
+  'reasoning',
+  'chinese',
+  'english',
+  'multiturn',
+  'hard-prompts',
+  'expert',
+  'creative',
+  'instruction',
+  'longer-query',
+  'knowledge',
+  'agent',
+  'multimodal',
+  'safety',
+  'long-text',
+  'open-source',
+  'basic',
+  'subject',
+  'chat',
+  'small-10b',
+  'small-5b',
+  'finance',
+  'automotive',
+  'industrial',
+  'roleplay',
   // Artificial Analysis 9 子分类
-  'analytical', 'presentation', 'intelligence', 'agentic',
+  'analytical',
+  'presentation',
+  'intelligence',
+  'agentic',
 ]
 const REFRESH_MS = 5 * 60 * 1000
 
@@ -26,7 +67,9 @@ function rankBadgeClass(rank: number): string {
   return 'text-muted-foreground bg-muted/50'
 }
 
-function extractScores(scores: Record<string, unknown> | null): Array<{ key: string; value: number }> {
+function extractScores(
+  scores: Record<string, unknown> | null,
+): Array<{ key: string; value: number }> {
   if (!scores) return []
   const out: Array<{ key: string; value: number }> = []
   for (const [k, v] of Object.entries(scores)) {
@@ -45,7 +88,13 @@ export function RankingTable() {
   const tLb = useTranslations('common.aiWorld.rankings.leaderboards')
   const locale = useLocale()
   const timeFmt = React.useMemo(
-    () => new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
     [locale],
   )
 
@@ -59,17 +108,18 @@ export function RankingTable() {
   })
 
   const cats = React.useMemo(
-    () => leaderboardsData?.find((l: any) => l.leaderboard === leaderboard)?.categories ?? [],
+    () => leaderboardsData?.find((l) => l.leaderboard === leaderboard)?.categories ?? [],
     [leaderboardsData, leaderboard],
   )
 
   React.useEffect(() => {
-    setCategory((prev) => (prev && cats.includes(prev) ? prev : cats[0] ?? null))
+    setCategory((prev) => (prev && cats.includes(prev) ? prev : (cats[0] ?? null)))
   }, [cats])
 
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ['ai-world-rankings', leaderboard, category],
-    queryFn: () => fetchAiWorldRankings({ leaderboard, category: category ?? undefined, limit: 50 }),
+    queryFn: () =>
+      fetchAiWorldRankings({ leaderboard, category: category ?? undefined, limit: 50 }),
     refetchInterval: REFRESH_MS,
     enabled: !!category,
   })
@@ -93,7 +143,9 @@ export function RankingTable() {
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
           </div>
-          <span className="hidden shrink-0 text-xs text-muted-foreground/70 sm:inline">{t('refresh')}</span>
+          <span className="hidden shrink-0 text-xs text-muted-foreground/70 sm:inline">
+            {t('refresh')}
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-card p-1">
@@ -111,7 +163,7 @@ export function RankingTable() {
 
         {cats.length > 0 && (
           <div className="flex flex-wrap items-center gap-1">
-            {cats.map((c: any) => (
+            {cats.map((c) => (
               <button
                 key={c}
                 type="button"
@@ -146,7 +198,9 @@ export function RankingTable() {
                   <TableHead className="hidden md:table-cell">{t('columns.provider')}</TableHead>
                   <TableHead className="w-20">{t('columns.score')}</TableHead>
                   <TableHead className="hidden lg:table-cell">{t('columns.details')}</TableHead>
-                  <TableHead className="hidden w-28 md:table-cell">{t('columns.fetchedAt')}</TableHead>
+                  <TableHead className="hidden w-28 md:table-cell">
+                    {t('columns.fetchedAt')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -155,18 +209,27 @@ export function RankingTable() {
                   return (
                     <TableRow key={item.id} className="hover:bg-accent/40">
                       <TableCell>
-                        <span className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold tabular-nums ${rankBadgeClass(item.rank)}`}>
+                        <span
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold tabular-nums ${rankBadgeClass(item.rank)}`}
+                        >
                           {item.rank}
                         </span>
                       </TableCell>
                       <TableCell className="font-medium">{item.modelName}</TableCell>
-                      <TableCell className="hidden text-muted-foreground md:table-cell">{item.provider ?? '-'}</TableCell>
-                      <TableCell className="font-medium tabular-nums">{item.score ?? '-'}</TableCell>
+                      <TableCell className="hidden text-muted-foreground md:table-cell">
+                        {item.provider ?? '-'}
+                      </TableCell>
+                      <TableCell className="font-medium tabular-nums">
+                        {item.score ?? '-'}
+                      </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         {details.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {details.map((d) => (
-                              <span key={d.key} className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                              <span
+                                key={d.key}
+                                className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                              >
                                 <span className="opacity-70">{d.key}</span>
                                 <span className="ml-1 tabular-nums">{d.value}</span>
                               </span>

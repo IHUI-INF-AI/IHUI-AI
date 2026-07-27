@@ -1489,7 +1489,7 @@ class SpecGenerator:
 
         observer = Observer()
         handler = SpecRegenHandler()
-        observer.schedule(handler, str(watch_path), recursive=True)
+        observer.schedule(handler, str(watch_path), recursive=True)  # type: ignore[arg-type]
         observer.start()
 
         with _watchers_lock:

@@ -3,7 +3,17 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Coins, TrendingUp, Database, BarChart3, Zap, Loader2, Layers, Boxes, AlertCircle } from 'lucide-react'
+import {
+  Coins,
+  TrendingUp,
+  Database,
+  BarChart3,
+  Zap,
+  Loader2,
+  Layers,
+  Boxes,
+  AlertCircle,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
@@ -84,15 +94,59 @@ export default function AiCostPage() {
   const pc = d.promptCacheMetrics
 
   const cards = [
-    { key: 'totalCost', label: t('totalCost'), value: curFmt.format(totalCost), icon: Coins, cls: 'text-emerald-600' },
-    { key: 'totalTokens', label: t('totalTokens'), value: fmtNum(d.summary.totalTokens ?? 0), icon: Database, cls: 'text-blue-600' },
-    { key: 'totalCalls', label: t('totalCalls'), value: fmtNum(d.summary.totalCalls ?? 0), icon: Zap, cls: 'text-amber-600' },
-    { key: 'cacheHit', label: t('cacheHitRate'), value: `${d.summary.cacheHitRate ?? 0}%`, icon: TrendingUp, cls: 'text-purple-600' },
-    ...(pc ? [
-      { key: 'l1Hit', label: t('l1HitRate'), value: hitRate(pc.hits, pc.misses), icon: Layers, cls: 'text-emerald-600' },
-      { key: 'l2Hit', label: t('l2HitRate'), value: hitRate(pc.l2Hits, pc.l2Misses), icon: Boxes, cls: 'text-emerald-600' },
-      { key: 'pcErrors', label: t('promptCacheErrors'), value: fmtNum(pc.errors ?? 0), icon: AlertCircle, cls: (pc.errors ?? 0) > 0 ? 'text-red-600' : 'text-muted-foreground' },
-    ] : []),
+    {
+      key: 'totalCost',
+      label: t('totalCost'),
+      value: curFmt.format(totalCost),
+      icon: Coins,
+      cls: 'text-emerald-600',
+    },
+    {
+      key: 'totalTokens',
+      label: t('totalTokens'),
+      value: fmtNum(d.summary.totalTokens ?? 0),
+      icon: Database,
+      cls: 'text-blue-600',
+    },
+    {
+      key: 'totalCalls',
+      label: t('totalCalls'),
+      value: fmtNum(d.summary.totalCalls ?? 0),
+      icon: Zap,
+      cls: 'text-amber-600',
+    },
+    {
+      key: 'cacheHit',
+      label: t('cacheHitRate'),
+      value: `${d.summary.cacheHitRate ?? 0}%`,
+      icon: TrendingUp,
+      cls: 'text-purple-600',
+    },
+    ...(pc
+      ? [
+          {
+            key: 'l1Hit',
+            label: t('l1HitRate'),
+            value: hitRate(pc.hits, pc.misses),
+            icon: Layers,
+            cls: 'text-emerald-600',
+          },
+          {
+            key: 'l2Hit',
+            label: t('l2HitRate'),
+            value: hitRate(pc.l2Hits, pc.l2Misses),
+            icon: Boxes,
+            cls: 'text-emerald-600',
+          },
+          {
+            key: 'pcErrors',
+            label: t('promptCacheErrors'),
+            value: fmtNum(pc.errors ?? 0),
+            icon: AlertCircle,
+            cls: (pc.errors ?? 0) > 0 ? 'text-red-600' : 'text-muted-foreground',
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -166,11 +220,8 @@ export default function AiCostPage() {
                   </p>
                 ) : (
                   <ul className="divide-y">
-                    {d.byModel.slice(0, 10).map((m: any) => (
-                      <li
-                        key={m.model}
-                        className="flex items-center justify-between py-2 text-sm"
-                      >
+                    {d.byModel.slice(0, 10).map((m) => (
+                      <li key={m.model} className="flex items-center justify-between py-2 text-sm">
                         <span className="font-mono text-xs">{m.model}</span>
                         <span className="flex items-center gap-3 tabular-nums text-muted-foreground">
                           <span>{fmtNum(m.tokens)} tk</span>
@@ -194,20 +245,17 @@ export default function AiCostPage() {
               </CardHeader>
               <CardContent>
                 {d.byDay.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    {t('noDayData')}
-                  </p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">{t('noDayData')}</p>
                 ) : (
                   <ul className="divide-y">
-                    {d.byDay.slice(-10).map((row: any) => (
-                      <li
-                        key={row.date}
-                        className="flex items-center justify-between py-2 text-sm"
-                      >
+                    {d.byDay.slice(-10).map((row) => (
+                      <li key={row.date} className="flex items-center justify-between py-2 text-sm">
                         <span className="font-mono text-xs">{row.date}</span>
                         <span className="flex items-center gap-3 tabular-nums text-muted-foreground">
                           <span>{fmtNum(row.tokens)} tk</span>
-                          <span>{fmtNum(row.calls)} {t('calls')}</span>
+                          <span>
+                            {fmtNum(row.calls)} {t('calls')}
+                          </span>
                           <span className="text-foreground">
                             {curFmt.format(Number(row.cost) / 100)}
                           </span>

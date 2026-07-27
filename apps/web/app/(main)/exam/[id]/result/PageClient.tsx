@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -180,7 +180,7 @@ export default function ExamResultPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {result.details.map((d: any, i: any) => (
+            {result.details.map((d: ResultDetail, i: number) => (
               <Card key={d.questionId} className="transition-colors hover:bg-accent/40">
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -196,7 +196,9 @@ export default function ExamResultPage() {
                         </p>
                         <div className="grid gap-1 text-xs">
                           <div className="flex items-start gap-1">
-                            <span className="shrink-0 text-muted-foreground">{t('result.yourAnswer')}</span>
+                            <span className="shrink-0 text-muted-foreground">
+                              {t('result.yourAnswer')}
+                            </span>
                             <span
                               className={cn(
                                 'break-words',
@@ -208,7 +210,9 @@ export default function ExamResultPage() {
                           </div>
                           {!d.isCorrect && (
                             <div className="flex items-start gap-1">
-                              <span className="shrink-0 text-muted-foreground">{t('result.correctAnswer')}</span>
+                              <span className="shrink-0 text-muted-foreground">
+                                {t('result.correctAnswer')}
+                              </span>
                               <span className="break-words text-emerald-600">
                                 {normalizeAnswer(d.correctAnswer)}
                               </span>
@@ -216,7 +220,9 @@ export default function ExamResultPage() {
                           )}
                           {d.analysis && (
                             <div className="flex items-start gap-1">
-                              <span className="shrink-0 text-muted-foreground">{t('result.analysis')}</span>
+                              <span className="shrink-0 text-muted-foreground">
+                                {t('result.analysis')}
+                              </span>
                               <span className="break-words text-muted-foreground">
                                 {d.analysis}
                               </span>

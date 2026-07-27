@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -162,7 +162,7 @@ export default function DistributionTeamPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((it: any) => (
+                items.map((it) => (
                   <TableRow key={it.id}>
                     <TableCell className="px-4 py-2.5">
                       <div className="flex items-center gap-2">

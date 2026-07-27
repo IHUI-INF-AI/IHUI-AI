@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -52,7 +52,7 @@ export default function ToolsPage() {
         </div>
       ) : (
         CATEGORIES.map(({ key, label, Icon }) => {
-          const items = list.filter((item: any) => item.category === key)
+          const items = list.filter((item) => item.category === key)
           return (
             <section key={key} className="space-y-3">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -65,7 +65,7 @@ export default function ToolsPage() {
                 </p>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {items.map((tool: any) => (
+                  {items.map((tool) => (
                     <Link key={tool.id} href={tool.url} className="group block">
                       <Card className="transition-colors hover:bg-accent">
                         <CardHeader className="flex-row items-center gap-3 space-y-0 p-4">
