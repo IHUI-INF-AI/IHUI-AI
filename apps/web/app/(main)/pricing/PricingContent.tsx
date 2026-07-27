@@ -7,6 +7,10 @@ import { Check, Crown, Loader2, Sparkles } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { SocialProof } from './SocialProof'
+import { ComparisonTable } from './ComparisonTable'
+import { Testimonials } from './Testimonials'
+import { Guarantee } from './Guarantee'
 
 interface VipBenefits {
   dailyTokenLimit?: number | null
@@ -90,6 +94,8 @@ export function PricingContent(): React.JSX.Element {
           4 档 VIP 会员,从免费到企业级,满足不同使用场景。年付享 2 个月免费。
         </p>
       </section>
+
+      <SocialProof />
 
       {/* 月付/年付切换 */}
       <section className="mt-8 flex items-center justify-center gap-2">
@@ -218,6 +224,27 @@ export function PricingContent(): React.JSX.Element {
 
       <section className="mt-10 rounded-md border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
         所有方案均含完整 API 接入权限,企业版支持定制 SLA 与私有部署。
+      </section>
+
+      <ComparisonTable />
+
+      <Testimonials />
+
+      <Guarantee />
+
+      <section className="mt-14 rounded-lg border border-primary/30 bg-primary/5 p-8 text-center">
+        <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+          还不确定?免费试用 30 天
+        </h2>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+          无需信用卡,全功能体验。30 天内不满意可申请全额退款。
+        </p>
+        <Button asChild className="mt-5">
+          <Link href="/register">
+            <Sparkles className="mr-1 h-4 w-4" />
+            立即免费试用
+          </Link>
+        </Button>
       </section>
     </main>
   )
