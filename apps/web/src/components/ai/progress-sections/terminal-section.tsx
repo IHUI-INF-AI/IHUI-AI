@@ -27,8 +27,12 @@ const TERMINAL_STATUS_CLS: Record<TerminalTask['status'], string> = {
  * 对齐 Trae Work 终端执行展示:
  * - 标题带 TerminalSquare 图标
  * - 状态 SVG 图标(Loader2/Check/X) + 命令 + 退出码 + 耗时
+ *
+ * v10 memo:React.memo 包装,terminals 引用稳定时跳过重渲染
  */
-export function TerminalSection({ terminals }: TerminalSectionProps) {
+export const TerminalSection = React.memo(function TerminalSection({
+  terminals,
+}: TerminalSectionProps) {
   if (terminals.length === 0) return null
 
   const runningCount = terminals.filter((t) => t.status === 'running').length
@@ -82,6 +86,6 @@ export function TerminalSection({ terminals }: TerminalSectionProps) {
       </div>
     </FoldableSection>
   )
-}
+})
 
 export default TerminalSection
