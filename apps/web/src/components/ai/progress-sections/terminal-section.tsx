@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { TerminalSquare, Loader2, Check, X, ChevronRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { CopyButton } from './copy-button'
@@ -30,6 +31,7 @@ function truncateOutput(s: string, max = 500): string {
 
 /** v11: 单个终端任务项(可点击展开 output) */
 const TerminalItem = React.memo(function TerminalItem({ term }: { term: TerminalTask }) {
+  const t = useTranslations('ai.progressPane')
   const [expanded, setExpanded] = React.useState(false)
   const Icon = TERMINAL_STATUS_ICON[term.status]
   const hasOutput = !!term.output
@@ -94,10 +96,10 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
           <div className="overflow-hidden">
             <div className="space-y-1 px-3 pb-1 pt-0.5 text-[10px] leading-relaxed">
               <div className="flex items-center gap-1">
-                <span className="font-medium text-muted-foreground/60">输出</span>
+                <span className="font-medium text-muted-foreground/60">{t('terminal.output')}</span>
                 <CopyButton
                   text={term.output ?? ''}
-                  aria-label="复制终端输出"
+                  aria-label={t('terminal.copyOutput')}
                   data-testid={`terminal-copy-output-${term.id}`}
                 />
               </div>
@@ -128,20 +130,21 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
 export const TerminalSection = React.memo(function TerminalSection({
   terminals,
 }: TerminalSectionProps) {
+  const t = useTranslations('ai.progressPane')
   if (terminals.length === 0) return null
 
-  const runningCount = terminals.filter((t) => t.status === 'running').length
-  const failedCount = terminals.filter((t) => t.status === 'failed').length
+  const runningCount = terminals.filter((term) => term.status === 'running').length
+  const failedCount = terminals.filter((term) => term.status === 'failed').length
 
   const summaryParts: string[] = []
-  if (runningCount > 0) summaryParts.push(`${runningCount} 运行中`)
-  if (failedCount > 0) summaryParts.push(`${failedCount} 失败`)
+  if (runningCount > 0) summaryParts.push(t('terminal.running', { n: runningCount }))
+  if (failedCount > 0) summaryParts.push(t('terminal.failed', { n: failedCount }))
   const summary = summaryParts.join(' · ')
 
   const recentTerminals = terminals.slice(-10)
 
   return (
-    <FoldableSection title="终端任务" count={terminals.length} icon={TerminalSquare} data-testid="terminal-section">
+    <FoldableSection title={t('terminal.title')} count={terminals.length} icon={TerminalSquare} data-testid="terminal-section">
       <div className="space-y-0.5 text-[11px] leading-relaxed">
         {summary && (
           <div className="text-[10px] text-muted-foreground/60">{summary}</div>
@@ -151,7 +154,7 @@ export const TerminalSection = React.memo(function TerminalSection({
         ))}
         {terminals.length > 10 && (
           <div className="text-[10px] text-muted-foreground/60">
-            …还有 {terminals.length - 10} 项
+            {t('terminal.moreItems', { n: terminals.length - 10 })}
           </div>
         )}
       </div>
