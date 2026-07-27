@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
-import { useClickOutside } from '@/hooks/use-click-outside'
 import { Tooltip } from './Tooltip'
 
 interface PopoverProps {
@@ -85,7 +84,30 @@ export function Popover({
   const contentRef = React.useRef<HTMLDivElement | null>(null)
   const triggerElRef = React.useRef<HTMLElement | null>(null)
   // 包装 div 引用,click-outside 用
-  const ref = useClickOutside<HTMLDivElement>(React.useCallback(() => setOpen(false), [setOpen]))
+  const ref = React.useRef<HTMLDivElement>(null)
+
+  // click-outside:同时检查 trigger 容器(ref)和弹层(contentRef)。
+  // 2026-07-27 修复:portal 模式下弹层 portal 到 document.body,不在 ref 内,
+  // 原 useClickOutside 只检查 ref → 点击弹层内 button 被误判为"外部"→ mousedown 关闭弹层
+  // → button 卸载 → click 事件无法触发 → 语言切换等菜单项点击失效。
+  // 现在同时检查 contentRef,点击弹层内部不关闭,让 button 的 onClick 正常触发。
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handler = (event: MouseEvent | TouchEvent) => {
+      const triggerEl = ref.current
+      const contentEl = contentRef.current
+      const target = event.target as Node
+      if (triggerEl && triggerEl.contains(target)) return
+      if (contentEl && contentEl.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [setOpen])
 
   // portal 模式:动态计算 fixed 坐标(随 trigger 滚动/resize 同步)
   // 直接计算最终 left/top(已含 align 平移)+ 视口边界 clamp,避免弹层超出视口
@@ -234,7 +256,9 @@ export function Popover({
     <Tooltip content={tooltip} side={tooltipSide}>
       {childWithRef}
     </Tooltip>
-  ) : childWithRef
+  ) : (
+    childWithRef
+  )
 
   // 弹层节点(非 portal: 走原 absolute; portal: 走 fixed + 坐标)
   const overlay = open ? (
