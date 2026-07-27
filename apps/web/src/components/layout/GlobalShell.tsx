@@ -8,7 +8,6 @@ import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
-import { AgentTaskProgressPane } from '@/components/ai'
 import { Button } from '@ihui/ui-react'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
@@ -238,12 +237,10 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
       */}
       <WorkspacePermissionRequestDialog userId={currentUserId} />
       {/*
-        Codex 风格 Agent 任务进度查看 Pane(2026-07-27 v5):
-        - AgentProgressTrigger 已移至 MessageInput 附加栏(内联文字按钮 "任务列表"/"01/06")
-        - AgentTaskProgressPane:底部流式事件日志,点击 trigger 或 Ctrl+Shift+J 打开
-        全局挂载,所有路由组均可触发,与 PWA 提示同区域但 z-sticky < z-modal
+        Agent 任务进度 popover(2026-07-27 v6):
+        trigger + popover 已内嵌到 MessageInput 输入框附加栏(上方居中),
+        点击 trigger 弹小 popover 显示 plan steps 列表,不再全局挂载底部大弹窗。
       */}
-      <AgentTaskProgressPane />
     </>
   )
 }
