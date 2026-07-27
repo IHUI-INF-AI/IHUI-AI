@@ -144,17 +144,17 @@ export default function Index() {
     <View className="min-h-screen pb-[40rpx]">
       {/* 顶部用户信息条 — 青→紫赛博朋克渐变 + 科技网格 */}
       <View
-        className="flex items-center pt-[120rpx] px-[32rpx] pb-[32rpx] tech-grid"
-        style={{ background: 'linear-gradient(135deg, #00f2ff, #8b5cf6)' }}
+        className="flex items-center pt-[120rpx] px-[32rpx] pb-[32rpx]"
+        style={{ background: 'var(--color-primary)' }}
       >
         <Image
-          className="w-[80rpx] h-[80rpx] rounded-md border-[2rpx] border-solid border-white"
+          className="w-[80rpx] h-[80rpx] rounded-md border-[2rpx] border-solid border-primary-foreground"
           src={userInfo?.avatar || defaultAvatar}
           mode="aspectFill"
         />
         <View className="ml-[20rpx] flex flex-col">
           <View className="flex items-center">
-            <Text className="text-white text-[30rpx] font-semibold">
+            <Text className="text-primary-foreground text-[30rpx] font-semibold">
               {userInfo?.userName ||
                 userInfo?.nickname ||
                 (isLogin ? t('common.user') : t('home.tapLogin'))}
@@ -166,13 +166,13 @@ export default function Index() {
             ) : null}
           </View>
           {isLogin ? (
-            <Text className="text-white text-[22rpx] opacity-90">
+            <Text className="text-primary-foreground text-[22rpx] opacity-90">
               {study
                 ? `${t('home.todayMinutes', { n: study.todayMinutes })} · ${t('home.continuousDays', { n: study.continuousDays })}`
                 : t('home.slogan')}
             </Text>
           ) : (
-            <Text className="text-white text-[22rpx] opacity-90" onClick={goLogin}>
+            <Text className="text-primary-foreground text-[22rpx] opacity-90" onClick={goLogin}>
               {t('home.slogan')}
             </Text>
           )}
@@ -180,9 +180,9 @@ export default function Index() {
       </View>
 
       {/* 轮播图 — 渐变描边(对标原项目 custom-carousel-wrapper + gradient-border)*/}
-      <View className="mx-[32rpx] my-[24rpx] carousel-cyber">
+      <View className="mx-[32rpx] my-[24rpx]">
         <Swiper
-          className="h-[280rpx] carousel-cyber-inner"
+          className="h-[280rpx]"
           indicatorDots
           autoplay
           interval={4000}
@@ -196,7 +196,7 @@ export default function Index() {
           {bannerList.length === 0 ? (
             <SwiperItem>
               <View className="w-full h-full flex items-center justify-center text-[30rpx]">
-                <Text className="text-neon">{t('home.slogan')}</Text>
+                <Text className="text-primary">{t('home.slogan')}</Text>
               </View>
             </SwiperItem>
           ) : null}
@@ -205,9 +205,9 @@ export default function Index() {
 
       {/* 学习进度(登录后)— 玻璃拟态卡片 */}
       {showLearningSection && study ? (
-        <View className="mx-[32rpx] mb-[24rpx] glass px-[24rpx] py-[24rpx]">
+        <View className="mx-[32rpx] mb-[24rpx] bg-card px-[24rpx] py-[24rpx]">
           <View className="flex justify-between items-center">
-            <Text className="text-[30rpx] text-white font-semibold">
+            <Text className="text-[30rpx] text-foreground font-semibold">
               {t('home.learningProgress')}
             </Text>
             <Text
@@ -219,25 +219,25 @@ export default function Index() {
           </View>
           <View className="flex mt-[20rpx]">
             <View className="flex-1 text-center">
-              <Text className="block text-[36rpx] text-neon font-bold">{study.todayMinutes}</Text>
+              <Text className="block text-[36rpx] text-primary font-bold">{study.todayMinutes}</Text>
               <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
                 {t('home.todayMinutes', { n: '' })}
               </Text>
             </View>
             <View className="flex-1 text-center">
-              <Text className="block text-[36rpx] text-neon font-bold">{study.totalMinutes}</Text>
+              <Text className="block text-[36rpx] text-primary font-bold">{study.totalMinutes}</Text>
               <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
                 {t('home.totalMinutes', { n: '' })}
               </Text>
             </View>
             <View className="flex-1 text-center">
-              <Text className="block text-[36rpx] text-neon font-bold">{study.continuousDays}</Text>
+              <Text className="block text-[36rpx] text-primary font-bold">{study.continuousDays}</Text>
               <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
                 {t('home.continuousDays', { n: '' })}
               </Text>
             </View>
             <View className="flex-1 text-center">
-              <Text className="block text-[36rpx] text-neon font-bold">{study.courses}</Text>
+              <Text className="block text-[36rpx] text-primary font-bold">{study.courses}</Text>
               <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
                 {t('home.coursesCount', { n: '' })}
               </Text>
@@ -247,9 +247,9 @@ export default function Index() {
       ) : null}
 
       {/* AI 应用入口(融合原项目 AI 应用商店概念)— 赛博朋克网格 */}
-      <View className="mx-[32rpx] my-[24rpx] tech-card p-[24rpx]">
+      <View className="mx-[32rpx] my-[24rpx] p-[24rpx]">
         <View className="flex justify-between items-center mb-[20rpx]">
-          <Text className="text-[30rpx] font-semibold text-neon">{t('home.aiAppTitle')}</Text>
+          <Text className="text-[30rpx] font-semibold text-primary">{t('home.aiAppTitle')}</Text>
           <Text
             className="text-[24rpx] text-muted-foreground"
             onClick={() => goPage('/pages/ai/agent')}
@@ -264,10 +264,10 @@ export default function Index() {
               className="w-1/3 flex flex-col items-center py-[20rpx]"
               onClick={() => goPage(entry.path)}
             >
-              <View className="w-[88rpx] h-[88rpx] rounded-[20rpx] gradient-cyber flex items-center justify-center mb-[8rpx]">
+              <View className="w-[88rpx] h-[88rpx] rounded-[20rpx] bg-primary flex items-center justify-center mb-[8rpx]">
                 <Text className="text-[44rpx]">{entry.icon}</Text>
               </View>
-              <Text className="text-[22rpx] text-white">{t(entry.key)}</Text>
+              <Text className="text-[22rpx] text-foreground">{t(entry.key)}</Text>
             </View>
           ))}
         </View>
@@ -277,7 +277,7 @@ export default function Index() {
       {circlePreview.length > 0 ? (
         <View className="mx-[32rpx] my-[24rpx]">
           <View className="flex justify-between items-center mb-[20rpx]">
-            <Text className="text-[30rpx] font-semibold text-neon">{t('community.title')}</Text>
+            <Text className="text-[30rpx] font-semibold text-primary">{t('community.title')}</Text>
             <Text
               className="text-[24rpx] text-muted-foreground"
               onClick={() => Taro.switchTab({ url: '/pages/community/index' })}
@@ -288,7 +288,7 @@ export default function Index() {
           {circlePreview.map((item) => (
             <View
               key={item.id as string}
-              className="tech-card px-[24rpx] py-[20rpx] mb-[16rpx]"
+              className="px-[24rpx] py-[20rpx] mb-[16rpx]"
               onClick={() => Taro.navigateTo({ url: `/pages/circle/detail?id=${item.id}` })}
             >
               <View className="flex items-center mb-[8rpx]">
@@ -301,7 +301,7 @@ export default function Index() {
                   {(item.authorName as string) || t('common.user')}
                 </Text>
               </View>
-              <Text className="block text-[26rpx] text-white font-semibold truncate">
+              <Text className="block text-[26rpx] text-foreground font-semibold truncate">
                 {(item.title as string) || t('aiCircle.post')}
               </Text>
             </View>
@@ -311,9 +311,9 @@ export default function Index() {
 
       {/* 知识星球预览(对标原项目 KnowledgePlanet) */}
       {planetInfo ? (
-        <View className="mx-[32rpx] my-[24rpx] tech-card px-[24rpx] py-[24rpx]">
+        <View className="mx-[32rpx] my-[24rpx] px-[24rpx] py-[24rpx]">
           <View className="flex justify-between items-center">
-            <Text className="text-[30rpx] text-neon font-semibold">
+            <Text className="text-[30rpx] text-primary font-semibold">
               {t('home.knowledgePlanet')}
             </Text>
             <Text
@@ -329,7 +329,7 @@ export default function Index() {
                 (planetInfo.name as string) ||
                 t('home.knowledgePlanetDesc')}
             </Text>
-            <Text className="ml-[16rpx] text-[24rpx] text-neon font-semibold">
+            <Text className="ml-[16rpx] text-[24rpx] text-primary font-semibold">
               {(planetInfo.members as number) || 0} {t('home.planetMembers')}
             </Text>
           </View>
@@ -338,9 +338,9 @@ export default function Index() {
 
       {/* 直播预告 */}
       {livePreview.length > 0 ? (
-        <View className="mx-[32rpx] my-[24rpx] tech-card px-[24rpx] py-[24rpx]">
+        <View className="mx-[32rpx] my-[24rpx] px-[24rpx] py-[24rpx]">
           <View className="flex justify-between items-center">
-            <Text className="text-[30rpx] text-white font-semibold">{t('home.livePreview')}</Text>
+            <Text className="text-[30rpx] text-foreground font-semibold">{t('home.livePreview')}</Text>
             <Text
               className="text-[24rpx] text-muted-foreground"
               onClick={() => goPage('/pages/live/list')}
@@ -362,7 +362,7 @@ export default function Index() {
                       <Text>{t('live.preview')}</Text>
                     </View>
                   </View>
-                  <Text className="block mt-[12rpx] text-[24rpx] text-white truncate">
+                  <Text className="block mt-[12rpx] text-[24rpx] text-foreground truncate">
                     {live.title}
                   </Text>
                   <Text className="block text-[20rpx] text-muted-foreground truncate">
@@ -376,7 +376,7 @@ export default function Index() {
       ) : null}
 
       {/* 教育快捷入口 */}
-      <View className="flex flex-wrap px-[32rpx] py-[20rpx] tech-card mx-[32rpx] rounded-[24rpx]">
+      <View className="flex flex-wrap px-[32rpx] py-[20rpx] mx-[32rpx] rounded-[24rpx]">
         {entries.map((entry) => (
           <View
             key={entry.path}
@@ -384,7 +384,7 @@ export default function Index() {
             onClick={() => goPage(entry.path)}
           >
             <Text className="text-[44rpx]">{entry.icon}</Text>
-            <Text className="mt-[6rpx] text-[22rpx] text-white">{t(entry.key)}</Text>
+            <Text className="mt-[6rpx] text-[22rpx] text-foreground">{t(entry.key)}</Text>
           </View>
         ))}
       </View>
@@ -392,7 +392,7 @@ export default function Index() {
       {/* 推荐课程 */}
       <View className="mx-[32rpx] my-[24rpx]">
         <View className="flex justify-between items-center mb-[20rpx]">
-          <Text className="text-[30rpx] font-semibold text-neon">{t('home.hotCourses')}</Text>
+          <Text className="text-[30rpx] font-semibold text-primary">{t('home.hotCourses')}</Text>
           <Text
             className="text-[24rpx] text-muted-foreground"
             onClick={() => goPage('/pages/course/list')}
@@ -405,14 +405,14 @@ export default function Index() {
             {courseList.map((c) => (
               <View
                 key={c.id}
-                className="inline-block w-[280rpx] mr-[20rpx] tech-card rounded-[24rpx] overflow-hidden flex-shrink-0"
+                className="inline-block w-[280rpx] mr-[20rpx] rounded-[24rpx] overflow-hidden flex-shrink-0"
                 onClick={() => goCourseDetail(c.id)}
               >
                 <Image className="w-full h-[160rpx]" src={c.coverUrl} mode="aspectFill" />
-                <Text className="block px-[12rpx] pt-[12rpx] text-[24rpx] text-white truncate">
+                <Text className="block px-[12rpx] pt-[12rpx] text-[24rpx] text-foreground truncate">
                   {c.title}
                 </Text>
-                <Text className="block px-[12rpx] pb-[12rpx] text-[26rpx] text-neon font-semibold">
+                <Text className="block px-[12rpx] pb-[12rpx] text-[26rpx] text-primary font-semibold">
                   ¥{c.price ?? 0}
                 </Text>
               </View>

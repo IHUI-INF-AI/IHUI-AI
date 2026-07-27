@@ -108,13 +108,13 @@ export default function FollowingPage() {
       {/* 排序 tab:关注时间 / 最近活跃 */}
       <View className="flex gap-[16rpx] mt-[20rpx]">
         <View
-          className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx] ${activeTab === 'followedAt' ? 'text-primary border-primary font-semibold' : ''}`}
+          className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-primary/20 rounded-[10rpx] ${activeTab === 'followedAt' ? 'text-primary border-primary font-semibold' : ''}`}
           onClick={() => setActiveTab('followedAt')}
         >
           <Text>{tt('following.sortByFollowed', '关注时间')}</Text>
         </View>
         <View
-          className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx] ${activeTab === 'recent' ? 'text-primary border-primary font-semibold' : ''}`}
+          className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-primary/20 rounded-[10rpx] ${activeTab === 'recent' ? 'text-primary border-primary font-semibold' : ''}`}
           onClick={() => setActiveTab('recent')}
         >
           <Text>{tt('following.sortByRecent', '最近活跃')}</Text>
@@ -128,7 +128,7 @@ export default function FollowingPage() {
             const name = item.nickname || item.username
             const initial = (name || '?').charAt(0)
             return (
-              <View key={item.id} className="flex p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]">
+              <View key={item.id} className="flex p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]">
                 {item.avatar ? (
                   <Image
                     className="w-[96rpx] h-[96rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0"
@@ -143,7 +143,7 @@ export default function FollowingPage() {
                 <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
                   <View className="flex items-center justify-between">
                     <Text className="text-[30rpx] font-semibold text-foreground truncate">{name}</Text>
-                    <View className="py-[4rpx] px-[12rpx] bg-[rgba(0,242,255,0.08)] border-[2rpx] border-[rgba(0,242,255,0.2)] rounded-[6rpx]">
+                    <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[2rpx] border-primary/30 rounded-[6rpx]">
                       <Text className="text-[20rpx] text-primary">
                         {tt('following.following', '已关注')}
                       </Text>
