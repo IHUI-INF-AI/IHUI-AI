@@ -292,7 +292,8 @@ def render_template(template: str | None, context: dict[str, Any]) -> str:
         if isinstance(val, (dict, list)):
             try:
                 return json.dumps(val, ensure_ascii=False)
-            except Exception:
+            except Exception as e:
+                logger.warning("hook_engine.render_template 失败: %s", e, exc_info=True)
                 return str(val)
         return str(val)
 
@@ -1157,7 +1158,8 @@ class HookEngine:
                 ts = datetime.fromisoformat(l["triggeredAt"].rstrip("Z")).timestamp()
                 if ts >= window_start:
                     recent.append(l)
-            except Exception:
+            except Exception as e:
+                logger.warning("hook_engine._check_one_health 失败: %s", e, exc_info=True)
                 continue
 
         total = len(recent)
@@ -1532,7 +1534,8 @@ class HookEngine:
             start = datetime.fromisoformat(start_time.rstrip("Z"))
             end = start + timedelta(milliseconds=duration_ms)
             return end.isoformat() + "Z"
-        except Exception:
+        except Exception as e:
+            logger.warning("hook_engine._compute_end_time 失败: %s", e, exc_info=True)
             return start_time  # 解析失败,返回 start_time
 
     # ===== 4. 预置模板 =====

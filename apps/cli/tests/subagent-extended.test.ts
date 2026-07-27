@@ -89,7 +89,7 @@ const allTools = ALL_TOOL_NAMES.map(makeTool);
 
 const baseParentOpts: SubagentParentOptions = {
   modelId: 'test-model',
-  apiUrl: 'http://localhost:3000',
+  apiUrl: 'http://localhost:8801',
   apiKey: 'test-key',
   workspacePath: '/test-ws',
   sessionId: 'parent-1',
