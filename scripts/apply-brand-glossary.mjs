@@ -126,10 +126,18 @@ function walk(obj, pathStr, locale, dryRun, stats) {
 function main() {
   const args = process.argv.slice(2)
   const dryRun = args.includes('--dry-run')
-  const localeArgIdx = args.indexOf('--locale')
-  const locales = localeArgIdx >= 0 && args[localeArgIdx + 1]
-    ? [args[localeArgIdx + 1]]
-    : LOCALE_DEFAULT
+  // 支持 --locale <value> 和 --locale=<value> 两种语法(文档声明 --locale=en,需兼容)
+  let localeVal = null
+  const localeEqIdx = args.findIndex(a => a.startsWith('--locale='))
+  if (localeEqIdx >= 0) {
+    localeVal = args[localeEqIdx].slice('--locale='.length)
+  } else {
+    const localeSpIdx = args.indexOf('--locale')
+    if (localeSpIdx >= 0 && args[localeSpIdx + 1]) {
+      localeVal = args[localeSpIdx + 1]
+    }
+  }
+  const locales = localeVal ? [localeVal] : LOCALE_DEFAULT
 
   console.log(`品牌映射表应用 ${dryRun ? '(dry-run)' : '(实际写回)'}`)
   console.log(`处理语言: ${locales.join(', ')}`)
