@@ -45,7 +45,41 @@ import * as React from 'react'
 export type ChatRole = 'user' | 'assistant' | 'system'
 
 /**
- * 聊天消息基础类型(各端可扩展)
+ * 工具调用基础类型(各端可扩展端独占字段)。
+ *
+ * 各端扩展示例:
+ * ```ts
+ * import type { ToolCall as BaseToolCall } from '@ihui/shared/hooks'
+ * interface WebToolCall extends BaseToolCall { diffInfo?: ...; applyStatus?: ... }
+ * ```
+ */
+export interface ToolCall {
+  id: string
+  toolName: string
+  args: Record<string, unknown>
+  result?: unknown
+  status: 'running' | 'success' | 'error'
+  duration?: number
+  error?: string
+  /** 多轮 tool loop 的轮次(1-based,undefined 或 1 表示单轮) */
+  iteration?: number
+  /** 后端重复调用检测命中时标记(同 tool_name + 同 args 已执行过,跳过实际调用) */
+  repeated?: boolean
+  /** image_generation 工具返回的图片 URL(data URI 或 https URL) */
+  image_url?: string
+}
+
+/**
+ * 聊天消息基础类型(各端可扩展)。
+ *
+ * 各端扩展示例:
+ * ```ts
+ * import type { ChatMessage as BaseChatMessage } from '@ihui/shared/hooks'
+ * interface WebChatMessage extends Omit<BaseChatMessage, 'createdAt'> {
+ *   createdAt: number  // 端独占:必填
+ *   question?: PendingQuestion  // 端独占字段
+ * }
+ * ```
  */
 export interface ChatMessage {
   id: string
@@ -53,7 +87,15 @@ export interface ChatMessage {
   content: string
   /** 创建时间戳(ms),用于排序 + 分享 */
   createdAt?: number
-  /** 附加元数据(各端自定义,如 model / agentId / tokens 等) */
+  /** 生成该消息所用模型 ID(assistant 消息) */
+  model?: string
+  /** 该消息是否有错误(错误文本写入 content) */
+  error?: boolean
+  /** 推理过程文本(reasoning model 输出) */
+  reasoning?: string
+  /** 工具调用列表(SSE tool-call 事件累加) */
+  toolCalls?: ToolCall[]
+  /** 附加元数据(各端自定义,如 agentId / tokens 等) */
   meta?: Record<string, unknown>
 }
 

@@ -4,33 +4,20 @@ import { persist } from 'zustand/middleware'
 import { ssrStorage } from './persist-helpers'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 
-export type ChatRole = 'user' | 'assistant' | 'system'
+export type { ChatRole } from '@ihui/shared'
 
 /** Inline Diff Apply 状态:pending=待确认 / applying=应用中 / applied=已应用 / rejected=已拒绝 / error=应用失败 */
 export type DiffApplyStatus = 'pending' | 'applying' | 'applied' | 'rejected' | 'error'
 
-export interface ToolCall {
-  id: string
-  toolName: string
-  args: Record<string, unknown>
-  result?: unknown
-  status: 'running' | 'success' | 'error'
-  duration?: number
-  error?: string
-  /** 多轮 tool loop 的轮次(1-based,undefined 或 1 表示单轮) */
-  iteration?: number
+export interface ToolCall extends BaseToolCall {
   /** edit_file/write_file 工具调用关联的 Inline Diff 信息(供 InlineDiffCard 渲染) */
   diffInfo?: InlineDiffInfo
   /** Inline Diff Apply 工作流状态(Accept/Reject 按钮交互) */
   applyStatus?: DiffApplyStatus
   /** Apply 失败时的错误信息(applyStatus === 'error' 时填充) */
   applyError?: string
-  /** 后端重复调用检测命中时标记(同 tool_name + 同 args 已执行过,跳过实际调用)
-   * 来自 SSE tool-result 事件的 repeated 字段。true 时前端渲染"已跳过"灰色徽章 */
-  repeated?: boolean
-  /** image_generation 工具返回的图片 URL(data URI 或 https URL) */
-  image_url?: string
   /** summarize_artifacts 工具返回的结构化摘要数据 */
   summary_data?: {
     plans?: Array<{ id: string; title: string; status: string; steps?: string[] }>
@@ -58,26 +45,20 @@ export interface PendingQuestion {
 }
 
 /**
- * Web 前端 chat store UI 状态消息类型(本地保留,不复用 @ihui/types 的 ChatMessage)。
+ * Web 前端 chat store UI 状态消息类型。
  *
- * 原因:@ihui/types 的 ChatMessage 是 LLM API 调用消息格式(role + content 简版),
- * 此处是 web chat store 的 UI 状态消息(含 id / createdAt / model / error / toolCalls / reasoning / question 等 UI 状态字段)。
- * 两者语义不同:LLM API 消息格式 vs 前端 store 状态类型,强行合并会让 packages/types ChatMessage
- * 变成大杂烩,且 question 字段会引入与 PendingQuestionPayload 的循环依赖风险。
+ * 继承 @ihui/shared 的 ChatMessage 通用基类(id/role/content/createdAt?/model?/error?/reasoning?/toolCalls?/meta?),
+ * 扩展 web 端独占字段:createdAt 必填 + toolCalls 用 web 本地类型(含 InlineDiff/ApplyStatus)+ question + permissionMode。
  *
  * 命名保留 ChatMessage 是因为 web chat store 内仅此一种 chat 消息类型,文件内无命名冲突
  * (web 端在其他位置如 lib/video-tools/chat-image-drawer.ts 也有同名 ChatMessage,但属于不同业务上下文,
  *  各自文件内独立,无 import 交叉)。
  */
-export interface ChatMessage {
-  id: string
-  role: ChatRole
-  content: string
+export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCalls'> {
+  /** Web 端 createdAt 必填(写入时 Date.now()) */
   createdAt: number
-  model?: string
-  error?: boolean
+  /** Web 端 toolCalls 用本地 ToolCall 类型(含 InlineDiff/ApplyStatus) */
   toolCalls?: ToolCall[]
-  reasoning?: string
   /** 该消息触发的提问(若有,渲染时显示提问卡片) */
   question?: PendingQuestion
   /** 2026-07-25 立(深度对标 Codex 透明性):该消息生成时所使用的工作区权限模式
