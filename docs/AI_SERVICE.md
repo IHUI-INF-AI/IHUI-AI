@@ -631,7 +631,7 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 | `PORT` | `3003` | 服务端口(docker-compose 映射 8000) |
 | `HOST` | `0.0.0.0` | 监听地址 |
 | `LOG_LEVEL` | `info` | 日志级别 |
-| `CORS_ORIGIN` | `http://localhost:3001` | CORS 允许源(逗号分隔) |
+| `CORS_ORIGIN` | `http://localhost:8802` | CORS 允许源(逗号分隔) |
 | `DATABASE_URL` | `postgres://postgres:postgres@localhost:5432/ihui_ai` | PostgreSQL 连接串 |
 | `REDIS_URL` | `redis://localhost:6379` | Redis 连接串 |
 | `LITELLM_MODEL` | `stepfun/step-3.7-flash` | 默认 LLM 模型 |
