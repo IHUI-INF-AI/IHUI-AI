@@ -13,3 +13,9 @@ export const TOKEN_EXPIRED_CODES = [401, 40101, 499] as const
  * 生产环境固定 https://ihui.ai;开发环境各端可自行 fallback 到 localhost。
  */
 export const WEB_BASE = 'https://ihui.ai'
+
+/**
+ * Error codes (business error enum, predicates, i18n key mapping) - shared across all apps.
+ * @see ./constants/error-codes.ts
+ */
+export * from './constants/error-codes'

@@ -13,6 +13,7 @@ import type {
   AlipayMiniappPayResponse,
   ExamQuestion,
 } from '@ihui/api-client'
+import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import {
   signRecurringContract as _signRecurringContract,
   listRecurringContracts as _listRecurringContracts,
@@ -169,11 +170,17 @@ export const getOrderList = (params?: { page?: number; pageSize?: number; status
 
 /* ============ AI 对话 ============ */
 
-export interface ChatMessage {
+/**
+ * Miniapp-taro 端聊天消息类型。
+ *
+ * 继承 @ihui/shared 的 ChatMessage 通用基类,扩展小程序端独占字段。
+ * 与基类的差异:role 限制为 user/assistant;不使用基类 id/createdAt。
+ */
+export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 'role'> {
+  /** Miniapp 端只使用 user / assistant 两种角色(不发送 system) */
   role: 'user' | 'assistant'
-  content: string
+  /** 创建时间戳(ms) — 对标原 ai_assistant.vue */
   timestamp?: number
-  reasoning?: string
   /** 图片 URL 列表(对标原 ai_assistant.vue imgUrlList) */
   images?: string[]
   /** 视频 URL 列表(对标原 ai_assistant.vue videoUrlList) */
