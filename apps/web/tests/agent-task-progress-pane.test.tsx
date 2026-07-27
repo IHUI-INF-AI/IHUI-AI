@@ -441,6 +441,82 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     expect(container.textContent).toContain('无匹配结果')
   })
 
+  it('ToolCallsSection — v10 点击工具行展开完整 args + result', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-detail-1',
+        toolName: 'read_file',
+        args: { file_path: 'src/components/Button.tsx', encoding: 'utf-8' },
+        result: { content: 'export function Button() { return null }', lines: 1 },
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+        durationMs: 500,
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    // 先展开 FoldableSection
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    // 找到 ToolCallItem 的可点击行(role=button)
+    const toolItem = container.querySelector('[data-testid="tool-item-t-detail-1"]')
+    expect(toolItem).toBeTruthy()
+    // 折叠状态下 aria-expanded=false
+    expect(toolItem?.getAttribute('aria-expanded')).toBe('false')
+    // 点击展开
+    fireEvent.click(toolItem!)
+    // 展开后应显示完整 args JSON 和 result
+    expect(toolItem?.getAttribute('aria-expanded')).toBe('true')
+    expect(container.textContent).toContain('参数')
+    expect(container.textContent).toContain('file_path')
+    expect(container.textContent).toContain('Button.tsx')
+    expect(container.textContent).toContain('结果')
+    expect(container.textContent).toContain('export function Button')
+    // 再次点击折叠
+    fireEvent.click(toolItem!)
+    expect(toolItem?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('ToolCallsSection — v10 error 状态工具展开显示错误信息', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-err-1',
+        toolName: 'edit_file',
+        args: { file_path: 'src/missing.ts' },
+        error: 'ENOENT: no such file or directory',
+        status: 'error',
+        startedAt: '2026-01-01T00:00:00Z',
+        durationMs: 100,
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const toolItem = container.querySelector('[data-testid="tool-item-t-err-1"]')!
+    fireEvent.click(toolItem)
+    expect(toolItem.getAttribute('aria-expanded')).toBe('true')
+    expect(container.textContent).toContain('错误')
+    expect(container.textContent).toContain('ENOENT')
+  })
+
+  it('ToolCallsSection — v10 无 args/result 的工具不显示展开箭头', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-empty-1',
+        toolName: 'unknown_tool',
+        args: {},
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const toolItem = container.querySelector('[data-testid="tool-item-t-empty-1"]')!
+    // 无详情,role 不应为 button
+    expect(toolItem.getAttribute('role')).toBeNull()
+    expect(toolItem.getAttribute('aria-expanded')).toBeNull()
+  })
+
   it('SubagentSection — 无子代理时不渲染', () => {
     const { container } = render(<SubagentSection subagents={[]} />)
     expect(container.firstChild).toBeNull()

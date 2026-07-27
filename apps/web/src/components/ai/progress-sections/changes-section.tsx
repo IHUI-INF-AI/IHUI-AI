@@ -30,8 +30,12 @@ function shortDir(filePath: string): string {
  * - 标题带 FileEdit 图标
  * - 新增文件用 FilePlus(emerald) + 修改文件用 FileEdit(amber)
  * - basename + 短目录 + 分类摘要
+ *
+ * v10 memo:React.memo 包装,changes 引用稳定时跳过重渲染
  */
-export function ChangesSection({ changes }: ChangesSectionProps) {
+export const ChangesSection = React.memo(function ChangesSection({
+  changes,
+}: ChangesSectionProps) {
   if (changes.length === 0) return null
 
   const newCount = changes.filter((c) => c.diffInfo.is_new_file).length
@@ -81,6 +85,6 @@ export function ChangesSection({ changes }: ChangesSectionProps) {
       </div>
     </FoldableSection>
   )
-}
+})
 
 export default ChangesSection
