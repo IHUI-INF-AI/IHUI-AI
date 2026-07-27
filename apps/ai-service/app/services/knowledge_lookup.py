@@ -23,7 +23,7 @@ PoC 边界(§3 最小化):
     from app.services.knowledge_lookup import knowledge_lookup
     result = await knowledge_lookup("用户认证逻辑", user_id="u1", repo_id="my-repo")
     for hit in result.hits:
-        print(hit.source, hit.score, hit.content[:80])
+        logger.debug("knowledge_lookup_hit", source=hit.source, score=hit.score, content_preview=hit.content[:80])
 """
 
 from __future__ import annotations
