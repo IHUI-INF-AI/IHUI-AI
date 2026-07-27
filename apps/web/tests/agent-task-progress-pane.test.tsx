@@ -126,11 +126,18 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(true)
   })
 
-  it('面板打开时 trigger 高亮(bg-accent)', () => {
+  it('面板打开时 trigger 不渲染(与 popover 联动隐藏,v6)', () => {
     useAgentProgressPaneStore.getState().openPane()
     render(<AgentProgressTrigger />)
+    // open=true → trigger 隐藏,把空间让给 popover
+    expect(screen.queryByTestId('agent-progress-trigger')).toBeNull()
+  })
+
+  it('trigger 默认态含背景色 + 描边(v6 bg-card + border-border)', () => {
+    render(<AgentProgressTrigger />)
     const trigger = screen.getByTestId('agent-progress-trigger')
-    expect(trigger.className).toContain('bg-accent')
+    expect(trigger.className).toContain('bg-card')
+    expect(trigger.className).toContain('border-border')
   })
 
   it('Ctrl+Shift+J 切换面板', () => {
