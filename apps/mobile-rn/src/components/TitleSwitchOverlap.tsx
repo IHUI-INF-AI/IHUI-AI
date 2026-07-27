@@ -12,6 +12,7 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 
 export interface TitleSwitchItem {
   name: string
@@ -26,10 +27,17 @@ const ITEM_HEIGHT = 50
 const VERTICAL_PADDING = 80
 
 const DEFAULT_LIST: TitleSwitchItem[] = [
-  { name: '赛道一' }, { name: '赛道二' }, { name: '赛道三' },
-  { name: '赛道四' }, { name: '赛道五' }, { name: '赛道六' },
-  { name: '赛道7' }, { name: '赛道8' }, { name: '赛道9' },
-  { name: '赛道10' }, { name: '赛道11' },
+  { name: '赛道一' },
+  { name: '赛道二' },
+  { name: '赛道三' },
+  { name: '赛道四' },
+  { name: '赛道五' },
+  { name: '赛道六' },
+  { name: '赛道7' },
+  { name: '赛道8' },
+  { name: '赛道9' },
+  { name: '赛道10' },
+  { name: '赛道11' },
 ]
 
 export function TitleSwitchOverlap({ mainList = DEFAULT_LIST, onCurrentChange }: Props) {
@@ -101,19 +109,39 @@ const s = StyleSheet.create({
   scrollBody: { height: 200 },
   itemWrap: { height: ITEM_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   item: {
-    width: 180, height: 48, borderRadius: 8,
-    alignItems: 'center', justifyContent: 'center',
+    width: 180,
+    height: 48,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.6)',
-    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 2,
   },
   itemActive: { backgroundColor: 'rgba(255,255,255,0.95)' },
   itemNear: { transform: [{ scale: 0.8 }], opacity: 0.8 },
   itemFar: { transform: [{ scale: 0.6 }], opacity: 0.6 },
   itemText: { color: '#000', fontSize: 14 },
   itemTextActive: { fontWeight: '700', color: '#000' },
-  btns: { flexDirection: 'row', justifyContent: 'space-around', width: '60%', alignSelf: 'center', paddingVertical: 8 },
-  btn: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  btnText: { fontSize: 22, color: '#374151' },
+  btns: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '60%',
+    alignSelf: 'center',
+    paddingVertical: 8,
+  },
+  btn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnText: { fontSize: 22, color: tokens.text.medium },
 })
 
 export default TitleSwitchOverlap
