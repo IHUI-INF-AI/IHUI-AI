@@ -93,6 +93,21 @@ export interface SubAgentActivity {
   streamingContent?: string
   /** 流式是否结束:true=已完成,false/undefined=进行中 */
   streamingDone?: boolean
+  /** 当前执行阶段(2026-07-28 立,subagent_progress SSE 事件驱动):
+   *  - 'thinking': subagent 正在调用 LLM
+   *  - 'tool_call': subagent 正在调用工具
+   *  - 'tool_result': subagent 工具返回
+   *  - 'output_ready': subagent 最终输出就绪
+   *  缺失表示旧数据或 spawn 后未收到 progress 事件 */
+  progressPhase?: 'thinking' | 'tool_call' | 'tool_result' | 'output_ready'
+  /** 当前迭代轮次(progress 事件携带) */
+  progressIteration?: number
+  /** 当前调用的工具名(phase=tool_call/tool_result 时存在) */
+  progressTool?: string
+  /** 工具调用累计次数(每收到一次 tool_result 递增) */
+  toolCallsCount?: number
+  /** 输出预览(phase=output_ready 时存在,截断 200 字符) */
+  outputPreview?: string
 }
 
 /** Swarm 数据 */

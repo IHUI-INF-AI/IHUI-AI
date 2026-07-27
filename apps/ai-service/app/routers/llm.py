@@ -26,7 +26,7 @@ from ..core.config import settings
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.context_compaction import compress_messages_if_needed
 from ..core.question_parser import QuestionStreamParser
-from ..services.mcp_server import _tool_vision_analyze
+from ..services.mcp_server import _tool_dispatch_subagent, _tool_vision_analyze
 from ..services.project_memory import build_system_prompt
 
 router = APIRouter()
@@ -617,17 +617,78 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
                             # 执行工具(异常保护:网络/超时/JSON 错误不应崩溃 SSE 流)
                             # G6(2026-07-26):透传 owner_uuid(user_id)给 knowledge_lookup 查 LTM 源
-                            try:
-                                exec_result = await _mcp.call_tool(tool_name, args, user_id=owner_uuid)
-                            except Exception as e:
-                                logger.exception("Tool execution exception: %s", tool_name)
-                                exec_result = {
-                                    "tool": tool_name,
-                                    "ok": False,
-                                    "error": str(e)[:500],
-                                    "errorCode": "EXECUTION_EXCEPTION",
-                                    "message": f"工具执行异常: {type(e).__name__}",
+                            # dispatch_subagent 特殊处理(2026-07-28 立):
+                            # 直接调用 _tool_dispatch_subagent(绕过 _mcp.call_tool 通用接口),
+                            # 注入 progress_callback → asyncio.Queue → 实时 yield subagent_progress SSE 事件,
+                            # 让前端进度面板在 subagent 执行期间看到 thinking/tool_call/tool_result/output_ready。
+                            if tool_name == "dispatch_subagent" and _spawned_sub_ids:
+                                # task_index → subagent_id 映射(并行模式多 task,单模式只有 1 个)
+                                _sub_id_by_index: dict[int, str] = {
+                                    i: sid for i, sid in enumerate(_spawned_sub_ids)
                                 }
+                                _single_sub_id = _spawned_sub_ids[0]
+                                _progress_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+                                def _progress_cb(evt: dict[str, Any]) -> None:
+                                    """进度回调:_run_agent 事件 → SSE progress 事件格式。"""
+                                    _task_idx = evt.pop("task_index", None)
+                                    _agent_name = evt.pop("agent_name", "")
+                                    if _task_idx is not None and _task_idx in _sub_id_by_index:
+                                        _sa_id = _sub_id_by_index[_task_idx]
+                                    else:
+                                        _sa_id = _single_sub_id
+                                    _sse_evt: dict[str, Any] = {
+                                        "type": "subagent_progress",
+                                        "id": _sa_id,
+                                        "phase": evt.get("phase", ""),
+                                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    }
+                                    for _fk in ("iteration", "tool", "ok", "output_preview"):
+                                        if _fk in evt:
+                                            _sse_evt[_fk] = evt[_fk]
+                                    if _agent_name:
+                                        _sse_evt["agentName"] = _agent_name
+                                    _progress_queue.put_nowait(_sse_evt)
+
+                                try:
+                                    _dispatch_task = asyncio.create_task(
+                                        _tool_dispatch_subagent(args, progress_callback=_progress_cb)
+                                    )
+                                    # 排水进度事件,直到 dispatch 任务完成
+                                    while not _dispatch_task.done():
+                                        try:
+                                            _pevt = await asyncio.wait_for(_progress_queue.get(), timeout=0.05)
+                                            if _pevt:
+                                                yield f"event: subagent_progress\ndata: {json.dumps(_pevt, ensure_ascii=False)}\n\n"
+                                        except asyncio.TimeoutError:
+                                            continue
+                                    # 排水剩余事件
+                                    while not _progress_queue.empty():
+                                        _pevt = _progress_queue.get_nowait()
+                                        if _pevt:
+                                            yield f"event: subagent_progress\ndata: {json.dumps(_pevt, ensure_ascii=False)}\n\n"
+                                    exec_result = await _dispatch_task
+                                except Exception as e:
+                                    logger.exception("dispatch_subagent execution exception")
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": False,
+                                        "error": str(e)[:500],
+                                        "errorCode": "EXECUTION_EXCEPTION",
+                                        "message": f"dispatch_subagent 执行异常: {type(e).__name__}",
+                                    }
+                            else:
+                                try:
+                                    exec_result = await _mcp.call_tool(tool_name, args, user_id=owner_uuid)
+                                except Exception as e:
+                                    logger.exception("Tool execution exception: %s", tool_name)
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": False,
+                                        "error": str(e)[:500],
+                                        "errorCode": "EXECUTION_EXCEPTION",
+                                        "message": f"工具执行异常: {type(e).__name__}",
+                                    }
                             # 默认成功:工具 handler 不返回 ok 字段时视为成功
                             # (异常分支已显式设置 ok: False,此处只兜底无 ok 字段的正常结果)
                             ok = bool(exec_result.get("ok", True))
