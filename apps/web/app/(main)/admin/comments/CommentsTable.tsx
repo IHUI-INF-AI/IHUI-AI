@@ -169,7 +169,7 @@ export function CommentDrawer({ open, commentId, onClose }: DrawerProps) {
   const comment = data?.comment
   const replies = data?.replies ?? []
   return (
-    <Dialog open={open} onOpenChange={(o: any) => (o ? null : onClose())}>
+    <Dialog open={open} onOpenChange={(o: boolean) => (o ? null : onClose())}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

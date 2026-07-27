@@ -98,7 +98,7 @@ export default function EduNotesPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {notes.map((note: any) => (
+          {notes.map((note) => (
             <Card key={note.id} className="flex flex-col transition-colors hover:bg-accent">
               <CardContent className="flex-1 space-y-2 p-4">
                 <div className="flex items-start justify-between gap-2">

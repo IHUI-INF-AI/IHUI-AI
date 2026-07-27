@@ -181,7 +181,7 @@ export default function MyCommissionPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((it: any) => (
+                items.map((it) => (
                   <TableRow key={it.id}>
                     <TableCell className="px-4 py-2.5 font-medium">
                       {t(TYPE_KEY[it.type] ?? 'commissionType0')}

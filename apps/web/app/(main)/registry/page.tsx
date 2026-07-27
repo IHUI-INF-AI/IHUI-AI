@@ -146,9 +146,9 @@ export default function RegistryPage() {
               </p>
             )}
             {drift.report && (
-              <div className="rounded-md bg-muted p-3 text: any-xs">
+              <div className="rounded-md bg-muted p-3 text-xs">
                 {drift.report.hasDrift
-                  ? `检测到 ${drift.report.reports.filter((r: any) => r.drifted).length} 个文件存在配置漂移`
+                  ? `检测到 ${drift.report.reports.filter((r) => r.drifted).length} 个文件存在配置漂移`
                   : '未检测到配置漂移'}
               </div>
             )}

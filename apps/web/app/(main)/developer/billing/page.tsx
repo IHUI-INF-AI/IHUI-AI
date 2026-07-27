@@ -121,7 +121,7 @@ export default function BillingPage() {
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {paymentMethods.map((p: any) => (
+              {paymentMethods.map((p) => (
                 <div
                   key={p.id}
                   className={cn(
@@ -157,15 +157,15 @@ export default function BillingPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">{t('noBills')}</p>
           ) : (
             <div className="divide-y">
-              {bills.map((b: any) => {
-                const cls = (STATUS_CLASS as any)[b.status]
+              {bills.map((b) => {
+                const cls = (STATUS_CLASS)[b.status]
                 return (
                   <div key={b.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium">{b.invoiceNo}</p>
                         <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cls)}>
-                          {t((BILL_STATUS_KEYS as any)[b.status]!)}
+                          {t((BILL_STATUS_KEYS)[b.status]!)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">

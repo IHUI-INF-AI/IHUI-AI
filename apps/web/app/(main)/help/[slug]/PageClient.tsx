@@ -38,7 +38,7 @@ export default function HelpArticlePage() {
       ).then((d) => d.list ?? []),
     enabled: !!category,
   })
-  const relatedItems = related.filter((r: any) => r.slug !== slug).slice(0, 5)
+  const relatedItems = related.filter((r) => r.slug !== slug).slice(0, 5)
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -146,7 +146,7 @@ export default function HelpArticlePage() {
                       {t('related')}
                     </p>
                     <nav className="space-y-1">
-                      {relatedItems.map((r: any) => (
+                      {relatedItems.map((r) => (
                         <Link
                           key={r.slug}
                           href={`/help/${r.slug}`}

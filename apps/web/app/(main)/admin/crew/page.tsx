@@ -285,7 +285,7 @@ export default function CrewPage() {
               <Input
                 id="title"
                 value={form.title}
-                onChange={(e: any) => setForm({ ...form, title: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, title: e.target.value })}
                 placeholder="可选,留空自动取消息前 40 字"
               />
             </div>
@@ -350,7 +350,7 @@ export default function CrewPage() {
                 min={0}
                 max={5}
                 value={form.maxRetries}
-                onChange={(e: any) => setForm({ ...form, maxRetries: Number(e.target.value) || 0 })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, maxRetries: Number(e.target.value) || 0 })}
               />
             </div>
             <DialogFooter>

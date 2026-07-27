@@ -70,7 +70,7 @@ export default function ExamPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {papers.map((paper: any) => (
+          {papers.map((paper) => (
             <Card key={paper.id} className="flex h-full flex-col transition-colors hover:bg-accent">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-base">{paper.title}</CardTitle>

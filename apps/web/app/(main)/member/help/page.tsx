@@ -50,7 +50,7 @@ export default function MemberHelpPage() {
   }
 
   const kw = q.trim().toLowerCase()
-  const filtered = articles.filter((a: any) => {
+  const filtered = articles.filter((a) => {
     if (!kw) return true
     const excerpt = a.summary ?? a.content ?? ''
     return a.title.toLowerCase().includes(kw) || excerpt.toLowerCase().includes(kw)
@@ -90,7 +90,7 @@ export default function MemberHelpPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((a: any) => (
+          {filtered.map((a) => (
             <Link key={a.slug} href={`/help/${a.slug}`} className="block">
               <Card className="transition-colors hover:bg-accent">
                 <CardContent className="p-3">

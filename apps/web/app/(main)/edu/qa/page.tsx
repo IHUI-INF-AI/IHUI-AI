@@ -154,7 +154,7 @@ export default function EduQAPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <Card key={item.id} className="transition-colors hover:bg-accent">
               <CardContent className="space-y-2 p-4">
                 <div className="flex items-start justify-between gap-2">

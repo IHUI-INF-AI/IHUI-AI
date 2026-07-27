@@ -142,23 +142,23 @@ export default function MemberFeedbackPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {items.map((item: any) => (
+            {items.map((item) => (
               <Card key={item.id} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-1 p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                        {(typeLabel as any)[item.type] ?? item.type}
+                        {(typeLabel)[item.type] ?? item.type}
                       </span>
                       <span className="text-sm font-medium">{item.title}</span>
                     </div>
                     <span
                       className={cn(
                         'rounded-md px-2 py-0.5 text-xs font-medium',
-                        (STATUS_CLS as any)[item.status],
+                        (STATUS_CLS)[item.status],
                       )}
                     >
-                      {(statusLabel as any)[item.status]}
+                      {(statusLabel)[item.status]}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">{item.content}</p>

@@ -199,7 +199,7 @@ function CardContent2() {
         <div className="flex items-center gap-2">
           <Input
             value={search}
-            onChange={(e: any) => onSearch(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onSearch(e.target.value)}
             placeholder={t('searchPlaceholder')}
             className="h-9 w-48"
           />

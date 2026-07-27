@@ -151,7 +151,7 @@ export function AgentsPanel() {
         </table>
       </div>
 
-      <Dialog open={open} onOpenChange={(o: any) => (o ? setOpen(true) : setOpen(false))}>
+      <Dialog open={open} onOpenChange={(o: boolean) => (o ? setOpen(true) : setOpen(false))}>
         <DialogContent>
           <form
             onSubmit={(e) => {
@@ -197,7 +197,7 @@ export function AgentsPanel() {
                 min={1}
                 max={100}
                 value={form.maxConcurrent}
-                onChange={(e: any) => setForm({ ...form, maxConcurrent: Number(e.target.value) })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, maxConcurrent: Number(e.target.value) })}
               />
             </div>
             <DialogFooter>

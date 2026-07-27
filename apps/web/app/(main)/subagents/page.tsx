@@ -99,22 +99,22 @@ export default function SubagentsListPage() {
               <p className="py-10 text-center text-sm text-muted-foreground">无活跃派单</p>
             ) : (
               <ul className="space-y-1.5">
-                {dispatches.map((d: any) => (
+                {dispatches.map((d) => (
                   <li
                     key={d.id}
                     className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent"
                   >
-                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${(STATUS_BADGE as any)[d.status]}`}>
-                      {(STATUS_LABEL as any)[d.status]}
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${(STATUS_BADGE)[d.status]}`}>
+                      {(STATUS_LABEL)[d.status]}
                     </span>
                     {d.priority && (
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${(PRIORITY_BADGE as any)[d.priority]}`}>
-                        {(PRIORITY_LABEL as any)[d.priority]}
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${(PRIORITY_BADGE)[d.priority]}`}>
+                        {(PRIORITY_LABEL)[d.priority]}
                       </span>
                     )}
                     {d.agentRole && (
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${(ROLE_BADGE as any)[d.agentRole]}`}>
-                        {(ROLE_LABEL as any)[d.agentRole]}
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${(ROLE_BADGE)[d.agentRole]}`}>
+                        {(ROLE_LABEL)[d.agentRole]}
                       </span>
                     )}
                     <span className="flex-1 truncate text-sm">{d.goal}</span>

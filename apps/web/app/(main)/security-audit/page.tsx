@@ -88,8 +88,8 @@ export default function SecurityAuditPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((ev: any) => {
-                  const Icon = (TYPE_ICON as any)[ev.type] ?? DEFAULT_ICON
+                {list.map((ev) => {
+                  const Icon = (TYPE_ICON)[ev.type] ?? DEFAULT_ICON
                   return (
                     <TableRow key={ev.id}>
                       <TableCell className="px-4 py-2.5">

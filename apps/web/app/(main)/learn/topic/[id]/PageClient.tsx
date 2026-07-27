@@ -170,7 +170,7 @@ export default function LearnTopicDetailPage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {lessons.map((lesson: any) => {
+            {lessons.map((lesson) => {
               const title = lesson.title ?? lesson.name ?? ''
               const cover = lesson.coverImage ?? lesson.image ?? lesson.cover
               return (

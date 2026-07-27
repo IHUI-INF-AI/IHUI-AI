@@ -86,9 +86,9 @@ export default function VersionsPage() {
         <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
       ) : (
         <div className="space-y-3">
-          {list.map((v: any) => {
-            const StatusIcon = (STATUS_ICON as any)[v.status]
-            const cls = (STATUS_CLS as any)[v.status]
+          {list.map((v) => {
+            const StatusIcon = (STATUS_ICON)[v.status]
+            const cls = (STATUS_CLS)[v.status]
             return (
               <Card key={v.id}>
                 <CardContent className="p-4">
@@ -104,7 +104,7 @@ export default function VersionsPage() {
                         )}
                       >
                         <StatusIcon className="h-3 w-3" />
-                        {t((API_VERSION_STATUS_KEYS as any)[v.status]!)}
+                        {t((API_VERSION_STATUS_KEYS)[v.status]!)}
                       </span>
                     </div>
                     <span className="ml-auto text-xs text-muted-foreground">

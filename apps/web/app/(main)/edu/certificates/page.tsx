@@ -74,7 +74,7 @@ export default function EduCertificatesPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {certs.map((cert: any) => (
+          {certs.map((cert) => (
             <Card
               key={cert.id}
               className="cursor-pointer transition-colors hover:bg-accent"

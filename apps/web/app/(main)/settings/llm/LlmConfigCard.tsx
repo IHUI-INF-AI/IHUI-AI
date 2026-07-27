@@ -41,7 +41,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
 
   const testMut = useMutation({
     mutationFn: () => testConfig(config.id),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success(t('testSuccess'), {
         description: res.message || t('testTimeOnly', { ms: res.responseMs ?? 0 }),
         icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
@@ -62,7 +62,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
 
   const fetchMut = useMutation({
     mutationFn: () => fetchUpstreamModels(config.id),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       setModels(res.models)
       setModelsLoaded(true)
       toast.success(res.message || t('fetchSuccess', { total: res.total }), {

@@ -135,7 +135,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
         modelId: modelId.trim(),
       })
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success(res.message || t('quickKey.testSuccess'), {
         description: `${t('quickKey.testDuration', { ms: res.responseMs ?? 0 })}${res.modelEcho ? ` · ${res.modelEcho}` : ''}`,
         icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,

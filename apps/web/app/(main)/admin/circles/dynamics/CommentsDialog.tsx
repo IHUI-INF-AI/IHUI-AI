@@ -50,7 +50,7 @@ export function CommentsDialog({ post, onClose }: Props) {
   const list = data?.list ?? []
 
   return (
-    <Dialog open={post !== null} onOpenChange={(o: any) => (o ? null : onClose())}>
+    <Dialog open={post !== null} onOpenChange={(o: boolean) => (o ? null : onClose())}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('commentsTitle')}</DialogTitle>

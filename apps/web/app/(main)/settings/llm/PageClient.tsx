@@ -120,7 +120,7 @@ export default function UserLlmConfigsPage() {
   })
   const existingGroups = React.useMemo(
     () =>
-      (groupsData?.list ?? []).map((g: any) => ({
+      (groupsData?.list ?? []).map((g) => ({
         group: g.id.toString(),
         groupLabel: g.label,
       })),

@@ -180,7 +180,7 @@ export default function ExamResultPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {result.details.map((d: any, i: any) => (
+            {result.details.map((d, i) => (
               <Card key={d.questionId} className="transition-colors hover:bg-accent/40">
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-start justify-between gap-3">

@@ -194,7 +194,7 @@ export function WorkspaceSelector() {
             <div className="mt-1 flex flex-col gap-0.5">
               {/* 添加工作区 */}
               <DropdownMenu.Item
-                onSelect={(e: any) => {
+                onSelect={(e) => {
                   e.preventDefault()
                   setMenuOpen(false)
                   setPickerOpen(true)

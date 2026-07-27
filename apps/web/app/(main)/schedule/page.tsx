@@ -123,7 +123,7 @@ export default function SchedulePage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tasks.map((task: any) => (
+          {tasks.map((task) => (
             <Card key={task.id} className="flex flex-col">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">

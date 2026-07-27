@@ -43,7 +43,7 @@ export default function TagsPage() {
   })
 
   const tags = data ?? []
-  const counts = tags.map((x: any) => x.usageCount)
+  const counts = tags.map((x) => x.usageCount)
   const max = Math.max(1, ...counts)
   const min = Math.min(max, ...counts)
   const fontSize = (count: number) => {
@@ -76,7 +76,7 @@ export default function TagsPage() {
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-6">
-            {tags.map((tag: any, i: any) => (
+            {tags.map((tag, i) => (
               <Link
                 key={tag.id}
                 href={`/tags/${tag.slug}`}
@@ -100,7 +100,7 @@ export default function TagsPage() {
                 {t('popular')}
               </h2>
               <div className="flex flex-wrap gap-2">
-                {tags.slice(0, 5).map((tag: any, i: any) => (
+                {tags.slice(0, 5).map((tag, i) => (
                   <Link key={tag.id} href={`/tags/${tag.slug}`}>
                     <TagChip
                       size="md"

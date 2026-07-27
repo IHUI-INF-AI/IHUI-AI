@@ -119,7 +119,7 @@ export function CategoryTable({
                     <Switch
                       checked={c.isPaid}
                       disabled={togglePaidPending}
-                      onCheckedChange={(v: any) => onTogglePaid(c, v)}
+                      onCheckedChange={(v: boolean) => onTogglePaid(c, v)}
                       aria-label={t('colPaid')}
                     />
                   </TableCell>

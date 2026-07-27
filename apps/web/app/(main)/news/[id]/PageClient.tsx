@@ -83,7 +83,7 @@ export default function NewsDetailPage() {
   const tags = article.tags
     ? article.tags
         .split(',')
-        .map((s: any) => s.trim())
+        .map((s) => s.trim())
         .filter(Boolean)
     : []
   const likeCount = article.likeCount ?? (Math.floor(article.viewCount * 0.05) || 36)
@@ -157,7 +157,7 @@ export default function NewsDetailPage() {
               {tags.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 border-t pt-4">
                   <span className="text-xs text-muted-foreground">{t('tags')}</span>
-                  {tags.map((tag: any) => (
+                  {tags.map((tag) => (
                     <Badge key={tag} variant="primary">
                       #{tag}
                     </Badge>

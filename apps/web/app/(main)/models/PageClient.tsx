@@ -28,14 +28,14 @@ export default function ModelsPageClient() {
       providerParam && (PROVIDERS as string[]).includes(providerParam)
         ? (providerParam as Provider)
         : 'all'
-    const list = active === 'all' ? MODELS : MODELS.filter((m: any) => m.provider === active)
+    const list = active === 'all' ? MODELS : MODELS.filter((m) => m.provider === active)
     return { active, list }
   }, [MODELS, providerParam])
 
   const total = list.length
-  const freeCount = list.filter((m: any) => m.inputPrice === 0).length
-  const providerCount = new Set(list.map((m: any) => m.provider)).size
-  const highlightCount = list.filter((m: any) => m.highlight).length
+  const freeCount = list.filter((m) => m.inputPrice === 0).length
+  const providerCount = new Set(list.map((m) => m.provider)).size
+  const highlightCount = list.filter((m) => m.highlight).length
 
   return (
     <div className="space-y-6">

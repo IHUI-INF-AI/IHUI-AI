@@ -25,7 +25,7 @@ export default function ApiKeysSettingsPage() {
   const createMut = useMutation({
     mutationFn: (f: CreateFormState) =>
       createApiKey({ name: f.name.trim(), permissions: f.permissions, rateLimit: f.rateLimit }),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success('API 密钥创建成功')
       qc.invalidateQueries({ queryKey: ['user-api-keys'] })
       setSecretTitle('密钥已创建')
@@ -47,7 +47,7 @@ export default function ApiKeysSettingsPage() {
 
   const rotateMut = useMutation({
     mutationFn: (id: string) => rotateApiKeySecret(id),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success('密钥已轮换,请保存新 secret')
       qc.invalidateQueries({ queryKey: ['user-api-keys'] })
       setSecretTitle('新 Secret 已生成')

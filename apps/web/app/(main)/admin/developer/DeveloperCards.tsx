@@ -261,7 +261,7 @@ export function DeveloperCards({
         )}
       </section>
 
-      <Dialog open={!!resetTarget} onOpenChange={(o: any) => !o && !resetPending && setResetTarget(null)}>
+      <Dialog open={!!resetTarget} onOpenChange={(o: boolean) => !o && !resetPending && setResetTarget(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>重置密钥</DialogTitle>
