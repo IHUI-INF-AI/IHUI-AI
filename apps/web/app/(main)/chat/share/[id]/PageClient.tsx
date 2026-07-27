@@ -119,7 +119,7 @@ export default function ChatSharePage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {messages.map((msg: any) => {
+          {messages.map((msg: Message) => {
             const isUser = msg.role === 'user'
             const Icon = isUser ? User : Bot
             return (

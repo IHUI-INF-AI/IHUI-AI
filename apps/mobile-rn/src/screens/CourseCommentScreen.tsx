@@ -5,9 +5,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { CommentRecord } from '@ihui/types'
 import { Card } from '@ihui/ui-native'
 
-interface Comment { id: string; user: string; content: string; rating: number; createdAt: string }
+interface Comment extends Pick<CommentRecord, 'content'> {
+  id: string // 本地是 string,共享是 number,保留本地类型
+  user: string // = user_name 别名
+  rating: number // 本地特有
+  createdAt: string // = created_at 别名
+}
 
 type Route = RouteProp<RootStackParamList, 'CourseComment'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -34,24 +40,41 @@ export function CourseCommentScreen() {
       else setError(res.error || t('courseComment.loadFailed'))
       setLoading(false)
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [courseId, t])
 
-  if (loading) return <View style={styles.center}><ActivityIndicator /><Text style={styles.muted}>{t('common.loading')}</Text></View>
-  if (error) return (
-    <View style={styles.center}>
-      <Text style={styles.error}>{error}</Text>
-      <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}><Text style={styles.btnText}>{t('common.back')}</Text></TouchableOpacity>
-    </View>
-  )
+  if (loading)
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+        <Text style={styles.muted}>{t('common.loading')}</Text>
+      </View>
+    )
+  if (error)
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>{error}</Text>
+        <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
+          <Text style={styles.btnText}>{t('common.back')}</Text>
+        </TouchableOpacity>
+      </View>
+    )
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>{t('common.back')}</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => navigation.goBack()}>
+        <Text style={styles.back}>{t('common.back')}</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>{t('courseComment.title')}</Text>
       <FlatList
         data={comments}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={<View style={styles.empty}><Text style={styles.muted}>{t('courseComment.empty')}</Text></View>}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.muted}>{t('courseComment.empty')}</Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <Card className="p-3 mb-2">
             <View style={styles.row}>
@@ -69,7 +92,13 @@ export function CourseCommentScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16 },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    padding: 16,
+  },
   muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
   error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
   back: { fontSize: 14, color: '#6b7280' },
@@ -81,6 +110,12 @@ const styles = StyleSheet.create({
   rating: { fontSize: 12, color: PRIMARY },
   content: { marginTop: 6, fontSize: 13, color: '#374151' },
   meta: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
+  btn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
   btnText: { color: '#fff', fontSize: 14 },
 })

@@ -55,7 +55,17 @@ const dateFmt = new Intl.DateTimeFormat('zh-CN', {
   minute: '2-digit',
 })
 
-function QuotaBar({ label, used, total, unit }: { label: string; used: number; total: number; unit: string }) {
+function QuotaBar({
+  label,
+  used,
+  total,
+  unit,
+}: {
+  label: string
+  used: number
+  total: number
+  unit: string
+}) {
   const pct = total > 0 ? Math.min(100, (used / total) * 100) : 0
   const barColor = pct >= 90 ? 'bg-rose-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
   return (
@@ -84,8 +94,16 @@ export default function SubagentDetailClient() {
     queryFn: fetchActiveDispatches,
     refetchInterval: 5000,
   })
-  const dagQ = useQuery({ queryKey: ['subagents', id, 'dag'], queryFn: () => fetchDispatchDag(id), enabled: !!id })
-  const quotasQ = useQuery({ queryKey: ['subagents', id, 'quotas'], queryFn: () => fetchDispatchQuotas(id), enabled: !!id })
+  const dagQ = useQuery({
+    queryKey: ['subagents', id, 'dag'],
+    queryFn: () => fetchDispatchDag(id),
+    enabled: !!id,
+  })
+  const quotasQ = useQuery({
+    queryKey: ['subagents', id, 'quotas'],
+    queryFn: () => fetchDispatchQuotas(id),
+    enabled: !!id,
+  })
   const msgsQ = useQuery({
     queryKey: ['subagents', id, 'messages'],
     queryFn: () => fetchDispatchMessages(id),
@@ -93,7 +111,7 @@ export default function SubagentDetailClient() {
     refetchInterval: 3000,
   })
 
-  const dispatch = activeQ.data?.dispatches.find((d: any) => d.id === id)
+  const dispatch = activeQ.data?.dispatches.find((d) => d.id === id)
 
   const cancelMut = useMutation({
     mutationFn: () => cancelDispatch(id),
@@ -105,9 +123,7 @@ export default function SubagentDetailClient() {
   })
 
   if (!id) {
-    return (
-      <div className="py-10 text-center text-sm text-muted-foreground">缺少派单 ID 参数</div>
-    )
+    return <div className="py-10 text-center text-sm text-muted-foreground">缺少派单 ID 参数</div>
   }
 
   return (
@@ -131,14 +147,34 @@ export default function SubagentDetailClient() {
             {dispatch && (
               <div className="flex gap-2">
                 {dispatch.status === 'paused' && (
-                  <Button size="sm" variant="outline" disabled={resumeMut.isPending} onClick={() => resumeMut.mutate()}>
-                    {resumeMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={resumeMut.isPending}
+                    onClick={() => resumeMut.mutate()}
+                  >
+                    {resumeMut.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Play className="h-3.5 w-3.5" />
+                    )}
                     恢复
                   </Button>
                 )}
-                {(dispatch.status === 'pending' || dispatch.status === 'running' || dispatch.status === 'paused') && (
-                  <Button size="sm" variant="outline" disabled={cancelMut.isPending} onClick={() => cancelMut.mutate()}>
-                    {cancelMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
+                {(dispatch.status === 'pending' ||
+                  dispatch.status === 'running' ||
+                  dispatch.status === 'paused') && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={cancelMut.isPending}
+                    onClick={() => cancelMut.mutate()}
+                  >
+                    {cancelMut.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Ban className="h-3.5 w-3.5" />
+                    )}
                     取消
                   </Button>
                 )}
@@ -155,25 +191,29 @@ export default function SubagentDetailClient() {
             <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
               <div>
                 <p className="text-xs text-muted-foreground">状态</p>
-                <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${(STATUS_BADGE as any)[dispatch.status]}`}>
-                  {(STATUS_LABEL as any)[dispatch.status]}
+                <span
+                  className={`mt-1 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_BADGE[dispatch.status]}`}
+                >
+                  {STATUS_LABEL[dispatch.status]}
                 </span>
               </div>
               {dispatch.agentRole && (
                 <div>
                   <p className="text-xs text-muted-foreground">角色</p>
-                  <p className="mt-1 text-sm">{(ROLE_LABEL as any)[dispatch.agentRole]}</p>
+                  <p className="mt-1 text-sm">{ROLE_LABEL[dispatch.agentRole]}</p>
                 </div>
               )}
               {dispatch.priority && (
                 <div>
                   <p className="text-xs text-muted-foreground">优先级</p>
-                  <p className="mt-1 text-sm">{(PRIORITY_LABEL as any)[dispatch.priority]}</p>
+                  <p className="mt-1 text-sm">{PRIORITY_LABEL[dispatch.priority]}</p>
                 </div>
               )}
               <div>
                 <p className="text-xs text-muted-foreground">创建时间</p>
-                <p className="mt-1 text-sm tabular-nums">{dateFmt.format(new Date(dispatch.createdAt))}</p>
+                <p className="mt-1 text-sm tabular-nums">
+                  {dateFmt.format(new Date(dispatch.createdAt))}
+                </p>
               </div>
             </div>
           )}
@@ -208,11 +248,28 @@ export default function SubagentDetailClient() {
               </p>
             ) : (
               <div className="space-y-3">
-                <QuotaBar label="时间" used={quotasQ.data.used.elapsedMs} total={quotasQ.data.quota.timeoutMs} unit="ms" />
-                <QuotaBar label="Token" used={quotasQ.data.used.tokensUsed} total={quotasQ.data.quota.tokenQuota} unit="" />
-                <QuotaBar label="重试" used={quotasQ.data.used.retriesUsed} total={quotasQ.data.quota.maxRetries} unit="次" />
+                <QuotaBar
+                  label="时间"
+                  used={quotasQ.data.used.elapsedMs}
+                  total={quotasQ.data.quota.timeoutMs}
+                  unit="ms"
+                />
+                <QuotaBar
+                  label="Token"
+                  used={quotasQ.data.used.tokensUsed}
+                  total={quotasQ.data.quota.tokenQuota}
+                  unit=""
+                />
+                <QuotaBar
+                  label="重试"
+                  used={quotasQ.data.used.retriesUsed}
+                  total={quotasQ.data.quota.maxRetries}
+                  unit="次"
+                />
                 {quotasQ.data.exceeded && (
-                  <p className="text-xs font-medium text-rose-600 dark:text-rose-400">⚠ 配额已超限</p>
+                  <p className="text-xs font-medium text-rose-600 dark:text-rose-400">
+                    ⚠ 配额已超限
+                  </p>
                 )}
               </div>
             )}

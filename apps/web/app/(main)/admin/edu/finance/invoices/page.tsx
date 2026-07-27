@@ -171,7 +171,7 @@ export default function EduFinanceInvoicesPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((inv: any) => {
+              rows.map((inv) => {
                 const cls = STATUS_CLS[inv.status] ?? 'bg-muted text-muted-foreground'
                 return (
                   <TableRow key={inv.id} className="hover:bg-muted/30">

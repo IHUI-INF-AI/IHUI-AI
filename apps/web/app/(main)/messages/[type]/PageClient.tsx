@@ -170,7 +170,7 @@ export default function MessageTypePage() {
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <li key={item.id}>
               <button
                 type="button"

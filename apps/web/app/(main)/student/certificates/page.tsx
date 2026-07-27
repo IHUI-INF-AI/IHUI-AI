@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -74,7 +74,7 @@ export default function MyCertificatesPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((cert: any) => {
+          {list.map((cert) => {
             const statusKey = cert.status === 2 ? 'statusRevoked' : 'statusValid'
             return (
               <Card key={cert.id} className="transition-colors hover:bg-accent">

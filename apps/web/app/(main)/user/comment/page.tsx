@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -75,7 +75,7 @@ export default function CommentPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <li
               key={item.id}
               className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"

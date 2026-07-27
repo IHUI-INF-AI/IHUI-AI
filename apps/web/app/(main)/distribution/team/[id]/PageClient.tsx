@@ -83,7 +83,7 @@ export default function DistributionTeamDetailPage() {
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
   }
 
-  const member = usersData?.list.find((u: any) => u.id === params.id) ?? null
+  const member = usersData?.list.find((u) => u.id === params.id) ?? null
   const treeNode = treeData ? findInTree(treeData.tree, params.id) : null
   const subordinates = treeNode?.children ?? []
   const displayName = member?.nickname || member?.username || t('defaultName')
@@ -176,7 +176,9 @@ export default function DistributionTeamDetailPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">{t('directSubordinates')}</h2>
-          <span className="text-sm text-muted-foreground">{t('totalCount', { count: subordinates.length })}</span>
+          <span className="text-sm text-muted-foreground">
+            {t('totalCount', { count: subordinates.length })}
+          </span>
         </div>
 
         {subordinates.length === 0 ? (

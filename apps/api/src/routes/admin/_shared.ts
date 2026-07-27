@@ -4,9 +4,16 @@
  */
 import { z } from 'zod'
 import { eq, ilike, desc, sql, inArray, type Column, type SQL } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 import { db } from '../../db/index.js'
 import type { FastifyInstance } from 'fastify'
 import { emptyToUndefined, success, error } from '../../utils/response.js'
+
+// Drizzle CRUD 工厂接受的表类型:PgTable 且含 id/createdAt 列
+type CrudTable = PgTable & {
+  id: Column
+  createdAt: Column
+}
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -207,12 +214,11 @@ export const updateLoginLogSchema = z.object({
   loginTime: z.string().optional(),
 })
 
-// Drizzle CRUD 工厂:接受任意 pgTable 实例,泛型签名受 TableConfig 索引签名约束无法表达。
+// Drizzle CRUD 工厂:接受含 id/createdAt 列的 PgTable 实例
 export function registerCrud(
   server: FastifyInstance,
   basePath: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle pgTable 泛型受 TableConfig 约束无法静态表达
-  table: any,
+  table: CrudTable,
   opts: {
     searchField?: Column
     orderBy?: SQL<unknown>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -102,7 +102,7 @@ export default function ActivitiesPage() {
         </div>
       ) : data && data.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.map((a: any) => {
+          {data.map((a) => {
             const displayStatus = computeStatus(a.startAt, a.endAt)
             return (
               <Card

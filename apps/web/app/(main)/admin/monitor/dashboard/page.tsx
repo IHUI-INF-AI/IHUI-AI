@@ -58,7 +58,7 @@ export default function AdminMonitorDashboardPage() {
     queryFn: () => api<PerfItem>('/api/admin/monitor/perf'),
   })
 
-  const healthyCount = services.filter((s: any) => s.status === 'healthy').length
+  const healthyCount = services.filter((s) => s.status === 'healthy').length
   const perfCards = [
     { label: 'CPU', value: perf?.cpu ?? 0, unit: '%', max: 100, cls: 'text-primary' },
     { label: '内存', value: perf?.memory ?? 0, unit: '%', max: 100, cls: 'text-primary' },
@@ -106,7 +106,7 @@ export default function AdminMonitorDashboardPage() {
               <p className="py-6 text-center text-sm text-muted-foreground">暂无服务数据</p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {services.map((s: any) => {
+                {services.map((s) => {
                   const Icon = SERVICE_ICONS[s.name] ?? Server
                   const ok = s.status === 'healthy'
                   return (
@@ -186,7 +186,10 @@ export default function AdminMonitorDashboardPage() {
             {Array.from({ length: 48 }).map((_, i) => {
               const h = 20 + Math.sin(i / 3) * 30 + Math.random() * 40
               return (
-                <Tooltip key={`bar-${i}`} content={`${Math.round(h * (perf?.qps ? perf.qps / 100 : 1))} req/s`}>
+                <Tooltip
+                  key={`bar-${i}`}
+                  content={`${Math.round(h * (perf?.qps ? perf.qps / 100 : 1))} req/s`}
+                >
                   <div
                     className="flex-1 rounded-t bg-primary/60 transition-colors hover:bg-primary"
                     style={{ height: `${Math.max(5, Math.min(100, h))}%` }}

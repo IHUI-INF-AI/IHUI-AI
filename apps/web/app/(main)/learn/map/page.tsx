@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -58,9 +58,7 @@ export default function LearnMapPage() {
           <MapIcon className="h-7 w-7 text-primary" />
           {data?.title ?? t('defaultTitle')}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          {data?.description ?? t('defaultDesc')}
-        </p>
+        <p className="text-sm text-muted-foreground">{data?.description ?? t('defaultDesc')}</p>
       </header>
 
       <Card>
@@ -99,7 +97,7 @@ export default function LearnMapPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {nodes.map((node: any, idx: any) => {
+          {nodes.map((node, idx) => {
             const isLocked = node.status === 'locked'
             const isCompleted = node.status === 'completed'
             return (
@@ -128,7 +126,9 @@ export default function LearnMapPage() {
                   </div>
                   <div className="flex-1 space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{t('stageN', { n: idx + 1 })}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t('stageN', { n: idx + 1 })}
+                      </span>
                       {isCompleted && (
                         <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
                           {t('completed')}
@@ -153,7 +153,10 @@ export default function LearnMapPage() {
                       />
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {t('lessonsProgress', { completed: node.completedLessons, total: node.totalLessons })}
+                      {t('lessonsProgress', {
+                        completed: node.completedLessons,
+                        total: node.totalLessons,
+                      })}
                     </span>
                   </div>
                   {!isLocked && (

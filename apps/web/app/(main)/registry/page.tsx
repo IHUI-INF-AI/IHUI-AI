@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useAuth } from '@/hooks/use-auth'
@@ -110,7 +110,9 @@ export default function RegistryPage() {
       ) : loading ? (
         <div className="py-8 text-center text-sm text-muted-foreground">加载中…</div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">暂无资源</div>
+        <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+          暂无资源
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
@@ -133,30 +135,48 @@ export default function RegistryPage() {
               <Button size="sm" variant="outline" disabled={sync.syncing} onClick={handleSync}>
                 {sync.syncing ? '同步中…' : '手动触发同步'}
               </Button>
-              <Button size="sm" variant="outline" disabled={drift.loading} onClick={() => drift.detect()}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={drift.loading}
+                onClick={() => drift.detect()}
+              >
                 {drift.loading ? '检测中…' : '配置漂移检测'}
               </Button>
-              <Button size="sm" variant="outline" disabled={workerStats.loading} onClick={() => workerStats.refresh()}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={workerStats.loading}
+                onClick={() => workerStats.refresh()}
+              >
                 {workerStats.loading ? '加载中…' : '刷新 Worker 指标'}
               </Button>
             </div>
             {sync.result && (
               <p className="text-xs text-muted-foreground">
-                同步完成:新增 {sync.result.stats.synced} · 失败 {sync.result.stats.failed} · 跳过 {sync.result.stats.skipped}
+                同步完成:新增 {sync.result.stats.synced} · 失败 {sync.result.stats.failed} · 跳过{' '}
+                {sync.result.stats.skipped}
               </p>
             )}
             {drift.report && (
               <div className="rounded-md bg-muted p-3 text: any-xs">
                 {drift.report.hasDrift
-                  ? `检测到 ${drift.report.reports.filter((r: any) => r.drifted).length} 个文件存在配置漂移`
+                  ? `检测到 ${drift.report.reports.filter((r) => r.drifted).length} 个文件存在配置漂移`
                   : '未检测到配置漂移'}
               </div>
             )}
             {workerStats.stats && (
               <div className="rounded-md bg-muted p-3 text-xs space-y-1">
                 <p className="font-medium">Worker 运行状态</p>
-                <p>已处理: {workerStats.stats.processed} 次 | 失败: {workerStats.stats.failed} 次</p>
-                <p>最近处理: {workerStats.stats.lastProcessedAt ? new Date(workerStats.stats.lastProcessedAt).toLocaleString() : '从未'}</p>
+                <p>
+                  已处理: {workerStats.stats.processed} 次 | 失败: {workerStats.stats.failed} 次
+                </p>
+                <p>
+                  最近处理:{' '}
+                  {workerStats.stats.lastProcessedAt
+                    ? new Date(workerStats.stats.lastProcessedAt).toLocaleString()
+                    : '从未'}
+                </p>
               </div>
             )}
             <SyncLogPanel logs={syncLogs.logs} loading={syncLogs.loading} />

@@ -84,7 +84,7 @@ class TaskScheduler:
         if redis_url:
             try:
                 self._redis = aioredis.from_url(redis_url, decode_responses=True)
-                await self._redis.ping()
+                await self._redis.ping()  # type: ignore[misc]
                 logger.info("[scheduler_service] Redis connected")
             except Exception as e:
                 logger.warning("[scheduler_service] Redis 不可用,降级内存: %s", e)
@@ -369,7 +369,7 @@ class TaskScheduler:
                 "created_at": task.get("created_at", ""),
                 "next_run_at": task.get("next_run_at", ""),
             }
-            await self._redis.hset(key, mapping=mapping)
+            await self._redis.hset(key, mapping=mapping)  # type: ignore[misc]
             await self._redis.expire(key, _REDIS_TTL_SECONDS)
         else:
             self._memory_fallback[task["task_id"]] = task
@@ -391,7 +391,7 @@ class TaskScheduler:
         entry = {"at": _now_iso(), "error": message}
         if self._redis is not None:
             key = _REDIS_LOG_PREFIX + task_id
-            await self._redis.lpush(key, json.dumps(entry, ensure_ascii=False))
+            await self._redis.lpush(key, json.dumps(entry, ensure_ascii=False))  # type: ignore[misc]
             await cast(Awaitable[str], self._redis.ltrim(key, 0, _LOG_KEEP - 1))
             await self._redis.expire(key, _REDIS_TTL_SECONDS)
         else:

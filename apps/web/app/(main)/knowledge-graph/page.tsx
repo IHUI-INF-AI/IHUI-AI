@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * 知识图谱可视化页面(G5 - 2026-07-21)
@@ -16,14 +16,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  ArrowLeft,
-  Loader2,
-  Network,
-  Sparkles,
-  Trash2,
-  AlertCircle,
-} from 'lucide-react'
+import { ArrowLeft, Loader2, Network, Sparkles, Trash2, AlertCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@ihui/ui-react'
@@ -88,7 +81,9 @@ export default function KnowledgeGraphPage() {
   const qc = useQueryClient()
   const [text, setText] = React.useState('')
   const [highlightId, setHighlightId] = React.useState<number | null>(null)
-  const [feedback, setFeedback] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [feedback, setFeedback] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(
+    null,
+  )
 
   const graphQuery = useQuery({
     queryKey: ['knowledgeGraph', 'data'],
@@ -103,7 +98,7 @@ export default function KnowledgeGraphPage() {
         body: JSON.stringify({ text: input }),
         headers: { 'Content-Type': 'application/json' },
       }),
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['knowledgeGraph', 'data'] })
       setText('')
       setFeedback({
@@ -111,7 +106,7 @@ export default function KnowledgeGraphPage() {
         msg: `${t('feedbackBuildSuccess', { entities: data.entities_added, relations: data.relations_added })}`,
       })
     },
-    onError: (e: any) => {
+    onError: (e) => {
       setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) })
     },
   })
@@ -122,7 +117,7 @@ export default function KnowledgeGraphPage() {
       qc.invalidateQueries({ queryKey: ['knowledgeGraph', 'data'] })
       setFeedback({ type: 'success', msg: t('feedbackClearSuccess') })
     },
-    onError: (e: any) => {
+    onError: (e) => {
       setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) })
     },
   })
@@ -142,7 +137,7 @@ export default function KnowledgeGraphPage() {
   const relatedEdgeIds = React.useMemo(() => {
     if (highlightId === null) return new Set<number>()
     const s = new Set<number>()
-    relations.forEach((r: any) => {
+    relations.forEach((r) => {
       if (r.source_entity_id === highlightId || r.target_entity_id === highlightId) {
         s.add(r.id)
       }
@@ -253,13 +248,9 @@ export default function KnowledgeGraphPage() {
               {tCommon('loading')}
             </div>
           ) : graphQuery.isError ? (
-            <div className="py-12 text-center text-sm text-destructive">
-              {tCommon('error')}
-            </div>
+            <div className="py-12 text-center text-sm text-destructive">{tCommon('error')}</div>
           ) : entities.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              {t('emptyState')}
-            </div>
+            <div className="py-12 text-center text-sm text-muted-foreground">{t('emptyState')}</div>
           ) : (
             <div className="overflow-auto rounded-md border bg-muted/30">
               <svg
@@ -269,7 +260,7 @@ export default function KnowledgeGraphPage() {
                 aria-label={t('graphAriaLabel')}
               >
                 {/* 边 */}
-                {relations.map((r: any) => {
+                {relations.map((r) => {
                   const src = positions.get(r.source_entity_id)
                   const tgt = positions.get(r.target_entity_id)
                   if (!src || !tgt) return null
@@ -300,11 +291,12 @@ export default function KnowledgeGraphPage() {
                   )
                 })}
                 {/* 节点 */}
-                {entities.map((e: any) => {
+                {entities.map((e) => {
                   const pos = positions.get(e.id)
                   if (!pos) return null
                   const r = Math.max(18, Math.min(48, 18 + e.frequency * 6))
-                  const isHighlighted = highlightId === null || e.id === highlightId || relatedEdgeIds.size > 0
+                  const isHighlighted =
+                    highlightId === null || e.id === highlightId || relatedEdgeIds.size > 0
                   return (
                     <g
                       key={e.id}
@@ -340,9 +332,7 @@ export default function KnowledgeGraphPage() {
           )}
         </CardContent>
         {entities.length > 0 && (
-          <CardFooter className="text-xs text-muted-foreground">
-            {t('legendHint')}
-          </CardFooter>
+          <CardFooter className="text-xs text-muted-foreground">{t('legendHint')}</CardFooter>
         )}
       </Card>
     </div>

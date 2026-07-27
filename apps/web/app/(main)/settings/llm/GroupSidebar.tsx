@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * GroupSidebar — 左侧分组栏(2026-07-22 立)
@@ -56,7 +56,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
   const [showAddInput, setShowAddInput] = React.useState(false)
   const createGroupMut = useMutation({
     mutationFn: (label: string) => createGroupV2(label),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success(t('groupCreated', { name: res.label }))
       setNewGroupName('')
       setShowAddInput(false)
@@ -159,9 +159,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
           <ChevronRight className="h-3 w-3" />
           {t('all')}
         </span>
-        <span className="text-xs text-muted-foreground">
-          {stats.get('__all__')?.total ?? 0}
-        </span>
+        <span className="text-xs text-muted-foreground">{stats.get('__all__')?.total ?? 0}</span>
       </button>
 
       {/* Ungrouped(占位) */}
