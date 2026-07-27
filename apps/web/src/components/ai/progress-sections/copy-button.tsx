@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Check, Copy } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 interface CopyButtonProps {
@@ -27,10 +28,12 @@ interface CopyButtonProps {
 export const CopyButton = React.memo(function CopyButton({
   text,
   className,
-  'aria-label': ariaLabel = '复制',
+  'aria-label': ariaLabel,
   'data-testid': testId,
 }: CopyButtonProps) {
+  const t = useTranslations('ai.progressPane')
   const [copied, setCopied] = React.useState(false)
+  const resolvedLabel = ariaLabel ?? t('copy')
 
   const onCopy = React.useCallback(async () => {
     if (!text) return
@@ -49,8 +52,8 @@ export const CopyButton = React.memo(function CopyButton({
     <button
       type="button"
       onClick={onCopy}
-      aria-label={ariaLabel}
-      title={copied ? '已复制' : ariaLabel}
+      aria-label={resolvedLabel}
+      title={copied ? t('copied') : resolvedLabel}
       tabIndex={-1}
       className={cn(
         'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground',
