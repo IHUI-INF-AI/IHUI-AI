@@ -35,7 +35,7 @@
 | `@ihui/context-compaction` | `packages/context-compaction/` | 上下文压缩(对话历史 token 优化) | `index` | - |
 | `@ihui/sdk` | `packages/sdk/` | TS SDK + 4 语言 SDK(Python/Go/Java/.NET) | TS:`agents`/`ai`/`audio`/`files`/`generation`/`images`/`knowledge`/`memory`/`messages`/`streaming`/`threed`/`tools`/`user`/`videos` | - |
 | `@ihui/shared` | `packages/shared/` | 8端共享业务逻辑:auth/sso + context + memory + notifications + plan + skills + spec + subagents + tasks + utils + validation + workflows | `auth`/`context`/`memory`/`notifications`/`plan`/`skills`/`spec`/`subagents`/`tasks`/`utils`/`validation`/`workflows`/`design` | - |
-| `@ihui/app` | `packages/app/` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + theme/tokens re-export) | `index`/`theme/tokens`/`types`/`features/*` | - |
+| `@ihui/rn-app` | `packages/app/` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + theme/tokens re-export) | `index`/`theme/tokens`/`types`/`features/*` | - |
 
 ### @ihui/auth 源码结构
 
