@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -16,7 +16,7 @@ export default function SubagentDispatchPage() {
 
   const mut = useMutation({
     mutationFn: (input: SubagentDispatchInput) => createDispatch(input),
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       if (data.outcome === 'success' && data.dispatch?.id) {
         qc.invalidateQueries({ queryKey: ['subagents'] })
         router.push(`/subagents/detail?id=${data.dispatch.id}`)
@@ -54,7 +54,11 @@ export default function SubagentDispatchPage() {
           <CardTitle className="text-sm">派单表单</CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0">
-          <DispatchForm onSubmit={(input) => mut.mutate(input)} isSubmitting={mut.isPending} error={error} />
+          <DispatchForm
+            onSubmit={(input) => mut.mutate(input)}
+            isSubmitting={mut.isPending}
+            error={error}
+          />
         </CardContent>
       </Card>
     </div>

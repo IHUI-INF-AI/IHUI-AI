@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * ProviderFormDialog — Provider 添加/编辑对话框(2026-07-22 立)
@@ -109,7 +109,7 @@ export function ProviderFormDialog({
       if (f.id) return updateProviderV2(f.id, f)
       return createProviderV2(f)
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success(form.id ? t('saved') : t('created'), {
         description: 'name' in res && res.name ? `「${res.name}」` : undefined,
       })
@@ -150,9 +150,7 @@ export function ProviderFormDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {isEdit ? t('editTitle') : t('newTitle')}
-          </DialogTitle>
+          <DialogTitle>{isEdit ? t('editTitle') : t('newTitle')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* 平台选择(只在新建时可改) */}
@@ -248,11 +246,7 @@ export function ProviderFormDialog({
                     aria-label={showKey ? t('hideKey') : t('showKey')}
                     className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
-                    {showKey ? (
-                      <EyeOff className="h-3.5 w-3.5" />
-                    ) : (
-                      <Eye className="h-3.5 w-3.5" />
-                    )}
+                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
                 </Tooltip>
               </div>
@@ -279,9 +273,7 @@ export function ProviderFormDialog({
                 <ClipboardPaste className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {isEdit ? (
-              <p className="text-xs text-muted-foreground">{t('keyKeepEmpty')}</p>
-            ) : null}
+            {isEdit ? <p className="text-xs text-muted-foreground">{t('keyKeepEmpty')}</p> : null}
           </div>
 
           <div className="space-y-1.5">

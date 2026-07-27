@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Image from 'next/image'
@@ -116,7 +116,11 @@ export default function LearnPage() {
               <GraduationCap className={locale === 'zh-CN' ? 'h-7 w-7' : 'h-7 w-7 text-primary'} />
               {t('title')}
             </h1>
-            <p className={locale === 'zh-CN' ? 'text-sm opacity-90' : 'text-sm text-muted-foreground'}>
+            <p
+              className={
+                locale === 'zh-CN' ? 'text-sm opacity-90' : 'text-sm text-muted-foreground'
+              }
+            >
               {t('subtitle')}
             </p>
           </div>
@@ -146,7 +150,7 @@ export default function LearnPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allCategories')}</SelectItem>
-            {(categories ?? []).map((c: any) => (
+            {(categories ?? []).map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
               </SelectItem>
@@ -171,7 +175,7 @@ export default function LearnPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {lessons.map((lesson: any) => (
+          {lessons.map((lesson) => (
             <CourseCard
               key={lesson.id}
               title={lesson.title}
