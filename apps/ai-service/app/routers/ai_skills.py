@@ -18,6 +18,7 @@ API 响应统一规范,前端 api-client fetchApi 期望该格式)。
 不阻塞 UI 列表展示,用户可见可点击,引导用户了解每个 skill 详情。
 """
 import json
+import logging
 import re
 import time
 from typing import Any, Generic, Optional, TypeVar
@@ -29,6 +30,8 @@ from pydantic import BaseModel, Field
 from app.core.llm_gateway import llm_gateway
 from app.services.skill_scheduler import SkillScheduler  # 2026-07-23:可选 LangGraph 调度器
 from app.services.skills import Skill, skill_registry
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai-skills", tags=["ai-skills"])
 
@@ -236,7 +239,8 @@ def _try_screenshot_html(html_content: str) -> Optional[str]:
     """
     try:
         from app.services import screenshot_service
-    except Exception:
+    except Exception as e:
+        logger.warning("ai_skills._try_screenshot_html 导入 screenshot_service 失败: %s", e, exc_info=True)
         return None
     func = getattr(screenshot_service, "screenshot_html_to_base64", None)
     if func is None:
@@ -266,7 +270,8 @@ def _try_screenshot_html(html_content: str) -> Optional[str]:
                 return result
             return "data:image/png;base64," + result
         return None
-    except Exception:
+    except Exception as e:
+        logger.warning("ai_skills._try_screenshot_html 截图 HTML 失败: %s", e, exc_info=True)
         return None
 
 

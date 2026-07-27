@@ -6,16 +6,19 @@
  *   wait_for_element / get_attribute / hover / select_option
  *   → 2026-07-27 已下沉到 @ihui/dom-actions 共享包(8 端可复用,无 chrome.* 依赖)
  * - Background actions(在 service worker 执行):screenshot / navigate / switch_tab / close_tab
- *   → 保留在本文件(依赖 chrome.tabs API,无法跨端复用)
+ *   → 2026-07-27 已迁移到 @ihui/browser-platform 适配层(chrome.* 调用统一走 platform.tabs)
  *
  * 调用方:background.ts routeMessage / agent-control-bridge.ts onRuntimeMessage / content.ts agent.action.dom handler
  * 2026-07-22 P2 dedupe:新增 executeAgentActionRequest + forwardRequestToContentScript 共享函数,
  * 供 background.ts 和 agent-control-bridge.ts 共用,消除重复实现。
- * 2026-07-27 P2 共享化:DOM action 实现迁移到 @ihui/dom-actions,本文件保留 re-export
- * 以保持 content.ts / tests 的 import 路径不变。
+ * 2026-07-27 P2 共享化:DOM action 迁移到 @ihui/dom-actions;chrome.tabs 调用迁移到
+ * @ihui/browser-platform 适配层,本文件保留 re-export 保持下游 import 路径不变。
  */
 import type { BrowserControlActionType, AgentActionRequest, AgentActionResponse } from '@ihui/types'
 import { type DomActionResult, isDomAction, executeDomAction } from '@ihui/dom-actions'
+import { createChromePlatform } from '@ihui/browser-platform'
+
+const platform = createChromePlatform()
 
 // re-export 保持下游 import 路径不变:
 // - content.ts: `import { executeDomAction } from '../lib/agent-control'`
@@ -87,8 +90,7 @@ async function doBackgroundAction(
 async function bgScreenshot(params: Record<string, unknown>): Promise<DomActionResult> {
   const requestedArea = (params.area as 'viewport' | 'fullpage' | 'element') ?? 'viewport'
   // captureVisibleTab only captures current viewport — fullpage/element 降级为 viewport
-  const dataUrl = await chrome.tabs.captureVisibleTab({ format: 'png' })
-  const base64 = dataUrl.replace(/^data:image\/png;base64,/, '')
+  const base64 = await platform.tabs.captureVisibleTab()
   const degraded = requestedArea !== 'viewport'
   return {
     success: true,
@@ -107,64 +109,41 @@ async function bgScreenshot(params: Record<string, unknown>): Promise<DomActionR
 async function bgNavigate(params: Record<string, unknown>): Promise<DomActionResult> {
   const url = params.url as string
   const timeout = (params.timeout as number) ?? 30000
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
-  const tabId = tabs[0]?.id
-  if (typeof tabId !== 'number') {
+  const activeTab = await platform.tabs.queryActiveTab()
+  if (!activeTab) {
     return { success: false, errorCode: 'TARGET_NOT_CONNECTED', error: 'no active tab' }
   }
-  await chrome.tabs.update(tabId, { url })
-  const result = await waitForTabComplete(tabId, url, timeout)
+  const result = await platform.tabs.navigateTab(activeTab.id, url, timeout)
   return { success: true, data: result }
-}
-
-function waitForTabComplete(
-  tabId: number,
-  fallbackUrl: string,
-  timeoutMs: number,
-): Promise<{ url: string; title: string }> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      chrome.tabs.onUpdated.removeListener(listener)
-      resolve({ url: fallbackUrl, title: '' })
-    }, timeoutMs)
-    const listener = (id: number, info: { status?: string }, tab: chrome.tabs.Tab) => {
-      if (id === tabId && info.status === 'complete') {
-        clearTimeout(timer)
-        chrome.tabs.onUpdated.removeListener(listener)
-        resolve({ url: tab.url || fallbackUrl, title: tab.title || '' })
-      }
-    }
-    chrome.tabs.onUpdated.addListener(listener)
-  })
 }
 
 async function bgSwitchTab(params: Record<string, unknown>): Promise<DomActionResult> {
   const index = params.index as number
-  const tabs = await chrome.tabs.query({ currentWindow: true })
+  const tabs = await platform.tabs.listTabs()
   const tab = tabs[index]
-  if (!tab || typeof tab.id !== 'number') {
+  if (!tab) {
     return {
       success: false,
       errorCode: 'EXECUTION_FAILED',
       error: `tab index out of range: ${index}`,
     }
   }
-  await chrome.tabs.update(tab.id, { active: true })
-  return { success: true, data: { url: tab.url || '', title: tab.title || '', index } }
+  await platform.tabs.activateTab(tab.id)
+  return { success: true, data: { url: tab.url, title: tab.title, index } }
 }
 
 async function bgCloseTab(params: Record<string, unknown>): Promise<DomActionResult> {
   const index = params.index as number
-  const tabs = await chrome.tabs.query({ currentWindow: true })
+  const tabs = await platform.tabs.listTabs()
   const tab = tabs[index]
-  if (!tab || typeof tab.id !== 'number') {
+  if (!tab) {
     return {
       success: false,
       errorCode: 'EXECUTION_FAILED',
       error: `tab index out of range: ${index}`,
     }
   }
-  await chrome.tabs.remove(tab.id)
+  await platform.tabs.closeTab(tab.id)
   return { success: true, data: { closed: true, index } }
 }
 
@@ -211,40 +190,38 @@ export async function executeAgentActionRequest(
 export async function forwardRequestToContentScript(
   req: AgentActionRequest,
 ): Promise<DomActionResult> {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
-  const tabId = tabs[0]?.id
-  if (typeof tabId !== 'number') {
+  const activeTab = await platform.tabs.queryActiveTab()
+  if (!activeTab) {
     return { success: false, errorCode: 'TARGET_NOT_CONNECTED', error: 'no active tab' }
   }
   const timeoutMs = req.timeout ?? 30000
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
+  const sendPromise = platform.tabs
+    .sendMessageToTab<DomActionResult>(activeTab.id, { type: 'agent.action.dom', payload: req })
+    .then((response) => {
+      if (!response) {
+        return {
+          success: false,
+          errorCode: 'EXECUTION_FAILED' as const,
+          error: 'no response from content script',
+        }
+      }
+      return response
+    })
+    .catch((err: Error) => ({
+      success: false,
+      errorCode: 'TARGET_NOT_CONNECTED' as const,
+      error: err.message,
+    }))
+
+  const timeoutPromise = new Promise<DomActionResult>((resolve) => {
+    setTimeout(() => {
       resolve({
         success: false,
         errorCode: 'TIMEOUT',
         error: `content script no response after ${timeoutMs}ms`,
       })
     }, timeoutMs)
-    chrome.tabs.sendMessage(
-      tabId,
-      { type: 'agent.action.dom', payload: req },
-      (response: DomActionResult | undefined) => {
-        clearTimeout(timer)
-        const lastErr = chrome.runtime.lastError
-        if (lastErr) {
-          resolve({ success: false, errorCode: 'TARGET_NOT_CONNECTED', error: lastErr.message })
-          return
-        }
-        if (!response) {
-          resolve({
-            success: false,
-            errorCode: 'EXECUTION_FAILED',
-            error: 'no response from content script',
-          })
-          return
-        }
-        resolve(response)
-      },
-    )
   })
+
+  return Promise.race([sendPromise, timeoutPromise])
 }

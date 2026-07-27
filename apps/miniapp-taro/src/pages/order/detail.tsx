@@ -49,7 +49,7 @@ export default function OrderDetail() {
     const id = router.params.id
     if (!id) return
     reload(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅依赖 router.params.id,reload 函数稳定无需重跑
   }, [router.params.id])
 
   const goPay = () => {

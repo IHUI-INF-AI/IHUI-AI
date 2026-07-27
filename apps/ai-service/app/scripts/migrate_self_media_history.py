@@ -15,6 +15,7 @@
 import argparse
 import asyncio
 import json
+import logging
 import os
 import sys
 from datetime import datetime
@@ -23,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import asyncpg
+
+logger = logging.getLogger(__name__)
 
 # 让脚本可独立运行(不依赖 app 包导入)
 ROOT = Path(__file__).resolve().parent.parent.parent  # apps/ai-service/
@@ -144,8 +147,8 @@ async def main() -> int:
         try:
             from app.core.config import settings
             dsn = settings.database_url
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("migrate_self_media_history.main 从 app 配置读取 database_url 失败: %s", e, exc_info=True)
     if not dsn:
         print("[error] DATABASE_URL 未配置,无法写库")
         return 1

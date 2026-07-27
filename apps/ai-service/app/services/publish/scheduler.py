@@ -416,8 +416,8 @@ class PublishScheduler:
                 "success" if result.success else "failed",
                 result.error_message or "",
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("scheduler._run_single_platform 进度通知结果推送失败: %s", e, exc_info=True)
 
         return result
 

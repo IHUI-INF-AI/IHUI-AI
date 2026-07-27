@@ -104,7 +104,7 @@
 
 - [x] ✅(2026-07-27) P0-1 低频 sidepanel 页面改跳 web — 扩展 ComingSoonPage 加 `mode: 'coming_soon' | 'open_in_web'` prop,删除 7 个低频页面文件(VipPage/MemberPage/DistributionPage/InvitationsPage/PointsPage/FansPage/FollowingPage),SidepanelApp.tsx 路由表 7 个路由改用 `<ComingSoonPage mode="open_in_web" webUrl={...} />` 用 chrome.tabs.create 打开 web 端对应页面,i18n 5 语言加 `apps.openInWebDesc` 文案;验证:extension typecheck + lint 全绿,i18n parity 5 语言 OK,extension zh-TW/ko 无中文残留
 - [x] ✅(2026-07-27) P1 抽 @ihui/dom-actions 共享包 — 新建 `packages/dom-actions/`(package.json + tsconfig.json + src/index.ts 266 行),从 `apps/extension/lib/agent-control.ts` 提取 8 个纯 DOM 操作函数(domClick/domType/domScroll/domExtract/domWaitForElement/domGetAttribute/domHover/domSelectOption)+ setNativeValue + DomActionResult 类型 + isDomAction/executeDomAction/DOM_ACTIONS 常量,agent-control.ts 改 import @ihui/dom-actions + re-export 保持下游 import 路径不变(content.ts / tests 不动);验证:dom-actions typecheck + lint 全绿,extension typecheck + lint 全绿,共享包数量 13 → 15(含 i18n + dom-actions),README 同步更新
-- [ ] P2(后续,本轮不做)抽 @ihui/browser-platform 适配层 — 当前只有 extension 用 chrome.*,无第二个实现,ROI 低。等 desktop/mobile-rn 真要接入时再做。登记此处防遗忘
+- [ ] P2 抽 @ihui/browser-platform 适配层 — 调研 93 处 chrome.* 调用点,识别 5 类平台硬边界(sidePanel/contextMenus/action/onInstalled/onStartup/alarms)+ 11 个可抽象接口。新建 `packages/browser-platform/`(接口定义 + chrome 实现 + factory),extension 迁移调用点(token.ts/config.ts/message-router.ts/agent-control.ts/background.ts)改用适配层,保留硬边界调用。web/desktop 实现等第二个端接入时再做(避免死代码)
 
 ---
 

@@ -332,8 +332,8 @@ class AgentCheckpointManager:
         if self._redis is not None:
             try:
                 await self._redis.aclose()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("agent_checkpoint.close redis 关闭失败: %s", e, exc_info=True)
             self._redis = None
 
 

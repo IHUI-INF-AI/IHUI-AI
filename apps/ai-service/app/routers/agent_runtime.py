@@ -130,7 +130,8 @@ def _get_redis() -> Any:
 
             _redis_client = redis.from_url(redis_url, decode_responses=True)
             _redis_client.ping()
-        except Exception:
+        except Exception as e:
+            logger.warning("agent_runtime._get_redis redis 初始化失败: %s", e, exc_info=True)
             _redis_client = None
             _redis_disabled = True
             return None
@@ -156,7 +157,8 @@ def _load_session_redis(session_id: str) -> SessionState | None:
         if not data:
             return None
         return SessionState.model_validate_json(data)
-    except Exception:
+    except Exception as e:
+        logger.warning("agent_runtime._load_session_redis 加载 session 失败: %s", e, exc_info=True)
         return None
 
 

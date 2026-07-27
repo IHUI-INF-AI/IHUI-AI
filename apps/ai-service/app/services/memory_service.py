@@ -471,8 +471,9 @@ class MemoryService:
                 score = float(r["score"]) if r["score"] is not None else 0.0
                 results.append({"entry": entry, "score": round(score, 4)})
             return results
-        except Exception:
+        except Exception as e:
             # 降级:取出全部条目内存计算 cosine
+            logger.warning("memory_service.recall 向量检索失败降级关键词检索: %s", e, exc_info=True)
             return await self._recall_fallback(user_id, query_embedding, top_k)
 
     async def _recall_fallback(

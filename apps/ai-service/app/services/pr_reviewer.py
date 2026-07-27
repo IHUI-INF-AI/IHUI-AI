@@ -94,8 +94,8 @@ async def fetch_pr_diff(
                 )
                 if meta_resp.status_code == 200:
                     meta = meta_resp.json()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("pr_reviewer.fetch_pr_diff 获取 PR 元数据失败: %s", e, exc_info=True)
     except httpx.HTTPError as e:
         return {"ok": False, "errorCode": "FETCH_FAILED", "message": f"网络错误: {e}"}
     except Exception as e:

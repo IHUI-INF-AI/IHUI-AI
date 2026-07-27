@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # redis 包未安装时降级(参考 services/memory.py 模式)
 try:
@@ -33,7 +36,8 @@ async def _get_redis() -> Any:
         try:
             _redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
             await _redis_client.ping()
-        except Exception:
+        except Exception as e:
+            logger.warning("legacy._get_redis redis 连接初始化失败: %s", e, exc_info=True)
             _use_redis = False
             _redis_client = None
     return _redis_client

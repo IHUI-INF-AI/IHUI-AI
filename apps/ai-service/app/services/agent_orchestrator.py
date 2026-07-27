@@ -681,7 +681,8 @@ class AgentOrchestrator:
             )
             try:
                 r = await self._run_agent(agent, user_input, sid, model_override)
-            except Exception:
+            except Exception as e:
+                logger.warning("agent_orchestrator._vote agent 投票失败: %s", e, exc_info=True)
                 return voter_name, -1
             nums = _re.findall(r"\d+", r.output or "")
             if not nums:

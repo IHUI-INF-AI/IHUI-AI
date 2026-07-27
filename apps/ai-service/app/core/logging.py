@@ -9,6 +9,7 @@ import logging
 import sys
 from typing import Any
 
+structlog: Any
 try:
     import structlog
     _HAS_STRUCTLOG = True

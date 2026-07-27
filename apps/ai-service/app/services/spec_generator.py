@@ -34,7 +34,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .codebase_indexer import (
     CodebaseIndexer,
@@ -43,6 +43,24 @@ from .codebase_indexer import (
 )
 
 logger = logging.getLogger(__name__)
+
+# 软依赖:watchdog 监听文件变更(缺失时 watch 功能降级,保证模块可导入 + typecheck 通过)
+if TYPE_CHECKING:
+    class FileSystemEventHandler:
+        """watchdog.FileSystemEventHandler 的类型 stub(仅供 mypy 推断)。"""
+
+        def __init__(self) -> None: ...
+        def on_any_event(self, event: Any) -> None: ...
+else:
+    try:
+        from watchdog.events import FileSystemEventHandler
+    except ImportError:  # pragma: no cover - watchdog 未安装时使用降级 stub
+        class FileSystemEventHandler:  # type: ignore[no-redef]
+            def __init__(self) -> None:
+                raise RuntimeError("watchdog not installed")
+
+            def on_any_event(self, event: Any) -> None:
+                pass
 
 # 单次 spec 生成最大文件数(防超大工作区拖慢)
 MAX_SPEC_FILES = 800
@@ -1370,7 +1388,6 @@ class SpecGenerator:
         """
         try:
             from watchdog.observers import Observer
-            from watchdog.events import FileSystemEventHandler
         except ImportError:
             return {"error": "watchdog_not_installed"}
 
