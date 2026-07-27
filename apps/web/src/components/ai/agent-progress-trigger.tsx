@@ -5,15 +5,19 @@ import { cn } from '@/lib/utils'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 
 /**
- * AgentProgressTrigger — Agent 任务进度触发按钮(2026-07-27 v5 内联版)
+ * AgentProgressTrigger — Agent 任务进度触发按钮(2026-07-27 v6 联动版)
  *
- * v5 改动(用户规则):
- * - 从右下角 fixed 浮动按钮改为内联文字按钮,放到消息输入框附加栏(权限模式栏前面)
- * - 不再使用 ▲ 图标,改为文字显示:
- *   - 无进度(无 threadId 或无 planSteps):显示 "任务列表"
- *   - 有进度:显示 "01/06" 格式(当前/总数,当前 = in_progress 步骤序号,总数 = planSteps.length)
- * - 点击切换 pane 开关
- * - 快捷键保留:Ctrl+Shift+J 切换 / ArrowDown 打开(未打开时)
+ * v6 改动(用户规则):
+ * - 与 popover 联动:popover 显示时(open=true)trigger 隐藏,把空间让给 popover;
+ *   popover 隐藏时(open=false)trigger 显示,作为再次打开的入口。
+ *   点击 popover 右上角"最小化"按钮 → toggle → open=false → trigger 显示。
+ *   点击 trigger → toggle → open=true → trigger 隐藏 + popover 显示。
+ * - button 容器加背景色 + 描边(bg-card + border-border),
+ *   light mode 白底浅灰描边,dark mode 黑底深灰描边,subtle hover 颜色变化。
+ *
+ * v5 保留:
+ * - 文字显示:无进度 = "任务列表";有进度 = "01/06"
+ * - 快捷键:Ctrl+Shift+J 切换 / ArrowDown 打开(未打开时)
  *
  * 数据来源:从 useAgentProgressPaneStore 读取 progressCurrent/progressTotal
  * (由 AgentTaskProgressPane 组件同步,避免 trigger 启动第二个 SSE 流)
@@ -63,16 +67,28 @@ export function AgentProgressTrigger() {
     ? `${String(progressCurrent).padStart(2, '0')}/${String(progressTotal).padStart(2, '0')}`
     : '任务列表'
 
+  // 联动:popover 显示时(open=true)trigger 隐藏,把空间让给 popover;
+  // popover 隐藏时(open=false)trigger 显示,作为再次打开的入口。
+  if (open) return null
+
   return (
     <button
       type="button"
       onClick={toggle}
       aria-label={hasProgress ? `任务进度 ${progressCurrent}/${progressTotal}` : '任务列表'}
-      title={hasProgress ? `Agent 任务进度 ${progressCurrent}/${progressTotal} (Ctrl+Shift+J)` : 'Agent 任务列表 (Ctrl+Shift+J)'}
+      title={
+        hasProgress
+          ? `Agent 任务进度 ${progressCurrent}/${progressTotal} (Ctrl+Shift+J)`
+          : 'Agent 任务列表 (Ctrl+Shift+J)'
+      }
       className={cn(
+        // 尺寸 + 圆角(h-7=28px 配 rounded-md=6px,符合 user_profile 圆角与元素大小成比例)
         'inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors duration-150 ease-out',
-        'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-        open && 'bg-accent text-accent-foreground',
+        // 容器背景色 + 描边(用户规则:light mode 白底浅灰描边,dark mode 黑底深灰描边,无其他颜色)
+        'border border-border bg-card text-foreground/80',
+        // hover subtle 颜色变化(无蓝色发光边框)
+        'hover:bg-accent hover:text-accent-foreground',
+        // 有进度时文字用 primary 色突出
         hasProgress && 'text-primary',
       )}
       data-testid="agent-progress-trigger"
