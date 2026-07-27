@@ -34,7 +34,10 @@ import { FoldableSection } from '../src/components/ai/progress-sections/foldable
 import { ThinkingSection } from '../src/components/ai/progress-sections/thinking-section'
 import { ToolCallsSection } from '../src/components/ai/progress-sections/tool-calls-section'
 import { SubagentSection } from '../src/components/ai/progress-sections/subagent-section'
-import type { AgentToolCall, Subagent } from '../src/hooks/use-agent-progress'
+import { ChangesSection } from '../src/components/ai/progress-sections/changes-section'
+import { TerminalSection } from '../src/components/ai/progress-sections/terminal-section'
+import { OverviewSection } from '../src/components/ai/progress-sections/overview-section'
+import type { AgentToolCall, Subagent, AgentChange, TerminalTask, AgentOverview } from '../src/hooks/use-agent-progress'
 
 describe('AgentProgressPane Store — v6.1 popover 简化', () => {
   beforeEach(() => {
@@ -382,5 +385,133 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     fireEvent.click(btn!)
     expect(container.textContent).toContain('@validator')
     expect(container.textContent).toContain('验证类型')
+  })
+
+  // ─── ChangesSection 测试 ───
+
+  it('ChangesSection — 无文件变更时不渲染', () => {
+    const { container } = render(<ChangesSection changes={[]} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('ChangesSection — 有变更时渲染并显示新增/修改标记', () => {
+    const changes: AgentChange[] = [
+      {
+        id: 'c1',
+        filePath: 'src/components/Button.tsx',
+        toolName: 'write_file',
+        diffInfo: { file_path: 'src/components/Button.tsx', old_content: '', new_content: 'export function Button() {}', is_new_file: true },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'c2',
+        filePath: 'src/lib/utils.ts',
+        toolName: 'edit_file',
+        diffInfo: { file_path: 'src/lib/utils.ts', old_content: 'old', new_content: 'new' },
+        timestamp: '2026-01-01T00:00:01Z',
+      },
+    ]
+    const { container } = render(<ChangesSection changes={changes} />)
+    expect(container.firstChild).not.toBeNull()
+    const btn = container.querySelector('button')
+    fireEvent.click(btn!)
+    expect(container.textContent).toContain('新增 1')
+    expect(container.textContent).toContain('修改 1')
+    expect(container.textContent).toContain('Button.tsx')
+    expect(container.textContent).toContain('utils.ts')
+  })
+
+  // ─── TerminalSection 测试 ───
+
+  it('TerminalSection — 无终端任务时不渲染', () => {
+    const { container } = render(<TerminalSection terminals={[]} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('TerminalSection — 有终端任务时渲染并显示命令和状态', () => {
+    const terminals: TerminalTask[] = [
+      {
+        id: 'term1',
+        command: 'pnpm typecheck',
+        status: 'completed',
+        startedAt: '2026-01-01T00:00:00Z',
+        endedAt: '2026-01-01T00:00:05Z',
+        durationMs: 5000,
+        exitCode: 0,
+      },
+      {
+        id: 'term2',
+        command: 'pnpm test',
+        status: 'running',
+        startedAt: '2026-01-01T00:00:06Z',
+      },
+    ]
+    const { container } = render(<TerminalSection terminals={terminals} />)
+    expect(container.firstChild).not.toBeNull()
+    const btn = container.querySelector('button')
+    fireEvent.click(btn!)
+    expect(container.textContent).toContain('pnpm typecheck')
+    expect(container.textContent).toContain('pnpm test')
+    expect(container.textContent).toContain('1 运行中')
+  })
+
+  // ─── OverviewSection 测试 ───
+
+  it('OverviewSection — 无数据时不渲染', () => {
+    const overview: AgentOverview = {
+      status: 'idle',
+      currentNode: null,
+      plan: null,
+      content: '',
+      error: null,
+      interruptEvent: null,
+      sessionStart: null,
+      totalSteps: 0,
+      completedSteps: 0,
+      inProgressSteps: 0,
+      pendingSteps: 0,
+      totalSubagents: 0,
+      activeSubagents: 0,
+      deadSubagents: 0,
+      totalTerminals: 0,
+      runningTerminals: 0,
+      totalChanges: 0,
+      historicalDurations: [],
+      reconnectAttempt: 0,
+    }
+    const { container } = render(<OverviewSection overview={overview} isStreaming={false} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('OverviewSection — 有数据时渲染并显示统计', () => {
+    const overview: AgentOverview = {
+      status: 'running',
+      currentNode: 'planner',
+      plan: null,
+      content: '正在分析',
+      error: null,
+      interruptEvent: null,
+      sessionStart: new Date(Date.now() - 65000).toISOString(),
+      totalSteps: 6,
+      completedSteps: 3,
+      inProgressSteps: 1,
+      pendingSteps: 2,
+      totalSubagents: 2,
+      activeSubagents: 1,
+      deadSubagents: 0,
+      totalTerminals: 1,
+      runningTerminals: 1,
+      totalChanges: 5,
+      historicalDurations: [],
+      reconnectAttempt: 0,
+    }
+    const { container } = render(<OverviewSection overview={overview} isStreaming={true} />)
+    expect(container.firstChild).not.toBeNull()
+    const btn = container.querySelector('button')
+    fireEvent.click(btn!)
+    expect(container.textContent).toContain('运行中')
+    expect(container.textContent).toContain('3/6')
+    expect(container.textContent).toContain('1活跃/2总')
+    expect(container.textContent).toContain('5文件')
   })
 })
