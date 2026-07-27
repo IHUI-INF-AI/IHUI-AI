@@ -78,3 +78,13 @@ export function formatTokenValue(value: number | string | undefined): string {
   if (num >= 10000) return `${(num / 10000).toFixed(2)}万`
   return String(Math.floor(num))
 }
+
+/**
+ * 格式化时长(秒 → HH:MM:SS,跨端统一:mobile-rn/LiveHostScreen + miniapp-taro/live/host 共用)。
+ */
+export function formatDuration(sec: number): string {
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':')
+}
