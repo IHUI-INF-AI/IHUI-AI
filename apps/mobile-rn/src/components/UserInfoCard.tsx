@@ -6,6 +6,8 @@
  */
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
+import { formatTokenValue } from '@ihui/shared/utils'
+import { getRoleLabel } from '@ihui/shared/utils'
 
 export interface UserInfo {
   uuid?: string
@@ -27,20 +29,6 @@ export interface UserInfoCardProps {
 
 const AVATAR_FALLBACK = 'https://file.aizhs.top/sys-mini/daixaodiming.png'
 
-function formatTokenValue(value: number | string | undefined): string {
-  if (value === undefined || value === null) return '0'
-  const num = typeof value === 'string' ? parseFloat(value) : value
-  if (isNaN(num)) return '0'
-  if (num >= 100000000) return (num / 100000000).toFixed(2) + '亿'
-  if (num >= 10000) return (num / 10000).toFixed(2) + '万'
-  return String(Math.floor(num))
-}
-
-function getRoleLabel(isVip?: number, identityType?: number): string {
-  if (isVip === 1 && identityType === 1) return '操盘手'
-  if (isVip === 1) return '会员'
-  return '普通用户'
-}
 
 export default function UserInfoCard({
   userInfo,

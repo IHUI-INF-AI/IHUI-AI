@@ -4,16 +4,13 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input, Loading } from '@ihui/ui-native'
 import { getOrders, refundOrder, type Order } from '@ihui/api-client'
+import { formatAmount } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-function formatAmount(n: number | undefined | null): string {
-  if (typeof n !== 'number') return '—'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 export function OrderRefundScreen() {
   const { t } = useI18n()
