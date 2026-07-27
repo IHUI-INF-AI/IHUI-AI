@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { sendCode, register as registerByPhone } from '@ihui/api-client'
 import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { useLoginDialogStore } from '@/stores/login-dialog'
@@ -90,12 +91,8 @@ export function PhoneRegisterForm({
     setServerError(null)
     setSendingCode(true)
     try {
-      const res = await fetch('/api/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      })
-      if (res.ok) {
+      const r = await sendCode('phone', phone, 'register')
+      if (r.success) {
         setServerInfo(t('codeSent'))
         setCountdown(60)
       } else {
@@ -117,14 +114,9 @@ export function PhoneRegisterForm({
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      })
-      const json = (await res.json()) as { code: number; message: string }
-      if (!res.ok || json.code !== 0) {
-        setServerError(json.message || t('registerFailed'))
+      const r = await registerByPhone(values.phone, values.password, values.code)
+      if (!r.success) {
+        setServerError(r.error || t('registerFailed'))
         return
       }
       setServerInfo(t('registerSuccess'))

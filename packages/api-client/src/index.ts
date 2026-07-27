@@ -1,4 +1,4 @@
-export {
+﻿export {
   fetchApi,
   setTokenProvider,
   setBaseUrl,
@@ -97,6 +97,7 @@ export {
   requestWithdraw,
   getDayMonthSummary,
 } from './endpoints/distribution'
+export * from './endpoints/edu'
 export * from './endpoints/exam'
 export * from './endpoints/learn'
 export * from './endpoints/live'
