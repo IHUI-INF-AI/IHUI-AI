@@ -142,6 +142,8 @@ export interface UseAgentProgressReturn {
   terminals: TerminalTask[]
   tools: AgentToolCall[]
   changes: AgentChange[]
+  /** 原始 SSE 事件流(用于流式渲染) */
+  events: SSEEvent[]
   isStreaming: boolean
   start: (input?: Record<string, unknown>) => void
   stop: () => void
@@ -622,6 +624,7 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     terminals,
     tools,
     changes,
+    events,
     isStreaming,
     start: stream.start,
     stop: stream.stop,
