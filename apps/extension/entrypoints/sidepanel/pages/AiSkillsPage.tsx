@@ -8,8 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { listAiSkills, type AiSkillMeta } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 const CATEGORY_LABEL: Record<AiSkillMeta['category'], string> = {
   code: 'Code',
@@ -47,15 +46,9 @@ export default function AiSkillsPage() {
     const kw = keyword.trim().toLowerCase()
     if (!kw) return skills
     return skills.filter(
-      (s) =>
-        s.name.toLowerCase().includes(kw) ||
-        (s.description || '').toLowerCase().includes(kw),
+      (s) => s.name.toLowerCase().includes(kw) || (s.description || '').toLowerCase().includes(kw),
     )
   }, [skills, keyword])
-
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/ai-skills/${encodeURIComponent(id)}` })
-  }
 
   if (loading) {
     return (
@@ -105,13 +98,13 @@ export default function AiSkillsPage() {
             <Card
               key={s.id}
               className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => openInWeb(s.id)}
+              onClick={() => openItemInWeb(`/ai-skills/${encodeURIComponent(s.id)}`)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  openInWeb(s.id)
+                  openItemInWeb(`/ai-skills/${encodeURIComponent(s.id)}`)
                 }
               }}
             >
