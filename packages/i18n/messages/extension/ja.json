@@ -18,6 +18,7 @@
     "contentTitle": "コンテンツセンター",
     "meTitle": "マイページ",
     "openInWeb": "ウェブ版で開く",
+    "openInWebDesc": "この機能はウェブ版での使用をお勧めします",
     "comingSoon": "近日公開",
     "dashboard": "ダッシュボード",
     "dashboardDesc": "データ概要とクイックアクセス",
