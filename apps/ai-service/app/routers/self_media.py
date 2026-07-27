@@ -13,6 +13,7 @@
 """
 import asyncio
 import json
+import logging
 import os
 import sys
 import time
@@ -26,6 +27,8 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.llm_gateway import llm_gateway
 from app.services.koubo_workflow import koubo_workflow_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/self-media", tags=["self-media"])
 
@@ -200,7 +203,8 @@ async def _fetch_history(category: str, limit: int = 50) -> list[dict[str, Any]]
         return []
     try:
         conn = await asyncpg.connect(dsn=dsn)
-    except Exception:
+    except Exception as e:
+        logger.warning("self_media._fetch_history asyncpg connect 失败: %s", e, exc_info=True)
         return []
     try:
         rows = await conn.fetch(
@@ -216,7 +220,8 @@ async def _fetch_history(category: str, limit: int = 50) -> list[dict[str, Any]]
             limit,
         )
         return [dict(r) for r in rows]
-    except Exception:
+    except Exception as e:
+        logger.warning("self_media._fetch_history query 失败: %s", e, exc_info=True)
         # 表不存在 / 列不匹配 → 降级返回空(不阻塞 ai-service 启动)
         return []
     finally:
@@ -243,7 +248,8 @@ def _serialize_history(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if isinstance(payload, str):
             try:
                 item["payload"] = json.loads(payload)
-            except Exception:
+            except Exception as e:
+                logger.warning("self_media._serialize_history JSON parse 失败: %s", e, exc_info=True)
                 item["payload"] = {"raw": payload}
         elif payload is not None:
             item["payload"] = payload

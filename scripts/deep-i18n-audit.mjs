@@ -24,7 +24,7 @@ import * as OpenCC from 'opencc-js'
 const ROOT = process.cwd()
 const MSG_DIR = path.join(ROOT, 'packages/i18n/messages/web')
 const WEB_DIR = path.join(ROOT, 'apps/web')
-const EXCLUDE_DIRS = new Set(['messages', '.next', 'node_modules', '.git'])
+const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.worktrees', 'build', 'dist', 'node_modules'])
 
 const args = new Set(process.argv.slice(2))
 const QUIET = args.has('--quiet')

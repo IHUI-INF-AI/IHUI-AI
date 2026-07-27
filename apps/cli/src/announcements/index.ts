@@ -92,7 +92,7 @@ interface SeenFile {
 }
 
 export interface AnnouncementsOptions {
-  /** 后端 API 根 URL(如 http://localhost:8080),不带尾斜杠 */
+  /** 后端 API 根 URL(如 http://localhost:8802),不带尾斜杠 */
   apiUrl: string;
   /** 缓存 TTL 毫秒数(默认 600_000 = 10 分钟) */
   cacheTtlMs?: number;

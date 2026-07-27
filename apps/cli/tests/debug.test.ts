@@ -375,7 +375,7 @@ describe('debug_launch', () => {
   });
 
   it('web 类型 launch 请求包含 url 而非 program', async () => {
-    const r = await debug_launch.execute({ type: 'web', command: 'http://localhost:3000' }, ctx);
+    const r = await debug_launch.execute({ type: 'web', command: 'http://localhost:8801' }, ctx);
     expect(r.success).toBe(true);
     const sid = extractSessionId(r.output);
     if (sid) sessionIds.push(sid);
@@ -383,7 +383,7 @@ describe('debug_launch', () => {
     const launchReq = requestLog.find((r) => r.command === 'launch');
     const args = launchReq!.args as Record<string, unknown>;
     expect(args.type).toBe('pwa-chrome');
-    expect(args.url).toBe('http://localhost:3000');
+    expect(args.url).toBe('http://localhost:8801');
     expect(args.program).toBeUndefined();
   });
 

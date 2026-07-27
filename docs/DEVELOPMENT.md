@@ -41,14 +41,14 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 | `WEB_PORT` | web 服务端口 | `3000` | 是 |
 | `API_PORT` | api 服务端口 | `3001` | 是 |
 | `AI_SERVICE_PORT` | ai-service 端口 | `8000` | 是 |
-| `AI_SERVICE_URL` | ai-service 地址(api 回调用) | `http://localhost:8000` | 是 |
+| `AI_SERVICE_URL` | ai-service 地址(api 回调用) | `http://localhost:8803` | 是 |
 | `DATABASE_URL` | PostgreSQL 连接串 | `postgresql://ihui:***@localhost:5432/ihui_dev` | 是 |
 | `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | DB 分项配置 | `localhost` / `5432` / `ihui` / - / `ihui_dev` | 是 |
 | `REDIS_URL` | Redis 连接串 | `redis://localhost:6379` | 是 |
 | `JWT_SECRET` | JWT 签名密钥(≥32 字符) | - | 是 |
 | `JWT_EXPIRES_IN` | JWT 过期时间 | `7d` | 是 |
 | `CREDENTIALS_ENCRYPTION_KEY` | 凭证加密密钥(≥32 字符) | - | 是 |
-| `CORS_ORIGIN` | CORS 允许来源 | `http://localhost:3000` | 是 |
+| `CORS_ORIGIN` | CORS 允许来源 | `http://localhost:8801` | 是 |
 | `STEPFUN_API_KEY` / `STEPFUN_API_BASE` | StepFun LLM(默认 provider) | - / `https://api.stepfun.com/step_plan/v1` | 否(空则 stub) |
 | `AGNES_API_KEY` / `AGNES_API_BASE` | Agnes AI LLM(备用) | - / `https://apihub.agnes-ai.com/v1` | 否 |
 | `GROQ_API_KEY` / `GEMINI_API_KEY` / `OPENROUTER_API_KEY` | 免费 provider 备选 | 空 | 否 |
@@ -236,8 +236,8 @@ pnpm --filter @ihui/web dev
 cd apps/ai-service
 uv sync                                          # 安装依赖(首次)
 uvicorn app.main:app --reload --port 8000        # 启动 + 热重载
-# 健康检查:http://localhost:8000/health
-# API 文档:http://localhost:8000/docs
+# 健康检查:http://localhost:8803/health
+# API 文档:http://localhost:8803/docs
 ```
 
 - 热重载:`uvicorn --reload` 监听 `app/**/*.py`,变更后重启进程。

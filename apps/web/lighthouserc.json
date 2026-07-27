@@ -3,10 +3,10 @@
   "ci": {
     "collect": {
       "url": [
-        "http://localhost:3000",
-        "http://localhost:3000/login",
-        "http://localhost:3000/dashboard",
-        "http://localhost:3000/admin"
+        "http://localhost:8801",
+        "http://localhost:8801/login",
+        "http://localhost:8801/dashboard",
+        "http://localhost:8801/admin"
       ],
       "numberOfRuns": 3,
       "startServerCommand": "pnpm -F @ihui/web dev",
