@@ -212,10 +212,10 @@ export default function RankingDetailPage() {
 
       <ScrollView scrollY className="detail-body">
         {/* row-1:Logo + 标题 + 简介(排名/机构/关注度) */}
-        <View className="tech-card head-card">
+        <View className="head-card">
           {data.logo ? <Image className="logo" src={data.logo} mode="aspectFill" /> : null}
           <View className="head-info">
-            <Text className="title text-neon">{data.name || '-'}</Text>
+            <Text className="title text-primary">{data.name || '-'}</Text>
             {data.intro ? <Text className="desc">{data.intro}</Text> : null}
             <View className="head-meta">
               {data.org ? (
@@ -253,7 +253,7 @@ export default function RankingDetailPage() {
         </View>
 
         {/* row-common:细分类别/产品形式/所属机构 */}
-        <View className="tech-card field-card">
+        <View className="field-card">
           <View className="field-item">
             <Text className="field-label">{tt('ranking.detail.subCategory', '细分类别')}</Text>
             <Text className="field-value">{data.subCategory || '-'}</Text>
@@ -270,7 +270,7 @@ export default function RankingDetailPage() {
 
         {/* 官方网址(点击复制 + "点击复制"提示) */}
         {data.url ? (
-          <View className="tech-card field-card" onClick={() => onCopyUrl(data.url!)}>
+          <View className="field-card" onClick={() => onCopyUrl(data.url!)}>
             <View className="field-item">
               <Text className="field-label">{tt('ranking.detail.url', '官方网址')}</Text>
               <Text className="field-value link-value">{data.url}</Text>
@@ -281,15 +281,15 @@ export default function RankingDetailPage() {
 
         {/* 图片展示:imgs 逗号分隔取第1张 或 icon */}
         {firstImg ? (
-          <View className="tech-card img-card">
+          <View className="img-card">
             <Image className="cover" src={firstImg} mode="widthFix" />
           </View>
         ) : null}
 
         {/* 详细介绍文本:context */}
         {data.content ? (
-          <View className="tech-card content-card">
-            <Text className="content-title text-neon-accent">
+          <View className="content-card">
+            <Text className="content-title text-accent">
               {tt('ranking.detail.contentTitle', '详细介绍')}
             </Text>
             <Text className="content-text">{data.content}</Text>
