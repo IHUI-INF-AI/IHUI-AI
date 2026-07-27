@@ -25,6 +25,7 @@ const MOCK: LearningProgressPoint[] = [
   { date: '07-14', lessons: 30, minutes: 210 },
 ]
 
+// ECharts canvas 渲染不支持 CSS var(),以下颜色为 tokens.css --chart-* 的硬编码副本,修改需同步 tokens.css
 export function LearningProgressChart({ data = MOCK, height = 300 }: LearningProgressChartProps) {
   const option: EChartsOption = {
     tooltip: { trigger: 'axis' },
