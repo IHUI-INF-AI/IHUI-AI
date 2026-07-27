@@ -1,4 +1,4 @@
-import { setTokenProvider, setBaseUrl, fetchApi as fetchApiShared } from '@ihui/api-client'
+import { setTokenProvider, setBaseUrl, setStreamBaseUrl, fetchApi as fetchApiShared } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
@@ -27,8 +27,24 @@ function detectApiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_BASE_URL || ''
 }
 
+// 2026-07-27 修复 SSE 流被 Next.js dev proxy 中断:
+// Next.js dev server 的 rewrite 代理对 SSE 流式响应有超时/缓冲问题,导致 net::ERR_ABORTED。
+// streamChat 用独立的 streamBaseUrl 直连 API 服务器,绕过 dev proxy。
+// - 开发环境:NEXT_PUBLIC_STREAM_API_BASE_URL=http://127.0.0.1:8802(强制 IPv4)
+// - 生产环境:与 NEXT_PUBLIC_API_BASE_URL 相同(或留空走同源反代)
+// - Tauri 环境:与 baseUrl 相同(http://127.0.0.1:8802)
+function detectStreamBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
+      return 'http://127.0.0.1:8802'
+    }
+  }
+  return process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || ''
+}
+
 if (typeof window !== 'undefined') {
   setBaseUrl(detectApiBaseUrl())
+  setStreamBaseUrl(detectStreamBaseUrl())
 }
 
 /**
@@ -53,5 +69,5 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
   return result
 }
 
-export { setTokenProvider, setBaseUrl, streamChat } from '@ihui/api-client'
+export { setTokenProvider, setBaseUrl, setStreamBaseUrl, streamChat } from '@ihui/api-client'
 export type { ApiResult, ApiResponse } from '@ihui/types'

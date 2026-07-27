@@ -23,6 +23,7 @@ import {
   listCrewRunArtifacts,
   streamCrewRun,
 } from '@ihui/api-client'
+import { formatTimeOnly } from '@/lib/date-utils'
 import { fmtTime, parseSseChunk, sseToLogEntry, statusBadgeClass } from '../helpers'
 import type { StreamLogEntry } from '../types'
 
@@ -309,7 +310,7 @@ export default function CrewSessionDetailPage() {
                 logs.map((l, i) => (
                   <div key={i} className="py-0.5">
                     <span className="text-muted-foreground">
-                      [{new Date(l.ts).toLocaleTimeString('zh-CN')}]
+                      [{formatTimeOnly(l.ts)}]
                     </span>{' '}
                     {l.text}
                   </div>

@@ -1,6 +1,7 @@
 import type { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
+import { formatDateOnly } from '@/lib/date-utils'
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)

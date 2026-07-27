@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
+import { formatDateOnly } from '@/lib/date-utils'
 import type { Advertise } from './types'
 
 interface Props {
@@ -73,7 +74,7 @@ export function AdvertiseTable({ list, isLoading, onEdit, onDelete }: Props) {
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-muted-foreground">
-                  {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-'}
+                  {item.createdAt ? formatDateOnly(item.createdAt) : '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
