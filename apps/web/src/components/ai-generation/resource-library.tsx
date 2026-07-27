@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { formatDate } from '@/lib/date-utils'
 
 interface AigcRecord {
   recordId: string
@@ -71,8 +72,6 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
   const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
-
-  const formatDate = (ts: number): string => new Date(ts).toLocaleString()
 
   const renderPreview = (record: AigcRecord): React.ReactNode => {
     const url = record.resultUrl
