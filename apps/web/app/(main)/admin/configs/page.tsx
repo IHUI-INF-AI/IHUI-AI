@@ -81,7 +81,7 @@ export default function AdminConfigsPage() {
     delMut.mutate(c.id)
   }
 
-  const filtered = category === 'all' ? list : list.filter((c: any) => c.category === category)
+  const filtered = category === 'all' ? list : list.filter((c) => c.category === category)
 
   return (
     <div className="space-y-4">

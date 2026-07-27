@@ -39,13 +39,21 @@ export default function KnowledgeRagChunksPage() {
   const t = useTranslations('knowledgeRag.chunks')
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
 
-  const { data: doc, isLoading: docLoading, error: docError } = useQuery({
+  const {
+    data: doc,
+    isLoading: docLoading,
+    error: docError,
+  } = useQuery({
     queryKey: ['knowledgeRag', 'doc', id],
     queryFn: () => api<DocSummary>(`/api/knowledge/docs/${id}`),
     enabled: Boolean(id),
   })
 
-  const { data: chunks, isLoading, error } = useQuery({
+  const {
+    data: chunks,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['knowledgeRag', 'chunks', id],
     queryFn: () => api<ChunkItem[]>(`/api/knowledge/docs/${id}/chunks?limit=${PAGE_LIMIT}`),
     enabled: Boolean(id),
@@ -111,10 +119,11 @@ export default function KnowledgeRagChunksPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((c: any) => {
+          {items.map((c: ChunkItem) => {
             const isExpanded = expanded.has(c.id)
             const tooLong = c.content.length > PREVIEW_LEN
-            const display = tooLong && !isExpanded ? `${c.content.slice(0, PREVIEW_LEN)}…` : c.content
+            const display =
+              tooLong && !isExpanded ? `${c.content.slice(0, PREVIEW_LEN)}…` : c.content
             return (
               <Card key={c.id}>
                 <CardContent className="p-4">
