@@ -10,7 +10,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
 // Mock config
 vi.mock('../src/config/index.js', () => ({
   config: {
-    AI_SERVICE_URL: 'http://localhost:8000',
+    AI_SERVICE_URL: 'http://localhost:8803',
     DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock',
     REDIS_URL: 'redis://localhost:6379/0',
   },

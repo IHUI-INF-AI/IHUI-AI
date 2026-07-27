@@ -8,7 +8,7 @@ vi.mock('../src/config/index.js', () => ({
     DATABASE_URL: 'postgres://localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
-    AI_SERVICE_URL: 'http://localhost:8000',
+    AI_SERVICE_URL: 'http://localhost:8803',
   },
 }))
 
@@ -76,8 +76,8 @@ describe('resolveTenantIdentifier — localhost / 短域名', () => {
     expect(resolveTenantIdentifier(mockReq({ host: 'localhost' }))).toBeNull()
   })
 
-  it('localhost:3000 → null', () => {
-    expect(resolveTenantIdentifier(mockReq({ host: 'localhost:3000' }))).toBeNull()
+  it('localhost:8801 → null', () => {
+    expect(resolveTenantIdentifier(mockReq({ host: 'localhost:8801' }))).toBeNull()
   })
 
   it('example.com → null（parts.length < 3）', () => {

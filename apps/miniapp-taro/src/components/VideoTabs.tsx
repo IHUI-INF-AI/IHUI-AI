@@ -46,7 +46,7 @@ export default function VideoTabs({
             {isActive && (
               <View
                 className="absolute bottom-0"
-                style={{ width: '24px', height: '2px', backgroundColor: '#00f2ff' }}
+                style={{ width: '24px', height: '2px', backgroundColor: 'var(--color-primary)' }}
               />
             )}
           </View>

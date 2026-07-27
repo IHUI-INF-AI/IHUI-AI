@@ -359,7 +359,7 @@ docker compose up -d
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| Web | http://localhost:3000 | Next.js frontend |
+| Web | http://localhost:8801 | Next.js frontend |
 | API | http://localhost:8802/api/health | Fastify backend health check |
 | Worker | http://localhost:8830 | BullMQ async task process |
 | AI Service | http://localhost:8803/health | FastAPI AI service health check |

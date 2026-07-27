@@ -13,7 +13,7 @@ vi.mock('../src/db/index.js', () => ({
 // Mock config:避免 env 验证失败(health.ts 导入 config 用于 AI_SERVICE_URL)
 vi.mock('../src/config/index.js', () => ({
   config: {
-    AI_SERVICE_URL: 'http://localhost:8000',
+    AI_SERVICE_URL: 'http://localhost:8803',
     DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock',
     REDIS_URL: 'redis://localhost:6379/0',
   },

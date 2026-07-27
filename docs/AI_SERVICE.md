@@ -637,7 +637,7 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 | `LITELLM_MODEL` | `stepfun/step-3.7-flash` | 默认 LLM 模型 |
 | `MAX_AGENT_ITERATIONS` | `10` | Agent 最大迭代次数 |
 | `CHAT_HISTORY_WINDOW` | `6` | 会话历史 sliding window(轮) |
-| `API_SERVICE_URL` | `http://localhost:8080` | 后端 API 地址(回调用) |
+| `API_SERVICE_URL` | `http://localhost:8802` | 后端 API 地址(回调用) |
 | `AI_CALLBACK_SECRET` | (空) | 回调共享密钥(与 apps/api 一致) |
 | `CREDENTIALS_ENCRYPTION_KEY` | (空) | 凭据加密密钥(与 apps/api 共享,≥32 字符) |
 | `JWT_SECRET` | (空) | JWT 密钥(与 apps/api 共享,SSO 跨服务) |
