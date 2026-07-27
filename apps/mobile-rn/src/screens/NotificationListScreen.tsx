@@ -7,13 +7,13 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
-interface Notif {
-  id: string
-  title: string
-  content: string
-  type: 'system' | 'order' | 'course' | 'social'
+import type { NotificationItem } from '@ihui/types'
+
+interface Notif extends NotificationItem {
+  // read 是 isRead 的本地别名
   read: boolean
-  createdAt: string
+  // type narrowing:从 string 缩到 4 个本地实际值
+  type: 'system' | 'order' | 'course' | 'social'
 }
 
 const NOTIF_TYPE_KEYS: Record<Notif['type'], string> = {
