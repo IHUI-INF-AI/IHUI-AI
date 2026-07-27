@@ -12455,6 +12455,31 @@
                     "sponsorsDesc":  "感谢以下赞助者对 IHUI AI 的支持。",
                     "sponsorsEmpty":  "成为首位赞助者,您的名字将显示在这里。"
                 },
+    "crypto":  {
+        "title":  "加密货币捐赠",
+        "subtitle":  "直接转账,无需中间平台,0 手续费",
+        "bitcoin":  {
+            "name":  "Bitcoin",
+            "network":  "BTC 网络"
+        },
+        "ethereum":  {
+            "name":  "Ethereum",
+            "network":  "ETH 网络"
+        },
+        "usdtTrc20":  {
+            "name":  "USDT (TRC20)",
+            "network":  "Tron 网络",
+            "recommended":  "推荐:手续费最低 (~$1)"
+        },
+        "usdtErc20":  {
+            "name":  "USDT (ERC20)",
+            "network":  "ETH 网络"
+        },
+        "copyButton":  "复制地址",
+        "copied":  "已复制!",
+        "disclaimer":  "您的捐赠将直接进入我们的钱包,无中间平台手续费。USDT-TRC20 手续费最低(~$1),推荐使用。",
+        "qrCode":  "二维码"
+    },
     "affiliates":  {
                        "heroBadge":  "推荐资源",
                        "heroTitle":  "推荐 AI 工具",
