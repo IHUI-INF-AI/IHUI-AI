@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Pin, PinOff, X } from 'lucide-react'
+import { Pin, PinOff, Minimize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
@@ -90,6 +90,7 @@ export function AgentTaskProgressPane() {
   const setThreadId = useAgentProgressPaneStore((s) => s.setThreadId)
   const pinned = useAgentProgressPaneStore((s) => s.pinned)
   const togglePin = useAgentProgressPaneStore((s) => s.togglePin)
+  const toggle = useAgentProgressPaneStore((s) => s.toggle)
   const closePane = useAgentProgressPaneStore((s) => s.closePane)
   const setProgress = useAgentProgressPaneStore((s) => s.setProgress)
 
@@ -206,16 +207,16 @@ export function AgentTaskProgressPane() {
         >
           {pinned ? <Pin className="h-3 w-3" /> : <PinOff className="h-3 w-3" />}
         </button>
-        {/* 关闭按钮 ✕ */}
+        {/* 最小化按钮(跟 trigger 联动:点击 = toggle,等价于点 trigger 按钮) */}
         <button
           type="button"
-          onClick={closePane}
-          aria-label="关闭"
+          onClick={toggle}
+          aria-label="最小化"
           className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          title="关闭"
-          data-testid="pane-close"
+          title="最小化(与触发按钮联动)"
+          data-testid="pane-minimize"
         >
-          <X className="h-3 w-3" />
+          <Minimize2 className="h-3 w-3" />
         </button>
       </div>
 
