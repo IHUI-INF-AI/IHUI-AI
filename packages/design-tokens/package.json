@@ -12,7 +12,8 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
-    "./styles/tokens.css": "./src/styles/tokens.css"
+    "./styles/tokens.css": "./src/styles/tokens.css",
+    "./tailwind-preset": "./src/tailwind-preset.js"
   },
   "scripts": {
     "build": "tsc",
