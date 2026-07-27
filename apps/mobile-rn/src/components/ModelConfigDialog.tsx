@@ -24,20 +24,10 @@ import {
   TouchableOpacity,
 } from 'react-native'
 import { useI18n } from '../i18n'
+import { type ModelType, type ModelConfig } from '@ihui/types'
 
-export type ModelType = 'text' | 'image' | 'video' | 'audio' | 'multimodal'
-
-export interface ModelConfig {
-  temperature: number
-  maxTokens: number
-  topP: number
-  systemPrompt: string
-  streamEnabled: boolean
-  aspectRatio?: string
-  resolution?: string
-  frameCount?: number
-  timbre?: string
-}
+// Cross-end shared type re-export (keep public API surface for external consumers)
+export type { ModelType, ModelConfig } from '@ihui/types'
 
 export interface ModelConfigDialogProps {
   visible: boolean

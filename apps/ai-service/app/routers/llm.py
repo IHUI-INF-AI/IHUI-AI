@@ -12,6 +12,8 @@
 import asyncio
 import json
 import logging
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -586,6 +588,32 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # 首次调用:记录到集合(不管成功失败都记录,防止 LLM 重复调用同一参数的同一工具)
                             executed_tool_keys.add(dedup_key)
 
+                            # ===== Subagent 派发事件(2026-07-28 立,自动派发对标 Trae Work)=====
+                            # 当 LLM 调用 dispatch_subagent 时,在执行前后发出 subagent_spawn/end SSE 事件,
+                            # 前端进度面板自动展示 subagent 生命周期(spawned → running → done/failed)。
+                            # api 层 streamToClient 逐行 pipe 透传,无需 api 改动。
+                            _spawned_sub_ids: list[str] = []
+                            if tool_name == "dispatch_subagent":
+                                _sa_tasks: list[dict[str, Any]] = []
+                                if isinstance(args.get("tasks"), list):
+                                    for _t in args["tasks"]:
+                                        if isinstance(_t, dict) and _t.get("name") and _t.get("task"):
+                                            _sa_tasks.append({"name": _t["name"], "task": _t["task"]})
+                                elif args.get("name") and args.get("task"):
+                                    _sa_tasks.append({"name": args["name"], "task": args["task"]})
+                                _spawn_now = datetime.now(timezone.utc).isoformat()
+                                for _t in _sa_tasks:
+                                    _sa_id = f"sub-{uuid.uuid4().hex[:8]}"
+                                    _spawned_sub_ids.append(_sa_id)
+                                    _spawn_evt = {
+                                        "type": "subagent_spawn",
+                                        "id": _sa_id,
+                                        "role": str(_t["name"]),
+                                        "task": str(_t["task"]),
+                                        "timestamp": _spawn_now,
+                                    }
+                                    yield f"event: subagent_spawn\ndata: {json.dumps(_spawn_evt, ensure_ascii=False)}\n\n"
+
                             # 执行工具(异常保护:网络/超时/JSON 错误不应崩溃 SSE 流)
                             # G6(2026-07-26):透传 owner_uuid(user_id)给 knowledge_lookup 查 LTM 源
                             try:
@@ -603,6 +631,25 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # (异常分支已显式设置 ok: False,此处只兜底无 ok 字段的正常结果)
                             ok = bool(exec_result.get("ok", True))
                             tool_exec_tracker.append(ok)
+
+                            # ===== Subagent 派发结束事件(2026-07-28 立)=====
+                            # 根据执行结果发 subagent_end,前端进度面板 subagent 条目从 running → done/failed
+                            if tool_name == "dispatch_subagent" and _spawned_sub_ids:
+                                _sa_status = "done" if ok else "failed"
+                                _sa_error_msg = None
+                                if not ok:
+                                    _sa_error_msg = exec_result.get("error") or exec_result.get("message")
+                                _end_now = datetime.now(timezone.utc).isoformat()
+                                for _sa_id in _spawned_sub_ids:
+                                    _end_evt = {
+                                        "type": "subagent_end",
+                                        "id": _sa_id,
+                                        "status": _sa_status,
+                                        "timestamp": _end_now,
+                                    }
+                                    if _sa_error_msg:
+                                        _end_evt["failureReason"] = str(_sa_error_msg)[:500]
+                                    yield f"event: subagent_end\ndata: {json.dumps(_end_evt, ensure_ascii=False)}\n\n"
 
                             # 推送 tool-result 事件
                             tc_result_evt = {

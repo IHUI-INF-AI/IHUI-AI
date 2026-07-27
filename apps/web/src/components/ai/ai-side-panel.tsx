@@ -6,7 +6,8 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Bot } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -25,12 +26,13 @@ import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { PlanActToggle } from '@/components/ai/plan-act-toggle'
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
-import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 import { Tooltip } from '@/components/feedback'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { useModeStore } from '@/stores/mode'
 import { getConversation, getMessages } from '@ihui/api-client'
+import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 import { fetchApi } from '@/lib/api'
 
@@ -81,7 +83,6 @@ export function AISidePanel() {
   const [loadingHistory, setLoadingHistory] = React.useState(false)
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
-  const [dispatchOpen, setDispatchOpen] = React.useState(false)
   // 分页状态(2026-07-25 立,#8 滚动到顶部加载更多历史)
   // - hasMoreHistory:当前会话是否还有更早的消息可加载
   // - oldestCursor:下一页 before 游标(当前已加载消息中最旧一条的 id)
@@ -483,6 +484,44 @@ export function AISidePanel() {
     return () => window.removeEventListener('keydown', onAltP)
   }, [open])
 
+  // Ctrl+1/2/3/4 切换 ChatMode 4态(2026-07-28 立,补全三通道)
+  // - 仅当 AI 面板打开时生效,避免污染其他页面
+  // - Ctrl+数字 不与打字冲突,故无需排除 textarea/input 聚焦场景
+  // - 与 ModeSwitcher 按钮 / /build /plan /review /spec 斜杠命令三入口联动
+  // - Ctrl+数字 在浏览器默认切换 tab,需 preventDefault 阻止
+  React.useEffect(() => {
+    if (!open) return
+    const onModeShortcut = (e: KeyboardEvent) => {
+      // 仅匹配纯 Ctrl+数字(排除 Shift/Alt/Meta 组合,避免与浏览器其他快捷键冲突)
+      if (!e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+      const keyMap: Record<string, ChatMode> = {
+        '1': 'build',
+        '2': 'plan',
+        '3': 'review',
+        '4': 'spec',
+      }
+      const target = keyMap[e.key]
+      if (!target) return
+      e.preventDefault()
+      const labelMap: Record<ChatMode, string> = {
+        build: '构建',
+        plan: '计划',
+        review: '审查',
+        spec: '规格',
+      }
+      const label = labelMap[target]
+      const modeStore = useModeStore.getState()
+      if (modeStore.currentMode === target) {
+        toast.info(`当前已是${label}模式`)
+        return
+      }
+      modeStore.setMode(target)
+      toast.success(`已切换到${label}模式`)
+    }
+    window.addEventListener('keydown', onModeShortcut)
+    return () => window.removeEventListener('keydown', onModeShortcut)
+  }, [open])
+
   // 拖拽调整宽度
   // 关闭态下拖拽手柄:先 openPanel 再开始 resize,实现"拖拽即打开"
   const handleResizeStart = React.useCallback(
@@ -626,9 +665,13 @@ export function AISidePanel() {
             {/* Plan/Act 模式切换(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
               Plan=只制定计划不执行工具,Act=正常 tool loop 执行(默认)
               2026-07-25 v3:AI 面板 header 强制 variant="icon" 始终单图标按钮。
-              原因:header 已有 4 个图标按钮(新对话/派发 subagent/关闭)+ 厂商图标 + 标题 + 工作区,
+              原因:header 已有 3 个图标按钮(新对话/关闭)+ 厂商图标 + 标题 + 工作区,
               在 320px 最小宽度下没有空间再放 2 文字按钮(规划/执行,~90px),
-              强制 icon 形态占 32px(h-8 w-8),跟其他 header 按钮对齐,空间始终可控。 */}
+              强制 icon 形态占 32px(h-8 w-8),跟其他 header 按钮对齐,空间始终可控。
+              2026-07-28:移除手动派发 Subagent 按钮 — Subagent 现已改为对话流中
+              LLM 调用 dispatch_subagent 工具时自动派发(对标 Trae Work),
+              后端发 subagent_spawn/end SSE 事件,前端进度面板自动展示,
+              不再需要用户手动点按钮派发。 */}
             <PlanActToggle variant="icon" />
             <Tooltip content={tc('newConversation')}>
               <button
@@ -639,18 +682,6 @@ export function AISidePanel() {
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Plus className="h-4 w-4" />
-              </button>
-            </Tooltip>
-            {/* 派发 Subagent 按钮(2026-07-22 立,对标 Trae Subagent 派单)
-              点击打开 DispatchSubagentDialog,落地 AGENTS.md §11 派单格式 */}
-            <Tooltip content={tc('dispatchSubagent')}>
-              <button
-                type="button"
-                onClick={() => setDispatchOpen(true)}
-                aria-label={tc('dispatchSubagent')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <Bot className="h-4 w-4" />
               </button>
             </Tooltip>
             <Tooltip content={tcommon('close')}>
@@ -710,8 +741,6 @@ export function AISidePanel() {
 
           {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
           <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
-          {/* Subagent 派单对话框(2026-07-22 立,对标 Trae Subagent) */}
-          <DispatchSubagentDialog open={dispatchOpen} onOpenChange={setDispatchOpen} />
           {/* 工作区权限确认弹窗(2026-07-25 立,深度对标 Codex):
             用户绑定新工作区但 perm=null 时,WorkspaceSelector 写入 pendingPermissionSetup,
             这里弹 Dialog 让用户主动选择权限模式(完全访问/请求批准/替我审批),

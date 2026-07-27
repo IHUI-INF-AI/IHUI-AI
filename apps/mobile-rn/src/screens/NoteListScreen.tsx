@@ -5,9 +5,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { Article } from '@ihui/types'
 
 import { Loading } from '@ihui/ui-native'
-interface Note { id: string; title: string; summary: string; author: string; likes: number; createdAt: string }
+interface Note extends Pick<Article, 'id' | 'title' | 'summary' | 'createdAt'> {
+  author: string  // = authorName 别名
+  likes: number   // = likeCount 别名
+}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const PRIMARY = '#10B981'

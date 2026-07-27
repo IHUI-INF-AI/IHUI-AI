@@ -576,6 +576,9 @@
                  "slashCmd":  {
                                   "plan":  "Switch to plan mode (AI only makes plans, does not execute tools)",
                                   "act":  "Switch to act mode (AI normally executes tools, default)",
+                                  "build":  "Switch to Build mode (all tools enabled, normal execution)",
+                                  "review":  "Switch to Review mode (read-only, enhanced code review)",
+                                  "spec":  "Switch to Spec mode (reverse-generate spec docs from code)",
                                   "permissionAsk":  "Switch to ask-for-approval mode (confirm before each AI action)",
                                   "permissionAuto":  "Switch to auto-approve mode (approve safe actions automatically)",
                                   "permissionFull":  "Switch to full-access mode (high risk, no confirmation)",

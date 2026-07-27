@@ -4,6 +4,10 @@ import { persist } from 'zustand/middleware'
 import { ssrStorage } from './persist-helpers'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+import type {
+  SubagentSpawnEvent,
+  SubagentEndEvent,
+} from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 
 export type { ChatRole } from '@ihui/shared'
@@ -130,6 +134,14 @@ interface ChatState {
   markAllAgentStreamsDone: () => void
   /** 清空所有 sub-agent 活动(新对话开始时调用) */
   resetSubAgentActivities: () => void
+  /** Subagent 自动派发生成(2026-07-28 立,对标 Trae Work):
+   *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn SSE 事件,
+   *  前端通过 onSubagentSpawn 回调写入 store,UI 自动展示 subagent 生命周期。 */
+  addSubagentSpawn: (event: SubagentSpawnEvent) => void
+  /** Subagent 自动派发结束(2026-07-28 立):
+   *  dispatch_subagent 工具执行完成后,后端发 subagent_end SSE 事件,
+   *  前端通过 onSubagentEnd 回调更新 store 中对应条目状态为 completed/failed。 */
+  markSubagentEnd: (event: SubagentEndEvent) => void
   /** 添加工具调用到指定消息(SSE tool-call-start 事件触发)
    * 2026-07-22 立,P2 联动 WorkPanel */
   addToolCall: (
@@ -299,6 +311,64 @@ export const useChatStore = create<ChatState>()(
         })),
 
       resetSubAgentActivities: () => set({ subAgentActivities: [] }),
+
+      // Subagent 自动派发(2026-07-28 立,对标 Trae Work):
+      // - addSubagentSpawn: 后端 subagent_spawn SSE 事件触发,追加新 SubAgentActivity(status='running')
+      // - markSubagentEnd: 后端 subagent_end SSE 事件触发,更新现有条目状态为 completed/failed
+      // 与 appendToAgentStream 的区别:appendToAgentStream 用于多 agent 多路复用的 token 流分流,
+      // 而 addSubagentSpawn/markSubagentEnd 用于 dispatch_subagent 工具调用的生命周期展示。
+      // 两者写入同一 subAgentActivities 数组,UI 统一通过 SubAgentActivityFeed 渲染。
+      addSubagentSpawn: (event) =>
+        set((s) => {
+          // 同一 id 已存在则跳过(防止后端重复发 spawn 事件)
+          if (s.subAgentActivities.some((a) => a.agentId === event.id)) return s
+          const newActivity: SubAgentActivity = {
+            agentId: event.id,
+            name: event.role || `Subagent ${event.id.slice(-6)}`,
+            type: 'worker',
+            status: 'running',
+            currentStep: event.task || '执行中…',
+            completedSteps: [],
+          }
+          return { subAgentActivities: [...s.subAgentActivities, newActivity] }
+        }),
+
+      markSubagentEnd: (event) =>
+        set((s) => ({
+          subAgentActivities: s.subAgentActivities.map((a) => {
+            if (a.agentId !== event.id) return a
+            const nextStatus: SubAgentActivity['status'] =
+              event.status === 'failed' ? 'failed' : 'completed'
+            return {
+              ...a,
+              status: nextStatus,
+              // 完成时把 currentStep 推入 completedSteps,再清空 currentStep;
+              // 失败时 currentStep 改为错误摘要,保留 step 上下文供用户排查
+              ...(event.status === 'failed'
+                ? {
+                    currentStep: event.failureReason
+                      ? `失败:${event.failureReason.slice(0, 200)}`
+                      : '执行失败',
+                  }
+                : {
+                    completedSteps: [
+                      ...a.completedSteps,
+                      ...(a.currentStep
+                        ? [
+                            {
+                              stepAction: a.currentStep,
+                              createdAt: event.timestamp,
+                              status: 'completed' as const,
+                            },
+                          ]
+                        : []),
+                    ],
+                    currentStep: '',
+                  }),
+              streamingDone: true,
+            }
+          }),
+        })),
 
       addToolCall: (messageId, toolCall) =>
         set((s) => ({

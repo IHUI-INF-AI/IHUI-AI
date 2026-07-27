@@ -14,12 +14,12 @@ interface ThinkingSectionProps {
 }
 
 /**
- * ThinkingSection — 思考过程折叠子区
+ * ThinkingSection — 思考过程折叠子区(v8 极致版)
  *
  * 对齐 Trae Work "思考过程 >" 折叠区:
  * - 标题带 Brain 图标
- * - 折叠时:标题 "思考过程" + streaming 时 Loader2 旋转
- * - 展开时:当前节点 + LLM 累积内容(可滚动,max-h-20)
+ * - streaming 时 Loader2 旋转 + 当前节点
+ * - 累积内容末尾显示闪烁光标(▍)表示流式输出中
  */
 export function ThinkingSection({ content, currentNode, isStreaming }: ThinkingSectionProps) {
   const hasContent = content.length > 0 || currentNode !== null
@@ -37,6 +37,9 @@ export function ThinkingSection({ content, currentNode, isStreaming }: ThinkingS
         {content && (
           <div className="max-h-20 overflow-y-auto whitespace-pre-wrap break-all text-muted-foreground/70">
             {content}
+            {isStreaming && (
+              <span className="ml-0.5 inline-block w-1 animate-pulse bg-primary/60 align-middle" style={{ height: '10px' }} />
+            )}
           </div>
         )}
       </div>

@@ -80,3 +80,9 @@ export * from './registry'
 
 // 跨端 app 组件类型契约(从 packages/app 迁移,2026-07-25)
 export * from './app'
+
+// Naming conflict resolution: ai.ts and legacy-migration.ts both export ModelType.
+// ai.ts version (model capability: text/image/video/...) is used by mobile-rn,
+// explicit re-export keeps backward compat; legacy-migration version (model vendor:
+// openai/anthropic/...) accessible via @ihui/types/legacy-migration subpath.
+export { type ModelType } from './ai'

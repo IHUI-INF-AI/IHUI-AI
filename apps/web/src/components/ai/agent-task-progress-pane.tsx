@@ -42,22 +42,36 @@ const PLAN_CLS: Record<PlanStepStatus, string> = {
 // ─── 单个 plan step 渲染 ─────────────────────────────────────────────
 function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
   const Icon = PLAN_ICON[step.status]
+  const hasSubtitle = step.explanation || step.tokenUsage !== undefined
   return (
-    <div className="flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed">
-      <Icon
-        className={cn(
-          'mt-0.5 h-3 w-3 shrink-0',
-          PLAN_CLS[step.status],
-          step.status === 'in_progress' && 'animate-spin',
-        )}
-      />
-      <span className={cn('flex-1 break-all', step.status === 'pending' && 'text-muted-foreground/60')}>
-        {index + 1}. {step.step}
-      </span>
-      {step.durationMs !== undefined && step.status !== 'pending' && (
-        <span className="shrink-0 text-[10px] text-muted-foreground/50">
-          {formatDuration(step.durationMs)}
+    <div className="px-2 py-0.5 text-[11px] leading-relaxed">
+      <div className="flex items-start gap-1.5">
+        <Icon
+          className={cn(
+            'mt-0.5 h-3 w-3 shrink-0',
+            PLAN_CLS[step.status],
+            step.status === 'in_progress' && 'animate-spin',
+          )}
+        />
+        <span className={cn('flex-1 break-all', step.status === 'pending' && 'text-muted-foreground/60')}>
+          {index + 1}. {step.step}
         </span>
+        {step.durationMs !== undefined && step.status !== 'pending' && (
+          <span className="shrink-0 text-[10px] text-muted-foreground/50">
+            {formatDuration(step.durationMs)}
+          </span>
+        )}
+        {step.tokenUsage !== undefined && step.tokenUsage > 0 && (
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/40">
+            {Math.round(step.tokenUsage / 1000)}k
+          </span>
+        )}
+      </div>
+      {/* explanation 副标题(缩进,更小字号) */}
+      {hasSubtitle && step.explanation && (
+        <div className="ml-4 break-all text-[10px] text-muted-foreground/40">
+          {step.explanation}
+        </div>
       )}
     </div>
   )

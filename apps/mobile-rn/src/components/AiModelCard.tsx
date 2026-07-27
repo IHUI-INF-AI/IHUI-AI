@@ -9,6 +9,10 @@
  */
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
+import { type ModelUserType, type AiModelData } from '@ihui/types'
+
+// Cross-end shared type re-export (keep public API surface for external consumers)
+export type { ModelUserType, AiModelData } from '@ihui/types'
 
 /**
  * tokens 未覆盖的语义色常量(集中管理)
@@ -22,18 +26,6 @@ const COLORS = {
   warningBg: '#fffbeb',
   warning: '#d97706',
 } as const
-
-export type ModelUserType = 'freevip' | 'freeuse' | 'freetime' | 'hasbuy' | 'buymonth' | 'none'
-
-export interface AiModelData {
-  name: string
-  subname?: string
-  icon?: string
-  mumber?: number | string
-  userType?: ModelUserType
-  tags?: string[]
-  [key: string]: unknown
-}
 
 export interface AiModelCardProps {
   data: AiModelData

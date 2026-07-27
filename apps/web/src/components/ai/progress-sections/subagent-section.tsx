@@ -61,6 +61,11 @@ export function SubagentSection({ subagents }: SubagentSectionProps) {
                   {formatDuration(sa.durationMs)}
                 </span>
               )}
+              {sa.toolCalls !== undefined && sa.toolCalls > 0 && (
+                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/40" title={`${sa.toolCalls} 次工具调用`}>
+                  {sa.toolCalls}次
+                </span>
+              )}
               {sa.tokenUsage !== undefined && sa.tokenUsage > 0 && (
                 <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
                   {Math.round(sa.tokenUsage / 1000)}k

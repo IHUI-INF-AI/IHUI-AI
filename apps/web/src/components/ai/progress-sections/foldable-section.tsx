@@ -23,14 +23,14 @@ export function formatDuration(ms: number): string {
 }
 
 /**
- * FoldableSection — 共享折叠子区包装器(对齐 Trae Work)
+ * FoldableSection — 共享折叠子区包装器(对齐 Trae Work v8 极致版)
  *
  * 特征:
  * - SVG chevron 图标(ChevronRight,展开时 rotate-90)
  * - 可选标题图标(通过 icon prop 传入 lucide-react 组件)
  * - 计数徽章(右对齐,tabular-nums)
- * - 平滑背景色 hover 反馈
- * - rounded-sm bg-muted/30 容器,无分割线
+ * - CSS grid 平滑展开/折叠动画(grid-template-rows 0fr→1fr,150ms)
+ * - rounded-sm border 容器,展开时背景加深
  */
 export function FoldableSection({
   title,
@@ -45,7 +45,7 @@ export function FoldableSection({
   return (
     <div
       className={cn(
-        'mx-1.5 mt-1.5 rounded-sm border border-border/40 bg-muted/20 transition-colors',
+        'mx-1.5 mt-1.5 overflow-hidden rounded-sm border border-border/40 bg-muted/20 transition-colors',
         open && 'bg-muted/40',
       )}
       data-testid={testId}
@@ -70,7 +70,15 @@ export function FoldableSection({
           </span>
         )}
       </button>
-      {open && <div className="px-2 pb-1.5 pt-0.5">{children}</div>}
+      {/* CSS grid 平滑高度动画:grid-template-rows 0fr→1fr */}
+      <div
+        className="grid transition-[grid-template-rows] duration-150 ease-out"
+        style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
+      >
+        <div className="overflow-hidden">
+          <div className="px-2 pb-1.5 pt-0.5">{children}</div>
+        </div>
+      </div>
     </div>
   )
 }

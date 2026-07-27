@@ -88,3 +88,41 @@ export function formatDuration(sec: number): string {
   const s = sec % 60
   return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':')
 }
+
+/**
+ * 格式化短时长(秒 → MM:SS,跨端统一:mobile-rn/VoiceInput 录音时长显示)。
+ * 与 formatDuration(HH:MM:SS)区别:录音场景不需要小时。
+ */
+export function formatShortDuration(sec: number): string {
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+/**
+ * 格式化媒体时长(秒 → M:SS 或 H:MM:SS 自适应,跨端统一:mobile-rn/VideoPlayer + 直播回放共用)。
+ * 无效值(非有限数/负数)返回 '0:00'。
+ */
+export function formatMediaTime(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '0:00'
+  const total = Math.floor(sec)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+/**
+ * 格式化人类可读时长(分钟 → Xh Ym,跨端统一:mobile-rn/StudyRecordScreen 学习记录共用)。
+ * 输入 0 或负数返回 '0m';小于 60 分钟返回 'Xm';≥60 分钟返回 'Xh Ym' 或 'Xh'。
+ */
+export function formatHumanDuration(minutes: number): string {
+  if (!minutes || minutes <= 0) return '0m'
+  if (minutes < 60) return `${minutes}m`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}

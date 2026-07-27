@@ -360,10 +360,31 @@ export interface StreamChatOptions {
    *  - toolCallResult:type 7(tool-result)或自定义 tool_result 事件
    *  触发 WorkPanel.openPanel({ url, source: 'ai-tool' }) */
   onToolCall?: (event: ToolCallEvent) => void
+  /** Subagent 自动派发回调(2026-07-28 立,对标 Trae Work):
+   *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn/end SSE 事件,
+   *  前端进度面板自动展示 subagent 生命周期(spawned → running → done/failed)。 */
+  onSubagentSpawn?: (event: SubagentSpawnEvent) => void
+  onSubagentEnd?: (event: SubagentEndEvent) => void
   /** 自动重连最大次数(默认 3)。网络错误指数退避重连,业务错误(401/403/429)不重连 */
   maxRetries?: number
   /** 自动重连前回调(前端可显示"网络波动,正在重连…") */
   onReconnect?: (attempt: number, delayMs: number) => void
+}
+
+/** Subagent 派发生成事件(2026-07-28 立,ai-service tool loop 中 dispatch_subagent 工具执行前发出) */
+export interface SubagentSpawnEvent {
+  id: string
+  role: string
+  task: string
+  timestamp: string
+}
+
+/** Subagent 派发结束事件(dispatch_subagent 工具执行后发出) */
+export interface SubagentEndEvent {
+  id: string
+  status: 'done' | 'failed'
+  failureReason?: string
+  timestamp: string
 }
 
 /** AI 工具调用 SSE 事件(跨端共享) */
@@ -1013,6 +1034,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasQuestion = typeof opts.onQuestion === 'function'
       const hasAgentDelta = typeof opts.onAgentDelta === 'function'
       const hasToolCall = typeof opts.onToolCall === 'function'
+      const hasSubagent = typeof opts.onSubagentSpawn === 'function' || typeof opts.onSubagentEnd === 'function'
       // P4-2: fallback 事件回调存在时启用解析
       const hasFallback = typeof opts.onFallback === 'function'
 
@@ -1231,6 +1253,46 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** 解析 Subagent 派发事件(2026-07-28 立):
+       *  - subagent_spawn:主 agent 调用 dispatch_subagent 工具执行前发出
+       *  - subagent_end:执行后发出(带 status: done/failed)
+       *  触发 onSubagentSpawn/onSubagentEnd 回调,前端进度面板自动展示。 */
+      const tryParseSubagent = (line: string): void => {
+        if (!hasSubagent) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type === 'subagent_spawn' && json?.id) {
+            opts.onSubagentSpawn!({
+              id: String(json.id),
+              role: typeof json.role === 'string' ? json.role : '',
+              task: typeof json.task === 'string' ? json.task : '',
+              timestamp: typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+            })
+          } else if (json?.type === 'subagent_end' && json?.id) {
+            opts.onSubagentEnd!({
+              id: String(json.id),
+              status: json.status === 'failed' ? 'failed' : 'done',
+              failureReason: typeof json.failureReason === 'string' ? json.failureReason : undefined,
+              timestamp: typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+            })
+          }
+        } catch {
+          /* 非 JSON 或非 subagent 事件忽略 */
+        }
+      }
+
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
@@ -1244,6 +1306,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseCompaction(line)
           tryParseQuestion(line)
           tryParseToolCall(line)
+          tryParseSubagent(line)
           // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
           if (hasFallback) {
             const fbEvt = parseFallbackEvent(line)
@@ -1269,6 +1332,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseCompaction(buffer)
         tryParseQuestion(buffer)
         tryParseToolCall(buffer)
+        tryParseSubagent(buffer)
         // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
         if (hasFallback) {
           const fbEvt = parseFallbackEvent(buffer)

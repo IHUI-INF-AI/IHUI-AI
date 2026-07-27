@@ -5,11 +5,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { SearchContentItem } from '@ihui/types'
 
 import { Card, Input, Loading } from '@ihui/ui-native'
-interface SearchResult {
-  id: string
-  title: string
+interface SearchResult extends Pick<SearchContentItem, 'id' | 'title'> {
   summary: string
   type: 'course' | 'article' | 'post' | 'note' | 'agent'
   cover?: string
