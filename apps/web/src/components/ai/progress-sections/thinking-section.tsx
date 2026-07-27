@@ -29,14 +29,23 @@ export function ThinkingSection({ content, currentNode, isStreaming }: ThinkingS
     <FoldableSection title="思考过程" icon={Brain} data-testid="thinking-section">
       <div className="space-y-1 text-[11px] leading-relaxed">
         {currentNode && (
-          <div className="flex items-center gap-1 text-primary">
-            {isStreaming && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
-            <span className="break-all">{currentNode}</span>
+          <div className="flex items-center gap-1">
+            {isStreaming && <Loader2 className="h-2.5 w-2.5 animate-spin text-primary" />}
+            <span className="inline-flex items-center rounded-sm bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary">
+              {currentNode}
+            </span>
           </div>
         )}
         {content && (
           <div className="max-h-20 overflow-y-auto whitespace-pre-wrap break-all text-muted-foreground/70">
             {content}
+            {isStreaming && (
+              <span
+                className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/60 align-middle"
+                style={{ height: '10px' }}
+                aria-hidden
+              />
+            )}
           </div>
         )}
       </div>
