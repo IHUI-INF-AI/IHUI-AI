@@ -7,11 +7,13 @@ import type { LoginResult as SharedLoginResult, AuthUser } from '@ihui/api-clien
 import {
   TOKEN_STORAGE_KEY as TOKEN_KEY,
   REFRESH_TOKEN_STORAGE_KEY as REFRESH_TOKEN_KEY,
+  USER_INFO_STORAGE_KEY,
 } from '@ihui/shared/constants'
 import { createInMemoryTokenStore } from '@ihui/shared/auth'
 import type { TokenStoreWithUserInfo } from '@ihui/shared/auth'
 
-const USER_INFO_KEY = 'ihui_user_info'
+// legacy underscore key (read-only for migration); new key uses hyphen via USER_INFO_STORAGE_KEY
+const USER_INFO_KEY_LEGACY = 'ihui_user_info'
 
 /**
  * 用户信息 — 字段复用 @ihui/api-client AuthUser(单一来源),
@@ -19,7 +21,6 @@ const USER_INFO_KEY = 'ihui_user_info'
  *  - id: AuthUser 为必填 string,此处保留可选 string|number(兼容历史 storage 数据)
  *  - isVip: AuthUser 为 number,此处保留 boolean(前端布尔语义)
  *  - uuid/userName/realName: miniapp-taro 特有扩展
- *  - [key: string]: unknown 索引签名(兼容后端任意附加字段)
  */
 export interface UserInfo extends Omit<AuthUser, 'id' | 'isVip'> {
   id?: string | number
@@ -27,7 +28,10 @@ export interface UserInfo extends Omit<AuthUser, 'id' | 'isVip'> {
   uuid?: string
   userName?: string
   realName?: string
-  [key: string]: unknown
+  balance?: number
+  realnameStatus?: string
+  idCard?: string
+  realnameRejectReason?: string
 }
 
 /**
@@ -60,7 +64,8 @@ const tokenStoreCore = createInMemoryTokenStore({
   onClearAll: () => {
     removeStorageSync(TOKEN_KEY)
     removeStorageSync(REFRESH_TOKEN_KEY)
-    removeStorageSync(USER_INFO_KEY)
+    removeStorageSync(USER_INFO_STORAGE_KEY)
+    removeStorageSync(USER_INFO_KEY_LEGACY)
   },
 })
 
@@ -86,13 +91,20 @@ export function setRefreshToken(token: string): void {
 
 /** 获取用户信息 */
 export function getUserInfo(): UserInfo | null {
-  const info = getStorageSync(USER_INFO_KEY)
-  return info || null
+  const newData = getStorageSync(USER_INFO_STORAGE_KEY)
+  if (newData) return newData as UserInfo
+  const oldData = getStorageSync(USER_INFO_KEY_LEGACY)
+  if (oldData) {
+    setStorageSync(USER_INFO_STORAGE_KEY, oldData)
+    removeStorageSync(USER_INFO_KEY_LEGACY)
+    return oldData as UserInfo
+  }
+  return null
 }
 
 /** 设置用户信息 */
 export function setUserInfo(info: UserInfo): void {
-  setStorageSync(USER_INFO_KEY, info)
+  setStorageSync(USER_INFO_STORAGE_KEY, info)
 }
 
 /** 清除登录态 */
