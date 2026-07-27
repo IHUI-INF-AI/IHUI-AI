@@ -4,6 +4,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { getInitials } from '@/components/data/Avatar'
+import { formatTimeOnly } from '@/lib/date-utils'
 
 export type MessageType = 'text' | 'image' | 'system'
 
@@ -66,10 +67,7 @@ export function MessageBubble({ message, isSelf }: Props) {
           </div>
         )}
         <span className="mt-0.5 px-1 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-          {new Date(message.createdAt).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {formatTimeOnly(message.createdAt)}
         </span>
       </div>
       {zoomed && message.type === 'image' && (

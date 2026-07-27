@@ -6,6 +6,7 @@ import { Loader2, Mic, CheckCircle2, History, Wand2, Copy, Check } from 'lucide-
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface HistoryPayload {
   date?: string
@@ -219,14 +220,16 @@ export default function KouboPage() {
               />
               {result?.outputPath && (
                 <p className="text-xs text-muted-foreground">
-                  {t('latestOutput')} <code className="rounded bg-muted px-1">{result.outputPath}</code>
+                  {t('latestOutput')}{' '}
+                  <code className="rounded bg-muted px-1">{result.outputPath}</code>
                 </p>
               )}
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
               <Button
                 onClick={() =>
-                  run('generate', '/api/self-media/koubo/generate', { // method: POST
+                  run('generate', '/api/self-media/koubo/generate', {
+                    // method: POST
                     date,
                     topic,
                     dryRun: true,
@@ -243,8 +246,8 @@ export default function KouboPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() =>
-                  run('validate', '/api/self-media/koubo/validate', { filePath }) // method: POST
+                onClick={
+                  () => run('validate', '/api/self-media/koubo/validate', { filePath }) // method: POST
                 }
                 disabled={!filePath || running !== null}
               >
@@ -408,7 +411,7 @@ export default function KouboPage() {
                     >
                       {h.status}
                     </span>
-                    {h.createdAt && <span>· {new Date(h.createdAt).toLocaleDateString()}</span>}
+                    {h.createdAt && <span>· {formatDateOnly(h.createdAt)}</span>}
                   </div>
                 </button>
               ))}
