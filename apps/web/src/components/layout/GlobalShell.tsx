@@ -170,8 +170,14 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
         {/* 右列:内容区(work-area + WebWorkPanel 横向并列)
             2026-07-26 修订:NativeTopBar 已删除,TagsView + 窗口控制按钮由 MainShell 内部渲染,
-            严格匹配 main 同宽容器(rounded-xl my-2 mr-2),不会横跨到 WebWorkPanel */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            严格匹配 main 同宽容器(rounded-xl my-2 mr-2),不会横跨到 WebWorkPanel。
+            ⚠ 2026-07-26 用户反馈(第九次):此处必须用 flex-row,不能用 flex-col。
+              flex-col 会让 work-area-portal-root 和 WebWorkPanel 纵向堆叠,
+              由于 WebWorkPanel 没有 flex-1 限制,会展开到全部高度,把工作区完全覆盖,
+              表现:工作区高度塌缩为 0,WebWorkPanel 从上到下覆盖整个右列。
+              flex-row 才能让两者横向并列(work-area 在左,WebWorkPanel 在右),
+              工作区通过 flex-1 占满剩余宽度,WebWorkPanel 固定宽度在右。 */}
+        <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
           {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
           {/*
             work-area-portal-root:作为 Sidebar 搜索弹层(SearchNavItem) 的 portal 目标。
