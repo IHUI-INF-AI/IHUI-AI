@@ -7,7 +7,12 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
-interface Note { id: string; title: string; summary: string; author: string; likes: number; createdAt: string }
+import type { Article } from '@ihui/types'
+
+interface Note extends Pick<Article, 'id' | 'title' | 'summary' | 'createdAt'> {
+  author: string
+  likes: number
+}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const PRIMARY = '#10B981'
