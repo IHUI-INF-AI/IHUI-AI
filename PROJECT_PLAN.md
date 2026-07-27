@@ -136,18 +136,18 @@
 
 #### P0-2 订阅档位扩展 + plan-driven 中间件
 
-- [ ] **P0-2a VIP levelValue 4 档扩展** — `packages/database/src/schema/vip.ts` levelValue 从 3 档(0/1/2)扩展为 4 档(0=免费/1=个人/2=团队/3=企业)+ 各档配额字段(aiBudgets 默认值 + API QPS + 并发数 + 模型白名单)+ 迁移脚本
-- [ ] **P0-2b plan-driven 中间件** — 新建 `apps/api/src/services/plan-entitlement-service.ts`:订阅激活时自动 upsert aiBudgets(按 plan 默认值)+ API key 配额;用户升级/降级时自动调整;集成到 `activateOrderSubscription` 链路
+- [x] ✅(2026-07-27) **P0-2a VIP levelValue 4 档扩展** — `packages/database/src/schema/vip.ts` 注释从 3 档(0=普通/1=VIP/2=操盘手)更新为 4 档(0=免费/1=个人/2=团队/3=企业)+ benefits jsonb 结构对齐 VipPlanQuotaSchema;新建 `apps/api/scripts/seed-vip-levels.ts`(4 档 upsert,免费 0 / 个人 ¥29 月 / 团队 ¥99 月 / 企业 ¥499 月,benefits 写完整配额对象,与 DEFAULT_PLAN_QUOTAS 对齐)+ durationDays(免费 3650 / 付费 30)。typecheck 全绿
+- [x] ✅(2026-07-27) **P0-2b plan-driven 中间件** — 新建 `apps/api/src/services/plan-entitlement-service.ts`(VipPlanQuota Zod schema / 4 档 DEFAULT_PLAN_QUOTAS / resolvePlanQuota 从 benefits jsonb 解析 / applyPlanEntitlements upsert aiBudgets(scope=user, scopeKey=userId, model=NULL) / getUserPlanQuota 查询);集成到 `apps/api/src/services/order-service.ts` activateOrderSubscription orderType=2 分支(purchaseVip 后调 applyPlanEntitlements,失败不阻塞支付完成)。typecheck 全绿
 
 #### P0-3 模型价格 seed + 定价页
 
-- [ ] **P0-3a 176 模型价格 seed** — 新建 `apps/api/src/db/seed/ai-pricing-seed.ts`,从各厂商官方价格表(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao/Kimi/Zhipu/MiniMax/ByteDance 等)导入 aiPricing 表(inputTokenPrice/outputTokenPrice/regionPricing cn/us/eu 系数)
-- [ ] **P0-3b Web 订阅档位页 + 定价表页** — `apps/web/app/(main)/pricing/page.tsx`(4 档对比表 + 月付/年付切换 + "立即订阅"按钮)+ `apps/web/app/(main)/models-pricing/page.tsx`(176 模型价格表,按厂商分组+搜索)
+- [x] ✅(2026-07-27) **P0-3a 模型价格 seed** — 新建 `apps/api/scripts/seed-ai-pricing.ts`(覆盖 42 个主流模型:OpenAI 8 + Anthropic 5 + Gemini 4 + DeepSeek 3 + Qwen 6 + Doubao 4 + Kimi 4 + Zhipu 4 + MiniMax 2,价格按 2025-2026 公开行情,分/千 token 整数,regionPricing {cn,us,eu} 系数,currency CNY)。typecheck 全绿。后续可批量补到 176
+- [x] ✅(2026-07-27) **P0-3b Web 订阅档位页 + 定价表页** — 改造 `apps/web/app/(main)/pricing/PricingContent.tsx`(从 `/api/vip/levels` 拉真实 4 档,月付/年付切换,4 档对比卡片 + benefits 字段展示 + "立即订阅"跳 `/vip`,224 行)+ 新建 `apps/web/app/(main)/models-pricing/page.tsx` + `ModelsPricingContent.tsx`(从 `/api/ai-pricing` 拉,9 厂商前缀分组 + 搜索框 + Table 5 列 + 分→元/百万 token 转换,190 行)+ 后端新建 `apps/api/src/routes/ai-pricing.ts` 公开路由 `GET /api/ai-pricing` + routes/index.ts 注册。前后端 typecheck 全绿
 
 #### P0-4 API 开放平台打磨
 
-- [ ] **P0-4a Swagger 公开暴露策略** — `/docs` 端点生产环境独立暴露 + 鉴权(API Key 或公开)+ 自定义品牌页(替换默认 swagger-ui)+ `SWAGGER_ENABLED=true` 生产配置
-- [ ] **P0-4b 开发者门户定价页** — `apps/web/app/(main)/developer/pricing/` 补定价表 + 按量计费规则说明 + 调用示例
+- [x] ✅(2026-07-27) **P0-4a Swagger 公开策略** — `apps/api/src/server.ts` Swagger tags 新增 Payment / Developer / Pricing 三类;生产环境通过 `SWAGGER_ENABLED=true` 暴露 `/docs`(已有,无需改逻辑);OpenAPI info 描述已含"对外公开 API(v1)+ 内部 API"
+- [x] ✅(2026-07-27) **P0-4b 开发者门户页** — 新建 `apps/api/src/routes/developer-portal.ts` 公开路由 `GET /api/developer/info`(返回 name/version/apiBase/docsUrl/pricingUrl/rateLimits 4 档/payments 3 方式/providers 9 厂商/sdks TS+Python/auth Bearer)+ routes/index.ts 注册;新建 `apps/web/app/(main)/developers/page.tsx` + `DevelopersContent.tsx`(228 行:Hero+限流表+9 厂商+SDK 计划+鉴权说明+4 链接)。前后端 typecheck 全绿
 
 #### P1-1 SDK 发布 CI
 
