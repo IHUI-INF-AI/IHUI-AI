@@ -107,7 +107,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
                 className={cn(
                   'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[10px]',
                   term.status === 'failed'
-                    ? 'bg-red-500/5 text-red-500/80'
+                    ? 'bg-red-500/10 text-red-500/90'
                     : 'bg-muted/60 text-muted-foreground/90',
                 )}
               >
