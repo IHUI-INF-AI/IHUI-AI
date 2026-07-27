@@ -1413,9 +1413,9 @@ pnpm --filter @ihui/database seed          # 7 步幂等 seed
 # 4. 一键启动所有 apps(turbo 并行)
 pnpm dev
 # 或单独启动:
-# pnpm --filter @ihui/api run dev          # 后端 :3002
-# pnpm --filter @ihui/web run dev          # 前端 :3001
-# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 3003
+# pnpm --filter @ihui/api run dev          # 后端 :8802
+# pnpm --filter @ihui/web run dev          # 前端 :8801
+# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8803
 
 # 5. 全量验证(typecheck + lint + test)
 pnpm turbo build typecheck lint test
@@ -1498,7 +1498,7 @@ pnpm turbo build typecheck lint test
 ### 指标(Prometheus + Grafana 21 仪表盘)
 
 - **Prometheus**(:9091):抓取 api `/metrics` + ai-service `/metrics` + node-exporter 主机指标 + alerts.yml 告警规则
-- **Grafana**(:3001):**20 个仪表盘 JSON 自动 provision**,包含:
+- **Grafana**(:8816):**20 个仪表盘 JSON 自动 provision**,包含:
 
 | #   | 仪表盘           | 用途            |
 | --- | ---------------- | --------------- |

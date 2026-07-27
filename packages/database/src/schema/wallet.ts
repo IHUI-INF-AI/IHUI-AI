@@ -1,5 +1,14 @@
-import { pgTable, uuid, varchar, integer, timestamp, primaryKey, uniqueIndex } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  timestamp,
+  primaryKey,
+  uniqueIndex,
+  index,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 export const userMargins = pgTable(
   'user_margins',
   {
@@ -13,7 +22,7 @@ export const userMargins = pgTable(
   (t) => ({
     pk: primaryKey({ columns: [t.userId] }),
   }),
-);
+)
 
 /**
  * Token 流水表。
@@ -39,10 +48,12 @@ export const tokenFlows = pgTable(
     // schema 用普通 uniqueIndex(PostgreSQL unique 索引允许多个 NULL,未关联订单的流水不冲突)
     // migration SQL 用 partial index(WHERE related_order_no IS NOT NULL)语义更精确
     orderOpUniq: uniqueIndex('token_flows_order_op_unique_idx').on(t.relatedOrderNo, t.opType),
+    // P0 索引补全:用户流水查询高频(userId + createdAt 范围)
+    userCreatedIdx: index('token_flows_user_created_idx').on(t.userId, t.createdAt),
   }),
-);
+)
 
-export type UserMargin = typeof userMargins.$inferSelect;
-export type NewUserMargin = typeof userMargins.$inferInsert;
-export type TokenFlow = typeof tokenFlows.$inferSelect;
-export type NewTokenFlow = typeof tokenFlows.$inferInsert;
+export type UserMargin = typeof userMargins.$inferSelect
+export type NewUserMargin = typeof userMargins.$inferInsert
+export type TokenFlow = typeof tokenFlows.$inferSelect
+export type NewTokenFlow = typeof tokenFlows.$inferInsert

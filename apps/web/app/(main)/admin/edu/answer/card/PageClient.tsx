@@ -94,7 +94,7 @@ function CardContent2() {
         <div className="rounded-lg border p-4">
           <div className="text-xs text-muted-foreground">{t('statSubmitted')}</div>
           <div className="mt-1 text-2xl font-semibold text-primary">
-            {records.filter((r: any) => r.status !== 'pending').length}
+            {records.filter((r: AnswerRecord) => r.status !== 'pending').length}
           </div>
         </div>
         <div className="rounded-lg border p-4">

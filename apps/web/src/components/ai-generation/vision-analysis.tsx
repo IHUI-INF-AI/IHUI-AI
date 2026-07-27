@@ -130,7 +130,7 @@ export function VisionAnalysis() {
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  code({ className: cls, children, ...props }: any) {
+                  code({ className: cls, children, ...props }: React.ComponentProps<'code'>) {
                     const match = /language-(\w+)/.exec(cls || '')
                     const inline = !match && !String(children).includes('\n')
                     if (inline) {

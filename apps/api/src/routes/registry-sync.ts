@@ -68,11 +68,7 @@ import {
   detectDrift,
   updateBaseline,
 } from '../services/registry-sync/config-drift-detector.js'
-import {
-  listMigrationHistory,
-  migrateConfig,
-} from '../services/registry-sync/config-migrator.js'
-import type { RegistryWorkerStats } from '../workers/registry-sync-worker.js'
+import { listMigrationHistory, migrateConfig } from '../services/registry-sync/config-migrator.js'
 
 // =============================================================================
 // Zod schemas — P0-2
@@ -372,8 +368,7 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
       // 解析 payload 用于事件名推导 + 后续同步
       let parsedPayload: unknown
       try {
-        parsedPayload =
-          typeof request.body === 'string' ? JSON.parse(request.body) : request.body
+        parsedPayload = typeof request.body === 'string' ? JSON.parse(request.body) : request.body
       } catch {
         parsedPayload = request.body
       }
@@ -580,77 +575,62 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   // GET /registry/config-drift — 检测所有配置漂移(?fileType= 可仅检测单个类型)
-  server.get(
-    '/registry/config-drift',
-    { preHandler: requireAdmin },
-    async (request, reply) => {
-      const query = z.object({ fileType: fileTypeSchema.optional() }).safeParse(request.query)
-      if (!query.success) {
-        return reply.status(400).send(error(400, query.error.issues[0]?.message ?? '参数错误'))
-      }
-      const result = query.data.fileType
-        ? {
-            reports: [await detectDrift(query.data.fileType)],
-            hasDrift: false,
-            detectedAt: new Date().toISOString(),
-          }
-        : await detectAllDrift()
-      result.hasDrift = result.reports.some((r) => r.drifted)
-      return reply.send(success(result))
-    },
-  )
+  server.get('/registry/config-drift', { preHandler: requireAdmin }, async (request, reply) => {
+    const query = z.object({ fileType: fileTypeSchema.optional() }).safeParse(request.query)
+    if (!query.success) {
+      return reply.status(400).send(error(400, query.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = query.data.fileType
+      ? {
+          reports: [await detectDrift(query.data.fileType)],
+          hasDrift: false,
+          detectedAt: new Date().toISOString(),
+        }
+      : await detectAllDrift()
+    result.hasDrift = result.reports.some((r) => r.drifted)
+    return reply.send(success(result))
+  })
 
   // POST /registry/config-baseline — 更新基线(标记当前为已知良好)
-  server.post(
-    '/registry/config-baseline',
-    { preHandler: requireAdmin },
-    async (request, reply) => {
-      const parsed = baselineBodySchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      await updateBaseline(parsed.data.fileType as ConfigFileType | undefined)
-      request.log.info(
-        { fileType: parsed.data.fileType ?? 'all' },
-        '[registry] baseline updated',
-      )
-      return reply.send(
-        success({
-          updated: parsed.data.fileType ?? 'all',
-          message: '基线已更新为当前内容',
-        }),
-      )
-    },
-  )
+  server.post('/registry/config-baseline', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = baselineBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    await updateBaseline(parsed.data.fileType as ConfigFileType | undefined)
+    request.log.info({ fileType: parsed.data.fileType ?? 'all' }, '[registry] baseline updated')
+    return reply.send(
+      success({
+        updated: parsed.data.fileType ?? 'all',
+        message: '基线已更新为当前内容',
+      }),
+    )
+  })
 
   // POST /registry/config-migrate — 触发迁移(body: ConfigMigrateRequest)
-  server.post(
-    '/registry/config-migrate',
-    { preHandler: requireAdmin },
-    async (request, reply) => {
-      const parsed = migrateBodySchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const reqBody = parsed.data as ConfigMigrateRequest
-      const response = await migrateConfig({
-        fileType: parsed.data.fileType as ConfigFileType | undefined,
-        dryRun: reqBody.dryRun,
-        rollbackThreshold: reqBody.rollbackThreshold,
-      })
-      request.log.info(
-        {
-          fileType: parsed.data.fileType ?? 'all',
-          dryRun: reqBody.dryRun ?? true,
-          migrated: response.migrated,
-          failed: response.failed,
-          rolledBack: response.rolledBack,
-        },
-        '[registry] config migrate done',
-      )
-      return reply.send(success(response))
-    },
-  )
+  server.post('/registry/config-migrate', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = migrateBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const reqBody = parsed.data as ConfigMigrateRequest
+    const response = await migrateConfig({
+      fileType: parsed.data.fileType as ConfigFileType | undefined,
+      dryRun: reqBody.dryRun,
+      rollbackThreshold: reqBody.rollbackThreshold,
+    })
+    request.log.info(
+      {
+        fileType: parsed.data.fileType ?? 'all',
+        dryRun: reqBody.dryRun ?? true,
+        migrated: response.migrated,
+        failed: response.failed,
+        rolledBack: response.rolledBack,
+      },
+      '[registry] config migrate done',
+    )
+    return reply.send(success(response))
+  })
 
   // GET /registry/config-migrate/history — 迁移历史(从备份目录列出)
   server.get(
@@ -668,7 +648,7 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /registry/worker-stats — Worker 运行时指标(管理员,供前端管理面板展示 worker 健康度)
   server.get('/registry/worker-stats', { preHandler: requireAdmin }, async (_request, reply) => {
-    const stats = (server as any).registryWorkerStats as RegistryWorkerStats | undefined
+    const stats = server.registryWorkerStats
     return reply.send(
       success({
         processed: stats?.processed ?? 0,

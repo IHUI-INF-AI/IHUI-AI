@@ -41,7 +41,12 @@ export interface TaskDetailDialogProps {
   onTaskChanged: () => void
 }
 
-export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: TaskDetailDialogProps) {
+export function TaskDetailDialog({
+  task,
+  open,
+  onOpenChange,
+  onTaskChanged,
+}: TaskDetailDialogProps) {
   const t = useTranslations('agents.kanban')
   const tc = useTranslations('common')
   const locale = useLocale()
@@ -113,7 +118,10 @@ export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: Ta
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className={cn('h-2.5 w-2.5 rounded-full', PRIORITY_DOT_CLASS[level])} aria-hidden />
+            <span
+              className={cn('h-2.5 w-2.5 rounded-full', PRIORITY_DOT_CLASS[level])}
+              aria-hidden
+            />
             <span className="truncate">{task.name}</span>
           </DialogTitle>
           <DialogDescription className="sr-only">{task.id}</DialogDescription>
@@ -159,10 +167,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: Ta
               <div>
                 <dt className="text-muted-foreground">{t('duration')}</dt>
                 <dd>
-                  {formatDuration(
-                    task.startedAt,
-                    task.completedAt || new Date().toISOString(),
-                  )}
+                  {formatDuration(task.startedAt, task.completedAt || new Date().toISOString())}
                 </dd>
               </div>
             )}
@@ -170,7 +175,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: Ta
               <div className="col-span-2">
                 <dt className="text-muted-foreground">{t('dependencies')}</dt>
                 <dd className="flex flex-wrap gap-1">
-                  {task.dependencies.map((dep: any) => (
+                  {task.dependencies.map((dep) => (
                     <span
                       key={dep}
                       className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-mono"
@@ -190,7 +195,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: Ta
           </dl>
 
           {/* 状态流转 */}
-          {(legalTargets as any)?.length > 0 && (
+          {legalTargets?.length > 0 && (
             <div className="space-y-2 rounded-md border border-border p-2.5">
               <Label className="flex items-center gap-1.5 text-xs font-medium">
                 <ArrowRightCircle className="h-3.5 w-3.5" />
@@ -198,7 +203,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: Ta
               </Label>
               <div className="flex flex-wrap gap-1.5">
                 {ALL_STATUSES.map((status) => {
-                  const isLegal = (legalTargets as any).includes(status)
+                  const isLegal = legalTargets.includes(status)
                   const isSelected = transitionTo === status
                   return (
                     <button
@@ -246,7 +251,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: Ta
             onClick={handleDelete}
             disabled={deleting || submitting}
           >
-            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {deleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
             {t('delete')}
           </Button>
           <div className="flex gap-2">

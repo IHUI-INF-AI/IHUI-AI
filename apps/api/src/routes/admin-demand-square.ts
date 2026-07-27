@@ -146,30 +146,29 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
     const now = new Date()
     const newStatus = body.data.action === 'approve' ? 'approved' : 'rejected'
     const rejectReason = body.data.action === 'reject' ? (body.data.reason ?? null) : null
-    const results: Array<{ id: string; status: string }> = []
-
-    for (const id of body.data.ids) {
-      const [existing] = await db
-        .select({ status: zhsDemandSquare.status })
-        .from(zhsDemandSquare)
-        .where(eq(zhsDemandSquare.id, id))
-        .limit(1)
-      if (!existing || existing.status !== 'pending') {
-        results.push({ id, status: 'skipped' })
-        continue
-      }
-      await db
-        .update(zhsDemandSquare)
-        .set({
-          status: newStatus,
-          rejectReason,
-          reviewedBy: request.userId,
-          reviewedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(zhsDemandSquare.id, id))
-      results.push({ id, status: newStatus })
-    }
+    const results = await Promise.all(
+      body.data.ids.map(async (id): Promise<{ id: string; status: string }> => {
+        const [existing] = await db
+          .select({ status: zhsDemandSquare.status })
+          .from(zhsDemandSquare)
+          .where(eq(zhsDemandSquare.id, id))
+          .limit(1)
+        if (!existing || existing.status !== 'pending') {
+          return { id, status: 'skipped' }
+        }
+        await db
+          .update(zhsDemandSquare)
+          .set({
+            status: newStatus,
+            rejectReason,
+            reviewedBy: request.userId,
+            reviewedAt: now,
+            updatedAt: now,
+          })
+          .where(eq(zhsDemandSquare.id, id))
+        return { id, status: newStatus }
+      }),
+    )
     return reply.send(success({ results }))
   })
 
