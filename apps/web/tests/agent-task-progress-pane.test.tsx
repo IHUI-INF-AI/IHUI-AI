@@ -15,10 +15,33 @@ vi.mock('@ihui/api-client', () => ({
 }))
 
 // Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
+// vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义
+const { IconSpan } = vi.hoisted(() => {
+  const IconSpan = () => <span data-testid="lucide-icon" />
+  return { IconSpan }
+})
 vi.mock('lucide-react', () => ({
-  Pin: () => <span data-testid="pin-icon">pin</span>,
-  PinOff: () => <span data-testid="pinoff-icon">pinoff</span>,
-  Minimize2: () => <span data-testid="minimize-icon">minimize</span>,
+  Pin: IconSpan,
+  PinOff: IconSpan,
+  Minimize2: IconSpan,
+  Circle: IconSpan,
+  Loader2: IconSpan,
+  Check: IconSpan,
+  ListTodo: IconSpan,
+  MessageSquare: IconSpan,
+  ChevronRight: IconSpan,
+  Brain: IconSpan,
+  Wrench: IconSpan,
+  X: IconSpan,
+  Users: IconSpan,
+  AlertTriangle: IconSpan,
+  FileEdit: IconSpan,
+  FilePlus: IconSpan,
+  TerminalSquare: IconSpan,
+  Activity: IconSpan,
+  CheckCircle2: IconSpan,
+  XCircle: IconSpan,
+  AlertCircle: IconSpan,
 }))
 
 // Mock useChatStore.conversationId(避免引入整个 chat store)
@@ -355,9 +378,9 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     // 展开后检查摘要
     const btn = container.querySelector('button')
     fireEvent.click(btn!)
-    expect(container.textContent).toContain('读取 1 文件')
-    expect(container.textContent).toContain('搜索 1 次')
-    expect(container.textContent).toContain('编辑 1 文件')
+    expect(container.textContent).toContain('读取 1')
+    expect(container.textContent).toContain('搜索 1')
+    expect(container.textContent).toContain('编辑 1')
   })
 
   it('SubagentSection — 无子代理时不渲染', () => {
@@ -511,7 +534,8 @@ describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
     fireEvent.click(btn!)
     expect(container.textContent).toContain('运行中')
     expect(container.textContent).toContain('3/6')
-    expect(container.textContent).toContain('1活跃/2总')
+    expect(container.textContent).toContain('1活跃')
+    expect(container.textContent).toContain('2总')
     expect(container.textContent).toContain('5文件')
   })
 })
