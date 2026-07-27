@@ -10,13 +10,13 @@ import {
   AgentCard,
   CourseCard,
   tokens,
-} from '@ihui/app'
+} from '@ihui/rn-app'
 import type {
   SharedMenuSection,
   SharedLocaleOption,
   SharedThemeOption,
   SharedMenuItem,
-} from '@ihui/app'
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 
