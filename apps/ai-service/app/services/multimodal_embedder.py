@@ -57,7 +57,8 @@ def _to_bytes(data: bytes | str) -> bytes:
     # str 优先按 base64 解码(多模态数据通常以 base64 字符串传输)
     try:
         return base64.b64decode(data, validate=True)
-    except Exception:
+    except Exception as e:
+        logger.warning("multimodal_embedder._to_bytes base64 解码失败: %s", e, exc_info=True)
         return data.encode("utf-8")
 
 

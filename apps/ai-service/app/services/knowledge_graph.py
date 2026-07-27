@@ -205,7 +205,8 @@ class KnowledgeGraphService:
             response = await self._gateway.complete(messages, owner_uuid=owner_uuid)
             content = response.get("content", "")
             obj = self._parse_json_object(content) or {}
-        except Exception:
+        except Exception as e:
+            logger.warning("knowledge_graph.extract NER 提取失败: %s", e, exc_info=True)
             obj = {}
 
         entities = obj.get("entities", [])

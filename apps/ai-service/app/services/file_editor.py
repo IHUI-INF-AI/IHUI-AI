@@ -22,12 +22,15 @@
 from __future__ import annotations
 
 import difflib
+import logging
 import os
 import re
 import shutil
 import time
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 安全常量(与 mcp_server._WORKSPACE_ROOTS 同语义)
@@ -39,8 +42,8 @@ def _resolve_workspace_roots() -> list[str]:
         from .mcp_server import _WORKSPACE_ROOTS as mcp_roots
         if mcp_roots:
             return list(mcp_roots)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("file_editor._resolve_workspace_roots 加载 mcp_server 常量失败: %s", e, exc_info=True)
     return [
         os.path.abspath(r)
         for r in os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd()).split(os.pathsep)
@@ -99,6 +102,7 @@ def validate_path(file_path: str) -> tuple[bool, str]:
             f"(允许根目录: {_WORKSPACE_ROOTS})"
         )
     except Exception as e:
+        logger.warning("file_editor.validate_path 路径解析失败: %s", e, exc_info=True)
         return False, f"路径解析失败: {e}"
 
 
@@ -278,6 +282,7 @@ def edit_file(
     try:
         backup_path = create_backup(resolved_path)
     except Exception as e:
+        logger.warning("file_editor.edit_file 备份创建失败: %s", e, exc_info=True)
         return {
             "ok": False,
             "errorCode": "PERMISSION_DENIED",

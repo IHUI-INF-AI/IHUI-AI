@@ -459,7 +459,8 @@ class MetaLearner:
                 "SELECT source_skills FROM agent_meta_lessons WHERE id = $1",
                 _uuid.UUID(lesson_id),
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("meta_learner._merge_source_skills 加载 source_skills 失败: %s", e, exc_info=True)
             return new_skills
         if not row:
             return new_skills

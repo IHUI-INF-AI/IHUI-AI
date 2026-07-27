@@ -342,8 +342,8 @@ class SkillIterator:
                 from .skills import skill_registry
 
                 skill_registry.reload_auto()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("skill_iterator._verify_and_maybe_rollback 刷新注册表失败: %s", e, exc_info=True)
             return (True, new_pass_rate)
 
         # 通过率下降 → 回滚
