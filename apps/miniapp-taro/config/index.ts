@@ -17,7 +17,7 @@ export default defineConfig(async (merge) => {
   const outputRoot = taroEnv === 'alipay' ? 'dist-alipay' : 'dist'
   // 显式日志,排查"alipay 编译到 wechat dist"类问题(用户常因 WeChat IDE
   // 仍指向 ./dist 看到陈旧产物,误判本次编译走错目录)
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console -- Taro 构建配置允许 console 输出诊断
   console.log(`\n[Taro Config] platform=${taroEnv} → outputRoot=${outputRoot}/\n`)
 
   const base = {

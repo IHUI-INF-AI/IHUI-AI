@@ -54,7 +54,7 @@
 .cd-follow.followed {
   background: var(--color-background);
   color: var(--color-muted-foreground);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
 }
 
 /* ===== 帖子正文 ===== */
@@ -106,7 +106,7 @@
   margin-top: 24rpx;
   padding: 20rpx;
   background: var(--color-background);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   gap: 20rpx;
 }
@@ -147,8 +147,8 @@
   height: 56rpx;
   margin-top: 24rpx;
   padding: 0 20rpx;
-  background: rgba(0, 242, 255, 0.08);
-  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
 }
 .cd-topic-text {
@@ -279,7 +279,7 @@
   height: 72rpx;
   padding: 0 24rpx;
   background: var(--color-background);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
   border-radius: 10rpx;
   font-size: 28rpx;
   color: var(--color-foreground);

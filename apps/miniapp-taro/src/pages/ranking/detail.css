@@ -1,4 +1,4 @@
-/* 排行榜详情页 - 赛博朋克风(遵守 AGENTS.md §4:无 rounded-full/无 hr/无单边 border 分割线/无渐变遮罩) */
+/* 排行榜详情页(遵守 AGENTS.md §4:无 rounded-full/无 hr/无单边 border 分割线/无渐变遮罩) */
 .detail-page {
   min-height: 100vh;
   background: var(--color-background);
