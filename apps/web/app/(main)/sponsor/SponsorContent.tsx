@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Heart, Check, Sparkles, Users, Code, Rocket } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Card } from '@ihui/ui-react'
+import { CryptoDonation } from './CryptoDonation'
 
 const TIERS = [
   { id: 'bronze', emoji: '🥉', accent: false },
@@ -120,6 +121,9 @@ export function SponsorContent(): React.JSX.Element {
         </div>
         <p className="mt-6 text-xs text-muted-foreground">{t('sponsorsEmpty')}</p>
       </section>
+
+      {/* Crypto donations */}
+      <CryptoDonation />
     </main>
   )
 }
