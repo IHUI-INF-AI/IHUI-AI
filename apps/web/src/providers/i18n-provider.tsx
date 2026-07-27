@@ -64,7 +64,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const messages = MESSAGES_MAP[locale] ?? MESSAGES_MAP['zh-CN']
 
   return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Shanghai">
       {children}
     </NextIntlClientProvider>
   )
