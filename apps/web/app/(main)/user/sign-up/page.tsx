@@ -78,7 +78,7 @@ export default function UserSignUpPage() {
         </div>
       ) : (
         <ul className="space-y-3">
-          {items.map((s: any) => (
+          {items.map((s) => (
             <li
               key={s.id}
               className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"

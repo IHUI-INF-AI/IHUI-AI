@@ -210,7 +210,7 @@ export default function SubscriptionPage() {
                       <SelectValue placeholder={t('subscription.planPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {plans.map((plan: any) => (
+                      {plans.map((plan) => (
                         <SelectItem key={plan.id} value={plan.id}>
                           {plan.name} - {formatPrice(plan.price)} / {plan.duration}
                           {t('subscription.days')}

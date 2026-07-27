@@ -51,7 +51,7 @@ export function AgentEditDialog({
   const tc = useTranslations('common')
 
   return (
-    <Dialog open={open} onOpenChange={(v: any) => !v && onClose()}>
+    <Dialog open={open} onOpenChange={(v: boolean) => !v && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('editTitle')}</DialogTitle>
@@ -64,7 +64,7 @@ export function AgentEditDialog({
             <Input
               id="ed-name"
               value={form.name}
-              onChange={(e: any) => onFormChange({ ...form, name: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFormChange({ ...form, name: e.target.value })}
               maxLength={100}
             />
           </div>
@@ -84,7 +84,7 @@ export function AgentEditDialog({
               <Input
                 id="ed-avatar"
                 value={form.avatar}
-                onChange={(e: any) => onFormChange({ ...form, avatar: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFormChange({ ...form, avatar: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -92,7 +92,7 @@ export function AgentEditDialog({
               <Input
                 id="ed-cover"
                 value={form.cover}
-                onChange={(e: any) => onFormChange({ ...form, cover: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFormChange({ ...form, cover: e.target.value })}
               />
             </div>
           </div>
@@ -101,7 +101,7 @@ export function AgentEditDialog({
               <Label htmlFor="ed-cat">{t('fieldCategory')}</Label>
               <Select
                 value={form.categoryId}
-                onValueChange={(v: any) => onFormChange({ ...form, categoryId: v })}
+                onValueChange={(v: string) => onFormChange({ ...form, categoryId: v })}
               >
                 <SelectTrigger className={selectClassLg} id="ed-cat">
                   <SelectValue placeholder={t('fieldCategoryPlaceholder')} />
@@ -119,7 +119,7 @@ export function AgentEditDialog({
               <Label htmlFor="ed-status">{t('fieldStatus')}</Label>
               <Select
                 value={form.status}
-                onValueChange={(v: any) => onFormChange({ ...form, status: v })}
+                onValueChange={(v: string) => onFormChange({ ...form, status: v })}
               >
                 <SelectTrigger className={selectClassLg} id="ed-status">
                   <SelectValue />
@@ -142,7 +142,7 @@ export function AgentEditDialog({
                 type="number"
                 min={0}
                 value={form.price}
-                onChange={(e: any) => onFormChange({ ...form, price: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFormChange({ ...form, price: e.target.value })}
                 disabled={form.isFree}
               />
             </div>
@@ -153,7 +153,7 @@ export function AgentEditDialog({
                 type="number"
                 min={0}
                 value={form.sort}
-                onChange={(e: any) => onFormChange({ ...form, sort: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFormChange({ ...form, sort: e.target.value })}
               />
             </div>
             <div className="flex items-end">
@@ -161,7 +161,7 @@ export function AgentEditDialog({
                 <Switch
                   id="ed-free"
                   checked={form.isFree}
-                  onCheckedChange={(v: any) => onFormChange({ ...form, isFree: v })}
+                  onCheckedChange={(v: boolean) => onFormChange({ ...form, isFree: v })}
                 />
                 <Label htmlFor="ed-free" className="cursor-pointer">
                   {t('fieldIsFree')}

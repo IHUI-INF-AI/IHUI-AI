@@ -39,7 +39,7 @@ export function AboutUsDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(o: any) => {
+      onOpenChange={(o: boolean) => {
         if (!o) onClose()
       }}
     >
@@ -64,7 +64,7 @@ export function AboutUsDialog({
                 <Input
                   id={`f-${f.key}`}
                   value={form[f.key]}
-                  onChange={(e: any) => setForm({ ...form, [f.key]: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [f.key]: e.target.value })}
                   placeholder={t('placeholderEnter', { field: t(f.label) })}
                 />
               )}

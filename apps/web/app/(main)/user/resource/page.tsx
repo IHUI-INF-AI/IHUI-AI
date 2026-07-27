@@ -63,7 +63,7 @@ export default function UserResourcePage() {
         </div>
       ) : (
         <ul className="space-y-3">
-          {items.map((r: any) => (
+          {items.map((r) => (
             <li
               key={r.id}
               className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"

@@ -166,7 +166,7 @@ export default function AiCostPage() {
                   </p>
                 ) : (
                   <ul className="divide-y">
-                    {d.byModel.slice(0, 10).map((m: any) => (
+                    {d.byModel.slice(0, 10).map((m: ByModel) => (
                       <li
                         key={m.model}
                         className="flex items-center justify-between py-2 text-sm"
@@ -199,7 +199,7 @@ export default function AiCostPage() {
                   </p>
                 ) : (
                   <ul className="divide-y">
-                    {d.byDay.slice(-10).map((row: any) => (
+                    {d.byDay.slice(-10).map((row: ByDay) => (
                       <li
                         key={row.date}
                         className="flex items-center justify-between py-2 text-sm"

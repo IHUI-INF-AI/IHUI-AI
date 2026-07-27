@@ -85,7 +85,7 @@ export default function AgentCategoriesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((cat: any) => (
+          {categories.map((cat) => (
             <Link key={cat.categoryId} href={`/agents/categories/${cat.categoryId}`}>
               <Card className="transition-colors hover:bg-accent/40">
                 <CardContent className="space-y-3 p-4">

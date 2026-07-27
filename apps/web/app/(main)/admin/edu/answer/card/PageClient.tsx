@@ -100,13 +100,13 @@ function CardContent2() {
         <div className="rounded-lg border p-4">
           <div className="text-xs text-muted-foreground">{t('statGraded')}</div>
           <div className="mt-1 text-2xl font-semibold text-emerald-600">
-            {records.filter((r: any) => r.status === 'graded').length}
+            {records.filter((r: AnswerRecord) => r.status === 'graded').length}
           </div>
         </div>
         <div className="rounded-lg border p-4">
           <div className="text-xs text-muted-foreground">{t('statPassed')}</div>
           <div className="mt-1 text-2xl font-semibold text-emerald-600">
-            {records.filter((r: any) => r.isPassed).length}
+            {records.filter((r: AnswerRecord) => r.isPassed).length}
           </div>
         </div>
       </div>
@@ -146,7 +146,7 @@ function CardContent2() {
                 </TableCell>
               </TableRow>
             ) : (
-              records.map((r: any) => {
+              records.map((r: AnswerRecord) => {
                 const st = STATUS_MAP[r.status] ?? {
                   label: '',
                   cls: 'bg-muted text-muted-foreground',
@@ -199,7 +199,7 @@ function CardContent2() {
         <div className="flex items-center gap-2">
           <Input
             value={search}
-            onChange={(e: any) => onSearch(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onSearch(e.target.value)}
             placeholder={t('searchPlaceholder')}
             className="h-9 w-48"
           />

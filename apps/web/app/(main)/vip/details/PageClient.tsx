@@ -54,7 +54,7 @@ function DetailsContent() {
   })
 
   const levels = data?.items ?? []
-  const level = levels.find((l: any) => l.id === levelId)
+  const level = levels.find((l) => l.id === levelId)
 
   const purchaseMut = useMutation({
     mutationFn: (input: { vipLevelId: string; paymentMethod: PaymentMethod }) =>
@@ -139,7 +139,7 @@ function DetailsContent() {
                 <p className="mb-2 text-sm font-medium text-muted-foreground">{t('benefits')}</p>
                 {benefits.length > 0 ? (
                   <ul className="space-y-2 text-sm">
-                    {benefits.map((b: any, i: any) => (
+                    {benefits.map((b, i) => (
                       <li key={`benefit-${i}`} className="flex items-start gap-2">
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                         <span>{b}</span>
