@@ -31,7 +31,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^3.9.1",
     "@ihui/api-client": "workspace:*",
-    "@ihui/app": "workspace:*",
     "@ihui/auth": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
     "@ihui/i18n": "workspace:*",
