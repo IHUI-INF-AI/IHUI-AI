@@ -127,6 +127,35 @@ export function AgentTaskProgressPane() {
   const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
 
+  // v9: token 统计(汇总 planSteps + subagents 的 tokenUsage)
+  const totalTokens = React.useMemo(() => {
+    const planTokens = planSteps.reduce((sum, s) => sum + (s.tokenUsage ?? 0), 0)
+    const subagentTokens = subagents.reduce((sum, s) => sum + (s.tokenUsage ?? 0), 0)
+    return planTokens + subagentTokens
+  }, [planSteps, subagents])
+
+  const tokenRate = React.useMemo(() => {
+    if (!overview.sessionStart || totalTokens === 0) return 0
+    const startMs = Date.parse(overview.sessionStart)
+    if (Number.isNaN(startMs)) return 0
+    const elapsedSec = (Date.now() - startMs) / 1000
+    if (elapsedSec < 1) return 0
+    return Math.round(totalTokens / elapsedSec)
+  }, [overview.sessionStart, totalTokens])
+
+  const etaMs = React.useMemo<number | null>(() => {
+    if (planSteps.length === 0) return null
+    const completed = planSteps.filter(
+      (s) => s.status === 'completed' && s.durationMs !== undefined,
+    )
+    if (completed.length === 0) return null
+    const avgMs = completed.reduce((sum, s) => sum + (s.durationMs ?? 0), 0) / completed.length
+    const remaining = planSteps.filter((s) => s.status === 'pending').length
+    return remaining > 0 ? Math.round(avgMs * remaining) : null
+  }, [planSteps])
+
+  const contextUsage = totalTokens > 0 ? Math.min(100, (totalTokens / 128000) * 100) : 0
+
   // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
   React.useEffect(() => {
     const total = planSteps.length
@@ -344,7 +373,14 @@ export function AgentTaskProgressPane() {
             <SubagentSection subagents={subagents} />
             <ChangesSection changes={changes} />
             <TerminalSection terminals={terminals} />
-            <OverviewSection overview={overview} isStreaming={isStreaming} />
+            <OverviewSection
+              overview={overview}
+              isStreaming={isStreaming}
+              totalTokens={totalTokens}
+              tokenRate={tokenRate}
+              etaMs={etaMs}
+              contextUsage={contextUsage}
+            />
           </FoldableSectionProvider>
         )}
       </div>
