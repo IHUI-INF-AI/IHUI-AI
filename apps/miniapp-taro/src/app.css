@@ -44,7 +44,6 @@
   --color-info: hsl(199 89% 48%);
   --color-info-foreground: hsl(0 0% 98%);
   --radius: 0.5rem;
-  /* ===== 圆角 token(miniapp-taro 扩展,tailwind.config 引用)===== */
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;

@@ -37,6 +37,10 @@ export interface TokenStore {
   setRefreshToken(token: string | null): Promise<void> | void
   /** 异步清除所有 token(可选,部分端可能用 clearAuth 等不同命名) */
   clearAll?(): Promise<void> | void
+  /** 同步获取 expiresIn(可选,各端按需实现) */
+  getExpiresIn?(): number | null
+  /** 异步设置 expiresIn(可选,写存储 + 更新缓存) */
+  setExpiresIn?(expiresIn: number | null): Promise<void> | void
 }
 
 /**
@@ -56,25 +60,69 @@ export interface TokenStoreWithUserInfo<TUserInfo = unknown> extends TokenStore 
  * createInMemoryTokenStore 工厂配置项
  *
  * - initial:初始缓存值(可选,用于 hydration 场景)
- * - onSetToken/onSetRefreshToken/onClearAll:持久化回调,
+ * - onSetToken/onSetRefreshToken/onSetExpiresIn/onClearAll:持久化回调,
  *   各端 adapter 在此调用 chrome.storage / SecureStore / Taro.storage
  */
 export interface InMemoryTokenStoreOptions {
   /** 初始缓存值(可选,用于 hydration 场景) */
-  initial?: { token?: string | null; refreshToken?: string | null }
+  initial?: {
+    token?: string | null
+    refreshToken?: string | null
+    expiresIn?: number | null
+  }
   /** 设置 token 后的持久化回调(各端在此写存储) */
   onSetToken?: (token: string | null) => Promise<void> | void
   /** 设置 refresh token 后的持久化回调 */
   onSetRefreshToken?: (token: string | null) => Promise<void> | void
+  /** 设置 expiresIn 后的持久化回调 */
+  onSetExpiresIn?: (expiresIn: number | null) => Promise<void> | void
   /** 清除所有 token 后的持久化回调 */
   onClearAll?: () => Promise<void> | void
 }
 
 /**
+ * setCachedWithoutPersist 入参:外部缓存更新增量
+ *
+ * 仅更新显式提供的字段(用 `undefined` 表示"不更新该字段",
+ * `null` 表示"清空该字段")。用于跨标签页 onStorageChanged 同步:
+ * 其他标签页写入 storage 后,本标签页通过 onChanged 监听到变化,
+ * 需更新内存缓存但不回写 storage(否则循环触发)。
+ */
+export interface InMemoryTokenStoreCacheUpdates {
+  token?: string | null
+  refreshToken?: string | null
+  expiresIn?: number | null
+}
+
+/**
+ * createInMemoryTokenStore 返回类型:TokenStore + expiresIn + 外部缓存更新
+ *
+ * 在 TokenStore 基础上:
+ * - 将可选的 getExpiresIn/setExpiresIn 提升为必需方法(本工厂始终实现)
+ * - 新增 setCachedWithoutPersist:供各端 onStorageChanged 监听同步缓存
+ */
+export type InMemoryTokenStore = TokenStore & {
+  /** 异步清除所有 token(本工厂始终实现,提升为必需方法) */
+  clearAll(): Promise<void> | void
+  /** 同步获取 expiresIn(本工厂始终实现) */
+  getExpiresIn(): number | null
+  /** 异步设置 expiresIn(写存储 + 更新缓存) */
+  setExpiresIn(expiresIn: number | null): Promise<void> | void
+  /**
+   * 外部更新缓存(不触发持久化回调)
+   *
+   * 用于跨标签页 onStorageChanged 同步场景:其他标签页写入 storage 后,
+   * 本标签页通过 onChanged 监听到变化,需更新内存缓存但不回写 storage(否则循环)。
+   * 仅更新显式提供的字段(undefined = 不更新,null = 清空)。
+   */
+  setCachedWithoutPersist(updates: InMemoryTokenStoreCacheUpdates): void
+}
+
+/**
  * 创建内存缓存 TokenStore(各端 adapter 基类)
  *
- * 维护 cachedToken/cachedRefreshToken 内存缓存,通过 options 回调
- * 将持久化逻辑下放到各端 adapter,实现"缓存统一 + 存储差异化"。
+ * 维护 cachedToken/cachedRefreshToken/cachedExpiresIn 内存缓存,
+ * 通过 options 回调将持久化逻辑下放到各端 adapter,实现"缓存统一 + 存储差异化"。
  *
  * @example
  * ```ts
@@ -83,16 +131,18 @@ export interface InMemoryTokenStoreOptions {
  *   onSetToken: (t) => chrome.storage.local.set({ token: t }),
  *   onClearAll: () => chrome.storage.local.remove(['token', 'refreshToken']),
  * })
+ * // 跨标签页同步:onStorageChanged 触发时只更新缓存,不回写 storage
+ * store.setCachedWithoutPersist({ token: 'new-from-other-tab' })
  * ```
  */
-export function createInMemoryTokenStore(
-  options?: InMemoryTokenStoreOptions,
-): TokenStore {
+export function createInMemoryTokenStore(options?: InMemoryTokenStoreOptions): InMemoryTokenStore {
   let cachedToken = options?.initial?.token ?? null
   let cachedRefreshToken = options?.initial?.refreshToken ?? null
+  let cachedExpiresIn = options?.initial?.expiresIn ?? null
   return {
     getToken: () => cachedToken,
     getRefreshToken: () => cachedRefreshToken,
+    getExpiresIn: () => cachedExpiresIn,
     setToken: async (token) => {
       cachedToken = token
       await options?.onSetToken?.(token)
@@ -101,10 +151,20 @@ export function createInMemoryTokenStore(
       cachedRefreshToken = token
       await options?.onSetRefreshToken?.(token)
     },
+    setExpiresIn: async (expiresIn) => {
+      cachedExpiresIn = expiresIn
+      await options?.onSetExpiresIn?.(expiresIn)
+    },
     clearAll: async () => {
       cachedToken = null
       cachedRefreshToken = null
+      cachedExpiresIn = null
       await options?.onClearAll?.()
+    },
+    setCachedWithoutPersist: (updates) => {
+      if (updates.token !== undefined) cachedToken = updates.token
+      if (updates.refreshToken !== undefined) cachedRefreshToken = updates.refreshToken
+      if (updates.expiresIn !== undefined) cachedExpiresIn = updates.expiresIn
     },
   }
 }
