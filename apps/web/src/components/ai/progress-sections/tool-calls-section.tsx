@@ -12,6 +12,7 @@ import {
   Terminal,
   ChevronRight,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { CopyButton } from './copy-button'
@@ -50,12 +51,12 @@ const CATEGORY_CLS: Record<ToolCategory, string> = {
   exec: 'text-cyan-500',
   other: 'text-muted-foreground',
 }
-const CATEGORY_LABEL: Record<ToolCategory, string> = {
-  read: '读取',
-  search: '搜索',
-  write: '编辑',
-  exec: '执行',
-  other: '其他',
+const CATEGORY_TKEY: Record<ToolCategory, string> = {
+  read: 'tools.categoryRead',
+  search: 'tools.categorySearch',
+  write: 'tools.categoryWrite',
+  exec: 'tools.categoryExec',
+  other: 'tools.categoryOther',
 }
 
 const TOOL_STATUS_ICON: Record<
@@ -127,6 +128,7 @@ function truncateForDisplay(s: string, max = 500): string {
  * v10 Phase 5:导出供 SubagentSection 嵌套展示复用
  */
 export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: AgentToolCall }) {
+  const t = useTranslations('ai.progressPane')
   const [expanded, setExpanded] = React.useState(false)
   const cat = categorize(tool.toolName)
   const CatIcon = CATEGORY_ICON[cat]
@@ -203,10 +205,10 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
               {Object.keys(tool.args).length > 0 && (
                 <div>
                   <div className="flex items-center gap-1">
-                    <span className="font-medium text-muted-foreground/60">参数</span>
+                    <span className="font-medium text-muted-foreground/60">{t('tools.args')}</span>
                     <CopyButton
                       text={formatArgsJson(tool.args)}
-                      aria-label="复制参数"
+                      aria-label={t('tools.copyArgs')}
                       data-testid={`tool-copy-args-${tool.id}`}
                     />
                   </div>
@@ -218,10 +220,10 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
               {resultText && (
                 <div>
                   <div className="flex items-center gap-1">
-                    <span className="font-medium text-muted-foreground/60">结果</span>
+                    <span className="font-medium text-muted-foreground/60">{t('tools.result')}</span>
                     <CopyButton
                       text={resultText}
-                      aria-label="复制结果"
+                      aria-label={t('tools.copyResult')}
                       data-testid={`tool-copy-result-${tool.id}`}
                     />
                   </div>
@@ -240,10 +242,10 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
               {tool.error && (
                 <div>
                   <div className="flex items-center gap-1">
-                    <span className="font-medium text-red-500/80">错误</span>
+                    <span className="font-medium text-red-500/80">{t('tools.error')}</span>
                     <CopyButton
                       text={tool.error}
-                      aria-label="复制错误信息"
+                      aria-label={t('tools.copyError')}
                       data-testid={`tool-copy-error-${tool.id}`}
                     />
                   </div>
@@ -262,11 +264,11 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
 
 type ToolStatusFilter = 'all' | 'running' | 'success' | 'error'
 
-const STATUS_FILTER_LABEL: Record<ToolStatusFilter, string> = {
-  all: '全部',
-  running: '运行中',
-  success: '成功',
-  error: '失败',
+const STATUS_FILTER_TKEY: Record<ToolStatusFilter, string> = {
+  all: 'tools.filterAll',
+  running: 'tools.filterRunning',
+  success: 'tools.filterSuccess',
+  error: 'tools.filterError',
 }
 
 /**
@@ -289,6 +291,7 @@ const STATUS_FILTER_LABEL: Record<ToolStatusFilter, string> = {
 export const ToolCallsSection = React.memo(function ToolCallsSection({
   tools,
 }: ToolCallsSectionProps) {
+  const t = useTranslations('ai.progressPane')
   // v9: 搜索过滤(hooks 必须在条件返回之前调用)
   const [searchQuery, setSearchQuery] = React.useState('')
   // v11: 状态过滤
@@ -296,8 +299,8 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
 
   const statusCounts = React.useMemo(() => {
     const counts = { all: tools.length, running: 0, success: 0, error: 0 }
-    for (const t of tools) {
-      counts[t.status]++
+    for (const tool of tools) {
+      counts[tool.status]++
     }
     return counts
   }, [tools])
@@ -305,14 +308,14 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
   const filteredTools = React.useMemo(() => {
     let result = tools
     if (statusFilter !== 'all') {
-      result = result.filter((t) => t.status === statusFilter)
+      result = result.filter((tool) => tool.status === statusFilter)
     }
     if (!searchQuery.trim()) return result
     const q = searchQuery.toLowerCase()
     return result.filter(
-      (t) =>
-        t.toolName.toLowerCase().includes(q) ||
-        JSON.stringify(t.args).toLowerCase().includes(q),
+      (tool) =>
+        tool.toolName.toLowerCase().includes(q) ||
+        JSON.stringify(tool.args).toLowerCase().includes(q),
     )
   }, [tools, searchQuery, statusFilter])
 
@@ -326,20 +329,20 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
       exec: 0,
       other: 0,
     }
-    for (const t of tools) {
-      categoryCounts[categorize(t.toolName)]++
+    for (const tool of tools) {
+      categoryCounts[categorize(tool.toolName)]++
     }
     const summaryParts: string[] = []
     for (const cat of ['read', 'search', 'write', 'exec', 'other'] as const) {
       if (categoryCounts[cat] > 0) {
-        summaryParts.push(`${CATEGORY_LABEL[cat]} ${categoryCounts[cat]}`)
+        summaryParts.push(`${t(CATEGORY_TKEY[cat])} ${categoryCounts[cat]}`)
       }
     }
     return {
       summary: summaryParts.join(' · '),
       recentTools: filteredTools.slice(-10),
     }
-  }, [tools, filteredTools])
+  }, [tools, filteredTools, t])
 
   if (tools.length === 0) return null
 
@@ -347,7 +350,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
 
   return (
     <FoldableSection
-      title="工具调用"
+      title={t('tools.title')}
       count={tools.length}
       icon={Wrench}
       data-testid="tool-calls-section"
@@ -374,7 +377,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
                   )}
                   data-testid={`tool-filter-${f}`}
                 >
-                  {STATUS_FILTER_LABEL[f]} {count}
+                  {t(STATUS_FILTER_TKEY[f])} {count}
                 </button>
               )
             })}
@@ -388,7 +391,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="搜索工具..."
+              placeholder={t('tools.searchPlaceholder')}
               className="w-full rounded-sm border border-border/60 bg-muted/50 py-0.5 pl-5 pr-2 text-[10px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
               data-testid="tool-search-input"
             />
@@ -399,11 +402,11 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
         ))}
         {filteredTools.length > 10 && (
           <div className="text-[10px] text-muted-foreground/60">
-            …还有 {filteredTools.length - 10} 项
+            {t('tools.moreItems', { n: filteredTools.length - 10 })}
           </div>
         )}
         {searchQuery && filteredTools.length === 0 && (
-          <div className="text-[10px] text-muted-foreground/60">无匹配结果</div>
+          <div className="text-[10px] text-muted-foreground/60">{t('tools.noMatch')}</div>
         )}
       </div>
     </FoldableSection>
