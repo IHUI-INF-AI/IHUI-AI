@@ -46,7 +46,7 @@ const SEED_PRICING: SeedPricing[] = [
   { modelId: 'claude-3.5-haiku', inputTokenPrice: 5, outputTokenPrice: 25, regionPricing: { cn: 1.0, us: 1.0, eu: 1.0 }, currency: 'CNY' },
   { modelId: 'claude-3-opus', inputTokenPrice: 90, outputTokenPrice: 270, regionPricing: { cn: 1.0, us: 1.0, eu: 1.0 }, currency: 'CNY' },
   { modelId: 'claude-3-sonnet', inputTokenPrice: 18, outputTokenPrice: 90, regionPricing: { cn: 1.0, us: 1.0, eu: 1.0 }, currency: 'CNY' },
-  { modelId: 'claude-3-haiku', inputTokenPrice: 1.5, outputTokenPrice: 7.5, regionPricing: { cn: 1.0, us: 1.0, eu: 1.0 }, currency: 'CNY' },
+  { modelId: 'claude-3-haiku', inputTokenPrice: 2, outputTokenPrice: 8, regionPricing: { cn: 1.0, us: 1.0, eu: 1.0 }, currency: 'CNY' },
 
   // ===== Google Gemini =====
   { modelId: 'gemini-2.0-flash', inputTokenPrice: 6, outputTokenPrice: 24, regionPricing: { cn: 1.0, us: 1.0, eu: 1.0 }, currency: 'CNY' },
