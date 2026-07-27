@@ -14,37 +14,45 @@ vi.mock('@ihui/api-client', () => ({
   takeScreenshot: vi.fn().mockResolvedValue({ success: false, error: 'mock' }),
 }))
 
+// Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
+vi.mock('lucide-react', () => ({
+  Pin: () => <span data-testid="pin-icon">pin</span>,
+  PinOff: () => <span data-testid="pinoff-icon">pinoff</span>,
+  X: () => <span data-testid="x-icon">x</span>,
+}))
+
+// Mock useChatStore.conversationId(避免引入整个 chat store)
+vi.mock('@/stores/chat', () => ({
+  useChatStore: (selector: (s: { conversationId: string | null }) => unknown) =>
+    selector({ conversationId: null }),
+}))
+
 import { AgentTaskProgressPane } from '../src/components/ai/agent-task-progress-pane'
 import { AgentProgressTrigger } from '../src/components/ai/agent-progress-trigger'
 import { useAgentProgressPaneStore } from '../src/stores/agent-progress-pane'
 
-describe('AgentProgressPane Store — v4 Codex 流式简化', () => {
+describe('AgentProgressPane Store — v6.1 popover 简化', () => {
   beforeEach(() => {
     useAgentProgressPaneStore.getState().reset()
   })
 
-  it('初始状态:open=false / threadId=null / verbose=false / autoScroll=true / paneHeight=240', () => {
+  it('初始状态:open=false / threadId=null / pinned=true / progress=0,0', () => {
     const s = useAgentProgressPaneStore.getState()
     expect(s.open).toBe(false)
     expect(s.threadId).toBeNull()
-    expect(s.verbose).toBe(false)
-    expect(s.autoScroll).toBe(true)
-    expect(s.paneHeight).toBe(240)
-    expect(s.expandedIds.size).toBe(0)
+    expect(s.pinned).toBe(true)
     expect(s.progressCurrent).toBe(0)
     expect(s.progressTotal).toBe(0)
   })
 
-  it('openPane(threadId) — 打开并设置 threadId', () => {
-    useAgentProgressPaneStore.getState().openPane('thread-xyz')
-    const s = useAgentProgressPaneStore.getState()
-    expect(s.open).toBe(true)
-    expect(s.threadId).toBe('thread-xyz')
-    expect(s.threadIdInput).toBe('thread-xyz')
+  it('openPane — 打开(无参数,v6.1 不再接受 threadId)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    expect(useAgentProgressPaneStore.getState().open).toBe(true)
   })
 
   it('closePane — 关闭但保留 threadId', () => {
-    useAgentProgressPaneStore.getState().openPane('thread-abc')
+    useAgentProgressPaneStore.getState().setThreadId('thread-abc')
+    useAgentProgressPaneStore.getState().openPane()
     useAgentProgressPaneStore.getState().closePane()
     const s = useAgentProgressPaneStore.getState()
     expect(s.open).toBe(false)
@@ -59,45 +67,12 @@ describe('AgentProgressPane Store — v4 Codex 流式简化', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
   })
 
-  it('setThreadIdInput + submitThreadId — 提交 threadId', () => {
-    useAgentProgressPaneStore.getState().setThreadIdInput('  thread-input-123  ')
-    useAgentProgressPaneStore.getState().submitThreadId()
-    expect(useAgentProgressPaneStore.getState().threadId).toBe('thread-input-123')
-  })
-
-  it('submitThreadId 空输入 — 不设置', () => {
-    useAgentProgressPaneStore.getState().setThreadIdInput('   ')
-    useAgentProgressPaneStore.getState().submitThreadId()
-    expect(useAgentProgressPaneStore.getState().threadId).toBeNull()
-  })
-
-  it('toggleVerbose — 切换 verbose', () => {
-    expect(useAgentProgressPaneStore.getState().verbose).toBe(false)
-    useAgentProgressPaneStore.getState().toggleVerbose()
-    expect(useAgentProgressPaneStore.getState().verbose).toBe(true)
-  })
-
-  it('setAutoScroll — 设置自动滚动', () => {
-    expect(useAgentProgressPaneStore.getState().autoScroll).toBe(true)
-    useAgentProgressPaneStore.getState().setAutoScroll(false)
-    expect(useAgentProgressPaneStore.getState().autoScroll).toBe(false)
-  })
-
-  it('toggleExpanded + isExpanded — 展开/折叠事件详情', () => {
-    expect(useAgentProgressPaneStore.getState().isExpanded('evt-1')).toBe(false)
-    useAgentProgressPaneStore.getState().toggleExpanded('evt-1')
-    expect(useAgentProgressPaneStore.getState().isExpanded('evt-1')).toBe(true)
-    useAgentProgressPaneStore.getState().toggleExpanded('evt-1')
-    expect(useAgentProgressPaneStore.getState().isExpanded('evt-1')).toBe(false)
-  })
-
-  it('setPaneHeight — clamp 到 [160, 600]', () => {
-    useAgentProgressPaneStore.getState().setPaneHeight(50)
-    expect(useAgentProgressPaneStore.getState().paneHeight).toBe(160)
-    useAgentProgressPaneStore.getState().setPaneHeight(9999)
-    expect(useAgentProgressPaneStore.getState().paneHeight).toBe(600)
-    useAgentProgressPaneStore.getState().setPaneHeight(300)
-    expect(useAgentProgressPaneStore.getState().paneHeight).toBe(300)
+  it('togglePin — 切换 pinned 状态', () => {
+    expect(useAgentProgressPaneStore.getState().pinned).toBe(true)
+    useAgentProgressPaneStore.getState().togglePin()
+    expect(useAgentProgressPaneStore.getState().pinned).toBe(false)
+    useAgentProgressPaneStore.getState().togglePin()
+    expect(useAgentProgressPaneStore.getState().pinned).toBe(true)
   })
 
   it('setProgress — 设置当前进度', () => {
@@ -107,17 +82,17 @@ describe('AgentProgressPane Store — v4 Codex 流式简化', () => {
   })
 
   it('reset — 恢复默认状态', () => {
-    useAgentProgressPaneStore.getState().openPane('thread-x')
-    useAgentProgressPaneStore.getState().toggleVerbose()
-    useAgentProgressPaneStore.getState().setAutoScroll(false)
-    useAgentProgressPaneStore.getState().setPaneHeight(500)
+    useAgentProgressPaneStore.getState().openPane()
+    useAgentProgressPaneStore.getState().setThreadId('thread-x')
+    useAgentProgressPaneStore.getState().togglePin()
+    useAgentProgressPaneStore.getState().setProgress(2, 5)
     useAgentProgressPaneStore.getState().reset()
     const s = useAgentProgressPaneStore.getState()
     expect(s.open).toBe(false)
     expect(s.threadId).toBeNull()
-    expect(s.verbose).toBe(false)
-    expect(s.autoScroll).toBe(true)
-    expect(s.paneHeight).toBe(240)
+    expect(s.pinned).toBe(true)
+    expect(s.progressCurrent).toBe(0)
+    expect(s.progressTotal).toBe(0)
   })
 })
 
@@ -208,7 +183,7 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
   })
 })
 
-describe('AgentTaskProgressPane — v4 流式渲染', () => {
+describe('AgentTaskProgressPane — v6.1 popover 渲染', () => {
   beforeEach(() => {
     useAgentProgressPaneStore.getState().reset()
   })
@@ -222,14 +197,13 @@ describe('AgentTaskProgressPane — v4 流式渲染', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('打开但无 threadId — 显示输入框 + enter threadId 占位', () => {
+  it('打开但无 threadId — 显示"开始对话后显示任务计划"提示', () => {
     useAgentProgressPaneStore.getState().openPane()
     render(<AgentTaskProgressPane />)
     expect(screen.getByTestId('agent-progress-pane')).toBeTruthy()
-    expect(screen.getByTestId('thread-id-input')).toBeTruthy()
-    expect(screen.getByTestId('thread-id-input').getAttribute('placeholder')).toBe(
-      'enter threadId...',
-    )
+    // 无 threadId 输入框(v6.1 删除)
+    expect(screen.queryByTestId('thread-id-input')).toBeNull()
+    expect(screen.getByText('开始对话后显示任务计划')).toBeTruthy()
   })
 
   it('关闭按钮 ✕ 可见且可点击', () => {
@@ -237,13 +211,34 @@ describe('AgentTaskProgressPane — v4 流式渲染', () => {
     render(<AgentTaskProgressPane />)
     const closeBtn = screen.getByTestId('pane-close')
     expect(closeBtn).toBeTruthy()
-    expect(closeBtn.textContent).toBe('✕')
     fireEvent.click(closeBtn)
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
   })
 
-  it('Esc 关闭面板', () => {
+  it('pin 按钮存在且可切换 pinned 状态', () => {
     useAgentProgressPaneStore.getState().openPane()
+    // 默认 pinned=true
+    expect(useAgentProgressPaneStore.getState().pinned).toBe(true)
+    render(<AgentTaskProgressPane />)
+    const pinBtn = screen.getByTestId('pane-pin')
+    expect(pinBtn).toBeTruthy()
+    fireEvent.click(pinBtn)
+    expect(useAgentProgressPaneStore.getState().pinned).toBe(false)
+  })
+
+  it('pinned=true 时 Esc 不关闭(避免误操作)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    // 默认 pinned=true
+    render(<AgentTaskProgressPane />)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    expect(useAgentProgressPaneStore.getState().open).toBe(true)
+  })
+
+  it('pinned=false 时 Esc 关闭', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    useAgentProgressPaneStore.getState().togglePin() // pinned=false
     render(<AgentTaskProgressPane />)
     act(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
@@ -251,8 +246,8 @@ describe('AgentTaskProgressPane — v4 流式渲染', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
   })
 
-  // v6 重构后已移除 verbose 切换 / resize handle / autoScroll 按钮(popover 化简化)
-  // - 'v 切换 verbose' 删除(verbose 仅 v4 流式日志用,v6 popover 不需要)
-  // - 'resize handle 双击重置高度' 删除(popover 固定 max-h,无 drag resize)
-  // - 'autoScroll 切换按钮存在' 删除(popover 内容短,无自动滚动需求)
+  // v6.1 重构后已删除的功能(对应测试也删除):
+  // - threadId 输入框(v6.1 自动从 useChatStore.conversationId 同步)
+  // - verbose/autoScroll/paneHeight/expandedIds(v4 残留,v6 已删除)
+  // - resize handle(v4 残留,v6 popover 固定尺寸)
 })
