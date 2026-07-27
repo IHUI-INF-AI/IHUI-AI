@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Bell, X, CheckCheck } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
+import { formatDate } from '@/lib/date-utils'
 
 export interface NoticeItem {
   id: string
@@ -98,7 +99,7 @@ export function NotificationCenter({
                     <p className="break-words text-xs text-muted-foreground">{item.description}</p>
                   )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {new Date(item.createdAt).toLocaleString()}
+                    {formatDate(item.createdAt)}
                   </p>
                 </div>
                 {!item.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}

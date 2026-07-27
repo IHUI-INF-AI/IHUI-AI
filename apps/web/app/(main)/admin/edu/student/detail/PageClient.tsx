@@ -36,6 +36,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
+import { formatDateOnly } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import { LEVEL_NUM_KEY } from '../helpers'
 
@@ -212,7 +213,7 @@ export default function EduStudentDetailPage() {
             <p className="mt-1 text-xs text-muted-foreground">
               {t('levelLabel', { level: levelLabel })} ·{' '}
               {t('registeredAt', {
-                date: new Date(data.createdAt).toLocaleDateString(),
+                date: formatDateOnly(data.createdAt),
               })}
             </p>
           </div>

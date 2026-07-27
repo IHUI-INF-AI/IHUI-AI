@@ -6,6 +6,7 @@ import { Loader2, FileText, CheckCircle2, Send, History, Upload, Wand2, Copy, Ch
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface HistoryPayload {
   title?: string
@@ -423,7 +424,7 @@ export default function WechatPage() {
                     >
                       {h.status}
                     </span>
-                    {h.createdAt && <span>· {new Date(h.createdAt).toLocaleDateString()}</span>}
+                    {h.createdAt && <span>· {formatDateOnly(h.createdAt)}</span>}
                   </div>
                 </button>
               ))}
