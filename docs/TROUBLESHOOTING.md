@@ -155,7 +155,7 @@
 |---|---|
 | **症状** | API 返回 `401 Unauthorized` / `invalid token` / `jwt malformed` |
 | **根因** | `JWT_SECRET` 不一致(api 与 web / ai-service 用了不同密钥)/ token 过期 / token 格式错(缺 `Bearer ` 前缀) |
-| **排查命令** | 对比 `.env` 与 `apps/api/.env` 的 `JWT_SECRET`;用 [jwt.io](https://jwt.io) 解码 token 看 `exp`;`curl -H "Authorization: Bearer <token>" http://localhost:3001/api/auth/me` |
+| **排查命令** | 对比 `.env` 与 `apps/api/.env` 的 `JWT_SECRET`;用 [jwt.io](https://jwt.io) 解码 token 看 `exp`;`curl -H "Authorization: Bearer <token>" http://localhost:8802/api/auth/me` |
 | **修复方案** | 1. 统一 `JWT_SECRET`(api / ai-service / web 代理必须一致)<br>2. token 过期:重新登录获取新 token<br>3. `JWT_EXPIRES_IN=7d` 调整有效期 |
 | **预防** | 密钥变更后所有已签发 token 失效(需全员重新登录);生产环境密钥 ≥ 32 字符随机串 |
 
