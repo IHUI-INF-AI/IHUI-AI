@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
@@ -91,7 +91,7 @@ export default function RefundPage() {
         <p className="py-16 text-center text-sm text-muted-foreground">{t('listEmpty')}</p>
       ) : (
         <div className="space-y-2">
-          {items.map((item: any) => {
+          {items.map((item) => {
             const sc = (STATUS_CONFIG as any)[item.status] ?? STATUS_CONFIG.pending
             const StatusIcon = sc.icon
             return (

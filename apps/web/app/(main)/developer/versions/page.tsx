@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -86,7 +86,7 @@ export default function VersionsPage() {
         <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
       ) : (
         <div className="space-y-3">
-          {list.map((v: any) => {
+          {list.map((v) => {
             const StatusIcon = (STATUS_ICON as any)[v.status]
             const cls = (STATUS_CLS as any)[v.status]
             return (

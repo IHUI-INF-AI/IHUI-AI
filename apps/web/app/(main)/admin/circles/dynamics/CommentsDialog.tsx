@@ -50,7 +50,7 @@ export function CommentsDialog({ post, onClose }: Props) {
   const list = data?.list ?? []
 
   return (
-    <Dialog open={post !== null} onOpenChange={(o: any) => (o ? null : onClose())}>
+    <Dialog open={post !== null} onOpenChange={(o: boolean) => (o ? null : onClose())}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('commentsTitle')}</DialogTitle>
@@ -65,7 +65,7 @@ export function CommentsDialog({ post, onClose }: Props) {
           ) : list.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">{t('noComments')}</div>
           ) : (
-            list.map((c: any) => (
+            list.map((c) => (
               <div key={c.id} className="rounded-md border p-3">
                 <div className="flex items-center gap-2">
                   <Avatar src={c.author.avatar ?? undefined} name={c.author.nickname} size="xs" />

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -99,7 +99,7 @@ export default function SubagentsListPage() {
               <p className="py-10 text-center text-sm text-muted-foreground">无活跃派单</p>
             ) : (
               <ul className="space-y-1.5">
-                {dispatches.map((d: any) => (
+                {dispatches.map((d) => (
                   <li
                     key={d.id}
                     className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent"

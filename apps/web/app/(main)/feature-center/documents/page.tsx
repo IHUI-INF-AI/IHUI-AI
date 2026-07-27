@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -188,13 +188,13 @@ export default function DocumentsPage() {
 
   // 动态生成分类按钮(从返回数据的 unique category 值)
   const categories = React.useMemo(() => {
-    const unique = [...new Set((data ?? []).map((d: any) => d.category))]
+    const unique = [...new Set((data ?? []).map((d) => d.category))]
     return ['全部', ...unique.sort()]
   }, [data])
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item: any) => {
+    return all.filter((item) => {
       const matchKeyword =
         !keyword ||
         item.title.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -204,7 +204,7 @@ export default function DocumentsPage() {
     })
   }, [data, keyword, category])
 
-  const previewDoc = list.find((d: any) => d.id === previewId) ?? null
+  const previewDoc = list.find((d) => d.id === previewId) ?? null
 
   // 当前预览文档的 slug(含子目录路径,如 developer/incentive-program/course)
   // 用于 ReactMarkdown 改写相对图片路径 ./images/xxx.png → /api/feature-center/documents/asset/<dir>/images/xxx.png
@@ -220,7 +220,7 @@ export default function DocumentsPage() {
     queryKey: ['doc-content', previewId],
     queryFn: async () => {
       if (!previewId) return ''
-      const doc = (data ?? []).find((d: any) => d.id === previewId)
+      const doc = (data ?? []).find((d) => d.id === previewId)
       if (!doc) return ''
       const slug = doc.url ? doc.url.replace('/docs/', '') : doc.id.replace('file:', '')
       const res = await fetchApi<{ content: string }>(
@@ -264,7 +264,7 @@ export default function DocumentsPage() {
   // 当前预览文档在 list 中的索引(navigatedSlug 跳转不影响,基于 previewDoc 位置)
   const navIndex = React.useMemo(() => {
     if (!previewDoc) return -1
-    return list.findIndex((d: any) => d.id === previewDoc.id)
+    return list.findIndex((d) => d.id === previewDoc.id)
   }, [list, previewDoc])
   // 上一篇 / 下一篇文档(提取为局部变量以便 TS 类型收窄)
   const navPrev = navIndex > 0 ? list[navIndex - 1] : undefined
@@ -420,7 +420,7 @@ export default function DocumentsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((item: any) => {
+          {list.map((item) => {
             const formatLabel = FORMAT_LABELS[item.format] ?? item.format
             const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category
             return (
