@@ -1,4 +1,4 @@
-/* n8n-model - 深色赛博朋克风(列表 + 创建表单) */
+/* n8n-model - n8n 模型页(列表 + 创建表单) */
 .nm-page {
   min-height: 100vh;
   background: var(--color-background);
@@ -26,7 +26,7 @@
   font-size: 28rpx;
   color: var(--color-primary);
   padding: 8rpx 20rpx;
-  background: rgba(0, 242, 255, 0.1);
+  background: var(--color-border);
   border-radius: 12rpx;
 }
 .nm-content {
@@ -123,7 +123,7 @@
   justify-content: space-between;
   margin-top: 16rpx;
   padding: 16rpx 20rpx;
-  background: rgba(0, 242, 255, 0.08);
+  background: var(--color-border);
   border-radius: 12rpx;
   border: 1px solid var(--color-border);
 }
@@ -217,7 +217,7 @@
   border: 1px solid var(--color-border);
 }
 .nm-type-active {
-  background: rgba(0, 242, 255, 0.12);
+  background: var(--color-border);
   color: var(--color-primary);
   border-color: var(--color-primary);
 }
@@ -237,7 +237,7 @@
   border: 1px solid var(--color-border);
 }
 .nm-bool-active {
-  background: rgba(0, 242, 255, 0.12);
+  background: var(--color-border);
   color: var(--color-primary);
   border-color: var(--color-primary);
 }
@@ -257,8 +257,8 @@
 .nm-submit {
   margin-top: 40rpx;
   padding: 26rpx;
-  background: linear-gradient(90deg, #00f2ff, #8b5cf6);
-  color: #121217;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
   text-align: center;
   border-radius: 16rpx;
   font-size: 30rpx;
