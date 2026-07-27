@@ -6981,7 +6981,9 @@
     "conversations": "會話列表",
     "noMessages": "暫無消息",
     "noMessagesHint": "暫無消息，發送一條打個招呼吧",
+    "noConversations":  "暫無會話",
     "selectHint": "選擇一個會話開始聊天",
+    "searchPlaceholder":  "搜尋會話",
     "input": {
       "placeholder": "輸入消息..."
     },

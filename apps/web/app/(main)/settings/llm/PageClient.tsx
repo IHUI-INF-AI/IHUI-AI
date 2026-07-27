@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * 用户级 LLM 配置中心 — 主页面 v2(2026-07-22 升级)
@@ -30,17 +30,9 @@ import { ModelFormDialog } from './ModelFormDialog'
 import { BulkImportExportDialog } from './BulkImportExportDialog'
 import { CompareModelsDialog } from './CompareModelsDialog'
 import { CopyModelDialog } from './CopyModelDialog'
-import {
-  fetchProvidersV2,
-  fetchTemplatesV2,
-  fetchGroupsV2,
-} from './helpers-v2'
+import { fetchProvidersV2, fetchTemplatesV2, fetchGroupsV2 } from './helpers-v2'
 import type { PlatformTemplate } from './types'
-import type {
-  ProviderGroup,
-  UserLlmModel,
-  UserLlmProvider,
-} from './types-v2'
+import type { ProviderGroup, UserLlmModel, UserLlmProvider } from './types-v2'
 import type { ProviderFormState } from './types-v2'
 
 export default function UserLlmConfigsPage() {
@@ -76,10 +68,7 @@ export default function UserLlmConfigsPage() {
     queryFn: () => fetchTemplatesV2(),
     staleTime: 5 * 60_000,
   })
-  const templates: PlatformTemplate[] = React.useMemo(
-    () => tplData?.templates ?? [],
-    [tplData],
-  )
+  const templates: PlatformTemplate[] = React.useMemo(() => tplData?.templates ?? [], [tplData])
   const templateMap = React.useMemo(
     () => Object.fromEntries(templates.map((tpl) => [tpl.code, tpl])),
     [templates],
@@ -120,7 +109,7 @@ export default function UserLlmConfigsPage() {
   })
   const existingGroups = React.useMemo(
     () =>
-      (groupsData?.list ?? []).map((g: any) => ({
+      (groupsData?.list ?? []).map((g) => ({
         group: g.id.toString(),
         groupLabel: g.label,
       })),
@@ -209,11 +198,7 @@ export default function UserLlmConfigsPage() {
       {/* Two-column layout */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[200px_1fr]">
         <div className="rounded-lg border bg-card p-2">
-          <GroupSidebar
-            groups={groups}
-            activeGroup={activeGroup}
-            onChange={setActiveGroup}
-          />
+          <GroupSidebar groups={groups} activeGroup={activeGroup} onChange={setActiveGroup} />
         </div>
         <div className="space-y-3">
           {/* Toolbar */}
@@ -242,9 +227,7 @@ export default function UserLlmConfigsPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium">{tV2('emptyTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {tV2('emptyDesc')}
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{tV2('emptyDesc')}</p>
                 </div>
                 <Button onClick={openCreateProvider} variant="outline" size="sm">
                   <Sparkles className="mr-1.5 h-4 w-4" />
@@ -252,9 +235,7 @@ export default function UserLlmConfigsPage() {
                 </Button>
                 {templates.length > 0 && (
                   <div className="mt-4 w-full">
-                    <p className="mb-2 text-xs text-muted-foreground">
-                      {tV2('quickStartTitle')}
-                    </p>
+                    <p className="mb-2 text-xs text-muted-foreground">{tV2('quickStartTitle')}</p>
                     <div className="flex flex-wrap justify-center gap-2">
                       {templates
                         .filter(

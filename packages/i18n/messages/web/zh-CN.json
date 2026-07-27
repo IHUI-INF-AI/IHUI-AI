@@ -6912,7 +6912,9 @@
                             "conversations":  "会话列表",
                             "noMessages":  "暂无消息",
                             "noMessagesHint":  "暂无消息，发送一条打个招呼吧",
+                            "noConversations":  "暂无会话",
                             "selectHint":  "选择一个会话开始聊天",
+                            "searchPlaceholder":  "搜索会话",
                             "input":  {
                                           "placeholder":  "输入消息..."
                                       },

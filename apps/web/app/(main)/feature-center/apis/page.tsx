@@ -49,7 +49,7 @@ export default function ApisPage() {
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item: any) => {
+    return all.filter((item) => {
       const matchKeyword =
         !keyword ||
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -105,15 +105,15 @@ export default function ApisPage() {
           </CardContent>
         </Card>
       ) : (
-        <VirtualList items={list} itemKey={(item) => item.id as any} itemHeight={180}>
+        <VirtualList items={list} itemKey={(item) => item.id} itemHeight={180}>
           {(item) => (
             <FeatureCard
-              title={item.name as any}
-              description={item.description as any}
-              badge={item.version as any}
+              title={item.name}
+              description={item.description}
+              badge={item.version}
               footer={
                 <div className="flex flex-wrap gap-1">
-                  {item.endpoints.map((ep: any) => (
+                  {item.endpoints.map((ep) => (
                     <span
                       key={ep}
                       className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"

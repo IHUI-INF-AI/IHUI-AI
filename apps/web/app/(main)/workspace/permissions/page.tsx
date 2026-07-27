@@ -1,14 +1,28 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, Loader2, Shield, ShieldAlert, ShieldCheck, Trash2, type LucideIcon } from 'lucide-react'
+import {
+  ChevronLeft,
+  Loader2,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
-import { useAllWorkspacePermissions, useDeleteWorkspacePermission } from '@/hooks/use-workspace-permissions'
+import {
+  useAllWorkspacePermissions,
+  useDeleteWorkspacePermission,
+} from '@/hooks/use-workspace-permissions'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
-import type { WorkspacePermission, WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+import type {
+  WorkspacePermission,
+  WorkspacePermissionMode,
+} from '@ihui/api-client/endpoints/workspace'
 import { cn } from '@/lib/utils'
 
 const MODE_LABEL: Record<WorkspacePermissionMode, { icon: LucideIcon; color: string }> = {
@@ -40,7 +54,10 @@ export default function WorkspacePermissionsPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/workspace" className="text-muted-foreground transition-colors hover:text-foreground">
+        <Link
+          href="/workspace"
+          className="text-muted-foreground transition-colors hover:text-foreground"
+        >
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1">
@@ -66,8 +83,8 @@ export default function WorkspacePermissionsPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {permissions.map((perm: any) => {
-            const Mode = (MODE_LABEL as any)[perm.mode]
+          {permissions.map((perm) => {
+            const Mode = MODE_LABEL[perm.mode]
             const ModeIcon = Mode.icon
             return (
               <li
@@ -88,7 +105,7 @@ export default function WorkspacePermissionsPage() {
                             : 'bg-muted text-muted-foreground',
                       )}
                     >
-                      {tw((MODE_TITLE_KEY as any)[perm.mode] ?? 'mode.unknown.title')}
+                      {tw(MODE_TITLE_KEY[perm.mode] ?? 'mode.unknown.title')}
                     </span>
                   </div>
                   <p className="font-mono text-xs text-muted-foreground truncate">
@@ -101,11 +118,7 @@ export default function WorkspacePermissionsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditing(perm)}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setEditing(perm)}>
                     {t('edit')}
                   </Button>
                   <Button

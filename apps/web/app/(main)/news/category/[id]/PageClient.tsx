@@ -68,7 +68,7 @@ export default function NewsCategoryPageClient() {
   })
 
   const category = React.useMemo(
-    () => categoriesQuery.data?.list?.find((c: any) => c.id === id) ?? null,
+    () => categoriesQuery.data?.list?.find((c) => c.id === id) ?? null,
     [categoriesQuery.data, id],
   )
 
@@ -144,7 +144,7 @@ export default function NewsCategoryPageClient() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((item: any) => (
+          {items.map((item: NewsArticle) => (
             <Link key={item.id} href={`/news/${item.id}`} className="group block">
               <Card className="overflow-hidden transition-colors hover:bg-accent">
                 <CardContent className="flex gap-4 p-4">

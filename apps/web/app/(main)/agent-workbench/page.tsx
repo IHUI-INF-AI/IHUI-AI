@@ -1,10 +1,36 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
-import { Loader2, Plus, RefreshCw, Search, Sparkles, AlertCircle, GitBranch, Activity } from 'lucide-react'
-import { Button, Card, CardContent, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@ihui/ui-react'
+import {
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Sparkles,
+  AlertCircle,
+  GitBranch,
+  Activity,
+} from 'lucide-react'
+import {
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+  cn,
+} from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
-import { AgentCard, AgentDetailCard, normalizeAgent, type Agent, type RawAgent } from './components/AgentCard'
+import {
+  AgentCard,
+  AgentDetailCard,
+  normalizeAgent,
+  type Agent,
+  type RawAgent,
+} from './components/AgentCard'
 import { AgentCreator } from './components/AgentCreator'
 import { AgentRuntimeLog } from './components/AgentRuntimeLog'
 import { AgentSessionList } from './components/AgentSessionList'
@@ -50,11 +76,13 @@ export default function AgentWorkbenchPage() {
     setLoading(true)
     setErr(null)
     try {
-      const res = await fetchApi<{ list?: RawAgent[]; data?: RawAgent[] }>('/api/agents?pageSize=200')
+      const res = await fetchApi<{ list?: RawAgent[]; data?: RawAgent[] }>(
+        '/api/agents?pageSize=200',
+      )
       if (res.success) {
         const normalized = (res.data.list ?? res.data.data ?? []).map(normalizeAgent)
         setAgents(normalized)
-        setSelectedId((prev) => (prev && normalized.find((a: any) => a.id === prev) ? prev : null))
+        setSelectedId((prev) => (prev && normalized.find((a) => a.id === prev) ? prev : null))
       } else {
         setErr(res.error || '加载失败')
         setAgents([])
@@ -67,7 +95,9 @@ export default function AgentWorkbenchPage() {
     }
   }, [])
 
-  React.useEffect(() => { void loadAgents() }, [loadAgents])
+  React.useEffect(() => {
+    void loadAgents()
+  }, [loadAgents])
 
   const filtered = agents.filter((a) => {
     if (statusFilter !== 'all' && a.status !== statusFilter) return false
@@ -85,12 +115,19 @@ export default function AgentWorkbenchPage() {
     setTimeout(() => setToast(null), 2500)
   }
 
-  const handleAction = async (action: 'start' | 'stop' | 'pause' | 'copy' | 'delete', agent: Agent) => {
+  const handleAction = async (
+    action: 'start' | 'stop' | 'pause' | 'copy' | 'delete',
+    agent: Agent,
+  ) => {
     if (action === 'copy') {
       const config = {
-        name: agent.name, role: agent.role, model: agent.model,
-        tools: agent.tools ?? [], permissionMode: agent.permissionMode ?? 'default',
-        maxIterations: agent.maxIterations ?? 25, systemPrompt: agent.systemPrompt ?? '',
+        name: agent.name,
+        role: agent.role,
+        model: agent.model,
+        tools: agent.tools ?? [],
+        permissionMode: agent.permissionMode ?? 'default',
+        maxIterations: agent.maxIterations ?? 25,
+        systemPrompt: agent.systemPrompt ?? '',
       }
       try {
         await navigator.clipboard.writeText(JSON.stringify(config, null, 2))
@@ -101,11 +138,14 @@ export default function AgentWorkbenchPage() {
       return
     }
     setActionLoading(true)
-    const endpoint = action === 'delete'
-      ? `/api/agents/${encodeURIComponent(agent.id)}`
-      : `/api/agents/${encodeURIComponent(agent.id)}/${action}`
+    const endpoint =
+      action === 'delete'
+        ? `/api/agents/${encodeURIComponent(agent.id)}`
+        : `/api/agents/${encodeURIComponent(agent.id)}/${action}`
     try {
-      const res = await fetchApi<unknown>(endpoint, { method: action === 'delete' ? 'DELETE' : 'POST' })
+      const res = await fetchApi<unknown>(endpoint, {
+        method: action === 'delete' ? 'DELETE' : 'POST',
+      })
       if (res.success) {
         const label = action === 'start' ? '启动' : action === 'stop' ? '停止' : '暂停'
         showToast(`${agent.name} 已${label}`)
@@ -133,14 +173,24 @@ export default function AgentWorkbenchPage() {
               <button
                 type="button"
                 onClick={() => setViewMode('management')}
-                className={cn('flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors', viewMode === 'management' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+                className={cn(
+                  'flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors',
+                  viewMode === 'management'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
               >
                 <GitBranch className="h-3.5 w-3.5" /> 管理
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('runtime')}
-                className={cn('flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors', viewMode === 'runtime' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+                className={cn(
+                  'flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors',
+                  viewMode === 'runtime'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
               >
                 <Activity className="h-3.5 w-3.5" /> 运行时
               </button>
@@ -158,18 +208,35 @@ export default function AgentWorkbenchPage() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[180px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索 Agent 名字或角色..." className="pl-9" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="搜索 Agent 名字或角色..."
+              className="pl-9"
+            />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {STATUS_FILTERS.map((f) => (<SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>))}
+              {STATUS_FILTERS.map((f) => (
+                <SelectItem key={f.value} value={f.value}>
+                  {f.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={modelFilter} onValueChange={setModelFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {MODEL_FILTERS.map((f) => (<SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>))}
+              {MODEL_FILTERS.map((f) => (
+                <SelectItem key={f.value} value={f.value}>
+                  {f.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -178,24 +245,40 @@ export default function AgentWorkbenchPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="space-y-2 lg:col-span-3">
           {loading && agents.length === 0 ? (
-            <Card><CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中...
-            </CardContent></Card>
+            <Card>
+              <CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中...
+              </CardContent>
+            </Card>
           ) : err ? (
-            <Card><CardContent className="space-y-2 py-8 text-center text-sm text-destructive">
-              <AlertCircle className="mx-auto h-6 w-6" />
-              <p>{err}</p>
-              <Button variant="outline" size="sm" onClick={loadAgents}>重试</Button>
-            </CardContent></Card>
+            <Card>
+              <CardContent className="space-y-2 py-8 text-center text-sm text-destructive">
+                <AlertCircle className="mx-auto h-6 w-6" />
+                <p>{err}</p>
+                <Button variant="outline" size="sm" onClick={loadAgents}>
+                  重试
+                </Button>
+              </CardContent>
+            </Card>
           ) : filtered.length === 0 ? (
-            <Card><CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
-              <Sparkles className="h-8 w-8 opacity-40" />
-              <p className="text-sm">{isEmptyFilter ? '没有匹配的 Agent' : '还没有 Agent,点击右上角新建'}</p>
-            </CardContent></Card>
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
+                <Sparkles className="h-8 w-8 opacity-40" />
+                <p className="text-sm">
+                  {isEmptyFilter ? '没有匹配的 Agent' : '还没有 Agent,点击右上角新建'}
+                </p>
+              </CardContent>
+            </Card>
           ) : (
             <>
               {filtered.map((a) => (
-                <AgentCard key={a.id} agent={a} selected={a.id === selectedId} onSelect={() => setSelectedId(a.id)} onAction={(action) => handleAction(action, a)} />
+                <AgentCard
+                  key={a.id}
+                  agent={a}
+                  selected={a.id === selectedId}
+                  onSelect={() => setSelectedId(a.id)}
+                  onAction={(action) => handleAction(action, a)}
+                />
               ))}
               {actionLoading && (
                 <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
@@ -213,13 +296,18 @@ export default function AgentWorkbenchPage() {
                 <>
                   <AgentDetailCard agent={selected} />
                   <div className="h-[480px]">
-                    <AgentRuntimeLog agentId={selected.id} running={selected.status === 'running'} />
+                    <AgentRuntimeLog
+                      agentId={selected.id}
+                      running={selected.status === 'running'}
+                    />
                   </div>
                 </>
               ) : (
-                <Card><CardContent className="flex min-h-[400px] items-center justify-center text-sm text-muted-foreground">
-                  从左侧选择一个 Agent 查看详情和运行日志
-                </CardContent></Card>
+                <Card>
+                  <CardContent className="flex min-h-[400px] items-center justify-center text-sm text-muted-foreground">
+                    从左侧选择一个 Agent 查看详情和运行日志
+                  </CardContent>
+                </Card>
               )}
             </div>
             <div className="lg:col-span-3">
@@ -232,10 +320,7 @@ export default function AgentWorkbenchPage() {
           <>
             <div className="lg:col-span-3">
               <div className="h-[400px] lg:h-[600px]">
-                <SessionTree
-                  nodes={runtime.sessionTree}
-                  loading={runtime.loading}
-                />
+                <SessionTree nodes={runtime.sessionTree} loading={runtime.loading} />
               </div>
             </div>
             <div className="space-y-4 lg:col-span-5">
