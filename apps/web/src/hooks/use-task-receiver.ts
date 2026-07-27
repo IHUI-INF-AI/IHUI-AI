@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TaskDispatch, TaskResult, TaskWsMessage } from '@ihui/shared/tasks/dispatch'
 import { useWebSocket } from '@/hooks/use-websocket'
 import { fetchApi } from '@/lib/api'
+import { logger } from '@/lib/logger'
 
 const DEVICE_ID_STORAGE_KEY = 'ihui-device-id'
 /** 最近一次见到任务的 updatedAt 时间戳(ms),用于 WS 重连后增量补拉 */
@@ -148,7 +149,7 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
         body: JSON.stringify({ deviceId, name: deviceName, type: 'web' }),
       })
       if (!r.success) {
-        console.error('[use-task-receiver] register failed:', r.error)
+        logger.error('[use-task-receiver] register failed:', r.error)
       }
     }
 
@@ -164,7 +165,7 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
       }
       // 注销:异步调用,失败静默(WS 消息接收不受影响)
       void fetchApi(`/api/tasks/devices/${deviceId}`, { method: 'DELETE' }).catch((err) => {
-        console.error('[use-task-receiver] unregister error:', err)
+        logger.error('[use-task-receiver] unregister error:', err)
       })
     }
   }, [token, deviceId])
