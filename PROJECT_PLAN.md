@@ -698,3 +698,38 @@
 ---
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) i18n 多语言 parity 修复 + git stash 冲突标记清理 + ho,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
+---
+
+## 多端维护成本优化阶段1(2026-07-27,P1,降本 1.3x:6.8x->5.5x)
+
+> 8 个重构动作消除跨端重复实现 + 假共享包 + 守门脚本冗余。6 subagent 并行执行。
+
+### [x] ✅(2026-07-27) 动作1:4端 token 下沉改用 createInMemoryTokenStore 工厂
+- extension/mobile-rn/miniapp-taro 改用工厂;web 评估不改(SSO+cookie 架构不同)
+- packages/shared/auth/token-store.ts 工厂扩展 expiresIn 支持
+
+### [x] ✅(2026-07-27) 动作2:mobile-rn/global.css sync 脚本
+- 新增 scripts/sync-rn-global-css.mjs(193 行),消除手抄 26 变量漂移
+
+### [x] ✅(2026-07-27) 动作3:5个 scan-*-dead-i18n-keys.mjs 收敛为 --target=<端>
+- 统一入口 + 5 thin wrapper(向后兼容),59 测试全绿
+
+### [x] ✅(2026-07-27) 动作4:web/shared logger 文档标注
+- 评估:shared logger 有 miniapp-taro 消费,web 设计独立,保留双实现
+
+### [x] ✅(2026-07-27) 动作5:packages/app 改名 @ihui/rn-app
+- 消除假共享包,mobile-rn 9处 import 更新 + web 删除死依赖
+
+### [x] ✅(2026-07-27) 动作6:tokens.css 圆角5档上提共享层
+- --radius-sm/md/lg/xl/2xl,sync 脚本自动同步 4 端
+
+### [x] ✅(2026-07-27) 动作7:extension content script 24处硬编码颜色集中管理
+- 容器级 CSS 变量(命名对齐 design-tokens,不污染第三方 :root)
+
+### [x] ✅(2026-07-27) 动作8:mobile-rn AiModelCard 13处硬编码颜色改 tokens
+- 9处->tokens + 4处->COLORS 常量
+
+### 验证
+- rn-app/mobile-rn/extension/miniapp-taro/shared typecheck 全绿
+- 各端 lint 全绿(web 2个预先存在错误不属本任务)
