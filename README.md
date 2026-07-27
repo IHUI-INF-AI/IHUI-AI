@@ -1381,7 +1381,7 @@ docker compose up -d
 
 | 服务         | URL                              | 说明                                               |
 | ------------ | -------------------------------- | -------------------------------------------------- |
-| Web          | http://localhost:3000            | Next.js 前端                                       |
+| Web          | http://localhost:8801            | Next.js 前端                                       |
 | API          | http://localhost:8802/api/health | Fastify 后端健康检查                               |
 | Worker       | http://localhost:8830            | BullMQ 异步任务进程                                |
 | AI 服务      | http://localhost:8803/health     | FastAPI AI 服务健康检查                            |
