@@ -35,6 +35,7 @@ import * as React from 'react'
 import { useSwarmTopology } from '@/hooks/use-subagent-dispatch'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { formatDateOnly } from '@/lib/date-utils'
 import type {
   SwarmTopologyV2,
   TopologyNode,
@@ -1013,7 +1014,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
                 </code>
               </div>
               <div className="mt-0.5 text-[9px] text-muted-foreground/60">
-                {new Date(v.createdAt).toLocaleDateString('zh-CN')}
+                {formatDateOnly(v.createdAt)}
               </div>
               <div className="mt-0.5 line-clamp-2 text-[9px] text-muted-foreground">
                 {v.changes.length > 0 ? `${v.changes.length} 个补丁` : '初始版本'}

@@ -2,10 +2,22 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, FileText, CheckCircle2, Send, History, Upload, Wand2, Copy, Check, Download } from 'lucide-react'
+import {
+  Loader2,
+  FileText,
+  CheckCircle2,
+  Send,
+  History,
+  Upload,
+  Wand2,
+  Copy,
+  Check,
+  Download,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface HistoryPayload {
   title?: string
@@ -41,7 +53,9 @@ export default function WechatPage() {
   const [mdPath, setMdPath] = React.useState('')
   const [mdContent, setMdContent] = React.useState('')
   const [cover, setCover] = React.useState('')
-  const [running, setRunning] = React.useState<'generate' | 'validate' | 'publish' | 'all' | null>(null)
+  const [running, setRunning] = React.useState<'generate' | 'validate' | 'publish' | 'all' | null>(
+    null,
+  )
   const [result, setResult] = React.useState<RunResult | null>(null)
   const [history, setHistory] = React.useState<HistoryItem[]>([])
   const [copied, setCopied] = React.useState(false)
@@ -234,11 +248,7 @@ export default function WechatPage() {
                         onClick={copyMd}
                         className="h-6 px-2 text-xs"
                       >
-                        {copied ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
+                        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                         {copied ? '已复制' : '复制'}
                       </Button>
                       <Button
@@ -268,11 +278,15 @@ export default function WechatPage() {
                 id="mdContent"
                 value={mdContent}
                 onChange={(e) => setMdContent(e.target.value)}
-                placeholder={t('mdPathPlaceholder') + ' (可上传 md 或在线编辑;留空则用 LLM 自动生成)'}
+                placeholder={
+                  t('mdPathPlaceholder') + ' (可上传 md 或在线编辑;留空则用 LLM 自动生成)'
+                }
                 className="thin-scroll min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed"
               />
               {mdPath && (
-                <p className="text-xs text-muted-foreground">已用 md 路径: <code className="rounded bg-muted px-1">{mdPath}</code></p>
+                <p className="text-xs text-muted-foreground">
+                  已用 md 路径: <code className="rounded bg-muted px-1">{mdPath}</code>
+                </p>
               )}
             </div>
             <div className="space-y-1.5">
@@ -423,7 +437,7 @@ export default function WechatPage() {
                     >
                       {h.status}
                     </span>
-                    {h.createdAt && <span>· {new Date(h.createdAt).toLocaleDateString()}</span>}
+                    {h.createdAt && <span>· {formatDateOnly(h.createdAt)}</span>}
                   </div>
                 </button>
               ))}

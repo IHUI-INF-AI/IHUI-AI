@@ -36,6 +36,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
+import { formatDateOnly } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import { LEVEL_NUM_KEY } from '../helpers'
 
@@ -153,7 +154,9 @@ export default function EduStudentDetailPage() {
       </div>
     )
 
-  const levelLabel = [1, 2, 3, 4].includes(data.level) ? t(LEVEL_NUM_KEY[data.level] ?? 'level.unknown') : `L${data.level}`
+  const levelLabel = [1, 2, 3, 4].includes(data.level)
+    ? t(LEVEL_NUM_KEY[data.level] ?? 'level.unknown')
+    : `L${data.level}`
 
   return (
     <div className="space-y-4">
@@ -212,7 +215,7 @@ export default function EduStudentDetailPage() {
             <p className="mt-1 text-xs text-muted-foreground">
               {t('levelLabel', { level: levelLabel })} ·{' '}
               {t('registeredAt', {
-                date: new Date(data.createdAt).toLocaleDateString(),
+                date: formatDateOnly(data.createdAt),
               })}
             </p>
           </div>
@@ -270,7 +273,9 @@ export default function EduStudentDetailPage() {
               {data.lessons?.length ? (
                 data.lessons.map((l: any) => (
                   <TableRow key={l.id} className="hover:bg-muted/30">
-                    <TableCell className="px-4 py-2.5 font-medium">{l.title ?? l.id.slice(0, 8)}</TableCell>
+                    <TableCell className="px-4 py-2.5 font-medium">
+                      {l.title ?? l.id.slice(0, 8)}
+                    </TableCell>
                     <TableCell className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 w-32 overflow-hidden rounded-2xl bg-muted">
