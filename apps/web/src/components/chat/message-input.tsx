@@ -864,12 +864,15 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
-          {/* Agent 任务进度触发按钮 + popover(2026-07-27 v6,用户规则:
-              trigger 在输入容器 div 外面上方居中,点击弹出小 popover 显示 plan steps 列表,
-              不再是底部大弹窗。relative 容器让 popover 相对 trigger 定位。 */}
-          <div className="relative flex justify-center pb-1">
-            <AgentProgressTrigger />
-            <AgentTaskProgressPane />
+          {/* Agent 任务进度触发按钮 + popover(2026-07-27 v6.2,用户规则:
+              trigger 在输入容器 div 外面上方居中,点击弹出小 popover 显示 plan steps 列表。
+              v6.2:trigger 外层套 relative inline-flex,让 popover 相对 trigger 定位,
+              贴近 trigger 按钮的右下方(原来 right-0 对齐外层容器右边,离居中 trigger 太远)。 */}
+          <div className="flex justify-center pb-1">
+            <div className="relative inline-flex">
+              <AgentProgressTrigger />
+              <AgentTaskProgressPane />
+            </div>
           </div>
           {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
               高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告 */}
