@@ -27,6 +27,7 @@ vi.mock('lucide-react', () => ({
   Circle: IconSpan,
   Loader2: IconSpan,
   Check: IconSpan,
+  Copy: IconSpan,
   ListTodo: IconSpan,
   MessageSquare: IconSpan,
   ChevronRight: IconSpan,
@@ -883,5 +884,164 @@ describe('AgentTaskProgressPane — v11 键盘导航 + ARIA', () => {
     fireEvent.click(btn)
     const liveRegion = container.querySelector('[aria-live]')
     expect(liveRegion).toBeNull()
+  })
+})
+
+// ─── v11: 复制按钮 + 状态过滤测试 ───
+describe('AgentTaskProgressPane — v11 复制按钮 + 状态过滤', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('ToolCallItem 详情含复制按钮(参数 + 结果)', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-copy-1',
+        toolName: 'read_file',
+        args: { file_path: 'src/a.ts' },
+        result: { content: 'hello' },
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const toolItem = container.querySelector('[data-testid="tool-item-t-copy-1"]')!
+    fireEvent.click(toolItem)
+    // 参数复制按钮
+    expect(container.querySelector('[data-testid="tool-copy-args-t-copy-1"]')).toBeTruthy()
+    // 结果复制按钮
+    expect(container.querySelector('[data-testid="tool-copy-result-t-copy-1"]')).toBeTruthy()
+  })
+
+  it('ToolCallItem error 状态含错误复制按钮', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-copy-err',
+        toolName: 'edit_file',
+        args: { file_path: 'src/b.ts' },
+        error: 'permission denied',
+        status: 'error',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const toolItem = container.querySelector('[data-testid="tool-item-t-copy-err"]')!
+    fireEvent.click(toolItem)
+    expect(container.querySelector('[data-testid="tool-copy-error-t-copy-err"]')).toBeTruthy()
+  })
+
+  it('ToolCallsSection — 有 error/running 时显示状态过滤 chips', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-f1',
+        toolName: 'read_file',
+        args: {},
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 't-f2',
+        toolName: 'edit_file',
+        args: {},
+        status: 'error',
+        startedAt: '2026-01-01T00:00:01Z',
+      },
+      {
+        id: 't-f3',
+        toolName: 'search',
+        args: {},
+        status: 'running',
+        startedAt: '2026-01-01T00:00:02Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const filter = container.querySelector('[data-testid="tool-status-filter"]')
+    expect(filter).toBeTruthy()
+    // 全部按钮
+    expect(container.querySelector('[data-testid="tool-filter-all"]')).toBeTruthy()
+    // 失败按钮
+    expect(container.querySelector('[data-testid="tool-filter-error"]')).toBeTruthy()
+    // 运行中按钮
+    expect(container.querySelector('[data-testid="tool-filter-running"]')).toBeTruthy()
+  })
+
+  it('ToolCallsSection — 全部成功时不显示状态过滤(无 error/running)', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-nf1',
+        toolName: 'read_file',
+        args: {},
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 't-nf2',
+        toolName: 'search',
+        args: {},
+        status: 'success',
+        startedAt: '2026-01-01T00:00:01Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const filter = container.querySelector('[data-testid="tool-status-filter"]')
+    expect(filter).toBeNull()
+  })
+
+  it('ToolCallsSection — 点击 error 过滤只显示失败工具', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-fe1',
+        toolName: 'read_file',
+        args: {},
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 't-fe2',
+        toolName: 'edit_file',
+        args: {},
+        status: 'error',
+        startedAt: '2026-01-01T00:00:01Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    // 点击 error 过滤
+    const errorFilter = container.querySelector('[data-testid="tool-filter-error"]')!
+    fireEvent.click(errorFilter)
+    // 应该只显示 error 工具
+    expect(container.querySelector('[data-testid="tool-item-t-fe2"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid="tool-item-t-fe1"]')).toBeNull()
+  })
+
+  it('ToolCallsSection — 状态过滤 chips 含 aria-pressed', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-ap1',
+        toolName: 'read_file',
+        args: {},
+        status: 'error',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const allFilter = container.querySelector('[data-testid="tool-filter-all"]') as HTMLButtonElement
+    expect(allFilter.getAttribute('aria-pressed')).toBe('true')
+    const errorFilter = container.querySelector('[data-testid="tool-filter-error"]') as HTMLButtonElement
+    expect(errorFilter.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(errorFilter)
+    expect(errorFilter.getAttribute('aria-pressed')).toBe('true')
+    expect(allFilter.getAttribute('aria-pressed')).toBe('false')
   })
 })
