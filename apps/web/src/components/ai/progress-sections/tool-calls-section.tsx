@@ -122,8 +122,10 @@ function truncateForDisplay(s: string, max = 500): string {
  * - 点击工具行展开/折叠完整 args + result
  * - CSS grid 平滑高度动画(复用 foldable-section 模式)
  * - memo 化:tool 引用稳定时跳过重渲染
+ *
+ * v10 Phase 5:导出供 SubagentSection 嵌套展示复用
  */
-const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: AgentToolCall }) {
+export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: AgentToolCall }) {
   const [expanded, setExpanded] = React.useState(false)
   const cat = categorize(tool.toolName)
   const CatIcon = CATEGORY_ICON[cat]
