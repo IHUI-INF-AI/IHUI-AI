@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { fetchApi, deleteConversation, type PageData } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDate } from '../../../lib/date-utils'
 
 const WEB_BASE = 'https://ihui.ai'
 
@@ -19,20 +20,6 @@ interface ConversationSummary {
   lastMessageAt?: string | null
   updatedAt?: string | null
   messageCount?: number
-}
-
-function fmtTime(s?: string | null): string {
-  if (!s) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(s))
-  } catch {
-    return ''
-  }
 }
 
 export default function ChatHistoryPage() {
@@ -67,10 +54,6 @@ export default function ChatHistoryPage() {
     if (res.success) {
       setItems((prev) => prev.filter((c) => c.id !== id))
     }
-  }
-
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/chat/${encodeURIComponent(id)}` })
   }
 
   if (loading) {
@@ -112,7 +95,7 @@ export default function ChatHistoryPage() {
           <Card
             key={c.id}
             className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => openInWeb(c.id)}
+            onClick={() => openItemInWeb(`/chat/${encodeURIComponent(c.id)}`)}
           >
             <CardContent className="p-3">
               <div className="flex items-start justify-between gap-2">
@@ -132,7 +115,7 @@ export default function ChatHistoryPage() {
                 <p className="m-0 mt-1 text-xs text-muted-foreground line-clamp-1">{c.lastMessage}</p>
               ) : null}
               <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span className="whitespace-nowrap">{fmtTime(c.lastMessageAt || c.updatedAt)}</span>
+                <span className="whitespace-nowrap">{fmtDate(c.lastMessageAt || c.updatedAt)}</span>
                 {typeof c.messageCount === 'number' ? (
                   <span className="tabular-nums">{c.messageCount} 条</span>
                 ) : null}

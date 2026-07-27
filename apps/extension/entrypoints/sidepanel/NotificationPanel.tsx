@@ -1,18 +1,6 @@
 import { useNotificationStore } from '../../lib/notification-store'
 import { useI18n } from '../../src/i18n'
-
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return ''
-  }
-}
+import { fmtDate } from '../../lib/date-utils'
 
 export default function NotificationPanel() {
   const { t } = useI18n()
@@ -72,7 +60,7 @@ export default function NotificationPanel() {
                     {n.content}
                   </div>
                 ) : null}
-                <div className="text-[10px] text-muted-foreground">{formatTime(n.createdAt)}</div>
+                <div className="text-[10px] text-muted-foreground">{fmtDate(n.createdAt)}</div>
               </div>
             ))
           )}
