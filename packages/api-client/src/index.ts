@@ -2,6 +2,7 @@ export {
   fetchApi,
   setTokenProvider,
   setBaseUrl,
+  setStreamBaseUrl,
   streamChat,
   parseStreamLine,
   parseStreamLineReasoning,
