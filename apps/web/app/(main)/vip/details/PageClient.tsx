@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { QRCodeCanvas } from 'qrcode.react'
 import { Crown, Check, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -21,6 +22,27 @@ interface VipLevel {
   benefits: string[]
   status: number
   sortOrder: number
+}
+
+interface PayInfo {
+  mock: boolean
+  method: 'jsapi' | 'native' | 'h5'
+  codeUrl?: string
+  h5Url?: string
+  error?: string
+}
+
+interface OrderResult {
+  orderId: string
+  orderNo: string
+  amount: number
+  vipLevelId: string
+  payInfo: PayInfo
+}
+
+interface PayStatusResult {
+  status: 'pending' | 'paid' | string
+  payInfo?: PayInfo
 }
 
 type PaymentMethod = 'wechat' | 'alipay'
@@ -42,6 +64,8 @@ function DetailsContent() {
   const levelId = searchParams.get('levelId') ?? ''
 
   const [method, setMethod] = React.useState<PaymentMethod>('wechat')
+  const [order, setOrder] = React.useState<OrderResult | null>(null)
+  const [paid, setPaid] = React.useState(false)
 
   const METHODS: { id: PaymentMethod; label: string }[] = [
     { id: 'wechat', label: tp('checkout.wechat') },
@@ -54,18 +78,44 @@ function DetailsContent() {
   })
 
   const levels = data?.items ?? []
-  const level = levels.find((l: any) => l.id === levelId)
+  const level = levels.find((l) => l.id === levelId)
 
-  const purchaseMut = useMutation({
-    mutationFn: (input: { vipLevelId: string; paymentMethod: PaymentMethod }) =>
-      api<{ orderId: string }>('/api/vip/purchase', {
+  const orderMut = useMutation({
+    mutationFn: (vipLevelId: string) =>
+      api<OrderResult>('/api/vip/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
+        body: JSON.stringify({ vipLevelId, paymentMethod: 'wechat_native' }),
       }),
+    onSuccess: (data) => {
+      setOrder(data)
+    },
   })
 
-  const onSuccess = purchaseMut.isSuccess
+  React.useEffect(() => {
+    if (!order?.orderNo) return
+    let stop = false
+    const poll = async () => {
+      while (!stop) {
+        await new Promise((r) => setTimeout(r, 3000))
+        if (stop) break
+        try {
+          const r = await api<PayStatusResult>(`/api/vip/order/${order.orderNo}/payinfo`)
+          if (r.status === 'paid') {
+            setPaid(true)
+            return
+          }
+        } catch {
+          // 忽略轮询错误
+        }
+      }
+    }
+    poll()
+    return () => {
+      stop = true
+    }
+  }, [order?.orderNo])
+
   const benefits = level && Array.isArray(level.benefits) ? level.benefits : []
 
   if (isLoading) {
@@ -85,11 +135,45 @@ function DetailsContent() {
     )
   }
 
-  if (onSuccess) {
+  if (paid) {
     return (
       <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
         <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
+        <Button asChild>
+          <Link href="/vip">{tc('back')}</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  if (order && order.payInfo?.codeUrl) {
+    return (
+      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+        <h1 className="text-2xl font-bold tracking-tight">微信扫码支付</h1>
+        <p className="text-sm text-muted-foreground">
+          金额：<span className="font-bold text-foreground">{formatCNY(order.amount)}</span>
+        </p>
+        <div className="flex justify-center rounded-lg border border-border bg-white p-4">
+          <QRCodeCanvas value={order.payInfo.codeUrl} size={240} level="M" />
+        </div>
+        <p className="text-xs text-muted-foreground">请用微信扫描二维码完成支付</p>
+        <p className="text-xs text-muted-foreground">订单号：{order.orderNo}</p>
+        <Button variant="outline" onClick={() => setOrder(null)}>
+          {tc('back')}
+        </Button>
+      </div>
+    )
+  }
+
+  if (order && order.payInfo?.mock) {
+    return (
+      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+        <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
+        <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
+        <p className="text-sm text-muted-foreground">
+          微信支付未配置，开发模式直接激活（订单号：{order.orderNo}）
+        </p>
         <Button asChild>
           <Link href="/vip">{tc('back')}</Link>
         </Button>
@@ -139,7 +223,7 @@ function DetailsContent() {
                 <p className="mb-2 text-sm font-medium text-muted-foreground">{t('benefits')}</p>
                 {benefits.length > 0 ? (
                   <ul className="space-y-2 text-sm">
-                    {benefits.map((b: any, i: any) => (
+                    {benefits.map((b, i) => (
                       <li key={`benefit-${i}`} className="flex items-start gap-2">
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                         <span>{b}</span>
@@ -186,19 +270,19 @@ function DetailsContent() {
                 </label>
               ))}
 
-              {purchaseMut.isError ? (
+              {orderMut.isError ? (
                 <p className="pt-2 text-sm text-destructive">
-                  {t('purchaseFail')}: {(purchaseMut.error as Error).message}
+                  {t('purchaseFail')}: {(orderMut.error as Error).message}
                 </p>
               ) : null}
 
               <Button
                 className="mt-4 w-full"
                 size="lg"
-                disabled={purchaseMut.isPending}
-                onClick={() => purchaseMut.mutate({ vipLevelId: level.id, paymentMethod: method })}
+                disabled={orderMut.isPending}
+                onClick={() => orderMut.mutate(level.id)}
               >
-                {purchaseMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {orderMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t('subscribe')}
               </Button>
             </CardContent>
