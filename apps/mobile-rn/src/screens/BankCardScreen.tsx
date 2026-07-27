@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
+import type { ApiResponse } from '@ihui/types'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
@@ -40,7 +42,7 @@ export function BankCardScreen() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (!resp.ok) throw new Error('http')
-      const data = (await resp.json()) as { data?: BankCard[] }
+      const data = (await resp.json()) as ApiResponse<BankCard[]>
       setCards(data.data ?? [])
     } catch {
       setError(t('bankCard.loadFailed'))
@@ -109,19 +111,19 @@ export function BankCardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  errorText: { fontSize: 12, color: '#DC2626' },
-  card: { padding: 14, borderRadius: 8, backgroundColor: '#10B981' },
+  errorText: { fontSize: 12, color: tokens.error.text },
+  card: { padding: 14, borderRadius: 8, backgroundColor: tokens.brand.DEFAULT },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  bankName: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  bankName: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.25)' },
-  badgeText: { fontSize: 10, color: '#FFFFFF' },
-  cardNumber: { marginTop: 10, fontSize: 18, fontWeight: '600', color: '#FFFFFF', letterSpacing: 1 },
+  badgeText: { fontSize: 10, color: tokens.surface.light },
+  cardNumber: { marginTop: 10, fontSize: 18, fontWeight: '600', color: tokens.surface.light, letterSpacing: 1 },
   holder: { marginTop: 6, fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: '#6B7280' },
+  muted: { fontSize: 12, color: tokens.text.secondary },
 })
