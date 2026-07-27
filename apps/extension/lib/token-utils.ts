@@ -1,13 +1,15 @@
 import { refreshAccessToken } from '@ihui/api-client'
 import { readExp } from '@ihui/shared/utils/jwt-utils'
+import { createChromePlatform } from '@ihui/browser-platform'
 import { REFRESH_LEAD_MS, REFRESH_ALARM_NAME } from './config'
 import { getRefreshToken, setTokenPair, clearAllTokens } from './token'
 
 // re-export 保持外部引用不变(如 tests/refresh-token.test.ts 直接从 token-utils 导入 readExp)
 export { readExp }
 
+const platform = createChromePlatform()
+
 let inFlightRefresh: Promise<boolean> | null = null
-let alarmListener: ((alarm: chrome.alarms.Alarm) => void) | null = null
 
 export function scheduleRefreshAlarm(accessToken: string): void {
   const exp = readExp(accessToken)
@@ -17,8 +19,12 @@ export function scheduleRefreshAlarm(accessToken: string): void {
     void doRefresh()
     return
   }
-  const delayInMinutes = Math.max(1, Math.ceil(delayMs / (60 * 1000)))
-  chrome.alarms.create(REFRESH_ALARM_NAME, { delayInMinutes })
+  // scheduleOnce 内部已封装 create + addListener + 触发后自动 removeListener,
+  // clampToMinutes 由 chrome-impl.ts 内部处理,无需双重 clamp。
+  // doRefresh 完成后会递归调用 scheduleRefreshAlarm 排下一次,维持 refresh 链。
+  void platform.scheduler.scheduleOnce(REFRESH_ALARM_NAME, delayMs, () => {
+    void doRefresh()
+  })
 }
 
 export async function doRefresh(): Promise<boolean> {
@@ -53,21 +59,11 @@ export async function doRefresh(): Promise<boolean> {
 }
 
 export function startAutoRefresh(): void {
-  if (alarmListener) return
-  alarmListener = (alarm: chrome.alarms.Alarm) => {
-    if (alarm.name === REFRESH_ALARM_NAME) {
-      void doRefresh().catch((err) => {
-        console.error('[IHUI AI] refresh token alarm failed:', err)
-      })
-    }
-  }
-  chrome.alarms.onAlarm.addListener(alarmListener)
+  // scheduleOnce 模式下,listener 由 scheduleRefreshAlarm 内部随 handler 绑定注册,
+  // 不再需要常驻 onAlarm listener。保留函数以维持 API 兼容(background.ts 仍调用)。
 }
 
 export function stopAutoRefresh(): void {
-  chrome.alarms.clear(REFRESH_ALARM_NAME).catch(() => {})
-  if (alarmListener) {
-    chrome.alarms.onAlarm.removeListener(alarmListener)
-    alarmListener = null
-  }
+  // clearSchedule 内部已封装 removeListener + clear(仅当存在已注册 listener 时移除)
+  void platform.scheduler.clearSchedule(REFRESH_ALARM_NAME)
 }

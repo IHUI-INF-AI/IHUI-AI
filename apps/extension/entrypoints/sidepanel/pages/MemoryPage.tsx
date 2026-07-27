@@ -47,13 +47,7 @@ export default function MemoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
 
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/memory/${encodeURIComponent(id)}` })
-  }
-
-  const openNew = () => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/memory/new` })
-  }
+  const openNew = () => openItemInWeb('/memory/new')
 
   if (loading) {
     return (

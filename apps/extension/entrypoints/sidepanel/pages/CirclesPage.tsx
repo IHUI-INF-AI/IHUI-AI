@@ -8,8 +8,7 @@ import { useEffect, useState } from 'react'
 import { getCircles, type Circle } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 function fmtCount(n: number | undefined): string {
   if (typeof n !== 'number') return '0'
@@ -84,7 +83,7 @@ export default function CirclesPage() {
           <Card
             key={c.id}
             className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => openInWeb(c.id)}
+            onClick={() => openItemInWeb(`/circles/${encodeURIComponent(c.id)}`)}
           >
             <CardContent className="p-3 flex items-start gap-2.5">
               {c.coverImage ? (

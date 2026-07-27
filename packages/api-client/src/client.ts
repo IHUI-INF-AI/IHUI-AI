@@ -13,6 +13,11 @@ export type FetchApiOptions = RequestInit & {
 
 let tokenProvider: TokenProvider = { getToken: () => null }
 let baseUrl: string = ''
+// SSE 流式请求专用 baseUrl(2026-07-27 立):
+// Next.js dev proxy 对 SSE 流有超时/缓冲问题,导致流式响应被中断(net::ERR_ABORTED)。
+// streamChat 用 streamBaseUrl 直连 API 服务器,绕过 Next.js dev proxy。
+// 未设置时降级到 baseUrl,保持向后兼容。
+let streamBaseUrl: string = ''
 let circuitBreaker: CircuitBreaker | null = null
 
 export function setTokenProvider(provider: TokenProvider): void {
@@ -21,6 +26,10 @@ export function setTokenProvider(provider: TokenProvider): void {
 
 export function setBaseUrl(url: string): void {
   baseUrl = url.replace(/\/$/, '')
+}
+
+export function setStreamBaseUrl(url: string): void {
+  streamBaseUrl = url.replace(/\/$/, '')
 }
 
 /** 注入全局熔断器(null 表示禁用,所有请求直连) */
@@ -64,7 +73,7 @@ export function mergeAbortSignals(signals: (AbortSignal | null | undefined)[]): 
   return controller.signal
 }
 
-function normalizeUrl(url: string): string {
+function normalizeUrl(url: string, useStreamBase = false): string {
   if (/^https?:\/\//i.test(url)) return url
   const normalized = (() => {
     if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/ws/')) return url
@@ -74,7 +83,8 @@ function normalizeUrl(url: string): string {
     if (url.startsWith('/')) return `/api${url}`
     return `/api/${url}`
   })()
-  return baseUrl ? `${baseUrl}${normalized}` : normalized
+  const base = useStreamBase && streamBaseUrl ? streamBaseUrl : baseUrl
+  return base ? `${base}${normalized}` : normalized
 }
 
 /**
@@ -926,7 +936,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   let attempt = 0
 
   const token = tokenProvider.getToken()
-  const url = normalizeUrl(opts.path ?? '/ai/chat/stream')
+  // 2026-07-27 修复 SSE 流被 Next.js dev proxy 中断:
+  // streamChat 用 streamBaseUrl(直连 API 服务器),绕过 Next.js dev proxy 的超时/缓冲。
+  // 普通请求仍用 baseUrl(走同源代理,cookie SSR 正常)。
+  const url = normalizeUrl(opts.path ?? '/ai/chat/stream', true)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
@@ -957,6 +970,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       headers,
       body: JSON.stringify(body),
       signal: opts.signal,
+      // 2026-07-27 跨域 SSE 直连:携带 credentials 让 CORS 允许凭证,
+      // Bearer token 在 Authorization header 中不受影响。
+      credentials: 'include',
     })
     if (!resp.ok || !resp.body) {
       const text = await resp.text().catch(() => '')

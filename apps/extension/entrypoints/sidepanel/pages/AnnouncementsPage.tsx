@@ -9,8 +9,7 @@ import { getAnnouncements, type Announcement } from '@ihui/api-client'
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDate } from '../../../lib/date-utils'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 function stripHtml(s: string | undefined | null): string {
   if (!s) return ''

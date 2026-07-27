@@ -108,7 +108,7 @@ export default function SearchPage() {
               <Card
                 key={`${it.type}-${it.id}`}
                 className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => openItem(it.url, it.id)}
+                onClick={() => openItem(it.url)}
               >
                 <CardHeader className="px-3 py-2">
                   <div className="flex items-center gap-1.5">
