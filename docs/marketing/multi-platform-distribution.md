@@ -488,10 +488,10 @@ pnpm --filter @ihui/database db:seed
 
 ```bash
 pnpm dev
-# 自动启动:web(3000) + api(8800) + ai-service(8808)
+# 自动启动:web(8801) + api(8802) + ai-service(8803)
 ```
 
-访问 http://localhost:3000 注册账号即可。
+访问 http://localhost:8801 注册账号即可。
 
 ## 四、核心功能演示
 

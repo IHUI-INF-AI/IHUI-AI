@@ -612,7 +612,8 @@ class SpecGenerator:
             try:
                 content = f.read_text(encoding="utf-8", errors="replace")
                 summary = self._summarize_spec(content)
-            except Exception:
+            except Exception as e:
+                logger.warning("spec_generator.get_history 失败: %s", e, exc_info=True)
                 content = ""
                 summary = ""
             entries.append({
@@ -1575,7 +1576,8 @@ class SpecGenerator:
                         "reviewer": fields.get("reviewer", ""),
                         "submittedAt": fields.get("reviewed_at", ""),
                     })
-            except Exception:
+            except Exception as e:
+                logger.warning("spec_generator.get_pending_reviews 失败: %s", e, exc_info=True)
                 continue
         return {"specs": pending}
 

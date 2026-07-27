@@ -584,6 +584,7 @@ interface BufferedLog {
 services:
   api:
     healthcheck:
+      # 豁免:docker-compose 容器内部健康检查,8080 是 api 容器内部端口(见 port-management.md §2.5)
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 5s
@@ -592,6 +593,7 @@ services:
 
   ai-service:
     healthcheck:
+      # 豁免:docker-compose 容器内部健康检查,8000 是 ai-service 容器内部端口(见 port-management.md §2.5)
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
@@ -702,7 +704,7 @@ docker compose up -d
 # 验证各组件健康
 docker compose ps
 curl http://localhost:9090/-/healthy    # Prometheus
-curl http://localhost:3000/api/health    # Grafana
+curl http://localhost:3000/api/health    # Grafana(豁免:第三方服务,容器内 3000,宿主映射 8816,见 port-management.md §2.2)
 curl http://localhost:3100/ready        # Loki
 curl http://localhost:16686/             # Jaeger UI
 ```
@@ -711,7 +713,7 @@ curl http://localhost:16686/             # Jaeger UI
 
 | 项 | 值 |
 |----|-----|
-| URL | `http://localhost:3000` |
+| URL | `http://localhost:3000`(豁免:Grafana 容器内端口,宿主映射 8816,见 port-management.md §2.2) |
 | 用户名 | `admin` |
 | 密码 | `ihui-admin` |
 | 默认仪表盘 | IHUI-AI Overview |

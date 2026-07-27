@@ -487,8 +487,8 @@ console.log(`\n${C.cyan}[8/8] 运行时端到端检查 (informational, 需 servi
 const runtimeEndpoints = [
   { name: 'API health', url: 'http://localhost:8802/api/health' },
   { name: 'agents list', url: 'http://localhost:8802/api/agents/list' },
-  { name: 'ai-service health', url: 'http://localhost:8000/health' },
-  { name: 'web home', url: 'http://localhost:3000/' },
+  { name: 'ai-service health', url: 'http://localhost:8803/health' },
+  { name: 'web home', url: 'http://localhost:8801/' },
   { name: 'oauth keys list', url: 'http://localhost:8802/api/oauth-keys/list' },
 ];
 

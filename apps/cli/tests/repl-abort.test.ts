@@ -34,7 +34,7 @@ function makeTestState(overrides: Partial<ReplState> = {}): ReplState {
     opts: {
       modelId: 'test-model',
       workspacePath: '/tmp/test',
-      apiUrl: 'http://localhost:3000',
+      apiUrl: 'http://localhost:8801',
       maxIterations: 10,
     },
     history: [],

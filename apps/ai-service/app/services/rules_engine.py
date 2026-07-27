@@ -137,7 +137,8 @@ except ImportError:
 try:
     from ..core.config import settings as _settings
     _REDIS_URL = str(_settings.redis_url)
-except Exception:  # noqa: BLE001
+except Exception as e:  # noqa: BLE001
+    logger.warning("rules_engine module init settings import 失败: %s", e, exc_info=True)
     _settings = None  # type: ignore[assignment]
     _REDIS_URL = os.environ.get("REDIS_URL", "")
 
@@ -746,7 +747,8 @@ class RulesEngine:
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
             return re.sub(r"^<!-- action: \w+ -->\n", "", content)
-        except Exception:
+        except Exception as e:
+            logger.warning("rules_engine._read_version_content 失败: %s", e, exc_info=True)
             return None
 
     # ── 匹配(Scope 继承链)──────────────────────────────────
@@ -1294,7 +1296,8 @@ class RulesEngine:
         """解析 ISO timestamp,失败返回 epoch。"""
         try:
             return datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        except Exception:
+        except Exception as e:
+            logger.warning("rules_engine._parse_ts 失败: %s", e, exc_info=True)
             return datetime.min.replace(tzinfo=timezone.utc)
 
     def get_rule_stats(self, rule_id: str) -> dict[str, Any]:

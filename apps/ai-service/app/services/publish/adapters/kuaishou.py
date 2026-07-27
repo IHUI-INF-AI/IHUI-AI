@@ -53,7 +53,8 @@ class KuaishouAdapter(BasePlatformAdapter):
 
         try:
             data = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("kuaishou.verify_credentials JSON parse 失败: %s", e, exc_info=True)
             return False, f"invalid json: {resp.text[:200]}"
 
         if data.get("result") != 1:
@@ -96,7 +97,8 @@ class KuaishouAdapter(BasePlatformAdapter):
 
         try:
             rdata = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("kuaishou._upload_video JSON parse 失败: %s", e, exc_info=True)
             rdata = {}
 
         if rdata.get("result") != 1:
@@ -173,7 +175,8 @@ class KuaishouAdapter(BasePlatformAdapter):
 
         try:
             rdata = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("kuaishou.publish JSON parse 失败: %s", e, exc_info=True)
             rdata = {}
 
         if rdata.get("result") != 1:
