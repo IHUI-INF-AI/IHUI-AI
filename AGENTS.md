@@ -49,7 +49,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **不留技术债**:新代码 `tsc --noEmit` 必须 0 错误,禁止"先 any 后修"占位;重构遗留 `any` 必须替换为精确类型,**禁止**复制粘贴扩散 `any`;PR 引入新的 `any` 必须在 PR 描述说明例外依据。
 - **守门**(分层渐进):
   - **过渡期(当前生效)**:`@typescript-eslint/no-explicit-any: error`(packages/eslint-config/index.js,syntax-level 不需 type info,已生效)。lint-staged 对 staged 源码文件触发阻塞,新代码引入 `any` 会在 `pnpm lint` 报错。
-  - **目标态(待启用 typed-linting)**:`@typescript-eslint/no-unsafe-assignment` / `no-unsafe-member-access` / `no-unsafe-call` / `no-unsafe-return` / `no-unsafe-argument` 五条规则设为 `error`。**前置条件**:启用 `tseslint.configs.recommendedTypeChecked` + `parserOptions.project` 指向各包 `tsconfig.json`(monorepo project references),lint 时间会增加。启用前需单独工程任务评估全包 tsconfig 配置 + 性能影响。
+  - **目标态(已评估,推迟启用)**:`@typescript-eslint/no-unsafe-assignment` / `no-unsafe-member-access` / `no-unsafe-call` / `no-unsafe-return` / `no-unsafe-argument` 五条规则设为 `error`。**2026-07-28 评估结论**:实测启用 `recommendedTypeChecked` + `projectService` 后,(a) 性能不可接受 — cli 包(最小)lint 时间 2.7s -> 51.9s(慢 19 倍),web/api 包预计 30s -> 600s+;(b) 历史错误多 — cli 包已报 30+ 处(`require-await` / `no-unsafe-assignment` / `no-base-to-string` / `restrict-template-expressions` / `no-unnecessary-type-assertion`),全量预计 300+ 处;(c) 配置陷阱 — `eslint.config.js` 不被 tsconfig include 需 `allowDefaultProject`,JS 文件需单独豁免 `no-unsafe-*`。**启用前置条件(全部满足才可启用)**:1. lint 性能优化方案落地(eslint cache 持久化 / 仅 staged 文件 typed-lint / CI 才跑全量 typed-lint);2. 历史类型错误清零(`require-await` 等非 unsafe 错误先修);3. `allowDefaultProject` 配置就绪。
   - **测试文件豁免**:`**/*.test.ts` / `**/*.spec.ts` / `**/tests/**` / `**/test/**` / `**/e2e/**` 路径下的 mock/stub 代码允许 `any`(mock 类型断言必需),启用 typed-linting 后通过 `files` overrides 关闭上述规则。
   - CI `pnpm typecheck` 全绿方可合并。
 
