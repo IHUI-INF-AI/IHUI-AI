@@ -51,6 +51,17 @@
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #ef4444;
+  --chart-5: #8b5cf6;
+  --chart-6: #ec4899;
+  --chart-7: #06b6d4;
+  --chart-8: #84cc16;
+  --chart-text: #94a3b8;
+  --chart-axis: #e5e7eb;
+  --chart-success: #16a34a;
 }
 
 .dark {
@@ -79,6 +90,8 @@
   --color-warning-foreground: hsl(0 0% 98%);
   --color-info: hsl(199 80% 55%);
   --color-info-foreground: hsl(0 0% 98%);
+  --chart-text: #64748b;
+  --chart-axis: #1e293b;
 }
 
 /* ===== 通用工具类 ===== */

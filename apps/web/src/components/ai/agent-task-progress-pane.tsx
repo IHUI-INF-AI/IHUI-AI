@@ -50,8 +50,14 @@ const PLAN_CLS: Record<PlanStepStatus, string> = {
   completed: 'text-emerald-500',
 }
 
-// ─── 单个 plan step 渲染 ─────────────────────────────────────────────
-function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
+// ─── 单个 plan step 渲染(v10 memo 化:单个 step 变化不影响其他 step) ───
+const PlanStepItem = React.memo(function PlanStepItem({
+  step,
+  index,
+}: {
+  step: PlanStep
+  index: number
+}) {
   const Icon = PLAN_ICON[step.status]
   return (
     <div
@@ -100,7 +106,7 @@ function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
       </div>
     </div>
   )
-}
+})
 
 // ─── 主组件 ──────────────────────────────────────────────────────────
 export function AgentTaskProgressPane() {
@@ -156,6 +162,16 @@ export function AgentTaskProgressPane() {
 
   const contextUsage = totalTokens > 0 ? Math.min(100, (totalTokens / 128000) * 100) : 0
 
+  // v10: completedCount + progressPct 用 useMemo 缓存(避免每次 render 重新计算)
+  const { completedCount, progressPct } = React.useMemo(() => {
+    if (planSteps.length === 0) return { completedCount: 0, progressPct: 0 }
+    const completed = planSteps.filter((s) => s.status === 'completed').length
+    return {
+      completedCount: completed,
+      progressPct: (completed / planSteps.length) * 100,
+    }
+  }, [planSteps])
+
   // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
   React.useEffect(() => {
     const total = planSteps.length
@@ -208,9 +224,6 @@ export function AgentTaskProgressPane() {
   }, [open, pinned, closePane])
 
   if (!open) return null
-
-  const completedCount = planSteps.filter((s) => s.status === 'completed').length
-  const progressPct = planSteps.length > 0 ? (completedCount / planSteps.length) * 100 : 0
 
   return (
     <div
