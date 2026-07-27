@@ -10,9 +10,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
+
+type Nav = NativeStackNavigationProp<RootStackParamList>
 
 type WorkType = 'image' | 'video' | 'audio' | 'text'
 
@@ -36,7 +41,7 @@ interface MockFile {
 }
 
 export default function AigcPublishScreen() {
-  const navigation = useNavigation<any>()
+  const navigation = useNavigation<Nav>()
   const [workType, setWorkType] = useState<WorkType>('image')
   const [files, setFiles] = useState<MockFile[]>([])
   const [textContent, setTextContent] = useState('')
@@ -139,7 +144,7 @@ export default function AigcPublishScreen() {
             value={textContent}
             onChangeText={setTextContent}
             placeholder="请输入文本内容"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.text.tertiary}
             multiline
             textAlignVertical="top"
             maxLength={2000}
@@ -173,7 +178,7 @@ export default function AigcPublishScreen() {
         value={title}
         onChangeText={setTitle}
         placeholder="请输入作品标题"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={tokens.text.tertiary}
         maxLength={50}
       />
 
@@ -183,7 +188,7 @@ export default function AigcPublishScreen() {
         value={description}
         onChangeText={setDescription}
         placeholder="请输入作品简介"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={tokens.text.tertiary}
         multiline
         textAlignVertical="top"
       />
@@ -194,7 +199,7 @@ export default function AigcPublishScreen() {
         value={prompt}
         onChangeText={setPrompt}
         placeholder="请输入 AI 生成时使用的提示词"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={tokens.text.tertiary}
         multiline
         textAlignVertical="top"
       />
@@ -219,38 +224,38 @@ export default function AigcPublishScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.light,
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 16,
   },
-  backText: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6b7280', marginBottom: 12 },
-  label: { marginTop: 14, fontSize: 12, color: '#6b7280', marginBottom: 6 },
-  errorText: { fontSize: 13, color: '#dc2626', marginTop: 4 },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary, marginBottom: 12 },
+  label: { marginTop: 14, fontSize: 12, color: tokens.text.secondary, marginBottom: 6 },
+  errorText: { fontSize: 13, color: tokens.error.text, marginTop: 4 },
   typeRow: { flexDirection: 'row', gap: 8 },
   typeChip: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
   },
   typeChipActive: { backgroundColor: PRIMARY },
-  typeChipText: { fontSize: 13, color: '#374151', fontWeight: '600' },
-  typeChipTextActive: { color: '#fff' },
-  typeChipDesc: { marginTop: 2, fontSize: 10, color: '#9ca3af' },
+  typeChipText: { fontSize: 13, color: tokens.text.medium, fontWeight: '600' },
+  typeChipTextActive: { color: tokens.surface.light },
+  typeChipDesc: { marginTop: 2, fontSize: 10, color: tokens.text.tertiary },
   typeChipDescActive: { color: 'rgba(255,255,255,0.85)' },
   input: {
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: tokens.border.light,
     fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#fff',
+    color: tokens.text.primary,
+    backgroundColor: tokens.surface.light,
   },
   textarea: { minHeight: 88, maxHeight: 180, textAlignVertical: 'top' },
   fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -259,7 +264,7 @@ const styles = StyleSheet.create({
     height: 76,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#e5e7eb',
+    backgroundColor: tokens.border.light,
   },
   fileImage: { width: '100%', height: '100%' },
   fileRemove: {
@@ -269,24 +274,24 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 6,
-    backgroundColor: '#dc2626',
+    backgroundColor: tokens.error.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fileRemoveText: { color: '#fff', fontSize: 14, fontWeight: '700', lineHeight: 14 },
+  fileRemoveText: { color: tokens.surface.light, fontSize: 14, fontWeight: '700', lineHeight: 14 },
   fileAdd: {
     width: 76,
     height: 76,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: tokens.border.light,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: tokens.surface.muted,
   },
-  fileAddIcon: { fontSize: 24, color: '#9ca3af', lineHeight: 26 },
-  fileAddText: { fontSize: 11, color: '#9ca3af', marginTop: 2 },
+  fileAddIcon: { fontSize: 24, color: tokens.text.tertiary, lineHeight: 26 },
+  fileAddText: { fontSize: 11, color: tokens.text.tertiary, marginTop: 2 },
   submitBtn: {
     marginTop: 24,
     paddingVertical: 14,
@@ -295,6 +300,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  submitDisabled: { backgroundColor: '#9ca3af' },
-  submitText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  submitDisabled: { backgroundColor: tokens.text.tertiary },
+  submitText: { color: tokens.surface.light, fontSize: 15, fontWeight: '600' },
 })

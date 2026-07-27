@@ -8,6 +8,7 @@
 @import '../src/styles/glass.css';
 @import '../src/styles/premium.css';
 @import '../../../packages/design-tokens/src/styles/tokens.css';
+@import '../../../packages/design-tokens/src/styles/base.css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -90,11 +91,6 @@
 
 * {
   border-color: var(--color-border);
-}
-
-body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
 }
 
 /* AI 对话 markdown 渲染样式 */
