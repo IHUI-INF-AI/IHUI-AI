@@ -217,14 +217,16 @@ export function isWorkspaceRequest(x: unknown): x is WorkspaceRequest {
 }
 
 export function isToolChunk(x: unknown): x is ToolChunk {
-  return (
-    typeof x === 'object' &&
-    x !== null &&
-    'type' in x &&
-    'data' in x &&
-    typeof (x as any).type === 'string' &&
-    (x as any).type.startsWith('tool_call_')
-  )
+  if (
+    typeof x !== 'object' ||
+    x === null ||
+    !('type' in x) ||
+    !('data' in x)
+  ) {
+    return false
+  }
+  const typeValue = (x as { type: unknown }).type
+  return typeof typeValue === 'string' && typeValue.startsWith('tool_call_')
 }
 
 export function isWorkspaceEvent(x: unknown): x is WorkspaceEvent {

@@ -170,7 +170,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: Ta
               <div className="col-span-2">
                 <dt className="text-muted-foreground">{t('dependencies')}</dt>
                 <dd className="flex flex-wrap gap-1">
-                  {task.dependencies.map((dep: any) => (
+                  {task.dependencies.map((dep) => (
                     <span
                       key={dep}
                       className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-mono"
@@ -190,7 +190,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: Ta
           </dl>
 
           {/* 状态流转 */}
-          {(legalTargets as any)?.length > 0 && (
+          {legalTargets?.length > 0 && (
             <div className="space-y-2 rounded-md border border-border p-2.5">
               <Label className="flex items-center gap-1.5 text-xs font-medium">
                 <ArrowRightCircle className="h-3.5 w-3.5" />
@@ -198,7 +198,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onTaskChanged }: Ta
               </Label>
               <div className="flex flex-wrap gap-1.5">
                 {ALL_STATUSES.map((status) => {
-                  const isLegal = (legalTargets as any).includes(status)
+                  const isLegal = legalTargets.includes(status)
                   const isSelected = transitionTo === status
                   return (
                     <button

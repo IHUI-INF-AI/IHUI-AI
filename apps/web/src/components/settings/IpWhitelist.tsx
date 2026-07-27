@@ -4,7 +4,9 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Shield, Plus, Trash2, Loader2 } from 'lucide-react'
 import { z } from 'zod'
+import { toast } from 'sonner'
 
+import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui-react'
 
 const ipSchema = z.string().ip()
@@ -24,9 +26,8 @@ export function IpWhitelist() {
   const load = React.useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/user/ip-whitelist')
-      const json = (await res.json()) as { code: number; data?: string[] }
-      if (json.code === 0 && json.data) setIps(json.data)
+      const res = await fetchApi<string[]>('/api/user/ip-whitelist')
+      if (res.success && res.data) setIps(res.data)
     } catch {
       /* ignore */
     } finally {
@@ -51,13 +52,12 @@ export function IpWhitelist() {
     }
     setAdding(true)
     try {
-      const res = await fetch('/api/user/ip-whitelist', {
+      const res = await fetchApi('/api/user/ip-whitelist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ip: parsed.data }),
       })
-      const json = (await res.json()) as { code: number }
-      if (json.code === 0) {
+      if (res.success) {
         setIps((prev) => [...prev, parsed.data])
         setNewIp('')
       }
@@ -69,8 +69,16 @@ export function IpWhitelist() {
   const handleRemove = async (ip: string) => {
     setRemoving(ip)
     try {
-      await fetch(`/api/user/ip-whitelist?ip=${encodeURIComponent(ip)}`, { method: 'DELETE' })
-      setIps((prev) => prev.filter((x) => x !== ip))
+      const res = await fetchApi(`/api/user/ip-whitelist?ip=${encodeURIComponent(ip)}`, {
+        method: 'DELETE',
+      })
+      if (res.success) {
+        setIps((prev) => prev.filter((x) => x !== ip))
+      } else {
+        toast.error('删除失败')
+      }
+    } catch {
+      toast.error('删除失败')
     } finally {
       setRemoving(null)
     }
