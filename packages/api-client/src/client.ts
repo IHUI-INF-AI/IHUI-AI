@@ -13,6 +13,11 @@ export type FetchApiOptions = RequestInit & {
 
 let tokenProvider: TokenProvider = { getToken: () => null }
 let baseUrl: string = ''
+// SSE 流式请求专用 baseUrl(2026-07-27 立):
+// Next.js dev proxy 对 SSE 流有超时/缓冲问题,导致流式响应被中断(net::ERR_ABORTED)。
+// streamChat 用 streamBaseUrl 直连 API 服务器,绕过 Next.js dev proxy。
+// 未设置时降级到 baseUrl,保持向后兼容。
+let streamBaseUrl: string = ''
 let circuitBreaker: CircuitBreaker | null = null
 
 export function setTokenProvider(provider: TokenProvider): void {
@@ -21,6 +26,10 @@ export function setTokenProvider(provider: TokenProvider): void {
 
 export function setBaseUrl(url: string): void {
   baseUrl = url.replace(/\/$/, '')
+}
+
+export function setStreamBaseUrl(url: string): void {
+  streamBaseUrl = url.replace(/\/$/, '')
 }
 
 /** 注入全局熔断器(null 表示禁用,所有请求直连) */
@@ -64,7 +73,7 @@ export function mergeAbortSignals(signals: (AbortSignal | null | undefined)[]): 
   return controller.signal
 }
 
-function normalizeUrl(url: string): string {
+function normalizeUrl(url: string, useStreamBase = false): string {
   if (/^https?:\/\//i.test(url)) return url
   const normalized = (() => {
     if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/ws/')) return url
@@ -74,7 +83,8 @@ function normalizeUrl(url: string): string {
     if (url.startsWith('/')) return `/api${url}`
     return `/api/${url}`
   })()
-  return baseUrl ? `${baseUrl}${normalized}` : normalized
+  const base = useStreamBase && streamBaseUrl ? streamBaseUrl : baseUrl
+  return base ? `${base}${normalized}` : normalized
 }
 
 /**
@@ -926,7 +936,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   let attempt = 0
 
   const token = tokenProvider.getToken()
-  const url = normalizeUrl(opts.path ?? '/ai/chat/stream')
+  // 2026-07-27 修复 SSE 流被 Next.js dev proxy 中断:
+  // streamChat 用 streamBaseUrl(直连 API 服务器),绕过 Next.js dev proxy 的超时/缓冲。
+  // 普通请求仍用 baseUrl(走同源代理,cookie SSR 正常)。
+  const url = normalizeUrl(opts.path ?? '/ai/chat/stream', true)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
@@ -953,312 +966,327 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       if (lastEventIdRef.current) headers['Last-Event-ID'] = lastEventIdRef.current
 
       const resp = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: opts.signal,
-    })
-    if (!resp.ok || !resp.body) {
-      const text = await resp.text().catch(() => '')
-      let parsedBody: Record<string, unknown> | undefined
-      try {
-        if (text) parsedBody = JSON.parse(text) as Record<string, unknown>
-      } catch {
-        /* 非 JSON 响应忽略 */
-      }
-      const err = new Error(text || `请求失败（${resp.status}）`)
-      ;(err as Error & { name: string }).name = 'SSEError'
-      ;(err as Error & { code: number }).code = resp.status
-      if (parsedBody) {
-        const ec = parsedBody.errorCode
-        if (typeof ec === 'string') {
-          ;(err as Error & { errorCode: string }).errorCode = ec
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: opts.signal,
+        // 2026-07-27 跨域 SSE 直连:携带 credentials 让 CORS 允许凭证,
+        // Bearer token 在 Authorization header 中不受影响。
+        credentials: 'include',
+      })
+      if (!resp.ok || !resp.body) {
+        const text = await resp.text().catch(() => '')
+        let parsedBody: Record<string, unknown> | undefined
+        try {
+          if (text) parsedBody = JSON.parse(text) as Record<string, unknown>
+        } catch {
+          /* 非 JSON 响应忽略 */
         }
-        const msg = parsedBody.message
-        if (typeof msg === 'string' && msg) {
-          err.message = `${msg}（${resp.status}）`
+        const err = new Error(text || `请求失败（${resp.status}）`)
+        ;(err as Error & { name: string }).name = 'SSEError'
+        ;(err as Error & { code: number }).code = resp.status
+        if (parsedBody) {
+          const ec = parsedBody.errorCode
+          if (typeof ec === 'string') {
+            ;(err as Error & { errorCode: string }).errorCode = ec
+          }
+          const msg = parsedBody.message
+          if (typeof msg === 'string' && msg) {
+            err.message = `${msg}（${resp.status}）`
+          }
         }
-      }
-      const retryAfterHeader = resp.headers.get('retry-after')
-      if (retryAfterHeader) {
-        const n = Number(retryAfterHeader)
-        if (Number.isFinite(n)) {
-          ;(err as Error & { retryAfter: number }).retryAfter = n
+        const retryAfterHeader = resp.headers.get('retry-after')
+        if (retryAfterHeader) {
+          const n = Number(retryAfterHeader)
+          if (Number.isFinite(n)) {
+            ;(err as Error & { retryAfter: number }).retryAfter = n
+          }
         }
+        throw err
       }
-      throw err
-    }
 
-    const reader = resp.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    const hasReasoning = typeof opts.onReasoning === 'function'
-    const hasCompaction = typeof opts.onCompaction === 'function'
-    const hasQuestion = typeof opts.onQuestion === 'function'
-    const hasAgentDelta = typeof opts.onAgentDelta === 'function'
-    const hasToolCall = typeof opts.onToolCall === 'function'
-    // P4-2: fallback 事件回调存在时启用解析
-    const hasFallback = typeof opts.onFallback === 'function'
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      const hasReasoning = typeof opts.onReasoning === 'function'
+      const hasCompaction = typeof opts.onCompaction === 'function'
+      const hasQuestion = typeof opts.onQuestion === 'function'
+      const hasAgentDelta = typeof opts.onAgentDelta === 'function'
+      const hasToolCall = typeof opts.onToolCall === 'function'
+      // P4-2: fallback 事件回调存在时启用解析
+      const hasFallback = typeof opts.onFallback === 'function'
 
-    // ===== Dedupe 机制(isRetry 时启用) =====
-    // 重连后若服务端不支持 Last-Event-ID 续传会从头重发,前端用 receivedContent 前缀匹配
-    // 跳过已接收内容,仅追加新增部分;若服务端发送不同内容则放弃 dedupe 全量追加
-    let dedupeBuffer = ''
-    let dedupeActive = isRetry && receivedContentRef.current.length > 0
-    const agentDedupeBuffer = new Map<string, string>()
+      // ===== Dedupe 机制(isRetry 时启用) =====
+      // 重连后若服务端不支持 Last-Event-ID 续传会从头重发,前端用 receivedContent 前缀匹配
+      // 跳过已接收内容,仅追加新增部分;若服务端发送不同内容则放弃 dedupe 全量追加
+      let dedupeBuffer = ''
+      let dedupeActive = isRetry && receivedContentRef.current.length > 0
+      const agentDedupeBuffer = new Map<string, string>()
 
-    const emitDelta = (delta: string): void => {
-      if (!dedupeActive) {
-        opts.onDelta?.(delta)
-        receivedContentRef.current += delta
-        return
-      }
-      dedupeBuffer += delta
-      const received = receivedContentRef.current
-      if (dedupeBuffer.length < received.length) {
-        if (received.startsWith(dedupeBuffer)) return
-        opts.onDelta?.(dedupeBuffer)
-        receivedContentRef.current += dedupeBuffer
-        dedupeBuffer = ''
-        dedupeActive = false
-        return
-      }
-      const tail = dedupeBuffer.slice(received.length)
-      if (dedupeBuffer.slice(0, received.length) === received) {
-        if (tail) opts.onDelta?.(tail)
-        receivedContentRef.current += tail
-      } else {
-        opts.onDelta?.(dedupeBuffer)
-        receivedContentRef.current += dedupeBuffer
-      }
-      dedupeBuffer = ''
-      dedupeActive = false
-    }
-
-    const emitAgentDelta = (agentId: string, delta: string): void => {
-      const received = receivedAgentRef.current.get(agentId) ?? ''
-      if (!isRetry || received.length === 0) {
-        opts.onAgentDelta!(agentId, delta)
-        receivedAgentRef.current.set(agentId, received + delta)
-        return
-      }
-      const buf = (agentDedupeBuffer.get(agentId) ?? '') + delta
-      if (buf.length < received.length) {
-        if (received.startsWith(buf)) {
-          agentDedupeBuffer.set(agentId, buf)
+      const emitDelta = (delta: string): void => {
+        if (!dedupeActive) {
+          opts.onDelta?.(delta)
+          receivedContentRef.current += delta
           return
         }
-        opts.onAgentDelta!(agentId, buf)
-        receivedAgentRef.current.set(agentId, received + buf)
+        dedupeBuffer += delta
+        const received = receivedContentRef.current
+        if (dedupeBuffer.length < received.length) {
+          if (received.startsWith(dedupeBuffer)) return
+          opts.onDelta?.(dedupeBuffer)
+          receivedContentRef.current += dedupeBuffer
+          dedupeBuffer = ''
+          dedupeActive = false
+          return
+        }
+        const tail = dedupeBuffer.slice(received.length)
+        if (dedupeBuffer.slice(0, received.length) === received) {
+          if (tail) opts.onDelta?.(tail)
+          receivedContentRef.current += tail
+        } else {
+          opts.onDelta?.(dedupeBuffer)
+          receivedContentRef.current += dedupeBuffer
+        }
+        dedupeBuffer = ''
+        dedupeActive = false
+      }
+
+      const emitAgentDelta = (agentId: string, delta: string): void => {
+        const received = receivedAgentRef.current.get(agentId) ?? ''
+        if (!isRetry || received.length === 0) {
+          opts.onAgentDelta!(agentId, delta)
+          receivedAgentRef.current.set(agentId, received + delta)
+          return
+        }
+        const buf = (agentDedupeBuffer.get(agentId) ?? '') + delta
+        if (buf.length < received.length) {
+          if (received.startsWith(buf)) {
+            agentDedupeBuffer.set(agentId, buf)
+            return
+          }
+          opts.onAgentDelta!(agentId, buf)
+          receivedAgentRef.current.set(agentId, received + buf)
+          agentDedupeBuffer.delete(agentId)
+          return
+        }
+        const tail = buf.slice(received.length)
+        if (buf.slice(0, received.length) === received) {
+          if (tail) opts.onAgentDelta!(agentId, tail)
+          receivedAgentRef.current.set(agentId, received + tail)
+        } else {
+          opts.onAgentDelta!(agentId, buf)
+          receivedAgentRef.current.set(agentId, received + buf)
+        }
         agentDedupeBuffer.delete(agentId)
-        return
       }
-      const tail = buf.slice(received.length)
-      if (buf.slice(0, received.length) === received) {
-        if (tail) opts.onAgentDelta!(agentId, tail)
-        receivedAgentRef.current.set(agentId, received + tail)
-      } else {
-        opts.onAgentDelta!(agentId, buf)
-        receivedAgentRef.current.set(agentId, received + buf)
-      }
-      agentDedupeBuffer.delete(agentId)
-    }
 
-    const tryParseCompaction = (line: string): void => {
-      if (!hasCompaction) return
-      if (!line || line.startsWith(':')) return
-      let data = line
-      if (line.startsWith('data:')) {
-        data = line.slice(5).replace(/^\s/, '')
-      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
-        return
-      }
-      if (!data || data === '[DONE]') return
-      try {
-        const json = JSON.parse(data)
-        if (json?.compaction?.triggered === true) {
-          opts.onCompaction!({
-            tokensBefore: Number(json.compaction.tokensBefore ?? 0),
-            tokensAfter: Number(json.compaction.tokensAfter ?? 0),
-            removedCount: Number(json.compaction.removedCount ?? 0),
-            usageRatio: Number(json.compaction.usageRatio ?? 0),
-          })
+      const tryParseCompaction = (line: string): void => {
+        if (!hasCompaction) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
         }
-      } catch {
-        /* 非 JSON 或非 compaction 事件忽略 */
-      }
-    }
-
-    const tryParseQuestion = (line: string): void => {
-      if (!hasQuestion) return
-      if (!line || line.startsWith(':')) return
-      let data = line
-      if (line.startsWith('data:')) {
-        data = line.slice(5).replace(/^\s/, '')
-      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
-        return
-      }
-      if (!data || data === '[DONE]') return
-      try {
-        const json = JSON.parse(data)
-        if (json?.type === 'question' && json?.question?.questionId) {
-          const q = json.question
-          opts.onQuestion!({
-            questionId: String(q.questionId),
-            prompt: String(q.prompt ?? ''),
-            options: Array.isArray(q.options)
-              ? q.options
-                  .filter((o: unknown) => o && typeof o === 'object' && 'id' in o && 'label' in o)
-                  .map((o: { id: unknown; label: unknown }) => ({
-                    id: String(o.id),
-                    label: String(o.label),
-                  }))
-              : [],
-            allowCustom: q.allowCustom !== false,
-            allowMultiple: q.allowMultiple === true,
-          })
-        }
-      } catch {
-        /* 非 JSON 或非 question 事件忽略 */
-      }
-    }
-
-    /** 解析 Vercel AI SDK 协议 tool_call 事件:
-     *  - type 2(tool-call):{ toolCallId, toolName, args }
-     *  - type 7(tool-result):{ toolCallId, result, isError }
-     *  - 自定义 tool_result JSON:{ type:'tool_result', toolCallId, toolName, args, result }
-     * 触发 onToolCall 回调,前端据 args.result 中的 url 自动打开 WorkPanel */
-    const tryParseToolCall = (line: string): void => {
-      if (!hasToolCall) return
-      if (!line || line.startsWith(':')) return
-      let data = line
-      if (line.startsWith('data:')) {
-        data = line.slice(5).replace(/^\s/, '')
-      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
-        return
-      }
-      if (!data || data === '[DONE]') return
-
-      // Vercel AI SDK 协议 TYPE:JSON
-      const proto = data.match(/^(\d+):(.*)$/s)
-      if (proto?.[1] !== undefined) {
-        const t = proto[1]
+        if (!data || data === '[DONE]') return
         try {
-          const parsed = JSON.parse(proto[2]!)
-          if (t === '2' && parsed?.toolCallId && parsed?.toolName) {
-            opts.onToolCall!({
-              type: 'tool-call-start',
-              toolCallId: String(parsed.toolCallId),
-              toolName: String(parsed.toolName),
-              args: parsed.args,
-            })
-          } else if (t === '7' && parsed?.toolCallId) {
-            opts.onToolCall!({
-              type: 'tool-result',
-              toolCallId: String(parsed.toolCallId),
-              toolName: typeof parsed.toolName === 'string' ? parsed.toolName : '',
-              result: parsed.result,
-              isError: parsed.isError === true,
+          const json = JSON.parse(data)
+          if (json?.compaction?.triggered === true) {
+            opts.onCompaction!({
+              tokensBefore: Number(json.compaction.tokensBefore ?? 0),
+              tokensAfter: Number(json.compaction.tokensAfter ?? 0),
+              removedCount: Number(json.compaction.removedCount ?? 0),
+              usageRatio: Number(json.compaction.usageRatio ?? 0),
             })
           }
         } catch {
-          /* JSON 解析失败忽略 */
+          /* 非 JSON 或非 compaction 事件忽略 */
         }
-        return
       }
 
-      // 自定义 JSON 事件(支持 ai-service agent tool loop 推送的 tool-call-start / tool-result)
-      if (data.startsWith('{')) {
+      const tryParseQuestion = (line: string): void => {
+        if (!hasQuestion) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
         try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type === 'tool_result' && json?.toolCallId) {
-            opts.onToolCall!({
-              type: 'tool-result',
-              toolCallId: String(json.toolCallId),
-              toolName: typeof json.toolName === 'string' ? json.toolName : '',
-              args: json.args as Record<string, unknown> | undefined,
-              result: json.result,
-              isError: json.isError === true,
-            })
-          } else if (json?.type === 'tool-call-start' && json?.toolCallId) {
-            opts.onToolCall!({
-              type: 'tool-call-start',
-              toolCallId: String(json.toolCallId),
-              toolName: typeof json.toolName === 'string' ? json.toolName : '',
-              args: json.args as Record<string, unknown> | undefined,
-            })
-          } else if (json?.type === 'tool-result' && json?.toolCallId) {
-            opts.onToolCall!({
-              type: 'tool-result',
-              toolCallId: String(json.toolCallId),
-              toolName: typeof json.toolName === 'string' ? json.toolName : '',
-              args: json.args as Record<string, unknown> | undefined,
-              result: json.result,
-              isError: json.isError === true,
+          const json = JSON.parse(data)
+          if (json?.type === 'question' && json?.question?.questionId) {
+            const q = json.question
+            opts.onQuestion!({
+              questionId: String(q.questionId),
+              prompt: String(q.prompt ?? ''),
+              options: Array.isArray(q.options)
+                ? q.options
+                    .filter((o: unknown) => o && typeof o === 'object' && 'id' in o && 'label' in o)
+                    .map((o: { id: unknown; label: unknown }) => ({
+                      id: String(o.id),
+                      label: String(o.label),
+                    }))
+                : [],
+              allowCustom: q.allowCustom !== false,
+              allowMultiple: q.allowMultiple === true,
             })
           }
         } catch {
-          /* 非 JSON 忽略 */
+          /* 非 JSON 或非 question 事件忽略 */
         }
       }
-    }
 
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      let nl: number
-      while ((nl = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.slice(0, nl).replace(/\r$/, '')
-        buffer = buffer.slice(nl + 1)
-        // 捕获 SSE id: 行(用于 Last-Event-ID 断点续传)
-        if (line.startsWith('id:')) lastEventIdRef.current = line.slice(3).trim()
-        tryParseCompaction(line)
-        tryParseQuestion(line)
-        tryParseToolCall(line)
-        // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
+      /** 解析 Vercel AI SDK 协议 tool_call 事件:
+       *  - type 2(tool-call):{ toolCallId, toolName, args }
+       *  - type 7(tool-result):{ toolCallId, result, isError }
+       *  - 自定义 tool_result JSON:{ type:'tool_result', toolCallId, toolName, args, result }
+       * 触发 onToolCall 回调,前端据 args.result 中的 url 自动打开 WorkPanel */
+      const tryParseToolCall = (line: string): void => {
+        if (!hasToolCall) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+
+        // Vercel AI SDK 协议 TYPE:JSON
+        const proto = data.match(/^(\d+):(.*)$/s)
+        if (proto?.[1] !== undefined) {
+          const t = proto[1]
+          try {
+            const parsed = JSON.parse(proto[2]!)
+            if (t === '2' && parsed?.toolCallId && parsed?.toolName) {
+              opts.onToolCall!({
+                type: 'tool-call-start',
+                toolCallId: String(parsed.toolCallId),
+                toolName: String(parsed.toolName),
+                args: parsed.args,
+              })
+            } else if (t === '7' && parsed?.toolCallId) {
+              opts.onToolCall!({
+                type: 'tool-result',
+                toolCallId: String(parsed.toolCallId),
+                toolName: typeof parsed.toolName === 'string' ? parsed.toolName : '',
+                result: parsed.result,
+                isError: parsed.isError === true,
+              })
+            }
+          } catch {
+            /* JSON 解析失败忽略 */
+          }
+          return
+        }
+
+        // 自定义 JSON 事件(支持 ai-service agent tool loop 推送的 tool-call-start / tool-result)
+        if (data.startsWith('{')) {
+          try {
+            const json = JSON.parse(data) as Record<string, unknown>
+            if (json?.type === 'tool_result' && json?.toolCallId) {
+              opts.onToolCall!({
+                type: 'tool-result',
+                toolCallId: String(json.toolCallId),
+                toolName: typeof json.toolName === 'string' ? json.toolName : '',
+                args: json.args as Record<string, unknown> | undefined,
+                result: json.result,
+                isError: json.isError === true,
+              })
+            } else if (json?.type === 'tool-call-start' && json?.toolCallId) {
+              opts.onToolCall!({
+                type: 'tool-call-start',
+                toolCallId: String(json.toolCallId),
+                toolName: typeof json.toolName === 'string' ? json.toolName : '',
+                args: json.args as Record<string, unknown> | undefined,
+              })
+            } else if (json?.type === 'tool-result' && json?.toolCallId) {
+              opts.onToolCall!({
+                type: 'tool-result',
+                toolCallId: String(json.toolCallId),
+                toolName: typeof json.toolName === 'string' ? json.toolName : '',
+                args: json.args as Record<string, unknown> | undefined,
+                result: json.result,
+                isError: json.isError === true,
+              })
+            }
+          } catch {
+            /* 非 JSON 忽略 */
+          }
+        }
+      }
+
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let nl: number
+        while ((nl = buffer.indexOf('\n')) !== -1) {
+          const line = buffer.slice(0, nl).replace(/\r$/, '')
+          buffer = buffer.slice(nl + 1)
+          // 捕获 SSE id: 行(用于 Last-Event-ID 断点续传)
+          if (line.startsWith('id:')) lastEventIdRef.current = line.slice(3).trim()
+          tryParseCompaction(line)
+          tryParseQuestion(line)
+          tryParseToolCall(line)
+          // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
+          if (hasFallback) {
+            const fbEvt = parseFallbackEvent(line)
+            if (fbEvt) {
+              opts.onFallback!(fbEvt)
+              continue
+            }
+          }
+          const delta = parseStreamLine(line)
+          if (delta) {
+            const agentId = hasAgentDelta ? extractAgentId(line) : undefined
+            if (agentId) emitAgentDelta(agentId, delta)
+            else emitDelta(delta)
+          }
+          if (hasReasoning) {
+            const r = parseStreamLineReasoning(line)
+            if (r) opts.onReasoning!(r)
+          }
+        }
+      }
+      if (buffer.trim()) {
+        if (buffer.startsWith('id:')) lastEventIdRef.current = buffer.slice(3).trim()
+        tryParseCompaction(buffer)
+        tryParseQuestion(buffer)
+        tryParseToolCall(buffer)
+        // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
         if (hasFallback) {
-          const fbEvt = parseFallbackEvent(line)
-          if (fbEvt) {
-            opts.onFallback!(fbEvt)
-            continue
-          }
+          const fbEvt = parseFallbackEvent(buffer)
+          if (fbEvt) opts.onFallback!(fbEvt)
         }
-        const delta = parseStreamLine(line)
+        const delta = parseStreamLine(buffer)
         if (delta) {
-          const agentId = hasAgentDelta ? extractAgentId(line) : undefined
+          const agentId = hasAgentDelta ? extractAgentId(buffer) : undefined
           if (agentId) emitAgentDelta(agentId, delta)
           else emitDelta(delta)
         }
         if (hasReasoning) {
-          const r = parseStreamLineReasoning(line)
+          const r = parseStreamLineReasoning(buffer)
           if (r) opts.onReasoning!(r)
         }
       }
-    }
-    if (buffer.trim()) {
-      if (buffer.startsWith('id:')) lastEventIdRef.current = buffer.slice(3).trim()
-      tryParseCompaction(buffer)
-      tryParseQuestion(buffer)
-      tryParseToolCall(buffer)
-      // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
-      if (hasFallback) {
-        const fbEvt = parseFallbackEvent(buffer)
-        if (fbEvt) opts.onFallback!(fbEvt)
-      }
-      const delta = parseStreamLine(buffer)
-      if (delta) {
-        const agentId = hasAgentDelta ? extractAgentId(buffer) : undefined
-        if (agentId) emitAgentDelta(agentId, delta)
-        else emitDelta(delta)
-      }
-      if (hasReasoning) {
-        const r = parseStreamLineReasoning(buffer)
-        if (r) opts.onReasoning!(r)
-      }
-    }
-    opts.onDone?.()
-    return
+      opts.onDone?.()
+      return
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         opts.onDone?.()
@@ -1269,9 +1297,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       // P2-2 retry-after 协商:429 + retryAfter 视为可重试(走网络重试路径,按 retryAfter 等待);
       // 429 无 retryAfter 仍视为业务错误(不重连);401/403 永远是业务错误
       const isBusinessError =
-        code === 401 ||
-        code === 403 ||
-        (code === 429 && info?.retryAfter === undefined)
+        code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
       const canRetry = !isBusinessError && attempt < maxRetries
       if (!canRetry) {
         const message = err instanceof Error ? err.message : '网络异常'
