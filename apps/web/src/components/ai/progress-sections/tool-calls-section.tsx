@@ -212,7 +212,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
                       data-testid={`tool-copy-args-${tool.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-muted/40 p-1 font-mono text-[10px] text-muted-foreground/80">
+                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-muted/60 p-1 font-mono text-[10px] text-muted-foreground/90">
                     {truncateForDisplay(formatArgsJson(tool.args))}
                   </pre>
                 </div>
@@ -249,7 +249,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
                       data-testid={`tool-copy-error-${tool.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/5 p-1 font-mono text-[10px] text-red-500/80">
+                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/10 p-1 font-mono text-[10px] text-red-500/90">
                     {tool.error}
                   </pre>
                 </div>
