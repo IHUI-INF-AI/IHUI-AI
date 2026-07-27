@@ -53,13 +53,19 @@ IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai
 
 ## 为什么造这个轮子
 
-[这里写你的真实故事:遇到什么痛点 → 现有方案不足 → 决定造一个完整的。200-400 字]
+2024 年初,我接了第 3 个 AI 应用外包项目,发现 60% 的代码在重复:AI 聊天 UI、LLM API 接入、Stripe 支付、Auth0 鉴权、用户管理、订单系统。每次都要重写一遍,客户每次都要付同样价格。
 
-例如:
-- Dify 不支持 8 端,只做 web
-- Coze 闭源,数据不在自己手里
-- n8n 是工作流,不是 AI 操作系统
-- ChatGPT Team 不支持自部署,合规问题
+与此同时,我深度使用 Dify/Coze/LangChain/Cursor,发现每个产品只解决了 AI 产业链的一环:
+
+- Dify 解决了 AI 应用编排,但**没有支付/会员/订单**(商业闭环缺失)
+- Coze 体验丝滑但**完全闭源**(数据出不了飞书)
+- Cursor 编程强但**只做编程**(垂直太深)
+- FastGPT 知识库好但**没有 SaaS 闭环**
+- LangChain/AutoGen 是**框架,不是产品**(客户要的是能上线收钱的产品,不是 hello world)
+
+**所以我做 IHUI-AI 的核心思路是:"整车下线",不是"造车框架"**。非技术团队 clone 下来,改改配置就能上线,能直接收钱。
+
+一年多时间,从 0 做到了 8 端同源(web/api/ai-service/cli/desktop/extension/mobile/miniapp)+ 176 大模型统一调度 + LangGraph+MCP+A2A 三栈 + 340 张表 + 1300+ API + 5346 测试 + 32 个 pre-commit 守门脚本。
 
 ## 6 大类能力对标
 
