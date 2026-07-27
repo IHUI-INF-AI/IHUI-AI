@@ -4,15 +4,17 @@ import { orders } from './billing.js'
 
 /**
  * VIP 等级表。
- * price 以分为单位。durationDays: 有效天数。benefits: 权益列表（jsonb）。
+ * price 以分为单位。durationDays: 有效天数。benefits: 权益配置(jsonb, VipPlanQuota 结构)。
  * status: 1=上架 0=下架
+ * levelValue 4 档(P0-2a,2026-07-27):0=免费 / 1=个人 / 2=团队 / 3=企业
+ * benefits 结构见 apps/api/src/services/plan-entitlement-service.ts VipPlanQuotaSchema
  */
 export const vipLevels = pgTable(
   'vip_levels',
   {
     id: uuid('id').defaultRandom().primaryKey(),
     levelName: varchar('level_name', { length: 100 }).notNull(),
-    levelValue: integer('level_value').default(0).notNull(), // 0=普通 1=VIP 2=操盘手
+    levelValue: integer('level_value').default(0).notNull(), // 0=免费 1=个人 2=团队 3=企业
     price: integer('price').default(0).notNull(),
     durationDays: integer('duration_days').default(30).notNull(),
     benefits: jsonb('benefits').notNull().default([]),
