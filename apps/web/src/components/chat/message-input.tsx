@@ -38,6 +38,7 @@ import {
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
+import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import {
   FullAccessConfirmDialog,
   isFullAccessConfirmSuppressed,
@@ -890,6 +891,10 @@ export function MessageInput({
                 提示词模板按钮从底部工具栏上移至此(用户规则:挪到输入框上方附加栏),
                 与空状态 chips 共用同一组 5 个核心模板源,视觉风格协调。 */}
             <div className="flex items-center gap-1 bg-muted/30 px-2 py-1.5">
+              {/* Agent 任务进度触发按钮(2026-07-27 v5,用户规则:放到权限模式栏前面):
+                  - 无进度时显示"任务列表",有进度时显示"01/06"格式
+                  - 点击切换底部 Pane 开关,Ctrl+Shift+J 快捷键全局触发 */}
+              <AgentProgressTrigger />
               {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
                   盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
                   点击弹 Codex 风格 popover,详见 PermissionModePopover 组件。 */}
