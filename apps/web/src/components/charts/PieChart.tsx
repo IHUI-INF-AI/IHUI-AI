@@ -11,15 +11,16 @@ interface PieChartProps {
   className?: string
 }
 
+// 图表色板引用 design-tokens(tokens.css --chart-1~8)
 const defaultColors = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#06b6d4',
-  '#84cc16',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'var(--chart-6)',
+  'var(--chart-7)',
+  'var(--chart-8)',
 ]
 
 export const PieChart = React.memo(function PieChart({
@@ -74,7 +75,7 @@ export const PieChart = React.memo(function PieChart({
           <path
             key={s.label}
             d={s.path}
-            fill={s.color}
+            style={{ fill: s.color }}
             className="transition-opacity hover:opacity-80"
           />
         ))}

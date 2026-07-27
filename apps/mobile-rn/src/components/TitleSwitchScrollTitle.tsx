@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 
 export interface TitleSwitchItem {
   name: string
@@ -106,7 +107,7 @@ export function TitleSwitchScrollTitle({ mainList = DEFAULT_LIST, onChange }: Pr
 const s = StyleSheet.create({
   container: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.surface.light,
     paddingBottom: 12,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,

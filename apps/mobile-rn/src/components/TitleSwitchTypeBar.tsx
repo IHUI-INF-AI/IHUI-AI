@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 
 export interface TypeTabItem {
   id: string
@@ -115,7 +116,7 @@ export function TitleSwitchTypeBar({ showAll = false, customize = false, onChang
               onChangeText={setValue}
               maxLength={4}
               placeholder="请输入种类"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={tokens.text.tertiary}
             />
             <Pressable style={s.dialogBtn} onPress={addCustom} accessibilityLabel="确定">
               <Text style={s.dialogBtnText}>确定</Text>
@@ -134,7 +135,7 @@ const s = StyleSheet.create({
     height: 36,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderColor: tokens.surface.light,
     backgroundColor: 'rgba(248,249,252,0.65)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -143,7 +144,7 @@ const s = StyleSheet.create({
     borderColor: '#E0E8FF',
     backgroundColor: 'rgba(205,208,255,0.5)',
   },
-  tabText: { fontSize: 13, fontWeight: '600', color: 'rgba(0,0,0,0.4)' },
+  tabText: { fontSize: 13, fontWeight: '600', color: tokens.overlay.modal },
   tabTextActive: { color: '#000' },
   mask: {
     flex: 1,
@@ -155,7 +156,7 @@ const s = StyleSheet.create({
     width: 280,
     padding: 20,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.surface.light,
     alignItems: 'center',
   },
   dialogTitle: { fontSize: 14, fontWeight: '700', color: '#3D3D3D', marginBottom: 16 },
@@ -167,7 +168,7 @@ const s = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 13,
-    color: '#374151',
+    color: tokens.text.medium,
     marginBottom: 16,
   },
   dialogBtn: {

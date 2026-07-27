@@ -9,9 +9,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
+
+// Aigc 系列屏幕未注册到 RootStackParamList(独立 mock 屏幕),本地扩展导航类型
+// 避免 useNavigation<any>() 退化为 any,保留 navigate/goBack 的类型安全
+type AigcStackParamList = RootStackParamList & {
+  AigcCover: { id: string; title: string }
+  AigcPublish: undefined
+}
+type Nav = NativeStackNavigationProp<AigcStackParamList>
 
 type FileType = 0 | 1 | 3 | 4
 
@@ -121,7 +132,7 @@ const MOCK_WORKS: AigcWork[] = [
 ]
 
 export default function AigcListScreen() {
-  const navigation = useNavigation<any>()
+  const navigation = useNavigation<Nav>()
   const [category, setCategory] = useState<Category>('all')
   const [refreshing, setRefreshing] = useState(false)
 
@@ -262,26 +273,26 @@ export default function AigcListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-  backText: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
-  headerSubtitle: { marginTop: 4, fontSize: 13, color: '#6b7280' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  headerSubtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
   categoryBar: { maxHeight: 48 },
   categoryContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   categoryChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.surface.card,
   },
   categoryChipActive: { backgroundColor: PRIMARY },
-  categoryText: { fontSize: 13, color: '#374151' },
-  categoryTextActive: { color: '#fff', fontWeight: '600' },
+  categoryText: { fontSize: 13, color: tokens.text.medium },
+  categoryTextActive: { color: tokens.surface.light, fontWeight: '600' },
   list: { flex: 1, paddingHorizontal: 12 },
   row: { gap: 12, marginBottom: 12 },
-  mediaCard: { flex: 1, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f9fafb' },
-  mediaCover: { width: '100%', aspectRatio: 3 / 4, backgroundColor: '#e5e7eb' },
+  mediaCard: { flex: 1, borderRadius: 8, overflow: 'hidden', backgroundColor: tokens.surface.muted },
+  mediaCover: { width: '100%', aspectRatio: 3 / 4, backgroundColor: tokens.border.light },
   videoBadge: {
     position: 'absolute',
     top: 8,
@@ -291,27 +302,27 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  videoBadgeText: { fontSize: 11, color: '#fff' },
+  videoBadgeText: { fontSize: 11, color: tokens.surface.light },
   mediaFooter: { padding: 10 },
-  cardTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 12, color: '#6b7280' },
-  textCard: { flex: 2, padding: 14, borderRadius: 8, backgroundColor: '#f9fafb', marginBottom: 12 },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
+  textCard: { flex: 2, padding: 14, borderRadius: 8, backgroundColor: tokens.surface.muted, marginBottom: 12 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTime: { fontSize: 11, color: '#9ca3af' },
+  cardTime: { fontSize: 11, color: tokens.text.tertiary },
   promptText: { marginTop: 8, fontSize: 12, color: PRIMARY },
-  contentText: { marginTop: 8, fontSize: 13, color: '#374151', lineHeight: 20 },
+  contentText: { marginTop: 8, fontSize: 13, color: tokens.text.medium, lineHeight: 20 },
   audioCard: {
     flex: 2,
     flexDirection: 'row',
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#f9fafb',
+    backgroundColor: tokens.surface.muted,
     marginBottom: 12,
     alignItems: 'center',
   },
-  audioCover: { width: 64, height: 64, borderRadius: 8, backgroundColor: '#e5e7eb' },
+  audioCover: { width: 64, height: 64, borderRadius: 8, backgroundColor: tokens.border.light },
   audioInfo: { flex: 1, marginLeft: 12 },
-  audioDuration: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
+  audioDuration: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   audioPlayBtn: {
     marginTop: 8,
     alignSelf: 'flex-start',
@@ -322,7 +333,7 @@ const styles = StyleSheet.create({
   },
   audioPlayText: { fontSize: 12, color: PRIMARY, fontWeight: '600' },
   empty: { paddingVertical: 60, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: '#9ca3af' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
   fab: {
     position: 'absolute',
     bottom: 24,
@@ -340,5 +351,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  fabText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  fabText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
 })

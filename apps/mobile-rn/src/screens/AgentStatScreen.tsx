@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -68,16 +69,16 @@ export function AgentStatScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
   body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  label: { fontSize: 13, color: '#6B7280' },
-  value: { fontSize: 15, fontWeight: '600', color: '#10B981' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: tokens.surface.card },
+  label: { fontSize: 13, color: tokens.text.secondary },
+  value: { fontSize: 15, fontWeight: '600', color: tokens.brand.DEFAULT },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  error: { fontSize: 13, color: tokens.error.text, textAlign: 'center' },
   backBtn: { marginTop: 12 },
 })

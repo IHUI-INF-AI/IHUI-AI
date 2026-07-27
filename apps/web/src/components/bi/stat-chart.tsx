@@ -37,6 +37,10 @@ export interface StatChartProps {
   colors?: string[]
 }
 
+// ECharts canvas 渲染不支持 CSS var(),以下为 tokens.css 硬编码副本:
+// PALETTE 对应 --chart-1~5,7 (blue/emerald/amber/red/violet/cyan)
+// #94a3b8 = --chart-text, 轴线色 ≈ --chart-axis
+// 修改需同步 tokens.css
 const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
 const darkTextStyle = { color: '#94a3b8' }
