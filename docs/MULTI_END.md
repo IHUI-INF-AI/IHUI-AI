@@ -24,7 +24,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 │  @ihui/auth @ihui/api-client @ihui/types @ihui/database │
 │  @ihui/ui-react @ihui/ui-native @ihui/design-tokens     │
 │  @ihui/context-compaction @ihui/sdk                     │
-│  @ihui/shared @ihui/app                                  │
+│  @ihui/shared @ihui/rn-app                                  │
 │  @ihui/eslint-config @ihui/tsconfig                     │
 ├─────────────────────────────────────────────────────────┤
 │  基础设施层                                              │
@@ -139,7 +139,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | `@ihui/context-compaction` | 上下文压缩(88% 阈值自动压缩) | cli / api / ai-service |
 | `@ihui/sdk` | 多语言 SDK(TS/Go/Python/Java/.NET) | 外部集成 |
 | `@ihui/shared` | 8端共享业务逻辑(auth/sso + memory + notifications + plan + workflows 等) | 全端 |
-| `@ihui/app` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + tokens) | mobile-rn / web |
+| `@ihui/rn-app` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + tokens) | mobile-rn / web |
 | `@ihui/eslint-config` | base/next/react ESLint 配置 | 全端 |
 | `@ihui/tsconfig` | base/nextjs/node/react-library TSConfig | 全端 |
 
