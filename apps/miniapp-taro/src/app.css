@@ -1,3 +1,5 @@
+@import '../../../packages/design-tokens/src/styles/base.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -77,19 +79,6 @@
   --color-warning-foreground: hsl(0 0% 98%);
   --color-info: hsl(199 80% 55%);
   --color-info-foreground: hsl(0 0% 98%);
-}
-
-page {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-family:
-    'HarmonyOS Sans SC',
-    'PingFang SC',
-    'Microsoft YaHei',
-    'Noto Sans SC',
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
 }
 
 /* ===== 通用工具类 ===== */

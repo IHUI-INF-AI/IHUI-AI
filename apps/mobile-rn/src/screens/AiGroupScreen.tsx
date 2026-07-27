@@ -1,13 +1,6 @@
 import { useState } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  Alert,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, ScrollView, StyleSheet, Alert } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 
 type Tab = 'mine' | 'discover'
 
@@ -105,7 +98,9 @@ export default function AiGroupScreen() {
           <TouchableOpacity onPress={() => setSelectedId(null)} hitSlop={8}>
             <Text style={s.backText}>返回</Text>
           </TouchableOpacity>
-          <Text style={s.detailTitle} numberOfLines={1}>{selected.name}</Text>
+          <Text style={s.detailTitle} numberOfLines={1}>
+            {selected.name}
+          </Text>
         </View>
         <ScrollView style={s.detailBody} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
           <Text style={s.detailDesc}>{selected.desc}</Text>
@@ -139,7 +134,11 @@ export default function AiGroupScreen() {
             <Text style={s.previewTextMine}>收到,我这边准备开始调研。</Text>
           </View>
 
-          <TouchableOpacity style={s.enterBtn} onPress={() => handleEnter(selected)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={s.enterBtn}
+            onPress={() => handleEnter(selected)}
+            activeOpacity={0.85}
+          >
             <Text style={s.enterBtnText}>进入群聊</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -192,12 +191,16 @@ export default function AiGroupScreen() {
               </View>
               <View style={s.cardMain}>
                 <View style={s.nameRow}>
-                  <Text style={s.name} numberOfLines={1}>{item.name}</Text>
+                  <Text style={s.name} numberOfLines={1}>
+                    {item.name}
+                  </Text>
                   <View style={s.tagBadge}>
                     <Text style={s.tagText}>{item.tag}</Text>
                   </View>
                 </View>
-                <Text style={s.desc} numberOfLines={2}>{item.desc}</Text>
+                <Text style={s.desc} numberOfLines={2}>
+                  {item.desc}
+                </Text>
               </View>
             </View>
             <View style={s.cardFoot}>
@@ -211,7 +214,9 @@ export default function AiGroupScreen() {
                   <Text style={s.moreText}>+{item.members.length - 3}</Text>
                 ) : null}
               </View>
-              <Text style={s.footMeta}>{item.members.length} 成员 · {item.messages} 消息</Text>
+              <Text style={s.footMeta}>
+                {item.members.length} 成员 · {item.messages} 消息
+              </Text>
               <View style={s.enterMiniBtn}>
                 <Text style={s.enterMiniText}>{tab === 'mine' ? '进入' : '加入'}</Text>
               </View>
@@ -224,56 +229,145 @@ export default function AiGroupScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  headerSub: { marginTop: 4, fontSize: 12, color: '#6B7280' },
-  tabRow: { flexDirection: 'row', marginHorizontal: 16, padding: 4, borderRadius: 10, backgroundColor: '#F3F4F6' },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: tokens.text.primary },
+  headerSub: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
+  tabRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    padding: 4,
+    borderRadius: 10,
+    backgroundColor: tokens.surface.card,
+  },
   tabItem: { flex: 1, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  tabItemActive: { backgroundColor: '#FFFFFF' },
-  tabText: { fontSize: 13, color: '#6B7280' },
-  tabTextActive: { color: '#111827', fontWeight: '600' },
+  tabItemActive: { backgroundColor: tokens.surface.light },
+  tabText: { fontSize: 13, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.text.primary, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 48 },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
-  card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: tokens.border.light },
   cardHead: { flexDirection: 'row' },
-  cardIcon: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  cardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
   cardIconText: { fontSize: 18, fontWeight: '600', color: '#4F46E5' },
   cardMain: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' },
-  tagBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: '#F5F3FF' },
+  name: { flex: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  tagBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#F5F3FF',
+  },
   tagText: { fontSize: 11, color: '#7B61FF' },
-  desc: { marginTop: 4, fontSize: 12, color: '#6B7280', lineHeight: 18 },
+  desc: { marginTop: 4, fontSize: 12, color: tokens.text.secondary, lineHeight: 18 },
   cardFoot: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8 },
   memberPreview: { flexDirection: 'row', alignItems: 'center' },
-  miniAvatar: { width: 22, height: 22, borderRadius: 6, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#FFFFFF' },
-  miniAvatarText: { fontSize: 10, fontWeight: '600', color: '#6B7280' },
-  moreText: { marginLeft: 4, fontSize: 11, color: '#9CA3AF' },
-  footMeta: { fontSize: 11, color: '#9CA3AF' },
-  enterMiniBtn: { marginLeft: 'auto', paddingHorizontal: 12, height: 28, borderRadius: 8, backgroundColor: '#7B61FF', alignItems: 'center', justifyContent: 'center' },
-  enterMiniText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
-  detailHead: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomColor: '#F3F4F6', borderBottomWidth: 1 },
+  miniAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: tokens.border.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: tokens.surface.light,
+  },
+  miniAvatarText: { fontSize: 10, fontWeight: '600', color: tokens.text.secondary },
+  moreText: { marginLeft: 4, fontSize: 11, color: tokens.text.tertiary },
+  footMeta: { fontSize: 11, color: tokens.text.tertiary },
+  enterMiniBtn: {
+    marginLeft: 'auto',
+    paddingHorizontal: 12,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#7B61FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  enterMiniText: { fontSize: 12, fontWeight: '600', color: tokens.surface.light },
+  detailHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomColor: tokens.surface.card,
+    borderBottomWidth: 1,
+  },
   backText: { fontSize: 14, color: '#7B61FF', marginRight: 12 },
-  detailTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: '#111827' },
+  detailTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tokens.text.primary },
   detailBody: { flex: 1 },
   detailDesc: { fontSize: 13, color: '#4B5563', lineHeight: 20 },
   metaRow: { flexDirection: 'row', gap: 16, marginTop: 8 },
-  metaText: { fontSize: 11, color: '#9CA3AF' },
-  sectionTitle: { marginTop: 20, marginBottom: 10, fontSize: 13, fontWeight: '600', color: '#111827' },
-  memberItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#F9FAFB', paddingHorizontal: 12, marginBottom: 8 },
-  memberAvatar: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  metaText: { fontSize: 11, color: tokens.text.tertiary },
+  sectionTitle: {
+    marginTop: 20,
+    marginBottom: 10,
+    fontSize: 13,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  memberItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: tokens.surface.muted,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  memberAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
   memberAvatarText: { fontSize: 14, fontWeight: '600', color: '#4F46E5' },
   memberMain: { flex: 1 },
-  memberName: { fontSize: 13, fontWeight: '600', color: '#111827' },
-  memberRole: { marginTop: 2, fontSize: 11, color: '#9CA3AF' },
-  roleBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: '#F5F3FF' },
+  memberName: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  memberRole: { marginTop: 2, fontSize: 11, color: tokens.text.tertiary },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#F5F3FF',
+  },
   roleBadgeText: { fontSize: 11, color: '#7B61FF' },
-  previewBubble: { padding: 10, borderRadius: 10, backgroundColor: '#F3F4F6', marginBottom: 8 },
+  previewBubble: {
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: tokens.surface.card,
+    marginBottom: 8,
+  },
   previewName: { fontSize: 11, color: '#7B61FF', fontWeight: '600', marginBottom: 4 },
-  previewText: { fontSize: 13, color: '#374151', lineHeight: 18 },
-  previewBubbleMine: { padding: 10, borderRadius: 10, backgroundColor: '#7B61FF', alignSelf: 'flex-end', maxWidth: '80%', marginBottom: 8 },
-  previewTextMine: { fontSize: 13, color: '#FFFFFF', lineHeight: 18 },
-  enterBtn: { marginTop: 16, height: 44, borderRadius: 10, backgroundColor: '#7B61FF', alignItems: 'center', justifyContent: 'center' },
-  enterBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  previewText: { fontSize: 13, color: tokens.text.medium, lineHeight: 18 },
+  previewBubbleMine: {
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#7B61FF',
+    alignSelf: 'flex-end',
+    maxWidth: '80%',
+    marginBottom: 8,
+  },
+  previewTextMine: { fontSize: 13, color: tokens.surface.light, lineHeight: 18 },
+  enterBtn: {
+    marginTop: 16,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#7B61FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  enterBtnText: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },
 })
