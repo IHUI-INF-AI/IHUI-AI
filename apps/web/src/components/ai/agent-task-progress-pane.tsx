@@ -1,32 +1,31 @@
 'use client'
 
 import * as React from 'react'
-import { toast } from 'sonner'
+import { Pin, PinOff, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
+import { useChatStore } from '@/stores/chat'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
 
 /**
- * AgentTaskProgressPane — Codex 风格 plan steps popover(2026-07-27 v6 重构)
+ * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-27 v6.1 重构)
  *
- * v6 改动(用户规则):
- * - 从底部 fixed 全宽大弹窗改为小 popover(挂在 trigger 下方)
- * - 内容简化:只显示当前 agent 规划的任务进度列表(plan steps)
- * - 不再显示事件流/terminal/subagent 等(简洁)
- *
- * 样式:
- * - absolute 定位,top-full left-1/2 -translate-x-1/2(相对 trigger 居中)
- * - min-w-[280px] max-w-[400px],max-h-[320px] overflow-y-auto
- * - 圆角边框阴影(popover 风格)
+ * v6.1 改动(用户规则):
+ * - 位置:从 trigger 下方居中改为 trigger 容器右下方(对应"右上角"语义,带间距)
+ * - 删除 threadId 输入框(自动从 useChatStore.conversationId 同步)
+ * - 字体:从 font-mono 改为默认 sans 字体(跟项目整体风格一致)
+ * - 新增 pin/unpin 按钮(钉住/取消置顶)
+ *   - pinned=true(默认):popover 钉住,点击外部不关闭
+ *   - pinned=false:popover 临时显示,点击外部或 Esc 关闭
+ * - 关闭按钮 ✕ 始终可用
  *
  * 内容:
- * - 空状态(threadId 为空或无 planSteps):"暂无任务计划,等待 agent 规划..."
+ * - 空状态(无 conversationId 或无 planSteps):"暂无任务计划,等待 agent 规划..."
  * - 有 planSteps:列表显示 □/⠋/✔ + step text + 耗时
- * - header:标题"任务计划" + 关闭按钮 ✕
  */
 
-// ─── Codex 文本字符图标 ───────────────────────────────────────────────
+// ─── 状态字符图标 ────────────────────────────────────────────────────
 const PLAN_CHAR: Record<PlanStepStatus, string> = {
   pending: '□',
   in_progress: '⠋',
@@ -64,8 +63,8 @@ function formatDuration(ms?: number): string {
 // ─── 单个 plan step 渲染 ─────────────────────────────────────────────
 function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
   return (
-    <div className="flex items-start gap-1.5 px-1 py-0.5 font-mono text-[11px] leading-relaxed">
-      <span className={cn('shrink-0 w-3', PLAN_CLS[step.status])}>
+    <div className="flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed">
+      <span className={cn('w-3 shrink-0', PLAN_CLS[step.status])}>
         {step.status === 'in_progress' ? (
           <Spinner className={PLAN_CLS[step.status]} />
         ) : (
@@ -75,11 +74,10 @@ function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
       <span className={cn('flex-1 break-all', PLAN_CLS[step.status])}>
         {index + 1}. {step.step}
       </span>
-      {step.durationMs !== undefined && step.status === 'completed' && (
-        <span className="shrink-0 text-muted-foreground/60">{formatDuration(step.durationMs)}</span>
-      )}
-      {step.status === 'in_progress' && step.durationMs !== undefined && (
-        <span className="shrink-0 text-muted-foreground/60">{formatDuration(step.durationMs)}</span>
+      {step.durationMs !== undefined && step.status !== 'pending' && (
+        <span className="shrink-0 text-[10px] text-muted-foreground/60">
+          {formatDuration(step.durationMs)}
+        </span>
       )}
     </div>
   )
@@ -89,19 +87,21 @@ function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
 export function AgentTaskProgressPane() {
   const open = useAgentProgressPaneStore((s) => s.open)
   const threadId = useAgentProgressPaneStore((s) => s.threadId)
-  const threadIdInput = useAgentProgressPaneStore((s) => s.threadIdInput)
-  const setThreadIdInput = useAgentProgressPaneStore((s) => s.setThreadIdInput)
-  const submitThreadId = useAgentProgressPaneStore((s) => s.submitThreadId)
+  const setThreadId = useAgentProgressPaneStore((s) => s.setThreadId)
+  const pinned = useAgentProgressPaneStore((s) => s.pinned)
+  const togglePin = useAgentProgressPaneStore((s) => s.togglePin)
   const closePane = useAgentProgressPaneStore((s) => s.closePane)
   const setProgress = useAgentProgressPaneStore((s) => s.setProgress)
 
-  // threadId 本地状态(同步 store)
-  const [localThreadId, setLocalThreadId] = React.useState<string | null>(threadId)
+  // 从 useChatStore 同步 conversationId 作为 threadId(无需用户手动输入)
+  const conversationId = useChatStore((s) => s.conversationId)
   React.useEffect(() => {
-    setLocalThreadId(threadId)
-  }, [threadId])
+    if (conversationId !== threadId) {
+      setThreadId(conversationId)
+    }
+  }, [conversationId, threadId, setThreadId])
 
-  const progress = useAgentProgress(open ? localThreadId : null)
+  const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming } = progress
 
   // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
@@ -112,9 +112,9 @@ export function AgentTaskProgressPane() {
     setProgress(current, total)
   }, [planSteps, setProgress])
 
-  // Esc 关闭
+  // Esc 关闭(unpin 状态下生效;pin 状态下 Esc 不关闭,避免误操作)
   React.useEffect(() => {
-    if (!open) return
+    if (!open || pinned) return
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null
       if (el) {
@@ -130,33 +130,52 @@ export function AgentTaskProgressPane() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, closePane])
+  }, [open, pinned, closePane])
+
+  // click-outside 关闭(仅 unpin 状态)
+  const paneRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    if (!open || pinned) return
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (paneRef.current && !paneRef.current.contains(target)) {
+        // 不关闭 trigger 按钮点击(trigger 自己会 toggle)
+        const trigger = document.querySelector('[data-testid="agent-progress-trigger"]')
+        if (trigger && trigger.contains(target)) return
+        closePane()
+      }
+    }
+    // 延迟绑定,避免打开时的同一次 click 立即关闭
+    const id = window.setTimeout(() => {
+      document.addEventListener('mousedown', onClick)
+    }, 0)
+    return () => {
+      window.clearTimeout(id)
+      document.removeEventListener('mousedown', onClick)
+    }
+  }, [open, pinned, closePane])
 
   if (!open) return null
 
-  const start = () => {
-    if (!localThreadId) {
-      toast.warning('请先输入 threadId', {
-        description: '在下方输入框填入 Agent threadId 后再点 run',
-      })
-      return
-    }
-    progress.start()
-  }
+  const completedCount = planSteps.filter((s) => s.status === 'completed').length
 
   return (
     <div
+      ref={paneRef}
       className={cn(
-        'absolute top-full left-1/2 z-50 mt-1 -translate-x-1/2',
-        'min-w-[280px] max-w-[400px]',
-        'rounded-md border border-border bg-popover text-popover-foreground shadow-md',
+        // 位置:trigger 容器右下方(对应"右上角"语义,带 4px 间距)
+        'absolute top-full right-0 z-50 mt-1',
+        // 尺寸:紧凑 popover
+        'w-[280px]',
+        // 外观:圆角边框阴影,popover 风格
+        'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
       )}
       data-testid="agent-progress-pane"
     >
-      {/* Header:标题 + 关闭按钮 */}
-      <div className="flex h-7 shrink-0 items-center gap-2 border-b border-border px-2">
-        <span className="shrink-0 font-mono text-xs font-semibold">任务计划</span>
-        {localThreadId && isStreaming && (
+      {/* Header:标题 + pin 按钮 + 关闭按钮 */}
+      <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2">
+        <span className="shrink-0 text-xs font-medium">任务计划</span>
+        {isStreaming && (
           <span className="shrink-0 text-primary" title="streaming">
             <Spinner className="text-primary" />
           </span>
@@ -171,52 +190,47 @@ export function AgentTaskProgressPane() {
           </span>
         )}
         <div className="flex-1" />
+        {/* pin/unpin 按钮 */}
+        <button
+          type="button"
+          onClick={togglePin}
+          aria-label={pinned ? '取消置顶' : '置顶'}
+          className={cn(
+            'inline-flex h-5 w-5 items-center justify-center rounded-sm transition-colors',
+            pinned
+              ? 'text-primary hover:bg-accent'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          )}
+          title={pinned ? '取消置顶(点击外部可关闭)' : '置顶(钉住,点击外部不关闭)'}
+          data-testid="pane-pin"
+        >
+          {pinned ? <Pin className="h-3 w-3" /> : <PinOff className="h-3 w-3" />}
+        </button>
         {/* 关闭按钮 ✕ */}
         <button
           type="button"
           onClick={closePane}
           aria-label="关闭"
           className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          title="关闭 (Esc)"
+          title="关闭"
           data-testid="pane-close"
         >
-          ✕
+          <X className="h-3 w-3" />
         </button>
       </div>
 
       {/* 内容:plan steps 列表 */}
       <div className="max-h-[280px] overflow-y-auto overflow-x-hidden py-1" data-testid="plan-list">
-        {/* threadId 为空时显示输入框 */}
-        {!localThreadId && (
-          <div className="flex items-center gap-1 px-2 py-1.5">
-            <input
-              type="text"
-              value={threadIdInput}
-              onChange={(e) => setThreadIdInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  submitThreadId()
-                }
-              }}
-              placeholder="enter threadId..."
-              className="h-6 flex-1 rounded-sm border border-border bg-background px-1.5 font-mono text-[10px] focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              data-testid="thread-id-input"
-            />
-            <button
-              type="button"
-              onClick={submitThreadId}
-              className="h-6 rounded-sm border border-border bg-background px-1.5 font-mono text-[10px] hover:bg-accent"
-              title="确认 threadId"
-            >
-              ok
-            </button>
+        {/* 无 conversationId */}
+        {!threadId && (
+          <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
+            开始对话后显示任务计划
           </div>
         )}
 
         {/* 有 threadId 但无 planSteps */}
-        {localThreadId && planSteps.length === 0 && (
-          <div className="px-2 py-4 text-center font-mono text-[11px] text-muted-foreground">
+        {threadId && planSteps.length === 0 && (
+          <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
             暂无任务计划,等待 agent 规划...
           </div>
         )}
@@ -224,25 +238,12 @@ export function AgentTaskProgressPane() {
         {/* plan steps 列表 */}
         {planSteps.length > 0 && (
           <>
-            {/* 启动/停止按钮(threadId 存在时) */}
-            {localThreadId && !isStreaming && progress.overview.status !== 'running' && (
-              <div className="border-b border-border px-2 py-1">
-                <button
-                  type="button"
-                  onClick={start}
-                  className="h-5 w-full rounded-sm border border-border bg-background font-mono text-[10px] hover:bg-accent"
-                  title="启动 Agent 流"
-                >
-                  ▶ run
-                </button>
-              </div>
-            )}
             {planSteps.map((step, idx) => (
               <PlanStepItem key={step.id} step={step} index={idx} />
             ))}
             {/* 进度统计 */}
-            <div className="border-t border-border px-2 py-1 font-mono text-[10px] text-muted-foreground">
-              {planSteps.filter((s) => s.status === 'completed').length}/{planSteps.length} 已完成
+            <div className="mt-1 border-t border-border px-2 py-1 text-[10px] text-muted-foreground">
+              {completedCount}/{planSteps.length} 已完成
             </div>
           </>
         )}
