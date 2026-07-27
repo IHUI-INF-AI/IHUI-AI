@@ -289,8 +289,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amountCents = dbAmountCents
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -435,8 +434,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amountCents = dbAmountCents
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -488,15 +486,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         .orderBy(sql`${zhsCourseVideo.amount} DESC NULLS LAST`)
         .limit(1)
       if (!coursePrice) {
-        request.log.warn(
-          { courseId, amountCents, userId },
-          '课程无视频价格记录,使用客户端金额',
-        )
+        request.log.warn({ courseId, amountCents, userId }, '课程无视频价格记录,使用客户端金额')
       } else if (coursePrice.amount === null || coursePrice.isPay === 0) {
-        request.log.warn(
-          { courseId, amountCents, userId },
-          '课程为免费或无价格,使用客户端金额',
-        )
+        request.log.warn({ courseId, amountCents, userId }, '课程为免费或无价格,使用客户端金额')
       } else {
         const dbAmountCents = Math.round(coursePrice.amount * 100)
         if (dbAmountCents !== amountCents) {
@@ -508,8 +500,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         }
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -790,7 +781,12 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       await authenticate(request)
-      const { amount: amountYuan, orderType, subject, productId } = alipayCreateQuery.parse(request.query)
+      const {
+        amount: amountYuan,
+        orderType,
+        subject,
+        productId,
+      } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
       let amountCents = Math.round(amountYuan * 100)
       if (!amountCents || amountCents <= 0)
@@ -809,8 +805,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amountCents = dbAmountCents
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -869,7 +864,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '小程序授权码兑换买家 user_id',
-        description: '小程序端 my.getAuthCode({scopes:"auth_user"}) 拿到 authCode 后,POST 此端点兑换买家 user_id(2088开头)或 open_id。',
+        description:
+          '小程序端 my.getAuthCode({scopes:"auth_user"}) 拿到 authCode 后,POST 此端点兑换买家 user_id(2088开头)或 open_id。',
         tags: ['Payment'],
         auth: false,
       }),
@@ -883,7 +879,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         const result = await exchangeAuthCode(authCode)
         return reply.send(success(result))
       } catch (err) {
-        request.log.error({ err, authCodePrefix: authCode.slice(0, 8) }, 'alipay exchange auth code failed')
+        request.log.error(
+          { err, authCodePrefix: authCode.slice(0, 8) },
+          'alipay exchange auth code failed',
+        )
         return reply.status(400).send(error(400, `授权码兑换失败: ${(err as Error).message}`))
       }
     },
@@ -894,13 +893,20 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '支付宝小程序支付下单',
-        description: '创建支付宝小程序支付订单(JSAPI_PAY),返回 tradeNO 给前端 my.tradePay 调起支付(金额单位:元)。buyerId 必传(从 alipay.system.oauth.token 兑换)或降级 mock。',
+        description:
+          '创建支付宝小程序支付订单(JSAPI_PAY),返回 tradeNO 给前端 my.tradePay 调起支付(金额单位:元)。buyerId 必传(从 alipay.system.oauth.token 兑换)或降级 mock。',
         tags: ['Payment'],
       }),
     },
     async (request, reply) => {
       await authenticate(request)
-      const { amount: amountYuan, orderType, subject, productId, buyerId } = alipayCreateQuery.parse(request.query)
+      const {
+        amount: amountYuan,
+        orderType,
+        subject,
+        productId,
+        buyerId,
+      } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
       let amountCents = Math.round(amountYuan * 100)
       if (!amountCents || amountCents <= 0)
@@ -919,8 +925,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amountCents = dbAmountCents
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -933,19 +938,36 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
       // 小程序支付必须传 buyer_id,缺失降级 mock(避免 40006 错误)
       if (!buyerId) {
-        request.log.warn({ orderNo: order.orderNo, userId }, 'miniapp pay missing buyerId, falling back to mock')
-        return reply.send(success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_buyer_id' }))
+        request.log.warn(
+          { orderNo: order.orderNo, userId },
+          'miniapp pay missing buyerId, falling back to mock',
+        )
+        return reply.send(
+          success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_buyer_id' }),
+        )
       }
       if (!env.ALIPAY_MINIAPP_APP_ID) {
-        request.log.warn({ orderNo: order.orderNo }, 'miniapp pay missing ALIPAY_MINIAPP_APP_ID, falling back to mock')
-        return reply.send(success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_op_app_id' }))
+        request.log.warn(
+          { orderNo: order.orderNo },
+          'miniapp pay missing ALIPAY_MINIAPP_APP_ID, falling back to mock',
+        )
+        return reply.send(
+          success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_op_app_id' }),
+        )
       }
       try {
-        const { tradeNo } = await tradeCreate({ outTradeNo: order.orderNo, amount: amountCents / 100, subject, buyerId })
+        const { tradeNo } = await tradeCreate({
+          outTradeNo: order.orderNo,
+          amount: amountCents / 100,
+          subject,
+          buyerId,
+        })
         return reply.send(success({ outTradeNo: order.orderNo, tradeNo }))
       } catch (err) {
         request.log.error({ err, orderNo: order.orderNo }, 'alipay miniapp tradeCreate failed')
-        return reply.status(400).send(error(400, `支付宝小程序支付下单失败: ${(err as Error).message}`))
+        return reply
+          .status(400)
+          .send(error(400, `支付宝小程序支付下单失败: ${(err as Error).message}`))
       }
     },
   )
@@ -1142,8 +1164,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       }
       // success/cancel URL 默认值:从 CORS_ORIGIN 取第一个 origin(开发/生产都配置)
       const webOrigin = ((env.CORS_ORIGIN ?? 'http://localhost:8801').split(',')[0] ?? '').trim()
-      const finalSuccessUrl =
-        successUrl ?? `${webOrigin}/payments/success?orderNo=${order.orderNo}`
+      const finalSuccessUrl = successUrl ?? `${webOrigin}/payments/success?orderNo=${order.orderNo}`
       const finalCancelUrl = cancelUrl ?? `${webOrigin}/payments/fail`
       const session = await createCheckoutSession({
         outTradeNo: order.orderNo,
@@ -1275,11 +1296,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             eventId: event.id,
           })
         } catch (e) {
-          await server.paymentIdempotency.fail(
-            outTradeNo,
-            paymentIntentId,
-            (e as Error).message,
-          )
+          await server.paymentIdempotency.fail(outTradeNo, paymentIntentId, (e as Error).message)
           request.log.error(
             { err: e, outTradeNo, eventId: event.id },
             'stripe webhook process failed',
@@ -1297,8 +1314,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '查询 Stripe Checkout Session 状态',
-        description:
-          '按 sessionId 查询 Stripe Checkout Session 支付状态(管理员或订单归属人可查)',
+        description: '按 sessionId 查询 Stripe Checkout Session 支付状态(管理员或订单归属人可查)',
         tags: ['Payment'],
       }),
     },
@@ -1334,8 +1350,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: 'Stripe 退款',
-        description:
-          '发起 Stripe 退款并本地退款(订单需为 paid 状态,管理员或订单归属人可操作)',
+        description: '发起 Stripe 退款并本地退款(订单需为 paid 状态,管理员或订单归属人可操作)',
         tags: ['Payment'],
       }),
     },
@@ -1349,8 +1364,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
         return reply.status(403).send(error(403, '无权操作此订单'))
       }
-      if (order.status !== 'paid')
-        return reply.status(400).send(error(400, '订单状态不允许退款'))
+      if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
       // 退款金额默认全退,部分退款不能超过订单金额
       const refundCents = refundAmount ?? order.amount
       if (refundCents > order.amount)
@@ -1463,14 +1477,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const userId = request.userId!
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
-      if (amount > balance)
-        return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
-      const flow = await applyWithdrawal({
+      if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
+      const flow = await applyWithdrawal(
+        {
+          userId,
+          amount,
+          method: 'bank',
+          accountInfo: { bankAccount, bankName },
+        },
         userId,
-        amount,
-        method: 'bank',
-        accountInfo: { bankAccount, bankName },
-      }, userId)
+      )
       return reply.send(success(flow))
     },
   )
@@ -1490,14 +1506,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const userId = request.userId!
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
-      if (amount > balance)
-        return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
-      const flow = await applyWithdrawal({
-        userId,
-        amount,
-        method: 'wechat',
-        accountInfo: {},
-      }, request.userId ?? null)
+      if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
+      const flow = await applyWithdrawal(
+        {
+          userId,
+          amount,
+          method: 'wechat',
+          accountInfo: {},
+        },
+        request.userId ?? null,
+      )
       return reply.send(success(flow))
     },
   )
@@ -1564,8 +1582,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const pending = await queryPendingOrders()
       const closed: string[] = []
       const failed: Array<{ outTradeNo: string; error: string }> = []
-      for (const order of pending) {
-        try {
+      const results = await Promise.allSettled(
+        pending.map(async (order) => {
           const payType = order.paymentMethod ?? ''
           if (payType.startsWith('alipay') && isAlipayConfigured()) {
             await aliCloseOrder(order.orderNo)
@@ -1573,11 +1591,19 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             await wxCloseOrder(order.orderNo)
           }
           await cancelOrder(order.orderNo)
-          closed.push(order.orderNo)
-        } catch (e) {
-          failed.push({ outTradeNo: order.orderNo, error: (e as Error).message })
+          return order.orderNo
+        }),
+      )
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+          closed.push(r.value)
+        } else {
+          failed.push({
+            outTradeNo: pending[i]!.orderNo,
+            error: (r.reason as Error)?.message ?? String(r.reason),
+          })
         }
-      }
+      })
       return reply.send(success({ scanned: pending.length, closed, failed }))
     },
   )

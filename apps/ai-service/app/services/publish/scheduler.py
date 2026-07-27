@@ -22,6 +22,7 @@ from typing import Any, Coroutine, Optional
 import asyncpg
 
 from app.core.config import settings
+from app.core.db import get_db_conn
 from app.core.logging import get_logger
 from .base_adapter import BasePlatformAdapter, PublishContent, PublishResult, get_adapter
 from .content_parser import enrich_content
@@ -101,7 +102,7 @@ class PublishScheduler:
         if not dsn:
             return None
         try:
-            return await asyncpg.connect(dsn=dsn)
+            return await get_db_conn()
         except Exception as e:
             logger.warning("[publish.scheduler] db connect failed: %s: %s", type(e).__name__, e)
             return None
@@ -291,76 +292,81 @@ class PublishScheduler:
         self._user_running[user_key] = self._user_running.get(user_key, 0) + 1
         self._running[task_id] = asyncio.current_task()  # type: ignore[assignment]
 
-        # 解析内容为 HTML(若未解析)
         try:
-            enrich_content(content)
+            # 解析内容为 HTML(若未解析)
+            try:
+                enrich_content(content)
+            except Exception as e:
+                logger.warning("[publish.scheduler] content parse failed: %s: %s", type(e).__name__, e)
+
+            results: list[PublishResult] = []
+            # 并发执行(每平台一个 task)
+            coros = [self._run_single_platform(task_id, user_id, content, t) for t in targets]
+            if coros:
+                results = await asyncio.gather(*coros, return_exceptions=False)
+
+            # 汇总
+            success_count = sum(1 for r in results if r.success)
+            total = len(results)
+            if total == 0:
+                status = "failed"
+                summary = "无目标平台"
+            elif success_count == total:
+                status = "success"
+                summary = f"全部 {total} 个平台发布成功"
+            elif success_count > 0:
+                status = "partial"
+                summary = f"{success_count}/{total} 个平台发布成功"
+            else:
+                status = "failed"
+                summary = f"全部 {total} 个平台发布失败"
+
+            results_payload = [
+                {
+                    "platform": r.platform,
+                    "success": r.success,
+                    "published_url": r.published_url,
+                    "platform_content_id": r.platform_content_id,
+                    "error_message": r.error_message,
+                    "duration_ms": r.duration_ms,
+                }
+                for r in results
+            ]
+
+            # 更新 DB
+            await self._finish_task_db(task_id, status, results_payload, summary)
+
+            # 推送通知
+            try:
+                await notifications.notify_publish_complete(
+                    task_id=task_id,
+                    user_id=user_id,
+                    status=status,
+                    summary=summary,
+                    payload={"results": results_payload},
+                )
+            except Exception as e:
+                logger.warning("[publish.scheduler] notify failed: %s: %s", type(e).__name__, e)
+
+            # 内存历史
+            self._append_history({
+                "task_id": task_id,
+                "user_id": user_id,
+                "status": status,
+                "summary": summary,
+                "success_count": success_count,
+                "total": total,
+                "results": results_payload,
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+            })
         except Exception as e:
-            logger.warning("[publish.scheduler] content parse failed: %s: %s", type(e).__name__, e)
-
-        results: list[PublishResult] = []
-        # 并发执行(每平台一个 task)
-        coros = [self._run_single_platform(task_id, user_id, content, t) for t in targets]
-        if coros:
-            results = await asyncio.gather(*coros, return_exceptions=False)
-
-        # 汇总
-        success_count = sum(1 for r in results if r.success)
-        total = len(results)
-        if total == 0:
-            status = "failed"
-            summary = "无目标平台"
-        elif success_count == total:
-            status = "success"
-            summary = f"全部 {total} 个平台发布成功"
-        elif success_count > 0:
-            status = "partial"
-            summary = f"{success_count}/{total} 个平台发布成功"
-        else:
-            status = "failed"
-            summary = f"全部 {total} 个平台发布失败"
-
-        results_payload = [
-            {
-                "platform": r.platform,
-                "success": r.success,
-                "published_url": r.published_url,
-                "platform_content_id": r.platform_content_id,
-                "error_message": r.error_message,
-                "duration_ms": r.duration_ms,
-            }
-            for r in results
-        ]
-
-        # 更新 DB
-        await self._finish_task_db(task_id, status, results_payload, summary)
-
-        # 推送通知
-        try:
-            await notifications.notify_publish_complete(
-                task_id=task_id,
-                user_id=user_id,
-                status=status,
-                summary=summary,
-                payload={"results": results_payload},
-            )
-        except Exception as e:
-            logger.warning("[publish.scheduler] notify failed: %s: %s", type(e).__name__, e)
-
-        # 内存历史
-        self._append_history({
-            "task_id": task_id,
-            "user_id": user_id,
-            "status": status,
-            "summary": summary,
-            "success_count": success_count,
-            "total": total,
-            "results": results_payload,
-            "finished_at": datetime.now(timezone.utc).isoformat(),
-        })
-
-        # 清理
-        self._user_running[user_key] = max(0, self._user_running.get(user_key, 1) - 1)
-        self._running.pop(task_id, None)
+            logger.exception("[publish.scheduler] task crashed: %s", task_id)
+            await self._finish_task_db(task_id, "failed", [], f"crashed: {e}")
+            raise
+        finally:
+            # 清理(无论成功/失败/崩溃都执行,防止计数器泄漏)
+            self._user_running[user_key] = max(0, self._user_running.get(user_key, 1) - 1)
+            self._running.pop(task_id, None)
 
     async def _run_single_platform(
         self,
