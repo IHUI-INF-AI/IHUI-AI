@@ -7,6 +7,7 @@ import { seedAiFresh2026 } from './ai-fresh-2026.js'
 import { seedCrossDomain } from './seed-cross-domain.js'
 import { seedAiFeedSources } from './ai-feed-sources.js'
 import { seedLeaderboard } from './leaderboard-seed.js'
+import { seedAiPricing } from './ai-pricing-seed.js'
 
 interface SeedStep {
   /** 步骤编号(1-based) */
@@ -83,6 +84,12 @@ const STEPS: SeedStep[] = [
     name: '大模型排行榜',
     description: '89 条 arena.ai 真实数据(8 大分类 + LLM 3 子分类 + 总榜)',
     fn: seedLeaderboard,
+  },
+  {
+    index: 10,
+    name: 'AI 模型定价',
+    description: '176 条模型价格(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao 等厂商)',
+    fn: seedAiPricing,
   },
 ]
 
