@@ -188,12 +188,52 @@ function tryHandlePlanModeSlash(text: string): boolean {
     return true
   }
   store.setPlanMode(target)
+  // 2026-07-28 增强联动:Plan/Act 切换时同步 ChatMode
+  // - /plan → ChatMode=plan(语义一致:都是只读分析)
+  // - /act  → ChatMode=build(语义一致:都是正常执行)
+  try {
+    const modeStore = useModeStore.getState()
+    const targetChatMode: 'plan' | 'build' = target === 'plan' ? 'plan' : 'build'
+    if (modeStore.currentMode !== targetChatMode) {
+      modeStore.setMode(targetChatMode)
+    }
+  } catch {
+    // useModeStore 不可用时静默(避免阻塞主流程)
+  }
   toast.success(target === 'plan' ? '已切换到规划模式' : '已切换到执行模式', {
     description:
       target === 'plan'
         ? 'AI 将只制定计划,不执行工具(Alt+P 可快速切换)'
         : 'AI 将正常执行工具(Alt+P 可快速切换)',
   })
+  return true
+}
+
+/** /build /review /spec 动作型斜杠命令(2026-07-28 立,补全 ChatMode 4态三通道)
+ * - /build:  切换到构建模式(正常执行,全工具开放)
+ * - /review: 切换到审查模式(只读审查,deny write 工具 + 强化审查 prompt)
+ * - /spec:   切换到规格模式(从代码反向生成 spec 文档)
+ * - 命中即返回 true,不发送给 LLM,清空输入框。toast 给反馈。
+ * - 仅当输入完全匹配 /build /review /spec 开头(后接空白或行尾)时命中。 */
+function tryHandleChatModeSlash(text: string): boolean {
+  const trimmed = text.trimStart()
+  const m = /^\/(build|review|spec)\b\s*/.exec(trimmed)
+  if (!m) return false
+  const target = m[1] as 'build' | 'review' | 'spec'
+  const modeStore = useModeStore.getState()
+  const label = target === 'build' ? '构建' : target === 'review' ? '审查' : '规格'
+  if (modeStore.currentMode === target) {
+    toast.info(`当前已是${label}模式`)
+    return true
+  }
+  modeStore.setMode(target)
+  const desc =
+    target === 'build'
+      ? 'AI 将正常执行,全工具开放(Ctrl+1 可快速切换)'
+      : target === 'review'
+        ? 'AI 将只读审查代码(Ctrl+3 可快速切换)'
+        : 'AI 将从代码反向生成 spec 文档(Ctrl+4 可快速切换)'
+  toast.success(`已切换到${label}模式`, { description: desc })
   return true
 }
 
@@ -868,6 +908,11 @@ export function useChat(): UseChatReturn {
       // - 命中即清空输入框 + toast 反馈
       if (tryHandlePlanModeSlash(text)) return true
 
+      // /build /review /spec 动作型斜杠命令拦截(2026-07-28 立,补全 ChatMode 4态三通道):
+      // - 纯 ChatMode 切换,不需要登录,不调用 LLM,不创建会话
+      // - 命中即清空输入框 + toast 反馈(返回 true 与 tryHandlePlanModeSlash 一致)
+      if (tryHandleChatModeSlash(text)) return true
+
       // /permission ask|auto|full 动作型斜杠命令拦截(2026-07-25 深化,对标 Codex approvalMode):
       // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
       // - 命中即清空输入框 + toast 反馈(切 full 时弹 5s 撤销 toast)
@@ -1075,6 +1120,11 @@ export function useChat(): UseChatReturn {
             reasoningBatcher.batch(delta)
           },
           onToolCall: createToolCallHandler(assistantId),
+          // Subagent 自动派发(2026-07-28 立,对标 Trae Work):
+          // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
+          // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
+          onSubagentSpawn: (evt) => useChatStore.getState().addSubagentSpawn(evt),
+          onSubagentEnd: (evt) => useChatStore.getState().markSubagentEnd(evt),
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
             // #9 错误前先 flush 累积 token,避免最后一批内容丢失
@@ -1300,6 +1350,10 @@ export function useChat(): UseChatReturn {
           reasoningBatcher.batch(delta)
         },
         onToolCall: createToolCallHandler(assistantId),
+        // Subagent 自动派发(2026-07-28 立,与 sendMessage 对称):
+        // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
+        onSubagentSpawn: (evt) => useChatStore.getState().addSubagentSpawn(evt),
+        onSubagentEnd: (evt) => useChatStore.getState().markSubagentEnd(evt),
         agentTools: mergeAgentTools(),
         onError: (errMsg, info) => {
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失

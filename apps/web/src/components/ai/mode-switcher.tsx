@@ -31,14 +31,17 @@ interface ModeOption {
   mode: ChatMode
   label: string
   icon: React.ComponentType<{ className?: string }>
+  /** toast.success 用,只含模式描述(避免 toast 文案过长) */
   toastText: string
+  /** button title 属性(tooltip)用,含快捷键 + / 命令提示,补全三通道可发现性(2026-07-28 立) */
+  tooltipText: string
 }
 
 const MODE_OPTIONS: readonly ModeOption[] = [
-  { mode: 'build', label: '构建', icon: Hammer, toastText: '已切换到构建模式' },
-  { mode: 'plan', label: '计划', icon: BookOpen, toastText: '已切换到计划模式(只读分析)' },
-  { mode: 'review', label: '审查', icon: Search, toastText: '已切换到审查模式(只读审查)' },
-  { mode: 'spec', label: '规格', icon: FileText, toastText: '已切换到规格模式(生成 spec 文档)' },
+  { mode: 'build', label: '构建', icon: Hammer, toastText: '已切换到构建模式', tooltipText: '构建模式 · Ctrl+1 或 /build' },
+  { mode: 'plan', label: '计划', icon: BookOpen, toastText: '已切换到计划模式(只读分析)', tooltipText: '计划模式(只读分析) · Ctrl+2 或 /plan' },
+  { mode: 'review', label: '审查', icon: Search, toastText: '已切换到审查模式(只读审查)', tooltipText: '审查模式(只读审查) · Ctrl+3 或 /review' },
+  { mode: 'spec', label: '规格', icon: FileText, toastText: '已切换到规格模式(生成 spec 文档)', tooltipText: '规格模式(生成 spec 文档) · Ctrl+4 或 /spec' },
 ]
 
 /** 关键词 → 模式映射(对齐 CLI SUGGEST_KEYWORDS,扩展 spec) */
@@ -128,7 +131,7 @@ export function ModeSwitcher({ className }: { className?: string }) {
               type="button"
               onClick={() => handleSelect(option)}
               aria-pressed={isActive}
-              title={option.toastText}
+              title={option.tooltipText}
               className={cn(
                 'flex h-6 items-center gap-1 rounded px-2 text-xs font-medium transition-colors',
                 isActive
