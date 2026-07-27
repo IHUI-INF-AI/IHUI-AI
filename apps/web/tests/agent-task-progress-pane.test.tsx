@@ -30,6 +30,11 @@ vi.mock('@/stores/chat', () => ({
 import { AgentTaskProgressPane } from '../src/components/ai/agent-task-progress-pane'
 import { AgentProgressTrigger } from '../src/components/ai/agent-progress-trigger'
 import { useAgentProgressPaneStore } from '../src/stores/agent-progress-pane'
+import { FoldableSection } from '../src/components/ai/progress-sections/foldable-section'
+import { ThinkingSection } from '../src/components/ai/progress-sections/thinking-section'
+import { ToolCallsSection } from '../src/components/ai/progress-sections/tool-calls-section'
+import { SubagentSection } from '../src/components/ai/progress-sections/subagent-section'
+import type { AgentToolCall, Subagent } from '../src/hooks/use-agent-progress'
 
 describe('AgentProgressPane Store — v6.1 popover 简化', () => {
   beforeEach(() => {
@@ -262,4 +267,120 @@ describe('AgentTaskProgressPane — v6.1 popover 渲染', () => {
   // - threadId 输入框(v6.1 自动从 useChatStore.conversationId 同步)
   // - verbose/autoScroll/paneHeight/expandedIds(v4 残留,v6 已删除)
   // - resize handle(v4 残留,v6 popover 固定尺寸)
+})
+
+describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('FoldableSection — 默认折叠,点击切换展开/折叠', () => {
+    const { container } = render(
+      <FoldableSection title="测试" data-testid="test-foldable">
+        <span>内容</span>
+      </FoldableSection>,
+    )
+    const btn = container.querySelector('button')
+    expect(btn).toBeTruthy()
+    expect(btn?.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(btn!)
+    expect(btn?.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(btn!)
+    expect(btn?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('FoldableSection — count > 0 时显示计数', () => {
+    const { container } = render(
+      <FoldableSection title="测试" count={5} data-testid="test-foldable">
+        <span>内容</span>
+      </FoldableSection>,
+    )
+    expect(container.textContent).toContain('5')
+  })
+
+  it('ThinkingSection — 无内容无节点时不渲染', () => {
+    const { container } = render(
+      <ThinkingSection content="" currentNode={null} isStreaming={false} />,
+    )
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('ThinkingSection — 有内容时渲染', () => {
+    const { container } = render(
+      <ThinkingSection content="正在分析..." currentNode="planner" isStreaming={true} />,
+    )
+    expect(container.firstChild).not.toBeNull()
+    // 展开后检查内容(FoldableSection 默认折叠)
+    const btn = container.querySelector('button')
+    fireEvent.click(btn!)
+    expect(container.textContent).toContain('正在分析')
+  })
+
+  it('ToolCallsSection — 无工具调用时不渲染', () => {
+    const { container } = render(<ToolCallsSection tools={[]} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('ToolCallsSection — 有工具调用时渲染并显示分类摘要', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't1',
+        toolName: 'read_file',
+        args: {},
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+        durationMs: 1000,
+      },
+      {
+        id: 't2',
+        toolName: 'search',
+        args: {},
+        status: 'success',
+        startedAt: '2026-01-01T00:00:01Z',
+        durationMs: 2000,
+      },
+      {
+        id: 't3',
+        toolName: 'edit_file',
+        args: {},
+        status: 'running',
+        startedAt: '2026-01-01T00:00:02Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    expect(container.firstChild).not.toBeNull()
+    // 展开后检查摘要
+    const btn = container.querySelector('button')
+    fireEvent.click(btn!)
+    expect(container.textContent).toContain('读取 1 文件')
+    expect(container.textContent).toContain('搜索 1 次')
+    expect(container.textContent).toContain('编辑 1 文件')
+  })
+
+  it('SubagentSection — 无子代理时不渲染', () => {
+    const { container } = render(<SubagentSection subagents={[]} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('SubagentSection — 有子代理时渲染并显示 @handle', () => {
+    const subagents: Subagent[] = [
+      {
+        id: 's1',
+        threadId: 'thread-1',
+        nickname: 'validator',
+        handle: '@validator',
+        color: 'cyan',
+        status: 'running',
+        spawnedAt: '2026-01-01T00:00:00Z',
+        currentTask: '验证类型',
+      },
+    ]
+    const { container } = render(<SubagentSection subagents={subagents} />)
+    expect(container.firstChild).not.toBeNull()
+    // 展开后检查内容
+    const btn = container.querySelector('button')
+    fireEvent.click(btn!)
+    expect(container.textContent).toContain('@validator')
+    expect(container.textContent).toContain('验证类型')
+  })
 })
