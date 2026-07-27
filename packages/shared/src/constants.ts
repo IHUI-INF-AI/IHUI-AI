@@ -19,3 +19,8 @@ export const WEB_BASE = 'https://ihui.ai'
  * @see ./constants/error-codes.ts
  */
 export * from './constants/error-codes'
+
+export * from './constants/theme'
+
+// 统一 re-export constants/ 目录下所有常量
+export * from './constants/index'

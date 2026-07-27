@@ -155,3 +155,6 @@ export type {
 // 覆盖 audit 清单中 carousels/agreements/announcements/points/search 公开端点
 // 旧函数名通过 apps/web/src/lib/legacy-edu-api.ts 桥接
 export * from './endpoints/legacy-public'
+
+// Coze 平台 API 端点(2026-07-27 立,PAT 直连 Coze 官方 API,跨端共享)
+export * from './endpoints/coze'
