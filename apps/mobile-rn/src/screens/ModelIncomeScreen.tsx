@@ -1,12 +1,6 @@
 import { useState } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  Modal,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, Modal, StyleSheet } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 
 type Settle = 'all' | 'pending' | 'settled'
 
@@ -37,11 +31,61 @@ const TABS: { id: Settle; label: string }[] = [
 ]
 
 const MOCK_LIST: IncomeItem[] = [
-  { id: '1', orderNo: 'NO20260724001', agentName: '文案写作助手', price: 29, cycle: '月', total: 1, amount: 29, settled: false, time: '2026-07-24 10:23' },
-  { id: '2', orderNo: 'NO20260723008', agentName: '数据分析专家', price: 199, cycle: '年', total: 1, amount: 199, settled: true, time: '2026-07-23 16:40' },
-  { id: '3', orderNo: 'NO20260722015', agentName: 'PPT 生成器', price: 9.9, cycle: '月', total: 3, amount: 29.7, settled: true, time: '2026-07-22 09:12' },
-  { id: '4', orderNo: 'NO20260721022', agentName: '文案写作助手', price: 29, cycle: '月', total: 2, amount: 58, settled: false, time: '2026-07-21 14:05' },
-  { id: '5', orderNo: 'NO20260720031', agentName: '翻译助手', price: 15, cycle: '永久', total: 1, amount: 15, settled: true, time: '2026-07-20 11:30' },
+  {
+    id: '1',
+    orderNo: 'NO20260724001',
+    agentName: '文案写作助手',
+    price: 29,
+    cycle: '月',
+    total: 1,
+    amount: 29,
+    settled: false,
+    time: '2026-07-24 10:23',
+  },
+  {
+    id: '2',
+    orderNo: 'NO20260723008',
+    agentName: '数据分析专家',
+    price: 199,
+    cycle: '年',
+    total: 1,
+    amount: 199,
+    settled: true,
+    time: '2026-07-23 16:40',
+  },
+  {
+    id: '3',
+    orderNo: 'NO20260722015',
+    agentName: 'PPT 生成器',
+    price: 9.9,
+    cycle: '月',
+    total: 3,
+    amount: 29.7,
+    settled: true,
+    time: '2026-07-22 09:12',
+  },
+  {
+    id: '4',
+    orderNo: 'NO20260721022',
+    agentName: '文案写作助手',
+    price: 29,
+    cycle: '月',
+    total: 2,
+    amount: 58,
+    settled: false,
+    time: '2026-07-21 14:05',
+  },
+  {
+    id: '5',
+    orderNo: 'NO20260720031',
+    agentName: '翻译助手',
+    price: 15,
+    cycle: '永久',
+    total: 1,
+    amount: 15,
+    settled: true,
+    time: '2026-07-20 11:30',
+  },
 ]
 
 export default function ModelIncomeScreen() {
@@ -49,7 +93,7 @@ export default function ModelIncomeScreen() {
   const [showWithdraw, setShowWithdraw] = useState(false)
 
   const list = MOCK_LIST.filter((i) =>
-    tab === 'all' ? true : tab === 'pending' ? !i.settled : i.settled
+    tab === 'all' ? true : tab === 'pending' ? !i.settled : i.settled,
   )
 
   return (
@@ -63,7 +107,11 @@ export default function ModelIncomeScreen() {
           <Text style={s.sumLabel}>
             累计收益 <Text style={s.sumAmount}>{SUMMARY.accumulated.toFixed(2)}</Text> 元
           </Text>
-          <TouchableOpacity style={s.withdrawBtn} onPress={() => setShowWithdraw(true)} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={s.withdrawBtn}
+            onPress={() => setShowWithdraw(true)}
+            activeOpacity={0.8}
+          >
             <Text style={s.withdrawText}>提现</Text>
           </TouchableOpacity>
         </View>
@@ -120,7 +168,9 @@ export default function ModelIncomeScreen() {
         renderItem={({ item }) => (
           <View style={s.card}>
             <View style={s.cardHead}>
-              <Text style={s.cardOrder} numberOfLines={1}>订单 {item.orderNo}</Text>
+              <Text style={s.cardOrder} numberOfLines={1}>
+                订单 {item.orderNo}
+              </Text>
               <Text style={[s.cardStatus, item.settled ? s.statusSettled : s.statusPending]}>
                 {item.settled ? '已结算' : '待结算'}
               </Text>
@@ -131,8 +181,12 @@ export default function ModelIncomeScreen() {
                 <Text style={s.cardAvatarText}>{item.agentName.charAt(0)}</Text>
               </View>
               <View style={s.cardInfo}>
-                <Text style={s.cardName} numberOfLines={1}>{item.agentName}</Text>
-                <Text style={s.cardMeta}>¥{item.price} / {item.cycle} · ×{item.total}</Text>
+                <Text style={s.cardName} numberOfLines={1}>
+                  {item.agentName}
+                </Text>
+                <Text style={s.cardMeta}>
+                  ¥{item.price} / {item.cycle} · ×{item.total}
+                </Text>
               </View>
               <Text style={s.cardAmount}>+¥{item.amount.toFixed(2)}</Text>
             </View>
@@ -140,7 +194,12 @@ export default function ModelIncomeScreen() {
         )}
       />
 
-      <Modal visible={showWithdraw} transparent animationType="slide" onRequestClose={() => setShowWithdraw(false)}>
+      <Modal
+        visible={showWithdraw}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowWithdraw(false)}
+      >
         <View style={s.modalMask}>
           <View style={s.modalBody}>
             <View style={s.modalHead}>
@@ -175,58 +234,117 @@ export default function ModelIncomeScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: { paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   summaryCard: { marginHorizontal: 16, padding: 16, borderRadius: 12, backgroundColor: '#F5F3FF' },
   sumTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sumLabel: { fontSize: 13, color: '#374151' },
+  sumLabel: { fontSize: 13, color: tokens.text.medium },
   sumAmount: { fontSize: 18, fontWeight: '700', color: '#7B61FF' },
-  withdrawBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8, backgroundColor: '#7B61FF' },
-  withdrawText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  withdrawBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#7B61FF',
+  },
+  withdrawText: { fontSize: 13, fontWeight: '600', color: tokens.surface.light },
   sumRow: { flexDirection: 'row', marginTop: 16 },
   sumCol: { flex: 1 },
-  sumSubLabel: { fontSize: 12, color: '#6B7280' },
-  sumSubAmount: { marginTop: 4, fontSize: 18, fontWeight: '700', color: '#111827' },
-  sumFooter: { flexDirection: 'row', marginTop: 14, padding: 10, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.6)' },
+  sumSubLabel: { fontSize: 12, color: tokens.text.secondary },
+  sumSubAmount: { marginTop: 4, fontSize: 18, fontWeight: '700', color: tokens.text.primary },
+  sumFooter: {
+    flexDirection: 'row',
+    marginTop: 14,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
   sumFooterItem: { flex: 1 },
-  sumFooterLabel: { fontSize: 11, color: '#6B7280' },
-  sumFooterVal: { marginTop: 2, fontSize: 14, fontWeight: '600', color: '#111827' },
-  tip: { marginHorizontal: 16, marginTop: 10, fontSize: 11, color: '#9CA3AF' },
-  tabRow: { flexDirection: 'row', marginHorizontal: 16, marginTop: 12, padding: 4, borderRadius: 10, backgroundColor: '#F3F4F6' },
+  sumFooterLabel: { fontSize: 11, color: tokens.text.secondary },
+  sumFooterVal: { marginTop: 2, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  tip: { marginHorizontal: 16, marginTop: 10, fontSize: 11, color: tokens.text.tertiary },
+  tabRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 4,
+    borderRadius: 10,
+    backgroundColor: tokens.surface.card,
+  },
   tabItem: { flex: 1, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  tabItemActive: { backgroundColor: '#FFFFFF' },
-  tabText: { fontSize: 13, color: '#6B7280' },
-  tabTextActive: { color: '#111827', fontWeight: '600' },
+  tabItemActive: { backgroundColor: tokens.surface.light },
+  tabText: { fontSize: 13, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.text.primary, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 48 },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
-  card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: tokens.border.light },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardOrder: { flex: 1, fontSize: 12, color: '#6B7280' },
+  cardOrder: { flex: 1, fontSize: 12, color: tokens.text.secondary },
   cardStatus: { fontSize: 11, fontWeight: '600' },
-  statusSettled: { color: '#10B981' },
+  statusSettled: { color: tokens.brand.DEFAULT },
   statusPending: { color: '#FF6B00' },
-  cardTime: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
+  cardTime: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   cardMain: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-  cardAvatar: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#F5F3FF', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  cardAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
   cardAvatarText: { fontSize: 15, fontWeight: '600', color: '#7B61FF' },
   cardInfo: { flex: 1 },
-  cardName: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  cardMeta: { marginTop: 2, fontSize: 11, color: '#9CA3AF' },
+  cardName: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  cardMeta: { marginTop: 2, fontSize: 11, color: tokens.text.tertiary },
   cardAmount: { fontSize: 15, fontWeight: '700', color: '#FF6B00' },
-  modalMask: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalBody: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20 },
+  modalMask: { flex: 1, justifyContent: 'flex-end', backgroundColor: tokens.overlay.modal },
+  modalBody: {
+    backgroundColor: tokens.surface.light,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 20,
+  },
   modalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
-  modalClose: { fontSize: 13, color: '#6B7280' },
-  modalSub: { marginTop: 8, fontSize: 12, color: '#9CA3AF' },
-  payOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingVertical: 8 },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
+  modalClose: { fontSize: 13, color: tokens.text.secondary },
+  modalSub: { marginTop: 8, fontSize: 12, color: tokens.text.tertiary },
+  payOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingVertical: 8,
+  },
   payLeft: { flexDirection: 'row', alignItems: 'center' },
-  payIcon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#07C160', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  payIconText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-  payName: { fontSize: 14, color: '#111827' },
-  payRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#7B61FF', backgroundColor: '#7B61FF' },
-  modalNote: { marginTop: 12, fontSize: 11, color: '#9CA3AF' },
-  modalBtn: { marginTop: 20, height: 44, borderRadius: 12, backgroundColor: '#7B61FF', alignItems: 'center', justifyContent: 'center' },
-  modalBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  payIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#07C160',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  payIconText: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },
+  payName: { fontSize: 14, color: tokens.text.primary },
+  payRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#7B61FF',
+    backgroundColor: '#7B61FF',
+  },
+  modalNote: { marginTop: 12, fontSize: 11, color: tokens.text.tertiary },
+  modalBtn: {
+    marginTop: 20,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#7B61FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnText: { fontSize: 15, fontWeight: '600', color: tokens.surface.light },
 })
