@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -127,7 +127,7 @@ export function PricingContent(): React.JSX.Element {
           </div>
         )}
         {!isLoading &&
-          plans.map((plan: any) => (
+          plans.map((plan) => (
             <div
               key={plan.name}
               className={`relative flex flex-col rounded-2xl border bg-card p-6 shadow-sm transition-shadow hover:shadow-md ${
@@ -155,7 +155,7 @@ export function PricingContent(): React.JSX.Element {
                 )}
               </div>
               <ul className="mt-6 flex-1 space-y-2">
-                {plan.features.map((f: any) => (
+                {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm">
                     <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
                     <span>{f}</span>
@@ -177,9 +177,7 @@ export function PricingContent(): React.JSX.Element {
       {/* 退款保障 */}
       <section className="mt-12 rounded-2xl border bg-primary/5 p-6 text-center md:p-8">
         <h2 className="text-lg font-semibold">{t('refundTitle')}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-          {t('refundDesc')}
-        </p>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{t('refundDesc')}</p>
       </section>
     </main>
   )

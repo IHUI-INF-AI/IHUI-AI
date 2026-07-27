@@ -177,7 +177,7 @@ export default function CourseRatePage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {list.map((item: any) => {
+            {list.map((item) => {
               const name = item.user?.nickname ?? item.userName ?? t('anonymous')
               const avatar = item.user?.avatar ?? item.userAvatar
               const time = formatDate(item.createdAt ?? item.createTime ?? '')
