@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import * as DropdownMenuOrig from '@radix-ui/react-dropdown-menu'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Check, ChevronDown, Folder, FolderPlus, Loader2, X } from 'lucide-react'
@@ -145,9 +145,9 @@ export function WorkspaceSelector() {
             sideOffset={6}
             className="z-popover min-w-[16rem] max-w-[20rem] overflow-hidden rounded-lg border bg-card p-1 text-card-foreground shadow-md"
           >
-            <DropdownMenuOrig.Label className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <DropdownMenu.Label className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {tw('recentWorkspaces')}
-            </DropdownMenuOrig.Label>
+            </DropdownMenu.Label>
 
             {/* 最近工作区列表 */}
             <div className="max-h-72 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
@@ -194,7 +194,7 @@ export function WorkspaceSelector() {
             <div className="mt-1 flex flex-col gap-0.5">
               {/* 添加工作区 */}
               <DropdownMenu.Item
-                onSelect={(e: any) => {
+                onSelect={(e) => {
                   e.preventDefault()
                   setMenuOpen(false)
                   setPickerOpen(true)

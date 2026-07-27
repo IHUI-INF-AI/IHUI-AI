@@ -68,7 +68,7 @@ export default function BackendHealthPage() {
 
   const servicesList = services ?? []
   const eventsList = events ?? []
-  const healthyCount = servicesList.filter((s: any) => s.status === 'healthy').length
+  const healthyCount = servicesList.filter((s) => s.status === 'healthy').length
 
   return (
     <div className="space-y-6">
@@ -99,7 +99,7 @@ export default function BackendHealthPage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {servicesList.map((s: any) => {
+            {servicesList.map((s) => {
               const Icon = ICONS[s.name] ?? Server
               const ok = s.status === 'healthy'
               return (
@@ -148,7 +148,7 @@ export default function BackendHealthPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {servicesList.map((s: any) => (
+              {servicesList.map((s) => (
                 <div key={s.name} className="rounded-md border p-3">
                   <div className="text-xs text-muted-foreground">{s.name}</div>
                   <div className="mt-1 text-xl font-bold">{s.latency}ms</div>
@@ -191,7 +191,7 @@ export default function BackendHealthPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {eventsList.map((e: any) => (
+                {eventsList.map((e) => (
                   <tr key={e.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-medium">{e.service}</td>
                     <td className="px-4 py-2.5">

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -44,7 +44,7 @@ export default function PointsPage() {
   const lbQ = useQuery({
     queryKey: ['leaderboard'],
     queryFn: () => api<{ list: LeaderboardUser[] }>('/api/leaderboard').then((d) => d.list ?? []),
-    select: (list: any) => list.map((u: any) => ({ ...u, isMe: u.userId === currentUserId })),
+    select: (list) => list.map((u) => ({ ...u, isMe: u.userId === currentUserId })),
   })
   const levelQ = useQuery({
     queryKey: ['levels', 'current'],

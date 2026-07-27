@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -178,7 +178,7 @@ export default function EduDashboardPage() {
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {(data?.recentCourses ?? []).map((c: any) => (
+                {(data?.recentCourses ?? []).map((c) => (
                   <Link key={c.id} href={`/edu/courses/${c.id}`}>
                     <Card className="transition-colors hover:bg-accent">
                       <CardContent className="p-4">

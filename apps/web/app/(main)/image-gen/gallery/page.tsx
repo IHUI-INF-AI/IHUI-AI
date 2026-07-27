@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -48,7 +48,7 @@ export default function ImageGenGalleryPage() {
 
   const items = data?.list ?? []
   const columns: GalleryItem[][] = [[], [], []]
-  items.forEach((item: any, i: any) => {
+  items.forEach((item, i) => {
     const col = columns[i % 3]
     if (col) col.push(item)
   })

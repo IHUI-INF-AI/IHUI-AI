@@ -41,7 +41,7 @@ export function ExamineDialog({
 }: ExamineDialogProps) {
   const t = useTranslations('admin.agents.examine')
   return (
-    <Dialog open={open} onOpenChange={(o: any) => (o ? null : onClose())}>
+    <Dialog open={open} onOpenChange={(o: boolean) => (o ? null : onClose())}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
@@ -57,14 +57,18 @@ export function ExamineDialog({
               <Label>{t('fieldAgentId')}</Label>
               <Input
                 value={form.agentId}
-                onChange={(e: any) => onFormChange({ ...form, agentId: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                  onFormChange({ ...form, agentId: e.target.value })
+                }
               />
             </div>
             <div className="space-y-2">
               <Label>{t('fieldAgentName')}</Label>
               <Input
                 value={form.agentName}
-                onChange={(e: any) => onFormChange({ ...form, agentName: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                  onFormChange({ ...form, agentName: e.target.value })
+                }
               />
             </div>
             <div className="space-y-2">
@@ -78,21 +82,27 @@ export function ExamineDialog({
               <Label>{t('fieldStartPhone')}</Label>
               <Input
                 value={form.startPhone}
-                onChange={(e: any) => onFormChange({ ...form, startPhone: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                  onFormChange({ ...form, startPhone: e.target.value })
+                }
               />
             </div>
             <div className="space-y-2">
               <Label>{t('fieldStartName')}</Label>
               <Input
                 value={form.startName}
-                onChange={(e: any) => onFormChange({ ...form, startName: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                  onFormChange({ ...form, startName: e.target.value })
+                }
               />
             </div>
             <div className="space-y-2">
               <Label>{t('fieldExamineUser')}</Label>
               <Input
                 value={form.examineUser}
-                onChange={(e: any) => onFormChange({ ...form, examineUser: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                  onFormChange({ ...form, examineUser: e.target.value })
+                }
               />
             </div>
           </div>
@@ -100,27 +110,33 @@ export function ExamineDialog({
             <Label>{t('fieldDesc')}</Label>
             <Input
               value={form.desc}
-              onChange={(e: any) => onFormChange({ ...form, desc: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                onFormChange({ ...form, desc: e.target.value })
+              }
             />
           </div>
           <div className="space-y-2">
             <Label>{t('fieldFollow')}</Label>
             <Input
               value={form.follow}
-              onChange={(e: any) => onFormChange({ ...form, follow: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                onFormChange({ ...form, follow: e.target.value })
+              }
             />
           </div>
           <div className="space-y-2">
             <Label>{t('fieldPrologue')}</Label>
             <Input
               value={form.prologue}
-              onChange={(e: any) => onFormChange({ ...form, prologue: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                onFormChange({ ...form, prologue: e.target.value })
+              }
             />
           </div>
           <div className="flex items-center gap-2">
             <Switch
               checked={form.status}
-              onCheckedChange={(v: any) => onFormChange({ ...form, status: v })}
+              onCheckedChange={(v: boolean) => onFormChange({ ...form, status: v })}
             />
             <Label>{t('fieldEnable')}</Label>
           </div>

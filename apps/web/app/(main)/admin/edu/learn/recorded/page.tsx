@@ -141,8 +141,16 @@ export default function EduLearnRecordedPage() {
         { key: 'amount', title: t('colAmount') },
         { key: 'label', title: t('colLabel') },
         { key: 'hot', title: t('colHot') },
-        { key: 'status', title: t('colLevel'), formatter: (v) => t(LEVEL_KEY[Number(v)] ?? 'level.unknown') },
-        { key: 'auditStatus', title: t('colAudit'), formatter: (v) => t(AUDIT_KEY[Number(v)] ?? 'audit.unknown') },
+        {
+          key: 'status',
+          title: t('colLevel'),
+          formatter: (v) => t(LEVEL_KEY[Number(v)] ?? 'level.unknown'),
+        },
+        {
+          key: 'auditStatus',
+          title: t('colAudit'),
+          formatter: (v) => t(AUDIT_KEY[Number(v)] ?? 'audit.unknown'),
+        },
         { key: 'creator', title: t('colCreator') },
       ],
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
@@ -157,9 +165,9 @@ export default function EduLearnRecordedPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
-  const allChecked = rows.length > 0 && rows.every((r: any) => ids.includes(r.id))
+  const allChecked = rows.length > 0 && rows.every((r) => ids.includes(r.id))
   function toggleAll() {
-    setIds(allChecked ? [] : rows.map((r: any) => r.id))
+    setIds(allChecked ? [] : rows.map((r) => r.id))
   }
   function toggleOne(id: string) {
     setIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))

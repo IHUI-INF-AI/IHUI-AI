@@ -5,7 +5,7 @@ export interface MenuItem {
   id?: number | string
   name: string
   icon?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface MenuProps {
@@ -43,11 +43,7 @@ export default function Menu({
         >
           {item.icon ? (
             /^(https?:)?\/\//.test(item.icon) || item.icon.startsWith('/') ? (
-              <Image
-                src={item.icon}
-                mode="aspectFill"
-                className="w-10 h-10 rounded-md"
-              />
+              <Image src={item.icon} mode="aspectFill" className="w-10 h-10 rounded-md" />
             ) : (
               <View className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
                 <Text className="text-2xl">{item.icon}</Text>

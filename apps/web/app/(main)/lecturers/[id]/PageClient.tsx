@@ -59,10 +59,7 @@ export default function LecturerDetailPageClient() {
 
   const channelsQuery = useQuery({
     queryKey: ['live', 'channels', 'lecturer', id],
-    queryFn: () =>
-      api<ChannelsResp>(
-        `/api/live/channels?lecturerId=${encodeURIComponent(id)}`,
-      ),
+    queryFn: () => api<ChannelsResp>(`/api/live/channels?lecturerId=${encodeURIComponent(id)}`),
   })
 
   const channels = channelsQuery.data?.list ?? []
@@ -134,7 +131,7 @@ export default function LecturerDetailPageClient() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {channels.map((channel: any) => (
+            {channels.map((channel) => (
               <Link key={channel.id} href={`/live/${channel.id}`} className="group block">
                 <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                   <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">

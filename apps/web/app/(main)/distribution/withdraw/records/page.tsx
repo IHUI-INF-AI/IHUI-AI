@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -148,7 +148,7 @@ export default function WithdrawRecordsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((it: any) => (
+              items.map((it) => (
                 <TableRow key={it.id}>
                   <TableCell className="px-4 py-2.5 text-right font-medium">
                     {fmtYuan(it.originalAmount)}
