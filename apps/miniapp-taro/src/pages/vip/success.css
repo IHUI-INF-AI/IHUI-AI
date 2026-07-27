@@ -9,17 +9,16 @@
 .vs-icon-wrap {
   width: 160rpx;
   height: 160rpx;
-  border: 2rpx solid rgba(0, 242, 255, 0.3);
-  background: rgba(0, 242, 255, 0.1);
+  border: 2rpx solid var(--color-ring);
+  background: var(--color-border);
   border-radius: 16rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 30rpx rgba(0, 242, 255, 0.2);
 }
 .vs-icon {
   font-size: 80rpx;
-  color: #00f2ff;
+  color: var(--color-primary);
   font-weight: 700;
 }
 .vs-title {
@@ -41,8 +40,8 @@
 .vs-activation {
   margin-top: 32rpx;
   padding: 20rpx 28rpx;
-  background: rgba(0, 242, 255, 0.08);
-  border: 2rpx solid rgba(0, 242, 255, 0.25);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-ring);
   border-radius: 12rpx;
   display: flex;
   align-items: center;
@@ -67,7 +66,7 @@
   margin-top: 40rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border: 2rpx solid var(--color-border);
   border-radius: 16rpx;
 }
 .vs-info-row {
@@ -112,8 +111,8 @@
 }
 .vs-btn-primary {
   width: 100%;
-  background: #00f2ff;
-  color: #1a1a2e;
+  background: var(--color-primary);
+  color: var(--color-background);
   border-radius: 12rpx;
   font-size: 32rpx;
   font-weight: 700;
@@ -122,8 +121,8 @@
   width: 100%;
   margin-top: 24rpx;
   background: transparent;
-  color: #00f2ff;
-  border: 2rpx solid rgba(0, 242, 255, 0.4);
+  color: var(--color-primary);
+  border: 2rpx solid var(--color-ring);
   border-radius: 12rpx;
   font-size: 32rpx;
 }

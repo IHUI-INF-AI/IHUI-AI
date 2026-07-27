@@ -125,22 +125,22 @@ export default function Community() {
     <View className="min-h-screen pb-[120rpx]">
       {/* 顶部用户信息条 — 青→紫赛博朋克渐变 + 科技网格 */}
       <View
-        className="flex items-center pt-[120rpx] px-[32rpx] pb-[32rpx] tech-grid"
-        style={{ background: 'linear-gradient(135deg, #00f2ff, #8b5cf6)' }}
+        className="flex items-center pt-[120rpx] px-[32rpx] pb-[32rpx]"
+        style={{ background: 'var(--color-primary)' }}
       >
         <Image
-          className="w-[80rpx] h-[80rpx] rounded-md border-[2rpx] border-solid border-white"
+          className="w-[80rpx] h-[80rpx] rounded-md border-[2rpx] border-solid border-primary-foreground"
           src={userInfo?.avatar || defaultAvatar}
           mode="aspectFill"
         />
         <View className="ml-[20rpx] flex flex-col">
-          <Text className="text-white text-[30rpx] font-semibold">
+          <Text className="text-primary-foreground text-[30rpx] font-semibold">
             {userInfo?.userName ||
               userInfo?.nickname ||
               (isLogin ? t('common.user') : t('home.tapLogin'))}
           </Text>
           <Text
-            className="text-white text-[22rpx] opacity-90"
+            className="text-primary-foreground text-[22rpx] opacity-90"
             onClick={!isLogin ? goLogin : undefined}
           >
             {t('community.title')} · {t('community.posts')}
@@ -149,7 +149,7 @@ export default function Community() {
       </View>
 
       {/* 8 类模型切换 — 对标原项目 ai_index.vue */}
-      <View className="mx-[32rpx] my-[24rpx] tech-card p-[24rpx]">
+      <View className="mx-[32rpx] my-[24rpx] tech-cardp-[24rpx]">
         <View className="flex justify-between items-center mb-[20rpx]">
           <Text className="text-[30rpx] font-semibold text-neon">{t('agent.title')}</Text>
           <Text
@@ -176,7 +176,7 @@ export default function Community() {
       </View>
 
       {/* 快捷入口 */}
-      <View className="mx-[32rpx] my-[24rpx] tech-card p-[24rpx]">
+      <View className="mx-[32rpx] my-[24rpx] tech-cardp-[24rpx]">
         <View className="flex">
           {quickEntries.map((entry) => (
             <View
@@ -203,14 +203,14 @@ export default function Community() {
           </Text>
         </View>
         {loading ? (
-          <View className="tech-card px-[32rpx] py-[40rpx] text-center">
+          <View className="tech-cardpx-[32rpx] py-[40rpx] text-center">
             <Text className="text-[26rpx] text-muted-foreground">{t('common.loading')}</Text>
           </View>
         ) : list.length > 0 ? (
           list.map((item) => (
             <View
               key={item.id}
-              className="tech-card px-[24rpx] py-[24rpx] mb-[20rpx]"
+              className="tech-cardpx-[24rpx] py-[24rpx] mb-[20rpx]"
               onClick={() => onItemClick(item.id)}
             >
               <View className="flex items-center mb-[12rpx]">
@@ -239,19 +239,19 @@ export default function Community() {
             </View>
           ))
         ) : (
-          <View className="tech-card px-[32rpx] py-[80rpx] text-center">
+          <View className="tech-cardpx-[32rpx] py-[80rpx] text-center">
             <Text className="text-[26rpx] text-muted-foreground">{t('common.empty')}</Text>
           </View>
         )}
 
         {/* 分页加载状态 */}
         {loading && list.length > 0 ? (
-          <View className="tech-card px-[32rpx] py-[24rpx] text-center">
+          <View className="tech-cardpx-[32rpx] py-[24rpx] text-center">
             <Text className="text-[24rpx] text-muted-foreground">{t('common.loading')}</Text>
           </View>
         ) : null}
         {!loading && !hasMore && list.length > 0 ? (
-          <View className="tech-card px-[32rpx] py-[24rpx] text-center">
+          <View className="tech-cardpx-[32rpx] py-[24rpx] text-center">
             <Text className="text-[24rpx] text-muted-foreground">{t('common.noMore')}</Text>
           </View>
         ) : null}
