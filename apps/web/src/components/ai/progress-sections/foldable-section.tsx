@@ -44,6 +44,19 @@ export function formatDuration(ms: number): string {
   return `${min}m${sec}s`
 }
 
+/** 格式化 ISO 时间戳为相对时间字符串(刚刚 / 5s前 / 2m前 / 1h前)v11 */
+export function formatRelativeTime(timestamp: string): string {
+  const ms = Date.parse(timestamp)
+  if (Number.isNaN(ms)) return ''
+  const diff = Date.now() - ms
+  if (diff < 0) return '刚刚'
+  if (diff < 10_000) return '刚刚'
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s前`
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m前`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h前`
+  return `${Math.floor(diff / 86_400_000)}d前`
+}
+
 /**
  * FoldableSection — 共享折叠子区包装器(对齐 Trae Work)
  *
