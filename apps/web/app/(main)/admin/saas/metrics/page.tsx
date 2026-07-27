@@ -28,6 +28,7 @@ import { CenteredText, Skeleton } from '@/components/common'
 import { useMetricsSummaryQuery } from '@/hooks/use-saas-tenants'
 import { GrafanaFrame, GrafanaUnavailableHint } from '../_components/GrafanaFrame'
 import type { TenantMetricsSummary } from '@ihui/api-client'
+import { formatDate } from '@/lib/date-utils'
 
 export default function MetricsComparisonPage() {
   const t = useTranslations('admin.saas.metrics')
@@ -126,7 +127,7 @@ export default function MetricsComparisonPage() {
       {/* 底部 — 数据生成时间 */}
       {data?.generatedAt ? (
         <p className="text-xs text-muted-foreground">
-          {t('generatedAt', { time: new Date(data.generatedAt).toLocaleString() })}
+          {t('generatedAt', { time: formatDate(data.generatedAt) })}
         </p>
       ) : null}
     </div>

@@ -23,6 +23,7 @@ import remarkGfm from 'remark-gfm'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Input, Button } from '@ihui/ui-react'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface DocItem {
   id: string
@@ -267,8 +268,7 @@ export default function DocumentsPage() {
   }, [list, previewDoc])
   // 上一篇 / 下一篇文档(提取为局部变量以便 TS 类型收窄)
   const navPrev = navIndex > 0 ? list[navIndex - 1] : undefined
-  const navNext =
-    navIndex >= 0 && navIndex < list.length - 1 ? list[navIndex + 1] : undefined
+  const navNext = navIndex >= 0 && navIndex < list.length - 1 ? list[navIndex + 1] : undefined
 
   // 点击 TOC 项:滚动到对应标题
   function scrollToHeading(id: string) {
@@ -441,9 +441,7 @@ export default function DocumentsPage() {
                   </div>
 
                   {/* 标题 */}
-                  <h3 className="line-clamp-2 text-sm font-semibold leading-snug">
-                    {item.title}
-                  </h3>
+                  <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{item.title}</h3>
 
                   {/* excerpt 缩略预览 */}
                   {item.excerpt && (
@@ -457,7 +455,7 @@ export default function DocumentsPage() {
                     {item.updatedAt ? (
                       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        {new Date(item.updatedAt).toLocaleDateString()}
+                        {formatDateOnly(item.updatedAt)}
                       </span>
                     ) : (
                       <span />
@@ -532,9 +530,7 @@ export default function DocumentsPage() {
                     className="min-w-0"
                   >
                     <ChevronLeft className="h-4 w-4 shrink-0" />
-                    <span className="max-w-[200px] truncate">
-                      上一篇:{navPrev.title}
-                    </span>
+                    <span className="max-w-[200px] truncate">上一篇:{navPrev.title}</span>
                   </Button>
                 ) : (
                   <Button variant="ghost" size="sm" disabled>
@@ -549,9 +545,7 @@ export default function DocumentsPage() {
                     onClick={() => goToDoc(navNext)}
                     className="min-w-0"
                   >
-                    <span className="max-w-[200px] truncate">
-                      下一篇:{navNext.title}
-                    </span>
+                    <span className="max-w-[200px] truncate">下一篇:{navNext.title}</span>
                     <ChevronRight className="h-4 w-4 shrink-0" />
                   </Button>
                 ) : (

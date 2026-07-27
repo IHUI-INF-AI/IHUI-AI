@@ -26,6 +26,7 @@ import {
   Button,
   Input,
 } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface Course {
   id: string
@@ -169,7 +170,7 @@ export default function EduCourseTrashPage() {
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {c.deletedAt ? new Date(c.deletedAt).toLocaleDateString() : '-'}
+                    {c.deletedAt ? formatDateOnly(c.deletedAt) : '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">

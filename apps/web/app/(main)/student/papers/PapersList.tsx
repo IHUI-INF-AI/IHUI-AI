@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 import { STATUS_STYLE, statusKey } from './helpers'
 import type { Paper } from './types'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface Props {
   list: Paper[]
@@ -74,7 +75,7 @@ export function PapersList({ list, isLoading, error, delPending, onDelete }: Pro
                   {t('paperUrlField')}
                 </a>
               )}
-              {paper.createdAt && <p>{new Date(paper.createdAt).toLocaleDateString('zh-CN')}</p>}
+              {paper.createdAt && <p>{formatDateOnly(paper.createdAt)}</p>}
             </div>
             <div className="flex justify-end pt-1">
               <Button

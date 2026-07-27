@@ -6,6 +6,7 @@ import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TYPE_COLORS } from './helpers'
 import type { OfflineRecord } from './types'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface Props {
   list: OfflineRecord[]
@@ -87,9 +88,7 @@ export function OfflineRecordList({ list, isLoading, error, delPending, onEdit, 
               <p className="text-sm text-muted-foreground">{record.description}</p>
             )}
             {record.occurredAt && (
-              <p className="text-xs text-muted-foreground">
-                {new Date(record.occurredAt).toLocaleDateString('zh-CN')}
-              </p>
+              <p className="text-xs text-muted-foreground">{formatDateOnly(record.occurredAt)}</p>
             )}
           </CardContent>
         </Card>
