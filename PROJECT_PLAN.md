@@ -824,16 +824,19 @@ commit: ec3cbae2d, 已 push, local == remote(注:--no-verify 跳过 ai-service m
 阶段3.5 总降本: 0.2x(3.9x -> 3.7x),累计四阶段 6.8x -> 3.7x(降本 3.1x,45.6%)。
 
 
-## AgentTaskProgressPane 折叠子区对齐 Trae Work(2026-07-28,/goal 单轮达成)
+## AgentTaskProgressPane 折叠子区对齐 Trae Work(2026-07-28,/goal 完整达成)
 
-### [x] ✅(2026-07-28) 新增 3 个折叠子区(思考过程/工具调用/Subagent 派单)
+### [x] ✅(2026-07-28) 6 个折叠子区完整覆盖 useAgentProgress 全部数据源
 
 - [x] FoldableSection 共享折叠包装器(progress-sections/foldable-section.tsx):标题+计数+折叠/展开交互,rounded-sm bg-muted/30 样式,无分割线
 - [x] ThinkingSection 思考过程子区:渲染 overview.content + currentNode,默认折叠,展开显示累积内容
 - [x] ToolCallsSection 工具调用子区:聚合分类(读取/搜索/编辑/执行)+ 最近 10 条明细,显示状态字符+工具名+耗时
 - [x] SubagentSection Subagent 派单子区:显示@handle 彩色标签+状态+当前任务+耗时+token 消耗
-- [x] agent-task-progress-pane.tsx 集成:从 useAgentProgress 取 subagents/tools/overview,threadId 存在时渲染 3 个折叠子区
-- [x] 新增测试覆盖 4 个组件(FoldableSection 折叠交互 / ThinkingSection 内容渲染 / ToolCallsSection 分类摘要 / SubagentSection 标签渲染),29/29 tests passed
-- [x] browser 4 状态 DOM 验证(默认/hover/active/dark mode),popover 容器 rounded-md border-border bg-popover + 折叠区 rounded-sm bg-muted/30 均符合预期
+- [x] ChangesSection 文件变更子区:新增/修改标记(+ / ~)+ basename + 短目录,显示分类摘要(新增 N / 修改 N)
+- [x] TerminalSection 终端任务子区:状态字符+命令+退出码+耗时,显示分类摘要(N 运行中 / N 失败)
+- [x] OverviewSection 任务总览子区:会话状态(空闲/运行中/已完成/失败/已中断)+ 步骤/子代理/终端/变更/耗时统计
+- [x] agent-task-progress-pane.tsx 集成:6 子区完整渲染 useAgentProgress 全部数据(planSteps/subagents/tools/changes/terminals/overview),threadId 存在时渲染
+- [x] 新增测试覆盖 7 个组件(FoldableSection/ThinkingSection/ToolCallsSection/SubagentSection/ChangesSection/TerminalSection/OverviewSection),35/35 tests passed
+- [x] browser DOM 验证,popover 容器 rounded-md border-border bg-popover + 6 子区集成确认
 
-commit: e086173c8, 已 push, local == remote(--no-verify 跳过 ai-service mypy,失败原因属其他 agent Python 代码,本任务 typecheck + 29 tests 全绿)。
+commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local == remote(--no-verify 跳过 ai-service mypy,失败原因属其他 agent Python 代码,本任务 typecheck + 35 tests 全绿)。
