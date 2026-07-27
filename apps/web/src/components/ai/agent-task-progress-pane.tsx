@@ -11,6 +11,9 @@ import { formatDuration } from './progress-sections/foldable-section'
 import { ThinkingSection } from './progress-sections/thinking-section'
 import { ToolCallsSection } from './progress-sections/tool-calls-section'
 import { SubagentSection } from './progress-sections/subagent-section'
+import { ChangesSection } from './progress-sections/changes-section'
+import { TerminalSection } from './progress-sections/terminal-section'
+import { OverviewSection } from './progress-sections/overview-section'
 
 /**
  * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-27 v6.1 重构)
@@ -97,7 +100,7 @@ export function AgentTaskProgressPane() {
   }, [conversationId, threadId, setThreadId])
 
   const progress = useAgentProgress(open ? threadId : null)
-  const { planSteps, isStreaming, subagents, tools, overview } = progress
+  const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
 
   // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
   React.useEffect(() => {
@@ -243,7 +246,7 @@ export function AgentTaskProgressPane() {
           </>
         )}
 
-        {/* 折叠子区:思考过程 / 工具调用 / Subagent 派单(对齐 Trae Work) */}
+        {/* 折叠子区:思考过程 / 工具调用 / Subagent 派单 / 文件变更 / 终端任务 / 任务总览(对齐 Trae Work) */}
         {threadId && (
           <>
             <ThinkingSection
@@ -253,6 +256,9 @@ export function AgentTaskProgressPane() {
             />
             <ToolCallsSection tools={tools} />
             <SubagentSection subagents={subagents} />
+            <ChangesSection changes={changes} />
+            <TerminalSection terminals={terminals} />
+            <OverviewSection overview={overview} isStreaming={isStreaming} />
           </>
         )}
       </div>
