@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/common'
 import { streamChat, formatSSEError, type FallbackEvent } from '@ihui/api-client'
@@ -214,26 +215,33 @@ function tryHandlePlanModeSlash(text: string): boolean {
  * - /review: 切换到审查模式(只读审查,deny write 工具 + 强化审查 prompt)
  * - /spec:   切换到规格模式(从代码反向生成 spec 文档)
  * - 命中即返回 true,不发送给 LLM,清空输入框。toast 给反馈。
- * - 仅当输入完全匹配 /build /review /spec 开头(后接空白或行尾)时命中。 */
-function tryHandleChatModeSlash(text: string): boolean {
+ * - 仅当输入完全匹配 /build /review /spec 开头(后接空白或行尾)时命中。
+ * - t: next-intl 翻译函数(由 useChat hook 顶层 useTranslations('chat') 传入,
+ *   因模块级函数无法直接调 hook,2026-07-28 i18n 补全) */
+function tryHandleChatModeSlash(
+  text: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+): boolean {
   const trimmed = text.trimStart()
   const m = /^\/(build|review|spec)\b\s*/.exec(trimmed)
   if (!m) return false
   const target = m[1] as 'build' | 'review' | 'spec'
   const modeStore = useModeStore.getState()
-  const label = target === 'build' ? '构建' : target === 'review' ? '审查' : '规格'
+  const labelKey =
+    target === 'build' ? 'modeBuild' : target === 'review' ? 'modeReview' : 'modeSpec'
+  const label = t(labelKey)
   if (modeStore.currentMode === target) {
-    toast.info(`当前已是${label}模式`)
+    toast.info(t('modeAlreadyActive', { mode: label }))
     return true
   }
   modeStore.setMode(target)
-  const desc =
+  const descKey =
     target === 'build'
-      ? 'AI 将正常执行,全工具开放(Ctrl+1 可快速切换)'
+      ? 'modeBuildDesc'
       : target === 'review'
-        ? 'AI 将只读审查代码(Ctrl+3 可快速切换)'
-        : 'AI 将从代码反向生成 spec 文档(Ctrl+4 可快速切换)'
-  toast.success(`已切换到${label}模式`, { description: desc })
+        ? 'modeReviewDesc'
+        : 'modeSpecDesc'
+  toast.success(t('modeSwitched', { mode: label }), { description: t(descKey) })
   return true
 }
 
@@ -887,6 +895,8 @@ export function useChat(): UseChatReturn {
 
   const router = useRouter()
   const queryClient = useQueryClient()
+  // ChatMode 斜杠命令 toast i18n(2026-07-28 立,模块级函数无法调 hook,由此处传入 t)
+  const t = useTranslations('chat')
   const abortRef = React.useRef<AbortController | null>(null)
   // P1 错误重试(2026-07-23):保存最后发送内容,toast 加 retry 按钮
   const lastSentContentRef = React.useRef('')
@@ -911,7 +921,7 @@ export function useChat(): UseChatReturn {
       // /build /review /spec 动作型斜杠命令拦截(2026-07-28 立,补全 ChatMode 4态三通道):
       // - 纯 ChatMode 切换,不需要登录,不调用 LLM,不创建会话
       // - 命中即清空输入框 + toast 反馈(返回 true 与 tryHandlePlanModeSlash 一致)
-      if (tryHandleChatModeSlash(text)) return true
+      if (tryHandleChatModeSlash(text, t)) return true
 
       // /permission ask|auto|full 动作型斜杠命令拦截(2026-07-25 深化,对标 Codex approvalMode):
       // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
@@ -1125,6 +1135,7 @@ export function useChat(): UseChatReturn {
           // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
           onSubagentSpawn: (evt) => useChatStore.getState().addSubagentSpawn(evt),
           onSubagentEnd: (evt) => useChatStore.getState().markSubagentEnd(evt),
+          onSubagentProgress: (evt) => useChatStore.getState().updateSubagentProgress(evt),
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
             // #9 错误前先 flush 累积 token,避免最后一批内容丢失
@@ -1225,7 +1236,7 @@ export function useChat(): UseChatReturn {
       // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
       return true
     },
-    [router, queryClient],
+    [router, queryClient, t],
   )
 
   const stop = React.useCallback(() => {
