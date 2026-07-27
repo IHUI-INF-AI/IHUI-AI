@@ -125,6 +125,48 @@
 
 ---
 
+### P0 商业化变现批次(2026-07-27 立,平台独占:apps/api + apps/web,AGENTS.md §24 用户已确认)
+
+> 用户明确要求"用本项目挣钱",已通过 AskUserQuestion 确认 4 路径(SaaS 订阅 + 企业私有化 + API 开放平台 + AI 教育)× 双市场(国内+海外)。代码层面 95% 已就绪(微信支付/支付宝/VIP/积分/API 密钥/4 语言 SDK/教育模块/部署/i18n 全部真实可用),主要缺口:Stripe/PayPal(海外)、plan-driven 中间件、模型价格 seed、运营数据、真实凭据。**用户必须本人操作**:注册 Stripe 商户 / 申请微信支付+支付宝商户号 / ICP 备案 / 购买云服务器 / 配置 GitHub Secrets / 谈企业客户签合同 / 录课。
+
+#### P0-1 海外支付(Stripe + PayPal)— 海外收款必需
+
+- [x] ✅(2026-07-27) **P0-1a Stripe SDK 集成** — 新建 `apps/api/src/services/stripe.ts`(Checkout Session/PaymentIntent 查询退款/Webhook HMAC-SHA256 验签 + 5 分钟防重放/DEV 降级 mock)+ `apps/api/src/routes/payment-gateway.ts` 4 端点(`/payments/stripe/create-checkout` 创建订单+Checkout Session、`/payments/stripe/webhook` 验签+幂等+订阅激活+返佣、`/payments/stripe/session-status` 查询、`/payments/stripe/refund` 退款)+ raw body parser(tbox.ts 同模式,插件作用域内覆盖)+ 商品金额服务端反查(VIP/Developer)+ provider 枚举 'stripe' 已存在(billing.ts)+ typecheck 全绿。对齐 wechat-pay.ts/alipay.ts 模式(裸 fetch,不引入 stripe SDK)。依赖:用户注册 Stripe 账户拿 publishable_key + secret_key + webhook_secret
+- [ ] **P0-1b PayPal REST SDK 集成** — 新建 `apps/api/src/services/paypal.ts`(Orders API v2/Webhook 验签/订阅/退款)+ `/payments/paypal/*` 端点。依赖:用户注册 PayPal Business 账户拿 client_id + client_secret
+
+#### P0-2 订阅档位扩展 + plan-driven 中间件
+
+- [ ] **P0-2a VIP levelValue 4 档扩展** — `packages/database/src/schema/vip.ts` levelValue 从 3 档(0/1/2)扩展为 4 档(0=免费/1=个人/2=团队/3=企业)+ 各档配额字段(aiBudgets 默认值 + API QPS + 并发数 + 模型白名单)+ 迁移脚本
+- [ ] **P0-2b plan-driven 中间件** — 新建 `apps/api/src/services/plan-entitlement-service.ts`:订阅激活时自动 upsert aiBudgets(按 plan 默认值)+ API key 配额;用户升级/降级时自动调整;集成到 `activateOrderSubscription` 链路
+
+#### P0-3 模型价格 seed + 定价页
+
+- [ ] **P0-3a 176 模型价格 seed** — 新建 `apps/api/src/db/seed/ai-pricing-seed.ts`,从各厂商官方价格表(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao/Kimi/Zhipu/MiniMax/ByteDance 等)导入 aiPricing 表(inputTokenPrice/outputTokenPrice/regionPricing cn/us/eu 系数)
+- [ ] **P0-3b Web 订阅档位页 + 定价表页** — `apps/web/app/(main)/pricing/page.tsx`(4 档对比表 + 月付/年付切换 + "立即订阅"按钮)+ `apps/web/app/(main)/models-pricing/page.tsx`(176 模型价格表,按厂商分组+搜索)
+
+#### P0-4 API 开放平台打磨
+
+- [ ] **P0-4a Swagger 公开暴露策略** — `/docs` 端点生产环境独立暴露 + 鉴权(API Key 或公开)+ 自定义品牌页(替换默认 swagger-ui)+ `SWAGGER_ENABLED=true` 生产配置
+- [ ] **P0-4b 开发者门户定价页** — `apps/web/app/(main)/developer/pricing/` 补定价表 + 按量计费规则说明 + 调用示例
+
+#### P1-1 SDK 发布 CI
+
+- [ ] **P1-1 4 语言 SDK 发布到包管理器** — npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven(com.ihui.ai:sdk)+ Go module;新建 `.github/workflows/release-sdk.yml` tag 触发自动发布
+
+#### P1-2 企业私有化产品包装
+
+- [ ] **P1-2 企业版产品包装** — `docs/enterprise-service/` 补:报价单 PDF 模板(5/10/30/50 万 4 档)+ 部署文档(私有云/公有云/混合云)+ Demo 环境搭建脚本 + 功能对比表(社区版 vs 企业版)+ SLA 条款
+
+#### P1-3 AI 教育课程 MVP
+
+- [ ] **P1-3 教育课程内容 seed + 证书视觉** — `apps/api/src/db/seed/courses-seed.ts` 导入 5-10 门示范课程(AI 编程入门/LangGraph 实战/MCP 开发/AI 教育方法论等)+ 证书视觉模板替换占位(`apps/web/src/components/certificate/`)
+
+#### P1-4 SEO 资产补全
+
+- [ ] **P1-4 SEO 资产补全** — favicon/apple-touch-icon/OG image/sitemap.xml 补全 + `apps/web/src/app/(main)/sitemap.ts` 动态生成 + robots.txt
+
+---
+
 ## 历史归档占位(2026-07-26 批次)
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移完整性审计 — 5 维度对照 + 缺失项识别(/goal 模式),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
