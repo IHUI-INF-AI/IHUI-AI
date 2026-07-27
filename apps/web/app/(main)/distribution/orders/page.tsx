@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -174,7 +174,7 @@ export default function CommissionOrdersPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((it: any) => (
+              items.map((it) => (
                 <TableRow key={it.id}>
                   <TableCell className="px-4 py-2.5 font-medium">{it.orderNo}</TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -204,7 +204,7 @@ export default function WorkspacePage() {
         </div>
       ) : data && data.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.map((project: any) => (
+          {data.map((project) => (
             <ProjectCard key={project.id} project={project as ProjectCardData} />
           ))}
         </div>

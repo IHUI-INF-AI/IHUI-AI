@@ -7007,7 +7007,9 @@
                             "conversations":  "Conversations",
                             "noMessages":  "No messages",
                             "noMessagesHint":  "No messages yet. Send one to say hello!",
+                            "noConversations":  "No conversations",
                             "selectHint":  "Select a conversation to start chatting",
+                            "searchPlaceholder":  "Search conversations",
                             "input":  {
                                           "placeholder":  "Type a message..."
                                       },

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -80,7 +80,7 @@ function McpResourceBrowser() {
     },
   })
 
-  const selected = resources.find((r: any) => r.uri === selectedUri)
+  const selected = resources.find((r) => r.uri === selectedUri)
 
   let jsonData: unknown = undefined
   if (selected?.content) {
@@ -114,7 +114,7 @@ function McpResourceBrowser() {
           <SelectValue placeholder={tm('selectPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
-          {resources.map((r: any) => (
+          {resources.map((r) => (
             <SelectItem key={r.uri} value={r.uri}>
               {r.name}
             </SelectItem>

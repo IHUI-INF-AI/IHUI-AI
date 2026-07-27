@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -149,7 +149,7 @@ export default function BusinessCardPage() {
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {(mine ?? []).map((card: any) => (
+            {(mine ?? []).map((card) => (
               <CardItem
                 key={card.id}
                 card={card}
@@ -220,7 +220,7 @@ export default function BusinessCardPage() {
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {(favs ?? []).slice(0, 4).map((card: any) => (
+            {(favs ?? []).slice(0, 4).map((card) => (
               <Link key={card.id} href={`/business-card/share/${card.id}`}>
                 <CardItem card={card} />
               </Link>
