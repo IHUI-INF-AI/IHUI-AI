@@ -2,7 +2,7 @@
  * global.css 同步追踪(2026-07-24 立)
  * -----------------------------------------------------------------------------
  * 最后同步日期:2026-07-24
- * 源文件路径:packages/ui-primitives/src/styles/tokens.css
+ * 源文件路径:packages/design-tokens/src/styles/tokens.css
  * 同步规则:tokens.css 改动后必须手动同步到本文件。
  *   原因:NativeWind 4.x 仅支持 Tailwind v3,不兼容 v4 的 @theme 语法,
  *         无法直接 @import tokens.css,只能手抄 v3 兼容的 :root + .dark 块。
@@ -15,7 +15,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 对齐 web 端 design-tokens(packages/ui-primitives/src/styles/tokens.css @theme + .dark 块)
+/* 对齐 web 端 design-tokens(packages/design-tokens/src/styles/tokens.css @theme + .dark 块)
  * 注:NativeWind 4.x 仅支持 Tailwind v3,不兼容 v4 的 @theme 语法,无法直接 @import tokens.css。
  * 此处手抄 v3 兼容的 :root + .dark CSS 变量,值必须与 tokens.css 严格一致(值漂移即 bug)。
  */
