@@ -28,6 +28,10 @@ const PUBLIC_PREFIXES = [
   '/api/exchange-rates/',
   '/api/share/',
   '/api/openapi/',
+  '/api/developer/portal',
+  '/api/ai-pricing',
+  '/api/vip/levels',
+  '/api/vip/products',
   '/docs',
   '/openapi.json',
 ]
