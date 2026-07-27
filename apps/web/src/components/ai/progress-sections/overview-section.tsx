@@ -9,6 +9,13 @@ import type { AgentOverview } from '@/hooks/use-agent-progress'
 interface OverviewSectionProps {
   overview: AgentOverview
   isStreaming: boolean
+  /** v9: token 统计 */
+  totalTokens?: number
+  tokenRate?: number
+  /** v9: 预估剩余时间(ms) */
+  etaMs?: number | null
+  /** v9: 上下文窗口占用百分比(0-100) */
+  contextUsage?: number
 }
 
 const STATUS_ICON: Record<AgentOverview['status'], React.ComponentType<{ className?: string }>> = {
@@ -40,7 +47,14 @@ const STATUS_CLS: Record<AgentOverview['status'], string> = {
  * - 标题带 Activity 图标
  * - 会话状态 SVG 图标 + 步骤/子代理/终端/变更/耗时统计
  */
-export function OverviewSection({ overview, isStreaming }: OverviewSectionProps) {
+export function OverviewSection({
+  overview,
+  isStreaming,
+  totalTokens,
+  tokenRate,
+  etaMs,
+  contextUsage,
+}: OverviewSectionProps) {
   const hasData =
     overview.sessionStart !== null ||
     overview.totalSteps > 0 ||
@@ -82,6 +96,26 @@ export function OverviewSection({ overview, isStreaming }: OverviewSectionProps)
   }
   if (sessionDuration) {
     stats.push({ label: '耗时', value: sessionDuration })
+  }
+  // v9: token 统计
+  if (totalTokens !== undefined && totalTokens > 0) {
+    stats.push({
+      label: 'Token',
+      value: totalTokens >= 1000 ? `${Math.round(totalTokens / 1000)}k` : `${totalTokens}`,
+    })
+  }
+  if (tokenRate !== undefined && tokenRate > 0) {
+    stats.push({ label: '速率', value: `${tokenRate}/s` })
+  }
+  if (etaMs !== undefined && etaMs !== null && etaMs > 0) {
+    stats.push({ label: '预计', value: formatDuration(etaMs) })
+  }
+  if (contextUsage !== undefined && contextUsage > 0) {
+    stats.push({
+      label: '上下文',
+      value: `${Math.round(contextUsage)}%`,
+      cls: contextUsage > 80 ? 'text-amber-500' : undefined,
+    })
   }
 
   const Icon = STATUS_ICON[overview.status]
