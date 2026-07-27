@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
 
-const EXCLUDE_DIRS = new Set(['node_modules', '.next', '.turbo', '.git', '.pnpm-store', '.pnpm-cache'])
+const EXCLUDE_DIRS = new Set(['.git', '.next', '.pnpm-cache', '.pnpm-store', '.trae-cn', '.turbo', '.worktrees', 'node_modules'])
 
 /**
  * 递归查找并删除所有 .tsbuildinfo 文件（排除依赖与构建缓存目录）。
