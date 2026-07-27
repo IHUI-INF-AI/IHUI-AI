@@ -12,7 +12,7 @@
 import { initApi, getRefreshToken, getToken, clearAllTokens } from '../lib/token'
 import { doRefresh, startAutoRefresh, scheduleRefreshAlarm } from '../lib/token-utils'
 import type { ExtMessage, ExtResponse, ApiProxyPayload } from '../lib/message-router'
-import { REFRESH_ALARM_NAME, getApiBaseUrl } from '../lib/config'
+import { getApiBaseUrl } from '../lib/config'
 import { executeAgentActionRequest } from '../lib/agent-control'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
 
@@ -385,16 +385,6 @@ function registerMessageListener(): void {
   })
 }
 
-function registerAlarmListener(): void {
-  chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === REFRESH_ALARM_NAME) {
-      void doRefresh().catch((err) => {
-        console.error('[IHUI AI] refresh alarm failed:', err)
-      })
-    }
-  })
-}
-
 export default defineBackground(() => {
   // 2026-07-22 P0 Round 5 鲁棒性加固:全局未捕获 Promise rejection + error 监听
   // MV3 Service Worker 未捕获异常会被 Chrome 累计,达阈值后自动禁用扩展(工具栏图标变灰)
@@ -435,7 +425,6 @@ export default defineBackground(() => {
   registerInstallHook()
   registerActionClick()
   registerContextMenu()
-  registerAlarmListener()
   initAgentControlBridge()
 
   // 监听 storage 变化(其他 context 改 token 时同步)

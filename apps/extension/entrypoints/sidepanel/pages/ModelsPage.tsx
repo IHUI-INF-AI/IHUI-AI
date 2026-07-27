@@ -79,7 +79,7 @@ export default function ModelsPage() {
             <Card
               key={m.id}
               className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => openInWeb(m.id)}
+              onClick={() => openItemInWeb(`/models/${encodeURIComponent(m.id)}`)}
             >
               <CardHeader className="px-3 py-2">
                 <CardTitle className="text-sm leading-snug">{m.name}</CardTitle>
