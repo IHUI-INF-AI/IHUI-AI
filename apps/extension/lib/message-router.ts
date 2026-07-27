@@ -10,6 +10,9 @@
  *      background 返回 { ok, data?, error? }
  */
 import type { ApiResult, AgentActionRequest } from '@ihui/types'
+import { createChromePlatform } from '@ihui/browser-platform'
+
+const platform = createChromePlatform()
 
 // ===== Request types (sender -> background) =====
 
@@ -27,8 +30,7 @@ export type ExtMessage =
 // ===== Response types (background -> sender) =====
 
 export type ExtResponse =
-  | { ok: true; data: unknown; requestId: string }
-  | { ok: false; error: string; requestId: string }
+  { ok: true; data: unknown; requestId: string } | { ok: false; error: string; requestId: string }
 
 // ===== Background → Content Script: forward agent DOM action =====
 
@@ -74,14 +76,10 @@ export function sendMessage<T = unknown>(msg: ExtMessage, timeoutMs = 15000): Pr
     const timer = setTimeout(() => {
       reject(new Error(`message ${msg.type} timed out after ${timeoutMs}ms`))
     }, timeoutMs)
-    try {
-      chrome.runtime.sendMessage(msg, (res: ExtResponse | undefined) => {
+    platform.messaging
+      .sendRuntimeMessage<ExtResponse | undefined>(msg)
+      .then((res) => {
         clearTimeout(timer)
-        const lastErr = chrome.runtime.lastError
-        if (lastErr) {
-          reject(new Error(lastErr.message || 'runtime error'))
-          return
-        }
         if (!res) {
           reject(new Error('no response'))
           return
@@ -89,10 +87,10 @@ export function sendMessage<T = unknown>(msg: ExtMessage, timeoutMs = 15000): Pr
         if (res.ok) resolve(res.data as T)
         else reject(new Error(res.error))
       })
-    } catch (err) {
-      clearTimeout(timer)
-      reject(err instanceof Error ? err : new Error(String(err)))
-    }
+      .catch((err: unknown) => {
+        clearTimeout(timer)
+        reject(err instanceof Error ? err : new Error(String(err)))
+      })
   })
 }
 
