@@ -47,7 +47,7 @@ export function AgentRuleDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(o: any) => {
+      onOpenChange={(o: boolean) => {
         if (!o) onClose()
       }}
     >
@@ -65,7 +65,7 @@ export function AgentRuleDialog({
             <Label>{t('labelAgentId')}</Label>
             <Input
               value={form.agentId}
-              onChange={(e: any) => setForm({ ...form, agentId: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, agentId: e.target.value })}
               placeholder={t('placeholderAgentId')}
             />
           </div>

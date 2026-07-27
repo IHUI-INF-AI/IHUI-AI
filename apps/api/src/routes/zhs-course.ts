@@ -17,6 +17,7 @@ import {
 } from '@ihui/database'
 import { eq, sql, and, desc } from 'drizzle-orm'
 import { requireAdmin } from '../plugins/require-permission.js'
+import { error } from '../utils/response.js'
 
 const courseSchema = z.object({
   title: z.string().min(1).max(255),
@@ -85,7 +86,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   fastify.get('/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const result = await db.select().from(lessons).where(eq(lessons.id, id)).limit(1)
-    if (!result[0]) return reply.code(404).send({ error: '课程不存在' })
+    if (!result[0]) return reply.status(404).send(error(404, '课程不存在'))
     return result[0]
   })
 
@@ -133,7 +134,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       })
       .where(eq(lessons.id, id))
       .returning()
-    if (!updated) return reply.code(404).send({ error: '课程不存在' })
+    if (!updated) return reply.status(404).send(error(404, '课程不存在'))
     return updated
   })
 
@@ -215,7 +216,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       .from(zhsCourseVideo)
       .where(eq(zhsCourseVideo.id, Number(video_id)))
       .limit(1)
-    if (!result[0]) return reply.code(404).send({ error: '视频不存在' })
+    if (!result[0]) return reply.status(404).send(error(404, '视频不存在'))
     return result[0]
   })
 
@@ -265,17 +266,19 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   fastify.post('/videos/batch', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
-        videos: z.array(
-          z.object({
-            courseId: z.number().int(),
-            videoPath: z.string().min(1),
-            title: z.string().max(200).optional(),
-            duration: z.number().int().optional(),
-            sort: z.number().int().default(0),
-            creator: z.string().optional(),
-            lecturer: z.string().optional(),
-          }),
-        ).max(100),
+        videos: z
+          .array(
+            z.object({
+              courseId: z.number().int(),
+              videoPath: z.string().min(1),
+              title: z.string().max(200).optional(),
+              duration: z.number().int().optional(),
+              sort: z.number().int().default(0),
+              creator: z.string().optional(),
+              lecturer: z.string().optional(),
+            }),
+          )
+          .max(100),
       })
       .parse(request.body)
     const created = await db.insert(zhsCourseVideo).values(body.videos).returning()
@@ -324,7 +327,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       })
       .where(eq(zhsCourseVideo.id, Number(video_id)))
       .returning()
-    if (!updated) return reply.code(404).send({ error: '视频不存在' })
+    if (!updated) return reply.status(404).send(error(404, '视频不存在'))
     return updated
   })
 
@@ -344,7 +347,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       .set({ courseId, updatedAt: new Date() })
       .where(eq(zhsCourseVideo.id, Number(video_id)))
       .returning()
-    if (!updated) return reply.code(404).send({ error: '视频不存在' })
+    if (!updated) return reply.status(404).send(error(404, '视频不存在'))
     return updated
   })
 
@@ -356,7 +359,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       .set({ status: 1, auditStatus: 1, updatedAt: new Date() })
       .where(eq(zhsCourseVideo.id, Number(video_id)))
       .returning()
-    if (!updated) return reply.code(404).send({ error: '视频不存在' })
+    if (!updated) return reply.status(404).send(error(404, '视频不存在'))
     return updated
   })
 
@@ -428,7 +431,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       .from(zhsEducationPlatform)
       .where(eq(zhsEducationPlatform.code, code))
       .limit(1)
-    if (!result[0]) return reply.code(404).send({ error: '平台不存在' })
+    if (!result[0]) return reply.status(404).send(error(404, '平台不存在'))
     return result[0]
   })
 
@@ -494,7 +497,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       })
       .where(eq(zhsEducationPlatform.id, Number(platform_id)))
       .returning()
-    if (!updated) return reply.code(404).send({ error: '平台不存在' })
+    if (!updated) return reply.status(404).send(error(404, '平台不存在'))
     return updated
   })
 
@@ -528,7 +531,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
         amount: body.amount,
       })
       .returning()
-    if (!created) return reply.code(500).send({ error: '创建支付记录失败' })
+    if (!created) return reply.status(500).send(error(500, '创建支付记录失败'))
     await db.insert(zhsCoursePayLog).values({
       payId: created.id,
       action: 'create',
@@ -803,7 +806,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       })
       .where(eq(lessons.id, id))
       .returning()
-    if (!updated) return reply.code(404).send({ error: '课程不存在' })
+    if (!updated) return reply.status(404).send(error(404, '课程不存在'))
     return updated
   })
 
@@ -893,7 +896,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       })
       .where(eq(zhsCoursePay.id, id))
       .returning()
-    if (!updated) return reply.code(404).send({ error: '支付记录不存在' })
+    if (!updated) return reply.status(404).send(error(404, '支付记录不存在'))
     return updated
   })
 
@@ -935,7 +938,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       })
       .where(eq(zhsCoursePayLog.id, id))
       .returning()
-    if (!updated) return reply.code(404).send({ error: '支付日志不存在' })
+    if (!updated) return reply.status(404).send(error(404, '支付日志不存在'))
     return updated
   })
 
@@ -971,7 +974,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       .set({ ...(body.action && { action: body.action }), updatedAt: new Date() })
       .where(eq(zhsCoursePlatformLog.id, id))
       .returning()
-    if (!updated) return reply.code(404).send({ error: '平台日志不存在' })
+    if (!updated) return reply.status(404).send(error(404, '平台日志不存在'))
     return updated
   })
 

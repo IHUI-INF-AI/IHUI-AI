@@ -54,7 +54,7 @@ export function PDFTextLayer({
     let cancelled = false
     pdfPage
       .getTextContent()
-      .then((content: any) => {
+      .then((content: { items?: TextItemShape[]; styles?: Record<string, { fontFamily?: string }> }) => {
         if (cancelled) return
         const rawItems = (content?.items ?? []) as TextItemShape[]
         const styles = (content?.styles ?? {}) as Record<string, { fontFamily?: string }>

@@ -42,7 +42,7 @@ export {
   TOKEN_STORAGE_KEY,
   REFRESH_TOKEN_STORAGE_KEY,
   REFRESH_LEAD_MS,
+  TOKEN_EXPIRED_CODES,
 } from '@ihui/shared/constants'
 export const EXPIRES_IN_STORAGE_KEY = 'ihui_token_expires_in'
-export const TOKEN_EXPIRED_CODES = [401, 40101, 499]
 export const REFRESH_ALARM_NAME = 'ihui-refresh-token'

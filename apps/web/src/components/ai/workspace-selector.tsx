@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import * as DropdownMenuOrig from '@radix-ui/react-dropdown-menu'
-const DropdownMenu: any = DropdownMenuOrig
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Check, ChevronDown, Folder, FolderPlus, Loader2, X } from 'lucide-react'
@@ -117,8 +116,8 @@ export function WorkspaceSelector() {
 
   return (
     <>
-      <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenu.Trigger asChild>
+      <DropdownMenuOrig.Root open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuOrig.Trigger asChild>
           <button
             type="button"
             aria-label={triggerLabel}
@@ -139,16 +138,16 @@ export function WorkspaceSelector() {
             )}
             <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
           </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
+        </DropdownMenuOrig.Trigger>
+        <DropdownMenuOrig.Portal>
+          <DropdownMenuOrig.Content
             align="start"
             sideOffset={6}
             className="z-popover min-w-[16rem] max-w-[20rem] overflow-hidden rounded-lg border bg-card p-1 text-card-foreground shadow-md"
           >
-            <DropdownMenu.Label className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <DropdownMenuOrig.Label className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {tw('recentWorkspaces')}
-            </DropdownMenu.Label>
+            </DropdownMenuOrig.Label>
 
             {/* 最近工作区列表 */}
             <div className="max-h-72 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
@@ -165,7 +164,7 @@ export function WorkspaceSelector() {
                 recentList.map((ws) => {
                   const isActive = activeWorkspace?.path === ws.path
                   return (
-                    <DropdownMenu.Item
+                    <DropdownMenuOrig.Item
                       key={ws.path}
                       onSelect={() => handleSelect(ws)}
                       className={cn(
@@ -186,7 +185,7 @@ export function WorkspaceSelector() {
                           {ws.path}
                         </span>
                       </div>
-                    </DropdownMenu.Item>
+                    </DropdownMenuOrig.Item>
                   )
                 })
               )}
@@ -194,8 +193,8 @@ export function WorkspaceSelector() {
 
             <div className="mt-1 flex flex-col gap-0.5">
               {/* 添加工作区 */}
-              <DropdownMenu.Item
-                onSelect={(e: any) => {
+              <DropdownMenuOrig.Item
+                onSelect={(e: Event) => {
                   e.preventDefault()
                   setMenuOpen(false)
                   setPickerOpen(true)
@@ -207,11 +206,11 @@ export function WorkspaceSelector() {
               >
                 <FolderPlus className="h-3.5 w-3.5 shrink-0 text-primary" />
                 <span className="font-medium">{t('addWorkspace')}</span>
-              </DropdownMenu.Item>
+              </DropdownMenuOrig.Item>
 
               {/* 清除当前工作区(仅已绑定时显示) */}
               {hasActive && (
-                <DropdownMenu.Item
+                <DropdownMenuOrig.Item
                   onSelect={() => {
                     setActiveWorkspace(null)
                     setMenuOpen(false)
@@ -223,12 +222,12 @@ export function WorkspaceSelector() {
                 >
                   <X className="h-3.5 w-3.5 shrink-0" />
                   <span className="font-medium">{t('clearWorkspace')}</span>
-                </DropdownMenu.Item>
+                </DropdownMenuOrig.Item>
               )}
             </div>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+          </DropdownMenuOrig.Content>
+        </DropdownMenuOrig.Portal>
+      </DropdownMenuOrig.Root>
 
       <LocalFolderPicker
         open={pickerOpen}

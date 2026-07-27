@@ -54,7 +54,7 @@ function DetailsContent() {
   })
 
   const levels = data?.items ?? []
-  const level = levels.find((l: any) => l.id === levelId)
+  const level = levels.find((l) => l.id === levelId)
 
   const purchaseMut = useMutation({
     mutationFn: (input: { vipLevelId: string; paymentMethod: PaymentMethod }) =>
