@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react'
 
 import { getVideoTaskStatusLabel } from './status-badge'
+import { formatDate } from '@/lib/date-utils'
 
 export interface VideoTask {
   id: number
@@ -37,7 +38,7 @@ export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warn
         </div>
         <div>
           <div className="text-muted-foreground">更新时间</div>
-          <div>{new Date(task.updatedAt).toLocaleString()}</div>
+          <div>{formatDate(task.updatedAt)}</div>
         </div>
         <div>
           <div className="text-muted-foreground">状态</div>

@@ -6,6 +6,7 @@ import { Loader2, Pencil, Play, Plus, ScrollText, Trash2 } from 'lucide-react'
 import { Button, Card, Input, Switch } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/components/common/Empty'
+import { formatDate } from '@/lib/date-utils'
 import { useHooks, useHookLogs } from '@/hooks/use-hooks'
 import {
   draftToCreateInput,
@@ -13,13 +14,7 @@ import {
   useHooksStore,
   type HookDraft,
 } from '@/stores/hooks'
-import type {
-  Hook,
-  HookActionType,
-  HookLog,
-  HookTriggerEvent,
-  TestHookResult,
-} from '@ihui/types'
+import type { Hook, HookActionType, HookLog, HookTriggerEvent, TestHookResult } from '@ihui/types'
 
 /**
  * Hook 管理组件 — 2026-07-22 立。
@@ -40,20 +35,30 @@ import type {
 // ====================== Badge 颜色映射 ======================
 
 const EVENT_BADGE_CLASS: Record<HookTriggerEvent, string> = {
-  'tool.before': 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900',
-  'tool.after': 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900',
-  'message.send': 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900',
-  'message.receive': 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900',
-  'session.start': 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900',
-  'session.end': 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900',
-  error: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-900',
+  'tool.before':
+    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900',
+  'tool.after':
+    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900',
+  'message.send':
+    'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900',
+  'message.receive':
+    'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900',
+  'session.start':
+    'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900',
+  'session.end':
+    'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900',
+  error:
+    'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-900',
 }
 
 const ACTION_BADGE_CLASS: Record<HookActionType, string> = {
-  webhook: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-900',
-  script: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-900',
+  webhook:
+    'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-900',
+  script:
+    'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-900',
   log: 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-800',
-  notify: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900',
+  notify:
+    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900',
 }
 
 const ACTION_LABEL: Record<HookActionType, string> = {
@@ -160,10 +165,7 @@ export function HooksManager() {
 
   return (
     <div className="flex flex-col gap-4">
-      <HooksHeader
-        count={hooks.length}
-        onCreate={() => store.openCreate()}
-      />
+      <HooksHeader count={hooks.length} onCreate={() => store.openCreate()} />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -214,10 +216,7 @@ export function HooksManager() {
 
       {/* 日志查看对话框 */}
       {store.viewingLogsHookId && (
-        <HookLogsDialog
-          hookId={store.viewingLogsHookId}
-          onClose={() => store.closeLogs()}
-        />
+        <HookLogsDialog hookId={store.viewingLogsHookId} onClose={() => store.closeLogs()} />
       )}
     </div>
   )
@@ -285,10 +284,22 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onViewLogs} aria-label="查看日志">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onViewLogs}
+            aria-label="查看日志"
+          >
             <ScrollText className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit} aria-label="编辑">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onEdit}
+            aria-label="编辑"
+          >
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
@@ -366,9 +377,7 @@ function HookEditor({
             <h3 className="text-base font-semibold leading-none">
               {isEdit ? '编辑 Hook' : '新建 Hook'}
             </h3>
-            <p className="text-xs text-muted-foreground">
-              在事件触发时执行自定义动作
-            </p>
+            <p className="text-xs text-muted-foreground">在事件触发时执行自定义动作</p>
           </div>
           <button
             type="button"
@@ -376,7 +385,16 @@ function HookEditor({
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             aria-label="关闭"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M18 6 6 18" />
               <path d="m6 6 12 12" />
             </svg>
@@ -529,9 +547,7 @@ function HookActionConfigForm({
         <Field label="HTTP 方法">
           <NativeSelect
             value={draft.webhookMethod}
-            onChange={(v) =>
-              onChange({ webhookMethod: v as 'GET' | 'POST' | 'PUT' })
-            }
+            onChange={(v) => onChange({ webhookMethod: v as 'GET' | 'POST' | 'PUT' })}
             options={[
               { value: 'POST', label: 'POST' },
               { value: 'GET', label: 'GET' },
@@ -584,9 +600,7 @@ function HookActionConfigForm({
         <Field label="通知渠道">
           <NativeSelect
             value={draft.notifyChannel}
-            onChange={(v) =>
-              onChange({ notifyChannel: v as 'toast' | 'notification' | 'email' })
-            }
+            onChange={(v) => onChange({ notifyChannel: v as 'toast' | 'notification' | 'email' })}
             options={[
               { value: 'toast', label: 'Toast(轻提示)' },
               { value: 'notification', label: '系统通知' },
@@ -622,13 +636,7 @@ function HookActionConfigForm({
 
 // ====================== 日志查看对话框 ======================
 
-function HookLogsDialog({
-  hookId,
-  onClose,
-}: {
-  hookId: string
-  onClose: () => void
-}) {
+function HookLogsDialog({ hookId, onClose }: { hookId: string; onClose: () => void }) {
   const { logs, isLoading } = useHookLogs(hookId)
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
@@ -654,7 +662,16 @@ function HookLogsDialog({
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             aria-label="关闭"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M18 6 6 18" />
               <path d="m6 6 12 12" />
             </svg>
@@ -683,13 +700,7 @@ function HookLogsDialog({
 
 // ====================== 单条日志 ======================
 
-function LogRow({
-  log,
-  showHookId = true,
-}: {
-  log: HookLog
-  showHookId?: boolean
-}) {
+function LogRow({ log, showHookId = true }: { log: HookLog; showHookId?: boolean }) {
   return (
     <div
       className={cn(
@@ -712,21 +723,15 @@ function LogRow({
           {log.success ? '成功' : '失败'}
         </span>
         <span className="text-muted-foreground">{log.duration} ms</span>
-        <span className="text-muted-foreground">
-          {new Date(log.triggeredAt).toLocaleString()}
-        </span>
-        {showHookId && (
-          <span className="text-muted-foreground">#{log.hookId.slice(-8)}</span>
-        )}
+        <span className="text-muted-foreground">{formatDate(log.triggeredAt)}</span>
+        {showHookId && <span className="text-muted-foreground">#{log.hookId.slice(-8)}</span>}
       </div>
       {log.result && (
         <pre className="mt-1.5 max-h-24 overflow-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[11px] thin-scroll">
           {log.result}
         </pre>
       )}
-      {log.error && (
-        <p className="mt-1 text-red-600 dark:text-red-400">{log.error}</p>
-      )}
+      {log.error && <p className="mt-1 text-red-600 dark:text-red-400">{log.error}</p>}
     </div>
   )
 }

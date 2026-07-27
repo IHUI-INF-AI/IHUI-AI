@@ -15,6 +15,7 @@ import { Breadcrumb } from '@/components/layout'
 import { HotNews } from '@/components/operation/HotNews'
 import { NewsInteraction } from '@/components/news/NewsInteraction'
 import { NewsComments } from '@/components/news/NewsComments'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface NewsArticle {
   id: string
@@ -52,11 +53,7 @@ export default function NewsDetailPage() {
     queryFn: () => api<ArticleDetail>(`/api/news/articles/${id}`),
   })
 
-  const fmtDate = (v?: string | null) => {
-    if (!v) return '-'
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
-  }
+  const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   if (isLoading)
     return (
