@@ -643,7 +643,8 @@ def _parse_iso(iso_str: str | None) -> datetime | None:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt
-    except Exception:
+    except Exception as e:
+        logger.warning("ab_test_tracker._parse_iso ISO 解析失败: %s", e, exc_info=True)
         return None
 
 

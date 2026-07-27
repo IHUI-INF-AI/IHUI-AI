@@ -34,7 +34,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .codebase_indexer import (
     CodebaseIndexer,
@@ -43,6 +43,38 @@ from .codebase_indexer import (
 )
 
 logger = logging.getLogger(__name__)
+
+# 软依赖:watchdog 监听文件变更(缺失时 watch 功能降级,保证模块可导入 + typecheck 通过)
+# TYPE_CHECKING 块定义 stub 类供 mypy 视为具体 class 类型;运行时用 globals() 注入真实类,
+# mypy 不跟踪 globals() 赋值,因此保留 stub 类型绑定(避免被 watchdog Any 污染)。
+if TYPE_CHECKING:
+    class FileSystemEventHandler:
+        """watchdog.FileSystemEventHandler 的类型 stub(仅供 mypy 推断)。"""
+
+        def __init__(self) -> None: ...
+        def on_any_event(self, event: Any) -> None: ...
+
+
+def _load_filesystem_event_handler() -> Any:
+    """运行时加载 watchdog.FileSystemEventHandler,失败返回降级 stub。"""
+    import importlib
+
+    try:
+        return importlib.import_module("watchdog.events").FileSystemEventHandler
+    except ImportError:  # pragma: no cover - watchdog 未安装时使用降级 stub
+
+        class _FallbackHandler:
+            def __init__(self) -> None:
+                raise RuntimeError("watchdog not installed")
+
+            def on_any_event(self, event: Any) -> None:
+                pass
+
+        return _FallbackHandler
+
+
+# 运行时绑定:mypy 不跟踪 globals() 赋值,保留 TYPE_CHECKING 块的 stub 类型
+globals()["FileSystemEventHandler"] = _load_filesystem_event_handler()
 
 # 单次 spec 生成最大文件数(防超大工作区拖慢)
 MAX_SPEC_FILES = 800
@@ -1368,9 +1400,10 @@ class SpecGenerator:
 
         降级:watchdog 不可用时返回 { error: "watchdog_not_installed" }。
         """
+        # FileSystemEventHandler 在模块级已绑定(运行时动态加载,缺失时为降级 stub)
+        # 仅 Observer 需要在此导入(局部使用)
         try:
             from watchdog.observers import Observer
-            from watchdog.events import FileSystemEventHandler
         except ImportError:
             return {"error": "watchdog_not_installed"}
 
