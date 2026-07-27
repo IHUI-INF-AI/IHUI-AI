@@ -1999,7 +1999,10 @@ def _get_orchestrator() -> "AgentOrchestrator":
     return _orchestrator
 
 
-async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
+async def _tool_dispatch_subagent(
+    arguments: dict[str, Any],
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
     """dispatch_subagent: 派发子智能体执行独立任务(单 agent 或并行多 agent)。
 
     双模式(对标 Trae Work subagent orchestration):
@@ -2008,6 +2011,10 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
       orchestrator.invoke_parallel,真实并行派发,互不污染上下文。
 
     互斥:同时传 name/task 与 tasks → 报错 DUAL_MODE。
+
+    Args:
+        progress_callback: 可选进度回调,透传到 AgentOrchestrator.invoke/invoke_parallel,
+                            在 LLM 调用/工具执行/输出生成等关键节点被调用。
     """
     name = arguments.get("name", "")
     task = arguments.get("task", "")
@@ -2047,7 +2054,8 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
         try:
             orchestrator = _get_orchestrator()
             result = await orchestrator.invoke_parallel(
-                tasks=tasks, max_concurrency=max_concurrency
+                tasks=tasks, max_concurrency=max_concurrency,
+                progress_callback=progress_callback,
             )
             return {
                 "tool": "dispatch_subagent", "mode": "parallel",
@@ -2078,6 +2086,7 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
             agent_name=name,
             user_input=task,
             session_id=session_id,
+            progress_callback=progress_callback,
         )
         return {
             "tool": "dispatch_subagent", "mode": "single",
