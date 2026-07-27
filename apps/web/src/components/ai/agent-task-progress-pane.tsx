@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Pin, PinOff, Minimize2 } from 'lucide-react'
+import { Pin, PinOff, Minimize2, Circle, Loader2, Check, ListTodo, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
@@ -16,63 +16,46 @@ import { TerminalSection } from './progress-sections/terminal-section'
 import { OverviewSection } from './progress-sections/overview-section'
 
 /**
- * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-27 v6.1 重构)
+ * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-28 v7 Trae Work 对齐)
  *
- * v6.1 改动(用户规则):
- * - 位置:从 trigger 下方居中改为 trigger 容器右下方(对应"右上角"语义,带间距)
- * - 删除 threadId 输入框(自动从 useChatStore.conversationId 同步)
- * - 字体:从 font-mono 改为默认 sans 字体(跟项目整体风格一致)
- * - 新增 pin/unpin 按钮(钉住/取消置顶)
- *   - pinned=true(默认):popover 钉住,点击外部不关闭
- *   - pinned=false:popover 临时显示,点击外部或 Esc 关闭
- * - 关闭按钮 ✕ 始终可用
- *
- * 内容:
- * - 空状态(无 conversationId 或无 planSteps):"暂无任务计划,等待 agent 规划..."
- * - 有 planSteps:列表显示 □/⠋/✔ + step text + 耗时
+ * v7 改动(对标 Trae Work):
+ * - PlanStep 状态用 SVG 图标(Circle/Loader2/Check)替代 Unicode 字符
+ * - 新增进度条(细线 animated,completed 色)
+ * - header 新增状态点(running 时 primary 色脉冲)
+ * - 空状态加 MessageSquare 图标
+ * - 折叠子区间距优化(mt-1.5)
+ * - 移除手动 Spinner(Codex braille),统一用 Loader2
  */
 
-// ─── 状态字符图标 ────────────────────────────────────────────────────
-const PLAN_CHAR: Record<PlanStepStatus, string> = {
-  pending: '□',
-  in_progress: '⠋',
-  completed: '✔',
+// ─── 状态图标映射 ────────────────────────────────────────────────────
+const PLAN_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string }>> = {
+  pending: Circle,
+  in_progress: Loader2,
+  completed: Check,
 }
 const PLAN_CLS: Record<PlanStepStatus, string> = {
-  pending: 'text-muted-foreground',
+  pending: 'text-muted-foreground/40',
   in_progress: 'text-primary',
   completed: 'text-emerald-500',
 }
 
-// Codex 真正循环 braille spinner(10 帧 120ms)
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-function Spinner({ className }: { className?: string }) {
-  const [frame, setFrame] = React.useState(0)
-  React.useEffect(() => {
-    const id = window.setInterval(() => {
-      setFrame((f) => (f + 1) % SPINNER_FRAMES.length)
-    }, 120)
-    return () => window.clearInterval(id)
-  }, [])
-  return <span className={className}>{SPINNER_FRAMES[frame]}</span>
-}
-
 // ─── 单个 plan step 渲染 ─────────────────────────────────────────────
 function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
+  const Icon = PLAN_ICON[step.status]
   return (
     <div className="flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed">
-      <span className={cn('w-3 shrink-0', PLAN_CLS[step.status])}>
-        {step.status === 'in_progress' ? (
-          <Spinner className={PLAN_CLS[step.status]} />
-        ) : (
-          PLAN_CHAR[step.status]
+      <Icon
+        className={cn(
+          'mt-0.5 h-3 w-3 shrink-0',
+          PLAN_CLS[step.status],
+          step.status === 'in_progress' && 'animate-spin',
         )}
-      </span>
-      <span className={cn('flex-1 break-all', PLAN_CLS[step.status])}>
+      />
+      <span className={cn('flex-1 break-all', step.status === 'pending' && 'text-muted-foreground/60')}>
         {index + 1}. {step.step}
       </span>
       {step.durationMs !== undefined && step.status !== 'pending' && (
-        <span className="shrink-0 text-[10px] text-muted-foreground/60">
+        <span className="shrink-0 text-[10px] text-muted-foreground/50">
           {formatDuration(step.durationMs)}
         </span>
       )}
@@ -156,6 +139,7 @@ export function AgentTaskProgressPane() {
   if (!open) return null
 
   const completedCount = planSteps.filter((s) => s.status === 'completed').length
+  const progressPct = planSteps.length > 0 ? (completedCount / planSteps.length) * 100 : 0
 
   return (
     <div
@@ -170,14 +154,21 @@ export function AgentTaskProgressPane() {
       )}
       data-testid="agent-progress-pane"
     >
-      {/* Header:标题 + pin 按钮 + 关闭按钮 */}
+      {/* Header:状态点 + 标题 + pin 按钮 + 关闭按钮 */}
       <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2">
+        {/* 状态点:running 时 primary 色脉冲,idle 时灰色 */}
+        <span
+          className={cn(
+            'h-1.5 w-1.5 shrink-0 rounded-full',
+            isStreaming
+              ? 'bg-primary animate-pulse'
+              : planSteps.length > 0
+                ? 'bg-emerald-500'
+                : 'bg-muted-foreground/30',
+          )}
+        />
+        <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
         <span className="shrink-0 text-xs font-medium">任务计划</span>
-        {isStreaming && (
-          <span className="shrink-0 text-primary" title="streaming">
-            <Spinner className="text-primary" />
-          </span>
-        )}
         {/* SSE 重连指示 */}
         {progress.overview.reconnectAttempt > 0 && (
           <span
@@ -217,31 +208,49 @@ export function AgentTaskProgressPane() {
         </button>
       </div>
 
-      {/* 内容:plan steps 列表 */}
+      {/* 内容:plan steps 列表 + 折叠子区 */}
       <div className="max-h-[280px] overflow-y-auto overflow-x-hidden py-1" data-testid="plan-list">
         {/* 无 conversationId */}
         {!threadId && (
-          <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
-            开始对话后显示任务计划
+          <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
+            <MessageSquare className="h-4 w-4 text-muted-foreground/30" />
+            <span className="text-[11px] text-muted-foreground/60">开始对话后显示任务计划</span>
           </div>
         )}
 
         {/* 有 threadId 但无 planSteps */}
         {threadId && planSteps.length === 0 && (
-          <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
-            暂无任务计划,等待 agent 规划...
+          <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
+            <span className="text-[11px] text-muted-foreground/60">等待 agent 规划任务...</span>
           </div>
         )}
 
-        {/* plan steps 列表 */}
+        {/* plan steps 列表 + 进度条 */}
         {planSteps.length > 0 && (
           <>
             {planSteps.map((step, idx) => (
               <PlanStepItem key={step.id} step={step} index={idx} />
             ))}
-            {/* 进度统计 */}
-            <div className="mt-1 border-t border-border px-2 py-1 text-[10px] text-muted-foreground">
-              {completedCount}/{planSteps.length} 已完成
+            {/* 进度条 + 统计 */}
+            <div className="mx-2 mt-1.5">
+              {/* 细线进度条 */}
+              <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              {/* 统计文字 */}
+              <div className="mt-0.5 flex items-center justify-between text-[10px] text-muted-foreground/60">
+                <span>{completedCount}/{planSteps.length} 已完成</span>
+                {isStreaming && (
+                  <span className="flex items-center gap-0.5 text-primary">
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    执行中
+                  </span>
+                )}
+              </div>
             </div>
           </>
         )}
