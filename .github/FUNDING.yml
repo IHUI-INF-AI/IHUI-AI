@@ -1,5 +1,6 @@
-# GitHub Sponsors / 赞助渠道(2026-07-26 立,提升社区友好度)
-# 这些链接会显示在仓库主页的 "Sponsor this project" 按钮
+# IHUI-AI 项目赞助渠道
+# 这些链接会显示在 GitHub 仓库主页的 "Sponsor this project" 按钮
+# 参考: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
 
-github: [IHUI-INF-AI]
-custom: ['https://ihui.ai/pricing', 'https://ihui.ai/enterprise']
+ko_fi: ihuiai
+custom: ['https://paypal.me/李春川', 'https://ko-fi.com/ihuiai', 'https://ihui.ai/sponsor']
