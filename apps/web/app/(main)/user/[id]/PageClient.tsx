@@ -80,7 +80,7 @@ export default function PublicUserProfilePage() {
         method: 'POST',
         body: JSON.stringify({ peerId: id }),
       }),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       if (res.conversation?.id) {
         router.push(`/messages?conversationId=${res.conversation.id}`)
       }

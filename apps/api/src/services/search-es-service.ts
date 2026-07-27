@@ -61,13 +61,28 @@ const ES_INDEX_NAME = process.env.ELASTICSEARCH_INDEX ?? 'ihui-search-contents'
 const ES_DOC_TYPE = 'search_content'
 const REINDEX_BATCH_SIZE = 500
 
+// @elastic/elasticsearch 为可选依赖(未安装时降级到 PostgreSQL),
+// 此处定义最小接口描摹供类型检查,避免使用 any
+interface EsClient {
+  ping(): Promise<unknown>
+  search(params: { index: string; body: unknown }): Promise<{ body?: unknown; hits?: unknown }>
+  index(params: { index: string; id: string; body: unknown }): Promise<unknown>
+  bulk(params: { body: unknown[] }): Promise<unknown>
+  count(params: { index: string }): Promise<{ body?: { count?: number }; count?: number }>
+  indices: {
+    delete(params: { index: string; ignore_unavailable?: boolean }): Promise<unknown>
+    create(params: { index: string; body?: unknown }): Promise<unknown>
+    refresh(params: { index: string }): Promise<unknown>
+  }
+}
+
 // =============================================================================
 // SearchEsService 单例
 // =============================================================================
 
 export class SearchEsService {
   /** ES 客户端实例(动态 import,失败为 null) */
-  private esClient: any | null = null
+  private esClient: EsClient | null = null
   /** ES 客户端初始化 Promise(避免并发重复初始化) */
   private esClientInitPromise: Promise<void> | null = null
   /** 是否启用 ES(基于 ELASTICSEARCH_URL 环境变量) */

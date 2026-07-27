@@ -54,7 +54,7 @@ export default function AiWorldPage() {
   })
 
   const categories = data?.categories ?? []
-  const hotApps = (data?.apps ?? []).slice(0, 6).map((a: any) => ({
+  const hotApps = (data?.apps ?? []).slice(0, 6).map((a) => ({
     id: a.id,
     name: a.title,
     href: a.url ?? `/ai-world/items/${a.id}`,

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
@@ -98,8 +98,8 @@ export default function MemberHistoryPage() {
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {items.map((item: any) => {
-            const Icon = (TYPE_ICON as any)[item.resourceType] ?? FileText
+          {items.map((item) => {
+            const Icon = TYPE_ICON[item.resourceType] ?? FileText
             return (
               <li
                 key={item.id}

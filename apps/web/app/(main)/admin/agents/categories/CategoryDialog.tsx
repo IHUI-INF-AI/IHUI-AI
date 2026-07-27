@@ -42,7 +42,7 @@ export function CategoryDialog({
   const tc = useTranslations('common')
 
   return (
-    <Dialog open={open} onOpenChange={(v: any) => !v && onClose()}>
+    <Dialog open={open} onOpenChange={(v: boolean) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
@@ -55,7 +55,7 @@ export function CategoryDialog({
             <Input
               id="cat-name"
               value={form.name}
-              onChange={(e: any) => onFormChange({ ...form, name: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFormChange({ ...form, name: e.target.value })}
               maxLength={100}
             />
           </div>
@@ -75,7 +75,7 @@ export function CategoryDialog({
               <Input
                 id="cat-icon"
                 value={form.icon}
-                onChange={(e: any) => onFormChange({ ...form, icon: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFormChange({ ...form, icon: e.target.value })}
                 placeholder={t('fieldIconPlaceholder')}
               />
             </div>
@@ -86,7 +86,7 @@ export function CategoryDialog({
                 type="number"
                 min={0}
                 value={form.sort}
-                onChange={(e: any) => onFormChange({ ...form, sort: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFormChange({ ...form, sort: e.target.value })}
               />
             </div>
           </div>
@@ -95,7 +95,7 @@ export function CategoryDialog({
               <Switch
                 id="cat-status"
                 checked={form.status}
-                onCheckedChange={(v: any) => onFormChange({ ...form, status: v })}
+                onCheckedChange={(v: boolean) => onFormChange({ ...form, status: v })}
               />
               <Label htmlFor="cat-status" className="cursor-pointer">
                 {t('fieldStatus')}
@@ -105,7 +105,7 @@ export function CategoryDialog({
               <Switch
                 id="cat-paid"
                 checked={form.isPaid}
-                onCheckedChange={(v: any) => onFormChange({ ...form, isPaid: v })}
+                onCheckedChange={(v: boolean) => onFormChange({ ...form, isPaid: v })}
               />
               <Label htmlFor="cat-paid" className="cursor-pointer">
                 {t('fieldIsPaid')}

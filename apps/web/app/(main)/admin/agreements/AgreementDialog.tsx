@@ -46,7 +46,7 @@ export function AgreementDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(o: any) => {
+      onOpenChange={(o: boolean) => {
         if (!o) onClose()
       }}
     >
@@ -59,7 +59,7 @@ export function AgreementDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="ag-type">{t('colType')}</Label>
-              <Select value={form.type} onValueChange={(v: any) => setForm({ ...form, type: v })}>
+              <Select value={form.type} onValueChange={(v: string) => setForm({ ...form, type: v })}>
                 <SelectTrigger className={selectClass}>
                   <SelectValue />
                 </SelectTrigger>
@@ -77,7 +77,7 @@ export function AgreementDialog({
               <Input
                 id="ag-version"
                 value={form.version}
-                onChange={(e: any) => setForm({ ...form, version: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, version: e.target.value })}
                 placeholder={t('versionPlaceholder')}
               />
             </div>
@@ -87,7 +87,7 @@ export function AgreementDialog({
             <Input
               id="ag-title"
               value={form.title}
-              onChange={(e: any) => setForm({ ...form, title: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, title: e.target.value })}
               placeholder={t('titlePlaceholder')}
             />
           </div>
@@ -109,14 +109,14 @@ export function AgreementDialog({
                 id="ag-date"
                 type="datetime-local"
                 value={form.effectiveDate}
-                onChange={(e: any) => setForm({ ...form, effectiveDate: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, effectiveDate: e.target.value })}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ag-status">{t('colStatus')}</Label>
               <Select
                 value={String(form.status)}
-                onValueChange={(v: any) => setForm({ ...form, status: Number(v) })}
+                onValueChange={(v: string) => setForm({ ...form, status: Number(v) })}
               >
                 <SelectTrigger className={selectClass}>
                   <SelectValue />

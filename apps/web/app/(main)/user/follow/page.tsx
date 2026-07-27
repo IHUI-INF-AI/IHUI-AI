@@ -87,7 +87,7 @@ export default function FollowPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {items.map((follow: any) => (
+          {items.map((follow) => (
             <li
               key={follow.id}
               className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"

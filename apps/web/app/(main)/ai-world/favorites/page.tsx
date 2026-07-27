@@ -81,7 +81,7 @@ export default function AiWorldFavoritesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <Link key={item.id} href={`/ai-world/${item.id}`}>
               <Card className="overflow-hidden transition-colors hover:bg-accent/40">
                 <div className="relative h-32 w-full bg-muted">

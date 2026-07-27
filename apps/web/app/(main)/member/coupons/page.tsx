@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -106,10 +106,10 @@ export default function MemberCouponsPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {coupons.map((c: any) => (
+          {coupons.map((c) => (
             <div
               key={c.id}
-              className={cn('flex items-center gap-3 rounded-lg border p-3', (STATUS_CLS as any)[c.status])}
+              className={cn('flex items-center gap-3 rounded-lg border p-3', STATUS_CLS[c.status])}
             >
               <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-md bg-primary/10 text-primary">
                 <span className="text-lg font-bold">
