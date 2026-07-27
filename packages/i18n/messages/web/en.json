@@ -10622,7 +10622,81 @@
                                                             "Optional on-premise deployment",
                                                             "Quarterly review + strategy consulting"
                                                         ]
-                                       }
+                                       },
+                        "socialProof":  {
+                                            "title":  "Trusted by Developers Worldwide",
+                                            "subtitle":  "From startups to Fortune 500s, IHUI AI serves teams of all sizes",
+                                            "registered":  "Registered Users",
+                                            "monthlyActive":  "Monthly Active",
+                                            "apiCalls":  "API Calls / mo",
+                                            "enterprise":  "Enterprise Clients"
+                                        },
+                        "testimonials":  {
+                                             "title":  "What Developers Say",
+                                             "subtitle":  "Real feedback from users across industries and team sizes",
+                                             "items":  [
+                                                            {
+                                                                "name":  "Zhang Ming",
+                                                                "role":  "CTO",
+                                                                "company":  "TechStart",
+                                                                "text":  "IHUI AI helped us launch an enterprise AI assistant in 2 weeks, saving 3 months of dev time"
+                                                            },
+                                                            {
+                                                                "name":  "Sarah Chen",
+                                                                "role":  "Lead Engineer",
+                                                                "company":  "DataFlow",
+                                                                "text":  "The multi-tenant RLS design is professional, 340-table isolation is flawless"
+                                                            },
+                                                            {
+                                                                "name":  "Li Hua",
+                                                                "role":  "Founder",
+                                                                "company":  "Chuangzhi Tech",
+                                                                "text":  "176 LLMs unified adaptation, no more writing 10 sets of API calls"
+                                                            },
+                                                            {
+                                                                "name":  "Marcus Weber",
+                                                                "role":  "DevOps",
+                                                                "company":  "CloudSys",
+                                                                "text":  "From source deploy to production in 3 days, docs are very detailed"
+                                                            },
+                                                            {
+                                                                "name":  "Wang Fang",
+                                                                "role":  "AI Architect",
+                                                                "company":  "Zhiyun Tech",
+                                                                "text":  "LangGraph + MCP + A2A tri-stack, the most complete AI framework we have seen"
+                                                            },
+                                                            {
+                                                                "name":  "Alex Kim",
+                                                                "role":  "CTO",
+                                                                "company":  "AIVentures",
+                                                                "text":  "Apache 2.0 business-friendly, 5346 tests give peace of mind"
+                                                            }
+                                                        ]
+                                         },
+                        "comparison":  {
+                                           "title":  "Compared with Mainstream Solutions",
+                                           "subtitle":  "One platform covering full-stack AI capabilities, no need to stitch multiple tools",
+                                           "feature":  "Feature",
+                                           "price":  "Free Start",
+                                           "llmCount":  "176+ LLMs",
+                                           "multiTenant":  "Multi-tenant",
+                                           "rag":  "RAG Knowledge",
+                                           "agentMarket":  "Agent Marketplace",
+                                           "eightEnds":  "8-End Coverage",
+                                           "openSource":  "Open Source",
+                                           "selfHost":  "Self-hosted",
+                                           "apache2":  "Apache 2.0",
+                                           "privateDeploy":  "Private Deployment"
+                                       },
+                        "guarantee":  {
+                                          "title":  "Our Promise",
+                                          "refundTitle":  "7-Day No-Reason Refund",
+                                          "refundDesc":  "Not satisfied within 7 days of subscription? Full refund, no reasons asked",
+                                          "dataTitle":  "You Own Your Data",
+                                          "dataDesc":  "Your data always belongs to you, export and delete anytime",
+                                          "openSourceTitle":  "Apache 2.0 Forever Open",
+                                          "openSourceDesc":  "Core code open-sourced under Apache 2.0, business-friendly, forever available"
+                                      }
                     },
     "enterpriseTools":  {
                             "sectionLabel":  "Enterprise AI Tools Overview",
@@ -12458,5 +12532,359 @@
                  "empty":  "No blog posts yet",
                  "relatedTitle":  "Related articles",
                  "notFound":  "Article not found"
-             }
+             },
+    "products":  {
+                     "heroBadge":  "Digital Products",
+                     "heroTitle":  "Digital Products Store",
+                     "heroSubtitle":  "Curated AI development digital products: prompt library, Agent templates, deployment guide, source code package, certification course, custom development. Buy and use instantly.",
+                     "popular":  "Popular",
+                     "buyNow":  "Buy Now",
+                     "buySubject":  "Purchase",
+                     "cards":  {
+                                   "1":  {
+                                            "title":  "AI Agent Prompt Library",
+                                            "price":  "¥99",
+                                            "desc":  "200+ curated prompts covering 20 high-frequency scenarios, importable directly into IHUI AI.",
+                                            "feature1":  "200+ curated prompts",
+                                            "feature2":  "Covers 20 scenarios",
+                                            "feature3":  "JSON + Markdown format, instant download"
+                                        },
+                                   "2":  {
+                                            "title":  "Enterprise Agent Template Pack",
+                                            "price":  "¥299",
+                                            "desc":  "10 enterprise-grade Agent templates (customer service/sales/HR/data analysis/code review), ready to use.",
+                                            "feature1":  "10 enterprise-grade Agent templates",
+                                            "feature2":  "Includes full LangGraph code + MCP tool integration",
+                                            "feature3":  "One year of free updates"
+                                        },
+                                   "3":  {
+                                            "title":  "IHUI-AI Deployment Guide Pro",
+                                            "price":  "¥49",
+                                            "desc":  "PDF + video tutorials covering Docker / K8s / bare metal deployment.",
+                                            "feature1":  "PDF + video tutorials",
+                                            "feature2":  "Covers Docker / K8s / bare metal deployment",
+                                            "feature3":  "Performance tuning + security hardening"
+                                        },
+                                   "4":  {
+                                            "title":  "Enterprise Source Code Package",
+                                            "price":  "¥4,999",
+                                            "desc":  "Full IHUI-AI source code + enterprise custom modules, private deployment license.",
+                                            "feature1":  "Full source code + enterprise custom modules",
+                                            "feature2":  "Private deployment license (Apache 2.0 + commercial enhancement)",
+                                            "feature3":  "One year of technical support"
+                                        },
+                                   "5":  {
+                                            "title":  "AI Engineer Certification Course",
+                                            "price":  "¥999",
+                                            "desc":  "12 hours of video + hands-on projects, systematically master core AI engineering skills.",
+                                            "feature1":  "12 hours of video + hands-on projects",
+                                            "feature2":  "Covers LangGraph / MCP / RAG / multi-tenancy",
+                                            "feature3":  "Completion certificate"
+                                        },
+                                   "6":  {
+                                            "title":  "Custom Agent Development Service",
+                                            "price":  "From ¥1,999",
+                                            "desc":  "Single Agent custom development, includes requirement confirmation and revision.",
+                                            "feature1":  "Single Agent custom development",
+                                            "feature2":  "1 round requirement confirmation + 1 round revision",
+                                            "feature3":  "5 work hours"
+                                        }
+                               },
+                     "ctaTitle":  "Bulk Purchase Discounts",
+                     "ctaDesc":  "Enterprises purchasing multiple products enjoy tiered discounts. Contact us for a custom plan.",
+                     "ctaButton":  "Contact Sales"
+                 },
+    "sponsor":  {
+                    "heroBadge":  "Sponsor Open Source",
+                    "heroTitle":  "Sponsor IHUI AI",
+                    "heroSubtitle":  "Your sponsorship supports IHUI AI's continued open-source development, iteration, and community operations, bringing the full-stack AI OS to more developers and enterprises.",
+                    "heroButton":  "Become a Sponsor",
+                    "whyTitle":  "Why Sponsor IHUI AI",
+                    "reasonOpenTitle":  "Stay Open Source",
+                    "reasonOpenDesc":  "Support core code under Apache 2.0, permanently open source, available to all.",
+                    "reasonFastTitle":  "Accelerate Iteration",
+                    "reasonFastDesc":  "Enable the team to work full-time, releasing new features and model integrations faster.",
+                    "reasonCommunityTitle":  "Run the Community",
+                    "reasonCommunityDesc":  "Maintain Discord/WeChat groups, Issue responses, and documentation.",
+                    "reasonIndependenceTitle":  "Stay Independent",
+                    "reasonIndependenceDesc":  "No reliance on single investors, preserving product independence and neutrality.",
+                    "tiersTitle":  "Sponsorship Tiers",
+                    "becomeSponsor":  "Become a Sponsor",
+                    "tiers":  {
+                                 "bronze":  {
+                                               "name":  "Bronze",
+                                               "price":  "¥99/mo",
+                                               "feature1":  "README acknowledgment",
+                                               "feature2":  "Discord/WeChat member group",
+                                               "feature3":  "Early access to new features"
+                                           },
+                                 "silver":  {
+                                               "name":  "Silver",
+                                               "price":  "¥299/mo",
+                                               "feature1":  "All Bronze benefits",
+                                               "feature2":  "Monthly development progress report",
+                                               "feature3":  "Priority Issue response (48h)"
+                                           },
+                                 "gold":  {
+                                             "name":  "Gold",
+                                             "price":  "¥999/mo",
+                                             "feature1":  "All Silver benefits",
+                                             "feature2":  "Quarterly tech sharing sessions",
+                                             "feature3":  "Logo displayed in README"
+                                         },
+                                 "platinum":  {
+                                                 "name":  "Platinum",
+                                                 "price":  "¥2,999/mo",
+                                                 "feature1":  "All Gold benefits",
+                                                 "feature2":  "1-on-1 monthly consultation (1 hour)",
+                                                 "feature3":  "Priority new feature voting rights"
+                                             },
+                                 "diamond":  {
+                                                "name":  "Diamond",
+                                                "price":  "¥9,999/mo",
+                                                "feature1":  "Half-day offline workshop",
+                                                "feature2":  "Custom Agent development (5 hours/mo)",
+                                                "feature3":  "Strategic partner badge"
+                                            }
+                             },
+                    "sponsorsTitle":  "Current Sponsors",
+                    "sponsorsDesc":  "Thanks to the following sponsors for supporting IHUI AI.",
+                    "sponsorsEmpty":  "Be the first sponsor, your name will be shown here."
+                },
+    "affiliates":  {
+                       "heroBadge":  "Recommended Resources",
+                       "heroTitle":  "Recommended AI Tools",
+                       "heroSubtitle":  "10 essential AI development tools. Sign up via referral links for exclusive offers while supporting IHUI AI's continued development.",
+                       "reasonLabel":  " Why we recommend",
+                       "signup":  "Sign Up",
+                       "cards":  {
+                                    "1":  {
+                                             "name":  "OpenAI API",
+                                             "desc":  "GPT-4 / GPT-4o top-tier LLM APIs, industry benchmark.",
+                                             "reason":  "Referral sign-up earns $5 credit."
+                                         },
+                                    "2":  {
+                                             "name":  "Anthropic Claude",
+                                             "desc":  "Claude 3.5 Sonnet, excellent at long context and code.",
+                                             "reason":  "Referral sign-up offers trial credit."
+                                         },
+                                    "3":  {
+                                             "name":  "Google Gemini",
+                                             "desc":  "Gemini Pro / Flash, leading in multimodal and long context.",
+                                             "reason":  "New users get $300 trial credit."
+                                         },
+                                    "4":  {
+                                             "name":  "Vercel",
+                                             "desc":  "Official Next.js deployment platform, top choice for frontend apps.",
+                                             "reason":  "Referral sign-up earns $100 credit."
+                                         },
+                                    "5":  {
+                                             "name":  "Railway",
+                                             "desc":  "One-click backend deployment, supports multiple languages and databases.",
+                                             "reason":  "Referral sign-up offers trial credit."
+                                         },
+                                    "6":  {
+                                             "name":  "Supabase",
+                                             "desc":  "PostgreSQL hosting + Auth + Storage, open-source Firebase alternative.",
+                                             "reason":  "Referral sign-up offers free tier."
+                                         },
+                                    "7":  {
+                                             "name":  "Pinecone",
+                                             "desc":  "Managed vector database, excellent RAG retrieval performance.",
+                                             "reason":  "Referral sign-up offers free tier."
+                                         },
+                                    "8":  {
+                                             "name":  "LangSmith",
+                                             "desc":  "LangChain official monitoring and debugging platform, LLM app observability.",
+                                             "reason":  "Referral sign-up offers trial credit."
+                                         },
+                                    "9":  {
+                                             "name":  "Cursor",
+                                             "desc":  "AI code editor with built-in GPT-4/Claude, doubles coding efficiency.",
+                                             "reason":  "Referral sign-up offers Pro trial."
+                                         },
+                                    "10":  {
+                                              "name":  "GitHub Copilot",
+                                              "desc":  "GitHub official AI coding assistant, great IDE integration.",
+                                              "reason":  "Referral sign-up offers trial."
+                                          }
+                                },
+                       "disclosure":  "The above links are affiliate referral links. Signing up through them does not cost you extra, but we may earn a small commission that supports the continued development of IHUI AI. Thank you for your support!"
+                   },
+    "services":  {
+        "hero":  {
+            "title":  "Professional Services",
+            "subtitle":  "From source deployment to custom development, the IHUI AI team provides full-stack AI solutions",
+            "cta":  "Inquire Now"
+        },
+        "cards":  {
+            "deployment":  {
+                "title":  "Private Deployment",
+                "price":  "¥4,999",
+                "unit":  "/project",
+                "desc":  "Deploy source code to your server",
+                "features":  ["PostgreSQL + Redis setup", "8-end build", "2-hour online training", "30-day email support", "3-5 business days delivery"]
+            },
+            "training":  {
+                "title":  "Enterprise Training Workshop",
+                "price":  "¥9,999",
+                "unit":  "/session",
+                "desc":  "1-day on-site / 2-day online intensive training",
+                "features":  ["Architecture + deployment practice", "Secondary dev + Agent design", "Taught by core maintainers", "Up to 20 attendees", "Video + slides + lab environment"]
+            },
+            "custom":  {
+                "title":  "Custom Development",
+                "price":  "¥19,999",
+                "unit":  "starting",
+                "desc":  "Build enterprise-specific features on IHUI-AI",
+                "features":  ["Business integration / Agent dev", "UI customization / API extension", "80 hours (~2 weeks)", "3-month warranty", "Source code + deployment docs"]
+            },
+            "consulting":  {
+                "title":  "Technical Consulting",
+                "price":  "¥999",
+                "unit":  "/hour",
+                "desc":  "Architecture consulting / tech selection / code review",
+                "features":  ["Video call / remote desktop", "2 hours minimum", "Troubleshooting", "VAT invoice", "24h response SLA"]
+            }
+        },
+        "socialProof":  {
+            "title":  "Clients Served",
+            "clients":  "Clients",
+            "deployments":  "Deployments",
+            "satisfaction":  "Avg. Satisfaction"
+        },
+        "faq":  {
+            "title":  "FAQ",
+            "items":  [
+                { "q":  "How to pay?", "a":  "We support WeChat Pay, Alipay, bank transfer, and Stripe (overseas). Custom development supports installments: 50% upfront + 30% mid-stage + 20% on acceptance." },
+                { "q":  "Can I get an invoice?", "a":  "Yes, we can issue VAT general invoices or special invoices. Please note your billing info in the inquiry form." },
+                { "q":  "Refund policy?", "a":  "Consulting is billed hourly with no refunds for consumed hours. Deployment/training is fully refundable before kickoff; after kickoff, consumed hours are deducted." },
+                { "q":  "Delivery timeline?", "a":  "Private deployment 3-5 business days, training 1-2 weeks lead time, custom development estimated by hours (80 hours ~2 weeks)." },
+                { "q":  "After-sales support?", "a":  "Private deployment includes 30-day email support, custom development includes 3-month warranty, consulting is hourly with no fixed after-sales." },
+                { "q":  "Source code ownership?", "a":  "Custom development source code belongs to the client; copyright transfer available. IHUI-AI core code is Apache 2.0 open source." }
+            ]
+        },
+        "inquiry":  {
+            "title":  "Inquire Now",
+            "subtitle":  "Fill out the form below and we will contact you within 24 hours",
+            "fields":  {
+                "name":  "Name",
+                "namePlaceholder":  "Your name",
+                "company":  "Company",
+                "companyPlaceholder":  "Company name (optional)",
+                "email":  "Email",
+                "emailPlaceholder":  "you@example.com",
+                "phone":  "Phone",
+                "phonePlaceholder":  "138-xxxx-xxxx (optional)",
+                "serviceType":  "Service Type",
+                "budget":  "Budget Range",
+                "description":  "Requirements",
+                "descriptionPlaceholder":  "Describe your needs in detail (at least 50 characters)...",
+                "timeline":  "Expected Delivery",
+                "agreeTerms":  "I have read and agree to the Privacy Policy and Service Agreement",
+                "submit":  "Submit Inquiry",
+                "submitting":  "Submitting..."
+            },
+            "serviceTypes":  {
+                "deployment":  "Private Deployment (¥4,999)",
+                "training":  "Enterprise Training (¥9,999)",
+                "custom":  "Custom Development (¥19,999+)",
+                "consulting":  "Technical Consulting (¥999/hour)",
+                "other":  "Other"
+            },
+            "budgets":  {
+                "under5k":  "Under ¥5,000",
+                "5kTo20k":  "¥5,000 - ¥20,000",
+                "20kTo50k":  "¥20,000 - ¥50,000",
+                "over50k":  "Over ¥50,000"
+            },
+            "timelines":  {
+                "urgent":  "Within 1 week",
+                "month":  "Within 1 month",
+                "flexible":  "Not urgent"
+            },
+            "success":  {
+                "title":  "Submitted Successfully!",
+                "message":  "We will contact you via email within 24 hours.",
+                "contact":  "Or contact us directly:"
+            },
+            "errors":  {
+                "nameRequired":  "Please enter your name",
+                "emailRequired":  "Please enter your email",
+                "emailInvalid":  "Invalid email format",
+                "serviceTypeRequired":  "Please select a service type",
+                "budgetRequired":  "Please select a budget range",
+                "descriptionRequired":  "Please describe your needs",
+                "descriptionTooShort":  "Description must be at least 50 characters",
+                "timelineRequired":  "Please select expected delivery time",
+                "agreeRequired":  "Please agree to the terms",
+                "submitFailed":  "Submission failed, please try again later"
+            }
+        },
+        "enterpriseInquiry":  {
+            "title":  "Enterprise Inquiry",
+            "subtitle":  "Fill out the form below and our sales consultant will contact you within 24 hours",
+            "contactEmail":  "Email",
+            "contactPhone":  "Phone",
+            "sidebar":  {
+                "salesTitle":  "Sales Consultant",
+                "salesDesc":  "Dedicated 1-on-1 consultant to help match the best plan",
+                "workHoursTitle":  "Working Hours",
+                "workHours":  "Mon-Fri 9:00-18:00",
+                "slaTitle":  "Response SLA",
+                "sla":  "2-hour response during working hours, 24-hour response off-hours"
+            }
+        }
+    },
+    "newsletter":  {
+        "hero":  {
+            "badge":  "IHUI AI Weekly",
+            "title":  "Subscribe to IHUI AI Weekly",
+            "subtitle":  "Weekly AI engineering, agent development, RAG, and MCP practical cases. 8,392+ developers subscribed",
+            "subscriberPrefix":  "Joined by",
+            "subscriberSuffix":  "developers"
+        },
+        "benefits":  {
+            "title":  "Subscriber Benefits",
+            "items":  [
+                "Weekly AI engineering practical cases",
+                "Early access to new features",
+                "Exclusive prompt templates",
+                "Industry trend analysis",
+                "Community event notifications"
+            ]
+        },
+        "form":  {
+            "email":  "Email",
+            "interests":  "Interest tags (multi-select)",
+            "tags":  {
+                "aiEng":  "AI Engineering",
+                "agent":  "Agent Development",
+                "rag":  "RAG",
+                "mcp":  "MCP",
+                "multiTenant":  "Multi-tenant",
+                "devops":  "DevOps",
+                "business":  "Business"
+            },
+            "privacyPrefix":  "I have read and agree to the",
+            "privacyLink":  "Privacy Policy",
+            "submit":  "Subscribe Now",
+            "submitting":  "Subscribing..."
+        },
+        "success":  {
+            "title":  "Subscription Successful!",
+            "desc":  "Please check your email to confirm your subscription. The next weekly issue will be sent on Friday.",
+            "recommended":  "Recommended Reading"
+        },
+        "articles":  {
+            "a1":  { "title":  "AI Engineering: Building an Enterprise AI Assistant from Scratch" },
+            "a2":  { "title":  "Complete Agent Development Guide: LangGraph + MCP Protocol" },
+            "a3":  { "title":  "RAG in Practice: Multi-tenant Knowledge Base Isolation Design" }
+        },
+        "errors":  {
+            "generic":  "Subscription failed, please try again later",
+            "emailExists":  "This email is already subscribed",
+            "invalidEmail":  "Invalid email format"
+        }
+    }
 }
