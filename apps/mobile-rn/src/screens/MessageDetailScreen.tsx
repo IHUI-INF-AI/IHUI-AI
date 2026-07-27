@@ -6,15 +6,13 @@ import { fetchApi } from '@ihui/api-client'
 import { Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MessageItem } from '@ihui/types'
 
-interface Message {
-  id: string
-  fromUser: string
-  fromAvatar?: string
+interface Message extends MessageItem {
+  fromUser: string // = fromNickname 别名(业务字段,与 fromNickname 并存)
+  read: boolean    // = isRead 别名(业务字段,与 isRead 并存)
   subject: string
-  content: string
-  read: boolean
-  createdAt: string
+  fromAvatar?: string // 收窄父类型 string | null -> string(保留原声明)
 }
 
 type Route = RouteProp<RootStackParamList, 'MessageDetail'>

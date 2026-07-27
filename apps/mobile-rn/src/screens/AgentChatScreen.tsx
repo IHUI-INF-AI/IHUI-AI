@@ -4,10 +4,16 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { Input, Loading } from '@ihui/ui-native'
+import type { ChatMessage } from '@ihui/types'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-interface ChatMsg { id: string; role: 'user' | 'assistant'; content: string; createdAt: string }
+interface ChatMsg extends ChatMessage {
+  id: string
+  createdAt: string
+  // role 字段做 narrowing:从 4 联合类型缩到 2 个本地实际使用的值
+  role: 'user' | 'assistant'
+}
 
 type Route = RouteProp<RootStackParamList, 'AgentChat'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>

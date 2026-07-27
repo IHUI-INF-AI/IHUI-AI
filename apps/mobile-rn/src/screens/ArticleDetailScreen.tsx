@@ -3,10 +3,18 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import type { Article as SharedArticle } from '@ihui/types'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-interface Article { id: string; title: string; author: string; content: string; cover?: string; views: number; likes: number; publishedAt: string }
+interface Article extends SharedArticle {
+  author: string
+  content: string
+  cover?: string
+  views: number
+  likes: number
+  publishedAt: string
+}
 
 type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
