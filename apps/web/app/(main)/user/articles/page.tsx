@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import type { ArticleItem, MyArticlesData } from '../../articles/types'
+import { formatDateOnly } from '@/lib/date-utils'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -129,9 +130,7 @@ export default function MyArticlesPage() {
                           {a.likeCount}
                         </span>
                       ) : null}
-                      {a.publishedAt ? (
-                        <span>{new Date(a.publishedAt).toLocaleDateString('zh-CN')}</span>
-                      ) : null}
+                      {a.publishedAt ? <span>{formatDateOnly(a.publishedAt)}</span> : null}
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-1">

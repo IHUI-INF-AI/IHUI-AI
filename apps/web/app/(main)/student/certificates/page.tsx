@@ -8,6 +8,7 @@ import { Award, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface Certificate {
   id: string
@@ -102,9 +103,7 @@ export default function MyCertificatesPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">{t('issuedAt')}</span>
-                      <span className="font-medium">
-                        {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString('zh-CN') : '-'}
-                      </span>
+                      <span className="font-medium">{formatDateOnly(cert.issuedAt)}</span>
                     </div>
                   </div>
                 </CardContent>
