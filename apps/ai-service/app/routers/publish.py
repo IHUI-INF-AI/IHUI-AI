@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import asyncpg
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -114,10 +114,23 @@ def _serialize_account(row: asyncpg.Record, include_credentials: bool = False) -
     return out
 
 
+def _get_user_id(request: Request) -> str:
+    """从 request.state 取当前登录用户 ID(JWTAuthMiddleware 注入)。
+
+    IDOR 修复(2026-07-27):所有 publish 端点必须经此函数取用户身份,
+    禁止从请求体/查询参数/路径参数取 user_id。JWT 缺失返回 401。
+    """
+    uid = getattr(request.state, "user_id", None)
+    if not uid:
+        raise HTTPException(status_code=401, detail="未登录")
+    return str(uid)
+
+
 # ===== Pydantic 模型 =====
 
 class AccountCreate(BaseModel):
-    user_id: str = Field(..., max_length=64)
+    # IDOR 修复:user_id 移除,从 JWT(request.state.user_id)取。
+    # 客户端若仍传 user_id,Pydantic 默认 extra='ignore' 会忽略,保持兼容。
     platform: str = Field(..., max_length=32)
     display_name: str = Field(default="", max_length=255)
     credentials: dict[str, Any] = Field(default_factory=dict)
@@ -138,7 +151,8 @@ class PublishTarget(BaseModel):
 
 
 class TaskCreate(BaseModel):
-    user_id: str = Field(..., max_length=64)
+    # IDOR 修复:user_id 移除,从 JWT(request.state.user_id)取。
+    # 客户端若仍传 user_id,Pydantic 默认 extra='ignore' 会忽略,保持兼容。
     title: str = Field(..., max_length=500)
     format: str = Field(..., pattern=r"^(md|docx|html|pdf|image|video)$")
     text: Optional[str] = Field(default=None, description="md/html 文本内容")
@@ -205,12 +219,14 @@ def _detect_format(filename: str) -> str:
 
 @router.post("/upload")
 async def upload_file(
+    request: Request,
     file: UploadFile = File(..., description="要上传的文件(docx/pdf/image/video/md/html)"),
-    user_id: Optional[str] = Query(default=None, description="用户 ID,用于隔离存储"),
 ) -> dict[str, Any]:
     """上传内容文件,返回服务器存储路径 + 解析后的 format。
 
-    存储路径:`<upload_root>/<user_id or anonymous>/<yyyymmdd>/<uuid><ext>`
+    IDOR 修复:user_id 不再从 Query 取,改从 JWT(request.state.user_id)取。
+
+    存储路径:`<upload_root>/<user_id>/<yyyymmdd>/<uuid><ext>`
 
     返回:
     ```json
@@ -224,6 +240,8 @@ async def upload_file(
     }
     ```
     """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
+
     if not file.filename:
         raise HTTPException(status_code=400, detail="filename is required")
 
@@ -246,9 +264,8 @@ async def upload_file(
             detail=f"file too large: {size} bytes > max {_MAX_FILE_SIZE} bytes (200MB)",
         )
 
-    # 构造存储路径
-    user_dir = user_id or "anonymous"
-    user_dir = "".join(c for c in user_dir if c.isalnum() or c in "-_") or "anonymous"
+    # 构造存储路径(user_id 已由 JWT 校验,必定非空)
+    user_dir = "".join(c for c in user_id if c.isalnum() or c in "-_") or "anonymous"
     yyyymmdd = datetime.now(timezone.utc).strftime("%Y%m%d")
     unique = uuid.uuid4().hex[:16]
     suffix = Path(file.filename).suffix.lower()
@@ -291,22 +308,28 @@ async def upload_file(
 
 @router.get("/accounts/{user_id}")
 async def list_accounts(
+    request: Request,
     user_id: str,
     platform: Optional[str] = Query(default=None),
 ) -> dict[str, Any]:
-    """列出用户的所有平台账号。"""
+    """列出用户的所有平台账号。
+
+    IDOR 修复:路径参数 user_id 仅保留以维持路由契约,实际身份从 JWT 取,
+    忽略客户端传入的任意 user_id,防止越权查询他人账号。
+    """
+    current_user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份,忽略路径 user_id
     conn = await _get_conn()
     try:
         await _ensure_accounts_table(conn)
         if platform:
             rows = await conn.fetch(
                 "SELECT * FROM publish_accounts WHERE user_id=$1 AND platform=$2 ORDER BY created_at DESC",
-                user_id, platform,
+                current_user_id, platform,
             )
         else:
             rows = await conn.fetch(
                 "SELECT * FROM publish_accounts WHERE user_id=$1 ORDER BY created_at DESC",
-                user_id,
+                current_user_id,
             )
         items = [_serialize_account(r, include_credentials=False) for r in rows]
         return {"items": items, "count": len(items)}
@@ -315,8 +338,13 @@ async def list_accounts(
 
 
 @router.post("/accounts")
-async def create_account(body: AccountCreate) -> dict[str, Any]:
-    """创建账号(凭证 AES-256-GCM 加密后存 DB)。"""
+async def create_account(body: AccountCreate, request: Request) -> dict[str, Any]:
+    """创建账号(凭证 AES-256-GCM 加密后存 DB)。
+
+    IDOR 修复:user_id 从 JWT 取,不再信任请求体。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
+
     # 验证平台 ID 合法
     adapter = get_adapter(body.platform)
     if adapter is None:
@@ -337,7 +365,7 @@ async def create_account(body: AccountCreate) -> dict[str, Any]:
             VALUES ($1, $2, $3, $4, $5::jsonb)
             RETURNING *
             """,
-            body.user_id,
+            user_id,
             body.platform,
             body.display_name,
             cipher,
@@ -351,8 +379,12 @@ async def create_account(body: AccountCreate) -> dict[str, Any]:
 
 
 @router.put("/accounts/{account_id}")
-async def update_account(account_id: int, body: AccountUpdate) -> dict[str, Any]:
-    """更新账号(支持 display_name / credentials / status / extra)。"""
+async def update_account(account_id: int, body: AccountUpdate, request: Request) -> dict[str, Any]:
+    """更新账号(支持 display_name / credentials / status / extra)。
+
+    IDOR 修复:校验账号归属,禁止操作他人账号。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
     try:
         await _ensure_accounts_table(conn)
@@ -360,6 +392,9 @@ async def update_account(account_id: int, body: AccountUpdate) -> dict[str, Any]
         existing = await conn.fetchrow("SELECT * FROM publish_accounts WHERE id=$1", account_id)
         if not existing:
             raise HTTPException(status_code=404, detail=f"account not found: {account_id}")
+        # IDOR 修复:校验账号归属
+        if existing["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="无权操作他人账号")
 
         # 构造 update 字段
         sets: list[str] = []
@@ -401,14 +436,26 @@ async def update_account(account_id: int, body: AccountUpdate) -> dict[str, Any]
 
 
 @router.delete("/accounts/{account_id}")
-async def delete_account(account_id: int) -> dict[str, Any]:
-    """删除账号(软删除:status=disabled)。"""
+async def delete_account(account_id: int, request: Request) -> dict[str, Any]:
+    """删除账号(软删除:status=disabled)。
+
+    IDOR 修复:校验账号归属,禁止操作他人账号。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
     try:
         await _ensure_accounts_table(conn)
+        # IDOR 修复:先校验归属再删除(带 user_id 条件,防止越权)
+        existing = await conn.fetchrow(
+            "SELECT id FROM publish_accounts WHERE id=$1 AND user_id=$2",
+            account_id, user_id,
+        )
+        if not existing:
+            # 不存在或不归属当前用户:统一返回 404(不泄露账号是否存在)
+            raise HTTPException(status_code=404, detail=f"account not found: {account_id}")
         result = await conn.execute(
-            "UPDATE publish_accounts SET status='disabled', updated_at=NOW() WHERE id=$1",
-            account_id,
+            "UPDATE publish_accounts SET status='disabled', updated_at=NOW() WHERE id=$1 AND user_id=$2",
+            account_id, user_id,
         )
         if result == "UPDATE 0":
             raise HTTPException(status_code=404, detail=f"account not found: {account_id}")
@@ -418,14 +465,21 @@ async def delete_account(account_id: int) -> dict[str, Any]:
 
 
 @router.post("/accounts/{account_id}/verify")
-async def verify_account(account_id: int) -> dict[str, Any]:
-    """测试连接(调真实平台 API 验证凭证)。"""
+async def verify_account(account_id: int, request: Request) -> dict[str, Any]:
+    """测试连接(调真实平台 API 验证凭证)。
+
+    IDOR 修复:校验账号归属,禁止触发他人账号验证(避免凭证泄露/误用)。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
     try:
         await _ensure_accounts_table(conn)
         row = await conn.fetchrow("SELECT * FROM publish_accounts WHERE id=$1", account_id)
         if not row:
             raise HTTPException(status_code=404, detail=f"account not found: {account_id}")
+        # IDOR 修复:校验账号归属
+        if row["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="无权操作他人账号")
         if row["status"] != "active":
             raise HTTPException(status_code=400, detail=f"account is disabled: {row['status']}")
 
@@ -460,8 +514,13 @@ async def verify_account(account_id: int) -> dict[str, Any]:
 # ===== 任务管理 =====
 
 @router.post("/tasks")
-async def create_task(body: TaskCreate) -> dict[str, Any]:
-    """创建发布任务(立即执行或定时)。"""
+async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
+    """创建发布任务(立即执行或定时)。
+
+    IDOR 修复:user_id 从 JWT 取,不再信任请求体。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
+
     if not body.targets:
         raise HTTPException(status_code=400, detail="targets cannot be empty")
 
@@ -492,7 +551,7 @@ async def create_task(body: TaskCreate) -> dict[str, Any]:
 
     result = await publish_scheduler.submit_task(
         task_id=task_id,
-        user_id=body.user_id,
+        user_id=user_id,
         content=content,
         targets=targets_dicts,
         scheduled_at=body.scheduled_at,
@@ -502,27 +561,27 @@ async def create_task(body: TaskCreate) -> dict[str, Any]:
 
 @router.get("/tasks")
 async def list_tasks(
-    user_id: Optional[str] = Query(default=None),
+    request: Request,
     status: Optional[str] = Query(default=None),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
-    """列出任务(支持 user_id / status 过滤 + 分页)。"""
+    """列出任务(支持 status 过滤 + 分页)。
+
+    IDOR 修复:user_id 不再从 Query 取,强制用 JWT 身份,只能看自己的任务。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
     try:
-        conditions = []
-        args: list[Any] = []
-        idx = 1
-        if user_id:
-            conditions.append(f"user_id=${idx}")
-            args.append(user_id)
-            idx += 1
+        conditions = [f"user_id=$1"]
+        args: list[Any] = [user_id]
+        idx = 2
         if status:
             conditions.append(f"status=${idx}")
             args.append(status)
             idx += 1
 
-        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        where = f"WHERE {' AND '.join(conditions)}"
         args.extend([limit, offset])
         rows = await conn.fetch(
             f"""
@@ -560,13 +619,20 @@ async def list_tasks(
 
 
 @router.get("/tasks/{task_id}")
-async def get_task(task_id: str) -> dict[str, Any]:
-    """任务详情(含每个平台的结果)。"""
+async def get_task(task_id: str, request: Request) -> dict[str, Any]:
+    """任务详情(含每个平台的结果)。
+
+    IDOR 修复:校验任务归属,禁止查看他人任务详情。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
     try:
         task = await conn.fetchrow("SELECT * FROM publish_tasks WHERE task_id=$1", task_id)
         if not task:
             raise HTTPException(status_code=404, detail=f"task not found: {task_id}")
+        # IDOR 修复:校验任务归属
+        if task["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="无权查看他人任务")
 
         # 取该任务下所有平台执行历史
         history_rows = await conn.fetch(
@@ -613,21 +679,30 @@ async def get_task(task_id: str) -> dict[str, Any]:
 
 
 @router.post("/tasks/{task_id}/cancel")
-async def cancel_task(task_id: str) -> dict[str, Any]:
-    """取消任务(只能取消正在执行的)。"""
-    # 先从内存 running 集合取消
-    cancelled = await publish_scheduler.cancel_task(task_id)
-    if cancelled:
-        return {"ok": True, "taskId": task_id, "status": "cancelled"}
+async def cancel_task(task_id: str, request: Request) -> dict[str, Any]:
+    """取消任务(只能取消正在执行的)。
 
-    # 任务可能已完成或未在内存中,查 DB 标记
+    IDOR 修复:校验任务归属,禁止取消他人任务。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
+
+    # 先从内存 running 集合取消(内存任务无 user_id 隔离,先校验 DB 归属)
     conn = await _get_conn()
     try:
         row = await conn.fetchrow(
-            "SELECT status FROM publish_tasks WHERE task_id=$1", task_id
+            "SELECT user_id, status FROM publish_tasks WHERE task_id=$1", task_id
         )
         if not row:
             raise HTTPException(status_code=404, detail=f"task not found: {task_id}")
+        # IDOR 修复:校验任务归属
+        if row["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="无权操作他人任务")
+
+        # 归属校验通过,尝试从内存 running 集合取消
+        cancelled = await publish_scheduler.cancel_task(task_id)
+        if cancelled:
+            return {"ok": True, "taskId": task_id, "status": "cancelled"}
+
         if row["status"] in ("success", "failed", "partial"):
             return {"ok": False, "taskId": task_id, "status": row["status"],
                     "error": "task already finished, cannot cancel"}
@@ -642,12 +717,28 @@ async def cancel_task(task_id: str) -> dict[str, Any]:
 
 
 @router.post("/tasks/{task_id}/retry")
-async def retry_task(task_id: str, platforms: Optional[list[str]] = None) -> dict[str, Any]:
+async def retry_task(task_id: str, request: Request, platforms: Optional[list[str]] = None) -> dict[str, Any]:
     """重试失败的平台。
+
+    IDOR 修复:校验任务归属,禁止重试他人任务。
 
     Body 可选:{"platforms": ["wordpress", "medium"]} - 仅重试指定平台
     不传 platforms → 重试所有失败平台
     """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
+    conn = await _get_conn()
+    try:
+        row = await conn.fetchrow(
+            "SELECT user_id FROM publish_tasks WHERE task_id=$1", task_id
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail=f"task not found: {task_id}")
+        # IDOR 修复:校验任务归属
+        if row["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="无权操作他人任务")
+    finally:
+        await conn.close()
+
     result = await publish_scheduler.retry_platforms(task_id, platforms)
     if not result.get("ok"):
         raise HTTPException(status_code=400, detail=result.get("error", "retry failed"))
@@ -658,21 +749,21 @@ async def retry_task(task_id: str, platforms: Optional[list[str]] = None) -> dic
 
 @router.get("/history")
 async def list_history(
-    user_id: Optional[str] = Query(default=None),
+    request: Request,
     task_id: Optional[str] = Query(default=None),
     platform: Optional[str] = Query(default=None),
     limit: int = Query(default=50, ge=1, le=500),
 ) -> dict[str, Any]:
-    """历史记录(单平台粒度)。"""
+    """历史记录(单平台粒度)。
+
+    IDOR 修复:user_id 不再从 Query 取,强制用 JWT 身份,只能看自己的历史。
+    """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
     try:
-        conditions = []
-        args: list[Any] = []
-        idx = 1
-        if user_id:
-            conditions.append(f"user_id=${idx}")
-            args.append(user_id)
-            idx += 1
+        conditions = [f"user_id=$1"]
+        args: list[Any] = [user_id]
+        idx = 2
         if task_id:
             conditions.append(f"task_id=${idx}")
             args.append(task_id)
@@ -682,7 +773,7 @@ async def list_history(
             args.append(platform)
             idx += 1
 
-        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        where = f"WHERE {' AND '.join(conditions)}"
         args.append(limit)
         rows = await conn.fetch(
             f"""
@@ -720,16 +811,19 @@ async def list_history(
 
 @router.get("/stats")
 async def get_stats(
-    user_id: Optional[str] = Query(default=None),
+    request: Request,
     days: int = Query(default=30, ge=1, le=365),
 ) -> dict[str, Any]:
     """统计(指定时间段内)。
+
+    IDOR 修复:user_id 不再从 Query 取,强制用 JWT 身份,只统计自己的数据。
 
     返回:
     - 任务总数 / 成功 / 失败 / 部分成功
     - 平台执行成功次数 / 失败次数 / 平均耗时
     - 最近 N 天每日任务数
     """
+    user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
     try:
         # 时间范围
@@ -739,69 +833,37 @@ async def get_stats(
         from datetime import timedelta
         since = since - timedelta(days=days)
 
-        # 任务总览
-        if user_id:
-            task_stats = await conn.fetchrow(
-                """
-                SELECT
-                    count(*) as total,
-                    count(*) FILTER (WHERE status='success') as success,
-                    count(*) FILTER (WHERE status='failed') as failed,
-                    count(*) FILTER (WHERE status='partial') as partial,
-                    count(*) FILTER (WHERE status='cancelled') as cancelled,
-                    count(*) FILTER (WHERE status='running') as running,
-                    count(*) FILTER (WHERE status='scheduled') as scheduled
-                FROM publish_tasks
-                WHERE user_id=$1 AND created_at >= $2
-                """,
-                user_id, since,
-            )
-        else:
-            task_stats = await conn.fetchrow(
-                """
-                SELECT
-                    count(*) as total,
-                    count(*) FILTER (WHERE status='success') as success,
-                    count(*) FILTER (WHERE status='failed') as failed,
-                    count(*) FILTER (WHERE status='partial') as partial,
-                    count(*) FILTER (WHERE status='cancelled') as cancelled,
-                    count(*) FILTER (WHERE status='running') as running,
-                    count(*) FILTER (WHERE status='scheduled') as scheduled
-                FROM publish_tasks
-                WHERE created_at >= $1
-                """,
-                since,
-            )
+        # 任务总览(强制 user_id 过滤)
+        task_stats = await conn.fetchrow(
+            """
+            SELECT
+                count(*) as total,
+                count(*) FILTER (WHERE status='success') as success,
+                count(*) FILTER (WHERE status='failed') as failed,
+                count(*) FILTER (WHERE status='partial') as partial,
+                count(*) FILTER (WHERE status='cancelled') as cancelled,
+                count(*) FILTER (WHERE status='running') as running,
+                count(*) FILTER (WHERE status='scheduled') as scheduled
+            FROM publish_tasks
+            WHERE user_id=$1 AND created_at >= $2
+            """,
+            user_id, since,
+        )
 
-        # 平台统计
-        if user_id:
-            platform_rows = await conn.fetch(
-                """
-                SELECT platform,
-                       count(*) as total,
-                       count(*) FILTER (WHERE success) as success,
-                       count(*) FILTER (WHERE NOT success) as failed,
-                       COALESCE(avg(duration_ms), 0) as avg_ms
-                FROM publish_history
-                WHERE user_id=$1 AND created_at >= $2
-                GROUP BY platform ORDER BY total DESC
-                """,
-                user_id, since,
-            )
-        else:
-            platform_rows = await conn.fetch(
-                """
-                SELECT platform,
-                       count(*) as total,
-                       count(*) FILTER (WHERE success) as success,
-                       count(*) FILTER (WHERE NOT success) as failed,
-                       COALESCE(avg(duration_ms), 0) as avg_ms
-                FROM publish_history
-                WHERE created_at >= $1
-                GROUP BY platform ORDER BY total DESC
-                """,
-                since,
-            )
+        # 平台统计(强制 user_id 过滤)
+        platform_rows = await conn.fetch(
+            """
+            SELECT platform,
+                   count(*) as total,
+                   count(*) FILTER (WHERE success) as success,
+                   count(*) FILTER (WHERE NOT success) as failed,
+                   COALESCE(avg(duration_ms), 0) as avg_ms
+            FROM publish_history
+            WHERE user_id=$1 AND created_at >= $2
+            GROUP BY platform ORDER BY total DESC
+            """,
+            user_id, since,
+        )
 
         platforms = [
             {

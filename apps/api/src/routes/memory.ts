@@ -109,10 +109,12 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
       entries = await readEntries(server.redis, key)
     } else {
       // 无 scope:聚合所有作用域
-      for (const s of SCOPES) {
-        const key = buildKey(userId, s, sessionId, projectKey)
-        entries = entries.concat(await readEntries(server.redis, key))
-      }
+      const lists = await Promise.all(
+        SCOPES.map((s) =>
+          readEntries(server.redis, buildKey(userId, s, sessionId, projectKey)),
+        ),
+      )
+      entries = lists.flat()
     }
 
     return reply.send(success({ entries, total: entries.length }))
@@ -163,14 +165,17 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
 
       const { scope, sessionId, projectKey } = parsed.data
       const targetScopes = scope ? [scope as MemoryScope] : SCOPES
+      const targetKeys = targetScopes.map((s) => buildKey(userId, s, sessionId, projectKey))
+      const lists = await Promise.all(
+        targetKeys.map((key) => readEntries(server.redis, key)),
+      )
 
-      for (const s of targetScopes) {
-        const key = buildKey(userId, s, sessionId, projectKey)
-        const entries = await readEntries(server.redis, key)
+      for (let i = 0; i < targetScopes.length; i++) {
+        const entries = lists[i]!
         const idx = entries.findIndex((e) => e.id === request.params.id)
         if (idx >= 0) {
           entries.splice(idx, 1)
-          await writeEntries(server.redis, key, entries)
+          await writeEntries(server.redis, targetKeys[i]!, entries)
           return reply.send(success({ id: request.params.id, deleted: true }))
         }
       }

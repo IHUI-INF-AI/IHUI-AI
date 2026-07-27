@@ -1687,7 +1687,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   if (!runtimeWebhookSecret) {
     // DEV 环境:自动生成运行时密钥(进程级,不持久化)
     runtimeWebhookSecret = randomBytes(32).toString('hex')
-    console.warn(
+    server.log.warn(
       `[agents] COZE_WEBHOOK_SECRET 未配置,DEV 自动生成进程级密钥(重启失效): ${runtimeWebhookSecret.slice(0, 8)}...${runtimeWebhookSecret.slice(-4)}`,
     )
   }

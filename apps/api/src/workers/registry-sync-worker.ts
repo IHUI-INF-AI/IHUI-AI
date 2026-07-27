@@ -34,6 +34,13 @@ export interface RegistryWorkerStats {
   lastProcessedAt: Date | null
 }
 
+// 扩展 FastifyInstance 类型,避免 as any 断言挂载 worker 指标
+declare module 'fastify' {
+  interface FastifyInstance {
+    registryWorkerStats?: RegistryWorkerStats
+  }
+}
+
 export function startRegistrySyncWorker(server: FastifyInstance): Worker {
   const connection = server.redisForQueue
   if (!connection) {
@@ -47,7 +54,7 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
     failed: 0,
     lastProcessedAt: null,
   }
-  ;(server as any).registryWorkerStats = stats
+  server.registryWorkerStats = stats
 
   const worker = new Worker<RegistrySyncJobData>(
     REGISTRY_SYNC_QUEUE_NAME,
