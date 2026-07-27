@@ -5,24 +5,24 @@ import { cn } from '@/lib/utils'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 
 /**
- * AgentProgressTrigger — Agent 任务进度 Bottom Pane 的浮动触发按钮 + 全局快捷键
+ * AgentProgressTrigger — Agent 任务进度触发按钮(2026-07-27 v5 内联版)
  *
- * v4 简化(2026-07-27,Codex 流式对齐):
- * - Ctrl+Shift+J:切换面板开关(Web 习惯,保留)
- * - ArrowDown:打开(未打开时)
- * - v:切换 verbose(打开时,Pane 内已处理,这里仅作为兜底)
+ * v5 改动(用户规则):
+ * - 从右下角 fixed 浮动按钮改为内联文字按钮,放到消息输入框附加栏(权限模式栏前面)
+ * - 不再使用 ▲ 图标,改为文字显示:
+ *   - 无进度(无 threadId 或无 planSteps):显示 "任务列表"
+ *   - 有进度:显示 "01/06" 格式(当前/总数,当前 = in_progress 步骤序号,总数 = planSteps.length)
+ * - 点击切换 pane 开关
+ * - 快捷键保留:Ctrl+Shift+J 切换 / ArrowDown 打开(未打开时)
  *
- * 移除的快捷键(v4 不再需要):
- * - 1/2/3 三栏切换(改为单栏流式)
- * - Tab 排序切换(流式不需要排序)
- * - a 归档切换(流式显示全部)
- *
- * j/k/Enter/y/n/g/G/space/?// 由 Pane 组件内部处理(需数据上下文)。
- * 焦点在输入控件时不拦截快捷键。
+ * 数据来源:从 useAgentProgressPaneStore 读取 progressCurrent/progressTotal
+ * (由 AgentTaskProgressPane 组件同步,避免 trigger 启动第二个 SSE 流)
  */
 export function AgentProgressTrigger() {
   const open = useAgentProgressPaneStore((s) => s.open)
   const toggle = useAgentProgressPaneStore((s) => s.toggle)
+  const progressCurrent = useAgentProgressPaneStore((s) => s.progressCurrent)
+  const progressTotal = useAgentProgressPaneStore((s) => s.progressTotal)
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -57,25 +57,27 @@ export function AgentProgressTrigger() {
     return () => window.removeEventListener('keydown', onKey)
   }, [toggle])
 
-  if (open) return null
+  // 显示逻辑:有进度显示 "01/06",无进度显示 "任务列表"
+  const hasProgress = progressTotal > 0
+  const display = hasProgress
+    ? `${String(progressCurrent).padStart(2, '0')}/${String(progressTotal).padStart(2, '0')}`
+    : '任务列表'
 
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label="打开 Agent 任务进度"
-      title="Agent 任务进度 (↓ 或 Ctrl+Shift+J)"
+      aria-label={hasProgress ? `任务进度 ${progressCurrent}/${progressTotal}` : '任务列表'}
+      title={hasProgress ? `Agent 任务进度 ${progressCurrent}/${progressTotal} (Ctrl+Shift+J)` : 'Agent 任务列表 (Ctrl+Shift+J)'}
       className={cn(
-        'pointer-events-auto fixed bottom-4 right-4 z-sticky',
-        'inline-flex h-10 w-10 items-center justify-center',
-        'rounded-lg border border-border bg-card text-foreground shadow-md',
-        'font-mono text-base',
-        'transition-colors hover:bg-accent hover:text-accent-foreground',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors duration-150 ease-out',
+        'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+        open && 'bg-accent text-accent-foreground',
+        hasProgress && 'text-primary',
       )}
       data-testid="agent-progress-trigger"
     >
-      <span aria-hidden="true">▲</span>
+      <span className="whitespace-nowrap tabular-nums">{display}</span>
     </button>
   )
 }
