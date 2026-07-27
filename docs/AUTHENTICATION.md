@@ -1102,7 +1102,7 @@ export const useAuthStore = create<AuthState>()(
 
 ```bash
 # 1. 登录(手机号 + 密码)
-curl -X POST http://localhost:3001/api/auth/login \
+curl -X POST http://localhost:8802/api/auth/login \
   -H "Content-Type: application/json" \
   -c cookies.txt \
   -d '{
@@ -1124,7 +1124,7 @@ curl -X POST http://localhost:3001/api/auth/login \
 
 ```bash
 # 2. 调用受保护端点(Bearer token)
-curl http://localhost:3001/api/users/me \
+curl http://localhost:8802/api/users/me \
   -H "Authorization: Bearer eyJhbGci..." \
   -b cookies.txt
 
@@ -1138,7 +1138,7 @@ curl http://localhost:3001/api/users/me \
 
 ```bash
 # 3. access token 过期后刷新(refresh token 在 cookie 中)
-curl -X POST http://localhost:3001/api/auth/refresh \
+curl -X POST http://localhost:8802/api/auth/refresh \
   -H "Authorization: Bearer <expired-access>" \
   -b cookies.txt
 
@@ -1155,7 +1155,7 @@ curl -X POST http://localhost:3001/api/auth/refresh \
 
 ```bash
 # 4. 登出(撤销当前 token)
-curl -X POST http://localhost:3001/api/auth/logout \
+curl -X POST http://localhost:8802/api/auth/logout \
   -H "Authorization: Bearer eyJhbGci..." \
   -b cookies.txt
 
@@ -1168,7 +1168,7 @@ curl -X POST http://localhost:3001/api/auth/logout \
 
 ```bash
 # 1. 首次登录(密码验证通过,但 2FA 已启用 → 返回 challenge_token)
-curl -X POST http://localhost:3001/api/auth/login \
+curl -X POST http://localhost:8802/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{ "phone": "13800138000", "password": "MyPassword123" }'
 
@@ -1184,7 +1184,7 @@ curl -X POST http://localhost:3001/api/auth/login \
 
 ```bash
 # 2. 提交 TOTP code
-curl -X POST http://localhost:3001/api/auth/2fa/challenge \
+curl -X POST http://localhost:8802/api/auth/2fa/challenge \
   -H "Authorization: Bearer <challenge-token>" \
   -H "Content-Type: application/json" \
   -d '{ "code": "123456" }'
@@ -1195,7 +1195,7 @@ curl -X POST http://localhost:3001/api/auth/2fa/challenge \
 
 ```bash
 # 2b. 或用 backup code(单次使用)
-curl -X POST http://localhost:3001/api/auth/2fa/challenge \
+curl -X POST http://localhost:8802/api/auth/2fa/challenge \
   -H "Authorization: Bearer <challenge-token>" \
   -H "Content-Type: application/json" \
   -d '{ "backupCode": "a1b2c3d4e5" }'
@@ -1216,7 +1216,7 @@ console.log({ verifier, challenge })
 
 ```bash
 # 2. 发起 OAuth2(重定向到 IdP)
-curl -v "http://localhost:3001/api/auth/sso/github?code_challenge=xyz...&code_challenge_method=S256&state=csrf_token"
+curl -v "http://localhost:8802/api/auth/sso/github?code_challenge=xyz...&code_challenge_method=S256&state=csrf_token"
 # 302 Location: https://github.com/login/oauth/authorize?client_id=...&redirect_uri=...&state=csrf_token
 ```
 
@@ -1228,7 +1228,7 @@ curl -v "http://localhost:3001/api/auth/sso/github?code_challenge=xyz...&code_ch
 
 ```bash
 # 4. 用 code + verifier 换 token
-curl -X POST http://localhost:3001/api/auth/sso/github/token \
+curl -X POST http://localhost:8802/api/auth/sso/github/token \
   -H "Content-Type: application/json" \
   -d '{
     "code": "auth_code",
@@ -1252,7 +1252,7 @@ const res = await fetch('/api/auth/ws-token', {
 const { token: wsToken } = await res.json().data
 
 // 2. 建立 WS 连接
-const socket = io('http://localhost:3001/ws/chat', {
+const socket = io('http://localhost:8802/ws/chat', {
   auth: { token: wsToken },
   transports: ['websocket'],
 })
@@ -1273,7 +1273,7 @@ socket.on('disconnect', (reason) => {
 
 ```bash
 # 1. 创建 PAT
-curl -X POST http://localhost:3001/api/auth/pat \
+curl -X POST http://localhost:8802/api/auth/pat \
   -H "Authorization: Bearer <access-token>" \
   -H "Content-Type: application/json" \
   -d '{ "name": "my-script", "expiresInDays": 30 }'
@@ -1284,7 +1284,7 @@ curl -X POST http://localhost:3001/api/auth/pat \
 
 ```bash
 # 2. 用 PAT 调 API(等价于 access token)
-curl http://localhost:3001/api/orders \
+curl http://localhost:8802/api/orders \
   -H "Authorization: Bearer pat_xxxxxxxx"
 ```
 
@@ -1292,7 +1292,7 @@ curl http://localhost:3001/api/orders \
 
 ```bash
 # 显式指定租户(X-Tenant-Id header)
-curl http://localhost:3001/api/orders \
+curl http://localhost:8802/api/orders \
   -H "Authorization: Bearer <access-token>" \
   -H "X-Tenant-Id: acme-corp"
 
@@ -1307,7 +1307,7 @@ curl https://acme.ihui.ai/api/orders \
 import { fetchApi, setBaseUrl, setTokenProvider } from '@ihui/api-client'
 
 // 1. 配置
-setBaseUrl('http://localhost:3001')
+setBaseUrl('http://localhost:8802')
 setTokenProvider({ getToken: () => getCookie('auth_token') })
 
 // 2. 调用(自动带 Authorization header + 401 自动刷新)
