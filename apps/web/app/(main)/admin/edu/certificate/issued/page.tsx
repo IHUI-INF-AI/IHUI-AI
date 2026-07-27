@@ -24,6 +24,7 @@ import {
   Card,
   CardContent,
 } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
 
 interface IssuedCert {
   id: string
@@ -200,7 +201,7 @@ export default function EduCertificateIssuedPage() {
                     {c.templateName ?? '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {c.issuedAt ? new Date(c.issuedAt).toLocaleDateString() : '-'}
+                    {c.issuedAt ? formatDateOnly(c.issuedAt) : '-'}
                   </TableCell>
                 </TableRow>
               ))
