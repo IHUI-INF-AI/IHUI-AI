@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -88,7 +88,7 @@ export default function SecurityAuditPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((ev: any) => {
+                {list.map((ev) => {
                   const Icon = (TYPE_ICON as any)[ev.type] ?? DEFAULT_ICON
                   return (
                     <TableRow key={ev.id}>

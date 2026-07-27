@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -140,7 +140,7 @@ export default function KnowledgeRagPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {hits.map((h: any) => (
+            {hits.map((h) => (
               <Link
                 key={h.id}
                 href={`/knowledge-rag/${h.docId}`}
@@ -172,7 +172,7 @@ export default function KnowledgeRagPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {docs.map((d: any) => (
+          {docs.map((d) => (
             <Link key={d.id} href={`/knowledge-rag/${d.id}`} className="block">
               <Card className="h-full transition-colors hover:bg-accent/50">
                 <CardHeader className="pb-2">

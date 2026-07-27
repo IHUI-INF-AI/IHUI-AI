@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -48,7 +48,7 @@ export default function AgentsPage() {
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item: any) => {
+    return all.filter((item) => {
       const matchKeyword =
         !keyword ||
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -112,7 +112,7 @@ export default function AgentsPage() {
               badge={item.category as any}
               footer={
                 <div className="flex flex-wrap gap-1">
-                  {item.capabilities.map((cap: any) => (
+                  {item.capabilities.map((cap) => (
                     <span
                       key={cap}
                       className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"

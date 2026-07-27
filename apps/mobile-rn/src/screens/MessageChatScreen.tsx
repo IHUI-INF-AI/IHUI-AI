@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -11,7 +12,7 @@ interface ChatMsg { id: string; senderId: string; content: string; createdAt: st
 
 type Route = RouteProp<RootStackParamList, 'MessageChat'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
 
 export function MessageChatScreen() {
   const { t } = useI18n()
@@ -78,7 +79,7 @@ export function MessageChatScreen() {
         )}
       />
       <View style={styles.inputRow}>
-        <Input style={styles.input} value={input} onChangeText={setInput} placeholder={t('messageChat.placeholder')} placeholderTextColor="#9ca3af" />
+        <Input style={styles.input} value={input} onChangeText={setInput} placeholder={t('messageChat.placeholder')} placeholderTextColor={tokens.text.tertiary} />
         <TouchableOpacity style={[styles.sendBtn, (!input.trim() || sending) && styles.sendDisabled]} onPress={onSend} disabled={!input.trim() || sending}>
           <Text style={styles.sendText}>{t('messageChat.send')}</Text>
         </TouchableOpacity>
@@ -88,24 +89,24 @@ export function MessageChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16 },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.light, paddingHorizontal: 16, paddingTop: 48 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface.light, padding: 16 },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.error.text, marginBottom: 8, textAlign: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { flex: 1, fontSize: 18, fontWeight: '600', color: '#111827' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { flex: 1, fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   empty: { paddingVertical: 40, alignItems: 'center' },
   msg: { padding: 10, borderRadius: 8, marginBottom: 8, maxWidth: '80%' },
   msgMine: { alignSelf: 'flex-end', backgroundColor: PRIMARY },
-  msgPeer: { alignSelf: 'flex-start', backgroundColor: '#f3f4f6' },
-  content: { fontSize: 14, color: '#fff' },
+  msgPeer: { alignSelf: 'flex-start', backgroundColor: tokens.surface.card },
+  content: { fontSize: 14, color: tokens.surface.light },
   meta: { marginTop: 4, fontSize: 10, color: 'rgba(255,255,255,0.7)' },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  input: { flex: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', fontSize: 14, color: '#111827' },
+  input: { flex: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, fontSize: 14, color: tokens.text.primary },
   sendBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  sendDisabled: { backgroundColor: '#9ca3af' },
-  sendText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  sendDisabled: { backgroundColor: tokens.text.tertiary },
+  sendText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
   btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  btnText: { color: '#fff', fontSize: 14 },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

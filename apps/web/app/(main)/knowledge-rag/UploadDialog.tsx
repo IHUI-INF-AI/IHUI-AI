@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -44,12 +44,12 @@ export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setFeedback({ type: 'success', msg: t('success', { count: data.chunkCount }) })
       setTimeout(() => { onOpenChange(false); reset() }, 1200)
     },
-    onError: (e: any) => setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) }),
+    onError: (e) => setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) }),
   })
 
   const textMut = useMutation({
@@ -63,12 +63,12 @@ export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setFeedback({ type: 'success', msg: t('success', { count: data.chunkCount }) })
       setTimeout(() => { onOpenChange(false); reset() }, 1200)
     },
-    onError: (e: any) => setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) }),
+    onError: (e) => setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) }),
   })
 
   const pending = fileMut.isPending || textMut.isPending

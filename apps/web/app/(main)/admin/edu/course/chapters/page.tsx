@@ -134,7 +134,7 @@ export default function EduCourseChaptersPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">{t('pleaseSelectCourse')}</SelectItem>
-              {lessons.map((l: any) => (
+              {lessons.map((l) => (
                 <SelectItem key={l.id} value={l.id}>
                   {l.title}
                 </SelectItem>

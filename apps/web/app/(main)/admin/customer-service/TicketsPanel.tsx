@@ -112,7 +112,7 @@ export function TicketsPanel() {
                 </td>
               </tr>
             ) : (
-              list.map((tk: any) => (
+              list.map((tk) => (
                 <tr
                   key={tk.id}
                   className="cursor-pointer transition-colors hover:bg-muted/30"

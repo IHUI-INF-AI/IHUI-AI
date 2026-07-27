@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * ModelFormDialog — 单 model 添加/编辑对话框(2026-07-22 升级)
@@ -118,7 +118,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
       }
       return createModelV2(provider.id, f)
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       const modelIdEcho = 'modelId' in res ? res.modelId : undefined
       toast.success(form.id ? t('saved') : t('created'), {
         description: modelIdEcho ? `「${modelIdEcho}」` : undefined,

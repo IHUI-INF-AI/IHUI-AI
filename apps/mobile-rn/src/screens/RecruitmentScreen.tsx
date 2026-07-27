@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -38,7 +39,7 @@ const MOCK_JOBS: Job[] = [
   { id: '5', position: '后端架构师', company: 'AI智汇社', salary: '40-70K', location: '上海', category: 'tech', tags: ['Node', '架构'], experience: '5年以上', education: '本科', description: '负责平台后端架构演进与技术选型,保障高并发场景下的稳定性与扩展性。', requirements: ['精通 Node.js / TypeScript', '熟悉微服务架构', '有高并发系统经验', '数据库调优能力'] },
 ]
 
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
 
 /** 招聘列表:职位筛选 / 列表 / 详情 / 投递。 */
 export default function RecruitmentScreen() {
@@ -142,40 +143,40 @@ export default function RecruitmentScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { paddingVertical: 4, marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 12, color: '#9CA3AF' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 12, color: tokens.text.tertiary },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
-  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F4F6' },
+  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tokens.surface.card },
   tabActive: { backgroundColor: PRIMARY },
-  tabText: { fontSize: 12, color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF' },
+  tabText: { fontSize: 12, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.surface.light },
   empty: { paddingVertical: 40, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
-  jobCard: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  jobCard: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.surface.light },
   jobHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  jobPosition: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827', marginRight: 8 },
+  jobPosition: { flex: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary, marginRight: 8 },
   jobSalary: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
-  jobCompany: { marginTop: 4, fontSize: 12, color: '#6B7280' },
+  jobCompany: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
   jobMeta: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  jobMetaText: { fontSize: 11, color: '#9CA3AF' },
-  miniTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  miniTagText: { fontSize: 10, color: '#6B7280' },
+  jobMetaText: { fontSize: 11, color: tokens.text.tertiary },
+  miniTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: tokens.surface.card },
+  miniTagText: { fontSize: 10, color: tokens.text.secondary },
   appliedBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: '#ECFDF5' },
   appliedText: { fontSize: 10, color: PRIMARY },
   modalMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, paddingBottom: 32 },
+  modalCard: { backgroundColor: tokens.surface.light, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, paddingBottom: 32 },
   modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#111827', marginRight: 8 },
-  modalClose: { fontSize: 14, color: '#6B7280' },
+  modalTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tokens.text.primary, marginRight: 8 },
+  modalClose: { fontSize: 14, color: tokens.text.secondary },
   modalSalary: { marginTop: 6, fontSize: 13, color: PRIMARY },
-  modalSection: { marginTop: 16, marginBottom: 6, fontSize: 13, fontWeight: '600', color: '#111827' },
-  modalDesc: { fontSize: 13, color: '#374151', lineHeight: 20 },
-  modalReq: { marginTop: 4, fontSize: 13, color: '#374151', lineHeight: 20 },
+  modalSection: { marginTop: 16, marginBottom: 6, fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  modalDesc: { fontSize: 13, color: tokens.text.medium, lineHeight: 20 },
+  modalReq: { marginTop: 4, fontSize: 13, color: tokens.text.medium, lineHeight: 20 },
   applyBtn: { marginTop: 20, paddingVertical: 12, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
-  applyBtnDisabled: { backgroundColor: '#9CA3AF' },
-  applyText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  applyBtnDisabled: { backgroundColor: tokens.text.tertiary },
+  applyText: { color: tokens.surface.light, fontSize: 15, fontWeight: '600' },
 })

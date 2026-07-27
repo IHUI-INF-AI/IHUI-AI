@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -66,7 +66,7 @@ export default function WorkspacePermissionsPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {permissions.map((perm: any) => {
+          {permissions.map((perm) => {
             const Mode = (MODE_LABEL as any)[perm.mode]
             const ModeIcon = Mode.icon
             return (

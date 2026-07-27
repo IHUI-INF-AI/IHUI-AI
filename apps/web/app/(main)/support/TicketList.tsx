@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -48,7 +48,7 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {list.map((t: any) => (
+          {list.map((t) => (
             <button
               key={t.id}
               onClick={() => openDetail(t)}
