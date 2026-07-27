@@ -392,8 +392,8 @@ class PublishScheduler:
         # 进度通知
         try:
             await notifications.notify_progress(task_id, user_id, platform, "start")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("publish.scheduler 进度通知(start)失败: %s", e, exc_info=True)
 
         started = datetime.now(timezone.utc)
         try:
@@ -416,8 +416,8 @@ class PublishScheduler:
                 "success" if result.success else "failed",
                 result.error_message or "",
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("publish.scheduler 进度通知(end)失败: %s", e, exc_info=True)
 
         return result
 

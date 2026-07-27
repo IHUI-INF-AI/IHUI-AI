@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import uuid as _uuid
 from dataclasses import dataclass, field
@@ -27,6 +28,8 @@ from typing import Any
 from ..core.llm_gateway import llm_gateway
 from .memory import memory_store
 from .vector_memory import vector_memory
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -213,7 +216,8 @@ class RAGService:
                 top_k=max(top_k * 2, 10),
                 threshold=0.0,
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("rag._retrieve 向量检索失败: %s", e, exc_info=True)
             results = []
         if results:
             sources: list[RAGSource] = []
@@ -246,14 +250,16 @@ class RAGService:
             sessions = (
                 [session_id] if session_id else await memory_store.list_sessions()
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("rag._keyword_fallback 加载会话列表失败: %s", e, exc_info=True)
             return []
         query_l = query.lower()
         scored: list[RAGSource] = []
         for sid in sessions:
             try:
                 msgs = await memory_store.get(sid, limit=200)
-            except Exception:
+            except Exception as e:
+                logger.warning("rag._keyword_fallback 加载会话消息失败(sid=%s): %s", sid, e, exc_info=True)
                 continue
             for m in msgs:
                 content = str(m.get("content", ""))

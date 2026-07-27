@@ -136,7 +136,8 @@ class MemoryDecayManager:
             if days <= 0:
                 return 1.0
             return float(0.5 ** (days / half_life_days))
-        except Exception:
+        except Exception as e:
+            logger.warning("memory_decay._time_score 时间衰减计算失败: %s", e, exc_info=True)
             return 1.0
 
     # ==================================================================
@@ -487,7 +488,8 @@ class MemoryDecayManager:
             try:
                 result = await memory_client.get_entries(user_id, scope="user")
                 return result if isinstance(result, list) else []
-            except Exception:
+            except Exception as e:
+                logger.warning("memory_decay._resolve_entries 加载 entries 失败: %s", e, exc_info=True)
                 return []
         # 兼容:直接传入 entries 列表
         if isinstance(memory_client, list):
