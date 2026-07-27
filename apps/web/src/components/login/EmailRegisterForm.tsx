@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { sendEmailCode, registerByEmail } from '@ihui/api-client'
 import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { emailSchema } from '@/components/login/login-schemas'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
@@ -91,17 +92,12 @@ export function EmailRegisterForm({
     setServerError(null)
     setSendingCode(true)
     try {
-      const res = await fetch('/api/auth/email/code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, scene: 'register' }),
-      })
-      if (res.ok) {
+      const r = await sendEmailCode(email, 'register')
+      if (r.success) {
         setServerInfo(t('codeSent'))
         setCountdown(60)
       } else {
-        const json = (await res.json().catch(() => ({}))) as { message?: string }
-        setServerError(json.message || t('registerFailed'))
+        setServerError(r.error || t('registerFailed'))
       }
     } catch {
       setServerError(t('registerFailed'))
@@ -119,14 +115,9 @@ export function EmailRegisterForm({
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/register/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      })
-      const json = (await res.json()) as { code: number; message: string }
-      if (!res.ok || json.code !== 0) {
-        setServerError(json.message || t('registerFailed'))
+      const r = await registerByEmail(values.email, values.code, values.password)
+      if (!r.success) {
+        setServerError(r.error || t('registerFailed'))
         return
       }
       setServerInfo(t('registerSuccess'))
