@@ -23,6 +23,7 @@ export type {
   FallbackEvent,
   SubagentSpawnEvent,
   SubagentEndEvent,
+  SubagentProgressEvent,
 } from './client'
 export { ApiError, isNotFound, isErrorCode } from './api-error'
 export { setTransport, getTransport } from './transport'
