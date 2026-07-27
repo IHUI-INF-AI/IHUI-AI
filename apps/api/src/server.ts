@@ -258,6 +258,9 @@ async function registerPlugins(server: FastifyInstance) {
           { name: 'Knowledge', description: '知识库工具' },
           { name: 'Debug', description: 'DAP 调试器' },
           { name: 'Terminal', description: '终端 PTY 管理' },
+          { name: 'Payment', description: '支付网关(微信/支付宝/Stripe)' },
+          { name: 'Developer', description: '开发者门户(API key/配额/文档)' },
+          { name: 'Pricing', description: '定价(VIP 4 档/模型价格)' },
         ],
       },
     })
