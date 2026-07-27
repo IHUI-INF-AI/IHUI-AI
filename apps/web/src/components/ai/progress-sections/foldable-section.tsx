@@ -91,8 +91,8 @@ export function FoldableSection({
   return (
     <div
       className={cn(
-        'mx-1.5 mt-1.5 rounded-sm border border-border/40 bg-muted/20 transition-colors',
-        open && 'bg-muted/40',
+        'mx-1.5 mt-1.5 rounded-sm border border-border/60 bg-muted/40 transition-colors',
+        open && 'bg-muted/60',
       )}
       data-testid={testId}
     >

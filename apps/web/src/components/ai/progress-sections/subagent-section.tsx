@@ -71,7 +71,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
   }
 
   return (
-    <div className="rounded-sm transition-colors hover:bg-accent/20">
+    <div className="rounded-sm transition-colors hover:bg-accent/40">
       <div
         className={cn(
           'flex items-center gap-1.5 px-1 py-0.5',
@@ -92,7 +92,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
         {hasDetail && (
           <ChevronRight
             className={cn(
-              'h-2 w-2 shrink-0 text-muted-foreground/40 transition-transform duration-150',
+              'h-2 w-2 shrink-0 text-muted-foreground/60 transition-transform duration-150',
               expanded && 'rotate-90',
             )}
           />
@@ -115,7 +115,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
         </span>
         {sa.failureReason && (sa.status === 'failed' || sa.status === 'dead') ? (
           <span
-            className="flex-1 break-all text-[10px] text-red-500/70"
+            className="flex-1 break-all text-[10px] text-red-500/80"
             title={sa.failureReason}
           >
             {sa.failureReason}
@@ -126,20 +126,20 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
         {sa.durationMs !== undefined &&
           sa.status !== 'running' &&
           sa.status !== 'spawned' && (
-            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
               {formatDuration(sa.durationMs)}
             </span>
           )}
         {sa.toolCalls !== undefined && sa.toolCalls > 0 && (
           <span
-            className="shrink-0 text-[10px] tabular-nums text-muted-foreground/40"
+            className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
             title={`${sa.toolCalls} 次工具调用`}
           >
             {sa.toolCalls}次
           </span>
         )}
         {sa.tokenUsage !== undefined && sa.tokenUsage > 0 && (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
             {Math.round(sa.tokenUsage / 1000)}k
           </span>
         )}
@@ -162,7 +162,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
                   <span className="text-amber-500">待审批</span>
                 )}
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground/50">
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground/70">
                         {sa.spawnedAt && (
                           <span title={formatTime(sa.spawnedAt)}>
                             启动:{formatTime(sa.spawnedAt)} ({formatRelativeTime(sa.spawnedAt)})
@@ -178,7 +178,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
                         )}
                       </div>
               {sa.threadId && (
-                <div className="flex items-center gap-1 break-all text-muted-foreground/40">
+                <div className="flex items-center gap-1 break-all text-muted-foreground/60">
                   <span className="font-mono">threadId: {sa.threadId}</span>
                   <CopyButton
                     text={sa.threadId}

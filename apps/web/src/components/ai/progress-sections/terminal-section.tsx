@@ -38,7 +38,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
   }
 
   return (
-    <div className="rounded-sm transition-colors hover:bg-accent/20">
+    <div className="rounded-sm transition-colors hover:bg-accent/40">
       <div
         className={cn(
           'flex items-center gap-1.5 px-1 py-0.5',
@@ -59,7 +59,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
         {hasOutput && (
           <ChevronRight
             className={cn(
-              'h-2 w-2 shrink-0 text-muted-foreground/40 transition-transform duration-150',
+              'h-2 w-2 shrink-0 text-muted-foreground/60 transition-transform duration-150',
               expanded && 'rotate-90',
             )}
           />
@@ -81,7 +81,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
           </span>
         )}
         {term.durationMs !== undefined && term.status !== 'running' && (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
             {formatDuration(term.durationMs)}
           </span>
         )}
@@ -106,7 +106,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
                   'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[10px]',
                   term.status === 'failed'
                     ? 'bg-red-500/5 text-red-500/80'
-                    : 'bg-muted/40 text-muted-foreground/80',
+                    : 'bg-muted/60 text-muted-foreground/90',
                 )}
               >
                 {truncateOutput(term.output ?? '')}
@@ -150,7 +150,7 @@ export const TerminalSection = React.memo(function TerminalSection({
           <TerminalItem key={term.id} term={term} />
         ))}
         {terminals.length > 10 && (
-          <div className="text-[10px] text-muted-foreground/40">
+          <div className="text-[10px] text-muted-foreground/60">
             …还有 {terminals.length - 10} 项
           </div>
         )}
