@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import {
@@ -13,6 +14,8 @@ import {
   Layers,
   Boxes,
   AlertCircle,
+  ArrowLeft,
+  Wallet,
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -26,21 +29,18 @@ interface AiCostSummary {
   totalCalls: number
   cacheHitRate: number
 }
-
 interface ByModel {
   model: string
   cost: string | number
   tokens: number
   calls: number
 }
-
 interface ByDay {
   date: string
   cost: string | number
   tokens: number
   calls: number
 }
-
 interface PromptCacheMetrics {
   hits: number
   misses: number
@@ -48,13 +48,23 @@ interface PromptCacheMetrics {
   l2Misses: number
   errors: number
 }
-
 interface AiCostDashboard {
   summary: AiCostSummary
   byModel: ByModel[]
   byDay: ByDay[]
   period: { startDate: string; endDate: string }
   promptCacheMetrics?: PromptCacheMetrics
+}
+interface Budget {
+  id: string
+  scope: string
+  scopeKey: string
+  model: string | null
+  dailyTokenLimit: number
+  monthlyTokenLimit: number
+  dailyCostLimit: string
+  monthlyCostLimit: string
+  updatedAt: string
 }
 
 async function api<T>(url: string): Promise<T> {
@@ -79,12 +89,24 @@ export default function AiCostPage() {
   const t = useTranslations('aiCost')
   const locale = useLocale()
   const [days, setDays] = React.useState(7)
+  const startDateISO = React.useMemo(
+    () => new Date(Date.now() - days * 86400_000).toISOString(),
+    [days],
+  )
+  const endDateISO = React.useMemo(() => new Date().toISOString(), [])
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'ai-cost', days],
     queryFn: () =>
       api<AiCostDashboard>(
-        `/api/admin/ai/cost/dashboard?startDate=${new Date(Date.now() - days * 86400_000).toISOString()}&endDate=${new Date().toISOString()}`,
+        `/api/admin/ai/cost/dashboard?startDate=${startDateISO}&endDate=${endDateISO}`,
       ).catch(() => EMPTY),
+    retry: false,
+  })
+
+  const { data: budgets } = useQuery({
+    queryKey: ['admin', 'ai-cost', 'budgets'],
+    queryFn: () => api<Budget[]>('/api/admin/ai/cost/budgets').catch(() => [] as Budget[]),
     retry: false,
   })
 
@@ -93,58 +115,21 @@ export default function AiCostPage() {
   const totalCost = Number(d.summary.totalCost ?? 0) / 100
   const pc = d.promptCacheMetrics
 
+  // 计算最大值用于水平条形图
+  const maxModelCost = Math.max(...d.byModel.map((m) => Number(m.cost) || 0), 1)
+  const maxDayCost = Math.max(...d.byDay.map((r) => Number(r.cost) || 0), 1)
+  const dayFmt = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' })
+
   const cards = [
-    {
-      key: 'totalCost',
-      label: t('totalCost'),
-      value: curFmt.format(totalCost),
-      icon: Coins,
-      cls: 'text-emerald-600',
-    },
-    {
-      key: 'totalTokens',
-      label: t('totalTokens'),
-      value: fmtNum(d.summary.totalTokens ?? 0),
-      icon: Database,
-      cls: 'text-blue-600',
-    },
-    {
-      key: 'totalCalls',
-      label: t('totalCalls'),
-      value: fmtNum(d.summary.totalCalls ?? 0),
-      icon: Zap,
-      cls: 'text-amber-600',
-    },
-    {
-      key: 'cacheHit',
-      label: t('cacheHitRate'),
-      value: `${d.summary.cacheHitRate ?? 0}%`,
-      icon: TrendingUp,
-      cls: 'text-purple-600',
-    },
+    { key: 'totalCost', label: t('totalCost'), value: curFmt.format(totalCost), icon: Coins, cls: 'text-emerald-600 dark:text-emerald-400' },
+    { key: 'totalTokens', label: t('totalTokens'), value: fmtNum(d.summary.totalTokens ?? 0), icon: Database, cls: 'text-primary' },
+    { key: 'totalCalls', label: t('totalCalls'), value: fmtNum(d.summary.totalCalls ?? 0), icon: Zap, cls: 'text-amber-600 dark:text-amber-400' },
+    { key: 'cacheHit', label: t('cacheHitRate'), value: `${d.summary.cacheHitRate ?? 0}%`, icon: TrendingUp, cls: 'text-purple-600 dark:text-purple-400' },
     ...(pc
       ? [
-          {
-            key: 'l1Hit',
-            label: t('l1HitRate'),
-            value: hitRate(pc.hits, pc.misses),
-            icon: Layers,
-            cls: 'text-emerald-600',
-          },
-          {
-            key: 'l2Hit',
-            label: t('l2HitRate'),
-            value: hitRate(pc.l2Hits, pc.l2Misses),
-            icon: Boxes,
-            cls: 'text-emerald-600',
-          },
-          {
-            key: 'pcErrors',
-            label: t('promptCacheErrors'),
-            value: fmtNum(pc.errors ?? 0),
-            icon: AlertCircle,
-            cls: (pc.errors ?? 0) > 0 ? 'text-red-600' : 'text-muted-foreground',
-          },
+          { key: 'l1Hit', label: t('l1HitRate'), value: hitRate(pc.hits, pc.misses), icon: Layers, cls: 'text-emerald-600 dark:text-emerald-400' },
+          { key: 'l2Hit', label: t('l2HitRate'), value: hitRate(pc.l2Hits, pc.l2Misses), icon: Boxes, cls: 'text-emerald-600 dark:text-emerald-400' },
+          { key: 'pcErrors', label: t('promptCacheErrors'), value: fmtNum(pc.errors ?? 0), icon: AlertCircle, cls: (pc.errors ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground' },
         ]
       : []),
   ]
@@ -159,16 +144,25 @@ export default function AiCostPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <select
-          aria-label={t('rangeLabel')}
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <option value={1}>{t('range1d')}</option>
-          <option value={7}>{t('range7d')}</option>
-          <option value={30}>{t('range30d')}</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/ai-metrics"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm hover:bg-muted/50"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>{t('toMetrics')}</span>
+          </Link>
+          <select
+            aria-label={t('rangeLabel')}
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
+            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value={1}>{t('range1d')}</option>
+            <option value={7}>{t('range7d')}</option>
+            <option value={30}>{t('range30d')}</option>
+          </select>
+        </div>
       </div>
 
       {isLoading ? (
@@ -186,17 +180,18 @@ export default function AiCostPage() {
         </Card>
       ) : (
         <>
+          {/* 汇总卡片 */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {cards.map((c) => {
               const Icon = c.icon
               return (
                 <Card key={c.key}>
                   <CardContent className="flex items-center gap-3 p-4">
-                    <div className={cn('rounded-md p-2', c.cls)}>
+                    <div className={cn('rounded-md bg-muted p-2', c.cls)}>
                       <Icon className="h-4 w-4" />
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">{c.label}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs text-muted-foreground">{c.label}</p>
                       <p className="text-xl font-semibold tabular-nums">{c.value}</p>
                     </div>
                   </CardContent>
@@ -205,6 +200,7 @@ export default function AiCostPage() {
             })}
           </div>
 
+          {/* 按模型 + 按天 双列 */}
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
@@ -213,25 +209,26 @@ export default function AiCostPage() {
                   {t('byModel')}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-2">
                 {d.byModel.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    {t('noModelData')}
-                  </p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">{t('noModelData')}</p>
                 ) : (
-                  <ul className="divide-y">
-                    {d.byModel.slice(0, 10).map((m) => (
-                      <li key={m.model} className="flex items-center justify-between py-2 text-sm">
-                        <span className="font-mono text-xs">{m.model}</span>
-                        <span className="flex items-center gap-3 tabular-nums text-muted-foreground">
-                          <span>{fmtNum(m.tokens)} tk</span>
-                          <span className="text-foreground">
-                            {curFmt.format(Number(m.cost) / 100)}
-                          </span>
+                  d.byModel.slice(0, 10).map((m) => (
+                    <div key={m.model} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="truncate font-mono text-xs">{m.model}</span>
+                        <span className="ml-2 shrink-0 tabular-nums text-muted-foreground">
+                          {fmtNum(m.tokens)} tk · <span className="text-foreground font-medium">{curFmt.format(Number(m.cost) / 100)}</span>
                         </span>
-                      </li>
-                    ))}
-                  </ul>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
+                        <div
+                          className="h-full rounded-sm bg-primary/60"
+                          style={{ width: `${(Number(m.cost) / maxModelCost) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
                 )}
               </CardContent>
             </Card>
@@ -243,30 +240,68 @@ export default function AiCostPage() {
                   {t('byDay')}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-2">
                 {d.byDay.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">{t('noDayData')}</p>
                 ) : (
-                  <ul className="divide-y">
-                    {d.byDay.slice(-10).map((row) => (
-                      <li key={row.date} className="flex items-center justify-between py-2 text-sm">
-                        <span className="font-mono text-xs">{row.date}</span>
-                        <span className="flex items-center gap-3 tabular-nums text-muted-foreground">
-                          <span>{fmtNum(row.tokens)} tk</span>
-                          <span>
-                            {fmtNum(row.calls)} {t('calls')}
-                          </span>
-                          <span className="text-foreground">
-                            {curFmt.format(Number(row.cost) / 100)}
-                          </span>
+                  d.byDay.slice(-10).map((row) => (
+                    <div key={row.date} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-mono text-xs">{dayFmt.format(new Date(row.date))}</span>
+                        <span className="ml-2 shrink-0 tabular-nums text-muted-foreground">
+                          {fmtNum(row.calls)} {t('calls')} · <span className="text-foreground font-medium">{curFmt.format(Number(row.cost) / 100)}</span>
                         </span>
-                      </li>
-                    ))}
-                  </ul>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
+                        <div
+                          className="h-full rounded-sm bg-emerald-500/60 dark:bg-emerald-400/60"
+                          style={{ width: `${(Number(row.cost) / maxDayCost) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
                 )}
               </CardContent>
             </Card>
           </div>
+
+          {/* 预算管理 */}
+          {budgets && budgets.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Wallet className="h-4 w-4" />
+                  {t('budgets')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-xs text-muted-foreground">
+                        <th className="py-2 pr-4 font-medium">{t('budgetScope')}</th>
+                        <th className="py-2 pr-4 font-medium">{t('budgetKey')}</th>
+                        <th className="py-2 pr-4 text-right font-medium">{t('budgetDailyToken')}</th>
+                        <th className="py-2 pr-4 text-right font-medium">{t('budgetMonthlyCost')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {budgets.map((b) => (
+                        <tr key={b.id} className="border-b last:border-0">
+                          <td className="py-2 pr-4">
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{b.scope}</span>
+                          </td>
+                          <td className="py-2 pr-4 font-mono text-xs">{b.scopeKey}{b.model ? ` (${b.model})` : ''}</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">{fmtNum(b.dailyTokenLimit)}</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">{curFmt.format(Number(b.monthlyCostLimit) / 100)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

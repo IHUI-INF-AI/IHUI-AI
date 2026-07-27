@@ -19,7 +19,6 @@ const USER_INFO_KEY = 'ihui_user_info'
  *  - id: AuthUser 为必填 string,此处保留可选 string|number(兼容历史 storage 数据)
  *  - isVip: AuthUser 为 number,此处保留 boolean(前端布尔语义)
  *  - uuid/userName/realName: miniapp-taro 特有扩展
- *  - [key: string]: unknown 索引签名(兼容后端任意附加字段)
  */
 export interface UserInfo extends Omit<AuthUser, 'id' | 'isVip'> {
   id?: string | number
@@ -27,7 +26,10 @@ export interface UserInfo extends Omit<AuthUser, 'id' | 'isVip'> {
   uuid?: string
   userName?: string
   realName?: string
-  [key: string]: unknown
+  balance?: number
+  realnameStatus?: string
+  idCard?: string
+  realnameRejectReason?: string
 }
 
 /**

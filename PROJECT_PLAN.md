@@ -150,7 +150,8 @@
 #### P0-3 模型价格 seed + 定价页
 
 - [x] ✅(2026-07-28) **P0-3a 176 模型价格 seed** — 新建 `packages/database/seed/ai-pricing-seed.ts`,从各厂商官方价格表(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao/Kimi/Zhipu/MiniMax/ByteDance 等)导入 aiPricing 表(inputTokenPrice/outputTokenPrice/regionPricing cn/us/eu 系数),共 176 条,注册到 seed/index.ts 第 10 步
-- [ ] **P0-3b Web 订阅档位页 + 定价表页** — `apps/web/app/(main)/pricing/page.tsx`(4 档对比表 + 月付/年付切换 + "立即订阅"按钮)+ `apps/web/app/(main)/models-pricing/page.tsx`(176 模型价格表,按厂商分组+搜索)
+- [x] ✅(2026-07-28) **P0-3b Web 订阅档位页 + 定价表页** — ① 订阅档位页 `apps/web/app/(main)/pricing/` 已存在(ComparisonTable + PricingContent + Testimonials + SocialProof + Guarantee 5 组件,4 档对比 + 月付/年付 + 立即订阅);② 新建 `apps/web/app/(main)/models-pricing/page.tsx` + `ModelsPricingContent.tsx`(176 模型价格表:Hero + 4 统计卡片 + 搜索 + 67 厂商 Tab + 按厂商分组表格 + dark mode 对比度优化);③ 新建 `apps/api/src/routes/ai-pricing.ts`(3 端点:GET /api/ai-pricing 列表 + /stats 厂商统计 + /:modelId 详情,67 厂商识别规则,response-sanitizer 规避用 inputPrice/outputPrice 别名);④ i18n 5 语言 modelsPricingPage 命名空间;⑤ browser_use 4 状态自验(默认/搜索/厂商Tab/dark mode)+ DOM 验证(h1/67 table/120 button);commit `12585168d`
+- [ ] **P0-3c admin 成本治理看板** — `apps/web/app/(main)/admin/ai-cost/`(AI 成本治理看板:用户成本排行 + 模型消耗分布 + 日/月趋势 + 预算告警 + VIP 档位配额视图,数据来自 ai_budgets + ai_usage_logs 表)
 
 #### P0-4 API 开放平台打磨
 
