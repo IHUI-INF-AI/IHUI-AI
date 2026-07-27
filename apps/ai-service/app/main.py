@@ -76,6 +76,18 @@ for _key in ("REDIS_URL", "DATABASE_URL", "JWT_SECRET", "AI_CALLBACK_SECRET",
     if _val:
         os.environ.setdefault(_key, _val)
 
+# LLM provider keys(2026-07-27 立):同步到 os.environ 让 LiteLLM 库内部调用
+# (不走 _resolve_provider 的路径)也能从环境变量读到配置。
+# 仅在变量非空 + 未设置时 setdefault,不覆盖用户系统环境变量。
+if settings.ollama_api_key:
+    os.environ.setdefault("OLLAMA_API_KEY", settings.ollama_api_key)
+if settings.lmstudio_api_key:
+    os.environ.setdefault("LMSTUDIO_API_KEY", settings.lmstudio_api_key)
+if settings.azure_api_key:
+    os.environ.setdefault("AZURE_API_KEY", settings.azure_api_key)
+if settings.aws_access_key_id:
+    os.environ.setdefault("AWS_ACCESS_KEY_ID", settings.aws_access_key_id)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> Any:
