@@ -57,11 +57,23 @@ export function QueueList({ queue, isLoading, onItemClick }: QueueListProps) {
         ) : (
           <ul className="space-y-1.5">
             {sorted.map((entry) => (
+              // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- 列表项可点击,已加 role/tabIndex/onKeyDown 提供完整键盘支持(Enter/Space 触发)
               <li
                 key={entry.id}
                 className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent"
                 role={onItemClick ? 'button' : undefined}
+                tabIndex={onItemClick ? 0 : undefined}
                 onClick={onItemClick ? () => onItemClick(entry.id) : undefined}
+                onKeyDown={
+                  onItemClick
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          onItemClick(entry.id)
+                        }
+                      }
+                    : undefined
+                }
               >
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-xs font-medium tabular-nums text-muted-foreground">
                   {entry.position}

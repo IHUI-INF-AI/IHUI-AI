@@ -66,6 +66,7 @@ const EXCLUDE_DIRS = new Set([
   '.nitro',
   '.angular',
   '__pycache__',
+  'scripts', // apps/*/scripts/ 下的合法运维/验证脚本(非临时文件)
 ])
 // 隐藏目录白名单
 const ALLOWED_DOT_DIRS = new Set([
