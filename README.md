@@ -1,5 +1,7 @@
 # IHUI-AI
 
+> **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 176 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
+
 <p align="center">
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
@@ -428,6 +430,21 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | Plan/Spec 模式      | tree-sitter AST 反向生成 spec markdown + 4 态模式切换(build/plan/review/spec)(对标 Trae Plan/Spec)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 |                   | Context Engineering | 多维 @ 提及 file/database/symbol/folder/web + LRU 缓存 + DB schema 查询(对标 Qoder)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 |                   | Subagent 派单       | AGENTS.md §11 派单格式对话框 + SVG mesh 拓扑可视化 + 任务状态机(对标 Trae Subagent)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+
+---
+
+## Use Cases(典型使用场景)
+
+> IHUI-AI 适用于以下 8 类核心场景,每个场景都可在 8 端中任一端运行(8-Platform AI Operating System)。
+
+1. **Enterprise AI Assistant(企业 AI 助手)** — 多租户 + RBAC + SSO,企业内部统一 AI 入口,部门隔离 + 审计日志
+2. **Multi-model LLM Gateway(多模型 LLM 网关)** — LiteLLM 统一 176 模型,智能路由 + 60% 缓存 + 成本管控,替代单一厂商锁定的 LLM Gateway
+3. **AI Agent Marketplace(AI Agent 市场)** — LangGraph + MCP + A2A 三栈协同,Agent 编排/发布/交易,构建垂直行业 Agent 生态
+4. **Knowledge Base Q&A(知识库问答)** — pgvector + RAG + 知识图谱 + 用户长期记忆,企业文档/代码/FAQ 智能问答
+5. **Code Generation Platform(代码生成平台)** — 自研 CLI 21 命令 + 36 工具 + ACP Server,对标 Claude Code / Cursor 的开源替代
+6. **Customer Service Bot(客服机器人)** — 多渠道 IM 接入 + 工作流编排 + 人工接管,7×24 自动应答
+7. **Education Tutor(教育辅导)** — AI 教育全栈(课程/题库/考试/直播/证书),开源版 Khan Academy
+8. **Developer Productivity(开发者生产力)** — 8 端开发模板 + 12 共享包 + 33+ 守门,Fork 即用,5 分钟启动全栈 AI SaaS
 
 ---
 
@@ -3191,3 +3208,45 @@ IHUI-AI 的诞生离不开以下开源项目的启发与支持:
 <p align="center">
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star us on GitHub</a> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI/fork">Fork to build your own</a> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI/issues">Request a feature</a>
 </p>
+
+---
+
+## Quick FAQ(常见问题速答 · SEO)
+
+> 5 个最常被搜索的问题,简短速答(搜索引擎 snippet 友好);详细技术 FAQ 见 [上方 FAQ 章节](#faq)。
+
+**Q: Is IHUI-AI free? / IHUI-AI 免费吗?**
+A: Yes. Apache 2.0 license,商业友好,可自托管、可闭源衍生品,无传染性。
+
+**Q: How many LLMs does it support? / 支持多少个大模型?**
+A: 176 models via LiteLLM adapter(国际 30+ / 国产 15+ / 云厂商 10+),统一 API + 智能路由 + 60% 缓存。
+
+**Q: Can I self-host it? / 可以自托管吗?**
+A: Yes. 8 platforms from one monorepo(Web / API / AI-service / Desktop / Extension / Mobile-RN / Miniapp-Taro / CLI),5 分钟 Fork 到上线。
+
+**Q: Does it support MCP? / 支持 MCP 协议吗?**
+A: Yes. MCP + LangGraph + A2A triple stack(三栈协同),工具协议 + 工作流编排 + Agent 互通一体化。
+
+**Q: Is it production-ready? / 生产环境可用吗?**
+A: Yes. 5346 tests / 237 test suites / 63 e2e spec / 1300+ API 端点 / 340 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,21 Grafana 仪表盘可观测。
+
+---
+
+## Keywords
+
+> SEO 关键词索引。完整长尾词清单(100+ 条,按 Primary / Long-tail / Question / Comparison / Platform-specific 分类)见 [docs/seo-keywords.md](docs/seo-keywords.md)。
+
+**Primary Keywords:** AI Agent Platform | LLM Gateway | MCP Server | LangGraph | Multi-tenant AI | Open Source ChatGPT Alternative | AI Operating System | Agentic AI | RAG Knowledge Base | Agent Marketplace | LiteLLM | Next.js 15 | Fastify 5 | Tauri | WXT Extension | React Native | Taro Mini Program | Apache 2.0
+
+### Long-tail Keywords
+
+- open source ai agent platform with multi-tenant
+- self-hosted chatgpt alternative with 176 llms
+- langgraph mcp a2a triple stack ai framework
+- ai operating system 8 platforms monorepo
+- litellm gateway with rag knowledge base
+- multi-tenant row level security ai platform
+- agent marketplace open source apache 2.0
+- next.js 15 fastify 5 ai saas template
+- tauri desktop ai assistant
+- wxt browser extension ai agent
