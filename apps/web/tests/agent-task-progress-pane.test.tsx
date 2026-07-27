@@ -59,7 +59,7 @@ vi.mock('@/stores/chat', () => ({
 import { AgentTaskProgressPane } from '../src/components/ai/agent-task-progress-pane'
 import { AgentProgressTrigger } from '../src/components/ai/agent-progress-trigger'
 import { useAgentProgressPaneStore } from '../src/stores/agent-progress-pane'
-import { FoldableSection } from '../src/components/ai/progress-sections/foldable-section'
+import { FoldableSection, formatRelativeTime } from '../src/components/ai/progress-sections/foldable-section'
 import { ThinkingSection } from '../src/components/ai/progress-sections/thinking-section'
 import { ToolCallsSection } from '../src/components/ai/progress-sections/tool-calls-section'
 import { SubagentSection } from '../src/components/ai/progress-sections/subagent-section'
@@ -1043,5 +1043,85 @@ describe('AgentTaskProgressPane — v11 复制按钮 + 状态过滤', () => {
     fireEvent.click(errorFilter)
     expect(errorFilter.getAttribute('aria-pressed')).toBe('true')
     expect(allFilter.getAttribute('aria-pressed')).toBe('false')
+  })
+})
+
+// ─── v11: 复制计划 + 相对时间 + threadId 复制测试 ───
+describe('AgentTaskProgressPane — v11 复制计划 + 相对时间', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('formatRelativeTime — 刚刚(<10s)', () => {
+    const recent = new Date(Date.now() - 5000).toISOString()
+    expect(formatRelativeTime(recent)).toBe('刚刚')
+  })
+
+  it('formatRelativeTime — 30s前', () => {
+    const ts = new Date(Date.now() - 30000).toISOString()
+    expect(formatRelativeTime(ts)).toBe('30s前')
+  })
+
+  it('formatRelativeTime — 2m前', () => {
+    const ts = new Date(Date.now() - 120000).toISOString()
+    expect(formatRelativeTime(ts)).toBe('2m前')
+  })
+
+  it('formatRelativeTime — 1h前', () => {
+    const ts = new Date(Date.now() - 3600000).toISOString()
+    expect(formatRelativeTime(ts)).toBe('1h前')
+  })
+
+  it('formatRelativeTime — 无效时间戳返回空字符串', () => {
+    expect(formatRelativeTime('invalid')).toBe('')
+  })
+
+  it('SubagentItem threadId 含复制按钮', () => {
+    const subagents: Subagent[] = [
+      {
+        id: 's-thr-1',
+        threadId: 'thread-copy-test-123',
+        nickname: 'coder',
+        handle: '@coder',
+        color: 'cyan',
+        status: 'done',
+        spawnedAt: '2026-01-01T10:00:00Z',
+        endedAt: '2026-01-01T10:05:00Z',
+        durationMs: 300000,
+        role: 'coder',
+      },
+    ]
+    const { container } = render(<SubagentSection subagents={subagents} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const item = container.querySelector('[data-testid="subagent-item-s-thr-1"]')!
+    fireEvent.click(item)
+    // 展开后应显示 threadId 复制按钮
+    const copyBtn = container.querySelector('[data-testid="subagent-copy-thread-s-thr-1"]')
+    expect(copyBtn).toBeTruthy()
+  })
+
+  it('SubagentItem 展开后显示相对时间', () => {
+    const recentIso = new Date(Date.now() - 120000).toISOString()
+    const subagents: Subagent[] = [
+      {
+        id: 's-rt-1',
+        threadId: 'thread-rt-1',
+        nickname: 'scout',
+        handle: '@scout',
+        color: 'green',
+        status: 'done',
+        spawnedAt: recentIso,
+        endedAt: new Date(Date.now() - 60000).toISOString(),
+        durationMs: 60000,
+      },
+    ]
+    const { container } = render(<SubagentSection subagents={subagents} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const item = container.querySelector('[data-testid="subagent-item-s-rt-1"]')!
+    fireEvent.click(item)
+    // 应显示相对时间 "2m前"
+    expect(container.textContent).toContain('2m前')
   })
 })

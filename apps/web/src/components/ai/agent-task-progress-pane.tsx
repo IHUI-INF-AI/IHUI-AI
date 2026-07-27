@@ -25,6 +25,7 @@ import { SubagentSection } from './progress-sections/subagent-section'
 import { ChangesSection } from './progress-sections/changes-section'
 import { TerminalSection } from './progress-sections/terminal-section'
 import { OverviewSection } from './progress-sections/overview-section'
+import { CopyButton } from './progress-sections/copy-button'
 
 /**
  * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-28 v7 Trae Work 对齐)
@@ -409,7 +410,14 @@ export function AgentTaskProgressPane() {
               aria-live="polite"
               aria-atomic="true"
             >
-              <span>{completedCount}/{planSteps.length} 已完成</span>
+              <span className="flex items-center gap-1">
+                <span>{completedCount}/{planSteps.length} 已完成</span>
+                <CopyButton
+                  text={planSteps.map((s, i) => `${i + 1}. [${s.status}] ${s.step}`).join('\n')}
+                  aria-label="复制任务计划"
+                  data-testid="copy-plan-btn"
+                />
+              </span>
               {isStreaming && (
                 <span className="flex items-center gap-0.5 text-primary" role="status">
                   <Loader2 className="h-2.5 w-2.5 animate-spin" />

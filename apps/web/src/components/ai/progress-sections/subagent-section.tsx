@@ -3,7 +3,8 @@
 import * as React from 'react'
 import { Users, Loader2, Check, X, AlertTriangle, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { FoldableSection, formatDuration } from './foldable-section'
+import { FoldableSection, formatDuration, formatRelativeTime } from './foldable-section'
+import { CopyButton } from './copy-button'
 import { ToolCallItem } from './tool-calls-section'
 import type { Subagent, SubagentStatus } from '@/hooks/use-agent-progress'
 import { SUBAGENT_COLOR_CLASS } from '@/hooks/use-agent-progress'
@@ -162,15 +163,28 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
                 )}
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground/50">
-                {sa.spawnedAt && <span>启动:{formatTime(sa.spawnedAt)}</span>}
-                {sa.endedAt && <span>结束:{formatTime(sa.endedAt)}</span>}
-                {sa.durationMs !== undefined && sa.status !== 'running' && (
-                  <span>耗时:{formatDuration(sa.durationMs)}</span>
-                )}
-              </div>
+                        {sa.spawnedAt && (
+                          <span title={formatTime(sa.spawnedAt)}>
+                            启动:{formatTime(sa.spawnedAt)} ({formatRelativeTime(sa.spawnedAt)})
+                          </span>
+                        )}
+                        {sa.endedAt && (
+                          <span title={formatTime(sa.endedAt)}>
+                            结束:{formatTime(sa.endedAt)} ({formatRelativeTime(sa.endedAt)})
+                          </span>
+                        )}
+                        {sa.durationMs !== undefined && sa.status !== 'running' && (
+                          <span>耗时:{formatDuration(sa.durationMs)}</span>
+                        )}
+                      </div>
               {sa.threadId && (
-                <div className="break-all text-muted-foreground/40">
+                <div className="flex items-center gap-1 break-all text-muted-foreground/40">
                   <span className="font-mono">threadId: {sa.threadId}</span>
+                  <CopyButton
+                    text={sa.threadId}
+                    aria-label="复制 threadId"
+                    data-testid={`subagent-copy-thread-${sa.id}`}
+                  />
                 </div>
               )}
               {/* 嵌套工具调用列表 */}
