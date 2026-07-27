@@ -240,32 +240,8 @@ describe('AgentTaskProgressPane — v4 流式渲染', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
   })
 
-  it('v 切换 verbose', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    render(<AgentTaskProgressPane />)
-    expect(useAgentProgressPaneStore.getState().verbose).toBe(false)
-    act(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', bubbles: true }))
-    })
-    expect(useAgentProgressPaneStore.getState().verbose).toBe(true)
-  })
-
-  it('resize handle 双击重置高度', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    useAgentProgressPaneStore.getState().setPaneHeight(500)
-    render(<AgentTaskProgressPane />)
-    const handle = screen.getByTestId('resize-handle')
-    fireEvent.doubleClick(handle)
-    expect(useAgentProgressPaneStore.getState().paneHeight).toBe(240)
-  })
-
-  it('autoScroll 切换按钮存在', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    render(<AgentTaskProgressPane />)
-    // 初始 autoScroll=true,按钮显示 ↓
-    const autoBtn = screen.getByTitle('切换自动滚动')
-    expect(autoBtn.textContent).toBe('↓')
-    fireEvent.click(autoBtn)
-    expect(useAgentProgressPaneStore.getState().autoScroll).toBe(false)
-  })
+  // v6 重构后已移除 verbose 切换 / resize handle / autoScroll 按钮(popover 化简化)
+  // - 'v 切换 verbose' 删除(verbose 仅 v4 流式日志用,v6 popover 不需要)
+  // - 'resize handle 双击重置高度' 删除(popover 固定 max-h,无 drag resize)
+  // - 'autoScroll 切换按钮存在' 删除(popover 内容短,无自动滚动需求)
 })
