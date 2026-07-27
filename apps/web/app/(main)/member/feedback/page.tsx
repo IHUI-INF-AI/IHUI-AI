@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -142,7 +142,7 @@ export default function MemberFeedbackPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {items.map((item: any) => (
+            {items.map((item) => (
               <Card key={item.id} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-1 p-3">
                   <div className="flex items-center justify-between">

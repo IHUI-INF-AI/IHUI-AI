@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -134,7 +134,7 @@ export default function InvitationsPage() {
           </div>
         ) : codes.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            {codes.map((c: any) => (
+            {codes.map((c) => (
               <Card key={c.id} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-center justify-between gap-2">
@@ -209,7 +209,7 @@ export default function InvitationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {invitees.map((u: any) => {
+                {invitees.map((u) => {
                   const name = u.inviteeNickname ?? u.inviteeEmail ?? '-'
                   return (
                     <tr key={u.invitationId} className="transition-colors hover:bg-accent/50">

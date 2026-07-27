@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * 用户级 LLM 配置中心 — 主页面 v2(2026-07-22 升级)
@@ -120,7 +120,7 @@ export default function UserLlmConfigsPage() {
   })
   const existingGroups = React.useMemo(
     () =>
-      (groupsData?.list ?? []).map((g: any) => ({
+      (groupsData?.list ?? []).map((g) => ({
         group: g.id.toString(),
         groupLabel: g.label,
       })),

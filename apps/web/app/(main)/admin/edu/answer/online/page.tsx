@@ -28,7 +28,7 @@ function AnswerOnlineContent() {
     queryFn: () =>
       eduApi<{ list: Paper[] }>(`/api/exam/papers${buildQs({ page: 1, pageSize: 100 })}`),
   })
-  const papers = (papersData?.list ?? []).filter((p: any) => p.isPublished)
+  const papers = (papersData?.list ?? []).filter((p) => p.isPublished)
 
   const { data: paper } = useQuery({
     queryKey: ['edu', 'answer', 'paper', paperId],
@@ -49,7 +49,7 @@ function AnswerOnlineContent() {
   const startMut = useMutation({
     mutationFn: () =>
       eduApi<{ record: { id: string } }>(`/api/exam/papers/${paperId}/start`, { method: 'POST' }),
-    onSuccess: (d: any) => {
+    onSuccess: (d) => {
       setRecordId(d.record.id)
       if (paper) setRemaining(paper.duration * 60)
       toast.success(t('started'))
@@ -162,7 +162,7 @@ function AnswerOnlineContent() {
             </div>
           ) : (
             <div className="space-y-3">
-              {questions.map((q: any, idx: any) => (
+              {questions.map((q, idx) => (
                 <Card key={q.id}>
                   <CardContent className="p-4">
                     <div className="mb-2 flex items-start justify-between gap-2">
