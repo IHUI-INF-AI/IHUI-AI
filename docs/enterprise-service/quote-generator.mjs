@@ -58,7 +58,7 @@ const TIERS = {
 };
 
 function parseArgs(argv) {
-  const args = { tier: null, customers: 10, duration: 12, customer: '客户公司', contact: '客户联系人', discount: 0, pdf: null };
+  const args = { tier: null, customers: 10, duration: 12, customer: '客户公司', contact: '客户联系人', discount: 0, pdf: null, out: null };
   for (const token of argv.slice(2)) {
     if (token.startsWith('--tier=')) args.tier = token.slice(7);
     else if (token.startsWith('--customers=')) args.customers = parseInt(token.slice(12), 10);
@@ -67,6 +67,7 @@ function parseArgs(argv) {
     else if (token.startsWith('--contact=')) args.contact = decodeURIComponent(token.slice(10));
     else if (token.startsWith('--discount=')) args.discount = parseFloat(token.slice(11));
     else if (token.startsWith('--pdf=')) args.pdf = token.slice(6);
+    else if (token.startsWith('--out=')) args.out = token.slice(6);
     else if (token === '--help' || token === '-h') args.help = true;
   }
   return args;
@@ -306,6 +307,11 @@ async function main() {
   }
   const md = buildMarkdown(q, args);
   process.stdout.write(md);
+
+  if (args.out) {
+    writeFileSync(args.out, md, 'utf8');
+    process.stderr.write(`[info] markdown 已写入: ${args.out}\n`);
+  }
 
   if (args.pdf) {
     const ok = await generatePdf(md, args.pdf);
