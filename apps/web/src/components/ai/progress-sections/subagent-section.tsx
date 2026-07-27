@@ -53,12 +53,27 @@ export function SubagentSection({ subagents }: SubagentSectionProps) {
               <span className={cn('shrink-0 font-medium font-mono text-[10px]', SUBAGENT_COLOR_CLASS[sa.color])}>
                 {sa.handle}
               </span>
-              {sa.currentTask && (
+              {sa.failureReason && (sa.status === 'failed' || sa.status === 'dead') ? (
+                <span
+                  className="flex-1 break-all text-[10px] text-red-500/70"
+                  title={sa.failureReason}
+                >
+                  {sa.failureReason}
+                </span>
+              ) : sa.currentTask ? (
                 <span className="flex-1 break-all text-muted-foreground/70">{sa.currentTask}</span>
-              )}
+              ) : null}
               {sa.durationMs !== undefined && sa.status !== 'running' && sa.status !== 'spawned' && (
-                <span className="shrink-0 text-[10px] text-muted-foreground/50">
+                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
                   {formatDuration(sa.durationMs)}
+                </span>
+              )}
+              {sa.toolCalls !== undefined && sa.toolCalls > 0 && (
+                <span
+                  className="shrink-0 text-[10px] tabular-nums text-muted-foreground/40"
+                  title={`${sa.toolCalls} 次工具调用`}
+                >
+                  {sa.toolCalls}次
                 </span>
               )}
               {sa.tokenUsage !== undefined && sa.tokenUsage > 0 && (
