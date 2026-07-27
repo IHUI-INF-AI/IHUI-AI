@@ -149,7 +149,7 @@
 
 #### P0-3 模型价格 seed + 定价页
 
-- [ ] **P0-3a 176 模型价格 seed** — 新建 `apps/api/src/db/seed/ai-pricing-seed.ts`,从各厂商官方价格表(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao/Kimi/Zhipu/MiniMax/ByteDance 等)导入 aiPricing 表(inputTokenPrice/outputTokenPrice/regionPricing cn/us/eu 系数)
+- [x] ✅(2026-07-28) **P0-3a 176 模型价格 seed** — 新建 `packages/database/seed/ai-pricing-seed.ts`,从各厂商官方价格表(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao/Kimi/Zhipu/MiniMax/ByteDance 等)导入 aiPricing 表(inputTokenPrice/outputTokenPrice/regionPricing cn/us/eu 系数),共 176 条,注册到 seed/index.ts 第 10 步
 - [ ] **P0-3b Web 订阅档位页 + 定价表页** — `apps/web/app/(main)/pricing/page.tsx`(4 档对比表 + 月付/年付切换 + "立即订阅"按钮)+ `apps/web/app/(main)/models-pricing/page.tsx`(176 模型价格表,按厂商分组+搜索)
 
 #### P0-4 API 开放平台打磨
