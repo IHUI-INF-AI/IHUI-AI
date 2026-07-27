@@ -34,6 +34,10 @@ interface AgentProgressPaneState {
   expandedIds: Set<string>
   /** Pane 高度(px,默认 240 紧凑,可 drag resize,范围 [160, 600]) */
   paneHeight: number
+  /** 当前进度:正在执行的步骤序号(1-based,0 = 无进行中) */
+  progressCurrent: number
+  /** 当前进度:总步骤数(0 = 无任务计划) */
+  progressTotal: number
 
   // actions
   openPane: (threadId?: string) => void
@@ -47,6 +51,7 @@ interface AgentProgressPaneState {
   toggleExpanded: (id: string) => void
   isExpanded: (id: string) => boolean
   setPaneHeight: (height: number) => void
+  setProgress: (current: number, total: number) => void
   reset: () => void
 }
 
@@ -108,6 +113,8 @@ export const useAgentProgressPaneStore = create<AgentProgressPaneState>()(
     autoScroll: persisted.autoScroll ?? true,
     expandedIds: new Set<string>(),
     paneHeight: persisted.paneHeight ?? DEFAULT_PANE_HEIGHT,
+    progressCurrent: 0,
+    progressTotal: 0,
 
     openPane: (threadId) =>
       set((s) => ({
@@ -150,6 +157,8 @@ export const useAgentProgressPaneStore = create<AgentProgressPaneState>()(
         paneHeight: Math.min(MAX_PANE_HEIGHT, Math.max(MIN_PANE_HEIGHT, Math.round(height))),
       }),
 
+    setProgress: (current, total) => set({ progressCurrent: current, progressTotal: total }),
+
     reset: () =>
       set({
         open: false,
@@ -159,6 +168,8 @@ export const useAgentProgressPaneStore = create<AgentProgressPaneState>()(
         autoScroll: true,
         expandedIds: new Set<string>(),
         paneHeight: DEFAULT_PANE_HEIGHT,
+        progressCurrent: 0,
+        progressTotal: 0,
       }),
   })),
 )

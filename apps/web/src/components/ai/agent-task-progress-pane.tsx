@@ -596,6 +596,14 @@ export function AgentTaskProgressPane() {
     [events, planSteps, subagents, terminals, overview],
   )
 
+  // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
+  React.useEffect(() => {
+    const total = planSteps.length
+    const currentIdx = planSteps.findIndex((s) => s.status === 'in_progress')
+    const current = currentIdx >= 0 ? currentIdx + 1 : 0
+    useAgentProgressPaneStore.getState().setProgress(current, total)
+  }, [planSteps])
+
   // 自动滚到底部
   const scrollRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {

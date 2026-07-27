@@ -31,6 +31,8 @@ describe('AgentProgressPane Store — v4 Codex 流式简化', () => {
     expect(s.autoScroll).toBe(true)
     expect(s.paneHeight).toBe(240)
     expect(s.expandedIds.size).toBe(0)
+    expect(s.progressCurrent).toBe(0)
+    expect(s.progressTotal).toBe(0)
   })
 
   it('openPane(threadId) — 打开并设置 threadId', () => {
@@ -98,6 +100,12 @@ describe('AgentProgressPane Store — v4 Codex 流式简化', () => {
     expect(useAgentProgressPaneStore.getState().paneHeight).toBe(300)
   })
 
+  it('setProgress — 设置当前进度', () => {
+    useAgentProgressPaneStore.getState().setProgress(3, 8)
+    expect(useAgentProgressPaneStore.getState().progressCurrent).toBe(3)
+    expect(useAgentProgressPaneStore.getState().progressTotal).toBe(8)
+  })
+
   it('reset — 恢复默认状态', () => {
     useAgentProgressPaneStore.getState().openPane('thread-x')
     useAgentProgressPaneStore.getState().toggleVerbose()
@@ -113,21 +121,41 @@ describe('AgentProgressPane Store — v4 Codex 流式简化', () => {
   })
 })
 
-describe('AgentProgressTrigger — v4 简化快捷键', () => {
+describe('AgentProgressTrigger — v5 内联文字按钮', () => {
   beforeEach(() => {
     useAgentProgressPaneStore.getState().reset()
+    cleanup()
+  })
+  afterEach(() => {
+    cleanup()
   })
 
-  it('未打开时渲染 ▲ 触发按钮', () => {
+  it('无进度时显示"任务列表"', () => {
     render(<AgentProgressTrigger />)
-    expect(screen.getByTestId('agent-progress-trigger')).toBeTruthy()
-    expect(screen.getByLabelText('打开 Agent 任务进度')).toBeTruthy()
+    const trigger = screen.getByTestId('agent-progress-trigger')
+    expect(trigger).toBeTruthy()
+    expect(trigger.textContent).toBe('任务列表')
   })
 
-  it('打开后隐藏触发按钮', () => {
+  it('有进度时显示"01/06"格式', () => {
+    useAgentProgressPaneStore.getState().setProgress(1, 6)
+    render(<AgentProgressTrigger />)
+    const trigger = screen.getByTestId('agent-progress-trigger')
+    expect(trigger.textContent).toBe('01/06')
+  })
+
+  it('点击切换面板开关', () => {
+    render(<AgentProgressTrigger />)
+    expect(useAgentProgressPaneStore.getState().open).toBe(false)
+    fireEvent.click(screen.getByTestId('agent-progress-trigger'))
+    expect(useAgentProgressPaneStore.getState().open).toBe(true)
+  })
+
+  it('面板打开时 trigger 高亮(bg-accent)', () => {
     useAgentProgressPaneStore.getState().openPane()
     render(<AgentProgressTrigger />)
-    expect(screen.queryByTestId('agent-progress-trigger')).toBeNull()
+    const trigger = screen.getByTestId('agent-progress-trigger')
+    expect(trigger.className).toContain('bg-accent')
   })
 
   it('Ctrl+Shift+J 切换面板', () => {
