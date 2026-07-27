@@ -25,6 +25,7 @@ const MOCK: FinanceTrendPoint[] = [
   { date: '07-13', income: 8400, expense: 3400 },
 ]
 
+// ECharts canvas 渲染不支持 CSS var(),以下颜色为 tokens.css --chart-* 的硬编码副本,修改需同步 tokens.css
 export function FinanceTrendChart({ data = MOCK, height = 300 }: FinanceTrendChartProps) {
   const option: EChartsOption = {
     tooltip: { trigger: 'axis' },
