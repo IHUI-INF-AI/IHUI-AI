@@ -54,7 +54,7 @@ async def _get_redis() -> Any:
             if not url or aioredis is None:
                 return None
             client = aioredis.from_url(url, decode_responses=True)
-            await client.ping()  # type: ignore[misc]  # redis-py stubs: async ping 返回类型为 Awaitable[bool] | bool
+            await client.ping()  # redis-py stubs: async ping 返回类型为 Awaitable[bool] | bool
             _redis_client = client
             return _redis_client
         except Exception as e:
@@ -280,8 +280,8 @@ class VectorMemoryStore:
                 # 4. 写入缓存(后续同文本命中直接返回)
                 await _embedding_cache.set(cache_key, embedding)
                 return embedding
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("vector_memory.embed 向量计算失败,降级 hash 伪向量: %s", e, exc_info=True)
         # 5. 降级:确定性 hash 伪向量(不缓存,hash 本身 O(1))
         return _hash_embedding(text)
 

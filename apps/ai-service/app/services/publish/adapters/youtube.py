@@ -243,7 +243,8 @@ class YouTubeAdapter(BasePlatformAdapter):
 
         try:
             data = resp.json()
-        except Exception:
+        except Exception as e:
+            logger.warning("youtube.publish 响应 JSON 解析失败,降级空 dict: %s", e, exc_info=True)
             data = {}
 
         video_id = data.get("id", "")
