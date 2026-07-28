@@ -647,5 +647,52 @@
     "empty": "챕터 없음",
     "loadFailed": "카탈로그 로드 실패",
     "duration": "{n}분"
+  },
+  "pointHistory": {
+    "title": "포인트 내역",
+    "empty": "포인트 기록 없음",
+    "loadFailed": "포인트 로드 실패",
+    "balance": "잔액"
+  },
+  "noteList": {
+    "title": "노트 목록",
+    "empty": "노트 없음",
+    "loadFailed": "노트 로드 실패"
+  },
+  "articleList": {
+    "title": "아티클 목록",
+    "empty": "아티클 없음",
+    "loadFailed": "아티클 로드 실패",
+    "views": "{count}회 조회"
+  },
+  "announcement": {
+    "title": "공지사항",
+    "empty": "공지사항 없음",
+    "loadFailed": "공지사항 로드 실패",
+    "pinned": "고정",
+    "publishTime": "게시 시간"
+  },
+  "livePlaybackList": {
+    "title": "라이브 다시보기",
+    "empty": "녹화본 없음",
+    "loadFailed": "녹화본 로드 실패",
+    "lecturer": "강사",
+    "duration": "길이",
+    "viewerCount": "시청",
+    "play": "재생"
+  },
+  "refundHistory": {
+    "title": "환불 내역",
+    "empty": "환불 기록 없음",
+    "loadFailed": "환불 로드 실패",
+    "createdAt": "신청 시간"
+  },
+  "courseQAList": {
+    "title": "강의 Q&A",
+    "empty": "질문 없음",
+    "loadFailed": "Q&A 로드 실패",
+    "ask": "질문",
+    "asker": "질문자",
+    "answers": "답변"
   }
 }
