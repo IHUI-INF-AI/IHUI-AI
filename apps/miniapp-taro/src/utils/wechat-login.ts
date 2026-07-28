@@ -27,7 +27,7 @@ import zhTW from '@ihui/i18n/messages/miniapp-taro/zh-TW.json'
 /** 读取当前 locale 下的 i18n 字典(非 hook 场景,供工具函数使用) */
 function getCurrentDict(): typeof zhCN {
   try {
-    const stored = Taro.getStorageSync('lang') as string
+    const stored = Taro.getStorageSync(LOCALE_KEY) as string
     if (stored === 'en') return en as typeof zhCN
     if (stored === 'ja') return ja as typeof zhCN
     if (stored === 'ko') return ko as typeof zhCN

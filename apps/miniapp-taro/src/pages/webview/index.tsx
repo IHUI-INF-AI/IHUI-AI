@@ -56,7 +56,7 @@ export default function WebviewIndex() {
 
     // fileCache:本地缓存(用于文件下载等场景)
     try {
-      fileCacheRef.current = getStorageSync('webviewFileCache')
+      fileCacheRef.current = getStorageSync(WEBVIEW_FILE_CACHE_KEY)
     } catch {
       // ignore
     }

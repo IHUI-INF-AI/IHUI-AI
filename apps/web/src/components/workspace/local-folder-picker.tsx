@@ -33,7 +33,7 @@ import {
   type WorkspacePermission,
 } from '@ihui/api-client/endpoints/workspace'
 import { cn } from '@/lib/utils'
-import { isTauri } from '@/lib/tauri-bridge'
+import { isTauri, pickDirectory as pickTauriDirectory } from '@/lib/tauri-bridge'
 import { WorkspacePermissionDialog } from './workspace-permission-dialog'
 
 interface LocalFolderPickerProps {
@@ -46,23 +46,44 @@ interface LocalFolderPickerProps {
 // 浏览器能力检测 & 原生选择器
 // =============================================================================
 
-/** 浏览器能力检测:仅识别 showDirectoryPicker(主路径) */
+/** 浏览器能力检测:识别 Tauri 桌面端(可拿真实绝对路径) + showDirectoryPicker(浏览器降级) */
 function detectPickerCapability(): {
   showDirectoryPicker: boolean
+  tauri: boolean
 } {
   if (typeof window === 'undefined') {
-    return { showDirectoryPicker: false }
+    return { showDirectoryPicker: false, tauri: false }
   }
   const w = window as unknown as {
     showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>
   }
   return {
     showDirectoryPicker: typeof w.showDirectoryPicker === 'function',
+    tauri: isTauri(),
   }
 }
 
-/** 弹系统原生选择器,只返回 handle.name(浏览器安全模型不暴露真实绝对路径) */
+/**
+ * 弹系统原生选择器,返回完整绝对路径。
+ *
+ * 优先级:
+ *   1. Tauri 桌面端 — openDialog({directory:true}) 返回真实绝对路径(如 G:\IHUI-AI)
+ *   2. 浏览器降级 — showDirectoryPicker 受安全模型限制只返回 handle.name(文件夹名)
+ *
+ * 桌面端用户能拿到完整路径直接打开工作区;
+ * 浏览器用户拿到文件夹名后,通过 pathDraft 预填到输入框,补全完整路径后回车跳转。
+ */
 async function pickDirectoryNative(): Promise<string | null> {
+  // 1. Tauri 桌面端:返回真实绝对路径
+  if (isTauri()) {
+    try {
+      const tauriPath = await pickTauriDirectory()
+      if (tauriPath) return tauriPath
+    } catch {
+      // Tauri 调用失败,降级到 showDirectoryPicker
+    }
+  }
+  // 2. 浏览器降级:只返回 handle.name(文件夹名)
   const w = window as unknown as {
     showDirectoryPicker?: (opts?: {
       mode?: 'read' | 'readwrite'
@@ -453,7 +474,7 @@ export function LocalFolderPicker({
   const listRef = React.useRef<HTMLUListElement>(null)
 
   const capability = React.useMemo(
-    () => (open ? detectPickerCapability() : { showDirectoryPicker: false }),
+    () => (open ? detectPickerCapability() : { showDirectoryPicker: false, tauri: false }),
     [open],
   )
 
@@ -621,19 +642,28 @@ export function LocalFolderPicker({
   )
 
   // 系统原生选择器
-  // showDirectoryPicker 受浏览器安全模型限制:只能返回 handle.name(文件夹名),
-  // 拿不到真实绝对路径。选完后自动把 filter 设为该名字,让下方文件列表
-  // 立即过滤出匹配项,焦点落在列表上,用户用 ↑↓ + Enter 即可选中并打开。
+  // 优先级:Tauri 桌面端(返回真实绝对路径) > 浏览器 showDirectoryPicker(只返回文件夹名)
+  //
+  // Tauri 环境:拿到完整路径(如 G:\IHUI-AI)→ 直接 navigateTo 跳转,列表加载该目录
+  // 浏览器环境:只拿到文件夹名(如 IHUI-AI)→ setPathDraft 触发 PathNav 切到 input 模式预填,
+  //           用户补全完整路径后回车跳转
   const handleNativePick = async () => {
     setNativeHint(null)
     try {
-      const name = await pickDirectoryNative()
-      if (!name) return
-      setFilter(name)
-      setNativeHint(t('nativePickHint', { name }))
-      // 选完自动把焦点落到列表,方便用户立即用键盘浏览/打开。
-      // 若当前目录下无匹配项,用户按 Backspace 可返回上级重新浏览。
-      window.setTimeout(() => listRef.current?.focus(), 0)
+      const result = await pickDirectoryNative()
+      if (!result) return
+      // 判断是完整路径(Tauri)还是仅文件夹名(浏览器)
+      // 完整路径判定:Windows 含盘符(如 G:\) 或 Unix 以 / 开头
+      const isFullPath = /^[A-Za-z]:[\\/]/.test(result) || result.startsWith('/')
+      if (isFullPath) {
+        // Tauri 桌面端:直接跳转到完整路径
+        navigateTo(normalizeSep(result))
+        setNativeHint(t('nativePickResolved', { path: result }))
+      } else {
+        // 浏览器降级:预填文件夹名,引导用户补全完整路径
+        setPathDraft(result)
+        setNativeHint(t('nativePickHint', { name: result }))
+      }
     } catch (err) {
       setNativeHint((err as Error).message)
     }
