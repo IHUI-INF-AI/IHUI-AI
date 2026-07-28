@@ -613,3 +613,116 @@ describe('flattenToTimelineEvents', () => {
     expect(first?.id).toBe('p1')
   })
 })
+
+// ─── 进阶边界场景(2026-07-28 覆盖率深化) ─────────────────────────
+
+describe('TimelineTab — tabpanel id 与 aria 联动', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('activeTab=inline:tabpanel id="tab-panel-inline"', () => {
+    useTimelineStore.getState().setEvents(SAMPLE_EVENTS)
+    // activeTab 默认 inline
+    const { container } = render(<TimelineTab />)
+    const panel = container.querySelector('#tab-panel-inline')
+    expect(panel).toBeTruthy()
+    expect(panel?.getAttribute('role')).toBe('tabpanel')
+  })
+
+  it('activeTab=timeline:tabpanel id="tab-panel-timeline"', () => {
+    useTimelineStore.getState().setEvents(SAMPLE_EVENTS)
+    useTimelineStore.getState().setActiveTab('timeline')
+    const { container } = render(<TimelineTab />)
+    const panel = container.querySelector('#tab-panel-timeline')
+    expect(panel).toBeTruthy()
+    expect(panel?.getAttribute('role')).toBe('tabpanel')
+  })
+
+  it('inline tab 按钮 aria-controls 指向 tab-panel-inline', () => {
+    useTimelineStore.getState().setEvents(SAMPLE_EVENTS)
+    const { container } = render(<TimelineTab />)
+    const inlineTab = container.querySelector('[data-testid="timeline-tab-inline"]') as HTMLElement
+    expect(inlineTab.getAttribute('aria-controls')).toBe('tab-panel-inline')
+  })
+})
+
+describe('TimelineTab — thinking/reference 类型事件渲染与过滤', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('thinking 类型事件:渲染在事件列表中', () => {
+    useTimelineStore.getState().setEvents([
+      makeEvent({ id: 'th-1', type: 'thinking', status: 'done', title: '推理中' }),
+    ])
+    useTimelineStore.getState().setActiveTab('timeline')
+    const { container } = render(<TimelineTab />)
+    expect(container.querySelector('[data-event-type="thinking"]')).toBeTruthy()
+    expect(container.textContent).toContain('推理中')
+  })
+
+  it('reference 类型事件:渲染在事件列表中', () => {
+    useTimelineStore.getState().setEvents([
+      makeEvent({ id: 'ref-1', type: 'reference', status: 'done', title: '参考文档' }),
+    ])
+    useTimelineStore.getState().setActiveTab('timeline')
+    const { container } = render(<TimelineTab />)
+    expect(container.querySelector('[data-event-type="reference"]')).toBeTruthy()
+  })
+
+  it('thinking/reference 不在 filter chips 中(只 4 + all)', () => {
+    useTimelineStore.getState().setEvents([
+      makeEvent({ id: 'th-1', type: 'thinking' }),
+      makeEvent({ id: 'ref-1', type: 'reference' }),
+    ])
+    useTimelineStore.getState().setActiveTab('timeline')
+    render(<TimelineTab />)
+    // 4 + all 5 个 filter chip
+    expect(screen.getByTestId('timeline-filter-all')).toBeTruthy()
+    expect(screen.getByTestId('timeline-filter-plan')).toBeTruthy()
+    expect(screen.getByTestId('timeline-filter-subagent')).toBeTruthy()
+    expect(screen.getByTestId('timeline-filter-tool')).toBeTruthy()
+    expect(screen.getByTestId('timeline-filter-question')).toBeTruthy()
+    // thinking / reference filter chip 不应存在
+    expect(screen.queryByTestId('timeline-filter-thinking')).toBeNull()
+    expect(screen.queryByTestId('timeline-filter-reference')).toBeNull()
+  })
+})
+
+describe('TimelineTab — hasFilterActive 状态隔离', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+    useTimelineStore.getState().setEvents(SAMPLE_EVENTS)
+    useTimelineStore.getState().setActiveTab('timeline')
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('仅设置 searchQuery:search clear 按钮显示 + all filter 仍为 active', () => {
+    render(<TimelineTab />)
+    fireEvent.change(screen.getByTestId('timeline-search-input'), { target: { value: 'alpha' } })
+    // search clear 出现
+    expect(screen.getByTestId('timeline-search-clear')).toBeTruthy()
+    // type filter 仍 all
+    expect(screen.getByTestId('timeline-filter-all').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('timeline-filter-plan').getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('typeFilter 改变不重置 searchQuery', () => {
+    render(<TimelineTab />)
+    const input = screen.getByTestId('timeline-search-input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'step' } })
+    // 切换到 plan
+    fireEvent.click(screen.getByTestId('timeline-filter-plan'))
+    // search query 仍保留
+    expect(input.value).toBe('step')
+  })
+})
