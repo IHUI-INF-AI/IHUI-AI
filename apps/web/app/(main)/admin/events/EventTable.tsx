@@ -30,12 +30,12 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
   return (
     <div className="rounded-lg border">
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           {t('loading')}
         </div>
       ) : list.length === 0 ? (
-        <div className="py-16 text-center text-muted-foreground">{t('noData')}</div>
+        <div className="py-8 text-center text-muted-foreground">{t('noData')}</div>
       ) : (
         <ul className="divide-y">
           {list.map((ev) => (

@@ -91,7 +91,7 @@ export default function WorkflowDetailPage() {
 
   if (wfQ.isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -165,12 +165,12 @@ export default function WorkflowDetailPage() {
       <div key={tab} className="animate-in fade-in-0 duration-200">
         {tab === 'instances' ? (
           instQ.isLoading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               {t('loading')}
             </div>
           ) : insts.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
               {t('detail.noInstances')}
             </div>
           ) : (

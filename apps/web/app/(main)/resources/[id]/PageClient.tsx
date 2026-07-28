@@ -99,7 +99,7 @@ export default function ResourceDetailPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -128,7 +128,7 @@ export default function ResourceDetailPage() {
   const isCodeResource = CODE_EXTENSIONS.includes(fileExt)
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/resources"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -138,8 +138,8 @@ export default function ResourceDetailPage() {
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{resource.title}</h1>
-        {resource.intro && <p className="text-sm text-muted-foreground">{resource.intro}</p>}
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{resource.title}</h1>
+        {resource.intro && <p className="text-xs text-muted-foreground">{resource.intro}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {resource.categoryName && (
             <span className="inline-flex items-center gap-1">

@@ -94,7 +94,7 @@ export default function SubagentTopologyPage() {
         </CardHeader>
         <CardContent className="p-4 pt-0">
           {topoQ.isLoading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               加载中...
             </div>

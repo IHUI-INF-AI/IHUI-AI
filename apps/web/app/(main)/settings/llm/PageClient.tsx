@@ -172,7 +172,7 @@ export default function UserLlmConfigsPage() {
             <KeyRound className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => setBulkOpen(true)} size="sm" variant="outline">
@@ -215,13 +215,13 @@ export default function UserLlmConfigsPage() {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {t('loading')}
             </div>
           ) : visibleProviders.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+              <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
                 <div className="rounded-md bg-primary/10 p-3">
                   <Wand2 className="h-6 w-6 text-primary" />
                 </div>

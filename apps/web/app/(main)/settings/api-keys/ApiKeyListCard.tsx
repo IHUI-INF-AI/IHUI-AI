@@ -104,7 +104,7 @@ export function ApiKeyListCard({
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             <span>加载中...</span>
           </div>
@@ -116,7 +116,7 @@ export function ApiKeyListCard({
             </Button>
           </div>
         ) : list.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-12 text-center">
+          <div className="flex flex-col items-center gap-2 py-8 text-center">
             <div className="rounded-md bg-muted p-3">
               <KeyRound className="h-6 w-6 text-muted-foreground" />
             </div>

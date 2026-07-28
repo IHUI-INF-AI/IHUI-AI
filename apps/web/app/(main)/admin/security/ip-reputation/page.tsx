@@ -131,7 +131,7 @@ export default function IpReputationPage() {
 
       {queryIp && busy && !data && (
         <Card>
-          <CardContent className="flex items-center justify-center py-12">
+          <CardContent className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </CardContent>
         </Card>

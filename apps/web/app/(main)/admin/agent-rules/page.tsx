@@ -159,7 +159,7 @@ export default function AgentRulesPage() {
   const paramsTotalPages = Math.max(1, Math.ceil(paramsTotal / PAGE_SIZE))
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
