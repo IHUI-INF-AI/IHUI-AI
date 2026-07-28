@@ -29,6 +29,7 @@ L4 元学习闭环:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid as _uuid
@@ -38,6 +39,7 @@ from typing import Any, Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 from .failure_clusterer import failure_clusterer
 from .self_evaluator import self_evaluator
 
@@ -49,21 +51,12 @@ _MAX_LESSONS_IN_PROMPT = 5
 # 注入 system prompt 的最低置信度(避免噪声)
 _MIN_CONFIDENCE_FOR_PROMPT = 0.4
 
-# 全局连接池(与 user_profile._pool 独立,避免互相影响)
-_pool: Optional[asyncpg.Pool] = None
 
-
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool 函数签名(向后兼容)。
 async def _get_pool() -> asyncpg.Pool:
-    """获取 asyncpg 连接池(懒初始化,与 user_profile 独立避免循环导入)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 class MetaLearner:
@@ -77,6 +70,42 @@ class MetaLearner:
         self._lessons: dict[str, dict[str, Any]] = {}
         # (lesson_type, title) -> lesson_id 反查索引(避免重复落盘)
         self._title_index: dict[tuple[str, str], str] = {}
+        # P1 修复:按需懒加载,替代 main.py startup 全量 hydrate
+        # meta_lessons 是全局数据(非用户维度),用 _loaded 标记首次访问后全量加载
+        self._loaded: bool = False
+        self._loaded_lock: asyncio.Lock = asyncio.Lock()
+
+    # ==================================================================
+    # P1 修复:按需懒加载(替代启动时全量 hydrate)
+    # ==================================================================
+
+    async def _ensure_loaded(self) -> None:
+        """按需加载 meta_lessons(首次访问时触发,替代启动时全量 hydrate)。
+
+        P1 修复:原 main.py lifespan 调 load_all_lessons() 全量加载所有 lessons,
+        导致启动慢 + 内存峰值高。改为首次访问时才加载。
+
+        注意:meta_lessons 是全局数据(非用户维度),无法按 user_id 懒加载,
+        故用 _loaded 布尔标记,首次访问时全量加载一次。
+
+        线程安全:asyncio.Lock 防止并发首次访问重复加载。
+        加载失败也标记为已加载(避免每次调用都重试,DB 异常时降级空内存)。
+        """
+        if self._loaded:
+            return
+        async with self._loaded_lock:
+            # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
+            if self._loaded:
+                return
+            try:
+                await self.load_all_lessons()
+            except Exception as e:
+                logger.warning(
+                    "[meta_learner] _ensure_loaded 加载失败(降级空内存): %s", e
+                )
+            finally:
+                # 无论成功失败都标记已加载(避免重复重试)
+                self._loaded = True
 
     # ==================================================================
     # 元学习主流程
@@ -99,6 +128,10 @@ class MetaLearner:
                 "lessons": [...],            # 抽取的 lessons 摘要(前 5 个)
             }
         """
+        # P1 修复:按需懒加载 meta_lessons(替代启动时全量 hydrate)
+        # 确保内存索引已加载,避免 _upsert_lesson 因缓存空导致重复 lesson
+        await self._ensure_loaded()
+
         # 1. 失败聚类
         patterns = await failure_clusterer.cluster(failure_cases)
 
@@ -155,6 +188,10 @@ class MetaLearner:
                 "lessons": [...],
             }
         """
+        # P1 修复:按需懒加载 meta_lessons(替代启动时全量 hydrate)
+        # 确保内存索引已加载,避免 _upsert_lesson 因缓存空导致重复 lesson
+        await self._ensure_loaded()
+
         lessons: list[dict[str, Any]] = []
         source_skills = [skill_name] if skill_name else []
 
