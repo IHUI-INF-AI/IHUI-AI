@@ -5692,6 +5692,32 @@
       "error": "下载失败",
       "printError": "打印失败",
       "certText": "兹证明 {name} 通过相关考核，特发此证。"
+    },
+    "detail": {
+      "headerTitle": "课程完成证书",
+      "courseLabel": "课程",
+      "recipientLabel": "获得者",
+      "certNo": "证书编号",
+      "awarderLabel": "颁发人",
+      "issueDate": "颁发日期",
+      "validityLabel": "有效期",
+      "loading": "加载证书中...",
+      "notFound": "证书不存在或已撤销",
+      "unknownRecipient": "未命名获得者",
+      "defaultIssuer": "IHUI AI 学院",
+      "defaultAwarder": "学术委员会",
+      "defaultConditions": "完成课程全部章节学习并通过期末考核(≥ 60 分)",
+      "defaultValidity": "永久有效",
+      "printAction": "打印",
+      "downloadAction": "下载 PDF",
+      "downloadError": "下载失败",
+      "backToList": "返回证书列表",
+      "source": "来源",
+      "template": "模板",
+      "status": "状态",
+      "statusValid": "有效",
+      "statusRevoked": "已撤销",
+      "issuerAria": "{org} 颁发给 {name} 的完成证书"
     }
   },
   "selfMedia": {
