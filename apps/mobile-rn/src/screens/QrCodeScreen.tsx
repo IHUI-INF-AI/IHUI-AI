@@ -4,9 +4,8 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { fetchApi } from '@ihui/api-client'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -18,7 +17,6 @@ interface QrInfo {
 
 export function QrCodeScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<QrInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -28,13 +26,10 @@ export function QrCodeScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/qr-code`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: QrInfo }
+        const res = await fetchApi<QrInfo>('/api/user/qr-code')
         if (cancelled) return
-        setInfo(data.data ?? null)
+        if (!res.success) throw new Error('http')
+        setInfo(res.data ?? null)
       } catch {
         if (!cancelled) setError(t('qrCode.loadFailed'))
       } finally {
@@ -44,7 +39,7 @@ export function QrCodeScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const onShare = async () => {
     if (!info) return
