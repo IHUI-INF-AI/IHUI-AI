@@ -38,11 +38,10 @@ if (!run('🎨 运行 lint-staged...', 'npx lint-staged')) {
   process.exit(1)
 }
 
-// 1-4c, 6-29: 批量执行所有守门脚本(guardian-runner 单进程顺序执行 41 项检查)
-// blocking 28 项: 1,2,2b,2c,2e,2f-web,2f-miniapp-taro,2f-shared,3,4,4b,4c,6,7,8,11,12,13c,15,17,18,20,24a,25,26,27,28,29
-// warn     11 项: 2d,2f-ext,2g-ext,2h-ext,2i-ext,9,13b,19,21,22,24b
-// info      2 项: 10,23
-if (!run('🛡️ 运行守门脚本批量检查(41 项)...', 'node scripts/guardian-runner.mjs --staged')) {
+// 1-4c, 6-29: 批量执行所有守门脚本(guardian-runner 单进程顺序执行)
+// 守门项数见 guardian-runner.mjs --help 输出(当前 56 项 / blocking 40 / warn 14 / info 2,新增项时无需同步此注释)
+// 各项 id 清单见 `node scripts/guardian-runner.mjs --help` 输出
+if (!run('🛡️ 运行守门脚本批量检查...', 'node scripts/guardian-runner.mjs --staged')) {
   process.exit(1)
 }
 
@@ -156,6 +155,41 @@ try {
     )
   } else {
     console.log('⏭  条件 miniapp-taro dist 清理提示(无相关 staged 改动, 跳过)')
+  }
+
+  // 16e. 条件 miniapp-taro ICU .replace 反模式扫描(2026-07-28 立,blocking 防回退)
+  // 背景:commit 09a7849b9d 修了 11 处 tt('key', '{{n}}...').replace('{{n}}', val) 反模式
+  //      (LearningStreak/pay/model-plaza/share/wallet-recharge/ai-history),但缺乏拦截
+  //      机制防"修复后被人改回去"。
+  // 挂载 scripts/check-miniapp-replace-antipattern.mjs --staged 守门:
+  //   - 3 命中规则(tt().replace / t().replace / 字符串含 {{xxx}}.replace)
+  //   - 5 白名单(t(key, { variables }) / t(key, params ?? {}) / 正则 .replace 等)
+  //   - 纯 Node 0 依赖,扫描 382 个文件 ~1s
+  // 跳过方法(紧急):HUSKY_SKIP_MINIAPP_ICU_CHECK=1 git commit ...
+  // 仅 staged 涉及 apps/miniapp-taro/src/ 时跑,避免影响其他包 commit 速度
+  if (process.env.HUSKY_SKIP_MINIAPP_ICU_CHECK !== '1') {
+    const stagedForIcu = execSync('git diff --cached --name-only --diff-filter=ACMR', {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+    })
+    const involvesMiniappIcu = stagedForIcu.split('\n').filter(Boolean).some(
+      (f) => f.startsWith('apps/miniapp-taro/src/') || f.startsWith('apps\\miniapp-taro\\src\\'),
+    )
+    if (involvesMiniappIcu) {
+      if (!run(
+        '🔍 条件 miniapp-taro ICU 反模式扫描(2026-07-28 立,blocking 防回退)...',
+        'node scripts/check-miniapp-replace-antipattern.mjs --staged',
+      )) {
+        console.error('❌ miniapp-taro 检测到 .replace(\'{{xxx}}\') 反模式,提交已阻止')
+        console.error('   修复方法:把 .replace(\'{{n}}\', val) 改为 t(\'key\', { n: val }) 走 next-intl ICU')
+        console.error('   紧急跳过:HUSKY_SKIP_MINIAPP_ICU_CHECK=1 git commit ...')
+        process.exit(1)
+      }
+    } else {
+      console.log('⏭  条件 miniapp-taro ICU 反模式扫描(无 apps/miniapp-taro/src staged 改动, 跳过)')
+    }
+  } else {
+    console.log('⏭  条件 miniapp-taro ICU 反模式扫描(HUSKY_SKIP_MINIAPP_ICU_CHECK=1, 跳过)')
   }
 } catch (e) {
   // 非 git 环境,跳过
