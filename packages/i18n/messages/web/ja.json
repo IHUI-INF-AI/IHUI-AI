@@ -469,7 +469,7 @@
       "clearFilter": "フィルターをクリア",
       "filterPlaceholder": "フォルダを絞り込む...",
       "nativePick": "システムピッカー",
-      "nativePickHint": "システムのネイティブダイアログで選択(フォルダー名のみ、完全パスの補完が必要)",
+      "nativePickHint": "「{name}」を選択しました。ブラウザのセキュリティ制限により完全パスを取得できません。上の入力欄に完全パス(例: G:\\IHUI-AI)を入力して Enter を押してください",
       "nativePickNotFound": "現在のディレクトリに '{name}' が見つかりません。完全パスを手動入力するか、正しいディレクトリに移動してください",
       "computer": "この PC",
       "parent": "親ディレクトリ",
