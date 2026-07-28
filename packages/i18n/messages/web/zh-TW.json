@@ -610,7 +610,9 @@
       "review": "切換到審查模式(唯讀審查,強化程式碼審查)",
       "spec": "切換到規格模式(從程式碼反向生成 spec 文件)",
       "goal": "設定當前會話目標(AI 圍繞目標執行,進入 goal 模式工作流)",
-      "loop": "設定循環執行模式(on 開啟 / off 關閉 / N 迭代次數)"
+      "loop": "設定循環執行模式(on 開啟 / off 關閉 / N 迭代次數)",
+      "goalArgTitle": "選擇目標範本",
+      "loopArgTitle": "選擇循環模式"
     },
     "cmdSummary": "請總結以上對話內容，提煉關鍵信息",
     "cmdTranslate": "請將以下內容翻譯為英文：",
@@ -9755,6 +9757,14 @@
       "timelineNoMatch": "沒有符合目前篩選條件的事件",
       "timelineClearFilters": "清除篩選",
       "timelineExport": "匯出為 Markdown",
+      "timelineSubagentSpawn": "子智能體啟動",
+      "timelineSubagentProgress": "執行中",
+      "timelineSubagentEnd": "子智能體完成",
+      "timelineSubagentFailed": "子智能體失敗",
+      "timelineSubagentThinking": "思考中",
+      "timelineSubagentToolCall": "調用工具",
+      "timelineSubagentToolResult": "工具返回",
+      "timelineSubagentOutputReady": "輸出就緒",
       "sseStatus": {
         "connected": "已連線",
         "connecting": "連線中",
