@@ -13,17 +13,32 @@ import { SearchBar } from '@/components/business'
 import { resolvePathLabelSpec } from '@/lib/path-labels'
 
 /**
- * 兜底标题:取 URL 最后一段。
+ * 兜底标题:取 URL 最后一段,处理 [id] 占位符 + kebab-case → Title Case。
  * 仅当 resolvePathLabelSpec 未命中(路由未在 path-labels.ts 注册)时使用。
+ *
+ * 2026-07-28 改进:原版本只 decode URL 段(返回 "questions" 这种无意义单词),
+ * 现版本将 kebab-case 转 Title Case("user-agent-audio" → "User Agent Audio"),
+ * 让直接 URL 访问的页面也显示有意义的英文标题。
  */
+function toTitleCase(s: string): string {
+  if (!s) return s
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 function deriveTitle(pathname: string): string {
   if (!pathname || pathname === '/') return '/'
+  // 取最后一段(忽略查询参数)
   const seg = pathname.split('/').filter(Boolean).pop() ?? pathname
+  // 移除 Next.js 动态路由占位符 [id]/[slug] 等
+  const clean = seg.replace(/^\[.+\]$/, 'Detail')
+  let decoded = clean
   try {
-    return decodeURIComponent(seg)
+    decoded = decodeURIComponent(clean)
   } catch {
-    return seg
+    /* decode 失败就用 raw */
   }
+  // kebab-case → Title Case (user-agent-audio → User Agent Audio)
+  return decoded.split('-').map(toTitleCase).join(' ')
 }
 
 function buildQuery(search: URLSearchParams | null): Record<string, string> | undefined {
@@ -242,6 +257,8 @@ export function TagsView() {
   // - 每个 tag 的标题翻译下推到 <TagLabel> 子组件,内部只调 1 次 useTranslations
   // - 子组件用 React.memo 浅比较 path prop,避免父组件无关重渲染连锁
   const tCommon = useTranslations('common')
+  // 2026-07-28 立:无 tag 时占位文本走 tagsview.empty 命名空间(用户反馈"标签栏卡片文本没做好 i18n")
+  const tTagsView = useTranslations('tagsview')
   const tags = useTagsViewStore((s) => s.tags)
   const activePath = useTagsViewStore((s) => s.activePath)
   const addTag = useTagsViewStore((s) => s.addTag)
@@ -377,11 +394,13 @@ export function TagsView() {
         <TagsViewSearchButton />
         {tags.length === 0 ? (
           // 2026-07-25 用户反馈:无 tag 时不返回 null,显示一行 placeholder 占位文本
+          // 2026-07-28 立:走 tagsview 命名空间(用户反馈"标签栏卡片文本没做好 i18n"),
+          // 翻译 fallback 链:tTagsView('empty') → '暂无打开的页面'
           <span
             data-testid="tagsview-empty"
             className="select-none px-1 text-xs text-muted-foreground/70"
           >
-            暂无打开的页面
+            {tTagsView('empty')}
           </span>
         ) : (
           tags.map((tag, index) => {
