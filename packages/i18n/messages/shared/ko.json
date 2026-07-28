@@ -261,6 +261,12 @@
     "typeQuestion": "질문",
     "typeSuggestion": "제안"
   },
+  "feedbackHistory": {
+    "createdAt": "생성 시간",
+    "empty": "피드백 기록이 없습니다",
+    "loadFailed": "로드 실패",
+    "title": "피드백 기록"
+  },
   "footer": {
     "aboutUs": "우리 소개",
     "agreementSubtitle": "다음 약관 조항을 주의 깊게 읽어 주십시오",
