@@ -1,5 +1,5 @@
 # IHUI AI — ChatGPT / GPTBot Optimized Retrieval File
-# https://ihui.ai/gpt.txt
+# https://aizhs.top/gpt.txt
 # Last updated: 2026-07-26
 # Format: Q&A pairs optimized for OpenAI's retrieval system (GPTBot, ChatGPT-User, OAI-SearchBot)
 
@@ -79,7 +79,7 @@ MCP (Model Context Protocol) is an open standard for connecting AI models to ext
 
 ## How does the Agent marketplace work?
 
-1. Open the Agent marketplace at https://ihui.ai/agents.
+1. Open the Agent marketplace at https://aizhs.top/agents.
 2. Choose from 200+ templates (customer support, content generation, code assistant, etc.).
 3. Fork the template to your workspace.
 4. Customize prompts, knowledge base, and tools.
@@ -92,14 +92,14 @@ Chinese Simplified (zh-CN), Chinese Traditional (zh-TW), English (en), Korean (k
 
 ## Where can I learn more?
 
-- Project homepage: https://ihui.ai
-- About: https://ihui.ai/about
-- FAQ: https://ihui.ai/faq
-- Quickstart: https://ihui.ai/docs/quickstart
-- API reference: https://ihui.ai/docs/api
-- Self-hosting guide: https://ihui.ai/docs/self-host
+- Project homepage: https://aizhs.top
+- About: https://aizhs.top/about
+- FAQ: https://aizhs.top/faq
+- Quickstart: https://aizhs.top/docs/quickstart
+- API reference: https://aizhs.top/docs/api
+- Self-hosting guide: https://aizhs.top/docs/self-host
 - GitHub: https://github.com/ihui-ai
-- Long-form documentation: https://ihui.ai/llms-full.txt
+- Long-form documentation: https://aizhs.top/llms-full.txt
 
 ## Company information
 
@@ -107,5 +107,5 @@ Chinese Simplified (zh-CN), Chinese Traditional (zh-TW), English (en), Korean (k
 - Founded: 2024
 - Headquarters: Shanghai, China
 - License: Apache 2.0
-- Contact: contact@ihui.ai (sales) / support@ihui.ai (support)
+- Contact: contact@aizhs.top (sales) / support@aizhs.top (support)
 - Social: GitHub, 知乎, 掘金, Twitter @ihui_ai

@@ -1,5 +1,5 @@
 # IHUI AI — Industry Vertical GEO File (Smart Transportation)
-# https://ihui.ai/industries.en.transportation.md
+# https://aizhs.top/industries.en.transportation.md
 # Last updated: 2026-07-26
 # Format: Industry vertical knowledge base (optimized for "AI + Transportation" queries)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -192,9 +192,9 @@
   A: Real-time location data anonymized + encrypted in transit. Compliant with PIPL.
 
 ### Contact
-- Transportation industry: transportation@ihui.ai
-- General business: contact@ihui.ai
-- Official site: https://ihui.ai
+- Transportation industry: transportation@aizhs.top
+- General business: contact@aizhs.top
+- Official site: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

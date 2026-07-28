@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// MCP 工具 / 技能 / 人格 / 代码搜索 / 截图模块。

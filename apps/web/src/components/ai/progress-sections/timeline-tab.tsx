@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { MessageSquare, ListTree, Search, X } from 'lucide-react'
+import { MessageSquare, ListTree, Search, X, Download, Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import {
@@ -126,6 +126,52 @@ function countByStatus(events: TimelineEvent[]): {
   return c
 }
 
+// ─── Markdown 导出(Phase 20 P1-3,2026-07-28 立) ─────────────────
+
+/** 类型 emoji(用于 markdown 列表项前缀) */
+const TYPE_EMOJI: Record<TimelineEventType, string> = {
+  plan: '📋',
+  subagent: '🤖',
+  question: '❓',
+  tool: '🔧',
+  thinking: '💭',
+  reference: '🔗',
+}
+
+/** 状态 emoji */
+const STATUS_EMOJI: Record<TimelineEventStatus, string> = {
+  pending: '⏳',
+  running: '▶️',
+  done: '✅',
+  failed: '❌',
+}
+
+/**
+ * 把 TimelineEvent[] 序列化为 Markdown 字符串(纯函数,便于单测)
+ *
+ * 输出格式:
+ * ```
+ * # 时间线 (12 events)
+ *
+ * ✅ **[10:00:00]** 📋 计划: 步骤 alpha
+ * ✅ **[10:01:00]** 📋 计划: 步骤 beta
+ * ▶️ **[10:02:00]** 🤖 子代理: @validator · 验证类型
+ * ...
+ * ```
+ */
+export function eventsToMarkdown(events: ReadonlyArray<TimelineEvent>): string {
+  if (events.length === 0) return '# 时间线\n\n(空)\n'
+  const lines: string[] = [`# 时间线 (${events.length} events)`, '']
+  for (const e of events) {
+    const ts = e.timestamp ? `[${e.timestamp}] ` : ''
+    const typeEmoji = TYPE_EMOJI[e.type] ?? '•'
+    const statusEmoji = STATUS_EMOJI[e.status] ?? '•'
+    const desc = e.description ? ` — ${e.description}` : ''
+    lines.push(`${statusEmoji} **${ts}** ${typeEmoji} ${e.type}: ${e.title}${desc}`)
+  }
+  return lines.join('\n') + '\n'
+}
+
 // ─── Tab 配置 ─────────────────────────────────────────────────────
 
 interface TimelineTabProps {
@@ -158,6 +204,8 @@ export const TimelineTab = React.memo(function TimelineTab({
   // 类型过滤 + 搜索 state(showTabs=false 时 UI 不展示,但 state 仍初始化,保持单一渲染路径)
   const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all')
   const [searchQuery, setSearchQuery] = React.useState<string>('')
+  // Phase 20 P1-3: 导出按钮"已复制"反馈状态
+  const [exported, setExported] = React.useState<boolean>(false)
 
   // 派生数据(过滤是派生计算,不放进 store,避免污染全局)
   const typeCounts = React.useMemo(() => countByType(events), [events])
@@ -172,6 +220,22 @@ export const TimelineTab = React.memo(function TimelineTab({
     setTypeFilter('all')
     setSearchQuery('')
   }, [])
+
+  // Phase 20 P1-3: 导出当前过滤后的事件为 Markdown 到剪贴板(2026-07-28 立)
+  const onExportMarkdown = React.useCallback(async () => {
+    const md = eventsToMarkdown(filteredEvents)
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(md)
+        setExported(true)
+        const id = window.setTimeout(() => setExported(false), 1500)
+        return () => window.clearTimeout(id)
+      }
+    } catch {
+      // 忽略剪贴板权限错误
+    }
+    return undefined
+  }, [filteredEvents])
 
   // showTabs=false:简洁路径(agent-task-progress-pane 调用,保持向后兼容)
   if (!showTabs) {
@@ -330,9 +394,28 @@ export const TimelineTab = React.memo(function TimelineTab({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={safeT(t, 'timelineSearchPlaceholder', 'Search timeline...')}
             aria-label={safeT(t, 'timelineSearchAriaLabel', 'Search timeline events')}
-            className="w-full rounded-sm border border-border/60 bg-background/40 py-0.5 pl-6 pr-6 text-[10px] placeholder:text-muted-foreground/50 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+            className="w-full rounded-sm border border-border/60 bg-background/40 py-0.5 pl-6 pr-14 text-[10px] placeholder:text-muted-foreground/50 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
             data-testid="timeline-search-input"
           />
+          {/* Phase 20 P1-3: 导出 Markdown 按钮 */}
+          <button
+            type="button"
+            onClick={onExportMarkdown}
+            aria-label={exported ? t('copied') : t('timelineExport')}
+            title={exported ? t('copied') : t('timelineExport')}
+            className={cn(
+              'absolute right-7 top-1/2 inline-flex h-3.5 w-3.5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground',
+              exported && 'text-emerald-500',
+            )}
+            data-testid="timeline-export-md"
+            data-copied={exported ? 'true' : undefined}
+          >
+            {exported ? (
+              <Check className="h-2.5 w-2.5" aria-hidden />
+            ) : (
+              <Download className="h-2.5 w-2.5" aria-hidden />
+            )}
+          </button>
           {searchQuery.length > 0 && (
             <button
               type="button"

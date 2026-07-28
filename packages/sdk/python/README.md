@@ -490,7 +490,7 @@ client = create_client({
 
     # 可选
     "secret": "secret_xxx",          # API Secret(创建/轮换时返回)
-    "base_url": "https://api.ihui.ai",  # 基础 URL,默认 http://localhost:8802
+    "base_url": "https://api.aizhs.top",  # 基础 URL,默认 http://localhost:8802
     "timeout": 60,                   # 请求超时(秒),默认 30
     "max_retries": 3,                # 最大重试次数,默认 2
 })
@@ -498,7 +498,7 @@ client = create_client({
 # 也支持 camelCase 键(TS 兼容)
 client = create_client({
     "apiKey": "ihui_xxx",
-    "baseUrl": "https://api.ihui.ai",
+    "baseUrl": "https://api.aizhs.top",
     "maxRetries": 3,
 })
 ```

@@ -168,7 +168,7 @@ env:
 
 ```bash
 # 1. 添加 Helm 仓库(官方交付 Chart 包后,客户加载到私有仓库)
-helm repo add ihui https://charts.ihui.ai
+helm repo add ihui https://charts.aizhs.top
 helm repo update
 
 # 2. 创建命名空间
@@ -333,7 +333,7 @@ graph TB
         WEB --> OSS
         API --> OSS
     end
-    USER[最终用户] -->|https://app.ihui.ai| SLB
+    USER[最终用户] -->|https://app.aizhs.top| SLB
 ```
 
 ### 2.3 资源清单(ACK / EKS 节点池)
@@ -401,7 +401,7 @@ helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create
 #    OSS Bucket(存储用户上传 / 知识库文档)
 
 # 5. 部署 IHUI-AI(用官方 Helm Chart)
-helm repo add ihui https://charts.ihui.ai
+helm repo add ihui https://charts.aizhs.top
 helm install ihui ihui/ihui -n ihui-app --create-namespace \
   --set postgres.enabled=false \
   --set postgres.external.host=pgm-xxxx.pg.rds.aliyuncs.com \
@@ -788,7 +788,7 @@ helm rollback ihui <上一版本> -n ihui-app
 
 ## 联系方式
 
-部署问题请联系:**sales@ihui.ai**(商务)/ 客户专属技术支持群(Enterprise / Custom 档位)。
+部署问题请联系:**sales@aizhs.top**(商务)/ 客户专属技术支持群(Enterprise / Custom 档位)。
 SLA 与故障响应时效详见 [sla-terms.md](./sla-terms.md)。
 
 

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 记忆模块 — 保存 / 召回 / 搜索 / Dream / 遗忘 / 分类记忆。

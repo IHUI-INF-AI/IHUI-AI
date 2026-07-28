@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// Agent 执行响应(POST /v1/agents/execute)。
