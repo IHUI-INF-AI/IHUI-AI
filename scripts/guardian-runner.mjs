@@ -338,13 +338,14 @@ const checks = [
   //   pnpm --filter @ihui/miniapp-taro sync-tokens 重新同步后重新 commit。
   {
     id: '36',
-    label: '🎨 [miniapp-taro] design-tokens 同步(防 app.css 漂移)',
-    script: 'check-miniapp-tokens-sync.mjs',
-    args: [],
+    label: '🎨 [miniapp-taro] design-tokens 同步(防 app.css 漂移,P1-C 7 类变量)',
+    script: 'check-design-tokens-sync.mjs',
+    args: ['--target=miniapp-taro'],
     mode: 'blocking',
     onFailHint: [
       '',
-      '  💡 apps/miniapp-taro/src/app.css 的 --color-* 变量与 packages/design-tokens/src/styles/tokens.css 不一致,',
+      '  💡 apps/miniapp-taro/src/app.css 的 design-tokens 变量(7 类:color/radius/chart/font/animate/z/shadow)',
+      '     与 packages/design-tokens/src/styles/tokens.css 不一致,',
       '     修复:pnpm --filter @ihui/miniapp-taro sync-tokens',
       '     然后重新 git add apps/miniapp-taro/src/app.css 并 commit',
       '',
@@ -352,15 +353,15 @@ const checks = [
   },
   {
     id: '37',
-    label: '🎨 [web] design-tokens 同步(防 globals.css 漂移)',
-    script: 'check-web-tokens-sync.mjs',
-    args: [],
+    label: '🎨 [web] design-tokens 同步(防 globals.css 漂移,P1-C 全变量防回归)',
+    script: 'check-design-tokens-sync.mjs',
+    args: ['--target=web'],
     mode: 'blocking',
     onFailHint: [
       '',
       '  💡 apps/web/app/globals.css 未 @import tokens.css 或顶层手抄 :root/.dark 变量,',
       '     修复:确认 globals.css 含 @import "../../../packages/design-tokens/src/styles/tokens.css";',
-      '     删除顶层 :root/.dark 块中与 tokens.css @theme 重复的变量',
+      '     删除顶层 :root/.dark 块中与 tokens.css @theme 重复的变量(P1-C:所有 @theme 变量,非仅 --color-*)',
       '',
     ].join('\n'),
   },
