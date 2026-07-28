@@ -194,7 +194,7 @@ export default function DistributionCompanyPage() {
               {t('viewDetail')}
             </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             {teamStats.map((s) => (
               <div key={s.label} className="rounded-lg bg-muted/40 px-4 py-3 text-center">
                 <div className="text-xs text-muted-foreground">{s.label}</div>

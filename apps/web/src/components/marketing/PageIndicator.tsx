@@ -40,26 +40,24 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       //   - 工作区页 (/home) 折叠 sidebar(60px):right = 84px → 距工作区可见区右边 24px
       //   - 工作区页 (/home) + ai-panel 打开(width+8):right 进一步加大
       //   与 ScrollDownButton 用同一组 CSS 变量(单一来源),保证两个指示器视觉同步
-      // 2026-07-28 升级:transition 精简只追踪 right/bg/border/shadow,放弃 transition-all 性能
       style={{
         right:
           'calc(24px + var(--sidebar-width, 0px) + var(--ai-panel-width, 0px))',
       }}
-      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-[right,background-color,border-color,box-shadow] duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
+      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {
         const isActive = idx === current
         return (
           // 2026-07-21 v7:button 命中区 h-5 w-5 → h-4 w-4,缩窄但不损失点击
-          // 2026-07-28 升级:加 focus-visible 焦点环(a11y);aria-current="page" 语义更准
           <button
             key={idx}
             type="button"
             onClick={() => onClick(idx)}
             aria-label={t('switchTo', { index: idx + 1 })}
-            aria-current={isActive ? 'page' : undefined}
-            className="group flex h-4 w-4 items-center justify-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            aria-current={isActive ? 'true' : undefined}
+            className="group flex h-4 w-4 items-center justify-center"
           >
             <span
               // 2026-07-21 v8:拆分 isActive 两套完整 className — 修 bug
