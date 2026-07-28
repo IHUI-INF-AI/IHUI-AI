@@ -694,5 +694,33 @@
     "ask": "質問",
     "asker": "質問者",
     "answers": "回答"
+  },
+  "noteDetail": {
+    "title": "ノート詳細",
+    "loadFailed": "ノートの読み込みに失敗しました",
+    "views": "{count} 回閲覧",
+    "likes": "いいね",
+    "tags": "タグ"
+  },
+  "articleDetail": {
+    "title": "記事詳細",
+    "loadFailed": "記事の読み込みに失敗しました",
+    "views": "{count} 回閲覧",
+    "likes": "いいね"
+  },
+  "helpDetail": {
+    "title": "ヘルプ詳細",
+    "loadFailed": "読み込みに失敗しました",
+    "empty": "コンテンツが見つかりません",
+    "answer": "回答",
+    "category": "カテゴリ"
+  },
+  "feedbackDetail": {
+    "title": "フィードバック詳細",
+    "loadFailed": "読み込みに失敗しました",
+    "empty": "フィードバックが見つかりません",
+    "content": "内容",
+    "reply": "返信",
+    "createdAt": "送信日時"
   }
 }
