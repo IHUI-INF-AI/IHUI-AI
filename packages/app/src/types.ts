@@ -32,4 +32,10 @@ export type {
   HistoryTargetType,
   HistoryItem,
   HistoryScreenProps,
+  CertificateStatus,
+  CertificateItem,
+  CertificateScreenProps,
+  MessageTab,
+  MessageCenterItem,
+  MessageCenterScreenProps,
 } from '@ihui/types'
