@@ -31,10 +31,12 @@
 
 .exam-result-hero.passed {
   background: linear-gradient(135deg, #4caf50, #66bb6a);
+  /* TODO: custom color: 成绩通过渐变绿色 */
 }
 
 .exam-result-hero.failed {
   background: linear-gradient(135deg, #dd524d, #e57373);
+  /* TODO: custom color: 成绩未通过渐变红色 */
 }
 
 .exam-result-badge {
@@ -46,20 +48,20 @@
   background: rgba(255, 255, 255, 0.25);
   border-radius: 16rpx;
   font-size: 48rpx;
-  color: #fff;
+  color: var(--color-primary-foreground);
   font-weight: 700;
 }
 
 .exam-result-status {
   font-size: 30rpx;
-  color: #fff;
+  color: var(--color-primary-foreground);
   font-weight: 600;
   margin-top: 20rpx;
 }
 
 .exam-result-score {
   font-size: 64rpx;
-  color: #fff;
+  color: var(--color-primary-foreground);
   font-weight: 700;
   margin-top: 12rpx;
 }
@@ -100,11 +102,11 @@
 }
 
 .exam-result-stat-value.correct {
-  color: #4caf50;
+  color: var(--color-success);
 }
 
 .exam-result-stat-value.wrong {
-  color: #dd524d;
+  color: var(--color-destructive);
 }
 
 .exam-result-stat-value.unanswered {
@@ -166,12 +168,12 @@
 }
 
 .exam-result-review-status.correct {
-  color: #4caf50;
+  color: var(--color-success);
   background: rgba(76, 175, 80, 0.12);
 }
 
 .exam-result-review-status.wrong {
-  color: #dd524d;
+  color: var(--color-destructive);
   background: rgba(221, 82, 77, 0.12);
 }
 
@@ -208,11 +210,11 @@
 }
 
 .exam-result-review-answer.correct {
-  color: #4caf50;
+  color: var(--color-success);
 }
 
 .exam-result-review-answer.wrong {
-  color: #dd524d;
+  color: var(--color-destructive);
 }
 
 .exam-result-review-analysis {

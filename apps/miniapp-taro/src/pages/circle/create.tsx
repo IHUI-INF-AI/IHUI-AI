@@ -321,6 +321,7 @@ export default function CircleCreatePage() {
         </View>
         <View className="cc-row">
           <Text className="cc-label">{tt('circle.create.allowComments', '允许评论')}</Text>
+          {/* TODO: native prop: Switch color 需 hex,微信小程序不支持 CSS 变量,保留 #07c160 */}
           <Switch
             checked={form.allowComments}
             color="#07c160"

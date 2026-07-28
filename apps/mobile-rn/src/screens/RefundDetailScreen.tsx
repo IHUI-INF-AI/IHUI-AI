@@ -1,10 +1,10 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -14,7 +14,6 @@ interface Detail { id: string; orderNo: string; amount: number; status: string; 
 
 export function RefundDetailScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const id = route.params.id
@@ -25,12 +24,11 @@ export function RefundDetailScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/refund/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Detail }
-      setItem(d.data ?? null)
+      const r = await fetchApi<Detail>(`/refund/${id}`)
+      if (!r.success) throw new Error()
+      setItem(r.data ?? null)
     } catch { setError(t('refundDetail.loadFailed')) } finally { setLoading(false) }
-  }, [id, token, t])
+  }, [id, t])
 
   useEffect(() => { void load() }, [load])
 
@@ -55,7 +53,7 @@ export function RefundDetailScreen() {
       <View style={s.body}>
         <View style={s.row}><Text style={s.label}>{t('refundDetail.orderNo')}</Text><Text style={s.value}>{item.orderNo}</Text></View>
         <View style={s.row}><Text style={s.label}>{t('refundDetail.amount')}</Text><Text style={s.value}>¥{item.amount.toFixed(2)}</Text></View>
-        <View style={s.row}><Text style={s.label}>{t('refundDetail.status')}</Text><Text style={[s.value, { color: '#10B981' }]}>{item.status}</Text></View>
+        <View style={s.row}><Text style={s.label}>{t('refundDetail.status')}</Text><Text style={[s.value, { color: tokens.success.DEFAULT }]}>{item.status}</Text></View>
         <View style={s.row}><Text style={s.label}>{t('refundDetail.reason')}</Text><Text style={s.value}>{item.reason}</Text></View>
         <View style={s.row}><Text style={s.label}>{t('refundDetail.createdAt')}</Text><Text style={s.value}>{item.createdAt}</Text></View>
       </View>
@@ -64,16 +62,16 @@ export function RefundDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
   body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  label: { fontSize: 13, color: '#6B7280' },
-  value: { fontSize: 13, color: '#111827', fontWeight: '500', flexShrink: 1, marginLeft: 12, textAlign: 'right' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: tokens.surface.card },
+  label: { fontSize: 13, color: tokens.text.secondary },
+  value: { fontSize: 13, color: tokens.text.primary, fontWeight: '500', flexShrink: 1, marginLeft: 12, textAlign: 'right' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, textAlign: 'center' },
   backBtn: { marginTop: 12 },
 })

@@ -38,6 +38,7 @@ export default function StudyRank() {
         <Text className="block text-primary-foreground/90 text-xs mt-1">{t('study.rankPage.subtitle')}</Text>
       </View>
 
+      {/* TODO: custom color: #ffd700(金)/#c0c0c0(银)/#cd7f32(铜) 排名奖牌色,无对应 token,保留原值 */}
       {list.length >= 3 && (
         <View className="flex items-end justify-center py-4 bg-card">
           <View className="flex flex-col items-center mx-2 relative">

@@ -2,6 +2,7 @@ import { View, Text, WebView } from '@tarojs/components'
 import { navigateTo, useRouter, setNavigationBarTitle, getStorageSync } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/i18n'
+import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
 
 /** 导航到 webview 页面并加载指定 URL */
 export function navigateToWebView(url: string): void {
@@ -56,7 +57,7 @@ export default function WebviewIndex() {
 
     // fileCache:本地缓存(用于文件下载等场景)
     try {
-      fileCacheRef.current = getStorageSync('webviewFileCache')
+      fileCacheRef.current = getStorageSync(WEBVIEW_FILE_CACHE_KEY)
     } catch {
       // ignore
     }

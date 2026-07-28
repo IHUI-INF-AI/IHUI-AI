@@ -1,11 +1,11 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { usePaginatedList } from '../hooks/use-paginated-list'
-import { API_BASE_URL } from '../lib/config'
+import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 
@@ -36,26 +36,20 @@ const POINTS_TAB_KEYS: Record<(typeof TYPE_TABS)[number], string> = {
 
 export function PointsRecordScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [typeTab, setTypeTab] = useState<(typeof TYPE_TABS)[number]>('all')
   const [balance, setBalance] = useState(0)
 
   const fetcher = useCallback(async () => {
-    const params = new URLSearchParams({
-      page: '1',
-      pageSize: String(PAGE_SIZE),
-      type: typeTab,
+    const res = await fetchApi<RecordPage>('/points/records', {
+      params: { page: 1, pageSize: PAGE_SIZE, type: typeTab },
     })
-    const resp = await fetch(`${API_BASE_URL}/api/points/records?${params.toString()}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) return { success: false as const, error: t('pointsRecord.loadFailed') }
-    const data = (await resp.json()) as { data?: RecordPage }
-    const list = data.data?.list ?? []
-    if (typeof data.data?.balance === 'number') setBalance(data.data.balance)
-    return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
-  }, [token, typeTab, t])
+    if (!res.success) return { success: false as const, error: t('pointsRecord.loadFailed') }
+    const page = res.data
+    const list = page?.list ?? []
+    if (typeof page?.balance === 'number') setBalance(page.balance)
+    return { success: true as const, data: { list, total: page?.total ?? list.length } }
+  }, [typeTab, t])
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<PointsRecord>(
     fetcher,
@@ -155,30 +149,28 @@ export function PointsRecordScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
   balanceCard: {
     marginHorizontal: 16,
     marginBottom: 8,
     padding: 16,
     borderRadius: 8,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: tokens.success.light,
     alignItems: 'center',
   },
-  balanceLabel: { fontSize: 12, color: '#065F46' },
-  balanceValue: { marginTop: 4, fontSize: 26, fontWeight: '700', color: PRIMARY },
+  balanceLabel: { fontSize: 12, color: tokens.success.deepText },
+  balanceValue: { marginTop: 4, fontSize: 26, fontWeight: '700', color: tokens.success.DEFAULT },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
-  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  tabActive: { backgroundColor: PRIMARY },
-  tabText: { fontSize: 12, color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF' },
+  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tokens.surface.card },
+  tabActive: { backgroundColor: tokens.success.DEFAULT },
+  tabText: { fontSize: 12, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.surface.light },
   errorBar: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -186,22 +178,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  errorText: { fontSize: 12, color: '#DC2626' },
-  retryText: { fontSize: 12, color: PRIMARY },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+  retryText: { fontSize: 12, color: tokens.success.DEFAULT },
   center: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
+  emptyText: { fontSize: 12, color: tokens.text.tertiary, marginTop: 8 },
   card: {
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.bg,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sourceText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827', marginRight: 8 },
+  sourceText: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary, marginRight: 8 },
   amountText: { fontSize: 16, fontWeight: '700' },
-  earnText: { color: PRIMARY },
-  spendText: { color: '#DC2626' },
+  earnText: { color: tokens.success.DEFAULT },
+  spendText: { color: tokens.danger.DEFAULT },
   cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  cardMetaText: { fontSize: 11, color: '#9CA3AF' },
+  cardMetaText: { fontSize: 11, color: tokens.text.tertiary },
 })

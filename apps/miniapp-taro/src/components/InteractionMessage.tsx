@@ -28,7 +28,7 @@ const TYPE_COLOR: Record<InteractionItem['type'], string> = {
   like: 'text-destructive',
   comment: 'text-primary',
   follow: 'text-primary',
-  collect: 'text-[#f59e0b]',
+  collect: 'text-warning',
 }
 
 export default function InteractionMessage({ list, onClick }: InteractionMessageProps) {

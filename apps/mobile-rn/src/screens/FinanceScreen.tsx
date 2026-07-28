@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -6,6 +7,7 @@ import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { fetchApi } from '@ihui/api-client'
+import { formatAmount } from '@ihui/shared/utils'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface FinanceSummary {
@@ -13,11 +15,6 @@ interface FinanceSummary {
   todayIncome: number
   totalIncome: number
   totalExpense: number
-}
-
-function formatMoney(n: number | undefined | null): string {
-  if (typeof n !== 'number') return '0.00'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export function FinanceScreen() {
@@ -91,7 +88,7 @@ export function FinanceScreen() {
       {cards.map((c) => (
         <Card key={c.label} style={styles.card}>
           <Text style={styles.label}>{c.label}</Text>
-          <Text style={[styles.value, c.primary && styles.valuePrimary]}>¥ {formatMoney(c.value)}</Text>
+          <Text style={[styles.value, c.primary && styles.valuePrimary]}>¥ {formatAmount(c.value, '0.00')}</Text>
         </Card>
       ))}
     </ScrollView>
@@ -99,17 +96,17 @@ export function FinanceScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, gap: 12 },
   backBtn: { marginTop: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  label: { fontSize: 12, color: '#6B7280' },
-  value: { marginTop: 4, fontSize: 22, fontWeight: '600', color: '#111827' },
-  valuePrimary: { color: '#10B981' },
-  muted: { fontSize: 13, color: '#6B7280' },
-  errorText: { fontSize: 13, color: '#DC2626', marginBottom: 8 },
-  link: { fontSize: 13, color: '#10B981' },
+  label: { fontSize: 12, color: tokens.text.secondary },
+  value: { marginTop: 4, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  valuePrimary: { color: tokens.success.DEFAULT },
+  muted: { fontSize: 13, color: tokens.text.secondary },
+  errorText: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8 },
+  link: { fontSize: 13, color: tokens.success.DEFAULT },
 })

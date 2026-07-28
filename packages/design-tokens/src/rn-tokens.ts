@@ -12,6 +12,38 @@
  * 值漂移即 bug,修改时必须双向校对。
  */
 
+/**
+ * 扩展语义色:用于 mobile-rn 端状态徽章 / 卡片背景的细分层级。
+ * - success.lighter / lightest:更浅的成功绿背景(d1fae5 / f0fdf4)
+ * - success.deepText:深绿色文字(065F46,用于 success 卡片标签)
+ * - warning.amber / amberLight / amberText / orangeLight:amber 警告色变体
+ * - danger.bright:亮红色(ef4444,职位薪资等强调红)
+ */
+export type RnSuccessTokens = {
+  lightest: string
+  lighter: string
+  light: string
+  DEFAULT: string
+  deep: string
+  deepText: string
+}
+
+export type RnWarningTokens = {
+  light: string
+  amberLight: string
+  orangeLight: string
+  amber: string
+  DEFAULT: string
+  amberText: string
+  deep: string
+}
+
+export type RnDangerTokens = {
+  light: string
+  DEFAULT: string
+  bright: string
+}
+
 /** RN 端基础 tokens(向后兼容 RootNavigator Tab Bar) */
 export const rnTokens = {
   brand: {
@@ -52,18 +84,26 @@ export const rnTokens = {
   },
   warning: {
     light: '#fffbeb',
+    amberLight: '#fef3c7',
+    orangeLight: '#fff7ed',
+    amber: '#f59e0b',
     DEFAULT: '#d97706',
+    amberText: '#92400e',
     deep: '#FF6B00',
-  },
+  } satisfies RnWarningTokens,
   success: {
+    lightest: '#f0fdf4',
+    lighter: '#d1fae5',
     light: '#ecfdf5',
     DEFAULT: '#10B981',
     deep: '#16a34a',
-  },
+    deepText: '#065F46',
+  } satisfies RnSuccessTokens,
   danger: {
     light: '#fef2f2',
     DEFAULT: '#dc2626',
-  },
+    bright: '#ef4444',
+  } satisfies RnDangerTokens,
   gray: {
     50: '#f9fafb',
     100: '#f3f4f6',
@@ -93,9 +133,9 @@ export type RnThemeTokens = {
   overlay: { modal: string }
   indigo: { light: string; DEFAULT: string; deep: string }
   purple: { light: string; DEFAULT: string }
-  warning: { light: string; DEFAULT: string; deep: string }
-  success: { light: string; DEFAULT: string; deep: string }
-  danger: { light: string; DEFAULT: string }
+  warning: RnWarningTokens
+  success: RnSuccessTokens
+  danger: RnDangerTokens
   gray: {
     50: string
     100: string
@@ -123,9 +163,24 @@ export const rnLightTokens: RnThemeTokens = {
   overlay: { modal: 'rgba(0,0,0,0.4)' },
   indigo: { light: '#eef2ff', DEFAULT: '#6366f1', deep: '#4f46e5' },
   purple: { light: '#f5f3ff', DEFAULT: '#7B61FF' },
-  warning: { light: '#fffbeb', DEFAULT: '#d97706', deep: '#FF6B00' },
-  success: { light: '#ecfdf5', DEFAULT: '#10B981', deep: '#16a34a' },
-  danger: { light: '#fef2f2', DEFAULT: '#dc2626' },
+  warning: {
+    light: '#fffbeb',
+    amberLight: '#fef3c7',
+    orangeLight: '#fff7ed',
+    amber: '#f59e0b',
+    DEFAULT: '#d97706',
+    amberText: '#92400e',
+    deep: '#FF6B00',
+  },
+  success: {
+    lightest: '#f0fdf4',
+    lighter: '#d1fae5',
+    light: '#ecfdf5',
+    DEFAULT: '#10B981',
+    deep: '#16a34a',
+    deepText: '#065F46',
+  },
+  danger: { light: '#fef2f2', DEFAULT: '#dc2626', bright: '#ef4444' },
   gray: {
     50: '#f9fafb',
     100: '#f3f4f6',
@@ -156,9 +211,24 @@ export const rnDarkTokens: RnThemeTokens = {
   overlay: { modal: 'rgba(0,0,0,0.6)' },
   indigo: { light: '#312e81', DEFAULT: '#6366f1', deep: '#818cf8' },
   purple: { light: '#4c1d95', DEFAULT: '#7B61FF' },
-  warning: { light: '#451a03', DEFAULT: '#f59e0b', deep: '#FF6B00' },
-  success: { light: '#052e16', DEFAULT: '#10B981', deep: '#16a34a' },
-  danger: { light: '#450a0a', DEFAULT: '#ef4444' },
+  warning: {
+    light: '#451a03',
+    amberLight: '#78350f',
+    orangeLight: '#431407',
+    amber: '#fbbf24',
+    DEFAULT: '#f59e0b',
+    amberText: '#fbbf24',
+    deep: '#FF6B00',
+  },
+  success: {
+    lightest: '#052e16',
+    lighter: '#064e3b',
+    light: '#052e16',
+    DEFAULT: '#10B981',
+    deep: '#16a34a',
+    deepText: '#86efac',
+  },
+  danger: { light: '#450a0a', DEFAULT: '#ef4444', bright: '#f87171' },
   gray: {
     50: '#f9fafb',
     100: '#f3f4f6',

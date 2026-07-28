@@ -1,5 +1,6 @@
 import Taro from '@tarojs/taro'
 import { requestWeappPayment, requestAlipayPayment } from '../platform/pay'
+import { getPlatform } from '../platform/auth'
 
 // 对外统一 API(从 platform/pay.ts re-export,消除双套实现)
 export {
@@ -44,22 +45,16 @@ export interface AliPayParams {
 
 export type AnyPayParams = WxPayParams & AliPayParams
 
-type Platform = 'mp-weixin' | 'mp-alipay' | 'app' | 'web' | 'unknown'
-
 interface PayErrorLike {
   errMsg?: string
   code?: number
   message?: string
 }
 
-function getPlatform(): Platform {
-  const env = Taro.getEnv()
-  if (env === Taro.ENV_TYPE.WEAPP) return 'mp-weixin'
-  if (env === Taro.ENV_TYPE.ALIPAY) return 'mp-alipay'
-  if (env === Taro.ENV_TYPE.RN) return 'app'
-  if (env === Taro.ENV_TYPE.WEB) return 'web'
-  return 'unknown'
-}
+// 2026-07-28 Q-3: 删除本地 getPlatform 重复实现,复用 platform/auth.ts 的 getPlatform
+// (已扩展为 RuntimePlatform,支持 weapp/alipay/app/web/unknown)。
+// 注意:platform/auth.ts 用 'weapp'/'alipay',原本地实现用 'mp-weixin'/'mp-alipay',
+// 已同步更新下方所有判断分支。
 
 function isCancelError(err: PayErrorLike): boolean {
   const msg = err.errMsg || err.message || ''
@@ -155,14 +150,14 @@ function showAliPayError(err: PayErrorLike): void {
 }
 
 /**
- * 微信支付:mp-weixin 委托 platform/pay.ts,App 端保留原 orderInfo 模式
+ * 微信支付:weapp 委托 platform/pay.ts,App 端保留原 orderInfo 模式
  * 向后兼容:签名(requestWxPayment + AnyPayParams)不变,调用方无需修改
  */
 export function requestWxPayment(payParams: AnyPayParams): Promise<unknown> {
   const platform = getPlatform()
 
-  // mp-weixin: 委托 platform/pay.ts 实现(内部处理 loading + 错误提示)
-  if (platform === 'mp-weixin') {
+  // weapp: 委托 platform/pay.ts 实现(内部处理 loading + 错误提示)
+  if (platform === 'weapp') {
     return requestWeappPayment({
       timeStamp: String(payParams.timeStamp ?? ''),
       nonceStr: String(payParams.nonceStr ?? ''),
@@ -199,19 +194,19 @@ export function requestWxPayment(payParams: AnyPayParams): Promise<unknown> {
 }
 
 /**
- * 支付宝支付:mp-alipay 委托 platform/pay.ts,App 端保留原 orderInfo 模式
+ * 支付宝支付:alipay 委托 platform/pay.ts,App 端保留原 orderInfo 模式
  * 向后兼容:签名(requestAliPayment + AnyPayParams)不变,调用方无需修改
  */
 export function requestAliPayment(payParams: AnyPayParams): Promise<unknown> {
   const platform = getPlatform()
 
-  if (platform === 'mp-weixin') {
+  if (platform === 'weapp') {
     Taro.showToast({ title: '微信小程序暂不支持支付宝支付', icon: 'none' })
-    return Promise.reject(new Error('mp-weixin unsupported alipay'))
+    return Promise.reject(new Error('weapp unsupported alipay'))
   }
 
-  // mp-alipay: 委托 platform/pay.ts 实现(内部处理 loading + 错误提示)
-  if (platform === 'mp-alipay') {
+  // alipay: 委托 platform/pay.ts 实现(内部处理 loading + 错误提示)
+  if (platform === 'alipay') {
     const tradeNO = payParams.tradeNO
     const orderStr =
       typeof payParams.orderInfo === 'string' ? payParams.orderInfo : payParams.orderStr

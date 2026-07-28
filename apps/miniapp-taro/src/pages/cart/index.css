@@ -80,11 +80,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f44336;
+  background: var(--color-destructive);
   border-radius: 12rpx;
 }
 .delete-action-text {
-  color: #fff;
+  color: var(--color-destructive-foreground);
   font-size: 28rpx;
 }
 
@@ -105,7 +105,7 @@
   border-color: var(--color-primary);
 }
 .checkbox-icon {
-  color: #fff;
+  color: var(--color-primary-foreground);
   font-size: 24rpx;
   font-weight: bold;
 }
@@ -147,7 +147,7 @@
 }
 .cart-item-price {
   font-size: 32rpx;
-  color: #f44336;
+  color: var(--color-destructive);
   font-weight: 600;
   margin-top: 8rpx;
 }
@@ -210,7 +210,7 @@
 }
 .total-price {
   font-size: 36rpx;
-  color: #f44336;
+  color: var(--color-destructive);
   font-weight: 700;
 }
 .checkout-btn {
