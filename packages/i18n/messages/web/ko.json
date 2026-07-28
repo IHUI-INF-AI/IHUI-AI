@@ -8882,6 +8882,11 @@
     }
   },
   "search": {
+    "history": "검색 기록",
+    "popular": "인기 검색어",
+    "suggest": "검색 제안",
+    "clearAll": "모두 지우기",
+    "noResults": "검색 결과 없음",
     "sortName": "성이름",
     "emptyKeyword": "검색 키워드를 입력하세요",
     "loading": "로딩 중...",
@@ -9678,7 +9683,6 @@
       "working": "{count}개 서브 에이전트 협업 중"
     },
     "pane": {
-      "title": "작업 계획",
       "ariaLabel": "Agent 작업 진행 패널",
       "pin": "고정",
       "unpin": "고정 해제",
