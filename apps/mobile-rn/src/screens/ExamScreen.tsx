@@ -83,7 +83,7 @@ export function ExamScreen() {
   if (error && exams.length === 0) {
     return (
       <View className="flex-1 items-center justify-center bg-card px-4">
-        <Text className="px-4 py-1 text-xs text-[#DC2626]">{error}</Text>
+        <Text className="px-4 py-1 text-xs text-danger">{error}</Text>
         <TouchableOpacity className="mt-3 px-4 py-2 rounded-lg bg-primary" onPress={() => load()}>
           <Text className="text-sm text-primary-foreground">{t('exam.retry')}</Text>
         </TouchableOpacity>
@@ -99,11 +99,11 @@ export function ExamScreen() {
         </TouchableOpacity>
         <Text className="mt-2 text-[22px] font-semibold text-foreground">{t('exam.title')}</Text>
         <Text className="mt-1 text-[13px] text-muted-foreground">{t('exam.subtitle')}</Text>
-        <Text className="mt-1 text-[11px] text-[#9CA3AF]">{user?.nickname ?? user?.username ?? ''}</Text>
+        <Text className="mt-1 text-[11px] text-tertiary">{user?.nickname ?? user?.username ?? ''}</Text>
       </View>
 
       {toast ? <Text className="px-4 py-1 text-xs text-primary">{toast}</Text> : null}
-      {error ? <Text className="px-4 py-1 text-xs text-[#DC2626]">{error}</Text> : null}
+      {error ? <Text className="px-4 py-1 text-xs text-danger">{error}</Text> : null}
 
       <FlatList
         className="flex-1 px-4"
@@ -112,7 +112,7 @@ export function ExamScreen() {
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
           <View className="py-10 items-center">
-            <Text className="text-[13px] text-[#9CA3AF]">{t('exam.empty')}</Text>
+            <Text className="text-[13px] text-tertiary">{t('exam.empty')}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -133,7 +133,7 @@ export function ExamScreen() {
                   {item.title}
                 </Text>
                 <View
-                  className={`px-2 py-0.5 rounded-lg ${status === 'inProgress' ? 'bg-[#D1FAE5]' : status === 'ended' ? 'bg-[#FEF2F2]' : 'bg-muted'}`}
+                  className={`px-2 py-0.5 rounded-lg ${status === 'inProgress' ? 'bg-success-lighter' : status === 'ended' ? 'bg-danger-light' : 'bg-muted'}`}
                 >
                   <Text className={`text-[11px] ${status === 'inProgress' ? 'text-primary' : 'text-muted-foreground'}`}>
                     {t(statusKey)}
@@ -176,7 +176,7 @@ export function ExamScreen() {
               ) : null}
               <View className="flex-row justify-end mt-2.5">
                 <TouchableOpacity
-                  className={`px-4 py-2 rounded-lg ${canStart ? 'bg-primary' : 'bg-[#D1D5DB]'}`}
+                  className={`px-4 py-2 rounded-lg ${canStart ? 'bg-primary' : 'bg-line'}`}
                   onPress={() => handleStart(item)}
                   disabled={!canStart}
                 >
