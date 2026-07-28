@@ -1314,7 +1314,8 @@
       "createSuccess": "智能体创建成功",
       "mockSuccess": "接口暂未开放,已模拟创建",
       "submitting": "创建中…",
-      "submit": "创建智能体"
+      "submit": "创建智能体",
+      "fileSizeExceeded": "文件不能超过10MB"
     },
     "modelEdit": {
       "title": "编辑模型",

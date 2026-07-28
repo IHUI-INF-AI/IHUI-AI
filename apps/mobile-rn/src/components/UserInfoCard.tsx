@@ -3,22 +3,20 @@
  * 展示用户信息:头像/昵称/等级/VIP
  * 保留卡片样式
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/UserInfoCard/UserInfoCard.vue)
+ *
+ * 共享类型 UserInfo 已下沉到 @ihui/types,消除两端数据类型重复定义。
+ * 本地 Props 用 `userInfo: UserInfo` 对象结构,与 miniapp-taro 扁平 props 结构不同,
+ * 不 extends UserInfoCardMinimalProps(该 Minimal 仅作语义参考)。
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatTokenValue } from '@ihui/shared/utils'
 import { getRoleLabel } from '@ihui/shared/utils'
+import type { UserInfo } from '@ihui/types'
 
-export interface UserInfo {
-  uuid?: string
-  username?: string
-  avatarUrl?: string
-  isVip?: number
-  identityType?: number
-  tokenQuantity?: number | string
-  [key: string]: unknown
-}
+// 共享类型 UserInfo 已下沉到 @ihui/types,本地 re-export 保持调用方兼容
+export type { UserInfo }
 
 export interface UserInfoCardProps {
   userInfo: UserInfo

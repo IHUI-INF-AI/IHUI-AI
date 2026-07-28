@@ -231,5 +231,10 @@
     "balance": "可用余额",
     "totalRecharge": "累计充值",
     "loadFailed": "加载失败"
+  },
+  "contextMenu": {
+    "translate": "IHUI AI · 翻译选区",
+    "vocab": "IHUI AI · 查词",
+    "send": "IHUI AI · 发送到对话"
   }
 }

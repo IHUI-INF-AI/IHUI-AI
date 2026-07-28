@@ -505,10 +505,12 @@ export default function ChatPage() {
     [sendMessage, t],
   )
 
-  const handleMaterialUpload = useCallback((tab: MaterialTab) => {
-    // TODO: i18n — Taro.showToast 硬编码中文待翻译(上传 TabX 素材)
-    Taro.showToast({ title: `上传 Tab${tab} 素材`, icon: 'none' })
-  }, [])
+  const handleMaterialUpload = useCallback(
+    (tab: MaterialTab) => {
+      Taro.showToast({ title: t('ai.uploadMaterialTab', { tab }), icon: 'none' })
+    },
+    [t],
+  )
 
   /** 复用问题到输入框(对标原 ai_assistant.vue copyToInput) */
   const handleReuse = useCallback((question: string) => {

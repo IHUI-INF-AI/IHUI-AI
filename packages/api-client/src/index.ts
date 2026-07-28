@@ -64,6 +64,7 @@ export { isAIResponse } from '@ihui/types'
 
 export * from './endpoints/admin'
 export * from './endpoints/admin-auth'
+export * from './endpoints/admin-business'
 export * from './endpoints/admin-content'
 export * from './endpoints/admin-member'
 export * from './endpoints/admin-monitor'

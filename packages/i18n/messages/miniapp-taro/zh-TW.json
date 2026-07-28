@@ -1314,7 +1314,8 @@
       "createSuccess": "智慧體建立成功",
       "mockSuccess": "介面暫未開放,已模擬建立",
       "submitting": "建立中…",
-      "submit": "建立智慧體"
+      "submit": "建立智慧體",
+      "fileSizeExceeded": "檔案不能超過10MB"
     },
     "modelEdit": {
       "title": "編輯模型",

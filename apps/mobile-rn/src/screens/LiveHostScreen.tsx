@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getResources, type Resource } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDuration, formatFileSize } from '@ihui/shared/utils'
+import { useI18n } from '../i18n'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type StreamStatus = 'idle' | 'active' | 'inactive'
@@ -39,6 +40,7 @@ const BADGE_STYLE: Record<StreamStatus, { cls: string; text: string }> = {
 
 export function LiveHostScreen() {
   const navigation = useNavigation<Nav>()
+  const { t } = useI18n()
     const [streamTitle, setStreamTitle] = useState('')
   const [status, setStatus] = useState<StreamStatus>('idle')
   const [stream, setStream] = useState<StreamData | null>(null)
@@ -99,8 +101,7 @@ export function LiveHostScreen() {
 
   const startLive = async () => {
     const title = streamTitle.trim()
-    // TODO: i18n — Alert.alert 硬编码中文待翻译(提示 / 请输入直播标题 / 错误)
-    if (!title) return Alert.alert('提示', '请输入直播标题')
+    if (!title) return Alert.alert(t('common.hint'), t('liveHost.error.titleRequired'))
     setLoading(true)
     setError('')
     try {
@@ -110,10 +111,9 @@ export function LiveHostScreen() {
       setDuration(0)
       setViewers(Math.floor(Math.random() * 20) + 5)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '开启直播失败'
+      const msg = e instanceof Error ? e.message : t('liveHost.error.startFailed')
       setError(msg)
-      // TODO: i18n — Alert.alert 硬编码中文待翻译(错误)
-      Alert.alert('错误', msg)
+      Alert.alert(t('common.error'), msg)
     } finally {
       setLoading(false)
     }
@@ -126,20 +126,17 @@ export function LiveHostScreen() {
     try {
       await callApi(`/api/srs/streams/${stream.id}`, 'PUT', { status: 'inactive' })
       setStatus('inactive')
-      // TODO: i18n — Alert.alert 硬编码中文待翻译(直播已结束 / 本次直播时长:X)
-      Alert.alert('直播已结束', `本次直播时长:${formatDuration(duration)}`)
+      Alert.alert(t('liveHost.ended.title'), t('liveHost.ended.message', { duration: formatDuration(duration) }))
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '结束直播失败'
+      const msg = e instanceof Error ? e.message : t('liveHost.error.endFailed')
       setError(msg)
-      // TODO: i18n — Alert.alert 硬编码中文待翻译(错误)
-      Alert.alert('错误', msg)
+      Alert.alert(t('common.error'), msg)
     } finally {
       setLoading(false)
     }
   }
 
-  // TODO: i18n — Alert.alert 按钮文字硬编码中文待翻译(关闭)
-  const copyText = (text: string, label: string) => Alert.alert(label, text, [{ text: '关闭' }])
+  const copyText = (text: string, label: string) => Alert.alert(label, text, [{ text: t('common.close') }])
   const badge = BADGE_STYLE[status]
 
   const stats: { label: string; value: string; cls?: string }[] = [
@@ -238,8 +235,7 @@ export function LiveHostScreen() {
         <View className="flex-row items-center justify-between mb-2">
           <Text className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">商品管理</Text>
           <TouchableOpacity
-            // TODO: i18n — Alert.alert 硬编码中文待翻译(提示 / 商品添加功能待接入)
-            onPress={() => Alert.alert('提示', '商品添加功能待接入')}
+            onPress={() => Alert.alert(t('common.hint'), t('liveHost.productAdd.message'))}
             className="rounded-lg bg-neutral-100 dark:bg-neutral-800 px-2 py-1"
           >
             <Text className="text-xs text-emerald-600">+ 添加商品</Text>

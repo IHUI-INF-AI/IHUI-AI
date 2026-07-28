@@ -1,59 +1,25 @@
 import { unwrapApi as api } from '@/lib/api-helpers'
+import { textareaClass } from '@/lib/form-styles'
 import type { CsMessage } from '@/components/customer-service/MessageBubble'
+import type {
+  CsAgent,
+  CsAgentStatus as AgentStatus,
+  CsCategory,
+  CsStats,
+  CsTicket,
+  CsTicketComment,
+  CsTicketPriority as TicketPriority,
+  CsTicketStatus as TicketStatus,
+} from '@ihui/types'
 
-export { api }
+export { api, textareaClass }
 
-export type TicketStatus = 'pending' | 'open' | 'resolved' | 'closed' | 'rejected'
-export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
-export type AgentStatus = 'online' | 'busy' | 'away' | 'offline'
-
-export interface Category {
-  id: string
-  name: string
-  slug: string
-  description?: string | null
-  sortOrder: number
-}
-
-export interface Ticket {
-  id: string
-  ticketNo: string
-  userId: string
-  categoryId: string | null
-  title: string
-  description: string
-  status: TicketStatus
-  priority: TicketPriority
-  assigneeId: string | null
-  source: string
-  attachments: unknown[]
-  resolvedAt: string | null
-  closedAt: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Comment {
-  id: string
-  ticketId: string
-  userId: string
-  content: string
-  isAdmin: boolean
-  attachments: unknown[]
-  createdAt: string
-}
-
-export interface Agent {
-  id: string
-  userId: string
-  nickname: string
-  avatar: string | null
-  status: AgentStatus
-  maxConcurrent: number
-  currentLoad: number
-  skills: string[]
-  createdAt: string
-}
+export type { TicketStatus, TicketPriority, AgentStatus }
+export type Category = CsCategory
+export type Ticket = CsTicket
+export type Comment = CsTicketComment
+export type Agent = CsAgent
+export type { CsStats }
 
 export interface CsSession {
   id: string
@@ -66,12 +32,9 @@ export interface CsSession {
   messages: CsMessage[]
 }
 
-export interface CsStats {
-  onlineAgents: number
-  waiting: number
-  todayProcessed: number
-}
-
+// 会话列表响应:本地化定义以使用 CsSession(messages: CsMessage[] 精确类型)
+// 而非 @ihui/types 的 CsSessionBase(messages: unknown[] 占位)。
+// 运行时后端返回的 messages 即为 CsMessage[],此处类型断言由调用方 fetchApi<SessionsData> 承载。
 export type SessionsData = { list: CsSession[] } | CsSession[]
 
 export const STATUS_LABEL: Record<TicketStatus, string> = {
@@ -125,6 +88,3 @@ export const TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   rejected: ['open', 'closed'],
   closed: ['open'],
 }
-
-export const textareaClass =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
