@@ -400,3 +400,68 @@ export interface StudyPlanScreenProps {
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
+
+/** 钱包余额信息(平台注入,字段对齐 @ihui/api-client WalletBalance) */
+export interface WalletBalance {
+  /** 可用余额 */
+  balance: number
+  /** 冻结金额 */
+  frozenBalance: number
+  /** 累计充值 */
+  totalRecharge: number
+  /** 累计提现 */
+  totalWithdraw: number
+}
+
+/** 钱包记录类型(与后端 /api/wallet/records 契约对齐) */
+export type WalletRecordType = 'recharge' | 'withdraw' | 'consume' | 'refund' | 'commission' | string
+
+/** 钱包记录列表项(平台注入) */
+export interface WalletRecordItem {
+  id: string
+  amount: number
+  balanceAfter: number
+  type: WalletRecordType
+  status: string
+  payMethod: string | null
+  remark: string | null
+  createdAt: string
+}
+
+/** Wallet 屏 props */
+export interface WalletScreenProps {
+  t: TFunction
+  balance: WalletBalance | null
+  loading: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击充值/提现等操作回调,平台注入导航跳转 */
+  onAction?: (action: 'recharge' | 'withdraw') => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程目录项(平台注入,字段对齐 mobile-rn CourseCatalogScreen CatalogItem) */
+export interface CourseCatalogItem {
+  id: string
+  title: string
+  type: string
+  /** 时长(分钟) */
+  duration: number
+  /** 子章节(可选,用于树形目录) */
+  children?: CourseCatalogItem[]
+}
+
+/** CourseCatalog 屏 props */
+export interface CourseCatalogScreenProps {
+  t: TFunction
+  items: CourseCatalogItem[]
+  loading: boolean
+  error: string
+  /** 点击章节回调,平台注入导航跳转(如 navigate('CourseChapter', { id })) */
+  onPressItem: (item: CourseCatalogItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
