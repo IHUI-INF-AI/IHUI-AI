@@ -1,5 +1,5 @@
 import './global.css'
-import { View } from 'react-native'
+import { AppRegistry, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
@@ -55,3 +55,8 @@ export default function App() {
     </ThemeProvider>
   )
 }
+
+// 显式注册 main 组件（Expo CLI 的 .expo/.virtual-metro-entry 虚拟入口在当前
+// pnpm isolated monorepo 环境下未正确注入 registerRootComponent 调用，
+// 导致 RN 运行时报 "main" has not been registered。这里手动注册兜底。）
+AppRegistry.registerComponent('main', () => App)
