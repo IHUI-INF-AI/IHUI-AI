@@ -4,7 +4,7 @@
   "repository": "https://github.com/IHUI-INF-AI/IHUI-AI",
   "logo": "https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/apps/web/public/images/logo.png",
   "keywords": ["ai", "llm", "mcp", "langgraph", "agent", "rag", "nextjs", "fastify", "fastapi", "monorepo"],
-  "website": "https://ihui.ai",
+  "website": "https://aizhs.top",
   "env": {
     "NODE_ENV": "production",
     "NPM_CONFIG_PRODUCTION": "false",

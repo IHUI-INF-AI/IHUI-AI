@@ -6,25 +6,25 @@ const compareJsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/compare/ihui-vs-cursor#webpage',
-      url: 'https://ihui.ai/compare/ihui-vs-cursor',
+      '@id': 'https://aizhs.top/compare/ihui-vs-cursor#webpage',
+      url: 'https://aizhs.top/compare/ihui-vs-cursor',
       name: 'IHUI AI vs Cursor:全栈 AI 操作系统 vs AI 优先 IDE',
       description:
         'Cursor 是 AI 优先 IDE(VS Code fork,2025 现象级产品,专注代码补全 + Chat);IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 六端分发。本文深度对比。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
-        { '@id': 'https://ihui.ai/#organization' },
+        { '@id': 'https://aizhs.top/#organization' },
         { '@type': 'Thing', name: 'Cursor IDE' },
       ],
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/compare/ihui-vs-cursor#breadcrumb',
+      '@id': 'https://aizhs.top/compare/ihui-vs-cursor#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://ihui.ai/compare' },
-        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs Cursor', item: 'https://ihui.ai/compare/ihui-vs-cursor' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
+        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs Cursor', item: 'https://aizhs.top/compare/ihui-vs-cursor' },
       ],
     },
   ],
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'IHUI AI vs Cursor — 全栈 AI OS vs AI 优先 IDE',
     description: '六端同源 AI 操作系统 vs 桌面 IDE only;开源可商用 vs 闭源 SaaS。',
-    url: 'https://ihui.ai/compare/ihui-vs-cursor',
+    url: 'https://aizhs.top/compare/ihui-vs-cursor',
     type: 'article',
   },
 }

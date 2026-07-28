@@ -25,14 +25,14 @@ export const FALLBACK_CONTACTS: ContactItem[] = [
   {
     icon: 'mail',
     label: '商务邮箱',
-    value: 'support@ihui.ai',
-    href: 'mailto:support@ihui.ai',
+    value: 'support@aizhs.top',
+    href: 'mailto:support@aizhs.top',
   },
   {
     icon: 'globe',
     label: '官方网站',
-    value: 'https://www.ihui.ai',
-    href: 'https://www.ihui.ai',
+    value: 'https://www.aizhs.top',
+    href: 'https://www.aizhs.top',
   },
 ]
 

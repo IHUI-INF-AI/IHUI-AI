@@ -47,7 +47,7 @@
 
 ### 步骤 4:填写邮箱和密码
 
-1. 在 **"Email address"** 输入框，填入用户的邮箱（例如 `ihui.ai@gmail.com`）
+1. 在 **"Email address"** 输入框，填入用户的邮箱（例如 `aizhs.top@gmail.com`）
 2. 在 **"Password"** 输入框，填入一个强密码（至少 12 位，包含大小写字母+数字+符号）
 3. 点击 **"Continue"**（继续）
 

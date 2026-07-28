@@ -199,8 +199,8 @@ ihui-ai-prompt-library-v0.3.0/
 ### 购买方式
 
 - **GitHub Release**: 下载 v0.3.0 release 资产
-- **官网**: https://ihui.ai
-- **联系**: support@ihui.ai
+- **官网**: https://aizhs.top
+- **联系**: support@aizhs.top
 
 ---
 
@@ -290,8 +290,8 @@ ihui-ai-prompt-library-v0.3.0/
 
 ## 📞 联系我们
 
-- 🏠 **官网**: https://ihui.ai
-- 📧 **邮箱**: support@ihui.ai
+- 🏠 **官网**: https://aizhs.top
+- 📧 **邮箱**: support@aizhs.top
 - 🐙 **GitHub**: https://github.com/ihui-ai/ihui-ai
 - 💬 **微信**: ihui-ai (备注: 提示词库)
 
@@ -305,4 +305,4 @@ ihui-ai-prompt-library-v0.3.0/
 
 **© 2026 IHUI AI. 保留所有权利。**
 
-> 购买即表示同意以上许可协议。如需商业授权或定制需求，请联系 support@ihui.ai。
+> 购买即表示同意以上许可协议。如需商业授权或定制需求，请联系 support@aizhs.top。

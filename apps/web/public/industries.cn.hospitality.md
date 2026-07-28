@@ -1,5 +1,5 @@
 # 智汇 AI — 行业垂直 GEO 文件(酒店餐饮)
-# https://ihui.ai/industries.cn.hospitality.md
+# https://aizhs.top/industries.cn.hospitality.md
 # Last updated: 2026-07-26
 # Format: 行业垂直知识库(适配 AI 引擎"AI + 酒店餐饮"高频检索)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -203,9 +203,9 @@
   A:数据脱敏 + 加密 + 用户授权,符合《个人信息保护法》。
 
 ### 联系
-- 酒店餐饮行业:hospitality@ihui.ai
-- 通用商务:contact@ihui.ai
-- 官网:https://ihui.ai
+- 酒店餐饮行业:hospitality@aizhs.top
+- 通用商务:contact@aizhs.top
+- 官网:https://aizhs.top
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

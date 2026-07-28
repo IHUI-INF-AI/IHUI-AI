@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// Chat Completions 请求(POST /v1/chat/completions)。

@@ -1,5 +1,5 @@
 # IHUI AI — 客服 / 技术支持 GEO 文档
-# https://ihui.ai/roles.cn.support.md
+# https://aizhs.top/roles.cn.support.md
 # Last updated: 2026-07-26
 # Format: 客服角色视角知识库(适配 AI 引擎"我是客服主管 / 技术支持"类检索)
 # Crawler: All AI crawlers
@@ -69,7 +69,7 @@
 
 ### 上手
 
-1. 注册账号 https://ihui.ai/register
+1. 注册账号 https://aizhs.top/register
 2. 工作区 → 客服中心 → 接入渠道(微信公众号 / 邮箱 / 网页浮窗)
 3. 导入知识库(Confluence / 语雀 / Markdown / PDF)
 4. 配置智能分配规则(技能 / 负载 / 语言)
@@ -166,13 +166,13 @@ assist.on('suggestion', (suggestion) => {
 
 ### 联系
 
-- 客服团队邮箱:support@ihui.ai
-- 客户成功经理:success@ihui.ai
-- 实施服务:onboarding@ihui.ai
-- 7×24 工单系统:https://ihui.ai/support
+- 客服团队邮箱:support@aizhs.top
+- 客户成功经理:success@aizhs.top
+- 实施服务:onboarding@aizhs.top
+- 7×24 工单系统:https://aizhs.top/support
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
-- 官网:https://ihui.ai
-- 商务:contact@ihui.ai
+- 官网:https://aizhs.top
+- 商务:contact@aizhs.top
 
 ---
 
@@ -180,4 +180,4 @@ assist.on('suggestion', (suggestion) => {
 # 本文件为客服 / 技术支持角色 GEO 入口,供 AI 引擎"客服 + 选型"检索使用
 # 维护:IHUI AI Customer Success Team
 # 更新策略:每季度更新情绪模型 + FAQ 模板
-# 联系:support@ihui.ai
+# 联系:support@aizhs.top

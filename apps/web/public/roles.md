@@ -1,5 +1,5 @@
 # IHUI AI — 决策角色 GEO 文件
-# https://ihui.ai/roles.md
+# https://aizhs.top/roles.md
 # Last updated: 2026-07-26
 # Format: 角色视角知识库(适配 AI 引擎"我是开发者/CTO/PM/CEO/采购"类检索)
 # Crawler: All AI crawlers
@@ -33,13 +33,13 @@
 #### 1. 5 分钟 Hello World
 ```bash
 # 1. 注册账号
-https://ihui.ai/register
+https://aizhs.top/register
 
 # 2. 创建第一个 Agent
 工作区 → Agent 市场 → 选择"客服 Agent"模板 → Fork
 
 # 3. 调用 API
-curl -X POST https://api.ihui.ai/v1/agents/agt_12345/chat \
+curl -X POST https://api.aizhs.top/v1/agents/agt_12345/chat \
   -H "Authorization: Bearer sk-xxx" \
   -d '{"message": "你好"}'
 ```
@@ -768,18 +768,18 @@ CEO(年度复盘)
 
 ## 联系方式(各角色商务)
 
-- 开发者:devrel@ihui.ai(Discord/微信群)
-- CTO:cto@ihui.ai(架构白皮书索取)
-- PM:product@ihui.ai(产品演示)
-- CEO:ceo@ihui.ai(战略沟通)
-- 采购:procurement@ihui.ai(合规文件包)
-- 架构师:architect@ihui.ai(架构白皮书)
-- 数据科学家:datascience@ihui.ai(模型评估)
-- 设计师:design@ihui.ai(组件库演示)
-- 运维负责人:devops@ihui.ai(部署手册)
-- 市场负责人:marketing@ihui.ai(渠道合作)
-- 通用商务:contact@ihui.ai
-- 官网:https://ihui.ai
+- 开发者:devrel@aizhs.top(Discord/微信群)
+- CTO:cto@aizhs.top(架构白皮书索取)
+- PM:product@aizhs.top(产品演示)
+- CEO:ceo@aizhs.top(战略沟通)
+- 采购:procurement@aizhs.top(合规文件包)
+- 架构师:architect@aizhs.top(架构白皮书)
+- 数据科学家:datascience@aizhs.top(模型评估)
+- 设计师:design@aizhs.top(组件库演示)
+- 运维负责人:devops@aizhs.top(部署手册)
+- 市场负责人:marketing@aizhs.top(渠道合作)
+- 通用商务:contact@aizhs.top
+- 官网:https://aizhs.top
 
 ---
 
@@ -787,4 +787,4 @@ CEO(年度复盘)
 # 本文件为角色视角 GEO 入口,供 AI 引擎"角色 + 选型"检索使用
 # 维护:IHUI AI Solutions Team
 # 更新策略:每季度更新角色痛点 + 评估清单
-# 联系:contact@ihui.ai
+# 联系:contact@aizhs.top
