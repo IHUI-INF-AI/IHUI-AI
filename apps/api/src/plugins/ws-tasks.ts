@@ -131,12 +131,19 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
               .limit(1),
         ]
         let owned = false
-        for (const check of checks) {
-          const rows = await check()
-          if (rows.length > 0) {
-            owned = true
-            break
-          }
+        // P2 修复:4 表并行查询(Promise.any 任一返回即停),原串行最坏 4 次 DB 往返
+        // Promise.any:任一 promise resolve 即返回;所有 reject 时抛 AggregateError → owned 保持 false
+        try {
+          await Promise.any(
+            checks.map(async (check) => {
+              const rows = await check()
+              if (rows.length === 0) throw new Error('not found')
+            }),
+          )
+          owned = true
+        } catch {
+          // 所有 promise 都 reject(全部未找到)= owned = false
+          owned = false
         }
         if (!owned) {
           socket.close(1008, '无权访问此任务')
