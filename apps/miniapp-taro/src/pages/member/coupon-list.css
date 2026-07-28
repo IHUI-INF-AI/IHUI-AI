@@ -35,7 +35,7 @@
 .coupon-left {
   width: 200rpx;
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  color: #ffffff;
+  color: var(--color-primary-foreground);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -88,7 +88,7 @@
   align-self: flex-end;
   margin-top: 16rpx;
   font-size: 24rpx;
-  color: #ffffff;
+  color: var(--color-primary-foreground);
   background: var(--color-primary);
   border-radius: 28rpx;
   padding: 0 28rpx;

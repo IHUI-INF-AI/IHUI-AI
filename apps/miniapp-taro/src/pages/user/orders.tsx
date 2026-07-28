@@ -6,8 +6,8 @@ import { useI18n } from '@/i18n'
 
 const STATUS_COLOR: Record<string, string> = {
   paid: 'text-primary',
-  pending: 'text-[#f59e0b]',
-  refunding: 'text-[#f59e0b]',
+  pending: 'text-warning',
+  refunding: 'text-warning',
   refunded: 'text-muted-foreground',
   cancelled: 'text-muted-foreground',
   completed: 'text-primary',
@@ -143,8 +143,8 @@ export default function Orders() {
               <View className="flex items-center pt-[20rpx]">
                 <Text className="flex-1 text-[24rpx] text-muted-foreground">{item.createTime}</Text>
                 <View className="mr-[24rpx]">
-                  <Text className="text-[24rpx] text-[#dd524d]">¥</Text>
-                  <Text className="text-[34rpx] text-[#dd524d] font-bold">{item.amount}</Text>
+                  <Text className="text-[24rpx] text-destructive">¥</Text>
+                  <Text className="text-[34rpx] text-destructive font-bold">{item.amount}</Text>
                 </View>
                 {item.status === 'pending' ? (
                   <View

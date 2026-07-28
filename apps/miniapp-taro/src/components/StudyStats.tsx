@@ -51,7 +51,7 @@ export default function StudyStats({ data = {} }: StudyStatsProps) {
           <Text className="block text-xs text-muted-foreground">{tt('study.completedLessons', '完成课时')}</Text>
         </View>
         <View className="text-center">
-          <Text className="block text-base font-medium text-[#f59e0b]">
+          <Text className="block text-base font-medium text-warning">
             {Math.floor(totalMinutes / 60)}h
           </Text>
           <Text className="block text-xs text-muted-foreground">{tt('study.totalDuration', '累计时长')}</Text>
