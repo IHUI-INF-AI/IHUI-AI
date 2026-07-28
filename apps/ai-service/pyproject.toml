@@ -41,6 +41,9 @@ dependencies = [
     "pdfplumber>=0.11.0",
     "playwright>=1.48.0",
     "slowapi>=0.1.9",
+    # 语音 STT(2026-07-28 立):faster-whisper 本地 CPU 推理,替代 litellm Whisper 付费 API
+    # CTranslate2 后端,base 模型 74MB,首次下载后离线可用,零成本
+    "faster-whisper>=1.0.0",
 ]
 
 [build-system]

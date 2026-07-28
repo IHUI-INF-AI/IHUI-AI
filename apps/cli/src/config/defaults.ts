@@ -23,8 +23,8 @@ export const DEFAULT_SETTINGS: Settings = {
   fsWatcher: { enabled: false },
   announcements: { enabled: false },
   clipboard: { enabled: false },
-  // P2-6 Voice STT:默认关闭(零回归)
-  voice: { enabled: false, durationSec: 5 },
+  // P2-6 Voice STT:默认开启(2026-07-28 改,ai-service 已用 faster-whisper 本地推理,零成本)
+  voice: { enabled: true, durationSec: 5 },
   // P3-1 Mermaid 渲染:默认关闭(零回归)
   mermaid: { enabled: false },
   // P3-2 Telemetry:默认关闭(零回归)
