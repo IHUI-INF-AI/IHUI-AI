@@ -41,12 +41,16 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       //   - 与 sidebar 折叠/展开、ai-panel 开/关 全部无关(它们只影响工作区左边)
       //   - 不与 ScrollDownButton 共用 CSS 变量:ScrollDownButton 用 left 居中需动态计算,
       //     而 PageIndicator 用 right 是常量,二者几何模型不同,不应耦合
-      // 2026-07-28 v9.2:卡片内边距感 — right 10px → 12px(回到卡片内)
-      //   - v9.1 10px 让指示器探出工作区卡片外 2px,违反"卡片内"约束
-      //   - v9.2 12px:工作区右边距 viewport 8px (mr-2),指示器 right=12px 距 viewport 边 12px
-      //     容器右边距卡片右边 4px(12 - 8),形成"卡片内边距"视觉
-      //   - 容器完全在卡片内,不被卡片右边缘裁切
-      //   - 容器宽 20px,左边距 viewport 边 32px,工作区内从容
+      // 2026-07-28 v9.3:卡片内边距感 — 10px → 12px(完全在卡片内)
+      //   - 用户反馈"我就是要卡片内边距感 刚才你应该是弄错了"
+      //   - v9.1 10px:指示器右边距工作区卡片右边 = 10 - 8 = 2px,探出卡片外,违反"卡片内"约束
+      //   - v9.2 12px:指示器右边距工作区卡片右边 = 12 - 8 = 4px,完全在卡片内
+      //   - 容器宽 20px,左边距 viewport 边 32px,工作区内从容不悬空
+      //   - 容器完全在卡片内,不被卡片右边缘裁切,符合"卡片内边距感"
+      // 2026-07-28 v9.2 卡片内边距感初版:10px → 12px
+      // 2026-07-28 v9.1:贴屏幕右 32px → 10px(用户原要求"更贴近屏幕右侧")
+      // 2026-07-28 v9 根因修复:旧公式把左侧 sidebar/ai-panel 算进 right,
+      //   实则工作区右边距 viewport 固定 8px(mr-2),与 sidebar/ai-panel 开关无关
       style={{ right: '12px' }}
       className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
       aria-label={t('label')}
