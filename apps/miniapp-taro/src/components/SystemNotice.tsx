@@ -24,7 +24,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 const TYPE_STYLE: Record<string, string> = {
   system: 'bg-primary/10 text-primary',
-  activity: 'bg-[#f59e0b]/10 text-[#f59e0b]',
+  activity: 'bg-warning/10 text-warning',
   upgrade: 'bg-primary/10 text-primary',
 }
 

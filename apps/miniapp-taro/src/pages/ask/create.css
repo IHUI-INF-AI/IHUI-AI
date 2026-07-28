@@ -137,7 +137,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-destructive);
-  color: #fff;
+  color: var(--color-destructive-foreground);
   border-radius: 8rpx;
   font-size: 24rpx;
   z-index: 2;

@@ -136,7 +136,7 @@ export default function HelpPage() {
       <View className="mx-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
         <View className="mb-[24rpx]">
           <Text className="block text-[28rpx] text-foreground mb-[12rpx] font-medium">
-            <Text className="text-[#ef4444] mr-[4rpx]">*</Text>
+            <Text className="text-destructive mr-[4rpx]">*</Text>
             {tt('about.help.username', '姓名')}
           </Text>
           <Input
@@ -148,7 +148,7 @@ export default function HelpPage() {
         </View>
         <View className="mb-[24rpx]">
           <Text className="block text-[28rpx] text-foreground mb-[12rpx] font-medium">
-            <Text className="text-[#ef4444] mr-[4rpx]">*</Text>
+            <Text className="text-destructive mr-[4rpx]">*</Text>
             {tt('about.help.phone', '联系方式')}
           </Text>
           <Input
@@ -160,7 +160,7 @@ export default function HelpPage() {
         </View>
         <View className="mb-[24rpx]">
           <Text className="block text-[28rpx] text-foreground mb-[12rpx] font-medium">
-            <Text className="text-[#ef4444] mr-[4rpx]">*</Text>
+            <Text className="text-destructive mr-[4rpx]">*</Text>
             {tt('about.help.context', '问题描述')}
           </Text>
           <Textarea
@@ -186,12 +186,12 @@ export default function HelpPage() {
             : tt('about.help.submit', '提交反馈')}
         </Button>
         {feedbackState === 'success' ? (
-          <Text className="block text-center text-[24rpx] mt-[16rpx] text-[#10b981]">
+          <Text className="block text-center text-[24rpx] mt-[16rpx] text-success">
             {tt('about.help.submitSuccess', '反馈提交成功')}
           </Text>
         ) : null}
         {feedbackState === 'failed' ? (
-          <Text className="block text-center text-[24rpx] mt-[16rpx] text-[#ef4444]">
+          <Text className="block text-center text-[24rpx] mt-[16rpx] text-destructive">
             {tt('about.help.submitFailed', '反馈提交失败,请稍后重试')}
           </Text>
         ) : null}

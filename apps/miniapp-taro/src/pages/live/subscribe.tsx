@@ -8,8 +8,8 @@ import { useI18n } from '@/i18n'
 const REMINDER_KEY = 'live_reminder_enabled'
 
 const STATUS_BADGE: Record<Live['status'], string> = {
-  upcoming: 'bg-[rgba(245,158,11,0.12)] text-[#f59e0b]',
-  living: 'bg-[rgba(221,82,77,0.12)] text-[#dd524d]',
+  upcoming: 'bg-[rgba(245,158,11,0.12)] text-warning',
+  living: 'bg-[rgba(221,82,77,0.12)] text-destructive',
   ended: 'bg-muted text-muted-foreground',
 }
 

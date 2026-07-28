@@ -31,7 +31,7 @@ export default function LearningStreak({
           <Text className="text-base font-semibold text-foreground">
             {tt('streak.title', '学习连签')}
           </Text>
-          <Text className="ml-2 text-xs text-[#f59e0b]">
+          <Text className="ml-2 text-xs text-warning">
             🔥 {tt('streak.continuousDays', '连续 {{n}} 天').replace('{{n}}', String(streakDays))}
           </Text>
         </View>
@@ -46,19 +46,19 @@ export default function LearningStreak({
             key={idx}
             className={`flex flex-col items-center justify-center w-9 h-12 rounded-lg ${
               day.signed
-                ? 'bg-[#f59e0b]/10'
+                ? 'bg-warning/10'
                 : day.isToday
                   ? 'bg-muted border border-dashed border-border'
                   : 'bg-muted'
             }`}
           >
             <Text
-              className={`text-[20rpx] ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}
+              className={`text-[20rpx] ${day.signed ? 'text-warning' : 'text-muted-foreground'}`}
             >
               {day.date}
             </Text>
             <Text
-              className={`text-sm mt-0.5 ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}
+              className={`text-sm mt-0.5 ${day.signed ? 'text-warning' : 'text-muted-foreground'}`}
             >
               {day.signed ? '✓' : '·'}
             </Text>

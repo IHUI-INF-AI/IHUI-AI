@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -15,7 +16,6 @@ interface Note extends Pick<Article, 'id' | 'title' | 'summary' | 'createdAt'> {
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function NoteListScreen() {
   const { t } = useI18n()
@@ -105,33 +105,33 @@ export function NoteListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
+  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.bg,
     padding: 16,
   },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { flex: 1, fontSize: 22, fontWeight: '600', color: '#111827' },
-  action: { fontSize: 24, color: PRIMARY, fontWeight: '600' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { flex: 1, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  action: { fontSize: 24, color: tokens.success.DEFAULT, fontWeight: '600' },
   empty: { paddingVertical: 40, alignItems: 'center' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 8 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  cardSummary: { marginTop: 4, fontSize: 13, color: '#374151' },
+  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 8 },
+  cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  cardSummary: { marginTop: 4, fontSize: 13, color: tokens.text.medium },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  author: { fontSize: 11, color: PRIMARY },
-  meta: { fontSize: 11, color: '#9ca3af' },
+  author: { fontSize: 11, color: tokens.success.DEFAULT },
+  meta: { fontSize: 11, color: tokens.text.tertiary },
   btn: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
   },
-  btnText: { color: '#fff', fontSize: 14 },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })
