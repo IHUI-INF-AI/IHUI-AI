@@ -65,6 +65,30 @@ const LANGUAGE_AUTOGLOSSONYMS = new Set([
   '日本語', '日本语',
 ])
 
+// 品牌名白名单(从 scripts/brand-glossary.json 的 brands 段加载)
+// 任何含白名单品牌名的 value 视为合法(如 en.json 保留 "智汇 AI" 作 SEO/双语对照)。
+// 加载失败时白名单为空,不影响主检测流程。
+let BRAND_WHITELIST = new Set()
+try {
+  const glossaryPath = path.resolve('scripts/brand-glossary.json')
+  if (fs.existsSync(glossaryPath)) {
+    const glossary = JSON.parse(fs.readFileSync(glossaryPath, 'utf8'))
+    if (glossary.brands && typeof glossary.brands === 'object') {
+      BRAND_WHITELIST = new Set(Object.keys(glossary.brands))
+    }
+  }
+} catch {
+  /* 加载失败时白名单为空,不影响主检测流程 */
+}
+
+function isWhitelistedBrand(value) {
+  if (BRAND_WHITELIST.size === 0) return false
+  for (const brand of BRAND_WHITELIST) {
+    if (value.includes(brand)) return true
+  }
+  return false
+}
+
 function parseArgs(argv) {
   const positional = []
   let isStaged = false
@@ -136,6 +160,7 @@ function scanCharRange(text, localRe) {
     const value = m[3]
     if (!value) continue
     if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
+    if (isWhitelistedBrand(value)) continue
     if (!HAN_RE.test(value)) continue
     if (localRe && localRe.test(value)) {
       // 含汉字且含本地字符 → 半翻译
@@ -159,6 +184,7 @@ function scanWarnOnly(text) {
     const value = m[3]
     if (!value) continue
     if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
+    if (isWhitelistedBrand(value)) continue
     if (!HAN_RE.test(value)) continue
     half.push({ line: i + 1, key, value })
   }
