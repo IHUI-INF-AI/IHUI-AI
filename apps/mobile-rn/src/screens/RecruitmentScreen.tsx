@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { getAiCareers, type AiCareerItem } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -31,95 +32,36 @@ const TABS: { key: Category; label: string }[] = [
   { key: 'ops', label: '运营' },
 ]
 
-const MOCK_JOBS: Job[] = [
-  {
-    id: '1',
-    position: '高级前端工程师',
-    company: 'AI智汇社',
-    salary: '25-40K',
-    location: '上海',
-    category: 'tech',
-    tags: ['React', 'RN'],
-    experience: '3-5年',
-    education: '本科',
-    description: '负责跨端 AI 应用前端架构与核心模块开发,与产品团队协作交付高质量体验。',
-    requirements: [
-      '精通 React / TypeScript',
-      '熟悉 React Native 跨端开发',
-      '有大型应用性能优化经验',
-      '良好的工程协作意识',
-    ],
-  },
-  {
-    id: '2',
-    position: 'AI 产品经理',
-    company: '智汇实验室',
-    salary: '30-50K',
-    location: '北京',
-    category: 'product',
-    tags: ['AI', 'B端'],
-    experience: '5年以上',
-    education: '本科',
-    description: '主导 AI 智能体产品从 0 到 1 的规划与落地,对接客户需求与研发节奏。',
-    requirements: [
-      '5年以上产品经验',
-      '熟悉 LLM / Agent 能力边界',
-      '有 B 端 SaaS 经验优先',
-      '出色的需求抽象能力',
-    ],
-  },
-  {
-    id: '3',
-    position: 'UI/UX 设计师',
-    company: '智汇设计中心',
-    salary: '18-30K',
-    location: '远程',
-    category: 'design',
-    tags: ['UI', 'UX'],
-    experience: '3年以上',
-    education: '大专',
-    description: '负责多端产品的视觉与交互设计,建立统一的设计语言与组件规范。',
-    requirements: [
-      '精通 Figma 等设计工具',
-      '有跨端设计经验',
-      '理解前端实现约束',
-      '有设计系统建设经验优先',
-    ],
-  },
-  {
-    id: '4',
-    position: '内容运营专员',
-    company: '智汇社区',
-    salary: '10-18K',
-    location: '杭州',
-    category: 'ops',
-    tags: ['内容', '社区'],
-    experience: '1-3年',
-    education: '本科',
-    description: '负责社区内容生态运营,策划 AI 话题活动,提升用户活跃与留存。',
-    requirements: ['有社区/内容运营经验', '熟悉 AI 行业动态', '较强的文案能力', '数据驱动思维'],
-  },
-  {
-    id: '5',
-    position: '后端架构师',
-    company: 'AI智汇社',
-    salary: '40-70K',
-    location: '上海',
-    category: 'tech',
-    tags: ['Node', '架构'],
-    experience: '5年以上',
-    education: '本科',
-    description: '负责平台后端架构演进与技术选型,保障高并发场景下的稳定性与扩展性。',
-    requirements: [
-      '精通 Node.js / TypeScript',
-      '熟悉微服务架构',
-      '有高并发系统经验',
-      '数据库调优能力',
-    ],
-  },
-]
-
 const PRIMARY = tokens.brand.DEFAULT
+
+// AiCareerItem → Job 字段映射。后端 AiCareerItem 仅有 id/title/description,
+// 其余字段(position/company/salary/location/category/tags/experience/education/requirements)
+// 在 UI 层用占位值兜底,待后端补字段时再启用真实数据。
+// AiCareerItem 的 [key: string]: unknown 索引签名使所有扩展字段返回 unknown,
+// 用 type guard 函数安全提取,避免 `as string` 不安全断言和 `any` 兜底。
+function pickStr(v: unknown, fallback: string): string {
+  return typeof v === 'string' && v.length > 0 ? v : fallback
+}
+
+function pickStrArr(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+}
+
+function mapCareerToJob(item: AiCareerItem): Job {
+  return {
+    id: item.id,
+    position: item.title,
+    company: pickStr(item.company, '—'),
+    salary: pickStr(item.salary, '面议'),
+    location: pickStr(item.location, '—'),
+    category: 'tech',
+    tags: pickStrArr(item.tags),
+    experience: pickStr(item.experience, '—'),
+    education: pickStr(item.education, '—'),
+    description: item.description ?? item.content ?? '',
+    requirements: pickStrArr(item.requirements),
+  }
+}
 
 /** 招聘列表:职位筛选 / 列表 / 详情 / 投递。 */
 export default function RecruitmentScreen() {
@@ -127,13 +69,60 @@ export default function RecruitmentScreen() {
   const [activeTab, setActiveTab] = useState<Category>('all')
   const [selected, setSelected] = useState<Job | null>(null)
   const [applied, setApplied] = useState<Set<string>>(new Set())
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const filtered =
-    activeTab === 'all' ? MOCK_JOBS : MOCK_JOBS.filter((j) => j.category === activeTab)
+  // 从 @ihui/api-client 加载真实招聘数据,替换原 MOCK_JOBS。
+  // cancelled flag 防止组件卸载后 setState 导致内存泄漏。
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await getAiCareers({ page: 1, pageSize: 50 })
+        if (cancelled) return
+        if (res.success) {
+          setJobs(res.data.list.map(mapCareerToJob))
+        } else {
+          setError(res.error || '加载失败')
+        }
+      } catch {
+        if (!cancelled) setError('加载失败,请稍后重试')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // API 无 category 字段,TABS 仅作为视觉筛选占位,filtered 始终返回全部 jobs。
+  const filtered = jobs
 
   const onApply = (job: Job) => {
     setApplied((prev) => new Set(prev).add(job.id))
     setSelected(null)
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateWrap}>
+          <Text style={styles.stateText}>加载中...</Text>
+        </View>
+      </View>
+    )
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateWrap}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </View>
+    )
   }
 
   return (
@@ -252,6 +241,9 @@ export default function RecruitmentScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.light },
+  stateWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  stateText: { fontSize: 13, color: tokens.text.tertiary },
+  errorText: { fontSize: 13, color: '#dc2626' },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { paddingVertical: 4, marginBottom: 4 },
   backText: { fontSize: 14, color: tokens.text.secondary },
