@@ -2,6 +2,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
+import { formatDateByTemplate } from '@ihui/shared'
 import {
   getExamPaper,
   getExamQuestions,
@@ -24,12 +25,11 @@ type ExamDetail = ExamPaper & {
 
 const formatTime = (v: string): string => {
   if (!v) return '-'
-  const d = new Date(typeof v === 'string' && v.length === 10 ? Number(v) * 1000 : v)
-  if (isNaN(d.getTime())) return v
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  // 10 位字符串时间戳(秒级)→ 乘 1000 转毫秒;否则原样传给 formatDateByTemplate
+  const input = typeof v === 'string' && v.length === 10 ? Number(v) * 1000 : v
+  const formatted = formatDateByTemplate(input, 'YYYY-MM-DD')
+  // 无效日期时 formatDateByTemplate 返回 '',原实现返回 v,保留原行为
+  return formatted || v
 }
 
 export default function ExamDetail() {
