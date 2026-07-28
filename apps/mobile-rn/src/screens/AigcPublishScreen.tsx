@@ -188,6 +188,21 @@ export default function AigcPublishScreen() {
               <Text style={styles.urlAddText}>添加</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            style={[styles.pickerBtn, uploading && styles.pickerBtnDisabled]}
+            onPress={pickImage}
+            disabled={uploading}
+            activeOpacity={0.7}
+          >
+            {uploading ? (
+              <View style={styles.pickerBtnInner}>
+                <ActivityIndicator color={tokens.surface.light} size="small" />
+                <Text style={styles.pickerBtnTextUploading}>上传中...</Text>
+              </View>
+            ) : (
+              <Text style={styles.pickerBtnText}>从相册选择</Text>
+            )}
+          </TouchableOpacity>
           <View style={styles.fileGrid}>
             {files.map((f) => (
               <View key={f.id} style={styles.fileItem}>
@@ -198,9 +213,14 @@ export default function AigcPublishScreen() {
               </View>
             ))}
             {files.length < 5 ? (
-              <TouchableOpacity style={styles.fileAdd} onPress={addFileByUrl} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.fileAdd}
+                onPress={pickImage}
+                disabled={uploading}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.fileAddIcon}>+</Text>
-                <Text style={styles.fileAddText}>添加</Text>
+                <Text style={styles.fileAddText}>{uploading ? '上传中' : '从相册'}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -312,6 +332,24 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
   },
   urlAddText: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
+  pickerBtn: {
+    paddingVertical: 11,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: PRIMARY,
+    backgroundColor: tokens.surface.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  pickerBtnDisabled: {
+    opacity: 0.6,
+    borderColor: tokens.text.tertiary,
+    backgroundColor: tokens.text.tertiary,
+  },
+  pickerBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pickerBtnText: { color: PRIMARY, fontSize: 13, fontWeight: '600' },
+  pickerBtnTextUploading: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
   fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   fileItem: {
     width: 76,

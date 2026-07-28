@@ -64,9 +64,9 @@ export default function I18nComparePage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <GitCompare className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">语言对比</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">语言对比</h1>
         </div>
-        <p className="text-sm text-muted-foreground">选择两种语言并排查看 Key-Value 翻译</p>
+        <p className="text-xs text-muted-foreground">选择两种语言并排查看 Key-Value 翻译</p>
       </header>
 
       <Card>
