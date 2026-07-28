@@ -9677,7 +9677,7 @@
                                     "totalSteps":  "({count} steps total)",
                                     "working":  "{count} sub-agents collaborating"
                                 },
-               "progressPane":  {
+               "pane":  {
                                    "title":  "Task Plan",
                                    "ariaLabel":  "Agent Task Progress Panel",
                                    "pin":  "Pin",
@@ -9693,6 +9693,9 @@
                                    "sectionsToolbarLabel":  "Collapsible sections toolbar",
                                    "copy":  "Copy",
                                    "copied":  "Copied",
+                                   "progressLabel":  "Task progress {pct}%",
+                                   "sseStatus":  {"connected":"Connected","connecting":"Connecting","reconnecting":"Reconnecting","disconnected":"Disconnected","reconnectingShort":"Retry {n}/{max}","disconnectedShort":"Offline","tooltipError":"Connection error: {error}"},
+
                                    "relativeTime":  {
                                                        "justNow":  "just now",
                                                        "secondsAgo":  "{n}s ago",

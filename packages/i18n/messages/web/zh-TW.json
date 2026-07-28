@@ -9634,7 +9634,7 @@
       "totalSteps": "(共 {count} 步)",
       "working": "{count} 個子智能體協作中"
     },
-    "progressPane": {
+    "pane":  {
       "title": "任務計畫",
       "ariaLabel": "Agent 任務進度面板",
       "pin": "置頂",
@@ -9650,6 +9650,9 @@
       "sectionsToolbarLabel": "摺疊子區工具列",
       "copy": "複製",
       "copied": "已複製",
+      "progressLabel":  "任務進度 {pct}%",
+      "sseStatus":  {"connected":"已連線","connecting":"連線中","reconnecting":"重新連線中","disconnected":"已斷線","reconnectingShort":"重連 {n}/{max}","disconnectedShort":"已斷線","tooltipError":"連線錯誤: {error}"},
+
       "relativeTime": {
         "justNow": "剛剛",
         "secondsAgo": "{n}s前",
