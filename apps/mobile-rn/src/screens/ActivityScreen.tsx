@@ -31,7 +31,7 @@ interface Activity {
 
 function statusColor(status: ActivityStatus): string {
   if (status === 'ongoing') return tokens.brand.DEFAULT
-  if (status === 'upcoming') return '#F59E0B'
+  if (status === 'upcoming') return tokens.warning.DEFAULT
   return tokens.text.tertiary
 }
 
