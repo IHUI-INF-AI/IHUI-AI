@@ -13,10 +13,11 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native'
+import type { TitleSwitchScrollPickerItem } from '@ihui/ui-native'
 
-export interface TitleSwitchItem {
-  name: string
-}
+// 共享类型 TitleSwitchScrollPickerItem 下沉到 packages/types,两端复用。
+// 保留 TitleSwitchItem 别名以维持本模块公开 API(本模块内部亦使用此名)。
+export type TitleSwitchItem = TitleSwitchScrollPickerItem
 
 interface Props {
   mainList?: TitleSwitchItem[]

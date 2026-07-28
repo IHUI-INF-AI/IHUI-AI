@@ -91,12 +91,14 @@ export default function AigcCoverScreen() {
 
   const onConfirm = () => {
     if (!selected) return
+    // TODO: i18n — Alert.alert 硬编码中文待翻译(封面已应用 / 已为「X」应用封面 / 好的)
     Alert.alert('封面已应用', `已为「${workTitle}」应用封面:${selected.label}`, [
       { text: '好的', onPress: () => navigation.goBack() },
     ])
   }
 
   const onGenerateAi = () => {
+    // TODO: i18n — Alert.alert 硬编码中文待翻译(AI 生成封面 / 功能开发中 / 知道了)
     Alert.alert('AI 生成封面', '功能开发中', [{ text: '知道了' }])
   }
 

@@ -127,6 +127,7 @@ export default function AiCareerScreen() {
                 )}
                 <TouchableOpacity
                   style={s.planBtn}
+                  // TODO: i18n — Alert.alert 硬编码中文待翻译(生成规划 / 正在为「X」生成 90 天成长计划)
                   onPress={() => Alert.alert('生成规划', `正在为「${c.title}」生成 90 天成长计划`)}
                   activeOpacity={0.85}
                 >
