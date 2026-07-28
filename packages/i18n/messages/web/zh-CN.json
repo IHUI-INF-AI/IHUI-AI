@@ -591,7 +591,9 @@
       "review": "切换到审查模式(只读审查,强化代码审查)",
       "spec": "切换到规格模式(从代码反向生成 spec 文档)",
       "goal": "设定当前会话目标(AI 围绕目标执行,进入 goal 模式工作流)",
-      "loop": "设置循环执行模式(on 开启 / off 关闭 / N 迭代次数)"
+      "loop": "设置循环执行模式(on 开启 / off 关闭 / N 迭代次数)",
+      "goalArgTitle": "选择目标模板",
+      "loopArgTitle": "选择循环模式"
     },
     "cmdSummary": "请总结以上对话内容，提炼关键信息",
     "cmdTranslate": "请将以下内容翻译为英文：",
@@ -9682,6 +9684,14 @@
       "timelineNoMatch": "没有匹配当前过滤条件的事件",
       "timelineClearFilters": "清空过滤",
       "timelineExport": "导出为 Markdown",
+      "timelineSubagentSpawn": "子智能体启动",
+      "timelineSubagentProgress": "执行中",
+      "timelineSubagentEnd": "子智能体完成",
+      "timelineSubagentFailed": "子智能体失败",
+      "timelineSubagentThinking": "思考中",
+      "timelineSubagentToolCall": "调用工具",
+      "timelineSubagentToolResult": "工具返回",
+      "timelineSubagentOutputReady": "输出就绪",
       "sseStatus": {
         "connected": "已连接",
         "connecting": "连接中",

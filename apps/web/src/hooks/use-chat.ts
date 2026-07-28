@@ -24,6 +24,12 @@ import {
 } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
+import {
+  mapSpawnToTimelineEvent,
+  mapProgressToTimelineUpdate,
+  mapEndToTimelineUpdate,
+} from '@/lib/subagent-timeline-mapper'
+import { useTimelineStore } from '@/stores/timeline-store'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'
@@ -189,12 +195,20 @@ function tryHandlePlanModeSlash(text: string): boolean {
   const modeStore = useModeStore.getState()
   if (modeStore.currentMode === target) {
     // 已是目标模式:不重复切换,仅 toast 提示当前模式
-    const label = target === 'build' ? '构建' : target === 'plan' ? '计划' : target === 'review' ? '审查' : '规格'
+    const label =
+      target === 'build'
+        ? '构建'
+        : target === 'plan'
+          ? '计划'
+          : target === 'review'
+            ? '审查'
+            : '规格'
     toast.info(`当前已是${label}模式`)
     return true
   }
   modeStore.setMode(target)
-  const label = target === 'build' ? '构建' : target === 'plan' ? '计划' : target === 'review' ? '审查' : '规格'
+  const label =
+    target === 'build' ? '构建' : target === 'plan' ? '计划' : target === 'review' ? '审查' : '规格'
   const desc =
     target === 'build'
       ? 'AI 将正常执行,全工具开放(Ctrl+1 可快速切换)'
@@ -233,11 +247,7 @@ function tryHandleChatModeSlash(
   }
   modeStore.setMode(target)
   const descKey =
-    target === 'build'
-      ? 'modeBuildDesc'
-      : target === 'review'
-        ? 'modeReviewDesc'
-        : 'modeSpecDesc'
+    target === 'build' ? 'modeBuildDesc' : target === 'review' ? 'modeReviewDesc' : 'modeSpecDesc'
   toast.success(t('modeSwitched', { mode: label }), { description: t(descKey) })
   return true
 }
@@ -333,8 +343,14 @@ async function tryHandlePermissionSlash(text: string): Promise<boolean> {
  * - 中英文混排:关键词里既包含中文("修改"/"分析")也包含英文("build"/"plan")
  *   兼容用户纯英文输入或中英混输场景 */
 const SUGGEST_KEYWORDS: { mode: ChatMode; keywords: string[] }[] = [
-  { mode: 'plan', keywords: ['调研', '分析', '了解', '看看', '查看', '研究', '探索', '梳理', 'plan'] },
-  { mode: 'build', keywords: ['修改', '实现', '重构', '添加', '删除', '编写', '创建', '修复', '更新', 'build'] },
+  {
+    mode: 'plan',
+    keywords: ['调研', '分析', '了解', '看看', '查看', '研究', '探索', '梳理', 'plan'],
+  },
+  {
+    mode: 'build',
+    keywords: ['修改', '实现', '重构', '添加', '删除', '编写', '创建', '修复', '更新', 'build'],
+  },
   { mode: 'review', keywords: ['审查', '检查', '对比', '评审', 'review', 'diff'] },
   { mode: 'spec', keywords: ['规格', '规范', '契约', 'spec', 'specification'] },
 ]
@@ -1243,9 +1259,21 @@ export function useChat(): UseChatReturn {
           // Subagent 自动派发(2026-07-28 立,对标 Trae Work):
           // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
           // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
-          onSubagentSpawn: (evt) => useChatStore.getState().addSubagentSpawn(evt),
-          onSubagentEnd: (evt) => useChatStore.getState().markSubagentEnd(evt),
-          onSubagentProgress: (evt) => useChatStore.getState().updateSubagentProgress(evt),
+          // 2026-07-29 Phase 21:同步写入 timeline-store,让 Timeline tab 实时响应。
+          onSubagentSpawn: (evt) => {
+            useChatStore.getState().addSubagentSpawn(evt)
+            useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
+          },
+          onSubagentProgress: (evt) => {
+            useChatStore.getState().updateSubagentProgress(evt)
+            const update = mapProgressToTimelineUpdate(evt)
+            if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+          },
+          onSubagentEnd: (evt) => {
+            useChatStore.getState().markSubagentEnd(evt)
+            const update = mapEndToTimelineUpdate(evt)
+            useTimelineStore.getState().updateEvent(update.id, update.updates)
+          },
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
             // #9 错误前先 flush 累积 token,避免最后一批内容丢失
@@ -1479,8 +1507,21 @@ export function useChat(): UseChatReturn {
         onToolCall: createToolCallHandler(assistantId),
         // Subagent 自动派发(2026-07-28 立,与 sendMessage 对称):
         // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
-        onSubagentSpawn: (evt) => useChatStore.getState().addSubagentSpawn(evt),
-        onSubagentEnd: (evt) => useChatStore.getState().markSubagentEnd(evt),
+        // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
+        onSubagentSpawn: (evt) => {
+          useChatStore.getState().addSubagentSpawn(evt)
+          useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
+        },
+        onSubagentProgress: (evt) => {
+          useChatStore.getState().updateSubagentProgress(evt)
+          const update = mapProgressToTimelineUpdate(evt)
+          if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+        },
+        onSubagentEnd: (evt) => {
+          useChatStore.getState().markSubagentEnd(evt)
+          const update = mapEndToTimelineUpdate(evt)
+          useTimelineStore.getState().updateEvent(update.id, update.updates)
+        },
         agentTools: mergeAgentTools(),
         onError: (errMsg, info) => {
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
