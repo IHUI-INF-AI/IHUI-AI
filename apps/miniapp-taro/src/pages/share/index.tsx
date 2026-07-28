@@ -429,7 +429,7 @@ export default function ShareIndexPage() {
                 <View className="share-item-meta">
                   <Text className="share-item-time">{formatDate(n.createTime)}</Text>
                   <Text className="share-item-views">
-                    {tt('news.views', '{{n}} 次浏览').replace('{{n}}', String(n.views || 0))}
+                    {t('news.views', { n: n.views || 0 })}
                   </Text>
                 </View>
               </View>
