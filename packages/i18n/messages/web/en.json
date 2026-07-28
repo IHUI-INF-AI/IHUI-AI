@@ -507,11 +507,30 @@
       "ruleType": {
         "path": "Path",
         "command": "Command",
-        "tool": "Tool"
+        "tool": "Tool",
+        "unknown": "Unknown"
       },
       "decision": {
         "allow": "Allow",
         "deny": "Deny"
+      },
+      "mode": {
+        "default": {
+          "title": "Default",
+          "desc": "All operations require manual confirmation. Most secure."
+        },
+        "accept-edits": {
+          "title": "Accept Edits",
+          "desc": "Whitelisted operations auto-allowed, others require confirmation"
+        },
+        "bypass-permissions": {
+          "title": "Bypass Permissions",
+          "desc": "Full access, no confirmation (high risk)"
+        },
+        "unknown": {
+          "title": "Unknown Mode",
+          "desc": "Unrecognized permission mode"
+        }
       },
       "auditRequest": {
         "title": "Permission Required",

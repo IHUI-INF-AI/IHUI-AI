@@ -507,11 +507,30 @@
       "ruleType": {
         "path": "路徑",
         "command": "命令",
-        "tool": "工具"
+        "tool": "工具",
+        "unknown": "未知"
       },
       "decision": {
         "allow": "允許",
         "deny": "拒絕"
+      },
+      "mode": {
+        "default": {
+          "title": "默認模式",
+          "desc": "全部操作需人工確認,最安全"
+        },
+        "accept-edits": {
+          "title": "接受編輯",
+          "desc": "白名單內的操作自動放行,其他需確認"
+        },
+        "bypass-permissions": {
+          "title": "繞過權限",
+          "desc": "完全訪問,無任何確認(高風險)"
+        },
+        "unknown": {
+          "title": "未知模式",
+          "desc": "未識別的權限模式"
+        }
       },
       "auditRequest": {
         "title": "權限確認",

@@ -508,11 +508,30 @@
       "ruleType": {
         "path": "パス",
         "command": "コマンド",
-        "tool": "ツール"
+        "tool": "ツール",
+        "unknown": "不明"
       },
       "decision": {
         "allow": "許可",
         "deny": "拒否"
+      },
+      "mode": {
+        "default": {
+          "title": "デフォルトモード",
+          "desc": "全操作は手動確認が必要、最も安全"
+        },
+        "accept-edits": {
+          "title": "編集を許可",
+          "desc": "ホワイトリスト内の操作は自動許可、その他は確認が必要"
+        },
+        "bypass-permissions": {
+          "title": "権限バイパス",
+          "desc": "完全アクセス、確認なし（高リスク）"
+        },
+        "unknown": {
+          "title": "不明なモード",
+          "desc": "認識できない権限モード"
+        }
       },
       "auditRequest": {
         "title": "権限確認",

@@ -488,11 +488,30 @@
       "ruleType": {
         "path": "路径",
         "command": "命令",
-        "tool": "工具"
+        "tool": "工具",
+        "unknown": "未知"
       },
       "decision": {
         "allow": "允许",
         "deny": "拒绝"
+      },
+      "mode": {
+        "default": {
+          "title": "默认模式",
+          "desc": "全部操作需人工确认,最安全"
+        },
+        "accept-edits": {
+          "title": "接受编辑",
+          "desc": "白名单内的操作自动放行,其他需确认"
+        },
+        "bypass-permissions": {
+          "title": "绕过权限",
+          "desc": "完全访问,无任何确认(高风险)"
+        },
+        "unknown": {
+          "title": "未知模式",
+          "desc": "未识别的权限模式"
+        }
       },
       "auditRequest": {
         "title": "权限确认",
