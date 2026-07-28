@@ -33,6 +33,7 @@ import {
   type WorkspacePermission,
 } from '@ihui/api-client/endpoints/workspace'
 import { cn } from '@/lib/utils'
+import { isTauri } from '@/lib/tauri-bridge'
 import { WorkspacePermissionDialog } from './workspace-permission-dialog'
 
 interface LocalFolderPickerProps {
@@ -161,15 +162,19 @@ interface PathNavProps {
   onRefresh: () => void
   isRefreshing: boolean
   t: ReturnType<typeof useTranslations<'workspace.folderPicker'>>
+  /** 父组件传入的待编辑草稿(如系统选择器返回的 folder name);变化时自动切到 input 模式并预填 */
+  pendingDraft?: string
+  /** 用户 commit 路径后通知父组件(用于清空 pendingDraft) */
+  onDraftCommit?: () => void
 }
 
 /**
  * 位置栏 — 两种模式:
  *   - breadcrumb: 可点击面包屑(默认)
  *   - input: 输入框(回车跳转,Esc 取消)
- * 通过右侧 ⌨ 按钮切换。
+ * 通过右侧 ⌨ 按钮切换,或父组件通过 pendingDraft 触发(系统选择器场景)。
  */
-function PathNav({ currentPath, onNavigate, onRefresh, isRefreshing, t }: PathNavProps) {
+function PathNav({ currentPath, onNavigate, onRefresh, isRefreshing, t, pendingDraft, onDraftCommit }: PathNavProps) {
   const [mode, setMode] = React.useState<'breadcrumb' | 'input'>('breadcrumb')
   const [draft, setDraft] = React.useState(currentPath)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -178,6 +183,14 @@ function PathNav({ currentPath, onNavigate, onRefresh, isRefreshing, t }: PathNa
   React.useEffect(() => {
     setDraft(currentPath)
   }, [currentPath])
+
+  // 父组件传入 pendingDraft 时,自动切到 input 模式 + 预填(系统选择器场景)
+  React.useEffect(() => {
+    if (pendingDraft) {
+      setDraft(pendingDraft)
+      setMode('input')
+    }
+  }, [pendingDraft])
 
   // 切到 input 模式自动聚焦
   React.useEffect(() => {
@@ -200,11 +213,13 @@ function PathNav({ currentPath, onNavigate, onRefresh, isRefreshing, t }: PathNa
       onNavigate(normalizeSep(p))
     }
     setMode('breadcrumb')
+    onDraftCommit?.()
   }
 
   const cancelInput = () => {
     setDraft(currentPath)
     setMode('breadcrumb')
+    onDraftCommit?.()
   }
 
   if (mode === 'input') {
@@ -651,6 +666,8 @@ export function LocalFolderPicker({
               onRefresh={() => void refetchBrowse()}
               isRefreshing={fetching && !browsing}
               t={t}
+              pendingDraft={pathDraft ?? undefined}
+              onDraftCommit={() => setPathDraft(null)}
             />
 
             {/* 工具栏:筛选 + 父级 + 系统选择器 */}
@@ -701,8 +718,8 @@ export function LocalFolderPicker({
                   - Tauri:用 @tauri-apps/plugin-dialog 拿完整路径(自动打开)
                   - 浏览器:用 showDirectoryPicker 拿 folder name(引导输入完整路径)
                   注:浏览器/Chromium 系有 showDirectoryPicker,Tauri 桌面端不会 polyfill,
-                  所以按钮可用条件 = isTauri || showDirectoryPicker */}
-              {(isTauri || capability.showDirectoryPicker) && (
+                  所以按钮可用条件 = isTauri() || showDirectoryPicker */}
+              {(isTauri() || capability.showDirectoryPicker) && (
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
