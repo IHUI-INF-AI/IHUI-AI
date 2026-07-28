@@ -134,6 +134,12 @@ export function EditorTabBar() {
     setOverId(null)
   }
 
+  // 2026-07-28 修复(边界态空容器):原来用 IIFE 内部 `if (!tab) return null` 兜底,
+  // 但外层 `{menu && (...)}` 仍会渲染容器 div,导致右键菜单打开时如果该 tab 被其他动作
+  // 关闭(X 按钮 / 快捷键 / store 同步),tab 已不在 openTabs → 容器 div 存在但无内容。
+  // 修复:把 find 提到外层,只有当 menu 和 tab 都存在时才渲染容器(与 inner 条件对齐)。
+  const menuTab = menu ? openTabs.find((item) => item.id === menu.tabId) : null
+  const isMenuPinned = menuTab ? pinnedIds.has(menuTab.id) : false
   return (
     <div className="relative flex h-8 shrink-0 items-stretch overflow-x-auto bg-muted/20">
       {sortedTabs.map((tab) => {
@@ -192,7 +198,7 @@ export function EditorTabBar() {
           </div>
         )
       })}
-      {menu && (
+      {menu && menuTab && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互
         <div
           className="fixed z-50 min-w-[160px] rounded-md border border-border bg-popover py-1 text-xs shadow-md"
@@ -203,30 +209,21 @@ export function EditorTabBar() {
             e.stopPropagation()
           }}
         >
-          {(() => {
-            const tab = openTabs.find((item) => item.id === menu.tabId)
-            if (!tab) return null
-            const isPinned = pinnedIds.has(tab.id)
-            return (
-              <>
-                <MenuItem icon={Pin} onClick={() => { togglePin(tab.id); setMenu(null) }}>
-                  {isPinned ? t('editorTabBar.unpin') : t('editorTabBar.pin')}
-                </MenuItem>
-                <MenuItem icon={X} onClick={() => { closeTab(tab.id); setMenu(null) }}>
-                  {t('editorTabBar.close')}
-                </MenuItem>
-                <MenuItem icon={XCircle} onClick={() => { closeOthers(tab.id); setMenu(null) }}>
-                  {t('editorTabBar.closeOthers')}
-                </MenuItem>
-                <MenuItem icon={Files} onClick={() => { closeAll(); setMenu(null) }}>
-                  {t('editorTabBar.closeAll')}
-                </MenuItem>
-                <MenuItem icon={Copy} onClick={() => { void copyPath(tab); setMenu(null) }}>
-                  {t('editorTabBar.copyPath')}
-                </MenuItem>
-              </>
-            )
-          })()}
+          <MenuItem icon={Pin} onClick={() => { togglePin(menuTab.id); setMenu(null) }}>
+            {isMenuPinned ? t('editorTabBar.unpin') : t('editorTabBar.pin')}
+          </MenuItem>
+          <MenuItem icon={X} onClick={() => { closeTab(menuTab.id); setMenu(null) }}>
+            {t('editorTabBar.close')}
+          </MenuItem>
+          <MenuItem icon={XCircle} onClick={() => { closeOthers(menuTab.id); setMenu(null) }}>
+            {t('editorTabBar.closeOthers')}
+          </MenuItem>
+          <MenuItem icon={Files} onClick={() => { closeAll(); setMenu(null) }}>
+            {t('editorTabBar.closeAll')}
+          </MenuItem>
+          <MenuItem icon={Copy} onClick={() => { void copyPath(menuTab); setMenu(null) }}>
+            {t('editorTabBar.copyPath')}
+          </MenuItem>
         </div>
       )}
     </div>
