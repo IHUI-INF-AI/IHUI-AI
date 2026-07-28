@@ -1,59 +1,27 @@
 import { unwrapApi as api } from '@/lib/api-helpers'
+import { textareaClass } from '@/lib/form-styles'
 import type { CsMessage } from '@/components/customer-service/MessageBubble'
+import type {
+  CsAgent,
+  CsAgentStatus as AgentStatus,
+  CsCategory,
+  CsStats,
+  CsSessionsData,
+  CsTicket,
+  CsTicketComment,
+  CsTicketPriority as TicketPriority,
+  CsTicketStatus as TicketStatus,
+} from '@ihui/types'
 
-export { api }
+export { api, textareaClass }
 
-export type TicketStatus = 'pending' | 'open' | 'resolved' | 'closed' | 'rejected'
-export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
-export type AgentStatus = 'online' | 'busy' | 'away' | 'offline'
-
-export interface Category {
-  id: string
-  name: string
-  slug: string
-  description?: string | null
-  sortOrder: number
-}
-
-export interface Ticket {
-  id: string
-  ticketNo: string
-  userId: string
-  categoryId: string | null
-  title: string
-  description: string
-  status: TicketStatus
-  priority: TicketPriority
-  assigneeId: string | null
-  source: string
-  attachments: unknown[]
-  resolvedAt: string | null
-  closedAt: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Comment {
-  id: string
-  ticketId: string
-  userId: string
-  content: string
-  isAdmin: boolean
-  attachments: unknown[]
-  createdAt: string
-}
-
-export interface Agent {
-  id: string
-  userId: string
-  nickname: string
-  avatar: string | null
-  status: AgentStatus
-  maxConcurrent: number
-  currentLoad: number
-  skills: string[]
-  createdAt: string
-}
+export type { TicketStatus, TicketPriority, AgentStatus }
+export type Category = CsCategory
+export type Ticket = CsTicket
+export type Comment = CsTicketComment
+export type Agent = CsAgent
+export type { CsStats }
+export type SessionsData = CsSessionsData
 
 export interface CsSession {
   id: string
@@ -65,14 +33,6 @@ export interface CsSession {
   unread: number
   messages: CsMessage[]
 }
-
-export interface CsStats {
-  onlineAgents: number
-  waiting: number
-  todayProcessed: number
-}
-
-export type SessionsData = { list: CsSession[] } | CsSession[]
 
 export const STATUS_LABEL: Record<TicketStatus, string> = {
   pending: '待处理',
@@ -125,6 +85,3 @@ export const TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   rejected: ['open', 'closed'],
   closed: ['open'],
 }
-
-export const textareaClass =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'

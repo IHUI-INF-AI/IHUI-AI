@@ -1,26 +1,7 @@
 export { type PageData } from '@ihui/api-client'
 
-export type RefundStatus =
-  'pending' | 'approved' | 'rejected' | 'processing' | 'completed' | 'failed'
-
-export interface EduRefund {
-  id: string
-  orderId: string
-  orderType: string
-  orderNo: string
-  userId: string
-  reason?: string | null
-  refundAmount: string
-  refundType: string
-  status: RefundStatus
-  applyTime?: string | null
-  processTime?: string | null
-  completeTime?: string | null
-  processMessage?: string | null
-  handleMessage?: string | null
-  createdAt: string
-  updatedAt: string
-}
+export type { RefundStatus, EduRefund, OrderStatus, EduOrder } from '@ihui/types'
+import type { EduOrder, EduRefund } from '@ihui/types'
 
 export interface RefundStats {
   byStatus: Record<string, { count: number; totalAmount: string }>
@@ -35,20 +16,6 @@ export interface RefundStats {
 export interface ActionState {
   refund: EduRefund
   mode: 'audit' | 'reject'
-}
-
-export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
-
-export interface EduOrder {
-  id: string
-  orderNo: string
-  userId: string
-  orderType: string
-  targetTitle?: string | null
-  payAmount: string
-  payType?: string | null
-  status: OrderStatus
-  createdAt: string
 }
 
 export interface AuditRecord {
