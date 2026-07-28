@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     mtls_client_key_path: str = "apps/api/certs/mtls/client.key"
     mtls_ca_cert_path: str = "apps/api/certs/mtls/ca.crt"
 
+    # 2026-07-27 立:MCP 工具(read_file/write_file/search_codebase)工作区白名单根目录,
+    # 支持相对路径解析(避免 ai-service cwd=apps/ai-service/ 时路径前缀重复拼接 bug)。
+    # 用 os.pathpath 分隔多个根目录;留空时默认 cwd。
+    mcp_workspace_roots: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:
