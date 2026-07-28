@@ -10,6 +10,7 @@ import {
   Check,
   ListTodo,
   MessageSquare,
+  ListTree,
   ChevronsUpDown,
   ChevronsDownUp,
   ArrowDown,
@@ -18,12 +19,19 @@ import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
+import { useTimelineStore, type TimelineTabName } from '@/stores/timeline-store'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
-import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
+import { useHoverPreview } from '@/hooks/use-hover-preview'
+import type {
+  PlanStep,
+  PlanStepStatus,
+  AgentToolCall,
+  Subagent,
+} from '@/hooks/use-agent-progress'
 import { formatDuration, FoldableSectionProvider } from './progress-sections/foldable-section'
 import { ThinkingSection } from './progress-sections/thinking-section'
 import { ToolCallsSection } from './progress-sections/tool-calls-section'
-import { SubagentSection } from './progress-sections/subagent-section'
 import { ChangesSection } from './progress-sections/changes-section'
 import { TerminalSection } from './progress-sections/terminal-section'
 import { OverviewSection } from './progress-sections/overview-section'
@@ -35,18 +43,40 @@ import {
   deriveConnectionState,
   type ConnectionState,
 } from './progress-sections/connection-status'
+import { HoverPreviewCard } from './progress-sections/hover-preview-card'
+import { BatchHeader, type BatchStatus } from './progress-sections/batch-header'
+import { Checklist, type ChecklistItemData } from './progress-sections/checklist'
+import { ResourceBudget } from './progress-sections/resource-budget'
+import { TimelineTab, flattenToTimelineEvents } from './progress-sections/timeline-tab'
+import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 
 /**
- * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-28 v7 Trae Work 对齐)
+ * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-28 v12 Trae Work 对齐)
  *
- * v7 改动(对标 Trae Work):
- * - PlanStep 状态用 SVG 图标(Circle/Loader2/Check)替代 Unicode 字符
- * - 新增进度条(细线 animated,completed 色)
- * - header 新增状态点(running 时 primary 色脉冲)
- * - 空状态加 MessageSquare 图标
- * - 折叠子区间距优化(mt-1.5)
- * - 移除手动 Spinner(Codex braille),统一用 Loader2
+ * v12 改动(Phase 19 集成):
+ * - PlanStep 联动 ProgressJumpStore(hover 高亮 + 点击跳转 + 跨组件反向联动)
+ * - PlanStep hover 预览卡(HoverPreviewCard + useHoverPreview,250ms 延迟 + 100ms 关闭)
+ * - 子代理派单用 BatchHeader 包装(默认折叠,展开后展示 SubAgentTaskTree)
+ * - 每个 plan step 关联的工具调用列表用 Checklist 展示
+ * - header 区域嵌入 ResourceBudget(step budget 60)
+ * - header 加"对话流/时间线"tab 切换按钮(从 TimelineStore 派生)
+ * - 时间线视图嵌入 TimelineTab(替换 SubagentSection,避免重复)
  */
+
+// ─── 模块级常量(避免每次 render 创建新数组,打破 React.memo 优化) ─────
+const EMPTY_TOOLS: readonly AgentToolCall[] = Object.freeze(
+  [] as AgentToolCall[],
+) as readonly AgentToolCall[]
+
+/** 步骤预算上限(对标 Trae Work 60 step budget) */
+const STEP_BUDGET_TOTAL = 60
+
+/** 时间窗匹配缓冲(避免边界跨越) */
+const TOOL_TIME_WINDOW_TRAILING_MS = 5000
+const TOOL_TIME_WINDOW_LEADING_MS = 1000
+
+/** 每 step 默认预览的工具调用条数上限 */
+const PREVIEW_TOOL_LIMIT = 4
 
 // ─── 状态图标映射 ────────────────────────────────────────────────────
 const PLAN_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string }>> = {
@@ -60,127 +90,262 @@ const PLAN_CLS: Record<PlanStepStatus, string> = {
   completed: 'text-emerald-500',
 }
 
-// Codex 真正循环 braille spinner(10 帧 120ms)
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-
-// P3 修复:共享 rAF 驱动的帧索引,所有 Spinner 订阅同一帧(原每实例 setInterval 120ms,多 step 并发时定时器堆积)。
-// 模块级单例:首个 Spinner mount 启动 rAF,最后一个 unmount 时取消 rAF。
-const spinnerListeners = new Set<(frame: number) => void>()
-let spinnerRaf: number | null = null
-let spinnerFrame = 0
-let spinnerLast = 0
-const SPINNER_INTERVAL_MS = 120
-
-function useSpinnerFrame(): number {
-  const [frame, setFrame] = React.useState(spinnerFrame)
-  React.useEffect(() => {
-    const listener = (f: number) => setFrame(f)
-    spinnerListeners.add(listener)
-    if (spinnerRaf === null) {
-      const tick = (t: number) => {
-        if (t - spinnerLast >= SPINNER_INTERVAL_MS) {
-          spinnerFrame = (spinnerFrame + 1) % SPINNER_FRAMES.length
-          spinnerLast = t
-          spinnerListeners.forEach((l) => l(spinnerFrame))
-        }
-        spinnerRaf = requestAnimationFrame(tick)
-      }
-      spinnerRaf = requestAnimationFrame(tick)
-    }
-    return () => {
-      spinnerListeners.delete(listener)
-      if (spinnerListeners.size === 0 && spinnerRaf !== null) {
-        cancelAnimationFrame(spinnerRaf)
-        spinnerRaf = null
-      }
-    }
-  }, [])
-  return frame
+// ─── Preview 数据类型(传给 useHoverPreview 的 data) ──────────────────
+interface PlanStepPreviewData {
+  step: PlanStep
+  index: number
+  linkedMessagePreview: string | null
+  relatedToolCount: number
 }
 
-function Spinner({ className }: { className?: string }) {
-  const frame = useSpinnerFrame()
-  return <span className={className}>{SPINNER_FRAMES[frame]}</span>
-}
+// ─── Tab 切换按钮配置 ─────────────────────────────────────────────
+const TAB_BUTTONS: ReadonlyArray<{
+  id: TimelineTabName
+  label: string
+  Icon: React.ComponentType<{ className?: string }>
+}> = [
+  { id: 'inline', label: '对话流', Icon: MessageSquare },
+  { id: 'timeline', label: '时间线', Icon: ListTree },
+]
 
-// ─── 辅助函数 ────────────────────────────────────────────────────────
-function formatDuration(ms?: number): string {
-  if (ms === undefined) return ''
-  if (ms < 1000) return ''
-  if (ms < 60_000) return `${Math.floor(ms / 1000)}s`
-  const m = Math.floor(ms / 60_000)
-  const s = Math.floor((ms % 60_000) / 1000)
-  return `${m}m${s}s`
-}
-
-// ─── 单个 plan step 渲染(v10 memo 化:单个 step 变化不影响其他 step) ───
+// ─── 单个 plan step 渲染(v12:ProgressJumpStore + HoverPreviewCard 集成) ──
 const PlanStepItem = React.memo(function PlanStepItem({
   step,
   index,
+  linkedMessageId,
+  linkedMessagePreview,
+  relatedTools,
+  isHighlighted,
 }: {
   step: PlanStep
   index: number
+  linkedMessageId: string | null
+  linkedMessagePreview: string | null
+  relatedTools: readonly AgentToolCall[]
+  isHighlighted: boolean
 }) {
   const t = useTranslations('ai.pane')
+  const anchorRef = React.useRef<HTMLDivElement>(null)
   const Icon = PLAN_ICON[step.status]
+
+  // ProgressJumpStore 接入点
+  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
+  const setHoveredMessage = useProgressJumpStore((s) => s.setHoveredMessage)
+  const requestJumpToMessage = useProgressJumpStore((s) => s.requestJumpToMessage)
+  const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
+
   const stepLabel =
     step.status === 'in_progress'
       ? t('stepInProgress', { n: index + 1, step: step.step })
       : step.status === 'completed'
         ? t('stepCompleted', { n: index + 1, step: step.step })
         : t('stepPending', { n: index + 1, step: step.step })
-  return (
-    <div
-      role="listitem"
-      className={cn(
-        'flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
-        step.status === 'in_progress' && 'bg-primary/10',
-      )}
-      aria-label={stepLabel}
-    >
-      <Icon
-        className={cn(
-          'mt-0.5 h-3 w-3 shrink-0 transition-colors duration-300',
-          PLAN_CLS[step.status],
-          step.status === 'in_progress' && 'animate-spin',
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span
-            className={cn(
-              'flex-1 break-all',
-              step.status === 'pending' && 'text-muted-foreground/60',
-            )}
-          >
-            {index + 1}. {step.step}
-          </span>
-          {step.durationMs !== undefined && step.status !== 'pending' && (
-            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
-              {formatDuration(step.durationMs)}
-            </span>
-          )}
-          {step.tokenUsage !== undefined && step.tokenUsage > 0 && (
-            <span
-              className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
-              title={`${step.tokenUsage} tokens`}
-            >
-              {Math.round(step.tokenUsage / 1000)}k
-            </span>
-          )}
+
+  // HoverPreviewCard 接入点:buildContent + useHoverPreview(250ms 延迟 / 100ms 关闭)
+  const previewData = React.useMemo<PlanStepPreviewData | null>(() => {
+    if (
+      step.status === 'pending' &&
+      !step.explanation &&
+      !linkedMessagePreview &&
+      relatedTools.length === 0
+    ) {
+      return null
+    }
+    return {
+      step,
+      index,
+      linkedMessagePreview,
+      relatedToolCount: relatedTools.length,
+    }
+  }, [step, index, linkedMessagePreview, relatedTools.length])
+
+  const buildPreviewContent = React.useCallback(
+    (data: PlanStepPreviewData) => (
+      <div className="space-y-1">
+        <div className="text-[10px] text-muted-foreground/70">
+          步骤 {data.index + 1} · {data.step.step}
         </div>
-        {/* explanation 副标题:仅 in_progress 步骤显示(plan 级 explanation,避免重复) */}
-        {step.status === 'in_progress' && step.explanation && (
-          <div className="mt-0.5 break-all text-[10px] text-muted-foreground/60">
-            {step.explanation}
+        {data.step.explanation && (
+          <div className="text-[10px] leading-relaxed text-muted-foreground/80">
+            {data.step.explanation}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground/60">
+          {data.step.durationMs !== undefined && (
+            <span>耗时: {formatDuration(data.step.durationMs)}</span>
+          )}
+          {data.step.tokenUsage !== undefined && data.step.tokenUsage > 0 && (
+            <span>token: {Math.round(data.step.tokenUsage / 1000)}k</span>
+          )}
+          {data.relatedToolCount > 0 && <span>工具调用: {data.relatedToolCount}</span>}
+        </div>
+        {data.linkedMessagePreview && (
+          <div className="border-t border-border/40 pt-1 text-[10px] text-muted-foreground/60">
+            <span className="font-medium text-foreground/70">关联消息:</span>{' '}
+            {data.linkedMessagePreview}
           </div>
         )}
       </div>
-    </div>
+    ),
+    [],
+  )
+
+  const { visible, position, content, hoverHandlers } = useHoverPreview<PlanStepPreviewData>({
+    buildContent: buildPreviewContent,
+    // anchorRef 类型兼容:useHoverPreview 期望 RefObject<HTMLElement>,实际是 HTMLDivElement
+    anchorRef: anchorRef as React.RefObject<HTMLElement>,
+    data: previewData,
+    delayMs: 250,
+    closeDelayMs: 100,
+  })
+
+  // 点击跳转接入点
+  const onClick = React.useCallback(() => {
+    if (!linkedMessageId) return
+    requestJumpToMessage(linkedMessageId)
+    flashHighlight(linkedMessageId)
+    // 最佳努力滚动:用 data-message-id 选择器(若 MessageList 加上即可工作)
+    const el = document.querySelector(
+      `[data-message-id="${linkedMessageId}"]`,
+    ) as HTMLElement | null
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // 派发自定义事件,MessageList 未来监听可响应
+    window.dispatchEvent(
+      new CustomEvent('ihui:scroll-to-message', { detail: { messageId: linkedMessageId } }),
+    )
+  }, [linkedMessageId, requestJumpToMessage, flashHighlight])
+
+  // 鼠标 hover 接入点:同步 store(setHoveredPlanStep + setHoveredMessage)
+  const onMouseEnter = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      hoverHandlers.onMouseEnter(e)
+      setHoveredPlanStep(step.id)
+      if (linkedMessageId) setHoveredMessage(linkedMessageId)
+    },
+    [hoverHandlers, setHoveredPlanStep, setHoveredMessage, step.id, linkedMessageId],
+  )
+  const onMouseLeave = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      hoverHandlers.onMouseLeave(e)
+      setHoveredPlanStep(null)
+      setHoveredMessage(null)
+    },
+    [hoverHandlers, setHoveredPlanStep, setHoveredMessage],
+  )
+  // 键盘无障碍:Enter / Space 触发跳转(满足 jsx-a11y/click-events-have-key-events)
+  const onKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        onClick()
+      }
+    },
+    [onClick],
+  )
+
+  // 步骤关联工具调用的精简 Checklist(仅 in_progress 时显示,避免噪声)
+  const checklistItems: ChecklistItemData[] = React.useMemo(() => {
+    if (relatedTools.length === 0) return []
+    return relatedTools.slice(0, PREVIEW_TOOL_LIMIT).map<ChecklistItemData>((tool) => ({
+      id: tool.id,
+      label: tool.toolName,
+      status:
+        tool.status === 'success'
+          ? 'completed'
+          : tool.status === 'error'
+            ? 'skipped'
+            : 'in_progress',
+      meta: tool.durationMs !== undefined ? formatDuration(tool.durationMs) : undefined,
+    }))
+  }, [relatedTools])
+
+  return (
+    <>
+      <div
+        ref={anchorRef}
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onFocus={hoverHandlers.onFocus}
+        onBlur={hoverHandlers.onBlur}
+        className={cn(
+          'flex cursor-pointer items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
+          step.status === 'in_progress' && 'bg-primary/10',
+          isHighlighted && 'bg-primary/5 ring-1 ring-primary/30',
+        )}
+        aria-label={stepLabel}
+        data-testid={`plan-step-${step.id}`}
+        data-plan-step-id={step.id}
+      >
+        <Icon
+          className={cn(
+            'mt-0.5 h-3 w-3 shrink-0 transition-colors duration-300',
+            PLAN_CLS[step.status],
+            step.status === 'in_progress' && 'animate-spin',
+          )}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                'flex-1 break-all',
+                step.status === 'pending' && 'text-muted-foreground/60',
+              )}
+            >
+              {index + 1}. {step.step}
+            </span>
+            {step.durationMs !== undefined && step.status !== 'pending' && (
+              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
+                {formatDuration(step.durationMs)}
+              </span>
+            )}
+            {step.tokenUsage !== undefined && step.tokenUsage > 0 && (
+              <span
+                className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
+                title={`${step.tokenUsage} tokens`}
+              >
+                {Math.round(step.tokenUsage / 1000)}k
+              </span>
+            )}
+          </div>
+          {step.status === 'in_progress' && step.explanation && (
+            <div className="mt-0.5 break-all text-[10px] text-muted-foreground/60">
+              {step.explanation}
+            </div>
+          )}
+          {/* Phase 19: 步骤关联工具调用 Checklist(仅 in_progress 时展开,避免长列表) */}
+          {step.status === 'in_progress' && checklistItems.length > 0 && (
+            <div className="mt-0.5">
+              <Checklist
+                items={checklistItems}
+                dense
+                data-testid={`plan-step-tools-${step.id}`}
+              />
+              {relatedTools.length > PREVIEW_TOOL_LIMIT && (
+                <div className="pl-3 text-[10px] text-muted-foreground/50">
+                  …还有 {relatedTools.length - PREVIEW_TOOL_LIMIT} 项
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      {visible && content !== null && (
+        <HoverPreviewCard
+          visible={visible}
+          position={position}
+          content={content}
+          data-testid={`hover-preview-${step.id}`}
+        />
+      )}
+    </>
   )
 })
 
-// ─── 主组件 ──────────────────────────────────────────────────────────
+// ─── 主组件(v12:Phase 19 全量集成) ─────────────────────────────────
 export function AgentTaskProgressPane() {
   const t = useTranslations('ai.pane')
   const open = useAgentProgressPaneStore((s) => s.open)
@@ -192,11 +357,15 @@ export function AgentTaskProgressPane() {
   const closePane = useAgentProgressPaneStore((s) => s.closePane)
   const setProgress = useAgentProgressPaneStore((s) => s.setProgress)
 
-  // v9: 展开全部/折叠全部控制(null=各子区独立 / true=强制展开 / false=强制折叠)
+  // v9: 展开全部/折叠全部控制
   const [expandAll, setExpandAll] = React.useState<boolean | null>(null)
 
-  // 从 useChatStore 同步 conversationId 作为 threadId(无需用户手动输入)
+  // Phase 19: BatchHeader 折叠状态(默认折叠,避免初次打开时 pane 太长)
+  const [batchCollapsed, setBatchCollapsed] = React.useState<boolean>(true)
+
+  // 从 useChatStore 同步 conversationId + 读取 messages(用于 planStep↔message 关联)
   const conversationId = useChatStore((s) => s.conversationId)
+  const chatMessages = useChatStore((s) => s.messages)
   React.useEffect(() => {
     if (conversationId !== threadId) {
       setThreadId(conversationId)
@@ -235,7 +404,7 @@ export function AgentTaskProgressPane() {
 
   const contextUsage = totalTokens > 0 ? Math.min(100, (totalTokens / 128000) * 100) : 0
 
-  // v10: completedCount + progressPct 用 useMemo 缓存(避免每次 render 重新计算)
+  // v10: completedCount + progressPct 用 useMemo 缓存
   const { completedCount, progressPct } = React.useMemo(() => {
     if (planSteps.length === 0) return { completedCount: 0, progressPct: 0 }
     const completed = planSteps.filter((s) => s.status === 'completed').length
@@ -273,7 +442,147 @@ export function AgentTaskProgressPane() {
     setProgress(current, total)
   }, [planSteps, setProgress])
 
-  // Esc 关闭(unpin 状态下生效;pin 状态下 Esc 不关闭,避免误操作)
+  // Phase 19: planStep ↔ message 映射(时间窗 + 索引兜底)
+  const planStepLinkMap = React.useMemo(() => {
+    const m = new Map<string, { messageId: string; preview: string }>()
+    const assistantMsgs = chatMessages.filter((msg) => msg.role === 'assistant')
+    planSteps.forEach((step, idx) => {
+      let match: { messageId: string; preview: string } | null = null
+      // 1) 时间窗匹配:startedAt ~ endedAt
+      if (step.startedAt && step.endedAt) {
+        const startMs = Date.parse(step.startedAt)
+        const endMs = Date.parse(step.endedAt)
+        if (!Number.isNaN(startMs) && !Number.isNaN(endMs)) {
+          const found = assistantMsgs.find(
+            (msg) => msg.createdAt >= startMs && msg.createdAt <= endMs,
+          )
+          if (found) match = { messageId: found.id, preview: found.content.slice(0, 80) }
+        }
+      }
+      // 2) 索引兜底
+      if (!match) {
+        const fallback = assistantMsgs[idx]
+        if (fallback) match = { messageId: fallback.id, preview: fallback.content.slice(0, 80) }
+      }
+      if (match) m.set(step.id, match)
+    })
+    return m
+  }, [planSteps, chatMessages])
+
+  // Phase 19: 把映射写入 ProgressJumpStore(供跨组件反向联动)
+  const linkPlanStepToMessage = useProgressJumpStore((s) => s.linkPlanStepToMessage)
+  React.useEffect(() => {
+    planStepLinkMap.forEach((link, stepId) => {
+      linkPlanStepToMessage(stepId, link.messageId)
+    })
+  }, [planStepLinkMap, linkPlanStepToMessage])
+
+  // Phase 19: 切换会话时清空联动状态(避免脏数据)
+  React.useEffect(() => {
+    if (!open) {
+      useProgressJumpStore.getState().clearAllLinks()
+    }
+  }, [open, threadId])
+
+  // Phase 19: 每个 plan step 关联的工具调用(时间窗 + 缓冲)
+  const toolsByStep = React.useMemo(() => {
+    const map = new Map<string, readonly AgentToolCall[]>()
+    planSteps.forEach((step) => {
+      const startMs = step.startedAt ? Date.parse(step.startedAt) : Number.NaN
+      const endMs = step.endedAt ? Date.parse(step.endedAt) : Date.now()
+      if (Number.isNaN(startMs)) {
+        map.set(step.id, EMPTY_TOOLS)
+        return
+      }
+      const related = tools.filter((t) => {
+        const tStart = Date.parse(t.startedAt)
+        return (
+          !Number.isNaN(tStart) &&
+          tStart >= startMs - TOOL_TIME_WINDOW_LEADING_MS &&
+          tStart <= endMs + TOOL_TIME_WINDOW_TRAILING_MS
+        )
+      })
+      map.set(step.id, related)
+    })
+    return map
+  }, [planSteps, tools])
+
+  // Phase 19: BatchHeader 状态推导(running / completed / failed / partial)
+  const subagentBatchStats = React.useMemo<{
+    agentCount: number
+    completedCount: number
+    failedCount: number
+    status: BatchStatus
+  }>(() => {
+    const completedCount = subagents.filter((s) => s.status === 'done').length
+    const failedCount = subagents.filter((s) => s.status === 'failed' || s.status === 'dead').length
+    const running = subagents.filter((s) => s.status === 'running' || s.status === 'spawned').length
+    let status: BatchStatus = 'completed'
+    if (running > 0) status = 'running'
+    else if (failedCount > 0 && completedCount > 0) status = 'partial'
+    else if (failedCount > 0) status = 'failed'
+    return { agentCount: subagents.length, completedCount, failedCount, status }
+  }, [subagents])
+
+  // Phase 19: 时间线事件写入 TimelineStore(供 TimelineTab 渲染)
+  const setEvents = useTimelineStore((s) => s.setEvents)
+  React.useEffect(() => {
+    const fallbackTs = new Date().toISOString()
+    const events = flattenToTimelineEvents({
+      plans: planSteps.map((p) => ({
+        id: p.id,
+        step: p.step,
+        status: p.status,
+        timestamp: p.startedAt ?? p.endedAt ?? fallbackTs,
+        explanation: p.explanation,
+      })),
+      subagents: subagents.map((s) => ({
+        id: s.id,
+        nickname: s.nickname,
+        handle: s.handle,
+        status: s.status,
+        spawnedAt: s.spawnedAt,
+        currentTask: s.currentTask,
+      })),
+      tools: tools.map((t) => ({
+        id: t.id,
+        toolName: t.toolName,
+        status: t.status,
+        startedAt: t.startedAt,
+        durationMs: t.durationMs,
+      })),
+    })
+    setEvents(events)
+  }, [planSteps, subagents, tools, setEvents])
+
+  // Phase 19: 监听 pendingJumpToMessage → 最佳努力滚动到消息
+  const pendingJump = useProgressJumpStore((s) => s.pendingJumpToMessage)
+  React.useEffect(() => {
+    if (!pendingJump) return
+    const { messageId } = pendingJump
+    const el = document.querySelector(
+      `[data-message-id="${messageId}"]`,
+    ) as HTMLElement | null
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [pendingJump])
+
+  // Phase 19: 高亮推导(从 store 派生 isHighlighted)
+  const hoveredPlanStepId = useProgressJumpStore((s) => s.hoveredPlanStepId)
+  const hoveredMessageId = useProgressJumpStore((s) => s.hoveredMessageId)
+  const isStepHighlighted = React.useCallback(
+    (stepId: string, linkedMessageId: string | null): boolean => {
+      if (hoveredPlanStepId === stepId) return true
+      if (linkedMessageId && hoveredMessageId === linkedMessageId) return true
+      return false
+    },
+    [hoveredPlanStepId, hoveredMessageId],
+  )
+
+  // Phase 19: Timeline tab state
+  const activeTab = useTimelineStore((s) => s.activeTab)
+  const setActiveTab = useTimelineStore((s) => s.setActiveTab)
+
+  // Esc 关闭(unpin 状态下生效)
   React.useEffect(() => {
     if (!open || pinned) return
     const onKey = (e: KeyboardEvent) => {
@@ -293,8 +602,7 @@ export function AgentTaskProgressPane() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, pinned, closePane])
 
-  // v11: 折叠子区键盘导航(roving tabindex)
-  // ArrowUp/Down 在 section headers 间移动焦点,Home/End 跳首/末
+  // v11: 折叠子区键盘导航
   const onSectionsKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement
     if (!target.matches('[data-section-header]')) return
@@ -329,20 +637,18 @@ export function AgentTaskProgressPane() {
     headers[nextIdx]?.focus()
   }
 
-  // click-outside 关闭(仅 unpin 状态)
+  // click-outside 关闭
   const paneRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
     if (!open || pinned) return
     const onClick = (e: MouseEvent) => {
       const target = e.target as Node
       if (paneRef.current && !paneRef.current.contains(target)) {
-        // 不关闭 trigger 按钮点击(trigger 自己会 toggle)
         const trigger = document.querySelector('[data-testid="agent-progress-trigger"]')
         if (trigger && trigger.contains(target)) return
         closePane()
       }
     }
-    // 延迟绑定,避免打开时的同一次 click 立即关闭
     const id = window.setTimeout(() => {
       document.addEventListener('mousedown', onClick)
     }, 0)
@@ -352,12 +658,11 @@ export function AgentTaskProgressPane() {
     }
   }, [open, pinned, closePane])
 
-  // Phase 17: 自动滚动到底部(用户位于底部时跟随新内容,滚上去后显示"跳到最新"按钮)
+  // Phase 17: 自动滚动逻辑
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = React.useState(true)
   const [showJumpToLatest, setShowJumpToLatest] = React.useState(false)
 
-  // 监听滚动位置:距底部 < 20px 视为"在底部"
   const onScroll = React.useCallback(() => {
     const el = scrollRef.current
     if (!el) return
@@ -367,11 +672,9 @@ export function AgentTaskProgressPane() {
     setShowJumpToLatest(!atBottom && el.scrollHeight > el.clientHeight + 50)
   }, [])
 
-  // 内容变化时自动滚动到底部(autoScroll=true 时)
   React.useEffect(() => {
     const el = scrollRef.current
     if (!el || !autoScroll) return
-    // requestAnimationFrame 避免布局抖动
     const id = requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight
     })
@@ -393,33 +696,38 @@ export function AgentTaskProgressPane() {
     setAutoScroll(true)
   }, [])
 
+  // 切换 tab 回调
+  const onTabChange = React.useCallback(
+    (tab: TimelineTabName) => () => setActiveTab(tab),
+    [setActiveTab],
+  )
+
+  // BatchHeader 折叠切换回调
+  const onBatchCollapsedChange = React.useCallback(
+    (next: boolean) => setBatchCollapsed(next),
+    [],
+  )
+
   if (!open) return null
 
   return (
     <div
       ref={paneRef}
       className={cn(
-        // 位置:消息区右上角固定(absolute + right-2 top-2),用户特意要求设计放在这里
-        // trigger 永远渲染(由 agent-progress-trigger.tsx 维护),open=true 时 invisible 占位
-        // → popover absolute 浮在右上角不影响 inline 流 → 周围内容零窜位
         'absolute right-2 top-2 z-50',
-        // 尺寸:紧凑 popover + 高度自适应(视口 60vh,内容多时整体滚动)
         'flex w-[280px] max-h-[60vh] flex-col',
-        // 外观:圆角边框阴影,popover 风格
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
       )}
       role="complementary"
       aria-label={t('pane.ariaLabel')}
       data-testid="agent-progress-pane"
     >
-      {/* Header:状态点 + 标题 + pin 按钮 + 关闭按钮 */}
-      <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2">
-        {/* Phase 16: 状态点(连接状态可视化) - 替换原静态点 */}
+      {/* Header:状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮 */}
+      <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-2">
         <ConnectionStatusDot
           state={connectionState}
           className={cn(
             'transition-all duration-300',
-            // 5 状态颜色(对标 Trae Work)
             connectionState === 'connected' && 'shadow-[0_0_0_1px_rgb(16_185_129/0.3)]',
             connectionState === 'reconnecting' && 'shadow-[0_0_0_1px_rgb(245_158_11/0.3)]',
             connectionState === 'disconnected' && 'shadow-[0_0_0_1px_rgb(239_68_68/0.3)]',
@@ -427,7 +735,6 @@ export function AgentTaskProgressPane() {
         />
         <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
         <span className="shrink-0 text-xs font-medium">{t('title')}</span>
-        {/* Phase 16: 进度环(中心显示百分比,带脉冲/庆祝动画) */}
         {planSteps.length > 0 && (
           <ProgressRing
             value={progressPct}
@@ -438,7 +745,6 @@ export function AgentTaskProgressPane() {
             aria-label={t('pane.progressLabel', { pct: Math.round(progressPct) })}
           />
         )}
-        {/* Phase 16: SSE 连接状态指示器(紧凑模式,仅异常状态显示文字) */}
         {connectionState !== 'connected' && connectionState !== 'connecting' && (
           <ConnectionStatus
             state={connectionState}
@@ -448,8 +754,43 @@ export function AgentTaskProgressPane() {
             className="ml-0.5"
           />
         )}
+        {/* Phase 19: 步骤预算指示器(内联模式,显示在 header) */}
+        {planSteps.length > 0 && (
+          <ResourceBudget
+            used={planSteps.length}
+            total={STEP_BUDGET_TOTAL}
+            label="step budget"
+            variant="inline"
+            active={isStreaming}
+            className="ml-0.5 hidden sm:inline-flex"
+            data-testid="pane-step-budget"
+          />
+        )}
         <div className="flex-1" />
-        {/* v9: 展开全部/折叠全部按钮 */}
+        {/* Phase 19: tab 切换(对话流/时间线) */}
+        {TAB_BUTTONS.map((tab) => {
+          const TabIcon = tab.Icon
+          const active = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={onTabChange(tab.id)}
+              className={cn(
+                'inline-flex h-5 items-center gap-0.5 rounded-sm px-1 text-[10px] font-medium transition-colors',
+                active
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
+              )}
+              data-testid={`pane-tab-${tab.id}`}
+            >
+              <TabIcon className="h-2.5 w-2.5" aria-hidden />
+              <span>{tab.label}</span>
+            </button>
+          )
+        })}
         <button
           type="button"
           onClick={() => setExpandAll(expandAll === true ? false : true)}
@@ -464,7 +805,6 @@ export function AgentTaskProgressPane() {
             <ChevronsUpDown className="h-3 w-3" />
           )}
         </button>
-        {/* pin/unpin 按钮 */}
         <button
           type="button"
           onClick={togglePin}
@@ -480,7 +820,6 @@ export function AgentTaskProgressPane() {
         >
           {pinned ? <Pin className="h-3 w-3" /> : <PinOff className="h-3 w-3" />}
         </button>
-        {/* 最小化按钮(跟 trigger 联动:点击 = toggle,等价于点 trigger 按钮) */}
         <button
           type="button"
           onClick={toggle}
@@ -493,100 +832,175 @@ export function AgentTaskProgressPane() {
         </button>
       </div>
 
-      {/* 内容:plan steps 列表 + 折叠子区(min-h-0 + flex-1 让 popover 整体滚动,避免嵌套) */}
+      {/* Phase 19: 移动端 ResourceBudget 块模式(无法在 header 内联时降级到内容顶部) */}
+      {planSteps.length > 0 && (
+        <div
+          className="border-b border-border/40 px-2 py-1 sm:hidden"
+          data-testid="pane-step-budget-block-wrapper"
+        >
+          <ResourceBudget
+            used={planSteps.length}
+            total={STEP_BUDGET_TOTAL}
+            label="step budget"
+            variant="block"
+            active={isStreaming}
+            data-testid="pane-step-budget-block"
+          />
+        </div>
+      )}
+
+      {/* 内容区:根据 activeTab 切换 内联详情 vs 时间线视图 */}
       <div
         ref={scrollRef}
         onScroll={onScroll}
         className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1"
         data-testid="plan-list"
       >
-        {/* 无 conversationId */}
-        {!threadId && (
-          <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
-            <MessageSquare className="h-4 w-4 text-muted-foreground/60" />
-            <span className="text-[11px] text-muted-foreground/60">开始对话后显示任务计划</span>
-          </div>
+        {/* Phase 19: 时间线视图(tab='timeline' 时) */}
+        {activeTab === 'timeline' && (
+          <TimelineTab
+            showTabs={false}
+            className="min-h-0"
+            data-testid="pane-timeline-view"
+          />
         )}
 
-        {/* v9: 有 threadId 但无 planSteps — 骨架屏加载效果 */}
-        {threadId && planSteps.length === 0 && (
-          <div className="space-y-1 px-2 py-2" data-testid="plan-skeleton">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <div className="h-3 w-3 shrink-0 animate-pulse rounded-sm bg-muted/60" />
-                <div
-                  className="h-2.5 animate-pulse rounded-sm bg-muted/60"
-                  style={{ width: `${60 + i * 10}%` }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* plan steps 列表 + 进度条 */}
-        {planSteps.length > 0 && (
+        {/* Phase 19: 对话流视图(tab='inline' 时,显示原有内容) */}
+        {activeTab === 'inline' && (
           <>
-            <div role="list" aria-label="任务步骤列表">
-              {planSteps.map((step, idx) => (
-                <PlanStepItem key={step.id} step={step} index={idx} />
-              ))}
-            </div>
-            {/* v9: 统计文字(线性进度条已移除,改用 header 中的 SVG 圆环) */}
-            <div
-              className="mx-2 mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/60"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              <span className="flex items-center gap-1">
-                <span>{completedCount}/{planSteps.length} 已完成</span>
-                <CopyButton
-                  text={planSteps.map((s, i) => `${i + 1}. [${s.status}] ${s.step}`).join('\n')}
-                  aria-label="复制任务计划"
-                  data-testid="copy-plan-btn"
-                />
-              </span>
-              {isStreaming && (
-                <span className="flex items-center gap-0.5 text-primary" role="status">
-                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                  执行中
-                </span>
-              )}
-            </div>
+            {!threadId && (
+              <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
+                <MessageSquare className="h-4 w-4 text-muted-foreground/60" />
+                <span className="text-[11px] text-muted-foreground/60">开始对话后显示任务计划</span>
+              </div>
+            )}
+
+            {threadId && planSteps.length === 0 && (
+              <div className="space-y-1 px-2 py-2" data-testid="plan-skeleton">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 shrink-0 animate-pulse rounded-sm bg-muted/60" />
+                    <div
+                      className="h-2.5 animate-pulse rounded-sm bg-muted/60"
+                      style={{ width: `${60 + i * 10}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {planSteps.length > 0 && (
+              <>
+                <div role="list" aria-label="任务步骤列表">
+                  {planSteps.map((step, idx) => {
+                    const link = planStepLinkMap.get(step.id) ?? null
+                    return (
+                      <PlanStepItem
+                        key={step.id}
+                        step={step}
+                        index={idx}
+                        linkedMessageId={link?.messageId ?? null}
+                        linkedMessagePreview={link?.preview ?? null}
+                        relatedTools={toolsByStep.get(step.id) ?? EMPTY_TOOLS}
+                        isHighlighted={isStepHighlighted(
+                          step.id,
+                          link?.messageId ?? null,
+                        )}
+                      />
+                    )
+                  })}
+                </div>
+                <div
+                  className="mx-2 mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/60"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <span className="flex items-center gap-1">
+                    <span>
+                      {completedCount}/{planSteps.length} 已完成
+                    </span>
+                    <CopyButton
+                      text={planSteps
+                        .map((s, i) => `${i + 1}. [${s.status}] ${s.step}`)
+                        .join('\n')}
+                      aria-label="复制任务计划"
+                      data-testid="copy-plan-btn"
+                    />
+                  </span>
+                  {isStreaming && (
+                    <span className="flex items-center gap-0.5 text-primary" role="status">
+                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      执行中
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+
+            {threadId && (
+              <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
+                <div
+                  onKeyDown={onSectionsKeyDown}
+                  role="toolbar"
+                  aria-label={t('sectionsToolbarLabel')}
+                  data-testid="sections-container"
+                  className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+                >
+                  <ThinkingSection
+                    content={overview.content}
+                    currentNode={overview.currentNode}
+                    isStreaming={isStreaming}
+                  />
+                  <ToolCallsSection tools={tools} />
+                  {/* Phase 19: BatchHeader 包装 subagents(默认折叠,展开后展示 SubAgentTaskTree) */}
+                  {subagents.length > 0 && (
+                    <>
+                      <BatchHeader
+                        batchIndex={1}
+                        title="子代理派单批次"
+                        agentCount={subagentBatchStats.agentCount}
+                        completedCount={subagentBatchStats.completedCount}
+                        failedCount={subagentBatchStats.failedCount}
+                        status={subagentBatchStats.status}
+                        collapsed={batchCollapsed}
+                        onCollapsedChange={onBatchCollapsedChange}
+                        defaultCollapsed={true}
+                        className="mx-1.5 mt-1.5"
+                        data-testid="subagent-batch-header"
+                      />
+                      {!batchCollapsed && (
+                        <div
+                          className="mx-1.5 mt-1 space-y-1"
+                          data-testid="subagent-batch-body"
+                        >
+                          {subagents.map((sa: Subagent) => (
+                            <SubAgentTaskTree
+                              key={sa.id}
+                              subagent={sa}
+                              data-testid={`subagent-task-tree-${sa.id}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <ChangesSection changes={changes} />
+                  <TerminalSection terminals={terminals} />
+                  <OverviewSection
+                    overview={overview}
+                    isStreaming={isStreaming}
+                    totalTokens={totalTokens}
+                    tokenRate={tokenRate}
+                    etaMs={etaMs}
+                    contextUsage={contextUsage}
+                  />
+                </div>
+              </FoldableSectionProvider>
+            )}
           </>
         )}
 
-        {/* 折叠子区:思考过程 / 工具调用 / Subagent 派单 / 文件变更 / 终端任务 / 任务总览(对齐 Trae Work) */}
-        {threadId && (
-          <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
-            <div
-              onKeyDown={onSectionsKeyDown}
-              role="toolbar"
-              aria-label={t('sectionsToolbarLabel')}
-              data-testid="sections-container"
-              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-            >
-              <ThinkingSection
-                content={overview.content}
-                currentNode={overview.currentNode}
-                isStreaming={isStreaming}
-              />
-              <ToolCallsSection tools={tools} />
-              <SubagentSection subagents={subagents} />
-              <ChangesSection changes={changes} />
-              <TerminalSection terminals={terminals} />
-              <OverviewSection
-                overview={overview}
-                isStreaming={isStreaming}
-                totalTokens={totalTokens}
-                tokenRate={tokenRate}
-                etaMs={etaMs}
-                contextUsage={contextUsage}
-              />
-            </div>
-          </FoldableSectionProvider>
-        )}
-
-        {/* Phase 17: 跳到最新按钮(用户滚离底部时显示) */}
+        {/* Phase 17: 跳到最新按钮 */}
         {showJumpToLatest && (
           <button
             type="button"
