@@ -247,6 +247,15 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.screenshot_service import shutdown as screenshot_shutdown
     await screenshot_shutdown()
 
+    # P1 修复:关闭所有 LSP 子进程(_instances 全局 dict 持有 LspClient 单例,
+    # 不主动 shutdown 会导致 typescript-language-server 子进程 + reader_task 泄漏)
+    try:
+        from app.api.v1.lsp import LspClient
+        await LspClient.shutdown_all()
+        logger.info("[lsp] all LSP clients shut down")
+    except Exception as e:
+        logger.warning("[shutdown] LspClient.shutdown_all 失败(忽略): %s", e)
+
     # 关闭全局共享 httpx.AsyncClient(连接池复用,provider 共享)
     from app.core.llm_gateway import close_http_client, _pool
     await close_http_client()
