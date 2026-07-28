@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastif
 import fp from 'fastify-plugin'
 import { createHash } from 'node:crypto'
 import type { Redis } from 'ioredis'
-import { eq, sql, and, gte, lte, sum, desc, count, ne, type SQL } from 'drizzle-orm'
+import { eq, sql, and, gte, lte, sum, desc, count, isNotNull, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import {
   aiCostRecords,
@@ -570,7 +570,7 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
           and(
             gte(aiCostRecords.createdAt, startDate),
             lte(aiCostRecords.createdAt, endDate),
-            ne(aiCostRecords.userId, sql`null`),
+            isNotNull(aiCostRecords.userId),
           ),
         )
         .groupBy(aiCostRecords.userId, users.nickname, users.email, users.username)
@@ -593,8 +593,13 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // GET /api/admin/ai/cost/budget-alerts — 预算告警
   // 对比每个 user 预算与今日/本月实际消耗,返回超出 80% 阈值的记录
-  server.get('/api/admin/ai/cost/budget-alerts', { preHandler: authenticate }, async () => {
-    // 1. 取所有 scope='user' 的预算
+  server.get(
+    '/api/admin/ai/cost/budget-alerts',
+    { preHandler: authenticate },
+    async (request) => {
+      // P0-3e: 字段名含 "token" 命中 response-sanitizer 遮蔽为 "***"(同 vip-quotas),admin 路由直接跳过整端点脱敏
+      request.skipResponseSanitization = true
+      // 1. 取所有 scope='user' 的预算
     const userBudgets = await db.select().from(aiBudgets).where(eq(aiBudgets.scope, 'user'))
 
     if (userBudgets.length === 0) return success([])
