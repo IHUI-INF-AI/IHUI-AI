@@ -11,9 +11,9 @@ export interface LevelBadgeProps {
 
 const LEVEL_COLORS: Record<number, string> = {
   0: 'bg-muted text-foreground',
-  1: 'bg-[#f59e0b]/10 text-[#f59e0b]',
+  1: 'bg-warning/10 text-warning',
   2: 'bg-muted text-foreground',
-  3: 'bg-yellow-50 text-[#f59e0b]',
+  3: 'bg-yellow-50 text-warning',
   4: 'bg-primary/10 text-primary',
   5: 'bg-cyan-50 text-cyan-600',
   6: 'bg-purple-50 text-purple-600',

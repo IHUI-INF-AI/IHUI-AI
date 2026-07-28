@@ -1,6 +1,6 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { Switch, Text, TouchableOpacity, View } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Input, Loading } from '@ihui/ui-native'

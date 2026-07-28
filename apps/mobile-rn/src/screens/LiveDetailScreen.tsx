@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, KeyboardAvoidingView, Platform, Text, TouchableOpacity, View } from 'react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input, Loading } from '@ihui/ui-native'
@@ -282,7 +283,7 @@ export function LiveDetailScreen() {
           placeholder={t('live.chatPlaceholder')}
           editable={chatStatus === 'open'}
           className="flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-50"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={tokens.text.tertiary}
           returnKeyType="send"
           onSubmitEditing={onSend}
         />

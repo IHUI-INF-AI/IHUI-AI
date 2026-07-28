@@ -102,6 +102,7 @@ export default function TitleSwitchTypeBar({
             <Text>全部</Text>
           </View>
         ) : null}
+        {/* TODO: custom color: #e0e8ff 选中标签浅蓝边框,无对应 token,保留原值 */}
         {tabList.map((item) => {
           const selected = tabValue.some((it) => it.id === item.id)
           return (
@@ -147,12 +148,12 @@ export default function TitleSwitchTypeBar({
         />
       ) : null}
       {addType ? (
-        <View className="fixed inset-0 m-auto z-[996] w-[854rpx] h-[606rpx] rounded-[40rpx] bg-white border border-[#DADADA] box-border flex flex-col items-center justify-center">
-          <Text className="text-[48rpx] font-bold text-[#3D3D3D] mb-[100rpx]">
+        <View className="fixed inset-0 m-auto z-[996] w-[854rpx] h-[606rpx] rounded-[40rpx] bg-white border border-border box-border flex flex-col items-center justify-center">
+          <Text className="text-[48rpx] font-bold text-foreground mb-[100rpx]">
             请设置自定义种类
           </Text>
           <Input
-            className="w-[642rpx] h-[98rpx] border border-[#979797] rounded-[16rpx] mb-[100rpx] text-[40rpx] text-[#979797] px-[24rpx]"
+            className="w-[642rpx] h-[98rpx] border border-border rounded-[16rpx] mb-[100rpx] text-[40rpx] text-muted-foreground px-[24rpx]"
             type="text"
             maxlength={4}
             placeholder="请输入种类"

@@ -232,12 +232,12 @@ export default function ApiSettings() {
           </Button>
         </View>
         {testing === 'success' ? (
-          <Text className="block px-[32rpx] pb-[24rpx] text-[24rpx] text-[#10b981]">
+          <Text className="block px-[32rpx] pb-[24rpx] text-[24rpx] text-success">
             {tt('about.apiSettings.testSuccess', '连接成功')}
           </Text>
         ) : null}
         {testing === 'failed' ? (
-          <Text className="block px-[32rpx] pb-[24rpx] text-[24rpx] text-[#ef4444]">
+          <Text className="block px-[32rpx] pb-[24rpx] text-[24rpx] text-destructive">
             {tt('about.apiSettings.testFailed', '连接失败,请检查配置')}
           </Text>
         ) : null}
