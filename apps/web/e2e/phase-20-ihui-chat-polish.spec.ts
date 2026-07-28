@@ -2,9 +2,9 @@ import { test, expect, type Page } from '@playwright/test'
 import { setupTest, expect as baseExpect } from './fixtures'
 
 /**
- * Phase 20 Trae Work 细节优化 — E2E 测试(2026-07-28 立)
+ * Phase 20 ihui 对话细节优化 — E2E 测试(2026-07-28 立)
  *
- * 覆盖 Phase 20 深度对标 Trae Work 体验后的 4 大 P1 优化:
+ * 覆盖 Phase 20 深度对标业界主流对话体验后的 4 大 P1 优化:
  * 1. P1-1 键盘拖拽:Header 焦点 + 方向键微调位置
  * 2. P1-2 Overview 复制任务摘要:overview-section 复制按钮
  * 3. P1-3 Timeline 导出 Markdown:timeline tab 下载按钮
