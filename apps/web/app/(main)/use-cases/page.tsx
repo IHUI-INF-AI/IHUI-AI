@@ -7,20 +7,20 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases#webpage',
-      url: 'https://ihui.ai/use-cases',
+      '@id': 'https://aizhs.top/use-cases#webpage',
+      url: 'https://aizhs.top/use-cases',
       name: 'IHUI AI 用例中心 — 4 大核心场景',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的 4 大核心用例:智能客服、企业知识库、代码助手、内容创作。每个用例都附带完整方案、落地步骤、核心收益。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
       ],
     },
   ],
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'IHUI AI 用例中心 — 4 大核心 AI 应用场景',
     description: '智能客服 / 知识库 / 代码助手 / 内容创作 完整方案',
-    url: 'https://ihui.ai/use-cases',
+    url: 'https://aizhs.top/use-cases',
     type: 'website',
   },
 }

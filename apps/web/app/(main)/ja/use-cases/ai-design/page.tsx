@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/ja/use-cases/ai-design#webpage',
-      url: 'https://ihui.ai/ja/use-cases/ai-design',
+      '@id': 'https://aizhs.top/ja/use-cases/ai-design#webpage',
+      url: 'https://aizhs.top/ja/use-cases/ai-design',
       name: 'AI デザイン協業 Agent ユースケース — IHUI AI',
       description:
         'IHUI AI フルスタック AI OS を基盤に構築する AI デザイン協業 Agent:ポスター / Logo コンセプト、UI スケッチ → コード、ブランド資産管理、デザインレビュー、デザインシステム検索。30 分で導入、8 エンドポイント配信。',
       inLanguage: ['ja', 'zh-CN', 'zh-TW', 'en', 'ko'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/ja/use-cases/ai-design#breadcrumb',
+      '@id': 'https://aizhs.top/ja/use-cases/ai-design#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'ホーム', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: 'ユースケース', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI デザイン協業', item: 'https://ihui.ai/ja/use-cases/ai-design' },
+        { '@type': 'ListItem', position: 1, name: 'ホーム', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: 'ユースケース', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI デザイン協業', item: 'https://aizhs.top/ja/use-cases/ai-design' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/ja/use-cases/ai-design#howto',
+      '@id': 'https://aizhs.top/ja/use-cases/ai-design#howto',
       name: '30 分で AI デザイン協業 Agent を構築',
       description:
         'IHUI AI フルスタック AI OS を基盤に AI デザイン協業 Agent を構築する 6 ステップ:ブランド資産アップロード → デザインシステム設定 → コンセプト生成学習 → スケッチ → コード有効化 → レビュールール設定 → 協業ツール接続。デザインサイクル 60% 短縮。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI デザイン協業 Agent — IHUI AI',
     description: 'スケッチ → コード + ブランド資産 + デザインレビュー、30 分導入。',
-    url: 'https://ihui.ai/ja/use-cases/ai-design',
+    url: 'https://aizhs.top/ja/use-cases/ai-design',
     type: 'article',
   },
 }
