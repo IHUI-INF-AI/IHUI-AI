@@ -6,6 +6,8 @@ export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen
 export { BookmarkScreen } from './features/bookmark/BookmarkScreen'
 export { NotificationListScreen } from './features/notification/NotificationListScreen'
 export { HistoryScreen } from './features/history/HistoryScreen'
+export { CertificateScreen } from './features/certificate/CertificateScreen'
+export { MessageCenterScreen } from './features/message-center/MessageCenterScreen'
 
 export {
   VipCard,
@@ -53,4 +55,10 @@ export type {
   HistoryTargetType,
   HistoryItem,
   HistoryScreenProps,
+  CertificateStatus,
+  CertificateItem,
+  CertificateScreenProps,
+  MessageTab,
+  MessageCenterItem,
+  MessageCenterScreenProps,
 } from './types'
