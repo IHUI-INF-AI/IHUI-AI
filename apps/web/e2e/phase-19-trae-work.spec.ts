@@ -1555,6 +1555,9 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
   async function openPaneAdmin(page: Page): Promise<boolean> {
     await page.goto(CHAT_URL).catch(() => {})
     await page.waitForLoadState('networkidle').catch(() => {})
+    // 等待 React hydration + I18nProvider 从 useLanguageStore 读 locale(persist 中间件异步恢复)
+    // 实测 2.5s 才稳定(v17.18/v17.20 复现 stale) 'zh-CN'(v17.18/v17.20 复现)
+    await page.waitForTimeout(3000)
     if (!page.url().includes('/chat')) return false
     const trigger = page.locator(TRIGGER_TESTID).first()
     if (!(await trigger.isVisible({ timeout: 8000 }).catch(() => false))) return false
@@ -1563,30 +1566,48 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     return pane.isVisible({ timeout: 5000 }).catch(() => false)
   }
 
-  /** 切换 i18n locale(同步 cookie + useLanguageStore localStorage) */
+  /** 切换 i18n locale:通过 window 暴露的 zustand store 直接 setLocale
+   *  原因:zustand persist 中间件 rehydrate 是异步的,localStorage + reload 方式
+   *  等待时间不可控;直接调 useLanguageStore.getState().setLocale(locale) 同步生效,
+   *  I18nProvider 会在 store 变化时立即重渲染(无需 reload)。 */
   async function switchLocale(page: Page, locale: string) {
-    await page.context().addCookies([
-      {
-        name: 'locale',
-        value: locale,
-        domain: 'localhost',
-        path: '/',
-        httpOnly: false,
-        secure: false,
-        sameSite: 'Lax',
-      },
-    ])
     await page.evaluate((l) => {
-      try {
-        const raw = window.localStorage.getItem('ihui-language')
-        const obj = raw ? JSON.parse(raw) : { state: { locale: 'zh-CN' }, version: 0 }
-        obj.state = obj.state ?? {}
-        obj.state.locale = l
-        window.localStorage.setItem('ihui-language', JSON.stringify(obj))
-      } catch {
-        // 忽略
+      const win = window as unknown as {
+        __IHUI_LANGUAGE_STORE__?: {
+          getState: () => { setLocale: (locale: string) => void; locale: string }
+        }
+      }
+      const store = win.__IHUI_LANGUAGE_STORE__
+      if (store) {
+        // 直接调 setLocale 同步触发 I18nProvider 重渲染
+        store.getState().setLocale(l as 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ko')
+      } else {
+        // 退化:开发模式未挂载全局,降级到 localStorage + reload
+        try {
+          const raw = window.localStorage.getItem('ihui-language')
+          const obj = raw ? JSON.parse(raw) : { state: { locale: 'zh-CN' }, version: 0 }
+          obj.state = obj.state ?? {}
+          obj.state.locale = l
+          window.localStorage.setItem('ihui-language', JSON.stringify(obj))
+        } catch {
+          // 忽略
+        }
       }
     }, locale)
+    // 给 React 一帧重新渲染 + I18nProvider 切换 messages
+    await page.waitForTimeout(500)
+  }
+
+  /** 拖拽起始点:使用 pane-drag-grip 元素位置(左侧 16px GripVertical,远离 tab/button,避免被排除)
+   *  返回 { startX, startY, isAvailable } - 不可用时调用方应 test.skip */
+  async function getDragStartPoint(page: Page): Promise<{ startX: number; startY: number; isAvailable: boolean }> {
+    const grip = page.locator('[data-testid="pane-drag-grip"]').first()
+    if (!(await grip.isVisible({ timeout: 1500 }).catch(() => false))) {
+      return { startX: 0, startY: 0, isAvailable: false }
+    }
+    const box = await grip.boundingBox().catch(() => null)
+    if (!box) return { startX: 0, startY: 0, isAvailable: false }
+    return { startX: box.x + box.width / 2, startY: box.y + box.height / 2, isAvailable: true }
   }
 
   // ── v17.1 拖拽:水平 60px 拖拽后 localStorage x 增加 ───────────
@@ -1604,18 +1625,15 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       }
     })
 
-    const header = adminPage.locator('[data-testid="pane-header"]').first()
-    const box = await header.boundingBox().catch(() => null)
-    if (!box) {
-      test.skip(true, 'header boundingBox 不可用,跳过')
+    const pt = await getDragStartPoint(adminPage)
+    if (!pt.isAvailable) {
+      test.skip(true, 'pane-drag-grip 不可见,跳过')
       return
     }
 
-    const startX = box.x + box.width / 2
-    const startY = box.y + box.height / 2
-    await adminPage.mouse.move(startX, startY)
+    await adminPage.mouse.move(pt.startX, pt.startY)
     await adminPage.mouse.down()
-    await adminPage.mouse.move(startX + 60, startY, { steps: 5 })
+    await adminPage.mouse.move(pt.startX + 60, pt.startY, { steps: 5 })
     await adminPage.mouse.up()
     await adminPage.waitForTimeout(200)
 
@@ -1628,33 +1646,26 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       }
     })
 
-    if (saved && typeof saved === 'object' && 'x' in saved && 'y' in saved) {
-      adminExpect(typeof saved.x).toBe('number')
-      adminExpect(typeof saved.y).toBe('number')
-      // x 应该 >= 0(clamp 后)
-      adminExpect(saved.x as number).toBeGreaterThanOrEqual(0)
-      adminExpect(saved.y as number).toBeGreaterThanOrEqual(0)
-    } else {
-      // 软断言:可能因 header 被 button 拦截(无空白命中区)→ 拖拽未触发
-      test.skip(true, 'localStorage 未写入拖拽位置(header 命中区被 button 占用),跳过')
-    }
+    // 硬断言:水平 60px 拖拽后位置应被持久化(使用 grip 起始点确保不被 button 排除)
+    adminExpect(saved).not.toBeNull()
+    adminExpect(typeof saved.x).toBe('number')
+    adminExpect(typeof saved.y).toBe('number')
+    adminExpect(saved.x as number).toBeGreaterThanOrEqual(0)
+    adminExpect(saved.y as number).toBeGreaterThanOrEqual(0)
   })
 
   // ── v17.2 拖拽:body cursor 切换为 grabbing(全局状态)───────────
   adminTest('v17.2 拖拽中 body cursor 切换为 grabbing,释放后还原为空字符串', async ({ adminPage }) => {
     if (!(await openPaneAdmin(adminPage))) return
 
-    const header = adminPage.locator('[data-testid="pane-header"]').first()
-    const box = await header.boundingBox().catch(() => null)
-    if (!box) {
-      test.skip(true, 'header boundingBox 不可用,跳过')
+    const pt = await getDragStartPoint(adminPage)
+    if (!pt.isAvailable) {
+      test.skip(true, 'pane-drag-grip 不可见,跳过')
       return
     }
-    const startX = box.x + box.width / 2
-    const startY = box.y + box.height / 2
-    await adminPage.mouse.move(startX, startY)
+    await adminPage.mouse.move(pt.startX, pt.startY)
     await adminPage.mouse.down()
-    await adminPage.mouse.move(startX + 30, startY + 20, { steps: 3 })
+    await adminPage.mouse.move(pt.startX + 30, pt.startY + 20, { steps: 3 })
 
     // 拖拽中:body cursor='grabbing'
     const bodyCursorDrag = await adminPage.evaluate(() => document.body.style.cursor)
@@ -1674,17 +1685,14 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
   }) => {
     if (!(await openPaneAdmin(adminPage))) return
 
-    const header = adminPage.locator('[data-testid="pane-header"]').first()
-    const box = await header.boundingBox().catch(() => null)
-    if (!box) {
-      test.skip(true, 'header boundingBox 不可用,跳过')
+    const pt = await getDragStartPoint(adminPage)
+    if (!pt.isAvailable) {
+      test.skip(true, 'pane-drag-grip 不可见,跳过')
       return
     }
-    await adminPage.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await adminPage.mouse.move(pt.startX, pt.startY)
     await adminPage.mouse.down()
-    await adminPage.mouse.move(box.x + box.width / 2 + 30, box.y + box.height / 2 + 20, {
-      steps: 3,
-    })
+    await adminPage.mouse.move(pt.startX + 30, pt.startY + 20, { steps: 3 })
 
     const userSelectDuring = await adminPage.evaluate(() => document.body.style.userSelect)
     adminExpect(userSelectDuring).toBe('none')
@@ -1789,7 +1797,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     const pin = adminPage.locator('[data-testid="pane-pin"]').first()
     if (await pin.isVisible({ timeout: 500 }).catch(() => false)) {
       const pinAria = await pin.getAttribute('aria-label')
-      if (pinAria && /取消|unpin/i.adminTest(pinAria)) {
+      if (pinAria && /取消|unpin/i.test(pinAria)) {
         // 当前为 pinned → 取消 pin
         await pin.click()
         await adminPage.waitForTimeout(100)
@@ -1883,8 +1891,8 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     }
     const svgClass = (await svg.getAttribute('class')) ?? ''
     // lucide-react class 名固定为 lucide-sparkles;同时支持 animate-pulse
-    const hasSparkles = /sparkles/i.adminTest(svgClass)
-    const hasPulse = /animate-pulse/i.adminTest(svgClass)
+    const hasSparkles = /sparkles/i.test(svgClass)
+    const hasPulse = /animate-pulse/i.test(svgClass)
     adminExpect(hasSparkles || hasPulse).toBeTruthy()
   })
 
@@ -2139,7 +2147,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
   // ── v17.18 i18n 切换:en 状态下 Pane tab 显示 "Inline" / "Timeline" ──
   adminTest('v17.18 i18n:en 状态下 Pane tab 显示 "Inline" / "Timeline"', async ({ adminPage }) => {
-    // 先 set en locale + reload
+    // 先 set en locale
     await switchLocale(adminPage, 'en')
     if (!(await openPaneAdmin(adminPage))) return
 
@@ -2155,6 +2163,8 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
     const inlineText = (await inlineTab.textContent()) ?? ''
     const timelineText = (await timelineTab.textContent()) ?? ''
+    // 通过 window.__IHUI_LANGUAGE_STORE__.setLocale('en') 同步触发 I18nProvider 重渲染后
+    // tab 文案应已切换为 en('Inline' / 'Timeline')
     adminExpect(inlineText).toContain('Inline')
     adminExpect(timelineText).toContain('Timeline')
   })
@@ -2177,8 +2187,8 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     const inlineText = (await inlineTab.textContent()) ?? ''
     const timelineText = (await timelineTab.textContent()) ?? ''
     // 验证含日语字(可能部分词被截断)
-    adminExpect(/[ぁ-んァ-ヶ一-龯]/.adminTest(inlineText)).toBeTruthy()
-    adminExpect(/[ぁ-んァ-ヶ一-龯]/.adminTest(timelineText)).toBeTruthy()
+    adminExpect(/[ぁ-んァ-ヶ一-龯]/.test(inlineText)).toBeTruthy()
+    adminExpect(/[ぁ-んァ-ヶ一-龯]/.test(timelineText)).toBeTruthy()
   })
 
   // ── v17.20 i18n 切换:zh-TW 状态下 Pane aria-label 含 "Agent 任務進度面板" ─
@@ -2194,8 +2204,8 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       return
     }
     const ariaLabel = (await pane.getAttribute('aria-label')) ?? ''
-    // zh-TW 含繁体字形(任務而非任务)
-    const hasTradAria = /任務|進度/.adminTest(ariaLabel)
-    adminExpect(hasTradAria).toBeTruthy()
+    // 通过 window.__IHUI_LANGUAGE_STORE__.setLocale('zh-TW') 同步触发 I18nProvider 重渲染后
+    // aria-label 应已切换为繁体(任務/進度)
+    adminExpect(ariaLabel).toMatch(/任務|進度/)
   })
-}
+})
