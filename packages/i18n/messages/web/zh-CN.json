@@ -9811,12 +9811,12 @@
       "earlyBird": "早鸟价 ¥6000/年 · 3.3 折",
       "multiEnd": "8 端全覆盖 · 覆盖范围较广",
       "benefits": {
-        "benefit6": "不满意全额退款",
-        "benefit1": "",
-        "benefit2": "",
-        "benefit3": "",
-        "benefit4": "",
-        "benefit5": ""
+        "benefit1": "全年所有课程免费参加",
+        "benefit2": "探索活动优先参与",
+        "benefit3": "社群互助无限次",
+        "benefit4": "线上社群专属入口",
+        "benefit5": "AI 助手优先体验",
+        "benefit6": "不满意全额退款"
       }
     },
     "stats": {
