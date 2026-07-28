@@ -27,6 +27,13 @@ import { ChangesSection } from './progress-sections/changes-section'
 import { TerminalSection } from './progress-sections/terminal-section'
 import { OverviewSection } from './progress-sections/overview-section'
 import { CopyButton } from './progress-sections/copy-button'
+import { ProgressRing } from './progress-sections/progress-ring'
+import {
+  ConnectionStatus,
+  ConnectionStatusDot,
+  deriveConnectionState,
+  type ConnectionState,
+} from './progress-sections/connection-status'
 
 /**
  * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-28 v7 Trae Work 对齐)
@@ -60,14 +67,14 @@ const PlanStepItem = React.memo(function PlanStepItem({
   step: PlanStep
   index: number
 }) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const Icon = PLAN_ICON[step.status]
   const stepLabel =
     step.status === 'in_progress'
-      ? t('pane.stepInProgress', { n: index + 1, step: step.step })
+      ? t('stepInProgress', { n: index + 1, step: step.step })
       : step.status === 'completed'
-        ? t('pane.stepCompleted', { n: index + 1, step: step.step })
-        : t('pane.stepPending', { n: index + 1, step: step.step })
+        ? t('stepCompleted', { n: index + 1, step: step.step })
+        : t('stepPending', { n: index + 1, step: step.step })
   return (
     <div
       role="listitem"
@@ -121,7 +128,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
 
 // ─── 主组件 ──────────────────────────────────────────────────────────
 export function AgentTaskProgressPane() {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const open = useAgentProgressPaneStore((s) => s.open)
   const threadId = useAgentProgressPaneStore((s) => s.threadId)
   const setThreadId = useAgentProgressPaneStore((s) => s.setThreadId)
@@ -144,6 +151,43 @@ export function AgentTaskProgressPane() {
 
   const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
+
+  // v8 零窜位:动态探测 trigger 位置,设置 CSS 变量让 popover 覆盖在 trigger 上方
+  // - trigger 始终在 inline 流中占同一位置(由 agent-progress-trigger.tsx 永远渲染)
+  // - popover 用 fixed 浮层覆盖(由 store.open 联动显隐),inline 流零变化
+  // - 这里探测 trigger 的 getBoundingClientRect 算覆盖位置;视口 resize/scroll 重新计算
+  const [panePos, setPanePos] = React.useState<{ top: number; left: number } | null>(null)
+  React.useEffect(() => {
+    if (!open) {
+      setPanePos(null)
+      return
+    }
+    const updatePos = () => {
+      const trigger = document.querySelector<HTMLElement>('[data-testid="agent-progress-trigger"]')
+      if (!trigger) {
+        setPanePos(null)
+        return
+      }
+      const rect = trigger.getBoundingClientRect()
+      // 覆盖在 trigger 上方:popover 底部对齐 trigger 顶部,水平居中
+      const POPOVER_W = 280
+      const GAP = 8
+      let left = rect.left + rect.width / 2 - POPOVER_W / 2
+      // 视口边缘保护:不超出视口左右各 8px
+      const minLeft = 8
+      const maxLeft = window.innerWidth - POPOVER_W - 8
+      left = Math.max(minLeft, Math.min(maxLeft, left))
+      const top = rect.top - GAP
+      setPanePos({ top, left })
+    }
+    updatePos()
+    window.addEventListener('resize', updatePos)
+    window.addEventListener('scroll', updatePos, true)
+    return () => {
+      window.removeEventListener('resize', updatePos)
+      window.removeEventListener('scroll', updatePos, true)
+    }
+  }, [open])
 
   // v9: token 统计(汇总 planSteps + subagents 的 tokenUsage)
   const totalTokens = React.useMemo(() => {
@@ -183,6 +227,26 @@ export function AgentTaskProgressPane() {
       progressPct: (completed / planSteps.length) * 100,
     }
   }, [planSteps])
+
+  // Phase 16: 进度环状态推导
+  const ringState: 'idle' | 'in_progress' | 'completed' = React.useMemo(() => {
+    if (planSteps.length === 0) return 'idle'
+    if (progressPct >= 100) return 'completed'
+    if (isStreaming) return 'in_progress'
+    return 'idle'
+  }, [planSteps.length, progressPct, isStreaming])
+
+  // Phase 16: SSE 连接状态推导
+  const connectionState: ConnectionState = React.useMemo(
+    () =>
+      deriveConnectionState(
+        isStreaming,
+        progress.overview.reconnectAttempt,
+        !!progress.overview.error,
+        threadId,
+      ),
+    [isStreaming, progress.overview.reconnectAttempt, progress.overview.error, threadId],
+  )
 
   // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
   React.useEffect(() => {
@@ -277,71 +341,71 @@ export function AgentTaskProgressPane() {
     <div
       ref={paneRef}
       className={cn(
-        // 位置:消息区右上角(固定,带 8px 间距,不随滚动移动)
-        'absolute right-2 top-2 z-50',
-        // 尺寸:紧凑 popover
-        'w-[280px]',
+        // v8 零窜位:fixed 浮层覆盖在 trigger 上方(用户规则:弹窗覆盖内容 悬浮态)
+        // 位置由内联 style 动态计算(trigger.getBoundingClientRect()),
+        // 绝对定位(absolute)改成 fixed 避免被 message-input 容器裁切或推挤 inline 流。
+        'fixed z-50',
+        // 尺寸:紧凑 popover + 高度自适应(视口 60vh,内容多时整体滚动)
+        'flex w-[280px] max-h-[60vh] flex-col',
         // 外观:圆角边框阴影,popover 风格
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
+        // 显隐动画:fade + translateY
+        'animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-150',
       )}
+      // 动态位置:覆盖在 trigger 上方,水平居中对齐
+      // - panePos 来自 trigger.getBoundingClientRect() 探测(effect 动态更新)
+      // - null 时 fall back 到视口右上角(trigger 未挂载/SSR 场景)
+      style={{
+        top: panePos ? `${panePos.top}px` : '8px',
+        left: panePos ? `${panePos.left}px` : 'calc(100vw - 296px)',
+      }}
       role="complementary"
       aria-label={t('pane.ariaLabel')}
       data-testid="agent-progress-pane"
     >
       {/* Header:状态点 + 标题 + pin 按钮 + 关闭按钮 */}
       <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2">
-        {/* 状态点:running 时 primary 色脉冲,idle 时灰色 */}
-        <span
+        {/* Phase 16: 状态点(连接状态可视化) - 替换原静态点 */}
+        <ConnectionStatusDot
+          state={connectionState}
           className={cn(
-            'h-1.5 w-1.5 shrink-0 rounded-full',
-            isStreaming
-              ? 'bg-primary animate-pulse'
-              : planSteps.length > 0
-                ? 'bg-emerald-500'
-                : 'bg-muted-foreground/50',
+            'transition-all duration-300',
+            // 5 状态颜色(对标 Trae Work)
+            connectionState === 'connected' && 'shadow-[0_0_0_1px_rgb(16_185_129/0.3)]',
+            connectionState === 'reconnecting' && 'shadow-[0_0_0_1px_rgb(245_158_11/0.3)]',
+            connectionState === 'disconnected' && 'shadow-[0_0_0_1px_rgb(239_68_68/0.3)]',
           )}
         />
         <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-        <span className="shrink-0 text-xs font-medium">{t('pane.title')}</span>
-        {/* v9: SVG 圆环进度(有 planSteps 时显示) */}
+        <span className="shrink-0 text-xs font-medium">{t('title')}</span>
+        {/* Phase 16: 进度环(中心显示百分比,带脉冲/庆祝动画) */}
         {planSteps.length > 0 && (
-          <svg
-            className="h-4 w-4 shrink-0 -rotate-90"
-            viewBox="0 0 16 16"
-            data-testid="progress-ring"
-            aria-label={`${Math.round(progressPct)}% 已完成`}
-          >
-            <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted" />
-            <circle
-              cx="8"
-              cy="8"
-              r="6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              className="text-emerald-500 transition-all duration-300"
-              strokeDasharray={2 * Math.PI * 6}
-              strokeDashoffset={2 * Math.PI * 6 * (1 - progressPct / 100)}
-            />
-          </svg>
+          <ProgressRing
+            value={progressPct}
+            state={ringState}
+            centerMode="percent"
+            size={16}
+            strokeWidth={2}
+            aria-label={t('pane.progressLabel', { pct: Math.round(progressPct) })}
+          />
         )}
-        {/* SSE 重连指示 */}
-        {progress.overview.reconnectAttempt > 0 && (
-          <span
-            className="shrink-0 animate-pulse text-[10px] text-amber-500"
-            title={t('pane.reconnecting', { n: progress.overview.reconnectAttempt })}
-          >
-            ↻{progress.overview.reconnectAttempt}/5
-          </span>
+        {/* Phase 16: SSE 连接状态指示器(紧凑模式,仅异常状态显示文字) */}
+        {connectionState !== 'connected' && connectionState !== 'connecting' && (
+          <ConnectionStatus
+            state={connectionState}
+            reconnectAttempt={progress.overview.reconnectAttempt}
+            totalAttempts={5}
+            error={progress.overview.error}
+            className="ml-0.5"
+          />
         )}
         <div className="flex-1" />
         {/* v9: 展开全部/折叠全部按钮 */}
         <button
           type="button"
           onClick={() => setExpandAll(expandAll === true ? false : true)}
-          aria-label={expandAll === true ? t('pane.collapseAll') : t('pane.expandAll')}
-          title={expandAll === true ? t('pane.collapseAll') : t('pane.expandAll')}
+          aria-label={expandAll === true ? t('collapseAll') : t('expandAll')}
+          title={expandAll === true ? t('collapseAll') : t('expandAll')}
           className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           data-testid="pane-expand-all"
         >
@@ -380,8 +444,11 @@ export function AgentTaskProgressPane() {
         </button>
       </div>
 
-      {/* 内容:plan steps 列表 + 折叠子区 */}
-      <div className="max-h-[280px] overflow-y-auto overflow-x-hidden py-1" data-testid="plan-list">
+      {/* 内容:plan steps 列表 + 折叠子区(min-h-0 + flex-1 让 popover 整体滚动,避免嵌套) */}
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1"
+        data-testid="plan-list"
+      >
         {/* 无 conversationId */}
         {!threadId && (
           <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
@@ -443,8 +510,9 @@ export function AgentTaskProgressPane() {
             <div
               onKeyDown={onSectionsKeyDown}
               role="toolbar"
-              aria-label={t('pane.sectionsToolbarLabel')}
+              aria-label={t('sectionsToolbarLabel')}
               data-testid="sections-container"
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
             >
               <ThinkingSection
                 content={overview.content}
