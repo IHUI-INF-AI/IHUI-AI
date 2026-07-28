@@ -152,7 +152,7 @@ export type RnThemeTokens = {
 
 /**
  * 浅色 token 集。各字段值与 base tokens 等价,额外补 surface.bg = 主背景白。
- * web 端(solito-demo)不传 colorScheme → 默认 light → 渲染值与历史完全一致。
+ * web 端(shared-demo)不传 colorScheme → 默认 light → 渲染值与历史完全一致。
  */
 export const rnLightTokens: RnThemeTokens = {
   brand: { DEFAULT: '#10B981', dark: '#34D399' },
