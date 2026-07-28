@@ -3,7 +3,7 @@ name: Miniapp Preview
 # =============================================================================
 # 小程序预览 workflow
 #
-# 当 PR 修改 apps/miniapp/** 时触发，启动 H5 预览服务器并上传预览产物。
+# 当 PR 修改 apps/miniapp-taro/** 时触发，启动 H5 预览服务器并上传预览产物。
 # 脚本: scripts/miniapp-preview.mjs
 # =============================================================================
 
@@ -11,7 +11,7 @@ on:
   pull_request:
     branches: [main, develop]
     paths:
-      - 'apps/miniapp/**'
+      - 'apps/miniapp-taro/**'
       - 'scripts/miniapp-preview.mjs'
       - '.github/workflows/miniapp-preview.yml'
 
@@ -58,7 +58,7 @@ jobs:
         with:
           name: miniapp-preview
           path: |
-            apps/miniapp/dist
-            apps/miniapp/.vite
+            apps/miniapp-taro/dist
+            apps/miniapp-taro/.vite
           if-no-files-found: ignore
           retention-days: 7
