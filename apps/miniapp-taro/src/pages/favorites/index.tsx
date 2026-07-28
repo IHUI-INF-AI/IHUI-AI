@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { useI18n } from '@/i18n'
+import { formatDateByTemplate } from '@ihui/shared'
 
 const PAGE_SIZE = 20
 
@@ -70,16 +71,6 @@ export default function FavoritesPage() {
     }
     return list
   }, [items, activeTab, searchText])
-
-  const formatDate = (v: string) => {
-    if (!v) return ''
-    const d = new Date(v)
-    if (isNaN(d.getTime())) return ''
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  }
 
   const handleCancel = useCallback(
     (item: FavoriteItem) => {
@@ -267,7 +258,7 @@ export default function FavoritesPage() {
                   <Text className="text-[22rpx] text-muted-foreground">{item.targetType}</Text>
                   <View className="flex items-center justify-between">
                     <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('favorites.collectedAt', '收藏于')} {formatDate(item.createdAt) || '-'}
+                      {tt('favorites.collectedAt', '收藏于')} {formatDateByTemplate(item.createdAt, 'YYYY-MM-DD') || '-'}
                     </Text>
                     {!manageMode ? (
                       <Text
