@@ -1,6 +1,7 @@
 export { AboutScreen } from './features/about/AboutScreen'
 export { ProfileScreen } from './features/profile/ProfileScreen'
 export { SettingsScreen } from './features/settings/SettingsScreen'
+export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 
 export {
   VipCard,
@@ -33,4 +34,7 @@ export type {
   AboutScreenProps,
   ProfileScreenProps,
   SettingsScreenProps,
+  FeedbackScreenProps,
+  FeedbackType,
+  FeedbackSubmitPayload,
 } from './types'

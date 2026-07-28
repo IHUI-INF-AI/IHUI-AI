@@ -33,6 +33,7 @@ const nextConfig: NextConfig = {
     '@ihui/shared',
     '@ihui/api-client',
     '@ihui/i18n',
+    '@ihui/rn-app',
     '@tauri-apps/api',
     '@tauri-apps/plugin-dialog',
     'react-native-web',

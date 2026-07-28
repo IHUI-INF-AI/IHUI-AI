@@ -122,3 +122,23 @@ export interface SettingsScreenProps {
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
   colorScheme?: 'light' | 'dark'
 }
+
+/** 反馈类型(与后端 /api/feedbacks 契约对齐) */
+export type FeedbackType = 'bug' | 'suggestion' | 'question' | 'other'
+
+/** Feedback 屏提交载荷 */
+export interface FeedbackSubmitPayload {
+  type: FeedbackType
+  content: string
+  contact: string
+}
+
+/** Feedback 屏 props */
+export interface FeedbackScreenProps {
+  t: TFunction
+  /** 提交回调,返回 true 表示成功(平台注入实际 API 调用) */
+  onSubmit: (payload: FeedbackSubmitPayload) => Promise<boolean>
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
