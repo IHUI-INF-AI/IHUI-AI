@@ -1,11 +1,11 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -20,7 +20,6 @@ interface NotificationSettings {
 
 export function NotificationSettingsScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [settings, setSettings] = useState<NotificationSettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,13 +31,10 @@ export function NotificationSettingsScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/notification-settings`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: NotificationSettings }
+        const res = await fetchApi<NotificationSettings>('/user/notification-settings')
+        if (!res.success) throw new Error('http')
         if (cancelled) return
-        setSettings(data.data ?? null)
+        setSettings(res.data ?? null)
       } catch {
         if (!cancelled) setError(t('notificationSettings.loadFailed'))
       } finally {
@@ -48,7 +44,7 @@ export function NotificationSettingsScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const toggle = (key: keyof NotificationSettings, value: boolean) => {
     if (!settings) return
@@ -61,15 +57,11 @@ export function NotificationSettingsScreen() {
     setError('')
     setSuccess('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/user/notification-settings`, {
+      const res = await fetchApi<NotificationSettings>('/user/notification-settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify(settings),
       })
-      if (!resp.ok) throw new Error('http')
+      if (!res.success) throw new Error('http')
       setSuccess(t('notificationSettings.saved'))
     } catch {
       setError(t('notificationSettings.saveFailed'))
@@ -136,19 +128,19 @@ export function NotificationSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  desc: { fontSize: 12, color: '#6B7280' },
+  desc: { fontSize: 12, color: tokens.text.secondary },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
-  rowDivider: { borderTopColor: '#F3F4F6', borderTopWidth: 1 },
-  label: { fontSize: 13, color: '#374151' },
-  errorText: { fontSize: 12, color: '#DC2626', marginBottom: 8 },
-  successText: { fontSize: 12, color: '#10B981', marginBottom: 8 },
-  saveBtn: { marginTop: 4, borderRadius: 8, backgroundColor: '#10B981' },
-  muted: { fontSize: 13, color: '#6B7280' },
+  rowDivider: { borderTopColor: tokens.surface.card, borderTopWidth: 1 },
+  label: { fontSize: 13, color: tokens.text.medium },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginBottom: 8 },
+  successText: { fontSize: 12, color: tokens.success.DEFAULT, marginBottom: 8 },
+  saveBtn: { marginTop: 4, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
+  muted: { fontSize: 13, color: tokens.text.secondary },
 })

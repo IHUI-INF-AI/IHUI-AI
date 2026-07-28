@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native'
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
 import { useI18n } from '../i18n'
+import { formatShortDuration } from '@ihui/shared/utils'
 
 export interface VoiceInputProps {
   /** 录音完成时回调(松开按钮时触发,参数为音频 URI) */
@@ -14,12 +15,6 @@ export interface VoiceInputProps {
 }
 
 const RECORD_MAX_SECONDS = 60
-
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-}
 
 export function VoiceInput({
   onComplete,
@@ -165,7 +160,7 @@ export function VoiceInput({
             <Animated.View style={[styles.bar, { height: barHeight }]} className="w-1 bg-red-500" />
             <Animated.View style={[styles.bar, { height: barHeight }]} className="w-1 bg-red-400" />
             <Animated.View style={[styles.bar, { height: barHeight }]} className="w-1 bg-red-500" />
-            <Text className="ml-1 text-xs text-red-600">{formatDuration(duration)} 松开结束</Text>
+            <Text className="ml-1 text-xs text-red-600">{formatShortDuration(duration)} 松开结束</Text>
           </View>
         ) : (
           <Text className="text-xs text-gray-600">{placeholder ?? '按住说话'}</Text>

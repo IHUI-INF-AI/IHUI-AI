@@ -8,6 +8,9 @@ import {
   Square,
   SquareSlash,
   FileText,
+  Hammer,
+  BookOpen,
+  Search,
   Plus,
   AtSign,
   Sparkles,
@@ -29,7 +32,8 @@ import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
-import { ModeSwitcher } from '@/components/ai/mode-switcher'
+import { useModeStore } from '@/stores/mode'
+import { ChatMode } from '@ihui/types'
 import {
   PermissionModePopover,
   isHighRiskPermissionMode,
@@ -94,6 +98,17 @@ const SLASH_COMMAND_IDS = [
   'wechat-article',
   'koubo-script',
 ] as const
+
+// ChatMode 4 态元信息(2026-07-28 立,移除 4 按钮后改用小徽章显示)
+// - icon: 当前模式徽章图标(lucide-react)
+// - i18nKey: 模式名 i18n key(从 chat.modeBuild/modePlan/modeReview/modeSpec 取)
+// - slashCmd: 对应 / 命令(供 tooltip 提示用户)
+const CHAT_MODE_META: Record<ChatMode, { icon: React.ComponentType<{ className?: string }>; i18nKey: string; slashCmd: string }> = {
+  build: { icon: Hammer, i18nKey: 'modeBuild', slashCmd: '/build' },
+  plan: { icon: BookOpen, i18nKey: 'modePlan', slashCmd: '/plan' },
+  review: { icon: Search, i18nKey: 'modeReview', slashCmd: '/review' },
+  spec: { icon: FileText, i18nKey: 'modeSpec', slashCmd: '/spec' },
+}
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
 const PROMPT_TEMPLATE_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
@@ -166,6 +181,49 @@ interface MessageInputProps {
   model: string
   onModelChange: (model: string) => void
   modelLabel: string
+}
+
+/**
+ * 当前 ChatMode 徽章(2026-07-28 立,移除 4 按钮后改用小徽章显示)。
+ *
+ * 视觉:h-6 px-2 text-xs、bg-muted 圆角 6px、icon + label 同行,subtle 风格。
+ * 切换入口(全部在 Tooltip 提示):
+ * - /build /plan /review /spec 斜杠命令
+ * - Ctrl+1/2/3/4 全局快捷键
+ * - AI 自动判断(用户输入发送时由 use-chat.ts suggestMode 触发)
+ *
+ * 不再提供按钮交互(2026-07-28 立,移除 4 按钮,纯视觉指示):
+ * - 4 按钮占据顶部空间大、与其他 AI 工具(Cursor/Claude Code/Copilot/Windsurf)设计不符
+ * - 用户可显式 /命令 或 Ctrl+1-4 切换,AI 也能自动判断
+ * - 当前模式必须保留视觉反馈(用户需知道 AI 当前在哪个模式工作)
+ */
+function CurrentModeBadge() {
+  const t = useTranslations('chat')
+  const currentMode = useModeStore((s) => s.currentMode)
+  const meta = CHAT_MODE_META[currentMode]
+  const ModeIcon = meta.icon
+  return (
+    <Tooltip
+      content={
+        <div className="space-y-0.5 text-[11px]">
+          <div className="font-medium">{t('modeBadgeTooltip', { mode: t(meta.i18nKey) })}</div>
+          <div className="text-muted-foreground">{t('modeBadgeSwitchHint')}</div>
+        </div>
+      }
+      side="bottom"
+    >
+      <span
+        className={cn(
+          'inline-flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground',
+        )}
+        data-testid="chat-mode-badge"
+        data-mode={currentMode}
+      >
+        <ModeIcon className="h-3 w-3" aria-hidden="true" />
+        <span>{t(meta.i18nKey)}</span>
+      </span>
+    </Tooltip>
+  )
 }
 
 export function MessageInput({
@@ -1093,14 +1151,17 @@ export function MessageInput({
                 </span>
               )}
             </div>
-            {/* 模式切换栏(2026-07-23 移至 textarea 上方,对标 Cursor 'top of chat input'):
-                模式切换是"对话开始前的决策",放输入区上方符合用户决策流(选模式→写prompt→发送)。
-                从底部工具栏移出,避免和 ModelSelector/VoiceInput/Send 拥挤(对标 Trae/Cursor/Claude/ChatGPT 均不放在输入框右下角)。
-                权限模式徽章(2026-07-25 深化):在模式切换栏右侧持续显示当前权限模式,
-                高风险时附倒计时(与顶部高风险警告横幅同步,用户不用滚动到顶部也能看到),
-                透明性 + 时效性双指标。 */}
+            {/* 当前 ChatMode 徽章(2026-07-28 立,移除 4 按钮后改用小徽章显示):
+                模式切换入口:
+                · 斜杠命令 /build /plan /review /spec(message-input.tsx tryHandleChatModeSlash 拦截)
+                · Ctrl+1/2/3/4 全局快捷键(ai-side-panel.tsx keydown handler)
+                · AI 自动判断(用户输入发送时由 use-chat.ts suggestMode 触发)
+                视觉风格对齐右侧权限模式徽章:compact (h-6 px-2 text-xs)、subtle bg-muted、
+                圆角 6px(rounded-md),与 4 按钮时代风格统一。
+                权限模式徽章(2026-07-25 深化):在模式徽章右侧持续显示当前权限模式,
+                高风险时附倒计时(与顶部高风险警告横幅同步),透明性 + 时效性双指标。 */}
             <div className="flex items-center gap-2 px-3 pt-2">
-              <ModeSwitcher className="hidden sm:flex" />
+              <CurrentModeBadge />
               <div
                 className="ml-auto flex items-center gap-1.5"
                 data-testid="titlebar-permission-mode"
@@ -1156,8 +1217,9 @@ export function MessageInput({
                 )}
               </div>
             </div>
-            {/* textarea 容器:padding 由容器提供,避免 textarea 滚动时 padding-top 被吃掉 */}
-            <div className="px-3 pt-2 pb-2">
+            {/* textarea 容器:padding 由容器提供,避免 textarea 滚动时 padding-top 被吃掉
+                (2026-07-28 加 relative,承载右下角字符数浮层) */}
+            <div className="relative px-3 pt-2 pb-2">
               {/* #18 流式中不 disabled,允许用户输入下一条消息草稿;发送按钮由 !isStreaming 守门 */}
               <textarea
                 ref={textareaRef}
@@ -1172,8 +1234,23 @@ export function MessageInput({
                 className={cn(
                   'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
                   'placeholder:text-muted-foreground/70',
+                  'pr-14', // 给右下角字符数浮层留位,长文本自动避开
                 )}
               />
+              {/* 字符数(2026-07-28 从外层 hint 行迁移至输入框内右下角):
+                  - 绝对定位浮在 textarea 右下角,小字 + 半透明,默认不抢戏
+                  - 接近上限时切到 text-destructive 提示
+                  - 父容器 relative + textarea pr-14,确保最末字符也不与字符数重叠
+                  - pointer-events-none 避免遮挡用户拖选/点击 */}
+              <span
+                aria-live="polite"
+                className={cn(
+                  'pointer-events-none absolute bottom-3 right-3 text-[10px] tabular-nums text-muted-foreground/60',
+                  count >= MAX_LENGTH && 'text-destructive',
+                )}
+              >
+                {count}/{MAX_LENGTH}
+              </span>
             </div>
             {/* 底部工具栏:左侧功能按钮,右侧模型/语音/发送(挨着)
                 提示词模板按钮已上移至附加栏(与添加引用并列),此处不再保留
@@ -1327,14 +1404,8 @@ export function MessageInput({
             </div>
           </div>
         </div>
-        {/* 2026-07-25 用户规则调整:mt-1.5 → mt-1(6px → 4px),hint 行更紧凑贴 input 底部。
-            配合外层 pb-1.5 调整,hint 整体下移更贴近 AI 面板底部。 */}
-        <div className="mt-1 flex items-center justify-between px-1 text-xs text-muted-foreground">
-          <span>{t('enterToSend')}</span>
-          <span className={count >= MAX_LENGTH ? 'text-destructive' : ''}>
-            {count}/{MAX_LENGTH}
-          </span>
-        </div>
+        {/* 2026-07-28 用户规则调整:删除外层 hint 行,字符数已迁移至输入框内右下角,
+            整体更紧凑、外层不再留空条;Enter 发送 · Shift+Enter 换行 用 textarea placeholder 承担(已有)。 */}
       </div>
       {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
           - 由 ai-panel store.pendingFullAccess 控制 open 状态

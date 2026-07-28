@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -105,7 +106,7 @@ export function FeedbackHistoryScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -113,15 +114,15 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  error: { paddingHorizontal: 16, fontSize: 12, color: '#DC2626' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  error: { paddingHorizontal: 16, fontSize: 12, color: tokens.danger.DEFAULT },
   center: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardType: { fontSize: 13, fontWeight: '600', color: '#10B981' },
+  cardType: { fontSize: 13, fontWeight: '600', color: tokens.success.DEFAULT },
   cardStatus: { fontSize: 12, fontWeight: '600' },
-  cardContent: { marginTop: 4, fontSize: 12, color: '#6B7280' },
-  cardTime: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
+  cardContent: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
+  cardTime: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
 })

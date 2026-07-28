@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -91,7 +92,7 @@ export function AnnouncementDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -100,14 +101,14 @@ const s = StyleSheet.create({
     gap: 12,
   },
   body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  detailTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  detailTitle: { fontSize: 18, fontWeight: '700', color: tokens.text.primary },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
-  meta: { fontSize: 12, color: '#9CA3AF' },
-  content: { marginTop: 12, fontSize: 14, color: '#374151', lineHeight: 22 },
+  meta: { fontSize: 12, color: tokens.text.tertiary },
+  content: { marginTop: 12, fontSize: 14, color: tokens.text.medium, lineHeight: 22 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, textAlign: 'center' },
   backBtn: { marginTop: 12 },
 })

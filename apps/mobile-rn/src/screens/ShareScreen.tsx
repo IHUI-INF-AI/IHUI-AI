@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useState } from 'react'
 import { ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -11,7 +12,6 @@ interface ShareResp { shareUrl: string; shareCode: string; expireAt: string }
 
 type Route = RouteProp<RootStackParamList, 'Share'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function ShareScreen() {
   const { t } = useI18n()
@@ -66,19 +66,19 @@ export function ShareScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827', marginBottom: 4 },
-  targetTitle: { fontSize: 14, color: PRIMARY, marginBottom: 12 },
-  label: { marginTop: 12, fontSize: 12, color: '#6b7280' },
-  input: { marginTop: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', fontSize: 14, color: '#111827' },
-  createBtn: { marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
-  btnDisabled: { backgroundColor: '#9ca3af' },
-  createText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  error: { marginTop: 12, fontSize: 13, color: '#dc2626' },
-  card: { marginTop: 16, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' },
-  cardLabel: { marginTop: 8, fontSize: 11, color: '#9ca3af' },
-  cardValue: { marginTop: 2, fontSize: 14, color: '#111827' },
-  shareBtn: { marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
-  shareText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary, marginBottom: 4 },
+  targetTitle: { fontSize: 14, color: tokens.success.DEFAULT, marginBottom: 12 },
+  label: { marginTop: 12, fontSize: 12, color: tokens.text.secondary },
+  input: { marginTop: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, fontSize: 14, color: tokens.text.primary },
+  createBtn: { marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: tokens.success.DEFAULT, alignItems: 'center' },
+  btnDisabled: { backgroundColor: tokens.text.tertiary },
+  createText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
+  error: { marginTop: 12, fontSize: 13, color: tokens.danger.DEFAULT },
+  card: { marginTop: 16, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light },
+  cardLabel: { marginTop: 8, fontSize: 11, color: tokens.text.tertiary },
+  cardValue: { marginTop: 2, fontSize: 14, color: tokens.text.primary },
+  shareBtn: { marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: tokens.success.DEFAULT, alignItems: 'center' },
+  shareText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
 })
