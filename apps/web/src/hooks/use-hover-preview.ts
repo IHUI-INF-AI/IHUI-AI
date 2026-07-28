@@ -4,7 +4,7 @@ import * as React from 'react'
 
 interface UseHoverPreviewOptions<T> {
   buildContent: (data: T) => React.ReactNode
-  anchorRef: React.RefObject<HTMLElement>
+  anchorRef: React.RefObject<HTMLElement | null>
   data: T | null
   delayMs?: number
   closeDelayMs?: number
