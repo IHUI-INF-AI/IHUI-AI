@@ -34,12 +34,14 @@ export function requestPayment(params: WechatPayParams | AlipayPayParams): Promi
   const platform = getPlatform()
   if (platform === 'weapp') return requestWeappPayment(params as WechatPayParams)
   if (platform === 'alipay') return requestAlipayPayment(params as AlipayPayParams)
+  // TODO: i18n — Taro.showToast 硬编码中文待翻译(当前环境不支持支付)
   Taro.showToast({ title: '当前环境不支持支付', icon: 'none' })
   return Promise.reject(new Error('当前环境不支持支付'))
 }
 
 /** 微信支付:Taro.requestPayment */
 export async function requestWeappPayment(params: WechatPayParams): Promise<PayResult> {
+  // TODO: i18n — Taro.showLoading 硬编码中文待翻译(支付中...)
   Taro.showLoading({ title: '支付中...', mask: true })
   try {
     await Taro.requestPayment({
@@ -55,9 +57,11 @@ export async function requestWeappPayment(params: WechatPayParams): Promise<PayR
     Taro.hideLoading()
     const msg = (err as { errMsg?: string })?.errMsg || ''
     if (msg.includes('cancel')) {
+      // TODO: i18n — Taro.showToast 硬编码中文待翻译(您已取消支付)
       Taro.showToast({ title: '您已取消支付', icon: 'none' })
       throw 'cancel'
     }
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(支付失败,请重试)
     Taro.showToast({ title: '支付失败,请重试', icon: 'none' })
     throw new Error(msg || '微信支付失败')
   }
@@ -68,11 +72,13 @@ export async function requestAlipayPayment(params: AlipayPayParams): Promise<Pay
   const tradeNO = params.tradeNO
   const orderStr = params.orderStr
   if (!tradeNO && !orderStr) {
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(支付宝订单信息缺失)
     Taro.showToast({ title: '支付宝订单信息缺失', icon: 'none' })
     throw new Error('支付宝订单信息缺失')
   }
   // 优先用 tradeNO,否则用 orderStr
   const option = tradeNO ? { tradeNO } : { orderStr: orderStr as string }
+  // TODO: i18n — Taro.showLoading 硬编码中文待翻译(支付中...)
   Taro.showLoading({ title: '支付中...', mask: true })
   try {
     const res = await Taro.tradePay(option)
@@ -80,19 +86,23 @@ export async function requestAlipayPayment(params: AlipayPayParams): Promise<Pay
     const resultCode = String(res.response.resultCode)
     if (isAlipaySuccess(resultCode)) return { platform: 'alipay', resultCode }
     if (isAlipayCancel(resultCode)) {
+      // TODO: i18n — Taro.showToast 硬编码中文待翻译(您已取消支付)
       Taro.showToast({ title: '您已取消支付', icon: 'none' })
       throw 'cancel'
     }
     if (isAlipayPending(resultCode)) {
+      // TODO: i18n — Taro.showToast 硬编码中文待翻译(支付结果待确认)
       Taro.showToast({ title: '支付结果待确认', icon: 'none', duration: 2000 })
       throw new Error(`支付宝支付待确认(${resultCode})`)
     }
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(支付失败,请重试)
     Taro.showToast({ title: '支付失败,请重试', icon: 'none' })
     throw new Error(`支付宝支付失败(${resultCode})`)
   } catch (err) {
     // 业务层已处理(throw 'cancel' / Error),透传;系统错误补充提示
     if (err === 'cancel' || err instanceof Error) throw err
     Taro.hideLoading()
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(支付失败,请重试)
     Taro.showToast({ title: '支付失败,请重试', icon: 'none' })
     throw new Error('支付宝支付失败')
   }

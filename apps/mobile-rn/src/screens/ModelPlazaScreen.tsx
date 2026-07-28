@@ -131,7 +131,9 @@ export default function ModelPlazaScreen() {
   const listByProvider = models.filter((m) => m.providerId === providerId)
   const filteredList = typeFilter === 'all' ? listByProvider : listByProvider.filter((m) => m.type === typeFilter)
 
+  // TODO: i18n — Alert.alert 硬编码中文待翻译(模型对比 / 请选择 2-3 个模型加入对比)
   const handleCompare = () => Alert.alert('模型对比', '请选择 2-3 个模型加入对比')
+  // TODO: i18n — Alert.alert 硬编码中文待翻译(模型详情 / 查看「X」完整参数与定价)
   const handleDetail = (m: Model) => Alert.alert('模型详情', `查看「${m.name}」完整参数与定价`)
 
   return (
