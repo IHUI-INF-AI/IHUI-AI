@@ -1,35 +1,27 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useI18n } from '../i18n'
 import { fetchApi } from '@ihui/api-client'
+import { HelpDetailScreen as SharedHelpDetailScreen, type HelpDetailItem } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { Loading } from '@ihui/ui-native'
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'HelpDetail'>
-interface Detail {
-  id: string
-  question: string
-  answer: string
-  category: string
-}
 
 export function HelpDetailScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const id = route.params.id
-  const [item, setItem] = useState<Detail | null>(null)
+  const [item, setItem] = useState<HelpDetailItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<Detail>(`/help/articles/${id}`)
+      const res = await fetchApi<HelpDetailItem>(`/help/articles/${id}`)
       if (!res.success) throw new Error()
       setItem(res.data ?? null)
     } catch {
@@ -43,72 +35,13 @@ export function HelpDetailScreen() {
     void load()
   }, [load])
 
-  if (loading) {
-    return (
-      <View style={s.center}>
-        <Loading />
-        <Text style={s.muted}>{t('common.loading')}</Text>
-      </View>
-    )
-  }
-  if (error || !item) {
-    return (
-      <View style={s.center}>
-        <Text style={s.error}>{error || t('helpDetail.empty')}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Text style={s.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-
   return (
-    <ScrollView style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>{t('helpDetail.title')}</Text>
-      </View>
-      <View style={s.body}>
-        <View style={s.categoryRow}>
-          <Text style={s.categoryBadge}>{item.category}</Text>
-        </View>
-        <Text style={s.question}>{item.question}</Text>
-        <Text style={s.answerTitle}>{t('helpDetail.answer')}</Text>
-        <Text style={s.answer}>{item.answer}</Text>
-      </View>
-    </ScrollView>
+    <SharedHelpDetailScreen
+      t={t}
+      item={item}
+      loading={loading}
+      error={error}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  body: { padding: 16 },
-  back: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  categoryRow: { flexDirection: 'row', marginBottom: 8 },
-  categoryBadge: {
-    fontSize: 11,
-    color: tokens.surface.light,
-    backgroundColor: tokens.success.DEFAULT,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  question: { fontSize: 17, fontWeight: '600', color: tokens.text.primary },
-  answerTitle: { marginTop: 16, fontSize: 13, fontWeight: '600', color: tokens.text.secondary },
-  answer: { marginTop: 6, fontSize: 14, color: tokens.text.medium, lineHeight: 22 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
-  error: { fontSize: 13, color: tokens.danger.DEFAULT, textAlign: 'center' },
-  backBtn: { marginTop: 12 },
-})

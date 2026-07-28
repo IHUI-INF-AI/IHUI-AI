@@ -694,5 +694,33 @@
     "ask": "질문",
     "asker": "질문자",
     "answers": "답변"
+  },
+  "noteDetail": {
+    "title": "노트 상세",
+    "loadFailed": "노트 로드 실패",
+    "views": "{count}회 조회",
+    "likes": "좋아요",
+    "tags": "태그"
+  },
+  "articleDetail": {
+    "title": "기사 상세",
+    "loadFailed": "기사 로드 실패",
+    "views": "{count}회 조회",
+    "likes": "좋아요"
+  },
+  "helpDetail": {
+    "title": "도움말 상세",
+    "loadFailed": "로드 실패",
+    "empty": "콘텐츠를 찾을 수 없습니다",
+    "answer": "답변",
+    "category": "카테고리"
+  },
+  "feedbackDetail": {
+    "title": "피드백 상세",
+    "loadFailed": "로드 실패",
+    "empty": "피드백을 찾을 수 없습니다",
+    "content": "내용",
+    "reply": "답글",
+    "createdAt": "제출 시간"
   }
 }

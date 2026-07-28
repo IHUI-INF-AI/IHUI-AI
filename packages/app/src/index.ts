@@ -1,8 +1,9 @@
-﻿export { AboutScreen } from './features/about/AboutScreen'
+export { AboutScreen } from './features/about/AboutScreen'
 export { ProfileScreen } from './features/profile/ProfileScreen'
 export { SettingsScreen } from './features/settings/SettingsScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
+export { FeedbackDetailScreen } from './features/feedback-detail/FeedbackDetailScreen'
 export { BookmarkScreen } from './features/bookmark/BookmarkScreen'
 export { NotificationListScreen } from './features/notification/NotificationListScreen'
 export { HistoryScreen } from './features/history/HistoryScreen'
@@ -14,11 +15,14 @@ export { WalletScreen } from './features/wallet/WalletScreen'
 export { CourseCatalogScreen } from './features/course-catalog/CourseCatalogScreen'
 export { PointHistoryScreen } from './features/point-history/PointHistoryScreen'
 export { NoteListScreen } from './features/note-list/NoteListScreen'
+export { NoteDetailScreen } from './features/note-detail/NoteDetailScreen'
 export { ArticleListScreen } from './features/article-list/ArticleListScreen'
 export { AnnouncementScreen } from './features/announcement/AnnouncementScreen'
 export { LivePlaybackListScreen } from './features/live-playback/LivePlaybackListScreen'
 export { RefundHistoryScreen } from './features/refund-history/RefundHistoryScreen'
 export { CourseQAListScreen } from './features/course-qa-list/CourseQAListScreen'
+export { HelpDetailScreen } from './features/help-detail/HelpDetailScreen'
+export { ArticleDetailScreen } from './features/article-detail/ArticleDetailScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -51,6 +55,8 @@ export type {
   FeedbackStatus,
   FeedbackHistoryItem,
   FeedbackHistoryScreenProps,
+  FeedbackDetailItem,
+  FeedbackDetailScreenProps,
   BookmarkTargetType,
   BookmarkItem,
   BookmarkScreenProps,
@@ -83,6 +89,8 @@ export type {
   PointHistoryScreenProps,
   NoteListItem,
   NoteListScreenProps,
+  NoteDetailItem,
+  NoteDetailScreenProps,
   ArticleListItem,
   ArticleListScreenProps,
   AnnouncementItem,
@@ -94,4 +102,8 @@ export type {
   RefundHistoryScreenProps,
   CourseQAListItem,
   CourseQAListScreenProps,
+  HelpDetailItem,
+  HelpDetailScreenProps,
+  ArticleDetailItem,
+  ArticleDetailScreenProps,
 } from './types'
