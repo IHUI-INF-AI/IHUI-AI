@@ -1,21 +1,14 @@
 import { View, Swiper, SwiperItem } from '@tarojs/components'
 import { useState, useCallback, useEffect } from 'react'
+import type { TitleSwitchScrollTitleItem, TitleSwitchScrollTitleProps } from '@ihui/types'
 
-export interface TitleSwitchScrollSubItem {
-  name: string
-}
-
-export interface TitleSwitchScrollMainItem {
-  name: string
-  children?: TitleSwitchScrollSubItem[]
-}
-
-export interface TitleSwitchScrollTitleProps {
-  mainList?: TitleSwitchScrollMainItem[]
-  mainSwiperMargin?: string
-  subSwiperMargin?: string
-  onChange?: (sub: TitleSwitchScrollSubItem) => void
-}
+// 共享类型 TitleSwitchScrollTitleItem(含递归 children) + TitleSwitchScrollTitleProps
+// 已下沉到 packages/types,两端复用。
+// 原本地拆分为 SubItem / MainItem 两个类型,现统一为共享递归类型,语义兼容。
+// 保留本地别名以维持公开 API(原文件 export 这些类型)。
+export type TitleSwitchScrollSubItem = TitleSwitchScrollTitleItem
+export type TitleSwitchScrollMainItem = TitleSwitchScrollTitleItem
+export type { TitleSwitchScrollTitleProps }
 
 const DEFAULT_LIST: TitleSwitchScrollMainItem[] = [
   { name: '赛道一', children: [{ name: '子赛道 1-1' }, { name: '子赛道 1-2' }] },

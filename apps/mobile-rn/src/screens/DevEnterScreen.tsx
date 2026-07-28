@@ -23,6 +23,7 @@ export default function DevEnterScreen() {
   const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = () => {
+    // TODO: i18n — Alert.alert 硬编码中文待翻译(提示 / 请输入开发者名称 / 请输入联系方式 / 简介至少 10 个字符 / 请先同意开发者协议)
     if (!name.trim()) return Alert.alert('提示', '请输入开发者名称')
     if (!contact.trim()) return Alert.alert('提示', '请输入联系方式')
     if (!intro.trim() || intro.trim().length < 10)
@@ -31,6 +32,7 @@ export default function DevEnterScreen() {
     setSubmitting(true)
     setTimeout(() => {
       setSubmitting(false)
+      // TODO: i18n — Alert.alert 硬编码中文待翻译(提交成功 / 申请已提交,审核结果将在 3 个工作日内通知 / 知道了)
       Alert.alert('提交成功', '申请已提交,审核结果将在 3 个工作日内通知', [
         { text: '知道了' },
       ])
