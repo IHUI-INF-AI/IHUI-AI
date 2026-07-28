@@ -1,6 +1,88 @@
-# 企业文档使用说明
+# 企业文档总目录(IHUI-AI Enterprise Documentation)
 
-## 支持的文档格式
+> **面向**:企业客户 / 销售 / 售前 / 技术决策者 / 商务
+> **最后更新**:2026-07-28
+> **维护方**:吉林省智汇人工智能科技有限公司 · 企业服务部
+
+本目录包含 IHUI-AI 企业版(Enterprise Edition)对外提供的**全部商务与技术文档**。客户签约后可作为合同附件引用,内部销售 / 售前 / 交付 / 运维团队按需取用。
+
+---
+
+## 一、文档索引(9 份)
+
+### 1.1 商务与决策类(4 份)
+
+| 文档 | 用途 | 受众 |
+|------|------|------|
+| [whitepaper.md](./whitepaper.md) | 全景白皮书(产品定位 + 价值 + 发展规划) | 决策者 / 高管 |
+| [ai-community-intro.md](./ai-community-intro.md) | AI 智能体社区介绍(普通用户/创作者/企业三视角) | 潜在客户 / 合作伙伴 |
+| [decision-maker-community.md](./decision-maker-community.md) | 决策者社群介绍(行业洞察 + 高管对话圈) | C-level / VP |
+| [human-ai-collaboration.md](./human-ai-collaboration.md) | 人机协作理念(产品哲学 + 未来工作模式) | 战略 / 趋势关注者 |
+
+### 1.2 商务与合同类(2 份)
+
+| 文档 | 用途 | 受众 |
+|------|------|------|
+| [pricing-quote.md](./pricing-quote.md) | 4 档报价单(标准 ¥5万 / 专业 ¥10万 / 旗舰 ¥30万 / 行业 ¥50万) | 采购 / 财务 |
+| [sla-terms.md](./sla-terms.md) | 服务等级协议(99.9% / 99.95% / 99.99% 三档) | 法务 / 运维 |
+
+### 1.3 技术与交付类(3 份)
+
+| 文档 | 用途 | 受众 |
+|------|------|------|
+| [deployment-guide.md](./deployment-guide.md) | 三模式部署指南(私有云 / 公有云 / 混合云) | IT 运维 / SRE / 集成商 |
+| [demo-environment.md](./demo-environment.md) | Demo 环境搭建(5 分钟一键启动) | 销售 / 售前 / POC |
+| [feature-comparison.md](./feature-comparison.md) | 社区版 vs 企业版对比(24 个维度) | 技术决策者 / 架构师 |
+
+### 1.4 配套脚本
+
+- `scripts/setup-enterprise-demo.sh` — 一键 Demo 环境搭建脚本(idempotent,支持 `--dry-run` / `--status` / `--reset` / `--clean` / `--purge`)
+
+---
+
+## 二、按角色快速查找
+
+### 2.1 商务 / 销售
+
+- 与客户**初次接触** → [whitepaper.md](./whitepaper.md) + [ai-community-intro.md](./ai-community-intro.md)
+- **报价阶段** → [pricing-quote.md](./pricing-quote.md)
+- **演示 / POC** → [demo-environment.md](./demo-environment.md) + `./scripts/setup-enterprise-demo.sh`
+- **签约阶段** → [sla-terms.md](./sla-terms.md) + [pricing-quote.md](./pricing-quote.md)
+- **决策层对话** → [decision-maker-community.md](./decision-maker-community.md)
+
+### 2.2 售前 / 解决方案
+
+- **功能答疑** → [feature-comparison.md](./feature-comparison.md)
+- **架构答疑** → [deployment-guide.md](./deployment-guide.md)
+- **演示环境** → [demo-environment.md](./demo-environment.md)
+- **POC 验收** → [feature-comparison.md](./feature-comparison.md) + [sla-terms.md](./sla-terms.md)
+
+### 2.3 技术 / 运维
+
+- **部署上线** → [deployment-guide.md](./deployment-guide.md)
+- **Demo 自助** → [demo-environment.md](./demo-environment.md) + `./scripts/setup-enterprise-demo.sh`
+- **合规对照** → [sla-terms.md](./sla-terms.md) §6 数据保护
+- **故障处理** → [sla-terms.md](./sla-terms.md) §3 故障响应
+
+### 2.4 客户内部
+
+- **评估选型** → [feature-comparison.md](./feature-comparison.md) + [pricing-quote.md](./pricing-quote.md)
+- **签约准备** → [sla-terms.md](./sla-terms.md) + [pricing-quote.md](./pricing-quote.md)
+- **上线准备** → [deployment-guide.md](./deployment-guide.md) + [demo-environment.md](./demo-environment.md)
+- **运维手册** → [sla-terms.md](./sla-terms.md) + [deployment-guide.md](./deployment-guide.md)
+
+---
+
+## 三、文档版本与更新
+
+- **当前版本**:v1.0
+- **更新频率**:每月 1 次小版本(每月 1 日),每季度 1 次大版本
+- **变更通知**:签约客户通过工单系统 / 邮件提前 30 天通知
+- **修订记录**:见每份文档末尾的"最后更新"字段
+
+---
+
+## 四、格式说明
 
 文档中心支持以下格式的文档显示：
 
@@ -112,11 +194,25 @@
 
 ## 示例
 
-当前目录中的示例文件：
-- `whitepaper.md` - Markdown 格式白皮书
-- `ai-community-intro.md` - Markdown 格式社区介绍
-- `decision-maker-community.md` - Markdown 格式决策者社群介绍
-- `human-ai-collaboration.md` - Markdown 格式人机协作介绍
+当前目录中的文档文件(共 9 份):
+
+**商务与决策类**:
+- `whitepaper.md` - 全景白皮书
+- `ai-community-intro.md` - AI 智能体社区介绍
+- `decision-maker-community.md` - 决策者社群介绍
+- `human-ai-collaboration.md` - 人机协作介绍
+
+**商务与合同类**:
+- `pricing-quote.md` - 4 档企业版报价单
+- `sla-terms.md` - 服务等级协议(SLA)
+
+**技术与交付类**:
+- `deployment-guide.md` - 三模式部署指南
+- `demo-environment.md` - Demo 环境搭建指南
+- `feature-comparison.md` - 社区版 vs 企业版功能对比
+
+**配套脚本**:
+- `../../scripts/setup-enterprise-demo.sh` - Demo 环境一键搭建脚本
 
 ## 转换工具
 
