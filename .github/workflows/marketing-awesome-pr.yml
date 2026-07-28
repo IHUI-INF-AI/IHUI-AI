@@ -1,0 +1,74 @@
+# Marketing Awesome PR Workflow(可选自动化)
+# 用途:CI 自动为 7 个 awesome 列表创建 PR
+# 触发:workflow_dispatch(手动) + release 标签
+# 注意:实际 PR 创建由 scripts/marketing/pr-to-awesome.sh 处理
+#       本 workflow 仅作占位,演示如何在 CI 中串接
+
+name: Marketing Awesome PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Awesome list target name (e.g. awesome-llms-in-china)'
+        required: true
+        type: choice
+        options:
+          - awesome-llms-in-china
+          - awesome-openai
+          - awesome-langgraph
+          - awesome-mcp
+          - awesome-tauri
+          - awesome-react-native
+          - awesome-taro
+          - awesome-fastify
+      dry_run:
+        description: 'Dry run only (no git push or PR)'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  submit-pr:
+    name: Submit PR to ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run pr-to-awesome.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.AWESOME_PR_TOKEN }}
+        run: |
+          chmod +x scripts/marketing/pr-to-awesome.sh
+          ARGS=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="--dry-run"
+          fi
+          bash scripts/marketing/pr-to-awesome.sh "${{ inputs.target }}" $ARGS
+
+      - name: Upload PR URL artifact
+        if: env.PR_URL != ''
+        run: |
+          echo "PR_URL=$PR_URL" >> $GITHUB_OUTPUT
+        env:
+          PR_URL: ${{ steps.submit-pr.outputs.pr_url }}

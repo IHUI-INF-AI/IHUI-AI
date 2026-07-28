@@ -1,0 +1,92 @@
+/**
+ * Timeline Store(Phase 19.2,2026-07-28 立)
+ *
+ * 对标 Trae Work:管理 Timeline tab 切换状态 + 事件列表 + 展开/折叠。
+ * 不持久化(每次会话重置)。
+ */
+
+import { create } from 'zustand'
+
+export type TimelineEventType = 'plan' | 'subagent' | 'question' | 'tool' | 'thinking' | 'reference'
+
+export type TimelineEventStatus = 'pending' | 'running' | 'done' | 'failed'
+
+export interface TimelineEvent {
+  id: string
+  type: TimelineEventType
+  /** ISO timestamp string */
+  timestamp: string
+  title: string
+  description?: string
+  status: TimelineEventStatus
+  messageId?: string
+  planStepId?: string
+  toolCallId?: string
+  children?: TimelineEvent[]
+  meta?: Record<string, unknown>
+}
+
+export type TimelineTabName = 'inline' | 'timeline'
+
+interface TimelineState {
+  activeTab: TimelineTabName
+  events: TimelineEvent[]
+  expandedEventIds: string[]
+
+  setActiveTab: (tab: TimelineTabName) => void
+  setEvents: (events: TimelineEvent[]) => void
+  addEvent: (event: TimelineEvent) => void
+  updateEvent: (id: string, updates: Partial<TimelineEvent>) => void
+  removeEvent: (id: string) => void
+  toggleExpanded: (id: string) => void
+  setExpanded: (id: string, expanded: boolean) => void
+  isExpanded: (id: string) => boolean
+  reset: () => void
+}
+
+export const useTimelineStore = create<TimelineState>((set, get) => ({
+  activeTab: 'inline',
+  events: [],
+  expandedEventIds: [],
+
+  setActiveTab: (tab) => set({ activeTab: tab }),
+
+  setEvents: (events) => set({ events }),
+
+  addEvent: (event) =>
+    set((s) =>
+      s.events.some((e) => e.id === event.id) ? s : { events: [...s.events, event] },
+    ),
+
+  updateEvent: (id, updates) =>
+    set((s) => ({
+      events: s.events.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+    })),
+
+  removeEvent: (id) =>
+    set((s) => ({
+      events: s.events.filter((e) => e.id !== id),
+      expandedEventIds: s.expandedEventIds.filter((eid) => eid !== id),
+    })),
+
+  toggleExpanded: (id) =>
+    set((s) => ({
+      expandedEventIds: s.expandedEventIds.includes(id)
+        ? s.expandedEventIds.filter((eid) => eid !== id)
+        : [...s.expandedEventIds, id],
+    })),
+
+  setExpanded: (id, expanded) =>
+    set((s) => {
+      const has = s.expandedEventIds.includes(id)
+      if (expanded && !has) return { expandedEventIds: [...s.expandedEventIds, id] }
+      if (!expanded && has) return { expandedEventIds: s.expandedEventIds.filter((eid) => eid !== id) }
+      return s
+    }),
+
+  isExpanded: (id) => get().expandedEventIds.includes(id),
+
+  reset: () => set({ activeTab: 'inline', events: [], expandedEventIds: [] }),
+}))
+
+export default useTimelineStore
