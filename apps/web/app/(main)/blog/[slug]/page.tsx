@@ -55,7 +55,7 @@ export default async function BlogPostPage({ params }: PageProps) {
     .slice(0, 4)
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-8 px-4 py-8 md:py-12">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-8 md:py-8">
       <Link
         href="/blog"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -125,7 +125,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                       </div>
                       <h3 className="line-clamp-2 font-semibold text-foreground">{p.title}</h3>
                       {p.description && (
-                        <p className="line-clamp-2 text-sm text-muted-foreground">
+                        <p className="line-clamp-2 text-xs text-muted-foreground">
                           {p.description}
                         </p>
                       )}

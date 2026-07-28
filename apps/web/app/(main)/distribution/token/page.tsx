@@ -100,7 +100,7 @@ export default function TokenWalletPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -110,7 +110,7 @@ export default function TokenWalletPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <Wallet className="h-7 w-7 text-primary" />
           {t('tokenTitle')}
         </h1>
@@ -124,7 +124,7 @@ export default function TokenWalletPage() {
           ) : balanceQ.error ? (
             <div className="text-sm text-destructive">{(balanceQ.error as Error).message}</div>
           ) : (
-            <div className="text-3xl font-bold tracking-tight">{balanceQ.data?.balance ?? 0}</div>
+            <div className="text-xl font-bold tracking-tight md:text-2xl">{balanceQ.data?.balance ?? 0}</div>
           )}
         </CardContent>
       </Card>

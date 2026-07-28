@@ -52,11 +52,11 @@ export default async function KeysPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('keys.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('keys.subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('keys.subtitle')}</p>
         </div>
         <Button className="gap-1.5">
           <Plus className="h-4 w-4" />

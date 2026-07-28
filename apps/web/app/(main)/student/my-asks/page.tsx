@@ -77,17 +77,17 @@ export default function MyAsksPage() {
   const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <HelpCircle className="h-7 w-7 text-primary" />
           {ta('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{ta('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{ta('subtitle')}</p>
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -96,7 +96,7 @@ export default function MyAsksPage() {
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <HelpCircle className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>

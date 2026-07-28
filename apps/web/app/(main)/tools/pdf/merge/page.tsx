@@ -53,7 +53,7 @@ export default function PdfMergePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <ToolHeader title="PDF 合并" description="按列表顺序将多个 PDF 合并为一个文件" />
       <UploadArea
         multiple

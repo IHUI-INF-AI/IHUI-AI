@@ -121,7 +121,7 @@ export default function ContextMentionsPage() {
           </CardHeader>
           <CardContent className="pt-0">
             {!selected ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
+              <div className="py-8 text-center text-sm text-muted-foreground">
                 选择左侧结果查看详情
               </div>
             ) : (

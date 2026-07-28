@@ -84,7 +84,7 @@ export default function CourseHomeworkPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -108,7 +108,7 @@ export default function CourseHomeworkPage() {
     )
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href={`/learn/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -123,7 +123,7 @@ export default function CourseHomeworkPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <ClipboardList className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>

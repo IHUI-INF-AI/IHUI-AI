@@ -62,7 +62,7 @@ export default function MyArticlesPage() {
           <h1 className="text-2xl font-bold tracking-tight">
             {t('title', { default: '我的文章' })}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {t('total', { default: '共 {n} 篇', n: total })}
           </p>
         </div>
@@ -75,7 +75,7 @@ export default function MyArticlesPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex justify-center py-16">
+        <div className="flex justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : error ? (
@@ -83,7 +83,7 @@ export default function MyArticlesPage() {
           {(error as Error).message}
         </div>
       ) : articles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-8">
           <p className="text-sm text-muted-foreground">{t('empty', { default: '还没有文章' })}</p>
           <Link href="/articles/edit">
             <Button size="sm" variant="outline">

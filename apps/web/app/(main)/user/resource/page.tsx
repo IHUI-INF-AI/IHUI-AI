@@ -57,7 +57,7 @@ export default function UserResourcePage() {
           {t('loading', { default: '加载中…' })}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <FileText className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty')}</p>
         </div>

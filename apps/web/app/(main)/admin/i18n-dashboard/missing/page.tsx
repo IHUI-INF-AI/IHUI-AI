@@ -85,7 +85,7 @@ export default function I18nMissingPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/admin/i18n-dashboard"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -97,9 +97,9 @@ export default function I18nMissingPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <AlertCircle className="h-6 w-6 text-amber-500" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">缺失 Key 列表</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">缺失 Key 列表</h1>
         </div>
-        <p className="text-sm text-muted-foreground">共 {d.total} 个 Key 待翻译</p>
+        <p className="text-xs text-muted-foreground">共 {d.total} 个 Key 待翻译</p>
       </header>
 
       <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
@@ -121,7 +121,7 @@ export default function I18nMissingPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
         </div>
@@ -130,7 +130,7 @@ export default function I18nMissingPage() {
           {(error as Error).message}
         </div>
       ) : groups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <AlertCircle className="h-8 w-8 text-emerald-500" />
           <p className="text-sm text-muted-foreground">该语言无缺失 Key</p>
         </div>

@@ -24,7 +24,7 @@ export function TeamInvitationsList({ isLoading, invitations, onCancel, cancelPe
   const t = useTranslations('teams')
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -32,7 +32,7 @@ export function TeamInvitationsList({ isLoading, invitations, onCancel, cancelPe
   }
   if (!invitations?.length) {
     return (
-      <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
         {t('noInvitations')}
       </div>
     )
