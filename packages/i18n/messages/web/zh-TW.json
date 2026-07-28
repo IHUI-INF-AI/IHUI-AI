@@ -468,7 +468,7 @@
       "clearFilter": "清空篩選",
       "filterPlaceholder": "篩選文件夾...",
       "nativePick": "系統選擇器",
-      "nativePickHint": "用系統原生對話框選擇(只填文件夾名,需補完整路徑)",
+      "nativePickHint": "已選「{name}」。瀏覽器安全限制無法獲取完整路徑,請在上方輸入框補完整路徑(如 G:\\IHUI-AI)後按 Enter",
       "nativePickNotFound": "未在當前目錄找到「{name}」,請手動輸入完整路徑或導航到正確目錄",
       "computer": "此電腦",
       "parent": "上層目錄",
