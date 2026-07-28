@@ -3,9 +3,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -26,7 +25,6 @@ const REAL_NAME_STATUS_KEYS: Record<AuthStatus['status'], string> = {
 
 export function RealNameAuthScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [name, setName] = useState('')
@@ -39,13 +37,10 @@ export function RealNameAuthScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/real-name`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: AuthStatus }
+        const resp = await fetchApi<AuthStatus>('/user/real-name')
         if (cancelled) return
-        setStatus(data.data ?? { status: 'unverified' })
+        if (!resp.success) throw new Error('http')
+        setStatus(resp.data ?? { status: 'unverified' })
       } catch {
         if (!cancelled) setError(t('realNameAuth.loadFailed'))
       } finally {
@@ -55,7 +50,7 @@ export function RealNameAuthScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const handleSubmit = async () => {
     if (!name || !idNumber) {
@@ -65,15 +60,11 @@ export function RealNameAuthScreen() {
     setSubmitting(true)
     setError('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/user/real-name`, {
+      const resp = await fetchApi<unknown>('/user/real-name', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ name, idNumber }),
       })
-      if (!resp.ok) throw new Error('http')
+      if (!resp.success) throw new Error('http')
       setStatus({ status: 'pending', name, idNumber })
     } catch {
       setError(t('realNameAuth.failed'))

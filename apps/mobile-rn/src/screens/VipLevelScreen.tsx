@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -14,7 +13,6 @@ interface Detail { id: string; levelName: string; price: number; durationDays: n
 
 export function VipLevelScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const id = route.params.id
@@ -25,12 +23,11 @@ export function VipLevelScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/vip-level/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Detail }
-      setItem(d.data ?? null)
+      const r = await fetchApi<Detail>(`/vip-level/${id}`)
+      if (!r.success) throw new Error()
+      setItem(r.data ?? null)
     } catch { setError(t('vipLevel.loadFailed')) } finally { setLoading(false) }
-  }, [id, token, t])
+  }, [id, t])
 
   useEffect(() => { void load() }, [load])
 

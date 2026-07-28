@@ -6,6 +6,7 @@ import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { fetchApi } from '@ihui/api-client'
+import { formatAmount } from '@ihui/shared/utils'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface FinanceSummary {
@@ -13,11 +14,6 @@ interface FinanceSummary {
   todayIncome: number
   totalIncome: number
   totalExpense: number
-}
-
-function formatMoney(n: number | undefined | null): string {
-  if (typeof n !== 'number') return '0.00'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export function FinanceScreen() {
@@ -91,7 +87,7 @@ export function FinanceScreen() {
       {cards.map((c) => (
         <Card key={c.label} style={styles.card}>
           <Text style={styles.label}>{c.label}</Text>
-          <Text style={[styles.value, c.primary && styles.valuePrimary]}>¥ {formatMoney(c.value)}</Text>
+          <Text style={[styles.value, c.primary && styles.valuePrimary]}>¥ {formatAmount(c.value, '0.00')}</Text>
         </Card>
       ))}
     </ScrollView>

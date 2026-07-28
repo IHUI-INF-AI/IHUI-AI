@@ -3,7 +3,7 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { usePaginatedList } from '../hooks/use-paginated-list'
+import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 

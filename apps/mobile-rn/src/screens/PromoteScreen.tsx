@@ -10,9 +10,8 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -43,7 +42,6 @@ const PROMOTE_STATUS_KEYS: Record<InviteRecord['status'], string> = {
 
 export function PromoteScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<PromoteInfo | null>(null)
   const [records, setRecords] = useState<InviteRecord[]>([])
@@ -59,27 +57,23 @@ export function PromoteScreen() {
       else setLoading(true)
       setError('')
       const [infoRes, recordsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/promote/info`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }),
-        fetch(`${API_BASE_URL}/api/promote/records?page=1&pageSize=10`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        fetchApi<PromoteInfo>('/promote/info'),
+        fetchApi<{ list: InviteRecord[] }>('/promote/records', {
+          params: { page: 1, pageSize: 10 },
         }),
       ])
-      if (!infoRes.ok || !recordsRes.ok) {
+      if (!infoRes.success || !recordsRes.success) {
         setError(t('promote.loadFailed'))
         setLoading(false)
         setRefreshing(false)
         return
       }
-      const infoData = (await infoRes.json()) as { data?: PromoteInfo }
-      const recordsData = (await recordsRes.json()) as { data?: { list: InviteRecord[] } }
-      setInfo(infoData.data ?? null)
-      setRecords(recordsData.data?.list ?? [])
+      setInfo(infoRes.data ?? null)
+      setRecords(recordsRes.data?.list ?? [])
       setLoading(false)
       setRefreshing(false)
     },
-    [token, t],
+    [t],
   )
 
   useEffect(() => {

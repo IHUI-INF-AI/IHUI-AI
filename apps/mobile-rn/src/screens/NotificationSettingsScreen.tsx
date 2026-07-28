@@ -3,9 +3,8 @@ import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -20,7 +19,6 @@ interface NotificationSettings {
 
 export function NotificationSettingsScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [settings, setSettings] = useState<NotificationSettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,13 +30,10 @@ export function NotificationSettingsScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/notification-settings`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: NotificationSettings }
+        const res = await fetchApi<NotificationSettings>('/user/notification-settings')
+        if (!res.success) throw new Error('http')
         if (cancelled) return
-        setSettings(data.data ?? null)
+        setSettings(res.data ?? null)
       } catch {
         if (!cancelled) setError(t('notificationSettings.loadFailed'))
       } finally {
@@ -48,7 +43,7 @@ export function NotificationSettingsScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const toggle = (key: keyof NotificationSettings, value: boolean) => {
     if (!settings) return
@@ -61,15 +56,11 @@ export function NotificationSettingsScreen() {
     setError('')
     setSuccess('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/user/notification-settings`, {
+      const res = await fetchApi<NotificationSettings>('/user/notification-settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify(settings),
       })
-      if (!resp.ok) throw new Error('http')
+      if (!res.success) throw new Error('http')
       setSuccess(t('notificationSettings.saved'))
     } catch {
       setError(t('notificationSettings.saveFailed'))

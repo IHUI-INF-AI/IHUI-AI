@@ -12,7 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
-import { usePaginatedList } from '../hooks/use-paginated-list'
+import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
