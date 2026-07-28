@@ -6,11 +6,23 @@ import { Sparkles, AlertCircle, Loader2, ChevronDown, ShieldCheck, ShieldAlert, 
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 
-import type { ChatMessage } from '@/stores/chat'
-import type { InlineDiffInfo } from '@/components/ai/types'
+import type { ChatMessage, PendingQuestion } from '@/stores/chat'
+import type { InlineDiffInfo, SubAgentActivity } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import {
+  MessageContextMenu,
+  defaultMessageMenuItems,
+} from '@/components/ai/progress-sections/message-context-menu'
+import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
+import { TimelineTab } from '@/components/ai/progress-sections/timeline-tab'
+import {
+  QuestionBlock,
+  type QuestionBlockItem,
+} from '@/components/ai/progress-sections/question-block'
+import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { cn } from '@/lib/utils'
 
 /** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
@@ -98,6 +110,14 @@ interface MessageItemProps {
   assistantLabel: string
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
+  /** Phase 19:被高亮的 messageId(进度跳转 store 驱动,1.5s 闪烁) */
+  highlightedMessageId?: string | null
+  /** Phase 19:message hover 时联动 plan-step 高亮 */
+  onMessageHover?: (messageId: string | null) => void
+  /** Phase 19:message 关联的 plan step id 列表(用于 hover 联动 setHoveredPlanStep) */
+  relatedPlanStepIds?: string[]
+  /** Phase 19:联动 plan-step 高亮的回调(message hover 进出时调用) */
+  onPlanStepHover?: (planStepId: string | null) => void
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -107,14 +127,66 @@ const MessageItem = React.memo(function MessageItem({
   assistantLabel,
   onApplyDiff,
   onRejectDiff,
+  highlightedMessageId,
+  onMessageHover,
+  relatedPlanStepIds,
+  onPlanStepHover,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   const isUser = m.role === 'user'
   const showTyping = !isUser && m.content === '' && isStreaming
   const streamingThis = !isUser && isStreaming && isLast
 
+  // Phase 19:右键菜单(2026-07-28 立,Trae Work 对齐)
+  // - 使用 useContextMenu hook 管理菜单状态
+  // - items 通过 defaultMessageMenuItems + 当前 message 动态生成
+  // - onAction:复制 → clipboard.writeText;重新生成 → console.info 占位
+  const menuState = useContextMenu<{ id: string; content: string }>({
+    buildItems: (data) => defaultMessageMenuItems(data),
+  })
+  const onContextMenuAction = React.useCallback(
+    (action: ContextMenuAction) => {
+      if (action === 'copy') {
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          void navigator.clipboard.writeText(m.content)
+        }
+        return
+      }
+      if (action === 'regenerate') {
+        // 重新生成(2026-07-28):Phase 19 仅占位,Phase 20 接入 /chat/regenerate
+        console.info('[MessageList] regenerate requested for message', m.id)
+      }
+    },
+    [m.id, m.content],
+  )
+
+  const isHighlighted = highlightedMessageId === m.id
+  const handleMouseEnter = React.useCallback(() => {
+    onMessageHover?.(m.id)
+    // 联动 plan-step:优先取第一个关联 step(多 step 场景下高亮最相关的第一个)
+    if (relatedPlanStepIds && relatedPlanStepIds.length > 0) {
+      onPlanStepHover?.(relatedPlanStepIds[0] ?? null)
+    } else {
+      onPlanStepHover?.(null)
+    }
+  }, [m.id, onMessageHover, onPlanStepHover, relatedPlanStepIds])
+  const handleMouseLeave = React.useCallback(() => {
+    onMessageHover?.(null)
+    onPlanStepHover?.(null)
+  }, [onMessageHover, onPlanStepHover])
+
   return (
-    <div className={cn('flex w-full gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div
+      data-message-id={m.id}
+      onContextMenu={menuState.contextMenuHandlers.onContextMenu}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={cn(
+        'flex w-full gap-3 transition-all duration-500',
+        isUser ? 'flex-row-reverse' : 'flex-row',
+        isHighlighted && 'rounded-lg bg-primary/8 ring-2 ring-primary/40',
+      )}
+    >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
