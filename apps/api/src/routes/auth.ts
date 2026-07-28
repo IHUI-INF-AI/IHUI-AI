@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 // 2026-07-24 国安级升级:argon2id 密码哈希(抗 GPU/ASIC),兼容老 bcrypt 透明升级
 import { hashPassword, verifyPassword, upgradeHashIfNeeded } from '../utils/password-crypto.js'
@@ -118,37 +118,6 @@ const emailLoginQuerySchema = z.object({
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60 // 30d
 const ADMIN_ROLE_ID = 1 // 与 require-permission.ts 保持一致
 const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
-
-/**
- * 登录成功后写 auth_token cookie,供 csrf 校验豁免(auth.ts csrf.ts)。
- *
- * 2026-07-28 加固:web dev 环境 8801 -> 8802 跨端口 fetch 时,仅靠 web 端
- * setAuthCookie 写到 8801 域的 cookie 不会发送到 8802(api csrf 校验拦截)。
- * 由 api 端同时 setCookie auth_token:
- *   - dev 环境: domain='localhost',让 8801/8802/任何 localhost 端口共享,
- *     fetch credentials: 'include' 自动带 cookie,csrf 命中 auth_token 豁免
- *   - production: domain undefined(当前 host = api 域名),
- *     csrf.ts auth_token cookie 豁免分支仍生效(Bearer 校验 / cookie 兜底)
- *
- * httpOnly=true:防止 XSS 偷 token,前端无法 document.cookie 读取;
- * 业务靠 Authorization Bearer header(由 tokenProvider 注入,client.ts:217)
- * csrf 校验靠 cookie 存在(只检查 cookie 存在,不读值)。
- */
-function setAuthTokenCookie(
-  reply: FastifyReply,
-  token: string,
-  maxAgeSec: number,
-): void {
-  const isDev = process.env.NODE_ENV !== 'production'
-  reply.setCookie('auth_token', token, {
-    domain: isDev ? 'localhost' : undefined,
-    path: '/',
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: !isDev,
-    maxAge: maxAgeSec,
-  })
-}
 
 async function buildTokenPair(user: {
   id: string
@@ -707,9 +676,6 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         familyId,
       })
 
-      // 2026-07-28 加固:同步写 auth_token cookie 让 8801/8802 跨端口 csrf 豁免
-      setAuthTokenCookie(reply, tokens.accessToken, tokens.expiresIn)
-
       const permissions = await resolveUserPermissions(user.id, user.roleId)
       return reply.send(
         success({
@@ -829,9 +795,6 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         roleId: user.roleId,
         familyId,
       })
-
-      // 2026-07-28 加固:同步写 auth_token cookie 让 8801/8802 跨端口 csrf 豁免
-      setAuthTokenCookie(reply, tokens.accessToken, tokens.expiresIn)
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
       return reply.send(
