@@ -261,6 +261,12 @@
     "typeQuestion": "問題",
     "typeSuggestion": "建議"
   },
+  "feedbackHistory": {
+    "createdAt": "建立時間",
+    "empty": "暫無反饋記錄",
+    "loadFailed": "載入失敗",
+    "title": "反饋歷史"
+  },
   "footer": {
     "aboutUs": "關於我們",
     "agreementSubtitle": "請仔細閱讀以下協議條款",
