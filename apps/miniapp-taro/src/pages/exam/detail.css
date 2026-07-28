@@ -108,7 +108,7 @@
 }
 
 .exam-detail-participant-num.passed {
-  color: #4caf50;
+  color: var(--color-success);
 }
 
 .exam-detail-participant-label {
@@ -166,11 +166,11 @@
 }
 
 .exam-detail-history-status.passed {
-  color: #4caf50;
+  color: var(--color-success);
 }
 
 .exam-detail-history-status.failed {
-  color: #dd524d;
+  color: var(--color-destructive);
 }
 
 .exam-detail-history-time {

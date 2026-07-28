@@ -12,15 +12,23 @@
  * 各页面禁止本地硬编码 storage key 字符串,必须 import 本文件常量。
  */
 
-import { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '@ihui/shared/constants'
+import {
+  TOKEN_STORAGE_KEY,
+  REFRESH_TOKEN_STORAGE_KEY,
+  INVITE_CODE_STORAGE_KEY,
+  VIP_STORAGE_KEY,
+} from '@ihui/shared/constants'
 
 // 跨端共享(值一致,re-export 统一入口)
-export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY }
+export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY, INVITE_CODE_STORAGE_KEY, VIP_STORAGE_KEY }
 
 // 端独占 / 历史遗留 key(保留实际值,向后兼容)
 export const LOCALE_KEY = 'lang' as const
 export const THEME_KEY = 'theme' as const
 export const USER_INFO_LEGACY_KEY = 'ihui_user_info' as const
+
+// storage key 前缀(用于 app.tsx 内存清理时识别 ihui_ 前缀的 key)
+export const IHUI_KEY_PREFIX = 'ihui_' as const
 
 // AI 相关
 export const IMAGE_HISTORY_KEY = 'ihui_image_history' as const

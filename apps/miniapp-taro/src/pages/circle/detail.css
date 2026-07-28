@@ -43,7 +43,7 @@
 }
 .cd-follow {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-primary-foreground);
   font-size: 24rpx;
   border-radius: 8rpx;
   margin: 0;
@@ -286,7 +286,7 @@
 }
 .cd-send {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-primary-foreground);
   font-size: 26rpx;
   border-radius: 8rpx;
   margin: 0;

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Text, TouchableOpacity, View } from 'react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Input, Loading } from '@ihui/ui-native'
@@ -75,7 +76,7 @@ export function CertApplyScreen() {
           disabled={submitting}
         >
           {submitting ? (
-            <Loading color="#FFFFFF" size="sm" />
+            <Loading color={tokens.surface.light} size="sm" />
           ) : (
             <Text className="text-sm font-semibold text-primary-foreground">
               {t('certApply.submit')}

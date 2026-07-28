@@ -11,6 +11,7 @@ interface RankUser {
   commission: number
 }
 
+// TODO: custom color: #FFD700(金) / #C0C0C0(银) / #CD7F32(铜) 排名色,无对应 token
 const RANK_BG: Record<string, string> = {
   '1': 'bg-[#FFD700]',
   '2': 'bg-[#C0C0C0]',
@@ -49,8 +50,9 @@ export default function DistributionRank() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="py-[40rpx] text-center bg-gradient-to-b from-[#ff6b35] to-[#ff8e53]">
-        <Text className="text-white text-[36rpx] font-bold">
+      <View className="py-[40rpx] text-center bg-gradient-to-b from-[var(--color-brand-orange)] to-[#ff8e53]">
+        {/* TODO: custom color: #ff8e53 暗色变体,无对应 token */}
+        <Text className="text-primary-foreground text-[36rpx] font-bold">
           {tt('distribution.rankTitle', '分销排行榜')}
         </Text>
       </View>
@@ -64,11 +66,11 @@ export default function DistributionRank() {
               mode="aspectFill"
             />
             <Text className="text-[24rpx] text-foreground mt-[16rpx]">{top3[1]!.nickname}</Text>
-            <Text className="text-[28rpx] text-[#ff6b35] font-semibold mt-[4rpx]">
+            <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold mt-[4rpx]">
               ¥{top3[1]!.commission}
             </Text>
             <Text
-              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-white text-[24rpx] ${RANK_BG['2']}`}
+              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-primary-foreground text-[24rpx] ${RANK_BG['2']}`}
             >
               2
             </Text>
@@ -81,11 +83,11 @@ export default function DistributionRank() {
               mode="aspectFill"
             />
             <Text className="text-[24rpx] text-foreground mt-[16rpx]">{top3[0]!.nickname}</Text>
-            <Text className="text-[28rpx] text-[#ff6b35] font-semibold mt-[4rpx]">
+            <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold mt-[4rpx]">
               ¥{top3[0]!.commission}
             </Text>
             <Text
-              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-white text-[24rpx] ${RANK_BG['1']}`}
+              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-primary-foreground text-[24rpx] ${RANK_BG['1']}`}
             >
               1
             </Text>
@@ -98,11 +100,11 @@ export default function DistributionRank() {
               mode="aspectFill"
             />
             <Text className="text-[24rpx] text-foreground mt-[16rpx]">{top3[2]!.nickname}</Text>
-            <Text className="text-[28rpx] text-[#ff6b35] font-semibold mt-[4rpx]">
+            <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold mt-[4rpx]">
               ¥{top3[2]!.commission}
             </Text>
             <Text
-              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-white text-[24rpx] ${RANK_BG['3']}`}
+              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-primary-foreground text-[24rpx] ${RANK_BG['3']}`}
             >
               3
             </Text>
@@ -120,7 +122,7 @@ export default function DistributionRank() {
                 mode="aspectFill"
               />
               <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">{u.nickname}</Text>
-              <Text className="text-[28rpx] text-[#ff6b35] font-semibold">¥{u.commission}</Text>
+              <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold">¥{u.commission}</Text>
             </View>
           ))}
         </View>

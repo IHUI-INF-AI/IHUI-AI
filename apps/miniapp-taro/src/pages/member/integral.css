@@ -3,6 +3,7 @@
   background: var(--color-background);
 }
 
+/* TODO: custom color: #2c2c2c/#1a1a1a 暗色渐变/#ffffff 白字/#d4af6a 金色 为积分品牌色,无对应 token,保留原值 */
 .balance {
   padding: 60rpx 40rpx;
   background: linear-gradient(135deg, #2c2c2c, #1a1a1a);

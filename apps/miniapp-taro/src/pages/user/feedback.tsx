@@ -167,7 +167,7 @@ export default function Feedback() {
       </View>
       <Button
         className={`mx-[32rpx] mt-[60rpx] rounded-[40rpx] text-[32rpx] ${
-          content.trim() ? 'bg-primary text-white' : 'bg-[#ccc] text-white'
+          content.trim() ? 'bg-primary text-white' : 'bg-muted text-white'
         }`}
         disabled={!content.trim()}
         onClick={onSubmit}

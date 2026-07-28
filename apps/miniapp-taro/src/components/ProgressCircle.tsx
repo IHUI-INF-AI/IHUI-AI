@@ -14,8 +14,8 @@ export default function ProgressCircle({
   percent = 0,
   size = 60,
   strokeWidth = 4,
-  color = '#6366f1',
-  bgColor = '#e5e7eb',
+  color = 'var(--color-brand)',
+  bgColor = 'var(--color-muted)',
   showText = true,
   text,
 }: ProgressCircleProps) {

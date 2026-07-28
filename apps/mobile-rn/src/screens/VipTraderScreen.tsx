@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   View,
@@ -8,7 +9,6 @@ import {
   StyleSheet,
   RefreshControl,
 } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 import { getTraderDetail, getOverview, getInviteInfo } from '@ihui/api-client'
 import type { CommissionOverview } from '@ihui/api-client'
 
@@ -224,8 +224,8 @@ const s = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: 'rgba(255,215,0,0.18)',
   },
-  heroBadgeText: { fontSize: 11, fontWeight: '600', color: '#FFD700' },
-  heroPrice: { fontSize: 24, fontWeight: '700', color: '#FFD700' },
+  heroBadgeText: { fontSize: 11, fontWeight: '600', color: tokens.warning.amber }, // TODO: custom color #FFD700 (gold)
+  heroPrice: { fontSize: 24, fontWeight: '700', color: tokens.warning.amber }, // TODO: custom color #FFD700 (gold)
   heroDesc: { marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   statCard: {
     marginHorizontal: 16,
@@ -254,7 +254,7 @@ const s = StyleSheet.create({
     marginHorizontal: 4,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: tokens.purple.light,
     alignItems: 'center',
   },
   entryIcon: { fontSize: 18 },
@@ -282,7 +282,7 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: tokens.purple.light,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -301,7 +301,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: tokens.surface.light,
-    shadowColor: '#000000',
+    shadowColor: tokens.gray.black,
     shadowOpacity: 0.06,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: -2 },
@@ -315,7 +315,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#7B61FF',
+    backgroundColor: tokens.purple.DEFAULT,
   },
   buyBtnDone: { backgroundColor: tokens.text.tertiary },
   buyBtnText: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },

@@ -75,7 +75,7 @@ export default function SetNeed() {
             return (
               <View
                 key={key}
-                className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-[#e6f7ee]' : 'bg-background'}`}
+                className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
                 onClick={() => toggleCategory(key)}
               >
                 <Text className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}>{label}</Text>
@@ -93,7 +93,7 @@ export default function SetNeed() {
             return (
               <View
                 key={lv}
-                className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-[#e6f7ee]' : 'bg-background'}`}
+                className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
                 onClick={() => setLevel(lv)}
               >
                 <Text className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}>{lv}</Text>
@@ -111,7 +111,7 @@ export default function SetNeed() {
             return (
               <View
                 key={b}
-                className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-[#e6f7ee]' : 'bg-background'}`}
+                className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
                 onClick={() => setBudget(b)}
               >
                 <Text className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}>{b}</Text>

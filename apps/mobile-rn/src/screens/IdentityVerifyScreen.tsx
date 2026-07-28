@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -126,8 +127,8 @@ export function IdentityVerifyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -135,30 +136,30 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  subtitle: { fontSize: 12, color: '#6B7280' },
-  status: { marginTop: 6, fontSize: 14, fontWeight: '600', color: '#DC2626' },
-  statusOk: { color: '#10B981' },
+  subtitle: { fontSize: 12, color: tokens.text.secondary },
+  status: { marginTop: 6, fontSize: 14, fontWeight: '600', color: tokens.danger.DEFAULT },
+  statusOk: { color: tokens.success.DEFAULT },
   uploadItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 10,
   },
-  label: { fontSize: 12, color: '#374151' },
+  label: { fontSize: 12, color: tokens.text.medium },
   uploadBtn: {
     width: 48,
     height: 48,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  uploadBtnText: { fontSize: 24, color: '#9CA3AF' },
-  errorText: { fontSize: 12, color: '#DC2626', marginTop: 8 },
+  uploadBtnText: { fontSize: 24, color: tokens.text.tertiary },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
   submitBtn: { marginTop: 12, borderRadius: 8 },
-  muted: { fontSize: 13, color: '#6B7280' },
+  muted: { fontSize: 13, color: tokens.text.secondary },
 })

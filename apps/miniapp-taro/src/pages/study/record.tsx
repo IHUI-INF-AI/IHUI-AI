@@ -124,8 +124,8 @@ export default function StudyRecord() {
   }
 
   const statusClass = (s: FilterTab): string => {
-    if (s === 'completed') return `${STATUS_BASE} bg-[rgba(76,175,80,0.12)] text-[#4caf50]`
-    if (s === 'abandoned') return `${STATUS_BASE} bg-[rgba(158,158,158,0.12)] text-[#9e9e9e]`
+    if (s === 'completed') return `${STATUS_BASE} bg-success/10 text-success`
+    if (s === 'abandoned') return `${STATUS_BASE} bg-muted text-muted-foreground`
     return `${STATUS_BASE} bg-primary/10 text-primary`
   }
 

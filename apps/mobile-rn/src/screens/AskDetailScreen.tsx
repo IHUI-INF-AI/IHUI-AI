@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -11,7 +12,6 @@ interface Answer { id: string; author: string; content: string; isAccepted: bool
 
 type Route = RouteProp<RootStackParamList, 'AskDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function AskDetailScreen() {
   const { t } = useI18n()
@@ -69,22 +69,22 @@ export function AskDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16 },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface.bg, padding: 16 },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, marginBottom: 12 },
-  author: { fontSize: 13, color: PRIMARY, fontWeight: '500' },
-  meta: { fontSize: 11, color: '#9ca3af' },
-  content: { fontSize: 14, lineHeight: 22, color: '#374151', marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 8 },
-  answer: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 8 },
-  accepted: { borderColor: PRIMARY, backgroundColor: '#ecfdf5' },
+  author: { fontSize: 13, color: tokens.success.DEFAULT, fontWeight: '500' },
+  meta: { fontSize: 11, color: tokens.text.tertiary },
+  content: { fontSize: 14, lineHeight: 22, color: tokens.text.medium, marginBottom: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary, marginBottom: 8 },
+  answer: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 8 },
+  accepted: { borderColor: tokens.success.DEFAULT, backgroundColor: tokens.success.light },
   answerHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  acceptedTag: { fontSize: 11, color: PRIMARY, fontWeight: '600' },
-  answerContent: { marginTop: 6, fontSize: 13, color: '#374151' },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  btnText: { color: '#fff', fontSize: 14 },
+  acceptedTag: { fontSize: 11, color: tokens.success.DEFAULT, fontWeight: '600' },
+  answerContent: { marginTop: 6, fontSize: 13, color: tokens.text.medium },
+  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

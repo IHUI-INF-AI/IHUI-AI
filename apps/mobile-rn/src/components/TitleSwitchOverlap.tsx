@@ -2,6 +2,7 @@
  * TitleSwitchOverlap — 垂直滚动赛道选择器(overlap_large.vue 迁移)
  * 中心选中项放大高亮,前后项缩放半透明,左右按钮切换。
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useRef, useState } from 'react'
 import {
   Pressable,
@@ -12,7 +13,6 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 
 export interface TitleSwitchItem {
   name: string
@@ -115,7 +115,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.6)',
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOpacity: 0.2,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
@@ -124,8 +124,8 @@ const s = StyleSheet.create({
   itemActive: { backgroundColor: 'rgba(255,255,255,0.95)' },
   itemNear: { transform: [{ scale: 0.8 }], opacity: 0.8 },
   itemFar: { transform: [{ scale: 0.6 }], opacity: 0.6 },
-  itemText: { color: '#000', fontSize: 14 },
-  itemTextActive: { fontWeight: '700', color: '#000' },
+  itemText: { color: tokens.gray.black, fontSize: 14 },
+  itemTextActive: { fontWeight: '700', color: tokens.gray.black },
   btns: {
     flexDirection: 'row',
     justifyContent: 'space-around',

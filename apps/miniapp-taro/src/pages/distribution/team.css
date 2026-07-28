@@ -126,6 +126,7 @@
   border-radius: 8rpx;
   z-index: 2;
 }
+/* TODO: custom color: #ffd700(金)/#5a4500(金字)/#c0c0c0(银)/#3a3a3a(银字)/#cd7f32(铜)/#fff(铜字) 排名奖牌色,无对应 token,保留原值 */
 .team-medal-gold {
   background: #ffd700;
   color: #5a4500;
@@ -178,7 +179,7 @@
 .team-info-value {
   font-size: 30rpx;
   font-weight: 700;
-  color: #ff6b35;
+  color: var(--color-brand-orange);
 }
 .team-info-time {
   font-size: 24rpx;

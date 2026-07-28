@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getResources, type Resource } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { formatDuration } from '@ihui/shared/utils'
+import { formatDuration, formatFileSize } from '@ihui/shared/utils'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type StreamStatus = 'idle' | 'active' | 'inactive'
@@ -28,13 +29,6 @@ function mapResource(r: Resource): Product | null {
   if (!r.title) return null
   const price = typeof r.price === 'number' ? r.price : Number(r.price) || 0
   return { id: r.id, name: r.title, price }
-}
-
-function formatBytes(n: number | null): string {
-  if (!n || n <= 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1)
-  return `${(n / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
 }
 
 const BADGE_STYLE: Record<StreamStatus, { cls: string; text: string }> = {
@@ -146,8 +140,8 @@ export function LiveHostScreen() {
   const stats: { label: string; value: string; cls?: string }[] = [
     { label: '直播时长', value: formatDuration(duration) },
     { label: '观众数', value: String(viewers), cls: 'text-emerald-600' },
-    { label: '收到字节', value: formatBytes(stream?.recvBytes ?? null) },
-    { label: '发送字节', value: formatBytes(stream?.sendBytes ?? null) },
+    { label: '收到字节', value: formatFileSize(stream?.recvBytes ?? 0) },
+    { label: '发送字节', value: formatFileSize(stream?.sendBytes ?? 0) },
   ]
 
   return (
@@ -181,7 +175,7 @@ export function LiveHostScreen() {
           value={streamTitle}
           onChangeText={setStreamTitle}
           placeholder="请输入直播标题"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={tokens.text.tertiary}
           editable={status === 'idle'}
         />
         {stream ? (

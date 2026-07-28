@@ -20,7 +20,7 @@ export interface WithdrawalRecordsProps {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  pending: { label: '审核中', color: 'text-[#f59e0b]' },
+  pending: { label: '审核中', color: 'text-warning' },
   approved: { label: '已通过', color: 'text-primary' },
   rejected: { label: '已驳回', color: 'text-destructive' },
   completed: { label: '已完成', color: 'text-primary' },
