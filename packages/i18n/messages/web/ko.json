@@ -9914,12 +9914,12 @@
       "earlyBird": "얼리버드 ¥6000/년",
       "multiEnd": "8플랫폼 전체 커버리지",
       "benefits": {
-        "benefit6": "불만족 시 전액 환불",
-        "benefit1": "",
-        "benefit2": "",
-        "benefit3": "",
-        "benefit4": "",
-        "benefit5": ""
+        "benefit1": "연중 모든 코스 무료 참여",
+        "benefit2": "탐색 이벤트 우선 참여",
+        "benefit3": "커뮤니티 상호 지원 무제한",
+        "benefit4": "온라인 커뮤니티 전용 입구",
+        "benefit5": "AI 어시스턴트 우선 체험",
+        "benefit6": "불만족 시 전액 환불"
       },
       "subtitle": "풀스택 AI OS · 8개 플랫폼 지원 · 원스톱 에이전트 협업",
       "description": "Zhihui AI는 Agent 마켓플레이스, 지식 베이스 RAG, 다중 모델 통합 디스패치, MCP 도구 프로토콜을 통합합니다. Web / Desktop / 미니 프로그램 / 브라우저 확장 / React Native / CLI 6개 플랫폼을 지원하며 Apache 2.0 오픈소스, 프라이빗 배포를 지원합니다.",
