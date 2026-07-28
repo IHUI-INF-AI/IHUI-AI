@@ -1319,7 +1319,8 @@
       "createSuccess": "에이전트가 생성되었습니다",
       "mockSuccess": "API가 아직 열리지 않았습니다. 모의 생성 완료",
       "submitting": "생성 중…",
-      "submit": "에이전트 생성"
+      "submit": "에이전트 생성",
+      "fileSizeExceeded": "파일은 10MB를 초과할 수 없습니다"
     },
     "modelEdit": {
       "title": "모델 편집",

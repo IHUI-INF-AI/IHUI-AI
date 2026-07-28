@@ -92,3 +92,6 @@ export * from './share'
 
 // 跨端同名组件共享 props 类型(2026-07-28 立,mobile-rn + miniapp-taro 14 对组件类型去重)
 export * from './ui-native-components'
+
+// Admin 后台业务类型契约(2026-07-28 立,从 apps/web/app/(main)/admin/**/types.ts 9 个文件下沉)
+export * from './admin-types'
