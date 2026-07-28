@@ -85,10 +85,11 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
  * - SHORTCUT_GROUPS 走 next-intl t() 渲染,本组中文硬编码,i18n key 由后续 PR 注入
  * - 视觉风格(分组标题/行/kbd)与现有分组完全一致,无新增组件抽象
  *
- * 三通道可发现性:
+ * 三通道可发现性(2026-07-28 v2:移除 ModeSwitcher 4 按钮后更新):
  * - Ctrl+1/2/3/4 全局快捷键(use-global-shortcuts.ts)
  * - /build /plan /review /spec 斜杠命令(message-input.tsx 解析)
- * - ModeSwitcher 按钮 tooltip(本组 + mode-switcher.tsx tooltipText)
+ * - AI 自动判断(用户输入发送时由 use-chat.ts suggestMode 触发)
+ * - 当前模式视觉指示:message-input.tsx CurrentModeBadge(小徽章,纯展示)
  */
 interface ModeSwitchRow {
   /** 按键标签(如 "Ctrl+1" / "/build /plan /review /spec") */
