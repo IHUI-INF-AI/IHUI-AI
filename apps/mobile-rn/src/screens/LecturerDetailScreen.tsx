@@ -3,8 +3,6 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -33,8 +31,7 @@ interface LecturerCourse {
 
 export function LecturerDetailScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
-  const navigation = useNavigation<NavigationProp>()
+    const navigation = useNavigation<NavigationProp>()
   const route = useRoute<Route>()
   const lecturerId = route.params.id
 
@@ -50,27 +47,22 @@ export function LecturerDetailScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const headers = token ? { Authorization: `Bearer ${token}` } : undefined
       const [infoRes, coursesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/live/lecturers/${lecturerId}`, { headers } as RequestInit),
-        fetch(`${API_BASE_URL}/api/lecturers/${lecturerId}/courses?page=1&pageSize=20`, {
-          headers,
-        } as RequestInit),
+        fetchApi<LecturerInfo>(`/live/lecturers/${lecturerId}`),
+        fetchApi<{ list: LecturerCourse[] }>(`/lecturers/${lecturerId}/courses?page=1&pageSize=20`),
       ])
-      if (!infoRes.ok || !coursesRes.ok) {
+      if (!infoRes.success || !coursesRes.success) {
         setError(t('lecturerDetail.loadFailed'))
         setLoading(false)
         setRefreshing(false)
         return
       }
-      const infoData = (await infoRes.json()) as { data?: LecturerInfo }
-      const coursesData = (await coursesRes.json()) as { data?: { list: LecturerCourse[] } }
-      setInfo(infoData.data ?? null)
-      setCourses(coursesData.data?.list ?? [])
+      setInfo(infoRes.data ?? null)
+      setCourses(coursesRes.data?.list ?? [])
       setLoading(false)
       setRefreshing(false)
     },
-    [token, lecturerId, t],
+    [lecturerId, t],
   )
 
   useEffect(() => {
@@ -80,12 +72,9 @@ export function LecturerDetailScreen() {
   const handleFollow = async () => {
     if (!info) return
     setFollowLoading(true)
-    const resp = await fetch(`${API_BASE_URL}/api/follows/${info.id}`, {
-      method: info.isFollowing ? 'DELETE' : 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
+    const res = await fetchApi(`/follows/${info.id}`, { method: info.isFollowing ? 'DELETE' : 'POST' })
     setFollowLoading(false)
-    if (resp.ok) {
+    if (res.success) {
       setInfo({
         ...info,
         isFollowing: !info.isFollowing,

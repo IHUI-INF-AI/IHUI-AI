@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Alert, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDuration } from '@ihui/shared/utils'
 
@@ -46,8 +44,7 @@ const BADGE_STYLE: Record<StreamStatus, { cls: string; text: string }> = {
 
 export function LiveHostScreen() {
   const navigation = useNavigation<Nav>()
-  const { token } = useAuth()
-  const [streamTitle, setStreamTitle] = useState('')
+    const [streamTitle, setStreamTitle] = useState('')
   const [status, setStatus] = useState<StreamStatus>('idle')
   const [stream, setStream] = useState<StreamData | null>(null)
   const [duration, setDuration] = useState(0)
@@ -66,19 +63,11 @@ export function LiveHostScreen() {
 
   const callApi = useCallback(
     async (path: string, method: string, body?: unknown) => {
-      const res = await fetch(`${API_BASE_URL}${path}`, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      })
-      const json = (await res.json()) as { data?: unknown; message?: string }
-      if (!res.ok) throw new Error(json.message || `请求失败(${res.status})`)
-      return json.data
+      const res = await fetchApi(path, { method, body: body ? JSON.stringify(body) : undefined })
+      if (!res.success) throw new Error(res.error || '请求失败')
+      return res.data
     },
-    [token],
+    [],
   )
 
   const startLive = async () => {

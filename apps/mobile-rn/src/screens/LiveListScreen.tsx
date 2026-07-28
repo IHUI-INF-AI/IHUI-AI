@@ -3,9 +3,7 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
 import { usePaginatedList } from '../hooks/use-paginated-list'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 
@@ -45,8 +43,7 @@ function statusColor(status: LiveItem['status']): string {
 
 export function LiveListScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
-  const navigation = useNavigation<NavigationProp>()
+    const navigation = useNavigation<NavigationProp>()
   const [statusTab, setStatusTab] = useState<(typeof STATUS_TABS)[number]>('all')
 
   const fetcher = useCallback(async () => {

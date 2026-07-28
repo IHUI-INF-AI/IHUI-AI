@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>

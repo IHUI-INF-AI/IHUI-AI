@@ -44,7 +44,7 @@ export function LivePreviewScreen() {
     } finally {
       setLoading(false)
     }
-  }, [id, token, t])
+  }, [id, t])
 
   useEffect(() => {
     void load()

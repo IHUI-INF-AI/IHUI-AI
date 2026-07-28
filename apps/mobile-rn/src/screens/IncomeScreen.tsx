@@ -13,11 +13,9 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import { formatAmount } from '@ihui/shared/utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
+import { fetchApi } from '@ihui/api-client'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface CommissionItem {
@@ -45,8 +43,7 @@ const MOCK_FALLBACK: CommissionData = {
 
 export function IncomeScreen() {
   const navigation = useNavigation<NavigationProp>()
-  const { token, user } = useAuth()
-  const [data, setData] = useState<CommissionData>(MOCK_FALLBACK)
+    const [data, setData] = useState<CommissionData>(MOCK_FALLBACK)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
