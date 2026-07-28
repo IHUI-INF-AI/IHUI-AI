@@ -57,7 +57,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="appearance" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3">
           <TabsTrigger value="appearance">{t('appearance') || '外观'}</TabsTrigger>
           <TabsTrigger value="security">{t('securityCenter')}</TabsTrigger>
           <TabsTrigger value="more">{t('subPagesTitle')}</TabsTrigger>
@@ -112,7 +112,9 @@ export default function SettingsPage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs font-medium">{t(item.titleKey)}</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{t(item.descKey)}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {t(item.descKey)}
+                        </p>
                       </div>
                     </CardContent>
                   </Card>
