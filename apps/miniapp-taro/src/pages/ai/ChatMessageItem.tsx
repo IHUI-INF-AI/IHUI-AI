@@ -206,20 +206,20 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '8rpx 16rpx',
-                background: '#f5f5f5',
-                borderBottom: '1rpx solid #e5e5e5',
+                background: 'var(--color-muted)',
+                borderBottom: '1rpx solid var(--color-border)',
               }}
             >
               <Text
                 className="bubble-code-lang"
-                style={{ fontSize: '24rpx', color: '#666' }}
+                style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
                 onClick={() => setCodeCollapsed((v) => !v)}
               >
                 {codeCollapsed ? '▸' : '▾'} {t('ai.chatMessageItem.collapse')}
               </Text>
               <Text
                 className="bubble-code-copy"
-                style={{ fontSize: '24rpx', color: codeCopied ? '#52c41a' : '#1888ee' }}
+                style={{ fontSize: '24rpx', color: codeCopied ? 'var(--color-success)' : 'var(--color-link)' }}
                 onClick={copyCode}
               >
                 {codeCopied ? t('ai.chatMessageItem.copy') + ' ✓' : t('ai.chatMessageItem.copy')}
@@ -228,7 +228,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
             {!codeCollapsed ? (
               <Text
                 className="bubble-code"
-                style={{ color: '#1888ee', display: 'block', padding: '12rpx 16rpx', fontSize: '26rpx', background: '#fafafa', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+                style={{ color: 'var(--color-link)', display: 'block', padding: '12rpx 16rpx', fontSize: '26rpx', background: 'var(--color-muted)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
               >
                 {msg.codeContent}
               </Text>
@@ -243,7 +243,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
             className={`bubble-seg bubble-seg-${seg.type}`}
             style={
               seg.type === 'link'
-                ? { color: '#1888ee' }
+                ? { color: 'var(--color-link)' }
                 : seg.type === 'header'
                   ? { fontWeight: 'bold', display: 'block', marginBottom: '20rpx' }
                   : undefined
@@ -289,13 +289,13 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
         {audioUrl ? (
           <View
             className={`voice-bubble ${msg.role}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '16rpx', padding: '16rpx 24rpx', borderRadius: '12rpx', marginTop: '10rpx', background: msg.role === 'user' ? '#95ec69' : '#f5f5f5' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '16rpx', padding: '16rpx 24rpx', borderRadius: '12rpx', marginTop: '10rpx', background: msg.role === 'user' ? 'var(--color-chat-bubble-user)' : 'var(--color-muted)' }}
             onClick={playVoice}
           >
             <Text className="voice-play-icon" style={{ fontSize: '36rpx' }}>
               {voicePlaying ? '⏸' : '▶'}
             </Text>
-            <Text className="voice-duration" style={{ fontSize: '24rpx', color: '#666' }}>
+            <Text className="voice-duration" style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}>
               {audioDuration ? `${audioDuration}"` : t('ai.chatMessageItem.voiceMessage')}
             </Text>
           </View>
@@ -305,7 +305,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
         {msg.role === 'assistant' && hasDigitalHuman ? (
           <View
             className="digital-human-btn"
-            style={{ marginTop: '12rpx', padding: '8rpx 16rpx', background: '#f0f7ff', color: '#1888ee', borderRadius: '6rpx', fontSize: '24rpx', display: 'inline-flex', alignItems: 'center' }}
+            style={{ marginTop: '12rpx', padding: '8rpx 16rpx', background: 'var(--color-link-bg)', color: 'var(--color-link)', borderRadius: '6rpx', fontSize: '24rpx', display: 'inline-flex', alignItems: 'center' }}
             onClick={goDigitalHuman}
           >
             {t('ai.chatMessageItem.viewDigitalHuman')} →
@@ -318,7 +318,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
           {msg.role === 'assistant' && msg.tokenCount !== undefined ? (
             <Text
               className="bubble-token"
-              style={{ fontSize: '24rpx', color: '#999', lineHeight: '40rpx' }}
+              style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)', lineHeight: '40rpx' }}
             >
               {t('ai.chatMessageItem.aiGenerated')}
               {msg.tokenCount > 0
@@ -333,7 +333,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
               {onReuse ? (
                 <Text
                   className="bubble-reuse"
-                  style={{ fontSize: '24rpx', color: '#1888ee' }}
+                  style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
                   onClick={handleReuse}
                 >
                   {t('ai.chatMessageItem.reuse')}
@@ -342,7 +342,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
               {onEdit ? (
                 <Text
                   className="bubble-edit"
-                  style={{ fontSize: '24rpx', color: '#1888ee' }}
+                  style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
                   onClick={handleEdit}
                 >
                   {t('ai.chatMessageItem.edit')}
@@ -356,7 +356,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
             <View style={{ display: 'flex', gap: '20rpx' }}>
               <Text
                 className="bubble-copy"
-                style={{ fontSize: '24rpx', color: '#1888ee' }}
+                style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
                 onClick={() => copyContent(msg.content)}
               >
                 {t('ai.chatMessageItem.copy')}
@@ -364,7 +364,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
               {onRegenerate ? (
                 <Text
                   className="bubble-regenerate"
-                  style={{ fontSize: '24rpx', color: '#1888ee' }}
+                  style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
                   onClick={onRegenerate}
                 >
                   {t('ai.chatMessageItem.regenerate')}
@@ -373,7 +373,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
               {onToggleFavorite ? (
                 <Text
                   className="bubble-favorite"
-                  style={{ fontSize: '24rpx', color: isFavorited ? '#ff4d4f' : '#999' }}
+                  style={{ fontSize: '24rpx', color: isFavorited ? 'var(--color-destructive)' : 'var(--color-muted-foreground)' }}
                   onClick={onToggleFavorite}
                 >
                   {isFavorited ? '♥' : '♡'}
@@ -383,7 +383,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
               {onSpeak ? (
                 <Text
                   className="bubble-speak"
-                  style={{ fontSize: '24rpx', color: '#1888ee', marginLeft: '20rpx' }}
+                  style={{ fontSize: '24rpx', color: 'var(--color-link)', marginLeft: '20rpx' }}
                   onClick={handleSpeak}
                 >
                   🔊 {speaking ? t('ai.chatMessageItem.stopSpeak') : t('ai.chatMessageItem.speak')}

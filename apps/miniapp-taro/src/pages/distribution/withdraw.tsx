@@ -76,7 +76,7 @@ export default function DistributionWithdraw() {
             placeholder={t('distribution.withdraw.amountPlaceholder')}
           />
           <Button
-            className="text-[24rpx] text-[#ff6b35] bg-transparent border-none leading-[48rpx]"
+            className="text-[24rpx] text-[var(--color-brand-orange)] bg-transparent border-none leading-[48rpx]"
             onClick={fillAll}
           >
             {t('distribution.withdraw.all')}
@@ -90,7 +90,7 @@ export default function DistributionWithdraw() {
             {payTypes.map((pt) => (
               <View
                 key={pt.value}
-                className={`flex-1 py-[20rpx] text-center rounded-[16rpx] text-[28rpx] ${payType === pt.value ? 'bg-[#ff6b35] text-white' : 'bg-muted text-foreground'}`}
+                className={`flex-1 py-[20rpx] text-center rounded-[16rpx] text-[28rpx] ${payType === pt.value ? 'bg-[var(--color-brand-orange)] text-white' : 'bg-muted text-foreground'}`}
                 onClick={() => setPayType(pt.value)}
               >
                 <Text>{pt.label}</Text>
@@ -100,7 +100,7 @@ export default function DistributionWithdraw() {
         </View>
       </View>
       <Button
-        className="mx-[24rpx] mt-[48rpx] bg-[#ff6b35] text-white rounded-[16rpx] text-[32rpx]"
+        className="mx-[24rpx] mt-[48rpx] bg-[var(--color-brand-orange)] text-white rounded-[16rpx] text-[32rpx]"
         disabled={submitting}
         onClick={onSubmit}
       >

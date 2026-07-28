@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -24,7 +25,6 @@ const SEARCH_TYPE_KEYS: Record<SearchResult['type'], string> = {
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function SearchScreen() {
   const { t } = useI18n()
@@ -69,7 +69,7 @@ export function SearchScreen() {
           value={keyword}
           onChangeText={setKeyword}
           placeholder={t('search.placeholder')}
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={tokens.text.tertiary}
           returnKeyType="search"
           onSubmitEditing={onSearch}
           autoFocus
@@ -109,10 +109,10 @@ export function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
+  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { flex: 1, fontSize: 22, fontWeight: '600', color: '#111827' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { flex: 1, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   input: {
     flex: 1,
@@ -120,30 +120,30 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: tokens.border.light,
     fontSize: 14,
-    color: '#111827',
+    color: tokens.text.primary,
   },
   searchBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
   },
-  searchText: { color: '#fff', fontSize: 14 },
-  muted: { fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8 },
+  searchText: { color: tokens.surface.light, fontSize: 14 },
+  muted: { fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8 },
   empty: { paddingVertical: 40, alignItems: 'center' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 8 },
+  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 8 },
   cardHead: { flexDirection: 'row', marginBottom: 4 },
   type: {
     fontSize: 10,
-    color: PRIMARY,
-    backgroundColor: '#ecfdf5',
+    color: tokens.success.DEFAULT,
+    backgroundColor: tokens.success.light,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  cardTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  cardSummary: { marginTop: 4, fontSize: 13, color: '#374151' },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  cardSummary: { marginTop: 4, fontSize: 13, color: tokens.text.medium },
 })

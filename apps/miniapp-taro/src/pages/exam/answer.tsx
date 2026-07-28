@@ -166,7 +166,7 @@ export default function ExamAnswer() {
             } ${
               selected
                 ? 'border-primary bg-primary text-white'
-                : 'border-[#ccc] text-muted-foreground'
+                : 'border-muted text-muted-foreground'
             }`}
           >
             {current.type === 'judgment' ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
@@ -180,7 +180,7 @@ export default function ExamAnswer() {
   return (
     <View className="min-h-screen bg-background">
       <View className="flex justify-between p-3 bg-card">
-        <Text className="text-base text-[#dd524d] font-bold">{formatTime(remain)}</Text>
+        <Text className="text-base text-destructive font-bold">{formatTime(remain)}</Text>
         <Text className="text-sm text-muted-foreground">
           {currentIdx + 1}/{questions.length}
         </Text>

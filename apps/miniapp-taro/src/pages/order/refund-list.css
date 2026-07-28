@@ -64,10 +64,10 @@
   font-weight: 600;
 }
 .refund-status-refunding {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 .refund-status-refunded {
-  color: #10b981;
+  color: var(--color-success);
 }
 .refund-status-rejected {
   color: var(--color-destructive);
@@ -122,7 +122,7 @@
   border: 2rpx solid rgba(16, 185, 129, 0.2);
   border-radius: 8rpx;
   font-size: 24rpx;
-  color: #10b981;
+  color: var(--color-success);
 }
 
 /* ===== 卡片操作区 ===== */
@@ -180,10 +180,10 @@
   margin: 6rpx 0;
 }
 .refund-step-done .refund-step-dot {
-  background: #10b981;
+  background: var(--color-success);
 }
 .refund-step-active .refund-step-dot {
-  background: #f59e0b;
+  background: var(--color-warning);
 }
 .refund-step-content {
   flex: 1;

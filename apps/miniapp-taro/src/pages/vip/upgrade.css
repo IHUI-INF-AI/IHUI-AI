@@ -1,4 +1,5 @@
 .page { min-height: 100vh; background: var(--color-background); padding-bottom: 120rpx; }
+/* TODO: custom color: #f8d486 VIP 品牌金色,无对应 token,保留原值 */
 .banner { padding: 60rpx 40rpx; background: linear-gradient(135deg, #f8d486, var(--color-warning)); color: var(--color-foreground); }
 .banner-title { font-size: 44rpx; font-weight: 700; }
 .banner-desc { font-size: 26rpx; margin-top: 12rpx; opacity: .9; }

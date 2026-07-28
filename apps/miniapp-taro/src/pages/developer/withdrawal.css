@@ -63,7 +63,7 @@
 }
 .withdrawal-reason {
   font-size: 22rpx;
-  color: #ff3b30;
+  color: var(--color-destructive);
   margin-top: 6rpx;
   display: block;
 }
@@ -73,19 +73,20 @@
   border-radius: 6rpx;
 }
 .status-pending {
-  color: #ff9500;
+  color: var(--color-warning);
   background: rgba(255, 149, 0, 0.1);
 }
 .status-processing {
   color: #007aff;
+  /* TODO: custom color: iOS 蓝,无对应 token */
   background: rgba(0, 122, 255, 0.1);
 }
 .status-success {
-  color: #34c759;
+  color: var(--color-success);
   background: rgba(52, 199, 89, 0.1);
 }
 .status-failed {
-  color: #ff3b30;
+  color: var(--color-destructive);
   background: rgba(255, 59, 48, 0.1);
 }
 .loading-text,

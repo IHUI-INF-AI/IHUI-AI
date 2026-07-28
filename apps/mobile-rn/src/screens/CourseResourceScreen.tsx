@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -111,7 +112,7 @@ export function CourseResourceScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -119,19 +120,19 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  error: { paddingHorizontal: 16, fontSize: 12, color: '#DC2626' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  error: { paddingHorizontal: 16, fontSize: 12, color: tokens.danger.DEFAULT },
   center: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  cardTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 8,
   },
-  cardMeta: { fontSize: 11, color: '#9CA3AF' },
-  cardAction: { fontSize: 12, color: '#10B981', fontWeight: '600' },
+  cardMeta: { fontSize: 11, color: tokens.text.tertiary },
+  cardAction: { fontSize: 12, color: tokens.success.DEFAULT, fontWeight: '600' },
 })

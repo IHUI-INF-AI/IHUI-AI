@@ -3,6 +3,7 @@
  * 提供 openWorkPanel(url) 全局方法,通过模块级导航回调实现跳转。
  * 依赖:react-native-webview(需安装:pnpm --filter @ihui/mobile-rn add react-native-webview)
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -10,7 +11,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import WebView from 'react-native-webview'
 
 import { Loading } from '@ihui/ui-native'
-import { tokens } from '@ihui/rn-app'
 // ── 模块级导航回调(由 RootNavigator 中的 NavBridge 注册) ──
 let _navigateFn: ((url: string) => void) | null = null
 

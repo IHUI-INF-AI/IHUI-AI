@@ -63,6 +63,7 @@ export default function CompanyPage() {
 
   return (
     <View className="min-h-screen bg-background">
+      {/* TODO: custom color: #1f2937/#374151 品牌深灰渐变,无对应 token,保留原值 */}
       <View className="bg-gradient-to-b from-[#1f2937] to-[#374151] px-4 pt-8 pb-6 text-white">
         <Text className="block text-sm opacity-80">{t('distribution.company.title')}</Text>
         <Text className="block text-2xl font-bold mt-2">

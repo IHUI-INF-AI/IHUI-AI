@@ -43,7 +43,7 @@ export default function VipPayConfirm({
         <View className="bg-muted rounded-xl p-4 mb-4">
           <View className="flex justify-between items-center mb-2">
             <Text className="text-sm text-foreground">{planName}</Text>
-            <Text className="text-base font-bold text-[#f59e0b]">¥{price}</Text>
+            <Text className="text-base font-bold text-warning">¥{price}</Text>
           </View>
           {originalPrice && (
             <View className="flex justify-between items-center">
@@ -73,9 +73,10 @@ export default function VipPayConfirm({
           </View>
         </View>
 
+        {/* TODO: custom color: #fbbf24 VIP 品牌金色渐变起始色,无对应 token,保留原值 */}
         <View
           className="w-full py-3 rounded-md text-center"
-          style={{ background: 'linear-gradient(90deg, #fbbf24, #f59e0b)' }}
+          style={{ background: 'linear-gradient(90deg, #fbbf24, var(--color-warning))' }}
           onClick={onConfirm}
         >
           <Text className="text-sm text-white font-medium">{t('pay.confirmPay', { price })}</Text>

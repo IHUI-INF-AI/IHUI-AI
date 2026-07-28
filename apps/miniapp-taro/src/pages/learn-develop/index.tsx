@@ -147,7 +147,7 @@ export default function LearnDevelop() {
                   </Text>
                 ) : null}
                 {item.price !== null && item.price !== undefined ? (
-                  <Text className="text-[32rpx] text-[#f44336] font-bold">
+                  <Text className="text-[32rpx] text-destructive font-bold">
                     {item.price === 0
                       ? tt('learnDevelop.free', '免费')
                       : `¥${item.price.toFixed(2)}`}

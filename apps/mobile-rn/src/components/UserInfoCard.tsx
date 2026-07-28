@@ -4,8 +4,8 @@
  * 保留卡片样式
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/UserInfoCard/UserInfoCard.vue)
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatTokenValue } from '@ihui/shared/utils'
 import { getRoleLabel } from '@ihui/shared/utils'

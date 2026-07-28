@@ -1,11 +1,11 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -26,7 +26,6 @@ const REAL_NAME_STATUS_KEYS: Record<AuthStatus['status'], string> = {
 
 export function RealNameAuthScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [name, setName] = useState('')
@@ -39,13 +38,10 @@ export function RealNameAuthScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/real-name`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: AuthStatus }
+        const resp = await fetchApi<AuthStatus>('/user/real-name')
         if (cancelled) return
-        setStatus(data.data ?? { status: 'unverified' })
+        if (!resp.success) throw new Error('http')
+        setStatus(resp.data ?? { status: 'unverified' })
       } catch {
         if (!cancelled) setError(t('realNameAuth.loadFailed'))
       } finally {
@@ -55,7 +51,7 @@ export function RealNameAuthScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const handleSubmit = async () => {
     if (!name || !idNumber) {
@@ -65,15 +61,11 @@ export function RealNameAuthScreen() {
     setSubmitting(true)
     setError('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/user/real-name`, {
+      const resp = await fetchApi<unknown>('/user/real-name', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ name, idNumber }),
       })
-      if (!resp.ok) throw new Error('http')
+      if (!resp.success) throw new Error('http')
       setStatus({ status: 'pending', name, idNumber })
     } catch {
       setError(t('realNameAuth.failed'))
@@ -146,8 +138,8 @@ export function RealNameAuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -155,17 +147,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  statusLabel: { fontSize: 12, color: '#6B7280' },
-  statusValue: { marginTop: 4, fontSize: 16, fontWeight: '600', color: '#DC2626' },
-  statusVerified: { color: '#10B981' },
-  hint: { marginTop: 8, fontSize: 12, color: '#9CA3AF' },
-  label: { fontSize: 12, color: '#6B7280', marginTop: 8 },
+  statusLabel: { fontSize: 12, color: tokens.text.secondary },
+  statusValue: { marginTop: 4, fontSize: 16, fontWeight: '600', color: tokens.danger.DEFAULT },
+  statusVerified: { color: tokens.success.DEFAULT },
+  hint: { marginTop: 8, fontSize: 12, color: tokens.text.tertiary },
+  label: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
   input: { marginTop: 4 },
-  errorText: { fontSize: 12, color: '#DC2626', marginTop: 8 },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
   submitBtn: { marginTop: 12, borderRadius: 8 },
-  muted: { fontSize: 13, color: '#6B7280' },
+  muted: { fontSize: 13, color: tokens.text.secondary },
 })
