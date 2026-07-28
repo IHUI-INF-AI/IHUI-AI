@@ -60,7 +60,8 @@
     "nativewind:status": "node scripts/check-nativewind-status.mjs",
     "check:button-wrap": "node scripts/check-shrinkable-text-button.mjs",
     "seo:indexnow": "node scripts/notify-indexnow.mjs",
-    "social-preview": "node scripts/generate-social-preview.mjs"
+    "social-preview": "node scripts/generate-social-preview.mjs",
+    "guardian:docs": "node scripts/generate-guardian-docs.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",

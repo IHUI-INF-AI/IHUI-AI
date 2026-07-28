@@ -1,157 +1,72 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { useEffect, useState } from 'react'
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { StudyPlanScreen as SharedStudyPlanScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { Loading } from '@ihui/ui-native'
-interface PlanItem {
+interface StudyPlanItem {
   id: string
   title: string
   courseName: string
-  targetMinutes: number
-  completedMinutes: number
-  dueDate: string
-  status: 'pending' | 'inProgress' | 'completed'
-}
-
-const STUDY_PLAN_STATUS_KEYS: Record<PlanItem['status'], string> = {
-  pending: 'studyPlan.pending',
-  inProgress: 'studyPlan.inProgress',
-  completed: 'studyPlan.completed',
+  totalLessons: number
+  completedLessons: number
+  progress: number
+  status: 'active' | 'paused' | 'completed' | 'overdue'
+  deadline: string
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function StudyPlanScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [plans, setPlans] = useState<PlanItem[]>([])
+  const [items, setItems] = useState<StudyPlanItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      setLoading(true)
-      setError('')
-      const res = await fetchApi<PlanItem[]>('/api/study/plans')
-      if (cancelled) return
-      if (res.success) setPlans(res.data ?? [])
-      else setError(res.error || t('studyPlan.loadFailed'))
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const res = await fetchApi<StudyPlanItem[]>('/api/study-plans')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
+    } catch {
+      setError(t('studyPlan.loadFailed'))
+    } finally {
       setLoading(false)
-    })()
-    return () => {
-      cancelled = true
+      setRefreshing(false)
     }
-  }, [])
+  }, [t])
 
-  if (loading)
-    return (
-      <View style={styles.center}>
-        <Loading />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
-  if (error)
-    return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
-          <Text style={styles.btnText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-      </View>
-    )
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onPressItem = (item: StudyPlanItem) => {
+    // StudyPlanDetail 路由待注册到 RootStackParamList(主 agent 后续整合)
+    // @ts-expect-error StudyPlanDetail 路由未在 RootStackParamList 注册
+    navigation.navigate('StudyPlanDetail', { id: item.id })
+  }
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
-      <Text style={styles.title}>{t('studyPlan.title')}</Text>
-      <FlatList
-        data={plans}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.muted}>{t('studyPlan.empty')}</Text>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const pct =
-            item.targetMinutes > 0
-              ? Math.min(100, Math.round((item.completedMinutes / item.targetMinutes) * 100))
-              : 0
-          return (
-            <View style={styles.card}>
-              <View style={styles.cardHead}>
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <Text style={[styles.status, item.status === 'completed' && styles.statusDone]}>
-                  {t(STUDY_PLAN_STATUS_KEYS[item.status])}
-                </Text>
-              </View>
-              <Text style={styles.course}>{item.courseName}</Text>
-              <View style={styles.bar}>
-                <View style={[styles.barFill, { width: `${pct}%` }]} />
-              </View>
-              <View style={styles.cardFoot}>
-                <Text style={styles.meta}>
-                  {item.completedMinutes}/{item.targetMinutes}min · {pct}%
-                </Text>
-                <Text style={styles.meta}>
-                  {t('studyPlan.due')}:{item.dueDate}
-                </Text>
-              </View>
-            </View>
-          )
-        }}
-      />
-    </View>
+    <SharedStudyPlanScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onPressItem={onPressItem}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: tokens.surface.bg,
-    padding: 16,
-  },
-  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
-  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: tokens.text.secondary },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
-  empty: { paddingVertical: 40, alignItems: 'center' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 8 },
-  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-  status: {
-    fontSize: 10,
-    color: tokens.text.secondary,
-    backgroundColor: tokens.surface.card,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  statusDone: { color: tokens.success.DEFAULT, backgroundColor: tokens.success.light },
-  course: { marginTop: 4, fontSize: 12, color: tokens.text.medium },
-  bar: { height: 4, backgroundColor: tokens.surface.card, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
-  barFill: { height: 4, backgroundColor: tokens.success.DEFAULT },
-  cardFoot: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  meta: { fontSize: 11, color: tokens.text.tertiary },
-  btn: {
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: tokens.success.DEFAULT,
-  },
-  btnText: { color: tokens.surface.light, fontSize: 14 },
-})
