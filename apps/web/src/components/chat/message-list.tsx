@@ -30,7 +30,7 @@ import { SubAgentTaskTree } from '@/components/ai/progress-sections/sub-agent-ta
 import {
   MessageContextMenu,
   plainTextForClipboard,
-  markdownForClipboard,
+  normalizeMarkdown,
 } from '@/components/ai/progress-sections/message-context-menu'
 import { TimelineEventRow } from '@/components/ai/progress-sections/timeline-event'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
@@ -1137,7 +1137,7 @@ export function MessageList({
             toast.success('已复制文本')
           }
         } else if (action === 'copyMarkdown') {
-          const md = markdownForClipboard(msg.content)
+          const md = normalizeMarkdown(msg.content)
           if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(md)
             toast.success('已复制 Markdown')
@@ -1190,6 +1190,37 @@ export function MessageList({
     window.addEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
     return () => window.removeEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
   }, [flashHighlight])
+
+  // Trae Work 对齐(2026-07-28):timeline 事件可点击跳转到对话流
+  // 监听 planStepId / toolCallId 自定义事件 → 翻译为 messageId → 派发 ihui:scroll-to-message
+  React.useEffect(() => {
+    const scrollToMessage = (messageId: string): void => {
+      window.dispatchEvent(
+        new CustomEvent('ihui:scroll-to-message', { detail: { messageId } }),
+      )
+    }
+    const onPlanStep = (e: Event) => {
+      const detail = (e as CustomEvent<{ planStepId: string }>).detail
+      if (!detail?.planStepId) return
+      const messageId = useProgressJumpStore.getState().planStepToMessageId[detail.planStepId]
+      if (messageId) scrollToMessage(messageId)
+    }
+    const onToolCall = (e: Event) => {
+      const detail = (e as CustomEvent<{ toolCallId: string }>).detail
+      if (!detail?.toolCallId) return
+      const messages = useChatStore.getState().messages
+      const found = messages.find((m) =>
+        m.toolCalls?.some((tc) => tc.id === detail.toolCallId),
+      )
+      if (found) scrollToMessage(found.id)
+    }
+    window.addEventListener('ihui:scroll-to-plan-step', onPlanStep as EventListener)
+    window.addEventListener('ihui:scroll-to-tool-call', onToolCall as EventListener)
+    return () => {
+      window.removeEventListener('ihui:scroll-to-plan-step', onPlanStep as EventListener)
+      window.removeEventListener('ihui:scroll-to-tool-call', onToolCall as EventListener)
+    }
+  }, [])
 
   if (messages.length === 0) {
     // 空状态引导模板与附加栏 Popover 共用同一组 5 个核心模板(i18n key 一致)。
@@ -1445,7 +1476,7 @@ export function MessageList({
           aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
           title={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
           className={cn(
-            'absolute bottom-4 right-4 z-20 inline-flex h-9 items-center gap-1 rounded-full',
+            'absolute bottom-4 right-4 z-20 inline-flex h-9 items-center gap-1 rounded-md',
             'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
             'transition-all duration-150 hover:bg-accent hover:shadow-lg',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
