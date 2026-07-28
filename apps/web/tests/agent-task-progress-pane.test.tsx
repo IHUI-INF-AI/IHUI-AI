@@ -14,7 +14,7 @@ const { mockT } = vi.hoisted(() => {
     'pane.expandAll': '展开全部',
     'pane.collapseAll': '折叠全部',
     'pane.reconnecting': 'SSE 断连,正在重连(第 {n}/5 次)',
-    'progressLabel': '任务进度 {pct}%',
+    progressLabel: '任务进度 {pct}%',
     'sseStatus.connected': '已连接',
     'sseStatus.connecting': '连接中',
     'sseStatus.reconnecting': '重连中',
@@ -26,8 +26,8 @@ const { mockT } = vi.hoisted(() => {
     'pane.stepCompleted': '步骤 {n}: {step} (已完成)',
     'pane.stepPending': '步骤 {n}: {step} (待执行)',
     'pane.toolCallsCount': '{n} 次工具调用',
-    'copy': '复制',
-    'copied': '已复制',
+    copy: '复制',
+    copied: '已复制',
     'relativeTime.justNow': '刚刚',
     'relativeTime.secondsAgo': '{n}s前',
     'relativeTime.minutesAgo': '{n}m前',
@@ -139,51 +139,83 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => ({
-  Pin: IconSpan,
-  PinOff: IconSpan,
-  Minimize2: IconSpan,
-  Circle: IconSpan,
-  Loader2: IconSpan,
-  Check: IconSpan,
-  Copy: IconSpan,
-  ListTodo: IconSpan,
-  MessageSquare: IconSpan,
-  ChevronRight: IconSpan,
-  Brain: IconSpan,
-  Wrench: IconSpan,
-  X: IconSpan,
-  Users: IconSpan,
-  AlertTriangle: IconSpan,
-  FileEdit: IconSpan,
-  FilePlus: IconSpan,
-  FileText: IconSpan,
-  Search: IconSpan,
-  Terminal: IconSpan,
-  TerminalSquare: IconSpan,
-  ChevronsUpDown: IconSpan,
-  ChevronsDownUp: IconSpan,
-  Activity: IconSpan,
-  CheckCircle2: IconSpan,
-  XCircle: IconSpan,
-  AlertCircle: IconSpan,
-  SignalHigh: IconSpan,
-  SignalMedium: IconSpan,
-  RotateCw: IconSpan,
-  WifiOff: IconSpan,
-  ArrowDown: IconSpan,
-}))
+vi.mock('lucide-react', () => {
+  const Icon = IconSpan
+  // 常见 lucide 图标全部映射到 IconSpan,新增组件导入新图标时无需修改此处
+  return {
+    __esModule: true,
+    Pin: Icon,
+    PinOff: Icon,
+    Minimize2: Icon,
+    Circle: Icon,
+    Loader2: Icon,
+    Check: Icon,
+    Copy: Icon,
+    ListTodo: Icon,
+    MessageSquare: Icon,
+    ChevronRight: Icon,
+    Brain: Icon,
+    Wrench: Icon,
+    X: Icon,
+    Users: Icon,
+    AlertTriangle: Icon,
+    FileEdit: Icon,
+    FilePlus: Icon,
+    FileText: Icon,
+    Search: Icon,
+    Terminal: Icon,
+    TerminalSquare: Icon,
+    ChevronsUpDown: Icon,
+    ChevronsDownUp: Icon,
+    Zap: Icon,
+    Activity: Icon,
+    CheckCircle2: Icon,
+    XCircle: Icon,
+    AlertCircle: Icon,
+    SignalHigh: Icon,
+    SignalMedium: Icon,
+    RotateCw: Icon,
+    WifiOff: Icon,
+    ArrowDown: Icon,
+    Minus: Icon,
+    Bot: Icon,
+    Clock: Icon,
+    ChevronDown: Icon,
+    ShieldCheck: Icon,
+    ShieldAlert: Icon,
+    Hand: Icon,
+    ListTree: Icon,
+    Signal: Icon,
+    SignalLow: Icon,
+    Code2: Icon,
+    FileCode: Icon,
+    Sparkles: Icon,
+    HelpCircle: Icon,
+    Clipboard: Icon,
+    MessageSquareWarning: Icon,
+    RefreshCw: Icon,
+    Share2: Icon,
+    Trash2: Icon,
+  }
+})
 
-// Mock useChatStore.conversationId(避免引入整个 chat store)
+// Mock useChatStore (同时提供 conversationId 和 messages 避免组件内部 .filter 报错)
 vi.mock('@/stores/chat', () => ({
-  useChatStore: (selector: (s: { conversationId: string | null }) => unknown) =>
-    selector({ conversationId: null }),
+  useChatStore: (
+    selector: (s: {
+      conversationId: string | null
+      messages: Array<{ id: string; role: 'user' | 'assistant' | 'system'; content: string }>
+    }) => unknown,
+  ) => selector({ conversationId: null, messages: [] }),
 }))
 
 import { AgentTaskProgressPane } from '../src/components/ai/agent-task-progress-pane'
 import { AgentProgressTrigger } from '../src/components/ai/agent-progress-trigger'
 import { useAgentProgressPaneStore } from '../src/stores/agent-progress-pane'
-import { FoldableSection, formatRelativeTime } from '../src/components/ai/progress-sections/foldable-section'
+import {
+  FoldableSection,
+  formatRelativeTime,
+} from '../src/components/ai/progress-sections/foldable-section'
 import { ThinkingSection } from '../src/components/ai/progress-sections/thinking-section'
 import { ToolCallsSection } from '../src/components/ai/progress-sections/tool-calls-section'
 import { SubagentSection } from '../src/components/ai/progress-sections/subagent-section'
@@ -954,11 +986,7 @@ describe('AgentTaskProgressPane — v11 键盘导航 + ARIA', () => {
 
   it('FoldableSection button 支持自定义 aria-label', () => {
     const { container } = render(
-      <FoldableSection
-        title="工具调用"
-        aria-label="自定义工具区标题"
-        data-testid="kb-section-3"
-      >
+      <FoldableSection title="工具调用" aria-label="自定义工具区标题" data-testid="kb-section-3">
         <span>内容</span>
       </FoldableSection>,
     )
@@ -1171,9 +1199,13 @@ describe('AgentTaskProgressPane — v11 复制按钮 + 状态过滤', () => {
     const { container } = render(<ToolCallsSection tools={tools} />)
     const foldBtn = container.querySelector('button')!
     fireEvent.click(foldBtn)
-    const allFilter = container.querySelector('[data-testid="tool-filter-all"]') as HTMLButtonElement
+    const allFilter = container.querySelector(
+      '[data-testid="tool-filter-all"]',
+    ) as HTMLButtonElement
     expect(allFilter.getAttribute('aria-pressed')).toBe('true')
-    const errorFilter = container.querySelector('[data-testid="tool-filter-error"]') as HTMLButtonElement
+    const errorFilter = container.querySelector(
+      '[data-testid="tool-filter-error"]',
+    ) as HTMLButtonElement
     expect(errorFilter.getAttribute('aria-pressed')).toBe('false')
     fireEvent.click(errorFilter)
     expect(errorFilter.getAttribute('aria-pressed')).toBe('true')
@@ -1451,9 +1483,7 @@ describe('ConnectionStatus — Phase 16 SSE 连接状态指示器', () => {
   })
 
   it('error 信息:追加到 tooltip 末尾', () => {
-    const { container } = render(
-      <ConnectionStatus state="disconnected" error="网络超时" />,
-    )
+    const { container } = render(<ConnectionStatus state="disconnected" error="网络超时" />)
     const status = container.querySelector('[data-testid="connection-status-disconnected"]')!
     const tooltip = status.getAttribute('title')!
     expect(tooltip).toContain('已断开')
@@ -1515,9 +1545,7 @@ describe('ConnectionStatusDot — Phase 16 简化版(仅点)', () => {
   })
 
   it('className 透传', () => {
-    const { container } = render(
-      <ConnectionStatusDot state="connected" className="ml-2" />,
-    )
+    const { container } = render(<ConnectionStatusDot state="connected" className="ml-2" />)
     const dot = container.querySelector('[data-testid="connection-dot-connected"]')!
     expect(dot.className).toContain('ml-2')
   })
@@ -1616,9 +1644,7 @@ describe('AgentTaskProgressPane — Phase 17 自动滚动 + 跳到最新', () =>
     Object.defineProperty(planList, 'clientHeight', { value: 200, configurable: true })
     Object.defineProperty(planList, 'scrollTop', { value: 0, configurable: true })
     fireEvent.scroll(planList)
-    const jumpBtn = container.querySelector(
-      '[data-testid="pane-jump-latest"]',
-    ) as HTMLButtonElement
+    const jumpBtn = container.querySelector('[data-testid="pane-jump-latest"]') as HTMLButtonElement
     fireEvent.click(jumpBtn)
     // scrollTo 已被调用
     expect(scrollToMock).toHaveBeenCalled()
