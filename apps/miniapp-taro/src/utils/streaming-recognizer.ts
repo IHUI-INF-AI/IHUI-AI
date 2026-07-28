@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { voiceSttFromTaro } from '@ihui/api-client'
+import { voiceSttFromTaro } from '@ihui/api-client/endpoints/voice-stt.taro'
 
 /**
  * 流式语音识别器(miniapp-taro)。
