@@ -22,12 +22,25 @@ import {
   Shield,
   ShieldCheck,
   ShieldAlert,
+  Zap,
+  Power,
+  Timer,
+  Bug,
+  Wand2,
+  TestTube,
+  BookMarked,
+  Code,
+  RefreshCw,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { formatFileSize } from '@ihui/shared/utils/format'
-import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
+import {
+  SlashCommandPalette,
+  type ArgSuggestion,
+} from '@/components/ai/slash-command-palette'
+import { listAiSkills, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
@@ -103,6 +116,97 @@ const SLASH_COMMAND_IDS = [
   'wechat-article',
   'koubo-script',
 ] as const
+
+/** /goal 命令参数候选模板(2026-07-29 二次深化,内置常见 goal 目标条件)
+ * 参考 AGENTS.md §8 goal 模式工作流示例 + AI 编程主流场景
+ * label:候选标签(简短)
+ * description:候选描述(详细说明目标条件)
+ * insertText:选中后填充到 textarea 的完整文本(含 /goal 前缀)
+ * icon:候选图标(覆盖默认 Sparkles) */
+const GOAL_ARG_TEMPLATES: ArgSuggestion[] = [
+  {
+    label: '修复所有 TypeScript 错误',
+    description: '运行 pnpm typecheck,修复所有报错直到全绿(命令退出码 0)',
+    insertText: '/goal 运行 pnpm typecheck 修复所有 TypeScript 错误,直到命令退出码为 0',
+    icon: <Bug className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '通过所有单元测试',
+    description: '运行 pnpm test,修复失败用例直到全部通过',
+    insertText: '/goal 运行 pnpm test,修复所有失败的单元测试用例直到全部通过',
+    icon: <TestTube className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '重构模块消除重复',
+    description: '识别重复代码,抽取共享工具函数,保持行为不变',
+    insertText: '/goal 识别项目中的重复代码,抽取共享工具函数,保持行为不变',
+    icon: <RefreshCw className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '完成 lint 全绿',
+    description: '运行 pnpm lint,修复所有 lint 错误和警告',
+    insertText: '/goal 运行 pnpm lint,修复所有 lint 错误和警告直到全绿',
+    icon: <Wand2 className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '迁移功能到共享层',
+    description: '把端独占组件上提到 packages/app,多端复用,保持行为一致',
+    insertText: '/goal 把端独占组件上提到 packages/app 共享层,多端复用,保持行为一致',
+    icon: <Package className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '深度对标某产品交互',
+    description: '参考目标产品交互细节,逐项对齐实现,自验 4 状态',
+    insertText: '/goal 深度对标目标产品的交互细节,逐项对齐实现,自验默认/hover/active/dark mode 4 状态',
+    icon: <BookMarked className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '清理死代码',
+    description: '扫描未引用的导出/组件/工具函数,确认无依赖后删除',
+    insertText: '/goal 扫描项目中未引用的导出/组件/工具函数,确认无依赖后删除',
+    icon: <X className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '补全 E2E 测试',
+    description: '为关键路径补全 E2E 测试,覆盖率提升到 80%+',
+    insertText: '/goal 为关键路径补全 E2E 测试,覆盖率提升到 80% 以上',
+    icon: <Code className="h-3.5 w-3.5" />,
+  },
+]
+
+/** /loop 命令参数候选(2026-07-29 二次深化,on/off/N 三选项 + 常用迭代次数) */
+const LOOP_ARG_OPTIONS: ArgSuggestion[] = [
+  {
+    label: '开启循环',
+    description: '开启循环执行模式,AI 将持续迭代直到目标达成',
+    insertText: '/loop on',
+    icon: <Power className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '关闭循环',
+    description: '关闭循环执行模式,恢复单次执行',
+    insertText: '/loop off',
+    icon: <Power className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '循环 5 次',
+    description: '设置最大迭代次数为 5',
+    insertText: '/loop 5',
+    icon: <Timer className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '循环 10 次',
+    description: '设置最大迭代次数为 10',
+    insertText: '/loop 10',
+    icon: <Timer className="h-3.5 w-3.5" />,
+  },
+  {
+    label: '循环 20 次',
+    description: '设置最大迭代次数为 20(高风险,需人工监督)',
+    insertText: '/loop 20',
+    icon: <Timer className="h-3.5 w-3.5" />,
+  },
+]
 
 // ChatMode 4 态元信息(2026-07-28 立,移除 4 按钮后改用小徽章显示)
 // - icon: 当前模式徽章图标(lucide-react)
@@ -279,6 +383,11 @@ export function MessageInput({
   const [mentionOpen, setMentionOpen] = React.useState(false)
   const [references, setReferences] = React.useState<ReferenceItem[]>([])
   const [isDragOver, setIsDragOver] = React.useState(false)
+  // AI Skills 列表(2026-07-29 二次深化,从 /api/ai-skills 拉取,接入斜杠命令弹窗 skill 分组)
+  // 懒加载:首次打开弹窗时拉取,成功后缓存到 state,关闭再打开不重新拉
+  const [aiSkills, setAiSkills] = React.useState<AiSkillMeta[]>([])
+  const [skillsLoading, setSkillsLoading] = React.useState(false)
+  const skillsLoadedRef = React.useRef(false)
   // @ 提及面板文件列表:首次打开时从 /api/files/recent 懒加载,避免无谓请求
   const [mentionFiles, setMentionFiles] = React.useState<
     { id: string; name: string; path: string }[]
@@ -371,6 +480,26 @@ export function MessageInput({
         // 静默失败:未登录/网络错误时保持空数组,Popover 显示"无匹配文件"
       })
   }, [mentionOpen])
+
+  // 首次打开斜杠命令弹窗时拉取 AI Skills 列表(2026-07-29 二次深化,接入 skill 分组)
+  // 失败静默:留空数组,弹窗 skill 分组显示"加载失败"提示
+  React.useEffect(() => {
+    if (!slashOpen || skillsLoadedRef.current) return
+    skillsLoadedRef.current = true
+    setSkillsLoading(true)
+    listAiSkills()
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          setAiSkills(res.data)
+        }
+      })
+      .catch(() => {
+        // 静默失败:保持空数组,弹窗 skill 分组显示空状态
+      })
+      .finally(() => {
+        setSkillsLoading(false)
+      })
+  }, [slashOpen])
 
   // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
   // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
@@ -495,9 +624,9 @@ export function MessageInput({
 
   const slashCommands = [
     // 🎯 目标与循环(2026-07-29 立,置顶重点:AI 编程最主流的命令)
+    // 2026-07-29 二次深化:加 argsSuggestions,点击后进入参数补全模式
     // /goal <目标条件>:设定当前会话目标,AI 围绕目标执行(对标 AGENTS.md §8 goal 模式工作流)
     // /loop on|off|N:设置循环执行模式(对标 ai-service slash_commands.py _loop_handler)
-    // 两者都是 template 类型 + hasArgs=true:点击后填充命令到 textarea,用户继续输入参数,Enter 发送
     {
       id: 'goal',
       label: '/goal',
@@ -507,6 +636,8 @@ export function MessageInput({
       category: 'goal' as const,
       icon: <Target className="h-4 w-4" />,
       hasArgs: true,
+      argsTitle: t('slashCmd.goalArgTitle'),
+      argsSuggestions: GOAL_ARG_TEMPLATES,
     },
     {
       id: 'loop',
@@ -517,6 +648,8 @@ export function MessageInput({
       category: 'goal' as const,
       icon: <Repeat className="h-4 w-4" />,
       hasArgs: true,
+      argsTitle: t('slashCmd.loopArgTitle'),
+      argsSuggestions: LOOP_ARG_OPTIONS,
     },
     // ⚡ 模式切换(2026-07-25 立,对标 Trae SOLO Plan 模式):切换 plan/act 模式
     {
@@ -588,6 +721,20 @@ export function MessageInput({
       category: 'permission' as const,
       icon: <ShieldAlert className="h-4 w-4" />,
     },
+    // ✨ AI 技能(2026-07-29 二次深化,从 /api/ai-skills 异步拉取,接入斜杠命令弹窗)
+    // 每个 skill 一项,点击后填充 /skill <name> 到 textarea,后端 _skill_handler 处理
+    // loading 状态:skillsLoading=true 时所有 skill 项标记 loading,弹窗分组标题显示 spinner
+    ...aiSkills.map((skill) => ({
+      id: `skill-${skill.id}`,
+      label: `/skill ${skill.name}`,
+      description: skill.description,
+      usage: `/skill ${skill.name}`,
+      kind: 'template' as const,
+      category: 'skill' as const,
+      icon: <Sparkles className="h-4 w-4" />,
+      hasArgs: false,
+      loading: skillsLoading,
+    })),
     // 📝 内容模板:选命令后填充模板到 textarea
     ...SLASH_COMMAND_IDS.map((id) => ({
       id,
@@ -701,7 +848,21 @@ export function MessageInput({
       void onSend(`/${id.replace('-', ' ')}`)
       return
     }
+    // skill 命令(2026-07-29 二次深化):id 形如 "skill-<skillId>",
+    // 填充 "/skill <skillName> " 到 textarea 让用户确认或追加参数
+    if (id.startsWith('skill-')) {
+      const skillName = id.slice('skill-'.length)
+      fillInput(`/skill ${skillName} `)
+      return
+    }
     fillInput(commandTemplates[id] ?? '')
+  }
+
+  /** 参数补全模式选择回调(2026-07-29 二次深化)
+   * 用户在参数补全模式下选中候选项时触发,直接填充 insertText 到 textarea
+   * 不自动发送,让用户确认后按 Enter 发送(避免误触) */
+  const handleCommandArgsSelect = (commandId: string, insertText: string) => {
+    fillInput(insertText)
   }
 
   const handleTemplateSelect = (content: string) => {
@@ -1317,6 +1478,7 @@ export function MessageInput({
               <SlashCommandPalette
                 commands={slashCommands}
                 onSelect={handleCommandSelect}
+                onSelectArgs={handleCommandArgsSelect}
                 open={slashOpen}
                 onOpenChange={setSlashOpen}
                 tooltip={tA11y('slashCommand')}
