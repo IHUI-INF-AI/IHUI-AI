@@ -4,10 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { clearCache } from '@/api'
 import { useI18n } from '@/i18n'
-
-const KEEP_KEYS = ['ihui_token', 'ihui_refresh_token', 'ihui_user_info', 'lang', 'theme']
-const IMAGE_KEYS = ['ihui_image_history', 'ihui_image_favorites']
-const FILE_KEYS = ['ihui_video_history', 'ihui_sso_code']
+import { KEEP_KEYS_ON_CLEAR, CLEARABLE_KEY_GROUPS } from '@/constants/storage'
 
 function formatSize(kb: number): string {
   if (kb < 1024) return `${kb}KB`
@@ -26,7 +23,7 @@ function getLocalSize(): { current: number; limit: number } {
   }
 }
 
-function getKeysByPattern(patterns: string[]): string[] {
+function getKeysByPattern(patterns: readonly string[]): string[] {
   try {
     const info = Taro.getStorageInfoSync()
     return info.keys.filter((k) => patterns.some((p) => k === p || k.startsWith(p)))
@@ -38,7 +35,7 @@ function getKeysByPattern(patterns: string[]): string[] {
 function getAllClearableKeys(): string[] {
   try {
     const info = Taro.getStorageInfoSync()
-    return info.keys.filter((k) => !KEEP_KEYS.includes(k))
+    return info.keys.filter((k) => !KEEP_KEYS_ON_CLEAR.includes(k))
   } catch {
     return []
   }
@@ -71,8 +68,8 @@ export default function CachePage() {
       setProgress(0)
       try {
         let keys: string[] = []
-        if (type === 'image') keys = getKeysByPattern(IMAGE_KEYS)
-        else if (type === 'file') keys = getKeysByPattern(FILE_KEYS)
+        if (type === 'image') keys = getKeysByPattern(CLEARABLE_KEY_GROUPS.IMAGE)
+        else if (type === 'file') keys = getKeysByPattern(CLEARABLE_KEY_GROUPS.FILE)
         else keys = getAllClearableKeys()
 
         if (keys.length === 0) {

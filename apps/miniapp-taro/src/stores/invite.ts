@@ -3,9 +3,11 @@
 // `TypeError: taro.react_production_min.create is not a function`。
 // 改用 `zustand/vanilla` 的 `createStore` + React 18 的 `useSyncExternalStore`
 // 绕过 Taro Vite 的归并逻辑,与 stores/user.ts 的修复方案保持一致。
-import { useSyncExternalStore, useCallback } from 'react'
-import { createStore, type StoreApi } from 'zustand/vanilla'
+// 2026-07-28:useSyncExternalStore + Object.assign 模式已抽取到
+// `./helpers/create-taro-zustand-hook`,与 user.ts/vip.ts 共用。
+import { createStore } from 'zustand/vanilla'
 import { getStorageSync, setStorageSync, removeStorageSync } from '@tarojs/taro'
+import { createTaroZustandHook } from './helpers/create-taro-zustand-hook'
 
 const INVITE_CODE_KEY = 'ihui_invite_code'
 
@@ -29,33 +31,7 @@ const inviteStoreApi = createStore<InviteState>((set, get) => ({
   },
 }))
 
-type UseInviteStore = {
-  (): InviteState
-  <U>(selector: (state: InviteState) => U): U
-  getState: () => InviteState
-  setState: StoreApi<InviteState>['setState']
-  subscribe: StoreApi<InviteState>['subscribe']
-}
-
-const identity = <T>(s: T): T => s
-
-function useInviteStoreImpl<U>(
-  selector: (state: InviteState) => U = identity as (state: InviteState) => U,
-): U {
-  return useSyncExternalStore(
-    inviteStoreApi.subscribe,
-    useCallback(() => selector(inviteStoreApi.getState()), [selector]),
-    useCallback(() => selector(inviteStoreApi.getInitialState()), [selector]),
-  )
-}
-
-const useInviteStore = Object.assign(useInviteStoreImpl, {
-  getState: inviteStoreApi.getState,
-  setState: inviteStoreApi.setState,
-  subscribe: inviteStoreApi.subscribe,
-}) as UseInviteStore
-
-export { useInviteStore }
+export const useInviteStore = createTaroZustandHook(inviteStoreApi)
 
 export function getInviteCode(): string {
   return getStorageSync(INVITE_CODE_KEY) || ''

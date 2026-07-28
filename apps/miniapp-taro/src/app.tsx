@@ -19,6 +19,7 @@ import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
 import { createTaroTransport } from './utils/api-client-transport'
 import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
 import { BASE_URL } from './utils/api-config'
+import { KEEP_KEYS_ON_CLEAR } from './constants/storage'
 import { I18nProvider, useI18n } from './i18n'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import './app.css'
@@ -79,9 +80,8 @@ function MemoryWarningHandler() {
       if (level >= MEMORY_LEVEL_TRIM) {
         try {
           const info = Taro.getStorageInfoSync()
-          const keepKeys = ['ihui_token', 'ihui_refresh_token', 'ihui_user_info']
           for (const key of info.keys) {
-            if (!keepKeys.includes(key) && key.startsWith('ihui_')) {
+            if (!KEEP_KEYS_ON_CLEAR.includes(key) && key.startsWith('ihui_')) {
               Taro.removeStorageSync(key)
             }
           }

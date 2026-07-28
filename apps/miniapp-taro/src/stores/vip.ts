@@ -3,11 +3,13 @@
 // `TypeError: taro.react_production_min.create is not a function`。
 // 改用 `zustand/vanilla` 的 `createStore` + React 18 的 `useSyncExternalStore`
 // 绕过 Taro Vite 的归并逻辑,与 stores/invite.ts 的修复方案保持一致。
-import { useSyncExternalStore, useCallback } from 'react'
-import { createStore, type StoreApi } from 'zustand/vanilla'
+// 2026-07-28:useSyncExternalStore + Object.assign 模式已抽取到
+// `./helpers/create-taro-zustand-hook`,与 user.ts/invite.ts 共用。
+import { createStore } from 'zustand/vanilla'
 import { getStorageSync, setStorageSync } from '@tarojs/taro'
 import { getVipInfo } from '../api'
 import type { VipInfo } from '../api'
+import { createTaroZustandHook } from './helpers/create-taro-zustand-hook'
 
 const VIP_STORAGE_KEY = 'ihui_vip_info'
 
@@ -78,33 +80,7 @@ const vipStoreApi = createStore<VipState>((set) => ({
   },
 }))
 
-type UseVipStore = {
-  (): VipState
-  <U>(selector: (state: VipState) => U): U
-  getState: () => VipState
-  setState: StoreApi<VipState>['setState']
-  subscribe: StoreApi<VipState>['subscribe']
-}
-
-const identity = <T>(s: T): T => s
-
-function useVipStoreImpl<U>(
-  selector: (state: VipState) => U = identity as (state: VipState) => U,
-): U {
-  return useSyncExternalStore(
-    vipStoreApi.subscribe,
-    useCallback(() => selector(vipStoreApi.getState()), [selector]),
-    useCallback(() => selector(vipStoreApi.getInitialState()), [selector]),
-  )
-}
-
-const useVipStore = Object.assign(useVipStoreImpl, {
-  getState: vipStoreApi.getState,
-  setState: vipStoreApi.setState,
-  subscribe: vipStoreApi.subscribe,
-}) as UseVipStore
-
-export { useVipStore }
+export const useVipStore = createTaroZustandHook(vipStoreApi)
 
 export function getVipStatus(): { isVip: boolean; level: number; expireTime: string } {
   const stored = loadStoredVip()

@@ -14,7 +14,6 @@ interface Detail { id: string; agentName: string; author: string; rating: number
 
 export function AgentReviewDetailScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const id = route.params.id

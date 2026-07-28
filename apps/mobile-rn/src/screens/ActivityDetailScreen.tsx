@@ -25,12 +25,11 @@ export function ActivityDetailScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/activities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Detail }
-      setItem(d.data ?? null)
+      const res = await fetchApi<Detail>(`/activities/${id}`)
+      if (!res.success) throw new Error()
+      setItem(res.data ?? null)
     } catch { setError(t('activityDetail.loadFailed')) } finally { setLoading(false) }
-  }, [id, token, t])
+  }, [id, t])
 
   useEffect(() => { void load() }, [load])
 

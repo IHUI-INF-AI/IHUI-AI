@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MessageItem } from '@ihui/types'
 
@@ -18,7 +17,6 @@ interface Item extends Pick<MessageItem, 'id' | 'content'> {
 
 export function MessageSystemScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,20 +25,12 @@ export function MessageSystemScreen() {
 
   const load = useCallback(async () => {
     setError('')
-    try {
-      const r = await fetch(`${API_BASE_URL}/api/message/system`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Item[] }
-      setItems(d.data ?? [])
-    } catch {
-      setError(t('messageSystem.loadFailed'))
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [token, t])
+    const res = await fetchApi<Item[]>('/api/message/system')
+    if (res.success) setItems(res.data ?? [])
+    else setError(t('messageSystem.loadFailed'))
+    setLoading(false)
+    setRefreshing(false)
+  }, [t])
 
   useEffect(() => {
     void load()
