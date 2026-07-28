@@ -115,23 +115,37 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   // 通过 portal 渲染到右侧工作区容器:绝对定位、水平居中(inset-x-0 + mx-auto,避免
   // 与 slide-in-from-top 动画的 transform 冲突)、顶部向下滑出。
   // 工作区容器 overflow-hidden 会裁剪初始 translateY(-100%) 状态,形成从顶部边缘"向下滑出"的视觉效果。
+  // 2026-07-28 改动:
+  // - 删除内层 p-3 内边距(SearchBar 已合并为单层 div,input 直接占满父容器,p-3 会留白)
+  // - 弹窗滑出时叠加 fixed 半透明遮罩(对标 CommandPalette modal 模式),让其他区域稍微暗下去
+  //   突出搜索弹窗(用户规则:2026-07-28 立)
   const dropdown =
     open && portalTarget
       ? createPortal(
-          <div
-            ref={dropdownRef}
-            role="dialog"
-            aria-label={tCommon('searchPlaceholder')}
-            className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-200"
-          >
-            <div className="rounded-md border bg-popover p-3 text-popover-foreground shadow-md">
-              <SearchBar
-                onSearch={handleSearch}
-                placeholder={tCommon('searchPlaceholder')}
-                focusOnMount
-              />
+          <>
+            {/* 遮罩层(2026-07-28 立):fixed inset-0 全屏覆盖,半透明 black/40,
+                弹窗打开时其他区域稍微暗下去突出搜索弹窗。点击遮罩关闭弹窗。 */}
+            <div
+              aria-hidden="true"
+              data-testid="tagsview-search-overlay"
+              onClick={() => setOpen(false)}
+              className="fixed inset-0 z-popover bg-black/40 animate-in fade-in-0 duration-200"
+            />
+            <div
+              ref={dropdownRef}
+              role="dialog"
+              aria-label={tCommon('searchPlaceholder')}
+              className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-200"
+            >
+              <div className="rounded-md border bg-popover text-popover-foreground shadow-md">
+                <SearchBar
+                  onSearch={handleSearch}
+                  placeholder={tCommon('searchPlaceholder')}
+                  focusOnMount
+                />
+              </div>
             </div>
-          </div>,
+          </>,
           portalTarget,
         )
       : null
