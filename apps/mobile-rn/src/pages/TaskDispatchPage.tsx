@@ -595,7 +595,7 @@ export function TaskDispatchPage(_: Props) {
                         accessibilityRole="button"
                         accessibilityState={{ disabled: isCancelling }}
                       >
-                        {isCancelling ? <Loading size="sm" color="#dc2626" /> : null}
+                        {isCancelling ? <Loading size="sm" color={tokens.danger.DEFAULT} /> : null}
                         <Text className="text-xs font-semibold text-red-600">
                           {isCancelling
                             ? t('taskDispatch.cancel.cancelling')
