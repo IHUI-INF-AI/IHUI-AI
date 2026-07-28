@@ -631,5 +631,21 @@
       "completed": "已完成",
       "overdue": "已逾期"
     }
+  },
+  "wallet": {
+    "title": "我的錢包",
+    "balance": "可用餘額",
+    "frozen": "凍結金額",
+    "totalRecharge": "累計儲值",
+    "totalWithdraw": "累計提現",
+    "recharge": "儲值",
+    "withdraw": "提現",
+    "loadFailed": "載入錢包失敗"
+  },
+  "courseCatalog": {
+    "title": "課程目錄",
+    "empty": "暫無章節",
+    "loadFailed": "載入目錄失敗",
+    "duration": "{n} 分鐘"
   }
 }
