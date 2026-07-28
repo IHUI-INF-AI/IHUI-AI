@@ -33,7 +33,7 @@ function truncateForDisplay(s: string, max = 500): string {
 
 /** v11: 单个文件变更项(可点击展开 diff 预览) */
 const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentChange }) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const [expanded, setExpanded] = React.useState(false)
   const isNew = change.diffInfo.is_new_file
   const Icon = isNew ? FilePlus : FileEdit
@@ -142,7 +142,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
 export const ChangesSection = React.memo(function ChangesSection({
   changes,
 }: ChangesSectionProps) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   if (changes.length === 0) return null
 
   const newCount = changes.filter((c) => c.diffInfo.is_new_file).length

@@ -56,7 +56,7 @@ function formatTime(iso: string): string {
  * - memo 化:单个 subagent 变化不影响其他 subagent
  */
 const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const [expanded, setExpanded] = React.useState(false)
   const Icon = SUBAGENT_STATUS_ICON[sa.status]
   const hasTools = sa.tools !== undefined && sa.tools.length > 0
@@ -223,7 +223,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
 export const SubagentSection = React.memo(function SubagentSection({
   subagents,
 }: SubagentSectionProps) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   // v10: 摘要统计(活跃/死亡/失败)— useMemo 必须在 early return 之前
   const summary = React.useMemo(() => {
     if (subagents.length === 0) return ''
