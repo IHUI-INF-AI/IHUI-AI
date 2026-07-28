@@ -120,7 +120,7 @@ function DetailsContent() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -137,7 +137,7 @@ function DetailsContent() {
 
   if (paid) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+      <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
         <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
         <Button asChild>
@@ -149,7 +149,7 @@ function DetailsContent() {
 
   if (order && order.payInfo?.codeUrl) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+      <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <h1 className="text-2xl font-bold tracking-tight">微信扫码支付</h1>
         <p className="text-sm text-muted-foreground">
           金额：<span className="font-bold text-foreground">{formatCNY(order.amount)}</span>
@@ -168,7 +168,7 @@ function DetailsContent() {
 
   if (order && order.payInfo?.mock) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+      <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
         <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
         <p className="text-sm text-muted-foreground">
@@ -183,7 +183,7 @@ function DetailsContent() {
 
   if (!level) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+      <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <Crown className="mx-auto h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('empty')}</p>
         <Button asChild variant="outline">
@@ -194,7 +194,7 @@ function DetailsContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/vip"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -203,7 +203,7 @@ function DetailsContent() {
         {tc('back')}
       </Link>
 
-      <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('details')}</h1>
+      <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('details')}</h1>
 
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
@@ -297,7 +297,7 @@ export default function VipDetailsPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         </div>
       }

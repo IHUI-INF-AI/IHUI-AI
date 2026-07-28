@@ -28,7 +28,7 @@ export function ProductsContent(): React.JSX.Element {
   const t = useTranslations('products')
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -82,7 +82,7 @@ export function ProductsContent(): React.JSX.Element {
       {/* CTA */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center md:p-12">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">{t('ctaTitle')}</h2>
+        <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
           {t('ctaDesc')}
         </p>

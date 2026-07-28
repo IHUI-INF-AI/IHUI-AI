@@ -40,10 +40,10 @@ export default function PaymentPage() {
   const t = useTranslations('payment')
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1 text-center">
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
@@ -74,7 +74,7 @@ export default function PaymentPage() {
                 </div>
                 <CardTitle className="text-lg">{t(PLAN_NAME_KEY[plan.id] ?? 'plans.unknown.name')}</CardTitle>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold tracking-tight">{priceLabel}</span>
+                  <span className="text-xl font-bold tracking-tight md:text-2xl">{priceLabel}</span>
                   {!isEnterprise && (
                     <span className="text-sm text-muted-foreground">{t('perMonth')}</span>
                   )}
