@@ -224,6 +224,19 @@
     "viewDetail": "檢視詳情",
     "withdraw": "提現"
   },
+  "bookmark": {
+    "empty": "暫無收藏",
+    "loadFailed": "載入收藏失敗",
+    "remove": "取消收藏",
+    "title": "我的收藏",
+    "type": {
+      "article": "文章",
+      "course": "課程",
+      "note": "筆記",
+      "other": "其他",
+      "post": "動態"
+    }
+  },
   "faq": {
     "categoryDeploy": "部署與維運",
     "categoryGeneral": "平臺介紹",

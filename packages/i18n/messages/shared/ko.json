@@ -224,6 +224,19 @@
     "viewDetail": "상세 보기",
     "withdraw": "출금"
   },
+  "bookmark": {
+    "empty": "북마크가 없습니다",
+    "loadFailed": "북마크 로드에 실패했습니다",
+    "remove": "제거",
+    "title": "내 북마크",
+    "type": {
+      "article": "기사",
+      "course": "강의",
+      "note": "노트",
+      "other": "기타",
+      "post": "게시물"
+    }
+  },
   "faq": {
     "categoryDeploy": "배포 및 운영",
     "categoryGeneral": "플랫폼 소개",
