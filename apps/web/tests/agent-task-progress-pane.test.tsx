@@ -139,45 +139,33 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => ({
-  Pin: IconSpan,
-  PinOff: IconSpan,
-  Minimize2: IconSpan,
-  Circle: IconSpan,
-  Loader2: IconSpan,
-  Check: IconSpan,
-  Copy: IconSpan,
-  ListTodo: IconSpan,
-  MessageSquare: IconSpan,
-  ChevronRight: IconSpan,
-  Brain: IconSpan,
-  Wrench: IconSpan,
-  X: IconSpan,
-  Users: IconSpan,
-  AlertTriangle: IconSpan,
-  FileEdit: IconSpan,
-  FilePlus: IconSpan,
-  FileText: IconSpan,
-  Search: IconSpan,
-  Terminal: IconSpan,
-  TerminalSquare: IconSpan,
-  ChevronsUpDown: IconSpan,
-  ChevronsDownUp: IconSpan,
-  Activity: IconSpan,
-  CheckCircle2: IconSpan,
-  XCircle: IconSpan,
-  AlertCircle: IconSpan,
-  SignalHigh: IconSpan,
-  SignalMedium: IconSpan,
-  RotateCw: IconSpan,
-  WifiOff: IconSpan,
-  ArrowDown: IconSpan,
-}))
+vi.mock('lucide-react', () => {
+  const Icon = IconSpan
+  // 常见 lucide 图标全部映射到 IconSpan,新增组件导入新图标时无需修改此处
+  return {
+    __esModule: true,
+    Pin: Icon, PinOff: Icon, Minimize2: Icon, Circle: Icon, Loader2: Icon,
+    Check: Icon, Copy: Icon, ListTodo: Icon, MessageSquare: Icon, ChevronRight: Icon,
+    Brain: Icon, Wrench: Icon, X: Icon, Users: Icon, AlertTriangle: Icon,
+    FileEdit: Icon, FilePlus: Icon, FileText: Icon, Search: Icon, Terminal: Icon,
+    TerminalSquare: Icon, ChevronsUpDown: Icon, ChevronsDownUp: Icon, Zap: Icon,
+    Activity: Icon, CheckCircle2: Icon, XCircle: Icon, AlertCircle: Icon,
+    SignalHigh: Icon, SignalMedium: Icon, RotateCw: Icon, WifiOff: Icon,
+    ArrowDown: Icon, Minus: Icon, Bot: Icon, Clock: Icon, ChevronDown: Icon,
+    ShieldCheck: Icon, ShieldAlert: Icon, Hand: Icon, ListTree: Icon,
+    Signal: Icon, SignalLow: Icon, Code2: Icon, FileCode: Icon, Sparkles: Icon,
+    HelpCircle: Icon, Clipboard: Icon, MessageSquareWarning: Icon, RefreshCw: Icon,
+    Share2: Icon, Trash2: Icon,
+  }
+})
 
-// Mock useChatStore.conversationId(避免引入整个 chat store)
+// Mock useChatStore (同时提供 conversationId 和 messages 避免组件内部 .filter 报错)
 vi.mock('@/stores/chat', () => ({
-  useChatStore: (selector: (s: { conversationId: string | null }) => unknown) =>
-    selector({ conversationId: null }),
+  useChatStore: (selector: (s: {
+    conversationId: string | null
+    messages: Array<{ id: string; role: 'user' | 'assistant' | 'system'; content: string }>
+  }) => unknown) =>
+    selector({ conversationId: null, messages: [] }),
 }))
 
 import { AgentTaskProgressPane } from '../src/components/ai/agent-task-progress-pane'
