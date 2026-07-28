@@ -2,10 +2,9 @@ import { useCallback, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { usePaginatedList } from '../hooks/use-paginated-list'
-import { API_BASE_URL } from '../lib/config'
+import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 
@@ -36,26 +35,20 @@ const POINTS_TAB_KEYS: Record<(typeof TYPE_TABS)[number], string> = {
 
 export function PointsRecordScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [typeTab, setTypeTab] = useState<(typeof TYPE_TABS)[number]>('all')
   const [balance, setBalance] = useState(0)
 
   const fetcher = useCallback(async () => {
-    const params = new URLSearchParams({
-      page: '1',
-      pageSize: String(PAGE_SIZE),
-      type: typeTab,
+    const res = await fetchApi<RecordPage>('/points/records', {
+      params: { page: 1, pageSize: PAGE_SIZE, type: typeTab },
     })
-    const resp = await fetch(`${API_BASE_URL}/api/points/records?${params.toString()}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) return { success: false as const, error: t('pointsRecord.loadFailed') }
-    const data = (await resp.json()) as { data?: RecordPage }
-    const list = data.data?.list ?? []
-    if (typeof data.data?.balance === 'number') setBalance(data.data.balance)
-    return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
-  }, [token, typeTab, t])
+    if (!res.success) return { success: false as const, error: t('pointsRecord.loadFailed') }
+    const page = res.data
+    const list = page?.list ?? []
+    if (typeof page?.balance === 'number') setBalance(page.balance)
+    return { success: true as const, data: { list, total: page?.total ?? list.length } }
+  }, [typeTab, t])
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<PointsRecord>(
     fetcher,

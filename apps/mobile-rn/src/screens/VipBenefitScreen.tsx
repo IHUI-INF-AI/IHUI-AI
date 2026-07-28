@@ -3,9 +3,8 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Badge, Loading } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
@@ -18,7 +17,6 @@ interface Benefit {
 
 export function VipBenefitScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Benefit[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,18 +25,15 @@ export function VipBenefitScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/vip-benefit`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Benefit[] }
-      setItems(d.data ?? [])
+      const r = await fetchApi<Benefit[]>('/vip-benefit')
+      if (!r.success) throw new Error()
+      setItems(r.data ?? [])
     } catch {
       setError(t('vipBenefit.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()
