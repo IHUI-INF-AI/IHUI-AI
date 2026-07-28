@@ -79,14 +79,8 @@ const QuestionRow = React.memo(function QuestionRow({ q }: { q: QuestionBlockIte
           answerIds
             .filter((id) => !optionLabelById.has(id))
             .map((id) => (
-              <li
-                key={`custom-${id}`}
-                className="flex items-center gap-1 text-[10px] text-foreground/90"
-              >
-                <span
-                  className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
-                  aria-hidden
-                />
+              <li key={`custom-${id}`} className="flex items-center gap-1 text-[10px] text-foreground/90">
+                <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
                 <span className="font-medium">{id}</span>
                 <span className="text-[9px] text-emerald-500">✓</span>
               </li>

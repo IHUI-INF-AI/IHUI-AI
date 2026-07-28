@@ -1,11 +1,11 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -19,7 +19,6 @@ interface SecuritySettings {
 
 export function SecuritySettingsScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [settings, setSettings] = useState<SecuritySettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -29,13 +28,10 @@ export function SecuritySettingsScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/security`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: SecuritySettings }
+        const resp = await fetchApi<SecuritySettings>('/user/security')
         if (cancelled) return
-        setSettings(data.data ?? null)
+        if (!resp.success) throw new Error('http')
+        setSettings(resp.data ?? null)
       } catch {
         if (!cancelled) setError(t('securitySettings.loadFailed'))
       } finally {
@@ -45,7 +41,7 @@ export function SecuritySettingsScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const toggle = (key: keyof SecuritySettings, value: boolean) => {
     if (!settings) return
@@ -93,7 +89,7 @@ export function SecuritySettingsScreen() {
               <Switch
                 value={settings[row.key]}
                 onValueChange={(v) => toggle(row.key, v)}
-                trackColor={{ false: '#E5E7EB', true: '#10B981' }}
+                trackColor={{ false: tokens.border.light, true: tokens.brand.DEFAULT }}
               />
             </View>
           ))}
@@ -104,17 +100,17 @@ export function SecuritySettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  desc: { fontSize: 12, color: '#6B7280' },
+  desc: { fontSize: 12, color: tokens.text.secondary },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
-  rowDivider: { borderTopColor: '#F3F4F6', borderTopWidth: 1 },
-  label: { fontSize: 13, color: '#374151' },
-  muted: { fontSize: 13, color: '#6B7280' },
-  errorText: { fontSize: 13, color: '#DC2626' },
+  rowDivider: { borderTopColor: tokens.surface.card, borderTopWidth: 1 },
+  label: { fontSize: 13, color: tokens.text.medium },
+  muted: { fontSize: 13, color: tokens.text.secondary },
+  errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
 })

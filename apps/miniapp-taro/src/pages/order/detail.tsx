@@ -7,8 +7,8 @@ import { useI18n } from '@/i18n'
 
 const STATUS_COLOR: Record<string, string> = {
   paid: 'text-primary',
-  pending: 'text-[#f59e0b]',
-  refunding: 'text-[#f59e0b]',
+  pending: 'text-warning',
+  refunding: 'text-warning',
   refunded: 'text-muted-foreground',
   cancelled: 'text-muted-foreground',
   completed: 'text-primary',

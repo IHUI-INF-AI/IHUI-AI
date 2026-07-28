@@ -30,10 +30,10 @@ const TABS: Tab[] = [
 ]
 
 const STATUS_LABELS: Record<string, { key: string; fb: string; cls: string }> = {
-  settled: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'text-[#22c55e]' },
-  pending: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'text-[#f59e0b]' },
-  paid: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'text-[#22c55e]' },
-  unpaid: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'text-[#f59e0b]' },
+  settled: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'text-success' },
+  pending: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'text-warning' },
+  paid: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'text-success' },
+  unpaid: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'text-warning' },
 }
 
 const PAGE_SIZE = 20
@@ -144,7 +144,7 @@ export default function DistributionOrderList() {
             const statusInfo = STATUS_LABELS[o.status] || {
               key: '',
               fb: o.status,
-              cls: 'text-[#f59e0b]',
+              cls: 'text-warning',
             }
             return (
               <View

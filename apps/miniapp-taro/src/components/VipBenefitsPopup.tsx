@@ -37,7 +37,7 @@ export default function VipBenefitsPopup({
       <View className="absolute inset-0 bg-black/50" />
       <View className="relative bg-card rounded-t-2xl w-full" onClick={(e) => e.stopPropagation()}>
         <View className="flex items-center justify-between px-4 py-3">
-          <Text className="text-base font-medium text-[#f59e0b]">{tt('vip.benefitsTitle', '会员权益')}</Text>
+          <Text className="text-base font-medium text-warning">{tt('vip.benefitsTitle', '会员权益')}</Text>
           <Text className="text-sm text-muted-foreground" onClick={onClose}>
             关闭
           </Text>
@@ -58,9 +58,10 @@ export default function VipBenefitsPopup({
           </View>
         </ScrollView>
         <View className="px-4 py-3">
+          {/* TODO: custom color: #fbbf24 VIP 品牌金色渐变起始色,无对应 token,保留原值 */}
           <View
             className="w-full py-3 rounded-md text-center"
-            style={{ background: 'linear-gradient(90deg, #fbbf24, #f59e0b)' }}
+            style={{ background: 'linear-gradient(90deg, #fbbf24, var(--color-warning))' }}
             onClick={onUpgrade}
           >
             <Text className="text-sm text-white font-medium">{tt('vip.upgradeNow', '立即升级')}</Text>

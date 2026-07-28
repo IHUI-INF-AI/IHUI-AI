@@ -1,6 +1,6 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useRef, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'

@@ -94,6 +94,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* TODO: custom color: #ff6b00 品牌橙色(不同于 --color-brand-orange #ff6b35),无对应 token,保留原值 */
 .vs-amount {
   color: #ff6b00;
   font-weight: 700;
