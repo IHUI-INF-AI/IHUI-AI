@@ -86,10 +86,25 @@ class Settings(BaseSettings):
     mtls_client_key_path: str = "apps/api/certs/mtls/client.key"
     mtls_ca_cert_path: str = "apps/api/certs/mtls/ca.crt"
 
-    # 2026-07-27 立:MCP 工具(read_file/write_file/search_codebase)工作区白名单根目录,
-    # 支持相对路径解析(避免 ai-service cwd=apps/ai-service/ 时路径前缀重复拼接 bug)。
-    # 用 os.pathpath 分隔多个根目录;留空时默认 cwd。
+    # 本地 LLM 服务(LiteLLM 原生,2026-07-27 统一 secret 管理)
+    # _resolve_provider 中 ollama/lmstudio/llamacpp/azure/bedrock 前缀走这些字段
+    # 默认值与 LiteLLM 库内部约定一致(用户在 .env 覆盖即激活)
+    ollama_api_key: str = ""
+    ollama_api_base: str = "http://localhost:11434"
+    lmstudio_api_key: str = ""
+    lmstudio_api_base: str = "http://localhost:1234"
+    llamacpp_api_base: str = "http://localhost:8080"
+    azure_api_key: str = ""
+    azure_api_base: str = ""
+    aws_access_key_id: str = ""
+
+    # MCP / Publish 工具配置(2026-07-27 统一 secret 管理)
+    # MCP_WORKSPACE_ROOTS:工作区根目录白名单(分隔符 os.pathsep),空=用当前工作目录
     mcp_workspace_roots: str = ""
+    # PUBLISH_UPLOAD_DIR:发布上传根目录,空=默认 .uploads/publish(已在 .gitignore)
+    publish_upload_dir: str = ""
+    # GITHUB_TOKEN:MCP review_pr 工具调 GitHub API,空=匿名调用受 rate limit(60/h)
+    github_token: str = ""
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

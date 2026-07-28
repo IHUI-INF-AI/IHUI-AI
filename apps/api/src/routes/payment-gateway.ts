@@ -46,6 +46,17 @@ import {
   refundPaymentIntent,
   verifyWebhookSignature as verifyStripeWebhook,
 } from '../services/stripe.js'
+import {
+  isPaypalConfigured,
+  createOrder as createPaypalOrder,
+  captureOrder as capturePaypalOrder,
+  getOrderStatus as getPaypalOrderStatus,
+  refundCapture as refundPaypalCapture,
+  verifyWebhookSignature as verifyPaypalWebhook,
+  centsToYuanString,
+  isSubscribedEvent as isPaypalSubscribedEvent,
+  type PaypalWebhookHeaders,
+} from '../services/paypal.js'
 import { applyWithdrawal, getBalance } from '../db/commission-queries.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
 import { db } from '../db/index.js'
@@ -210,6 +221,32 @@ const stripeSessionStatusQuery = z.object({
   sessionId: z.string(),
 })
 
+// PayPal Orders API v2(金额单位:分,后端转 "10.99" 元字符串传 PayPal)
+const paypalCreateOrderQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  productId: z.string().optional(),
+  currency: z.string().optional().default('USD'),
+  description: z.string().optional().default('IHUI-AI Purchase'),
+  returnUrl: z.string().url().optional(),
+  cancelUrl: z.string().url().optional(),
+})
+
+const paypalCaptureQuery = z.object({
+  paypalOrderId: z.string().min(1),
+})
+
+const paypalOrderStatusQuery = z.object({
+  paypalOrderId: z.string().min(1),
+})
+
+const paypalRefundQuery = z.object({
+  outTradeNo: z.string(),
+  captureId: z.string().optional(),
+  refundAmount: z.coerce.number().optional(), // 单位:分
+  reason: z.string().optional().default('User requested refund'),
+})
+
 const fundCreateOrderQuery = z.object({
   amount: z.coerce.number(),
   orderType: z.coerce.number().optional().default(0),
@@ -289,8 +326,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amountCents = dbAmountCents
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -435,8 +471,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amountCents = dbAmountCents
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -488,15 +523,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         .orderBy(sql`${zhsCourseVideo.amount} DESC NULLS LAST`)
         .limit(1)
       if (!coursePrice) {
-        request.log.warn(
-          { courseId, amountCents, userId },
-          '课程无视频价格记录,使用客户端金额',
-        )
+        request.log.warn({ courseId, amountCents, userId }, '课程无视频价格记录,使用客户端金额')
       } else if (coursePrice.amount === null || coursePrice.isPay === 0) {
-        request.log.warn(
-          { courseId, amountCents, userId },
-          '课程为免费或无价格,使用客户端金额',
-        )
+        request.log.warn({ courseId, amountCents, userId }, '课程为免费或无价格,使用客户端金额')
       } else {
         const dbAmountCents = Math.round(coursePrice.amount * 100)
         if (dbAmountCents !== amountCents) {
@@ -508,8 +537,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         }
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -790,7 +818,12 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       await authenticate(request)
-      const { amount: amountYuan, orderType, subject, productId } = alipayCreateQuery.parse(request.query)
+      const {
+        amount: amountYuan,
+        orderType,
+        subject,
+        productId,
+      } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
       let amountCents = Math.round(amountYuan * 100)
       if (!amountCents || amountCents <= 0)
@@ -809,8 +842,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amountCents = dbAmountCents
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -869,7 +901,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '小程序授权码兑换买家 user_id',
-        description: '小程序端 my.getAuthCode({scopes:"auth_user"}) 拿到 authCode 后,POST 此端点兑换买家 user_id(2088开头)或 open_id。',
+        description:
+          '小程序端 my.getAuthCode({scopes:"auth_user"}) 拿到 authCode 后,POST 此端点兑换买家 user_id(2088开头)或 open_id。',
         tags: ['Payment'],
         auth: false,
       }),
@@ -883,7 +916,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         const result = await exchangeAuthCode(authCode)
         return reply.send(success(result))
       } catch (err) {
-        request.log.error({ err, authCodePrefix: authCode.slice(0, 8) }, 'alipay exchange auth code failed')
+        request.log.error(
+          { err, authCodePrefix: authCode.slice(0, 8) },
+          'alipay exchange auth code failed',
+        )
         return reply.status(400).send(error(400, `授权码兑换失败: ${(err as Error).message}`))
       }
     },
@@ -894,13 +930,20 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '支付宝小程序支付下单',
-        description: '创建支付宝小程序支付订单(JSAPI_PAY),返回 tradeNO 给前端 my.tradePay 调起支付(金额单位:元)。buyerId 必传(从 alipay.system.oauth.token 兑换)或降级 mock。',
+        description:
+          '创建支付宝小程序支付订单(JSAPI_PAY),返回 tradeNO 给前端 my.tradePay 调起支付(金额单位:元)。buyerId 必传(从 alipay.system.oauth.token 兑换)或降级 mock。',
         tags: ['Payment'],
       }),
     },
     async (request, reply) => {
       await authenticate(request)
-      const { amount: amountYuan, orderType, subject, productId, buyerId } = alipayCreateQuery.parse(request.query)
+      const {
+        amount: amountYuan,
+        orderType,
+        subject,
+        productId,
+        buyerId,
+      } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
       let amountCents = Math.round(amountYuan * 100)
       if (!amountCents || amountCents <= 0)
@@ -919,8 +962,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amountCents = dbAmountCents
         if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
           return reply.status(400).send(error(400, '金额超过上限'))
-        if (dbAmountCents <= 0)
-          return reply.status(400).send(error(400, '金额必须为正'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
       const order = await placeOrder({
         userId,
@@ -933,19 +975,36 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
       // 小程序支付必须传 buyer_id,缺失降级 mock(避免 40006 错误)
       if (!buyerId) {
-        request.log.warn({ orderNo: order.orderNo, userId }, 'miniapp pay missing buyerId, falling back to mock')
-        return reply.send(success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_buyer_id' }))
+        request.log.warn(
+          { orderNo: order.orderNo, userId },
+          'miniapp pay missing buyerId, falling back to mock',
+        )
+        return reply.send(
+          success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_buyer_id' }),
+        )
       }
       if (!env.ALIPAY_MINIAPP_APP_ID) {
-        request.log.warn({ orderNo: order.orderNo }, 'miniapp pay missing ALIPAY_MINIAPP_APP_ID, falling back to mock')
-        return reply.send(success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_op_app_id' }))
+        request.log.warn(
+          { orderNo: order.orderNo },
+          'miniapp pay missing ALIPAY_MINIAPP_APP_ID, falling back to mock',
+        )
+        return reply.send(
+          success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_op_app_id' }),
+        )
       }
       try {
-        const { tradeNo } = await tradeCreate({ outTradeNo: order.orderNo, amount: amountCents / 100, subject, buyerId })
+        const { tradeNo } = await tradeCreate({
+          outTradeNo: order.orderNo,
+          amount: amountCents / 100,
+          subject,
+          buyerId,
+        })
         return reply.send(success({ outTradeNo: order.orderNo, tradeNo }))
       } catch (err) {
         request.log.error({ err, orderNo: order.orderNo }, 'alipay miniapp tradeCreate failed')
-        return reply.status(400).send(error(400, `支付宝小程序支付下单失败: ${(err as Error).message}`))
+        return reply
+          .status(400)
+          .send(error(400, `支付宝小程序支付下单失败: ${(err as Error).message}`))
       }
     },
   )
@@ -1142,8 +1201,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       }
       // success/cancel URL 默认值:从 CORS_ORIGIN 取第一个 origin(开发/生产都配置)
       const webOrigin = ((env.CORS_ORIGIN ?? 'http://localhost:8801').split(',')[0] ?? '').trim()
-      const finalSuccessUrl =
-        successUrl ?? `${webOrigin}/payments/success?orderNo=${order.orderNo}`
+      const finalSuccessUrl = successUrl ?? `${webOrigin}/payments/success?orderNo=${order.orderNo}`
       const finalCancelUrl = cancelUrl ?? `${webOrigin}/payments/fail`
       const session = await createCheckoutSession({
         outTradeNo: order.orderNo,
@@ -1275,11 +1333,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             eventId: event.id,
           })
         } catch (e) {
-          await server.paymentIdempotency.fail(
-            outTradeNo,
-            paymentIntentId,
-            (e as Error).message,
-          )
+          await server.paymentIdempotency.fail(outTradeNo, paymentIntentId, (e as Error).message)
           request.log.error(
             { err: e, outTradeNo, eventId: event.id },
             'stripe webhook process failed',
@@ -1297,8 +1351,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '查询 Stripe Checkout Session 状态',
-        description:
-          '按 sessionId 查询 Stripe Checkout Session 支付状态(管理员或订单归属人可查)',
+        description: '按 sessionId 查询 Stripe Checkout Session 支付状态(管理员或订单归属人可查)',
         tags: ['Payment'],
       }),
     },
@@ -1334,8 +1387,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: 'Stripe 退款',
-        description:
-          '发起 Stripe 退款并本地退款(订单需为 paid 状态,管理员或订单归属人可操作)',
+        description: '发起 Stripe 退款并本地退款(订单需为 paid 状态,管理员或订单归属人可操作)',
         tags: ['Payment'],
       }),
     },
@@ -1349,8 +1401,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
         return reply.status(403).send(error(403, '无权操作此订单'))
       }
-      if (order.status !== 'paid')
-        return reply.status(400).send(error(400, '订单状态不允许退款'))
+      if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
       // 退款金额默认全退,部分退款不能超过订单金额
       const refundCents = refundAmount ?? order.amount
       if (refundCents > order.amount)
@@ -1377,6 +1428,440 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         )
       }
       // 未配置 Stripe:仅本地退款
+      await refundOrder(outTradeNo)
+      return reply.send(success({ outTradeNo, mock: true }))
+    },
+  )
+
+  // ==========================================================================
+  // PayPal 支付(海外收款,Orders API v2 模式)
+  // 文档:https://developer.paypal.com/docs/api/orders/v2/
+  // 货币单位:分(cents),传 PayPal API 时转 "10.99" 元字符串
+  // 订阅激活:复用 activateOrderSubscription(orderType=2 VIP / 5 开发者套餐)
+  // ==========================================================================
+
+  server.post(
+    '/payments/paypal/create-order',
+    {
+      schema: buildSchema({
+        summary: 'PayPal Order 下单(海外)',
+        description:
+          '创建 PayPal Order,返回 approve URL 给前端跳转 PayPal 托管支付页(金额单位:分/cents,currency 默认 USD)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountCentsInitial,
+        orderType,
+        productId,
+        currency,
+        description,
+        returnUrl,
+        cancelUrl,
+      } = paypalCreateOrderQuery.parse(request.query)
+      let amountCents = amountCentsInitial
+      const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
+      }
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        productId,
+        payType: 'paypal',
+        description,
+      })
+      if (!isPaypalConfigured()) {
+        return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, mock: true }))
+      }
+      // return/cancel URL 默认值:从 CORS_ORIGIN 取第一个 origin
+      const webOrigin = ((env.CORS_ORIGIN ?? 'http://localhost:8801').split(',')[0] ?? '').trim()
+      const finalReturnUrl =
+        returnUrl ?? `${webOrigin}/payments/paypal/return?orderNo=${order.orderNo}`
+      const finalCancelUrl = cancelUrl ?? `${webOrigin}/payments/paypal/cancel`
+      const paypalOrder = await createPaypalOrder({
+        outTradeNo: order.orderNo,
+        amountYuan: centsToYuanString(amountCents),
+        currency,
+        description,
+        returnUrl: finalReturnUrl,
+        cancelUrl: finalCancelUrl,
+      })
+      const approveLink = paypalOrder.links.find((l) => l.rel === 'approve')
+      return reply.send(
+        success({
+          outTradeNo: order.orderNo,
+          amount: amountCents,
+          paypalOrderId: paypalOrder.id,
+          status: paypalOrder.status,
+          approveUrl: approveLink?.href ?? '',
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/payments/paypal/capture',
+    {
+      schema: buildSchema({
+        summary: 'PayPal 捕获已批准订单',
+        description:
+          '用户在 PayPal 批准后前端回调此端点,后端调用 PayPal capture 完成扣款并完成本地订单',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const { paypalOrderId } = paypalCaptureQuery.parse(request.query)
+      const userId = request.userId!
+      if (!isPaypalConfigured()) {
+        return reply.send(success({ paypalOrderId, mock: true }))
+      }
+      // 先查询 PayPal 订单拿到 reference_id(= outTradeNo)做归属校验
+      const statusBefore = await getPaypalOrderStatus(paypalOrderId)
+      const purchaseUnit = statusBefore.purchase_units?.[0]
+      const outTradeNo = purchaseUnit?.reference_id
+      if (!outTradeNo) {
+        return reply.status(400).send(error(400, 'PayPal 订单缺少 reference_id'))
+      }
+      const local = await getOrder(outTradeNo)
+      if (!local) return reply.status(404).send(error(404, '订单不存在'))
+      if (payload.roleId < ADMIN_ROLE_ID && local.userId !== userId) {
+        return reply.status(403).send(error(403, '无权操作此订单'))
+      }
+      if (local.status === 'paid') {
+        return reply.send(success({ outTradeNo, paypalOrderId, dup: true }))
+      }
+      // 校验金额(防篡改)
+      const paypalAmountYuan = purchaseUnit?.amount?.value
+      if (paypalAmountYuan && Math.round(Number(paypalAmountYuan) * 100) !== local.amount) {
+        request.log.error(
+          {
+            outTradeNo,
+            paypalAmountYuan,
+            orderAmountCents: local.amount,
+          },
+          'paypal capture amount mismatch',
+        )
+        return reply.status(400).send(error(400, '金额不匹配'))
+      }
+      // 调 PayPal capture
+      const captureResult = await capturePaypalOrder(paypalOrderId)
+      const capture = captureResult.purchase_units?.[0]?.payments?.captures?.[0]
+      if (!capture || capture.status !== 'COMPLETED') {
+        request.log.warn(
+          { paypalOrderId, captureStatus: capture?.status ?? 'no_capture' },
+          'paypal capture not completed',
+        )
+        return reply.status(400).send(error(400, `capture 状态异常: ${capture?.status ?? 'none'}`))
+      }
+      // 幂等键:capture_id(PayPal 保证全局唯一)
+      const idemKey = capture.id
+      const idem = await server.paymentIdempotency.acquire(outTradeNo, idemKey)
+      if (idem.status === 'completed') {
+        return reply.send(success({ outTradeNo, paypalOrderId, dup: true }))
+      }
+      if (idem.status === 'processing') {
+        return reply.send(success({ outTradeNo, paypalOrderId, processing: true }))
+      }
+      try {
+        const result = await completeOrder(outTradeNo, capture.id)
+        if (result.success && result.order) {
+          try {
+            await activateOrderSubscription(result.order)
+          } catch (ae) {
+            request.log.warn(
+              { err: ae, orderNo: outTradeNo },
+              'paypal subscription activation failed',
+            )
+          }
+          try {
+            if (!result.order.userId) throw new Error('order has no userId')
+            const tokenQuantity = await getBalance(result.order.userId)
+            await feedbackInvite(
+              { id: result.order.userId, tokenQuantity },
+              {
+                id: result.order.id,
+                amount: result.order.amount,
+                orderType: result.order.orderType,
+                productId: result.order.productId ?? null,
+              },
+            )
+          } catch (ce) {
+            request.log.warn({ err: ce, orderNo: outTradeNo }, 'paypal commission feedback failed')
+          }
+        }
+        await server.paymentIdempotency.complete(outTradeNo, idemKey, {
+          outTradeNo,
+          captureId: capture.id,
+        })
+      } catch (e) {
+        await server.paymentIdempotency.fail(outTradeNo, idemKey, (e as Error).message)
+        request.log.error({ err: e, outTradeNo, paypalOrderId }, 'paypal capture process failed')
+        return reply.status(500).send(error(500, 'process failed'))
+      }
+      return reply.send(
+        success({
+          outTradeNo,
+          paypalOrderId,
+          captureId: capture.id,
+          status: 'COMPLETED',
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/payments/paypal/webhook',
+    {
+      schema: buildSchema({
+        summary: 'PayPal Webhook 回调',
+        description:
+          'PayPal 异步事件回调(无需登录,验签后处理 PAYMENT.CAPTURE.COMPLETED / REFUNDED / DENIED)',
+        tags: ['Payment'],
+        auth: false,
+        response: swaggerSchemas.public,
+      }),
+    },
+    async (request, reply) => {
+      const rawBody = (request as FastifyRequest & { rawBody?: string }).rawBody
+      if (!rawBody) return reply.status(400).send(error(400, 'no raw body'))
+      const headers: PaypalWebhookHeaders = {
+        transmissionId: request.headers['paypal-transmission-id'] as string,
+        transmissionTime: request.headers['paypal-transmission-time'] as string,
+        transmissionSig: request.headers['paypal-transmission-sig'] as string,
+        certUrl: request.headers['paypal-cert-url'] as string,
+        authAlgo: request.headers['paypal-auth-algo'] as string,
+      }
+      if (
+        !headers.transmissionId ||
+        !headers.transmissionSig ||
+        !headers.certUrl ||
+        !headers.authAlgo
+      ) {
+        return reply.status(400).send(error(400, 'missing paypal webhook headers'))
+      }
+      let event
+      try {
+        event = await verifyPaypalWebhook(rawBody, headers)
+      } catch (err) {
+        request.log.warn(
+          { err: (err as Error).message },
+          'paypal webhook signature verification failed',
+        )
+        return reply.status(400).send(error(400, 'signature verification failed'))
+      }
+      request.log.info(
+        { eventId: event.id, eventType: event.event_type },
+        'paypal webhook received',
+      )
+      if (!isPaypalSubscribedEvent(event.event_type)) {
+        return reply.send(success({ received: true, skipped: 'unsubscribed_event' }))
+      }
+
+      // PAYMENT.CAPTURE.COMPLETED:实际到账(capture 已完成)
+      if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
+        const resource = event.resource as {
+          id?: string // capture id
+          custom_id?: string // 我们 set 的 reference_id(= outTradeNo)
+          amount?: { value?: string; currency_code?: string }
+          status?: string
+        }
+        const outTradeNo = resource.custom_id
+        const captureId = resource.id
+        if (!outTradeNo || !captureId) {
+          request.log.warn(
+            { eventId: event.id, resource },
+            'paypal webhook missing custom_id or capture id',
+          )
+          return reply.send(success({ received: true, skipped: 'no_out_trade_no' }))
+        }
+        const localOrder = await getOrder(outTradeNo)
+        if (!localOrder) {
+          request.log.warn({ outTradeNo, eventId: event.id }, 'paypal webhook order not found')
+          return reply.send(success({ received: true, skipped: 'order_not_found' }))
+        }
+        // 校验金额
+        const callbackAmountYuan = resource.amount?.value
+        if (
+          callbackAmountYuan &&
+          Math.round(Number(callbackAmountYuan) * 100) !== localOrder.amount
+        ) {
+          request.log.error(
+            { outTradeNo, callbackAmountYuan, orderAmountCents: localOrder.amount },
+            'paypal webhook amount mismatch',
+          )
+          return reply.status(400).send(error(400, 'amount mismatch'))
+        }
+        const idem = await server.paymentIdempotency.acquire(outTradeNo, captureId)
+        if (idem.status === 'completed') return reply.send(success({ received: true, dup: true }))
+        if (idem.status === 'processing')
+          return reply.send(success({ received: true, processing: true }))
+        try {
+          const result = await completeOrder(outTradeNo, captureId)
+          if (result.success && result.order) {
+            try {
+              await activateOrderSubscription(result.order)
+            } catch (ae) {
+              request.log.warn(
+                { err: ae, orderNo: outTradeNo },
+                'paypal webhook subscription activation failed',
+              )
+            }
+            try {
+              if (!result.order.userId) throw new Error('order has no userId')
+              const tokenQuantity = await getBalance(result.order.userId)
+              await feedbackInvite(
+                { id: result.order.userId, tokenQuantity },
+                {
+                  id: result.order.id,
+                  amount: result.order.amount,
+                  orderType: result.order.orderType,
+                  productId: result.order.productId ?? null,
+                },
+              )
+            } catch (ce) {
+              request.log.warn(
+                { err: ce, orderNo: outTradeNo },
+                'paypal webhook commission feedback failed',
+              )
+            }
+          }
+          await server.paymentIdempotency.complete(outTradeNo, captureId, {
+            outTradeNo,
+            eventId: event.id,
+          })
+        } catch (e) {
+          await server.paymentIdempotency.fail(outTradeNo, captureId, (e as Error).message)
+          request.log.error(
+            { err: e, outTradeNo, eventId: event.id },
+            'paypal webhook process failed',
+          )
+          return reply.status(500).send(error(500, 'process failed'))
+        }
+      }
+
+      // PAYMENT.CAPTURE.REFUNDED:退款完成
+      if (event.event_type === 'PAYMENT.CAPTURE.REFUNDED') {
+        const resource = event.resource as {
+          id?: string // refund id
+          links?: Array<{ rel: string; href: string }>
+        }
+        // 通过 links 找到原 capture 的 refund 链接拿 custom_id(= outTradeNo)
+        // PayPal refund 资源不含 custom_id,需要通过 up link 找原 capture
+        // 简化处理:用 resource.links 中 rel='up' 的 href 末段作 capture_id
+        const upLink = resource.links?.find((l) => l.rel === 'up')
+        const captureIdFromLink = upLink?.href.split('/').pop()
+        if (captureIdFromLink) {
+          request.log.info(
+            { refundId: resource.id, captureId: captureIdFromLink, eventId: event.id },
+            'paypal refund webhook received, marking local order as refunded',
+          )
+          // 通过 capture_id 查找本地订单(本地 payments 表 provider_order_id 存 capture_id)
+          // 简化:直接 log,实际本地退款由 /payments/paypal/refund 端点主动调用触发
+          // webhook 仅作对账记录,不主动改本地状态(避免无 outTradeNo 时误改)
+        }
+      }
+
+      return reply.send(success({ received: true }))
+    },
+  )
+
+  server.get(
+    '/payments/paypal/order-status',
+    {
+      schema: buildSchema({
+        summary: '查询 PayPal 订单状态',
+        description: '按 paypalOrderId 查询 PayPal 订单支付状态(管理员或订单归属人可查)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { paypalOrderId } = paypalOrderStatusQuery.parse(request.query)
+      if (!isPaypalConfigured()) {
+        return reply.send(success({ paypalOrderId, mock: true }))
+      }
+      const status = await getPaypalOrderStatus(paypalOrderId)
+      // 校验订单归属:reference_id = outTradeNo
+      const outTradeNo = status.purchase_units?.[0]?.reference_id
+      if (outTradeNo) {
+        const local = await getOrder(outTradeNo)
+        if (local && local.userId && local.userId !== request.userId) {
+          return reply.status(403).send(error(403, '无权查看此订单'))
+        }
+      }
+      return reply.send(
+        success({
+          paypalOrderId: status.id,
+          status: status.status,
+          intent: status.intent,
+          outTradeNo,
+          amount: status.purchase_units?.[0]?.amount,
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/payments/paypal/refund',
+    {
+      schema: buildSchema({
+        summary: 'PayPal 退款',
+        description: '发起 PayPal 退款并本地退款(订单需为 paid 状态,管理员或订单归属人可操作)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const { outTradeNo, captureId, refundAmount, reason } = paypalRefundQuery.parse(request.query)
+      const order = await getOrder(outTradeNo)
+      if (!order) return reply.status(404).send(error(404, '订单不存在'))
+      if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权操作此订单'))
+      }
+      if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
+      const refundCents = refundAmount ?? order.amount
+      if (refundCents > order.amount)
+        return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      if (!captureId) {
+        return reply.status(400).send(error(400, 'PayPal 退款必须提供 captureId'))
+      }
+      if (isPaypalConfigured()) {
+        const refundResult = await refundPaypalCapture({
+          captureId,
+          amountYuan: centsToYuanString(refundCents),
+          note: reason,
+        })
+        await refundOrder(outTradeNo)
+        return reply.send(
+          success({
+            outTradeNo,
+            refundId: refundResult.id,
+            amount: refundResult.amount.value,
+            status: refundResult.status,
+          }),
+        )
+      }
+      // 未配置 PayPal:仅本地退款
       await refundOrder(outTradeNo)
       return reply.send(success({ outTradeNo, mock: true }))
     },
@@ -1463,14 +1948,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const userId = request.userId!
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
-      if (amount > balance)
-        return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
-      const flow = await applyWithdrawal({
+      if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
+      const flow = await applyWithdrawal(
+        {
+          userId,
+          amount,
+          method: 'bank',
+          accountInfo: { bankAccount, bankName },
+        },
         userId,
-        amount,
-        method: 'bank',
-        accountInfo: { bankAccount, bankName },
-      }, userId)
+      )
       return reply.send(success(flow))
     },
   )
@@ -1490,14 +1977,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const userId = request.userId!
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
-      if (amount > balance)
-        return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
-      const flow = await applyWithdrawal({
-        userId,
-        amount,
-        method: 'wechat',
-        accountInfo: {},
-      }, request.userId ?? null)
+      if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
+      const flow = await applyWithdrawal(
+        {
+          userId,
+          amount,
+          method: 'wechat',
+          accountInfo: {},
+        },
+        request.userId ?? null,
+      )
       return reply.send(success(flow))
     },
   )
@@ -1564,8 +2053,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const pending = await queryPendingOrders()
       const closed: string[] = []
       const failed: Array<{ outTradeNo: string; error: string }> = []
-      for (const order of pending) {
-        try {
+      const results = await Promise.allSettled(
+        pending.map(async (order) => {
           const payType = order.paymentMethod ?? ''
           if (payType.startsWith('alipay') && isAlipayConfigured()) {
             await aliCloseOrder(order.orderNo)
@@ -1573,11 +2062,19 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             await wxCloseOrder(order.orderNo)
           }
           await cancelOrder(order.orderNo)
-          closed.push(order.orderNo)
-        } catch (e) {
-          failed.push({ outTradeNo: order.orderNo, error: (e as Error).message })
+          return order.orderNo
+        }),
+      )
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+          closed.push(r.value)
+        } else {
+          failed.push({
+            outTradeNo: pending[i]!.orderNo,
+            error: (r.reason as Error)?.message ?? String(r.reason),
+          })
         }
-      }
+      })
       return reply.send(success({ scanned: pending.length, closed, failed }))
     },
   )

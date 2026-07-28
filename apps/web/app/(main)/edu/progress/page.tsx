@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -40,7 +40,7 @@ export default function EduProgressPage() {
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
   }
 
-  const maxHours = Math.max(1, ...(data?.weeklyHours ?? []).map((w: any) => w.hours))
+  const maxHours = Math.max(1, ...(data?.weeklyHours ?? []).map((w) => w.hours))
 
   const stats = [
     { label: t('stats.totalStudy'), value: `${data?.totalStudyHours ?? 0}h`, icon: Clock },
@@ -50,17 +50,17 @@ export default function EduProgressPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <BarChart3 className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -88,16 +88,16 @@ export default function EduProgressPage() {
             </CardHeader>
             <CardContent>
               <div className="flex h-40 items-end justify-between gap-2">
-                {(data.weeklyHours ?? []).map((w: any) => (
+                {(data.weeklyHours ?? []).map((w) => (
                   <div key={w.date} className="flex flex-1 flex-col items-center gap-1">
                     <div className="flex w-full flex-1 items-end">
-                    <Tooltip content={`${w.hours}h`}>
-                      <div
-                        className="w-full rounded-t bg-primary/80 transition-all hover:bg-primary"
-                        style={{ height: `${(w.hours / maxHours) * 100}%`, minHeight: '2px' }}
-                      />
-                    </Tooltip>
-                  </div>
+                      <Tooltip content={`${w.hours}h`}>
+                        <div
+                          className="w-full rounded-t bg-primary/80 transition-all hover:bg-primary"
+                          style={{ height: `${(w.hours / maxHours) * 100}%`, minHeight: '2px' }}
+                        />
+                      </Tooltip>
+                    </div>
                     <span className="text-xs text-muted-foreground">{fmt(w.date)}</span>
                   </div>
                 ))}
@@ -114,7 +114,7 @@ export default function EduProgressPage() {
                 {(data.categoryProgress ?? []).length === 0 ? (
                   <p className="py-4 text-center text-sm text-muted-foreground">{t('noData')}</p>
                 ) : (
-                  (data.categoryProgress ?? []).map((cat: any) => (
+                  (data.categoryProgress ?? []).map((cat) => (
                     <div key={cat.name} className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
                         <span>{cat.name}</span>
@@ -140,9 +140,11 @@ export default function EduProgressPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {(data.recentMilestones ?? []).length === 0 ? (
-                  <p className="py-4 text-center text-sm text-muted-foreground">{t('noMilestones')}</p>
+                  <p className="py-4 text-center text-sm text-muted-foreground">
+                    {t('noMilestones')}
+                  </p>
                 ) : (
-                  (data.recentMilestones ?? []).map((m: any) => (
+                  (data.recentMilestones ?? []).map((m) => (
                     <div
                       key={m.id}
                       className={cn(

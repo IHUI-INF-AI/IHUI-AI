@@ -6,10 +6,15 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { PointRecord } from '@ihui/types'
 
 import { Loading } from '@ihui/ui-native'
 type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Item { id: string; action: string; points: number; balance: number; createdAt: string }
+interface Item extends Pick<PointRecord, 'id' | 'createdAt'> {
+  action: string // = type 别名(本地用 action 字段名)
+  points: number // = amount 别名(本地用 points 字段名)
+  balance: number // 本地必填,共享可选,协变合法
+}
 
 export function PointHistoryScreen() {
   const { t } = useI18n()
@@ -23,40 +28,71 @@ export function PointHistoryScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/point-history`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      const r = await fetch(`${API_BASE_URL}/api/point-history`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       if (!r.ok) throw new Error()
       const d = (await r.json()) as { data?: Item[] }
       setItems(d.data ?? [])
-    } catch { setError(t('pointHistory.loadFailed')) } finally { setLoading(false); setRefreshing(false) }
+    } catch {
+      setError(t('pointHistory.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [token, t])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   return (
     <View style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={s.back}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={s.title}>{t('pointHistory.title')}</Text>
       </View>
       {error ? <Text style={s.error}>{error}</Text> : null}
       {loading && items.length === 0 ? (
-        <View style={s.center}><Loading /><Text style={s.muted}>{t('common.loading')}</Text></View>
+        <View style={s.center}>
+          <Loading />
+          <Text style={s.muted}>{t('common.loading')}</Text>
+        </View>
       ) : (
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
           contentContainerStyle={{ padding: 16 }}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
-          ListEmptyComponent={<View style={s.center}><Text style={s.muted}>{t('pointHistory.empty')}</Text></View>}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true)
+                void load()
+              }}
+            />
+          }
+          ListEmptyComponent={
+            <View style={s.center}>
+              <Text style={s.muted}>{t('pointHistory.empty')}</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <View style={s.card}>
               <View style={s.titleRow}>
                 <Text style={s.cardTitle}>{item.action}</Text>
-                <Text style={[s.cardPoints, item.points < 0 && { color: '#DC2626' }]}>{item.points > 0 ? '+' : ''}{item.points}</Text>
+                <Text style={[s.cardPoints, item.points < 0 && { color: '#DC2626' }]}>
+                  {item.points > 0 ? '+' : ''}
+                  {item.points}
+                </Text>
               </View>
               <View style={s.metaRow}>
-                <Text style={s.cardMeta}>{t('pointHistory.balance')}: {item.balance}</Text>
+                <Text style={s.cardMeta}>
+                  {t('pointHistory.balance')}: {item.balance}
+                </Text>
                 <Text style={s.cardTime}>{item.createdAt}</Text>
               </View>
             </View>
@@ -69,7 +105,13 @@ export function PointHistoryScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   back: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
   error: { paddingHorizontal: 16, fontSize: 12, color: '#DC2626' },
@@ -79,7 +121,12 @@ const s = StyleSheet.create({
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' },
   cardPoints: { fontSize: 14, fontWeight: '600', color: '#10B981' },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
   cardMeta: { fontSize: 11, color: '#6B7280' },
   cardTime: { fontSize: 11, color: '#9CA3AF' },
 })

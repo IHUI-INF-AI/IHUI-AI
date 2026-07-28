@@ -5,6 +5,10 @@
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/UserInfoCard/UserInfoCard.vue)
  */
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
+import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
+import { formatTokenValue } from '@ihui/shared/utils'
+import { getRoleLabel } from '@ihui/shared/utils'
 
 export interface UserInfo {
   uuid?: string
@@ -24,23 +28,6 @@ export interface UserInfoCardProps {
   onLogin?: () => void
 }
 
-const AVATAR_FALLBACK = 'https://file.aizhs.top/sys-mini/daixaodiming.png'
-
-function formatTokenValue(value: number | string | undefined): string {
-  if (value === undefined || value === null) return '0'
-  const num = typeof value === 'string' ? parseFloat(value) : value
-  if (isNaN(num)) return '0'
-  if (num >= 100000000) return (num / 100000000).toFixed(2) + '亿'
-  if (num >= 10000) return (num / 10000).toFixed(2) + '万'
-  return String(Math.floor(num))
-}
-
-function getRoleLabel(isVip?: number, identityType?: number): string {
-  if (isVip === 1 && identityType === 1) return '操盘手'
-  if (isVip === 1) return '会员'
-  return '普通用户'
-}
-
 export default function UserInfoCard({
   userInfo,
   showRechargeBtn = true,
@@ -52,11 +39,7 @@ export default function UserInfoCard({
   if (!userInfo.uuid) {
     return (
       <View style={styles.loggedOutWrap}>
-        <TouchableOpacity
-          style={styles.loginBtn}
-          activeOpacity={0.7}
-          onPress={onLogin}
-        >
+        <TouchableOpacity style={styles.loginBtn} activeOpacity={0.7} onPress={onLogin}>
           <Text style={styles.loginBtnText}>一键登录</Text>
         </TouchableOpacity>
       </View>
@@ -66,39 +49,27 @@ export default function UserInfoCard({
   const role = getRoleLabel(userInfo.isVip, userInfo.identityType)
   const isVip = userInfo.isVip === 1
   const tokenStr = formatTokenValue(userInfo.tokenQuantity)
-  const avatar = userInfo.avatarUrl || AVATAR_FALLBACK
+  const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
 
   return (
     <View style={styles.card}>
       {/* 顶部:头像 + 昵称/角色 */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.avatarWrap}
-          activeOpacity={0.8}
-          onPress={onEdit}
-        >
+        <TouchableOpacity style={styles.avatarWrap} activeOpacity={0.8} onPress={onEdit}>
           <Image source={{ uri: avatar }} style={styles.avatar} />
         </TouchableOpacity>
 
         <View style={styles.infoWrap}>
-          <TouchableOpacity
-            style={styles.nameRow}
-            activeOpacity={0.7}
-            onPress={onEdit}
-          >
+          <TouchableOpacity style={styles.nameRow} activeOpacity={0.7} onPress={onEdit}>
             <Text style={styles.name} numberOfLines={1}>
               AI IHUI丨{userInfo.username || '用户'}
             </Text>
-            {showRechargeBtn ? (
-              <Text style={styles.editText}>编辑</Text>
-            ) : null}
+            {showRechargeBtn ? <Text style={styles.editText}>编辑</Text> : null}
           </TouchableOpacity>
 
           <View style={styles.roleRow}>
             <View style={[styles.roleBadge, isVip ? styles.roleBadgeVip : null]}>
-              <Text style={[styles.roleText, isVip ? styles.roleTextVip : null]}>
-                {role}
-              </Text>
+              <Text style={[styles.roleText, isVip ? styles.roleTextVip : null]}>{role}</Text>
             </View>
           </View>
         </View>
@@ -111,11 +82,7 @@ export default function UserInfoCard({
           <Text style={styles.tokenValue}>{tokenStr}</Text>
         </View>
         {showRechargeBtn ? (
-          <TouchableOpacity
-            style={styles.rechargeBtn}
-            activeOpacity={0.7}
-            onPress={onRecharge}
-          >
+          <TouchableOpacity style={styles.rechargeBtn} activeOpacity={0.7} onPress={onRecharge}>
             <Text style={styles.rechargeBtnText}>充值</Text>
           </TouchableOpacity>
         ) : null}
@@ -130,9 +97,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.surface.light,
     borderWidth: 2,
-    borderColor: '#111827',
+    borderColor: tokens.text.primary,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 32,
@@ -140,14 +107,14 @@ const styles = StyleSheet.create({
   loginBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: tokens.text.primary,
   },
   card: {
     marginTop: 8,
     padding: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: tokens.border.light,
     backgroundColor: 'rgba(195, 190, 255, 0.15)',
   },
   header: {
@@ -160,7 +127,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.surface.light,
     borderWidth: 1,
     borderColor: '#e0e7ff',
   },
@@ -182,7 +149,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: tokens.text.primary,
   },
   editText: {
     fontSize: 12,
@@ -197,7 +164,7 @@ const styles = StyleSheet.create({
   roleBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.surface.card,
     borderRadius: 2,
   },
   roleBadgeVip: {
@@ -243,7 +210,7 @@ const styles = StyleSheet.create({
   },
   rechargeBtnText: {
     fontSize: 12,
-    color: '#ffffff',
+    color: tokens.surface.light,
     fontWeight: '500',
   },
 })

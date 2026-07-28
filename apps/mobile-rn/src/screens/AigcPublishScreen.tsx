@@ -10,9 +10,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { createAigcTask, uploadFileMultipart, resolveFileUrl } from '@ihui/api-client'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
+
+type Nav = NativeStackNavigationProp<RootStackParamList>
 
 type WorkType = 'image' | 'video' | 'audio' | 'text'
 
@@ -29,34 +36,78 @@ const TYPE_OPTIONS: WorkTypeOption[] = [
   { key: 'text', label: '文案', desc: 'AI 生成文本' },
 ]
 
-interface MockFile {
+interface UploadFile {
   id: string
   url: string
   type: WorkType
 }
 
 export default function AigcPublishScreen() {
-  const navigation = useNavigation<any>()
+  const navigation = useNavigation<Nav>()
   const [workType, setWorkType] = useState<WorkType>('image')
-  const [files, setFiles] = useState<MockFile[]>([])
+  const [files, setFiles] = useState<UploadFile[]>([])
   const [textContent, setTextContent] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [prompt, setPrompt] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [urlInput, setUrlInput] = useState('')
 
-  const addMockFile = () => {
+  const addFileByUrl = () => {
+    const url = urlInput.trim()
+    if (!url) {
+      setError('请输入文件 URL')
+      return
+    }
     if (files.length >= 5) {
       setError('最多上传 5 个素材')
       return
     }
     setError('')
-    const seed = `pub${Date.now()}`
-    setFiles((prev) => [
-      ...prev,
-      { id: seed, url: `https://picsum.photos/seed/${seed}/200/200`, type: workType },
-    ])
+    setFiles((prev) => [...prev, { id: `file-${Date.now()}`, url, type: workType }])
+    setUrlInput('')
+  }
+
+  /**
+   * 调用 expo-image-picker 从相册选择图片,通过 uploadFileMultipart 上传到 /api/files/upload/form。
+   * expo-image-picker 8.x:result 直接是 ImageInfo(uri/type/width/height),
+   * 无 mimeType/fileName 字段(13+ 才有 assets 数组),需根据 type 推断 MIME 与扩展名。
+   */
+  const pickImage = async () => {
+    if (uploading) return
+    if (files.length >= 5) {
+      setError('最多上传 5 个素材')
+      return
+    }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      })
+      // 8.x 用 cancelled(英式拼写);canceled(美式)是 13+ 才有的字段
+      if (result.cancelled || !result.uri) return
+      setUploading(true)
+      setError('')
+      const isVideo = result.type === 'video'
+      const res = await uploadFileMultipart({
+        uri: result.uri,
+        type: isVideo ? 'video/mp4' : 'image/jpeg',
+        name: `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+      })
+      if (res.success && res.data) {
+        const url = resolveFileUrl(res.data.path)
+        setFiles((prev) => [...prev, { id: res.data!.id, url, type: workType }])
+      } else {
+        setError(res.error || '上传失败')
+      }
+    } catch {
+      setError('选择文件失败')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id))
@@ -87,15 +138,32 @@ export default function AigcPublishScreen() {
     return true
   }
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (!validate()) return
     setSaving(true)
-    setTimeout(() => {
+    try {
+      const res = await createAigcTask({
+        type: workType,
+        prompt,
+        params: {
+          title,
+          description,
+          textContent,
+          fileUrl: files.map((f) => f.url),
+        },
+      })
+      if (res.success) {
+        Alert.alert('发布成功', '作品已提交审核', [
+          { text: '好的', onPress: () => navigation.goBack() },
+        ])
+      } else {
+        setError(res.error || '发布失败')
+      }
+    } catch {
+      setError('发布失败,请稍后重试')
+    } finally {
       setSaving(false)
-      Alert.alert('发布成功', '作品已提交,审核通过后将展示在灵感列表', [
-        { text: '好的', onPress: () => navigation.goBack() },
-      ])
-    }, 900)
+    }
   }
 
   const showTextInput = workType === 'text'
@@ -139,7 +207,7 @@ export default function AigcPublishScreen() {
             value={textContent}
             onChangeText={setTextContent}
             placeholder="请输入文本内容"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.text.tertiary}
             multiline
             textAlignVertical="top"
             maxLength={2000}
@@ -148,6 +216,35 @@ export default function AigcPublishScreen() {
       ) : (
         <>
           <Text style={styles.label}>上传素材 ({files.length}/5)</Text>
+          <View style={styles.urlRow}>
+            <TextInput
+              style={styles.urlInput}
+              value={urlInput}
+              onChangeText={setUrlInput}
+              placeholder="请输入素材 URL"
+              placeholderTextColor={tokens.text.tertiary}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity style={styles.urlAddBtn} onPress={addFileByUrl} activeOpacity={0.7}>
+              <Text style={styles.urlAddText}>添加</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={[styles.pickerBtn, uploading && styles.pickerBtnDisabled]}
+            onPress={pickImage}
+            disabled={uploading}
+            activeOpacity={0.7}
+          >
+            {uploading ? (
+              <View style={styles.pickerBtnInner}>
+                <ActivityIndicator color={tokens.surface.light} size="small" />
+                <Text style={styles.pickerBtnTextUploading}>上传中...</Text>
+              </View>
+            ) : (
+              <Text style={styles.pickerBtnText}>从相册选择</Text>
+            )}
+          </TouchableOpacity>
           <View style={styles.fileGrid}>
             {files.map((f) => (
               <View key={f.id} style={styles.fileItem}>
@@ -158,9 +255,14 @@ export default function AigcPublishScreen() {
               </View>
             ))}
             {files.length < 5 ? (
-              <TouchableOpacity style={styles.fileAdd} onPress={addMockFile} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.fileAdd}
+                onPress={pickImage}
+                disabled={uploading}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.fileAddIcon}>+</Text>
-                <Text style={styles.fileAddText}>添加</Text>
+                <Text style={styles.fileAddText}>{uploading ? '上传中' : '从相册'}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -173,7 +275,7 @@ export default function AigcPublishScreen() {
         value={title}
         onChangeText={setTitle}
         placeholder="请输入作品标题"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={tokens.text.tertiary}
         maxLength={50}
       />
 
@@ -183,7 +285,7 @@ export default function AigcPublishScreen() {
         value={description}
         onChangeText={setDescription}
         placeholder="请输入作品简介"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={tokens.text.tertiary}
         multiline
         textAlignVertical="top"
       />
@@ -194,7 +296,7 @@ export default function AigcPublishScreen() {
         value={prompt}
         onChangeText={setPrompt}
         placeholder="请输入 AI 生成时使用的提示词"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={tokens.text.tertiary}
         multiline
         textAlignVertical="top"
       />
@@ -219,47 +321,84 @@ export default function AigcPublishScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.light,
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 16,
   },
-  backText: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6b7280', marginBottom: 12 },
-  label: { marginTop: 14, fontSize: 12, color: '#6b7280', marginBottom: 6 },
-  errorText: { fontSize: 13, color: '#dc2626', marginTop: 4 },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary, marginBottom: 12 },
+  label: { marginTop: 14, fontSize: 12, color: tokens.text.secondary, marginBottom: 6 },
+  errorText: { fontSize: 13, color: tokens.error.text, marginTop: 4 },
   typeRow: { flexDirection: 'row', gap: 8 },
   typeChip: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
   },
   typeChipActive: { backgroundColor: PRIMARY },
-  typeChipText: { fontSize: 13, color: '#374151', fontWeight: '600' },
-  typeChipTextActive: { color: '#fff' },
-  typeChipDesc: { marginTop: 2, fontSize: 10, color: '#9ca3af' },
+  typeChipText: { fontSize: 13, color: tokens.text.medium, fontWeight: '600' },
+  typeChipTextActive: { color: tokens.surface.light },
+  typeChipDesc: { marginTop: 2, fontSize: 10, color: tokens.text.tertiary },
   typeChipDescActive: { color: 'rgba(255,255,255,0.85)' },
   input: {
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: tokens.border.light,
     fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#fff',
+    color: tokens.text.primary,
+    backgroundColor: tokens.surface.light,
   },
   textarea: { minHeight: 88, maxHeight: 180, textAlignVertical: 'top' },
+  urlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  urlInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    fontSize: 13,
+    color: tokens.text.primary,
+    backgroundColor: tokens.surface.light,
+  },
+  urlAddBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
+  urlAddText: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
+  pickerBtn: {
+    paddingVertical: 11,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: PRIMARY,
+    backgroundColor: tokens.surface.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  pickerBtnDisabled: {
+    opacity: 0.6,
+    borderColor: tokens.text.tertiary,
+    backgroundColor: tokens.text.tertiary,
+  },
+  pickerBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pickerBtnText: { color: PRIMARY, fontSize: 13, fontWeight: '600' },
+  pickerBtnTextUploading: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
   fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   fileItem: {
     width: 76,
     height: 76,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#e5e7eb',
+    backgroundColor: tokens.border.light,
   },
   fileImage: { width: '100%', height: '100%' },
   fileRemove: {
@@ -269,24 +408,24 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 6,
-    backgroundColor: '#dc2626',
+    backgroundColor: tokens.error.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fileRemoveText: { color: '#fff', fontSize: 14, fontWeight: '700', lineHeight: 14 },
+  fileRemoveText: { color: tokens.surface.light, fontSize: 14, fontWeight: '700', lineHeight: 14 },
   fileAdd: {
     width: 76,
     height: 76,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: tokens.border.light,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: tokens.surface.muted,
   },
-  fileAddIcon: { fontSize: 24, color: '#9ca3af', lineHeight: 26 },
-  fileAddText: { fontSize: 11, color: '#9ca3af', marginTop: 2 },
+  fileAddIcon: { fontSize: 24, color: tokens.text.tertiary, lineHeight: 26 },
+  fileAddText: { fontSize: 11, color: tokens.text.tertiary, marginTop: 2 },
   submitBtn: {
     marginTop: 24,
     paddingVertical: 14,
@@ -295,6 +434,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  submitDisabled: { backgroundColor: '#9ca3af' },
-  submitText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  submitDisabled: { backgroundColor: tokens.text.tertiary },
+  submitText: { color: tokens.surface.light, fontSize: 15, fontWeight: '600' },
 })

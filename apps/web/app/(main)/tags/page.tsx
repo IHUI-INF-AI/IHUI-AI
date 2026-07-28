@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -43,7 +43,7 @@ export default function TagsPage() {
   })
 
   const tags = data ?? []
-  const counts = tags.map((x: any) => x.usageCount)
+  const counts = tags.map((x) => x.usageCount)
   const max = Math.max(1, ...counts)
   const min = Math.min(max, ...counts)
   const fontSize = (count: number) => {
@@ -69,14 +69,14 @@ export default function TagsPage() {
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : tags.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Tag className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-6">
-            {tags.map((tag: any, i: any) => (
+            {tags.map((tag, i) => (
               <Link
                 key={tag.id}
                 href={`/tags/${tag.slug}`}
@@ -100,7 +100,7 @@ export default function TagsPage() {
                 {t('popular')}
               </h2>
               <div className="flex flex-wrap gap-2">
-                {tags.slice(0, 5).map((tag: any, i: any) => (
+                {tags.slice(0, 5).map((tag, i) => (
                   <Link key={tag.id} href={`/tags/${tag.slug}`}>
                     <TagChip
                       size="md"

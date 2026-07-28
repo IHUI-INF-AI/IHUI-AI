@@ -66,6 +66,8 @@ export interface Subagent {
   toolCalls?: number
   /** Codex:死亡原因(failed/dead 时的 error message) */
   failureReason?: string
+  /** v10 Phase 5:subagent 内部工具调用列表(若事件携带 subagentId 则关联) */
+  tools?: AgentToolCall[]
 }
 
 /** 子代理颜色(ANSI 风格,Web 适配为 Tailwind 类) */
@@ -341,7 +343,9 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
   return steps
 }
 
-/** 从 SSE 事件提取 Subagent(支持 subagent_spawn / subagent_end / subagent_status) */
+/** 从 SSE 事件提取 Subagent(支持 subagent_spawn / subagent_end / subagent_status)
+ *  v10 Phase 5:同时从 tool_call/tool_result 事件中按 data.subagentId 关联工具调用
+ */
 function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
   const map = new Map<string, Subagent>()
   let nicknameIndex = 0
@@ -373,6 +377,7 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
         spawnedAt: evt.timestamp,
         currentTask: data?.task,
         pendingApproval: data?.pendingApproval,
+        tools: [],
       })
     } else if ((evt.type as string) === 'subagent_end') {
       const data = evt.data as
@@ -430,6 +435,52 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
       }
     }
   }
+
+  // v10 Phase 5:从 tool_call/tool_result 事件中按 data.subagentId 关联工具调用
+  const toolMap = new Map<string, AgentToolCall>()
+  for (const evt of events) {
+    if (evt.type !== 'tool_call' && evt.type !== 'tool_result') continue
+    const data = evt.data as { subagentId?: string; id?: string } | undefined
+    const subagentId = data?.subagentId
+    if (!subagentId) continue
+    const existing = map.get(subagentId)
+    if (!existing) continue
+    // 初始化 tools 数组
+    if (!existing.tools) existing.tools = []
+
+    if (evt.type === 'tool_call') {
+      const toolData = parseToolData(evt.data)
+      const id = toolData.id ?? `tool-${evt.timestamp}`
+      const toolName = toolData.name ?? toolData.toolName ?? 'unknown'
+      const args = toolData.args ?? toolData.arguments ?? {}
+      const tool: AgentToolCall = {
+        id,
+        toolName,
+        args,
+        status: 'running',
+        startedAt: evt.timestamp,
+        iteration: toolData.iteration,
+      }
+      toolMap.set(id, tool)
+      existing.tools.push(tool)
+    } else if (evt.type === 'tool_result') {
+      const toolData = parseToolData(evt.data)
+      const id = toolData.id ?? ''
+      const tool = id ? toolMap.get(id) : undefined
+      if (tool) {
+        tool.status = toolData.error ? 'error' : 'success'
+        tool.result = toolData.result
+        tool.error = toolData.error
+        tool.endedAt = evt.timestamp
+        const startMs = Date.parse(tool.startedAt)
+        const endMs = Date.parse(evt.timestamp)
+        if (!Number.isNaN(startMs) && !Number.isNaN(endMs)) {
+          tool.durationMs = Math.max(0, endMs - startMs)
+        }
+      }
+    }
+  }
+
   return Array.from(map.values())
 }
 

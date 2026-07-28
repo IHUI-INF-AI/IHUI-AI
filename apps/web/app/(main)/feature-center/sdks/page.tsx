@@ -43,7 +43,7 @@ export default function SdksPage() {
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item: any) => {
+    return all.filter((item) => {
       const matchKeyword =
         !keyword ||
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -54,7 +54,7 @@ export default function SdksPage() {
   }, [data, keyword, language])
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 
@@ -88,28 +88,28 @@ export default function SdksPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
             {t('noMatch')}
           </CardContent>
         </Card>
       ) : (
-        <VirtualList items={list} itemKey={(item) => item.id as any} itemHeight={180}>
+        <VirtualList items={list} itemKey={(item) => item.id} itemHeight={180}>
           {(item) => (
             <FeatureCard
-              title={item.name as any}
-              description={item.description as any}
-              badge={`${item.language  as any} v${item.version as any}`}
+              title={item.name}
+              description={item.description}
+              badge={`${item.language} v${item.version}`}
               footer={
                 <div className="flex items-center justify-between">
-                  {item.docsUrl as any && (
+                  {item.docsUrl && (
                     <a
-                      href={item.docsUrl as any}
+                      href={item.docsUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="text-xs text-primary hover:underline"
@@ -118,7 +118,7 @@ export default function SdksPage() {
                     </a>
                   )}
                   <Button asChild variant="default" size="sm">
-                    <a href={item.downloadUrl as any} download>
+                    <a href={item.downloadUrl} download>
                       <Download className="mr-1 h-3.5 w-3.5" />
                       {t('download')}
                     </a>

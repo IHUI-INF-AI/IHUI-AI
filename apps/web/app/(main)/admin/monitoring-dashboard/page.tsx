@@ -36,7 +36,7 @@ export default function MonitoringDashboardPage() {
   const perfCards = buildPerfCards(perf, t)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <LayoutDashboard className="h-6 w-6 text-primary" />
@@ -46,7 +46,7 @@ export default function MonitoringDashboardPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('search')}
         </div>

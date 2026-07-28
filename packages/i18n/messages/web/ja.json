@@ -586,7 +586,10 @@
       "code": "コード生成",
       "polish": "テキスト推敲",
       "wechat-article": "WeChat 記事執筆",
-      "koubo-script": "口播動画スクリプト作成"
+      "koubo-script": "口播動画スクリプト作成",
+      "build": "ビルドモードに切替(全ツール利用可能、正常実行)",
+      "review": "レビューモードに切替(読み取り専用、強化コードレビュー)",
+      "spec": "スペックモードに切替(コードから spec 文書を逆生成)"
     },
     "cmdSummary": "のをし、なをしてください",
     "cmdTranslate": "のをにしてください：",
@@ -839,12 +842,36 @@
           "2": "「既知のタスクを一括処理」する用途に適する",
           "3": "不可逆操作のリスクはユーザーが負担"
         }
-      }
+      },
+      "shortcutsSectionChatMode": "チャットモード切替",
+      "shortcutsItemChatModeDesc": "ビルド/計画/レビュー/スペック 4種のチャットモードを切替",
+      "shortcutsItemModeBuildKbd": "ビルドモードに切替(正常実行、全ツール有効)",
+      "shortcutsItemModePlanKbd": "計画モードに切替(読取専用分析、write ツール拒否)",
+      "shortcutsItemModeReviewKbd": "レビューモードに切替(読取専用レビュー + 強化レビュー prompt)",
+      "shortcutsItemModeSpecKbd": "スペックモードに切替(コードから spec ドキュメント逆方向生成)",
+      "shortcutsItemModeCmdHint": "/build /plan /review /spec スラッシュコマンドでも切替可能"
     },
     "modePlan": "計画",
     "modeAct": "実行",
     "planTooltip": "Plan: AI は計画のみ、ツール実行なし(Alt+P 切替 / /plan 入力)",
-    "actTooltip": "Act: AI はツールを通常実行(Alt+P 切替 / /act 入力)"
+    "actTooltip": "Act: AI はツールを通常実行(Alt+P 切替 / /act 入力)",
+    "modeBuild": "ビルド",
+    "modeReview": "レビュー",
+    "modeSpec": "スペック",
+    "modeBuildTooltip": "ビルドモード · Ctrl+1 または /build",
+    "modePlanTooltip": "計画モード(読取専用分析) · Ctrl+2 または /plan",
+    "modeReviewTooltip": "レビューモード(読取専用レビュー) · Ctrl+3 または /review",
+    "modeSpecTooltip": "スペックモード(spec ドキュメント生成) · Ctrl+4 または /spec",
+    "modeBuildToast": "ビルドモードに切替しました",
+    "modePlanToast": "計画モードに切替しました(読取専用分析)",
+    "modeReviewToast": "レビューモードに切替しました(読取専用レビュー)",
+    "modeSpecToast": "スペックモードに切替しました(spec ドキュメント生成)",
+    "modeAlreadyActive": "現在既に{mode}モードです",
+    "modeSwitched": "{mode}モードに切替しました",
+    "modeBuildDesc": "AIが全ツールを有効にして正常実行します(Ctrl+1で切替)",
+    "modePlanDesc": "AIがツールを実行せず計画のみ行います(Ctrl+2で切替)",
+    "modeReviewDesc": "AIがコードを読取専用でレビューします(Ctrl+3で切替)",
+    "modeSpecDesc": "AIがコードから spec ドキュメントを逆方向生成します(Ctrl+4で切替)"
   },
   "learn": {
     "title": "APIテスト",
@@ -990,7 +1017,25 @@
     "durationDays": "{days}",
     "buyButton": "すぐ",
     "limitedOffer": "期間限定",
-    "buyPrompt": "今すぐVIPに加入して、すべての専属特典をアンロック"
+    "buyPrompt": "今すぐVIPに加入して、すべての専属特典をアンロック",
+    "benefitList": {
+      "testPaymentFlow": "テスト決済フロー",
+      "unlimitedChat": "無制限チャット",
+      "exclusiveModel": "専用モデル",
+      "prioritySupport": "優先サポート",
+      "referral": "紹介報酬",
+      "lifetime": "終身権益",
+      "distributionQualification": "販売資格",
+      "aiCourses": "AIコース",
+      "founderQa": "創設者Q&A",
+      "agentBeta": "Agentベータ",
+      "vipMaxDiscount": "VIP最大割引",
+      "customAgentDiscount": "カスタムAgent割引",
+      "allVipRights": "全VIP権益",
+      "verticalAccountIncubation": "垂直アカウントインキュベーション",
+      "secondaryDistribution": "二次販売",
+      "offlineLearning": "オフライン学習"
+    }
   },
   "asks": {
     "title": "タイトル",
@@ -5703,6 +5748,32 @@
       "error": "ダウンロードにしました",
       "printError": "印刷失敗",
       "certText": "ここに{name}がにしたことをします。"
+    },
+    "detail": {
+      "headerTitle": "コース修了証明書",
+      "courseLabel": "コース",
+      "recipientLabel": "受講者",
+      "certNo": "証明書番号",
+      "awarderLabel": "発行者",
+      "issueDate": "発行日",
+      "validityLabel": "有効期間",
+      "loading": "証明書を読み込み中...",
+      "notFound": "証明書が存在しないか取り消されました",
+      "unknownRecipient": "氏名未記入",
+      "defaultIssuer": "IHUI AI アカデミー",
+      "defaultAwarder": "学術委員会",
+      "defaultConditions": "全チャプターを修了し、最終評価(60 点以上)に合格",
+      "defaultValidity": "永久有効",
+      "printAction": "印刷",
+      "downloadAction": "PDF ダウンロード",
+      "downloadError": "ダウンロード失敗",
+      "backToList": "証明書一覧へ",
+      "source": "ソース",
+      "template": "テンプレート",
+      "status": "ステータス",
+      "statusValid": "有効",
+      "statusRevoked": "取り消し",
+      "issuerAria": "{org} から {name} に発行された修了証明書"
     }
   },
   "selfMedia": {
@@ -7045,7 +7116,9 @@
     "input": {
       "placeholder": "メッセージを..."
     },
-    "loadMore": "もっとる"
+    "loadMore": "もっとる",
+    "noConversations": "会話なし",
+    "searchPlaceholder": "会話を検索"
   },
   "topics": {
     "title": "特集",
@@ -7102,7 +7175,30 @@
     "range30d": "最近 30 日",
     "l1HitRate": "L1 キャッシュヒット率",
     "l2HitRate": "L2 キャッシュヒット率",
-    "promptCacheErrors": "キャッシュエラー"
+    "promptCacheErrors": "キャッシュエラー",
+    "toMetrics": "AI メトリクス",
+    "budgets": "予算管理",
+    "budgetScope": "スコープ",
+    "budgetKey": "キー",
+    "budgetDailyToken": "日次トークン制限",
+    "budgetMonthlyCost": "月次コスト制限",
+    "topUsers": "コスト別トップ10ユーザー",
+    "noUserData": "ユーザーコストデータなし",
+    "userLabel": "ユーザー",
+    "budgetAlerts": "予算アラート",
+    "noAlerts": "アラートなし、全ユーザー予算使用率 80% 未満",
+    "critical": "重大",
+    "warning": "警告",
+    "dailyToken": "本日トークン",
+    "monthlyCost": "月次コスト",
+    "vipQuotas": "VIP ランククォータ",
+    "noVipData": "VIP ランク設定なし",
+    "vipLevel": "ランク",
+    "vipActiveUsers": "有効ユーザー",
+    "vipDailyToken": "日次トークンクォータ",
+    "vipMonthlyCost": "月次コストクォータ",
+    "vipApiQps": "API QPS",
+    "vipConcurrency": "同時接続"
   },
   "wallet": {
     "title": "APIテスト",
@@ -8804,7 +8900,6 @@
         "description": "グローバルコンテンツ検索",
         "keywords": [
           "検索",
-          "検索",
           "search"
         ]
       },
@@ -9646,6 +9741,123 @@
       "coordinated": "{count} 個のサブエージェントを調整して完了",
       "totalSteps": "(全 {count} ステップ)",
       "working": "{count} 個のサブエージェントが協力中"
+    },
+    "pane": {
+      "title": "タスク計画",
+      "ariaLabel": "Agent タスク進行パネル",
+      "pin": "ピン留め",
+      "unpin": "ピン解除",
+      "minimize": "最小化",
+      "expandAll": "すべて展開",
+      "collapseAll": "すべて折りたたむ",
+      "reconnecting": "SSE 切断中、再接続中({n}/5 回目)",
+      "stepInProgress": "ステップ {n}: {step} (進行中)",
+      "stepCompleted": "ステップ {n}: {step} (完了)",
+      "stepPending": "ステップ {n}: {step} (待機中)",
+      "toolCallsCount": "{n} 回ツール呼び出し",
+      "sectionsToolbarLabel": "折りたたみセクションツールバー",
+      "copy": "コピー",
+      "copied": "コピー済み",
+      "progressLabel": "タスク進捗 {pct}%",
+      "sseStatus": {
+        "connected": "接続済み",
+        "connecting": "接続中",
+        "reconnecting": "再接続中",
+        "disconnected": "切断",
+        "reconnectingShort": "再接続 {n}/{max}",
+        "disconnectedShort": "オフライン",
+        "tooltipError": "接続エラー: {error}"
+      },
+      "relativeTime": {
+        "justNow": "たった今",
+        "secondsAgo": "{n}秒前",
+        "minutesAgo": "{n}分前",
+        "hoursAgo": "{n}時間前",
+        "daysAgo": "{n}日前"
+      },
+      "changes": {
+        "title": "ファイル変更",
+        "oldContent": "元の内容",
+        "copyOldContent": "元の内容をコピー",
+        "newFile": "新規ファイル",
+        "newContent": "新しい内容",
+        "copyNewContent": "新しい内容をコピー",
+        "added": "追加 {n}",
+        "modified": "変更 {n}",
+        "moreItems": "…あと {n} 件"
+      },
+      "terminal": {
+        "title": "ターミナルタスク",
+        "output": "出力",
+        "copyOutput": "ターミナル出力をコピー",
+        "running": "{n} 実行中",
+        "failed": "{n} 失敗",
+        "moreItems": "…あと {n} 件"
+      },
+      "tools": {
+        "title": "ツール呼び出し",
+        "categoryRead": "読み取り",
+        "categorySearch": "検索",
+        "categoryWrite": "編集",
+        "categoryExec": "実行",
+        "categoryOther": "その他",
+        "args": "引数",
+        "copyArgs": "引数をコピー",
+        "result": "結果",
+        "copyResult": "結果をコピー",
+        "error": "エラー",
+        "copyError": "エラーをコピー",
+        "filterAll": "すべて",
+        "filterRunning": "実行中",
+        "filterSuccess": "成功",
+        "filterError": "失敗",
+        "searchPlaceholder": "ツールを検索...",
+        "moreItems": "…あと {n} 件",
+        "noMatch": "一致なし"
+      },
+      "subagent": {
+        "title": "Subagent 派遣",
+        "statusSpawned": "派遣済み",
+        "statusRunning": "実行中",
+        "statusDone": "完了",
+        "statusFailed": "失敗",
+        "statusDead": "死亡",
+        "toolCallsTitle": "{n} 回ツール呼び出し",
+        "toolCallsCount": "{n}回",
+        "state": "状態:",
+        "role": "役割:",
+        "pendingApproval": "承認待ち",
+        "startedAt": "開始:",
+        "endedAt": "終了:",
+        "duration": "所要時間:",
+        "copyThreadId": "threadId をコピー",
+        "toolsCount": "ツール呼び出し({n})",
+        "active": "{n} アクティブ",
+        "done": "{n} 完了",
+        "failed": "{n} 失敗"
+      },
+      "overview": {
+        "title": "タスク概覧",
+        "statusIdle": "アイドル",
+        "statusRunning": "実行中",
+        "statusCompleted": "完了",
+        "statusFailed": "失敗",
+        "statusInterrupted": "中断",
+        "steps": "ステップ",
+        "subagents": "サブエージェント",
+        "active": "アクティブ",
+        "total": "合計",
+        "dead": "死亡",
+        "terminals": "ターミナル",
+        "running": "実行",
+        "changes": "変更",
+        "files": "ファイル",
+        "duration": "所要時間",
+        "token": "Token",
+        "rate": "速度",
+        "eta": "予定",
+        "context": "コンテキスト"
+      }
     }
   },
   "developer": {
@@ -12705,5 +12917,86 @@
         "sla": "営業時間内 2 時間レスポンス、営業時間外 24 時間レスポンス"
       }
     }
+  },
+  "modelsPricingPage": {
+    "hero": {
+      "badge": "モデル価格透明",
+      "title": "176 個の LLM 価格表",
+      "subtitle": "OpenAI、Anthropic、Google、DeepSeek、Qwen、Zhipu、Doubao、Kimi などの公式価格をリアルタイム同期"
+    },
+    "loading": "読み込み中...",
+    "empty": "一致するモデルが見つかりません",
+    "search": {
+      "placeholder": "モデル ID で検索、例: gpt-4o、claude-3-5-sonnet",
+      "resultCount": "{count} 個のモデルが見つかりました"
+    },
+    "vendor": {
+      "all": "すべてのベンダー"
+    },
+    "stats": {
+      "totalModels": "モデル総数",
+      "totalVendors": "ベンダー数",
+      "cheapest": "最安値",
+      "mostExpensive": "最高値"
+    },
+    "note": {
+      "title": "価格説明",
+      "unit": "単位:元/百万トークン(CNY per 1M tokens)、ベンダー公式価格表と一致",
+      "region": "地域係数:cn=1.0 基準、us/eu 係数は越境帯域幅とコンプライアンスコストを反映",
+      "discount": "割引バッジ:緑色パーセンテージは大量使用割引、minTokens 閾値が必要",
+      "update": "価格データは seed スクリプトで各ベンダー公式価格表からインポート、更新日は effectiveAt フィールドを参照"
+    }
+  },
+  "developerPricingPage": {
+    "title": "API 価格",
+    "subtitle": "トークン従量課金、input/output を別々に請求。176+ モデルの透明な価格設定。",
+    "modelCount": "{count} モデル",
+    "vendorCount": "{count} ベンダー",
+    "vendorAll": "すべて",
+    "searchPlaceholder": "モデル ID を検索(例:gpt-4、claude-3、deepseek-chat)",
+    "itemsCount": "{count} モデル",
+    "colModel": "モデル ID",
+    "colInput": "入力価格(元/百万トークン)",
+    "colOutput": "出力価格(元/百万トークン)",
+    "colCurrency": "通貨",
+    "colRegion": "地域係数",
+    "loading": "読み込み中...",
+    "noResults": "一致するモデルが見つかりません",
+    "rulesTitle": "従量課金ルール",
+    "rulesSubtitle": "すべての API 呼び出しは input と output トークンで個別に課金され、月末に集計されます。",
+    "formula": "料金計算式",
+    "formulaBody": "合計 = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",
+    "paramCol": "パラメータ",
+    "paramDesc": "説明",
+    "paramInputPrice": "input_price",
+    "paramInputPriceDesc": "入力トークン単価、単位:1k トークンあたり分(表示は百万トークンあたり元)",
+    "paramOutputPrice": "output_price",
+    "paramOutputPriceDesc": "出力トークン単価、単位:1k トークンあたり分(通常 input の 3-5 倍)",
+    "paramInputTokens": "input_tokens",
+    "paramInputTokensDesc": "このリクエストのプロンプトトークン数(system + user + 履歴を含む)",
+    "paramOutputTokens": "output_tokens",
+    "paramOutputTokensDesc": "補完トークン数(モデルが生成した全内容)",
+    "exampleTitle": "課金例",
+    "exampleIntro": "gpt-4o で 1 回会話:input 500 トークン、output 1200 トークン、input_price=2.5 分/1k、output_price=10 分/1k の場合:",
+    "exampleStep1": "input 費用 = 500 ÷ 1000 × 2.5 = 1.25 分",
+    "exampleStep2": "output 費用 = 1200 ÷ 1000 × 10 = 12 分",
+    "exampleResult": "合計 = 1.25 + 12 = 13.25 分(約 ¥0.1325)",
+    "noteRegion": "地域係数:cn/us/eu の 3 段階。地域により価格が異なる場合があり、実際の課金はリクエストの発生地域に基きます。",
+    "noteSettlement": "決済方法:毎日 23:59 に当日利用を集計、月初に前月分を請求。法人向け月次/四半期決算サポート。",
+    "noteRound": "精度ルール:トークン数は整数に切り下げ、金額は 0.01 分に四捨五入。残高不足時はリクエスト全体が拒否されます。",
+    "examplesTitle": "呼び出し例",
+    "examplesSubtitle": "HTTP Bearer Token 認証、POST application/json",
+    "langCurl": "cURL",
+    "langNode": "Node.js",
+    "langPython": "Python",
+    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\" }\n    ],\n    \"temperature\": 0.7\n  }'",
+    "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: 'こんにちは、自己紹介してください' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// コスト追跡\nconst usage = completion.usage\nconsole.log(`使用量:${usage.total_tokens} トークン`)",
+    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# コスト追跡\nusage = response.usage\nprint(f\"使用量:{usage.total_tokens} トークン\")",
+    "copyAria": "コードをコピー",
+    "toastCopied": "コードをコピーしました",
+    "toastCopyFailed": "コピーに失敗しました",
+    "examplesTip": "ヒント:YOUR_API_KEY を /developer/keys で作成したキーに置き換え、baseURL を実際のエンドポイントに変更してください。",
+    "cardLabel": "API 価格",
+    "cardDesc": "モデル価格と課金ルール"
   }
 }

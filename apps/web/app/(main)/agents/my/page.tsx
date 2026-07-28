@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -85,7 +85,7 @@ export default function MyAgentsPage() {
   const agents = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/agents"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -96,8 +96,8 @@ export default function MyAgentsPage() {
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" asChild>
           <Link href="/agents/create">
@@ -125,7 +125,7 @@ export default function MyAgentsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -134,13 +134,13 @@ export default function MyAgentsPage() {
           {(error as Error).message}
         </div>
       ) : agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <Sparkles className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {agents.map((agent: any) => (
+          {agents.map((agent) => (
             <Link key={agent.agentId} href={`/agents/${agent.agentId}`}>
               <Card className="transition-colors hover:bg-accent/40">
                 <CardContent className="space-y-2 p-4">

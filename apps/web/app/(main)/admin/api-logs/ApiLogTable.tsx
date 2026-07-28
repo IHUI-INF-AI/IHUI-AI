@@ -18,12 +18,12 @@ export function ApiLogTable({ paged, isLoading }: Props) {
   return (
     <>
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('search')}
         </div>
       ) : paged.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           {t('apiLogs.noData')}
         </div>
       ) : (

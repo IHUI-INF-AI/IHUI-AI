@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,13 +6,28 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Upload, FileText, AlertCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription, Input } from '@ihui/ui-react'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  Input,
+} from '@ihui/ui-react'
 import { Textarea } from '@/components/form'
 import { cn } from '@/lib/utils'
 
 type Mode = 'file' | 'text'
 
-export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+export function UploadDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) {
   const t = useTranslations('knowledgeRag.upload')
   const tCommon = useTranslations('common')
   const qc = useQueryClient()
@@ -20,7 +35,9 @@ export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [title, setTitle] = React.useState('')
   const [text, setText] = React.useState('')
   const [file, setFile] = React.useState<File | null>(null)
-  const [feedback, setFeedback] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [feedback, setFeedback] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(
+    null,
+  )
 
   const reset = () => {
     setTitle('')
@@ -44,12 +61,15 @@ export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setFeedback({ type: 'success', msg: t('success', { count: data.chunkCount }) })
-      setTimeout(() => { onOpenChange(false); reset() }, 1200)
+      setTimeout(() => {
+        onOpenChange(false)
+        reset()
+      }, 1200)
     },
-    onError: (e: any) => setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) }),
+    onError: (e) => setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) }),
   })
 
   const textMut = useMutation({
@@ -58,17 +78,24 @@ export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       const r = await fetchApi<{ chunkCount: number }>('/api/knowledge/ingest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ownerUuid: '', title: title.trim() || t('defaultTitle'), text: text.trim() }),
+        body: JSON.stringify({
+          ownerUuid: '',
+          title: title.trim() || t('defaultTitle'),
+          text: text.trim(),
+        }),
       })
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setFeedback({ type: 'success', msg: t('success', { count: data.chunkCount }) })
-      setTimeout(() => { onOpenChange(false); reset() }, 1200)
+      setTimeout(() => {
+        onOpenChange(false)
+        reset()
+      }, 1200)
     },
-    onError: (e: any) => setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) }),
+    onError: (e) => setFeedback({ type: 'error', msg: e instanceof Error ? e.message : String(e) }),
   })
 
   const pending = fileMut.isPending || textMut.isPending
@@ -80,7 +107,13 @@ export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset() }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v)
+        if (!v) reset()
+      }}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -96,7 +129,9 @@ export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             onClick={() => setMode('file')}
             className={cn(
               'flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-sm transition-colors',
-              mode === 'file' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              mode === 'file'
+                ? 'bg-background font-medium shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -107,7 +142,9 @@ export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             onClick={() => setMode('text')}
             className={cn(
               'flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-sm transition-colors',
-              mode === 'text' ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              mode === 'text'
+                ? 'bg-background font-medium shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <FileText className="h-3.5 w-3.5" />
@@ -178,7 +215,11 @@ export function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             {tCommon('cancel')}
           </Button>
           <Button onClick={onSubmit} disabled={pending || !canSubmit}>
-            {pending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Upload className="mr-1.5 h-4 w-4" />}
+            {pending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="mr-1.5 h-4 w-4" />
+            )}
             {t('submit')}
           </Button>
         </DialogFooter>

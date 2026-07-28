@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -118,14 +118,14 @@ export default function SubscriptionsPage() {
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <BellOff className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {items.map((s: any) => {
-            const Icon = (TYPE_ICON as any)[s.targetType]
+          {items.map((s) => {
+            const Icon = TYPE_ICON[s.targetType]
             return (
               <li
                 key={s.id}
@@ -133,7 +133,9 @@ export default function SubscriptionsPage() {
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-medium">{t((TYPE_KEY as any)[s.targetType] ?? 'types.unknown')}</p>
+                  <p className="break-words text-sm font-medium">
+                    {t(TYPE_KEY[s.targetType] ?? 'types.unknown')}
+                  </p>
                   <p className="break-words font-mono text-xs text-muted-foreground">
                     {s.targetId}
                   </p>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   TextInput,
   StyleSheet,
   Alert,
+  RefreshControl,
 } from 'react-native'
+import { getAgents, type Agent } from '@ihui/api-client'
 
 type Tab = 'draft' | 'reviewing' | 'published'
 type SubTab = 'all' | 'rejected' | 'offline'
@@ -35,22 +37,51 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'offline', label: '已下架' },
 ]
 
-const MOCK: Assistant[] = [
-  { id: '1', name: '文案写作助手', prologue: '帮你快速生成营销文案、种草笔记', status: 'draft', category: '文字', price: 0, cycle: '', audience: '全部用户', publishTime: '-' },
-  { id: '2', name: '数据分析专家', prologue: '上传表格自动生成分析报告', status: 'reviewing', category: '文字,图片', price: 0, cycle: '', audience: '全部用户', publishTime: '-' },
-  { id: '3', name: 'PPT 生成器', prologue: '输入主题一键生成 PPT 大纲', status: 'published', category: '文字,图片,视频', price: 9.9, cycle: '月', audience: '全部用户', publishTime: '2026-07-20' },
-  { id: '4', name: '翻译助手', prologue: '多语言互译,保留专业术语', status: 'published', category: '文字', price: 15, cycle: '永久', audience: '会员', publishTime: '2026-07-18' },
-  { id: '5', name: '客服机器人', prologue: '自动应答常见问题', status: 'rejected', category: '文字', price: 0, cycle: '', audience: '全部用户', publishTime: '-' },
-  { id: '6', name: '旧版问答助手', prologue: '基础问答能力', status: 'offline', category: '文字', price: 5, cycle: '月', audience: '全部用户', publishTime: '2026-06-10' },
-]
-
 export default function AssistantScreen() {
   const [tab, setTab] = useState<Tab>('draft')
   const [subTab, setSubTab] = useState<SubTab>('all')
   const [keyword, setKeyword] = useState('')
+  const [items, setItems] = useState<Assistant[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const resp = await getAgents({ pageSize: 100 })
+      if (!resp.success) throw new Error(resp.error)
+      const mapped: Assistant[] = (resp.data.list ?? []).map((a: Agent) => ({
+        id: a.id,
+        name: a.name,
+        prologue: a.description,
+        status: a.status === 'pending' ? 'reviewing' : a.status,
+        category: a.category || a.tags.join(','),
+        price: 0,
+        cycle: '',
+        audience: a.isVipExclusive ? '会员' : '全部用户',
+        publishTime: a.createdAt ? a.createdAt.slice(0, 10) : '-',
+      }))
+      setItems(mapped)
+    } catch {
+      setError('加载失败,请下拉刷新重试')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onRefresh = () => {
+    setRefreshing(true)
+    void load()
+  }
 
   const showSubTab = tab === 'draft'
-  const list = MOCK.filter((a) => {
+  const list = items.filter((a) => {
     if (showSubTab) {
       if (subTab === 'all' && a.status !== 'draft') return false
       if (subTab === 'rejected' && a.status !== 'rejected') return false
@@ -126,14 +157,21 @@ export default function AssistantScreen() {
         />
       </View>
 
+      {error ? (
+        <View style={s.errorBar}>
+          <Text style={s.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
       <FlatList
         data={list}
         keyExtractor={(i) => i.id}
         contentContainerStyle={{ padding: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={
           <View style={s.empty}>
-            <Text style={s.emptyText}>暂无助手</Text>
+            <Text style={s.emptyText}>{loading ? '加载中...' : '暂无助手'}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -202,6 +240,8 @@ const s = StyleSheet.create({
   subTabTextActive: { color: '#7B61FF', fontWeight: '600' },
   searchRow: { paddingHorizontal: 16, marginTop: 12 },
   searchInput: { height: 38, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, fontSize: 13, color: '#111827', backgroundColor: '#F9FAFB' },
+  errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
+  errorText: { fontSize: 12, color: '#FF6B00' },
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyText: { fontSize: 13, color: '#9CA3AF' },
   card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
