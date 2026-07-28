@@ -414,7 +414,8 @@ export interface WalletBalance {
 }
 
 /** 钱包记录类型(与后端 /api/wallet/records 契约对齐) */
-export type WalletRecordType = 'recharge' | 'withdraw' | 'consume' | 'refund' | 'commission' | string
+export type WalletRecordType =
+  'recharge' | 'withdraw' | 'consume' | 'refund' | 'commission' | string
 
 /** 钱包记录列表项(平台注入) */
 export interface WalletRecordItem {
@@ -463,5 +464,190 @@ export interface CourseCatalogScreenProps {
   onPressItem: (item: CourseCatalogItem) => void
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
+
+// ============================================================
+// 第三批共享屏类型(2026-07-29):PointHistory/NoteList/ArticleList/
+// Announcement/LivePlaybackList/RefundHistory/CourseQAList
+// ============================================================
+
+/** 积分历史列表项(平台注入,字段对齐 mobile-rn PointHistoryScreen Item) */
+export interface PointHistoryItem {
+  id: string
+  /** 操作描述(如"签到"/"消费") */
+  action: string
+  /** 积分变动(正数获得,负数消耗) */
+  points: number
+  /** 变动后余额 */
+  balance: number
+  /** ISO 时间字符串或格式化后的时间文本 */
+  createdAt: string
+}
+
+/** PointHistory 屏 props */
+export interface PointHistoryScreenProps {
+  t: TFunction
+  items: PointHistoryItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 笔记列表项(平台注入,字段对齐 mobile-rn NoteListScreen Note) */
+export interface NoteListItem {
+  id: string
+  title: string
+  summary: string
+  author: string
+  likes: number
+  createdAt: string
+}
+
+/** NoteList 屏 props */
+export interface NoteListScreenProps {
+  t: TFunction
+  items: NoteListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击笔记卡片回调,平台注入导航跳转 */
+  onPressItem: (item: NoteListItem) => void
+  /** 新建笔记回调(可选,平台注入导航跳转) */
+  onCreate?: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 文章列表项(平台注入,字段对齐 mobile-rn ArticleListScreen Article) */
+export interface ArticleListItem {
+  id: string
+  title: string
+  author: string
+  views: number
+  publishedAt: string
+  /** 封面图 URL(可空) */
+  cover?: string
+}
+
+/** ArticleList 屏 props */
+export interface ArticleListScreenProps {
+  t: TFunction
+  items: ArticleListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击文章卡片回调,平台注入导航跳转 */
+  onPressItem: (item: ArticleListItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 公告列表项(平台注入,字段对齐 mobile-rn AnnouncementScreen Announcement) */
+export interface AnnouncementItem {
+  id: string
+  title: string
+  content: string
+  /** 发布时间(ISO 或格式化字符串) */
+  publishTime: string
+  /** 是否置顶 */
+  pinned: boolean
+}
+
+/** Announcement 屏 props */
+export interface AnnouncementScreenProps {
+  t: TFunction
+  items: AnnouncementItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击公告卡片回调,平台注入导航跳转 */
+  onPressItem: (item: AnnouncementItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 直播回放列表项(平台注入,字段对齐 mobile-rn LivePlaybackListScreen Item) */
+export interface LivePlaybackItem {
+  id: string
+  title: string
+  lecturer: string
+  /** 时长(秒) */
+  duration: number
+  viewerCount: number
+  createdAt: string
+}
+
+/** LivePlaybackList 屏 props */
+export interface LivePlaybackListScreenProps {
+  t: TFunction
+  items: LivePlaybackItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击回放卡片回调,平台注入导航跳转 */
+  onPressItem: (item: LivePlaybackItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 退款状态(用户端共享屏展示子集,与后端 /api/refund 契约对齐)。
+ * 注意:admin-types.ts 的 `RefundStatus` 是后台完整状态机,此处 `AppRefundStatus` 是用户端展示子集,
+ * 加 `App` 前缀避免 `export *` 冲突(同 `AppOrderStatus` 模式)。
+ */
+export type AppRefundStatus = 'pending' | 'approved' | 'rejected' | 'refunded' | string
+
+/** 退款历史列表项(平台注入,字段对齐 mobile-rn RefundHistoryScreen Item) */
+export interface RefundHistoryItem {
+  id: string
+  amount: number
+  status: AppRefundStatus
+  reason: string
+  createdAt: string
+}
+
+/** RefundHistory 屏 props */
+export interface RefundHistoryScreenProps {
+  t: TFunction
+  items: RefundHistoryItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击退款卡片回调,平台注入导航跳转 */
+  onPressItem: (item: RefundHistoryItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程问答列表项(平台注入,字段对齐 mobile-rn CourseQAListScreen Item) */
+export interface CourseQAListItem {
+  id: string
+  question: string
+  asker: string
+  answerCount: number
+  createdAt: string
+}
+
+/** CourseQAList 屏 props */
+export interface CourseQAListScreenProps {
+  t: TFunction
+  items: CourseQAListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击问答卡片回调,平台注入导航跳转 */
+  onPressItem: (item: CourseQAListItem) => void
+  /** 提问回调(可选,平台注入导航跳转) */
+  onAsk?: () => void
+  onBack: () => void
   colorScheme?: 'light' | 'dark'
 }

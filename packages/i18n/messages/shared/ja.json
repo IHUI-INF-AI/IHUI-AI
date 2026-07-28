@@ -647,5 +647,52 @@
     "empty": "章がありません",
     "loadFailed": "カタログの読み込みに失敗しました",
     "duration": "{n} 分"
+  },
+  "pointHistory": {
+    "title": "ポイント履歴",
+    "empty": "ポイント記録がありません",
+    "loadFailed": "ポイントの読み込みに失敗しました",
+    "balance": "残高"
+  },
+  "noteList": {
+    "title": "ノート一覧",
+    "empty": "ノートがありません",
+    "loadFailed": "ノートの読み込みに失敗しました"
+  },
+  "articleList": {
+    "title": "記事一覧",
+    "empty": "記事がありません",
+    "loadFailed": "記事の読み込みに失敗しました",
+    "views": "{count} 回閲覧"
+  },
+  "announcement": {
+    "title": "お知らせ",
+    "empty": "お知らせがありません",
+    "loadFailed": "お知らせの読み込みに失敗しました",
+    "pinned": "固定",
+    "publishTime": "公開日時"
+  },
+  "livePlaybackList": {
+    "title": "ライブ再生",
+    "empty": "録画がありません",
+    "loadFailed": "録画の読み込みに失敗しました",
+    "lecturer": "講師",
+    "duration": "時間",
+    "viewerCount": "視聴",
+    "play": "再生"
+  },
+  "refundHistory": {
+    "title": "返金履歴",
+    "empty": "返金記録がありません",
+    "loadFailed": "返金の読み込みに失敗しました",
+    "createdAt": "申請日時"
+  },
+  "courseQAList": {
+    "title": "コースQ&A",
+    "empty": "質問がありません",
+    "loadFailed": "Q&Aの読み込みに失敗しました",
+    "ask": "質問",
+    "asker": "質問者",
+    "answers": "回答"
   }
 }

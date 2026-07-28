@@ -647,5 +647,52 @@
     "empty": "暫無章節",
     "loadFailed": "載入目錄失敗",
     "duration": "{n} 分鐘"
+  },
+  "pointHistory": {
+    "title": "積分明細",
+    "empty": "暫無積分記錄",
+    "loadFailed": "載入積分失敗",
+    "balance": "餘額"
+  },
+  "noteList": {
+    "title": "筆記列表",
+    "empty": "暫無筆記",
+    "loadFailed": "載入筆記失敗"
+  },
+  "articleList": {
+    "title": "文章列表",
+    "empty": "暫無文章",
+    "loadFailed": "載入文章失敗",
+    "views": "{count} 次閱讀"
+  },
+  "announcement": {
+    "title": "平台公告",
+    "empty": "暫無公告",
+    "loadFailed": "載入公告失敗",
+    "pinned": "置頂",
+    "publishTime": "發佈時間"
+  },
+  "livePlaybackList": {
+    "title": "直播回放",
+    "empty": "暫無回放",
+    "loadFailed": "載入回放失敗",
+    "lecturer": "講師",
+    "duration": "時長",
+    "viewerCount": "觀看",
+    "play": "播放"
+  },
+  "refundHistory": {
+    "title": "退款記錄",
+    "empty": "暫無退款記錄",
+    "loadFailed": "載入退款失敗",
+    "createdAt": "申請時間"
+  },
+  "courseQAList": {
+    "title": "課程問答",
+    "empty": "暫無問答",
+    "loadFailed": "載入問答失敗",
+    "ask": "提問",
+    "asker": "提問者",
+    "answers": "回答"
   }
 }
