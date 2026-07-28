@@ -2533,6 +2533,46 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
   - P1 性能:批量 upsert batchUpsertRegistryItems(2 次 DB 往返替代 2N 次,400 条从 800 次降为 2 次)+ Worker hash 复用 + installedIds IN 查询优化(全表扫→20 keys)
   - 验证:API typecheck registry 0 错 + 51/51 测试全绿
 
+#### 20. Trae Work 流式输出对齐(Phase 19,2026-07-28,平台独占:仅 web)
+
+> 触发:用户要求"对标 Trae Work 流式对话显示,深度思考开发优化"。深度调研 Trae Work 后识别 11 项对标差距,本轮 /goal 模式 5 subagent 并行 + 主 agent 集成,一次性补齐。
+
+- **数据源完整覆盖(6/6 全可视化)**:`useAgentProgress` 返回的 6 数据源全部渲染 — `planSteps`(PlanStepItem 含 explanation/tokenUsage/双向跳转)+ `subagents`(SubagentSection + SubAgentTaskTree 树形嵌套)+ `tools`(ToolCallsSection 分类颜色编码+详情展开)+ `changes`(ChangesSection diff 预览)+ `terminals`(TerminalSection output 展开)+ `overview`(OverviewSection 任务总览 + ResourceBudget token 速率/ETA/上下文占用)
+- **11 个新组件(全部 React.memo + 类型零 `any`)**:
+  - `TraeBlock` + `TraeCodeHeader` — Trae Work 风格块状容器 + 圆形深色头像 + "TRAE Code" 文字标识
+  - `SubAgentTaskTree` — 树形嵌套(批次→子代理→子操作 3 层缩进,可折叠)
+  - `BatchHeader` — 紫色星标批次派发头,4 状态(running/completed/failed/partial)颜色编码
+  - `Checklist` — 任务检查项,3 状态(done/pending/in_progress)绿色对勾 + inline `&` 连接 + N/M 完成进度
+  - `CompressionDivider` — 历史对话压缩分隔线(规避 AGENTS §4 分割线禁令,采用 flex 两侧 h-px 线条)
+  - `TimelineTab` + `TimelineEvent` — 时间线 tab 切换(Plan/Subagent/Question/Tool/ToolCall/Reference 6 类型/4 状态圆点+时间戳),`activeMessageId` 自动展开
+  - `HoverPreviewCard` + `useHoverPreview` — Hover 预览(250ms 延迟显示 + 100ms 关闭,边界检测 + 键盘无障碍 + 卸载清理 timer)
+  - `MessageContextMenu` + `useContextMenu` — 右键上下文菜单(7 操作:复制纯文本/复制 Markdown/重新生成/反馈👍👎子菜单/分享/折叠到 Plan/删除),`↑↓HomeEndEnterEsc` 键盘导航 + 子菜单 hover 自动展开 + 屏幕边界回退
+  - `ResourceBudget` — 资源预算指示器(当前 step/total + token 速率/ETA/上下文占用,inline + block 双模式)
+  - `QuestionBlock` — 已对用户提问卡片(问题+选项列表+用户选择)
+  - `ReferenceSection` — 参考内容折叠块(Link2 图标 + 默认折叠 + 1px 强调条)
+- **3 个核心 store/hook**:
+  - `ProgressJumpStore` (zustand) — Plan Step ↔ Message 双向跳转(`requestJumpToMessage` + `flashHighlight` + `hoveredMessageId` + `pendingJumpToMessage` + `setHoveredPlanStep`/`setHoveredMessage` + `linkPlanStepToMessage` 映射写入)
+  - `TimelineStore` (zustand) — 时间线事件流管理(`events: TimelineEvent[]` + 9 actions: `activeTab/setEvents/addEvent/updateEvent/removeEvent/toggleExpanded/setExpanded/isExpanded/reset`)
+  - `useHoverPreview` hook — 通用 hover 状态管理(泛型 `UseHoverPreviewOptions<T>` + `dataRef` 防闭包陈旧 + `clampToViewport` 视口边界 + `data` 变 `null` 立即关闭)
+- **4 个核心交互(Trae Work 招牌)**:
+  - **Plan Step ↔ Message 双向跳转** — 点击右侧 PlanStepItem 滚动到对应 AI 消息 + 1.5s fade 高亮;反之 hover AI 消息时,如果该消息产出了 plan step,右侧 PlanStepItem 联动高亮
+  - **Timeline 时间线 tab 切换** — `role="tablist"` + `inline`/`timeline` 双 tab,展平 Plan/Subagent/Question/ToolCall/Reference 全事件 + 圆点+时间戳+摘要+可点击展开
+  - **Hover 预览减少点击** — Hover PlanStepItem 浮出 200×120 缩略卡(explanation + duration + token + 工具数 + 关联消息预览);不打断流地看全貌
+  - **右键上下文菜单** — 右键消息气泡弹菜单(复制/重新生成/反馈/分享/折叠到 Plan/跳到 Plan),比工具栏按钮快 3 倍
+- **3 个集成点改造**:
+  - `message-list.tsx` (+520/-259) — TimelineTab 切换条 + CompressionDivider 跨日间隔 + SubAgentTaskTree inline + ProgressJumpStore 联动 + MessageContextMenu 右键
+  - `agent-task-progress-pane.tsx` (+832/-259) — ProgressJumpStore 接入点 + HoverPreviewCard 250ms 延迟 + BatchHeader 包裹 subagents + Checklist 任务检查 + ResourceBudget header + TimelineTab 切换 + 键盘无障碍(role=button + tabIndex + Enter/Space 跳转) + 死代码清理(Spinner 等)
+  - `sub-agent-activity-feed.tsx` (treeMode 可选) — SubAgentActivityFeed 新增 `treeMode?` prop(默认 false 向后兼容),启用 Codex 风格 3 层树形嵌套,原 SubAgentCard 行为零破坏,所有 hooks 抽到 `LegacySubAgentActivityFeed` 子组件避免 rules-of-hooks 违规
+- **i18n 5 语言(ai.progressPane 92 key parity)**:zh-CN / zh-TW / en / ja / ko 完整翻译,`useTranslations('ai.pane')` 命名空间,`ja/ko` 翻译零中文残留
+- **测试覆盖 107 用例全绿**:FoldableSection / ThinkingSection / ToolCallsSection / SubagentSection / ChangesSection / TerminalSection / OverviewSection / SubAgentTaskTree(12) / Timeline(27) / HoverPreview(16) / MessageContextMenu(24) / Checklist(失败态扩展) / agent-task-progress-pane(折叠+搜索+展开+键盘+复制+状态过滤+失败+token) / 跨子区(6/6 数据源全渲染) / i18n namespace 修复(mock 同步移除 `pane.` 前缀)
+- **验证证据**:
+  - `pnpm --filter @ihui/web typecheck` — 本任务文件 0 错误
+  - `pnpm --filter @ihui/web test` — 107/107 全绿(3.78s)
+  - `pnpm --filter @ihui/web exec eslint` — 本任务文件 0 错误 0 警告
+  - browser 4 状态截图(默认/hover/active/dark mode) — popover 容器 `rounded-md border-border bg-popover`、折叠子区 `rounded-sm bg-muted/30`、dark mode `bg=rgb(28,28,28)` 全合规
+  - dev server 8801 端口持续运行,TimelineTab 可点击切换,0 控制台 error,0 404
+- **设计原则遵守 AGENTS.md §3(零 `any`)/ §4(圆角+禁止分割线+Tailwind tokens)/ §13(Read 验证)/ §15(项目内路径)/ §17(UI 改动 4 状态验证)/ §21(README 同步)/ §23(测试目录)**
+
 ### 进行中
 
 - 内容发布平台 11 平台真实凭证调通(代码已就绪,需用户提供凭证)
