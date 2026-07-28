@@ -101,7 +101,7 @@ export default function NewsCategoryPageClient() {
 
   if (!category) {
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-6 py-20 text-center">
+      <div className="mx-auto w-full max-w-6xl space-y-4 py-20 text-center">
         <FolderOpen className="mx-auto h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('notFound')}</p>
         <Link
@@ -116,7 +116,7 @@ export default function NewsCategoryPageClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/news"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -128,17 +128,17 @@ export default function NewsCategoryPageClient() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <FolderOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{category.name}</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{category.name}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {articlesQuery.isLoading ? (
-        <div className="flex items-center justify-center py-16">
+        <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <FileText className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>

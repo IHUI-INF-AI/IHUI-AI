@@ -111,12 +111,12 @@ export default function NotificationsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {tc('loading')}
         </div>
       ) : error ? (
-        <p className="py-12 text-center text-sm text-destructive">{error}</p>
+        <p className="py-8 text-center text-sm text-destructive">{error}</p>
       ) : (
         <>
           <Card>

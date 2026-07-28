@@ -20,7 +20,7 @@ export function ExamIntro({ paper, isPending, isError, error, onStart }: Props) 
   const t = useTranslations('exam')
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/exam"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"

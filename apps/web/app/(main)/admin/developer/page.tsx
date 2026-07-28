@@ -105,7 +105,7 @@ export default function DeveloperPage() {
   const coze = useDeveloperCoze()
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

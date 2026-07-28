@@ -52,13 +52,13 @@ export default function LearnMapPage() {
   const totalProgress = data?.totalProgress ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <MapIcon className="h-7 w-7 text-primary" />
           {data?.title ?? t('defaultTitle')}
         </h1>
-        <p className="text-sm text-muted-foreground">{data?.description ?? t('defaultDesc')}</p>
+        <p className="text-xs text-muted-foreground">{data?.description ?? t('defaultDesc')}</p>
       </header>
 
       <Card>
@@ -82,7 +82,7 @@ export default function LearnMapPage() {
       </Card>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -91,7 +91,7 @@ export default function LearnMapPage() {
           {(error as Error).message}
         </div>
       ) : nodes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <MapIcon className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>

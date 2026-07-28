@@ -52,7 +52,7 @@ export default function I18nComparePage() {
     'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/admin/i18n-dashboard"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -64,9 +64,9 @@ export default function I18nComparePage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <GitCompare className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">语言对比</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">语言对比</h1>
         </div>
-        <p className="text-sm text-muted-foreground">选择两种语言并排查看 Key-Value 翻译</p>
+        <p className="text-xs text-muted-foreground">选择两种语言并排查看 Key-Value 翻译</p>
       </header>
 
       <Card>
@@ -100,7 +100,7 @@ export default function I18nComparePage() {
       </Card>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
         </div>

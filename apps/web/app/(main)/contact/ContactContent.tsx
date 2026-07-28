@@ -88,7 +88,7 @@ export function ContactContent({
   const company = data?.company ?? fallbackCompany
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-12 md:px-8 md:py-16">
+    <main className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 md:py-8">
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -104,7 +104,7 @@ export function ContactContent({
       {/* 联系方式 */}
       <section className="mt-16 grid gap-6 sm:grid-cols-2">
         {isLoading && (
-          <div className="col-span-full flex items-center justify-center py-12 text-muted-foreground">
+          <div className="col-span-full flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t('loading')}
           </div>
@@ -152,7 +152,7 @@ export function ContactContent({
 
       {/* CTA */}
       <section className="mt-12 rounded-2xl border bg-primary/5 p-8 text-center md:p-12">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('ctaTitle')}</h2>
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
           {t('ctaSubtitle')}
         </p>
