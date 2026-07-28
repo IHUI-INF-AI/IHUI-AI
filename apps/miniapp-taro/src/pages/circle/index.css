@@ -145,7 +145,7 @@
 }
 .ci-user-follow Text {
   font-size: 22rpx;
-  color: #fff;
+  color: var(--color-primary-foreground);
 }
 .ci-user-follow.followed {
   background: var(--color-background);
@@ -230,6 +230,7 @@
   justify-content: center;
   background: rgba(0, 0, 0, 0.4);
 }
+/* TODO: custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
 .ci-img-more-text {
   font-size: 32rpx;
   color: #fff;
@@ -272,7 +273,7 @@
 }
 .ci-empty-btn Text {
   font-size: 26rpx;
-  color: #fff;
+  color: var(--color-primary-foreground);
 }
 
 /* ===== 错误 / 加载状态 ===== */
@@ -316,6 +317,6 @@
 }
 .ci-fab-icon {
   font-size: 56rpx;
-  color: #fff;
+  color: var(--color-primary-foreground);
   line-height: 1;
 }

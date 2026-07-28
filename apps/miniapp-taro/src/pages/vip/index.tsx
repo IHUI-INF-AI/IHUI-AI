@@ -22,6 +22,7 @@ import {
 import { useI18n } from '@/i18n'
 import './index.css'
 
+// TODO: custom color: #f8d486 VIP 品牌金色渐变起始色,无对应 token,保留原值
 const gradient = 'linear-gradient(135deg, #f8d486, var(--color-warning))'
 
 const DEFAULT_PLANS: PriceOption[] = [
@@ -178,7 +179,7 @@ export default function VipIndexPage() {
 
   return (
     <View className="page">
-      <View className="header" style={{ background: info.level ? gradient : '#999' }}>
+      <View className="header" style={{ background: info.level ? gradient : 'var(--color-muted)' }}>
         <Text className="brand-title">{tt('vip.index.brandTitle', 'AI智汇社 会员')}</Text>
         <View className="level-row">
           <View className="level">{info.level ? info.name : t('vip.notOpened')}</View>
@@ -218,7 +219,7 @@ export default function VipIndexPage() {
           onClick={() => setAutoRenew((v) => !v)}
         >
           <View
-            className={`w-[36rpx] h-[36rpx] mr-[16rpx] flex items-center justify-center border-[2rpx] rounded-[8rpx] ${autoRenew ? 'bg-[var(--color-warning)] border-[var(--color-warning)]' : 'border-[#ccc] bg-card'}`}
+            className={`w-[36rpx] h-[36rpx] mr-[16rpx] flex items-center justify-center border-[2rpx] rounded-[8rpx] ${autoRenew ? 'bg-[var(--color-warning)] border-[var(--color-warning)]' : 'border-border bg-card'}`}
           >
             {autoRenew && <Text className="text-white text-[24rpx] leading-none">✓</Text>}
           </View>

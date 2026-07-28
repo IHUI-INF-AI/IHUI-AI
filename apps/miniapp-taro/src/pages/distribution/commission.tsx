@@ -90,7 +90,7 @@ export default function DistributionCommission() {
                 </Text>
               </View>
               <Text
-                className={`text-[32rpx] font-semibold ${r.amount > 0 ? 'text-[#4caf50]' : 'text-[#f44336]'}`}
+                className={`text-[32rpx] font-semibold ${r.amount > 0 ? 'text-success' : 'text-destructive'}`}
               >
                 {r.amount > 0 ? '+' : ''}¥{r.amount}
               </Text>

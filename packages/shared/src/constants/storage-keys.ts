@@ -7,10 +7,10 @@
  */
 
 // 历史遗留:下划线前缀(已在各端使用,保持向后兼容)
-export {
-  TOKEN_STORAGE_KEY,
-  REFRESH_TOKEN_STORAGE_KEY,
-} from '../constants'
+// 直接定义,避免通过 '../constants' 形成循环依赖:
+// constants.ts -> constants/index.ts -> constants/storage-keys.ts -> constants.ts
+export const TOKEN_STORAGE_KEY = 'ihui_token'
+export const REFRESH_TOKEN_STORAGE_KEY = 'ihui_refresh_token'
 
 // theme.ts 已定义,这里 re-export 避免重复
 export { THEME_STORAGE_KEY, LOCALE_STORAGE_KEY } from './theme'

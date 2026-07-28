@@ -153,6 +153,7 @@ export default function DeveloperIndex() {
       title: tt('developer.index.tip', '提示'),
       content: `${tt('developer.index.deleteConfirm', '确认删除智能体')}「${name}」?`,
       confirmText: tt('developer.index.deleteBtn', '删除'),
+      // TODO: native API: Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
       confirmColor: '#dd524d',
       success: async (res) => {
         if (!res.confirm) return
@@ -211,11 +212,11 @@ export default function DeveloperIndex() {
   const agentStatusClass = (s: number) => {
     const base = 'text-[24rpx] px-[16rpx] py-[4rpx] rounded-[6rpx]'
     const styles: Record<number, string> = {
-      0: 'text-[#8a8a8e] bg-[rgba(138,138,142,0.12)]',
-      1: 'text-[#d99a00] bg-[rgba(217,154,0,0.12)]',
-      2: 'text-[#34c759] bg-[rgba(52,199,89,0.12)]',
-      4: 'text-[#dd524d] bg-[rgba(221,82,77,0.12)]',
-      5: 'text-[#8a8a8e] bg-[rgba(138,138,142,0.12)]',
+      0: 'text-muted-foreground bg-[rgba(138,138,142,0.12)]',
+      1: 'text-warning bg-[rgba(217,154,0,0.12)]',
+      2: 'text-success bg-[rgba(52,199,89,0.12)]',
+      4: 'text-destructive bg-[rgba(221,82,77,0.12)]',
+      5: 'text-muted-foreground bg-[rgba(138,138,142,0.12)]',
     }
     return `${base} ${styles[s] ?? styles[0]}`
   }
@@ -225,6 +226,7 @@ export default function DeveloperIndex() {
       <View className="px-[30rpx] py-[20rpx] bg-card">
         <Text className="text-[36rpx] font-bold text-foreground">{tt('developer.index.myAgents', '我的智能体')}</Text>
       </View>
+      {/* TODO: custom color: 蓝紫渐变 bg-[linear-gradient(135deg,#4e8cff,#6a5cff)],无对应 token */}
       <View
         className="flex items-center bg-[linear-gradient(135deg,#4e8cff,#6a5cff)] mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
         onClick={() => navigateTo({ url: '/pages/developer/subscribe' })}
@@ -308,7 +310,7 @@ export default function DeveloperIndex() {
                       ? tt('developer.index.editBtn2', '修改')
                       : tt('developer.index.editBtn', '设置')}
                   </Text>
-                  <Text className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-[#dd524d] bg-[rgba(221,82,77,0.1)]" onClick={() => onDelete(agent)}>
+                  <Text className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-destructive bg-[rgba(221,82,77,0.1)]" onClick={() => onDelete(agent)}>
                     {tt('developer.index.deleteBtn', '删除')}
                   </Text>
                 </View>

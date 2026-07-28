@@ -43,8 +43,8 @@ export default function UserInfoCard({
           <View className="flex items-center gap-2">
             <Text className="text-sm font-medium text-foreground truncate">{nickname}</Text>
             {isVip && (
-              <View className="px-1.5 py-0.5 rounded-sm bg-[#f59e0b]/10">
-                <Text className="text-[20rpx] text-[#f59e0b] font-medium">{vipTitle || 'VIP'}</Text>
+              <View className="px-1.5 py-0.5 rounded-sm bg-warning/10">
+                <Text className="text-[20rpx] text-warning font-medium">{vipTitle || 'VIP'}</Text>
               </View>
             )}
           </View>
