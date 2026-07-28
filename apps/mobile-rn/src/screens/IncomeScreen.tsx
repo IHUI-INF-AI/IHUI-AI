@@ -1,6 +1,7 @@
 /**
  * IncomeScreen — 收益首页(income/index.vue 迁移)
  * 布局:收益统计(今日/累计/余额) + 提现入口 + 收益记录列表。
+ * 数据源:跨端共享 @ihui/api-client 的 distribution 端点(getOverview + getCommissionList + getDayMonthSummary)。
  */
 import { useEffect, useState } from 'react'
 import {
@@ -13,13 +14,18 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import { formatAmount } from '@ihui/shared/utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import {
+  getCommissionList,
+  getDayMonthSummary,
+  getOverview,
+  type CommissionRecord,
+} from '@ihui/api-client'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+/** 本地 UI 模型 — 从共享 CommissionRecord 映射而来 */
 interface CommissionItem {
   id: string
   title: string
@@ -28,25 +34,35 @@ interface CommissionItem {
   settled: boolean
 }
 
-interface CommissionData {
-  total_earnings: string | number
-  today_commission: string | number
-  balance: string | number
-  commission_list: CommissionItem[]
+interface IncomeData {
+  totalEarnings: number
+  todayCommission: number
+  balance: number
+  list: CommissionItem[]
 }
 
+// 初始空状态(非 mock 数据,API 返回前占位)
+const INITIAL_STATE: IncomeData = {
+  totalEarnings: 0,
+  todayCommission: 0,
+  balance: 0,
+  list: [],
+}
 
-const MOCK_FALLBACK: CommissionData = {
-  total_earnings: '0',
-  today_commission: '0',
-  balance: '0',
-  commission_list: [],
+/** 将共享 CommissionRecord 映射为本地 UI CommissionItem */
+function mapRecord(r: CommissionRecord): CommissionItem {
+  return {
+    id: r.id,
+    title: r.userNickname || r.orderId || '佣金收益',
+    amount: r.commissionAmount,
+    time: r.createdAt,
+    settled: r.status === 'settled' || r.status === 'completed',
+  }
 }
 
 export function IncomeScreen() {
   const navigation = useNavigation<NavigationProp>()
-  const { token, user } = useAuth()
-  const [data, setData] = useState<CommissionData>(MOCK_FALLBACK)
+  const [data, setData] = useState<IncomeData>(INITIAL_STATE)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -56,23 +72,21 @@ export function IncomeScreen() {
       setLoading(true)
       setError('')
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/trader/commission`, {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...(user?.id ? { 'X-User-Id': String(user.id) } : {}),
-          },
-        })
-        if (!resp.ok) throw new Error('http')
-        const json = (await resp.json()) as { data?: CommissionData }
+        const [overviewRes, listRes, dayMonthRes] = await Promise.all([
+          getOverview(),
+          getCommissionList({ page: 1, pageSize: 50 }),
+          getDayMonthSummary(),
+        ])
         if (cancelled) return
-        if (json.data) {
-          setData({
-            total_earnings: json.data.total_earnings ?? '0',
-            today_commission: json.data.today_commission ?? '0',
-            balance: json.data.balance ?? '0',
-            commission_list: json.data.commission_list ?? [],
-          })
+        if (!overviewRes.success || !listRes.success || !dayMonthRes.success) {
+          throw new Error('http')
         }
+        setData({
+          totalEarnings: overviewRes.data.totalCommission,
+          todayCommission: dayMonthRes.data.day,
+          balance: overviewRes.data.availableCommission,
+          list: listRes.data.list.map(mapRecord),
+        })
       } catch {
         if (!cancelled) setError('加载失败,请稍后重试')
       } finally {
@@ -82,7 +96,7 @@ export function IncomeScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, user?.id])
+  }, [])
 
   const handleWithdraw = () => {
     navigation.navigate('Withdraw' as never)
@@ -105,8 +119,8 @@ export function IncomeScreen() {
   }
 
   const stats = [
-    { label: '今日收益', value: formatAmount(data.today_commission, '0.00'), tone: 'primary' as const },
-    { label: '累计收益', value: formatAmount(data.total_earnings, '0.00'), tone: 'primary' as const },
+    { label: '今日收益', value: formatAmount(data.todayCommission, '0.00'), tone: 'primary' as const },
+    { label: '累计收益', value: formatAmount(data.totalEarnings, '0.00'), tone: 'primary' as const },
     { label: '可提现', value: formatAmount(data.balance, '0.00'), tone: 'accent' as const },
   ]
 
@@ -134,7 +148,7 @@ export function IncomeScreen() {
 
       <Text style={s.sectionTitle}>收益记录</Text>
       <FlatList
-        data={data.commission_list}
+        data={data.list}
         keyExtractor={(item, idx) => item.id ?? String(idx)}
         scrollEnabled={false}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}

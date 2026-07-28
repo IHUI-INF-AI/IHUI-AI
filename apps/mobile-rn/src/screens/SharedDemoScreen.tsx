@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import {
   AboutScreen,
@@ -17,30 +17,16 @@ import type {
   SharedThemeOption,
   SharedMenuItem,
 } from '@ihui/rn-app'
+import { getProfile, getUserStatistics, type AuthUser, type UserStatistics } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 
 type Tab = 'about' | 'profile' | 'settings' | 'cards'
 
-const MOCK_USER = {
-  id: '1',
-  nickname: '李思涵',
-  avatar: null,
-  email: 'lisihan@ihui.ai',
-  phone: '186****9808',
-}
-const MOCK_STATS = {
-  courseCount: 12,
-  favoriteCount: 34,
-  followingCount: 56,
-  fansCount: 78,
-  studyHours: 120,
-  points: 9800,
-}
-
 /**
  * SharedDemoScreen — RN 端共享组件集成验证页。
- * 引用 packages/app 的 3 个生产级共享组件 + 5 个跨端卡片组件,注入 t 函数 + 模拟数据 + 回调。
+ * 引用 packages/app 的 3 个生产级共享组件 + 5 个跨端卡片组件,注入 t 函数 + 真实 API 数据 + 回调。
+ * cards tab 的卡片组件演示数据保留(组件长相展示,非业务 mock)。
  */
 export function SharedDemoScreen() {
   const { t } = useI18n()
@@ -49,6 +35,30 @@ export function SharedDemoScreen() {
   const [locale, setLocale] = useState('zh-CN')
   const [theme, setTheme] = useState('system')
   const [notifications, setNotifications] = useState({ push: true, message: true, email: false })
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [stats, setStats] = useState<UserStatistics | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!__DEV__) return
+    let cancelled = false
+    setLoading(true)
+    Promise.all([getProfile(), getUserStatistics()])
+      .then(([profileRes, statsRes]) => {
+        if (cancelled) return
+        if (profileRes.success) setUser(profileRes.data)
+        if (statsRes.success) setStats(statsRes.data)
+      })
+      .catch(() => {
+        // 静默处理:loading 置 false,user/stats 仍为 null,UI 走"加载失败"分支
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   if (!__DEV__) return null
 
@@ -107,12 +117,17 @@ export function SharedDemoScreen() {
           <Text style={styles.tabText}>Cards</Text>
         </TouchableOpacity>
       </View>
+      {loading ? (
+        <Text style={styles.statusText}>加载中...</Text>
+      ) : !user ? (
+        <Text style={styles.statusText}>加载失败</Text>
+      ) : null}
       {tab === 'about' && <AboutScreen t={t} onBack={() => setTab('profile')} />}
       {tab === 'profile' && (
         <ProfileScreen
           t={t}
-          user={MOCK_USER}
-          stats={MOCK_STATS}
+          user={user ?? undefined}
+          stats={stats ?? undefined}
           orderCount={5}
           colorScheme={resolvedTheme}
           menuSections={menuSections}
@@ -124,7 +139,7 @@ export function SharedDemoScreen() {
       {tab === 'settings' && (
         <SettingsScreen
           t={t}
-          user={MOCK_USER}
+          user={user ?? undefined}
           locale={locale}
           localeOptions={localeOptions}
           onSelectLocale={(l) => setLocale(l)}
@@ -240,6 +255,12 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: tokens.brand.DEFAULT },
   tabText: { fontSize: 13, fontWeight: '500', color: tokens.text.medium },
+  statusText: {
+    padding: 12,
+    fontSize: 13,
+    color: tokens.text.tertiary,
+    textAlign: 'center',
+  },
   cardsScroll: { flex: 1 },
   cardsContent: { padding: 16, gap: 8 },
   sectionTitle: {
