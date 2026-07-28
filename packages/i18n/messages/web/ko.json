@@ -466,7 +466,7 @@
       "clearFilter": "필터 지우기",
       "filterPlaceholder": "폴더 필터링...",
       "nativePick": "시스템 선택기",
-      "nativePickHint": "시스템 기본 대화상자로 선택 (폴더 이름만, 전체 경로 보완 필요)",
+      "nativePickHint": "선택한 폴더:{name}(브라우저 보안 제한으로 전체 경로를 읽을 수 없음). 아래 목록이 같은 이름의 폴더로 자동 필터링되었습니다 — 클릭하거나 Enter 키로 열기",
       "computer": "내 PC",
       "parent": "상위 디렉토리",
       "rootHint": "이 레벨에서 드라이브를 선택하거나, 위에 전체 경로를 입력하세요",
@@ -1014,7 +1014,25 @@
     "durationDays": "{days}일",
     "buyButton": "지금 가입",
     "limitedOffer": "한정 특가",
-    "buyPrompt": "지금 VIP 가입하고 모든 전용 혜택을 잠금해제"
+    "buyPrompt": "지금 VIP 가입하고 모든 전용 혜택을 잠금해제",
+    "benefitList": {
+      "testPaymentFlow": "테스트 결제 흐름",
+      "unlimitedChat": "무제한 대화",
+      "exclusiveModel": "전용 모델",
+      "prioritySupport": "우선 지원",
+      "referral": "추천 보상",
+      "lifetime": "평생 혜택",
+      "distributionQualification": "배포 자격",
+      "aiCourses": "AI 강좌",
+      "founderQa": "창립자 Q&A",
+      "agentBeta": "Agent 베타",
+      "vipMaxDiscount": "VIP 최대 할인",
+      "customAgentDiscount": "맞춤형 Agent 할인",
+      "allVipRights": "모든 VIP 혜택",
+      "verticalAccountIncubation": "수직 계정 인큐베이팅",
+      "secondaryDistribution": "2차 배포",
+      "offlineLearning": "오프라인 학습"
+    }
   },
   "asks": {
     "title": "제목",
@@ -1066,7 +1084,13 @@
         "name": "기업판",
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"]
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ]
       }
     },
     "checkout": {
@@ -8791,32 +8815,56 @@
       "chat": {
         "label": "AI 채팅",
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI"]
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 드라마",
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI"]
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI"
+        ]
       },
       "search": {
         "label": "검색",
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"]
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 월드",
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"]
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ]
       },
       "profile": {
         "label": "프로필",
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"]
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ]
       },
       "settings": {
         "label": "설정",
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"]
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ]
       }
     }
   },
@@ -9163,19 +9211,31 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ]
         }
       ]
     },
@@ -9296,25 +9356,37 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"]
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"]
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"]
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ]
         }
       ]
     },
@@ -9633,7 +9705,6 @@
         "disconnectedShort": "오프라인",
         "tooltipError": "연결 오류: {error}"
       },
-
       "relativeTime": {
         "justNow": "방금",
         "secondsAgo": "{n}초 전",
@@ -10790,7 +10861,15 @@
       "sessions": "세션 수",
       "crashRate": "크래시율"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"],
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ],
     "dauTrend": {
       "title": "최근 7일 DAU 추이",
       "subtitle": "일일 활성 사용자 수 변화 곡선"
@@ -10934,8 +11013,18 @@
     "title": "AI 진로 지도",
     "subtitle": "자녀의 학습 상황을 입력하면 AI가 맞춤형 진로 지도를 생성합니다",
     "options": {
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"],
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -12406,7 +12495,12 @@
     "rechargeCount": "총 {n}회 충전",
     "packages": {
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       },
       "pro": {
         "features": [
