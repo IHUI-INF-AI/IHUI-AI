@@ -1,50 +1,43 @@
-import { useEffect, useState } from 'react'
-import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import type { FavoriteItem } from '@ihui/api-client'
-import { Badge, Card, Loading } from '@ihui/ui-native'
+import { BookmarkScreen as SharedBookmarkScreen } from '@ihui/rn-app'
+import type { BookmarkItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
-interface Bookmark extends Pick<FavoriteItem, 'id' | 'targetId' | 'title' | 'createdAt'> {
-  targetType: 'course' | 'article' | 'post' | 'note'
-}
-
-const BOOKMARK_TYPE_KEYS: Record<Bookmark['targetType'], string> = {
-  course: 'bookmark.type.course',
-  article: 'bookmark.type.article',
-  post: 'bookmark.type.post',
-  note: 'bookmark.type.note',
-}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function BookmarkScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [items, setItems] = useState<Bookmark[]>([])
+  const [items, setItems] = useState<BookmarkItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  const load = async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
+  const load = useCallback(async () => {
     setError('')
-    const res = await fetchApi<Bookmark[]>('/api/favorites')
-    if (res.success) setItems(res.data ?? [])
-    else setError(res.error || t('bookmark.loadFailed'))
-    setLoading(false)
-    setRefreshing(false)
-  }
+    try {
+      const res = await fetchApi<BookmarkItem[]>('/api/favorites')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
+    } catch {
+      setError(t('bookmark.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [t])
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [load])
 
-  const onPress = (item: Bookmark) => {
+  const onPressItem = (item: BookmarkItem) => {
     if (item.targetType === 'course') navigation.navigate('CourseDetail', { id: item.targetId })
     else if (item.targetType === 'article')
       navigation.navigate('ArticleDetail', { id: item.targetId })
@@ -52,7 +45,7 @@ export function BookmarkScreen() {
     else if (item.targetType === 'note') navigation.navigate('NoteDetail', { id: item.targetId })
   }
 
-  const onRemove = async (item: Bookmark) => {
+  const onRemove = async (item: BookmarkItem) => {
     const res = await fetchApi<void>(`/api/bookmarks/${encodeURIComponent(item.id)}`, {
       method: 'DELETE',
     })
@@ -60,62 +53,21 @@ export function BookmarkScreen() {
     else setError(res.error || t('common.failed'))
   }
 
-  if (loading)
-    return (
-      <View className="flex-1 items-center justify-center bg-card p-4">
-        <Loading />
-        <Text className="mt-2 text-[13px] text-muted-foreground">{t('common.loading')}</Text>
-      </View>
-    )
-  if (error && items.length === 0)
-    return (
-      <View className="flex-1 items-center justify-center bg-card p-4">
-        <Text className="mb-2 text-center text-[13px] text-destructive">{error}</Text>
-        <TouchableOpacity
-          className="mt-3 rounded-md bg-primary px-4 py-2"
-          onPress={() => navigation.goBack()}
-        >
-          <Text className="text-sm text-primary-foreground">{t('common.back')}</Text>
-        </TouchableOpacity>
-      </View>
-    )
   return (
-    <View className="flex-1 bg-card px-4 pt-12">
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
-      </TouchableOpacity>
-      <Text className="mb-3 mt-2 text-[22px] font-semibold text-foreground">
-        {t('bookmark.title')}
-      </Text>
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-        ListEmptyComponent={
-          <View className="items-center py-10">
-            <Text className="text-[13px] text-muted-foreground">{t('bookmark.empty')}</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <Card className="mb-2 flex-row items-center p-3">
-            <TouchableOpacity className="flex-1" onPress={() => onPress(item)}>
-              <View className="mb-1 flex-row justify-between">
-                <Badge variant="secondary" label={t(BOOKMARK_TYPE_KEYS[item.targetType])} />
-                <Text className="text-[11px] text-muted-foreground">{item.createdAt}</Text>
-              </View>
-              <Text className="text-sm font-medium text-foreground" numberOfLines={2}>
-                {item.title}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="ml-2 rounded-md bg-destructive/10 px-2.5 py-1.5"
-              onPress={() => onRemove(item)}
-            >
-              <Text className="text-xs text-destructive">{t('bookmark.remove')}</Text>
-            </TouchableOpacity>
-          </Card>
-        )}
-      />
-    </View>
+    <SharedBookmarkScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onPressItem={onPressItem}
+      onRemove={onRemove}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }

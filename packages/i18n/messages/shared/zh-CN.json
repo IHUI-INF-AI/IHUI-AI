@@ -224,6 +224,19 @@
     "viewDetail": "查看详情",
     "withdraw": "提现"
   },
+  "bookmark": {
+    "empty": "暂无收藏",
+    "loadFailed": "加载收藏失败",
+    "remove": "取消收藏",
+    "title": "我的收藏",
+    "type": {
+      "article": "文章",
+      "course": "课程",
+      "note": "笔记",
+      "other": "其他",
+      "post": "动态"
+    }
+  },
   "faq": {
     "categoryDeploy": "部署与运维",
     "categoryGeneral": "平台介绍",
