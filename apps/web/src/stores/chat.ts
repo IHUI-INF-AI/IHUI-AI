@@ -168,6 +168,11 @@ interface ChatState {
   ) => void
 }
 
+// P1-1 修复(2026-07-28):长会话 messages 数组无上限会导致内存爆炸,
+// 保留最近 MAX_MESSAGES 条(滑动窗口),超出时丢弃最旧消息。
+// 500 条足够覆盖大部分长对话场景,且内存占用可控。
+const MAX_MESSAGES = 500
+
 function genId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -225,7 +230,14 @@ export const useChatStore = create<ChatState>()(
           // 用户消息不传(无模式),AI 消息由调用方传入当前工作区模式
           permissionMode: msg.permissionMode,
         }
-        set((s) => ({ messages: [...s.messages, message] }))
+        set((s) => {
+          const messages = s.messages.concat(message)
+          // P1-1 修复:超过上限时丢弃最旧消息(滑动窗口),防止长会话内存爆炸
+          if (messages.length > MAX_MESSAGES) {
+            messages.splice(0, messages.length - MAX_MESSAGES)
+          }
+          return { messages }
+        })
         return id
       },
 
@@ -320,52 +332,67 @@ export const useChatStore = create<ChatState>()(
       resetSubAgentActivities: () => set({ subAgentActivities: [] }),
 
       addToolCall: (messageId, toolCall) =>
-        set((s) => ({
-          messages: s.messages.map((m) => {
-            if (m.id !== messageId) return m
-            const fullCall: ToolCall = {
-              ...toolCall,
-              status: toolCall.status ?? 'running',
-            }
-            const exists = m.toolCalls?.some((tc) => tc.id === fullCall.id)
-            return {
-              ...m,
-              toolCalls: exists ? m.toolCalls : [...(m.toolCalls ?? []), fullCall],
-            }
-          }),
-        })),
+        set((s) => {
+          // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历,
+          // 只更新目标消息引用,其他消息引用不变 → 配合 React.memo 避免全量重渲染
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const fullCall: ToolCall = {
+            ...toolCall,
+            status: toolCall.status ?? 'running',
+          }
+          // 已存在同 id 的 toolCall 不重复添加(与原 map 实现语义一致)
+          const exists = target.toolCalls?.some((tc) => tc.id === fullCall.id)
+          if (exists) return s
+          const next = s.messages.slice()
+          next[idx] = {
+            ...target,
+            toolCalls: [...(target.toolCalls ?? []), fullCall],
+          }
+          return { messages: next }
+        }),
 
       updateToolCall: (messageId, toolCallId, updates) =>
-        set((s) => ({
-          messages: s.messages.map((m) => {
-            if (m.id !== messageId || !m.toolCalls) return m
-            return {
-              ...m,
-              toolCalls: m.toolCalls.map((tc) =>
-                tc.id === toolCallId ? { ...tc, ...updates } : tc,
-              ),
-            }
-          }),
-        })),
+        set((s) => {
+          // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target || !target.toolCalls) return s
+          const tcIdx = target.toolCalls.findIndex((tc) => tc.id === toolCallId)
+          if (tcIdx === -1) return s
+          const oldTc = target.toolCalls[tcIdx]
+          if (!oldTc) return s // 类型收窄:确保 oldTc 是 ToolCall(noUncheckedIndexedAccess)
+          const next = s.messages.slice()
+          const newToolCalls = target.toolCalls.slice()
+          newToolCalls[tcIdx] = { ...oldTc, ...updates }
+          next[idx] = { ...target, toolCalls: newToolCalls }
+          return { messages: next }
+        }),
 
       setToolCallApplyStatus: (messageId, toolCallId, status, errorMessage) =>
-        set((s) => ({
-          messages: s.messages.map((m) => {
-            if (m.id !== messageId || !m.toolCalls) return m
-            return {
-              ...m,
-              toolCalls: m.toolCalls.map((tc) =>
-                tc.id === toolCallId
-                  ? {
-                      ...tc,
-                      applyStatus: status,
-                      applyError: status === 'error' ? errorMessage : undefined,
-                    }
-                  : tc,
-              ),
-            }
-          }),
-        })),
+        set((s) => {
+          // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target || !target.toolCalls) return s
+          const tcIdx = target.toolCalls.findIndex((tc) => tc.id === toolCallId)
+          if (tcIdx === -1) return s
+          const oldTc = target.toolCalls[tcIdx]
+          if (!oldTc) return s // 类型收窄:确保 oldTc 是 ToolCall(noUncheckedIndexedAccess)
+          const next = s.messages.slice()
+          const newToolCalls = target.toolCalls.slice()
+          newToolCalls[tcIdx] = {
+            ...oldTc,
+            applyStatus: status,
+            applyError: status === 'error' ? errorMessage : undefined,
+          }
+          next[idx] = { ...target, toolCalls: newToolCalls }
+          return { messages: next }
+        }),
     }),
     {
       name: 'ihui-chat',

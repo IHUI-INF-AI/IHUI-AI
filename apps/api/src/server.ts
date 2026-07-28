@@ -63,7 +63,9 @@ import tenantDbPlugin from './plugins/tenant-db.js'
 import { tokenBalanceService } from './plugins/token-balance-service.js'
 import { resilienceToolkit } from './plugins/resilience-toolkit.js'
 import canaryRouterPlugin from './plugins/canary-router.js'
-import { startAutoRollbackMonitor } from './services/auto-rollback.js'
+import { startAutoRollbackMonitor, stopAutoRollbackMonitor } from './services/auto-rollback.js'
+import { routineManager } from './services/workspace-ai-service.js'
+import { stopScheduledWarmup } from './services/cache-warmup-service.js'
 import searchAspectPlugin from './plugins/search-aspect.js'
 import watchAspectPlugin from './plugins/watch-aspect.js'
 import pointAspectPlugin from './plugins/point-aspect.js'
@@ -193,6 +195,13 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // 启动金丝雀自动回滚监控（CANARY_ENABLED=true 时生效，默认空操作）
   startAutoRollbackMonitor()
+
+  // P0 修复:注册 onClose 钩子清理后台定时器,防止进程无法优雅退出
+  server.addHook('onClose', async () => {
+    try { stopAutoRollbackMonitor() } catch {}
+    try { routineManager.stopScheduler() } catch {}
+    try { stopScheduledWarmup() } catch {}
+  })
 
   return server
 }
