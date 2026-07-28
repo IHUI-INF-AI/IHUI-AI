@@ -17,6 +17,11 @@ import {
   Package,
   X,
   Info,
+  Target,
+  Repeat,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -489,18 +494,46 @@ export function MessageInput({
   }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t])
 
   const slashCommands = [
-    // 动作型命令(2026-07-25 立,对标 Trae SOLO Plan 模式):置顶,切换 plan/act 模式
+    // 🎯 目标与循环(2026-07-29 立,置顶重点:AI 编程最主流的命令)
+    // /goal <目标条件>:设定当前会话目标,AI 围绕目标执行(对标 AGENTS.md §8 goal 模式工作流)
+    // /loop on|off|N:设置循环执行模式(对标 ai-service slash_commands.py _loop_handler)
+    // 两者都是 template 类型 + hasArgs=true:点击后填充命令到 textarea,用户继续输入参数,Enter 发送
+    {
+      id: 'goal',
+      label: '/goal',
+      description: t('slashCmd.goal'),
+      usage: '/goal <目标>',
+      kind: 'template' as const,
+      category: 'goal' as const,
+      icon: <Target className="h-4 w-4" />,
+      hasArgs: true,
+    },
+    {
+      id: 'loop',
+      label: '/loop',
+      description: t('slashCmd.loop'),
+      usage: '/loop on|off|N',
+      kind: 'template' as const,
+      category: 'goal' as const,
+      icon: <Repeat className="h-4 w-4" />,
+      hasArgs: true,
+    },
+    // ⚡ 模式切换(2026-07-25 立,对标 Trae SOLO Plan 模式):切换 plan/act 模式
     {
       id: 'plan',
       label: '/plan',
       description: t('slashCmd.plan'),
       kind: 'action' as const,
+      category: 'mode' as const,
+      icon: <BookOpen className="h-4 w-4" />,
     },
     {
       id: 'act',
       label: '/act',
       description: t('slashCmd.act'),
       kind: 'action' as const,
+      category: 'mode' as const,
+      icon: <Hammer className="h-4 w-4" />,
     },
     // 对话模式动作型命令(2026-07-28 立,补全 ChatMode 4态三通道):
     // /build /review /spec 切换 ChatMode,/plan /act 同时联动 ChatMode 和 Plan/Act
@@ -509,20 +542,26 @@ export function MessageInput({
       label: '/build',
       description: t('slashCmd.build'),
       kind: 'action' as const,
+      category: 'mode' as const,
+      icon: <Hammer className="h-4 w-4" />,
     },
     {
       id: 'review',
       label: '/review',
       description: t('slashCmd.review'),
       kind: 'action' as const,
+      category: 'mode' as const,
+      icon: <Search className="h-4 w-4" />,
     },
     {
       id: 'spec',
       label: '/spec',
       description: t('slashCmd.spec'),
       kind: 'action' as const,
+      category: 'mode' as const,
+      icon: <FileText className="h-4 w-4" />,
     },
-    // 权限模式动作型命令(2026-07-25 深化,深度对标 Codex approvalMode CLI):
+    // 🔐 权限管理(2026-07-25 深化,深度对标 Codex approvalMode CLI):
     // /permission ask|auto|full 切换工作区权限模式(不进入 LLM 流,纯本地 UI 状态)
     // description 用 \n 拼接短描述 + 用法提示(2026-07-25 深化,提示用户支持的 3 个子命令)
     {
@@ -530,29 +569,42 @@ export function MessageInput({
       label: '/permission ask',
       description: `${t('slashCmd.permissionAsk')}\n${t('permission.usageHint')}`,
       kind: 'action' as const,
+      category: 'permission' as const,
+      icon: <Shield className="h-4 w-4" />,
     },
     {
       id: 'permission-auto',
       label: '/permission auto',
       description: `${t('slashCmd.permissionAuto')}\n${t('permission.usageHint')}`,
       kind: 'action' as const,
+      category: 'permission' as const,
+      icon: <ShieldCheck className="h-4 w-4" />,
     },
     {
       id: 'permission-full',
       label: '/permission full',
       description: `${t('slashCmd.permissionFull')}\n${t('permission.usageHint')}`,
       kind: 'action' as const,
+      category: 'permission' as const,
+      icon: <ShieldAlert className="h-4 w-4" />,
     },
-    // 模板型命令:选命令后填充模板到 textarea
+    // 📝 内容模板:选命令后填充模板到 textarea
     ...SLASH_COMMAND_IDS.map((id) => ({
       id,
       label: `/${id}`,
       description: t(SLASH_CMD_KEY_MAP[id] ?? id),
       kind: 'template' as const,
+      category: 'template' as const,
+      icon: <Sparkles className="h-4 w-4" />,
     })),
   ]
 
   const commandTemplates: Record<string, string> = {
+    // /goal /loop 命令(2026-07-29 立,重点命令:填充命令到 textarea 让用户继续输入参数)
+    // 点击后 textarea 内容为 "/goal " 或 "/loop ",光标在末尾,用户输入参数后 Enter 发送
+    // 后端 ai-service slash_commands.py 的 _goal_handler / _loop_handler 负责实际处理
+    goal: '/goal ',
+    loop: '/loop ',
     summary: t('cmdSummary'),
     translate: t('cmdTranslate'),
     explain: t('cmdExplain'),
