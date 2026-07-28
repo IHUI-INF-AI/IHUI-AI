@@ -1013,6 +1013,17 @@ export interface Notice {
   [key: string]: unknown
 }
 
+// ============ Group Letter (群消息会话) ============
+export interface GroupLetterMember {
+  groupId: string
+  groupName: string
+  avatar?: string
+  lastMessage?: string
+  lastMessageTime?: string
+  unreadCount?: number
+  [key: string]: unknown
+}
+
 // ═══════════════════════════════════════════════════════════
 // 33. Point 模块 — 积分(对应旧架构 point/index.ts)
 // ═══════════════════════════════════════════════════════════

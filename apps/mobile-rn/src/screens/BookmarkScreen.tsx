@@ -3,16 +3,13 @@ import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-na
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import type { FavoriteItem } from '@ihui/api-client'
 import { Badge, Card, Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-interface Bookmark {
-  id: string
-  targetId: string
+interface Bookmark extends Pick<FavoriteItem, 'id' | 'targetId' | 'title' | 'createdAt'> {
   targetType: 'course' | 'article' | 'post' | 'note'
-  title: string
-  savedAt: string
 }
 
 const BOOKMARK_TYPE_KEYS: Record<Bookmark['targetType'], string> = {
@@ -104,7 +101,7 @@ export function BookmarkScreen() {
             <TouchableOpacity className="flex-1" onPress={() => onPress(item)}>
               <View className="mb-1 flex-row justify-between">
                 <Badge variant="secondary" label={t(BOOKMARK_TYPE_KEYS[item.targetType])} />
-                <Text className="text-[11px] text-muted-foreground">{item.savedAt}</Text>
+                <Text className="text-[11px] text-muted-foreground">{item.createdAt}</Text>
               </View>
               <Text className="text-sm font-medium text-foreground" numberOfLines={2}>
                 {item.title}
