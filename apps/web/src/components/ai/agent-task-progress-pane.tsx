@@ -153,43 +153,6 @@ export function AgentTaskProgressPane() {
   const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
 
-  // v8 零窜位:动态探测 trigger 位置,设置 CSS 变量让 popover 覆盖在 trigger 上方
-  // - trigger 始终在 inline 流中占同一位置(由 agent-progress-trigger.tsx 永远渲染)
-  // - popover 用 fixed 浮层覆盖(由 store.open 联动显隐),inline 流零变化
-  // - 这里探测 trigger 的 getBoundingClientRect 算覆盖位置;视口 resize/scroll 重新计算
-  const [panePos, setPanePos] = React.useState<{ top: number; left: number } | null>(null)
-  React.useEffect(() => {
-    if (!open) {
-      setPanePos(null)
-      return
-    }
-    const updatePos = () => {
-      const trigger = document.querySelector<HTMLElement>('[data-testid="agent-progress-trigger"]')
-      if (!trigger) {
-        setPanePos(null)
-        return
-      }
-      const rect = trigger.getBoundingClientRect()
-      // 覆盖在 trigger 上方:popover 底部对齐 trigger 顶部,水平居中
-      const POPOVER_W = 280
-      const GAP = 8
-      let left = rect.left + rect.width / 2 - POPOVER_W / 2
-      // 视口边缘保护:不超出视口左右各 8px
-      const minLeft = 8
-      const maxLeft = window.innerWidth - POPOVER_W - 8
-      left = Math.max(minLeft, Math.min(maxLeft, left))
-      const top = rect.top - GAP
-      setPanePos({ top, left })
-    }
-    updatePos()
-    window.addEventListener('resize', updatePos)
-    window.addEventListener('scroll', updatePos, true)
-    return () => {
-      window.removeEventListener('resize', updatePos)
-      window.removeEventListener('scroll', updatePos, true)
-    }
-  }, [open])
-
   // v9: token 统计(汇总 planSteps + subagents 的 tokenUsage)
   const totalTokens = React.useMemo(() => {
     const planTokens = planSteps.reduce((sum, s) => sum + (s.tokenUsage ?? 0), 0)
@@ -383,24 +346,15 @@ export function AgentTaskProgressPane() {
     <div
       ref={paneRef}
       className={cn(
-        // v8 零窜位:fixed 浮层覆盖在 trigger 上方(用户规则:弹窗覆盖内容 悬浮态)
-        // 位置由内联 style 动态计算(trigger.getBoundingClientRect()),
-        // 绝对定位(absolute)改成 fixed 避免被 message-input 容器裁切或推挤 inline 流。
-        'fixed z-50',
+        // 位置:消息区右上角固定(absolute + right-2 top-2),用户特意要求设计放在这里
+        // trigger 永远渲染(由 agent-progress-trigger.tsx 维护),open=true 时 invisible 占位
+        // → popover absolute 浮在右上角不影响 inline 流 → 周围内容零窜位
+        'absolute right-2 top-2 z-50',
         // 尺寸:紧凑 popover + 高度自适应(视口 60vh,内容多时整体滚动)
         'flex w-[280px] max-h-[60vh] flex-col',
         // 外观:圆角边框阴影,popover 风格
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
-        // 显隐动画:fade + translateY
-        'animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-150',
       )}
-      // 动态位置:覆盖在 trigger 上方,水平居中对齐
-      // - panePos 来自 trigger.getBoundingClientRect() 探测(effect 动态更新)
-      // - null 时 fall back 到视口右上角(trigger 未挂载/SSR 场景)
-      style={{
-        top: panePos ? `${panePos.top}px` : '8px',
-        left: panePos ? `${panePos.left}px` : 'calc(100vw - 296px)',
-      }}
       role="complementary"
       aria-label={t('pane.ariaLabel')}
       data-testid="agent-progress-pane"
