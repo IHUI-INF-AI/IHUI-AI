@@ -103,6 +103,8 @@ export {
 } from './endpoints/distribution'
 export * from './endpoints/edu'
 export * from './endpoints/exam'
+// 文件上传端点(2026-07-28 立,mobile-rn AigcPublishScreen 接入真实文件选择+上传)
+export * from './endpoints/files'
 export * from './endpoints/learn'
 export * from './endpoints/live'
 export * from './endpoints/llm'
