@@ -3,8 +3,28 @@
 import * as React from 'react'
 import { MessageSquare, ListTree } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTimelineStore, type TimelineEvent, type TimelineTabName } from '@/stores/timeline-store'
+import {
+  useTimelineStore,
+  type TimelineEvent,
+  type TimelineEventStatus,
+  type TimelineTabName,
+} from '@/stores/timeline-store'
 import { TimelineEventRow } from './timeline-event'
+
+/** PlanStep.status → TimelineEventStatus 映射(2026-07-28 立,消除 unsafe cast) */
+function planStatusToTimelineStatus(s: string): TimelineEventStatus {
+  if (s === 'in_progress') return 'running'
+  if (s === 'completed') return 'done'
+  return 'pending'
+}
+
+/** Subagent.status → TimelineEventStatus 映射(2026-07-28 立) */
+function subagentStatusToTimelineStatus(s: string): TimelineEventStatus {
+  if (s === 'spawned' || s === 'running') return 'running'
+  if (s === 'done') return 'done'
+  if (s === 'failed' || s === 'dead') return 'failed'
+  return 'pending'
+}
 
 interface TimelineTabProps {
   showTabs?: boolean
@@ -157,7 +177,7 @@ export function flattenToTimelineEvents(input: {
         timestamp: p.timestamp,
         title: p.step,
         description: p.explanation,
-        status: p.status as TimelineEvent['status'],
+        status: planStatusToTimelineStatus(p.status),
       })
     }
   }
@@ -169,7 +189,7 @@ export function flattenToTimelineEvents(input: {
         type: 'subagent',
         timestamp: s.spawnedAt,
         title: `${s.handle} · ${s.currentTask ?? s.nickname}`,
-        status: s.status as TimelineEvent['status'],
+        status: subagentStatusToTimelineStatus(s.status),
       })
     }
   }

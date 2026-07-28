@@ -124,6 +124,8 @@ interface MessageItemProps {
   isHighlighted?: boolean
   isHovered?: boolean
   onContextMenu?: (e: React.MouseEvent) => void
+  linkedPlanStepId?: string | null
+  onMessageHover?: (messageId: string, planStepId: string | null) => void
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -136,11 +138,22 @@ const MessageItem = React.memo(function MessageItem({
   isHighlighted = false,
   isHovered = false,
   onContextMenu,
+  linkedPlanStepId = null,
+  onMessageHover,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   const isUser = m.role === 'user'
   const showTyping = !isUser && m.content === '' && isStreaming
   const streamingThis = !isUser && isStreaming && isLast
+
+  // Phase 19(2026-07-28 立):反向联动 — hover 消息时同步高亮 plan step,
+  // 通过 onMessageHover 回调通知父组件 → ProgressJumpStore.setHoveredPlanStep
+  const handleMouseEnter = React.useCallback(() => {
+    onMessageHover?.(m.id, linkedPlanStepId)
+  }, [onMessageHover, m.id, linkedPlanStepId])
+  const handleMouseLeave = React.useCallback(() => {
+    onMessageHover?.(m.id, null)
+  }, [onMessageHover, m.id])
 
   return (
     <div
@@ -152,6 +165,8 @@ const MessageItem = React.memo(function MessageItem({
       )}
       data-message-id={m.id}
       onContextMenu={onContextMenu}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div
         className={cn(
@@ -568,10 +583,23 @@ export function MessageList({
   const pendingJump = useProgressJumpStore((s) => s.pendingJumpToMessage)
   const highlightedMessageId = useProgressJumpStore((s) => s.highlightedMessageId)
   const hoveredMessageId = useProgressJumpStore((s) => s.hoveredMessageId)
+  const messageToPlanStepIds = useProgressJumpStore((s) => s.messageToPlanStepIds)
   const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
   const clearPendingJump = useProgressJumpStore((s) => s.clearPendingJump)
+  const setHoveredMessage = useProgressJumpStore((s) => s.setHoveredMessage)
+  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
   // 已处理的 pendingJump nonce(防止同一次 jump 重复触发 scrollIntoView)
   const handledJumpNonceRef = React.useRef<number>(-1)
+
+  // Phase 19(2026-07-28 立):反向联动 — hover AI 消息时同步高亮 plan step
+  // messageToPlanStepIds 由 pane 的 linkPlanStepToMessage 维护,本组件只读
+  const handleMessageHover = React.useCallback(
+    (messageId: string, planStepId: string | null) => {
+      setHoveredMessage(planStepId ? messageId : null)
+      setHoveredPlanStep(planStepId)
+    },
+    [setHoveredMessage, setHoveredPlanStep],
+  )
 
   // 监听 pendingJump:滚动到目标消息 + flashHighlight
   // PlanStepItem 点击 → ProgressJumpStore.requestJumpToMessage(id) → 此 effect 响应
@@ -1012,6 +1040,8 @@ export function MessageList({
                       onRejectDiff={onRejectDiff}
                       isHighlighted={highlightedMessageId === m.id}
                       isHovered={hoveredMessageId === m.id}
+                      linkedPlanStepId={messageToPlanStepIds[m.id]?.[0] ?? null}
+                      onMessageHover={handleMessageHover}
                       onContextMenu={(e) => {
                         contextMenu.setData(m)
                         contextMenu.contextMenuHandlers.onContextMenu(e)
