@@ -479,6 +479,11 @@ class AgentOrchestrator:
         # 每轮每个 Agent 的发言记录:[{agent, output, stance, status}]
         rounds_history: list[list[dict[str, Any]]] = []
 
+        # P2 修复:限制 prev_text 总字符数,防止 prompt 随轮次线性增长
+        # 每条发言截断 500 字符 × N 个 agent,agent 多或发言长时累计可能超 3000 字符
+        # 超过阈值时进一步截断每条发言到 200 字符,控制 prompt 体积(约 750 token 上限)
+        MAX_PREV_TEXT_CHARS = 3000
+
         # P2 修复:每轮内 N 个 agent 并行执行(asyncio.gather),轮次间保持串行
         # 原实现 N agent × M 轮 = N×M 次串行 LLM 调用(5×3=15 次,总耗时 1-7 分钟)
         # 修复后每轮仅等待最慢的 1 个 agent,总耗时 ≈ M × max_per_agent(参考 run_vote 并行模式)
@@ -556,6 +561,15 @@ class AgentOrchestrator:
                     f"{r.get('output', '')[:500]}"
                     for r in prev_round
                 ) + "\n\n"
+                # P2 修复:prev_text 超过阈值时,进一步截断每条发言到 200 字符
+                # 原每条 500 字符,N 个 agent 累计可能超 3000 字符(约 750 token)
+                # 截断到 200 字符后,N=5 时约 1000+格式开销,控制在 3000 字符内
+                if len(prev_text) > MAX_PREV_TEXT_CHARS:
+                    prev_text = "前序发言(已截断):\n" + "\n".join(
+                        f"[{r['agent']}](立场:{r.get('stance', 'unknown')}): "
+                        f"{r.get('output', '')[:200]}"
+                        for r in prev_round
+                    ) + "\n\n"
 
             # 并行执行本轮所有 agent(gather 保序,与原串行结果顺序一致)
             gathered = await asyncio.gather(
