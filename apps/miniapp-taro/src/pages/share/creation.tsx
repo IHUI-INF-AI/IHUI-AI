@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { NavBar } from '@/components'
 import ErrorView from '@/components/ErrorView'
 import { useI18n } from '@/i18n'
+import { formatDateByTemplate } from '@ihui/shared'
 
 interface ShareAnswer {
   thinking?: string
@@ -33,21 +34,7 @@ interface ShareContent {
   status?: number
 }
 
-const fmtTime = (iso: string) => {
-  try {
-    const ts = new Date(iso).getTime()
-    if (!ts) return ''
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(ts)
-  } catch {
-    return iso
-  }
-}
+const fmtTime = (iso: string) => formatDateByTemplate(iso, 'YYYY-MM-DD HH:mm')
 
 export default function ShareCreationPage() {
   const { t } = useI18n()
