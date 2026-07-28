@@ -1,0 +1,141 @@
+name: button-wrap-nightly
+
+# button 文字换行 nightly 扫描
+# - cron 北京时间 03:00 (UTC 19:00, 每天)
+# - 跑 scripts/check-shrinkable-text-button.mjs 全量扫描
+# - 命中时自动创建 GitHub Issue (labels: nightly / ui-bug / guardian)
+# - 报告始终上传为 artifact (30 天保留)
+#
+# 触发:
+#   - 定时: 每天 UTC 19:00 (北京时间次日 03:00)
+#   - 手动: Actions 页面 → Run workflow (无参数)
+
+on:
+  schedule:
+    # 北京时间 03:00 = UTC 19:00
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+# Security: least-privilege GITHUB_TOKEN
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  scan:
+    name: 扫描 button 文字换行违规
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # ============================================================
+      # 扫描: 默认无 --strict, 写 JSON 到 .trae-cn/tmp/, exit 0
+      # 命中判断由后续 step 读 JSON 文件自行判定
+      # ============================================================
+      - name: 扫描 button 文字换行违规
+        id: scan
+        run: |
+          mkdir -p .trae-cn/tmp
+          node scripts/check-shrinkable-text-button.mjs \
+            --scan \
+            --output .trae-cn/tmp/nightly-button-wrap.json \
+            --quiet
+
+      - name: 摘要 → step summary
+        run: |
+          report=$(cat .trae-cn/tmp/nightly-button-wrap.json)
+          hits=$(node -e "console.log(JSON.parse(process.argv[1]).summary.totalHits)" "$report")
+          files=$(node -e "console.log(JSON.parse(process.argv[1]).summary.filesAffected)" "$report")
+          buttons=$(node -e "console.log(JSON.parse(process.argv[1]).totalButtons)" "$report")
+          echo "### button-wrap nightly 扫描结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- 扫描 button 块: **${buttons}**" >> $GITHUB_STEP_SUMMARY
+          echo "- 命中: **${hits}**" >> $GITHUB_STEP_SUMMARY
+          echo "- 涉及文件: **${files}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "详细报告: \`nightly-button-wrap-report\` artifact" >> $GITHUB_STEP_SUMMARY
+
+      # ============================================================
+      # 命中时创建 GitHub Issue
+      # ============================================================
+      - name: 创建 GitHub Issue (命中时)
+        id: issue
+        env:
+          REPORT_PATH: .trae-cn/tmp/nightly-button-wrap.json
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync(process.env.REPORT_PATH, 'utf8'));
+            const hits = report.summary.totalHits;
+            const files = report.summary.filesAffected;
+            const date = new Date().toISOString().slice(0, 10);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            // 无命中 → 直接跳过 (return 不抛错)
+            if (hits === 0) {
+              core.info('未命中, 跳过 Issue 创建');
+              return;
+            }
+
+            // 命中 Top 20
+            const top = (report.hits || []).slice(0, 20).map((h) => {
+              return `- \`${h.file}:${h.line}\` label="${h.label}" 缺 ${(h.missing || []).join(', ')}`;
+            }).join('\n');
+
+            const body = [
+              '## Nightly button 文字换行违规扫描',
+              '',
+              `- 扫描时间: ${report.scannedAt}`,
+              `- 扫描 button 块: ${report.totalButtons}`,
+              `- 命中: **${hits}** 处`,
+              `- 涉及文件: ${files}`,
+              `- 耗时: ${report.summary.elapsedMs}ms`,
+              `- 扫描目录: ${(report.summary.scanDirs || []).join(', ')}`,
+              '',
+              '## 命中 Top 20',
+              '',
+              top,
+              '',
+              '---',
+              '',
+              '完整报告见 workflow run artifact: `nightly-button-wrap-report`',
+              '',
+              `由 \`.github/workflows/button-wrap-nightly.yml\` 自动创建 · ${runUrl}`,
+              '',
+            ].join('\n');
+
+            const title = `[nightly] button 文字换行违规 ${hits} 处 (${date})`;
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['nightly', 'ui-bug', 'guardian'],
+            });
+
+            core.info(`已创建 Issue #${issue.data.number}: ${issue.data.html_url}`);
+            core.setOutput('issue_number', String(issue.data.number));
+            core.setOutput('issue_url', issue.data.html_url);
+
+      # ============================================================
+      # 上传扫描报告 (artifact, 30 天保留)
+      # 无论命中与否都上传, 方便事后追溯
+      # ============================================================
+      - name: 上传扫描报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-button-wrap-report
+          path: .trae-cn/tmp/nightly-button-wrap.json
+          retention-days: 30
+          if-no-files-found: error
