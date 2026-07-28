@@ -1099,16 +1099,17 @@ Git 同步证据(§20 任务完成硬定义 5 条全绿,4 个 commit):
 ### 阶段 3:Mobile RN 对齐 shadcn(中长期 1-2 月,预期 2.3x → 2.0x)
 
 - [ ] P3-3.1 Mobile RN 引入 React Native Reusables + NativeWind — shadcn RN 端口,共享 design-tokens 视觉一致
-- [x] ✅(2026-07-29) P3-3.2 所有可共享 screen 迁到 packages/app — 14 个共享屏已迁移(超额完成 7 个最低要求):
+- [x] ✅(2026-07-29) P3-3.2 所有可共享 screen 迁到 packages/app — 21 个共享屏已迁移(超额完成 7 个最低要求 3 倍):
   - **批次 1(Feedback 试点)**: FeedbackScreen + FeedbackHistoryScreen
   - **批次 2(列表屏)**: BookmarkScreen + NotificationListScreen + HistoryScreen
   - **批次 3(状态屏)**: CertificateScreen + MessageCenterScreen
   - **批次 4(订单/计划)**: OrderScreen + StudyPlanScreen(commit cd7a215bd)
   - **批次 5(钱包/课程)**: WalletScreen + CourseCatalogScreen + Profile/Settings/About web demo 补齐 + AboutScreen colorScheme 改造(commit 08b63cb1aa)
-  - 已迁移清单: About/Profile/Settings/Feedback/FeedbackHistory/Bookmark/NotificationList/History/Certificate/MessageCenter/Order/StudyPlan/Wallet/CourseCatalog = 14 features
-  - 跨端契约: 全部类型上提到 @ihui/types 单一真相源 + packages/app re-export
+  - **批次 6(第三批列表屏)**: PointHistoryScreen + NoteListScreen + ArticleListScreen + AnnouncementScreen + LivePlaybackListScreen + RefundHistoryScreen + CourseQAListScreen(commit 3ab6cc3bdb)
+  - 已迁移清单: About/Profile/Settings/Feedback/FeedbackHistory/Bookmark/NotificationList/History/Certificate/MessageCenter/Order/StudyPlan/Wallet/CourseCatalog/PointHistory/NoteList/ArticleList/Announcement/LivePlaybackList/RefundHistory/CourseQAList = 21 features
+  - 跨端契约: 全部类型上提到 @ihui/types 单一真相源 + packages/app re-export(批次 6 新增 AppRefundStatus 避免 admin RefundStatus 命名冲突)
   - 共享层模式: props 注入式(t/items/loading/onPressItem/onBack/colorScheme)+ getTokens(colorScheme) 双主题 + react-native-web alias web 渲染
-  - 验证: pnpm --filter @ihui/types typecheck + @ihui/rn-app + @ihui/mobile-rn + @ihui/web 全绿
+  - 验证: pnpm --filter @ihui/types + @ihui/rn-app + @ihui/mobile-rn typecheck 全绿(批次 6: +1524/-658 行,7 mobile-rn wrapper 80-190 行→50-70 行薄 wrapper)
 - [ ] P3-3.3 mobile-rn 独立 screen 实现清零 — 改为 re-export packages/app,wrapper 只注入 navigation/fetchApi/useTheme
 - [ ] P3-3.4 阶段 3 全端验证 — mobile-rn 独立 screen 实现 = 0 + packages/app 覆盖 ≥ 7 features + 全端全绿 + cloc 降本至 ≤ 2.0x
 
