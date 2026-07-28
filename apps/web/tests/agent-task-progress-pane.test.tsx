@@ -171,6 +171,7 @@ vi.mock('lucide-react', () => ({
   SignalMedium: IconSpan,
   RotateCw: IconSpan,
   WifiOff: IconSpan,
+  ArrowDown: IconSpan,
 }))
 
 // Mock useChatStore.conversationId(避免引入整个 chat store)
@@ -298,11 +299,16 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(true)
   })
 
-  it('面板打开时 trigger 不渲染(与 popover 联动隐藏,v6)', () => {
+  it('面板打开时 trigger 仍渲染但 invisible 占位(v8 零窜位,周围 inline 流不变)', () => {
     useAgentProgressPaneStore.getState().openPane()
     render(<AgentProgressTrigger />)
-    // open=true → trigger 隐藏,把空间让给 popover
-    expect(screen.queryByTestId('agent-progress-trigger')).toBeNull()
+    // v8:open=true → trigger 永远渲染,popover 用 fixed 覆盖在 trigger 上方
+    // trigger 视觉隐藏(invisible)但 DOM 仍存在,inline 流位置零变化 → 周围内容零窜位
+    const trigger = screen.getByTestId('agent-progress-trigger')
+    expect(trigger).toBeTruthy()
+    expect(trigger.className).toContain('invisible')
+    expect(trigger.className).toContain('pointer-events-none')
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
   })
 
   it('trigger 默认态含背景色 + 描边(v6 bg-card + border-border)', () => {
@@ -1569,5 +1575,65 @@ describe('deriveConnectionState — Phase 16 状态推导', () => {
       const result = deriveConnectionState(...args)
       expect(states).toContain(result)
     }
+  })
+})
+
+// ─── Phase 17: 自动滚动 + 跳到最新按钮测试 ───
+describe('AgentTaskProgressPane — Phase 17 自动滚动 + 跳到最新', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('默认状态:无 threadId 时不渲染跳到最新按钮(无内容可滚)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    expect(container.querySelector('[data-testid="pane-jump-latest"]')).toBeNull()
+  })
+
+  it('滚到非底部时:跳到最新按钮可见', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    useAgentProgressPaneStore.getState().setThreadId('thread-scroll-1')
+    const { container } = render(<AgentTaskProgressPane />)
+    // 模拟滚到非底部
+    const planList = container.querySelector('[data-testid="plan-list"]') as HTMLElement
+    Object.defineProperty(planList, 'scrollHeight', { value: 1000, configurable: true })
+    Object.defineProperty(planList, 'clientHeight', { value: 200, configurable: true })
+    Object.defineProperty(planList, 'scrollTop', { value: 0, configurable: true })
+    fireEvent.scroll(planList)
+    // 跳到最新按钮应该出现
+    const jumpBtn = container.querySelector('[data-testid="pane-jump-latest"]')
+    expect(jumpBtn).toBeTruthy()
+  })
+
+  it('点击跳到最新:触发 scrollTo 并重置 autoScroll 状态', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    useAgentProgressPaneStore.getState().setThreadId('thread-scroll-2')
+    const { container } = render(<AgentTaskProgressPane />)
+    const planList = container.querySelector('[data-testid="plan-list"]') as HTMLElement
+    const scrollToMock = vi.fn()
+    planList.scrollTo = scrollToMock
+    Object.defineProperty(planList, 'scrollHeight', { value: 1000, configurable: true })
+    Object.defineProperty(planList, 'clientHeight', { value: 200, configurable: true })
+    Object.defineProperty(planList, 'scrollTop', { value: 0, configurable: true })
+    fireEvent.scroll(planList)
+    const jumpBtn = container.querySelector(
+      '[data-testid="pane-jump-latest"]',
+    ) as HTMLButtonElement
+    fireEvent.click(jumpBtn)
+    // scrollTo 已被调用
+    expect(scrollToMock).toHaveBeenCalled()
+  })
+
+  it('在底部时:不显示跳到最新按钮', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    useAgentProgressPaneStore.getState().setThreadId('thread-scroll-3')
+    const { container } = render(<AgentTaskProgressPane />)
+    const planList = container.querySelector('[data-testid="plan-list"]') as HTMLElement
+    // 模拟在底部(distanceFromBottom < 20)
+    Object.defineProperty(planList, 'scrollHeight', { value: 1000, configurable: true })
+    Object.defineProperty(planList, 'clientHeight', { value: 200, configurable: true })
+    Object.defineProperty(planList, 'scrollTop', { value: 800, configurable: true })
+    fireEvent.scroll(planList)
+    expect(container.querySelector('[data-testid="pane-jump-latest"]')).toBeNull()
   })
 })
