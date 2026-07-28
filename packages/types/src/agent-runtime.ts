@@ -717,34 +717,6 @@ export interface MemoryRetrievalResponse {
   durationMs: number
 }
 
-/** 自动记忆提取请求(从对话流中提取记忆) */
-export interface MemoryExtractionRequest {
-  /** 对话消息列表 */
-  messages: Array<{ role: string; content: string }>
-  /** 用户 ID */
-  userId: string
-  /** 会话 ID */
-  sessionId?: string
-  /** 已有记忆(避免重复提取) */
-  existingEntries?: MemoryEntry[]
-}
-
-/** 自动记忆提取结果 */
-export interface MemoryExtractionResult {
-  /** 提取出的新记忆 */
-  extracted: Array<{
-    type: MemoryEntryType
-    category: string
-    text: string
-    /** 提取置信度(0-1) */
-    confidence: number
-    /** 来源消息索引 */
-    sourceMessageIndex: number
-  }>
-  /** 提取耗时(ms) */
-  durationMs: number
-}
-
 /** 记忆衰减配置 */
 export interface MemoryDecayConfig {
   /** 衰减策略 */
