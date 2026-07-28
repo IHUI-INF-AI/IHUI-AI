@@ -114,7 +114,7 @@ export default function PublicUserProfilePage() {
   ]
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-start gap-4">
         <Avatar
           src={user.avatar ?? undefined}
@@ -124,7 +124,7 @@ export default function PublicUserProfilePage() {
         />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="break-words text-2xl font-bold tracking-tight">
+            <h1 className="break-words text-xl font-bold tracking-tight md:text-2xl">
               {user.nickname || 'User'}
             </h1>
             {isSelf && (
