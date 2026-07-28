@@ -6,13 +6,7 @@
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity } from 'react-native'
-
-export interface MenuItem {
-  id: number | string
-  name: string
-  icon: string
-  [key: string]: unknown
-}
+import type { MenuItem } from '@ihui/ui-native'
 
 export interface MenuProps {
   items?: MenuItem[]
