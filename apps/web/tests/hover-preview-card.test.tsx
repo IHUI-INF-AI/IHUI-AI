@@ -584,3 +584,220 @@ describe('useHoverPreview 集成 — 快速 hover-leave-hover 序列', () => {
     }
   })
 })
+
+// ─── Phase 19/20 深化:hover delay 200ms 触发 / Esc 关闭 / 焦点陷阱 / 边界尺寸 / a11y ──
+
+describe('HoverPreviewCard — Phase 19/20 a11y + 边界', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('role=tooltip 验证(屏幕阅读器朗读为"提示")', () => {
+    const { container } = render(
+      <HoverPreviewCard
+        visible={true}
+        position={{ x: 0, y: 0 }}
+        content={<span>preview</span>}
+      />,
+    )
+    const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
+    expect(card.getAttribute('role')).toBe('tooltip')
+  })
+
+  it('Esc 键:hover card 组件本身不自动处理 Esc(由父组件负责关闭)', () => {
+    // HoverPreviewCard 是纯展示组件,不绑定 keydown 监听
+    const { container } = render(
+      <HoverPreviewCard
+        visible={true}
+        position={{ x: 0, y: 0 }}
+        content={<span>preview</span>}
+      />,
+    )
+    const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
+    // 验证卡片元素存在
+    expect(card).toBeTruthy()
+    // Esc 不会引发组件自动消失(visible 仍为 true)
+    fireEvent.keyDown(card, { key: 'Escape' })
+    expect(container.querySelector('[data-testid="hover-preview-card"]')).toBeTruthy()
+  })
+
+  it('多种 position 坐标边界(0,0)/(-100,-200)/(9999,9999) 全部生效', () => {
+    const positions = [
+      { x: 0, y: 0 },
+      { x: -100, y: -200 },
+      { x: 9999, y: 9999 },
+      { x: 0.5, y: 0.5 },
+    ]
+    for (const pos of positions) {
+      const { container } = render(
+        <HoverPreviewCard
+          visible={true}
+          position={pos}
+          content={<span>preview at {pos.x},{pos.y}</span>}
+        />,
+      )
+      const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
+      // inline style 应保留原始数值(px 单位)
+      expect(card.style.left).toBe(`${pos.x}px`)
+      expect(card.style.top).toBe(`${pos.y}px`)
+      cleanup()
+    }
+  })
+
+  it('content 含复杂嵌套结构(div + ul + li)正确渲染', () => {
+    const complexContent = (
+      <div>
+        <h4>Title</h4>
+        <ul>
+          <li>item 1</li>
+          <li>item 2</li>
+        </ul>
+      </div>
+    )
+    const { container } = render(
+      <HoverPreviewCard
+        visible={true}
+        position={{ x: 0, y: 0 }}
+        content={complexContent}
+      />,
+    )
+    expect(container.querySelector('h4')?.textContent).toBe('Title')
+    expect(container.querySelectorAll('li').length).toBe(2)
+    expect(container.textContent).toContain('item 1')
+    expect(container.textContent).toContain('item 2')
+  })
+
+  it('多个 HoverPreviewCard 共存(visible=true 多个实例)', () => {
+    const { container } = render(
+      <>
+        <HoverPreviewCard
+          visible={true}
+          position={{ x: 10, y: 10 }}
+          content={<span>A</span>}
+          data-testid="card-a"
+        />
+        <HoverPreviewCard
+          visible={true}
+          position={{ x: 100, y: 100 }}
+          content={<span>B</span>}
+          data-testid="card-b"
+        />
+      </>,
+    )
+    expect(container.querySelectorAll('[data-testid^="card-"]').length).toBe(2)
+    expect(container.querySelector('[data-testid="card-a"]')?.textContent).toContain('A')
+    expect(container.querySelector('[data-testid="card-b"]')?.textContent).toContain('B')
+  })
+})
+
+describe('useHoverPreview 集成 — 200ms delay 自定义 + Esc 模拟', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('自定义 delayMs=200:200ms 后卡片出现', () => {
+    vi.useFakeTimers()
+    function CustomDelayConsumer(): React.ReactElement {
+      const anchorRef = React.useRef<HTMLDivElement | null>(null)
+      const preview = useHoverPreview<TestData>({
+        buildContent: (d) => <span>{d.name}</span>,
+        anchorRef,
+        data: { name: 'A', count: 1 },
+        delayMs: 200,
+      })
+      return (
+        <>
+          <div
+            ref={anchorRef}
+            data-testid="anchor-200"
+            onMouseEnter={preview.hoverHandlers.onMouseEnter}
+            onMouseLeave={preview.hoverHandlers.onMouseLeave}
+          >
+            X
+          </div>
+          {preview.visible && (
+            <HoverPreviewCard
+              visible={preview.visible}
+              position={preview.position}
+              content={preview.content}
+              data-testid="preview-200"
+            />
+          )}
+        </>
+      )
+    }
+    try {
+      render(<CustomDelayConsumer />)
+      const anchor = screen.getByTestId('anchor-200')
+      fireEvent.mouseEnter(anchor)
+      // 199ms: 未到 200ms,不显示
+      act(() => {
+        vi.advanceTimersByTime(199)
+      })
+      expect(screen.queryByTestId('preview-200')).toBeNull()
+      // 推进到 200ms: 显示
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
+      expect(screen.getByTestId('preview-200')).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('自定义 closeDelayMs=50:leave 50ms 后关闭', () => {
+    vi.useFakeTimers()
+    function CustomCloseConsumer(): React.ReactElement {
+      const anchorRef = React.useRef<HTMLDivElement | null>(null)
+      const preview = useHoverPreview<TestData>({
+        buildContent: (d) => <span>{d.name}</span>,
+        anchorRef,
+        data: { name: 'A', count: 1 },
+        delayMs: 50,
+        closeDelayMs: 50,
+      })
+      return (
+        <>
+          <div
+            ref={anchorRef}
+            data-testid="anchor-close"
+            onMouseEnter={preview.hoverHandlers.onMouseEnter}
+            onMouseLeave={preview.hoverHandlers.onMouseLeave}
+          >
+            X
+          </div>
+          {preview.visible && (
+            <HoverPreviewCard
+              visible={preview.visible}
+              position={preview.position}
+              content={preview.content}
+              data-testid="preview-close"
+            />
+          )}
+        </>
+      )
+    }
+    try {
+      render(<CustomCloseConsumer />)
+      const anchor = screen.getByTestId('anchor-close')
+      fireEvent.mouseEnter(anchor)
+      act(() => {
+        vi.advanceTimersByTime(50)
+      })
+      expect(screen.getByTestId('preview-close')).toBeTruthy()
+      fireEvent.mouseLeave(anchor)
+      // 49ms: 还没到 closeDelay
+      act(() => {
+        vi.advanceTimersByTime(49)
+      })
+      expect(screen.getByTestId('preview-close')).toBeTruthy()
+      // 1ms more: 50ms total → close
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
+      expect(screen.queryByTestId('preview-close')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
