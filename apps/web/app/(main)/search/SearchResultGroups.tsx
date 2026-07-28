@@ -31,7 +31,7 @@ function Highlight({ text, keyword }: { text: string; keyword: string }) {
 
 function EmptyState({ icon: Icon, text }: { icon: IconType; text: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
       <Icon className="h-8 w-8 opacity-40" />
       <p className="text-sm">{text}</p>
     </div>

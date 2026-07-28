@@ -26,7 +26,7 @@ export function SocialProof(): React.JSX.Element {
 
   return (
     <section className="mx-auto mt-14 max-w-5xl text-center">
-      <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+      <h2 className="text-xl font-bold tracking-tight md:text-2xl">
         {t('socialProof.title')}
       </h2>
       <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">

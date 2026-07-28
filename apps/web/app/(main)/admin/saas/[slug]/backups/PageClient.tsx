@@ -119,7 +119,7 @@ export default function TenantBackupsPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <BackBar />
 
         {/* 顶部标题 + 创建按钮 */}
@@ -129,7 +129,7 @@ export default function TenantBackupsPage() {
               <Database className="h-6 w-6 text-primary" />
               <CenteredText>{t('title', { slug })}</CenteredText>
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('subtitle')}</p>
           </div>
           <Button
             size="sm"
@@ -173,7 +173,7 @@ export default function TenantBackupsPage() {
             ) : isLoading ? (
               <Skeleton variant="list" count={4} />
             ) : backups.length === 0 ? (
-              <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
                 {t('empty')}
               </div>
             ) : (

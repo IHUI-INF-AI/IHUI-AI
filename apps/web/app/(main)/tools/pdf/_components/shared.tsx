@@ -18,7 +18,7 @@ export function ToolHeader({ title, description }: { title: string; description:
         PDF 工具
       </Link>
       <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <p className="text-xs text-muted-foreground">{description}</p>
     </header>
   )
 }

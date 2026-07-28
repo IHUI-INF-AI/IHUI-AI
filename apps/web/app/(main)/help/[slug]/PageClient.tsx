@@ -52,7 +52,7 @@ export default function HelpArticlePage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -79,7 +79,7 @@ export default function HelpArticlePage() {
   const toc = extractToc(a.content)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/help"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -89,7 +89,7 @@ export default function HelpArticlePage() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{a.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{a.title}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <BookOpen className="h-4 w-4" />

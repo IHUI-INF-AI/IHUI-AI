@@ -151,7 +151,7 @@ export default function KnowledgeGraphPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">
+    <div className="container mx-auto max-w-6xl px-4 py-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon" className="h-8 w-8">
@@ -243,14 +243,14 @@ export default function KnowledgeGraphPage() {
         </CardHeader>
         <CardContent>
           {graphQuery.isLoading ? (
-            <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {tCommon('loading')}
             </div>
           ) : graphQuery.isError ? (
-            <div className="py-12 text-center text-sm text-destructive">{tCommon('error')}</div>
+            <div className="py-8 text-center text-sm text-destructive">{tCommon('error')}</div>
           ) : entities.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">{t('emptyState')}</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">{t('emptyState')}</div>
           ) : (
             <div className="overflow-auto rounded-md border bg-muted/30">
               <svg
