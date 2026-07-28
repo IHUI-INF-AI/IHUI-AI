@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: tokens.surface.light,
     borderWidth: 1,
-    borderColor: '#e0e7ff',
+    borderColor: tokens.indigo.light,
   },
   avatar: {
     width: 56,
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   editText: {
     fontSize: 12,
-    color: '#6366f1',
+    color: tokens.indigo.DEFAULT,
     marginLeft: 4,
   },
   roleRow: {
@@ -168,15 +168,15 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   roleBadgeVip: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: tokens.warning.light,
   },
   roleText: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#4b5563',
+    color: tokens.gray.600,
   },
   roleTextVip: {
-    color: '#d97706',
+    color: tokens.warning.DEFAULT,
   },
   tokenRow: {
     flexDirection: 'row',
@@ -194,18 +194,18 @@ const styles = StyleSheet.create({
   },
   tokenLabel: {
     fontSize: 12,
-    color: '#a5b4fc',
+    color: tokens.indigo.DEFAULT,
   },
   tokenValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6366f1',
+    color: tokens.indigo.DEFAULT,
     marginLeft: 4,
   },
   rechargeBtn: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: '#6366f1',
+    backgroundColor: tokens.indigo.DEFAULT,
     borderRadius: 6,
   },
   rechargeBtnText: {

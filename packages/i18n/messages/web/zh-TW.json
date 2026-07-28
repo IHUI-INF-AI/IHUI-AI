@@ -469,6 +469,7 @@
       "filterPlaceholder": "篩選文件夾...",
       "nativePick": "系統選擇器",
       "nativePickHint": "用系統原生對話框選擇(只填文件夾名,需補完整路徑)",
+      "nativePickNotFound": "未在當前目錄找到「{name}」,請手動輸入完整路徑或導航到正確目錄",
       "computer": "此電腦",
       "parent": "上層目錄",
       "rootHint": "在此電腦層級選擇一個磁碟,或在上方輸入完整路徑",
