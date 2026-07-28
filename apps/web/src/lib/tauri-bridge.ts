@@ -155,14 +155,18 @@ export async function startWindowDrag(): Promise<void> {
 /**
  * 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
  * direction: n/s/e/w/ne/nw/se/sw
- * 非桌面端静默忽略。
+ * 非桌面端静默忽略。失败静默忽略(窗口最大化时 Rust 端会拒绝,不污染控制台)。
  */
 export async function startResize(
   direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw',
 ): Promise<void> {
   if (!isTauri()) return
   const label = getCurrentWindow().label
-  await invoke('start_resize', { direction, label })
+  try {
+    await invoke('start_resize', { direction, label })
+  } catch {
+    // 窗口最大化/最小化时 start_resize 会失败,静默忽略
+  }
 }
 
 /**
@@ -185,26 +189,58 @@ export async function toggleAlwaysOnTop(): Promise<boolean> {
 
 /**
  * 监听窗口最大化状态变化(P0-2:最大化按钮图标切换,2026-07-27 立)。
- * 返回清理函数。非桌面端返回 no-op。
+ *
+ * 2026-07-28 修复内存泄漏:
+ * - 原实现 cleanup 时若 Promise 未 resolve,unlisten 仍为 undefined → 监听器泄漏
+ * - 现用 ref 跟踪 Promise + cancelled flag,cleanup 时正确取消订阅
+ * - 加 100ms throttle 避免频繁拖动产生大量 IPC 调用
+ *
+ * 返回同步清理函数。非桌面端返回 no-op。
  */
 export function onMaximizeChange(callback: (maximized: boolean) => void): () => void {
   if (!isTauri()) return () => {}
   const win = getCurrentWindow()
-  let unlisten: (() => void) | undefined
-  win
-    .onResized(async () => {
+  let cancelled = false
+  let unlistenFn: (() => void) | null = null
+  let lastInvokeAt = 0
+  const THROTTLE_MS = 100
+
+  const promise = win.onResized(async () => {
+    if (cancelled) return
+    const now = Date.now()
+    if (now - lastInvokeAt < THROTTLE_MS) return
+    lastInvokeAt = now
+    try {
+      const max = await win.isMaximized()
+      if (!cancelled) callback(max)
+    } catch {
+      /* ignore */
+    }
+  })
+
+  promise.then((fn: () => void) => {
+    if (cancelled) {
+      // cleanup 已先于 Promise resolve 调用 → 立即取消订阅
       try {
-        const max = await win.isMaximized()
-        callback(max)
+        fn()
       } catch {
         /* ignore */
       }
-    })
-    .then((fn: () => void) => {
-      unlisten = fn
-    })
+    } else {
+      unlistenFn = fn
+    }
+  })
+
   return () => {
-    unlisten?.()
+    cancelled = true
+    if (unlistenFn) {
+      try {
+        unlistenFn()
+      } catch {
+        /* ignore */
+      }
+      unlistenFn = null
+    }
   }
 }
 
