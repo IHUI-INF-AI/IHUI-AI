@@ -282,7 +282,7 @@ export function LiveDetailScreen() {
           placeholder={t('live.chatPlaceholder')}
           editable={chatStatus === 'open'}
           className="flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-50"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={tokens.text.tertiary}
           returnKeyType="send"
           onSubmitEditing={onSend}
         />

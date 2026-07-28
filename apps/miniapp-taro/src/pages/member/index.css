@@ -1,3 +1,4 @@
+/* TODO: custom color: #ffd700 / #ffc107 / #d4a017 / #ff6b00 / #1a1a2e 为会员品牌金/橙色,无对应 token,保留原值 */
 .member-page {
   min-height: 100vh;
   background: var(--color-background);
@@ -18,7 +19,7 @@
   width: 120rpx;
   height: 120rpx;
   border-radius: 12rpx;
-  background: #fff;
+  background: var(--color-card);
   margin-right: 24rpx;
   flex-shrink: 0;
 }
@@ -30,7 +31,7 @@
   display: block;
   font-size: 36rpx;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-primary-foreground);
   margin-bottom: 12rpx;
   overflow: hidden;
   text-overflow: ellipsis;

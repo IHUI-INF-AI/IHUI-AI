@@ -12,7 +12,7 @@ export interface ToastProps {
 const COLORS: Record<string, string> = {
   success: 'bg-primary',
   error: 'bg-destructive',
-  warning: 'bg-[#f59e0b]',
+  warning: 'bg-warning',
   info: 'bg-primary',
 }
 
