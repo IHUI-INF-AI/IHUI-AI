@@ -44,7 +44,7 @@ export default function PdfSplitPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <ToolHeader
         title={t('title')}
         description={t('description')}

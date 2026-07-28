@@ -100,7 +100,7 @@ function SearchContent() {
           搜索结果
         </h1>
         {q && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             关键词「{q}」共找到 {total} 条结果
           </p>
         )}
@@ -117,12 +117,12 @@ function SearchContent() {
       </form>
 
       {!q ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Search className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">请输入搜索关键词</p>
         </div>
       ) : isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           搜索中...
         </div>
@@ -131,7 +131,7 @@ function SearchContent() {
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <FileText className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">未找到相关文章</p>
         </div>

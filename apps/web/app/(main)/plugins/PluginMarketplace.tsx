@@ -307,7 +307,7 @@ export function PluginMarketplace() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 工具栏:搜索 + 排序 */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -378,7 +378,7 @@ export function PluginMarketplace() {
 
       {/* 空状态 */}
       {filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex flex-col items-center justify-center py-8 text-center">
           <Search className="mb-3 h-10 w-10 text-muted-foreground/40" />
           <p className="text-sm font-medium text-muted-foreground">{t('emptyTitle')}</p>
           <p className="mt-1 text-xs text-muted-foreground/70">{t('emptyDesc')}</p>

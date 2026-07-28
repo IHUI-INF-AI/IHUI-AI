@@ -35,18 +35,18 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
     )
   }
   if (error) {
-    return <div className="py-12 text-center text-destructive">{error.message}</div>
+    return <div className="py-8 text-center text-destructive">{error.message}</div>
   }
   if (tags.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+      <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
         <Tag className="h-8 w-8 opacity-40" />
         <p className="text-sm">{t('noData')}</p>
       </div>

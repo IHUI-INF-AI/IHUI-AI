@@ -23,7 +23,7 @@ export function Guarantee(): React.JSX.Element {
   return (
     <section className="mx-auto mt-14 max-w-5xl">
       <div className="text-center">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">
           {t('guarantee.title')}
         </h2>
       </div>

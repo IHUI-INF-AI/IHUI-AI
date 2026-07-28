@@ -47,11 +47,11 @@ export default async function UsersPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('users.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('users.subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('users.subtitle')}</p>
         </div>
         <Button size="sm" className="gap-1.5">
           <UserPlus className="h-3.5 w-3.5" />

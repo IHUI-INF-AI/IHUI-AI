@@ -121,7 +121,7 @@ export default function AiMetricsPage() {
   const showError = error && !sse && !pc && !vip
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -152,7 +152,7 @@ export default function AiMetricsPage() {
 
       {showError ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+          <CardContent className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <AlertCircle className="h-8 w-8 text-red-600" />
             <p className="text-sm text-muted-foreground">{t('loadFailed')}</p>
           </CardContent>
