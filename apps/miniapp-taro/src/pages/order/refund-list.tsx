@@ -3,6 +3,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getRefundList } from '@/api'
 import { useI18n } from '@/i18n'
+import { formatDateByTemplate } from '@ihui/shared'
 import './refund-list.css'
 
 type RefundStatus = 'refunding' | 'refunded' | 'rejected'
@@ -27,23 +28,6 @@ interface TimelineStep {
 }
 
 const PAGE_SIZE = 10
-
-const toMs = (v: unknown): number => {
-  if (typeof v === 'number') return v > 1e12 ? v : v * 1000
-  const n = Number(v)
-  if (!isNaN(n) && n > 0) return n > 1e12 ? n : n * 1000
-  const d = Date.parse(String(v))
-  return isNaN(d) ? 0 : d
-}
-
-const formatTime = (v: unknown): string => {
-  const ms = toMs(v)
-  if (!ms) return v ? String(v) : ''
-  const d = new Date(ms)
-  if (isNaN(d.getTime())) return ''
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
 
 const toYuan = (cents: number) => ((cents || 0) / 100).toFixed(2)
 
@@ -104,10 +88,10 @@ export default function RefundList() {
         title: String(u.title ?? u.productName ?? ''),
         amount: Number(u.amount ?? 0),
         status: normalizeStatus(u.status, u.refundStatus),
-        applyTime: formatTime(u.applyTime ?? u.createTime ?? u.refundTime),
+        applyTime: formatDateByTemplate((u.applyTime ?? u.createTime ?? u.refundTime) as string | number | Date | null | undefined, 'YYYY-MM-DD HH:mm'),
         reason: String(u.reason ?? u.refundReason ?? ''),
-        refundTime: formatTime(u.refundTime),
-        estimateTime: formatTime(u.estimateTime ?? u.refundTime),
+        refundTime: formatDateByTemplate(u.refundTime as string | number | Date | null | undefined, 'YYYY-MM-DD HH:mm'),
+        estimateTime: formatDateByTemplate((u.estimateTime ?? u.refundTime) as string | number | Date | null | undefined, 'YYYY-MM-DD HH:mm'),
       }))
       setRawList((prev) => (reset ? items : [...prev, ...items]))
       const more = pageRef.current * PAGE_SIZE < (res.total ?? 0)
