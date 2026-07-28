@@ -611,7 +611,9 @@
       "review": "レビューモードに切替(読み取り専用、強化コードレビュー)",
       "spec": "スペックモードに切替(コードから spec 文書を逆生成)",
       "goal": "現在のセッション目標を設定(AIが目標に沿って実行、goal モードワークフローに入る)",
-      "loop": "ループ実行モードを設定(on 開始 / off 停止 / N 反復回数)"
+      "loop": "ループ実行モードを設定(on 開始 / off 停止 / N 反復回数)",
+      "goalArgTitle": "目標テンプレートを選択",
+      "loopArgTitle": "ループモードを選択"
     },
     "cmdSummary": "のをし、なをしてください",
     "cmdTranslate": "のをにしてください：",
@@ -9832,6 +9834,14 @@
       "timelineNoMatch": "フィルターに一致するイベントがありません",
       "timelineClearFilters": "フィルターをクリア",
       "timelineExport": "Markdown としてエクスポート",
+      "timelineSubagentSpawn": "サブエージェント開始",
+      "timelineSubagentProgress": "実行中",
+      "timelineSubagentEnd": "サブエージェント完了",
+      "timelineSubagentFailed": "サブエージェント失敗",
+      "timelineSubagentThinking": "思考中",
+      "timelineSubagentToolCall": "ツール呼び出し",
+      "timelineSubagentToolResult": "ツール結果",
+      "timelineSubagentOutputReady": "出力準備完了",
       "sseStatus": {
         "connected": "接続済み",
         "connecting": "接続中",
