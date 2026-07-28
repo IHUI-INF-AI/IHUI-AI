@@ -1,5 +1,6 @@
 import type { LinkingOptions } from '@react-navigation/native'
 import type { RootStackParamList } from './RootNavigator'
+import { WEB_BASE } from '@ihui/shared/constants'
 
 /**
  * react-navigation linking 配置。
@@ -7,7 +8,7 @@ import type { RootStackParamList } from './RootNavigator'
  * 只配置关键路由,其他路由走 navigation.navigate 不受影响。
  */
 export const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: ['ihui://', 'https://ihui.ai'],
+  prefixes: ['ihui://', WEB_BASE],
   config: {
     screens: {
       // 首页:空路径匹配根路径 /

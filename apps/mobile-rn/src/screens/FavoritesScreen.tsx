@@ -4,13 +4,12 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card } from '@ihui/ui-native'
 import { getFavorites, type FavoriteItem } from '@ihui/api-client'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 import { deleteFavorite } from '../api/social'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateWithYear } from '../utils/date-utils'
-
-const PAGE_SIZE = 20
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -20,7 +19,7 @@ export function FavoritesScreen() {
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
     usePaginatedList<FavoriteItem>(
       useCallback(async (query) => getFavorites(query), []),
-      PAGE_SIZE,
+      DEFAULT_PAGE_SIZE,
     )
 
   const onDelete = (item: FavoriteItem) => {

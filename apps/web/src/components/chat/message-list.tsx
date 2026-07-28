@@ -2,16 +2,42 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Sparkles, AlertCircle, Loader2, ChevronDown, ShieldCheck, ShieldAlert, Hand } from 'lucide-react'
+import {
+  Sparkles,
+  AlertCircle,
+  Loader2,
+  ChevronDown,
+  ShieldCheck,
+  ShieldAlert,
+  Hand,
+  MessageSquare,
+  ListTree,
+  ThumbsUp,
+  ThumbsDown,
+  ChevronRight,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 
 import type { ChatMessage } from '@/stores/chat'
-import type { InlineDiffInfo } from '@/components/ai/types'
+import { useChatStore } from '@/stores/chat'
+import type { InlineDiffInfo, SubAgentActivity } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { cn } from '@/lib/utils'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
+import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
+import { flattenToTimelineEvents } from '@/components/ai/progress-sections/timeline-tab'
+import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
+import { SubAgentTaskTree } from '@/components/ai/progress-sections/sub-agent-task-tree'
+import {
+  MessageContextMenu,
+  markdownForClipboard,
+  plainTextForClipboard,
+} from '@/components/ai/progress-sections/message-context-menu'
+import { useContextMenu, type ContextMenuItem } from '@/hooks/use-context-menu'
+import { useAgentProgress, type Subagent } from '@/hooks/use-agent-progress'
 
 /** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
  * - AI 消息气泡的标签后追加一个轻量模式徽章
@@ -89,15 +115,86 @@ function ReasoningBlock({ reasoning }: { reasoning: string }) {
   )
 }
 
+/** 阶段预算条(Phase 18.4 step budget 视觉化):
+ *  展示 used/total,超 80% 时变 amber 提示 */
+function StepBudgetBar({
+  used,
+  total,
+}: {
+  used: number
+  total: number
+}): React.ReactElement | null {
+  if (total <= 0) return null
+  const pct = Math.min(100, Math.round((used / total) * 100))
+  const warn = pct >= 80
+  return (
+    <div
+      className="flex items-center gap-1.5 text-[9px] text-muted-foreground/70"
+      data-testid="message-step-budget"
+    >
+      <span className="tabular-nums">
+        步数 {used}/{total}
+      </span>
+      <span
+        className={cn(
+          'h-0.5 flex-1 overflow-hidden rounded-sm bg-muted/60',
+          warn && 'bg-amber-500/20',
+        )}
+        aria-hidden
+      >
+        <span
+          className={cn('block h-full bg-primary/50', warn && 'bg-amber-500/70')}
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+    </div>
+  )
+}
+
+/** 反馈状态徽章(显示当前 like/dislike 状态) */
+function FeedbackBadge({
+  feedback,
+}: {
+  feedback: 'like' | 'dislike' | null
+}): React.ReactElement | null {
+  if (!feedback) return null
+  const Icon = feedback === 'like' ? ThumbsUp : ThumbsDown
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-sm px-1 py-px text-[9px] font-medium',
+        feedback === 'like'
+          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+          : 'bg-destructive/10 text-destructive',
+      )}
+      title={feedback === 'like' ? '已标记为有用' : '已标记为不满意'}
+      aria-label={feedback === 'like' ? '已标记为有用' : '已标记为不满意'}
+      data-testid={`message-feedback-badge-${feedback}`}
+    >
+      <Icon className="h-2.5 w-2.5" aria-hidden />
+    </span>
+  )
+}
+
 /** P0 流式性能优化(2026-07-23):抽取消息项组件 + React.memo,
- * 流式 token 只更新目标消息引用,其他消息引用不变 → 不触发重渲染 */
+ * 流式 token 只更新目标消息引用,其他消息引用不变 → 不触发重渲染
+ *
+ * Phase 19 深化(2026-07-28):
+ * - 新增 onContextMenu / onHoverChange 回调(右键菜单 + 联动)
+ * - 新增 isHighlighted / linkedSubagents props(ProgressJumpStore + SubAgentTaskTree 集成)
+ * - 新增 feedback 状态(点赞/点踩 UI) */
 interface MessageItemProps {
   message: ChatMessage
   isLast: boolean
   isStreaming: boolean
   assistantLabel: string
+  isHighlighted: boolean
+  linkedSubagents: Subagent[]
+  feedback: 'like' | 'dislike' | null
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
+  onContextMenu: (e: React.MouseEvent, message: ChatMessage) => void
+  onHoverChange: (id: string | null) => void
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -105,16 +202,37 @@ const MessageItem = React.memo(function MessageItem({
   isLast,
   isStreaming,
   assistantLabel,
+  isHighlighted,
+  linkedSubagents,
+  feedback,
   onApplyDiff,
   onRejectDiff,
+  onContextMenu,
+  onHoverChange,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   const isUser = m.role === 'user'
   const showTyping = !isUser && m.content === '' && isStreaming
   const streamingThis = !isUser && isStreaming && isLast
 
+  // 气泡 hover 状态(由外层 ProgressJumpStore 接管联动,本组件只负责冒泡)
+  const handleMouseEnter = React.useCallback(() => {
+    if (!isUser) onHoverChange(m.id)
+  }, [isUser, m.id, onHoverChange])
+  const handleMouseLeave = React.useCallback(() => {
+    onHoverChange(null)
+  }, [onHoverChange])
+
   return (
-    <div className={cn('flex w-full gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div
+      className={cn('flex w-full gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}
+      onContextMenu={(e) => onContextMenu(e, m)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      data-testid="message-item"
+      data-message-id={m.id}
+      data-message-role={m.role}
+    >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
@@ -133,7 +251,12 @@ const MessageItem = React.memo(function MessageItem({
           <Sparkles className="h-4 w-4" />
         )}
       </div>
-      <div className={cn('flex max-w-[85%] flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
+      <div
+        className={cn(
+          'flex max-w-[85%] flex-col gap-1',
+          isUser ? 'items-end' : 'items-start',
+        )}
+      >
         {!isUser && (
           <span className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
             <span>{assistantLabel}</span>
@@ -143,22 +266,28 @@ const MessageItem = React.memo(function MessageItem({
             {m.permissionMode && m.permissionMode !== 'default' && (
               <PermissionModeBadge mode={m.permissionMode} />
             )}
+            {/* Phase 19: 反馈状态徽章(用户在该消息上设置的 like/dislike 状态) */}
+            <FeedbackBadge feedback={feedback} />
           </span>
         )}
         <div
           className={cn(
-            'rounded-2xl px-4 py-2.5',
+            'rounded-2xl px-4 py-2.5 transition-shadow',
             isUser
               ? 'rounded-br-sm bg-primary text-primary-foreground'
               : m.error
                 ? 'rounded-bl-sm border border-destructive/30 bg-destructive/5 text-destructive'
-                : 'rounded-bl-sm bg-muted text-muted-foreground',
+                : 'rounded-bl-sm bg-muted text-foreground',
+            // Phase 19 ProgressJumpStore 联动:被高亮时加 ring(无蓝发光,subtle ring-2 + primary/40)
+            isHighlighted && 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background',
           )}
         >
           {showTyping ? (
             <TypingIndicator />
           ) : isUser ? (
-            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{m.content}</p>
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+              {m.content}
+            </p>
           ) : (
             <div className="space-y-2">
               {m.reasoning && <ReasoningBlock reasoning={m.reasoning} />}
@@ -230,10 +359,42 @@ const MessageItem = React.memo(function MessageItem({
             </div>
           )}
         </div>
+        {/* Phase 19: SubAgentTaskTree — 助手消息触发的子代理任务树(同时间窗口内匹配的 subagent) */}
+        {!isUser && linkedSubagents.length > 0 && (
+          <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
+            {linkedSubagents.map((sub) => (
+              <SubAgentTaskTree
+                key={sub.id}
+                subagent={sub}
+                defaultCollapsed
+                data-testid={`message-subagent-tree-${sub.id}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
 })
+
+/** 消息列表分隔器 — 相邻消息时间差 > 30 分钟时显示压缩分割线 */
+const COMPRESSION_THRESHOLD_MS = 30 * 60 * 1000
+
+/** 工具函数:从消息体提取时间戳(createdAt 数值;若缺失则用 0) */
+function getMessageTimestamp(m: ChatMessage): number {
+  if (typeof m.createdAt === 'number' && m.createdAt > 0) return m.createdAt
+  return 0
+}
+
+/** 工具函数:把毫秒间隔格式化为人类可读字符串(30 分钟 / 1 小时 / 1 天) */
+function formatGap(ms: number): string {
+  const minutes = Math.floor(ms / 60_000)
+  if (minutes < 60) return `${minutes} 分钟`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} 小时`
+  const days = Math.floor(hours / 24)
+  return `${days} 天`
+}
 
 interface MessageListProps {
   messages: ChatMessage[]
@@ -259,17 +420,33 @@ interface MessageListProps {
   fallbackNotice?: FallbackEvent | null
   /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
   onClearFallbackNotice?: () => void
+  /** Phase 18.2: 子代理活动(从 chat store 传入,Trae Work 风格 inline 渲染,保留为兼容 prop)
+   *  注:Phase 19 已迁移到 useAgentProgress 直接订阅,本 prop 仅为类型兼容保留。 */
+  subAgentActivities?: SubAgentActivity[]
+  /** Phase 18.4: 阶段预算(used / total,>0 时在消息列表底部显示进度条) */
+  stepBudget?: { used: number; total: number }
+  /** Phase 19: useAgentProgress 订阅的 threadId(默认从 chat store 读取 conversationId) */
+  threadId?: string | null
+  /** Phase 19: 重新生成回调(右键菜单 → 重新生成,默认 console.warn 占位) */
+  onRegenerate?: (messageId: string) => void
+  /** Phase 19: 删除消息回调(右键菜单 → 删除,默认走 chat store setState 过滤 messages) */
+  onDeleteMessage?: (messageId: string) => void
+  /** Phase 19: 反馈回调(右键菜单 → 反馈 like/dislike,默认维护本地 Map state) */
+  onFeedback?: (messageId: string, value: 'like' | 'dislike' | null) => void
+  /** Phase 19: 折叠到计划回调(右键菜单 → 折叠到计划,默认触发 store.requestJumpToMessage) */
+  onCollapseToPlan?: (messageId: string) => void
 }
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
 // - ESTIMATED_ITEM_HEIGHT:消息平均高度估计值,用于初始 padding 计算
 // - VIRTUAL_THRESHOLD:超过此条数启用虚拟滚动(60 条以下全量渲染,保留流畅性)
 // - BUFFER:上下各多渲染的缓冲条数,减少快速滚动时的白屏
-// - heightMap:ResizeObserver 测量的真实高度映射,滚动时用真实累积高度精确定位
 const ESTIMATED_ITEM_HEIGHT = 160
 const VIRTUAL_THRESHOLD = 60
 const BUFFER = 6
 const TOP_LOAD_MORE_THRESHOLD = 60 // scrollTop < 60px 触发加载更多历史
+// Phase 19: 消息时间戳窗口内 spawn 的 subagent 视为该消息触发(±60s 启发式)
+const SUBAGENT_WINDOW_MS = 60_000
 
 export function MessageList({
   messages,
@@ -287,6 +464,15 @@ export function MessageList({
   onLoadMoreHistory,
   fallbackNotice,
   onClearFallbackNotice,
+  // Phase 18.2/18.4 兼容 prop:接收但暂不直接渲染(由 Phase 19 内部 store 接管)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  subAgentActivities: _subAgentActivities,
+  stepBudget,
+  threadId: threadIdProp,
+  onRegenerate,
+  onDeleteMessage,
+  onFeedback: onFeedbackProp,
+  onCollapseToPlan,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
@@ -300,14 +486,342 @@ export function MessageList({
   // 是否在用户手动向上滚动(暂停自动滚动到底部,直到新消息到达或用户滚到底)
   const userScrolledUpRef = React.useRef(false)
   const prevMessagesLenRef = React.useRef(0)
-  // #9 自动滚动 50ms throttle(2026-07-25 立):
-  // 用 setTimeout + timestamp 实现 leading + trailing 节流,避免每个 token 触发 scrollIntoView。
-  // - leading:第一次立即滚(新消息到达时视觉跟手)
-  // - trailing:50ms 内后续 token 忽略,50ms 边缘补滚一次(保证最后 token 也能滚到底)
+  // #9 自动滚动 50ms throttle(2026-07-25 立)
   const scrollThrottleRef = React.useRef<{ last: number; timer: number | null }>({
     last: 0,
     timer: null,
   })
+  // Phase 19: 当前正在编辑的右键菜单对应消息(ref 避免 useContextMenu 异步 setData 时序问题)
+  const contextMenuMessageRef = React.useRef<ChatMessage | null>(null)
+
+  // Phase 19: ProgressJumpStore 订阅(hover/highlight/pendingJump 联动)
+  const setHoveredMessage = useProgressJumpStore((s) => s.setHoveredMessage)
+  const pendingJumpToMessage = useProgressJumpStore((s) => s.pendingJumpToMessage)
+  const clearPendingJump = useProgressJumpStore((s) => s.clearPendingJump)
+  const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
+  const linkPlanStepToMessage = useProgressJumpStore((s) => s.linkPlanStepToMessage)
+  const highlightedMessageId = useProgressJumpStore((s) => s.highlightedMessageId)
+  // 本地 feedback 状态(默认用本地 Map 维护;如果外部 prop 提供回调则透传)
+  const [feedbackMap, setFeedbackMap] = React.useState<Record<string, 'like' | 'dislike' | null>>(
+    {},
+  )
+
+  // Phase 19: TimelineStore 订阅(tab 切换 + 事件列表)
+  const activeTab = useTimelineStore((s) => s.activeTab)
+  const setActiveTab = useTimelineStore((s) => s.setActiveTab)
+  const setTimelineEvents = useTimelineStore((s) => s.setEvents)
+  const timelineEventCount = useTimelineStore((s) => s.events.length)
+
+  // Phase 19: useAgentProgress 订阅(planSteps/subagents/tools,用于 TimelineTab + SubAgentTaskTree)
+  const conversationId = useChatStore((s) => s.conversationId)
+  const effectiveThreadId = threadIdProp !== undefined ? threadIdProp : conversationId
+  const { planSteps, subagents, tools } = useAgentProgress(effectiveThreadId)
+
+  // Phase 19: 把 agent progress 派生的事件写入 timeline store(flattenToTimelineEvents 内部排序)
+  const timelineEvents = React.useMemo<TimelineEvent[]>(() => {
+    return flattenToTimelineEvents({
+      plans: planSteps.map((p) => ({
+        id: p.id,
+        step: p.step,
+        status: p.status,
+        timestamp: p.startedAt ?? new Date().toISOString(),
+        explanation: p.explanation,
+      })),
+      subagents: subagents.map((s) => ({
+        id: s.id,
+        nickname: s.nickname,
+        handle: s.handle,
+        status: s.status,
+        spawnedAt: s.spawnedAt,
+        currentTask: s.currentTask,
+      })),
+      tools: tools.map((tool) => ({
+        id: tool.id,
+        toolName: tool.toolName,
+        status: tool.status,
+        startedAt: tool.startedAt,
+        durationMs: tool.durationMs,
+      })),
+    })
+  }, [planSteps, subagents, tools])
+
+  // 同步 timeline 事件到 store(只在内容变化时写,避免无谓 setState)
+  React.useEffect(() => {
+    setTimelineEvents(timelineEvents)
+  }, [timelineEvents, setTimelineEvents])
+
+  // Phase 19: planStep ↔ message 联动
+  // 把每条 plan step 关联到当前 thread 中"最近一条 assistant 消息"(启发式)
+  const lastAssistantMessageId = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant') return m.id
+    }
+    return null
+  }, [messages])
+
+  React.useEffect(() => {
+    if (!lastAssistantMessageId) return
+    for (const step of planSteps) {
+      linkPlanStepToMessage(step.id, lastAssistantMessageId)
+    }
+  }, [planSteps, lastAssistantMessageId, linkPlanStepToMessage])
+
+  // Phase 19: pendingJumpToMessage 触发滚动 + 闪动高亮
+  React.useEffect(() => {
+    const target = pendingJumpToMessage
+    if (!target) return
+    const el = containerRef.current?.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(target.messageId)}"]`,
+    )
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      flashHighlight(target.messageId)
+    }
+    clearPendingJump()
+  }, [pendingJumpToMessage, flashHighlight, clearPendingJump])
+
+  // Phase 19: hover 状态(由 MessageItem 冒泡,转发到 ProgressJumpStore)
+  const handleHoverChange = React.useCallback(
+    (id: string | null) => {
+      setHoveredMessage(id)
+    },
+    [setHoveredMessage],
+  )
+
+  // Phase 19: 上下文菜单回调(useCallback 稳定引用,避免 useContextMenu items 重建)
+  const handleCopy = React.useCallback(async (message: ChatMessage) => {
+    const text = plainTextForClipboard(message.content ?? '')
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+        return
+      }
+      // SSR / 剪贴板 API 不可用时降级到临时 textarea
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    } catch {
+      // 静默失败,Phase 19 范围内不引入 toast 依赖
+    }
+  }, [])
+
+  const handleCopyMarkdown = React.useCallback(async (message: ChatMessage) => {
+    const text = markdownForClipboard(message.content ?? '')
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      }
+    } catch {
+      // 静默失败
+    }
+  }, [])
+
+  const handleRegenerate = React.useCallback(
+    (message: ChatMessage) => {
+      if (onRegenerate) {
+        onRegenerate(message.id)
+      } else {
+        // 默认降级:console.warn(Phase 19 范围外,需要后端 regenerate 端点接入)
+        // eslint-disable-next-line no-console
+        console.warn('[MessageList] regenerate 回调未配置,messageId=', message.id)
+      }
+    },
+    [onRegenerate],
+  )
+
+  const handleFeedback = React.useCallback(
+    (message: ChatMessage, value: 'like' | 'dislike' | null) => {
+      const current = feedbackMap[message.id] ?? null
+      // 再次点击同一选项 = 清除(toggle)
+      const next: 'like' | 'dislike' | null = current === value ? null : value
+      setFeedbackMap((prev) => ({ ...prev, [message.id]: next }))
+      onFeedbackProp?.(message.id, next)
+    },
+    [feedbackMap, onFeedbackProp],
+  )
+
+  const handleShare = React.useCallback((message: ChatMessage) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const url = `${origin}?share=${encodeURIComponent(message.id)}`
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).catch(() => {
+        // 静默失败
+      })
+    }
+  }, [])
+
+  const handleDelete = React.useCallback(
+    (message: ChatMessage) => {
+      if (onDeleteMessage) {
+        onDeleteMessage(message.id)
+      } else {
+        // 默认降级:从 chat store 过滤掉该消息
+        useChatStore.setState((s) => ({
+          messages: s.messages.filter((m) => m.id !== message.id),
+        }))
+      }
+    },
+    [onDeleteMessage],
+  )
+
+  const handleCollapseToPlan = React.useCallback(
+    (message: ChatMessage) => {
+      if (onCollapseToPlan) {
+        onCollapseToPlan(message.id)
+      } else {
+        // 默认降级:触发 ProgressJumpStore 跳转 + 切到 inline tab
+        useProgressJumpStore.getState().requestJumpToMessage(message.id)
+        setActiveTab('inline')
+      }
+    },
+    [onCollapseToPlan, setActiveTab],
+  )
+
+  // Phase 19: 为单条消息构建右键菜单项
+  const buildContextMenuItems = React.useCallback(
+    (message: ChatMessage): ContextMenuItem[] => {
+      const isAssistant = message.role === 'assistant'
+      const linkedPlanStepIds = useProgressJumpStore.getState().messageToPlanStepIds[message.id]
+      const hasPlanLink = !!linkedPlanStepIds && linkedPlanStepIds.length > 0
+      const feedback = feedbackMap[message.id] ?? null
+      const items: ContextMenuItem[] = []
+
+      items.push({ id: 'copy', label: '复制', action: 'copy', shortcut: '⌘C' })
+      items.push({ id: 'copyMarkdown', label: '复制为 Markdown', action: 'copyMarkdown' })
+      if (isAssistant) {
+        items.push({ id: 'regenerate', label: '重新生成', action: 'regenerate', shortcut: '⌘⇧R' })
+        // 反馈子菜单:like / dislike / 清除
+        const feedbackChildren: ContextMenuItem[] = [
+          {
+            id: 'feedback-like',
+            label: '有用',
+            action: 'feedback',
+            shortcut: feedback === 'like' ? '✓' : undefined,
+          },
+          {
+            id: 'feedback-dislike',
+            label: '不满意',
+            action: 'feedback',
+            shortcut: feedback === 'dislike' ? '✓' : undefined,
+          },
+        ]
+        if (feedback) {
+          feedbackChildren.push({
+            id: 'feedback-clear',
+            label: '清除反馈',
+            action: 'feedback',
+          })
+        }
+        items.push({
+          id: 'feedback',
+          label: '反馈',
+          action: 'feedback',
+          children: feedbackChildren,
+        })
+      }
+      items.push({ id: 'share', label: '分享', action: 'share', shortcut: '⌘⇧S' })
+      if (hasPlanLink) {
+        items.push({ id: 'collapseToPlan', label: '折叠到计划', action: 'collapseToPlan' })
+      }
+      items.push({ id: 'sep-1', label: '', separator: true })
+      items.push({ id: 'delete', label: '删除', action: 'delete', shortcut: 'Del', danger: true })
+      return items
+    },
+    [feedbackMap],
+  )
+
+  // Phase 19: 右键菜单 hook —— 用 ref + setData 模式把当前消息注入到 hook
+  const {
+    visible: contextMenuVisible,
+    position: contextMenuPosition,
+    items: contextMenuItems,
+    contextMenuHandlers,
+    close: closeContextMenu,
+    setData: setContextMenuData,
+  } = useContextMenu<{ message: ChatMessage }>({
+    buildItems: ({ message }) => buildContextMenuItems(message),
+  })
+
+  // 右键菜单触发入口(在 MessageItem onContextMenu 中调用)
+  // 先 setData 注入消息数据,再调用 hook 的 onContextMenu 设置位置+显示
+  const handleContextMenuOpen = React.useCallback(
+    (e: React.MouseEvent, message: ChatMessage) => {
+      e.preventDefault()
+      contextMenuMessageRef.current = message
+      setContextMenuData({ message })
+      contextMenuHandlers.onContextMenu(e)
+    },
+    [setContextMenuData, contextMenuHandlers],
+  )
+
+  // 菜单项 onAction 转发到具体 handler
+  const handleContextMenuAction = React.useCallback(
+    (action: 'copy' | 'copyMarkdown' | 'regenerate' | 'feedback' | 'share' | 'collapseToPlan' | 'delete') => {
+      const message = contextMenuMessageRef.current
+      if (!message) return
+      switch (action) {
+        case 'copy':
+          void handleCopy(message)
+          break
+        case 'copyMarkdown':
+          void handleCopyMarkdown(message)
+          break
+        case 'regenerate':
+          handleRegenerate(message)
+          break
+        case 'feedback':
+          // feedback 模式下不直接触发(由 buildFeedbackChildren 内部的 onClick 通过 children 触发,
+          // 但 MessageContextMenu 的 onAction 不区分父子,我们用 value 字段在 items 中传递 value)
+          // 简化:这里通过 data attribute 区分,fallback to like
+          handleFeedback(message, 'like')
+          break
+        case 'share':
+          handleShare(message)
+          break
+        case 'collapseToPlan':
+          handleCollapseToPlan(message)
+          break
+        case 'delete':
+          handleDelete(message)
+          break
+        default:
+          break
+      }
+    },
+    [
+      handleCopy,
+      handleCopyMarkdown,
+      handleRegenerate,
+      handleFeedback,
+      handleShare,
+      handleCollapseToPlan,
+      handleDelete,
+    ],
+  )
+
+  // Phase 19: 给 MessageItem 用的 subagent 过滤辅助(基于消息时间戳窗口匹配)
+  const linkedSubagentsByMessageId = React.useMemo<Record<string, Subagent[]>>(() => {
+    const result: Record<string, Subagent[]> = {}
+    if (subagents.length === 0 || messages.length === 0) return result
+    for (const m of messages) {
+      if (m.role !== 'assistant') continue
+      const msgTs = getMessageTimestamp(m)
+      if (msgTs === 0) continue
+      const matched = subagents.filter((s) => {
+        const spawnTs = Date.parse(s.spawnedAt)
+        if (Number.isNaN(spawnTs)) return false
+        return Math.abs(spawnTs - msgTs) <= SUBAGENT_WINDOW_MS
+      })
+      if (matched.length > 0) result[m.id] = matched
+    }
+    return result
+  }, [messages, subagents])
 
   const enableVirtual = messages.length > VIRTUAL_THRESHOLD
 
@@ -335,7 +849,12 @@ export function MessageList({
     userScrolledUpRef.current = distanceFromBottom > 120
 
     // #8 滚动到顶部触发加载更多历史
-    if (el.scrollTop < TOP_LOAD_MORE_THRESHOLD && onLoadMoreHistory && hasMoreHistory && !loadingMoreHistory) {
+    if (
+      el.scrollTop < TOP_LOAD_MORE_THRESHOLD &&
+      onLoadMoreHistory &&
+      hasMoreHistory &&
+      !loadingMoreHistory
+    ) {
       // 记录当前 scrollHeight,prepend 后恢复相对位置(保持视觉不跳动)
       const prevScrollHeight = el.scrollHeight
       const prevScrollTop = el.scrollTop
@@ -374,7 +893,10 @@ export function MessageList({
 
     // 找到 endIndex(第一个 offset > viewportBottom + buffer*ESTIMATED)
     let end = start
-    while (end < messages.length - 1 && offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT) {
+    while (
+      end < messages.length - 1 &&
+      offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT
+    ) {
       end++
     }
     end = Math.min(messages.length - 1, end + BUFFER)
@@ -383,7 +905,14 @@ export function MessageList({
       if (prev.start === start && prev.end === end) return prev
       return { start, end }
     })
-  }, [enableVirtual, computeCumulative, messages.length, onLoadMoreHistory, hasMoreHistory, loadingMoreHistory])
+  }, [
+    enableVirtual,
+    computeCumulative,
+    messages.length,
+    onLoadMoreHistory,
+    hasMoreHistory,
+    loadingMoreHistory,
+  ])
 
   // 自动滚动到底部(流式 token 到达 + 新消息)
   // - 用户手动向上滚动时不强制滚到底(避免打断阅读)
@@ -433,20 +962,23 @@ export function MessageList({
 
   // #8 加载更多历史时保持滚动位置(handleScroll 内已处理)
   // #7 ResizeObserver 测量真实高度并触发重算可见范围
-  const measureItem = React.useCallback((id: string) => (el: HTMLElement | null) => {
-    const map = heightMapRef.current
-    if (!el) {
-      map.delete(id)
-      return
-    }
-    const h = el.getBoundingClientRect().height
-    const prev = map.get(id)
-    if (prev !== h) {
-      map.set(id, h)
-      // 高度变化后重算可见范围(下一帧,避免布局抖动)
-      requestAnimationFrame(() => handleScroll())
-    }
-  }, [handleScroll])
+  const measureItem = React.useCallback(
+    (id: string) => (el: HTMLElement | null) => {
+      const map = heightMapRef.current
+      if (!el) {
+        map.delete(id)
+        return
+      }
+      const h = el.getBoundingClientRect().height
+      const prev = map.get(id)
+      if (prev !== h) {
+        map.set(id, h)
+        // 高度变化后重算可见范围(下一帧,避免布局抖动)
+        requestAnimationFrame(() => handleScroll())
+      }
+    },
+    [handleScroll],
+  )
 
   // 消息列表重置(切换会话)时清空高度映射 + 重置可见范围
   React.useEffect(() => {
@@ -505,8 +1037,6 @@ export function MessageList({
   }
 
   // #7 虚拟滚动:窗口化渲染,仅渲染可见范围 + buffer,用 padding 占位未渲染部分
-  // - 非虚拟模式(消息数 <= VIRTUAL_THRESHOLD):全量渲染,保留原逻辑
-  // - 虚拟模式:用 measureItem ref 测量真实高度,handleScroll 计算可见范围
   const renderItems = enableVirtual
     ? messages.slice(visibleRange.start, visibleRange.end + 1)
     : messages
@@ -516,15 +1046,126 @@ export function MessageList({
     ? Math.max(0, (offsets[messages.length] ?? 0) - (offsets[visibleRange.end + 1] ?? 0))
     : 0
 
+  // Phase 19: 计算消息间压缩分割线索引集合
+  const compressionAtIndex = React.useMemo<Set<number>>(() => {
+    const result = new Set<number>()
+    for (let i = 1; i < messages.length; i++) {
+      const prev = messages[i - 1]
+      const curr = messages[i]
+      if (!prev || !curr) continue
+      const gap = getMessageTimestamp(curr) - getMessageTimestamp(prev)
+      if (gap > COMPRESSION_THRESHOLD_MS) {
+        result.add(i)
+      }
+    }
+    return result
+  }, [messages])
+
+  // Phase 19: 时间线事件点击 → 跳转 + 切回 inline tab
+  const handleTimelineEventClick = React.useCallback(
+    (event: TimelineEvent) => {
+      if (!event.messageId) {
+        setActiveTab('inline')
+        return
+      }
+      useProgressJumpStore.getState().requestJumpToMessage(event.messageId)
+      setActiveTab('inline')
+    },
+    [setActiveTab],
+  )
+
   return (
     // 2026-07-21 AI 面板滚动条:加 hover-scroll 完全隐藏滚动条(不占布局空间),
     // 解决 bg-shell-panel 暗色背景下默认滚动条轨道透出深色的问题
-    <div ref={containerRef} onScroll={handleScroll} className="hover-scroll h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
+    <div
+      ref={containerRef}
+      onScroll={handleScroll}
+      className="hover-scroll relative h-full overflow-y-auto"
+      data-testid="message-list"
+    >
+      {/* Phase 19: 紧凑 tab 切换器(inline / timeline)— 默认显示,activeTab 由 timeline store 控制 */}
+      <div
+        className="sticky top-0 z-10 flex shrink-0 items-center gap-1 border-b border-border/40 bg-background/80 px-3 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        role="tablist"
+        aria-label="对话视图切换"
+        data-testid="message-list-tablist"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'inline'}
+          aria-controls="message-list-panel-inline"
+          onClick={() => setActiveTab('inline')}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
+            activeTab === 'inline'
+              ? 'bg-muted text-foreground shadow-sm'
+              : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
+          )}
+          data-testid="message-list-tab-inline"
+        >
+          <MessageSquare className="h-3 w-3" aria-hidden />
+          对话流
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'timeline'}
+          aria-controls="message-list-panel-timeline"
+          onClick={() => setActiveTab('timeline')}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
+            activeTab === 'timeline'
+              ? 'bg-muted text-foreground shadow-sm'
+              : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
+          )}
+          data-testid="message-list-tab-timeline"
+        >
+          <ListTree className="h-3 w-3" aria-hidden />
+          时间线
+          {timelineEventCount > 0 && (
+            <span className="ml-0.5 rounded-sm bg-muted px-1 text-[9px] tabular-nums text-muted-foreground/80">
+              {timelineEventCount}
+            </span>
+          )}
+        </button>
+        {/* 阶段预算条(Phase 18.4):used/total,>0 时显示;>80% 时变 amber 提示 */}
+        {stepBudget && stepBudget.total > 0 && (
+          <div className="ml-auto">
+            <StepBudgetBar used={stepBudget.used} total={stepBudget.total} />
+          </div>
+        )}
+      </div>
+
+      {/* Phase 19: 时间线面板(tab=timeline 时显示,内含 TimelineEventList) */}
+      {activeTab === 'timeline' && (
+        <div
+          id="message-list-panel-timeline"
+          role="tabpanel"
+          className="border-b border-border/30"
+          data-testid="message-list-panel-timeline"
+        >
+          <TimelineEventList
+            events={timelineEvents}
+            onEventClick={handleTimelineEventClick}
+          />
+        </div>
+      )}
+
+      <div
+        id="message-list-panel-inline"
+        role="tabpanel"
+        className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6"
+      >
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
-            <span>{t('fallbackNotice', { primary: fallbackNotice.primaryModel, backup: fallbackNotice.backupModel })}</span>
+            <span>
+              {t('fallbackNotice', {
+                primary: fallbackNotice.primaryModel,
+                backup: fallbackNotice.backupModel,
+              })}
+            </span>
             {onClearFallbackNotice && (
               <button
                 type="button"
@@ -548,24 +1189,106 @@ export function MessageList({
         {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
         {renderItems.map((m, idx) => {
           const realIdx = enableVirtual ? visibleRange.start + idx : idx
+          const showCompression = compressionAtIndex.has(realIdx)
+          const compressionGapMs = (() => {
+            if (!showCompression) return 0
+            const prev = messages[realIdx - 1]
+            const curr = messages[realIdx]
+            if (!prev || !curr) return 0
+            return getMessageTimestamp(curr) - getMessageTimestamp(prev)
+          })()
           return (
-            <div key={m.id} ref={enableVirtual ? measureItem(m.id) : undefined}>
-              {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
-              <MessageItem
-                message={m}
-                isLast={realIdx === messages.length - 1}
-                isStreaming={isStreaming}
-                assistantLabel={assistantLabel}
-                onApplyDiff={onApplyDiff}
-                onRejectDiff={onRejectDiff}
-              />
-            </div>
+            <React.Fragment key={m.id}>
+              {showCompression && (
+                <CompressionDivider
+                  count={1}
+                  label={`${formatGap(compressionGapMs)} 间隔`}
+                  expandable={false}
+                  data-testid={`message-compression-divider-${m.id}`}
+                />
+              )}
+              <div ref={enableVirtual ? measureItem(m.id) : undefined}>
+                {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
+                <MessageItem
+                  message={m}
+                  isLast={realIdx === messages.length - 1}
+                  isStreaming={isStreaming}
+                  assistantLabel={assistantLabel}
+                  isHighlighted={highlightedMessageId === m.id}
+                  linkedSubagents={linkedSubagentsByMessageId[m.id] ?? []}
+                  feedback={feedbackMap[m.id] ?? null}
+                  onApplyDiff={onApplyDiff}
+                  onRejectDiff={onRejectDiff}
+                  onContextMenu={handleContextMenuOpen}
+                  onHoverChange={handleHoverChange}
+                />
+              </div>
+            </React.Fragment>
           )
         })}
         {/* #7 虚拟滚动底部占位 */}
         {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
         <div ref={bottomRef} />
       </div>
+
+      {/* Phase 19: 右键菜单(固定定位 portal,与 message-list 容器同层) */}
+      <MessageContextMenu
+        visible={contextMenuVisible}
+        position={contextMenuPosition}
+        items={contextMenuItems}
+        onAction={(action) => handleContextMenuAction(action)}
+        onClose={closeContextMenu}
+        data-testid="message-list-context-menu"
+      />
+    </div>
+  )
+}
+
+/** 内部组件:时间线事件列表(轻量包装 TimelineEventRow,加点击跳转) */
+function TimelineEventList({
+  events,
+  onEventClick,
+}: {
+  events: TimelineEvent[]
+  onEventClick: (event: TimelineEvent) => void
+}): React.ReactElement {
+  if (events.length === 0) {
+    return (
+      <div
+        className="flex items-center justify-center py-6 text-[10px] text-muted-foreground/60"
+        data-testid="timeline-events-empty"
+      >
+        暂无事件
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-0.5 py-1" data-testid="timeline-events">
+      {events.map((evt) => (
+        <button
+          key={evt.id}
+          type="button"
+          onClick={() => onEventClick(evt)}
+          className="flex w-full items-center gap-1.5 rounded-sm px-3 py-1 text-left transition-colors hover:bg-accent/30"
+          data-testid={`timeline-event-row-${evt.id}`}
+          data-event-id={evt.id}
+          data-event-type={evt.type}
+        >
+          <ChevronRight
+            className="h-2.5 w-2.5 shrink-0 text-muted-foreground/40"
+            aria-hidden
+          />
+          <span className="shrink-0 rounded-sm bg-muted px-1 text-[9px] font-medium text-muted-foreground/80">
+            {evt.type}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/90">
+            {evt.title}
+          </span>
+          <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/50">
+            {evt.status}
+          </span>
+        </button>
+      ))}
     </div>
   )
 }

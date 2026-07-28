@@ -7,12 +7,21 @@ import { Check, CheckCircle2, ChevronDown, ChevronUp, Loader2, Zap } from 'lucid
 import { cn } from '@/lib/utils'
 import type { SubAgentActivity, AgentStatus } from './types'
 import { MarkdownStream } from './markdown-stream'
+import type { Subagent, SubagentColor, SubagentStatus } from '@/hooks/use-agent-progress'
+import { BatchHeader, type BatchStatus } from './progress-sections/batch-header'
+import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 
 interface SubAgentActivityFeedProps {
   swarmId: string
   activities: SubAgentActivity[]
   completed?: boolean
   initiallyExpanded?: boolean
+  /**
+   * 启用 Codex 风格的 3 层树形嵌套渲染:
+   *   批次 (BatchHeader) → 子代理 (SubAgentTaskTree) → 工具调用 (Checklist)
+   * 默认 false(保持原简单卡片列表行为,向后兼容)
+   */
+  treeMode?: boolean
 }
 
 const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
@@ -26,6 +35,52 @@ const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
   completed: 'bg-emerald-500',
   failed: 'bg-red-500',
   cancelled: 'bg-muted-foreground/50',
+}
+
+const SUBAGENT_COLOR_POOL: SubagentColor[] = [
+  'cyan',
+  'blue',
+  'green',
+  'yellow',
+  'magenta',
+  'red',
+]
+
+/** AgentStatus → SubagentStatus 映射(Codex 子代理状态枚举对齐) */
+const AGENT_STATUS_TO_SUBAGENT: Record<AgentStatus, SubagentStatus> = {
+  idle: 'spawned',
+  pending: 'spawned',
+  thinking: 'running',
+  acting: 'running',
+  reflecting: 'running',
+  waiting: 'spawned',
+  running: 'running',
+  completed: 'done',
+  failed: 'failed',
+  cancelled: 'dead',
+}
+
+/** 从 activities 推导批次状态(优先级:failed > running > completed > partial) */
+function deriveBatchStatus(
+  activities: readonly SubAgentActivity[],
+  completedFlag: boolean,
+): BatchStatus {
+  if (activities.length === 0) return completedFlag ? 'completed' : 'running'
+  const failedCount = activities.filter((a) => a.status === 'failed').length
+  const completedCount = activities.filter((a) => a.status === 'completed').length
+  const activeCount = activities.filter(
+    (a) =>
+      a.status !== 'completed' &&
+      a.status !== 'failed' &&
+      a.status !== 'cancelled',
+  ).length
+  if (failedCount > 0 && failedCount === activities.length) return 'failed'
+  if (activeCount > 0) return 'running'
+  if (completedCount === activities.length) return 'completed'
+  if (completedCount > 0 && failedCount > 0) return 'partial'
+  // 含 cancelled 等:已无 active 且非全成功也非全失败 → partial
+  if (completedCount > 0) return 'partial'
+  return completedFlag ? 'completed' : 'running'
 }
 
 function isAgentActive(agent: SubAgentActivity): boolean {
@@ -140,15 +195,124 @@ function SubAgentCard({ agent, badgeLabel, defaultName, statusLabel }: SubAgentC
 }
 
 /**
- * SubAgentActivityFeed - 子 Agent 活动流
- * 显示 Agentic 模式下每个子智能体的实时活动(步骤级 + token 级流式)
+ * 把 SubAgentActivity 映射成 Subagent(Codex 风格)
+ * - color 循环使用 SUBAGENT_COLOR_POOL
+ * - status 用 AGENT_STATUS_TO_SUBAGENT 映射
+ * - tools 从 completedSteps 派生(每条 step 视为一个 tool call,status=success)
  */
-export function SubAgentActivityFeed({
-  swarmId: _swarmId,
+function activityToSubagent(
+  activity: SubAgentActivity,
+  colorIndex: number,
+): Subagent {
+  const nickname = activity.name || activity.type || 'agent'
+  const color =
+    SUBAGENT_COLOR_POOL[colorIndex % SUBAGENT_COLOR_POOL.length] ?? 'cyan'
+  const status: SubagentStatus = AGENT_STATUS_TO_SUBAGENT[activity.status]
+  const tools = activity.completedSteps.map((step, idx) => ({
+    id: `${activity.agentId}-tool-${idx}`,
+    toolName: step.stepAction,
+    args: {} as Record<string, unknown>,
+    status: 'success' as const,
+    startedAt: step.createdAt,
+    endedAt: step.createdAt,
+  }))
+  return {
+    id: activity.agentId,
+    threadId: activity.agentId,
+    nickname,
+    handle: `@${nickname}`,
+    color,
+    status,
+    role: activity.type,
+    // spawnedAt 缺失时用空串占位(Subagent.spawnedAt 是必填字段);
+    // 上游 SubAgentActivity 无 spawn 时间字段,留空不影响树形展示
+    spawnedAt: '',
+    currentTask: activity.currentStep || undefined,
+    tools,
+  }
+}
+
+/**
+ * 树形模式下的 BatchHeader 包装
+ * - 计算批次状态 + completed/failed 计数
+ * - 折叠态下隐藏子树,展开态展示所有 SubAgentTaskTree
+ */
+const TreeModeBatch = React.memo(function TreeModeBatch({
   activities,
-  completed = false,
+  completed,
+  defaultCollapsed,
+}: {
+  activities: readonly SubAgentActivity[]
+  completed: boolean
+  defaultCollapsed: boolean
+}) {
+  const [internalCollapsed, setInternalCollapsed] = React.useState(defaultCollapsed)
+  const collapsed = internalCollapsed
+  const toggle = React.useCallback(() => setInternalCollapsed((v) => !v), [])
+
+  const status = React.useMemo(
+    () => deriveBatchStatus(activities, completed),
+    [activities, completed],
+  )
+  const agentCount = activities.length
+  const completedCount = React.useMemo(
+    () => activities.filter((a) => a.status === 'completed').length,
+    [activities],
+  )
+  const failedCount = React.useMemo(
+    () => activities.filter((a) => a.status === 'failed').length,
+    [activities],
+  )
+
+  const subagents = React.useMemo(
+    () => activities.map((a, i) => activityToSubagent(a, i)),
+    [activities],
+  )
+
+  return (
+    <div
+      className="rounded-lg border bg-card"
+      data-testid="sub-agent-feed-tree"
+    >
+      <BatchHeader
+        batchIndex={1}
+        title="子代理派单批次"
+        agentCount={agentCount}
+        completedCount={completedCount}
+        failedCount={failedCount}
+        status={status}
+        collapsed={collapsed}
+        onCollapsedChange={toggle}
+        data-testid="sub-agent-feed-tree-header"
+      />
+      {!collapsed && (
+        <div className="space-y-1.5 border-t px-2 py-2">
+          {subagents.map((subagent) => (
+            <SubAgentTaskTree
+              key={subagent.id}
+              subagent={subagent}
+              data-testid={`sub-agent-feed-tree-node-${subagent.id}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+})
+
+/**
+ * 向后兼容分支(2026-07-28 之前的行为):外层折叠面板 + 简单 SubAgentCard 列表。
+ * 独立成组件以避免与 treeMode 早期 return 触发 Rules of Hooks 违规。
+ */
+const LegacySubAgentActivityFeed = React.memo(function LegacySubAgentActivityFeed({
+  activities,
+  completed,
   initiallyExpanded,
-}: SubAgentActivityFeedProps) {
+}: {
+  activities: SubAgentActivity[]
+  completed: boolean
+  initiallyExpanded?: boolean
+}) {
   const t = useTranslations('ai.subAgentFeed')
   const ts = useTranslations('ai.status')
   const hasRunning = activities.some(isAgentActive)
@@ -213,6 +377,40 @@ export function SubAgentActivityFeed({
         </div>
       )}
     </div>
+  )
+})
+
+/**
+ * SubAgentActivityFeed - 子 Agent 活动流
+ * 显示 Agentic 模式下每个子智能体的实时活动(步骤级 + token 级流式)
+ *
+ * 两种渲染分支:
+ * 1. treeMode=true(2026-07-28 立):3 层树形嵌套 — 批次(BatchHeader)→ 子代理(SubAgentTaskTree)→ 工具调用(Checklist)
+ * 2. treeMode=false(默认,向后兼容):简单 SubAgentCard 列表
+ */
+export function SubAgentActivityFeed({
+  swarmId: _swarmId,
+  activities,
+  completed = false,
+  initiallyExpanded,
+  treeMode = false,
+}: SubAgentActivityFeedProps) {
+  if (treeMode) {
+    return (
+      <TreeModeBatch
+        activities={activities}
+        completed={completed}
+        defaultCollapsed={initiallyExpanded === false}
+      />
+    )
+  }
+
+  return (
+    <LegacySubAgentActivityFeed
+      activities={activities}
+      completed={completed}
+      initiallyExpanded={initiallyExpanded}
+    />
   )
 }
 
