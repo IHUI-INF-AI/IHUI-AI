@@ -70,9 +70,9 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
               className="h-6 w-6"
               unoptimized
             />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Link href="/points/sign-in">
           <Button variant="outline" size="sm">

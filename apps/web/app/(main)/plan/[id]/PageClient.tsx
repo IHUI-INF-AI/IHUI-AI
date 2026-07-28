@@ -110,7 +110,7 @@ export default function PlanDetailPage() {
 
   if (!mounted) {
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-6">
+      <div className="mx-auto w-full max-w-4xl space-y-4">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
         <div className="h-64 animate-pulse rounded-lg border bg-muted/30" />
       </div>
@@ -135,7 +135,7 @@ export default function PlanDetailPage() {
 
   if (editing) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-6">
+      <div className="mx-auto w-full max-w-3xl space-y-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => setEditing(false)} aria-label="返回">
             <ArrowLeft className="h-4 w-4" />
@@ -168,7 +168,7 @@ export default function PlanDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Button asChild variant="ghost" size="icon">

@@ -48,7 +48,7 @@ export default function AiWorldFavoritesPage() {
   const items = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/ai-world"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -66,7 +66,7 @@ export default function AiWorldFavoritesPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
         </div>
@@ -75,7 +75,7 @@ export default function AiWorldFavoritesPage() {
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <Star className="h-8 w-8 opacity-40" />
           <p className="text-sm">暂无收藏</p>
         </div>

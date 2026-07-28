@@ -31,7 +31,7 @@ export function IntegrationTable({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         {t('loading')}
       </div>
@@ -39,7 +39,7 @@ export function IntegrationTable({
   }
   if (list.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+      <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
         {t('noData')}
       </div>
     )

@@ -3001,7 +3001,7 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
   const competitorLimitedCount = config.rows.filter((r) => r.competitor === '基础' || r.competitor === '有限' || r.competitor === '受限' || r.competitor === '部分' || (typeof r.competitor === 'string' && r.competitor.includes('only'))).length
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
       {/* Hero */}
       <section className="space-y-5 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -3086,7 +3086,7 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
       {/* CTA */}
       <section className="mt-12 rounded-2xl border bg-card p-8 text-center md:p-12">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">
+        <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">
           30 分钟体验 IHUI AI
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
