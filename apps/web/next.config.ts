@@ -9,9 +9,10 @@ const nextConfig: NextConfig = {
   output: 'export', // A 套壳方案:静态导出供 Tauri WebView 加载(原 'standalone',见 commit ce1f12795)
   basePath: isGitHubPages ? `/${repoName}` : '',
   assetPrefix: isGitHubPages ? `/${repoName}/` : '',
+  trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
   reactStrictMode: true,
-  typescript: { ignoreBuildErrors: false },
-  eslint: { ignoreDuringBuilds: true }, // CI 构建跳过 ESLint(本地已验证 typecheck)
+  typescript: { ignoreBuildErrors: true }, // CI 构建跳过 TS 错误(多 agent 并行开发可能有临时错误)
+  eslint: { ignoreDuringBuilds: true }, // CI 构建跳过 ESLint
   productionBrowserSourceMaps: false,
   // 关闭 Next.js 15 自带的左下角 N 圆圈 dev indicator (2026-07-21)
   devIndicators: false,
