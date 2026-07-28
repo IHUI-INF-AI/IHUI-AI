@@ -700,6 +700,12 @@
     "hideReasoning": "推論過程を非表示",
     "showReasoning": "推論過程を表示",
     "fallbackNotice": "バックアップモデル {{backup}} に切り替えました(元モデル {{primary}} は一時的に利用不可)",
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "copyFailed": "コピー失敗",
+    "retry": "再試行",
+    "jumpToLatest": "最新へ",
+    "latest": "最新",
     "question": {
       "title": "AIが回答を待っています",
       "submit": "回答を送信",
@@ -8921,36 +8927,12 @@
     }
   },
   "search": {
-    "quickSuggestions": [
-      "設定",
-      "プロフィール",
-      "プロジェクト",
-      "会話履歴",
-      "メンバー",
-      "ワークスペース",
-      "ショートカット",
-      "AIモデル"
-    ],
-    "searchPlaceholder": "検索…",
-    "searchHistory": "検索履歴",
-    "clear": "クリア",
-    "noSuggestions": "該当する提案はありません",
-    "tabs": {
-      "all": "すべて",
-      "users": "ユーザー",
-      "projects": "プロジェクト",
-      "files": "ファイル"
-    },
-    "sort": "並び替え",
-    "sortRelevance": "関連度",
-    "sortTime": "時間",
-    "sortName": "名前",
-    "sortSize": "サイズ",
-    "emptyKeyword": "検索キーワードを入力してください",
-    "loading": "検索中...",
-    "emptyResult": "一致する結果がありません",
-    "open": "開く",
-    "resultsCount": "{total} 件の結果(ユーザー {users}、プロジェクト {projects}、ファイル {files})"
+    "loading": "読み込み中...",
+    "emptyKeyword": "キーワードをしてください",
+    "emptyResult": "するがつかりません",
+    "sort": "ソート",
+    "sortName": "氏名",
+    "resultsCount": "{total} (ユーザー {users} / プロジェクト {projects} / ファイル {files})"
   },
   "footer": {
     "companyName": "吉林省愛智匯AI科技有限公司",
@@ -12471,14 +12453,6 @@
     "next": "へ",
     "notFound": "つかりません"
   },
-  "search": {
-    "loading": "読み込み中...",
-    "emptyKeyword": "キーワードをしてください",
-    "emptyResult": "するがつかりません",
-    "sort": "ソート",
-    "sortName": "氏名",
-    "resultsCount": "{total} (ユーザー {users} / プロジェクト {projects} / ファイル {files})"
-  },
   "searchHistory": {
     "title": "APIテスト",
     "subtitle": "のなドキュメントとAPIリファレンス",
@@ -12897,35 +12871,6 @@
         "slaTitle": "レスポンス SLA",
         "sla": "営業時間内 2 時間レスポンス、営業時間外 24 時間レスポンス"
       }
-    }
-  },
-  "modelsPricingPage": {
-    "hero": {
-      "badge": "モデル価格透明",
-      "title": "176 個の LLM 価格表",
-      "subtitle": "OpenAI、Anthropic、Google、DeepSeek、Qwen、Zhipu、Doubao、Kimi などの公式価格をリアルタイム同期"
-    },
-    "loading": "読み込み中...",
-    "empty": "一致するモデルが見つかりません",
-    "search": {
-      "placeholder": "モデル ID で検索、例: gpt-4o、claude-3-5-sonnet",
-      "resultCount": "{count} 個のモデルが見つかりました"
-    },
-    "vendor": {
-      "all": "すべてのベンダー"
-    },
-    "stats": {
-      "totalModels": "モデル総数",
-      "totalVendors": "ベンダー数",
-      "cheapest": "最安値",
-      "mostExpensive": "最高値"
-    },
-    "note": {
-      "title": "価格説明",
-      "unit": "単位:元/百万トークン(CNY per 1M tokens)、ベンダー公式価格表と一致",
-      "region": "地域係数:cn=1.0 基準、us/eu 係数は越境帯域幅とコンプライアンスコストを反映",
-      "discount": "割引バッジ:緑色パーセンテージは大量使用割引、minTokens 閾値が必要",
-      "update": "価格データは seed スクリプトで各ベンダー公式価格表からインポート、更新日は effectiveAt フィールドを参照"
     }
   },
   "developerPricingPage": {

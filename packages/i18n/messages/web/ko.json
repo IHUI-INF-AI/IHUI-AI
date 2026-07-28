@@ -697,6 +697,12 @@
     "hideReasoning": "추론 숨기기",
     "showReasoning": "추론 표시",
     "fallbackNotice": "백업 모델 {{backup}}(으)로 전환됨(원본 모델 {{primary}} 일시 사용 불가)",
+    "copy": "복사",
+    "copied": "복사됨",
+    "copyFailed": "복사 실패",
+    "retry": "재시도",
+    "jumpToLatest": "최신으로",
+    "latest": "최신",
     "question": {
       "title": "AI가 답변을 기다립니다",
       "submit": "답변 제출",
@@ -8876,36 +8882,10 @@
     }
   },
   "search": {
-    "quickSuggestions": [
-      "설정",
-      "프로필",
-      "프로젝트",
-      "대화 기록",
-      "멤버",
-      "워크스페이스",
-      "단축키",
-      "AI 모델"
-    ],
-    "searchPlaceholder": "검색…",
-    "searchHistory": "검색 기록",
-    "clear": "지우기",
-    "noSuggestions": "일치하는 제안이 없습니다",
-    "tabs": {
-      "all": "전체",
-      "users": "사용자",
-      "projects": "프로젝트",
-      "files": "파일"
-    },
-    "sort": "정렬",
-    "sortRelevance": "관련도",
-    "sortTime": "시간",
-    "sortName": "이름",
-    "sortSize": "크기",
-    "emptyKeyword": "검색어를 입력하세요",
-    "loading": "검색 중...",
-    "emptyResult": "일치하는 결과가 없습니다",
-    "open": "열기",
-    "resultsCount": "총 {total}건 (사용자 {users}, 프로젝트 {projects}, 파일 {files})"
+    "loading": "로딩 중...",
+    "emptyKeyword": "검색 키워드를 입력하세요",
+    "sortName": "성이름",
+    "resultsCount": "총 {total}건 결과(사용자 {users} / 프로젝트 {projects} / 파일 {files})"
   },
   "footer": {
     "companyName": "지린성 애즈후이 인공지능 기술 유한회사",
@@ -12425,12 +12405,6 @@
     "related": "관련 문서",
     "notFound": "찾을 수 없음"
   },
-  "search": {
-    "loading": "로딩 중...",
-    "emptyKeyword": "검색 키워드를 입력하세요",
-    "sortName": "성이름",
-    "resultsCount": "총 {total}건 결과(사용자 {users} / 프로젝트 {projects} / 파일 {files})"
-  },
   "searchHistory": {
     "title": "AI인마음페이스테스트",
     "subtitle": "포괄적인의개발문서및API참조",
@@ -12842,35 +12816,6 @@
         "slaTitle": "응답 SLA",
         "sla": "업무 시간 내 2시간 응답, 비업무시간 24시간 응답"
       }
-    }
-  },
-  "modelsPricingPage": {
-    "hero": {
-      "badge": "모델 가격 투명",
-      "title": "176개 LLM 가격표",
-      "subtitle": "OpenAI, Anthropic, Google, DeepSeek, Qwen, Zhipu, Doubao, Kimi 등 공식 가격 실시간 동기화"
-    },
-    "loading": "로딩 중...",
-    "empty": "일치하는 모델을 찾을 수 없습니다",
-    "search": {
-      "placeholder": "모델 ID 검색, 예: gpt-4o, claude-3-5-sonnet",
-      "resultCount": "{count}개 모델 검색됨"
-    },
-    "vendor": {
-      "all": "모든 벤더"
-    },
-    "stats": {
-      "totalModels": "총 모델 수",
-      "totalVendors": "벤더 수",
-      "cheapest": "가장 저렴",
-      "mostExpensive": "가장 비쌈"
-    },
-    "note": {
-      "title": "가격 설명",
-      "unit": "단위:위안/백만 토큰(CNY per 1M tokens), 벤더 공식 가격표와 일치",
-      "region": "지역 계수:cn=1.0 기준, us/eu 계수는 국경간 대역폭 및 규정 준수 비용 반영",
-      "discount": "할인 배지:녹색 백분율은 대량 사용 할인, minTokens 임계값 필요",
-      "update": "가격 데이터는 seed 스크립트로 각 벤더 공식 가격표에서 가져옴, 업데이트 날짜는 effectiveAt 필드 참조"
     }
   },
   "developerPricingPage": {

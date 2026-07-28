@@ -680,6 +680,12 @@
     "hideReasoning": "隐藏推理过程",
     "showReasoning": "显示推理过程",
     "fallbackNotice": "已切换到备用模型 {{backup}}(原模型 {{primary}} 暂时不可用)",
+    "copy": "复制",
+    "copied": "已复制",
+    "copyFailed": "复制失败",
+    "retry": "重试",
+    "jumpToLatest": "跳到最新",
+    "latest": "最新",
     "question": {
       "title": "AI 需要你的回答",
       "submit": "提交回答",
@@ -12914,35 +12920,6 @@
       "generic": "订阅失败,请稍后重试",
       "emailExists": "该邮箱已订阅",
       "invalidEmail": "邮箱格式不正确"
-    }
-  },
-  "modelsPricingPage": {
-    "hero": {
-      "badge": "模型价格透明",
-      "title": "176 个大模型价格表",
-      "subtitle": "覆盖 OpenAI、Anthropic、Google、DeepSeek、通义千问、智谱、豆包、Kimi 等厂商官方价格,实时同步"
-    },
-    "loading": "加载中...",
-    "empty": "未找到匹配的模型",
-    "search": {
-      "placeholder": "搜索模型 ID,如 gpt-4o、claude-3-5-sonnet",
-      "resultCount": "找到 {count} 个模型"
-    },
-    "vendor": {
-      "all": "全部厂商"
-    },
-    "stats": {
-      "totalModels": "模型总数",
-      "totalVendors": "厂商数量",
-      "cheapest": "最便宜",
-      "mostExpensive": "最贵"
-    },
-    "note": {
-      "title": "价格说明",
-      "unit": "价格单位:元/百万 token(CNY per 1M tokens),与厂商官方价格表口径一致",
-      "region": "区域系数:cn=1.0 基准,us/eu 系数表示跨境带宽与合规成本加成",
-      "discount": "折扣标签:绿色徽章表示批量用量折扣百分比,需达到 minTokens 阈值生效",
-      "update": "价格数据通过 seed 脚本从各厂商官方价格表导入,更新日期见 effectiveAt 字段"
     }
   },
   "developerPricingPage": {
