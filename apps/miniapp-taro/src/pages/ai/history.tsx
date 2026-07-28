@@ -268,10 +268,7 @@ export default function HistoryPage() {
                           </View>
                           <Text className="block text-[26rpx] text-muted-foreground mt-[8rpx] leading-[1.4] truncate">{preview}</Text>
                           <Text className="block text-[22rpx] text-muted-foreground mt-[12rpx]">
-                            {tt('ai.historyPage.msgCount', '{{n}} 条消息').replace(
-                              '{{n}}',
-                              String(count),
-                            )}
+                            {t('ai.historyPage.msgCount', { n: count })}
                           </Text>
                         </View>
                       </View>

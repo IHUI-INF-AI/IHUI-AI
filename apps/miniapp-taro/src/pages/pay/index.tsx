@@ -201,7 +201,7 @@ export default function PayIndex() {
         <Text className={`text-[26rpx] font-semibold${expired ? ' text-destructive' : ' text-primary'}`}>
           {expired
             ? tt('pay.orderExpired', '订单已超时')
-            : tt('pay.countdownTip', '支付剩余时间 {{time}}').replace('{{time}}', formatTime(remaining))}
+            : t('pay.countdownTip', { time: formatTime(remaining) })}
         </Text>
       </View>
 
@@ -210,7 +210,7 @@ export default function PayIndex() {
         <Text className="block mt-[16rpx] text-[64rpx] text-destructive font-bold">¥{priceFmt.format(finalAmount)}</Text>
         {couponDiscount > 0 && (
           <Text className="block mt-[12rpx] text-[24rpx] text-success">
-            {tt('pay.couponSaved', '已优惠 ¥{{n}}').replace('{{n}}', priceFmt.format(couponDiscount))}
+            {t('pay.couponSaved', { n: priceFmt.format(couponDiscount) })}
           </Text>
         )}
       </View>
@@ -269,7 +269,7 @@ export default function PayIndex() {
           <View className="flex-1 ml-[24rpx] flex flex-col">
             <Text className="text-[28rpx] text-foreground">{tt('pay.balance', '余额支付')}</Text>
             <Text className="mt-[6rpx] text-[24rpx] text-muted-foreground">
-              {tt('pay.balanceAmount', '余额 ¥{{n}}').replace('{{n}}', priceFmt.format(balance))}
+              {t('pay.balanceAmount', { n: priceFmt.format(balance) })}
               {balanceInsufficient ? ` · ${tt('pay.balanceInsufficient', '余额不足,请充值')}` : ''}
             </Text>
           </View>
@@ -299,7 +299,7 @@ export default function PayIndex() {
           ) : (
             <Text className="text-[26rpx] text-muted-foreground">
               {coupons.length > 0
-                ? tt('pay.couponAvailable', '{{n}} 张可用').replace('{{n}}', String(coupons.length))
+                ? t('pay.couponAvailable', { n: coupons.length })
                 : tt('pay.noCoupon', '暂无可用优惠券')}
             </Text>
           )}
