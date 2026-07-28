@@ -105,7 +105,12 @@ export function SourceControlPanel() {
             <span>{branch}</span>
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </button>
-          {branchOpen && (
+          {/* 2026-07-28 修复(边界态空容器):原 `{branchOpen && (<div>{gitBranches.map(...)}</div>)}`
+              只判断外层 branchOpen,没判断内层实际有无可显示项。
+              当 gitBranches 长度为 0(空仓库 / fetch 失败 / 未加载)时,外层 div 仍渲染,
+              但内部 map 输出 0 个按钮 → 用户看到一个无内容的浅色浮层。
+              修复:外层 gate 同时检查 branchOpen && gitBranches.length > 0,与内层实际内容对齐。 */}
+          {branchOpen && gitBranches.length > 0 && (
             <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border bg-popover p-1 shadow-md">
               {gitBranches.map((b) => (
                 <button
