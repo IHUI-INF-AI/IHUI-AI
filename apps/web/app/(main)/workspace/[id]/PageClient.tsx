@@ -94,6 +94,8 @@ export default function ProjectDetailPage() {
     deleteMutation.mutate(file.id)
   }
 
+  // NOTE: handlePreview 保留直接 fetch,未迁移到 fetchApi:
+  // fetchApi 内部 fetchOnce 固定调 `response.json()`(line 152),不支持 blob 二进制响应。
   const handlePreview = async (file: FileItem) => {
     setPreview({ file, url: null, loading: true })
     try {

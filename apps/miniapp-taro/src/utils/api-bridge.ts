@@ -17,6 +17,7 @@ export async function unwrapApi<T>(p: Promise<ApiResult<T>>): Promise<T> {
   if (!r.success) {
     if (isTokenExpired(r.status ?? 0)) {
       clearAuth()
+      // TODO: i18n — Taro.showToast 硬编码中文待翻译(登录已过期，请重新登录)
       Taro.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
       setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
     } else {

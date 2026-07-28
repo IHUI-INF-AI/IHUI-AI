@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import { getProfile, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
+import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { initApi, getToken, getRefreshToken, setTokenPair, clearAllTokens } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
@@ -123,12 +124,12 @@ function SidepanelInner() {
     if (!ready || !authed) return
     const tryConsume = () => {
       void chrome.storage.session
-        ?.get('ihui_pending_route')
+        ?.get(PENDING_ROUTE_STORAGE_KEY)
         .then((res) => {
-          const route = res['ihui_pending_route']
+          const route = res[PENDING_ROUTE_STORAGE_KEY]
           if (typeof route === 'string' && route.startsWith('/')) {
             navigate(route, { replace: true })
-            void chrome.storage.session?.remove('ihui_pending_route')
+            void chrome.storage.session?.remove(PENDING_ROUTE_STORAGE_KEY)
           }
         })
         .catch(() => {})
@@ -137,7 +138,7 @@ function SidepanelInner() {
     const listener = (msg: { type?: string; payload?: { route?: string } }) => {
       if (msg?.type === 'ws.pending_route' && msg.payload?.route) {
         navigate(msg.payload.route, { replace: true })
-        void chrome.storage.session?.remove('ihui_pending_route')
+        void chrome.storage.session?.remove(PENDING_ROUTE_STORAGE_KEY)
       }
     }
     chrome.runtime.onMessage.addListener(

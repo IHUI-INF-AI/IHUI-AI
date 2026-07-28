@@ -1,4 +1,4 @@
-import { fetchApi } from '@/lib/api'
+import { unwrapApi as api } from '@/lib/api-helpers'
 
 export type ArticleStatus = 'draft' | 'published'
 
@@ -27,7 +27,7 @@ export interface ArticleForm {
   published: boolean
 }
 
-export const PAGE_SIZE = 10
+export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE=20
 
 export const EMPTY_FORM: ArticleForm = {
   title: '',
@@ -37,11 +37,7 @@ export const EMPTY_FORM: ArticleForm = {
   published: false,
 }
 
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+export { api }
 
 export function fetchArticles(params: {
   page: number

@@ -489,6 +489,7 @@ export default function ChatPage() {
   }, [agents.length, loadAgents])
 
   const handleUpload = useCallback((files: string[]) => {
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(已选 N 个文件)
     Taro.showToast({ title: `已选 ${files.length} 个文件`, icon: 'none' })
   }, [])
 
@@ -505,6 +506,7 @@ export default function ChatPage() {
   )
 
   const handleMaterialUpload = useCallback((tab: MaterialTab) => {
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(上传 TabX 素材)
     Taro.showToast({ title: `上传 Tab${tab} 素材`, icon: 'none' })
   }, [])
 
