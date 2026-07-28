@@ -22,3 +22,9 @@ export const INVITE_CODE_STORAGE_KEY = 'ihui-invite-code' as const
 export const SSO_CODE_STORAGE_KEY = 'ihui-sso-code' as const
 export const SSO_USER_STORAGE_KEY = 'ihui-sso-user' as const
 export const COZE_CONFIG_STORAGE_KEY = 'coze-config-v1' as const
+
+/**
+ * 任务派发页"最近一次见到任务的 updatedAt 时间戳"持久化 key
+ * (mobile-rn TaskDispatchPage AsyncStorage,multi-end 共享)
+ */
+export const TASK_LAST_SEEN_TS_STORAGE_KEY = 'task-last-seen-ts' as const

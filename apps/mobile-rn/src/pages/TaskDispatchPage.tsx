@@ -10,6 +10,7 @@ import {
 } from 'react-native'
 import { tokens } from '@ihui/rn-app'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { TASK_LAST_SEEN_TS_STORAGE_KEY } from '@ihui/shared/constants'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type {
   TaskDevice,
@@ -24,7 +25,7 @@ import type {
 } from '@ihui/shared/tasks/dispatch'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
-import { getToken } from '../lib/token'
+import { fetchApi } from '@ihui/api-client'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
@@ -33,7 +34,7 @@ import { Input, Loading } from '@ihui/ui-native'
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDispatch'>
 
 /** AsyncStorage 持久化键:最近一次见到任务的 updatedAt 时间戳(ms),用于 WS 重连后增量补拉 */
-const LAST_SEEN_TS_KEY = 'task-last-seen-ts'
+const LAST_SEEN_TS_KEY = TASK_LAST_SEEN_TS_STORAGE_KEY
 
 /** 附件 base64 解码后最大字节数(1MB,与服务端一致) */
 const FILE_MAX_BYTES = 1_048_576
@@ -56,19 +57,10 @@ const TASK_STATUS_KEYS: Record<TaskStatus, string> = {
 
 /** 统一走 { code, message, data } 格式,返回 data 字段 */
 async function apiData<T>(path: string, init?: RequestInit): Promise<T | null> {
-  const token = getToken()
   try {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(init?.headers || {}),
-      },
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    return (json?.data ?? json) as T
+    const res = await fetchApi<T>(path, init)
+    if (!res.success) return null
+    return res.data ?? null
   } catch {
     return null
   }

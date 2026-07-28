@@ -6,11 +6,23 @@ import { Sparkles, AlertCircle, Loader2, ChevronDown, ShieldCheck, ShieldAlert, 
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 
-import type { ChatMessage } from '@/stores/chat'
-import type { InlineDiffInfo } from '@/components/ai/types'
+import type { ChatMessage, PendingQuestion } from '@/stores/chat'
+import type { InlineDiffInfo, SubAgentActivity } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import {
+  MessageContextMenu,
+  defaultMessageMenuItems,
+} from '@/components/ai/progress-sections/message-context-menu'
+import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
+import { TimelineTab } from '@/components/ai/progress-sections/timeline-tab'
+import {
+  QuestionBlock,
+  type QuestionBlockItem,
+} from '@/components/ai/progress-sections/question-block'
+import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { cn } from '@/lib/utils'
 
 /** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
@@ -98,6 +110,14 @@ interface MessageItemProps {
   assistantLabel: string
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
+  /** Phase 19:被高亮的 messageId(进度跳转 store 驱动,1.5s 闪烁) */
+  highlightedMessageId?: string | null
+  /** Phase 19:message hover 时联动 plan-step 高亮 */
+  onMessageHover?: (messageId: string | null) => void
+  /** Phase 19:message 关联的 plan step id 列表(用于 hover 联动 setHoveredPlanStep) */
+  relatedPlanStepIds?: string[]
+  /** Phase 19:联动 plan-step 高亮的回调(message hover 进出时调用) */
+  onPlanStepHover?: (planStepId: string | null) => void
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -107,14 +127,66 @@ const MessageItem = React.memo(function MessageItem({
   assistantLabel,
   onApplyDiff,
   onRejectDiff,
+  highlightedMessageId,
+  onMessageHover,
+  relatedPlanStepIds,
+  onPlanStepHover,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   const isUser = m.role === 'user'
   const showTyping = !isUser && m.content === '' && isStreaming
   const streamingThis = !isUser && isStreaming && isLast
 
+  // Phase 19:右键菜单(2026-07-28 立,Trae Work 对齐)
+  // - 使用 useContextMenu hook 管理菜单状态
+  // - items 通过 defaultMessageMenuItems + 当前 message 动态生成
+  // - onAction:复制 → clipboard.writeText;重新生成 → console.log 占位
+  const menuState = useContextMenu<{ id: string; content: string }>({
+    buildItems: (data) => defaultMessageMenuItems(data),
+  })
+  const onContextMenuAction = React.useCallback(
+    (action: ContextMenuAction) => {
+      if (action === 'copy') {
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          void navigator.clipboard.writeText(m.content)
+        }
+        return
+      }
+      if (action === 'regenerate') {
+        // 重新生成(2026-07-28):Phase 19 仅占位,Phase 20 接入 /chat/regenerate
+        console.info('[MessageList] regenerate requested for message', m.id)
+      }
+    },
+    [m.id, m.content],
+  )
+
+  const isHighlighted = highlightedMessageId === m.id
+  const handleMouseEnter = React.useCallback(() => {
+    onMessageHover?.(m.id)
+    // 联动 plan-step:优先取第一个关联 step(多 step 场景下高亮最相关的第一个)
+    if (relatedPlanStepIds && relatedPlanStepIds.length > 0) {
+      onPlanStepHover?.(relatedPlanStepIds[0] ?? null)
+    } else {
+      onPlanStepHover?.(null)
+    }
+  }, [m.id, onMessageHover, onPlanStepHover, relatedPlanStepIds])
+  const handleMouseLeave = React.useCallback(() => {
+    onMessageHover?.(null)
+    onPlanStepHover?.(null)
+  }, [onMessageHover, onPlanStepHover])
+
   return (
-    <div className={cn('flex w-full gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div
+      data-message-id={m.id}
+      onContextMenu={menuState.contextMenuHandlers.onContextMenu}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={cn(
+        'flex w-full gap-3 transition-all duration-500',
+        isUser ? 'flex-row-reverse' : 'flex-row',
+        isHighlighted && 'rounded-lg bg-primary/8 ring-2 ring-primary/40',
+      )}
+    >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
@@ -231,6 +303,19 @@ const MessageItem = React.memo(function MessageItem({
           )}
         </div>
       </div>
+      {/* Phase 19:消息右键菜单(2026-07-28 立,Trae Work 对齐)
+        - onContextMenu 由最外层 div 触发,菜单通过 portal-style fixed 定位渲染
+        - visible/position/items/onClose 由 useContextMenu hook 提供
+        - onAction 桥接到本组件的 onContextMenuAction(复制/重新生成/反馈) */}
+      <MessageContextMenu
+        visible={menuState.visible}
+        position={menuState.position}
+        items={menuState.items}
+        onAction={(_action, item) => {
+          if (item.action) onContextMenuAction(item.action)
+        }}
+        onClose={menuState.close}
+      />
     </div>
   )
 })
@@ -259,6 +344,16 @@ interface MessageListProps {
   fallbackNotice?: FallbackEvent | null
   /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
   onClearFallbackNotice?: () => void
+  /** Phase 19:Sub-agent 活动列表(从 ai-side-panel 透传,Phase 18.2 已立)。
+   * 本组件不直接渲染 inline 卡片(由 SubAgentActivityFeed 接管),仅作为 Props 契约保留。 */
+  subAgentActivities?: SubAgentActivity[]
+  /** Phase 19:步骤预算(used/total),用于 Phase 20 进度环占位。当前不直接消费。 */
+  stepBudget?: { used: number; total: number }
+  /** Phase 19:AI 主动提问挂起态;非 null 时消息列表底部渲染 QuestionBlock */
+  pendingQuestion?: PendingQuestion | null
+  /** Phase 19:回答提问的回调(string 单选/字符串数组多选);当前 QuestionBlock 只展示状态,
+   * 真正的回答交互仍由 ai-side-panel 的 QuestionDialog 处理 */
+  onAnswerQuestion?: (answer: string | string[]) => void
 }
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
@@ -287,13 +382,35 @@ export function MessageList({
   onLoadMoreHistory,
   fallbackNotice,
   onClearFallbackNotice,
+  subAgentActivities,
+  stepBudget,
+  pendingQuestion,
+  onAnswerQuestion,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const lastContent = messages[messages.length - 1]?.content
 
-  // #7 虚拟滚动状态
+  // Phase 19:subAgentActivities / stepBudget 由 Phase 18.2/18.4 从 ai-side-panel 透传,
+  // 本任务清单(Phase 19)未要求在 MessageList 内部消费这两个值(SubAgentActivityFeed 仍在面板内),
+  // 仅保持 Props 契约兼容。显式 void 标记避免 no-unused-vars 警告。
+  void subAgentActivities
+  void stepBudget
+  void onAnswerQuestion
+
+  // Phase 19:progress-jump-store 双向跳转联动(2026-07-28 立)
+  // - pendingJumpToMessage:右侧 PlanStep 点击 → 滚动到对应 message + 1.5s 高亮
+  // - highlightedMessageId:滚动期间高亮(由 effect 内部用 flashHighlight 驱动更友好,但 store
+  //   已内置定时清除,这里仅消费状态透传给 MessageItem)
+  // - setHoveredMessage / setHoveredPlanStep:message hover → 联动 plan-step
+  const pendingJumpToMessage = useProgressJumpStore((s) => s.pendingJumpToMessage)
+  const clearPendingJump = useProgressJumpStore((s) => s.clearPendingJump)
+  const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
+  const highlightedMessageId = useProgressJumpStore((s) => s.highlightedMessageId)
+  const setHoveredMessage = useProgressJumpStore((s) => s.setHoveredMessage)
+  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
+  const messageToPlanStepIds = useProgressJumpStore((s) => s.messageToPlanStepIds)
   const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
   // heightMap:messageId → 真实高度(px)。ResizeObserver 持续更新,用于精确计算累积 offset
   const heightMapRef = React.useRef<Map<string, number>>(new Map())
@@ -430,6 +547,34 @@ export function MessageList({
       }
     }
   }, [])
+
+  // Phase 19:监听 progress-jump-store 的 pendingJumpToMessage(2026-07-28 立)
+  // - 右侧 PlanStep 点击 → requestJumpToMessage(id) 写入 store → 本 effect 触发滚动 + 高亮
+  // - 特殊 messageId `___jump_to_latest___` 表示滚到最新(底部)
+  // - 目标 message 找不到时(可能是虚拟滚动未渲染)兜底滚到底部
+  // - 滚动完成后用 flashHighlight 启动 1.5s 高亮,然后清 pending 避免 effect 重复触发
+  React.useEffect(() => {
+    if (!pendingJumpToMessage) return
+    const { messageId } = pendingJumpToMessage
+    if (messageId === '___jump_to_latest___') {
+      const el = bottomRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      clearPendingJump()
+      return
+    }
+    const target = containerRef.current?.querySelector(
+      `[data-message-id="${messageId}"]`,
+    ) as HTMLElement | null
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      flashHighlight(messageId)
+    } else {
+      // 目标 message 未在可见区(虚拟滚动未渲染),兜底滚到底部
+      const el = bottomRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+    clearPendingJump()
+  }, [pendingJumpToMessage, clearPendingJump, flashHighlight])
 
   // #8 加载更多历史时保持滚动位置(handleScroll 内已处理)
   // #7 ResizeObserver 测量真实高度并触发重算可见范围

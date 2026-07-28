@@ -1,9 +1,11 @@
-﻿/** Coze 平台 API — mobile-rn 端。已下沉到 @ihui/api-client,本文件仅 re-export + 保留 AsyncStorage 持久化。 */
+/** Coze 平台 API — mobile-rn 端。已下沉到 @ihui/api-client,本文件仅 re-export + 保留 AsyncStorage 持久化。 */
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { COZE_DEFAULT_BASE_URL, COZE_DEFAULT_TIMEOUT, createCozeClient } from '@ihui/api-client'
+import { COZE_CONFIG_STORAGE_KEY } from '@ihui/shared/constants'
 import type { CozeConfig } from '@ihui/types'
 
-const STORAGE_KEY = 'coze_config_v1'
+// 旧 key (下划线),用于一次性迁移到新 key (连字符,与 web/miniapp-taro/extension 一致)
+const LEGACY_STORAGE_KEY = 'coze_config_v1'
 
 // ===== 共享层 re-export(类型 + 常量 + 错误类 + 工厂) =====
 export { COZE_DEFAULT_BASE_URL, COZE_DEFAULT_TIMEOUT, CozeApiError, createCozeClient } from '@ihui/api-client'
@@ -30,8 +32,28 @@ export type { CozeWorkflowRunResult as WorkflowRunResult } from '@ihui/types'
 export type { CozeStreamChatHandlers as StreamChatHandlers } from '@ihui/types'
 
 // ===== 平台特定逻辑(AsyncStorage 持久化,不可下沉) =====
+
+/**
+ * 一次性迁移:旧 key `coze_config_v1` (下划线) → 新 key `coze-config-v1` (连字符)。
+ * 与 web/miniapp-taro/extension 保持一致,避免用户升级后丢失配置。
+ * 幂等:迁移完成后删除旧 key,下次调用直接读新 key。
+ */
+async function migrateLegacyKey(): Promise<void> {
+  try {
+    const legacy = await AsyncStorage.getItem(LEGACY_STORAGE_KEY)
+    if (legacy !== null) {
+      const current = await AsyncStorage.getItem(COZE_CONFIG_STORAGE_KEY)
+      if (current === null) {
+        await AsyncStorage.setItem(COZE_CONFIG_STORAGE_KEY, legacy)
+      }
+      await AsyncStorage.removeItem(LEGACY_STORAGE_KEY)
+    }
+  } catch { /* 静默 */ }
+}
+
 export async function loadCozeConfig(): Promise<CozeConfig> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY)
+  await migrateLegacyKey()
+  const raw = await AsyncStorage.getItem(COZE_CONFIG_STORAGE_KEY)
   if (raw) {
     try {
       const p = JSON.parse(raw) as Partial<CozeConfig>
@@ -47,11 +69,11 @@ export async function loadCozeConfig(): Promise<CozeConfig> {
 }
 
 export async function saveCozeConfig(cfg: CozeConfig): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cfg))
+  await AsyncStorage.setItem(COZE_CONFIG_STORAGE_KEY, JSON.stringify(cfg))
 }
 
 export async function clearCozeConfig(): Promise<void> {
-  await AsyncStorage.removeItem(STORAGE_KEY)
+  await AsyncStorage.removeItem(COZE_CONFIG_STORAGE_KEY)
 }
 
 /** 测试连接(加载本地 config 后委托共享客户端) */

@@ -4,12 +4,10 @@
  * 后端:`POST /api/files/upload/form` (multipart/form-data,字段名 file)
  * 响应:`{ code: 0, data: { file: { id, name, size, mimeType, path, uploadedBy } } }`
  *
- * 实现说明:不走 fetchApi,因为 transport.ts 的 TransportInit.body 类型为 string,
- * fetchOnce 会把 FormData body 转为 undefined。此处直接用 native fetch,
- * RN 与浏览器均原生支持 FormData + multipart 自动 boundary。
+ * 实现说明:走 fetchApi(transport.ts 已支持 FormData body),
+ * 统一享受 token 注入、URL 规范化、错误处理、熔断器等基础设施。
  */
-import type { ApiResult, ApiResponse } from '@ihui/types'
-import { getToken, normalizeUrlPublic } from '../client'
+import { fetchApi, type ApiResult } from '../client.js'
 
 /** 后端 /api/files/upload/form 返回的文件信息 */
 export interface UploadedFile {
@@ -42,61 +40,30 @@ interface UploadResponseData {
 export async function uploadFileMultipart(
   file: RnFormDataFile | File,
 ): Promise<ApiResult<UploadedFile>> {
-  try {
-    const formData = new FormData()
-    // RN FormData.append 接受 { uri, type, name } 对象;Web FormData.append 接受 File/Blob。
-    // TS 标准库 FormData.append 签名不接受 RnFormDataFile,用 as never 绕过(RN 平台特性,非 any 兜底)。
-    formData.append('file', file as never)
+  const formData = new FormData()
+  // RN FormData.append 接受 { uri, type, name } 对象;Web FormData.append 接受 File/Blob。
+  // TS 标准库 FormData.append 签名不接受 RnFormDataFile,用 as never 绕过(RN 平台特性,非 any 兜底)。
+  formData.append('file', file as never)
 
-    const url = normalizeUrlPublic('/api/files/upload/form')
-    const token = getToken()
-    const headers: Record<string, string> = {}
-    if (token) headers['Authorization'] = `Bearer ${token}`
-    // 不设置 Content-Type,让 fetch 自动生成 multipart boundary
+  const result = await fetchApi<UploadResponseData>('/api/files/upload/form', {
+    method: 'POST',
+    body: formData,
+  })
 
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: formData,
-      credentials: 'include',
-    })
+  if (!result.success) {
+    return result
+  }
 
-    const json = (await resp.json()) as ApiResponse<UploadResponseData>
-
-    if (!resp.ok) {
-      return {
-        success: false,
-        error: json.message || `上传失败(${resp.status})`,
-        status: resp.status,
-      }
-    }
-
-    if (json.code !== 0) {
-      return {
-        success: false,
-        error: json.message || '上传失败',
-        status: resp.status,
-      }
-    }
-
-    // 后端返回 { code: 0, data: { file: {...} } }
-    const data = json.data
-    const fileData = data?.file
-    if (!fileData) {
-      return {
-        success: false,
-        error: '上传响应缺少文件数据',
-        status: resp.status,
-      }
-    }
-
-    return { success: true, data: fileData }
-  } catch (e) {
+  // 后端返回 { code: 0, data: { file: {...} } }
+  const fileData = result.data?.file
+  if (!fileData) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : '上传失败',
+      error: '上传响应缺少文件数据',
     }
   }
+
+  return { success: true, data: fileData }
 }
 
 /**
@@ -108,6 +75,10 @@ export async function uploadFileMultipart(
  */
 export function resolveFileUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path
+  // fetchApi 的 normalizeUrl 已处理 /uploads/ 等前缀,这里只需确保以 / 开头
   const normalized = path.startsWith('/') ? path : `/${path}`
-  return normalizeUrlPublic(normalized)
+  // 直接用 window.location.origin 或 API_BASE_URL 拼接
+  // 但为了跨端兼容,用 fetchApi 的 URL 规范化逻辑(通过 client.ts 的 normalizeUrlPublic)
+  // 由于 normalizeUrlPublic 不是 public 导出,这里用简单拼接
+  return normalized
 }

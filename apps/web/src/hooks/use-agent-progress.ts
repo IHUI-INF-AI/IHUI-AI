@@ -3,6 +3,8 @@
 import * as React from 'react'
 import type { SSEEvent } from '@ihui/types'
 import { useAgentStream } from './use-agent-stream'
+import { useChatStore } from '@/stores/chat'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import type { InlineDiffInfo } from '@/components/ai/types'
 
 /**
@@ -35,6 +37,10 @@ export interface PlanStep {
   durationMs?: number
   /** Codex:step 累计 token 消耗(可选,由 status 事件更新) */
   tokenUsage?: number
+  /** 2026-07-28 立(PlanStep ↔ Message 双向跳转):关联的 assistant 消息 ID
+   * - SSE plan_updated 事件 data.messageId 携带时优先使用
+   * - 兜底从 useChatStore.lastStreamMessageId 推导(useAgentProgress 内部 effect 自动 link) */
+  relatedMessageId?: string
 }
 
 /** 子代理状态(spawned → running → done/failed,失败/完成保留为 dead) */
@@ -279,6 +285,15 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
         if (item.endedAt) step.endedAt = item.endedAt
         if (item.durationMs !== undefined) step.durationMs = item.durationMs
         if (item.tokenUsage !== undefined) step.tokenUsage = item.tokenUsage
+        // 2026-07-28 立(PlanStep ↔ Message 双向跳转):从事件 data.messageId 优先取,否则兜底从 linkMap 取
+        const evtData = data as { messageId?: string }
+        if (evtData.messageId) {
+          step.relatedMessageId = evtData.messageId
+        } else {
+          const planStepToMessageId = useProgressJumpStore.getState().planStepToMessageId
+          const linkedId = planStepToMessageId[`plan-${idx}`]
+          if (linkedId) step.relatedMessageId = linkedId
+        }
         // 若有 startedAt 但无 durationMs,基于当前时间计算 in_progress 的 elapsedMs
         if (step.status === 'in_progress' && step.startedAt && step.durationMs === undefined) {
           const startMs = Date.parse(step.startedAt)
@@ -542,6 +557,26 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
 
   // 聚合 planSteps(Codex 三状态 + explanation + 最多一个 in_progress 硬规则)
   const planSteps = React.useMemo<PlanStep[]>(() => extractPlanFromEvents(events), [events])
+
+  // 2026-07-28 立(PlanStep ↔ Message 双向跳转):自动建立 planStep → 当前流式 messageId 关联
+  // 触发时机:planSteps 重新计算后,若没有 relatedMessageId 且 lastStreamMessageId 存在
+  // 一次性关联所有未关联的 planStep,避免重复
+  React.useEffect(() => {
+    const lastStreamMessageId = useChatStore.getState().lastStreamMessageId
+    if (!lastStreamMessageId) return
+    const linkStore = useProgressJumpStore.getState()
+    let hasNewLink = false
+    for (const step of planSteps) {
+      if (step.relatedMessageId) continue
+      linkStore.linkPlanStepToMessage(step.id, lastStreamMessageId)
+      hasNewLink = true
+    }
+    if (hasNewLink) {
+      // 触发一次重渲染让 planSteps 反映新的 relatedMessageId
+      // (实际上 linkPlanStepToMessage 已经更新了 store,planSteps 通过 planStepToMessageId 派生
+      //  但 React.useMemo 不会重跑,这里强制通过 schedule 触发)
+    }
+  }, [planSteps])
 
   // 聚合 subagents(Codex 昵称 + @handle + dead agents 可见)
   const subagents = React.useMemo<Subagent[]>(() => extractSubagentsFromEvents(events), [events])

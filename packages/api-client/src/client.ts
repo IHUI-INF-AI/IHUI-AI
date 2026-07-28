@@ -2,6 +2,9 @@ import type { ApiResult, ApiResponse } from '@ihui/types'
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
 import { getTransport } from './transport'
 
+// 重新导出 ApiResult,让调用方只依赖 client.ts 一个模块(files.ts 等端点模块直接从此导入)
+export type { ApiResult } from '@ihui/types'
+
 export interface TokenProvider {
   getToken(): string | null
 }
@@ -107,7 +110,7 @@ async function fetchOnce<T>(
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
-    body: typeof options.body === 'string' ? options.body : undefined,
+    body: typeof options.body === 'string' || options.body instanceof FormData ? options.body : undefined,
     signal: options.signal ?? undefined,
   })
 
@@ -291,7 +294,7 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
-    body: typeof options.body === 'string' ? options.body : undefined,
+    body: typeof options.body === 'string' || options.body instanceof FormData ? options.body : undefined,
     signal: options.signal ?? undefined,
   })
   if (!response.ok) {
