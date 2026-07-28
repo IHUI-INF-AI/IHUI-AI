@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   TextInput,
   StyleSheet,
   Alert,
+  RefreshControl,
 } from 'react-native'
+import { getAgents, type Agent } from '@ihui/api-client'
 
 type Tab = 'draft' | 'reviewing' | 'published'
 type SubTab = 'all' | 'rejected' | 'offline'
@@ -33,15 +35,6 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'all', label: '全部' },
   { id: 'rejected', label: '审核失败' },
   { id: 'offline', label: '已下架' },
-]
-
-const MOCK: Assistant[] = [
-  { id: '1', name: '文案写作助手', prologue: '帮你快速生成营销文案、种草笔记', status: 'draft', category: '文字', price: 0, cycle: '', audience: '全部用户', publishTime: '-' },
-  { id: '2', name: '数据分析专家', prologue: '上传表格自动生成分析报告', status: 'reviewing', category: '文字,图片', price: 0, cycle: '', audience: '全部用户', publishTime: '-' },
-  { id: '3', name: 'PPT 生成器', prologue: '输入主题一键生成 PPT 大纲', status: 'published', category: '文字,图片,视频', price: 9.9, cycle: '月', audience: '全部用户', publishTime: '2026-07-20' },
-  { id: '4', name: '翻译助手', prologue: '多语言互译,保留专业术语', status: 'published', category: '文字', price: 15, cycle: '永久', audience: '会员', publishTime: '2026-07-18' },
-  { id: '5', name: '客服机器人', prologue: '自动应答常见问题', status: 'rejected', category: '文字', price: 0, cycle: '', audience: '全部用户', publishTime: '-' },
-  { id: '6', name: '旧版问答助手', prologue: '基础问答能力', status: 'offline', category: '文字', price: 5, cycle: '月', audience: '全部用户', publishTime: '2026-06-10' },
 ]
 
 export default function AssistantScreen() {
