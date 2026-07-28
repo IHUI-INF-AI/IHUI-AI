@@ -42,7 +42,7 @@ IHUI-AI 是一个 Apache 2.0 开源的全栈 AI 操作系统,把 AI 编程 / AI 
 | **Miniapp**    | Taro 4 + React                                 | `apps/miniapp-taro` |
 | **Desktop**    | Tauri                                          | `apps/desktop`      |
 | **Extension**  | WXT(浏览器扩展)                                | `apps/extension`    |
-| **Mobile**     | React Native + Expo + Solito                   | `apps/mobile-rn`    |
+| **Mobile**     | React Native + Expo + React Navigation         | `apps/mobile-rn`    |
 | **CLI**        | Node.js + Commander                            | `apps/cli`          |
 
 **12 共享包**:`packages/database` / `packages/auth` / `packages/types` / `packages/ui` / `packages/config` / `packages/eslint-config` / `packages/tsconfig` / `packages/app` / `packages/api-client` / `packages/i18n` / `packages/ai-sdk` / `packages/design-tokens`
