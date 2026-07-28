@@ -1197,7 +1197,7 @@ export function SpecPanel({ className }: { className?: string }) {
           onClick={handleGenerate}
           disabled={loading}
           className={cn(
-            'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
             'bg-primary text-primary-foreground hover:bg-primary/90',
             loading && 'cursor-not-allowed opacity-60',
           )}
@@ -1343,7 +1343,7 @@ export function SpecPanel({ className }: { className?: string }) {
                     onClick={handleApply}
                     disabled={applyLoading}
                     className={cn(
-                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
                       'bg-primary text-primary-foreground hover:bg-primary/90',
                       applyLoading && 'cursor-not-allowed opacity-60',
                     )}
@@ -1361,9 +1361,9 @@ export function SpecPanel({ className }: { className?: string }) {
                       onClick={handleApplyConfirm}
                       disabled={confirmLoading}
                       className={cn(
-                        'flex h-7 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60',
-                        confirmLoading && 'cursor-not-allowed opacity-60',
-                      )}
+                      'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60',
+                      confirmLoading && 'cursor-not-allowed opacity-60',
+                    )}
                     >
                       {confirmLoading ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -1432,7 +1432,7 @@ export function SpecPanel({ className }: { className?: string }) {
                       type="button"
                       onClick={handleSubmitReview}
                       disabled={reviewLoading}
-                      className="flex h-7 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                      className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                     >
                       {reviewLoading ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -1448,7 +1448,7 @@ export function SpecPanel({ className }: { className?: string }) {
                         type="button"
                         onClick={handleApprove}
                         disabled={reviewLoading}
-                        className="flex h-7 items-center gap-1 rounded-md bg-green-600 px-3 text-xs font-medium text-white hover:bg-green-600/90 disabled:opacity-60"
+                        className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md bg-green-600 px-3 text-xs font-medium text-white hover:bg-green-600/90 disabled:opacity-60"
                       >
                         {reviewLoading ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -1461,7 +1461,7 @@ export function SpecPanel({ className }: { className?: string }) {
                         type="button"
                         onClick={handleReject}
                         disabled={reviewLoading}
-                        className="flex h-7 items-center gap-1 rounded-md bg-red-600 px-3 text-xs font-medium text-white hover:bg-red-600/90 disabled:opacity-60"
+                        className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md bg-red-600 px-3 text-xs font-medium text-white hover:bg-red-600/90 disabled:opacity-60"
                       >
                         <Square className="h-3 w-3" />
                         <span>拒绝</span>
@@ -1493,7 +1493,7 @@ export function SpecPanel({ className }: { className?: string }) {
                     onClick={handleSplitTasks}
                     disabled={tasksLoading}
                     className={cn(
-                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
                       'bg-primary text-primary-foreground hover:bg-primary/90',
                       tasksLoading && 'cursor-not-allowed opacity-60',
                     )}
@@ -1509,7 +1509,7 @@ export function SpecPanel({ className }: { className?: string }) {
                     <button
                       type="button"
                       onClick={handleExportTasks}
-                      className="flex h-7 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60"
+                      className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60"
                     >
                       <Download className="h-3 w-3" />
                       <span>导出到 PROJECT_PLAN</span>
@@ -1560,7 +1560,7 @@ export function SpecPanel({ className }: { className?: string }) {
                     onClick={handleEnhance}
                     disabled={enhanceLoading}
                     className={cn(
-                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
                       'bg-primary text-primary-foreground hover:bg-primary/90',
                       enhanceLoading && 'cursor-not-allowed opacity-60',
                     )}
@@ -1594,7 +1594,7 @@ export function SpecPanel({ className }: { className?: string }) {
                     onClick={handleRunPipeline}
                     disabled={pipelineLoading || !result?.spec}
                     className={cn(
-                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
                       'bg-primary text-primary-foreground hover:bg-primary/90',
                       (pipelineLoading || !result?.spec) && 'cursor-not-allowed opacity-60',
                     )}
@@ -1625,7 +1625,7 @@ export function SpecPanel({ className }: { className?: string }) {
                   <button
                     type="button"
                     onClick={handleRefreshPipelineStatus}
-                    className="flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
+                    className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
                   >
                     <History className="h-3 w-3" />
                     <span>刷新状态</span>
@@ -1635,7 +1635,7 @@ export function SpecPanel({ className }: { className?: string }) {
                       type="button"
                       onClick={handleRollback}
                       disabled={pipelineLoading}
-                      className="flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-60"
+                      className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-60"
                     >
                       <RotateCcw className="h-3 w-3" />
                       <span>回滚</span>
@@ -1731,7 +1731,7 @@ export function SpecPanel({ className }: { className?: string }) {
                     onClick={handleAnalyzeImpact}
                     disabled={impactLoading}
                     className={cn(
-                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
                       'bg-primary text-primary-foreground hover:bg-primary/90',
                       impactLoading && 'cursor-not-allowed opacity-60',
                     )}
@@ -1887,7 +1887,7 @@ export function SpecPanel({ className }: { className?: string }) {
                     onClick={handleCreateBranch}
                     disabled={branchLoading || !newBranchName.trim()}
                     className={cn(
-                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
                       'bg-primary text-primary-foreground hover:bg-primary/90',
                       (branchLoading || !newBranchName.trim()) && 'cursor-not-allowed opacity-60',
                     )}
@@ -1902,7 +1902,7 @@ export function SpecPanel({ className }: { className?: string }) {
                   <button
                     type="button"
                     onClick={refreshBranches}
-                    className="flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
+                    className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
                   >
                     <History className="h-3 w-3" />
                     <span>刷新</span>
@@ -2003,7 +2003,7 @@ export function SpecPanel({ className }: { className?: string }) {
                               type="button"
                               onClick={() => void handleMergeBranch(b.name)}
                               disabled={branchLoading || b.status !== 'active'}
-                              className="flex h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
+                              className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
                               title="合并到 main"
                             >
                               <GitMerge className="h-3 w-3" />
@@ -2013,7 +2013,7 @@ export function SpecPanel({ className }: { className?: string }) {
                               type="button"
                               onClick={() => void handleDiffBranch(b.name)}
                               disabled={branchLoading}
-                              className="flex h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
+                              className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
                               title="对比 main"
                             >
                               <GitCompare className="h-3 w-3" />
@@ -2023,7 +2023,7 @@ export function SpecPanel({ className }: { className?: string }) {
                               type="button"
                               onClick={() => void handleAbandonBranch(b.name)}
                               disabled={branchLoading || b.status !== 'active'}
-                              className="flex h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-red-600 hover:bg-red-500/10 disabled:opacity-60"
+                              className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-red-600 hover:bg-red-500/10 disabled:opacity-60"
                               title="废弃分支"
                             >
                               <Square className="h-3 w-3" />
@@ -2118,7 +2118,7 @@ export function SpecPanel({ className }: { className?: string }) {
                     onClick={handleGenerateFromRequirement}
                     disabled={genLoading || !requirementInput.trim()}
                     className={cn(
-                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
                       'bg-primary text-primary-foreground hover:bg-primary/90',
                       (genLoading || !requirementInput.trim()) && 'cursor-not-allowed opacity-60',
                     )}
@@ -2179,7 +2179,7 @@ export function SpecPanel({ className }: { className?: string }) {
           onClick={handleStartWatch}
           disabled={watchLoading || !activeWorkspacePath}
           className={cn(
-            'flex h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60',
+            'flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60',
             (watchLoading || !activeWorkspacePath) && 'cursor-not-allowed opacity-60',
           )}
         >
@@ -2190,7 +2190,7 @@ export function SpecPanel({ className }: { className?: string }) {
           type="button"
           onClick={refreshWatchStatus}
           disabled={watchLoading}
-          className="flex h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60 disabled:opacity-60"
+          className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60 disabled:opacity-60"
         >
           <EyeOff className="h-3 w-3" />
           <span>刷新</span>
