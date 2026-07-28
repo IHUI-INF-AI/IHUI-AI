@@ -3,18 +3,16 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'RefundDetail'>
 interface Detail { id: string; orderNo: string; amount: number; status: string; reason: string; createdAt: string }
 
 export function RefundDetailScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const id = route.params.id
@@ -25,12 +23,11 @@ export function RefundDetailScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/refund/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Detail }
-      setItem(d.data ?? null)
+      const res = await fetchApi<Detail>(`/api/refund/${id}`)
+      if (!res.success) throw new Error()
+      setItem(res.data ?? null)
     } catch { setError(t('refundDetail.loadFailed')) } finally { setLoading(false) }
-  }, [id, token, t])
+  }, [id, t])
 
   useEffect(() => { void load() }, [load])
 

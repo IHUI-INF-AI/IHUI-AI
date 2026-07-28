@@ -22,11 +22,10 @@ import {
   markAllMessagesRead,
   type NotificationItem,
   type MessageItem,
+  fetchApi,
 } from '@ihui/api-client'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
 

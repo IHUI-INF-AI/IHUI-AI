@@ -18,7 +18,6 @@ interface Item extends Pick<PointRecord, 'id' | 'createdAt'> {
 
 export function PointHistoryScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,19 +27,16 @@ export function PointHistoryScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/point-history`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Item[] }
-      setItems(d.data ?? [])
+      const res = await fetchApi<Item[]>('/api/point-history')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
     } catch {
       setError(t('pointHistory.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()

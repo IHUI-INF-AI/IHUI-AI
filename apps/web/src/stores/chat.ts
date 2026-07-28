@@ -188,8 +188,10 @@ export const useChatStore = create<ChatState>()(
       subAgentActivities: [],
       selectedTools: [],
       recentMessages: null,
+      lastStreamMessageId: null,
 
       setModel: (model) => set({ currentModel: model }),
+      setLastStreamMessage: (id) => set({ lastStreamMessageId: id }),
       addSelectedTool: (pluginId) =>
         set((s) =>
           s.selectedTools.includes(pluginId)
