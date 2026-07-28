@@ -56,11 +56,13 @@ export default function ModelEditScreen() {
   const cycleLabel = cycle === 'month' ? '月' : cycle === 'year' ? '年' : '永久'
 
   const handleSubmit = () => {
+    // TODO: i18n — Alert.alert 硬编码中文待翻译(提示 / 请选择内容种类 / 请输入价格)
     if (categories.length === 0) return Alert.alert('提示', '请选择内容种类')
     if (saleType !== 'free' && !price) return Alert.alert('提示', '请输入价格')
     setSubmitting(true)
     setTimeout(() => {
       setSubmitting(false)
+      // TODO: i18n — Alert.alert 硬编码中文待翻译(提交成功 / 配置已提交审核 / 知道了)
       Alert.alert('提交成功', '配置已提交审核', [{ text: '知道了' }])
     }, 800)
   }

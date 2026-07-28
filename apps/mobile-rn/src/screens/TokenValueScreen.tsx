@@ -130,6 +130,7 @@ export default function TokenValueScreen() {
 
   const list = records.filter((r) => (tab === 'all' ? true : r.type === tab))
 
+  // TODO: i18n — Alert.alert 硬编码中文待翻译(确认充值 / 套餐:X Token · ¥Y / 取消 / 立即支付 / 支付成功 / 已到账 X Token)
   const handleRecharge = (p: Package) =>
     Alert.alert('确认充值', `套餐:${formatToken(p.tokens)} Token · ¥${p.price}`, [
       { text: '取消' },

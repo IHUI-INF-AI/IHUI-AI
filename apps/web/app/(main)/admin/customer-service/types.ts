@@ -1,5 +1,7 @@
-import { fetchApi } from '@/lib/api'
+import { unwrapApi as api } from '@/lib/api-helpers'
 import type { CsMessage } from '@/components/customer-service/MessageBubble'
+
+export { api }
 
 export type TicketStatus = 'pending' | 'open' | 'resolved' | 'closed' | 'rejected'
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -71,12 +73,6 @@ export interface CsStats {
 }
 
 export type SessionsData = { list: CsSession[] } | CsSession[]
-
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export const STATUS_LABEL: Record<TicketStatus, string> = {
   pending: '待处理',

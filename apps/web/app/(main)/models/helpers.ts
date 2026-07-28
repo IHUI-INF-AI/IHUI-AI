@@ -1,3 +1,4 @@
+import { fetchApi } from '@/lib/api'
 import type { Provider, Model, ProviderGroup, PresetPrompt } from './types'
 import { FAVORITE_MODELS_STORAGE_KEY } from './types'
 
@@ -1895,11 +1896,9 @@ export function enrichModels(list: Model[]): Model[] {
 
 export async function fetchModels(): Promise<Model[]> {
   try {
-    const res = await fetch('/api/llm/models', {
-      next: { revalidate: 300 },
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = (await res.json()) as {
+    // fetchApi 自动解包 { code, message, data } 信封并返回 data 字段;
+    // 原 `next: { revalidate: 300 }` 是 SSR 遗留(此函数已改为客户端 useQuery 调用),客户端忽略。
+    const r = await fetchApi<{
       models: Array<{
         id: string
         name: string
@@ -1907,8 +1906,9 @@ export async function fetchModels(): Promise<Model[]> {
         context_length: number
         input_price: number
       }>
-    }
-    const list: Model[] = data.models.map((m) => {
+    }>('/api/llm/models')
+    if (!r.success) throw new Error(r.error)
+    const list: Model[] = r.data.models.map((m) => {
       const desc = MODEL_DESCRIPTIONS[m.id] ?? { description: '', features: [] }
       return {
         id: m.id,
