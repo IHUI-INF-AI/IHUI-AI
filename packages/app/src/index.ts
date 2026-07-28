@@ -4,6 +4,8 @@ export { SettingsScreen } from './features/settings/SettingsScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
 export { BookmarkScreen } from './features/bookmark/BookmarkScreen'
+export { NotificationListScreen } from './features/notification/NotificationListScreen'
+export { HistoryScreen } from './features/history/HistoryScreen'
 
 export {
   VipCard,
@@ -45,4 +47,10 @@ export type {
   BookmarkTargetType,
   BookmarkItem,
   BookmarkScreenProps,
+  NotificationType,
+  NotificationListItem,
+  NotificationListScreenProps,
+  HistoryTargetType,
+  HistoryItem,
+  HistoryScreenProps,
 } from './types'
