@@ -9699,7 +9699,7 @@
       "totalSteps": "(全 {count} ステップ)",
       "working": "{count} 個のサブエージェントが協力中"
     },
-    "progressPane": {
+    "pane":  {
       "title": "タスク計画",
       "ariaLabel": "Agent タスク進行パネル",
       "pin": "ピン留め",
@@ -9715,6 +9715,9 @@
       "sectionsToolbarLabel": "折りたたみセクションツールバー",
       "copy": "コピー",
       "copied": "コピー済み",
+      "progressLabel":  "タスク進捗 {pct}%",
+      "sseStatus":  {"connected":"接続済み","connecting":"接続中","reconnecting":"再接続中","disconnected":"切断","reconnectingShort":"再接続 {n}/{max}","disconnectedShort":"オフライン","tooltipError":"接続エラー: {error}"},
+
       "relativeTime": {
         "justNow": "たった今",
         "secondsAgo": "{n}秒前",
