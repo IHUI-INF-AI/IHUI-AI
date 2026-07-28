@@ -8933,6 +8933,38 @@
       }
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "設定",
+      "プロフィール",
+      "プロジェクト",
+      "会話履歴",
+      "メンバー",
+      "ワークスペース",
+      "ショートカット",
+      "AIモデル"
+    ],
+    "searchPlaceholder": "検索…",
+    "searchHistory": "検索履歴",
+    "clear": "クリア",
+    "noSuggestions": "該当する提案はありません",
+    "tabs": {
+      "all": "すべて",
+      "users": "ユーザー",
+      "projects": "プロジェクト",
+      "files": "ファイル"
+    },
+    "sort": "並び替え",
+    "sortRelevance": "関連度",
+    "sortTime": "時間",
+    "sortName": "名前",
+    "sortSize": "サイズ",
+    "emptyKeyword": "検索キーワードを入力してください",
+    "loading": "検索中...",
+    "emptyResult": "一致する結果がありません",
+    "open": "開く",
+    "resultsCount": "{total} 件の結果(ユーザー {users}、プロジェクト {projects}、ファイル {files})"
+  },
   "footer": {
     "companyName": "吉林省愛智匯AI科技有限公司",
     "addressLine1": "長春市高新区越達路107号",
@@ -9201,6 +9233,9 @@
     "handleHint": "クリックまたは右にドラッグしてAIワークスペースを開く",
     "resizeHandleHint": "ドラッグして幅を調整",
     "messages": "メッセージ",
+    "today": "今日",
+    "thisWeek": "今週",
+    "thisMonth": "今月",
     "confirmDeleteConversation": "チャット？。",
     "deleteConversation": "チャット",
     "deleteFailed": "削除失敗",
