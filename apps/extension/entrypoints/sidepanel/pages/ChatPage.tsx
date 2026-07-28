@@ -11,6 +11,7 @@ import { formatTokenCount } from '@ihui/shared/utils'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
+import { VoiceInput } from '../components/VoiceInput'
 import type { ChatMessage } from './types'
 
 interface Ctx {
@@ -298,6 +299,12 @@ export default function ChatPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t('chat.inputPlaceholder')}
+          disabled={streaming}
+        />
+        <VoiceInput
+          onTranscript={(text) => {
+            setInput((prev) => (prev && !prev.endsWith(' ') ? `${prev} ${text}` : `${prev}${text}`))
+          }}
           disabled={streaming}
         />
         <Button type="submit" variant="send" size="sm" disabled={!input.trim() || streaming}>
