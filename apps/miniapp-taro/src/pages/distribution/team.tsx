@@ -3,6 +3,7 @@ import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
 import { useI18n } from '@/i18n'
+import { formatDateByTemplate } from '@ihui/shared'
 import './team.css'
 
 interface TeamMember {
@@ -32,18 +33,6 @@ const toMs = (v: number | string): number => {
   if (!isNaN(n) && n > 0) return n > 1e12 ? n : n * 1000
   const d = Date.parse(v)
   return isNaN(d) ? 0 : d
-}
-
-/** 时间戳 → YYYY-MM-DD(与 date-picker 输出格式一致,便于按日筛选) */
-const formatDate = (v: number | string): string => {
-  const ms = toMs(v)
-  if (!ms) return ''
-  const d = new Date(ms)
-  if (isNaN(d.getTime())) return ''
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }
 
 export default function DistributionTeam() {
@@ -116,7 +105,7 @@ export default function DistributionTeam() {
   useEffect(() => {
     let result = [...rawList]
     if (activeTab === 'date' && selectedDate) {
-      result = result.filter((m) => formatDate(m.createdAt) === selectedDate)
+      result = result.filter((m) => formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') === selectedDate)
     }
     const kw = searchText.trim().toLowerCase()
     if (kw) {
@@ -126,7 +115,7 @@ export default function DistributionTeam() {
           String(m.orderNum).includes(kw) ||
           formatToYuan(m.transactionVolume).includes(kw) ||
           formatToYuan(m.commission).includes(kw) ||
-          formatDate(m.createdAt).includes(kw),
+          formatDateByTemplate(m.createdAt, 'YYYY-MM-DD').includes(kw),
       )
     }
     if (activeTab === 'orderNum') {
@@ -242,7 +231,7 @@ export default function DistributionTeam() {
                   </View>
                   <View className="team-info-row">
                     <Text className="team-info-time">
-                      {tt('distribution.team.joinTime', '邀请时间')}: {formatDate(m.createdAt) || '-'}
+                      {tt('distribution.team.joinTime', '邀请时间')}: {formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') || '-'}
                     </Text>
                     <Text className="team-sub-btn" onClick={() => goSubordinates(m.id)}>
                       {tt('distribution.team.viewSubordinates', '查看下级')}
