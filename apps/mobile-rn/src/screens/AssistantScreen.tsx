@@ -11,6 +11,7 @@ import {
   RefreshControl,
 } from 'react-native'
 import { getAgents, type Agent } from '@ihui/api-client'
+import { useI18n } from '../i18n'
 
 type Tab = 'draft' | 'reviewing' | 'published'
 type SubTab = 'all' | 'rejected' | 'offline'
@@ -39,6 +40,7 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
 ]
 
 export default function AssistantScreen() {
+  const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('draft')
   const [subTab, setSubTab] = useState<SubTab>('all')
   const [keyword, setKeyword] = useState('')
@@ -93,13 +95,11 @@ export default function AssistantScreen() {
     return keyword ? a.name.includes(keyword) : true
   })
 
-  // TODO: i18n — Alert.alert 硬编码中文待翻译(操作 / 设置「X」的售卖配置)
-  const handleEdit = (a: Assistant) => Alert.alert('操作', `设置「${a.name}」的售卖配置`)
-  // TODO: i18n — Alert.alert 硬编码中文待翻译(下架确认 / 是否确定下架「X」 / 取消 / 确定下架 / 已下架)
+  const handleEdit = (a: Assistant) => Alert.alert(t('assistant.edit.title'), t('assistant.edit.message', { name: a.name }))
   const handleOffline = (a: Assistant) =>
-    Alert.alert('下架确认', `是否确定下架「${a.name}」?`, [
-      { text: '取消' },
-      { text: '确定下架', style: 'destructive', onPress: () => Alert.alert('已下架') },
+    Alert.alert(t('assistant.offline.title'), t('assistant.offline.message', { name: a.name }), [
+      { text: t('common.cancel') },
+      { text: t('assistant.offline.confirmBtn'), style: 'destructive', onPress: () => Alert.alert(t('assistant.offline.done')) },
     ])
 
   const statusBadge = (a: Assistant) => {

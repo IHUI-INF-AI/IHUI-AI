@@ -231,5 +231,10 @@
     "balance": "利用可能残高",
     "totalRecharge": "累計チャージ",
     "loadFailed": "読み込み失敗"
+  },
+  "contextMenu": {
+    "translate": "IHUI AI · 選択範囲を翻訳",
+    "vocab": "IHUI AI · 単語を調べる",
+    "send": "IHUI AI · チャットに送信"
   }
 }

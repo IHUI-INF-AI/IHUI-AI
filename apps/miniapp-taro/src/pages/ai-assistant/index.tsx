@@ -9,6 +9,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { chatStream, type ChatMessage } from '@/api'
 import { getToken, getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
+import { useI18n } from '@/i18n'
 
 interface QAItem {
   question: string
@@ -42,6 +43,7 @@ function formatTokens(n?: number): string {
 
 export default function AiAssistantPage() {
   const router = useRouter()
+  const { t } = useI18n()
   const [prompt, setPrompt] = useState('')
   const [list, setList] = useState<QAItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -105,14 +107,14 @@ export default function AiAssistantPage() {
   }, [])
 
   const copyHandle = useCallback((text?: string) => {
-    // TODO: i18n — Taro.showToast 硬编码中文待翻译(没有可复制的内容 / 复制成功 / 复制失败)
-    if (!text || !text.trim()) return Taro.showToast({ title: '没有可复制的内容', icon: 'none' })
+    if (!text || !text.trim())
+      return Taro.showToast({ title: t('ai.aiAssistant.nothingToCopy'), icon: 'none' })
     Taro.setClipboardData({
       data: text,
-      success: () => Taro.showToast({ title: '复制成功', icon: 'success' }),
-      fail: () => Taro.showToast({ title: '复制失败', icon: 'none' }),
+      success: () => Taro.showToast({ title: t('ai.aiAssistant.copySuccess'), icon: 'success' }),
+      fail: () => Taro.showToast({ title: t('ai.aiAssistant.copyFailed'), icon: 'none' }),
     })
-  }, [])
+  }, [t])
 
   const toggleVisible = useCallback((idx: number) => {
     setList((prev) => prev.map((it, i) => (i === idx ? { ...it, visible: !it.visible } : it)))
@@ -120,18 +122,18 @@ export default function AiAssistantPage() {
 
   const handleSend = useCallback(async () => {
     const message = prompt.trim()
-    // TODO: i18n — Taro.showToast 硬编码中文待翻译(请输入描述 / 请等待当前请求完成)
-    if (!message) return Taro.showToast({ title: '请输入描述', icon: 'none' })
-    if (loading) return Taro.showToast({ title: '请等待当前请求完成', icon: 'none' })
+    if (!message) return Taro.showToast({ title: t('ai.aiAssistant.pleaseInputDesc'), icon: 'none' })
+    if (loading) return Taro.showToast({ title: t('ai.aiAssistant.pleaseWait'), icon: 'none' })
     const u = getUserInfo() as { userMargin?: { tokenQuantity?: number } }
     if (u?.userMargin?.tokenQuantity && u.userMargin.tokenQuantity < 50000) {
-      // TODO: i18n — Taro.showModal 硬编码中文待翻译(智汇值不足 / 是否前往充值?)
-      const r = await Taro.showModal({ title: '智汇值不足', content: '是否前往充值?' })
+      const r = await Taro.showModal({
+        title: t('ai.aiAssistant.insufficientTokens'),
+        content: t('ai.aiAssistant.goRecharge'),
+      })
       if (r.confirm) Taro.navigateTo({ url: '/pages/wallet/recharge/index' })
       return
     }
-    // TODO: i18n — Taro.showToast 硬编码中文待翻译(请先登录)
-    if (!getToken()) return Taro.showToast({ title: '请先登录', icon: 'none' })
+    if (!getToken()) return Taro.showToast({ title: t('ai.aiAssistant.pleaseLogin'), icon: 'none' })
 
     const idx = list.length
     shareIdxRef.current = idx
@@ -194,14 +196,13 @@ export default function AiAssistantPage() {
       setList((prev) =>
         prev.map((it, i) => (i === idx ? { ...it, answer: '生成失败,请重试', visible: true } : it)),
       )
-      // TODO: i18n — Taro.showToast 硬编码中文待翻译(生成失败)
-      Taro.showToast({ title: '生成失败', icon: 'none' })
+      Taro.showToast({ title: t('ai.aiAssistant.generateFailed'), icon: 'none' })
     } finally {
       setLoading(false)
       stopProgress()
       scrollToBottom()
     }
-  }, [prompt, loading, list.length, startProgress, stopProgress, scrollToBottom])
+  }, [prompt, loading, list.length, startProgress, stopProgress, scrollToBottom, t])
 
   useShareAppMessage(() => {
     const item = list[shareIdxRef.current]

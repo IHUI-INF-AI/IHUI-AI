@@ -5,21 +5,21 @@
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/AiModelCard/index.vue)
  *
  * 2026-07-28 重构:硬编码颜色改用 @ihui/rn-app 的 tokens.* 统一管理。
+ *
+ * 共享类型 AiModelData / AiModelUserType 已下沉到 @ihui/types。
+ * 本地 Props 用 `data: AiModelData` 对象结构,与 miniapp-taro 扁平 props 结构不同,
+ * 不 extends AiModelCardMinimalProps(该 Minimal 仅作语义参考)。
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import type { AiModelData, AiModelUserType } from '@ihui/types'
 
-export type ModelUserType = 'freevip' | 'freeuse' | 'freetime' | 'hasbuy' | 'buymonth' | 'none'
-
-export interface AiModelData {
-  name: string
-  subname?: string
-  icon?: string
-  mumber?: number | string
-  userType?: ModelUserType
-  tags?: string[]
-  [key: string]: unknown
-}
+// 共享类型已下沉到 @ihui/types,本地 re-export 保持调用方兼容
+// (ModelUserType 重命名为 AiModelUserType 以避免与 legacy-migration ModelType 冲突,
+//  本地保留 ModelUserType 别名维持向后兼容)
+export type { AiModelData }
+export type ModelUserType = AiModelUserType
+export type { AiModelUserType }
 
 export interface AiModelCardProps {
   data: AiModelData
@@ -28,7 +28,7 @@ export interface AiModelCardProps {
   onBuyPress?: (data: AiModelData) => void
 }
 
-const USER_TYPE_LABEL: Record<ModelUserType, string> = {
+const USER_TYPE_LABEL: Record<AiModelUserType, string> = {
   freevip: '会员免费',
   freeuse: '免费使用',
   freetime: '限时免费',
