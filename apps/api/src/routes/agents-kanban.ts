@@ -221,7 +221,9 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
       try {
         reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
       } catch {
-        // 连接已断开,忽略写入错误
+        // P1 修复:异常路径也要移除 listener,防止 sseEventBus listener 泄漏
+        clearInterval(heartbeat)
+        sseEventBus.off('agent-sse', listener)
       }
     }
 

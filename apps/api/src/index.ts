@@ -7,6 +7,9 @@ import { initVendorConfigs } from './lifecycle/init-vendor-configs.js'
 import { initOtel } from './plugins/otel.js'
 import { isWechatPayConfigured, isPlatformCertConfigured } from './services/wechat-pay.js'
 import { startAiWorldSyncScheduler, stopAiWorldSyncScheduler } from './jobs/ai-world-sync.js'
+import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
+import { routineManager } from './services/workspace-ai-service.js'
+import { stopScheduledWarmup } from './services/cache-warmup-service.js'
 import { logger } from './utils/logger.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
@@ -74,6 +77,10 @@ async function start() {
   const shutdown = async (signal: string) => {
     server.log.info({ signal }, 'Shutting down...')
     stopAiWorldSyncScheduler()
+    // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
+    try { stopAutoRollbackMonitor() } catch {}
+    try { routineManager.stopScheduler() } catch {}
+    try { stopScheduledWarmup() } catch {}
     if (workers) {
       await Promise.allSettled(workers.map((w) => w.close()))
     }
