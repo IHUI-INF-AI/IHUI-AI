@@ -85,14 +85,14 @@ export default function DeveloperScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View className="bg-[#F5F3FF] rounded-xl p-4 mb-5">
-          <Text className="text-[20px] font-bold text-[#7B61FF]">成为开发者</Text>
+        <View className="bg-purple-light rounded-xl p-4 mb-5">
+          <Text className="text-[20px] font-bold text-purple">成为开发者</Text>
           <Text className="mt-1 text-[13px] text-muted-foreground">发布智能体,获取收益</Text>
           <View className="mt-3.5 flex-row flex-wrap gap-2.5">
             {FEATURES.map((f) => (
               <View key={f.title} className="w-[47%] bg-card rounded-lg p-2.5">
                 <Text className="text-[13px] font-semibold text-foreground">{f.title}</Text>
-                <Text className="mt-0.5 text-[11px] text-[#9CA3AF]" numberOfLines={2}>
+                <Text className="mt-0.5 text-[11px] text-tertiary" numberOfLines={2}>
                   {f.desc}
                 </Text>
               </View>
@@ -100,7 +100,7 @@ export default function DeveloperScreen() {
           </View>
         </View>
 
-        <Text className="text-sm font-semibold text-[#374151] mb-3">请选择所需要的服务</Text>
+        <Text className="text-sm font-semibold text-body mb-3">请选择所需要的服务</Text>
         {error ? (
           <View className="py-8 items-center">
             <Text className="text-sm text-muted-foreground">{error}</Text>
@@ -116,22 +116,22 @@ export default function DeveloperScreen() {
               return (
                 <TouchableOpacity
                   key={p.type}
-                  className={`flex-1 border rounded-xl p-3.5 bg-card ${active ? 'border-[#7B61FF] bg-[#FAF9FF]' : 'border-border'}`}
+                  className={`flex-1 border rounded-xl p-3.5 bg-card ${active ? 'border-purple bg-purple-soft' : 'border-border'}`}
                   onPress={() => setSelected(p.type)}
                   activeOpacity={0.8}
                 >
-                  <Text className={`text-sm font-semibold ${active ? 'text-[#7B61FF]' : 'text-[#374151]'}`}>
+                  <Text className={`text-sm font-semibold ${active ? 'text-purple' : 'text-body'}`}>
                     {p.label}
                   </Text>
-                  <Text className={`mt-2 ${active ? 'text-[#7B61FF]' : 'text-foreground'}`}>
+                  <Text className={`mt-2 ${active ? 'text-purple' : 'text-foreground'}`}>
                     <Text className="text-[24px] font-bold">{p.price}</Text>
-                    <Text className="text-xs text-[#9CA3AF]"> / {p.unit}</Text>
+                    <Text className="text-xs text-tertiary"> / {p.unit}</Text>
                   </Text>
                   <View className="mt-2.5 gap-1">
                     {p.perks.map((perk) => (
                       <Text
                         key={perk}
-                        className={`text-[11px] ${active ? 'text-[#7B61FF]' : 'text-muted-foreground'}`}
+                        className={`text-[11px] ${active ? 'text-purple' : 'text-muted-foreground'}`}
                         numberOfLines={1}
                       >
                         · {perk}
@@ -145,14 +145,14 @@ export default function DeveloperScreen() {
         )}
 
         <TouchableOpacity
-          className={`mt-6 h-[46px] rounded-xl bg-[#7B61FF] items-center justify-center ${submitting ? 'opacity-60' : ''}`}
+          className={`mt-6 h-[46px] rounded-xl bg-purple items-center justify-center ${submitting ? 'opacity-60' : ''}`}
           onPress={handleOpen}
           disabled={submitting}
           activeOpacity={0.8}
         >
           <Text className="text-[15px] font-semibold text-white">{submitting ? '处理中...' : '一键开通'}</Text>
         </TouchableOpacity>
-        <Text className="mt-3 text-center text-[11px] text-[#9CA3AF]">开通即表示同意《开发者服务协议》</Text>
+        <Text className="mt-3 text-center text-[11px] text-tertiary">开通即表示同意《开发者服务协议》</Text>
       </ScrollView>
     </View>
   )
