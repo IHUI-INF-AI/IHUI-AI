@@ -1,9 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
   MessageSquare,
@@ -21,7 +20,6 @@ import {
   LogOut,
   Gift,
   Shield,
-  Search,
   Send,
   Star,
   Tag,
@@ -111,7 +109,6 @@ import { useLanguageStore, type Language } from '@/stores/language'
 import { useNotificationStore } from '@/stores/notification'
 import { Avatar } from '@/components/data/Avatar'
 import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
-import { SearchBar } from '@/components/business'
 import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
@@ -148,7 +145,7 @@ const SIDEBAR_COLLAPSED_WIDTH = 60
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
 
 /**
- * 主导航项尺寸常量(2026-07-19 抽出,消除 NavLink / SearchNavItem / ExpandableNavItem 三处重复)
+ * 主导航项尺寸常量(2026-07-19 抽出,消除 NavLink / ExpandableNavItem 两处重复)
  *
  * 2026-07-19 升级:常量已迁移到 `apps/web/src/lib/nav-styles.ts` 共享模块,
  * 配套 globals.css 第 162 行 `--text-vcenter-offset: 0.3px` CSS 变量 +
@@ -419,7 +416,6 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         children: MESSAGES_CHILDREN,
       },
       { href: '/feature-center/documents', labelKey: 'docs', icon: FileText },
-      { href: '/search', labelKey: 'search', icon: Search },
       { href: '/tags', labelKey: 'tags', icon: Tag },
       { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
       // 自媒体创作工具(2026-07-20 从独立分组整合到内容分组,内容创作归属内容大类)
@@ -891,157 +887,6 @@ function SidebarUserRow({
   )
 }
 
-/**
- * 侧边栏'搜索'导航行:点击后通过 portal 将搜索弹层渲染到右侧工作区(#work-area-portal-root),
- * 居中于工作区顶部、向下滑出。提交后跳 /search?q=... 并关闭。
- * 折叠态与展开态行为一致。点击外部 / Esc 键 / 路由变化均会关闭弹层。
- * 实现:createPortal(dropdown, portalTarget) 将 DOM 节点挂载到工作区容器。
- */
-function SearchNavItem({
-  collapsed,
-  active,
-  label,
-  onCloseMobile,
-  refCb,
-}: {
-  collapsed: boolean
-  active: boolean
-  label: string
-  onCloseMobile: () => void
-  refCb: (el: HTMLElement | null) => void
-}) {
-  const router = useRouter()
-  const tc = useTranslations('common')
-  const [open, setOpen] = React.useState(false)
-  const triggerRef = React.useRef<HTMLButtonElement>(null)
-  const dropdownRef = React.useRef<HTMLDivElement>(null)
-  const [portalTarget, setPortalTarget] = React.useState<HTMLElement | null>(null)
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const searchParamsStr = searchParams?.toString()
-
-  // 挂载后查询右侧工作区容器作为 portal 目标(只在客户端执行)
-  React.useEffect(() => {
-    if (typeof document === 'undefined') return
-    setPortalTarget(document.getElementById('work-area-portal-root'))
-  }, [])
-
-  // 路由变化(同路径不同 query 也算)时关闭弹层
-  React.useEffect(() => {
-    setOpen(false)
-  }, [pathname, searchParamsStr])
-
-  // Esc 关闭弹层
-  React.useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        setOpen(false)
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
-
-  // 点击外部关闭(需同时检查 trigger 与 dropdown 两个 ref,因为 dropdown 通过 portal 渲染在别处)
-  React.useEffect(() => {
-    if (!open) return
-    const handler = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node
-      if (triggerRef.current?.contains(target)) return
-      if (dropdownRef.current?.contains(target)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('touchstart', handler)
-    }
-  }, [open])
-
-  const handleSearch = (kw: string) => {
-    router.push(`/search?q=${encodeURIComponent(kw)}`)
-    setOpen(false)
-    onCloseMobile()
-  }
-
-  const className = cn(
-    NAV_ITEM_BASE_CLASS,
-    active
-      ? 'bg-primary text-primary-foreground'
-      : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
-    collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
-  )
-
-  // 通过 portal 渲染到右侧工作区容器:绝对定位、水平居中(inset-x-0 + mx-auto,避免
-  // 与 slide-in-from-top 动画的 transform 冲突)、顶部向下滑出。
-  // 工作区容器 overflow-hidden + rounded-xl 会裁剪初始 translateY(-100%) 状态,
-  // 形成从顶部边缘"向下滑出"的视觉效果。
-  const dropdown =
-    open && portalTarget
-      ? createPortal(
-          <div
-            ref={dropdownRef}
-            role="dialog"
-            aria-label={tc('searchPlaceholder')}
-            className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-200"
-          >
-            <div className="rounded-md border bg-popover p-3 text-popover-foreground shadow-md">
-              <SearchBar
-                onSearch={handleSearch}
-                placeholder={tc('searchPlaceholder')}
-                focusOnMount
-              />
-            </div>
-          </div>,
-          portalTarget,
-        )
-      : null
-
-  const setTriggerRef = (el: HTMLButtonElement | null) => {
-    triggerRef.current = el
-    refCb(el)
-  }
-
-  return (
-    <div className="relative">
-      {collapsed ? (
-        <Tooltip content={label} side="right">
-          <button
-            type="button"
-            ref={setTriggerRef}
-            aria-label={label}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            aria-current={active ? 'page' : undefined}
-            onClick={() => setOpen((o) => !o)}
-            className={className}
-          >
-            <Search className="h-5 w-5 shrink-0" />
-          </button>
-        </Tooltip>
-      ) : (
-        <button
-          type="button"
-          ref={setTriggerRef}
-          aria-label={label}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-current={active ? 'page' : undefined}
-          onClick={() => setOpen((o) => !o)}
-          className={className}
-        >
-          <Search className="h-5 w-5 shrink-0" />
-          <span>{label}</span>
-        </button>
-      )}
-      {dropdown}
-    </div>
-  )
-}
-
 interface NavLinkProps {
   item: NavItem
   collapsed: boolean
@@ -1458,18 +1303,6 @@ const NavGroupSection = React.memo(function NavGroupSection({
           registerRef={registerRef}
           t={t}
           scope={scope}
-        />
-      )
-    }
-    if (item.labelKey === 'search') {
-      return (
-        <SearchNavItem
-          key={item.href}
-          collapsed={collapsed}
-          active={active}
-          label={label}
-          onCloseMobile={onCloseMobile}
-          refCb={(el) => registerRef(item.href, el)}
         />
       )
     }
