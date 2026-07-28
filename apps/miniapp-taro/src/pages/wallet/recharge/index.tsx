@@ -186,7 +186,7 @@ export default function RechargePage() {
           />
         </View>
         <Text className="rc-token-tip">
-          {tt('wallet.recharge.tokenRate', '1元 = {{n}} 智汇值').replace('{{n}}', String(tokenRate))}
+          {t('wallet.recharge.tokenRate', { n: tokenRate })}
         </Text>
       </View>
 
@@ -201,7 +201,7 @@ export default function RechargePage() {
               <Text className="rc-activity-rule">{activity.activityRule}</Text>
             )}
             <Text className="rc-activity-rate">
-              {tt('wallet.recharge.tokenRate', '1￥= {{n}} 智汇值').replace('{{n}}', String(activity.computing ?? TOKEN_RATE))}
+              {t('wallet.recharge.tokenRate', { n: activity.computing ?? TOKEN_RATE })}
             </Text>
             <Input
               className="rc-input rc-activity-input"
