@@ -20,4 +20,7 @@ export type {
   FeedbackScreenProps,
   FeedbackType,
   FeedbackSubmitPayload,
+  FeedbackStatus,
+  FeedbackHistoryItem,
+  FeedbackHistoryScreenProps,
 } from '@ihui/types'

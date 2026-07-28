@@ -142,3 +142,30 @@ export interface FeedbackScreenProps {
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
+
+/** 反馈状态(与后端 /api/feedbacks 契约对齐) */
+export type FeedbackStatus = 'pending' | 'resolved' | 'closed'
+
+/** 反馈历史列表项(平台注入,字段对齐 mobile-rn FeedbackHistoryScreen Item) */
+export interface FeedbackHistoryItem {
+  id: string
+  type: FeedbackType | string
+  status: FeedbackStatus | string
+  content: string
+  createdAt: string
+}
+
+/** FeedbackHistory 屏 props */
+export interface FeedbackHistoryScreenProps {
+  t: TFunction
+  items: FeedbackHistoryItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击列表项回调,平台注入导航跳转(如 navigate('FeedbackDetail', { id })) */
+  onPressItem: (id: string) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}

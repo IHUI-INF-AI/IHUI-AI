@@ -261,6 +261,12 @@
     "typeQuestion": "質問",
     "typeSuggestion": "提案"
   },
+  "feedbackHistory": {
+    "createdAt": "作成日時",
+    "empty": "フィードバック記録がありません",
+    "loadFailed": "読み込みに失敗しました",
+    "title": "フィードバック履歴"
+  },
   "footer": {
     "aboutUs": "私たちについて",
     "agreementSubtitle": "以下の規約条項をよくお読みください",
