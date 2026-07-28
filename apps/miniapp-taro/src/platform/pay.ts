@@ -7,6 +7,7 @@
 import Taro from '@tarojs/taro'
 import { getPlatform, type MiniProgramPlatform } from './auth'
 import { isAlipaySuccess, isAlipayCancel, isAlipayPending } from '@ihui/shared/constants'
+import { type PayErrorLike, isCancelError } from '@ihui/shared/pay'
 
 export interface WechatPayParams {
   timeStamp: string
@@ -55,8 +56,9 @@ export async function requestWeappPayment(params: WechatPayParams): Promise<PayR
     return { platform: 'weapp' }
   } catch (err) {
     Taro.hideLoading()
-    const msg = (err as { errMsg?: string })?.errMsg || ''
-    if (msg.includes('cancel')) {
+    const e = err as PayErrorLike
+    const msg = e.errMsg || ''
+    if (isCancelError(e)) {
       // TODO: i18n — Taro.showToast 硬编码中文待翻译(您已取消支付)
       Taro.showToast({ title: '您已取消支付', icon: 'none' })
       throw 'cancel'

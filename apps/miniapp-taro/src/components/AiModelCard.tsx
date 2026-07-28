@@ -1,13 +1,12 @@
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+import type { AiModelCardMinimalProps } from '@ihui/types'
 
-export interface AiModelCardProps {
-  name: string
+// 共享类型 AiModelCardMinimalProps 已下沉到 @ihui/types,
+// 本地 Props extends Minimal 并追加 description/extra/className(miniapp-taro 专属字段)。
+export interface AiModelCardProps extends AiModelCardMinimalProps {
   description?: string
-  icon?: string
-  tags?: string[]
   extra?: string
-  onClick?: () => void
   className?: string
 }
 

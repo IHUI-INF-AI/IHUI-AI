@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native'
+import { useI18n } from '../i18n'
 
 type SaleType = 'free' | 'limited' | 'paid'
 type PayCycle = 'month' | 'year' | 'permanent'
@@ -38,6 +39,7 @@ const DISCOUNTS = [
 ]
 
 export default function ModelEditScreen() {
+  const { t } = useI18n()
   const [categories, setCategories] = useState<string[]>(['1'])
   const [dept, setDept] = useState('d1')
   const [saleType, setSaleType] = useState<SaleType>('limited')
@@ -56,14 +58,12 @@ export default function ModelEditScreen() {
   const cycleLabel = cycle === 'month' ? '月' : cycle === 'year' ? '年' : '永久'
 
   const handleSubmit = () => {
-    // TODO: i18n — Alert.alert 硬编码中文待翻译(提示 / 请选择内容种类 / 请输入价格)
-    if (categories.length === 0) return Alert.alert('提示', '请选择内容种类')
-    if (saleType !== 'free' && !price) return Alert.alert('提示', '请输入价格')
+    if (categories.length === 0) return Alert.alert(t('common.hint'), t('modelEdit.error.categoryRequired'))
+    if (saleType !== 'free' && !price) return Alert.alert(t('common.hint'), t('modelEdit.error.priceRequired'))
     setSubmitting(true)
     setTimeout(() => {
       setSubmitting(false)
-      // TODO: i18n — Alert.alert 硬编码中文待翻译(提交成功 / 配置已提交审核 / 知道了)
-      Alert.alert('提交成功', '配置已提交审核', [{ text: '知道了' }])
+      Alert.alert(t('modelEdit.success.title'), t('modelEdit.success.message'), [{ text: t('common.gotIt') }])
     }, 800)
   }
 
