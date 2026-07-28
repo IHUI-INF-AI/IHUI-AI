@@ -446,6 +446,9 @@ export function LocalFolderPicker({
     techStack: string[]
   } | null>(null)
   const [nativeHint, setNativeHint] = React.useState<string | null>(null)
+  // 系统选择器返回的文件夹名(浏览器安全模型只暴露 handle.name,拿不到绝对路径)。
+  // 设置后 PathNav 自动切到 input 模式预填该名字,用户补全完整路径(如 G:\IHUI-AI)后回车跳转。
+  const [pathDraft, setPathDraft] = React.useState<string | null>(null)
 
   const listRef = React.useRef<HTMLUListElement>(null)
 
@@ -674,6 +677,8 @@ export function LocalFolderPicker({
               onRefresh={() => void refetchBrowse()}
               isRefreshing={fetching && !browsing}
               t={t}
+              pendingDraft={pathDraft ?? undefined}
+              onDraftCommit={() => setPathDraft(null)}
             />
 
             {/* 工具栏:筛选 + 父级 + 系统选择器 */}
