@@ -28,11 +28,19 @@ from .skills import skill_registry
 
 # 工作区根目录白名单:MCP read_file/write_file 只允许读写白名单内文件
 # 从 env MCP_WORKSPACE_ROOTS 读取(分隔符 os.pathsep),默认当前工作目录
-_WORKSPACE_ROOTS: list[str] = [
-    os.path.abspath(r)
-    for r in os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd()).split(os.pathsep)
-    if r.strip()
-]
+#
+# 2026-07-27 修复:_WORKSPACE_ROOTS 原在模块加载时通过 os.environ.get 求值,
+# 但 main.py 同步 settings → os.environ 在第 71-77 行(模块导入之后),
+# 导致 MCP_WORKSPACE_ROOTS 永远读到 os.getcwd()=apps/ai-service/,
+# 相对路径 apps/ai-service/pyproject.toml 被拼成 apps/ai-service/apps/ai-service/... 前缀重复。
+# 修复:改为函数式延迟读取,在 _validate_path_in_workspace 调用时才求值,
+# 此时 main.py 已完成 settings → os.environ 同步。
+
+
+def _get_workspace_roots() -> list[str]:
+    """工作区根目录白名单(延迟读取 os.environ,确保 main.py 已同步 .env)。"""
+    raw = os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd())
+    return [os.path.abspath(r) for r in raw.split(os.pathsep) if r.strip()]
 
 # 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
 # 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
@@ -77,11 +85,24 @@ def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
     if not path:
         return False, "路径为空"
     try:
+        # 2026-07-27 修复路径重复拼接:ai-service 进程 cwd 通常是 apps/ai-service/,
+        # 用户传相对路径 apps/ai-service/pyproject.toml 时 Path().resolve() 会拼成
+        # apps/ai-service/apps/ai-service/pyproject.toml(前缀重复)。
+        # 修复策略:相对路径优先在所有 _WORKSPACE_ROOTS 下查找存在的文件,
+        # 命中即用;都找不到才退回到 cwd resolve(保留原行为兼容绝对路径)。
+        p = Path(path)
+        roots = _get_workspace_roots()
+        if not p.is_absolute():
+            for root in roots:
+                candidate = (Path(root) / path).resolve(strict=False)
+                if candidate.exists():
+                    resolved_str = str(candidate)
+                    return True, resolved_str
         # resolve(strict=False) 解析 symlink + .. ,但不要求路径存在
         resolved = Path(path).resolve(strict=False)
         resolved_str = str(resolved)
         # 检查 resolved 是否在任一白名单根目录下(防 symlink 穿越到 /etc/passwd 等)
-        for root in _WORKSPACE_ROOTS:
+        for root in roots:
             try:
                 resolved.relative_to(root)
                 return True, resolved_str
@@ -89,7 +110,7 @@ def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
                 continue
         return False, (
             f"路径不在工作区白名单内: {path}"
-            f"(允许根目录: {_WORKSPACE_ROOTS})"
+            f"(允许根目录: {roots})"
         )
     except Exception as e:
         return False, f"路径解析失败: {e}"
@@ -628,13 +649,29 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
             "diff_preview": "".join(diff[:20])}
 
 
-async def _drain_stream(stream: Any, lines_list: list[str]) -> None:
-    """逐行读取 asyncio subprocess stream,累积到 lines_list(防长命令一次性读阻塞)。"""
+async def _drain_stream(
+    stream: Any, lines_list: list[str], max_output: int = 10000
+) -> None:
+    """逐行读取 asyncio subprocess stream,累积到 lines_list(防长命令一次性读阻塞)。
+
+    P1 修复(mcp_server _tool_run_command 大输出全量累积后截断):
+    原实现无大小上限,GB 级 stdout/stderr 会全量加载到内存 list,再在
+    _tool_run_command 末尾截断到 max_output → 截断前 OOM 已发生。
+    现在实时累计 total_size,超过 2 * max_output 硬上限立即停止读取,
+    避免大输出全量加载到内存(截断点放宽到 2 倍是为了保留少量尾部上下文)。
+    """
+    total_size = 0
+    size_limit = max_output * 2  # 2 倍 max_output 作为硬上限
     while True:
         line_bytes = await stream.readline()
         if not line_bytes:
             break
-        lines_list.append(line_bytes.decode("utf-8", errors="replace").rstrip("\r\n"))
+        decoded = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
+        lines_list.append(decoded)
+        total_size += len(decoded)
+        if total_size > size_limit:
+            lines_list.append(f"\n...(输出超过 {size_limit} 字符,已截断)")
+            break
 
 
 def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
