@@ -12,6 +12,21 @@ import type {
   SignContractResponse,
   AlipayMiniappPayResponse,
   ExamQuestion,
+  // 共享类型(从 api-client 下沉,直接 re-export)
+  Banner,
+  Teacher,
+  MemberInfo,
+  VipPayInfo,
+  VipOrderResult,
+  StudyRecord,
+  ExamPaper,
+  ExamRecord,
+  ChatOptions,
+  ChatResult,
+  // api-client 已有类型(用于本地映射,字段差异见各 mapped type 注释)
+  Course as ApiCourse,
+  Live as ApiLive,
+  Order as ApiOrder,
 } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import {
@@ -49,6 +64,17 @@ export type {
   PaymentMethod,
   AlipayMiniappPayResponse,
   ExamQuestion,
+  // 共享类型(从 api-client 下沉,直接 re-export)
+  Banner,
+  Teacher,
+  MemberInfo,
+  VipPayInfo,
+  VipOrderResult,
+  StudyRecord,
+  ExamPaper,
+  ExamRecord,
+  ChatOptions,
+  ChatResult,
 } from '@ihui/api-client'
 // 向后兼容别名:SignContractResult → SignContractResponse(api-client canonical 名)
 export type SignContractResult = SignContractResponse
@@ -80,24 +106,7 @@ export const getProfile = () => get<UserInfo>('/user/profile')
 
 /* ============ 首页 ============ */
 
-export interface Banner {
-  id: string | number
-  title: string
-  coverUrl: string
-  link?: string
-  /** 运营位位置:home / discover / activity */
-  position?: string
-  /** 跳转类型:webview / page / none */
-  linkType?: 'webview' | 'page' | 'none'
-  /** 排序权重,数值越大越靠前 */
-  sortOrder?: number
-  /** 生效时间(ISO 字符串) */
-  startTime?: string
-  /** 失效时间(ISO 字符串) */
-  endTime?: string
-  /** 状态:0 草稿 / 1 已发布 / 2 已下线 */
-  status?: number
-}
+// Banner 类型已下沉到 @ihui/api-client(endpoints/banner.ts),上方 re-export
 
 /** 首页资源(轮播、工具栏等) */
 export const getHomePage = () => get<{ banner: Banner[] }>('/content/home')
@@ -112,9 +121,14 @@ export const getBannerList = (params?: { position?: string; status?: number }) =
 
 /* ============ 课程 ============ */
 
-export interface Course {
+/**
+ * Miniapp-taro Course 类型(基于 api-client Course 做字段映射)
+ * 字段差异:cover → coverUrl,instructor → teacher
+ * miniapp-taro 独有:subtitle / duration / outline
+ * 参考:packages/api-client/src/endpoints/course.ts
+ */
+export type Course = Pick<ApiCourse, 'title'> & {
   id: string | number
-  title: string
   subtitle?: string
   coverUrl: string
   teacher?: string
@@ -134,9 +148,13 @@ export const getCourseDetail = (id: string | number) => get<Course>(`/content/co
 
 /* ============ 直播 ============ */
 
-export interface Live {
+/**
+ * Miniapp-taro Live 类型(基于 api-client Live 做字段映射)
+ * 字段差异:coverUrl → coverImage,status(enum) vs status(number),anchor vs lecturerName,watchCount vs viewCount
+ * 参考:packages/api-client/src/endpoints/live.ts
+ */
+export type Live = Pick<ApiLive, 'title'> & {
   id: string | number
-  title: string
   coverUrl: string
   status: 'upcoming' | 'living' | 'ended'
   startTime?: string
@@ -154,12 +172,16 @@ export const getLiveDetail = (id: string | number) => get<Live>(`/live/${id}`)
 
 /* ============ 订单 ============ */
 
-export interface Order {
+/**
+ * Miniapp-taro Order 类型(基于 api-client Order 做字段映射)
+ * 字段差异:id(string|number vs string),type(string vs OrderType),title vs targetTitle,
+ * status(4 值 vs 7 值 OrderStatus),createTime vs createdAt
+ * 参考:packages/api-client/src/endpoints/order.ts
+ */
+export type Order = Pick<ApiOrder, 'orderNo' | 'amount'> & {
   id: string | number
-  orderNo: string
   type: string
   title: string
-  amount: number
   status: 'pending' | 'paid' | 'cancelled' | 'refunded'
   createTime: string
 }
@@ -171,10 +193,11 @@ export const getOrderList = (params?: { page?: number; pageSize?: number; status
 /* ============ AI 对话 ============ */
 
 /**
- * Miniapp-taro 端聊天消息类型。
+ * Miniapp-taro 端聊天消息类型(本地保留:依赖 @ihui/shared BaseChatMessage)。
  *
  * 继承 @ihui/shared 的 ChatMessage 通用基类,扩展小程序端独占字段。
  * 与基类的差异:role 限制为 user/assistant;不使用基类 id/createdAt。
+ * 注:api-client chat.ts 有 ConversationMessage(DB 持久化层),与此处 UI 层 ChatMessage 语义不同。
  */
 export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 'role'> {
   /** Miniapp 端只使用 user / assistant 两种角色(不发送 system) */
@@ -191,23 +214,7 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 
   codeContent?: string
 }
 
-export interface ChatOptions {
-  /** 模型 ID(优先使用,与 AI-service LLMCompleteRequest 对齐) */
-  model?: string
-  /** 向后兼容 alias,优先级低于 model */
-  modelId?: string
-  agentId?: string
-  materialContent?: string
-  /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
-   * 由调用方调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
-  contextLimit?: number
-}
-
-export interface ChatResult {
-  reply: string
-  sessionId: string
-  reasoning?: string
-}
+// ChatOptions / ChatResult 已下沉到 @ihui/api-client(endpoints/chat.ts),上方 re-export
 
 /** AI 对话（流式可由后端 SSE 处理，此处提供普通接口） */
 export const chat = (messages: ChatMessage[], sessionId?: string, options?: ChatOptions) =>
@@ -402,37 +409,13 @@ export const getVipInfo = () => get<VipInfo>('/vip/my')
 export const getVipLevels = () => get<{ items: VipLevel[] }>('/vip/levels')
 export const getVipPrivilege = () =>
   get<{ list: Array<{ id: string; title: string; desc: string }> }>('/vip/privilege')
-export interface VipPayInfo {
-  mock: boolean
-  method: 'jsapi' | 'native' | 'h5'
-  timeStamp?: string
-  nonceStr?: string
-  package?: string
-  signType?: string
-  paySign?: string
-  codeUrl?: string
-  h5Url?: string
-  error?: string
-}
-export interface VipOrderResult {
-  orderId: string
-  orderNo: string
-  amount: number
-  vipLevelId: string
-  quantity: number
-  payInfo: VipPayInfo
-}
+// VipPayInfo / VipOrderResult 已下沉到 @ihui/api-client(endpoints/member.ts),上方 re-export
 export const upgradeVip = (vipLevelId: string) =>
   post<VipOrderResult>('/vip/order', { vipLevelId, quantity: 1 })
 export const getVipOrderPayInfo = (orderNo: string) =>
   get<{ status: string; payInfo?: VipPayInfo }>(`/vip/order/${orderNo}/payinfo`)
 
-export interface MemberInfo {
-  level: string
-  integral: number
-  growth: number
-  coupons: number
-}
+// MemberInfo 已下沉到 @ihui/api-client(endpoints/member.ts),上方 re-export
 export const getMemberInfo = () => get<MemberInfo>('/member/info')
 export const getMemberBenefits = () =>
   get<{ list: Array<{ id: string; title: string; desc: string; icon?: string }> }>(
@@ -680,14 +663,7 @@ export const getTopicDetail = (id: string | number) =>
 
 /* ============ 教育扩展 ============ */
 
-export interface StudyRecord {
-  id: string
-  courseId: string
-  courseTitle: string
-  progress: number
-  duration: number
-  time: string
-}
+// StudyRecord 已下沉到 @ihui/api-client(endpoints/study.ts),上方 re-export
 export const getStudyInfo = () =>
   get<{ todayMinutes: number; totalMinutes: number; continuousDays: number; courses: number }>(
     '/study/info',
@@ -727,19 +703,7 @@ export const getExamList = (params?: {
 }) => get<{ list: Exam[]; total: number }>('/exam/papers', params)
 export type QuestionType =
   'single_choice' | 'multi_choice' | 'judgment' | 'fill_blank' | 'subjective'
-export interface ExamPaper {
-  id: string
-  title: string
-  description?: string | null
-  categoryId?: string
-  paperType?: 'normal' | 'random' | 'mock' | 'exam'
-  totalScore?: string
-  passScore?: string
-  duration?: number
-  isPublished?: boolean
-  isRandom?: boolean
-  status?: number
-}
+// ExamPaper 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
 // ExamQuestion 已 re-export 自 @ihui/api-client(见文件顶部)
 // 字段差异记录:miniapp-taro 原本地定义为 { paperId, type: QuestionType, options: string[], score: string, sortOrder }
 // api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null }
@@ -748,15 +712,7 @@ export interface ExamPaper {
 export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
 export const getExamQuestions = (id: string) =>
   get<{ list: ExamQuestion[] }>(`/exam/papers/${id}/questions`)
-export interface ExamRecord {
-  id: string
-  paperId: string
-  score: string
-  isPassed: boolean
-  status: string
-  startedAt: string
-  submittedAt?: string | null
-}
+// ExamRecord 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
 export const getExamRecords = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: ExamRecord[]; total: number }>('/exam/records', params)
 export interface ExamSubmitResult {
@@ -881,15 +837,7 @@ export const getLiveCalendar = (params?: { month?: string }) =>
   get<{ list: Array<{ date: string; lives: Live[] }> }>('/live/calendar', params)
 export const subscribeLive = (id: string | number) => post(`/live/${id}/subscribe`)
 
-export interface Teacher {
-  id: string | number
-  name: string
-  avatar?: string
-  title?: string
-  intro?: string
-  courses?: number
-  students?: number
-}
+// Teacher 已下沉到 @ihui/api-client(endpoints/teacher.ts),上方 re-export
 export const getTeacherList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: Teacher[]; total: number }>('/teacher/list', params)
 export const getTeacherDetail = (id: string | number) => get<Teacher>(`/teacher/${id}`)
