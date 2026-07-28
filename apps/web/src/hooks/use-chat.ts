@@ -325,6 +325,64 @@ async function tryHandlePermissionSlash(text: string): Promise<boolean> {
   return true
 }
 
+/** 关键词 → ChatMode 映射(2026-07-28 立,AI 自动判断模式)
+ * - 与原 mode-switcher.tsx 的 SUGGEST_KEYWORDS 完全一致,迁移到 use-chat.ts
+ *   统一为单一事实源,移除 4 按钮后避免散落
+ * - 关键词匹配采用"首次命中优先"策略,与文本子串 includes() 检测
+ * - 优先级顺序:plan → build → review → spec(数组顺序决定优先级)
+ * - 中英文混排:关键词里既包含中文("修改"/"分析")也包含英文("build"/"plan")
+ *   兼容用户纯英文输入或中英混输场景 */
+const SUGGEST_KEYWORDS: { mode: ChatMode; keywords: string[] }[] = [
+  { mode: 'plan', keywords: ['调研', '分析', '了解', '看看', '查看', '研究', '探索', '梳理', 'plan'] },
+  { mode: 'build', keywords: ['修改', '实现', '重构', '添加', '删除', '编写', '创建', '修复', '更新', 'build'] },
+  { mode: 'review', keywords: ['审查', '检查', '对比', '评审', 'review', 'diff'] },
+  { mode: 'spec', keywords: ['规格', '规范', '契约', 'spec', 'specification'] },
+]
+
+/** 根据用户输入文本推荐 ChatMode(关键词匹配,首次命中优先)
+ * - 输入为空 → 返回 null
+ * - 命中关键词 → 返回对应 mode
+ * - 未命中 → 返回 null(保持当前模式)
+ *
+ * 设计原则(2026-07-28 立,用户规则"AI 自动决策"):
+ * - 保留关键词匹配 + 命中即切换的轻量启发式
+ * - 不引入 LLM/embedding(轻量、毫秒级、可解释)
+ * - 漏命中场景下保持当前模式,LLM 仍可正常工作(模式只是约束 write 工具) */
+function suggestMode(userInput: string): ChatMode | null {
+  if (!userInput.trim()) return null
+  const text = userInput.toLowerCase()
+  for (const { mode, keywords } of SUGGEST_KEYWORDS) {
+    if (keywords.some((kw) => text.includes(kw.toLowerCase()))) {
+      return mode
+    }
+  }
+  return null
+}
+
+/** AI 自动判断模式(2026-07-28 立,移除 4 按钮后由 AI 决定用哪种模式)
+ * - 时机:在 sendMessage 流程中,所有显式 /命令拦截后、createConversation 前
+ *   用户敲完消息按发送,才触发自动切换(避免边输入边跳)
+ * - 静默切换(无 toast):自动判断是辅助能力,反复提示会刷屏
+ *   当前模式徽章(apps/web/src/components/chat/message-input.tsx CurrentModeBadge)会
+ *   实时反映新模式,提供视觉反馈
+ * - 仅当建议模式 ≠ 当前模式时才切换(避免无意义的 setState)
+ * - 已在 plan/build 等模式(用户主动选择)下不打扰:
+ *   例如用户已显式 /review,后续普通对话不会自动改回 build
+ *   (因为关键词不命中会返回 null,保持当前模式)
+ *
+ * 边界场景:
+ * - 短文本"看看" → 命中 plan → 自动切到只读分析
+ * - 长 prompt 包含多关键词 → 数组优先级优先(plan 优先于 build)
+ * - 无关键词 → 保持当前模式不变
+ */
+function tryAutoDetectMode(text: string): void {
+  const suggested = suggestMode(text)
+  if (!suggested) return
+  const modeStore = useModeStore.getState()
+  if (modeStore.currentMode === suggested) return
+  modeStore.setMode(suggested)
+}
+
 async function tryHandleSelfMediaSlash(
   text: string,
   onResult: (assistantContent: string) => void,
@@ -948,6 +1006,13 @@ export function useChat(): UseChatReturn {
       // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
       // - 命中即清空输入框 + toast 反馈(切 full 时弹 5s 撤销 toast)
       if (await tryHandlePermissionSlash(text)) return true
+
+      // AI 自动判断 ChatMode(2026-07-28 立,移除 4 按钮后由 AI 决定用哪种模式):
+      // - 时机:所有 /命令拦截后、createConversation 前(用户敲完按发送才触发)
+      // - 静默切换,无 toast(自动判断是辅助能力,反复提示会刷屏)
+      // - 当前模式徽章(CurrentModeBadge)实时反映新模式,提供视觉反馈
+      // - 显式 /命令优先级最高(已在上方拦截,这里只处理普通对话)
+      tryAutoDetectMode(text)
 
       // 未登录拦截(2026-07-24 立,修复"未登录点发送无反应"问题):
       // - 不调 createConversation(避免 401 无可见反馈)

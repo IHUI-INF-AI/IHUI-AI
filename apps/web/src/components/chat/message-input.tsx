@@ -33,7 +33,7 @@ import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
 import { useModeStore } from '@/stores/mode'
-import type { ChatMode } from '@ihui/types'
+import { ChatMode } from '@ihui/types'
 import {
   PermissionModePopover,
   isHighRiskPermissionMode,
