@@ -65,7 +65,7 @@ export function ApiPackageDialog({
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label htmlFor="pk-price">{t('priceLabel')}</Label>
               <Input
