@@ -24,13 +24,9 @@ interface Product {
   price: number
 }
 
-function readNumber(v: unknown): number | null {
-  return typeof v === 'number' && Number.isFinite(v) ? v : null
-}
-
 function mapResource(r: Resource): Product | null {
   if (!r.title) return null
-  const price = readNumber(r.price) ?? 0
+  const price = typeof r.price === 'number' ? r.price : Number(r.price) || 0
   return { id: r.id, name: r.title, price }
 }
 

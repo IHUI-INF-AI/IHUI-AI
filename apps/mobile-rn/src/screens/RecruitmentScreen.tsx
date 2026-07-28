@@ -34,32 +34,26 @@ const TABS: { key: Category; label: string }[] = [
 
 const PRIMARY = tokens.brand.DEFAULT
 
-// AiCareerItem → Job 字段映射。后端 AiCareerItem 仅有 id/title/description,
-// 其余字段(position/company/salary/location/category/tags/experience/education/requirements)
-// 在 UI 层用占位值兜底,待后端补字段时再启用真实数据。
-// AiCareerItem 的 [key: string]: unknown 索引签名使所有扩展字段返回 unknown,
-// 用 type guard 函数安全提取,避免 `as string` 不安全断言和 `any` 兜底。
-function pickStr(v: unknown, fallback: string): string {
-  return typeof v === 'string' && v.length > 0 ? v : fallback
+/** Map backend category string to local TABS category, default 'tech' if unmatched */
+function parseCategory(raw: string | undefined): Exclude<Category, 'all'> {
+  if (raw === 'tech' || raw === 'product' || raw === 'design' || raw === 'ops') return raw
+  return 'tech'
 }
 
-function pickStrArr(v: unknown): string[] {
-  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
-}
-
+/** AiCareerItem -> Job field mapping (strongly typed, backend fields are explicit) */
 function mapCareerToJob(item: AiCareerItem): Job {
   return {
     id: item.id,
     position: item.title,
-    company: pickStr(item.company, '—'),
-    salary: pickStr(item.salary, '面议'),
-    location: pickStr(item.location, '—'),
-    category: 'tech',
-    tags: pickStrArr(item.tags),
-    experience: pickStr(item.experience, '—'),
-    education: pickStr(item.education, '—'),
+    company: item.company || '—',
+    salary: item.salary || '面议',
+    location: item.location || '—',
+    category: parseCategory(item.category),
+    tags: item.tags ?? [],
+    experience: item.experience || '—',
+    education: item.education || '—',
     description: item.description ?? item.content ?? '',
-    requirements: pickStrArr(item.requirements),
+    requirements: item.requirements ?? [],
   }
 }
 
@@ -97,8 +91,8 @@ export default function RecruitmentScreen() {
     }
   }, [])
 
-  // API 无 category 字段,TABS 仅作为视觉筛选占位,filtered 始终返回全部 jobs。
-  const filtered = jobs
+  // Real category filter: 'all' shows everything, others filter by job.category
+  const filtered = activeTab === 'all' ? jobs : jobs.filter((j) => j.category === activeTab)
 
   const onApply = (job: Job) => {
     setApplied((prev) => new Set(prev).add(job.id))
