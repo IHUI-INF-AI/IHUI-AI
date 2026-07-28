@@ -125,43 +125,28 @@ export const OverviewSection = React.memo(function OverviewSection({
 
   const Icon = STATUS_ICON[overview.status]
 
-  // Phase 20 P1-2:复制整个任务摘要为 Markdown(2026-07-28 立)
-  const [copied, setCopied] = React.useState<boolean>(false)
-  const onCopySummary = React.useCallback(async () => {
-    const md = buildOverviewSummaryMarkdown({
-      overview,
-      isStreaming,
-      totalTokens,
-      tokenRate,
-      etaMs,
-      contextUsage,
-      sessionStart: overview.sessionStart,
-    })
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(md)
-        setCopied(true)
-        const id = window.setTimeout(() => setCopied(false), 1500)
-        return () => window.clearTimeout(id)
-      }
-    } catch {
-      // 忽略剪贴板权限错误
-    }
-    return undefined
-  }, [overview, isStreaming, totalTokens, tokenRate, etaMs, contextUsage])
-
   return (
     <FoldableSection
       title={t('overview.title')}
       icon={Activity}
       data-testid="overview-section"
       headerExtra={
-        <button
-          type="button"
+        // 注:不能放 <button>(HTML 不允许 button 嵌套 button,会触发 hydration 错误)
+        // 用 div + role=button 模拟,行为一致(键盘 Enter/Space 触发由 onClick 兜底)
+        <div
+          role="button"
+          tabIndex={0}
           onClick={onCopySummary}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              e.stopPropagation()
+              onCopySummary()
+            }
+          }}
           aria-label={copied ? t('copied') : t('overview.copySummary')}
           title={copied ? t('copied') : t('overview.copySummary')}
-          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+          className="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
           data-testid="overview-copy-summary"
           data-copied={copied ? 'true' : undefined}
         >
@@ -170,7 +155,7 @@ export const OverviewSection = React.memo(function OverviewSection({
           ) : (
             <Clipboard className="h-2.5 w-2.5" aria-hidden />
           )}
-        </button>
+        </div>
       }
     >
       <div className="space-y-0.5 text-[11px] leading-relaxed">

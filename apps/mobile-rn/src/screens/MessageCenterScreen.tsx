@@ -1,46 +1,14 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { useCallback, useState } from 'react'
-import {
-  Alert,
-  FlatList,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Card } from '@ihui/ui-native'
-import {
-  fetchApi,
-  getNotifications,
-  markNotificationRead,
-  markMessageRead,
-  deleteNotification,
-  deleteMessage,
-  markAllNotificationsRead,
-  markAllMessagesRead,
-  type NotificationItem,
-  type MessageItem,
-} from '@ihui/api-client'
-import { usePaginatedList } from '../hooks'
+import { fetchApi } from '@ihui/api-client'
+import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app'
+import type { MessageItem, MessageTab } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { formatDateByTemplate } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-const PAGE_SIZE = 20
-
-type TabKey = 'notification' | 'message'
-type Item = (NotificationItem & { _kind: 'notification' }) | (MessageItem & { _kind: 'message' })
-
-const MESSAGE_CENTER_TAB_KEYS: Record<TabKey, string> = {
-  notification: 'messageCenter.tab_notification',
-  message: 'messageCenter.tab_message',
-}
 
 interface MessagePage {
   list: MessageItem[]
@@ -49,237 +17,52 @@ interface MessagePage {
 
 export function MessageCenterScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [tab, setTab] = useState<TabKey>('notification')
+  const [items, setItems] = useState<MessageItem[]>([])
+  const [activeTab, setActiveTab] = useState<MessageTab>('system')
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
 
-  const fetcher = useCallback(async () => {
-    if (tab === 'notification') {
-      const res = await getNotifications({ page: 1, pageSize: PAGE_SIZE })
-      if (res.success) {
-        const list = res.data.list.map((n) => ({ ...n, _kind: 'notification' as const }))
-        return { success: true as const, data: { list, total: res.data.total } }
-      }
-      return { success: false as const, error: res.error || t('messageCenter.loadFailed') }
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const res = await fetchApi<MessagePage>(`/api/messages?type=${activeTab}`)
+      if (!res.success) throw new Error()
+      setItems(res.data.list ?? [])
+    } catch {
+      setError(t('messageCenter.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    // getMessages 与 chat.ts 的 getMessages 命名冲突,改用 fetchApi 直调 /api/messages
-    const url = `/api/messages?page=1&pageSize=${PAGE_SIZE}`
-    const res = await fetchApi<MessagePage>(url)
-    if (!res.success) {
-      return { success: false as const, error: t('messageCenter.loadFailed') }
-    }
-    const list = res.data.list.map((m) => ({ ...m, _kind: 'message' as const }))
-    return {
-      success: true as const,
-      data: { list, total: res.data.total },
-    }
-  }, [tab, t])
+  }, [activeTab, t])
 
-  const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
-    usePaginatedList<Item>(fetcher, PAGE_SIZE)
+  useEffect(() => {
+    setLoading(true)
+    void load()
+  }, [load])
 
-  const onSwitchTab = (next: TabKey) => {
-    if (next === tab) return
-    setTab(next)
-    setTimeout(refresh, 0)
-  }
-
-  const onMarkRead = async (item: Item) => {
-    if (item.isRead) return
-    const res =
-      item._kind === 'notification'
-        ? await markNotificationRead(item.id)
-        : await markMessageRead(item.id)
-    if (res.success) {
-      refresh()
-    } else {
-      Alert.alert(t('common.failed'), t('messageCenter.markReadFailed'))
-    }
-  }
-
-  const onDelete = (item: Item) => {
-    Alert.alert(t('messageCenter.deleteTitle'), t('messageCenter.deleteConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          const res =
-            item._kind === 'notification'
-              ? await deleteNotification(item.id)
-              : await deleteMessage(item.id)
-          if (res.success) {
-            removeItem((i) => i.id === item.id)
-          } else {
-            Alert.alert(t('common.failed'), t('messageCenter.deleteFailed'))
-          }
-        },
-      },
-    ])
-  }
-
-  const onMarkAllRead = async () => {
-    const res =
-      tab === 'notification' ? await markAllNotificationsRead() : await markAllMessagesRead()
-    if (res.success) {
-      refresh()
-    } else {
-      Alert.alert(t('common.failed'), t('messageCenter.markReadFailed'))
-    }
+  const onSelectTab = (tab: MessageTab) => {
+    if (tab !== activeTab) setActiveTab(tab)
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('messageCenter.title')}</Text>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={onMarkAllRead} style={styles.markAllBtn}>
-          <Text style={styles.markAllText}>{t('messageCenter.markAllRead')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.tabs}>
-        {(['notification', 'message'] as const).map((k) => (
-          <TouchableOpacity
-            key={k}
-            onPress={() => onSwitchTab(k)}
-            style={[styles.tab, tab === k && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, tab === k && styles.tabTextActive]}>
-              {t(MESSAGE_CENTER_TAB_KEYS[k])}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {error ? (
-        <View style={styles.errorBar}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
-
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
-        ListEmptyComponent={
-          loading ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>{t('common.loading')}</Text>
-            </View>
-          ) : (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>
-                {tab === 'notification'
-                  ? t('messageCenter.emptyNotification')
-                  : t('messageCenter.emptyMessage')}
-              </Text>
-            </View>
-          )
-        }
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.footerWrap}>
-              <Text style={styles.emptyText}>{t('common.loading')}</Text>
-            </View>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <Card className="p-3">
-            <TouchableOpacity onPress={() => onMarkRead(item)} style={styles.itemBtn}>
-              <View style={styles.itemRow}>
-                <View style={[styles.dot, item.isRead ? styles.dotRead : styles.dotUnread]} />
-                <View style={styles.itemBody}>
-                  <Text style={styles.itemTitle} numberOfLines={1}>
-                    {item._kind === 'notification'
-                      ? item.title
-                      : `${item.fromNickname}${t('messageCenter.messageSuffix')}`}
-                  </Text>
-                  <Text style={styles.itemContent} numberOfLines={2}>
-                    {item.content}
-                  </Text>
-                  <Text style={styles.itemDate}>
-                    {formatDateByTemplate(item.createdAt, 'YYYY-MM-DD HH:mm')}
-                  </Text>
-                </View>
-                {item._kind === 'message' && item.fromAvatar ? (
-                  <Image source={{ uri: item.fromAvatar }} style={styles.avatar} />
-                ) : null}
-                <TouchableOpacity
-                  onPress={() => onDelete(item)}
-                  style={styles.deleteBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.deleteText}>×</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </Card>
-        )}
-      />
-    </View>
+    <SharedMessageCenterScreen
+      t={t}
+      items={items}
+      activeTab={activeTab}
+      onSelectTab={onSelectTab}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: tokens.surface.muted,
-  },
-  backBtn: { marginRight: 12 },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  markAllBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  markAllText: { fontSize: 12, color: tokens.success.DEFAULT },
-  tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
-  tab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: tokens.surface.card,
-  },
-  tabActive: { backgroundColor: tokens.success.DEFAULT },
-  tabText: { fontSize: 12, color: tokens.text.secondary },
-  tabTextActive: { color: tokens.surface.light },
-  errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
-  emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-  footerWrap: { alignItems: 'center', paddingVertical: 16 },
-  emptyText: { fontSize: 12, color: tokens.text.secondary },
-  itemBtn: {},
-  itemRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  dot: { width: 8, height: 8, borderRadius: 4, marginTop: 6, marginRight: 8 },
-  dotRead: { backgroundColor: tokens.border.medium },
-  dotUnread: { backgroundColor: tokens.success.DEFAULT },
-  itemBody: { flex: 1 },
-  itemTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-  itemContent: { fontSize: 12, color: tokens.text.secondary, marginTop: 4 },
-  itemDate: { fontSize: 11, color: tokens.text.tertiary, marginTop: 4 },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    marginLeft: 8,
-    backgroundColor: tokens.surface.card,
-  },
-  deleteBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 8,
-    backgroundColor: tokens.error.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  deleteText: { fontSize: 14, color: tokens.danger.DEFAULT, fontWeight: '600' },
-})
