@@ -27,7 +27,7 @@ export function ThemeCard({ t, mounted, theme, onSelect }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {THEMES.map((item) => {
             const Icon = item.icon
             const active = mounted && theme === item.key

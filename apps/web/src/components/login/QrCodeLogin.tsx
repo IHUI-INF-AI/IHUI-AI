@@ -59,7 +59,7 @@ export function QrCodeLogin({ onSwitchMethod }: { onSwitchMethod?: () => void })
       <div
         role="tablist"
         aria-label={t('qrLogin')}
-        className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 rounded-md border bg-muted/40 p-1"
+        className="grid w-full grid-cols-4 gap-1.5 rounded-md border bg-muted/40 p-1"
       >
         {PLATFORM_TABS.map((tab) => {
           const active = tab.key === platform

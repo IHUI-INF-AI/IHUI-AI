@@ -125,7 +125,7 @@ export default function EduExamResultPage() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center text-sm">
+          <div className="grid grid-cols-3 gap-4 text-center text-sm">
             <div>
               <p className="text-muted-foreground">{t('correct')}</p>
               <p className="text-lg font-bold text-emerald-600">{correctCount}</p>
