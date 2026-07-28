@@ -51,8 +51,18 @@
 
 /* ===== 5. .login-form-scope 协议弹窗内部 z-index 修复 =====
  * 当 LoginForm 在 modal / sheet 内嵌时,协议弹窗(Dialog)需要浮在外层容器之上。
- * 共享包不强制重写 z-index,只确保 .login-form-scope 容器创建 stacking context。 */
-.login-form-scope {
+ * 共享包不强制重写 z-index,只确保 .login-form-scope 容器创建 stacking context。
+ *
+ * 2026-07-28 根治协议弹窗位置错位:必须用 :not([role="dialog"]) 排除 Radix Dialog 组件。
+ * 背景:AgreementNoticeDialog(共享包内)的 DialogContent className 误带 `login-form-scope`
+ *   想"借用" LoginForm 的 hover 凸出样式,但 .login-form-scope { position: relative }
+ *   会通过 CSS cascade(同特异性 0,1,0,login-form.css 后于 tailwind utility 加载)
+ *   覆盖 .fixed { position: fixed },导致 fixed 定位失效 + 弹窗被推到视口中心偏下 406px。
+ *   主登录弹窗 DialogContent 用的是 `login-scope`(非 login-form-scope)所以未受影响。
+ *   :not([role="dialog"]) 选择器排除所有 Radix DialogContent(role="dialog"),确保
+ *   任何 Dialog 即使误带 className 也不会被 position:relative 污染,同时 LoginForm
+ *   容器本身(普通 div)依然创建 stacking context。 */
+.login-form-scope:not([role='dialog']):not([role='alertdialog']) {
   position: relative;
   isolation: isolate;
 }
