@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useState } from 'react'
 import {
   Alert,
@@ -12,7 +13,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
-import { usePaginatedList } from '../hooks/use-paginated-list'
+import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
@@ -177,52 +178,52 @@ export function CertificateScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
   },
   backBtn: { marginRight: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   tab: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: tokens.surface.card,
   },
-  tabActive: { backgroundColor: '#10B981' },
-  tabText: { fontSize: 12, color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF' },
+  tabActive: { backgroundColor: tokens.success.DEFAULT },
+  tabText: { fontSize: 12, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.surface.light },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  errorText: { fontSize: 12, color: '#DC2626' },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
   emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-  emptyText: { fontSize: 12, color: '#6B7280' },
+  emptyText: { fontSize: 12, color: tokens.text.secondary },
   itemRow: { flexDirection: 'row', alignItems: 'center' },
-  cover: { width: 56, height: 56, borderRadius: 8, backgroundColor: '#F3F4F6' },
+  cover: { width: 56, height: 56, borderRadius: 8, backgroundColor: tokens.surface.card },
   coverPlaceholder: {
     width: 56,
     height: 56,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   coverEmoji: { fontSize: 24 },
   itemBody: { flex: 1, marginLeft: 12 },
-  itemName: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  itemIssuer: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  itemDate: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+  itemName: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  itemIssuer: { fontSize: 12, color: tokens.text.secondary, marginTop: 2 },
+  itemDate: { fontSize: 11, color: tokens.text.tertiary, marginTop: 2 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 11, color: '#FFFFFF' },
+  statusText: { fontSize: 11, color: tokens.surface.light },
   detailBtn: {
     marginTop: 8,
     paddingVertical: 6,
     alignItems: 'flex-end',
   },
-  detailText: { fontSize: 12, color: '#10B981' },
+  detailText: { fontSize: 12, color: tokens.success.DEFAULT },
 })

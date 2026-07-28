@@ -2,9 +2,9 @@
  * TitleSwitchScrollTitle — 主子赛道横向选择器(scroll_title.vue 迁移)
  * 主赛道横向滚动选择,选中后联动显示子赛道;子赛道选中后回调。
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 
 export interface TitleSwitchItem {
   name: string
@@ -109,14 +109,14 @@ const s = StyleSheet.create({
     paddingBottom: 12,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOpacity: 0.1,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
   section: { paddingHorizontal: 14, marginBottom: 10 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#000', marginBottom: 6 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: tokens.gray.black, marginBottom: 6 },
   listContent: { paddingVertical: 4 },
   item: {
     height: 40,

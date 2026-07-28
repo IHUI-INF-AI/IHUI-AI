@@ -2,6 +2,7 @@
  * TitleSwitchScrollPicker — 滚轮选择器(scroll_picker.vue 迁移)
  * 中心高亮项,上下点击区域切换,滚动 snap 对齐。
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useRef, useState } from 'react'
 import {
   Pressable,
@@ -108,7 +109,7 @@ const s = StyleSheet.create({
     width: 200, height: 80, borderRadius: 8,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.3)',
-    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 0 }, elevation: 2,
+    shadowColor: tokens.gray.black, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 0 }, elevation: 2,
     transform: [{ scale: 0.6 }],
     opacity: 0.3,
   },
@@ -120,7 +121,7 @@ const s = StyleSheet.create({
   itemNear: { transform: [{ scale: 0.8 }], opacity: 0.8 },
   itemFar: { transform: [{ scale: 0.6 }], opacity: 0.6 },
   itemText: { color: '#666', fontSize: 16, fontWeight: '700' },
-  itemTextActive: { color: '#000', fontWeight: '700' },
+  itemTextActive: { color: tokens.gray.black, fontWeight: '700' },
 })
 
 export default TitleSwitchScrollPicker

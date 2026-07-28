@@ -4,7 +4,8 @@
  * 跨端共享类型(SpecScopeType / SpecSection / SpecScope / SpecGenerateInput / SpecTemplate
  * / SpecDocument / SpecGenerateResult / SpecHistoryEntry / SpecDiff / SpecVariable 等)
  * 已统一到 @ihui/shared/spec(index.ts),本文件仅保留 @ihui/types 独有类型:
- *  - ChatMode(web stores/mode.ts + mode-switcher.tsx 独有,4 态对话模式)
+ *  - ChatMode(web stores/mode.ts 独有,4 态对话模式;2026-07-28 移除 mode-switcher.tsx 后由
+ *    message-input.tsx CurrentModeBadge 显示当前模式,use-chat.ts suggestMode 做自动判断)
  *  - SpecStats(api spec-service.ts + web spec-panel.tsx 独有,字段与 shared SpecGenerateResult.stats 不同)
  *  - SpecGenerateOutput(api spec-service.ts + web spec-panel.tsx 独有,与 shared SpecGenerateResult 字段不同)
  *

@@ -206,20 +206,20 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '8rpx 16rpx',
-                background: '#f5f5f5',
-                borderBottom: '1rpx solid #e5e5e5',
+                background: 'var(--color-muted)',
+                borderBottom: '1rpx solid var(--color-border)',
               }}
             >
               <Text
                 className="bubble-code-lang"
-                style={{ fontSize: '24rpx', color: '#666' }}
+                style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
                 onClick={() => setCodeCollapsed((v) => !v)}
               >
                 {codeCollapsed ? '▸' : '▾'} {t('ai.chatMessageItem.collapse')}
               </Text>
               <Text
                 className="bubble-code-copy"
-                style={{ fontSize: '24rpx', color: codeCopied ? '#52c41a' : '#1888ee' }}
+                style={{ fontSize: '24rpx', color: codeCopied ? 'var(--color-success)' : 'var(--color-link)' }}
                 onClick={copyCode}
               >
                 {codeCopied ? t('ai.chatMessageItem.copy') + ' ✓' : t('ai.chatMessageItem.copy')}
@@ -228,7 +228,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
             {!codeCollapsed ? (
               <Text
                 className="bubble-code"
-                style={{ color: '#1888ee', display: 'block', padding: '12rpx 16rpx', fontSize: '26rpx', background: '#fafafa', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+                style={{ color: 'var(--color-link)', display: 'block', padding: '12rpx 16rpx', fontSize: '26rpx', background: 'var(--color-muted)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
               >
                 {msg.codeContent}
               </Text>

@@ -1,5 +1,7 @@
 import Taro from '@tarojs/taro'
 import { getStorageSync } from '@tarojs/taro'
+import { SHARE_PARAM } from '@ihui/shared/constants'
+import { USER_INFO_LEGACY_KEY } from '@/constants/storage'
 
 export interface ShareInfo {
   title: string
@@ -13,24 +15,25 @@ export interface TimelineShareInfo {
   imageUrl?: string
 }
 
+// 2026-07-28 Q-2: 跨端共享的 URL 参数(source/sourceValue/inviteCodeParam)
+// 改用 @ihui/shared/constants SHARE_PARAM,消除本地重复定义。
+// 保留 defaultTitle/defaultImageUrl/fallbackPath(端独占配置)。
 export const shareConfig = {
   defaultTitle: '智汇AI',
   defaultImageUrl: '/static/share.png',
   fallbackPath: '/pages/index/index',
-  sourceParam: 'source',
-  sourceValue: 'share',
-  inviteCodeParam: 'inviteCode',
 }
 
 export function getInviteCode(): string {
-  const userData = getStorageSync('ihui_user_info') || {}
+  // 2026-07-28 Q-4: 用 USER_INFO_LEGACY_KEY 常量替代硬编码 'ihui_user_info'
+  const userData = getStorageSync(USER_INFO_LEGACY_KEY) || {}
   return (userData as { inviteCode?: string }).inviteCode || ''
 }
 
 export function getSharePath(currentPath?: string): string {
   const path = currentPath || shareConfig.fallbackPath
   const inviteCode = getInviteCode()
-  const query = `${shareConfig.sourceParam}=${shareConfig.sourceValue}&${shareConfig.inviteCodeParam}=${inviteCode}`
+  const query = `${SHARE_PARAM.SOURCE_PARAM}=${SHARE_PARAM.SOURCE_VALUE}&${SHARE_PARAM.INVITE_CODE_PARAM}=${inviteCode}`
   return path.includes('?') ? `${path}&${query}` : `${path}?${query}`
 }
 
@@ -46,7 +49,7 @@ export function getTimelineShareInfo(title?: string, imageUrl?: string): Timelin
   const inviteCode = getInviteCode()
   return {
     title: title || shareConfig.defaultTitle,
-    query: `${shareConfig.sourceParam}=${shareConfig.sourceValue}&${shareConfig.inviteCodeParam}=${inviteCode}`,
+    query: `${SHARE_PARAM.SOURCE_PARAM}=${SHARE_PARAM.SOURCE_VALUE}&${SHARE_PARAM.INVITE_CODE_PARAM}=${inviteCode}`,
     imageUrl: imageUrl || shareConfig.defaultImageUrl,
   }
 }

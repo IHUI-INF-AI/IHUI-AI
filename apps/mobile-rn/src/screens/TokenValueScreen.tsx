@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   View,
@@ -202,7 +203,7 @@ export default function TokenValueScreen() {
           </View>
           {error ? (
             <View style={{ paddingHorizontal: 4, paddingBottom: 4 }}>
-              <Text style={{ color: '#FF6B00', fontSize: 12 }}>{error}</Text>
+              <Text style={{ color: tokens.warning.deep, fontSize: 12 }}>{error}</Text>
             </View>
           ) : null}
         </View>
@@ -233,41 +234,41 @@ export default function TokenValueScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  balanceCard: { padding: 16, borderRadius: 12, backgroundColor: '#7B61FF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  balanceCard: { padding: 16, borderRadius: 12, backgroundColor: tokens.purple.DEFAULT },
   balanceLabel: { fontSize: 12, color: '#E9E5FF' },
-  balanceValue: { marginTop: 6, fontSize: 32, fontWeight: '700', color: '#FFFFFF' },
+  balanceValue: { marginTop: 6, fontSize: 32, fontWeight: '700', color: tokens.surface.light },
   balanceMeta: { flexDirection: 'row', marginTop: 12, gap: 24 },
   metaItem: {},
   metaLabel: { fontSize: 11, color: '#E9E5FF' },
-  metaValue: { marginTop: 2, fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-  sectionTitle: { marginTop: 20, marginBottom: 10, fontSize: 14, fontWeight: '600', color: '#111827' },
+  metaValue: { marginTop: 2, fontSize: 14, fontWeight: '600', color: tokens.surface.light },
+  sectionTitle: { marginTop: 20, marginBottom: 10, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
   pkgScroll: { gap: 10, paddingVertical: 4 },
-  pkgCard: { width: 130, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF', alignItems: 'center' },
-  pkgCardPopular: { borderColor: '#7B61FF', backgroundColor: '#F5F3FF' },
-  popularBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: '#7B61FF' },
-  popularText: { fontSize: 10, fontWeight: '600', color: '#FFFFFF' },
-  pkgTokens: { marginTop: 8, fontSize: 18, fontWeight: '700', color: '#111827' },
-  pkgUnit: { marginTop: 2, fontSize: 11, color: '#6B7280' },
-  pkgBonus: { marginTop: 4, fontSize: 11, color: '#FF6B00', fontWeight: '600' },
-  pkgPriceBox: { marginTop: 8, paddingHorizontal: 12, height: 28, borderRadius: 8, backgroundColor: '#7B61FF', alignItems: 'center', justifyContent: 'center' },
-  pkgPrice: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  pkgCard: { width: 130, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: tokens.border.light, backgroundColor: tokens.surface.bg, alignItems: 'center' },
+  pkgCardPopular: { borderColor: tokens.purple.DEFAULT, backgroundColor: tokens.purple.light },
+  popularBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: tokens.purple.DEFAULT },
+  popularText: { fontSize: 10, fontWeight: '600', color: tokens.surface.light },
+  pkgTokens: { marginTop: 8, fontSize: 18, fontWeight: '700', color: tokens.text.primary },
+  pkgUnit: { marginTop: 2, fontSize: 11, color: tokens.text.secondary },
+  pkgBonus: { marginTop: 4, fontSize: 11, color: tokens.warning.deep, fontWeight: '600' },
+  pkgPriceBox: { marginTop: 8, paddingHorizontal: 12, height: 28, borderRadius: 8, backgroundColor: tokens.purple.DEFAULT, alignItems: 'center', justifyContent: 'center' },
+  pkgPrice: { fontSize: 13, fontWeight: '600', color: tokens.surface.light },
   tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  tabItem: { paddingHorizontal: 14, height: 30, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  tabItemActive: { backgroundColor: '#7B61FF' },
-  tabText: { fontSize: 12, color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF', fontWeight: '600' },
+  tabItem: { paddingHorizontal: 14, height: 30, borderRadius: 8, backgroundColor: tokens.surface.card, alignItems: 'center', justifyContent: 'center' },
+  tabItemActive: { backgroundColor: tokens.purple.DEFAULT },
+  tabText: { fontSize: 12, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.surface.light, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
-  recordItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  recordItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: tokens.border.light },
   recordIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  recordIconGreen: { backgroundColor: '#ECFDF5' },
-  recordIconGray: { backgroundColor: '#F3F4F6' },
-  recordIconText: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  recordIconGreen: { backgroundColor: tokens.success.light },
+  recordIconGray: { backgroundColor: tokens.surface.card },
+  recordIconText: { fontSize: 12, fontWeight: '600', color: tokens.text.secondary },
   recordMain: { flex: 1 },
-  recordTitle: { fontSize: 13, fontWeight: '600', color: '#111827' },
-  recordTime: { marginTop: 2, fontSize: 11, color: '#9CA3AF' },
+  recordTitle: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  recordTime: { marginTop: 2, fontSize: 11, color: tokens.text.tertiary },
   recordAmount: { fontSize: 14, fontWeight: '700' },
-  amountGreen: { color: '#10B981' },
-  amountRed: { color: '#FF6B00' },
+  amountGreen: { color: tokens.success.DEFAULT },
+  amountRed: { color: tokens.warning.deep },
 })

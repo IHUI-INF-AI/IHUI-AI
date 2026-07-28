@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useState } from 'react'
 import {
   Alert,
@@ -14,7 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card } from '@ihui/ui-native'
 import { getFavorites, type FavoriteItem } from '@ihui/api-client'
 import { deleteFavorite } from '../api/social'
-import { usePaginatedList } from '../hooks/use-paginated-list'
+import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -176,45 +177,45 @@ export function FavoriteScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
   },
   backBtn: { marginRight: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  tokenBadge: { fontSize: 12, color: '#10B981' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  tokenBadge: { fontSize: 12, color: tokens.success.DEFAULT },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   tab: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: tokens.surface.card,
   },
-  tabActive: { backgroundColor: '#10B981' },
-  tabText: { fontSize: 12, color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF' },
+  tabActive: { backgroundColor: tokens.success.DEFAULT },
+  tabText: { fontSize: 12, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.surface.light },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  errorText: { fontSize: 12, color: '#DC2626' },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
   emptyWrap: { alignItems: 'center', paddingVertical: 48 },
   footerWrap: { alignItems: 'center', paddingVertical: 16 },
-  emptyText: { fontSize: 12, color: '#6B7280' },
+  emptyText: { fontSize: 12, color: tokens.text.secondary },
   itemRow: { flexDirection: 'row', alignItems: 'center' },
-  cover: { width: 56, height: 56, borderRadius: 8, backgroundColor: '#F3F4F6' },
+  cover: { width: 56, height: 56, borderRadius: 8, backgroundColor: tokens.surface.card },
   coverPlaceholder: {
     width: 56,
     height: 56,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   coverEmoji: { fontSize: 24 },
   itemBody: { flex: 1, marginLeft: 12, marginRight: 8 },
-  itemName: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  itemMeta: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+  itemName: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  itemMeta: { fontSize: 11, color: tokens.text.tertiary, marginTop: 4 },
 })
