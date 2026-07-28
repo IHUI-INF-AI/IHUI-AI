@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -82,13 +82,13 @@ export default function KnowledgeBasePage() {
   const items = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <BookOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">知识库</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">知识库</h1>
         </div>
-        <p className="text-sm text-muted-foreground">浏览、搜索与管理知识库文章</p>
+        <p className="text-xs text-muted-foreground">浏览、搜索与管理知识库文章</p>
       </header>
 
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -110,7 +110,7 @@ export default function KnowledgeBasePage() {
               <span>全部分类</span>
               <span className="text-xs opacity-70">{total}</span>
             </button>
-            {categories.map((c: any) => (
+            {categories.map((c) => (
               <button
                 key={c.id}
                 type="button"
@@ -146,7 +146,7 @@ export default function KnowledgeBasePage() {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               加载中...
             </div>
@@ -155,13 +155,13 @@ export default function KnowledgeBasePage() {
               {(error as Error).message}
             </div>
           ) : items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
               <FileText className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">暂无文章</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {items.map((item: any) => (
+              {items.map((item) => (
                 <Link key={item.id} href={`/knowledge-base/${item.id}`} className="block">
                   <Card className="transition-colors hover:bg-accent/50">
                     <CardHeader className="pb-2">

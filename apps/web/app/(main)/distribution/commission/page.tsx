@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -114,7 +114,7 @@ export default function MyCommissionPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -124,7 +124,7 @@ export default function MyCommissionPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <DollarSign className="h-7 w-7 text-primary" />
           {t('commissionTitle')}
         </h1>
@@ -181,7 +181,7 @@ export default function MyCommissionPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((it: any) => (
+                items.map((it) => (
                   <TableRow key={it.id}>
                     <TableCell className="px-4 py-2.5 font-medium">
                       {t(TYPE_KEY[it.type] ?? 'commissionType0')}

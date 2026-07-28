@@ -42,8 +42,7 @@ import PlazaPage from './pages/PlazaPage'
 import CirclesPage from './pages/CirclesPage'
 import TopicsPage from './pages/TopicsPage'
 import AsksPage from './pages/AsksPage'
-
-const WEB_BASE = 'https://ihui.ai'
+import { WEB_BASE } from '../../lib/open-in-web'
 
 // 5 主 tab(2026-07-25 重构):对话 / AI / 内容 / 我的 / 设置
 const TABS = [

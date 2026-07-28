@@ -17,6 +17,7 @@ import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateWithYear } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -27,14 +28,6 @@ type TabKey = 'following' | 'fans'
 const FOLLOW_TAB_KEYS: Record<TabKey, string> = {
   following: 'follow.tab_following',
   fans: 'follow.tab_fans',
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
 }
 
 export function FollowScreen() {
@@ -159,7 +152,7 @@ export function FollowScreen() {
                       {item.bio}
                     </Text>
                   ) : null}
-                  <Text style={styles.itemDate}>{formatDate(item.followedAt)}</Text>
+                  <Text style={styles.itemDate}>{formatShortDateWithYear(item.followedAt)}</Text>
                 </View>
                 {tab === 'following' && !isSelf ? (
                   <Button onPress={() => onUnfollow(item)} variant="outline" size="sm">

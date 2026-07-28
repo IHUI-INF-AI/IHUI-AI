@@ -67,7 +67,7 @@ export default function NotificationDispatchPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Bell className="h-6 w-6 text-primary" />

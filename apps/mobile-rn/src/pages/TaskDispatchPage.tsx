@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type {
@@ -26,6 +27,7 @@ import { useI18n } from '../i18n'
 import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateTime } from '../utils/date-utils'
 
 import { Input, Loading } from '@ihui/ui-native'
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDispatch'>
@@ -50,19 +52,6 @@ const TASK_STATUS_KEYS: Record<TaskStatus, string> = {
   completed: 'taskDispatch.status.completed',
   failed: 'taskDispatch.status.failed',
   cancelled: 'taskDispatch.status.cancelled',
-}
-
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
 }
 
 /** 统一走 { code, message, data } 格式,返回 data 字段 */
@@ -447,7 +436,7 @@ export function TaskDispatchPage(_: Props) {
             value={command}
             onChangeText={setCommand}
             placeholder={t('taskDispatch.inputPlaceholder')}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.text.tertiary}
             multiline
             className="h-auto min-h-[120px] rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
             style={{ minHeight: 72, textAlignVertical: 'top' }}
@@ -501,7 +490,7 @@ export function TaskDispatchPage(_: Props) {
                 value={fileFilename}
                 onChangeText={setFileFilename}
                 placeholder={t('taskDispatch.file.filenamePlaceholder')}
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={tokens.text.tertiary}
                 className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
               />
               <View className="mt-2 flex-row gap-2">
@@ -509,7 +498,7 @@ export function TaskDispatchPage(_: Props) {
                   value={fileMime}
                   onChangeText={setFileMime}
                   placeholder={t('taskDispatch.file.mimePlaceholder')}
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={tokens.text.tertiary}
                   className="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900"
                 />
                 {pendingFilePayload ? (
@@ -522,7 +511,7 @@ export function TaskDispatchPage(_: Props) {
                 value={fileContent}
                 onChangeText={setFileContent}
                 placeholder={t('taskDispatch.file.contentPlaceholder')}
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={tokens.text.tertiary}
                 multiline
                 className="h-auto min-h-[120px] mt-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900"
                 style={{ minHeight: 60, textAlignVertical: 'top' }}
@@ -572,7 +561,9 @@ export function TaskDispatchPage(_: Props) {
                   </View>
                   <View className="mt-2 flex-row items-center gap-3">
                     <Text className="text-xs text-gray-500">{`${t('taskDispatch.target')}: ${deviceName(item.toDevice)}`}</Text>
-                    <Text className="text-xs text-gray-400">{formatTime(item.createdAt)}</Text>
+                    <Text className="text-xs text-gray-400">
+                      {formatShortDateTime(item.createdAt)}
+                    </Text>
                   </View>
                   {item.filePayload ? (
                     <View className="mt-2 flex-row items-center gap-2 rounded-md bg-indigo-50 px-2 py-1.5">

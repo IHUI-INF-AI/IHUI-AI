@@ -9,8 +9,7 @@ import { useState, type FormEvent } from 'react'
 import { searchContent, type SearchResult } from '@ihui/api-client'
 import { Badge, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb, openWebUrl } from '../../../lib/open-in-web'
 
 type ItemType = 'lesson' | 'live' | 'article' | 'news' | 'ask' | 'resource' | 'exam'
 
@@ -55,8 +54,11 @@ export default function SearchPage() {
   }
 
   const openItem = (url?: string, id?: string) => {
-    const target = url || (id ? `${WEB_BASE}/search?q=${encodeURIComponent(submitted)}` : `${WEB_BASE}/search`)
-    void chrome.tabs.create({ url: target })
+    if (url) {
+      openWebUrl(url)
+      return
+    }
+    openItemInWeb(id ? `/search?q=${encodeURIComponent(submitted)}` : '/search')
   }
 
   return (
@@ -84,7 +86,9 @@ export default function SearchPage() {
       </form>
 
       {loading ? (
-        <div className="text-center text-muted-foreground py-8 px-4 text-sm">{t('common.loading')}</div>
+        <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+          {t('common.loading')}
+        </div>
       ) : error ? (
         <div className="flex flex-col items-center gap-2">
           <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive text-xs text-center">
@@ -108,11 +112,14 @@ export default function SearchPage() {
               <Card
                 key={`${it.type}-${it.id}`}
                 className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => openItem(it.url, it.id)}
+                onClick={() => openItem(it.url)}
               >
                 <CardHeader className="px-3 py-2">
                   <div className="flex items-center gap-1.5">
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 whitespace-nowrap">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] px-1.5 py-0 whitespace-nowrap"
+                    >
                       {TYPE_LABEL_ZH[it.type as ItemType] || it.type}
                     </Badge>
                     <CardTitle className="text-sm leading-snug line-clamp-2 flex-1">
@@ -134,7 +141,9 @@ export default function SearchPage() {
           </div>
         )
       ) : (
-        <div className="text-center text-muted-foreground py-8 px-4 text-sm">{t('common.empty')}</div>
+        <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+          {t('common.empty')}
+        </div>
       )}
     </div>
   )

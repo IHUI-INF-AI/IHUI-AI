@@ -3,13 +3,8 @@
  * 主赛道横向滚动选择,选中后联动显示子赛道;子赛道选中后回调。
  */
 import { useEffect, useState } from 'react'
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 
 export interface TitleSwitchItem {
   name: string
@@ -22,8 +17,12 @@ interface Props {
 }
 
 const DEFAULT_LIST: TitleSwitchItem[] = [
-  { name: '赛道一' }, { name: '赛道二' }, { name: '赛道三' },
-  { name: '赛道四' }, { name: '赛道五' }, { name: '赛道六' },
+  { name: '赛道一' },
+  { name: '赛道二' },
+  { name: '赛道三' },
+  { name: '赛道四' },
+  { name: '赛道五' },
+  { name: '赛道六' },
 ]
 
 export function TitleSwitchScrollTitle({ mainList = DEFAULT_LIST, onChange }: Props) {
@@ -106,7 +105,7 @@ export function TitleSwitchScrollTitle({ mainList = DEFAULT_LIST, onChange }: Pr
 const s = StyleSheet.create({
   container: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.surface.light,
     paddingBottom: 12,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,

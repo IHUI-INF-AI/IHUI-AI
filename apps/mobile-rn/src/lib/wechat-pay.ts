@@ -12,15 +12,18 @@ import * as WeChat from 'react-native-wechat-lib'
 import type { WechatAppPaySignData } from '@ihui/api-client'
 
 // 微信开放平台移动应用 AppID(从历史项目复用,application.yml wx.app.appid)
-const APP_ID = 'wx85fa429a9331b5c8'
+const APP_ID = process.env.EXPO_PUBLIC_WECHAT_APP_ID || ''
 // iOS Universal Link(微信支付完成后回到 app,需在 apple-app-site-association 配置)
-const UNIVERSAL_LINK = 'https://file.aizhs.top/'
+const UNIVERSAL_LINK = process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || 'https://file.aizhs.top/'
 
 let registered = false
 
 /** 注册微信开放平台移动应用(应用启动时调用一次,lazy 自动注册) */
 export async function registerWeChat(): Promise<void> {
   if (registered) return
+  if (!APP_ID) {
+    throw new Error('EXPO_PUBLIC_WECHAT_APP_ID 未配置,请在 apps/mobile-rn/.env 设置')
+  }
   try {
     await WeChat.registerApp(APP_ID, UNIVERSAL_LINK)
     registered = true

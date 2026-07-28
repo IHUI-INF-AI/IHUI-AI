@@ -6,15 +6,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-} from '@ihui/ui-react'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 
@@ -28,11 +20,7 @@ export function Model3dGenHunyuan() {
   const [taskId, setTaskId] = React.useState<string | null>(null)
 
   const mutation = useMutation({
-    mutationFn: async (payload: {
-      Prompt: string
-      ImageUrl?: string
-      ResultFormat: string
-    }) => {
+    mutationFn: async (payload: { Prompt: string; ImageUrl?: string; ResultFormat: string }) => {
       const res = await fetchApi<{ JobId: string; taskId: string }>(
         '/api/ai/tencent/hunyuan3d/submit',
         { method: 'POST', body: JSON.stringify(payload) },
@@ -40,7 +28,7 @@ export function Model3dGenHunyuan() {
       if (!res.success) throw new Error(res.error)
       return res.data
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       setTaskId(data.taskId)
       toast.success(t('taskSubmitted'))
     },
@@ -55,7 +43,7 @@ export function Model3dGenHunyuan() {
       return res.data
     },
     enabled: !!taskId,
-    refetchInterval: (query: any) => {
+    refetchInterval: (query) => {
       const status = query.state.data?.status
       return status === 'succeeded' || status === 'failed' ? false : 3000
     },

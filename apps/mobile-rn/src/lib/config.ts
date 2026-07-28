@@ -1,4 +1,6 @@
-export const API_BASE_URL = 'http://localhost:8801'
+import { SSO_CLIENT_IDS } from '@ihui/shared/constants'
+
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8801'
 export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '@ihui/shared/constants'
 
 /**
@@ -10,5 +12,5 @@ export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '@ihui/shared/const
  * 3. 系统拦截 deep link,拿 sso_code 调 /api/auth/sso/exchange 换 token → 自动登录
  */
 export const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:8801'
-export const SSO_CLIENT_ID = 'mobile-rn'
+export const SSO_CLIENT_ID = SSO_CLIENT_IDS.MOBILE_RN
 export const SSO_REDIRECT_URI = 'ihui://sso/callback'

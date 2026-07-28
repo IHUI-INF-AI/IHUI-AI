@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
@@ -65,7 +65,7 @@ export default function EduExamResultPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -88,10 +88,10 @@ export default function EduExamResultPage() {
   }
 
   const result = data
-  const correctCount = result.results.filter((r: any) => r.correct).length
+  const correctCount = result.results.filter((r: QuestionResult) => r.correct).length
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/edu/exam"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -153,7 +153,7 @@ export default function EduExamResultPage() {
           {t('detail')}
         </h2>
         <div className="space-y-2">
-          {result.results.map((r: any, i: any) => (
+          {result.results.map((r: QuestionResult, i: number) => (
             <div key={r.questionId} className="rounded-md border p-3 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <span className="flex items-center gap-2">

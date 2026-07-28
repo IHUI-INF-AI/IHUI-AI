@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { FlatList, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Avatar, Badge, Card } from '@ihui/ui-native'
+import { getAgents, getProfile, type Agent, type AuthUser } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -25,35 +26,109 @@ interface Work {
   likes: number
 }
 
-const MOCK_CREATOR: Creator = {
-  name: '陈创客',
-  title: '全栈工程师 · AI 应用开发者',
-  bio: '专注 AI Agent 应用与跨端开发,擅长将大模型能力落地为可用的产品。',
-  projects: 24,
-  skills: 12,
-  rating: 4.9,
-}
-
 const SKILLS = ['React Native', 'LangGraph', 'RAG', 'Prompt 工程', 'Node.js', 'PostgreSQL', 'Taro', 'Python']
 
-const MOCK_WORKS: Work[] = [
-  { id: '1', title: '智能客服 Agent', category: 'AI 应用', desc: '基于 LangGraph 的多轮对话客服系统,支持工单流转与知识库检索。', tags: ['LangGraph', 'RAG'], likes: 128 },
-  { id: '2', title: '跨端笔记应用', category: '移动开发', desc: 'React Native + Next.js 同构笔记,支持 Markdown 与双向链接。', tags: ['RN', 'Next.js'], likes: 96 },
-  { id: '3', title: '数据看板可视化', category: '前端工程', desc: '复杂数据的多维可视化看板,支持自定义图表与实时刷新。', tags: ['ECharts', 'React'], likes: 72 },
-  { id: '4', title: '小程序商城', category: '移动开发', desc: 'Taro 4 多端商城,统一代码覆盖微信 / 支付宝 / H5。', tags: ['Taro', 'TS'], likes: 64 },
-]
+function mapCreator(u: AuthUser, projectCount: number, skillCount: number, rating: number): Creator {
+  return {
+    name: u.nickname ?? u.username ?? '未命名创作者',
+    title: u.level ? `创作者 · Lv.${u.level}` : '创作者',
+    bio: u.bio ?? '暂无简介',
+    projects: projectCount,
+    skills: skillCount,
+    rating,
+  }
+}
+
+function mapWork(a: Agent): Work {
+  return {
+    id: a.id,
+    title: a.name,
+    category: a.category || a.tags[0] || '未分类',
+    desc: a.description,
+    tags: a.tags,
+    likes: a.favoriteCount,
+  }
+}
 
 /** 创客名片 / 作品集:展示创客资料、技能标签与代表案例。 */
 export default function CarteScreen() {
   const navigation = useNavigation<NavigationProp>()
-  const [creator] = useState<Creator>(MOCK_CREATOR)
-  const [works] = useState<Work[]>(MOCK_WORKS)
+  const [creator, setCreator] = useState<Creator | null>(null)
+  const [works, setWorks] = useState<Work[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
 
-  const stats = [
-    { label: '项目', value: creator.projects },
-    { label: '技能', value: creator.skills },
-    { label: '好评', value: creator.rating },
-  ]
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const [profileRes, agentsRes] = await Promise.all([getProfile(), getAgents({ pageSize: 100 })])
+      if (!profileRes.success) throw new Error(profileRes.error)
+      if (!agentsRes.success) throw new Error(agentsRes.error)
+      const u = profileRes.data
+      const agentList = agentsRes.data.list ?? []
+      const tags = new Set<string>()
+      let ratingSum = 0
+      let ratingCount = 0
+      for (const a of agentList) {
+        for (const tg of a.tags) tags.add(tg)
+        if (a.rating > 0) {
+          ratingSum += a.rating
+          ratingCount++
+        }
+      }
+      const avgRating = ratingCount > 0 ? Math.round((ratingSum / ratingCount) * 10) / 10 : 0
+      setCreator(mapCreator(u, agentList.length, tags.size, avgRating))
+      setWorks(agentList.map(mapWork))
+    } catch {
+      setError('加载失败,请下拉刷新重试')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onRefresh = () => {
+    setRefreshing(true)
+    void load()
+  }
+
+  if (loading && !creator) {
+    return (
+      <View className="flex-1 items-center justify-center bg-card">
+        <Text className="text-sm text-muted-foreground">加载中...</Text>
+      </View>
+    )
+  }
+
+  if (error && !creator) {
+    return (
+      <View className="flex-1 items-center justify-center bg-card px-6">
+        <Text className="text-sm text-destructive">{error}</Text>
+        <TouchableOpacity
+          onPress={() => {
+            setLoading(true)
+            void load()
+          }}
+          className="mt-3"
+        >
+          <Text className="text-sm text-primary">重试</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  const stats = creator
+    ? [
+        { label: '项目', value: creator.projects },
+        { label: '技能', value: creator.skills },
+        { label: '好评', value: creator.rating },
+      ]
+    : []
 
   return (
     <FlatList
@@ -62,6 +137,7 @@ export default function CarteScreen() {
       keyExtractor={(item) => item.id}
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
       ItemSeparatorComponent={() => <View className="h-2" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
         <View>
           <View className="flex-row items-center gap-3 pb-3 pt-12">
@@ -71,23 +147,33 @@ export default function CarteScreen() {
             <Text className="text-lg font-semibold text-foreground">创客名片</Text>
           </View>
 
-          <Card className="flex-row items-center p-4">
-            <Avatar name={creator.name} size="lg" shape="rounded" className="bg-primary/10" />
-            <View className="ml-3 flex-1">
-              <Text className="text-[17px] font-semibold text-foreground">{creator.name}</Text>
-              <Text className="mt-0.5 text-xs text-primary">{creator.title}</Text>
+          {error ? (
+            <View className="mb-3 rounded-md bg-destructive/10 p-2">
+              <Text className="text-xs text-destructive">{error}</Text>
             </View>
-          </Card>
-          <Text className="mt-3 text-[13px] leading-5 text-foreground/80">{creator.bio}</Text>
+          ) : null}
 
-          <View className="mt-3 flex-row rounded-md bg-muted p-3">
-            {stats.map((st) => (
-              <View key={st.label} className="flex-1 items-center">
-                <Text className="text-lg font-bold text-foreground">{st.value}</Text>
-                <Text className="mt-1 text-[11px] text-muted-foreground">{st.label}</Text>
+          {creator ? (
+            <>
+              <Card className="flex-row items-center p-4">
+                <Avatar name={creator.name} size="lg" shape="rounded" className="bg-primary/10" />
+                <View className="ml-3 flex-1">
+                  <Text className="text-[17px] font-semibold text-foreground">{creator.name}</Text>
+                  <Text className="mt-0.5 text-xs text-primary">{creator.title}</Text>
+                </View>
+              </Card>
+              <Text className="mt-3 text-[13px] leading-5 text-foreground/80">{creator.bio}</Text>
+
+              <View className="mt-3 flex-row rounded-md bg-muted p-3">
+                {stats.map((st) => (
+                  <View key={st.label} className="flex-1 items-center">
+                    <Text className="text-lg font-bold text-foreground">{st.value}</Text>
+                    <Text className="mt-1 text-[11px] text-muted-foreground">{st.label}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            </>
+          ) : null}
 
           <Text className="mb-2 mt-4 text-sm font-semibold text-foreground">技能标签</Text>
           <View className="flex-row flex-wrap gap-1.5">

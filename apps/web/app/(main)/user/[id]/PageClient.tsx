@@ -80,7 +80,7 @@ export default function PublicUserProfilePage() {
         method: 'POST',
         body: JSON.stringify({ peerId: id }),
       }),
-    onSuccess: (res: any) => {
+    onSuccess: (res: CreateConversationResult) => {
       if (res.conversation?.id) {
         router.push(`/messages?conversationId=${res.conversation.id}`)
       }
@@ -89,7 +89,7 @@ export default function PublicUserProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="py-16 text-center text-muted-foreground">
+      <div className="py-8 text-center text-muted-foreground">
         <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
         {t('loading')}
       </div>
@@ -98,7 +98,7 @@ export default function PublicUserProfilePage() {
 
   if (error || !data) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+      <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
         <AlertCircle className="h-8 w-8 opacity-40" />
         <p className="text-sm">{t('notFound')}</p>
       </div>
@@ -114,7 +114,7 @@ export default function PublicUserProfilePage() {
   ]
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-start gap-4">
         <Avatar
           src={user.avatar ?? undefined}
@@ -124,7 +124,7 @@ export default function PublicUserProfilePage() {
         />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="break-words text-2xl font-bold tracking-tight">
+            <h1 className="break-words text-xl font-bold tracking-tight md:text-2xl">
               {user.nickname || 'User'}
             </h1>
             {isSelf && (

@@ -25,6 +25,7 @@ const MOCK: UserGrowthPoint[] = [
   { date: '07-14', total: 1780, newCount: 160 },
 ]
 
+// ECharts canvas 渲染不支持 CSS var(),以下颜色为 tokens.css --chart-* 的硬编码副本,修改需同步 tokens.css
 export function UserGrowthChart({ data = MOCK, height = 300 }: UserGrowthChartProps) {
   const option: EChartsOption = {
     tooltip: { trigger: 'axis' },

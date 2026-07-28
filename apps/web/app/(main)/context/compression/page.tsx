@@ -43,7 +43,7 @@ export default function ContextCompressionPage() {
       </div>
 
       {statsQ.isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           加载中…
         </div>
@@ -53,7 +53,7 @@ export default function ContextCompressionPage() {
           <span>加载失败:{(statsQ.error as Error).message}</span>
         </div>
       ) : !stats ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">暂无数据</div>
+        <div className="py-8 text-center text-sm text-muted-foreground">暂无数据</div>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-3">

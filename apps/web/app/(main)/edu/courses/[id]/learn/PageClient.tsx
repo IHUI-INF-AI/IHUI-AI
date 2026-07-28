@@ -99,7 +99,7 @@ export default function EduCourseLearnPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -197,7 +197,7 @@ export default function EduCourseLearnPage() {
               <CardTitle className="text-sm">{t('sections')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-0.5 p-2">
-              {sections.map((s: any, i: any) => (
+              {sections.map((s, i) => (
                 <button
                   key={s.id}
                   type="button"
@@ -248,7 +248,7 @@ export default function EduCourseLearnPage() {
                 {(qaList ?? []).length === 0 ? (
                   <p className="py-4 text-center text-xs text-muted-foreground">{t('qaEmpty')}</p>
                 ) : (
-                  (qaList ?? []).map((qa: any) => (
+                  (qaList ?? []).map((qa) => (
                     <div key={qa.id} className="rounded-md border p-2">
                       <p className="text-xs font-medium">{qa.question}</p>
                       {qa.answer && (

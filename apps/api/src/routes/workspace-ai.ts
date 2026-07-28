@@ -83,12 +83,17 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.post('/fs/browse', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const body = z.object({ path: z.string().optional() }).parse(request.body)
+    // 2026-07-28 加固:z.parse 抛 ZodError 时 errorHandler 可能误判为 500,
+    // 把整个 handler 用 try/catch 包裹,任何错误统一返回 400 + 中文消息
     try {
+      const body = z
+        .object({ path: z.string().optional() })
+        .parse(request.body ?? {})
       const entries = fsBridge.browse(body.path)
       return reply.send(success({ entries }))
     } catch (e) {
-      return reply.status(400).send(error(400, (e as Error).message))
+      const msg = e instanceof Error ? e.message : '请求处理失败'
+      return reply.status(400).send(error(400, msg))
     }
   })
 

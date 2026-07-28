@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -42,7 +42,7 @@ export default function WorkflowsPage() {
         }),
       })
     },
-    onSuccess: (d: any) => {
+    onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ['workflows'] })
       setCreateOpen(false)
       setForm(EMPTY_FORM)

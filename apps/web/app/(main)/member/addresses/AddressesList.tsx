@@ -23,7 +23,7 @@ export function AddressesList({
 }: Props) {
   if (list.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
         <MapPin className="h-8 w-8 text-muted-foreground opacity-40" />
         <p className="text-sm text-muted-foreground">还没有添加收货地址</p>
       </div>

@@ -86,7 +86,7 @@ export function ServicesContent(): React.JSX.Element {
         ].map(({ value, suffix, labelKey }) => (
           <Card key={labelKey}>
             <CardContent className="p-5 text-center">
-              <div className="text-3xl font-bold tracking-tight text-primary">
+              <div className="text-xl font-bold tracking-tight md:text-2xl text-primary">
                 <AnimatedNumber value={value} suffix={suffix} duration={1500} />
               </div>
               <div className="mt-1 text-sm text-muted-foreground">{t(labelKey)}</div>

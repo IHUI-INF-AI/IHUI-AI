@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -44,30 +44,30 @@ export default function EduExamPage() {
   const exams = data?.list ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <FileCheck className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
         <Alert variant="danger" description={(error as Error).message} />
       ) : exams.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <FileCheck className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {exams.map((exam: any) => (
+          {exams.map((exam) => (
             <Card key={exam.id} className="flex h-full flex-col transition-colors hover:bg-accent">
               <CardHeader className="p-4 pb-2">
                 <div className="flex items-start justify-between gap-2">
@@ -109,7 +109,9 @@ export default function EduExamPage() {
                   </span>
                 </div>
                 {exam.bestScore !== undefined && (
-                  <p className="text-xs text-muted-foreground">{t('bestScore', { n: exam.bestScore })}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('bestScore', { n: exam.bestScore })}
+                  </p>
                 )}
                 <Button asChild size="sm" className="w-full">
                   <Link href={`/edu/exam/${exam.id}`}>

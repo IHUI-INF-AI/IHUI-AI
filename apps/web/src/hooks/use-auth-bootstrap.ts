@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { fetchApi } from '@/lib/api'
 import { getRefreshTokenCookie, clearRefreshTokenCookie } from '@/lib/cookie-utils'
+import { refreshAccessToken } from '@ihui/api-client'
 
 export interface UseAuthBootstrapReturn {
   ready: boolean
@@ -23,26 +24,14 @@ async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: strin
   const refreshToken = getRefreshTokenCookie()
   if (!refreshToken) return null
   try {
-    const res = await fetch('/api/auth/refresh', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    })
-    if (!res.ok) {
-      clearRefreshTokenCookie()
-      return null
-    }
-    const json = (await res.json()) as {
-      code?: number
-      data?: { accessToken?: string; refreshToken?: string }
-    }
-    if (!json.data?.accessToken) {
+    const r = await refreshAccessToken(refreshToken)
+    if (!r.success || !r.data?.accessToken) {
       clearRefreshTokenCookie()
       return null
     }
     return {
-      accessToken: json.data.accessToken,
-      refreshToken: json.data.refreshToken,
+      accessToken: r.data.accessToken,
+      refreshToken: r.data.refreshToken,
     }
   } catch {
     clearRefreshTokenCookie()

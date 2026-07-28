@@ -7,11 +7,11 @@ export function AgentsHeader() {
   const t = useTranslations('agent')
   return (
     <header className="space-y-1">
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+      <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
         <Bot className="h-7 w-7 text-primary" />
         {t('marketTitle')}
       </h1>
-      <p className="text-sm text-muted-foreground">{t('marketSubtitle')}</p>
+      <p className="text-xs text-muted-foreground">{t('marketSubtitle')}</p>
     </header>
   )
 }
