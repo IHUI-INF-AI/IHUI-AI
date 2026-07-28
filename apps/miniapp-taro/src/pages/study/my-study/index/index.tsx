@@ -5,6 +5,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import type { StudyRecord } from '@/api'
 import { useI18n } from '@/i18n'
+import { formatRelativeTime } from '@ihui/shared'
 import './index.css'
 
 type TabKey = 'inProgress' | 'completed' | 'favorited'
@@ -14,26 +15,6 @@ const TABS: Array<{ key: TabKey; labelKey: string; fallback: string }> = [
   { key: 'completed', labelKey: 'study.myStudy.tabs.completed', fallback: '已完成' },
   { key: 'favorited', labelKey: 'study.myStudy.tabs.favorited', fallback: '已收藏' },
 ]
-
-function formatTime(time: string): string {
-  if (!time) return ''
-  try {
-    const d = new Date(time)
-    if (isNaN(d.getTime())) return time.slice(0, 10)
-    const now = new Date()
-    const diff = now.getTime() - d.getTime()
-    if (diff < 60000) return '刚刚'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
-    if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  } catch {
-    return time.slice(0, 10)
-  }
-}
 
 export default function MyStudy() {
   const { t } = useI18n()
@@ -166,7 +147,7 @@ export default function MyStudy() {
                 </View>
                 {item.time ? (
                   <Text className="study-time">
-                    {tt('study.myStudy.lastTime', '上次学习')}: {formatTime(item.time)}
+                    {tt('study.myStudy.lastTime', '上次学习')}: {formatRelativeTime(item.time)}
                   </Text>
                 ) : null}
                 <Text

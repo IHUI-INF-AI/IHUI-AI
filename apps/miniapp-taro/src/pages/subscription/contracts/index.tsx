@@ -3,6 +3,7 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { listRecurringContracts, cancelRecurringContract, type WechatPayContract } from '@/api'
 import { useI18n } from '@/i18n'
+import { formatDateByTemplate } from '@ihui/shared'
 
 // TODO: custom color: #e8f5e9 浅绿背景/#ff9a3c 自定义橙,无对应 token,保留原值
 const STATUS_STYLE: Record<WechatPayContract['status'], string> = {
@@ -10,14 +11,6 @@ const STATUS_STYLE: Record<WechatPayContract['status'], string> = {
   pending: 'bg-[rgba(245, 158, 11, 0.1)] text-[#ff9a3c]',
   cancelled: 'bg-muted text-muted-foreground',
   expired: 'bg-muted text-muted-foreground',
-}
-
-function formatTime(str?: string): string {
-  if (!str) return '-'
-  const d = new Date(str)
-  if (isNaN(d.getTime())) return str
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 export default function SubscriptionContractsPage() {
@@ -114,13 +107,13 @@ export default function SubscriptionContractsPage() {
               <View className="mt-[20rpx]">
                 <View className="flex justify-between py-[8rpx]">
                   <Text className="text-[24rpx] text-muted-foreground">{tt('subscription.nextCharge', '下次扣款')}</Text>
-                  <Text className="text-[24rpx] text-foreground">{formatTime(c.nextChargeTime)}</Text>
+                  <Text className="text-[24rpx] text-foreground">{formatDateByTemplate(c.nextChargeTime, 'YYYY-MM-DD HH:mm') || '-'}</Text>
                 </View>
                 <View className="flex justify-between py-[8rpx]">
                   <Text className="text-[24rpx] text-muted-foreground">{tt('subscription.lastCharge', '上次扣款')}</Text>
                   <Text className="text-[24rpx] text-foreground">
                     {c.lastChargeTime
-                      ? `${formatTime(c.lastChargeTime)} ${
+                      ? `${formatDateByTemplate(c.lastChargeTime, 'YYYY-MM-DD HH:mm')} ${
                           c.lastChargeStatus ? getLastChargeText(c.lastChargeStatus) : ''
                         }`
                       : '-'}
@@ -129,7 +122,7 @@ export default function SubscriptionContractsPage() {
                 <View className="flex justify-between py-[8rpx]">
                   <Text className="text-[24rpx] text-muted-foreground">{tt('subscription.signTime', '签约时间')}</Text>
                   <Text className="text-[24rpx] text-foreground">
-                    {formatTime(c.signedAt || c.createdAt)}
+                    {formatDateByTemplate(c.signedAt || c.createdAt, 'YYYY-MM-DD HH:mm') || '-'}
                   </Text>
                 </View>
               </View>
