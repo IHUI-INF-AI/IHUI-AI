@@ -177,6 +177,11 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
       // 关闭压缩(流式响应不应被框架再次压缩,避免缓冲)
       reply.header('X-Accel-Buffering', 'no')
 
+      // P3 修复:客户端断开时提前终止生成器,避免后端继续生成日志浪费资源
+      const controller = new AbortController()
+      const onClose = () => controller.abort()
+      request.raw.on('close', onClose)
+
       try {
         const stream = exportAuditLogs(
           { userId, action, resourceType, startDate, endDate },
@@ -184,6 +189,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
           limit,
         )
         for await (const line of stream) {
+          if (controller.signal.aborted) break // 客户端断开,提前退出
           if (!reply.raw.writableEnded) {
             reply.raw.write(line + '\n')
           }
@@ -198,6 +204,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
           )
         }
       } finally {
+        request.raw.off('close', onClose)
         if (!reply.raw.writableEnded) {
           reply.raw.end()
         }
