@@ -108,7 +108,7 @@ async def build_agent_graph(user_id: str):
 
 - Tauri 桌面端(`apps/desktop`)
 - WXT 浏览器插件(`apps/extension`,Chrome MV3)
-- React Native + Expo + Solito 移动端(`apps/mobile-rn`)
+- React Native + Expo 移动端(`apps/mobile-rn`)
 - Taro 4 + React 微信小程序(`apps/miniapp-taro`)
 
 ### 共享层(12 个 packages)
@@ -249,9 +249,9 @@ packages/
 
 ## 端间代码共享的关键设计
 
-### 1. Solito + React Native Web
+### 1. React Native Web 跨端渲染
 
-桌面 / Web / 移动三端用 **React Native Web + Solito** 共享组件:
+桌面 / Web / 移动三端用 **React Native Web** 共享组件:
 
 ```typescript
 // packages/ui/src/Button.tsx
@@ -600,7 +600,7 @@ LangChain/AutoGen 是**框架**,不是产品。客户要的不是 "Hello World" 
 
 ### 端的设计
 
-8 端用一份 TypeScript 代码共享,核心是 **Solito + React Native Web**:
+8 端用一份 TypeScript 代码共享,核心是 **React Native Web**:
 
 ```typescript
 // packages/ui/src/Button.tsx

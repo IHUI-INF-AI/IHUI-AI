@@ -19,7 +19,6 @@ publicHoistPattern:
   - '*expo*'
   - '*nativewind*'
   - '*metro*'
-  - '*solito*'
   - '@react-native/*'
   - '@react-native-*/*'
   - '@react-navigation/*'
