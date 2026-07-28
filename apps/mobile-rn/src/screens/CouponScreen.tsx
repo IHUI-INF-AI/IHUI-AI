@@ -16,6 +16,7 @@ import { usePaginatedList } from '../hooks/use-paginated-list'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Card } from '@ihui/ui-native'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -33,7 +34,6 @@ interface CouponPage {
   total: number
 }
 
-const PAGE_SIZE = 20
 const STATUS_TABS = ['available', 'used', 'expired'] as const
 
 const COUPON_TAB_KEYS: Record<CouponItem['status'], string> = {
@@ -55,7 +55,7 @@ export function CouponScreen() {
 
   const fetcher = useCallback(async () => {
     const res = await fetchApi<CouponPage>('/coupons', {
-      params: { page: 1, pageSize: PAGE_SIZE, status: statusTab },
+      params: { page: 1, pageSize: DEFAULT_PAGE_SIZE, status: statusTab },
     })
     if (!res.success) return { success: false as const, error: t('coupon.loadFailed') }
     const list = res.data?.list ?? []
@@ -64,7 +64,7 @@ export function CouponScreen() {
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<CouponItem>(
     fetcher,
-    PAGE_SIZE,
+    DEFAULT_PAGE_SIZE,
   )
 
   const onTabChange = (next: (typeof STATUS_TABS)[number]) => {

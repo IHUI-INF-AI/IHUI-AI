@@ -15,6 +15,7 @@ import { fetchApi } from '@ihui/api-client'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Card } from '@ihui/ui-native'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -33,7 +34,6 @@ interface CoursePage {
   total: number
 }
 
-const PAGE_SIZE = 20
 const CATEGORIES = ['all', 'tech', 'design', 'business', 'language'] as const
 const LEVELS = ['all', 'beginner', 'intermediate', 'advanced'] as const
 const PRICE_TABS = ['all', 'free', 'paid'] as const
@@ -68,7 +68,7 @@ export function CourseFilterScreen() {
 
   const fetcher = useCallback(async () => {
     const res = await fetchApi<CoursePage>('/courses', {
-      params: { page: 1, pageSize: PAGE_SIZE, category, level, price: priceTab },
+      params: { page: 1, pageSize: DEFAULT_PAGE_SIZE, category, level, price: priceTab },
     })
     if (!res.success) return { success: false as const, error: t('courseFilter.loadFailed') }
     const list = res.data?.list ?? []
@@ -77,7 +77,7 @@ export function CourseFilterScreen() {
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<CourseItem>(
     fetcher,
-    PAGE_SIZE,
+    DEFAULT_PAGE_SIZE,
   )
 
   const applyFilter = () => {

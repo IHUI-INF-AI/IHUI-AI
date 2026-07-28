@@ -3,13 +3,12 @@ import { Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'r
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card } from '@ihui/ui-native'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 import { getSubscriptions, cancelSubscription, type SubscriptionItem } from '../api/social'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateWithYear } from '../utils/date-utils'
-
-const PAGE_SIZE = 20
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -19,7 +18,7 @@ export function SubscriptionsScreen() {
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
     usePaginatedList<SubscriptionItem>(
       useCallback(async (query) => getSubscriptions(query), []),
-      PAGE_SIZE,
+      DEFAULT_PAGE_SIZE,
     )
 
   const onCancel = (item: SubscriptionItem) => {

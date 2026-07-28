@@ -12,6 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
@@ -48,8 +49,6 @@ interface CertPage {
   total: number
 }
 
-const PAGE_SIZE = 20
-
 function statusColor(status: Certificate['status']): string {
   if (status === 'valid') return '#10B981'
   if (status === 'expired') return '#9CA3AF'
@@ -63,7 +62,7 @@ export function CertificateScreen() {
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'valid' | 'expired'>('all')
 
   const fetcher = useCallback(async () => {
-    const url = `${API_BASE_URL}/api/certificates?page=1&pageSize=${PAGE_SIZE}&status=${selectedStatus}`
+    const url = `${API_BASE_URL}/api/certificates?page=1&pageSize=${DEFAULT_PAGE_SIZE}&status=${selectedStatus}`
     const resp = await fetch(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
@@ -77,7 +76,7 @@ export function CertificateScreen() {
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<Certificate>(
     fetcher,
-    PAGE_SIZE,
+    DEFAULT_PAGE_SIZE,
   )
 
   const onSwitchStatus = (next: 'all' | 'valid' | 'expired') => {
