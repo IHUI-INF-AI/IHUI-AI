@@ -1000,3 +1000,59 @@ commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local
 - [x] 守门:`check-i18n-keys.mjs` 无新增 parity 失败(剩余为其他 namespace 翻译未补,非本任务引入);`eslint apps/web/src/components/chat/message-input.tsx` exit 0(其他文件 lint 错误属其他 agent 代码,本任务用 `--no-verify` 跳过)
 - [x] browser 自验 4 状态(默认空/有文本/hover/dark mode):字符数 `0/10000` 实时更新 `11/10000`,长文本不重叠,dark mode 可读,旧 hint div DOM 已删除
 - [x] 影响文件 6 个:`apps/web/src/components/chat/message-input.tsx` + `packages/i18n/messages/web/{zh-CN,zh-TW,en,ja,ko}.json`
+
+---
+
+## P3 极限目标:全端共享率最大化(2026-07-29 立,/goal 模式,目标 2.9x → ≤1.7x)
+
+> **触发**:用户要求"真维护倍数降至最低极限为止"。
+> **背景**:项目已完成"多端维护成本优化阶段 1-7"(6.8x → 2.9x),本批次为极限收尾,4 阶段路线图降本至 ≤1.7x(理论极限)。
+> **运行时**:`.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md`(AGENTS.md §8 强制,目标结束后删除)
+> **约束**:不破坏现有 8 端功能 / 不修改 apps/api+apps/ai-service / 保留 Next.js 15 SSR / 保留 Taro 4 小程序渲染 / 高危操作暂停确认
+> **平台独占豁免**:apps/api + apps/ai-service(后端不在 UI 复用范围,AGENTS.md §9)
+
+### 硬性指标(最终态,缺一不可)
+1. 跨端共享代码行占比 ≥ 65%(cloc packages/* / 全端总代码)
+2. Desktop shell ≤ 10MB(Tauri 2 落地,或附不可行性报告保留 Electron)
+3. 全端 `pnpm turbo build typecheck lint test` 全绿
+4. 维护倍数 ≤ 1.7x(基于 cloc 真实数据计算)
+5. mobile-rn 独立 screen 实现数 = 0(全部走 packages/app)
+6. packages/app 覆盖 ≥ 7 features(Bookmark/Profile/Settings/About/History/Feedback/Certificate)
+7. 守门脚本全绿(check-miniapp-taro-design-tokens + check-rn-global-css-sync + git-push-guard)
+
+### 异常处理
+- Tauri 2 不可行 → 保留 Electron,附不可行性报告,继续后续阶段
+- React Native Reusables 不兼容 → 退到 NativeCN UI 或自研
+- 连续 3 轮无进展 → blocked(AGENTS.md §8)
+- 连续 5 轮工具失败 → blocked
+
+### 阶段 0:制定详细完整计划(本轮,/goal 轮次 1)
+- [x] ✅(2026-07-29) 扫描项目真实代码结构 + 4 阶段路线图设计 + STATE.md/loop-run-log.md 创建 + P3 任务条目追加到 PROJECT_PLAN.md
+
+### 阶段 1:design-tokens 统一 + catalog 锁定(短期 1-2 周,预期 2.9x → 2.7x)
+- [ ] P3-1.1 抽离 `packages/design-tokens` 为单一真相源 — 统一 @theme / :root / .dark 三种语法治理,新增 token 注册表 + 校验工具
+- [ ] P3-1.2 启用 `pnpm catalogMode: strict` — 锁定 React19 / Next15 / Taro4 / Expo SDK 版本,杜绝版本漂移
+- [ ] P3-1.3 三端 token 完全一致 — web + mobile-rn + miniapp-taro 引用同一 token 源,守门脚本 `check-miniapp-taro-design-tokens.mjs` + `check-rn-global-css-sync.mjs` 全绿
+- [ ] P3-1.4 阶段 1 全端验证 — `pnpm turbo build typecheck lint test` 全绿 + 守门脚本全绿 + cloc 对比降本至 ≤ 2.7x
+
+### 阶段 2:Web 系三端共享 ui-react(中期 1 月,预期 2.7x → 2.3x)
+- [ ] P3-2.1 Desktop 改造为复用 packages/ui-react — apps/desktop 接入 @ihui/ui-react,删除独立 UI 组件实现
+- [ ] P3-2.2 Extension 改造为复用 packages/ui-react — apps/extension sidepanel 接入 @ihui/ui-react(已部分完成,需补齐剩余页面)
+- [ ] P3-2.3 抽离 Web 系三端共用页面级组件 — 共用 Dialog/Card/Form/PageShell 等到 packages/ui-react 或新建 packages/web-app
+- [ ] P3-2.4 阶段 2 全端验证 — Desktop/Extension 独立 UI 组件 ≤ 3 个 + 全端全绿 + cloc 降本至 ≤ 2.3x
+
+### 阶段 3:Mobile RN 对齐 shadcn(中长期 1-2 月,预期 2.3x → 2.0x)
+- [ ] P3-3.1 Mobile RN 引入 React Native Reusables + NativeWind — shadcn RN 端口,共享 design-tokens 视觉一致
+- [ ] P3-3.2 所有可共享 screen 迁到 packages/app — Bookmark/Profile/Settings/About/History/Feedback/Certificate 全部迁移
+- [ ] P3-3.3 mobile-rn 独立 screen 实现清零 — 改为 re-export packages/app,wrapper 只注入 navigation/fetchApi/useTheme
+- [ ] P3-3.4 阶段 3 全端验证 — mobile-rn 独立 screen 实现 = 0 + packages/app 覆盖 ≥ 7 features + 全端全绿 + cloc 降本至 ≤ 2.0x
+
+### 阶段 4:极限收尾(长期 2-3 月,预期 2.0x → 1.7x)
+- [ ] P3-4.1 Tauri 2 替代 Electron 评估 PoC — 最小功能集 PoC(shell ≤ 10MB),或附不可行性报告保留 Electron
+- [ ] P3-4.2 packages/shared 抽离所有跨端业务逻辑 — hooks / utils / types 全部下沉,各端 re-export
+- [ ] P3-4.3 Server-Driven UI 用于营销页/首页 feed — 局部增强,JSON schema 驱动,不作整体架构
+- [ ] P3-4.4 阶段 4 全端验证 — 跨端共享代码行占比 ≥ 65% + Desktop Tauri 2 shell ≤ 10MB + 全端全绿 + cloc 降本至 ≤ 1.7x
+
+### 阶段 5:最终交付(目标达成后)
+- [ ] P3-5.1 README 同步更新(AGENTS.md §21) — 跨端共享架构章节 + 维护倍数对比表
+- [ ] P3-5.2 STATE.md + loop-run-log.md 清理(AGENTS.md §8 第 7 步) — 目标摘要追加到 PROJECT_PLAN.md,删除运行时文件
