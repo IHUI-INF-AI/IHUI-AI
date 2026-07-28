@@ -273,6 +273,8 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
 function registerContextMenu(): void {
   if (!chrome.contextMenus) return
   chrome.contextMenus.removeAll(() => {
+    // TODO: i18n — extension contextMenus 待国际化(SW 非 React 组件,无法用 useI18n hook;
+    // 后续可通过 chrome.i18n.getMessage 或读取 chrome.storage.local 的 ihui_locale 动态加载翻译)
     chrome.contextMenus.create({
       id: 'ihui-translate',
       title: 'IHUI AI · 翻译选区',

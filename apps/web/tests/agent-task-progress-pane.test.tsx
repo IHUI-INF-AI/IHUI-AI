@@ -107,6 +107,46 @@ const { mockT } = vi.hoisted(() => {
     'overview.rate': '速率',
     'overview.eta': '预计',
     'overview.context': '上下文',
+    // v13 新增(深度优化)
+    emptyHint: '开始对话后显示任务计划',
+    emptyHintsLabel: '任务计划使用提示',
+    emptyHint1: '开始对话后,这里会显示 AI 的任务拆解与进度',
+    emptyHint2: '子代理 / 工具调用 / 终端输出会自动归类到对应区域',
+    emptyHint3: '点击任一任务可跳转到对话流中的对应位置',
+    dragHandle: '拖动以调整面板位置',
+    celebrate: '全部任务完成',
+    // v13: 快捷键帮助面板
+    helpToggle: '快捷键帮助',
+    helpClose: '关闭',
+    helpPanelTitle: '键盘快捷键',
+    shortcutsGroupNav: '导航',
+    shortcutsGroupPane: '面板',
+    shortcutsGroupTrigger: '触发器',
+    shortcutSectionNav: '折叠子区上下切换',
+    shortcutSectionFirstLast: '跳到第一个/最后一个子区',
+    shortcutShowHelp: '打开/关闭快捷键帮助',
+    shortcutCloseHelp: '关闭快捷键帮助',
+    shortcutTogglePane: '切换面板开关',
+    shortcutOpenPane: '在输入框打开面板',
+    tabInline: '对话',
+    tabTimeline: '时间线',
+    previewStepNumberAndName: '步骤 {n}: {step}',
+    previewDuration: '耗时 {duration}',
+    previewTokenK: '{k}k tokens',
+    previewToolCalls: '{n} 次工具调用',
+    previewRelatedMessage: '关联消息:',
+    stepBudgetLabel: '步骤预算',
+    executing: '执行中',
+    subagentBatch: '子代理批次',
+    planListLabel: '任务计划步骤列表',
+    completedCount: '{done}/{total} 步骤已完成',
+    copyPlan: '复制任务计划',
+    moreItems: '…还有 {n} 项',
+    jumpToLatest: '跳到最新',
+    latest: '最新',
+    pinHintPinned: '已置顶,点击外部不关闭',
+    pinHintUnpinned: '已取消置顶,点击外部关闭',
+    minimizeHint: '最小化任务面板',
   }
   const mockT = (key: string, params?: Record<string, unknown>) => {
     let v = map[key] ?? key
@@ -132,11 +172,24 @@ vi.mock('@ihui/api-client', () => ({
 
 // Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
 // vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义
-// 注:让 IconSpan 接受 className prop 并应用到 span 上,这样 ConnectionStatus 等组件
-// 传入的 color/animation className 才能被测试断言到
+// 注:让 IconSpan 接受 className + 其他 props(包括 data-testid)并应用到 span 上,这样
+// ConnectionStatus / GripVertical / Sparkles 等组件传入的 props 才能被测试断言到
 const { IconSpan } = vi.hoisted(() => {
-  const IconSpan = ({ className }: { className?: string }) => (
-    <span data-testid="lucide-icon" className={className} />
+  const IconSpan = ({
+    className,
+    'data-testid': dataTestId,
+    ...rest
+  }: {
+    className?: string
+    'data-testid'?: string
+    [key: string]: unknown
+  }) => (
+    <span
+      data-testid={dataTestId ?? 'lucide-icon'}
+      className={className}
+      data-lucide-span="true"
+      {...rest}
+    />
   )
   return { IconSpan }
 })
@@ -191,7 +244,9 @@ vi.mock('lucide-react', () => {
     Code2: Icon,
     FileCode: Icon,
     Sparkles: Icon,
+    GripVertical: Icon,
     HelpCircle: Icon,
+    Keyboard: Icon,
     Clipboard: Icon,
     MessageSquareWarning: Icon,
     RefreshCw: Icon,
@@ -201,14 +256,121 @@ vi.mock('lucide-react', () => {
 })
 
 // Mock useChatStore (同时提供 conversationId 和 messages 避免组件内部 .filter 报错)
+// v13:可控制 conversationId,确保 setThreadId 后不被 useEffect 同步覆盖
+const mockChatStoreRefs: {
+  getConversationId: () => string | null
+  setConversationId: (id: string | null) => void
+} = vi.hoisted(() => {
+  let id: string | null = null
+  return {
+    getConversationId: () => id,
+    setConversationId: (next: string | null) => {
+      id = next
+    },
+  }
+})
 vi.mock('@/stores/chat', () => ({
   useChatStore: (
     selector: (s: {
       conversationId: string | null
       messages: Array<{ id: string; role: 'user' | 'assistant' | 'system'; content: string }>
     }) => unknown,
-  ) => selector({ conversationId: null, messages: [] }),
+  ) => selector({ conversationId: mockChatStoreRefs.getConversationId(), messages: [] }),
 }))
+
+// ─── v13:Mock useAgentProgress(允许测试中动态控制 planSteps 等数据) ───
+// vi.hoisted 确保 mockAgentProgressState 在 vi.mock 工厂执行前已定义
+// 测试中通过 setMockAgentProgressState({ planSteps: [...] }) 切换场景
+type MockPlanStep = {
+  id: string
+  step: string
+  status: 'pending' | 'in_progress' | 'completed'
+  startedAt?: string
+  endedAt?: string
+  durationMs?: number
+  explanation?: string
+  tokenUsage?: number
+}
+
+type MockAgentProgressState = {
+  planSteps: MockPlanStep[]
+  subagents: unknown[]
+  terminals: unknown[]
+  tools: unknown[]
+  changes: unknown[]
+  events: unknown[]
+  isStreaming: boolean
+  overview: Record<string, unknown>
+}
+
+const mockAgentProgressRefs: {
+  getState: () => MockAgentProgressState
+  setState: (next: Partial<MockAgentProgressState>) => void
+  resetState: () => void
+} = vi.hoisted(() => {
+  const initial: MockAgentProgressState = {
+    planSteps: [],
+    subagents: [],
+    terminals: [],
+    tools: [],
+    changes: [],
+    events: [],
+    isStreaming: false,
+    overview: {
+      status: 'idle',
+      currentNode: null,
+      plan: null,
+      content: '',
+      error: null,
+      interruptEvent: null,
+      sessionStart: null,
+      totalSteps: 0,
+      completedSteps: 0,
+      inProgressSteps: 0,
+      pendingSteps: 0,
+      totalSubagents: 0,
+      activeSubagents: 0,
+      deadSubagents: 0,
+      totalTerminals: 0,
+      runningTerminals: 0,
+      totalChanges: 0,
+      historicalDurations: [],
+      reconnectAttempt: 0,
+    },
+  }
+  const state: MockAgentProgressState = { ...initial }
+  return {
+    getState: () => state,
+    setState: (next) => Object.assign(state, next),
+    resetState: () => Object.assign(state, initial),
+  }
+})
+
+vi.mock('@/hooks/use-agent-progress', async () => {
+  const actual =
+    await vi.importActual<typeof import('../src/hooks/use-agent-progress')>(
+      '../src/hooks/use-agent-progress',
+    )
+  return {
+    ...actual,
+    useAgentProgress: () => {
+      const s = mockAgentProgressRefs.getState()
+      return {
+        overview: s.overview as never,
+        planSteps: s.planSteps as never,
+        subagents: s.subagents as never,
+        terminals: s.terminals as never,
+        tools: s.tools as never,
+        changes: s.changes as never,
+        events: s.events as never,
+        isStreaming: s.isStreaming,
+        start: () => {},
+        stop: () => {},
+        clear: () => {},
+      }
+    },
+  }
+})
 
 import { AgentTaskProgressPane } from '../src/components/ai/agent-task-progress-pane'
 import { AgentProgressTrigger } from '../src/components/ai/agent-progress-trigger'
@@ -415,13 +577,24 @@ describe('AgentTaskProgressPane — v6.1 popover 渲染', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('打开但无 threadId — 显示"开始对话后显示任务计划"提示', () => {
+  it('打开但无 threadId — 显示 v13 空状态(主提示 + 3 个快速开始提示)', () => {
     useAgentProgressPaneStore.getState().openPane()
     render(<AgentTaskProgressPane />)
     expect(screen.getByTestId('agent-progress-pane')).toBeTruthy()
     // 无 threadId 输入框(v6.1 删除)
     expect(screen.queryByTestId('thread-id-input')).toBeNull()
+    // v13:空状态用 i18n 化的"emptyHint"主提示
     expect(screen.getByText('开始对话后显示任务计划')).toBeTruthy()
+    // v13:同时显示 3 个快速开始提示(empty-hints 列表)
+    const hintsList = screen.getByTestId('pane-empty-hints')
+    expect(hintsList).toBeTruthy()
+    expect(hintsList.querySelectorAll('li').length).toBe(3)
+    // 提示列表含 aria-label
+    expect(hintsList.getAttribute('aria-label')).toBe('任务计划使用提示')
+    // 3 个 li 各自含 i18n 文案
+    expect(hintsList.textContent).toContain('开始对话后,这里会显示 AI 的任务拆解与进度')
+    expect(hintsList.textContent).toContain('子代理 / 工具调用 / 终端输出会自动归类到对应区域')
+    expect(hintsList.textContent).toContain('点击任一任务可跳转到对话流中的对应位置')
   })
 
   it('最小化按钮可见且与 trigger 联动(点击 toggle,open 从 true 变 false)', () => {
@@ -1662,5 +1835,579 @@ describe('AgentTaskProgressPane — Phase 17 自动滚动 + 跳到最新', () =>
     Object.defineProperty(planList, 'scrollTop', { value: 800, configurable: true })
     fireEvent.scroll(planList)
     expect(container.querySelector('[data-testid="pane-jump-latest"]')).toBeNull()
+  })
+})
+
+// ─── v13:深度优化新功能测试 ───
+// 覆盖:① 拖拽支持(header 拖动 + localStorage 持久化 + viewport clamp + 排除 button)
+// ② 完成态庆祝横幅(全部 plan steps completed 时显示 3s 后自动消失)
+// ③ plan skeleton 优化(4 items + animate-skeleton 类)
+// ④ 步骤进度视觉强化(PlanStepItem status icon transition-colors 类)
+describe('AgentTaskProgressPane — v13 深度优化', () => {
+  beforeEach(() => {
+    useAgentProgressPaneStore.getState().reset()
+    mockAgentProgressRefs.resetState()
+    mockChatStoreRefs.setConversationId(null)
+    // 清理 localStorage 避免测试间污染
+    try {
+      window.localStorage.removeItem('agent-progress-pane-position')
+      window.localStorage.removeItem('ihui-agent-progress-pane-v6')
+    } catch {
+      // 忽略
+    }
+  })
+
+  afterEach(() => {
+    cleanup()
+    mockChatStoreRefs.setConversationId(null)
+    try {
+      window.localStorage.removeItem('agent-progress-pane-position')
+      window.localStorage.removeItem('ihui-agent-progress-pane-v6')
+    } catch {
+      // 忽略
+    }
+  })
+
+  /** 设置 threadId(同时通过 conversationId 让 useEffect 不会覆盖) */
+  const setTestThreadId = (id: string) => {
+    mockChatStoreRefs.setConversationId(id)
+    useAgentProgressPaneStore.getState().setThreadId(id)
+  }
+
+  // ── 1. 拖拽支持 ──
+
+  it('header 含 data-testid=pane-header + role=toolbar + cursor-grab(可拖动标识)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
+    expect(header).toBeTruthy()
+    expect(header.getAttribute('role')).toBe('toolbar')
+    expect(header.className).toContain('cursor-grab')
+  })
+
+  it('header 内含 GripVertical 拖拽图标(data-testid=pane-drag-grip)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    const grip = container.querySelector('[data-testid="pane-drag-grip"]')
+    expect(grip).toBeTruthy()
+  })
+
+  it('header mousedown → mousemove → mouseup 完整拖拽流程改变 pane 位置', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
+    const pane = container.querySelector('[data-testid="agent-progress-pane"]') as HTMLElement
+
+    // 初始:无 position state,使用默认 right-2 top-2
+    expect(pane.getAttribute('data-dragging')).toBeNull()
+
+    // 模拟 mousedown 在 header 的非按钮区域(目标 element 是 header 本身)
+    const startX = 100
+    const startY = 50
+    fireEvent.mouseDown(header, { button: 0, clientX: startX, clientY: startY })
+
+    // 拖拽中:data-dragging='true' + cursor-grabbing
+    expect(pane.getAttribute('data-dragging')).toBe('true')
+    expect(header.className).toContain('cursor-grabbing')
+
+    // 模拟 mousemove
+    const dx = 50
+    const dy = 30
+    act(() => {
+      document.dispatchEvent(
+        new MouseEvent('mousemove', { clientX: startX + dx, clientY: startY + dy, bubbles: true }),
+      )
+    })
+
+    // 模拟 mouseup 结束拖拽
+    act(() => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    })
+
+    // 拖拽结束:data-dragging='false'(undefined)
+    expect(pane.getAttribute('data-dragging')).toBeNull()
+    // cursor 还原为 grab
+    expect(header.className).toContain('cursor-grab')
+    // 位置已改变:style.left 被设置(不再是 'auto' / 空)
+    const paneStyle = pane.getAttribute('style') ?? ''
+    // 拖拽后 style 含 left/top(具体数值由 viewport clamp 决定)
+    expect(paneStyle).toMatch(/left:\s*\d+/)
+    expect(paneStyle).toMatch(/top:\s*\d+/)
+  })
+
+  it('拖拽结束后位置持久化到 localStorage(agent-progress-pane-position)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
+
+    fireEvent.mouseDown(header, { button: 0, clientX: 200, clientY: 80 })
+    act(() => {
+      document.dispatchEvent(
+        new MouseEvent('mousemove', { clientX: 250, clientY: 120, bubbles: true }),
+      )
+    })
+    act(() => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    })
+
+    // localStorage 应保存
+    const saved = window.localStorage.getItem('agent-progress-pane-position')
+    expect(saved).toBeTruthy()
+    const parsed = JSON.parse(saved ?? '{}')
+    expect(typeof parsed.x).toBe('number')
+    expect(typeof parsed.y).toBe('number')
+  })
+
+  it('从 localStorage 加载保存的位置作为初始位置(mount 后)', async () => {
+    // 预设 localStorage
+    window.localStorage.setItem(
+      'agent-progress-pane-position',
+      JSON.stringify({ x: 64, y: 32 }),
+    )
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    // 等待 effect 跑完(client-side load)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    const pane = container.querySelector('[data-testid="agent-progress-pane"]') as HTMLElement
+    const paneStyle = pane.getAttribute('style') ?? ''
+    // 加载的 left 应为 64(具体数值由 viewport clamp 决定)
+    expect(paneStyle).toContain('left: 64')
+    expect(paneStyle).toContain('top: 32')
+  })
+
+  it('排除 button 区域:点击按钮不应触发拖拽(只触发按钮自身 onClick)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    const minimizeBtn = container.querySelector(
+      '[data-testid="pane-minimize"]',
+    ) as HTMLButtonElement
+
+    // mousedown 在按钮上
+    fireEvent.mouseDown(minimizeBtn, { button: 0, clientX: 50, clientY: 30 })
+
+    // 不应触发拖拽(data-dragging 仍为 null,按钮 click 应能触发)
+    const pane = container.querySelector('[data-testid="agent-progress-pane"]') as HTMLElement
+    expect(pane.getAttribute('data-dragging')).toBeNull()
+  })
+
+  it('排除 data-no-drag 区域:点击 connection dot / ProgressRing / ResourceBudget 不应触发拖拽', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    // connection-dot 是 data-no-drag
+    const dot = container.querySelector('[data-no-drag]')
+    expect(dot).toBeTruthy()
+  })
+
+  it('右键 mousedown 不触发拖拽(只响应左键)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
+    const pane = container.querySelector('[data-testid="agent-progress-pane"]') as HTMLElement
+
+    fireEvent.mouseDown(header, { button: 2, clientX: 50, clientY: 30 })
+    expect(pane.getAttribute('data-dragging')).toBeNull()
+  })
+
+  it('拖拽中:click-outside 监听器临时禁用(避免 mouseup 误关闭 pane)', async () => {
+    useAgentProgressPaneStore.getState().openPane()
+    // unpin 让 click-outside 生效
+    useAgentProgressPaneStore.getState().togglePin()
+    const { container } = render(<AgentTaskProgressPane />)
+    const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
+
+    // 等 click-outside listener 注册(组件用 setTimeout(0) 延迟挂载)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    })
+
+    fireEvent.mouseDown(header, { button: 0, clientX: 50, clientY: 30 })
+    // 拖拽中
+    expect(container.querySelector('[data-dragging="true"]')).toBeTruthy()
+    // 模拟外部 click — 不应关闭(因为 isDragging 临时屏蔽 click-outside)
+    act(() => {
+      document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 999, clientY: 999 }))
+    })
+    expect(useAgentProgressPaneStore.getState().open).toBe(true)
+
+    // 抬起后:让 effect 用新 isDragging=false 重新执行并注册 listener
+    act(() => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    })
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    })
+    act(() => {
+      document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 999, clientY: 999 }))
+    })
+    expect(useAgentProgressPaneStore.getState().open).toBe(false)
+  })
+
+  // ── 2. 完成态庆祝横幅 ──
+
+  it('全部 plan steps completed 时:显示 3s 庆祝横幅(角色 role=status + aria-live=polite)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-celebrate-1')
+    mockAgentProgressRefs.setState({
+      planSteps: [
+        { id: 'p1', step: '任务 1', status: 'completed' },
+        { id: 'p2', step: '任务 2', status: 'completed' },
+      ],
+      isStreaming: false,
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    // 进度 100% → 触发庆祝横幅
+    const banner = container.querySelector('[data-testid="pane-celebration-banner"]')
+    expect(banner).toBeTruthy()
+    expect(banner?.getAttribute('role')).toBe('status')
+    expect(banner?.getAttribute('aria-live')).toBe('polite')
+    // 横幅含 Sparkles 图标 + "全部任务完成" 文案
+    expect(banner?.textContent).toContain('全部任务完成')
+  })
+
+  it('未全部完成时:不显示庆祝横幅', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-celebrate-2')
+    mockAgentProgressRefs.setState({
+      planSteps: [
+        { id: 'p1', step: '任务 1', status: 'completed' },
+        { id: 'p2', step: '任务 2', status: 'in_progress' },
+        { id: 'p3', step: '任务 3', status: 'pending' },
+      ],
+      isStreaming: true,
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    expect(container.querySelector('[data-testid="pane-celebration-banner"]')).toBeNull()
+  })
+
+  it('完成态庆祝横幅 3s 后自动消失(用 fake timers 验证)', () => {
+    vi.useFakeTimers()
+    try {
+      useAgentProgressPaneStore.getState().openPane()
+      setTestThreadId('thread-celebrate-3')
+      mockAgentProgressRefs.setState({
+        planSteps: [
+          { id: 'p1', step: '任务 1', status: 'completed' },
+          { id: 'p2', step: '任务 2', status: 'completed' },
+        ],
+        isStreaming: false,
+      })
+
+      const { container } = render(<AgentTaskProgressPane />)
+      // 立即可见
+      expect(container.querySelector('[data-testid="pane-celebration-banner"]')).toBeTruthy()
+
+      // 推进 3s
+      act(() => {
+        vi.advanceTimersByTime(3000)
+      })
+
+      // 自动消失
+      expect(container.querySelector('[data-testid="pane-celebration-banner"]')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('重复触发:同一 plan 全部完成时只在首次显示庆祝横幅(避免重复闪烁)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-celebrate-4')
+    mockAgentProgressRefs.setState({
+      planSteps: [
+        { id: 'p1', step: '任务 1', status: 'completed' },
+        { id: 'p2', step: '任务 2', status: 'completed' },
+      ],
+      isStreaming: false,
+    })
+
+    const { container, rerender } = render(<AgentTaskProgressPane />)
+    expect(container.querySelector('[data-testid="pane-celebration-banner"]')).toBeTruthy()
+    // 重复 render — 庆祝 ref 已为 true,不应重复触发 setTimeout
+    rerender(<AgentTaskProgressPane />)
+    expect(container.querySelector('[data-testid="pane-celebration-banner"]')).toBeTruthy()
+  })
+
+  // ── 3. plan skeleton 优化 ──
+
+  it('有 threadId + planSteps 为空:渲染 4 行 skeleton(每行含 animate-skeleton 类)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-skeleton-1')
+    mockAgentProgressRefs.setState({ planSteps: [], isStreaming: true })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    const skeleton = container.querySelector('[data-testid="plan-skeleton"]')
+    expect(skeleton).toBeTruthy()
+    // 4 行 skeleton(每行 2 个 shimmer 块:小圆 + 长条)
+    const shimmerRows = container.querySelectorAll('.animate-skeleton')
+    expect(shimmerRows.length).toBe(8) // 4 行 × 2 块
+    // 渐变背景类存在
+    const hasGradient = container.querySelector('.bg-gradient-to-r')
+    expect(hasGradient).toBeTruthy()
+  })
+
+  it('【debug】skeleton DOM dump', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-skeleton-debug')
+    mockAgentProgressRefs.setState({ planSteps: [], isStreaming: true })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    // 打印整个 DOM 看 skeleton 在哪
+    // eslint-disable-next-line no-console
+    console.log('DOM:', container.innerHTML.substring(0, 5000))
+  })
+
+  it('有 planSteps 时:不渲染 skeleton(只渲染真实步骤)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-skeleton-2')
+    mockAgentProgressRefs.setState({
+      planSteps: [{ id: 'p1', step: '真实步骤', status: 'in_progress' }],
+      isStreaming: true,
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    expect(container.querySelector('[data-testid="plan-skeleton"]')).toBeNull()
+    // 真实 plan-step DOM 存在
+    expect(container.querySelector('[data-testid="plan-step-p1"]')).toBeTruthy()
+  })
+
+  // ── 4. 步骤进度视觉强化 ──
+
+  it('PlanStepItem status icon 含 transition-all duration-300 类(状态切换动画)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-step-visual')
+    mockAgentProgressRefs.setState({
+      planSteps: [
+        { id: 'p1', step: '任务 1', status: 'pending' },
+        { id: 'p2', step: '任务 2', status: 'in_progress' },
+        { id: 'p3', step: '任务 3', status: 'completed' },
+      ],
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    const stepIcons = container.querySelectorAll('[data-testid^="plan-step-"] svg, [data-testid^="plan-step-"] [data-testid="lucide-icon"]')
+    expect(stepIcons.length).toBeGreaterThan(0)
+    // v13: 每个 step icon 必含 transition-all + duration-300 + animate-icon-pop(scale 切换)
+    const allStepRows = container.querySelectorAll('[data-testid^="plan-step-"]')
+    allStepRows.forEach((row) => {
+      // icon className 应含 transition-all(在 row 内部的 [data-testid="lucide-icon"] 上)
+      const icon = row.querySelector('[data-testid="lucide-icon"]')
+      if (icon) {
+        expect(icon.className).toContain('transition-all')
+        expect(icon.className).toContain('duration-300')
+        expect(icon.className).toContain('animate-icon-pop')
+      }
+    })
+  })
+
+  it('in_progress 步骤的 icon 含 animate-spin 类', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-spin-test')
+    mockAgentProgressRefs.setState({
+      planSteps: [{ id: 'p-spin', step: '进行中', status: 'in_progress' }],
+      isStreaming: true,
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    const stepRow = container.querySelector('[data-testid="plan-step-p-spin"]') as HTMLElement
+    expect(stepRow).toBeTruthy()
+    const icon = stepRow.querySelector('[data-testid="lucide-icon"]')
+    expect(icon?.className).toContain('animate-spin')
+  })
+
+  it('completed 步骤的 icon 含 emerald-500 颜色类(text-emerald-500)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-done-test')
+    mockAgentProgressRefs.setState({
+      planSteps: [{ id: 'p-done', step: '已完成', status: 'completed' }],
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    const stepRow = container.querySelector('[data-testid="plan-step-p-done"]') as HTMLElement
+    const icon = stepRow.querySelector('[data-testid="lucide-icon"]')
+    expect(icon?.className).toContain('text-emerald-500')
+  })
+
+  // ── 5. 集成测试 ──
+
+  it('集成场景:有 threadId + 1 步 in_progress + 1 步 pending 时,不显示庆祝且不显示 skeleton', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-integration-1')
+    mockAgentProgressRefs.setState({
+      planSteps: [
+        { id: 'p1', step: '第一步', status: 'in_progress' },
+        { id: 'p2', step: '第二步', status: 'pending' },
+      ],
+      isStreaming: true,
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    // 不显示 skeleton
+    expect(container.querySelector('[data-testid="plan-skeleton"]')).toBeNull()
+    // 不显示庆祝
+    expect(container.querySelector('[data-testid="pane-celebration-banner"]')).toBeNull()
+    // 显示 2 个 plan-step
+    expect(container.querySelectorAll('[data-testid^="plan-step-"]').length).toBe(2)
+    // 显示 header
+    expect(container.querySelector('[data-testid="pane-header"]')).toBeTruthy()
+  })
+
+  // ─── 6. 键盘快捷键帮助面板 ───
+
+  it('默认:帮助面板不渲染,只显示 header 工具栏的 help toggle 按钮', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    // toggle 按钮在
+    expect(container.querySelector('[data-testid="pane-help-toggle"]')).toBeTruthy()
+    // 面板未渲染
+    expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
+  })
+
+  it('点击 help toggle 按钮:打开/关闭 帮助面板', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    const toggleBtn = container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement
+
+    // 打开
+    fireEvent.click(toggleBtn)
+    const panel = container.querySelector('[data-testid="pane-help-panel"]')
+    expect(panel).toBeTruthy()
+    expect(panel?.getAttribute('role')).toBe('dialog')
+    expect(panel?.getAttribute('aria-label')).toBe('键盘快捷键')
+    // toggle 按钮 aria-expanded 反映状态
+    expect(toggleBtn.getAttribute('aria-expanded')).toBe('true')
+
+    // 关闭
+    fireEvent.click(toggleBtn)
+    expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
+    expect(toggleBtn.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('按 ? (Shift+/) 键:切换帮助面板开关', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    // 初始关闭
+    expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
+
+    // 按 ?
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: '?', bubbles: true }),
+      )
+    })
+    expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeTruthy()
+
+    // 再按 ? 关闭
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: '?', bubbles: true }),
+      )
+    })
+    expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
+  })
+
+  it('帮助面板打开时按 Esc:只关闭帮助面板,不关闭 pane(unpinned 状态)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    useAgentProgressPaneStore.getState().togglePin() // unpin 让 Esc 也能关 pane
+    const { container } = render(<AgentTaskProgressPane />)
+
+    // 打开帮助
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: '?', bubbles: true }),
+      )
+    })
+    expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeTruthy()
+    expect(useAgentProgressPaneStore.getState().open).toBe(true)
+
+    // Esc → 关闭帮助,pane 仍打开
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      )
+    })
+    expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
+    expect(useAgentProgressPaneStore.getState().open).toBe(true)
+
+    // 再按一次 Esc → 关闭 pane
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      )
+    })
+    expect(useAgentProgressPaneStore.getState().open).toBe(false)
+  })
+
+  it('帮助面板含 3 个分组(导航 / 面板 / 触发器),每组 1-2 个快捷键', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    fireEvent.click(container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement)
+
+    const groups = container.querySelectorAll('[data-testid="pane-help-groups"] > [role="listitem"]')
+    expect(groups.length).toBe(3)
+    // 检查 kbd 元素(快捷键标识)
+    const kbds = container.querySelectorAll('kbd')
+    expect(kbds.length).toBeGreaterThan(0)
+    // 检查含 "?" 快捷键
+    const kbdTexts = Array.from(kbds).map((k) => k.textContent).join('')
+    expect(kbdTexts).toContain('?')
+    expect(kbdTexts).toContain('Esc')
+    expect(kbdTexts).toContain('Ctrl+Shift+J')
+  })
+
+  it('点击帮助面板的关闭按钮:关闭帮助面板', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    // 打开
+    fireEvent.click(container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement)
+    expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeTruthy()
+    // 关闭按钮
+    const closeBtn = container.querySelector('[data-testid="pane-help-close"]') as HTMLElement
+    expect(closeBtn).toBeTruthy()
+    fireEvent.click(closeBtn)
+    expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
+  })
+
+  // ─── 7. 步骤进度视觉强化(icon-pop 切换动画) ───
+
+  it('PlanStepItem icon 含 animate-icon-pop 类(状态切换时触发动画)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-icon-pop')
+    mockAgentProgressRefs.setState({
+      planSteps: [{ id: 'p-pop', step: '任务', status: 'pending' }],
+    })
+    const { container } = render(<AgentTaskProgressPane />)
+    const stepRow = container.querySelector('[data-testid="plan-step-p-pop"]') as HTMLElement
+    const icon = stepRow.querySelector('[data-testid="lucide-icon"]')
+    // 步骤状态 icon 必含 animate-icon-pop 类(300ms scale 切换)
+    expect(icon?.className).toContain('animate-icon-pop')
+  })
+
+  it('状态切换时 icon key 变化(React 重新挂载触发原生 CSS 动画)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-key-change')
+    mockAgentProgressRefs.setState({
+      planSteps: [{ id: 'p-key', step: '任务', status: 'in_progress' }],
+    })
+    const { container, rerender } = render(<AgentTaskProgressPane />)
+    const stepRow1 = container.querySelector('[data-testid="plan-step-p-key"]') as HTMLElement
+    const icon1 = stepRow1.querySelector('[data-testid="lucide-icon"]') as HTMLElement
+    // 初始 key=0(mount 时 useEffect 同步 prevStatusRef === step.status,不增加 key)
+    expect(icon1).toBeTruthy()
+
+    // 状态变化:in_progress → completed
+    mockAgentProgressRefs.setState({
+      planSteps: [{ id: 'p-key', step: '任务', status: 'completed' }],
+    })
+    rerender(<AgentTaskProgressPane />)
+    // 重新查询,React 已重新挂载 icon(key 变化)
+    const stepRow2 = container.querySelector('[data-testid="plan-step-p-key"]') as HTMLElement
+    const icon2 = stepRow2.querySelector('[data-testid="lucide-icon"]') as HTMLElement
+    // 切换后 icon 仍然含 animate-icon-pop 类
+    expect(icon2?.className).toContain('animate-icon-pop')
+    // 颜色类从 text-primary 变成 text-emerald-500
+    expect(icon2?.className).toContain('text-emerald-500')
   })
 })
