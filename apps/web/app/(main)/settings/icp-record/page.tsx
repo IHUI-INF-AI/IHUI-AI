@@ -30,10 +30,10 @@ export default function IcpRecordPage() {
   ]
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('icpRecordTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('icpRecordDesc')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('icpRecordTitle')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('icpRecordDesc')}</p>
       </div>
 
       <Card>
@@ -44,14 +44,14 @@ export default function IcpRecordPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <dl className="divide-y">
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
             {records.map((item) => (
               <div
                 key={item.labelKey}
-                className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                className="flex items-start justify-between gap-3 py-1"
               >
-                <dt className="shrink-0 text-sm text-muted-foreground">{t(item.labelKey)}</dt>
-                <dd className="text-right text-sm font-medium">
+                <dt className="shrink-0 text-xs text-muted-foreground">{t(item.labelKey)}</dt>
+                <dd className="text-right text-xs font-medium">
                   {item.link ? (
                     <a
                       href={item.link}
@@ -72,9 +72,9 @@ export default function IcpRecordPage() {
       </Card>
 
       <Card>
-        <CardContent className="flex items-start gap-3 p-4">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="text-xs leading-relaxed text-muted-foreground">{t('icpRecordNotice')}</p>
+        <CardContent className="flex items-start gap-2 p-3">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <p className="text-[11px] leading-relaxed text-muted-foreground">{t('icpRecordNotice')}</p>
         </CardContent>
       </Card>
     </Container>

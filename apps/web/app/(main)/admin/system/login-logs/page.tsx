@@ -93,10 +93,10 @@ export default function LoginLogsPage() {
     ).then((ok) => (ok ? toast.success('导出成功') : toast.error('导出失败')))
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-start justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <LogIn className="h-6 w-6 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <LogIn className="h-5 w-5 text-primary" />
           登录日志
         </h1>
       </div>

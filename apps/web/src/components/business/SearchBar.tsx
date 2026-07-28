@@ -4,7 +4,6 @@ import * as React from 'react'
 import { Search, X, Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { useClickOutside } from '@/hooks/use-click-outside'
 
 interface SearchBarProps {
   placeholder?: string
@@ -33,13 +32,40 @@ export function SearchBar({
   const [value, setValue] = React.useState('')
   const [focused, setFocused] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
-  const containerRef = useClickOutside<HTMLDivElement>(
-    React.useCallback(() => setFocused(false), []),
-  )
+  const containerRef = React.useRef<HTMLDivElement>(null)
+
+  // 2026-07-28 修复:click outside 监听器只在 input 已聚焦后才注册
+  // 原 useClickOutside 实现:SearchBar 挂载时立即注册 document mousedown 监听器,
+  // 在 React 19 + dev mode + focusOnMount 场景下,监听器可能比 onFocus 派发 setFocused(true)
+  // 之前或同步触发,导致 focused 状态被立即 setFocused(false) 覆盖 → 下拉永远不显示。
+  // 修复:用 focused state 作为 enabled gate,只有 input 已聚焦后才监听外部 mousedown。
+  React.useEffect(() => {
+    if (!focused) return
+    const handler = (event: MouseEvent | TouchEvent) => {
+      const el = containerRef.current
+      if (el && !el.contains(event.target as Node)) {
+        setFocused(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [focused])
 
   // focusOnMount:用 ref + effect 主动聚焦(避免 jsx-a11y/no-autofocus 警告)
   React.useEffect(() => {
-    if (focusOnMount) inputRef.current?.focus()
+    if (focusOnMount) {
+      // 延迟一帧确保 React commit 完成后 input 节点完全可用
+      // + 同步触发原生 focus 事件让 React 派发 onFocus 合成事件
+      const id = window.setTimeout(() => {
+        inputRef.current?.focus()
+      }, 0)
+      return () => window.clearTimeout(id)
+    }
+    return undefined
   }, [focusOnMount])
 
   const handleSubmit = (e: React.FormEvent) => {

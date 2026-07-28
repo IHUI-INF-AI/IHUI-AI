@@ -1,109 +1,107 @@
-# 传统爬虫(全文允许,屏蔽私有区)
+# IHUI AI — robots.txt(2026-07-28 P1-4 SEO 资产补全)
+# 注意:Next.js App Router 优先使用 app/robots.ts 动态生成 /robots.txt
+# 本文件作为静态 fallback,保留完整爬虫规则(与 app/robots.ts 保持一致)
+
+# 默认:所有爬虫允许公开内容
 User-agent: *
 Allow: /
-Disallow: /admin/
+# 私有/敏感路由(与 app/robots.ts DISALLOWED_PATHS 同步)
 Disallow: /api/
-Disallow: /user/
-Disallow: /sso/auth/
+Disallow: /admin/
+Disallow: /dashboard/
 Disallow: /settings/
 Disallow: /wallet/
 Disallow: /orders/
+Disallow: /payment/
+Disallow: /member/
+Disallow: /user/
+Disallow: /student/
+Disallow: /messages/
+Disallow: /notifications/
+Disallow: /sso/
+Disallow: /oauth/
+Disallow: /search/
+Disallow: /workspace/
+Disallow: /memory/
+Disallow: /publish/
+Disallow: /plan/
+Disallow: /spec/
+Disallow: /schedule/
+Disallow: /tasks/
+Disallow: /task-receiver/
+Disallow: /models/keys/
+Disallow: /models/logs/
+Disallow: /models/usage/
+Disallow: /models/billing/
 
-# AI 爬虫(显式放行,强化 GEO 检索权重)
-# 主流生成式引擎(GPT/Claude/Perplexity/Gemini/豆包/Kimi/DeepSeek/Qwen/文心/智谱/混元/Copilot)的抓取入口
+# 主流 AI 爬虫:允许抓取公开内容(强化 GEO 检索权重)
 User-agent: GPTBot
 Allow: /
-
 User-agent: ChatGPT-User
 Allow: /
-
 User-agent: OAI-SearchBot
 Allow: /
-
 User-agent: Claude-Web
 Allow: /
-
 User-agent: ClaudeBot
 Allow: /
-
 User-agent: anthropic-ai
 Allow: /
-
 User-agent: Claude-SearchBot
 Allow: /
-
 User-agent: PerplexityBot
 Allow: /
-
 User-agent: Perplexity-User
 Allow: /
-
 User-agent: Google-Extended
 Allow: /
-
 User-agent: GoogleOther
 Allow: /
-
 User-agent: CCBot
 Allow: /
-
 User-agent: cohere-ai
 Allow: /
-
 User-agent: cohere-training-data-crawler
 Allow: /
-
 User-agent: Bytespider
 Allow: /
-
 User-agent: Amazonbot
 Allow: /
-
 User-agent: Applebot-Extended
 Allow: /
-
 User-agent: Meta-ExternalAgent
 Allow: /
-
 User-agent: Diffbot
 Allow: /
-
 User-agent: DuckAssistBot
 Allow: /
-
 User-agent: YouBot
 Allow: /
-
 User-agent: ImagesiftBot
 Allow: /
-
-# 2026-07-26 新增:国内主流 AI 引擎爬虫
+# 国内主流 AI 引擎爬虫
 User-agent: Baiduspider
 Allow: /
-
 User-agent: Baidu-YunGuanCe-Spider
 Allow: /
-
 User-agent: MSNBot-Media
 Allow: /
-
 User-agent: Bingbot
 Allow: /
-
 User-agent: BingPreview
 Allow: /
 
-# 站点地图 + GEO 入口(2026-07-26 高密度曝光度:8 主流 AI 引擎 + 微软 Copilot + Feed)
+# Sitemap 与 GEO 入口
 Sitemap: https://ihui.ai/sitemap.xml
 Sitemap: https://ihui.ai/llms.txt
 Sitemap: https://ihui.ai/llms-full.txt
-# 海外主流 AI 引擎(4)
+# 海外主流 AI 引擎
 Sitemap: https://ihui.ai/gpt.txt
 Sitemap: https://ihui.ai/claude.md
 Sitemap: https://ihui.ai/perplexity.md
 Sitemap: https://ihui.ai/gemini.txt
 Sitemap: https://ihui.ai/copilot.txt
-# 国内主流 AI 引擎(6)
+# 国内主流 AI 引擎
 Sitemap: https://ihui.ai/doubao.txt
 Sitemap: https://ihui.ai/kimi.txt
 Sitemap: https://ihui.ai/deepseek.txt
@@ -111,27 +109,21 @@ Sitemap: https://ihui.ai/qwen.txt
 Sitemap: https://ihui.ai/wenxin.txt
 Sitemap: https://ihui.ai/zhipu.txt
 Sitemap: https://ihui.ai/hunyuan.txt
-# 行业 + 角色垂直 GEO(2026-07-26 阶段 6 新增)
+# 行业 + 角色垂直 GEO
 Sitemap: https://ihui.ai/industries.md
 Sitemap: https://ihui.ai/roles.md
-# 英文版行业/角色 GEO(2026-07-26 阶段 7 新增,海外 AI 引擎优先)
 Sitemap: https://ihui.ai/industries.en.md
 Sitemap: https://ihui.ai/roles.en.md
-# 日文/韩文版行业/角色 GEO(2026-07-26 阶段 8 新增,日韩 AI 引擎优先)
 Sitemap: https://ihui.ai/industries.ja.md
 Sitemap: https://ihui.ai/roles.ja.md
 Sitemap: https://ihui.ai/industries.ko.md
 Sitemap: https://ihui.ai/roles.ko.md
-# Google Knowledge Graph 结构化数据
+# Google Knowledge Graph
 Sitemap: https://ihui.ai/knowledge-graph.json
-# Feed(2)+ WebSub Hub(1)
+# Feed + WebSub
 Sitemap: https://ihui.ai/rss.xml
 Sitemap: https://ihui.ai/atom.xml
 Sitemap: https://ihui.ai/websub
 
-# Feed 自动发现(2026-07-26 立)
-# 浏览器/阅读器访问首页时自动发现 feed 入口
-# 已在 layout.tsx <head> 通过 <link rel="alternate"> 声明,此处冗余声明增强抓取
-
-# 主机声明(明确主域,避免子域抓取分散权重)
+# 主机声明
 Host: https://ihui.ai

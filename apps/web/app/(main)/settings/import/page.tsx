@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -132,14 +132,14 @@ export default function CliImportPage() {
   }
 
   return (
-    <Container maxWidth="lg" padding={false} className="space-y-6 py-6">
+    <Container maxWidth="lg" padding={false} className="space-y-3">
       {/* Header */}
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <PackagePlus className="h-6 w-6 text-primary" />
+      <header className="space-y-0.5">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <PackagePlus className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('desc')}</p>
+        <p className="text-xs text-muted-foreground">{t('desc')}</p>
       </header>
 
       <Alert variant="info" title={t('title')} description={t('desc')} />

@@ -31,7 +31,7 @@ interface ActivityLog {
   status: 'success' | 'failed'
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 export default function ActivityPage() {
   const t = useTranslations('settings')
@@ -98,11 +98,11 @@ export default function ActivityPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-destructive">{error}</p>
+            <p className="py-4 text-center text-sm text-destructive">{error}</p>
           ) : logs.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('activityEmpty')}</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">{t('activityEmpty')}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>

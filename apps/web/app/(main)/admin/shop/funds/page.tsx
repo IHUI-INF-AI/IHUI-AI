@@ -34,7 +34,7 @@ export default function AdminShopFundsPage() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <FundsHeader accounts={accounts} />
       <FundsTabs tab={tab} setTab={setTab} flowType={flowType} setFlowType={setFlowType} />
       <div key={tab} className="animate-in fade-in-0 duration-200">

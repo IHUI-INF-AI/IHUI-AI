@@ -100,14 +100,14 @@ export default function MyNotesPage() {
   const list = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-3">
       <header className="flex items-start justify-between">
-        <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-            <StickyNote className="h-7 w-7 text-primary" />
+        <div className="space-y-0.5">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+            <StickyNote className="h-5 w-5 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -121,7 +121,7 @@ export default function MyNotesPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('search')}
-          className="h-9 pl-8"
+          className="h-8 pl-8"
         />
       </div>
 
