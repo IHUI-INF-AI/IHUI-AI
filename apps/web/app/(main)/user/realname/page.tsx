@@ -94,13 +94,13 @@ export default function RealnamePage() {
   const status = info?.status ?? null
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <User className="h-6 w-6 text-primary" />
           {t('realname.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('realname.subtitle')}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('realname.subtitle')}</p>
       </div>
 
       {isLoading ? (
