@@ -14,6 +14,11 @@ import {
   ChevronsUpDown,
   ChevronsDownUp,
   ArrowDown,
+  Sparkles,
+  GripVertical,
+  HelpCircle,
+  Keyboard,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
@@ -46,16 +51,16 @@ import { TimelineTab, flattenToTimelineEvents } from './progress-sections/timeli
 import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 
 /**
- * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-28 v12 Trae Work 对齐)
+ * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-28 v13)
  *
- * v12 改动(Phase 19 集成):
- * - PlanStep 联动 ProgressJumpStore(hover 高亮 + 点击跳转 + 跨组件反向联动)
- * - PlanStep hover 预览卡(HoverPreviewCard + useHoverPreview,250ms 延迟 + 100ms 关闭)
- * - 子代理派单用 BatchHeader 包装(默认折叠,展开后展示 SubAgentTaskTree)
- * - 每个 plan step 关联的工具调用列表用 Checklist 展示
- * - header 区域嵌入 ResourceBudget(step budget 60)
- * - header 加"对话流/时间线"tab 切换按钮(从 TimelineStore 派生)
- * - 时间线视图嵌入 TimelineTab(替换 SubagentSection,避免重复)
+ * v13 改动(深度优化):
+ * - 拖拽支持:header 可拖动,位置持久化到 localStorage(`agent-progress-pane-position`),viewport 边界 clamp
+ * - 完成态庆祝:全部 plan steps completed 时显示 3s 横幅(Sparkles + emerald 渐变)
+ * - plan skeleton 优化:4 items + `animate-skeleton` shimmer 渐变动画
+ * - 空状态改进:无 threadId 时显示 3 个快速开始提示
+ * - i18n 化所有硬编码中文(用 `ai.pane` 命名空间,新 key 不修改 JSON 文件,英文 fallback + next-intl dev warn)
+ * - 步骤进度视觉强化:PlanStepItem status icon transition + scale 切换动画
+ * - 键盘快捷键面板:按 ? 弹出 VSCode 风格帮助,Esc 关闭
  */
 
 // ─── 模块级常量(避免每次 render 创建新数组,打破 React.memo 优化) ─────
@@ -72,6 +77,60 @@ const TOOL_TIME_WINDOW_LEADING_MS = 1000
 
 /** 每 step 默认预览的工具调用条数上限 */
 const PREVIEW_TOOL_LIMIT = 4
+
+/** Pane 拖拽位置 localStorage key(2026-07-28 v13 立,避免与 store 持久化冲突) */
+const POSITION_STORAGE_KEY = 'agent-progress-pane-position'
+
+/** Pane 拖拽边界留白(viewport 边缘) */
+const DRAG_EDGE_MARGIN = 8
+
+/** Pane 默认尺寸估算(用于 viewport clamp;实际宽高由 CSS w-[280px] max-h-[60vh] 决定) */
+const PANE_ESTIMATED_WIDTH = 280
+const PANE_ESTIMATED_HEIGHT = 400
+
+/** Skeleton 行数(v13:3 → 4,更符合常见 plan 步骤规模) */
+const PLAN_SKELETON_ROWS = 4
+
+/** 完成态庆祝横幅显示时长 */
+const CELEBRATION_DURATION_MS = 3000
+
+/** 快捷键分组(模块级 const 避免每次 render 重新创建) */
+interface ShortcutItem {
+  /** 键组合(如 "↑/↓" / "?" / "Esc") */
+  keys: string
+  /** i18n key — 描述,在 render 内调 t() 翻译 */
+  i18nKey: string
+}
+
+interface ShortcutGroup {
+  /** i18n key */
+  i18nKey: string
+  items: ShortcutItem[]
+}
+
+const SHORTCUT_GROUPS: ReadonlyArray<ShortcutGroup> = [
+  {
+    i18nKey: 'shortcutsGroupNav',
+    items: [
+      { keys: '↑/↓', i18nKey: 'shortcutSectionNav' },
+      { keys: 'Home/End', i18nKey: 'shortcutSectionFirstLast' },
+    ],
+  },
+  {
+    i18nKey: 'shortcutsGroupPane',
+    items: [
+      { keys: '?', i18nKey: 'shortcutShowHelp' },
+      { keys: 'Esc', i18nKey: 'shortcutCloseHelp' },
+    ],
+  },
+  {
+    i18nKey: 'shortcutsGroupTrigger',
+    items: [
+      { keys: 'Ctrl+Shift+J', i18nKey: 'shortcutTogglePane' },
+      { keys: '↑', i18nKey: 'shortcutOpenPane' },
+    ],
+  },
+]
 
 // ─── 状态图标映射 ────────────────────────────────────────────────────
 const PLAN_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string }>> = {
@@ -93,17 +152,57 @@ interface PlanStepPreviewData {
   relatedToolCount: number
 }
 
-// ─── Tab 切换按钮配置 ─────────────────────────────────────────────
+// ─── Tab 切换按钮配置(模块级,避免打破 React.memo 优化) ───────────────
 const TAB_BUTTONS: ReadonlyArray<{
   id: TimelineTabName
-  label: string
+  /** i18n key — 模块级 const 无法直接调 t(),在 render 内用 key 调用 */
+  i18nKey: 'tabInline' | 'tabTimeline'
   Icon: React.ComponentType<{ className?: string }>
 }> = [
-  { id: 'inline', label: '对话流', Icon: MessageSquare },
-  { id: 'timeline', label: '时间线', Icon: ListTree },
+  { id: 'inline', i18nKey: 'tabInline', Icon: MessageSquare },
+  { id: 'timeline', i18nKey: 'tabTimeline', Icon: ListTree },
 ]
 
-// ─── 单个 plan step 渲染(v12:ProgressJumpStore + HoverPreviewCard 集成) ──
+// ─── 拖拽位置工具(localStorage 持久化 + viewport clamp) ─────────────
+interface PanePosition {
+  x: number
+  y: number
+}
+
+function loadPanePosition(): PanePosition | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(POSITION_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown }
+    if (typeof parsed.x !== 'number' || typeof parsed.y !== 'number') return null
+    if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null
+    return { x: parsed.x, y: parsed.y }
+  } catch {
+    return null
+  }
+}
+
+function savePanePosition(pos: PanePosition): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(pos))
+  } catch {
+    // 忽略 quota / private mode 错误
+  }
+}
+
+function clampPanePosition(x: number, y: number): PanePosition {
+  if (typeof window === 'undefined') return { x, y }
+  const maxX = Math.max(DRAG_EDGE_MARGIN, window.innerWidth - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN)
+  const maxY = Math.max(DRAG_EDGE_MARGIN, window.innerHeight - PANE_ESTIMATED_HEIGHT - DRAG_EDGE_MARGIN)
+  return {
+    x: Math.min(Math.max(DRAG_EDGE_MARGIN, x), maxX),
+    y: Math.min(Math.max(DRAG_EDGE_MARGIN, y), maxY),
+  }
+}
+
+// ─── 单个 plan step 渲染(v13:i18n 化 hover 预览) ────────────────────
 const PlanStepItem = React.memo(function PlanStepItem({
   step,
   index,
@@ -158,7 +257,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
     (data: PlanStepPreviewData) => (
       <div className="space-y-1">
         <div className="text-[10px] text-muted-foreground/70">
-          步骤 {data.index + 1} · {data.step.step}
+          {t('previewStepNumberAndName', { n: data.index + 1, step: data.step.step })}
         </div>
         {data.step.explanation && (
           <div className="text-[10px] leading-relaxed text-muted-foreground/80">
@@ -167,22 +266,26 @@ const PlanStepItem = React.memo(function PlanStepItem({
         )}
         <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground/60">
           {data.step.durationMs !== undefined && (
-            <span>耗时: {formatDuration(data.step.durationMs)}</span>
+            <span>{t('previewDuration', { duration: formatDuration(data.step.durationMs) })}</span>
           )}
           {data.step.tokenUsage !== undefined && data.step.tokenUsage > 0 && (
-            <span>token: {Math.round(data.step.tokenUsage / 1000)}k</span>
+            <span>
+              {t('previewTokenK', { k: Math.round(data.step.tokenUsage / 1000) })}
+            </span>
           )}
-          {data.relatedToolCount > 0 && <span>工具调用: {data.relatedToolCount}</span>}
+          {data.relatedToolCount > 0 && (
+            <span>{t('previewToolCalls', { n: data.relatedToolCount })}</span>
+          )}
         </div>
         {data.linkedMessagePreview && (
           <div className="border-t border-border/40 pt-1 text-[10px] text-muted-foreground/60">
-            <span className="font-medium text-foreground/70">关联消息:</span>{' '}
+            <span className="font-medium text-foreground/70">{t('previewRelatedMessage')}</span>{' '}
             {data.linkedMessagePreview}
           </div>
         )}
       </div>
     ),
-    [],
+    [t],
   )
 
   const { visible, position, content, hoverHandlers } = useHoverPreview<PlanStepPreviewData>({
@@ -254,6 +357,17 @@ const PlanStepItem = React.memo(function PlanStepItem({
     }))
   }, [relatedTools])
 
+  // v13: status 变化时短暂 scale + transition 动画(从 in_progress 切到 completed 时尤其明显)
+  // 用 ref 跟踪 prev status,变化时触发 400ms 缩放回弹
+  const [iconBumpKey, setIconBumpKey] = React.useState<number>(0)
+  const prevStatusRef = React.useRef<PlanStepStatus>(step.status)
+  React.useEffect(() => {
+    if (prevStatusRef.current !== step.status) {
+      prevStatusRef.current = step.status
+      setIconBumpKey((k) => k + 1)
+    }
+  }, [step.status])
+
   return (
     <>
       <div
@@ -276,10 +390,14 @@ const PlanStepItem = React.memo(function PlanStepItem({
         data-plan-step-id={step.id}
       >
         <Icon
+          // v13: 加 transition-all + scale 切换动画;key 变化时 React 重新挂载,触发原生 CSS 动画
+          key={`icon-${iconBumpKey}`}
           className={cn(
-            'mt-0.5 h-3 w-3 shrink-0 transition-colors duration-300',
+            'mt-0.5 h-3 w-3 shrink-0 transition-all duration-300',
             PLAN_CLS[step.status],
             step.status === 'in_progress' && 'animate-spin',
+            // status 切换时短暂放大回弹(在 tailwind 配置中需支持 animate-icon-pop)
+            'animate-icon-pop',
           )}
         />
         <div className="min-w-0 flex-1">
@@ -317,7 +435,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
               <Checklist items={checklistItems} dense data-testid={`plan-step-tools-${step.id}`} />
               {relatedTools.length > PREVIEW_TOOL_LIMIT && (
                 <div className="pl-3 text-[10px] text-muted-foreground/50">
-                  …还有 {relatedTools.length - PREVIEW_TOOL_LIMIT} 项
+                  {t('moreItems', { n: relatedTools.length - PREVIEW_TOOL_LIMIT })}
                 </div>
               )}
             </div>
@@ -336,7 +454,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
   )
 })
 
-// ─── 主组件(v12:Phase 19 全量集成) ─────────────────────────────────
+// ─── 主组件(v13:Phase 20 全量集成) ─────────────────────────────────
 export function AgentTaskProgressPane() {
   const t = useTranslations('ai.pane')
   const open = useAgentProgressPaneStore((s) => s.open)
@@ -354,6 +472,14 @@ export function AgentTaskProgressPane() {
   // Phase 19: BatchHeader 折叠状态(默认折叠,避免初次打开时 pane 太长)
   const [batchCollapsed, setBatchCollapsed] = React.useState<boolean>(true)
 
+  // v13: 拖拽位置状态(null = 首次打开,使用默认 right-2 top-2 定位)
+  const [panePosition, setPanePosition] = React.useState<PanePosition | null>(null)
+  // v13: 拖拽中状态(用于切换 cursor / 提升 z-index)
+  const [isDragging, setIsDragging] = React.useState<boolean>(false)
+
+  // v13: 快捷键帮助面板开关(pane 打开时按 ? 弹出,Esc 或点关闭按钮收起)
+  const [showHelp, setShowHelp] = React.useState<boolean>(false)
+
   // 从 useChatStore 同步 conversationId + 读取 messages(用于 planStep↔message 关联)
   const conversationId = useChatStore((s) => s.conversationId)
   const chatMessages = useChatStore((s) => s.messages)
@@ -362,6 +488,12 @@ export function AgentTaskProgressPane() {
       setThreadId(conversationId)
     }
   }, [conversationId, threadId, setThreadId])
+
+  // v13: 客户端 mount 后加载保存的位置(SSR 时 window 不存在,延后到 effect)
+  React.useEffect(() => {
+    const saved = loadPanePosition()
+    if (saved) setPanePosition(clampPanePosition(saved.x, saved.y))
+  }, [])
 
   const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
@@ -404,6 +536,24 @@ export function AgentTaskProgressPane() {
       progressPct: (completed / planSteps.length) * 100,
     }
   }, [planSteps])
+
+  // v13: 完成态庆祝横幅(全部 plan steps completed 时短暂显示)
+  const [showCelebration, setShowCelebration] = React.useState<boolean>(false)
+  const celebrationShownRef = React.useRef<boolean>(false)
+  React.useEffect(() => {
+    const allComplete = planSteps.length > 0 && progressPct >= 100
+    if (allComplete && !celebrationShownRef.current) {
+      celebrationShownRef.current = true
+      setShowCelebration(true)
+      const id = window.setTimeout(() => setShowCelebration(false), CELEBRATION_DURATION_MS)
+      return () => window.clearTimeout(id)
+    }
+    // 当有新的 pending step 出现(任务重置/新 plan)时,重置庆祝标志以便再次触发
+    if (!allComplete && planSteps.length === 0) {
+      celebrationShownRef.current = false
+    }
+    return undefined
+  }, [planSteps, progressPct])
 
   // Phase 16: 进度环状态推导
   const ringState: 'idle' | 'in_progress' | 'completed' = React.useMemo(() => {
@@ -571,9 +721,9 @@ export function AgentTaskProgressPane() {
   const activeTab = useTimelineStore((s) => s.activeTab)
   const setActiveTab = useTimelineStore((s) => s.setActiveTab)
 
-  // Esc 关闭(unpin 状态下生效)
+  // Esc 关闭(unpin 状态下生效) + 帮助面板关闭
   React.useEffect(() => {
-    if (!open || pinned) return
+    if (!open) return
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null
       if (el) {
@@ -582,14 +732,26 @@ export function AgentTaskProgressPane() {
           return
         }
       }
-      if (e.key === 'Escape') {
+      // 帮助面板打开时,Esc 优先关帮助,避免冒泡到外层 closePane
+      if (e.key === 'Escape' && showHelp) {
+        e.preventDefault()
+        e.stopPropagation()
+        setShowHelp(false)
+        return
+      }
+      if (e.key === 'Escape' && !pinned) {
         e.preventDefault()
         closePane()
+      }
+      // v13: 按 ? (Shift+/) 切换帮助面板
+      if (e.key === '?') {
+        e.preventDefault()
+        setShowHelp((v) => !v)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, pinned, closePane])
+  }, [open, pinned, closePane, showHelp])
 
   // v11: 折叠子区键盘导航
   const onSectionsKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -631,6 +793,8 @@ export function AgentTaskProgressPane() {
   React.useEffect(() => {
     if (!open || pinned) return
     const onClick = (e: MouseEvent) => {
+      // 拖拽中不触发 click-outside(避免 mouseup 误关闭)
+      if (isDragging) return
       const target = e.target as Node
       if (paneRef.current && !paneRef.current.contains(target)) {
         const trigger = document.querySelector('[data-testid="agent-progress-trigger"]')
@@ -645,7 +809,7 @@ export function AgentTaskProgressPane() {
       window.clearTimeout(id)
       document.removeEventListener('mousedown', onClick)
     }
-  }, [open, pinned, closePane])
+  }, [open, pinned, closePane, isDragging])
 
   // Phase 17: 自动滚动逻辑
   const scrollRef = React.useRef<HTMLDivElement>(null)
@@ -694,22 +858,109 @@ export function AgentTaskProgressPane() {
   // BatchHeader 折叠切换回调
   const onBatchCollapsedChange = React.useCallback((next: boolean) => setBatchCollapsed(next), [])
 
+  // v13: 拖拽处理器 — 鼠标按下时记录起点,移动时实时更新位置,抬起时持久化
+  // 用 ref 记录最新位置,避免闭包陷阱(stale state)
+  const positionRef = React.useRef<PanePosition | null>(null)
+  const dragStateRef = React.useRef<{
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+  } | null>(null)
+
+  // 同步 position state → ref(确保 onMouseUp 拿到最新值)
+  positionRef.current = panePosition
+
+  const onHeaderMouseDown = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // 只响应鼠标左键
+      if (e.button !== 0) return
+      // 排除点击按钮 / tab / 可交互子元素的情况(避免误触发拖拽)
+      const target = e.target as HTMLElement
+      if (target.closest('button, [role="tab"], input, [data-no-drag]')) return
+
+      e.preventDefault()
+      // 起始位置:无保存位置时,使用默认 right-2 top-2(viewport 坐标估算)
+      const fallback =
+        typeof window !== 'undefined'
+          ? { x: window.innerWidth - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN, y: DRAG_EDGE_MARGIN }
+          : { x: 0, y: 0 }
+      const current = positionRef.current ?? fallback
+      dragStateRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: current.x,
+        originY: current.y,
+      }
+      setIsDragging(true)
+
+      const onMove = (ev: MouseEvent) => {
+        const state = dragStateRef.current
+        if (!state) return
+        const dx = ev.clientX - state.startX
+        const dy = ev.clientY - state.startY
+        const next = clampPanePosition(state.originX + dx, state.originY + dy)
+        setPanePosition(next)
+      }
+
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+        document.body.style.userSelect = ''
+        document.body.style.cursor = ''
+        setIsDragging(false)
+        // 持久化最新位置(用 ref 拿最新值,避免 stale closure)
+        const final = positionRef.current
+        if (final) savePanePosition(final)
+        dragStateRef.current = null
+      }
+
+      document.addEventListener('mousemove', onMove)
+      document.addEventListener('mouseup', onUp)
+      document.body.style.userSelect = 'none'
+      document.body.style.cursor = 'grabbing'
+    },
+    [],
+  )
+
   if (!open) return null
+
+  // v13: 计算 pane 根容器的位置样式(有 position → fixed + left/top;无 position → 默认 right-2 top-2)
+  const positionStyle: React.CSSProperties = panePosition
+    ? { left: panePosition.x, top: panePosition.y, right: 'auto' }
+    : { right: 8, top: 8 }
 
   return (
     <div
       ref={paneRef}
       className={cn(
-        'absolute right-2 top-2 z-50',
+        'fixed z-50',
         'flex w-[280px] max-h-[60vh] flex-col',
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
+        isDragging && 'shadow-lg',
       )}
+      style={positionStyle}
       role="complementary"
       aria-label={t('ariaLabel')}
       data-testid="agent-progress-pane"
+      data-dragging={isDragging ? 'true' : undefined}
     >
-      {/* Header:状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮 */}
-      <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-2">
+      {/* Header:状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮(v13:可拖拽) */}
+      <div
+        onMouseDown={onHeaderMouseDown}
+        className={cn(
+          'flex h-8 shrink-0 select-none items-center gap-1 border-b border-border px-2',
+          isDragging ? 'cursor-grabbing' : 'cursor-grab',
+        )}
+        data-testid="pane-header"
+        aria-label={t('dragHandle')}
+        role="toolbar"
+      >
+        <GripVertical
+          className="h-3 w-3 shrink-0 text-muted-foreground/40"
+          aria-hidden
+          data-testid="pane-drag-grip"
+        />
         <ConnectionStatusDot
           state={connectionState}
           className={cn(
@@ -718,45 +969,55 @@ export function AgentTaskProgressPane() {
             connectionState === 'reconnecting' && 'shadow-[0_0_0_1px_rgb(245_158_11/0.3)]',
             connectionState === 'disconnected' && 'shadow-[0_0_0_1px_rgb(239_68_68/0.3)]',
           )}
+          data-no-drag="true"
         />
-        <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-        <span className="shrink-0 text-xs font-medium">{t('title')}</span>
+        <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" data-no-drag="true" />
+        <span className="shrink-0 text-xs font-medium" data-no-drag="true">
+          {t('title')}
+        </span>
         {planSteps.length > 0 && (
-          <ProgressRing
-            value={progressPct}
-            state={ringState}
-            centerMode="percent"
-            size={16}
-            strokeWidth={2}
-            aria-label={t('progressLabel', { pct: Math.round(progressPct) })}
-          />
+          <div data-no-drag="true">
+            <ProgressRing
+              value={progressPct}
+              state={ringState}
+              centerMode="percent"
+              size={16}
+              strokeWidth={2}
+              aria-label={t('progressLabel', { pct: Math.round(progressPct) })}
+            />
+          </div>
         )}
         {connectionState !== 'connected' && connectionState !== 'connecting' && (
-          <ConnectionStatus
-            state={connectionState}
-            reconnectAttempt={progress.overview.reconnectAttempt}
-            totalAttempts={5}
-            error={progress.overview.error}
-            className="ml-0.5"
-          />
+          <div data-no-drag="true">
+            <ConnectionStatus
+              state={connectionState}
+              reconnectAttempt={progress.overview.reconnectAttempt}
+              totalAttempts={5}
+              error={progress.overview.error}
+              className="ml-0.5"
+            />
+          </div>
         )}
         {/* Phase 19: 步骤预算指示器(内联模式,显示在 header) */}
         {planSteps.length > 0 && (
-          <ResourceBudget
-            used={planSteps.length}
-            total={STEP_BUDGET_TOTAL}
-            label="step budget"
-            variant="inline"
-            active={isStreaming}
-            className="ml-0.5 hidden sm:inline-flex"
-            data-testid="pane-step-budget"
-          />
+          <div data-no-drag="true">
+            <ResourceBudget
+              used={planSteps.length}
+              total={STEP_BUDGET_TOTAL}
+              label={t('stepBudgetLabel')}
+              variant="inline"
+              active={isStreaming}
+              className="ml-0.5 hidden sm:inline-flex"
+              data-testid="pane-step-budget"
+            />
+          </div>
         )}
         <div className="flex-1" />
         {/* Phase 19: tab 切换(对话流/时间线) */}
         {TAB_BUTTONS.map((tab) => {
           const TabIcon = tab.Icon
           const active = activeTab === tab.id
+          const label = t(tab.i18nKey)
           return (
             <button
               key={tab.id}
@@ -771,10 +1032,10 @@ export function AgentTaskProgressPane() {
                   : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
               )}
               data-testid={`pane-tab-${tab.id}`}
-              title={tab.label}
+              title={label}
             >
               <TabIcon className="h-2.5 w-2.5" aria-hidden />
-              <span>{tab.label}</span>
+              <span>{label}</span>
             </button>
           )
         })}
@@ -792,6 +1053,25 @@ export function AgentTaskProgressPane() {
             <ChevronsUpDown className="h-3 w-3" />
           )}
         </button>
+        {/* v13: 帮助按钮(打开/关闭快捷键面板) */}
+        <button
+          type="button"
+          onClick={() => setShowHelp((v) => !v)}
+          aria-label={t('helpToggle')}
+          aria-expanded={showHelp}
+          aria-controls="pane-help-panel"
+          title={t('helpToggle')}
+          className={cn(
+            'inline-flex h-5 w-5 items-center justify-center rounded-sm transition-colors',
+            showHelp
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          )}
+          data-testid="pane-help-toggle"
+          data-no-drag="true"
+        >
+          <HelpCircle className="h-3 w-3" />
+        </button>
         <button
           type="button"
           onClick={togglePin}
@@ -802,7 +1082,7 @@ export function AgentTaskProgressPane() {
               ? 'text-primary hover:bg-accent'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
           )}
-          title={pinned ? `${t('unpin')}(点击外部可关闭)` : `${t('pin')}(钉住,点击外部不关闭)`}
+          title={pinned ? `${t('unpin')}(${t('pinHintUnpinned')})` : `${t('pin')}(${t('pinHintPinned')})`}
           data-testid="pane-pin"
         >
           {pinned ? <Pin className="h-3 w-3" /> : <PinOff className="h-3 w-3" />}
@@ -812,12 +1092,79 @@ export function AgentTaskProgressPane() {
           onClick={toggle}
           aria-label={t('minimize')}
           className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          title={`${t('minimize')}(与触发按钮联动)`}
+          title={`${t('minimize')}(${t('minimizeHint')})`}
           data-testid="pane-minimize"
         >
           <Minimize2 className="h-3 w-3" />
         </button>
       </div>
+
+      {/* v13: 完成态庆祝横幅(全部 plan steps completed 时显示 3s) */}
+      {showCelebration && (
+        <div
+          className="flex shrink-0 items-center gap-1.5 border-b border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300"
+          role="status"
+          aria-live="polite"
+          data-testid="pane-celebration-banner"
+        >
+          <Sparkles className="h-3 w-3 shrink-0 animate-pulse" aria-hidden />
+          <span className="flex-1 truncate">{t('celebrate')}</span>
+        </div>
+      )}
+
+      {/* v13: 键盘快捷键帮助面板(VSCode 风格,按 ? 弹出,Esc 关闭) */}
+      {showHelp && (
+        <div
+          id="pane-help-panel"
+          role="dialog"
+          aria-label={t('helpPanelTitle')}
+          className="shrink-0 border-b border-border bg-muted/40 px-3 py-2"
+          data-testid="pane-help-panel"
+        >
+          <div className="mb-1.5 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+              <Keyboard className="h-3 w-3 text-muted-foreground" aria-hidden />
+              {t('helpPanelTitle')}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowHelp(false)}
+              aria-label={t('helpClose')}
+              className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              data-testid="pane-help-close"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </div>
+          <div
+            className="space-y-2"
+            role="list"
+            aria-label={t('helpPanelTitle')}
+            data-testid="pane-help-groups"
+          >
+            {SHORTCUT_GROUPS.map((group) => (
+              <div key={group.i18nKey} role="listitem" className="space-y-0.5">
+                <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                  {t(group.i18nKey)}
+                </div>
+                <ul className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <li
+                      key={item.i18nKey}
+                      className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground/80"
+                    >
+                      <span>{t(item.i18nKey)}</span>
+                      <kbd className="inline-flex h-4 shrink-0 items-center rounded-sm border border-border/60 bg-background px-1 font-mono text-[9px] font-medium text-foreground/80 shadow-sm">
+                        {item.keys}
+                      </kbd>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Phase 19: 移动端 ResourceBudget 块模式(无法在 header 内联时降级到内容顶部) */}
       {planSteps.length > 0 && (
@@ -828,7 +1175,7 @@ export function AgentTaskProgressPane() {
           <ResourceBudget
             used={planSteps.length}
             total={STEP_BUDGET_TOTAL}
-            label="step budget"
+            label={t('stepBudgetLabel')}
             variant="block"
             active={isStreaming}
             data-testid="pane-step-budget-block"
@@ -852,20 +1199,47 @@ export function AgentTaskProgressPane() {
         {activeTab === 'inline' && (
           <>
             {!threadId && (
-              <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
-                <MessageSquare className="h-4 w-4 text-muted-foreground/60" />
-                <span className="text-[11px] text-muted-foreground/60">开始对话后显示任务计划</span>
+              <div
+                className="flex flex-col gap-2 px-3 py-4"
+                data-testid="pane-empty-state"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground/60" aria-hidden />
+                  <span className="text-[11px] text-muted-foreground/60">
+                    {t('emptyHint')}
+                  </span>
+                </div>
+                {/* v13: 3 个快速开始提示,引导用户理解 pane 用途 */}
+                <ul
+                  className="space-y-0.5 text-[10px] text-muted-foreground/50"
+                  data-testid="pane-empty-hints"
+                  aria-label={t('emptyHintsLabel')}
+                >
+                  <li className="flex items-start gap-1.5">
+                    <span className="shrink-0 text-primary/80">1.</span>
+                    <span>{t('emptyHint1')}</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="shrink-0 text-primary/80">2.</span>
+                    <span>{t('emptyHint2')}</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="shrink-0 text-primary/80">3.</span>
+                    <span>{t('emptyHint3')}</span>
+                  </li>
+                </ul>
               </div>
             )}
 
             {threadId && planSteps.length === 0 && (
+              // v13: skeleton 行数 3 → 4,加 `animate-skeleton` shimmer 渐变动画
               <div className="space-y-1 px-2 py-2" data-testid="plan-skeleton">
-                {[0, 1, 2].map((i) => (
+                {Array.from({ length: PLAN_SKELETON_ROWS }, (_, i) => (
                   <div key={i} className="flex items-center gap-1.5">
-                    <div className="h-3 w-3 shrink-0 animate-pulse rounded-sm bg-muted/60" />
+                    <div className="h-3 w-3 shrink-0 animate-skeleton rounded-sm bg-gradient-to-r from-muted/40 via-muted/70 to-muted/40 bg-[length:200%_100%]" />
                     <div
-                      className="h-2.5 animate-pulse rounded-sm bg-muted/60"
-                      style={{ width: `${60 + i * 10}%` }}
+                      className="h-2.5 animate-skeleton rounded-sm bg-gradient-to-r from-muted/40 via-muted/70 to-muted/40 bg-[length:200%_100%]"
+                      style={{ width: `${50 + i * 12}%` }}
                     />
                   </div>
                 ))}
@@ -874,7 +1248,7 @@ export function AgentTaskProgressPane() {
 
             {planSteps.length > 0 && (
               <>
-                <div role="list" aria-label="任务步骤列表">
+                <div role="list" aria-label={t('planListLabel')}>
                   {planSteps.map((step, idx) => {
                     const link = planStepLinkMap.get(step.id) ?? null
                     return (
@@ -897,18 +1271,18 @@ export function AgentTaskProgressPane() {
                 >
                   <span className="flex items-center gap-1">
                     <span>
-                      {completedCount}/{planSteps.length} 已完成
+                      {t('completedCount', { done: completedCount, total: planSteps.length })}
                     </span>
                     <CopyButton
                       text={planSteps.map((s, i) => `${i + 1}. [${s.status}] ${s.step}`).join('\n')}
-                      aria-label="复制任务计划"
+                      aria-label={t('copyPlan')}
                       data-testid="copy-plan-btn"
                     />
                   </span>
                   {isStreaming && (
                     <span className="flex items-center gap-0.5 text-primary" role="status">
                       <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                      执行中
+                      {t('executing')}
                     </span>
                   )}
                 </div>
@@ -935,7 +1309,7 @@ export function AgentTaskProgressPane() {
                     <>
                       <BatchHeader
                         batchIndex={1}
-                        title="子代理派单批次"
+                        title={t('subagentBatch')}
                         agentCount={subagentBatchStats.agentCount}
                         completedCount={subagentBatchStats.completedCount}
                         failedCount={subagentBatchStats.failedCount}
@@ -980,13 +1354,13 @@ export function AgentTaskProgressPane() {
           <button
             type="button"
             onClick={jumpToLatest}
-            aria-label="跳到最新"
-            title="跳到最新"
+            aria-label={t('jumpToLatest')}
+            title={t('jumpToLatest')}
             className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
             data-testid="pane-jump-latest"
           >
             <ArrowDown className="h-2.5 w-2.5" />
-            <span>最新</span>
+            <span>{t('latest')}</span>
           </button>
         )}
       </div>
