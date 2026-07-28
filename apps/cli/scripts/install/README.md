@@ -16,7 +16,7 @@ pnpm add -g @ihui/cli
 ### 2a. macOS / Linux(bash curl)
 
 ```bash
-curl -fsSL https://ihui.ai/install.sh | bash
+curl -fsSL https://aizhs.top/install.sh | bash
 ```
 
 脚本见 [`install.sh`](./install.sh)。
@@ -24,7 +24,7 @@ curl -fsSL https://ihui.ai/install.sh | bash
 ### 2b. Windows(PowerShell)
 
 ```powershell
-iwr -useb https://ihui.ai/install.ps1 | iex
+iwr -useb https://aizhs.top/install.ps1 | iex
 ```
 
 脚本见 [`install.ps1`](./install.ps1)。

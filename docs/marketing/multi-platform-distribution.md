@@ -14,7 +14,7 @@
 | --- | --- |
 | 项目名 | IHUI AI(智汇 AI) |
 | GitHub | https://github.com/IHUI-INF-AI/IHUI-AI |
-| 官网 / Demo | https://ihui.ai |
+| 官网 / Demo | https://aizhs.top |
 | 定位 | 8 端全栈 AI 操作系统,Apache 2.0 开源 |
 | 亮点 | 8 端同源 / 176 模型 / LangGraph+MCP+A2A / P3 深度层 |
 | 对标 | Dify / Coze / FastGPT / n8n / ChatGPT Team / Claude Code |
@@ -45,7 +45,7 @@
 #### 正文模板(直接复制)
 
 ```
-> 编者按:本文不卖课不带货,纯分享一个 Apache 2.0 开源项目的架构和踩坑。GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,在线 Demo:https://ihui.ai
+> 编者按:本文不卖课不带货,纯分享一个 Apache 2.0 开源项目的架构和踩坑。GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,在线 Demo:https://aizhs.top
 
 ## 一句话介绍
 
@@ -119,7 +119,7 @@ IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai
 ## 如何开始
 
 1. Star 仓库:https://github.com/IHUI-INF-AI/IHUI-AI
-2. 在线体验:https://ihui.ai
+2. 在线体验:https://aizhs.top
 3. 本地部署(5 分钟):见 README 的 Quick Start
 4. 加微信群:`ok502319984` 备注"掘金"
 
@@ -171,7 +171,7 @@ Apache 2.0,商业可用,可二次销售。
 #### 正文模板(直接复制)
 
 ```
-> 先放链接:GitHub https://github.com/IHUI-INF-AI/IHUI-AI · 在线 Demo https://ihui.ai · Apache 2.0 商业可用
+> 先放链接:GitHub https://github.com/IHUI-INF-AI/IHUI-AI · 在线 Demo https://aizhs.top · Apache 2.0 商业可用
 
 ## TL;DR
 
@@ -254,7 +254,7 @@ PostgreSQL Row-Level Security,单库 340 表隔离多租户,详见 `apps/api/src
 ## 六、如何参与
 
 1. Star:https://github.com/IHUI-INF-AI/IHUI-AI
-2. 试用:https://ihui.ai
+2. 试用:https://aizhs.top
 3. 加群:微信 `ok502319984` 备注"知乎"
 4. 投稿 / PR:欢迎 issue
 
@@ -377,7 +377,7 @@ export * from './agents-extended';
 8 端同源 + 176 模型 + 商业级工程实践,Apache 2.0 商业可用。
 
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
-- Demo:https://ihui.ai
+- Demo:https://aizhs.top
 - 文档:见仓库 docs/
 
 如果觉得有用,Star 支持一下。后续会写:
@@ -433,7 +433,7 @@ IHUI-AI 是一个 Apache 2.0 开源的 8 端全栈 AI 操作系统,核心特性:
 - **License**:Apache 2.0(商业可用,可二次销售)
 
 GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
-在线 Demo:https://ihui.ai
+在线 Demo:https://aizhs.top
 
 ## 二、为什么选择 IHUI-AI
 
@@ -665,7 +665,7 @@ await client.chat.completions.create({ model: 'ollama/llama3.3', ... });
 
 **3 种方式**:
 
-1. **在线体验**:https://ihui.ai 注册即用
+1. **在线体验**:https://aizhs.top 注册即用
 2. **本地部署**:GitHub 仓库 README 有 5 分钟部署教程
 3. **加群交流**:微信 `ok502319984` 备注"公众号"
 
@@ -745,7 +745,7 @@ I've been building an open-source full-stack AI platform for the past [X months]
 - **8 platforms**: web, api, ai-service, cli, desktop (Electron), extension (Chrome MV3), mobile (React Native), miniapp (Taro 4)
 
 GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-Live demo: https://ihui.ai
+Live demo: https://aizhs.top
 
 ## Why r/LocalLLaMA might care
 
@@ -802,7 +802,7 @@ Yes, the hosted plan is a SaaS — but **the code is 100% open**. Self-host ever
 3. MCP integration: we went with native protocol, anyone using MCP server registry?
 
 **Star if useful**: https://github.com/IHUI-INF-AI/IHUI-AI
-**Live demo**: https://ihui.ai
+**Live demo**: https://aizhs.top
 
 Happy to answer any technical questions in comments.
 ```
@@ -851,7 +851,7 @@ Hi HN,
 I've been building IHUI-AI for the past [X months]. It's an open-source full-stack AI operating system — Apache 2.0, 8-platform monorepo, 176 LLMs unified via LiteLLM.
 
 GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-Live demo: https://ihui.ai
+Live demo: https://aizhs.top
 
 ## What it does
 
@@ -907,7 +907,7 @@ Code is 100% open. Hosted plan is just a convenience.
 ## Links
 
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-- Live demo: https://ihui.ai
+- Live demo: https://aizhs.top
 - Docs: see `docs/` in repo
 
 Happy to answer technical questions. Particularly interested in feedback on:
@@ -954,7 +954,7 @@ Spent [X months] building an open-source AI platform.
 One repo to replace 40+ commercial products.
 
 GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-Demo: https://ihui.ai
+Demo: https://aizhs.top
 
 🧵 Thread 👇
 ```
@@ -1045,7 +1045,7 @@ Code is 100% Apache 2.0. Hosted plan is convenience.
 10/ Links:
 
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-- Live demo: https://ihui.ai
+- Live demo: https://aizhs.top
 - Docs: see docs/ in repo
 
 Star if useful. Feedback welcome.
@@ -1102,7 +1102,7 @@ I open-sourced an 8-platform AI operating system. Apache 2.0, commercial-friendl
 After [X months] of building, I'm excited to share IHUI-AI — a full-stack AI platform that runs across 8 platforms (web, API, AI service, CLI, desktop, browser extension, mobile, miniapp) from a single monorepo.
 
 GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-Live demo: https://ihui.ai
+Live demo: https://aizhs.top
 
 ## Why I built it
 
@@ -1187,7 +1187,7 @@ Or IHUI-AI Free: $0 (self-hosted)
 ## How to get involved
 
 1. **Star the repo**: https://github.com/IHUI-INF-AI/IHUI-AI
-2. **Try the demo**: https://ihui.ai
+2. **Try the demo**: https://aizhs.top
 3. **Self-host**: see README for 5-minute deployment
 4. **Connect**: DM me here on LinkedIn
 5. **Contributors welcome**: see CONTRIBUTING.md
@@ -1297,7 +1297,7 @@ Code is 100% open. Hosted plan is convenience.
 ## Links
 
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-- Live demo: https://ihui.ai
+- Live demo: https://aizhs.top
 - Docs: see docs/ in repo
 
 I'll be here all day answering questions. Ask me anything — technical, business, roadmap.
@@ -1417,7 +1417,7 @@ Product Hunt 支持选 4 个 Topics,推荐:
 
 ### 6. 链接一致
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-- Demo: https://ihui.ai
+- Demo: https://aizhs.top
 - 邮箱: 502319984@qq.com
 - 微信: ok50319984(国内平台提)
 

@@ -34,7 +34,7 @@ interface Props {
 
 /** 跳 web 端登录/注册/忘记密码(注册/忘记密码回调用) */
 function openWeb(): void {
-  const url = 'https://www.ihui.ai/signin'
+  const url = 'https://www.aizhs.top/signin'
   if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
     void chrome.tabs.create({ url })
   } else {

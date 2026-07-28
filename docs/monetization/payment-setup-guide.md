@@ -147,7 +147,7 @@
 | 应用私钥 | `ALIPAY_PRIVATE_KEY` | API 请求签名 |
 | 支付宝公钥 | `ALIPAY_PUBLIC_KEY` | 验证回调签名 |
 | 支付宝网关 | `ALIPAY_GATEWAY_URL` | API 入口（默认 `https://openapi.alipay.com/gateway.do`） |
-| 回调地址 | `ALIPAY_NOTIFY_URL` | 支付结果回调（`https://ihui.ai/api/alipay/notify`） |
+| 回调地址 | `ALIPAY_NOTIFY_URL` | 支付结果回调（`https://aizhs.top/api/alipay/notify`） |
 
 ### 4.4 GitHub Sponsors 环境变量
 

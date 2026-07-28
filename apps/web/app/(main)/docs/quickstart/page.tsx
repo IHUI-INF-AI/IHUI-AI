@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-const SITE_URL = 'https://ihui.ai'
+const SITE_URL = 'https://aizhs.top'
 
 /**
  * Quickstart 页面 JSON-LD(2026-07-26 立,SEO 强化):
@@ -14,7 +14,7 @@ const quickstartJsonLd = {
   '@graph': [
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/docs/quickstart#howto',
+      '@id': 'https://aizhs.top/docs/quickstart#howto',
       name: 'How to Get Started with IHUI AI in 5 Minutes',
       description:
         'IHUI AI is an open-source full-stack AI operating system. Sign up, browse the Agent marketplace, configure a model, and publish to 6 clients — all in under 5 minutes.',
@@ -33,56 +33,56 @@ const quickstartJsonLd = {
           '@type': 'HowToStep',
           position: 1,
           name: '注册账号',
-          text: '访问 https://ihui.ai/sso/register,使用邮箱或 GitHub 登录,无需信用卡,注册即得 1000 积分。',
-          url: 'https://ihui.ai/sso/register',
-          image: 'https://ihui.ai/images/logo.png',
+          text: '访问 https://aizhs.top/sso/register,使用邮箱或 GitHub 登录,无需信用卡,注册即得 1000 积分。',
+          url: 'https://aizhs.top/sso/register',
+          image: 'https://aizhs.top/images/logo.png',
         },
         {
           '@type': 'HowToStep',
           position: 2,
           name: '浏览 Agent 市场',
-          text: '打开 Agent 市场(https://ihui.ai/agents),从 200+ 模板中选择一个适合你场景的 Agent(如智能客服、代码审查、内容创作)。',
-          url: 'https://ihui.ai/agents',
-          image: 'https://ihui.ai/images/logo.png',
+          text: '打开 Agent 市场(https://aizhs.top/agents),从 200+ 模板中选择一个适合你场景的 Agent(如智能客服、代码审查、内容创作)。',
+          url: 'https://aizhs.top/agents',
+          image: 'https://aizhs.top/images/logo.png',
         },
         {
           '@type': 'HowToStep',
           position: 3,
           name: '配置 AI 模型',
-          text: '在模型管理页面(https://ihui.ai/models)选择 AI 模型(支持 OpenAI GPT-4o、Claude 4、Gemini 2.5、通义千问、DeepSeek 等 100+ 主流模型),或使用智汇 AI 统一积分。',
-          url: 'https://ihui.ai/models',
+          text: '在模型管理页面(https://aizhs.top/models)选择 AI 模型(支持 OpenAI GPT-4o、Claude 4、Gemini 2.5、通义千问、DeepSeek 等 100+ 主流模型),或使用智汇 AI 统一积分。',
+          url: 'https://aizhs.top/models',
         },
         {
           '@type': 'HowToStep',
           position: 4,
           name: '上传知识库(可选)',
-          text: '在知识库页面(https://ihui.ai/knowledge-base)上传 PDF/Word/Markdown 文档,系统自动向量化+BM25 混合检索,支持中文友好分词和知识图谱。',
-          url: 'https://ihui.ai/knowledge-base',
+          text: '在知识库页面(https://aizhs.top/knowledge-base)上传 PDF/Word/Markdown 文档,系统自动向量化+BM25 混合检索,支持中文友好分词和知识图谱。',
+          url: 'https://aizhs.top/knowledge-base',
         },
         {
           '@type': 'HowToStep',
           position: 5,
           name: '一键发布到六端',
           text: '在 Agent 编排页面点击"发布",选择目标客户端(Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI),系统自动构建并部署,所有端共享同一套代码。',
-          url: 'https://ihui.ai/agent-workbench',
+          url: 'https://aizhs.top/agent-workbench',
         },
       ],
     },
     {
       '@type': 'SoftwareApplication',
-      '@id': 'https://ihui.ai/docs/quickstart#software',
+      '@id': 'https://aizhs.top/docs/quickstart#software',
       name: 'IHUI AI',
       alternateName: '智汇 AI',
       applicationCategory: 'DeveloperApplication',
       applicationSubCategory: 'AI Platform / Agent Builder',
       operatingSystem: 'Web, Windows, macOS, Linux, iOS, Android',
-      url: 'https://ihui.ai/docs/quickstart',
+      url: 'https://aizhs.top/docs/quickstart',
       downloadUrl: 'https://github.com/ihui-ai/ihui-ai',
       softwareVersion: '2026.07',
       datePublished: '2024-01-01',
       dateModified: '2026-07-26',
-      author: { '@id': 'https://ihui.ai/#organization' },
-      publisher: { '@id': 'https://ihui.ai/#organization' },
+      author: { '@id': 'https://aizhs.top/#organization' },
+      publisher: { '@id': 'https://aizhs.top/#organization' },
       offers: {
         '@type': 'Offer',
         price: '0',
@@ -102,31 +102,31 @@ const quickstartJsonLd = {
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/docs/quickstart#breadcrumb',
+      '@id': 'https://aizhs.top/docs/quickstart#breadcrumb',
       itemListElement: [
         {
           '@type': 'ListItem',
           position: 1,
           name: '首页',
-          item: 'https://ihui.ai',
+          item: 'https://aizhs.top',
         },
         {
           '@type': 'ListItem',
           position: 2,
           name: '文档',
-          item: 'https://ihui.ai/docs',
+          item: 'https://aizhs.top/docs',
         },
         {
           '@type': 'ListItem',
           position: 3,
           name: '快速开始',
-          item: 'https://ihui.ai/docs/quickstart',
+          item: 'https://aizhs.top/docs/quickstart',
         },
       ],
     },
     {
       '@type': 'FAQPage',
-      '@id': 'https://ihui.ai/docs/quickstart#faq',
+      '@id': 'https://aizhs.top/docs/quickstart#faq',
       mainEntity: [
         {
           '@type': 'Question',
@@ -289,15 +289,15 @@ export default function QuickstartPage() {
                 <p className="text-xs text-muted-foreground">
                   访问
                   {' '}
-                  <a href="https://ihui.ai/sso/register" className="text-primary underline">
-                    https://ihui.ai/sso/register
+                  <a href="https://aizhs.top/sso/register" className="text-primary underline">
+                    https://aizhs.top/sso/register
                   </a>
                   ,使用邮箱或 GitHub/Google/微信 登录,无需信用卡,注册即得 1000 积分。
                 </p>
                 <p className="text-xs text-muted-foreground">
                   💡 企业用户支持 SSO(SAML 2.0 / OIDC)和私有化部署,联系
                   {' '}
-                  <a href="mailto:contact@ihui.ai" className="text-primary underline">contact@ihui.ai</a>
+                  <a href="mailto:contact@aizhs.top" className="text-primary underline">contact@aizhs.top</a>
                 </p>
               </div>
             </div>
@@ -313,7 +313,7 @@ export default function QuickstartPage() {
                 <p className="text-sm text-muted-foreground">
                   打开
                   {' '}
-                  <a href="https://ihui.ai/agents" className="text-primary underline">Agent 市场</a>
+                  <a href="https://aizhs.top/agents" className="text-primary underline">Agent 市场</a>
                   ,从 200+ 模板中选择一个适合你场景的 Agent:
                 </p>
                 <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
@@ -340,7 +340,7 @@ export default function QuickstartPage() {
                 <p className="text-sm text-muted-foreground">
                   在
                   {' '}
-                  <a href="https://ihui.ai/models" className="text-primary underline">模型管理</a>
+                  <a href="https://aizhs.top/models" className="text-primary underline">模型管理</a>
                   页面选择 AI 模型,支持 100+ 主流模型:
                 </p>
                 <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
@@ -367,7 +367,7 @@ export default function QuickstartPage() {
                 <p className="text-sm text-muted-foreground">
                   在
                   {' '}
-                  <a href="https://ihui.ai/knowledge-base" className="text-primary underline">知识库</a>
+                  <a href="https://aizhs.top/knowledge-base" className="text-primary underline">知识库</a>
                   页面上传文档,系统自动处理:
                 </p>
                 <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
@@ -442,7 +442,7 @@ open http://localhost:8801`}</code>
             <p className="mt-3 text-xs text-muted-foreground">
               💡 推荐配置 4 核 / 8GB / 50GB SSD。Kubernetes 高可用部署见
               {' '}
-              <a href="https://ihui.ai/docs/self-host" className="text-primary underline">自托管部署指南</a>
+              <a href="https://aizhs.top/docs/self-host" className="text-primary underline">自托管部署指南</a>
               。
             </p>
           </div>
@@ -457,25 +457,25 @@ open http://localhost:8801`}</code>
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a
-            href="https://ihui.ai/agents"
+            href="https://aizhs.top/agents"
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             浏览 Agent 市场
           </a>
           <a
-            href="https://ihui.ai/docs/api"
+            href="https://aizhs.top/docs/api"
             className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             API 文档
           </a>
           <a
-            href="https://ihui.ai/docs/mcp"
+            href="https://aizhs.top/docs/mcp"
             className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             MCP 工具集成
           </a>
           <a
-            href="https://ihui.ai/pricing"
+            href="https://aizhs.top/pricing"
             className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             查看定价

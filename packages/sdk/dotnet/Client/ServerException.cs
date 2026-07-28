@@ -1,4 +1,4 @@
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 5xx 服务端错误异常。

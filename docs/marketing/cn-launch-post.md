@@ -14,7 +14,7 @@
 
 - **项目名**:IHUI-AI(智汇 AI)
 - **GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
-- **在线 Demo**:https://ihui.ai
+- **在线 Demo**:https://aizhs.top
 - **License**:Apache-2.0(商业可用)
 - **国内镜像**:Gitee https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI · GitCode https://gitcode.com/IHUI-AI/IHUI-AI
 - **一句话**:一个仓库,干翻 40+ 商业产品 — 8 端 / 176 模型 / LangGraph+MCP+A2A / 340 表 / 1300+ API / Apache 2.0
@@ -31,7 +31,7 @@
 
 ### 正文(可直接复制粘贴)
 
-> 编者按:本文不卖课不带货,纯分享一个 Apache 2.0 开源项目的架构和踩坑。GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,在线 Demo:https://ihui.ai
+> 编者按:本文不卖课不带货,纯分享一个 Apache 2.0 开源项目的架构和踩坑。GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,在线 Demo:https://aizhs.top
 
 ## 一句话介绍
 
@@ -197,7 +197,7 @@ manifest 写了 `'session'`(不是合法权限),`chrome.alarms` 用到了但没�
 
 如果觉得有点意思,Star 支持一下:https://github.com/IHUI-INF-AI/IHUI-AI
 
-体验在线 Demo:https://ihui.ai
+体验在线 Demo:https://aizhs.top
 
 加群交流:微信 `ok502319984` · 邮箱 `502319984@qq.com`
 
@@ -214,7 +214,7 @@ manifest 写了 `'session'`(不是合法权限),`chrome.alarms` 用到了但没�
 
 ## 背景
 
-SegmentFault 的朋友们好,今天分享一个 Apache 2.0 开源项目 **IHUI-AI**(GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,Demo:https://ihui.ai)的架构设计。
+SegmentFault 的朋友们好,今天分享一个 Apache 2.0 开源项目 **IHUI-AI**(GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,Demo:https://aizhs.top)的架构设计。
 
 这个项目做了一年多,核心命题是:**怎么让一个 TypeScript Monorepo 同时输出 8 个端,且保持代码共享、类型一致、迭代同步?**
 
@@ -398,7 +398,7 @@ Star 支持一下,提 issue 讨论架构,PR 任何端都行。
 
 ## 一、前言
 
-CSDN 的朋友们好,今天推荐一个 Apache 2.0 开源的 AI 商业平台 **IHUI-AI**,GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,在线 Demo:https://ihui.ai
+CSDN 的朋友们好,今天推荐一个 Apache 2.0 开源的 AI 商业平台 **IHUI-AI**,GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,在线 Demo:https://aizhs.top
 
 这个项目把 40+ 商业产品(Dify/Coze/FastGPT/LangChain/Cursor/Claude Code/Stripe/Auth0/Tauri 等)的能力整合进**一个仓库**。
 
@@ -487,7 +487,7 @@ pnpm --filter @ihui/database db:migrate
 pnpm --filter @ihui/database db:seed
 ```
 
-会创建 340 张表 + 导入演示数据(默认账号 `admin@ihui.ai` / 密码 `ihui123456`)。
+会创建 340 张表 + 导入演示数据(默认账号 `admin@aizhs.top` / 密码 `ihui123456`)。
 
 ### Step 7:启动全栈
 
@@ -528,7 +528,7 @@ pnpm dev
 
 ## 五、截图位(请在发布时替换为真实截图)
 
-> 截图 1:Web 端首页(demo 截图:https://ihui.ai)
+> 截图 1:Web 端首页(demo 截图:https://aizhs.top)
 > 截图 2:AI 对话界面(流式输出效果)
 > 截图 3:Agent 市场页面(展示可购买的 Agent)
 > 截图 4:数据库表结构(Drizzle Studio 截图)
@@ -543,7 +543,7 @@ pnpm dev
 ## 七、Star + 联系
 
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
-- 在线 Demo:https://ihui.ai
+- 在线 Demo:https://aizhs.top
 - Gitee 镜像:https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI
 - GitCode 镜像:https://gitcode.com/IHUI-AI/IHUI-AI
 - 微信群:微信号 `ok502319984`(加好友备注 "IHUI")
@@ -577,7 +577,7 @@ pnpm dev
 - 5 语言 i18n 100% parity
 - 32 个 pre-commit 守门脚本
 
-GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,在线 Demo:https://ihui.ai
+GitHub:https://github.com/IHUI-INF-AI/IHUI-AI,在线 Demo:https://aizhs.top
 
 但 GitHub star 数 — 才 9 个。
 
@@ -738,7 +738,7 @@ manifest 写了 `'session'`(不是合法 MV3 权限),`chrome.alarms` 用到了�
 
 ### 正文(完整,直接复制)
 
-做了个开源 AI 平台,Apache 2.0,在线 Demo:https://ihui.ai
+做了个开源 AI 平台,Apache 2.0,在线 Demo:https://aizhs.top
 GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
 **核心数据**(全部可在代码 grep 到):
@@ -779,7 +779,7 @@ cd IHUI-AI && pnpm install && pnpm dev
 
 各位佬,做了个开源 AI 平台,Apache 2.0 商业可用,可自托管。
 
-**在线 Demo**:https://ihui.ai
+**在线 Demo**:https://aizhs.top
 **GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
 **国内镜像**:Gitee https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI · GitCode https://gitcode.com/IHUI-AI/IHUI-AI
 
@@ -875,7 +875,7 @@ https://github.com/521xueweihan/HelloGitHub/issues(找最新一期 "第 XX 期" 
 
 **推荐理由**:不是 PPT 或脚手架,所有数字(340 表 / 1300 API / 5346 测试 / 176 模型)都能在代码里 grep 到。8 端独立代码 + 12 共享包,工程治理 32 个守门脚本(i18n parity / 圆角守门 / 防 commit 丢失 / Push 同步 / 多端同步)。
 
-**Demo**:https://ihui.ai
+**Demo**:https://aizhs.top
 
 ---
 
@@ -900,7 +900,7 @@ https://github.com/521xueweihan/HelloGitHub/issues(找最新一期 "第 XX 期" 
 1. **24h 内回复所有评论**:任何评论必回复,活跃度 = 推荐权重
 2. **同步发到评论区**:每个平台发帖后,把链接发到团队群,让同事去点赞/收藏/评论(冷启动)
 3. **数据追踪**:每天记录 star 数 / 访问量,1 周后看哪个平台 ROI 最高,下次重点投
-4. **负面评论处理**:有人质疑"又是造轮子" / "PPT 项目",直接回 "在线 Demo:https://ihui.ai,代码可 grep,欢迎拍砖"。不争辩,用事实说话。
+4. **负面评论处理**:有人质疑"又是造轮子" / "PPT 项目",直接回 "在线 Demo:https://aizhs.top,代码可 grep,欢迎拍砖"。不争辩,用事实说话。
 
 ---
 

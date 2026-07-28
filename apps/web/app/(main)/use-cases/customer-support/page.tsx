@@ -8,28 +8,28 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/customer-support#webpage',
-      url: 'https://ihui.ai/use-cases/customer-support',
+      '@id': 'https://aizhs.top/use-cases/customer-support#webpage',
+      url: 'https://aizhs.top/use-cases/customer-support',
       name: 'AI 智能客服 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的智能客服 Agent:7×24 在线,统一知识库,多模型智能路由,多渠道部署,人机协同。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/customer-support#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/customer-support#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: '智能客服', item: 'https://ihui.ai/use-cases/customer-support' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: '智能客服', item: 'https://aizhs.top/use-cases/customer-support' },
       ],
     },
     // 2026-07-26 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建智能客服 Agent"类检索)
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/customer-support#howto',
+      '@id': 'https://aizhs.top/use-cases/customer-support#howto',
       name: '5 分钟搭建 7×24 智能客服 Agent',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建智能客服 Agent 的 4 步流程:上传知识库 → 配置 Agent → 多渠道发布 → 持续优化。成本降低 70%,响应 0 秒。',
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 智能客服 Agent — 7×24 高质量服务体验',
     description: '成本降低 70%,响应 0 秒,80% 问题 AI 解决。',
-    url: 'https://ihui.ai/use-cases/customer-support',
+    url: 'https://aizhs.top/use-cases/customer-support',
     type: 'article',
   },
 }
@@ -91,7 +91,7 @@ export default async function CustomerSupportPage() {
     const reviewT = await getTranslations('useCasesCustomerSupport.reviewSchema')
     reviewJsonLd = generateReviewSchema({
       itemReviewedName: reviewT('itemReviewed'),
-      itemReviewedUrl: 'https://ihui.ai/use-cases/customer-support',
+      itemReviewedUrl: 'https://aizhs.top/use-cases/customer-support',
       reviewBody: reviewT('reviewBody'),
       ratingValue: Number(reviewT('reviewRating.ratingValue')),
       authorName: reviewT('author'),

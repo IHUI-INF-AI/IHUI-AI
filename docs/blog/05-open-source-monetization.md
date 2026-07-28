@@ -198,7 +198,7 @@ SaaS 用户嫌"数据上云不安全",私有化是必须的。IHUI AI 的私有�
 
 ```bash
 # Docker Compose 一键起
-curl -fsSL https://ihui.ai/install.sh | bash -s -- --enterprise --license=YOUR_KEY
+curl -fsSL https://aizhs.top/install.sh | bash -s -- --enterprise --license=YOUR_KEY
 
 # 或 Kubernetes
 helm install ihui ihui/ihui-enterprise \
@@ -441,7 +441,7 @@ IHUI AI 的 7 大盈利模式不是 PPT,是真实在跑的闭环:Apache 2.0 开�
 
 IHUI AI 是一站式 8 端全栈 AI 操作系统,Apache 2.0 开源。
 
-- 🌐 官网:https://ihui.ai
+- 🌐 官网:https://aizhs.top
 - 💻 GitHub:https://github.com/IHUI-INF-AI/IHUI-AI(Star 支持一下 ⭐)
 - 📦 8 端同源:Web / API / CLI / Desktop / Extension / Mobile / Miniapp
 - 🤖 176 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama

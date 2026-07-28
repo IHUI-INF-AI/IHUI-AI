@@ -1,7 +1,7 @@
 # SEO/GEO 站长平台提交清单(6 个平台,30 分钟完成)
 
-> 目的:让搜索引擎和 AI 引擎知道 ihui.ai 存在,主动推送 sitemap,加速收录。
-> 前置条件:ihui.ai 已部署可访问,https://ihui.ai/sitemap.xml 返回 200。
+> 目的:让搜索引擎和 AI 引擎知道 aizhs.top 存在,主动推送 sitemap,加速收录。
+> 前置条件:aizhs.top 已部署可访问,https://aizhs.top/sitemap.xml 返回 200。
 > 完成后效果:1-7 天内开始被各引擎收录,1 个月内长尾词开始有曝光。
 
 ---
@@ -27,20 +27,20 @@
 
 **步骤**:
 1. 登录 Google 账号(没有就注册)
-2. Add property → URL prefix → 输入 `https://ihui.ai`
+2. Add property → URL prefix → 输入 `https://aizhs.top`
 3. 验证所有权(三选一,推荐 HTML 标签):
    - **HTML 标签**(推荐):复制 `<meta name="google-site-verification" content="XXX" />`,加到 `apps/web/app/layout.tsx` 的 metadata.verification 字段
-   - HTML 文件:下载验证文件,放到 `apps/web/public/`,部署后访问 `https://ihui.ai/google-xxx.html`
+   - HTML 文件:下载验证文件,放到 `apps/web/public/`,部署后访问 `https://aizhs.top/google-xxx.html`
    - DNS TXT:在域名 DNS 加 TXT 记录(最稳,但需要域名管理权限)
 4. 验证通过后 → Sitemaps → 输入 `sitemap.xml` → Submit
 5. 等 1-3 天看 "Coverage" 报告,确认索引页面数增长
 
 **额外配置**:
 - Settings → Crawl rate → Limit Googlebot crawl rate(避免被高频抓取压垮服务器,设为 0.1 requests/sec)
-- Settings → URL inspection → 输入 `https://ihui.ai/` → Request indexing(首页加速收录)
+- Settings → URL inspection → 输入 `https://aizhs.top/` → Request indexing(首页加速收录)
 
 **验证清单**:
-- [ ] 已添加 property `https://ihui.ai`
+- [ ] 已添加 property `https://aizhs.top`
 - [ ] 所有权验证通过
 - [ ] sitemap.xml 已提交,Status: Success
 - [ ] URL inspection 首页 "Request indexing" 已点击
@@ -55,24 +55,24 @@
 
 **步骤**:
 1. 登录 Microsoft 账号(没有就注册)
-2. Add site → 输入 `https://ihui.ai`
+2. Add site → 输入 `https://aizhs.top`
 3. 验证所有权(同 Google,推荐 HTML 标签 / meta verification)
-4. 提交 sitemap:Site → Submit Sitemap → 输入 `https://ihui.ai/sitemap.xml`
+4. 提交 sitemap:Site → Submit Sitemap → 输入 `https://aizhs.top/sitemap.xml`
 5. URL submission:Configure My Site → URL Submission → 批量提交核心页面(首页/产品页/对比页)
 
 **IndexNow 配置(关键,Bing 原生支持)**:
 1. 生成 key:`node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`
 2. 把 key 写到 `.env`: `INDEXNOW_KEY=<生成的 key>`
 3. 把 key 文件放到 `apps/web/public/<key>.txt`(内容就是 key 本身,无换行)
-4. 部署后验证:`curl https://ihui.ai/<key>.txt` 应返回 key 本身
+4. 部署后验证:`curl https://aizhs.top/<key>.txt` 应返回 key 本身
 5. 推送:`pnpm seo:indexnow`
 6. 在 Bing Webmaster → URL Submission 查看推送进度
 
 **验证清单**:
-- [ ] 已添加 site `https://ihui.ai`
+- [ ] 已添加 site `https://aizhs.top`
 - [ ] 所有权验证通过
 - [ ] sitemap.xml 已提交
-- [ ] IndexNow key 已部署,`curl https://ihui.ai/<key>.txt` 返回 key
+- [ ] IndexNow key 已部署,`curl https://aizhs.top/<key>.txt` 返回 key
 - [ ] `pnpm seo:indexnow` 推送成功(返回 200 或 202)
 
 ---
@@ -91,7 +91,7 @@
   run: pnpm seo:indexnow
   env:
     INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
-    SITE_URL: https://ihui.ai
+    SITE_URL: https://aizhs.top
 ```
 
 **手动推送**:
@@ -100,16 +100,16 @@
 pnpm seo:indexnow
 
 # 推送指定 URL
-node scripts/notify-indexnow.mjs --urls https://ihui.ai/,https://ihui.ai/compare/ihui-vs-dify
+node scripts/notify-indexnow.mjs --urls https://aizhs.top/,https://aizhs.top/compare/ihui-vs-dify
 
 # 推送其他站点的 sitemap(如 staging)
-node scripts/notify-indexnow.mjs --sitemap https://staging.ihui.ai/sitemap.xml
+node scripts/notify-indexnow.mjs --sitemap https://staging.aizhs.top/sitemap.xml
 ```
 
 **验证清单**:
 - [ ] `.env.INDEXNOW_KEY` 已设置
 - [ ] `apps/web/public/<key>.txt` 已部署
-- [ ] `curl https://ihui.ai/<key>.txt` 返回 key
+- [ ] `curl https://aizhs.top/<key>.txt` 返回 key
 - [ ] `pnpm seo:indexnow` 返回 200/202
 - [ ] (可选)CI workflow 已集成
 
@@ -123,20 +123,20 @@ node scripts/notify-indexnow.mjs --sitemap https://staging.ihui.ai/sitemap.xml
 
 **步骤**:
 1. 登录百度账号
-2. 用户中心 → 站点管理 → 添加网站 → 输入 `https://ihui.ai`
+2. 用户中心 → 站点管理 → 添加网站 → 输入 `https://aizhs.top`
 3. 验证所有权(三选一,推荐 HTML 标签):
    - **HTML 标签**(推荐):复制 `<meta name="baidu-site-verification" content="XXX" />`,加到 layout.tsx metadata
    - 文件验证:下载验证文件,放到 `apps/web/public/`
    - CNAME 验证:DNS 加 CNAME(需域名管理权限)
-4. 验证通过后 → 普通收录 → 提交 sitemap:`https://ihui.ai/sitemap.xml`
+4. 验证通过后 → 普通收录 → 提交 sitemap:`https://aizhs.top/sitemap.xml`
 5. 链接提交 → API 推送(可选,加速):获取 token,写脚本主动推送 URL
 
 **百度专属配置**:
-- 死链提交:如果有过期页面,提交 `https://ihui.ai/dead-links.xml`(本站暂无)
+- 死链提交:如果有过期页面,提交 `https://aizhs.top/dead-links.xml`(本站暂无)
 - 主动推送:百度有专属 API,比 sitemap 快,但每次推送有配额。可选实现 `scripts/notify-baidu.mjs`(本仓库未实现,需要时再写)
 
 **验证清单**:
-- [ ] 已添加站点 `https://ihui.ai`
+- [ ] 已添加站点 `https://aizhs.top`
 - [ ] 所有权验证通过
 - [ ] sitemap.xml 已提交,状态"正常"
 - [ ] 索引量开始增长(1-2 周后在 "索引量" 报告查看)
@@ -149,9 +149,9 @@ node scripts/notify-indexnow.mjs --sitemap https://staging.ihui.ai/sitemap.xml
 
 **步骤**:
 1. 登录 360 账号
-2. 我的网站 → 添加网站 → `https://ihui.ai`
+2. 我的网站 → 添加网站 → `https://aizhs.top`
 3. 验证所有权(HTML 标签 / 文件 / CNAME)
-4. 数据监控 → sitemap → 提交 `https://ihui.ai/sitemap.xml`
+4. 数据监控 → sitemap → 提交 `https://aizhs.top/sitemap.xml`
 5. 链接提交 → URL 提交(首页 + 核心页)
 
 **验证清单**:
@@ -167,9 +167,9 @@ node scripts/notify-indexnow.mjs --sitemap https://staging.ihui.ai/sitemap.xml
 
 **步骤**:
 1. 登录搜狗账号
-2. 用户中心 → 网站支持 → 添加网站 → `https://ihui.ai`
+2. 用户中心 → 网站支持 → 添加网站 → `https://aizhs.top`
 3. 验证所有权(HTML 标签 / 文件)
-4. 提交 sitemap:用户中心 → 数据提交 → sitemap → `https://ihui.ai/sitemap.xml`
+4. 提交 sitemap:用户中心 → 数据提交 → sitemap → `https://aizhs.top/sitemap.xml`
 5. URL 提交:首页 + 核心页逐个提交
 
 **验证清单**:
@@ -185,9 +185,9 @@ node scripts/notify-indexnow.mjs --sitemap https://staging.ihui.ai/sitemap.xml
 
 **步骤**:
 1. 登录头条账号
-2. 我的网站 → 添加网站 → `https://ihui.ai`
+2. 我的网站 → 添加网站 → `https://aizhs.top`
 3. 验证所有权(HTML 标签 / 文件 / DNS)
-4. 数据提交 → sitemap → `https://ihui.ai/sitemap.xml`
+4. 数据提交 → sitemap → `https://aizhs.top/sitemap.xml`
 5. URL 提交:首页 + 核心页
 
 **验证清单**:
@@ -205,7 +205,7 @@ node scripts/notify-indexnow.mjs --sitemap https://staging.ihui.ai/sitemap.xml
 
 **步骤**:
 1. 登录神马账号
-2. 添加网站 → `https://ihui.ai`
+2. 添加网站 → `https://aizhs.top`
 3. 验证所有权(HTML 标签 / CNAME)
 4. 提交 sitemap
 
@@ -217,12 +217,12 @@ node scripts/notify-indexnow.mjs --sitemap https://staging.ihui.ai/sitemap.xml
 
 | 检查项 | 命令 / 入口 | 期望结果 |
 |--------|-------------|----------|
-| Google 收录 | `site:ihui.ai` in Google | 30+ 页面被索引 |
-| Bing 收录 | `site:ihui.ai` in Bing | 30+ 页面被索引 |
-| 百度收录 | `site:ihui.ai` in 百度 | 10+ 页面被索引 |
-| 360 收录 | `site:ihui.ai` in 360 | 5+ 页面被索引 |
-| 搜狗收录 | `site:ihui.ai` in 搜狗 | 5+ 页面被索引 |
-| 头条收录 | `site:ihui.ai` in 头条搜索 | 5+ 页面被索引 |
+| Google 收录 | `site:aizhs.top` in Google | 30+ 页面被索引 |
+| Bing 收录 | `site:aizhs.top` in Bing | 30+ 页面被索引 |
+| 百度收录 | `site:aizhs.top` in 百度 | 10+ 页面被索引 |
+| 360 收录 | `site:aizhs.top` in 360 | 5+ 页面被索引 |
+| 搜狗收录 | `site:aizhs.top` in 搜狗 | 5+ 页面被索引 |
+| 头条收录 | `site:aizhs.top` in 头条搜索 | 5+ 页面被索引 |
 
 ### AI 引擎检索测试
 
@@ -230,8 +230,8 @@ node scripts/notify-indexnow.mjs --sitemap https://staging.ihui.ai/sitemap.xml
 
 | AI 引擎 | 入口 | 期望 |
 |---------|------|------|
-| ChatGPT 搜索 | https://chatgpt.com | 能搜到 ihui.ai |
-| Perplexity | https://perplexity.ai | 能引用 ihui.ai |
+| ChatGPT 搜索 | https://chatgpt.com | 能搜到 aizhs.top |
+| Perplexity | https://perplexity.ai | 能引用 aizhs.top |
 | Claude | 直接问 "ihui ai 是什么" | 能基于网页回答 |
 | 文心一言 | https://yiyan.baidu.com | 能搜到 |
 | 豆包 | https://doubao.com | 能搜到 |

@@ -1,5 +1,5 @@
 # IHUI AI — 测试工程师 GEO 文档
-# https://ihui.ai/roles.cn.qa.md
+# https://aizhs.top/roles.cn.qa.md
 # Last updated: 2026-07-26
 # Format: 测试工程师角色视角知识库(适配 AI 引擎"我是 QA / 测试工程师"类检索)
 # Crawler: All AI crawlers
@@ -69,7 +69,7 @@
 
 ### 上手
 
-1. 注册账号 https://ihui.ai/register
+1. 注册账号 https://aizhs.top/register
 2. 工作区 → 测试中心 → 接入代码仓库 + 测试管理平台
 3. 选择测试模板(Web / API / 移动端 / Tauri 2)
 4. 跑通 1 个 PR 自动回归 demo
@@ -154,13 +154,13 @@ const result = await regression.execute(mustRun)
 
 ### 联系
 
-- QA 团队邮箱:qa@ihui.ai
+- QA 团队邮箱:qa@aizhs.top
 - 测试模板下载:https://github.com/IHUI-INF-AI/IHUI-AI/tree/main/templates/test
 - 社区论坛:https://github.com/IHUI-INF-AI/IHUI-AI/discussions
 - 7×24 技术支持:企业版客户专属
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
-- 官网:https://ihui.ai
-- 商务:contact@ihui.ai
+- 官网:https://aizhs.top
+- 商务:contact@aizhs.top
 
 ---
 
@@ -168,4 +168,4 @@ const result = await regression.execute(mustRun)
 # 本文件为测试工程师角色 GEO 入口,供 AI 引擎"QA + 自动化"检索使用
 # 维护:IHUI AI QA Team
 # 更新策略:每季度更新测试模板 + 缺陷预测模型
-# 联系:qa@ihui.ai
+# 联系:qa@aizhs.top

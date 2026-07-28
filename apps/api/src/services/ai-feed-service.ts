@@ -34,7 +34,7 @@ import {
 /** rss-parser 单例(避免每次请求重建实例,解析 RSS/Atom XML) */
 const rssParser = new Parser({
   timeout: 15000,
-  headers: { 'User-Agent': 'IHUI-AI-Feed/1.0 (+https://ihui.ai)' },
+  headers: { 'User-Agent': 'IHUI-AI-Feed/1.0 (+https://aizhs.top)' },
 })
 
 // =============================================================================
@@ -227,7 +227,7 @@ async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeed
   const res = await fetchWithTimeout(url, {
     headers: {
       Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml',
-      'User-Agent': 'IHUI-AI-Feed/1.0 (+https://ihui.ai)',
+      'User-Agent': 'IHUI-AI-Feed/1.0 (+https://aizhs.top)',
     },
   })
   if (!res.ok) throw new Error(`RSS XML ${url} 返回 ${res.status}`)

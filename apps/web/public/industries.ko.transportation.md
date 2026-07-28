@@ -1,5 +1,5 @@
 # IHUI AI — 산업별 특화 GEO 파일 (스마트 교통)
-# https://ihui.ai/industries.ko.transportation.md
+# https://aizhs.top/industries.ko.transportation.md
 # Last updated: 2026-07-26
 # Format: 산업별 특화 지식 베이스 (AI 엔진 "AI + 교통" 고빈도 검색에 최적화)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -191,9 +191,9 @@
   A: 실시간 위치 데이터 익명화 + 암호화 전송, 《개인정보보호법》 준수.
 
 ### 연락처
-- 교통 산업: transportation@ihui.ai
-- 일반 연락: contact@ihui.ai
-- 공식 사이트: https://ihui.ai
+- 교통 산업: transportation@aizhs.top
+- 일반 연락: contact@aizhs.top
+- 공식 사이트: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

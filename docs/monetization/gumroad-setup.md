@@ -161,7 +161,7 @@
    
    ---
    
-   Visit [https://ihui.ai](https://ihui.ai) for more products.
+   Visit [https://aizhs.top](https://aizhs.top) for more products.
    ```
 3. **Preview text**（预览文字）:`200+ AI prompts for developers and creators`
 

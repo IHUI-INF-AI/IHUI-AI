@@ -27,7 +27,7 @@
 - **工单系统**:乙方专属工单入口(合同签订后开通)
 - **专属客户群**:飞书 / 钉钉群(Enterprise / Custom 档)
 - **7x24 电话**:合同签订后提供
-- **邮箱**:sales@ihui.ai(商务)/ sla@ihui.ai(SLA 履行)
+- **邮箱**:sales@aizhs.top(商务)/ sla@aizhs.top(SLA 履行)
 
 
 # 企业版 SLA 服务等级协议

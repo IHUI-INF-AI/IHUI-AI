@@ -18,7 +18,7 @@ IHUI-AI 官方 Java SDK(OpenAI 兼容)。
 import com.ihui.ai.sdk.*;
 import java.util.List;
 
-IhuiClient client = new IhuiClient("https://api.ihui.ai", "your-api-key");
+IhuiClient client = new IhuiClient("https://api.aizhs.top", "your-api-key");
 ChatCompletionResponse resp = client.chatCompletionsCreate(
     new ChatCompletionRequest("gpt-4o",
         List.of(new Message("user", "你好")), null, null, null));

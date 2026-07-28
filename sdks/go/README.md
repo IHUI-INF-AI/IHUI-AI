@@ -13,7 +13,7 @@ go get github.com/IHUI-INF-AI/IHUI-AI/sdks/go
 ```go
 import "github.com/IHUI-INF-AI/IHUI-AI/sdks/go/ihui"
 
-client := ihui.NewIhuiClient("https://api.ihui.ai", "your-api-key")
+client := ihui.NewIhuiClient("https://api.aizhs.top", "your-api-key")
 resp, _ := client.ChatCompletionsCreate(&ihui.ChatCompletionRequest{
     Model:    "gpt-4o",
     Messages: []ihui.Message{{Role: "user", Content: "你好"}},

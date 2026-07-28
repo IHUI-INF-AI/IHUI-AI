@@ -7,8 +7,8 @@ const DEFAULT_APP_INFO: Required<SharedAppInfo> = {
   version: '1.0.0',
   description:
     '全栈 AI 平台,支持 web / api / ai-service / mobile-rn / desktop / extension / miniapp-taro / cli 八端。',
-  officialSite: 'https://ihui.ai',
-  contactEmail: 'support@ihui.ai',
+  officialSite: 'https://aizhs.top',
+  contactEmail: 'support@aizhs.top',
   license: 'MIT',
 }
 

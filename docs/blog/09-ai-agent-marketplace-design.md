@@ -183,7 +183,7 @@ graph.add_conditional_edges("reviewer", lambda s:
 **相关链接**
 
 - 项目仓库:<https://github.com/IHUI-INF-AI/IHUI-AI>
-- 官网体验 Agent 市场:<https://ihui.ai>
+- 官网体验 Agent 市场:<https://aizhs.top>
 - LangGraph 文档:<https://langchain-ai.github.io/langgraph/>
 
 如果你也在做 AI Agent 产品或想成为创作者,欢迎到 GitHub 给 IHUI-AI 点 Star ⭐,也欢迎来官网注册成为第一批 Agent 创作者。

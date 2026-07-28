@@ -4,19 +4,19 @@
   "@type": "Graph",
   "name": "IHUI AI Knowledge Graph",
   "description": "IHUI AI(智汇 AI)完整知识图谱,供 Google Knowledge Graph / Wikidata / 各大 AI 引擎对齐实体",
-  "url": "https://ihui.ai/knowledge-graph.json",
+  "url": "https://aizhs.top/knowledge-graph.json",
   "license": "https://creativecommons.org/licenses/by-sa/4.0/",
   "lastUpdated": "2026-07-26",
   "entities": [
     {
-      "@id": "https://ihui.ai/#organization",
+      "@id": "https://aizhs.top/#organization",
       "@type": ["Organization", "SoftwareCompany"],
       "name": "IHUI AI",
       "alternateName": ["智汇AI", "智汇 AI", "IHUI Artificial Intelligence", "IHUI-AI"],
-      "url": "https://ihui.ai",
+      "url": "https://aizhs.top",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://ihui.ai/images/logo.png",
+        "url": "https://aizhs.top/images/logo.png",
         "width": 512,
         "height": 512,
         "encodingFormat": "image/png"
@@ -49,22 +49,22 @@
         {
           "@type": "ContactPoint",
           "contactType": "customer support",
-          "email": "support@ihui.ai",
-          "url": "https://ihui.ai/support",
+          "email": "support@aizhs.top",
+          "url": "https://aizhs.top/support",
           "availableLanguage": ["zh-Hans", "zh-Hant", "en", "ko", "ja"]
         },
         {
           "@type": "ContactPoint",
           "contactType": "sales",
-          "email": "contact@ihui.ai",
-          "url": "https://ihui.ai/contact",
+          "email": "contact@aizhs.top",
+          "url": "https://aizhs.top/contact",
           "availableLanguage": ["zh-Hans", "zh-Hant", "en"]
         },
         {
           "@type": "ContactPoint",
           "contactType": "technical support",
-          "email": "support@ihui.ai",
-          "url": "https://ihui.ai/developer"
+          "email": "support@aizhs.top",
+          "url": "https://aizhs.top/developer"
         }
       ],
       "sameAs": [
@@ -73,7 +73,7 @@
         "https://github.com/IHUI-INF-AI/IHUI-AI",
         "https://x.com/ok502319984",
         "https://www.facebook.com/share/17kQMPNhQb/",
-        "https://ihui.ai"
+        "https://aizhs.top"
       ],
       "parentOrganization": {
         "@type": "Organization",
@@ -84,7 +84,7 @@
         {
           "@type": "Organization",
           "name": "IHUI AI Research Team",
-          "url": "https://ihui.ai/research"
+          "url": "https://aizhs.top/research"
         }
       ],
       "knowsAbout": [
@@ -106,14 +106,14 @@
       ]
     },
     {
-      "@id": "https://ihui.ai/#software",
+      "@id": "https://aizhs.top/#software",
       "@type": "SoftwareApplication",
       "name": "IHUI AI",
       "alternateName": "智汇AI",
       "applicationCategory": "BusinessApplication",
       "applicationSubCategory": "AI Agent Platform",
       "operatingSystem": "Web, Windows, macOS, Linux, iOS, Android, WeChat Mini Program",
-      "url": "https://ihui.ai",
+      "url": "https://aizhs.top",
       "downloadUrl": "https://github.com/ihui-ai",
       "softwareVersion": "2026.07",
       "datePublished": "2024-01-01",
@@ -150,7 +150,7 @@
           "priceCurrency": "CNY",
           "description": "Per user per month, cloud-hosted",
           "availability": "https://schema.org/InStock",
-          "url": "https://ihui.ai/pricing"
+          "url": "https://aizhs.top/pricing"
         },
         {
           "@type": "Offer",
@@ -159,7 +159,7 @@
           "priceCurrency": "CNY",
           "description": "Annual license, self-hosted, with SLA",
           "availability": "https://schema.org/InStock",
-          "url": "https://ihui.ai/enterprise"
+          "url": "https://aizhs.top/enterprise"
         }
       ],
       "aggregateRating": {
@@ -171,63 +171,63 @@
         "reviewCount": "280"
       },
       "screenshot": [
-        "https://ihui.ai/images/screenshots/dashboard.png",
-        "https://ihui.ai/images/screenshots/agent-market.png",
-        "https://ihui.ai/images/screenshots/workflow.png",
-        "https://ihui.ai/images/screenshots/knowledge-base.png"
+        "https://aizhs.top/images/screenshots/dashboard.png",
+        "https://aizhs.top/images/screenshots/agent-market.png",
+        "https://aizhs.top/images/screenshots/workflow.png",
+        "https://aizhs.top/images/screenshots/knowledge-base.png"
       ],
       "softwareRequirements": "Node.js 20+, PostgreSQL 16+, Redis 7+",
       "memoryRequirements": "4GB RAM minimum, 8GB recommended",
       "storageRequirements": "20GB available disk space",
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
       "copyrightHolder": {
-        "@id": "https://ihui.ai/#organization"
+        "@id": "https://aizhs.top/#organization"
       },
       "author": {
-        "@id": "https://ihui.ai/#organization"
+        "@id": "https://aizhs.top/#organization"
       },
       "publisher": {
-        "@id": "https://ihui.ai/#organization"
+        "@id": "https://aizhs.top/#organization"
       },
       "producer": {
-        "@id": "https://ihui.ai/#organization"
+        "@id": "https://aizhs.top/#organization"
       }
     },
     {
-      "@id": "https://ihui.ai/#website",
+      "@id": "https://aizhs.top/#website",
       "@type": "WebSite",
-      "url": "https://ihui.ai",
+      "url": "https://aizhs.top",
       "name": "IHUI AI",
       "alternateName": "智汇AI",
       "description": "全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、六端同源分发。",
       "inLanguage": ["zh-CN", "zh-TW", "en", "ko", "ja"],
       "publisher": {
-        "@id": "https://ihui.ai/#organization"
+        "@id": "https://aizhs.top/#organization"
       },
       "potentialAction": [
         {
           "@type": "SearchAction",
           "target": {
             "@type": "EntryPoint",
-            "urlTemplate": "https://ihui.ai/search?q={search_term_string}"
+            "urlTemplate": "https://aizhs.top/search?q={search_term_string}"
           },
           "query-input": "required name=search_term_string"
         },
         {
           "@type": "CommunicateAction",
-          "target": "https://ihui.ai/contact",
+          "target": "https://aizhs.top/contact",
           "name": "Contact Sales"
         }
       ]
     },
     {
-      "@id": "https://ihui.ai/#service",
+      "@id": "https://aizhs.top/#service",
       "@type": "Service",
       "serviceType": "AI Agent Platform as a Service",
       "name": "IHUI AI Cloud Service",
       "description": "Cloud-hosted AI Agent Platform with managed infrastructure",
       "provider": {
-        "@id": "https://ihui.ai/#organization"
+        "@id": "https://aizhs.top/#organization"
       },
       "areaServed": ["CN", "JP", "KR", "US", "SG", "DE", "FR", "GB", "AU", "CA"],
       "hasOfferCatalog": {
@@ -256,31 +256,31 @@
       }
     },
     {
-      "@id": "https://ihui.ai/#brand",
+      "@id": "https://aizhs.top/#brand",
       "@type": "Brand",
       "name": "IHUI AI",
       "alternateName": "智汇AI",
-      "logo": "https://ihui.ai/images/logo.png",
+      "logo": "https://aizhs.top/images/logo.png",
       "slogan": "30 分钟拥有自己的 AI 中台",
       "description": "一站式全栈 AI 操作系统",
-      "url": "https://ihui.ai"
+      "url": "https://aizhs.top"
     },
     {
-      "@id": "https://ihui.ai/#person-team",
+      "@id": "https://aizhs.top/#person-team",
       "@type": "Person",
       "name": "IHUI AI Team",
       "jobTitle": "Founder & CEO",
       "worksFor": {
-        "@id": "https://ihui.ai/#organization"
+        "@id": "https://aizhs.top/#organization"
       },
-      "url": "https://ihui.ai/about",
+      "url": "https://aizhs.top/about",
       "sameAs": [
         "https://github.com/AIZHS2025",
         "https://x.com/ok502319984"
       ]
     },
     {
-      "@id": "https://ihui.ai/#technology-stack",
+      "@id": "https://aizhs.top/#technology-stack",
       "@type": "Thing",
       "name": "IHUI AI Technology Stack",
       "description": "Modern TypeScript-first full-stack architecture",
@@ -313,11 +313,11 @@
       ]
     },
     {
-      "@id": "https://ihui.ai/#mcp-support",
+      "@id": "https://aizhs.top/#mcp-support",
       "@type": "Thing",
       "name": "IHUI AI MCP Protocol Support",
       "description": "Native Model Context Protocol (MCP) support",
-      "url": "https://ihui.ai/docs/mcp",
+      "url": "https://aizhs.top/docs/mcp",
       "knowsAbout": [
         "MCP Server hosting",
         "MCP Client integration",
@@ -327,7 +327,7 @@
       ]
     },
     {
-      "@id": "https://ihui.ai/#integrations",
+      "@id": "https://aizhs.top/#integrations",
       "@type": "ItemList",
       "name": "IHUI AI Integrations",
       "description": "Supported AI model integrations",
@@ -350,12 +350,12 @@
       ]
     },
     {
-      "@id": "https://ihui.ai/#case-study-finance",
+      "@id": "https://aizhs.top/#case-study-finance",
       "@type": "CaseStudy",
       "name": "Joint-Stock Bank Customer Support Case",
       "description": "A joint-stock bank deployed IHUI AI for customer support and investment advisory, processing 500K daily conversations",
       "subjectOf": {
-        "@id": "https://ihui.ai/#software"
+        "@id": "https://aizhs.top/#software"
       },
       "about": {
         "@type": "Thing",
@@ -368,7 +368,7 @@
       }
     },
     {
-      "@id": "https://ihui.ai/#faq",
+      "@id": "https://aizhs.top/#faq",
       "@type": "FAQPage",
       "mainEntity": [
         {
@@ -433,27 +433,27 @@
   "relations": [
     {
       "@type": "Relationship",
-      "subject": "https://ihui.ai/#organization",
+      "subject": "https://aizhs.top/#organization",
       "predicate": "develops",
-      "object": "https://ihui.ai/#software"
+      "object": "https://aizhs.top/#software"
     },
     {
       "@type": "Relationship",
-      "subject": "https://ihui.ai/#software",
+      "subject": "https://aizhs.top/#software",
       "predicate": "supports",
-      "object": "https://ihui.ai/#mcp-support"
+      "object": "https://aizhs.top/#mcp-support"
     },
     {
       "@type": "Relationship",
-      "subject": "https://ihui.ai/#software",
+      "subject": "https://aizhs.top/#software",
       "predicate": "integrates",
-      "object": "https://ihui.ai/#integrations"
+      "object": "https://aizhs.top/#integrations"
     },
     {
       "@type": "Relationship",
-      "subject": "https://ihui.ai/#software",
+      "subject": "https://aizhs.top/#software",
       "predicate": "builtWith",
-      "object": "https://ihui.ai/#technology-stack"
+      "object": "https://aizhs.top/#technology-stack"
     }
   ]
 }

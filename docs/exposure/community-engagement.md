@@ -47,7 +47,7 @@ Issue #22 列出 5 个 good-first-issue 候选:文档改进 / 测试补全 / UI 
 
 - **覆盖 URL 数**:92(产品页 / 内容社区 / SEO 对比页 / 用例页 / 文档 / 法律页)
 - **本次验证**:`node scripts/indexnow-submit.mjs --dry-run` 通过,exit 0,无副作用(示例密钥不写盘)
-- **实际提交**:待密钥文件 `https://ihui.ai/{key}.txt` 部署到生产后,运行 `node scripts/indexnow-submit.mjs` 完成首次提交
+- **实际提交**:待密钥文件 `https://aizhs.top/{key}.txt` 部署到生产后,运行 `node scripts/indexnow-submit.mjs` 完成首次提交
 - **用法**:
   ```bash
   node scripts/indexnow-submit.mjs --dry-run        # 预览

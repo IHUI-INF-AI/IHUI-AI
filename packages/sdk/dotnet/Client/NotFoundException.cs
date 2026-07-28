@@ -1,4 +1,4 @@
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 404 资源不存在异常。

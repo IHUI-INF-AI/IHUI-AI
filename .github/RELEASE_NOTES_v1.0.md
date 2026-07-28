@@ -4,7 +4,7 @@
 
 **发布日期**:2026-07-26
 **License**:Apache-2.0(商业可用)
-**在线 Demo**:https://ihui.ai
+**在线 Demo**:https://aizhs.top
 **GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---
@@ -157,30 +157,30 @@ pnpm dev
 - [系统架构](https://github.com/IHUI-INF-AI/IHUI-AI/blob/main/docs/architecture.md)
 - [端口管理](https://github.com/IHUI-INF-AI/IHUI-AI/blob/main/docs/port-management.md)
 - [SEO/GEO 站长平台提交清单](https://github.com/IHUI-INF-AI/IHUI-AI/blob/main/docs/seo-submit-guide.md)
-- [在线 Demo](https://ihui.ai)
+- [在线 Demo](https://aizhs.top)
 
 ---
 
 ## AI 引擎 GEO 入口
 
-IHUI-AI 为 11+ 主流 AI 引擎提供专属 GEO 入口(https://ihui.ai/<engine>.txt 或 .md):
+IHUI-AI 为 11+ 主流 AI 引擎提供专属 GEO 入口(https://aizhs.top/<engine>.txt 或 .md):
 
 | 引擎              | 入口                          | 格式                |
 | ----------------- | ----------------------------- | ------------------- |
-| ChatGPT / GPTBot  | https://ihui.ai/gpt.txt       | Q&A 问答对          |
-| Claude            | https://ihui.ai/claude.md     | 长篇叙述            |
-| Perplexity        | https://ihui.ai/perplexity.md | 引用就绪事实卡片    |
-| Google Gemini     | https://ihui.ai/gemini.txt    | 实体中心知识库      |
-| Microsoft Copilot | https://ihui.ai/copilot.txt   | 英文 Bing 索引      |
-| 字节豆包          | https://ihui.ai/doubao.txt    | 对话场景 Q&A        |
-| Kimi              | https://ihui.ai/kimi.txt      | 长文本+学术风       |
-| DeepSeek          | https://ihui.ai/deepseek.txt  | 技术细节+开源友好   |
-| 通义 Qwen         | https://ihui.ai/qwen.txt      | 阿里云生态集成      |
-| 文心 ERNIE        | https://ihui.ai/wenxin.txt    | 百度 SEO + 百科化   |
-| 智谱 GLM          | https://ihui.ai/zhipu.txt     | 学术机构 + 政企信创 |
-| 腾讯混元          | https://ihui.ai/hunyuan.txt   | 微信生态 + 腾讯云   |
+| ChatGPT / GPTBot  | https://aizhs.top/gpt.txt       | Q&A 问答对          |
+| Claude            | https://aizhs.top/claude.md     | 长篇叙述            |
+| Perplexity        | https://aizhs.top/perplexity.md | 引用就绪事实卡片    |
+| Google Gemini     | https://aizhs.top/gemini.txt    | 实体中心知识库      |
+| Microsoft Copilot | https://aizhs.top/copilot.txt   | 英文 Bing 索引      |
+| 字节豆包          | https://aizhs.top/doubao.txt    | 对话场景 Q&A        |
+| Kimi              | https://aizhs.top/kimi.txt      | 长文本+学术风       |
+| DeepSeek          | https://aizhs.top/deepseek.txt  | 技术细节+开源友好   |
+| 通义 Qwen         | https://aizhs.top/qwen.txt      | 阿里云生态集成      |
+| 文心 ERNIE        | https://aizhs.top/wenxin.txt    | 百度 SEO + 百科化   |
+| 智谱 GLM          | https://aizhs.top/zhipu.txt     | 学术机构 + 政企信创 |
+| 腾讯混元          | https://aizhs.top/hunyuan.txt   | 微信生态 + 腾讯云   |
 
-通用 LLM 索引:[llms.txt](https://ihui.ai/llms.txt) · [llms-full.txt](https://ihui.ai/llms-full.txt)
+通用 LLM 索引:[llms.txt](https://aizhs.top/llms.txt) · [llms-full.txt](https://aizhs.top/llms-full.txt)
 
 ---
 
@@ -191,7 +191,7 @@ IHUI-AI 为 11+ 主流 AI 引擎提供专属 GEO 入口(https://ihui.ai/<engine>
 - **邮箱**:502319984@qq.com
 - **微信客服**:`ok502319984`
 - **电话**:`18643389808`
-- **官网**:https://ihui.ai
+- **官网**:https://aizhs.top
 
 合作咨询 · 企业接入 · 技术交流 · 投资对接 — 24 小时内回复。
 

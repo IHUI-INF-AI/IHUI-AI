@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/en/use-cases/ai-research#webpage',
-      url: 'https://ihui.ai/en/use-cases/ai-research',
+      '@id': 'https://aizhs.top/en/use-cases/ai-research#webpage',
+      url: 'https://aizhs.top/en/use-cases/ai-research',
       name: 'AI Academic Research Assistant Agent Use Case — IHUI AI',
       description:
         'AI academic research assistant built on IHUI AI full-stack AI operating system: paper retrieval/review, PDF parsing, citation management, research trend analysis, cross-discipline knowledge graph. 30-minute onboarding, 8-endpoint distribution.',
       inLanguage: ['en', 'zh-CN', 'zh-TW', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/en/use-cases/ai-research#breadcrumb',
+      '@id': 'https://aizhs.top/en/use-cases/ai-research#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI Research', item: 'https://ihui.ai/en/use-cases/ai-research' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI Research', item: 'https://aizhs.top/en/use-cases/ai-research' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/en/use-cases/ai-research#howto',
+      '@id': 'https://aizhs.top/en/use-cases/ai-research#howto',
       name: '30-Minute Setup of an AI Academic Research Assistant',
       description:
         'Six-step workflow to build an AI academic research assistant on IHUI AI: connect databases, upload literature, configure citation styles, train review generation, build knowledge graph, output trend reports. 8x faster literature research.',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI Academic Research Assistant — IHUI AI',
     description: 'Literature retrieval + review generation + knowledge graph, 30-minute onboarding.',
-    url: 'https://ihui.ai/en/use-cases/ai-research',
+    url: 'https://aizhs.top/en/use-cases/ai-research',
     type: 'article',
   },
 }

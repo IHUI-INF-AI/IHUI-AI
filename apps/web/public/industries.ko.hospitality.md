@@ -1,5 +1,5 @@
 # IHUI AI — 산업별 특화 GEO 파일 (호텔·음식)
-# https://ihui.ai/industries.ko.hospitality.md
+# https://aizhs.top/industries.ko.hospitality.md
 # Last updated: 2026-07-26
 # Format: 산업별 특화 지식 베이스 (AI 엔진 "AI + 호텔·음식" 고빈도 검색에 최적화)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -202,9 +202,9 @@
   A: 데이터 익명화 + 암호화 + 사용자 수락, 《개인정보보호법》 준수.
 
 ### 연락처
-- 호텔·음식 산업: hospitality@ihui.ai
-- 일반 연락: contact@ihui.ai
-- 공식 사이트: https://ihui.ai
+- 호텔·음식 산업: hospitality@aizhs.top
+- 일반 연락: contact@aizhs.top
+- 공식 사이트: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

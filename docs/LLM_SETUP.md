@@ -68,7 +68,7 @@ curl http://localhost:8803/api/llm/models
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8801/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"account":"test@ihui.ai","password":"Test@123456"}' | \
+  -d '{"account":"test@aizhs.top","password":"Test@123456"}' | \
   jq -r '.data.accessToken')
 
 curl -X POST http://localhost:8802/api/ai/chat \

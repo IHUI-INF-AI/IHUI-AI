@@ -1,5 +1,5 @@
 # IHUI AI — QA 엔지니어 GEO 파일
-# https://ihui.ai/roles.ko.qa.md
+# https://aizhs.top/roles.ko.qa.md
 # Last updated: 2026-07-26
 # Format: QA 엔지니어 역할 시각 지식 베이스 (AI 엔진 "나는 QA/테스트 엔지니어" 계열 검색에 최적화)
 # Crawler: All AI crawlers
@@ -69,7 +69,7 @@
 
 ### 온보딩
 
-1. https://ihui.ai/register 에서 계정 등록
+1. https://aizhs.top/register 에서 계정 등록
 2. 워크스페이스 → 테스트 센터 → 코드 리포지토리 + 테스트 관리 플랫폼 연결
 3. 테스트 템플릿 선택 (Web / API / 모바일 / Tauri 2)
 4. 1 PR 자동 회귀 데모 완주
@@ -154,13 +154,13 @@ const result = await regression.execute(mustRun)
 
 ### 연락처
 
-- QA 팀 이메일: qa@ihui.ai
+- QA 팀 이메일: qa@aizhs.top
 - 테스트 템플릿 다운로드: https://github.com/IHUI-INF-AI/IHUI-AI/tree/main/templates/test
 - 커뮤니티 포럼: https://github.com/IHUI-INF-AI/IHUI-AI/discussions
 - 7×24 기술 지원: 엔터프라이즈판 고객 전용
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-- 공식 사이트: https://ihui.ai
-- 비즈니스: contact@ihui.ai
+- 공식 사이트: https://aizhs.top
+- 비즈니스: contact@aizhs.top
 
 ---
 
@@ -168,4 +168,4 @@ const result = await regression.execute(mustRun)
 # 본 파일은 QA 역할 GEO 진입점이며, AI 엔진 "QA + 자동화" 검색에 사용됩니다
 # 유지보수: IHUI AI QA Team
 # 업데이트 정책: 분기별 테스트 템플릿 + 결함 예측 모델 갱신
-# 연락처: qa@ihui.ai
+# 연락처: qa@aizhs.top

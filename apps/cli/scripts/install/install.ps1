@@ -1,5 +1,5 @@
 # IHUI CLI PowerShell 一键安装脚本
-# 用法: iwr -useb https://ihui.ai/install.ps1 | iex
+# 用法: iwr -useb https://aizhs.top/install.ps1 | iex
 # 依赖: Node.js 20+(自动检测,缺失则报错引导安装)
 $ErrorActionPreference = 'Stop'
 
@@ -42,7 +42,7 @@ if ($ihui) {
   $ver = try { (ihui --version 2>$null) } catch { 'unknown' }
   Info "安装成功: ihui $ver"
   Write-Host "  运行 ihui 进入交互式 REPL" -ForegroundColor White
-  Write-Host "  文档: https://ihui.ai" -ForegroundColor White
+  Write-Host "  文档: https://aizhs.top" -ForegroundColor White
 } else {
   Warn "ihui 未加入 PATH,请将 npm 全局 bin 目录加入 PATH"
   Write-Host "  查询全局 bin: npm prefix -g" -ForegroundColor White
