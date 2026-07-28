@@ -125,10 +125,10 @@ export default function VipPage() {
 
       {myVip ? (
         <Card className="border-amber-500/40 bg-amber-50/40">
-          <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{t('currentLevel')}</p>
-              <p className="flex items-center gap-2 text-lg font-semibold">
+              <p className="flex items-center gap-2 text-base font-semibold">
                 {myVip.levelName ?? t('title')}
                 <span
                   className={cn(
@@ -227,7 +227,7 @@ export default function VipPage() {
         </div>
       )}
 
-      <div className="rounded-lg border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border bg-muted/30 p-3 text-center text-xs text-muted-foreground">
         {t('faqHint')}
       </div>
       <div className="text-center">
