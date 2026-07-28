@@ -14,6 +14,14 @@ const { mockT } = vi.hoisted(() => {
     'pane.expandAll': '展开全部',
     'pane.collapseAll': '折叠全部',
     'pane.reconnecting': 'SSE 断连,正在重连(第 {n}/5 次)',
+    'progressLabel': '任务进度 {pct}%',
+    'sseStatus.connected': '已连接',
+    'sseStatus.connecting': '连接中',
+    'sseStatus.reconnecting': '重连中',
+    'sseStatus.disconnected': '已断开',
+    'sseStatus.reconnectingShort': '重连 {n}/{max}',
+    'sseStatus.disconnectedShort': '已断开',
+    'sseStatus.tooltipError': '连接错误: {error}',
     'pane.stepInProgress': '步骤 {n}: {step} (进行中)',
     'pane.stepCompleted': '步骤 {n}: {step} (已完成)',
     'pane.stepPending': '步骤 {n}: {step} (待执行)',
@@ -123,8 +131,12 @@ vi.mock('@ihui/api-client', () => ({
 
 // Mock lucide-react 图标为简单 span(避免 jsdom 渲染 svg 复杂性)
 // vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义
+// 注:让 IconSpan 接受 className prop 并应用到 span 上,这样 ConnectionStatus 等组件
+// 传入的 color/animation className 才能被测试断言到
 const { IconSpan } = vi.hoisted(() => {
-  const IconSpan = () => <span data-testid="lucide-icon" />
+  const IconSpan = ({ className }: { className?: string }) => (
+    <span data-testid="lucide-icon" className={className} />
+  )
   return { IconSpan }
 })
 vi.mock('lucide-react', () => ({
@@ -155,6 +167,10 @@ vi.mock('lucide-react', () => ({
   CheckCircle2: IconSpan,
   XCircle: IconSpan,
   AlertCircle: IconSpan,
+  SignalHigh: IconSpan,
+  SignalMedium: IconSpan,
+  RotateCw: IconSpan,
+  WifiOff: IconSpan,
 }))
 
 // Mock useChatStore.conversationId(避免引入整个 chat store)
@@ -173,6 +189,12 @@ import { SubagentSection } from '../src/components/ai/progress-sections/subagent
 import { ChangesSection } from '../src/components/ai/progress-sections/changes-section'
 import { TerminalSection } from '../src/components/ai/progress-sections/terminal-section'
 import { OverviewSection } from '../src/components/ai/progress-sections/overview-section'
+import { ProgressRing } from '../src/components/ai/progress-sections/progress-ring'
+import {
+  ConnectionStatus,
+  ConnectionStatusDot,
+  deriveConnectionState,
+} from '../src/components/ai/progress-sections/connection-status'
 import type {
   AgentToolCall,
   Subagent,
@@ -1230,5 +1252,322 @@ describe('AgentTaskProgressPane — v11 复制计划 + 相对时间', () => {
     fireEvent.click(item)
     // 应显示相对时间 "2m前"
     expect(container.textContent).toContain('2m前')
+  })
+})
+
+// ─── Phase 16: ProgressRing 进度环测试 ───
+describe('ProgressRing — Phase 16 进度环(对标 Trae Work)', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('基础渲染:含 SVG 双圆环 + 进度 arc', () => {
+    const { container } = render(<ProgressRing value={50} />)
+    const ring = container.querySelector('[data-testid="progress-ring"]')
+    expect(ring).toBeTruthy()
+    const circles = container.querySelectorAll('circle')
+    expect(circles.length).toBe(2) // track + progress
+  })
+
+  it('aria 属性:role=progressbar + aria-valuenow/min/max', () => {
+    const { container } = render(<ProgressRing value={75} />)
+    const svg = container.querySelector('svg[role="progressbar"]')!
+    expect(svg.getAttribute('aria-valuenow')).toBe('75')
+    expect(svg.getAttribute('aria-valuemin')).toBe('0')
+    expect(svg.getAttribute('aria-valuemax')).toBe('100')
+  })
+
+  it('aria-label:自定义优先,否则默认百分比', () => {
+    const { container: c1 } = render(<ProgressRing value={42} />)
+    expect(c1.querySelector('svg')?.getAttribute('aria-label')).toBe('42%')
+
+    const { container: c2 } = render(<ProgressRing value={88} aria-label="自定义标签" />)
+    expect(c2.querySelector('svg')?.getAttribute('aria-label')).toBe('自定义标签')
+  })
+
+  it('centerMode=percent:默认显示百分比文字', () => {
+    const { container } = render(<ProgressRing value={65} centerMode="percent" />)
+    expect(container.textContent).toContain('65')
+  })
+
+  it('centerMode=fraction:显示分子/分母格式', () => {
+    const { container } = render(
+      <ProgressRing value={50} centerMode="fraction" numerator={3} denominator={6} />,
+    )
+    expect(container.textContent).toContain('3/6')
+  })
+
+  it('centerMode=none:不显示中心文字', () => {
+    const { container } = render(<ProgressRing value={50} centerMode="none" />)
+    // 仅 SVG,无 text/span
+    expect(container.querySelectorAll('span').length).toBe(0)
+  })
+
+  it('value 边界:< 0 钳到 0,> 100 钳到 100', () => {
+    const { container: c1 } = render(<ProgressRing value={-20} />)
+    expect(c1.querySelector('svg')?.getAttribute('aria-valuenow')).toBe('0')
+
+    const { container: c2 } = render(<ProgressRing value={150} />)
+    expect(c2.querySelector('svg')?.getAttribute('aria-valuenow')).toBe('100')
+  })
+
+  it('pct=100 时中心文字显示 "100"(非 "100%")', () => {
+    const { container } = render(<ProgressRing value={100} centerMode="percent" />)
+    expect(container.textContent).toContain('100')
+    // 100% 不会在文本中
+    expect(container.textContent).not.toContain('100%')
+  })
+
+  it('state=in_progress:含 animate-ring-progress-pulse 类', () => {
+    const { container } = render(<ProgressRing value={50} state="in_progress" />)
+    const svg = container.querySelector('svg')!
+    expect(svg.className.baseVal || svg.className).toContain('animate-ring-progress-pulse')
+  })
+
+  it('state=idle:无脉冲动画类', () => {
+    const { container } = render(<ProgressRing value={50} state="idle" />)
+    const svg = container.querySelector('svg')!
+    expect(svg.className.baseVal || svg.className).not.toContain('animate-ring-progress-pulse')
+  })
+
+  it('state=completed:进度 arc 含 celebrate 动画 + 中心显示 Check 图标', () => {
+    const { container } = render(<ProgressRing value={100} state="completed" />)
+    const circles = container.querySelectorAll('circle')
+    // 第二个 circle 是 progress,含 animate-ring-celebrate
+    const progressCircle = circles[1]!
+    expect(progressCircle.className.baseVal || progressCircle.className).toContain(
+      'animate-ring-celebrate',
+    )
+    // data-state 反映 completed
+    const ring = container.querySelector('[data-testid="progress-ring"]')!
+    expect(ring.getAttribute('data-state')).toBe('completed')
+  })
+
+  it('strokeDashoffset 根据 value 动态计算', () => {
+    // 验证 strokeDashoffset 属性存在(具体数值由 SVG 几何计算,这里只验证属性被设置)
+    const { container } = render(<ProgressRing value={25} />)
+    const progressCircle = container.querySelectorAll('circle')[1]!
+    const offset = progressCircle.getAttribute('stroke-dashoffset')
+    expect(offset).toBeTruthy()
+    expect(Number(offset)).toBeGreaterThan(0)
+  })
+
+  it('size 自定义:16/24/32 三档', () => {
+    const { container: c16 } = render(<ProgressRing value={50} size={16} />)
+    const ring16 = c16.querySelector('[data-testid="progress-ring"]') as HTMLElement
+    expect(ring16.style.width).toBe('16px')
+    expect(ring16.style.height).toBe('16px')
+
+    const { container: c32 } = render(<ProgressRing value={50} size={32} />)
+    const ring32 = c32.querySelector('[data-testid="progress-ring"]') as HTMLElement
+    expect(ring32.style.width).toBe('32px')
+  })
+
+  it('strokeWidth 自定义', () => {
+    const { container } = render(<ProgressRing value={50} strokeWidth={3} />)
+    const circles = container.querySelectorAll('circle')
+    circles.forEach((c) => {
+      expect(c.getAttribute('stroke-width')).toBe('3')
+    })
+  })
+
+  it('className 透传到根容器', () => {
+    const { container } = render(<ProgressRing value={50} className="custom-class" />)
+    const ring = container.querySelector('[data-testid="progress-ring"]')!
+    expect(ring.className).toContain('custom-class')
+  })
+})
+
+// ─── Phase 16: ConnectionStatus / ConnectionStatusDot 测试 ───
+describe('ConnectionStatus — Phase 16 SSE 连接状态指示器', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('connected 状态:含 emerald 颜色 + 连接动画', () => {
+    const { container } = render(<ConnectionStatus state="connected" />)
+    const status = container.querySelector('[data-testid="connection-status-connected"]')!
+    expect(status).toBeTruthy()
+    expect(status.getAttribute('data-state')).toBe('connected')
+    // 图标 (lucide mock 是 span) 含 emerald 色
+    const icon = status.querySelector('[data-testid="lucide-icon"]')!
+    expect(icon.className).toContain('text-emerald-500')
+  })
+
+  it('connecting 状态:含 amber 颜色', () => {
+    const { container } = render(<ConnectionStatus state="connecting" />)
+    const status = container.querySelector('[data-testid="connection-status-connecting"]')!
+    const icon = status.querySelector('[data-testid="lucide-icon"]')!
+    expect(icon.className).toContain('text-amber-500')
+  })
+
+  it('reconnecting 状态:含 amber 颜色 + 文字 "重连 n/max"', () => {
+    const { container } = render(
+      <ConnectionStatus state="reconnecting" reconnectAttempt={2} totalAttempts={5} />,
+    )
+    const status = container.querySelector('[data-testid="connection-status-reconnecting"]')!
+    const icon = status.querySelector('[data-testid="lucide-icon"]')!
+    expect(icon.className).toContain('text-amber-500')
+    expect(container.textContent).toContain('重连 2/5')
+  })
+
+  it('disconnected 状态:含 red 颜色 + 文字 "已断开"', () => {
+    const { container } = render(<ConnectionStatus state="disconnected" />)
+    const status = container.querySelector('[data-testid="connection-status-disconnected"]')!
+    const icon = status.querySelector('[data-testid="lucide-icon"]')!
+    expect(icon.className).toContain('text-red-500')
+    expect(container.textContent).toContain('已断开')
+  })
+
+  it('connected/connecting 状态:不显示文字标签(只显示图标 + 点)', () => {
+    const { container: c1 } = render(<ConnectionStatus state="connected" />)
+    // 仅图标 span + dot span,无文字 span
+    const labels1 = Array.from(c1.querySelectorAll('span')).filter(
+      (s) => s.textContent && s.textContent.length > 0 && !s.querySelector('svg'),
+    )
+    expect(labels1.length).toBe(0)
+
+    const { container: c2 } = render(<ConnectionStatus state="connecting" />)
+    const labels2 = Array.from(c2.querySelectorAll('span')).filter(
+      (s) => s.textContent && s.textContent.length > 0 && !s.querySelector('svg'),
+    )
+    expect(labels2.length).toBe(0)
+  })
+
+  it('reconnecting 状态:tooltip 含 "重连中" + "(n/max)"', () => {
+    const { container } = render(
+      <ConnectionStatus state="reconnecting" reconnectAttempt={3} totalAttempts={5} />,
+    )
+    const status = container.querySelector('[data-testid="connection-status-reconnecting"]')!
+    const tooltip = status.getAttribute('title')!
+    expect(tooltip).toContain('重连中')
+    expect(tooltip).toContain('(3/5)')
+  })
+
+  it('error 信息:追加到 tooltip 末尾', () => {
+    const { container } = render(
+      <ConnectionStatus state="disconnected" error="网络超时" />,
+    )
+    const status = container.querySelector('[data-testid="connection-status-disconnected"]')!
+    const tooltip = status.getAttribute('title')!
+    expect(tooltip).toContain('已断开')
+    expect(tooltip).toContain('网络超时')
+  })
+
+  it('a11y:role=status + aria-live', () => {
+    const { container: c1 } = render(<ConnectionStatus state="connected" />)
+    expect(c1.querySelector('[role="status"]')).toBeTruthy()
+
+    const { container: c2 } = render(<ConnectionStatus state="disconnected" />)
+    const status = c2.querySelector('[role="status"]') as HTMLElement
+    expect(status.getAttribute('aria-live')).toBe('assertive')
+  })
+
+  it('a11y:aria-label === tooltip 内容', () => {
+    const { container } = render(
+      <ConnectionStatus state="reconnecting" reconnectAttempt={2} totalAttempts={5} />,
+    )
+    const status = container.querySelector('[data-testid="connection-status-reconnecting"]')!
+    expect(status.getAttribute('aria-label')).toBe(status.getAttribute('title'))
+  })
+
+  it('reconnecting 动画:Icon 含 animate-spin', () => {
+    const { container } = render(<ConnectionStatus state="reconnecting" />)
+    const status = container.querySelector('[data-testid="connection-status-reconnecting"]')!
+    const icon = status.querySelector('[data-testid="lucide-icon"]')!
+    expect(icon.className).toContain('animate-spin')
+  })
+})
+
+describe('ConnectionStatusDot — Phase 16 简化版(仅点)', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('4 状态:含不同 testid + 颜色', () => {
+    const states = ['connected', 'connecting', 'reconnecting', 'disconnected'] as const
+    for (const s of states) {
+      const { container } = render(<ConnectionStatusDot state={s} />)
+      const dot = container.querySelector(`[data-testid="connection-dot-${s}"]`)
+      expect(dot).toBeTruthy()
+      expect(dot?.getAttribute('role')).toBe('status')
+    }
+  })
+
+  it('connected 状态:emerald 色 + 连接动画', () => {
+    const { container } = render(<ConnectionStatusDot state="connected" />)
+    const dot = container.querySelector('[data-testid="connection-dot-connected"]')!
+    expect(dot.className).toContain('bg-emerald-500')
+    expect(dot.className).toContain('animate-connection-connected')
+  })
+
+  it('disconnected 状态:red 色 + 无动画', () => {
+    const { container } = render(<ConnectionStatusDot state="disconnected" />)
+    const dot = container.querySelector('[data-testid="connection-dot-disconnected"]')!
+    expect(dot.className).toContain('bg-red-500')
+    expect(dot.className).not.toContain('animate-')
+  })
+
+  it('className 透传', () => {
+    const { container } = render(
+      <ConnectionStatusDot state="connected" className="ml-2" />,
+    )
+    const dot = container.querySelector('[data-testid="connection-dot-connected"]')!
+    expect(dot.className).toContain('ml-2')
+  })
+})
+
+// ─── Phase 16: deriveConnectionState 推导逻辑测试 ───
+describe('deriveConnectionState — Phase 16 状态推导', () => {
+  it('无 threadId → disconnected(待命)', () => {
+    expect(deriveConnectionState(false, 0, false, null)).toBe('disconnected')
+  })
+
+  it('有 threadId + 正在 streaming + 无重连 → connected', () => {
+    expect(deriveConnectionState(true, 0, false, 'thread-1')).toBe('connected')
+  })
+
+  it('有 threadId + 正在重连(reconnectAttempt>0) → reconnecting(优先级最高)', () => {
+    expect(deriveConnectionState(true, 2, false, 'thread-1')).toBe('reconnecting')
+    expect(deriveConnectionState(false, 3, false, 'thread-1')).toBe('reconnecting')
+  })
+
+  it('有 threadId + 已结束 + 无错误 + 无重连 → connecting(待开始新流)', () => {
+    expect(deriveConnectionState(false, 0, false, 'thread-1')).toBe('connecting')
+  })
+
+  it('有 threadId + 已结束 + 有错误 + 无重连 → disconnected', () => {
+    expect(deriveConnectionState(false, 0, true, 'thread-1')).toBe('disconnected')
+  })
+
+  it('reconnectAttempt 优先级:无论 streaming 如何,>0 一律返回 reconnecting', () => {
+    expect(deriveConnectionState(true, 1, false, 't')).toBe('reconnecting')
+    expect(deriveConnectionState(false, 1, true, 't')).toBe('reconnecting')
+  })
+
+  it('hasError 优先级:无 streaming + 有 error → disconnected', () => {
+    expect(deriveConnectionState(false, 0, true, 't')).toBe('disconnected')
+  })
+
+  it('hasError 优先级:有 streaming 时 error 不影响(返回 connected)', () => {
+    // streaming 正在进行时,error 还未生效(可能由下一次流更新)
+    expect(deriveConnectionState(true, 0, true, 't')).toBe('connected')
+  })
+
+  it('4 状态穷尽性:所有参数组合均返回 ConnectionState 之一', () => {
+    const states = ['connected', 'connecting', 'reconnecting', 'disconnected'] as const
+    const cases: Array<Parameters<typeof deriveConnectionState>> = [
+      [false, 0, false, null],
+      [false, 0, false, 't'],
+      [false, 0, true, 't'],
+      [false, 1, false, 't'],
+      [true, 0, false, 't'],
+      [true, 0, true, 't'],
+      [true, 2, false, 't'],
+    ]
+    for (const args of cases) {
+      const result = deriveConnectionState(...args)
+      expect(states).toContain(result)
+    }
   })
 })
