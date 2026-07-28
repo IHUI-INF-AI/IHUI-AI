@@ -8,6 +8,8 @@ export { NotificationListScreen } from './features/notification/NotificationList
 export { HistoryScreen } from './features/history/HistoryScreen'
 export { CertificateScreen } from './features/certificate/CertificateScreen'
 export { MessageCenterScreen } from './features/message-center/MessageCenterScreen'
+export { OrderScreen } from './features/order/OrderScreen'
+export { StudyPlanScreen } from './features/study-plan/StudyPlanScreen'
 
 export {
   VipCard,
@@ -61,4 +63,11 @@ export type {
   MessageTab,
   MessageCenterItem,
   MessageCenterScreenProps,
+  AppOrderStatus,
+  OrderTab,
+  OrderItem,
+  OrderScreenProps,
+  PlanStatus,
+  StudyPlanItem,
+  StudyPlanScreenProps,
 } from './types'
