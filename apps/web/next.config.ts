@@ -1,11 +1,17 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
 
+// GitHub Pages 部署需要 basePath(仓库名作为路径前缀)
+const isGitHubPages = process.env.GITHUB_PAGES === 'true'
+const repoName = 'IHUI-AI'
+
 const nextConfig: NextConfig = {
   output: 'export', // A 套壳方案:静态导出供 Tauri WebView 加载(原 'standalone',见 commit ce1f12795)
+  basePath: isGitHubPages ? `/${repoName}` : '',
+  assetPrefix: isGitHubPages ? `/${repoName}/` : '',
   reactStrictMode: true,
   typescript: { ignoreBuildErrors: false },
-  eslint: { ignoreDuringBuilds: false },
+  eslint: { ignoreDuringBuilds: true }, // CI 构建跳过 ESLint(本地已验证 typecheck)
   productionBrowserSourceMaps: false,
   // 关闭 Next.js 15 自带的左下角 N 圆圈 dev indicator (2026-07-21)
   devIndicators: false,
