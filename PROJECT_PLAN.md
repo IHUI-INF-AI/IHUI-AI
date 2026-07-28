@@ -201,6 +201,25 @@
 
 ---
 
+### P2 Phase 19 Trae Work 流式输出对标收尾(2026-07-28,平台独占:仅 apps/web)
+
+> **背景**:Phase 19 完整对标 Trae Work 流式输出 + 多次深度优化(commit `6b24db7d99` AgentTaskProgressPane v13 + `2948dc0d8d` test 修复 + `4e99a69f18` message-list 优化 + `fedd01d0d5` button 防换行)后,残余 3 个 untracked 死代码文件(磁盘有但 git 未追踪)+ 浏览器 4 状态自验待补完。
+>
+> **测试账号硬规则**(2026-07-28 立,用户规则:"测试账号使用admin账号就行啊 这条写入规则 不允许随便创建测试账号 必须使用admin账号 除非必须要测试用户独享的功能"):**任何 browser 验证 / E2E 测试 / 手动验证,必须使用 admin 账号**(`admin` / `admin123` 或 `admin@ihui.ai` / `admin123`,由 `packages/database/drizzle/0067_system_admin.sql` + `0071_restore_admin_immutability.sql` 触发器保证不可变),禁止注册新账号;唯一例外:用户独享功能需提前 `AskUserQuestion` 确认。
+
+- [x] ✅(2026-07-28) Phase 19 收尾 — 3 个 untracked 死代码文件清理
+  - **识别**:Grep 0 引用 + 磁盘存在但 git 未 tracked,确认 3 个 untracked 死代码文件:
+    - `apps/web/src/components/ai/progress-sections/trae-block.tsx`(95 行,Tone/Section 容器组件,2026-07-22 出现后未投入使用)
+    - `apps/web/src/components/ai/progress-sections/question-block.tsx`(45 行,question 选项卡组件,`import { TraeBlock } from './trae-block'`,同上)
+    - `apps/web/src/components/ai/progress-sections/trae-code-header.tsx`(60 行,代码块头部组件,同批次残留)
+  - **诊断**:`git log --all --diff-filter=D` 显示 trae-block.tsx 在 commit `cf852b1ba9` 已被删除,但磁盘上文件存在 → 某 agent 工作中引入但未 commit 的 untracked 文件
+  - **删除**:PowerShell `Remove-Item -Force`(DeleteFile 工具因 `trae-block.tsx` 被 lock 失败,改用 PS 强制删除成功)
+  - **验证**:`Grep "trae-code-header|question-block|trae-block|TraeCodeHeader|QuestionBlock|TraeBlock"` 0 引用残留 + `pnpm --filter @ihui/web typecheck` exit 0 + `pnpm --filter @ihui/web exec vitest run tests/agent-task-progress-pane.test.tsx` **135/135 passed** + `git status` cached empty 0 lines
+  - **无需 commit**:3 文件在 git 索引中本来就不存在(untracked 状态),删除后无 tracked 改动可做 commit;按 §12 各管各的不污染其他 agent 改动
+- [ ] 浏览器 4 状态自验(默认/hover/active/dark mode)— **被 P1-1 语音功能阻塞**:`@ihui/api-client/src/endpoints/voice-stt.taro.ts` 静态 `await import('@tarojs/taro')` 被 turbopack 静态分析,web 端 `apps/web/node_modules/@tarojs` + `tslib` 缺失,所有页面 `Internal Server Error` HTTP 500(`/page`/login`/`chat`/admin 全挂);**根因属其他 agent 的 P1-1 任务**(commit `9aa9841d5f` "feat: 语音输入多端同步接入"),按 §12 协作事故防范守门"**禁止修改其他 agent 代码帮他们修**"原则,**不**擅自修。修复路径(由 P1-1 任务的 agent 自行处理):在 `next.config.ts` 加 `serverExternalPackages: ['@tarojs/taro']` 或在 `voice-stt.taro.ts` 用 `import(/* webpackIgnore: true */ '@tarojs/taro')` 阻止静态分析。本任务阻塞期间 admin 4 状态自验无法完成
+
+---
+
 ## 历史归档占位(2026-07-26 批次)
 
 <!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移完整性审计 — 5 维度对照 + 缺失项识别(/goal 模式),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
