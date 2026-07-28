@@ -1,76 +1,53 @@
-import { useEffect, useState } from 'react'
-import { ScrollView, Text, View } from 'react-native'
-import { Card } from '@ihui/ui-native'
-import { getBalance, type WalletBalance } from '@ihui/api-client'
-import { formatAmount } from '@ihui/shared/utils'
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { getBalance } from '@ihui/api-client'
+import { WalletScreen as SharedWalletScreen, type WalletBalance } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function WalletScreen() {
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
+  const navigation = useNavigation<NavigationProp>()
   const [balance, setBalance] = useState<WalletBalance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      setLoading(true)
-      setError('')
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
       const res = await getBalance()
-      if (cancelled) return
-      if (res.success) setBalance(res.data)
-      else setError(res.error || '加载失败')
+      if (!res.success || !res.data) throw new Error(res.error)
+      setBalance(res.data)
+    } catch {
+      setError(t('wallet.loadFailed'))
+    } finally {
       setLoading(false)
-    })()
-    return () => {
-      cancelled = true
     }
-  }, [])
+  }, [t])
 
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <Text className="text-gray-500">加载中...</Text>
-      </View>
-    )
-  }
-
-  if (error) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white px-4">
-        <Text className="text-red-600">{error}</Text>
-      </View>
-    )
-  }
-
-  if (!balance) return null
-
-  const cards: Array<{ label: string; value: number; tone: 'primary' | 'muted' }> = [
-    { label: '可用余额', value: balance.balance, tone: 'primary' },
-    { label: '冻结金额', value: balance.frozenBalance, tone: 'muted' },
-    { label: '累计充值', value: balance.totalRecharge, tone: 'primary' },
-    { label: '累计提现', value: balance.totalWithdraw, tone: 'muted' },
-  ]
+  useEffect(() => {
+    void load()
+  }, [load])
 
   return (
-    <ScrollView className="flex-1 bg-white dark:bg-black">
-      <View className="p-4">
-        {cards.map((c) => (
-          <View key={c.label} className="mb-3">
-            <Card>
-              <Text className="text-xs text-neutral-500">{c.label}</Text>
-              <Text
-                className={
-                  c.tone === 'primary'
-                    ? 'mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-50'
-                    : 'mt-1 text-2xl font-semibold text-neutral-500'
-                }
-              >
-                ¥ {formatAmount(c.value)}
-              </Text>
-            </Card>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+    <SharedWalletScreen
+      t={t}
+      balance={balance}
+      loading={loading}
+      error={error}
+      onRefresh={() => void load()}
+      onAction={(action) =>
+        // Recharge 路由待主 agent 注册到 RootStackParamList;Withdraw 已存在
+        navigation.navigate((action === 'withdraw' ? 'Withdraw' : 'Recharge') as 'Withdraw')
+      }
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
