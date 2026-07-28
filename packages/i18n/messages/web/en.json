@@ -699,6 +699,12 @@
     "hideReasoning": "Hide Reasoning",
     "showReasoning": "Show Reasoning",
     "fallbackNotice": "Switched to backup model {{backup}} (primary model {{primary}} temporarily unavailable)",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "retry": "Retry",
+    "jumpToLatest": "Jump to latest",
+    "latest": "Latest",
     "question": {
       "title": "AI needs your answer",
       "submit": "Submit Answer",
@@ -8856,66 +8862,64 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
   "search": {
-    "quickSuggestions": [
-      "Settings",
-      "Profile",
-      "Projects",
-      "Chat history",
-      "Members",
-      "Workspaces",
-      "Shortcuts",
-      "AI models"
-    ],
-    "searchPlaceholder": "Search…",
-    "searchHistory": "Search history",
-    "clear": "Clear",
-    "noSuggestions": "No matching suggestions",
-    "tabs": {
-      "all": "All",
-      "users": "Users",
-      "projects": "Projects",
-      "files": "Files"
-    },
-    "sort": "Sort",
-    "sortRelevance": "Relevance",
-    "sortTime": "Time",
-    "sortName": "Name",
-    "sortSize": "Size",
-    "emptyKeyword": "Enter a search keyword",
-    "loading": "Searching...",
-    "emptyResult": "No matching results",
-    "open": "Open",
-    "resultsCount": "{total} results (users {users}, projects {projects}, files {files})"
+    "emptyKeyword": "Enter a keyword to search",
+    "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})"
   },
   "footer": {
     "companyName": "Jilin Aizhihui AI Technology Co., Ltd.",
@@ -9261,19 +9265,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -9394,25 +9410,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -10932,7 +10960,15 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"
@@ -12497,10 +12533,6 @@
     "related": "Related Articles",
     "notFound": "Article not found or offline"
   },
-  "search": {
-    "emptyKeyword": "Enter a keyword to search",
-    "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})"
-  },
   "searchHistory": {
     "subtitle": "Your recent searches",
     "clearAll": "Clear All"
@@ -13147,35 +13179,6 @@
       "generic": "Subscription failed, please try again later",
       "emailExists": "This email is already subscribed",
       "invalidEmail": "Invalid email format"
-    }
-  },
-  "modelsPricingPage": {
-    "hero": {
-      "badge": "Transparent Pricing",
-      "title": "176 LLM Pricing Table",
-      "subtitle": "Official prices from OpenAI, Anthropic, Google, DeepSeek, Qwen, Zhipu, Doubao, Kimi and more, synced in real time"
-    },
-    "loading": "Loading...",
-    "empty": "No matching models found",
-    "search": {
-      "placeholder": "Search model ID, e.g. gpt-4o, claude-3-5-sonnet",
-      "resultCount": "{count} models found"
-    },
-    "vendor": {
-      "all": "All vendors"
-    },
-    "stats": {
-      "totalModels": "Total models",
-      "totalVendors": "Vendors",
-      "cheapest": "Cheapest",
-      "mostExpensive": "Most expensive"
-    },
-    "note": {
-      "title": "Pricing Notes",
-      "unit": "Unit: CNY per 1M tokens, aligned with vendor official pricing",
-      "region": "Region multiplier: cn=1.0 baseline, us/eu coefficients reflect cross-border bandwidth and compliance costs",
-      "discount": "Discount badge: green percentage indicates bulk usage discount, requires minTokens threshold",
-      "update": "Pricing data imported from vendor official price lists via seed script, see effectiveAt for update date"
     }
   },
   "developerPricingPage": {
