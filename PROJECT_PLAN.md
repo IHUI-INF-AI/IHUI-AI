@@ -23,6 +23,39 @@
 
 > 2026-07-26 维护成本优化批次(死 key 审计 + LLM 字典化阶段 1)完成后衍生 P2 任务清单。
 
+### P1 多端维护成本优化批次(2026-07-28 立,3 subagent 并行调研)
+
+> 2026-07-28 完成 P0(solito 幽灵依赖移除 + 守门注释漂移修复,commit f8c9a6630c + 4d7b35516e)后,3 subagent 并行调研 5 大成本源真实状态,制定 P1/P2/P3 清单。
+
+#### P1(高 ROI,立即执行)
+
+- [ ] **P1-A: 删除 tokens.ts 死代码**(design-tokens 包,5 分钟)— `packages/design-tokens/src/tokens.ts` 117 个 JS token 完全无引用且与 tokens.css 严重漂移(primary 绿色 vs 黑色),是定时炸弹。删除文件 + 从 index.ts 移除导出。
+- [ ] **P1-B: 修复 rn-tokens.ts 与 web 颜色对齐**(design-tokens 包,30 分钟)— `rnTokens.brand.DEFAULT = #10B981`(绿色)vs `tokens.css --color-primary = hsl(0 0% 0%)`(黑色),跨端视觉分裂。对齐 RN 端主品牌色为黑色。
+- [ ] **P1-C: 扩展守门脚本覆盖 --radius/--chart-***(1 小时)— 三个 check 脚本只校验 `--color-*`(50% 覆盖率),其他 139 个变量(radius/chart/font/animate/z/shadow)无任何守门。扩展正则覆盖。
+- [ ] **P1-D: 为 mobile-rn 添加显式 i18n parity 守门**(< 10 行)— mobile-rn 是 5 端中唯一无显式 parity 守门的端(仅靠死 key 扫描隐式校验)。guardian-runner.mjs 新增 `2f-mobile-rn` 项,warn-only 起步。
+- [ ] **P1-E: 修复 mobile-rn 残留 2 处 fetch() 绕过 fetchApi**(2 文件)— CertificateScreen.tsx:68 / MessageCenterScreen.tsx:68 手动拼 Authorization,缺失统一鉴权/错误处理/重试/circuit breaker。改用 @ihui/api-client。
+- [ ] **P1-F: design-tokens 同步守门合并**(1 天)— `check-miniapp-tokens-sync.mjs`(36) / `check-web-tokens-sync.mjs`(37) / `check-rn-global-css-sync.mjs`(legacy) 三个脚本逻辑高度相似,合并为 `check-design-tokens-sync.mjs --target=<web|miniapp-taro|mobile-rn>`,维护成本降 66%。
+- [ ] **P1-G: 把 check-cli-i18n-parity.mjs 挂载到 guardian-runner**(< 5 行)— cli 端 i18n parity 独立脚本未挂载,CI 未自动跑。新增 `2f-cli` 项,warn-only。
+
+#### P2(中 ROI,近期执行)
+
+- [ ] **P2-A: 统一 miniapp-taro style.ts 静态值与 web 对齐**(2 小时)— `RADII.lg=6` vs web `8px` / `Z_INDEX.modal=1040` vs web `2000`,跨端布局/层级分裂。对齐或自动生成。
+- [ ] **P2-B: sync 脚本接入 pre-commit 自动触发**(1 小时)— sync 脚本不自动触发,RN global.css 已 4 天未同步。检测 tokens.css staged 时自动跑 sync + 重新 stage。
+- [ ] **P2-C: RN 端 hex 硬编码治理**(2-3 小时)— 6 个 screen 文件 53 处 `bg-[#7B61FF]` 等直接 hex 硬编码绕过 tokens。批量替换为 tokens 引用。
+- [ ] **P2-D: 排查 web 端 i18n parity 微漂**(288 行差异)— en.json 多 166 行 / ko.json 少 58 行 / zh-TW.json 少 142 行。运行 --parity-only 看 key 集合是否一致。
+- [ ] **P2-E: 守门项执行性能监控**(3-5 天)— guardian-runner --timing 未持久化,57 项 sequential 执行 8-15 秒。持久化 + 分析脚本 + 并行化改造。
+- [ ] **P2-F: miniapp-taro 端共享组件桥接层**(5-7 天)— 共享组件用 react-native primitives,miniapp-taro 用 @tarojs/components,采用率 0%。增加 primitives-taro.ts 桥接层。
+- [ ] **P2-G: 守门项 warn → blocking 升级时间表统一**(2-3 天)— 14 项 warn-only 部分有升级时间表(2g-web: 2026-08-03),部分无(34 @ts-ignore)。增加 upgradeDate 字段 + 超期提醒。
+- [ ] **P2-H: 守门项 id 命名空间重构**(1-2 天)— 57 项 id 混合命名(数字+字母+短横线),3 次撞车(30/30a、31/33/35、34)。统一语义化 id,保留旧 id alias 1 版本。
+
+#### P3(低 ROI,长期执行)
+
+- [ ] **P3-A: 共享组件扩展**(Agreement/Privacy/Help/Ranking 等纯 UI 页面,2-3 天/个)— 三端 15+ 零共享高频业务页面,其中 5-7 个纯 UI 页面适合立刻抽取。
+- [ ] **P3-B: 守门体系测试覆盖率提升至 95%+**(3-5 天)— 73 个测试覆盖 55 个 check-*.mjs(80-85%),约 8-10 个脚本无测试。补 happy path + failure case。
+- [ ] **P3-C: 守门体系文档自动化**(1-2 天)— AGENTS.md §守门速查 + guardian-runner.mjs 注释 + scripts/README.md 三处描述易漂移。从 checks 数组自动生成 GUARDIAN_TABLE.md。
+- [ ] **P3-D: miniapp-taro 本地 interface 分批下沉**(100+ 文件)— 209 个本地 interface 未下沉 @ihui/types,按业务域分批(payment/order/user 等高频改动域优先)。
+- [ ] **P3-E: types/api-client 包按业务域拆分**(长期)— 762 类型 / 997 函数单包耦合 76+ 端,按业务域拆分(types/payment / types/user 等)降低爆炸半径。
+
 ### P2 维护成本优化后续
 
 - [x] ✅(2026-07-26) i18n 死 key 清理 — 2 轮共清理 36 个死 key(commit 345f3253d 清 19 个 n8nAgentsPage + commit 60a664658 清 17 个 design/modelsBillingPage/modelsGroupsPage/modelsReferralPage),5 语言同步,`scan-dead-i18n-keys.mjs` 复扫死 key=0(0.0%),`--exit 1` 待挂 CI
@@ -198,6 +231,25 @@
     ④ `apps/web/app/(main)/layout.tsx`:补 page-specific metadata(`title` 用 `absolute` 避免与根 layout 的 template 双重应用渲染为 "X | IHUI AI | IHUI AI",`description` 扩到 ~120 字符覆盖工作区高频场景,`keywords` 15 个覆盖 AI 工作区/Agent/RAG/MCP/多模型调度/团队协作,`openGraph` + `twitter` 显式引用 `/og-image.png`,`robots` 显式 index/follow + googleBot max-image-preview=large);
     ⑤ 验证:`pnpm --filter @ihui/web typecheck` exit 0;`pnpm --filter @ihui/web build` 失败但**与本任务无关**(失败点 `apps/web/app/(main)/security-audit/page.tsx:112` JSX 闭合 `)}` 语法错误,属于其他 agent 工作范围,按 AGENTS.md §12 多 agent 并行 push 边界规则,**禁止越权修改其他 agent 代码**,本任务 typecheck 全绿 + 本任务 6 个文件 lint 0 警告 0 错误即满足交付);
     ⑥ **保留不动**:`app/robots.ts` + `app/sitemap.ts` 已有完整 GEO/SEO 规则(覆盖 GPTBot/ClaudeBot/PerplexityBot/Googlebot/Bingbot/CCBot 6 主流 AI 爬虫 + 30+ 核心公开页 + 5 语言 hreflang + compare/use-cases 长尾覆盖),本任务**只**补图像资产 + 路由组 metadata,**不**改动 robots/sitemap 逻辑
+
+---
+
+### P2 Phase 19 Trae Work 流式输出对标收尾(2026-07-28,平台独占:仅 apps/web)
+
+> **背景**:Phase 19 完整对标 Trae Work 流式输出 + 多次深度优化(commit `6b24db7d99` AgentTaskProgressPane v13 + `2948dc0d8d` test 修复 + `4e99a69f18` message-list 优化 + `fedd01d0d5` button 防换行)后,残余 3 个 untracked 死代码文件(磁盘有但 git 未追踪)+ 浏览器 4 状态自验待补完。
+>
+> **测试账号硬规则**(2026-07-28 立,用户规则:"测试账号使用admin账号就行啊 这条写入规则 不允许随便创建测试账号 必须使用admin账号 除非必须要测试用户独享的功能"):**任何 browser 验证 / E2E 测试 / 手动验证,必须使用 admin 账号**(`admin` / `admin123` 或 `admin@ihui.ai` / `admin123`,由 `packages/database/drizzle/0067_system_admin.sql` + `0071_restore_admin_immutability.sql` 触发器保证不可变),禁止注册新账号;唯一例外:用户独享功能需提前 `AskUserQuestion` 确认。
+
+- [x] ✅(2026-07-28) Phase 19 收尾 — 3 个 untracked 死代码文件清理
+  - **识别**:Grep 0 引用 + 磁盘存在但 git 未 tracked,确认 3 个 untracked 死代码文件:
+    - `apps/web/src/components/ai/progress-sections/trae-block.tsx`(95 行,Tone/Section 容器组件,2026-07-22 出现后未投入使用)
+    - `apps/web/src/components/ai/progress-sections/question-block.tsx`(45 行,question 选项卡组件,`import { TraeBlock } from './trae-block'`,同上)
+    - `apps/web/src/components/ai/progress-sections/trae-code-header.tsx`(60 行,代码块头部组件,同批次残留)
+  - **诊断**:`git log --all --diff-filter=D` 显示 trae-block.tsx 在 commit `cf852b1ba9` 已被删除,但磁盘上文件存在 → 某 agent 工作中引入但未 commit 的 untracked 文件
+  - **删除**:PowerShell `Remove-Item -Force`(DeleteFile 工具因 `trae-block.tsx` 被 lock 失败,改用 PS 强制删除成功)
+  - **验证**:`Grep "trae-code-header|question-block|trae-block|TraeCodeHeader|QuestionBlock|TraeBlock"` 0 引用残留 + `pnpm --filter @ihui/web typecheck` exit 0 + `pnpm --filter @ihui/web exec vitest run tests/agent-task-progress-pane.test.tsx` **135/135 passed** + `git status` cached empty 0 lines
+  - **无需 commit**:3 文件在 git 索引中本来就不存在(untracked 状态),删除后无 tracked 改动可做 commit;按 §12 各管各的不污染其他 agent 改动
+- [ ] 浏览器 4 状态自验(默认/hover/active/dark mode)— **被 P1-1 语音功能阻塞**:`@ihui/api-client/src/endpoints/voice-stt.taro.ts` 静态 `await import('@tarojs/taro')` 被 turbopack 静态分析,web 端 `apps/web/node_modules/@tarojs` + `tslib` 缺失,所有页面 `Internal Server Error` HTTP 500(`/page`/login`/`chat`/admin 全挂);**根因属其他 agent 的 P1-1 任务**(commit `9aa9841d5f` "feat: 语音输入多端同步接入"),按 §12 协作事故防范守门"**禁止修改其他 agent 代码帮他们修**"原则,**不**擅自修。修复路径(由 P1-1 任务的 agent 自行处理):在 `next.config.ts` 加 `serverExternalPackages: ['@tarojs/taro']` 或在 `voice-stt.taro.ts` 用 `import(/* webpackIgnore: true */ '@tarojs/taro')` 阻止静态分析。本任务阻塞期间 admin 4 状态自验无法完成
 
 ---
 

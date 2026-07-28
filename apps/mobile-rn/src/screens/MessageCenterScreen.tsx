@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import {
+  fetchApi,
   getNotifications,
   markNotificationRead,
   markMessageRead,
@@ -26,8 +27,6 @@ import {
 } from '@ihui/api-client'
 import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
 

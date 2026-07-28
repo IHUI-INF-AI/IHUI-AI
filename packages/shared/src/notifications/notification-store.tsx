@@ -49,22 +49,45 @@ const NotificationContext = createContext<NotificationState | null>(null)
 const DESKTOP_NOTIFICATION_KEY = 'ihui-desktop-notification-enabled'
 const SOUND_NOTIFICATION_KEY = 'ihui-notification-sound-enabled'
 
-/** SSR 安全的 localStorage 读取 */
-function readLocalStorage(key: string): string | null {
-  if (typeof window === 'undefined') return null
+/**
+ * 安全检测 window.localStorage 是否可用。
+ *
+ * 跨端兼容要点:
+ * - Node/SSR:`typeof window === 'undefined'` → false
+ * - React Native:全局无 `window`(Hermes/JSC 引擎),访问会抛 ReferenceError → 用 `'window' in globalThis` 双重检测
+ * - 浏览器隐私模式:`localStorage` 存在但访问会抛 → 用 try-catch 探测
+ * - 浏览器 iframe sandbox:`localStorage` 可能被禁用
+ */
+function hasLocalStorage(): boolean {
   try {
-    return window.localStorage.getItem(key)
+    return (
+      typeof globalThis !== 'undefined' &&
+      'window' in globalThis &&
+      typeof (globalThis as { window?: { localStorage?: unknown } }).window !== 'undefined' &&
+      typeof (globalThis as { window: { localStorage?: unknown } }).window.localStorage !== 'undefined'
+    )
+  } catch {
+    return false
+  }
+}
+
+/** 跨端安全的 localStorage 读取(RN/SSR/隐私模式均返回 null) */
+function readLocalStorage(key: string): string | null {
+  if (!hasLocalStorage()) return null
+  try {
+    return (globalThis as { window: { localStorage: Storage } }).window.localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
-/** SSR 安全的 localStorage 写入 */
+/** 跨端安全的 localStorage 写入(RN/SSR/隐私模式静默跳过) */
 function writeLocalStorage(key: string, value: '1' | null): void {
-  if (typeof window === 'undefined') return
+  if (!hasLocalStorage()) return
   try {
-    if (value === null) window.localStorage.removeItem(key)
-    else window.localStorage.setItem(key, value)
+    const ls = (globalThis as { window: { localStorage: Storage } }).window.localStorage
+    if (value === null) ls.removeItem(key)
+    else ls.setItem(key, value)
   } catch {
     // 隐私模式或配额满,静默
   }
@@ -90,22 +113,46 @@ export function setSoundNotificationEnabled(enabled: boolean): void {
   writeLocalStorage(SOUND_NOTIFICATION_KEY, enabled ? '1' : null)
 }
 
-/** 当前桌面通知权限(SSR 安全:server 端返回 'unsupported') */
+/** 当前桌面通知权限(SSR/RN 安全:非浏览器环境返回 'unsupported') */
 export function getDesktopPermission(): DesktopPermission {
-  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported'
-  return Notification.permission
+  const w = getBrowserWindow()
+  if (!w || !w.Notification) return 'unsupported'
+  return w.Notification.permission
 }
 
-/** 请求桌面通知权限(SSR 安全);授权成功时同步打开开关,失败时关闭 */
+/** 请求桌面通知权限(SSR/RN 安全);授权成功时同步打开开关,失败时关闭 */
 export async function requestDesktopNotificationPermission(): Promise<boolean> {
-  if (typeof window === 'undefined' || !('Notification' in window)) return false
+  const w = getBrowserWindow()
+  if (!w || !w.Notification) return false
   try {
-    const perm = await Notification.requestPermission()
+    const perm = await w.Notification.requestPermission()
     setDesktopNotificationEnabled(perm === 'granted')
     return perm === 'granted'
   } catch {
     return false
   }
+}
+
+/**
+ * 检测浏览器 window 是否可用(RN/SSR 安全)。
+ * 用于 Notification / AudioContext / document 等 DOM 依赖场景。
+ */
+function hasBrowserWindow(): boolean {
+  try {
+    return (
+      typeof globalThis !== 'undefined' &&
+      'window' in globalThis &&
+      typeof (globalThis as { window?: unknown }).window !== 'undefined'
+    )
+  } catch {
+    return false
+  }
+}
+
+/** 获取浏览器 window 对象,非浏览器环境返回 null */
+function getBrowserWindow(): BrowserWindow | null {
+  if (!hasBrowserWindow()) return null
+  return (globalThis as { window: BrowserWindow }).window
 }
 
 type AudioContextCtor = typeof AudioContext
@@ -114,9 +161,26 @@ interface WindowWithAudioContext {
   webkitAudioContext?: AudioContextCtor
 }
 
+/** 桌面 Notification 构造器签名(浏览器 API,RN 中不存在) */
+interface NotificationConstructor {
+  readonly permission: NotificationPermission
+  requestPermission(): Promise<NotificationPermission>
+  new (title: string, options?: { body?: string; icon?: string }): {
+    onended?: () => void
+  }
+}
+
+interface WindowWithNotification {
+  Notification?: NotificationConstructor
+}
+
+interface BrowserWindow extends WindowWithAudioContext, WindowWithNotification {
+  document?: Document
+}
+
 function getAudioContextCtor(): AudioContextCtor | null {
-  if (typeof window === 'undefined') return null
-  const w = window as unknown as WindowWithAudioContext
+  const w = getBrowserWindow()
+  if (!w) return null
   return w.AudioContext ?? w.webkitAudioContext ?? null
 }
 
@@ -154,12 +218,13 @@ export function playNotificationSound(): void {
  * 避免重复打扰用户(只在后台标签页时弹)。
  */
 export function showDesktopNotification(title: string, body?: string, icon = '/favicon.ico'): void {
-  if (typeof window === 'undefined' || !('Notification' in window)) return
-  if (Notification.permission !== 'granted') return
+  const w = getBrowserWindow()
+  if (!w || !w.Notification) return
+  if (w.Notification.permission !== 'granted') return
   if (!isDesktopNotificationEnabled()) return
   if (typeof document !== 'undefined' && document.visibilityState === 'visible') return
   try {
-    new Notification(title, {
+    new w.Notification(title, {
       body: body ?? '',
       icon,
     })
