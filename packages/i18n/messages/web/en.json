@@ -469,6 +469,7 @@
       "filterPlaceholder": "Filter folders...",
       "nativePick": "System picker",
       "nativePickHint": "Pick with the system native dialog (folder name only — you need to complete the full path)",
+      "nativePickNotFound": "'{name}' not found in the current directory. Please enter the full path manually or navigate to the correct directory",
       "computer": "This PC",
       "parent": "Parent",
       "rootHint": "Pick a drive at this level, or type a full path above",
