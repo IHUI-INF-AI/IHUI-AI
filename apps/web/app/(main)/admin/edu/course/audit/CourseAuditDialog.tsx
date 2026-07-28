@@ -20,7 +20,7 @@ function CompareRow({ label, before, after }: { label: string; before: unknown; 
   const a = after === null || after === undefined || after === '' ? '-' : String(after)
   const diff = b !== a
   return (
-    <div className="grid grid-cols-3 gap-2 border-b border-muted/40 py-1.5 text-sm">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-b border-muted/40 py-1.5 text-sm">
       <div className="font-medium text-muted-foreground">{label}</div>
       <div
         className={cn(
@@ -87,7 +87,7 @@ export function CourseAuditDialog({
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 border-b pb-2 text-xs font-semibold text-muted-foreground">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-b pb-2 text-xs font-semibold text-muted-foreground">
               <div>{t('dialog.field')}</div>
               <div className="text-red-600 dark:text-red-400">{t('dialog.before')}</div>
               <div className="text-emerald-600 dark:text-emerald-400">{t('dialog.after')}</div>
