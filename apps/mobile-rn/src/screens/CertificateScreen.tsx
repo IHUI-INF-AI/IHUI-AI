@@ -13,10 +13,9 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateWithYear } from '../utils/date-utils'
 
@@ -59,22 +58,17 @@ function statusColor(status: Certificate['status']): string {
 
 export function CertificateScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'valid' | 'expired'>('all')
 
   const fetcher = useCallback(async () => {
-    const url = `${API_BASE_URL}/api/certificates?page=1&pageSize=${PAGE_SIZE}&status=${selectedStatus}`
-    const resp = await fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) {
+    const url = `/api/certificates?page=1&pageSize=${PAGE_SIZE}&status=${selectedStatus}`
+    const res = await fetchApi<CertPage>(url)
+    if (!res.success) {
       return { success: false as const, error: t('certificate.loadFailed') }
     }
-    const data = (await resp.json()) as { data?: CertPage }
-    const list = data.data?.list ?? []
-    return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
-  }, [token, selectedStatus, t])
+    return { success: true as const, data: { list: res.data.list, total: res.data.total } }
+  }, [selectedStatus, t])
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<Certificate>(
     fetcher,

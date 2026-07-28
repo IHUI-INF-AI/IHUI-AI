@@ -32,7 +32,7 @@ const C = {
   reset: '\x1b[0m',
 }
 
-// === 检查配置(52 项,顺序与原 pre-commit 一致) ===
+// === 检查配置(54 项,顺序与原 pre-commit 一致) ===
 
 const checks = [
   // --- blocking (36 项) ---
@@ -493,6 +493,48 @@ const checks = [
     script: 'check-i18n-keys.mjs',
     args: ['--parity-only'],
     mode: 'blocking',
+  },
+  // --- 2f-mobile-rn (2026-07-28 新增,mobile-rn 端 5 语言 i18n parity 守门) ---
+  // mobile-rn 是 5 端中唯一无显式 parity 守门的端(仅靠死 key 扫描内置 5 语言 JSON 加载做隐式校验)。
+  // ⚠️ 已知限制(2026-07-28 验证):check-i18n-keys.mjs 当前 MESSAGES_DIR 分支只识别
+  //   web/extension/shared/cli 四种 target,mobile-rn 会 fall through 到默认 web 分支,
+  //   实际检查的是 packages/i18n/messages/web/ 而非 mobile-rn/。
+  //   要让本守门真正生效,需在 check-i18n-keys.mjs 增加 mobile-rn 分支(类似 cli 分支),
+  //   当前为占位项,warn-only 不阻塞 commit。修复后此项才有实际防护意义。
+  // 升级 blocking 评估:待 check-i18n-keys.mjs 补 mobile-rn 分支后再评估。
+  {
+    id: '2f-mobile-rn',
+    label: '🌐 mobile-rn i18n parity 守门(warn-only 起步,2026-07-28 立)',
+    script: 'check-i18n-keys.mjs',
+    args: ['--target=mobile-rn', '--parity-only'],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 mobile-rn 端 5 语言 i18n key 集合不一致。',
+      '     修复:node scripts/check-i18n-keys.mjs --target=mobile-rn 查看详情,',
+      '     补齐缺失 key 或删除多余 key,确保 zh-CN/zh-TW/en/ja/ko 5 语言 key 集合完全一致。',
+      '     1 周后(2026-08-04)评估升级 blocking。',
+      '',
+    ].join('\n'),
+  },
+  // --- 2f-cli (2026-07-28 新增,cli 端 5 语言 i18n parity 守门) ---
+  // check-cli-i18n-parity.mjs 是独立脚本(校验 packages/i18n/messages/cli/*.json),
+  // 原未挂载 guardian-runner,CI 未自动跑。cli 端 i18n 体量小(59 keys/5 locales),
+  // 风险低,warn-only 起步,后续按需升级 blocking。
+  {
+    id: '2f-cli',
+    label: '🌐 cli i18n parity 守门(warn-only,2026-07-28 立)',
+    script: 'check-cli-i18n-parity.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 cli 端 5 语言 i18n key 集合不一致。',
+      '     修复:node scripts/check-cli-i18n-parity.mjs 查看详情,',
+      '     补齐缺失 key 或删除多余 key,确保 zh-CN/zh-TW/en/ja/ko 5 语言 key 集合完全一致。',
+      '     cli 端 i18n 体量小(63 行),warn-only 起步,后续按需升级 blocking。',
+      '',
+    ].join('\n'),
   },
   {
     // 2026-07-26 升级 blocking:11 天观察期(2026-07-15 引入)零误报,
