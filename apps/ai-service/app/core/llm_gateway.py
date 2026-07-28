@@ -1322,6 +1322,11 @@ class MoARouter:
         return {"content": "", "error": "all proposers failed"}
 
 
+# P2 修复:fallback 阶段单次请求级 token budget 上限,防止超大 prompt 重发到 fallback provider
+# 粗略估算:1 token ≈ 4 字符(中英文混合),32K token 上限 ≈ 128K 字符
+_MAX_FALLBACK_PROMPT_CHARS = 128_000
+
+
 class FallbackRouter:
     """Provider 故障转移路由器。
 
@@ -1352,15 +1357,44 @@ class FallbackRouter:
 
         1. 依次尝试 fallbacks 列表中的 provider
         2. 全部失败返回错误
+
+        P2 修复(防重试放大):
+        - 单次请求级 token budget 检查:prompt 超大(>128K 字符)时直接拒绝 fallback,
+          避免无谓消耗 fallback 配额(主 provider 可能因 prompt 超限失败,fallback 同样会失败)。
+        - fallback 阶段禁用 LiteLLM 重试(num_retries=0):原 complete() 默认 num_retries=2,
+          N 个 fallback provider × 2 次重试 = 2N 次请求,主+fallback 双故障时形成重试放大。
+          fallback 是兜底路径,失败应快速返回错误,不重试。
         """
         config = self._configs.get(primary, {})
         fallbacks = config.get("fallbacks", [])
 
+        # P2 修复:单次请求级 token budget 检查
+        # 粗略估算 messages 总字符数,超过 128K 字符(≈32K token)直接拒绝 fallback
+        total_chars = sum(
+            len(str(m.get("content", ""))) for m in messages if isinstance(m, dict)
+        )
+        if total_chars > _MAX_FALLBACK_PROMPT_CHARS:
+            logger.warning(
+                "complete_with_fallback 拒绝重发超大 prompt"
+                "(total_chars=%d > %d),避免 fallback 配额耗尽(primary=%s)",
+                total_chars, _MAX_FALLBACK_PROMPT_CHARS, primary,
+            )
+            return {
+                "content": "",
+                "error": (
+                    f"prompt too large for fallback"
+                    f" (total_chars={total_chars} > {_MAX_FALLBACK_PROMPT_CHARS})"
+                ),
+            }
+
         last_error: str | None = None
         for provider in fallbacks:
             try:
+                # P2 修复:fallback 阶段 num_retries=0,防止重试放大
+                # 主 provider 已失败,fallback 也失败时重试只是浪费资源,应快速返回错误
                 result = await llm_gateway.complete(
-                    messages, model=provider, _skip_fallback=True
+                    messages, model=provider, _skip_fallback=True,
+                    num_retries=0,
                 )
                 if not result.get("error"):
                     return result
