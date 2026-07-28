@@ -31,7 +31,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Build web
-        run: pnpm --filter @ihui/web... build
+        run: pnpm --filter @ihui/web build
         env:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_APP_NAME: IHUI AI
