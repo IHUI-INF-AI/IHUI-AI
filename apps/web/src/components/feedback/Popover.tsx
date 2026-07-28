@@ -162,13 +162,24 @@ export function Popover({
     setCoords({ top: finalTop, left: finalLeft })
   }, [portal, position, align])
 
+  // P2 修复:scroll/resize 监听改 passive:true 减少浏览器开销;updateCoords 加 rAF 节流,
+  // 避免一次 scroll 事件多次触发 updateCoords(含 getBoundingClientRect 强制 layout)
+  const rafRef = React.useRef<number | null>(null)
+  const updateCoordsThrottled = React.useCallback(() => {
+    if (rafRef.current !== null) return // 已有 pending rAF,跳过
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      updateCoords()
+    })
+  }, [updateCoords])
+
   // useLayoutEffect 同步算坐标,避免首次渲染时弹层在 (0,0) 闪烁
   useIsoLayoutEffect(() => {
     if (!open || !portal) return
     updateCoords()
-    // 同步 trigger 位置变化(滚动/resize)
-    window.addEventListener('scroll', updateCoords, true)
-    window.addEventListener('resize', updateCoords)
+    // 同步 trigger 位置变化(滚动/resize);passive:true 减少浏览器开销
+    window.addEventListener('scroll', updateCoordsThrottled, { capture: true, passive: true })
+    window.addEventListener('resize', updateCoordsThrottled, { passive: true })
     // 监听 trigger 自身尺寸变化(Sidebar 折叠/展开)
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
     if (ro && triggerElRef.current) ro.observe(triggerElRef.current)
@@ -177,12 +188,13 @@ export function Popover({
       typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
     if (roContent && contentRef.current) roContent.observe(contentRef.current)
     return () => {
-      window.removeEventListener('scroll', updateCoords, true)
-      window.removeEventListener('resize', updateCoords)
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('scroll', updateCoordsThrottled, true)
+      window.removeEventListener('resize', updateCoordsThrottled)
       ro?.disconnect()
       roContent?.disconnect()
     }
-  }, [open, portal, updateCoords])
+  }, [open, portal, updateCoords, updateCoordsThrottled])
 
   const posClass = {
     top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',

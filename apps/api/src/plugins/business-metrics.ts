@@ -331,14 +331,20 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   }
 
   // 自动采集 API 调用成功率与延迟（按路由+状态码）
-  server.addHook('onResponse', async (request, reply: FastifyReply) => {
+  // P2 修复:onResponse 钩子改为同步函数,用 setImmediate 异步上报 histogram,
+  // 避免同步遍历 LATENCY_BUCKETS + 更新 3 个 Map 阻塞 onResponse 钩子链(高 QPS 热点)。
+  // 早返回判断保留在同步段(快速跳过非 /api/ 与健康检查路径);实际指标更新挪到 setImmediate。
+  server.addHook('onResponse', (request, reply: FastifyReply) => {
     const url = request.url.split('?')[0] ?? ''
     if (!url.startsWith('/api/')) return
     if (url === '/api/health' || url === '/api/metrics' || url === '/api/business-metrics') return
     const route = request.routeOptions?.url ?? url
     const key = `${route}|${reply.statusCode}`
-    counterInc(m.apiCallTotal, key)
-    observeHistogram(m, key, Math.round(reply.elapsedTime))
+    // 异步上报,不阻塞 onResponse 钩子链
+    setImmediate(() => {
+      counterInc(m.apiCallTotal, key)
+      observeHistogram(m, key, Math.round(reply.elapsedTime))
+    })
   })
 
   // ===== 现有业务上报装饰器 =====
