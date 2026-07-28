@@ -141,7 +141,7 @@ export default function BiDashboardPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <div>
         <h1 className="text-2xl font-bold">BI 仪表板</h1>
         <p className="mt-1 text-sm text-muted-foreground">业务核心指标与趋势可视化</p>

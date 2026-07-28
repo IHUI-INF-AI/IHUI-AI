@@ -72,7 +72,7 @@ export default function DatabaseOptimizationPage() {
   const suggestionsList = suggestions ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Database className="h-6 w-6 text-primary" />
@@ -88,12 +88,12 @@ export default function DatabaseOptimizationPage() {
           {t('dbOpt.tableUsage')}
         </h2>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {tc('search')}
           </div>
         ) : tablesList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('dbOpt.noData')}
           </div>
         ) : (
@@ -129,7 +129,7 @@ export default function DatabaseOptimizationPage() {
           {t('dbOpt.slowQueries')}
         </h2>
         {slowQueriesList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('dbOpt.noData')}
           </div>
         ) : (
@@ -167,7 +167,7 @@ export default function DatabaseOptimizationPage() {
           {t('dbOpt.suggestions')}
         </h2>
         {suggestionsList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('dbOpt.noData')}
           </div>
         ) : (

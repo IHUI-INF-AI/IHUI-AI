@@ -44,7 +44,7 @@ export default function RecruitmentPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -61,7 +61,7 @@ export default function RecruitmentPage() {
 
   if (!data) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <Users className="h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('empty')}</p>
       </div>
@@ -76,14 +76,14 @@ export default function RecruitmentPage() {
   const statColors = ['text-primary', 'text-emerald-600', 'text-amber-500']
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-8">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="space-y-3 text-center">
         <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">
           <Target className="h-4 w-4" />
           {data.subtitle ?? t('defaultSubtitle')}
         </div>
         <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{data.title}</h1>
-        <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
+        <p className="mx-auto max-w-2xl text-xs text-muted-foreground md:text-base">
           {data.description}
         </p>
       </header>

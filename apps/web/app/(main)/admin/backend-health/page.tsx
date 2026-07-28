@@ -71,7 +71,7 @@ export default function BackendHealthPage() {
   const healthyCount = servicesList.filter((s) => s.status === 'healthy').length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Activity className="h-6 w-6 text-primary" />
@@ -89,12 +89,12 @@ export default function BackendHealthPage() {
           </span>
         </div>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {tc('search')}
           </div>
         ) : servicesList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('backendHealth.noData')}
           </div>
         ) : (
@@ -176,7 +176,7 @@ export default function BackendHealthPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('backendHealth.recentEvents')}</h2>
         {eventsList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('backendHealth.noData')}
           </div>
         ) : (

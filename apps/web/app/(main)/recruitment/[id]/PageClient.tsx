@@ -67,7 +67,7 @@ export default function RecruitmentDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -98,7 +98,7 @@ export default function RecruitmentDetailPage() {
   const statColors = ['text-primary', 'text-emerald-600', 'text-amber-500']
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/recruitment"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -112,8 +112,8 @@ export default function RecruitmentDetailPage() {
           <Target className="h-4 w-4" />
           {data.subtitle ?? t('defaultSubtitle')}
         </div>
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{data.title}</h1>
-        <p className="text-sm text-muted-foreground md:text-base">{data.description}</p>
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{data.title}</h1>
+        <p className="text-xs text-muted-foreground md:text-base">{data.description}</p>
       </header>
 
       {stats.length > 0 && (

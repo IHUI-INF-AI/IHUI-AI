@@ -89,14 +89,14 @@ export default function KnowledgeRagPage() {
   const sourceLabel = (s: string) => labels[s] ?? s
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <BookMarked className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={() => setUploadOpen(true)}>
@@ -124,7 +124,7 @@ export default function KnowledgeRagPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -134,7 +134,7 @@ export default function KnowledgeRagPage() {
         </div>
       ) : isSearchMode ? (
         hits.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Search className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{tSearch('empty')}</p>
           </div>
@@ -166,7 +166,7 @@ export default function KnowledgeRagPage() {
           </div>
         )
       ) : docs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <FileText className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>

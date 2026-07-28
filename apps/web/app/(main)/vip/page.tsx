@@ -87,13 +87,13 @@ export default function VipPage() {
   const popularIdx = levels.length > 1 ? Math.floor(levels.length / 2) : 0
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1 text-center">
-        <h1 className="flex items-center justify-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <Crown className="h-7 w-7 text-amber-500" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 立即购买 VIP — 跳转收款落地页(支付宝支付) */}
@@ -153,7 +153,7 @@ export default function VipPage() {
       ) : null}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -162,7 +162,7 @@ export default function VipPage() {
           {(error as Error).message}
         </div>
       ) : levels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <Crown className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>

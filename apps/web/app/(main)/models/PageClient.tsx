@@ -38,7 +38,7 @@ export default function ModelsPageClient() {
   const highlightCount = list.filter((m) => m.highlight).length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <ModelsHeader
         total={total}
         freeCount={freeCount}

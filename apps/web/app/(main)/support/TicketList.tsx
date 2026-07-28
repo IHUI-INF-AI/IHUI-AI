@@ -30,7 +30,7 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
   return (
     <>
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
         </div>
@@ -39,7 +39,7 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Ticket className="h-8 w-8 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">暂无工单</p>
           <Button size="sm" variant="outline" onClick={onSwitchToNew} className="mt-1">

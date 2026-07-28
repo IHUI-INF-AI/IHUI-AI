@@ -34,10 +34,10 @@ export default async function ContactPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('contact.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('contact.subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('contact.subtitle')}</p>
       </header>
 
       {/* 联系方式 */}
