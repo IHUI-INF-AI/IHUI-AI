@@ -22,6 +22,7 @@ import { useI18n } from '../../src/i18n'
 import { sendMessage } from '../../lib/message-router'
 import { useSystemTheme } from '../../src/hooks/use-system-theme'
 import { useExtensionThirdPartyAuth } from '../../src/hooks/use-extension-third-party-auth'
+import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { QuickActionButton } from '../components/QuickActionButton'
 import { NotificationBell } from '../components/NotificationBell'
 
@@ -98,7 +99,7 @@ export default function App() {
       })
       if (res?.opened && route !== '/chat') {
         // 写入待跳转路由(sidepanel 启动时检测)
-        await chrome.storage.session?.set({ ihui_pending_route: route })
+        await chrome.storage.session?.set({ [PENDING_ROUTE_STORAGE_KEY]: route })
       }
     } catch (err) {
       console.warn('[IHUI AI] open side panel failed:', err)

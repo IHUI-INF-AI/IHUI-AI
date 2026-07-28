@@ -104,6 +104,7 @@ export default function AiGroupScreen() {
   const list = tab === 'mine' ? items : items.slice().reverse()
 
   const handleEnter = (g: Group) => setSelectedId(g.id)
+  // TODO: i18n — Alert.alert 硬编码中文待翻译(加入群组 / 已申请加入「X」)
   const handleJoin = (g: Group) => Alert.alert('加入群组', `已申请加入「${g.name}」`)
 
   if (loading) {
