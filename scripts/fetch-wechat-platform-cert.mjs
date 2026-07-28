@@ -141,6 +141,9 @@ async function main() {
     method: 'GET',
     headers: {
       Authorization: auth,
+      Accept: 'application/json',
+      // undici 默认 Accept-Language 触发微信 406 PARAM_ERROR,显式覆盖
+      'Accept-Language': 'zh-CN',
       'User-Agent': 'IHUI-AI/1.0 fetch-wechat-platform-cert',
     },
   })

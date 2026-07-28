@@ -221,11 +221,11 @@ export default function HistoryPage() {
       </Card>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <BarChart3 className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('history.noHistory')}</p>
         </div>

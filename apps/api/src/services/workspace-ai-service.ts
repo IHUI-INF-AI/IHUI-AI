@@ -2599,14 +2599,21 @@ class FSBridge {
         const entries: BrowseEntry[] = []
         for (let i = 65; i <= 90; i++) {
           const drive = `${String.fromCharCode(i)}:\\`
-          if (existsSync(drive)) {
-            entries.push({
-              name: `${String.fromCharCode(i)}:`,
-              path: drive,
-              isDir: true,
-              size: 0,
-              modified: 0,
-            })
+          // 2026-07-28 加固:existsSync 在某些 U 盘/网络盘可能抛 ENOENT,
+          // 包 try/catch 防止 browse 整体失败(返回空 entries)
+          try {
+            if (existsSync(drive)) {
+              entries.push({
+                name: `${String.fromCharCode(i)}:`,
+                path: drive,
+                isDir: true,
+                size: 0,
+                modified: 0,
+              })
+            }
+          } catch {
+            // 跳过无法访问的盘符
+            continue
           }
         }
         return entries

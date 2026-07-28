@@ -23,6 +23,14 @@ export interface TransportInit {
   headers?: Record<string, string>
   body?: string
   signal?: AbortSignal
+  /**
+   * fetch credentials 模式。
+   * - web/desktop/extension/mobile-rn:传 'include' 让跨端口 fetch 带 cookie
+   *   (localhost 跨端口 sameSite=lax 允许,auth_token cookie 发送到 api 端,csrf 插件命中豁免)
+   * - 小程序 Taro.request:通常不需要(同域或不跨域),传 'omit' 或不传
+   * 默认 'include'(适配 8801 web -> 8802 api 跨端口场景)。
+   */
+  credentials?: RequestCredentials
 }
 
 /** 传输函数类型 — 替代 native fetch */
@@ -30,7 +38,13 @@ export type Transport = (url: string, init: TransportInit) => Promise<TransportR
 
 /** 默认 transport:包装 native fetch(web/desktop/extension/mobile-rn) */
 const defaultTransport: Transport = async (url, init) => {
-  const response = await fetch(url, init)
+  // 2026-07-28 加固:web 端 8801 -> 8802 跨端口 fetch 必须 credentials: 'include',
+  // 否则 auth_token cookie 不会发送,api 端 csrf 校验失败返回 403
+  // (localStorage token 不走 csrf 流程,但 cookie token 是主路径)
+  const response = await fetch(url, {
+    ...init,
+    credentials: init.credentials ?? 'include',
+  })
   return {
     ok: response.ok,
     status: response.status,

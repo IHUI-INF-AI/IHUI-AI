@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -110,9 +110,9 @@ export default function WithdrawRecordsPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <ArrowDownToLine className="h-7 w-7 text-primary" />
           {t('withdrawRecords')}
         </h1>
@@ -168,7 +168,7 @@ export default function WithdrawRecordsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((it: any) => (
+              items.map((it) => (
                 <TableRow key={it.id}>
                   <TableCell className="px-4 py-2.5 font-medium">{it.amount}</TableCell>
                   <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
@@ -182,10 +182,10 @@ export default function WithdrawRecordsPage() {
                     <span
                       className={cn(
                         'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                        (STATUS_CLS as any)[it.status],
+                        STATUS_CLS[it.status],
                       )}
                     >
-                      {t((STATUS_KEY as any)[it.status])}
+                      {t(STATUS_KEY[it.status])}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">

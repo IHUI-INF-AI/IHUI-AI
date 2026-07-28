@@ -6,24 +6,10 @@ import { getExams, type Exam } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatDateByTemplate } from '../utils/date-utils'
 
 import { Card, Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
 
 function getExamStatus(exam: Exam, now: number): 'notStarted' | 'inProgress' | 'ended' {
   if (exam.endTime) {
@@ -180,12 +166,12 @@ export function ExamScreen() {
               </View>
               {item.startTime ? (
                 <Text className="mt-1 text-xs text-muted-foreground">
-                  {t('exam.start')}:{formatDateTime(item.startTime)}
+                  {t('exam.start')}:{formatDateByTemplate(item.startTime, 'YYYY-MM-DD HH:mm') || '—'}
                 </Text>
               ) : null}
               {item.endTime ? (
                 <Text className="mt-1 text-xs text-muted-foreground">
-                  {t('exam.end')}:{formatDateTime(item.endTime)}
+                  {t('exam.end')}:{formatDateByTemplate(item.endTime, 'YYYY-MM-DD HH:mm') || '—'}
                 </Text>
               ) : null}
               <View className="flex-row justify-end mt-2.5">

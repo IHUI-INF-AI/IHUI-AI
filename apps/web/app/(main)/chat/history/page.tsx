@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -28,7 +28,7 @@ export default function ChatHistoryPage() {
   })
 
   const keyword = q.trim().toLowerCase()
-  const items = (data ?? []).filter((c: any) => !keyword || c.title.toLowerCase().includes(keyword))
+  const items = (data ?? []).filter((c) => !keyword || c.title.toLowerCase().includes(keyword))
   const total = data?.length ?? 0
 
   return (
@@ -83,7 +83,7 @@ export default function ChatHistoryPage() {
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Clock className="h-8 w-8 opacity-40" />
           <p className="text-sm">{keyword ? t('noResults') : t('empty')}</p>
         </div>

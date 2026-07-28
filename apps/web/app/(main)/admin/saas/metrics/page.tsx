@@ -37,7 +37,7 @@ export default function MetricsComparisonPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <BackBar />
 
       {/* 标题 + 刷新 */}
@@ -47,7 +47,7 @@ export default function MetricsComparisonPage() {
             <Activity className="h-6 w-6 text-primary" />
             <CenteredText>{t('pageTitle')}</CenteredText>
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             <CenteredText>{t('pageSubtitle')}</CenteredText>
           </p>
         </div>
@@ -115,7 +115,7 @@ export default function MetricsComparisonPage() {
           ) : !data.available ? (
             <GrafanaUnavailableHint reason={t('degradedHint')} />
           ) : data.tenants.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
+            <div className="py-8 text-center text-sm text-muted-foreground">
               <CenteredText>{t('empty')}</CenteredText>
             </div>
           ) : (

@@ -1,11 +1,20 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import { ArrowLeft, Loader2, ListTree, Search, Calendar, FileText, ChevronRight, Hash } from 'lucide-react'
+import {
+  ArrowLeft,
+  Loader2,
+  ListTree,
+  Search,
+  Calendar,
+  FileText,
+  ChevronRight,
+  Hash,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
@@ -55,7 +64,7 @@ export default function KnowledgeRagDetailPage() {
         body: JSON.stringify({ query: data?.title ?? '', topK: 6 }),
       }),
     enabled: Boolean(data?.title),
-    select: (list: any) => list.filter((h: any) => String(h.docId) !== String(id)).slice(0, 5),
+    select: (list: SearchHit[]) => list.filter((h) => String(h.docId) !== String(id)).slice(0, 5),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -78,7 +87,7 @@ export default function KnowledgeRagDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -103,7 +112,7 @@ export default function KnowledgeRagDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/knowledge-rag"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -113,7 +122,7 @@ export default function KnowledgeRagDetailPage() {
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{data.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{data.title}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <FileText className="h-4 w-4" />
@@ -145,7 +154,7 @@ export default function KnowledgeRagDetailPage() {
         </h2>
         {hits && hits.length > 0 ? (
           <div className="space-y-2">
-            {hits.map((h: any) => (
+            {hits.map((h: SearchHit) => (
               <Link
                 key={h.id}
                 href={`/knowledge-rag/${h.docId}`}

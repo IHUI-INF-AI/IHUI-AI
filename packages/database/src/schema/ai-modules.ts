@@ -7,6 +7,7 @@ import {
   boolean,
   timestamp,
   index,
+  jsonb,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -115,6 +116,11 @@ export const aiCareers = pgTable(
     description: text('description'),
     salary: varchar('salary', { length: 50 }),
     location: varchar('location', { length: 100 }),
+    category: varchar('category', { length: 50 }),
+    tags: jsonb('tags').$type<string[]>(),
+    experience: varchar('experience', { length: 50 }),
+    education: varchar('education', { length: 50 }),
+    requirements: jsonb('requirements').$type<string[]>(),
     sort: integer('sort').default(0).notNull(),
     status: integer('status').default(1).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

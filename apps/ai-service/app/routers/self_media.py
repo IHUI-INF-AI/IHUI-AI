@@ -25,6 +25,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.core.db import get_db_conn
 from app.core.llm_gateway import llm_gateway
 from app.services.koubo_workflow import koubo_workflow_service
 
@@ -198,13 +199,13 @@ async def _run_script(
 
 async def _fetch_history(category: str, limit: int = 50) -> list[dict[str, Any]]:
     """从 self_media_published 表查历史记录。表不存在时返回空列表(降级)。"""
-    dsn = getattr(settings, "database_url", None) or os.environ.get("DATABASE_URL")
+    dsn = settings.database_url or None
     if not dsn:
         return []
     try:
-        conn = await asyncpg.connect(dsn=dsn)
+        conn = await get_db_conn()
     except Exception as e:
-        logger.warning("self_media._fetch_history asyncpg connect 失败: %s", e, exc_info=True)
+        logger.warning("self_media._fetch_history db pool acquire 失败: %s", e, exc_info=True)
         return []
     try:
         rows = await conn.fetch(

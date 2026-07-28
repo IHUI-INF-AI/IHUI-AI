@@ -37,6 +37,10 @@ export interface StatChartProps {
   colors?: string[]
 }
 
+// ECharts canvas 渲染不支持 CSS var(),以下为 tokens.css 硬编码副本:
+// PALETTE 对应 --chart-1~5,7 (blue/emerald/amber/red/violet/cyan)
+// #94a3b8 = --chart-text, 轴线色 ≈ --chart-axis
+// 修改需同步 tokens.css
 const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
 const darkTextStyle = { color: '#94a3b8' }
@@ -62,7 +66,9 @@ export function StatChart({
       return {
         backgroundColor: 'transparent',
         textStyle: isDark ? darkTextStyle : lightTextStyle,
-        title: title ? { text: title, left: 'center', top: 4, textStyle: { fontSize: 13, fontWeight: 600 } } : undefined,
+        title: title
+          ? { text: title, left: 'center', top: 4, textStyle: { fontSize: 13, fontWeight: 600 } }
+          : undefined,
         tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
         legend: { bottom: 0, type: 'scroll' },
         series: [
@@ -88,15 +94,27 @@ export function StatChart({
       return {
         backgroundColor: 'transparent',
         textStyle: isDark ? darkTextStyle : lightTextStyle,
-        title: title ? { text: title, left: 'center', top: 4, textStyle: { fontSize: 13, fontWeight: 600 } } : undefined,
+        title: title
+          ? { text: title, left: 'center', top: 4, textStyle: { fontSize: 13, fontWeight: 600 } }
+          : undefined,
         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
         grid: { left: 40, right: 16, top: title ? 40 : 16, bottom: 30, containLabel: true },
-        xAxis: { type: 'category', data: labels, axisLine: { lineStyle: { color: isDark ? '#475569' : '#cbd5e1' } } },
-        yAxis: { type: 'value', splitLine: { lineStyle: { color: isDark ? '#1e293b' : '#e2e8f0' } } },
+        xAxis: {
+          type: 'category',
+          data: labels,
+          axisLine: { lineStyle: { color: isDark ? '#475569' : '#cbd5e1' } },
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: { lineStyle: { color: isDark ? '#1e293b' : '#e2e8f0' } },
+        },
         series: [
           {
             type: 'bar',
-            data: values.map((v, i) => ({ value: v, itemStyle: { color: colors[i % colors.length] } })),
+            data: values.map((v, i) => ({
+              value: v,
+              itemStyle: { color: colors[i % colors.length] },
+            })),
             barMaxWidth: 36,
             itemStyle: { borderRadius: [4, 4, 0, 0] },
           },
@@ -108,10 +126,17 @@ export function StatChart({
     return {
       backgroundColor: 'transparent',
       textStyle: isDark ? darkTextStyle : lightTextStyle,
-      title: title ? { text: title, left: 'center', top: 4, textStyle: { fontSize: 13, fontWeight: 600 } } : undefined,
+      title: title
+        ? { text: title, left: 'center', top: 4, textStyle: { fontSize: 13, fontWeight: 600 } }
+        : undefined,
       tooltip: { trigger: 'axis' },
       grid: { left: 40, right: 16, top: title ? 40 : 16, bottom: 30, containLabel: true },
-      xAxis: { type: 'category', data: labels, boundaryGap: false, axisLine: { lineStyle: { color: isDark ? '#475569' : '#cbd5e1' } } },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        boundaryGap: false,
+        axisLine: { lineStyle: { color: isDark ? '#475569' : '#cbd5e1' } },
+      },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: isDark ? '#1e293b' : '#e2e8f0' } } },
       series: [
         {
@@ -122,21 +147,22 @@ export function StatChart({
           data: values,
           lineStyle: { color: colors[0], width: 2 },
           itemStyle: { color: colors[0] },
-          areaStyle: type === 'area'
-            ? {
-                color: {
-                  type: 'linear',
-                  x: 0,
-                  y: 0,
-                  x2: 0,
-                  y2: 1,
-                  colorStops: [
-                    { offset: 0, color: `${colors[0]}55` },
-                    { offset: 1, color: `${colors[0]}00` },
-                  ],
-                },
-              }
-            : undefined,
+          areaStyle:
+            type === 'area'
+              ? {
+                  color: {
+                    type: 'linear',
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 1,
+                    colorStops: [
+                      { offset: 0, color: `${colors[0]}55` },
+                      { offset: 1, color: `${colors[0]}00` },
+                    ],
+                  },
+                }
+              : undefined,
         },
       ],
     }

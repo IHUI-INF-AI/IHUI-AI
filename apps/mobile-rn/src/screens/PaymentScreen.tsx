@@ -12,8 +12,10 @@ import {
   type PaymentStatus,
 } from '@ihui/api-client'
 import { openWeChatPayment } from '../lib/wechat-pay'
+import { formatAmount } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatDateByTemplate } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -33,25 +35,6 @@ const STATUS_KEY: Record<PaymentStatus, string> = {
   refunded: 'payment.status.refunded',
 }
 
-function formatAmount(n: number | undefined | null): string {
-  if (typeof n !== 'number') return '—'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function formatTime(iso: string | undefined): string {
-  if (!iso) return ''
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return ''
-  }
-}
 
 export function PaymentScreen() {
   const { t } = useI18n()
@@ -205,7 +188,7 @@ export function PaymentScreen() {
                 <Text className="text-xs text-neutral-500">
                   {t('payment.orderNo')}:{item.orderNo}
                 </Text>
-                <Text className="text-xs text-neutral-500">{formatTime(item.createdAt)}</Text>
+                <Text className="text-xs text-neutral-500">{formatDateByTemplate(item.createdAt, 'YYYY-MM-DD HH:mm')}</Text>
               </View>
               <View className="mt-2 flex-row items-end justify-between">
                 <Text className="text-xs text-neutral-500">{t('payment.amount')}</Text>
@@ -220,7 +203,7 @@ export function PaymentScreen() {
               ) : null}
               {item.paidAt ? (
                 <Text className="mt-1 text-xs text-neutral-500">
-                  {t('payment.paidAt')}:{formatTime(item.paidAt)}
+                  {t('payment.paidAt')}:{formatDateByTemplate(item.paidAt, 'YYYY-MM-DD HH:mm')}
                 </Text>
               ) : null}
               {isPending ? (

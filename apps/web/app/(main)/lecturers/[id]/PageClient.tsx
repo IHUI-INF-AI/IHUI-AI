@@ -59,10 +59,7 @@ export default function LecturerDetailPageClient() {
 
   const channelsQuery = useQuery({
     queryKey: ['live', 'channels', 'lecturer', id],
-    queryFn: () =>
-      api<ChannelsResp>(
-        `/api/live/channels?lecturerId=${encodeURIComponent(id)}`,
-      ),
+    queryFn: () => api<ChannelsResp>(`/api/live/channels?lecturerId=${encodeURIComponent(id)}`),
   })
 
   const channels = channelsQuery.data?.list ?? []
@@ -77,7 +74,7 @@ export default function LecturerDetailPageClient() {
 
   if (!lecturer) {
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-6 py-20 text-center">
+      <div className="mx-auto w-full max-w-6xl space-y-4 py-20 text-center">
         <PlayCircle className="mx-auto h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('notFound')}</p>
         <Link
@@ -92,7 +89,7 @@ export default function LecturerDetailPageClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/lecturers"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -124,17 +121,17 @@ export default function LecturerDetailPageClient() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t('courses')}</h2>
         {channelsQuery.isLoading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : channels.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <PlayCircle className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('noCourses')}</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {channels.map((channel: any) => (
+            {channels.map((channel) => (
               <Link key={channel.id} href={`/live/${channel.id}`} className="group block">
                 <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                   <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">

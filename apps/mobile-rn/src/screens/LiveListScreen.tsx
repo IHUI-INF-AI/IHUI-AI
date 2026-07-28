@@ -3,12 +3,12 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
 import { usePaginatedList } from '../hooks/use-paginated-list'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateTime } from '../utils/date-utils'
 
 import { Card, Loading } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface LiveItem {
@@ -36,20 +36,6 @@ const LIVE_TAB_KEYS: Record<(typeof STATUS_TABS)[number], string> = {
   ended: 'liveList.tab_ended',
 }
 
-function formatDateTime(iso: string): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
-
 function statusColor(status: LiveItem['status']): string {
   if (status === 'ongoing') return '#10B981'
   if (status === 'upcoming') return '#F59E0B'
@@ -58,8 +44,7 @@ function statusColor(status: LiveItem['status']): string {
 
 export function LiveListScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
-  const navigation = useNavigation<NavigationProp>()
+    const navigation = useNavigation<NavigationProp>()
   const [statusTab, setStatusTab] = useState<(typeof STATUS_TABS)[number]>('all')
 
   const fetcher = useCallback(async () => {
@@ -68,14 +53,11 @@ export function LiveListScreen() {
       pageSize: String(PAGE_SIZE),
       status: statusTab,
     })
-    const resp = await fetch(`${API_BASE_URL}/api/live/list?${params.toString()}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) return { success: false as const, error: t('liveList.loadFailed') }
-    const data = (await resp.json()) as { data?: LivePage }
-    const list = data.data?.list ?? []
-    return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
-  }, [token, statusTab, t])
+    const res = await fetchApi<LivePage>(`/live/list?${params.toString()}`)
+    if (!res.success) return { success: false as const, error: t('liveList.loadFailed') }
+    const list = res.data?.list ?? []
+    return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
+  }, [statusTab, t])
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<LiveItem>(
     fetcher,
@@ -153,7 +135,7 @@ export function LiveListScreen() {
               </Text>
               <View style={styles.cardMetaRow}>
                 <Text style={styles.cardMetaText}>
-                  {t('liveList.startAt')}: {formatDateTime(item.startAt)}
+                  {t('liveList.startAt')}: {formatShortDateTime(item.startAt) || '—'}
                 </Text>
                 <Text style={styles.cardMetaText}>
                   {t('liveList.viewerCount', { count: item.viewerCount })}

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -72,13 +72,13 @@ export default function UserSignUpPage() {
           {t('loading', { default: '加载中…' })}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <ClipboardList className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
         <ul className="space-y-3">
-          {items.map((s: any) => (
+          {items.map((s) => (
             <li
               key={s.id}
               className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"

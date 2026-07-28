@@ -894,7 +894,7 @@ function ConfiguredBadge({
 function EmptyState({ onReset }: { onReset: () => void }) {
   const t = useTranslations('models')
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl bg-muted/30 py-16 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl bg-muted/30 py-8 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted text-muted-foreground">
         <Search className="h-5 w-5" />
       </div>

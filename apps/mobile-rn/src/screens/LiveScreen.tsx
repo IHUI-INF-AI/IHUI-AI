@@ -6,21 +6,9 @@ import { Card, Loading } from '@ihui/ui-native'
 import { getLiveList, type Live } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { LiveStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateTime } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<LiveStackParamList>
-
-function formatStart(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return ''
-  }
-}
 
 function statusKey(live: Live): 'live.ongoing' | 'live.upcoming' | 'live.ended' {
   if (live.isLive) return 'live.ongoing'
@@ -118,7 +106,7 @@ export function LiveScreen() {
                 ) : null}
                 <View className="mt-2 flex-row items-center justify-between">
                   <Text className="text-xs text-neutral-500">
-                    {t('live.startAt')}:{formatStart(item.startTime)}
+                    {t('live.startAt')}:{formatShortDateTime(item.startTime)}
                   </Text>
                   <Text className="text-xs text-neutral-500">
                     {t('live.viewerCount', { count: item.viewCount })}

@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  FlatList,
+  Modal,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatDateByTemplate } from '../utils/date-utils'
 
 import { Input, Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -15,20 +25,6 @@ interface Note {
   title: string
   content: string
   updatedAt: string
-}
-
-function formatDateTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
 }
 
 export function NoteScreen() {
@@ -181,16 +177,13 @@ export function NoteScreen() {
               </Text>
             ) : null}
             <Text style={styles.cardMeta}>
-              {t('note.updatedAt')}:{formatDateTime(item.updatedAt)}
+              {t('note.updatedAt')}:{formatDateByTemplate(item.updatedAt, 'YYYY-MM-DD HH:mm')}
             </Text>
             <View style={styles.cardActions}>
               <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(item)}>
                 <Text style={styles.editBtnText}>{t('note.edit')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => handleDelete(item)}
-              >
+              <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item)}>
                 <Text style={styles.deleteBtnText}>{t('common.delete')}</Text>
               </TouchableOpacity>
             </View>
@@ -198,25 +191,29 @@ export function NoteScreen() {
         )}
       />
 
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editing ? t('note.edit') : t('note.add')}
-            </Text>
+            <Text style={styles.modalTitle}>{editing ? t('note.edit') : t('note.add')}</Text>
             <Input
               style={styles.titleInput}
               value={title}
               onChangeText={setTitle}
               placeholder={t('note.titlePlaceholder')}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={tokens.text.tertiary}
             />
-            <Input className="h-auto min-h-[120px]"
+            <Input
+              className="h-auto min-h-[120px]"
               style={styles.contentInput}
               value={content}
               onChangeText={setContent}
               placeholder={t('note.placeholder')}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={tokens.text.tertiary}
               multiline
               textAlignVertical="top"
             />
@@ -247,45 +244,122 @@ export function NoteScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', paddingHorizontal: 16 },
-  loadingText: { marginTop: 8, fontSize: 13, color: '#6b7280' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.light,
+    paddingHorizontal: 16,
+  },
+  loadingText: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-  backText: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6b7280' },
-  userText: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
+  userText: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   actionRow: { paddingHorizontal: 16, paddingVertical: 8 },
-  addBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
-  addBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  addBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+  },
+  addBtnText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
   toastText: { paddingHorizontal: 16, paddingVertical: 4, fontSize: 12, color: PRIMARY },
-  errorText: { paddingHorizontal: 16, paddingVertical: 4, fontSize: 12, color: '#dc2626' },
+  errorText: { paddingHorizontal: 16, paddingVertical: 4, fontSize: 12, color: tokens.error.text },
   list: { flex: 1, paddingHorizontal: 16 },
   empty: { paddingVertical: 40, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: '#9ca3af' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 10 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  cardContent: { marginTop: 4, fontSize: 13, color: '#374151' },
-  cardMeta: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  card: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    marginBottom: 10,
+  },
+  cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  cardContent: { marginTop: 4, fontSize: 13, color: tokens.text.medium },
+  cardMeta: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   cardActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  editBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#f3f4f6' },
-  editBtnText: { color: '#374151', fontSize: 12 },
-  deleteBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#fef2f2' },
-  deleteBtnText: { color: '#dc2626', fontSize: 12 },
-  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  retryText: { color: '#fff', fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  modalContent: { width: '100%', maxWidth: 400, backgroundColor: '#fff', borderRadius: 8, padding: 16 },
-  modalTitle: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  titleInput: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', fontSize: 14, color: '#111827' },
-  contentInput: { marginTop: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', fontSize: 14, color: '#111827', minHeight: 120, maxHeight: 200 },
+  editBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.card,
+  },
+  editBtnText: { color: tokens.text.medium, fontSize: 12 },
+  deleteBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#fef2f2',
+  },
+  deleteBtnText: { color: tokens.error.text, fontSize: 12 },
+  retryBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
+  retryText: { color: tokens.surface.light, fontSize: 14 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: tokens.surface.light,
+    borderRadius: 8,
+    padding: 16,
+  },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
+  titleInput: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    fontSize: 14,
+    color: tokens.text.primary,
+  },
+  contentInput: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    fontSize: 14,
+    color: tokens.text.primary,
+    minHeight: 120,
+    maxHeight: 200,
+  },
   modalActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  cancelBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: '#f3f4f6', alignItems: 'center' },
-  cancelBtnText: { color: '#374151', fontSize: 14 },
-  saveBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
-  saveBtnDisabled: { backgroundColor: '#9ca3af' },
-  saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+  },
+  cancelBtnText: { color: tokens.text.medium, fontSize: 14 },
+  saveBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+  },
+  saveBtnDisabled: { backgroundColor: tokens.text.tertiary },
+  saveBtnText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
 })

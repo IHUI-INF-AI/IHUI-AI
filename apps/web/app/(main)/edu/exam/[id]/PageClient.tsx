@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -55,12 +55,13 @@ export default function EduExamTakePage() {
           ),
         }),
       }),
-    onSuccess: (r: any) => router.push(`/edu/exam/${id}/result?recordId=${r.recordId}`),
+    onSuccess: (r: { recordId: string }) =>
+      router.push(`/edu/exam/${id}/result?recordId=${r.recordId}`),
   })
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -146,7 +147,7 @@ export default function EduExamTakePage() {
           </p>
           <p className="text-base">{q.title}</p>
           <div className="space-y-2">
-            {q.options.map((opt: any) => {
+            {q.options.map((opt: { key: string; value: string }) => {
               const selected = (answers[q.id] ?? []).includes(opt.key)
               return (
                 <button

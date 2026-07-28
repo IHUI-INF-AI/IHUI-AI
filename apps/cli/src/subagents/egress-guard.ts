@@ -167,21 +167,21 @@ function extractFetchUrl(input: string | URL | Request): string {
  * options 中可能包含 protocol/hostname/port/path。
  */
 function extractHttpUrl(
-  args: any[],
+  args: Parameters<typeof http.request>,
   defaultProtocol: string,
 ): string {
   const input = args[0];
-  const options = typeof input === 'string' || input instanceof URL ? args[1] : input;
-
+  const maybeOpts = typeof input === 'string' || input instanceof URL ? args[1] : input;
+  const options = maybeOpts && typeof maybeOpts === 'object' && !(maybeOpts instanceof URL) ? (maybeOpts as http.RequestOptions) : ({} as http.RequestOptions);
   if (typeof input === 'string') return input;
   if (input instanceof URL) return input.href;
-
-  // input 是 options 对象
-  const protocol = options?.protocol || defaultProtocol;
-  const hostname = options?.hostname || options?.host || 'localhost';
-  const port = options?.port ? `:${options.port}` : '';
-  const path = options?.path || '/';
-  return `${protocol}//${hostname}${port}${path}`;
+  const opt = (input && typeof input === 'object' ? input : {}) as http.RequestOptions;
+  const protocol = opt.protocol || options.protocol || defaultProtocol;
+  const hostname = opt.hostname || options.hostname || opt.host || options.host || 'localhost';
+  const port = opt.port || options.port;
+  const portStr = port ? ':' + port : '';
+  const path = opt.path || options.path || '/';
+  return protocol + '//' + hostname + portStr + path;
 }
 
 /**
@@ -190,11 +190,11 @@ function extractHttpUrl(
  * 解析 URL → checkEgress → 通过则调原始函数,不通过则抛 Error。
  */
 function wrapHttpMethod(
-  original: (...args: any[]) => any,
+  original: typeof http.request,
   policy: NetworkEgressPolicy,
   defaultProtocol: string,
-): (url: any, options?: any, callback?: any) => any {
-  return (...args: any[]) => {
+): typeof http.request {
+  const wrapped = (...args: Parameters<typeof http.request>) => {
     const url = extractHttpUrl(args, defaultProtocol);
     const { allowed, reason } = checkEgress(policy, url);
     if (!allowed) {
@@ -202,6 +202,7 @@ function wrapHttpMethod(
     }
     return original(...args);
   };
+  return wrapped as typeof http.request;
 }
 
 let _installed = false;
@@ -232,22 +233,22 @@ export function installEgressGuard(policy: NetworkEgressPolicy): () => void {
 
   // 每个 patch 独立 try-catch,失败不影响其他 patch
   try {
-    (http as any).request = guardedHttpRequest;
+    (http as { request: typeof http.request; get: typeof http.get }).request = guardedHttpRequest;
   } catch (e) {
     warn(`patch http.request failed: ${(e as Error).message}`);
   }
   try {
-    (http as any).get = guardedHttpGet;
+    (http as { request: typeof http.request; get: typeof http.get }).get = guardedHttpGet;
   } catch (e) {
     warn(`patch http.get failed: ${(e as Error).message}`);
   }
   try {
-    (https as any).request = guardedHttpsRequest;
+    (https as { request: typeof https.request; get: typeof https.get }).request = guardedHttpsRequest;
   } catch (e) {
     warn(`patch https.request failed: ${(e as Error).message}`);
   }
   try {
-    (https as any).get = guardedHttpsGet;
+    (https as { request: typeof https.request; get: typeof https.get }).get = guardedHttpsGet;
   } catch (e) {
     warn(`patch https.get failed: ${(e as Error).message}`);
   }
@@ -279,22 +280,22 @@ export function installEgressGuard(policy: NetworkEgressPolicy): () => void {
   return () => {
     // uninstall 守卫:只恢复自己设置的 patch,避免覆盖其他模块的 patch
     try {
-      if ((http as any).request === guardedHttpRequest) (http as any).request = origHttpRequest;
+      if ((http as { request: typeof http.request; get: typeof http.get }).request === guardedHttpRequest) (http as { request: typeof http.request; get: typeof http.get }).request = origHttpRequest;
     } catch (e) {
       warn(`uninstall http.request failed: ${(e as Error).message}`);
     }
     try {
-      if ((http as any).get === guardedHttpGet) (http as any).get = origHttpGet;
+      if ((http as { request: typeof http.request; get: typeof http.get }).get === guardedHttpGet) (http as { request: typeof http.request; get: typeof http.get }).get = origHttpGet;
     } catch (e) {
       warn(`uninstall http.get failed: ${(e as Error).message}`);
     }
     try {
-      if ((https as any).request === guardedHttpsRequest) (https as any).request = origHttpsRequest;
+      if ((https as { request: typeof https.request; get: typeof https.get }).request === guardedHttpsRequest) (https as { request: typeof https.request; get: typeof https.get }).request = origHttpsRequest;
     } catch (e) {
       warn(`uninstall https.request failed: ${(e as Error).message}`);
     }
     try {
-      if ((https as any).get === guardedHttpsGet) (https as any).get = origHttpsGet;
+      if ((https as { request: typeof https.request; get: typeof https.get }).get === guardedHttpsGet) (https as { request: typeof https.request; get: typeof https.get }).get = origHttpsGet;
     } catch (e) {
       warn(`uninstall https.get failed: ${(e as Error).message}`);
     }
