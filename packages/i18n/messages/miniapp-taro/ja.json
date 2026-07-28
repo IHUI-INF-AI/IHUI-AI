@@ -1319,7 +1319,8 @@
       "createSuccess": "エージェントが作成されました",
       "mockSuccess": "APIは未対応です。モック作成が完了しました",
       "submitting": "作成中…",
-      "submit": "エージェント作成"
+      "submit": "エージェント作成",
+      "fileSizeExceeded": "ファイルは10MBを超えることはできません"
     },
     "modelEdit": {
       "title": "モデル編集",

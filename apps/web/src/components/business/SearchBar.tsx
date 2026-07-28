@@ -96,7 +96,22 @@ export function SearchBar({
     }
   }
 
-  const showDropdown = focused && (suggestions.length > 0 || (history.length > 0 && !value))
+  // 2026-07-28 修复(用户反馈"没有历史搜索记录时还显示一个空容器"):
+  // 原 showDropdown 仅看 suggestions.length > 0 / history.length > 0,导致:
+  // - 焦点进入但无输入且无历史时:外层容器渲染但内部两块条件都不满足 → 空容器
+  // - 输入字符后所有 suggestions 都被过滤掉时:外层容器渲染但 suggestions 块为空 → 空容器
+  // 修复:把"是否有可显示内容"作为唯一条件,过滤结果提前到 useMemo 复用,避免渲染时重复 filter。
+  const filteredSuggestions = React.useMemo(
+    () =>
+      value
+        ? suggestions
+            .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
+            .slice(0, 8)
+        : [],
+    [value, suggestions],
+  )
+  const showDropdown =
+    focused && (filteredSuggestions.length > 0 || (!value && history.length > 0))
 
   return (
     // 2026-07-28 简化:合并原两层 div(relative 外层 + relative 内层)为一层,input 直接占满父容器。
@@ -157,12 +172,9 @@ export function SearchBar({
               ))}
             </div>
           )}
-          {value && suggestions.length > 0 && (
+          {value && filteredSuggestions.length > 0 && (
             <div>
-              {suggestions
-                .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
-                .slice(0, 8)
-                .map((s) => (
+              {filteredSuggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => {
