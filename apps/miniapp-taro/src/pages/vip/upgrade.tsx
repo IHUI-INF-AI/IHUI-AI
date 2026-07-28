@@ -2,7 +2,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getVipLevels, upgradeVip, createAlipayMiniappPayment, type VipPayInfo } from '@/api'
+import { getVipLevels, upgradeVip, createAlipayMiniappPayment, post, type VipPayInfo } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import { useI18n } from '@/i18n'
 import './upgrade.css'
@@ -85,14 +85,12 @@ export default function UpgradePage() {
           // @ts-expect-error my.getAuthCode 是支付宝小程序全局 API,Taro 类型未含
           const authRes = await my.getAuthCode({ scopes: 'auth_user' })
           if (authRes?.authCode) {
-            const exRes = await Taro.request({
-              url: '/api/payments/alipay/miniapp/exchange-buyer-id',
-              method: 'POST',
-              data: { authCode: authRes.authCode },
-            })
-            const exData =
-              (exRes.data as { code?: number; data?: { userId?: string; openId?: string } }) ?? {}
-            buyerId = exData.data?.userId ?? exData.data?.openId
+            // 2026-07-28 P0-2: 改用 post(走 fetchApi + 鉴权 header),消除 Taro.request 绕过鉴权
+            const exData = await post<{ userId?: string; openId?: string }>(
+              '/payments/alipay/miniapp/exchange-buyer-id',
+              { authCode: authRes.authCode },
+            )
+            buyerId = exData.userId ?? exData.openId
           }
         } catch (authErr) {
           logger.warn(

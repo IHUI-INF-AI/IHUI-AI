@@ -3,6 +3,7 @@ import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
+import { BUSINESS_CARD_DATA_KEY } from '@/constants/storage'
 import './index.css'
 
 type StoredData = {

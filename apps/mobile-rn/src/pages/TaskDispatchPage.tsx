@@ -9,7 +9,6 @@ import {
   Platform,
 } from 'react-native'
 import { tokens } from '@ihui/rn-app'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type {
   TaskDevice,
@@ -28,12 +27,16 @@ import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
+import { createAsyncStorageTransport } from '../stores/storage-adapter'
 
 import { Input, Loading } from '@ihui/ui-native'
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDispatch'>
 
 /** AsyncStorage 持久化键:最近一次见到任务的 updatedAt 时间戳(ms),用于 WS 重连后增量补拉 */
 const LAST_SEEN_TS_KEY = 'task-last-seen-ts'
+
+// 单例 transport(零运行时开销,AsyncStorage 静态绑定)
+const transport = createAsyncStorageTransport()
 
 /** 附件 base64 解码后最大字节数(1MB,与服务端一致) */
 const FILE_MAX_BYTES = 1_048_576
@@ -77,7 +80,7 @@ async function apiData<T>(path: string, init?: RequestInit): Promise<T | null> {
 /** 读取持久化的 lastSeenTs,失败返回 0 */
 async function loadLastSeenTs(): Promise<number> {
   try {
-    const raw = await AsyncStorage.getItem(LAST_SEEN_TS_KEY)
+    const raw = await transport.getItem(LAST_SEEN_TS_KEY)
     const n = raw ? Number.parseInt(raw, 10) : NaN
     return Number.isFinite(n) && n >= 0 ? n : 0
   } catch {
@@ -88,7 +91,7 @@ async function loadLastSeenTs(): Promise<number> {
 /** 持久化 lastSeenTs,失败静默 */
 async function saveLastSeenTs(ts: number): Promise<void> {
   try {
-    await AsyncStorage.setItem(LAST_SEEN_TS_KEY, String(ts))
+    await transport.setItem(LAST_SEEN_TS_KEY, String(ts))
   } catch {
     /* ignore */
   }
