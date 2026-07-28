@@ -19,7 +19,11 @@ const POSITIONS = [
   { key: 'top-center', labelKey: 'positions.topCenter', class: 'items-start justify-center' },
   { key: 'top-right', labelKey: 'positions.topRight', class: 'items-start justify-end' },
   { key: 'middle-left', labelKey: 'positions.middleLeft', class: 'items-center justify-start' },
-  { key: 'middle-center', labelKey: 'positions.middleCenter', class: 'items-center justify-center' },
+  {
+    key: 'middle-center',
+    labelKey: 'positions.middleCenter',
+    class: 'items-center justify-center',
+  },
   { key: 'middle-right', labelKey: 'positions.middleRight', class: 'items-center justify-end' },
   { key: 'bottom-left', labelKey: 'positions.bottomLeft', class: 'items-end justify-start' },
   { key: 'bottom-center', labelKey: 'positions.bottomCenter', class: 'items-end justify-center' },
@@ -68,7 +72,12 @@ export default function PdfWatermarkPage() {
           <span className="text-xs text-muted-foreground">
             {(file.size / 1024).toFixed(1)} {t('fileSizeUnit')}
           </span>
-          <Button variant="ghost" size="icon" onClick={() => setFile(null)} aria-label={t('remove')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setFile(null)}
+            aria-label={t('remove')}
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -130,7 +139,7 @@ export default function PdfWatermarkPage() {
       </div>
       <div className="space-y-2">
         <Label>{t('position')}</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {POSITIONS.map((p) => (
             <button
               key={p.key}

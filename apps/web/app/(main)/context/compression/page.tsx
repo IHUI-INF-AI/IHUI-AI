@@ -56,7 +56,7 @@ export default function ContextCompressionPage() {
         <div className="py-8 text-center text-sm text-muted-foreground">暂无数据</div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <StatCard
               label="总压缩次数"
               value={stats.totalCompressions.toLocaleString()}
