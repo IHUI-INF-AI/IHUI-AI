@@ -151,14 +151,14 @@ export default function AdminShopProductsPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Package className="h-6 w-6 text-primary" />
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <Package className="h-5 w-5 text-primary" />
             商品管理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">商品列表、分类与上下架</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">商品列表、分类与上下架</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>

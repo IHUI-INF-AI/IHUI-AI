@@ -135,10 +135,10 @@ export default function AccountDeletionPage() {
       : 'fixed bottom-4 right-4 z-50 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('accountDeletionTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('accountDeletionDesc')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('accountDeletionTitle')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('accountDeletionDesc')}</p>
       </div>
 
       <Alert variant="warning" title={t('accountDeletionWarning')} />
@@ -173,7 +173,7 @@ export default function AccountDeletionPage() {
               {t('accountDeletionConfirm')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <Input
               label={t('accountDeletionPhoneLabel')}
               placeholder={t('accountDeletionPhonePlaceholder')}
@@ -181,7 +181,7 @@ export default function AccountDeletionPage() {
               onChange={(e) => setPhone(e.target.value)}
             />
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Input
                 label={t('accountDeletionCodeLabel')}
                 placeholder={t('accountDeletionCodePlaceholder')}

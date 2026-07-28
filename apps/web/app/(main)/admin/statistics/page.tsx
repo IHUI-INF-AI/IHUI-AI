@@ -149,41 +149,41 @@ export default function StatisticsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-3">
       <StatisticsFilter />
 
-      <section className="space-y-3">
+      <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{t('overview')}</h2>
+          <h2 className="text-base font-semibold">{t('overview')}</h2>
           <Button
             variant="outline"
             size="sm"
             disabled={createSnapshot.isPending}
             onClick={() => createSnapshot.mutate('overview')}
           >
-            <Save className="mr-1 h-4 w-4" />
+            <Save className="mr-1 h-3.5 w-3.5" />
             {t('saveSnapshot')}
           </Button>
         </div>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          <div className="flex items-center justify-center py-6 text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             {t('loading')}
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {overviewCards.map((c) => {
               const Icon = c.icon
               return (
                 <Card key={c.label}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">
                       {c.label}
                     </CardTitle>
-                    <Icon className={`h-4 w-4 ${c.color}`} />
+                    <Icon className={`h-3.5 w-3.5 ${c.color}`} />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatNumber(c.value)}</div>
+                    <div className="text-xl font-bold">{formatNumber(c.value)}</div>
                   </CardContent>
                 </Card>
               )
@@ -193,39 +193,39 @@ export default function StatisticsPage() {
       </section>
 
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">用户增长趋势</CardTitle>
+        <CardHeader className="pb-1.5">
+          <CardTitle className="text-sm">用户增长趋势</CardTitle>
           <p className="text-xs text-muted-foreground">近 7 天累计与新增用户</p>
         </CardHeader>
         <CardContent>
-          <EChart option={growthOption} loading={isLoading} />
+          <EChart option={growthOption} loading={isLoading} height={220} />
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">各业务模块数据</CardTitle>
+          <CardHeader className="pb-1.5">
+            <CardTitle className="text-sm">各业务模块数据</CardTitle>
             <p className="text-xs text-muted-foreground">核心指标横向对比</p>
           </CardHeader>
           <CardContent>
-            <EChart option={moduleOption} loading={isLoading} height={280} />
+            <EChart option={moduleOption} loading={isLoading} height={220} />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">用户来源分布</CardTitle>
+          <CardHeader className="pb-1.5">
+            <CardTitle className="text-sm">用户来源分布</CardTitle>
             <p className="text-xs text-muted-foreground">访问渠道占比</p>
           </CardHeader>
           <CardContent>
-            <EChart option={sourceOption} loading={isLoading} height={280} />
+            <EChart option={sourceOption} loading={isLoading} height={220} />
           </CardContent>
         </Card>
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('snapshots')}</h2>
+      <section className="space-y-2">
+        <h2 className="text-base font-semibold">{t('snapshots')}</h2>
         <StatisticsTable list={snapshotsData?.list ?? []} />
       </section>
     </div>

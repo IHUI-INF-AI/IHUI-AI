@@ -75,13 +75,13 @@ export default function AdminSystemMonitorPage() {
   const uptimeStr = `${Math.floor(uptime / 86400)}天 ${Math.floor((uptime % 86400) / 3600)}小时`
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <MonitorCog className="h-6 w-6 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <MonitorCog className="h-5 w-5 text-primary" />
           系统监控
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">系统资源与服务运行状态</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">系统资源与服务运行状态</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -89,14 +89,14 @@ export default function AdminSystemMonitorPage() {
           const Icon = c.icon
           return (
             <Card key={c.label}>
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-1.5">
                 <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                   <Icon className="h-3.5 w-3.5" />
                   {c.label}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
+                <div className="text-xl font-bold">
                   {formatNumber(c.value)}
                   {c.unit}
                 </div>
@@ -121,10 +121,10 @@ export default function AdminSystemMonitorPage() {
         })}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
+          <CardHeader className="pb-1.5">
+            <CardTitle className="flex items-center gap-2 text-sm">
               <Network className="h-4 w-4" />
               系统信息
             </CardTitle>
@@ -158,21 +158,21 @@ export default function AdminSystemMonitorPage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
+          <CardHeader className="pb-1.5">
+            <CardTitle className="flex items-center gap-2 text-sm">
               <Database className="h-4 w-4" />
               服务进程
             </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex items-center justify-center py-6 text-muted-foreground">
+              <div className="flex items-center justify-center py-4 text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               </div>
             ) : services.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">暂无服务数据</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">暂无服务数据</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {services.map((s) => {
                   const st = SERVICE_STYLE[s.status]
                   return (

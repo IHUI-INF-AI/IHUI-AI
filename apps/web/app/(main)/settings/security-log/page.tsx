@@ -31,7 +31,7 @@ interface SecurityLogItem {
   status: 'success' | 'failed'
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 type TabKey = 'all' | 'security' | 'abnormal'
 
@@ -192,7 +192,7 @@ export default function SecurityLogPage() {
           )}
 
           {!loading && !error && logs.length > 0 && (
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-2 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
                 {t('activityPageInfo', { page, totalPages })}
               </span>

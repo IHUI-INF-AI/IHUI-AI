@@ -86,9 +86,9 @@ export default function JobLogPage() {
     )
 
   return (
-    <div className="space-y-4">
-      <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-        <ScrollText className="h-6 w-6 text-primary" />
+    <div className="space-y-3">
+      <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <ScrollText className="h-5 w-5 text-primary" />
         任务日志
       </h1>
 

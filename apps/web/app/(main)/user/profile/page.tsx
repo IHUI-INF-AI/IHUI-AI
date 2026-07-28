@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
 import { RoutinesPanel } from '@/components/ai/routines-panel'
 import { VoiceRecord } from '@/components/ai/voice-record'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 
 import { ProfileAvatar } from './ProfileAvatar'
 import { ProfileStatsCards } from './ProfileStatsCards'
@@ -117,10 +118,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <ProfileAvatar
@@ -131,38 +132,36 @@ export default function ProfilePage() {
         onCropped={handleCroppedAvatar}
       />
 
-      <ProfileStatsCards stats={data?.stats} isError={isError} />
+      <Tabs defaultValue="account" className="space-y-3">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="account">{t('title')}</TabsTrigger>
+          <TabsTrigger value="ai">{t('aiUsage')}</TabsTrigger>
+        </TabsList>
 
-      <ProfileAccountInfo user={user} data={data} />
+        <TabsContent value="account" className="space-y-3">
+          <ProfileStatsCards stats={data?.stats} isError={isError} />
+          <ProfileAccountInfo user={user} data={data} />
+          <ProfileEditForm
+            form={form}
+            onSubmit={onSubmit}
+            isSubmitting={form.formState.isSubmitting}
+            saved={saved}
+            errorMsg={errorMsg}
+            phone={user?.phone ?? ''}
+          />
+        </TabsContent>
 
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold">{t('aiUsage')}</h2>
-        <TokenUsagePanel
-          promptTokens={aiStats.promptTokens}
-          completionTokens={aiStats.completionTokens}
-          totalTokens={aiStats.totalTokens}
-          model={aiStats.latestModel}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold">{t('routines')}</h2>
-        <RoutinesPanel routines={[]} />
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold">{t('voiceRecord')}</h2>
-        <VoiceRecord />
-      </div>
-
-      <ProfileEditForm
-        form={form}
-        onSubmit={onSubmit}
-        isSubmitting={form.formState.isSubmitting}
-        saved={saved}
-        errorMsg={errorMsg}
-        phone={user?.phone ?? ''}
-      />
+        <TabsContent value="ai" className="space-y-3">
+          <TokenUsagePanel
+            promptTokens={aiStats.promptTokens}
+            completionTokens={aiStats.completionTokens}
+            totalTokens={aiStats.totalTokens}
+            model={aiStats.latestModel}
+          />
+          <RoutinesPanel routines={[]} />
+          <VoiceRecord />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

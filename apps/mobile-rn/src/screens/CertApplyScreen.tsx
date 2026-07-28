@@ -4,15 +4,13 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Input, Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
 export function CertApplyScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [name, setName] = useState('')
   const [idCard, setIdCard] = useState('')
@@ -29,15 +27,11 @@ export function CertApplyScreen() {
     setError('')
     setSuccess(false)
     try {
-      const r = await fetch(`${API_BASE_URL}/api/certificates`, {
+      const res = await fetchApi('/certificates', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ name, idCard }),
       })
-      if (!r.ok) throw new Error()
+      if (!res.success) throw new Error()
       setSuccess(true)
       setName('')
       setIdCard('')

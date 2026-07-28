@@ -94,29 +94,29 @@ export default function RealnamePage() {
   const status = info?.status ?? null
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <User className="h-6 w-6 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <User className="h-5 w-5 text-primary" />
           {t('realname.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('realname.subtitle')}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('realname.subtitle')}</p>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('realname.loading')}
         </div>
       ) : status === 'approved' ? (
         <Card className="border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-950/20">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-              <ShieldCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-500" />
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+              <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
             </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">{t('realname.approvedTitle')}</p>
-              <p className="text-lg font-semibold">{info?.realName ?? '-'}</p>
+            <div className="space-y-0.5">
+              <p className="text-xs text-muted-foreground">{t('realname.approvedTitle')}</p>
+              <p className="text-base font-semibold">{info?.realName ?? '-'}</p>
               <p className="text-xs text-muted-foreground">
                 {t('realname.auditTime')}：{info?.auditTime ? formatDate(info.auditTime) : '-'}
               </p>
@@ -125,13 +125,13 @@ export default function RealnamePage() {
         </Card>
       ) : status === 'pending' ? (
         <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
-              <Clock className="h-6 w-6 text-amber-600 dark:text-amber-500" />
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+              <Clock className="h-5 w-5 text-amber-600 dark:text-amber-500" />
             </div>
-            <div className="space-y-1">
-              <p className="text-lg font-semibold">{t('realname.pendingTitle')}</p>
-              <p className="text-sm text-muted-foreground">{t('realname.pendingHint')}</p>
+            <div className="space-y-0.5">
+              <p className="text-base font-semibold">{t('realname.pendingTitle')}</p>
+              <p className="text-xs text-muted-foreground">{t('realname.pendingHint')}</p>
             </div>
           </CardContent>
         </Card>
@@ -139,13 +139,13 @@ export default function RealnamePage() {
         <>
           {status === 'rejected' && (
             <Card className="border-red-500/40 bg-red-50/40 dark:bg-red-950/20">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
-                  <XCircle className="h-6 w-6 text-red-600 dark:text-red-500" />
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500/10">
+                  <XCircle className="h-5 w-5 text-red-600 dark:text-red-500" />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-lg font-semibold">{t('realname.rejectedTitle')}</p>
-                  <p className="text-sm text-red-600 dark:text-red-500">
+                <div className="space-y-0.5">
+                  <p className="text-base font-semibold">{t('realname.rejectedTitle')}</p>
+                  <p className="text-xs text-red-600 dark:text-red-500">
                     {t('realname.rejectedReason')}：{info?.rejectReason ?? t('realname.noReason')}
                   </p>
                 </div>
@@ -154,13 +154,13 @@ export default function RealnamePage() {
           )}
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm">
                 {status === 'rejected' ? t('realname.form.resubmit') : t('realname.formTitle')}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <CardContent className="p-4 pt-2">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="realName">{t('realname.form.name')}</Label>
                   <Input

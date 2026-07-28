@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -63,14 +63,14 @@ export default function ApiKeysSettingsPage() {
   }
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6 py-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <header className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <KeyRound className="h-6 w-6 text-primary" />
+        <div className="space-y-0.5">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <KeyRound className="h-5 w-5 text-primary" />
             API 密钥管理
           </h1>
-          <p className="text-sm text-muted-foreground">管理您的开发者 API 密钥,供第三方应用接入</p>
+          <p className="text-xs text-muted-foreground">管理您的开发者 API 密钥,供第三方应用接入</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="mr-1.5 h-4 w-4" />
