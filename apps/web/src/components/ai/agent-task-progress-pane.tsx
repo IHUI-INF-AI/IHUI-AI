@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
 import { formatDuration, FoldableSectionProvider } from './progress-sections/foldable-section'
@@ -64,9 +65,15 @@ const PLAN_CLS: Record<PlanStepStatus, string> = {
 const PlanStepItem = React.memo(function PlanStepItem({
   step,
   index,
+  isHighlighted,
+  onJumpToMessage,
+  onHoverStep,
 }: {
   step: PlanStep
   index: number
+  isHighlighted?: boolean
+  onJumpToMessage: (messageId: string | undefined, stepId: string) => void
+  onHoverStep: (stepId: string | null) => void
 }) {
   const t = useTranslations('ai.pane')
   const Icon = PLAN_ICON[step.status]
@@ -76,14 +83,28 @@ const PlanStepItem = React.memo(function PlanStepItem({
       : step.status === 'completed'
         ? t('stepCompleted', { n: index + 1, step: step.step })
         : t('stepPending', { n: index + 1, step: step.step })
+  const hasJumpTarget = !!step.relatedMessageId
   return (
     <div
       role="listitem"
       className={cn(
         'flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
         step.status === 'in_progress' && 'bg-primary/10',
+        isHighlighted && 'ring-1 ring-primary/40 bg-primary/8',
+        hasJumpTarget && 'cursor-pointer hover:bg-accent/30',
       )}
       aria-label={stepLabel}
+      onClick={() => hasJumpTarget && onJumpToMessage(step.relatedMessageId, step.id)}
+      onMouseEnter={() => onHoverStep(step.id)}
+      onMouseLeave={() => onHoverStep(null)}
+      onKeyDown={(e) => {
+        if (!hasJumpTarget) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onJumpToMessage(step.relatedMessageId, step.id)
+        }
+      }}
+      tabIndex={hasJumpTarget ? 0 : -1}
     >
       <Icon
         className={cn(

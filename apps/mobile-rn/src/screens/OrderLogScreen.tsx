@@ -13,7 +13,6 @@ interface Item { id: string; action: string; operator: string; time: string; not
 
 export function OrderLogScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,12 +22,11 @@ export function OrderLogScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/order-log`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Item[] }
-      setItems(d.data ?? [])
+      const res = await fetchApi<Item[]>('/api/order-log')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
     } catch { setError(t('orderLog.loadFailed')) } finally { setLoading(false); setRefreshing(false) }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => { void load() }, [load])
 
