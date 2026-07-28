@@ -1004,7 +1004,7 @@ function TerminalViewport({
             <button
               type="button"
               className={cn(
-                'flex h-5 items-center gap-1 rounded px-1.5 text-[10px] transition-colors',
+                'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
                 searchOpts.regex
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -1018,7 +1018,7 @@ function TerminalViewport({
             <button
               type="button"
               className={cn(
-                'flex h-5 items-center gap-1 rounded px-1.5 text-[10px] transition-colors',
+                'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
                 searchOpts.wholeWord
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -1032,7 +1032,7 @@ function TerminalViewport({
             <button
               type="button"
               className={cn(
-                'flex h-5 items-center gap-1 rounded px-1.5 text-[10px] transition-colors',
+                'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
                 searchOpts.caseSensitive
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
