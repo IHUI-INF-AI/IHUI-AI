@@ -4,10 +4,8 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
+import { fetchApi } from '@ihui/api-client'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const FEEDBACK_TYPES = ['bug', 'suggestion', 'question', 'other'] as const
@@ -22,8 +20,7 @@ const FEEDBACK_TYPE_KEYS: Record<FeedbackType, string> = {
 
 export function FeedbackScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
-  const navigation = useNavigation<NavigationProp>()
+    const navigation = useNavigation<NavigationProp>()
   const [type, setType] = useState<FeedbackType>('bug')
   const [content, setContent] = useState('')
   const [contact, setContact] = useState('')
@@ -40,15 +37,8 @@ export function FeedbackScreen() {
     setError('')
     setSuccess('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/feedbacks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ type, content, contact }),
-      })
-      if (!resp.ok) throw new Error('http')
+      const res = await fetchApi('/feedbacks', { method: 'POST', body: JSON.stringify({ type, content, contact }) })
+      if (!res.success) throw new Error('http')
       setSuccess(t('feedback.success'))
       setContent('')
       setContact('')
