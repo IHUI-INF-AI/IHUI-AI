@@ -53,16 +53,16 @@ export default function MyArticlesPage() {
 
   const articles = data?.list ?? []
   const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / 20))
+  const totalPages = Math.max(1, Math.ceil(total / 10))
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">
             {t('title', { default: '我的文章' })}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {t('total', { default: '共 {n} 篇', n: total })}
           </p>
         </div>

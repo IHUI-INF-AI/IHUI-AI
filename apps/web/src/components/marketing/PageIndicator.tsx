@@ -33,8 +33,18 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
   if (total <= 1) return null
   return (
     <div
-      // 2026-07-21 v7:缩窄精致化 - px-1→px-0.5,py-2→py-1.5,gap-1.5→gap-1
-      className="group/indicator fixed right-6 top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
+      // 2026-07-28 升级:动态 right offset 适配 sidebar/ai-panel 占位
+      // - 公式:right = 24px(基础偏移) + (sidebar-width + ai-panel-width)
+      //   营销页 (/):sidebar+ai-panel = 0 → right = 24px(贴 viewport 右边 24px,旧行为)
+      //   工作区页 (/home) 展开 sidebar(130px):right = 154px → 距工作区右边 24px
+      //   工作区页 (/home) 折叠 sidebar(60px):right = 84px → 距工作区右边 24px
+      //   工作区页 (/home) + ai-panel 打开(320px+8):right 进一步加大
+      // 效果:PageIndicator 始终距离"工作区可见区右边 24px",/ 和 /home 视觉一致
+      // 与 ScrollDownButton 用同一组 CSS 变量(单一来源,sidebar/ai-panel 维护),保证两个指示器视觉同步
+      style={{
+        right: 'calc(24px + var(--sidebar-width, 0px) + var(--ai-panel-width, 0px))',
+      }}
+      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {

@@ -18,13 +18,13 @@ import { useTranslations } from 'next-intl'
 
 /** 营销/工作区首页共用的 7-section 内容
  *
- * 2026-07-28 立:从 (marketing)/page.tsx 抽出,工作区版 (/home) 共用同一份内容,
- * 保证两处完全一致(分页结构 + 7 个 section 渲染 + aria-label 文案 + footer 控制)。
+ * 2026-07-28 v2:抽 HomeSectionFrame 子组件,消除 7 个 section 重复 wrapper
+ *   - section 公共属性 id/snap-start/min-height/aria-label 收敛到 Frame
+ *   - 7 个 section 主体 children 各自负责布局(page 1 三段 / page 2-5 单组件 / page 6 三段 / page 7 双组件)
+ *   - 与 v1 行为完全一致(滚动定位、a11y 文案、minHeight 全部保留)
  *
- * - 路由层 (marketing)/page.tsx 与 (main)/home/page.tsx 各自负责外壳:
- *   scroll 容器 + useFullPageScroll + PageIndicator + ScrollDownButton
- * - 本组件只负责 7 个 section 的纯渲染,不引入任何滚动 hook
- * - showFooter 默认 true(营销页需要 footer);(main)/home 传 false 隐藏(工作区不需要)
+ * 2026-07-28 v1:从 (marketing)/page.tsx 抽出,工作区版 (/home) 共用同一份内容,
+ *   保证两处完全一致(分页结构 + 7 个 section 渲染 + aria-label 文案 + footer 控制)。
  */
 export const TOTAL_PAGES = 7
 
@@ -42,6 +42,38 @@ const BENEFITS_KEYS = [
   'benefit6',
 ] as const
 
+/** 7-section 公共 wrapper — 收敛 id/snap-start/minHeight/aria-label 4 项重复
+ *
+ * 抽离理由(2026-07-28 v2):7 个 section 顶层结构几乎相同
+ *   `<section id="home-page-N" className="relative flex snap-start flex-col overflow-hidden"
+ *   style={{ minHeight: 'calc(100vh - 1rem)' }} aria-label={...}>`
+ * 每个 section 重复 3-4 行,7 处共 21-28 行冗余;抽 Frame 后净省 ~16 行且语义清晰。
+ */
+function HomeSectionFrame({
+  page,
+  ariaLabel,
+  height = 'calc(100vh - 1rem)',
+  className,
+  children,
+}: {
+  page: number
+  ariaLabel: string
+  height?: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section
+      id={`home-page-${page}`}
+      className={`relative flex snap-start flex-col overflow-hidden${className ? ` ${className}` : ''}`}
+      style={{ minHeight: height }}
+      aria-label={ariaLabel}
+    >
+      {children}
+    </section>
+  )
+}
+
 export function HomeSections({ showFooter = true }: HomeSectionsProps) {
   const t = useTranslations('marketing')
   const te = useTranslations('enterprise')
@@ -53,11 +85,9 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
   return (
     <>
       {/* Page 1: Hero typewriter + 4 信任徽章 + 6 Benefits + 通知跑马灯 */}
-      <section
-        id="home-page-1"
-        className="relative flex snap-start flex-col overflow-hidden"
-        style={{ minHeight: 'calc(100vh - 1rem)' }}
-        aria-label={t('indicator.page1', { fallback: 'Hero' })}
+      <HomeSectionFrame
+        page={1}
+        ariaLabel={t('indicator.page1', { fallback: 'Hero' })}
       >
         {/* 顶部固定区:Marquee 通知跑马灯 + GithubStarBanner */}
         <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
@@ -116,70 +146,52 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
             ))}
           </ul>
         </div>
-      </section>
+      </HomeSectionFrame>
 
       {/* Page 2: 5 Features + 4 Advantages */}
-      <section
-        id="home-page-2"
-        className="relative flex snap-start flex-col overflow-hidden"
-        style={{ minHeight: 'calc(100vh - 1rem)' }}
-        aria-label={t('features.title', { fallback: 'Features' })}
-      >
+      <HomeSectionFrame page={2} ariaLabel={t('features.title', { fallback: 'Features' })}>
         <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
           <div className="w-full">
             <HomeFeatureGrid />
           </div>
         </div>
-      </section>
+      </HomeSectionFrame>
 
       {/* Page 3: 5 Scenarios */}
-      <section
-        id="home-page-3"
-        className="relative flex snap-start flex-col overflow-hidden"
-        style={{ minHeight: 'calc(100vh - 1rem)' }}
-        aria-label={t('scenarios.title', { fallback: 'Scenarios' })}
-      >
+      <HomeSectionFrame page={3} ariaLabel={t('scenarios.title', { fallback: 'Scenarios' })}>
         <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
           <div className="w-full">
             <HomeScenarios />
           </div>
         </div>
-      </section>
+      </HomeSectionFrame>
 
       {/* Page 4: 8 ROI */}
-      <section
-        id="home-page-4"
-        className="relative flex snap-start flex-col overflow-hidden"
-        style={{ minHeight: 'calc(100vh - 1rem)' }}
-        aria-label={tr('title', { fallback: 'ROI' })}
-      >
+      <HomeSectionFrame page={4} ariaLabel={tr('title', { fallback: 'ROI' })}>
         <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
           <div className="w-full">
             <HomeRoi />
           </div>
         </div>
-      </section>
+      </HomeSectionFrame>
 
       {/* Page 5: 8 行竞品对比表 */}
-      <section
-        id="home-page-5"
-        className="relative flex snap-start flex-col overflow-hidden"
-        style={{ minHeight: 'calc(100vh - 1rem)' }}
-        aria-label={tc('title', { fallback: 'Comparison' })}
+      <HomeSectionFrame
+        page={5}
+        ariaLabel={tc('title', { fallback: 'Comparison' })}
       >
         <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
           <div className="w-full">
             <HomeComparison />
           </div>
         </div>
-      </section>
+      </HomeSectionFrame>
 
       {/* Page 6: 4 定价卡 + 4 Stat 数据条 + 品牌跑马灯 */}
-      <section
-        id="home-page-6"
-        className="relative flex flex-col snap-start overflow-hidden"
-        style={{ minHeight: 'calc(100vh - 1rem)' }}
-        aria-label={t('pricing.title', { fallback: 'Pricing' })}
+      <HomeSectionFrame
+        page={6}
+        ariaLabel={t('pricing.title', { fallback: 'Pricing' })}
+        className="flex flex-col"
       >
         <div className="relative z-10 flex h-full w-full flex-1 flex-col items-center justify-center gap-3 overflow-hidden">
           {/* Pricing 4 卡 */}
@@ -219,19 +231,18 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
             <BrandMarquee />
           </RevealOnView>
         </div>
-      </section>
+      </HomeSectionFrame>
 
       {/* Page 7: Magazine 新闻 + (可选) Footer */}
-      <section
-        id="home-page-7"
-        className="flex min-h-[calc(100vh-1rem)] snap-start flex-col"
-        aria-label={t('magazine.title', { fallback: 'News' })}
+      <HomeSectionFrame
+        page={7}
+        ariaLabel={t('magazine.title', { fallback: 'News' })}
       >
         <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-2">
           <HomePage3Magazine />
         </div>
         {showFooter && <SiteFooter className="mt-0" />}
-      </section>
+      </HomeSectionFrame>
     </>
   )
 }
