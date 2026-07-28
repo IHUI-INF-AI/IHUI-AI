@@ -3,8 +3,7 @@ import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -21,7 +20,6 @@ interface Detail {
 
 export function FeedbackDetailScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const id = route.params.id
@@ -32,18 +30,15 @@ export function FeedbackDetailScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/feedbacks/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Detail }
-      setItem(d.data ?? null)
+      const res = await fetchApi<Detail>(`/feedbacks/${id}`)
+      if (!res.success) throw new Error()
+      setItem(res.data ?? null)
     } catch {
       setError(t('feedbackDetail.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [id, token, t])
+  }, [id, t])
 
   useEffect(() => {
     void load()
@@ -60,7 +55,9 @@ export function FeedbackDetailScreen() {
   if (error || !item) {
     return (
       <View className="flex-1 items-center justify-center p-4">
-        <Text className="text-[13px] text-[#DC2626] text-center">{error || t('feedbackDetail.empty')}</Text>
+        <Text className="text-[13px] text-[#DC2626] text-center">
+          {error || t('feedbackDetail.empty')}
+        </Text>
         <TouchableOpacity onPress={() => navigation.goBack()} className="mt-3">
           <Text className="text-sm text-[#374151]">{t('common.back')}</Text>
         </TouchableOpacity>
@@ -78,14 +75,24 @@ export function FeedbackDetailScreen() {
       </View>
       <View className="p-4">
         <View className="flex-row gap-2 mb-3">
-          <Text className="text-[11px] text-primary-foreground bg-primary px-2 py-0.5 rounded-lg">{item.type}</Text>
-          <Text className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-lg">{item.status}</Text>
+          <Text className="text-[11px] text-primary-foreground bg-primary px-2 py-0.5 rounded-lg">
+            {item.type}
+          </Text>
+          <Text className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-lg">
+            {item.status}
+          </Text>
         </View>
-        <Text className="mt-3 text-[13px] font-semibold text-muted-foreground">{t('feedbackDetail.content')}</Text>
+        <Text className="mt-3 text-[13px] font-semibold text-muted-foreground">
+          {t('feedbackDetail.content')}
+        </Text>
         <Text className="mt-1.5 text-sm text-[#374151] leading-[22px]">{item.content}</Text>
         <Text className="mt-2 text-[11px] text-[#9CA3AF]">{item.createdAt}</Text>
-        <Text className="mt-3 text-[13px] font-semibold text-muted-foreground">{t('feedbackDetail.reply')}</Text>
-        <Text className={`mt-1.5 text-sm leading-[22px] ${item.reply ? 'text-[#374151]' : 'text-[#9CA3AF] italic'}`}>
+        <Text className="mt-3 text-[13px] font-semibold text-muted-foreground">
+          {t('feedbackDetail.reply')}
+        </Text>
+        <Text
+          className={`mt-1.5 text-sm leading-[22px] ${item.reply ? 'text-[#374151]' : 'text-[#9CA3AF] italic'}`}
+        >
           {item.reply || t('common.empty')}
         </Text>
       </View>
