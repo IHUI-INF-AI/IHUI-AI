@@ -224,15 +224,25 @@ export const MessageContextMenu = React.memo(function MessageContextMenu({
 export default MessageContextMenu
 
 /**
- * 工具函数:把 assistant 消息的 markdown 内容解析为"复制为 Markdown"的纯文本。
- * 这里做轻量保留(去除 ``` 围栏但保留缩进代码,链接保留 markdown 形式),
- * 让用户在 notion/obsidian 粘贴时仍可读。
+ * 工具函数:规范化 markdown 文本的空白字符(行尾符 + 连续空行 + 首尾空白),
+ * 让用户在 notion/obsidian 粘贴时仍可读。函数仅做空白处理,不转换 markdown 结构。
+ *
+ * 2026-07-28 改名为 normalizeMarkdown(原名 markdownForClipboard 易与
+ * plainTextForClipboard 混淆,且"复制为 Markdown"语境下旧名暗示会做格式转换)。
  */
-export function markdownForClipboard(content: string): string {
+export function normalizeMarkdown(content: string): string {
   return content
     .replace(/\r\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+/**
+ * @deprecated 请改用 `normalizeMarkdown` —— 旧名暗示"做 markdown 转换",实际只规范化空白。
+ * 保留此别名仅用于外部测试/老调用方平滑迁移,新代码请勿使用。
+ */
+export function markdownForClipboard(content: string): string {
+  return normalizeMarkdown(content)
 }
 
 /** 工具函数:把 markdown 转换为简化纯文本(用于"复制文本") */
