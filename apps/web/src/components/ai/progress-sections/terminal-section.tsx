@@ -31,7 +31,7 @@ function truncateOutput(s: string, max = 500): string {
 
 /** v11: 单个终端任务项(可点击展开 output) */
 const TerminalItem = React.memo(function TerminalItem({ term }: { term: TerminalTask }) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const [expanded, setExpanded] = React.useState(false)
   const Icon = TERMINAL_STATUS_ICON[term.status]
   const hasOutput = !!term.output
@@ -130,7 +130,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
 export const TerminalSection = React.memo(function TerminalSection({
   terminals,
 }: TerminalSectionProps) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   if (terminals.length === 0) return null
 
   const runningCount = terminals.filter((term) => term.status === 'running').length

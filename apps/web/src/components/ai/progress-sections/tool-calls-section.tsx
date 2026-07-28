@@ -128,7 +128,7 @@ function truncateForDisplay(s: string, max = 500): string {
  * v10 Phase 5:导出供 SubagentSection 嵌套展示复用
  */
 export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: AgentToolCall }) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const [expanded, setExpanded] = React.useState(false)
   const cat = categorize(tool.toolName)
   const CatIcon = CATEGORY_ICON[cat]
@@ -291,7 +291,7 @@ const STATUS_FILTER_TKEY: Record<ToolStatusFilter, string> = {
 export const ToolCallsSection = React.memo(function ToolCallsSection({
   tools,
 }: ToolCallsSectionProps) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   // v9: 搜索过滤(hooks 必须在条件返回之前调用)
   const [searchQuery, setSearchQuery] = React.useState('')
   // v11: 状态过滤
