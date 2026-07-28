@@ -522,7 +522,7 @@ pnpm turbo build typecheck lint test
 | `@ihui/ui-react`      | Web + extension shared UI (Card / Button / Resizable / WorkPanel)                                        |
 | `@ihui/ui-native`     | React Native shared UI primitives                                                                        |
 | `@ihui/design-tokens` | Cross-end design tokens (colors / radius / fonts / animations / 10 breakpoints) — single source of truth |
-| `@ihui/rn-app`        | RN ↔ Web cross-end shared screens (About / Profile / Settings) via Solito + StyleSheet                   |
+| `@ihui/rn-app`        | RN ↔ Web cross-end shared screens (About / Profile / Settings) via RN primitives + StyleSheet            |
 | `@ihui/config`        | Shared ESLint / TSConfig / Tailwind presets                                                              |
 | `@ihui/i18n`          | Cross-end i18n utilities                                                                                 |
 | `@ihui/api-client`    | Type-safe API client with onToolCall callbacks                                                           |
@@ -552,7 +552,7 @@ To prevent drift across 8 ends, three single-source-of-truth layers are enforced
 
 - **Design tokens**: `packages/design-tokens/src/styles/tokens.css` — one `@theme` block (colors / radius / fonts / animations / 10 breakpoints) consumed by both Web and Extension via `@import`. Change once, both ends update.
 - **i18n**: Web uses `next-intl` (587 namespaces / 28,800 lines JSON); Extension uses self-built Context runtime (5 languages × 17 namespaces). Both guarded by 8 parity scripts (4 web + 4 extension) with opencc / character range / broken-machinetranslation detection.
-- **RN ↔ Web shared screens**: `packages/app/` provides `AboutScreen` / `ProfileScreen` / `SettingsScreen` as platform-agnostic components via Solito + StyleSheet + RN primitives, with 5 design tokens (brand / surface / text / border / error).
+- **RN ↔ Web shared screens**: `packages/app/` provides `AboutScreen` / `ProfileScreen` / `SettingsScreen` as platform-agnostic components via RN primitives + StyleSheet (props-injected, no external navigation library), with 5 design tokens (brand / surface / text / border / error).
 
 ---
 

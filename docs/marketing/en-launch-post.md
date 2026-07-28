@@ -271,7 +271,7 @@ Tech stack:
 - API: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL
 - Web: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
-- Multi-platform: Taro / Tauri / WXT / React Native + Expo + Solito
+- Multi-platform: Taro / Tauri / WXT / React Native + Expo
 - Shared: 12 packages (database/auth/types/ui/...)
 
 Self-host:
