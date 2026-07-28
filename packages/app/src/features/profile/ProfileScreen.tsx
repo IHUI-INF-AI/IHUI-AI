@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native'
-import { TextLink } from 'solito/link'
 import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
@@ -40,15 +39,9 @@ export function ProfileScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        {onBack ? (
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
-          </TouchableOpacity>
-        ) : (
-          <TextLink href="/" textProps={{ style: styles.backText }}>
-            {t('common.back')}
-          </TextLink>
-        )}
+        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.backText}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>{t('profile.title')}</Text>
       </View>
 
@@ -141,7 +134,13 @@ function createStyles(tk: AppThemeTokens) {
     },
     backText: { fontSize: 14, color: tk.text.medium },
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    errorBar: { marginHorizontal: 16, marginBottom: 8, padding: 10, borderRadius: 8, backgroundColor: tk.error.bg },
+    errorBar: {
+      marginHorizontal: 16,
+      marginBottom: 8,
+      padding: 10,
+      borderRadius: 8,
+      backgroundColor: tk.error.bg,
+    },
     errorText: { fontSize: 12, color: tk.error.text },
     body: { padding: 16, gap: 12 },
     userCard: {
@@ -182,7 +181,13 @@ function createStyles(tk: AppThemeTokens) {
     menuSection: { gap: 8 },
     sectionTitle: { fontSize: 13, fontWeight: '600', color: tk.text.medium },
     menuCard: { borderRadius: 8, backgroundColor: tk.surface.muted, padding: 4 },
-    menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, gap: 10 },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      gap: 10,
+    },
     menuItemGap: { marginTop: 4, backgroundColor: tk.surface.bg, borderRadius: 6 },
     menuIcon: { fontSize: 16 },
     menuLabel: { flex: 1, fontSize: 14, color: tk.text.primary },

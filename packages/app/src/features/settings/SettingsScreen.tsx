@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet } from 'react-native'
-import { TextLink } from 'solito/link'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
@@ -89,15 +88,9 @@ export function SettingsScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        {onBack ? (
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
-          </TouchableOpacity>
-        ) : (
-          <TextLink href="/" textProps={{ style: styles.backText }}>
-            {t('common.back')}
-          </TextLink>
-        )}
+        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.backText}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>{t('settings.title')}</Text>
       </View>
 
@@ -180,13 +173,33 @@ export function SettingsScreen({
         ) : null}
       </View>
 
-      <Modal visible={pwdModalVisible} transparent animationType="fade" onRequestClose={() => setPwdModalVisible(false)}>
+      <Modal
+        visible={pwdModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPwdModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('settings.changePassword')}</Text>
-            <PwdInput placeholder={t('settings.oldPassword')} value={oldPwd} onChange={setOldPwd} styles={styles} />
-            <PwdInput placeholder={t('settings.newPassword')} value={newPwd} onChange={setNewPwd} styles={styles} />
-            <PwdInput placeholder={t('settings.confirmPassword')} value={confirmPwd} onChange={setConfirmPwd} styles={styles} />
+            <PwdInput
+              placeholder={t('settings.oldPassword')}
+              value={oldPwd}
+              onChange={setOldPwd}
+              styles={styles}
+            />
+            <PwdInput
+              placeholder={t('settings.newPassword')}
+              value={newPwd}
+              onChange={setNewPwd}
+              styles={styles}
+            />
+            <PwdInput
+              placeholder={t('settings.confirmPassword')}
+              value={confirmPwd}
+              onChange={setConfirmPwd}
+              styles={styles}
+            />
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnSecondary]}
@@ -214,7 +227,15 @@ export function SettingsScreen({
 
 type ThemedStyles = ReturnType<typeof createStyles>
 
-function Section({ title, children, styles }: { title: string; children: ReactNode; styles: ThemedStyles }) {
+function Section({
+  title,
+  children,
+  styles,
+}: {
+  title: string
+  children: ReactNode
+  styles: ThemedStyles
+}) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -223,7 +244,17 @@ function Section({ title, children, styles }: { title: string; children: ReactNo
   )
 }
 
-function SelectRow({ label, selected, onPress, styles }: { label: string; selected: boolean; onPress: () => void; styles: ThemedStyles }) {
+function SelectRow({
+  label,
+  selected,
+  onPress,
+  styles,
+}: {
+  label: string
+  selected: boolean
+  onPress: () => void
+  styles: ThemedStyles
+}) {
   return (
     <TouchableOpacity style={styles.plainRow} onPress={onPress}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -232,7 +263,17 @@ function SelectRow({ label, selected, onPress, styles }: { label: string; select
   )
 }
 
-function PwdInput({ placeholder, value, onChange, styles }: { placeholder: string; value: string; onChange: (v: string) => void; styles: ThemedStyles }) {
+function PwdInput({
+  placeholder,
+  value,
+  onChange,
+  styles,
+}: {
+  placeholder: string
+  value: string
+  onChange: (v: string) => void
+  styles: ThemedStyles
+}) {
   return (
     <TextInput
       style={styles.pwdInput}
@@ -307,7 +348,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     logoutText: { fontSize: 14, fontWeight: '600', color: tk.error.text },
     versionText: { textAlign: 'center', fontSize: 11, color: tk.text.tertiary, marginTop: 4 },
-    modalOverlay: { flex: 1, backgroundColor: tk.overlay.modal, justifyContent: 'center', padding: 24 },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: tk.overlay.modal,
+      justifyContent: 'center',
+      padding: 24,
+    },
     modalCard: { backgroundColor: tk.surface.bg, borderRadius: 12, padding: 20, gap: 10 },
     modalTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary, marginBottom: 4 },
     pwdInput: {
