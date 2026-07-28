@@ -18,6 +18,7 @@ import {
   type CommissionRecord,
   type DayMonthSummary,
 } from '@ihui/api-client'
+import { formatDateByTemplate } from '../utils/date-utils'
 
 type Settle = 'all' | 'pending' | 'settled'
 
@@ -32,7 +33,7 @@ function isSettled(status: string): boolean {
 }
 
 function formatTime(iso: string): string {
-  return iso.replace('T', ' ').slice(0, 16)
+  return formatDateByTemplate(iso, 'YYYY-MM-DD HH:mm')
 }
 
 export default function ModelIncomeScreen() {
