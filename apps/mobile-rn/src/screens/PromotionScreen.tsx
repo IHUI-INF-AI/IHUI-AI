@@ -35,7 +35,6 @@ function statusColor(status: CouponStatus): string {
 
 export function PromotionScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [items, setItems] = useState<Coupon[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,19 +44,16 @@ export function PromotionScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/coupons`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) throw new Error('http')
-      const data = (await resp.json()) as { data?: Coupon[] }
-      setItems(data.data ?? [])
+      const res = await fetchApi<Coupon[]>('/api/coupons')
+      if (!res.success) throw new Error('http')
+      setItems(res.data ?? [])
     } catch {
       setError(t('promotion.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()

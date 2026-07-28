@@ -13,6 +13,12 @@ interface SubAgentActivityFeedProps {
   activities: SubAgentActivity[]
   completed?: boolean
   initiallyExpanded?: boolean
+  /** 2026-07-28 立(Phase 18.2 Trae Work 对齐):inline 模式,
+   * 去除外层卡片,直接展示 agent 列表(用于对话流中作为子 agent 卡片 inline 渲染) */
+  inline?: boolean
+  /** 2026-07-28 立(Phase 18.4 Trae Work 对齐):step budget 资源预算信息,
+   * 传入后在 inline 模式底部显示 "Current usage: X / 60 step budget" */
+  stepBudget?: { used: number; total: number }
 }
 
 const STATUS_DOT_COLOR: Record<AgentStatus, string> = {

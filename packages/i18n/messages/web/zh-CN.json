@@ -8799,6 +8799,34 @@
       }
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "设置",
+      "个人资料",
+      "项目",
+      "对话历史",
+      "成员",
+      "工作区",
+      "快捷键",
+      "AI 模型"
+    ],
+    "tabs": {
+      "all": "全部",
+      "users": "用户",
+      "projects": "项目",
+      "files": "文件"
+    },
+    "sort": "排序",
+    "sortRelevance": "相关度",
+    "sortTime": "时间",
+    "sortName": "名称",
+    "sortSize": "大小",
+    "emptyKeyword": "请输入搜索关键词",
+    "loading": "搜索中...",
+    "emptyResult": "未找到匹配结果",
+    "open": "打开",
+    "resultsCount": "共 {total} 条结果(用户 {users}、项目 {projects}、文件 {files})"
+  },
   "footer": {
     "companyName": "吉林省爱智汇人工智能科技有限公司",
     "addressLine1": "长春市高新区越达路107号",

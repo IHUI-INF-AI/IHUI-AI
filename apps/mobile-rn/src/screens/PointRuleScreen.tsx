@@ -13,7 +13,6 @@ interface Item { id: string; action: string; points: number; desc: string }
 
 export function PointRuleScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,12 +22,11 @@ export function PointRuleScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/point-rule`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Item[] }
-      setItems(d.data ?? [])
+      const res = await fetchApi<Item[]>('/api/point-rule')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
     } catch { setError(t('pointRule.loadFailed')) } finally { setLoading(false); setRefreshing(false) }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => { void load() }, [load])
 

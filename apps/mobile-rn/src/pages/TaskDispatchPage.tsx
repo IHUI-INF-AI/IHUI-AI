@@ -24,7 +24,7 @@ import type {
 } from '@ihui/shared/tasks/dispatch'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
-import { getToken } from '../lib/token'
+import { fetchApi } from '@ihui/api-client'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
@@ -56,19 +56,10 @@ const TASK_STATUS_KEYS: Record<TaskStatus, string> = {
 
 /** 统一走 { code, message, data } 格式,返回 data 字段 */
 async function apiData<T>(path: string, init?: RequestInit): Promise<T | null> {
-  const token = getToken()
   try {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(init?.headers || {}),
-      },
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    return (json?.data ?? json) as T
+    const res = await fetchApi<T>(path, init)
+    if (!res.success) return null
+    return res.data ?? null
   } catch {
     return null
   }
