@@ -13,6 +13,7 @@ import { initApi, getRefreshToken, getToken, clearAllTokens } from '../lib/token
 import { doRefresh, startAutoRefresh, scheduleRefreshAlarm } from '../lib/token-utils'
 import type { ExtMessage, ExtResponse, ApiProxyPayload } from '../lib/message-router'
 import { getApiBaseUrl } from '../lib/config'
+import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { executeAgentActionRequest } from '../lib/agent-control'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
 import { createChromePlatform } from '@ihui/browser-platform'
@@ -273,6 +274,8 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
 function registerContextMenu(): void {
   if (!chrome.contextMenus) return
   chrome.contextMenus.removeAll(() => {
+    // TODO: i18n — extension contextMenus 待国际化(SW 非 React 组件,无法用 useI18n hook;
+    // 后续可通过 chrome.i18n.getMessage 或读取 chrome.storage.local 的 ihui_locale 动态加载翻译)
     chrome.contextMenus.create({
       id: 'ihui-translate',
       title: 'IHUI AI · 翻译选区',
@@ -449,8 +452,8 @@ export default defineBackground(() => {
           .catch(() => {})
       }
     }
-    if (changes['ihui_pending_route']) {
-      const v = changes['ihui_pending_route'].newValue
+    if (changes[PENDING_ROUTE_STORAGE_KEY]) {
+      const v = changes[PENDING_ROUTE_STORAGE_KEY].newValue
       if (typeof v === 'string') {
         platform.messaging
           .sendRuntimeMessage({ type: 'ws.pending_route', payload: { route: v } })

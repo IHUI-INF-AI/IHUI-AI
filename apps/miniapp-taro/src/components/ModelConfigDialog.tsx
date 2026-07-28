@@ -1,5 +1,6 @@
 import { View, Text, Input, Switch } from '@tarojs/components'
 import { useI18n } from '@/i18n'
+import type { ModelConfigType } from '@ihui/types'
 
 export interface ModelConfig {
   temperature?: number
@@ -13,9 +14,10 @@ export interface ModelConfig {
   timbre?: string
 }
 
+// 共享类型 ModelConfigType 已下沉到 packages/types,两端复用(替代原内联字面量)
 export interface ModelConfigDialogProps {
   visible?: boolean
-  modelType?: 'text' | 'image' | 'video' | 'audio' | 'multimodal'
+  modelType?: ModelConfigType
   config?: ModelConfig
   onChange?: (config: ModelConfig) => void
   onClose?: () => void

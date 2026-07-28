@@ -28,3 +28,6 @@ export { Switch, type SwitchProps } from './switch'
 export { Tooltip, type TooltipProps } from './tooltip'
 export { Sheet, type SheetProps } from './sheet'
 export { Collapsible, type CollapsibleProps } from './collapsible'
+
+// 跨端同名组件共享 props 类型(mobile-rn + miniapp-taro 14 对组件去重)
+export * from './business/types'

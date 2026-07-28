@@ -1,4 +1,8 @@
-import { fetchApi } from '@/lib/api'
+import { unwrapApi as api } from '@/lib/api-helpers'
+import { selectClass, inputSm } from '@/lib/form-styles'
+import { DEFAULT_PAGE_SIZE as PAGE_SIZE } from '@ihui/shared/constants'
+
+export { api, selectClass, inputSm, PAGE_SIZE }
 
 export interface Article {
   id: string
@@ -84,19 +88,7 @@ export interface InfoForm {
   content: string
 }
 
-export const PAGE_SIZE = 20
 export const INFO_PAGE_SIZE = 10
-
-export const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-
-export const inputSm = 'h-8 text-xs'
-
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export function fetchArticles(params: {
   page: number

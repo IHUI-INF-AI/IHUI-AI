@@ -1,90 +1,23 @@
-import { useState, useCallback, useRef } from 'react'
 import { View, Text, Textarea, Button, ScrollView } from '@tarojs/components'
-import { executeAgentRuntimeStream } from '@ihui/api-client'
+import { useAgentRuntime } from '@ihui/shared'
 import { useI18n } from '@/i18n'
-
-type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'
-
-interface PermissionEvent {
-  mode: string
-  toolName?: string
-  dangerLevel?: string
-  decision: string
-}
-
-export interface AgentRuntimePanelProps {
-  sessionId?: string
-}
+import type { AgentRuntimePanelProps } from '@ihui/types'
 
 export default function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
   const { t } = useI18n()
-  const [status, setStatus] = useState<AgentStatus>('idle')
-  const [input, setInput] = useState('')
-  const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null)
-  const [plan, setPlan] = useState<string | null>(null)
-  const [output, setOutput] = useState<string>('')
-  const [error, setError] = useState<string | null>(null)
-  const [permission, setPermission] = useState<PermissionEvent | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
-
-  const handleSend = useCallback(async () => {
-    const message = input.trim()
-    if (!message || status === 'running') return
-
-    setStatus('running')
-    setPlan(null)
-    setOutput('')
-    setError(null)
-    setPermission(null)
-
-    const controller = new AbortController()
-    abortRef.current = controller
-
-    try {
-      await executeAgentRuntimeStream(
-        { message, mode: 'default', sessionId: sessionId ?? undefined },
-        {
-          onSession: (data) => setSessionId(data.sessionId),
-          onPlan: (data) => setPlan(data.plan),
-          onDelta: (data) => setOutput((prev) => prev + data.content),
-          onPermission: (data) => setPermission(data),
-          onDone: (data) => {
-            setStatus('completed')
-            if (data.summary) setOutput(data.summary)
-          },
-          onError: (data) => {
-            setError(data.message)
-            setStatus('failed')
-          },
-        },
-        { signal: controller.signal },
-      )
-    } catch (err) {
-      if (controller.signal.aborted) {
-        setStatus('idle')
-      } else {
-        setError(err instanceof Error ? err.message : String(err))
-        setStatus('failed')
-      }
-    } finally {
-      abortRef.current = null
-    }
-  }, [input, status, sessionId])
-
-  const handleStop = useCallback(() => {
-    abortRef.current?.abort()
-    setStatus('idle')
-  }, [])
-
-  const handleClear = useCallback(() => {
-    setStatus('idle')
-    setInput('')
-    setSessionId(null)
-    setPlan(null)
-    setOutput('')
-    setError(null)
-    setPermission(null)
-  }, [])
+  const {
+    status,
+    input,
+    setInput,
+    sessionId,
+    plan,
+    output,
+    error,
+    permission,
+    handleSend,
+    handleStop,
+    handleClear,
+  } = useAgentRuntime(initialSessionId)
 
   return (
     <View className="flex flex-col bg-card rounded-lg">
