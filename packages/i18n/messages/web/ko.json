@@ -8882,6 +8882,11 @@
     }
   },
   "search": {
+    "history": "검색 기록",
+    "popular": "인기 검색어",
+    "suggest": "검색 제안",
+    "clearAll": "모두 지우기",
+    "noResults": "검색 결과 없음",
     "sortName": "성이름",
     "emptyKeyword": "검색 키워드를 입력하세요",
     "loading": "로딩 중...",
@@ -9678,7 +9683,6 @@
       "working": "{count}개 서브 에이전트 협업 중"
     },
     "pane": {
-      "title": "작업 계획",
       "ariaLabel": "Agent 작업 진행 패널",
       "pin": "고정",
       "unpin": "고정 해제",
@@ -9727,6 +9731,10 @@
       "pinHintPinned": "고정됨, 외부 클릭 시 닫히지 않음",
       "pinHintUnpinned": "고정 해제됨, 외부 클릭 시 닫힘",
       "minimizeHint": "작업 패널 최소화",
+      "emptyTitle": "작업 시작 대기 중",
+      "emptySubtitle": "대화가 시작되면 작업 분해가 여기에 표시됩니다",
+      "elapsedTitle": "경과 {time}",
+      "failureBanner": "{n}개 작업 실패, 클릭하여 보기",
       "emptyHint": "대화 시작 후 작업 계획이 표시됩니다",
       "emptyHintsLabel": "사용 팁",
       "emptyHint1": "대화를 시작하면 AI의 작업 분해와 진행률이 여기에 표시됩니다.",
