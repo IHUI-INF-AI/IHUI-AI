@@ -17,7 +17,7 @@
 **整个流程不需要任何技术背景**。如果你会用淘宝、会用微信，就能完成本指南的所有步骤。每一步都写了"点哪个按钮"，照着做就行。
 
 如果遇到任何问题，**不要硬撑**，请联系：
-- 邮箱:**business@ihui.ai**（用户本人邮箱，会在 24 小时内回复）
+- 邮箱:**business@aizhs.top**（用户本人邮箱，会在 24 小时内回复）
 - GitHub Issue:[https://github.com/IHUI-INF-AI/IHUI-AI/issues](https://github.com/IHUI-INF-AI/IHUI-AI/issues)
 - 微信社群:请联系用户索取邀请码
 
@@ -289,7 +289,7 @@
 
 ### 8.2 联系 IHUI-AI 项目
 
-- **邮箱**:[business@ihui.ai](mailto:business@ihui.ai)
+- **邮箱**:[business@aizhs.top](mailto:business@aizhs.top)
 - **GitHub Issue**:[https://github.com/IHUI-INF-AI/IHUI-AI/issues](https://github.com/IHUI-INF-AI/IHUI-AI/issues)（标题前缀 `[收款渠道开通]`）
 - **微信社群**:请联系用户索取邀请码
 
@@ -322,8 +322,8 @@
 完成所有渠道注册后:
 
 1. **部署项目到生产环境** — 详见 [docs/DEPLOYMENT_RUNBOOK.md](../DEPLOYMENT_RUNBOOK.md)
-2. **配置域名** — 把 `ihui.ai` 指向生产服务器
-3. **配置业务邮箱** — 设置 `business@ihui.ai` 转发到用户主邮箱
+2. **配置域名** — 把 `aizhs.top` 指向生产服务器
+3. **配置业务邮箱** — 设置 `business@aizhs.top` 转发到用户主邮箱
 4. **发起第一次测试收款** — 用 $1 / ¥1 在每个渠道测试一遍
 5. **更新 PROJECT_PLAN.md** — 在 [PROJECT_PLAN.md](../../PROJECT_PLAN.md) 标记收款渠道开通完成
 6. **告知用户** — 把所有账号信息（密码、API Key）加密后发给用户存档

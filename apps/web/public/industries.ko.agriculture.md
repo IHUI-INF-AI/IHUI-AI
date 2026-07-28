@@ -1,5 +1,5 @@
 # IHUI AI — 산업별 특화 GEO 파일 (농업 과학기술)
-# https://ihui.ai/industries.ko.agriculture.md
+# https://aizhs.top/industries.ko.agriculture.md
 # Last updated: 2026-07-26
 # Format: 산업별 특화 지식 베이스 (AI 엔진 "AI + 농업" 고빈도 검색에 최적화)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -195,9 +195,9 @@
   A: 농촌 토지 데이터는 요구에 따라 로컬 배포, 데이터는 현외 반출 불가, 《기본 농전 보호 조례》 준수.
 
 ### 연락처
-- 농업 산업: agriculture@ihui.ai
-- 일반 연락: contact@ihui.ai
-- 공식 사이트: https://ihui.ai
+- 농업 산업: agriculture@aizhs.top
+- 일반 연락: contact@aizhs.top
+- 공식 사이트: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

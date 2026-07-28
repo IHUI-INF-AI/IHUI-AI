@@ -45,7 +45,7 @@ export function ProductsContent(): React.JSX.Element {
       <section className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {PRODUCTS.map(({ id, icon: Icon, popular }) => {
           const title = t(`cards.${id}.title`)
-          const mailto = `mailto:business@ihui.ai?subject=${encodeURIComponent(
+          const mailto = `mailto:business@aizhs.top?subject=${encodeURIComponent(
             `${t('buySubject')} ${title}`,
           )}`
           return (
@@ -88,7 +88,7 @@ export function ProductsContent(): React.JSX.Element {
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" asChild>
-            <a href={`mailto:business@ihui.ai?subject=${encodeURIComponent(t('ctaButton'))}`}>
+            <a href={`mailto:business@aizhs.top?subject=${encodeURIComponent(t('ctaButton'))}`}>
               {t('ctaButton')}
             </a>
           </Button>

@@ -6,10 +6,10 @@ global:
   resolve_timeout: 5m
   # SMTP 邮件网关
   smtp_smarthost: 'smtp.example.com:465'
-  smtp_from: 'alert@ihui.ai'
-  smtp_auth_username: 'alert@ihui.ai'
+  smtp_from: 'alert@aizhs.top'
+  smtp_auth_username: 'alert@aizhs.top'
   smtp_auth_password: '<your-smtp-password>'
-  smtp_hello: 'ihui.ai'
+  smtp_hello: 'aizhs.top'
   smtp_require_tls: false
   # 钉钉 / 飞书 / 企业微信 webhook 占位符 (实际地址由对应 receiver 引用)
   # 通过环境变量注入: DINGTALK_WEBHOOK_URL / FEISHU_WEBHOOK_URL / WECHAT_WEBHOOK_URL
@@ -38,7 +38,7 @@ route:
 receivers:
   - name: 'default-email'
     email_configs:
-      - to: 'ops@ihui.ai'
+      - to: 'ops@aizhs.top'
         send_resolved: true
         headers:
           Subject: '[IHUI-AI Alert] {{ .CommonLabels.alertname }}'

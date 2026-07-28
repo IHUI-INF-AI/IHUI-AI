@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-edu#webpage',
-      url: 'https://ihui.ai/zh-TW/use-cases/ai-edu',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-edu#webpage',
+      url: 'https://aizhs.top/zh-TW/use-cases/ai-edu',
       name: 'AI 智慧教育 Agent 用例 — IHUI AI',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建的 AI 智慧教育 Agent:個性化學習路徑、智慧答疑、出題與作業批改、學習資料分析、教研協作、家校溝通,30 分鐘上線,8 端分發。',
       inLanguage: ['zh-TW', 'zh-CN', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-edu#breadcrumb',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-edu#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 智慧教育', item: 'https://ihui.ai/zh-TW/use-cases/ai-edu' },
+        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 智慧教育', item: 'https://aizhs.top/zh-TW/use-cases/ai-edu' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-edu#howto',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-edu#howto',
       name: '30 分鐘搭建 AI 智慧教育 Agent',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建 AI 智慧教育 Agent 的 6 步流程:配置學情資料 → 訓練學習路徑模型 → 接入題庫 → 設定作業批改規則 → 啟用資料分析 → 對接家校溝通。個性化教學覆蓋 100% 學生。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 智慧教育 Agent — IHUI AI',
     description: '個性化學習路徑 + 智慧答疑 + 作業批改,30 分鐘上線。',
-    url: 'https://ihui.ai/zh-TW/use-cases/ai-edu',
+    url: 'https://aizhs.top/zh-TW/use-cases/ai-edu',
     type: 'article',
   },
 }

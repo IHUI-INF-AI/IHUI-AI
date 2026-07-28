@@ -1,5 +1,5 @@
 /**
- * Playwright globalSetup:在所有测试开始前自动 seed test@ihui.ai 用户。
+ * Playwright globalSetup:在所有测试开始前自动 seed test@aizhs.top 用户。
  *
  * 触发时机:Playwright 启动时(globalSetup 阶段),早于 webServer 就绪后跑第一个 spec。
  * 与 global-teardown.ts 配对:setup seed → 测试运行 → teardown cleanup,保证数据库
@@ -25,7 +25,7 @@ export default async function globalSetup(): Promise<void> {
   }
 
   const repoRoot = path.resolve(__dirname, '../../..')
-  console.log('[e2e:global-setup] 开始 seed test@ihui.ai 用户...')
+  console.log('[e2e:global-setup] 开始 seed test@aizhs.top 用户...')
 
   try {
     execSync('pnpm --filter @ihui/api run seed:test-users', {

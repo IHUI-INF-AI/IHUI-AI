@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     title: '赞助 IHUI AI — 支持开源 AI 操作系统',
     description:
       '5 档赞助等级,支持开源 AI 平台持续开发,获专属权益。',
-    url: 'https://ihui.ai/sponsor',
+    url: 'https://aizhs.top/sponsor',
     type: 'website',
   },
 }

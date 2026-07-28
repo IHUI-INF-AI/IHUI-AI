@@ -68,7 +68,7 @@ export default async function Image() {
             marginTop: 'auto',
           }}
         >
-          ihui.ai
+          aizhs.top
         </div>
       </div>
     ),

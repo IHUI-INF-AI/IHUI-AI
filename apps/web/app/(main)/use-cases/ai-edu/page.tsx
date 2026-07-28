@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title: t('metaTitle'),
       description: t('metaDescription'),
-      url: 'https://ihui.ai/use-cases/ai-edu',
+      url: 'https://aizhs.top/use-cases/ai-edu',
       type: 'website',
     },
   }
@@ -65,9 +65,9 @@ export default async function AiEduPage() {
     courseJsonLd = generateCourseSchema({
       name: t('name'),
       description: t('description'),
-      url: 'https://ihui.ai/use-cases/ai-edu',
+      url: 'https://aizhs.top/use-cases/ai-edu',
       providerName: t('provider'),
-      providerUrl: 'https://ihui.ai',
+      providerUrl: 'https://aizhs.top',
       hasCourseInstance: {
         startDate: t('startDate'),
         endDate: t('endDate'),

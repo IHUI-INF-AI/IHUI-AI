@@ -115,7 +115,7 @@ function MemoryWarningHandler() {
 function SsoLaunchHandler() {
   const { t } = useI18n()
   useLaunch((options) => {
-    // 2026-07-27 移除 loadFontFace:远程字体 https://ihui.ai/fonts/ 在小程序环境
+    // 2026-07-27 移除 loadFontFace:远程字体 https://aizhs.top/fonts/ 在小程序环境
     // TLS 连接失败 + 渲染层 ERR_CACHE_MISS/ERR_CONNECTION_CLOSED,fail 回调只能
     // 抑制 JS 层错误,渲染层网络错误仍上报控制台。系统字体兜底,功能不受影响。
     initPrivacyGuard()

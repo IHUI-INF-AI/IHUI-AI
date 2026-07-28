@@ -12,7 +12,7 @@ npm install @ihui/sdk
 
 ```ts
 import { IhuiClient } from '@ihui/sdk';
-const client = new IhuiClient('https://api.ihui.ai', 'your-api-key');
+const client = new IhuiClient('https://api.aizhs.top', 'your-api-key');
 const resp = await client.chat.completions.create({
   model: 'gpt-4o',
   messages: [{ role: 'user', content: '你好' }],

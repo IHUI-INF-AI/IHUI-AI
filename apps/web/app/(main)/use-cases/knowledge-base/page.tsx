@@ -6,28 +6,28 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/knowledge-base#webpage',
-      url: 'https://ihui.ai/use-cases/knowledge-base',
+      '@id': 'https://aizhs.top/use-cases/knowledge-base#webpage',
+      url: 'https://aizhs.top/use-cases/knowledge-base',
       name: '企业知识库 RAG 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的企业知识库 RAG:全量文档接入、向量 + BM25 混合检索、知识图谱、权限精细管控、多端问答。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/knowledge-base#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/knowledge-base#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: '企业知识库', item: 'https://ihui.ai/use-cases/knowledge-base' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: '企业知识库', item: 'https://aizhs.top/use-cases/knowledge-base' },
       ],
     },
     // 2026-07-26 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建企业知识库 RAG"类检索)
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/knowledge-base#howto',
+      '@id': 'https://aizhs.top/use-cases/knowledge-base#howto',
       name: '60 秒搭建企业知识库 RAG 智能问答',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建企业知识库 RAG 的 4 步流程:连接数据源 → 智能解析 → 向量化索引 → 智能问答。找信息时间降低 70%,准确率 95%+。',
@@ -77,7 +77,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: '企业知识库 RAG — 让每个员工都拥有 AI 助手',
     description: '找信息时间 -70%,准确率 95%+,30+ 数据源接入。',
-    url: 'https://ihui.ai/use-cases/knowledge-base',
+    url: 'https://aizhs.top/use-cases/knowledge-base',
     type: 'article',
   },
 }

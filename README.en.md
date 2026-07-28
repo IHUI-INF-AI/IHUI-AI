@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <strong>Live Demo</strong> · <a href="https://ihui.ai">https://ihui.ai</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star ⭐ to support us</a><br/>
+  <strong>Live Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star ⭐ to support us</a><br/>
   <sub>8-end same-source codebase · 176 LLM models · LangGraph + MCP + A2A triple stack · Apache 2.0 — commercial-ready</sub>
 </p>
 

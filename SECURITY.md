@@ -19,9 +19,9 @@ IHUI-AI 是积极开发中的开源项目,仅对最新主版本提供安全更�
 
 **请勿在 GitHub Issue / Discussions / 公开渠道披露安全漏洞。**
 
-- **首选邮箱**:`security@ihui.ai`
+- **首选邮箱**:`security@aizhs.top`
 - **GitHub 私密报告**:使用 GitHub 的 [Security Advisory](https://github.com/IHUI-INF-AI/IHUI-AI/security/advisories/new) 功能(Private vulnerability reporting)
-- **PGP 加密**(可选,高敏感漏洞):请求公钥请发邮件至 `security@ihui.ai`,主题含 `[PGP-KEY-REQUEST]`
+- **PGP 加密**(可选,高敏感漏洞):请求公钥请发邮件至 `security@aizhs.top`,主题含 `[PGP-KEY-REQUEST]`
 
 ### 报告应包含
 
@@ -41,7 +41,7 @@ IHUI-AI 是积极开发中的开源项目,仅对最新主版本提供安全更�
 | 修复发布 | Critical 7 天内 / High 14 天 / Medium 30 天 / Low 下个 release | 在私有分支修复,通过 Release 部署补丁 |
 | 公开披露 | 修复发布后 90 天(或与报告者协商的协调披露窗口) | 发布 Security Advisory + CVE 申请 |
 
-如未在 SLA 内收到回复,请通过 `community@ihui.ai` 升级提醒。
+如未在 SLA 内收到回复,请通过 `community@aizhs.top` 升级提醒。
 
 ### 报告者致谢
 
@@ -106,7 +106,7 @@ IHUI-AI 在多层级实施了安全防护:
 - **Critical / High**:发布专门的 Patch Release(如 `v0.2.1`),在 GitHub Release 描述中附 Security Advisory 链接
 - **Medium / Low**:合入下一个常规 Release
 - **CVE 申请**:Critical 漏洞修复后,我们会通过 GitHub Security Advisory 申请 CVE 编号
-- **公告渠道**:GitHub Release Notes + Discussions 公告 + (Critical 时)`security@ihui.ai` 邮件列表通知
+- **公告渠道**:GitHub Release Notes + Discussions 公告 + (Critical 时)`security@aizhs.top` 邮件列表通知
 
 ---
 
@@ -122,7 +122,7 @@ IHUI-AI 在多层级实施了安全防护:
 
 ## 反馈与改进
 
-如对本安全策略有建议,请通过 `security@ihui.ai` 提出,或开一个非敏感的 GitHub Discussion 讨论(请勿在公开渠道讨论具体漏洞细节)。
+如对本安全策略有建议,请通过 `security@aizhs.top` 提出,或开一个非敏感的 GitHub Discussion 讨论(请勿在公开渠道讨论具体漏洞细节)。
 
 ---
 

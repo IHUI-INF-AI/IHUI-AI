@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-research#webpage',
-      url: 'https://ihui.ai/ko/use-cases/ai-research',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-research#webpage',
+      url: 'https://aizhs.top/ko/use-cases/ai-research',
       name: 'AI 학술 연구 어시스턴트 Agent 사용 사례 — IHUI AI',
       description:
         'IHUI AI 풀스택 AI OS 기반의 AI 학술 연구 어시스턴트:논문 검색/리뷰, PDF 파싱, 인용 관리, 연구 동향 분석, 융합 학문 지식 그래프. 30분 온보딩, 8엔드포인트 배포.',
       inLanguage: ['ko', 'zh-CN', 'zh-TW', 'en', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-research#breadcrumb',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-research#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '홈', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 학술 연구', item: 'https://ihui.ai/ko/use-cases/ai-research' },
+        { '@type': 'ListItem', position: 1, name: '홈', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 학술 연구', item: 'https://aizhs.top/ko/use-cases/ai-research' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-research#howto',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-research#howto',
       name: '30분 만에 AI 학술 연구 어시스턴트 구축',
       description:
         'IHUI AI 풀스택 AI OS에서 AI 학술 연구 어시스턴트를 구축하는 6단계:DB 연결 → 문헌 업로드 → 인용 스타일 설정 → 리뷰 모델 학습 → 지식 그래프 구축 → 동향 리포트 출력. 문헌 조사 효율 8배 향상.',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 학술 연구 어시스턴트 — IHUI AI',
     description: '문헌 검색 + 리뷰 생성 + 지식 그래프, 30분 온보딩.',
-    url: 'https://ihui.ai/ko/use-cases/ai-research',
+    url: 'https://aizhs.top/ko/use-cases/ai-research',
     type: 'article',
   },
 }

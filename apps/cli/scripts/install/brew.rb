@@ -5,7 +5,7 @@
 # 重新编译发布前:用 `npm view @ihui/cli version` 获取最新版本,更新 url/sha256。
 class IhuiAi < Formula
   desc "IHUI AI Coding Agent CLI — 对标 Claude Code / Codex"
-  homepage "https://ihui.ai"
+  homepage "https://aizhs.top"
   url "https://registry.npmjs.org/@ihui/cli/-/cli-1.0.0.tgz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license "MIT"

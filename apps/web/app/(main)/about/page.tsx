@@ -10,34 +10,34 @@ const aboutJsonLd = {
   '@graph': [
     {
       '@type': 'AboutPage',
-      '@id': 'https://ihui.ai/about#webpage',
-      url: 'https://ihui.ai/about',
+      '@id': 'https://aizhs.top/about#webpage',
+      url: 'https://aizhs.top/about',
       name: '关于智汇 AI — 全栈 AI 操作系统',
       description:
         '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持六端同源分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
       primaryImageOfPage: {
         '@type': 'ImageObject',
-        url: 'https://ihui.ai/images/logo.png',
+        url: 'https://aizhs.top/images/logo.png',
       },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/about#breadcrumb',
+      '@id': 'https://aizhs.top/about#breadcrumb',
       itemListElement: [
         {
           '@type': 'ListItem',
           position: 1,
           name: '首页',
-          item: 'https://ihui.ai',
+          item: 'https://aizhs.top',
         },
         {
           '@type': 'ListItem',
           position: 2,
           name: '关于智汇 AI',
-          item: 'https://ihui.ai/about',
+          item: 'https://aizhs.top/about',
         },
       ],
     },
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     title: '关于智汇 AI — 全栈 AI 操作系统',
     description:
       '一码六端,一站 AI。智汇 AI(IHUI AI)是开源的全栈 AI 操作系统,把 Agent 设计、知识库、多模型调度、跨端协作装进同一个平台。',
-    url: 'https://ihui.ai/about',
+    url: 'https://aizhs.top/about',
     type: 'website',
   },
 }

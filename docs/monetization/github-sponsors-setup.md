@@ -224,7 +224,7 @@ GitHub Sponsors 通过 **Stripe** 收款，所以会要求连接 Stripe 账号�
    Thank you for your support! 💖
    ```
 4. **Links**:
-   - Website: `https://ihui.ai`
+   - Website: `https://aizhs.top`
    - GitHub: `IHUI-INF-AI`
    - Twitter:（如有）
 5. 点击 **"Save"**

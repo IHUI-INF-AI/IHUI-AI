@@ -109,7 +109,7 @@
 
 ## 咨询与试用
 
-- 邮箱:**sales@ihui.ai**
+- 邮箱:**sales@aizhs.top**
 - 售前 Demo 搭建:[demo-setup.sh](./demo-setup.sh)
 - 报价单生成:[quote-generator.mjs](./quote-generator.mjs)
 - SLA 条款:[sla-terms.md](./sla-terms.md)

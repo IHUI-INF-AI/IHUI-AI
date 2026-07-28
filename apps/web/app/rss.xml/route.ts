@@ -16,7 +16,7 @@ import { getAllRoutesForFeed } from './feed-source'
 // RSS/Atom 是构建时确定的内容,完全可以用 force-static 预渲染
 export const dynamic = 'force-static'
 
-const SITE_URL = 'https://ihui.ai'
+const SITE_URL = 'https://aizhs.top'
 const SITE_TITLE = 'IHUI AI — 全栈 AI 操作系统'
 const SITE_DESCRIPTION =
   '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,Apache 2.0 开源。'
@@ -47,8 +47,8 @@ export async function GET() {
     <description>${escapeXml(SITE_DESCRIPTION)}</description>
     <language>zh-cn</language>
     <copyright>© 2024-2026 ${escapeXml(SITE_TITLE)}</copyright>
-    <managingEditor>contact@ihui.ai (IHUI AI Team)</managingEditor>
-    <webMaster>contact@ihui.ai (IHUI AI Team)</webMaster>
+    <managingEditor>contact@aizhs.top (IHUI AI Team)</managingEditor>
+    <webMaster>contact@aizhs.top (IHUI AI Team)</webMaster>
     <lastBuildDate>${now}</lastBuildDate>
     <pubDate>${now}</pubDate>
     <generator>IHUI AI RSS Generator</generator>

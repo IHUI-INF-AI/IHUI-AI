@@ -1,4 +1,4 @@
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 401 未授权异常 — API Key 无效或缺失。

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # IHUI CLI 一键安装脚本
-# 用法: curl -fsSL https://ihui.ai/install.sh | bash
+# 用法: curl -fsSL https://aizhs.top/install.sh | bash
 # 依赖: Node.js 20+(自动检测,缺失则报错引导安装)
 set -euo pipefail
 
@@ -47,7 +47,7 @@ fi
 if command -v ihui >/dev/null 2>&1; then
   info "安装成功: ihui $(ihui --version 2>/dev/null || echo 'unknown')"
   printf "  运行 ${BOLD}ihui${NC} 进入交互式 REPL\n"
-  printf "  文档: ${CYAN}https://ihui.ai${NC}\n"
+  printf "  文档: ${CYAN}https://aizhs.top${NC}\n"
 else
   warn "ihui 未加入 PATH,请将 npm 全局 bin 目录加入 PATH"
   printf "  查询全局 bin: ${BOLD}npm bin -g${NC}\n"

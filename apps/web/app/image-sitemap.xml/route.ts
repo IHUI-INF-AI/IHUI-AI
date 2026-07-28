@@ -16,9 +16,9 @@ import path from 'node:path'
 // 必须显式声明 force-static,否则构建报错。
 export const dynamic = 'force-static'
 
-const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ihui.ai'
+const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://aizhs.top'
 const IMAGES_ROOT = path.join(process.cwd(), 'public', 'images')
-const LICENSE_URL = 'https://ihui.ai/agreement'
+const LICENSE_URL = 'https://aizhs.top/agreement'
 
 const SUPPORTED_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.avif', '.svg', '.gif'])
 

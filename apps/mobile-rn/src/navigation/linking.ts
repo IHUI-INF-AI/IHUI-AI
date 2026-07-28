@@ -7,7 +7,7 @@ import type { RootStackParamList } from './RootNavigator'
  * 只配置关键路由,其他路由走 navigation.navigate 不受影响。
  */
 export const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: ['ihui://', 'https://ihui.ai'],
+  prefixes: ['ihui://', 'https://aizhs.top'],
   config: {
     screens: {
       // 首页:空路径匹配根路径 /

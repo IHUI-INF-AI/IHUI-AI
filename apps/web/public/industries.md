@@ -1,5 +1,5 @@
 # IHUI AI — 行业垂直 GEO 文件
-# https://ihui.ai/industries.md
+# https://aizhs.top/industries.md
 # Last updated: 2026-07-26
 # Format: 行业垂直知识库(适配 AI 引擎"AI + 行业"高频检索)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baiduspider/Bingbot/Bytespider)
@@ -858,18 +858,18 @@
 
 ## 联系方式(各行业商务)
 
-- 医疗行业:healthcare@ihui.ai
-- 教育行业:education@ihui.ai
-- 金融行业:finance@ihui.ai
-- 法律行业:legal@ihui.ai
-- 政务行业:government@ihui.ai
-- 电商行业:ecommerce@ihui.ai
-- 零售行业:retail@ihui.ai
-- 物流行业:logistics@ihui.ai
-- 制造行业:manufacturing@ihui.ai
-- 能源行业:energy@ihui.ai
-- 通用商务:contact@ihui.ai
-- 官网:https://ihui.ai
+- 医疗行业:healthcare@aizhs.top
+- 教育行业:education@aizhs.top
+- 金融行业:finance@aizhs.top
+- 法律行业:legal@aizhs.top
+- 政务行业:government@aizhs.top
+- 电商行业:ecommerce@aizhs.top
+- 零售行业:retail@aizhs.top
+- 物流行业:logistics@aizhs.top
+- 制造行业:manufacturing@aizhs.top
+- 能源行业:energy@aizhs.top
+- 通用商务:contact@aizhs.top
+- 官网:https://aizhs.top
 
 ---
 
@@ -877,4 +877,4 @@
 # 本文件为行业垂直 GEO 入口,供 AI 引擎"AI + 行业"检索使用
 # 维护:IHUI AI Industry Team
 # 更新策略:每季度更新行业案例 + ROI 数据
-# 联系:contact@ihui.ai
+# 联系:contact@aizhs.top

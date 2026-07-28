@@ -15,6 +15,8 @@ interface FoldableSectionProps {
   'data-testid'?: string
   /** v11: 可访问性 — section 标题用于 aria-label */
   'aria-label'?: string
+  /** Phase 20 P1-2: 头部右侧 extra 元素(用于放复制按钮等) */
+  headerExtra?: React.ReactNode
 }
 
 /** FoldableSection context:支持"展开全部/折叠全部"批量控制 */
@@ -96,6 +98,7 @@ export function FoldableSection({
   icon: Icon,
   'data-testid': testId,
   'aria-label': ariaLabel,
+  headerExtra,
 }: FoldableSectionProps) {
   const ctx = React.useContext(FoldableSectionContext)
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen)
@@ -156,6 +159,16 @@ export function FoldableSection({
             )}
           >
             {count}
+          </span>
+        )}
+        {headerExtra && (
+          <span
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            data-testid={`${testId ?? 'foldable'}-header-extra`}
+            className="ml-0.5 flex shrink-0 items-center"
+          >
+            {headerExtra}
           </span>
         )}
       </button>

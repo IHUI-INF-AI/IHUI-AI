@@ -1,5 +1,5 @@
 # IHUI AI — Industry Vertical GEO File (Real Estate)
-# https://ihui.ai/industries.en.realestate.md
+# https://aizhs.top/industries.en.realestate.md
 # Last updated: 2026-07-26
 # Format: Industry vertical knowledge base (optimized for "AI + Real Estate" queries)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -196,9 +196,9 @@
   A: Supports 12 languages (zh/en/ja/ko/fr/de/es/ru/ar etc.). Custom voice for minor languages.
 
 ### Contact
-- Real estate industry: realestate@ihui.ai
-- General business: contact@ihui.ai
-- Official site: https://ihui.ai
+- Real estate industry: realestate@aizhs.top
+- General business: contact@aizhs.top
+- Official site: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

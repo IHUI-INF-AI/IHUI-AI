@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 分片上传初始化请求(POST /v1/files/upload-init)。

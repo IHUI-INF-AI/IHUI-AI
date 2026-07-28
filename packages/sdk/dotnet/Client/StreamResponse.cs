@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 流式响应(SSE 解析工具)— 将 HTTP 响应流解析为 <see cref="IAsyncEnumerable{JsonElement}"/>。

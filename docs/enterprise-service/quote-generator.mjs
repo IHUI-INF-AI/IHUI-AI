@@ -199,7 +199,7 @@ function buildMarkdown(q, args) {
   lines.push(``);
   lines.push(`| 项目 | 内容 |`);
   lines.push(`|------|------|`);
-  lines.push(`| 销售邮箱 | sales@ihui.ai |`);
+  lines.push(`| 销售邮箱 | sales@aizhs.top |`);
   lines.push(`| 报价人 | IHUI-AI 企业销售团队 |`);
   lines.push(`| 报价编号 | ${quoteNo} |`);
   lines.push(``);

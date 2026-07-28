@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// JSON 序列化反序列化工具(基于 System.Text.Json)。

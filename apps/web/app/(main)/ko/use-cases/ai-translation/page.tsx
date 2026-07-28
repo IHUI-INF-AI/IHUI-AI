@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-translation#webpage',
-      url: 'https://ihui.ai/ko/use-cases/ai-translation',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-translation#webpage',
+      url: 'https://aizhs.top/ko/use-cases/ai-translation',
       name: 'AI 다국어 번역 Agent 사용 사례 — IHUI AI',
       description:
         'IHUI AI 풀스택 AI OS 기반의 AI 다국어 번역 Agent:다국어 문서 번역, 로컬라이제이션 워크플로우, 용어집 관리, 번역 리뷰, 문화 적응, 자막 번역. 30분 온보딩, 8엔드포인트 배포.',
       inLanguage: ['ko', 'zh-CN', 'zh-TW', 'en', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-translation#breadcrumb',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-translation#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '홈', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 번역', item: 'https://ihui.ai/ko/use-cases/ai-translation' },
+        { '@type': 'ListItem', position: 1, name: '홈', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 번역', item: 'https://aizhs.top/ko/use-cases/ai-translation' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-translation#howto',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-translation#howto',
       name: '30분 만에 AI 다국어 번역 Agent 구축',
       description:
         'IHUI AI 풀스택 AI OS에서 AI 다국어 번역 Agent를 구축하는 6단계:용어집 구축 → 번역 메모리 업로드 → 대상 언어 설정 → 문화 적응 학습 → 리뷰 규칙 설정 → 워크플로우 연결. 번역 효율 6배, 비용 70% 절감.',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 다국어 번역 Agent — IHUI AI',
     description: '다국어 번역 + 용어집 + 문화 적응, 30분 온보딩.',
-    url: 'https://ihui.ai/ko/use-cases/ai-translation',
+    url: 'https://aizhs.top/ko/use-cases/ai-translation',
     type: 'article',
   },
 }

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 消息模块 — 发布 / 订阅 / 取消订阅 / 状态查询。

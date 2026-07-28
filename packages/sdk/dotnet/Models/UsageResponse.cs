@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 用量统计响应(GET /v1/usage / usage/:vendor)。
