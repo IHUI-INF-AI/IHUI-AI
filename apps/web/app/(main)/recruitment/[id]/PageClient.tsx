@@ -67,7 +67,7 @@ export default function RecruitmentDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -98,7 +98,7 @@ export default function RecruitmentDetailPage() {
   const statColors = ['text-primary', 'text-emerald-600', 'text-amber-500']
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/recruitment"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -112,13 +112,13 @@ export default function RecruitmentDetailPage() {
           <Target className="h-4 w-4" />
           {data.subtitle ?? t('defaultSubtitle')}
         </div>
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{data.title}</h1>
-        <p className="text-sm text-muted-foreground md:text-base">{data.description}</p>
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{data.title}</h1>
+        <p className="text-xs text-muted-foreground md:text-base">{data.description}</p>
       </header>
 
       {stats.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {stats.slice(0, 3).map((s: any, i: any) => {
+          {stats.slice(0, 3).map((s, i) => {
             const Icon = statIcons[i] ?? TrendingUp
             const color = statColors[i] ?? 'text-primary'
             return (
@@ -154,7 +154,7 @@ export default function RecruitmentDetailPage() {
           <CardContent>
             {requirements.length > 0 ? (
               <ul className="space-y-3">
-                {requirements.map((r: any, i: any) => (
+                {requirements.map((r, i) => (
                   <li
                     key={r.title}
                     className={cn(
@@ -188,7 +188,7 @@ export default function RecruitmentDetailPage() {
           <CardContent>
             {benefits.length > 0 ? (
               <ul className="space-y-3">
-                {benefits.map((b: any) => (
+                {benefits.map((b) => (
                   <li key={b.title} className="flex items-start gap-2 text-sm">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                     <div>

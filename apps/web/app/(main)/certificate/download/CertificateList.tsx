@@ -33,7 +33,7 @@ export function CertificateList({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('download.loading')}
       </div>
@@ -48,7 +48,7 @@ export function CertificateList({
   }
   if (list.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
         <Award className="h-8 w-8 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">{t('download.noCertificates')}</p>
       </div>

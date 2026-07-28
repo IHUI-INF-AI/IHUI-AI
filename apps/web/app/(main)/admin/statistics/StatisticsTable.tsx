@@ -16,7 +16,7 @@ export function StatisticsTable({ list }: Props) {
   const t = useTranslations('statistics')
   if (list.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <Save className="h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('noSnapshots')}</p>
       </div>

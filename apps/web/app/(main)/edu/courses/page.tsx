@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -74,13 +74,13 @@ export default function EduCoursesPage() {
   const courses = data?.list ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <BookOpen className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="relative w-full max-w-xs">
@@ -95,20 +95,20 @@ export default function EduCoursesPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
         <Alert variant="danger" description={(error as Error).message} />
       ) : courses.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <PlayCircle className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((c: any) => (
+          {courses.map((c) => (
             <Card
               key={c.id}
               className="flex cursor-pointer flex-col transition-colors hover:bg-accent"
@@ -149,7 +149,9 @@ export default function EduCoursesPage() {
                     style={{ width: `${c.progress}%` }}
                   />
                 </div>
-                <span className="text-xs text-muted-foreground">{t('progress', { n: c.progress })}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t('progress', { n: c.progress })}
+                </span>
               </CardContent>
             </Card>
           ))}

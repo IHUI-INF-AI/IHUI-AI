@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -92,13 +92,13 @@ export default function HistoryPage() {
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Search className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <li
               key={item.id}
               className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"

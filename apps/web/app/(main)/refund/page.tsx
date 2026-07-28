@@ -65,14 +65,14 @@ export default function RefundPage() {
   const currencyFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <RotateCcw className="h-6 w-6 text-primary" />
             {t('listTitle')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('listSubtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('listSubtitle')}</p>
         </div>
         <Button>
           <RotateCcw className="h-4 w-4" />
@@ -81,18 +81,18 @@ export default function RefundPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('listLoading')}
         </div>
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted-foreground">{t('listEmpty')}</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">{t('listEmpty')}</p>
       ) : (
         <div className="space-y-2">
-          {items.map((item: any) => {
-            const sc = (STATUS_CONFIG as any)[item.status] ?? STATUS_CONFIG.pending
+          {items.map((item) => {
+            const sc = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending
             const StatusIcon = sc.icon
             return (
               <Card key={item.id} className="transition-colors hover:bg-accent">

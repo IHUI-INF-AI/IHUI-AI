@@ -124,12 +124,16 @@ function insertTranslation(_original: string, translated: string) {
   style.textContent = `
     :host { all: initial; }
     .tx {
+      /* design-tokens 无 teal,shadow DOM 隔离环境内借名 --color-info,值保留品牌强调色 */
+      --color-info: #14b8a6;
+      --color-info-foreground: #0f766e;
+      --color-info-muted: rgba(20, 184, 166, 0.08);
       display: block;
       margin: 4px 0;
       padding: 6px 10px;
-      background: rgba(20, 184, 166, 0.08);
-      color: #0f766e;
-      border-left: 2px solid #14b8a6;
+      background: var(--color-info-muted);
+      color: var(--color-info-foreground);
+      border-left: 2px solid var(--color-info);
       border-radius: 4px;
       font-size: 12px;
       line-height: 1.5;

@@ -62,7 +62,7 @@ export const orders = pgTable('orders', {
 
 /**
  * 支付记录表。
- * provider: wechat|alipay|stripe|usdc。status: pending|success|failed。
+ * provider: wechat|alipay|stripe|paypal|usdc。status: pending|success|failed。
  * order_id 级联删除；raw_response 为网关原始响应（不含敏感信息时不返回）。
  */
 export const payments = pgTable('payments', {

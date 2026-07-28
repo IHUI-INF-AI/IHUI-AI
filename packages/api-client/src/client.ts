@@ -360,6 +360,15 @@ export interface StreamChatOptions {
    *  - toolCallResult:type 7(tool-result)或自定义 tool_result 事件
    *  触发 WorkPanel.openPanel({ url, source: 'ai-tool' }) */
   onToolCall?: (event: ToolCallEvent) => void
+  /** Subagent 自动派发回调(2026-07-28 立,对标 Trae Work):
+   *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn/end SSE 事件,
+   *  前端进度面板自动展示 subagent 生命周期(spawned → running → done/failed)。 */
+  onSubagentSpawn?: (event: SubagentSpawnEvent) => void
+  onSubagentEnd?: (event: SubagentEndEvent) => void
+  /** Subagent 执行进度回调(2026-07-28 立):
+   *  subagent 执行期间后端实时发 subagent_progress SSE 事件(thinking/tool_call/tool_result/output_ready),
+   *  前端进度面板据此实时更新 subagent 状态,消除 spawn→end 之间的"黑盒等待"。 */
+  onSubagentProgress?: (event: SubagentProgressEvent) => void
   /** 自动重连最大次数(默认 3)。网络错误指数退避重连,业务错误(401/403/429)不重连 */
   maxRetries?: number
   /** 自动重连前回调(前端可显示"网络波动,正在重连…") */
@@ -368,6 +377,44 @@ export interface StreamChatOptions {
    *  用途:前端收到 response 即清除"完全冷启动"超时(timeout15s),
    *  避免"response 已到达但首个 token 未到达"时误 abort。 */
   onResponse?: () => void
+}
+
+/** Subagent 派发生成事件(2026-07-28 立,ai-service tool loop 中 dispatch_subagent 工具执行前发出) */
+export interface SubagentSpawnEvent {
+  id: string
+  role: string
+  task: string
+  timestamp: string
+}
+
+/** Subagent 派发结束事件(dispatch_subagent 工具执行后发出) */
+export interface SubagentEndEvent {
+  id: string
+  status: 'done' | 'failed'
+  failureReason?: string
+  timestamp: string
+}
+
+/** Subagent 执行进度事件(2026-07-28 立,subagent 执行期间实时发出):
+ *  - phase='thinking': subagent 开始 LLM 调用(含 iteration)
+ *  - phase='tool_call': subagent 开始调用工具(含 tool name + iteration)
+ *  - phase='tool_result': subagent 工具返回(含 tool name + ok + iteration)
+ *  - phase='output_ready': subagent 最终输出就绪(含 output_preview)
+ *  前端进度面板据此实时更新 subagent 状态,消除 spawn→end 之间的"黑盒等待"。 */
+export interface SubagentProgressEvent {
+  id: string
+  phase: 'thinking' | 'tool_call' | 'tool_result' | 'output_ready'
+  timestamp: string
+  /** 当前迭代轮次(phase=thinking/tool_call/tool_result 时存在) */
+  iteration?: number
+  /** 工具名(phase=tool_call/tool_result 时存在) */
+  tool?: string
+  /** 工具是否成功(phase=tool_result 时存在) */
+  ok?: boolean
+  /** 输出预览(phase=output_ready 时存在,截断 200 字符) */
+  outputPreview?: string
+  /** agent 名称(并行模式下标识哪个 agent) */
+  agentName?: string
 }
 
 /** AI 工具调用 SSE 事件(跨端共享) */
@@ -1022,6 +1069,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasToolCall = typeof opts.onToolCall === 'function'
       // P4-2: fallback 事件回调存在时启用解析
       const hasFallback = typeof opts.onFallback === 'function'
+      // Subagent 自动派发(2026-07-28 立):任一回调存在时启用解析
+      const hasSubagent =
+        typeof opts.onSubagentSpawn === 'function' ||
+        typeof opts.onSubagentEnd === 'function' ||
+        typeof opts.onSubagentProgress === 'function'
 
       // ===== Dedupe 机制(isRetry 时启用) =====
       // 重连后若服务端不支持 Last-Event-ID 续传会从头重发,前端用 receivedContent 前缀匹配
@@ -1238,6 +1290,71 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** 解析 Subagent 派发事件(2026-07-28 立):
+       *  - subagent_spawn:主 agent 调用 dispatch_subagent 工具执行前发出
+       *  - subagent_progress:执行期间实时发出(thinking/tool_call/tool_result/output_ready)
+       *  - subagent_end:执行后发出(带 status: done/failed)
+       *  触发 onSubagentSpawn/onSubagentProgress/onSubagentEnd 回调,前端进度面板自动展示。 */
+      const tryParseSubagent = (line: string): void => {
+        if (!hasSubagent) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type === 'subagent_spawn' && json?.id) {
+            opts.onSubagentSpawn!({
+              id: String(json.id),
+              role: typeof json.role === 'string' ? json.role : '',
+              task: typeof json.task === 'string' ? json.task : '',
+              timestamp:
+                typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+            })
+          } else if (json?.type === 'subagent_progress' && json?.id) {
+            const phase = json.phase
+            if (
+              phase === 'thinking' ||
+              phase === 'tool_call' ||
+              phase === 'tool_result' ||
+              phase === 'output_ready'
+            ) {
+              opts.onSubagentProgress!({
+                id: String(json.id),
+                phase,
+                timestamp:
+                  typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+                iteration: typeof json.iteration === 'number' ? json.iteration : undefined,
+                tool: typeof json.tool === 'string' ? json.tool : undefined,
+                ok: typeof json.ok === 'boolean' ? json.ok : undefined,
+                outputPreview:
+                  typeof json.output_preview === 'string' ? json.output_preview : undefined,
+                agentName: typeof json.agentName === 'string' ? json.agentName : undefined,
+              })
+            }
+          } else if (json?.type === 'subagent_end' && json?.id) {
+            opts.onSubagentEnd!({
+              id: String(json.id),
+              status: json.status === 'failed' ? 'failed' : 'done',
+              failureReason:
+                typeof json.failureReason === 'string' ? json.failureReason : undefined,
+              timestamp:
+                typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+            })
+          }
+        } catch {
+          /* 非 JSON 或非 subagent 事件忽略 */
+        }
+      }
+
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
@@ -1251,6 +1368,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseCompaction(line)
           tryParseQuestion(line)
           tryParseToolCall(line)
+          tryParseSubagent(line)
           // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
           if (hasFallback) {
             const fbEvt = parseFallbackEvent(line)
@@ -1276,6 +1394,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseCompaction(buffer)
         tryParseQuestion(buffer)
         tryParseToolCall(buffer)
+        tryParseSubagent(buffer)
         // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
         if (hasFallback) {
           const fbEvt = parseFallbackEvent(buffer)
