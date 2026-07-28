@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   FlatList,
@@ -152,8 +153,8 @@ export function InviteScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -161,29 +162,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  label: { fontSize: 12, color: '#6B7280' },
-  codeText: { marginTop: 4, fontSize: 22, fontWeight: '700', color: '#10B981', letterSpacing: 1 },
+  label: { fontSize: 12, color: tokens.text.secondary },
+  codeText: { marginTop: 4, fontSize: 22, fontWeight: '700', color: tokens.success.DEFAULT, letterSpacing: 1 },
   statsRow: { flexDirection: 'row', marginTop: 12, gap: 12 },
-  statBox: { flex: 1, padding: 8, backgroundColor: '#F9FAFB', borderRadius: 8 },
-  statValue: { fontSize: 16, fontWeight: '600', color: '#111827' },
-  statLabel: { marginTop: 2, fontSize: 11, color: '#6B7280' },
+  statBox: { flex: 1, padding: 8, backgroundColor: tokens.surface.muted, borderRadius: 8 },
+  statValue: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
+  statLabel: { marginTop: 2, fontSize: 11, color: tokens.text.secondary },
   shareBtn: {
     marginTop: 12,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: tokens.success.DEFAULT,
     alignItems: 'center',
   },
-  shareText: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#374151', marginVertical: 8 },
+  shareText: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
+  sectionTitle: { fontSize: 13, fontWeight: '600', color: tokens.text.medium, marginVertical: 8 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  name: { flex: 1, fontSize: 13, fontWeight: '600', color: '#111827' },
-  reward: { fontSize: 13, color: '#10B981', fontWeight: '600' },
-  date: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
+  name: { flex: 1, fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  reward: { fontSize: 13, color: tokens.success.DEFAULT, fontWeight: '600' },
+  date: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: '#6B7280' },
-  errorText: { fontSize: 12, color: '#DC2626' },
+  muted: { fontSize: 12, color: tokens.text.secondary },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
 })

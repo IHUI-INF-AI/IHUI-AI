@@ -2,6 +2,7 @@
  * TitleSwitchTypeBar — 横向多选分类条(type_bar.vue 迁移)
  * 支持"全部"切换、多选标签、自定义种类弹窗。
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
@@ -146,7 +147,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(205,208,255,0.5)',
   },
   tabText: { fontSize: 13, fontWeight: '600', color: tokens.overlay.modal },
-  tabTextActive: { color: '#000' },
+  tabTextActive: { color: tokens.gray.black },
   mask: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.3)',

@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   FlatList,
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
   playerArea: {
     aspectRatio: 16 / 9,
-    backgroundColor: '#000',
+    backgroundColor: tokens.gray.black,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',

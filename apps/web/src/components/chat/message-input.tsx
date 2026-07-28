@@ -29,7 +29,13 @@ import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
-import { ModeSwitcher } from '@/components/ai/mode-switcher'
+import { useModeStore } from '@/stores/mode'
+import { ChatMode } from '@ihui/types'
+import {
+  Hammer,
+  BookOpen,
+  Search,
+} from 'lucide-react'
 import {
   PermissionModePopover,
   isHighRiskPermissionMode,

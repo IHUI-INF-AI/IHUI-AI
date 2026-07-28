@@ -1,10 +1,10 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Input, Loading } from '@ihui/ui-native'
@@ -13,7 +13,6 @@ interface Account { name: string; email: string; phone: string }
 
 export function SettingsAccountScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [account, setAccount] = useState<Account | null>(null)
   const [loading, setLoading] = useState(true)
@@ -24,12 +23,11 @@ export function SettingsAccountScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/account`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Account }
-      setAccount(d.data ?? { name: '', email: '', phone: '' })
+      const r = await fetchApi<Account>('/account')
+      if (!r.success) throw new Error()
+      setAccount(r.data ?? { name: '', email: '', phone: '' })
     } catch { setError(t('settingsAccount.loadFailed')) } finally { setLoading(false) }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => { void load() }, [load])
 
@@ -37,12 +35,11 @@ export function SettingsAccountScreen() {
     if (!account) return
     setSaving(true); setError(''); setToast('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/account`, {
+      const r = await fetchApi<unknown>('/account', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(account),
       })
-      if (!r.ok) throw new Error()
+      if (!r.success) throw new Error()
       setToast(t('settingsAccount.saved'))
     } catch { setError(t('settingsAccount.loadFailed')) } finally { setSaving(false) }
   }
@@ -75,18 +72,18 @@ export function SettingsAccountScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
   body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  label: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  input: { marginTop: 4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 13, color: '#111827' },
-  error: { fontSize: 12, color: '#DC2626', marginTop: 8 },
-  toast: { fontSize: 12, color: '#10B981', marginTop: 8 },
-  btn: { marginTop: 16, backgroundColor: '#10B981', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  label: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  input: { marginTop: 4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, fontSize: 13, color: tokens.text.primary },
+  error: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
+  toast: { fontSize: 12, color: tokens.success.DEFAULT, marginTop: 8 },
+  btn: { marginTop: 16, backgroundColor: tokens.success.DEFAULT, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  btnText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
 })

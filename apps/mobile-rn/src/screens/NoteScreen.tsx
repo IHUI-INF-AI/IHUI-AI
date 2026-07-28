@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   FlatList,
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#fef2f2',
+    backgroundColor: tokens.danger.light,
   },
   deleteBtnText: { color: tokens.error.text, fontSize: 12 },
   retryBtn: {

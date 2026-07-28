@@ -108,6 +108,16 @@
 
 ---
 
+### P1 语音输入功能零成本改造(2026-07-28 立,跨端:ai-service + web + cli)
+
+> **目标**:语音输入功能从"依赖 OpenAI Whisper 付费 API + stub 假文本"改造为"完全免费 + 跨端统一 + 离线可用"。用户硬约束:不想花一分钱。**方案**:ai-service 后端用 `faster-whisper`(CTranslate2)本地 CPU 推理替代 litellm Whisper API;Web 端 Chrome/Edge 保持原生 `webkitSpeechRecognition`(零延迟),Firefox/Safari fallback 走 MediaRecorder → ai-service 本地 Whisper;CLI 端默认开启(后端现在真能用了)。
+
+- [ ] P1-1 ai-service 后端 faster-whisper 本地推理(替换 litellm Whisper API)— `apps/ai-service/app/routers/voice_stt.py` 替换 litellm.atranscription → faster-whisper 本地模型(base 74MB,首次下载后离线);`pyproject.toml` 加 faster-whisper 依赖;`tests/test_voice_stt_router.py` 更新 mock 路径
+- [ ] P1-2 Web 端 VoiceInput Firefox/Safari fallback — `apps/web/src/components/ai/voice-input.tsx` 不支持 webkitSpeechRecognition 时走 MediaRecorder → POST /api/voice/stt(ai-service 本地 Whisper)
+- [ ] P1-3 CLI 默认开启语音输入 — `apps/cli/src/commands/settings.ts` settings.voice.enabled 默认 true + 文档同步
+
+---
+
 ### P1 extension 维护成本优化批次(2026-07-27 立,平台独占:仅 apps/extension + packages/dom-actions)
 
 > 共用率从 50-60% 提升到 ~80%(P0-1 低频页跳 web + P1 dom-actions 下沉 + P2 browser-platform 适配层 + P3 storage/scheduler/openInWeb helper 深度下沉 + background.ts adapter 替换),消除 sidepanel 低频页面手动同步维护痛点 + chrome.* 调用散落各处问题。

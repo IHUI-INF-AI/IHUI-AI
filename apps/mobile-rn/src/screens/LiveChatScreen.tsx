@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useRef, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -11,8 +12,6 @@ interface ChatMsg { id: string; userId: string; nickname: string; content: strin
 
 type Route = RouteProp<RootStackParamList, 'LiveChat'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-const PRIMARY = '#10B981'
 
 export function LiveChatScreen() {
   const { t } = useI18n()
@@ -93,22 +92,22 @@ export function LiveChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16 },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827', marginBottom: 12 },
+  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface.bg, padding: 16 },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
   empty: { paddingVertical: 40, alignItems: 'center' },
-  msg: { padding: 10, borderRadius: 8, backgroundColor: '#f9fafb', marginBottom: 8 },
-  user: { fontSize: 12, fontWeight: '600', color: PRIMARY },
-  content: { marginTop: 4, fontSize: 14, color: '#111827' },
-  meta: { marginTop: 4, fontSize: 10, color: '#9ca3af' },
+  msg: { padding: 10, borderRadius: 8, backgroundColor: tokens.surface.muted, marginBottom: 8 },
+  user: { fontSize: 12, fontWeight: '600', color: tokens.success.DEFAULT },
+  content: { marginTop: 4, fontSize: 14, color: tokens.text.primary },
+  meta: { marginTop: 4, fontSize: 10, color: tokens.text.tertiary },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  input: { flex: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', fontSize: 14, color: '#111827' },
-  sendBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  sendDisabled: { backgroundColor: '#9ca3af' },
-  sendText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  btnText: { color: '#fff', fontSize: 14 },
+  input: { flex: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, fontSize: 14, color: tokens.text.primary },
+  sendBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
+  sendDisabled: { backgroundColor: tokens.text.tertiary },
+  sendText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
+  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

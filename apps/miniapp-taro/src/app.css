@@ -94,6 +94,40 @@
   --chart-axis: #1e293b;
 }
 
+/*
+ * ===== miniapp-taro 扩展色板(非 tokens.css 同步范围,本地管理)=====
+ *
+ * 用于历史代码中无法直接映射到 tokens.css 语义色的品牌/渠道色:
+ * - --color-link: 链接/操作按钮蓝色(#1888ee,聊天气泡操作按钮、数字人跳转等)
+ * - --color-link-bg: 链接浅色背景(#f0f7ff)
+ * - --color-wechat-green: 微信品牌绿(#4cd964,语音消息头像等)
+ * - --color-chat-bubble-user: 用户聊天气泡绿(#95ec69)
+ * - --color-brand-orange: 分销品牌橙(#ff6b35,分销排行/提现按钮)
+ *
+ * 同步脚本(sync-design-tokens.mjs)只替换首个 :root/.dark 块,本块不会被覆盖。
+ * 若需统一到 tokens.css,请在 packages/design-tokens/src/styles/tokens.css 添加对应 @theme 变量。
+ *
+ * dark 模式值:提高亮度以保证暗色背景下的可读性。
+ */
+:root {
+  --color-link: #1888ee;
+  --color-link-bg: #f0f7ff;
+  --color-wechat-green: #4cd964;
+  --color-chat-bubble-user: #95ec69;
+  --color-brand-orange: #ff6b35;
+  --color-notification-bg: #fff8e1;
+  --color-notification-text: #7c5e1e;
+}
+.dark {
+  --color-link: #4ea3f5;
+  --color-link-bg: rgba(78, 163, 245, 0.15);
+  --color-wechat-green: #4cd964;
+  --color-chat-bubble-user: #4cd964;
+  --color-brand-orange: #ff8e53;
+  --color-notification-bg: rgba(245, 158, 11, 0.15);
+  --color-notification-text: hsl(38 85% 70%);
+}
+
 /* ===== 通用工具类 ===== */
 
 /* 文本溢出省略 */
