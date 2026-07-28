@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
-import type { ApiResponse } from '@ihui/types'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -28,7 +26,6 @@ function maskNumber(num: string): string {
 
 export function BankCardScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [cards, setCards] = useState<BankCard[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,19 +35,16 @@ export function BankCardScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/wallet/bank-cards`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) throw new Error('http')
-      const data = (await resp.json()) as ApiResponse<BankCard[]>
-      setCards(data.data ?? [])
+      const res = await fetchApi<BankCard[]>('/wallet/bank-cards')
+      if (!res.success) throw new Error()
+      setCards(res.data ?? [])
     } catch {
       setError(t('bankCard.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -102,7 +96,9 @@ export function BankCardScreen() {
               ) : null}
             </View>
             <Text style={styles.cardNumber}>{maskNumber(item.number)}</Text>
-            <Text style={styles.holder}>{t('bankCard.holder')}: {item.holder}</Text>
+            <Text style={styles.holder}>
+              {t('bankCard.holder')}: {item.holder}
+            </Text>
           </Card>
         )}
       />
@@ -112,7 +108,13 @@ export function BankCardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.light },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: tokens.text.medium },
   title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
@@ -120,9 +122,20 @@ const styles = StyleSheet.create({
   card: { padding: 14, borderRadius: 8, backgroundColor: tokens.brand.DEFAULT },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   bankName: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.25)' },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
   badgeText: { fontSize: 10, color: tokens.surface.light },
-  cardNumber: { marginTop: 10, fontSize: 18, fontWeight: '600', color: tokens.surface.light, letterSpacing: 1 },
+  cardNumber: {
+    marginTop: 10,
+    fontSize: 18,
+    fontWeight: '600',
+    color: tokens.surface.light,
+    letterSpacing: 1,
+  },
   holder: { marginTop: 6, fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   emptyWrap: { alignItems: 'center', paddingVertical: 48 },
   muted: { fontSize: 12, color: tokens.text.secondary },
