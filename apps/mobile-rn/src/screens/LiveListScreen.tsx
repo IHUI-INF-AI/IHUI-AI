@@ -1,9 +1,10 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { usePaginatedList } from '../hooks/use-paginated-list'
+import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 
@@ -37,9 +38,9 @@ const LIVE_TAB_KEYS: Record<(typeof STATUS_TABS)[number], string> = {
 }
 
 function statusColor(status: LiveItem['status']): string {
-  if (status === 'ongoing') return '#10B981'
-  if (status === 'upcoming') return '#F59E0B'
-  return '#9CA3AF'
+  if (status === 'ongoing') return tokens.brand.DEFAULT
+  if (status === 'upcoming') return tokens.warning.amber
+  return tokens.text.tertiary
 }
 
 export function LiveListScreen() {
@@ -149,20 +150,18 @@ export function LiveListScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
-  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  tabActive: { backgroundColor: PRIMARY },
-  tabText: { fontSize: 12, color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF' },
+  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tokens.surface.card },
+  tabActive: { backgroundColor: tokens.success.DEFAULT },
+  tabText: { fontSize: 12, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.surface.light },
   errorBar: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -170,22 +169,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  errorText: { fontSize: 12, color: '#DC2626' },
-  retryText: { fontSize: 12, color: PRIMARY },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+  retryText: { fontSize: 12, color: tokens.success.DEFAULT },
   center: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
+  emptyText: { fontSize: 12, color: tokens.text.tertiary, marginTop: 8 },
   card: {
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.bg,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827', marginRight: 8 },
+  cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary, marginRight: 8 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  statusText: { fontSize: 11, color: '#FFFFFF' },
-  cardMeta: { marginTop: 6, fontSize: 12, color: '#6B7280' },
+  statusText: { fontSize: 11, color: tokens.surface.light },
+  cardMeta: { marginTop: 6, fontSize: 12, color: tokens.text.secondary },
   cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  cardMetaText: { fontSize: 11, color: '#9CA3AF' },
+  cardMetaText: { fontSize: 11, color: tokens.text.tertiary },
 })

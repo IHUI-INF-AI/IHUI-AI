@@ -30,7 +30,7 @@ function getItemStyle(delta: number): CSSProperties {
     width: '200px',
     height: '80px',
     fontSize: '32px',
-    color: '#666',
+    color: 'var(--color-muted-foreground)',
     borderRadius: '15px',
     background: 'rgba(255, 255, 255, 0.3)',
     boxSizing: 'border-box',
@@ -46,9 +46,9 @@ function getItemStyle(delta: number): CSSProperties {
   if (delta === 0) {
     return {
       ...base,
-      color: 'rgba(0, 0, 0, 1)',
+      color: 'var(--color-foreground)',
       fontWeight: 600,
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      backgroundColor: 'var(--color-card)',
       transform: 'scale(1)',
       opacity: 1,
       zIndex: 10,

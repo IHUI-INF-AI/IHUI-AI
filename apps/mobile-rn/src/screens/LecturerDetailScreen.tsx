@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -185,50 +186,48 @@ export function LecturerDetailScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.surface.bg,
     padding: 16,
   },
-  emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
-  errorText: { fontSize: 12, color: '#DC2626', marginTop: 4 },
+  emptyText: { fontSize: 12, color: tokens.text.tertiary, marginTop: 8 },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 4 },
   header: { paddingTop: 48, paddingBottom: 8 },
   backBtn: { marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
-  profileCard: { padding: 16, borderRadius: 8, backgroundColor: '#F9FAFB', marginBottom: 12 },
-  name: { fontSize: 20, fontWeight: '600', color: '#111827' },
-  bio: { marginTop: 6, fontSize: 13, color: '#6B7280', lineHeight: 18 },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
+  profileCard: { padding: 16, borderRadius: 8, backgroundColor: tokens.surface.muted, marginBottom: 12 },
+  name: { fontSize: 20, fontWeight: '600', color: tokens.text.primary },
+  bio: { marginTop: 6, fontSize: 13, color: tokens.text.secondary, lineHeight: 18 },
   statsRow: { flexDirection: 'row', marginTop: 12, justifyContent: 'space-between' },
   statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 18, fontWeight: '600', color: PRIMARY },
-  statLabel: { marginTop: 2, fontSize: 11, color: '#6B7280' },
+  statValue: { fontSize: 18, fontWeight: '600', color: tokens.success.DEFAULT },
+  statLabel: { marginTop: 2, fontSize: 11, color: tokens.text.secondary },
   followBtn: {
     marginTop: 14,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
     alignItems: 'center',
   },
-  followingBtn: { backgroundColor: '#F3F4F6' },
-  followBtnText: { fontSize: 13, color: '#FFFFFF' },
-  followingBtnText: { color: '#6B7280' },
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#111827', marginVertical: 8 },
+  followingBtn: { backgroundColor: tokens.surface.card },
+  followBtnText: { fontSize: 13, color: tokens.surface.light },
+  followingBtnText: { color: tokens.text.secondary },
+  sectionTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary, marginVertical: 8 },
   card: {
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.bg,
   },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
   cardMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -236,14 +235,14 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: 'wrap',
   },
-  cardMetaText: { fontSize: 11, color: '#9CA3AF' },
-  priceText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
+  cardMetaText: { fontSize: 11, color: tokens.text.tertiary },
+  priceText: { fontSize: 13, fontWeight: '600', color: tokens.success.DEFAULT },
   retryBtn: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
   },
-  retryBtnText: { color: '#FFFFFF', fontSize: 13 },
+  retryBtnText: { color: tokens.surface.light, fontSize: 13 },
 })

@@ -1,9 +1,14 @@
-﻿/** Coze 平台 API — mobile-rn 端。已下沉到 @ihui/api-client,本文件仅 re-export + 保留 AsyncStorage 持久化。 */
-import AsyncStorage from '@react-native-async-storage/async-storage'
+/** Coze 平台 API — mobile-rn 端。已下沉到 @ihui/api-client,本文件仅 re-export + 保留 AsyncStorage 持久化。 */
 import { COZE_DEFAULT_BASE_URL, COZE_DEFAULT_TIMEOUT, createCozeClient } from '@ihui/api-client'
+import { COZE_CONFIG_STORAGE_KEY } from '@ihui/shared/constants'
 import type { CozeConfig } from '@ihui/types'
+import { createAsyncStorageTransport } from '../stores/storage-adapter'
 
-const STORAGE_KEY = 'coze_config_v1'
+// 旧下划线 key(迁移前),向后兼容一次后删除
+const LEGACY_STORAGE_KEY = 'coze_config_v1'
+
+// 单例 transport(零运行时开销,AsyncStorage 静态绑定)
+const transport = createAsyncStorageTransport()
 
 // ===== 共享层 re-export(类型 + 常量 + 错误类 + 工厂) =====
 export { COZE_DEFAULT_BASE_URL, COZE_DEFAULT_TIMEOUT, CozeApiError, createCozeClient } from '@ihui/api-client'
@@ -30,8 +35,25 @@ export type { CozeWorkflowRunResult as WorkflowRunResult } from '@ihui/types'
 export type { CozeStreamChatHandlers as StreamChatHandlers } from '@ihui/types'
 
 // ===== 平台特定逻辑(AsyncStorage 持久化,不可下沉) =====
+
+/**
+ * 迁移旧下划线 key 'coze_config_v1' 到新连字符 key COZE_CONFIG_STORAGE_KEY('coze-config-v1')。
+ * 幂等:旧 key 不存在 / 新 key 已有数据时跳过写入,只在迁移成功后删除旧 key。
+ * 调用时机:loadCozeConfig() / saveCozeConfig() / clearCozeConfig() 入口前。
+ */
+async function migrateLegacyKey(): Promise<void> {
+  const legacyRaw = await transport.getItem(LEGACY_STORAGE_KEY)
+  if (legacyRaw === null) return
+  const existing = await transport.getItem(COZE_CONFIG_STORAGE_KEY)
+  if (existing === null) {
+    await transport.setItem(COZE_CONFIG_STORAGE_KEY, legacyRaw)
+  }
+  await transport.removeItem(LEGACY_STORAGE_KEY)
+}
+
 export async function loadCozeConfig(): Promise<CozeConfig> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY)
+  await migrateLegacyKey()
+  const raw = await transport.getItem(COZE_CONFIG_STORAGE_KEY)
   if (raw) {
     try {
       const p = JSON.parse(raw) as Partial<CozeConfig>
@@ -47,11 +69,13 @@ export async function loadCozeConfig(): Promise<CozeConfig> {
 }
 
 export async function saveCozeConfig(cfg: CozeConfig): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cfg))
+  await migrateLegacyKey()
+  await transport.setItem(COZE_CONFIG_STORAGE_KEY, JSON.stringify(cfg))
 }
 
 export async function clearCozeConfig(): Promise<void> {
-  await AsyncStorage.removeItem(STORAGE_KEY)
+  await migrateLegacyKey()
+  await transport.removeItem(COZE_CONFIG_STORAGE_KEY)
 }
 
 /** 测试连接(加载本地 config 后委托共享客户端) */

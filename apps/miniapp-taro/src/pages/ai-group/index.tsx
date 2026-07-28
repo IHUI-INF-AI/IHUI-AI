@@ -156,6 +156,7 @@ export default function AiGroup() {
                         {name || t('aiGroup.agent')}
                       </Text>
                       {isVip ? (
+                        // TODO: custom color: #d97706 VIP 品牌深金色,无对应 token,保留原值
                         <Text className="ml-[12rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] text-[20rpx] text-[#d97706] bg-[rgba(217,119,6,0.1)] shrink-0">
                           VIP
                         </Text>

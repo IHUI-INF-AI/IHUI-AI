@@ -181,7 +181,7 @@ export default function CourseDetail() {
           <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowRating(true)}>
-          <View className="w-12 h-12 rounded-xl bg-[#f59e0b]/10 flex items-center justify-center">
+          <View className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
             <Text className="text-xl">⭐</Text>
           </View>
           <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
@@ -257,8 +257,8 @@ export default function CourseDetail() {
 
       <View className="fixed left-0 right-0 bottom-0 h-[120rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.06)]">
         <View className="flex-1">
-          <Text className="text-sm text-[#dd524d]">¥</Text>
-          <Text className="text-2xl text-[#dd524d] font-bold">{course.price ?? 0}</Text>
+          <Text className="text-sm text-destructive">¥</Text>
+          <Text className="text-2xl text-destructive font-bold">{course.price ?? 0}</Text>
         </View>
         <View
           className="px-7 h-10 leading-10 bg-primary text-white rounded-lg text-sm"

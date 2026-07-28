@@ -157,7 +157,7 @@ export default function MemberDetail() {
                     <Text className="text-[22rpx] text-muted-foreground truncate flex-1 min-w-0">
                       {tt('distribution.memberDetail.joinTime', '加入')}:{m.joinTime || '-'}
                     </Text>
-                    <Text className="text-[24rpx] font-semibold text-[#22c55e] ml-[16rpx] flex-shrink-0">
+                    <Text className="text-[24rpx] font-semibold text-success ml-[16rpx] flex-shrink-0">
                       {tt('distribution.memberDetail.contribution', '贡献')} ¥{m.contribution}
                     </Text>
                   </View>

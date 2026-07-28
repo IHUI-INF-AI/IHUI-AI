@@ -14,14 +14,14 @@ type OrderItem = Order & {
 }
 
 const STATUS_MAP: Record<string, { type: string; textKey: string; color: string }> = {
-  pending: { type: 'pending', textKey: 'order.status.pending', color: 'text-[#f59e0b]' },
+  pending: { type: 'pending', textKey: 'order.status.pending', color: 'text-warning' },
   paid: { type: 'paid', textKey: 'order.status.paid', color: 'text-primary' },
   cancelled: { type: 'cancelled', textKey: 'order.status.cancelled', color: 'text-muted-foreground' },
-  refunding: { type: 'refunding', textKey: 'order.status.refunding', color: 'text-[#f59e0b]' },
+  refunding: { type: 'refunding', textKey: 'order.status.refunding', color: 'text-warning' },
   refunded: { type: 'refunded', textKey: 'order.status.refunded', color: 'text-muted-foreground' },
   completed: { type: 'completed', textKey: 'order.status.completed', color: 'text-primary' },
   failed: { type: 'failed', textKey: 'order.status.failed', color: 'text-destructive' },
-  '0': { type: 'pending', textKey: 'order.status.pending', color: 'text-[#f59e0b]' },
+  '0': { type: 'pending', textKey: 'order.status.pending', color: 'text-warning' },
   '1': { type: 'paid', textKey: 'order.status.paid', color: 'text-primary' },
   '2': { type: 'completed', textKey: 'order.status.completed', color: 'text-primary' },
   '3': { type: 'cancelled', textKey: 'order.status.cancelled', color: 'text-muted-foreground' },

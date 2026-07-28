@@ -78,7 +78,7 @@
   background: var(--color-primary);
 }
 .avatar.assistant {
-  background: #4cd964;
+  background: var(--color-wechat-green);
 }
 .bubble {
   max-width: 70%;
@@ -167,7 +167,7 @@
   display: flex;
   align-items: center;
   padding: 12rpx 32rpx;
-  background: #f0f7ff;
+  background: var(--color-link-bg);
 }
 .material-tag-text {
   flex: 1;
@@ -368,27 +368,28 @@
 .history-item-title {
   display: block;
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
   font-weight: bold;
 }
 .history-item-preview {
   display: block;
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   margin-top: 8rpx;
 }
 .history-item-time {
   display: block;
   font-size: 22rpx;
-  color: #ccc;
+  color: var(--color-muted-foreground);
   margin-top: 8rpx;
+  opacity: 0.7;
 }
 
 /* 历史清空按钮(对标原 ai_assistant.vue clearHistory) */
 .history-clear-btn {
   text-align: center;
   padding: 24rpx;
-  color: #ff4d4f;
+  color: var(--color-destructive);
   font-size: 28rpx;
 }
 
@@ -401,14 +402,14 @@
 /* TTS 朗读按钮(对标原 ai_assistant.vue 朗读,仅 AI 消息) */
 .bubble-speak {
   font-size: 24rpx;
-  color: #1888ee;
+  color: var(--color-link);
   margin-left: 20rpx;
 }
 
 /* 分享按钮(对标原 ai_assistant.vue 分享对话) */
 .bubble-share {
   font-size: 24rpx;
-  color: #1888ee;
+  color: var(--color-link);
   margin-left: 20rpx;
 }
 
@@ -416,8 +417,8 @@
 .digital-human-btn {
   margin-top: 12rpx;
   padding: 8rpx 16rpx;
-  background: #f0f7ff;
-  color: #1888ee;
+  background: var(--color-link-bg);
+  color: var(--color-link);
   border-radius: 6rpx;
   font-size: 24rpx;
   display: inline-flex;
@@ -434,15 +435,15 @@
   margin-top: 10rpx;
 }
 .voice-bubble.user {
-  background: #95ec69;
+  background: var(--color-chat-bubble-user);
 }
 .voice-bubble.assistant {
-  background: #f5f5f5;
+  background: var(--color-muted);
 }
 .voice-play-icon {
   font-size: 36rpx;
 }
 .voice-duration {
   font-size: 24rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
 }

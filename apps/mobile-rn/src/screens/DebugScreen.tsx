@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { Alert, Clipboard, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -97,18 +98,18 @@ export function DebugScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
-  warningBar: { padding: 10, borderRadius: 8, backgroundColor: '#FEF3C7', marginBottom: 12 },
-  warningText: { fontSize: 11, color: '#92400E' },
+  warningBar: { padding: 10, borderRadius: 8, backgroundColor: tokens.warning.amberLight, marginBottom: 12 },
+  warningText: { fontSize: 11, color: tokens.warning.amberText },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
-  rowDivider: { borderTopColor: '#F3F4F6', borderTopWidth: 1 },
-  label: { fontSize: 12, color: '#6B7280' },
-  value: { fontSize: 13, color: '#111827', maxWidth: 200 },
+  rowDivider: { borderTopColor: tokens.surface.card, borderTopWidth: 1 },
+  label: { fontSize: 12, color: tokens.text.secondary },
+  value: { fontSize: 13, color: tokens.text.primary, maxWidth: 200 },
   btn: { marginTop: 8, borderRadius: 8 },
-  btnPrimary: { marginTop: 8, borderRadius: 8, backgroundColor: '#10B981' },
+  btnPrimary: { marginTop: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
 })
