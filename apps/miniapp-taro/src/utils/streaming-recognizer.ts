@@ -1,9 +1,18 @@
-﻿import Taro from '@tarojs/taro'
-import { post } from './api-bridge'
-import { arrayBufferToBase64 } from '@ihui/shared/utils/base64'
+import Taro from '@tarojs/taro'
+import { voiceSttFromTaro } from '@ihui/api-client'
 
+/**
+ * 流式语音识别器(miniapp-taro)。
+ *
+ * 2026-07-28 改:从豆包付费 ASR(/ai-audio/asr/stream)迁移到
+ * ai-service faster-whisper 本地推理(/api/voice/stt),零成本。
+ *
+ * 实现策略:录音用 Taro.RecorderManager(原生),停止后整段上传到
+ * ai-service 转写(非流式)。原流式帧上传已废弃(豆包 API 付费 + 复杂)。
+ */
 export interface RecognizerConfig {
-  apiUrl?: string
+  /** ai-service 基础 URL(默认 http://localhost:8803) */
+  aiServiceUrl?: string
   sampleRate?: number
   format?: string
   language?: string
@@ -16,10 +25,10 @@ type ErrorCallback = (message: string) => void
 
 class StreamingRecognizer {
   private config: Required<RecognizerConfig> = {
-    apiUrl: '/ai-audio/asr/stream',
+    aiServiceUrl: 'http://localhost:8803',
     sampleRate: 16000,
-    format: 'pcm',
-    language: 'zh-CN',
+    format: 'mp3',
+    language: 'zh',
   }
 
   private recorderManager: Taro.RecorderManager | null = null
@@ -37,30 +46,13 @@ class StreamingRecognizer {
     this.recorderManager.onStop((res) => {
       this.tempFilePath = res.tempFilePath
       this.isRecording = false
-      this.finalizeRecognition()
+      void this.finalizeRecognition()
     })
     this.recorderManager.onError((err) => {
       this.isRecording = false
       this.onError?.(err.errMsg || '录音错误')
     })
-    this.recorderManager.onFrameRecorded?.((res) => {
-      if (this.isRecording && res.frameBuffer) {
-        this.sendFrame(res.frameBuffer)
-      }
-    })
-  }
-
-  private async sendFrame(frameBuffer: ArrayBuffer): Promise<void> {
-    try {
-      const res = await post<{ text?: string }>(this.config.apiUrl, {
-        frame: arrayBufferToBase64(frameBuffer),
-      })
-      if (res?.text) {
-        this.onPartialResult?.(res.text)
-      }
-    } catch {
-      // 流式帧发送失败忽略，继续后续帧
-    }
+    // 流式帧上传已废弃(2026-07-28 改用整段上传 + faster-whisper 本地推理)
   }
 
   startRecognizing(): Promise<void> {
@@ -95,16 +87,20 @@ class StreamingRecognizer {
     })
   }
 
+  /**
+   * 录音停止后:整段上传到 ai-service /api/voice/stt 转写。
+   * 用 packages/api-client 的 voiceSttFromTaro 跨端共用封装。
+   */
   private async finalizeRecognition(): Promise<void> {
     if (!this.tempFilePath) return
     try {
-      const res = await post<{ text?: string }>(this.config.apiUrl, {
-        filePath: this.tempFilePath,
-        action: 'finish',
+      const text = await voiceSttFromTaro(this.tempFilePath, {
+        language: this.config.language,
+        aiServiceUrl: this.config.aiServiceUrl,
       })
-      if (res?.text) {
-        this.recognitionResult = res.text
-        this.onFinalResult?.(res.text)
+      if (text) {
+        this.recognitionResult = text
+        this.onFinalResult?.(text)
       }
     } catch {
       this.onError?.('识别失败')
