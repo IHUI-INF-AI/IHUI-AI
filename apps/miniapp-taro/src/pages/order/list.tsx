@@ -1,6 +1,7 @@
 import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef, useMemo, useCallback } from 'react'
+import { formatDateByTemplate } from '@ihui/shared'
 import { getOrderList, type Order } from '@/api'
 import { useI18n } from '@/i18n'
 
@@ -41,16 +42,17 @@ const PAGE_SIZE = 10
 function formatTimestamp(ts: string | number | undefined): string {
   if (!ts) return ''
   if (typeof ts === 'string') {
+    // ISO 字符串(已 YYYY-MM-DD 开头)直接返回
     if (/^\d{4}-\d{2}-\d{2}/.test(ts)) return ts
     const n = Number(ts)
     if (!Number.isFinite(n)) return ts
     ts = n
   }
-  const ms = ts < 1e12 ? ts * 1000 : ts
-  const d = new Date(ms)
-  if (isNaN(d.getTime())) return String(ts)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  // 秒级时间戳(< 1e12)→ 乘 1000 转毫秒
+  const input = ts < 1e12 ? ts * 1000 : ts
+  const formatted = formatDateByTemplate(input, 'YYYY-MM-DD HH:mm:ss')
+  // 无效日期时 formatDateByTemplate 返回 '',原实现返回 String(ts),保留原行为
+  return formatted || String(ts)
 }
 
 export default function OrderList() {
