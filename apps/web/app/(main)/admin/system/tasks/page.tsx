@@ -97,14 +97,14 @@ export default function AdminSystemTasksPage() {
   const failedCount = list.filter((t) => t.status === 'failed').length
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <ListChecks className="h-6 w-6 text-primary" />
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <ListChecks className="h-5 w-5 text-primary" />
             系统任务
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">定时任务与后台作业管理</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">定时任务与后台作业管理</p>
         </div>
         <div className="flex items-center gap-3 text-xs">
           <span className="inline-flex items-center gap-1 text-emerald-600">
@@ -134,9 +134,9 @@ export default function AdminSystemTasksPage() {
         </Select>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="max-h-[calc(100vh-20rem)] overflow-auto rounded-lg border">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-muted/50">
             <TableRow className="bg-muted/50">
               <TableHead className="text-xs uppercase">任务名称</TableHead>
               <TableHead className="text-xs uppercase">类型</TableHead>
@@ -151,13 +151,13 @@ export default function AdminSystemTasksPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                 </TableCell>
               </TableRow>
             ) : list.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                   暂无任务
                 </TableCell>
               </TableRow>

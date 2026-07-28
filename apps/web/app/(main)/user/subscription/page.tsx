@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
@@ -127,17 +127,17 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Crown className="h-6 w-6 text-amber-500" />
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <Crown className="h-5 w-5 text-amber-500" />
           {t('subscription.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subscription.subtitle')}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('subscription.subtitle')}</p>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('subscription.loading')}
         </div>
@@ -146,16 +146,16 @@ export default function SubscriptionPage() {
           {/* 状态卡片 */}
           {isVip ? (
             <Card className="border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-950/20">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-                  <Crown className="h-6 w-6 text-emerald-600 dark:text-emerald-500" />
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+                  <Crown className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t('subscription.current')}</p>
-                  <p className="text-lg font-semibold">
+                <div className="space-y-0.5">
+                  <p className="text-xs text-muted-foreground">{t('subscription.current')}</p>
+                  <p className="text-base font-semibold">
                     {status?.vipLevel ?? 'VIP'} {t('subscription.activated')}
                   </p>
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span>
                       {t('subscription.expireTime')}：
                       {status?.expireTime ? formatDate(status.expireTime) : '-'}
@@ -180,13 +180,13 @@ export default function SubscriptionPage() {
             </Card>
           ) : (
             <Card className="border-muted">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted">
-                  <Crown className="h-6 w-6 text-muted-foreground" />
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <Crown className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-lg font-semibold">{t('subscription.notSubscribed')}</p>
-                  <p className="text-sm text-muted-foreground">
+                <div className="space-y-0.5">
+                  <p className="text-base font-semibold">{t('subscription.notSubscribed')}</p>
+                  <p className="text-xs text-muted-foreground">
                     {t('subscription.notSubscribedHint')}
                   </p>
                 </div>
@@ -196,13 +196,13 @@ export default function SubscriptionPage() {
 
           {/* 续费/订阅表单 */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm">
                 {isVip ? t('subscription.renewTitle') : t('subscription.openTitle')}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <CardContent className="p-4 pt-2">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
                 <div className="space-y-2">
                   <Label>{t('subscription.plan')}</Label>
                   <Select value={planId} onValueChange={(v) => setValue('planId', v)}>
@@ -249,10 +249,10 @@ export default function SubscriptionPage() {
 
           {/* 自动续费管理 */}
           <Card id="auto-renew-manager">
-            <CardHeader>
-              <CardTitle className="text-base">{t('subscription.autoRenewManageTitle')}</CardTitle>
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm">{t('subscription.autoRenewManageTitle')}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 p-4 pt-2">
               {sub.data?.autoRenew ? (
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1">

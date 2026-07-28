@@ -33,7 +33,7 @@ interface SessionInfo {
   familyId: string | null
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 export default function AuthorizationsPage() {
   const t = useTranslations('settings')
@@ -198,7 +198,7 @@ export default function AuthorizationsPage() {
           )}
 
           {!loading && !error && sessions.length > 0 && (
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-2 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
                 {t('activityPageInfo', { page, totalPages })}
               </span>

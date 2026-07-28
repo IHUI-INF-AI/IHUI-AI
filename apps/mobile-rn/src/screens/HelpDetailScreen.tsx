@@ -41,7 +41,7 @@ export function HelpDetailScreen() {
     } finally {
       setLoading(false)
     }
-  }, [id, token, t])
+  }, [id, t])
 
   useEffect(() => {
     void load()

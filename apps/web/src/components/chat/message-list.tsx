@@ -11,6 +11,9 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
+import type { SubAgentActivity } from '@/components/ai/types'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { cn } from '@/lib/utils'
 
 /** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
@@ -98,6 +101,12 @@ interface MessageItemProps {
   assistantLabel: string
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
+  /** Phase 19.1: 该消息关联的 planStepIds(用于 hover 联动到右侧索引) */
+  relatedPlanStepIds?: string[]
+  /** Phase 19.1: 是否正在被短时高亮(jump 目标) */
+  isHighlighted?: boolean
+  /** Phase 19.1: hover 消息 → 联动右侧 planStep(取第一个相关 step) */
+  onHoverMessage?: (messageId: string | null, planStepIds: string[]) => void
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -107,6 +116,9 @@ const MessageItem = React.memo(function MessageItem({
   assistantLabel,
   onApplyDiff,
   onRejectDiff,
+  relatedPlanStepIds,
+  isHighlighted,
+  onHoverMessage,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   const isUser = m.role === 'user'
@@ -114,7 +126,18 @@ const MessageItem = React.memo(function MessageItem({
   const streamingThis = !isUser && isStreaming && isLast
 
   return (
-    <div className={cn('flex w-full gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div
+      className={cn(
+        'flex w-full gap-3 transition-all duration-500',
+        isUser ? 'flex-row-reverse' : 'flex-row',
+        // Phase 19.1: jump 目标消息 1.5s 高亮(primary 色淡背景 + ring)
+        isHighlighted && 'rounded-lg bg-primary/8 ring-2 ring-primary/40',
+      )}
+      data-message-id={m.id}
+      data-testid={`message-item-${m.id}`}
+      onMouseEnter={() => onHoverMessage?.(m.id, relatedPlanStepIds ?? [])}
+      onMouseLeave={() => onHoverMessage?.(null, [])}
+    >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
@@ -259,6 +282,10 @@ interface MessageListProps {
   fallbackNotice?: FallbackEvent | null
   /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
   onClearFallbackNotice?: () => void
+  /** Phase 18.2: 子 agent 活动(对话流 inline 模式,Trae Work 对齐) */
+  subAgentActivities?: SubAgentActivity[]
+  /** Phase 18.4: 上下文 step 预算(used / total),用于显示 X/60 step budget */
+  stepBudget?: { used: number; total: number }
 }
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
@@ -287,11 +314,55 @@ export function MessageList({
   onLoadMoreHistory,
   fallbackNotice,
   onClearFallbackNotice,
+  subAgentActivities,
+  stepBudget,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const lastContent = messages[messages.length - 1]?.content
+
+  // Phase 19.1: Plan Step ↔ Message 双向跳转 — 监听 jump 请求 + 高亮
+  const pendingJumpToMessage = useProgressJumpStore((s) => s.pendingJumpToMessage)
+  const clearPendingJump = useProgressJumpStore((s) => s.clearPendingJump)
+  const highlightedMessageId = useProgressJumpStore((s) => s.highlightedMessageId)
+  const messageToPlanStepIds = useProgressJumpStore((s) => s.messageToPlanStepIds)
+  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
+  const setHoveredMessage = useProgressJumpStore((s) => s.setHoveredMessage)
+
+  // Phase 19.1: 监听 jump 请求 → 滚动到目标消息
+  React.useEffect(() => {
+    if (!pendingJumpToMessage) return
+    const { messageId } = pendingJumpToMessage
+    // 特殊兜底:___jump_to_latest___ 降级为滚到底部
+    if (messageId === '___jump_to_latest___') {
+      const el = bottomRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      clearPendingJump()
+      return
+    }
+    // 真实 messageId:用 querySelector 找对应元素(用 data-message-id)
+    const target = containerRef.current?.querySelector(
+      `[data-message-id="${messageId}"]`,
+    ) as HTMLElement | null
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else {
+      // 消息不在当前渲染范围内(可能虚拟滚动外)→ 滚到底部兜底
+      const el = bottomRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+    clearPendingJump()
+  }, [pendingJumpToMessage, clearPendingJump])
+
+  // Phase 19.1: hover 消息 → 联动右侧 planStep 高亮(取第一个相关 step)
+  const handleHoverMessage = React.useCallback(
+    (messageId: string | null, planStepIds: string[]) => {
+      setHoveredMessage(messageId)
+      setHoveredPlanStep(messageId && planStepIds.length > 0 ? (planStepIds[0] ?? null) : null)
+    },
+    [setHoveredMessage, setHoveredPlanStep],
+  )
 
   // #7 虚拟滚动状态
   const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
@@ -548,17 +619,44 @@ export function MessageList({
         {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
         {renderItems.map((m, idx) => {
           const realIdx = enableVirtual ? visibleRange.start + idx : idx
+          const isLastMessage = realIdx === messages.length - 1
           return (
             <div key={m.id} ref={enableVirtual ? measureItem(m.id) : undefined}>
               {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
               <MessageItem
                 message={m}
-                isLast={realIdx === messages.length - 1}
+                isLast={isLastMessage}
                 isStreaming={isStreaming}
                 assistantLabel={assistantLabel}
                 onApplyDiff={onApplyDiff}
                 onRejectDiff={onRejectDiff}
+                /* Phase 19.1: Plan Step ↔ Message 双向跳转 — 关联 planStepIds + 高亮 + hover 联动 */
+                relatedPlanStepIds={messageToPlanStepIds[m.id]}
+                isHighlighted={highlightedMessageId === m.id}
+                onHoverMessage={handleHoverMessage}
               />
+              {/* Phase 18.2: 在最后一条消息下方 inline 渲染 subagent 活动(Trae Work 风格)
+                  仅当最后一条消息是 AI 消息且存在 subagent 活动时显示,确保 subagent 卡片跟随主 agent 消息。
+                  历史消息不展示:subAgentActivities 总是当前对话的最新状态,内联在最后一条 AI 消息下方才是有意义的。 */}
+              {isLastMessage &&
+                m.role === 'assistant' &&
+                subAgentActivities &&
+                subAgentActivities.length > 0 && (
+                  <div className="ml-11 mt-1 max-w-[calc(100%-3rem)]">
+                    <SubAgentActivityFeed
+                      swarmId=""
+                      activities={subAgentActivities}
+                      completed={subAgentActivities.every(
+                        (a) =>
+                          a.status === 'completed' ||
+                          a.status === 'failed' ||
+                          a.status === 'cancelled',
+                      )}
+                      inline
+                      stepBudget={stepBudget}
+                    />
+                  </div>
+                )}
             </div>
           )
         })}

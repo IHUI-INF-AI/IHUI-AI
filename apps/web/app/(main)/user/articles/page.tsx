@@ -56,13 +56,13 @@ export default function MyArticlesPage() {
   const totalPages = Math.max(1, Math.ceil(total / 20))
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-lg font-bold tracking-tight">
             {t('title', { default: '我的文章' })}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {t('total', { default: '共 {n} 篇', n: total })}
           </p>
         </div>
@@ -75,15 +75,15 @@ export default function MyArticlesPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex justify-center py-16">
+        <div className="flex justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : error ? (
-        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : articles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-10">
           <p className="text-sm text-muted-foreground">{t('empty', { default: '还没有文章' })}</p>
           <Link href="/articles/edit">
             <Button size="sm" variant="outline">
@@ -94,10 +94,10 @@ export default function MyArticlesPage() {
         </div>
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {articles.map((a: ArticleItem) => (
               <Card key={a.id}>
-                <CardContent className="flex items-start gap-3 p-4">
+                <CardContent className="flex items-start gap-3 p-3">
                   {a.coverImage ? (
                     <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md">
                       <Image src={a.coverImage} alt={a.title} fill className="object-cover" />
@@ -160,7 +160,7 @@ export default function MyArticlesPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
+            <div className="flex items-center justify-center gap-2 pt-1">
               <Button
                 variant="outline"
                 size="sm"

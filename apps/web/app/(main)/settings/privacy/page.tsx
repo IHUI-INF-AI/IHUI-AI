@@ -99,42 +99,44 @@ export default function PrivacyPage() {
   ]
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('privacyTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('privacyDesc')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('privacyTitle')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('privacyDesc')}</p>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {tc('loading')}
         </div>
       ) : error ? (
-        <p className="py-12 text-center text-sm text-destructive">{error}</p>
+        <p className="py-8 text-center text-xs text-destructive">{error}</p>
       ) : (
-        items.map((item) => {
-          const Icon = item.icon
-          return (
-            <Card key={item.key}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Icon className="h-4 w-4" />
-                  {item.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{item.desc}</span>
-                  <Switch
-                    checked={prefs[item.key]}
-                    onCheckedChange={(v) => update(item.key, v)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => {
+            const Icon = item.icon
+            return (
+              <Card key={item.key}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Icon className="h-4 w-4" />
+                    {item.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">{item.desc}</span>
+                    <Switch
+                      checked={prefs[item.key]}
+                      onCheckedChange={(v) => update(item.key, v)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
       )}
 
       {toast && (

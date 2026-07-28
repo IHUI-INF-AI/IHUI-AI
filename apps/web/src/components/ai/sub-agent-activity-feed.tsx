@@ -13,6 +13,10 @@ interface SubAgentActivityFeedProps {
   activities: SubAgentActivity[]
   completed?: boolean
   initiallyExpanded?: boolean
+  /** Phase 18.2: inline 模式(对话流内联,无外层卡片+折叠按钮) */
+  inline?: boolean
+  /** Phase 18.4: step 预算(used / total),用于 CheckedItemsBlock 显示 */
+  stepBudget?: { used: number; total: number }
 }
 
 const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
@@ -148,6 +152,8 @@ export function SubAgentActivityFeed({
   activities,
   completed = false,
   initiallyExpanded,
+  inline = false,
+  stepBudget,
 }: SubAgentActivityFeedProps) {
   const t = useTranslations('ai.subAgentFeed')
   const ts = useTranslations('ai.status')
@@ -155,6 +161,44 @@ export function SubAgentActivityFeed({
   const [expanded, setExpanded] = React.useState(initiallyExpanded ?? (hasRunning && !completed))
 
   const totalSteps = activities.reduce((sum, a) => sum + a.completedSteps.length, 0)
+
+  // Phase 18.4: step budget 显示
+  const budgetText = stepBudget
+    ? `Current usage: ${stepBudget.used} / ${stepBudget.total} step budget`
+    : undefined
+
+  // Phase 18.2: inline 模式 — 无外层卡片,直接渲染 agent 列表
+  if (inline) {
+    return (
+      <div className="space-y-1.5" data-testid="sub-agent-inline">
+        <div className="mb-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground/70">
+          <Zap className="h-3 w-3 text-amber-500" aria-hidden />
+          <span>
+            {completed
+              ? t('coordinated', { count: activities.length })
+              : t('working', { count: activities.length })}
+            {totalSteps > 0 && (
+              <span className="ml-1 text-muted-foreground/60">
+                {t('totalSteps', { count: totalSteps })}
+              </span>
+            )}
+          </span>
+        </div>
+        {activities.map((agent) => (
+          <SubAgentCard
+            key={agent.agentId}
+            agent={agent}
+            badgeLabel={t('badge')}
+            defaultName={t('defaultName')}
+            statusLabel={ts(agent.status)}
+          />
+        ))}
+        {budgetText && completed && (
+          <div className="text-[10px] text-muted-foreground/60">{budgetText}</div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div

@@ -68,77 +68,79 @@ export default function LoginSecurityPage() {
   }
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('loginSecurityTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('loginSecurityDesc')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('loginSecurityTitle')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('loginSecurityDesc')}</p>
       </div>
 
-      {/* 自动登录 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <LogIn className="h-4 w-4" />
-            {t('loginSecurity.autoLoginTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">
-                {t('loginSecurity.autoLoginDesc')}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t('loginSecurity.rememberDays', { days: REMEMBER_DAYS })}
-              </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* 自动登录 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <LogIn className="h-4 w-4" />
+              {t('loginSecurity.autoLoginTitle')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">
+                  {t('loginSecurity.autoLoginDesc')}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {t('loginSecurity.rememberDays', { days: REMEMBER_DAYS })}
+                </p>
+              </div>
+              {loading ? (
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" />
+              ) : (
+                <Switch
+                  checked={prefs.autoLogin}
+                  disabled={saving}
+                  onCheckedChange={(v) => update({ autoLogin: v })}
+                  aria-label={t('loginSecurity.autoLoginTitle')}
+                />
+              )}
             </div>
-            {loading ? (
-              <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" />
-            ) : (
-              <Switch
-                checked={prefs.autoLogin}
-                disabled={saving}
-                onCheckedChange={(v) => update({ autoLogin: v })}
-                aria-label={t('loginSecurity.autoLoginTitle')}
-              />
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* 自动续期 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <RefreshCw className="h-4 w-4" />
-            {t('loginSecurity.autoRenewTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">
-                {t('loginSecurity.autoRenewDesc')}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {prefs.autoRenew
-                  ? t('loginSecurity.autoRenewOn')
-                  : t('loginSecurity.autoRenewOff')}
-              </p>
+        {/* 自动续期 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <RefreshCw className="h-4 w-4" />
+              {t('loginSecurity.autoRenewTitle')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">
+                  {t('loginSecurity.autoRenewDesc')}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {prefs.autoRenew
+                    ? t('loginSecurity.autoRenewOn')
+                    : t('loginSecurity.autoRenewOff')}
+                </p>
+              </div>
+              {loading ? (
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" />
+              ) : (
+                <Switch
+                  checked={prefs.autoRenew}
+                  disabled={saving}
+                  onCheckedChange={(v) => update({ autoRenew: v })}
+                  aria-label={t('loginSecurity.autoRenewTitle')}
+                />
+              )}
             </div>
-            {loading ? (
-              <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" />
-            ) : (
-              <Switch
-                checked={prefs.autoRenew}
-                disabled={saving}
-                onCheckedChange={(v) => update({ autoRenew: v })}
-                aria-label={t('loginSecurity.autoRenewTitle')}
-              />
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* toast */}
       {toast && (
