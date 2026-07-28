@@ -1,108 +1,77 @@
-import { useEffect, useState } from 'react'
-import { FlatList, Text, View } from 'react-native'
-import { Card } from '@ihui/ui-native'
-import { getOrders, type Order, type OrderStatus } from '@ihui/api-client'
-import { formatAmount } from '@ihui/shared/utils'
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi, type Order } from '@ihui/api-client'
+import { OrderScreen as SharedOrderScreen, type OrderItem, type OrderTab } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
-import { formatDateByTemplate } from '../utils/date-utils'
+import { useTheme } from '../context/ThemeContext'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-const PAGE_SIZE = 20
-
-const STATUS_STYLE: Record<OrderStatus, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  paid: 'bg-emerald-100 text-emerald-700',
-  cancelled: 'bg-neutral-200 text-neutral-600',
-  refunding: 'bg-blue-100 text-blue-700',
-  refunded: 'bg-violet-100 text-violet-700',
-  completed: 'bg-emerald-100 text-emerald-700',
-  failed: 'bg-red-100 text-red-700',
-}
-
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function OrderScreen() {
   const { t } = useI18n()
-  const [orders, setOrders] = useState<Order[]>([])
+  const { resolvedTheme } = useTheme()
+  const navigation = useNavigation<NavigationProp>()
+  const [items, setItems] = useState<OrderItem[]>([])
+  const [activeTab, setActiveTab] = useState<OrderTab>('all')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      setLoading(true)
-      setError('')
-      const res = await getOrders({ page: 1, pageSize: PAGE_SIZE })
-      if (cancelled) return
-      if (res.success) setOrders(res.data.list)
-      else setError(res.error || t('order.loadFailed'))
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetchApi<Order[]>(`/api/orders?status=${activeTab}`)
+      if (!res.success) throw new Error()
+      setItems(
+        (res.data ?? []).map((o) => ({
+          id: o.id,
+          orderNo: o.orderNo,
+          title: o.targetTitle,
+          amount: o.payAmount,
+          status: o.status,
+          createdAt: o.createdAt,
+        })),
+      )
+    } catch {
+      setError(t('order.loadFailed'))
+    } finally {
       setLoading(false)
-    })()
-    return () => {
-      cancelled = true
+      setRefreshing(false)
     }
-  }, [t])
+  }, [t, activeTab])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onSelectTab = (tab: OrderTab) => {
+    if (tab === activeTab) return
+    setActiveTab(tab)
+  }
+
+  const onPressItem = (item: OrderItem) => {
+    navigation.navigate('OrderDetail', { id: item.id })
+  }
 
   return (
-    <View className="flex-1 bg-white dark:bg-black">
-      <View className="px-4 pt-12 pb-2">
-        <Text className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-          {t('order.title')}
-        </Text>
-      </View>
-      {error ? (
-        <View className="px-4 py-2">
-          <Text className="text-sm text-red-600">{error}</Text>
-        </View>
-      ) : null}
-      <FlatList
-        data={orders}
-        keyExtractor={(o) => o.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View className="h-3" />}
-        ListEmptyComponent={
-          loading ? (
-            <View className="items-center py-12">
-              <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
-            </View>
-          ) : (
-            <View className="items-center py-12">
-              <Text className="text-sm text-neutral-500">{t('order.empty')}</Text>
-            </View>
-          )
-        }
-        renderItem={({ item }) => {
-          const amountClass = item.status === 'refunded' ? 'text-emerald-600' : 'text-red-600'
-          const statusKey = `order.status.${item.status}` as const
-          return (
-            <Card>
-              <View className="flex-row items-center justify-between">
-                <Text
-                  className="flex-1 text-base font-semibold text-neutral-900 dark:text-neutral-50"
-                  numberOfLines={1}
-                >
-                  {item.targetTitle}
-                </Text>
-                <View
-                  className={`rounded-md px-2 py-0.5 ${STATUS_STYLE[item.status] ?? 'bg-neutral-200 text-neutral-600'}`}
-                >
-                  <Text className="text-xs">{t(statusKey)}</Text>
-                </View>
-              </View>
-              <View className="mt-1 flex-row justify-between">
-                <Text className="text-xs text-neutral-500">
-                  {t('order.orderNo')}:{item.orderNo}
-                </Text>
-                <Text className="text-xs text-neutral-500">{formatDateByTemplate(item.createdAt, 'YYYY-MM-DD HH:mm')}</Text>
-              </View>
-              <View className="mt-2 flex-row items-end justify-between">
-                <Text className="text-xs text-neutral-500">{t('order.payAmount')}</Text>
-                <Text className={`text-lg font-semibold ${amountClass}`}>
-                  ¥ {formatAmount(item.payAmount)}
-                </Text>
-              </View>
-            </Card>
-          )
-        }}
-      />
-    </View>
+    <SharedOrderScreen
+      t={t}
+      items={items}
+      activeTab={activeTab}
+      onSelectTab={onSelectTab}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onPressItem={onPressItem}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
