@@ -1,7 +1,9 @@
 import reactConfig from '@ihui/eslint-config/react'
+import crossEndConfig from '@ihui/eslint-config/cross-end'
 
 export default [
   ...reactConfig,
+  ...crossEndConfig,
   {
     ignores: ['dist/**', 'dist-alipay/**', '.swc/**', 'config/**', 'babel.config.js', 'scripts/**'],
   },
