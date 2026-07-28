@@ -605,14 +605,20 @@ export function LocalFolderPicker({
     [filteredDirs, selectedPath, selectedEntry, enterDirectory, openSelected, goParent, openTarget],
   )
 
-  // 系统原生选择器(只填文件夹名,提示用户补全)
+  // 系统原生选择器
+  // showDirectoryPicker 受浏览器安全模型限制:只能返回 handle.name(文件夹名),
+  // 拿不到真实绝对路径。选完后自动把 filter 设为该名字,让下方文件列表
+  // 立即过滤出匹配项,焦点落在列表上,用户用 ↑↓ + Enter 即可选中并打开。
   const handleNativePick = async () => {
     setNativeHint(null)
     try {
       const name = await pickDirectoryNative()
-      if (name) {
-        setNativeHint(t('nativePickHint', { name }))
-      }
+      if (!name) return
+      setFilter(name)
+      setNativeHint(t('nativePickHint', { name }))
+      // 选完自动把焦点落到列表,方便用户立即用键盘浏览/打开。
+      // 若当前目录下无匹配项,用户按 Backspace 可返回上级重新浏览。
+      window.setTimeout(() => listRef.current?.focus(), 0)
     } catch (err) {
       setNativeHint((err as Error).message)
     }
