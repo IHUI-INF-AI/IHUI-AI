@@ -2,15 +2,38 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Sparkles, AlertCircle, Loader2, ChevronDown, ShieldCheck, ShieldAlert, Hand } from 'lucide-react'
+import {
+  Sparkles,
+  AlertCircle,
+  Loader2,
+  ChevronDown,
+  ShieldCheck,
+  ShieldAlert,
+  Hand,
+  MessageSquare,
+  ListTree,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 
 import type { ChatMessage } from '@/stores/chat'
-import type { InlineDiffInfo } from '@/components/ai/types'
+import type { InlineDiffInfo, SubAgentActivity } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
+import { SubAgentTaskTree } from '@/components/ai/progress-sections/sub-agent-task-tree'
+import {
+  MessageContextMenu,
+  plainTextForClipboard,
+  markdownForClipboard,
+} from '@/components/ai/progress-sections/message-context-menu'
+import { TimelineEventRow } from '@/components/ai/progress-sections/timeline-event'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
+import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
+import { useChatStore } from '@/stores/chat'
+import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
+import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 /** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
@@ -98,6 +121,9 @@ interface MessageItemProps {
   assistantLabel: string
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
+  isHighlighted?: boolean
+  isHovered?: boolean
+  onContextMenu?: (e: React.MouseEvent) => void
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -107,6 +133,9 @@ const MessageItem = React.memo(function MessageItem({
   assistantLabel,
   onApplyDiff,
   onRejectDiff,
+  isHighlighted = false,
+  isHovered = false,
+  onContextMenu,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   const isUser = m.role === 'user'
@@ -114,7 +143,16 @@ const MessageItem = React.memo(function MessageItem({
   const streamingThis = !isUser && isStreaming && isLast
 
   return (
-    <div className={cn('flex w-full gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div
+      className={cn(
+        'flex w-full gap-3 rounded-md transition-colors duration-300',
+        isUser ? 'flex-row-reverse' : 'flex-row',
+        isHighlighted && 'bg-primary/5 ring-1 ring-primary/30',
+        isHovered && !isHighlighted && 'bg-accent/20',
+      )}
+      data-message-id={m.id}
+      onContextMenu={onContextMenu}
+    >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
@@ -259,6 +297,12 @@ interface MessageListProps {
   fallbackNotice?: FallbackEvent | null
   /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
   onClearFallbackNotice?: () => void
+  /** Phase 18.2: SubAgent 活动列表(2026-07-28,可选覆盖 useChatStore 内部读取)
+   *  Trae Work 风格 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)。
+   *  不传则从 useChatStore 内部派生 */
+  subAgentActivities?: SubAgentActivity[]
+  /** Phase 18.4: step budget 显示(从 store 派生,目前用固定 60 上限) */
+  stepBudget?: { used: number; total: number }
 }
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
@@ -287,6 +331,8 @@ export function MessageList({
   onLoadMoreHistory,
   fallbackNotice,
   onClearFallbackNotice,
+  subAgentActivities: subAgentActivitiesProp,
+  stepBudget: _stepBudget,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
@@ -357,7 +403,12 @@ export function MessageList({
     userScrolledUpRef.current = distanceFromBottom > 120
 
     // #8 滚动到顶部触发加载更多历史
-    if (el.scrollTop < TOP_LOAD_MORE_THRESHOLD && onLoadMoreHistory && hasMoreHistory && !loadingMoreHistory) {
+    if (
+      el.scrollTop < TOP_LOAD_MORE_THRESHOLD &&
+      onLoadMoreHistory &&
+      hasMoreHistory &&
+      !loadingMoreHistory
+    ) {
       // 记录当前 scrollHeight,prepend 后恢复相对位置(保持视觉不跳动)
       const prevScrollHeight = el.scrollHeight
       const prevScrollTop = el.scrollTop
@@ -396,7 +447,10 @@ export function MessageList({
 
     // 找到 endIndex(第一个 offset > viewportBottom + buffer*ESTIMATED)
     let end = start
-    while (end < messages.length - 1 && offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT) {
+    while (
+      end < messages.length - 1 &&
+      offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT
+    ) {
       end++
     }
     end = Math.min(messages.length - 1, end + BUFFER)
@@ -405,7 +459,14 @@ export function MessageList({
       if (prev.start === start && prev.end === end) return prev
       return { start, end }
     })
-  }, [enableVirtual, computeCumulative, messages.length, onLoadMoreHistory, hasMoreHistory, loadingMoreHistory])
+  }, [
+    enableVirtual,
+    computeCumulative,
+    messages.length,
+    onLoadMoreHistory,
+    hasMoreHistory,
+    loadingMoreHistory,
+  ])
 
   // 自动滚动到底部(流式 token 到达 + 新消息)
   // - 用户手动向上滚动时不强制滚到底(避免打断阅读)
@@ -467,26 +528,29 @@ export function MessageList({
 
   // #8 加载更多历史时保持滚动位置(handleScroll 内已处理)
   // #7 ResizeObserver 测量真实高度并触发重算可见范围
-  const measureItem = React.useCallback((id: string) => (el: HTMLElement | null) => {
-    const map = heightMapRef.current
-    if (!el) {
-      // P1-3 修复:删除条目时版本号 +1,强制下次 computeCumulative 重算缓存
-      if (map.has(id)) {
-        map.delete(id)
-        heightMapVersionRef.current++
+  const measureItem = React.useCallback(
+    (id: string) => (el: HTMLElement | null) => {
+      const map = heightMapRef.current
+      if (!el) {
+        // P1-3 修复:删除条目时版本号 +1,强制下次 computeCumulative 重算缓存
+        if (map.has(id)) {
+          map.delete(id)
+          heightMapVersionRef.current++
+        }
+        return
       }
-      return
-    }
-    const h = el.getBoundingClientRect().height
-    const prev = map.get(id)
-    if (prev !== h) {
-      map.set(id, h)
-      // P1-3 修复:heightMap 变化时版本号 +1,强制下次 computeCumulative 重算缓存
-      // 高度变化后重算可见范围(下一帧,避免布局抖动);用 scheduleScrollUpdate 合并多消息同时变化
-      heightMapVersionRef.current++
-      scheduleScrollUpdate()
-    }
-  }, [scheduleScrollUpdate])
+      const h = el.getBoundingClientRect().height
+      const prev = map.get(id)
+      if (prev !== h) {
+        map.set(id, h)
+        // P1-3 修复:heightMap 变化时版本号 +1,强制下次 computeCumulative 重算缓存
+        // 高度变化后重算可见范围(下一帧,避免布局抖动);用 scheduleScrollUpdate 合并多消息同时变化
+        heightMapVersionRef.current++
+        scheduleScrollUpdate()
+      }
+    },
+    [scheduleScrollUpdate],
+  )
 
   // 消息列表重置(切换会话)时清空高度映射 + 重置可见范围
   React.useEffect(() => {
@@ -498,6 +562,247 @@ export function MessageList({
       setVisibleRange({ start: 0, end: messages.length - 1 })
     }
   }, [messages.length])
+
+  // ── Phase 19 集成(2026-07-28 立)────────────────────────────────────
+  // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮
+  const pendingJump = useProgressJumpStore((s) => s.pendingJumpToMessage)
+  const highlightedMessageId = useProgressJumpStore((s) => s.highlightedMessageId)
+  const hoveredMessageId = useProgressJumpStore((s) => s.hoveredMessageId)
+  const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
+  const clearPendingJump = useProgressJumpStore((s) => s.clearPendingJump)
+  // 已处理的 pendingJump nonce(防止同一次 jump 重复触发 scrollIntoView)
+  const handledJumpNonceRef = React.useRef<number>(-1)
+
+  // 监听 pendingJump:滚动到目标消息 + flashHighlight
+  // PlanStepItem 点击 → ProgressJumpStore.requestJumpToMessage(id) → 此 effect 响应
+  React.useEffect(() => {
+    if (!pendingJump) return
+    if (handledJumpNonceRef.current === pendingJump.nonce) return
+    handledJumpNonceRef.current = pendingJump.nonce
+    const el = containerRef.current?.querySelector(
+      `[data-message-id="${pendingJump.messageId}"]`,
+    ) as HTMLElement | null
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    // 即便目标暂未渲染也调用 flashHighlight(目标出现时会读到高亮状态)
+    flashHighlight(pendingJump.messageId)
+    // 600ms 后清空 pending(让 UI 跳转完成后回归稳态)
+    const timer = window.setTimeout(() => {
+      clearPendingJump()
+    }, 600)
+    return () => window.clearTimeout(timer)
+  }, [pendingJump, flashHighlight, clearPendingJump])
+
+  // TimelineStore:tab 切换 + 事件列表(2026-07-28 立,深度对标 Trae Work)
+  const activeTab = useTimelineStore((s) => s.activeTab)
+  const setActiveTab = useTimelineStore((s) => s.setActiveTab)
+  const timelineEvents = useTimelineStore((s) => s.events)
+  const setTimelineEvents = useTimelineStore((s) => s.setEvents)
+
+  // ChatStore:subAgentActivities(2026-07-28 立)用于派生 TimelineEvent + SubAgentTaskTree
+  // 优先用 prop 传入的 subAgentActivities(由 ai-side-panel 派生),
+  // 兜底从 useChatStore 内部读取(独立使用 MessageList 的场景)
+  const subAgentActivitiesFromStore = useChatStore((s) => s.subAgentActivities)
+  const subAgentActivities = subAgentActivitiesProp ?? subAgentActivitiesFromStore
+
+  // 从 messages + subAgentActivities 派生 TimelineEvent 列表
+  // 上游没传 events 时,本地基于 messages 派生供右侧时间线 tab 渲染
+  const derivedEvents = React.useMemo<TimelineEvent[]>(() => {
+    const events: TimelineEvent[] = []
+    for (const m of messages) {
+      events.push({
+        id: `msg-${m.id}`,
+        type: m.role === 'user' ? 'reference' : 'thinking',
+        timestamp: new Date(m.createdAt).toISOString(),
+        title: m.role === 'user' ? '用户消息' : 'AI 回复',
+        description: m.content.slice(0, 80),
+        status: m.error ? 'failed' : 'done',
+        messageId: m.id,
+      })
+      for (const tc of m.toolCalls ?? []) {
+        events.push({
+          id: `tc-${tc.id}`,
+          type: 'tool',
+          timestamp: new Date(m.createdAt).toISOString(),
+          title: tc.toolName,
+          status: tc.status === 'success' ? 'done' : tc.status === 'error' ? 'failed' : 'running',
+          messageId: m.id,
+          toolCallId: tc.id,
+        })
+      }
+    }
+    for (const sa of subAgentActivities) {
+      events.push({
+        id: `sub-${sa.agentId}`,
+        type: 'subagent',
+        timestamp: new Date().toISOString(),
+        title: sa.name,
+        description: sa.currentStep,
+        status: sa.status === 'completed' ? 'done' : sa.status === 'failed' ? 'failed' : 'running',
+        meta: { agentId: sa.agentId },
+      })
+    }
+    return events
+  }, [messages, subAgentActivities])
+
+  // 上游无 events 时,同步派生 events 到 store(供外部组件共享)
+  React.useEffect(() => {
+    if (timelineEvents.length === 0 && derivedEvents.length > 0) {
+      setTimelineEvents(derivedEvents)
+    }
+  }, [derivedEvents, timelineEvents.length, setTimelineEvents])
+
+  // 为每个 message 派生"关联的 subagent 列表"
+  // 启发式:每个 assistant 消息关联其创建时已存在的 subagent 活动(基于 createdAt 顺序)
+  // - 简化处理:对最后一个 assistant 消息,展示所有当前 subAgentActivities
+  // - 其他消息不展示(避免每个消息重复显示)
+  const lastAssistantMessageId = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant') return m.id
+    }
+    return null
+  }, [messages])
+
+  // 把 SubAgentActivity 映射为 SubAgent(SubAgentTaskTree 要求的类型)
+  // AgentStatus → SubagentStatus 映射:
+  //   idle/pending → spawned; thinking/acting/reflecting/running → running
+  //   completed → done; failed → failed; cancelled/waiting → dead
+  const linkedSubagents = React.useMemo(() => {
+    if (!lastAssistantMessageId || subAgentActivities.length === 0) return []
+    const colors = ['cyan', 'blue', 'green', 'yellow', 'magenta', 'red'] as const
+    const statusMap: Record<string, 'spawned' | 'running' | 'done' | 'failed' | 'dead'> = {
+      idle: 'spawned',
+      pending: 'spawned',
+      thinking: 'running',
+      acting: 'running',
+      reflecting: 'running',
+      waiting: 'dead',
+      running: 'running',
+      completed: 'done',
+      failed: 'failed',
+      cancelled: 'dead',
+    }
+    return subAgentActivities.map((sa, idx) => ({
+      id: sa.agentId,
+      threadId: sa.agentId,
+      nickname: sa.name,
+      handle: `@${sa.name.replace(/^@/, '')}`,
+      color: colors[idx % colors.length] ?? 'cyan',
+      status: statusMap[sa.status] ?? 'spawned',
+      spawnedAt: new Date().toISOString(),
+      currentTask: sa.currentStep,
+    }))
+  }, [lastAssistantMessageId, subAgentActivities])
+
+  // 右键菜单(2026-07-28 立,深度对标 Trae Work)
+  const contextMenu = useContextMenu<ChatMessage>({
+    buildItems: (msg) => {
+      const isAssistant = msg.role === 'assistant'
+      return [
+        {
+          id: 'copy',
+          label: '复制文本',
+          action: 'copy',
+        },
+        {
+          id: 'copyMarkdown',
+          label: '复制为 Markdown',
+          action: 'copyMarkdown',
+          disabled: !isAssistant,
+        },
+        { id: 'sep-1', label: '', separator: true },
+        {
+          id: 'regenerate',
+          label: '重新生成',
+          action: 'regenerate',
+          disabled: !isAssistant,
+        },
+        {
+          id: 'feedback',
+          label: '反馈',
+          action: 'feedback',
+          disabled: !isAssistant,
+        },
+        { id: 'sep-2', label: '', separator: true },
+        {
+          id: 'delete',
+          label: '删除消息',
+          action: 'delete',
+          danger: true,
+        },
+      ]
+    },
+  })
+
+  // 右键菜单项点击处理
+  const handleContextMenuAction = React.useCallback(
+    async (action: ContextMenuAction) => {
+      const msg = contextMenu.data
+      if (!msg) return
+      contextMenu.close()
+      try {
+        if (action === 'copy') {
+          const text = plainTextForClipboard(msg.content)
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text)
+            toast.success('已复制文本')
+          }
+        } else if (action === 'copyMarkdown') {
+          const md = markdownForClipboard(msg.content)
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(md)
+            toast.success('已复制 Markdown')
+          }
+        } else if (action === 'regenerate') {
+          // 重新生成:转发到全局事件,由 message-input 监听后触发 sendAnswer
+          window.dispatchEvent(
+            new CustomEvent('ihui:regenerate-message', { detail: { messageId: msg.id } }),
+          )
+          toast.info('正在重新生成…')
+        } else if (action === 'feedback') {
+          // 反馈:简单 toast 兜底(深度反馈系统不在本任务范围)
+          toast.success('已记录反馈,感谢支持')
+        } else if (action === 'delete') {
+          // 删除:本地过滤 store(单端,服务端持久化由 message-input 流式回收)
+          const store = useChatStore.getState()
+          const next = store.messages.filter((m) => m.id !== msg.id)
+          if (next.length !== store.messages.length) {
+            useChatStore.setState({ messages: next })
+            toast.success('已删除消息')
+          }
+        }
+      } catch (err) {
+        toast.error('操作失败', {
+          description: err instanceof Error ? err.message : String(err),
+        })
+      }
+    },
+    [contextMenu],
+  )
+
+  // 时间间隔格式化(用于 CompressionDivider label)
+  const formatGap = React.useCallback((ms: number): string => {
+    if (ms < 60_000) return `${Math.floor(ms / 1000)}s`
+    if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`
+    return `${Math.floor(ms / 3_600_000)}h`
+  }, [])
+
+  // 监听自定义事件 'ihui:scroll-to-message' (agent-task-progress-pane 兼容路径)
+  React.useEffect(() => {
+    const onScrollTo = (e: Event) => {
+      const detail = (e as CustomEvent<{ messageId: string }>).detail
+      if (!detail?.messageId) return
+      const el = containerRef.current?.querySelector(
+        `[data-message-id="${detail.messageId}"]`,
+      ) as HTMLElement | null
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      flashHighlight(detail.messageId)
+    }
+    window.addEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
+    return () => window.removeEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
+  }, [flashHighlight])
 
   if (messages.length === 0) {
     // 空状态引导模板与附加栏 Popover 共用同一组 5 个核心模板(i18n key 一致)。
@@ -551,61 +856,203 @@ export function MessageList({
     ? messages.slice(visibleRange.start, visibleRange.end + 1)
     : messages
   const offsets = enableVirtual ? computeCumulative().offsets : []
-  const paddingTop = enableVirtual ? offsets[visibleRange.start] ?? 0 : 0
+  const paddingTop = enableVirtual ? (offsets[visibleRange.start] ?? 0) : 0
   const paddingBottom = enableVirtual
     ? Math.max(0, (offsets[messages.length] ?? 0) - (offsets[visibleRange.end + 1] ?? 0))
     : 0
 
+  // 时间线 tab 切换按钮(2026-07-28 立,Phase 19 集成)
+  // 与 TimelineTab 组件功能一致,但本组件使用自有 tab UI(避免与已有 AI 面板 tab 样式冲突)
+  const tablistNode = (
+    <div
+      className="sticky top-0 z-10 flex shrink-0 items-center gap-1 border-b border-border/40 bg-background/80 px-3 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      role="tablist"
+      aria-label="对话视图切换"
+      data-testid="message-list-tablist"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'inline'}
+        aria-controls="message-list-panel-inline"
+        onClick={() => setActiveTab('inline')}
+        className={cn(
+          'inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
+          activeTab === 'inline'
+            ? 'bg-muted text-foreground shadow-sm'
+            : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
+        )}
+        data-testid="message-list-tab-inline"
+      >
+        <MessageSquare className="h-3 w-3" aria-hidden />
+        对话流
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'timeline'}
+        aria-controls="message-list-panel-timeline"
+        onClick={() => setActiveTab('timeline')}
+        className={cn(
+          'inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
+          activeTab === 'timeline'
+            ? 'bg-muted text-foreground shadow-sm'
+            : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
+        )}
+        data-testid="message-list-tab-timeline"
+      >
+        <ListTree className="h-3 w-3" aria-hidden />
+        时间线
+        {(timelineEvents.length > 0 || derivedEvents.length > 0) && (
+          <span
+            className="ml-0.5 rounded-sm bg-muted px-1 text-[9px] tabular-nums text-muted-foreground/80"
+            data-testid="message-list-timeline-count"
+          >
+            {timelineEvents.length || derivedEvents.length}
+          </span>
+        )}
+      </button>
+    </div>
+  )
+
+  // 时间线 tab 面板(独立渲染,不与对话流混在一起)
+  const timelinePanelNode = (
+    <div
+      id="message-list-panel-timeline"
+      role="tabpanel"
+      aria-label="时间线面板"
+      className="h-full space-y-0.5 overflow-y-auto px-2 py-2"
+      data-testid="message-list-timeline-panel"
+    >
+      {derivedEvents.length === 0 ? (
+        <div
+          className="flex items-center justify-center py-4 text-[10px] text-muted-foreground/60"
+          data-testid="message-list-timeline-empty"
+        >
+          暂无事件
+        </div>
+      ) : (
+        derivedEvents.map((evt) => <TimelineEventRow key={evt.id} event={evt} />)
+      )}
+    </div>
+  )
+
   return (
-    // 2026-07-21 AI 面板滚动条:加 hover-scroll 完全隐藏滚动条(不占布局空间),
-    // 解决 bg-shell-panel 暗色背景下默认滚动条轨道透出深色的问题
-    <div ref={containerRef} onScroll={handleScroll} className="hover-scroll h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
-        {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
-        {fallbackNotice && (
-          <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
-            <span>{t('fallbackNotice', { primary: fallbackNotice.primaryModel, backup: fallbackNotice.backupModel })}</span>
-            {onClearFallbackNotice && (
-              <button
-                type="button"
-                onClick={onClearFallbackNotice}
-                className="shrink-0 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
-                aria-label="close"
-              >
-                ×
-              </button>
+    <div className="flex h-full flex-col">
+      {tablistNode}
+      {activeTab === 'inline' ? (
+        // 2026-07-21 AI 面板滚动条:加 hover-scroll 完全隐藏滚动条(不占布局空间),
+        // 解决 bg-shell-panel 暗色背景下默认滚动条轨道透出深色的问题
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          id="message-list-panel-inline"
+          role="tabpanel"
+          className="hover-scroll min-h-0 flex-1 overflow-y-auto"
+          data-testid="message-list-inline-panel"
+        >
+          <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
+            {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
+            {fallbackNotice && (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+                <span>
+                  {t('fallbackNotice', {
+                    primary: fallbackNotice.primaryModel,
+                    backup: fallbackNotice.backupModel,
+                  })}
+                </span>
+                {onClearFallbackNotice && (
+                  <button
+                    type="button"
+                    onClick={onClearFallbackNotice}
+                    className="shrink-0 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
+                    aria-label="close"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             )}
+            {/* #8 顶部加载更多历史指示器 */}
+            {loadingMoreHistory && (
+              <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {t('loading')}
+              </div>
+            )}
+            {/* #7 虚拟滚动顶部占位(未渲染消息的高度填充) */}
+            {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
+            {renderItems.map((m, idx) => {
+              const realIdx = enableVirtual ? visibleRange.start + idx : idx
+              const prev = realIdx > 0 ? messages[realIdx - 1] : undefined
+              // 消息间隔超过 5 分钟 → 插入 CompressionDivider
+              const gapMs =
+                prev && m && typeof prev.createdAt === 'number' && typeof m.createdAt === 'number'
+                  ? m.createdAt - prev.createdAt
+                  : 0
+              const showCompression = gapMs > 5 * 60 * 1000
+              return (
+                <React.Fragment key={m.id}>
+                  {showCompression && prev && (
+                    <CompressionDivider
+                      count={1}
+                      label={`${formatGap(gapMs)} 间隔`}
+                      expandable={false}
+                      data-testid={`message-compression-divider-${m.id}`}
+                    />
+                  )}
+                  <div ref={enableVirtual ? measureItem(m.id) : undefined}>
+                    {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
+                    <MessageItem
+                      message={m}
+                      isLast={realIdx === messages.length - 1}
+                      isStreaming={isStreaming}
+                      assistantLabel={assistantLabel}
+                      onApplyDiff={onApplyDiff}
+                      onRejectDiff={onRejectDiff}
+                      isHighlighted={highlightedMessageId === m.id}
+                      isHovered={hoveredMessageId === m.id}
+                      onContextMenu={(e) => {
+                        contextMenu.setData(m)
+                        contextMenu.contextMenuHandlers.onContextMenu(e)
+                      }}
+                    />
+                    {/* Phase 19: 最后一个 assistant 消息下挂载关联的 SubAgentTaskTree */}
+                    {!m.error && m.id === lastAssistantMessageId && linkedSubagents.length > 0 && (
+                      <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
+                        {linkedSubagents.map((sub) => (
+                          <SubAgentTaskTree
+                            key={sub.id}
+                            subagent={sub}
+                            defaultCollapsed
+                            data-testid={`message-subagent-tree-${sub.id}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </React.Fragment>
+              )
+            })}
+            {/* #7 虚拟滚动底部占位 */}
+            {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
+            <div ref={bottomRef} />
           </div>
-        )}
-        {/* #8 顶部加载更多历史指示器 */}
-        {loadingMoreHistory && (
-          <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            {t('loading')}
-          </div>
-        )}
-        {/* #7 虚拟滚动顶部占位(未渲染消息的高度填充) */}
-        {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
-        {renderItems.map((m, idx) => {
-          const realIdx = enableVirtual ? visibleRange.start + idx : idx
-          return (
-            <div key={m.id} ref={enableVirtual ? measureItem(m.id) : undefined}>
-              {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
-              <MessageItem
-                message={m}
-                isLast={realIdx === messages.length - 1}
-                isStreaming={isStreaming}
-                assistantLabel={assistantLabel}
-                onApplyDiff={onApplyDiff}
-                onRejectDiff={onRejectDiff}
-              />
-            </div>
-          )
-        })}
-        {/* #7 虚拟滚动底部占位 */}
-        {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
-        <div ref={bottomRef} />
-      </div>
+        </div>
+      ) : (
+        timelinePanelNode
+      )}
+      {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
+      <MessageContextMenu
+        visible={contextMenu.visible}
+        position={contextMenu.position}
+        items={contextMenu.items}
+        onAction={(action) => {
+          void handleContextMenuAction(action)
+        }}
+        onClose={contextMenu.close}
+        data-testid="message-list-context-menu"
+      />
     </div>
   )
 }
