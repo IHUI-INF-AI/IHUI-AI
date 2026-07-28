@@ -24,6 +24,12 @@ import {
 } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
+import {
+  mapSpawnToTimelineEvent,
+  mapProgressToTimelineUpdate,
+  mapEndToTimelineUpdate,
+} from '@/lib/subagent-timeline-mapper'
+import { useTimelineStore } from '@/stores/timeline-store'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'
@@ -1243,9 +1249,21 @@ export function useChat(): UseChatReturn {
           // Subagent 自动派发(2026-07-28 立,对标 Trae Work):
           // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
           // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
-          onSubagentSpawn: (evt) => useChatStore.getState().addSubagentSpawn(evt),
-          onSubagentEnd: (evt) => useChatStore.getState().markSubagentEnd(evt),
-          onSubagentProgress: (evt) => useChatStore.getState().updateSubagentProgress(evt),
+          // 2026-07-29 Phase 21:同步写入 timeline-store,让 Timeline tab 实时响应。
+          onSubagentSpawn: (evt) => {
+            useChatStore.getState().addSubagentSpawn(evt)
+            useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
+          },
+          onSubagentProgress: (evt) => {
+            useChatStore.getState().updateSubagentProgress(evt)
+            const update = mapProgressToTimelineUpdate(evt)
+            if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+          },
+          onSubagentEnd: (evt) => {
+            useChatStore.getState().markSubagentEnd(evt)
+            const update = mapEndToTimelineUpdate(evt)
+            useTimelineStore.getState().updateEvent(update.id, update.updates)
+          },
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
             // #9 错误前先 flush 累积 token,避免最后一批内容丢失
@@ -1479,8 +1497,21 @@ export function useChat(): UseChatReturn {
         onToolCall: createToolCallHandler(assistantId),
         // Subagent 自动派发(2026-07-28 立,与 sendMessage 对称):
         // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
-        onSubagentSpawn: (evt) => useChatStore.getState().addSubagentSpawn(evt),
-        onSubagentEnd: (evt) => useChatStore.getState().markSubagentEnd(evt),
+        // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
+        onSubagentSpawn: (evt) => {
+          useChatStore.getState().addSubagentSpawn(evt)
+          useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
+        },
+        onSubagentProgress: (evt) => {
+          useChatStore.getState().updateSubagentProgress(evt)
+          const update = mapProgressToTimelineUpdate(evt)
+          if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+        },
+        onSubagentEnd: (evt) => {
+          useChatStore.getState().markSubagentEnd(evt)
+          const update = mapEndToTimelineUpdate(evt)
+          useTimelineStore.getState().updateEvent(update.id, update.updates)
+        },
         agentTools: mergeAgentTools(),
         onError: (errMsg, info) => {
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
