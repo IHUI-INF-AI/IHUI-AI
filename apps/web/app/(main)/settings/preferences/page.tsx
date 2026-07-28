@@ -46,92 +46,94 @@ export default function PreferencesPage() {
   ] as const
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('preferencesTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('preferencesDesc')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('preferencesTitle')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('preferencesDesc')}</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Sun className="h-4 w-4" />
-            {t('theme')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-2">
-            {themes.map((item) => {
-              const Icon = item.icon
-              const active = mounted && theme === item.key
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => setTheme(item.key)}
-                  className={cn(
-                    'flex flex-col items-center gap-2 rounded-lg border p-3 text-sm transition-colors',
-                    active
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'hover:bg-accent hover:text-accent-foreground',
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.label}
-                </button>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Sun className="h-4 w-4" />
+              {t('theme')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-2">
+              {themes.map((item) => {
+                const Icon = item.icon
+                const active = mounted && theme === item.key
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setTheme(item.key)}
+                    className={cn(
+                      'flex flex-col items-center gap-1.5 rounded-lg border p-2 text-xs transition-colors',
+                      active
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'hover:bg-accent hover:text-accent-foreground',
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Languages className="h-4 w-4" />
-            {t('language')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-2">
-            {locales.map((item) => {
-              const active = locale === item.key
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => switchLocale(item.key)}
-                  className={cn(
-                    'flex items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-colors',
-                    active
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'hover:bg-accent hover:text-accent-foreground',
-                  )}
-                >
-                  <Globe className="h-4 w-4" />
-                  {item.label}
-                  {active && <Check className="h-4 w-4" />}
-                </button>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Languages className="h-4 w-4" />
+              {t('language')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2">
+              {locales.map((item) => {
+                const active = locale === item.key
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => switchLocale(item.key)}
+                    className={cn(
+                      'flex items-center justify-center gap-2 rounded-lg border p-2 text-xs transition-colors',
+                      active
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'hover:bg-accent hover:text-accent-foreground',
+                    )}
+                  >
+                    <Globe className="h-4 w-4" />
+                    {item.label}
+                    {active && <Check className="h-4 w-4" />}
+                  </button>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Monitor className="h-4 w-4" />
-            {t('sidebar')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
-            </span>
-            <Switch checked={collapsed} onCheckedChange={toggleCollapsed} />
-          </div>
-        </CardContent>
-      </Card>
+        <Card className="sm:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Monitor className="h-4 w-4" />
+              {t('sidebar')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
+              </span>
+              <Switch checked={collapsed} onCheckedChange={toggleCollapsed} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </Container>
   )
 }

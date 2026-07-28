@@ -89,7 +89,7 @@ export default function PublicUserProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="py-16 text-center text-muted-foreground">
+      <div className="py-10 text-center text-muted-foreground">
         <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
         {t('loading')}
       </div>
@@ -98,7 +98,7 @@ export default function PublicUserProfilePage() {
 
   if (error || !data) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+      <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
         <AlertCircle className="h-8 w-8 opacity-40" />
         <p className="text-sm">{t('notFound')}</p>
       </div>
@@ -114,17 +114,17 @@ export default function PublicUserProfilePage() {
   ]
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-start gap-4">
+    <div className="mx-auto max-w-2xl space-y-4">
+      <div className="flex items-start gap-3">
         <Avatar
           src={user.avatar ?? undefined}
           name={user.nickname}
           size="xl"
-          className="h-20 w-20 text-2xl"
+          className="h-16 w-16 text-xl"
         />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="break-words text-2xl font-bold tracking-tight">
+            <h1 className="break-words text-xl font-bold tracking-tight">
               {user.nickname || 'User'}
             </h1>
             {isSelf && (
@@ -133,7 +133,7 @@ export default function PublicUserProfilePage() {
               </span>
             )}
           </div>
-          {user.bio ? <p className="text-sm text-muted-foreground">{user.bio}</p> : null}
+          {user.bio ? <p className="text-xs text-muted-foreground">{user.bio}</p> : null}
         </div>
         {canFollow && (
           <div className="flex shrink-0 gap-2">
@@ -166,13 +166,13 @@ export default function PublicUserProfilePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         {statsItems.map((item) => (
           <div
             key={item.label}
-            className="flex flex-col items-center justify-center rounded-lg border bg-card px-3 py-3"
+            className="flex flex-col items-center justify-center rounded-lg border bg-card px-2 py-2"
           >
-            <span className="text-xl font-bold tabular-nums">{item.value}</span>
+            <span className="text-lg font-bold tabular-nums">{item.value}</span>
             <span className="mt-0.5 text-xs text-muted-foreground">{item.label}</span>
           </div>
         ))}

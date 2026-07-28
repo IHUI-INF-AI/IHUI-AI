@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -72,14 +72,14 @@ export default function MyArticlesPage() {
   const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-3">
       <header className="flex items-start justify-between">
-        <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-            <Newspaper className="h-7 w-7 text-primary" />
+        <div className="space-y-0.5">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+            <Newspaper className="h-5 w-5 text-primary" />
             {ta('title')}
           </h1>
-          <p className="text-sm text-muted-foreground">{ta('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{ta('subtitle')}</p>
         </div>
         <Button size="sm" asChild>
           <Link href="/articles/edit">
@@ -90,22 +90,22 @@ export default function MyArticlesPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10">
           <Newspaper className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {list.map((article) => {
               const statusKey =
                 article.status === 1
@@ -117,8 +117,8 @@ export default function MyArticlesPage() {
                       : 'statusDraft'
               return (
                 <Card key={article.id} className="transition-colors hover:bg-accent">
-                  <CardContent className="flex gap-4 p-4">
-                    <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-md bg-muted">
+                  <CardContent className="flex gap-3 p-3">
+                    <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md bg-muted">
                       {article.coverImage ? (
                         <Image
                           fill
@@ -128,7 +128,7 @@ export default function MyArticlesPage() {
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center">
-                          <Newspaper className="h-6 w-6 text-muted-foreground/40" />
+                          <Newspaper className="h-5 w-5 text-muted-foreground/40" />
                         </div>
                       )}
                     </div>
@@ -157,9 +157,9 @@ export default function MyArticlesPage() {
                         </div>
                       </div>
                       {article.summary && (
-                        <p className="mt-1 text-sm text-muted-foreground">{article.summary}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{article.summary}</p>
                       )}
-                      <div className="mt-auto flex flex-wrap items-center gap-3 pt-2 text-xs text-muted-foreground">
+                      <div className="mt-auto flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Eye className="h-3.5 w-3.5" />
                           {article.viewCount}

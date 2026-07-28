@@ -385,19 +385,10 @@ export const useChatStore = create<ChatState>()(
                 stepText = '输出就绪'
                 break
             }
-            // tool_result 时把 tool_call 的 stepText 推入 completedSteps
-            let completedSteps = a.completedSteps
+            // tool_result 时累加 toolCallsCount(step 推入由 line 348 处统一处理)
             let toolCallsCount = a.toolCallsCount ?? 0
             if (event.phase === 'tool_result') {
               toolCallsCount += 1
-              completedSteps = [
-                ...completedSteps,
-                {
-                  stepAction: `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}`,
-                  createdAt: event.timestamp,
-                  status: (event.ok ? 'completed' : 'failed') as 'completed' | 'failed',
-                },
-              ]
             }
             return {
               ...a,

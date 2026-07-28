@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -46,27 +46,27 @@ export default function UserCirclePage() {
   const items = data ?? []
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-3">
       <div>
-        <h2 className="text-xl font-bold tracking-tight">{t('title')}</h2>
+        <h2 className="text-lg font-bold tracking-tight">{t('title')}</h2>
       </div>
 
       {isLoading ? (
-        <div className="py-10 text-center text-muted-foreground">
+        <div className="py-6 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading', { default: '加载中…' })}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
           <Users className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid gap-2 sm:grid-cols-2">
           {items.map((c) => (
             <li
               key={c.id}
-              className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"
+              className="rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">

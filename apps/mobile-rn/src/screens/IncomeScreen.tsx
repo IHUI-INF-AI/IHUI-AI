@@ -13,11 +13,9 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import { formatAmount } from '@ihui/shared/utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
+import { fetchApi } from '@ihui/api-client'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface CommissionItem {
@@ -45,8 +43,7 @@ const MOCK_FALLBACK: CommissionData = {
 
 export function IncomeScreen() {
   const navigation = useNavigation<NavigationProp>()
-  const { token, user } = useAuth()
-  const [data, setData] = useState<CommissionData>(MOCK_FALLBACK)
+    const [data, setData] = useState<CommissionData>(MOCK_FALLBACK)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -56,21 +53,15 @@ export function IncomeScreen() {
       setLoading(true)
       setError('')
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/trader/commission`, {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...(user?.id ? { 'X-User-Id': String(user.id) } : {}),
-          },
-        })
-        if (!resp.ok) throw new Error('http')
-        const json = (await resp.json()) as { data?: CommissionData }
+        const res = await fetchApi<CommissionData>('/trader/commission')
+        if (!res.success) throw new Error('http')
         if (cancelled) return
-        if (json.data) {
+        if (res.data) {
           setData({
-            total_earnings: json.data.total_earnings ?? '0',
-            today_commission: json.data.today_commission ?? '0',
-            balance: json.data.balance ?? '0',
-            commission_list: json.data.commission_list ?? [],
+            total_earnings: res.data.total_earnings ?? '0',
+            today_commission: res.data.today_commission ?? '0',
+            balance: res.data.balance ?? '0',
+            commission_list: res.data.commission_list ?? [],
           })
         }
       } catch {
@@ -82,7 +73,7 @@ export function IncomeScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, user?.id])
+  }, [])
 
   const handleWithdraw = () => {
     navigation.navigate('Withdraw' as never)

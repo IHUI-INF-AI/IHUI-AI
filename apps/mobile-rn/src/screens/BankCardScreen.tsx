@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
-import type { ApiResponse } from '@ihui/types'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -28,7 +26,6 @@ function maskNumber(num: string): string {
 
 export function BankCardScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [cards, setCards] = useState<BankCard[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,19 +35,16 @@ export function BankCardScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/wallet/bank-cards`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) throw new Error('http')
-      const data = (await resp.json()) as ApiResponse<BankCard[]>
-      setCards(data.data ?? [])
+      const res = await fetchApi<BankCard[]>('/wallet/bank-cards')
+      if (!res.success) throw new Error()
+      setCards(res.data ?? [])
     } catch {
       setError(t('bankCard.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()
