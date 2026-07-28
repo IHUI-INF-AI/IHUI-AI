@@ -79,7 +79,7 @@ export default function CertificateDetailClient() {
   }, [data, onPrint, t])
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 print:max-w-full print:space-y-0">
+    <div className="mx-auto w-full max-w-5xl space-y-4 print:max-w-full print:space-y-0">
       <div className="flex items-center justify-between print:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link href="/certificate/download">
@@ -104,7 +104,7 @@ export default function CertificateDetailClient() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -113,7 +113,7 @@ export default function CertificateDetailClient() {
           {(error as Error).message}
         </div>
       ) : !data ? (
-        <div className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
           <Award className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
           {t('notFound')}
         </div>

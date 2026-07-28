@@ -35,10 +35,10 @@ export default function PlanListPage() {
   )
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Plan 模式</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">Plan 模式</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             单一计划文档管理 · 目标 + 修改范围 + 步骤追踪 · 适用于中小型功能与模块级重构
           </p>

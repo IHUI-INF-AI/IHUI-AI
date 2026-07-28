@@ -170,7 +170,7 @@ const docSections = [
 
 export default function DocsIndexPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(docsJsonLd) }}
@@ -195,7 +195,7 @@ export default function DocsIndexPage() {
               <span className="text-2xl">{section.icon}</span>
               <h2 className="text-lg font-semibold">{section.title}</h2>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {section.description}
             </p>
             <ul className="mt-4 space-y-3">

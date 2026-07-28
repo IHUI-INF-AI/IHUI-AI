@@ -139,7 +139,7 @@ export default function CliImportPage() {
           <PackagePlus className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('desc')}</p>
+        <p className="text-xs text-muted-foreground">{t('desc')}</p>
       </header>
 
       <Alert variant="info" title={t('title')} description={t('desc')} />

@@ -63,7 +63,7 @@ export default function AskDetailPage() {
 
   const { data: answersData, isLoading: answersLoading } = useQuery({
     queryKey: ['ask-answers', params.id],
-    queryFn: () => api<AnswersData>(`/api/asks/${params.id}/answers?page=1&pageSize=50`),
+    queryFn: () => api<AnswersData>(`/api/asks/${params.id}/answers?page=1&pageSize=10`),
     enabled: !!params.id,
   })
 
@@ -98,7 +98,7 @@ export default function AskDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -130,7 +130,7 @@ export default function AskDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <Button variant="ghost" size="sm" onClick={() => router.back()}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
         {tc('back')}
