@@ -26,7 +26,7 @@ import { TooltipProvider } from '@/components/feedback'
 // - 在 body 注入 JSON-LD(Organization + WebSite + SoftwareApplication),
 //   供 Google Rich Results / GPTBot / ClaudeBot / PerplexityBot 结构化解析
 
-const SITE_URL = 'https://ihui.ai'
+const SITE_URL = 'https://aizhs.top'
 const SITE_DESCRIPTION =
   'IHUI AI(智汇 AI 社区)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp 8 端同源分发,Apache 2.0 开源,支持私有化部署。'
 const SITE_KEYWORDS = [
@@ -245,13 +245,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               '@graph': [
                 {
                   '@type': 'Organization',
-                  '@id': 'https://ihui.ai/#organization',
+                  '@id': 'https://aizhs.top/#organization',
                   name: 'IHUI AI',
                   alternateName: ['智汇AI', '智汇 AI 社区', 'iHuiAI', '智汇AI社区', '智汇 AI'],
-                  url: 'https://ihui.ai',
+                  url: 'https://aizhs.top',
                   logo: {
                     '@type': 'ImageObject',
-                    url: 'https://ihui.ai/images/logo.png',
+                    url: 'https://aizhs.top/images/logo.png',
                     width: 512,
                     height: 512,
                   },
@@ -269,13 +269,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     {
                       '@type': 'ContactPoint',
                       contactType: 'customer support',
-                      email: 'support@ihui.ai',
+                      email: 'support@aizhs.top',
                       availableLanguage: ['zh-Hans', 'zh-Hant', 'en', 'ko', 'ja'],
                     },
                     {
                       '@type': 'ContactPoint',
                       contactType: 'sales',
-                      email: 'contact@ihui.ai',
+                      email: 'contact@aizhs.top',
                       availableLanguage: ['zh-Hans', 'zh-Hant', 'en'],
                     },
                   ],
@@ -288,25 +288,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 },
                 {
                   '@type': 'WebSite',
-                  '@id': 'https://ihui.ai/#website',
-                  url: 'https://ihui.ai',
+                  '@id': 'https://aizhs.top/#website',
+                  url: 'https://aizhs.top',
                   name: 'IHUI AI — 8 端全栈 AI 操作系统',
                   description:
                     '8 端全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、8 端同源分发(Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp)。',
                   inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-                  publisher: { '@id': 'https://ihui.ai/#organization' },
+                  publisher: { '@id': 'https://aizhs.top/#organization' },
                   potentialAction: {
                     '@type': 'SearchAction',
                     target: {
                       '@type': 'EntryPoint',
-                      urlTemplate: 'https://ihui.ai/search?q={search_term_string}',
+                      urlTemplate: 'https://aizhs.top/search?q={search_term_string}',
                     },
                     'query-input': 'required name=search_term_string',
                   },
                 },
                 {
                   '@type': 'SoftwareApplication',
-                  '@id': 'https://ihui.ai/#software',
+                  '@id': 'https://aizhs.top/#software',
                   name: 'IHUI AI',
                   alternateName: ['智汇AI', '智汇 AI 社区', 'iHuiAI', '智汇AI社区'],
                   applicationCategory: 'BusinessApplication',
@@ -315,7 +315,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     'Web, Windows, macOS, Linux, iOS, Android, WeChat Mini Program, Chrome/Firefox/Edge',
                   description:
                     '8 端全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型调度(MCP)、工作流编排、8 端同源分发(Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp),Apache 2.0 开源。',
-                  url: 'https://ihui.ai',
+                  url: 'https://aizhs.top',
                   downloadUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI',
                   codeRepository: 'https://github.com/IHUI-INF-AI/IHUI-AI',
                   softwareVersion: '2026.07',
@@ -338,12 +338,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   },
                   featureList:
                     '8 端同源分发 (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp),AI Agent 市场,可视化拖拽 Agent 构建器,知识库 RAG,多模型统一调度(OpenAI/Claude/通义/DeepSeek/智谱/文心/豆包/Kimi/Ollama/Mistral/Llama),MCP 工具协议,工作流编排,团队协作,积分通兑,SSO/OAuth,Apache 2.0 开源,私有化部署,Docker Compose 一键部署',
-                  screenshot: 'https://ihui.ai/images/logo.png',
+                  screenshot: 'https://aizhs.top/images/logo.png',
                   softwareRequirements: 'Node.js 20+, PostgreSQL 16+, Redis 7+',
                   memoryRequirements: '4GB RAM minimum, 8GB recommended',
                   storageRequirements: '20GB available disk space',
-                  author: { '@id': 'https://ihui.ai/#organization' },
-                  publisher: { '@id': 'https://ihui.ai/#organization' },
+                  author: { '@id': 'https://aizhs.top/#organization' },
+                  publisher: { '@id': 'https://aizhs.top/#organization' },
                   license: 'https://www.apache.org/licenses/LICENSE-2.0',
                 },
               ],
@@ -362,99 +362,99 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="alternate"
           type="application/rss+xml"
           title="IHUI AI — RSS Feed"
-          href="https://ihui.ai/rss.xml"
+          href="https://aizhs.top/rss.xml"
         />
         <link
           rel="alternate"
           type="application/atom+xml"
           title="IHUI AI — Atom Feed"
-          href="https://ihui.ai/atom.xml"
+          href="https://aizhs.top/atom.xml"
         />
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — LLM Short Index"
-          href="https://ihui.ai/llms.txt"
+          href="https://aizhs.top/llms.txt"
         />
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — LLM Full Documentation"
-          href="https://ihui.ai/llms-full.txt"
+          href="https://aizhs.top/llms-full.txt"
         />
         <link
           rel="alternate"
           type="text/markdown"
           title="IHUI AI — Claude Optimized"
-          href="https://ihui.ai/claude.md"
+          href="https://aizhs.top/claude.md"
         />
         <link
           rel="alternate"
           type="text/markdown"
           title="IHUI AI — Perplexity Optimized"
-          href="https://ihui.ai/perplexity.md"
+          href="https://aizhs.top/perplexity.md"
         />
         {/* 2026-07-26 高密度曝光度强化:国内主流 AI 引擎 + 微软 Copilot 专用文件 */}
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — 字节豆包 Doubao Optimized"
-          href="https://ihui.ai/doubao.txt"
+          href="https://aizhs.top/doubao.txt"
         />
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — 月之暗面 Kimi Optimized"
-          href="https://ihui.ai/kimi.txt"
+          href="https://aizhs.top/kimi.txt"
         />
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — DeepSeek Optimized"
-          href="https://ihui.ai/deepseek.txt"
+          href="https://aizhs.top/deepseek.txt"
         />
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — 阿里通义 Qwen Optimized"
-          href="https://ihui.ai/qwen.txt"
+          href="https://aizhs.top/qwen.txt"
         />
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — 百度文心 ERNIE Optimized"
-          href="https://ihui.ai/wenxin.txt"
+          href="https://aizhs.top/wenxin.txt"
         />
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — 智谱清言 GLM Optimized"
-          href="https://ihui.ai/zhipu.txt"
+          href="https://aizhs.top/zhipu.txt"
         />
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — 腾讯混元 Hunyuan Optimized"
-          href="https://ihui.ai/hunyuan.txt"
+          href="https://aizhs.top/hunyuan.txt"
         />
         <link
           rel="alternate"
           type="text/plain"
           title="IHUI AI — Microsoft Copilot Optimized"
-          href="https://ihui.ai/copilot.txt"
+          href="https://aizhs.top/copilot.txt"
         />
         {/* 2026-07-26 GEO 全面强化:行业垂直 + 角色垂直 + Knowledge Graph + WebSub Hub */}
         <link
           rel="alternate"
           type="text/markdown"
           title="IHUI AI — 行业垂直 GEO(医疗/教育/金融/法律/政府)"
-          href="https://ihui.ai/industries.md"
+          href="https://aizhs.top/industries.md"
         />
         <link
           rel="alternate"
           type="text/markdown"
           title="IHUI AI — 决策角色 GEO(开发者/CTO/PM/CEO/采购)"
-          href="https://ihui.ai/roles.md"
+          href="https://aizhs.top/roles.md"
         />
         {/* 2026-07-26 阶段 7 新增:英文版行业/角色 GEO(海外 AI 引擎优先检索) */}
         <link
@@ -462,14 +462,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           hrefLang="en"
           type="text/markdown"
           title="IHUI AI — Industry-Specific GEO (English)"
-          href="https://ihui.ai/industries.en.md"
+          href="https://aizhs.top/industries.en.md"
         />
         <link
           rel="alternate"
           hrefLang="en"
           type="text/markdown"
           title="IHUI AI — Decision-Maker Role GEO (English)"
-          href="https://ihui.ai/roles.en.md"
+          href="https://aizhs.top/roles.en.md"
         />
         {/* 2026-07-26 阶段 8 新增:日文/韩文版行业/角色 GEO(日韩 AI 引擎优先检索) */}
         <link
@@ -477,40 +477,40 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           hrefLang="ja"
           type="text/markdown"
           title="IHUI AI — 業界特化型 GEO(日本語版)"
-          href="https://ihui.ai/industries.ja.md"
+          href="https://aizhs.top/industries.ja.md"
         />
         <link
           rel="alternate"
           hrefLang="ja"
           type="text/markdown"
           title="IHUI AI — 意思決定者ロール別 GEO(日本語版)"
-          href="https://ihui.ai/roles.ja.md"
+          href="https://aizhs.top/roles.ja.md"
         />
         <link
           rel="alternate"
           hrefLang="ko"
           type="text/markdown"
           title="IHUI AI — 산업별 GEO(한국어판)"
-          href="https://ihui.ai/industries.ko.md"
+          href="https://aizhs.top/industries.ko.md"
         />
         <link
           rel="alternate"
           hrefLang="ko"
           type="text/markdown"
           title="IHUI AI — 의사결정자 역할별 GEO(한국어판)"
-          href="https://ihui.ai/roles.ko.md"
+          href="https://aizhs.top/roles.ko.md"
         />
         <link
           rel="alternate"
           type="application/json"
           title="IHUI AI — Google Knowledge Graph 结构化数据"
-          href="https://ihui.ai/knowledge-graph.json"
+          href="https://aizhs.top/knowledge-graph.json"
         />
         <link
           rel="hub"
           type="application/json"
           title="IHUI AI — WebSub Hub(实时 Feed 更新通知)"
-          href="https://ihui.ai/websub"
+          href="https://aizhs.top/websub"
         />
         <ThemeProvider
           attribute="class"

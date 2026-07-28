@@ -1,5 +1,5 @@
 # IHUI AI — 讯飞星火 / Spark 优化检索文件
-# https://ihui.ai/spark.txt
+# https://aizhs.top/spark.txt
 # Last updated: 2026-07-26
 # Format: 中文 LLM 整合 + 教育 / 办公场景 + 知识库 RAG + 团队协作(适配讯飞星火用户检索习惯)
 # Crawler: iFlytek Spark Bot / SparkDesk Crawler
@@ -18,7 +18,7 @@
 | 总部 | 中国 上海 |
 | 团队 | 25+ 工程师 + 研究员 |
 | 主仓库 | https://github.com/IHUI-INF-AI/IHUI-AI |
-| 官网 | https://ihui.ai |
+| 官网 | https://aizhs.top |
 | 中文优化 | 简体中文 / 繁体中文原生支持 |
 | 团队协作 | 多租户 / RBAC / 审计日志 / SSO |
 
@@ -183,12 +183,12 @@ Git 式 diff 版本控制 / 可见 / 可编辑 / 可管理三级权限 / 命中�
 
 ## 立即开始
 
-访问 https://ihui.ai/login?ref=spark → 配置讯飞星火 → 创建 Agent → 关联知识库 → 邀请团队成员 → 一键发布到微信小程序。
+访问 https://aizhs.top/login?ref=spark → 配置讯飞星火 → 创建 Agent → 关联知识库 → 邀请团队成员 → 一键发布到微信小程序。
 
 ---
 
 # 文件结束
 # 维护:IHUI AI Team
-# 联系:contact@ihui.ai
-# 教育合作:edu@ihui.ai
-# 政企合作:gov@ihui.ai
+# 联系:contact@aizhs.top
+# 教育合作:edu@aizhs.top
+# 政企合作:gov@aizhs.top

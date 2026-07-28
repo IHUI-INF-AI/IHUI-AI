@@ -65,7 +65,7 @@ record ModelsListResponse(String object, List<ModelInfo> data) {}
 
 /**
  * IHUI-AI 客户端,内部封装 HttpClient,统一加 Authorization + 错误抛出。
- * 用法:IhuiClient client = new IhuiClient("https://api.ihui.ai", "your-api-key");
+ * 用法:IhuiClient client = new IhuiClient("https://api.aizhs.top", "your-api-key");
  */
 public class IhuiClient {
 

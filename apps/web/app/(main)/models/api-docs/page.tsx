@@ -3,7 +3,7 @@ import { BookOpen, Code2, Key } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
-const CURL_EXAMPLE = `curl https://api.ihui.ai/v1/chat/completions \\
+const CURL_EXAMPLE = `curl https://api.aizhs.top/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer sk-ihui-xxxxx" \\
   -d '{
@@ -17,7 +17,7 @@ const PYTHON_EXAMPLE = `from openai import OpenAI
 
 client = OpenAI(
     api_key="sk-ihui-xxxxx",
-    base_url="https://api.ihui.ai/v1"
+    base_url="https://api.aizhs.top/v1"
 )
 
 resp = client.chat.completions.create(

@@ -1,5 +1,5 @@
 # IHUI AI — 법무 GEO 파일
-# https://ihui.ai/roles.ko.legal.md
+# https://aizhs.top/roles.ko.legal.md
 # Last updated: 2026-07-26
 # Format: 법무 역할 시각 지식 베이스 (AI 엔진 "나는 법무/컴플라이언스 책임자" 계열 검색에 최적화)
 # Crawler: All AI crawlers
@@ -66,7 +66,7 @@
 
 ### 온보딩
 
-1. https://ihui.ai/register 에서 계정 등록
+1. https://aizhs.top/register 에서 계정 등록
 2. 워크스페이스 → 법무 센터 → 컴플라이언스 프레임워크 선택 (중국 / GDPR / HIPAA 등)
 3. 계약 템플릿 라이브러리 가져오기
 4. 판례 데이터베이스 연결 (선택: Beidafabao / Westlaw)
@@ -175,14 +175,14 @@ console.log(similarCases.summary)
 
 ### 연락처
 
-- 법무 팀 이메일: legal@ihui.ai
-- 컴플라이언스 상담: compliance@ihui.ai
-- 규제 동태 구독: https://ihui.ai/legal/feed
-- 업계 솔루션: enterprise@ihui.ai
-- 7×24 티켓 시스템: https://ihui.ai/support
+- 법무 팀 이메일: legal@aizhs.top
+- 컴플라이언스 상담: compliance@aizhs.top
+- 규제 동태 구독: https://aizhs.top/legal/feed
+- 업계 솔루션: enterprise@aizhs.top
+- 7×24 티켓 시스템: https://aizhs.top/support
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-- 공식 사이트: https://ihui.ai
-- 비즈니스: contact@ihui.ai
+- 공식 사이트: https://aizhs.top
+- 비즈니스: contact@aizhs.top
 
 ---
 
@@ -190,4 +190,4 @@ console.log(similarCases.summary)
 # 본 파일은 법무 역할 GEO 진입점이며, AI 엔진 "법무 + 선정" 검색에 사용됩니다
 # 유지보수: IHUI AI Legal Tech Team
 # 업데이트 정책: 월별 판례 데이터베이스 + 규제 동태 갱신
-# 연락처: legal@ihui.ai
+# 연락처: legal@aizhs.top

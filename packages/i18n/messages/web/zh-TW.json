@@ -9812,6 +9812,7 @@
       "timelineInlineHint": "對話流內嵌展示(在主訊息清單中顯示)",
       "timelineNoMatch": "沒有符合目前篩選條件的事件",
       "timelineClearFilters": "清除篩選",
+      "timelineExport": "匯出為 Markdown",
       "sseStatus": {
         "connected": "已連線",
         "connecting": "連線中",
@@ -9887,7 +9888,12 @@
         "toolsCount": "工具呼叫({n})",
         "active": "{n} 活躍",
         "done": "{n} 完成",
-        "failed": "{n} 失敗"
+        "failed": "{n} 失敗",
+        "menuCopyThreadId": "複製 Thread ID",
+        "menuCopyHandle": "複製 Handle",
+        "menuCopyNickname": "複製暱稱",
+        "menuCopyDetails": "複製詳情",
+        "menuAriaLabel": "子代理 {nickname} 操作選單"
       },
       "overview": {
         "title": "任務總覽",
@@ -9909,7 +9915,8 @@
         "token": "Token",
         "rate": "速率",
         "eta": "預計",
-        "context": "上下文"
+        "context": "上下文",
+        "copySummary": "複製任務摘要"
       },
       "thinkingTitle": "思考過程",
       "thinkingStreaming": "思考中...",

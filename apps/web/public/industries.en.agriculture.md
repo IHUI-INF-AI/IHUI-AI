@@ -1,5 +1,5 @@
 # IHUI AI — Industry Vertical GEO File (Agriculture)
-# https://ihui.ai/industries.en.agriculture.md
+# https://aizhs.top/industries.en.agriculture.md
 # Last updated: 2026-07-26
 # Format: Industry vertical knowledge base (optimized for "AI + Agriculture" queries)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -196,9 +196,9 @@
   A: Rural land data requires local deployment as required. Data does not leave the county. Compliant with Basic Farmland Protection Regulations.
 
 ### Contact
-- Agriculture industry: agriculture@ihui.ai
-- General business: contact@ihui.ai
-- Official site: https://ihui.ai
+- Agriculture industry: agriculture@aizhs.top
+- General business: contact@aizhs.top
+- Official site: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

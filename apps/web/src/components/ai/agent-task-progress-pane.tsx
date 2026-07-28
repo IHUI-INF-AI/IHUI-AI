@@ -90,6 +90,11 @@ const PREVIEW_TOOL_LIMIT = 4
 /** Pane 拖拽位置 localStorage key(v14 升 v2,作废旧 fixed 时代视口坐标) */
 const POSITION_STORAGE_KEY = 'agent-progress-pane-position-v2'
 
+/** 键盘单步移动像素(P1-1 深度对标,2026-07-28 立) */
+const KEYBOARD_STEP_PX = 5
+/** Shift+方向键的加速步长(单位:KEYBOARD_STEP_PX 倍数) */
+const KEYBOARD_SHIFT_MULTIPLIER = 5
+
 /** Pane 拖拽边界留白(父容器边缘) */
 const DRAG_EDGE_MARGIN = 8
 
@@ -1006,6 +1011,35 @@ export function AgentTaskProgressPane() {
     document.body.style.cursor = 'grabbing'
   }, [])
 
+  /**
+   * 键盘拖拽:←→↑↓ 微调(5px),Shift+方向键加速(25px)。
+   * 边界 clamp 与鼠标拖拽共用,持久化走同一 savePanePosition。
+   * Phase 20 P1-1(2026-07-28 立):为键盘/无障碍用户提供拖拽替代。
+   */
+  const onHeaderKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    // 只响应方向键 + Esc/Enter
+    const code = e.key
+    let dx = 0
+    let dy = 0
+    if (code === 'ArrowLeft') dx = -1
+    else if (code === 'ArrowRight') dx = 1
+    else if (code === 'ArrowUp') dy = -1
+    else if (code === 'ArrowDown') dy = 1
+    else return
+    e.preventDefault()
+    e.stopPropagation()
+    const step = KEYBOARD_STEP_PX * (e.shiftKey ? KEYBOARD_SHIFT_MULTIPLIER : 1)
+    const baseX = positionRef.current?.x ?? 0
+    const baseY = positionRef.current?.y ?? 0
+    const liveParentEl = paneRef.current?.offsetParent
+    const liveParentRect =
+      liveParentEl instanceof HTMLElement ? liveParentEl.getBoundingClientRect() : null
+    const next = clampPanePosition(baseX + dx * step, baseY + dy * step, liveParentRect)
+    livePositionRef.current = next
+    setPanePosition(next)
+    savePanePosition(next)
+  }, [])
+
   if (!open) return null
 
   // v14: 计算 pane 根容器的位置样式(absolute 相对父容器 `relative` 的消息区)
@@ -1033,13 +1067,16 @@ export function AgentTaskProgressPane() {
       {/* Header:状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮(v13:可拖拽) */}
       <div
         onMouseDown={onHeaderMouseDown}
+        onKeyDown={onHeaderKeyDown}
         className={cn(
-          'flex h-8 shrink-0 select-none items-center gap-1 border-b border-border px-2',
+          'flex h-8 shrink-0 select-none items-center gap-1 border-b border-border px-2 outline-none',
+          'focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0',
           isDragging ? 'cursor-grabbing' : 'cursor-grab',
         )}
         data-testid="pane-header"
         aria-label={t('dragHandle')}
         role="toolbar"
+        tabIndex={0}
       >
         <GripVertical
           className="h-3 w-3 shrink-0 text-muted-foreground/40"
@@ -1496,3 +1533,13 @@ export function AgentTaskProgressPane() {
 }
 
 export default AgentTaskProgressPane
+
+// ─── Phase 20 P1-1 导出供单测使用(2026-07-28 立) ─────────────────
+export {
+  clampPanePosition,
+  loadPanePosition,
+  savePanePosition,
+  KEYBOARD_STEP_PX,
+  KEYBOARD_SHIFT_MULTIPLIER,
+  POSITION_STORAGE_KEY,
+}

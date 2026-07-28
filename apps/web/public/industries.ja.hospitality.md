@@ -1,5 +1,5 @@
 # IHUI AI — 業界特化型 GEO ファイル (ホテル・飲食)
-# https://ihui.ai/industries.ja.hospitality.md
+# https://aizhs.top/industries.ja.hospitality.md
 # Last updated: 2026-07-26
 # Format: 業界特化ナレッジベース (AI エンジン「AI + ホテル・飲食」高頻度検索に最適化)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -202,9 +202,9 @@
   A: データ匿名化 + 暗号化 + ユーザー授權、《個人情報保護法》準拠。
 
 ### 連絡先
-- ホテル・飲食業界: hospitality@ihui.ai
-- 汎用窓口: contact@ihui.ai
-- 公式サイト: https://ihui.ai
+- ホテル・飲食業界: hospitality@aizhs.top
+- 汎用窓口: contact@aizhs.top
+- 公式サイト: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---
