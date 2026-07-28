@@ -34,6 +34,10 @@ interface TimelineState {
   setEvents: (events: TimelineEvent[]) => void
   addEvent: (event: TimelineEvent) => void
   updateEvent: (id: string, updates: Partial<TimelineEvent>) => void
+  /** upsertEvent(2026-07-29 立,Phase 21):事件不存在时 addEvent,存在时 updateEvent。
+   *  用于 subagent_progress 事件:第一次 progress 可能先于 spawn 到达(网络乱序),
+   *  此时自动创建一个 status='running' 的事件,后续 progress 更新它。 */
+  upsertEvent: (event: TimelineEvent) => void
   removeEvent: (id: string) => void
   toggleExpanded: (id: string) => void
   setExpanded: (id: string, expanded: boolean) => void
@@ -57,6 +61,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set((s) => ({
       events: s.events.map((e) => (e.id === id ? { ...e, ...updates } : e)),
     })),
+
+  upsertEvent: (event) =>
+    set((s) => {
+      const exists = s.events.some((e) => e.id === event.id)
+      if (exists) {
+        return { events: s.events.map((e) => (e.id === event.id ? { ...e, ...event } : e)) }
+      }
+      return { events: [...s.events, event] }
+    }),
 
   removeEvent: (id) =>
     set((s) => ({
