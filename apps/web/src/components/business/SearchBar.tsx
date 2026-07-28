@@ -53,29 +53,31 @@ export function SearchBar({
   const showDropdown = focused && (suggestions.length > 0 || (history.length > 0 && !value))
 
   return (
+    // 2026-07-28 简化:合并原两层 div(relative 外层 + relative 内层)为一层,input 直接占满父容器。
+    // 原双层结构是为了承载 Search icon 绝对定位和 dropdown 浮层,但实际只需一层 relative
+    // 即可同时承载 icon + dropdown(input 自身无圆角边框,完全靠父容器 bg-popover + border 提供外观)。
+    // click-outside 仍由 containerRef 提供,fade-in 动画由父级(弹层容器)提供。
     <div ref={containerRef} className={cn('relative w-full', className)}>
       <form onSubmit={handleSubmit}>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            ref={inputRef}
-            type="search"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onFocus={() => setFocused(true)}
-            placeholder={resolvedPlaceholder}
-            className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-9 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          {value && (
-            <button
-              type="button"
-              onClick={() => setValue('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          ref={inputRef}
+          type="search"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onFocus={() => setFocused(true)}
+          placeholder={resolvedPlaceholder}
+          className="h-10 w-full bg-transparent pl-9 pr-9 text-sm transition-colors placeholder:text-muted-foreground/70 focus-visible:outline-none"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => setValue('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </form>
       {showDropdown && (
         <div className="absolute z-popover mt-1 w-full overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
