@@ -8850,13 +8850,13 @@
     }
   },
   "search": {
-    "emptyKeyword": "請輸入搜尋關鍵詞",
-    "open": "打開",
-    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})",
     "tabs": {
       "users": "使用者",
       "files": "文件"
-    }
+    },
+    "emptyKeyword": "請輸入搜尋關鍵詞",
+    "open": "打開",
+    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})"
   },
   "footer": {
     "companyName": "吉林省愛智匯人工智能科技有限公司",
@@ -9664,6 +9664,59 @@
       "copy": "複製",
       "copied": "已複製",
       "progressLabel": "任務進度 {pct}%",
+      "dragHandle": "拖曳以調整面板位置",
+      "celebrate": "全部任務完成",
+      "helpToggle": "鍵盤快速鍵",
+      "helpClose": "關閉",
+      "helpPanelTitle": "鍵盤快速鍵",
+      "shortcutsGroupNav": "導覽",
+      "shortcutsGroupPane": "面板",
+      "shortcutsGroupTrigger": "觸發器",
+      "shortcutSectionNav": "折疊子區上下切換",
+      "shortcutSectionFirstLast": "跳到第一個/最後一個子區",
+      "shortcutShowHelp": "開啟/關閉快速鍵說明",
+      "shortcutCloseHelp": "關閉快速鍵說明",
+      "shortcutTogglePane": "切換面板開關",
+      "shortcutOpenPane": "在輸入框開啟面板",
+      "tabInline": "對話",
+      "tabTimeline": "時間軸",
+      "previewStepNumberAndName": "步驟 {n}: {step}",
+      "previewDuration": "耗時 {duration}",
+      "previewTokenK": "{k}k tokens",
+      "previewToolCalls": "{n} 次工具呼叫",
+      "previewRelatedMessage": "關聯訊息:",
+      "stepBudgetLabel": "步驟預算",
+      "executing": "執行中",
+      "subagentBatch": "子代理批次",
+      "planListLabel": "任務計劃步驟清單",
+      "completedCount": "{done}/{total} 步驟已完成",
+      "copyPlan": "複製任務計劃",
+      "moreItems": "…還有 {n} 項",
+      "jumpToLatest": "跳到最新",
+      "latest": "最新",
+      "pinHintPinned": "已釘選,點擊外部不關閉",
+      "pinHintUnpinned": "已取消釘選,點擊外部關閉",
+      "minimizeHint": "最小化任務面板",
+      "emptyHint": "開始對話後顯示任務計劃",
+      "emptyHintsLabel": "任務計劃使用提示",
+      "emptyHint1": "開始對話後,這裡會顯示 AI 的任務拆解與進度",
+      "emptyHint2": "子代理 / 工具呼叫 / 終端輸出會自動歸類到對應區域",
+      "emptyHint3": "點擊任一任務可跳到對話流中的對應位置",
+      "timelineFilterAll": "全部",
+      "timelineFilterPlan": "計劃",
+      "timelineFilterSubagent": "子代理",
+      "timelineFilterTool": "工具",
+      "timelineFilterQuestion": "提問",
+      "timelineCountDone": "已完成",
+      "timelineCountFailed": "失敗",
+      "timelineCountRunning": "執行中",
+      "timelineTabsAriaLabel": "時間軸 tab 切換",
+      "timelineSearchPlaceholder": "搜尋時間軸...",
+      "timelineSearchAriaLabel": "搜尋時間軸事件",
+      "timelineSearchClear": "清除搜尋",
+      "timelineInlineHint": "對話流內嵌展示(在主訊息清單中顯示)",
+      "timelineNoMatch": "沒有符合目前篩選條件的事件",
+      "timelineClearFilters": "清除篩選",
       "sseStatus": {
         "connected": "已連線",
         "connecting": "連線中",
@@ -9849,6 +9902,9 @@
     },
     "welcome": {
       "title": "歡迎來到智匯 AI 社群",
+      "subtitle": "全棧 AI 操作系統，8 端同源，一站式智能體協作",
+      "description": "智匯 AI 整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議，支援 Web / 桌面 / 小程式 / 瀏覽器外掛 / React Native / CLI 六端同源，Apache 2.0 開源，支援私有化部署。",
+      "perYear": "/年",
       "brandSubtitle": "8 端全覆蓋 · 100+ 大模型 · 1029+ API · 省 ¥18 萬/年",
       "seats": "限 18 席 · 決策者專屬",
       "earlyBird": "早鳥價 ¥6000/年 · 3.3 折",
@@ -9860,10 +9916,7 @@
         "benefit4": "線上社群專屬入口",
         "benefit5": "AI 助手優先體驗",
         "benefit6": "不滿意全額退款"
-      },
-      "subtitle": "全棧 AI 操作系統，8 端同源，一站式智能體協作",
-      "description": "智匯 AI 整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議，支援 Web / 桌面 / 小程式 / 瀏覽器外掛 / React Native / CLI 六端同源，Apache 2.0 開源，支援私有化部署。",
-      "perYear": "/年"
+      }
     },
     "stats": {
       "platforms": "端全覆蓋 · 行業中較為少見",
@@ -12284,63 +12337,6 @@
       "title": "範本"
     }
   },
-  "a11y": {
-    "pieChart": "圓餅圖",
-    "send": "傳送",
-    "uploadAvatar": "上傳大頭貼",
-    "copyCode": "複製程式碼",
-    "collapse": "摺疊"
-  },
-  "auth": {
-    "loginSubtitle": "登入您的賬號",
-    "noAccount": "還沒有賬號？",
-    "registerTitle": "創建賬號",
-    "registerSubtitle": "註冊一個新賬號",
-    "sendCode": "獲取驗證碼",
-    "resendCode": "{seconds}s 後重發",
-    "hasAccount": "已有賬號？",
-    "registerSuccess": "註冊成功，請登入",
-    "resetPassword": "重置密碼",
-    "resetSuccess": "密碼重置成功，請重新登入",
-    "username": "使用者名",
-    "usernamePlaceholder": "請輸入使用者名",
-    "invalidUsername": "使用者名至少 3 位",
-    "googleNotConfigured": "Google 登入未配置",
-    "invalidCredentials": "賬號或密碼錯誤",
-    "qrRefresh": "刷新二維碼",
-    "qrSdkLoadFailed": "二維碼元件載入失敗",
-    "qrNotConfigured": "{platform} 掃碼登入未設定,請聯絡管理員",
-    "qrScanTipPlatform": "請使用 {platform} APP 掃描二維碼登入",
-    "accountPlaceholder": "手機號 / 郵箱 / 帳號",
-    "agreementNoticeDesc": "為了保障您的帳號安全，請閱讀並同意以下協議後繼續登入",
-    "getVerificationCode": "獲取驗證碼"
-  },
-  "help": {
-    "title": "幫助中心",
-    "contactSupport": "聯繫支持",
-    "loading": "加載中...",
-    "backToList": "返回幫助中心"
-  },
-  "searchHistory": {
-    "loading": "加載中..."
-  },
-  "agreement": {
-    "loading": "加載中...",
-    "userAgreement": "使用者協議",
-    "staticContent2": "我們將嚴格保護您的個人隱私信息，不會在未經您許可的情況下向第三方洩露。",
-    "staticContent3": "如對本協議有任何疑問，請聯繫平臺客戶服務。"
-  },
-  "routes": {
-    "userAgreement": "使用者協議",
-    "contactUs": "聯繫我們"
-  },
-  "themeBackup": {
-    "import": "導入"
-  },
-  "forbidden": {
-    "title": "無權限造訪",
-    "description": "抱歉，您沒有造訪該頁面的權限。如需開通權限，請聯繫管理員。"
-  },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 上月",
     "rechargeCount": "累計 {n} 次充值",
@@ -12532,6 +12528,31 @@
     "relatedTitle": "相關文章",
     "notFound": "文章不存在或已刪除"
   },
+  "crypto": {
+    "title": "加密貨幣捐贈",
+    "subtitle": "直接轉帳,無需中間平臺,0 手續費",
+    "bitcoin": {
+      "name": "Bitcoin",
+      "network": "BTC 網路"
+    },
+    "ethereum": {
+      "name": "Ethereum",
+      "network": "ETH 網路"
+    },
+    "usdtTrc20": {
+      "name": "USDT (TRC20)",
+      "network": "Tron 網路",
+      "recommended": "推薦:手續費最低 (~$1)"
+    },
+    "usdtErc20": {
+      "name": "USDT (ERC20)",
+      "network": "ETH 網路"
+    },
+    "copyButton": "複製地址",
+    "copied": "已複製!",
+    "disclaimer": "您的捐贈將直接進入我們的錢包,無中間平臺手續費。USDT-TRC20 手續費最低(~$1),推薦使用。",
+    "qrCode": "二維碼"
+  },
   "services": {
     "hero": {
       "title": "專業服務",
@@ -12693,31 +12714,6 @@
       }
     }
   },
-  "crypto": {
-    "title": "加密貨幣捐贈",
-    "subtitle": "直接轉帳,無需中間平臺,0 手續費",
-    "bitcoin": {
-      "name": "Bitcoin",
-      "network": "BTC 網路"
-    },
-    "ethereum": {
-      "name": "Ethereum",
-      "network": "ETH 網路"
-    },
-    "usdtTrc20": {
-      "name": "USDT (TRC20)",
-      "network": "Tron 網路",
-      "recommended": "推薦:手續費最低 (~$1)"
-    },
-    "usdtErc20": {
-      "name": "USDT (ERC20)",
-      "network": "ETH 網路"
-    },
-    "copyButton": "複製地址",
-    "copied": "已複製!",
-    "disclaimer": "您的捐贈將直接進入我們的錢包,無中間平臺手續費。USDT-TRC20 手續費最低(~$1),推薦使用。",
-    "qrCode": "二維碼"
-  },
   "developerPricingPage": {
     "title": "API 定價",
     "subtitle": "按 token 用量計費,input/output 分開結算,176+ 模型的透明報價",
@@ -12769,5 +12765,62 @@
     "examplesTip": "提示:替換 YOUR_API_KEY 為你在 /developer/keys 建立的密鑰,baseURL 改為實際接入地址。",
     "cardLabel": "API 定價",
     "cardDesc": "模型價格與計費規則"
+  },
+  "a11y": {
+    "pieChart": "圓餅圖",
+    "send": "傳送",
+    "uploadAvatar": "上傳大頭貼",
+    "copyCode": "複製程式碼",
+    "collapse": "摺疊"
+  },
+  "auth": {
+    "loginSubtitle": "登入您的賬號",
+    "noAccount": "還沒有賬號？",
+    "registerTitle": "創建賬號",
+    "registerSubtitle": "註冊一個新賬號",
+    "sendCode": "獲取驗證碼",
+    "resendCode": "{seconds}s 後重發",
+    "hasAccount": "已有賬號？",
+    "registerSuccess": "註冊成功，請登入",
+    "resetPassword": "重置密碼",
+    "resetSuccess": "密碼重置成功，請重新登入",
+    "username": "使用者名",
+    "usernamePlaceholder": "請輸入使用者名",
+    "invalidUsername": "使用者名至少 3 位",
+    "googleNotConfigured": "Google 登入未配置",
+    "invalidCredentials": "賬號或密碼錯誤",
+    "qrRefresh": "刷新二維碼",
+    "qrSdkLoadFailed": "二維碼元件載入失敗",
+    "qrNotConfigured": "{platform} 掃碼登入未設定,請聯絡管理員",
+    "qrScanTipPlatform": "請使用 {platform} APP 掃描二維碼登入",
+    "accountPlaceholder": "手機號 / 郵箱 / 帳號",
+    "agreementNoticeDesc": "為了保障您的帳號安全，請閱讀並同意以下協議後繼續登入",
+    "getVerificationCode": "獲取驗證碼"
+  },
+  "help": {
+    "title": "幫助中心",
+    "contactSupport": "聯繫支持",
+    "loading": "加載中...",
+    "backToList": "返回幫助中心"
+  },
+  "searchHistory": {
+    "loading": "加載中..."
+  },
+  "agreement": {
+    "loading": "加載中...",
+    "userAgreement": "使用者協議",
+    "staticContent2": "我們將嚴格保護您的個人隱私信息，不會在未經您許可的情況下向第三方洩露。",
+    "staticContent3": "如對本協議有任何疑問，請聯繫平臺客戶服務。"
+  },
+  "routes": {
+    "userAgreement": "使用者協議",
+    "contactUs": "聯繫我們"
+  },
+  "themeBackup": {
+    "import": "導入"
+  },
+  "forbidden": {
+    "title": "無權限造訪",
+    "description": "抱歉，您沒有造訪該頁面的權限。如需開通權限，請聯繫管理員。"
   }
 }
