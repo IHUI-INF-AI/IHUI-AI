@@ -87,6 +87,9 @@ Module._resolveFilename = function (request, parent, ...args) {
 const { withNativeWind } = require('nativewind/metro')
 
 const config = getDefaultConfig(__dirname)
+// 显式设置 projectRoot,避免 expo export:embed 时被覆盖为 monorepo 根
+config.projectRoot = __dirname
+// resolver.worker = undefined 必要时设置
 
 // pnpm isolated linker 兼容(2026-07-25 修复 Metro bundle 失败)
 // 问题:pnpm node-linker=isolated 下,react-native 等包是 junction 指向
@@ -102,11 +105,15 @@ config.resolver.nodeModulesPaths = [
   require('path').resolve(__dirname, '../../node_modules/.pnpm/node_modules'),
 ]
 
-// pnpm isolated linker 兼容:watchFolders 添加 monorepo 根 + .pnpm 虚拟存储
-// Metro 默认 watchFolders 为空,只 watch projectRoot,但 RN 依赖在 .pnpm 隔离目录下,
-// 不在 projectRoot 内,Metro 无法 watch → "Failed to get SHA-1" 错误。
-// 添加 monorepo 根让 Metro watch 所有依赖文件。
-config.watchFolders = [...(config.watchFolders || []), require('path').resolve(__dirname, '../..')]
+// pnpm isolated linker 兼容:watchFolders 添加 mobile-rn 必需的目录
+// 不直接 watch 整个 monorepo 根(G:\IHUI-AI),否则会扫描 apps/web/test-results 等
+// 不存在的子目录(FallbackWatcher 报 ENOENT),只 watch packages/ 共享代码目录。
+// .pnpm 虚拟存储通过 nodeModulesPaths + unstable_enableSymlinks 已可访问,无需 watch。
+config.watchFolders = [
+  ...(config.watchFolders || []),
+  __dirname, // apps/mobile-rn 自身
+  require('path').resolve(__dirname, '../../packages'), // 共享 packages
+]
 
 // pnpm isolated linker 兼容:Metro 默认解析失败时,fallback 到 Node 原生 require.resolve
 // Node 能正确处理 pnpm junction,且支持 sourceExts(.ts/.tsx)解析
@@ -166,6 +173,24 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     console.error(
       `[resolveRequest] moduleName=${moduleName} origin=${context.originModulePath} platform=${platform}`,
     )
+  }
+  // React 单实例去重(2026-07-28 修复 NativeWind useContext null 错误)
+  // 问题:pnpm isolated linker 下,bundle 中出现两个 react 实例:
+  //   (1) .pnpm/react@19.0.0/node_modules/react/  (react-native 隔离目录引用)
+  //   (2) node_modules/react/  (顶层 hoisted,apps/mobile-rn 引用)
+  // 两个实例 → 两个 ReactSharedInternals → react-native renderer 设置 dispatcher
+  // 在实例 A,react-native-css-interop 从实例 B 读取 dispatcher = null →
+  // "Cannot read property 'useContext' of null"。
+  // 修复:所有 react/react-jsx-runtime 子路径统一解析到 apps/mobile-rn 本地的 react。
+  if (
+    moduleName === 'react' ||
+    moduleName === 'react/jsx-runtime' ||
+    moduleName.startsWith('react/')
+  ) {
+    const localReactPath = require.resolve(moduleName, {
+      paths: [__dirname],
+    })
+    return { type: 'sourceFile', filePath: localReactPath }
   }
   // 1. 先尝试 Metro 默认解析(upstreamResolveRequest 或 context.resolveRequest)
   try {
@@ -318,4 +343,15 @@ function resolveManual(moduleName, originDir, _platform) {
   }
 }
 
-module.exports = withNativeWind(config, { input: './global.css' })
+// 2026-07-28 修复 Metro watch 模式启动崩溃
+// 根因:react-native-css-interop@0.2.6 调用 graph._fileSystem.getSha1(),
+// 但 metro 0.81.5 已移除 DependencyGraph._fileSystem 属性,导致 fs 为 undefined。
+// forceWriteFileSystem=true 跳过虚拟模块 monkey-patch,改用磁盘写入。
+// 仅在 watch 模式(CI=false)下启用;CI 模式下 forceWriteFileSystem 会导致打包超时。
+// 副作用:CSS 变更不触发 Fast Refresh,需手动 reload;JS Fast Refresh 不受影响。
+// 长期方案:升级到 nativewind 5.0 stable(已重写不依赖 _fileSystem)。
+const isWatchMode = process.env.CI !== 'true'
+module.exports = withNativeWind(config, {
+  input: './global.css',
+  ...(isWatchMode ? { forceWriteFileSystem: true } : {}),
+})

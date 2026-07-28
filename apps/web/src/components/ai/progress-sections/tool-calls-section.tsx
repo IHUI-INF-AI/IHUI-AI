@@ -51,14 +51,6 @@ const CATEGORY_CLS: Record<ToolCategory, string> = {
   exec: 'text-cyan-500',
   other: 'text-muted-foreground',
 }
-/** v15: 类别徽章色(对标 Trae Work)— bg 5% + text 100% 紧凑徽章 */
-const CATEGORY_BADGE_CLS: Record<ToolCategory, string> = {
-  read: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  search: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  write: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  exec: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  other: 'bg-muted text-muted-foreground',
-}
 const CATEGORY_TKEY: Record<ToolCategory, string> = {
   read: 'tools.categoryRead',
   search: 'tools.categorySearch',
@@ -167,7 +159,6 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
           }
         }}
         data-testid={`tool-item-${tool.id}`}
-        data-status={tool.status}
       >
         {hasDetail && (
           <ChevronRight
@@ -186,16 +177,6 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
             tool.status === 'running' && 'animate-spin',
           )}
         />
-        {/* v15: 类别徽章(对标 Trae Work)— read/search/write/exec 紧凑色标 */}
-        <span
-          className={cn(
-            'shrink-0 rounded-sm px-1 text-[9px] font-medium uppercase tracking-wider',
-            CATEGORY_BADGE_CLS[cat],
-          )}
-          data-testid={`tool-cat-${tool.id}`}
-        >
-          {t(CATEGORY_TKEY[cat])}
-        </span>
         <code className="shrink-0 font-mono text-[10px] text-muted-foreground">
           {tool.toolName}
         </code>
