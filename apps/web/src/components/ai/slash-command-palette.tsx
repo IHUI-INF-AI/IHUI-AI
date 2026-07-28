@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { Dialog, DialogContent, Input } from '@ihui/ui-react'
+import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { Popover } from '@/components/feedback'
 
 interface Command {
   id: string
@@ -20,13 +21,27 @@ interface SlashCommandPaletteProps {
   onSelect: (id: string) => void
   open: boolean
   onClose: () => void
+  /** trigger 元素(斜杠按钮),弹层锚定到该元素上方 */
+  children: React.ReactElement
+  /** hover 时显示的轻量文字提示(可选,由 Popover 内部 Tooltip 渲染) */
+  tooltip?: React.ReactNode
 }
 
+/**
+ * 斜杠命令面板(2026-07-29 重构:Dialog → Popover)。
+ * 原实现用 Dialog 整页中间弹出 + 遮罩,过重;改为 Popover 锚定到 trigger 按钮
+ * 上方(position=top, align=start, portal),无遮罩轻弹出,符合用户对"按钮上方轻弹出"
+ * 的视觉预期。两种触发场景统一锚定到按钮:
+ *  - 点击 `/` 按钮:Popover trigger=click 自动 toggle
+ *  - textarea 输入 `/`:外部 setSlashOpen(true) 受控打开,弹层仍锚定到按钮
+ */
 export function SlashCommandPalette({
   commands,
   onSelect,
   open,
   onClose,
+  children,
+  tooltip,
 }: SlashCommandPaletteProps) {
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
@@ -73,56 +88,70 @@ export function SlashCommandPalette({
     }
   }
 
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="top-[20%] max-w-md translate-y-0 gap-0 overflow-hidden p-0">
-        <div className="border-b p-3">
-          <Input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="搜索命令..."
-            className="border-0 shadow-none focus-visible:ring-0"
-          />
-        </div>
-        <div className="max-h-72 overflow-y-auto p-1">
-          {filtered.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">无匹配命令</p>
-          ) : (
-            filtered.map((cmd, idx) => (
-              <button
-                key={cmd.id}
-                type="button"
-                onMouseEnter={() => setActiveIndex(idx)}
-                onClick={() => {
-                  onSelect(cmd.id)
-                  onClose()
-                }}
-                className={cn(
-                  'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors',
-                  idx === activeIndex ? 'bg-accent text-accent-foreground' : 'text-foreground',
-                )}
-              >
-                {cmd.icon && (
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                    {cmd.icon}
+  const content = (
+    <div>
+      <div className="border-b px-3 py-2">
+        <Input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="搜索命令..."
+          className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
+        />
+      </div>
+      <div className="max-h-72 overflow-y-auto p-1">
+        {filtered.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">无匹配命令</p>
+        ) : (
+          filtered.map((cmd, idx) => (
+            <button
+              key={cmd.id}
+              type="button"
+              onMouseEnter={() => setActiveIndex(idx)}
+              onClick={() => {
+                onSelect(cmd.id)
+                onClose()
+              }}
+              className={cn(
+                'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors',
+                idx === activeIndex ? 'bg-accent text-accent-foreground' : 'text-foreground',
+              )}
+            >
+              {cmd.icon && (
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                  {cmd.icon}
+                </span>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="break-words text-sm font-medium">{cmd.label}</span>
+                {cmd.description && (
+                  <span className="whitespace-pre-line break-words text-xs text-muted-foreground">
+                    {cmd.description}
                   </span>
                 )}
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="break-words text-sm font-medium">{cmd.label}</span>
-                  {cmd.description && (
-                    <span className="whitespace-pre-line break-words text-xs text-muted-foreground">
-                      {cmd.description}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(v) => !v && onClose()}
+      content={content}
+      position="top"
+      align="start"
+      trigger="click"
+      portal
+      tooltip={tooltip}
+      className="w-72 overflow-hidden p-0"
+    >
+      {children}
+    </Popover>
   )
 }
 

@@ -91,7 +91,7 @@
     "three": "^0.185.0",
     "xstate": "^5.19.0",
     "zod": "^3.25.76",
-    "zustand": "^5.0.2"
+    "zustand": "catalog:"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
@@ -113,16 +113,16 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/three": "^0.185.0",
     "autoprefixer": "^10.4.20",
-    "eslint": "^9.16.0",
+    "eslint": "catalog:",
     "eslint-config-next": "15.5.20",
     "eslint-plugin-jsx-a11y": "^6.10.0",
     "happy-dom": "^15.11.7",
     "jsdom": "^29.1.1",
     "postcss": "^8.4.49",
-    "rimraf": "^6.0.1",
+    "rimraf": "catalog:",
     "storybook": "8.6.18",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

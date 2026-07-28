@@ -936,12 +936,6 @@ export function MessageInput({
         )}
         {/* 多维 @ 提及 chips(2026-07-22 立,对标 Qoder Context Engineering) */}
         <MentionChips />
-        <SlashCommandPalette
-          commands={slashCommands}
-          onSelect={handleCommandSelect}
-          open={slashOpen}
-          onClose={() => setSlashOpen(false)}
-        />
         <div className="relative">
           <FileMentionPopover
             files={mentionFiles}
@@ -1267,26 +1261,16 @@ export function MessageInput({
               {/* 附件入口已合并到上方"添加"下拉菜单第 4 项(2026-07-25 合并),此处不再保留独立按钮,
                   避免和"添加 → 添加附件"重复造成用户认知负担。
                   若需要触发 file input,在"添加"菜单中点击"添加附件"项即可(fileInputRef 共享)。 */}
-              {/* / 独立按钮:点击在 textarea 末尾插入 / 字符并触发 SlashCommandPalette */}
-              <Tooltip content={tA11y('slashCommand')}>
+              {/* / 独立按钮:点击弹出 SlashCommandPalette(锚定按钮上方,无遮罩轻弹出) */}
+              <SlashCommandPalette
+                commands={slashCommands}
+                onSelect={handleCommandSelect}
+                open={slashOpen}
+                onClose={() => setSlashOpen(false)}
+                tooltip={tA11y('slashCommand')}
+              >
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isStreaming) return
-                    const el = textareaRef.current
-                    if (!el) return
-                    const next = (
-                      value.endsWith(' ') || value === '' ? `${value}/` : `${value} /`
-                    ).slice(0, MAX_LENGTH)
-                    setValue(next)
-                    setSlashOpen(true)
-                    requestAnimationFrame(() => {
-                      el.focus()
-                      const pos = next.length
-                      el.setSelectionRange(pos, pos)
-                      resize()
-                    })
-                  }}
                   disabled={isStreaming}
                   aria-label={tA11y('slashCommand')}
                   className={cn(
@@ -1297,7 +1281,7 @@ export function MessageInput({
                 >
                   <SquareSlash className="h-4 w-4" />
                 </button>
-              </Tooltip>
+              </SlashCommandPalette>
               {/* @ 独立按钮:点击在 textarea 末尾插入 @ 字符并触发 FileMentionPopover */}
               <Tooltip content={tA11y('mentionFile')}>
                 <button

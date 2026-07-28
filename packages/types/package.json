@@ -48,9 +48,9 @@
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
-    "eslint": "^9.16.0",
-    "typescript": "^5.7.2",
-    "rimraf": "^6.0.1",
-    "vitest": "^2.1.8"
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "rimraf": "catalog:",
+    "vitest": "catalog:"
   }
 }

@@ -63,7 +63,7 @@ export function ExamResultScreen() {
   if (error || !result)
     return (
       <View className="flex-1 items-center justify-center bg-card p-4">
-        <Text className="text-[13px] text-[#DC2626] mb-2 text-center">{error || t('examResult.loadFailed')}</Text>
+        <Text className="text-[13px] text-danger mb-2 text-center">{error || t('examResult.loadFailed')}</Text>
         <TouchableOpacity className="mt-3 px-4 py-2 rounded-lg bg-primary" onPress={() => navigation.goBack()}>
           <Text className="text-sm text-primary-foreground">{t('common.back')}</Text>
         </TouchableOpacity>
@@ -76,24 +76,24 @@ export function ExamResultScreen() {
       </TouchableOpacity>
       <Text className="mt-2 text-[22px] font-semibold text-foreground mb-3">{result.examTitle}</Text>
       <View
-        className={`p-4 rounded-lg border items-center mb-3 ${result.passed ? 'border-primary bg-[#ECFDF5]' : 'border-border'}`}
+        className={`p-4 rounded-lg border items-center mb-3 ${result.passed ? 'border-primary bg-success-light' : 'border-border'}`}
       >
         <Text className="text-[32px] font-semibold text-foreground">
           {result.score}/{result.totalScore}
         </Text>
-        <Text className={`mt-1 text-sm font-semibold ${result.passed ? 'text-primary' : 'text-[#DC2626]'}`}>
+        <Text className={`mt-1 text-sm font-semibold ${result.passed ? 'text-primary' : 'text-danger'}`}>
           {result.passed ? t('examResult.passed') : t('examResult.failed')}
         </Text>
       </View>
       <View className="flex-row gap-3 mb-1">
-        <Text className="text-xs text-[#374151] bg-muted px-2.5 py-1 rounded-lg">
+        <Text className="text-xs text-body bg-muted px-2.5 py-1 rounded-lg">
           {t('examResult.correct', { count: result.correctCount, total: result.totalCount })}
         </Text>
-        <Text className="text-xs text-[#374151] bg-muted px-2.5 py-1 rounded-lg">
+        <Text className="text-xs text-body bg-muted px-2.5 py-1 rounded-lg">
           {t('examResult.duration', { min: result.duration })}
         </Text>
       </View>
-      <Text className="text-[11px] text-[#9CA3AF] mb-4">{result.submittedAt}</Text>
+      <Text className="text-[11px] text-tertiary mb-4">{result.submittedAt}</Text>
       {result.wrongQuestions.length > 0 ? (
         <>
           <Text className="text-base font-semibold text-foreground mb-2">{t('examResult.wrongQuestions')}</Text>
@@ -102,7 +102,7 @@ export function ExamResultScreen() {
               <Text className="text-[13px] font-medium text-foreground">
                 {q.index + 1}. {q.question}
               </Text>
-              <Text className="mt-1.5 text-xs text-[#DC2626]">
+              <Text className="mt-1.5 text-xs text-danger">
                 {t('examResult.yourAnswer')}:{q.yourAnswer}
               </Text>
               <Text className="mt-0.5 text-xs text-primary">
