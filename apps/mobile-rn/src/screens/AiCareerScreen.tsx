@@ -1,7 +1,7 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native'
 import { getAiCareers, type AiCareerItem } from '@ihui/api-client'
-import { tokens } from '@ihui/rn-app'
 
 interface CareerMatch {
   id: string
@@ -35,14 +35,14 @@ function mapToCareer(it: AiCareerItem): CareerMatch {
 
 function trendLabel(t: CareerMatch['trend']): { text: string; color: string; bg: string } {
   if (t === 'up') return { text: '热门上升', color: tokens.brand.DEFAULT, bg: '#ECFDF5' }
-  if (t === 'new') return { text: '新兴岗位', color: '#7B61FF', bg: '#F5F3FF' }
+  if (t === 'new') return { text: '新兴岗位', color: tokens.purple.DEFAULT, bg: '#F5F3FF' }
   return { text: '稳定需求', color: tokens.text.secondary, bg: tokens.surface.card }
 }
 
 function scoreColor(score: number): string {
   if (score >= 85) return tokens.brand.DEFAULT
-  if (score >= 70) return '#7B61FF'
-  return '#FF6B00'
+  if (score >= 70) return tokens.purple.DEFAULT
+  return tokens.warning.deep
 }
 
 export default function AiCareerScreen() {
@@ -146,7 +146,7 @@ const s = StyleSheet.create({
   header: { paddingTop: 4, paddingBottom: 12 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: tokens.text.primary },
   headerSub: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
-  errorText: { color: '#DC2626', fontSize: 12, marginBottom: 8 },
+  errorText: { color: tokens.danger.DEFAULT, fontSize: 12, marginBottom: 8 },
   loadingText: { color: tokens.text.tertiary, fontSize: 12, marginBottom: 8 },
   sectionTitle: {
     marginTop: 20,
@@ -162,7 +162,7 @@ const s = StyleSheet.create({
     borderColor: tokens.border.light,
     marginBottom: 10,
   },
-  careerCardActive: { borderColor: '#7B61FF' },
+  careerCardActive: { borderColor: tokens.purple.DEFAULT },
   careerHead: { flexDirection: 'row' },
   careerMain: { flex: 1 },
   careerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -182,12 +182,12 @@ const s = StyleSheet.create({
   matchLabel: { marginTop: 2, fontSize: 10, color: tokens.text.tertiary },
   reasonBox: { marginTop: 12, padding: 10, borderRadius: 8, backgroundColor: tokens.surface.muted },
   reasonTitle: { fontSize: 12, fontWeight: '600', color: tokens.text.primary, marginBottom: 6 },
-  reasonItem: { fontSize: 12, color: '#4B5563', lineHeight: 20 },
+  reasonItem: { fontSize: 12, color: tokens.gray[600], lineHeight: 20 },
   planBtn: {
     marginTop: 10,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#7B61FF',
+    backgroundColor: tokens.purple.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   },

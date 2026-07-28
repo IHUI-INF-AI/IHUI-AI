@@ -63,7 +63,7 @@ export function CourseScreen() {
           }}
           placeholder={t('course.searchPlaceholder')}
           className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-50"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={tokens.text.tertiary}
           returnKeyType="search"
         />
       </View>

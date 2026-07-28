@@ -23,6 +23,7 @@ import {
 } from '@/components'
 import { useI18n } from '@/i18n'
 import { useUserStore } from '@/stores/user'
+import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
@@ -132,7 +133,7 @@ export default function ChatPage() {
   // 首次进入页面自动弹出智能体提示说明(对标原 ai_index.vue,localStorage 标记 ai_agent_tip_shown)
   useEffect(() => {
     try {
-      const shown = Taro.getStorageSync('ai_agent_tip_shown')
+      const shown = Taro.getStorageSync(AI_AGENT_TIP_SHOWN_KEY)
       if (!shown) setAgentTipVisible(true)
     } catch {
       // 存储读取失败忽略

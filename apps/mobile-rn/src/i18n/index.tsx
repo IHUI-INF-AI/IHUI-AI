@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { LOCALE_STORAGE_KEY } from '@ihui/shared/constants'
 import { mergeMessages, translate, getValueByPath } from '@ihui/i18n/loader'
 import type { Locale, Messages } from '@ihui/i18n/types'
+import { createAsyncStorageTransport } from '../stores/storage-adapter'
 // shared 通用 + mobile-rn 端 override,mergeMessages 深合并修复浅 spread bug
 import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
 import sharedEn from '@ihui/i18n/messages/shared/en.json'
@@ -18,6 +18,9 @@ import zhTW from '@ihui/i18n/messages/mobile-rn/zh-TW.json'
 export type { Locale }
 
 const STORAGE_KEY_LEGACY = 'ihui_locale'
+
+// 单例 transport(零运行时开销,AsyncStorage 静态绑定)
+const transport = createAsyncStorageTransport()
 
 // ja/ko/zh-TW 保留 zhCN 兜底深合并(原浅 spread 升级为深合并,修复嵌套 namespace 翻译丢失)
 const messages: Record<Locale, Messages> = {
@@ -44,15 +47,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void (async () => {
       // 迁移旧下划线 key 到新连字符 key
-      const legacyValue = await AsyncStorage.getItem(STORAGE_KEY_LEGACY)
+      const legacyValue = await transport.getItem(STORAGE_KEY_LEGACY)
       if (legacyValue !== null) {
-        const newValue = await AsyncStorage.getItem(LOCALE_STORAGE_KEY)
+        const newValue = await transport.getItem(LOCALE_STORAGE_KEY)
         if (newValue === null) {
-          await AsyncStorage.setItem(LOCALE_STORAGE_KEY, legacyValue)
+          await transport.setItem(LOCALE_STORAGE_KEY, legacyValue)
         }
-        await AsyncStorage.removeItem(STORAGE_KEY_LEGACY)
+        await transport.removeItem(STORAGE_KEY_LEGACY)
       }
-      const stored = await AsyncStorage.getItem(LOCALE_STORAGE_KEY)
+      const stored = await transport.getItem(LOCALE_STORAGE_KEY)
       if (stored && stored in messages) {
         setLocaleState(stored as Locale)
       }
@@ -60,7 +63,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setLocale = async (next: Locale) => {
-    await AsyncStorage.setItem(LOCALE_STORAGE_KEY, next)
+    await transport.setItem(LOCALE_STORAGE_KEY, next)
     setLocaleState(next)
   }
 

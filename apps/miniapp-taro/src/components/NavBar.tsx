@@ -23,8 +23,8 @@ const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height
 export default function NavBar({
   title = '',
   showBack = true,
-  bgColor = '#ffffff',
-  textColor = '#1a1a1a',
+  bgColor = 'var(--color-card)',
+  textColor = 'var(--color-foreground)',
   onBack,
   rightText,
   onRightClick,
@@ -79,14 +79,14 @@ export default function NavBar({
       {notification && (
         <View
           className="absolute left-0 right-0 flex items-center justify-between px-[32rpx] py-[16rpx]"
-          style={{ top: `${statusBarHeight + navBarHeight}px`, backgroundColor: '#fff8e1' }}
+          style={{ top: `${statusBarHeight + navBarHeight}px`, backgroundColor: 'var(--color-notification-bg)' }}
         >
-          <Text className="flex-1 truncate text-[24rpx]" style={{ color: '#7c5e1e' }}>
+          <Text className="flex-1 truncate text-[24rpx]" style={{ color: 'var(--color-notification-text)' }}>
             {notification.text}
           </Text>
           <Text
             className="ml-[16rpx] text-[32rpx] leading-none"
-            style={{ color: '#7c5e1e' }}
+            style={{ color: 'var(--color-notification-text)' }}
             onClick={notification.onClose}
           >
             ×

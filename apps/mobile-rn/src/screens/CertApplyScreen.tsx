@@ -75,7 +75,7 @@ export function CertApplyScreen() {
           disabled={submitting}
         >
           {submitting ? (
-            <Loading color="#FFFFFF" size="sm" />
+            <Loading color={tokens.surface.light} size="sm" />
           ) : (
             <Text className="text-sm font-semibold text-primary-foreground">
               {t('certApply.submit')}
