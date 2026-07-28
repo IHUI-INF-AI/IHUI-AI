@@ -2,6 +2,7 @@ import { View, Text, Input, Button, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useI18n } from '@/i18n'
+import { formatDateByTemplate } from '@ihui/shared'
 
 type FilterType = 'all' | 'chat' | 'image' | 'voice' | 'agent'
 type GroupKey = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
@@ -59,13 +60,7 @@ function itemTimestamp(h: HistoryItem): number {
   return isNaN(parsed) ? Date.now() : parsed
 }
 
-const fmtTime = (ts: number) =>
-  new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(ts)
+const fmtTime = (ts: number) => formatDateByTemplate(ts, 'MM-DD HH:mm')
 
 export default function HistoryPage() {
   const { t } = useI18n()
