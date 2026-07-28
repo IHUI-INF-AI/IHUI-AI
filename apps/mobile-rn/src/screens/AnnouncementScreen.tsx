@@ -4,8 +4,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateWithYear } from '../utils/date-utils'
 import type { NotificationItem } from '@ihui/types'
@@ -19,7 +18,6 @@ interface Announcement extends NotificationItem {
 
 export function AnnouncementScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [items, setItems] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,19 +27,16 @@ export function AnnouncementScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/announcements`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) throw new Error('http')
-      const data = (await resp.json()) as { data?: Announcement[] }
-      setItems(data.data ?? [])
+      const res = await fetchApi<Announcement[]>('/announcements')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
     } catch {
       setError(t('announcement.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()

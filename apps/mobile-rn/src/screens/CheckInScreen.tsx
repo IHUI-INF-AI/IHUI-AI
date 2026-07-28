@@ -1,17 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  Alert,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Loading } from '@ihui/ui-native'
 
@@ -34,7 +26,6 @@ interface CheckInInfo {
 
 export function CheckInScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<CheckInInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -47,21 +38,18 @@ export function CheckInScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const resp = await fetch(`${API_BASE_URL}/api/checkin/today`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) {
+      try {
+        const res = await fetchApi<CheckInInfo>('/checkin/today')
+        if (!res.success) throw new Error()
+        setInfo(res.data ?? null)
+      } catch {
         setError(t('checkIn.loadFailed'))
+      } finally {
         setLoading(false)
         setRefreshing(false)
-        return
       }
-      const data = (await resp.json()) as { data?: CheckInInfo }
-      setInfo(data.data ?? null)
-      setLoading(false)
-      setRefreshing(false)
     },
-    [token, t],
+    [t],
   )
 
   useEffect(() => {
@@ -71,12 +59,9 @@ export function CheckInScreen() {
   const handleSign = async () => {
     if (!info || info.todaySigned) return
     setSigning(true)
-    const resp = await fetch(`${API_BASE_URL}/api/checkin`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
+    const res = await fetchApi('/checkin', { method: 'POST' })
     setSigning(false)
-    if (resp.ok) {
+    if (res.success) {
       Alert.alert(t('checkIn.signSuccess'), `+${info.todayReward}`)
       void load(true)
     } else {
@@ -97,10 +82,7 @@ export function CheckInScreen() {
     return (
       <View className="flex-1 items-center justify-center bg-card p-4">
         <Text className="mt-1 text-center text-xs text-destructive">{error}</Text>
-        <TouchableOpacity
-          className="mt-3 rounded-md bg-primary px-4 py-2"
-          onPress={() => load()}
-        >
+        <TouchableOpacity className="mt-3 rounded-md bg-primary px-4 py-2" onPress={() => load()}>
           <Text className="text-[13px] text-primary-foreground">{t('checkIn.retry')}</Text>
         </TouchableOpacity>
       </View>
@@ -142,7 +124,9 @@ export function CheckInScreen() {
               onPress={handleSign}
               disabled={info.todaySigned || signing}
             >
-              <Text className={`text-sm font-semibold ${info.todaySigned ? 'text-muted-foreground' : 'text-primary-foreground'}`}>
+              <Text
+                className={`text-sm font-semibold ${info.todaySigned ? 'text-muted-foreground' : 'text-primary-foreground'}`}
+              >
                 {signing
                   ? t('common.loading')
                   : info.todaySigned
@@ -152,7 +136,9 @@ export function CheckInScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text className="px-4 pb-2 pt-4 text-[15px] font-semibold text-foreground">{t('checkIn.calendar')}</Text>
+          <Text className="px-4 pb-2 pt-4 text-[15px] font-semibold text-foreground">
+            {t('checkIn.calendar')}
+          </Text>
           <View className="mx-4 flex-row flex-wrap gap-1.5">
             {info.calendar.map((day) => (
               <View
@@ -160,7 +146,9 @@ export function CheckInScreen() {
                 style={{ width: '13%', aspectRatio: 1 }}
                 className={`items-center justify-center rounded-md border ${day.signed ? 'border-primary bg-primary' : 'border-border bg-card'}`}
               >
-                <Text className={`text-xs ${day.signed ? 'text-primary-foreground' : 'text-foreground/80'}`}>
+                <Text
+                  className={`text-xs ${day.signed ? 'text-primary-foreground' : 'text-foreground/80'}`}
+                >
                   {day.date.slice(-2)}
                 </Text>
                 {day.signed ? (
@@ -172,7 +160,9 @@ export function CheckInScreen() {
             ))}
           </View>
 
-          {error ? <Text className="mt-2 text-center text-xs text-destructive">{error}</Text> : null}
+          {error ? (
+            <Text className="mt-2 text-center text-xs text-destructive">{error}</Text>
+          ) : null}
         </>
       ) : (
         <View className="flex-1 items-center justify-center p-4">
