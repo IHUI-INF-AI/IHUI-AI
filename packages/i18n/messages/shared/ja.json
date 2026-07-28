@@ -631,5 +631,21 @@
       "completed": "完了",
       "overdue": "期限超過"
     }
+  },
+  "wallet": {
+    "title": "マイウォレット",
+    "balance": "利用可能残高",
+    "frozen": "凍結金額",
+    "totalRecharge": "累計入金",
+    "totalWithdraw": "累計出金",
+    "recharge": "入金",
+    "withdraw": "出金",
+    "loadFailed": "ウォレットの読み込みに失敗しました"
+  },
+  "courseCatalog": {
+    "title": "コースカタログ",
+    "empty": "章がありません",
+    "loadFailed": "カタログの読み込みに失敗しました",
+    "duration": "{n} 分"
   }
 }

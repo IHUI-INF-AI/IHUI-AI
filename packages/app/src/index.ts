@@ -10,6 +10,8 @@ export { CertificateScreen } from './features/certificate/CertificateScreen'
 export { MessageCenterScreen } from './features/message-center/MessageCenterScreen'
 export { OrderScreen } from './features/order/OrderScreen'
 export { StudyPlanScreen } from './features/study-plan/StudyPlanScreen'
+export { WalletScreen } from './features/wallet/WalletScreen'
+export { CourseCatalogScreen } from './features/course-catalog/CourseCatalogScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -64,4 +66,10 @@ export type {
   PlanStatus,
   StudyPlanItem,
   StudyPlanScreenProps,
+  WalletBalance,
+  WalletRecordType,
+  WalletRecordItem,
+  WalletScreenProps,
+  CourseCatalogItem,
+  CourseCatalogScreenProps,
 } from './types'

@@ -1,6 +1,7 @@
+import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import type { AboutScreenProps, SharedAppInfo } from '../../types'
-import { tokens } from '../../theme/tokens'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
 const DEFAULT_APP_INFO: Required<SharedAppInfo> = {
   appName: 'IHUI AI',
@@ -17,9 +18,17 @@ const DEFAULT_APP_INFO: Required<SharedAppInfo> = {
  * 平台无关:用 react-native primitives 编写,web 端 react-native-web 渲染,RN 端原生渲染。
  * i18n 通过 `t` 注入,导航通过 `onBack` 注入(由调用方提供)。
  * 应用信息通过 `appInfo` 注入,缺省用 DEFAULT_APP_INFO。
+ * 配色:由 colorScheme prop('light' | 'dark',默认 'light')经 getTokens 解析为明/暗 token 集。
  */
-export function AboutScreen({ t, appInfo, onBack }: AboutScreenProps) {
+export function AboutScreen({
+  t,
+  appInfo,
+  onBack,
+  colorScheme = 'light',
+}: AboutScreenProps & { colorScheme?: 'light' | 'dark' }) {
   const info = { ...DEFAULT_APP_INFO, ...appInfo }
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
 
   const rows = [
     { label: t('about.appName'), value: info.appName },
@@ -63,44 +72,46 @@ export function AboutScreen({ t, appInfo, onBack }: AboutScreenProps) {
   )
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.light },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  body: { padding: 16 },
-  logoCard: {
-    padding: 20,
-    marginBottom: 12,
-    borderRadius: 8,
-    backgroundColor: tokens.surface.muted,
-    alignItems: 'center',
-  },
-  logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: { fontSize: 18, fontWeight: '700', color: tokens.surface.light },
-  appName: { marginTop: 12, fontSize: 16, fontWeight: '600', color: tokens.text.primary },
-  appTagline: { marginTop: 4, fontSize: 12, color: tokens.text.secondary, textAlign: 'center' },
-  infoCard: { padding: 12, borderRadius: 8, backgroundColor: tokens.surface.muted },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-  },
-  rowDivider: { borderTopColor: tokens.border.light, borderTopWidth: 1 },
-  label: { fontSize: 12, color: tokens.text.secondary },
-  value: { fontSize: 13, color: tokens.text.primary, maxWidth: 200 },
-})
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      gap: 12,
+    },
+    backText: { fontSize: 14, color: tk.text.medium },
+    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    body: { padding: 16 },
+    logoCard: {
+      padding: 20,
+      marginBottom: 12,
+      borderRadius: 8,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+    },
+    logo: {
+      width: 72,
+      height: 72,
+      borderRadius: 8,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    logoText: { fontSize: 18, fontWeight: '700', color: tk.surface.light },
+    appName: { marginTop: 12, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    appTagline: { marginTop: 4, fontSize: 12, color: tk.text.secondary, textAlign: 'center' },
+    infoCard: { padding: 12, borderRadius: 8, backgroundColor: tk.surface.muted },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+    },
+    rowDivider: { borderTopColor: tk.border.light, borderTopWidth: 1 },
+    label: { fontSize: 12, color: tk.text.secondary },
+    value: { fontSize: 13, color: tk.text.primary, maxWidth: 200 },
+  })
+}
