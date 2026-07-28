@@ -92,7 +92,7 @@ export default function SignInPage() {
   const consecutive = today?.consecutiveDays ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -105,9 +105,9 @@ export default function SignInPage() {
               className="h-8 w-8 rounded-md object-cover"
               unoptimized
             />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Link
           href="/points"
@@ -262,7 +262,7 @@ export default function SignInPage() {
             </table>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Calendar className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('empty')}</p>
           </div>

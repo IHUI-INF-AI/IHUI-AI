@@ -46,7 +46,7 @@ export default function RevenueStatPage() {
   const totalChannel = stats.byChannel.reduce((s, c) => s + c.amount, 0) || 1
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Wallet className="h-6 w-6 text-primary" />

@@ -110,14 +110,14 @@ export default function BusinessCardPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <CreditCard className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button asChild>
           <Link href="/business-card/edit">
@@ -143,7 +143,7 @@ export default function BusinessCardPage() {
             {(mineErr as Error).message}
           </div>
         ) : (mine ?? []).length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <CreditCard className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('emptyMine')}</p>
           </div>
@@ -214,7 +214,7 @@ export default function BusinessCardPage() {
             {(favErr as Error).message}
           </div>
         ) : (favs ?? []).length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Star className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('emptyFavorites')}</p>
           </div>

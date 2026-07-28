@@ -94,7 +94,7 @@ const MODULES: Module[] = [
 export default function EduHubPage() {
   const t = useTranslations('admin.edu.index')
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

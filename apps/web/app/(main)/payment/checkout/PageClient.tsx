@@ -119,7 +119,7 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/payment"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -128,7 +128,7 @@ function CheckoutContent() {
         {t('checkout.back')}
       </Link>
 
-      <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('checkout.title')}</h1>
+      <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('checkout.title')}</h1>
 
       <form onSubmit={handlePay} className="grid gap-4 lg:grid-cols-5">
         <div className="space-y-4 lg:col-span-3">
@@ -247,7 +247,7 @@ export default function CheckoutPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('checkout.loading')}
         </div>

@@ -178,7 +178,7 @@ export default function AiCostPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -209,13 +209,13 @@ export default function AiCostPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : isError || !data ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+          <CardContent className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <Database className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('empty')}</p>
             <p className="text-xs text-muted-foreground/70">{t('emptyHint')}</p>

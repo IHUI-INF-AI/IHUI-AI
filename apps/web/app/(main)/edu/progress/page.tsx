@@ -50,17 +50,17 @@ export default function EduProgressPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <BarChart3 className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>

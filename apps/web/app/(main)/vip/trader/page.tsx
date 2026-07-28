@@ -107,7 +107,7 @@ export default function VipTraderPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -124,7 +124,7 @@ export default function VipTraderPage() {
 
   if (paid) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+      <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
         <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
         <Button asChild>
@@ -136,7 +136,7 @@ export default function VipTraderPage() {
 
   if (order && order.payInfo?.codeUrl) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+      <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <h1 className="text-2xl font-bold tracking-tight">微信扫码支付</h1>
         <p className="text-sm text-muted-foreground">
           金额：<span className="font-bold text-foreground">{formatCNY(order.amount)}</span>
@@ -155,7 +155,7 @@ export default function VipTraderPage() {
 
   if (order && order.payInfo?.mock) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+      <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
         <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
         <p className="text-sm text-muted-foreground">
@@ -170,7 +170,7 @@ export default function VipTraderPage() {
 
   if (!level) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-6 py-10 text-center">
+      <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <Crown className="mx-auto h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('empty')}</p>
         <Button asChild variant="outline">
@@ -183,7 +183,7 @@ export default function VipTraderPage() {
   const benefits = Array.isArray(level.benefits) ? level.benefits : []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/vip"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -193,11 +193,11 @@ export default function VipTraderPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <Crown className="h-7 w-7 text-amber-500" />
           {t('traderPlan')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card className="border-amber-500/40">

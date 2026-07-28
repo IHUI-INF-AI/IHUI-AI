@@ -64,7 +64,7 @@ export default function CourseDetailPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -94,7 +94,7 @@ export default function CourseDetailPage() {
   const progress = lesson.progress ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/learn"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -104,12 +104,12 @@ export default function CourseDetailPage() {
       </Link>
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="min-w-0 flex-1 space-y-6">
+        <div className="min-w-0 flex-1 space-y-4">
           <div className="space-y-3">
             <div className="flex h-48 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5">
               <PlayCircle className="h-16 w-16 text-primary/30" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{lesson.title}</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{lesson.title}</h1>
             <p className="text-sm text-muted-foreground">{lesson.description}</p>
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{lesson.instructor}</span>

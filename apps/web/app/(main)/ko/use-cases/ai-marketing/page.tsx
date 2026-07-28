@@ -119,7 +119,7 @@ export default function AiMarketingPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -146,7 +146,7 @@ export default function AiMarketingPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 md:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">마케팅 팀의 실제 페인 포인트</h2>
+            <h2 className="text-xl font-bold tracking-tight md:text-2xl">마케팅 팀의 실제 페인 포인트</h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
@@ -160,7 +160,7 @@ export default function AiMarketingPage() {
 
         {/* 능력 */}
         <section className="mt-16">
-          <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">6대 핵심 능력</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">6대 핵심 능력</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -176,7 +176,7 @@ export default function AiMarketingPage() {
 
         {/* 사례 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 md:p-12">
-          <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">고객 도입 사례</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">고객 도입 사례</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -191,7 +191,7 @@ export default function AiMarketingPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">기술 스택과 툴체인</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">기술 스택과 툴체인</h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground md:text-base">
             IHUI AI 풀스택 AI OS 기반, 8엔드포인트 소스 통합, 핵심 컴포넌트 모두 오픈소스. XHS/Douyin/Weibo/WeChat/LinkedIn/Twitter 6대 플랫폼과 깊이 통합.
@@ -209,7 +209,7 @@ export default function AiMarketingPage() {
         {/* 문의 / CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">AI 마케팅 어시스턴트 구축을 시작하세요</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">AI 마케팅 어시스턴트 구축을 시작하세요</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
             가입 시 1000 크레딧 증정, 마케팅 시나리오 템플릿에서 원클릭 fork, 30분 만에 멀티 플랫폼 동시 발행을 체험.
           </p>
