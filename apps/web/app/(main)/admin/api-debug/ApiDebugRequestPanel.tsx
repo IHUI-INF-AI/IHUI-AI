@@ -20,12 +20,12 @@ export function ApiDebugRequestPanel({ response, pending }: Props) {
       </CardHeader>
       <CardContent className="space-y-3">
         {pending ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t('apiDebug.waiting')}
           </div>
         ) : !response ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed py-12 text-muted-foreground">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed py-8 text-muted-foreground">
             <Terminal className="h-8 w-8" />
             <p className="text-sm">{t('apiDebug.noResponse')}</p>
           </div>

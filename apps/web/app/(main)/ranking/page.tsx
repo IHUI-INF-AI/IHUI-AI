@@ -53,13 +53,13 @@ export default function RankingPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Trophy className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Tabs value={range} onValueChange={(v) => setRange(v as RankRange)}>
@@ -76,12 +76,12 @@ export default function RankingPage() {
             <Card>
               <CardContent className="p-0">
                 {isLoading ? (
-                  <div className="flex items-center justify-center py-16 text-muted-foreground">
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     {t('loading')}
                   </div>
                 ) : list.length === 0 ? (
-                  <p className="py-16 text-center text-sm text-muted-foreground">{t('empty')}</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
                 ) : (
                   <Table>
                     <TableHeader>

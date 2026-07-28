@@ -237,7 +237,7 @@ export const metadata: Metadata = {
 
 export default function QuickstartPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-12 md:px-8 md:py-16">
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8 md:py-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(quickstartJsonLd) }}
@@ -286,7 +286,7 @@ export default function QuickstartPage() {
               </span>
               <div className="flex-1 space-y-2">
                 <h3 className="text-lg font-semibold">注册账号</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   访问
                   {' '}
                   <a href="https://ihui.ai/sso/register" className="text-primary underline">

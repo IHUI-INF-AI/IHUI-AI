@@ -92,7 +92,7 @@ export default function MessageTypePage() {
     enabled: isValid,
     queryFn: async (): Promise<UnifiedItem[]> => {
       if (isPrivateLetter) {
-        const res = await api<{ list: Conversation[] }>(`/api/messages/list?page=1&pageSize=50`)
+        const res = await api<{ list: Conversation[] }>(`/api/messages/list?page=1&pageSize=10`)
         return (res.list ?? []).map((c): UnifiedItem => ({
           id: c.id,
           title: c.peerName,
@@ -104,7 +104,7 @@ export default function MessageTypePage() {
       }
       const apiType = NOTI_API_TYPE[type as Exclude<MessageType, 'private-letter'>]
       const res = await api<{ list: NotificationItem[] }>(
-        `/api/notifications?type=${apiType}&page=1&pageSize=50`,
+        `/api/notifications?type=${apiType}&page=1&pageSize=10`,
       )
       return (res.list ?? []).map((n): UnifiedItem => ({
         id: n.id,
@@ -164,7 +164,7 @@ export default function MessageTypePage() {
       ) : error ? (
         <div className="py-8 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Icon className="h-8 w-8 opacity-40" />
           <p className="text-sm">{isPrivateLetter ? tp('noConversations') : t('empty')}</p>
         </div>

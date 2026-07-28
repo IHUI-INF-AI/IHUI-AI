@@ -26,13 +26,13 @@ export default function I18nDashboardPage() {
   )
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Globe className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">国际化数据看板</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">国际化数据看板</h1>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           5 种语言翻译进度概览 · 平均完成度 {avgCompletion}%
         </p>
       </header>
@@ -75,7 +75,7 @@ export default function I18nDashboardPage() {
       </section>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
         </div>

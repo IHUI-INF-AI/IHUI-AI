@@ -129,7 +129,7 @@ export function PricingContent(): React.JSX.Element {
       {/* 4 档对比卡片 */}
       <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-start">
         {isLoading ? (
-          <div className="col-span-full flex items-center justify-center py-12 text-muted-foreground">
+          <div className="col-span-full flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             加载中...
           </div>
@@ -138,7 +138,7 @@ export function PricingContent(): React.JSX.Element {
             {(error as Error).message}
           </div>
         ) : levels.length === 0 ? (
-          <div className="col-span-full rounded-md border border-dashed py-12 text-center text-sm text-muted-foreground">
+          <div className="col-span-full rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
             暂无定价方案
           </div>
         ) : (
@@ -173,7 +173,7 @@ export function PricingContent(): React.JSX.Element {
                   </div>
 
                   <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold tracking-tight text-primary">
+                    <span className="text-xl font-bold tracking-tight md:text-2xl text-primary">
                       {isFree ? '免费' : formatCNY(displayPrice)}
                     </span>
                     {!isFree && (

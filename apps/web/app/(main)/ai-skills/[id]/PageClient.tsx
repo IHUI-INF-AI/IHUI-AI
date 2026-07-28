@@ -155,7 +155,7 @@ export default function AiSkillDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-3xl py-16">
+      <div className="mx-auto w-full max-w-3xl py-8">
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{tp('loading')}</span>

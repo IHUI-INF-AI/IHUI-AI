@@ -70,7 +70,7 @@ export default function ApiKeysSettingsPage() {
             <KeyRound className="h-6 w-6 text-primary" />
             API 密钥管理
           </h1>
-          <p className="text-sm text-muted-foreground">管理您的开发者 API 密钥,供第三方应用接入</p>
+          <p className="text-xs text-muted-foreground">管理您的开发者 API 密钥,供第三方应用接入</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="mr-1.5 h-4 w-4" />

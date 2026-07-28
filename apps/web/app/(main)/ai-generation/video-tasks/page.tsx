@@ -98,7 +98,7 @@ export default function VideoTasksPage() {
             <Video className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('description')}</p>
+          <p className="text-xs text-muted-foreground">{t('description')}</p>
         </div>
         <Button
           variant="outline"
@@ -117,7 +117,7 @@ export default function VideoTasksPage() {
         </CardHeader>
         <CardContent className="p-0">
           {listQuery.isLoading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               {t('loading')}
             </div>
@@ -126,7 +126,7 @@ export default function VideoTasksPage() {
               {(listQuery.error as Error).message}
             </div>
           ) : tasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
+            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
               <Video className="h-8 w-8 opacity-40" />
               <p className="text-sm">{t('empty')}</p>
             </div>
