@@ -1,13 +1,15 @@
 'use client'
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, ChevronDown, XCircle } from 'lucide-react'
+import { X, ChevronDown, XCircle, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 import { Dropdown } from '@/components/feedback'
+import { SearchBar } from '@/components/business'
 import { resolvePathLabelSpec } from '@/lib/path-labels'
 
 /**
@@ -45,6 +47,126 @@ interface CtxMenuState {
   y: number
   path: string
 }
+
+/**
+ * 标签栏搜索按钮(2026-07-28 立,从侧边栏 SearchNavItem 迁移):
+ * 作为标签栏第一个固定标签,只显示一个搜索图标。点击后通过 portal 将搜索弹层
+ * 渲染到右侧工作区(#work-area-portal-root),居中于工作区顶部、向下滑出。
+ * 提交后跳 /search?q=...。点击外部 / Esc 键 / 路由变化均会关闭弹层。
+ */
+const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
+  const router = useRouter()
+  const tNav = useTranslations('nav')
+  const tCommon = useTranslations('common')
+  const [open, setOpen] = React.useState(false)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
+  const [portalTarget, setPortalTarget] = React.useState<HTMLElement | null>(null)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const searchParamsStr = searchParams?.toString()
+
+  // 挂载后查询右侧工作区容器作为 portal 目标(只在客户端执行)
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return
+    setPortalTarget(document.getElementById('work-area-portal-root'))
+  }, [])
+
+  // 路由变化(同路径不同 query 也算)时关闭弹层
+  React.useEffect(() => {
+    setOpen(false)
+  }, [pathname, searchParamsStr])
+
+  // Esc 关闭弹层
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  // 点击外部关闭(需同时检查 trigger 与 dropdown 两个 ref,因为 dropdown 通过 portal 渲染在别处)
+  React.useEffect(() => {
+    if (!open) return
+    const handler = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [open])
+
+  const handleSearch = (kw: string) => {
+    router.push(`/search?q=${encodeURIComponent(kw)}`)
+    setOpen(false)
+  }
+
+  // 通过 portal 渲染到右侧工作区容器:绝对定位、水平居中(inset-x-0 + mx-auto,避免
+  // 与 slide-in-from-top 动画的 transform 冲突)、顶部向下滑出。
+  // 工作区容器 overflow-hidden 会裁剪初始 translateY(-100%) 状态,形成从顶部边缘"向下滑出"的视觉效果。
+  // 2026-07-28 改动:
+  // - 删除内层 p-3 内边距(SearchBar 已合并为单层 div,input 直接占满父容器,p-3 会留白)
+  // - 弹窗滑出时叠加 fixed 半透明遮罩(对标 CommandPalette modal 模式),让其他区域稍微暗下去
+  //   突出搜索弹窗(用户规则:2026-07-28 立)
+  const dropdown =
+    open && portalTarget
+      ? createPortal(
+          <>
+            {/* 遮罩层(2026-07-28 立):fixed inset-0 全屏覆盖,半透明 black/40,
+                弹窗打开时其他区域稍微暗下去突出搜索弹窗。点击遮罩关闭弹窗。 */}
+            <div
+              aria-hidden="true"
+              data-testid="tagsview-search-overlay"
+              onClick={() => setOpen(false)}
+              className="fixed inset-0 z-popover bg-black/40 animate-in fade-in-0 duration-200"
+            />
+            <div
+              ref={dropdownRef}
+              role="dialog"
+              aria-label={tCommon('searchPlaceholder')}
+              className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-200"
+            >
+              <div className="rounded-md border bg-popover text-popover-foreground shadow-md">
+                <SearchBar
+                  onSearch={handleSearch}
+                  placeholder={tCommon('searchPlaceholder')}
+                  focusOnMount
+                />
+              </div>
+            </div>
+          </>,
+          portalTarget,
+        )
+      : null
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={triggerRef}
+        aria-label={tNav('search')}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex h-full shrink-0 items-center justify-center rounded-md border border-border/40 px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <Search className="h-4 w-4" />
+      </button>
+      {dropdown}
+    </>
+  )
+})
 
 export function TagsView() {
   const pathname = usePathname()
@@ -188,6 +310,8 @@ export function TagsView() {
       className="flex h-full min-w-0 flex-1 items-center gap-1"
     >
       <div className="hover-scroll flex h-full flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
+        {/* 搜索按钮(2026-07-28 立,从侧边栏迁移至标签栏第一个固定位置,只显示搜索图标) */}
+        <TagsViewSearchButton />
         {tags.length === 0 ? (
           // 2026-07-25 用户反馈:无 tag 时不返回 null,显示一行 placeholder 占位文本
           <span

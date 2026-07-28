@@ -9,8 +9,7 @@ import { getAnnouncements, type Announcement } from '@ihui/api-client'
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDate } from '../../../lib/date-utils'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 function stripHtml(s: string | undefined | null): string {
   if (!s) return ''
@@ -55,9 +54,6 @@ export default function AnnouncementsPage() {
   }, [])
 
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }))
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/announcements/${encodeURIComponent(id)}` })
-  }
 
   if (loading) {
     return (
@@ -133,7 +129,7 @@ export default function AnnouncementsPage() {
                   <div className="mt-1.5 flex items-center justify-end">
                     <button
                       type="button"
-                      onClick={() => openInWeb(a.id)}
+                      onClick={() => openItemInWeb(`/announcements/${encodeURIComponent(a.id)}`)}
                       className="text-[11px] text-primary cursor-pointer hover:underline bg-transparent border-none p-0"
                     >
                       {t('apps.openInWeb')} ↗

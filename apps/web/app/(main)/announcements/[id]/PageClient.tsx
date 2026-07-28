@@ -58,7 +58,7 @@ export default function AnnouncementDetailPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -84,14 +84,14 @@ export default function AnnouncementDetailPage() {
   const a = data
 
   // 列表按置顶 + 发布时间倒序排列，定位当前条目
-  const sorted = (list ?? []).slice().sort((x: any, y: any) => {
+  const sorted = (list ?? []).slice().sort((x: ListItem, y: ListItem) => {
     if (!!x.isPinned !== !!y.isPinned) return x.isPinned ? -1 : 1
     return new Date(y.publishedAt).getTime() - new Date(x.publishedAt).getTime()
   })
-  const idx = sorted.findIndex((x: any) => x.id === a.id)
+  const idx = sorted.findIndex((x) => x.id === a.id)
   const prev = idx > 0 ? sorted[idx - 1] : undefined
   const next = idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : undefined
-  const isRead = list?.find((x: any) => x.id === a.id)?.isRead
+  const isRead = list?.find((x) => x.id === a.id)?.isRead
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5">
@@ -106,9 +106,9 @@ export default function AnnouncementDetailPage() {
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={cn('rounded-md px-2 py-0.5 text-xs font-medium', (ANN_TYPE_BADGE as any)[a.type])}
+            className={cn('rounded-md px-2 py-0.5 text-xs font-medium', ANN_TYPE_BADGE[a.type])}
           >
-            {t((ANN_TYPE_KEY as any)[a.type] ?? 'types.unknown')}
+            {t(ANN_TYPE_KEY[a.type] ?? 'types.unknown')}
           </span>
           <Megaphone className="h-4 w-4 text-muted-foreground" />
           {a.isPinned && <span className="text-xs text-primary">{t('pinned')}</span>}
@@ -130,8 +130,8 @@ export default function AnnouncementDetailPage() {
             <span className="text-xs text-destructive">{(readMut.error as Error)?.message}</span>
           )}
         </div>
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{a.title}</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{a.title}</h1>
+        <p className="text-xs text-muted-foreground">
           {t('publishedAt')} {fmt(a.publishedAt)}
         </p>
       </header>

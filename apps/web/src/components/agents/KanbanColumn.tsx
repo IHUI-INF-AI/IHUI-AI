@@ -28,7 +28,7 @@ export function KanbanColumn({ column, onSelectTask }: KanbanColumnProps) {
           <span
             className={cn(
               'inline-flex h-2 w-2 rounded-full',
-              (STATUS_BADGE_CLASS as any)[column.status].split(' ')[0],
+              STATUS_BADGE_CLASS[column.status].split(' ')[0],
             )}
             aria-hidden
           />

@@ -39,16 +39,8 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
-
-const C = {
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  dim: '\x1b[2m',
-  bold: '\x1b[1m',
-  reset: '\x1b[0m',
-}
+import { withExcludes } from './lib/exclude-dirs.mjs'
+import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const WEB_SRC = path.join(ROOT, 'apps/web/src')
@@ -65,16 +57,8 @@ const SHARED_LOGIN_COMPONENTS = new Set([
   'QrTab',
 ])
 
-const EXCLUDE_DIRS = new Set([
-  'node_modules',
-  '.git',
-  '.next',
-  '.turbo',
-  'dist',
-  'build',
-  'tests',
-  '__tests__',
-])
+// EXCLUDE_DIRS:基于共享 EXCLUDE_DIRS,追加脚本特有(tests / __tests__)
+const EXCLUDE_DIRS = withExcludes(['tests', '__tests__'])
 
 // 匹配 const/let/var <varName> = useTranslations('<ns>')
 // 仅匹配带参数形式(限定命名空间);无参数形式 useTranslations() 是正确用法,不匹配

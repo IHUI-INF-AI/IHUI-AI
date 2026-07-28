@@ -74,7 +74,7 @@ export default function AgentRuntimePage() {
           <Zap className="h-6 w-6 text-primary" />
           运行时可视化中心
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           实时监控 Agent 运行状态、工具调用、记忆和会话
         </p>
       </header>
@@ -127,7 +127,7 @@ export default function AgentRuntimePage() {
 
       {!agentId ? (
         <Card>
-          <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
+          <CardContent className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             正在加载 Agent 列表...
           </CardContent>

@@ -18,6 +18,7 @@ import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateWithYear } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -32,14 +33,6 @@ const FAVORITE_TAB_KEYS: Record<FilterTab, string> = {
   course: 'favorite.tab_course',
   live: 'favorite.tab_live',
   article: 'favorite.tab_article',
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
 }
 
 function typeEmoji(targetType: string): string {
@@ -168,7 +161,7 @@ export function FavoriteScreen() {
                 </Text>
                 <Text style={styles.itemMeta}>
                   {t(FAVORITE_TAB_KEYS[item.targetType as FilterTab] ?? 'favorite.tab_all')} ·{' '}
-                  {formatDate(item.createdAt)}
+                  {formatShortDateWithYear(item.createdAt)}
                 </Text>
               </View>
               <Button onPress={() => onDelete(item)} variant="outline" size="sm">

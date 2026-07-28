@@ -26,11 +26,11 @@ const levelColor = (level: ScoreData['level']) => {
   switch (level) {
     case 'excellent':
     case 'high':
-      return '#16a34a'
+      return 'var(--chart-success)'
     case 'medium':
-      return '#f59e0b'
+      return 'var(--chart-3)'
     default:
-      return '#ef4444'
+      return 'var(--chart-4)'
   }
 }
 
@@ -54,7 +54,7 @@ export function SecurityScore() {
   const circumference = 2 * Math.PI * 45
   const ratio = data ? data.total / data.maxScore : 0
   const dashOffset = circumference * (1 - ratio)
-  const color = data ? levelColor(data.level) : '#94a3b8'
+  const color = data ? levelColor(data.level) : 'var(--chart-text)'
 
   const levelLabel = (level: ScoreData['level']) => {
     const map: Record<ScoreData['level'], string> = {
@@ -97,7 +97,7 @@ export function SecurityScore() {
                   cy="50"
                   r="45"
                   fill="none"
-                  stroke={color}
+                  style={{ stroke: color }}
                   strokeWidth="8"
                   strokeLinecap="round"
                   strokeDasharray={circumference}
@@ -132,10 +132,10 @@ export function SecurityScore() {
                         width: `${(item.score / item.maxScore) * 100}%`,
                         backgroundColor:
                           item.status === 'good'
-                            ? '#16a34a'
+                            ? 'var(--chart-success)'
                             : item.status === 'warning'
-                              ? '#f59e0b'
-                              : '#ef4444',
+                              ? 'var(--chart-3)'
+                              : 'var(--chart-4)',
                       }}
                     />
                   </div>

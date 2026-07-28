@@ -30,7 +30,7 @@ export function SponsorContent(): React.JSX.Element {
   const t = useTranslations('sponsor')
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -52,7 +52,7 @@ export function SponsorContent(): React.JSX.Element {
 
       {/* Why sponsor */}
       <section className="mt-16">
-        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">
+        <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">
           {t('whyTitle')}
         </h2>
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -72,7 +72,7 @@ export function SponsorContent(): React.JSX.Element {
 
       {/* Tiers */}
       <section className="mt-16">
-        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">
+        <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">
           {t('tiersTitle')}
         </h2>
         <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -108,7 +108,7 @@ export function SponsorContent(): React.JSX.Element {
 
       {/* Existing sponsors */}
       <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('sponsorsTitle')}</h2>
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('sponsorsTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
           {t('sponsorsDesc')}
         </p>
@@ -127,7 +127,7 @@ export function SponsorContent(): React.JSX.Element {
 
       {/* Online donations: PayPal + Ko-fi */}
       <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">
           {t('onlineTitle')}
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">

@@ -6,6 +6,7 @@ import { Button, Card, Input, Loading } from '@ihui/ui-native'
 import { getLiveById, subscribeLive, type Live } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { LiveStackParamList } from '../navigation/RootNavigator'
+import { formatTimeOnly } from '../utils/date-utils'
 import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
 import {
@@ -44,17 +45,6 @@ function statusDotClass(status: ChatStatus): string {
       return 'bg-red-500'
     default:
       return 'bg-neutral-300'
-  }
-}
-
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return ''
   }
 }
 
@@ -269,7 +259,7 @@ export function LiveDetailScreen() {
                   <Text className="text-xs font-medium text-neutral-700 dark:text-neutral-200">
                     {item.nickname}
                   </Text>
-                  <Text className="text-[10px] text-neutral-400">{formatTime(item.createdAt)}</Text>
+                  <Text className="text-[10px] text-neutral-400">{formatTimeOnly(item.createdAt)}</Text>
                 </View>
                 <Text className="mt-0.5 text-sm text-neutral-900 dark:text-neutral-50">
                   {item.content}

@@ -96,7 +96,7 @@ export default function NotificationsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['notifications', tab],
     queryFn: () => {
-      const query: Record<string, string | number> = { page: 1, pageSize: 50 }
+      const query: Record<string, string | number> = { page: 1, pageSize: 10 }
       if (tab !== 'all') query.type = tab
       return unwrap(getNotifications(query))
     },
@@ -194,7 +194,7 @@ export default function NotificationsPage() {
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : notifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Bell className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('noData')}</p>
         </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -62,7 +62,7 @@ export default function ContextVisualizationPage() {
       </Card>
 
       {vizQ.isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           加载中…
         </div>
@@ -72,7 +72,7 @@ export default function ContextVisualizationPage() {
           <span>加载失败:{(vizQ.error as Error).message}</span>
         </div>
       ) : !data ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">暂无数据</div>
+        <div className="py-8 text-center text-sm text-muted-foreground">暂无数据</div>
       ) : (
         <>
           <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
@@ -101,12 +101,10 @@ export default function ContextVisualizationPage() {
             </CardHeader>
             <CardContent className="pt-0">
               {events.length === 0 ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">
-                  暂无压缩事件
-                </div>
+                <div className="py-8 text-center text-sm text-muted-foreground">暂无压缩事件</div>
               ) : (
                 <ol className="space-y-2">
-                  {events.map((e: any, i: any) => {
+                  {events.map((e, i) => {
                     const ratio = e.compressionRatio
                     return (
                       <li
@@ -126,7 +124,8 @@ export default function ContextVisualizationPage() {
                             }).format(new Date(e.timestamp))}
                           </p>
                           <p className="text-xs text-muted-foreground tabular-nums">
-                            {e.beforeTokens.toLocaleString()} → {e.afterTokens.toLocaleString()} tokens
+                            {e.beforeTokens.toLocaleString()} → {e.afterTokens.toLocaleString()}{' '}
+                            tokens
                           </p>
                         </div>
                         <div className="h-1.5 w-24 overflow-hidden rounded-sm bg-muted">

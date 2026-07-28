@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -92,7 +92,7 @@ export default function SignInPage() {
   const consecutive = today?.consecutiveDays ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -105,9 +105,9 @@ export default function SignInPage() {
               className="h-8 w-8 rounded-md object-cover"
               unoptimized
             />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Link
           href="/points"
@@ -190,7 +190,7 @@ export default function SignInPage() {
         </h2>
         <div className="grid grid-cols-7 gap-2">
           {WEEKDAYS.map((d) => {
-            const item = week.find((w: any) => w.day === d)
+            const item = week.find((w) => w.day === d)
             const isSigned = item?.signed ?? false
             return (
               <div
@@ -200,7 +200,9 @@ export default function SignInPage() {
                   isSigned ? 'border-primary/40 bg-primary/5' : 'hover:bg-accent/50',
                 )}
               >
-                <span className="text-xs text-muted-foreground">{t(WEEKDAY_KEY[d] ?? 'dayUnknown')}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t(WEEKDAY_KEY[d] ?? 'dayUnknown')}
+                </span>
                 <span
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium',
@@ -245,7 +247,7 @@ export default function SignInPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {historyQ.data.map((h: any) => (
+                {historyQ.data.map((h) => (
                   <tr key={h.signInDate} className="transition-colors hover:bg-accent/50">
                     <td className="px-4 py-2 text-muted-foreground">{fmtFull(h.signInDate)}</td>
                     <td className="px-4 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400">
@@ -260,7 +262,7 @@ export default function SignInPage() {
             </table>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Calendar className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('empty')}</p>
           </div>

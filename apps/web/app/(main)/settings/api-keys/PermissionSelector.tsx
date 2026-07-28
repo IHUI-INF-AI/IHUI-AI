@@ -51,7 +51,7 @@ export function PermissionSelector({ value, onChange, disabled }: Props) {
 
   return (
     <div className="grid grid-cols: any-2 gap-2 sm:grid-cols-3">
-      {API_KEY_PERMISSIONS.map((perm: any) => {
+      {API_KEY_PERMISSIONS.map((perm) => {
         const checked = value.includes(perm)
         return (
           <label
@@ -65,7 +65,7 @@ export function PermissionSelector({ value, onChange, disabled }: Props) {
             )}
           >
             <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggle(perm)} />
-            <span>{(PERM_LABELS as any)[perm]}</span>
+            <span>{PERM_LABELS[perm]}</span>
           </label>
         )
       })}

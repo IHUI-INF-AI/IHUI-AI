@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
@@ -85,12 +85,12 @@ export default function MemberSubscriptionPage() {
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : !sub ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-8 text-center">
           <CreditCard className="h-8 w-8 text-muted-foreground opacity-40" />
           <p className="text-sm text-muted-foreground">{t('noSubscription')}</p>
           <Button onClick={() => router.push('/vip')}>{t('subscribeNow')}</Button>
@@ -110,10 +110,10 @@ export default function MemberSubscriptionPage() {
                 <span
                   className={cn(
                     'rounded-md px-2 py-0.5 text-xs font-medium',
-                    (STATUS_CLS as any)[sub.status],
+                    STATUS_CLS[sub.status],
                   )}
                 >
-                  {t((SUBSCRIPTION_STATUS_KEYS as any)[sub.status]!)}
+                  {t(SUBSCRIPTION_STATUS_KEYS[sub.status]!)}
                 </span>
               </div>
 

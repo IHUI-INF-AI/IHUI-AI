@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getOrders, type Order, type OrderStatus } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDate } from '../../../lib/date-utils'
 
 function fmt(n: number | undefined | null): string {
   if (typeof n !== 'number') return '—'
@@ -76,12 +77,7 @@ export default function OrderPage() {
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{getStatusLabel(o.status)}</span>
                 <span>
-                  {new Intl.DateTimeFormat('zh-CN', {
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }).format(new Date(o.createdAt))}
+                  {fmtDate(o.createdAt)}
                 </span>
               </div>
               <div className="text-sm font-semibold tabular-nums mt-1">¥ {fmt(o.payAmount)}</div>

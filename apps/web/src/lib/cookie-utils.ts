@@ -12,6 +12,8 @@ const REFRESH_TOKEN_COOKIE = 'refresh_token'
 const AUTH_TOKEN_COOKIE = 'auth_token'
 /** 自动登录时 refreshToken cookie 有效期:30 天(与后端 refresh TTL 对齐) */
 export const REMEMBER_MAX_AGE = 30 * 24 * 60 * 60
+/** 2026-07-28:accessToken cookie 默认 7 天(原 session cookie 关闭浏览器失效) */
+const ACCESS_TOKEN_DEFAULT_MAX_AGE = 7 * 24 * 60 * 60
 
 export function getAuthCookieDomain(): string | undefined {
   if (typeof window === 'undefined') return undefined
@@ -43,7 +45,11 @@ function buildCookieParts(opts?: CookieOpts): string[] {
 
 export function setAuthCookie(token: string | null, opts?: CookieOpts): void {
   if (typeof document === 'undefined') return
-  const parts = buildCookieParts(opts)
+  // 2026-07-28 加固:默认 7 天 maxAge(原默认 -1 = session cookie,关闭浏览器失效)
+  const finalOpts: CookieOpts = {
+    maxAge: opts?.maxAge ?? ACCESS_TOKEN_DEFAULT_MAX_AGE,
+  }
+  const parts = buildCookieParts(finalOpts)
   if (token) {
     document.cookie = `${AUTH_TOKEN_COOKIE}=${token}; ${parts.join('; ')}`
   } else {

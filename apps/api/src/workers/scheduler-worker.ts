@@ -37,6 +37,7 @@ import {
   computeTrendSignals,
   generateSnapshot,
 } from '../services/ai-feed-service.js'
+import { checkBudgetAlerts } from '../services/budget-alert-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -456,6 +457,24 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               /* 指标采集失败不影响业务 */
             }
             return { snapshot: snapRes, llm: llmRes, translate: transRes, trend: trendRes }
+          }
+          case 'budget-alert-check': {
+            const result = await checkBudgetAlerts(server)
+            server.log.info(
+              {
+                scanned: result.scanned,
+                warning: result.warningCount,
+                critical: result.criticalCount,
+                errors: result.errors.length,
+              },
+              'budget alert check done',
+            )
+            try {
+              server.recordJobExecution(name, result.errors.length > 0 ? 'failed' : 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
           }
           default:
             server.log.warn({ jobName: name }, 'unknown scheduled job')

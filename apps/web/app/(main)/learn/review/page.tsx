@@ -116,13 +116,13 @@ export default function ReviewPage() {
   const finished = !current
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Brain className="h-7 w-7 text-primary" />
           今日复习
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           基于 SM-2 间隔重复算法,巩固长期记忆。
         </p>
       </header>
@@ -141,7 +141,7 @@ export default function ReviewPage() {
 
       {finished ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-8 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-500/10">
               <CheckCircle2 className="h-8 w-8 text-emerald-600" />
             </div>

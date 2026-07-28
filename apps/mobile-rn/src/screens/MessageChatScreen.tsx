@@ -1,17 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MessageItem } from '@ihui/types'
 
 import { Input, Loading } from '@ihui/ui-native'
-interface ChatMsg { id: string; senderId: string; content: string; createdAt: string; isMine: boolean }
+
+interface ChatMsg extends MessageItem {
+  senderId: string // = fromUserId 别名(业务字段,与 fromUserId 并存)
+  isMine: boolean
+}
 
 type Route = RouteProp<RootStackParamList, 'MessageChat'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
 
 export function MessageChatScreen() {
   const { t } = useI18n()
@@ -28,21 +34,27 @@ export function MessageChatScreen() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      setLoading(true); setError('')
+      setLoading(true)
+      setError('')
       const res = await fetchApi<ChatMsg[]>(`/api/messages/chat/${encodeURIComponent(peerId)}`)
       if (cancelled) return
       if (res.success) setMessages(res.data ?? [])
       else setError(res.error || t('messageChat.loadFailed'))
       setLoading(false)
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [peerId, t])
 
   const onSend = async () => {
     const text = input.trim()
     if (!text) return
     setSending(true)
-    const res = await fetchApi<ChatMsg>(`/api/messages/chat/${encodeURIComponent(peerId)}`, { method: 'POST', body: JSON.stringify({ content: text }) })
+    const res = await fetchApi<ChatMsg>(`/api/messages/chat/${encodeURIComponent(peerId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ content: text }),
+    })
     setSending(false)
     if (res.success && res.data) {
       setMessages((prev) => [...prev, res.data])
@@ -51,25 +63,44 @@ export function MessageChatScreen() {
     } else if (!res.success) setError(res.error || t('messageChat.sendFailed'))
   }
 
-  if (loading) return <View style={styles.center}><Loading /><Text style={styles.muted}>{t('common.loading')}</Text></View>
-  if (error && messages.length === 0) return (
-    <View style={styles.center}>
-      <Text style={styles.error}>{error}</Text>
-      <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}><Text style={styles.btnText}>{t('common.back')}</Text></TouchableOpacity>
-    </View>
-  )
+  if (loading)
+    return (
+      <View style={styles.center}>
+        <Loading />
+        <Text style={styles.muted}>{t('common.loading')}</Text>
+      </View>
+    )
+  if (error && messages.length === 0)
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>{error}</Text>
+        <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
+          <Text style={styles.btnText}>{t('common.back')}</Text>
+        </TouchableOpacity>
+      </View>
+    )
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>{t('common.back')}</Text></TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>{name}</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.back}>{t('common.back')}</Text>
+        </TouchableOpacity>
+        <Text style={styles.title} numberOfLines={1}>
+          {name}
+        </Text>
       </View>
       <FlatList
-        ref={(r) => { listRef.current = r }}
+        ref={(r) => {
+          listRef.current = r
+        }}
         data={messages}
         keyExtractor={(item) => item.id}
         style={{ flex: 1 }}
-        ListEmptyComponent={<View style={styles.empty}><Text style={styles.muted}>{t('messageChat.empty')}</Text></View>}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.muted}>{t('messageChat.empty')}</Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <View style={[styles.msg, item.isMine ? styles.msgMine : styles.msgPeer]}>
             <Text style={styles.content}>{item.content}</Text>
@@ -78,8 +109,18 @@ export function MessageChatScreen() {
         )}
       />
       <View style={styles.inputRow}>
-        <Input style={styles.input} value={input} onChangeText={setInput} placeholder={t('messageChat.placeholder')} placeholderTextColor="#9ca3af" />
-        <TouchableOpacity style={[styles.sendBtn, (!input.trim() || sending) && styles.sendDisabled]} onPress={onSend} disabled={!input.trim() || sending}>
+        <Input
+          style={styles.input}
+          value={input}
+          onChangeText={setInput}
+          placeholder={t('messageChat.placeholder')}
+          placeholderTextColor={tokens.text.tertiary}
+        />
+        <TouchableOpacity
+          style={[styles.sendBtn, (!input.trim() || sending) && styles.sendDisabled]}
+          onPress={onSend}
+          disabled={!input.trim() || sending}
+        >
           <Text style={styles.sendText}>{t('messageChat.send')}</Text>
         </TouchableOpacity>
       </View>
@@ -88,24 +129,50 @@ export function MessageChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16 },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
+  container: {
+    flex: 1,
+    backgroundColor: tokens.surface.light,
+    paddingHorizontal: 16,
+    paddingTop: 48,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.light,
+    padding: 16,
+  },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.error.text, marginBottom: 8, textAlign: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { flex: 1, fontSize: 18, fontWeight: '600', color: '#111827' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { flex: 1, fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   empty: { paddingVertical: 40, alignItems: 'center' },
   msg: { padding: 10, borderRadius: 8, marginBottom: 8, maxWidth: '80%' },
   msgMine: { alignSelf: 'flex-end', backgroundColor: PRIMARY },
-  msgPeer: { alignSelf: 'flex-start', backgroundColor: '#f3f4f6' },
-  content: { fontSize: 14, color: '#fff' },
+  msgPeer: { alignSelf: 'flex-start', backgroundColor: tokens.surface.card },
+  content: { fontSize: 14, color: tokens.surface.light },
   meta: { marginTop: 4, fontSize: 10, color: 'rgba(255,255,255,0.7)' },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  input: { flex: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', fontSize: 14, color: '#111827' },
+  input: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    fontSize: 14,
+    color: tokens.text.primary,
+  },
   sendBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  sendDisabled: { backgroundColor: '#9ca3af' },
-  sendText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  btnText: { color: '#fff', fontSize: 14 },
+  sendDisabled: { backgroundColor: tokens.text.tertiary },
+  sendText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
+  btn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

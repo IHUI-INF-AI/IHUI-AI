@@ -131,10 +131,10 @@ export default function VisitTrackingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">访问追踪统计</h1>
-        <p className="text-sm text-muted-foreground">日期范围筛选 · PV/UV 概览 · 趋势与来源明细</p>
+        <p className="text-xs text-muted-foreground">日期范围筛选 · PV/UV 概览 · 趋势与来源明细</p>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">

@@ -81,14 +81,14 @@ export default function AiWorldDetailPage() {
   }
 
   const categoryName = world?.categoryId
-    ? (catData?.list.find((c: any) => c.id === world.categoryId)?.name ?? '-')
+    ? (catData?.list.find((c) => c.id === world.categoryId)?.name ?? '-')
     : '-'
 
-  const relatedApps = (worldListData ?? []).filter((a: any) => a.id !== params.id).slice(0, 4)
+  const relatedApps = (worldListData ?? []).filter((a) => a.id !== params.id).slice(0, 4)
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         加载中...
       </div>
@@ -113,7 +113,7 @@ export default function AiWorldDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/ai-world"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -171,7 +171,7 @@ export default function AiWorldDetailPage() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold">相关推荐</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {relatedApps.map((app: any) => (
+            {relatedApps.map((app) => (
               <Link
                 key={app.id}
                 href={`/ai-world/${app.id}`}

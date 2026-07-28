@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -8,7 +8,15 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Wallet, Plus, ArrowDownToLine, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { AnimatedNumber } from '@/components/common'
 
@@ -77,9 +85,9 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <Wallet className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -166,7 +174,7 @@ export default function WalletPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((it: any) => {
+                items.map((it) => {
                   const positive = it.opType === 1 || it.opType === 4 || it.opType === 5
                   return (
                     <TableRow key={it.id}>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   FlatList,
   Image,
@@ -9,9 +9,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { tokens } from '@ihui/rn-app'
+import { getAigcTasks, type AigcTask } from '@ihui/api-client'
 import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-const PRIMARY = '#10B981'
+const PRIMARY = tokens.brand.DEFAULT
+
+// Aigc 系列屏幕未注册到 RootStackParamList(独立 mock 屏幕),本地扩展导航类型
+// 避免 useNavigation<any>() 退化为 any,保留 navigate/goBack 的类型安全
+type AigcStackParamList = RootStackParamList & {
+  AigcCover: { id: string; title: string }
+  AigcPublish: undefined
+}
+type Nav = NativeStackNavigationProp<AigcStackParamList>
 
 type FileType = 0 | 1 | 3 | 4
 
@@ -39,103 +51,77 @@ const CATEGORIES: { key: Category; label: string; fileType?: FileType }[] = [
   { key: 'text', label: '文案', fileType: 4 },
 ]
 
-const MOCK_WORKS: AigcWork[] = [
-  {
-    id: '1',
-    title: '春日城市光影',
-    subtitle: 'AI 生成插画',
-    prompt: '赛博朋克城市,霓虹,雨天',
-    fileUrl: 'https://picsum.photos/seed/aigc1/400/600',
-    coverUrl: 'https://picsum.photos/seed/aigc1/400/600',
-    fileType: 0,
-    createdAt: '2026-07-20',
-  },
-  {
-    id: '2',
-    title: '极光夜景短片',
-    subtitle: 'AI 生成视频',
-    prompt: '极光,雪山,延时摄影',
-    coverUrl: 'https://picsum.photos/seed/aigc2/400/600',
-    fileType: 1,
-    createdAt: '2026-07-19',
-  },
-  {
-    id: '3',
-    title: '治愈系播客',
-    subtitle: '夜间电台',
-    prompt: '温柔女声,治愈,轻音乐',
-    audioUrl: '',
-    duration: '03:42',
-    coverUrl: 'https://picsum.photos/seed/aigc3/400/400',
-    fileType: 3,
-    createdAt: '2026-07-18',
-  },
-  {
-    id: '4',
-    title: '夏日品牌文案',
-    subtitle: '营销短文',
-    prompt: '夏日饮品,清新,年轻',
-    content: '一杯清茶,半夏清凉。让每一口都成为夏日的仪式感,与好友分享这份宁静。',
-    fileType: 4,
-    createdAt: '2026-07-17',
-  },
-  {
-    id: '5',
-    title: '未来城市概念图',
-    subtitle: 'AI 概念设计',
-    prompt: '未来主义,空中城市,云端',
-    fileUrl: 'https://picsum.photos/seed/aigc5/400/500',
-    coverUrl: 'https://picsum.photos/seed/aigc5/400/500',
-    fileType: 0,
-    createdAt: '2026-07-16',
-  },
-  {
-    id: '6',
-    title: '森林晨曦视频',
-    subtitle: '自然风光',
-    prompt: '森林,晨雾,鸟鸣',
-    coverUrl: 'https://picsum.photos/seed/aigc6/400/500',
-    fileType: 1,
-    createdAt: '2026-07-15',
-  },
-  {
-    id: '7',
-    title: '古风音乐短曲',
-    subtitle: '古筝独奏',
-    prompt: '古风,悠扬,宁静',
-    audioUrl: '',
-    duration: '02:18',
-    coverUrl: 'https://picsum.photos/seed/aigc7/400/400',
-    fileType: 3,
-    createdAt: '2026-07-14',
-  },
-  {
-    id: '8',
-    title: '产品发布文案',
-    subtitle: '科技新品',
-    prompt: '科技感,简洁,高端',
-    content: '重新定义边界,以匠心致敬未来。这一次,我们把想象带到了现实。',
-    fileType: 4,
-    createdAt: '2026-07-13',
-  },
-]
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null
+}
+
+function asString(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined
+}
+
+function asFileType(v: unknown): FileType {
+  if (v === 0 || v === 1 || v === 3 || v === 4) return v
+  return 0
+}
+
+/** 将 AIGC 任务(result 为 unknown)安全映射为 UI 层 AigcWork,避免 any */
+function toAigcWork(task: AigcTask): AigcWork {
+  const r = isRecord(task.result) ? task.result : {}
+  return {
+    id: task.taskId,
+    title: asString(r.title) ?? '未命名作品',
+    subtitle: asString(r.subtitle),
+    prompt: asString(r.prompt),
+    content: asString(r.content),
+    fileUrl: asString(r.fileUrl),
+    coverUrl: asString(r.coverUrl),
+    audioUrl: asString(r.audioUrl),
+    duration: asString(r.duration),
+    fileType: asFileType(r.fileType),
+    createdAt: task.createdAt ?? '',
+  }
+}
 
 export default function AigcListScreen() {
-  const navigation = useNavigation<any>()
+  const navigation = useNavigation<Nav>()
   const [category, setCategory] = useState<Category>('all')
+  const [items, setItems] = useState<AigcWork[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
-  const filtered =
-    category === 'all'
-      ? MOCK_WORKS
-      : MOCK_WORKS.filter(
-          (w) => w.fileType === CATEGORIES.find((c) => c.key === category)?.fileType,
-        )
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const res = await getAigcTasks({ page: 1, pageSize: 50 })
+      if (res.success) {
+        setItems(res.data.list.map(toAigcWork))
+      } else {
+        setError(res.error || '加载失败')
+      }
+    } catch {
+      setError('加载失败')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const onRefresh = () => {
     setRefreshing(true)
-    setTimeout(() => setRefreshing(false), 800)
+    void load()
   }
+
+  const filtered =
+    category === 'all'
+      ? items
+      : items.filter(
+          (w) => w.fileType === CATEGORIES.find((c) => c.key === category)?.fileType,
+        )
 
   const openWork = (work: AigcWork) => {
     navigation.navigate('AigcCover', { id: work.id, title: work.title })
@@ -239,6 +225,12 @@ export default function AigcListScreen() {
         ))}
       </ScrollView>
 
+      {error ? (
+        <View style={styles.errorBar}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
       <FlatList
         style={styles.list}
         data={filtered}
@@ -248,7 +240,7 @@ export default function AigcListScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>暂无作品</Text>
+            <Text style={styles.emptyText}>{loading ? '加载中...' : '暂无作品'}</Text>
           </View>
         }
         renderItem={renderItem}
@@ -262,26 +254,31 @@ export default function AigcListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-  backText: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
-  headerSubtitle: { marginTop: 4, fontSize: 13, color: '#6b7280' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  headerSubtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
   categoryBar: { maxHeight: 48 },
   categoryContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   categoryChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.surface.card,
   },
   categoryChipActive: { backgroundColor: PRIMARY },
-  categoryText: { fontSize: 13, color: '#374151' },
-  categoryTextActive: { color: '#fff', fontWeight: '600' },
+  categoryText: { fontSize: 13, color: tokens.text.medium },
+  categoryTextActive: { color: tokens.surface.light, fontWeight: '600' },
   list: { flex: 1, paddingHorizontal: 12 },
   row: { gap: 12, marginBottom: 12 },
-  mediaCard: { flex: 1, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f9fafb' },
-  mediaCover: { width: '100%', aspectRatio: 3 / 4, backgroundColor: '#e5e7eb' },
+  mediaCard: {
+    flex: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: tokens.surface.muted,
+  },
+  mediaCover: { width: '100%', aspectRatio: 3 / 4, backgroundColor: tokens.border.light },
   videoBadge: {
     position: 'absolute',
     top: 8,
@@ -291,27 +288,33 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  videoBadgeText: { fontSize: 11, color: '#fff' },
+  videoBadgeText: { fontSize: 11, color: tokens.surface.light },
   mediaFooter: { padding: 10 },
-  cardTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 12, color: '#6b7280' },
-  textCard: { flex: 2, padding: 14, borderRadius: 8, backgroundColor: '#f9fafb', marginBottom: 12 },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
+  textCard: {
+    flex: 2,
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+    marginBottom: 12,
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTime: { fontSize: 11, color: '#9ca3af' },
+  cardTime: { fontSize: 11, color: tokens.text.tertiary },
   promptText: { marginTop: 8, fontSize: 12, color: PRIMARY },
-  contentText: { marginTop: 8, fontSize: 13, color: '#374151', lineHeight: 20 },
+  contentText: { marginTop: 8, fontSize: 13, color: tokens.text.medium, lineHeight: 20 },
   audioCard: {
     flex: 2,
     flexDirection: 'row',
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#f9fafb',
+    backgroundColor: tokens.surface.muted,
     marginBottom: 12,
     alignItems: 'center',
   },
-  audioCover: { width: 64, height: 64, borderRadius: 8, backgroundColor: '#e5e7eb' },
+  audioCover: { width: 64, height: 64, borderRadius: 8, backgroundColor: tokens.border.light },
   audioInfo: { flex: 1, marginLeft: 12 },
-  audioDuration: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
+  audioDuration: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   audioPlayBtn: {
     marginTop: 8,
     alignSelf: 'flex-start',
@@ -322,7 +325,9 @@ const styles = StyleSheet.create({
   },
   audioPlayText: { fontSize: 12, color: PRIMARY, fontWeight: '600' },
   empty: { paddingVertical: 60, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: '#9ca3af' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
+  errorText: { fontSize: 13, color: '#ef4444' },
   fab: {
     position: 'absolute',
     bottom: 24,
@@ -340,5 +345,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  fabText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  fabText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
 })

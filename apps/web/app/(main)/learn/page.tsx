@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Image from 'next/image'
@@ -88,7 +88,7 @@ export default function LearnPage() {
   const lessons = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <Card className="overflow-hidden">
         <div className="relative h-40 sm:h-48">
           {locale === 'zh-CN' && (
@@ -112,11 +112,15 @@ export default function LearnPage() {
                 : 'relative flex h-full flex-col justify-center gap-1 bg-primary/10 p-6'
             }
           >
-            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+            <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
               <GraduationCap className={locale === 'zh-CN' ? 'h-7 w-7' : 'h-7 w-7 text-primary'} />
               {t('title')}
             </h1>
-            <p className={locale === 'zh-CN' ? 'text-sm opacity-90' : 'text-sm text-muted-foreground'}>
+            <p
+              className={
+                locale === 'zh-CN' ? 'text-sm opacity-90' : 'text-sm text-muted-foreground'
+              }
+            >
               {t('subtitle')}
             </p>
           </div>
@@ -146,7 +150,7 @@ export default function LearnPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allCategories')}</SelectItem>
-            {(categories ?? []).map((c: any) => (
+            {(categories ?? []).map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
               </SelectItem>
@@ -156,7 +160,7 @@ export default function LearnPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -165,13 +169,13 @@ export default function LearnPage() {
           {(error as Error).message}
         </div>
       ) : lessons.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <PlayCircle className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {lessons.map((lesson: any) => (
+          {lessons.map((lesson) => (
             <CourseCard
               key={lesson.id}
               title={lesson.title}

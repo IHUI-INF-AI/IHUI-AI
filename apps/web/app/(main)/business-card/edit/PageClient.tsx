@@ -137,15 +137,15 @@ export default function BusinessCardEditPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <CreditCard className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">
             {editId ? t('editTitle') : t('createTitle')}
           </h1>
         </div>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Link
@@ -157,7 +157,7 @@ export default function BusinessCardEditPage() {
       </Link>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>

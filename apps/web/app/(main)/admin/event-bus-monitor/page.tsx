@@ -69,7 +69,7 @@ export default function EventBusMonitorPage() {
     : []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Webhook className="h-6 w-6 text-primary" />
@@ -81,12 +81,12 @@ export default function EventBusMonitorPage() {
       {/* 统计卡片 */}
       <section>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {tc('search')}
           </div>
         ) : !stats ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('eventBus.noData')}
           </div>
         ) : (
@@ -112,7 +112,7 @@ export default function EventBusMonitorPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('eventBus.eventList')}</h2>
         {eventsList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('eventBus.noData')}
           </div>
         ) : (

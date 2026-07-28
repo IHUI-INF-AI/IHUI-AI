@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -126,7 +126,7 @@ export default function ResourceEditPage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    onSuccess: (d: any) => {
+    onSuccess: (d) => {
       setFileUrl(d.url)
       setFileName(file?.name ?? '')
     },
@@ -148,14 +148,14 @@ export default function ResourceEditPage() {
 
   if (id && loadingDetail)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
     )
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/resources"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -164,7 +164,9 @@ export default function ResourceEditPage() {
         {t('backToList')}
       </Link>
 
-      <h1 className="text-2xl font-bold tracking-tight">{id ? t('editTitle') : t('createTitle')}</h1>
+      <h1 className="text-2xl font-bold tracking-tight">
+        {id ? t('editTitle') : t('createTitle')}
+      </h1>
 
       <ResourceForm
         title={title}

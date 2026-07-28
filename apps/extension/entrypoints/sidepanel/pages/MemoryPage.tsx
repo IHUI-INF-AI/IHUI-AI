@@ -8,8 +8,7 @@ import { fetchApi } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDate } from '../../../lib/date-utils'
-
-const WEB_BASE = 'https://ihui.ai'
+import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 interface MemoryItem {
   id: string
@@ -47,13 +46,7 @@ export default function MemoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
 
-  const openInWeb = (id: string) => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/memory/${encodeURIComponent(id)}` })
-  }
-
-  const openNew = () => {
-    void chrome.tabs.create({ url: `${WEB_BASE}/memory/new` })
-  }
+  const openNew = () => openItemInWeb('/memory/new')
 
   if (loading) {
     return (
@@ -101,13 +94,13 @@ export default function MemoryPage() {
             <Card
               key={m.id}
               className="rounded-md border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => openInWeb(m.id)}
+              onClick={() => openItemInWeb(`/memory/${encodeURIComponent(m.id)}`)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  openInWeb(m.id)
+                  openItemInWeb(`/memory/${encodeURIComponent(m.id)}`)
                 }
               }}
             >

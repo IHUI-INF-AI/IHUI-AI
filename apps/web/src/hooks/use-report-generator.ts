@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { exportMyReport } from '@ihui/api-client'
 
 export type ReportFormat = 'pdf' | 'excel' | 'json'
 
@@ -33,12 +34,7 @@ export interface UseReportGeneratorReturn {
 export function useReportGenerator(): UseReportGeneratorReturn {
   const mutation = useMutation({
     mutationFn: async (config: ReportConfig) => {
-      const resp = await fetch('/api/edu/my-report/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-        credentials: 'include',
-      })
+      const resp = await exportMyReport(config)
       if (!resp.ok) {
         throw new Error(`导出失败: ${resp.status} ${resp.statusText}`)
       }

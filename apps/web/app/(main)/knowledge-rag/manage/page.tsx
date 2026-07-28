@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -63,7 +63,9 @@ export default function KnowledgeRagManagePage() {
 
   const [selected, setSelected] = React.useState<Set<number>>(new Set())
   const [confirmOpen, setConfirmOpen] = React.useState(false)
-  const [feedback, setFeedback] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [feedback, setFeedback] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(
+    null,
+  )
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['knowledgeRag', 'docs'],
@@ -78,7 +80,7 @@ export default function KnowledgeRagManagePage() {
 
   const docs = data ?? []
   const allSelected = docs.length > 0 && selected.size === docs.length
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(docs.map((d: any) => d.id)))
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(docs.map((d) => d.id)))
   const toggleOne = (id: number) =>
     setSelected((prev) => {
       const next = new Set(prev)
@@ -90,7 +92,7 @@ export default function KnowledgeRagManagePage() {
   const singleDeleteMut = useMutation({
     mutationFn: (docId: number) =>
       api<{ deleted: boolean }>(`/api/knowledge/docs/${docId}`, { method: 'DELETE' }),
-    onSuccess: (_d: any, docId: any) => {
+    onSuccess: (_d, docId) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setSelected((p) => {
         const n = new Set(p)
@@ -99,7 +101,7 @@ export default function KnowledgeRagManagePage() {
       })
       setFeedback({ type: 'success', msg: t('deleteSuccess') })
     },
-    onError: (e: any) => setFeedback({ type: 'error', msg: (e as Error).message }),
+    onError: (e) => setFeedback({ type: 'error', msg: (e as Error).message }),
   })
 
   const batchDeleteMut = useMutation({
@@ -108,7 +110,7 @@ export default function KnowledgeRagManagePage() {
         method: 'POST',
         body: JSON.stringify({ docIds, ownerUuid: '' }),
       }),
-    onSuccess: (result: any) => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setSelected(new Set())
       setConfirmOpen(false)
@@ -118,11 +120,11 @@ export default function KnowledgeRagManagePage() {
         msg: failed === 0 ? t('deleteSuccess') : t('partialFailed', { failed }),
       })
     },
-    onError: (e: any) => setFeedback({ type: 'error', msg: (e as Error).message }),
+    onError: (e) => setFeedback({ type: 'error', msg: (e as Error).message }),
   })
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/knowledge-rag"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -133,9 +135,9 @@ export default function KnowledgeRagManagePage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Settings className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
       {feedback && (
         <div
@@ -177,7 +179,7 @@ export default function KnowledgeRagManagePage() {
         </Button>
       </div>
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -191,7 +193,7 @@ export default function KnowledgeRagManagePage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {docs.map((d: any) => (
+          {docs.map((d) => (
             <ManageRow
               key={d.id}
               doc={d}
@@ -222,7 +224,9 @@ export default function KnowledgeRagManagePage() {
               disabled={batchDeleteMut.isPending}
               onClick={() => batchDeleteMut.mutate([...selected])}
             >
-              {batchDeleteMut.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              {batchDeleteMut.isPending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : null}
               {tCommon('confirm')}
             </Button>
           </DialogFooter>

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Alert, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi, getResources, type Resource } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatDuration } from '@ihui/shared/utils'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type StreamStatus = 'idle' | 'active' | 'inactive'
@@ -24,17 +24,10 @@ interface Product {
   price: number
 }
 
-const MOCK_PRODUCTS: Product[] = [
-  { id: '1', name: 'AI 课程包', price: 199 },
-  { id: '2', name: '会员年卡', price: 365 },
-  { id: '3', name: '实体周边', price: 89 },
-]
-
-function formatDuration(sec: number): string {
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
-  return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':')
+function mapResource(r: Resource): Product | null {
+  if (!r.title) return null
+  const price = typeof r.price === 'number' ? r.price : Number(r.price) || 0
+  return { id: r.id, name: r.title, price }
 }
 
 function formatBytes(n: number | null): string {
@@ -52,14 +45,16 @@ const BADGE_STYLE: Record<StreamStatus, { cls: string; text: string }> = {
 
 export function LiveHostScreen() {
   const navigation = useNavigation<Nav>()
-  const { token } = useAuth()
-  const [streamTitle, setStreamTitle] = useState('')
+    const [streamTitle, setStreamTitle] = useState('')
   const [status, setStatus] = useState<StreamStatus>('idle')
   const [stream, setStream] = useState<StreamData | null>(null)
   const [duration, setDuration] = useState(0)
   const [viewers, setViewers] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [products, setProducts] = useState<Product[]>([])
+  const [productsLoading, setProductsLoading] = useState(false)
+  const [productsError, setProductsError] = useState('')
 
   useEffect(() => {
     if (status !== 'active') return
@@ -70,21 +65,42 @@ export function LiveHostScreen() {
     return () => clearInterval(t)
   }, [status])
 
+  useEffect(() => {
+    let cancelled = false
+    setProductsLoading(true)
+    setProductsError('')
+    getResources({ page: 1, pageSize: 20 })
+      .then((res) => {
+        if (cancelled) return
+        if (res.success) {
+          const mapped = res.data.list
+            .map(mapResource)
+            .filter((p): p is Product => p !== null)
+          setProducts(mapped)
+        } else {
+          setProductsError(res.error || '加载商品失败')
+        }
+      })
+      .catch((e) => {
+        if (cancelled) return
+        const msg = e instanceof Error ? e.message : '加载商品失败'
+        setProductsError(msg)
+      })
+      .finally(() => {
+        if (!cancelled) setProductsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const callApi = useCallback(
     async (path: string, method: string, body?: unknown) => {
-      const res = await fetch(`${API_BASE_URL}${path}`, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      })
-      const json = (await res.json()) as { data?: unknown; message?: string }
-      if (!res.ok) throw new Error(json.message || `请求失败(${res.status})`)
-      return json.data
+      const res = await fetchApi(path, { method, body: body ? JSON.stringify(body) : undefined })
+      if (!res.success) throw new Error(res.error || '请求失败')
+      return res.data
     },
-    [token],
+    [],
   )
 
   const startLive = async () => {
@@ -229,8 +245,14 @@ export function LiveHostScreen() {
             <Text className="text-xs text-emerald-600">+ 添加商品</Text>
           </TouchableOpacity>
         </View>
+        {productsLoading ? (
+          <Text className="text-xs text-neutral-500 py-2 text-center">加载中...</Text>
+        ) : null}
+        {productsError ? (
+          <Text className="text-xs text-red-600 py-2 text-center">{productsError}</Text>
+        ) : null}
         <FlatList
-          data={MOCK_PRODUCTS}
+          data={products}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
           ListEmptyComponent={

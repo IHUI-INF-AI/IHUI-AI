@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * 一键配置 API Key 弹窗
@@ -135,7 +135,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
         modelId: modelId.trim(),
       })
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success(res.message || t('quickKey.testSuccess'), {
         description: `${t('quickKey.testDuration', { ms: res.responseMs ?? 0 })}${res.modelEcho ? ` · ${res.modelEcho}` : ''}`,
         icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
@@ -266,7 +266,11 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
                       onClick={() => setShowKey((s) => !s)}
                       className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     >
-                      {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      {showKey ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
                     </button>
                   </Tooltip>
                 </div>

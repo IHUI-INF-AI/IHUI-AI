@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -85,12 +85,12 @@ export default function MemberExamRecordPage() {
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Award className="h-8 w-8 text-muted-foreground opacity-40" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
@@ -107,7 +107,7 @@ export default function MemberExamRecordPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rows.map((r: any) => {
+              {rows.map((r) => {
                 const passed = !!r.isPassed
                 return (
                   <tr key={r.id} className="transition-colors hover:bg-muted/30">

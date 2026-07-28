@@ -15,6 +15,7 @@ import {
   FlaskConical,
   FileText,
   GitBranch,
+  Coins,
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -40,6 +41,7 @@ async function api<T>(url: string): Promise<T> {
 
 export default function DeveloperHomePage() {
   const t = useTranslations('developerHomePage')
+  const tPricing = useTranslations('developerPricingPage')
   const locale = useLocale()
   const summaryQ = useQuery({
     queryKey: ['developer', 'summary'],
@@ -90,6 +92,7 @@ export default function DeveloperHomePage() {
     { label: t('qeSandboxLabel'), desc: t('qeSandboxDesc'), href: '/developer/sandbox', icon: FlaskConical },
     { label: t('qeLogsLabel'), desc: t('qeLogsDesc'), href: '/developer/logs', icon: FileText },
     { label: t('qeVersionsLabel'), desc: t('qeVersionsDesc'), href: '/developer/versions', icon: GitBranch },
+    { label: tPricing('cardLabel'), desc: tPricing('cardDesc'), href: '/developer/pricing', icon: Coins },
   ]
 
   return (
@@ -149,7 +152,7 @@ export default function DeveloperHomePage() {
       <Card>
         <CardContent className="p-0">
           <div className="border-b px-4 py-2.5 text-sm font-semibold">{t('quickEntries')}</div>
-          <div className="grid grid-cols-2 gap-px bg-border/40 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-px bg-border/40 lg:grid-cols-5">
             {quickEntries.map((q) => {
               const Icon = q.icon
               return (

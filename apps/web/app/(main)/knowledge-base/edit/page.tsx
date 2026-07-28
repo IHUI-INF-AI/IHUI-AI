@@ -68,13 +68,13 @@ export default function KBEditPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Edit className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">新建知识库文章</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">新建知识库文章</h1>
         </div>
-        <p className="text-sm text-muted-foreground">撰写新的知识库文章并发布</p>
+        <p className="text-xs text-muted-foreground">撰写新的知识库文章并发布</p>
       </header>
 
       <Link

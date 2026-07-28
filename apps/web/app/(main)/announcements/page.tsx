@@ -30,23 +30,23 @@ export default function AnnouncementsPage() {
   }
 
   // Pinned first, then by publishedAt desc (defensive sort)
-  const list = (data ?? []).slice().sort((a: any, b: any) => {
+  const list = (data ?? []).slice().sort((a, b) => {
     if (!!a.isPinned !== !!b.isPinned) return a.isPinned ? -1 : 1
     return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   })
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Megaphone className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -56,8 +56,8 @@ export default function AnnouncementsPage() {
         </div>
       ) : list.length > 0 ? (
         <div className="space-y-3">
-          {list.map((a: any) => {
-            const Icon = (ANN_TYPE_ICON as any)[a.type] ?? Megaphone
+          {list.map((a) => {
+            const Icon = ANN_TYPE_ICON[a.type] ?? Megaphone
             return (
               <Link key={a.id} href={`/announcements/${a.id}`} className="block">
                 <Card className="transition-colors hover:bg-accent">
@@ -70,10 +70,10 @@ export default function AnnouncementsPage() {
                         <span
                           className={cn(
                             'rounded-md px-2 py-0.5 text-xs font-medium',
-                            (ANN_TYPE_BADGE as any)[a.type],
+                            ANN_TYPE_BADGE[a.type],
                           )}
                         >
-                          {t((ANN_TYPE_KEY as any)[a.type] ?? 'types.unknown')}
+                          {t(ANN_TYPE_KEY[a.type] ?? 'types.unknown')}
                         </span>
                         {a.isPinned && (
                           <span className="inline-flex items-center gap-0.5 text-xs text-primary">
@@ -95,7 +95,7 @@ export default function AnnouncementsPage() {
           })}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Megaphone className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>

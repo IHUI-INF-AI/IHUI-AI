@@ -8,18 +8,11 @@ import { deleteFavorite } from '../api/social'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateWithYear } from '../utils/date-utils'
 
 const PAGE_SIZE = 20
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
-}
 
 export function FavoritesScreen() {
   const { t } = useI18n()
@@ -116,7 +109,7 @@ export function FavoritesScreen() {
                 {item.title}
               </Text>
               <Text className="mt-1 text-xs text-neutral-500">
-                {item.targetType} · {formatDate(item.createdAt)}
+                {item.targetType} · {formatShortDateWithYear(item.createdAt)}
               </Text>
             </View>
             <Button onPress={() => onDelete(item)} variant="outline" size="sm">

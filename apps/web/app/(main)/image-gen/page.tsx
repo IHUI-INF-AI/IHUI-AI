@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Image from 'next/image'
@@ -42,7 +42,7 @@ export default function ImageGenPage() {
         body: JSON.stringify(body),
       })
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       setResult(data)
       toast.success(t('success'))
     },
@@ -76,7 +76,7 @@ export default function ImageGenPage() {
     'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ImageIcon className="h-6 w-6 text-primary" />

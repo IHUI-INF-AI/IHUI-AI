@@ -2,13 +2,13 @@
 @plugin '@tailwindcss/typography';
 @plugin 'tailwindcss-animate';
 @source '../../../packages/ui-react/src';
-@import '../src/styles/design-tokens.css';
 @import '../src/styles/animations.css';
 @import '../src/styles/transitions.css';
 @import '../src/styles/theme-presets.css';
 @import '../src/styles/glass.css';
 @import '../src/styles/premium.css';
 @import '../../../packages/design-tokens/src/styles/tokens.css';
+@import '../../../packages/design-tokens/src/styles/base.css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -91,11 +91,6 @@
 
 * {
   border-color: var(--color-border);
-}
-
-body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
 }
 
 /* AI 对话 markdown 渲染样式 */
@@ -224,7 +219,6 @@ body {
 .no-scrollbar {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
-  overflow: hidden !important;
 }
 .no-scrollbar::-webkit-scrollbar {
   width: 0 !important;
@@ -505,7 +499,7 @@ h6 {
  * 的元素实际 z-index=auto,被 z-40 元素(AI 面板)遮住。
  *
  * 解法:用 @layer utilities 显式定义 8 个语义化 utility class,
- * z-index 绑定 design-tokens.css 的 :root CSS 变量(单一来源,值与 design-tokens.css 同步)。
+ * z-index 绑定 packages/design-tokens/src/styles/tokens.css 的 :root CSS 变量(单一来源,值与 tokens.css 同步)。
  *
  * 层级语义(从低到高):
  *   z-sticky       990   全局 fixed 常驻面板(AI 工作区面板)
@@ -521,8 +515,8 @@ h6 {
  * 必须确认该组件 z-index > 全局 fixed 常驻面板(z-sticky=990),
  * 否则会被 AI 工作区面板遮盖。
  *
- * 单一来源:design-tokens.css 第 152-164 行的 :root { --z-* } 定义,
- * 修改任何 z-index 数值只需改 design-tokens.css,全站自动联动。 */
+ * 单一来源:packages/design-tokens/src/styles/tokens.css 的 :root { --z-* } 定义,
+ * 修改任何 z-index 数值只需改 packages/design-tokens/src/styles/tokens.css,全站自动联动。 */
 @layer utilities {
   /* TRAE 注入防护说明(2026-07-24 立,2026-07-24 修正):
    * 变量值由 layout.tsx inline script 在 hydration 前用 setProperty 设置,

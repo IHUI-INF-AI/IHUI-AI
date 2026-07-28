@@ -11,6 +11,7 @@
  * 用 🌐 + apps.openInWebDesc 替代 🚧 + apps.comingSoon。
  */
 import { useI18n } from '../../../src/i18n'
+import { openWebUrl } from '../../../lib/open-in-web'
 
 interface ComingSoonPageProps {
   /** 页面标题 i18n key */
@@ -36,7 +37,7 @@ export function ComingSoonPage({ titleKey, webUrl, mode = 'coming_soon' }: Comin
       {webUrl ? (
         <button
           type="button"
-          onClick={() => void chrome.tabs.create({ url: webUrl })}
+          onClick={() => openWebUrl(webUrl)}
           className="mt-2 px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
         >
           {t('apps.openInWeb')} ↗
