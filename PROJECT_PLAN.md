@@ -170,7 +170,7 @@
 
 #### P1-3 AI 教育课程 MVP
 
-- [ ] **P1-3 教育课程内容 seed + 证书视觉** — `apps/api/src/db/seed/courses-seed.ts` 导入 5-10 门示范课程(AI 编程入门/LangGraph 实战/MCP 开发/AI 教育方法论等)+ 证书视觉模板替换占位(`apps/web/src/components/certificate/`)
+- [x] ✅(2026-07-28) **P1-3 教育课程内容 seed + 证书视觉** — ① `packages/database/seed/courses-seed.ts`(step 12):8 门示范课程(AI 编程入门 / LangGraph 实战 / MCP 开发 / AI 教育方法论 / 多模态大模型 / RAG 工程化 / 智能体评测 / AI 安全对抗)+ 每门 3-5 章大纲(共 33 章)+ 「AI 教育课程」一级分类 + 2 个证书视觉模板(紧凑 / 古典),通过 `upsertByUnique` 按 title 幂等可重入;② `apps/web/src/components/certificate/CertificateTemplate.tsx` + `index.ts`:证书视觉模板组件,4:3 比例(`aspect-[4/3]`)+ 双变体(compact / classical)+ 纯 SVG 印章(圆形 + 中心 H 字 + 外圈文字)+ 暗色模式(`dark:` 变量反转)+ 零 `rounded-full` / 渐变遮罩 / 单边 border(AGENTS.md §4);③ `apps/web/app/(main)/certificate/[id]/page.tsx`:证书详情页,React Query 拉取 `/api/certificates/:id`,渲染 CertificateTemplate + 打印(`window.print()`)+ 下载(`/api/certificates/:id/download`)+ 暗色支持;④ 5 语言 i18n 翻译:`certificate.detail` 命名空间新增 24 个 key(5 语言全 parity,Node.js 校验 total=24 missing=[] extra=[]),zh-CN/en/zh-TW/ko/ja 全部对齐;⑤ 验证:`pnpm --filter @ihui/database typecheck` exit 0 + `pnpm --filter @ihui/web typecheck` exit 0,我的新文件 lint 0 警告 0 错误(其他 agent 历史错误不动)。**未改动**:任何其他 step / 任何 schema / 任何现有证书 UI(`apps/web/app/(main)/certificate/download/*` 保留原渲染逻辑,只新增独立 `[id]/page.tsx` 详情页使用新视觉)
 
 #### P1-4 SEO 资产补全
 
