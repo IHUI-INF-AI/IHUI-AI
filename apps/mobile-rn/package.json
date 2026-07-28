@@ -31,6 +31,7 @@
     "expo-image-picker": "~16.1.4",
     "expo-linking": "^7.1.7",
     "expo-local-authentication": "~16.0.5",
+    "expo-modules-core": "~2.5.0",
     "expo-notifications": "~0.31.5",
     "expo-secure-store": "~14.2.4",
     "expo-status-bar": "~2.2.3",
@@ -45,7 +46,6 @@
     "react-native-view-shot": "^4.0.3",
     "react-native-webview": "13.13.5",
     "react-native-wechat-lib": "^3.0.7",
-    "solito": "4.3.0",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

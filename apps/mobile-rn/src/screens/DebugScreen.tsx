@@ -29,14 +29,20 @@ export function DebugScreen() {
   const onClearCache = () => {
     Alert.alert(t('debug.clearCache'), t('debug.confirm'), [
       { text: t('common.cancel') },
-      { text: t('common.confirm'), onPress: () => Alert.alert(t('debug.clearCache'), t('debug.cleared')) },
+      {
+        text: t('common.confirm'),
+        onPress: () => Alert.alert(t('debug.clearCache'), t('debug.cleared')),
+      },
     ])
   }
 
   const onClearStorage = () => {
     Alert.alert(t('debug.clearStorage'), t('debug.confirm'), [
       { text: t('common.cancel') },
-      { text: t('common.confirm'), onPress: () => Alert.alert(t('debug.clearStorage'), t('debug.cleared')) },
+      {
+        text: t('common.confirm'),
+        onPress: () => Alert.alert(t('debug.clearStorage'), t('debug.cleared')),
+      },
     ])
   }
 
@@ -72,7 +78,9 @@ export function DebugScreen() {
           {items.map((item, idx) => (
             <View key={item.label} style={[styles.row, idx > 0 && styles.rowDivider]}>
               <Text style={styles.label}>{item.label}</Text>
-              <Text style={styles.value} numberOfLines={1}>{item.value}</Text>
+              <Text style={styles.value} numberOfLines={1}>
+                {item.value}
+              </Text>
             </View>
           ))}
         </Card>
@@ -89,7 +97,7 @@ export function DebugScreen() {
         </Card>
         <Card style={styles.card}>
           <Button onPress={onOpenSharedDemo} variant="outline" style={styles.btn}>
-            共享组件 Demo (Solito + NativeWind)
+            共享组件 Demo (shared-demo)
           </Button>
         </Card>
       </View>
@@ -99,14 +107,30 @@ export function DebugScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: tokens.text.medium },
   title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
-  warningBar: { padding: 10, borderRadius: 8, backgroundColor: tokens.warning.amberLight, marginBottom: 12 },
+  warningBar: {
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: tokens.warning.amberLight,
+    marginBottom: 12,
+  },
   warningText: { fontSize: 11, color: tokens.warning.amberText },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
   rowDivider: { borderTopColor: tokens.surface.card, borderTopWidth: 1 },
   label: { fontSize: 12, color: tokens.text.secondary },
   value: { fontSize: 13, color: tokens.text.primary, maxWidth: 200 },
