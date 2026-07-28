@@ -167,7 +167,7 @@ export default function VipPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-stretch auto-rows-fr">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-stretch">
           {levels.map((level, idx) => {
             const isPopular = idx === popularIdx
             const benefits = Array.isArray(level.benefits) ? level.benefits : []
@@ -209,7 +209,7 @@ export default function VipPage() {
                       {benefits.map((b, i) => (
                         <li key={`benefit-${i}`} className="flex items-start gap-2">
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                          <span>{b}</span>
+                          <span>{t(`benefitList.${b}`)}</span>
                         </li>
                       ))}
                     </ul>
