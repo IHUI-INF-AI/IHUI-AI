@@ -5,7 +5,15 @@ import { useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CheckCircle2, XCircle, Send } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, Button, Input, Label } from '@ihui/ui-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Button,
+  Input,
+  Label,
+} from '@ihui/ui-react'
 import { WS_URL, api } from './helpers'
 import type { Examine, ChatMsg } from './types'
 
@@ -130,7 +138,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o: any) => (o ? null : closeChat())}>
+    <Dialog open={open} onOpenChange={(o: boolean) => (o ? null : closeChat())}>
       <DialogContent className="max-w-3xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>
@@ -157,10 +165,12 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
             <div className="flex gap-2 border-t p-2">
               <Input
                 value={chatInput}
-                onChange={(e: any) => setChatInput(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                  setChatInput(e.target.value)
+                }
                 placeholder={t('chatInputPlaceholder')}
                 className="h-9"
-                onKeyDown={(e: any) => {
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                   if (e.key === 'Enter') sendChat()
                 }}
               />

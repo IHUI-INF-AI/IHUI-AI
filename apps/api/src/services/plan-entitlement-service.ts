@@ -1,183 +1,201 @@
 /**
- * Plan-Driven 权益服务(AGENTS.md §24 P0-2a / P0-2b)
+ * Plan-Driven 权益服务(P0-2b,2026-07-28)
  *
- * 职责:VIP 订阅激活时,根据 vipLevels.benefits 配额配置,自动 upsert aiBudgets。
+ * 职责:用户订阅 VIP 等级时,读取 vipLevels 表的配额字段,
+ * 自动 upsert aiBudgets 记录(scope='user'),实现"订阅即配额生效"。
  *
- * benefits jsonb 标准结构(VipPlanQuota):
- * {
- *   "dailyTokenLimit": 500000,
- *   "monthlyTokenLimit": 10000000,
- *   "dailyCostLimit": 50.00,
- *   "monthlyCostLimit": 500.00,
- *   "apiQps": 20,
- *   "concurrency": 10,
- *   "modelWhitelist": []
- * }
+ * 配额字段(来自 P0-2a vipLevels 表):
+ * - aiBudgetDefaults: {dailyTokenLimit, monthlyTokenLimit, dailyCostLimit, monthlyCostLimit}
+ * - apiQps: API 每秒查询限制(运行时由 API 中间件读取 users.isVip → vipLevels.apiQps)
+ * - maxConcurrency: 最大并发(同上)
+ * - modelWhitelist: 模型白名单(同上)
  *
- * 4 档 VIP(0=免费/1=个人/2=团队/3=企业),旧数据回退到 DEFAULT_PLAN_QUOTAS。
- *
- * 集成点:activateOrderSubscription(orderType=2 VIP)调用 applyPlanEntitlements。
- * apiQps / concurrency / modelWhitelist 不入 aiBudgets(只管 token/cost),
- * 供 API 限流中间件从 DEFAULT_PLAN_QUOTAS[levelValue] 读取(后续 P0-2c)。
+ * 注:apiQps/maxConcurrency/modelWhitelist 是运行时实时读取的(不复制到用户表),
+ * 避免数据冗余和同步问题。只有 aiBudgets 需要 upsert(因为 ai-cost 插件按 scope 查询)。
  */
 
-import { z } from 'zod'
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { aiBudgets, vipLevels } from '@ihui/database'
+import { vipLevels, aiBudgets } from '@ihui/database'
 
-type VipLevel = typeof vipLevels.$inferSelect
+/** aiBudgetDefaults jsonb 结构(与 vipLevels.aiBudgetDefaults 对齐) */
+interface AiBudgetDefaults {
+  dailyTokenLimit: number
+  monthlyTokenLimit: number
+  dailyCostLimit: string
+  monthlyCostLimit: string
+}
 
-// VipPlanQuota Zod schema(解析 benefits jsonb)
-export const VipPlanQuotaSchema = z.object({
-  dailyTokenLimit: z.number().int().positive().default(10_000),
-  monthlyTokenLimit: z.number().int().positive().default(100_000),
-  dailyCostLimit: z.number().positive().default(1.0),
-  monthlyCostLimit: z.number().positive().default(10.0),
-  apiQps: z.number().int().positive().default(5),
-  concurrency: z.number().int().positive().default(2),
-  modelWhitelist: z.array(z.string()).default([]),
-})
-
-export type VipPlanQuota = z.infer<typeof VipPlanQuotaSchema>
-
-// 4 档 VIP 默认配额(0=免费/1=个人/2=团队/3=企业)
-export const DEFAULT_PLAN_QUOTAS: Record<number, VipPlanQuota> = {
-  0: {
-    dailyTokenLimit: 10_000,
-    monthlyTokenLimit: 100_000,
-    dailyCostLimit: 1.0,
-    monthlyCostLimit: 10.0,
-    apiQps: 5,
-    concurrency: 2,
-    modelWhitelist: [],
-  },
-  1: {
-    dailyTokenLimit: 500_000,
-    monthlyTokenLimit: 10_000_000,
-    dailyCostLimit: 50.0,
-    monthlyCostLimit: 500.0,
-    apiQps: 20,
-    concurrency: 10,
-    modelWhitelist: [],
-  },
-  2: {
-    dailyTokenLimit: 2_000_000,
-    monthlyTokenLimit: 50_000_000,
-    dailyCostLimit: 200.0,
-    monthlyCostLimit: 2000.0,
-    apiQps: 60,
-    concurrency: 50,
-    modelWhitelist: [],
-  },
-  3: {
-    dailyTokenLimit: 10_000_000,
-    monthlyTokenLimit: 200_000_000,
-    dailyCostLimit: 1000.0,
-    monthlyCostLimit: 10_000.0,
-    apiQps: 200,
-    concurrency: 200,
-    modelWhitelist: [],
-  },
+/** 应用结果(用于日志/调试) */
+export interface EntitlementResult {
+  userId: string
+  vipLevelId: string
+  levelValue: number
+  budgetUpserted: boolean
+  apiQps: number
+  maxConcurrency: number
+  modelWhitelist: string[] | null
 }
 
 /**
- * 从 vipLevels.benefits 解析配额。
- * - benefits 是对象:用 Zod 解析,失败回退到默认
- * - benefits 是数组(旧格式)或 null:回退到 DEFAULT_PLAN_QUOTAS[levelValue]
+ * 读取 VIP 等级的配额配置。
+ * @returns 配额对象;vipLevelId 不存在时返回 null
  */
-export function resolvePlanQuota(level: VipLevel): VipPlanQuota {
-  const fallback = DEFAULT_PLAN_QUOTAS[level.levelValue] ?? DEFAULT_PLAN_QUOTAS[0] ?? DEFAULT_PLAN_QUOTAS[0]!
-  const benefits = level.benefits as unknown
-  if (Array.isArray(benefits)) return fallback
-  if (typeof benefits === 'object' && benefits !== null) {
-    const parsed = VipPlanQuotaSchema.safeParse(benefits)
-    if (parsed.success) return parsed.data
+export async function getVipLevelEntitlements(vipLevelId: string): Promise<{
+  levelValue: number
+  aiBudgetDefaults: AiBudgetDefaults
+  apiQps: number
+  maxConcurrency: number
+  modelWhitelist: string[] | null
+} | null> {
+  const [level] = await db
+    .select({
+      levelValue: vipLevels.levelValue,
+      aiBudgetDefaults: vipLevels.aiBudgetDefaults,
+      apiQps: vipLevels.apiQps,
+      maxConcurrency: vipLevels.maxConcurrency,
+      modelWhitelist: vipLevels.modelWhitelist,
+    })
+    .from(vipLevels)
+    .where(eq(vipLevels.id, vipLevelId))
+    .limit(1)
+
+  if (!level) return null
+
+  const defaults = level.aiBudgetDefaults as AiBudgetDefaults
+  return {
+    levelValue: level.levelValue,
+    aiBudgetDefaults: {
+      dailyTokenLimit: defaults.dailyTokenLimit ?? 100_000,
+      monthlyTokenLimit: defaults.monthlyTokenLimit ?? 1_000_000,
+      dailyCostLimit: defaults.dailyCostLimit ?? '10',
+      monthlyCostLimit: defaults.monthlyCostLimit ?? '100',
+    },
+    apiQps: level.apiQps,
+    maxConcurrency: level.maxConcurrency,
+    modelWhitelist: level.modelWhitelist as string[] | null,
   }
-  return fallback
 }
 
 /**
- * 应用 plan 权益:upsert aiBudgets(scope='user', scopeKey=userId, model=NULL)。
- * 在 activateOrderSubscription(orderType=2 VIP)后调用,失败不阻塞支付完成。
+ * Upsert 用户级 AI 预算(scope='user', scopeKey=userId)。
+ * - 已存在:更新配额为 VIP 等级默认值
+ * - 不存在:插入新记录
  */
-export async function applyPlanEntitlements(
+async function upsertUserAiBudget(
   userId: string,
-  vipLevel: VipLevel,
-): Promise<void> {
-  const quota = resolvePlanQuota(vipLevel)
-
-  // 查询用户级总预算(model IS NULL)
+  defaults: AiBudgetDefaults,
+): Promise<boolean> {
   const [existing] = await db
     .select({ id: aiBudgets.id })
     .from(aiBudgets)
-    .where(
-      and(
-        eq(aiBudgets.scope, 'user'),
-        eq(aiBudgets.scopeKey, userId),
-        isNull(aiBudgets.model),
-      ),
-    )
+    .where(and(eq(aiBudgets.scope, 'user'), eq(aiBudgets.scopeKey, userId)))
     .limit(1)
 
-  const now = new Date()
-  const costFields = {
-    dailyTokenLimit: quota.dailyTokenLimit,
-    monthlyTokenLimit: quota.monthlyTokenLimit,
-    dailyCostLimit: quota.dailyCostLimit.toFixed(4),
-    monthlyCostLimit: quota.monthlyCostLimit.toFixed(4),
-    updatedAt: now,
+  if (existing) {
+    await db
+      .update(aiBudgets)
+      .set({
+        dailyTokenLimit: defaults.dailyTokenLimit,
+        monthlyTokenLimit: defaults.monthlyTokenLimit,
+        dailyCostLimit: defaults.dailyCostLimit,
+        monthlyCostLimit: defaults.monthlyCostLimit,
+        updatedAt: new Date(),
+      })
+      .where(eq(aiBudgets.id, existing.id))
+    return true
   }
 
-  if (existing) {
-    await db.update(aiBudgets).set(costFields).where(eq(aiBudgets.id, existing.id))
-  } else {
-    await db.insert(aiBudgets).values({
-      scope: 'user',
-      scopeKey: userId,
-      model: null,
-      ...costFields,
-      createdAt: now,
-    })
+  await db.insert(aiBudgets).values({
+    scope: 'user',
+    scopeKey: userId,
+    dailyTokenLimit: defaults.dailyTokenLimit,
+    monthlyTokenLimit: defaults.monthlyTokenLimit,
+    dailyCostLimit: defaults.dailyCostLimit,
+    monthlyCostLimit: defaults.monthlyCostLimit,
+  })
+  return true
+}
+
+/**
+ * 应用 VIP 等级权益到用户(订阅激活时调用)。
+ *
+ * 流程:
+ * 1. 读取 VIP 等级配额配置
+ * 2. Upsert 用户级 aiBudgets
+ * 3. 返回配额摘要(apiQps/maxConcurrency/modelWhitelist 运行时实时读取,不需持久化)
+ *
+ * @returns 应用结果;vipLevelId 不存在时返回 null
+ */
+export async function applyPlanEntitlements(
+  userId: string,
+  vipLevelId: string,
+): Promise<EntitlementResult | null> {
+  const entitlements = await getVipLevelEntitlements(vipLevelId)
+  if (!entitlements) return null
+
+  await upsertUserAiBudget(userId, entitlements.aiBudgetDefaults)
+
+  return {
+    userId,
+    vipLevelId,
+    levelValue: entitlements.levelValue,
+    budgetUpserted: true,
+    apiQps: entitlements.apiQps,
+    maxConcurrency: entitlements.maxConcurrency,
+    modelWhitelist: entitlements.modelWhitelist,
   }
 }
 
 /**
- * 查询用户当前 plan 配额(供 API 限流中间件用)。
- * 优先读 aiBudgets(已配置),否则按 levelValue 回退到 DEFAULT_PLAN_QUOTAS。
+ * 查询用户当前生效的配额(运行时 API 中间件调用)。
+ * 通过 users.isVip → vipLevels.levelValue 查找对应档位的配额。
+ *
+ * @param levelValue users.isVip 字段值(0=免费 1=个人 2=团队 3=企业)
+ * @returns 配额对象;未找到匹配档位时返回免费档默认值
  */
-export async function getUserPlanQuota(
-  userId: string,
-  levelValue: number,
-): Promise<VipPlanQuota> {
-  const [budget] = await db
+export async function getEntitlementsByLevelValue(levelValue: number): Promise<{
+  apiQps: number
+  maxConcurrency: number
+  modelWhitelist: string[] | null
+  aiBudgetDefaults: AiBudgetDefaults
+}> {
+  const [level] = await db
     .select({
-      dailyTokenLimit: aiBudgets.dailyTokenLimit,
-      monthlyTokenLimit: aiBudgets.monthlyTokenLimit,
-      dailyCostLimit: aiBudgets.dailyCostLimit,
-      monthlyCostLimit: aiBudgets.monthlyCostLimit,
+      apiQps: vipLevels.apiQps,
+      maxConcurrency: vipLevels.maxConcurrency,
+      modelWhitelist: vipLevels.modelWhitelist,
+      aiBudgetDefaults: vipLevels.aiBudgetDefaults,
     })
-    .from(aiBudgets)
-    .where(
-      and(
-        eq(aiBudgets.scope, 'user'),
-        eq(aiBudgets.scopeKey, userId),
-        isNull(aiBudgets.model),
-      ),
-    )
+    .from(vipLevels)
+    .where(and(eq(vipLevels.levelValue, levelValue), eq(vipLevels.status, 1)))
     .limit(1)
 
-  const fallback = DEFAULT_PLAN_QUOTAS[levelValue] ?? DEFAULT_PLAN_QUOTAS[0] ?? DEFAULT_PLAN_QUOTAS[0]!
-  if (budget) {
+  if (!level) {
+    // 免费档默认值(无 VIP 等级匹配时)
     return {
-      dailyTokenLimit: budget.dailyTokenLimit,
-      monthlyTokenLimit: budget.monthlyTokenLimit,
-      dailyCostLimit: Number(budget.dailyCostLimit),
-      monthlyCostLimit: Number(budget.monthlyCostLimit),
-      apiQps: fallback.apiQps,
-      concurrency: fallback.concurrency,
-      modelWhitelist: fallback.modelWhitelist,
+      apiQps: 10,
+      maxConcurrency: 3,
+      modelWhitelist: null,
+      aiBudgetDefaults: {
+        dailyTokenLimit: 100_000,
+        monthlyTokenLimit: 1_000_000,
+        dailyCostLimit: '10',
+        monthlyCostLimit: '100',
+      },
     }
   }
-  return fallback
+
+  const defaults = level.aiBudgetDefaults as AiBudgetDefaults
+  return {
+    apiQps: level.apiQps,
+    maxConcurrency: level.maxConcurrency,
+    modelWhitelist: level.modelWhitelist as string[] | null,
+    aiBudgetDefaults: {
+      dailyTokenLimit: defaults.dailyTokenLimit ?? 100_000,
+      monthlyTokenLimit: defaults.monthlyTokenLimit ?? 1_000_000,
+      dailyCostLimit: defaults.dailyCostLimit ?? '10',
+      monthlyCostLimit: defaults.monthlyCostLimit ?? '100',
+    },
+  }
 }

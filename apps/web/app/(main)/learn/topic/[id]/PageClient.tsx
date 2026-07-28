@@ -58,7 +58,7 @@ export default function LearnTopicDetailPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -88,7 +88,7 @@ export default function LearnTopicDetailPage() {
   const priceNum = topic.price === undefined ? undefined : Number(topic.price)
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/learn/topic"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -162,7 +162,7 @@ export default function LearnTopicDetailPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('includes')}</h2>
         {lessons.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <PlayCircle className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               {source === 'premium' && premiumError ? t('premiumLoadFailed') : t('noLessons')}
@@ -170,7 +170,7 @@ export default function LearnTopicDetailPage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {lessons.map((lesson: any) => {
+            {lessons.map((lesson: TopicLesson) => {
               const title = lesson.title ?? lesson.name ?? ''
               const cover = lesson.coverImage ?? lesson.image ?? lesson.cover
               return (

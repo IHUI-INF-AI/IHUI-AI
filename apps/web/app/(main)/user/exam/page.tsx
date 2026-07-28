@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -73,13 +73,13 @@ export default function UserExamPage() {
           {t('loading', { default: '加载中…' })}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <FileQuestion className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
         <ul className="space-y-3">
-          {items.map((e: any) => {
+          {items.map((e) => {
             const inProgress = e.status === 'published' || e.status === 'draft'
             return (
               <li

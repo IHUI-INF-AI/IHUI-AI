@@ -3,7 +3,8 @@
  * check-parent-pollution.mjs — 项目父目录污染巡查(运行时项目外文件创建禁令)
  *
  * 触发背景(2026-07-24 立):
- *   历史教训:2026-07-19 agent 用 RunCommand 直接在 `D:\桌面\项目\` 创建了
+ *   历史教训:2026-07-19 agent 用 RunCommand 直接在项目父目录(原 D:\桌面\项目\,
+ *   现 g:\,项目从 D 盘迁至 G 盘后路径已动态推导)创建了
  *   search_uuyc.ps1 + uuyc_search_result.txt,违反 AGENTS.md §15 项目外路径禁令。
  *   原 check-workspace-hygiene.mjs 只能扫项目内代码引用,无法检测 agent
  *   在项目外**直接创建**的运行时产物,存在盲区。
@@ -13,15 +14,15 @@
  *   2. 命中条件(满足任一即判定为污染):
  *      a. 文件名匹配 agent 临时产物命名模式(search_*.ps1 / *_result.txt /
  *         *_search*.ps1 / tmp_*.ps1 / ihui-*.ps1 / test_*.ps1 / debug_*.txt 等)
- *      b. 文件内容同时包含项目路径引用(IHUI-AI / d:\桌面\项目) + agent 操作
- *         痕迹(Get-ChildItem / Out-File / Write-Output / Remove-Item 等)
+ *      b. 文件内容同时包含项目路径引用(IHUI-AI / 历史路径 d:\桌面\项目) +
+ *         agent 操作痕迹(Get-ChildItem / Out-File / Write-Output / Remove-Item 等)
  *      c. 文件内容包含本仓库敏感路径(apps/web / apps/api / packages/)且文件
  *         不在项目内
  *   3. 用户合法脚本不会同时满足"项目路径引用 + agent 操作痕迹"两条
  *
- * 扫描范围:
- *   - 项目父目录(D:\桌面\项目\)的所有非 IHUI-AI 文件
- *   - 项目祖父目录(D:\桌面\)下扩展名为 .ps1/.txt/.log/.bat/.sh/.py/.js/.mjs/.cjs
+ * 扫描范围(均通过 dirname(ROOT) 动态推导,符合 AGENTS.md §15):
+ *   - 项目父目录(dirname(ROOT))的所有非 IHUI-AI 文件
+ *   - 项目祖父目录(dirname(dirname(ROOT)))下扩展名为 .ps1/.txt/.log/.bat/.sh/.py/.js/.mjs/.cjs
  *     的根级文件(不递归到子目录,避免误伤其他项目)
  *   - 跳过用户合法的快捷方式(.lnk)、Office 文档等
  *
@@ -37,11 +38,14 @@ import * as os from 'node:os';
 import { execSync } from 'node:child_process';
 import { join, resolve, relative, dirname, basename, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createLogger } from './lib/logger.mjs';
+
+const log = createLogger();
 
 const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const PROJECT_NAME = basename(ROOT); // IHUI-AI
-const PARENT_DIR = dirname(ROOT);    // D:\桌面\项目
-const GRANDPARENT_DIR = dirname(PARENT_DIR); // D:\桌面
+const PARENT_DIR = dirname(ROOT);    // 项目父目录(动态推导,符合 AGENTS.md §15)
+const GRANDPARENT_DIR = dirname(PARENT_DIR); // 项目祖父目录(动态推导)
 
 // ===== 可疑扩展名(agent 临时产物典型格式) =====
 const SUSPICIOUS_EXTS = new Set([
@@ -260,11 +264,11 @@ function main() {
   const args = process.argv.slice(2);
   const isWarn = args.includes('--warn');
   const isAutoClean = args.includes('--auto-clean');
-  const isQuiet = args.includes('--quiet');
+  // --quiet 由共享 logger 处理(见 ./lib/logger.mjs),无需在此手动解析
 
   const allPollutions = [];
 
-  // 1. 扫描项目父目录(递归到 2 层,捕获 D:\桌面\项目\*.ps1 和子目录中的污染)
+  // 1. 扫描项目父目录(递归到 2 层,捕获父目录根级 *.ps1 和子目录中的污染)
   allPollutions.push(...findPollution(PARENT_DIR, true, 0));
 
   // 2. 扫描项目祖父目录(桌面)的根级文件(不递归,避免误伤其他项目)
@@ -301,55 +305,54 @@ function main() {
       }
     }
 
-    if (cleaned.length > 0 && !isQuiet) {
-      console.log(`🧹 parent-pollution [auto-clean]: 已自动清理 ${cleaned.length} 个 agent 污染文件`);
+    if (cleaned.length > 0) {
+      log.info(`🧹 parent-pollution [auto-clean]: 已自动清理 ${cleaned.length} 个 agent 污染文件`);
       for (const p of cleaned) {
-        console.log(`  ✓ 已删除 ${p.relPath}`);
+        log.info(`  ✓ 已删除 ${p.relPath}`);
       }
     }
 
     if (remaining.length === 0) {
-      if (!isQuiet) console.log('✅ parent-pollution: 清理完成,无剩余污染');
+      log.info('✅ parent-pollution: 清理完成,无剩余污染');
       process.exit(0);
     }
 
-    // 剩余的是内容双信号命中,需要人工确认
-    if (!isQuiet) {
-      console.error(`⚠️  parent-pollution: ${remaining.length} 个文件需人工确认(内容双信号命中,不自动删除)`);
-      for (const p of remaining) {
-        console.error(`  ${p.relPath}`);
-        console.error(`    原因: ${p.reason}`);
-        console.error(`    手动删除: Remove-Item "${p.file}" -Force`);
-      }
+    // 剩余的是内容双信号命中,需要人工确认(警告级别,--quiet 时静默)
+    log.warn(`⚠️  parent-pollution: ${remaining.length} 个文件需人工确认(内容双信号命中,不自动删除)`);
+    for (const p of remaining) {
+      log.warn(`  ${p.relPath}`);
+      log.warn(`    原因: ${p.reason}`);
+      log.warn(`    手动删除: Remove-Item "${p.file}" -Force`);
     }
     process.exit(1);
   }
 
   if (allPollutions.length === 0) {
-    if (!isQuiet) console.log('✅ parent-pollution: 项目父目录及桌面根目录无 agent 污染');
+    log.info('✅ parent-pollution: 项目父目录及桌面根目录无 agent 污染');
     process.exit(0);
   }
 
   const mode = isWarn ? 'WARN' : 'BLOCK';
   const prefix = isWarn ? '⚠️ ' : '❌ ';
-  console.error(`${prefix}parent-pollution [${mode}]: 发现 ${allPollutions.length} 个项目外污染文件`);
-  console.error('');
-  console.error('违反 AGENTS.md §15 项目外路径禁令 + §15 运行时禁令:');
-  console.error('  agent 不得在项目目录外用 RunCommand / PowerShell 创建任何文件。');
-  console.error('  所有临时脚本必须放 .trae-cn/tmp/<脚本名>,所有产物必须放项目内。');
-  console.error('');
+  // 主报告(BLOCK/WARN 概要)始终输出(error 级别,--quiet 不静默)
+  log.error(`${prefix}parent-pollution [${mode}]: 发现 ${allPollutions.length} 个项目外污染文件`);
+  log.error('');
+  log.error('违反 AGENTS.md §15 项目外路径禁令 + §15 运行时禁令:');
+  log.error('  agent 不得在项目目录外用 RunCommand / PowerShell 创建任何文件。');
+  log.error('  所有临时脚本必须放 .trae-cn/tmp/<脚本名>,所有产物必须放项目内。');
+  log.error('');
   for (const p of allPollutions.slice(0, 30)) {
-    console.error(`  ${p.relPath}`);
-    console.error(`    原因: ${p.reason}`);
+    log.error(`  ${p.relPath}`);
+    log.error(`    原因: ${p.reason}`);
   }
-  console.error('');
-  console.error('清理方法:');
-  console.error('  自动清理: pnpm hygiene:parent:clean  (只清文件名强信号命中)');
-  console.error('  手动清理: Remove-Item "<文件路径>" -Force');
-  console.error('');
+  log.error('');
+  log.error('清理方法:');
+  log.error('  自动清理: pnpm hygiene:parent:clean  (只清文件名强信号命中)');
+  log.error('  手动清理: Remove-Item "<文件路径>" -Force');
+  log.error('');
 
   if (isWarn) {
-    console.log('(warn-only 模式,不阻塞 commit)');
+    log.info('(warn-only 模式,不阻塞 commit)');
     process.exit(0);
   }
   process.exit(1);

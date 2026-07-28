@@ -2,9 +2,16 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastif
 import fp from 'fastify-plugin'
 import { createHash } from 'node:crypto'
 import type { Redis } from 'ioredis'
-import { eq, sql, and, gte, lte, sum, desc, type SQL } from 'drizzle-orm'
+import { eq, sql, and, gte, lte, sum, desc, count, isNotNull, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { aiCostRecords, aiBudgets, type AiCostRecord } from '@ihui/database'
+import {
+  aiCostRecords,
+  aiBudgets,
+  users,
+  vipLevels,
+  userVips,
+  type AiCostRecord,
+} from '@ihui/database'
 import { authenticate } from './auth.js'
 import { success, error } from '../utils/response.js'
 import { calculateCost } from '../services/pricing-service.js'
@@ -529,6 +536,185 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return success(created)
     },
   )
+
+  // GET /api/admin/ai/cost/top-users — 用户成本排行 Top N
+  // 按时间段聚合 userId 的总成本/Token/调用次数,LEFT JOIN users 取昵称/邮箱用于展示
+  server.get(
+    '/api/admin/ai/cost/top-users',
+    { preHandler: authenticate },
+    async (request: FastifyRequest) => {
+      const query = request.query as {
+        startDate?: string
+        endDate?: string
+        limit?: string
+      }
+      const endDate = query.endDate ? new Date(query.endDate) : new Date()
+      const startDate = query.startDate
+        ? new Date(query.startDate)
+        : new Date(endDate.getTime() - 30 * 24 * 3600 * 1000)
+      const limit = Math.min(parseInt(query.limit ?? '10', 10), 50)
+
+      const rows = await db
+        .select({
+          userId: aiCostRecords.userId,
+          totalCost: sum(aiCostRecords.cost),
+          totalTokens: sum(aiCostRecords.totalTokens),
+          totalCalls: sql<number>`count(*)::int`,
+          nickname: users.nickname,
+          email: users.email,
+          username: users.username,
+        })
+        .from(aiCostRecords)
+        .leftJoin(users, eq(aiCostRecords.userId, users.id))
+        .where(
+          and(
+            gte(aiCostRecords.createdAt, startDate),
+            lte(aiCostRecords.createdAt, endDate),
+            isNotNull(aiCostRecords.userId),
+          ),
+        )
+        .groupBy(aiCostRecords.userId, users.nickname, users.email, users.username)
+        .orderBy(desc(sum(aiCostRecords.cost)))
+        .limit(limit)
+
+      return success(
+        rows.map((r) => ({
+          userId: r.userId,
+          nickname: r.nickname,
+          email: r.email,
+          username: r.username,
+          totalCost: r.totalCost ?? '0',
+          totalTokens: Number(r.totalTokens ?? 0),
+          totalCalls: r.totalCalls ?? 0,
+        })),
+      )
+    },
+  )
+
+  // GET /api/admin/ai/cost/budget-alerts — 预算告警
+  // 对比每个 user 预算与今日/本月实际消耗,返回超出 80% 阈值的记录
+  server.get(
+    '/api/admin/ai/cost/budget-alerts',
+    { preHandler: authenticate },
+    async (request) => {
+      // P0-3e: 字段名含 "token" 命中 response-sanitizer 遮蔽为 "***"(同 vip-quotas),admin 路由直接跳过整端点脱敏
+      request.skipResponseSanitization = true
+      // 1. 取所有 scope='user' 的预算
+    const userBudgets = await db.select().from(aiBudgets).where(eq(aiBudgets.scope, 'user'))
+
+    if (userBudgets.length === 0) return success([])
+
+    // 2. 取今日 0 点 + 本月 1 点
+    const now = new Date()
+    const todayStart = new Date(now)
+    todayStart.setHours(0, 0, 0, 0)
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+    // 3. 批量查今日 token + 本月 cost
+    const alerts: Array<{
+      userId: string
+      scopeKey: string
+      dailyTokenLimit: number
+      dailyTokenUsed: number
+      dailyTokenPercent: number
+      monthlyCostLimit: number
+      monthlyCostUsed: number
+      monthlyCostPercent: number
+      severity: 'warning' | 'critical'
+    }> = []
+
+    for (const b of userBudgets) {
+      const userId = b.scopeKey
+      const [todayRow] = await db
+        .select({ used: sum(aiCostRecords.totalTokens) })
+        .from(aiCostRecords)
+        .where(and(eq(aiCostRecords.userId, userId), gte(aiCostRecords.createdAt, todayStart)))
+      const [monthRow] = await db
+        .select({ used: sum(aiCostRecords.cost) })
+        .from(aiCostRecords)
+        .where(and(eq(aiCostRecords.userId, userId), gte(aiCostRecords.createdAt, monthStart)))
+
+      const dailyTokenUsed = Number(todayRow?.used ?? 0)
+      const monthlyCostUsed = Number(monthRow?.used ?? 0)
+      const dailyTokenPercent =
+        b.dailyTokenLimit > 0 ? Math.round((dailyTokenUsed / b.dailyTokenLimit) * 10000) / 100 : 0
+      const monthlyCostPercent =
+        Number(b.monthlyCostLimit) > 0
+          ? Math.round((monthlyCostUsed / Number(b.monthlyCostLimit)) * 10000) / 100
+          : 0
+
+      // 阈值:任一维度 >= 80% warning,>= 100% critical
+      const maxPercent = Math.max(dailyTokenPercent, monthlyCostPercent)
+      if (maxPercent < 80) continue
+
+      alerts.push({
+        userId,
+        scopeKey: b.scopeKey,
+        dailyTokenLimit: b.dailyTokenLimit,
+        dailyTokenUsed,
+        dailyTokenPercent,
+        monthlyCostLimit: Number(b.monthlyCostLimit),
+        monthlyCostUsed,
+        monthlyCostPercent,
+        severity: maxPercent >= 100 ? 'critical' : 'warning',
+      })
+    }
+
+    // 按严重度 + 百分比降序
+    alerts.sort((a, b) => {
+      if (a.severity !== b.severity) return a.severity === 'critical' ? -1 : 1
+      return (
+        Math.max(b.dailyTokenPercent, b.monthlyCostPercent) -
+        Math.max(a.dailyTokenPercent, a.monthlyCostPercent)
+      )
+    })
+
+    return success(alerts)
+  })
+
+  // GET /api/admin/ai/cost/vip-quotas — VIP 档位配额视图
+  // 返回每档 VIP 的配额配置 + 当前生效用户数
+  server.get('/api/admin/ai/cost/vip-quotas', { preHandler: authenticate }, async (request) => {
+    // P0-3c: aiBudgetDefaults.dailyTokenLimit/monthlyTokenLimit 字段名含 "token" 命中 response-sanitizer
+    // 遮蔽为 "***",admin 路由可信上下文直接跳过整端点脱敏
+    request.skipResponseSanitization = true
+    const levels = await db
+      .select()
+      .from(vipLevels)
+      .where(eq(vipLevels.status, 1))
+      .orderBy(vipLevels.levelValue)
+
+    if (levels.length === 0) return success([])
+
+    // 查每档当前生效用户数(status=1 且 endTime > now)
+    const now = new Date()
+    const levelCounts = await db
+      .select({
+        levelValue: userVips.levelValue,
+        c: count(),
+      })
+      .from(userVips)
+      .where(and(eq(userVips.status, 1), gte(userVips.endTime, now)))
+      .groupBy(userVips.levelValue)
+
+    const countMap = new Map<number, number>()
+    for (const r of levelCounts) countMap.set(r.levelValue, Number(r.c))
+
+    return success(
+      levels.map((l) => ({
+        id: l.id,
+        levelName: l.levelName,
+        levelValue: l.levelValue,
+        price: l.price,
+        durationDays: l.durationDays,
+        aiBudgetDefaults: l.aiBudgetDefaults,
+        apiQps: l.apiQps,
+        maxConcurrency: l.maxConcurrency,
+        modelWhitelist: l.modelWhitelist,
+        activeUsers: countMap.get(l.levelValue) ?? 0,
+      })),
+    )
+  })
 }
 
 /** 计算缓存命中率。 */

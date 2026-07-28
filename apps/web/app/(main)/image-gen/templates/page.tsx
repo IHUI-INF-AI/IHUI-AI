@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -61,7 +61,7 @@ export default function ImageGenTemplatesPage() {
   const categories = data?.categories ?? []
   const allTemplates = data?.list ?? []
   const templates =
-    activeCat === 'all' ? allTemplates : allTemplates.filter((t: any) => t.categoryId === activeCat)
+    activeCat === 'all' ? allTemplates : allTemplates.filter((t) => t.categoryId === activeCat)
 
   function applyTemplate(prompt: string) {
     sessionStorage.setItem('image-gen-draft', prompt)
@@ -69,7 +69,7 @@ export default function ImageGenTemplatesPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/image-gen"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -99,7 +99,7 @@ export default function ImageGenTemplatesPage() {
           >
             全部
           </button>
-          {categories.map((c: any) => (
+          {categories.map((c) => (
             <button
               key={c.id}
               onClick={() => setActiveCat(c.id)}
@@ -117,7 +117,7 @@ export default function ImageGenTemplatesPage() {
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
         </div>
@@ -126,13 +126,13 @@ export default function ImageGenTemplatesPage() {
           {(error as Error).message}
         </div>
       ) : templates.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <LayoutTemplate className="h-8 w-8 opacity-40" />
           <p className="text-sm">暂无模板</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {templates.map((tpl: any) => (
+          {templates.map((tpl) => (
             <Card
               key={tpl.id}
               className="cursor-pointer overflow-hidden transition-colors hover:bg-accent/40"

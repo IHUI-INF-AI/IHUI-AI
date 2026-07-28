@@ -3,7 +3,8 @@
  *
  * 暴露核心 clawdbot API 端点。
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
+import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import {
@@ -26,6 +27,156 @@ import {
   type MemoryQuery,
 } from '../services/clawdbot/index.js'
 
+// =============================================================================
+// Zod schemas —— 18 个 POST 端点 body 校验
+// passthrough() 允许额外字段透传,避免破坏现有调用方
+// =============================================================================
+
+const initializeSchema = z
+  .object({
+    userId: z.string().optional(),
+    context: z.record(z.unknown()).optional(),
+  })
+  .passthrough()
+
+const chatSchema = z.object({
+  userId: z.string().min(1, 'userId 不能为空'),
+  content: z.string().min(1, 'content 不能为空'),
+  context: z.record(z.unknown()).optional(),
+})
+
+const toolExecuteSchema = z
+  .object({
+    params: z.record(z.unknown()).optional(),
+    context: z.unknown().optional(),
+  })
+  .passthrough()
+
+const taskCreateSchema = z
+  .object({
+    name: z.string().min(1, 'name 不能为空'),
+    description: z.string().min(1, 'description 不能为空'),
+    steps: z.array(z.unknown()),
+    context: z.record(z.unknown()).optional(),
+  })
+  .passthrough()
+
+const memoryStoreSchema = z
+  .object({
+    type: z.enum(['short_term', 'long_term', 'working', 'episodic']),
+    content: z.string().min(1, 'content 不能为空'),
+    importance: z.number().min(0).max(1),
+    metadata: z.record(z.unknown()).optional(),
+    expiresAt: z.number().optional(),
+    tags: z.array(z.string()).optional(),
+    embedding: z.array(z.number()).optional(),
+  })
+  .passthrough()
+
+const modelCompleteSchema = z.record(z.unknown())
+
+const channelSendSchema = z
+  .object({
+    content: z.string().min(1, 'content 不能为空'),
+    userId: z.string().optional(),
+  })
+  .passthrough()
+
+const canvasExecuteSchema = z
+  .object({
+    inputs: z.record(z.unknown()).optional(),
+  })
+  .passthrough()
+
+const mcpCallSchema = z
+  .object({
+    args: z.record(z.unknown()).optional(),
+  })
+  .passthrough()
+
+const pairingRequestSchema = z
+  .object({
+    userId: z.string().optional(),
+    deviceId: z.string().optional(),
+    channelType: z.string().optional(),
+  })
+  .passthrough()
+
+const pairingConfirmSchema = z.object({
+  code: z.string().min(1, 'code 不能为空'),
+  userId: z.string().min(1, 'userId 不能为空'),
+  deviceId: z.string().min(1, 'deviceId 不能为空'),
+  channelType: z.string().min(1, 'channelType 不能为空'),
+})
+
+const voiceAsrSchema = z
+  .object({
+    audio: z.union([z.string(), z.instanceof(Buffer)]),
+    format: z.enum(['wav', 'mp3', 'ogg', 'pcm']).optional(),
+    sampleRate: z.number().optional(),
+    language: z.string().optional(),
+  })
+  .passthrough()
+
+const voiceTtsSchema = z
+  .object({
+    text: z.string().min(1, 'text 不能为空'),
+    voice: z.string().optional(),
+    speed: z.number().optional(),
+    pitch: z.number().optional(),
+    format: z.enum(['wav', 'mp3', 'ogg']).optional(),
+  })
+  .passthrough()
+
+const browserNavigateSchema = z
+  .object({
+    url: z.string().url('url 必须为合法 URL'),
+    headers: z.record(z.string()).optional(),
+    timeout: z.number().int().positive().optional(),
+  })
+  .passthrough()
+
+const browserScrapeSchema = z
+  .object({
+    url: z.string().url('url 必须为合法 URL'),
+    selector: z.string().optional(),
+    extract: z.array(z.record(z.unknown())).optional(),
+    headers: z.record(z.string()).optional(),
+  })
+  .passthrough()
+
+const integrationCallSchema = z
+  .object({
+    integrationId: z.string().min(1, 'integrationId 不能为空'),
+    method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
+    path: z.string().min(1, 'path 不能为空'),
+    body: z.unknown().optional(),
+    query: z.record(z.string()).optional(),
+    headers: z.record(z.string()).optional(),
+  })
+  .passthrough()
+
+const evolutionEvolveSchema = z
+  .object({
+    gapId: z.string().optional(),
+  })
+  .passthrough()
+
+/** 统一 safeParse 失败响应:ok=false 表示已回复 400,调用方应 return */
+function validateBody<T>(
+  schema: z.ZodType<T>,
+  body: unknown,
+  reply: FastifyReply,
+): { ok: true; data: T } | { ok: false } {
+  const parsed = schema.safeParse(body)
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0]?.message ?? '参数错误'
+    reply.status(400).send(error(400, msg))
+    return { ok: false }
+  }
+  return { ok: true, data: parsed.data }
+}
+
 export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // Clawdbot 主服务
@@ -37,7 +188,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/clawdbot/initialize', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    await getClawdbotService().initialize(req.body as never)
+    const parsed = validateBody(initializeSchema, req.body, reply)
+    if (!parsed.ok) return
+    await getClawdbotService().initialize(parsed.data as never)
     return success({ initialized: true })
   })
 
@@ -49,11 +202,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/clawdbot/chat', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const { userId, content } = req.body as { userId: string; content: string }
-    if (!userId || !content) {
-      reply.status(400).send(error(400, 'userId and content are required'))
-      return
-    }
+    const parsed = validateBody(chatSchema, req.body, reply)
+    if (!parsed.ok) return
+    const { userId, content } = parsed.data
     const response = await getClawdbotService().chat(userId, content)
     return success(response)
   })
@@ -69,8 +220,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.post('/clawdbot/tools/:name/execute', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const { name } = req.params as { name: string }
-    const { params, context } =
-      (req.body as { params?: Record<string, unknown>; context?: unknown }) ?? {}
+    const parsed = validateBody(toolExecuteSchema, req.body, reply)
+    if (!parsed.ok) return
+    const { params, context } = parsed.data
     const result = await getToolExecutor().execute(name, params ?? {}, context as never)
     return success(result)
   })
@@ -86,13 +238,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/clawdbot/tasks', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const body = req.body as {
-      name: string
-      description: string
-      steps: never[]
-      context?: Record<string, unknown>
-    }
-    const task = getTaskExecutor().create(body)
+    const parsed = validateBody(taskCreateSchema, req.body, reply)
+    if (!parsed.ok) return
+    const task = getTaskExecutor().create(parsed.data as never)
     return success(task)
   })
 
@@ -108,7 +256,7 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   server.get('/clawdbot/memory', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const query = (req.query as never) as MemoryQuery
+    const query = req.query as never as MemoryQuery
     const userId = req.userId!
     // 优先返回用户桶 + DB long_term 结果;失败降级到默认内存桶
     try {
@@ -121,7 +269,12 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.post('/clawdbot/memory', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const userId = req.userId!
-    const body = req.body as Omit<MemoryItem, 'id' | 'createdAt' | 'lastAccessedAt' | 'accessCount'>
+    const parsed = validateBody(memoryStoreSchema, req.body, reply)
+    if (!parsed.ok) return
+    const body = parsed.data as Omit<
+      MemoryItem,
+      'id' | 'createdAt' | 'lastAccessedAt' | 'accessCount'
+    >
     try {
       return success(await getMemoryService().storeForUser(userId, body))
     } catch {
@@ -140,8 +293,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.post('/clawdbot/skills/:name/execute', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const { name } = req.params as { name: string }
-    const { params, context } =
-      (req.body as { params?: Record<string, unknown>; context?: unknown }) ?? {}
+    const parsed = validateBody(toolExecuteSchema, req.body, reply)
+    if (!parsed.ok) return
+    const { params, context } = parsed.data
     const result = await getSkillManager().execute(name, params ?? {}, context as never)
     return success(result)
   })
@@ -156,7 +310,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/clawdbot/models/complete', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const result = await getModelManager().complete(req.body as never)
+    const parsed = validateBody(modelCompleteSchema, req.body, reply)
+    if (!parsed.ok) return
+    const result = await getModelManager().complete(parsed.data as never)
     return success(result)
   })
 
@@ -196,7 +352,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.post('/clawdbot/channels/:id/send', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const { id } = req.params as { id: string }
-    const { content, userId } = req.body as { content: string; userId?: string }
+    const parsed = validateBody(channelSendSchema, req.body, reply)
+    if (!parsed.ok) return
+    const { content, userId } = parsed.data
     const sent = await getChannelManager().sendMessage(id, content, userId)
     return success({ sent })
   })
@@ -212,7 +370,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.post('/clawdbot/canvas/:id/execute', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const { id } = req.params as { id: string }
-    const { inputs } = (req.body as { inputs?: Record<string, unknown> }) ?? {}
+    const parsed = validateBody(canvasExecuteSchema, req.body, reply)
+    if (!parsed.ok) return
+    const { inputs } = parsed.data
     const result = await getCanvasService().execute(id, inputs ?? {})
     return success(result)
   })
@@ -233,7 +393,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.post('/clawdbot/mcp/tools/:name/call', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const { name } = req.params as { name: string }
-    const { args } = (req.body as { args?: Record<string, unknown> }) ?? {}
+    const parsed = validateBody(mcpCallSchema, req.body, reply)
+    if (!parsed.ok) return
+    const { args } = parsed.data
     const result = await getMcpClient().callTool(name, args ?? {})
     return success(result)
   })
@@ -243,17 +405,16 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   server.post('/clawdbot/pairing/request', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    return success(getPairingService().createRequest(req.body as never))
+    const parsed = validateBody(pairingRequestSchema, req.body, reply)
+    if (!parsed.ok) return
+    return success(getPairingService().createRequest(parsed.data))
   })
 
   server.post('/clawdbot/pairing/confirm', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const { code, userId, deviceId, channelType } = req.body as {
-      code: string
-      userId: string
-      deviceId: string
-      channelType: string
-    }
+    const parsed = validateBody(pairingConfirmSchema, req.body, reply)
+    if (!parsed.ok) return
+    const { code, userId, deviceId, channelType } = parsed.data
     const session = getPairingService().confirmPairing(code, userId, deviceId, channelType)
     if (!session) {
       reply.status(400).send(error(400, 'Invalid or expired pairing code'))
@@ -267,13 +428,17 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   server.post('/clawdbot/voice/asr', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const result = await getVoiceService().asr(req.body as never)
+    const parsed = validateBody(voiceAsrSchema, req.body, reply)
+    if (!parsed.ok) return
+    const result = await getVoiceService().asr(parsed.data as never)
     return success(result)
   })
 
   server.post('/clawdbot/voice/tts', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const result = await getVoiceService().tts(req.body as never)
+    const parsed = validateBody(voiceTtsSchema, req.body, reply)
+    if (!parsed.ok) return
+    const result = await getVoiceService().tts(parsed.data as never)
     return success(result)
   })
 
@@ -282,18 +447,18 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   server.post('/clawdbot/browser/navigate', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const { url, headers, timeout } = req.body as {
-      url: string
-      headers?: Record<string, string>
-      timeout?: number
-    }
+    const parsed = validateBody(browserNavigateSchema, req.body, reply)
+    if (!parsed.ok) return
+    const { url, headers, timeout } = parsed.data
     const page = await getBrowserAutomation().navigate(url, { headers, timeout })
     return success(page)
   })
 
   server.post('/clawdbot/browser/scrape', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const result = await getBrowserAutomation().scrape(req.body as never)
+    const parsed = validateBody(browserScrapeSchema, req.body, reply)
+    if (!parsed.ok) return
+    const result = await getBrowserAutomation().scrape(parsed.data as never)
     return success(result)
   })
 
@@ -307,8 +472,10 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/clawdbot/integrations/call', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
+    const parsed = validateBody(integrationCallSchema, req.body, reply)
+    if (!parsed.ok) return
     try {
-      const result = await getIntegrationManager().call(req.body as never)
+      const result = await getIntegrationManager().call(parsed.data as never)
       return success(result)
     } catch (err) {
       reply.status(500).send(error(500, (err as Error).message))
@@ -325,7 +492,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/clawdbot/evolution/evolve', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const { gapId } = (req.body as { gapId?: string }) ?? {}
+    const parsed = validateBody(evolutionEvolveSchema, req.body, reply)
+    if (!parsed.ok) return
+    const { gapId } = parsed.data
     const task = await getSelfEvolutionEngine().evolve(gapId)
     return success(task)
   })

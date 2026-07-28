@@ -3,8 +3,25 @@
  * 展示 AI 模型信息:名称/描述/图标/标签
  * 保留卡片样式 + 点击事件
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/AiModelCard/index.vue)
+ *
+ * 2026-07-27 重构:15+ 处硬编码颜色改用 @ihui/rn-app 的 tokens.* 统一管理,
+ * tokens 未覆盖的语义色(品牌浅底/警告色)提取为 COLORS 常量集中管理。
  */
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
+
+/**
+ * tokens 未覆盖的语义色常量(集中管理)
+ *
+ * - brandBg:品牌浅底色(tokens.brand.light 未定义,RnTokens 仅含 brand.DEFAULT/dark)
+ * - warningBg/warning:警告色(tokens.warning 未定义,RnTokens 无警告语义色)
+ * 后续若 tokens 扩展这些语义,可平滑迁移到 tokens.*。
+ */
+const COLORS = {
+  brandBg: '#eef2ff',
+  warningBg: '#fffbeb',
+  warning: '#d97706',
+} as const
 
 export type ModelUserType = 'freevip' | 'freeuse' | 'freetime' | 'hasbuy' | 'buymonth' | 'none'
 
@@ -45,20 +62,14 @@ export default function AiModelCard({
   const hasTags = data.tags && data.tags.length > 0
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.8}
-      onPress={() => onPress?.(data)}
-    >
+    <TouchableOpacity style={styles.card} activeOpacity={0.8} onPress={() => onPress?.(data)}>
       {/* 顶部:图标 + 名称/描述 */}
       <View style={styles.header}>
         <View style={styles.iconWrap}>
           {data.icon ? (
             <Image source={{ uri: data.icon }} style={styles.icon} />
           ) : (
-            <Text style={styles.iconFallback}>
-              {(data.name || 'A').slice(0, 1)}
-            </Text>
+            <Text style={styles.iconFallback}>{(data.name || 'A').slice(0, 1)}</Text>
           )}
         </View>
         <View style={styles.titleWrap}>
@@ -71,9 +82,7 @@ export default function AiModelCard({
             </Text>
           ) : null}
         </View>
-        {data.mumber !== undefined ? (
-          <Text style={styles.mumber}>{data.mumber}</Text>
-        ) : null}
+        {data.mumber !== undefined ? <Text style={styles.mumber}>{data.mumber}</Text> : null}
       </View>
 
       {/* 标签(用 gap-* 分隔) */}
@@ -110,9 +119,9 @@ export default function AiModelCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.surface.light,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: tokens.border.light,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
@@ -125,7 +134,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -139,7 +148,7 @@ const styles = StyleSheet.create({
   iconFallback: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6366f1',
+    color: tokens.brand.DEFAULT,
   },
   titleWrap: {
     flex: 1,
@@ -147,16 +156,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#6366f1',
+    color: tokens.brand.DEFAULT,
     marginBottom: 4,
   },
   subname: {
     fontSize: 12,
-    color: '#4b5563',
+    color: tokens.text.secondary,
   },
   mumber: {
     fontSize: 10,
-    color: '#6b7280',
+    color: tokens.text.secondary,
     marginLeft: 8,
   },
   tagsWrap: {
@@ -168,12 +177,12 @@ const styles = StyleSheet.create({
   tag: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: '#eef2ff',
+    backgroundColor: COLORS.brandBg,
     borderRadius: 2,
   },
   tagText: {
     fontSize: 11,
-    color: '#6366f1',
+    color: tokens.brand.DEFAULT,
   },
   footer: {
     flexDirection: 'row',
@@ -184,22 +193,22 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: '#fffbeb',
+    backgroundColor: COLORS.warningBg,
     borderRadius: 2,
   },
   badgeText: {
     fontSize: 11,
-    color: '#d97706',
+    color: COLORS.warning,
   },
   buyBtn: {
     paddingHorizontal: 12,
     paddingVertical: 4,
-    backgroundColor: '#6366f1',
+    backgroundColor: tokens.brand.DEFAULT,
     borderRadius: 6,
   },
   buyBtnText: {
     fontSize: 12,
-    color: '#ffffff',
+    color: tokens.surface.light,
     fontWeight: '500',
   },
 })

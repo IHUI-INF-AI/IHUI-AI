@@ -12,13 +12,13 @@ interface Props {
 export function MessagesHeader({ searchQuery, onSearchChange }: Props) {
   const t = useTranslations('privateMessages')
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <MessageSquare className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

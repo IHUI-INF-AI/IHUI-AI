@@ -3,6 +3,9 @@
  * locale-aware:en → 1.2M / 12K,zh-CN → 1.2 亿 / 1.2 万,ja → 1.2 億 / 1.2 万,ko → 1.2억 / 1.2만
  */
 
+// re-export shared/format 的通用格式化函数(formatFileSize/formatPrice/formatMoney/formatPhone/formatTokenCount)
+export * from '@ihui/shared/utils/format'
+
 /** 获取当前 locale(SSR 安全) */
 export function getLocale(): string {
   if (typeof document !== 'undefined') {

@@ -55,6 +55,14 @@ import apiLoggerExtendedPlugin from './plugins/api-logger-extended.js'
 import aiCostPlugin from './plugins/ai-cost.js'
 import tenantPlugin from './plugins/tenant.js'
 import { slowSqlKiller } from './plugins/slow-sql-killer.js'
+import {
+  buildSwaggerTheme,
+  buildSwaggerLogo,
+  buildSwaggerUiConfig,
+  buildSwaggerCsp,
+  buildSwaggerApiKeyHook,
+} from './plugins/swagger-theme.js'
+import { IHUI_OPENAPI_INFO, IHUI_OPENAPI_TAGS } from './utils/openapi-helpers.js'
 import { dbKeepalive } from './plugins/db-keepalive.js'
 import { n1Detector } from './plugins/n1-detector.js'
 import { promptInjectionGuard } from './plugins/prompt-injection-guard.js'
@@ -63,9 +71,7 @@ import tenantDbPlugin from './plugins/tenant-db.js'
 import { tokenBalanceService } from './plugins/token-balance-service.js'
 import { resilienceToolkit } from './plugins/resilience-toolkit.js'
 import canaryRouterPlugin from './plugins/canary-router.js'
-import { startAutoRollbackMonitor, stopAutoRollbackMonitor } from './services/auto-rollback.js'
-import { routineManager } from './services/workspace-ai-service.js'
-import { stopScheduledWarmup } from './services/cache-warmup-service.js'
+import { startAutoRollbackMonitor } from './services/auto-rollback.js'
 import searchAspectPlugin from './plugins/search-aspect.js'
 import watchAspectPlugin from './plugins/watch-aspect.js'
 import pointAspectPlugin from './plugins/point-aspect.js'
@@ -196,13 +202,6 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 启动金丝雀自动回滚监控（CANARY_ENABLED=true 时生效，默认空操作）
   startAutoRollbackMonitor()
 
-  // P0 修复:注册 onClose 钩子清理后台定时器,防止进程无法优雅退出
-  server.addHook('onClose', async () => {
-    try { stopAutoRollbackMonitor() } catch {}
-    try { routineManager.stopScheduler() } catch {}
-    try { stopScheduledWarmup() } catch {}
-  })
-
   return server
 }
 
@@ -242,38 +241,34 @@ async function registerPlugins(server: FastifyInstance) {
     timeWindow: '1 minute',
   })
   await server.register(underPressure, { maxEventLoopDelay: 1000 })
-  // Swagger / OpenAPI 文档:开发环境默认开放,生产环境需 SWAGGER_ENABLED=true
-  // 原因:Swagger 暴露全部 API 路由 + schema + 参数 + 返回类型,等同内部 API 文档
-  // 开发环境默认开放便于联调;生产环境必须 SWAGGER_ENABLED=true 才挂载 /docs(默认 false)
+  // Swagger / OpenAPI 文档(2026-07-28 P0-4a 品牌化)
+  // - 开发环境:默认开放(/docs 路由 + 自定义品牌页)
+  // - 生产环境:SWAGGER_ENABLED=true 才挂载(默认 false,避免未授权 schema 泄露)
+  // - 可选 API Key 鉴权:SWAGGER_API_KEY 配置后,访问 /docs 需带 X-API-Key header
+  //   留空 = /docs 公开(仅推荐开发环境)
+  //   /docs-json(spec JSON)始终公开,方便 CI / 自动化工具拉取
   const swaggerEnabled = config.SWAGGER_ENABLED || process.env.NODE_ENV !== 'production'
   if (swaggerEnabled) {
     await server.register(swagger, {
       openapi: {
-        info: {
-          title: 'IHUI AI API',
-          description: 'IHUI AI 平台 API 文档 — 对外公开 API(v1)+ 内部 API',
-          version: '1.0.0',
-        },
+        info: IHUI_OPENAPI_INFO,
         servers: [
-          { url: '/api', description: 'API 网关' },
+          { url: '/api', description: 'API 网关(/api/* 业务路由)' },
+          { url: '/api/v1', description: 'v1 公开 API(OpenAI 兼容)' },
         ],
-        tags: [
-          { name: 'Agents', description: 'Agent 管理与调用' },
-          { name: 'Chat', description: '聊天补全(OpenAI 兼容)' },
-          { name: 'Models', description: '模型列表' },
-          { name: 'Files', description: '文件管理' },
-          { name: 'AI Core', description: 'AI 核心能力(嵌入/视觉/MOA)' },
-          { name: 'Multimodal', description: '多模态(图片/视频生成)' },
-          { name: 'Knowledge', description: '知识库工具' },
-          { name: 'Debug', description: 'DAP 调试器' },
-          { name: 'Terminal', description: '终端 PTY 管理' },
-          { name: 'Payment', description: '支付网关(微信/支付宝/Stripe)' },
-          { name: 'Developer', description: '开发者门户(API key/配额/文档)' },
-          { name: 'Pricing', description: '定价(VIP 4 档/模型价格)' },
-        ],
+        tags: [...IHUI_OPENAPI_TAGS],
       },
     })
-    await server.register(swaggerUi, { routePrefix: '/docs' })
+    await server.register(swaggerUi, {
+      routePrefix: '/docs',
+      theme: buildSwaggerTheme(),
+      logo: buildSwaggerLogo(),
+      uiConfig: buildSwaggerUiConfig(),
+      staticCSP: buildSwaggerCsp(),
+      uiHooks: {
+        onRequest: buildSwaggerApiKeyHook(config.SWAGGER_API_KEY),
+      },
+    })
   }
 
   // multipart 插件：文件上传支持（限制单文件 100MB）

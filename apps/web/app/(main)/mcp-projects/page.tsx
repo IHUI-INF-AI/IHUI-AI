@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -30,13 +30,13 @@ export default function McpProjectsPage() {
   const tc = useTranslations('common')
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Boxes className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Tabs defaultValue="servers">
@@ -80,7 +80,7 @@ function McpResourceBrowser() {
     },
   })
 
-  const selected = resources.find((r: any) => r.uri === selectedUri)
+  const selected = resources.find((r) => r.uri === selectedUri)
 
   let jsonData: unknown = undefined
   if (selected?.content) {
@@ -93,7 +93,7 @@ function McpResourceBrowser() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
+      <div className="flex justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -114,7 +114,7 @@ function McpResourceBrowser() {
           <SelectValue placeholder={tm('selectPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
-          {resources.map((r: any) => (
+          {resources.map((r) => (
             <SelectItem key={r.uri} value={r.uri}>
               {r.name}
             </SelectItem>

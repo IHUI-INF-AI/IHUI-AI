@@ -583,7 +583,10 @@
       "code": "코드 생성",
       "polish": "텍스트 윤문",
       "wechat-article": "위챗 공식 계정 글 작성",
-      "koubo-script": "입말 영상 대본 작성"
+      "koubo-script": "입말 영상 대본 작성",
+      "build": "빌드 모드로 전환(모든 도구 활성화, 정상 실행)",
+      "review": "리뷰 모드로 전환(읽기 전용, 강화된 코드 리뷰)",
+      "spec": "스펙 모드로 전환(코드에서 spec 문서 역생성)"
     },
     "cmdSummary": "위 대화를 요약하고 핵심 정보를 추출해 주세요",
     "cmdTranslate": "다음 내용을 영어로 번역해 주세요:",
@@ -836,12 +839,36 @@
           "2": "'알려진 작업을 일괄 처리'하는 상황에 적합합니다",
           "3": "되돌릴 수 없는 작업의 위험은 사용자가 부담합니다"
         }
-      }
+      },
+      "shortcutsSectionChatMode": "대화 모드 전환",
+      "shortcutsItemChatModeDesc": "빌드/계획/리뷰/스펙 4가지 대화 모드 전환",
+      "shortcutsItemModeBuildKbd": "빌드 모드로 전환(정상 실행, 모든 도구 활성화)",
+      "shortcutsItemModePlanKbd": "계획 모드로 전환(읽기 전용 분석, write 도구 거부)",
+      "shortcutsItemModeReviewKbd": "리뷰 모드로 전환(읽기 전용 리뷰 + 강화된 리뷰 prompt)",
+      "shortcutsItemModeSpecKbd": "스펙 모드로 전환(코드에서 spec 문서 역방향 생성)",
+      "shortcutsItemModeCmdHint": "/build /plan /review /spec 슬래시 명령으로도 전환 가능"
     },
     "modePlan": "계획",
     "modeAct": "실행",
     "planTooltip": "Plan: AI는 계획만, 도구 실행 안 함(Alt+P 토글 / /plan 입력)",
-    "actTooltip": "Act: AI는 도구를 정상 실행(Alt+P 토글 / /act 입력)"
+    "actTooltip": "Act: AI는 도구를 정상 실행(Alt+P 토글 / /act 입력)",
+    "modeBuild": "빌드",
+    "modeReview": "리뷰",
+    "modeSpec": "스펙",
+    "modeBuildTooltip": "빌드 모드 · Ctrl+1 또는 /build",
+    "modePlanTooltip": "계획 모드(읽기 전용 분석) · Ctrl+2 또는 /plan",
+    "modeReviewTooltip": "리뷰 모드(읽기 전용 리뷰) · Ctrl+3 또는 /review",
+    "modeSpecTooltip": "스펙 모드(spec 문서 생성) · Ctrl+4 또는 /spec",
+    "modeBuildToast": "빌드 모드로 전환됨",
+    "modePlanToast": "계획 모드로 전환됨(읽기 전용 분석)",
+    "modeReviewToast": "리뷰 모드로 전환됨(읽기 전용 리뷰)",
+    "modeSpecToast": "스펙 모드로 전환됨(spec 문서 생성)",
+    "modeAlreadyActive": "현재 이미 {mode} 모드입니다",
+    "modeSwitched": "{mode} 모드로 전환됨",
+    "modeBuildDesc": "AI가 모든 도구를 활성화하여 정상 실행합니다(Ctrl+1로 전환)",
+    "modePlanDesc": "AI가 도구를 실행하지 않고 계획만 수행합니다(Ctrl+2로 전환)",
+    "modeReviewDesc": "AI가 코드를 읽기 전용으로 리뷰합니다(Ctrl+3으로 전환)",
+    "modeSpecDesc": "AI가 코드에서 spec 문서를 역방향 생성합니다(Ctrl+4로 전환)"
   },
   "learn": {
     "title": "AI인마음페이스테스트",
@@ -987,7 +1014,25 @@
     "durationDays": "{days}일",
     "buyButton": "지금 가입",
     "limitedOffer": "한정 특가",
-    "buyPrompt": "지금 VIP 가입하고 모든 전용 혜택을 잠금해제"
+    "buyPrompt": "지금 VIP 가입하고 모든 전용 혜택을 잠금해제",
+    "benefitList": {
+      "testPaymentFlow": "테스트 결제 흐름",
+      "unlimitedChat": "무제한 대화",
+      "exclusiveModel": "전용 모델",
+      "prioritySupport": "우선 지원",
+      "referral": "추천 보상",
+      "lifetime": "평생 혜택",
+      "distributionQualification": "배포 자격",
+      "aiCourses": "AI 강좌",
+      "founderQa": "창립자 Q&A",
+      "agentBeta": "Agent 베타",
+      "vipMaxDiscount": "VIP 최대 할인",
+      "customAgentDiscount": "맞춤형 Agent 할인",
+      "allVipRights": "모든 VIP 혜택",
+      "verticalAccountIncubation": "수직 계정 인큐베이팅",
+      "secondaryDistribution": "2차 배포",
+      "offlineLearning": "오프라인 학습"
+    }
   },
   "asks": {
     "title": "제목",
@@ -5687,6 +5732,32 @@
       "error": "다운로드 실패",
       "printError": "인쇄 실패",
       "certText": "이로써 {name}이(가) 관련 평가를 통과했음을 증명합니다."
+    },
+    "detail": {
+      "headerTitle": "수강 완료 증명서",
+      "courseLabel": "강좌",
+      "recipientLabel": "수령인",
+      "certNo": "증명서 번호",
+      "awarderLabel": "발급자",
+      "issueDate": "발급일",
+      "validityLabel": "유효 기간",
+      "loading": "증명서 로딩 중...",
+      "notFound": "증명서가 없거나 취소되었습니다",
+      "unknownRecipient": "이름 미상 수령인",
+      "defaultIssuer": "IHUI AI 아카데미",
+      "defaultAwarder": "학술 위원회",
+      "defaultConditions": "전체 강좌 학습을 완료하고 최종 평가(60점 이상)에 합격",
+      "defaultValidity": "영구 유효",
+      "printAction": "인쇄",
+      "downloadAction": "PDF 다운로드",
+      "downloadError": "다운로드 실패",
+      "backToList": "증명서 목록으로",
+      "source": "출처",
+      "template": "템플릿",
+      "status": "상태",
+      "statusValid": "유효",
+      "statusRevoked": "취소됨",
+      "issuerAria": "{org}에서 {name}에게 발급한 수료 증명서"
     }
   },
   "selfMedia": {
@@ -7006,7 +7077,9 @@
     "input": {
       "placeholder": "메시지 입력..."
     },
-    "loadMore": "더 보기"
+    "loadMore": "더 보기",
+    "noConversations": "대화 없음",
+    "searchPlaceholder": "대화 검색"
   },
   "topics": {
     "title": "특집관리",
@@ -7063,7 +7136,30 @@
     "range30d": "최근 30일",
     "l1HitRate": "L1 캐시 적중률",
     "l2HitRate": "L2 캐시 적중률",
-    "promptCacheErrors": "캐시 오류"
+    "promptCacheErrors": "캐시 오류",
+    "toMetrics": "AI 지표",
+    "budgets": "예산 관리",
+    "budgetScope": "범위",
+    "budgetKey": "키",
+    "budgetDailyToken": "일일 토큰 한도",
+    "budgetMonthlyCost": "월간 비용 한도",
+    "topUsers": "비용별 Top 10 사용자",
+    "noUserData": "사용자 비용 데이터 없음",
+    "userLabel": "사용자",
+    "budgetAlerts": "예산 경고",
+    "noAlerts": "경고 없음, 모든 사용자 예산 사용률 80% 미만",
+    "critical": "심각",
+    "warning": "경고",
+    "dailyToken": "오늘 토큰",
+    "monthlyCost": "월간 비용",
+    "vipQuotas": "VIP 등급 할당량",
+    "noVipData": "VIP 등급 설정 없음",
+    "vipLevel": "등급",
+    "vipActiveUsers": "활성 사용자",
+    "vipDailyToken": "일일 토큰 할당량",
+    "vipMonthlyCost": "월간 비용 할당량",
+    "vipApiQps": "API QPS",
+    "vipConcurrency": "동시 연결"
   },
   "wallet": {
     "title": "AI인마음페이스테스트",
@@ -9608,6 +9704,123 @@
       "coordinated": "{count}개 서브 에이전트 조정 완료",
       "totalSteps": "(총 {count}단계)",
       "working": "{count}개 서브 에이전트 협업 중"
+    },
+    "pane": {
+      "title": "작업 계획",
+      "ariaLabel": "Agent 작업 진행 패널",
+      "pin": "고정",
+      "unpin": "고정 해제",
+      "minimize": "최소화",
+      "expandAll": "모두 펼치기",
+      "collapseAll": "모두 접기",
+      "reconnecting": "SSE 연결 끊김, 재연결 중({n}/5회차)",
+      "stepInProgress": "단계 {n}: {step} (진행 중)",
+      "stepCompleted": "단계 {n}: {step} (완료)",
+      "stepPending": "단계 {n}: {step} (대기 중)",
+      "toolCallsCount": "{n}회 도구 호출",
+      "sectionsToolbarLabel": "접기 섹션 도구 모음",
+      "copy": "복사",
+      "copied": "복사됨",
+      "progressLabel": "작업 진행 {pct}%",
+      "sseStatus": {
+        "connected": "연결됨",
+        "connecting": "연결 중",
+        "reconnecting": "재연결 중",
+        "disconnected": "연결 끊김",
+        "reconnectingShort": "재연결 {n}/{max}",
+        "disconnectedShort": "오프라인",
+        "tooltipError": "연결 오류: {error}"
+      },
+      "relativeTime": {
+        "justNow": "방금",
+        "secondsAgo": "{n}초 전",
+        "minutesAgo": "{n}분 전",
+        "hoursAgo": "{n}시간 전",
+        "daysAgo": "{n}일 전"
+      },
+      "changes": {
+        "title": "파일 변경",
+        "oldContent": "원본 내용",
+        "copyOldContent": "원본 내용 복사",
+        "newFile": "새 파일",
+        "newContent": "새 내용",
+        "copyNewContent": "새 내용 복사",
+        "added": "추가 {n}",
+        "modified": "수정 {n}",
+        "moreItems": "…{n}개 더"
+      },
+      "terminal": {
+        "title": "터미널 작업",
+        "output": "출력",
+        "copyOutput": "터미널 출력 복사",
+        "running": "{n} 실행 중",
+        "failed": "{n} 실패",
+        "moreItems": "…{n}개 더"
+      },
+      "tools": {
+        "title": "도구 호출",
+        "categoryRead": "읽기",
+        "categorySearch": "검색",
+        "categoryWrite": "편집",
+        "categoryExec": "실행",
+        "categoryOther": "기타",
+        "args": "인수",
+        "copyArgs": "인수 복사",
+        "result": "결과",
+        "copyResult": "결과 복사",
+        "error": "오류",
+        "copyError": "오류 복사",
+        "filterAll": "전체",
+        "filterRunning": "실행 중",
+        "filterSuccess": "성공",
+        "filterError": "실패",
+        "searchPlaceholder": "도구 검색...",
+        "moreItems": "…{n}개 더",
+        "noMatch": "일치 없음"
+      },
+      "subagent": {
+        "title": "Subagent 파견",
+        "statusSpawned": "파견됨",
+        "statusRunning": "실행 중",
+        "statusDone": "완료",
+        "statusFailed": "실패",
+        "statusDead": "종료됨",
+        "toolCallsTitle": "{n}회 도구 호출",
+        "toolCallsCount": "{n}회",
+        "state": "상태:",
+        "role": "역할:",
+        "pendingApproval": "승인 대기",
+        "startedAt": "시작:",
+        "endedAt": "종료:",
+        "duration": "소요 시간:",
+        "copyThreadId": "threadId 복사",
+        "toolsCount": "도구 호출({n})",
+        "active": "{n} 활성",
+        "done": "{n} 완료",
+        "failed": "{n} 실패"
+      },
+      "overview": {
+        "title": "작업 개요",
+        "statusIdle": "유휴",
+        "statusRunning": "실행 중",
+        "statusCompleted": "완료",
+        "statusFailed": "실패",
+        "statusInterrupted": "중단됨",
+        "steps": "단계",
+        "subagents": "서브 에이전트",
+        "active": "활성",
+        "total": "전체",
+        "dead": "종료",
+        "terminals": "터미널",
+        "running": "실행",
+        "changes": "변경",
+        "files": "파일",
+        "duration": "소요 시간",
+        "token": "Token",
+        "rate": "속도",
+        "eta": "예상",
+        "context": "컨텍스트"
+      }
     }
   },
   "developer": {
@@ -12661,5 +12874,86 @@
         "sla": "업무 시간 내 2시간 응답, 비업무시간 24시간 응답"
       }
     }
+  },
+  "modelsPricingPage": {
+    "hero": {
+      "badge": "모델 가격 투명",
+      "title": "176개 LLM 가격표",
+      "subtitle": "OpenAI, Anthropic, Google, DeepSeek, Qwen, Zhipu, Doubao, Kimi 등 공식 가격 실시간 동기화"
+    },
+    "loading": "로딩 중...",
+    "empty": "일치하는 모델을 찾을 수 없습니다",
+    "search": {
+      "placeholder": "모델 ID 검색, 예: gpt-4o, claude-3-5-sonnet",
+      "resultCount": "{count}개 모델 검색됨"
+    },
+    "vendor": {
+      "all": "모든 벤더"
+    },
+    "stats": {
+      "totalModels": "총 모델 수",
+      "totalVendors": "벤더 수",
+      "cheapest": "가장 저렴",
+      "mostExpensive": "가장 비쌈"
+    },
+    "note": {
+      "title": "가격 설명",
+      "unit": "단위:위안/백만 토큰(CNY per 1M tokens), 벤더 공식 가격표와 일치",
+      "region": "지역 계수:cn=1.0 기준, us/eu 계수는 국경간 대역폭 및 규정 준수 비용 반영",
+      "discount": "할인 배지:녹색 백분율은 대량 사용 할인, minTokens 임계값 필요",
+      "update": "가격 데이터는 seed 스크립트로 각 벤더 공식 가격표에서 가져옴, 업데이트 날짜는 effectiveAt 필드 참조"
+    }
+  },
+  "developerPricingPage": {
+    "title": "API 가격",
+    "subtitle": "토큰 사용량 기반 종량제, input/output 분리 청구. 176+ 모델의 투명한 가격.",
+    "modelCount": "{count}개 모델",
+    "vendorCount": "{count}개 벤더",
+    "vendorAll": "전체",
+    "searchPlaceholder": "모델 ID 검색(예: gpt-4, claude-3, deepseek-chat)",
+    "itemsCount": "{count}개 모델",
+    "colModel": "모델 ID",
+    "colInput": "입력 가격(원/백만 토큰)",
+    "colOutput": "출력 가격(원/백만 토큰)",
+    "colCurrency": "통화",
+    "colRegion": "지역 계수",
+    "loading": "로딩 중...",
+    "noResults": "일치하는 모델을 찾을 수 없습니다",
+    "rulesTitle": "종량제 규칙",
+    "rulesSubtitle": "모든 API 호출은 input 및 output 토큰별로 별도 청구되며 월말에 합산됩니다.",
+    "formula": "비용 계산식",
+    "formulaBody": "총합 = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",
+    "paramCol": "매개변수",
+    "paramDesc": "설명",
+    "paramInputPrice": "input_price",
+    "paramInputPriceDesc": "입력 토큰 단가, 단위: 1k 토큰당 분(표시는 백만 토큰당 원)",
+    "paramOutputPrice": "output_price",
+    "paramOutputPriceDesc": "출력 토큰 단가, 단위: 1k 토큰당 분(보통 input의 3-5배)",
+    "paramInputTokens": "input_tokens",
+    "paramInputTokensDesc": "이번 요청의 프롬프트 토큰 수(system + user + 기록 포함)",
+    "paramOutputTokens": "output_tokens",
+    "paramOutputTokensDesc": "완료 토큰 수(모델이 생성한 모든 내용)",
+    "exampleTitle": "청구 예시",
+    "exampleIntro": "gpt-4o 1회 대화: input 500 토큰, output 1200 토큰, input_price=2.5 분/1k, output_price=10 분/1k 가정:",
+    "exampleStep1": "input 비용 = 500 ÷ 1000 × 2.5 = 1.25 분",
+    "exampleStep2": "output 비용 = 1200 ÷ 1000 × 10 = 12 분",
+    "exampleResult": "총합 = 1.25 + 12 = 13.25 분(약 ¥0.1325)",
+    "noteRegion": "지역 계수: cn/us/eu 3단계. 지역에 따라 가격이 다를 수 있으며 실제 청구는 요청 발생 지역에 따릅니다.",
+    "noteSettlement": "결제 방식: 매일 23:59에 당일 사용량 집계, 월초에 전월분 청구. 기업 월/분기 결제 지원.",
+    "noteRound": "정밀도 규칙: 토큰 수는 정수로 내림, 금액은 0.01분에 반올림. 잔액 부족 시 전체 요청이 거부됩니다.",
+    "examplesTitle": "호출 예시",
+    "examplesSubtitle": "HTTP Bearer Token 인증, POST application/json",
+    "langCurl": "cURL",
+    "langNode": "Node.js",
+    "langPython": "Python",
+    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\" }\n    ],\n    \"temperature\": 0.7\n  }'",
+    "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: '안녕하세요, 자기소개 부탁해요' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// 비용 추적\nconst usage = completion.usage\nconsole.log(`사용량: ${usage.total_tokens} 토큰`)",
+    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# 비용 추적\nusage = response.usage\nprint(f\"사용량: {usage.total_tokens} 토큰\")",
+    "copyAria": "코드 복사",
+    "toastCopied": "코드가 복사되었습니다",
+    "toastCopyFailed": "복사 실패",
+    "examplesTip": "팁: YOUR_API_KEY를 /developer/keys에서 생성한 키로 교체하고, baseURL을 실제 엔드포인트로 변경하세요.",
+    "cardLabel": "API 가격",
+    "cardDesc": "모델 가격 및 청구 규칙"
   }
 }

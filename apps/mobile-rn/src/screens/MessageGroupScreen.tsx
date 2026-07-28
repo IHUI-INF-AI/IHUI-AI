@@ -8,8 +8,13 @@ import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
+import type { GroupLetterMember } from '@ihui/types'
 type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Item { id: string; groupName: string; preview: string; time: string; unread: number }
+interface Item extends Pick<GroupLetterMember, 'groupId' | 'groupName'> {
+  lastMessage: string
+  lastMessageTime: string
+  unreadCount: number
+}
 
 export function MessageGroupScreen() {
   const { t } = useI18n()
@@ -44,7 +49,7 @@ export function MessageGroupScreen() {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(i) => i.id}
+          keyExtractor={(i) => i.groupId}
           contentContainerStyle={{ padding: 16 }}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
@@ -53,10 +58,10 @@ export function MessageGroupScreen() {
             <View style={s.card}>
               <View style={s.titleRow}>
                 <Text style={s.cardTitle} numberOfLines={1}>{item.groupName}</Text>
-                {item.unread > 0 ? <View style={s.badge}><Text style={s.badgeText}>{item.unread}</Text></View> : null}
+                {item.unreadCount > 0 ? <View style={s.badge}><Text style={s.badgeText}>{item.unreadCount}</Text></View> : null}
               </View>
-              <Text style={s.cardPreview} numberOfLines={2}>{item.preview}</Text>
-              <Text style={s.cardTime}>{item.time}</Text>
+              <Text style={s.cardPreview} numberOfLines={2}>{item.lastMessage}</Text>
+              <Text style={s.cardTime}>{item.lastMessageTime}</Text>
             </View>
           )}
         />

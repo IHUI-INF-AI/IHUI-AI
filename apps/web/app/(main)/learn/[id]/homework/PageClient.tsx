@@ -73,9 +73,8 @@ export default function CourseHomeworkPage() {
   const statusText = (status?: number | string) => {
     if (status === undefined || status === null) return t('status.notSubmitted')
     if (typeof status === 'number') {
-      const numKey = ['notSubmitted', 'submitted', 'passApproval', 'failApproval'][
-        status
-      ] as 'notSubmitted' | 'submitted' | 'passApproval' | 'failApproval'
+      const numKey = ['notSubmitted', 'submitted', 'passApproval', 'failApproval'][status] as
+        'notSubmitted' | 'submitted' | 'passApproval' | 'failApproval'
       return numKey ? t(STATUS_KEY[numKey] ?? 'status.unknown') : t('status.unknown')
     }
     return t(STATUS_KEY[status] ?? 'status.unknown')
@@ -85,7 +84,7 @@ export default function CourseHomeworkPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -109,7 +108,7 @@ export default function CourseHomeworkPage() {
     )
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href={`/learn/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -124,13 +123,13 @@ export default function CourseHomeworkPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <ClipboardList className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {list.map((item: any) => {
+          {list.map((item: HomeworkItem) => {
             const deadline = formatDeadline(item.deadline ?? item.endTime)
             const submitted = item.submitted ?? (item.status === 'submitted' || item.status === 1)
             return (

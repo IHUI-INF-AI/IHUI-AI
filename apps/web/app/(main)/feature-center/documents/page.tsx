@@ -188,13 +188,13 @@ export default function DocumentsPage() {
 
   // 动态生成分类按钮(从返回数据的 unique category 值)
   const categories = React.useMemo(() => {
-    const unique = [...new Set((data ?? []).map((d: any) => d.category))]
+    const unique = [...new Set((data ?? []).map((d) => d.category))]
     return ['全部', ...unique.sort()]
   }, [data])
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item: any) => {
+    return all.filter((item) => {
       const matchKeyword =
         !keyword ||
         item.title.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -204,7 +204,7 @@ export default function DocumentsPage() {
     })
   }, [data, keyword, category])
 
-  const previewDoc = list.find((d: any) => d.id === previewId) ?? null
+  const previewDoc = list.find((d) => d.id === previewId) ?? null
 
   // 当前预览文档的 slug(含子目录路径,如 developer/incentive-program/course)
   // 用于 ReactMarkdown 改写相对图片路径 ./images/xxx.png → /api/feature-center/documents/asset/<dir>/images/xxx.png
@@ -220,7 +220,7 @@ export default function DocumentsPage() {
     queryKey: ['doc-content', previewId],
     queryFn: async () => {
       if (!previewId) return ''
-      const doc = (data ?? []).find((d: any) => d.id === previewId)
+      const doc = (data ?? []).find((d) => d.id === previewId)
       if (!doc) return ''
       const slug = doc.url ? doc.url.replace('/docs/', '') : doc.id.replace('file:', '')
       const res = await fetchApi<{ content: string }>(
@@ -264,7 +264,7 @@ export default function DocumentsPage() {
   // 当前预览文档在 list 中的索引(navigatedSlug 跳转不影响,基于 previewDoc 位置)
   const navIndex = React.useMemo(() => {
     if (!previewDoc) return -1
-    return list.findIndex((d: any) => d.id === previewDoc.id)
+    return list.findIndex((d) => d.id === previewDoc.id)
   }, [list, previewDoc])
   // 上一篇 / 下一篇文档(提取为局部变量以便 TS 类型收窄)
   const navPrev = navIndex > 0 ? list[navIndex - 1] : undefined
@@ -374,7 +374,7 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 
@@ -393,7 +393,7 @@ export default function DocumentsPage() {
             <button
               key={c}
               type="button"
-              onClick={() => setCategory(c as any)}
+              onClick={() => setCategory(c)}
               className={
                 'rounded-md border px-3 py-1 text-sm transition-colors ' +
                 (category === c
@@ -401,26 +401,26 @@ export default function DocumentsPage() {
                   : 'border-border hover:bg-muted')
               }
             >
-              {c === '全部' ? t('catAll') : (CATEGORY_LABELS[c as any] ?? c)}
+              {c === '全部' ? t('catAll') : (CATEGORY_LABELS[c] ?? c)}
             </button>
           ))}
         </div>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
             {t('noMatch')}
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((item: any) => {
+          {list.map((item) => {
             const formatLabel = FORMAT_LABELS[item.format] ?? item.format
             const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category
             return (
@@ -605,7 +605,7 @@ export default function DocumentsPage() {
                     remarkPlugins={[remarkGfm]}
                     components={{
                       pre: CodeBlock,
-                      h2: ({ children, ...props }: any) => {
+                      h2: ({ children, ...props }: React.ComponentProps<'h2'>) => {
                         const text = String(children ?? '')
                         return (
                           <h2 id={slugifyHeading(text)} {...props}>
@@ -613,7 +613,7 @@ export default function DocumentsPage() {
                           </h2>
                         )
                       },
-                      h3: ({ children, ...props }: any) => {
+                      h3: ({ children, ...props }: React.ComponentProps<'h3'>) => {
                         const text = String(children ?? '')
                         return (
                           <h3 id={slugifyHeading(text)} {...props}>
@@ -621,7 +621,7 @@ export default function DocumentsPage() {
                           </h3>
                         )
                       },
-                      img: ({ src, alt, ...props }: any) => {
+                      img: ({ src, alt, ...props }: React.ComponentProps<'img'>) => {
                         if (!src) return <img src={src} alt={alt} {...props} />
                         const isHttp = /^(https?:)?\/\//.test(String(src))
                         const isAbsolute = String(src).startsWith('/')
@@ -646,7 +646,7 @@ export default function DocumentsPage() {
                           />
                         )
                       },
-                      a: ({ href, children, ...props }: any) => {
+                      a: ({ href, children, ...props }: React.ComponentProps<'a'>) => {
                         if (!href) return <a href={href}>{children}</a>
                         const targetSlug = resolveMdLink(String(href))
                         if (targetSlug) {

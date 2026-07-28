@@ -99,7 +99,7 @@ export default function OrderDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -120,11 +120,11 @@ export default function OrderDetailPage() {
     )
   }
 
-  const sc = (STATUS_CONFIG as any)[order.status]
+  const sc = STATUS_CONFIG[order.status]
   const StatusIcon = sc.icon
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-4">
       <Button variant="ghost" size="sm" onClick={() => router.back()}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
         {tc('back')}
@@ -142,7 +142,7 @@ export default function OrderDetailPage() {
         )}
       >
         <StatusIcon className="h-4 w-4" />
-        {t((ORDER_STATUS_KEYS as any)[order.status]!)}
+        {t(ORDER_STATUS_KEYS[order.status]!)}
       </div>
 
       <dl className="divide-y rounded-lg border">

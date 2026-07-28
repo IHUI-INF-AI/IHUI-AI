@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -93,13 +93,13 @@ export default function LivePage() {
   const channels = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <Radio className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -125,7 +125,7 @@ export default function LivePage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allCategories')}</SelectItem>
-            {(categories ?? []).map((c: any) => (
+            {(categories ?? []).map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
               </SelectItem>
@@ -135,7 +135,7 @@ export default function LivePage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -144,13 +144,13 @@ export default function LivePage() {
           {(error as Error).message}
         </div>
       ) : channels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <PlayCircle className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {channels.map((channel: any) => (
+          {channels.map((channel) => (
             <Link key={channel.id} href={`/live/${channel.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
