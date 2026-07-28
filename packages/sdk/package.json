@@ -19,7 +19,7 @@
     "@ihui/types": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.7.2",
+    "typescript": "catalog:",
     "@ihui/tsconfig": "workspace:*"
   }
 }
