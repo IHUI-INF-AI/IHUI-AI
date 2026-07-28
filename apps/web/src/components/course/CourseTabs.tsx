@@ -161,7 +161,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
   return (
     <div className={cn('space-y-3', className)}>
       <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="text-xs">
             {t('overview')}
           </TabsTrigger>
