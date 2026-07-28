@@ -7,9 +7,9 @@ const adminTest = setupTest
 const adminExpect = baseExpect
 
 /**
- * Phase 19 Trae Work 流式输出对齐 — 4 大招牌交互 E2E 测试(2026-07-28 立)
+ * Phase 19 ihui 对话流式输出对齐 — 4 大招牌交互 E2E 测试(2026-07-28 立)
  *
- * 覆盖 Phase 19 深度对标 Trae Work 对话体验后引入的 4 大核心交互:
+ * 覆盖 Phase 19 深度对标业界主流对话体验后引入的 4 大核心交互:
  * 1. Plan Step ↔ Message 双向跳转(progress-jump-store + flashHighlight)
  * 2. Timeline 时间线统一事件流(timeline-tab + event 排序/计数徽章)
  * 3. HoverPreviewCard 步骤预览(useHoverPreview 250ms 延迟 + 边界检测)
