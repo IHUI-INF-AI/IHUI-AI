@@ -647,15 +647,19 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/sync-existing - 批量同步购买记录到结算表
   server.post('/settlement/sync-existing', async (_request, reply) => {
+    // P1 修复:加 limit 1000 防止全表 active 购买记录加载到内存(原查询无 limit)
     const activeBuys = await dbRead
       .select({ id: zhsAgentBuy.id, agentId: zhsAgentBuy.agentId, price: zhsAgentBuy.price })
       .from(zhsAgentBuy)
       .where(eq(zhsAgentBuy.status, 'active'))
+      .limit(1000)
 
+    // P1 修复:加 limit 1000 防止全表结算记录加载到内存(原查询无 limit)
     const existing = await dbRead
       .select({ buyRecordId: agentSettlements.buyRecordId })
       .from(agentSettlements)
       .where(sql`${agentSettlements.buyRecordId} IS NOT NULL`)
+      .limit(1000)
 
     const existingIds = new Set(existing.map((s) => s.buyRecordId))
     const missing = activeBuys.filter((b) => !existingIds.has(b.id))
@@ -2031,6 +2035,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/agents/heat/generate', { preHandler: requireAdmin }, async (_request, reply) => {
     const weights = { like: 1, share: 3, collect: 2, usage: 1 }
 
+    // P1 修复:加 limit 500 防止全表 published agents 加载到内存(原查询无 limit)
     const agentRows = await dbRead
       .select({
         agentId: agents.agentId,
@@ -2041,6 +2046,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .from(agents)
       .where(eq(agents.status, 'published'))
+      .limit(500)
 
     const heatScores = agentRows.map((a) => ({
       agentId: a.agentId,
