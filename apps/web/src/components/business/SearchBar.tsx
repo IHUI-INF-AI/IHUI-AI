@@ -1,9 +1,25 @@
 'use client'
 
+// 2026-07-28 升级:三段式搜索面板(历史/热门/联想),对齐 VS Code / Cursor 搜索面板 UX。
+// 三段由 ./search-suggestions 子组件渲染,本文件聚焦:
+//   1) input 聚焦态 + 外部点击关闭
+//   2) value 过滤(联想段)
+//   3) 提交(Enter + form submit,绕过中文 IME composition)
+//   4) 三段按"有内容"决定是否显示,避免空容器
+// 保留全部 props 不变(对 TagsView 契约零破坏)。
+
 import * as React from 'react'
-import { Search, X, Clock } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { useSearchHistory } from '@/hooks/use-search-history'
+import { useSearchPopular } from '@/hooks/use-search-popular'
+import {
+  HistorySection,
+  PopularSection,
+  SuggestionsSection,
+  SectionDivider,
+} from './search-suggestions'
 
 interface SearchBarProps {
   placeholder?: string
@@ -21,7 +37,7 @@ export function SearchBar({
   placeholder,
   onSearch,
   suggestions = [],
-  history = [],
+  history: historyProp,
   onHistoryClick,
   onClearHistory,
   className,
@@ -34,16 +50,18 @@ export function SearchBar({
   const inputRef = React.useRef<HTMLInputElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
 
+  // 2026-07-28 注:历史记录支持两种模式 ——
+  //   1) 外层传 `history` prop(TagsView 场景):以 prop 为准,外层负责持久化
+  //   2) 未传 prop:用 hook 内部状态,hook 自管 localStorage(独立消费场景)
+  // 两种模式互斥,避免重复写 localStorage 引发竞态。
+  const isStandalone = historyProp === undefined
+  const hookHistory = useSearchHistory()
+  const history = isStandalone ? hookHistory.history : historyProp
+
   // 2026-07-28 修复(用户反馈"输入内容后没下拉 + Enter 没反应"):
   // 原 useClickOutside hook 在 SearchBar 挂载时立即注册 document mousedown 监听器,
-  // 与 focusOnMount=true 的 inputRef.current?.focus() 时序冲突:
-  // - mount 后 useEffect 注册 mousedown 监听器
-  // - 同 effect 内 inputRef.current?.focus() 同步触发原生 focus
-  // - React commit 后派发合成 onFocus → setFocused(true)
-  // - 但如果 mousedown 在 focus() 派发前同步触发(或 React 19 dev 模式 batching 变化),
-  //   会立即 setFocused(false) 覆盖,导致下拉永远不显示
-  // 修复:用 focused 状态作为 enabled gate,只有 input 已聚焦后才监听外部 mousedown,
-  //      从根本上消除与 focusOnMount 的时序竞争。
+  // 与 focusOnMount=true 的 inputRef.current?.focus() 时序冲突。
+  // 修复:用 focused 状态作为 enabled gate,只有 input 已聚焦后才监听外部 mousedown。
   React.useEffect(() => {
     if (!focused) return
     const handler = (event: MouseEvent | TouchEvent) => {
@@ -61,9 +79,6 @@ export function SearchBar({
   }, [focused])
 
   // focusOnMount:用 ref + effect + setTimeout(0) 主动聚焦
-  // setTimeout 推到下一帧,确保 React commit 完成后 input 节点完全可用,
-  // 然后同步触发原生 focus 事件让 React 派发 onFocus 合成事件。
-  // 不使用 jsx-a11y/no-autofocus 警告的方式(在 input 上写 autoFocus)。
   React.useEffect(() => {
     if (!focusOnMount) return
     const id = window.setTimeout(() => {
@@ -73,16 +88,15 @@ export function SearchBar({
   }, [focusOnMount])
 
   // 2026-07-28 修复(用户反馈"输入内容后没下拉 + Enter 没反应"):
-  // 之前依赖 form onSubmit 触发搜索,但 input type=search + form 在中文 IME composition
-  // 状态下按 Enter 是"确认中文选词",不会触发 form submit,导致 Enter 提交失效。
-  // 改用 input onKeyDown 显式拦截 Enter,绕过 IME 与 form 提交流程。
+  // input type=search + form 在中文 IME composition 状态下按 Enter 是"确认中文选词",
+  // 不会触发 form submit。改用 input onKeyDown 显式拦截 Enter,绕过 IME 流程。
   const handleEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
-    // 跳过 IME composition 中的 Enter(原生 keydown 的 isComposing 判断)
     if (e.nativeEvent.isComposing || e.keyCode === 229) return
     e.preventDefault()
     const trimmed = value.trim()
     if (!trimmed) return
+    if (isStandalone) hookHistory.addHistory(trimmed)
     onSearch?.(trimmed)
     setFocused(false)
   }
@@ -90,17 +104,14 @@ export function SearchBar({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = value.trim()
-    if (trimmed) {
-      onSearch?.(trimmed)
-      setFocused(false)
-    }
+    if (!trimmed) return
+    if (isStandalone) hookHistory.addHistory(trimmed)
+    onSearch?.(trimmed)
+    setFocused(false)
   }
 
   // 2026-07-28 修复(用户反馈"没有历史搜索记录时还显示一个空容器"):
-  // 原 showDropdown 仅看 suggestions.length > 0 / history.length > 0,导致:
-  // - 焦点进入但无输入且无历史时:外层容器渲染但内部两块条件都不满足 → 空容器
-  // - 输入字符后所有 suggestions 都被过滤掉时:外层容器渲染但 suggestions 块为空 → 空容器
-  // 修复:把"是否有可显示内容"作为唯一条件,过滤结果提前到 useMemo 复用,避免渲染时重复 filter。
+  // 把"是否有可显示内容"作为唯一条件,过滤结果提前到 useMemo 复用。
   const filteredSuggestions = React.useMemo(
     () =>
       value
@@ -110,14 +121,44 @@ export function SearchBar({
         : [],
     [value, suggestions],
   )
-  const showDropdown =
-    focused && (filteredSuggestions.length > 0 || (!value && history.length > 0))
+
+  // 2026-07-28 升级:三段式面板的"是否有内容"汇总 ——
+  //   联想段(value):有匹配建议
+  //   静默段(!value):有历史 或 有热门
+  const popular = useSearchPopular()
+  const hasSilentSection = !value && (history.length > 0 || popular.length > 0)
+  const hasQuerySection = value && filteredSuggestions.length > 0
+  const showDropdown = focused && (hasSilentSection || hasQuerySection)
+
+  // 2026-07-28 注:点击历史项触发外层 onHistoryClick(由外层写持久化);
+  // standalone 模式下额外写 hook 内部状态。
+  const handleHistoryItemClick = (item: string) => {
+    if (isStandalone) {
+      hookHistory.addHistory(item)
+    } else {
+      onHistoryClick?.(item)
+    }
+    setValue(item)
+    setFocused(false)
+  }
+
+  // 2026-07-28 注:联想段点击 — 直接填值 + 触发搜索(对齐原行为)。
+  const handleSuggestionItemClick = (item: string) => {
+    setValue(item)
+    if (isStandalone) hookHistory.addHistory(item)
+    onSearch?.(item)
+    setFocused(false)
+  }
+
+  // 2026-07-28 注:热门段点击 — 填值 + 触发搜索(参考 VS Code 行为)。
+  const handlePopularItemClick = (item: string) => {
+    setValue(item)
+    if (isStandalone) hookHistory.addHistory(item)
+    onSearch?.(item)
+    setFocused(false)
+  }
 
   return (
-    // 2026-07-28 简化:合并原两层 div(relative 外层 + relative 内层)为一层,input 直接占满父容器。
-    // 原双层结构是为了承载 Search icon 绝对定位和 dropdown 浮层,但实际只需一层 relative
-    // 即可同时承载 icon + dropdown(input 自身无圆角边框,完全靠父容器 bg-popover + border 提供外观)。
-    // click-outside 仍由 containerRef 提供,fade-in 动画由父级(弹层容器)提供。
     <div ref={containerRef} className={cn('relative w-full', className)}>
       <form onSubmit={handleSubmit}>
         <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -143,52 +184,18 @@ export function SearchBar({
       </form>
       {showDropdown && (
         <div className="absolute z-popover mt-1 w-full overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
-          {!value && history.length > 0 && (
-            <div className="mb-1">
-              <div className="flex items-center justify-between px-2 py-1">
-                <span className="text-xs text-muted-foreground">{t('searchHistory')}</span>
-                {onClearHistory && (
-                  <button
-                    onClick={onClearHistory}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    {t('clear')}
-                  </button>
-                )}
-              </div>
-              {history.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => {
-                    onHistoryClick?.(item)
-                    setValue(item)
-                    setFocused(false)
-                  }}
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-                >
-                  <Clock className="h-3 w-3 text-muted-foreground" />
-                  {item}
-                </button>
-              ))}
-            </div>
-          )}
-          {value && filteredSuggestions.length > 0 && (
-            <div>
-              {filteredSuggestions.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => {
-                      setValue(s)
-                      onSearch?.(s)
-                      setFocused(false)
-                    }}
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-                  >
-                    <Search className="h-3 w-3 text-muted-foreground" />
-                    {s}
-                  </button>
-                ))}
-            </div>
+          {!value ? (
+            <>
+              <HistorySection
+                items={history}
+                onItemClick={handleHistoryItemClick}
+                {...(onClearHistory ? { onClear: onClearHistory } : {})}
+              />
+              {history.length > 0 && popular.length > 0 ? <SectionDivider /> : null}
+              <PopularSection items={popular} onItemClick={handlePopularItemClick} />
+            </>
+          ) : (
+            <SuggestionsSection items={filteredSuggestions} onItemClick={handleSuggestionItemClick} />
           )}
         </div>
       )}
