@@ -3,9 +3,8 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -35,7 +34,6 @@ function statusColor(status: CouponStatus): string {
 
 export function PromotionScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [items, setItems] = useState<Coupon[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,20 +42,12 @@ export function PromotionScreen() {
 
   const load = useCallback(async () => {
     setError('')
-    try {
-      const resp = await fetch(`${API_BASE_URL}/api/coupons`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) throw new Error('http')
-      const data = (await resp.json()) as { data?: Coupon[] }
-      setItems(data.data ?? [])
-    } catch {
-      setError(t('promotion.loadFailed'))
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [token, t])
+    const res = await fetchApi<Coupon[]>('/api/coupons')
+    if (res.success) setItems(res.data ?? [])
+    else setError(t('promotion.loadFailed'))
+    setLoading(false)
+    setRefreshing(false)
+  }, [t])
 
   useEffect(() => {
     void load()

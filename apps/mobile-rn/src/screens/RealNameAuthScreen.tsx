@@ -3,9 +3,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -26,7 +25,6 @@ const REAL_NAME_STATUS_KEYS: Record<AuthStatus['status'], string> = {
 
 export function RealNameAuthScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [name, setName] = useState('')
@@ -38,24 +36,16 @@ export function RealNameAuthScreen() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/real-name`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: AuthStatus }
-        if (cancelled) return
-        setStatus(data.data ?? { status: 'unverified' })
-      } catch {
-        if (!cancelled) setError(t('realNameAuth.loadFailed'))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+      const res = await fetchApi<AuthStatus>('/api/user/real-name')
+      if (cancelled) return
+      if (res.success) setStatus(res.data ?? { status: 'unverified' })
+      else setError(t('realNameAuth.loadFailed'))
+      setLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const handleSubmit = async () => {
     if (!name || !idNumber) {
@@ -64,22 +54,13 @@ export function RealNameAuthScreen() {
     }
     setSubmitting(true)
     setError('')
-    try {
-      const resp = await fetch(`${API_BASE_URL}/api/user/real-name`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ name, idNumber }),
-      })
-      if (!resp.ok) throw new Error('http')
-      setStatus({ status: 'pending', name, idNumber })
-    } catch {
-      setError(t('realNameAuth.failed'))
-    } finally {
-      setSubmitting(false)
-    }
+    const res = await fetchApi<void>('/api/user/real-name', {
+      method: 'POST',
+      body: JSON.stringify({ name, idNumber }),
+    })
+    if (res.success) setStatus({ status: 'pending', name, idNumber })
+    else setError(t('realNameAuth.failed'))
+    setSubmitting(false)
   }
 
   if (loading) {

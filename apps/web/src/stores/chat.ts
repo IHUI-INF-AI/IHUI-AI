@@ -92,6 +92,11 @@ interface ChatState {
    * 存 pluginId,sendMessage 时合并到 agentTools 传给后端。
    * 不持久化(每次新会话默认空)。 */
   selectedTools: string[]
+  /** 当前 SSE 流正在生成的 AI 消息 ID(2026-07-28 立,Phase 19.1)
+   * - streamChat 开始时设置,流结束(成功/失败/stop)时清除
+   * - 供 useAgentProgress 派生 planStep.relatedMessageId 兜底关联
+   * - 也供 ai-side-panel 跟踪当前活跃 assistant 消息(避免重复添加) */
+  lastStreamMessageId: string | null
   /** 最近一条会话的 messages 快照(2026-07-25 立,#12 store messages 持久化)。
    * 不在 set 中主动更新,每次 partialize 调用时从 messages + conversationId 派生。
    * 持久化目的:刷新页面后 messages 数组清空,从 recentMessages 预填充避免空状态闪烁。
@@ -114,6 +119,8 @@ interface ChatState {
   setStreaming: (v: boolean) => void
   setError: (e: string | null) => void
   setConversationId: (id: string | null) => void
+  /** 设置当前 SSE 流正在生成的 AI 消息 ID(Phase 19.1,Plan↔Message 双向跳转用) */
+  setLastStreamMessage: (id: string | null) => void
   /** MessageInput 消费 draftInput 后调用,置 null 避免重复填充 */
   clearDraftInput: () => void
   /** 设置当前挂起的 AI 提问(收到 SSE question 事件时调用) */
@@ -187,6 +194,7 @@ export const useChatStore = create<ChatState>()(
       pendingQuestion: null,
       subAgentActivities: [],
       selectedTools: [],
+      lastStreamMessageId: null,
       recentMessages: null,
 
       setModel: (model) => set({ currentModel: model }),
@@ -258,6 +266,8 @@ export const useChatStore = create<ChatState>()(
       setError: (e) => set({ error: e }),
 
       setConversationId: (id) => set({ conversationId: id }),
+
+      setLastStreamMessage: (id) => set({ lastStreamMessageId: id }),
 
       clearDraftInput: () => set({ draftInput: null }),
 

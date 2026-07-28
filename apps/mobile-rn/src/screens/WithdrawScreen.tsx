@@ -3,16 +3,14 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function WithdrawScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [amount, setAmount] = useState('')
   const [bankCardId, setBankCardId] = useState('')
@@ -33,24 +31,18 @@ export function WithdrawScreen() {
     setLoading(true)
     setError('')
     setSuccess('')
-    try {
-      const resp = await fetch(`${API_BASE_URL}/api/wallet/withdraw`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ amount: num, bankCardId: bankCardId || undefined }),
-      })
-      if (!resp.ok) throw new Error('http')
+    const res = await fetchApi<void>('/api/wallet/withdraw', {
+      method: 'POST',
+      body: JSON.stringify({ amount: num, bankCardId: bankCardId || undefined }),
+    })
+    if (res.success) {
       setSuccess(t('withdraw.success'))
       setAmount('')
       setBankCardId('')
-    } catch {
+    } else {
       setError(t('withdraw.failed'))
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   return (

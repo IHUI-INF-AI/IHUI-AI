@@ -2,10 +2,9 @@ import { useCallback, useState } from 'react'
 import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
 import { usePaginatedList } from '../hooks/use-paginated-list'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -30,21 +29,18 @@ const PAGE_SIZE = 20
 
 export function PointsMallScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [balance, setBalance] = useState(0)
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
 
   const fetcher = useCallback(async () => {
-    const resp = await fetch(`${API_BASE_URL}/api/points-mall?page=1&pageSize=${PAGE_SIZE}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) return { success: false as const, error: t('pointsMall.loadFailed') }
-    const data = (await resp.json()) as { data?: ProductPage }
-    const list = data.data?.list ?? []
-    if (typeof data.data?.balance === 'number') setBalance(data.data.balance)
-    return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
-  }, [token, t])
+    const res = await fetchApi<ProductPage>(`/api/points-mall?page=1&pageSize=${PAGE_SIZE}`)
+    if (!res.success) return { success: false as const, error: t('pointsMall.loadFailed') }
+    const page = res.data
+    const list = page?.list ?? []
+    if (typeof page?.balance === 'number') setBalance(page.balance)
+    return { success: true as const, data: { list, total: page?.total ?? list.length } }
+  }, [t])
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<Product>(fetcher, PAGE_SIZE)
 
@@ -54,12 +50,9 @@ export function PointsMallScreen() {
       return
     }
     setRedeemingId(item.id)
-    const resp = await fetch(`${API_BASE_URL}/api/points-mall/${item.id}/redeem`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
+    const res = await fetchApi<void>(`/api/points-mall/${item.id}/redeem`, { method: 'POST' })
     setRedeemingId(null)
-    if (resp.ok) {
+    if (res.success) {
       Alert.alert(t('pointsMall.redeemSuccess'), `${item.name}`)
       refresh()
     } else {

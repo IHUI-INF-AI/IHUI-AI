@@ -4,9 +4,8 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { fetchApi } from '@ihui/api-client'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -26,7 +25,6 @@ interface VerifyResult {
 
 export function IdentityVerifyScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [status, setStatus] = useState<VerifyStatus>('unverified')
   const [reason, setReason] = useState('')
@@ -38,14 +36,12 @@ export function IdentityVerifyScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/identity-verify`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
+        const res = await fetchApi('/user/identity-verify')
+        if (!res.success) throw new Error()
         const data = (await resp.json()) as { data?: VerifyResult }
         if (cancelled) return
-        setStatus(data.data?.status ?? 'unverified')
-        setReason(data.data?.reason ?? '')
+        setStatus(res.data?.status ?? 'unverified')
+        setReason(res.data?.reason ?? '')
       } catch {
         if (!cancelled) setError(t('identityVerify.loadFailed'))
       } finally {
@@ -55,7 +51,7 @@ export function IdentityVerifyScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -69,7 +65,7 @@ export function IdentityVerifyScreen() {
         },
         body: JSON.stringify({}),
       })
-      if (!resp.ok) throw new Error('http')
+      if (!res.success) throw new Error()
       setStatus('pending')
     } catch {
       setError(t('identityVerify.failed'))

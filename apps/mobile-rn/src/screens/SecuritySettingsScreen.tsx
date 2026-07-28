@@ -3,9 +3,8 @@ import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -19,7 +18,6 @@ interface SecuritySettings {
 
 export function SecuritySettingsScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [settings, setSettings] = useState<SecuritySettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -28,24 +26,16 @@ export function SecuritySettingsScreen() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/security`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: SecuritySettings }
-        if (cancelled) return
-        setSettings(data.data ?? null)
-      } catch {
-        if (!cancelled) setError(t('securitySettings.loadFailed'))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+      const res = await fetchApi<SecuritySettings>('/api/user/security')
+      if (cancelled) return
+      if (res.success) setSettings(res.data ?? null)
+      else setError(t('securitySettings.loadFailed'))
+      setLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const toggle = (key: keyof SecuritySettings, value: boolean) => {
     if (!settings) return

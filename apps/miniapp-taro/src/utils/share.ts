@@ -1,5 +1,7 @@
 import Taro from '@tarojs/taro'
 import { getStorageSync } from '@tarojs/taro'
+import { SHARE_PARAM } from '@ihui/shared/constants'
+import { USER_INFO_LEGACY_KEY } from '@/constants/storage'
 
 export interface ShareInfo {
   title: string
@@ -17,20 +19,17 @@ export const shareConfig = {
   defaultTitle: '智汇AI',
   defaultImageUrl: '/static/share.png',
   fallbackPath: '/pages/index/index',
-  sourceParam: 'source',
-  sourceValue: 'share',
-  inviteCodeParam: 'inviteCode',
 }
 
 export function getInviteCode(): string {
-  const userData = getStorageSync('ihui_user_info') || {}
+  const userData = getStorageSync(USER_INFO_LEGACY_KEY) || {}
   return (userData as { inviteCode?: string }).inviteCode || ''
 }
 
 export function getSharePath(currentPath?: string): string {
   const path = currentPath || shareConfig.fallbackPath
   const inviteCode = getInviteCode()
-  const query = `${shareConfig.sourceParam}=${shareConfig.sourceValue}&${shareConfig.inviteCodeParam}=${inviteCode}`
+  const query = `${SHARE_PARAM.SOURCE_PARAM}=${SHARE_PARAM.SOURCE_VALUE}&${SHARE_PARAM.INVITE_CODE_PARAM}=${inviteCode}`
   return path.includes('?') ? `${path}&${query}` : `${path}?${query}`
 }
 
@@ -46,7 +45,7 @@ export function getTimelineShareInfo(title?: string, imageUrl?: string): Timelin
   const inviteCode = getInviteCode()
   return {
     title: title || shareConfig.defaultTitle,
-    query: `${shareConfig.sourceParam}=${shareConfig.sourceValue}&${shareConfig.inviteCodeParam}=${inviteCode}`,
+    query: `${SHARE_PARAM.SOURCE_PARAM}=${SHARE_PARAM.SOURCE_VALUE}&${SHARE_PARAM.INVITE_CODE_PARAM}=${inviteCode}`,
     imageUrl: imageUrl || shareConfig.defaultImageUrl,
   }
 }

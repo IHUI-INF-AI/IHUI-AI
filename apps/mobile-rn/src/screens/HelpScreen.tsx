@@ -4,8 +4,8 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { fetchApi } from '@ihui/api-client'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -28,9 +28,9 @@ export function HelpScreen() {
     setError('')
     try {
       const resp = await fetch(`${API_BASE_URL}/api/help/articles`)
-      if (!resp.ok) throw new Error('http')
+      if (!res.success) throw new Error()
       const data = (await resp.json()) as { data?: HelpItem[] }
-      setItems(data.data ?? [])
+      setItems(res.data ?? [])
     } catch {
       setError(t('help.loadFailed'))
     } finally {

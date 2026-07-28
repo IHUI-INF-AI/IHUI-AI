@@ -9,9 +9,8 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { NotificationItem } from '@ihui/types'
 
@@ -24,7 +23,6 @@ interface Detail extends NotificationItem {
 
 export function AnnouncementDetailScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const id = route.params.id
@@ -35,18 +33,15 @@ export function AnnouncementDetailScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/announcements/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Detail }
-      setItem(d.data ?? null)
+      const res = await fetchApi<Detail>(`/announcements/${id}`)
+      if (!res.success) throw new Error()
+      setItem(res.data ?? null)
     } catch {
       setError(t('announcementDetail.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [id, token, t])
+  }, [id, t])
 
   useEffect(() => {
     void load()

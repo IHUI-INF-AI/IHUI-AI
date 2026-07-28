@@ -1010,6 +1010,8 @@ export function useChat(): UseChatReturn {
       store.setStreaming(true)
       store.setError(null)
       store.resetSubAgentActivities()
+      // Phase 19.1: 记录当前 SSE 流正在生成的 AI 消息 ID(Plan↔Message 双向跳转用)
+      store.setLastStreamMessage(assistantId)
       // P4-2: 清除上一轮 fallback 通知,避免旧横幅残留到新对话轮次
       setFallbackNotice(null)
 
@@ -1229,6 +1231,14 @@ export function useChat(): UseChatReturn {
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
+        // Phase 19.1: SSE 流结束,清除 lastStreamMessageId
+        // 延迟 100ms 清除,确保后续 plan_updated 事件仍能拿到正确 messageId 做关联
+        setTimeout(() => {
+          const current = useChatStore.getState().lastStreamMessageId
+          if (current === assistantId) {
+            useChatStore.getState().setLastStreamMessage(null)
+          }
+        }, 100)
       }
       // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
       return true

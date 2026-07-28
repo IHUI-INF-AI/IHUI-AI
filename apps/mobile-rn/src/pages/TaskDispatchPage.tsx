@@ -8,7 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
-import { tokens } from '@ihui/rn-app'
+import { fetchApi } from '@ihui/api-client'
+import { tokens } from '@ihui/rnapp'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type {
@@ -24,7 +25,6 @@ import type {
 } from '@ihui/shared/tasks/dispatch'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
-import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
@@ -54,21 +54,11 @@ const TASK_STATUS_KEYS: Record<TaskStatus, string> = {
   cancelled: 'taskDispatch.status.cancelled',
 }
 
-/** 统一走 { code, message, data } 格式,返回 data 字段 */
-async function apiData<T>(path: string, init?: RequestInit): Promise<T | null> {
-  const token = getToken()
+/** fetchApi 包装:成功返回 data,失败返回 null(保持原 apiData 语义) */
+async function fetchOrNull<T>(path: string, init?: RequestInit): Promise<T | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(init?.headers || {}),
-      },
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    return (json?.data ?? json) as T
+    const res = await fetchApi<T>(path, init)
+    return res.success ? res.data : null
   } catch {
     return null
   }
@@ -139,7 +129,7 @@ export function TaskDispatchPage(_: Props) {
 
   const loadTasks = useCallback(async () => {
     setError('')
-    const data = await apiData<TaskDispatch[] | { list: TaskDispatch[] }>('/api/tasks')
+    const data = await fetchOrNull<TaskDispatch[] | { list: TaskDispatch[] }>('/api/tasks')
     if (!data) {
       setError(t('taskDispatch.loadTasksFailed'))
       return
@@ -155,7 +145,7 @@ export function TaskDispatchPage(_: Props) {
   }, [t])
 
   const loadDevices = useCallback(async () => {
-    const data = await apiData<TaskDeviceListResponse>('/api/tasks/devices')
+    const data = await fetchOrNull<TaskDeviceListResponse>('/api/tasks/devices')
     if (!data) {
       setError(t('taskDispatch.loadDevicesFailed'))
       return
@@ -197,7 +187,7 @@ export function TaskDispatchPage(_: Props) {
       if (since <= 0) return
       setReconnecting(true)
       void (async () => {
-        const data = await apiData<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
+        const data = await fetchOrNull<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
           `/api/tasks?since=${since}`,
         )
         setReconnecting(false)
@@ -343,7 +333,7 @@ export function TaskDispatchPage(_: Props) {
     if (pendingFilePayload) {
       body.filePayload = pendingFilePayload
     }
-    const data = await apiData<TaskDispatchResponse>('/api/tasks/dispatch', {
+    const data = await fetchOrNull<TaskDispatchResponse>('/api/tasks/dispatch', {
       method: 'POST',
       body: JSON.stringify(body),
     })
@@ -388,7 +378,7 @@ export function TaskDispatchPage(_: Props) {
     async (taskId: string) => {
       if (cancellingId) return
       setCancellingId(taskId)
-      const data = await apiData<{ task: TaskDispatch }>(`/api/tasks/${taskId}/cancel`, {
+      const data = await fetchOrNull<{ task: TaskDispatch }>(`/api/tasks/${taskId}/cancel`, {
         method: 'POST',
         body: JSON.stringify({}),
       })

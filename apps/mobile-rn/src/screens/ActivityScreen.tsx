@@ -4,10 +4,9 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { tokens } from '@ihui/rn-app'
-import type { ApiResponse } from '@ihui/types'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { formatShortDateWithYear } from '../utils/date-utils'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -47,10 +46,9 @@ export function ActivityScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/activities`)
-      if (!resp.ok) throw new Error('http')
-      const data = (await resp.json()) as ApiResponse<Activity[]>
-      setItems(data.data ?? [])
+      const res = await fetchApi<Activity[]>('/activities')
+      if (!res.success) throw new Error('http')
+      setItems(res.data ?? [])
     } catch {
       setError(t('activity.loadFailed'))
     } finally {

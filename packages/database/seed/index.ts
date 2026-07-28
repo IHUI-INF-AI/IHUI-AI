@@ -8,6 +8,7 @@ import { seedCrossDomain } from './seed-cross-domain.js'
 import { seedAiFeedSources } from './ai-feed-sources.js'
 import { seedLeaderboard } from './leaderboard-seed.js'
 import { seedAiPricing } from './ai-pricing-seed.js'
+import { seedAiCostRecords } from './ai-cost-records-seed.js'
 
 interface SeedStep {
   /** 步骤编号(1-based) */
@@ -90,6 +91,13 @@ const STEPS: SeedStep[] = [
     name: 'AI 模型定价',
     description: '176 条模型价格(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao 等厂商)',
     fn: seedAiPricing,
+  },
+  {
+    index: 11,
+    name: 'AI 成本治理数据',
+    description:
+      '3 用户 × 4 模型 × 7 天 × 5-15 次 aiCostRecords + 3 条 aiBudgets (P0-3d admin 看板 top-users/budget-alerts 端点真实数据)',
+    fn: seedAiCostRecords,
   },
 ]
 

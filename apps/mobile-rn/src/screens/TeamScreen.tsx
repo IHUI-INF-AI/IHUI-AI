@@ -10,9 +10,8 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -60,7 +59,6 @@ function initials(name: string): string {
 
 export function TeamScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [stats, setStats] = useState<TeamStats | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -75,27 +73,23 @@ export function TeamScreen() {
       else setLoading(true)
       setError('')
       const [statsRes, membersRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/team/stats`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }),
-        fetch(`${API_BASE_URL}/api/team/members?page=1&pageSize=20`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        fetchApi<TeamStats>('/api/team/stats'),
+        fetchApi<{ list: TeamMember[] }>('/api/team/members', {
+          params: { page: 1, pageSize: 20 },
         }),
       ])
-      if (!statsRes.ok || !membersRes.ok) {
+      if (!statsRes.success || !membersRes.success) {
         setError(t('team.loadFailed'))
         setLoading(false)
         setRefreshing(false)
         return
       }
-      const statsData = (await statsRes.json()) as { data?: TeamStats }
-      const membersData = (await membersRes.json()) as { data?: { list: TeamMember[] } }
-      setStats(statsData.data ?? null)
-      setMembers(membersData.data?.list ?? [])
+      setStats(statsRes.data ?? null)
+      setMembers(membersRes.data?.list ?? [])
       setLoading(false)
       setRefreshing(false)
     },
-    [token, t],
+    [t],
   )
 
   useEffect(() => {

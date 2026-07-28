@@ -3,11 +3,10 @@ import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, 
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface DistributionInfo {
@@ -30,7 +29,6 @@ interface DistributeProduct {
 
 export function DistributionScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<DistributionInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -43,9 +41,7 @@ export function DistributionScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const resp = await fetch(`${API_BASE_URL}/api/distribution/overview`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
+      const res = await fetchApi('/distribution/overview')
       if (!resp.ok) {
         setError(t('distribution.loadFailed'))
         setLoading(false)
@@ -53,7 +49,7 @@ export function DistributionScreen() {
         return
       }
       const data = (await resp.json()) as { data?: DistributionInfo }
-      setInfo(data.data ?? null)
+      setInfo(res.data ?? null)
       setLoading(false)
       setRefreshing(false)
     },

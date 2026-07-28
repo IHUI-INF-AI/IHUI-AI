@@ -3,17 +3,15 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, Touchabl
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 interface Item { id: string; name: string; size: number; type: string }
 
 export function CourseResourceScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,12 +21,11 @@ export function CourseResourceScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/course-resource`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Item[] }
-      setItems(d.data ?? [])
+      const res = await fetchApi('/course-resource')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
     } catch { setError(t('courseResource.loadFailed')) } finally { setLoading(false); setRefreshing(false) }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => { void load() }, [load])
 

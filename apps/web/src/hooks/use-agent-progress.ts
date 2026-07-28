@@ -4,6 +4,8 @@ import * as React from 'react'
 import type { SSEEvent } from '@ihui/types'
 import { useAgentStream } from './use-agent-stream'
 import type { InlineDiffInfo } from '@/components/ai/types'
+import { useChatStore } from '@/stores/chat'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 
 /**
  * use-agent-progress — Codex 风格 Agent 进度聚合 hook(2026-07-27 重构,Codex 对齐)
@@ -246,8 +248,12 @@ function deriveDiffInfoFromArgs(
 
 const CHANGE_TOOL_NAMES = new Set(['edit_file', 'write_file'])
 
-/** 从 SSE 事件提取 PlanStep(支持 plan_updated / node_start / node_end) */
+/** 从 SSE 事件提取 PlanStep(支持 plan_updated / node_start / node_end)
+ * Phase 19.1(2026-07-28):planStep.relatedMessageId 从 progress-jump-store.planStepToMessageId 兜底补回
+ * (use-chat.ts SSE 流结束时清 lastStreamMessageId,导致该 store 是唯一持久关联来源) */
 function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
+  // Phase 19.1: 从 progress-jump-store 读取 planStep→messageId 映射(兜底来源)
+  const linkMap = useProgressJumpStore.getState().planStepToMessageId
   // 优先:Codex 风格 plan_updated 事件(权威快照)
   const planSnapshots = events.filter((e) => (e.type as string) === 'plan_updated')
   if (planSnapshots.length > 0) {
@@ -273,6 +279,16 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
           step: item.step,
           status: item.status,
           explanation: data.explanation,
+        }
+        // Phase 19.1: 从 plan_updated.data.messageId 字段取(权威,优先)
+        // @ts-expect-error SSE data 动态字段(后端可能透传)
+        const evtMessageId = data.messageId as string | undefined
+        if (evtMessageId) {
+          step.relatedMessageId = evtMessageId
+        } else {
+          // 兜底:从 progress-jump-store 取(历史 SSE 流已建立过的关联)
+          const linkedId = linkMap[`plan-${idx}`]
+          if (linkedId) step.relatedMessageId = linkedId
         }
         // Codex:从 plan_updated 快照中提取时间戳(若上游提供)
         if (item.startedAt) step.startedAt = item.startedAt
@@ -542,6 +558,19 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
 
   // 聚合 planSteps(Codex 三状态 + explanation + 最多一个 in_progress 硬规则)
   const planSteps = React.useMemo<PlanStep[]>(() => extractPlanFromEvents(events), [events])
+
+  // Phase 19.1: planStepToMessageId 写入进度跳转 store(供 PlanStepItem 跳转 + MessageList 反向 hover)
+  // 策略:plan_updated 事件来时,如果该 planStep 还没关联 messageId,关联到 chat store.lastStreamMessageId
+  // 写入双向索引(planStepToMessageId + messageToPlanStepIds)以避免后续重新计算
+  React.useEffect(() => {
+    const linkStore = useProgressJumpStore.getState()
+    const lastStreamMessageId = useChatStore.getState().lastStreamMessageId
+    if (!lastStreamMessageId) return
+    for (const step of planSteps) {
+      if (step.relatedMessageId) continue
+      linkStore.linkPlanStepToMessage(step.id, lastStreamMessageId)
+    }
+  }, [planSteps])
 
   // 聚合 subagents(Codex 昵称 + @handle + dead agents 可见)
   const subagents = React.useMemo<Subagent[]>(() => extractSubagentsFromEvents(events), [events])

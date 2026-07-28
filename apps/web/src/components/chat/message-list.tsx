@@ -11,6 +11,8 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
+import type { SubAgentActivity } from '@/components/ai/types'
 import { cn } from '@/lib/utils'
 
 /** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
@@ -259,6 +261,10 @@ interface MessageListProps {
   fallbackNotice?: FallbackEvent | null
   /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
   onClearFallbackNotice?: () => void
+  /** Phase 18.2: 子 agent 活动(对话流 inline 模式,Trae Work 对齐) */
+  subAgentActivities?: SubAgentActivity[]
+  /** Phase 18.4: 上下文 step 预算(used / total),用于显示 X/60 step budget */
+  stepBudget?: { used: number; total: number }
 }
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
@@ -287,6 +293,8 @@ export function MessageList({
   onLoadMoreHistory,
   fallbackNotice,
   onClearFallbackNotice,
+  subAgentActivities,
+  stepBudget,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
@@ -548,17 +556,40 @@ export function MessageList({
         {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
         {renderItems.map((m, idx) => {
           const realIdx = enableVirtual ? visibleRange.start + idx : idx
+          const isLastMessage = realIdx === messages.length - 1
           return (
             <div key={m.id} ref={enableVirtual ? measureItem(m.id) : undefined}>
               {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
               <MessageItem
                 message={m}
-                isLast={realIdx === messages.length - 1}
+                isLast={isLastMessage}
                 isStreaming={isStreaming}
                 assistantLabel={assistantLabel}
                 onApplyDiff={onApplyDiff}
                 onRejectDiff={onRejectDiff}
               />
+              {/* Phase 18.2: 在最后一条消息下方 inline 渲染 subagent 活动(Trae Work 风格)
+                  仅当最后一条消息是 AI 消息且存在 subagent 活动时显示,确保 subagent 卡片跟随主 agent 消息。
+                  历史消息不展示:subAgentActivities 总是当前对话的最新状态,内联在最后一条 AI 消息下方才是有意义的。 */}
+              {isLastMessage &&
+                m.role === 'assistant' &&
+                subAgentActivities &&
+                subAgentActivities.length > 0 && (
+                  <div className="ml-11 mt-1 max-w-[calc(100%-3rem)]">
+                    <SubAgentActivityFeed
+                      swarmId=""
+                      activities={subAgentActivities}
+                      completed={subAgentActivities.every(
+                        (a) =>
+                          a.status === 'completed' ||
+                          a.status === 'failed' ||
+                          a.status === 'cancelled',
+                      )}
+                      inline
+                      stepBudget={stepBudget}
+                    />
+                  </div>
+                )}
             </div>
           )
         })}

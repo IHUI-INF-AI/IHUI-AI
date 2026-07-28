@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -13,7 +12,6 @@ interface Item { id: string; action: string; points: number; desc: string }
 
 export function PointRuleScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,13 +20,11 @@ export function PointRuleScreen() {
 
   const load = useCallback(async () => {
     setError('')
-    try {
-      const r = await fetch(`${API_BASE_URL}/api/point-rule`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Item[] }
-      setItems(d.data ?? [])
-    } catch { setError(t('pointRule.loadFailed')) } finally { setLoading(false); setRefreshing(false) }
-  }, [token, t])
+    const res = await fetchApi<Item[]>('/api/point-rule')
+    if (res.success) setItems(res.data ?? [])
+    else setError(t('pointRule.loadFailed'))
+    setLoading(false); setRefreshing(false)
+  }, [t])
 
   useEffect(() => { void load() }, [load])
 

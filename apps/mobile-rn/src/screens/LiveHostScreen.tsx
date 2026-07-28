@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
+import { getResources, type Resource } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDuration } from '@ihui/shared/utils'
 
@@ -25,11 +26,12 @@ interface Product {
   price: number
 }
 
-const MOCK_PRODUCTS: Product[] = [
-  { id: '1', name: 'AI 课程包', price: 199 },
-  { id: '2', name: '会员年卡', price: 365 },
-  { id: '3', name: '实体周边', price: 89 },
-]
+/** Resource → Product 映射(Resource 无 price 字段,显示 0) */
+const mapResource = (r: Resource): Product => ({
+  id: r.id,
+  name: r.title,
+  price: 0,
+})
 
 function formatBytes(n: number | null): string {
   if (!n || n <= 0) return '0 B'
@@ -54,6 +56,7 @@ export function LiveHostScreen() {
   const [viewers, setViewers] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [products, setProducts] = useState<Product[]>([])
 
   useEffect(() => {
     if (status !== 'active') return
@@ -63,6 +66,24 @@ export function LiveHostScreen() {
     }, 1000)
     return () => clearInterval(t)
   }, [status])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const result = await getResources({ page: 1, pageSize: 20 })
+        if (cancelled) return
+        if (result.success) {
+          setProducts(result.data.list.map(mapResource))
+        }
+      } catch {
+        // 静默失败,商品列表保持空(FlatList 显示"暂无商品")
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const callApi = useCallback(
     async (path: string, method: string, body?: unknown) => {
@@ -224,7 +245,7 @@ export function LiveHostScreen() {
           </TouchableOpacity>
         </View>
         <FlatList
-          data={MOCK_PRODUCTS}
+          data={products}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
           ListEmptyComponent={

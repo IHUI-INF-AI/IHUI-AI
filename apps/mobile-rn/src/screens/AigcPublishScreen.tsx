@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native'
 import { tokens } from '@ihui/rn-app'
+import { createAigcTask } from '@ihui/api-client'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -27,6 +27,7 @@ interface WorkTypeOption {
   desc: string
 }
 
+// 静态 UI 选项配置(非 mock 数据):作品类型枚举
 const TYPE_OPTIONS: WorkTypeOption[] = [
   { key: 'image', label: '图片', desc: 'AI 生成图片' },
   { key: 'video', label: '视频', desc: 'AI 生成视频' },
@@ -34,16 +35,10 @@ const TYPE_OPTIONS: WorkTypeOption[] = [
   { key: 'text', label: '文案', desc: 'AI 生成文本' },
 ]
 
-interface MockFile {
-  id: string
-  url: string
-  type: WorkType
-}
-
 export default function AigcPublishScreen() {
   const navigation = useNavigation<Nav>()
   const [workType, setWorkType] = useState<WorkType>('image')
-  const [files, setFiles] = useState<MockFile[]>([])
+  const [fileUrl, setFileUrl] = useState('')
   const [textContent, setTextContent] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -51,29 +46,14 @@ export default function AigcPublishScreen() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const addMockFile = () => {
-    if (files.length >= 5) {
-      setError('最多上传 5 个素材')
-      return
-    }
-    setError('')
-    const seed = `pub${Date.now()}`
-    setFiles((prev) => [
-      ...prev,
-      { id: seed, url: `https://picsum.photos/seed/${seed}/200/200`, type: workType },
-    ])
-  }
-
-  const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id))
-
   const validate = (): boolean => {
     if (workType === 'text') {
       if (!textContent.trim()) {
         setError('请输入文本内容')
         return false
       }
-    } else if (files.length === 0) {
-      setError('请至少上传一个素材')
+    } else if (!fileUrl.trim()) {
+      setError('请输入作品 URL')
       return false
     }
     if (!title.trim()) {
@@ -92,15 +72,28 @@ export default function AigcPublishScreen() {
     return true
   }
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (!validate()) return
     setSaving(true)
-    setTimeout(() => {
+    setError('')
+    try {
+      const res = await createAigcTask({
+        type: workType,
+        prompt,
+        params: { title, description, textContent, fileUrl },
+      })
+      if (res.success) {
+        Alert.alert('发布成功', '作品已提交,审核通过后将展示在灵感列表', [
+          { text: '好的', onPress: () => navigation.goBack() },
+        ])
+      } else {
+        setError(res.error || '提交失败')
+      }
+    } catch {
+      setError('提交失败')
+    } finally {
       setSaving(false)
-      Alert.alert('发布成功', '作品已提交,审核通过后将展示在灵感列表', [
-        { text: '好的', onPress: () => navigation.goBack() },
-      ])
-    }, 900)
+    }
   }
 
   const showTextInput = workType === 'text'
@@ -111,7 +104,7 @@ export default function AigcPublishScreen() {
         <Text style={styles.backText}>返回</Text>
       </TouchableOpacity>
       <Text style={styles.title}>发布作品</Text>
-      <Text style={styles.subtitle}>选择类型 → 上传素材 → 填写信息 → 发布</Text>
+      <Text style={styles.subtitle}>选择类型 → 填写信息 → 发布</Text>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -123,7 +116,7 @@ export default function AigcPublishScreen() {
             style={[styles.typeChip, workType === opt.key && styles.typeChipActive]}
             onPress={() => {
               setWorkType(opt.key)
-              setFiles([])
+              setFileUrl('')
             }}
           >
             <Text style={[styles.typeChipText, workType === opt.key && styles.typeChipTextActive]}>
@@ -152,23 +145,19 @@ export default function AigcPublishScreen() {
         </>
       ) : (
         <>
-          <Text style={styles.label}>上传素材 ({files.length}/5)</Text>
-          <View style={styles.fileGrid}>
-            {files.map((f) => (
-              <View key={f.id} style={styles.fileItem}>
-                <Image source={{ uri: f.url }} style={styles.fileImage} resizeMode="cover" />
-                <TouchableOpacity style={styles.fileRemove} onPress={() => removeFile(f.id)}>
-                  <Text style={styles.fileRemoveText}>×</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-            {files.length < 5 ? (
-              <TouchableOpacity style={styles.fileAdd} onPress={addMockFile} activeOpacity={0.7}>
-                <Text style={styles.fileAddIcon}>+</Text>
-                <Text style={styles.fileAddText}>添加</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
+          <Text style={styles.label}>作品 URL</Text>
+          <TextInput
+            style={[styles.input, styles.textarea]}
+            value={fileUrl}
+            onChangeText={setFileUrl}
+            placeholder="请粘贴已生成作品的 URL"
+            placeholderTextColor={tokens.text.tertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            multiline
+            textAlignVertical="top"
+          />
         </>
       )}
 
@@ -258,40 +247,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.light,
   },
   textarea: { minHeight: 88, maxHeight: 180, textAlignVertical: 'top' },
-  fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  fileItem: {
-    width: 76,
-    height: 76,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: tokens.border.light,
-  },
-  fileImage: { width: '100%', height: '100%' },
-  fileRemove: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    backgroundColor: tokens.error.text,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fileRemoveText: { color: tokens.surface.light, fontSize: 14, fontWeight: '700', lineHeight: 14 },
-  fileAdd: {
-    width: 76,
-    height: 76,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: tokens.surface.muted,
-  },
-  fileAddIcon: { fontSize: 24, color: tokens.text.tertiary, lineHeight: 26 },
-  fileAddText: { fontSize: 11, color: tokens.text.tertiary, marginTop: 2 },
   submitBtn: {
     marginTop: 24,
     paddingVertical: 14,

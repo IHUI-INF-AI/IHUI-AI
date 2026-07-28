@@ -37,6 +37,7 @@ import {
   computeTrendSignals,
   generateSnapshot,
 } from '../services/ai-feed-service.js'
+import { checkBudgetAlerts } from '../services/budget-alert-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -456,6 +457,29 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               /* 指标采集失败不影响业务 */
             }
             return { snapshot: snapRes, llm: llmRes, translate: transRes, trend: trendRes }
+          }
+          case 'budget-alert-check': {
+            // P0-3e 预算告警扫描: 聚合 user 维度 aiBudgets 的今日 token / 本月成本,
+            // 命中 80% warning / 100% critical 阈值时通过 notificationQueue 推站内信 + 邮件,
+            // 6h cooldown 防重复告警。任一 budget 失败被 service 内部 try/catch 隔离, 不影响整体。
+            const result = await checkBudgetAlerts(server)
+            server.log.info(
+              {
+                scanned: result.scanned,
+                warningCount: result.warningCount,
+                criticalCount: result.criticalCount,
+                errors: result.errors.length,
+              },
+              'budget alert check done',
+            )
+            // 单 budget 失败被 service 内部 try/catch 隔离, 整体任务视为 success;
+            // 真正的失败(主循环 / DB 连不上)由外层 catch 捕获并上报 failed。
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
           }
           default:
             server.log.warn({ jobName: name }, 'unknown scheduled job')

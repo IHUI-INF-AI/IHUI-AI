@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Input, Loading } from '@ihui/ui-native'
@@ -13,7 +12,6 @@ interface Account { name: string; email: string; phone: string }
 
 export function SettingsAccountScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [account, setAccount] = useState<Account | null>(null)
   const [loading, setLoading] = useState(true)
@@ -23,28 +21,24 @@ export function SettingsAccountScreen() {
 
   const load = useCallback(async () => {
     setError('')
-    try {
-      const r = await fetch(`${API_BASE_URL}/api/account`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Account }
-      setAccount(d.data ?? { name: '', email: '', phone: '' })
-    } catch { setError(t('settingsAccount.loadFailed')) } finally { setLoading(false) }
-  }, [token, t])
+    const res = await fetchApi<Account>('/api/account')
+    if (res.success) setAccount(res.data ?? { name: '', email: '', phone: '' })
+    else setError(t('settingsAccount.loadFailed'))
+    setLoading(false)
+  }, [t])
 
   useEffect(() => { void load() }, [load])
 
   const save = async () => {
     if (!account) return
     setSaving(true); setError(''); setToast('')
-    try {
-      const r = await fetch(`${API_BASE_URL}/api/account`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify(account),
-      })
-      if (!r.ok) throw new Error()
-      setToast(t('settingsAccount.saved'))
-    } catch { setError(t('settingsAccount.loadFailed')) } finally { setSaving(false) }
+    const res = await fetchApi<void>('/api/account', {
+      method: 'PUT',
+      body: JSON.stringify(account),
+    })
+    if (res.success) setToast(t('settingsAccount.saved'))
+    else setError(t('settingsAccount.loadFailed'))
+    setSaving(false)
   }
 
   if (loading || !account) {

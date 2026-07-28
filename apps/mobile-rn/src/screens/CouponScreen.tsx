@@ -11,12 +11,11 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
 import { usePaginatedList } from '../hooks/use-paginated-list'
-import { API_BASE_URL } from '../lib/config'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -51,7 +50,6 @@ function statusColor(status: CouponItem['status']): string {
 
 export function CouponScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [statusTab, setStatusTab] = useState<(typeof STATUS_TABS)[number]>('available')
 
@@ -61,14 +59,11 @@ export function CouponScreen() {
       pageSize: String(PAGE_SIZE),
       status: statusTab,
     })
-    const resp = await fetch(`${API_BASE_URL}/api/coupons?${params.toString()}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) return { success: false as const, error: t('coupon.loadFailed') }
-    const data = (await resp.json()) as { data?: CouponPage }
-    const list = data.data?.list ?? []
-    return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
-  }, [token, statusTab, t])
+    const res = await fetchApi<CouponPage>(`/coupons?${params.toString()}`)
+    if (!res.success) return { success: false as const, error: t('coupon.loadFailed') }
+    const list = res.data?.list ?? []
+    return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
+  }, [statusTab, t])
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<CouponItem>(
     fetcher,

@@ -10,9 +10,8 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -43,7 +42,6 @@ const TASK_CENTER_TAB_KEYS: Record<TabKey, string> = {
 
 export function TaskCenterScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [activeTab, setActiveTab] = useState<TabKey>('daily')
@@ -57,21 +55,13 @@ export function TaskCenterScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const resp = await fetch(`${API_BASE_URL}/api/tasks?type=${activeTab}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) {
-        setError(t('taskCenter.loadFailed'))
-        setLoading(false)
-        setRefreshing(false)
-        return
-      }
-      const data = (await resp.json()) as { data?: TaskItem[] }
-      setTasks(data.data ?? [])
+      const res = await fetchApi<TaskItem[]>('/api/tasks', { params: { type: activeTab } })
+      if (res.success) setTasks(res.data ?? [])
+      else setError(t('taskCenter.loadFailed'))
       setLoading(false)
       setRefreshing(false)
     },
-    [token, activeTab, t],
+    [activeTab, t],
   )
 
   useEffect(() => {
@@ -80,12 +70,9 @@ export function TaskCenterScreen() {
 
   const handleClaim = async (task: TaskItem) => {
     setClaimingId(task.id)
-    const resp = await fetch(`${API_BASE_URL}/api/tasks/${task.id}/claim`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
+    const res = await fetchApi<void>(`/api/tasks/${task.id}/claim`, { method: 'POST' })
     setClaimingId(null)
-    if (resp.ok) {
+    if (res.success) {
       Alert.alert(t('taskCenter.claimed'), `+${task.reward}`)
       void load(true)
     } else {

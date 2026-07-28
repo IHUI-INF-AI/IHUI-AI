@@ -10,9 +10,8 @@ import {
 import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
@@ -25,7 +24,6 @@ interface Stat {
 
 export function AgentStatScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [stat, setStat] = useState<Stat | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,18 +32,15 @@ export function AgentStatScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/agent-stat`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Stat }
-      setStat(d.data ?? null)
+      const res = await fetchApi<Stat>('/agent-stat')
+      if (!res.success) throw new Error()
+      setStat(res.data ?? null)
     } catch {
       setError(t('agentStat.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()

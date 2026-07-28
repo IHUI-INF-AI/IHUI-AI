@@ -5,8 +5,9 @@
 // 规避方案:绕开 zustand/react 的 create,直接用 zustand/vanilla 的 createStore
 // 创建 store 实例 + React 18 的 useSyncExternalStore 手动实现订阅 hook,
 // 保持与原 useUserStore API 完全兼容(支持 hook 调用 + getState/setState/subscribe)。
-import { useSyncExternalStore, useCallback } from 'react'
-import { createStore, type StoreApi } from 'zustand/vanilla'
+// 2026-07-28:useSyncExternalStore + Object.assign 模式已抽取到
+// `./helpers/create-taro-zustand-hook`,与 vip.ts/invite.ts 共用。
+import { createStore } from 'zustand/vanilla'
 import {
   getToken,
   setToken as persistToken,
@@ -20,6 +21,7 @@ import type { UserInfo } from '../utils/auth'
 import * as api from '../api'
 import { wechatLogin, type WechatLoginResult } from '../utils/wechat-login'
 import { miniAppLogin, type MiniAppLoginResult } from '../utils/miniapp-login'
+import { createTaroZustandHook } from './helpers/create-taro-zustand-hook'
 
 interface UserState {
   token: string
@@ -106,32 +108,4 @@ const userStoreApi = createStore<UserState>((set) => ({
 
 // 兼容原 useUserStore 的 API:既能作为 hook 调用(useUserStore((s) => s.user)),
 // 又能访问 .getState()/.setState()/.subscribe() 方法
-type UseUserStore = {
-  (): UserState
-  <U>(selector: (state: UserState) => U): U
-  getState: () => UserState
-  setState: StoreApi<UserState>['setState']
-  subscribe: StoreApi<UserState>['subscribe']
-}
-
-const identity = <T>(s: T): T => s
-
-// hook 实现:用 useSyncExternalStore 订阅 vanilla store
-function useUserStoreImpl<U>(
-  selector: (state: UserState) => U = identity as (state: UserState) => U,
-): U {
-  return useSyncExternalStore(
-    userStoreApi.subscribe,
-    useCallback(() => selector(userStoreApi.getState()), [selector]),
-    useCallback(() => selector(userStoreApi.getInitialState()), [selector]),
-  )
-}
-
-// 附加 api 方法到 hook 函数上(与 zustand create 返回的 UseBoundStore 接口一致)
-const useUserStore = Object.assign(useUserStoreImpl, {
-  getState: userStoreApi.getState,
-  setState: userStoreApi.setState,
-  subscribe: userStoreApi.subscribe,
-}) as UseUserStore
-
-export { useUserStore }
+export const useUserStore = createTaroZustandHook(userStoreApi)

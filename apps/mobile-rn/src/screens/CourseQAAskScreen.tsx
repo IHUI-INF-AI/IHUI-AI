@@ -3,15 +3,13 @@ import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { fetchApi } from '@ihui/api-client'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
 export function CourseQAAskScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [question, setQuestion] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -30,7 +28,7 @@ export function CourseQAAskScreen() {
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ question }),
       })
-      if (!r.ok) throw new Error()
+      if (!res.success) throw new Error()
       setSuccess(true)
       setQuestion('')
     } catch { setError(t('courseQAAsk.submitting')) } finally { setSubmitting(false) }

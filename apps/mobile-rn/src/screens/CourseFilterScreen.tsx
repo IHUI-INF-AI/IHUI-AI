@@ -11,11 +11,10 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
 import { usePaginatedList } from '../hooks/use-paginated-list'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -62,7 +61,6 @@ const COURSE_PRICE_KEYS: Record<(typeof PRICE_TABS)[number], string> = {
 
 export function CourseFilterScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [category, setCategory] = useState('all')
   const [level, setLevel] = useState('all')
@@ -76,14 +74,12 @@ export function CourseFilterScreen() {
       level,
       price: priceTab,
     })
-    const resp = await fetch(`${API_BASE_URL}/api/courses?${params.toString()}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
+    const res = await fetchApi(`/courses?${params.toString()}`)
     if (!resp.ok) return { success: false as const, error: t('courseFilter.loadFailed') }
     const data = (await resp.json()) as { data?: CoursePage }
-    const list = data.data?.list ?? []
-    return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
-  }, [token, category, level, priceTab, t])
+    const list = res.data?.list ?? []
+    return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
+  }, [category, level, priceTab, t])
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<CourseItem>(
     fetcher,

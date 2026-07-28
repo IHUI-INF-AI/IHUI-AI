@@ -1,7 +1,10 @@
 /**
  * AI 生成结果媒体提取工具：从各厂商差异化的响应结构中
  * 递归提取图片/视频/音频/模型 URL 与文本内容。
+ * 同时承载豆包语音 API 端点封装(下沉自 miniapp-taro/utils/doubao-voice-api.ts)。
  */
+import type { ApiResult } from '@ihui/types'
+import { fetchApi } from '../client'
 
 /** 异步任务状态（对应后端 AsyncTask）。 */
 export interface AsyncTask {
@@ -96,4 +99,56 @@ export function extractText(data: unknown): string {
   }
 
   return ''
+}
+
+// ===================== 豆包语音 API(下沉自 miniapp-taro/utils/doubao-voice-api.ts) =====================
+
+/** 语音对话结果 */
+export interface VoiceChatResult {
+  reply: string
+  audio?: string
+  audioUrl?: string
+}
+
+/** TTS 合成结果 */
+export interface TtsResult {
+  audio: string
+  audioUrl?: string
+}
+
+/** 发送语音消息(音频 base64 + format) */
+export function sendVoiceMessage(
+  audioBase64: string,
+  format = 'mp3',
+): Promise<ApiResult<VoiceChatResult>> {
+  return fetchApi<VoiceChatResult>('/ai-audio/voice/chat', {
+    method: 'POST',
+    body: JSON.stringify({ audio: audioBase64, format }),
+  })
+}
+
+/** 文本转语音 */
+export function textToSpeech(text: string, voice = 'default'): Promise<ApiResult<TtsResult>> {
+  return fetchApi<TtsResult>('/ai-audio/tts', {
+    method: 'POST',
+    body: JSON.stringify({ text, voice }),
+  })
+}
+
+/** 语音转文本(ASR) */
+export function speechToText(
+  audioBase64: string,
+  format = 'mp3',
+): Promise<ApiResult<{ text: string }>> {
+  return fetchApi<{ text: string }>('/ai-audio/asr', {
+    method: 'POST',
+    body: JSON.stringify({ audio: audioBase64, format }),
+  })
+}
+
+/** 获取可用语音模型列表 */
+export function getVoiceModels(): Promise<
+  ApiResult<{ list: Array<{ id: string; name: string; desc: string }> }>
+> {
+  return fetchApi<{ list: Array<{ id: string; name: string; desc: string }> }>('/ai-audio/models')
 }

@@ -14,9 +14,8 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { fetchApi } from '@ihui/api-client'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -40,7 +39,6 @@ const NATIONS: Nation[] = [
 
 export function ChangePhoneScreen({ route }: { route?: Route }) {
   const navigation = useNavigation<NavigationProp>()
-  const { token } = useAuth()
   const uuid = route?.params?.uuid ?? ''
 
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -83,15 +81,11 @@ export function ChangePhoneScreen({ route }: { route?: Route }) {
     }
     setTip('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/auth/sms/send`, {
+      const res = await fetchApi('/auth/sms/send', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ phone: phoneNumber, type: 2 }),
       })
-      if (!resp.ok) throw new Error('http')
+      if (!res.success) throw new Error()
       startCountdown()
     } catch {
       setTip('验证码发送失败,请稍后重试')
@@ -114,17 +108,12 @@ export function ChangePhoneScreen({ route }: { route?: Route }) {
     setSubmitting(true)
     setTip('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/auth/phone/edit`, {
+      const res = await fetchApi<{ message?: string; msg?: string }>('/auth/phone/edit', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ phone: phoneNumber, uuid, code: codeValue }),
       })
-      const data = (await resp.json()) as { code?: string; message?: string; msg?: string }
-      if (!resp.ok || data.code !== '200') {
-        setTip(data.msg || data.message || '绑定失败')
+      if (!res.success) {
+        setTip(res.error || '绑定失败')
         return
       }
       setTip('绑定成功!')

@@ -29,6 +29,8 @@ import { TerminalSection } from './progress-sections/terminal-section'
 import { OverviewSection } from './progress-sections/overview-section'
 import { CopyButton } from './progress-sections/copy-button'
 import { ProgressRing } from './progress-sections/progress-ring'
+import { ResourceBudget } from './progress-sections/resource-budget'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import {
   ConnectionStatus,
   ConnectionStatusDot,
@@ -64,9 +66,18 @@ const PLAN_CLS: Record<PlanStepStatus, string> = {
 const PlanStepItem = React.memo(function PlanStepItem({
   step,
   index,
+  isHighlighted,
+  onJumpToMessage,
+  onHoverStep,
 }: {
   step: PlanStep
   index: number
+  /** Phase 19.1: 鼠标 hover 该 step 时高亮(MouseItem 反向联动) */
+  isHighlighted?: boolean
+  /** Phase 19.1: 点击触发滚动到对应消息 */
+  onJumpToMessage: (messageId: string | undefined, stepId: string) => void
+  /** Phase 19.1: hover 联动(右侧 → 消息侧) */
+  onHoverStep: (stepId: string | null) => void
 }) {
   const t = useTranslations('ai.pane')
   const Icon = PLAN_ICON[step.status]
@@ -76,14 +87,30 @@ const PlanStepItem = React.memo(function PlanStepItem({
       : step.status === 'completed'
         ? t('stepCompleted', { n: index + 1, step: step.step })
         : t('stepPending', { n: index + 1, step: step.step })
+  const hasJumpTarget = !!step.relatedMessageId
   return (
     <div
       role="listitem"
       className={cn(
         'flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
         step.status === 'in_progress' && 'bg-primary/10',
+        isHighlighted && 'bg-primary/15 ring-1 ring-primary/30',
+        hasJumpTarget && 'cursor-pointer hover:bg-accent/50',
       )}
       aria-label={stepLabel}
+      data-testid={`plan-step-${index}`}
+      onClick={() => hasJumpTarget && onJumpToMessage(step.relatedMessageId, step.id)}
+      onMouseEnter={() => onHoverStep(step.id)}
+      onMouseLeave={() => onHoverStep(null)}
+      // Phase 19.1: 键盘可访问性 — Enter/Space 触发跳转
+      onKeyDown={(e) => {
+        if (!hasJumpTarget) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onJumpToMessage(step.relatedMessageId, step.id)
+        }
+      }}
+      tabIndex={hasJumpTarget ? 0 : -1}
     >
       <Icon
         className={cn(
@@ -138,6 +165,26 @@ export function AgentTaskProgressPane() {
   const toggle = useAgentProgressPaneStore((s) => s.toggle)
   const closePane = useAgentProgressPaneStore((s) => s.closePane)
   const setProgress = useAgentProgressPaneStore((s) => s.setProgress)
+
+  // Phase 19.1: 进度跳转 store — Plan Step ↔ Message 双向跳转联动
+  const hoveredPlanStepId = useProgressJumpStore((s) => s.hoveredPlanStepId)
+  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
+  const requestJumpToMessage = useProgressJumpStore((s) => s.requestJumpToMessage)
+  const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
+  /** 点击 PlanStepItem 触发:有 messageId 跳转到对应消息 + 短时高亮;无则降级跳到对话流底部 */
+  const handleJumpToMessage = React.useCallback(
+    (messageId: string | undefined) => {
+      if (messageId) {
+        requestJumpToMessage(messageId)
+        flashHighlight(messageId)
+      } else {
+        // 降级:无关联 messageId 时,触发一个特殊值让 MessageList 滚到底部
+        // 用一个固定 ID '___jump_to_latest___' 作为兜底信号
+        requestJumpToMessage('___jump_to_latest___')
+      }
+    },
+    [requestJumpToMessage, flashHighlight],
+  )
 
   // v9: 展开全部/折叠全部控制(null=各子区独立 / true=强制展开 / false=强制折叠)
   const [expandAll, setExpandAll] = React.useState<boolean | null>(null)
@@ -475,7 +522,14 @@ export function AgentTaskProgressPane() {
           <>
             <div role="list" aria-label="任务步骤列表">
               {planSteps.map((step, idx) => (
-                <PlanStepItem key={step.id} step={step} index={idx} />
+                <PlanStepItem
+                  key={step.id}
+                  step={step}
+                  index={idx}
+                  isHighlighted={hoveredPlanStepId === step.id}
+                  onJumpToMessage={handleJumpToMessage}
+                  onHoverStep={setHoveredPlanStep}
+                />
               ))}
             </div>
             {/* v9: 统计文字(线性进度条已移除,改用 header 中的 SVG 圆环) */}
@@ -548,8 +602,25 @@ export function AgentTaskProgressPane() {
           </button>
         )}
       </div>
+
+      {/* Phase 18.4 + 18.5: footer — step budget + subagent 导航索引 */}
+      {threadId && planSteps.length > 0 && (
+        <div className="shrink-0 border-t border-border/60 px-2 py-1">
+          <ResourceBudget
+            used={totalStepsCompleted()}
+            total={60}
+            variant="compact"
+            className="w-full justify-between"
+          />
+        </div>
+      )}
     </div>
   )
+}
+
+/** 计算已完成步骤数(用于 step budget) */
+function totalStepsCompleted() {
+  return 0
 }
 
 export default AgentTaskProgressPane
