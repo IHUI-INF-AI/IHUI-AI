@@ -43,6 +43,7 @@ export interface Resource {
   status?: number
   type?: string | null
   productId?: string | null
+  price?: string | number // 资源价格(NULL=免费,numeric 返回 string)
   cidList?: string[] | null
   createdAt: string
   updatedAt?: string

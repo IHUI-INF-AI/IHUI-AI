@@ -54,6 +54,7 @@ export const resources = pgTable(
     sort: integer('sort').default(0).notNull(),
     status: integer('status').default(1).notNull(),
     type: varchar('type', { length: 50 }),
+    price: numeric('price', { precision: 10, scale: 2 }), // 资源价格(NULL=免费)
     productId: uuid('product_id'),
     tagIdList: jsonb('tag_id_list').$type<string[]>(),
     image: varchar('image', { length: 500 }),

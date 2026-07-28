@@ -72,11 +72,11 @@ export default function AdminSchedulePage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Clock className="h-6 w-6 text-primary" />
+          <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight">
+            <Clock className="h-5 w-5 text-primary" />
             定时任务
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">可视化编排 Cron 调度</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">可视化编排 Cron 调度</p>
         </div>
         <Button size="sm" onClick={startNew}>
           <Plus className="h-4 w-4" />
