@@ -504,23 +504,23 @@ export function AISidePanel() {
       if (!target) return
       e.preventDefault()
       const labelMap: Record<ChatMode, string> = {
-        build: '构建',
-        plan: '计划',
-        review: '审查',
-        spec: '规格',
+        build: t('modeBuild'),
+        plan: t('modePlan'),
+        review: t('modeReview'),
+        spec: t('modeSpec'),
       }
       const label = labelMap[target]
       const modeStore = useModeStore.getState()
       if (modeStore.currentMode === target) {
-        toast.info(`当前已是${label}模式`)
+        toast.info(t('modeAlreadyActive', { mode: label }))
         return
       }
       modeStore.setMode(target)
-      toast.success(`已切换到${label}模式`)
+      toast.success(t('modeSwitched', { mode: label }))
     }
     window.addEventListener('keydown', onModeShortcut)
     return () => window.removeEventListener('keydown', onModeShortcut)
-  }, [open])
+  }, [open, t])
 
   // 拖拽调整宽度
   // 关闭态下拖拽手柄:先 openPanel 再开始 resize,实现"拖拽即打开"

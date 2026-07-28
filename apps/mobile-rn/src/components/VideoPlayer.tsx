@@ -23,6 +23,7 @@ import Video, { type VideoRef, type OnProgressData, type OnLoadData } from 'reac
 import { useI18n } from '../i18n'
 
 import { Loading } from '@ihui/ui-native'
+import { formatMediaTime } from '@ihui/shared/utils'
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2] as const
 
 export interface VideoPlayerProps {
@@ -41,15 +42,6 @@ export interface VideoPlayerProps {
   /** 用于测试:注入 Video 实现,默认从 react-native-video 导入 */
   VideoComponent?: typeof Video
 }
-
-function formatTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
-  const total = Math.floor(seconds)
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
 export function VideoPlayer({
   url,
   title,
@@ -232,7 +224,7 @@ export function VideoPlayer({
             <Text className="text-xs text-white">{rate}x</Text>
           </Pressable>
           <Text className="text-[10px] text-white/80">
-            {formatTime(currentTime)} / {formatTime(duration)}
+            {formatMediaTime(currentTime)} / {formatMediaTime(duration)}
           </Text>
         </View>
         <Pressable

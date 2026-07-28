@@ -31,6 +31,22 @@ export const ThinkingSection = React.memo(function ThinkingSection({
   const hasContent = content.length > 0 || currentNode !== null
   if (!hasContent) return null
 
+  // v12: 渐显新内容 — 记忆上次内容长度,新追加部分包 span + animation,完成后回归正常色
+  const [prevLen, setPrevLen] = React.useState(content.length)
+  const [fadeKey, setFadeKey] = React.useState(0)
+  React.useEffect(() => {
+    if (content.length > prevLen) {
+      setFadeKey((k) => k + 1)
+      const t = window.setTimeout(() => setPrevLen(content.length), 600)
+      return () => window.clearTimeout(t)
+    }
+    if (content.length < prevLen) {
+      setPrevLen(content.length)
+    }
+    return undefined
+  }, [content, prevLen])
+  const appendedSlice = content.slice(prevLen)
+
   return (
     <FoldableSection title="思考过程" icon={Brain} data-testid="thinking-section">
       <div
@@ -48,7 +64,18 @@ export const ThinkingSection = React.memo(function ThinkingSection({
         )}
         {content && (
           <div className="max-h-20 overflow-y-auto whitespace-pre-wrap break-all text-muted-foreground/70">
-            {content}
+            {content.slice(0, prevLen)}
+            {appendedSlice && (
+              <span
+                key={fadeKey}
+                className="animate-fade-in-highlight text-foreground"
+                style={{
+                  animation: 'fadeInHighlight 600ms ease-out forwards',
+                }}
+              >
+                {appendedSlice}
+              </span>
+            )}
             {isStreaming && (
               <span
                 className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/60 align-middle"

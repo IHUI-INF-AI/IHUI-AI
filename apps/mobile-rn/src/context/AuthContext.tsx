@@ -1,18 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { loginByAccount, logout as apiLogout, type AuthUser } from '@ihui/api-client'
-import {
-  initApi,
-  setToken,
-  setRefreshToken,
-  getToken,
-  getRefreshToken,
-  clearToken,
-} from '../lib/token'
+import { initApi, getRefreshToken } from '../lib/token'
 import {
   getInitialSsoCode,
   subscribeSsoDeepLink,
   exchangeSsoCode,
 } from '../lib/sso'
+import { rnAuthStore, useAuthStore, hydrateAuth } from '../stores/auth-store'
 
 export type { AuthUser }
 
@@ -33,14 +27,18 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [token, setTokenState] = useState<string | null>(null)
+  // 委托 auth-store 作为单一数据源(消除平行 useState),user/token 不再本地持有
+  const user = useAuthStore((s) => s.user)
+  const token = useAuthStore((s) => s.token)
+  // ready 保持本地:必须等 initApi() 完成且 token 已镜像后才置 true,
+  // 避免 persist onRehydrateStorage 提前置 ready=true 导致 token 仍为 null 的窗口
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     let unsub: (() => void) | null = null
     initApi().then(async () => {
-      setTokenState(getToken())
+      // 镜像 tokenStore → auth-store,统一数据源
+      hydrateAuth()
       setReady(true)
 
       // 冷启动时检查 SSO deep link(若应用因 ihui://sso/callback?sso_code=xxx 唤起)
@@ -60,25 +58,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   /**
-   * 用 sso_code 换 token 并写入 store
+   * 用 sso_code 换 token 并写入 auth-store(同步镜像 tokenStore)
    */
   async function applySsoCode(code: string): Promise<boolean> {
     const data = await exchangeSsoCode(code)
     if (!data) return false
-    await setToken(data.accessToken)
-    await setRefreshToken(data.refreshToken)
-    setTokenState(data.accessToken)
-    setUser(data.user)
+    await rnAuthStore.getState().setAuth({
+      token: data.accessToken,
+      refreshToken: data.refreshToken,
+      user: data.user,
+    })
     return true
   }
 
   const login = async (account: string, password: string): Promise<LoginResult> => {
     const res = await loginByAccount(account, password)
     if (res.success) {
-      await setToken(res.data.accessToken)
-      await setRefreshToken(res.data.refreshToken)
-      setTokenState(res.data.accessToken)
-      setUser(res.data.user)
+      await rnAuthStore.getState().setAuth({
+        token: res.data.accessToken,
+        refreshToken: res.data.refreshToken,
+        user: res.data.user,
+      })
       return { success: true }
     }
     return { success: false, error: res.error }
@@ -105,9 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (refreshToken) {
       await apiLogout(refreshToken)
     }
-    await clearToken()
-    setTokenState(null)
-    setUser(null)
+    // auth-store.logout 清 tokenStore + 本地镜像 + user 持久化
+    await rnAuthStore.getState().logout()
   }
 
   return (

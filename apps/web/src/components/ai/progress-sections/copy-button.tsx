@@ -31,7 +31,7 @@ export const CopyButton = React.memo(function CopyButton({
   'aria-label': ariaLabel,
   'data-testid': testId,
 }: CopyButtonProps) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const [copied, setCopied] = React.useState(false)
   const resolvedLabel = ariaLabel ?? t('copy')
 
