@@ -237,6 +237,35 @@
       "post": "投稿"
     }
   },
+  "certificate": {
+    "empty": "証明書がありません",
+    "expiryDate": "有効期限",
+    "issuedDate": "発行日",
+    "loadFailed": "証明書の読み込みに失敗しました",
+    "status": {
+      "expired": "期限切れ",
+      "issued": "発行済み",
+      "revoked": "取り消し済み"
+    },
+    "title": "マイ証明書"
+  },
+  "messageCenter": {
+    "empty": "メッセージがありません",
+    "loadFailed": "メッセージの読み込みに失敗しました",
+    "tab": {
+      "course": "コース",
+      "order": "注文",
+      "social": "ソーシャル",
+      "system": "システム"
+    },
+    "title": "メッセージセンター",
+    "type": {
+      "course": "コース",
+      "order": "注文",
+      "social": "ソーシャル",
+      "system": "システム"
+    }
+  },
   "history": {
     "empty": "閲覧履歴がありません",
     "loadFailed": "履歴の読み込みに失敗しました",
