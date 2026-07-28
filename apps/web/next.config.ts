@@ -33,21 +33,17 @@ const nextConfig: NextConfig = {
     '@ihui/shared',
     '@ihui/api-client',
     '@ihui/i18n',
-    '@ihui/rn-app',
     '@tauri-apps/api',
     '@tauri-apps/plugin-dialog',
-    'react-native-web',
   ],
   turbopack: {
     resolveAlias: {
-      'react-native': 'react-native-web',
       'next-intl/config': './src/i18n/request.ts',
     },
     resolveExtensions: ['.js', '.jsx', '.ts', '.tsx', '.json', '.mjs'],
   },
   webpack: (config) => {
     config.resolve.alias = config.resolve.alias || {}
-    config.resolve.alias['react-native$'] = 'react-native-web'
     // workspace 包(api-client/shared)已构建到 dist/,exports 指向 dist/*.js,
     // .js 扩展名 import 直接解析到实际 .js 文件。extensionAlias 仅作 fallback,
     // 当 .js 不存在时尝试 .ts/.tsx(不设 fullySpecified=false 以免干扰 Next.js 内部构建流程)
