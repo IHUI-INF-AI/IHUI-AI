@@ -1,12 +1,12 @@
-# scripts/fix-trae-workspace.ps1
-# TRAE VM 环境下 pnpm workspace junction 修复脚本
-# 问题：TRAE VM 路径虚拟化导致 node_modules/@ihui/* 和 node_modules/@types/node 的 junction 指向 VM 缓存路径，无法解析
-# 解决方案：删除断链，用 robocopy 从 pnpm store 复制实际文件
+# scripts/fix-workspace-junctions.ps1
+# VM 环境下 pnpm workspace junction 修复脚本
+# 问题:VM 路径虚拟化导致 node_modules/@ihui/* 和 node_modules/@types/node 的 junction 指向 VM 缓存路径,无法解析
+# 解决方案:删除断链,用 robocopy 从 pnpm store 复制实际文件
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 
-Write-Host '=== TRAE VM Workspace Fix ===' -ForegroundColor Cyan
+Write-Host '=== VM Workspace Junctions Fix ===' -ForegroundColor Cyan
 
 # 1. Fix @ihui/* workspace packages
 $pkgs = @{
