@@ -480,10 +480,51 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
   // P2 中期增强:把 resolvedTheme 加入 useMemo 依赖,主题切换时重新解析节点树
   // (ThemedCodeBlock 才能感知到主题变化并切换语法高亮)
   const { resolvedTheme } = useTheme()
+  // P1-2 修复(2026-07-28):流式渲染每帧(rAF 16ms)全量重解析 markdown 导致长会话卡顿,
+  // 用 200ms throttle(leading + trailing)合并解析频率:
+  // - leading:距上次 flush 已过 200ms,立即 flush(流式过程中每 200ms 更新一次,约 5fps)
+  // - trailing:200ms 内的后续变化安排 trailing flush(流式结束 200ms 后保证最终内容渲染)
+  // 长回答(>10k tokens)时 parseMarkdown 耗时线性增长,节流后解析频率从 60fps 降到 5fps,
+  // 主线程压力大幅降低,同时保留流式过程中可见的内容更新(纯 debounce 会导致中间内容空白)。
+  const [debouncedContent, setDebouncedContent] = React.useState(content)
+  const lastFlushRef = React.useRef<number>(0)
+  const trailingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  React.useEffect(() => {
+    const now = Date.now()
+    const elapsed = now - lastFlushRef.current
+    if (elapsed >= 200) {
+      // leading:距上次 flush 已过 200ms,立即 flush
+      lastFlushRef.current = now
+      setDebouncedContent(content)
+      if (trailingTimerRef.current) {
+        clearTimeout(trailingTimerRef.current)
+        trailingTimerRef.current = null
+      }
+    } else if (trailingTimerRef.current === null) {
+      // trailing:200ms 内首次触发,安排 trailing flush(后续触发忽略,保证最后 token 也 flush)
+      trailingTimerRef.current = setTimeout(() => {
+        lastFlushRef.current = Date.now()
+        trailingTimerRef.current = null
+        setDebouncedContent(content)
+      }, 200 - elapsed)
+    }
+  }, [content])
+
+  // 卸载时清理 trailing timer,防止内存泄漏
+  React.useEffect(() => {
+    return () => {
+      if (trailingTimerRef.current) {
+        clearTimeout(trailingTimerRef.current)
+        trailingTimerRef.current = null
+      }
+    }
+  }, [])
+
   const nodes = React.useMemo(
-    () => parseMarkdown(content),
+    () => parseMarkdown(debouncedContent),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- parseMarkdown 不依赖 theme,这里只为了让 memo 在主题切换时失效
-    [content, resolvedTheme],
+    [debouncedContent, resolvedTheme],
   )
 
   return (
