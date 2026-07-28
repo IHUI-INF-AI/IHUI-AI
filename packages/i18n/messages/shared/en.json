@@ -598,9 +598,38 @@
   },
   "order": {
     "empty": "No orders",
-    "status": {
-      "refunded": "Refunded"
+    "loadFailed": "Failed to load orders",
+    "title": "My Orders",
+    "amount": "Amount",
+    "orderNo": "Order No.",
+    "tab": {
+      "all": "All",
+      "pending": "Pending",
+      "paid": "Paid",
+      "shipped": "Shipped",
+      "completed": "Completed"
     },
-    "orderNo": "Order No."
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "shipped": "Shipped",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    }
+  },
+  "studyPlan": {
+    "empty": "No study plans",
+    "loadFailed": "Failed to load study plans",
+    "title": "Study Plans",
+    "lessons": "Lessons",
+    "progress": "Progress",
+    "deadline": "Deadline",
+    "status": {
+      "active": "Active",
+      "paused": "Paused",
+      "completed": "Completed",
+      "overdue": "Overdue"
+    }
   }
 }

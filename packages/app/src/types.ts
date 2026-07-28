@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 共享层类型定义 — packages/app
  *
  * 类型已迁移到 @ihui/types/src/app.ts,这里 re-export 保持向后兼容。
@@ -38,4 +38,11 @@ export type {
   MessageTab,
   MessageCenterItem,
   MessageCenterScreenProps,
+  AppOrderStatus,
+  OrderTab,
+  OrderItem,
+  OrderScreenProps,
+  PlanStatus,
+  StudyPlanItem,
+  StudyPlanScreenProps,
 } from '@ihui/types'

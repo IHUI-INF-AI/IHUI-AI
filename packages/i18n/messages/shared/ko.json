@@ -598,9 +598,38 @@
   },
   "order": {
     "empty": "주문 없음",
-    "status": {
-      "refunded": "환불됨"
+    "loadFailed": "주문 로드 실패",
+    "title": "내 주문",
+    "amount": "금액",
+    "orderNo": "주문 번호",
+    "tab": {
+      "all": "전체",
+      "pending": "결제 대기",
+      "paid": "결제 완료",
+      "shipped": "배송 중",
+      "completed": "완료"
     },
-    "orderNo": "주문 번호"
+    "status": {
+      "pending": "결제 대기",
+      "paid": "결제 완료",
+      "shipped": "배송 중",
+      "completed": "완료",
+      "cancelled": "취소됨",
+      "refunded": "환불됨"
+    }
+  },
+  "studyPlan": {
+    "empty": "학습 계획 없음",
+    "loadFailed": "학습 계획 로드 실패",
+    "title": "학습 계획",
+    "lessons": "강의",
+    "progress": "진행률",
+    "deadline": "마감일",
+    "status": {
+      "active": "진행 중",
+      "paused": "일시정지",
+      "completed": "완료",
+      "overdue": "기한 초과"
+    }
   }
 }
