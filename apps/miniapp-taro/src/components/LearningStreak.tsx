@@ -32,7 +32,7 @@ export default function LearningStreak({
             {tt('streak.title', '学习连签')}
           </Text>
           <Text className="ml-2 text-xs text-warning">
-            🔥 {tt('streak.continuousDays', '连续 {{n}} 天').replace('{{n}}', String(streakDays))}
+            🔥 {t('streak.continuousDays', { n: streakDays })}
           </Text>
         </View>
         <Text className="text-xs text-muted-foreground">
