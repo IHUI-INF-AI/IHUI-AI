@@ -647,5 +647,52 @@
     "empty": "暂无章节",
     "loadFailed": "加载目录失败",
     "duration": "{n} 分钟"
+  },
+  "pointHistory": {
+    "title": "积分明细",
+    "empty": "暂无积分记录",
+    "loadFailed": "加载积分失败",
+    "balance": "余额"
+  },
+  "noteList": {
+    "title": "笔记列表",
+    "empty": "暂无笔记",
+    "loadFailed": "加载笔记失败"
+  },
+  "articleList": {
+    "title": "文章列表",
+    "empty": "暂无文章",
+    "loadFailed": "加载文章失败",
+    "views": "{count} 次阅读"
+  },
+  "announcement": {
+    "title": "平台公告",
+    "empty": "暂无公告",
+    "loadFailed": "加载公告失败",
+    "pinned": "置顶",
+    "publishTime": "发布时间"
+  },
+  "livePlaybackList": {
+    "title": "直播回放",
+    "empty": "暂无回放",
+    "loadFailed": "加载回放失败",
+    "lecturer": "讲师",
+    "duration": "时长",
+    "viewerCount": "观看",
+    "play": "播放"
+  },
+  "refundHistory": {
+    "title": "退款记录",
+    "empty": "暂无退款记录",
+    "loadFailed": "加载退款失败",
+    "createdAt": "申请时间"
+  },
+  "courseQAList": {
+    "title": "课程问答",
+    "empty": "暂无问答",
+    "loadFailed": "加载问答失败",
+    "ask": "提问",
+    "asker": "提问者",
+    "answers": "回答"
   }
 }
