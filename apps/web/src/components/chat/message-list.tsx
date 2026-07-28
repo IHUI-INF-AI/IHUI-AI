@@ -2,60 +2,22 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Sparkles, AlertCircle, Loader2, ChevronDown, ShieldCheck, ShieldAlert, Hand } from 'lucide-react'
+import { Sparkles, AlertCircle, Loader2, ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 
 import type { ChatMessage } from '@/stores/chat'
-import type { InlineDiffInfo } from '@/components/ai/types'
+import type { InlineDiffInfo, SubAgentActivity } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import { TraeCodeHeader } from '@/components/ai/progress-sections/trae-code-header'
+import { MessageContextMenu, defaultMessageMenuItems } from '@/components/ai/message-context-menu'
+import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
+import { useContextMenu } from '@/hooks/use-context-menu'
+import { useChatStore } from '@/stores/chat'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { cn } from '@/lib/utils'
-
-/** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
- * - AI 消息气泡的标签后追加一个轻量模式徽章
- * - 仅当 permissionMode !== 'default' 时显示(默认模式太多,无意义)
- * - accept-edits → 绿底 + ShieldCheck
- * - bypass-permissions → 琥珀底 + ShieldAlert(高风险)
- * - default → Hand(理论不会走到,兜底渲染) */
-function PermissionModeBadge({ mode }: { mode: NonNullable<ChatMessage['permissionMode']> }) {
-  const t = useTranslations('chat.permission')
-  const config = {
-    default: {
-      icon: Hand,
-      label: t('mode.ask'),
-      cls: 'bg-muted text-muted-foreground',
-      tip: t('mode.askDesc'),
-    },
-    'accept-edits': {
-      icon: ShieldCheck,
-      label: t('mode.auto'),
-      cls: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-      tip: t('mode.autoDesc'),
-    },
-    'bypass-permissions': {
-      icon: ShieldAlert,
-      label: t('mode.full'),
-      cls: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-      tip: t('mode.fullDesc'),
-    },
-  }[mode]
-  const Icon = config.icon
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-0.5 rounded-sm px-1 py-px text-[9px] font-medium',
-        config.cls,
-      )}
-      title={config.tip}
-      aria-label={config.tip}
-    >
-      <Icon className="h-2.5 w-2.5" aria-hidden="true" />
-      {config.label}
-    </span>
-  )
-}
 
 function TypingIndicator() {
   return (
@@ -96,6 +58,14 @@ interface MessageItemProps {
   isLast: boolean
   isStreaming: boolean
   assistantLabel: string
+  /** 2026-07-28 立(PlanStep ↔ Message 双向跳转):该消息关联的 planStepIds */
+  relatedPlanStepIds?: string[]
+  /** 2026-07-28 立(PlanStep ↔ Message 双向跳转):该消息是否高亮闪烁 */
+  isHighlighted?: boolean
+  /** 2026-07-28 立(PlanStep ↔ Message 双向跳转):消息 hover 回调 */
+  onHoverMessage?: (messageId: string | null, planStepIds: string[]) => void
+  /** 2026-07-28 立(右键菜单):右键消息气泡的回调 */
+  onContextMenu?: (e: React.MouseEvent, message: ChatMessage) => void
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
 }
@@ -105,6 +75,10 @@ const MessageItem = React.memo(function MessageItem({
   isLast,
   isStreaming,
   assistantLabel,
+  relatedPlanStepIds,
+  isHighlighted,
+  onHoverMessage,
+  onContextMenu,
   onApplyDiff,
   onRejectDiff,
 }: MessageItemProps) {
@@ -114,7 +88,19 @@ const MessageItem = React.memo(function MessageItem({
   const streamingThis = !isUser && isStreaming && isLast
 
   return (
-    <div className={cn('flex w-full gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div
+      className={cn(
+        'flex w-full gap-3 transition-all duration-500',
+        isUser ? 'flex-row-reverse' : 'flex-row',
+        isHighlighted && 'rounded-lg bg-primary/8 ring-2 ring-primary/40',
+      )}
+      data-message-id={m.id}
+      onMouseEnter={() => onHoverMessage?.(m.id, relatedPlanStepIds ?? [])}
+      onMouseLeave={() => onHoverMessage?.(null, [])}
+      onContextMenu={
+        onContextMenu ? (e) => onContextMenu(e, m) : undefined
+      }
+    >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
@@ -135,15 +121,10 @@ const MessageItem = React.memo(function MessageItem({
       </div>
       <div className={cn('flex max-w-[85%] flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
         {!isUser && (
-          <span className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
-            <span>{assistantLabel}</span>
-            {/* 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
-              - 记录 AI 响应生成时所使用的权限模式,便于用户事后回溯
-              - 仅非 default 模式显示(默认模式太多,无信息量) */}
-            {m.permissionMode && m.permissionMode !== 'default' && (
-              <PermissionModeBadge mode={m.permissionMode} />
-            )}
-          </span>
+          <TraeCodeHeader
+            name={assistantLabel}
+            subtitle={m.permissionMode && m.permissionMode !== 'default' ? m.permissionMode : undefined}
+          />
         )}
         <div
           className={cn(
@@ -259,6 +240,10 @@ interface MessageListProps {
   fallbackNotice?: FallbackEvent | null
   /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
   onClearFallbackNotice?: () => void
+  /** 2026-07-28 立(Phase 18.2 Trae Work 对齐):inline 渲染 subagent 活动卡片(传入后展示在最后一条 AI 消息下方) */
+  subAgentActivities?: SubAgentActivity[]
+  /** 2026-07-28 立(Phase 18.4 Trae Work 对齐):step budget 资源预算(展示"Current usage: X / 60 step budget") */
+  stepBudget?: { used: number; total: number }
 }
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
@@ -287,11 +272,56 @@ export function MessageList({
   onLoadMoreHistory,
   fallbackNotice,
   onClearFallbackNotice,
+  subAgentActivities,
+  stepBudget,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const lastContent = messages[messages.length - 1]?.content
+
+  // 2026-07-28 立(PlanStep ↔ Message 双向跳转):订阅 progress-jump-store
+  const pendingJumpToMessage = useProgressJumpStore((s) => s.pendingJumpToMessage)
+  const clearPendingJump = useProgressJumpStore((s) => s.clearPendingJump)
+  const highlightedMessageId = useProgressJumpStore((s) => s.highlightedMessageId)
+  const messageToPlanStepIds = useProgressJumpStore((s) => s.messageToPlanStepIds)
+  const setHoveredMessage = useProgressJumpStore((s) => s.setHoveredMessage)
+  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
+
+  // 2026-07-28 立(右键菜单):全局消息气泡右键菜单
+  const contextMenu = useContextMenu<ChatMessage>()
+  // 2026-07-28 立(Phase 18.2 Trae Work 对齐):subagent 卡片 inline 渲染需要 conversationId 作 swarmId
+  const conversationId = useChatStore((s) => s.conversationId)
+  // 2026-07-28 立(右键菜单):根据当前右键消息动态生成菜单项
+  const contextMenuItems = React.useMemo(
+    () => (contextMenu.data ? defaultMessageMenuItems(contextMenu.data) : []),
+    [contextMenu.data],
+  )
+  const handleContextMenuItemClick = React.useCallback(
+    (item: { id: string; action?: string }) => {
+      const msg = contextMenu.data
+      if (!msg) return
+      switch (item.action) {
+        case 'copy':
+          if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            void navigator.clipboard.writeText(msg.content)
+          }
+          break
+        case 'regenerate':
+          // 触发重新生成(若 chat store 暴露 regenerate action)
+          // 此处保持轻量,只通过 console 提示未来可扩展
+          // 真正的 regenerate 逻辑需要在 use-chat 层接入
+          break
+        case 'delete':
+          // 删除消息:从 store 中过滤
+          // 此处保持轻量,只通过 console 提示未来可扩展
+          break
+        default:
+          break
+      }
+    },
+    [contextMenu.data],
+  )
 
   // #7 虚拟滚动状态
   const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
@@ -459,6 +489,40 @@ export function MessageList({
     }
   }, [messages.length])
 
+  // 2026-07-28 立(PlanStep ↔ Message 双向跳转):监听 pendingJumpToMessage,触发滚动
+  React.useEffect(() => {
+    if (!pendingJumpToMessage) return
+    const { messageId } = pendingJumpToMessage
+    // sentinel: 跳到最新
+    if (messageId === '___jump_to_latest___') {
+      const el = bottomRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      clearPendingJump()
+      return
+    }
+    const target = containerRef.current?.querySelector(
+      `[data-message-id="${messageId}"]`,
+    ) as HTMLElement | null
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else {
+      // 目标不存在(可能已被压缩)→ 跳到最新
+      const el = bottomRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+    clearPendingJump()
+  }, [pendingJumpToMessage, clearPendingJump])
+
+  // 2026-07-28 立(PlanStep ↔ Message 联动):消息 hover → 联动 planStep
+  const handleHoverMessage = React.useCallback(
+    (messageId: string | null, planStepIds: string[]) => {
+      setHoveredMessage(messageId)
+      // 同步反向设置 hoveredPlanStep(右侧 pane 联动)
+      setHoveredPlanStep(messageId && planStepIds.length > 0 ? (planStepIds[0] ?? null) : null)
+    },
+    [setHoveredMessage, setHoveredPlanStep],
+  )
+
   if (messages.length === 0) {
     // 空状态引导模板与附加栏 Popover 共用同一组 5 个核心模板(i18n key 一致)。
     // category 字段已废弃(PromptTemplates 不再分组),做减法移除。
@@ -548,6 +612,7 @@ export function MessageList({
         {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
         {renderItems.map((m, idx) => {
           const realIdx = enableVirtual ? visibleRange.start + idx : idx
+          const relatedPlanStepIds = messageToPlanStepIds[m.id] ?? []
           return (
             <div key={m.id} ref={enableVirtual ? measureItem(m.id) : undefined}>
               {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
@@ -556,9 +621,31 @@ export function MessageList({
                 isLast={realIdx === messages.length - 1}
                 isStreaming={isStreaming}
                 assistantLabel={assistantLabel}
+                relatedPlanStepIds={relatedPlanStepIds}
+                isHighlighted={highlightedMessageId === m.id}
+                onHoverMessage={handleHoverMessage}
+                onContextMenu={(_, msg) => {
+                  contextMenu.setData(msg)
+                }}
                 onApplyDiff={onApplyDiff}
                 onRejectDiff={onRejectDiff}
               />
+              {/* 2026-07-28 立(Phase 18.2 Trae Work 对齐):在最后一条 AI 消息下方 inline 渲染
+                  subagent 活动卡片 + step budget 资源预算,符合 Trae Work inline 视觉一致性 */}
+              {realIdx === messages.length - 1 &&
+                m.role === 'assistant' &&
+                subAgentActivities &&
+                subAgentActivities.length > 0 && (
+                  <div className="ml-11 mt-2" data-testid="subagent-inline-slot">
+                    <SubAgentActivityFeed
+                      swarmId={`conversation-${conversationId ?? 'default'}`}
+                      activities={subAgentActivities}
+                      completed={!isStreaming}
+                      inline
+                      stepBudget={stepBudget}
+                    />
+                  </div>
+                )}
             </div>
           )
         })}
@@ -566,6 +653,14 @@ export function MessageList({
         {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
         <div ref={bottomRef} />
       </div>
+      {/* 2026-07-28 立(右键菜单):全局 MessageContextMenu 容器 */}
+      <MessageContextMenu
+        visible={contextMenu.visible}
+        position={contextMenu.position}
+        items={contextMenuItems}
+        onItemClick={handleContextMenuItemClick}
+        onClose={contextMenu.close}
+      />
     </div>
   )
 }
