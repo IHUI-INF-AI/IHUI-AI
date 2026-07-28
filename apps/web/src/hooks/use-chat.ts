@@ -870,6 +870,14 @@ export function useChat(): UseChatReturn {
   // 与 lastSentContentRef 对称,sendAnswer catch 块复用 sendMessage 路径的 retry 模式
   const lastSentAnswerRef = React.useRef<{ answer: string; questionId: string } | null>(null)
 
+  // P3 修复:切换会话时清空 lastSentContentRef/lastSentAnswerRef,释放大文本引用
+  // (用户输入可能含大段粘贴代码,ref 不会自动释放;retry toast 在切换会话后不再有意义)
+  const conversationId = useChatStore((s) => s.conversationId)
+  React.useEffect(() => {
+    lastSentContentRef.current = ''
+    lastSentAnswerRef.current = null
+  }, [conversationId])
+
   const sendMessage = React.useCallback(
     async (content: string): Promise<boolean> => {
       const text = content.trim()

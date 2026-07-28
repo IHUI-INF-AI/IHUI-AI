@@ -381,6 +381,15 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         description: '列出可用 Agent',
         tags: ['Agents'],
+        // P2 修复:新增可选 limit/offset 分页参数,防止返回所有 published agents(原无 limit)
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+            offset: { type: 'integer', minimum: 0, default: 0 },
+          },
+          additionalProperties: false,
+        },
         response: {
           200: {
             type: 'object',
@@ -409,8 +418,18 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         requireApiKeyQuota(),
       ],
     },
-    async (_request, reply) => {
-      const rows = await dbRead.select().from(agents).where(eq(agents.status, 'published'))
+    async (request, reply) => {
+      // P2 修复:解析分页参数,默认 limit=20,范围 1-100;offset 默认 0
+      const query = (request.query ?? {}) as { limit?: number; offset?: number }
+      const safeLimit = Math.min(Math.max(Number(query.limit) || 20, 1), 100)
+      const safeOffset = Math.max(Number(query.offset) || 0, 0)
+
+      const rows = await dbRead
+        .select()
+        .from(agents)
+        .where(eq(agents.status, 'published'))
+        .limit(safeLimit)
+        .offset(safeOffset)
       const data = rows.map(toAgentInfo)
       const resp: V1AgentsListResponse = { object: 'list', data }
       return reply.send(resp)
