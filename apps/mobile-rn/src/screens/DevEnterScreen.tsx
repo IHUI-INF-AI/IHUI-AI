@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native'
 import { Input } from '@ihui/ui-native'
+import { useI18n } from '../i18n'
 
 type DevType = 'personal' | 'enterprise'
 type Field = 'tech' | 'education' | 'finance' | 'content' | 'other'
@@ -14,6 +15,7 @@ const FIELD_OPTIONS: { id: Field; label: string }[] = [
 ]
 
 export default function DevEnterScreen() {
+  const { t } = useI18n()
   const [devType, setDevType] = useState<DevType>('personal')
   const [name, setName] = useState('')
   const [contact, setContact] = useState('')
@@ -23,18 +25,16 @@ export default function DevEnterScreen() {
   const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = () => {
-    // TODO: i18n — Alert.alert 硬编码中文待翻译(提示 / 请输入开发者名称 / 请输入联系方式 / 简介至少 10 个字符 / 请先同意开发者协议)
-    if (!name.trim()) return Alert.alert('提示', '请输入开发者名称')
-    if (!contact.trim()) return Alert.alert('提示', '请输入联系方式')
+    if (!name.trim()) return Alert.alert(t('common.hint'), t('devEnter.error.nameRequired'))
+    if (!contact.trim()) return Alert.alert(t('common.hint'), t('devEnter.error.contactRequired'))
     if (!intro.trim() || intro.trim().length < 10)
-      return Alert.alert('提示', '简介至少 10 个字符')
-    if (!agreed) return Alert.alert('提示', '请先同意开发者协议')
+      return Alert.alert(t('common.hint'), t('devEnter.error.introMin'))
+    if (!agreed) return Alert.alert(t('common.hint'), t('devEnter.error.agreeRequired'))
     setSubmitting(true)
     setTimeout(() => {
       setSubmitting(false)
-      // TODO: i18n — Alert.alert 硬编码中文待翻译(提交成功 / 申请已提交,审核结果将在 3 个工作日内通知 / 知道了)
-      Alert.alert('提交成功', '申请已提交,审核结果将在 3 个工作日内通知', [
-        { text: '知道了' },
+      Alert.alert(t('devEnter.success.title'), t('devEnter.success.message'), [
+        { text: t('common.gotIt') },
       ])
     }, 800)
   }

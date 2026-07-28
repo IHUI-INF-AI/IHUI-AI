@@ -2,6 +2,7 @@ import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native'
 import { getAiCareers, type AiCareerItem } from '@ihui/api-client'
+import { useI18n } from '../i18n'
 
 interface CareerMatch {
   id: string
@@ -46,6 +47,7 @@ function scoreColor(score: number): string {
 }
 
 export default function AiCareerScreen() {
+  const { t } = useI18n()
   const [items, setItems] = useState<CareerMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -127,8 +129,7 @@ export default function AiCareerScreen() {
                 )}
                 <TouchableOpacity
                   style={s.planBtn}
-                  // TODO: i18n — Alert.alert 硬编码中文待翻译(生成规划 / 正在为「X」生成 90 天成长计划)
-                  onPress={() => Alert.alert('生成规划', `正在为「${c.title}」生成 90 天成长计划`)}
+                  onPress={() => Alert.alert(t('aiCareer.plan.title'), t('aiCareer.plan.message', { name: c.title }))}
                   activeOpacity={0.85}
                 >
                   <Text style={s.planBtnText}>生成成长计划</Text>

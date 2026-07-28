@@ -17,8 +17,42 @@ import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { executeAgentActionRequest } from '../lib/agent-control'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
 import { createChromePlatform } from '@ihui/browser-platform'
+import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
+import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
+import sharedEn from '@ihui/i18n/messages/shared/en.json'
+import sharedJa from '@ihui/i18n/messages/shared/ja.json'
+import sharedKo from '@ihui/i18n/messages/shared/ko.json'
+import sharedZhTW from '@ihui/i18n/messages/shared/zh-TW.json'
+import extZhCN from '@ihui/i18n/messages/extension/zh-CN.json'
+import extEn from '@ihui/i18n/messages/extension/en.json'
+import extJa from '@ihui/i18n/messages/extension/ja.json'
+import extKo from '@ihui/i18n/messages/extension/ko.json'
+import extZhTW from '@ihui/i18n/messages/extension/zh-TW.json'
 
 const platform = createChromePlatform()
+
+// SW 非 React 组件,无法用 useI18n hook;直接加载翻译表 + 读取 chrome.storage.local 的 locale
+const LOCALE_STORAGE_KEY = 'ihui_locale'
+const DEFAULT_LOCALE: Locale = 'zh-CN'
+const backgroundMessages: Record<Locale, Messages> = {
+  'zh-CN': mergeMessages(sharedZhCN, extZhCN),
+  en: mergeMessages(sharedEn, extEn),
+  ja: mergeMessages(sharedJa, extJa),
+  ko: mergeMessages(sharedKo, extKo),
+  'zh-TW': mergeMessages(sharedZhTW, extZhTW),
+}
+
+async function getBackgroundLocale(): Promise<Locale> {
+  const stored = await platform.storage.localGet<string>(LOCALE_STORAGE_KEY)
+  if (typeof stored === 'string' && isLocale(stored)) return stored
+  return DEFAULT_LOCALE
+}
+
+function translateBg(locale: Locale, key: string): string {
+  return translate(backgroundMessages[locale], key, {
+    fallback: backgroundMessages[DEFAULT_LOCALE],
+  })
+}
 
 // API 代理:background context 通过 fetch 直连 API(走 @ihui/api-client 的 fetchApi)。
 // 用 chrome.runtime.sendMessage 接 fetchApi 不便(扩展中 fetch 走 service worker
@@ -271,24 +305,23 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
   }
 }
 
-function registerContextMenu(): void {
+async function registerContextMenu(): Promise<void> {
   if (!chrome.contextMenus) return
+  const locale = await getBackgroundLocale()
   chrome.contextMenus.removeAll(() => {
-    // TODO: i18n — extension contextMenus 待国际化(SW 非 React 组件,无法用 useI18n hook;
-    // 后续可通过 chrome.i18n.getMessage 或读取 chrome.storage.local 的 ihui_locale 动态加载翻译)
     chrome.contextMenus.create({
       id: 'ihui-translate',
-      title: 'IHUI AI · 翻译选区',
+      title: translateBg(locale, 'contextMenu.translate'),
       contexts: ['selection'],
     })
     chrome.contextMenus.create({
       id: 'ihui-vocab',
-      title: 'IHUI AI · 查词',
+      title: translateBg(locale, 'contextMenu.vocab'),
       contexts: ['selection'],
     })
     chrome.contextMenus.create({
       id: 'ihui-send',
-      title: 'IHUI AI · 发送到对话',
+      title: translateBg(locale, 'contextMenu.send'),
       contexts: ['selection'],
     })
   })
@@ -429,7 +462,7 @@ export default defineBackground(() => {
   registerMessageListener()
   registerInstallHook()
   registerActionClick()
-  registerContextMenu()
+  void registerContextMenu()
   initAgentControlBridge()
 
   // 监听 storage 变化(其他 context 改 token 时同步)

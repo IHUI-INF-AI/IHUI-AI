@@ -8862,32 +8862,58 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
@@ -9239,19 +9265,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -9372,25 +9410,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -9700,6 +9750,59 @@
       "copy": "Copy",
       "copied": "Copied",
       "progressLabel": "Task progress {pct}%",
+      "dragHandle": "Drag to reposition",
+      "celebrate": "All tasks complete",
+      "helpToggle": "Keyboard shortcuts",
+      "helpClose": "Close",
+      "helpPanelTitle": "Keyboard shortcuts",
+      "shortcutsGroupNav": "Navigation",
+      "shortcutsGroupPane": "Pane",
+      "shortcutsGroupTrigger": "Triggers",
+      "shortcutSectionNav": "Move between sections",
+      "shortcutSectionFirstLast": "Jump to first/last section",
+      "shortcutShowHelp": "Show or hide keyboard shortcuts",
+      "shortcutCloseHelp": "Close keyboard shortcuts",
+      "shortcutTogglePane": "Toggle pane",
+      "shortcutOpenPane": "Open pane from input",
+      "tabInline": "Inline",
+      "tabTimeline": "Timeline",
+      "previewStepNumberAndName": "Step {n}: {step}",
+      "previewDuration": "Duration {duration}",
+      "previewTokenK": "{k}k tokens",
+      "previewToolCalls": "{n} tool calls",
+      "previewRelatedMessage": "Related message:",
+      "stepBudgetLabel": "Step budget",
+      "executing": "Executing",
+      "subagentBatch": "Subagent batch",
+      "planListLabel": "Plan steps",
+      "completedCount": "{done}/{total} steps done",
+      "copyPlan": "Copy plan",
+      "moreItems": "...and {n} more",
+      "jumpToLatest": "Jump to latest",
+      "latest": "Latest",
+      "pinHintPinned": "Pinned, won't close on outside click",
+      "pinHintUnpinned": "Unpinned, closes on outside click",
+      "minimizeHint": "Minimize the task pane",
+      "emptyHint": "The plan appears once a conversation starts.",
+      "emptyHintsLabel": "Quick tips",
+      "emptyHint1": "After you start a conversation, the AI's task breakdown and progress will appear here.",
+      "emptyHint2": "Subagents, tool calls, and terminal output are grouped automatically.",
+      "emptyHint3": "Click any task to jump to its message in the conversation.",
+      "timelineFilterAll": "All",
+      "timelineFilterPlan": "Plan",
+      "timelineFilterSubagent": "Subagent",
+      "timelineFilterTool": "Tool",
+      "timelineFilterQuestion": "Question",
+      "timelineCountDone": "Completed",
+      "timelineCountFailed": "Failed",
+      "timelineCountRunning": "Running",
+      "timelineTabsAriaLabel": "Timeline tabs",
+      "timelineSearchPlaceholder": "Search timeline...",
+      "timelineSearchAriaLabel": "Search timeline events",
+      "timelineSearchClear": "Clear search",
+      "timelineInlineHint": "Inline view in the main message list",
+      "timelineNoMatch": "No events match the current filter",
+      "timelineClearFilters": "Clear filters",
       "sseStatus": {
         "connected": "Connected",
         "connecting": "Connecting",
@@ -10910,7 +11013,15 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"
@@ -12408,96 +12519,6 @@
       "title": "Templates"
     }
   },
-  "a11y": {
-    "searchOption": "Search options",
-    "addAttachment": "Add attachment (image / video / file)",
-    "breadcrumb": "Breadcrumb"
-  },
-  "auth": {
-    "loginTitle": "Welcome Back",
-    "loginSubtitle": "Sign in to your account",
-    "loginBtn": "Sign In",
-    "noAccount": "Don't have an account?",
-    "registerNow": "Sign up",
-    "forgotPassword": "Forgot password?",
-    "accountHistory": "Account History",
-    "removeAccount": "Remove account",
-    "registerTitle": "Create Account",
-    "phonePlaceholder": "Enter your phone number",
-    "passwordPlaceholder": "Enter your password",
-    "code": "Code",
-    "codePlaceholder": "Enter verification code",
-    "confirmPassword": "Confirm Password",
-    "sendCode": "Send Code",
-    "registerBtn": "Sign Up",
-    "phoneRegister": "Phone",
-    "emailRegister": "Email",
-    "toLogin": "Sign in",
-    "thirdPartyLogin": "Or continue with",
-    "registerSuccess": "Registration successful, please sign in",
-    "passwordMismatch": "Passwords do not match",
-    "resetPassword": "Reset Password",
-    "newPassword": "New Password",
-    "resetSuccess": "Password reset successful, please sign in",
-    "enterPhone": "Enter your phone number",
-    "enterCode": "Enter verification code",
-    "enterNewPassword": "Enter new password",
-    "emailLogin": "Email",
-    "usernamePlaceholder": "Enter username",
-    "emailPlaceholder": "Enter email",
-    "enterpriseWechat": "Enterprise WeChat",
-    "captchaPlaceholder": "Enter captcha",
-    "phoneCodeLogin": "Code Login",
-    "passwordLogin": "Password Login",
-    "invalidEmail": "Invalid email",
-    "googleNotConfigured": "Google login not configured",
-    "appleComingSoon": "Apple login coming soon",
-    "qrLogin": "Scan QR",
-    "qrNotConfigured": "{platform} scan login is not configured, please contact the administrator",
-    "qrScanTipPlatform": "Scan the QR code with your {platform} app to log in",
-    "agreeRequired": "Please read and agree to the terms",
-    "agreePrefix": "I have read and agree to the",
-    "agreementNoticeTitle": "Please Agree to Continue",
-    "agreementNoticeDesc": "To protect your account security, please read and agree to the following terms before logging in",
-    "agreementNoticeSafe": "Your information is transmitted securely via an encrypted channel",
-    "agreementNoticeAgree": "Agree & Continue",
-    "autoLogin": "Auto-login",
-    "getVerificationCode": "Get Code",
-    "alipayLogin": "AlipayLogin"
-  },
-  "help": {
-    "contactSupport": "Contact Support",
-    "empty": "No articles found",
-    "backToList": "Back to Help",
-    "updatedAt": "Updated",
-    "viewCount": "{count} views",
-    "toc": "On this page",
-    "related": "Related Articles",
-    "notFound": "Article not found or offline"
-  },
-  "searchHistory": {
-    "subtitle": "Your recent searches",
-    "clearAll": "Clear All"
-  },
-  "agreement": {
-    "title": "Agreements & Policies",
-    "effectiveDate": "Effective Date",
-    "staticContent1": "Welcome to our platform. By using our services, you agree to all terms of this agreement.",
-    "staticContent2": "We strictly protect your personal privacy and will not disclose it to third parties without your permission.",
-    "staticContent3": "If you have any questions about this agreement, please contact customer service."
-  },
-  "themeToggle": {
-    "lightMode": "Light",
-    "darkMode": "Dark"
-  },
-  "themeBackup": {
-    "title": "Theme"
-  },
-  "forbidden": {
-    "title": "No Permission",
-    "description": "Sorry, you do not have permission to access this page. Please contact the administrator to request access.",
-    "backToHome": "Back to Home"
-  },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs last month",
     "rechargeCount": "Total {n} recharges",
@@ -13174,5 +13195,95 @@
     "examplesTip": "Tip: replace YOUR_API_KEY with the key from /developer/keys, and adjust baseURL to your actual endpoint.",
     "cardLabel": "API Pricing",
     "cardDesc": "Model prices & billing rules"
+  },
+  "a11y": {
+    "searchOption": "Search options",
+    "addAttachment": "Add attachment (image / video / file)",
+    "breadcrumb": "Breadcrumb"
+  },
+  "auth": {
+    "loginTitle": "Welcome Back",
+    "loginSubtitle": "Sign in to your account",
+    "loginBtn": "Sign In",
+    "noAccount": "Don't have an account?",
+    "registerNow": "Sign up",
+    "forgotPassword": "Forgot password?",
+    "accountHistory": "Account History",
+    "removeAccount": "Remove account",
+    "registerTitle": "Create Account",
+    "phonePlaceholder": "Enter your phone number",
+    "passwordPlaceholder": "Enter your password",
+    "code": "Code",
+    "codePlaceholder": "Enter verification code",
+    "confirmPassword": "Confirm Password",
+    "sendCode": "Send Code",
+    "registerBtn": "Sign Up",
+    "phoneRegister": "Phone",
+    "emailRegister": "Email",
+    "toLogin": "Sign in",
+    "thirdPartyLogin": "Or continue with",
+    "registerSuccess": "Registration successful, please sign in",
+    "passwordMismatch": "Passwords do not match",
+    "resetPassword": "Reset Password",
+    "newPassword": "New Password",
+    "resetSuccess": "Password reset successful, please sign in",
+    "enterPhone": "Enter your phone number",
+    "enterCode": "Enter verification code",
+    "enterNewPassword": "Enter new password",
+    "emailLogin": "Email",
+    "usernamePlaceholder": "Enter username",
+    "emailPlaceholder": "Enter email",
+    "enterpriseWechat": "Enterprise WeChat",
+    "captchaPlaceholder": "Enter captcha",
+    "phoneCodeLogin": "Code Login",
+    "passwordLogin": "Password Login",
+    "invalidEmail": "Invalid email",
+    "googleNotConfigured": "Google login not configured",
+    "appleComingSoon": "Apple login coming soon",
+    "qrLogin": "Scan QR",
+    "qrNotConfigured": "{platform} scan login is not configured, please contact the administrator",
+    "qrScanTipPlatform": "Scan the QR code with your {platform} app to log in",
+    "agreeRequired": "Please read and agree to the terms",
+    "agreePrefix": "I have read and agree to the",
+    "agreementNoticeTitle": "Please Agree to Continue",
+    "agreementNoticeDesc": "To protect your account security, please read and agree to the following terms before logging in",
+    "agreementNoticeSafe": "Your information is transmitted securely via an encrypted channel",
+    "agreementNoticeAgree": "Agree & Continue",
+    "autoLogin": "Auto-login",
+    "getVerificationCode": "Get Code",
+    "alipayLogin": "AlipayLogin"
+  },
+  "help": {
+    "contactSupport": "Contact Support",
+    "empty": "No articles found",
+    "backToList": "Back to Help",
+    "updatedAt": "Updated",
+    "viewCount": "{count} views",
+    "toc": "On this page",
+    "related": "Related Articles",
+    "notFound": "Article not found or offline"
+  },
+  "searchHistory": {
+    "subtitle": "Your recent searches",
+    "clearAll": "Clear All"
+  },
+  "agreement": {
+    "title": "Agreements & Policies",
+    "effectiveDate": "Effective Date",
+    "staticContent1": "Welcome to our platform. By using our services, you agree to all terms of this agreement.",
+    "staticContent2": "We strictly protect your personal privacy and will not disclose it to third parties without your permission.",
+    "staticContent3": "If you have any questions about this agreement, please contact customer service."
+  },
+  "themeToggle": {
+    "lightMode": "Light",
+    "darkMode": "Dark"
+  },
+  "themeBackup": {
+    "title": "Theme"
+  },
+  "forbidden": {
+    "title": "No Permission",
+    "description": "Sorry, you do not have permission to access this page. Please contact the administrator to request access.",
+    "backToHome": "Back to Home"
   }
 }

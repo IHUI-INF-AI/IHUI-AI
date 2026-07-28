@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { createAigcTask, uploadFileMultipart, resolveFileUrl } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useI18n } from '../i18n'
 
 const PRIMARY = tokens.brand.DEFAULT
 
@@ -44,6 +45,7 @@ interface UploadFile {
 
 export default function AigcPublishScreen() {
   const navigation = useNavigation<Nav>()
+  const { t } = useI18n()
   const [workType, setWorkType] = useState<WorkType>('image')
   const [files, setFiles] = useState<UploadFile[]>([])
   const [textContent, setTextContent] = useState('')
@@ -155,9 +157,8 @@ export default function AigcPublishScreen() {
         },
       })
       if (res.success) {
-        // TODO: i18n — Alert.alert 硬编码中文待翻译(发布成功 / 作品已提交审核 / 好的)
-        Alert.alert('发布成功', '作品已提交审核', [
-          { text: '好的', onPress: () => navigation.goBack() },
+        Alert.alert(t('aigcPublish.success.title'), t('aigcPublish.success.message'), [
+          { text: t('common.ok'), onPress: () => navigation.goBack() },
         ])
       } else {
         setError(res.error || '发布失败')
