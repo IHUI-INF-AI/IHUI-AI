@@ -7,7 +7,7 @@ export default async function ChatsPage() {
   const t = await getTranslations('models')
 
   const chats = Array.from({ length: 12 }).map((_, i) => {
-    const users = ['alice@ihui.ai', 'bob@ihui.ai', 'carol@ihui.ai', 'david@ihui.ai', 'eric@ihui.ai']
+    const users = ['alice@aizhs.top', 'bob@aizhs.top', 'carol@aizhs.top', 'david@aizhs.top', 'eric@aizhs.top']
     const models = ['GPT-4o', 'Claude 3.5 Sonnet', 'Gemini 2.0 Flash', 'DeepSeek V3']
     const msgs = [4, 12, 28, 6, 18, 32, 8, 22, 14, 26, 10, 38]
     const tokens = [1230, 4520, 8970, 2340, 6720, 12340, 3870, 8920, 5210, 9870, 4350, 11240]

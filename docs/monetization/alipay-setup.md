@@ -76,7 +76,7 @@
 ### 步骤 5:填写应用信息
 
 1. **应用图标**:上传项目 logo（建议 120×120 px）
-2. **应用地址**:`https://ihui.ai`
+2. **应用地址**:`https://aizhs.top`
 3. **应用说明**:`IHUI-AI 开源 AI 平台赞助与数字产品销售`
 4. **开发者信息**:
    - 姓名 / 联系电话 / 邮箱
@@ -126,12 +126,12 @@
 
 #### 8.2 设置服务器异步通知页面
 
-1. **异步通知地址**:`https://ihui.ai/api/alipay/notify`
+1. **异步通知地址**:`https://aizhs.top/api/alipay/notify`
 2. 用途:支付宝在支付成功时通知你的服务器
 
 #### 8.3 设置同步跳转页面
 
-1. **同步跳转地址**:`https://ihui.ai/sponsor/success`
+1. **同步跳转地址**:`https://aizhs.top/sponsor/success`
 2. 用途:用户支付完后跳回的页面
 
 ### 步骤 9:提交审核
@@ -158,8 +158,8 @@ ALIPAY_APP_ID=用户的APPID
 ALIPAY_PRIVATE_KEY=用户的应用私钥
 ALIPAY_PUBLIC_KEY=支付宝公钥
 ALIPAY_GATEWAY_URL=https://openapi.alipay.com/gateway.do
-ALIPAY_NOTIFY_URL=https://ihui.ai/api/alipay/notify
-ALIPAY_RETURN_URL=https://ihui.ai/sponsor/success
+ALIPAY_NOTIFY_URL=https://aizhs.top/api/alipay/notify
+ALIPAY_RETURN_URL=https://aizhs.top/sponsor/success
 
 # Optional: Sandbox mode
 # ALIPAY_GATEWAY_URL=https://openapi-sandbox.dl.alipaydev.com/gateway.do

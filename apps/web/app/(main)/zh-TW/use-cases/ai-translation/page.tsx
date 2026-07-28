@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-translation#webpage',
-      url: 'https://ihui.ai/zh-TW/use-cases/ai-translation',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-translation#webpage',
+      url: 'https://aizhs.top/zh-TW/use-cases/ai-translation',
       name: 'AI 多語翻譯 Agent 用例 — IHUI AI',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建的 AI 多語翻譯 Agent:多語種文件翻譯、本地化工作流、術語庫管理、譯文審校、文化適配、字幕翻譯,30 分鐘上線,8 端分發。',
       inLanguage: ['zh-TW', 'zh-CN', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-translation#breadcrumb',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-translation#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 多語翻譯', item: 'https://ihui.ai/zh-TW/use-cases/ai-translation' },
+        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 多語翻譯', item: 'https://aizhs.top/zh-TW/use-cases/ai-translation' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-translation#howto',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-translation#howto',
       name: '30 分鐘搭建 AI 多語翻譯 Agent',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建 AI 多語翻譯 Agent 的 6 步流程:建立術語庫 → 上傳歷史譯文 → 配置語種 → 訓練文化適配 → 設定審校規則 → 接入工作流。翻譯效率提升 6 倍,成本降低 70%。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 多語翻譯 Agent — IHUI AI',
     description: '多語種翻譯 + 術語庫 + 文化適配,30 分鐘上線。',
-    url: 'https://ihui.ai/zh-TW/use-cases/ai-translation',
+    url: 'https://aizhs.top/zh-TW/use-cases/ai-translation',
     type: 'article',
   },
 }

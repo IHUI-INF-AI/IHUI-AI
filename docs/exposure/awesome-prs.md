@@ -48,7 +48,7 @@ awesome-mcp-servers #11005(91k stars)收到 github-actions[bot] 反馈:要求在
 ### 1. punkpeye/awesome-mcp-servers (Aggregators section)
 
 ```
-- [IHUI-INF-AI/IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) 📇 ☁️ 🏠 🍎 🪟 🐧 - 8-platform full-stack AI operating system (web / API / AI service / CLI / desktop / extension / mobile / miniapp) that unifies 176 LLMs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, etc.) via LangGraph + MCP + A2A. Includes RAG knowledge base, agent marketplace, multi-tenant RLS over 340 tables, 1300+ APIs. Apache 2.0 commercial-friendly. Live demo: https://ihui.ai
+- [IHUI-INF-AI/IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) 📇 ☁️ 🏠 🍎 🪟 🐧 - 8-platform full-stack AI operating system (web / API / AI service / CLI / desktop / extension / mobile / miniapp) that unifies 176 LLMs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, etc.) via LangGraph + MCP + A2A. Includes RAG knowledge base, agent marketplace, multi-tenant RLS over 340 tables, 1300+ APIs. Apache 2.0 commercial-friendly. Live demo: https://aizhs.top
 ```
 
 ### 2. Hannibal046/Awesome-LLM (LLM Applications section)
@@ -61,7 +61,7 @@ awesome-mcp-servers #11005(91k stars)收到 github-actions[bot] 反馈:要求在
 
 ```yaml
 name: IHUI-AI
-website_url: https://ihui.ai
+website_url: https://aizhs.top
 source_code_url: https://github.com/IHUI-INF-AI/IHUI-AI
 description: 8-platform full-stack AI operating system unifying 176 LLMs via LangGraph + MCP + A2A, with multi-tenant RLS, RAG knowledge base and agent marketplace.
 licenses:
@@ -74,7 +74,7 @@ platforms:
   - K8s
 tags:
   - Generative Artificial Intelligence (GenAI)
-demo_url: https://ihui.ai
+demo_url: https://aizhs.top
 depends_3rdparty: true
 ```
 
@@ -84,7 +84,7 @@ depends_3rdparty: true
 - name: IHUI-AI
   slug: ihui-ai
   description: 8-platform full-stack AI operating system unifying 176 LLMs (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, GLM, Doubao, Kimi, Ollama, vLLM) via LangGraph + MCP + A2A. Includes RAG knowledge base, agent marketplace, multi-tenant RLS over 340 tables, 1300+ APIs. Apache 2.0 commercial-friendly.
-  website: https://ihui.ai
+  website: https://aizhs.top
   source: https://github.com/IHUI-INF-AI/IHUI-AI
   tags:
     - ai

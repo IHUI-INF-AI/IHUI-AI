@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-design#webpage',
-      url: 'https://ihui.ai/zh-TW/use-cases/ai-design',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-design#webpage',
+      url: 'https://aizhs.top/zh-TW/use-cases/ai-design',
       name: 'AI 設計協作 Agent 用例 — IHUI AI',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建的 AI 設計協作 Agent:海報/Logo 概念、UI 草圖轉程式碼、品牌資產管理、設計稿評審、設計系統檢索,30 分鐘上線,8 端分發。',
       inLanguage: ['zh-TW', 'zh-CN', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-design#breadcrumb',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-design#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 設計協作', item: 'https://ihui.ai/zh-TW/use-cases/ai-design' },
+        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 設計協作', item: 'https://aizhs.top/zh-TW/use-cases/ai-design' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-design#howto',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-design#howto',
       name: '30 分鐘搭建 AI 設計協作 Agent',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建 AI 設計協作 Agent 的 6 步流程:上傳品牌資產 → 配置設計系統 → 訓練概念生成 → 啟用草圖轉程式碼 → 設定評審規則 → 接入協作工具。設計週期縮短 60%。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 設計協作 Agent — IHUI AI',
     description: '草圖轉程式碼 + 品牌資產 + 設計評審,30 分鐘上線。',
-    url: 'https://ihui.ai/zh-TW/use-cases/ai-design',
+    url: 'https://aizhs.top/zh-TW/use-cases/ai-design',
     type: 'article',
   },
 }

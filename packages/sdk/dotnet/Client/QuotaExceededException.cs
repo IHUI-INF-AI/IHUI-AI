@@ -1,4 +1,4 @@
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 429 配额超限异常 — 请求频率或用量超限。

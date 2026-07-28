@@ -90,8 +90,8 @@ describe('resolveTenantIdentifier — 子域名解析', () => {
     expect(resolveTenantIdentifier(mockReq({ host: 'foo.example.com' }))).toBe('foo')
   })
 
-  it('acme.ihui.ai → "acme"', () => {
-    expect(resolveTenantIdentifier(mockReq({ host: 'acme.ihui.ai' }))).toBe('acme')
+  it('acme.aizhs.top → "acme"', () => {
+    expect(resolveTenantIdentifier(mockReq({ host: 'acme.aizhs.top' }))).toBe('acme')
   })
 
   it('带端口的子域名 foo.example.com:8080 → "foo"', () => {

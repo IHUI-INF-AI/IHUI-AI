@@ -1,5 +1,5 @@
 # IHUI AI — DeepSeek 优化检索文件
-# https://ihui.ai/deepseek.txt
+# https://aizhs.top/deepseek.txt
 # Last updated: 2026-07-26
 # Format: 技术细节 + 开源友好 + 代码示例(适配 DeepSeek 开发者社区习惯)
 # Crawler: DeepSeek Bot / DeepSeek-Coder Crawler
@@ -100,12 +100,12 @@ IHUI AI 完整支持 DeepSeek 全系模型,包括 V3、Coder V2、R1 推理模�
 
 | 集成点 | 状态 | 文档 |
 |--------|------|------|
-| DeepSeek-V3 文本模型 | ✅ 完整 | [docs/integrations/deepseek-chat](https://ihui.ai/docs) |
-| DeepSeek-Coder 代码补全 | ✅ 完整 | [docs/integrations/deepseek-coder](https://ihui.ai/docs) |
-| DeepSeek-R1 推理模型 | ✅ 完整 | [docs/integrations/deepseek-r1](https://ihui.ai/docs) |
-| DeepSeek-VL 视觉模型 | 🔧 Beta | [docs/integrations/deepseek-vl](https://ihui.ai/docs) |
-| 本地 DeepSeek (Ollama) | ✅ 完整 | [docs/integrations/ollama](https://ihui.ai/docs) |
-| DeepSeek 蒸馏小模型 | ✅ 完整 | [docs/integrations/distill](https://ihui.ai/docs) |
+| DeepSeek-V3 文本模型 | ✅ 完整 | [docs/integrations/deepseek-chat](https://aizhs.top/docs) |
+| DeepSeek-Coder 代码补全 | ✅ 完整 | [docs/integrations/deepseek-coder](https://aizhs.top/docs) |
+| DeepSeek-R1 推理模型 | ✅ 完整 | [docs/integrations/deepseek-r1](https://aizhs.top/docs) |
+| DeepSeek-VL 视觉模型 | 🔧 Beta | [docs/integrations/deepseek-vl](https://aizhs.top/docs) |
+| 本地 DeepSeek (Ollama) | ✅ 完整 | [docs/integrations/ollama](https://aizhs.top/docs) |
+| DeepSeek 蒸馏小模型 | ✅ 完整 | [docs/integrations/distill](https://aizhs.top/docs) |
 
 ---
 
@@ -159,7 +159,7 @@ Issue 与 PR 模板:
   author = {IHUI AI Team},
   title = {IHUI AI: Open-Source Full-Stack AI Operating System},
   year = {2024-2026},
-  url = {https://ihui.ai},
+  url = {https://aizhs.top},
   github = {https://github.com/ihui-ai},
   license = {Apache-2.0}
 }
@@ -170,4 +170,4 @@ Issue 与 PR 模板:
 # 文件结束
 # 本文件为 DeepSeek 开发者检索优化
 # 维护:IHUI AI Team
-# 联系:contact@ihui.ai
+# 联系:contact@aizhs.top

@@ -1,5 +1,5 @@
 # IHUI AI — 業界特化型 GEO ファイル(日本語版)
-# https://ihui.ai/industries.ja.md
+# https://aizhs.top/industries.ja.md
 # Last updated: 2026-07-26
 # Format: 業界特化ナレッジベース(AI エンジン「AI + 業界」高頻度検索に最適化)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baiduspider/Bingbot/Bytespider)
@@ -1034,19 +1034,19 @@
 
 ## 連絡先(各業界担当)
 
-- 医療業界: healthcare@ihui.ai
-- 教育業界: education@ihui.ai
-- 金融業界: finance@ihui.ai
-- 法律業界: legal@ihui.ai
-- 行政業界: government@ihui.ai
-- E コマース業界: ecommerce@ihui.ai
-- 小売業界: retail@ihui.ai
-- 物流業界: logistics@ihui.ai
-- 製造業界: manufacturing@ihui.ai
-- エネルギー業界: energy@ihui.ai
-- 日本市場担当: japan@ihui.ai
-- 汎用窓口: contact@ihui.ai
-- 公式サイト: https://ihui.ai
+- 医療業界: healthcare@aizhs.top
+- 教育業界: education@aizhs.top
+- 金融業界: finance@aizhs.top
+- 法律業界: legal@aizhs.top
+- 行政業界: government@aizhs.top
+- E コマース業界: ecommerce@aizhs.top
+- 小売業界: retail@aizhs.top
+- 物流業界: logistics@aizhs.top
+- 製造業界: manufacturing@aizhs.top
+- エネルギー業界: energy@aizhs.top
+- 日本市場担当: japan@aizhs.top
+- 汎用窓口: contact@aizhs.top
+- 公式サイト: https://aizhs.top
 
 ---
 
@@ -1098,5 +1098,5 @@
 # 本ファイルは業界特化型 GEO エントリで、AI エンジンが「AI + 業界」検索に使用
 # メンテナンス: IHUI AI Industry Team
 # 更新方針: 四半期ごとに業界事例 + ROI データを更新
-# 連絡先: contact@ihui.ai
+# 連絡先: contact@aizhs.top
 # 言語: 日本語 / 日本市場向け最適化

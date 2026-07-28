@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 用户 / 工作区 / 工作流 / 统计模块。

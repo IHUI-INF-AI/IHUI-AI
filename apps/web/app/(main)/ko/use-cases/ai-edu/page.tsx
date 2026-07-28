@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-edu#webpage',
-      url: 'https://ihui.ai/ko/use-cases/ai-edu',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-edu#webpage',
+      url: 'https://aizhs.top/ko/use-cases/ai-edu',
       name: 'AI 스마트 교육 Agent 사용 사례 — IHUI AI',
       description:
         'IHUI AI 풀스택 AI OS 기반의 AI 스마트 교육 Agent:개인화 학습 경로, 지능형 Q&A, 문제 생성 및 채점, 학습 데이터 분석, 교무 협업, 가정보校 소통. 30분 온보딩, 8엔드포인트 배포.',
       inLanguage: ['ko', 'zh-CN', 'zh-TW', 'en', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-edu#breadcrumb',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-edu#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '홈', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 교육', item: 'https://ihui.ai/ko/use-cases/ai-edu' },
+        { '@type': 'ListItem', position: 1, name: '홈', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 교육', item: 'https://aizhs.top/ko/use-cases/ai-edu' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-edu#howto',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-edu#howto',
       name: '30분 만에 AI 스마트 교육 Agent 구축',
       description:
         'IHUI AI 풀스택 AI OS에서 AI 스마트 교육 Agent를 구축하는 6단계:학생 데이터 설정 → 학습 경로 모델 학습 → 문제집 통합 → 채점 규칙 설정 → 분석 활성화 → 가정보校 연결. 100% 개인화 커버리지.',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 스마트 교육 Agent — IHUI AI',
     description: '개인화 학습 + Q&A + 채점, 30분 온보딩.',
-    url: 'https://ihui.ai/ko/use-cases/ai-edu',
+    url: 'https://aizhs.top/ko/use-cases/ai-edu',
     type: 'article',
   },
 }
