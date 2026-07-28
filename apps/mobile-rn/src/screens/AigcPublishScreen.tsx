@@ -10,10 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { createAigcTask } from '@ihui/api-client'
+import { createAigcTask, uploadFileMultipart, resolveFileUrl } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PRIMARY = tokens.brand.DEFAULT
@@ -50,6 +51,7 @@ export default function AigcPublishScreen() {
   const [description, setDescription] = useState('')
   const [prompt, setPrompt] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [urlInput, setUrlInput] = useState('')
 
@@ -66,6 +68,46 @@ export default function AigcPublishScreen() {
     setError('')
     setFiles((prev) => [...prev, { id: `file-${Date.now()}`, url, type: workType }])
     setUrlInput('')
+  }
+
+  /**
+   * 调用 expo-image-picker 从相册选择图片,通过 uploadFileMultipart 上传到 /api/files/upload/form。
+   * expo-image-picker 8.x:result 直接是 ImageInfo(uri/type/width/height),
+   * 无 mimeType/fileName 字段(13.x 才有 assets 数组),需根据 type 推断 MIME 与扩展名。
+   */
+  const pickImage = async () => {
+    if (uploading) return
+    if (files.length >= 5) {
+      setError('最多上传 5 个素材')
+      return
+    }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      })
+      // 8.x 用 cancelled(英式拼写);canceled(美式)是 13+ 才有的字段
+      if (result.cancelled || !result.uri) return
+      setUploading(true)
+      setError('')
+      const isVideo = result.type === 'video'
+      const res = await uploadFileMultipart({
+        uri: result.uri,
+        type: isVideo ? 'video/mp4' : 'image/jpeg',
+        name: `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+      })
+      if (res.success && res.data) {
+        const url = resolveFileUrl(res.data.path)
+        setFiles((prev) => [...prev, { id: res.data!.id, url, type: workType }])
+      } else {
+        setError(res.error || '上传失败')
+      }
+    } catch {
+      setError('选择文件失败')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id))
