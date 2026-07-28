@@ -449,7 +449,7 @@
       "clearFilter": "清空筛选",
       "filterPlaceholder": "筛选文件夹...",
       "nativePick": "系统选择器",
-      "nativePickHint": "用系统原生对话框选择(只填文件夹名,需补全路径)",
+      "nativePickHint": "已选文件夹:{name}(浏览器安全限制,无法读取完整路径)。下方列表已自动筛选同名文件夹,在列表中点击或按 Enter 即可打开",
       "computer": "此电脑",
       "parent": "上级目录",
       "rootHint": "在此电脑层级选择一个盘符,或在上方输入完整路径",
@@ -997,7 +997,25 @@
     "durationDays": "{days} 天",
     "buyButton": "立即开通",
     "limitedOffer": "限时优惠",
-    "buyPrompt": "立即开通 VIP，解锁全部专属权益"
+    "buyPrompt": "立即开通 VIP，解锁全部专属权益",
+    "benefitList": {
+      "testPaymentFlow": "测试支付流程",
+      "unlimitedChat": "无限对话",
+      "exclusiveModel": "专属模型",
+      "prioritySupport": "优先支持",
+      "referral": "推荐奖励",
+      "lifetime": "终身权益",
+      "distributionQualification": "分销资格",
+      "aiCourses": "AI 课程",
+      "founderQa": "创始人问答",
+      "agentBeta": "Agent 内测",
+      "vipMaxDiscount": "VIP 最大折扣",
+      "customAgentDiscount": "自定义 Agent 折扣",
+      "allVipRights": "全部 VIP 权益",
+      "verticalAccountIncubation": "垂直账号孵化",
+      "secondaryDistribution": "二级分销",
+      "offlineLearning": "线下学习"
+    }
   },
   "asks": {
     "title": "标题",
@@ -1026,7 +1044,13 @@
       "free": {
         "name": "免费版",
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"]
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
@@ -1043,7 +1067,13 @@
         "name": "企业版",
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"]
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ]
       }
     },
     "checkout": {
@@ -3216,7 +3246,7 @@
           "expired": "已过期"
         },
         "source": {
-          "letsencrypt": "Let\u0027s Encrypt",
+          "letsencrypt": "Let's Encrypt",
           "selfSigned": "自签",
           "custom": "自定义"
         },
@@ -5492,10 +5522,10 @@
       "gender_unknown": ""
     },
     "security": {
-      "passwordHint": "6-20 位,不能包含 \u003c \u003e \" \u0027 | \\ 等特殊字符",
+      "passwordHint": "6-20 位,不能包含 < > \" ' | \\ 等特殊字符",
       "passwordTooShort": "密码长度不能少于 6 位",
       "passwordTooLong": "密码长度不能超过 20 位",
-      "passwordInvalidChar": "密码不能包含 \u003c \u003e \" \u0027 | \\ 等特殊字符",
+      "passwordInvalidChar": "密码不能包含 < > \" ' | \\ 等特殊字符",
       "passwordNotMatch": "两次输入的密码不一致",
       "pwUpdated": "密码已更新",
       "phone": "修改手机号",
@@ -8029,7 +8059,7 @@
     "q1Question": "智汇 AI 是什么?",
     "q1Answer": "智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统。它把 Agent 设计、知识库 RAG、多模型统一调度、跨端协作和团队运营装进同一个平台,支持 Web、桌面、小程序、浏览器插件、React Native、CLI 共六个客户端同源分发,核心代码 Apache 2.0 开源,可私有化部署。",
     "q2Question": "智汇 AI 与 Dify、Coze、FastGPT 的区别?",
-    "q2Answer": "Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q\u0026A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。",
+    "q2Answer": "Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。",
     "q3Question": "智汇 AI 适合谁?",
     "q3Answer": "三类用户最受益:AI 开发者(快速搭建/分发/变现 Agent,六端一键发布)、企业 IT(私有化部署,数据不出域,统一 AI 能力中心)、团队 Leader(多人协作,统一知识库,统一计费)。",
     "q4Question": "支持哪些 AI 模型?",
@@ -8688,32 +8718,58 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"]
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"]
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"]
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"]
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"]
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -9057,19 +9113,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -9190,25 +9258,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -9848,7 +9928,7 @@
       "professional": {
         "title": "工程严谨 · 行业标杆",
         "description": "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations + 12 共享 packages,代码质量超 95% 同类项目",
-        "evidence": "证据:17 守门 \u003e 行业平均 3 项 / 122 migrations \u003e 平均 30 / 12 packages \u003e 平均 4 → 99.9% 不出错"
+        "evidence": "证据:17 守门 > 行业平均 3 项 / 122 migrations > 平均 30 / 12 packages > 平均 4 → 99.9% 不出错"
       },
       "efficient": {
         "title": "智能路由 · 显著降本",
@@ -9858,7 +9938,7 @@
       "reliable": {
         "title": "企业级安全 · 零风险",
         "description": "99.9% SLA + AES-256-GCM 加密 + RBAC 按钮级权限 + 5 语言 i18n parity + 不满意全额退款",
-        "evidence": "AES-256-GCM = 银行级加密 / RBAC 颗粒到按钮级 = 超金融行业 / 99.9% SLA = 全年停机 \u003c 8.76 小时"
+        "evidence": "AES-256-GCM = 银行级加密 / RBAC 颗粒到按钮级 = 超金融行业 / 99.9% SLA = 全年停机 < 8.76 小时"
       },
       "innovative": {
         "title": "三栈合一 · 较为少见",
@@ -10596,7 +10676,11 @@
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
       "cta": "了解详情",
-      "features": ["全年所有课程免费参加", "线下探索活动优先参与名额", "智汇 AI 会员社群无限次互动"]
+      "features": [
+        "全年所有课程免费参加",
+        "线下探索活动优先参与名额",
+        "智汇 AI 会员社群无限次互动"
+      ]
     },
     "enterprise": {
       "name": "企业服务",
@@ -10753,7 +10837,15 @@
       "sessions": "会话数",
       "crashRate": "崩溃率"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趋势",
       "subtitle": "每日活跃用户数变化曲线"
@@ -10897,8 +10989,18 @@
     "title": "AI 生涯指导",
     "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
     "options": {
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"],
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -12246,7 +12348,12 @@
     "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       },
       "pro": {
         "features": [
@@ -12272,7 +12379,7 @@
       "name": "智汇 AI 充值套餐",
       "description": "智汇 AI 全栈 AI 操作系统的 API 充值套餐,覆盖个人开发者/小团队/企业级需求,支持按量计费与包月套餐。",
       "brand": "智汇 AI",
-      "category": "Software \u003e AI Development Platform \u003e API Credits",
+      "category": "Software > AI Development Platform > API Credits",
       "currency": "CNY",
       "offers": {
         "starter": {
@@ -12688,7 +12795,13 @@
         "price": "¥999",
         "unit": "/小时",
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"]
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ]
       }
     },
     "socialProof": {
@@ -12839,9 +12952,15 @@
       "recommended": "推荐阅读"
     },
     "articles": {
-      "a1": { "title": "AI 工程实战:从 0 到 1 构建企业 AI 助手" },
-      "a2": { "title": "Agent 开发完全指南:LangGraph + MCP 协议" },
-      "a3": { "title": "RAG 实战:多租户知识库隔离设计" }
+      "a1": {
+        "title": "AI 工程实战:从 0 到 1 构建企业 AI 助手"
+      },
+      "a2": {
+        "title": "Agent 开发完全指南:LangGraph + MCP 协议"
+      },
+      "a3": {
+        "title": "RAG 实战:多租户知识库隔离设计"
+      }
     },
     "errors": {
       "generic": "订阅失败,请稍后重试",

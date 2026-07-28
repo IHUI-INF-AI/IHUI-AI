@@ -219,7 +219,6 @@
 .no-scrollbar {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
-  overflow: hidden !important;
 }
 .no-scrollbar::-webkit-scrollbar {
   width: 0 !important;
