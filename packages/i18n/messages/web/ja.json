@@ -8927,6 +8927,11 @@
     }
   },
   "search": {
+    "history": "検索履歴",
+    "popular": "人気の検索",
+    "suggest": "検索候補",
+    "clearAll": "すべてクリア",
+    "noResults": "検索結果なし",
     "sort": "ソート",
     "sortName": "氏名",
     "emptyKeyword": "キーワードをしてください",
@@ -9724,7 +9729,6 @@
       "working": "{count} 個のサブエージェントが協力中"
     },
     "pane": {
-      "title": "タスク計画",
       "ariaLabel": "Agent タスク進行パネル",
       "pin": "ピン留め",
       "unpin": "ピン解除",
