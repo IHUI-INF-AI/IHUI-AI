@@ -130,7 +130,7 @@ try {
       f.includes('packages/design-tokens/src/styles/tokens.css'),
   )
   if (involvesRnTokens) {
-    if (!run('🔍 条件 RN global.css 同步守门(P1-C 7 类变量)...', 'node scripts/check-design-tokens-sync.mjs --target=mobile-rn')) {
+    if (!run('🔍 条件 RN global.css 同步守门...', 'node scripts/check-rn-global-css-sync.mjs')) {
       console.error('❌ RN global.css 与 tokens.css 变量值不一致,提交已阻止(请同步变量值后再 commit)')
       process.exit(1)
     }
