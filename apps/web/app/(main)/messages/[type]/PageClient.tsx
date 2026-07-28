@@ -157,21 +157,24 @@ export default function MessageTypePage() {
       </div>
 
       {isLoading ? (
-        <div className="py-10 text-center text-muted-foreground">
+        <div className="py-8 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
+        <div className="py-8 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
           <Icon className="h-8 w-8 opacity-40" />
           <p className="text-sm">{isPrivateLetter ? tp('noConversations') : t('empty')}</p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="max-h-[calc(100vh-22rem)] space-y-2 overflow-auto">
           {items.map((item) => (
-            <li key={item.id}>
+            <li
+              key={item.id}
+              className="rounded-lg border bg-card"
+            >
               <button
                 type="button"
                 onClick={() => {
