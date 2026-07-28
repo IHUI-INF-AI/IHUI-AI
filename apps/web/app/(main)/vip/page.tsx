@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -167,7 +167,7 @@ export default function VipPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-start">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-stretch auto-rows-fr">
           {levels.map((level, idx) => {
             const isPopular = idx === popularIdx
             const benefits = Array.isArray(level.benefits) ? level.benefits : []
@@ -176,7 +176,7 @@ export default function VipPage() {
                 key={level.id}
                 className={cn(
                   'relative flex flex-col transition-shadow',
-                  isPopular && 'border-amber-500/50 shadow-lg lg:scale-105',
+                  isPopular && 'border-amber-500/50 shadow-lg',
                 )}
               >
                 {isPopular && (
