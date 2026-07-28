@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { voiceSttFromBlob } from '@ihui/api-client'
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void
@@ -138,7 +139,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
         if (e.data.size > 0) chunksRef.current.push(e.data)
       }
       recorder.onstop = async () => {
-        // 录音停止 → 上传到 ai-service 转写
+        // 录音停止 → 上传到 ai-service 转写(用 packages/api-client 共用封装)
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
         streamRef.current?.getTracks().forEach((track) => track.stop())
         streamRef.current = null
@@ -148,25 +149,16 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           return
         }
 
-        try {
-          const formData = new FormData()
-          formData.append('file', audioBlob, 'voice.webm')
-          formData.append('language', 'zh')
-          const res = await fetch(`${AI_SERVICE_URL}/api/voice/stt`, {
-            method: 'POST',
-            body: formData,
-          })
-          if (res.ok) {
-            const data = (await res.json()) as { text?: string; stub?: boolean }
-            if (data.text && !data.stub) {
-              onTranscript(data.text)
-            }
-          }
-        } catch {
-          // 转写失败静默处理(不阻塞用户输入)
-        } finally {
-          setRecording(false)
-        }
+        // 调用跨端共用封装(静默处理失败,不阻塞用户输入)
+        const text = await voiceSttFromBlob({
+          blob: audioBlob,
+          filename: 'voice.webm',
+          mimeType: 'audio/webm',
+          language: 'zh',
+          aiServiceUrl: AI_SERVICE_URL,
+        })
+        if (text) onTranscript(text)
+        setRecording(false)
       }
       recorder.start()
       mediaRecorderRef.current = recorder
