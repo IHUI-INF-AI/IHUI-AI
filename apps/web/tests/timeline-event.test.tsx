@@ -445,3 +445,140 @@ describe('TimelineEventRow — snapshot 测试', () => {
     expect(container.querySelector('[data-event-status="failed"]')).toBeTruthy()
   })
 })
+
+// ─── 进阶边界场景(2026-07-28 覆盖率深化) ─────────────────────────
+
+describe('TimelineEventRow — ChevronRight 展开旋转', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('有 children 折叠时:ChevronRight 不含 rotate-90', () => {
+    const event = makeEvent({
+      id: 'rotate-1',
+      children: [
+        { id: 'r-c1', type: 'tool', status: 'done', title: '子 R1', timestamp: new Date().toISOString() },
+      ],
+    })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const chevron = container.querySelectorAll('[data-lucide-span="true"]')[0] as HTMLElement
+    expect(chevron.className).not.toContain('rotate-90')
+  })
+
+  it('有 children 展开后:ChevronRight 含 rotate-90 类', () => {
+    const event = makeEvent({
+      id: 'rotate-2',
+      children: [
+        { id: 'r-c2', type: 'tool', status: 'done', title: '子 R2', timestamp: new Date().toISOString() },
+      ],
+    })
+    const { container } = render(<TimelineEventRow event={event} />)
+    fireEvent.click(container.querySelector('button')!)
+    const chevron = container.querySelectorAll('[data-lucide-span="true"]')[0] as HTMLElement
+    expect(chevron.className).toContain('rotate-90')
+  })
+})
+
+describe('TimelineEventRow — data-testid 透传', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('自定义 data-testid 覆盖默认值 "timeline-event-row"', () => {
+    const event = makeEvent({ id: 'tid-1' })
+    const { container } = render(
+      <TimelineEventRow event={event} data-testid="my-custom-row" />,
+    )
+    expect(container.querySelector('[data-testid="my-custom-row"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid="timeline-event-row"]')).toBeFalsy()
+  })
+})
+
+describe('TimelineEventRow — children=[] 等同无 children', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('children 为空数组:button disabled + 无 ChevronRight', () => {
+    const event = makeEvent({ id: 'empty-children', children: [] })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button')!
+    expect(btn.hasAttribute('disabled')).toBe(true)
+    // 无 ChevronRight 时,占位 span 渲染
+    const placeholder = container.querySelector('.w-2\\.5')
+    expect(placeholder).toBeTruthy()
+  })
+})
+
+describe('TimelineEventRow — store 预展开状态', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('store 预设 expandedEventIds → 渲染时直接展开,无需点击', () => {
+    const event = makeEvent({
+      id: 'preset-expanded',
+      children: [
+        { id: 'p-c1', type: 'tool', status: 'done', title: '预展开子项', timestamp: new Date().toISOString() },
+      ],
+    })
+    // 预设 store 展开状态
+    useTimelineStore.getState().setExpanded('preset-expanded', true)
+    const { container } = render(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button')!
+    expect(btn.getAttribute('aria-expanded')).toBe('true')
+    expect(container.textContent).toContain('预展开子项')
+  })
+
+  it('setExpanded(false) 折叠回初始状态', () => {
+    const event = makeEvent({
+      id: 'preset-collapse',
+      children: [
+        { id: 'p-c2', type: 'tool', status: 'done', title: '子 C', timestamp: new Date().toISOString() },
+      ],
+    })
+    useTimelineStore.getState().setExpanded('preset-collapse', true)
+    const { container, rerender } = render(<TimelineEventRow event={event} />)
+    expect(container.textContent).toContain('子 C')
+    useTimelineStore.getState().setExpanded('preset-collapse', false)
+    rerender(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button')!
+    expect(btn.getAttribute('aria-expanded')).toBe('false')
+  })
+})
+
+describe('TimelineEventRow — 顶层装饰条颜色映射', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('subagent 类型顶层装饰条:bg-cyan-500/50', () => {
+    const event = makeEvent({ id: 'bar-cyan', type: 'subagent' })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const bar = container.querySelector('.absolute.left-0.top-0')
+    expect(bar).toBeTruthy()
+    expect(bar?.className).toContain('bg-cyan-500/50')
+  })
+
+  it('tool 类型顶层装饰条:bg-violet-500/50', () => {
+    const event = makeEvent({ id: 'bar-violet', type: 'tool' })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const bar = container.querySelector('.absolute.left-0.top-0')
+    expect(bar?.className).toContain('bg-violet-500/50')
+  })
+})
