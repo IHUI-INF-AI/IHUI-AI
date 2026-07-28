@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
 import { formatDuration, FoldableSectionProvider } from './progress-sections/foldable-section'
@@ -64,9 +65,15 @@ const PLAN_CLS: Record<PlanStepStatus, string> = {
 const PlanStepItem = React.memo(function PlanStepItem({
   step,
   index,
+  isHighlighted,
+  onJumpToMessage,
+  onHoverStep,
 }: {
   step: PlanStep
   index: number
+  isHighlighted?: boolean
+  onJumpToMessage: (messageId: string | undefined, stepId: string) => void
+  onHoverStep: (stepId: string | null) => void
 }) {
   const t = useTranslations('ai.pane')
   const Icon = PLAN_ICON[step.status]
@@ -76,14 +83,27 @@ const PlanStepItem = React.memo(function PlanStepItem({
       : step.status === 'completed'
         ? t('stepCompleted', { n: index + 1, step: step.step })
         : t('stepPending', { n: index + 1, step: step.step })
+  const hasJumpTarget = !!step.relatedMessageId
   return (
     <div
       role="listitem"
       className={cn(
         'flex items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
         step.status === 'in_progress' && 'bg-primary/10',
+        isHighlighted && 'ring-1 ring-primary/40 bg-primary/8',
+        hasJumpTarget && 'cursor-pointer hover:bg-accent/30',
       )}
       aria-label={stepLabel}
+      onClick={() => hasJumpTarget && onJumpToMessage(step.relatedMessageId, step.id)}
+      onMouseEnter={() => onHoverStep(step.id)}
+      onMouseLeave={() => onHoverStep(null)}
+      onKeyDown={(e) => {
+        if (!hasJumpTarget) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onJumpToMessage(step.relatedMessageId, step.id)
+        }
+      }}
     >
       <Icon
         className={cn(
@@ -138,6 +158,13 @@ export function AgentTaskProgressPane() {
   const toggle = useAgentProgressPaneStore((s) => s.toggle)
   const closePane = useAgentProgressPaneStore((s) => s.closePane)
   const setProgress = useAgentProgressPaneStore((s) => s.setProgress)
+
+  // 2026-07-28 立(PlanStep ↔ Message 双向跳转):订阅 progress-jump-store
+  const requestJumpToMessage = useProgressJumpStore((s) => s.requestJumpToMessage)
+  const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
+  const hoveredMessageId = useProgressJumpStore((s) => s.hoveredMessageId)
+  const hoveredPlanStepId = useProgressJumpStore((s) => s.hoveredPlanStepId)
+  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
 
   // v9: 展开全部/折叠全部控制(null=各子区独立 / true=强制展开 / false=强制折叠)
   const [expandAll, setExpandAll] = React.useState<boolean | null>(null)
@@ -219,6 +246,31 @@ export function AgentTaskProgressPane() {
     const current = currentIdx >= 0 ? currentIdx + 1 : 0
     setProgress(current, total)
   }, [planSteps, setProgress])
+
+  // 2026-07-28 立(PlanStep ↔ Message 双向跳转):PlanStepItem 点击 → 滚动到 message
+  const handleJumpToMessage = React.useCallback(
+    (messageId: string | undefined, _stepId: string) => {
+      if (messageId) {
+        requestJumpToMessage(messageId)
+        flashHighlight(messageId)
+      } else {
+        // 无目标 → 跳到最新(自定义 sentinel)
+        requestJumpToMessage('___jump_to_latest___')
+      }
+    },
+    [requestJumpToMessage, flashHighlight],
+  )
+
+  // 2026-07-28 立(PlanStep ↔ Message 联动):message hover → 联动 planStep 高亮
+  // 消息 hover 时 setHoveredMessage 设置 hoveredMessageId,我们据此反查 planStepId
+  const messageToPlanStepIds = useProgressJumpStore((s) => s.messageToPlanStepIds)
+  const activePlanStepId = React.useMemo(() => {
+    if (hoveredMessageId) {
+      const ids = messageToPlanStepIds[hoveredMessageId]
+      if (ids && ids.length > 0) return ids[0] ?? null
+    }
+    return hoveredPlanStepId
+  }, [hoveredMessageId, hoveredPlanStepId, messageToPlanStepIds])
 
   // Esc 关闭(unpin 状态下生效;pin 状态下 Esc 不关闭,避免误操作)
   React.useEffect(() => {
@@ -475,7 +527,14 @@ export function AgentTaskProgressPane() {
           <>
             <div role="list" aria-label="任务步骤列表">
               {planSteps.map((step, idx) => (
-                <PlanStepItem key={step.id} step={step} index={idx} />
+                <PlanStepItem
+                  key={step.id}
+                  step={step}
+                  index={idx}
+                  isHighlighted={activePlanStepId === step.id}
+                  onJumpToMessage={handleJumpToMessage}
+                  onHoverStep={setHoveredPlanStep}
+                />
               ))}
             </div>
             {/* v9: 统计文字(线性进度条已移除,改用 header 中的 SVG 圆环) */}
