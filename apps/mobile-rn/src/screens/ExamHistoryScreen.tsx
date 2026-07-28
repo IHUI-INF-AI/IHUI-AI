@@ -51,7 +51,7 @@ export function ExamHistoryScreen() {
   if (error && history.length === 0)
     return (
       <View className="flex-1 items-center justify-center bg-card p-4">
-        <Text className="text-[13px] text-[#DC2626] mb-2 text-center">{error}</Text>
+        <Text className="text-[13px] text-danger mb-2 text-center">{error}</Text>
         <TouchableOpacity className="mt-3 px-4 py-2 rounded-lg bg-primary" onPress={() => navigation.goBack()}>
           <Text className="text-sm text-primary-foreground">{t('common.back')}</Text>
         </TouchableOpacity>
@@ -82,7 +82,7 @@ export function ExamHistoryScreen() {
                   {item.examTitle}
                 </Text>
                 <Text
-                  className={`text-[11px] px-1.5 py-0.5 rounded ml-2 ${item.passed ? 'text-primary bg-[#ECFDF5]' : 'text-[#DC2626] bg-[#FEF2F2]'}`}
+                  className={`text-[11px] px-1.5 py-0.5 rounded ml-2 ${item.passed ? 'text-primary bg-success-light' : 'text-danger bg-danger-light'}`}
                 >
                   {item.passed ? t('examHistory.passed') : t('examHistory.failed')}
                 </Text>
@@ -91,7 +91,7 @@ export function ExamHistoryScreen() {
                 <Text className="text-[13px] text-primary font-semibold">
                   {item.score}/{item.totalScore}
                 </Text>
-                <Text className="text-[11px] text-[#9CA3AF]">{item.submittedAt}</Text>
+                <Text className="text-[11px] text-tertiary">{item.submittedAt}</Text>
               </View>
             </Card>
           </TouchableOpacity>
