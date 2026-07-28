@@ -33,7 +33,7 @@ import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
 import { useModeStore } from '@/stores/mode'
-import { ChatMode } from '@ihui/types'
+import type { ChatMode } from '@ihui/types'
 import {
   PermissionModePopover,
   isHighRiskPermissionMode,
@@ -103,7 +103,10 @@ const SLASH_COMMAND_IDS = [
 // - icon: 当前模式徽章图标(lucide-react)
 // - i18nKey: 模式名 i18n key(从 chat.modeBuild/modePlan/modeReview/modeSpec 取)
 // - slashCmd: 对应 / 命令(供 tooltip 提示用户)
-const CHAT_MODE_META: Record<ChatMode, { icon: React.ComponentType<{ className?: string }>; i18nKey: string; slashCmd: string }> = {
+const CHAT_MODE_META: Record<
+  ChatMode,
+  { icon: React.ComponentType<{ className?: string }>; i18nKey: string; slashCmd: string }
+> = {
   build: { icon: Hammer, i18nKey: 'modeBuild', slashCmd: '/build' },
   plan: { icon: BookOpen, i18nKey: 'modePlan', slashCmd: '/plan' },
   review: { icon: Search, i18nKey: 'modeReview', slashCmd: '/review' },
