@@ -468,7 +468,7 @@
       "clearFilter": "Clear filter",
       "filterPlaceholder": "Filter folders...",
       "nativePick": "System picker",
-      "nativePickHint": "Pick with the system native dialog (folder name only — you need to complete the full path)",
+      "nativePickHint": "Selected '{name}'. Browser security prevents reading the full path. Please complete the full path (e.g. G:\\IHUI-AI) in the input above and press Enter",
       "nativePickNotFound": "'{name}' not found in the current directory. Please enter the full path manually or navigate to the correct directory",
       "computer": "This PC",
       "parent": "Parent",
