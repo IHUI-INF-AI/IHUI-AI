@@ -598,9 +598,38 @@
   },
   "order": {
     "empty": "暂无订单",
-    "status": {
-      "refunded": "已退款"
+    "loadFailed": "加载订单失败",
+    "title": "我的订单",
+    "amount": "金额",
+    "orderNo": "订单号",
+    "tab": {
+      "all": "全部",
+      "pending": "待支付",
+      "paid": "已支付",
+      "shipped": "已发货",
+      "completed": "已完成"
     },
-    "orderNo": "订单号"
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "shipped": "已发货",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "refunded": "已退款"
+    }
+  },
+  "studyPlan": {
+    "empty": "暂无学习计划",
+    "loadFailed": "加载学习计划失败",
+    "title": "学习计划",
+    "lessons": "课时",
+    "progress": "进度",
+    "deadline": "截止日期",
+    "status": {
+      "active": "进行中",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "overdue": "已逾期"
+    }
   }
 }
