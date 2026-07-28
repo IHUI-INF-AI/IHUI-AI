@@ -39,6 +39,7 @@ from typing import Any, Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -49,35 +50,20 @@ _PROMPT_LIMIT = 4000
 # 会话摘要触发最小消息数(< 5 跳过)
 _MIN_MESSAGES_FOR_SUMMARY = 5
 
-# 全局连接池(与 meta_learner._pool 独立,避免互相影响)
-_pool: Optional[asyncpg.Pool] = None
-
 # P0 修复:每用户内存缓存记录上限,防止 _cache 无界增长导致 OOM(防御性:目前 _cache 未被写入)
 _MAX_CACHE_ENTRIES = 500
 
 
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool / close_pool 函数签名(向后兼容)。
 async def _get_pool() -> asyncpg.Pool:
-    """获取 asyncpg 连接池(懒初始化,与 meta_learner 独立避免互相影响)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 async def close_pool() -> None:
-    """P0 修复:关闭全局 asyncpg 连接池(main.py shutdown 调用,防止重启时连接残留)。"""
-    global _pool
-    if _pool is not None:
-        try:
-            await _pool.close()
-        except Exception:
-            pass
-        _pool = None
+    """关闭连接池(no-op,共享 pool 由 main.py shutdown 统一关闭)。"""
+    return None
 
 
 # =============================================================================

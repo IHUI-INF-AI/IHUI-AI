@@ -129,6 +129,8 @@ interface PTYEntry {
   scrollbackTimer: ReturnType<typeof setInterval> | null
   /** 已 flush 总字节数(监控用) */
   scrollbackBytes: number
+  /** P2 修复:1 小时硬超时定时器,防止 PTY 进程异常退出(not trigger exit 事件)导致 scrollbackTimer 永久运行 */
+  sessionTimeout: ReturnType<typeof setTimeout> | null
 }
 
 /** 单用户最大并发终端数 */
@@ -366,6 +368,11 @@ function flushScrollback(entry: PTYEntry): void {
 
 /** 统一处理 PTY/SSH 退出 */
 function handlePtyExit(entry: PTYEntry, e: { exitCode: number; signal?: number }): void {
+  // P2 修复:清理硬超时定时器(防止 PTY 异常退出导致 scrollbackTimer 永久运行)
+  if (entry.sessionTimeout) {
+    clearTimeout(entry.sessionTimeout)
+    entry.sessionTimeout = null
+  }
   // 先停止 flush 定时器并 flush 剩余数据
   if (entry.scrollbackTimer) {
     clearInterval(entry.scrollbackTimer)
@@ -472,6 +479,7 @@ function registerLocalSession(
     scrollbackBuffer: '',
     scrollbackTimer: null,
     scrollbackBytes: 0,
+    sessionTimeout: null,
   }
 
   // 本地 PTY 输出 → 统一数据流处理(转发 + scrollback 累积)
@@ -483,6 +491,13 @@ function registerLocalSession(
   pty.onExit((e: { exitCode: number; signal?: number }) => {
     handlePtyExit(entry, e)
   })
+
+  // P2 修复:1 小时硬超时,防止 PTY 进程被 kill -9 或父进程崩溃未触发 exit 事件,导致 scrollbackTimer 永久运行
+  entry.sessionTimeout = setTimeout(() => {
+    console.warn(`Terminal session ${entry.sessionId} hard timeout (1h), force cleanup`)
+    handlePtyExit(entry, { exitCode: -1, signal: 9 })
+  }, 60 * 60 * 1000)
+  entry.sessionTimeout.unref() // 不阻止进程退出
 
   sessions.set(sessionId, entry)
   registerUserSession(userId, sessionId)
@@ -552,6 +567,7 @@ function createSshSession(
     scrollbackBuffer: '',
     scrollbackTimer: null,
     scrollbackBytes: 0,
+    sessionTimeout: null,
   }
 
   // 启动 SSH 连接(异步,ready 后才有 stream)
@@ -608,6 +624,13 @@ function createSshSession(
 
   // 触发连接
   client.connect(connectOpts)
+
+  // P2 修复:1 小时硬超时,防止 SSH stream 异常断开未触发 close 事件,导致 scrollbackTimer 永久运行
+  entry.sessionTimeout = setTimeout(() => {
+    console.warn(`Terminal session ${entry.sessionId} hard timeout (1h), force cleanup`)
+    handlePtyExit(entry, { exitCode: -1, signal: 9 })
+  }, 60 * 60 * 1000)
+  entry.sessionTimeout.unref() // 不阻止进程退出
 
   sessions.set(sessionId, entry)
   registerUserSession(userId, sessionId)
@@ -727,6 +750,11 @@ export function resizeSession(
 export function closeSession(sessionId: string, userId: string): boolean {
   const entry = getSession(sessionId, userId)
   if (!entry) return false
+  // P2 修复:清理硬超时定时器
+  if (entry.sessionTimeout) {
+    clearTimeout(entry.sessionTimeout)
+    entry.sessionTimeout = null
+  }
   // flush 剩余 scrollback
   if (entry.scrollbackTimer) {
     clearInterval(entry.scrollbackTimer)
@@ -891,6 +919,11 @@ export async function getScrollback(
 /** 杀死所有 PTY/SSH(进程退出时调用,防僵尸) */
 export function killAllSessions(): void {
   for (const [, entry] of sessions) {
+    // P2 修复:清理硬超时定时器
+    if (entry.sessionTimeout) {
+      clearTimeout(entry.sessionTimeout)
+      entry.sessionTimeout = null
+    }
     // flush 剩余 scrollback
     if (entry.scrollbackTimer) {
       clearInterval(entry.scrollbackTimer)
