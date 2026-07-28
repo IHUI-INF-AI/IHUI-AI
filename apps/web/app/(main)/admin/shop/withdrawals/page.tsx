@@ -27,13 +27,13 @@ export default function AdminShopWithdrawalsPage() {
     )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Wallet className="h-6 w-6 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <Wallet className="h-5 w-5 text-primary" />
           提现管理
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">审核与处理用户提现申请</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">审核与处理用户提现申请</p>
       </div>
 
       <div className="flex w-fit gap-1 rounded-lg border bg-muted/30 p-1">

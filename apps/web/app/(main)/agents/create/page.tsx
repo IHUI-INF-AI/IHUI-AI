@@ -68,7 +68,7 @@ export default function CreateAgentPage() {
   const categories = catData?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-4">
       <div className="flex items-center justify-between gap-2">
         <Button variant="ghost" size="sm" onClick={() => router.push('/agents')}>
           <ArrowLeft className="h-4 w-4" />
@@ -77,8 +77,8 @@ export default function CreateAgentPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('createTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('createSubtitle')}</p>
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('createTitle')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('createSubtitle')}</p>
       </div>
 
       <AgentCreateForm

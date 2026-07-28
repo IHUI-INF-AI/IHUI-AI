@@ -10,8 +10,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Loading } from '@ihui/ui-native'
 
@@ -34,7 +33,6 @@ interface CheckInInfo {
 
 export function CheckInScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<CheckInInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -47,21 +45,14 @@ export function CheckInScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const resp = await fetch(`${API_BASE_URL}/api/checkin/today`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) {
-        setError(t('checkIn.loadFailed'))
-        setLoading(false)
-        setRefreshing(false)
-        return
-      }
-      const data = (await resp.json()) as { data?: CheckInInfo }
-      setInfo(data.data ?? null)
-      setLoading(false)
-      setRefreshing(false)
+      try {
+        const res = await fetchApi<CheckInInfo>('/checkin/today')
+        if (!res.success) throw new Error()
+        setInfo(res.data ?? null)
+      } catch { setError(t('checkIn.loadFailed')) }
+      finally { setLoading(false); setRefreshing(false) }
     },
-    [token, t],
+    [t],
   )
 
   useEffect(() => {
@@ -71,12 +62,9 @@ export function CheckInScreen() {
   const handleSign = async () => {
     if (!info || info.todaySigned) return
     setSigning(true)
-    const resp = await fetch(`${API_BASE_URL}/api/checkin`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
+    const res = await fetchApi('/checkin', { method: 'POST' })
     setSigning(false)
-    if (resp.ok) {
+    if (res.success) {
       Alert.alert(t('checkIn.signSuccess'), `+${info.todayReward}`)
       void load(true)
     } else {

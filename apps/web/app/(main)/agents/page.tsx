@@ -44,7 +44,7 @@ export default function AgentsMarketPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <AgentsHeader />
 
       <Tabs defaultValue="market" className="space-y-4">

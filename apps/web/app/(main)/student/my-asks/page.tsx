@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -77,32 +77,32 @@ export default function MyAsksPage() {
   const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-          <HelpCircle className="h-7 w-7 text-primary" />
+    <div className="mx-auto w-full max-w-6xl space-y-3">
+      <header className="space-y-0.5">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+          <HelpCircle className="h-5 w-5 text-primary" />
           {ta('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{ta('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{ta('subtitle')}</p>
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10">
           <HelpCircle className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             {list.map((ask) => {
               const statusKey =
                 ask.status === 1
@@ -112,7 +112,7 @@ export default function MyAsksPage() {
                     : 'statusPending'
               return (
                 <Card key={ask.id} className="transition-colors hover:bg-accent">
-                  <CardContent className="space-y-3 p-4">
+                  <CardContent className="space-y-2 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <Link href={`/asks/${ask.id}`} className="min-w-0 flex-1">
                         <h3 className="font-medium hover:text-primary">{ask.title}</h3>

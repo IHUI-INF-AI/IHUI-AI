@@ -104,21 +104,21 @@ export default function NotificationsPage() {
   }
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('notificationsTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('notificationsDesc')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('notificationsTitle')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('notificationsDesc')}</p>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {tc('loading')}
         </div>
       ) : error ? (
-        <p className="py-12 text-center text-sm text-destructive">{error}</p>
+        <p className="py-8 text-center text-xs text-destructive">{error}</p>
       ) : (
-        <>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -126,18 +126,18 @@ export default function NotificationsPage() {
                 {t('emailNotif')}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{t('emailNotifDesc')}</span>
+                <span className="text-xs text-muted-foreground">{t('emailNotifDesc')}</span>
                 <Switch
                   checked={prefs.emailEnabled}
                   onCheckedChange={(v) => update('emailEnabled', v)}
                 />
               </div>
               {prefs.emailEnabled && (
-                <div className="space-y-3 rounded-md bg-muted/40 p-3">
+                <div className="space-y-2 rounded-md bg-muted/40 p-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">{t('systemNotif')}</span>
+                    <span className="text-xs">{t('systemNotif')}</span>
                     <Switch
                       size="sm"
                       checked={prefs.systemNotif}
@@ -145,7 +145,7 @@ export default function NotificationsPage() {
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">{t('marketingEmail')}</span>
+                    <span className="text-xs">{t('marketingEmail')}</span>
                     <Switch
                       size="sm"
                       checked={prefs.marketingEmail}
@@ -166,9 +166,9 @@ export default function NotificationsPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <span className="text-sm text-muted-foreground">{t('smsNotifDesc')}</span>
-                  <p className="font-mono text-xs text-muted-foreground">+86 138****8888</p>
+                <div className="space-y-0.5">
+                  <span className="text-xs text-muted-foreground">{t('smsNotifDesc')}</span>
+                  <p className="font-mono text-[11px] text-muted-foreground">+86 138****8888</p>
                 </div>
                 <Switch
                   checked={prefs.smsEnabled}
@@ -187,7 +187,7 @@ export default function NotificationsPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{t('pushNotifDesc')}</span>
+                <span className="text-xs text-muted-foreground">{t('pushNotifDesc')}</span>
                 <Switch
                   checked={prefs.pushEnabled}
                   onCheckedChange={(v) => update('pushEnabled', v)}
@@ -205,12 +205,12 @@ export default function NotificationsPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{t('desc.notificationSound')}</span>
+                <span className="text-xs text-muted-foreground">{t('desc.notificationSound')}</span>
                 <Switch checked={soundEnabled} onCheckedChange={updateSound} />
               </div>
             </CardContent>
           </Card>
-        </>
+        </div>
       )}
 
       {toast && (

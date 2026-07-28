@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -122,10 +122,10 @@ export default function ConnectedAccountsPage() {
   }
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('connectedAccountsTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('connectedAccountsDesc')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('connectedAccountsTitle')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('connectedAccountsDesc')}</p>
       </div>
 
       <Card>
@@ -137,12 +137,12 @@ export default function ConnectedAccountsPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {isLoading ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
+            <div className="py-6 text-center text-sm text-muted-foreground">
               <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
               {t('connectedAccountsLoading')}
             </div>
           ) : error ? (
-            <div className="py-10 text-center text-sm text-destructive">
+            <div className="py-6 text-center text-sm text-destructive">
               {(error as Error).message}
             </div>
           ) : (

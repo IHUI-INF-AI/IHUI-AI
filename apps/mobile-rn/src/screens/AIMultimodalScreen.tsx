@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { sendAiChat } from '@ihui/api-client'
+import { getAiModels, sendAiChat } from '@ihui/api-client'
 import type { ChatMessage as AiChatMessage } from '@ihui/types'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -28,18 +28,37 @@ interface ChatMessage extends AiChatMessage {
   createdAt: number
 }
 
-const MODELS = ['gpt-4o', 'claude-3.5-sonnet', 'gemini-1.5-pro']
-
 export function AIMultimodalScreen() {
   const { t } = useI18n()
   const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [mode, setMode] = useState<Mode>('text')
-  const [model, setModel] = useState(MODELS[0])
+  const [models, setModels] = useState<string[]>([])
+  const [model, setModel] = useState('')
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // 从 @ihui/api-client 加载真实模型列表,替换原硬编码 MODELS。
+  // 加载失败静默处理:models 维持空数组,UI 显示"暂无可用模型"提示。
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const res = await getAiModels({ page: 1, pageSize: 100 })
+      if (cancelled) return
+      if (res.success) {
+        const names = res.data.list
+          .map((m) => m.name)
+          .filter((n): n is string => typeof n === 'string' && n.length > 0)
+        setModels(names)
+        setModel((prev) => prev || names[0] || '')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleSend = async () => {
     const text = input.trim()
@@ -109,17 +128,21 @@ export function AIMultimodalScreen() {
       <View style={styles.modelRow}>
         <Text style={styles.modelLabel}>{t('aiMultimodal.switchModel')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {MODELS.map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.modelChip, model === m && styles.modelChipActive]}
-              onPress={() => setModel(m)}
-            >
-              <Text style={[styles.modelChipText, model === m && styles.modelChipTextActive]}>
-                {m}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {models.length === 0 ? (
+            <Text style={styles.modelEmpty}>暂无可用模型</Text>
+          ) : (
+            models.map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.modelChip, model === m && styles.modelChipActive]}
+                onPress={() => setModel(m)}
+              >
+                <Text style={[styles.modelChipText, model === m && styles.modelChipTextActive]}>
+                  {m}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
       </View>
 
@@ -190,6 +213,7 @@ const styles = StyleSheet.create({
   modeBtnTextActive: { color: '#fff', fontWeight: '600' },
   modelRow: { paddingHorizontal: 16, paddingBottom: 8 },
   modelLabel: { fontSize: 12, color: '#6b7280', marginBottom: 4 },
+  modelEmpty: { fontSize: 12, color: '#9ca3af', paddingVertical: 6 },
   modelChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,

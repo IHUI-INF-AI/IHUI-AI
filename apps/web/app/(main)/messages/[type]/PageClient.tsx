@@ -92,7 +92,7 @@ export default function MessageTypePage() {
     enabled: isValid,
     queryFn: async (): Promise<UnifiedItem[]> => {
       if (isPrivateLetter) {
-        const res = await api<{ list: Conversation[] }>(`/api/messages/list?page=1&pageSize=50`)
+        const res = await api<{ list: Conversation[] }>(`/api/messages/list?page=1&pageSize=10`)
         return (res.list ?? []).map((c): UnifiedItem => ({
           id: c.id,
           title: c.peerName,

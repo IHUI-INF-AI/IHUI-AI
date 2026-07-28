@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Switch, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
-import type { ApiResponse } from '@ihui/types'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Input, Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
@@ -15,7 +13,6 @@ interface Setting { name: string; model: string; temperature: number; enabled: b
 
 export function AgentSettingScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [setting, setSetting] = useState<Setting | null>(null)
   const [loading, setLoading] = useState(true)
@@ -26,12 +23,11 @@ export function AgentSettingScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/agent-setting`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as ApiResponse<Setting>
-      setSetting(d.data ?? { name: '', model: '', temperature: 0.7, enabled: true })
+      const res = await fetchApi<Setting>('/agent-setting')
+      if (!res.success) throw new Error()
+      setSetting(res.data ?? { name: '', model: '', temperature: 0.7, enabled: true })
     } catch { setError(t('agentSetting.loadFailed')) } finally { setLoading(false) }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => { void load() }, [load])
 
@@ -39,12 +35,11 @@ export function AgentSettingScreen() {
     if (!setting) return
     setSaving(true); setError(''); setToast('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/agent-setting`, {
+      const res = await fetchApi<Setting>('/agent-setting', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(setting),
       })
-      if (!r.ok) throw new Error()
+      if (!res.success) throw new Error()
       setToast(t('agentSetting.saved'))
     } catch { setError(t('agentSetting.loadFailed')) } finally { setSaving(false) }
   }

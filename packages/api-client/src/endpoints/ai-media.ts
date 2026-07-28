@@ -3,6 +3,10 @@
  * 递归提取图片/视频/音频/模型 URL 与文本内容。
  */
 
+import type { ApiResult } from '@ihui/types'
+
+import { fetchApi } from '../client'
+
 /** 异步任务状态（对应后端 AsyncTask）。 */
 export interface AsyncTask {
   taskId: string
@@ -96,4 +100,64 @@ export function extractText(data: unknown): string {
   }
 
   return ''
+}
+
+// ===================== 豆包语音 API（doubao voice）=====================
+
+/** 语音对话结果 */
+export interface VoiceChatResult {
+  reply: string
+  audio?: string
+  audioUrl?: string
+}
+
+/** TTS 结果 */
+export interface TtsResult {
+  audio: string
+  audioUrl?: string
+}
+
+/** 语音模型 */
+export interface VoiceModel {
+  id: string
+  name: string
+  desc: string
+}
+
+/** 发送语音消息（语音对话） */
+export async function sendVoiceMessage(
+  audioBase64: string,
+  format = 'mp3',
+): Promise<ApiResult<VoiceChatResult>> {
+  return fetchApi<VoiceChatResult>('/api/ai-audio/voice/chat', {
+    method: 'POST',
+    body: JSON.stringify({ audio: audioBase64, format }),
+  })
+}
+
+/** 文本转语音 */
+export async function textToSpeech(
+  text: string,
+  voice = 'default',
+): Promise<ApiResult<TtsResult>> {
+  return fetchApi<TtsResult>('/api/ai-audio/tts', {
+    method: 'POST',
+    body: JSON.stringify({ text, voice }),
+  })
+}
+
+/** 语音转文本 */
+export async function speechToText(
+  audioBase64: string,
+  format = 'mp3',
+): Promise<ApiResult<{ text: string }>> {
+  return fetchApi<{ text: string }>('/api/ai-audio/asr', {
+    method: 'POST',
+    body: JSON.stringify({ audio: audioBase64, format }),
+  })
+}
+
+/** 获取语音模型列表 */
+export async function getVoiceModels(): Promise<ApiResult<{ list: VoiceModel[] }>> {
+  return fetchApi<{ list: VoiceModel[] }>('/api/ai-audio/models')
 }
