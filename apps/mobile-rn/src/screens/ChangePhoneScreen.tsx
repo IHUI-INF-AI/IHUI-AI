@@ -3,6 +3,7 @@
  * 流程:输入新手机号 → 获取验证码(60s 倒计时)→ 提交绑定。
  * 路由参数:uuid(必填,用户标识)。
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -144,7 +145,7 @@ export function ChangePhoneScreen({ route }: { route?: Route }) {
             value={phoneNumber}
             onChangeText={setPhoneNumber}
             placeholder="手机号码"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={tokens.text.tertiary}
             keyboardType="phone-pad"
             maxLength={11}
           />
@@ -176,7 +177,7 @@ export function ChangePhoneScreen({ route }: { route?: Route }) {
             value={codeValue}
             onChangeText={setCodeValue}
             placeholder="验证码"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={tokens.text.tertiary}
             keyboardType="number-pad"
             maxLength={6}
           />
@@ -209,12 +210,12 @@ export function ChangePhoneScreen({ route }: { route?: Route }) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   content: { padding: 24 },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#8D80E5',
+    color: tokens.purple.DEFAULT, // TODO: custom color (#8D80E5)
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -223,25 +224,25 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: tokens.border.light,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 48,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
   },
   areaBox: { flexDirection: 'row', alignItems: 'center', paddingRight: 12, marginRight: 12 },
-  areaText: { fontSize: 14, color: '#374151' },
-  areaArrow: { fontSize: 10, color: '#9CA3AF', marginLeft: 4 },
-  input: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
+  areaText: { fontSize: 14, color: tokens.text.medium },
+  areaArrow: { fontSize: 10, color: tokens.text.tertiary, marginLeft: 4 },
+  input: { flex: 1, fontSize: 14, color: tokens.text.primary, padding: 0 },
   sendBtn: { paddingLeft: 12 },
-  sendText: { fontSize: 13, fontWeight: '700', color: '#847CFF' },
-  countdownText: { fontSize: 12, color: '#6B7280', paddingLeft: 12 },
+  sendText: { fontSize: 13, fontWeight: '700', color: tokens.purple.DEFAULT }, // TODO: custom color (#847CFF)
+  countdownText: { fontSize: 12, color: tokens.text.secondary, paddingLeft: 12 },
   nationBox: {
     marginTop: 4,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: tokens.border.light,
     borderRadius: 12,
-    backgroundColor: '#F7F8FF',
+    backgroundColor: tokens.purple.light, // TODO: custom color (#F7F8FF)
     overflow: 'hidden',
   },
   nationItem: {
@@ -252,19 +253,19 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     gap: 12,
   },
-  nationTitle: { fontSize: 13, color: '#3D3D3D' },
-  nationCode: { fontSize: 13, color: '#979797' },
-  tipText: { fontSize: 12, color: '#DC2626', marginBottom: 12 },
+  nationTitle: { fontSize: 13, color: tokens.text.primary }, // TODO: custom color (#3D3D3D)
+  nationCode: { fontSize: 13, color: tokens.text.tertiary }, // TODO: custom color (#979797)
+  tipText: { fontSize: 12, color: tokens.danger.DEFAULT, marginBottom: 12 },
   submitBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#847CFF',
+    backgroundColor: tokens.purple.DEFAULT, // TODO: custom color (#847CFF)
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   submitBtnDisabled: { opacity: 0.6 },
-  submitText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  submitText: { fontSize: 15, fontWeight: '700', color: tokens.surface.light },
 })
 
 export default ChangePhoneScreen

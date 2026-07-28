@@ -1,11 +1,11 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -18,7 +18,6 @@ interface QrInfo {
 
 export function QrCodeScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<QrInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -28,13 +27,10 @@ export function QrCodeScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/qr-code`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: QrInfo }
+        const resp = await fetchApi<QrInfo>('/user/qr-code')
         if (cancelled) return
-        setInfo(data.data ?? null)
+        if (!resp.success) throw new Error('http')
+        setInfo(resp.data ?? null)
       } catch {
         if (!cancelled) setError(t('qrCode.loadFailed'))
       } finally {
@@ -44,7 +40,7 @@ export function QrCodeScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const onShare = async () => {
     if (!info) return
@@ -95,19 +91,19 @@ export function QrCodeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   card: { padding: 16, borderRadius: 8, alignItems: 'center' },
-  qrBox: { width: 200, height: 200, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  qrPlaceholder: { fontSize: 32, fontWeight: '700', color: '#9CA3AF', letterSpacing: 2 },
-  tip: { marginTop: 12, fontSize: 12, color: '#6B7280' },
-  code: { marginTop: 6, fontSize: 18, fontWeight: '700', color: '#10B981', letterSpacing: 1 },
-  shareBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, backgroundColor: '#10B981' },
-  shareText: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
-  muted: { fontSize: 13, color: '#6B7280' },
-  errorText: { fontSize: 13, color: '#DC2626' },
+  qrBox: { width: 200, height: 200, borderRadius: 8, backgroundColor: tokens.surface.card, alignItems: 'center', justifyContent: 'center' },
+  qrPlaceholder: { fontSize: 32, fontWeight: '700', color: tokens.text.tertiary, letterSpacing: 2 },
+  tip: { marginTop: 12, fontSize: 12, color: tokens.text.secondary },
+  code: { marginTop: 6, fontSize: 18, fontWeight: '700', color: tokens.success.DEFAULT, letterSpacing: 1 },
+  shareBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
+  shareText: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
+  muted: { fontSize: 13, color: tokens.text.secondary },
+  errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
 })

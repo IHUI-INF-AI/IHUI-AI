@@ -8,6 +8,7 @@
 }
 
 /* ===== 操盘手头部 ===== */
+/* TODO: custom color: #f8d486 VIP 品牌金色,无对应 token,保留原值 */
 .trader-header {
   padding: 60rpx 32rpx 40rpx;
   background: linear-gradient(135deg, #f8d486, var(--color-warning));
@@ -153,10 +154,10 @@
   display: block;
 }
 .trader-metric-up {
-  color: #16a34a;
+  color: var(--color-success);
 }
 .trader-metric-down {
-  color: #dc2626;
+  color: var(--color-destructive);
 }
 .trader-metric-label {
   margin-top: 4rpx;
@@ -180,6 +181,7 @@
 }
 .trader-chart-bar {
   width: 32rpx;
+  /* TODO: custom color: #f8d486 VIP 品牌金色,无对应 token,保留原值 */
   background: linear-gradient(180deg, #f8d486, var(--color-warning));
   border-radius: 6rpx 6rpx 0 0;
 }

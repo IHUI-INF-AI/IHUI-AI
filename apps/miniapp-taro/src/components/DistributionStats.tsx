@@ -53,7 +53,7 @@ export default function DistributionStats({
         </View>
         <View>
           <Text className="block text-xs text-muted-foreground">{tt('distribution.pendingSettle', '待结算')}</Text>
-          <Text className="text-sm font-medium text-[#f59e0b]">
+          <Text className="text-sm font-medium text-warning">
             ¥{pendingSettlement.toFixed(2)}
           </Text>
         </View>

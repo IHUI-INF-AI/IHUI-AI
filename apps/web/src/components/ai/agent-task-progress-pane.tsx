@@ -765,12 +765,13 @@ export function AgentTaskProgressPane() {
               aria-selected={active}
               onClick={onTabChange(tab.id)}
               className={cn(
-                'inline-flex h-5 items-center gap-0.5 rounded-sm px-1 text-[10px] font-medium transition-colors',
+                'inline-flex h-5 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-sm px-1 text-[10px] font-medium transition-colors',
                 active
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
               )}
               data-testid={`pane-tab-${tab.id}`}
+              title={tab.label}
             >
               <TabIcon className="h-2.5 w-2.5" aria-hidden />
               <span>{tab.label}</span>

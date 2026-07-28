@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -11,6 +12,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
+import { formatHumanDuration } from '@ihui/shared/utils'
 
 import { Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -22,14 +24,6 @@ interface StudyStats {
   totalLessons: number
   completedLessons: number
   continuousDays: number
-}
-
-function formatDuration(minutes: number): string {
-  if (!minutes || minutes <= 0) return '0m'
-  if (minutes < 60) return `${minutes}m`
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
 
 function statusKey(status: LearnRecord['status']): string {
@@ -110,7 +104,7 @@ export function StudyRecordScreen() {
         <View style={styles.statsCard}>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{formatDuration(stats.totalDuration)}</Text>
+              <Text style={styles.statValue}>{formatHumanDuration(stats.totalDuration)}</Text>
               <Text style={styles.statLabel}>{t('studyRecord.totalDuration')}</Text>
             </View>
             <View style={styles.statItem}>
@@ -171,7 +165,7 @@ export function StudyRecordScreen() {
             <View style={styles.cardMetaRow}>
               {item.duration ? (
                 <Text style={styles.cardMetaText}>
-                  {t('studyRecord.duration')}:{formatDuration(item.duration)}
+                  {t('studyRecord.duration')}:{formatHumanDuration(item.duration)}
                 </Text>
               ) : null}
               {item.progress !== undefined ? (
@@ -190,35 +184,33 @@ export function StudyRecordScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', paddingHorizontal: 16 },
-  loadingText: { marginTop: 8, fontSize: 13, color: '#6b7280' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface.bg, paddingHorizontal: 16 },
+  loadingText: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-  backText: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6b7280' },
-  userText: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
-  statsCard: { marginHorizontal: 16, marginVertical: 8, padding: 12, borderRadius: 8, backgroundColor: '#ecfdf5' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
+  userText: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
+  statsCard: { marginHorizontal: 16, marginVertical: 8, padding: 12, borderRadius: 8, backgroundColor: tokens.success.light },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
   statItem: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 18, fontWeight: '600', color: PRIMARY },
-  statLabel: { marginTop: 2, fontSize: 11, color: '#6b7280', textAlign: 'center' },
-  sectionTitle: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4, fontSize: 15, fontWeight: '600', color: '#111827' },
-  errorText: { paddingHorizontal: 16, paddingVertical: 4, fontSize: 12, color: '#dc2626' },
+  statValue: { fontSize: 18, fontWeight: '600', color: tokens.success.DEFAULT },
+  statLabel: { marginTop: 2, fontSize: 11, color: tokens.text.secondary, textAlign: 'center' },
+  sectionTitle: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4, fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  errorText: { paddingHorizontal: 16, paddingVertical: 4, fontSize: 12, color: tokens.danger.DEFAULT },
   list: { flex: 1, paddingHorizontal: 16 },
   empty: { paddingVertical: 40, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: '#9ca3af' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 10 },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 10 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827', marginRight: 8 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: '#f3f4f6' },
-  statusBadgeText: { fontSize: 11, color: '#6b7280' },
-  cardMeta: { marginTop: 4, fontSize: 12, color: '#6b7280' },
+  cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary, marginRight: 8 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: tokens.surface.card },
+  statusBadgeText: { fontSize: 11, color: tokens.text.secondary },
+  cardMeta: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
   cardMetaRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  cardMetaText: { fontSize: 12, color: '#6b7280' },
-  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  retryText: { color: '#fff', fontSize: 14 },
+  cardMetaText: { fontSize: 12, color: tokens.text.secondary },
+  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
+  retryText: { color: tokens.surface.light, fontSize: 14 },
 })

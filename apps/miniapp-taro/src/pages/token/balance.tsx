@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
 import { getUserInfo } from '@/utils/auth'
+import { TOKEN_BALANCE_DATA_KEY, USER_INFO_LEGACY_KEY } from '@/constants/storage'
 import './balance.css'
 
 interface ZhRecord {
@@ -41,10 +42,10 @@ const BAR_LIST: Array<{ value: BarType; key: string; fb: string }> = [
 ]
 
 function getUuid(): string {
-  const a = Taro.getStorageSync('ihui-token-balance-data')
+  const a = Taro.getStorageSync(TOKEN_BALANCE_DATA_KEY)
   if (a && typeof a === 'object' && (a as { uuid?: string }).uuid)
     return (a as { uuid: string }).uuid
-  const b = Taro.getStorageSync('ihui-user-info')
+  const b = Taro.getStorageSync(USER_INFO_LEGACY_KEY)
   if (b && typeof b === 'object' && (b as { uuid?: string }).uuid)
     return (b as { uuid: string }).uuid
   return getUserInfo()?.uuid || ''

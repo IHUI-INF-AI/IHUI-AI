@@ -121,6 +121,7 @@ export default function ThemePage() {
               <Text className="theme-item-name">{tt(th.labelKey, th.label)}</Text>
               <Text className="theme-item-desc">{tt(th.descKey, th.desc)}</Text>
             </View>
+            {/* TODO: native prop: Radio color 需 hex,微信小程序不支持 CSS 变量,保留 #07c160 */}
             <Radio
               className="theme-radio"
               value={th.value}

@@ -14,6 +14,7 @@ import { initPrivacyGuard } from './utils/privacy'
 import { initPushSubscription } from './utils/push-init'
 import { isMiniAppEnvironment } from './utils/miniapp-login'
 import { useUserStore } from './stores/user'
+import { KEEP_KEYS_ON_CLEAR, IHUI_KEY_PREFIX } from './constants/storage'
 import { createNotificationClient, setBaseUrl, setTransport } from '@ihui/api-client'
 import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
 import { createTaroTransport } from './utils/api-client-transport'
@@ -79,9 +80,9 @@ function MemoryWarningHandler() {
       if (level >= MEMORY_LEVEL_TRIM) {
         try {
           const info = Taro.getStorageInfoSync()
-          const keepKeys = ['ihui_token', 'ihui_refresh_token', 'ihui_user_info']
+          // 2026-07-28 Q-4: 用 KEEP_KEYS_ON_CLEAR + IHUI_KEY_PREFIX 常量替代硬编码
           for (const key of info.keys) {
-            if (!keepKeys.includes(key) && key.startsWith('ihui_')) {
+            if (!KEEP_KEYS_ON_CLEAR.includes(key) && key.startsWith(IHUI_KEY_PREFIX)) {
               Taro.removeStorageSync(key)
             }
           }

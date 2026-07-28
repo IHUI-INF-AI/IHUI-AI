@@ -81,7 +81,7 @@ export default function SubscriptionsPage() {
                 <View className="flex-1 min-w-0 mr-[24rpx] flex items-center">
                   {item.cover ? (
                     <Image
-                      className="w-[100rpx] h-[100rpx] rounded-[12rpx] mr-[20rpx] bg-[#f0f0f0]"
+                      className="w-[100rpx] h-[100rpx] rounded-[12rpx] mr-[20rpx] bg-muted"
                       src={item.cover}
                       mode="aspectFill"
                     />
@@ -96,7 +96,7 @@ export default function SubscriptionsPage() {
                   </View>
                 </View>
                 <Text
-                  className="text-[26rpx] text-[#dd524d] px-[16rpx] py-[8rpx]"
+                  className="text-[26rpx] text-destructive px-[16rpx] py-[8rpx]"
                   onClick={() => handleCancel(item)}
                 >
                   {t('subscriptions.delete')}

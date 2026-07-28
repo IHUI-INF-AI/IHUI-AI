@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   FlatList,
@@ -9,7 +10,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 import { getAigcTasks, type AigcTask } from '@ihui/api-client'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'

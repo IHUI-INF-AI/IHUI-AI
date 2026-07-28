@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -10,7 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 import { getGroups } from '@ihui/api-client'
 import type { Group as ApiGroup } from '@ihui/api-client'
 

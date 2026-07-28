@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -110,7 +111,7 @@ export function LivePreviewScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -119,22 +120,22 @@ const s = StyleSheet.create({
     gap: 12,
   },
   body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  liveTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  meta: { marginTop: 6, fontSize: 13, color: '#6B7280' },
-  intro: { marginTop: 12, fontSize: 14, color: '#374151', lineHeight: 22 },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  liveTitle: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  meta: { marginTop: 6, fontSize: 13, color: tokens.text.secondary },
+  intro: { marginTop: 12, fontSize: 14, color: tokens.text.medium, lineHeight: 22 },
   btn: {
     marginTop: 20,
-    backgroundColor: '#10B981',
+    backgroundColor: tokens.success.DEFAULT,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  btnText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, textAlign: 'center' },
   backBtn: { marginTop: 12 },
 })
