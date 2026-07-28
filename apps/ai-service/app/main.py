@@ -123,14 +123,9 @@ async def lifespan(app: FastAPI) -> Any:
     if hydrated:
         logger.info("[vector_memory] 启动从 Redis hydrate %d 条历史记忆", hydrated)
 
-    # L2-3 启动时从 DB 加载所有记忆衰减状态(进程重启不丢)
-    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 apply_decay 会重建)
-    from app.services.memory_decay import memory_decay_manager
-    decay_loaded = await memory_decay_manager.load_all_states()
-    if decay_loaded:
-        logger.info(
-            "[memory_decay] 启动从 DB hydrate %d 条衰减状态", decay_loaded
-        )
+    # P1 修复:memory_decay 改为按需懒加载(首次 apply_decay/prune_decayed 时触发
+    # _ensure_loaded(user_id)),不再启动时全量 hydrate 所有用户衰减状态
+    # (原 load_all_states() 导致启动慢 + 内存峰值高)
 
     # L2-5 启动梦境固化调度器(周期触发 DreamService.consolidate + forget)
     # 由 DREAM_ENABLED 环境变量控制开关(默认 false,避免消耗 LLM tokens)
@@ -138,14 +133,9 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.dream_scheduler import dream_scheduler
     await dream_scheduler.start()
 
-    # L2-4 启动时从 DB 加载所有用户画像到内存(进程重启不丢)
-    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 build_profile 会重建)
-    from app.services.user_profile import user_profile_builder
-    profile_loaded = await user_profile_builder.load_all_profiles()
-    if profile_loaded:
-        logger.info(
-            "[user_profile] 启动从 DB hydrate %d 条用户画像", profile_loaded
-        )
+    # P1 修复:user_profile 改为按需懒加载(首次 update_profile 时触发
+    # _ensure_loaded(user_id)),不再启动时全量 hydrate 所有用户画像
+    # (原 load_all_profiles() 导致启动慢 + 内存峰值高)
 
     # L3 启动 Skill 自进化调度器(周期扫描有失败反馈的 skill 触发 iterate_on_feedback)
     # 由 SKILL_EVOLUTION_ENABLED 环境变量控制开关(默认 false,避免消耗 LLM tokens)
@@ -153,14 +143,9 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.skill_evolution_scheduler import skill_evolution_scheduler
     await skill_evolution_scheduler.start()
 
-    # L4 启动时从 DB 加载所有 meta_lessons 到内存(进程重启不丢)
-    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 learn_from_failures 会重建)
-    from app.services.meta_learner import meta_learner
-    lessons_loaded = await meta_learner.load_all_lessons()
-    if lessons_loaded:
-        logger.info(
-            "[meta_learner] 启动从 DB hydrate %d 条 meta_lessons", lessons_loaded
-        )
+    # P1 修复:meta_learner 改为按需懒加载(首次 learn_from_failures/record_self_eval
+    # 时触发 _ensure_loaded()),不再启动时全量 hydrate 所有 meta_lessons
+    # (原 load_all_lessons() 导致启动慢 + 内存峰值高)
 
     # L4 启动元学习调度器(周期扫描跨 skill 失败案例,触发 FailureClusterer 聚类
     # + 抽取 meta_lessons,对标 Hermes Agent meta-learning cycle)
@@ -169,15 +154,9 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.meta_learner_scheduler import meta_learner_scheduler
     await meta_learner_scheduler.start()
 
-    # L5 启动时从 DB 加载 running A/B 测试到内存(进程重启不丢 shadow 流量统计)
-    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 create_test 会创建新测试)
-    from app.services.ab_test_tracker import ab_test_tracker
-    tests_loaded = await ab_test_tracker.load_active_tests()
-    if tests_loaded:
-        logger.info(
-            "[ab_test_tracker] 启动从 DB hydrate %d 条 running A/B 测试",
-            tests_loaded,
-        )
+    # P1 修复:ab_test_tracker 改为按需懒加载(首次 create_test/flush_all_running 等
+    # 异步方法时触发 _ensure_loaded()),不再启动时全量 hydrate 所有 running 测试
+    # (原 load_active_tests() 导致启动慢 + 内存峰值高)
 
     # L5 启动 A/B 测试调度器(周期 flush stats + 触发显著性检验 + auto promote/rollback)
     # 由 AB_TEST_ENABLED 环境变量控制开关(默认 false,避免消耗 LLM tokens 做 shadow call)
@@ -185,15 +164,9 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.ab_test_scheduler import ab_test_scheduler
     await ab_test_scheduler.start()
 
-    # L7 启动时从 DB 加载所有 federated_lessons 到内存(进程重启不丢群体智慧)
-    # 失败/无 DB 时静默降级为空内存,不阻塞启动(后续 aggregate_user_lessons 会重建)
-    from app.services.federated_learner import federated_learner
-    fed_lessons_loaded = await federated_learner.load_all_lessons()
-    if fed_lessons_loaded:
-        logger.info(
-            "[federated_learner] 启动从 DB hydrate %d 条 federated_lessons",
-            fed_lessons_loaded,
-        )
+    # P1 修复:federated_learner 改为按需懒加载(首次 list_federated_lessons/
+    # build_system_prompt_snippet 时触发 _ensure_loaded()),不再启动时全量 hydrate
+    # 所有 federated_lessons(原 load_all_lessons() 导致启动慢 + 内存峰值高)
 
     # L6 多模态记忆 / L8 长程记忆 按用户加载,首次访问时按需 hydrate(避免启动时全表扫描)
     # L9 元认知按需触发反思(reflect_on_memories),无全局 load_all
@@ -257,62 +230,18 @@ async def lifespan(app: FastAPI) -> Any:
         logger.warning("[shutdown] LspClient.shutdown_all 失败(忽略): %s", e)
 
     # 关闭全局共享 httpx.AsyncClient(连接池复用,provider 共享)
-    from app.core.llm_gateway import close_http_client, _pool
+    from app.core.llm_gateway import close_http_client
     await close_http_client()
 
     # 关闭 api-service → api 调用的共享 httpx.AsyncClient(mTLS 客户端)
     from app.services.api_client import close_api_client
     await close_api_client()
 
-    # 关闭 asyncpg 连接池(llm_gateway DB 配置查询用)
-    if _pool:
-        await _pool.close()
-        logger.info("asyncpg pool closed")
-
-    # P0 修复:集中关闭所有 service 的全局 asyncpg 连接池,防止重启时连接残留
-    # 受影响文件清单内的 service(已添加 close_pool 函数)
-    try:
-        from app.services.multimodal_memory import close_pool as close_mm_pool
-        await close_mm_pool()
-        logger.info("multimodal_memory pool closed")
-    except Exception as e:
-        logger.warning("[shutdown] multimodal_memory close_pool 失败(忽略): %s", e)
-
-    try:
-        from app.services.long_term_memory import close_pool as close_lt_pool
-        await close_lt_pool()
-        logger.info("long_term_memory pool closed")
-    except Exception as e:
-        logger.warning("[shutdown] long_term_memory close_pool 失败(忽略): %s", e)
-
-    try:
-        from app.services.session_summarizer import close_pool as close_ss_pool
-        await close_ss_pool()
-        logger.info("session_summarizer pool closed")
-    except Exception as e:
-        logger.warning("[shutdown] session_summarizer close_pool 失败(忽略): %s", e)
-
-    # 其他 service 的连接池(不在本任务受影响文件清单内,用 try/except 安全关闭)
-    # 若模块未提供 close_pool 函数,ImportError 被捕获,不影响其他 pool 关闭
-    for _module_path, _pool_name in (
-        ("app.services.memory_service", "close_pool"),
-        ("app.services.metacognition", "close_pool"),
-        ("app.services.meta_learner", "close_pool"),
-        ("app.services.federated_learner", "close_pool"),
-        ("app.services.ab_test_tracker", "close_pool"),
-        ("app.services.memory_decay", "close_pool"),
-        ("app.services.user_profile", "close_pool"),
-        ("app.services.langgraph_checkpoint", "close_pool"),
-    ):
-        try:
-            import importlib
-            _mod = importlib.import_module(_module_path)
-            _close = getattr(_mod, _pool_name, None)
-            if _close is not None:
-                await _close()
-                logger.info("%s pool closed", _module_path)
-        except Exception as e:
-            logger.debug("[shutdown] %s close_pool 跳过: %s", _module_path, e)
+    # 修复(2026-07-28):统一关闭共享 asyncpg 连接池(app.core.db_pool)。
+    # 原 14 个独立 pool 已全部复用 get_shared_pool(),此处一次 close 即可释放所有连接,
+    # 避免 shutdown 阶段逐个 service 调 close_pool(no-op)的冗余逻辑。
+    from app.core.db_pool import close_shared_pool
+    await close_shared_pool()
 
     shutdown_telemetry()
 

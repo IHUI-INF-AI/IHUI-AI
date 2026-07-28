@@ -34,6 +34,7 @@ L7 联邦学习闭环:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid as _uuid
 from datetime import datetime, timezone
@@ -42,6 +43,7 @@ from typing import Any, Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 from ..core.llm_gateway import llm_gateway
 from .differential_privacy import differential_privacy
 
@@ -59,21 +61,12 @@ _MAX_CONTENTS_FOR_LLM = 8
 # 单条 content 截断长度(防 prompt 爆长度)
 _CONTENT_TRUNCATE = 300
 
-# 全局连接池(与 meta_learner._pool 独立,避免互相影响)
-_pool: Optional[asyncpg.Pool] = None
 
-
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool 函数签名(向后兼容)。
 async def _get_pool() -> asyncpg.Pool:
-    """获取 asyncpg 连接池(懒初始化,与 meta_learner 独立避免循环导入)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 def _normalize_title(title: str) -> str:
@@ -103,6 +96,42 @@ class FederatedLearner:
         # 内存缓存:联邦 lesson 列表(list[dict],与 meta_learner 的 Map 不同,
         # 因为联邦 lesson 不需要按 id 反查,按 confidence 排序读取即可)
         self._cache: list[dict[str, Any]] = []
+        # P1 修复:按需懒加载,替代 main.py startup 全量 hydrate
+        # federated_lessons 是全局数据(非用户维度),用 _loaded 标记首次访问后全量加载
+        self._loaded: bool = False
+        self._loaded_lock: asyncio.Lock = asyncio.Lock()
+
+    # ==================================================================
+    # P1 修复:按需懒加载(替代启动时全量 hydrate)
+    # ==================================================================
+
+    async def _ensure_loaded(self) -> None:
+        """按需加载联邦 lessons(首次访问时触发,替代启动时全量 hydrate)。
+
+        P1 修复:原 main.py lifespan 调 load_all_lessons() 全量加载所有联邦 lessons,
+        导致启动慢 + 内存峰值高。改为首次访问时才加载。
+
+        注意:federated_lessons 是全局数据(非用户维度),无法按 user_id 懒加载,
+        故用 _loaded 布尔标记,首次访问时全量加载一次。
+
+        线程安全:asyncio.Lock 防止并发首次访问重复加载。
+        加载失败也标记为已加载(避免每次调用都重试)。
+        """
+        if self._loaded:
+            return
+        async with self._loaded_lock:
+            # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
+            if self._loaded:
+                return
+            try:
+                await self.load_all_lessons()
+            except Exception as e:
+                logger.warning(
+                    "[federated_learner] _ensure_loaded 加载失败(降级空内存): %s", e
+                )
+            finally:
+                # 无论成功失败都标记已加载(避免重复重试)
+                self._loaded = True
 
     # ==================================================================
     # 主聚合流程
@@ -164,6 +193,8 @@ class FederatedLearner:
             # 4. 聚合后刷新内存缓存(避免下次 list 还查 DB)
             if count > 0:
                 await self.load_all_lessons()
+                # P1 修复:标记已加载(缓存已刷新,后续 _ensure_loaded 不再重复加载)
+                self._loaded = True
 
             logger.info(
                 "[federated_learner] aggregate_user_lessons 完成: "
@@ -585,9 +616,8 @@ class FederatedLearner:
         Returns:
             lessons 列表(按 confidence DESC 排序)。失败返回空列表。
         """
-        # 内存缓存为空时尝试从 DB 加载
-        if not self._cache:
-            await self.load_all_lessons()
+        # P1 修复:按需懒加载(替代启动时全量 hydrate,统一走 _ensure_loaded)
+        await self._ensure_loaded()
 
         lessons = list(self._cache)
         if lesson_type:
@@ -624,8 +654,8 @@ class FederatedLearner:
         Returns:
             system prompt 片段(多行字符串,≤ 1000 字符),或空字符串。
         """
-        if not self._cache:
-            await self.load_all_lessons()
+        # P1 修复:按需懒加载(替代启动时全量 hydrate,统一走 _ensure_loaded)
+        await self._ensure_loaded()
         if not self._cache:
             return ""
 

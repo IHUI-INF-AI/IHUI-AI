@@ -13,6 +13,7 @@ DB 异常降级:仅写内存,不阻塞主流程。
 对齐 packages/types 的 MemoryDecayState / MemoryDecayConfig 契约。
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -20,6 +21,7 @@ from typing import Any, Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
 
@@ -31,21 +33,12 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     "accessBoost": 0.1,            # 每次访问加分
 }
 
-# 全局连接池(与 memory_service._pool / llm_gateway._pool 独立,避免互相影响)
-_pool: Optional[asyncpg.Pool] = None
 
-
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool 函数签名(向后兼容)。
 async def _get_pool() -> asyncpg.Pool:
-    """获取 asyncpg 连接池(懒初始化,与 memory_service 独立避免循环导入)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 class MemoryDecayManager:
@@ -57,6 +50,41 @@ class MemoryDecayManager:
     def __init__(self) -> None:
         # entry_id -> MemoryDecayState(内存存储,DB hydrate + 写穿)
         self._states: dict[str, dict[str, Any]] = {}
+        # P1 修复:按需懒加载,替代 main.py startup 全量 hydrate
+        # 跟踪已加载用户,首次访问该用户时才从 DB 加载衰减状态
+        self._loaded_users: set[str] = set()
+        self._loaded_lock: asyncio.Lock = asyncio.Lock()
+
+    # ==================================================================
+    # P1 修复:按需懒加载(替代启动时全量 hydrate)
+    # ==================================================================
+
+    async def _ensure_loaded(self, user_id: str) -> None:
+        """按需加载单个用户衰减状态(首次访问时触发,替代启动时全量 hydrate)。
+
+        P1 修复:原 main.py lifespan 调 load_all_states() 全量加载所有用户,
+        导致启动慢 + 内存峰值高。改为首次访问该用户时调用 load_states_for_user
+        只加载该用户的衰减状态。
+
+        线程安全:asyncio.Lock 防止并发首次访问重复加载同一用户。
+        加载失败也标记为已加载(避免每次调用都重试,DB 异常时降级空内存)。
+        """
+        if not user_id or user_id in self._loaded_users:
+            return
+        async with self._loaded_lock:
+            # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
+            if user_id in self._loaded_users:
+                return
+            try:
+                await self.load_states_for_user(user_id)
+            except Exception as e:
+                logger.warning(
+                    "[memory_decay] _ensure_loaded 加载失败(user=%s 降级空内存): %s",
+                    user_id, e,
+                )
+            finally:
+                # 无论成功失败都标记已加载(避免重复重试)
+                self._loaded_users.add(user_id)
 
     # ==================================================================
     # 单条记忆衰减计算
@@ -162,6 +190,8 @@ class MemoryDecayManager:
         Returns:
             {"updated": N, "decayed": M}
         """
+        # P1 修复:按需懒加载该用户衰减状态(替代启动时全量 hydrate)
+        await self._ensure_loaded(user_id)
         entries = await self._resolve_entries(memory_client, user_id)
         updated = 0
         decayed = 0
@@ -194,6 +224,8 @@ class MemoryDecayManager:
         Returns:
             {"pruned": N}
         """
+        # P1 修复:按需懒加载该用户衰减状态(替代启动时全量 hydrate)
+        await self._ensure_loaded(user_id)
         entries = await self._resolve_entries(memory_client, user_id)
         pruned = 0
         for entry in entries:
@@ -269,6 +301,9 @@ class MemoryDecayManager:
         """
         if not entry_id:
             return
+        # P1 修复:按需懒加载该用户衰减状态(替代启动时全量 hydrate)
+        if user_id:
+            await self._ensure_loaded(user_id)
         self.record_access(entry_id)
         state = self._states.get(entry_id)
         if state is not None:
