@@ -12,6 +12,7 @@ import {
   MessageSquare,
   ChevronsUpDown,
   ChevronsDownUp,
+  ArrowDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
@@ -335,6 +336,47 @@ export function AgentTaskProgressPane() {
     }
   }, [open, pinned, closePane])
 
+  // Phase 17: 自动滚动到底部(用户位于底部时跟随新内容,滚上去后显示"跳到最新"按钮)
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const [autoScroll, setAutoScroll] = React.useState(true)
+  const [showJumpToLatest, setShowJumpToLatest] = React.useState(false)
+
+  // 监听滚动位置:距底部 < 20px 视为"在底部"
+  const onScroll = React.useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const atBottom = distanceFromBottom < 20
+    setAutoScroll(atBottom)
+    setShowJumpToLatest(!atBottom && el.scrollHeight > el.clientHeight + 50)
+  }, [])
+
+  // 内容变化时自动滚动到底部(autoScroll=true 时)
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el || !autoScroll) return
+    // requestAnimationFrame 避免布局抖动
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+    return () => cancelAnimationFrame(id)
+  }, [
+    planSteps,
+    tools.length,
+    subagents.length,
+    changes.length,
+    terminals.length,
+    progress.overview.content,
+    autoScroll,
+  ])
+
+  const jumpToLatest = React.useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    setAutoScroll(true)
+  }, [])
+
   if (!open) return null
 
   return (
@@ -446,7 +488,9 @@ export function AgentTaskProgressPane() {
 
       {/* 内容:plan steps 列表 + 折叠子区(min-h-0 + flex-1 让 popover 整体滚动,避免嵌套) */}
       <div
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1"
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1"
         data-testid="plan-list"
       >
         {/* 无 conversationId */}
@@ -533,6 +577,21 @@ export function AgentTaskProgressPane() {
               />
             </div>
           </FoldableSectionProvider>
+        )}
+
+        {/* Phase 17: 跳到最新按钮(用户滚离底部时显示) */}
+        {showJumpToLatest && (
+          <button
+            type="button"
+            onClick={jumpToLatest}
+            aria-label="跳到最新"
+            title="跳到最新"
+            className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
+            data-testid="pane-jump-latest"
+          >
+            <ArrowDown className="h-2.5 w-2.5" />
+            <span>最新</span>
+          </button>
         )}
       </div>
     </div>
