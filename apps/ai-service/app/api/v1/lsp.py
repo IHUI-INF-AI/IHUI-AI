@@ -399,6 +399,37 @@ class LspClient:
                     pass
         self._initialized = False
 
+    # P1 修复(LSP _instances 全局 dict + reader_task + 子进程全部泄漏):
+    # 原代码仅在单实例 dispose 时清理,应用 shutdown 时 _instances 全局 dict 仍持有
+    # 所有 LspClient 引用 → typescript-language-server 子进程 + reader_task 永不退出,
+    # 形成 zombie 进程。shutdown_all 在 app lifespan 关闭时统一回收所有实例。
+    @classmethod
+    async def shutdown_all(cls) -> None:
+        """关闭所有 LSP 子进程 + reader_task,防止僵尸进程泄漏。"""
+        instances = list(cls._instances.values())
+        cls._instances.clear()
+        for client in instances:
+            await client._shutdown()
+
+    async def _shutdown(self) -> None:
+        """关闭单个 LSP client 子进程 + reader_task(供 shutdown_all 调用)。"""
+        if self._reader_task and not self._reader_task.done():
+            self._reader_task.cancel()
+            try:
+                await self._reader_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        if self.proc:
+            try:
+                self.proc.terminate()
+                await asyncio.wait_for(self.proc.wait(), timeout=2.0)
+            except (ProcessLookupError, asyncio.TimeoutError, Exception):
+                try:
+                    self.proc.kill()
+                except ProcessLookupError:
+                    pass
+        self._initialized = False
+
 
 # ==================== 端点 ====================
 

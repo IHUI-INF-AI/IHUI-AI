@@ -1,6 +1,8 @@
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import fp from 'fastify-plugin'
 import { ttftMonitor, type TtftStats } from '../utils/ttft-monitor.js'
+import { authenticate } from '../plugins/auth.js'
+import { error } from '../utils/response.js'
 
 /**
  * 业务漏斗与自定义业务指标插件。
@@ -306,6 +308,28 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     recurringWebhookDeprecatedTotal: new Map(),
   }
 
+  // P2 修复:统一重置所有 metrics Map 与 number gauge,防止长期运行内存累积。
+  // 触发场景:① 进程 onClose 释放内存;② admin 手动 POST /business-metrics/reset。
+  function resetAllMetrics(): void {
+    for (const value of Object.values(m)) {
+      if (value instanceof Map) {
+        value.clear()
+      }
+    }
+    // 重置所有 number 类型 gauge/counter(非 Map 字段)
+    m.usersTotal = 0
+    m.usersActive24h = 0
+    m.wsHeartbeatDropsTotal = 0
+    m.wsConnections = 0
+    m.wsNoticeSubscriptions = 0
+    m.wsConnectTotal = 0
+    m.wsMessageReceivedTotal = 0
+    m.wsMessageSentTotal = 0
+    m.wsDisconnectTotal = 0
+    m.ttftAlertsTotal = 0
+    m.recurringChargeDueGauge = 0
+  }
+
   // 自动采集 API 调用成功率与延迟（按路由+状态码）
   server.addHook('onResponse', async (request, reply: FastifyReply) => {
     const url = request.url.split('?')[0] ?? ''
@@ -466,6 +490,32 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   server.decorate('recordRecurringWebhookDeprecated', (eventType: string) => {
     counterInc(m.recurringWebhookDeprecatedTotal, eventType)
   })
+
+  // P2 修复:运行时手动重置路由(仅 admin),用于长期运行后内存释放
+  server.post(
+    '/business-metrics/reset',
+    {
+      // 路由级 admin 鉴权:authenticate + roleId >= 1
+      preHandler: async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+          await authenticate(request)
+        } catch (e) {
+          const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+          return reply
+            .status(statusCode)
+            .send(error(statusCode, (e as Error).message || 'Authentication required'))
+        }
+        const roleId = request.jwtPayload?.roleId ?? 0
+        if (roleId < 1) {
+          return reply.status(403).send(error(403, '需要管理员权限'))
+        }
+      },
+    },
+    async (_request, reply: FastifyReply) => {
+      resetAllMetrics()
+      return reply.send({ code: 0, message: 'metrics reset', data: { reset: true } })
+    },
+  )
 
   server.get('/business-metrics', async (_request, reply: FastifyReply) => {
     const lines: string[] = []
@@ -764,6 +814,11 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     }
 
     reply.type('text/plain').send(lines.join('\n'))
+  })
+
+  // P2 修复:进程关闭时统一释放所有 metrics Map 内存,防止进程退出前内存峰值
+  server.addHook('onClose', async () => {
+    resetAllMetrics()
   })
 }
 

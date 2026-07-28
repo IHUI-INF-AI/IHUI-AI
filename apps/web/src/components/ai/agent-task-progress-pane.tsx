@@ -39,14 +39,44 @@ const PLAN_CLS: Record<PlanStepStatus, string> = {
 
 // Codex 真正循环 braille spinner(10 帧 120ms)
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-function Spinner({ className }: { className?: string }) {
-  const [frame, setFrame] = React.useState(0)
+
+// P3 修复:共享 rAF 驱动的帧索引,所有 Spinner 订阅同一帧(原每实例 setInterval 120ms,多 step 并发时定时器堆积)。
+// 模块级单例:首个 Spinner mount 启动 rAF,最后一个 unmount 时取消 rAF。
+const spinnerListeners = new Set<(frame: number) => void>()
+let spinnerRaf: number | null = null
+let spinnerFrame = 0
+let spinnerLast = 0
+const SPINNER_INTERVAL_MS = 120
+
+function useSpinnerFrame(): number {
+  const [frame, setFrame] = React.useState(spinnerFrame)
   React.useEffect(() => {
-    const id = window.setInterval(() => {
-      setFrame((f) => (f + 1) % SPINNER_FRAMES.length)
-    }, 120)
-    return () => window.clearInterval(id)
+    const listener = (f: number) => setFrame(f)
+    spinnerListeners.add(listener)
+    if (spinnerRaf === null) {
+      const tick = (t: number) => {
+        if (t - spinnerLast >= SPINNER_INTERVAL_MS) {
+          spinnerFrame = (spinnerFrame + 1) % SPINNER_FRAMES.length
+          spinnerLast = t
+          spinnerListeners.forEach((l) => l(spinnerFrame))
+        }
+        spinnerRaf = requestAnimationFrame(tick)
+      }
+      spinnerRaf = requestAnimationFrame(tick)
+    }
+    return () => {
+      spinnerListeners.delete(listener)
+      if (spinnerListeners.size === 0 && spinnerRaf !== null) {
+        cancelAnimationFrame(spinnerRaf)
+        spinnerRaf = null
+      }
+    }
   }, [])
+  return frame
+}
+
+function Spinner({ className }: { className?: string }) {
+  const frame = useSpinnerFrame()
   return <span className={className}>{SPINNER_FRAMES[frame]}</span>
 }
 
