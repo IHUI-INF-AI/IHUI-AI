@@ -705,7 +705,7 @@ export function AgentTaskProgressPane() {
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
       )}
       role="complementary"
-      aria-label={t('pane.ariaLabel')}
+      aria-label={t('ariaLabel')}
       data-testid="agent-progress-pane"
     >
       {/* Header:状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮 */}
@@ -728,7 +728,7 @@ export function AgentTaskProgressPane() {
             centerMode="percent"
             size={16}
             strokeWidth={2}
-            aria-label={t('pane.progressLabel', { pct: Math.round(progressPct) })}
+            aria-label={t('progressLabel', { pct: Math.round(progressPct) })}
           />
         )}
         {connectionState !== 'connected' && connectionState !== 'connecting' && (
@@ -794,7 +794,7 @@ export function AgentTaskProgressPane() {
         <button
           type="button"
           onClick={togglePin}
-          aria-label={pinned ? t('pane.unpin') : t('pane.pin')}
+          aria-label={pinned ? t('unpin') : t('pin')}
           className={cn(
             'inline-flex h-5 w-5 items-center justify-center rounded-sm transition-colors',
             pinned
@@ -802,7 +802,7 @@ export function AgentTaskProgressPane() {
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
           )}
           title={
-            pinned ? `${t('pane.unpin')}(点击外部可关闭)` : `${t('pane.pin')}(钉住,点击外部不关闭)`
+            pinned ? `${t('unpin')}(点击外部可关闭)` : `${t('pin')}(钉住,点击外部不关闭)`
           }
           data-testid="pane-pin"
         >
@@ -811,9 +811,9 @@ export function AgentTaskProgressPane() {
         <button
           type="button"
           onClick={toggle}
-          aria-label={t('pane.minimize')}
+          aria-label={t('minimize')}
           className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          title={`${t('pane.minimize')}(与触发按钮联动)`}
+          title={`${t('minimize')}(与触发按钮联动)`}
           data-testid="pane-minimize"
         >
           <Minimize2 className="h-3 w-3" />
