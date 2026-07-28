@@ -699,6 +699,12 @@
     "hideReasoning": "隱藏推理過程",
     "showReasoning": "顯示推理過程",
     "fallbackNotice": "已切換到備用模型 {{backup}}(原模型 {{primary}} 暫時不可用)",
+    "copy": "複製",
+    "copied": "已複製",
+    "copyFailed": "複製失敗",
+    "retry": "重試",
+    "jumpToLatest": "跳到最新",
+    "latest": "最新",
     "question": {
       "title": "AI 需要你的回答",
       "submit": "提交回答",
@@ -1074,7 +1080,13 @@
       "free": {
         "name": "免費版",
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個用戶端", "API 存取", "社群支援"]
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個用戶端",
+          "API 存取",
+          "社群支援"
+        ]
       },
       "pro": {
         "name": "專業版",
@@ -1091,7 +1103,13 @@
         "name": "企業版",
         "contactSales": "聯繫銷售",
         "cta": "聯繫銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "稽核日誌", "專屬技術支援"]
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "稽核日誌",
+          "專屬技術支援"
+        ]
       }
     },
     "checkout": {
@@ -8814,66 +8832,67 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI"]
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI"]
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI"
+        ]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": ["搜尋", "查找", "search"]
+        "keywords": [
+          "搜尋",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": ["個人", "資料", "設置"]
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ]
       },
       "settings": {
         "label": "系統設置",
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"]
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
   "search": {
-    "quickSuggestions": [
-      "設定",
-      "個人資料",
-      "專案",
-      "對話歷史",
-      "成員",
-      "工作區",
-      "快捷鍵",
-      "AI 模型"
-    ],
-    "searchPlaceholder": "搜尋…",
-    "searchHistory": "搜尋歷史",
-    "clear": "清除",
-    "noSuggestions": "暫無符合建議",
+    "emptyKeyword": "請輸入搜尋關鍵詞",
+    "open": "打開",
+    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})",
     "tabs": {
-      "all": "全部",
       "users": "使用者",
-      "projects": "專案",
-      "files": "檔案"
-    },
-    "sort": "排序",
-    "sortRelevance": "相關度",
-    "sortTime": "時間",
-    "sortName": "名稱",
-    "sortSize": "大小",
-    "emptyKeyword": "請輸入搜尋關鍵字",
-    "loading": "搜尋中...",
-    "emptyResult": "未找到符合結果",
-    "open": "開啟",
-    "resultsCount": "共 {total} 筆結果(使用者 {users}、專案 {projects}、檔案 {files})"
+      "files": "文件"
+    }
   },
   "footer": {
     "companyName": "吉林省愛智匯人工智能科技有限公司",
@@ -9220,19 +9239,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -9353,25 +9384,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"]
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ]
         }
       ]
     },
@@ -10759,7 +10802,11 @@
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
       "cta": "瞭解詳情",
-      "features": ["全年所有課程免費參加", "線下探索活動優先參與名額", "智匯 AI 會員社群無限次互動"]
+      "features": [
+        "全年所有課程免費參加",
+        "線下探索活動優先參與名額",
+        "智匯 AI 會員社群無限次互動"
+      ]
     },
     "enterprise": {
       "name": "企業服務",
@@ -10813,7 +10860,15 @@
       "sessions": "工作階段數",
       "crashRate": "當機率"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趨勢",
       "subtitle": "每日活躍使用者數變化曲線"
@@ -10957,8 +11012,18 @@
     "title": "AI 生涯指導",
     "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
     "options": {
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"],
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -12338,15 +12403,6 @@
     "loading": "加載中...",
     "backToList": "返回幫助中心"
   },
-  "search": {
-    "emptyKeyword": "請輸入搜尋關鍵詞",
-    "open": "打開",
-    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})",
-    "tabs": {
-      "users": "使用者",
-      "files": "文件"
-    }
-  },
   "searchHistory": {
     "loading": "加載中..."
   },
@@ -12372,7 +12428,12 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社群支援"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社群支援"
+        ]
       },
       "pro": {
         "features": [
@@ -12609,7 +12670,13 @@
         "price": "¥999",
         "unit": "/小時",
         "desc": "架構諮詢 / 技術選型 / 程式碼 review",
-        "features": ["視訊會議 / 遠端桌面", "2 小時起", "故障排除", "增值稅發票", "回應 SLA 24h"]
+        "features": [
+          "視訊會議 / 遠端桌面",
+          "2 小時起",
+          "故障排除",
+          "增值稅發票",
+          "回應 SLA 24h"
+        ]
       }
     },
     "socialProof": {
@@ -12743,35 +12810,6 @@
     "copied": "已複製!",
     "disclaimer": "您的捐贈將直接進入我們的錢包,無中間平臺手續費。USDT-TRC20 手續費最低(~$1),推薦使用。",
     "qrCode": "二維碼"
-  },
-  "modelsPricingPage": {
-    "hero": {
-      "badge": "模型價格透明",
-      "title": "176 個大模型價格表",
-      "subtitle": "覆蓋 OpenAI、Anthropic、Google、DeepSeek、通義千問、智譜、豆包、Kimi 等廠商官方價格,即時同步"
-    },
-    "loading": "載入中...",
-    "empty": "未找到符合的模型",
-    "search": {
-      "placeholder": "搜尋模型 ID,如 gpt-4o、claude-3-5-sonnet",
-      "resultCount": "找到 {count} 個模型"
-    },
-    "vendor": {
-      "all": "全部廠商"
-    },
-    "stats": {
-      "totalModels": "模型總數",
-      "totalVendors": "廠商數量",
-      "cheapest": "最便宜",
-      "mostExpensive": "最貴"
-    },
-    "note": {
-      "title": "價格說明",
-      "unit": "價格單位:元/百萬 token(CNY per 1M tokens),與廠商官方價格表口徑一致",
-      "region": "區域係數:cn=1.0 基準,us/eu 係數表示跨境頻寬與合規成本加成",
-      "discount": "折扣標籤:綠色徽章表示批量用量折扣百分比,需達到 minTokens 閾值生效",
-      "update": "價格資料透過 seed 腳本從各廠商官方價格表匯入,更新日期見 effectiveAt 欄位"
-    }
   },
   "developerPricingPage": {
     "title": "API 定價",

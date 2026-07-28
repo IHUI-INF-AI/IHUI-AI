@@ -129,6 +129,7 @@ export default function N8nModel() {
       const file = res.tempFiles[0]
       if (!file) return
       if (file.size > 10 * 1024 * 1024) {
+        // TODO: i18n — Taro.showToast 硬编码中文待翻译(文件不能超过10MB)
         Taro.showToast({ title: '文件不能超过10MB', icon: 'none' })
         return
       }
