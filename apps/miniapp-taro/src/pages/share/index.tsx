@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
 import { Ranking, type RankingItem } from '@/components'
 import { useI18n } from '@/i18n'
+import { formatDateByTemplate } from '@ihui/shared'
 import './index.css'
 
 type Tab = 'latest' | 'hot' | 'following'
@@ -62,22 +63,6 @@ function normalizeInfo(raw: Record<string, unknown>): InfoItem {
     content: asString(raw['content']),
     createTime: asString(raw['createTime']) || asString(raw['createdAt']),
     views: typeof raw['views'] === 'number' ? raw['views'] : Number(raw['viewCount'] ?? 0),
-  }
-}
-
-function formatDate(iso: string): string {
-  if (!iso) return ''
-  try {
-    const ts = new Date(iso).getTime()
-    if (!ts) return iso
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(ts)
-  } catch {
-    return iso
   }
 }
 
@@ -427,7 +412,7 @@ export default function ShareIndexPage() {
                 <Text className="share-item-title">{n.title}</Text>
                 {n.summary ? <Text className="share-item-summary">{n.summary}</Text> : null}
                 <View className="share-item-meta">
-                  <Text className="share-item-time">{formatDate(n.createTime)}</Text>
+                  <Text className="share-item-time">{formatDateByTemplate(n.createTime, 'MM-DD HH:mm')}</Text>
                   <Text className="share-item-views">
                     {t('news.views', { n: n.views || 0 })}
                   </Text>
@@ -522,7 +507,7 @@ export default function ShareIndexPage() {
                   <View key={h.id} className="share-drawer-item" onClick={() => removeChat(h.id)}>
                     <Text className="share-drawer-item-title">{h.title || h.id}</Text>
                     {h.time ? (
-                      <Text className="share-drawer-item-time">{formatDate(h.time)}</Text>
+                      <Text className="share-drawer-item-time">{formatDateByTemplate(h.time, 'MM-DD HH:mm')}</Text>
                     ) : null}
                   </View>
                 ))
