@@ -6,25 +6,25 @@ const compareJsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/compare/ihui-vs-zhipu#webpage',
-      url: 'https://ihui.ai/compare/ihui-vs-zhipu',
+      '@id': 'https://aizhs.top/compare/ihui-vs-zhipu#webpage',
+      url: 'https://aizhs.top/compare/ihui-vs-zhipu',
       name: 'IHUI AI vs 智谱清言:跨模型 Agent OS vs GLM 应用平台',
       description:
         '智谱清言是 GLM 模型应用平台;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨模型(含 GLM)+Agent 市场+知识库+六端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
-        { '@id': 'https://ihui.ai/#organization' },
+        { '@id': 'https://aizhs.top/#organization' },
         { '@type': 'Thing', name: 'Zhipu Qingyan / 智谱清言' },
       ],
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/compare/ihui-vs-zhipu#breadcrumb',
+      '@id': 'https://aizhs.top/compare/ihui-vs-zhipu#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://ihui.ai/compare' },
-        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs 智谱清言', item: 'https://ihui.ai/compare/ihui-vs-zhipu' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
+        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs 智谱清言', item: 'https://aizhs.top/compare/ihui-vs-zhipu' },
       ],
     },
   ],
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'IHUI AI vs 智谱清言 — 跨模型 vs 锁定 GLM',
     description: '30+ 模型中立 + 六端 vs GLM 锁定。',
-    url: 'https://ihui.ai/compare/ihui-vs-zhipu',
+    url: 'https://aizhs.top/compare/ihui-vs-zhipu',
     type: 'article',
   },
 }

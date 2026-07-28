@@ -10,13 +10,13 @@
 精简版(推荐,220 字符以内):
 
 ```
-全栈 AI 操作系统 — 8 端同源 / 176 模型 / LangGraph+MCP+A2A / Apache 2.0 开源 · 在线 Demo: ihui.ai
+全栈 AI 操作系统 — 8 端同源 / 176 模型 / LangGraph+MCP+A2A / Apache 2.0 开源 · 在线 Demo: aizhs.top
 ```
 
 完整版(若想堆关键词,330 字符):
 
 ```
-🚀 开源 AI 商业级一体化超级平台 · 8 端全覆盖(web/api/ai-service/cli/desktop/extension/mobile/miniapp)· 176 模型 · LangGraph+MCP+A2A 三栈 · 340 表 · 1300+ API · Apache 2.0 · ihui.ai
+🚀 开源 AI 商业级一体化超级平台 · 8 端全覆盖(web/api/ai-service/cli/desktop/extension/mobile/miniapp)· 176 模型 · LangGraph+MCP+A2A 三栈 · 340 表 · 1300+ API · Apache 2.0 · aizhs.top
 ```
 
 ---
@@ -42,7 +42,7 @@ ai  ai-agent  ai-platform  rag  mcp  langgraph  langchain  llm  chatgpt  claude 
 ## 3. Website URL(About 齿轮 → Website)
 
 ```
-https://ihui.ai
+https://aizhs.top
 ```
 
 ---
@@ -133,7 +133,7 @@ cat .github/RELEASE_NOTES_v1.0.md
 
 - [ ] About 描述已更新为精简版
 - [ ] Topics 显示 20 个标签
-- [ ] Website 显示 ihui.ai
+- [ ] Website 显示 aizhs.top
 - [ ] Social preview 显示自定义卡片(非默认 GitHub logo)
 - [ ] Releases 显示 v1.0.0(latest)
 - [ ] About 右侧显示 "Sponsor" 按钮

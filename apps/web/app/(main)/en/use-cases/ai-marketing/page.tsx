@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/en/use-cases/ai-marketing#webpage',
-      url: 'https://ihui.ai/en/use-cases/ai-marketing',
+      '@id': 'https://aizhs.top/en/use-cases/ai-marketing#webpage',
+      url: 'https://aizhs.top/en/use-cases/ai-marketing',
       name: 'AI Marketing Content Generation Agent Use Case — IHUI AI',
       description:
         'AI marketing content generation agent built on IHUI AI full-stack AI operating system: multi-platform copy (Xiaohongshu, Douyin, Weibo, WeChat, LinkedIn), SEO blog, brand voice consistency, A/B test copy, persona-driven content. 30-minute onboarding, 8-endpoint distribution.',
       inLanguage: ['en', 'zh-CN', 'zh-TW', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/en/use-cases/ai-marketing#breadcrumb',
+      '@id': 'https://aizhs.top/en/use-cases/ai-marketing#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI Marketing', item: 'https://ihui.ai/en/use-cases/ai-marketing' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI Marketing', item: 'https://aizhs.top/en/use-cases/ai-marketing' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/en/use-cases/ai-marketing#howto',
+      '@id': 'https://aizhs.top/en/use-cases/ai-marketing#howto',
       name: '30-Minute Setup of an AI Marketing Content Generation Agent',
       description:
         'Six-step workflow to build an AI marketing content generation agent on IHUI AI: upload brand guidelines, train voice model, connect platform APIs, configure A/B testing, import personas, enable data feedback. 10x content output.',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI Marketing Content Generation Agent — IHUI AI',
     description: 'Multi-platform rewriting + brand voice consistency + A/B testing, 30-minute onboarding.',
-    url: 'https://ihui.ai/en/use-cases/ai-marketing',
+    url: 'https://aizhs.top/en/use-cases/ai-marketing',
     type: 'article',
   },
 }

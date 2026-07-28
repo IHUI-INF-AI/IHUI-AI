@@ -22,7 +22,7 @@
 
 ### 2. 加密货币捐赠(0 门槛,无需 KYC)
 
-已生成并嵌入 4 个币种的钱包地址到 [/sponsor](https://ihui.ai/sponsor) 页面:
+已生成并嵌入 4 个币种的钱包地址到 [/sponsor](https://aizhs.top/sponsor) 页面:
 
 | 币种 | 网络 | 地址 |
 |------|------|------|
@@ -99,4 +99,4 @@ README 新增 4 个一键部署按钮 + Docker Compose:
 ---
 
 **完整文档**: `docs/monetization/` 和 `docs/deployment/`
-**问题反馈**: GitHub Issues 或 business@ihui.ai
+**问题反馈**: GitHub Issues 或 business@aizhs.top

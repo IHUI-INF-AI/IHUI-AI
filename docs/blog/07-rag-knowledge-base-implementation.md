@@ -153,7 +153,7 @@ IHUI-AI 用 LangGraph 把 RAG 包成一个工具节点,Agent 可以根据初次�
 **相关链接**
 
 - 项目仓库:<https://github.com/IHUI-INF-AI/IHUI-AI>
-- 官网体验:<https://ihui.ai>
+- 官网体验:<https://aizhs.top>
 - pgvector 官方文档:<https://github.com/pgvector/pgvector>
 
 如果这篇文章帮到你,欢迎到 GitHub 给 IHUI-AI 点 Star ⭐,也欢迎来官网直接体验我们已经搭好的 RAG 知识库。

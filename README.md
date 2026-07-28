@@ -2306,7 +2306,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **PyPI**:`ihui-ai`(Python,sync + asyncio 双客户端,零依赖 stdlib)— `pip install ihui-ai`
 - **Maven Central**:`com.ihui:ihui-ai-java`(Java 11+,OkHttp + Jackson + SLF4J)— Maven 坐标见 docs/SDK.md
 - **Go module**:`github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go`(零依赖,context.Context)— `go get .../sdk/go/sdk@vX.Y.Z`
-- **.NET bonus**:`IHUI.AI`(C#,额外赠送)— csproj 引用
+- **.NET bonus**:`aizhs.top`(C#,额外赠送)— csproj 引用
 
 发布流程:`git tag v1.2.3 && git push origin v1.2.3` → 4 job 并行构建 + 发布(支持 workflow_dispatch 手动单端发布 + dry-run 验证)。
 

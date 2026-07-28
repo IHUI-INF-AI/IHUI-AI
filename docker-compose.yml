@@ -37,7 +37,7 @@ services:
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
-      - SMTP_FROM=${SMTP_FROM:-noreply@ihui.ai}
+      - SMTP_FROM=${SMTP_FROM:-noreply@aizhs.top}
       - SMTP_ENABLED=${SMTP_ENABLED:-false}
       # 微信支付证书(占位值通过启动校验;真实部署替换为有效证书)
       - WX_SHOP_ID=${WX_SHOP_ID:-}
@@ -122,7 +122,7 @@ services:
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
-      - SMTP_FROM=${SMTP_FROM:-noreply@ihui.ai}
+      - SMTP_FROM=${SMTP_FROM:-noreply@aizhs.top}
       - SMTP_ENABLED=${SMTP_ENABLED:-false}
       # 微信支付证书(占位值通过启动校验;真实部署替换为有效证书)
       - WX_SHOP_ID=${WX_SHOP_ID:-}

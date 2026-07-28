@@ -122,7 +122,7 @@ IHUI-AI 正在尝试这条路:把每个用户创建的 Agent 自动注册成 MCP
 **相关链接**
 
 - 项目仓库:<https://github.com/IHUI-INF-AI/IHUI-AI>
-- 官网:<https://ihui.ai>
+- 官网:<https://aizhs.top>
 - MCP 官方文档:<https://modelcontextprotocol.io>
 
 如果这篇文章对你有启发,欢迎到 GitHub 给 IHUI-AI 点个 Star ⭐,也欢迎来官网体验我们用 MCP 串联起来的 Agent 工作流。

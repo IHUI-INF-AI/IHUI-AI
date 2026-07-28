@@ -123,7 +123,7 @@ export default function App() {
   }
 
   const openWeb = () => {
-    const url = 'https://www.ihui.ai/'
+    const url = 'https://www.aizhs.top/'
     chrome.tabs.create({ url })
     window.close()
   }

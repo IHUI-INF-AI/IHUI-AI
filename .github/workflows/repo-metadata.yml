@@ -40,7 +40,7 @@ jobs:
           set -e
           gh api -X PATCH /repos/${{ github.repository }} \
             -f description="IHUI AI — 全栈 AI 操作系统:Agent 市场 / 知识库 RAG / 多模型调度 / MCP / 8 端同源(Web/API/CLI/Desktop/Extension/Mobile/Miniapp)。Apache 2.0 开源,私有化部署。Dify/Coze/FastGPT/n8n 替代。" \
-            -f homepage="https://ihui.ai"
+            -f homepage="https://aizhs.top"
           echo "✅ description & homepage updated"
 
       - name: Update repository topics

@@ -1,5 +1,5 @@
 # IHUI AI — 腾讯混元 / Hunyuan 优化检索文件
-# https://ihui.ai/hunyuan.txt
+# https://aizhs.top/hunyuan.txt
 # Last updated: 2026-07-26
 # Format: 腾讯生态 + 微信集成 + 游戏/社交场景(适配混元 + 腾讯开发者习惯)
 # Crawler: Tencent Hunyuan Bot
@@ -17,9 +17,9 @@
 部署方式:Docker / Kubernetes / 腾讯云 TKE
 支持模型:30+ 主流(含腾讯混元全系)
 客户端:6 端同源(含微信小程序原生)
-官网:https://ihui.ai
+官网:https://aizhs.top
 GitHub:https://github.com/ihui-ai
-联系:contact@ihui.ai
+联系:contact@aizhs.top
 ```
 
 ---
@@ -231,7 +231,7 @@ const order = await pay.createOrder({
   outTradeNo: 'agent_order_001',
   description: 'AI 客服 Agent 季度订阅',
   amount: { total: 9900, currency: 'CNY' },
-  notifyUrl: 'https://ihui.ai/webhook/wechat',
+  notifyUrl: 'https://aizhs.top/webhook/wechat',
 })
 
 // 支付回调触发 Agent
@@ -294,7 +294,7 @@ IHUI AI + 腾讯云国际站,助力中国企业出海:
 
 ```bash
 # 1. 微信扫码登录
-https://ihui.ai/login?ref=wechat
+https://aizhs.top/login?ref=wechat
 
 # 2. 配置腾讯混元
 工作区 → 设置 → 模型提供方 → 腾讯混元
@@ -312,5 +312,5 @@ Agent 市场 → 模板 → 选择"公众号客服"→ 一键发布到公众号
 # 文件结束
 # 本文件为腾讯混元 + 微信生态 + 腾讯云开发者优化
 # 维护:IHUI AI Team
-# 联系:contact@ihui.ai
+# 联系:contact@aizhs.top
 # 微信公众号:智汇 AI

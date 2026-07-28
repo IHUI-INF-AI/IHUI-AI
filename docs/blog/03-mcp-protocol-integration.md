@@ -431,7 +431,7 @@ IHUI AI 已经用 MCP 把 28 个内置工具 + 任意第三方 MCP server 串起
 
 IHUI AI 是一站式 8 端全栈 AI 操作系统,Apache 2.0 开源。
 
-- 🌐 官网:https://ihui.ai
+- 🌐 官网:https://aizhs.top
 - 💻 GitHub:https://github.com/IHUI-INF-AI/IHUI-AI(Star 支持一下 ⭐)
 - 📦 8 端同源:Web / API / CLI / Desktop / Extension / Mobile / Miniapp
 - 🤖 176 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama

@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/ai-marketing#webpage',
-      url: 'https://ihui.ai/use-cases/ai-marketing',
+      '@id': 'https://aizhs.top/use-cases/ai-marketing#webpage',
+      url: 'https://aizhs.top/use-cases/ai-marketing',
       name: 'AI 营销内容生成 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 营销内容生成 Agent:多平台文案(小红书/抖音/微博/公众号/LinkedIn)、SEO 博客、品牌语调统一、A/B 测试、用户画像驱动,30 分钟上线,8 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/ai-marketing#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/ai-marketing#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 营销内容', item: 'https://ihui.ai/use-cases/ai-marketing' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 营销内容', item: 'https://aizhs.top/use-cases/ai-marketing' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/ai-marketing#howto',
+      '@id': 'https://aizhs.top/use-cases/ai-marketing#howto',
       name: '30 分钟搭建 AI 营销内容生成 Agent',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建 AI 营销内容生成 Agent 的 6 步流程:上传品牌指南 → 训练语调模型 → 接入多平台 API → 配置 A/B 测试 → 导入用户画像 → 启用数据反馈闭环。产能提升 10 倍。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 营销内容生成 Agent — IHUI AI',
     description: '多平台一键改写 + 品牌语调统一 + A/B 测试,30 分钟上线。',
-    url: 'https://ihui.ai/use-cases/ai-marketing',
+    url: 'https://aizhs.top/use-cases/ai-marketing',
     type: 'article',
   },
 }

@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/sales#webpage',
-      url: 'https://ihui.ai/use-cases/sales',
+      '@id': 'https://aizhs.top/use-cases/sales#webpage',
+      url: 'https://aizhs.top/use-cases/sales',
       name: 'AI 销售助手 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 销售助手 Agent:线索自动分级、话术实时教练、CRM 自动化、合同生成、回款预测,30 分钟上线,6 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/sales#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/sales#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 销售助手', item: 'https://ihui.ai/use-cases/sales' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 销售助手', item: 'https://aizhs.top/use-cases/sales' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/sales#howto',
+      '@id': 'https://aizhs.top/use-cases/sales#howto',
       name: '30 分钟搭建 AI 销售助手 Agent',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建 AI 销售助手 Agent 的 6 步流程:接入 CRM → 训练话术 → 配置分级 → 集成渠道 → 自动化合同回款 → 监控优化。线索转化率提升 3 倍。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 销售助手 Agent — IHUI AI',
     description: '线索分级 + 话术教练 + CRM 自动化,30 分钟上线。',
-    url: 'https://ihui.ai/use-cases/sales',
+    url: 'https://aizhs.top/use-cases/sales',
     type: 'article',
   },
 }

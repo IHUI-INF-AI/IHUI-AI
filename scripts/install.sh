@@ -1,7 +1,7 @@
 #!/bin/sh
 # IHUI AI CLI — 一键安装脚本 (macOS / Linux)
-# 用法: curl -fsSL https://ihui.ai/install.sh | bash
-#   或: curl -fsSL https://ihui.ai/install.sh | bash -s -- --version 1.0.0
+# 用法: curl -fsSL https://aizhs.top/install.sh | bash
+#   或: curl -fsSL https://aizhs.top/install.sh | bash -s -- --version 1.0.0
 
 set -eu
 
@@ -43,8 +43,8 @@ while [ $# -gt 0 ]; do
 IHUI AI CLI 安装脚本
 
 用法:
-  curl -fsSL https://ihui.ai/install.sh | bash
-  curl -fsSL https://ihui.ai/install.sh | bash -s -- --version 1.0.0
+  curl -fsSL https://aizhs.top/install.sh | bash
+  curl -fsSL https://aizhs.top/install.sh | bash -s -- --version 1.0.0
 
 环境变量:
   IHUI_VERSION   指定版本 (默认: latest)

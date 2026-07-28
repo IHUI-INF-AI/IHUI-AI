@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -145,7 +145,7 @@ export default function HelpPage() {
 
       <div className="flex justify-center pt-2">
         <Button asChild>
-          <Link href="mailto:support@ihui.ai">
+          <Link href="mailto:support@aizhs.top">
             <Mail className="h-4 w-4" />
             {t('contactSupport')}
           </Link>

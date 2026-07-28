@@ -6,10 +6,10 @@
  *      (Bing / Yandex / Naver 共用同一 API),加速搜索引擎收录。
  *
  * 用法:
- *   node scripts/indexnow-submit.mjs                 # 实际提交(默认 host=ihui.ai)
+ *   node scripts/indexnow-submit.mjs                 # 实际提交(默认 host=aizhs.top)
  *   node scripts/indexnow-submit.mjs --dry-run       # 仅预览 URL 列表与 payload,不提交
  *   node scripts/indexnow-submit.mjs --key <key>     # 自定义密钥
- *   node scripts/indexnow-submit.mjs --host <host>   # 自定义 host(默认 ihui.ai)
+ *   node scripts/indexnow-submit.mjs --host <host>   # 自定义 host(默认 aizhs.top)
  *
  * 密钥机制:
  *   - IndexNow 要求站点根目录可访问 https://{host}/{key}.txt,内容为 key 本身。
@@ -33,7 +33,7 @@ function argValue(name) {
   const i = argv.indexOf(name)
   return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null
 }
-const HOST = argValue('--host') || 'ihui.ai'
+const HOST = argValue('--host') || 'aizhs.top'
 const DRY_RUN = argv.includes('--dry-run')
 const KEY_ARG = argValue('--key')
 

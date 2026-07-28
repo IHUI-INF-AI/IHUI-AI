@@ -1,6 +1,6 @@
 # IHUI AI CLI — 一键安装脚本 (Windows PowerShell)
-# 用法: irm https://ihui.ai/install.ps1 | iex
-#   或: irm https://ihui.ai/install.ps1 | iex -Version 1.0.0
+# 用法: irm https://aizhs.top/install.ps1 | iex
+#   或: irm https://aizhs.top/install.ps1 | iex -Version 1.0.0
 # PowerShell 5.1+ 兼容
 
 $ErrorActionPreference = "Stop"
@@ -38,8 +38,8 @@ if ($args.Count -gt 0) {
                 Write-Host "IHUI AI CLI 安装脚本"
                 Write-Host ""
                 Write-Host "用法:"
-                Write-Host "  irm https://ihui.ai/install.ps1 | iex"
-                Write-Host "  irm https://ihui.ai/install.ps1 | iex -Version 1.0.0"
+                Write-Host "  irm https://aizhs.top/install.ps1 | iex"
+                Write-Host "  irm https://aizhs.top/install.ps1 | iex -Version 1.0.0"
                 Write-Host ""
                 Write-Host "环境变量:"
                 Write-Host "  IHUI_VERSION  指定版本 (默认: latest)"

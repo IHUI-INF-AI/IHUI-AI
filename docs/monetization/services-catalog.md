@@ -105,9 +105,9 @@ IHUI AI 是全栈 AI 平台(TS Monorepo,8 端覆盖:web/api/ai-service/desktop/e
 
 | 渠道 | 信息 |
 |------|------|
-| 邮箱 | business@ihui.ai |
+| 邮箱 | business@aizhs.top |
 | 电话 | 400-888-0000 |
-| 询价表单 | https://ihui.ai/services (底部) 或 https://ihui.ai/enterprise/inquiry |
+| 询价表单 | https://aizhs.top/services (底部) 或 https://aizhs.top/enterprise/inquiry |
 | 工作时间 | 周一至周五 9:00-18:00(北京时间) |
 
 ## FAQ

@@ -13,7 +13,7 @@ pip install ihui-sdk
 ```python
 from ihui_sdk import IhuiClient, ChatCompletionRequest, Message
 
-client = IhuiClient('https://api.ihui.ai', 'your-api-key')
+client = IhuiClient('https://api.aizhs.top', 'your-api-key')
 resp = client.chat_completions_create(
     ChatCompletionRequest(model='gpt-4o', messages=[Message(role='user', content='你好')])
 )

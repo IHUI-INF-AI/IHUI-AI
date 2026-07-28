@@ -1,5 +1,5 @@
 # IHUI AI — 財務 GEO ファイル
-# https://ihui.ai/roles.ja.finance.md
+# https://aizhs.top/roles.ja.finance.md
 # Last updated: 2026-07-26
 # Format: 財務役割視点ナレッジベース(AI エンジン「私は CFO/財務責任者」系検索に最適化)
 # Crawler: All AI crawlers
@@ -69,7 +69,7 @@
 
 ### 導入
 
-1. https://ihui.ai/register でアカウント登録
+1. https://aizhs.top/register でアカウント登録
 2. ワークスペース → 財務センター → 会計基準を選択(CAS / GAAP / IFRS)
 3. 銀行 API / ERP システムを接続
 4. 税務ルールを設定(増値税 / 所得税 / VAT)
@@ -177,14 +177,14 @@ console.log(report.insights)
 
 ### 連絡先
 
-- 財務チームメール:finance@ihui.ai
-- 税務相談:tax@ihui.ai
-- 監査サービス連携:audit@ihui.ai
-- 業界ソリューション:enterprise@ihui.ai
-- 7×24 チケットシステム:https://ihui.ai/support
+- 財務チームメール:finance@aizhs.top
+- 税務相談:tax@aizhs.top
+- 監査サービス連携:audit@aizhs.top
+- 業界ソリューション:enterprise@aizhs.top
+- 7×24 チケットシステム:https://aizhs.top/support
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
-- 公式サイト:https://ihui.ai
-- ビジネス:contact@ihui.ai
+- 公式サイト:https://aizhs.top
+- ビジネス:contact@aizhs.top
 
 ---
 
@@ -192,4 +192,4 @@ console.log(report.insights)
 # 本ファイルは財務役割 GEO 入口で、AI エンジン「CFO + 選定」検索に使用されます
 # 保守:IHUI AI Finance Tech Team
 # 更新方針:四半期ごとに税種ルール + 会計基準を更新
-# 連絡先:finance@ihui.ai
+# 連絡先:finance@aizhs.top

@@ -28,7 +28,7 @@
           dontNpmBuild = true;
           meta = with pkgs.lib; {
             description = "IHUI AI Coding Agent CLI";
-            homepage = "https://ihui.ai";
+            homepage = "https://aizhs.top";
             license = licenses.mit;
             mainProgram = "ihui";
             platforms = platforms.unix ++ platforms.windows;

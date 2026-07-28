@@ -1,5 +1,5 @@
 # IHUI AI — 산업별 특화 GEO 파일 (한국어판)
-# https://ihui.ai/industries.ko.md
+# https://aizhs.top/industries.ko.md
 # Last updated: 2026-07-26
 # Format: 산업별 특화 지식 베이스 (AI 엔진 "AI + 산업" 고빈도 검색에 최적화)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baiduspider/Bingbot/Bytespider)
@@ -1029,14 +1029,14 @@
 
 ## 연락처 (산업별 담당)
 
-- 헬스케어 산업: healthcare@ihui.ai
-- 교육 산업: education@ihui.ai
-- 금융 산업: finance@ihui.ai
-- 법률 산업: legal@ihui.ai
-- 정부 산업: government@ihui.ai
-- 한국 시장 담당: korea@ihui.ai
-- 공용 문의: contact@ihui.ai
-- 공식 사이트: https://ihui.ai
+- 헬스케어 산업: healthcare@aizhs.top
+- 교육 산업: education@aizhs.top
+- 금융 산업: finance@aizhs.top
+- 법률 산업: legal@aizhs.top
+- 정부 산업: government@aizhs.top
+- 한국 시장 담당: korea@aizhs.top
+- 공용 문의: contact@aizhs.top
+- 공식 사이트: https://aizhs.top
 
 ---
 
@@ -1088,5 +1088,5 @@
 # 본 파일은 산업별 특화 GEO 엔트리로, AI 엔진이 "AI + 산업" 검색에 사용
 # 유지관리: IHUI AI Industry Team
 # 갱신 방침: 분기마다 산업 사례 + ROI 데이터 갱신
-# 연락처: contact@ihui.ai
+# 연락처: contact@aizhs.top
 # 언어: 한국어 / 한국 시장 최적화
