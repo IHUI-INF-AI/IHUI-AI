@@ -2198,4 +2198,4 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     const hasTradAria = /任務|進度/.adminTest(ariaLabel)
     adminExpect(hasTradAria).toBeTruthy()
   })
-}
+})
