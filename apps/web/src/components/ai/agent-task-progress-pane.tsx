@@ -19,6 +19,8 @@ import {
   HelpCircle,
   Keyboard,
   X,
+  Timer,
+  AlertCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
@@ -29,7 +31,7 @@ import { useTimelineStore, type TimelineTabName } from '@/stores/timeline-store'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import { useHoverPreview } from '@/hooks/use-hover-preview'
 import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/use-agent-progress'
-import { formatDuration, FoldableSectionProvider } from './progress-sections/foldable-section'
+import { formatDuration, formatElapsed, FoldableSectionProvider } from './progress-sections/foldable-section'
 import { ThinkingSection } from './progress-sections/thinking-section'
 import { ToolCallsSection } from './progress-sections/tool-calls-section'
 import { ChangesSection } from './progress-sections/changes-section'
@@ -500,6 +502,10 @@ export function AgentTaskProgressPane() {
   // v13: 快捷键帮助面板开关(pane 打开时按 ? 弹出,Esc 或点关闭按钮收起)
   const [showHelp, setShowHelp] = React.useState<boolean>(false)
 
+  // v15: 实时计时器 tick(state-only,每 1000ms 递增,触发 Pane 内部重渲染)
+  // 仅在 isStreaming / sessionStart 存在时启用,避免空闲 tick 浪费
+  const [elapsedTick, setElapsedTick] = React.useState<number>(0)
+
   // 从 useChatStore 同步 conversationId + 读取 messages(用于 planStep↔message 关联)
   const conversationId = useChatStore((s) => s.conversationId)
   const chatMessages = useChatStore((s) => s.messages)
@@ -517,6 +523,37 @@ export function AgentTaskProgressPane() {
 
   const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
+
+  // v15: 实时计时器 — 仅在 streaming 或 sessionStart 存在时每秒 tick,空闲时停止
+  // elapsed 派生:基于 sessionStart + 累计 tick 秒数,避免依赖当前 Date.now()(避免重渲染后时间跳变)
+  const shouldTick = isStreaming || overview.sessionStart !== null
+  React.useEffect(() => {
+    if (!shouldTick) return
+    const id = window.setInterval(() => {
+      setElapsedTick((n) => n + 1)
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [shouldTick])
+  const elapsedLabel = React.useMemo<string>(() => {
+    if (overview.sessionStart === null) return ''
+    const startMs = Date.parse(overview.sessionStart)
+    if (Number.isNaN(startMs)) return ''
+    // elapsedTick 触发 setInterval 强制重算(本身不参与计算),此处读取以满足 eslint 检查
+    const _tick = elapsedTick
+    void _tick
+    const totalSec = Math.floor((Date.now() - startMs) / 1000)
+    return formatElapsed(totalSec)
+  }, [overview.sessionStart, elapsedTick])
+
+  // v15: 失败计数(派生)— failed subagent + failed tool
+  const failureCount = React.useMemo<number>(() => {
+    const failedSubagents = subagents.filter(
+      (s) => s.status === 'failed' || s.status === 'dead',
+    ).length
+    const failedTools = tools.filter((t) => t.status === 'error').length
+    const failedTerminals = terminals.filter((t) => t.status === 'failed').length
+    return failedSubagents + failedTools + failedTerminals
+  }, [subagents, tools, terminals])
 
   // v9: token 统计(汇总 planSteps + subagents 的 tokenUsage)
   const totalTokens = React.useMemo(() => {
@@ -875,6 +912,21 @@ export function AgentTaskProgressPane() {
     [setActiveTab],
   )
 
+  // v15: 滚动到首个失败项(subagent/tool/terminal)
+  const scrollToFirstFailure = React.useCallback(() => {
+    const failedSubagent = paneRef.current?.querySelector(
+      '[data-testid^="subagent-item-"][data-status="failed"], [data-testid^="subagent-item-"][data-status="dead"]',
+    )
+    const failedTool = paneRef.current?.querySelector('[data-status="error"]')
+    const first = failedSubagent ?? failedTool
+    if (first instanceof HTMLElement) {
+      first.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // 视觉提示:短暂高亮 600ms
+      first.classList.add('animate-flash-highlight')
+      window.setTimeout(() => first.classList.remove('animate-flash-highlight'), 700)
+    }
+  }, [])
+
   // BatchHeader 折叠切换回调
   const onBatchCollapsedChange = React.useCallback((next: boolean) => setBatchCollapsed(next), [])
 
@@ -1042,6 +1094,24 @@ export function AgentTaskProgressPane() {
             />
           </div>
         )}
+        {/* v15: 实时计时器 — 仅在 sessionStart 存在时显示,每 1s 更新 */}
+        {elapsedLabel && (
+          <span
+            className="ml-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 text-[10px] tabular-nums text-muted-foreground/70"
+            data-testid="pane-elapsed"
+            title={t('elapsedTitle', { time: elapsedLabel })}
+            aria-label={t('elapsedTitle', { time: elapsedLabel })}
+          >
+            <Timer
+              className={cn(
+                'h-2.5 w-2.5',
+                isStreaming ? 'animate-pulse text-primary' : 'text-muted-foreground/60',
+              )}
+              aria-hidden
+            />
+            {elapsedLabel}
+          </span>
+        )}
         <div className="flex-1" />
         {/* Phase 19: tab 切换(对话流/时间线) */}
         {TAB_BUTTONS.map((tab) => {
@@ -1109,7 +1179,7 @@ export function AgentTaskProgressPane() {
           className={cn(
             'inline-flex h-5 w-5 items-center justify-center rounded-sm transition-colors',
             pinned
-              ? 'text-primary hover:bg-accent'
+              ? 'bg-primary/10 text-primary hover:bg-primary/20'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
           )}
           title={
@@ -1142,6 +1212,21 @@ export function AgentTaskProgressPane() {
           <Sparkles className="h-3 w-3 shrink-0 animate-pulse" aria-hidden />
           <span className="flex-1 truncate">{t('celebrate')}</span>
         </div>
+      )}
+
+      {/* v15: 失败状态条 — 当有 failed subagent/tool/terminal 时显示,点击滚动到首个失败项 */}
+      {failureCount > 0 && (
+        <button
+          type="button"
+          onClick={scrollToFirstFailure}
+          className="flex shrink-0 w-full items-center gap-1.5 border-b border-destructive/30 bg-destructive/10 px-2 py-1 text-left text-[11px] text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive/60"
+          aria-live="polite"
+          data-testid="pane-failure-banner"
+        >
+          <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
+          <span className="flex-1 truncate">{t('failureBanner', { n: failureCount })}</span>
+          <span className="shrink-0 text-[10px] text-destructive/80">›</span>
+        </button>
       )}
 
       {/* v13: 键盘快捷键帮助面板(VSCode 风格,按 ? 弹出,Esc 关闭) */}
@@ -1231,26 +1316,41 @@ export function AgentTaskProgressPane() {
         {activeTab === 'inline' && (
           <>
             {!threadId && (
-              <div className="flex flex-col gap-2 px-3 py-4" data-testid="pane-empty-state">
-                <div className="flex flex-col items-center gap-1">
-                  <MessageSquare className="h-4 w-4 text-muted-foreground/60" aria-hidden />
-                  <span className="text-[11px] text-muted-foreground/60">{t('emptyHint')}</span>
+              <div
+                className="flex flex-col items-center gap-1.5 px-3 py-5 text-center"
+                data-testid="pane-empty-state"
+              >
+                <ListTodo
+                  className="h-6 w-6 text-muted-foreground/30"
+                  aria-hidden
+                  data-testid="pane-empty-icon"
+                />
+                <div className="space-y-0.5">
+                  <div
+                    className="text-[12px] font-medium text-foreground/80"
+                    data-testid="pane-empty-title"
+                  >
+                    {t('emptyTitle')}
+                  </div>
+                  <div className="text-[10px] leading-relaxed text-muted-foreground/60">
+                    {t('emptySubtitle')}
+                  </div>
                 </div>
                 {/* v13: 3 个快速开始提示,引导用户理解 pane 用途 */}
                 <ul
-                  className="space-y-0.5 text-[10px] text-muted-foreground/50"
+                  className="mt-1 w-full space-y-0.5 text-left text-[10px] text-muted-foreground/60"
                   data-testid="pane-empty-hints"
                   aria-label={t('emptyHintsLabel')}
                 >
-                  <li className="flex items-start gap-1.5">
+                  <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
                     <span className="shrink-0 text-primary/80">1.</span>
                     <span>{t('emptyHint1')}</span>
                   </li>
-                  <li className="flex items-start gap-1.5">
+                  <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
                     <span className="shrink-0 text-primary/80">2.</span>
                     <span>{t('emptyHint2')}</span>
                   </li>
-                  <li className="flex items-start gap-1.5">
+                  <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
                     <span className="shrink-0 text-primary/80">3.</span>
                     <span>{t('emptyHint3')}</span>
                   </li>
