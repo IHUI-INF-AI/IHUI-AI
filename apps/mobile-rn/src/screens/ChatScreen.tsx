@@ -22,6 +22,7 @@ import { formatTokenCount } from '@ihui/shared/utils'
 import type { ChatMessage } from '@ihui/shared'
 import { useAuth } from '../context/AuthContext'
 import { useScreenshot } from '../hooks/use-screenshot'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const FALLBACK_MODELS: LlmModel[] = [
@@ -121,6 +122,7 @@ const FALLBACK_MODELS: LlmModel[] = [
 
 export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
   const { logout } = useAuth()
+  const { t } = useI18n()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -175,10 +177,13 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
       contextLimit: getModelContextCapacity(model),
       onCompaction: (info) => {
-        // TODO: i18n — Alert.alert 硬编码中文待翻译(上下文已自动压缩 / 移除 X 条历史)
         Alert.alert(
-          '上下文已自动压缩',
-          `${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}(移除 ${info.removedCount} 条历史)`,
+          t('chatAlert.compaction.title'),
+          t('chatAlert.compaction.message', {
+            before: formatTokenCount(info.tokensBefore),
+            after: formatTokenCount(info.tokensAfter),
+            removed: info.removedCount,
+          }),
         )
       },
       onDelta: (delta) => {
@@ -197,10 +202,9 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         setIsStreaming(false)
         abortRef.current = null
         if (formatted.severity === 'auth') {
-          // TODO: i18n — Alert.alert 按钮文字硬编码中文待翻译(去登录 / 取消)
           Alert.alert(formatted.title, formatted.message, [
-            { text: '去登录', onPress: () => logout() },
-            { text: '取消', style: 'cancel' },
+            { text: t('chatAlert.loginBtn'), onPress: () => logout() },
+            { text: t('common.cancel'), style: 'cancel' },
           ])
         } else if (formatted.severity === 'ratelimit') {
           Alert.alert(formatted.title, formatted.message)
@@ -233,10 +237,9 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     if (!el || capturing) return
     const uri = await capture({ current: el } as React.RefObject<View>)
     if (!uri) return
-    // TODO: i18n — Alert.alert 硬编码中文待翻译(我的消息 / AI 消息 / 截图已生成 / 分享 / 取消)
-    Alert.alert(item.role === 'user' ? '我的消息' : 'AI 消息', '截图已生成', [
-      { text: '分享', onPress: () => Share.share({ url: uri, message: item.content }) },
-      { text: '取消', style: 'cancel' },
+    Alert.alert(item.role === 'user' ? t('chatAlert.longPress.myTitle') : t('chatAlert.longPress.aiTitle'), t('chatAlert.longPress.message'), [
+      { text: t('chatAlert.longPress.shareBtn'), onPress: () => Share.share({ url: uri, message: item.content }) },
+      { text: t('common.cancel'), style: 'cancel' },
     ])
   }
 

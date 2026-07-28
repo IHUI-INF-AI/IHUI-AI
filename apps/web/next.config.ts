@@ -119,6 +119,9 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ['image/avif', 'image/webp'],
+    // 2026-07-28 修复 Next.js 16 兼容警告:本地 /images/** 下的图片允许任意 query string
+    // (如 ?v=20260719-unify 缓存破坏),Next.js 16+ 强制要求 localPatterns 显式声明
+    localPatterns: [{ pathname: '/images/**' }],
     remotePatterns: [
       { protocol: 'https', hostname: 'aizhs.top' },
       { protocol: 'https', hostname: '*.aizhs.top' },

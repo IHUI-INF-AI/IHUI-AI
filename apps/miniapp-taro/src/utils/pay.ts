@@ -2,6 +2,17 @@ import Taro from '@tarojs/taro'
 import { requestWeappPayment, requestAlipayPayment } from '../platform/pay'
 import { getPlatform } from '../platform/auth'
 import type { PayPlatform, AnyPayParams } from '@ihui/types'
+// 2026-07-28 Q-5: 跨端纯逻辑(错误分类 + 参数归一化 + App 端 orderInfo 构建)
+// 下沉到 @ihui/shared/pay,消除本文件重复实现。
+import {
+  classifyPayError,
+  isCancelError,
+  isWxNotInstalled,
+  isAliNotInstalled,
+  isParamError,
+  buildAppWxOrderInfo,
+  type PayErrorLike,
+} from '@ihui/shared/pay'
 
 // 对外统一 API(从 platform/pay.ts re-export,消除双套实现)
 export {
@@ -16,70 +27,14 @@ export {
 // PayPlatform / WxPayParams / AliPayParams / AnyPayParams 已下沉到 @ihui/types
 export type { PayPlatform, WxPayParams, AliPayParams, AnyPayParams } from '@ihui/types'
 
-interface PayErrorLike {
-  errMsg?: string
-  code?: number
-  message?: string
-}
-
 // 2026-07-28 Q-3: 删除本地 getPlatform 重复实现,复用 platform/auth.ts 的 getPlatform
 // (已扩展为 RuntimePlatform,支持 weapp/alipay/app/web/unknown)。
 // 注意:platform/auth.ts 用 'weapp'/'alipay',原本地实现用 'mp-weixin'/'mp-alipay',
 // 已同步更新下方所有判断分支。
 
-function isCancelError(err: PayErrorLike): boolean {
-  const msg = err.errMsg || err.message || ''
-  return msg.includes('cancel')
-}
-
-function isWxNotInstalled(err: PayErrorLike): boolean {
-  if (err.code === -100) return true
-  return (err.errMsg || '').includes('62000')
-}
-
-function isAliNotInstalled(err: PayErrorLike): boolean {
-  if (err.code === -100) return true
-  return (err.errMsg || '').includes('62009')
-}
-
-function isParamError(err: PayErrorLike): boolean {
-  const msg = err.errMsg || err.message || ''
-  return msg.includes('parameter') || msg.includes('参数')
-}
-
-function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): unknown {
-  for (const k of keys) {
-    if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k]
-  }
-  return undefined
-}
-
-function buildAppWxOrderInfo(p: AnyPayParams): string {
-  if (typeof p.orderInfo === 'string') return p.orderInfo
-  if (p.orderInfo && typeof p.orderInfo === 'object') return JSON.stringify(p.orderInfo)
-  const obj = {
-    appid: pick(p as unknown as Record<string, unknown>, ['appid', 'appId', 'app_id']),
-    partnerid: pick(p as unknown as Record<string, unknown>, [
-      'partnerid',
-      'partnerId',
-      'partner_id',
-    ]),
-    prepayid: pick(p as unknown as Record<string, unknown>, ['prepayid', 'prepayId', 'prepay_id']),
-    package: (p.package as string) ?? 'Sign=WXPay',
-    noncestr:
-      pick(p as unknown as Record<string, unknown>, ['noncestr', 'nonceStr', 'nonce_str']) ?? '',
-    timestamp: String(
-      pick(p as unknown as Record<string, unknown>, ['timestamp', 'timeStamp']) ??
-        Math.floor(Date.now() / 1000),
-    ),
-    sign: p.sign,
-  }
-  return JSON.stringify(obj)
-}
-
 function showWxPayError(err: PayErrorLike): void {
+  // TODO: i18n — Taro.showToast 硬编码中文待翻译(您已取消支付)
   if (isCancelError(err)) {
-    // TODO: i18n — Taro.showToast 硬编码中文待翻译(您已取消支付)
     Taro.showToast({ title: '您已取消支付', icon: 'none' })
     return
   }
@@ -227,3 +182,6 @@ export function unifiedPay(platform: PayPlatform, payParams: AnyPayParams): Prom
   if (platform === 'alipay') return requestAliPayment(payParams)
   return requestWxPayment(payParams)
 }
+
+//classifyPayError re-export(供调用方做错误类型判断,如 catch 块按 'cancel'/'wxNotInstalled' 分支)
+export { classifyPayError }

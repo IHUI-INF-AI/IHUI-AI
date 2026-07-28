@@ -1,15 +1,12 @@
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+import type { UserInfoCardMinimalProps } from '@ihui/types'
 
-export interface UserInfoCardProps {
-  avatar?: string
-  nickname?: string
+// 共享类型 UserInfoCardMinimalProps 已下沉到 @ihui/types,
+// 本地 Props extends Minimal 并追加 level/levelTitle/className(miniapp-taro 专属字段)。
+export interface UserInfoCardProps extends UserInfoCardMinimalProps {
   level?: number
   levelTitle?: string
-  isVip?: boolean
-  vipTitle?: string
-  desc?: string
-  onClick?: () => void
   className?: string
 }
 

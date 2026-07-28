@@ -148,5 +148,134 @@
       "mimePlaceholder": "MIME タイプ,例: text/plain",
       "contentPlaceholder": "Base64 内容"
     }
+  },
+  "common": {
+    "ok": "OK",
+    "gotIt": "了解しました"
+  },
+  "aiAssistant": {
+    "chat": {
+      "title": "チャットを開始",
+      "message": "「{{name}}」とのチャットを開始します"
+    }
+  },
+  "aiCareer": {
+    "plan": {
+      "title": "プラン生成",
+      "message": "「{{name}}」の 90 日間成長プランを生成中"
+    }
+  },
+  "aigcCover": {
+    "applied": {
+      "title": "カバーを適用しました",
+      "message": "「{{title}}」にカバーを適用しました:{{label}}"
+    },
+    "aiGen": {
+      "title": "AI カバー生成",
+      "message": "機能開発中"
+    }
+  },
+  "aigcPublish": {
+    "success": {
+      "title": "公開成功",
+      "message": "作品は審査に提出されました"
+    }
+  },
+  "aiGroup": {
+    "join": {
+      "title": "グループに参加",
+      "message": "「{{name}}」への参加を申請しました"
+    }
+  },
+  "assistant": {
+    "edit": {
+      "title": "操作",
+      "message": "「{{name}}」の販売設定"
+    },
+    "offline": {
+      "title": "公開停止の確認",
+      "message": "「{{name}}」を公開停止しますか?",
+      "confirmBtn": "公開停止",
+      "done": "公開停止しました"
+    }
+  },
+  "chatAlert": {
+    "compaction": {
+      "title": "コンテキストを自動圧縮しました",
+      "message": "{{before}} → {{after}}({{removed}} 件の履歴を削除)"
+    },
+    "loginBtn": "ログインへ",
+    "longPress": {
+      "myTitle": "自分のメッセージ",
+      "aiTitle": "AI メッセージ",
+      "message": "スクリーンショットを生成しました",
+      "shareBtn": "共有"
+    }
+  },
+  "devEnter": {
+    "error": {
+      "nameRequired": "開発者名を入力してください",
+      "contactRequired": "連絡先を入力してください",
+      "introMin": "紹介は 10 文字以上で入力してください",
+      "agreeRequired": "開発者契約に同意してください"
+    },
+    "success": {
+      "title": "送信成功",
+      "message": "申請を送信しました。審査結果は 3 営業日以内に通知されます。"
+    }
+  },
+  "liveHost": {
+    "error": {
+      "titleRequired": "配信タイトルを入力してください",
+      "startFailed": "配信の開始に失敗しました",
+      "endFailed": "配信の終了に失敗しました"
+    },
+    "ended": {
+      "title": "配信を終了しました",
+      "message": "配信時間:{{duration}}"
+    },
+    "productAdd": {
+      "message": "商品追加機能は未実装です"
+    }
+  },
+  "modelEdit": {
+    "error": {
+      "categoryRequired": "コンテンツ種別を選択してください",
+      "priceRequired": "価格を入力してください"
+    },
+    "success": {
+      "title": "送信成功",
+      "message": "設定を審査に提出しました"
+    }
+  },
+  "n8nModel": {
+    "toggle": {
+      "stopTitle": "ワークフローを停止",
+      "startTitle": "ワークフローを開始",
+      "stopMessage": "「{{name}}」を停止しますか?",
+      "startMessage": "「{{name}}」を開始しますか?",
+      "success": "操作成功"
+    }
+  },
+  "modelPlaza": {
+    "compare": {
+      "title": "モデル比較",
+      "message": "比較するモデルを 2〜3 個選択してください"
+    },
+    "detail": {
+      "title": "モデル詳細",
+      "message": "「{{name}}」の完全な仕様と価格を見る"
+    }
+  },
+  "tokenValue": {
+    "recharge": {
+      "title": "チャージ確認",
+      "message": "パッケージ:{{tokens}} Token · ¥{{price}}",
+      "payBtn": "今すぐ支払う",
+      "success": {
+        "title": "支払い成功",
+        "message": "{{tokens}} Token がチャージされました"
+      }
+    }
   }
 }
