@@ -8959,12 +8959,36 @@
     "suggest": "検索候補",
     "clearAll": "すべてクリア",
     "noResults": "検索結果なし",
+    "searchPlaceholder": "検索…",
+    "searchHistory": "検索履歴",
+    "clear": "クリア",
+    "noSuggestions": "一致する提案がありません",
+    "tabs": {
+      "all": "すべて",
+      "users": "ユーザー",
+      "projects": "プロジェクト",
+      "files": "ファイル"
+    },
     "sort": "ソート",
+    "sortRelevance": "関連度",
+    "sortTime": "時間",
     "sortName": "氏名",
+    "sortSize": "サイズ",
     "emptyKeyword": "キーワードをしてください",
     "loading": "読み込み中...",
     "emptyResult": "するがつかりません",
-    "resultsCount": "{total} (ユーザー {users} / プロジェクト {projects} / ファイル {files})"
+    "open": "開く",
+    "resultsCount": "{total} (ユーザー {users} / プロジェクト {projects} / ファイル {files})",
+    "quickSuggestions": [
+      "設定",
+      "プロフィール",
+      "プロジェクト",
+      "会話履歴",
+      "メンバー",
+      "ワークスペース",
+      "ショートカット",
+      "AI モデル"
+    ]
   },
   "footer": {
     "companyName": "吉林省愛智匯AI科技有限公司",
@@ -9828,11 +9852,11 @@
       "pinHintPinned": "ピン留め済み、外部クリックでは閉じません",
       "pinHintUnpinned": "ピン留め解除済み、外部クリックで閉じます",
       "minimizeHint": "タスクパネルを最小化",
+      "emptyHint": "会話開始後にタスク計画が表示されます",
       "emptyTitle": "タスク開始を待機中",
       "emptySubtitle": "会話開始後、タスク分解がここに表示されます",
       "elapsedTitle": "経過 {time}",
       "failureBanner": "{n} 件のタスクが失敗しました、クリックで表示",
-      "emptyHint": "会話開始後にタスク計画が表示されます",
       "emptyHintsLabel": "使い方のヒント",
       "emptyHint1": "会話を開始すると、AI のタスク分解と進捗がここに表示されます。",
       "emptyHint2": "サブエージェント / ツール呼び出し / ターミナル出力は自動的にグループ化されます。",
@@ -10955,6 +10979,80 @@
         "プライベートデプロイ選択可",
         "四半期レビュー + 戦略コンサルティング"
       ]
+    },
+    "socialProof": {
+      "title": "世界中の開発者に信頼されています",
+      "subtitle": "スタートアップから Fortune 500 まで、IHUI AI はあらゆる規模のチームにサービスを提供しています",
+      "registered": "登録ユーザー",
+      "monthlyActive": "月間アクティブユーザー",
+      "apiCalls": "API 呼び出し / 月",
+      "enterprise": "エンタープライズ顧客"
+    },
+    "testimonials": {
+      "title": "開発者の声",
+      "subtitle": "業界とチーム規模を超えた、実際のユーザーからのフィードバック",
+      "items": [
+        {
+          "name": "張明",
+          "role": "CTO",
+          "company": "TechStart",
+          "text": "IHUI AI のおかげで、2 週間で企業向け AI アシスタントをリリースでき、3 ヶ月分の開発時間を節約できました"
+        },
+        {
+          "name": "Sarah Chen",
+          "role": "Lead Engineer",
+          "company": "DataFlow",
+          "text": "マルチテナント RLS の設計が非常に優れており、340 テーブルの分離が完璧にできています"
+        },
+        {
+          "name": "李華",
+          "role": "創始者",
+          "company": "創智科技",
+          "text": "176 個の LLM 統一対応により、10 種類の API 呼び出しコードを書く必要がなくなりました"
+        },
+        {
+          "name": "Marcus Weber",
+          "role": "DevOps",
+          "company": "CloudSys",
+          "text": "ソースからのデプロイから本番稼働までわずか 3 日、詳細なドキュメントも完備されています"
+        },
+        {
+          "name": "王芳",
+          "role": "AI アーキテクト",
+          "company": "智云科技",
+          "text": "LangGraph + MCP + A2A の 3 プロトコル対応は、これまで見た中で最も完全な AI フレームワークです"
+        },
+        {
+          "name": "Alex Kim",
+          "role": "CTO",
+          "company": "AIVentures",
+          "text": "Apache 2.0 で商用利用に寛容、5,346 個のテストが安心感を与えてくれます"
+        }
+      ]
+    },
+    "comparison": {
+      "title": "主要ソリューションとの比較",
+      "subtitle": "1 つのプラットフォームでフルスタック AI 機能をカバー、複数のツールを組み合わせる必要なし",
+      "feature": "機能",
+      "price": "無料で開始",
+      "llmCount": "176+ LLM 対応",
+      "multiTenant": "マルチテナント分離",
+      "rag": "RAG ナレッジベース",
+      "agentMarket": "Agent マーケット",
+      "eightEnds": "8 エンド対応",
+      "openSource": "オープンソース",
+      "selfHost": "セルフホスト",
+      "apache2": "Apache 2.0",
+      "privateDeploy": "プライベートデプロイ"
+    },
+    "guarantee": {
+      "title": "私たちの約束",
+      "refundTitle": "7 日間返金保証",
+      "refundDesc": "購読後 7 日以内にご満足いただけない場合、条件なしで全額返金いたします",
+      "dataTitle": "データの所有権はあなたにあります",
+      "dataDesc": "データは常にあなたの所有物であり、いつでもエクスポート・削除が可能です",
+      "openSourceTitle": "Apache 2.0 永久オープンソース",
+      "openSourceDesc": "コアコードは Apache 2.0 ライセンスで公開、商用利用可能、永続的に利用可能"
     }
   },
   "enterpriseTools": {
@@ -12696,6 +12794,126 @@
     "relatedTitle": "関連記事",
     "notFound": "記事が見つかりません"
   },
+  "products": {
+    "heroBadge": "デジタル製品",
+    "heroTitle": "デジタル製品ストア",
+    "heroSubtitle": "厳選された AI 開発向けデジタル製品:プロンプトライブラリ、Agent テンプレート、デプロイガイド、ソースコードパッケージ、認定講座、カスタム開発。購入後すぐに利用可能です。",
+    "popular": "人気",
+    "buyNow": "今すぐ購入",
+    "buySubject": "購入",
+    "cards": {
+      "1": {
+        "title": "AI Agent プロンプトライブラリ",
+        "price": "¥99",
+        "desc": "200+ の厳選プロンプト、20 の高頻度シナリオをカバー、IHUI AI プラットフォームに直接インポート可能。",
+        "feature1": "200+ の厳選プロンプト",
+        "feature2": "20 シナリオをカバー",
+        "feature3": "JSON + Markdown 形式、すぐにダウンロード"
+      },
+      "2": {
+        "title": "エンタープライズ Agent テンプレートパック",
+        "price": "¥299",
+        "desc": "10 個のエンタープライズ向け Agent テンプレート(カスタマーサービス/営業/HR/データ分析/コードレビュー)、すぐに利用可能。",
+        "feature1": "10 個のエンタープライズ向け Agent テンプレート",
+        "feature2": "LangGraph 完全コード + MCP ツール統合",
+        "feature3": "1 年間の無料アップデート"
+      },
+      "3": {
+        "title": "IHUI-AI デプロイガイド Pro",
+        "price": "¥49",
+        "desc": "PDF + 動画チュートリアル、Docker / K8s / ベアメタルデプロイの全工程を網羅。",
+        "feature1": "PDF + 動画チュートリアル",
+        "feature2": "Docker / K8s / ベアメタルデプロイ対応",
+        "feature3": "パフォーマンスチューニング + セキュリティ強化"
+      },
+      "4": {
+        "title": "エンタープライズソースコードパッケージ",
+        "price": "¥4,999",
+        "desc": "IHUI-AI の全ソースコード + エンタープライズカスタマイズモジュール、プライベートデプロイライセンス。",
+        "feature1": "全ソースコード + エンタープライズカスタマイズモジュール",
+        "feature2": "プライベートデプロイライセンス(Apache 2.0 + 商用拡張)",
+        "feature3": "1 年間のテクニカルサポート"
+      },
+      "5": {
+        "title": "AI エンジニア認定講座",
+        "price": "¥999",
+        "desc": "12 時間の動画 + 実践プロジェクト、AI エンジニアリングのコアスキルを体系的に習得。",
+        "feature1": "12 時間の動画 + 実践プロジェクト",
+        "feature2": "LangGraph / MCP / RAG / マルチテナント対応",
+        "feature3": "修了証明書"
+      },
+      "6": {
+        "title": "カスタム Agent 開発サービス",
+        "price": "¥1,999〜",
+        "desc": "単一 Agent のカスタム開発、要件確認と修正を含む。",
+        "feature1": "単一 Agent のカスタム開発",
+        "feature2": "1 回の要件確認 + 1 回の修正",
+        "feature3": "5 工数"
+      }
+    },
+    "ctaTitle": "まとめ買いで特別割引",
+    "ctaDesc": "エンタープライズ一括購入で段階的割引利用可能、カスタマイズプランについてはお問い合わせください。",
+    "ctaButton": "ビジネスのお問い合わせ"
+  },
+  "sponsor": {
+    "heroBadge": "オープンソースを支援",
+    "heroTitle": "IHUI AI を支援する",
+    "heroSubtitle": "あなたの支援が、IHUI AI の継続的なオープンソース公開、イテレーション、コミュニティ運営を可能にし、フルスタック AI OS をより多くの開発者と企業に届けます。",
+    "heroButton": "スポンサーになる",
+    "whyTitle": "なぜ IHUI AI を支援するのか",
+    "reasonOpenTitle": "オープンソースの維持",
+    "reasonOpenDesc": "コアコードの Apache 2.0 永久オープンソース公開を支援し、誰もが利用できるようにします。",
+    "reasonFastTitle": "開発の加速",
+    "reasonFastDesc": "チームがフルタイムで従事し、新機能とモデル対応のリリースを加速します。",
+    "reasonCommunityTitle": "コミュニティ運営",
+    "reasonCommunityDesc": "Discord/WeChat グループ、Issue 対応、ドキュメント保守を維持します。",
+    "reasonIndependenceTitle": "独立性",
+    "reasonIndependenceDesc": "単一投資に依存せず、製品の独立性と中立性を保ちます。",
+    "tiersTitle": "スポンサープラン",
+    "becomeSponsor": "スポンサーになる",
+    "tiers": {
+      "bronze": {
+        "name": "Bronze",
+        "price": "¥99/月",
+        "feature1": "README へのクレジット掲載",
+        "feature2": "Discord/WeChat メンバーシップグループ",
+        "feature3": "新機能への早期アクセス"
+      },
+      "silver": {
+        "name": "Silver",
+        "price": "¥299/月",
+        "feature1": "Bronze の全特典",
+        "feature2": "月次開発進捗レポート",
+        "feature3": "優先 Issue 対応(48 時間)"
+      },
+      "gold": {
+        "name": "Gold",
+        "price": "¥999/月",
+        "feature1": "Silver の全特典",
+        "feature2": "四半期技術共有会",
+        "feature3": "README にロゴ掲載"
+      },
+      "platinum": {
+        "name": "Platinum",
+        "price": "¥2,999/月",
+        "feature1": "Gold の全特典",
+        "feature2": "1 対 1 月次コンサルティング(1 時間)",
+        "feature3": "新機能への優先投票権"
+      },
+      "diamond": {
+        "name": "Diamond",
+        "price": "¥9,999/月",
+        "feature1": "半日オフラインワークショップ",
+        "feature2": "カスタム Agent 開発(5 工数/月)",
+        "feature3": "戦略的パートナーブランド表示"
+      }
+    },
+    "sponsorsTitle": "現在のスポンサー",
+    "sponsorsDesc": "IHUI AI をご支援いただいているスポンサーの皆様に感謝いたします。",
+    "sponsorsEmpty": "最初のスポンサーになりましょう、あなたのお名前がここに表示されます。",
+    "onlineTitle": "オンライン寄付",
+    "onlineDesc": "PayPal または Ko-fi を通じて迅速にご支援いただけます — 安全・便利、登録不要。"
+  },
   "crypto": {
     "title": "暗号通貨寄付",
     "subtitle": "直接送金、中間プラットフォーム不要、手数料 0",
@@ -12720,6 +12938,66 @@
     "copied": "コピーしました!",
     "disclaimer": "寄付は直接私たちのウォレットに入り、中間手数料はかかりません。USDT-TRC20 は最安手数料 (~$1) で推奨です。",
     "qrCode": "QR コード"
+  },
+  "affiliates": {
+    "heroBadge": "おすすめリソース",
+    "heroTitle": "おすすめの AI ツール",
+    "heroSubtitle": "AI 開発に必須の 10 個の厳選ツール。紹介リンクからの登録で特別割引が適用され、IHUI AI の継続的な開発を支援できます。",
+    "reasonLabel": " おすすめ理由",
+    "signup": "今すぐ登録",
+    "cards": {
+      "1": {
+        "name": "OpenAI API",
+        "desc": "GPT-4 / GPT-4o などトップクラスの大規模モデル API、業界標準。",
+        "reason": "紹介登録で $5 クレジット獲得可能。"
+      },
+      "2": {
+        "name": "Anthropic Claude",
+        "desc": "Claude 3.5 Sonnet、長文処理とコード能力に優れています。",
+        "reason": "紹介登録でトライアルクレジットを獲得。"
+      },
+      "3": {
+        "name": "Google Gemini",
+        "desc": "Gemini Pro / Flash、マルチモーダルと長コンテキストに優れています。",
+        "reason": "新規ユーザー $300 トライアルクレジット。"
+      },
+      "4": {
+        "name": "Vercel",
+        "desc": "Next.js 公式デプロイプラットフォーム、フロントエンドアプリに最適。",
+        "reason": "紹介登録で $100 クレジット獲得。"
+      },
+      "5": {
+        "name": "Railway",
+        "desc": "バックエンドアプリの一括デプロイ、複数言語とデータベースに対応。",
+        "reason": "紹介登録でトライアルクレジットを獲得。"
+      },
+      "6": {
+        "name": "Supabase",
+        "desc": "PostgreSQL マネージド + Auth + Storage、オープンソースの Firebase 代替。",
+        "reason": "紹介登録で無料クレジットを獲得。"
+      },
+      "7": {
+        "name": "Pinecone",
+        "desc": "マネージドベクターデータベース、RAG 検索パフォーマンスに優れています。",
+        "reason": "紹介登録で無料クレジットを獲得。"
+      },
+      "8": {
+        "name": "LangSmith",
+        "desc": "LangChain 公式の監視・デバッグプラットフォーム、LLM アプリの可観測性。",
+        "reason": "紹介登録でトライアルクレジットを獲得。"
+      },
+      "9": {
+        "name": "Cursor",
+        "desc": "AI コードエディタ、GPT-4/Claude 内蔵でプログラミング効率が倍増。",
+        "reason": "紹介登録で Pro トライアルを獲得。"
+      },
+      "10": {
+        "name": "GitHub Copilot",
+        "desc": "GitHub 公式 AI プログラミングアシスタント、IDE 統合に優れています。",
+        "reason": "紹介登録でトライアルを獲得。"
+      }
+    },
+    "disclosure": "上記リンクは affiliate 紹介リンクです。これらのリンクから登録されても追加料金は発生しませんが、少額の手数料を獲得でき、IHUI AI プロジェクトの継続的な開発に役立てられます。ご支援ありがとうございます!"
   },
   "services": {
     "hero": {
@@ -12886,6 +13164,63 @@
         "slaTitle": "レスポンス SLA",
         "sla": "営業時間内 2 時間レスポンス、営業時間外 24 時間レスポンス"
       }
+    }
+  },
+  "newsletter": {
+    "hero": {
+      "badge": "IHUI AI 週刊ニュースレター",
+      "title": "IHUI AI 週刊ニュースレターを購読",
+      "subtitle": "毎週 AI エンジニアリング、Agent 開発、RAG、MCP の実践事例をお届け、8,392+ 開発者が購読中",
+      "subscriberPrefix": "既に",
+      "subscriberSuffix": "人の開発者が購読中"
+    },
+    "benefits": {
+      "title": "購読特典",
+      "items": [
+        "毎週の AI エンジニアリング実践事例",
+        "新機能の先行体験",
+        "独占プロンプトテンプレート",
+        "業界トレンド分析",
+        "コミュニティイベント通知"
+      ]
+    },
+    "form": {
+      "email": "メールアドレス",
+      "interests": "興味のあるタグ(複数選択可)",
+      "tags": {
+        "aiEng": "AI エンジニアリング",
+        "agent": "Agent 開発",
+        "rag": "RAG",
+        "mcp": "MCP",
+        "multiTenant": "マルチテナント",
+        "devops": "デプロイ・運用",
+        "business": "ビジネス化"
+      },
+      "privacyPrefix": "私は",
+      "privacyLink": "プライバシーポリシー",
+      "submit": "今すぐ購読",
+      "submitting": "購読中..."
+    },
+    "success": {
+      "title": "購読成功!",
+      "desc": "メールボックスを確認して購読を確定してください。次回ニュースレターは金曜日に配信されます。",
+      "recommended": "おすすめ記事"
+    },
+    "articles": {
+      "a1": {
+        "title": "AI エンジニアリング実践:0 から 1 へ企業向け AI アシスタントを構築"
+      },
+      "a2": {
+        "title": "Agent 開発完全ガイド:LangGraph + MCP プロトコル"
+      },
+      "a3": {
+        "title": "RAG 実践:マルチテナントナレッジベース分離設計"
+      }
+    },
+    "errors": {
+      "generic": "購読に失敗しました、しばらくしてから再度お試しください",
+      "emailExists": "このメールアドレスは既に購読されています",
+      "invalidEmail": "メールアドレスの形式が正しくありません"
     }
   },
   "developerPricingPage": {
