@@ -21,7 +21,7 @@ export interface TransportResponse {
 export interface TransportInit {
   method?: string
   headers?: Record<string, string>
-  body?: string
+  body?: string | FormData
   signal?: AbortSignal
   /**
    * fetch credentials 模式。

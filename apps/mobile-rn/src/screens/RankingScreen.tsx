@@ -13,8 +13,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { fetchApi } from '@ihui/api-client'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -52,7 +52,7 @@ function initials(name: string): string {
 
 export function RankingScreen() {
   const { t } = useI18n()
-  const { token, user } = useAuth()
+  const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [range, setRange] = useState<RangeKey>('weekly')
   const [list, setList] = useState<RankItem[]>([])
@@ -65,21 +65,18 @@ export function RankingScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const resp = await fetch(`${API_BASE_URL}/api/ranking?range=${range}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) {
+      const res = await fetchApi<RankItem[]>(`/api/ranking?range=${range}`)
+      if (!res.success) {
         setError(t('ranking.loadFailed'))
         setLoading(false)
         setRefreshing(false)
         return
       }
-      const data = (await resp.json()) as { data?: RankItem[] }
-      setList(data.data ?? [])
+      setList(res.data ?? [])
       setLoading(false)
       setRefreshing(false)
     },
-    [token, range, t],
+    [range, t],
   )
 
   useEffect(() => {

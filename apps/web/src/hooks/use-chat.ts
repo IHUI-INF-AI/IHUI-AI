@@ -1229,6 +1229,14 @@ export function useChat(): UseChatReturn {
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
+        // 2026-07-28 立(PlanStep ↔ Message 双向跳转):流式结束后 100ms 延迟清除
+        // (确保 useAgentProgress 有时间读取 lastStreamMessageId 完成关联)
+        setTimeout(() => {
+          const current = useChatStore.getState().lastStreamMessageId
+          if (current === assistantId) {
+            useChatStore.getState().setLastStreamMessage(null)
+          }
+        }, 100)
       }
       // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
       return true

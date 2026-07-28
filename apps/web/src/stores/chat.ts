@@ -98,8 +98,14 @@ interface ChatState {
    * 真实数据以服务端 getMessages 拉取为准,预填充仅作为首屏过渡,不作为真实数据源。
    * 限制最近 50 条(slice(-50))避免 localStorage 超 5MB 配额。 */
   recentMessages: { conversationId: string; messages: ChatMessage[] } | null
+  /** 2026-07-28 立(PlanStep ↔ Message 双向跳转):
+   * 当前 SSE 流对应的 assistant messageId(useAgentProgress 据此把 planStep 关联到该 message,
+   * 实现右侧 PlanStep 点击 → 滚动到对应 message 的双向跳转)。不持久化(每次新会话清空)。 */
+  lastStreamMessageId: string | null
 
   setModel: (model: string) => void
+  /** 2026-07-28 立(PlanStep ↔ Message 双向跳转):设置当前流式 messageId */
+  setLastStreamMessage: (id: string | null) => void
   /** 添加单个工具到已选;已存在则忽略 */
   addSelectedTool: (pluginId: string) => void
   /** 从已选移除单个工具 */
@@ -188,8 +194,10 @@ export const useChatStore = create<ChatState>()(
       subAgentActivities: [],
       selectedTools: [],
       recentMessages: null,
+      lastStreamMessageId: null,
 
       setModel: (model) => set({ currentModel: model }),
+      setLastStreamMessage: (id) => set({ lastStreamMessageId: id }),
       addSelectedTool: (pluginId) =>
         set((s) =>
           s.selectedTools.includes(pluginId)
