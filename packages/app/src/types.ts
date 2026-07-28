@@ -17,4 +17,7 @@ export type {
   AboutScreenProps,
   ProfileScreenProps,
   SettingsScreenProps,
+  FeedbackScreenProps,
+  FeedbackType,
+  FeedbackSubmitPayload,
 } from '@ihui/types'

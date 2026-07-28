@@ -3,24 +3,11 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { useI18n } from '@/i18n'
 import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
+import { formatDateByTemplate } from '@ihui/shared'
 import './success.css'
 
 /** 安全 decode router 参数 */
 const decodeParam = (v: string | undefined): string => (v ? decodeURIComponent(v) : '')
-
-/** 格式化时间戳/字符串 → YYYY-MM-DD HH:mm:ss */
-const formatDateTime = (v: string | undefined): string => {
-  if (!v) return ''
-  const d = new Date(v)
-  if (isNaN(d.getTime())) return v
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  const ss = String(d.getSeconds()).padStart(2, '0')
-  return `${y}-${m}-${day} ${hh}:${mm}:${ss}`
-}
 
 /** 推算支付方式文案(未传时默认微信) */
 const resolvePayMethod = (raw: string | undefined, tt: (k: string, fb: string) => string) => {
@@ -54,8 +41,8 @@ export default function VipSuccessPage() {
   const [saved, setSaved] = useState(false)
 
   const payTime = payTimeParam
-    ? formatDateTime(payTimeParam)
-    : formatDateTime(new Date().toISOString())
+    ? formatDateByTemplate(payTimeParam, 'YYYY-MM-DD HH:mm:ss')
+    : formatDateByTemplate(new Date().toISOString(), 'YYYY-MM-DD HH:mm:ss')
   const payMethod = resolvePayMethod(payMethodRaw, tt)
   const duration = resolveDuration(planType, daysParam)
   const displayPlanName =
