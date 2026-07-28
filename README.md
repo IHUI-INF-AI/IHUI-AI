@@ -154,13 +154,13 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 
 ### 推荐组合(零成本上线)
 
-| 角色 | 平台 | 免费额度 | 用途 |
-| ---- | ---- | -------- | ---- |
-| 前端 Web | Vercel | 100GB 流量/月 | 静态导出 + 全球 CDN |
-| 后端 API | Railway | $5 额度/月 | Fastify + Drizzle ORM |
-| AI 服务 | Render | 750 小时/月 | FastAPI + LangGraph |
-| 数据库 | Railway/Render | 免费 PostgreSQL | 1GB 存储 |
-| 缓存 | Railway/Render | 免费 Redis | 25MB 存储 |
+| 角色     | 平台           | 免费额度        | 用途                  |
+| -------- | -------------- | --------------- | --------------------- |
+| 前端 Web | Vercel         | 100GB 流量/月   | 静态导出 + 全球 CDN   |
+| 后端 API | Railway        | $5 额度/月      | Fastify + Drizzle ORM |
+| AI 服务  | Render         | 750 小时/月     | FastAPI + LangGraph   |
+| 数据库   | Railway/Render | 免费 PostgreSQL | 1GB 存储              |
+| 缓存     | Railway/Render | 免费 Redis      | 25MB 存储             |
 
 详细步骤见:[一键部署指南](docs/deployment/one-click-deploy.md) · [Vercel 部署](docs/deployment/vercel-deploy.md) · [Railway 部署](docs/deployment/railway-deploy.md) · [家人朋友代部署指南](docs/deployment/family-friends-guide.md)
 
@@ -472,6 +472,50 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | Plan/Spec 模式      | tree-sitter AST 反向生成 spec markdown + 4 态模式切换(build/plan/review/spec)(对标 Trae Plan/Spec)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 |                   | Context Engineering | 多维 @ 提及 file/database/symbol/folder/web + LRU 缓存 + DB schema 查询(对标 Qoder)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 |                   | Subagent 派单       | AGENTS.md §11 派单格式对话框 + SVG mesh 拓扑可视化 + 任务状态机(对标 Trae Subagent)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **AI 流式体验**     | Trae Work 风格进度面板 | **Phase 19 极致化(2026-07-28 立)** — `AgentTaskProgressPane` v12 popover 完整对标 Trae Work 流式输出:① Plan Step ↔ Message 双向跳转(`ProgressJumpStore` 联动 + hover 高亮 + 滚动 + 1.5s flashHighlight)② Timeline 时间线统一事件流(Plan / Subagent / ToolCall / Question 展平到同一时间线 + `TimelineTab` 双 tab 切换)③ HoverPreviewCard 步骤预览(`useHoverPreview` 250ms 延迟 + 100ms 关闭 + 边界检测)④ MessageContextMenu 右键菜单(6 类操作:复制/Markdown/重新生成/反馈/分享/折叠/删除 + Esc/外部点击关闭 + 边界翻转)⑤ BatchHeader 批次头(默认折叠 + 4 状态 running/completed/failed/partial + 进度条)⑥ Checklist 任务检查项(`in_progress` 步骤关联工具调用列表 + failed 状态)⑦ ResourceBudget step 预算(对标 Trae 60 step budget)⑧ CompressionDivider 长间隔消息折叠分割线 + SubAgentTaskTree 子代理任务树。所有组件支持 dark mode / 键盘无障碍 / i18n 5 语言 / React.memo + useMemo 性能优化 |
+|                   | 折叠子区组件        | `FoldableSection` + `ThinkingSection` + `ToolCallsSection` + `ChangesSection` + `TerminalSection` + `OverviewSection` + `ConnectionStatus`(SSE 断连重连) + `ProgressRing` + `QuestionBlock` + `TraeBlock` + `TraeCodeHeader`(Phase 1-18 累计 21 个 progress-sections 组件)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+|                   | 进度状态存储        | `useAgentProgressPaneStore`(Zustand)+ `useTimelineStore`(时间线事件)+ `useProgressJumpStore`(双向跳转) + `useAgentProgress` hook(聚合 SSE events → plan/subagent/tool/change/terminal/overview)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+
+---
+
+## 🎬 AI 流式输出体验(对标 Trae Work · Phase 19)
+
+> 本节详细介绍 Phase 19 集成到 `AgentTaskProgressPane` 的 Trae Work 风格流式输出能力。
+> 实现位置:`apps/web/src/components/ai/agent-task-progress-pane.tsx` (+832 lines,v12 集成) + `apps/web/src/components/chat/message-list.tsx` (+520 lines,TimelineTab + MessageContextMenu 集成)
+
+### 1. 四大招牌交互
+
+| 能力 | 组件 | 实现要点 |
+|------|------|---------|
+| **Plan Step ↔ Message 双向跳转** | `useProgressJumpStore` + `PlanStepItem` | 点击 PlanStep → 滚动到对应 AI 消息 + 1.5s `flashHighlight` 淡出;反向 hover AI 消息 → PlanStep 自动高亮(`setHoveredPlanStep` + `setHoveredMessage`) |
+| **Timeline 时间线统一事件流** | `flattenToTimelineEvents` + `TimelineTab` | 把 `plan_steps / subagents / tools / questions / checked_items` 全部展平为 `TimelineEvent[]`,按时间戳排序,inline/timeline 双 tab 切换,事件计数徽章 |
+| **HoverPreviewCard 步骤预览** | `useHoverPreview` hook + `HoverPreviewCard` | 250ms 延迟触发,100ms 关闭,显示步骤说明 / 关联消息预览 / 工具调用数 / token 消耗,边界检测防止溢出 |
+| **MessageContextMenu 右键菜单** | `MessageContextMenu` + `useContextMenu` hook | 6 类操作(复制文本 / 复制 Markdown / 重新生成 / 反馈 / 分享 / 折叠 / 删除) + 子菜单 + Esc 关闭 + 边界翻转 |
+
+### 2. 视觉与状态组件
+
+- **`BatchHeader`**:批次头(默认折叠 + running/completed/failed/partial 4 状态图标 + 进度条 + agent 计数),`SubagentSection` 嵌套展示
+- **`Checklist`**:任务检查项(`in_progress` 步骤关联工具调用列表,fail 态用 `text-destructive`)
+- **`ResourceBudget`**:Step 预算 60(对标 Trae Work step budget 概念,header 块模式 + 移动端 inline 模式)
+- **`CompressionDivider`**:跨日/长间隔消息间插入折叠分割线(`≥10min` 间隔自动插入)
+- **`SubAgentTaskTree`**:Subagent 任务树 inline 渲染(派发/运行/完成/失败 4 态)
+- **`ConnectionStatus`**:SSE 连接状态(connected / connecting / reconnecting / disconnected),5 次重连策略
+
+### 3. 数据与性能
+
+- **Zustand store 三件套**:`useAgentProgressPaneStore`(开关/置顶/进度)+ `useTimelineStore`(时间线事件)+ `useProgressJumpStore`(跳转/hover 联动)
+- **React.memo + useMemo**:`PlanStepItem` / `BatchHeader` / `Checklist` 等子组件全部 memo 化,主组件用 `useMemo` 聚合 `linkedMessageId` / `relatedTools` / `checklistItems`
+- **键盘无障碍**:`role="button"` + `tabIndex={0}` + `onKeyDown`(Enter/Space 触发跳转),满足 `jsx-a11y/click-events-have-key-events`
+- **i18n 5 语言 parity**:`ai.pane` 命名空间 23 键,zh-CN / zh-TW / en / ja / ko 全语言同步,`pane.ariaLabel` / `pane.pin` / `pane.unpin` / `pane.minimize` / `pane.progressLabel` 等
+
+### 4. 关键守门与验证
+
+- **typecheck**:`pnpm --filter @ihui/web typecheck` → 0 错误
+- **unit test**:`pnpm vitest run tests/agent-task-progress-pane.test.tsx` → 107/107 通过
+- **i18n parity**:`node scripts/check-i18n-keys.mjs --staged` → 5 语言 OK
+- **lint**:`pnpm --filter @ihui/web lint` → Phase 19 文件 0 错误
+- **dark mode**:全组件支持 `dark:` 前缀 + `text-muted-foreground/60` 次要文字层次
+- **响应式**:popover 宽 320px,内容区 `max-h-[60vh]` + `overflow-y-auto`,避免长任务撑爆视口
 
 ---
 
@@ -2532,6 +2576,46 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
   - P1 安全:webhook 防重放(X-Webhook-Timestamp 5 分钟窗口)+ 速率限制(100 req/min 内存滑动窗口)+ payload<1MB 校验 + SSRF 防护(协议白名单+内网黑名单)+ config-migrator changedKeys 高危检测 + sync-logs 权限收紧(requireAuth→requireAdmin)
   - P1 性能:批量 upsert batchUpsertRegistryItems(2 次 DB 往返替代 2N 次,400 条从 800 次降为 2 次)+ Worker hash 复用 + installedIds IN 查询优化(全表扫→20 keys)
   - 验证:API typecheck registry 0 错 + 51/51 测试全绿
+
+#### 20. Trae Work 流式输出对齐(Phase 19,2026-07-28,平台独占:仅 web)
+
+> 触发:用户要求"对标 Trae Work 流式对话显示,深度思考开发优化"。深度调研 Trae Work 后识别 11 项对标差距,本轮 /goal 模式 5 subagent 并行 + 主 agent 集成,一次性补齐。
+
+- **数据源完整覆盖(6/6 全可视化)**:`useAgentProgress` 返回的 6 数据源全部渲染 — `planSteps`(PlanStepItem 含 explanation/tokenUsage/双向跳转)+ `subagents`(SubagentSection + SubAgentTaskTree 树形嵌套)+ `tools`(ToolCallsSection 分类颜色编码+详情展开)+ `changes`(ChangesSection diff 预览)+ `terminals`(TerminalSection output 展开)+ `overview`(OverviewSection 任务总览 + ResourceBudget token 速率/ETA/上下文占用)
+- **11 个新组件(全部 React.memo + 类型零 `any`)**:
+  - `TraeBlock` + `TraeCodeHeader` — Trae Work 风格块状容器 + 圆形深色头像 + "TRAE Code" 文字标识
+  - `SubAgentTaskTree` — 树形嵌套(批次→子代理→子操作 3 层缩进,可折叠)
+  - `BatchHeader` — 紫色星标批次派发头,4 状态(running/completed/failed/partial)颜色编码
+  - `Checklist` — 任务检查项,3 状态(done/pending/in_progress)绿色对勾 + inline `&` 连接 + N/M 完成进度
+  - `CompressionDivider` — 历史对话压缩分隔线(规避 AGENTS §4 分割线禁令,采用 flex 两侧 h-px 线条)
+  - `TimelineTab` + `TimelineEvent` — 时间线 tab 切换(Plan/Subagent/Question/Tool/ToolCall/Reference 6 类型/4 状态圆点+时间戳),`activeMessageId` 自动展开
+  - `HoverPreviewCard` + `useHoverPreview` — Hover 预览(250ms 延迟显示 + 100ms 关闭,边界检测 + 键盘无障碍 + 卸载清理 timer)
+  - `MessageContextMenu` + `useContextMenu` — 右键上下文菜单(7 操作:复制纯文本/复制 Markdown/重新生成/反馈👍👎子菜单/分享/折叠到 Plan/删除),`↑↓HomeEndEnterEsc` 键盘导航 + 子菜单 hover 自动展开 + 屏幕边界回退
+  - `ResourceBudget` — 资源预算指示器(当前 step/total + token 速率/ETA/上下文占用,inline + block 双模式)
+  - `QuestionBlock` — 已对用户提问卡片(问题+选项列表+用户选择)
+  - `ReferenceSection` — 参考内容折叠块(Link2 图标 + 默认折叠 + 1px 强调条)
+- **3 个核心 store/hook**:
+  - `ProgressJumpStore` (zustand) — Plan Step ↔ Message 双向跳转(`requestJumpToMessage` + `flashHighlight` + `hoveredMessageId` + `pendingJumpToMessage` + `setHoveredPlanStep`/`setHoveredMessage` + `linkPlanStepToMessage` 映射写入)
+  - `TimelineStore` (zustand) — 时间线事件流管理(`events: TimelineEvent[]` + 9 actions: `activeTab/setEvents/addEvent/updateEvent/removeEvent/toggleExpanded/setExpanded/isExpanded/reset`)
+  - `useHoverPreview` hook — 通用 hover 状态管理(泛型 `UseHoverPreviewOptions<T>` + `dataRef` 防闭包陈旧 + `clampToViewport` 视口边界 + `data` 变 `null` 立即关闭)
+- **4 个核心交互(Trae Work 招牌)**:
+  - **Plan Step ↔ Message 双向跳转** — 点击右侧 PlanStepItem 滚动到对应 AI 消息 + 1.5s fade 高亮;反之 hover AI 消息时,如果该消息产出了 plan step,右侧 PlanStepItem 联动高亮
+  - **Timeline 时间线 tab 切换** — `role="tablist"` + `inline`/`timeline` 双 tab,展平 Plan/Subagent/Question/ToolCall/Reference 全事件 + 圆点+时间戳+摘要+可点击展开
+  - **Hover 预览减少点击** — Hover PlanStepItem 浮出 200×120 缩略卡(explanation + duration + token + 工具数 + 关联消息预览);不打断流地看全貌
+  - **右键上下文菜单** — 右键消息气泡弹菜单(复制/重新生成/反馈/分享/折叠到 Plan/跳到 Plan),比工具栏按钮快 3 倍
+- **3 个集成点改造**:
+  - `message-list.tsx` (+520/-259) — TimelineTab 切换条 + CompressionDivider 跨日间隔 + SubAgentTaskTree inline + ProgressJumpStore 联动 + MessageContextMenu 右键
+  - `agent-task-progress-pane.tsx` (+832/-259) — ProgressJumpStore 接入点 + HoverPreviewCard 250ms 延迟 + BatchHeader 包裹 subagents + Checklist 任务检查 + ResourceBudget header + TimelineTab 切换 + 键盘无障碍(role=button + tabIndex + Enter/Space 跳转) + 死代码清理(Spinner 等)
+  - `sub-agent-activity-feed.tsx` (treeMode 可选) — SubAgentActivityFeed 新增 `treeMode?` prop(默认 false 向后兼容),启用 Codex 风格 3 层树形嵌套,原 SubAgentCard 行为零破坏,所有 hooks 抽到 `LegacySubAgentActivityFeed` 子组件避免 rules-of-hooks 违规
+- **i18n 5 语言(ai.progressPane 92 key parity)**:zh-CN / zh-TW / en / ja / ko 完整翻译,`useTranslations('ai.pane')` 命名空间,`ja/ko` 翻译零中文残留
+- **测试覆盖 107 用例全绿**:FoldableSection / ThinkingSection / ToolCallsSection / SubagentSection / ChangesSection / TerminalSection / OverviewSection / SubAgentTaskTree(12) / Timeline(27) / HoverPreview(16) / MessageContextMenu(24) / Checklist(失败态扩展) / agent-task-progress-pane(折叠+搜索+展开+键盘+复制+状态过滤+失败+token) / 跨子区(6/6 数据源全渲染) / i18n namespace 修复(mock 同步移除 `pane.` 前缀)
+- **验证证据**:
+  - `pnpm --filter @ihui/web typecheck` — 本任务文件 0 错误
+  - `pnpm --filter @ihui/web test` — 107/107 全绿(3.78s)
+  - `pnpm --filter @ihui/web exec eslint` — 本任务文件 0 错误 0 警告
+  - browser 4 状态截图(默认/hover/active/dark mode) — popover 容器 `rounded-md border-border bg-popover`、折叠子区 `rounded-sm bg-muted/30`、dark mode `bg=rgb(28,28,28)` 全合规
+  - dev server 8801 端口持续运行,TimelineTab 可点击切换,0 控制台 error,0 404
+- **设计原则遵守 AGENTS.md §3(零 `any`)/ §4(圆角+禁止分割线+Tailwind tokens)/ §13(Read 验证)/ §15(项目内路径)/ §17(UI 改动 4 状态验证)/ §21(README 同步)/ §23(测试目录)**
 
 ### 进行中
 

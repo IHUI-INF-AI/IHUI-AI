@@ -55,6 +55,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* TODO: custom color: #5a4500/#ffd700 教师徽章金色,无对应 token,保留原值 */
 .tdetail-badge {
   padding: 2rpx 12rpx;
   font-size: 20rpx;
@@ -194,10 +195,10 @@
 .tdetail-course-price {
   font-size: 30rpx;
   font-weight: 700;
-  color: #ff6b35;
+  color: var(--color-brand-orange);
 }
 .tdetail-course-price-free {
-  color: #4caf50;
+  color: var(--color-success);
 }
 .tdetail-course-students {
   font-size: 22rpx;
@@ -251,6 +252,7 @@
   font-weight: 600;
   color: var(--color-foreground);
 }
+/* TODO: custom color: #ffd700 评分星标金色,无对应 token,保留原值 */
 .tdetail-review-stars {
   font-size: 22rpx;
   color: #ffd700;
@@ -281,7 +283,7 @@
   border-radius: 10rpx;
 }
 .tdetail-action-primary {
-  color: #fff;
+  color: var(--color-primary-foreground);
   background: var(--color-primary);
 }
 .tdetail-action-secondary {
