@@ -261,6 +261,12 @@
     "typeQuestion": "问题",
     "typeSuggestion": "建议"
   },
+  "feedbackHistory": {
+    "createdAt": "创建时间",
+    "empty": "暂无反馈记录",
+    "loadFailed": "加载失败",
+    "title": "反馈历史"
+  },
   "footer": {
     "aboutUs": "关于我们",
     "agreementSubtitle": "请仔细阅读以下协议条款",
