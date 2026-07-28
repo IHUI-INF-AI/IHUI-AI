@@ -68,7 +68,7 @@ function Test-Http([string]$Url, [int]$TimeoutSec = 3) {
 
 function Get-DevProcesses {
   # 匹配 next dev / tsx watch / pnpm dev / uvicorn 等开发进程
-  $patterns = @('next dev', 'tsx watch', 'pnpm.*dev', 'uvicorn.*8000', 'fastapi.*8000')
+  $patterns = @('next dev', 'tsx watch', 'pnpm.*dev', 'uvicorn.*8803', 'fastapi.*8803')
   $procs = @()
   foreach ($p in $patterns) {
     $procs += Get-CimInstance Win32_Process -Filter "Name='node.exe' OR Name='python.exe'" -ErrorAction SilentlyContinue |
@@ -155,7 +155,7 @@ Write-Host ''
 $Command
 "@
   $encoded = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($innerScript))
-  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-EncodedCommand', $encoded) -WindowStyle Normal | Out-Null
+  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-EncodedCommand', $encoded) -WindowStyle Hidden | Out-Null
 
   if ($WaitSec -gt 0) {
     Write-Host "    等待 $WaitSec 秒让 $Name 初始化..." -ForegroundColor DarkGray
