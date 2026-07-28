@@ -26,6 +26,7 @@ module.exports = ({ config }) => {
       'expo-secure-store',
       ...(config.plugins || []),
       ['./plugins/withWechat', { appId, universalLink, androidPackage }],
+      './plugins/withExpoImportFix',
     ],
   }
 }
