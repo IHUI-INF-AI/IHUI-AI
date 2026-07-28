@@ -12,6 +12,7 @@ import { useI18n } from '@/i18n'
 import VideoPlayer from '@/components/VideoPlayer'
 import EmptyState from '@/components/EmptyState'
 import ErrorView from '@/components/ErrorView'
+import { formatDateByTemplate } from '@ihui/shared'
 
 type Vendor = 'sora2' | 'kling' | 'doubao' | 'dashscope'
 type Status = 'idle' | 'pending' | 'running' | 'succeeded' | 'failed'
@@ -100,13 +101,7 @@ function extractVideoUrl(data: unknown): string {
   return ''
 }
 
-const fmtTime = (ts: number) =>
-  new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(ts)
+const fmtTime = (ts: number) => formatDateByTemplate(ts, 'MM-DD HH:mm')
 
 const API_MAP: Record<Vendor, (data: unknown) => Promise<unknown>> = {
   sora2: soraRequestEnd,
