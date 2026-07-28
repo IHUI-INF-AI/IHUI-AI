@@ -598,9 +598,38 @@
   },
   "order": {
     "empty": "注文なし",
-    "status": {
-      "refunded": "返金済み"
+    "loadFailed": "注文の読み込みに失敗しました",
+    "title": "マイ注文",
+    "amount": "金額",
+    "orderNo": "注文番号",
+    "tab": {
+      "all": "すべて",
+      "pending": "支払待ち",
+      "paid": "支払済み",
+      "shipped": "発送済み",
+      "completed": "完了"
     },
-    "orderNo": "注文番号"
+    "status": {
+      "pending": "支払待ち",
+      "paid": "支払済み",
+      "shipped": "発送済み",
+      "completed": "完了",
+      "cancelled": "キャンセル",
+      "refunded": "返金済み"
+    }
+  },
+  "studyPlan": {
+    "empty": "学習計画なし",
+    "loadFailed": "学習計画の読み込みに失敗しました",
+    "title": "学習計画",
+    "lessons": "レッスン",
+    "progress": "進捗",
+    "deadline": "期限",
+    "status": {
+      "active": "進行中",
+      "paused": "一時停止",
+      "completed": "完了",
+      "overdue": "期限超過"
+    }
   }
 }
