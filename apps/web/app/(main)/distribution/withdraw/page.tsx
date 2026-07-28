@@ -117,7 +117,9 @@ export default function WithdrawPage() {
             {availableQ.isLoading ? (
               <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
             ) : availableQ.error ? (
-              <div className="mt-1 text-sm text-destructive">{(availableQ.error as Error).message}</div>
+              <div className="mt-1 text-sm text-destructive">
+                {(availableQ.error as Error).message}
+              </div>
             ) : (
               <div className="mt-1 text-2xl font-bold">{fmtYuan(available)}</div>
             )}
@@ -147,7 +149,7 @@ export default function WithdrawPage() {
 
       <div>
         <h2 className="mb-3 text-base font-semibold">{t('withdrawSummary')}</h2>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {stats.map((s) => (
             <Card key={s.label}>
               <CardContent className="space-y-1 p-4">
