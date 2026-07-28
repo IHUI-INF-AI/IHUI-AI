@@ -93,7 +93,9 @@ export default function AssistantScreen() {
     return keyword ? a.name.includes(keyword) : true
   })
 
+  // TODO: i18n — Alert.alert 硬编码中文待翻译(操作 / 设置「X」的售卖配置)
   const handleEdit = (a: Assistant) => Alert.alert('操作', `设置「${a.name}」的售卖配置`)
+  // TODO: i18n — Alert.alert 硬编码中文待翻译(下架确认 / 是否确定下架「X」 / 取消 / 确定下架 / 已下架)
   const handleOffline = (a: Assistant) =>
     Alert.alert('下架确认', `是否确定下架「${a.name}」?`, [
       { text: '取消' },
