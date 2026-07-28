@@ -467,6 +467,7 @@
       "filterPlaceholder": "폴더 필터링...",
       "nativePick": "시스템 선택기",
       "nativePickHint": "「{name}」선택됨. 브라우저 보안 제한으로 전체 경로를 가져올 수 없습니다. 위 입력란에 전체 경로(예: G:\\IHUI-AI)를 입력하고 Enter를 누르세요",
+      "nativePickResolved": "「{path}」로 이동했습니다. 대상 폴더를 선택한 후 열기를 클릭하세요",
       "nativePickNotFound": "현재 디렉터리에서 '{name}'을(를) 찾을 수 없습니다. 전체 경로를 수동으로 입력하거나 올바른 디렉터리로 이동하세요",
       "computer": "내 PC",
       "parent": "상위 디렉토리",
@@ -505,11 +506,30 @@
       "ruleType": {
         "path": "경로",
         "command": "명령",
-        "tool": "도구"
+        "tool": "도구",
+        "unknown": "알 수 없음"
       },
       "decision": {
         "allow": "허용",
         "deny": "거부"
+      },
+      "mode": {
+        "default": {
+          "title": "기본 모드",
+          "desc": "모든 작업은 수동 확인 필요, 가장 안전"
+        },
+        "accept-edits": {
+          "title": "편집 허용",
+          "desc": "화이트리스트 내 작업은 자동 허용, 나머지는 확인 필요"
+        },
+        "bypass-permissions": {
+          "title": "권한 우회",
+          "desc": "완전 접근, 확인 없음 (고위험)"
+        },
+        "unknown": {
+          "title": "알 수 없는 모드",
+          "desc": "인식할 수 없는 권한 모드"
+        }
       },
       "auditRequest": {
         "title": "권한 확인",

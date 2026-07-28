@@ -450,6 +450,7 @@
       "filterPlaceholder": "筛选文件夹...",
       "nativePick": "系统选择器",
       "nativePickHint": "已选「{name}」。浏览器安全限制无法获取完整路径,请在上方输入框补全完整路径(如 G:\\IHUI-AI)后按回车",
+      "nativePickResolved": "已定位到「{path}」,请选择目标文件夹后点击打开",
       "nativePickNotFound": "未在当前目录找到「{name}」,请手动输入完整路径或导航到正确目录",
       "computer": "此电脑",
       "parent": "上级目录",
@@ -488,11 +489,30 @@
       "ruleType": {
         "path": "路径",
         "command": "命令",
-        "tool": "工具"
+        "tool": "工具",
+        "unknown": "未知"
       },
       "decision": {
         "allow": "允许",
         "deny": "拒绝"
+      },
+      "mode": {
+        "default": {
+          "title": "默认模式",
+          "desc": "全部操作需人工确认,最安全"
+        },
+        "accept-edits": {
+          "title": "接受编辑",
+          "desc": "白名单内的操作自动放行,其他需确认"
+        },
+        "bypass-permissions": {
+          "title": "绕过权限",
+          "desc": "完全访问,无任何确认(高风险)"
+        },
+        "unknown": {
+          "title": "未知模式",
+          "desc": "未识别的权限模式"
+        }
       },
       "auditRequest": {
         "title": "权限确认",
