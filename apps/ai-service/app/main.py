@@ -71,7 +71,9 @@ logger = logging.getLogger(__name__)
 for _key in ("REDIS_URL", "DATABASE_URL", "JWT_SECRET", "AI_CALLBACK_SECRET",
              "STEPFUN_API_KEY", "STEPFUN_API_BASE",
              "AGNES_API_KEY", "AGNES_API_BASE",
-             "AGENT_CONTROL_INTERNAL_SECRET"):
+             "AGENT_CONTROL_INTERNAL_SECRET",
+             # 2026-07-27:MCP 工作区白名单(防 read_file 路径前缀重复拼接 bug)
+             "MCP_WORKSPACE_ROOTS"):
     _val = getattr(settings, _key.lower(), None)
     if _val:
         os.environ.setdefault(_key, _val)
@@ -257,6 +259,51 @@ async def lifespan(app: FastAPI) -> Any:
     if _pool:
         await _pool.close()
         logger.info("asyncpg pool closed")
+
+    # P0 修复:集中关闭所有 service 的全局 asyncpg 连接池,防止重启时连接残留
+    # 受影响文件清单内的 service(已添加 close_pool 函数)
+    try:
+        from app.services.multimodal_memory import close_pool as close_mm_pool
+        await close_mm_pool()
+        logger.info("multimodal_memory pool closed")
+    except Exception as e:
+        logger.warning("[shutdown] multimodal_memory close_pool 失败(忽略): %s", e)
+
+    try:
+        from app.services.long_term_memory import close_pool as close_lt_pool
+        await close_lt_pool()
+        logger.info("long_term_memory pool closed")
+    except Exception as e:
+        logger.warning("[shutdown] long_term_memory close_pool 失败(忽略): %s", e)
+
+    try:
+        from app.services.session_summarizer import close_pool as close_ss_pool
+        await close_ss_pool()
+        logger.info("session_summarizer pool closed")
+    except Exception as e:
+        logger.warning("[shutdown] session_summarizer close_pool 失败(忽略): %s", e)
+
+    # 其他 service 的连接池(不在本任务受影响文件清单内,用 try/except 安全关闭)
+    # 若模块未提供 close_pool 函数,ImportError 被捕获,不影响其他 pool 关闭
+    for _module_path, _pool_name in (
+        ("app.services.memory_service", "close_pool"),
+        ("app.services.metacognition", "close_pool"),
+        ("app.services.meta_learner", "close_pool"),
+        ("app.services.federated_learner", "close_pool"),
+        ("app.services.ab_test_tracker", "close_pool"),
+        ("app.services.memory_decay", "close_pool"),
+        ("app.services.user_profile", "close_pool"),
+        ("app.services.langgraph_checkpoint", "close_pool"),
+    ):
+        try:
+            import importlib
+            _mod = importlib.import_module(_module_path)
+            _close = getattr(_mod, _pool_name, None)
+            if _close is not None:
+                await _close()
+                logger.info("%s pool closed", _module_path)
+        except Exception as e:
+            logger.debug("[shutdown] %s close_pool 跳过: %s", _module_path, e)
 
     shutdown_telemetry()
 
