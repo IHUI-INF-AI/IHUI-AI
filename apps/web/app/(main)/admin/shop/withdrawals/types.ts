@@ -1,4 +1,7 @@
-import { fetchApi } from '@/lib/api'
+import { unwrapApi as api } from '@/lib/api-helpers'
+import { selectClass } from '@/lib/form-styles'
+
+export { api, selectClass }
 
 export interface WithdrawalItem {
   id: string
@@ -34,16 +37,10 @@ export interface ListData<T> {
   total: number
 }
 
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE=20
 
-export const PAGE_SIZE = 10
-
-export const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+// 注:本地 inputSm 值与 @/lib/form-styles.ts 不同(此处等于 selectClass 完整串),
+// 保留本地定义以维持现有视觉行为。
 export const inputSm =
   'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 export const textareaClass =
