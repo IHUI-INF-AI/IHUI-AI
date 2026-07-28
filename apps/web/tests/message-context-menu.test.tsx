@@ -594,3 +594,170 @@ describe('plainTextForClipboard — 简化纯文本工具', () => {
     expect(plainTextForClipboard(md)).toBe(expected)
   })
 })
+
+// ─── 进阶边界场景(2026-07-28 覆盖率深化) ─────────────────────────
+
+describe('MessageContextMenu — 分隔符 + 菜单项交互隔离', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('点击 separator 元素:不触发 onAction(separator 是 div,无 onClick 处理器)', () => {
+    const onAction = vi.fn()
+    const items: ContextMenuItem[] = [
+      { id: 'a', label: 'A', action: 'copy' },
+      { id: 'sep', label: '', separator: true },
+      { id: 'b', label: 'B', action: 'delete' },
+    ]
+    const { container } = render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 100, y: 100 }}
+        items={items}
+        onAction={onAction}
+        onClose={vi.fn()}
+      />,
+    )
+    const separator = container.querySelector('[role="separator"]') as HTMLElement
+    expect(separator).toBeTruthy()
+    // 点击 separator 不应触发 onAction
+    fireEvent.click(separator)
+    expect(onAction).not.toHaveBeenCalled()
+  })
+
+  it('action=undefined 项:data-testid 退化为 id;点击不触发 onAction', () => {
+    const onAction = vi.fn()
+    const items: ContextMenuItem[] = [
+      { id: 'header', label: '菜单标题' }, // 无 action
+    ]
+    render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 100, y: 100 }}
+        items={items}
+        onAction={onAction}
+        onClose={vi.fn()}
+      />,
+    )
+    // data-testid 退化为 id
+    const headerItem = screen.getByTestId('message-context-menu-item-header')
+    // 元素是 button,但点击不触发 onAction(onClick 内有 action guard)
+    fireEvent.click(headerItem)
+    expect(onAction).not.toHaveBeenCalled()
+  })
+
+  it('点击子菜单项触发 onAction(child.action, child)', () => {
+    const onAction = vi.fn()
+    const childItem: ContextMenuItem = { id: 'like', label: '点赞', action: 'feedback' }
+    const items: ContextMenuItem[] = [
+      {
+        id: 'feedback',
+        label: '反馈',
+        icon: <span>F</span>,
+        children: [childItem],
+      },
+    ]
+    render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 100, y: 100 }}
+        items={items}
+        onAction={onAction}
+        onClose={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByText('点赞'))
+    expect(onAction).toHaveBeenCalledWith('feedback', childItem)
+  })
+})
+
+describe('MessageContextMenu — 自定义 icon prop 覆盖', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('item.icon 优先于默认 buildIcon(根据 action 派生的图标)', () => {
+    const customIcon = <span data-testid="custom-icon-123">★</span>
+    const items: ContextMenuItem[] = [
+      { id: 'copy', label: '复制', action: 'copy', icon: customIcon },
+    ]
+    render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 100, y: 100 }}
+        items={items}
+        onAction={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    // 自定义 icon 渲染
+    expect(screen.getByTestId('custom-icon-123')).toBeTruthy()
+    // 默认 buildIcon 的 Copy 没有渲染(因为被自定义 icon 覆盖)
+    // 整个 lucide-icon 集合应只有 0 个(因为 copy 的 Copy icon 被 customIcon 替代)
+    // 注意:feedback 也没出现,所以图标数为 0
+    const allIcons = document.querySelectorAll('[data-lucide-span="true"]')
+    expect(allIcons.length).toBe(0)
+  })
+})
+
+describe('MessageContextMenu — 位置变更与外部 contextmenu 事件', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('position 变更:从 (100,100) 切到 (400,500),style 同步更新', () => {
+    const { container, rerender } = render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 100, y: 100 }}
+        items={[{ id: 'a', label: 'A', action: 'copy' }]}
+        onAction={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    let menu = container.querySelector('[data-testid="message-context-menu"]') as HTMLElement
+    expect(menu.style.left).toBe('100px')
+    expect(menu.style.top).toBe('100px')
+    rerender(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 400, y: 500 }}
+        items={[{ id: 'a', label: 'A', action: 'copy' }]}
+        onAction={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    menu = container.querySelector('[data-testid="message-context-menu"]') as HTMLElement
+    expect(menu.style.left).toBe('400px')
+    expect(menu.style.top).toBe('500px')
+  })
+
+  it('外部 contextmenu 事件也能触发 onClose(mousedown + contextmenu 双绑)', () => {
+    vi.useFakeTimers()
+    try {
+      const onClose = vi.fn()
+      render(
+        <div>
+          <button data-testid="outside">外部</button>
+          <MessageContextMenu
+            visible={true}
+            position={{ x: 100, y: 100 }}
+            items={[{ id: 'a', label: 'A', action: 'copy' }]}
+            onAction={vi.fn()}
+            onClose={onClose}
+          />
+        </div>,
+      )
+      // 推进 0ms(setTimeout 0 延迟绑定)
+      act(() => {
+        vi.advanceTimersByTime(10)
+      })
+      // 触发外部 contextmenu 事件
+      const outside = screen.getByTestId('outside')
+      fireEvent.contextMenu(outside)
+      expect(onClose).toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
