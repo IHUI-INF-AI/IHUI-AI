@@ -75,7 +75,7 @@ export default function ThemeListPage() {
 
       {!loading && !error && themes.length === 0 && (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
             暂无主题,点击右上角&quot;创建主题&quot;开始
           </CardContent>
         </Card>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
@@ -127,17 +127,17 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <Crown className="h-6 w-6 text-amber-500" />
           {t('subscription.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subscription.subtitle')}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('subscription.subtitle')}</p>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('subscription.loading')}
         </div>
@@ -210,7 +210,7 @@ export default function SubscriptionPage() {
                       <SelectValue placeholder={t('subscription.planPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {plans.map((plan: any) => (
+                      {plans.map((plan) => (
                         <SelectItem key={plan.id} value={plan.id}>
                           {plan.name} - {formatPrice(plan.price)} / {plan.duration}
                           {t('subscription.days')}

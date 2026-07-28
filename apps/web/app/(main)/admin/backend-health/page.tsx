@@ -68,10 +68,10 @@ export default function BackendHealthPage() {
 
   const servicesList = services ?? []
   const eventsList = events ?? []
-  const healthyCount = servicesList.filter((s: any) => s.status === 'healthy').length
+  const healthyCount = servicesList.filter((s) => s.status === 'healthy').length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Activity className="h-6 w-6 text-primary" />
@@ -89,17 +89,17 @@ export default function BackendHealthPage() {
           </span>
         </div>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {tc('search')}
           </div>
         ) : servicesList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('backendHealth.noData')}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {servicesList.map((s: any) => {
+            {servicesList.map((s) => {
               const Icon = ICONS[s.name] ?? Server
               const ok = s.status === 'healthy'
               return (
@@ -148,7 +148,7 @@ export default function BackendHealthPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {servicesList.map((s: any) => (
+              {servicesList.map((s) => (
                 <div key={s.name} className="rounded-md border p-3">
                   <div className="text-xs text-muted-foreground">{s.name}</div>
                   <div className="mt-1 text-xl font-bold">{s.latency}ms</div>
@@ -176,7 +176,7 @@ export default function BackendHealthPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('backendHealth.recentEvents')}</h2>
         {eventsList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('backendHealth.noData')}
           </div>
         ) : (
@@ -191,7 +191,7 @@ export default function BackendHealthPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {eventsList.map((e: any) => (
+                {eventsList.map((e) => (
                   <tr key={e.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-medium">{e.service}</td>
                     <td className="px-4 py-2.5">

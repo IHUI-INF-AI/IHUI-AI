@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -97,7 +97,7 @@ export function ItemList({
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           加载中...
         </div>
@@ -106,7 +106,7 @@ export function ItemList({
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex items-center justify-center rounded-md border border-dashed py-12 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center rounded-md border border-dashed py-8 text-sm text-muted-foreground">
           {emptyHint}
         </div>
       ) : (
@@ -118,7 +118,7 @@ export function ItemList({
                 : 'space-y-2'
             }
           >
-            {items.map((item: any) => (
+            {items.map((item) => (
               <ItemCard key={item.id} item={item} layout={layout} />
             ))}
           </div>

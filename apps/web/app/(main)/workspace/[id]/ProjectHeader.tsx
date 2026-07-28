@@ -30,7 +30,7 @@ export function ProjectHeader({
         </Button>
       </Tooltip>
       <div className="min-w-0">
-        <h1 className="break-words text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="break-words text-xl font-bold tracking-tight md:text-2xl">
           {projectError ? (
             <span className="text-destructive">{(projectErr as Error)?.message}</span>
           ) : projectLoading ? (

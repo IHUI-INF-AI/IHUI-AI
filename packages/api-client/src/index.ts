@@ -21,6 +21,9 @@ export type {
   FetchApiOptions,
   ToolCallEvent,
   FallbackEvent,
+  SubagentSpawnEvent,
+  SubagentEndEvent,
+  SubagentProgressEvent,
 } from './client'
 export { ApiError, isNotFound, isErrorCode } from './api-error'
 export { setTransport, getTransport } from './transport'
@@ -72,6 +75,7 @@ export * from './endpoints/agent-runtime'
 export * from './endpoints/ai'
 export * from './endpoints/ai-media'
 export * from './endpoints/auth'
+export * from './endpoints/banner'
 export * from './endpoints/business'
 export * from './endpoints/category'
 export * from './endpoints/chat'
@@ -97,11 +101,15 @@ export {
   requestWithdraw,
   getDayMonthSummary,
 } from './endpoints/distribution'
+export * from './endpoints/edu'
 export * from './endpoints/exam'
+// 文件上传端点(2026-07-28 立,mobile-rn AigcPublishScreen 接入真实文件选择+上传)
+export * from './endpoints/files'
 export * from './endpoints/learn'
 export * from './endpoints/live'
 export * from './endpoints/llm'
 export * from './endpoints/knowledge-rag'
+export * from './endpoints/member'
 export * from './endpoints/misc'
 export * from './endpoints/notification'
 export * from './endpoints/order'
@@ -112,8 +120,10 @@ export * from './endpoints/resource'
 export * from './endpoints/share'
 export * from './endpoints/social'
 export * from './endpoints/srs'
+export * from './endpoints/study'
 export * from './endpoints/subscription'
 export * from './endpoints/system'
+export * from './endpoints/teacher'
 export * from './endpoints/token'
 export * from './endpoints/user'
 export * from './endpoints/vip'
@@ -151,3 +161,6 @@ export type {
 // 覆盖 audit 清单中 carousels/agreements/announcements/points/search 公开端点
 // 旧函数名通过 apps/web/src/lib/legacy-edu-api.ts 桥接
 export * from './endpoints/legacy-public'
+
+// Coze 平台 API 端点(2026-07-27 立,PAT 直连 Coze 官方 API,跨端共享)
+export * from './endpoints/coze'

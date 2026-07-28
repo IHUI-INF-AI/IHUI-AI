@@ -7,7 +7,7 @@
  * 使用场景:小程序需要登录时,跳转到 Web 端 SSO 登录中心,
  * 登录成功后通过一次性 code 回跳小程序,小程序用 code 换取 token。
  */
-import { getStorageSync, removeStorageSync } from '@tarojs/taro'
+import { getStorageSync, removeStorageSync, setStorageSync } from '@tarojs/taro'
 import { BASE_URL } from './api-config'
 import {
   exchangeSsoCode as exchangeSsoCodeCore,
@@ -16,9 +16,11 @@ import {
   buildSsoLoginUrl,
 } from '@ihui/shared/auth/sso-core'
 import type { SsoTokenData } from '@ihui/shared/auth/sso-core'
+import { SSO_CODE_STORAGE_KEY, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared/constants'
 
-const SSO_CODE_KEY = 'ihui_sso_code'
-const SSO_CLIENT_ID = 'miniapp-taro'
+// legacy underscore key (read-only for migration); new key uses hyphen via SSO_CODE_STORAGE_KEY
+const SSO_CODE_KEY_LEGACY = 'ihui_sso_code'
+const SSO_CLIENT_ID = SSO_CLIENT_IDS.MINIAPP_TARO
 
 // BASE_URL 含 /api 后缀(http://localhost:8801/api),共享核心端点已含 /api 前缀,
 // 此处剥离避免拼接出 /api/api/auth/sso/... 双重前缀。
@@ -28,12 +30,21 @@ export type { SsoTokenData } from '@ihui/shared/auth/sso-core'
 
 /** taro 独占:storage 读取 sso_code */
 export function getStoredSsoCode(): string {
-  return getStorageSync(SSO_CODE_KEY) || ''
+  const newCode = getStorageSync(SSO_CODE_STORAGE_KEY) || ''
+  if (newCode) return newCode
+  const oldCode = getStorageSync(SSO_CODE_KEY_LEGACY) || ''
+  if (oldCode) {
+    setStorageSync(SSO_CODE_STORAGE_KEY, oldCode)
+    removeStorageSync(SSO_CODE_KEY_LEGACY)
+    return oldCode
+  }
+  return ''
 }
 
 /** taro 独占:storage 清除 sso_code */
 export function clearSsoCode(): void {
-  removeStorageSync(SSO_CODE_KEY)
+  removeStorageSync(SSO_CODE_STORAGE_KEY)
+  removeStorageSync(SSO_CODE_KEY_LEGACY)
 }
 
 /** taro 封装:用 BASE_URL(剥离 /api)+ SSO_CLIENT_ID */
@@ -43,7 +54,7 @@ export async function exchangeSsoCode(code: string): Promise<SsoTokenData | null
 
 /** 构建 SSO 登录中心 URL */
 export function getSsoLoginUrl(redirectUri: string): string {
-  const webBase = process.env.TARO_APP_WEB_URL || 'http://localhost:8801'
+  const webBase = process.env.TARO_APP_WEB_URL || WEB_BASE
   return buildSsoLoginUrl(webBase, redirectUri, SSO_CLIENT_ID)
 }
 

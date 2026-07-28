@@ -31,7 +31,7 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
   }
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -39,7 +39,7 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
   }
   if (grouped.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
         <Lock className="mx-auto mb-2 h-8 w-8 opacity-40" />
         {t('noData')}
       </div>

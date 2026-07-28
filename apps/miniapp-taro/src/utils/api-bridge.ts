@@ -8,13 +8,14 @@
 import Taro from '@tarojs/taro'
 import type { ApiResult } from '@ihui/types'
 import { fetchApi, type FetchApiOptions } from '@ihui/api-client'
+import { isTokenExpired } from '@ihui/shared/constants'
 import { clearAuth } from './auth'
 
 /** 解包 ApiResult,失败时 toast + throw(行为与原 request.ts 一致) */
 export async function unwrapApi<T>(p: Promise<ApiResult<T>>): Promise<T> {
   const r = await p
   if (!r.success) {
-    if (r.status === 401) {
+    if (isTokenExpired(r.status ?? 0)) {
       clearAuth()
       Taro.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
       setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)

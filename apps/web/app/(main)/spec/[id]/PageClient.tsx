@@ -70,7 +70,7 @@ export default function SpecDetailPage() {
 
   if (error || !spec) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4 py-12">
+      <div className="mx-auto max-w-2xl space-y-4 py-8">
         <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error ? '加载失败,请稍后重试' : '未找到该 Spec'}

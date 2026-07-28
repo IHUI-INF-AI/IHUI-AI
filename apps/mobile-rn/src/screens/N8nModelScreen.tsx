@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -7,7 +7,10 @@ import {
   TextInput,
   StyleSheet,
   Alert,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native'
+import { getN8nWorkflows, type N8nWorkflow } from '@ihui/api-client'
 
 type Status = 'all' | 'running' | 'stopped'
 
@@ -29,19 +32,63 @@ const TABS: { id: Status; label: string }[] = [
   { id: 'stopped', label: '已停止' },
 ]
 
-const MOCK: N8nModel[] = [
-  { id: '1', name: '邮件自动回复', desc: '根据邮件内容自动生成回复草稿', url: 'https://n8n.app/webhook/email-reply', status: 'running', calls: 1280, updatedAt: '2026-07-24 09:30', paramsIn: 2, paramsOut: 1 },
-  { id: '2', name: '数据报表生成', desc: '定时拉取数据库生成可视化报表', url: 'https://n8n.app/webhook/report-gen', status: 'running', calls: 356, updatedAt: '2026-07-23 18:12', paramsIn: 3, paramsOut: 2 },
-  { id: '3', name: '客户线索清洗', desc: '过滤无效线索并打标签', url: 'https://n8n.app/webhook/lead-clean', status: 'stopped', calls: 89, updatedAt: '2026-07-20 14:00', paramsIn: 2, paramsOut: 1 },
-  { id: '4', name: '图片批量压缩', desc: '接收图片 URL 返回压缩后链接', url: 'https://n8n.app/webhook/img-compress', status: 'running', calls: 2104, updatedAt: '2026-07-24 11:05', paramsIn: 1, paramsOut: 1 },
-  { id: '5', name: '多语言翻译流', desc: '调用翻译 API 并回写文档', url: 'https://n8n.app/webhook/translate', status: 'stopped', calls: 45, updatedAt: '2026-07-18 10:22', paramsIn: 3, paramsOut: 2 },
-]
+function toNumber(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0
+}
+
+function toString(v: unknown): string {
+  return typeof v === 'string' ? v : ''
+}
+
+function mapWorkflow(w: N8nWorkflow): N8nModel {
+  return {
+    id: w.id,
+    name: w.name,
+    desc: w.description ?? '',
+    url: toString(w.url),
+    status: w.active ? 'running' : 'stopped',
+    calls: toNumber(w.calls),
+    updatedAt: w.updatedAt ?? w.createdAt ?? '',
+    paramsIn: toNumber(w.paramsIn),
+    paramsOut: toNumber(w.paramsOut),
+  }
+}
 
 export default function N8nModelScreen() {
   const [tab, setTab] = useState<Status>('all')
   const [keyword, setKeyword] = useState('')
+  const [items, setItems] = useState<N8nModel[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
 
-  const list = MOCK.filter((m) => {
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const res = await getN8nWorkflows()
+      if (res.success) {
+        setItems((res.data?.list ?? []).map(mapWorkflow))
+      } else {
+        setError(res.error || '加载失败')
+      }
+    } catch {
+      setError('加载失败')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onRefresh = () => {
+    setRefreshing(true)
+    void load()
+  }
+
+  const list = items.filter((m) => {
     const matchTab = tab === 'all' ? true : m.status === tab
     const matchKw = keyword ? m.name.includes(keyword) || m.desc.includes(keyword) : true
     return matchTab && matchKw
@@ -93,51 +140,69 @@ export default function N8nModelScreen() {
         })}
       </View>
 
-      <FlatList
-        data={list}
-        keyExtractor={(i) => i.id}
-        contentContainerStyle={{ padding: 16 }}
-        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-        ListEmptyComponent={
-          <View style={s.empty}>
-            <Text style={s.emptyText}>暂无 n8n 工作流</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <View style={s.card}>
-            <View style={s.cardHead}>
-              <View style={s.cardTitleRow}>
-                <View style={[s.dot, item.status === 'running' ? s.dotRun : s.dotStop]} />
-                <Text style={s.cardName} numberOfLines={1}>{item.name}</Text>
-              </View>
-              <Text style={[s.badge, item.status === 'running' ? s.badgeRun : s.badgeStop]}>
-                {item.status === 'running' ? '运行中' : '已停止'}
-              </Text>
+      {error ? (
+        <View style={s.errorBar}>
+          <Text style={s.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => load()} activeOpacity={0.8}>
+            <Text style={s.retryText}>重试</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {loading && items.length === 0 ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator color="#7B61FF" />
+        </View>
+      ) : (
+        <FlatList
+          data={list}
+          keyExtractor={(i) => i.id}
+          contentContainerStyle={{ padding: 16 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7B61FF']} />
+          }
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Text style={s.emptyText}>暂无 n8n 工作流</Text>
             </View>
-            <Text style={s.cardDesc} numberOfLines={2}>{item.desc}</Text>
-            <Text style={s.cardUrl} numberOfLines={1}>{item.url}</Text>
-            <View style={s.cardMeta}>
-              <Text style={s.metaText}>调用 {item.calls}</Text>
-              <Text style={s.metaText}>入参 {item.paramsIn} · 出参 {item.paramsOut}</Text>
-              <Text style={s.metaText}>{item.updatedAt}</Text>
-            </View>
-            <View style={s.cardActions}>
-              <TouchableOpacity
-                style={[s.actionBtn, item.status === 'running' ? s.actionStop : s.actionStart]}
-                onPress={() => handleToggle(item)}
-                activeOpacity={0.8}
-              >
-                <Text style={s.actionText}>
-                  {item.status === 'running' ? '停止' : '启动'}
+          }
+          renderItem={({ item }) => (
+            <View style={s.card}>
+              <View style={s.cardHead}>
+                <View style={s.cardTitleRow}>
+                  <View style={[s.dot, item.status === 'running' ? s.dotRun : s.dotStop]} />
+                  <Text style={s.cardName} numberOfLines={1}>{item.name}</Text>
+                </View>
+                <Text style={[s.badge, item.status === 'running' ? s.badgeRun : s.badgeStop]}>
+                  {item.status === 'running' ? '运行中' : '已停止'}
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.actionEdit} activeOpacity={0.8}>
-                <Text style={s.actionEditText}>编辑</Text>
-              </TouchableOpacity>
+              </View>
+              <Text style={s.cardDesc} numberOfLines={2}>{item.desc}</Text>
+              <Text style={s.cardUrl} numberOfLines={1}>{item.url}</Text>
+              <View style={s.cardMeta}>
+                <Text style={s.metaText}>调用 {item.calls}</Text>
+                <Text style={s.metaText}>入参 {item.paramsIn} · 出参 {item.paramsOut}</Text>
+                <Text style={s.metaText}>{item.updatedAt}</Text>
+              </View>
+              <View style={s.cardActions}>
+                <TouchableOpacity
+                  style={[s.actionBtn, item.status === 'running' ? s.actionStop : s.actionStart]}
+                  onPress={() => handleToggle(item)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={s.actionText}>
+                    {item.status === 'running' ? '停止' : '启动'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.actionEdit} activeOpacity={0.8}>
+                  <Text style={s.actionEditText}>编辑</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        )}
-      />
+          )}
+        />
+      )}
     </View>
   )
 }
@@ -155,6 +220,10 @@ const s = StyleSheet.create({
   tabItemActive: { backgroundColor: '#FFFFFF' },
   tabText: { fontSize: 13, color: '#6B7280' },
   tabTextActive: { color: '#111827', fontWeight: '600' },
+  errorBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16, marginTop: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: '#FEF2F2' },
+  errorText: { fontSize: 12, color: '#DC2626' },
+  retryText: { fontSize: 12, fontWeight: '600', color: '#7B61FF' },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyText: { fontSize: 13, color: '#9CA3AF' },
   card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },

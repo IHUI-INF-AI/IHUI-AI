@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -66,7 +66,7 @@ export default function CardFavoritesPage() {
   const items = data ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/business-card"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -78,13 +78,13 @@ export default function CardFavoritesPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Star className="h-6 w-6 text-amber-500" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">收藏的名片</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">收藏的名片</h1>
         </div>
-        <p className="text-sm text-muted-foreground">共收藏 {items.length} 张名片</p>
+        <p className="text-xs text-muted-foreground">共收藏 {items.length} 张名片</p>
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
         </div>
@@ -93,13 +93,13 @@ export default function CardFavoritesPage() {
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Star className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">暂无收藏名片</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {items.map((entry: any) => {
+          {items.map((entry) => {
             const card = entry.card
             return (
               <Card

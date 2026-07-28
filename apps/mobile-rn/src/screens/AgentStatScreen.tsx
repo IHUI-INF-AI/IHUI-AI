@@ -1,18 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Stat { conversations: number; messages: number; tokens: number; avgRating: number }
+interface Stat {
+  conversations: number
+  messages: number
+  tokens: number
+  avgRating: number
+}
 
 export function AgentStatScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [stat, setStat] = useState<Stat | null>(null)
   const [loading, setLoading] = useState(true)
@@ -21,23 +32,35 @@ export function AgentStatScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/agent-stat`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Stat }
-      setStat(d.data ?? null)
-    } catch { setError(t('agentStat.loadFailed')) } finally { setLoading(false) }
-  }, [token, t])
+      const res = await fetchApi<Stat>('/agent-stat')
+      if (!res.success) throw new Error()
+      setStat(res.data ?? null)
+    } catch {
+      setError(t('agentStat.loadFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }, [t])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   if (loading) {
-    return <View style={s.center}><ActivityIndicator /><Text style={s.muted}>{t('common.loading')}</Text></View>
+    return (
+      <View style={s.center}>
+        <ActivityIndicator />
+        <Text style={s.muted}>{t('common.loading')}</Text>
+      </View>
+    )
   }
   if (error || !stat) {
     return (
       <View style={s.center}>
         <Text style={s.error}>{error || t('common.empty')}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+          <Text style={s.back}>{t('common.back')}</Text>
+        </TouchableOpacity>
       </View>
     )
   }
@@ -52,7 +75,9 @@ export function AgentStatScreen() {
   return (
     <ScrollView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={s.back}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={s.title}>{t('agentStat.title')}</Text>
       </View>
       <View style={s.body}>
@@ -68,16 +93,29 @@ export function AgentStatScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  label: { fontSize: 13, color: '#6B7280' },
-  value: { fontSize: 15, fontWeight: '600', color: '#10B981' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.surface.card,
+  },
+  label: { fontSize: 13, color: tokens.text.secondary },
+  value: { fontSize: 15, fontWeight: '600', color: tokens.brand.DEFAULT },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  error: { fontSize: 13, color: tokens.error.text, textAlign: 'center' },
   backBtn: { marginTop: 12 },
 })

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -50,7 +50,7 @@ export default function MemberHelpPage() {
   }
 
   const kw = q.trim().toLowerCase()
-  const filtered = articles.filter((a: any) => {
+  const filtered = articles.filter((a) => {
     if (!kw) return true
     const excerpt = a.summary ?? a.content ?? ''
     return a.title.toLowerCase().includes(kw) || excerpt.toLowerCase().includes(kw)
@@ -79,18 +79,18 @@ export default function MemberHelpPage() {
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <HelpCircle className="h-8 w-8 text-muted-foreground opacity-40" />
           <p className="text-sm text-muted-foreground">{kw ? '未找到相关问题' : '暂无帮助文章'}</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((a: any) => (
+          {filtered.map((a) => (
             <Link key={a.slug} href={`/help/${a.slug}`} className="block">
               <Card className="transition-colors hover:bg-accent">
                 <CardContent className="p-3">

@@ -177,3 +177,39 @@ export async function getHotExams(query: { limit?: number } = {}): Promise<ApiRe
 export async function getExamsByIds(ids: string[]): Promise<ApiResult<Exam[]>> {
   return fetchApi<Exam[]>(`/exam/papers/by-ids${buildQs({ ids: ids.join(',') })}`)
 }
+
+/**
+ * 试卷类型(跨端共享,从 miniapp-taro 下沉)
+ *
+ * 与 Exam 的区别:ExamPaper 是试卷元信息(管理端用),
+ * Exam 是考试入口信息(学员端列表用)。字段差异:ExamPaper 有 paperType/isRandom/isPublished。
+ */
+export interface ExamPaper {
+  id: string
+  title: string
+  description?: string | null
+  categoryId?: string
+  paperType?: 'normal' | 'random' | 'mock' | 'exam'
+  totalScore?: string
+  passScore?: string
+  duration?: number
+  isPublished?: boolean
+  isRandom?: boolean
+  status?: number
+}
+
+/**
+ * 考试记录类型(跨端共享,从 miniapp-taro 下沉)
+ *
+ * 与 ExamResult 的区别:ExamRecord 是一次考试的记录条目(列表用),
+ * ExamResult 是提交后的详细结果(含 details 明细)。
+ */
+export interface ExamRecord {
+  id: string
+  paperId: string
+  score: string
+  isPassed: boolean
+  status: string
+  startedAt: string
+  submittedAt?: string | null
+}

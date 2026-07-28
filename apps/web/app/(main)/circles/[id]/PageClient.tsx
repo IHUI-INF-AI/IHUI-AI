@@ -76,7 +76,7 @@ export default function CircleDetailPage() {
 
   if (circleLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -98,7 +98,7 @@ export default function CircleDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Button variant="ghost" size="sm" onClick={() => router.back()}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
         {tc('back')}
@@ -139,7 +139,7 @@ export default function CircleDetailPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {posts.map((p: any) => (
+            {posts.map((p: PostItem) => (
               <Card key={p.id} className="transition-colors hover:bg-accent">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">

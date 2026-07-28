@@ -119,9 +119,14 @@ const envSchema = z.object({
   // 开发环境默认信任 127.0.0.1(本地起 nginx/cloudflared 时可识别真实 IP)
   TRUSTED_PROXIES: z.string().default('127.0.0.1,::1'),
 
-  // Swagger / OpenAPI 文档(2026-07-21 安全审计第十轮加固)
+  // Swagger / OpenAPI 文档(2026-07-21 安全审计第十轮加固 + 2026-07-28 P0-4a 品牌化)
   // 生产环境必须 SWAGGER_ENABLED=true 才暴露 /docs 路由,默认 false(避免未授权 schema 泄露)
   SWAGGER_ENABLED: z.coerce.boolean().default(false),
+  // Swagger UI 访问 API Key(可选,2026-07-28 P0-4a 立)
+  // 配置后访问 /docs 必须带 `X-API-Key: <key>` header(timing-safe 比较)
+  // 留空 = /docs 公开(仅推荐开发环境)
+  // 生产环境强烈建议配置,推荐:node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  SWAGGER_API_KEY: z.string().default(''),
 
   API_LOG_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
   API_LOG_ENABLED: z.coerce.boolean().default(true),
