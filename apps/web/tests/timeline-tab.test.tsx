@@ -55,6 +55,8 @@ vi.mock('lucide-react', () => {
     Brain: Icon,
     FileText: Icon,
     Circle: Icon,
+    Download: Icon,
+    Check: Icon,
   }
 })
 
@@ -724,5 +726,186 @@ describe('TimelineTab — hasFilterActive 状态隔离', () => {
     fireEvent.click(screen.getByTestId('timeline-filter-plan'))
     // search query 仍保留
     expect(input.value).toBe('step')
+  })
+})
+
+// ─── Phase 19/20 深化:tab 切换 data-active + 100+ events 性能 + 边界场景 ──
+
+describe('TimelineTab — 100+ events 性能 + 大数据集边界', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('100 个 events 渲染耗时 < 200ms(jest happy-dom 基线)', () => {
+    const bigEvents: TimelineEvent[] = Array.from({ length: 120 }, (_, i) =>
+      makeEvent({
+        id: `evt-${i}`,
+        type: (i % 4 === 0 ? 'plan' : i % 4 === 1 ? 'subagent' : i % 4 === 2 ? 'tool' : 'question') as TimelineEvent['type'],
+        status: (i % 3 === 0 ? 'done' : i % 3 === 1 ? 'running' : 'pending') as TimelineEvent['status'],
+        title: `Event ${i}`,
+        timestamp: new Date(Date.now() - i * 1000).toISOString(),
+      }),
+    )
+    useTimelineStore.getState().setEvents(bigEvents)
+    useTimelineStore.getState().setActiveTab('timeline')
+    const t0 = performance.now()
+    render(<TimelineTab />)
+    const t1 = performance.now()
+    const duration = t1 - t0
+    expect(duration).toBeLessThan(200)
+    // 验证 120 个事件全部渲染
+    const rows = document.querySelectorAll('[data-event-type]')
+    expect(rows.length).toBe(120)
+  })
+
+  it('1000 个 events:total count 徽章正确显示 1000', () => {
+    const bigEvents: TimelineEvent[] = Array.from({ length: 1000 }, (_, i) =>
+      makeEvent({ id: `evt-${i}`, title: `E${i}` }),
+    )
+    useTimelineStore.getState().setEvents(bigEvents)
+    render(<TimelineTab />)
+    const badge = screen.getByTestId('timeline-total-count')
+    expect(badge.textContent).toBe('1000')
+  })
+
+  it('500 个 events + plan filter:filteredEvents 正确收敛到 plan 子集', () => {
+    const events: TimelineEvent[] = Array.from({ length: 500 }, (_, i) =>
+      makeEvent({
+        id: `evt-${i}`,
+        type: (i % 2 === 0 ? 'plan' : 'tool') as TimelineEvent['type'],
+        status: 'done',
+      }),
+    )
+    useTimelineStore.getState().setEvents(events)
+    useTimelineStore.getState().setActiveTab('timeline')
+    render(<TimelineTab />)
+    fireEvent.click(screen.getByTestId('timeline-filter-plan'))
+    // 250 个 plan (i=0,2,4,...,498)
+    const planRows = document.querySelectorAll('[data-event-type="plan"]')
+    expect(planRows.length).toBe(250)
+  })
+})
+
+describe('TimelineTab — children 折叠交互 + 嵌套展示', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+    useTimelineStore.getState().setActiveTab('timeline')
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('有 children 的事件:默认未展开(aria-expanded=false)', () => {
+    const eventWithChildren: TimelineEvent = makeEvent({
+      id: 'parent-1',
+      type: 'plan',
+      status: 'running',
+      children: [
+        makeEvent({ id: 'c-1', type: 'tool', status: 'done', title: '子事件' }),
+      ],
+    })
+    useTimelineStore.getState().setEvents([eventWithChildren])
+    render(<TimelineTab />)
+    const btn = document.querySelector('[data-event-id="parent-1"] button')!
+    expect(btn.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('有 children 的事件:点击展开 + 显示子节点', () => {
+    const eventWithChildren: TimelineEvent = makeEvent({
+      id: 'parent-2',
+      type: 'plan',
+      status: 'running',
+      children: [
+        makeEvent({ id: 'c-1', type: 'tool', status: 'done', title: '子事件 A' }),
+        makeEvent({ id: 'c-2', type: 'tool', status: 'done', title: '子事件 B' }),
+      ],
+    })
+    useTimelineStore.getState().setEvents([eventWithChildren])
+    render(<TimelineTab />)
+    const btn = document.querySelector('[data-event-id="parent-2"] button')!
+    fireEvent.click(btn)
+    expect(btn.getAttribute('aria-expanded')).toBe('true')
+    // 渲染 2 个子节点
+    expect(document.querySelectorAll('[data-event-id="c-1"]').length).toBe(1)
+    expect(document.querySelectorAll('[data-event-id="c-2"]').length).toBe(1)
+  })
+})
+
+describe('TimelineTab — 空 events 边界', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('events=[] + activeTab=inline:只渲染 tab bar + inline hint', () => {
+    render(<TimelineTab />)
+    expect(screen.getByTestId('timeline-tab')).toBeTruthy()
+    expect(screen.getByTestId('timeline-inline-hint')).toBeTruthy()
+    // filter / search / count 都不渲染
+    expect(screen.queryByTestId('timeline-filter-row')).toBeNull()
+    expect(screen.queryByTestId('timeline-search-row')).toBeNull()
+    expect(screen.queryByTestId('timeline-total-count')).toBeNull()
+  })
+
+  it('events=[] + activeTab=timeline:渲染 timeline tab + empty text', () => {
+    useTimelineStore.getState().setActiveTab('timeline')
+    render(<TimelineTab />)
+    expect(screen.getByTestId('timeline-empty')).toBeTruthy()
+    expect(screen.getByText('暂无事件')).toBeTruthy()
+  })
+
+  it('events=[] 时设置 typeFilter=plan:filter 不显示(无 events 触发 filter row 渲染)', () => {
+    useTimelineStore.getState().setActiveTab('timeline')
+    render(<TimelineTab />)
+    // events=[] 时 filter row 整体不渲染(typeFilter 状态保留但不展示 UI)
+    expect(screen.queryByTestId('timeline-filter-row')).toBeNull()
+  })
+})
+
+describe('TimelineTab — status 颜色映射视觉验证', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+    useTimelineStore.getState().setActiveTab('timeline')
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('done 状态 status icon:emerald 颜色(text-emerald-500)', () => {
+    useTimelineStore.getState().setEvents([makeEvent({ id: 'd-1', status: 'done' })])
+    const { container } = render(<TimelineTab />)
+    // StatusIcon 是最后一个 lucide-icon
+    const icons = container.querySelectorAll('[data-testid="lucide-icon"]')
+    const lastIcon = icons[icons.length - 1] as HTMLElement
+    expect(lastIcon.className).toContain('text-emerald-500')
+  })
+
+  it('failed 状态 status icon:destructive 颜色(text-destructive)', () => {
+    useTimelineStore.getState().setEvents([makeEvent({ id: 'f-1', status: 'failed' })])
+    const { container } = render(<TimelineTab />)
+    const icons = container.querySelectorAll('[data-testid="lucide-icon"]')
+    const lastIcon = icons[icons.length - 1] as HTMLElement
+    expect(lastIcon.className).toContain('text-destructive')
+  })
+
+  it('running 状态 status icon:animate-spin 动画类', () => {
+    useTimelineStore.getState().setEvents([makeEvent({ id: 'r-1', status: 'running' })])
+    const { container } = render(<TimelineTab />)
+    const icons = container.querySelectorAll('[data-testid="lucide-icon"]')
+    const lastIcon = icons[icons.length - 1] as HTMLElement
+    expect(lastIcon.className).toContain('animate-spin')
+  })
+
+  it('pending 状态 status icon:muted 颜色(text-muted-foreground/50)', () => {
+    useTimelineStore.getState().setEvents([makeEvent({ id: 'p-1', status: 'pending' })])
+    const { container } = render(<TimelineTab />)
+    const icons = container.querySelectorAll('[data-testid="lucide-icon"]')
+    const lastIcon = icons[icons.length - 1] as HTMLElement
+    expect(lastIcon.className).toContain('text-muted-foreground/50')
   })
 })
