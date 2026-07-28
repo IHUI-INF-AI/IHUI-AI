@@ -45,4 +45,10 @@ export type {
   PlanStatus,
   StudyPlanItem,
   StudyPlanScreenProps,
+  WalletBalance,
+  WalletRecordType,
+  WalletRecordItem,
+  WalletScreenProps,
+  CourseCatalogItem,
+  CourseCatalogScreenProps,
 } from '@ihui/types'

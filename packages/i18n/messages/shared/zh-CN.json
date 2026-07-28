@@ -631,5 +631,21 @@
       "completed": "已完成",
       "overdue": "已逾期"
     }
+  },
+  "wallet": {
+    "title": "我的钱包",
+    "balance": "可用余额",
+    "frozen": "冻结金额",
+    "totalRecharge": "累计充值",
+    "totalWithdraw": "累计提现",
+    "recharge": "充值",
+    "withdraw": "提现",
+    "loadFailed": "加载钱包失败"
+  },
+  "courseCatalog": {
+    "title": "课程目录",
+    "empty": "暂无章节",
+    "loadFailed": "加载目录失败",
+    "duration": "{n} 分钟"
   }
 }
