@@ -41,7 +41,12 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       //   - 与 sidebar 折叠/展开、ai-panel 开/关 全部无关(它们只影响工作区左边)
       //   - 不与 ScrollDownButton 共用 CSS 变量:ScrollDownButton 用 left 居中需动态计算,
       //     而 PageIndicator 用 right 是常量,二者几何模型不同,不应耦合
-      style={{ right: '32px' }}
+      // 2026-07-28 v9:贴屏幕右更近 — 32px → 8px(距 viewport 右边)
+      //   - 工作区右边距 viewport 固定 8px(mr-2)
+      //   - 指示器 right=8px 时右边缘与工作区卡片右边缘齐平
+      //   - 容器宽 20px,指示器左边距 viewport 边 28px,贴齐卡片不悬空
+      //   - 与 ScrollDownButton 几何模型不同(它 left 居中需动态计算)
+      style={{ right: '8px' }}
       className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
       aria-label={t('label')}
     >
