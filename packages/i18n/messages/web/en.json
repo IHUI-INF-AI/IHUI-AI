@@ -5736,6 +5736,32 @@
       "error": "Download failed",
       "printError": "Print failed",
       "certText": "This is to certify that {name} has passed the relevant assessment."
+    },
+    "detail": {
+      "headerTitle": "Certificate of Completion",
+      "courseLabel": "Course",
+      "recipientLabel": "Recipient",
+      "certNo": "Certificate No.",
+      "awarderLabel": "Awarded by",
+      "issueDate": "Issue Date",
+      "validityLabel": "Validity",
+      "loading": "Loading certificate...",
+      "notFound": "Certificate not found or revoked",
+      "unknownRecipient": "Unnamed Recipient",
+      "defaultIssuer": "IHUI AI Academy",
+      "defaultAwarder": "Academic Committee",
+      "defaultConditions": "Completed all course chapters and passed the final assessment (≥ 60)",
+      "defaultValidity": "Permanent",
+      "printAction": "Print",
+      "downloadAction": "Download PDF",
+      "downloadError": "Download failed",
+      "backToList": "Back to certificates",
+      "source": "Source",
+      "template": "Template",
+      "status": "Status",
+      "statusValid": "Valid",
+      "statusRevoked": "Revoked",
+      "issuerAria": "Certificate of completion awarded by {org} to {name}"
     }
   },
   "selfMedia": {
