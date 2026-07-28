@@ -13,6 +13,7 @@ import {
 import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { createAigcTask } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PRIMARY = tokens.brand.DEFAULT
@@ -34,7 +35,7 @@ const TYPE_OPTIONS: WorkTypeOption[] = [
   { key: 'text', label: '文案', desc: 'AI 生成文本' },
 ]
 
-interface MockFile {
+interface UploadFile {
   id: string
   url: string
   type: WorkType
@@ -43,25 +44,28 @@ interface MockFile {
 export default function AigcPublishScreen() {
   const navigation = useNavigation<Nav>()
   const [workType, setWorkType] = useState<WorkType>('image')
-  const [files, setFiles] = useState<MockFile[]>([])
+  const [files, setFiles] = useState<UploadFile[]>([])
   const [textContent, setTextContent] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [prompt, setPrompt] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [urlInput, setUrlInput] = useState('')
 
-  const addMockFile = () => {
+  const addFileByUrl = () => {
+    const url = urlInput.trim()
+    if (!url) {
+      setError('请输入文件 URL')
+      return
+    }
     if (files.length >= 5) {
       setError('最多上传 5 个素材')
       return
     }
     setError('')
-    const seed = `pub${Date.now()}`
-    setFiles((prev) => [
-      ...prev,
-      { id: seed, url: `https://picsum.photos/seed/${seed}/200/200`, type: workType },
-    ])
+    setFiles((prev) => [...prev, { id: `file-${Date.now()}`, url, type: workType }])
+    setUrlInput('')
   }
 
   const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id))
@@ -92,15 +96,32 @@ export default function AigcPublishScreen() {
     return true
   }
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (!validate()) return
     setSaving(true)
-    setTimeout(() => {
+    try {
+      const res = await createAigcTask({
+        type: workType,
+        prompt,
+        params: {
+          title,
+          description,
+          textContent,
+          fileUrl: files.map((f) => f.url),
+        },
+      })
+      if (res.success) {
+        Alert.alert('发布成功', '作品已提交审核', [
+          { text: '好的', onPress: () => navigation.goBack() },
+        ])
+      } else {
+        setError(res.error || '发布失败')
+      }
+    } catch {
+      setError('发布失败,请稍后重试')
+    } finally {
       setSaving(false)
-      Alert.alert('发布成功', '作品已提交,审核通过后将展示在灵感列表', [
-        { text: '好的', onPress: () => navigation.goBack() },
-      ])
-    }, 900)
+    }
   }
 
   const showTextInput = workType === 'text'
@@ -153,6 +174,20 @@ export default function AigcPublishScreen() {
       ) : (
         <>
           <Text style={styles.label}>上传素材 ({files.length}/5)</Text>
+          <View style={styles.urlRow}>
+            <TextInput
+              style={styles.urlInput}
+              value={urlInput}
+              onChangeText={setUrlInput}
+              placeholder="请输入素材 URL"
+              placeholderTextColor={tokens.text.tertiary}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity style={styles.urlAddBtn} onPress={addFileByUrl} activeOpacity={0.7}>
+              <Text style={styles.urlAddText}>添加</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.fileGrid}>
             {files.map((f) => (
               <View key={f.id} style={styles.fileItem}>
@@ -163,7 +198,7 @@ export default function AigcPublishScreen() {
               </View>
             ))}
             {files.length < 5 ? (
-              <TouchableOpacity style={styles.fileAdd} onPress={addMockFile} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.fileAdd} onPress={addFileByUrl} activeOpacity={0.7}>
                 <Text style={styles.fileAddIcon}>+</Text>
                 <Text style={styles.fileAddText}>添加</Text>
               </TouchableOpacity>
@@ -258,6 +293,25 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.light,
   },
   textarea: { minHeight: 88, maxHeight: 180, textAlignVertical: 'top' },
+  urlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  urlInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    fontSize: 13,
+    color: tokens.text.primary,
+    backgroundColor: tokens.surface.light,
+  },
+  urlAddBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
+  urlAddText: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
   fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   fileItem: {
     width: 76,
