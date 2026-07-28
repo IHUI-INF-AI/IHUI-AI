@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from typing import Any, Iterator, Optional, cast
 
@@ -61,6 +62,10 @@ _REDIS_KEY_VIZ = "context:viz"
 # 历史/可视化记录上限
 COMPRESSION_HISTORY_LIMIT = 100
 VIZ_HISTORY_LIMIT = 100
+
+# P0 修复:内存降级缓存上限,防止无界增长导致 OOM
+_SUMMARY_CACHE_MAX = 500  # summary 缓存上限(按 cache_key)
+_USER_BEHAVIOR_MAX = 1000  # 用户行为记录上限(file:symbol -> count)
 
 # 用户行为 boost 分段(2026-07-22 深化立)
 # (count_low, count_high, boost_low, boost_high)
@@ -106,11 +111,14 @@ class ContextEngine:
     """
 
     def __init__(self) -> None:
-        self._summary_cache: dict[str, str] = {}
+        # P0 修复:用 OrderedDict + max_size 实现 LRU,防止 _summary_cache 无界增长
+        self._summary_cache: OrderedDict[str, str] = OrderedDict()
         # 用户行为记录(内存降级):{file:symbol: count}
-        self._user_behavior: dict[str, int] = {}
+        # P0 修复:用 OrderedDict + max_size 实现 LRU,防止 _user_behavior 无界增长
+        self._user_behavior: OrderedDict[str, int] = OrderedDict()
         # 压缩事件历史(内存降级)
-        self._compression_events: list[dict[str, Any]] = []
+        # P0 修复:用 deque(maxlen=...) 自动淘汰旧记录,无需手动 trim
+        self._compression_events: deque[dict[str, Any]] = deque(maxlen=COMPRESSION_HISTORY_LIMIT)
         # Redis 客户端(惰性创建)
         self._redis_client: Any = None
 
@@ -193,7 +201,11 @@ class ContextEngine:
         summary = self._summary_cache.get(cache_key)
         if not summary:
             summary = await self._summarize(old_messages)
+            # P0 修复:LRU 上限淘汰,超出 _SUMMARY_CACHE_MAX 时移除最旧记录,防止 OOM
             self._summary_cache[cache_key] = summary
+            self._summary_cache.move_to_end(cache_key)
+            while len(self._summary_cache) > _SUMMARY_CACHE_MAX:
+                self._summary_cache.popitem(last=False)
 
         summary_msg: dict[str, Any] = {
             "role": "system",
@@ -1247,7 +1259,11 @@ class ContextEngine:
             except Exception as e:
                 logger.debug("Redis hincrby 行为失败,降级内存: %s", e)
         # 内存降级
+        # P0 修复:LRU 上限淘汰,超出 _USER_BEHAVIOR_MAX 时移除最旧记录,防止 OOM
         self._user_behavior[key] = self._user_behavior.get(key, 0) + 1
+        self._user_behavior.move_to_end(key)
+        while len(self._user_behavior) > _USER_BEHAVIOR_MAX:
+            self._user_behavior.popitem(last=False)
 
     async def _get_behavior_boost(
         self,
@@ -1421,10 +1437,8 @@ class ContextEngine:
             except Exception as e:
                 logger.debug("Redis 压缩事件记录失败,降级内存: %s", e)
         # 内存降级
+        # P0 修复:deque(maxlen=...) 自动淘汰最旧记录,无需手动 trim
         self._compression_events.append(event)
-        # 仅保留最近 N 条
-        if len(self._compression_events) > COMPRESSION_HISTORY_LIMIT:
-            self._compression_events = self._compression_events[-COMPRESSION_HISTORY_LIMIT:]
 
     async def _get_compression_stats(self, user_id: str) -> dict[str, Any]:
         """获取压缩统计:平均压缩比、平均质量分、最近 10 次压缩详情。"""
@@ -1441,9 +1455,11 @@ class ContextEngine:
                 events = [json.loads(r) for r in raw if r]
             except Exception as e:
                 logger.debug("Redis 压缩统计读取失败: %s", e)
-                events = list(self._compression_events[-10:])
+                # P0 修复:deque 不支持切片,先转 list 再切片
+                events = list(self._compression_events)[-10:]
         else:
-            events = list(self._compression_events[-10:])
+            # P0 修复:deque 不支持切片,先转 list 再切片
+            events = list(self._compression_events)[-10:]
 
         if not events:
             return {

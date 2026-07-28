@@ -311,8 +311,25 @@ export function MessageList({
 
   const enableVirtual = messages.length > VIRTUAL_THRESHOLD
 
+  // P1-3 修复(2026-07-28):缓存 offsets/total,仅在 messages.length 或 heightMap 版本变化时重算,
+  // 避免每次 scroll 都 O(n) 全量计算(虚拟滚动下 handleScroll 高频触发)。
+  // heightMap 版本由 measureItem 递增(新增/删除/高度变化都 +1),
+  // 覆盖 size 检测不到的"已有条目高度变化"场景(同 id 消息高度从 200px 变 300px 时 size 不变)。
+  const offsetsCacheRef = React.useRef<number[]>([])
+  const totalCacheRef = React.useRef<number>(0)
+  const lastMessagesLengthRef = React.useRef<number>(0)
+  const lastHeightMapVersionRef = React.useRef<number>(0)
+  const heightMapVersionRef = React.useRef<number>(0)
+
   // 计算累积高度数组(用于精确定位可见范围 + padding)
   const computeCumulative = React.useCallback(() => {
+    // 缓存命中:messages 数量和 heightMap 版本均未变化,直接返回缓存(避免 O(n) 重算)
+    if (
+      lastMessagesLengthRef.current === messages.length &&
+      lastHeightMapVersionRef.current === heightMapVersionRef.current
+    ) {
+      return { offsets: offsetsCacheRef.current, total: totalCacheRef.current }
+    }
     const map = heightMapRef.current
     let total = 0
     const offsets = new Array(messages.length + 1)
@@ -323,6 +340,11 @@ export function MessageList({
       total += map.get(msg.id) ?? ESTIMATED_ITEM_HEIGHT
     }
     offsets[messages.length] = total
+    // 写入缓存,供下次 scroll 命中
+    offsetsCacheRef.current = offsets
+    totalCacheRef.current = total
+    lastMessagesLengthRef.current = messages.length
+    lastHeightMapVersionRef.current = heightMapVersionRef.current
     return { offsets, total }
   }, [messages])
 
@@ -436,14 +458,20 @@ export function MessageList({
   const measureItem = React.useCallback((id: string) => (el: HTMLElement | null) => {
     const map = heightMapRef.current
     if (!el) {
-      map.delete(id)
+      // P1-3 修复:删除条目时版本号 +1,强制下次 computeCumulative 重算缓存
+      if (map.has(id)) {
+        map.delete(id)
+        heightMapVersionRef.current++
+      }
       return
     }
     const h = el.getBoundingClientRect().height
     const prev = map.get(id)
     if (prev !== h) {
       map.set(id, h)
+      // P1-3 修复:heightMap 变化时版本号 +1,强制下次 computeCumulative 重算缓存
       // 高度变化后重算可见范围(下一帧,避免布局抖动)
+      heightMapVersionRef.current++
       requestAnimationFrame(() => handleScroll())
     }
   }, [handleScroll])
