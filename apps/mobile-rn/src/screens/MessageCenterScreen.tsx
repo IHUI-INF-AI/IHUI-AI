@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import {
+  fetchApi,
   getNotifications,
   markNotificationRead,
   markMessageRead,
@@ -26,8 +27,6 @@ import {
 } from '@ihui/api-client'
 import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
 
@@ -50,7 +49,6 @@ interface MessagePage {
 
 export function MessageCenterScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [tab, setTab] = useState<TabKey>('notification')
 
@@ -63,21 +61,18 @@ export function MessageCenterScreen() {
       }
       return { success: false as const, error: res.error || t('messageCenter.loadFailed') }
     }
-    // getMessages 与 chat.ts 的 getMessages 命名冲突,用 fetch 自封装调用 /api/messages
-    const url = `${API_BASE_URL}/api/messages?page=1&pageSize=${PAGE_SIZE}`
-    const resp = await fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) {
+    // getMessages 与 chat.ts 的 getMessages 命名冲突,改用 fetchApi 直调 /api/messages
+    const url = `/api/messages?page=1&pageSize=${PAGE_SIZE}`
+    const res = await fetchApi<MessagePage>(url)
+    if (!res.success) {
       return { success: false as const, error: t('messageCenter.loadFailed') }
     }
-    const data = (await resp.json()) as { data?: MessagePage }
-    const list = (data.data?.list ?? []).map((m) => ({ ...m, _kind: 'message' as const }))
+    const list = res.data.list.map((m) => ({ ...m, _kind: 'message' as const }))
     return {
       success: true as const,
-      data: { list, total: data.data?.total ?? list.length },
+      data: { list, total: res.data.total },
     }
-  }, [tab, t, token])
+  }, [tab, t])
 
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
     usePaginatedList<Item>(fetcher, PAGE_SIZE)
