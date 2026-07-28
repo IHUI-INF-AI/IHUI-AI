@@ -237,6 +237,35 @@
       "post": "Post"
     }
   },
+  "certificate": {
+    "empty": "No certificates",
+    "expiryDate": "Expiry Date",
+    "issuedDate": "Issue Date",
+    "loadFailed": "Failed to load certificates",
+    "status": {
+      "expired": "Expired",
+      "issued": "Issued",
+      "revoked": "Revoked"
+    },
+    "title": "My Certificates"
+  },
+  "messageCenter": {
+    "empty": "No messages",
+    "loadFailed": "Failed to load messages",
+    "tab": {
+      "course": "Course",
+      "order": "Order",
+      "social": "Social",
+      "system": "System"
+    },
+    "title": "Message Center",
+    "type": {
+      "course": "Course",
+      "order": "Order",
+      "social": "Social",
+      "system": "System"
+    }
+  },
   "history": {
     "empty": "No browsing history",
     "loadFailed": "Failed to load history",

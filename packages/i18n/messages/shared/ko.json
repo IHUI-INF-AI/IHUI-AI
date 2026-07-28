@@ -237,6 +237,35 @@
       "post": "게시물"
     }
   },
+  "certificate": {
+    "empty": "증명서가 없습니다",
+    "expiryDate": "만료일",
+    "issuedDate": "발급일",
+    "loadFailed": "증명서 로드에 실패했습니다",
+    "status": {
+      "expired": "만료됨",
+      "issued": "발급됨",
+      "revoked": "취소됨"
+    },
+    "title": "내 증명서"
+  },
+  "messageCenter": {
+    "empty": "메시지가 없습니다",
+    "loadFailed": "메시지 로드에 실패했습니다",
+    "tab": {
+      "course": "강의",
+      "order": "주문",
+      "social": "소셜",
+      "system": "시스템"
+    },
+    "title": "메시지 센터",
+    "type": {
+      "course": "강의",
+      "order": "주문",
+      "social": "소셜",
+      "system": "시스템"
+    }
+  },
   "history": {
     "empty": "검색 기록이 없습니다",
     "loadFailed": "기록 로드에 실패했습니다",
