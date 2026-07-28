@@ -8900,6 +8900,38 @@
       }
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "Settings",
+      "Profile",
+      "Projects",
+      "Chat history",
+      "Members",
+      "Workspaces",
+      "Shortcuts",
+      "AI models"
+    ],
+    "searchPlaceholder": "Search…",
+    "searchHistory": "Search history",
+    "clear": "Clear",
+    "noSuggestions": "No matching suggestions",
+    "tabs": {
+      "all": "All",
+      "users": "Users",
+      "projects": "Projects",
+      "files": "Files"
+    },
+    "sort": "Sort",
+    "sortRelevance": "Relevance",
+    "sortTime": "Time",
+    "sortName": "Name",
+    "sortSize": "Size",
+    "emptyKeyword": "Enter a search keyword",
+    "loading": "Searching...",
+    "emptyResult": "No matching results",
+    "open": "Open",
+    "resultsCount": "{total} results (users {users}, projects {projects}, files {files})"
+  },
   "footer": {
     "companyName": "Jilin Aizhihui AI Technology Co., Ltd.",
     "addressLine1": "No. 107 Yuada Road, High-Tech Zone, Changchun",
@@ -9167,6 +9199,9 @@
     "handleHint": "Click or drag right to open AI workspace",
     "resizeHandleHint": "Drag to resize width",
     "messages": " Message",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
     "confirmDeleteConversation": "Confirm delete chat? Delete cannot be restored.",
     "deleteConversation": "DeleteChat",
     "deleteFailed": "DeleteFailed",
