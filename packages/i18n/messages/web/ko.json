@@ -8921,10 +8921,36 @@
     "suggest": "검색 제안",
     "clearAll": "모두 지우기",
     "noResults": "검색 결과 없음",
+    "searchPlaceholder": "검색…",
+    "searchHistory": "검색 기록",
+    "clear": "지우기",
+    "noSuggestions": "일치하는 추천 항목이 없습니다",
+    "tabs": {
+      "all": "전체",
+      "users": "사용자",
+      "projects": "프로젝트",
+      "files": "파일"
+    },
+    "sort": "정렬",
+    "sortRelevance": "관련도",
+    "sortTime": "시간",
     "sortName": "성이름",
+    "sortSize": "크기",
     "emptyKeyword": "검색 키워드를 입력하세요",
     "loading": "로딩 중...",
-    "resultsCount": "총 {total}건 결과(사용자 {users} / 프로젝트 {projects} / 파일 {files})"
+    "emptyResult": "일치하는 결과를 찾을 수 없습니다",
+    "open": "열기",
+    "resultsCount": "총 {total}건 결과(사용자 {users} / 프로젝트 {projects} / 파일 {files})",
+    "quickSuggestions": [
+      "설정",
+      "프로필",
+      "프로젝트",
+      "대화 기록",
+      "멤버",
+      "워크스페이스",
+      "단축키",
+      "AI 모델"
+    ]
   },
   "footer": {
     "companyName": "지린성 애즈후이 인공지능 기술 유한회사",
@@ -9789,11 +9815,11 @@
       "pinHintPinned": "고정됨, 외부 클릭 시 닫히지 않음",
       "pinHintUnpinned": "고정 해제됨, 외부 클릭 시 닫힘",
       "minimizeHint": "작업 패널 최소화",
+      "emptyHint": "대화 시작 후 작업 계획이 표시됩니다",
       "emptyTitle": "작업 시작 대기 중",
       "emptySubtitle": "대화가 시작되면 작업 분해가 여기에 표시됩니다",
       "elapsedTitle": "경과 {time}",
       "failureBanner": "{n}개 작업 실패, 클릭하여 보기",
-      "emptyHint": "대화 시작 후 작업 계획이 표시됩니다",
       "emptyHintsLabel": "사용 팁",
       "emptyHint1": "대화를 시작하면 AI의 작업 분해와 진행률이 여기에 표시됩니다.",
       "emptyHint2": "서브에이전트, 도구 호출, 터미널 출력이 자동으로 그룹화됩니다.",
@@ -10916,6 +10942,80 @@
         "프라이빗 배포 선택 가능",
         "분기 리뷰 + 전략 컨설팅"
       ]
+    },
+    "socialProof": {
+      "title": "전 세계 개발자들이 신뢰합니다",
+      "subtitle": "스타트업부터 글로벌 500대 기업까지, IHUI AI는 다양한 팀을 지원합니다",
+      "registered": "가입한 사용자",
+      "monthlyActive": "월간 활성 사용자",
+      "apiCalls": "API 호출 / 월",
+      "enterprise": "엔터프라이즈 고객"
+    },
+    "testimonials": {
+      "title": "개발자들의 평가",
+      "subtitle": "다양한 산업과 팀 규모의 실제 사용자 피드백",
+      "items": [
+        {
+          "name": "장밍",
+          "role": "CTO",
+          "company": "TechStart",
+          "text": "IHUI AI 덕분에 2주 만에 엔터프라이즈 AI 어시스턴트를 출시할 수 있었고, 3개월의 개발 시간을 절약했습니다"
+        },
+        {
+          "name": "Sarah Chen",
+          "role": "Lead Engineer",
+          "company": "DataFlow",
+          "text": "다중 테넌트 RLS 설계가 매우 전문적이며, 340개 테이블의 격리가 흠잡을 데 없이 잘 되어 있습니다"
+        },
+        {
+          "name": "리화",
+          "role": "창업자",
+          "company": "Chuangzhi Tech",
+          "text": "176개의 LLM 통합 어댑터 덕분에 10개의 API 호출 코드를 더 이상 작성할 필요가 없습니다"
+        },
+        {
+          "name": "Marcus Weber",
+          "role": "DevOps",
+          "company": "CloudSys",
+          "text": "소스 코드부터 프로덕션 배포까지 단 3일이 걸렸으며, 문서가 매우 자세합니다"
+        },
+        {
+          "name": "왕방",
+          "role": "AI 아키텍트",
+          "company": "Zhiyun Tech",
+          "text": "LangGraph + MCP + A2A 3단 프로토콜 스택은 우리가 본 가장 완전한 AI 프레임워크입니다"
+        },
+        {
+          "name": "Alex Kim",
+          "role": "CTO",
+          "company": "AIVentures",
+          "text": "Apache 2.0 상업적으로 친화적이며, 5,346개의 테스트가 안심할 수 있게 해줍니다"
+        }
+      ]
+    },
+    "comparison": {
+      "title": "주요 솔루션과 비교",
+      "subtitle": "하나의 플랫폼으로 풀스택 AI 기능을 커버, 여러 도구를 조합할 필요 없음",
+      "feature": "기능",
+      "price": "무료 시작",
+      "llmCount": "176+ LLM 어댑터",
+      "multiTenant": "다중 테넌트 격리",
+      "rag": "RAG 지식 베이스",
+      "agentMarket": "Agent 마켓",
+      "eightEnds": "8개 엔드 지원",
+      "openSource": "오픈소스",
+      "selfHost": "셀프 호스팅",
+      "apache2": "Apache 2.0",
+      "privateDeploy": "프라이빗 배포"
+    },
+    "guarantee": {
+      "title": "우리의 약속",
+      "refundTitle": "7일 무조건 환불",
+      "refundDesc": "구독 후 7일 이내에 만족하지 못하시면 전액 환불해 드리며, 이유나 조건은 필요 없습니다",
+      "dataTitle": "데이터 소유권은 회원님께 있습니다",
+      "dataDesc": "회원님의 데이터는 항상 회원님의 것이며, 언제든지 내보내거나 삭제할 수 있습니다",
+      "openSourceTitle": "Apache 2.0 영구 오픈소스",
+      "openSourceDesc": "핵심 코드는 Apache 2.0 라이선스로 오픈소스 제공되어 상업적으로도 사용 가능하며 영구적으로 이용할 수 있습니다"
     }
   },
   "enterpriseTools": {
@@ -12657,6 +12757,126 @@
     "relatedTitle": "관련 글",
     "notFound": "글을 찾을 수 없습니다"
   },
+  "products": {
+    "heroBadge": "디지털 제품",
+    "heroTitle": "디지털 제품 스토어",
+    "heroSubtitle": "엄선된 AI 개발 디지털 제품: 프롬프트 라이브러리, Agent 템플릿, 배포 가이드, 소스 코드 패키지, 인증 과정, 맞춤형 개발을 바로 사용 가능합니다",
+    "popular": "인기",
+    "buyNow": "바로 구매",
+    "buySubject": "구매",
+    "cards": {
+      "1": {
+        "title": "AI Agent 프롬프트 라이브러리",
+        "price": "₩99",
+        "desc": "200개 이상의 엄선된 prompts, 20가지 주요 시나리오를 커버하며, IHUI AI 플랫폼에 바로 가져올 수 있습니다",
+        "feature1": "200개 이상의 엄선된 prompts",
+        "feature2": "20가지 시나리오 커버",
+        "feature3": "JSON + Markdown 형식, 즉시 다운로드"
+      },
+      "2": {
+        "title": "엔터프라이즈 Agent 템플릿 패키지",
+        "price": "₩299",
+        "desc": "10개의 엔터프라이즈급 Agent 템플릿 (고객 지원 / 영업 / HR / 데이터 분석 / 코드 리뷰), 즉시 사용 가능",
+        "feature1": "10개의 엔터프라이즈급 Agent 템플릿",
+        "feature2": "LangGraph 전체 코드 + MCP 도구 통합 포함",
+        "feature3": "1년 무료 업데이트"
+      },
+      "3": {
+        "title": "IHUI-AI 배포 가이드 Pro",
+        "price": "₩49",
+        "desc": "PDF + 비디오 튜토리얼, Docker / K8s / 베어메탈 배포 전 과정을 다룹니다",
+        "feature1": "PDF + 비디오 튜토리얼",
+        "feature2": "Docker / K8s / 베어메탈 배포 커버",
+        "feature3": "성능 튜닝 + 보안 강화"
+      },
+      "4": {
+        "title": "엔터프라이즈급 소스 코드 패키지",
+        "price": "₩4,999",
+        "desc": "IHUI-AI 전체 소스 코드 + 엔터프라이즈 맞춤 모듈, 프라이빗 배포 라이선스",
+        "feature1": "전체 소스 코드 + 엔터프라이즈 맞춤 모듈",
+        "feature2": "프라이빗 배포 라이선스 (Apache 2.0 + 상업용 강화)",
+        "feature3": "1년 기술 지원"
+      },
+      "5": {
+        "title": "AI 엔지니어 인증 과정",
+        "price": "₩999",
+        "desc": "12시간 비디오 + 실습 프로젝트, AI 엔지니어링 핵심 기술을 체계적으로 습득",
+        "feature1": "12시간 비디오 + 실습 프로젝트",
+        "feature2": "LangGraph / MCP / RAG / 다중 테넌트 커버",
+        "feature3": "수료증"
+      },
+      "6": {
+        "title": "맞춤형 Agent 개발 서비스",
+        "price": "₩1,999부터",
+        "desc": "단일 Agent 맞춤 개발, 요구사항 확인 및 수정 포함",
+        "feature1": "단일 Agent 맞춤 개발",
+        "feature2": "요구사항 1회 확인 + 수정 1회",
+        "feature3": "5공수"
+      }
+    },
+    "ctaTitle": "대량 구매 시 전용 할인",
+    "ctaDesc": "엔터프라이즈 대량 구매 시 단계별 할인 혜택을 받을 수 있으며, 문의하여 맞춤 견적을 받으세요",
+    "ctaButton": "비즈니스 상담 문의"
+  },
+  "sponsor": {
+    "heroBadge": "오픈소스 후원",
+    "heroTitle": "IHUI AI 후원하기",
+    "heroSubtitle": "회원님의 후원은 IHUI AI의 지속적인 오픈소스 공개, 반복 개선 및 커뮤니티 운영을 지원하여 풀스택 AI 운영 체제를 더 많은 개발자와 기업에 제공합니다",
+    "heroButton": "후원자가 되기",
+    "whyTitle": "왜 IHUI AI를 후원해야 할까요",
+    "reasonOpenTitle": "오픈소스 유지",
+    "reasonOpenDesc": "핵심 코드를 Apache 2.0으로 영구 오픈소스 공개하여 누구나 사용할 수 있도록 지원",
+    "reasonFastTitle": "반복 개선 가속화",
+    "reasonFastDesc": "팀이 전담으로 투입되어 새로운 기능과 모델 어댑터를 더 빠르게 출시",
+    "reasonCommunityTitle": "커뮤니티 운영",
+    "reasonCommunityDesc": "Discord / WeChat 그룹 유지, Issue 응답, 문서 관리",
+    "reasonIndependenceTitle": "독립성 유지",
+    "reasonIndependenceDesc": "단일 투자에 의존하지 않으며, 제품의 독립성과 중립성 유지",
+    "tiersTitle": "후원 등급",
+    "becomeSponsor": "후원자가 되기",
+    "tiers": {
+      "bronze": {
+        "name": "Bronze",
+        "price": "₩99/월",
+        "feature1": "README 감사의 말",
+        "feature2": "Discord / WeChat 멤버십 그룹",
+        "feature3": "신규 기능 선제 접근"
+      },
+      "silver": {
+        "name": "Silver",
+        "price": "₩299/월",
+        "feature1": "Bronze 등급의 모든 혜택",
+        "feature2": "월간 개발 진행 보고서",
+        "feature3": "우선 Issue 응답 (48시간)"
+      },
+      "gold": {
+        "name": "Gold",
+        "price": "₩999/월",
+        "feature1": "Silver 등급의 모든 혜택",
+        "feature2": "분기별 기술 공유 미팅",
+        "feature3": "README에 로고 표시"
+      },
+      "platinum": {
+        "name": "Platinum",
+        "price": "₩2,999/월",
+        "feature1": "Gold 등급의 모든 혜택",
+        "feature2": "1:1 월간 컨설팅 (1시간)",
+        "feature3": "신규 기능 우선 투표권"
+      },
+      "diamond": {
+        "name": "Diamond",
+        "price": "₩9,999/월",
+        "feature1": "오프라인 반일 워크숍",
+        "feature2": "맞춤형 Agent 개발 (월 5공수)",
+        "feature3": "전략적 파트너 마크"
+      }
+    },
+    "sponsorsTitle": "현재 후원자",
+    "sponsorsDesc": "IHUI AI를 지원해 주신 다음 후원자들께 감사드립니다",
+    "sponsorsEmpty": "최초 후원자가 되어 회원님의 이름을 여기에 표시해 보세요",
+    "onlineTitle": "온라인 기부",
+    "onlineDesc": "PayPal 또는 Ko-fi를 통해 빠르고 안전하게 후원하세요 — 가입 없이 간편합니다"
+  },
   "crypto": {
     "title": "암호화폐 기부",
     "subtitle": "직접 송금, 중개 플랫폼 없음, 수수료 0",
@@ -12681,6 +12901,66 @@
     "copied": "복사됨!",
     "disclaimer": "기부금은 중개 수수료 없이 직접 우리 지갑으로 들어갑니다. USDT-TRC20이 최저 수수료(~$1)로 추천됩니다.",
     "qrCode": "QR 코드"
+  },
+  "affiliates": {
+    "heroBadge": "추천 리소스",
+    "heroTitle": "추천 AI 도구",
+    "heroSubtitle": "엄선된 AI 개발 필수 도구 10가지, 추천 링크로 가입하면 전용 할인을 받으실 수 있으며, 동시에 IHUI AI의 지속적 개발을 지원합니다",
+    "reasonLabel": " 추천 사유",
+    "signup": "바로 가입",
+    "cards": {
+      "1": {
+        "name": "OpenAI API",
+        "desc": "GPT-4 / GPT-4o 등 최고급 LLM API, 업계 표준",
+        "reason": "추천 가입 시 $5 크레딧 적립"
+      },
+      "2": {
+        "name": "Anthropic Claude",
+        "desc": "Claude 3.5 Sonnet, 긴 텍스트와 코드 능력이 우수합니다",
+        "reason": "추천 가입 시 크레딧 제공"
+      },
+      "3": {
+        "name": "Google Gemini",
+        "desc": "Gemini Pro / Flash, 멀티모달과 긴 컨텍스트에서 리딩",
+        "reason": "신규 사용자 $300 크레딧"
+      },
+      "4": {
+        "name": "Vercel",
+        "desc": "Next.js 공식 배포 플랫폼, 프론트엔드 애플리케이션의 첫 번째 선택",
+        "reason": "추천 가입 시 $100 크레딧"
+      },
+      "5": {
+        "name": "Railway",
+        "desc": "백엔드 애플리케이션 원클릭 배포, 다양한 언어와 데이터베이스 지원",
+        "reason": "추천 가입 시 크레딧 제공"
+      },
+      "6": {
+        "name": "Supabase",
+        "desc": "PostgreSQL 호스팅 + Auth + Storage, 오픈소스 Firebase 대체",
+        "reason": "추천 가입 시 무료 크레딧 제공"
+      },
+      "7": {
+        "name": "Pinecone",
+        "desc": "호스팅 벡터 데이터베이스, RAG 검색 성능이 우수합니다",
+        "reason": "추천 가입 시 무료 크레딧 제공"
+      },
+      "8": {
+        "name": "LangSmith",
+        "desc": "LangChain 공식 모니터링 및 디버깅 플랫폼, LLM 애플리케이션 옵저버빌리티",
+        "reason": "추천 가입 시 크레딧 제공"
+      },
+      "9": {
+        "name": "Cursor",
+        "desc": "AI 코드 에디터, 내장 GPT-4 / Claude, 프로그래밍 효율 두 배 증가",
+        "reason": "추천 가입 시 Pro 체험 제공"
+      },
+      "10": {
+        "name": "GitHub Copilot",
+        "desc": "GitHub 공식 AI 프로그래밍 어시스턴트, IDE 통합 경험이 우수",
+        "reason": "추천 가입 시 체험 제공"
+      }
+    },
+    "disclosure": "위의 링크는 affiliate 추천 링크로, 이 링크를 통해 가입하셔도 추가 비용은 발생하지 않지만, IHUI AI 프로젝트의 지속적 개발을 위해 소정의 수수료를 받을 수 있습니다. 회원님의 지원에 감사드립니다!"
   },
   "services": {
     "hero": {
@@ -12847,6 +13127,63 @@
         "slaTitle": "응답 SLA",
         "sla": "업무 시간 내 2시간 응답, 비업무시간 24시간 응답"
       }
+    }
+  },
+  "newsletter": {
+    "hero": {
+      "badge": "IHUI AI 주간 뉴스레터",
+      "title": "IHUI AI 주간 뉴스레터 구독",
+      "subtitle": "매주 AI 엔지니어링, Agent 개발, RAG, MCP 실전 사례를 받아보세요, 8,392명 이상의 개발자가 구독 중",
+      "subscriberPrefix": "현재",
+      "subscriberSuffix": "명의 개발자가 구독 중"
+    },
+    "benefits": {
+      "title": "구독 혜택",
+      "items": [
+        "매주 AI 엔지니어링 실전 사례",
+        "신규 기능 우선 체험",
+        "독점 prompt 템플릿",
+        "산업 동향 분석",
+        "커뮤니티 활동 공지"
+      ]
+    },
+    "form": {
+      "email": "이메일",
+      "interests": "관심 태그 (복수 선택 가능)",
+      "tags": {
+        "aiEng": "AI 엔지니어링",
+        "agent": "Agent 개발",
+        "rag": "RAG",
+        "mcp": "MCP",
+        "multiTenant": "다중 테넌트",
+        "devops": "배포 및 운영",
+        "business": "상용화"
+      },
+      "privacyPrefix": "읽고 동의합니다",
+      "privacyLink": "개인정보 처리방침",
+      "submit": "바로 구독",
+      "submitting": "구독 중..."
+    },
+    "success": {
+      "title": "구독 완료!",
+      "desc": "이메일을 확인하여 구독을 완료해 주세요. 다음 호는 금요일에 발송됩니다",
+      "recommended": "추천 글"
+    },
+    "articles": {
+      "a1": {
+        "title": "AI 엔지니어링 실전: 0에서 1까지 엔터프라이즈 AI 어시스턴트 구축"
+      },
+      "a2": {
+        "title": "Agent 개발 완전 가이드: LangGraph + MCP 프로토콜"
+      },
+      "a3": {
+        "title": "RAG 실전: 다중 테넌트 지식 베이스 격리 설계"
+      }
+    },
+    "errors": {
+      "generic": "구독에 실패했습니다. 잠시 후 다시 시도해 주세요",
+      "emailExists": "이미 구독된 이메일입니다",
+      "invalidEmail": "이메일 형식이 올바르지 않습니다"
     }
   },
   "developerPricingPage": {
