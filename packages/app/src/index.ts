@@ -2,6 +2,7 @@ export { AboutScreen } from './features/about/AboutScreen'
 export { ProfileScreen } from './features/profile/ProfileScreen'
 export { SettingsScreen } from './features/settings/SettingsScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
+export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
 
 export {
   VipCard,
