@@ -80,15 +80,19 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
     const versionPath = join(VERSIONS_DIR, versionId)
 
     let totalSize = 0
+    // P2 修复:抽具名监听器,pipeline 完成或失败后用 finally 显式移除,避免流销毁前的事件累积
+    const onData = (chunk: Buffer) => {
+      totalSize += chunk.length
+    }
+    data.file.on('data', onData)
     try {
-      data.file.on('data', (chunk: Buffer) => {
-        totalSize += chunk.length
-      })
       await pipeline(data.file, createWriteStream(versionPath))
     } catch (err) {
       request.log.error({ err }, '版本文件保存失败')
       if (existsSync(versionPath)) unlinkSync(versionPath)
       return reply.status(500).send(error(500, '版本文件保存失败'))
+    } finally {
+      data.file.removeListener('data', onData)
     }
 
     // 计算下一个版本号（当前最大版本 + 1）

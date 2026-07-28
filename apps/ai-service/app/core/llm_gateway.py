@@ -21,6 +21,7 @@ from ..middleware.llm_metrics import (
     classify_fallback_reason,
 )
 from .config import settings
+from .db_pool import get_shared_pool
 
 # TEMP-FIX(ai-feed): 循环导入临时绕过(llm_gateway → providers → base_provider → llm_gateway)
 # 跑完 LLM 批处理后回退。原代码:
@@ -31,8 +32,6 @@ if TYPE_CHECKING:
     from ..providers.base_provider import BaseProvider, ProviderError
 
 logger = logging.getLogger(__name__)
-
-_pool: Optional[asyncpg.Pool] = None
 
 # 全局共享 httpx.AsyncClient(连接池复用,避免每次请求新建 client)
 # provider 通过 get_http_client() 获取,在 main.py lifespan shutdown 中 close_http_client()
@@ -56,16 +55,11 @@ async def close_http_client() -> None:
         logger.info("global httpx.AsyncClient closed")
 
 
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool 函数签名(向后兼容),内部委托给 get_shared_pool()。
 async def _get_pool() -> asyncpg.Pool:
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
