@@ -3,8 +3,11 @@
  * 基于 ScrollView horizontal + pagingEnabled 实现横向轮播
  * 保留自动播放 + 指示器功能
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/Carousel/index.vue)
+ *
+ * 共享类型 CarouselItem + 共享 hook useAutoPlay 已下沉到 packages,
+ * 消除 mobile-rn / miniapp-taro 两端类型与自动播放逻辑重复。
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import {
   Image,
   ScrollView,
@@ -16,12 +19,8 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
-
-export interface CarouselItem {
-  img: string
-  link?: string
-  [key: string]: unknown
-}
+import { useAutoPlay } from '@ihui/shared'
+import type { CarouselItem } from '@ihui/ui-native'
 
 export interface CarouselProps {
   banner: CarouselItem[]
@@ -38,20 +37,15 @@ export default function Carousel({
   autoplayInterval = 3000,
   onItemPress,
 }: CarouselProps) {
-  const [current, setCurrent] = useState(0)
+  const { current, setCurrent } = useAutoPlay(
+    banner?.length ?? 0,
+    autoplayInterval,
+    !!banner && banner.length > 1,
+  )
   const scrollRef = useRef<ScrollView>(null)
   const { width } = useWindowDimensions()
 
-  // 自动播放:定时切换 current
-  useEffect(() => {
-    if (!banner || banner.length <= 1) return
-    const timer = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % banner.length)
-    }, autoplayInterval)
-    return () => clearInterval(timer)
-  }, [banner, autoplayInterval])
-
-  // current 变化时滚动到对应位置
+  // current 变化时滚动到对应位置(useAutoPlay 内部已驱动 current 自动变化)
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ x: current * width, animated: true })

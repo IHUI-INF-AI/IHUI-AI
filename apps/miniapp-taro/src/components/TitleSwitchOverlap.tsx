@@ -2,16 +2,11 @@ import { View, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'
+import type { TitleSwitchOverlapItem, TitleSwitchOverlapProps } from '@ihui/types'
 
-export interface TitleSwitchOverlapItem {
-  name: string
-}
-
-export interface TitleSwitchOverlapProps {
-  mainList?: TitleSwitchOverlapItem[]
-  defaultCurrent?: number
-  onCurrentChange?: (index: number) => void
-}
+// 共享类型 TitleSwitchOverlapItem / TitleSwitchOverlapProps 已下沉到 packages/types,两端复用。
+// 重新导出以维持本模块公开 API(原文件 export 这些类型)。
+export type { TitleSwitchOverlapItem, TitleSwitchOverlapProps }
 
 const DEFAULT_LIST: TitleSwitchOverlapItem[] = [
   { name: '赛道一' },
