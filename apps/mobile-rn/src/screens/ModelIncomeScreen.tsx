@@ -1,28 +1,25 @@
-import { useState } from 'react'
-import { View, Text, TouchableOpacity, FlatList, Modal, StyleSheet } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Modal,
+  StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native'
 import { tokens } from '@ihui/rn-app'
+import {
+  getOverview,
+  getCommissionList,
+  getDayMonthSummary,
+  type CommissionOverview,
+  type CommissionRecord,
+  type DayMonthSummary,
+} from '@ihui/api-client'
 
 type Settle = 'all' | 'pending' | 'settled'
-
-interface IncomeItem {
-  id: string
-  orderNo: string
-  agentName: string
-  price: number
-  cycle: string
-  total: number
-  amount: number
-  settled: boolean
-  time: string
-}
-
-const SUMMARY = {
-  accumulated: 12860.5,
-  withdrawable: 3240.0,
-  withdrawn: 9620.5,
-  today: 128.0,
-  pending: 580.0,
-}
 
 const TABS: { id: Settle; label: string }[] = [
   { id: 'all', label: '全部' },
@@ -30,71 +27,91 @@ const TABS: { id: Settle; label: string }[] = [
   { id: 'settled', label: '已结算' },
 ]
 
-const MOCK_LIST: IncomeItem[] = [
-  {
-    id: '1',
-    orderNo: 'NO20260724001',
-    agentName: '文案写作助手',
-    price: 29,
-    cycle: '月',
-    total: 1,
-    amount: 29,
-    settled: false,
-    time: '2026-07-24 10:23',
-  },
-  {
-    id: '2',
-    orderNo: 'NO20260723008',
-    agentName: '数据分析专家',
-    price: 199,
-    cycle: '年',
-    total: 1,
-    amount: 199,
-    settled: true,
-    time: '2026-07-23 16:40',
-  },
-  {
-    id: '3',
-    orderNo: 'NO20260722015',
-    agentName: 'PPT 生成器',
-    price: 9.9,
-    cycle: '月',
-    total: 3,
-    amount: 29.7,
-    settled: true,
-    time: '2026-07-22 09:12',
-  },
-  {
-    id: '4',
-    orderNo: 'NO20260721022',
-    agentName: '文案写作助手',
-    price: 29,
-    cycle: '月',
-    total: 2,
-    amount: 58,
-    settled: false,
-    time: '2026-07-21 14:05',
-  },
-  {
-    id: '5',
-    orderNo: 'NO20260720031',
-    agentName: '翻译助手',
-    price: 15,
-    cycle: '永久',
-    total: 1,
-    amount: 15,
-    settled: true,
-    time: '2026-07-20 11:30',
-  },
-]
+function isSettled(status: string): boolean {
+  return status === 'settled' || status === '2'
+}
+
+function formatTime(iso: string): string {
+  return iso.replace('T', ' ').slice(0, 16)
+}
 
 export default function ModelIncomeScreen() {
   const [tab, setTab] = useState<Settle>('all')
   const [showWithdraw, setShowWithdraw] = useState(false)
+  const [summary, setSummary] = useState<CommissionOverview | null>(null)
+  const [dayMonth, setDayMonth] = useState<DayMonthSummary | null>(null)
+  const [records, setRecords] = useState<CommissionRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
 
-  const list = MOCK_LIST.filter((i) =>
-    tab === 'all' ? true : tab === 'pending' ? !i.settled : i.settled,
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const [overviewRes, listRes, dayMonthRes] = await Promise.all([
+        getOverview(),
+        getCommissionList({ page: 1, pageSize: 50 }),
+        getDayMonthSummary(),
+      ])
+      let errMsg = ''
+      if (overviewRes.success) setSummary(overviewRes.data)
+      else errMsg = overviewRes.error || '加载概要失败'
+      if (listRes.success) setRecords(listRes.data.list)
+      else errMsg = errMsg || (listRes.error || '加载明细失败')
+      if (dayMonthRes.success) setDayMonth(dayMonthRes.data)
+      if (errMsg) setError(errMsg)
+    } catch {
+      setError('网络异常,请稍后重试')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onRefresh = () => {
+    setRefreshing(true)
+    void load()
+  }
+
+  const list = records.filter((i) =>
+    tab === 'all' ? true : tab === 'pending' ? !isSettled(i.status) : isSettled(i.status),
   )
+
+  const accumulated = summary?.totalCommission ?? 0
+  const withdrawable = summary?.availableCommission ?? 0
+  const withdrawn = summary?.withdrawnCommission ?? 0
+  const today = dayMonth?.day ?? 0
+  const pending = summary?.pendingCommission ?? 0
+
+  if (loading) {
+    return (
+      <View style={[s.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={tokens.brand.DEFAULT} />
+      </View>
+    )
+  }
+
+  if (error) {
+    return (
+      <View style={[s.container, { alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
+        <Text style={{ color: tokens.text.secondary, marginBottom: 12 }}>{error}</Text>
+        <TouchableOpacity
+          style={s.withdrawBtn}
+          onPress={() => {
+            setLoading(true)
+            void load()
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={s.withdrawText}>重试</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
 
   return (
     <View style={s.container}>
@@ -105,7 +122,7 @@ export default function ModelIncomeScreen() {
       <View style={s.summaryCard}>
         <View style={s.sumTop}>
           <Text style={s.sumLabel}>
-            累计收益 <Text style={s.sumAmount}>{SUMMARY.accumulated.toFixed(2)}</Text> 元
+            累计收益 <Text style={s.sumAmount}>{accumulated.toFixed(2)}</Text> 元
           </Text>
           <TouchableOpacity
             style={s.withdrawBtn}
@@ -118,21 +135,21 @@ export default function ModelIncomeScreen() {
         <View style={s.sumRow}>
           <View style={s.sumCol}>
             <Text style={s.sumSubLabel}>可提现(元)</Text>
-            <Text style={s.sumSubAmount}>{SUMMARY.withdrawable.toFixed(2)}</Text>
+            <Text style={s.sumSubAmount}>{withdrawable.toFixed(2)}</Text>
           </View>
           <View style={s.sumCol}>
             <Text style={s.sumSubLabel}>已提现(元)</Text>
-            <Text style={s.sumSubAmount}>{SUMMARY.withdrawn.toFixed(2)}</Text>
+            <Text style={s.sumSubAmount}>{withdrawn.toFixed(2)}</Text>
           </View>
         </View>
         <View style={s.sumFooter}>
           <View style={s.sumFooterItem}>
             <Text style={s.sumFooterLabel}>今日收益</Text>
-            <Text style={s.sumFooterVal}>{SUMMARY.today.toFixed(2)}</Text>
+            <Text style={s.sumFooterVal}>{today.toFixed(2)}</Text>
           </View>
           <View style={s.sumFooterItem}>
             <Text style={s.sumFooterLabel}>待结算</Text>
-            <Text style={s.sumFooterVal}>{SUMMARY.pending.toFixed(2)}</Text>
+            <Text style={s.sumFooterVal}>{pending.toFixed(2)}</Text>
           </View>
         </View>
       </View>
@@ -159,39 +176,43 @@ export default function ModelIncomeScreen() {
         data={list}
         keyExtractor={(i) => i.id}
         contentContainerStyle={{ padding: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={
           <View style={s.empty}>
             <Text style={s.emptyText}>暂无收益记录</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={s.card}>
-            <View style={s.cardHead}>
-              <Text style={s.cardOrder} numberOfLines={1}>
-                订单 {item.orderNo}
-              </Text>
-              <Text style={[s.cardStatus, item.settled ? s.statusSettled : s.statusPending]}>
-                {item.settled ? '已结算' : '待结算'}
-              </Text>
-            </View>
-            <Text style={s.cardTime}>{item.time}</Text>
-            <View style={s.cardMain}>
-              <View style={s.cardAvatar}>
-                <Text style={s.cardAvatarText}>{item.agentName.charAt(0)}</Text>
-              </View>
-              <View style={s.cardInfo}>
-                <Text style={s.cardName} numberOfLines={1}>
-                  {item.agentName}
+        renderItem={({ item }) => {
+          const settled = isSettled(item.status)
+          return (
+            <View style={s.card}>
+              <View style={s.cardHead}>
+                <Text style={s.cardOrder} numberOfLines={1}>
+                  订单 {item.orderId}
                 </Text>
-                <Text style={s.cardMeta}>
-                  ¥{item.price} / {item.cycle} · ×{item.total}
+                <Text style={[s.cardStatus, settled ? s.statusSettled : s.statusPending]}>
+                  {settled ? '已结算' : '待结算'}
                 </Text>
               </View>
-              <Text style={s.cardAmount}>+¥{item.amount.toFixed(2)}</Text>
+              <Text style={s.cardTime}>{formatTime(item.createdAt)}</Text>
+              <View style={s.cardMain}>
+                <View style={s.cardAvatar}>
+                  <Text style={s.cardAvatarText}>{item.userNickname.charAt(0)}</Text>
+                </View>
+                <View style={s.cardInfo}>
+                  <Text style={s.cardName} numberOfLines={1}>
+                    {item.userNickname}
+                  </Text>
+                  <Text style={s.cardMeta}>
+                    订单 ¥{item.orderAmount.toFixed(2)} · 费率 {item.rate}%
+                  </Text>
+                </View>
+                <Text style={s.cardAmount}>+¥{item.commissionAmount.toFixed(2)}</Text>
+              </View>
             </View>
-          </View>
-        )}
+          )
+        }}
       />
 
       <Modal
@@ -208,7 +229,7 @@ export default function ModelIncomeScreen() {
                 <Text style={s.modalClose}>关闭</Text>
               </TouchableOpacity>
             </View>
-            <Text style={s.modalSub}>可提现金额 ¥{SUMMARY.withdrawable.toFixed(2)}</Text>
+            <Text style={s.modalSub}>可提现金额 ¥{withdrawable.toFixed(2)}</Text>
             <TouchableOpacity style={s.payOption} activeOpacity={0.8}>
               <View style={s.payLeft}>
                 <View style={s.payIcon}>
