@@ -631,5 +631,21 @@
       "completed": "완료",
       "overdue": "기한 초과"
     }
+  },
+  "wallet": {
+    "title": "내 지갑",
+    "balance": "사용 가능 잔액",
+    "frozen": "동결 금액",
+    "totalRecharge": "누적 충전",
+    "totalWithdraw": "누적 출금",
+    "recharge": "충전",
+    "withdraw": "출금",
+    "loadFailed": "지갑 로드 실패"
+  },
+  "courseCatalog": {
+    "title": "강의 카탈로그",
+    "empty": "챕터 없음",
+    "loadFailed": "카탈로그 로드 실패",
+    "duration": "{n}분"
   }
 }

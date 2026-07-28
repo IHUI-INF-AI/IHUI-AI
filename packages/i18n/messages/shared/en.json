@@ -631,5 +631,21 @@
       "completed": "Completed",
       "overdue": "Overdue"
     }
+  },
+  "wallet": {
+    "title": "My Wallet",
+    "balance": "Available Balance",
+    "frozen": "Frozen Amount",
+    "totalRecharge": "Total Recharge",
+    "totalWithdraw": "Total Withdraw",
+    "recharge": "Recharge",
+    "withdraw": "Withdraw",
+    "loadFailed": "Failed to load wallet"
+  },
+  "courseCatalog": {
+    "title": "Course Catalog",
+    "empty": "No chapters",
+    "loadFailed": "Failed to load catalog",
+    "duration": "{n} min"
   }
 }
