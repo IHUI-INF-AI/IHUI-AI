@@ -385,7 +385,7 @@ function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: tokens.brand.DEFAULT,
-        tabBarInactiveTintColor: resolvedTheme === 'dark' ? tokens.text.tertiary : '#737373',
+        tabBarInactiveTintColor: resolvedTheme === 'dark' ? tokens.text.tertiary : tokens.gray[600],
         tabBarStyle: {
           backgroundColor: resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
         },
