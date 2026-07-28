@@ -508,6 +508,26 @@
   }
 }
 
+/* v13: 步骤 status icon 切换时短暂放大回弹(React key 变化触发新 mount,一次播放 300ms) */
+@keyframes icon-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  60% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-icon-pop {
+  animation: icon-pop 300ms ease-out;
+  transform-origin: center;
+}
+
 @keyframes ringPulse {
   0%,
   100% {
