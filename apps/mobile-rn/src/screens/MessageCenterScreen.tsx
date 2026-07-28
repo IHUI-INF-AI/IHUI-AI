@@ -23,6 +23,7 @@ import {
   type NotificationItem,
   type MessageItem,
 } from '@ihui/api-client'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
@@ -31,8 +32,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-const PAGE_SIZE = 20
 
 type TabKey = 'notification' | 'message'
 type Item = (NotificationItem & { _kind: 'notification' }) | (MessageItem & { _kind: 'message' })
@@ -55,7 +54,7 @@ export function MessageCenterScreen() {
 
   const fetcher = useCallback(async () => {
     if (tab === 'notification') {
-      const res = await getNotifications({ page: 1, pageSize: PAGE_SIZE })
+      const res = await getNotifications({ page: 1, pageSize: DEFAULT_PAGE_SIZE })
       if (res.success) {
         const list = res.data.list.map((n) => ({ ...n, _kind: 'notification' as const }))
         return { success: true as const, data: { list, total: res.data.total } }
@@ -63,7 +62,7 @@ export function MessageCenterScreen() {
       return { success: false as const, error: res.error || t('messageCenter.loadFailed') }
     }
     // getMessages 与 chat.ts 的 getMessages 命名冲突,用 fetch 自封装调用 /api/messages
-    const url = `${API_BASE_URL}/api/messages?page=1&pageSize=${PAGE_SIZE}`
+    const url = `${API_BASE_URL}/api/messages?page=1&pageSize=${DEFAULT_PAGE_SIZE}`
     const resp = await fetch(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
@@ -79,7 +78,7 @@ export function MessageCenterScreen() {
   }, [tab, t, token])
 
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
-    usePaginatedList<Item>(fetcher, PAGE_SIZE)
+    usePaginatedList<Item>(fetcher, DEFAULT_PAGE_SIZE)
 
   const onSwitchTab = (next: TabKey) => {
     if (next === tab) return

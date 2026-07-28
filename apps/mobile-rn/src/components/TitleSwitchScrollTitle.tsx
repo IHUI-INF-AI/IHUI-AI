@@ -109,14 +109,14 @@ const s = StyleSheet.create({
     paddingBottom: 12,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOpacity: 0.1,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
   section: { paddingHorizontal: 14, marginBottom: 10 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#000', marginBottom: 6 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: tokens.gray.black, marginBottom: 6 },
   listContent: { paddingVertical: 4 },
   item: {
     height: 40,
@@ -129,11 +129,11 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(248,249,252,0.65)',
   },
   itemActive: {
-    borderColor: '#7361FF',
+    borderColor: tokens.purple.DEFAULT,
     backgroundColor: 'rgba(205,208,255,0.35)',
   },
   itemText: { fontSize: 13, color: 'rgba(0,0,0,0.6)' },
-  itemTextActive: { color: '#7361FF', fontWeight: '700' },
+  itemTextActive: { color: tokens.purple.DEFAULT, fontWeight: '700' },
 })
 
 export default TitleSwitchScrollTitle

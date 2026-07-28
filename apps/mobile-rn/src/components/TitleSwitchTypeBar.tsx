@@ -142,7 +142,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   tabActive: {
-    borderColor: '#E0E8FF',
+    borderColor: tokens.indigo.light,
     backgroundColor: 'rgba(205,208,255,0.5)',
   },
   tabText: { fontSize: 13, fontWeight: '600', color: tokens.overlay.modal },

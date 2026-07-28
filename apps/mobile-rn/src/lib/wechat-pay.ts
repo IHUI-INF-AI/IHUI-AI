@@ -10,11 +10,12 @@
  */
 import * as WeChat from 'react-native-wechat-lib'
 import type { WechatAppPaySignData } from '@ihui/api-client'
+import { WECHAT_UNIVERSAL_LINK_FALLBACK } from '@ihui/shared/constants'
 
 // 微信开放平台移动应用 AppID(从历史项目复用,application.yml wx.app.appid)
 const APP_ID = process.env.EXPO_PUBLIC_WECHAT_APP_ID || ''
 // iOS Universal Link(微信支付完成后回到 app,需在 apple-app-site-association 配置)
-const UNIVERSAL_LINK = process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || 'https://file.aizhs.top/'
+const UNIVERSAL_LINK = process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || WECHAT_UNIVERSAL_LINK_FALLBACK
 
 let registered = false
 

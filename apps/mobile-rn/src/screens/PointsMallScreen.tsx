@@ -9,6 +9,7 @@ import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface Product {
@@ -26,8 +27,6 @@ interface ProductPage {
   balance: number
 }
 
-const PAGE_SIZE = 20
-
 export function PointsMallScreen() {
   const { t } = useI18n()
   const { token } = useAuth()
@@ -36,7 +35,7 @@ export function PointsMallScreen() {
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
 
   const fetcher = useCallback(async () => {
-    const resp = await fetch(`${API_BASE_URL}/api/points-mall?page=1&pageSize=${PAGE_SIZE}`, {
+    const resp = await fetch(`${API_BASE_URL}/api/points-mall?page=1&pageSize=${DEFAULT_PAGE_SIZE}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!resp.ok) return { success: false as const, error: t('pointsMall.loadFailed') }
@@ -46,7 +45,7 @@ export function PointsMallScreen() {
     return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
   }, [token, t])
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<Product>(fetcher, PAGE_SIZE)
+  const { items, loading, refreshing, error, refresh } = usePaginatedList<Product>(fetcher, DEFAULT_PAGE_SIZE)
 
   const handleRedeem = async (item: Product) => {
     if (balance < item.pointsCost) {
