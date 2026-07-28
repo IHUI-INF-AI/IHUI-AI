@@ -192,7 +192,7 @@ export function InterruptPanel({
           size="sm"
           onClick={() => handleAction('resume')}
           disabled={submitting}
-          className="h-7 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+          className="h-7 shrink-0 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
         >
           <Play className="h-3 w-3" />
           <span>恢复执行</span>
@@ -202,7 +202,7 @@ export function InterruptPanel({
           variant="outline"
           onClick={() => handleAction('rollback')}
           disabled={submitting}
-          className="h-7 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+          className="h-7 shrink-0 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
         >
           <RotateCcw className="h-3 w-3" />
           <span>回滚到此处</span>
@@ -212,7 +212,7 @@ export function InterruptPanel({
           variant="destructive"
           onClick={() => handleAction('cancel')}
           disabled={submitting}
-          className="h-7 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+          className="h-7 shrink-0 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
         >
           <X className="h-3 w-3" />
           <span>取消执行</span>
@@ -222,7 +222,7 @@ export function InterruptPanel({
           variant="ghost"
           onClick={handleLoadHistory}
           disabled={submitting}
-          className="h-7 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+          className="h-7 shrink-0 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
         >
           <HistoryIcon className="h-3 w-3" />
           <span>查看历史</span>
