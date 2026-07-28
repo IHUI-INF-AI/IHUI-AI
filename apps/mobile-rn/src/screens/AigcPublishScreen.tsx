@@ -155,6 +155,7 @@ export default function AigcPublishScreen() {
         },
       })
       if (res.success) {
+        // TODO: i18n — Alert.alert 硬编码中文待翻译(发布成功 / 作品已提交审核 / 好的)
         Alert.alert('发布成功', '作品已提交审核', [
           { text: '好的', onPress: () => navigation.goBack() },
         ])

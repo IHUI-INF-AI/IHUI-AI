@@ -22,3 +22,9 @@ export const INVITE_CODE_STORAGE_KEY = 'ihui-invite-code' as const
 export const SSO_CODE_STORAGE_KEY = 'ihui-sso-code' as const
 export const SSO_USER_STORAGE_KEY = 'ihui-sso-user' as const
 export const COZE_CONFIG_STORAGE_KEY = 'coze-config-v1' as const
+
+// extension 专用 storage key / alarm name(从 apps/extension/lib/config.ts 下沉)
+export const EXPIRES_IN_STORAGE_KEY = 'ihui_token_expires_in' as const
+export const REFRESH_ALARM_NAME = 'ihui-refresh-token' as const
+export const API_BASE_URL_STORAGE_KEY = 'ihui_api_base_url' as const
+export const PENDING_ROUTE_STORAGE_KEY = 'ihui_pending_route' as const
