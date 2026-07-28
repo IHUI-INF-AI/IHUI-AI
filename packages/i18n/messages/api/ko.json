@@ -1,0 +1,12 @@
+{
+  "budgetAlert": {
+    "subject": {
+      "warning": "[경고] AI 예산이 한도에 근접했습니다",
+      "critical": "[심각] AI 예산을 초과했습니다"
+    },
+    "body": {
+      "warning": "AI 사용량이 예산 한도에 근접했습니다. 다음 사항을 확인해 주세요:\n• 오늘 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 이번 달 비용: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\n서비스 중단을 방지하기 위해 사용량을 조정하거나 관리자에게 한도 상향을 요청해 주세요.",
+      "critical": "AI 사용량이 예산 한도에 도달했으며 이후 호출에 영향을 줄 수 있습니다:\n• 오늘 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 이번 달 비용: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\n즉시 사용량을 조정하거나 관리자에게 한도 상향을 요청해 주세요. 초과 사용량은 제한되거나 중단될 수 있습니다."
+    }
+  }
+}

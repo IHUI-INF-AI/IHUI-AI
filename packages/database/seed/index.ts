@@ -91,6 +91,12 @@ const STEPS: SeedStep[] = [
     description: '176 条模型价格(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao 等厂商)',
     fn: seedAiPricing,
   },
+  {
+    index: 11,
+    name: 'AI 成本治理 seed',
+    description: '为 admin/ai-cost 看板 top-users / budget-alerts 端点补真实数据(3 用户 × 4 模型 × 7 天 + 3 预算)',
+    fn: seedAiCostRecords,
+  },
 ]
 
 /** 解析 CLI 参数: --only=1,3,5 只跑指定编号; --skip=2,4 跳过指定编号 */
