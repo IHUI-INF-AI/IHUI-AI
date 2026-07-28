@@ -598,9 +598,38 @@
   },
   "order": {
     "empty": "暫無訂單",
-    "status": {
-      "refunded": "已退款"
+    "loadFailed": "載入訂單失敗",
+    "title": "我的訂單",
+    "amount": "金額",
+    "orderNo": "訂單編號",
+    "tab": {
+      "all": "全部",
+      "pending": "待付款",
+      "paid": "已付款",
+      "shipped": "已出貨",
+      "completed": "已完成"
     },
-    "orderNo": "訂單編號"
+    "status": {
+      "pending": "待付款",
+      "paid": "已付款",
+      "shipped": "已出貨",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "refunded": "已退款"
+    }
+  },
+  "studyPlan": {
+    "empty": "暫無學習計劃",
+    "loadFailed": "載入學習計劃失敗",
+    "title": "學習計劃",
+    "lessons": "課時",
+    "progress": "進度",
+    "deadline": "截止日期",
+    "status": {
+      "active": "進行中",
+      "paused": "已暫停",
+      "completed": "已完成",
+      "overdue": "已逾期"
+    }
   }
 }
