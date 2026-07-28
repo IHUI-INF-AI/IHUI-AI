@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Plus, Terminal as TerminalIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TerminalSession, TerminalSessionStatus } from '@ihui/types'
+import { formatDateByTemplate } from '@ihui/shared'
 
 interface TerminalSessionListProps {
   sessions: TerminalSession[]
@@ -16,14 +17,7 @@ interface TerminalSessionListProps {
 
 /** 格式化时间戳为 HH:MM */
 function formatTime(ts: number): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(ts)
-  } catch {
-    return '--:--'
-  }
+  return formatDateByTemplate(ts, 'HH:mm') || '--:--'
 }
 
 /** 状态徽章颜色映射(draft 灰 / published 绿 → active 绿 / exited 灰 / closed 红) */
