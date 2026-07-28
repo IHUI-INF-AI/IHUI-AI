@@ -36,6 +36,7 @@ export type ScheduledJobName =
   | 'dingtalk-token-refresh'
   | 'ai-feed-collect'
   | 'ai-feed-process'
+  | 'budget-alert-check'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -134,6 +135,14 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'ai-feed-process',
     pattern: '30 */6 * * *',
     description: 'AI 资讯 LLM 分类摘要 + 标题翻译 + 趋势信号计算（每6小时错峰30分）',
+  },
+  // P0-3e 预算告警扫描：每 30 分钟聚合 aiBudgets(scope='user') 用户的今日 token / 本月成本,
+  // 命中 80% warning / 100% critical 阈值时通过 notificationQueue 推站内信 + sendEmail 发邮件,
+  // 6h cooldown 防重复告警(reuse notifications 表)
+  {
+    name: 'budget-alert-check',
+    pattern: '*/30 * * * *',
+    description: '预算告警扫描（每30分钟,80% warning/100% critical）',
   },
 ]
 
