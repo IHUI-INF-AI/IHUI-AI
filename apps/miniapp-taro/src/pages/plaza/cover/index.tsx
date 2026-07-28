@@ -5,6 +5,7 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import type { UserInfo, DeveloperSubscription } from '@/api'
 import { useI18n } from '@/i18n'
+import { formatDateOnly } from '@ihui/shared'
 
 /** 开发者账号信息(对标原项目 developer_info_body) */
 interface DeveloperInfo {
@@ -67,11 +68,7 @@ function formatExpires(time?: string): string {
   if (!time) return '-'
   const d = new Date(time)
   if (Number.isNaN(d.getTime())) return time
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d)
+  return formatDateOnly(d)
 }
 
 export default function PlazaCover() {

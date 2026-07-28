@@ -3,6 +3,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getExamList, getExamRecords, type Exam, type ExamRecord } from '@/api'
 import { useI18n } from '@/i18n'
+import { formatDateOnly } from '@ihui/shared'
 
 type Tab = 'all' | 'pending' | 'completed'
 
@@ -85,7 +86,7 @@ export default function ExamList() {
           )}
           {r.submittedAt && (
             <Text className="text-xs text-muted-foreground">
-              {new Intl.DateTimeFormat('zh-CN').format(new Date(r.submittedAt))}
+              {formatDateOnly(r.submittedAt)}
             </Text>
           )}
         </View>
