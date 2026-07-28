@@ -3,6 +3,7 @@ export { ProfileScreen } from './features/profile/ProfileScreen'
 export { SettingsScreen } from './features/settings/SettingsScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
+export { BookmarkScreen } from './features/bookmark/BookmarkScreen'
 
 export {
   VipCard,
@@ -41,4 +42,7 @@ export type {
   FeedbackStatus,
   FeedbackHistoryItem,
   FeedbackHistoryScreenProps,
+  BookmarkTargetType,
+  BookmarkItem,
+  BookmarkScreenProps,
 } from './types'

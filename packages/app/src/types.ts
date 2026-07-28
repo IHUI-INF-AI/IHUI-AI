@@ -23,4 +23,7 @@ export type {
   FeedbackStatus,
   FeedbackHistoryItem,
   FeedbackHistoryScreenProps,
+  BookmarkTargetType,
+  BookmarkItem,
+  BookmarkScreenProps,
 } from '@ihui/types'
