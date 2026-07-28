@@ -608,7 +608,9 @@
       "review": "리뷰 모드로 전환(읽기 전용, 강화된 코드 리뷰)",
       "spec": "스펙 모드로 전환(코드에서 spec 문서 역생성)",
       "goal": "현재 세션 목표 설정(AI가 목표 중심으로 실행, goal 모드 워크플로우 진입)",
-      "loop": "루프 실행 모드 설정(on 시작 / off 중지 / N 반복 횟수)"
+      "loop": "루프 실행 모드 설정(on 시작 / off 중지 / N 반복 횟수)",
+      "goalArgTitle": "목표 템플릿 선택",
+      "loopArgTitle": "루프 모드 선택"
     },
     "cmdSummary": "위 대화를 요약하고 핵심 정보를 추출해 주세요",
     "cmdTranslate": "다음 내용을 영어로 번역해 주세요:",
@@ -9788,6 +9790,14 @@
       "timelineNoMatch": "현재 필터와 일치하는 이벤트가 없습니다",
       "timelineClearFilters": "필터 지우기",
       "timelineExport": "Markdown으로 내보내기",
+      "timelineSubagentSpawn": "서브에이전트 시작",
+      "timelineSubagentProgress": "실행 중",
+      "timelineSubagentEnd": "서브에이전트 완료",
+      "timelineSubagentFailed": "서브에이전트 실패",
+      "timelineSubagentThinking": "생각 중",
+      "timelineSubagentToolCall": "도구 호출",
+      "timelineSubagentToolResult": "도구 결과",
+      "timelineSubagentOutputReady": "출력 준비 완료",
       "sseStatus": {
         "connected": "연결됨",
         "connecting": "연결 중",
