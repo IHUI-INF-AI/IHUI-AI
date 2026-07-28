@@ -2,18 +2,10 @@ import Taro from '@tarojs/taro'
 import { getStorageSync } from '@tarojs/taro'
 import { SHARE_PARAM } from '@ihui/shared/constants'
 import { USER_INFO_LEGACY_KEY } from '@/constants/storage'
+import type { ShareInfo, TimelineShareInfo } from '@ihui/types'
 
-export interface ShareInfo {
-  title: string
-  path: string
-  imageUrl?: string
-}
-
-export interface TimelineShareInfo {
-  title: string
-  query: string
-  imageUrl?: string
-}
+// ShareInfo / TimelineShareInfo 已下沉到 @ihui/types
+export type { ShareInfo, TimelineShareInfo } from '@ihui/types'
 
 // 2026-07-28 Q-2: 跨端共享的 URL 参数(source/sourceValue/inviteCodeParam)
 // 改用 @ihui/shared/constants SHARE_PARAM,消除本地重复定义。
@@ -73,5 +65,6 @@ export function hideShareMenu(): void {
 }
 
 export function onShareSuccess(): void {
+  // TODO: i18n — Taro.showToast 硬编码中文待翻译(分享成功)
   Taro.showToast({ title: '分享成功', icon: 'success', duration: 2000 })
 }

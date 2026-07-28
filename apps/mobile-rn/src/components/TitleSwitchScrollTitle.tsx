@@ -5,11 +5,11 @@
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
+import type { TitleSwitchScrollTitleItem } from '@ihui/ui-native'
 
-export interface TitleSwitchItem {
-  name: string
-  children?: TitleSwitchItem[]
-}
+// 共享类型 TitleSwitchScrollTitleItem(含递归 children 字段)下沉到 packages/types,两端复用。
+// 保留 TitleSwitchItem 别名以维持本模块公开 API(本模块内部亦使用此名)。
+export type TitleSwitchItem = TitleSwitchScrollTitleItem
 
 interface Props {
   mainList?: TitleSwitchItem[]

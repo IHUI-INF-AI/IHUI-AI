@@ -1,19 +1,10 @@
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import { useState, useEffect, useCallback } from 'react'
+import type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps } from '@ihui/types'
 
-export interface TitleSwitchTypeBarItem {
-  id: string
-  name: string
-  butUrl?: string
-  field1?: string
-  type?: string
-}
-
-export interface TitleSwitchTypeBarProps {
-  showAll?: boolean
-  customize?: boolean
-  onChange?: (ids: string[]) => void
-}
+// 共享类型 TitleSwitchTypeBarItem / TitleSwitchTypeBarProps 已下沉到 packages/types,两端复用。
+// 重新导出以维持本模块公开 API(原文件 export 这些类型)。
+export type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps }
 
 const DEFAULT_TABS: TitleSwitchTypeBarItem[] = [
   { id: '1', name: '文案' },

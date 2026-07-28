@@ -83,3 +83,12 @@ export * from './app'
 
 // Coze 平台 API 跨端契约(2026-07-27 立,PAT 直连 Coze 官方 API,chat/workflow/bot/dataset)
 export * from './coze'
+
+// 跨端支付参数类型(2026-07-28 立,从 miniapp-taro 下沉:PayPlatform/WxPayParams/AliPayParams/AnyPayParams)
+export * from './pay'
+
+// 跨端分享信息类型(2026-07-28 立,从 miniapp-taro 下沉:ShareInfo/TimelineShareInfo)
+export * from './share'
+
+// 跨端同名组件共享 props 类型(2026-07-28 立,mobile-rn + miniapp-taro 14 对组件类型去重)
+export * from './ui-native-components'

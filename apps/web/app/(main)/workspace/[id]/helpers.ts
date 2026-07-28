@@ -49,6 +49,10 @@ export async function fetchFiles(projectId: string): Promise<FileItem[]> {
   return res.data.files
 }
 
+// NOTE: uploadFile / downloadFile 保留直接 fetch,未迁移到 fetchApi:
+// - uploadFile:fetchApi 内部 fetchOnce 仅透传 string body(line 110: `typeof body === 'string' ? body : undefined`),
+//   FormData 会被丢弃导致上传失败。与 A4 豁免的 file-utils.ts 分片上传同因。
+// - downloadFile:fetchApi 内部 fetchOnce 固定调 `response.json()`(line 152),不支持 blob 二进制响应。
 export async function uploadFile(
   projectId: string,
   file: File,

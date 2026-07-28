@@ -96,6 +96,7 @@ export default function N8nModelScreen() {
   })
 
   const handleToggle = (m: N8nModel) => {
+    // TODO: i18n — Alert.alert 硬编码中文待翻译(停止工作流 / 启动工作流 / 确定停止/启动「X」吗 / 取消 / 确定 / 操作成功)
     Alert.alert(
       m.status === 'running' ? '停止工作流' : '启动工作流',
       `确定${m.status === 'running' ? '停止' : '启动'}「${m.name}」吗?`,

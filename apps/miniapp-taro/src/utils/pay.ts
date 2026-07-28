@@ -1,6 +1,7 @@
 import Taro from '@tarojs/taro'
 import { requestWeappPayment, requestAlipayPayment } from '../platform/pay'
 import { getPlatform } from '../platform/auth'
+import type { PayPlatform, AnyPayParams } from '@ihui/types'
 
 // 对外统一 API(从 platform/pay.ts re-export,消除双套实现)
 export {
@@ -12,38 +13,8 @@ export {
   type PayResult,
 } from '../platform/pay'
 
-export type PayPlatform = 'wechat' | 'alipay'
-
-export interface WxPayParams {
-  timeStamp?: string | number
-  nonceStr?: string
-  package?: string
-  signType?: 'RSA' | 'MD5' | 'HMAC-SHA256'
-  paySign?: string
-  orderInfo?: string | Record<string, unknown>
-  appid?: string
-  appId?: string
-  app_id?: string
-  partnerid?: string
-  partnerId?: string
-  partner_id?: string
-  prepayid?: string
-  prepayId?: string
-  prepay_id?: string
-  noncestr?: string
-  nonce_str?: string
-  timestamp?: string | number
-  sign?: string
-}
-
-export interface AliPayParams {
-  orderInfo?: string
-  orderStr?: string
-  /** 支付宝交易号(后端 alipay.trade.create 返回,my.tradePay 优先用此字段) */
-  tradeNO?: string
-}
-
-export type AnyPayParams = WxPayParams & AliPayParams
+// PayPlatform / WxPayParams / AliPayParams / AnyPayParams 已下沉到 @ihui/types
+export type { PayPlatform, WxPayParams, AliPayParams, AnyPayParams } from '@ihui/types'
 
 interface PayErrorLike {
   errMsg?: string
@@ -108,10 +79,12 @@ function buildAppWxOrderInfo(p: AnyPayParams): string {
 
 function showWxPayError(err: PayErrorLike): void {
   if (isCancelError(err)) {
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(您已取消支付)
     Taro.showToast({ title: '您已取消支付', icon: 'none' })
     return
   }
   if (isWxNotInstalled(err)) {
+    // TODO: i18n — Taro.showModal 硬编码中文待翻译(提示 / 未检测到微信应用,请先安装微信 / 我知道了)
     Taro.showModal({
       title: '提示',
       content: '未检测到微信应用,请先安装微信',
@@ -121,18 +94,22 @@ function showWxPayError(err: PayErrorLike): void {
     return
   }
   if (isParamError(err)) {
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(支付参数错误,请重试)
     Taro.showToast({ title: '支付参数错误,请重试', icon: 'none', duration: 2000 })
     return
   }
+  // TODO: i18n — Taro.showToast 硬编码中文待翻译(支付失败,请重试)
   Taro.showToast({ title: '支付失败,请重试', icon: 'none', duration: 2000 })
 }
 
 function showAliPayError(err: PayErrorLike): void {
   if (isCancelError(err)) {
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(您已取消支付)
     Taro.showToast({ title: '您已取消支付', icon: 'none' })
     return
   }
   if (isAliNotInstalled(err)) {
+    // TODO: i18n — Taro.showModal 硬编码中文待翻译(提示 / 未检测到支付宝应用,请先安装支付宝 / 我知道了)
     Taro.showModal({
       title: '提示',
       content: '未检测到支付宝应用,请先安装支付宝',
@@ -142,6 +119,7 @@ function showAliPayError(err: PayErrorLike): void {
     return
   }
   const msg = err.errMsg || err.message || ''
+  // TODO: i18n — Taro.showToast 硬编码中文待翻译(支付失败,请重试 / 支付失败)
   Taro.showToast({
     title: msg.length > 20 ? '支付失败,请重试' : msg || '支付失败',
     icon: 'none',
@@ -168,6 +146,7 @@ export function requestWxPayment(payParams: AnyPayParams): Promise<unknown> {
   }
 
   // App 端支付(保留原逻辑)
+  // TODO: i18n — Taro.showLoading 硬编码中文待翻译(支付中...)
   Taro.showLoading({ title: '支付中...', mask: true })
   if (platform === 'app') {
     const orderInfo = buildAppWxOrderInfo(payParams)
@@ -189,6 +168,7 @@ export function requestWxPayment(payParams: AnyPayParams): Promise<unknown> {
   }
 
   Taro.hideLoading()
+  // TODO: i18n — Taro.showToast 硬编码中文待翻译(当前环境不支持微信支付)
   Taro.showToast({ title: '当前环境不支持微信支付', icon: 'none' })
   return Promise.reject(new Error(`unsupported platform: ${platform}`))
 }
@@ -201,6 +181,7 @@ export function requestAliPayment(payParams: AnyPayParams): Promise<unknown> {
   const platform = getPlatform()
 
   if (platform === 'weapp') {
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(微信小程序暂不支持支付宝支付)
     Taro.showToast({ title: '微信小程序暂不支持支付宝支付', icon: 'none' })
     return Promise.reject(new Error('weapp unsupported alipay'))
   }
@@ -214,11 +195,13 @@ export function requestAliPayment(payParams: AnyPayParams): Promise<unknown> {
   }
 
   // App 端支付宝支付(保留原 orderInfo 模式)
+  // TODO: i18n — Taro.showLoading 硬编码中文待翻译(支付中...)
   Taro.showLoading({ title: '支付中...', mask: true })
   const orderStr =
     typeof payParams.orderInfo === 'string' ? payParams.orderInfo : (payParams.orderStr ?? '')
   if (!orderStr) {
     Taro.hideLoading()
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(支付宝订单信息缺失)
     Taro.showToast({ title: '支付宝订单信息缺失', icon: 'none' })
     return Promise.reject(new Error('missing alipay orderInfo'))
   }

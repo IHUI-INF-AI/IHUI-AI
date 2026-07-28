@@ -1,5 +1,5 @@
+import { fetchApi } from '@/lib/api'
 import type {
-  ApiResponse,
   HistoryEntry,
   InterruptEvent,
   LangGraphCheckpoint,
@@ -16,16 +16,8 @@ import type {
  *  - GET  /api/agent-langgraph/:threadId/history     查询历史(Time Travel)
  *  - GET  /api/agent-langgraph/:threadId/stream      SSE 流式输出(由 use-agent-stream 消费)
  *
- * 所有响应统一 `{ code, message, data }` 格式,本文件仅返回 data 字段。
+ * 所有响应统一 `{ code, message, data }` 格式,fetchApi 自动解包并返回 data 字段。
  */
-
-async function callApi<T>(res: Response): Promise<T> {
-  const json = (await res.json()) as ApiResponse<T>
-  if (!res.ok || json.code !== 0) {
-    throw new Error(json.message || `请求失败 (${res.status})`)
-  }
-  return json.data
-}
 
 /** 触发节点暂停,等待人工介入 */
 export async function triggerInterrupt(
@@ -34,12 +26,16 @@ export async function triggerInterrupt(
   reason: string,
   payload?: unknown,
 ): Promise<InterruptEvent> {
-  const res = await fetch(`/api/agent-langgraph/${threadId}/interrupt`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nodeId, reason, payload }),
-  })
-  return callApi<InterruptEvent>(res)
+  const r = await fetchApi<InterruptEvent>(
+    `/api/agent-langgraph/${threadId}/interrupt`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nodeId, reason, payload }),
+    },
+  )
+  if (!r.success) throw new Error(r.error)
+  return r.data
 }
 
 /** 恢复执行 / 回滚 / 取消 */
@@ -49,21 +45,31 @@ export async function resumeExecution(
   resumeValue: unknown,
   action: ResumeCommand['action'] = 'resume',
 ): Promise<{ ok: true }> {
-  const res = await fetch(`/api/agent-langgraph/${threadId}/resume`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ interruptId, resumeValue, action }),
-  })
-  return callApi<{ ok: true }>(res)
+  const r = await fetchApi<{ ok: true }>(
+    `/api/agent-langgraph/${threadId}/resume`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interruptId, resumeValue, action }),
+    },
+  )
+  if (!r.success) throw new Error(r.error)
+  return r.data
 }
 
 /** 查询当前 thread checkpoint 状态 */
 export async function getThreadState(
   threadId: string,
 ): Promise<LangGraphCheckpoint | null> {
-  const res = await fetch(`/api/agent-langgraph/${threadId}/state`)
-  if (res.status === 404) return null
-  return callApi<LangGraphCheckpoint | null>(res)
+  const r = await fetchApi<LangGraphCheckpoint | null>(
+    `/api/agent-langgraph/${threadId}/state`,
+  )
+  if (!r.success) {
+    // 404 表示 thread 不存在,返回 null(与历史行为一致)
+    if (r.status === 404) return null
+    throw new Error(r.error)
+  }
+  return r.data
 }
 
 /** 查询历史 checkpoint 列表(Time Travel 入口) */
@@ -71,8 +77,9 @@ export async function getThreadHistory(
   threadId: string,
   limit = 100,
 ): Promise<HistoryEntry[]> {
-  const res = await fetch(
+  const r = await fetchApi<HistoryEntry[]>(
     `/api/agent-langgraph/${threadId}/history?limit=${limit}`,
   )
-  return callApi<HistoryEntry[]>(res)
+  if (!r.success) throw new Error(r.error)
+  return r.data
 }
