@@ -169,3 +169,35 @@ export interface FeedbackHistoryScreenProps {
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
+
+/** 收藏对象类型(与后端 /api/favorites 契约对齐,targetType 字段对齐 FavoriteItem) */
+export type BookmarkTargetType = 'course' | 'article' | 'post' | 'note' | string
+
+/** 收藏列表项(平台注入,字段对齐 @ihui/api-client FavoriteItem) */
+export interface BookmarkItem {
+  id: string
+  targetId: string
+  targetType: BookmarkTargetType
+  title: string
+  /** 封面图 URL(可空) */
+  cover?: string | null
+  /** ISO 时间字符串或格式化后的时间文本 */
+  createdAt: string
+}
+
+/** Bookmark 屏 props */
+export interface BookmarkScreenProps {
+  t: TFunction
+  items: BookmarkItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击列表项回调,平台注入导航跳转(参数为 BookmarkItem 完整对象,平台依据 targetType 决定目标路由) */
+  onPressItem: (item: BookmarkItem) => void
+  /** 删除收藏回调,平台注入实际 API 调用 + 列表状态更新 */
+  onRemove: (item: BookmarkItem) => void | Promise<void>
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
