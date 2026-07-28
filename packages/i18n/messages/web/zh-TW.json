@@ -8850,6 +8850,11 @@
     }
   },
   "search": {
+    "history": "搜尋歷史",
+    "popular": "熱門搜尋",
+    "suggest": "搜尋建議",
+    "clearAll": "清除全部",
+    "noResults": "無搜尋結果",
     "tabs": {
       "users": "使用者",
       "files": "文件"
@@ -9648,7 +9653,6 @@
       "working": "{count} 個子智能體協作中"
     },
     "pane": {
-      "title": "任務計畫",
       "ariaLabel": "Agent 任務進度面板",
       "pin": "置頂",
       "unpin": "取消置頂",
@@ -9697,6 +9701,10 @@
       "pinHintPinned": "已釘選,點擊外部不關閉",
       "pinHintUnpinned": "已取消釘選,點擊外部關閉",
       "minimizeHint": "最小化任務面板",
+      "emptyTitle": "等待任務開始",
+      "emptySubtitle": "對話開始後,任務拆解會顯示在這裡",
+      "elapsedTitle": "已耗時 {time}",
+      "failureBanner": "{n} 個任務失敗,點擊查看",
       "emptyHint": "開始對話後顯示任務計劃",
       "emptyHintsLabel": "任務計劃使用提示",
       "emptyHint1": "開始對話後,這裡會顯示 AI 的任務拆解與進度",

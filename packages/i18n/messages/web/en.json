@@ -8892,6 +8892,11 @@
     }
   },
   "search": {
+    "history": "Search History",
+    "popular": "Popular Searches",
+    "suggest": "Suggestions",
+    "clearAll": "Clear All",
+    "noResults": "No results",
     "emptyKeyword": "Enter a keyword to search",
     "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})"
   },
@@ -9684,7 +9689,6 @@
       "working": "{count} sub-agents collaborating"
     },
     "pane": {
-      "title": "Task Plan",
       "ariaLabel": "Agent Task Progress Panel",
       "pin": "Pin",
       "unpin": "Unpin",
@@ -9733,6 +9737,10 @@
       "pinHintPinned": "Pinned, won't close on outside click",
       "pinHintUnpinned": "Unpinned, closes on outside click",
       "minimizeHint": "Minimize the task pane",
+      "emptyTitle": "Waiting for tasks",
+      "emptySubtitle": "The task breakdown will appear here once the conversation starts",
+      "elapsedTitle": "Elapsed {time}",
+      "failureBanner": "{n} task(s) failed, click to view",
       "emptyHint": "The plan appears once a conversation starts.",
       "emptyHintsLabel": "Quick tips",
       "emptyHint1": "After you start a conversation, the AI's task breakdown and progress will appear here.",
