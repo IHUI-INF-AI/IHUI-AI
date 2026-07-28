@@ -550,7 +550,8 @@ export function MessageList({
           const realIdx = enableVirtual ? visibleRange.start + idx : idx
           return (
             <div key={m.id} ref={enableVirtual ? measureItem(m.id) : undefined}>
-              {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
+              {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染
+                Phase 19 扩展:传递高亮状态 + hover 联动回调(都从 progress-jump-store 派生) */}
               <MessageItem
                 message={m}
                 isLast={realIdx === messages.length - 1}
@@ -558,12 +559,44 @@ export function MessageList({
                 assistantLabel={assistantLabel}
                 onApplyDiff={onApplyDiff}
                 onRejectDiff={onRejectDiff}
+                highlightedMessageId={highlightedMessageId}
+                onMessageHover={setHoveredMessage}
+                relatedPlanStepIds={messageToPlanStepIds[m.id]}
+                onPlanStepHover={setHoveredPlanStep}
               />
             </div>
           )
         })}
         {/* #7 虚拟滚动底部占位 */}
         {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
+        {/* Phase 19:AI 主动提问块(2026-07-28 立,Trae Work 对齐)
+          - 当 pendingQuestion 非空时,渲染在最后一条消息下方
+          - QuestionBlock 只展示状态(已答/未答),真正回答交互由 ai-side-panel 的 QuestionDialog 接管
+          - options 字段从 PendingQuestion 派生(questionId/prompt/options/allowMultiple)
+          - 使用 mx-auto max-w-3xl px-4 与上方消息流对齐 */}
+        {pendingQuestion && (
+          <div className="mx-auto max-w-3xl px-4">
+            <QuestionBlock
+              questions={
+                [
+                  {
+                    id: pendingQuestion.questionId,
+                    question: pendingQuestion.prompt,
+                    options: pendingQuestion.options.map((o) => ({ id: o.id, label: o.label })),
+                    multiSelect: pendingQuestion.allowMultiple,
+                    answered: false,
+                  },
+                ] satisfies QuestionBlockItem[]
+              }
+              defaultCollapsed={false}
+            />
+          </div>
+        )}
+        {/* Phase 19:时间线事件区(2026-07-28 立,Trae Work 对齐)
+          - showTabs=false:只渲染事件列表(不显示 tab 切换器,tab 由独立的进度面板渲染)
+          - 事件从 useTimelineStore 订阅,Phase 18 期间已驱动
+          - 与 bottomRef 同一容器,确保事件始终在消息流下方 */}
+        <TimelineTab showTabs={false} />
         <div ref={bottomRef} />
       </div>
     </div>
