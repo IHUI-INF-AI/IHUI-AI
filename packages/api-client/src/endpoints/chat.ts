@@ -184,3 +184,31 @@ export function compressConversation(id: string, targetChars: 200000 | 1000000) 
     body: JSON.stringify({ targetChars }),
   })
 }
+
+/**
+ * AI 对话选项(跨端共享,从 miniapp-taro 下沉)
+ *
+ * 用于 POST /ai/chat 和 POST /ai/chat/stream 的可选参数。
+ */
+export interface ChatOptions {
+  /** 模型 ID(优先使用,与 AI-service LLMCompleteRequest 对齐) */
+  model?: string
+  /** 向后兼容 alias,优先级低于 model */
+  modelId?: string
+  agentId?: string
+  materialContent?: string
+  /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
+   * 由调用方调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
+  contextLimit?: number
+}
+
+/**
+ * AI 对话结果(跨端共享,从 miniapp-taro 下沉)
+ *
+ * 用于 POST /ai/chat 的响应类型。
+ */
+export interface ChatResult {
+  reply: string
+  sessionId: string
+  reasoning?: string
+}
