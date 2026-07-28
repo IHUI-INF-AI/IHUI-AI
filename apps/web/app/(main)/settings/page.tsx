@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { KeyRound } from 'lucide-react'
 
-import { Card, CardContent } from '@ihui/ui-react'
+import { Card, CardContent, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
 import {
@@ -50,67 +50,78 @@ export default function SettingsPage() {
   }
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <ThemeCard t={t} mounted={mounted} theme={theme} onSelect={(k) => setTheme(k)} />
-      <LanguageCard t={t} locale={locale} onSelect={switchLocale} />
-      <SidebarCard t={t} collapsed={collapsed} onToggle={toggleCollapsed} />
-      <MiniappQrCard t={t} />
-      <DesktopSettingsCard />
+      <Tabs defaultValue="appearance" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="appearance">{t('appearance') || '外观'}</TabsTrigger>
+          <TabsTrigger value="security">{t('securityCenter')}</TabsTrigger>
+          <TabsTrigger value="more">{t('subPagesTitle')}</TabsTrigger>
+        </TabsList>
 
-      <ThemeBackupSync />
+        <TabsContent value="appearance" className="mt-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ThemeCard t={t} mounted={mounted} theme={theme} onSelect={(k) => setTheme(k)} />
+            <LanguageCard t={t} locale={locale} onSelect={switchLocale} />
+            <SidebarCard t={t} collapsed={collapsed} onToggle={toggleCollapsed} />
+            <MiniappQrCard t={t} />
+            <DesktopSettingsCard />
+            <ThemeBackupSync />
+          </div>
+        </TabsContent>
 
-      <div className="space-y-2 pt-2">
-        <h2 className="text-lg font-semibold tracking-tight">{t('securityCenter')}</h2>
-      </div>
-      <Alert variant="info" title={t('securityCenter')} closable />
-      <SecurityScore />
-      <TwoFactorAuth />
-      <DeviceManager />
-      <SessionManager />
-      <IpWhitelist />
-      <LoginHistory />
+        <TabsContent value="security" className="mt-3">
+          <Alert variant="info" title={t('securityCenter')} closable />
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <SecurityScore />
+            <TwoFactorAuth />
+            <DeviceManager />
+            <SessionManager />
+            <IpWhitelist />
+            <LoginHistory />
+          </div>
+        </TabsContent>
 
-      <div className="space-y-2 pt-2">
-        <h2 className="text-lg font-semibold tracking-tight">{t('subPagesTitle')}</h2>
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Link href="/settings/api-keys">
-          <Card className="transition-colors hover:bg-accent">
-            <CardContent className="flex items-start gap-3 p-4">
-              <div className="rounded-lg bg-muted p-2">
-                <KeyRound className="h-4 w-4" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">API 密钥</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">管理开发者 API 密钥</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        {SUB_PAGES.map((item) => {
-          const Icon = item.icon
-          return (
-            <Link key={item.href} href={item.href}>
+        <TabsContent value="more" className="mt-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Link href="/settings/api-keys">
               <Card className="transition-colors hover:bg-accent">
-                <CardContent className="flex items-start gap-3 p-4">
-                  <div className="rounded-lg bg-muted p-2">
-                    <Icon className="h-4 w-4" />
+                <CardContent className="flex items-start gap-2 p-3">
+                  <div className="rounded-md bg-muted p-1.5">
+                    <KeyRound className="h-3.5 w-3.5" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">{t(item.titleKey)}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{t(item.descKey)}</p>
+                    <p className="text-xs font-medium">API 密钥</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">管理开发者 API 密钥</p>
                   </div>
                 </CardContent>
               </Card>
             </Link>
-          )
-        })}
-      </div>
+            {SUB_PAGES.map((item) => {
+              const Icon = item.icon
+              return (
+                <Link key={item.href} href={item.href}>
+                  <Card className="transition-colors hover:bg-accent">
+                    <CardContent className="flex items-start gap-2 p-3">
+                      <div className="rounded-md bg-muted p-1.5">
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-medium">{t(item.titleKey)}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">{t(item.descKey)}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            })}
+          </div>
+        </TabsContent>
+      </Tabs>
     </Container>
   )
 }
