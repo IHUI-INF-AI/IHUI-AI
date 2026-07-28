@@ -5727,6 +5727,32 @@
       "error": "下載失敗",
       "printError": "列印失敗",
       "certText": "茲證明 {name} 通過相關考核，特發此證。"
+    },
+    "detail": {
+      "headerTitle": "課程完成證書",
+      "courseLabel": "課程",
+      "recipientLabel": "獲得者",
+      "certNo": "證書編號",
+      "awarderLabel": "頒發人",
+      "issueDate": "頒發日期",
+      "validityLabel": "有效期",
+      "loading": "加載證書中...",
+      "notFound": "證書不存在或已撤銷",
+      "unknownRecipient": "未命名獲得者",
+      "defaultIssuer": "IHUI AI 學院",
+      "defaultAwarder": "學術委員會",
+      "defaultConditions": "完成課程全部章節學習並通過期末考核(≥ 60 分)",
+      "defaultValidity": "永久有效",
+      "printAction": "列印",
+      "downloadAction": "下載 PDF",
+      "downloadError": "下載失敗",
+      "backToList": "返回證書列表",
+      "source": "來源",
+      "template": "模板",
+      "status": "狀態",
+      "statusValid": "有效",
+      "statusRevoked": "已撤銷",
+      "issuerAria": "{org} 頒發給 {name} 的完成證書"
     }
   },
   "selfMedia": {
