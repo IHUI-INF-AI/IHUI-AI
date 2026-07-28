@@ -5,6 +5,7 @@ import { useTheme } from 'next-themes'
 import '@xterm/xterm/css/xterm.css'
 import { TerminalTabBar } from './terminal-tab-bar'
 import { useTerminalSession } from '@/hooks/use-terminal-session'
+import { useDebounce } from '@/hooks/use-debounce'
 import type { TerminalSplitDirection } from '@/stores/terminal'
 import { cn } from '@/lib/utils'
 import type { TerminalWSServerMessage } from '@ihui/types'
@@ -230,6 +231,11 @@ function TerminalViewport({
     searchTermRef.current = searchTerm
   }, [searchTerm])
 
+  // P2 修复:搜索词加 250ms debounce,避免大 buffer(5000 行)每次按键触发 findAllMatches 全量遍历导致卡顿。
+  // doSearch 内部用 searchTermRef.current(最新值)执行实际搜索,因此 debounce 只控制"何时触发",
+  // 用户按 Enter 时仍立即用最新词搜索,无延迟。
+  const debouncedSearchTerm = useDebounce(searchTerm, 250)
+
   /** 清除所有匹配高亮装饰 */
   const clearDecorations = React.useCallback(() => {
     for (const d of decorationsRef.current) {
@@ -406,10 +412,10 @@ function TerminalViewport({
     [searchOpts, findAllMatches, applyMatchHighlights, fallbackSearch, clearDecorations],
   )
 
-  /** 搜索词或选项变化时重新搜索 + 高亮 */
+  /** 搜索词或选项变化时重新搜索 + 高亮(搜索词经 250ms debounce,避免大 buffer 每次按键卡顿) */
   React.useEffect(() => {
     if (!searchOpen) return
-    const term = searchTerm
+    const term = debouncedSearchTerm
     const optsKey = JSON.stringify(searchOpts)
     if (term === lastSearchTermRef.current && optsKey === lastSearchOptsRef.current) return
     lastSearchTermRef.current = term
@@ -421,7 +427,7 @@ function TerminalViewport({
       return
     }
     doSearch(true)
-  }, [searchTerm, searchOpts, searchOpen, doSearch, clearDecorations])
+  }, [debouncedSearchTerm, searchOpts, searchOpen, doSearch, clearDecorations])
 
   // 搜索条打开时聚焦输入框
   React.useEffect(() => {

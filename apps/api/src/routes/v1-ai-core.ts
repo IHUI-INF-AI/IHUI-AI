@@ -1281,6 +1281,9 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       const onClose = () => controller.abort()
       request.raw.on('close', onClose)
 
+      // P3 修复:5 分钟超时兜底,防止上游 ai-service 卡死导致连接无限挂起
+      const serverTimeout = setTimeout(() => controller.abort(), 5 * 60_000)
+
       try {
         const resp = await fetch(`${config.AI_SERVICE_URL}/api/agents/execute/stream`, {
           method: 'POST',
@@ -1327,6 +1330,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         raw.write(`data: ${JSON.stringify({ error: true, message: msg })}\n\n`)
         raw.write('data: [DONE]\n\n')
       } finally {
+        clearTimeout(serverTimeout)
         request.raw.off('close', onClose)
         raw.end()
       }
