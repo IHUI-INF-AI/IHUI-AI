@@ -6,11 +6,12 @@ import {
   existsSync,
   mkdirSync,
   writeFileSync,
-  readFileSync,
   unlinkSync,
   rmSync,
   createWriteStream,
+  createReadStream,
 } from 'node:fs'
+import { pipeline } from 'node:stream/promises'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
@@ -238,8 +239,12 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
           }
           return reply.status(400).send(error(400, `分片 ${i} 缺失，无法合并`))
         }
-        const chunkBuffer = readFileSync(partPath)
-        writeStream.write(chunkBuffer)
+        // P1 修复:用流式读取替代 readFileSync,避免阻塞 event loop
+        await pipeline(
+          createReadStream(partPath),
+          writeStream,
+          { end: false },
+        )
       }
       await new Promise<void>((resolve, reject) => {
         writeStream.on('error', reject)

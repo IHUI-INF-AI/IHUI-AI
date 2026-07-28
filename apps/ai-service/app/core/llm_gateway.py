@@ -1052,28 +1052,43 @@ class LLMGateway:
             response = await litellm.acompletion(**call_kwargs)
             final_model = used_model
             final_usage: dict[str, Any] = {}
-            async for chunk in response:
-                if hasattr(chunk, "choices") and chunk.choices:
-                    delta = chunk.choices[0].delta
-                    token = getattr(delta, "content", None)
-                    if token:
-                        accumulated_content += token
-                        yield {"type": "chunk", "content": token}
-                    reasoning_token = getattr(delta, "reasoning_content", None)
-                    if reasoning_token:
-                        accumulated_reasoning += reasoning_token
-                        yield {"type": "reasoning", "content": reasoning_token}
-                if hasattr(chunk, "usage") and chunk.usage:
-                    try:
-                        final_usage = (
-                            chunk.usage.model_dump()
-                            if hasattr(chunk.usage, "model_dump")
-                            else dict(chunk.usage)
-                        )
-                    except Exception as e:
-                        logger.debug("chunk usage 序列化失败: %s", e)
-                if hasattr(chunk, "model") and chunk.model:
-                    final_model = chunk.model
+            # P0 修复:try/finally 确保客户端断开时显式关闭 litellm 响应流,防止 httpx 连接泄漏
+            # 客户端中途断开 → GeneratorExit 从 async for 抛出,finally 仍会执行 aclose
+            try:
+                async for chunk in response:
+                    if hasattr(chunk, "choices") and chunk.choices:
+                        delta = chunk.choices[0].delta
+                        token = getattr(delta, "content", None)
+                        if token:
+                            accumulated_content += token
+                            yield {"type": "chunk", "content": token}
+                        reasoning_token = getattr(delta, "reasoning_content", None)
+                        if reasoning_token:
+                            accumulated_reasoning += reasoning_token
+                            yield {"type": "reasoning", "content": reasoning_token}
+                    if hasattr(chunk, "usage") and chunk.usage:
+                        try:
+                            final_usage = (
+                                chunk.usage.model_dump()
+                                if hasattr(chunk.usage, "model_dump")
+                                else dict(chunk.usage)
+                            )
+                        except Exception as e:
+                            logger.debug("chunk usage 序列化失败: %s", e)
+                    if hasattr(chunk, "model") and chunk.model:
+                        final_model = chunk.model
+            finally:
+                # 显式关闭流式响应,释放底层 httpx 连接(优先 aclose,降级 close)
+                try:
+                    aclose = getattr(response, "aclose", None)
+                    if aclose is not None:
+                        await aclose()
+                    else:
+                        close = getattr(response, "close", None)
+                        if close is not None:
+                            close()
+                except Exception:
+                    pass  # 已关闭或关闭失败不阻塞
             # provider 不返回 stream_usage(如 StepFun)时,用 litellm.token_counter 估算兜底
             if not final_usage:
                 try:
