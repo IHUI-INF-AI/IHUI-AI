@@ -8900,6 +8900,18 @@
       }
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "Settings",
+      "Profile",
+      "Projects",
+      "Chat history",
+      "Members",
+      "Workspaces",
+      "Shortcuts",
+      "AI models"
+    ]
+  },
   "footer": {
     "companyName": "Jilin Aizhihui AI Technology Co., Ltd.",
     "addressLine1": "No. 107 Yuada Road, High-Tech Zone, Changchun",

@@ -71,8 +71,8 @@ export default function AdminTagsPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="mr-1.5 h-4 w-4" />

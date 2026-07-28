@@ -65,7 +65,7 @@ export default function AdminTicketPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><LifeBuoy className="h-6 w-6 text-primary" />客服工单</h1>
+        <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight"><LifeBuoy className="h-5 w-5 text-primary" />客服工单</h1>
         <select value={status} onChange={(e) => { setStatus(e.target.value as '' | TicketStatus); setPage(1) }}
           className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
           <option value="">全部状态</option>

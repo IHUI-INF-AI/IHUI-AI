@@ -192,14 +192,14 @@ export default function DictPage() {
     : { ...EMPTY_ITEM, dictType: itemParent?.code ?? '' }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <BookMarked className="h-6 w-6 text-primary" />
+          <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight">
+            <BookMarked className="h-5 w-5 text-primary" />
             {t('dict.title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('dict.subtitle')}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('dict.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>

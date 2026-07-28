@@ -46,9 +46,21 @@ export interface AiBotSite {
 export interface AiCareerItem {
   id: string
   title: string
+  company?: string
   description?: string
+  salary?: string
+  location?: string
+  category?: string
+  tags?: string[]
+  experience?: string
+  education?: string
+  requirements?: string[]
   content?: string
   cover?: string
+  sort?: number
+  status?: number
+  createdAt?: string
+  updatedAt?: string
   [key: string]: unknown
 }
 

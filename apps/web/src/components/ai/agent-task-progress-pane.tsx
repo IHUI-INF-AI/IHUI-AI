@@ -29,6 +29,9 @@ import { TerminalSection } from './progress-sections/terminal-section'
 import { OverviewSection } from './progress-sections/overview-section'
 import { CopyButton } from './progress-sections/copy-button'
 import { ProgressRing } from './progress-sections/progress-ring'
+import { Checklist, type ChecklistItem } from './progress-sections/checklist'
+import { BatchHeader } from './progress-sections/batch-header'
+import { HoverPreviewCard } from './hover-preview-card'
 import {
   ConnectionStatus,
   ConnectionStatusDot,
@@ -211,6 +214,48 @@ export function AgentTaskProgressPane() {
       ),
     [isStreaming, progress.overview.reconnectAttempt, progress.overview.error, threadId],
   )
+
+  // Phase 20: 派生 Checklist items(从 planSteps 派生,占位逻辑,Phase 19.9 集成)
+  // PlanStep.status (pending|in_progress|completed) → ChecklistItem.status (pending|in_progress|done)
+  const checklistItems = React.useMemo<ChecklistItem[]>(
+    () =>
+      planSteps.map((s, idx) => ({
+        id: s.id ?? `checklist-${idx}`,
+        title: s.step,
+        status:
+          s.status === 'completed'
+            ? 'done'
+            : s.status === 'in_progress'
+              ? 'in_progress'
+              : 'pending',
+        meta:
+          s.durationMs !== undefined && s.status !== 'pending'
+            ? formatDuration(s.durationMs)
+            : undefined,
+      })),
+    [planSteps],
+  )
+
+  // Phase 20: 派生 BatchHeader 数据(占位逻辑,Phase 19.8 集成)
+  // 当 subagents >= 2 时,视作"批次派发",包裹 SubagentSection
+  const hasBatch = subagents.length >= 2
+  const completedSubagents = subagents.filter(
+    (s) => s.status === 'done' || s.status === 'failed' || s.status === 'dead',
+  ).length
+  const batchTone: 'default' | 'success' | 'warning' | 'info' = hasBatch
+    ? subagents.some((s) => s.status === 'failed' || s.status === 'dead')
+      ? 'warning'
+      : completedSubagents === subagents.length && subagents.length > 0
+        ? 'success'
+        : 'default'
+    : 'default'
+  const batchStatus = !hasBatch
+    ? undefined
+    : subagents.some((s) => s.status === 'running' || s.status === 'spawned')
+      ? '进行中'
+      : completedSubagents === subagents.length
+        ? '已完成'
+        : `${completedSubagents}/${subagents.length}`
 
   // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
   React.useEffect(() => {
@@ -518,7 +563,24 @@ export function AgentTaskProgressPane() {
                 isStreaming={isStreaming}
               />
               <ToolCallsSection tools={tools} />
-              <SubagentSection subagents={subagents} />
+              {/* Phase 20: BatchHeader 包裹 SubagentSection(占位逻辑,Phase 19.8 集成)
+                  - subagents >= 2 时显示"批次派发"紫色星标头
+                  - tone 根据子代理状态动态变化(running=default, failed=warning, all-done=success)
+                  - 内部 still 渲染 SubagentSection 主体内容 */}
+              {hasBatch ? (
+                <BatchHeader
+                  batchId="subagent-batch"
+                  title="Subagent 批次"
+                  itemCount={subagents.length}
+                  status={batchStatus}
+                  tone={batchTone}
+                  data-testid="pane-batch-header"
+                >
+                  <SubagentSection subagents={subagents} />
+                </BatchHeader>
+              ) : (
+                <SubagentSection subagents={subagents} />
+              )}
               <ChangesSection changes={changes} />
               <TerminalSection terminals={terminals} />
               <OverviewSection
@@ -529,6 +591,18 @@ export function AgentTaskProgressPane() {
                 etaMs={etaMs}
                 contextUsage={contextUsage}
               />
+              {/* Phase 20: Checklist(占位逻辑,Phase 19.9 集成)
+                  - 从 planSteps 派生,作为底部任务完成度总览
+                  - planSteps 为空时 CheckList 内部已 return null,不渲染
+                  - inline=false 走垂直列表模式,展示每个步骤的状态 */}
+              {checklistItems.length > 0 && (
+                <Checklist
+                  items={checklistItems}
+                  title="任务清单"
+                  inline={false}
+                  data-testid="pane-checklist"
+                />
+              )}
             </div>
           </FoldableSectionProvider>
         )}

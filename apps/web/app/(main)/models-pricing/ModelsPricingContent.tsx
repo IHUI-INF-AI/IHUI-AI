@@ -100,15 +100,15 @@ export function ModelsPricingContent(): React.JSX.Element {
   }, [data, keyword])
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8 md:py-14">
-      <header className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">模型定价</h1>
-        <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
+    <main className="mx-auto w-full max-w-6xl space-y-4">
+      <header className="space-y-1 text-center">
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">模型定价</h1>
+        <p className="mx-auto max-w-2xl text-xs text-muted-foreground">
           所有模型输入/输出 token 单价,单位:元 / 百万 token。按厂商分组,支持关键词搜索。
         </p>
       </header>
 
-      <div className="relative mx-auto mt-6 max-w-md">
+      <div className="relative mx-auto max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={keyword}
@@ -118,9 +118,9 @@ export function ModelsPricingContent(): React.JSX.Element {
         />
       </div>
 
-      <section className="mt-8 space-y-5">
+      <section className="space-y-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             加载中...
           </div>
@@ -129,13 +129,13 @@ export function ModelsPricingContent(): React.JSX.Element {
             {(error as Error).message}
           </div>
         ) : grouped.length === 0 ? (
-          <div className="rounded-md border border-dashed py-12 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
             {keyword.trim() ? `未找到匹配 "${keyword.trim()}" 的模型` : '暂无定价数据'}
           </div>
         ) : (
           grouped.map(([vendor, items]) => (
             <Card key={vendor}>
-              <CardHeader className="p-5 pb-3">
+              <CardHeader className="p-4 pb-2">
                 <CardTitle className="flex items-center justify-between text-base">
                   <span>{vendor}</span>
                   <span className="text-xs font-normal text-muted-foreground">
@@ -143,18 +143,19 @@ export function ModelsPricingContent(): React.JSX.Element {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-5 pt-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>模型 ID</TableHead>
-                      <TableHead className="text-right">输入价</TableHead>
-                      <TableHead className="text-right">输出价</TableHead>
-                      <TableHead>货币</TableHead>
-                      <TableHead>区域系数</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <CardContent className="p-4 pt-0">
+                <div className="max-h-[calc(100vh-22rem)] overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>模型 ID</TableHead>
+                        <TableHead className="text-right">输入价</TableHead>
+                        <TableHead className="text-right">输出价</TableHead>
+                        <TableHead>货币</TableHead>
+                        <TableHead>区域系数</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                     {items.map((p) => {
                       const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
                       const regions = [
@@ -182,8 +183,9 @@ export function ModelsPricingContent(): React.JSX.Element {
                         </TableRow>
                       )
                     })}
-                  </TableBody>
-                </Table>
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           ))
