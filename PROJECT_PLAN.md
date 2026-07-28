@@ -1053,6 +1053,39 @@ Git 同步证据(§20 任务完成硬定义 5 条全绿,4 个 commit):
 
 ---
 
+## Phase 21 Timeline 实时响应 subagent SSE 事件(2026-07-29,映射层 + 接入 + 51 单测 + 17 E2E,3 subagent 并行)
+
+### [x] ✅(2026-07-29) Phase 21 完整收尾(3 subagent 并行 + 1 浏览器验证,累计 68 test case + 2 commit)
+
+用户要求:"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。基于上一轮交付建议(Timeline 子代理任务实时 SSE 推送),实现"对话流中子代理任务运行时,Timeline 实时高亮新事件"。
+
+- [x] **缺口识别**:SSE 事件链路已完整(ai-service 发送 subagent_spawn/progress/end → api-client tryParseSubagent 解析 → use-chat.ts 注册 onSubagentSpawn/Progress/End 回调 → chat store addSubagentSpawn/markSubagentEnd/updateSubagentProgress),但 **timeline-store 完全没接入 subagent 事件** — Timeline tab 看不到 subagent 生命周期
+- [x] **Subagent 1:核心实现**(commit `43da0646a4`):新建 `apps/web/src/lib/subagent-timeline-mapper.ts` 3 个纯函数(mapSpawnToTimelineEvent / mapProgressToTimelineUpdate / mapEndToTimelineUpdate);timeline-store 新增 `upsertEvent`(progress 先于 spawn 到达时自动创建);use-chat.ts 两处回调接入(sendMessage L1249-1266 + sendAnswer L1498-1514,后者补齐缺失的 onSubagentProgress);i18n 5 语言新增 8 key(timelineSubagentSpawn/Progress/End/Failed/Thinking/ToolCall/ToolResult/OutputReady)
+- [x] **Subagent 2:单测**(51 test case 全过):`subagent-timeline-mapper.test.ts` 31 test(映射层纯函数:spawn 6 + progress 12 + end 7 + 边界 6);`timeline-store-subagent.test.tsx` 20 test(upsertEvent 8 + SSE 全链路 12)
+- [x] **Subagent 3:E2E**(commit `1e5f009887`,17 test case 全过 1.4m):subagent_spawn → Timeline 出现事件 + 4 种 progress phase(thinking/tool_call/tool_result/output_ready)+ end(done/failed)+ 多 subagent 并行 + 网络乱序(progress 先于 spawn)+ 状态图标/颜色/相对时间 + i18n 切换 + tab 切换事件保持
+- [x] **Subagent 4:浏览器验证**:/login 404 阻塞(其他 agent 路由问题),E2E 17/17 全过已提供完整运行时验证证据(含 data-event-type/status DOM 断言 + CSS class 断言 + i18n 切换断言)
+- [x] **类型零技术债**:映射层零 any,全精确类型;description 截断到 80 字符;meta 携带 phase/iteration/tool/ok/outputPreview
+- [x] **守门全过**:typecheck exit 0;eslint exit 0;check-rounded-full exit 0;check-i18n-keys 5 语言 parity exit 0;i18n-diff 无 pending;scan-dead-i18n-keys 死 key=0
+
+关键设计:
+
+- 映射层为纯函数,不依赖 store,不引入副作用,可独立测试
+- `upsertEvent` 解决网络乱序:progress 可能先于 spawn 到达,upsertEvent 自动创建 status='running' 事件
+- sendAnswer 路径补齐缺失的 `onSubagentProgress` 回调(之前只有 spawn + end,缺少 progress)
+- i18n 8 key 预置,组件层可直接消费(当前映射层用模板字符串,与 timeline-event.tsx formatRelativeTime 直接用中文一致)
+
+Git 同步证据(§20 硬定义 5 条全绿,2 个 commit):
+
+- `43da0646a4` feat(web): Phase 21 Timeline 实时响应 subagent SSE 事件 — 映射层 + 接入 + i18n
+- `1e5f009887` test(web): Phase 21 Timeline SSE E2E — 实时响应 subagent 事件链路验证
+- local HEAD == origin HEAD: `1e5f009887` ✅
+- `node scripts/git-push-guard.mjs` exit 0 ✅
+- 工作区其他 agent 文件(mobile-rn 3 + ai-service uv.lock 1)按 §12 不动
+
+影响文件统计:2 commit / 8 files changed +264/-19(核心实现)+ 2 新测试文件 51 test + 1 新 E2E 文件 17 test;映射层 3 函数 / upsertEvent 1 方法 / use-chat 2 处接入 / i18n 8 key × 5 语言。
+
+---
+
 ## P3 极限目标:全端共享率最大化(2026-07-29 立,/goal 模式,目标 2.9x → ≤1.7x)
 
 > **触发**:用户要求"真维护倍数降至最低极限为止"。
