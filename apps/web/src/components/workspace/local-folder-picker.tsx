@@ -711,8 +711,12 @@ export function LocalFolderPicker({
                 </Tooltip>
               </TooltipProvider>
 
-              {/* 系统选择器 */}
-              {capability.showDirectoryPicker && (
+              {/* 系统选择器:任一原生选择器能力可用即显示
+                  - Tauri:用 @tauri-apps/plugin-dialog 拿完整路径(自动打开)
+                  - 浏览器:用 showDirectoryPicker 拿 folder name(引导输入完整路径)
+                  注:浏览器/Chromium 系有 showDirectoryPicker,Tauri 桌面端不会 polyfill,
+                  所以按钮可用条件 = isTauri || showDirectoryPicker */}
+              {(isTauri || capability.showDirectoryPicker) && (
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
