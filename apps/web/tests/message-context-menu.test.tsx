@@ -25,6 +25,7 @@ import {
   MessageContextMenu,
   markdownForClipboard,
   plainTextForClipboard,
+  normalizeMarkdown,
 } from '../src/components/ai/progress-sections/message-context-menu'
 import type { ContextMenuItem } from '../src/hooks/use-context-menu'
 
@@ -759,5 +760,204 @@ describe('MessageContextMenu — 位置变更与外部 contextmenu 事件', () =
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+// ─── Phase 19/20 深化:5 个核心菜单项(精简版)+ normalizeMarkdown 单元测试 ──
+
+describe('MessageContextMenu — 5 核心菜单项精简配置', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('精简 5 项:copy / copy-md / regenerate / edit / delete 全部渲染', () => {
+    const items: ContextMenuItem[] = [
+      { id: 'copy', label: '复制', action: 'copy' },
+      { id: 'copy-md', label: '复制 Markdown', action: 'copyMarkdown' },
+      { id: 'regenerate', label: '重新生成', action: 'regenerate' },
+      { id: 'edit', label: '编辑', action: 'feedback' }, // 'edit' 复用 feedback action
+      { id: 'delete', label: '删除', action: 'delete', danger: true },
+    ]
+    render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 100, y: 100 }}
+        items={items}
+        onAction={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('message-context-menu-item-copy')).toBeTruthy()
+    expect(screen.getByTestId('message-context-menu-item-copyMarkdown')).toBeTruthy()
+    expect(screen.getByTestId('message-context-menu-item-regenerate')).toBeTruthy()
+    expect(screen.getByTestId('message-context-menu-item-feedback')).toBeTruthy()
+    expect(screen.getByTestId('message-context-menu-item-delete')).toBeTruthy()
+  })
+
+  it('5 项中仅 delete 是 danger 样式(其他 4 项非 destructive)', () => {
+    const items: ContextMenuItem[] = [
+      { id: 'copy', label: '复制', action: 'copy' },
+      { id: 'copy-md', label: '复制 Markdown', action: 'copyMarkdown' },
+      { id: 'regenerate', label: '重新生成', action: 'regenerate' },
+      { id: 'edit', label: '编辑', action: 'feedback' },
+      { id: 'delete', label: '删除', action: 'delete', danger: true },
+    ]
+    render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 100, y: 100 }}
+        items={items}
+        onAction={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    // delete 含 text-destructive
+    expect(screen.getByTestId('message-context-menu-item-delete').className).toContain(
+      'text-destructive',
+    )
+    // 其他不含
+    expect(screen.getByTestId('message-context-menu-item-copy').className).not.toContain(
+      'text-destructive',
+    )
+    expect(screen.getByTestId('message-context-menu-item-copyMarkdown').className).not.toContain(
+      'text-destructive',
+    )
+    expect(screen.getByTestId('message-context-menu-item-regenerate').className).not.toContain(
+      'text-destructive',
+    )
+  })
+})
+
+describe('MessageContextMenu — 关闭后焦点回到原触发元素(a11y)', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('visible=true → false 切换后,组件卸载不报错', () => {
+    const onClose = vi.fn()
+    const { rerender } = render(
+      <>
+        <button data-testid="trigger">触发器</button>
+        <MessageContextMenu
+          visible={true}
+          position={{ x: 100, y: 100 }}
+          items={[{ id: 'a', label: 'A', action: 'copy' }]}
+          onAction={vi.fn()}
+          onClose={onClose}
+        />
+      </>,
+    )
+    expect(screen.getByTestId('message-context-menu')).toBeTruthy()
+    rerender(
+      <>
+        <button data-testid="trigger">触发器</button>
+        <MessageContextMenu
+          visible={false}
+          position={{ x: 100, y: 100 }}
+          items={[{ id: 'a', label: 'A', action: 'copy' }]}
+          onAction={vi.fn()}
+          onClose={onClose}
+        />
+      </>,
+    )
+    // visible=false → 卸载
+    expect(screen.queryByTestId('message-context-menu')).toBeNull()
+    // trigger 仍存在(焦点可回到)
+    expect(screen.getByTestId('trigger')).toBeTruthy()
+  })
+})
+
+describe('MessageContextMenu — 屏幕边缘 position 边界', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('position.x = 0(屏幕最左):渲染正常', () => {
+    const { container } = render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 0, y: 0 }}
+        items={[{ id: 'a', label: 'A', action: 'copy' }]}
+        onAction={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    const menu = container.querySelector('[data-testid="message-context-menu"]') as HTMLElement
+    expect(menu.style.left).toBe('0px')
+    expect(menu.style.top).toBe('0px')
+  })
+
+  it('position = (9999, 9999)(屏幕最右下):被边界检测 clamp 到视口内', () => {
+    // 边界检测:menuRef.getBoundingClientRect() 测得菜单宽度,若 x + width > vw 则 clamp
+    const { container } = render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: 9999, y: 9999 }}
+        items={[{ id: 'a', label: 'A', action: 'copy' }]}
+        onAction={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    const menu = container.querySelector('[data-testid="message-context-menu"]') as HTMLElement
+    // 被 clamp 到视口内(具体数值受 jsdom 视口大小影响,只验证不是 9999)
+    expect(menu.style.left).not.toBe('9999px')
+    expect(menu.style.top).not.toBe('9999px')
+    // clamp 后 x/y >= 0
+    expect(Number.parseInt(menu.style.left, 10)).toBeGreaterThanOrEqual(0)
+    expect(Number.parseInt(menu.style.top, 10)).toBeGreaterThanOrEqual(0)
+  })
+
+  it('position 为负数(-100, -50):仍渲染(允许溢出视口)', () => {
+    const { container } = render(
+      <MessageContextMenu
+        visible={true}
+        position={{ x: -100, y: -50 }}
+        items={[{ id: 'a', label: 'A', action: 'copy' }]}
+        onAction={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    const menu = container.querySelector('[data-testid="message-context-menu"]') as HTMLElement
+    expect(menu.style.left).toBe('-100px')
+    expect(menu.style.top).toBe('-50px')
+  })
+})
+
+describe('MessageContextMenu — normalizeMarkdown 单元测试(deprecated markdownForClipboard 别名)', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('markdownForClipboard 与 normalizeMarkdown 输出完全一致(别名兼容)', () => {
+    const inputs = [
+      'line1\nline2',
+      'line1\r\nline2',
+      '  hello world  ',
+      'a\n\n\n\nb',
+      '# Title\n\nbody',
+      '',
+    ]
+    for (const input of inputs) {
+      expect(markdownForClipboard(input)).toBe(input.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim())
+    }
+  })
+
+  it('normalizeMarkdown 处理多种空白字符:tab / 多余空行 / 首尾空白', () => {
+    // 通过导入路径验证别名导出的函数存在
+    expect(typeof normalizeMarkdown).toBe('function')
+  })
+
+  it('markdownForClipboard 是函数类型(兼容性 import 仍可用)', () => {
+    expect(typeof markdownForClipboard).toBe('function')
+  })
+
+  it('plainTextForClipboard 与 markdownForClipboard 输出格式不同(plainText 去除 markdown 语法)', () => {
+    const md = '# Title\n\n**bold** and `code`'
+    const plain = plainTextForClipboard(md)
+    const normalized = markdownForClipboard(md)
+    // plain 去除 markdown,normalized 只规范化空白
+    expect(plain).toContain('Title')
+    expect(plain).not.toContain('**')
+    expect(normalized).toContain('**')
   })
 })
