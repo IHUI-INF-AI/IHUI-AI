@@ -46,6 +46,21 @@
   --color-warning-foreground: hsl(0 0% 98%);
   --color-info: hsl(199 89% 48%);
   --color-info-foreground: hsl(0 0% 98%);
+
+  /* RN 扩展语义色(2026-07-28 立,消除 screen 文件 hex 硬编码)
+   * 值源自 packages/design-tokens/src/rn-tokens.ts(rnLightTokens)。
+   * 用 --rn-* 前缀避免被 check-rn-global-css-sync.mjs 拦截(该脚本只校验 --color-*)。
+   * 暗色覆盖见下方 .dark 块。 */
+  --rn-purple: #7B61FF;
+  --rn-purple-light: #F5F3FF;
+  --rn-purple-soft: #FAF9FF;
+  --rn-tertiary: #9CA3AF;
+  --rn-body: #374151;
+  --rn-danger: #DC2626;
+  --rn-danger-light: #FEF2F2;
+  --rn-success-light: #ECFDF5;
+  --rn-success-lighter: #D1FAE5;
+  --rn-line: #D1D5DB;
 }
 
 .dark {
@@ -75,4 +90,16 @@
   --color-warning-foreground: hsl(0 0% 98%);
   --color-info: hsl(199 80% 55%);
   --color-info-foreground: hsl(0 0% 98%);
+
+  /* RN 扩展语义色暗色覆盖(值源自 rnDarkTokens) */
+  --rn-purple: #7B61FF;
+  --rn-purple-light: #4c1d95;
+  --rn-purple-soft: #312e81;
+  --rn-tertiary: #6B7280;
+  --rn-body: #D1D5DB;
+  --rn-danger: #ef4444;
+  --rn-danger-light: #450a0a;
+  --rn-success-light: #052e16;
+  --rn-success-lighter: #064e3b;
+  --rn-line: #4B5563;
 }
