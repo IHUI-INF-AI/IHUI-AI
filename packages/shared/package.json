@@ -138,6 +138,22 @@
     "./constants": {
       "types": "./src/constants.ts",
       "import": "./src/constants.ts"
+    },
+    "./pay": {
+      "types": "./src/pay/index.ts",
+      "import": "./src/pay/index.ts"
+    },
+    "./pay/*": {
+      "types": "./src/pay/*.ts",
+      "import": "./src/pay/*.ts"
+    },
+    "./share": {
+      "types": "./src/share/index.ts",
+      "import": "./src/share/index.ts"
+    },
+    "./share/*": {
+      "types": "./src/share/*.ts",
+      "import": "./src/share/*.ts"
     }
   },
   "scripts": {

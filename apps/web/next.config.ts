@@ -30,7 +30,6 @@ const nextConfig: NextConfig = {
     '@ihui/design-tokens',
     '@ihui/types',
     '@ihui/auth',
-    '@ihui/app',
     '@ihui/shared',
     '@ihui/api-client',
     '@ihui/i18n',
@@ -44,10 +43,6 @@ const nextConfig: NextConfig = {
       'next-intl/config': './src/i18n/request.ts',
     },
     resolveExtensions: [
-      '.web.js',
-      '.web.jsx',
-      '.web.ts',
-      '.web.tsx',
       '.js',
       '.jsx',
       '.ts',
@@ -66,14 +61,6 @@ const nextConfig: NextConfig = {
       '.js': ['.ts', '.tsx', '.js'],
       '.mjs': ['.mts', '.mjs'],
     }
-    // solito .web.js 平台扩展名解析(webpack 模式)
-    config.resolve.extensions = [
-      '.web.js',
-      '.web.jsx',
-      '.web.ts',
-      '.web.tsx',
-      ...(config.resolve.extensions || []),
-    ]
     // Next.js 15.5.20 output: 'export' bug:App Router-only 项目不生成 pages-manifest.json,
     // 但 "Collecting page data" 阶段尝试读取它 → ENOENT。用 afterEmit 钩子创建空文件兜底。
     config.plugins = config.plugins || []

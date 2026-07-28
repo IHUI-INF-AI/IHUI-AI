@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native'
-import { TextLink } from 'solito/link'
 import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
@@ -40,15 +39,9 @@ export function ProfileScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        {onBack ? (
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
-          </TouchableOpacity>
-        ) : (
-          <TextLink href="/" textProps={{ style: styles.backText }}>
-            {t('common.back')}
-          </TextLink>
-        )}
+        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.backText}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>{t('profile.title')}</Text>
       </View>
 

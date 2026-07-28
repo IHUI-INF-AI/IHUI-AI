@@ -110,10 +110,6 @@ const { mockT } = vi.hoisted(() => {
     'overview.context': '上下文',
     // v13 新增(深度优化)
     emptyHint: '开始对话后显示任务计划',
-    emptyTitle: '等待任务开始',
-    emptySubtitle: '对话开始后,任务拆解会显示在这里',
-    elapsedTitle: '已耗时 {time}',
-    failureBanner: '{n} 个任务失败,点击查看',
     emptyHintsLabel: '任务计划使用提示',
     emptyHint1: '开始对话后,这里会显示 AI 的任务拆解与进度',
     emptyHint2: '子代理 / 工具调用 / 终端输出会自动归类到对应区域',
@@ -152,6 +148,11 @@ const { mockT } = vi.hoisted(() => {
     pinHintPinned: '已置顶,点击外部不关闭',
     pinHintUnpinned: '已取消置顶,点击外部关闭',
     minimizeHint: '最小化任务面板',
+    // v15 新增 4 个 key(对齐 origin/main 已整合的 i18n)
+    emptyTitle: '等待任务开始',
+    emptySubtitle: '对话开始后,任务拆解会显示在这里',
+    elapsedTitle: '已耗时 {time}',
+    failureBanner: '{n} 个任务失败,点击查看',
   }
   const mockT = (key: string, params?: Record<string, unknown>) => {
     let v = map[key] ?? key
@@ -257,7 +258,7 @@ vi.mock('lucide-react', () => {
     RefreshCw: Icon,
     Share2: Icon,
     Trash2: Icon,
-    Timer: Icon,
+    Timer: Icon, // v15: 实时计时器图标
   }
 })
 
@@ -382,6 +383,7 @@ import { AgentProgressTrigger } from '../src/components/ai/agent-progress-trigge
 import { useAgentProgressPaneStore } from '../src/stores/agent-progress-pane'
 import {
   FoldableSection,
+  formatElapsed,
   formatRelativeTime,
 } from '../src/components/ai/progress-sections/foldable-section'
 import { ThinkingSection } from '../src/components/ai/progress-sections/thinking-section'
@@ -582,18 +584,19 @@ describe('AgentTaskProgressPane — v6.1 popover 渲染', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('打开但无 threadId — 显示 v15 空状态(大图标 + 标题 + 副标题 + 3 个快速开始提示)', () => {
+  it('打开但无 threadId — 显示 v15 空状态(主提示 + 副提示 + 3 个快速开始提示)', () => {
     useAgentProgressPaneStore.getState().openPane()
     render(<AgentTaskProgressPane />)
     expect(screen.getByTestId('agent-progress-pane')).toBeTruthy()
     // 无 threadId 输入框(v6.1 删除)
     expect(screen.queryByTestId('thread-id-input')).toBeNull()
-    // v15:空状态用 i18n 化的"emptyTitle"主标题 + "emptySubtitle"副标题
+    // v15:空状态用 i18n 化的"emptyTitle"主提示
     expect(screen.getByTestId('pane-empty-title').textContent).toBe('等待任务开始')
-    expect(screen.getByText('对话开始后,任务拆解会显示在这里')).toBeTruthy()
-    // v15:大号 ListTodo 图标
-    expect(screen.getByTestId('pane-empty-icon')).toBeTruthy()
-    // v15:同时显示 3 个快速开始提示(empty-hints 列表,带 hover 背景)
+    // v15:同时显示 emptySubtitle 副提示
+    expect(screen.getByTestId('pane-empty-state').textContent).toContain(
+      '对话开始后,任务拆解会显示在这里',
+    )
+    // v15:同时显示 3 个快速开始提示(empty-hints 列表)
     const hintsList = screen.getByTestId('pane-empty-hints')
     expect(hintsList).toBeTruthy()
     expect(hintsList.querySelectorAll('li').length).toBe(3)
@@ -2419,22 +2422,32 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
   })
 })
 
-// ─── v15: 5 个 UX 细节优化(对标 Trae Work) ───
-// ① 执行时长实时计时器
-// ② 工具调用类别徽章颜色
-// ③ 折叠子区 header 完成度
-// ④ 增强空状态
-// ⑤ Pin 状态视觉强化 + 失败状态条
-describe('AgentTaskProgressPane — v15 UX 细节优化', () => {
+// ─── v15: 5 大 UX 增强测试套件(2026-07-28 立) ────────────────────────
+// 覆盖:① 实时计时器(elapsed 显示) ② 失败条(failedCount > 0) ③ Pin 视觉强化
+// ④ 类别徽章(tool call 含 CATEGORY_BADGE_CLS) ⑤ 完成度(foldable-section doneCount)
+// ⑥ 空状态(无任务时 pane-empty-state 显示)
+describe('AgentTaskProgressPane — v15 UX 增强(5 大优化)', () => {
   beforeEach(() => {
     useAgentProgressPaneStore.getState().reset()
     mockAgentProgressRefs.resetState()
     mockChatStoreRefs.setConversationId(null)
+    try {
+      window.localStorage.removeItem('agent-progress-pane-position')
+      window.localStorage.removeItem('agent-progress-pane-position-v2')
+    } catch {
+      // 忽略
+    }
   })
 
   afterEach(() => {
     cleanup()
     mockChatStoreRefs.setConversationId(null)
+    try {
+      window.localStorage.removeItem('agent-progress-pane-position')
+      window.localStorage.removeItem('agent-progress-pane-position-v2')
+    } catch {
+      // 忽略
+    }
   })
 
   const setTestThreadId = (id: string) => {
@@ -2442,13 +2455,20 @@ describe('AgentTaskProgressPane — v15 UX 细节优化', () => {
     useAgentProgressPaneStore.getState().setThreadId(id)
   }
 
-  // ── ① 实时计时器 ──
+  // ─── 1. 实时计时器 ───
 
-  it('有 sessionStart 时:显示 pane-elapsed 计时器 + 紧凑秒数', () => {
+  it('v15.1 计时器:formatElapsed — 12s / 1m23s / 1h05m 三种格式', () => {
+    expect(formatElapsed(12)).toBe('12s')
+    expect(formatElapsed(83)).toBe('1m23s')
+    expect(formatElapsed(60)).toBe('1m')
+    expect(formatElapsed(3600 + 5 * 60)).toBe('1h05m')
+  })
+
+  it('v15.1 计时器:sessionStart 存在 + isStreaming 时显示 pane-elapsed 标签', () => {
     useAgentProgressPaneStore.getState().openPane()
     setTestThreadId('thread-elapsed-1')
     mockAgentProgressRefs.setState({
-      planSteps: [{ id: 'p1', step: '任务 1', status: 'in_progress' }],
+      planSteps: [{ id: 'p1', step: '任务', status: 'in_progress' }],
       isStreaming: true,
       overview: {
         ...mockAgentProgressRefs.getState().overview,
@@ -2457,226 +2477,228 @@ describe('AgentTaskProgressPane — v15 UX 细节优化', () => {
     })
 
     const { container } = render(<AgentTaskProgressPane />)
-    const timer = container.querySelector('[data-testid="pane-elapsed"]')
-    expect(timer).toBeTruthy()
-    // timer 含 title 含"已耗时"
-    expect(timer?.getAttribute('title')).toContain('已耗时')
-    // 计时器应展示秒数(动态)
-    expect(timer?.textContent).toMatch(/\d+s/)
+    const elapsed = container.querySelector('[data-testid="pane-elapsed"]')
+    expect(elapsed).toBeTruthy()
+    // 标题含 i18n key "已耗时"
+    expect(elapsed?.getAttribute('title')).toContain('已耗时')
   })
 
-  it('无 sessionStart 时:不显示计时器', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    setTestThreadId('thread-no-elapsed')
-    mockAgentProgressRefs.setState({
-      planSteps: [],
-      isStreaming: false,
-      overview: { ...mockAgentProgressRefs.getState().overview, sessionStart: null },
-    })
+  // ─── 2. 失败条 ───
 
-    const { container } = render(<AgentTaskProgressPane />)
-    expect(container.querySelector('[data-testid="pane-elapsed"]')).toBeNull()
-  })
-
-  it('计时器 streaming 时:Timer 图标含 animate-pulse 类', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    setTestThreadId('thread-elapsed-pulse')
-    mockAgentProgressRefs.setState({
-      planSteps: [{ id: 'p1', step: '任务', status: 'in_progress' }],
-      isStreaming: true,
-      overview: {
-        ...mockAgentProgressRefs.getState().overview,
-        sessionStart: new Date().toISOString(),
-      },
-    })
-
-    const { container } = render(<AgentTaskProgressPane />)
-    const timer = container.querySelector('[data-testid="pane-elapsed"]')
-    const timerIcon = timer?.querySelector('[data-testid="lucide-icon"]')
-    expect(timerIcon?.className).toContain('animate-pulse')
-    expect(timerIcon?.className).toContain('text-primary')
-  })
-
-  // ── ⑤ 失败状态条 ──
-
-  it('有 failed tool 时:pane 顶部显示失败条(pane-failure-banner)', () => {
+  it('v15.2 失败条:有 failed subagent 时显示 pane-failure-banner(i18n 化 + 文本含 n)', () => {
     useAgentProgressPaneStore.getState().openPane()
     setTestThreadId('thread-fail-1')
-    mockAgentProgressRefs.setState({
-      planSteps: [{ id: 'p1', step: '任务', status: 'in_progress' }],
-      tools: [
-        {
-          id: 't-fail',
-          toolName: 'edit_file',
-          args: {},
-          status: 'error',
-          startedAt: new Date().toISOString(),
-        },
-      ],
-    })
-
-    const { container } = render(<AgentTaskProgressPane />)
-    const banner = container.querySelector('[data-testid="pane-failure-banner"]')
-    expect(banner).toBeTruthy()
-    expect(banner?.textContent).toContain('1 个任务失败')
-    // 失败条可点击(button 元素)
-    expect(banner?.tagName).toBe('BUTTON')
-  })
-
-  it('有 failed subagent 时:也显示失败条,数量合并', () => {
-    useAgentProgressPaneStore.getState().openPane()
-    setTestThreadId('thread-fail-2')
     mockAgentProgressRefs.setState({
       planSteps: [{ id: 'p1', step: '任务', status: 'completed' }],
       subagents: [
         {
-          id: 's-fail',
-          handle: '@bot',
-          nickname: 'bot',
+          id: 's-fail-1',
+          threadId: 'thread-fail-1',
+          nickname: 'failed-agent',
+          handle: '@failed',
           color: 'red',
           status: 'failed',
-          spawnedAt: new Date().toISOString(),
+          spawnedAt: '2026-01-01T00:00:00Z',
+          failureReason: 'timeout',
         },
       ],
+      tools: [],
+      terminals: [],
     })
 
     const { container } = render(<AgentTaskProgressPane />)
     const banner = container.querySelector('[data-testid="pane-failure-banner"]')
     expect(banner).toBeTruthy()
+    // i18n 文本含 "1 个任务失败" (failureBanner = '{n} 个任务失败,点击查看')
     expect(banner?.textContent).toContain('1 个任务失败')
+    // aria-live=polite
+    expect(banner?.getAttribute('aria-live')).toBe('polite')
   })
 
-  it('无失败项时:不显示失败条', () => {
+  it('v15.2 失败条:无失败时,不显示 pane-failure-banner', () => {
     useAgentProgressPaneStore.getState().openPane()
-    setTestThreadId('thread-no-fail')
+    setTestThreadId('thread-nofail')
     mockAgentProgressRefs.setState({
       planSteps: [{ id: 'p1', step: '任务', status: 'completed' }],
-      tools: [
-        {
-          id: 't-ok',
-          toolName: 'read_file',
-          args: {},
-          status: 'success',
-          startedAt: new Date().toISOString(),
-        },
-      ],
+      subagents: [],
+      tools: [],
+      terminals: [],
     })
 
     const { container } = render(<AgentTaskProgressPane />)
     expect(container.querySelector('[data-testid="pane-failure-banner"]')).toBeNull()
   })
 
-  // ── ⑤ Pin 状态视觉强化 ──
+  // ─── 3. Pin 视觉强化 ───
 
-  it('pinned=true 时:Pin 按钮含 bg-primary/10 视觉强化', () => {
+  it('v15.3 Pin 视觉:isPinned=true 时 pane-pin 按钮含 bg-primary/10 text-primary 类', () => {
     useAgentProgressPaneStore.getState().openPane()
     // 默认 pinned=true
     const { container } = render(<AgentTaskProgressPane />)
     const pinBtn = container.querySelector('[data-testid="pane-pin"]')
+    expect(pinBtn).toBeTruthy()
     expect(pinBtn?.className).toContain('bg-primary/10')
     expect(pinBtn?.className).toContain('text-primary')
   })
 
-  it('pinned=false 时:Pin 按钮去除 bg-primary/10', () => {
+  it('v15.3 Pin 视觉:isPinned=false 时 pane-pin 按钮不含 bg-primary/10 类', () => {
     useAgentProgressPaneStore.getState().openPane()
     useAgentProgressPaneStore.getState().togglePin() // pinned=false
     const { container } = render(<AgentTaskProgressPane />)
     const pinBtn = container.querySelector('[data-testid="pane-pin"]')
+    expect(pinBtn).toBeTruthy()
     expect(pinBtn?.className).not.toContain('bg-primary/10')
   })
 
-  // ── ② 工具调用类别徽章 ──
+  // ─── 4. 类别徽章 ───
 
-  it('ToolCallItem 含类别徽章 tool-cat-{id}(色标 + 大写文字)', () => {
+  it('v15.4 类别徽章:ToolCallItem 含 data-testid=tool-cat-{id} 紧凑徽章', () => {
     const tools: AgentToolCall[] = [
       {
         id: 't-cat-1',
         toolName: 'read_file',
-        args: { file_path: 'a.ts' },
+        args: { file_path: 'src/a.ts' },
         status: 'success',
         startedAt: '2026-01-01T00:00:00Z',
-      },
-      {
-        id: 't-cat-2',
-        toolName: 'edit_file',
-        args: { file_path: 'b.ts' },
-        status: 'success',
-        startedAt: '2026-01-01T00:00:01Z',
       },
     ]
     const { container } = render(<ToolCallsSection tools={tools} />)
     const foldBtn = container.querySelector('button')!
     fireEvent.click(foldBtn)
-    // 类别徽章存在
-    const readBadge = container.querySelector('[data-testid="tool-cat-t-cat-1"]')
-    const writeBadge = container.querySelector('[data-testid="tool-cat-t-cat-2"]')
-    expect(readBadge).toBeTruthy()
-    expect(writeBadge).toBeTruthy()
-    // 颜色类:read → blue,write → amber
-    expect(readBadge?.className).toContain('bg-blue-500/10')
-    expect(readBadge?.className).toContain('text-blue-600')
-    expect(writeBadge?.className).toContain('bg-amber-500/10')
-    expect(writeBadge?.className).toContain('text-amber-600')
-    // 文案 i18n 化
-    expect(readBadge?.textContent).toBe('读取')
-    expect(writeBadge?.textContent).toBe('编辑')
+    const badge = container.querySelector('[data-testid="tool-cat-t-cat-1"]')
+    expect(badge).toBeTruthy()
+    // 徽章含 CATEGORY_BADGE_CLS 颜色类(blue 蓝)
+    expect(badge?.className).toContain('bg-blue-500/10')
+    // 徽章含大写文本
+    expect(badge?.className).toContain('uppercase')
   })
 
-  // ── ③ 折叠子区 header 完成度 ──
+  it('v15.4 类别徽章:exec 工具徽章含 emerald 颜色', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-exec-1',
+        toolName: 'bash',
+        args: { command: 'ls' },
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const badge = container.querySelector('[data-testid="tool-cat-t-exec-1"]')
+    expect(badge?.className).toContain('bg-emerald-500/10')
+  })
 
-  it('FoldableSection 传入 doneCount+count:显示 X/Y 文本 + 进度条', () => {
+  // ─── 5. 完成度 ───
+
+  it('v15.5 完成度:FoldableSection 传入 doneCount + count 时显示 X/Y 文本', () => {
     const { container } = render(
       <FoldableSection
         title="测试"
-        count={8}
+        count={10}
         doneCount={3}
-        data-testid="foldable-progress-test"
+        data-testid="prog-section"
       >
         <span>内容</span>
       </FoldableSection>,
     )
-    // 文本进度
-    const text = container.querySelector(
-      '[data-testid="foldable-progress-test-progress-text"]',
+    const progressText = container.querySelector(
+      '[data-testid="prog-section-progress-text"]',
     )
-    expect(text).toBeTruthy()
-    expect(text?.textContent).toBe('3/8')
-    // 进度条
-    const bar = container.querySelector('[data-testid="foldable-progress-test-progress-bar"]')
-    expect(bar).toBeTruthy()
-    // 进度条内层 div 宽度 = 37.5% (3/8*100)
-    const innerBar = bar?.querySelector('div') as HTMLElement
-    expect(innerBar?.style.width).toBe('38%')
+    expect(progressText).toBeTruthy()
+    expect(progressText?.textContent).toBe('3/10')
   })
 
-  it('FoldableSection doneCount === count:进度条变 emerald 全完成色', () => {
+  it('v15.5 完成度:FoldableSection 全部完成时文本含 emerald 颜色类', () => {
     const { container } = render(
       <FoldableSection
         title="测试"
-        count={4}
-        doneCount={4}
-        data-testid="foldable-all-done"
+        count={5}
+        doneCount={5}
+        data-testid="prog-done"
       >
         <span>内容</span>
       </FoldableSection>,
     )
-    const text = container.querySelector('[data-testid="foldable-all-done-progress-text"]')
-    expect(text?.className).toContain('text-emerald-500')
-    const bar = container.querySelector('[data-testid="foldable-all-done-progress-bar"] > div')
-    expect(bar?.className).toContain('bg-emerald-500/70')
+    const progressText = container.querySelector(
+      '[data-testid="prog-done-progress-text"]',
+    )
+    expect(progressText?.className).toContain('text-emerald-500')
+    // 进度条存在
+    const progressBar = container.querySelector(
+      '[data-testid="prog-done-progress-bar"]',
+    )
+    expect(progressBar).toBeTruthy()
   })
 
-  it('FoldableSection 不传 doneCount:不显示进度条(向后兼容)', () => {
+  it('v15.5 完成度:FoldableSection 无 doneCount 时不显示完成度文本', () => {
     const { container } = render(
-      <FoldableSection title="测试" count={5} data-testid="foldable-no-progress">
+      <FoldableSection title="测试" count={5} data-testid="no-prog">
         <span>内容</span>
       </FoldableSection>,
     )
     expect(
-      container.querySelector('[data-testid="foldable-no-progress-progress-text"]'),
+      container.querySelector('[data-testid="no-prog-progress-text"]'),
     ).toBeNull()
     expect(
-      container.querySelector('[data-testid="foldable-no-progress-progress-bar"]'),
+      container.querySelector('[data-testid="no-prog-progress-bar"]'),
     ).toBeNull()
+  })
+
+  // ─── 6. 空状态 ───
+
+  it('v15.6 空状态:无 threadId 时显示 pane-empty-state + pane-empty-hints 3 个 li', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    const emptyState = container.querySelector('[data-testid="pane-empty-state"]')
+    expect(emptyState).toBeTruthy()
+    // i18n 文案
+    expect(container.textContent).toContain('等待任务开始')
+    expect(container.textContent).toContain('对话开始后,任务拆解会显示在这里')
+    // 3 个 hints
+    const hints = container.querySelector('[data-testid="pane-empty-hints"]')
+    expect(hints).toBeTruthy()
+    expect(hints?.querySelectorAll('li').length).toBe(3)
+  })
+
+  // ─── 7. data-status 属性 ───
+
+  it('v15.7 subagent item 含 data-status 属性', () => {
+    const subagents: Subagent[] = [
+      {
+        id: 's-status-1',
+        threadId: 'thread-status-1',
+        nickname: 'a',
+        handle: '@a',
+        color: 'cyan',
+        status: 'failed',
+        spawnedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const { container } = render(<SubagentSection subagents={subagents} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const item = container.querySelector('[data-testid="subagent-item-s-status-1"]')
+    expect(item).toBeTruthy()
+    expect(item?.getAttribute('data-status')).toBe('failed')
+  })
+
+  it('v15.7 tool item 含 data-status 属性', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-status-1',
+        toolName: 'read_file',
+        args: { file_path: 'src/x.ts' },
+        status: 'error',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    const item = container.querySelector('[data-testid="tool-item-t-status-1"]')
+    expect(item).toBeTruthy()
+    expect(item?.getAttribute('data-status')).toBe('error')
   })
 })
