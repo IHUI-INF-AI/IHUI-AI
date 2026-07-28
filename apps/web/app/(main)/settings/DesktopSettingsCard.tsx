@@ -141,7 +141,7 @@ export function DesktopSettingsCard() {
         {/* 窗口控制快捷入口 */}
         <div className="space-y-2">
           <p className="text-sm font-medium">窗口控制</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
               size="sm"

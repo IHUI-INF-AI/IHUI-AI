@@ -102,7 +102,7 @@ export function RuleDialog({
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label htmlFor="rule-point">{t('colPoint')}</Label>
               <Input
