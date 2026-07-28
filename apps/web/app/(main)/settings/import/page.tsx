@@ -284,7 +284,7 @@ export default function CliImportPage() {
             {/* Conflict strategy */}
             <div className="space-y-2">
               <p className="text-xs font-medium">{t('conflictStrategy')}</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {CONFLICT_STRATEGIES.map((s) => {
                   const active = strategy === s
                   return (
