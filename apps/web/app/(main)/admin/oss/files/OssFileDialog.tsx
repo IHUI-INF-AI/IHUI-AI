@@ -25,7 +25,7 @@ export function OssFileDialog({ file, onClose }: Props) {
           {file?.url ? (
             <FilePreview url={file.url} name={file.fileName} className="max-h-[60vh]" />
           ) : (
-            <p className="py-16 text-center text-sm text-muted-foreground">文件无可用预览地址</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">文件无可用预览地址</p>
           )}
         </div>
       </DialogContent>

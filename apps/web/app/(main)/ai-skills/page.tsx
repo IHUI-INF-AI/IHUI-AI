@@ -88,7 +88,7 @@ export default function AiSkillsPage() {
           <Sparkles className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
           <span>{t('totalCount', { total: all.length, available: availableCount })}</span>
           <Badge variant="success">{t('availableCount', { count: availableCount })}</Badge>
@@ -136,7 +136,7 @@ export default function AiSkillsPage() {
 
       {/* 列表区 */}
       {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{t('loading')}</span>
         </div>
@@ -149,7 +149,7 @@ export default function AiSkillsPage() {
       )}
 
       {!isLoading && !error && filtered.length === 0 && (
-        <div className="rounded-md border bg-card py-16 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border bg-card py-8 text-center text-sm text-muted-foreground">
           {t('empty')}
         </div>
       )}

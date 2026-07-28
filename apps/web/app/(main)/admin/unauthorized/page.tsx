@@ -6,7 +6,7 @@ import { Button } from '@ihui/ui-react'
 export default function UnauthorizedPage() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-6 text-center">
+      <div className="w-full max-w-md space-y-4 text-center">
         <div className="space-y-2">
           <ShieldX className="mx-auto h-16 w-16 text-muted-foreground/40" />
           <h1 className="text-6xl font-bold tracking-tight text-muted-foreground">401</h1>

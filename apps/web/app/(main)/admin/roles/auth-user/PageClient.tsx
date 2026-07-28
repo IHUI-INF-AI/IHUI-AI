@@ -78,7 +78,7 @@ export default function AuthUserPage() {
   const toggleOne = (id: string) => setSelected(toggleId(selected, id))
 
   if (!roleId)
-    return <div className="py-16 text-center text-muted-foreground">缺少 roleId 参数</div>
+    return <div className="py-8 text-center text-muted-foreground">缺少 roleId 参数</div>
 
   return (
     <div className="space-y-4">

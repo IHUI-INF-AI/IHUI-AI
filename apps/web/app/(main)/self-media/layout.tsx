@@ -22,7 +22,7 @@ export default function SelfMediaLayout({ children }: { children: React.ReactNod
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
       <nav className="flex items-center gap-1 border-b border-border/60">
         {TABS.map((tab) => {

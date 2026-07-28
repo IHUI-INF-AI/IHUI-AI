@@ -93,11 +93,11 @@ export function DesignSystemDemoContent() {
   return (
     <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
       <header className="space-y-1 px-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <Sparkles className="h-7 w-7 text-primary" />
           设计系统演示
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           统一展示项目的颜色、字体、间距、按钮、卡片、表单、徽章、头像、标签页与 Toast 等 Design
           Token。
         </p>

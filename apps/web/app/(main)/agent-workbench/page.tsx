@@ -246,7 +246,7 @@ export default function AgentWorkbenchPage() {
         <div className="space-y-2 lg:col-span-3">
           {loading && agents.length === 0 ? (
             <Card>
-              <CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+              <CardContent className="flex items-center justify-center py-8 text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中...
               </CardContent>
             </Card>
@@ -262,7 +262,7 @@ export default function AgentWorkbenchPage() {
             </Card>
           ) : filtered.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
+              <CardContent className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
                 <Sparkles className="h-8 w-8 opacity-40" />
                 <p className="text-sm">
                   {isEmptyFilter ? '没有匹配的 Agent' : '还没有 Agent,点击右上角新建'}

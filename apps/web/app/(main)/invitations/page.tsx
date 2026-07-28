@@ -98,14 +98,14 @@ export default function InvitationsPage() {
   const invitees = inviteesQ.data ?? []
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <UserPlus className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={() => genMut.mutate()} disabled={genMut.isPending}>
           {genMut.isPending ? (
@@ -177,7 +177,7 @@ export default function InvitationsPage() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Gift className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('emptyCodes')}</p>
           </div>
@@ -230,7 +230,7 @@ export default function InvitationsPage() {
             </table>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Users className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('emptyInvitees')}</p>
           </div>
