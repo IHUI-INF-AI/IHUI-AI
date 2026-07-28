@@ -1,6 +1,16 @@
-import { useState } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, FlatList, StyleSheet } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  FlatList,
+  StyleSheet,
+  RefreshControl,
+} from 'react-native'
 import { tokens } from '@ihui/rn-app'
+import { getTraderDetail, getOverview, getInviteInfo } from '@ihui/api-client'
+import type { CommissionOverview } from '@ihui/api-client'
 
 interface Feature {
   id: string
@@ -17,13 +27,7 @@ interface Stat {
 const TRADER_PRICE = 9980
 const TRADER_POWER = '1600W'
 
-const STATS: Stat[] = [
-  { label: '团队人数', value: '128', trend: '本月 +12' },
-  { label: '累计佣金', value: '¥48,620', trend: '本月 +¥3,240' },
-  { label: '本月收益', value: '¥3,240', trend: '环比 +18%' },
-  { label: '待结算', value: '¥580', trend: '3 笔' },
-]
-
+// 权益特性是产品展示,非业务数据,保留前端静态
 const FEATURES: Feature[] = [
   { id: 'distribution', icon: '🏅', title: '享受大额分销资格,入驻社区服务商名列' },
   { id: 'ai_courses', icon: '🎓', title: 'AI 深度认知课/深度商业课/流量全链路打法免费观看' },
@@ -40,8 +44,71 @@ const FEATURES: Feature[] = [
   { id: 'ai_custom', icon: '🤖', title: '插队 AI 分身/AI 客服定制开通' },
 ]
 
+function formatYuan(n: number): string {
+  return `¥${n.toLocaleString()}`
+}
+
+function buildStats(o: CommissionOverview): Stat[] {
+  return [
+    { label: '团队人数', value: String(o.invitedCount), trend: `活跃 ${o.activeCount}` },
+    { label: '累计佣金', value: formatYuan(o.totalCommission), trend: `排名 #${o.rank}` },
+    {
+      label: '本月收益',
+      value: formatYuan(o.availableCommission),
+      trend: `已提现 ${formatYuan(o.withdrawnCommission)}`,
+    },
+    {
+      label: '待结算',
+      value: formatYuan(o.pendingCommission),
+      trend: `冻结 ${formatYuan(o.frozenCommission)}`,
+    },
+  ]
+}
+
 export default function VipTraderScreen() {
   const [opened, setOpened] = useState(false)
+  const [stats, setStats] = useState<Stat[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const [traderRes, overviewRes, inviteRes] = await Promise.allSettled([
+        getTraderDetail('me'),
+        getOverview(),
+        getInviteInfo(),
+      ])
+      // 团队统计数据从 distribution overview 提取
+      if (overviewRes.status === 'fulfilled' && overviewRes.value.success) {
+        setStats(buildStats(overviewRes.value.data))
+      } else {
+        setStats([])
+        if (overviewRes.status === 'fulfilled' && !overviewRes.value.success) {
+          setError(overviewRes.value.error || '加载失败')
+        }
+      }
+      // trader / invite 信息已并行获取,供后续业务扩展使用
+      void traderRes
+      void inviteRes
+    } catch {
+      setError('加载失败')
+      setStats([])
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true)
+    void load()
+  }, [load])
 
   const renderItem = ({ item }: { item: Feature }) => (
     <View style={s.featureItem}>
@@ -53,7 +120,10 @@ export default function VipTraderScreen() {
   )
 
   return (
-    <ScrollView style={s.container}>
+    <ScrollView
+      style={s.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       <View style={s.header}>
         <Text style={s.title}>VIP 操盘手</Text>
         <Text style={s.subtitle}>AI 智汇社操盘手 · 终身使用</Text>
@@ -70,13 +140,19 @@ export default function VipTraderScreen() {
       </View>
 
       <View style={s.statCard}>
-        {STATS.map((it) => (
-          <View key={it.label} style={s.statCol}>
-            <Text style={s.statLabel}>{it.label}</Text>
-            <Text style={s.statValue}>{it.value}</Text>
-            <Text style={s.statTrend}>{it.trend}</Text>
-          </View>
-        ))}
+        {loading ? (
+          <Text style={s.statHint}>加载中…</Text>
+        ) : error ? (
+          <Text style={s.statHint}>{error}</Text>
+        ) : (
+          stats.map((it) => (
+            <View key={it.label} style={s.statCol}>
+              <Text style={s.statLabel}>{it.label}</Text>
+              <Text style={s.statValue}>{it.value}</Text>
+              <Text style={s.statTrend}>{it.trend}</Text>
+            </View>
+          ))
+        )}
       </View>
 
       <View style={s.entryRow}>
@@ -165,6 +241,13 @@ const s = StyleSheet.create({
   statLabel: { fontSize: 11, color: tokens.text.secondary },
   statValue: { marginTop: 4, fontSize: 17, fontWeight: '700', color: tokens.text.primary },
   statTrend: { marginTop: 2, fontSize: 11, color: tokens.brand.DEFAULT },
+  statHint: {
+    width: '100%',
+    paddingVertical: 16,
+    fontSize: 12,
+    color: tokens.text.tertiary,
+    textAlign: 'center',
+  },
   entryRow: { marginHorizontal: 16, marginTop: 12, flexDirection: 'row' },
   entryBtn: {
     flex: 1,
