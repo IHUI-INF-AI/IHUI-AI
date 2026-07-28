@@ -12,6 +12,10 @@ import {
   Hand,
   MessageSquare,
   ListTree,
+  Copy,
+  Check,
+  RefreshCw,
+  ArrowDown,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
@@ -90,14 +94,27 @@ function TypingIndicator() {
   )
 }
 
-function ReasoningBlock({ reasoning }: { reasoning: string }) {
+function ReasoningBlock({
+  reasoning,
+  expanded: controlledExpanded,
+  onToggle,
+}: {
+  reasoning: string
+  /** 受控的展开状态(2026-07-28 立):为 undefined 时回退到内部 state,保证向后兼容 */
+  expanded?: boolean
+  /** 切换回调(2026-07-28 立):由父组件(MsgItem)统一管理 state,便于键盘 Enter 联动 */
+  onToggle?: () => void
+}) {
   const t = useTranslations('chat')
-  const [expanded, setExpanded] = React.useState(false)
+  const [internalExpanded, setInternalExpanded] = React.useState(false)
+  // 受控/非受控模式:有 expanded prop 时用受控,否则用内部 state
+  const expanded = controlledExpanded ?? internalExpanded
+  const handleToggle = onToggle ?? (() => setInternalExpanded((prev) => !prev))
   return (
     <div className="rounded-md border border-muted bg-muted/30">
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
+        onClick={handleToggle}
         className="flex w-full items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronDown className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')} />
@@ -112,8 +129,28 @@ function ReasoningBlock({ reasoning }: { reasoning: string }) {
   )
 }
 
+/** 把消息 createdAt 格式化为"今天 HH:MM / MM-DD HH:MM" 风格 footer 时间戳(2026-07-28 立)
+ *  - hover 消息气泡时在 footer 显示完整时间,便于用户回溯精确时刻
+ *  - 与 timeline-event.tsx 内的 formatRelativeTime 互为补充:相对时间用于时间线,绝对时间用于消息气泡 */
+function formatMessageTimestamp(createdAt: number): string {
+  const d = new Date(createdAt)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  if (sameDay) return `${hh}:${mm}`
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${mo}-${dd} ${hh}:${mm}`
+}
+
 /** P0 流式性能优化(2026-07-23):抽取消息项组件 + React.memo,
- * 流式 token 只更新目标消息引用,其他消息引用不变 → 不触发重渲染 */
+ * 流式 token 只更新目标消息引用,其他消息引用不变 → 不触发重渲染
+ * 2026-07-28 深化(深度对标 Trae Work):hover 快捷操作 + 错误重试 + 时间戳 footer */
 interface MessageItemProps {
   message: ChatMessage
   isLast: boolean
@@ -123,6 +160,7 @@ interface MessageItemProps {
   onRejectDiff?: (messageId: string, toolCallId: string) => void
   isHighlighted?: boolean
   isHovered?: boolean
+  isFocused?: boolean
   onContextMenu?: (e: React.MouseEvent) => void
   linkedPlanStepId?: string | null
   onMessageHover?: (messageId: string, planStepId: string | null) => void
@@ -137,6 +175,7 @@ const MessageItem = React.memo(function MessageItem({
   onRejectDiff,
   isHighlighted = false,
   isHovered = false,
+  isFocused = false,
   onContextMenu,
   linkedPlanStepId = null,
   onMessageHover,
@@ -145,25 +184,146 @@ const MessageItem = React.memo(function MessageItem({
   const isUser = m.role === 'user'
   const showTyping = !isUser && m.content === '' && isStreaming
   const streamingThis = !isUser && isStreaming && isLast
+  // Copy 按钮短暂"已复制"状态(2026-07-28 立),2s 后自动隐藏
+  const [copied, setCopied] = React.useState(false)
+  const copyTimerRef = React.useRef<number | null>(null)
+  // 本地 hover 状态(2026-07-28 增补):用于驱动 Copy 按钮显隐,
+  // 与 ProgressJumpStore 的 isHovered(跨组件 plan step 联动)解耦,
+  // 保证仅本地鼠标移入气泡也能看到 Copy 按钮(无需 linkPlanStepToMessage)
+  const [localHover, setLocalHover] = React.useState(false)
+  // 2026-07-28 立:Reasoning 折叠状态(2026-07-28 抽出为独立 state,供外部事件如键盘 Enter 切换)
+  // 默认 false(折叠),点击展开按钮 / 收到 'ihui:toggle-reasoning' 事件时切换
+  const [reasoningExpanded, setReasoningExpanded] = React.useState(false)
+  // 监听全局 'ihui:toggle-reasoning' 事件:键盘 Enter 聚焦消息触发,只响应本条消息
+  React.useEffect(() => {
+    if (!m.reasoning) return
+    const onToggle = (e: Event) => {
+      const detail = (e as CustomEvent<{ messageId: string }>).detail
+      if (detail?.messageId !== m.id) return
+      setReasoningExpanded((prev) => !prev)
+    }
+    window.addEventListener('ihui:toggle-reasoning', onToggle as EventListener)
+    return () => window.removeEventListener('ihui:toggle-reasoning', onToggle as EventListener)
+  }, [m.id, m.reasoning])
+
+  const handleCopy = React.useCallback(
+    async (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      const text = isUser
+        ? m.content
+        : plainTextForClipboard(m.content) // assistant 内容用简化纯文本(与右键菜单行为一致)
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text)
+        } else {
+          // 兜底:旧浏览器无 Clipboard API → 用临时 textarea
+          const ta = document.createElement('textarea')
+          ta.value = text
+          ta.setAttribute('readonly', '')
+          ta.style.position = 'absolute'
+          ta.style.left = '-9999px'
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          document.body.removeChild(ta)
+        }
+        setCopied(true)
+        // 用 i18n key(chat.copy/copied),缺失时回退到英文(任务约束:不硬编码中文)
+        const successLabel = t('copied') === 'copied' ? 'Copied' : t('copied')
+        if (successLabel === 'copied') {
+          // eslint-disable-next-line no-console
+          console.warn('[i18n] Missing translation for key: chat.copied')
+        }
+        toast.success(successLabel)
+        if (copyTimerRef.current !== null) {
+          window.clearTimeout(copyTimerRef.current)
+        }
+        copyTimerRef.current = window.setTimeout(() => setCopied(false), 1500)
+      } catch (err) {
+        const errLabel = t('copyFailed') === 'copyFailed' ? 'Copy failed' : t('copyFailed')
+        if (errLabel === 'copyFailed') {
+          // eslint-disable-next-line no-console
+          console.warn('[i18n] Missing translation for key: chat.copyFailed')
+        }
+        toast.error(errLabel, {
+          description: err instanceof Error ? err.message : String(err),
+        })
+      }
+    },
+    [isUser, m.content, t],
+  )
+
+  // 卸载清理 timer
+  React.useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current)
+        copyTimerRef.current = null
+      }
+    }
+  }, [])
+
+  // 重试(2026-07-28 立,深度对标 Trae Work):m.error 时气泡底部显示"重试"按钮,
+  // 通过 window CustomEvent 'ihui:retry-message' 派发,由 message-input 监听后触发重新发送。
+  // 不直接调用 chat store(任务约束),保持组件解耦。
+  const handleRetry = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      window.dispatchEvent(
+        new CustomEvent('ihui:retry-message', { detail: { messageId: m.id } }),
+      )
+      const retryLabel = t('retry') === 'retry' ? 'Retrying…' : t('retry')
+      if (retryLabel === 'retry') {
+        // eslint-disable-next-line no-console
+        console.warn('[i18n] Missing translation for key: chat.retry')
+      }
+      toast.info(retryLabel)
+    },
+    [m.id, t],
+  )
 
   // Phase 19(2026-07-28 立):反向联动 — hover 消息时同步高亮 plan step,
   // 通过 onMessageHover 回调通知父组件 → ProgressJumpStore.setHoveredPlanStep
+  // 2026-07-28 增补:同时维护本地 localHover state,用于驱动 Copy 按钮 + 时间戳 footer
+  // 不与跨组件 plan step 联动(ProgressJumpStore.hoveredMessageId)耦合
   const handleMouseEnter = React.useCallback(() => {
+    setLocalHover(true)
     onMessageHover?.(m.id, linkedPlanStepId)
   }, [onMessageHover, m.id, linkedPlanStepId])
   const handleMouseLeave = React.useCallback(() => {
+    setLocalHover(false)
     onMessageHover?.(m.id, null)
   }, [onMessageHover, m.id])
+
+  // Copy 按钮显示策略(2026-07-28 立):hover 或 focused 时显示,提升发现性同时不污染默认视觉
+  // - 默认 opacity-0,hover/focused 提升至 opacity-100
+  // - 已复制态(1.5s 内)持续显示
+  // - 2026-07-28 增补:包含 localHover(本地鼠标移入)与 isHovered(跨组件 plan step 联动)两种来源
+  const showCopyButton =
+    (localHover || isHovered || isFocused || copied) && m.content.length > 0
+  const timestampLabel = formatMessageTimestamp(m.createdAt)
+  const showTimestamp = (localHover || isHovered || isFocused) && timestampLabel
+
+  // Copy 按钮 a11y label(优先用 i18n,缺失回退英文)
+  const copyLabel = t('copy') === 'copy' ? 'Copy' : t('copy')
+  if (copyLabel === 'copy') {
+    // eslint-disable-next-line no-console
+    console.warn('[i18n] Missing translation for key: chat.copy')
+  }
 
   return (
     <div
       className={cn(
-        'flex w-full gap-3 rounded-md transition-colors duration-300',
+        'group/msg relative flex w-full gap-3 rounded-md transition-colors duration-300',
         isUser ? 'flex-row-reverse' : 'flex-row',
         isHighlighted && 'bg-primary/5 ring-1 ring-primary/30',
         isHovered && !isHighlighted && 'bg-accent/20',
+        isFocused && 'ring-1 ring-primary/40',
       )}
       data-message-id={m.id}
+      data-message-focused={isFocused ? 'true' : 'false'}
       onContextMenu={onContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -200,21 +360,54 @@ const MessageItem = React.memo(function MessageItem({
         )}
         <div
           className={cn(
-            'rounded-2xl px-4 py-2.5',
+            'relative rounded-2xl px-4 py-2.5',
             isUser
               ? 'rounded-br-sm bg-primary text-primary-foreground'
               : m.error
                 ? 'rounded-bl-sm border border-destructive/30 bg-destructive/5 text-destructive'
-                : 'rounded-bl-sm bg-muted text-muted-foreground',
+                : 'rounded-bl-sm bg-muted text-foreground/90',
           )}
         >
+          {/* Copy 按钮(2026-07-28 立):hover/focused 时显示在气泡右上角
+            - 用 absolute 定位贴在气泡边缘,opacity 过渡避免布局抖动
+            - 用 stopPropagation 防止触发容器 onContextMenu / onMouseEnter 等 */}
+          {showCopyButton && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              onMouseDown={(e) => e.stopPropagation()}
+              data-testid={`message-copy-${m.id}`}
+              aria-label={copyLabel}
+              title={copyLabel}
+              className={cn(
+                'absolute -top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md',
+                'border border-border/60 bg-background text-muted-foreground shadow-sm',
+                'transition-opacity duration-150 hover:bg-accent hover:text-foreground',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+                isUser ? '-left-2' : '-right-2',
+                copied ? 'opacity-100' : 'opacity-0 group-hover/msg:opacity-100',
+              )}
+            >
+              {copied ? (
+                <Check className="h-3 w-3 text-emerald-500" aria-hidden />
+              ) : (
+                <Copy className="h-3 w-3" aria-hidden />
+              )}
+            </button>
+          )}
           {showTyping ? (
             <TypingIndicator />
           ) : isUser ? (
             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{m.content}</p>
           ) : (
             <div className="space-y-2">
-              {m.reasoning && <ReasoningBlock reasoning={m.reasoning} />}
+              {m.reasoning && (
+                <ReasoningBlock
+                  reasoning={m.reasoning}
+                  expanded={reasoningExpanded}
+                  onToggle={() => setReasoningExpanded((prev) => !prev)}
+                />
+              )}
               {m.toolCalls?.map((tc) => {
                 // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
                 // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
@@ -282,7 +475,39 @@ const MessageItem = React.memo(function MessageItem({
               <MarkdownStream content={m.content} isStreaming={streamingThis} />
             </div>
           )}
+          {/* 时间戳 footer(2026-07-28 立):hover/focused 时显示在气泡底部,
+            增强时间感知的可读性。user 消息显示在右上(因为 flex-row-reverse) */}
+          {showTimestamp && (
+            <div
+              className={cn(
+                'mt-1 flex items-center gap-1.5 text-[10px] tabular-nums',
+                isUser ? 'justify-end text-primary-foreground/60' : 'justify-end text-muted-foreground/50',
+              )}
+              data-testid={`message-timestamp-${m.id}`}
+            >
+              <span>{timestampLabel}</span>
+            </div>
+          )}
         </div>
+        {/* 错误重试按钮(2026-07-28 立,深度对标 Trae Work):m.error 时在气泡下方显示,
+            用户可一键重新生成该消息,不必手动从历史拷贝内容重新粘贴。 */}
+        {m.error && (
+          <button
+            type="button"
+            onClick={handleRetry}
+            data-testid={`message-retry-${m.id}`}
+            className={cn(
+              'mt-0.5 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5',
+              'text-[11px] text-muted-foreground transition-colors',
+              'hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+            )}
+          >
+            <RefreshCw className="h-3 w-3" aria-hidden />
+            <span>
+              {t('retry') === 'retry' ? 'Retry' : t('retry')}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   )
@@ -360,6 +585,26 @@ export function MessageList({
   const heightMapRef = React.useRef<Map<string, number>>(new Map())
   // 是否在用户手动向上滚动(暂停自动滚动到底部,直到新消息到达或用户滚到底)
   const userScrolledUpRef = React.useRef(false)
+  // 2026-07-28 立:userScrolledUp 状态镜像(用于驱动 jump-to-latest 浮动按钮显隐)
+  // - ref 用于在 scroll callback 高频更新时避免整个组件重渲染
+  // - state 镜像驱动浮动按钮条件渲染(ref 变化不会触发重渲染)
+  // - 用 rAF 节流合并多次 ref 更新 → state 一次,避免抖动
+  const [userScrolledUp, setUserScrolledUp] = React.useState(false)
+  // state 镜像 ref(2026-07-28 立):handleScroll 闭包内对比最新 state 镜像,避免 useCallback 依赖 state
+  const userScrolledUpMirrorRef = React.useRef(false)
+  // 2026-07-28 立:键盘导航的 focused message index(-1 = 无聚焦)
+  // - ↑/↓ 切换时设置,Enter 展开/折叠 reasoning,Esc 取消聚焦
+  // - focused 消息添加 ring 视觉 + data-message-focused 属性
+  const [focusedIndex, setFocusedIndex] = React.useState<number>(-1)
+  // 镜像 ref(2026-07-28 立):解决键盘事件连续触发时的 stale closure 问题
+  // - useEffect 重装 listener 之前可能多次 keyboard event 排队(测试 act 批量 / 用户狂按)
+  // - ref 在键盘 handler 内同步更新,避免 ↑/↓ 后的 Enter/Escape 看不到新 focusedIndex
+  // - state 仍用于驱动 UI re-render(focused ring / data-message-focused)
+  const focusedIndexRef = React.useRef<number>(-1)
+  const setFocusedIndexBoth = React.useCallback((next: number) => {
+    focusedIndexRef.current = next
+    setFocusedIndex(next)
+  }, [])
   const prevMessagesLenRef = React.useRef(0)
   // #9 自动滚动 50ms throttle(2026-07-25 立):
   // 用 setTimeout + timestamp 实现 leading + trailing 节流,避免每个 token 触发 scrollIntoView。
@@ -415,7 +660,20 @@ export function MessageList({
 
     // 标记用户是否向上滚动(远离底部)
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    userScrolledUpRef.current = distanceFromBottom > 120
+    const scrolledUp = distanceFromBottom > 120
+    userScrolledUpRef.current = scrolledUp
+    // 同步到 state 镜像(2026-07-28 立),驱动 jump-to-latest 按钮条件渲染
+    // 用 ref 镜像对比避免 handleScroll 依赖 state(useCallback 才能保持稳定引用)
+    if (scrolledUp !== userScrolledUpMirrorRef.current) {
+      userScrolledUpMirrorRef.current = scrolledUp
+      if (!scrollDirtyRef.current) {
+        scrollDirtyRef.current = true
+        requestAnimationFrame(() => {
+          scrollDirtyRef.current = false
+          setUserScrolledUp(userScrolledUpMirrorRef.current)
+        })
+      }
+    }
 
     // #8 滚动到顶部触发加载更多历史
     if (
@@ -573,10 +831,33 @@ export function MessageList({
       heightMapRef.current.clear()
       setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
       userScrolledUpRef.current = false
+      userScrolledUpMirrorRef.current = false
+      setUserScrolledUp(false)
     } else if (messages.length <= VIRTUAL_THRESHOLD) {
       setVisibleRange({ start: 0, end: messages.length - 1 })
     }
   }, [messages.length])
+
+  // 2026-07-28 立:userScrolledUp state → mirror ref 同步,
+  // 让 handleScroll 闭包能拿到最新值(否则 setUserScrolledUp 后下次 scroll 对比会失败)
+  React.useEffect(() => {
+    userScrolledUpMirrorRef.current = userScrolledUp
+  }, [userScrolledUp])
+
+  // 2026-07-28 立:Jump-to-latest 浮动按钮点击处理(深度对标 Trae Work)
+  // - scrollIntoView 到 bottomRef(平滑)
+  // - 重置 userScrolledUp 标记,触发自动滚动继续工作
+  // - 派发自定义事件,允许其他监听组件(如 timeline tab)同步滚动到底
+  const handleJumpToLatest = React.useCallback(() => {
+    const el = bottomRef.current
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    userScrolledUpRef.current = false
+    userScrolledUpMirrorRef.current = false
+    setUserScrolledUp(false)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ihui:jump-to-latest'))
+    }
+  }, [])
 
   // ── Phase 19 集成(2026-07-28 立)────────────────────────────────────
   // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮
@@ -621,6 +902,91 @@ export function MessageList({
     }, 600)
     return () => window.clearTimeout(timer)
   }, [pendingJump, flashHighlight, clearPendingJump])
+
+  // 2026-07-28 立(深度对标 Trae Work):键盘导航 ↑/↓ 切换消息聚焦
+  // - 焦点不在 input/textarea/contenteditable 时生效(避免与输入冲突)
+  // - ArrowDown / ArrowUp:切换 focused message index
+  // - Enter:聚焦消息若含 reasoning → 派发切换事件(由 MessageItem 内部响应)
+  // - Escape:清除聚焦
+  // - Home/End:跳到首/末条
+  // 用 window keydown 监听确保焦点在 message 容器内任意子元素都能响应
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (messages.length === 0) return
+      const target = e.target as HTMLElement | null
+      // 焦点在输入控件时不拦截(避免与用户输入冲突)
+      if (target) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
+          return
+        }
+      }
+      // 已有焦点但被 Modifier 修饰 → 不拦截(保留浏览器原生行为:Cmd+ArrowUp = scroll to top)
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        const next =
+          focusedIndexRef.current < 0
+            ? 0
+            : Math.min(messages.length - 1, focusedIndexRef.current + 1)
+        setFocusedIndexBoth(next)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const next =
+          focusedIndexRef.current < 0
+            ? messages.length - 1
+            : Math.max(0, focusedIndexRef.current - 1)
+        setFocusedIndexBoth(next)
+      } else if (e.key === 'Home') {
+        e.preventDefault()
+        setFocusedIndexBoth(0)
+      } else if (e.key === 'End') {
+        e.preventDefault()
+        setFocusedIndexBoth(messages.length - 1)
+      } else if (e.key === 'Escape') {
+        // 2026-07-28 立:用 focusedIndexRef 读最新值,避免 stale closure
+        // (键盘事件连续触发时 listener 闭包内的 focusedIndex 可能滞后)
+        if (focusedIndexRef.current >= 0) {
+          e.preventDefault()
+          setFocusedIndexBoth(-1)
+        }
+      } else if (e.key === 'Enter') {
+        // 2026-07-28 立:同上,用 ref 读最新 focusedIndex
+        const idx = focusedIndexRef.current
+        if (idx >= 0) {
+          const m = messages[idx]
+          if (m?.reasoning) {
+            e.preventDefault()
+            window.dispatchEvent(
+              new CustomEvent('ihui:toggle-reasoning', { detail: { messageId: m.id } }),
+            )
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [messages, setFocusedIndexBoth])
+
+  // 2026-07-28 立:focused message 变更后自动 scrollIntoView(确保可见)
+  // 配合键盘 ↑/↓ 用,避免焦点切到屏幕外时用户看不到
+  React.useEffect(() => {
+    if (focusedIndex < 0 || focusedIndex >= messages.length) return
+    const id = messages[focusedIndex]?.id
+    if (!id) return
+    const el = containerRef.current?.querySelector(`[data-message-id="${id}"]`) as HTMLElement | null
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [focusedIndex, messages])
+
+  // 2026-07-28 立:focusedIndex 越界保护(messages 删除时索引可能失效)
+  React.useEffect(() => {
+    if (focusedIndex >= messages.length) {
+      setFocusedIndex(messages.length > 0 ? messages.length - 1 : -1)
+    }
+  }, [focusedIndex, messages.length])
 
   // TimelineStore:tab 切换 + 事件列表(2026-07-28 立,深度对标 Trae Work)
   const activeTab = useTimelineStore((s) => s.activeTab)
@@ -1040,6 +1406,7 @@ export function MessageList({
                       onRejectDiff={onRejectDiff}
                       isHighlighted={highlightedMessageId === m.id}
                       isHovered={hoveredMessageId === m.id}
+                      isFocused={focusedIndex === realIdx}
                       linkedPlanStepId={messageToPlanStepIds[m.id]?.[0] ?? null}
                       onMessageHover={handleMessageHover}
                       onContextMenu={(e) => {
@@ -1071,6 +1438,39 @@ export function MessageList({
         </div>
       ) : (
         timelinePanelNode
+      )}
+      {/* 2026-07-28 立(深度对标 Trae Work):Scroll-to-bottom 浮动按钮
+        - 当 userScrolledUp 为 true(用户已向上滚动超过 120px)时显示
+        - 点击 → scrollIntoView 到 bottomRef + 重置 userScrolledUp
+        - 浮在 message list 容器右下角,固定定位(不随消息滚动)
+        - 与 streaming 联动:有未读新消息时显示红点徽章 */}
+      {activeTab === 'inline' && userScrolledUp && (
+        <button
+          type="button"
+          onClick={handleJumpToLatest}
+          data-testid="message-list-jump-latest"
+          aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
+          title={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
+          className={cn(
+            'absolute bottom-4 right-4 z-20 inline-flex h-9 items-center gap-1 rounded-full',
+            'border border-border/60 bg-background/95 px-3 text-xs font-medium text-foreground/90 shadow-md backdrop-blur',
+            'transition-all duration-150 hover:bg-accent hover:shadow-lg',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+            'animate-in fade-in-0 slide-in-from-bottom-2',
+          )}
+        >
+          <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+          <span>
+            {t('latest') === 'latest' ? 'Latest' : t('latest')}
+          </span>
+          {isStreaming && (
+            <span
+              className="ml-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
+              aria-hidden
+              data-testid="message-list-jump-latest-dot"
+            />
+          )}
+        </button>
       )}
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
