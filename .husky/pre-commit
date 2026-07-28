@@ -167,4 +167,34 @@ if (!run('🔗 跨端 storage-adapter parity 守门...', 'node scripts/check-cro
   process.exit(1)
 }
 
+// 🛡️ button 文字换行守门(2026-07-28 立,warn-only 起步,1 周后评估升级 strict)
+// 背景:小高度 button(h-4~h-8)+ 极小字号(text-xs / text-[10px])+ 中文 label 时,
+//      若缺 shrink-0 / whitespace-nowrap,在 flex 父容器窄空间下会被压缩/换行,
+//      导致 UI 错位 / 文字溢出 / 布局抖动。
+//      真实案例:apps/web/src/components/ai/agent-task-progress-pane.tsx "对话流" / "时间线"
+//      tab 按钮原缺 shrink-0,被 flex 父容器压缩。spec-panel.tsx 等 28 处待修复。
+// 跳过方法(紧急,本守门挂载时已知 28 个现存命中):HUSKY_SKIP_BUTTON_WRAP_CHECK=1 git commit ...
+// 检测目标:扫描 apps/ + packages/ui-react/src/ 全量 .tsx/.ts/.jsx/.js,
+//      命中 4 条 AND 规则(<button> + h-4~h-8 + 极小字号 + 中文 label 缺 shrink-0 AND 缺 whitespace-nowrap)即报。
+// 性能:web + ui-react 全量扫描 ~3.5s,放在 pre-commit 末尾不影响前置检查流。
+// 实现细节:脚本无 --exit 1 参数,只有 --strict 模式命中 exit 1;pre-commit 用 try/catch
+//      接住 --strict 的 exit 1,转为 warn(不阻塞 commit),1 周后(2026-08-04)评估升级 strict 阻塞。
+if (process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
+  try {
+    execSync('node scripts/check-shrinkable-text-button.mjs --strict', {
+      stdio: 'inherit',
+      cwd: process.cwd(),
+    })
+    console.log('  ✅ button 文字换行守门通过(0 命中)')
+  } catch (e) {
+    console.warn(
+      '  ⚠️  button 文字换行守门发现命中(warn-only,不阻塞 commit;1 周后升级 strict)',
+    )
+    console.warn('     修复方法:给 button className 补 shrink-0 + whitespace-nowrap')
+    console.warn('     详细清单已打印在上方,紧急跳过:HUSKY_SKIP_BUTTON_WRAP_CHECK=1')
+  }
+} else {
+  console.log('⏭  button 文字换行守门(HUSKY_SKIP_BUTTON_WRAP_CHECK=1, 跳过)')
+}
+
 console.log('✅ Pre-commit 检查通过')
