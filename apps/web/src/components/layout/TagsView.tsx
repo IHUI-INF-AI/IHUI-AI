@@ -57,7 +57,7 @@ interface CtxMenuState {
 const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   const router = useRouter()
   const tNav = useTranslations('nav')
-  const tCommon = useTranslations('common')
+  const tSearch = useTranslations('search')
   const [open, setOpen] = React.useState(false)
   const triggerRef = React.useRef<HTMLButtonElement>(null)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
@@ -65,6 +65,41 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const searchParamsStr = searchParams?.toString()
+
+  // 2026-07-28 立(用户反馈"输入内容后没下拉 + Enter 没反应"):
+  // 补充历史搜索记录 state + 从 localStorage 读 + 提交时写回。
+  // 原实现只传 onSearch + placeholder,SearchBar 内部 showDropdown 永远 false,下拉永远不显示。
+  const [history, setHistory] = React.useState<string[]>([])
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const stored = window.localStorage.getItem('searchHistory')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed)) {
+          setHistory(parsed.filter((s): s is string => typeof s === 'string').slice(0, 10))
+        }
+      }
+    } catch {
+      /* ignore corrupted localStorage */
+    }
+  }, [])
+
+  // 默认建议列表(从 i18n search.quickSuggestions 读取,缺失时降级硬编码 8 个常用项)
+  const suggestions = React.useMemo<string[]>(() => {
+    try {
+      const arr = tSearch.raw('quickSuggestions') as unknown
+      if (Array.isArray(arr)) {
+        return (arr as unknown[])
+          .filter((s): s is string => typeof s === 'string')
+          .slice(0, 8)
+      }
+    } catch {
+      /* fall through to default */
+    }
+    return ['设置', '个人资料', '项目', '对话历史', '成员', '工作区', '快捷键', 'AI 模型']
+  }, [tSearch])
 
   // 挂载后查询右侧工作区容器作为 portal 目标(只在客户端执行)
   React.useEffect(() => {
@@ -107,9 +142,39 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
     }
   }, [open])
 
+  // 提交搜索(去重 + 最多 10 条 + 写 localStorage + 跳 /search?q=...)
   const handleSearch = (kw: string) => {
-    router.push(`/search?q=${encodeURIComponent(kw)}`)
+    const trimmed = kw.trim()
+    if (!trimmed) return
+    // 写历史(去重 + 最多 10 条 + 持久化 localStorage)
+    const next = [trimmed, ...history.filter((h) => h !== trimmed)].slice(0, 10)
+    setHistory(next)
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('searchHistory', JSON.stringify(next))
+      } catch {
+        /* ignore quota exceeded */
+      }
+    }
+    router.push(`/search?q=${encodeURIComponent(trimmed)}`)
     setOpen(false)
+  }
+
+  // 点击历史项:复用 handleSearch(走相同的"追加历史 + 跳转"流程)
+  const handleHistoryClick = (kw: string) => {
+    handleSearch(kw)
+  }
+
+  // 清空历史
+  const handleClearHistory = () => {
+    setHistory([])
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem('searchHistory')
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   // 通过 portal 渲染到右侧工作区容器:绝对定位、水平居中(inset-x-0 + mx-auto,避免
@@ -134,13 +199,17 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
             <div
               ref={dropdownRef}
               role="dialog"
-              aria-label={tCommon('searchPlaceholder')}
+              aria-label={tSearch('searchPlaceholder')}
               className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-200"
             >
               <div className="rounded-md border bg-popover text-popover-foreground shadow-md">
                 <SearchBar
                   onSearch={handleSearch}
-                  placeholder={tCommon('searchPlaceholder')}
+                  onHistoryClick={handleHistoryClick}
+                  onClearHistory={handleClearHistory}
+                  history={history}
+                  suggestions={suggestions}
+                  placeholder={tSearch('searchPlaceholder')}
                   focusOnMount
                 />
               </div>
