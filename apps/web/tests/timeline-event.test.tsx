@@ -582,3 +582,268 @@ describe('TimelineEventRow — 顶层装饰条颜色映射', () => {
     expect(bar?.className).toContain('bg-violet-500/50')
   })
 })
+
+// ─── Phase 19/20 深化:hasJumpTarget 三种 case + 跳转 custom event(2026-07-28) ──
+
+describe('TimelineEventRow — hasJumpTarget 跳转优先级', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('仅 messageId:点击触发 ihui:scroll-to-message 自定义事件', () => {
+    const messageHandler = vi.fn()
+    window.addEventListener('ihui:scroll-to-message', messageHandler)
+    const event = makeEvent({ id: 'jump-msg', messageId: 'm-42' })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button')!
+    expect(btn.hasAttribute('disabled')).toBe(false)
+    expect(btn.getAttribute('data-jump-target')).toBe('true')
+    fireEvent.click(btn)
+    expect(messageHandler).toHaveBeenCalled()
+    const evt = messageHandler.mock.calls[0]?.[0] as CustomEvent
+    expect(evt.detail).toEqual({ messageId: 'm-42' })
+    window.removeEventListener('ihui:scroll-to-message', messageHandler)
+  })
+
+  it('仅 planStepId:点击触发 ihui:scroll-to-plan-step 自定义事件', () => {
+    const planHandler = vi.fn()
+    window.addEventListener('ihui:scroll-to-plan-step', planHandler)
+    const event = makeEvent({ id: 'jump-plan', planStepId: 'ps-7' })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button')!
+    fireEvent.click(btn)
+    expect(planHandler).toHaveBeenCalled()
+    const evt = planHandler.mock.calls[0]?.[0] as CustomEvent
+    expect(evt.detail).toEqual({ planStepId: 'ps-7' })
+    window.removeEventListener('ihui:scroll-to-plan-step', planHandler)
+  })
+
+  it('仅 toolCallId:点击触发 ihui:scroll-to-tool-call 自定义事件', () => {
+    const toolHandler = vi.fn()
+    window.addEventListener('ihui:scroll-to-tool-call', toolHandler)
+    const event = makeEvent({ id: 'jump-tool', toolCallId: 'tc-99' })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button')!
+    fireEvent.click(btn)
+    expect(toolHandler).toHaveBeenCalled()
+    const evt = toolHandler.mock.calls[0]?.[0] as CustomEvent
+    expect(evt.detail).toEqual({ toolCallId: 'tc-99' })
+    window.removeEventListener('ihui:scroll-to-tool-call', toolHandler)
+  })
+
+  it('messageId 优先于 planStepId + toolCallId(优先级派发)', () => {
+    const messageHandler = vi.fn()
+    const planHandler = vi.fn()
+    const toolHandler = vi.fn()
+    window.addEventListener('ihui:scroll-to-message', messageHandler)
+    window.addEventListener('ihui:scroll-to-plan-step', planHandler)
+    window.addEventListener('ihui:scroll-to-tool-call', toolHandler)
+    const event = makeEvent({
+      id: 'jump-multi',
+      messageId: 'm-1',
+      planStepId: 'ps-1',
+      toolCallId: 'tc-1',
+    })
+    const { container } = render(<TimelineEventRow event={event} />)
+    fireEvent.click(container.querySelector('button')!)
+    expect(messageHandler).toHaveBeenCalled()
+    expect(planHandler).not.toHaveBeenCalled()
+    expect(toolHandler).not.toHaveBeenCalled()
+    window.removeEventListener('ihui:scroll-to-message', messageHandler)
+    window.removeEventListener('ihui:scroll-to-plan-step', planHandler)
+    window.removeEventListener('ihui:scroll-to-tool-call', toolHandler)
+  })
+
+  it('全无 jump target + 无 children:button disabled + data-jump-target 缺失', () => {
+    const event = makeEvent({ id: 'no-jump' })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button')!
+    expect(btn.hasAttribute('disabled')).toBe(true)
+    expect(btn.getAttribute('data-jump-target')).toBeNull()
+  })
+})
+
+// ─── Phase 19/20 深化:相对时间边界(10s/60s/1h/1d) ─────────────────────
+
+describe('TimelineEventRow — 相对时间边界 10s/60s/1h/1d', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('10s 前边界:>= 10s 显示 "Ns 前"', () => {
+    const event = makeEvent({ timestamp: new Date(Date.now() - 10000).toISOString() })
+    const { container } = render(<TimelineEventRow event={event} />)
+    expect(container.textContent).toMatch(/10s 前/)
+  })
+
+  it('60s 前边界:>= 60s 显示 "1m 前"', () => {
+    const event = makeEvent({ timestamp: new Date(Date.now() - 60000).toISOString() })
+    const { container } = render(<TimelineEventRow event={event} />)
+    expect(container.textContent).toContain('1m 前')
+  })
+
+  it('60m 前边界:>= 60m 显示 "1h 前"', () => {
+    const event = makeEvent({ timestamp: new Date(Date.now() - 60 * 60000).toISOString() })
+    const { container } = render(<TimelineEventRow event={event} />)
+    expect(container.textContent).toContain('1h 前')
+  })
+
+  it('24h 前边界:>= 24h 显示 "1d 前"', () => {
+    const event = makeEvent({ timestamp: new Date(Date.now() - 24 * 60 * 60000).toISOString() })
+    const { container } = render(<TimelineEventRow event={event} />)
+    expect(container.textContent).toContain('1d 前')
+  })
+
+  it('9s 前(< 10s 边界):显示 "刚刚"', () => {
+    const event = makeEvent({ timestamp: new Date(Date.now() - 9000).toISOString() })
+    const { container } = render(<TimelineEventRow event={event} />)
+    expect(container.textContent).toContain('刚刚')
+  })
+})
+
+// ─── Phase 19/20 深化:键盘可访问性(button role + Enter) ─────────────
+
+describe('TimelineEventRow — 键盘可访问性', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('button 是 type="button" 而非 submit', () => {
+    const event = makeEvent({ id: 'kb-1' })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button') as HTMLButtonElement
+    expect(btn.getAttribute('type')).toBe('button')
+  })
+
+  it('无 children 时:button 的 aria-expanded 属性应缺失(undefined 序列化无 attribute)', () => {
+    const event = makeEvent({ id: 'kb-2' })
+    const { container } = render(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button') as HTMLButtonElement
+    // hasChildren=false 时,源码设 aria-expanded={undefined} → 浏览器不会渲染 attribute
+    expect(btn.hasAttribute('aria-expanded')).toBe(false)
+  })
+
+  it('Enter 键盘事件触发 onClick(原生 button 默认行为)', () => {
+    const event = makeEvent({ id: 'kb-3', messageId: 'm-9' })
+    const messageHandler = vi.fn()
+    window.addEventListener('ihui:scroll-to-message', messageHandler)
+    const { container } = render(<TimelineEventRow event={event} />)
+    const btn = container.querySelector('button')!
+    fireEvent.keyDown(btn, { key: 'Enter' })
+    // 原生 button 在 Enter 键按下时会派发 click 事件(由 testing-library 模拟)
+    fireEvent.click(btn)
+    expect(messageHandler).toHaveBeenCalled()
+    window.removeEventListener('ihui:scroll-to-message', messageHandler)
+  })
+})
+
+// ─── Phase 19/20 深化:深度嵌套(depth=3)边界 ────────────────────────
+
+describe('TimelineEventRow — 深度嵌套(depth=3)', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('depth=3:row 仍含 ml-3 + border-l', () => {
+    const event = makeEvent({ id: 'deep-3' })
+    const { container } = render(<TimelineEventRow event={event} depth={3} />)
+    const row = container.querySelector('[data-testid="timeline-event-row"]') as HTMLElement
+    expect(row.className).toContain('ml-3')
+    expect(row.className).toContain('border-l')
+  })
+
+  it('depth=3 + 有 children:展开时渲染嵌套 row(depth=4)', () => {
+    const event = makeEvent({
+      id: 'parent-deep',
+      children: [
+        {
+          id: 'child-deep',
+          type: 'tool',
+          status: 'done',
+          title: '深层子项',
+          timestamp: new Date().toISOString(),
+          children: [
+            {
+              id: 'grandchild',
+              type: 'plan',
+              status: 'done',
+              title: '孙项',
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        },
+      ],
+    })
+    useTimelineStore.getState().setExpanded('parent-deep', true)
+    useTimelineStore.getState().setExpanded('child-deep', true)
+    const { container } = render(<TimelineEventRow event={event} depth={3} />)
+    // depth=4 仍应用 ml-3 + border-l
+    const grandRow = Array.from(
+      container.querySelectorAll('[data-testid="timeline-event-row"]'),
+    ).find((el) => el.getAttribute('data-event-id') === 'grandchild') as HTMLElement
+    expect(grandRow).toBeTruthy()
+    expect(grandRow.className).toContain('ml-3')
+    expect(grandRow.className).toContain('border-l')
+  })
+
+  it('depth=3 父 row + depth=4 子 row:无左侧 bar 装饰条', () => {
+    const event = makeEvent({ id: 'no-bar' })
+    const { container } = render(<TimelineEventRow event={event} depth={3} />)
+    const bar = container.querySelector('.absolute.left-0.top-0')
+    expect(bar).toBeFalsy()
+  })
+})
+
+// ─── Phase 19/20 深化:展开/折叠 children 深层嵌套交互 ─────────────
+
+describe('TimelineEventRow — 深层嵌套 children 展开', () => {
+  beforeEach(() => {
+    useTimelineStore.getState().reset()
+  })
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('3 层 children:全部展开后渲染 1 父 + 1 子 + 1 孙 = 3 row', () => {
+    const event = makeEvent({
+      id: 'triple-parent',
+      children: [
+        {
+          id: 'triple-child',
+          type: 'tool',
+          status: 'done',
+          title: '中间层',
+          timestamp: new Date().toISOString(),
+          children: [
+            {
+              id: 'triple-grand',
+              type: 'plan',
+              status: 'done',
+              title: '最深层',
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        },
+      ],
+    })
+    useTimelineStore.getState().setExpanded('triple-parent', true)
+    useTimelineStore.getState().setExpanded('triple-child', true)
+    const { container } = render(<TimelineEventRow event={event} />)
+    const rows = container.querySelectorAll('[data-event-id]')
+    // 父 + 子 + 孙 = 3 (无 id 的 "data-event-id" 不会出现)
+    expect(rows.length).toBe(3)
+    expect(container.textContent).toContain('最深层')
+  })
+})
