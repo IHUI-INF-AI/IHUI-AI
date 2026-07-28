@@ -6,6 +6,9 @@ import { cn } from '@/lib/utils'
 
 export type ResourceBudgetVariant = 'inline' | 'block'
 
+// 大数字格式化(12345 → "12,345"),模块级单例避免每次 render 重建
+const numberFormatter = new Intl.NumberFormat('en-US')
+
 interface ResourceBudgetProps {
   used: number
   total: number
@@ -57,11 +60,22 @@ export const ResourceBudget = React.memo(function ResourceBudget({
           </span>
           <span className="shrink-0 tabular-nums">{pct}%</span>
         </div>
-        <div className="h-1 overflow-hidden rounded-sm bg-muted/40" aria-hidden>
+        {/* Phase 22: hover tooltip 显示 used / total (pct%),group/budget 触发 */}
+        <div className="group/budget relative">
+          <div className="h-1 overflow-hidden rounded-sm bg-muted/40" aria-hidden>
+            <div
+              className={cn('h-full transition-all duration-300', fillCls)}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
           <div
-            className={cn('h-full transition-all duration-300', fillCls)}
-            style={{ width: `${pct}%` }}
-          />
+            className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-popover px-2 py-1 text-[10px] text-popover-foreground opacity-0 shadow-md transition-opacity group-hover/budget:opacity-100"
+            role="tooltip"
+            aria-hidden
+            data-testid="resource-budget-tooltip"
+          >
+            {numberFormatter.format(safeUsed)} / {numberFormatter.format(safeTotal)} ({pct}%)
+          </div>
         </div>
       </div>
     )

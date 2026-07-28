@@ -7,6 +7,32 @@ import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import { formatDuration } from './foldable-section'
 
+// Phase 22: localStorage key(ihui: 命名空间)
+const STORAGE_KEY = 'ihui:thinking-expanded'
+
+/** 从 localStorage 读取折叠状态,SSR 安全(只在 useEffect 调用) */
+function loadExpandedFromStorage(): boolean | null {
+  try {
+    if (typeof window === 'undefined') return null
+    const val = window.localStorage.getItem(STORAGE_KEY)
+    if (val === 'true') return true
+    if (val === 'false') return false
+    return null
+  } catch {
+    return null // 隐私模式 / 存储不可用
+  }
+}
+
+/** 写入折叠状态到 localStorage,静默失败 */
+function saveExpandedToStorage(expanded: boolean): void {
+  try {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(STORAGE_KEY, String(expanded))
+  } catch {
+    // 静默失败(隐私模式 / 存储已满)
+  }
+}
+
 interface ThinkingSectionProps {
   /** LLM 累积输出内容(来自 token 事件) */
   content: string
@@ -14,6 +40,11 @@ interface ThinkingSectionProps {
   currentNode: string | null
   /** 是否正在流式输出 */
   isStreaming: boolean
+  /**
+   * Phase 22: 受控模式 — 外部传入 expanded 值时优先使用,不读/写 localStorage。
+   * 不传则走非受控模式(内部 state + localStorage 持久化)。
+   */
+  expanded?: boolean
 }
 
 /**
@@ -42,11 +73,32 @@ export const ThinkingSection = React.memo(function ThinkingSection({
   content,
   currentNode,
   isStreaming,
+  expanded: controlledExpanded,
 }: ThinkingSectionProps) {
   const t = useTranslations('ai.pane')
 
-  // v2: 默认折叠,减少 popover 内初始噪声
-  const [expanded, setExpanded] = React.useState<boolean>(false)
+  // Phase 22: 受控模式(传 controlledExpanded)优先;非受控模式用内部 state + localStorage
+  const isControlled = typeof controlledExpanded === 'boolean'
+  const [internalExpanded, setInternalExpanded] = React.useState<boolean>(false)
+
+  // SSR 安全:localStorage 只在 useEffect 中读,不在 render 阶段访问
+  React.useEffect(() => {
+    if (isControlled) return
+    const stored = loadExpandedFromStorage()
+    if (stored !== null) setInternalExpanded(stored)
+  }, [isControlled])
+
+  const expanded = isControlled ? (controlledExpanded as boolean) : internalExpanded
+
+  // Phase 22: 非受控模式 toggle 时持久化到 localStorage
+  const handleToggle = React.useCallback(() => {
+    if (isControlled) return
+    setInternalExpanded((prev) => {
+      const next = !prev
+      saveExpandedToStorage(next)
+      return next
+    })
+  }, [isControlled])
 
   // v2: 思考耗时(从 mount 开始累积,流式时每秒 tick)
   const startTimeRef = React.useRef<number>(Date.now())
@@ -94,7 +146,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
     >
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={handleToggle}
         aria-expanded={expanded}
         aria-label={t('thinkingTitle')}
         data-section-header="true"
