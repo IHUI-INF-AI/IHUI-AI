@@ -469,6 +469,7 @@
       "filterPlaceholder": "Filter folders...",
       "nativePick": "System picker",
       "nativePickHint": "Selected '{name}'. Browser security prevents reading the full path. Please complete the full path (e.g. G:\\IHUI-AI) in the input above and press Enter",
+      "nativePickResolved": "Navigated to '{path}'. Select the target folder and click Open.",
       "nativePickNotFound": "'{name}' not found in the current directory. Please enter the full path manually or navigate to the correct directory",
       "computer": "This PC",
       "parent": "Parent",
@@ -507,11 +508,30 @@
       "ruleType": {
         "path": "Path",
         "command": "Command",
-        "tool": "Tool"
+        "tool": "Tool",
+        "unknown": "Unknown"
       },
       "decision": {
         "allow": "Allow",
         "deny": "Deny"
+      },
+      "mode": {
+        "default": {
+          "title": "Default",
+          "desc": "All operations require manual confirmation. Most secure."
+        },
+        "accept-edits": {
+          "title": "Accept Edits",
+          "desc": "Whitelisted operations auto-allowed, others require confirmation"
+        },
+        "bypass-permissions": {
+          "title": "Bypass Permissions",
+          "desc": "Full access, no confirmation (high risk)"
+        },
+        "unknown": {
+          "title": "Unknown Mode",
+          "desc": "Unrecognized permission mode"
+        }
       },
       "auditRequest": {
         "title": "Permission Required",
