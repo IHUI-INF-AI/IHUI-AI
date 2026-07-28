@@ -133,46 +133,26 @@ vi.mock('@ihui/api-client', () => ({
 // vi.hoisted 确保 IconSpan 在 vi.mock 工厂执行前已定义
 // 注:让 IconSpan 接受 className prop 并应用到 span 上,这样 ConnectionStatus 等组件
 // 传入的 color/animation className 才能被测试断言到
-const { IconSpan } = vi.hoisted(() => {
+const { IconSpan, makeLucideMock } = vi.hoisted(() => {
   const IconSpan = ({ className }: { className?: string }) => (
     <span data-testid="lucide-icon" className={className} />
   )
-  return { IconSpan }
+  // Proxy 自动把任何图标名映射到 IconSpan,避免每个图标都需在 mock 中显式列出
+  const makeLucideMock = (): Record<string, typeof IconSpan> =>
+    new Proxy(
+      {},
+      {
+        get: (_target, prop: string) => {
+          if (prop === '__esModule' || prop === 'default' || prop === 'createLucideIcon') {
+            return undefined
+          }
+          return IconSpan
+        },
+      },
+    )
+  return { IconSpan, makeLucideMock }
 })
-vi.mock('lucide-react', () => ({
-  Pin: IconSpan,
-  PinOff: IconSpan,
-  Minimize2: IconSpan,
-  Circle: IconSpan,
-  Loader2: IconSpan,
-  Check: IconSpan,
-  Copy: IconSpan,
-  ListTodo: IconSpan,
-  MessageSquare: IconSpan,
-  ChevronRight: IconSpan,
-  Brain: IconSpan,
-  Wrench: IconSpan,
-  X: IconSpan,
-  Users: IconSpan,
-  AlertTriangle: IconSpan,
-  FileEdit: IconSpan,
-  FilePlus: IconSpan,
-  FileText: IconSpan,
-  Search: IconSpan,
-  Terminal: IconSpan,
-  TerminalSquare: IconSpan,
-  ChevronsUpDown: IconSpan,
-  ChevronsDownUp: IconSpan,
-  Activity: IconSpan,
-  CheckCircle2: IconSpan,
-  XCircle: IconSpan,
-  AlertCircle: IconSpan,
-  SignalHigh: IconSpan,
-  SignalMedium: IconSpan,
-  RotateCw: IconSpan,
-  WifiOff: IconSpan,
-  ArrowDown: IconSpan,
-}))
+vi.mock('lucide-react', () => makeLucideMock())
 
 // Mock useChatStore.conversationId(避免引入整个 chat store)
 vi.mock('@/stores/chat', () => ({
