@@ -82,7 +82,7 @@ export default async function BlogIndexPage() {
                       <time dateTime={post.date}>{dateFmt.format(new Date(post.date))}</time>
                     </div>
 
-                    <h2 className="line-clamp-2 text-lg font-semibold leading-tight text-foreground group-hover:text-primary">
+                    <h2 className="line-clamp-2 text-base font-semibold leading-tight text-foreground group-hover:text-primary">
                       {post.title}
                     </h2>
 

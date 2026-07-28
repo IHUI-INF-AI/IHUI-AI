@@ -25,7 +25,7 @@ interface PapersData {
   pageSize: number
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)

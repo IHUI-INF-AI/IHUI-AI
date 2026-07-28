@@ -3,7 +3,9 @@ import { persist } from 'zustand/middleware'
 import { logout as apiLogout, type AuthUser as ApiAuthUser } from '@ihui/api-client'
 import { type TokenPair } from '@ihui/types'
 import {
-  setAuthCookie,
+  // 2026-07-28 加固:auth_token cookie 由后端 setCookie(httpOnly)独家管理,
+  // 前端不再 document.cookie 写入(否则 httpOnly 标志 + 非 httpOnly 同名 cookie 冲突导致
+  // 跨端口 fetch 行为不可预期)。refresh_token 仍由前端写非 httpOnly 给 use-auth-bootstrap 用。
   setRefreshTokenCookie,
   getRefreshTokenCookie,
   clearRefreshTokenCookie,
