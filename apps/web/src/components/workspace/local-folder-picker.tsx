@@ -160,71 +160,23 @@ interface PathNavProps {
   onRefresh: () => void
   isRefreshing: boolean
   t: ReturnType<typeof useTranslations<'workspace.folderPicker'>>
-  /**
-   * 受控模式(2026-07-28 加固):父组件可强制切到 input 模式,用于系统选择器
-   * 流程引导用户输入完整路径(浏览器安全模型拿不到绝对路径,必须 fallback 到手动输入)。
-   * - 'input' = 强制切到 input 模式
-   * - 'breadcrumb' = 强制切到面包屑模式
-   * - undefined = 子组件内部自管
-   */
-  externalMode?: 'breadcrumb' | 'input'
-  /** 切到 input 模式时预填的草稿(留空=用户自行输入) */
-  externalDraft?: string
-  /** 强制切到 input 模式后回调(用于 input 聚焦) */
-  onSwitchedToInput?: () => void
-  /** 2026-07-28 加固:input 模式提交时调用,用于"输入完整路径 → 立即打开"工作流 */
-  onCommit?: (path: string) => void
-  /**
-   * 2026-07-28 加固(打开按钮可用性):input 草稿变化时回调,父组件用此值
-   * 计算 openTarget,确保用户在输入框里打字时底部"打开"按钮能即时启用,
-   * 而不是只按 Enter 才触发。
-   */
-  onDraftChange?: (draft: string) => void
 }
 
 /**
  * 位置栏 — 两种模式:
  *   - breadcrumb: 可点击面包屑(默认)
  *   - input: 输入框(回车跳转,Esc 取消)
- * 通过右侧 ⌨ 按钮切换;支持 externalMode 强制覆盖(系统选择器引导流程)。
+ * 通过右侧 ⌨ 按钮切换。
  */
-function PathNav({
-  currentPath,
-  onNavigate,
-  onRefresh,
-  isRefreshing,
-  t,
-  externalMode,
-  externalDraft,
-  onSwitchedToInput,
-  onCommit,
-  onDraftChange,
-}: PathNavProps) {
-  const [internalMode, setInternalMode] = React.useState<'breadcrumb' | 'input'>('breadcrumb')
+function PathNav({ currentPath, onNavigate, onRefresh, isRefreshing, t }: PathNavProps) {
+  const [mode, setMode] = React.useState<'breadcrumb' | 'input'>('breadcrumb')
   const [draft, setDraft] = React.useState(currentPath)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
-  // 受控模式:externalMode 非 undefined 时强制覆盖
-  const mode = externalMode ?? internalMode
-
-  // 跟随 currentPath 同步草稿(仅在 breadcrumb 模式同步)
+  // 跟随 currentPath 同步草稿
   React.useEffect(() => {
-    if (mode === 'breadcrumb') setDraft(currentPath)
-  }, [currentPath, mode])
-
-  // externalMode 变化时同步 draft + 通知父组件
-  React.useEffect(() => {
-    if (externalMode === 'input') {
-      setDraft(externalDraft ?? currentPath)
-      const id = window.setTimeout(() => {
-        inputRef.current?.focus()
-        inputRef.current?.select()
-        onSwitchedToInput?.()
-      }, 0)
-      return () => window.clearTimeout(id)
-    }
-    return
-  }, [externalMode, externalDraft, currentPath, onSwitchedToInput])
+    setDraft(currentPath)
+  }, [currentPath])
 
   // 切到 input 模式自动聚焦
   React.useEffect(() => {
@@ -244,18 +196,14 @@ function PathNav({
   const commitInput = () => {
     const p = draft.trim()
     if (p && p !== currentPath) {
-      if (onCommit) {
-        onCommit(normalizeSep(p))
-      } else {
-        onNavigate(normalizeSep(p))
-      }
+      onNavigate(normalizeSep(p))
     }
-    if (externalMode === undefined) setInternalMode('breadcrumb')
+    setMode('breadcrumb')
   }
 
   const cancelInput = () => {
     setDraft(currentPath)
-    if (externalMode === undefined) setInternalMode('breadcrumb')
+    setMode('breadcrumb')
   }
 
   if (mode === 'input') {
@@ -265,11 +213,7 @@ function PathNav({
         <input
           ref={inputRef}
           value={draft}
-          onChange={(e) => {
-            const v = e.target.value
-            setDraft(v)
-            onDraftChange?.(v)
-          }}
+          onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
@@ -371,10 +315,7 @@ function PathNav({
           <TooltipTrigger asChild>
             <button
               type="button"
-              onClick={() => {
-                if (externalMode === undefined) setInternalMode('input')
-                onSwitchedToInput?.()
-              }}
+              onClick={() => setMode('input')}
               className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label={t('advancedPath')}
             >
@@ -489,28 +430,8 @@ export function LocalFolderPicker({
     techStack: string[]
   } | null>(null)
   const [nativeHint, setNativeHint] = React.useState<string | null>(null)
-  /**
-   * 2026-07-28 加固:PathNav 模式受控。
-   * - null:PathNav 内部自管(breadcrumb / ⌨ 切 input)
-   * - 'input':父组件强制切到 input 模式(系统选择器引导流程用)
-   * - 'breadcrumb':父组件强制切回 breadcrumb(用户提交输入后)
-   * 提交态 inputDraft 用于受控草稿;PathNav 切到 input 时自动聚焦。
-   */
-  const [pathMode, setPathMode] = React.useState<'breadcrumb' | 'input' | null>(null)
-  const [pathDraft, setPathDraft] = React.useState<string>('')
 
   const listRef = React.useRef<HTMLUListElement>(null)
-
-  /**
-   * 2026-07-28 加固:Tauri 桌面壳环境检测。
-   * - true:Tauri desktop(可调用 @tauri-apps/plugin-dialog 拿完整路径)
-   * - false:纯 Web 浏览器(浏览器安全模型只能拿 folder name,无法拿绝对路径)
-   */
-  const isTauri = React.useMemo(() => {
-    if (typeof window === 'undefined') return false
-    const w = window as unknown as { __TAURI_INTERNALS__?: unknown; __TAURI__?: unknown }
-    return '__TAURI_INTERNALS__' in w || '__TAURI__' in w
-  }, [])
 
   const capability = React.useMemo(
     () => (open ? detectPickerCapability() : { showDirectoryPicker: false }),
@@ -524,8 +445,6 @@ export function LocalFolderPicker({
       setSelectedPath('')
       setFilter('')
       setNativeHint(null)
-      setPathMode(null)
-      setPathDraft('')
     }
   }, [open])
 
@@ -637,13 +556,7 @@ export function LocalFolderPicker({
   }, [canGoParent, parent, navigateTo])
 
   // 打开(底部按钮 / Enter on list when no selection)
-  /**
-   * 打开目标(2026-07-28 加固)
-   * 优先级:用户在 input 模式输入的草稿 > 列表选中 > 当前浏览目录
-   * - input 草稿:用户从系统选择器流程进入并输入完整路径时,直接拿草稿打开
-   * - 列表选中 / currentPath:传统浏览流程
-   */
-  const openTarget = (pathMode === 'input' ? pathDraft.trim() : '') || selectedPath || currentPath
+  const openTarget = selectedPath || currentPath
   const openSelected = React.useCallback(() => {
     if (openTarget) openMutation.mutate(openTarget)
   }, [openTarget, openMutation])
@@ -696,36 +609,16 @@ export function LocalFolderPicker({
   // showDirectoryPicker 受浏览器安全模型限制:只能返回 handle.name(文件夹名),
   // 拿不到真实绝对路径。选完后自动把 filter 设为该名字,让下方文件列表
   // 立即过滤出匹配项,焦点落在列表上,用户用 ↑↓ + Enter 即可选中并打开。
-  /**
-   * 系统原生选择器(Tauri / 浏览器 双模式)
-   * 2026-07-28 加固:浏览器模式下 `showDirectoryPicker` 受安全模型限制只能返回
-   * folder name(无完整路径),之前的"自动 setFilter + 列表匹配"流程在根目录
-   * browseData 是盘符列表(C:/D:/...)时**永远匹配不到**,导致打开按钮无法启用。
-   * 修复:Tauri 模式直接用 `dialog.open({ directory: true })` 拿完整路径,跳过
-   * 输入步骤;浏览器模式自动切到 input 模式,引导用户输入完整路径。
-   */
   const handleNativePick = async () => {
     setNativeHint(null)
     try {
-      if (isTauri) {
-        // Tauri desktop:dynamic import 避免 web 端打包时拉 Tauri 模块
-        const { open } = await import('@tauri-apps/plugin-dialog')
-        const picked = await open({ directory: true, multiple: false })
-        if (!picked || typeof picked !== 'string') return
-        const normalized = normalizeSep(picked)
-        setPathMode('breadcrumb')
-        navigateTo(normalized)
-        // Tauri 拿到完整路径,直接尝试打开(不强制用户先浏览子目录)
-        openMutation.mutate(normalized)
-        return
-      }
-      // 浏览器模式:只能拿 folder name,自动切到 input 模式引导用户输入完整路径
-      // 把 folder name 预填到 pathDraft,让"打开"按钮立即可用,用户继续补充完整路径
       const name = await pickDirectoryNative()
       if (!name) return
-      setPathDraft(name)
-      setPathMode('input')
+      setFilter(name)
       setNativeHint(t('nativePickHint', { name }))
+      // 选完自动把焦点落到列表,方便用户立即用键盘浏览/打开。
+      // 若当前目录下无匹配项,用户按 Backspace 可返回上级重新浏览。
+      window.setTimeout(() => listRef.current?.focus(), 0)
     } catch (err) {
       setNativeHint((err as Error).message)
     }
@@ -772,13 +665,6 @@ export function LocalFolderPicker({
               onRefresh={() => void refetchBrowse()}
               isRefreshing={fetching && !browsing}
               t={t}
-              externalMode={pathMode ?? undefined}
-              externalDraft={pathDraft}
-              onDraftChange={setPathDraft}
-              onCommit={(p) => {
-                setPathDraft(p)
-                openMutation.mutate(p)
-              }}
             />
 
             {/* 工具栏:筛选 + 父级 + 系统选择器 */}

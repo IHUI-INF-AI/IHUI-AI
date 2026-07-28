@@ -134,7 +134,7 @@ function ThirdPartyLoginButtonsInner() {
         <span className="text-muted-foreground">{t('thirdPartyLogin')}</span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {providers.map((p) => {
           const platformDisabled = !isPlatformEnabled(p.key)
           const disabled = p.forceDisabled || platformDisabled || handlingCallback

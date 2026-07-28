@@ -644,7 +644,7 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
           <span>资源配额</span>
         </label>
         {enableQuotas && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div>
               <div className="text-[10px] text-muted-foreground">超时(ms)</div>
               <input

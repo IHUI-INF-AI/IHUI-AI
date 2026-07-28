@@ -28,7 +28,7 @@ const STAT_CARDS = [
 
 export function StatCards({ stats }: { stats: CsStats }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-3 gap-3">
       {STAT_CARDS.map((c) => (
         <div key={c.key} className="flex items-center gap-3 rounded-lg border bg-card p-3">
           <c.icon className={cn('h-5 w-5', c.cls)} />
