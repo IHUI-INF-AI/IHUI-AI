@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { LOCALE_STORAGE_KEY } from '@ihui/shared/constants'
 import { mergeMessages, translate, getValueByPath } from '@ihui/i18n/loader'
-import type { Locale, Messages } from '@ihui/i18n/types'
+import { DEFAULT_LOCALE, type Locale, type Messages } from '@ihui/i18n/types'
 import { createAsyncStorageTransport } from '../stores/storage-adapter'
 // shared 通用 + mobile-rn 端 override,mergeMessages 深合并修复浅 spread bug
 import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
@@ -42,7 +42,7 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('zh-CN')
+  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
 
   useEffect(() => {
     void (async () => {
@@ -68,7 +68,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }
 
   const t = (key: string, params?: Record<string, string | number>): string =>
-    translate(messages[locale], key, { fallback: messages['zh-CN'], params })
+    translate(messages[locale], key, { fallback: messages[DEFAULT_LOCALE], params })
 
   return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>
 }
