@@ -3,6 +3,7 @@
  *
  * 使用场景:
  * - miniapp-taro vip store(stores/vip.ts 的 getVipStatus / isVipActive)
+ * - miniapp-taro member 页面剩余天数展示(calcVipRemainDays)
  * - mobile-rn vip screen(未来接入)
  * - web vip page(未来接入)
  *
@@ -54,4 +55,24 @@ export function getVipStatusFromSnapshot(snapshot: VipStatusSnapshot): VipStatus
     level: snapshot.vipLevel || 0,
     expireTime,
   }
+}
+
+/**
+ * VIP 剩余天数计算(支持秒/毫秒时间戳 + ISO 字符串)。
+ *
+ * @param expireTime 过期时间:数字(秒或毫秒时间戳)/ ISO 字符串 / null / undefined
+ * @returns 剩余天数(向上取整);空值/无效/已过期 → 0
+ */
+export function calcVipRemainDays(expireTime: string | number | null | undefined): number {
+  if (expireTime === null || expireTime === undefined || expireTime === '') return 0
+  let ms: number
+  if (typeof expireTime === 'number') {
+    ms = expireTime > 1e12 ? expireTime : expireTime * 1000
+  } else {
+    const parsed = Date.parse(expireTime)
+    if (Number.isNaN(parsed)) return 0
+    ms = parsed
+  }
+  const diff = ms - Date.now()
+  return diff > 0 ? Math.ceil(diff / 86400000) : 0
 }

@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { getFollowing, unfollowUser, type FollowingItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { useI18n } from '@/i18n'
+import { formatDateByTemplate } from '@ihui/shared'
 
 const PAGE_SIZE = 20
 const defaultAvatar = '/static/default-avatar.png'
@@ -46,16 +47,6 @@ export default function FollowingPage() {
     }
     return list
   }, [items, searchText, activeTab])
-
-  const formatDate = (v: string) => {
-    if (!v) return ''
-    const d = new Date(v)
-    if (isNaN(d.getTime())) return ''
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  }
 
   const handleUnfollow = useCallback(
     (item: FollowingItem) => {
@@ -152,7 +143,7 @@ export default function FollowingPage() {
                   {item.bio ? <Text className="text-[24rpx] text-muted-foreground truncate">{item.bio}</Text> : null}
                   <View className="flex items-center justify-between">
                     <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('following.followedAt', '关注于')} {formatDate(item.followedAt) || '-'}
+                      {tt('following.followedAt', '关注于')} {formatDateByTemplate(item.followedAt, 'YYYY-MM-DD') || '-'}
                     </Text>
                     <Text
                       className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-[rgba(220,38,38,0.08)] border-[2rpx] border-[rgba(220,38,38,0.2)] rounded-[8rpx]"
