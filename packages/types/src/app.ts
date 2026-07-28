@@ -258,3 +258,69 @@ export interface HistoryScreenProps {
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
+
+/** 证书状态(与后端 /api/certificates 契约对齐) */
+export type CertificateStatus = 'issued' | 'expired' | 'revoked' | string
+
+/** 证书列表项(平台注入,字段对齐 @ihui/api-client CertificateItem) */
+export interface CertificateItem {
+  id: string
+  /** 证书标题 */
+  title: string
+  /** 课程名 */
+  courseName: string
+  /** 发证日期(ISO 字符串或已格式化文本) */
+  issueDate: string
+  /** 过期日期(可空,表示永久有效) */
+  expiryDate: string | null
+  /** 证书状态 */
+  status: CertificateStatus
+}
+
+/** Certificate 屏 props */
+export interface CertificateScreenProps {
+  t: TFunction
+  items: CertificateItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击证书卡片回调,平台注入导航跳转(如 navigate('CertificateDetail', { id })) */
+  onPressItem: (item: CertificateItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 消息中心 Tab key(可扩展为任意 string) */
+export type MessageTab = 'system' | 'order' | 'course' | 'social' | (string & {})
+
+/** 消息项(平台注入,字段对齐 mobile-rn MessageCenterScreen Message) */
+export interface MessageCenterItem {
+  id: string
+  type: MessageTab
+  title: string
+  content: string
+  /** 是否已读 */
+  read: boolean
+  createdAt: string
+}
+
+/** 消息中心共享屏 props */
+export interface MessageCenterScreenProps {
+  t: TFunction
+  items: MessageCenterItem[]
+  /** 当前激活 tab */
+  activeTab: MessageTab
+  /** tab 切换回调,平台注入重新拉取逻辑 */
+  onSelectTab: (tab: MessageTab) => void
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击消息卡片回调,可选 */
+  onPressItem?: (item: MessageCenterItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}

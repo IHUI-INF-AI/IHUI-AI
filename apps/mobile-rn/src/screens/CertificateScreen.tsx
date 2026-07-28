@@ -1,223 +1,64 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { useCallback, useState } from 'react'
-import {
-  Alert,
-  FlatList,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Card } from '@ihui/ui-native'
 import { fetchApi } from '@ihui/api-client'
-import { usePaginatedList } from '../hooks'
+import { CertificateScreen as SharedCertificateScreen } from '@ihui/rn-app'
+import type { CertificateItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { formatShortDateWithYear } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-interface Certificate {
-  id: string
-  name: string
-  issuer: string
-  issueDate: string
-  expireDate: string | null
-  status: 'valid' | 'expired' | 'revoked'
-  cover: string | null
-}
-
-const CERT_FILTER_KEYS: Record<'all' | 'valid' | 'expired', string> = {
-  all: 'certificate.filter_all',
-  valid: 'certificate.filter_valid',
-  expired: 'certificate.filter_expired',
-}
-
-const CERT_STATUS_KEYS: Record<Certificate['status'], string> = {
-  valid: 'certificate.status_valid',
-  expired: 'certificate.status_expired',
-  revoked: 'certificate.status_revoked',
-}
-
 interface CertPage {
-  list: Certificate[]
+  list: CertificateItem[]
   total: number
-}
-
-const PAGE_SIZE = 20
-
-function statusColor(status: Certificate['status']): string {
-  if (status === 'valid') return tokens.brand.DEFAULT
-  if (status === 'expired') return tokens.text.tertiary
-  return tokens.danger.bright
 }
 
 export function CertificateScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'valid' | 'expired'>('all')
+  const [items, setItems] = useState<CertificateItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
 
-  const fetcher = useCallback(async () => {
-    const url = `/api/certificates?page=1&pageSize=${PAGE_SIZE}&status=${selectedStatus}`
-    const res = await fetchApi<CertPage>(url)
-    if (!res.success) {
-      return { success: false as const, error: t('certificate.loadFailed') }
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const res = await fetchApi<CertPage>('/api/certificates')
+      if (!res.success) throw new Error()
+      setItems(res.data.list ?? [])
+    } catch {
+      setError(t('certificate.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    return { success: true as const, data: { list: res.data.list, total: res.data.total } }
-  }, [selectedStatus, t])
+  }, [t])
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<Certificate>(
-    fetcher,
-    PAGE_SIZE,
-  )
-
-  const onSwitchStatus = (next: 'all' | 'valid' | 'expired') => {
-    if (next === selectedStatus) return
-    setSelectedStatus(next)
-    setTimeout(refresh, 0)
-  }
-
-  const onItemPress = (item: Certificate) => {
-    Alert.alert(item.name, `${item.issuer}\n${formatShortDateWithYear(item.issueDate)}`)
-  }
+  useEffect(() => {
+    void load()
+  }, [load])
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('certificate.title')}</Text>
-      </View>
-
-      <View style={styles.tabs}>
-        {(['all', 'valid', 'expired'] as const).map((s) => (
-          <TouchableOpacity
-            key={s}
-            onPress={() => onSwitchStatus(s)}
-            style={[styles.tab, selectedStatus === s && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, selectedStatus === s && styles.tabTextActive]}>
-              {t(CERT_FILTER_KEYS[s])}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {error ? (
-        <View style={styles.errorBar}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
-
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
-        ListEmptyComponent={
-          loading ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>{t('common.loading')}</Text>
-            </View>
-          ) : (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>{t('certificate.empty')}</Text>
-            </View>
-          )
-        }
-        renderItem={({ item }) => (
-          <Card className="p-3">
-            <View style={styles.itemRow}>
-              {item.cover ? (
-                <Image source={{ uri: item.cover }} style={styles.cover} resizeMode="cover" />
-              ) : (
-                <View style={styles.coverPlaceholder}>
-                  <Text style={styles.coverEmoji}>📜</Text>
-                </View>
-              )}
-              <View style={styles.itemBody}>
-                <Text style={styles.itemName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.itemIssuer} numberOfLines={1}>
-                  {item.issuer}
-                </Text>
-                <Text style={styles.itemDate}>
-                  {t('certificate.issueDate')}: {formatShortDateWithYear(item.issueDate)}
-                </Text>
-                {item.expireDate ? (
-                  <Text style={styles.itemDate}>
-                    {t('certificate.expireDate')}: {formatShortDateWithYear(item.expireDate)}
-                  </Text>
-                ) : null}
-              </View>
-              <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
-                <Text style={styles.statusText}>{t(CERT_STATUS_KEYS[item.status])}</Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={() => onItemPress(item)} style={styles.detailBtn}>
-              <Text style={styles.detailText}>{t('certificate.viewDetail')}</Text>
-            </TouchableOpacity>
-          </Card>
-        )}
-      />
-    </View>
+    <SharedCertificateScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onPressItem={(item) => {
+        // @ts-expect-error CertificateDetail 路由待在 RootStackParamList 注册(navigation 基础设施,非共享层范围)
+        navigation.navigate('CertificateDetail', { id: item.id })
+      }}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: tokens.surface.muted,
-  },
-  backBtn: { marginRight: 12 },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
-  tab: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: tokens.surface.card,
-  },
-  tabActive: { backgroundColor: tokens.success.DEFAULT },
-  tabText: { fontSize: 12, color: tokens.text.secondary },
-  tabTextActive: { color: tokens.surface.light },
-  errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
-  emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-  emptyText: { fontSize: 12, color: tokens.text.secondary },
-  itemRow: { flexDirection: 'row', alignItems: 'center' },
-  cover: { width: 56, height: 56, borderRadius: 8, backgroundColor: tokens.surface.card },
-  coverPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
-    backgroundColor: tokens.surface.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coverEmoji: { fontSize: 24 },
-  itemBody: { flex: 1, marginLeft: 12 },
-  itemName: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
-  itemIssuer: { fontSize: 12, color: tokens.text.secondary, marginTop: 2 },
-  itemDate: { fontSize: 11, color: tokens.text.tertiary, marginTop: 2 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 11, color: tokens.surface.light },
-  detailBtn: {
-    marginTop: 8,
-    paddingVertical: 6,
-    alignItems: 'flex-end',
-  },
-  detailText: { fontSize: 12, color: tokens.success.DEFAULT },
-})

@@ -237,6 +237,35 @@
       "post": "動態"
     }
   },
+  "certificate": {
+    "empty": "暫無證書",
+    "expiryDate": "過期時間",
+    "issuedDate": "發證時間",
+    "loadFailed": "載入證書失敗",
+    "status": {
+      "expired": "已過期",
+      "issued": "已頒發",
+      "revoked": "已撤銷"
+    },
+    "title": "我的證書"
+  },
+  "messageCenter": {
+    "empty": "暫無訊息",
+    "loadFailed": "載入訊息失敗",
+    "tab": {
+      "course": "課程",
+      "order": "訂單",
+      "social": "社交",
+      "system": "系統"
+    },
+    "title": "訊息中心",
+    "type": {
+      "course": "課程",
+      "order": "訂單",
+      "social": "社交",
+      "system": "系統"
+    }
+  },
   "history": {
     "empty": "暫無瀏覽歷史",
     "loadFailed": "載入歷史失敗",
