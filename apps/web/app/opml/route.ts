@@ -19,7 +19,7 @@
 // 必须显式声明 force-static,否则构建报错。
 export const dynamic = 'force-static'
 
-const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ihui.ai'
+const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://aizhs.top'
 const BUILD_DATE = new Date().toUTCString()
 
 function escapeAttr(s: string): string {
@@ -187,7 +187,7 @@ export async function GET() {
     <dateCreated>${BUILD_DATE}</dateCreated>
     <dateModified>${BUILD_DATE}</dateModified>
     <ownerName>IHUI AI Team</ownerName>
-    <ownerEmail>contact@ihui.ai</ownerEmail>
+    <ownerEmail>contact@aizhs.top</ownerEmail>
     <docs>http://opml.org/spec2.opml</docs>
   </head>
   <body>

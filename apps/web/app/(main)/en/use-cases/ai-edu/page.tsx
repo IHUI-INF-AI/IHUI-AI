@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/en/use-cases/ai-edu#webpage',
-      url: 'https://ihui.ai/en/use-cases/ai-edu',
+      '@id': 'https://aizhs.top/en/use-cases/ai-edu#webpage',
+      url: 'https://aizhs.top/en/use-cases/ai-edu',
       name: 'AI Smart Education Agent Use Case — IHUI AI',
       description:
         'AI smart education agent built on IHUI AI full-stack AI operating system: personalized learning path, smart Q&A, question generation and grading, learning data analytics, teaching collaboration, parent-school communication. 30-minute onboarding, 8-endpoint distribution.',
       inLanguage: ['en', 'zh-CN', 'zh-TW', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/en/use-cases/ai-edu#breadcrumb',
+      '@id': 'https://aizhs.top/en/use-cases/ai-edu#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI Education', item: 'https://ihui.ai/en/use-cases/ai-edu' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI Education', item: 'https://aizhs.top/en/use-cases/ai-edu' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/en/use-cases/ai-edu#howto',
+      '@id': 'https://aizhs.top/en/use-cases/ai-edu#howto',
       name: '30-Minute Setup of an AI Smart Education Agent',
       description:
         'Six-step workflow to build an AI smart education agent on IHUI AI: configure student data, train learning path model, integrate question bank, set grading rules, enable analytics, connect parent-school communication. 100% personalized coverage.',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI Smart Education Agent — IHUI AI',
     description: 'Personalized learning path + smart Q&A + grading, 30-minute onboarding.',
-    url: 'https://ihui.ai/en/use-cases/ai-edu',
+    url: 'https://aizhs.top/en/use-cases/ai-edu',
     type: 'article',
   },
 }

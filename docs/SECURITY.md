@@ -17,7 +17,7 @@ AI 调用计费、第三方 OAuth 凭证等敏感场景,安全是项目的核心
 
 ### 1.2 报告渠道
 
-- **首选邮件**:`security@ihui.ai`(占位,正式地址以仓库 README 为准)
+- **首选邮件**:`security@aizhs.top`(占位,正式地址以仓库 README 为准)
 - **GitHub Security Advisory**(推荐):仓库 → Security → Report a vulnerability
   → 私披露流程,可端到端追踪并生成 CVE
 - **加密通信**:PGP 公钥指纹请通过仓库 README 获取(若有)
@@ -264,9 +264,9 @@ IHUI-AI 在多个层面部署了安全措施,下表汇总各层防御点。
 
 | 渠道 | 地址 | 用途 |
 |---|---|---|
-| 安全邮件(占位) | `security@ihui.ai` | 漏洞私披露 |
+| 安全邮件(占位) | `security@aizhs.top` | 漏洞私披露 |
 | GitHub Security Advisory | 仓库 → Security → Report a vulnerability | 端到端追踪漏洞 |
 | 维护者 | 见仓库 README | 一般安全咨询 |
 
-**注意**:`security@ihui.ai` 为占位地址,正式地址以仓库 README 公示为准。在正式地址
+**注意**:`security@aizhs.top` 为占位地址,正式地址以仓库 README 公示为准。在正式地址
 启用前,优先使用 GitHub Security Advisory 渠道。

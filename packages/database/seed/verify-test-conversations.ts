@@ -26,8 +26,8 @@ async function main() {
       roleId: users.roleId,
     })
     .from(users)
-    .where(sql`email LIKE '%@ihui.ai' OR username LIKE '%admin%'`)
-  console.info('\n[verify] 所有 @ihui.ai 或 admin 用户:')
+    .where(sql`email LIKE '%@aizhs.top' OR username LIKE '%admin%'`)
+  console.info('\n[verify] 所有 @aizhs.top 或 admin 用户:')
   for (const u of allUsers) {
     console.info(
       `  - id=${u.id} email=${u.email} username=${u.username} nickname=${u.nickname} roleId=${u.roleId}`,

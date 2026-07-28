@@ -3,11 +3,11 @@
  *
  * 清理范围:
  * - username: 'e2e_admin' / 'e2e_user' (历史命名,向后兼容) / 'test_e2e' (当前 seed-test-users.ts 命名)
- * - email:   'test@ihui.ai' (seed-test-users.ts 当前 seed) / 'admin@ihui.ai' (历史残留测试 admin)
+ * - email:   'test@aizhs.top' (seed-test-users.ts 当前 seed) / 'admin@aizhs.top' (历史残留测试 admin)
  * - phone:   短数字 / 19900000 前缀 / '13133287445' (历史测试数据)
  *
  * 与 seed-test-users.ts 的命名对应关系:
- * - apps/api/scripts/seed-test-users.ts 第 37 行 seed username='test_e2e' / email='test@ihui.ai'
+ * - apps/api/scripts/seed-test-users.ts 第 37 行 seed username='test_e2e' / email='test@aizhs.top'
  * - 本脚本必须能清掉 seed 创建的账号,否则 E2E 测试会因账号已存在而失败
  *
  * 保护机制(强制保留):
@@ -39,7 +39,7 @@ try {
     SELECT id, username, phone, email, is_system_admin
     FROM users
     WHERE username IN ('e2e_admin', 'e2e_user', 'test_e2e')
-       OR email IN ('test@ihui.ai', 'admin@ihui.ai')
+       OR email IN ('test@aizhs.top', 'admin@aizhs.top')
        OR phone ~ '^[0-9]{1,4}$'
        OR phone LIKE '19900000%'
        OR phone = '13133287445'
@@ -61,7 +61,7 @@ try {
       WHERE id <> ALL(SELECT id FROM users WHERE is_system_admin = true)
         AND (
           username IN ('e2e_admin', 'e2e_user', 'test_e2e')
-          OR email IN ('test@ihui.ai', 'admin@ihui.ai')
+          OR email IN ('test@aizhs.top', 'admin@aizhs.top')
           OR phone ~ '^[0-9]{1,4}$'
           OR phone LIKE '19900000%'
           OR phone = '13133287445'

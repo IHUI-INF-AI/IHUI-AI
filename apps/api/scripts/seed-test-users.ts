@@ -6,7 +6,7 @@
  *
  * 行为：
  * 1. 用应用层 hashPassword(argon2id)生成密码 hash（与 auth.ts 登录校验一致）
- * 2. upsert test@ihui.ai 一个普通测试用户（onConflictDoUpdate on email）
+ * 2. upsert test@aizhs.top 一个普通测试用户（onConflictDoUpdate on email）
  * 3. 打印 seed 结果
  *
  * 适用场景：
@@ -33,7 +33,7 @@ interface SeedUser {
 
 const SEED_USERS: SeedUser[] = [
   {
-    email: 'test@ihui.ai',
+    email: 'test@aizhs.top',
     username: 'test_e2e',
     nickname: 'Test User',
     password: 'Test@123456',

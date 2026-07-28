@@ -7,20 +7,20 @@
 //      - 生成 key:node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
 //      - 把 key 写到 .env: INDEXNOW_KEY=<生成的 key>
 //      - 把 key 文件放到 apps/web/public/<key>.txt(内容就是 key 本身,无换行)
-//      - 部署站点,确保 https://ihui.ai/<key>.txt 可访问
+//      - 部署站点,确保 https://aizhs.top/<key>.txt 可访问
 //      - 在 https://www.bing.com/webmasters/ 提交一次站点(后续自动收录)
 //
 //   2. 每次发布后推送:
 //      node scripts/notify-indexnow.mjs                  # 推送 sitemap.xml 所有 URL
 //      node scripts/notify-indexnow.mjs --urls url1,url2 # 推送指定 URL
-//      node scripts/notify-indexnow.mjs --sitemap https://ihui.ai/sitemap.xml
+//      node scripts/notify-indexnow.mjs --sitemap https://aizhs.top/sitemap.xml
 //
 //   3. CI 集成(可选):在 .github/workflows/release.yml 后加一步:
 //      - run: node scripts/notify-indexnow.mjs
 //        env:
 //          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
 
-const SITE_URL = process.env.SITE_URL || 'https://ihui.ai'
+const SITE_URL = process.env.SITE_URL || 'https://aizhs.top'
 const INDEXNOW_KEY = process.env.INDEXNOW_KEY || ''
 const ENDPOINTS = [
   'https://api.indexnow.org/indexnow', // IndexNow 统一入口(推荐)
@@ -41,7 +41,7 @@ if (!INDEXNOW_KEY) {
   console.error('生成 key: node -e "console.log(require(\'crypto\').randomBytes(16).toString(\'hex\'))"')
   console.error('写入 .env: INDEXNOW_KEY=<key>')
   console.error('放 key 文件: 把 <key> 字符串写到 apps/web/public/<key>.txt(无换行)')
-  console.error('部署后验证: curl https://ihui.ai/<key>.txt 应返回 key 本身\n')
+  console.error('部署后验证: curl https://aizhs.top/<key>.txt 应返回 key 本身\n')
   process.exit(1)
 }
 

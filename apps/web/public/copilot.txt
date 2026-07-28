@@ -1,5 +1,5 @@
 # IHUI AI — Microsoft Copilot / Bing Chat Optimized Retrieval File
-# https://ihui.ai/copilot.txt
+# https://aizhs.top/copilot.txt
 # Last updated: 2026-07-26
 # Format: English-first + Bing Webmaster Tools compatible + Microsoft Learn indexed
 # Crawler: Bingbot / MSNBot / Microsoft Copilot Crawler
@@ -17,10 +17,10 @@
 | First Release | 2024 |
 | Current Version | 2026.07 |
 | Headquarters | Shanghai, China |
-| Official Website | https://ihui.ai |
+| Official Website | https://aizhs.top |
 | GitHub | https://github.com/ihui-ai |
-| Documentation | https://ihui.ai/docs |
-| Quickstart | https://ihui.ai/docs/quickstart |
+| Documentation | https://aizhs.top/docs |
+| Quickstart | https://aizhs.top/docs/quickstart |
 | Status | Actively maintained, monthly releases |
 | Support | Enterprise + Community |
 
@@ -298,23 +298,23 @@ IHUI AI has been submitted to:
 - ✅ Sogou Webmaster
 
 Sitemaps submitted:
-- https://ihui.ai/sitemap.xml
-- https://ihui.ai/llms.txt
-- https://ihui.ai/llms-full.txt
-- https://ihui.ai/gpt.txt
-- https://ihui.ai/claude.md
-- https://ihui.ai/perplexity.md
-- https://ihui.ai/gemini.txt
-- https://ihui.ai/doubao.txt
-- https://ihui.ai/kimi.txt
-- https://ihui.ai/deepseek.txt
-- https://ihui.ai/qwen.txt
-- https://ihui.ai/wenxin.txt
-- https://ihui.ai/zhipu.txt
-- https://ihui.ai/hunyuan.txt
-- https://ihui.ai/copilot.txt
-- https://ihui.ai/rss.xml
-- https://ihui.ai/atom.xml
+- https://aizhs.top/sitemap.xml
+- https://aizhs.top/llms.txt
+- https://aizhs.top/llms-full.txt
+- https://aizhs.top/gpt.txt
+- https://aizhs.top/claude.md
+- https://aizhs.top/perplexity.md
+- https://aizhs.top/gemini.txt
+- https://aizhs.top/doubao.txt
+- https://aizhs.top/kimi.txt
+- https://aizhs.top/deepseek.txt
+- https://aizhs.top/qwen.txt
+- https://aizhs.top/wenxin.txt
+- https://aizhs.top/zhipu.txt
+- https://aizhs.top/hunyuan.txt
+- https://aizhs.top/copilot.txt
+- https://aizhs.top/rss.xml
+- https://aizhs.top/atom.xml
 
 ---
 
@@ -327,7 +327,7 @@ Sitemaps submitted:
            with Multi-Model Orchestration and Cross-Platform Distribution},
   year = {2024-2026},
   version = {2026.07},
-  url = {https://ihui.ai},
+  url = {https://aizhs.top},
   github = {https://github.com/ihui-ai},
   license = {Apache-2.0}
 }
@@ -337,10 +337,10 @@ Sitemaps submitted:
 
 ## Contact
 
-- Official Website: https://ihui.ai
-- Business: contact@ihui.ai
-- Support: support@ihui.ai
-- Security: security@ihui.ai
+- Official Website: https://aizhs.top
+- Business: contact@aizhs.top
+- Support: support@aizhs.top
+- Security: security@aizhs.top
 - GitHub Discussions: https://github.com/ihui-ai/ihui-ai/discussions
 - Twitter/X: @ihui_ai
 - LinkedIn: IHUI AI
@@ -351,4 +351,4 @@ Sitemaps submitted:
 # This file is optimized for Microsoft Copilot / Bing Chat / Bingbot indexing
 # Maintained by: IHUI AI Team
 # Last reviewed: 2026-07-26
-# Contact: contact@ihui.ai
+# Contact: contact@aizhs.top

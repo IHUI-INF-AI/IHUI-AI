@@ -250,7 +250,7 @@
 #### Stripe Webhook
 
 - [ ] 进入 Developers → Webhooks → Add endpoint
-- [ ] URL: `https://ihui.ai/api/stripe/webhook`
+- [ ] URL: `https://aizhs.top/api/stripe/webhook`
 - [ ] 监听事件:
   - [ ] `checkout.session.completed`
   - [ ] `checkout.session.async_payment_succeeded`
@@ -362,8 +362,8 @@
 - [ ] 生成应用私钥 / 应用公钥
 - [ ] 上传应用公钥
 - [ ] 复制支付宝公钥
-- [ ] 设置异步通知 URL `https://ihui.ai/api/alipay/notify`
-- [ ] 设置同步跳转 URL `https://ihui.ai/sponsor/success`
+- [ ] 设置异步通知 URL `https://aizhs.top/api/alipay/notify`
+- [ ] 设置同步跳转 URL `https://aizhs.top/sponsor/success`
 - [ ] 提交审核
 - [ ] 审核通过（1-3 工作日）
 - [ ] 获取 APPID
@@ -375,8 +375,8 @@
   - [ ] `ALIPAY_PRIVATE_KEY=`
   - [ ] `ALIPAY_PUBLIC_KEY=`
   - [ ] `ALIPAY_GATEWAY_URL=https://openapi.alipay.com/gateway.do`
-  - [ ] `ALIPAY_NOTIFY_URL=https://ihui.ai/api/alipay/notify`
-  - [ ] `ALIPAY_RETURN_URL=https://ihui.ai/sponsor/success`
+  - [ ] `ALIPAY_NOTIFY_URL=https://aizhs.top/api/alipay/notify`
+  - [ ] `ALIPAY_RETURN_URL=https://aizhs.top/sponsor/success`
 - [ ] `/sponsor` 页面已添加支付宝按钮
 - [ ] 后端已实现 `/api/alipay/create` 端点
 - [ ] 后端已实现 `/api/alipay/notify` 端点
@@ -407,21 +407,21 @@
 
 ### 域名配置
 
-- [ ] 域名 `ihui.ai` 已指向生产服务器
+- [ ] 域名 `aizhs.top` 已指向生产服务器
 - [ ] SSL 证书已配置（Let's Encrypt / Cloudflare）
 - [ ] HTTPS 强制跳转
 
 ### 业务邮箱
 
-- [ ] `business@ihui.ai` 邮箱已配置
+- [ ] `business@aizhs.top` 邮箱已配置
 - [ ] 邮件转发到用户主邮箱
 - [ ] 邮件 DKIM / SPF / DMARC 已配置
 
 ### 最终测试
 
-- [ ] 访问 [https://ihui.ai](https://ihui.ai) 网站正常打开
-- [ ] 访问 [https://ihui.ai/sponsor](https://ihui.ai/sponsor) 赞助页面正常
-- [ ] 访问 [https://ihui.ai/products](https://ihui.ai/products) 产品页面正常
+- [ ] 访问 [https://aizhs.top](https://aizhs.top) 网站正常打开
+- [ ] 访问 [https://aizhs.top/sponsor](https://aizhs.top/sponsor) 赞助页面正常
+- [ ] 访问 [https://aizhs.top/products](https://aizhs.top/products) 产品页面正常
 - [ ] 测试每个支付渠道:
   - [ ] PayPal 捐款按钮可点击
   - [ ] Ko-fi 按钮可点击

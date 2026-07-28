@@ -1,4 +1,4 @@
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// IHUI SDK 客户端,聚合 13 个功能模块,封装 105 个 /v1/* API 端点。

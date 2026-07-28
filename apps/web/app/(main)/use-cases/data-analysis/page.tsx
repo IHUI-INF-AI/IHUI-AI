@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/data-analysis#webpage',
-      url: 'https://ihui.ai/use-cases/data-analysis',
+      '@id': 'https://aizhs.top/use-cases/data-analysis#webpage',
+      url: 'https://aizhs.top/use-cases/data-analysis',
       name: 'AI 数据分析 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 数据分析 Agent:自然语言取数、报表生成、异常检测、归因分析、数据治理,30 分钟上线,6 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/data-analysis#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/data-analysis#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 数据分析', item: 'https://ihui.ai/use-cases/data-analysis' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 数据分析', item: 'https://aizhs.top/use-cases/data-analysis' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/data-analysis#howto',
+      '@id': 'https://aizhs.top/use-cases/data-analysis#howto',
       name: '30 分钟搭建 AI 数据分析 Agent',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建 AI 数据分析 Agent 的 6 步流程:接入数据库 → 训练 NL2SQL → 配置报表模板 → 设置异常检测 → 启用归因分析 → 输出治理建议。取数效率提升 10 倍。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 数据分析 Agent — IHUI AI',
     description: '自然语言取数 + 异常检测 + 归因分析,30 分钟上线。',
-    url: 'https://ihui.ai/use-cases/data-analysis',
+    url: 'https://aizhs.top/use-cases/data-analysis',
     type: 'article',
   },
 }

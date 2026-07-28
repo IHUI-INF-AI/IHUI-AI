@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/hr-recruiting#webpage',
-      url: 'https://ihui.ai/use-cases/hr-recruiting',
+      '@id': 'https://aizhs.top/use-cases/hr-recruiting#webpage',
+      url: 'https://aizhs.top/use-cases/hr-recruiting',
       name: 'AI HR 招聘 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的 AI HR 招聘 Agent:简历智能筛选、面试问题生成、入职引导自动化、员工答疑、离职预警,30 分钟上线,6 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/hr-recruiting#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/hr-recruiting#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI HR 招聘', item: 'https://ihui.ai/use-cases/hr-recruiting' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI HR 招聘', item: 'https://aizhs.top/use-cases/hr-recruiting' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/hr-recruiting#howto',
+      '@id': 'https://aizhs.top/use-cases/hr-recruiting#howto',
       name: '30 分钟搭建 AI HR 招聘 Agent',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建 AI HR 招聘 Agent 的 6 步流程:接入招聘系统 → 训练筛选 Agent → 配置面试模板 → 集成答疑知识库 → 设置离职预警 → 监控优化。招聘周期缩短 50%。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI HR 招聘 Agent — IHUI AI',
     description: '简历筛选 + 面试生成 + 员工答疑,30 分钟上线。',
-    url: 'https://ihui.ai/use-cases/hr-recruiting',
+    url: 'https://aizhs.top/use-cases/hr-recruiting',
     type: 'article',
   },
 }

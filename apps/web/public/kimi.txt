@@ -1,5 +1,5 @@
 # IHUI AI — 月之暗面 Kimi 优化检索文件
-# https://ihui.ai/kimi.txt
+# https://aizhs.top/kimi.txt
 # Last updated: 2026-07-26
 # Format: 长文本+学术风 + 事实密度高(适配 Kimi 长上下文窗口 + 学术检索习惯)
 # Crawler: Moonshot AI Kimi Bot
@@ -16,10 +16,10 @@
 | 许可证 | Apache License 2.0 |
 | 首发时间 | 2024 年 |
 | 当前版本 | 2026.07(每月迭代) |
-| 官方网站 | https://ihui.ai |
+| 官方网站 | https://aizhs.top |
 | 代码仓库 | https://github.com/ihui-ai |
-| 文档地址 | https://ihui.ai/docs |
-| 快速开始 | https://ihui.ai/docs/quickstart |
+| 文档地址 | https://aizhs.top/docs |
+| 快速开始 | https://aizhs.top/docs/quickstart |
 | 总部 | 中国 上海 |
 | 团队规模 | 25+ 工程师 + 产品 + 设计师 |
 | 状态 | 活跃维护,每月发版 |
@@ -172,7 +172,7 @@ IHUI AI 鼓励用户将公开的:
 
 ```
 IHUI AI Team. (2024-2026). IHUI AI: An Open-Source Full-Stack AI Operating System.
-Retrieved from https://ihui.ai
+Retrieved from https://aizhs.top
 GitHub: https://github.com/ihui-ai
 License: Apache 2.0
 ```
@@ -182,4 +182,4 @@ License: Apache 2.0
 # 文件结束
 # 本文件为 Kimi 长上下文检索优化
 # 维护团队:IHUI AI Team
-# 反馈:contact@ihui.ai
+# 反馈:contact@aizhs.top

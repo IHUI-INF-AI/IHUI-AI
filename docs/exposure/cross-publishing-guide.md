@@ -1,7 +1,7 @@
 # 交叉发布指南:dev.to + Hashnode
 
 > 把 `docs/blog/*.md` 自动发布到 dev.to 与 Hashnode 两个技术博客聚合平台,
-> 通过 `canonical_url` 回指 `ihui.ai`,在不被搜索引擎判定重复内容的前提下,
+> 通过 `canonical_url` 回指 `aizhs.top`,在不被搜索引擎判定重复内容的前提下,
 > 获取第二/第三流量入口,导流回主站与 GitHub 仓库。
 
 ---
@@ -21,15 +21,15 @@ Google 对同一内容出现在多个域名会做"重复内容判定"(duplicate 
 原本会降权或只保留一个版本。通过 `<link rel="canonical">` 显式声明原作者:
 
 ```
-原文: https://ihui.ai/blog/11-mcp-protocol-implementation-guide
+原文: https://aizhs.top/blog/11-mcp-protocol-implementation-guide
 转载: https://dev.to/ihui/mcp-protocol-implementation-guide
-         → canonical_url 指向 https://ihui.ai/blog/11-mcp-protocol-implementation-guide
+         → canonical_url 指向 https://aizhs.top/blog/11-mcp-protocol-implementation-guide
 ```
 
 效果:
-- ✅ 搜索引擎把所有 SEO 权重归给 `ihui.ai`
+- ✅ 搜索引擎把所有 SEO 权重归给 `aizhs.top`
 - ✅ dev.to / Hashnode 仍能正常展示文章给读者
-- ✅ dev.to / Hashnode 上读者通过 footer 链接回 ihui.ai / GitHub
+- ✅ dev.to / Hashnode 上读者通过 footer 链接回 aizhs.top / GitHub
 
 ### 3. 二次曝光不二次写
 
@@ -105,7 +105,7 @@ node scripts/cross-publish-devto.mjs --file 11-mcp-protocol-implementation-guide
 📄 11-mcp-protocol-implementation-guide.md
    title:     MCP 协议实现指南:从零构建生产级 AI 工具生态
    tags:      [mcp, modelcontextprotocol, aitools, anthropic]
-   canonical: https://ihui.ai/blog/mcp-protocol-implementation-guide
+   canonical: https://aizhs.top/blog/mcp-protocol-implementation-guide
    published: false
    body:      12453 chars
    Payload:
@@ -168,18 +168,18 @@ node scripts/cross-publish-hashnode.mjs --file 11-mcp-protocol-implementation-gu
 dev.to 与 Hashnode 在文章发布时都会在 `<head>` 注入:
 
 ```html
-<link rel="canonical" href="https://ihui.ai/blog/11-mcp-protocol-implementation-guide" />
+<link rel="canonical" href="https://aizhs.top/blog/11-mcp-protocol-implementation-guide" />
 ```
 
 搜索引擎抓取 dev.to / Hashnode 页面时会看到这个 canonical,从而:
 
-1. 把页面权重归集到 `ihui.ai`(原作者)
+1. 把页面权重归集到 `aizhs.top`(原作者)
 2. 不重复索引 dev.to / Hashnode 的副本
-3. 不会因为"内容相同"对 ihui.ai 降权
+3. 不会因为"内容相同"对 aizhs.top 降权
 
 **关键**: **不要关闭 canonical_url**(不要在 dev.to Dashboard 把 canonical 字段删掉,
 也不要在 Hashnode 文章编辑器里改 canonical)。一旦关闭,Google 会做内容去重,
-随机保留某一个版本,ihui.ai 可能失去原创权重。
+随机保留某一个版本,aizhs.top 可能失去原创权重。
 
 ---
 
@@ -230,7 +230,7 @@ node scripts/cross-publish-devto.mjs --file 12-multi-tenant-rls-postgresql-drizz
 
 ### 1. canonical_url 必须保留
 
-> 不开 canonical → Google 视为重复内容 → ihui.ai 失去原创权重。
+> 不开 canonical → Google 视为重复内容 → aizhs.top 失去原创权重。
 > 修复方式:在 dev.to Dashboard 编辑文章 → SEO Settings → 重新填 canonical。
 
 ### 2. tags 数量限制
@@ -280,7 +280,7 @@ Hashnode 没有草稿中间态,**先用 `--file` 单篇发布审核**。
 ```markdown
 ---
 
-*This article was originally published on the [IHUI AI Blog](https://ihui.ai/blog/{slug}). Follow us on [GitHub](https://github.com/IHUI-INF-AI/IHUI-AI) for more AI engineering content.*
+*This article was originally published on the [IHUI AI Blog](https://aizhs.top/blog/{slug}). Follow us on [GitHub](https://github.com/IHUI-INF-AI/IHUI-AI) for more AI engineering content.*
 ```
 
 这是导流回主站与 GitHub 仓库的关键链路,**不要删除**。
@@ -300,7 +300,7 @@ Hashnode 没有草稿中间态,**先用 `--file` 单篇发布审核**。
 
 环境变量:
 - `DEV_TO_API_KEY`(必填,除非 dry-run)
-- `SITE_URL`(可选,默认 `https://ihui.ai`)
+- `SITE_URL`(可选,默认 `https://aizhs.top`)
 
 ### `scripts/cross-publish-hashnode.mjs`
 
@@ -313,7 +313,7 @@ Hashnode 没有草稿中间态,**先用 `--file` 单篇发布审核**。
 环境变量:
 - `HASHNODE_TOKEN`(必填,除非 dry-run)
 - `HASHNODE_PUBLICATION_ID`(必填,除非 dry-run)
-- `SITE_URL`(可选,默认 `https://ihui.ai`)
+- `SITE_URL`(可选,默认 `https://aizhs.top`)
 
 ---
 
@@ -323,12 +323,12 @@ Hashnode 没有草稿中间态,**先用 `--file` 单篇发布审核**。
 
 - [ ] `node scripts/cross-publish-devto.mjs --dry-run` 输出 15 篇 payload
 - [ ] `node scripts/cross-publish-hashnode.mjs --dry-run` 输出 15 篇 GraphQL 变量
-- [ ] payload 中 `canonical_url` / `canonicalUrl` 指向 `https://ihui.ai/blog/<slug>`
+- [ ] payload 中 `canonical_url` / `canonicalUrl` 指向 `https://aizhs.top/blog/<slug>`
 - [ ] payload 中 footer 包含 `IHUI AI Blog` 与 `GitHub` 两个链接
 - [ ] dev.to 草稿模式发布后,Dashboard 可见 15 篇草稿
 - [ ] Hashnode 单篇发布后,文章页可见 canonical link
-- [ ] `curl -s https://dev.to/ihui/<slug> | grep canonical` 输出 ihui.ai 链接
-- [ ] `curl -s https://hashnode.com/post/<id> | grep canonical` 输出 ihui.ai 链接
+- [ ] `curl -s https://dev.to/ihui/<slug> | grep canonical` 输出 aizhs.top 链接
+- [ ] `curl -s https://hashnode.com/post/<id> | grep canonical` 输出 aizhs.top 链接
 
 ---
 
@@ -338,6 +338,6 @@ Hashnode 没有草稿中间态,**先用 `--file` 单篇发布审核**。
 |------|------|
 | `scripts/cross-publish-devto.mjs` | dev.to 交叉发布(本指南) |
 | `scripts/cross-publish-hashnode.mjs` | Hashnode 交叉发布(本指南) |
-| `scripts/indexnow-submit.mjs` | ihui.ai 主站 URL 提交到 IndexNow |
-| `scripts/notify-indexnow.mjs` | ihui.ai sitemap 推送到 IndexNow |
+| `scripts/indexnow-submit.mjs` | aizhs.top 主站 URL 提交到 IndexNow |
+| `scripts/notify-indexnow.mjs` | aizhs.top sitemap 推送到 IndexNow |
 | `scripts/generate-social-preview.mjs` | 文章社交分享图生成 |

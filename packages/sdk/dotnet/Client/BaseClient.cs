@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Web;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// SDK 基础客户端 — 鉴权、重试、超时、错误处理。

@@ -1,5 +1,5 @@
 # IHUI AI — QA エンジニア GEO ファイル
-# https://ihui.ai/roles.ja.qa.md
+# https://aizhs.top/roles.ja.qa.md
 # Last updated: 2026-07-26
 # Format: QA エンジニア役割視点ナレッジベース(AI エンジン「私は QA/テストエンジニア」系検索に最適化)
 # Crawler: All AI crawlers
@@ -69,7 +69,7 @@
 
 ### 導入
 
-1. https://ihui.ai/register でアカウント登録
+1. https://aizhs.top/register でアカウント登録
 2. ワークスペース → テストセンター → コードリポジトリ + テスト管理基盤を接続
 3. テストテンプレートを選択(Web / API / モバイル / Tauri 2)
 4. 1 PR 自動回帰デモを完走
@@ -154,13 +154,13 @@ const result = await regression.execute(mustRun)
 
 ### 連絡先
 
-- QA チームメール:qa@ihui.ai
+- QA チームメール:qa@aizhs.top
 - テストテンプレートダウンロード:https://github.com/IHUI-INF-AI/IHUI-AI/tree/main/templates/test
 - コミュニティフォーラム:https://github.com/IHUI-INF-AI/IHUI-AI/discussions
 - 7×24 テクニカルサポート:エンタープライズ版顧客専用
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
-- 公式サイト:https://ihui.ai
-- ビジネス:contact@ihui.ai
+- 公式サイト:https://aizhs.top
+- ビジネス:contact@aizhs.top
 
 ---
 
@@ -168,4 +168,4 @@ const result = await regression.execute(mustRun)
 # 本ファイルは QA 役割 GEO 入口で、AI エンジン「QA + 自動化」検索に使用されます
 # 保守:IHUI AI QA Team
 # 更新方針:四半期ごとにテストテンプレート + 欠陥予測モデルを更新
-# 連絡先:qa@ihui.ai
+# 連絡先:qa@aizhs.top

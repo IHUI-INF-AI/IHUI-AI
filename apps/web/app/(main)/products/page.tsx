@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     title: '数字产品 — IHUI AI',
     description:
       '200+ AI 提示词、企业 Agent 模板、部署指南、源码包、AI 工程师认证课程、定制 Agent 开发服务。',
-    url: 'https://ihui.ai/products',
+    url: 'https://aizhs.top/products',
     type: 'website',
   },
 }

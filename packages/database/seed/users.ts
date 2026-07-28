@@ -8,7 +8,7 @@
  * - parallelism: 1 (单线程,防 DoS)
  *
  * 与 apps/api/scripts/seed-test-users.ts 等价:
- * - 同样 seed email='test@ihui.ai' / username='test_e2e' / password='Test@123456' / roleId=0
+ * - 同样 seed email='test@aizhs.top' / username='test_e2e' / password='Test@123456' / roleId=0
  * - 同样用 argon2id 实时 hash(不再用预生成的 bcrypt hash)
  *
  * 依赖说明:
@@ -48,7 +48,7 @@ interface DefaultUser {
 
 const defaultUsers: DefaultUser[] = [
   {
-    email: 'test@ihui.ai',
+    email: 'test@aizhs.top',
     username: 'test_e2e',
     nickname: 'Test User',
     roleId: 0,

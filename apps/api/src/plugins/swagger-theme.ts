@@ -93,7 +93,7 @@ function buildThemeJs(): string {
     `      const link = topbar.querySelector('a');`,
     `      if (link) {`,
     `        link.innerHTML = '<span style="color:#fff;font-weight:600;font-size:16px;letter-spacing:0.5px;">IHUI AI · API Docs</span>';`,
-    `        link.setAttribute('href', 'https://ihui.ai');`,
+    `        link.setAttribute('href', 'https://aizhs.top');`,
     `        link.setAttribute('target', '_blank');`,
     `      }`,
     `    }`,
@@ -145,7 +145,7 @@ export function buildSwaggerLogo() {
   return {
     type: 'image/svg+xml',
     content: buildLogoSvg(),
-    href: 'https://ihui.ai',
+    href: 'https://aizhs.top',
     target: '_blank' as const,
   }
 }

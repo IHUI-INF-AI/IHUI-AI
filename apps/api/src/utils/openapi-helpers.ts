@@ -27,7 +27,7 @@ function readApiVersion(): string {
 }
 
 /** IHUI AI 平台统一联系邮箱。 */
-export const IHUI_CONTACT_EMAIL = 'api@ihui.ai'
+export const IHUI_CONTACT_EMAIL = 'api@aizhs.top'
 
 /** IHUI AI 平台统一文档/品牌信息。 */
 export const IHUI_OPENAPI_INFO = {
@@ -50,11 +50,11 @@ export const IHUI_OPENAPI_INFO = {
   contact: {
     name: 'IHUI AI Platform Team',
     email: IHUI_CONTACT_EMAIL,
-    url: 'https://ihui.ai',
+    url: 'https://aizhs.top',
   },
   license: {
     name: 'Proprietary',
-    url: 'https://ihui.ai/license',
+    url: 'https://aizhs.top/license',
   },
 } as const
 

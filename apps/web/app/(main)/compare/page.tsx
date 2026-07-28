@@ -8,21 +8,21 @@ const compareJsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/compare#webpage',
-      url: 'https://ihui.ai/compare',
+      '@id': 'https://aizhs.top/compare#webpage',
+      url: 'https://aizhs.top/compare',
       name: 'IHUI AI 产品对比 — 主流 AI 平台深度对比',
       description:
         'IHUI AI 与主流 AI 平台的深度对比:Dify、Coze、FastGPT、n8n。从客户端、Agent、RAG、模型、MCP、私有化、定价等 11 个维度逐一分析。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/compare#breadcrumb',
+      '@id': 'https://aizhs.top/compare#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://ihui.ai/compare' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
       ],
     },
   ],
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'IHUI AI 产品对比 — 主流 AI 平台深度分析',
     description: 'IHUI AI vs Dify / Coze / FastGPT / n8n 11 维度对比',
-    url: 'https://ihui.ai/compare',
+    url: 'https://aizhs.top/compare',
     type: 'website',
   },
 }

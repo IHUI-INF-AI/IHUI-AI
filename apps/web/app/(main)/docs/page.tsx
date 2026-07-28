@@ -1,95 +1,95 @@
 import type { Metadata } from 'next'
 
-const SITE_URL = 'https://ihui.ai'
+const SITE_URL = 'https://aizhs.top'
 
 const docsJsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/docs#webpage',
-      url: 'https://ihui.ai/docs',
+      '@id': 'https://aizhs.top/docs#webpage',
+      url: 'https://aizhs.top/docs',
       name: '智汇 AI 文档中心 — 全栈 AI 操作系统指南',
       description:
         '智汇 AI(IHUI AI)官方文档中心:快速开始、自托管部署、API 参考、MCP 工具集成、Agent 开发、知识库 RAG、多模型调度等完整指南。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/docs#breadcrumb',
+      '@id': 'https://aizhs.top/docs#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '文档', item: 'https://ihui.ai/docs' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '文档', item: 'https://aizhs.top/docs' },
       ],
     },
     {
       '@type': 'ItemList',
-      '@id': 'https://ihui.ai/docs#docs-list',
+      '@id': 'https://aizhs.top/docs#docs-list',
       name: '智汇 AI 文档列表',
       itemListElement: [
         {
           '@type': 'ListItem',
           position: 1,
           name: '快速开始(5 分钟)',
-          url: 'https://ihui.ai/docs/quickstart',
+          url: 'https://aizhs.top/docs/quickstart',
           description: '5 分钟从注册到发布第一个 AI Agent',
         },
         {
           '@type': 'ListItem',
           position: 2,
           name: '自托管部署',
-          url: 'https://ihui.ai/docs/self-host',
+          url: 'https://aizhs.top/docs/self-host',
           description: 'Docker Compose / Kubernetes Helm Chart 部署指南',
         },
         {
           '@type': 'ListItem',
           position: 3,
           name: 'API 参考',
-          url: 'https://ihui.ai/docs/api',
+          url: 'https://aizhs.top/docs/api',
           description: 'REST API + Webhook + OpenAPI 3.1 规范',
         },
         {
           '@type': 'ListItem',
           position: 4,
           name: 'MCP 工具集成',
-          url: 'https://ihui.ai/docs/mcp',
+          url: 'https://aizhs.top/docs/mcp',
           description: 'Model Context Protocol 接入指南',
         },
         {
           '@type': 'ListItem',
           position: 5,
           name: 'Agent 开发',
-          url: 'https://ihui.ai/docs/agent',
+          url: 'https://aizhs.top/docs/agent',
           description: '可视化编排 + 模板开发 + 最佳实践',
         },
         {
           '@type': 'ListItem',
           position: 6,
           name: '知识库 RAG',
-          url: 'https://ihui.ai/docs/rag',
+          url: 'https://aizhs.top/docs/rag',
           description: '文档解析、向量检索、BM25、知识图谱',
         },
         {
           '@type': 'ListItem',
           position: 7,
           name: '多模型调度',
-          url: 'https://ihui.ai/docs/models',
+          url: 'https://aizhs.top/docs/models',
           description: '统一 API 接入 100+ 模型,自动 fallback',
         },
         {
           '@type': 'ListItem',
           position: 8,
           name: '工作流编排',
-          url: 'https://ihui.ai/docs/workflow',
+          url: 'https://aizhs.top/docs/workflow',
           description: 'n8n 风格节点画布使用指南',
         },
         {
           '@type': 'ListItem',
           position: 9,
           name: '团队协作',
-          url: 'https://ihui.ai/docs/team',
+          url: 'https://aizhs.top/docs/team',
           description: 'RBAC、SSO、审计、积分共享',
         },
       ],
@@ -219,9 +219,9 @@ export default function DocsIndexPage() {
         <p className="text-sm text-muted-foreground">
           文档未覆盖到的问题?
           {' '}
-          <a href="https://ihui.ai/faq" className="text-primary underline">查看 FAQ</a>
+          <a href="https://aizhs.top/faq" className="text-primary underline">查看 FAQ</a>
           {' 或 '}
-          <a href="mailto:support@ihui.ai" className="text-primary underline">联系技术支持</a>
+          <a href="mailto:support@aizhs.top" className="text-primary underline">联系技术支持</a>
         </p>
       </div>
     </main>

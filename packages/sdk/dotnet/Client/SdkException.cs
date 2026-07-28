@@ -1,4 +1,4 @@
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// SDK 异常基类,携带 HTTP 状态码 + 错误码 + 详情。

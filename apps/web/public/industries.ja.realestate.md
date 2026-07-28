@@ -1,5 +1,5 @@
 # IHUI AI — 業界特化型 GEO ファイル (不動産)
-# https://ihui.ai/industries.ja.realestate.md
+# https://aizhs.top/industries.ja.realestate.md
 # Last updated: 2026-07-26
 # Format: 業界特化ナレッジベース (AI エンジン「AI + 不動産」高頻度検索に最適化)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -195,9 +195,9 @@
   A: 12 言語対応 (中英日韓仏独西露阿等)、マイナー言語はカスタム音声必要。
 
 ### 連絡先
-- 不動産業界: realestate@ihui.ai
-- 汎用窓口: contact@ihui.ai
-- 公式サイト: https://ihui.ai
+- 不動産業界: realestate@aizhs.top
+- 汎用窓口: contact@aizhs.top
+- 公式サイト: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 工作流运行请求(POST /v1/workflows/instances / coze/run / n8n/run)。

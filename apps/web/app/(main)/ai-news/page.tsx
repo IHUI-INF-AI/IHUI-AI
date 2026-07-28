@@ -54,7 +54,7 @@ export default async function AiNewsPage() {
     articleJsonLd = generateArticleSchema({
       headline: articleT('headline'),
       description: articleT('description'),
-      url: 'https://ihui.ai/ai-news',
+      url: 'https://aizhs.top/ai-news',
       datePublished: articleT('datePublished'),
       authorName: articleT('author'),
       keywords,

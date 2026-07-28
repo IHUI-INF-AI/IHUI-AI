@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/it-ops#webpage',
-      url: 'https://ihui.ai/use-cases/it-ops',
+      '@id': 'https://aizhs.top/use-cases/it-ops#webpage',
+      url: 'https://aizhs.top/use-cases/it-ops',
       name: 'AI IT 运维 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的 AI IT 运维 Agent:故障诊断、工单分诊、日志分析、变更审核、容量预测,30 分钟上线,6 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/it-ops#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/it-ops#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI IT 运维', item: 'https://ihui.ai/use-cases/it-ops' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI IT 运维', item: 'https://aizhs.top/use-cases/it-ops' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/it-ops#howto',
+      '@id': 'https://aizhs.top/use-cases/it-ops#howto',
       name: '30 分钟搭建 AI IT 运维 Agent',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建 AI IT 运维 Agent 的 6 步流程:接入监控 → 训练诊断 Agent → 配置工单分诊 → 集成日志分析 → 设置变更审核 → 启用容量预测。故障自愈率 70%。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI IT 运维 Agent — IHUI AI',
     description: '故障诊断 + 工单分诊 + 日志分析,30 分钟上线。',
-    url: 'https://ihui.ai/use-cases/it-ops',
+    url: 'https://aizhs.top/use-cases/it-ops',
     type: 'article',
   },
 }

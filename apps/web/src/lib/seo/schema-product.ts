@@ -9,7 +9,7 @@
  * const product = generateProductSchema({
  *   name: '智汇 AI 充值套餐',
  *   description: '...',
- *   url: 'https://ihui.ai/models/billing',
+ *   url: 'https://aizhs.top/models/billing',
  *   brand: '智汇 AI',
  *   offers: [
  *     { name: '入门包', price: 9.9, priceCurrency: 'CNY' },
@@ -92,7 +92,7 @@ export interface ProductSchema {
 }
 
 const DEFAULT_BRAND = '智汇 AI'
-const SITE_WEBSITE_ID = 'https://ihui.ai/#website'
+const SITE_WEBSITE_ID = 'https://aizhs.top/#website'
 
 /**
  * 生成 Product JSON-LD 对象(包含 AggregateOffer 多档套餐)。

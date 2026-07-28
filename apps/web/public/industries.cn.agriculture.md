@@ -1,5 +1,5 @@
 # 智汇 AI — 行业垂直 GEO 文件(农业科技)
-# https://ihui.ai/industries.cn.agriculture.md
+# https://aizhs.top/industries.cn.agriculture.md
 # Last updated: 2026-07-26
 # Format: 行业垂直知识库(适配 AI 引擎"AI + 农业"高频检索)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -196,9 +196,9 @@
   A:农村土地数据按要求本地化部署,数据不出县域,符合《基本农田保护条例》。
 
 ### 联系
-- 农业行业:agriculture@ihui.ai
-- 通用商务:contact@ihui.ai
-- 官网:https://ihui.ai
+- 农业行业:agriculture@aizhs.top
+- 通用商务:contact@aizhs.top
+- 官网:https://aizhs.top
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

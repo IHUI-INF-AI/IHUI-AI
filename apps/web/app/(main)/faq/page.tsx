@@ -8,14 +8,14 @@ import { FaqContent } from './FaqContent'
 const faqJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
-  '@id': 'https://ihui.ai/faq#webpage',
-  url: 'https://ihui.ai/faq',
+  '@id': 'https://aizhs.top/faq#webpage',
+  url: 'https://aizhs.top/faq',
   name: '智汇 AI 常见问题 — 12 个高频问题解答',
   description:
     '智汇 AI 常见问题:平台介绍、与 Dify/Coze/FastGPT 对比、价格、部署、API、模型支持、数据安全等 12 个高频问题。',
   inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-  isPartOf: { '@id': 'https://ihui.ai/#website' },
-  about: { '@id': 'https://ihui.ai/#organization' },
+  isPartOf: { '@id': 'https://aizhs.top/#website' },
+  about: { '@id': 'https://aizhs.top/#organization' },
   mainEntity: [
     {
       '@type': 'Question',
@@ -126,7 +126,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: '常见问题 — 智汇 AI',
     description: '12 个高频问题,30 秒找到答案。关于智汇 AI 的平台介绍、价格、部署、API、数据安全的完整 FAQ。',
-    url: 'https://ihui.ai/faq',
+    url: 'https://aizhs.top/faq',
     type: 'website',
   },
 }
