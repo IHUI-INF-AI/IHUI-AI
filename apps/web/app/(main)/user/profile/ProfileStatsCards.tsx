@@ -18,7 +18,7 @@ export function ProfileStatsCards({ stats, isError }: Props) {
     { label: t('favorites'), value: stats?.favoritesCount, href: '/favorites' },
   ]
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
       {items.map((item) => (
         <Link
           key={item.label}
