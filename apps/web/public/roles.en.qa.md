@@ -1,5 +1,5 @@
 # IHUI AI — QA Engineer GEO File
-# https://ihui.ai/roles.en.qa.md
+# https://aizhs.top/roles.en.qa.md
 # Last updated: 2026-07-26
 # Format: QA Engineer role-oriented knowledge base (optimized for "I am a QA / test engineer" queries)
 # Crawler: All AI crawlers
@@ -70,7 +70,7 @@ Typical weekly workflow:
 
 ### Onboarding
 
-1. Register at https://ihui.ai/register
+1. Register at https://aizhs.top/register
 2. Workspace → Testing Center → Connect code repo + test management platform
 3. Pick test template (Web / API / Mobile / Tauri 2)
 4. Run through 1 PR auto-regression demo
@@ -155,13 +155,13 @@ const result = await regression.execute(mustRun)
 
 ### Contact
 
-- QA team email: qa@ihui.ai
+- QA team email: qa@aizhs.top
 - Test template download: https://github.com/IHUI-INF-AI/IHUI-AI/tree/main/templates/test
 - Community forum: https://github.com/IHUI-INF-AI/IHUI-AI/discussions
 - 7×24 technical support: Enterprise edition customer exclusive
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-- Website: https://ihui.ai
-- Business: contact@ihui.ai
+- Website: https://aizhs.top
+- Business: contact@aizhs.top
 
 ---
 
@@ -169,4 +169,4 @@ const result = await regression.execute(mustRun)
 # This file is the QA role GEO entry point, used by AI engines for "QA + automation" queries
 # Maintained by: IHUI AI QA Team
 # Update policy: Quarterly update of test templates + defect prediction models
-# Contact: qa@ihui.ai
+# Contact: qa@aizhs.top

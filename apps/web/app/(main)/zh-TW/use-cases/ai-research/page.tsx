@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-research#webpage',
-      url: 'https://ihui.ai/zh-TW/use-cases/ai-research',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-research#webpage',
+      url: 'https://aizhs.top/zh-TW/use-cases/ai-research',
       name: 'AI 學術研究助手 Agent 用例 — IHUI AI',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建的 AI 學術研究助手:論文檢索/綜述、PDF 解析、引用管理、研究趨勢分析、跨學科知識圖譜,30 分鐘上線,8 端分發。',
       inLanguage: ['zh-TW', 'zh-CN', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-research#breadcrumb',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-research#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 學術研究', item: 'https://ihui.ai/zh-TW/use-cases/ai-research' },
+        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 學術研究', item: 'https://aizhs.top/zh-TW/use-cases/ai-research' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-research#howto',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-research#howto',
       name: '30 分鐘搭建 AI 學術研究助手',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建 AI 學術研究助手的 6 步流程:接入資料庫 → 上傳文獻 → 配置引用樣式 → 訓練綜述模型 → 建構知識圖譜 → 輸出趨勢報告。文獻調研效率提升 8 倍。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 學術研究助手 — IHUI AI',
     description: '文獻檢索 + 綜述生成 + 知識圖譜,30 分鐘上線。',
-    url: 'https://ihui.ai/zh-TW/use-cases/ai-research',
+    url: 'https://aizhs.top/zh-TW/use-cases/ai-research',
     type: 'article',
   },
 }

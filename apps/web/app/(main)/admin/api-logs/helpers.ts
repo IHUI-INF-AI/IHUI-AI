@@ -24,7 +24,7 @@ export function genMockLogs(): ApiLog[] {
     '/api/upload',
     '/api/members',
   ]
-  const users = ['admin@ihui.ai', 'user01@ihui.ai', 'user02@ihui.ai', 'system', 'guest']
+  const users = ['admin@aizhs.top', 'user01@aizhs.top', 'user02@aizhs.top', 'system', 'guest']
   const logs: ApiLog[] = []
   for (let i = 0; i < 58; i++) {
     const method = methods[Math.floor(Math.random() * methods.length)] ?? 'GET'

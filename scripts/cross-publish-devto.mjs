@@ -2,7 +2,7 @@
 /**
  * dev.to 交叉发布脚本
  *
- * 把 docs/blog/*.md 自动发布到 dev.to,带 canonical_url 回指 ihui.ai,
+ * 把 docs/blog/*.md 自动发布到 dev.to,带 canonical_url 回指 aizhs.top,
  * 避免搜索引擎重复内容惩罚,同时给原博客导流。
  *
  * 用法:
@@ -27,7 +27,7 @@ const ROOT = resolve(__dirname, '..')
 
 const BLOG_DIR = join(ROOT, 'docs', 'blog')
 const DEV_TO_API = 'https://dev.to/api/articles'
-const SITE_URL = process.env.SITE_URL || 'https://ihui.ai'
+const SITE_URL = process.env.SITE_URL || 'https://aizhs.top'
 const GITHUB_URL = 'https://github.com/IHUI-INF-AI/IHUI-AI'
 const API_KEY = process.env.DEV_TO_API_KEY
 

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 音频模块 — TTS / ASR / 语音对话 / 声纹 / 音乐生成。

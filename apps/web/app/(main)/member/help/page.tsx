@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -119,7 +119,7 @@ export default function MemberHelpPage() {
 
       <div className="flex justify-center pt-2">
         <Button asChild variant="outline" size="sm">
-          <Link href="mailto:support@ihui.ai">
+          <Link href="mailto:support@aizhs.top">
             <Mail className="h-4 w-4" />
             联系客服
           </Link>

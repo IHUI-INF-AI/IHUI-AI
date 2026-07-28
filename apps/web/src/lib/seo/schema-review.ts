@@ -12,7 +12,7 @@
  *   ratingValue: 4.8,
  *   bestRating: 5,
  *   authorName: '张磊',
- *   url: 'https://ihui.ai/use-cases/customer-support',
+ *   url: 'https://aizhs.top/use-cases/customer-support',
  * })
  * ```
  */
@@ -68,7 +68,7 @@ export interface ReviewSchema {
   isPartOf: { '@id': string }
 }
 
-const SITE_WEBSITE_ID = 'https://ihui.ai/#website'
+const SITE_WEBSITE_ID = 'https://aizhs.top/#website'
 const DEFAULT_BEST = 5
 const DEFAULT_WORST = 1
 

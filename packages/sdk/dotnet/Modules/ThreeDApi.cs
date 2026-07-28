@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 3D 模型生成模块。

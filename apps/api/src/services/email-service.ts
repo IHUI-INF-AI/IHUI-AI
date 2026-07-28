@@ -256,7 +256,7 @@ async function sendViaResend(options: SendEmailOptions): Promise<SendEmailResult
   if (!config.RESEND_API_KEY) {
     return { sent: false, stub: false, provider: 'resend', error: 'resend not configured' }
   }
-  const from = config.RESEND_FROM || 'IHUI AI <noreply@ihui.ai>'
+  const from = config.RESEND_FROM || 'IHUI AI <noreply@aizhs.top>'
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -301,7 +301,7 @@ async function sendViaTencentSes(options: SendEmailOptions): Promise<SendEmailRe
   if (!config.TENCENT_SES_SECRET_ID || !config.TENCENT_SES_SECRET_KEY) {
     return { sent: false, stub: false, provider: 'tencent', error: 'tencent ses not configured' }
   }
-  const from = config.TENCENT_SES_FROM || 'noreply@ihui.ai'
+  const from = config.TENCENT_SES_FROM || 'noreply@aizhs.top'
   const region = config.TENCENT_SES_REGION || 'ap-hongkong'
   const host = `ses.${region}.tencentcloudapi.com`
   const endpoint = `https://${host}`

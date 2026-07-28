@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/ScoopInstaller/Scoop/master/schema.json",
   "version": "1.0.0",
   "description": "IHUI AI Coding Agent CLI — 对标 Claude Code / Codex",
-  "homepage": "https://ihui.ai",
+  "homepage": "https://aizhs.top",
   "license": "MIT",
   "notes": "安装后运行 ihui 启动。如未加入 PATH,请确保 npm 全局 bin 在 PATH(npm prefix -g)。",
   "depends": "nodejs-lts",

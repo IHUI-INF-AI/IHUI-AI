@@ -287,5 +287,5 @@ jobs:
           echo "### 安装方式" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "npm install -g @ihui/cli" >> $GITHUB_STEP_SUMMARY
-          echo "curl -fsSL https://ihui.ai/install.sh | bash" >> $GITHUB_STEP_SUMMARY
+          echo "curl -fsSL https://aizhs.top/install.sh | bash" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

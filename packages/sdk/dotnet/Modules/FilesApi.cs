@@ -1,7 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 文件模块 — 列表 / 上传 / 详情 / 删除 / 内容 / 版本 / 分片上传。

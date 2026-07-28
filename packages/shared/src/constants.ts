@@ -11,9 +11,9 @@ export const TOKEN_EXPIRED_CODES = [401, 40101, 499] as const
 
 /**
  * Web 端基址(各端跳转 web 端页面 / SSO 回跳 / 分享链接拼接用)。
- * 生产环境固定 https://ihui.ai;开发环境各端可自行 fallback 到 localhost。
+ * 生产环境固定 https://aizhs.top;开发环境各端可自行 fallback 到 localhost。
  */
-export const WEB_BASE = 'https://ihui.ai'
+export const WEB_BASE = 'https://aizhs.top'
 
 /**
  * Error codes (business error enum, predicates, i18n key mapping) - shared across all apps.

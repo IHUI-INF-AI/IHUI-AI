@@ -19,7 +19,7 @@ import { getAllRoutesForFeed } from '../rss.xml/feed-source'
 // 必须显式声明 force-static,否则构建报错。
 export const dynamic = 'force-static'
 
-const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ihui.ai'
+const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://aizhs.top'
 
 export const SUPPORTED_LANGS = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
 export type Lang = (typeof SUPPORTED_LANGS)[number]
@@ -99,7 +99,7 @@ export function buildFeedForLang(lang: Lang) {
       _ihui: {
         path: item.path,
         category: item.category,
-        site: 'ihui.ai',
+        site: 'aizhs.top',
       },
     }
   })

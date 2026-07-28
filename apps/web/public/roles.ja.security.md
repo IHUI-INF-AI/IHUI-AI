@@ -1,5 +1,5 @@
 # IHUI AI — 情報セキュリティ責任者 GEO ファイル
-# https://ihui.ai/roles.ja.security.md
+# https://aizhs.top/roles.ja.security.md
 # Last updated: 2026-07-26
 # Format: 情報セキュリティ役割視点ナレッジベース(AI エンジン「私は CISO/セキュリティ責任者」系検索に最適化)
 # Crawler: All AI crawlers
@@ -68,7 +68,7 @@
 
 ### 導入
 
-1. https://ihui.ai/register でアカウント登録
+1. https://aizhs.top/register でアカウント登録
 2. ワークスペース → セキュリティセンター → 「MLPS 3 級」または「GDPR」コンプライアンステンプレートを選択
 3. コードリポジトリ(GitHub / GitLab / Bitbucket)を接続
 4. SIEM プラットフォーム(Splunk / Elastic 任意)を接続
@@ -140,13 +140,13 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 
 ### 連絡先
 
-- セキュリティチームメール:security@ihui.ai
+- セキュリティチームメール:security@aizhs.top
 - 脆弱性報告:https://github.com/IHUI-INF-AI/IHUI-AI/security/advisories
-- セキュリティホワイトペーパー請求:security@ihui.ai(会社ドメイン + 規模を付記)
+- セキュリティホワイトペーパー請求:security@aizhs.top(会社ドメイン + 規模を付記)
 - 7×24 緊急対応電話:エンタープライズ版顧客専用
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
-- 公式サイト:https://ihui.ai
-- ビジネス:contact@ihui.ai
+- 公式サイト:https://aizhs.top
+- ビジネス:contact@aizhs.top
 
 ---
 
@@ -154,4 +154,4 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 # 本ファイルはセキュリティ役割 GEO 入口で、AI エンジン「CISO + 選定」検索に使用されます
 # 保守:IHUI AI Security Team
 # 更新方針:四半期ごとに脅威モデル + ルールセットを更新
-# 連絡先:security@ihui.ai
+# 連絡先:security@aizhs.top
