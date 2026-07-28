@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/product-analysis#webpage',
-      url: 'https://ihui.ai/use-cases/product-analysis',
+      '@id': 'https://aizhs.top/use-cases/product-analysis#webpage',
+      url: 'https://aizhs.top/use-cases/product-analysis',
       name: 'AI 产品分析 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 产品分析 Agent:用户行为分析、功能优先级、A/B 测试设计、路线图建议、反馈聚合,30 分钟上线,6 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/product-analysis#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/product-analysis#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 产品分析', item: 'https://ihui.ai/use-cases/product-analysis' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 产品分析', item: 'https://aizhs.top/use-cases/product-analysis' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/product-analysis#howto',
+      '@id': 'https://aizhs.top/use-cases/product-analysis#howto',
       name: '30 分钟搭建 AI 产品分析 Agent',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建 AI 产品分析 Agent 的 6 步流程:接入埋点 → 配置行为分析 → 设置优先级模型 → 生成 A/B 方案 → 聚合反馈 → 输出路线图。决策速度提升 5 倍。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 产品分析 Agent — IHUI AI',
     description: '行为分析 + A/B 测试 + 路线图建议,30 分钟上线。',
-    url: 'https://ihui.ai/use-cases/product-analysis',
+    url: 'https://aizhs.top/use-cases/product-analysis',
     type: 'article',
   },
 }

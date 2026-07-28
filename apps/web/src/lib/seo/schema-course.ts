@@ -9,7 +9,7 @@
  * const course = generateCourseSchema({
  *   name: 'AI Agent 开发实战',
  *   description: '...',
- *   url: 'https://ihui.ai/use-cases/ai-edu',
+ *   url: 'https://aizhs.top/use-cases/ai-edu',
  *   providerName: '智汇 AI',
  *   courseMode: 'online',
  *   hasCourseInstance: { startDate: '2026-08-01', endDate: '2026-12-31' },
@@ -97,8 +97,8 @@ export interface CourseSchema {
 }
 
 const DEFAULT_PROVIDER_NAME = '智汇 AI'
-const DEFAULT_PROVIDER_URL = 'https://ihui.ai'
-const SITE_WEBSITE_ID = 'https://ihui.ai/#website'
+const DEFAULT_PROVIDER_URL = 'https://aizhs.top'
+const SITE_WEBSITE_ID = 'https://aizhs.top/#website'
 
 /**
  * 生成 Course JSON-LD 对象。

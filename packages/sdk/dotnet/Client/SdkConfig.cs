@@ -1,4 +1,4 @@
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// SDK 配置(不可变,builder 模式构建)。

@@ -16,7 +16,7 @@ import path from 'node:path'
 // 必须显式声明 force-static,否则构建报错。
 export const dynamic = 'force-static'
 
-const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ihui.ai'
+const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://aizhs.top'
 const SITE_NAME = 'IHUI AI'
 const SITE_LANG = 'zh-cn'
 

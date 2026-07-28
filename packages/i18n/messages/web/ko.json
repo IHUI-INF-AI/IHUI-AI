@@ -9839,6 +9839,7 @@
       "timelineInlineHint": "메시지 목록 내 인라인 표시",
       "timelineNoMatch": "현재 필터와 일치하는 이벤트가 없습니다",
       "timelineClearFilters": "필터 지우기",
+      "timelineExport": "Markdown으로 내보내기",
       "sseStatus": {
         "connected": "연결됨",
         "connecting": "연결 중",
@@ -9911,10 +9912,15 @@
         "endedAt": "종료:",
         "duration": "소요 시간:",
         "copyThreadId": "threadId 복사",
-        "toolsCount": "도구 호출({n})",
+        "toolsCount": "도구 호출 ({n})",
         "active": "{n} 활성",
         "done": "{n} 완료",
-        "failed": "{n} 실패"
+        "failed": "{n} 실패",
+        "menuCopyThreadId": "Thread ID 복사",
+        "menuCopyHandle": "Handle 복사",
+        "menuCopyNickname": "닉네임 복사",
+        "menuCopyDetails": "세부 정보 복사",
+        "menuAriaLabel": "서브에이전트 {nickname} 작업"
       },
       "overview": {
         "title": "작업 개요",
@@ -9933,10 +9939,11 @@
         "changes": "변경",
         "files": "파일",
         "duration": "소요 시간",
-        "token": "Token",
+        "token": "토큰",
         "rate": "속도",
         "eta": "예상",
-        "context": "컨텍스트"
+        "context": "컨텍스트",
+        "copySummary": "작업 요약 복사"
       },
       "thinkingTitle": "사고 과정",
       "thinkingStreaming": "사고 중...",

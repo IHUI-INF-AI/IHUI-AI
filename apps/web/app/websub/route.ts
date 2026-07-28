@@ -31,8 +31,8 @@ import type { NextRequest } from 'next/server'
 // 真正的 subscribe/unsubscribe/publish 动态行为在生产 nginx + Next.js standalone 模式下生效。
 export const dynamic = 'force-static'
 
-const HUB_URL = 'https://ihui.ai/websub'
-const FEED_URLS = ['https://ihui.ai/rss.xml', 'https://ihui.ai/atom.xml']
+const HUB_URL = 'https://aizhs.top/websub'
+const FEED_URLS = ['https://aizhs.top/rss.xml', 'https://aizhs.top/atom.xml']
 
 // 简单的内存订阅者列表(生产环境应持久化到数据库)
 // 注:Next.js Edge Runtime 不支持持久化,这里仅作演示

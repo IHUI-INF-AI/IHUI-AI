@@ -2,7 +2,7 @@
  * useExtensionThirdPartyAuth(2026-07-26 立)
  *
  * 扩展端第三方登录(8 平台)配置 hook,注入到共享 @ihui/ui-react.LoginForm。
- * 平台策略:点击跳 web 端 https://www.ihui.ai/signin?from=extension&platform=xxx,
+ * 平台策略:点击跳 web 端 https://www.aizhs.top/signin?from=extension&platform=xxx,
  * web 端完成 OAuth 回调,token 写 chrome.storage(通过 web → 扩展跨域方案)。
  *
  * 视觉规范(对标 web 端 ThirdPartyLoginButtons.tsx):
@@ -26,7 +26,7 @@ import {
 import { useI18n } from '../i18n'
 
 /** web 端 OAuth 入口(带 from=extension 标识 + platform 区分) */
-const WEB_SIGNIN_URL = 'https://www.ihui.ai/signin'
+const WEB_SIGNIN_URL = 'https://www.aizhs.top/signin'
 
 /** 8 平台 i18n label key 映射(与共享 packages/i18n/messages/shared/*.json auth.* 命名空间对齐) */
 const LABEL_KEYS: Record<ThirdPartyPlatform, string> = {

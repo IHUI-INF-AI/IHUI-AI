@@ -30,7 +30,7 @@ import type { AuthUser } from '@ihui/api-client'
 const mockUser: AuthUser = {
   id: 'u1',
   nickname: 'Test User',
-  email: 'test@ihui.ai',
+  email: 'test@aizhs.top',
 } as unknown as AuthUser
 
 function createMockTokenStore(initial: { token?: string | null; refreshToken?: string | null } = {}): TokenStore & {

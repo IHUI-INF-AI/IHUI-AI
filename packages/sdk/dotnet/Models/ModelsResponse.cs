@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// 模型列表响应(GET /v1/models)。

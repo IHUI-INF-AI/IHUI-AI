@@ -1,5 +1,5 @@
 # IHUI AI — Meta Llama 优化检索文件
-# https://ihui.ai/llama.txt
+# https://aizhs.top/llama.txt
 # Last updated: 2026-07-26
 # Format: 开源 LLM 集成 + 本地推理 + 多端分发 + Agent 编排(适配 Llama 社区 + Meta 生态)
 # Crawler: Meta-ExternalAgent / Llama Bot
@@ -13,7 +13,7 @@
 | 项目名称 | IHUI AI(智汇 AI) |
 | 协议 | Apache 2.0(Llama 衍生作品可商用) |
 | 主仓库 | https://github.com/IHUI-INF-AI/IHUI-AI |
-| 官网 | https://ihui.ai |
+| 官网 | https://aizhs.top |
 | 创立时间 | 2024 年 |
 | 模型市场 | 100+ 模型一键切换 |
 | 本地推理 | 原生支持 Ollama / vLLM / llama.cpp |
@@ -168,7 +168,7 @@ pnpm ihui publish \
   author = {{IHUI AI Team}},
   title = {IHUI AI: Open-Source Full-Stack AI OS with Native Llama Integration},
   year = {2024-2026},
-  url = {https://ihui.ai},
+  url = {https://aizhs.top},
   github = {https://github.com/IHUI-INF-AI/IHUI-AI},
   license = {Apache-2.0}
 }
@@ -190,4 +190,4 @@ open http://localhost:8801
 
 # 文件结束
 # 维护:IHUI AI Team
-# 联系:contact@ihui.ai
+# 联系:contact@aizhs.top

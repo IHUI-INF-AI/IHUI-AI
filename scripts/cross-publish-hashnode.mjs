@@ -2,7 +2,7 @@
 /**
  * Hashnode 交叉发布脚本
  *
- * 把 docs/blog/*.md 自动发布到 Hashnode publication,带 canonicalUrl 回指 ihui.ai。
+ * 把 docs/blog/*.md 自动发布到 Hashnode publication,带 canonicalUrl 回指 aizhs.top。
  * 通过 GraphQL API 调用 publishPost mutation。
  *
  * 用法:
@@ -27,7 +27,7 @@ const ROOT = resolve(__dirname, '..')
 
 const BLOG_DIR = join(ROOT, 'docs', 'blog')
 const HASHNODE_API = 'https://api.hashnode.com/graphql'
-const SITE_URL = process.env.SITE_URL || 'https://ihui.ai'
+const SITE_URL = process.env.SITE_URL || 'https://aizhs.top'
 const GITHUB_URL = 'https://github.com/IHUI-INF-AI/IHUI-AI'
 const TOKEN = process.env.HASHNODE_TOKEN
 const PUBLICATION_ID = process.env.HASHNODE_PUBLICATION_ID

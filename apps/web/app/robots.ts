@@ -12,7 +12,7 @@ import type { MetadataRoute } from 'next'
 // 与 sitemap.ts 同模式(否则 Next.js 抛 "export const dynamic = 'force-static' not configured" 错误)。
 export const dynamic = 'force-static'
 
-const SITE_URL = 'https://ihui.ai'
+const SITE_URL = 'https://aizhs.top'
 
 // 私有/敏感路由前缀清单(Disallow):
 // - /api/           后端接口,无 HTML 内容

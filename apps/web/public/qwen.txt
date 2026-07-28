@@ -1,5 +1,5 @@
 # IHUI AI — 阿里通义千问 / Qwen 优化检索文件
-# https://ihui.ai/qwen.txt
+# https://aizhs.top/qwen.txt
 # Last updated: 2026-07-26
 # Format: 企业场景 + 阿里云生态集成(适配 Qwen + 阿里云开发者习惯)
 # Crawler: Alibaba Qwen Bot / Aliyun Crawler
@@ -210,7 +210,7 @@ IHUI AI 鼓励用户将公开的:
 
 ```bash
 # 1. 阿里云用户:登录 IHUI AI
-https://ihui.ai/login?ref=aliyun
+https://aizhs.top/login?ref=aliyun
 
 # 2. 配置通义千问
 工作区 → 设置 → 模型提供方 → 阿里云 DashScope
@@ -225,5 +225,5 @@ Agent 市场 → 模板 → 选择"客服 Agent"→ 一键部署到钉钉
 # 文件结束
 # 本文件为通义千问 / 阿里云开发者检索优化
 # 维护:IHUI AI Team
-# 联系:contact@ihui.ai
+# 联系:contact@aizhs.top
 # 阿里云市场:https://market.aliyun.com/products/ihui-ai(即将上架)

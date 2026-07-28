@@ -194,7 +194,7 @@ packages/api-client/src/endpoints/
 | Python | `packages/sdk/python/ihui_ai/` | 13 模块 | `ihui_ai` 包,支持 async/sync |
 | Go | `packages/sdk/go/` | 15 模块 | `ihui` 包,client/model/module 三层 |
 | Java | `packages/sdk/java/` | 11 模块 | `com.ihui.ai.sdk` 包 |
-| .NET | `packages/sdk/dotnet/` | 13 模块 | `Ihui.AI` 命名空间 |
+| .NET | `packages/sdk/dotnet/` | 13 模块 | `aizhs.top` 命名空间 |
 
 > 多语言 SDK 的具体用法见各自 README(`packages/sdk/{lang}/README.md`)。
 
@@ -318,7 +318,7 @@ import { createApiClient } from '@ihui/api-client/client'
 
 const client = new IhuiClient({
   apiKey: process.env.IHUI_API_KEY!,
-  baseURL: 'https://api.ihui.ai',
+  baseURL: 'https://api.aizhs.top',
 })
 
 // 调用 agent 执行

@@ -34,7 +34,7 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | sdk(Python) | PyPI | `v*` tag → 发布 workflow | `packages/sdk/python/pyproject.toml` |
 | sdk(Go) | go get(git tag) | `v*` tag | `packages/sdk/go/go.mod` |
 | sdk(Java) | Maven Central | `v*` tag → 发布 workflow | `packages/sdk/java/pom.xml` |
-| sdk(.NET) | NuGet Gallery | `v*` tag → 发布 workflow | `packages/sdk/dotnet/Ihui.AI.csproj` |
+| sdk(.NET) | NuGet Gallery | `v*` tag → 发布 workflow | `packages/sdk/dotnet/aizhs.top.csproj` |
 
 ---
 
@@ -63,7 +63,7 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | sdk(Python) | `packages/sdk/python/pyproject.toml` → `[project].version` |
 | sdk(Go) | git tag(无 go.mod version 字段) |
 | sdk(Java) | `packages/sdk/java/pom.xml` → `<version>` |
-| sdk(.NET) | `packages/sdk/dotnet/Ihui.AI.csproj` → `<Version>` |
+| sdk(.NET) | `packages/sdk/dotnet/aizhs.top.csproj` → `<Version>` |
 
 ### Git tag 命名
 
@@ -566,7 +566,7 @@ pnpm --filter @ihui/desktop exec tauri signer generate -w ~/.tauri/ihui.key
 {
   "app": {
     "updater": {
-      "endpoints": ["https://releases.ihui.ai/desktop/latest.json"],
+      "endpoints": ["https://releases.aizhs.top/desktop/latest.json"],
       "pubkey": "<上一步输出的公钥>"
     }
   },

@@ -8,7 +8,7 @@ vi.mock('../src/config/index.js', () => ({
     SMTP_PORT: 587,
     SMTP_USER: '',
     SMTP_PASS: '',
-    SMTP_FROM: 'noreply@ihui.ai',
+    SMTP_FROM: 'noreply@aizhs.top',
     SMTP_ENABLED: false,
     MAIL_PROVIDER: 'auto',
     RESEND_API_KEY: '',

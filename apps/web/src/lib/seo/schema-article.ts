@@ -9,7 +9,7 @@
  * const article = generateArticleSchema({
  *   headline: 'GPT-5 正式发布',
  *   description: '...',
- *   url: 'https://ihui.ai/ai-news/gpt5-release',
+ *   url: 'https://aizhs.top/ai-news/gpt5-release',
  *   datePublished: '2026-07-26',
  *   authorName: '智汇 AI 编辑部',
  *   keywords: ['GPT-5', 'OpenAI', '大模型'],
@@ -72,9 +72,9 @@ export interface ArticleSchema {
 }
 
 const DEFAULT_PUBLISHER_NAME = '智汇 AI'
-const DEFAULT_PUBLISHER_LOGO = 'https://ihui.ai/images/logo.png'
-const DEFAULT_AUTHOR_URL = 'https://ihui.ai/about'
-const SITE_WEBSITE_ID = 'https://ihui.ai/#website'
+const DEFAULT_PUBLISHER_LOGO = 'https://aizhs.top/images/logo.png'
+const DEFAULT_AUTHOR_URL = 'https://aizhs.top/about'
+const SITE_WEBSITE_ID = 'https://aizhs.top/#website'
 
 /**
  * 生成 Article JSON-LD 对象。

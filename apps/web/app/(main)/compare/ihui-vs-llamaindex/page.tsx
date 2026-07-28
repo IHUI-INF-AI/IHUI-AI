@@ -6,25 +6,25 @@ const compareJsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/compare/ihui-vs-llamaindex#webpage',
-      url: 'https://ihui.ai/compare/ihui-vs-llamaindex',
+      '@id': 'https://aizhs.top/compare/ihui-vs-llamaindex#webpage',
+      url: 'https://aizhs.top/compare/ihui-vs-llamaindex',
       name: 'IHUI AI vs LlamaIndex:全栈 AI 操作系统 vs 数据连接 RAG 框架',
       description:
         'LlamaIndex 是专业的数据连接 + RAG 框架(Python/TS SDK);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含 RAG + Agent + 工作流 + 六端分发。本文深度对比。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
-        { '@id': 'https://ihui.ai/#organization' },
+        { '@id': 'https://aizhs.top/#organization' },
         { '@type': 'Thing', name: 'LlamaIndex' },
       ],
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/compare/ihui-vs-llamaindex#breadcrumb',
+      '@id': 'https://aizhs.top/compare/ihui-vs-llamaindex#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://ihui.ai/compare' },
-        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs LlamaIndex', item: 'https://ihui.ai/compare/ihui-vs-llamaindex' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
+        { '@type': 'ListItem', position: 3, name: 'IHUI AI vs LlamaIndex', item: 'https://aizhs.top/compare/ihui-vs-llamaindex' },
       ],
     },
   ],
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'IHUI AI vs LlamaIndex — RAG + Agent + 跨端 vs 纯 RAG 框架',
     description: '全栈 AI 操作系统 vs 数据连接 + RAG SDK。',
-    url: 'https://ihui.ai/compare/ihui-vs-llamaindex',
+    url: 'https://aizhs.top/compare/ihui-vs-llamaindex',
     type: 'article',
   },
 }

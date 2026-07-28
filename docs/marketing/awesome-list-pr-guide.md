@@ -87,7 +87,7 @@ IHUI-AI is an open-source, 8-end (Web / API / AI Service / CLI / Desktop / Brows
 ### Links
 
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-- Live demo: https://ihui.ai
+- Live demo: https://aizhs.top
 - Docker Compose one-click deploy
 
 ### Checklist
@@ -118,7 +118,7 @@ IHUI-AI 是 8 端全栈 AI 操作系统(Web / API / AI Service / CLI / Desktop /
 ### 链接
 
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
-- 在线 Demo: https://ihui.ai
+- 在线 Demo: https://aizhs.top
 - Docker Compose 一键部署
 
 ### 对标
