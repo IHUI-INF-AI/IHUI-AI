@@ -51,10 +51,17 @@ import { TimelineTab, flattenToTimelineEvents } from './progress-sections/timeli
 import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 
 /**
- * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-28 v13)
+ * AgentTaskProgressPane — 消息区右上角的小 popover(2026-07-28 v14)
  *
- * v13 改动(深度优化):
- * - 拖拽支持:header 可拖动,位置持久化到 localStorage(`agent-progress-pane-position`),viewport 边界 clamp
+ * v14 改动(定位修复):
+ * - 根容器 `fixed` → `absolute`:父容器已是 `<div className="relative min-h-0 flex-1">`,
+ *   用 absolute 后 popover 锚定到消息区右上角,而不是浏览器视口右上角
+ * - 拖拽 bounds 从 viewport 改为父容器(offsetParent),拖不出消息区
+ * - 拖拽位置 storage key 升 v2(`agent-progress-pane-position-v2`),作废旧 fixed 时代
+ *   的视口坐标(否则 absolute 下会落到父容器外的位置)
+ *
+ * v13 改动(深度优化,沿用):
+ * - 拖拽支持:header 可拖动,位置持久化到 localStorage,父容器边界 clamp
  * - 完成态庆祝:全部 plan steps completed 时显示 3s 横幅(Sparkles + emerald 渐变)
  * - plan skeleton 优化:4 items + `animate-skeleton` shimmer 渐变动画
  * - 空状态改进:无 threadId 时显示 3 个快速开始提示
@@ -78,13 +85,13 @@ const TOOL_TIME_WINDOW_LEADING_MS = 1000
 /** 每 step 默认预览的工具调用条数上限 */
 const PREVIEW_TOOL_LIMIT = 4
 
-/** Pane 拖拽位置 localStorage key(2026-07-28 v13 立,避免与 store 持久化冲突) */
-const POSITION_STORAGE_KEY = 'agent-progress-pane-position'
+/** Pane 拖拽位置 localStorage key(v14 升 v2,作废旧 fixed 时代视口坐标) */
+const POSITION_STORAGE_KEY = 'agent-progress-pane-position-v2'
 
-/** Pane 拖拽边界留白(viewport 边缘) */
+/** Pane 拖拽边界留白(父容器边缘) */
 const DRAG_EDGE_MARGIN = 8
 
-/** Pane 默认尺寸估算(用于 viewport clamp;实际宽高由 CSS w-[280px] max-h-[60vh] 决定) */
+/** Pane 默认尺寸估算(用于父容器 clamp;实际宽高由 CSS w-[280px] max-h-[60vh] 决定) */
 const PANE_ESTIMATED_WIDTH = 280
 const PANE_ESTIMATED_HEIGHT = 400
 
@@ -163,10 +170,21 @@ const TAB_BUTTONS: ReadonlyArray<{
   { id: 'timeline', i18nKey: 'tabTimeline', Icon: ListTree },
 ]
 
-// ─── 拖拽位置工具(localStorage 持久化 + viewport clamp) ─────────────
+// ─── 拖拽位置工具(localStorage 持久化 + 父容器 clamp) ─────────────
 interface PanePosition {
   x: number
   y: number
+}
+
+/** 解析父容器尺寸:有父容器且尺寸 > 0 用父容器,否则 fallback 到 viewport(SSR/jsdom) */
+function resolveParentBounds(parentRect: DOMRect | null | undefined): { width: number; height: number } {
+  if (parentRect && parentRect.width > 0 && parentRect.height > 0) {
+    return { width: parentRect.width, height: parentRect.height }
+  }
+  if (typeof window !== 'undefined') {
+    return { width: window.innerWidth, height: window.innerHeight }
+  }
+  return { width: 1024, height: 768 }
 }
 
 function loadPanePosition(): PanePosition | null {
@@ -192,10 +210,15 @@ function savePanePosition(pos: PanePosition): void {
   }
 }
 
-function clampPanePosition(x: number, y: number): PanePosition {
-  if (typeof window === 'undefined') return { x, y }
-  const maxX = Math.max(DRAG_EDGE_MARGIN, window.innerWidth - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN)
-  const maxY = Math.max(DRAG_EDGE_MARGIN, window.innerHeight - PANE_ESTIMATED_HEIGHT - DRAG_EDGE_MARGIN)
+/** 父容器坐标 clamp(absolute 定位下,x/y 是相对 offsetParent 的);无父容器时 fallback viewport */
+function clampPanePosition(
+  x: number,
+  y: number,
+  parentRect?: DOMRect | null,
+): PanePosition {
+  const { width, height } = resolveParentBounds(parentRect)
+  const maxX = Math.max(DRAG_EDGE_MARGIN, width - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN)
+  const maxY = Math.max(DRAG_EDGE_MARGIN, height - PANE_ESTIMATED_HEIGHT - DRAG_EDGE_MARGIN)
   return {
     x: Math.min(Math.max(DRAG_EDGE_MARGIN, x), maxX),
     y: Math.min(Math.max(DRAG_EDGE_MARGIN, y), maxY),
@@ -861,6 +884,9 @@ export function AgentTaskProgressPane() {
   // v13: 拖拽处理器 — 鼠标按下时记录起点,移动时实时更新位置,抬起时持久化
   // 用 ref 记录最新位置,避免闭包陷阱(stale state)
   const positionRef = React.useRef<PanePosition | null>(null)
+  // v14: 同步记录 onMove 实时位置(不依赖 React render flush),
+  // 解决 mouseup 在 setState 重渲染前触发 → positionRef.current 仍为旧值的时序 bug
+  const livePositionRef = React.useRef<PanePosition | null>(null)
   const dragStateRef = React.useRef<{
     startX: number
     startY: number
@@ -868,7 +894,7 @@ export function AgentTaskProgressPane() {
     originY: number
   } | null>(null)
 
-  // 同步 position state → ref(确保 onMouseUp 拿到最新值)
+  // 同步 position state → ref(确保 onMouseUp 拿到最新值;livePositionRef 在 onMove 内同步写)
   positionRef.current = panePosition
 
   const onHeaderMouseDown = React.useCallback(
@@ -880,11 +906,15 @@ export function AgentTaskProgressPane() {
       if (target.closest('button, [role="tab"], input, [data-no-drag]')) return
 
       e.preventDefault()
-      // 起始位置:无保存位置时,使用默认 right-2 top-2(viewport 坐标估算)
-      const fallback =
-        typeof window !== 'undefined'
-          ? { x: window.innerWidth - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN, y: DRAG_EDGE_MARGIN }
-          : { x: 0, y: 0 }
+      // 起始位置:无保存位置时,使用父容器右上角估算(offsetParent 坐标系)
+      const parentEl = paneRef.current?.offsetParent
+      const parentRect =
+        parentEl instanceof HTMLElement ? parentEl.getBoundingClientRect() : null
+      const { width: parentW } = resolveParentBounds(parentRect)
+      const fallback = {
+        x: Math.max(DRAG_EDGE_MARGIN, parentW - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN),
+        y: DRAG_EDGE_MARGIN,
+      }
       const current = positionRef.current ?? fallback
       dragStateRef.current = {
         startX: e.clientX,
@@ -899,7 +929,19 @@ export function AgentTaskProgressPane() {
         if (!state) return
         const dx = ev.clientX - state.startX
         const dy = ev.clientY - state.startY
-        const next = clampPanePosition(state.originX + dx, state.originY + dy)
+        // 每次重读父容器 bounds(窗口大小可能变化)
+        const liveParentEl = paneRef.current?.offsetParent
+        const liveParentRect =
+          liveParentEl instanceof HTMLElement
+            ? liveParentEl.getBoundingClientRect()
+            : null
+        const next = clampPanePosition(
+          state.originX + dx,
+          state.originY + dy,
+          liveParentRect,
+        )
+        // v14: 同步写入 live ref,避免 mouseup 早于 render flush 时丢保存
+        livePositionRef.current = next
         setPanePosition(next)
       }
 
@@ -909,9 +951,11 @@ export function AgentTaskProgressPane() {
         document.body.style.userSelect = ''
         document.body.style.cursor = ''
         setIsDragging(false)
-        // 持久化最新位置(用 ref 拿最新值,避免 stale closure)
-        const final = positionRef.current
+        // 持久化最新位置:优先用 live ref(同步写入,不受 React render flush 影响),
+        // 兜底用 state 镜像 ref(向后兼容 + 单测稳定)
+        const final = livePositionRef.current ?? positionRef.current
         if (final) savePanePosition(final)
+        livePositionRef.current = null
         dragStateRef.current = null
       }
 
@@ -925,7 +969,9 @@ export function AgentTaskProgressPane() {
 
   if (!open) return null
 
-  // v13: 计算 pane 根容器的位置样式(有 position → fixed + left/top;无 position → 默认 right-2 top-2)
+  // v14: 计算 pane 根容器的位置样式(absolute 相对父容器 `relative` 的消息区)
+  // - 有保存位置 → left/top(父容器坐标)
+  // - 无保存位置 → 默认 right-2 top-2(锚到父容器右上角,等效 absolute 默认行为)
   const positionStyle: React.CSSProperties = panePosition
     ? { left: panePosition.x, top: panePosition.y, right: 'auto' }
     : { right: 8, top: 8 }
@@ -934,7 +980,7 @@ export function AgentTaskProgressPane() {
     <div
       ref={paneRef}
       className={cn(
-        'fixed z-50',
+        'absolute z-50',
         'flex w-[280px] max-h-[60vh] flex-col',
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
         isDragging && 'shadow-lg',

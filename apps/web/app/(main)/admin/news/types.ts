@@ -1,64 +1,21 @@
 import { unwrapApi as api } from '@/lib/api-helpers'
 import { selectClass, inputSm } from '@/lib/form-styles'
 import { DEFAULT_PAGE_SIZE as PAGE_SIZE } from '@ihui/shared/constants'
+import type {
+  AdminCategory,
+  NewsArticle,
+  NewsArticlesData,
+  NewsInformation,
+  NewsInfoData,
+} from '@ihui/types'
 
 export { api, selectClass, inputSm, PAGE_SIZE }
 
-export interface Article {
-  id: string
-  categoryId: string | null
-  title: string
-  summary: string | null
-  content: string
-  coverImage: string | null
-  authorId: string | null
-  authorName: string | null
-  isPublished: boolean
-  isPinned: boolean
-  viewCount: number
-  sort: number
-  status: number
-  publishedAt: string | null
-  createdAt: string
-  categoryName?: string | null
-}
-
-export interface Category {
-  id: string
-  name: string
-  sort: number
-  status: number
-}
-
-export interface ArticlesData {
-  list: Article[]
-  total: number
-  page: number
-  pageSize: number
-}
-
-export interface Information {
-  id: string
-  title: string
-  content: string
-  type: string | null
-  url: string | null
-  sourceName: string | null
-  sourceUrl: string | null
-  sourceCreator: string | null
-  sourceTime: string | null
-  insertTime: string | null
-  browse: number | null
-  creator: string | null
-  crearedTime: string | null
-}
-
-export interface InfoData {
-  list: Information[]
-  total: number
-  page: number
-  pageSize: number
-}
+export type { AdminCategory as Category } from '@ihui/types'
+export type Article = NewsArticle
+export type ArticlesData = NewsArticlesData
+export type Information = NewsInformation
+export type InfoData = NewsInfoData
 
 export interface ArticleForm {
   title: string

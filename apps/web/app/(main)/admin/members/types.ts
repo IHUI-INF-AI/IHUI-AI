@@ -1,54 +1,26 @@
 import { fetchApi } from '@/lib/api'
 import { unwrapApi as api } from '@/lib/api-helpers'
 import { selectClass } from '@/lib/form-styles'
-import type { ApiResult } from '@ihui/types'
+import type {
+  AdminCompaniesData,
+  AdminImportResult,
+  AdminImportResultItem,
+  AdminMember,
+  AdminMemberLevel,
+  AdminMemberStatistics,
+  AdminMembersData,
+  ApiResult,
+} from '@ihui/types'
 
 export { api, selectClass }
 
-export interface Member {
-  id: string
-  username: string | null
-  mobile: string | null
-  email: string | null
-  avatar: string | null
-  nickname: string | null
-  gender: number
-  status: number
-  levelId: string | null
-  companyId: string | null
-  departmentId: string | null
-  growthValue: number
-  createdAt: string
-}
-
-export interface MembersData {
-  list: Member[]
-  total: number
-  page: number
-  pageSize: number
-}
-
-export interface MemberStatistics {
-  total: number
-  active: number
-  pending: number
-  sealed: number
-}
-
-export interface MemberLevel {
-  id: string
-  name: string
-  growthValue: number
-  discount: string
-  sort: number
-}
-
-export interface CompaniesData {
-  list: unknown[]
-  total: number
-  page: number
-  pageSize: number
-}
+export type Member = AdminMember
+export type MembersData = AdminMembersData
+export type MemberStatistics = AdminMemberStatistics
+export type MemberLevel = AdminMemberLevel
+export type CompaniesData = AdminCompaniesData
+export type ImportResultItem = AdminImportResultItem
+export type ImportResult = AdminImportResult
 
 export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE=20
 

@@ -1,41 +1,15 @@
 import { unwrapApi as api } from '@/lib/api-helpers'
-import { selectClass } from '@/lib/form-styles'
+import { selectClass, textareaClass } from '@/lib/form-styles'
+import type {
+  AdminListData,
+  WithdrawalFlowItem,
+  WithdrawalItem,
+} from '@ihui/types'
 
-export { api, selectClass }
+export { api, selectClass, textareaClass }
 
-export interface WithdrawalItem {
-  id: string
-  user: string
-  userName?: string
-  amount: number
-  channel: 'alipay' | 'wechat' | 'bank'
-  account: string
-  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed'
-  createdAt: string
-  reviewer?: string
-  reviewerTime?: number
-  outBillNo?: string
-  notes?: string
-  weChatMsg?: string
-  withdrawalTime?: number
-  auditAmount?: number
-}
-
-export interface WithdrawalFlowItem {
-  id: string
-  userId: string
-  amount: number
-  outBillNo: string
-  status: number
-  createdAt: string
-  updatedAt: string
-  transferDetail: string
-}
-
-export interface ListData<T> {
-  list: T[]
-  total: number
-}
+export type { WithdrawalItem, WithdrawalFlowItem }
+export type { AdminListData as ListData } from '@ihui/types'
 
 export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE=20
 
@@ -43,8 +17,6 @@ export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE
 // 保留本地定义以维持现有视觉行为。
 export const inputSm =
   'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-export const textareaClass =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export const CHANNEL_LABEL: Record<WithdrawalItem['channel'], string> = {
   alipay: '支付宝',

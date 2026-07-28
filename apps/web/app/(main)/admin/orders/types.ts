@@ -1,68 +1,18 @@
 import { unwrapApi as api } from '@/lib/api-helpers'
-import { selectClass } from '@/lib/form-styles'
+import { selectClass, textareaClass } from '@/lib/form-styles'
+import type {
+  EduInvoiceApplication,
+  EduOrder,
+  EduRefund,
+  InvoiceAppStatus,
+  OrderStatus,
+  RefundStatus,
+} from '@ihui/types'
 export { type PageData } from '@ihui/api-client'
 
-export { api, selectClass }
+export { api, selectClass, textareaClass }
 
-export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
-export type RefundStatus =
-  'pending' | 'approved' | 'rejected' | 'processing' | 'completed' | 'failed'
-export type InvoiceAppStatus =
-  'pending' | 'approved' | 'rejected' | 'invoicing' | 'invoiced' | 'canceled'
-
-export interface EduOrder {
-  id: string
-  orderNo: string
-  userId: string
-  orderType: string
-  targetId?: string | null
-  targetTitle?: string | null
-  quantity: number
-  originalPrice: string
-  discountAmount: string
-  payAmount: string
-  payType?: string | null
-  status: OrderStatus
-  payTime?: string | null
-  cancelTime?: string | null
-  refundTime?: string | null
-  remark?: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface EduRefund {
-  id: string
-  orderId: string
-  orderType: string
-  orderNo: string
-  userId: string
-  reason?: string | null
-  refundAmount: string
-  refundType: string
-  status: RefundStatus
-  applyTime?: string | null
-  processTime?: string | null
-  completeTime?: string | null
-  processMessage?: string | null
-  handleMessage?: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface EduInvoiceApplication {
-  id: string
-  orderId?: string | null
-  userId: string
-  invoiceType: string
-  titleId?: string | null
-  amount: string
-  email?: string | null
-  status: InvoiceAppStatus
-  remark?: string | null
-  createdAt: string
-  updatedAt: string
-}
+export type { OrderStatus, RefundStatus, InvoiceAppStatus, EduOrder, EduRefund, EduInvoiceApplication } from '@ihui/types'
 
 export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE=20
 
@@ -70,14 +20,20 @@ export const ORDER_STATUS_CFG: Record<OrderStatus, { cls: string; dot: string }>
   pending: { cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500', dot: 'bg-amber-500' },
   paid: { cls: 'bg-emerald-500/10 text-emerald-600 dark:text-amber-500', dot: 'bg-emerald-500' },
   cancelled: { cls: 'bg-red-500/10 text-red-600 dark:text-red-500', dot: 'bg-red-500' },
+  refunding: { cls: 'bg-purple-500/10 text-purple-600 dark:text-purple-500', dot: 'bg-purple-500' },
   refunded: { cls: 'bg-primary/10 text-primary', dot: 'bg-primary' },
+  completed: { cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500', dot: 'bg-emerald-500' },
+  failed: { cls: 'bg-red-500/10 text-red-600 dark:text-red-500', dot: 'bg-red-500' },
 }
 
 export const ORDER_STATUS_KEY: Record<OrderStatus, string> = {
   pending: 'status_pending',
   paid: 'status_paid',
   cancelled: 'status_cancelled',
+  refunding: 'status_refunding',
   refunded: 'status_refunded',
+  completed: 'status_completed',
+  failed: 'status_failed',
 }
 
 export const ORDER_TAB_LABEL_KEY: Record<'all' | OrderStatus, string> = {
@@ -145,6 +101,3 @@ export const INVOICE_TYPE_KEY: Record<string, string> = {
   normal: 'invoiceType_normal',
   special: 'invoiceType_special',
 }
-
-export const textareaClass =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
