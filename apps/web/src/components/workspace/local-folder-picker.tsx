@@ -674,8 +674,6 @@ export function LocalFolderPicker({
               onRefresh={() => void refetchBrowse()}
               isRefreshing={fetching && !browsing}
               t={t}
-              pendingDraft={pathDraft ?? undefined}
-              onDraftCommit={() => setPathDraft(null)}
             />
 
             {/* 工具栏:筛选 + 父级 + 系统选择器 */}
