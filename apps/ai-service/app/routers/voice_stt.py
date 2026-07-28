@@ -12,6 +12,7 @@ faster-whisper 本地推理(CTranslate2 后端,base 模型 74MB,首次下载后�
 """
 
 import logging
+import os
 import tempfile
 from threading import Lock
 from typing import Any, Optional
@@ -106,24 +107,30 @@ async def voice_stt(
 
     # 本地 faster-whisper 推理
     suffix = _get_suffix(file.filename or "audio.wav")
+    # Windows 上 NamedTemporaryFile 默认独占打开,faster-whisper 内部 ffmpeg/av
+    # 无法重新打开文件读取。改用 mkstemp:返回 fd + path,先 close fd 释放锁,
+    # 让 faster-whisper 自由读取,转写完手动删除。
+    tmp_fd: int = -1
+    tmp_path: str = ""
     try:
         model = _get_whisper_model()
 
-        # faster-whisper 接受文件路径或类文件对象;用 tempfile 包装便于 ffmpeg 解码
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
-            tmp.write(audio_bytes)
-            tmp.flush()
-            tmp.seek(0)
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        # 写入音频字节后立即关闭 fd,释放 Windows 文件锁
+        with os.fdopen(tmp_fd, "wb") as f:
+            f.write(audio_bytes)
+            f.flush()
+        tmp_fd = -1  # 已关闭,避免 finally 重复 close
 
-            # segments 是生成器,segments_iter + info
-            # language=None 让模型自动检测;传 language 则强制语言
-            segments, _info = model.transcribe(
-                tmp.name,
-                language=language,
-                vad_filter=True,  # 过滤静音段,提升速度
-            )
-            # 拼接所有段文本
-            text = "".join(segment.text for segment in segments).strip()
+        # segments 是生成器,segments_iter + info
+        # language=None 让模型自动检测;传 language 则强制语言
+        segments, _info = model.transcribe(
+            tmp_path,
+            language=language,
+            vad_filter=True,  # 过滤静音段,提升速度
+        )
+        # 拼接所有段文本
+        text = "".join(segment.text for segment in segments).strip()
 
         return STTResponse(
             text=text,
@@ -151,6 +158,18 @@ async def voice_stt(
             stub=True,
             model=_DEFAULT_STT_MODEL,
         )
+    finally:
+        # 清理临时文件(fd 若未关闭也一并 close,再 unlink 文件)
+        if tmp_fd >= 0:
+            try:
+                os.close(tmp_fd)
+            except OSError:
+                pass
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def _get_suffix(filename: str) -> str:
