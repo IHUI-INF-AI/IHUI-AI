@@ -85,7 +85,7 @@ export function AdminDistributionCharts({ stats, numFmt, curFmt }: Props) {
             </span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{t('totalAmountLabel')}</p>
-          <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-4">
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 border-t pt-4">
             {orderItems.map((o) => {
               const Icon = o.icon
               return (

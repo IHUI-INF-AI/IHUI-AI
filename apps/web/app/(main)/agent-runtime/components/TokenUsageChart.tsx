@@ -86,7 +86,7 @@ export function TokenUsageChart({ agentId, timeRange, refreshKey }: TokenUsageCh
           </p>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <div className="rounded-md border bg-muted/30 p-2">
                 <div className="text-[10px] text-muted-foreground">总消耗</div>
                 <div className="text-sm font-bold">{formatToken(total)}</div>

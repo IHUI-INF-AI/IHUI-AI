@@ -130,7 +130,7 @@ export default function PdfWatermarkPage() {
       </div>
       <div className="space-y-2">
         <Label>{t('position')}</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {POSITIONS.map((p) => (
             <button
               key={p.key}
