@@ -224,6 +224,19 @@
     "viewDetail": "View detail",
     "withdraw": "Withdraw"
   },
+  "bookmark": {
+    "empty": "No bookmarks yet",
+    "loadFailed": "Failed to load bookmarks",
+    "remove": "Remove",
+    "title": "My Bookmarks",
+    "type": {
+      "article": "Article",
+      "course": "Course",
+      "note": "Note",
+      "other": "Other",
+      "post": "Post"
+    }
+  },
   "faq": {
     "categoryDeploy": "Deployment & Operations",
     "categoryGeneral": "Platform Introduction",
