@@ -575,7 +575,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 ## 守门脚本速查(pre-commit 项,按类别)
 
-- **i18n**(2/2b/2c/2d/2e/2f/2g-web):check-i18n-keys(parity+白名单)/ scan-i18n-zh-residue(zh-TW/ko 阻塞,ja warn)/ check-i18n-broken-en(阻塞)/ i18n-diff(翻译流水线,2f-web + 2f-miniapp-taro 阻塞)/ check-i18n-namespace-passing(命名空间传递,warn)
+- **i18n**(2/2b/2c/2d/2e/2f/2g-web/2f-mobile-rn/2f-cli):check-i18n-keys(parity+白名单)/ scan-i18n-zh-residue(zh-TW/ko 阻塞,ja warn)/ check-i18n-broken-en(阻塞)/ i18n-diff(翻译流水线,2f-web + 2f-miniapp-taro 阻塞)/ check-i18n-namespace-passing(命名空间传递,warn)/ check-cli-i18n-parity(cli 端 parity,warn,2f-cli)
 - **代码质量**(1/3/4/4b/4c/5/6/7/8/9/10):API key 泄露 / schema drift / 陈旧 dist / UTF-8 完整性 / lint-staged / sanitizer / dedupe / 路由一致性 / safeParse(warn)/ OpenAPI(info)
 - **UI/样式**(11/17/18/20/24a/24b/27/28/36):圆角 / CSS token / title tooltip / Tailwind 冲突 / 侧边栏宽度+端口注册表(warn)/ z-index+遮罩 z-index(阻塞)/ miniapp-taro design-tokens 同步(阻塞,防 app.css 漂移)
 - **工程约束**(12/13b/13c/15/19/21/22/23):交付报告 / PLAN 体积(warn)+防误删 / 迁移完整性 / staged 污染(warn)/ 多端同步(warn)/ README 同步(warn)/ staged 清单(info)
@@ -594,6 +594,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 ### 触发背景(2026-07-27 立,真实事故)
 
 C 盘 120 GB 频繁告急,根因排查发现:
+
 - **TRAE 自身缓存 12.88 GB**(TRAE SOLO CN 7.68 + TRAE SOLO 旧版 3.46 + Trae CN 旧版 1.74)
 - **Chrome OptGuideOnDeviceModel 4 GB**(Chrome 内置 AI 模型,用户不用)
 - **Local\Temp 累积 1.6 GB**(TRAE 旧版安装包 + pip 安装临时)
@@ -605,19 +606,20 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 **所有开发工具的全局缓存/存储/临时目录必须指向 D 盘**(已通过用户环境变量永久配置):
 
-| 工具 | 环境变量 / 配置 | 路径 |
-| --- | --- | --- |
-| Temp/TMP | `TEMP` / `TMP` / `TMPDIR` | `D:\caches\Temp` |
-| pnpm | `PNPM_HOME` + `pnpm config` | `D:\caches\pnpm\{store,global,cache,state}` |
-| npm | `npm config` | `D:\caches\npm\{cache,prefix}` |
-| pip | `pip config` | `D:\caches\pip` |
-| uv | `UV_CACHE_DIR` | `D:\caches\uv` |
-| Cargo | `CARGO_HOME` | `D:\caches\cargo` |
-| Rustup | `RUSTUP_HOME` | `D:\caches\rustup` |
-| Go | `GOPATH` / `GOMODCACHE` / `GOCACHE` | `D:\caches\go{,\pkg\mod,-build}` |
-| Playwright | `PLAYWRIGHT_BROWSERS_PATH` | `D:\caches\playwright` |
+| 工具       | 环境变量 / 配置                     | 路径                                        |
+| ---------- | ----------------------------------- | ------------------------------------------- |
+| Temp/TMP   | `TEMP` / `TMP` / `TMPDIR`           | `D:\caches\Temp`                            |
+| pnpm       | `PNPM_HOME` + `pnpm config`         | `D:\caches\pnpm\{store,global,cache,state}` |
+| npm        | `npm config`                        | `D:\caches\npm\{cache,prefix}`              |
+| pip        | `pip config`                        | `D:\caches\pip`                             |
+| uv         | `UV_CACHE_DIR`                      | `D:\caches\uv`                              |
+| Cargo      | `CARGO_HOME`                        | `D:\caches\cargo`                           |
+| Rustup     | `RUSTUP_HOME`                       | `D:\caches\rustup`                          |
+| Go         | `GOPATH` / `GOMODCACHE` / `GOCACHE` | `D:\caches\go{,\pkg\mod,-build}`            |
+| Playwright | `PLAYWRIGHT_BROWSERS_PATH`          | `D:\caches\playwright`                      |
 
 **禁止 agent 在代码或脚本中硬编码 C 盘路径**作为写入目标:
+
 - ❌ `C:\temp\*` / `C:\Users\荣耀\AppData\Local\Temp\*`(用 `os.tmpdir()` / `$env:TEMP` 替代,会自动走 D 盘)
 - ❌ `C:\Users\荣耀\AppData\Local\*\cache`(用工具自带配置或环境变量)
 - ❌ `C:\Users\荣耀\AppData\Roaming\TRAE*\*`(TRAE 自身管理,agent 不触碰)
@@ -633,8 +635,8 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 ### 自动维护计划任务(已注册)
 
-| 任务名 | 触发 | 脚本 | 功能 |
-| --- | --- | --- | --- |
+| 任务名                      | 触发     | 脚本                                | 功能                                               |
+| --------------------------- | -------- | ----------------------------------- | -------------------------------------------------- |
 | `IHUI-C-Drive-AutoMaintain` | 每天 3am | `scripts/c-drive-auto-maintain.ps1` | 清理 TRAE/Chrome/Temp 缓存 + 触发 ModularData 迁移 |
 
 **手动触发**:`pwsh -File scripts/c-drive-auto-maintain.ps1`
