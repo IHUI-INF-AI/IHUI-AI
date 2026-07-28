@@ -51,6 +51,13 @@
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
+  --color-link: #1888ee;
+  --color-link-bg: #f0f7ff;
+  --color-wechat-green: #4cd964;
+  --color-chat-bubble-user: #95ec69;
+  --color-brand: #6366f1;
+  --color-notification-bg: #fff8e1;
+  --color-notification-text: #7c5e1e;
   --chart-1: #3b82f6;
   --chart-2: #10b981;
   --chart-3: #f59e0b;
@@ -92,43 +99,22 @@
   --color-info-foreground: hsl(0 0% 98%);
   --chart-text: #64748b;
   --chart-axis: #1e293b;
-}
-
-/*
- * ===== miniapp-taro 扩展色板(非 tokens.css 同步范围,本地管理)=====
- *
- * 用于历史代码中无法直接映射到 tokens.css 语义色的品牌/渠道色:
- * - --color-link: 链接/操作按钮蓝色(#1888ee,聊天气泡操作按钮、数字人跳转等)
- * - --color-link-bg: 链接浅色背景(#f0f7ff)
- * - --color-wechat-green: 微信品牌绿(#4cd964,语音消息头像等)
- * - --color-chat-bubble-user: 用户聊天气泡绿(#95ec69)
- * - --color-brand-orange: 分销品牌橙(#ff6b35,分销排行/提现按钮)
- *
- * 同步脚本(sync-design-tokens.mjs)只替换首个 :root/.dark 块,本块不会被覆盖。
- * 若需统一到 tokens.css,请在 packages/design-tokens/src/styles/tokens.css 添加对应 @theme 变量。
- *
- * dark 模式值:提高亮度以保证暗色背景下的可读性。
- */
-:root {
-  --color-link: #1888ee;
-  --color-link-bg: #f0f7ff;
-  --color-wechat-green: #4cd964;
-  --color-chat-bubble-user: #95ec69;
-  --color-brand-orange: #ff6b35;
-  --color-brand: #6366f1;
-  --color-notification-bg: #fff8e1;
-  --color-notification-text: #7c5e1e;
-}
-.dark {
   --color-link: #4ea3f5;
   --color-link-bg: rgba(78, 163, 245, 0.15);
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #4cd964;
-  --color-brand-orange: #ff8e53;
   --color-brand: #818cf8;
   --color-notification-bg: rgba(245, 158, 11, 0.15);
   --color-notification-text: hsl(38 85% 70%);
 }
+
+/* ===== 跨端扩展语义色(2026-07-29 已上提到 tokens.css,自动同步)=====
+ * 原 miniapp-taro 本地管理的 8 个扩展色板已上提到 packages/design-tokens/src/styles/tokens.css
+ * @theme 块 + .dark 块,由 sync-design-tokens.mjs 自动同步到本文件首个 :root/.dark 块。
+ * 上提 token: --color-link / --color-link-bg / --color-wechat-green /
+ * --color-chat-bubble-user / --color-brand-orange / --color-brand /
+ * --color-notification-bg / --color-notification-text
+ */
 
 /* ===== 通用工具类 ===== */
 
