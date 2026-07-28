@@ -12,7 +12,7 @@
 
 - **Project**: IHUI-AI
 - **GitHub**: https://github.com/IHUI-INF-AI/IHUI-AI
-- **Live Demo**: https://ihui.ai
+- **Live Demo**: https://aizhs.top
 - **License**: Apache-2.0 (commercial-friendly)
 - **One-liner**: One repo to replace 40+ commercial products — 8 platforms / 176 LLMs / LangGraph+MCP+A2A / 340 tables / 1300+ APIs
 - **Contact**: WeChat `ok502319984` · Email 502319984@qq.com
@@ -37,7 +37,7 @@ Hi r/LocalLLaMA,
 I've been building an open-source AI platform for the past 18 months. It's Apache 2.0, self-hostable, and tries to combine what Dify / Coze / LangChain / Cursor / Claude Code each do separately into one repo.
 
 **GitHub**: https://github.com/IHUI-INF-AI/IHUI-AI
-**Live demo**: https://ihui.ai
+**Live demo**: https://aizhs.top
 
 **What it does**:
 
@@ -90,7 +90,7 @@ Hey r/SideProject,
 
 I've been working on IHUI-AI — an open-source AI platform that combines what 40+ commercial products do into one Apache 2.0 repo.
 
-**Live demo**: https://ihui.ai
+**Live demo**: https://aizhs.top
 **GitHub**: https://github.com/IHUI-INF-AI/IHUI-AI
 
 **What's in it**:
@@ -109,7 +109,7 @@ I've been working on IHUI-AI — an open-source AI platform that combines what 4
 - 9 stars (just launched, help me change that 😅)
 - 1 contributor (me)
 - 18 months of nights/weekends
-- Live demo running on https://ihui.ai
+- Live demo running on https://aizhs.top
 
 **What I learned**:
 - TypeScript monorepos scale beautifully if you enforce Zod schema as single source of truth — frontend types, backend validation, and DB schema all derive from one place.
@@ -117,7 +117,7 @@ I've been working on IHUI-AI — an open-source AI platform that combines what 4
 - 176 LLM routing is a solved problem (LiteLLM), but pricing/cost tracking is not — build a per-call cost dashboard from day one.
 - Open source distribution is harder than open source coding. Marketing, SEO, GEO, and community ops are 80% of the work, coding is 20%.
 
-If you want to try it: https://ihui.ai
+If you want to try it: https://aizhs.top
 If you want to read the code: https://github.com/IHUI-INF-AI/IHUI-AI
 If you want to chat: WeChat `ok502319984` or email 502319984@qq.com
 
@@ -143,7 +143,7 @@ Hey r/selfhosted,
 If you've been looking for a self-hostable alternative to Dify / Coze / FastGPT that also does payments + auth + multi-platform, I open-sourced IHUI-AI under Apache 2.0.
 
 **GitHub**: https://github.com/IHUI-INF-AI/IHUI-AI
-**Live demo**: https://ihui.ai
+**Live demo**: https://aizhs.top
 
 **Self-host in 5 minutes**:
 
@@ -203,7 +203,7 @@ Hey r/opensource,
 After 18 months of building, I've open-sourced IHUI-AI under Apache 2.0 (commercial-friendly, no copyleft trap).
 
 **GitHub**: https://github.com/IHUI-INF-AI/IHUI-AI
-**Live demo**: https://ihui.ai
+**Live demo**: https://aizhs.top
 
 **Why Apache 2.0**: I wanted companies to be able to fork it, build proprietary products on top, and sell them — without GPL copyleft forcing them to open-source their differentiators. Apache 2.0 + patent grant is the most business-friendly mainstream license.
 
@@ -234,7 +234,7 @@ After 18 months of building, I've open-sourced IHUI-AI under Apache 2.0 (commerc
 - If you fork it and build something, please let me know — I'd love to feature your use case.
 
 Star: https://github.com/IHUI-INF-AI/IHUI-AI
-Demo: https://ihui.ai
+Demo: https://aizhs.top
 Contact: 502319984@qq.com or WeChat `ok502319984`
 
 ---
@@ -254,7 +254,7 @@ Show HN: IHUI-AI – Open-source AI platform, 8 platforms, 176 LLMs, Apache 2.0
 
 Hi HN,
 
-I open-sourced IHUI-AI [0] — a full-stack AI platform under Apache 2.0. Live demo: https://ihui.ai
+I open-sourced IHUI-AI [0] — a full-stack AI platform under Apache 2.0. Live demo: https://aizhs.top
 
 The pitch: existing open-source AI projects each cover one slice — Dify/FastGPT do app orchestration, LangChain/AutoGen are frameworks, Cursor/Claude Code do AI coding, Stripe/Auth0 do single SaaS capabilities. IHUI-AI tries to combine them into one repo.
 
@@ -305,7 +305,7 @@ Happy to answer architecture / engineering questions. Criticism welcome.
 1. **Gallery images** (required, 1270x760):
    - Image 1: Hero — IHUI-AI logo + "8 platforms / 176 LLMs / Apache 2.0" + screenshot
    - Image 2: Architecture diagram (8 monorepo apps + 12 shared packages)
-   - Image 3: Live demo screenshot (https://ihui.ai homepage)
+   - Image 3: Live demo screenshot (https://aizhs.top homepage)
    - Image 4: 32+ pre-commit guards screenshot
    - Image 5: 5-language i18n comparison
 
@@ -342,7 +342,7 @@ Happy to answer architecture / engineering questions. Criticism welcome.
    cd IHUI-AI && pnpm install && pnpm dev
    ```
 
-   Live demo: https://ihui.ai
+   Live demo: https://aizhs.top
    GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
    I'm here all day — ask me anything about the architecture, the 32+ pre-commit guards, the 8-platform monorepo, or why I chose Apache 2.0 over MIT/AGPL.
@@ -406,7 +406,7 @@ Happy to answer architecture / engineering questions. Criticism welcome.
 
 ### "Is this a PPT project?"
 
-> No. Every number is grep-able: 340 tables → `packages/database/src/schema/`, 1300+ APIs → `apps/api/src/routes/`, 5346 tests → `apps/api/tests/`. Live demo at https://ihui.ai. Clone and `pnpm dev` in 5 minutes.
+> No. Every number is grep-able: 340 tables → `packages/database/src/schema/`, 1300+ APIs → `apps/api/src/routes/`, 5346 tests → `apps/api/tests/`. Live demo at https://aizhs.top. Clone and `pnpm dev` in 5 minutes.
 
 ### "Why should I trust a 9-star project?"
 

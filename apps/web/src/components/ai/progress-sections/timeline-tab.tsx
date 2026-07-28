@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { MessageSquare, ListTree, Search, X } from 'lucide-react'
+import { MessageSquare, ListTree, Search, X, Download, Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import {
@@ -124,6 +124,52 @@ function countByStatus(events: TimelineEvent[]): {
   const c = { done: 0, failed: 0, running: 0, pending: 0 }
   for (const e of events) c[e.status]++
   return c
+}
+
+// ─── Markdown 导出(Phase 20 P1-3,2026-07-28 立) ─────────────────
+
+/** 类型 emoji(用于 markdown 列表项前缀) */
+const TYPE_EMOJI: Record<TimelineEventType, string> = {
+  plan: '📋',
+  subagent: '🤖',
+  question: '❓',
+  tool: '🔧',
+  thinking: '💭',
+  reference: '🔗',
+}
+
+/** 状态 emoji */
+const STATUS_EMOJI: Record<TimelineEventStatus, string> = {
+  pending: '⏳',
+  running: '▶️',
+  done: '✅',
+  failed: '❌',
+}
+
+/**
+ * 把 TimelineEvent[] 序列化为 Markdown 字符串(纯函数,便于单测)
+ *
+ * 输出格式:
+ * ```
+ * # 时间线 (12 events)
+ *
+ * ✅ **[10:00:00]** 📋 计划: 步骤 alpha
+ * ✅ **[10:01:00]** 📋 计划: 步骤 beta
+ * ▶️ **[10:02:00]** 🤖 子代理: @validator · 验证类型
+ * ...
+ * ```
+ */
+export function eventsToMarkdown(events: ReadonlyArray<TimelineEvent>): string {
+  if (events.length === 0) return '# 时间线\n\n(空)\n'
+  const lines: string[] = [`# 时间线 (${events.length} events)`, '']
+  for (const e of events) {
+    const ts = e.timestamp ? `[${e.timestamp}] ` : ''
+    const typeEmoji = TYPE_EMOJI[e.type] ?? '•'
+    const statusEmoji = STATUS_EMOJI[e.status] ?? '•'
+    const desc = e.description ? ` — ${e.description}` : ''
+    lines.push(`${statusEmoji} **${ts}** ${typeEmoji} ${e.type}: ${e.title}${desc}`)
+  }
+  return lines.join('\n') + '\n'
 }
 
 // ─── Tab 配置 ─────────────────────────────────────────────────────

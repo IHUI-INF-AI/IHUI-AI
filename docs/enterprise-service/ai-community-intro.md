@@ -174,7 +174,7 @@
 
 ### 7.1 普通用户
 
-1. 访问 https://ihui.ai
+1. 访问 https://aizhs.top
 2. 手机号注册(支持微信/支付宝一键登录)
 3. 实名认证(支付需要)
 4. 浏览智能体市场,选择感兴趣的智能体订阅
@@ -259,13 +259,13 @@ A:持续上架高质量智能体(评分 ≥ 4.5),积累用户口碑与收入。�
 
 ## 十、联系我们
 
-- **官网**:https://ihui.ai
+- **官网**:https://aizhs.top
 - **GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
 - **微信群**:微信号 `ok502319984`(加好友备注 "智汇")
 - **邮箱**:502319984@qq.com
-- **商务合作**:business@ihui.ai
-- **媒体合作**:pr@ihui.ai
-- **客服**:support@ihui.ai(24h 在线)
+- **商务合作**:business@aizhs.top
+- **媒体合作**:pr@aizhs.top
+- **客服**:support@aizhs.top(24h 在线)
 
 ---
 
