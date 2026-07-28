@@ -98,6 +98,13 @@ export function AISidePanel() {
     Map<string, { messages: ChatMessage[]; hasMore: boolean; oldestCursor: string | null }>
   >(new Map())
   const prevConversationIdRef = React.useRef<string | null>(null)
+  // P3 修复:组件卸载时清空会话 LRU 缓存,释放消息数据引用
+  // (LRU 上限 5 个会话,每个会话含完整 messages 数组,长期运行累积大量消息数据)
+  React.useEffect(() => {
+    return () => {
+      conversationCacheRef.current.clear()
+    }
+  }, [])
   // 性能修复(2026-07-25):原 const pathname = usePathname() 订阅在 AISidePanel 根,
   // 导致每次路由切换 AISidePanel 整树重渲染(连带 MessageList/MessageInput/ModelSelector 等)。
   // 改为下推到 <WorkspaceNameSync> 子组件,pathname 订阅只触发子组件(渲染 null,无开销)。

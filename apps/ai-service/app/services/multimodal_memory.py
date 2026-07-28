@@ -145,6 +145,10 @@ class MultimodalMemory:
     def __init__(self) -> None:
         # user_id -> 记忆列表(每条含 embedding 字段,用于内存检索)
         self._cache: dict[str, list[dict[str, Any]]] = {}
+        # P2 修复:增加 content_hash 索引,O(1) 查重替代 O(N) 线性扫描
+        # 结构:user_id -> content_hash -> record(与 _cache[user_id] 中的 record 为同一对象引用,
+        # 修改 record 字段时索引自动同步,无需额外维护)
+        self._cache_index: dict[str, dict[str, dict[str, Any]]] = {}
 
     # ==================================================================
     # store
@@ -441,6 +445,14 @@ class MultimodalMemory:
         if len(records) > _MAX_CACHE_ENTRIES:
             records = records[:_MAX_CACHE_ENTRIES]
         self._cache[user_id] = records
+        # P2 修复:重建 content_hash 索引,确保 _find_in_cache O(1) 查找
+        # load_all_for_user 会整体替换 _cache[user_id],必须同步重建索引防止悬空
+        index: dict[str, dict[str, Any]] = {}
+        for r in records:
+            c_hash = r.get("content_hash")
+            if c_hash:
+                index[c_hash] = r
+        self._cache_index[user_id] = index
         return len(records)
 
     # ==================================================================
@@ -450,31 +462,57 @@ class MultimodalMemory:
     def _find_in_cache(
         self, user_id: str, content_hash: str
     ) -> Optional[dict[str, Any]]:
-        """从内存缓存按 (user_id, content_hash) 查找。"""
-        for r in self._cache.get(user_id, []):
-            if r.get("content_hash") == content_hash:
-                return r
-        return None
+        """从内存缓存按 (user_id, content_hash) 查找。
+
+        P2 修复:使用 _cache_index 索引 O(1) 查找,替代原 O(N) 线性扫描。
+        单用户上千条记忆时,store/查询性能从 O(N) 提升到 O(1)。
+        """
+        return self._cache_index.get(user_id, {}).get(content_hash)
 
     def _add_to_cache(self, user_id: str, record: dict[str, Any]) -> None:
-        """添加到内存缓存(去重:同 content_hash 替换不重复加)。"""
+        """添加到内存缓存(去重:同 content_hash 替换不重复加)。
+
+        P2 修复:同步维护 _cache_index,确保 _find_in_cache O(1) 查找。
+        """
         bucket = self._cache.setdefault(user_id, [])
+        # P2 修复:同步维护索引,确保 _find_in_cache O(1) 查找
+        index = self._cache_index.setdefault(user_id, {})
         c_hash = record.get("content_hash")
-        for i, r in enumerate(bucket):
-            if r.get("content_hash") == c_hash:
-                bucket[i] = record
-                return
+        if c_hash and c_hash in index:
+            # 已存在:替换 list 中的旧 record(用 is 判断同一对象),同步更新索引
+            old = index[c_hash]
+            for i, r in enumerate(bucket):
+                if r is old:
+                    bucket[i] = record
+                    break
+            index[c_hash] = record
+            return
         bucket.append(record)
+        if c_hash:
+            index[c_hash] = record
         # P0 修复:LRU 上限淘汰,超出 _MAX_CACHE_ENTRIES 时移除最旧记录,防止 OOM
+        # P2 修复:淘汰时同步清理索引,防止索引指向已淘汰的旧 record(悬空引用)
         while len(bucket) > _MAX_CACHE_ENTRIES:
-            bucket.pop(0)
+            old_record = bucket.pop(0)
+            old_hash = old_record.get("content_hash")
+            if old_hash and index.get(old_hash) is old_record:
+                index.pop(old_hash, None)
 
     def _remove_from_cache(self, user_id: str, memory_id: str) -> bool:
-        """从内存缓存删除指定 id。"""
+        """从内存缓存删除指定 id。
+
+        P2 修复:同步清理 _cache_index,防止索引悬空指向已删除的 record。
+        """
         bucket = self._cache.get(user_id, [])
         for i, r in enumerate(bucket):
             if str(r.get("id", "")) == memory_id:
                 bucket.pop(i)
+                # P2 修复:同步删除索引(用 is 判断确保删的是同一对象)
+                c_hash = r.get("content_hash")
+                if c_hash:
+                    index = self._cache_index.get(user_id, {})
+                    if index.get(c_hash) is r:
+                        index.pop(c_hash, None)
                 return True
         return False
 
