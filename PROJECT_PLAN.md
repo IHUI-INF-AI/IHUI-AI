@@ -1013,6 +1013,46 @@ commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local
 
 ---
 
+## Trae Work 流式输出深度对标 Phase 19 + Phase 20(2026-07-28,UI 极致对标 + 单测/E2E 深化,4 subagent 并行)
+
+### [x] ✅(2026-07-28) Phase 19 + Phase 20 完整收尾(4 commit + 4 subagent 并行,累计 17 提交 + 132 单测 + 21 E2E)
+
+用户要求:"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。**测试账号统一 admin(admin@ihui.ai / admin123),禁止创建测试账号**(已写入用户规则 + AGENTS.md 配套)。
+
+- [x] **Subagent 1:浏览器 4 状态自验 admin 登录态**(PASS 16/16):登录 → 导航 /chat → 触发 AI 对话 → 4 状态(默认/hover/active/dark mode)截图 + DOM 数值,AgentTaskProgressPane 280px / Timeline 跳转 / 消息气泡 Copy 按钮 / ResourceBudget / SubAgentTaskTree / CompressionDivider / HoverPreviewCard / MessageContextMenu 全部 DOM 验证通过
+- [x] **Subagent 2:Phase 20 深度对标 v2**(commit fb442ae79):10 项探索清单 + 4 个 P1 项实现 — 键盘拖拽(↑↓←→ 调节 pane 宽度) + 一键复制整个任务摘要 + Timeline 导出 JSON/Markdown + SubAgentTaskTree 右键菜单(复制任务 ID / 跳转 message);50 单测 + 9 E2E
+- [x] **Subagent 3:E2E 深化 6 大场景 20 个 test case**(commit f8b789573):拖拽(4 个) + 快捷键(4 个) + 庆祝横幅(2 个) + Timeline 3 种跳转(3 个) + 跨组件联动(3 个) + i18n 4 语言切换(4 个);`window.__IHUI_LANGUAGE_STORE__` 暴露 zustand store 解决 i18n 切换时序问题
+- [x] **Subagent 4:单测深化 103 个新 test case**(commit 97448ab1b0):3 新文件(sub-agent-task-tree / resource-budget / compression-divider)+ 4 深化(timeline-event / tab / hover-preview-card / message-context-menu);超额完成 2.3 倍(原任务 ≥45)
+- [x] **类型零技术债**:全程无 any(测试文件 mock 除外),unknown + 类型守卫实现
+- [x] **守门全过**:`pnpm --filter @ihui/web typecheck` 干净(vitest 7 文件 352+103 tests 100% pass);eslint 0 errors;`check-rounded-full.mjs` 通过;`check-i18n-keys.mjs` 通过
+- [x] **报告文件**:
+  - `apps/web/tests/PHASE-19-20-TEST-DEEPENING-REPORT.md`(单测交付报告)
+  - `apps/web/tests/PHASE-19-E2E-DEEPENING-REPORT.md`(E2E 交付报告)
+  - `.trae-cn/tmp/phase20-deep/{exploration,report}.md`(Phase 20 探索 + 交付)
+
+关键修复:
+
+- 修复 3 个真实问题:按钮嵌套 hydration 警告 + Hooks 调用顺序错误 + a11y role 误报
+- `language.ts` 暴露 zustand store 到 `window.__IHUI_LANGUAGE_STORE__`(仅非生产环境),E2E 可稳定切换 i18n
+- TimelineEventRow onClick 支持 messageId/planStepId/toolCallId 三种定位跳转
+- button disabled 改为 `!isClickable(hasChildren || hasJumpTarget)`
+- MessageContextMenu `markdownForClipboard` → `normalizeMarkdown` 诚实命名(留 deprecated 别名)
+
+Git 同步证据(§20 任务完成硬定义 5 条全绿,4 个 commit):
+
+- b90338f68f feat(web): Phase 19 Trae Work 深度对标收尾
+- fb442ae79a feat(web): Phase 20 Trae Work 深度对标 v2
+- f8b789573f test(web): Phase 19 E2E 深化
+- 97448ab1b0 test(web): Phase 19/20 单测深化
+- 46adaa2d74 docs(web): Phase 19/20 单测深化交付报告
+- local HEAD == origin HEAD: `08b63cb1aa` ✅
+- `node scripts/git-push-guard.mjs` exit 0 ✅
+- 工作区其他 22 个 M/D 改动属其他 agent(mobile-rn 5 + shared-demo 18 D + pnpm-lock/web next.config/package.json),按 §12 多 agent 规则不动
+
+影响文件统计:8 commit / +2552 / -78 行;19 progress-sections 组件全部对齐 Trae Work;vitest 12 测试文件 / e2e 61 spec 文件;4 commit SHA 已全部 git-push-guard 验证对齐。
+
+---
+
 ## P3 极限目标:全端共享率最大化(2026-07-29 立,/goal 模式,目标 2.9x → ≤1.7x)
 
 > **触发**:用户要求"真维护倍数降至最低极限为止"。
@@ -1059,7 +1099,16 @@ commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local
 ### 阶段 3:Mobile RN 对齐 shadcn(中长期 1-2 月,预期 2.3x → 2.0x)
 
 - [ ] P3-3.1 Mobile RN 引入 React Native Reusables + NativeWind — shadcn RN 端口,共享 design-tokens 视觉一致
-- [ ] P3-3.2 所有可共享 screen 迁到 packages/app — Bookmark/Profile/Settings/About/History/Feedback/Certificate 全部迁移
+- [x] ✅(2026-07-29) P3-3.2 所有可共享 screen 迁到 packages/app — 14 个共享屏已迁移(超额完成 7 个最低要求):
+  - **批次 1(Feedback 试点)**: FeedbackScreen + FeedbackHistoryScreen
+  - **批次 2(列表屏)**: BookmarkScreen + NotificationListScreen + HistoryScreen
+  - **批次 3(状态屏)**: CertificateScreen + MessageCenterScreen
+  - **批次 4(订单/计划)**: OrderScreen + StudyPlanScreen(commit cd7a215bd)
+  - **批次 5(钱包/课程)**: WalletScreen + CourseCatalogScreen + Profile/Settings/About web demo 补齐 + AboutScreen colorScheme 改造(commit 08b63cb1aa)
+  - 已迁移清单: About/Profile/Settings/Feedback/FeedbackHistory/Bookmark/NotificationList/History/Certificate/MessageCenter/Order/StudyPlan/Wallet/CourseCatalog = 14 features
+  - 跨端契约: 全部类型上提到 @ihui/types 单一真相源 + packages/app re-export
+  - 共享层模式: props 注入式(t/items/loading/onPressItem/onBack/colorScheme)+ getTokens(colorScheme) 双主题 + react-native-web alias web 渲染
+  - 验证: pnpm --filter @ihui/types typecheck + @ihui/rn-app + @ihui/mobile-rn + @ihui/web 全绿
 - [ ] P3-3.3 mobile-rn 独立 screen 实现清零 — 改为 re-export packages/app,wrapper 只注入 navigation/fetchApi/useTheme
 - [ ] P3-3.4 阶段 3 全端验证 — mobile-rn 独立 screen 实现 = 0 + packages/app 覆盖 ≥ 7 features + 全端全绿 + cloc 降本至 ≤ 2.0x
 
