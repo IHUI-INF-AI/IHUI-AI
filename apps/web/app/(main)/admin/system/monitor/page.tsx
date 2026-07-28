@@ -75,7 +75,7 @@ export default function AdminSystemMonitorPage() {
   const uptimeStr = `${Math.floor(uptime / 86400)}天 ${Math.floor((uptime % 86400) / 3600)}小时`
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <MonitorCog className="h-6 w-6 text-primary" />

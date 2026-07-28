@@ -12,9 +12,9 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateWithYear } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -33,17 +33,8 @@ interface InviteRecord {
   status: 'pending' | 'completed'
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
-}
-
 export function InviteScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<InviteInfo | null>(null)
   const [records, setRecords] = useState<InviteRecord[]>([])
@@ -54,23 +45,20 @@ export function InviteScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
-      const [infoResp, listResp] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/distribution/overview`, { headers: authHeaders }),
-        fetch(`${API_BASE_URL}/api/distribution/invited-users`, { headers: authHeaders }),
+      const [infoRes, listRes] = await Promise.all([
+        fetchApi<InviteInfo>('/distribution/overview'),
+        fetchApi<InviteRecord[]>('/distribution/invited-users'),
       ])
-      if (!infoResp.ok || !listResp.ok) throw new Error('http')
-      const infoData = (await infoResp.json()) as { data?: InviteInfo }
-      const listData = (await listResp.json()) as { data?: InviteRecord[] }
-      setInfo(infoData.data ?? null)
-      setRecords(listData.data ?? [])
+      if (!infoRes.success || !listRes.success) throw new Error()
+      setInfo(infoRes.data ?? null)
+      setRecords(listRes.data ?? [])
     } catch {
       setError(t('invite.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -155,7 +143,7 @@ export function InviteScreen() {
               </Text>
               <Text style={styles.reward}>+¥{item.reward}</Text>
             </View>
-            <Text style={styles.date}>{formatDate(item.invitedAt)}</Text>
+            <Text style={styles.date}>{formatShortDateWithYear(item.invitedAt)}</Text>
           </Card>
         )}
       />

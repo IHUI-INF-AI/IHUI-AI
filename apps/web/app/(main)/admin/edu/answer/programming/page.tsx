@@ -28,13 +28,13 @@ function ProgrammingContent() {
     queryFn: () =>
       eduApi<{ list: Paper[] }>(`/api/exam/papers${buildQs({ page: 1, pageSize: 100 })}`),
   })
-  const papers = (papersData?.list ?? []).filter((p: any) => p.isPublished)
+  const papers = (papersData?.list ?? []).filter((p) => p.isPublished)
 
   const { data: questionsData, isLoading } = useQuery({
     queryKey: ['edu', 'answer', 'prog', 'questions', paperId],
     queryFn: () =>
-      eduApi<{ list: Question[] }>(`/api/exam/papers/${paperId}/questions`).then((d: any) =>
-        (d.list ?? []).filter((q: any) => q.type === 'programming'),
+      eduApi<{ list: Question[] }>(`/api/exam/papers/${paperId}/questions`).then((d) =>
+        (d.list ?? []).filter((q) => q.type === 'programming'),
       ),
     enabled: !!paperId,
   })
@@ -44,7 +44,7 @@ function ProgrammingContent() {
   const startMut = useMutation({
     mutationFn: () =>
       eduApi<{ record: { id: string } }>(`/api/exam/papers/${paperId}/start`, { method: 'POST' }),
-    onSuccess: (d: any) => {
+    onSuccess: (d) => {
       setRecordId(d.record.id)
       toast.success(t('started'))
     },
@@ -57,7 +57,7 @@ function ProgrammingContent() {
         `/api/admin/edu/answer/run-code`,
         { method: 'POST', body: JSON.stringify({ language: lang, code, questionId: current?.id }) },
       ),
-    onSuccess: (d: any) => {
+    onSuccess: (d) => {
       setRunResult({ pass: d.pass, output: d.output ?? '' })
       toast[d.pass ? 'success' : 'error'](d.pass ? t('passedTest') : t('notPassed'))
     },

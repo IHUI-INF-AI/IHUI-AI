@@ -2344,6 +2344,134 @@
 
 /* ============ 11. 业务特化动画 ============ */
 
+/* Phase 16: 进度环 + SSE 状态指示器专用动画 */
+
+/* 进度环:in_progress 状态下的脉冲光晕(对 Trae Work) */
+@keyframes ring-progress-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 2px currentColor);
+    transform: scale(1.04);
+  }
+}
+.animate-ring-progress-pulse {
+  animation: ring-progress-pulse 1.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* 进度环:外圈流动光弧(模拟加载/未完成部分) */
+@keyframes ring-arc-flow {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+.animate-ring-arc-flow {
+  animation: ring-arc-flow 1.4s ease-in-out infinite;
+}
+
+/* 进度环:完成态闪光庆祝动画(100% 时触发一次) */
+@keyframes ring-celebrate {
+  0% {
+    filter: drop-shadow(0 0 0 transparent);
+    transform: scale(1);
+  }
+  40% {
+    filter: drop-shadow(0 0 6px rgb(16 185 129 / 0.7));
+    transform: scale(1.15);
+  }
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+    transform: scale(1);
+  }
+}
+.animate-ring-celebrate {
+  animation: ring-celebrate 0.8s ease-out;
+  transform-origin: center;
+}
+
+/* SSE 连接状态:已连接的呼吸绿点(轻微发光) */
+@keyframes connection-connected {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 0.6);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 3px rgb(16 185 129 / 0);
+  }
+}
+.animate-connection-connected {
+  animation: connection-connected 1.6s ease-in-out infinite;
+}
+
+/* SSE 连接状态:连接中黄色脉冲 */
+@keyframes connection-connecting {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-connection-connecting {
+  animation: connection-connecting 1s ease-in-out infinite;
+}
+
+/* SSE 连接状态:重连中红/橙闪烁(更醒目) */
+@keyframes connection-reconnecting {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-connection-reconnecting {
+  animation: connection-reconnecting 0.8s ease-in-out infinite;
+}
+
+/* SSE 连接状态:WiFi 图标连接中的信号波纹 */
+@keyframes signal-bars {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+.animate-signal-bars {
+  animation: signal-bars 1.2s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+/* 思考内容渐显(高亮) */
+@keyframes fadeInHighlight {
+  0% {
+    color: rgb(var(--primary));
+    background-color: rgb(var(--primary) / 0.15);
+  }
+  100% {
+    color: inherit;
+    background-color: transparent;
+  }
+}
+.animate-fade-in-highlight {
+  animation: fadeInHighlight 600ms ease-out forwards;
+}
+
 @keyframes slideIndicator {
   from {
     width: 0;

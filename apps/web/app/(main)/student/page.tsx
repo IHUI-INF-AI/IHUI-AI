@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -79,17 +79,17 @@ export default function StudentCenterPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="flex items-center justify-between space-y-1">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
             <BarChart3 className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <DropdownMenu>
-          <DropdownMenuTrigger as any asChild>
+          <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" disabled={generating}>
               {generating ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -100,15 +100,15 @@ export default function StudentCenterPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem {...({ onClick: () => handleExport('pdf') } as any)}>
+            <DropdownMenuItem onClick={() => handleExport('pdf')}>
               <FileText className="mr-2 h-4 w-4" />
               {t('exportPdf')}
             </DropdownMenuItem>
-            <DropdownMenuItem {...({ onClick: () => handleExport('excel') } as any)}>
+            <DropdownMenuItem onClick={() => handleExport('excel')}>
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               {t('exportExcel')}
             </DropdownMenuItem>
-            <DropdownMenuItem {...({ onClick: () => handleExport('json') } as any)}>
+            <DropdownMenuItem onClick={() => handleExport('json')}>
               <FileJson className="mr-2 h-4 w-4" />
               {t('exportJson')}
             </DropdownMenuItem>
@@ -117,7 +117,7 @@ export default function StudentCenterPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * ModelFormDialog — 单 model 添加/编辑对话框(2026-07-22 升级)
@@ -19,15 +19,7 @@ import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  ChevronDown,
-  Code2,
-  Copy,
-  Loader2,
-  Settings2,
-  Sparkles,
-  Wand2,
-} from 'lucide-react'
+import { ChevronDown, Code2, Copy, Loader2, Settings2, Sparkles, Wand2 } from 'lucide-react'
 
 import {
   Badge,
@@ -42,12 +34,7 @@ import {
   Switch,
 } from '@ihui/ui-react'
 
-import {
-  createModelV2,
-  updateModelV2,
-  modelToForm,
-  EMPTY_MODEL_FORM,
-} from './helpers-v2'
+import { createModelV2, updateModelV2, modelToForm, EMPTY_MODEL_FORM } from './helpers-v2'
 import type {
   ModelDefaultParamsStructured,
   ModelFormState,
@@ -75,7 +62,13 @@ const PRESETS: Array<{
     key: 'precise',
     label: 'Precise(精确)',
     desc: '低温度,适合代码 / 事实问答',
-    params: { temperature: 0.2, topP: 0.9, maxTokens: 4096, frequencyPenalty: 0, presencePenalty: 0 },
+    params: {
+      temperature: 0.2,
+      topP: 0.9,
+      maxTokens: 4096,
+      frequencyPenalty: 0,
+      presencePenalty: 0,
+    },
   },
   {
     key: 'balanced',
@@ -87,7 +80,13 @@ const PRESETS: Array<{
     key: 'creative',
     label: 'Creative(创意)',
     desc: '高温度,适合写作 / 头脑风暴',
-    params: { temperature: 1.2, topP: 0.95, maxTokens: 8192, frequencyPenalty: 0.2, presencePenalty: 0.3 },
+    params: {
+      temperature: 1.2,
+      topP: 0.95,
+      maxTokens: 8192,
+      frequencyPenalty: 0.2,
+      presencePenalty: 0.3,
+    },
   },
   {
     key: 'json',
@@ -118,7 +117,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
       }
       return createModelV2(provider.id, f)
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       const modelIdEcho = 'modelId' in res ? res.modelId : undefined
       toast.success(form.id ? t('saved') : t('created'), {
         description: modelIdEcho ? `「${modelIdEcho}」` : undefined,
@@ -396,9 +395,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                   placeholder='{"temperature": 0.7, "max_tokens": 4096, "seed": 42}'
                   className="flex w-full rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
-                <p className="text-xs text-muted-foreground">
-                  {tParams('advancedHint')}
-                </p>
+                <p className="text-xs text-muted-foreground">{tParams('advancedHint')}</p>
               </div>
             ) : null}
           </div>

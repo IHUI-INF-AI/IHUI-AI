@@ -7,6 +7,8 @@ import { seedAiFresh2026 } from './ai-fresh-2026.js'
 import { seedCrossDomain } from './seed-cross-domain.js'
 import { seedAiFeedSources } from './ai-feed-sources.js'
 import { seedLeaderboard } from './leaderboard-seed.js'
+import { seedAiPricing } from './ai-pricing-seed.js'
+import { seedCourses } from './courses-seed.js'
 
 interface SeedStep {
   /** 步骤编号(1-based) */
@@ -83,6 +85,24 @@ const STEPS: SeedStep[] = [
     name: '大模型排行榜',
     description: '89 条 arena.ai 真实数据(8 大分类 + LLM 3 子分类 + 总榜)',
     fn: seedLeaderboard,
+  },
+  {
+    index: 10,
+    name: 'AI 模型定价',
+    description: '176 条模型价格(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao 等厂商)',
+    fn: seedAiPricing,
+  },
+  {
+    index: 11,
+    name: 'AI 成本治理 seed',
+    description: '为 admin/ai-cost 看板 top-users / budget-alerts 端点补真实数据(3 用户 × 4 模型 × 7 天 + 3 预算)',
+    fn: seedAiCostRecords,
+  },
+  {
+    index: 12,
+    name: 'P1-3 AI 教育课程内容 + 证书模板',
+    description: '8 门示范课程(AI 编程入门 / LangGraph / MCP / AI 教育方法论 / 多模态 / RAG / Agent 评测 / AI 安全)+ 章节大纲 + 2 个证书视觉模板(紧凑 / 古典)',
+    fn: seedCourses,
   },
 ]
 

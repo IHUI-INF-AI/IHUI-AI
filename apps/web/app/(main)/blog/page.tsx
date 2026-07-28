@@ -27,14 +27,14 @@ export default async function BlogIndexPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8 md:py-12">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-8 md:py-8">
       <header className="space-y-3 text-center md:text-left">
         <div className="flex items-center justify-center gap-2 md:justify-start">
           <BookOpen className="h-7 w-7 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t('title')}</h1>
         </div>
         <p className="text-base text-muted-foreground md:text-lg">{t('subtitle')}</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {t('stats', { count: posts.length })}
         </p>
       </header>
@@ -55,7 +55,7 @@ export default async function BlogIndexPage() {
 
       {posts.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
+          <CardContent className="py-8 text-center text-muted-foreground">
             {t('empty')}
           </CardContent>
         </Card>

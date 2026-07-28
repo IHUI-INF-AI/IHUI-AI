@@ -7,7 +7,15 @@ import { useLocale } from 'next-intl'
 import { Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -141,7 +149,7 @@ export default function AdminDistributionSettlementsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((it: any) => (
+              items.map((it) => (
                 <TableRow key={it.id}>
                   <TableCell className="px-4 py-2.5 font-medium">{it.settleNo ?? it.id}</TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">

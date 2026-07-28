@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -7,7 +7,15 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  RefreshControl,
 } from 'react-native'
+import {
+  getTokenBalance,
+  getTokenFlows,
+  getTopUpRecords,
+  type TokenBalance,
+} from '@ihui/api-client'
+import { formatShortDateTime } from '../utils/date-utils'
 
 type RecordType = 'all' | 'cost' | 'recharge'
 
@@ -27,21 +35,12 @@ interface Record {
   time: string
 }
 
+// 套餐价格是产品配置,非业务数据,保留前端静态
 const PACKAGES: Package[] = [
   { id: '1', tokens: 100000, price: 9.9, bonus: 0 },
   { id: '2', tokens: 500000, price: 39.9, bonus: 50000 },
   { id: '3', tokens: 1000000, price: 68, bonus: 150000, popular: true },
   { id: '4', tokens: 5000000, price: 298, bonus: 1000000 },
-]
-
-const RECORDS: Record[] = [
-  { id: '1', type: 'cost', title: 'GPT-4o 对话消耗', amount: -320, time: '2026-07-24 10:32' },
-  { id: '2', type: 'recharge', title: '充值 100 万 Token', amount: 1000000, time: '2026-07-23 18:20' },
-  { id: '3', type: 'cost', title: 'Claude 3.5 长文档分析', amount: -1280, time: '2026-07-23 14:15' },
-  { id: '4', type: 'cost', title: 'DALL·E 3 图像生成', amount: -200, time: '2026-07-22 20:08' },
-  { id: '5', type: 'cost', title: 'Gemini 1.5 Pro 推理', amount: -540, time: '2026-07-22 09:44' },
-  { id: '6', type: 'recharge', title: '签到赠送', amount: 1000, time: '2026-07-21 00:00' },
-  { id: '7', type: 'cost', title: 'GLM-4-Plus 工具调用', amount: -160, time: '2026-07-20 16:30' },
 ]
 
 const TABS: { id: RecordType; label: string }[] = [
@@ -58,12 +57,77 @@ function formatToken(n: number): string {
 
 export default function TokenValueScreen() {
   const [tab, setTab] = useState<RecordType>('all')
+  const [balance, setBalance] = useState<TokenBalance | null>(null)
+  const [records, setRecords] = useState<Record[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
 
-  const balance = 1284560
-  const frozen = 5000
-  const totalCost = 3745000
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const [balRes, flowRes, topUpRes] = await Promise.all([
+        getTokenBalance(),
+        getTokenFlows({ page: 1, pageSize: 50 }),
+        getTopUpRecords({ page: 1, pageSize: 50 }),
+      ])
 
-  const list = RECORDS.filter((r) => (tab === 'all' ? true : r.type === tab))
+      if (balRes.success) setBalance(balRes.data)
+
+      const flowItems = flowRes.success ? flowRes.data.list ?? [] : []
+      const topUpItems = topUpRes.success ? topUpRes.data.list ?? [] : []
+
+      // 用 ISO 时间戳排序,合并消耗与充值记录(倒序)
+      const tagged: Array<{ iso: string; rec: Record }> = []
+      for (const f of flowItems) {
+        tagged.push({
+          iso: f.createdAt,
+          rec: {
+            id: f.id,
+            type: 'cost',
+            title: `${f.agentName} · ${f.modelName}`,
+            amount: -f.token,
+            time: formatShortDateTime(f.createdAt),
+          },
+        })
+      }
+      for (const r of topUpItems) {
+        tagged.push({
+          iso: r.createdAt,
+          rec: {
+            id: r.orderId,
+            type: 'recharge',
+            title: `充值 ¥${r.amount}`,
+            amount: r.amount,
+            time: formatShortDateTime(r.createdAt),
+          },
+        })
+      }
+      tagged.sort((a, b) => (a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : 0))
+      setRecords(tagged.map((t) => t.rec))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '加载失败')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onRefresh = () => {
+    setRefreshing(true)
+    void load()
+  }
+
+  // TokenBalance API 不返回 frozen 字段,占位 0(保留 UI 结构)
+  const frozen = 0
+  const balanceValue = balance?.balance ?? 0
+  const totalCost = balance?.totalUsed ?? 0
+
+  const list = records.filter((r) => (tab === 'all' ? true : r.type === tab))
 
   const handleRecharge = (p: Package) =>
     Alert.alert('确认充值', `套餐:${formatToken(p.tokens)} Token · ¥${p.price}`, [
@@ -76,11 +140,12 @@ export default function TokenValueScreen() {
       style={s.container}
       data={list}
       keyExtractor={(i) => i.id}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
         <View>
           <View style={s.balanceCard}>
             <Text style={s.balanceLabel}>可用算力(Token)</Text>
-            <Text style={s.balanceValue}>{formatToken(balance)}</Text>
+            <Text style={s.balanceValue}>{formatToken(balanceValue)}</Text>
             <View style={s.balanceMeta}>
               <View style={s.metaItem}>
                 <Text style={s.metaLabel}>冻结</Text>
@@ -135,13 +200,18 @@ export default function TokenValueScreen() {
               )
             })}
           </View>
+          {error ? (
+            <View style={{ paddingHorizontal: 4, paddingBottom: 4 }}>
+              <Text style={{ color: '#FF6B00', fontSize: 12 }}>{error}</Text>
+            </View>
+          ) : null}
         </View>
       }
       contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
       ListEmptyComponent={
         <View style={s.empty}>
-          <Text style={s.emptyText}>暂无记录</Text>
+          <Text style={s.emptyText}>{loading ? '加载中...' : '暂无记录'}</Text>
         </View>
       }
       renderItem={({ item }) => (

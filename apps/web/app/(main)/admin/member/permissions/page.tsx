@@ -80,11 +80,11 @@ export default function AdminMemberPermissionsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         </div>
       ) : grouped.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
           <Lock className="mx-auto mb-2 h-8 w-8 opacity-40" />
           暂无权限
         </div>

@@ -1691,7 +1691,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   if (!runtimeWebhookSecret) {
     // DEV 环境:自动生成运行时密钥(进程级,不持久化)
     runtimeWebhookSecret = randomBytes(32).toString('hex')
-    console.warn(
+    server.log.warn(
       `[agents] COZE_WEBHOOK_SECRET 未配置,DEV 自动生成进程级密钥(重启失效): ${runtimeWebhookSecret.slice(0, 8)}...${runtimeWebhookSecret.slice(-4)}`,
     )
   }
@@ -1703,7 +1703,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     try {
       // 2026-07-21 安全审计加固:仅 admin 可改运行时 webhook 密钥
       // 防止普通用户伪造 webhook 验签(可任意改密钥绕过验签,或制造 401 风暴)
-      const roleId = (request as unknown as { jwtPayload?: { roleId?: number } }).jwtPayload?.roleId ?? 0
+      const roleId =
+        (request as unknown as { jwtPayload?: { roleId?: number } }).jwtPayload?.roleId ?? 0
       if (roleId < 1) {
         return reply.status(403).send(error(403, '仅管理员可修改 webhook 密钥'))
       }
@@ -1806,8 +1807,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       // (虽然此端点只读不接收实际生产流量,仍按最佳实践修复)
       const a = Buffer.from(expected, 'hex')
       const b = Buffer.from(signature, 'hex')
-      const isValid =
-        a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b)
+      const isValid = a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b)
       return reply.send(
         success({
           isValid,

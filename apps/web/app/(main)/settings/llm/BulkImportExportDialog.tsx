@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * BulkImportExportDialog — 批量导入/导出 LLM 配置(2026-07-22 立,深度功能)
@@ -64,26 +64,28 @@ interface ExportBundle {
 }
 
 function buildBundle(groups: Array<{ providers: UserLlmProvider[] }>): ExportBundle {
-  const providers = groups.flatMap((g) => g.providers).map((p) => ({
-    providerCode: p.providerCode,
-    name: p.name,
-    apiFormat: p.apiFormat,
-    baseUrl: p.baseUrl,
-    providerGroup: p.providerGroup ?? 'default',
-    groupLabel: p.groupLabel ?? '',
-    description: p.description ?? '',
-    enabled: p.enabled,
-    models: (p.models ?? []).map((m: UserLlmModel) => ({
-      modelId: m.modelId,
-      displayName: m.displayName ?? '',
-      contextLength: m.contextLength,
-      inputPricePer1k: m.inputPricePer1k,
-      outputPricePer1k: m.outputPricePer1k,
-      defaultParams: m.defaultParams ?? {},
-      enabled: m.enabled,
-      isDefault: m.isDefault,
-    })),
-  }))
+  const providers = groups
+    .flatMap((g) => g.providers)
+    .map((p) => ({
+      providerCode: p.providerCode,
+      name: p.name,
+      apiFormat: p.apiFormat,
+      baseUrl: p.baseUrl,
+      providerGroup: p.providerGroup ?? 'default',
+      groupLabel: p.groupLabel ?? '',
+      description: p.description ?? '',
+      enabled: p.enabled,
+      models: (p.models ?? []).map((m: UserLlmModel) => ({
+        modelId: m.modelId,
+        displayName: m.displayName ?? '',
+        contextLength: m.contextLength,
+        inputPricePer1k: m.inputPricePer1k,
+        outputPricePer1k: m.outputPricePer1k,
+        defaultParams: m.defaultParams ?? {},
+        enabled: m.enabled,
+        isDefault: m.isDefault,
+      })),
+    }))
   return {
     version: 2,
     exportedAt: new Date().toISOString(),
@@ -122,9 +124,11 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
 
   // 导出 mutation:不需要 mutation,直接读 cache
   const exportMut = React.useCallback(() => {
-    const data = qc.getQueryData<{ groups: Array<{ providers: UserLlmProvider[] }> }>(['v2-providers'])
+    const data = qc.getQueryData<{ groups: Array<{ providers: UserLlmProvider[] }> }>([
+      'v2-providers',
+    ])
     const groups = data?.groups ?? []
-    const allProviders = groups.flatMap((g: any) => g.providers)
+    const allProviders = groups.flatMap((g) => g.providers)
     const dateStr = new Date().toISOString().slice(0, 10)
 
     if (exportFormat === 'env') {
@@ -206,7 +210,7 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
 
       return { provCount, modelCount, errors }
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['v2-providers'] })
       if (res.errors.length > 0) {
         toast.warning(t('importSuccess', { providers: res.provCount, models: res.modelCount }), {
@@ -359,11 +363,15 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
             </div>
             {parsed ? (
               <div className="rounded-md border border-dashed bg-muted/30 p-2 text-xs">
-                <p className="text-muted-foreground">{t('importConfirmDesc', {
-                  providers: parsed.providers.length,
-                  models: parsed.providers.reduce((acc, p) => acc + p.models.length, 0),
-                })}</p>
-                <p className="mt-1 text-muted-foreground">version: {parsed.version} · exported: {parsed.exportedAt}</p>
+                <p className="text-muted-foreground">
+                  {t('importConfirmDesc', {
+                    providers: parsed.providers.length,
+                    models: parsed.providers.reduce((acc, p) => acc + p.models.length, 0),
+                  })}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  version: {parsed.version} · exported: {parsed.exportedAt}
+                </p>
               </div>
             ) : null}
           </TabsContent>

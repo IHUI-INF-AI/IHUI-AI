@@ -1,7 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, KeyRound, Webhook, Plus, Copy, Trash2, Package, Download, RefreshCw } from 'lucide-react'
+import {
+  Loader2,
+  KeyRound,
+  Webhook,
+  Plus,
+  Copy,
+  Trash2,
+  Package,
+  Download,
+  RefreshCw,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
@@ -85,7 +95,7 @@ export function DeveloperCards({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {tc('search')}
       </div>
@@ -228,7 +238,7 @@ export function DeveloperCards({
           {t('developer.sdkDownloads')}
         </h2>
         {sdksList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('developer.noData')}
           </div>
         ) : (
@@ -261,13 +271,17 @@ export function DeveloperCards({
         )}
       </section>
 
-      <Dialog open={!!resetTarget} onOpenChange={(o: any) => !o && !resetPending && setResetTarget(null)}>
+      <Dialog
+        open={!!resetTarget}
+        onOpenChange={(o: boolean) => !o && !resetPending && setResetTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>重置密钥</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            确定要重置「{resetTarget?.name}」的密钥吗？重置后旧密钥立即失效，需更新所有接入方，确认？
+            确定要重置「{resetTarget?.name}
+            」的密钥吗？重置后旧密钥立即失效，需更新所有接入方，确认？
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setResetTarget(null)} disabled={resetPending}>

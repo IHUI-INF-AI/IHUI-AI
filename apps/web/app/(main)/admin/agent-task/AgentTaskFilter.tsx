@@ -1,4 +1,5 @@
 'use client'
+import type React from 'react'
 import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
 import { Input } from '@ihui/ui-react'
@@ -28,14 +29,14 @@ export function AgentTaskFilter({
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={searchTitle}
-          onChange={(e: any) => setSearchTitle(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTitle(e.target.value)}
           placeholder={t('searchTitlePlaceholder')}
           className="h-9 pl-8"
         />
       </div>
       <Input
         value={searchCreator}
-        onChange={(e: any) => setSearchCreator(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchCreator(e.target.value)}
         placeholder={t('searchCreatorPlaceholder')}
         className="h-9 w-32"
       />

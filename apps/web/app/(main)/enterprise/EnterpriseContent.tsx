@@ -242,7 +242,7 @@ export function EnterpriseContent() {
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground line-through">¥18000</div>
-                  <div className="text-3xl font-bold tracking-tight text-primary">¥6000</div>
+                  <div className="text-xl font-bold tracking-tight md:text-2xl text-primary">¥6000</div>
                   <div className="text-xs text-muted-foreground">{t('join.perYear')}</div>
                 </div>
               </div>

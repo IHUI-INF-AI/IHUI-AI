@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getFavorites, type FavoriteItem } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDate } from '../../../lib/date-utils'
 
 export default function FavoritesPage() {
   const { t } = useI18n()
@@ -79,12 +80,7 @@ export default function FavoritesPage() {
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm truncate">{f.title}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">
-                  {new Intl.DateTimeFormat('zh-CN', {
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }).format(new Date(f.createdAt))}
+                  {fmtDate(f.createdAt)}
                 </div>
               </div>
               {f.targetType ? (

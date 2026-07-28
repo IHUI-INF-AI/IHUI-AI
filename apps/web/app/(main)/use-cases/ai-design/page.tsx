@@ -119,7 +119,7 @@ export default function AiDesignPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -146,7 +146,7 @@ export default function AiDesignPage() {
         <section className="mt-16 rounded-2xl border bg-card p-8 md:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">设计团队的协作痛点</h2>
+            <h2 className="text-xl font-bold tracking-tight md:text-2xl">设计团队的协作痛点</h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
@@ -160,7 +160,7 @@ export default function AiDesignPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">6 大核心能力</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">6 大核心能力</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -176,7 +176,7 @@ export default function AiDesignPage() {
 
         {/* 案例 */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 md:p-12">
-          <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">客户落地案例</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">客户落地案例</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
@@ -191,7 +191,7 @@ export default function AiDesignPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">技术栈与工具链</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">技术栈与工具链</h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground md:text-base">
             基于 IHUI AI 全栈 AI 操作系统,8 端同源,核心组件全部开源,Figma/即时设计深度集成。
@@ -209,7 +209,7 @@ export default function AiDesignPage() {
         {/* 联系/CTA */}
         <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">开始搭建你的 AI 设计协作助手</h2>
+          <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">开始搭建你的 AI 设计协作助手</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
             注册即得 1000 积分,从设计协作场景模板一键 fork,30 分钟体验草图转代码。
           </p>

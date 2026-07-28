@@ -142,7 +142,7 @@ export default function TenantDetailPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <BackBar />
 
         {/* 顶部标题区 */}
@@ -155,7 +155,7 @@ export default function TenantDetailPage() {
               </h1>
               <StateBadge state={tenant.state} />
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {tenant.domain !== '-' ? (
                 <a
                   href={`https://${tenant.domain}`}

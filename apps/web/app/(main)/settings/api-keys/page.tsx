@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -25,7 +25,7 @@ export default function ApiKeysSettingsPage() {
   const createMut = useMutation({
     mutationFn: (f: CreateFormState) =>
       createApiKey({ name: f.name.trim(), permissions: f.permissions, rateLimit: f.rateLimit }),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success('API 密钥创建成功')
       qc.invalidateQueries({ queryKey: ['user-api-keys'] })
       setSecretTitle('密钥已创建')
@@ -47,7 +47,7 @@ export default function ApiKeysSettingsPage() {
 
   const rotateMut = useMutation({
     mutationFn: (id: string) => rotateApiKeySecret(id),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success('密钥已轮换,请保存新 secret')
       qc.invalidateQueries({ queryKey: ['user-api-keys'] })
       setSecretTitle('新 Secret 已生成')
@@ -70,7 +70,7 @@ export default function ApiKeysSettingsPage() {
             <KeyRound className="h-6 w-6 text-primary" />
             API 密钥管理
           </h1>
-          <p className="text-sm text-muted-foreground">管理您的开发者 API 密钥,供第三方应用接入</p>
+          <p className="text-xs text-muted-foreground">管理您的开发者 API 密钥,供第三方应用接入</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="mr-1.5 h-4 w-4" />

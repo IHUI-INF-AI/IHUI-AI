@@ -64,7 +64,7 @@ export function AboutContent(): React.JSX.Element {
   ] as const
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
       {/* Hero */}
       <section className="space-y-5 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -83,7 +83,7 @@ export function AboutContent(): React.JSX.Element {
           <BookOpen className="h-3.5 w-3.5" />
           {t('storyBadge')}
         </div>
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('storyTitle')}</h2>
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('storyTitle')}</h2>
         <div className="mt-4 space-y-4 text-sm leading-relaxed text-muted-foreground md:text-base">
           <p>{t('storyP1')}</p>
           <p>{t('storyP2')}</p>
@@ -113,7 +113,7 @@ export function AboutContent(): React.JSX.Element {
 
       {/* 6 个平台核心能力 */}
       <section className="mt-16">
-        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">
+        <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">
           {t('platformTitle')}
         </h2>
         <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -137,7 +137,7 @@ export function AboutContent(): React.JSX.Element {
 
       {/* 数字见证 */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-8 md:p-12">
-        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">
+        <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">
           {t('numbersTitle')}
         </h2>
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -155,7 +155,7 @@ export function AboutContent(): React.JSX.Element {
       {/* CTA */}
       <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
         <Rocket className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">{t('ctaTitle')}</h2>
+        <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
           {t('ctaDesc')}
         </p>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -57,7 +57,7 @@ function FollowingContent() {
   })
 
   const followedIds = React.useMemo(
-    () => new Set((myFollowing ?? []).map((u: any) => u.userId)),
+    () => new Set((myFollowing ?? []).map((u) => u.userId)),
     [myFollowing],
   )
 
@@ -108,7 +108,7 @@ function FollowingContent() {
         ) : error ? (
           <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
             {tab === 'following' ? (
               <UserPlus className="h-8 w-8 opacity-40" />
             ) : (
@@ -118,7 +118,7 @@ function FollowingContent() {
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((u: any) => {
+            {items.map((u) => {
               const isFollowing = followedIds.has(u.userId)
               return (
                 <UserCard

@@ -37,19 +37,19 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, relative, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import { withExcludes } from './lib/exclude-dirs.mjs';
+import { createLogger } from './lib/logger.mjs';
+
+const log = createLogger();
 
 const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)));
 
 // ===== 文件类型 =====
 const SCRIPT_EXTS = new Set(['.ps1', '.py', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.sh', '.bat', '.json', '.yaml', '.yml']);
 
-// ===== 排除目录 =====
-const EXCLUDED_DIRS = new Set([
-  'node_modules', '.git', 'dist', '.output', '.next', '.turbo',
-  '.wxt', 'coverage', '.cache', 'tmp',
-  '.venv', 'venv', '__pycache__', '.pytest_cache', // Python 虚拟环境/缓存
-  '.vscode', '.idea', // IDE 配置
-]);
+// ===== 排除目录(基于共享 EXCLUDE_DIRS,追加脚本特有) =====
+// 'tmp' 是脚本特有排除(原 .trae-cn/tmp 扫描场景)
+const EXCLUDED_DIRS = withExcludes(['tmp']);
 
 // ===== 文件级白名单(这些文件可以引用项目外路径作为规则文档) =====
 const FILE_WHITELIST = [
@@ -212,7 +212,7 @@ function main() {
   if (isStaged) {
     filesToScan = getStagedFiles();
     if (filesToScan.length === 0) {
-      console.log('✅ workspace-hygiene: 无 staged 脚本文件,跳过');
+      log.info('✅ workspace-hygiene: 无 staged 脚本文件,跳过');
       process.exit(0);
     }
   } else {
@@ -228,50 +228,50 @@ function main() {
   const warningViolations = allViolations.filter(v => v.level === 'warning');
 
   if (allViolations.length === 0) {
-    console.log(`✅ workspace-hygiene: 扫描 ${filesToScan.length} 个文件,无违规`);
+    log.info(`✅ workspace-hygiene: 扫描 ${filesToScan.length} 个文件,无违规`);
     process.exit(0);
   }
 
-  // 输出 warning(始终打印,不阻塞)
+  // 输出 warning(--quiet 时静默)
   if (warningViolations.length > 0) {
-    console.warn(`⚠️  workspace-hygiene [WARNING]: ${warningViolations.length} 处硬编码中文路径(不阻塞,但建议修复)`);
+    log.warn(`⚠️  workspace-hygiene [WARNING]: ${warningViolations.length} 处硬编码中文路径(不阻塞,但建议修复)`);
     for (const v of warningViolations.slice(0, 10)) {
-      console.warn(`  ${v.file}:${v.line}  [${v.name}]`);
-      console.warn(`    > ${v.content}`);
+      log.warn(`  ${v.file}:${v.line}  [${v.name}]`);
+      log.warn(`    > ${v.content}`);
     }
     if (warningViolations.length > 10) {
-      console.warn(`  ... 还有 ${warningViolations.length - 10} 处`);
+      log.warn(`  ... 还有 ${warningViolations.length - 10} 处`);
     }
-    console.warn('');
+    log.warn('');
   }
 
-  // 输出 blocking(阻塞,除非 --warn)
+  // 输出 blocking(阻塞,除非 --warn;主报告始终输出)
   if (blockingViolations.length > 0) {
     const mode = isWarn ? 'WARN' : 'BLOCK';
     const prefix = isWarn ? '⚠️ ' : '❌ ';
-    console.error(`${prefix}workspace-hygiene [${mode}]: ${blockingViolations.length} 处项目外路径违规`);
-    console.error('');
-    console.error('违反 AGENTS.md §15 项目外路径禁令:');
-    console.error('  - 扩展打包用 apps/extension/.output/chrome-mv3/');
-    console.error('  - Chrome profile 用 .trae-cn/tmp/chrome-profile/');
-    console.error('  - 临时脚本用 .trae-cn/tmp/<脚本名>');
-    console.error('  - 路径推导用 $PSScriptRoot / import.meta.url(避免 GBK 中文乱码)');
-    console.error('');
+    log.error(`${prefix}workspace-hygiene [${mode}]: ${blockingViolations.length} 处项目外路径违规`);
+    log.error('');
+    log.error('违反 AGENTS.md §15 项目外路径禁令:');
+    log.error('  - 扩展打包用 apps/extension/.output/chrome-mv3/');
+    log.error('  - Chrome profile 用 .trae-cn/tmp/chrome-profile/');
+    log.error('  - 临时脚本用 .trae-cn/tmp/<脚本名>');
+    log.error('  - 路径推导用 $PSScriptRoot / import.meta.url(避免 GBK 中文乱码)');
+    log.error('');
     for (const v of blockingViolations.slice(0, 30)) {
-      console.error(`  ${v.file}:${v.line}  [${v.name}]`);
-      console.error(`    > ${v.content}`);
-      console.error(`    提示: ${v.hint}`);
+      log.error(`  ${v.file}:${v.line}  [${v.name}]`);
+      log.error(`    > ${v.content}`);
+      log.error(`    提示: ${v.hint}`);
     }
     if (blockingViolations.length > 30) {
-      console.error(`  ... 还有 ${blockingViolations.length - 30} 处`);
+      log.error(`  ... 还有 ${blockingViolations.length - 30} 处`);
     }
-    console.error('');
-    console.error('如确需在项目外创建文件(系统日志等),请在脚本中用注释标注"豁免:系统日志"。');
+    log.error('');
+    log.error('如确需在项目外创建文件(系统日志等),请在脚本中用注释标注"豁免:系统日志"。');
     process.exit(isWarn ? 0 : 1);
   }
 
   // 只有 warning,无 blocking
-  console.log(`⚠️  workspace-hygiene: ${warningViolations.length} 处 warning(不阻塞),0 处 blocking`);
+  log.info(`⚠️  workspace-hygiene: ${warningViolations.length} 处 warning(不阻塞),0 处 blocking`);
   process.exit(0);
 }
 

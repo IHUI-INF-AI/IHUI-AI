@@ -74,7 +74,7 @@ export default async function AiNewsPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
         />
       ) : null}
-      <div className="mx-auto w-full max-w-[1240px] space-y-6">
+      <div className="mx-auto w-full max-w-[1240px] space-y-4">
         <Hero />
         <Leaderboard entries={leaderboardData} />
         <ApiRelaysSection />

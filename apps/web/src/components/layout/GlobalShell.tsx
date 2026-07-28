@@ -179,7 +179,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
           {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
           {/*
-            work-area-portal-root:作为 Sidebar 搜索弹层(SearchNavItem) 的 portal 目标。
+            work-area-portal-root:作为 TagsView 搜索弹层(TagsViewSearchButton) 的 portal 目标。
             原本只在 MainShell 中存在(仅 (main) 路由可用),现在提升到 GlobalShell,
             让所有路由都能正确渲染搜索弹层。
             overflow-hidden 用于裁剪搜索弹层 slide-in-from-top 动画的初始 translateY(-100%),
