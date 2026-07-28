@@ -1,14 +1,14 @@
 /**
- * 语音转文字(STT)— 跨端共用封装。
+ * 语音转文字(STT)—— 跨端共用封装(不含 Taro 专用实现)。
  *
- * 2026-07-28 立:配合 ai-service faster-whisper 本地推理改造,
- * 为 web/miniapp-taro/mobile-rn/extension 四端提供统一 STT 调用接口。
+ * 2026-07-28 拆分:将 miniapp-taro 专用实现 `voiceSttFromTaro` 移至
+ * `./voice-stt.taro.ts`,仅通过深路径 `@ihui/api-client/endpoints/voice-stt.taro`
+ * 暴露给 miniapp-taro。其他端(web/api/mobile-rn/extension/desktop/cli)永不接触
+ * `@tarojs/taro`,避免跨端依赖污染导致 dev 阶段静态解析失败。
  *
- * 端适配:
- * - web:浏览器直连 ai-service(http://localhost:8803 或生产域名)
- * - miniapp-taro:Taro.request 上传文件
+ * 本文件提供的端适配:
+ * - web/extension:浏览器直连 ai-service(http://localhost:8803 或生产域名)
  * - mobile-rn:fetch + FormData 上传音频 URI 对应文件
- * - extension:浏览器 fetch(同 web)
  *
  * 后端端点:POST {aiServiceUrl}/api/voice/stt(multipart/form-data)
  * 响应:{ text: string, stub: boolean, model: string }
@@ -83,44 +83,6 @@ export async function voiceSttFromBlob(params: VoiceSttParams): Promise<string> 
     return data.stub ? '' : (data.text ?? '')
   } catch {
     // 静默处理失败(不阻塞用户输入)
-    return ''
-  }
-}
-
-/**
- * 调用 ai-service STT 端点(miniapp-taro 版,基于 Taro.uploadFile)。
- *
- * 使用场景:小程序环境,音频是 tempFilePath。
- *
- * @returns 转写文本;stub=true 或异常时返回空字符串
- */
-export async function voiceSttFromTaro(
-  tempFilePath: string,
-  options?: {
-    language?: string
-    aiServiceUrl?: string
-  },
-): Promise<string> {
-  const language = options?.language ?? 'zh'
-  const aiServiceUrl = options?.aiServiceUrl ?? DEFAULT_AI_SERVICE_URL
-
-  if (!tempFilePath) return ''
-
-  try {
-    // 动态导入 Taro(非 taro 环境不报错)
-    const Taro = (await import('@tarojs/taro')).default
-    const res = await Taro.uploadFile({
-      url: `${aiServiceUrl}/api/voice/stt`,
-      filePath: tempFilePath,
-      name: 'file',
-      formData: language ? { language } : undefined,
-    })
-
-    if (res.statusCode !== 200) return ''
-
-    const data = JSON.parse(res.data) as VoiceSttResponse
-    return data.stub ? '' : (data.text ?? '')
-  } catch {
     return ''
   }
 }
