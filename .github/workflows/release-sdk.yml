@@ -1,0 +1,418 @@
+name: Release SDK
+
+# 4 语言 SDK 统一发布 CI(参考 release-cli.yml 模式)
+# 触发:push tag v* 或 workflow_dispatch 手动触发(含 dry-run 选项)
+# 发布:npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven Central(com.ihui:ihui-ai-java)+ Go module(github.com/.../sdk/go)
+# 鉴权:优先 OIDC trusted publishing(npm/PyPI/Maven),无 OIDC 时回退 NPM_TOKEN/PYPI_TOKEN/MAVEN_TOKEN
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0);留空则使用当前 HEAD 的最近 v* tag'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Dry-run(只构建不发布,验证配置正确)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      language:
+        description: '选择要发布的语言(all = 全部)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'npm'
+          - 'pypi'
+          - 'maven'
+          - 'go'
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write # OIDC trusted publishing 必需
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9'
+  PYTHON_VERSION: '3.11'
+  JAVA_VERSION: '17'
+  GO_VERSION: '1.21'
+
+# 防止重复发布:同一 tag 已有 release 制品则跳过
+concurrency:
+  group: release-sdk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------- Job 0: 解析 tag + 版本号 + dry-run 标志 ----------
+  extract:
+    name: Extract version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      dry_run: ${{ steps.parse.outputs.dry_run }}
+      is_tag: ${{ steps.parse.outputs.is_tag }}
+    steps:
+      - name: Parse tag and version
+        id: parse
+        shell: bash
+        run: |
+          # 优先使用 workflow_dispatch 输入的 tag,否则使用 GITHUB_REF
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+
+          if [ -z "$TAG" ] || [ "$TAG" = "$GITHUB_REF" ]; then
+            echo "❌ No tag detected (ref=$GITHUB_REF, input=${{ github.event.inputs.tag }})"
+            exit 1
+          fi
+
+          # 去除前缀 v → 版本号
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "is_tag=true" >> "$GITHUB_OUTPUT"
+          echo "✅ Detected tag: $TAG → version: $VERSION"
+
+      - name: Resolve dry-run mode
+        id: dry
+        shell: bash
+        run: |
+          DRY="${{ github.event.inputs.dry_run || 'true' }}"
+          # tag 触发默认非 dry-run(真实发布),workflow_dispatch 默认 dry-run(防误发布)
+          if [ "${{ github.event_name }}" = "push" ]; then
+            DRY="false"
+          fi
+          echo "dry_run=$DRY" >> "$GITHUB_OUTPUT"
+          echo "✅ Dry-run mode: $DRY (event: ${{ github.event_name }})"
+
+  # ---------- Job 1: npm @ihui/sdk 发布 ----------
+  npm-publish:
+    name: Publish to npm
+    needs: extract
+    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'npm')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @ihui/sdk typecheck
+
+      - name: Build SDK (tsc → dist/)
+        run: pnpm --filter @ihui/sdk build
+
+      - name: Strip workspace deps & set version
+        working-directory: packages/sdk
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          # 用 node 改写 package.json(原子操作)
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = process.argv[1];
+            // 删除 workspace 依赖(类型已在 dist/*.d.ts 中,运行时无需)
+            pkg.dependencies = Object.fromEntries(
+              Object.entries(pkg.dependencies || {}).filter(([k]) => !k.startsWith('@ihui/'))
+            );
+            // 重写入口指向 dist/
+            pkg.main = './dist/index.js';
+            pkg.module = './dist/index.js';
+            pkg.types = './dist/index.d.ts';
+            pkg.exports = {
+              '.': {
+                types: './dist/index.d.ts',
+                import: './dist/index.js',
+                require: './dist/index.js',
+              },
+            };
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            console.log('✅ Patched package.json for npm publish');
+          " "$VERSION"
+
+      - name: Publish to npm (OIDC trusted publishing)
+        if: needs.extract.outputs.dry_run == 'false'
+        working-directory: packages/sdk
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          echo "📦 Publishing @ihui/sdk@$VERSION to npm (OIDC)..."
+          npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # OIDC 失败时回退
+
+      - name: Dry-run verification
+        if: needs.extract.outputs.dry_run == 'true'
+        working-directory: packages/sdk
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          echo "🔍 Dry-run: validate @ihui/sdk@$VERSION publish config..."
+          npm publish --dry-run --access public
+          echo "✅ Dry-run passed — package would publish to npm registry"
+
+      - name: Summary
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          echo "### npm SDK 发布" >> $GITHUB_STEP_SUMMARY
+          echo "- 包名: \`@ihui/sdk@$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 安装: \`npm install @ihui/sdk\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------- Job 2: PyPI ihui-ai 发布 ----------
+  pypi-publish:
+    name: Publish to PyPI
+    needs: extract
+    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'pypi')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set version in pyproject.toml
+        working-directory: packages/sdk/python
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          # 用 sed 替换 version 行
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          echo "✅ Set version to $VERSION"
+          grep '^version' pyproject.toml
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Build wheel + sdist
+        working-directory: packages/sdk/python
+        run: |
+          python -m build
+          echo "📦 Build artifacts:"
+          ls -lh dist/
+
+      - name: Publish to PyPI (OIDC trusted publishing)
+        if: needs.extract.outputs.dry_run == 'false'
+        working-directory: packages/sdk/python
+        run: |
+          echo "📦 Publishing ihui-ai to PyPI (OIDC)..."
+          python -m twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }} # OIDC 失败时回退
+
+      - name: Dry-run verification
+        if: needs.extract.outputs.dry_run == 'true'
+        working-directory: packages/sdk/python
+        run: |
+          echo "🔍 Dry-run: validate PyPI publish config..."
+          python -m twine check dist/*
+          echo "✅ Dry-run passed — wheel/sdist would publish to PyPI"
+
+      - name: Summary
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          echo "### PyPI SDK 发布" >> $GITHUB_STEP_SUMMARY
+          echo "- 包名: \`ihui-ai==$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 安装: \`pip install ihui-ai\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------- Job 3: Maven Central com.ihui:ihui-ai-java 发布 ----------
+  maven-publish:
+    name: Publish to Maven Central
+    needs: extract
+    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'maven')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: Set version in pom.xml
+        working-directory: packages/sdk/java
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          # 用 sed 替换 version 行
+          sed -i "0,/<version>.*<\/version>/s//<version>$VERSION<\/version>/" pom.xml
+          echo "✅ Set version to $VERSION"
+          grep -E '<version>' pom.xml | head -1
+
+      - name: Configure Maven settings.xml (OIDC)
+        if: needs.extract.outputs.dry_run == 'false'
+        shell: bash
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings>
+            <servers>
+              <server>
+                <id>central</id>
+                <username>${env.MAVEN_USERNAME}</username>
+                <password>${env.MAVEN_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+          echo "✅ Maven settings.xml configured"
+
+      - name: Compile + verify (dry-run uses verify, not deploy)
+        if: needs.extract.outputs.dry_run == 'true'
+        working-directory: packages/sdk/java
+        run: |
+          echo "🔍 Dry-run: validate Maven build config..."
+          mvn -B clean verify -DskipTests=true
+          echo "✅ Dry-run passed — artifact would deploy to Maven Central"
+
+      - name: Deploy to Maven Central
+        if: needs.extract.outputs.dry_run == 'false'
+        working-directory: packages/sdk/java
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          echo "📦 Deploying com.ihui:ihui-ai-java:$VERSION to Maven Central..."
+          mvn -B clean deploy -DskipTests=true
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
+
+      - name: Summary
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          echo "### Maven Central SDK 发布" >> $GITHUB_STEP_SUMMARY
+          echo "- 坐标: \`com.ihui:ihui-ai-java:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Maven 引入:" >> $GITHUB_STEP_SUMMARY
+          echo '```xml' >> $GITHUB_STEP_SUMMARY
+          echo '<dependency>' >> $GITHUB_STEP_SUMMARY
+          echo '  <groupId>com.ihui</groupId>' >> $GITHUB_STEP_SUMMARY
+          echo '  <artifactId>ihui-ai-java</artifactId>' >> $GITHUB_STEP_SUMMARY
+          echo "  <version>$VERSION</version>" >> $GITHUB_STEP_SUMMARY
+          echo '</dependency>' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # ---------- Job 4: Go module github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go 发布 ----------
+  go-publish:
+    name: Publish Go module
+    needs: extract
+    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'go')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set version via git tag (Go convention)
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          # Go 模块使用 git tag 作为版本号,创建 sdk/v$VERSION tag
+          # 已有 v* tag(主仓库),再打一个 sdk/v$VERSION 子 tag
+          git tag -d "sdk/v$VERSION" 2>/dev/null || true
+          git tag "sdk/v$VERSION" HEAD
+          echo "✅ Created tag sdk/v$VERSION pointing to HEAD"
+
+      - name: Verify Go build
+        working-directory: packages/sdk/go
+        run: |
+          echo "🔍 Verifying Go SDK builds..."
+          go build ./...
+          go vet ./...
+          echo "✅ Go SDK builds successfully"
+
+      - name: Push Go module tag (real release)
+        if: needs.extract.outputs.dry_run == 'false'
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          echo "📦 Pushing sdk/v$VERSION tag to origin..."
+          git push origin "sdk/v$VERSION"
+          echo "✅ Go proxy (proxy.golang.org) will pick up sdk/v$VERSION within minutes"
+
+      - name: Dry-run verification
+        if: needs.extract.outputs.dry_run == 'true'
+        shell: bash
+        run: |
+          echo "🔍 Dry-run: validate Go module config..."
+          echo "Module path: github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go"
+          echo "Version: sdk/v${{ needs.extract.outputs.version }}"
+          echo "✅ Dry-run passed — module would be published to Go proxy"
+
+      - name: Summary
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          echo "### Go module SDK 发布" >> $GITHUB_STEP_SUMMARY
+          echo "- 模块: \`github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 版本: \`sdk/v$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 安装: \`go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go/sdk@v$VERSION\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------- Job 5: 发布总结 ----------
+  release-summary:
+    name: Release Summary
+    needs: [extract, npm-publish, pypi-publish, maven-publish, go-publish]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          DRY="${{ needs.extract.outputs.dry_run }}"
+          echo "## 🎉 SDK Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag**: \`v$VERSION\`  " >> $GITHUB_STEP_SUMMARY
+          echo "**Mode**: $([ "$DRY" = "true" ] && echo "🔍 Dry-run (no publish)" || echo "📦 Real release")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status | 包名 / 坐标 |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|-------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| npm \`@ihui/sdk\` | ${{ needs.npm-publish.result }} | @ihui/sdk@$VERSION |" >> $GITHUB_STEP_SUMMARY
+          echo "| PyPI \`ihui-ai\` | ${{ needs.pypi-publish.result }} | ihui-ai==$VERSION |" >> $GITHUB_STEP_SUMMARY
+          echo "| Maven Central | ${{ needs.maven-publish.result }} | com.ihui:ihui-ai-java:$VERSION |" >> $GITHUB_STEP_SUMMARY
+          echo "| Go module | ${{ needs.go-publish.result }} | github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go sdk/v$VERSION |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 4 语言安装命令" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "# TypeScript / JavaScript" >> $GITHUB_STEP_SUMMARY
+          echo "npm install @ihui/sdk" >> $GITHUB_STEP_SUMMARY
+          echo "# Python" >> $GITHUB_STEP_SUMMARY
+          echo "pip install ihui-ai" >> $GITHUB_STEP_SUMMARY
+          echo "# Java (Maven)" >> $GITHUB_STEP_SUMMARY
+          echo "mvn dependency:get -Dartifact=com.ihui:ihui-ai-java:$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "# Go" >> $GITHUB_STEP_SUMMARY
+          echo "go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go/sdk@v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

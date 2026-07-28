@@ -2201,10 +2201,21 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 ### SDK 与 CLI
 
-| 文档                       | 说明                                                         |
-| -------------------------- | ------------------------------------------------------------ |
-| [docs/SDK.md](docs/SDK.md) | 5 语言 SDK 使用指南(TS / Python / Go / Java / .NET 代码示例) |
-| [docs/CLI.md](docs/CLI.md) | CLI 工具指南(24 源导入 + subagent 并行 + skills + plugins)   |
+| 文档                                                                   | 说明                                                                                    |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [docs/SDK.md](docs/SDK.md)                                             | 5 语言 SDK 使用指南(TS / Python / Go / Java / .NET 代码示例)                            |
+| [docs/CLI.md](docs/CLI.md)                                             | CLI 工具指南(24 源导入 + subagent 并行 + skills + plugins)                              |
+| [.github/workflows/release-sdk.yml](.github/workflows/release-sdk.yml) | 4 语言 SDK 统一发布 CI(tag v* 触发,OIDC trusted publishing + workflow_dispatch dry-run) |
+
+**4 语言 SDK 包管理器发布**(2026-07-28 立,`packages/sdk/` 5 语言实现 + `.github/workflows/release-sdk.yml`):
+
+- **npm**:`@ihui/sdk`(TypeScript / Node.js,108 端点,零运行时依赖)— `npm install @ihui/sdk`
+- **PyPI**:`ihui-ai`(Python,sync + asyncio 双客户端,零依赖 stdlib)— `pip install ihui-ai`
+- **Maven Central**:`com.ihui:ihui-ai-java`(Java 11+,OkHttp + Jackson + SLF4J)— Maven 坐标见 docs/SDK.md
+- **Go module**:`github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go`(零依赖,context.Context)— `go get .../sdk/go/sdk@vX.Y.Z`
+- **.NET bonus**:`IHUI.AI`(C#,额外赠送)— csproj 引用
+
+发布流程:`git tag v1.2.3 && git push origin v1.2.3` → 4 job 并行构建 + 发布(支持 workflow_dispatch 手动单端发布 + dry-run 验证)。
 
 ### 故障排查与 FAQ
 
@@ -2246,6 +2257,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 30+ pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动
 - 企业级安全(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
 - 340 数据库表 + 144 迁移 + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **5 语言 SDK 完整封装 + 4 语言包管理器发布 CI**(npm `@ihui/sdk` + PyPI `ihui-ai` + Maven `com.ihui:ihui-ai-java` + Go module,OIDC trusted publishing + tag 自动发布)
 
 ### 最近更新(2026-07-22)
 
