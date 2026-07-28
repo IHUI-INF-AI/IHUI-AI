@@ -699,6 +699,12 @@
     "hideReasoning": "Hide Reasoning",
     "showReasoning": "Show Reasoning",
     "fallbackNotice": "Switched to backup model {{backup}} (primary model {{primary}} temporarily unavailable)",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "retry": "Retry",
+    "jumpToLatest": "Jump to latest",
+    "latest": "Latest",
     "question": {
       "title": "AI needs your answer",
       "submit": "Submit Answer",
@@ -8886,36 +8892,8 @@
     }
   },
   "search": {
-    "quickSuggestions": [
-      "Settings",
-      "Profile",
-      "Projects",
-      "Chat history",
-      "Members",
-      "Workspaces",
-      "Shortcuts",
-      "AI models"
-    ],
-    "searchPlaceholder": "Search…",
-    "searchHistory": "Search history",
-    "clear": "Clear",
-    "noSuggestions": "No matching suggestions",
-    "tabs": {
-      "all": "All",
-      "users": "Users",
-      "projects": "Projects",
-      "files": "Files"
-    },
-    "sort": "Sort",
-    "sortRelevance": "Relevance",
-    "sortTime": "Time",
-    "sortName": "Name",
-    "sortSize": "Size",
-    "emptyKeyword": "Enter a search keyword",
-    "loading": "Searching...",
-    "emptyResult": "No matching results",
-    "open": "Open",
-    "resultsCount": "{total} results (users {users}, projects {projects}, files {files})"
+    "emptyKeyword": "Enter a keyword to search",
+    "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})"
   },
   "footer": {
     "companyName": "Jilin Aizhihui AI Technology Co., Ltd.",
@@ -12497,10 +12475,6 @@
     "related": "Related Articles",
     "notFound": "Article not found or offline"
   },
-  "search": {
-    "emptyKeyword": "Enter a keyword to search",
-    "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})"
-  },
   "searchHistory": {
     "subtitle": "Your recent searches",
     "clearAll": "Clear All"
@@ -13147,35 +13121,6 @@
       "generic": "Subscription failed, please try again later",
       "emailExists": "This email is already subscribed",
       "invalidEmail": "Invalid email format"
-    }
-  },
-  "modelsPricingPage": {
-    "hero": {
-      "badge": "Transparent Pricing",
-      "title": "176 LLM Pricing Table",
-      "subtitle": "Official prices from OpenAI, Anthropic, Google, DeepSeek, Qwen, Zhipu, Doubao, Kimi and more, synced in real time"
-    },
-    "loading": "Loading...",
-    "empty": "No matching models found",
-    "search": {
-      "placeholder": "Search model ID, e.g. gpt-4o, claude-3-5-sonnet",
-      "resultCount": "{count} models found"
-    },
-    "vendor": {
-      "all": "All vendors"
-    },
-    "stats": {
-      "totalModels": "Total models",
-      "totalVendors": "Vendors",
-      "cheapest": "Cheapest",
-      "mostExpensive": "Most expensive"
-    },
-    "note": {
-      "title": "Pricing Notes",
-      "unit": "Unit: CNY per 1M tokens, aligned with vendor official pricing",
-      "region": "Region multiplier: cn=1.0 baseline, us/eu coefficients reflect cross-border bandwidth and compliance costs",
-      "discount": "Discount badge: green percentage indicates bulk usage discount, requires minTokens threshold",
-      "update": "Pricing data imported from vendor official price lists via seed script, see effectiveAt for update date"
     }
   },
   "developerPricingPage": {
