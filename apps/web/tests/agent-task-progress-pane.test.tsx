@@ -1848,9 +1848,10 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     useAgentProgressPaneStore.getState().reset()
     mockAgentProgressRefs.resetState()
     mockChatStoreRefs.setConversationId(null)
-    // 清理 localStorage 避免测试间污染
+    // 清理 localStorage 避免测试间污染(v14 升 v2 键,清理新旧两版)
     try {
       window.localStorage.removeItem('agent-progress-pane-position')
+      window.localStorage.removeItem('agent-progress-pane-position-v2')
       window.localStorage.removeItem('ihui-agent-progress-pane-v6')
     } catch {
       // 忽略
@@ -1862,6 +1863,7 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     mockChatStoreRefs.setConversationId(null)
     try {
       window.localStorage.removeItem('agent-progress-pane-position')
+      window.localStorage.removeItem('agent-progress-pane-position-v2')
       window.localStorage.removeItem('ihui-agent-progress-pane-v6')
     } catch {
       // 忽略
@@ -1930,12 +1932,12 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     expect(header.className).toContain('cursor-grab')
     // 位置已改变:style.left 被设置(不再是 'auto' / 空)
     const paneStyle = pane.getAttribute('style') ?? ''
-    // 拖拽后 style 含 left/top(具体数值由 viewport clamp 决定)
+    // 拖拽后 style 含 left/top(具体数值由父容器 clamp 决定)
     expect(paneStyle).toMatch(/left:\s*\d+/)
     expect(paneStyle).toMatch(/top:\s*\d+/)
   })
 
-  it('拖拽结束后位置持久化到 localStorage(agent-progress-pane-position)', () => {
+  it('拖拽结束后位置持久化到 localStorage(agent-progress-pane-position-v2)', () => {
     useAgentProgressPaneStore.getState().openPane()
     const { container } = render(<AgentTaskProgressPane />)
     const header = container.querySelector('[data-testid="pane-header"]') as HTMLElement
@@ -1950,8 +1952,8 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
       document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
     })
 
-    // localStorage 应保存
-    const saved = window.localStorage.getItem('agent-progress-pane-position')
+    // localStorage 应保存(v14 升 v2 键,作废旧 fixed 视口坐标)
+    const saved = window.localStorage.getItem('agent-progress-pane-position-v2')
     expect(saved).toBeTruthy()
     const parsed = JSON.parse(saved ?? '{}')
     expect(typeof parsed.x).toBe('number')
@@ -1959,8 +1961,8 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
   })
 
   it('从 localStorage 加载保存的位置作为初始位置(mount 后)', async () => {
-    // 预设 localStorage
-    window.localStorage.setItem('agent-progress-pane-position', JSON.stringify({ x: 64, y: 32 }))
+    // 预设 localStorage(v14 升 v2 键,parent-relative 坐标)
+    window.localStorage.setItem('agent-progress-pane-position-v2', JSON.stringify({ x: 64, y: 32 }))
     useAgentProgressPaneStore.getState().openPane()
     const { container } = render(<AgentTaskProgressPane />)
     // 等待 effect 跑完(client-side load)
@@ -1969,7 +1971,7 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     })
     const pane = container.querySelector('[data-testid="agent-progress-pane"]') as HTMLElement
     const paneStyle = pane.getAttribute('style') ?? ''
-    // 加载的 left 应为 64(具体数值由 viewport clamp 决定)
+    // 加载的 left 应为 64(jsdom 无父容器 layout,fallback 到 viewport,64 通过 clamp)
     expect(paneStyle).toContain('left: 64')
     expect(paneStyle).toContain('top: 32')
   })
