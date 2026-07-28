@@ -9,6 +9,7 @@ import { formatShortDateTime } from '../utils/date-utils'
 
 import { Card, Loading } from '@ihui/ui-native'
 import { fetchApi } from '@ihui/api-client'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface LiveItem {
@@ -26,7 +27,6 @@ interface LivePage {
   total: number
 }
 
-const PAGE_SIZE = 20
 const STATUS_TABS = ['all', 'upcoming', 'ongoing', 'ended'] as const
 
 const LIVE_TAB_KEYS: Record<(typeof STATUS_TABS)[number], string> = {
@@ -50,7 +50,7 @@ export function LiveListScreen() {
   const fetcher = useCallback(async () => {
     const params = new URLSearchParams({
       page: '1',
-      pageSize: String(PAGE_SIZE),
+      pageSize: String(DEFAULT_PAGE_SIZE),
       status: statusTab,
     })
     const res = await fetchApi<LivePage>(`/live/list?${params.toString()}`)
@@ -61,7 +61,7 @@ export function LiveListScreen() {
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<LiveItem>(
     fetcher,
-    PAGE_SIZE,
+    DEFAULT_PAGE_SIZE,
   )
 
   const onTabChange = (next: (typeof STATUS_TABS)[number]) => {

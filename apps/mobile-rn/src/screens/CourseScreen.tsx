@@ -4,10 +4,9 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { getCourses, type Course } from '@ihui/api-client'
+import { COURSE_PAGE_SIZE } from '@ihui/shared/constants'
 import { useI18n } from '../i18n'
 import type { CourseStackParamList } from '../navigation/RootNavigator'
-
-const PAGE_SIZE = 12
 
 type NavigationProp = NativeStackNavigationProp<CourseStackParamList>
 
@@ -28,7 +27,7 @@ export function CourseScreen() {
       setError('')
       const res = await getCourses({
         page,
-        pageSize: PAGE_SIZE,
+        pageSize: COURSE_PAGE_SIZE,
         keyword: keyword.trim() || undefined,
       })
       if (cancelled) return
@@ -45,7 +44,7 @@ export function CourseScreen() {
     }
   }, [page, keyword, t])
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / COURSE_PAGE_SIZE))
 
   return (
     <View className="flex-1 bg-white dark:bg-black">

@@ -11,6 +11,7 @@ import { formatShortDateTime } from '../utils/date-utils'
 
 import { Loading } from '@ihui/ui-native'
 import type { PointRecord } from '@ihui/types'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface PointsRecord extends Pick<PointRecord, 'id' | 'amount' | 'createdAt'> {
@@ -25,7 +26,6 @@ interface RecordPage {
   balance: number
 }
 
-const PAGE_SIZE = 20
 const TYPE_TABS = ['all', 'earn', 'spend'] as const
 
 const POINTS_TAB_KEYS: Record<(typeof TYPE_TABS)[number], string> = {
@@ -44,7 +44,7 @@ export function PointsRecordScreen() {
   const fetcher = useCallback(async () => {
     const params = new URLSearchParams({
       page: '1',
-      pageSize: String(PAGE_SIZE),
+      pageSize: String(DEFAULT_PAGE_SIZE),
       type: typeTab,
     })
     const resp = await fetch(`${API_BASE_URL}/api/points/records?${params.toString()}`, {
@@ -59,7 +59,7 @@ export function PointsRecordScreen() {
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<PointsRecord>(
     fetcher,
-    PAGE_SIZE,
+    DEFAULT_PAGE_SIZE,
   )
 
   const onTabChange = (next: (typeof TYPE_TABS)[number]) => {

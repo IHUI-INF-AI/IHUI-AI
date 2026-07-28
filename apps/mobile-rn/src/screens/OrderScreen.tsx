@@ -3,10 +3,9 @@ import { FlatList, Text, View } from 'react-native'
 import { Card } from '@ihui/ui-native'
 import { getOrders, type Order, type OrderStatus } from '@ihui/api-client'
 import { formatAmount } from '@ihui/shared/utils'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 import { useI18n } from '../i18n'
 import { formatDateByTemplate } from '../utils/date-utils'
-
-const PAGE_SIZE = 20
 
 const STATUS_STYLE: Record<OrderStatus, string> = {
   pending: 'bg-amber-100 text-amber-700',
@@ -30,7 +29,7 @@ export function OrderScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await getOrders({ page: 1, pageSize: PAGE_SIZE })
+      const res = await getOrders({ page: 1, pageSize: DEFAULT_PAGE_SIZE })
       if (cancelled) return
       if (res.success) setOrders(res.data.list)
       else setError(res.error || t('order.loadFailed'))

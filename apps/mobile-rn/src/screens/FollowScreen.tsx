@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Avatar, Button, Card } from '@ihui/ui-native'
 import { getFollowing, getFans, type FollowUser } from '@ihui/api-client'
+import { DEFAULT_PAGE_SIZE } from '@ihui/shared/constants'
 import { unfollowUser } from '../api/social'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
@@ -20,8 +21,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateWithYear } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-const PAGE_SIZE = 20
 
 type TabKey = 'following' | 'fans'
 
@@ -49,7 +48,7 @@ export function FollowScreen() {
   )
 
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
-    usePaginatedList<FollowUser>(fetcher, PAGE_SIZE)
+    usePaginatedList<FollowUser>(fetcher, DEFAULT_PAGE_SIZE)
 
   const onSwitchTab = (next: TabKey) => {
     if (next === tab) return

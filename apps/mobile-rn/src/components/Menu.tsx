@@ -6,6 +6,7 @@
  */
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity } from 'react-native'
 import { tokens } from '@ihui/rn-app'
+import { MENU_ICON_BASE_URL } from '@ihui/shared/constants'
 
 export interface MenuItem {
   id: number | string
@@ -24,42 +25,42 @@ const DEFAULT_ITEMS: MenuItem[] = [
   {
     id: 1,
     name: '图片',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/8.png',
+    icon: `${MENU_ICON_BASE_URL}8.png`,
   },
   {
     id: 2,
     name: '视频',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/4.png',
+    icon: `${MENU_ICON_BASE_URL}4.png`,
   },
   {
     id: 3,
     name: '文案',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/2.png',
+    icon: `${MENU_ICON_BASE_URL}2.png`,
   },
   {
     id: 4,
     name: '智能体',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/11.png',
+    icon: `${MENU_ICON_BASE_URL}11.png`,
   },
   {
     id: 5,
     name: 'RPA',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/5.png',
+    icon: `${MENU_ICON_BASE_URL}5.png`,
   },
   {
     id: 6,
     name: '编程',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/7.png',
+    icon: `${MENU_ICON_BASE_URL}7.png`,
   },
   {
     id: 7,
     name: '音乐',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/3.png',
+    icon: `${MENU_ICON_BASE_URL}3.png`,
   },
   {
     id: 8,
     name: '其他',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/10.png',
+    icon: `${MENU_ICON_BASE_URL}10.png`,
   },
 ]
 
