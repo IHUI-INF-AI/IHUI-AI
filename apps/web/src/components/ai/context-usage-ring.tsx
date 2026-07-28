@@ -254,9 +254,10 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
             compressedChars: res.data.compressedChars,
           })
           toast.success(t('compressSuccess'), {
-            description: t('compressResultDesc')
-              .replace('{original}', String(res.data.originalChars))
-              .replace('{compressed}', String(res.data.compressedChars)),
+            description: t('compressResultDesc', {
+              original: String(res.data.originalChars),
+              compressed: String(res.data.compressedChars),
+            }),
           })
         } else {
           setCompressError(res.error || t('compressFailed'))

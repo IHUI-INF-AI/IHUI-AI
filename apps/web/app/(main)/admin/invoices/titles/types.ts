@@ -2,23 +2,7 @@ import { unwrapApi as api } from '@/lib/api-helpers'
 
 export { api }
 
-export interface InvoiceTitle {
-  id: string
-  titleName: string
-  taxNo: string
-  titleType: 'company' | 'personal'
-  bankName?: string | null
-  bankAccount?: string | null
-  address?: string | null
-  phone?: string | null
-  isDefault: boolean
-  createdAt: string
-}
-
-export interface TitlesData {
-  list: InvoiceTitle[]
-  total: number
-}
+export type { InvoiceTitle, InvoiceTitlesData as TitlesData } from '@ihui/types'
 
 export interface TitleForm {
   titleName: string
