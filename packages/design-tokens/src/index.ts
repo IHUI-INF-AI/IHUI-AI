@@ -1,26 +1,9 @@
 export { cn } from './cn'
-export {
-  colors,
-  darkColors,
-  brandColors,
-  radius,
-  spacing,
-  fontSize,
-  shadows,
-  zIndex,
-  breakpoints,
-  type Colors,
-  type DarkColors,
-  type BrandColors,
-  type Radius,
-  type Spacing,
-  type FontSize,
-  type Shadows,
-  type ZIndex,
-  type Breakpoints,
-} from './tokens'
 
 // RN 专用 tokens(mobile-rn / packages/app 共享,HEX 表达,与 web HSL 并存)
+// 注:web HSL token 集曾由 ./tokens.ts 提供,因 0 引用且与 tokens.css 严重漂移
+// (colors.primary=绿色 vs --color-primary=黑色)已于 2026-07-28 删除。
+// web 端 token 单一来源 = ./styles/tokens.css(@theme + .dark 覆盖)。
 export {
   rnTokens,
   rnLightTokens,
