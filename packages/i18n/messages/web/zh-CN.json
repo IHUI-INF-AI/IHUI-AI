@@ -449,7 +449,7 @@
       "clearFilter": "清空筛选",
       "filterPlaceholder": "筛选文件夹...",
       "nativePick": "系统选择器",
-      "nativePickHint": "用系统原生对话框选择(只填文件夹名,需补全路径)",
+      "nativePickHint": "已选「{name}」。浏览器安全限制无法获取完整路径,请在上方输入框补全完整路径(如 G:\\IHUI-AI)后按回车",
       "nativePickNotFound": "未在当前目录找到「{name}」,请手动输入完整路径或导航到正确目录",
       "computer": "此电脑",
       "parent": "上级目录",
