@@ -888,12 +888,12 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
-          {/* Agent 任务进度触发按钮(2026-07-27 v6.4,用户规则:
+          {/* Agent 任务进度触发按钮(2026-07-28 v8 零窜位版,用户规则:
               trigger 在输入容器 div 外面上方居中,点击弹出 popover。
-              v6.3:popover 移到消息区(ai-side-panel)右上角定位,不再跟随 trigger。
-              trigger 只负责切换 store.open,popover 由 store 联动显隐。
-              v6.4:trigger 在 open=true 时自身 return null,wrapper 加 empty:hidden
-              跟着一起消失,避免留下空白行导致输入容器位置漂移。 */}
+              v8 改动:trigger 永远渲染(open=true 时用 invisible 占位,opacity-0),
+              popover 用 fixed 浮层覆盖在 trigger 上方(由 store.open 联动显隐),
+              inline 流位置完全不变 → 周围内容零回流零窜位。
+              empty:hidden 保留兜底(防止未来 trigger 内部又出现 return null 回归)。 */}
           <div className="flex justify-center pb-1 empty:hidden">
             <AgentProgressTrigger />
           </div>
