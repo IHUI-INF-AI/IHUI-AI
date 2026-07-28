@@ -8895,13 +8895,36 @@
     "suggest": "搜尋建議",
     "clearAll": "清除全部",
     "noResults": "無搜尋結果",
+    "searchPlaceholder": "搜尋…",
+    "searchHistory": "搜尋歷史",
+    "clear": "清除",
+    "noSuggestions": "暫無匹配建議",
     "tabs": {
+      "all": "全部",
       "users": "使用者",
+      "projects": "專案",
       "files": "文件"
     },
+    "sort": "排序",
+    "sortRelevance": "相關度",
+    "sortTime": "時間",
+    "sortName": "名稱",
+    "sortSize": "大小",
     "emptyKeyword": "請輸入搜尋關鍵詞",
+    "loading": "搜尋中...",
+    "emptyResult": "未找到匹配結果",
     "open": "打開",
-    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})"
+    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})",
+    "quickSuggestions": [
+      "設定",
+      "個人資料",
+      "專案",
+      "對話歷史",
+      "成員",
+      "工作區",
+      "快捷鍵",
+      "AI 模型"
+    ]
   },
   "footer": {
     "companyName": "吉林省愛智匯人工智能科技有限公司",
@@ -9765,11 +9788,11 @@
       "pinHintPinned": "已釘選,點擊外部不關閉",
       "pinHintUnpinned": "已取消釘選,點擊外部關閉",
       "minimizeHint": "最小化任務面板",
+      "emptyHint": "開始對話後顯示任務計劃",
       "emptyTitle": "等待任務開始",
       "emptySubtitle": "對話開始後,任務拆解會顯示在這裡",
       "elapsedTitle": "已耗時 {time}",
       "failureBanner": "{n} 個任務失敗,點擊查看",
-      "emptyHint": "開始對話後顯示任務計劃",
       "emptyHintsLabel": "任務計劃使用提示",
       "emptyHint1": "開始對話後,這裡會顯示 AI 的任務拆解與進度",
       "emptyHint2": "子代理 / 工具呼叫 / 終端輸出會自動歸類到對應區域",
@@ -10892,6 +10915,80 @@
         "私有化部署可選",
         "季度複盤 + 戰略諮詢"
       ]
+    },
+    "socialProof": {
+      "title": "被全球開發者信賴",
+      "subtitle": "從新創公司到世界 500 強,IHUI AI 服務於各類團隊",
+      "registered": "註冊使用者",
+      "monthlyActive": "月活使用者",
+      "apiCalls": "API 呼叫 / 月",
+      "enterprise": "企業客戶"
+    },
+    "testimonials": {
+      "title": "開發者怎麼說",
+      "subtitle": "真實使用者反饋,來自不同行業與團隊規模",
+      "items": [
+        {
+          "name": "張明",
+          "role": "CTO",
+          "company": "TechStart",
+          "text": "IHUI AI 讓我們在 2 周內上線了企業 AI 助手,節省了 3 個月開發時間"
+        },
+        {
+          "name": "Sarah Chen",
+          "role": "Lead Engineer",
+          "company": "DataFlow",
+          "text": "多租戶 RLS 設計非常專業,340 張表的隔離做得無可挑剔"
+        },
+        {
+          "name": "李華",
+          "role": "創辦人",
+          "company": "創智科技",
+          "text": "176 個 LLM 統一適配,再也無需寫 10 套 API 呼叫代碼了"
+        },
+        {
+          "name": "Marcus Weber",
+          "role": "DevOps",
+          "company": "CloudSys",
+          "text": "從原始碼部署到生產只用了 3 天,說明文件非常詳細"
+        },
+        {
+          "name": "王芳",
+          "role": "AI 架構師",
+          "company": "智雲科技",
+          "text": "LangGraph + MCP + A2A 三棧協定,是我們見過最完整的 AI 框架"
+        },
+        {
+          "name": "Alex Kim",
+          "role": "CTO",
+          "company": "AIVentures",
+          "text": "Apache 2.0 商用友善,5346 個測試讓人安心"
+        }
+      ]
+    },
+    "comparison": {
+      "title": "與主流方案對比",
+      "subtitle": "一個平臺涵蓋全端 AI 能力,無需拼湊多個工具",
+      "feature": "功能",
+      "price": "免費起步",
+      "llmCount": "176+ LLM 適配",
+      "multiTenant": "多租戶隔離",
+      "rag": "RAG 知識庫",
+      "agentMarket": "Agent 市場",
+      "eightEnds": "8 端涵蓋",
+      "openSource": "開源",
+      "selfHost": "自架",
+      "apache2": "Apache 2.0",
+      "privateDeploy": "私有化部署"
+    },
+    "guarantee": {
+      "title": "我們的承諾",
+      "refundTitle": "7 天無理由退款",
+      "refundDesc": "訂閱後 7 天內不滿意,全額退款,無理由無門檻",
+      "dataTitle": "資料所有權歸您",
+      "dataDesc": "您的資料始終歸您所有,支援隨時導出與刪除",
+      "openSourceTitle": "Apache 2.0 永久開源",
+      "openSourceDesc": "核心代碼 Apache 2.0 協定開源,商用友善,永久可用"
     }
   },
   "enterpriseTools": {
@@ -12633,6 +12730,126 @@
     "relatedTitle": "相關文章",
     "notFound": "文章不存在或已刪除"
   },
+  "products": {
+    "heroBadge": "數位產品",
+    "heroTitle": "數位產品商店",
+    "heroSubtitle": "精選 AI 開發數位產品:提示詞庫、Agent 範本、部署指南、原始碼包、認證課程、定製開發,即買即用。",
+    "popular": "熱門",
+    "buyNow": "立即購買",
+    "buySubject": "購買",
+    "cards": {
+      "1": {
+        "title": "AI Agent 提示詞庫",
+        "price": "¥99",
+        "desc": "200+ 精選 prompts,涵蓋 20 個高頻場景,可直接匯入 IHUI AI 平臺。",
+        "feature1": "200+ 精選 prompts",
+        "feature2": "涵蓋 20 個場景",
+        "feature3": "JSON + Markdown 格式,立即下載"
+      },
+      "2": {
+        "title": "企業 Agent 範本套件",
+        "price": "¥299",
+        "desc": "10 個企業級 Agent 範本(客服/銷售/HR/資料分析/代碼審查),開箱即用。",
+        "feature1": "10 個企業級 Agent 範本",
+        "feature2": "含 LangGraph 完整代碼 + MCP 工具整合",
+        "feature3": "一年免費更新"
+      },
+      "3": {
+        "title": "IHUI-AI 部署指南 Pro",
+        "price": "¥49",
+        "desc": "PDF + 影片教程,涵蓋 Docker / K8s / 裸機部署全流程。",
+        "feature1": "PDF + 影片教程",
+        "feature2": "涵蓋 Docker / K8s / 裸機部署",
+        "feature3": "效能調優 + 安全加固"
+      },
+      "4": {
+        "title": "企業級原始碼包",
+        "price": "¥4,999",
+        "desc": "IHUI-AI 全部原始碼 + 企業定製模塊,私有部署授權。",
+        "feature1": "全部原始碼 + 企業定製模塊",
+        "feature2": "私有部署授權(Apache 2.0 + 商業增強)",
+        "feature3": "一年技術支援"
+      },
+      "5": {
+        "title": "AI 工程師認證課程",
+        "price": "¥999",
+        "desc": "12 小時影片 + 實操專案,系統掌握 AI 工程核心技能。",
+        "feature1": "12 小時影片 + 實操專案",
+        "feature2": "涵蓋 LangGraph / MCP / RAG / 多租戶",
+        "feature3": "完成憑證"
+      },
+      "6": {
+        "title": "定製 Agent 開發服務",
+        "price": "¥1,999 起",
+        "desc": "單個 Agent 定製開發,含需求確認與修改。",
+        "feature1": "單個 Agent 定製開發",
+        "feature2": "1 輪需求確認 + 1 輪修改",
+        "feature3": "5 工時"
+      }
+    },
+    "ctaTitle": "批量購買享專屬優惠",
+    "ctaDesc": "企業批量採購多個產品享階梯折扣,聯繫我們獲取定製方案。",
+    "ctaButton": "聯繫商務諮詢"
+  },
+  "sponsor": {
+    "heroBadge": "贊助開源",
+    "heroTitle": "贊助 IHUI AI",
+    "heroSubtitle": "您的贊助支援 IHUI AI 持續開源、迭代與社區運營,讓全端 AI 操作系統惠及更多開發者與企業。",
+    "heroButton": "成為贊助者",
+    "whyTitle": "為什麼贊助 IHUI AI",
+    "reasonOpenTitle": "保持開源",
+    "reasonOpenDesc": "支援核心代碼 Apache 2.0 永久開源,人人可用。",
+    "reasonFastTitle": "加速迭代",
+    "reasonFastDesc": "讓團隊全職投入,更快發佈新功能與模型適配。",
+    "reasonCommunityTitle": "運營社區",
+    "reasonCommunityDesc": "維持 Discord/微信群、Issue 回應、說明文件維護。",
+    "reasonIndependenceTitle": "獨立自主",
+    "reasonIndependenceDesc": "不依賴單一投資,保持產品獨立性與中立性。",
+    "tiersTitle": "贊助等級",
+    "becomeSponsor": "成為贊助者",
+    "tiers": {
+      "bronze": {
+        "name": "Bronze",
+        "price": "¥99/月",
+        "feature1": "README 致謝",
+        "feature2": "Discord/微信會員群",
+        "feature3": "提前存取新功能"
+      },
+      "silver": {
+        "name": "Silver",
+        "price": "¥299/月",
+        "feature1": "Bronze 全部權益",
+        "feature2": "月度開發進度報告",
+        "feature3": "優先 Issue 回應(48h)"
+      },
+      "gold": {
+        "name": "Gold",
+        "price": "¥999/月",
+        "feature1": "Silver 全部權益",
+        "feature2": "季度技術分享會",
+        "feature3": "Logo 顯示在 README"
+      },
+      "platinum": {
+        "name": "Platinum",
+        "price": "¥2,999/月",
+        "feature1": "Gold 全部權益",
+        "feature2": "1 對 1 月度諮詢(1 小時)",
+        "feature3": "優先新功能投票權"
+      },
+      "diamond": {
+        "name": "Diamond",
+        "price": "¥9,999/月",
+        "feature1": "半天線下工作坊",
+        "feature2": "定製 Agent 開發(5 工時/月)",
+        "feature3": "戰略合作伙伴標識"
+      }
+    },
+    "sponsorsTitle": "現有贊助者",
+    "sponsorsDesc": "感謝以下贊助者對 IHUI AI 的支援。",
+    "sponsorsEmpty": "成為首位贊助者,您的名字將顯示在這裡。",
+    "onlineTitle": "在線捐贈",
+    "onlineDesc": "通過 PayPal 或 Ko-fi 快速支援我們 — 安全便捷,無需註冊。"
+  },
   "crypto": {
     "title": "加密貨幣捐贈",
     "subtitle": "直接轉帳,無需中間平臺,0 手續費",
@@ -12657,6 +12874,66 @@
     "copied": "已複製!",
     "disclaimer": "您的捐贈將直接進入我們的錢包,無中間平臺手續費。USDT-TRC20 手續費最低(~$1),推薦使用。",
     "qrCode": "二維碼"
+  },
+  "affiliates": {
+    "heroBadge": "推薦資源",
+    "heroTitle": "推薦 AI 工具",
+    "heroSubtitle": "精選 10 個 AI 開發必備工具,通過推薦鏈接註冊享專屬優惠,同時支援 IHUI AI 持續開發。",
+    "reasonLabel": " 推薦理由",
+    "signup": "立即註冊",
+    "cards": {
+      "1": {
+        "name": "OpenAI API",
+        "desc": "GPT-4 / GPT-4o 等頂級大模型 API,行業標杆。",
+        "reason": "推薦註冊可賺 $5 額度。"
+      },
+      "2": {
+        "name": "Anthropic Claude",
+        "desc": "Claude 3.5 Sonnet,長文字與代碼能力出色。",
+        "reason": "推薦註冊享試用額度。"
+      },
+      "3": {
+        "name": "Google Gemini",
+        "desc": "Gemini Pro / Flash,多模態與長上下文領先。",
+        "reason": "新使用者 $300 試用金。"
+      },
+      "4": {
+        "name": "Vercel",
+        "desc": "Next.js 官方部署平臺,前端應用首選。",
+        "reason": "推薦註冊得 $100 額度。"
+      },
+      "5": {
+        "name": "Railway",
+        "desc": "後端應用一鍵部署,支援多種語言與資料庫。",
+        "reason": "推薦註冊享試用額度。"
+      },
+      "6": {
+        "name": "Supabase",
+        "desc": "PostgreSQL 託管 + Auth + Storage,開源 Firebase 替代。",
+        "reason": "推薦註冊享免費額度。"
+      },
+      "7": {
+        "name": "Pinecone",
+        "desc": "託管向量資料庫,RAG 檢索效能優秀。",
+        "reason": "推薦註冊享免費額度。"
+      },
+      "8": {
+        "name": "LangSmith",
+        "desc": "LangChain 官方監控與調試平臺,LLM 應用可觀測性。",
+        "reason": "推薦註冊享試用額度。"
+      },
+      "9": {
+        "name": "Cursor",
+        "desc": "AI 代碼編輯器,內置 GPT-4/Claude,編程效率倍增。",
+        "reason": "推薦註冊享試用 Pro。"
+      },
+      "10": {
+        "name": "GitHub Copilot",
+        "desc": "GitHub 官方 AI 編程助手,IDE 整合體驗佳。",
+        "reason": "推薦註冊享試用。"
+      }
+    },
+    "disclosure": "以上鏈接為 affiliate 推薦鏈接,您通過這些鏈接註冊不會增加額外費用,但我們可以獲得少量佣金,用於支援 IHUI AI 專案持續開發。感謝您的支援!"
   },
   "services": {
     "hero": {
@@ -12823,6 +13100,63 @@
         "slaTitle": "回應 SLA",
         "sla": "工作時間內 2 小時回應,非工作時間 24 小時回應"
       }
+    }
+  },
+  "newsletter": {
+    "hero": {
+      "badge": "IHUI AI 週報",
+      "title": "訂閱 IHUI AI 週報",
+      "subtitle": "每週收到 AI 工程、Agent 開發、RAG、MCP 實戰案例,8,392+ 開發者已訂閱",
+      "subscriberPrefix": "已有",
+      "subscriberSuffix": "位開發者訂閱"
+    },
+    "benefits": {
+      "title": "訂閱福利",
+      "items": [
+        "每週 AI 工程實戰案例",
+        "新功能提前體驗",
+        "獨家 prompt 範本",
+        "行業趨勢分析",
+        "社區活動通知"
+      ]
+    },
+    "form": {
+      "email": "郵箱",
+      "interests": "興趣標籤(可多選)",
+      "tags": {
+        "aiEng": "AI 工程",
+        "agent": "Agent 開發",
+        "rag": "RAG",
+        "mcp": "MCP",
+        "multiTenant": "多租戶",
+        "devops": "部署運維",
+        "business": "商業化"
+      },
+      "privacyPrefix": "我已閱讀並同意",
+      "privacyLink": "隱私政策",
+      "submit": "立即訂閱",
+      "submitting": "訂閱中..."
+    },
+    "success": {
+      "title": "訂閱成功!",
+      "desc": "請檢查您的郵箱確認訂閱。下一期週報將於週五發送。",
+      "recommended": "推薦閱讀"
+    },
+    "articles": {
+      "a1": {
+        "title": "AI 工程實戰:從 0 到 1 構建企業 AI 助手"
+      },
+      "a2": {
+        "title": "Agent 開發完全指南:LangGraph + MCP 協定"
+      },
+      "a3": {
+        "title": "RAG 實戰:多租戶知識庫隔離設計"
+      }
+    },
+    "errors": {
+      "generic": "訂閱失敗,請稍後重試",
+      "emailExists": "該郵箱已訂閱",
+      "invalidEmail": "郵箱格式不正確"
     }
   },
   "developerPricingPage": {
