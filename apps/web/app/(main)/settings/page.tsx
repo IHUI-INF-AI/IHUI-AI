@@ -57,7 +57,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="appearance" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="appearance">{t('appearance') || '外观'}</TabsTrigger>
           <TabsTrigger value="security">{t('securityCenter')}</TabsTrigger>
           <TabsTrigger value="more">{t('subPagesTitle')}</TabsTrigger>
