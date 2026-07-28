@@ -99,7 +99,19 @@ export function AgreementNoticeDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
       <DialogContent
         className={cn(
-          'login-form-scope w-[calc(100%-2rem)] max-w-[420px] gap-0 p-7 sm:rounded-xl',
+          // 2026-07-28 根治协议弹窗位置错位:移除 className 中的 `login-form-scope`
+          //   该类通过 packages/ui-react/src/styles/login-form.css 第 65 行
+          //   `.login-form-scope:not([role="dialog"]):not([role="alertdialog"]) { position: relative; isolation: isolate }`
+          //   规则(在 :not 排除 Dialog 之前的旧版本 .login-form-scope { position: relative })
+          //   强制 position:relative,会通过 CSS cascade(同特异性,login-form.css 后
+          //   于 tailwind utility 加载)覆盖 .fixed { position: fixed },导致 fixed
+          //   定位失效 + 弹窗被推到视口中心偏下 406px(实测 deltaY=406)。
+          //   该规则本意是给 LoginForm 容器(普通 div)创建 stacking context,不该
+          //   污染 Radix DialogContent(已经在 login-form.css 加 :not([role="dialog"])
+          //   兜底,这里再移除是双保险)。
+          //   AgreementNoticeDialog 内部无 Tabs/复选框/协议文本,完全不依赖
+          //   .login-form-scope 的任何样式,安全移除。
+          'w-[calc(100%-2rem)] max-w-[420px] gap-0 p-7 sm:rounded-xl',
           'border border-border bg-card shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_4px_rgba(0,0,0,0.04)]',
         )}
       >
