@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  RefreshControl,
 } from 'react-native'
+import { getAiModels, type AiModel } from '@ihui/api-client'
 
 type ModelType = 'text' | 'image' | 'av'
 
@@ -30,30 +32,6 @@ interface Model {
   payMode: string
 }
 
-const PROVIDERS: Provider[] = [
-  { id: 'openai', name: 'OpenAI', total: 6, desc: 'GPT 系列多模态旗舰,推理与创作领先' },
-  { id: 'anthropic', name: 'Anthropic', total: 4, desc: 'Claude 系列长文本与代码能力突出' },
-  { id: 'google', name: 'Google', total: 5, desc: 'Gemini 全模态原生支持,多语言强' },
-  { id: 'zhipu', name: 'Zhipu AI', total: 4, desc: 'GLM 系列中文场景表现优异' },
-  { id: 'baidu', name: 'Baidu ERNIE', total: 3, desc: '文心一言中文知识与产业落地' },
-  { id: 'alibaba', name: 'Alibaba Cloud', total: 4, desc: '通义千问开源生态完善' },
-]
-
-const MODELS: Model[] = [
-  { id: '1', providerId: 'openai', name: 'GPT-4o', type: 'text', inputPrice: 0.03, outputPrice: 0.06, desc: '多模态旗舰,文字图像音频统一理解', tags: ['多模态', '推理'], payMode: '按量计费' },
-  { id: '2', providerId: 'openai', name: 'GPT-4o mini', type: 'text', inputPrice: 0.002, outputPrice: 0.008, desc: '高性价比轻量版,适合大规模调用', tags: ['轻量', '低成本'], payMode: '按量计费' },
-  { id: '3', providerId: 'openai', name: 'DALL·E 3', type: 'image', inputPrice: 0.04, outputPrice: null, desc: '提示词生成高质量图像,支持多种风格', tags: ['绘画', '高清'], payMode: '按张计费' },
-  { id: '4', providerId: 'anthropic', name: 'Claude 3.5 Sonnet', type: 'text', inputPrice: 0.003, outputPrice: 0.015, desc: '200K 上下文,代码与长文档分析强', tags: ['长上下文', '代码'], payMode: '按量计费' },
-  { id: '5', providerId: 'anthropic', name: 'Claude 3 Opus', type: 'text', inputPrice: 0.015, outputPrice: 0.075, desc: '旗舰版,复杂推理与创作能力顶级', tags: ['旗舰', '推理'], payMode: '按量计费' },
-  { id: '6', providerId: 'google', name: 'Gemini 1.5 Pro', type: 'text', inputPrice: 0.0035, outputPrice: 0.0105, desc: '1M 超长上下文,多模态原生支持', tags: ['超长上下文', '多模态'], payMode: '按量计费' },
-  { id: '7', providerId: 'google', name: 'Gemini 1.5 Flash', type: 'text', inputPrice: 0.0005, outputPrice: 0.0015, desc: '极速响应,适合实时对话与高并发', tags: ['快速', '高并发'], payMode: '按量计费' },
-  { id: '8', providerId: 'zhipu', name: 'GLM-4-Plus', type: 'text', inputPrice: 0.05, outputPrice: 0.05, desc: '智谱旗舰,中文理解与工具调用优秀', tags: ['中文', '工具调用'], payMode: '按量计费' },
-  { id: '9', providerId: 'zhipu', name: 'CogView-3', type: 'image', inputPrice: 0.1, outputPrice: null, desc: '中文 Prompt 图像生成,国风专长', tags: ['绘画', '国风'], payMode: '按张计费' },
-  { id: '10', providerId: 'baidu', name: 'ERNIE 4.0', type: 'text', inputPrice: 0.12, outputPrice: 0.12, desc: '文心旗舰,中文知识与产业应用强', tags: ['中文', '产业'], payMode: '按量计费' },
-  { id: '11', providerId: 'alibaba', name: 'Qwen-Max', type: 'text', inputPrice: 0.04, outputPrice: 0.12, desc: '通义旗舰,推理与代码能力领先', tags: ['旗舰', '推理'], payMode: '按量计费' },
-  { id: '12', providerId: 'alibaba', name: 'Qwen-Audio', type: 'av', inputPrice: 0.02, outputPrice: null, desc: '语音理解与生成,多语言支持', tags: ['语音', '多语言'], payMode: '按次计费' },
-]
-
 const TYPE_TABS: { id: 'all' | ModelType; label: string }[] = [
   { id: 'all', label: '全部' },
   { id: 'text', label: '文本' },
@@ -67,15 +45,90 @@ function typeBadge(t: ModelType): { text: string; color: string; bg: string } {
   return { text: '文本', color: '#1888EE', bg: '#E8F4FD' }
 }
 
+function readModelType(v: unknown): ModelType {
+  return v === 'image' || v === 'av' ? v : 'text'
+}
+
+function readNumber(v: unknown): number | null {
+  return typeof v === 'number' && !Number.isNaN(v) ? v : null
+}
+
+function readString(v: unknown): string {
+  return typeof v === 'string' ? v : ''
+}
+
+function readStringArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+}
+
+function mapAiModel(m: AiModel): Model {
+  return {
+    id: m.id,
+    providerId: m.provider,
+    name: m.name,
+    type: readModelType(m.type),
+    inputPrice: readNumber(m.inputPrice),
+    outputPrice: readNumber(m.outputPrice),
+    desc: m.description ?? '',
+    tags: readStringArray(m.tags),
+    payMode: readString(m.payMode),
+  }
+}
+
+function buildProviders(models: Model[]): Provider[] {
+  const map = new Map<string, Provider>()
+  for (const m of models) {
+    if (!map.has(m.providerId)) {
+      map.set(m.providerId, { id: m.providerId, name: m.providerId, total: 0, desc: '' })
+    }
+    map.get(m.providerId)!.total += 1
+  }
+  return Array.from(map.values())
+}
+
 export default function ModelPlazaScreen() {
-  const [providerId, setProviderId] = useState<string>('openai')
+  const [models, setModels] = useState<Model[]>([])
+  const [providerId, setProviderId] = useState<string>('')
   const [typeFilter, setTypeFilter] = useState<'all' | ModelType>('all')
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
 
-  const currentProvider = PROVIDERS.find((p) => p.id === providerId)
-  const listByProvider = MODELS.filter((m) => m.providerId === providerId)
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const resp = await getAiModels({ pageSize: 100 })
+      if (resp.success) {
+        const list = resp.data.list.map(mapAiModel)
+        setModels(list)
+        setProviderId((prev) => {
+          if (prev && list.some((m) => m.providerId === prev)) return prev
+          return list[0]?.providerId ?? ''
+        })
+      } else {
+        setError(resp.error)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '加载失败')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onRefresh = () => {
+    setRefreshing(true)
+    void load()
+  }
+
+  const providers = buildProviders(models)
+  const currentProvider = providers.find((p) => p.id === providerId)
+  const listByProvider = models.filter((m) => m.providerId === providerId)
   const filteredList = typeFilter === 'all' ? listByProvider : listByProvider.filter((m) => m.type === typeFilter)
-
-  if (!currentProvider) return null
 
   const handleCompare = () => Alert.alert('模型对比', '请选择 2-3 个模型加入对比')
   const handleDetail = (m: Model) => Alert.alert('模型详情', `查看「${m.name}」完整参数与定价`)
@@ -90,7 +143,7 @@ export default function ModelPlazaScreen() {
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.providerScroll} contentContainerStyle={s.providerScrollContent}>
-        {PROVIDERS.map((p) => {
+        {providers.map((p) => {
           const active = providerId === p.id
           return (
             <TouchableOpacity
@@ -105,11 +158,19 @@ export default function ModelPlazaScreen() {
         })}
       </ScrollView>
 
-      <View style={s.providerHeader}>
-        <Text style={s.providerName}>{currentProvider.name}</Text>
-        <Text style={s.providerMeta}>共 {currentProvider.total} 个模型</Text>
-        <Text style={s.providerDesc}>{currentProvider.desc}</Text>
-      </View>
+      {currentProvider ? (
+        <View style={s.providerHeader}>
+          <Text style={s.providerName}>{currentProvider.name}</Text>
+          <Text style={s.providerMeta}>共 {currentProvider.total} 个模型</Text>
+          <Text style={s.providerDesc}>{currentProvider.desc}</Text>
+        </View>
+      ) : null}
+
+      {error ? (
+        <View style={s.errorBar}>
+          <Text style={s.errorText}>{error}</Text>
+        </View>
+      ) : null}
 
       <View style={s.typeTabs}>
         {TYPE_TABS.map((t) => {
@@ -131,10 +192,11 @@ export default function ModelPlazaScreen() {
         data={filteredList}
         keyExtractor={(i) => i.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={
           <View style={s.empty}>
-            <Text style={s.emptyText}>暂无该类型模型</Text>
+            <Text style={s.emptyText}>{loading ? '加载中...' : error ? '加载失败,下拉刷新重试' : '暂无该类型模型'}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -149,7 +211,7 @@ export default function ModelPlazaScreen() {
               </View>
               <View style={s.priceRow}>
                 <Text style={s.priceLabel}>Input</Text>
-                <Text style={s.priceValue}>¥{item.inputPrice}/M</Text>
+                <Text style={s.priceValue}>{item.inputPrice !== null ? `¥${item.inputPrice}/M` : '-'}</Text>
                 {item.outputPrice !== null ? (
                   <>
                     <Text style={s.priceDivider}>|</Text>
@@ -167,7 +229,7 @@ export default function ModelPlazaScreen() {
                     <Text style={s.cardTagText}>{t}</Text>
                   </View>
                 ))}
-                <Text style={s.payMode}>{item.payMode}</Text>
+                {item.payMode ? <Text style={s.payMode}>{item.payMode}</Text> : null}
               </View>
             </TouchableOpacity>
           )
@@ -193,6 +255,8 @@ const s = StyleSheet.create({
   providerName: { fontSize: 16, fontWeight: '600', color: '#111827' },
   providerMeta: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
   providerDesc: { marginTop: 6, fontSize: 12, color: '#6B7280', lineHeight: 18 },
+  errorBar: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#FFFFFF' },
+  errorText: { fontSize: 12, color: '#EF4444' },
   typeTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#FFFFFF' },
   typeTab: { paddingHorizontal: 12, height: 30, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
   typeTabActive: { backgroundColor: '#7B61FF' },

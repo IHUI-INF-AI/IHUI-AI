@@ -1,6 +1,18 @@
-import { useState } from 'react'
-import { View, Text, TouchableOpacity, FlatList, ScrollView, StyleSheet, Alert } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { tokens } from '@ihui/rn-app'
+import { getGroups } from '@ihui/api-client'
+import type { Group as ApiGroup } from '@ihui/api-client'
 
 type Tab = 'mine' | 'discover'
 
@@ -25,71 +37,93 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'discover', label: '发现' },
 ]
 
-const MOCK: Group[] = [
-  {
-    id: '1',
-    name: '产品策划小队',
-    desc: '产品经理 + UI 设计师 + 用研专家协同输出方案',
-    members: [
-      { id: 'm1', name: '产品经理', role: '主持' },
-      { id: 'm2', name: 'UI 设计师', role: '视觉' },
-      { id: 'm3', name: '用研专家', role: '调研' },
-    ],
-    messages: 1284,
-    lastActive: '5 分钟前',
-    tag: '产品',
-  },
-  {
-    id: '2',
-    name: '内容创作组',
-    desc: '选题策划 + 文案撰写 + SEO 优化一条龙',
-    members: [
-      { id: 'm1', name: '选题策划', role: '主持' },
-      { id: 'm2', name: '文案撰写', role: '创作' },
-      { id: 'm3', name: 'SEO 优化', role: '优化' },
-      { id: 'm4', name: '配图生成', role: '视觉' },
-    ],
-    messages: 892,
-    lastActive: '1 小时前',
-    tag: '内容',
-  },
-  {
-    id: '3',
-    name: '代码评审团',
-    desc: '前端 + 后端 + 测试三方联合代码审查',
-    members: [
-      { id: 'm1', name: '前端工程师', role: '前端' },
-      { id: 'm2', name: '后端工程师', role: '后端' },
-      { id: 'm3', name: '测试工程师', role: '测试' },
-    ],
-    messages: 2103,
-    lastActive: '刚刚',
-    tag: '研发',
-  },
-  {
-    id: '4',
-    name: '学习辅导小组',
-    desc: '语文 + 数学 + 英语三位老师联合答疑',
-    members: [
-      { id: 'm1', name: '语文老师', role: '语文' },
-      { id: 'm2', name: '数学老师', role: '数学' },
-      { id: 'm3', name: '英语老师', role: '英语' },
-    ],
-    messages: 542,
-    lastActive: '昨天',
-    tag: '教育',
-  },
-]
+function isMembers(v: unknown): v is Member[] {
+  return (
+    Array.isArray(v) &&
+    v.every(
+      (m) =>
+        m !== null &&
+        typeof m === 'object' &&
+        typeof m.id === 'string' &&
+        typeof m.name === 'string',
+    )
+  )
+}
+
+function mapGroup(g: ApiGroup): Group {
+  const members = isMembers(g.members) ? g.members : []
+  const messages = typeof g.messages === 'number' ? g.messages : 0
+  const lastActive = typeof g.lastActive === 'string' ? g.lastActive : g.createdAt
+  const tag = typeof g.tag === 'string' ? g.tag : (g.type ?? '')
+  return {
+    id: g.id,
+    name: g.name,
+    desc: g.description ?? '',
+    members,
+    messages,
+    lastActive,
+    tag,
+  }
+}
 
 export default function AiGroupScreen() {
   const [tab, setTab] = useState<Tab>('mine')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [items, setItems] = useState<Group[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
 
-  const selected = MOCK.find((g) => g.id === selectedId) || null
-  const list = tab === 'mine' ? MOCK : MOCK.slice().reverse()
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const res = await getGroups()
+      if (res.success) {
+        setItems(res.data.list.map(mapGroup))
+      } else {
+        setError(res.error || '加载失败')
+      }
+    } catch {
+      setError('加载失败')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const onRefresh = () => {
+    setRefreshing(true)
+    void load()
+  }
+
+  const selected = items.find((g) => g.id === selectedId) || null
+  const list = tab === 'mine' ? items : items.slice().reverse()
 
   const handleEnter = (g: Group) => setSelectedId(g.id)
   const handleJoin = (g: Group) => Alert.alert('加入群组', `已申请加入「${g.name}」`)
+
+  if (loading) {
+    return (
+      <View style={[s.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={tokens.text.secondary} />
+      </View>
+    )
+  }
+
+  if (error && items.length === 0) {
+    return (
+      <View style={[s.container, { alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
+        <Text style={[s.emptyText, { marginBottom: 12 }]}>{error}</Text>
+        <TouchableOpacity style={s.enterMiniBtn} onPress={() => void load()} activeOpacity={0.85}>
+          <Text style={s.enterMiniText}>重试</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
 
   if (selected) {
     return (
@@ -172,6 +206,7 @@ export default function AiGroupScreen() {
       <FlatList
         data={list}
         keyExtractor={(i) => i.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
