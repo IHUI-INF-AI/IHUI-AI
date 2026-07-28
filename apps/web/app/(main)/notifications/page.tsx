@@ -124,11 +124,11 @@ export default function NotificationsPage() {
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
             <Bell className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             {unread > 0 ? t('unreadCount', { count: unread }) : t('allRead')}
           </p>
         </div>
@@ -194,7 +194,7 @@ export default function NotificationsPage() {
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : notifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
           <Bell className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('noData')}</p>
         </div>

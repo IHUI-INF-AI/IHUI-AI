@@ -8933,6 +8933,34 @@
       }
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "設定",
+      "プロフィール",
+      "プロジェクト",
+      "会話履歴",
+      "メンバー",
+      "ワークスペース",
+      "ショートカット",
+      "AIモデル"
+    ],
+    "tabs": {
+      "all": "すべて",
+      "users": "ユーザー",
+      "projects": "プロジェクト",
+      "files": "ファイル"
+    },
+    "sort": "並び替え",
+    "sortRelevance": "関連度",
+    "sortTime": "時間",
+    "sortName": "名前",
+    "sortSize": "サイズ",
+    "emptyKeyword": "検索キーワードを入力してください",
+    "loading": "検索中...",
+    "emptyResult": "一致する結果がありません",
+    "open": "開く",
+    "resultsCount": "{total} 件の結果(ユーザー {users}、プロジェクト {projects}、ファイル {files})"
+  },
   "footer": {
     "companyName": "吉林省愛智匯AI科技有限公司",
     "addressLine1": "長春市高新区越達路107号",

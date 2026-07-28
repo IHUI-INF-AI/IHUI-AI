@@ -2706,6 +2706,8 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 完整 SEO/PR 推广策略见 [docs/seo-pr-strategy.md](docs/seo-pr-strategy.md)。
 
+**IndexNow 主动推送**(2026-07-28 营销):每次发布后自动通知 Bing/Yandex/Seznam 收录新页面,无需等待爬虫。脚本:[`scripts/marketing/indexnow-push.mjs`](scripts/marketing/indexnow-push.mjs),环境变量 `INDEXNOW_KEY`,用法 `node scripts/marketing/indexnow-push.mjs --dry-run`(预览)/不带 `--dry-run`(实际推送)。完整配置见 [`.env.example`](.env.example) `INDEXNOW_KEY` 段。
+
 ---
 
 ## 我们的故事 · 智汇AI 的诞生

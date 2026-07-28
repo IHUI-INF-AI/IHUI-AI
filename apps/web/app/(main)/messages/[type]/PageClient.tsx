@@ -104,7 +104,7 @@ export default function MessageTypePage() {
       }
       const apiType = NOTI_API_TYPE[type as Exclude<MessageType, 'private-letter'>]
       const res = await api<{ list: NotificationItem[] }>(
-        `/api/notifications?type=${apiType}&page=1&pageSize=50`,
+        `/api/notifications?type=${apiType}&page=1&pageSize=10`,
       )
       return (res.list ?? []).map((n): UnifiedItem => ({
         id: n.id,

@@ -107,7 +107,7 @@ export default function ZhsUserPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">ZHS用户管理</h1>
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight">ZHS用户管理</h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />

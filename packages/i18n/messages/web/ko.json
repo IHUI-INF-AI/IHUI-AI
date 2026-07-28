@@ -8894,6 +8894,34 @@
       }
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "설정",
+      "프로필",
+      "프로젝트",
+      "대화 기록",
+      "멤버",
+      "워크스페이스",
+      "단축키",
+      "AI 모델"
+    ],
+    "tabs": {
+      "all": "전체",
+      "users": "사용자",
+      "projects": "프로젝트",
+      "files": "파일"
+    },
+    "sort": "정렬",
+    "sortRelevance": "관련도",
+    "sortTime": "시간",
+    "sortName": "이름",
+    "sortSize": "크기",
+    "emptyKeyword": "검색어를 입력하세요",
+    "loading": "검색 중...",
+    "emptyResult": "일치하는 결과가 없습니다",
+    "open": "열기",
+    "resultsCount": "총 {total}건 (사용자 {users}, 프로젝트 {projects}, 파일 {files})"
+  },
   "footer": {
     "companyName": "지린성 애즈후이 인공지능 기술 유한회사",
     "addressLine1": "창춘시 고신구 월달로 107호",
