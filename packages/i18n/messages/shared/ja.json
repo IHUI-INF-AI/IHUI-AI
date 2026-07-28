@@ -224,6 +224,19 @@
     "viewDetail": "詳細を表示",
     "withdraw": "引き出し"
   },
+  "bookmark": {
+    "empty": "ブックマークがありません",
+    "loadFailed": "ブックマークの読み込みに失敗しました",
+    "remove": "削除",
+    "title": "マイブックマーク",
+    "type": {
+      "article": "記事",
+      "course": "コース",
+      "note": "ノート",
+      "other": "その他",
+      "post": "投稿"
+    }
+  },
   "faq": {
     "categoryDeploy": "デプロイと運用",
     "categoryGeneral": "プラットフォーム紹介",
