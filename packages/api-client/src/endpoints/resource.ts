@@ -42,6 +42,7 @@ export interface Resource {
   sort?: number
   status?: number
   type?: string | null
+  price?: string | number | null
   productId?: string | null
   cidList?: string[] | null
   createdAt: string
