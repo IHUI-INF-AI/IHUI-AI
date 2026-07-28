@@ -6242,6 +6242,9 @@
     "resourceCount": "{count}のリソース",
     "popular": "のタグ"
   },
+  "tagsview": {
+    "empty": "開いているページがありません"
+  },
   "teams": {
     "title": "チーム",
     "subtitle": "のなドキュメントとAPIリファレンス",
