@@ -168,7 +168,7 @@
     "@ihui/types": "workspace:*",
     "xstate": "^5.19.0",
     "zod": "^3.25.76",
-    "zustand": "^5.0.2"
+    "zustand": "catalog:"
   },
   "peerDependencies": {
     "react": ">=18.0.0"
@@ -176,9 +176,9 @@
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@types/react": "^19.0.0",
-    "eslint": "^9.16.0",
-    "rimraf": "^6.0.1",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "eslint": "catalog:",
+    "rimraf": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

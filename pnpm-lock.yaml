@@ -4,6 +4,24 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    eslint:
+      specifier: ^9.16.0
+      version: 9.39.4
+    rimraf:
+      specifier: ^6.0.1
+      version: 6.1.3
+    typescript:
+      specifier: ^5.7.2
+      version: 5.9.3
+    vitest:
+      specifier: ^2.1.8
+      version: 2.1.9
+    zustand:
+      specifier: ^5.0.2
+      version: 5.0.14
+
 overrides:
   ioredis: 5.4.2
   webpack: 5.91.0
@@ -37,7 +55,7 @@ importers:
         specifier: ^22.10.0
         version: 22.20.0
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       eslint-plugin-jsx-a11y:
         specifier: ^6.10.0
@@ -55,7 +73,7 @@ importers:
         specifier: ^3.4.2
         version: 3.9.4
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       sharp:
         specifier: ^0.35.3
@@ -64,7 +82,7 @@ importers:
         specifier: ^2.10.5
         version: 2.10.5
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
 
   apps/api:
@@ -287,7 +305,7 @@ importers:
         specifier: ^0.30.0
         version: 0.30.6
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       js-yaml:
         specifier: ^4.1.0
@@ -296,7 +314,7 @@ importers:
         specifier: ^3.9.14
         version: 3.9.14
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       smtp-server:
         specifier: ^3.19.2
@@ -305,10 +323,10 @@ importers:
         specifier: ^4.19.2
         version: 4.23.0
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
       ws:
         specifier: ^8.18.0
@@ -369,16 +387,16 @@ importers:
         specifier: ^8.5.13
         version: 8.18.1
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       tsx:
         specifier: ^4.19.2
         version: 4.23.0
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   apps/desktop:
@@ -387,7 +405,7 @@ importers:
         specifier: ^2.1.0
         version: 2.11.4
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
 
   apps/extension:
@@ -448,19 +466,19 @@ importers:
         specifier: ^1.2.8
         version: 1.2.8
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
       wxt:
         specifier: ^0.19.0
@@ -532,7 +550,7 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
       zustand:
-        specifier: ^5.0.2
+        specifier: 'catalog:'
         version: 5.0.14(@types/react@19.2.17)(immer@11.1.15)(react@18.3.1)(use-sync-external-store@1.6.0(react@18.3.1))
     devDependencies:
       '@ihui/eslint-config':
@@ -560,25 +578,25 @@ importers:
         specifier: 4.2.0
         version: 4.2.0(@babel/core@7.29.7)(@babel/plugin-transform-typescript@7.29.7(@babel/core@7.29.7))(@babel/preset-react@7.29.7(@babel/core@7.29.7))(@react-native/babel-preset@0.86.0(@babel/core@7.29.7))(@swc/helpers@0.5.15)(@tarojs/taro-rn@4.2.0(eakhvfv5x3bnh5mq532wqwezh4))(react-refresh@0.14.2)
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       react-refresh:
         specifier: ^0.14.0
         version: 0.14.2
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.19(tsx@4.23.0)(yaml@2.9.0)
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vite:
         specifier: ^4.5.5
         version: 4.5.14(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
       weapp-tailwindcss:
         specifier: 5.1.16
@@ -689,7 +707,7 @@ importers:
         specifier: ^3.0.7
         version: 3.0.7(js-sha1@0.7.0)(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0)
       zustand:
-        specifier: ^5.0.2
+        specifier: 'catalog:'
         version: 5.0.14(@types/react@19.2.17)(immer@11.1.15)(react@19.0.0)(use-sync-external-store@1.6.0(react@19.0.0))
     devDependencies:
       '@ihui/eslint-config':
@@ -717,10 +735,10 @@ importers:
         specifier: 3.4.19
         version: 3.4.19(tsx@4.23.0)(yaml@2.9.0)
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@25.0.1)(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   apps/web:
@@ -921,7 +939,7 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
       zustand:
-        specifier: ^5.0.2
+        specifier: 'catalog:'
         version: 5.0.14(@types/react@19.2.17)(immer@11.1.15)(react@19.0.0)(use-sync-external-store@1.6.0(react@19.0.0))
     devDependencies:
       '@ihui/eslint-config':
@@ -982,7 +1000,7 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.23)
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       eslint-config-next:
         specifier: 15.5.20
@@ -1000,7 +1018,7 @@ importers:
         specifier: ^8.4.49
         version: 8.5.23
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       storybook:
         specifier: 8.6.18
@@ -1009,10 +1027,10 @@ importers:
         specifier: ^4.0.0
         version: 4.3.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/api-client:
@@ -1025,13 +1043,13 @@ importers:
         specifier: workspace:*
         version: link:../eslint-config
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/app:
@@ -1056,7 +1074,7 @@ importers:
         specifier: ^0.79.0
         version: 0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0)
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
 
   packages/auth:
@@ -1081,16 +1099,16 @@ importers:
         specifier: ^2.4.6
         version: 2.4.6
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/browser-platform:
@@ -1102,10 +1120,10 @@ importers:
         specifier: ^0.2.2
         version: 0.2.2
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
 
   packages/context-compaction:
@@ -1118,13 +1136,13 @@ importers:
         specifier: workspace:*
         version: link:../eslint-config
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/database:
@@ -1143,19 +1161,19 @@ importers:
         specifier: ^0.31.10
         version: 0.31.10
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       tsx:
         specifier: ^4.19.2
         version: 4.23.0
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/design-tokens:
@@ -1174,10 +1192,10 @@ importers:
         specifier: workspace:*
         version: link:../eslint-config
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
 
   packages/dom-actions:
@@ -1190,10 +1208,10 @@ importers:
         specifier: workspace:*
         version: link:../eslint-config
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
 
   packages/eslint-config:
@@ -1223,10 +1241,10 @@ importers:
         specifier: workspace:*
         version: link:../tsconfig
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
 
   packages/sdk:
@@ -1239,7 +1257,7 @@ importers:
         specifier: workspace:*
         version: link:../tsconfig
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
 
   packages/shared:
@@ -1260,7 +1278,7 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
       zustand:
-        specifier: ^5.0.2
+        specifier: 'catalog:'
         version: 5.0.14(@types/react@19.2.17)(immer@11.1.15)(react@19.0.0)(use-sync-external-store@1.6.0(react@19.0.0))
     devDependencies:
       '@ihui/eslint-config':
@@ -1270,16 +1288,16 @@ importers:
         specifier: 19.2.17
         version: 19.2.17
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/tsconfig: {}
@@ -1290,16 +1308,16 @@ importers:
         specifier: workspace:*
         version: link:../eslint-config
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
       vitest:
-        specifier: ^2.1.8
+        specifier: 'catalog:'
         version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/ui-native:
@@ -1330,7 +1348,7 @@ importers:
         specifier: 19.2.17
         version: 19.2.17
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
 
   packages/ui-react:
@@ -1385,16 +1403,16 @@ importers:
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.17)
       eslint:
-        specifier: ^9.16.0
+        specifier: 'catalog:'
         version: 9.39.4(jiti@2.7.0)
       react-dom:
         specifier: ^19.0.0
         version: 19.0.0(react@19.0.0)
       rimraf:
-        specifier: ^6.0.1
+        specifier: 'catalog:'
         version: 6.1.3
       typescript:
-        specifier: ^5.7.2
+        specifier: 'catalog:'
         version: 5.9.3
 
 packages:
@@ -31350,8 +31368,8 @@ snapshots:
       '@typescript-eslint/parser': 8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       eslint: 9.39.4(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-react-hooks: 5.2.0(eslint@9.39.4(jiti@2.7.0))
@@ -31370,7 +31388,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0)):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3
@@ -31381,22 +31399,22 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.12.2
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0)):
+  eslint-module-utils@2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       eslint: 9.39.4(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -31407,7 +31425,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.39.4(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-module-utils: 2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0))
+      eslint-module-utils: 2.14.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
       hasown: 2.0.4
       is-core-module: 2.16.2
       is-glob: 4.0.3

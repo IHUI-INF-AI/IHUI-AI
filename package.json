@@ -60,7 +60,8 @@
     "nativewind:status": "node scripts/check-nativewind-status.mjs",
     "check:button-wrap": "node scripts/check-shrinkable-text-button.mjs",
     "seo:indexnow": "node scripts/notify-indexnow.mjs",
-    "social-preview": "node scripts/generate-social-preview.mjs"
+    "social-preview": "node scripts/generate-social-preview.mjs",
+    "guardian:docs": "node scripts/generate-guardian-docs.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",
@@ -68,16 +69,16 @@
     "@ihui/eslint-config": "workspace:^",
     "@next/eslint-plugin-next": "^15.5.0",
     "@types/node": "^22.10.0",
-    "eslint": "^9.16.0",
+    "eslint": "catalog:",
     "eslint-plugin-jsx-a11y": "^6.10.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "lint-staged": "^15.2.0",
     "opencc-js": "^1.4.1",
     "prettier": "^3.4.2",
-    "rimraf": "^6.0.1",
+    "rimraf": "catalog:",
     "sharp": "^0.35.3",
     "turbo": "^2.10.5",
-    "typescript": "^5.7.2"
+    "typescript": "catalog:"
   },
   "pnpm": {
     "overrides": {

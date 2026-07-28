@@ -92,14 +92,14 @@
     "@types/sql.js": "^1.4.9",
     "@types/ws": "^8.5.12",
     "drizzle-kit": "^0.30.0",
-    "eslint": "^9.16.0",
+    "eslint": "catalog:",
     "js-yaml": "^4.1.0",
     "mailparser": "^3.9.14",
-    "rimraf": "^6.0.1",
+    "rimraf": "catalog:",
     "smtp-server": "^3.19.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
     "ws": "^8.18.0"
   }
 }
