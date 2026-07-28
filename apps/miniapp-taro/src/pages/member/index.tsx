@@ -5,6 +5,7 @@ import { useState, useCallback } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo } from '@/api'
 import { useI18n } from '@/i18n'
+import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
 import './index.css'
 
 interface BenefitItem {
@@ -36,36 +37,6 @@ const LEVEL_TIERS: LevelTier[] = [
   { key: 'gold', name: '金卡会员', threshold: '成长值 ≥ 2000', perks: '免费课程 / 专属客服' },
   { key: 'diamond', name: '钻石会员', threshold: '成长值 ≥ 8000', perks: '全部权益 / 私董会' },
 ]
-
-/** 时间戳(秒/毫秒)或 ISO 字符串 → 毫秒数 */
-const toMs = (v: number | string | undefined): number => {
-  if (!v) return 0
-  if (typeof v === 'number') return v > 1e12 ? v : v * 1000
-  const n = Number(v)
-  if (!isNaN(n) && n > 0) return n > 1e12 ? n : n * 1000
-  const d = Date.parse(v)
-  return isNaN(d) ? 0 : d
-}
-
-/** 计算 VIP 到期剩余天数 */
-const calcRemainDays = (expireTime: string | number | undefined): number => {
-  const ms = toMs(expireTime)
-  if (!ms) return 0
-  const diff = ms - Date.now()
-  return diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : 0
-}
-
-/** 格式化时间 → YYYY-MM-DD */
-const formatDate = (v: string | number | undefined): string => {
-  const ms = toMs(v)
-  if (!ms) return ''
-  const d = new Date(ms)
-  if (isNaN(d.getTime())) return ''
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 /** 从 UserInfo 索引签名安全取值 */
 const readStr = (obj: Record<string, unknown>, key: string): string | undefined => {
@@ -127,12 +98,12 @@ export default function MemberIndexPage() {
 
   const isVip = Boolean(profile.isVip)
   const isPermanentVip = Boolean(profile.isPermanentVip)
-  const remainDays = calcRemainDays(profile.vipExpireTime)
+  const remainDays = calcVipRemainDays(profile.vipExpireTime)
   const expireText = isPermanentVip
     ? tt('member.index.permanentVip', '永久有效')
     : profile.vipExpireTime
       ? remainDays > 0
-        ? `${formatDate(profile.vipExpireTime)} ${tt('member.index.expire', '到期')}`
+        ? `${formatDateByTemplate(profile.vipExpireTime, 'YYYY-MM-DD')} ${tt('member.index.expire', '到期')}`
         : tt('member.index.expired', '已过期')
       : ''
 
