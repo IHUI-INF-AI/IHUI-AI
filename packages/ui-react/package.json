@@ -41,9 +41,9 @@
     "@ihui/eslint-config": "workspace:*",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "typescript": "^5.7.2",
-    "eslint": "^9.16.0",
-    "rimraf": "^6.0.1",
+    "typescript": "catalog:",
+    "eslint": "catalog:",
+    "rimraf": "catalog:",
     "react-dom": "^19.0.0"
   }
 }
