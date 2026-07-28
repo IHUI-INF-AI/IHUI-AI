@@ -148,5 +148,134 @@
       "mimePlaceholder": "MIME type, e.g. text/plain",
       "contentPlaceholder": "Base64 content"
     }
+  },
+  "common": {
+    "ok": "OK",
+    "gotIt": "Got it"
+  },
+  "aiAssistant": {
+    "chat": {
+      "title": "Start Chat",
+      "message": "Starting a chat with \"{{name}}\""
+    }
+  },
+  "aiCareer": {
+    "plan": {
+      "title": "Generate Plan",
+      "message": "Generating a 90-day growth plan for \"{{name}}\""
+    }
+  },
+  "aigcCover": {
+    "applied": {
+      "title": "Cover Applied",
+      "message": "Cover applied for \"{{title}}\": {{label}}"
+    },
+    "aiGen": {
+      "title": "AI Cover Generation",
+      "message": "Feature under development"
+    }
+  },
+  "aigcPublish": {
+    "success": {
+      "title": "Published Successfully",
+      "message": "Work submitted for review"
+    }
+  },
+  "aiGroup": {
+    "join": {
+      "title": "Join Group",
+      "message": "Requested to join \"{{name}}\""
+    }
+  },
+  "assistant": {
+    "edit": {
+      "title": "Actions",
+      "message": "Configure sales settings for \"{{name}}\""
+    },
+    "offline": {
+      "title": "Confirm Offline",
+      "message": "Are you sure you want to take \"{{name}}\" offline?",
+      "confirmBtn": "Take Offline",
+      "done": "Taken Offline"
+    }
+  },
+  "chatAlert": {
+    "compaction": {
+      "title": "Context Auto-Compacted",
+      "message": "{{before}} → {{after}} (removed {{removed}} messages)"
+    },
+    "loginBtn": "Log in",
+    "longPress": {
+      "myTitle": "My Message",
+      "aiTitle": "AI Message",
+      "message": "Screenshot generated",
+      "shareBtn": "Share"
+    }
+  },
+  "devEnter": {
+    "error": {
+      "nameRequired": "Please enter developer name",
+      "contactRequired": "Please enter contact info",
+      "introMin": "Intro must be at least 10 characters",
+      "agreeRequired": "Please accept the developer agreement first"
+    },
+    "success": {
+      "title": "Submitted Successfully",
+      "message": "Application submitted. Review result will be notified within 3 business days."
+    }
+  },
+  "liveHost": {
+    "error": {
+      "titleRequired": "Please enter a stream title",
+      "startFailed": "Failed to start live stream",
+      "endFailed": "Failed to end live stream"
+    },
+    "ended": {
+      "title": "Live Stream Ended",
+      "message": "Stream duration: {{duration}}"
+    },
+    "productAdd": {
+      "message": "Product adding feature coming soon"
+    }
+  },
+  "modelEdit": {
+    "error": {
+      "categoryRequired": "Please select a content category",
+      "priceRequired": "Please enter a price"
+    },
+    "success": {
+      "title": "Submitted Successfully",
+      "message": "Configuration submitted for review"
+    }
+  },
+  "n8nModel": {
+    "toggle": {
+      "stopTitle": "Stop Workflow",
+      "startTitle": "Start Workflow",
+      "stopMessage": "Are you sure you want to stop \"{{name}}\"?",
+      "startMessage": "Are you sure you want to start \"{{name}}\"?",
+      "success": "Operation successful"
+    }
+  },
+  "modelPlaza": {
+    "compare": {
+      "title": "Compare Models",
+      "message": "Please select 2-3 models to compare"
+    },
+    "detail": {
+      "title": "Model Details",
+      "message": "View full specs and pricing for \"{{name}}\""
+    }
+  },
+  "tokenValue": {
+    "recharge": {
+      "title": "Confirm Recharge",
+      "message": "Package: {{tokens}} Token · ¥{{price}}",
+      "payBtn": "Pay Now",
+      "success": {
+        "title": "Payment Successful",
+        "message": "{{tokens}} Token credited"
+      }
+    }
   }
 }

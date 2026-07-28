@@ -1,23 +1,9 @@
 import { unwrapApi as api } from '@/lib/api-helpers'
+import type { AdminArticle, AdminArticlesData, ArticleStatus } from '@ihui/types'
 
-export type ArticleStatus = 'draft' | 'published'
-
-export interface Article {
-  id: string
-  title: string
-  authorName?: string | null
-  categoryName?: string | null
-  status: ArticleStatus
-  viewCount: number
-  createdAt: string
-  summary?: string | null
-  content?: string
-}
-
-export interface ArticlesData {
-  list: Article[]
-  total: number
-}
+export type { ArticleStatus } from '@ihui/types'
+export type Article = AdminArticle
+export type ArticlesData = AdminArticlesData
 
 export interface ArticleForm {
   title: string

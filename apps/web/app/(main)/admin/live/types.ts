@@ -1,62 +1,19 @@
 import { unwrapApi as api } from '@/lib/api-helpers'
 import { selectClass } from '@/lib/form-styles'
+import type {
+  LiveChannel,
+  LiveChannelsData,
+  LiveLecturer,
+  LiveStatistics as LiveStatsType,
+} from '@ihui/types'
 
 export { api, selectClass }
 
-export interface Channel {
-  id: string
-  title: string
-  coverImage: string | null
-  intro: string | null
-  introduction: string | null
-  cidList: string[] | null
-  showNumber: number | null
-  enableChat: boolean | null
-  categoryId: string | null
-  categoryName: string | null
-  lecturerId: string | null
-  lecturerName: string | null
-  pushUrl: string | null
-  playUrl: string | null
-  startTime: string | null
-  endTime: string | null
-  isLive: boolean
-  isPublished: boolean
-  sort: number
-  status: number
-  viewCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Category {
-  id: string
-  name: string
-  sort: number
-  status: number
-}
-
-export interface Lecturer {
-  id: string
-  name: string
-  title: string | null
-  sort: number
-  status: number
-}
-
-export interface ChannelsData {
-  list: Channel[]
-  total: number
-  page: number
-  pageSize: number
-}
-
-export interface LiveStatistics {
-  total: number
-  living: number
-  published: number
-  viewSum: number
-}
+export type { AdminCategory as Category } from '@ihui/types'
+export type Channel = LiveChannel
+export type Lecturer = LiveLecturer
+export type ChannelsData = LiveChannelsData
+export type LiveStatistics = LiveStatsType
 
 export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE=20
 

@@ -1,6 +1,11 @@
 import Taro from '@tarojs/taro'
 import { getStorageSync } from '@tarojs/taro'
-import { SHARE_PARAM } from '@ihui/shared/constants'
+import {
+  getSharePath as sharedGetSharePath,
+  getShareInfo as sharedGetShareInfo,
+  getTimelineShareInfo as sharedGetTimelineShareInfo,
+  type ShareDefaults,
+} from '@ihui/shared/share'
 import { USER_INFO_LEGACY_KEY } from '@/constants/storage'
 import type { ShareInfo, TimelineShareInfo } from '@ihui/types'
 
@@ -9,8 +14,10 @@ export type { ShareInfo, TimelineShareInfo } from '@ihui/types'
 
 // 2026-07-28 Q-2: 跨端共享的 URL 参数(source/sourceValue/inviteCodeParam)
 // 改用 @ihui/shared/constants SHARE_PARAM,消除本地重复定义。
-// 保留 defaultTitle/defaultImageUrl/fallbackPath(端独占配置)。
-export const shareConfig = {
+// 2026-07-28 Q-6: getSharePath/getShareInfo/getTimelineShareInfo 的纯逻辑部分
+// 下沉到 @ihui/shared/share,本文件保留端独占的 shareConfig 默认值 + getInviteCode
+// (storage 读取) + Taro API 调用(showShareMenu/hideShareMenu)。
+export const shareConfig: ShareDefaults = {
   defaultTitle: '智汇AI',
   defaultImageUrl: '/static/share.png',
   fallbackPath: '/pages/index/index',
@@ -22,28 +29,40 @@ export function getInviteCode(): string {
   return (userData as { inviteCode?: string }).inviteCode || ''
 }
 
+/**
+ * 构建分享路径(端薄封装):用 shareConfig.fallbackPath 兜底 + 从 storage 读 inviteCode,
+ * 调用 @ihui/shared/share 的纯逻辑 getSharePath。
+ * 保留原签名 (currentPath?: string) => string,外部调用方 / 测试无需修改。
+ */
 export function getSharePath(currentPath?: string): string {
-  const path = currentPath || shareConfig.fallbackPath
-  const inviteCode = getInviteCode()
-  const query = `${SHARE_PARAM.SOURCE_PARAM}=${SHARE_PARAM.SOURCE_VALUE}&${SHARE_PARAM.INVITE_CODE_PARAM}=${inviteCode}`
-  return path.includes('?') ? `${path}&${query}` : `${path}?${query}`
+  return sharedGetSharePath(currentPath || shareConfig.fallbackPath, getInviteCode())
 }
 
+/**
+ * 构建好友分享信息对象(端薄封装):注入 shareConfig + inviteCode。
+ * 保留原签名 (currentPath?, title?, imageUrl?) => ShareInfo。
+ */
 export function getShareInfo(currentPath?: string, title?: string, imageUrl?: string): ShareInfo {
-  return {
-    title: title || shareConfig.defaultTitle,
-    path: getSharePath(currentPath),
-    imageUrl: imageUrl || shareConfig.defaultImageUrl,
-  }
+  return sharedGetShareInfo({
+    defaults: shareConfig,
+    path: currentPath,
+    title,
+    imageUrl,
+    inviteCode: getInviteCode(),
+  })
 }
 
+/**
+ * 构建朋友圈分享信息对象(端薄封装):注入 shareConfig + inviteCode。
+ * 保留原签名 (title?, imageUrl?) => TimelineShareInfo。
+ */
 export function getTimelineShareInfo(title?: string, imageUrl?: string): TimelineShareInfo {
-  const inviteCode = getInviteCode()
-  return {
-    title: title || shareConfig.defaultTitle,
-    query: `${SHARE_PARAM.SOURCE_PARAM}=${SHARE_PARAM.SOURCE_VALUE}&${SHARE_PARAM.INVITE_CODE_PARAM}=${inviteCode}`,
-    imageUrl: imageUrl || shareConfig.defaultImageUrl,
-  }
+  return sharedGetTimelineShareInfo({
+    defaults: shareConfig,
+    title,
+    imageUrl,
+    inviteCode: getInviteCode(),
+  })
 }
 
 export function showShareMenu(

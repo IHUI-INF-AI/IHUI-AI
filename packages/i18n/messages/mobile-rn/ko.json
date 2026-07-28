@@ -148,5 +148,134 @@
       "mimePlaceholder": "MIME 유형, 예: text/plain",
       "contentPlaceholder": "Base64 내용"
     }
+  },
+  "common": {
+    "ok": "확인",
+    "gotIt": "알겠습니다"
+  },
+  "aiAssistant": {
+    "chat": {
+      "title": "대화 시작",
+      "message": "「{{name}}」와(과) 대화를 시작합니다"
+    }
+  },
+  "aiCareer": {
+    "plan": {
+      "title": "계획 생성",
+      "message": "「{{name}}」의 90일 성장 계획을 생성 중"
+    }
+  },
+  "aigcCover": {
+    "applied": {
+      "title": "표지 적용 완료",
+      "message": "「{{title}}」에 표지를 적용했습니다:{{label}}"
+    },
+    "aiGen": {
+      "title": "AI 표지 생성",
+      "message": "기능 개발 중"
+    }
+  },
+  "aigcPublish": {
+    "success": {
+      "title": "게시 성공",
+      "message": "작품이 심사에 제출되었습니다"
+    }
+  },
+  "aiGroup": {
+    "join": {
+      "title": "그룹 가입",
+      "message": "「{{name}}」 가입을 신청했습니다"
+    }
+  },
+  "assistant": {
+    "edit": {
+      "title": "작업",
+      "message": "「{{name}}」의 판매 설정"
+    },
+    "offline": {
+      "title": "게시 중단 확인",
+      "message": "「{{name}}」을(를) 게시 중단하시겠습니까?",
+      "confirmBtn": "게시 중단",
+      "done": "게시 중단됨"
+    }
+  },
+  "chatAlert": {
+    "compaction": {
+      "title": "컨텍스트가 자동 압축되었습니다",
+      "message": "{{before}} → {{after}}({{removed}}개 기록 제거)"
+    },
+    "loginBtn": "로그인",
+    "longPress": {
+      "myTitle": "내 메시지",
+      "aiTitle": "AI 메시지",
+      "message": "스크린샷이 생성되었습니다",
+      "shareBtn": "공유"
+    }
+  },
+  "devEnter": {
+    "error": {
+      "nameRequired": "개발자 이름을 입력하세요",
+      "contactRequired": "연락처를 입력하세요",
+      "introMin": "소개는 최소 10자 이상이어야 합니다",
+      "agreeRequired": "개발자 약관에 동의해 주세요"
+    },
+    "success": {
+      "title": "제출 성공",
+      "message": "신청이 제출되었습니다. 심사 결과는 3영업일 이내에 통지됩니다."
+    }
+  },
+  "liveHost": {
+    "error": {
+      "titleRequired": "라이브 제목을 입력하세요",
+      "startFailed": "라이브 시작 실패",
+      "endFailed": "라이브 종료 실패"
+    },
+    "ended": {
+      "title": "라이브가 종료되었습니다",
+      "message": "라이브 시간:{{duration}}"
+    },
+    "productAdd": {
+      "message": "상품 추가 기능은 추후 제공됩니다"
+    }
+  },
+  "modelEdit": {
+    "error": {
+      "categoryRequired": "콘텐츠 유형을 선택하세요",
+      "priceRequired": "가격을 입력하세요"
+    },
+    "success": {
+      "title": "제출 성공",
+      "message": "설정이 심사에 제출되었습니다"
+    }
+  },
+  "n8nModel": {
+    "toggle": {
+      "stopTitle": "워크플로우 중지",
+      "startTitle": "워크플로우 시작",
+      "stopMessage": "「{{name}}」을(를) 중지하시겠습니까?",
+      "startMessage": "「{{name}}」을(를) 시작하시겠습니까?",
+      "success": "작업 성공"
+    }
+  },
+  "modelPlaza": {
+    "compare": {
+      "title": "모델 비교",
+      "message": "비교할 모델 2-3개를 선택하세요"
+    },
+    "detail": {
+      "title": "모델 상세",
+      "message": "「{{name}}」의 전체 사양과 가격 보기"
+    }
+  },
+  "tokenValue": {
+    "recharge": {
+      "title": "충전 확인",
+      "message": "패키지:{{tokens}} Token · ¥{{price}}",
+      "payBtn": "지금 결제",
+      "success": {
+        "title": "결제 성공",
+        "message": "{{tokens}} Token이 충전되었습니다"
+      }
+    }
   }
 }

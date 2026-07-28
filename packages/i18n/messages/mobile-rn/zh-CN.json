@@ -148,5 +148,134 @@
       "mimePlaceholder": "MIME 类型,如 text/plain",
       "contentPlaceholder": "Base64 内容"
     }
+  },
+  "common": {
+    "ok": "好的",
+    "gotIt": "知道了"
+  },
+  "aiAssistant": {
+    "chat": {
+      "title": "进入对话",
+      "message": "即将与「{{name}}」开始对话"
+    }
+  },
+  "aiCareer": {
+    "plan": {
+      "title": "生成规划",
+      "message": "正在为「{{name}}」生成 90 天成长计划"
+    }
+  },
+  "aigcCover": {
+    "applied": {
+      "title": "封面已应用",
+      "message": "已为「{{title}}」应用封面:{{label}}"
+    },
+    "aiGen": {
+      "title": "AI 生成封面",
+      "message": "功能开发中"
+    }
+  },
+  "aigcPublish": {
+    "success": {
+      "title": "发布成功",
+      "message": "作品已提交审核"
+    }
+  },
+  "aiGroup": {
+    "join": {
+      "title": "加入群组",
+      "message": "已申请加入「{{name}}」"
+    }
+  },
+  "assistant": {
+    "edit": {
+      "title": "操作",
+      "message": "设置「{{name}}」的售卖配置"
+    },
+    "offline": {
+      "title": "下架确认",
+      "message": "是否确定下架「{{name}}」?",
+      "confirmBtn": "确定下架",
+      "done": "已下架"
+    }
+  },
+  "chatAlert": {
+    "compaction": {
+      "title": "上下文已自动压缩",
+      "message": "{{before}} → {{after}}(移除 {{removed}} 条历史)"
+    },
+    "loginBtn": "去登录",
+    "longPress": {
+      "myTitle": "我的消息",
+      "aiTitle": "AI 消息",
+      "message": "截图已生成",
+      "shareBtn": "分享"
+    }
+  },
+  "devEnter": {
+    "error": {
+      "nameRequired": "请输入开发者名称",
+      "contactRequired": "请输入联系方式",
+      "introMin": "简介至少 10 个字符",
+      "agreeRequired": "请先同意开发者协议"
+    },
+    "success": {
+      "title": "提交成功",
+      "message": "申请已提交,审核结果将在 3 个工作日内通知"
+    }
+  },
+  "liveHost": {
+    "error": {
+      "titleRequired": "请输入直播标题",
+      "startFailed": "开启直播失败",
+      "endFailed": "结束直播失败"
+    },
+    "ended": {
+      "title": "直播已结束",
+      "message": "本次直播时长:{{duration}}"
+    },
+    "productAdd": {
+      "message": "商品添加功能待接入"
+    }
+  },
+  "modelEdit": {
+    "error": {
+      "categoryRequired": "请选择内容种类",
+      "priceRequired": "请输入价格"
+    },
+    "success": {
+      "title": "提交成功",
+      "message": "配置已提交审核"
+    }
+  },
+  "n8nModel": {
+    "toggle": {
+      "stopTitle": "停止工作流",
+      "startTitle": "启动工作流",
+      "stopMessage": "确定停止「{{name}}」吗?",
+      "startMessage": "确定启动「{{name}}」吗?",
+      "success": "操作成功"
+    }
+  },
+  "modelPlaza": {
+    "compare": {
+      "title": "模型对比",
+      "message": "请选择 2-3 个模型加入对比"
+    },
+    "detail": {
+      "title": "模型详情",
+      "message": "查看「{{name}}」完整参数与定价"
+    }
+  },
+  "tokenValue": {
+    "recharge": {
+      "title": "确认充值",
+      "message": "套餐:{{tokens}} Token · ¥{{price}}",
+      "payBtn": "立即支付",
+      "success": {
+        "title": "支付成功",
+        "message": "已到账 {{tokens}} Token"
+      }
+    }
   }
 }

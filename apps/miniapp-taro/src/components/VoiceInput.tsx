@@ -2,16 +2,11 @@ import { View, Text } from '@tarojs/components'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import streamingRecognizer from '@/utils/streaming-recognizer'
 import { useI18n } from '@/i18n'
+import type { VoiceInputMinimalProps } from '@ihui/types'
 
-export interface VoiceInputProps {
-  disabled?: boolean
-  placeholder?: string
-  /** 实时识别(部分结果) */
-  onChange?: (text: string) => void
-  /** 最终识别结果 */
-  onComplete?: (text: string) => void
-  onError?: (message: string) => void
-}
+// 共享类型 VoiceInputMinimalProps 已下沉到 @ihui/types,
+// 本地 Props 完全匹配 Minimal,直接用 type alias。
+export type VoiceInputProps = VoiceInputMinimalProps
 
 const WAVE_BARS = [0, 1, 2, 3, 4, 5, 6]
 
