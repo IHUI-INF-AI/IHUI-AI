@@ -455,7 +455,7 @@ export default function AgentDialogue() {
     if (roomName) setChatTitle(roomName)
     if (avatar) sellerAvatarRef.current = avatar
 
-    const userData = (Taro.getStorageSync('data') || {}) as {
+    const userData = (Taro.getStorageSync('ihui-agent-dialogue-data') || {}) as {
       uuid?: string
       avatar?: string
       headimgurl?: string

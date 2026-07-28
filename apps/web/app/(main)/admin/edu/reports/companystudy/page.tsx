@@ -3,7 +3,15 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, ChevronLeft, ChevronRight, BarChart3, Building2, Users, Clock } from 'lucide-react'
+import {
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  BarChart3,
+  Building2,
+  Users,
+  Clock,
+} from 'lucide-react'
 
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
@@ -56,9 +64,9 @@ export default function EduReportsCompanyStudyPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const totalEmployees = rows.reduce((a: any, r: any) => a + r.employeeCount, 0)
-  const totalActive = rows.reduce((a: any, r: any) => a + r.activeEmployees, 0)
-  const totalHours = rows.reduce((a: any, r: any) => a + r.totalStudyHours, 0)
+  const totalEmployees = rows.reduce((a, r) => a + r.employeeCount, 0)
+  const totalActive = rows.reduce((a, r) => a + r.activeEmployees, 0)
+  const totalHours = rows.reduce((a, r) => a + r.totalStudyHours, 0)
   const noEndpoint = isNotFound(error)
 
   return (
@@ -159,11 +167,13 @@ export default function EduReportsCompanyStudyPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r: any) => (
+              rows.map((r) => (
                 <TableRow key={r.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">{r.companyName}</TableCell>
                   <TableCell className="px-4 py-2.5">{r.employeeCount}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-emerald-600">{r.activeEmployees}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-emerald-600">
+                    {r.activeEmployees}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5">{r.totalStudyHours.toFixed(1)}h</TableCell>
                   <TableCell className="px-4 py-2.5">{r.completedCourses}</TableCell>
                 </TableRow>
@@ -176,11 +186,23 @@ export default function EduReportsCompanyStudyPage() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

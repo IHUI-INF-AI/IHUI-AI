@@ -86,10 +86,10 @@ export default function MessageOverviewPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">消息概览</h1>
-        <p className="text-sm text-muted-foreground">通知 / 公告 / 私信总数与近 7 天通知趋势</p>
+        <p className="text-xs text-muted-foreground">通知 / 公告 / 私信总数与近 7 天通知趋势</p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

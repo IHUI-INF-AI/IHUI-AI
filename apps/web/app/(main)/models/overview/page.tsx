@@ -78,10 +78,10 @@ export default async function OverviewPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('overview.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('overview.subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('overview.subtitle')}</p>
       </header>
 
       {/* 统计卡片 */}

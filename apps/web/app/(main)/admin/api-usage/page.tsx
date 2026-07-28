@@ -101,7 +101,7 @@ export default function ApiUsagePage() {
   const maxCalls = dayUsageList.length > 0 ? Math.max(...dayUsageList.map((d) => d.calls)) : 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <BarChart3 className="h-6 w-6 text-primary" />
@@ -113,12 +113,12 @@ export default function ApiUsagePage() {
       {/* 统计卡 */}
       <section>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {tc('search')}
           </div>
         ) : !stats ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('apiUsage.noData')}
           </div>
         ) : (
@@ -189,7 +189,7 @@ export default function ApiUsagePage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('apiUsage.topEndpoints')}</h2>
         {topList.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('apiUsage.noData')}
           </div>
         ) : (

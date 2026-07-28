@@ -27,7 +27,7 @@ export function TeamList({ data, isLoading, error }: Props) {
   return (
     <>
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -72,7 +72,7 @@ export function TeamList({ data, isLoading, error }: Props) {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Users className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -44,7 +44,10 @@ import { cn } from '@/lib/utils'
  * - 占位 skill:不显示调用区,显示引导 + GitHub 链接
  */
 
-const CATEGORY_ICON: Record<AiSkillMeta['category'], React.ComponentType<{ className?: string }>> = {
+const CATEGORY_ICON: Record<
+  AiSkillMeta['category'],
+  React.ComponentType<{ className?: string }>
+> = {
   code: Code,
   media: FileText,
   'ai-top': Sparkles,
@@ -126,7 +129,11 @@ export default function AiSkillDetailPage() {
   const t = useTranslations('aiSkillDetail')
   const tp = useTranslations('aiSkillsPage')
 
-  const { data: skill, isLoading, error } = useQuery({
+  const {
+    data: skill,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['ai-skills', 'detail', id],
     queryFn: () => fetchSkill(id),
     enabled: !!id,
@@ -148,7 +155,7 @@ export default function AiSkillDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-3xl py-16">
+      <div className="mx-auto w-full max-w-3xl py-8">
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{tp('loading')}</span>
@@ -168,14 +175,10 @@ export default function AiSkillDetailPage() {
     )
   }
 
-  const Icon = (CATEGORY_ICON as any)[skill.category] ?? Wand2
+  const Icon = CATEGORY_ICON[skill.category] ?? Wand2
   const detectedVars = parseVariables(skill.promptTemplate)
   // 用 4 个已知变量的顺序 + 检测到的补全顺序
-  const renderVars = detectedVars.length > 0
-    ? detectedVars
-    : skill.available
-      ? ['content']
-      : []
+  const renderVars = detectedVars.length > 0 ? detectedVars : skill.available ? ['content'] : []
 
   const handleSubmit = async () => {
     if (running) return
@@ -223,7 +226,9 @@ export default function AiSkillDetailPage() {
             </Badge>
           </div>
           <div className="text-xs text-muted-foreground">
-            {tp(`category${skill.category === 'ai-top' ? 'AiTop' : skill.category === 'code' ? 'Code' : 'Media'}` as 'categoryCode')}
+            {tp(
+              `category${skill.category === 'ai-top' ? 'AiTop' : skill.category === 'code' ? 'Code' : 'Media'}` as 'categoryCode',
+            )}
             <span className="mx-1.5">·</span>
             <span className="font-mono">{skill.id}</span>
           </div>
@@ -238,7 +243,7 @@ export default function AiSkillDetailPage() {
         <p className="text-sm leading-relaxed text-foreground/90">{skill.description}</p>
         {skill.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {skill.tags.map((tag: any) => (
+            {skill.tags.map((tag: string) => (
               <span
                 key={tag}
                 className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
@@ -271,17 +276,20 @@ export default function AiSkillDetailPage() {
 
           <div className="space-y-2.5">
             {renderVars.map((key) => {
-              const isLong = key === 'content' || key === 'requirements' || key === 'topic' || key === 'platforms'
+              const isLong =
+                key === 'content' ||
+                key === 'requirements' ||
+                key === 'topic' ||
+                key === 'platforms'
               const maxLen = VARIABLE_MAX_LEN[key] ?? 1000
-              const labelKey = (VARIABLE_LABEL_KEY[key] ?? `input${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'inputContent'
-              const placeholderKey = (VARIABLE_PLACEHOLDER_KEY[key] ?? `placeholder${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'placeholderContent'
+              const labelKey = (VARIABLE_LABEL_KEY[key] ??
+                `input${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'inputContent'
+              const placeholderKey = (VARIABLE_PLACEHOLDER_KEY[key] ??
+                `placeholder${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'placeholderContent'
               const val = variables[key] ?? ''
               return (
                 <div key={key} className="space-y-1">
-                  <label
-                    htmlFor={`var-${key}`}
-                    className="text-xs font-medium text-foreground"
-                  >
+                  <label htmlFor={`var-${key}`} className="text-xs font-medium text-foreground">
                     {t(labelKey)}
                   </label>
                   {isLong ? (
@@ -361,9 +369,7 @@ export default function AiSkillDetailPage() {
             <Sparkles className="h-4 w-4 text-primary" />
             {t('comingSoonTitle')}
           </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            {t('comingSoonHint')}
-          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('comingSoonHint')}</p>
         </section>
       )}
 
@@ -377,13 +383,9 @@ export default function AiSkillDetailPage() {
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               {result.model && (
-                <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono">
-                  {result.model}
-                </span>
+                <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono">{result.model}</span>
               )}
-              <span className="rounded-sm bg-muted px-1.5 py-0.5">
-                {result.duration_ms}ms
-              </span>
+              <span className="rounded-sm bg-muted px-1.5 py-0.5">{result.duration_ms}ms</span>
             </div>
           </div>
           <ResultContent result={result} />

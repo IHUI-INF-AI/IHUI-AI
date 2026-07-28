@@ -54,6 +54,13 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+Shift+N', description: '新建对话', event: 'global-shortcut:new-chat' },
   { key: 'Ctrl+/', description: '快捷键帮助', event: '__toggle_help__' },
   { key: 'Ctrl+Shift+D', description: '短剧编辑器', event: 'global-shortcut:open-drama' },
+  // 对话模式切换(2026-07-28 立,补全 ChatMode 4态三通道)
+  // Ctrl+1/2/3/4 切换 build/plan/review/spec,仅在 AI 面板打开时生效(由 ai-side-panel 监听 keydown)
+  // 全局注册主要用于帮助面板展示 + 统一 preventDefault 阻止浏览器 tab 切换默认行为
+  { key: 'Ctrl+1', description: '切换到构建模式', event: 'global-shortcut:mode-build' },
+  { key: 'Ctrl+2', description: '切换到计划模式', event: 'global-shortcut:mode-plan' },
+  { key: 'Ctrl+3', description: '切换到审查模式', event: 'global-shortcut:mode-review' },
+  { key: 'Ctrl+4', description: '切换到规格模式', event: 'global-shortcut:mode-spec' },
 ]
 
 // ============================================================================

@@ -4,7 +4,17 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Plus, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react'
-import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@ihui/ui-react'
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+  cn,
+} from '@ihui/ui-react'
 import {
   Dialog,
   DialogTrigger,
@@ -17,11 +27,7 @@ import {
 import { CenteredText } from '@/components/common/CenteredText'
 import { useToast } from '@/hooks/use-toast'
 import { useAgentSSE } from '@/hooks/useAgentSSE'
-import {
-  fetchKanbanColumns,
-  createKanbanTask,
-  getKanbanStreamUrl,
-} from '@/lib/agent-kanban-api'
+import { fetchKanbanColumns, createKanbanTask, getKanbanStreamUrl } from '@/lib/agent-kanban-api'
 import type { KanbanTask } from '@ihui/types'
 import { KanbanColumn } from './KanbanColumn'
 import { TaskDetailDialog } from './TaskDetailDialog'
@@ -139,7 +145,9 @@ export function KanbanBoard() {
             )}
           >
             {connected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-            <CenteredText>{connected ? t('kanban.connected') : t('kanban.disconnected')}</CenteredText>
+            <CenteredText>
+              {connected ? t('kanban.connected') : t('kanban.disconnected')}
+            </CenteredText>
           </span>
 
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
@@ -255,18 +263,12 @@ export function KanbanBoard() {
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full gap-3 pb-2">
             {COLUMN_STATUSES.map((status) => {
-              const column = columns.find((c: any) => c.status === status) ?? {
+              const column = columns.find((c) => c.status === status) ?? {
                 status,
                 titleKey: `agents.kanban.${status}`,
                 tasks: [],
               }
-              return (
-                <KanbanColumn
-                  key={status}
-                  column={column}
-                  onSelectTask={handleSelectTask}
-                />
-              )
+              return <KanbanColumn key={status} column={column} onSelectTask={handleSelectTask} />
             })}
           </div>
         </div>

@@ -525,15 +525,15 @@ class LLMGateway:
             cfg = settings.get_provider_config("anthropic")
             return cfg.api_key, cfg.api_base or None, model
         if m.startswith("ollama/"):
-            return os.environ.get("OLLAMA_API_KEY") or None, os.environ.get("OLLAMA_API_BASE", "http://localhost:11434"), model
+            return settings.ollama_api_key or None, settings.ollama_api_base, model
         if m.startswith("lmstudio/"):
-            return os.environ.get("LMSTUDIO_API_KEY") or "lm-studio", os.environ.get("LMSTUDIO_API_BASE", "http://localhost:1234"), model
+            return settings.lmstudio_api_key or "lm-studio", settings.lmstudio_api_base, model
         if m.startswith("llamacpp/"):
-            return None, os.environ.get("LLAMACPP_API_BASE", "http://localhost:8080"), model
+            return None, settings.llamacpp_api_base, model
         if m.startswith("azure/"):
-            return os.environ.get("AZURE_API_KEY") or None, os.environ.get("AZURE_API_BASE") or None, model
+            return settings.azure_api_key or None, settings.azure_api_base or None, model
         if m.startswith("bedrock/"):
-            return os.environ.get("AWS_ACCESS_KEY_ID") or None, None, model
+            return settings.aws_access_key_id or None, None, model
         # 2026-07-22 接入:免费 / 试用 credits provider(均为 OpenAI 兼容,走 LiteLLM openai/{model} 路径)
         # Cloudflare Workers AI:模型 ID 以 @cf/ 开头,API base 含 account_id
         if m.startswith(("cloudflare/", "@cf/")):

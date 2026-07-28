@@ -97,7 +97,7 @@ export default function TaskReceiverPageClient() {
       {msg && <p className="mb-2 text-xs text-muted-foreground">{msg}</p>}
 
       {tasks.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card px-12 py-12 text-center text-muted-foreground">
+        <div className="rounded-lg border border-border bg-card px-12 py-8 text-center text-muted-foreground">
           {t('emptyWaiting')}
         </div>
       ) : (

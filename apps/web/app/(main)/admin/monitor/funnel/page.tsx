@@ -116,7 +116,7 @@ export default function AdminMonitorFunnelPage() {
             <p className="py-10 text-center text-sm text-muted-foreground">暂无漏斗数据</p>
           ) : (
             <div className="space-y-3">
-              {stages.map((s: any, i: any) => {
+              {stages.map((s, i) => {
                 const width = maxCount > 0 ? (s.count / maxCount) * 100 : 0
                 const prev = i > 0 ? stages[i - 1] : undefined
                 const dropRate =

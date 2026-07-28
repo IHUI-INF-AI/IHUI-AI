@@ -194,3 +194,70 @@ export async function wecomLogin(code: string): Promise<ApiResult<LoginResult>> 
     `/api/auth/login/enterprise/pc/wxCode?code=${encodeURIComponent(code)}`,
   )
 }
+
+// =============================================================================
+// 用户名登录 / 邮箱验证码 / 重置密码 / 注册邮箱
+// (2026-07-27 补建:消除 web 端 login 表单直 fetch,统一走 api-client)
+// =============================================================================
+
+/** 用户名密码登录 — POST /auth/login/username */
+export async function loginByUsername(
+  username: string,
+  password: string,
+): Promise<ApiResult<LoginResult>> {
+  return fetchApi<LoginResult>('/api/auth/login/username', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  })
+}
+
+/**
+ * 发送验证码(手机/邮箱通用) — POST /auth/send-code
+ * body 字段名按 method 动态决定(phone → {phone, scene} / email → {email, scene})
+ */
+export async function sendCode(
+  method: 'phone' | 'email',
+  target: string,
+  scene: SmsScene = 'login',
+): Promise<ApiResult<{ sent: boolean }>> {
+  return fetchApi<{ sent: boolean }>('/api/auth/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ [method]: target, scene }),
+  })
+}
+
+/** 重置密码 — POST /auth/reset-password */
+export async function resetPassword(input: {
+  method: 'phone' | 'email'
+  target: string
+  code: string
+  newPassword: string
+}): Promise<ApiResult<{ success: boolean }>> {
+  return fetchApi<{ success: boolean }>('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 发送邮箱验证码 — POST /auth/email/code */
+export async function sendEmailCode(
+  email: string,
+  scene: SmsScene = 'register',
+): Promise<ApiResult<{ sent: boolean }>> {
+  return fetchApi<{ sent: boolean }>('/api/auth/email/code', {
+    method: 'POST',
+    body: JSON.stringify({ email, scene }),
+  })
+}
+
+/** 邮箱注册 — POST /auth/register/email(只发送后端必需字段,confirmPassword 由前端校验) */
+export async function registerByEmail(
+  email: string,
+  code: string,
+  password: string,
+): Promise<ApiResult<LoginResult>> {
+  return fetchApi<LoginResult>('/api/auth/register/email', {
+    method: 'POST',
+    body: JSON.stringify({ email, code, password }),
+  })
+}

@@ -97,22 +97,22 @@ export default function ArticleEditPage() {
 
   if (loadingDetail && isEdit) {
     return (
-      <div className="flex justify-center py-16">
+      <div className="flex justify-center py-8">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Edit className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">
             {isEdit ? t('editTitle', { default: '编辑文章' }) : t('editTitle')}
           </h1>
         </div>
-        <p className="text-sm text-muted-foreground">{t('editSubtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('editSubtitle')}</p>
       </header>
 
       <Link

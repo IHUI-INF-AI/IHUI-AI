@@ -15,7 +15,7 @@ function SuccessContent() {
   const amount = searchParams.get('amount')
 
   return (
-    <div className="mx-auto w-full max-w-md py-16">
+    <div className="mx-auto w-full max-w-md py-8">
       <Card>
         <CardContent className="flex flex-col items-center gap-6 px-6 py-10 text-center">
           <CheckCircle2 className="h-16 w-16 text-emerald-500" />
@@ -59,7 +59,7 @@ export default function RechargeSuccessPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           Loading...
         </div>
