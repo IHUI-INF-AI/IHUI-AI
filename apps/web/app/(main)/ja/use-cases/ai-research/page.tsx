@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/ja/use-cases/ai-research#webpage',
-      url: 'https://ihui.ai/ja/use-cases/ai-research',
+      '@id': 'https://aizhs.top/ja/use-cases/ai-research#webpage',
+      url: 'https://aizhs.top/ja/use-cases/ai-research',
       name: 'AI 学術研究アシスタント Agent ユースケース — IHUI AI',
       description:
         'IHUI AI フルスタック AI OS を基盤に構築する AI 学術研究アシスタント:論文検索・綜述、PDF 解析、引用管理、研究トレンド分析、分野横断ナレッジグラフ。30 分で導入、8 エンドポイント配信。',
       inLanguage: ['ja', 'zh-CN', 'zh-TW', 'en', 'ko'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/ja/use-cases/ai-research#breadcrumb',
+      '@id': 'https://aizhs.top/ja/use-cases/ai-research#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'ホーム', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: 'ユースケース', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 学術研究', item: 'https://ihui.ai/ja/use-cases/ai-research' },
+        { '@type': 'ListItem', position: 1, name: 'ホーム', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: 'ユースケース', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 学術研究', item: 'https://aizhs.top/ja/use-cases/ai-research' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/ja/use-cases/ai-research#howto',
+      '@id': 'https://aizhs.top/ja/use-cases/ai-research#howto',
       name: '30 分で AI 学術研究アシスタントを構築',
       description:
         'IHUI AI フルスタック AI OS を基盤に AI 学術研究アシスタントを構築する 6 ステップ:データベース接続 → 文献アップロード → 引用スタイル設定 → 綜述モデル学習 → ナレッジグラフ構築 → トレンドレポート出力。文献調査効率 8 倍。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 学術研究アシスタント — IHUI AI',
     description: '文献検索 + 綜述生成 + ナレッジグラフ、30 分導入。',
-    url: 'https://ihui.ai/ja/use-cases/ai-research',
+    url: 'https://aizhs.top/ja/use-cases/ai-research',
     type: 'article',
   },
 }

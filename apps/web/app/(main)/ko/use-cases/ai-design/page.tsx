@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-design#webpage',
-      url: 'https://ihui.ai/ko/use-cases/ai-design',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-design#webpage',
+      url: 'https://aizhs.top/ko/use-cases/ai-design',
       name: 'AI 디자인 협업 Agent 사용 사례 — IHUI AI',
       description:
         'IHUI AI 풀스택 AI OS 기반의 AI 디자인 협업 Agent:포스터/Logo 콘셉트, UI 스케치를 코드로, 브랜드 자산 관리, 디자인 리뷰, 디자인 시스템 검색. 30분 온보딩, 8엔드포인트 배포.',
       inLanguage: ['ko', 'zh-CN', 'zh-TW', 'en', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-design#breadcrumb',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-design#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '홈', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 디자인', item: 'https://ihui.ai/ko/use-cases/ai-design' },
+        { '@type': 'ListItem', position: 1, name: '홈', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '사용 사례', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 디자인', item: 'https://aizhs.top/ko/use-cases/ai-design' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/ko/use-cases/ai-design#howto',
+      '@id': 'https://aizhs.top/ko/use-cases/ai-design#howto',
       name: '30분 만에 AI 디자인 협업 Agent 구축',
       description:
         'IHUI AI 풀스택 AI OS에서 AI 디자인 협업 Agent를 구축하는 6단계:브랜드 자산 업로드 → 디자인 시스템 설정 → 콘셉트 생성 학습 → 스케치를 코드로 → 리뷰 규칙 설정 → 협업 도구 연결. 디자인 사이클 60% 단축.',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 디자인 협업 Agent — IHUI AI',
     description: '콘셉트 + 스케치를 코드로 + 리뷰, 30분 온보딩.',
-    url: 'https://ihui.ai/ko/use-cases/ai-design',
+    url: 'https://aizhs.top/ko/use-cases/ai-design',
     type: 'article',
   },
 }

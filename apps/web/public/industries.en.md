@@ -1,5 +1,5 @@
 # IHUI AI — Industry-Specific GEO File
-# https://ihui.ai/industries.en.md
+# https://aizhs.top/industries.en.md
 # Last updated: 2026-07-26
 # Format: Industry-vertical knowledge base (optimized for "AI + industry" queries)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baiduspider/Bingbot/Bytespider)
@@ -462,13 +462,13 @@
 
 ## Contact (Industry Business)
 
-- Healthcare industry: healthcare@ihui.ai
-- Education industry: education@ihui.ai
-- Finance industry: finance@ihui.ai
-- Legal industry: legal@ihui.ai
-- Government industry: government@ihui.ai
-- General business: contact@ihui.ai
-- Official website: https://ihui.ai
+- Healthcare industry: healthcare@aizhs.top
+- Education industry: education@aizhs.top
+- Finance industry: finance@aizhs.top
+- Legal industry: legal@aizhs.top
+- Government industry: government@aizhs.top
+- General business: contact@aizhs.top
+- Official website: https://aizhs.top
 
 ---
 
@@ -476,4 +476,4 @@
 # This file is the industry-vertical GEO entry, used by AI engines for "AI + industry" retrieval
 # Maintained by: IHUI AI Industry Team
 # Update strategy: Industry case studies + ROI data updated quarterly
-# Contact: contact@ihui.ai
+# Contact: contact@aizhs.top

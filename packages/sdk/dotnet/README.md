@@ -21,7 +21,7 @@ IHUI-AI 平台官方 .NET / C# SDK,完整封装 105 个 `/v1/*` 对外开放 API
 ### NuGet(待发布)
 
 ```bash
-dotnet add package Ihui.AI --version 0.1.0
+dotnet add package aizhs.top --version 0.1.0
 ```
 
 ### 项目引用(本地开发)
@@ -30,7 +30,7 @@ dotnet add package Ihui.AI --version 0.1.0
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\..\path\to\packages\sdk\dotnet\Ihui.AI.csproj" />
+  <ProjectReference Include="..\..\path\to\packages\sdk\dotnet\aizhs.top.csproj" />
 </ItemGroup>
 ```
 
@@ -38,14 +38,14 @@ dotnet add package Ihui.AI --version 0.1.0
 
 ```bash
 cd packages/sdk/dotnet
-dotnet build -c Release       # 产出 bin/Release/net8.0/Ihui.AI.dll
-dotnet pack -c Release        # 产出 bin/Release/Ihui.AI.0.1.0.nupkg
+dotnet build -c Release       # 产出 bin/Release/net8.0/aizhs.top.dll
+dotnet pack -c Release        # 产出 bin/Release/aizhs.top.0.1.0.nupkg
 ```
 
 ## 快速开始
 
 ```csharp
-using Ihui.AI;
+using aizhs.top;
 
 var client = IhuiClient.CreateBuilder()
     .WithApiKey("ihui_xxx")
@@ -384,7 +384,7 @@ SDK 自动为每个请求注入以下 header:
 ```bash
 cd packages/sdk/dotnet
 dotnet build -c Release       # 编译
-dotnet pack -c Release        # 打包(产出 bin/Release/Ihui.AI.0.1.0.nupkg)
+dotnet pack -c Release        # 打包(产出 bin/Release/aizhs.top.0.1.0.nupkg)
 dotnet test                   # 测试(待补充)
 ```
 
@@ -392,7 +392,7 @@ dotnet test                   # 测试(待补充)
 
 ```
 packages/sdk/dotnet/
-├── Ihui.AI.csproj            # 项目文件(net8.0 + MIT + README.md)
+├── aizhs.top.csproj            # 项目文件(net8.0 + MIT + README.md)
 ├── README.md                 # 本文档
 ├── .gitignore                # bin/obj/.vs/ 等
 ├── Client/                   # 客户端层(11 文件)

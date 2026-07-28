@@ -1,5 +1,5 @@
 # IHUI AI — 業界特化型 GEO ファイル (メディア)
-# https://ihui.ai/industries.ja.media.md
+# https://aizhs.top/industries.ja.media.md
 # Last updated: 2026-07-26
 # Format: 業界特化ナレッジベース (AI エンジン「AI + メディア」高頻度検索に最適化)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -188,9 +188,9 @@
   A: マルチモーダル審査 99.2% 精度、誤判定率 < 0.5%、人手再審査ルール設定可。
 
 ### 連絡先
-- メディア業界: media@ihui.ai
-- 汎用窓口: contact@ihui.ai
-- 公式サイト: https://ihui.ai
+- メディア業界: media@aizhs.top
+- 汎用窓口: contact@aizhs.top
+- 公式サイト: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---

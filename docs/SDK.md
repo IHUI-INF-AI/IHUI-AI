@@ -31,7 +31,7 @@
 | Python | `packages/sdk/python/ihui_ai/` | `pip install ihui-ai` | `modules/{agents,ai,audio,files,generation,images,knowledge,memory,messages,threed,tools,user,videos}` + `async_client` + `streaming` | Python ≥ 3.10 | 0.1.0 | Beta |
 | Go | `packages/sdk/go/` | `go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go` | `internal/client` + `internal/model` + `internal/module`(13 模块) | Go 1.21+ | 0.1.0 | Beta |
 | Java | `packages/sdk/java/` | Maven `<dependency>com.ihui:ihui-ai-java:0.1.0</dependency>` | `com.ihui.ai.sdk.module/*`(13 Api)+ `model/*` | JDK 11+ | 0.1.0 | Beta |
-| .NET | `packages/sdk/dotnet/` | NuGet `dotnet add package Ihui.AI` | `Client/` + `Models/` + `Modules/`(13 Api) | .NET 8 (net8.0) | 0.1.0 | Beta |
+| .NET | `packages/sdk/dotnet/` | NuGet `dotnet add package aizhs.top` | `Client/` + `Models/` + `Modules/`(13 Api) | .NET 8 (net8.0) | 0.1.0 | Beta |
 
 > "Beta" 表示 API 表面已稳定,但语义化版本尚未到 1.0,允许补丁版本内做不兼容的字段调整。
 
@@ -515,7 +515,7 @@ try {
 ### NuGet 安装
 
 ```bash
-dotnet add package Ihui.AI
+dotnet add package aizhs.top
 ```
 
 要求 .NET 8(net8.0),启用 Nullable 与 ImplicitUsings,使用 System.Text.Json(无第三方依赖)。
@@ -523,8 +523,8 @@ dotnet add package Ihui.AI
 ### 配置与初始化(Builder)
 
 ```csharp
-using Ihui.AI;
-using Ihui.AI.Models;
+using aizhs.top;
+using aizhs.top.Models;
 
 var client = IhuiClient.CreateBuilder()
     .WithApiKey("ihui_xxx")
@@ -557,7 +557,7 @@ await foreach (var chunk in client.Ai.ChatCompletionsStreamAsync(req))
 ### 异常处理
 
 ```csharp
-using Ihui.AI;
+using aizhs.top;
 
 try
 {
@@ -833,7 +833,7 @@ services.AddSingleton<IhuiClient>(_ =>
 | Python | `packages/sdk/python/pyproject.toml` → `[project].version` + `ihui_ai/__init__.py` → `__version__` | 0.1.0 |
 | Go | `packages/sdk/go/internal/client/client.go` 常量(无 go.mod version,走 git tag) | 0.1.0 |
 | Java | `packages/sdk/java/pom.xml` → `<version>` | 0.1.0 |
-| .NET | `packages/sdk/dotnet/Ihui.AI.csproj` → `<Version>` | 0.1.0 |
+| .NET | `packages/sdk/dotnet/aizhs.top.csproj` → `<Version>` | 0.1.0 |
 
 ### 与 apps/api 兼容矩阵
 

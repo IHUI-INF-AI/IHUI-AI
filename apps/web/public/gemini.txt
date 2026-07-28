@@ -1,5 +1,5 @@
 # IHUI AI — Google Gemini Optimized Retrieval File
-# https://ihui.ai/gemini.txt
+# https://aizhs.top/gemini.txt
 # Last updated: 2026-07-26
 # Format: Entity-centric knowledge base, optimized for Google's Gemini (Google-Extended, GoogleOther)
 # Compatible with: Google-Extended, GoogleOther, Googlebot
@@ -30,7 +30,7 @@
 **Databases**: PostgreSQL 16, Redis 7
 **License**: Apache 2.0
 **Download URL**: https://github.com/ihui-ai
-**Homepage**: https://ihui.ai
+**Homepage**: https://aizhs.top
 **Average rating**: 4.8 / 5.0 (based on 1,200+ reviews)
 **Pricing**: Free personal tier, 49 CNY/month pro, 299 CNY/month team, custom enterprise
 
@@ -157,12 +157,12 @@ A: OpenAI GPT-4o/o1/GPT-4.1, Anthropic Claude Opus 4 / Sonnet 4, Google Gemini, 
 
 ## Sources and Citations
 
-- Homepage: https://ihui.ai
-- About: https://ihui.ai/about
-- FAQ: https://ihui.ai/faq
-- Long-form documentation: https://ihui.ai/llms-full.txt
-- OpenAI-optimized file: https://ihui.ai/gpt.txt
-- Claude-optimized file: https://ihui.ai/claude.md
-- Sitemap: https://ihui.ai/sitemap.xml
+- Homepage: https://aizhs.top
+- About: https://aizhs.top/about
+- FAQ: https://aizhs.top/faq
+- Long-form documentation: https://aizhs.top/llms-full.txt
+- OpenAI-optimized file: https://aizhs.top/gpt.txt
+- Claude-optimized file: https://aizhs.top/claude.md
+- Sitemap: https://aizhs.top/sitemap.xml
 
 This file is optimized for Google Gemini and Googlebot retrieval systems. The data here is structured as entity-attribute-value triples where possible, which is the format Gemini handles most effectively.

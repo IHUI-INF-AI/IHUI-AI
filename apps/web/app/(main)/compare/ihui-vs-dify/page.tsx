@@ -11,40 +11,40 @@ const compareJsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/compare/ihui-vs-dify#webpage',
-      url: 'https://ihui.ai/compare/ihui-vs-dify',
+      '@id': 'https://aizhs.top/compare/ihui-vs-dify#webpage',
+      url: 'https://aizhs.top/compare/ihui-vs-dify',
       name: 'IHUI AI vs Dify:全栈 AI 操作系统 vs LLM 应用开发平台',
       description:
         'IHUI AI 和 Dify 都是开源 AI 应用平台,但定位不同:Dify 偏 LLM 应用开发(Web 端),IHUI AI 是六端同源的全栈 AI 操作系统,集成 Agent 市场 + 知识库 RAG + 多模型调度 + 团队协作。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
-        { '@id': 'https://ihui.ai/#organization' },
+        { '@id': 'https://aizhs.top/#organization' },
         { '@type': 'Thing', name: 'Dify' },
       ],
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/compare/ihui-vs-dify#breadcrumb',
+      '@id': 'https://aizhs.top/compare/ihui-vs-dify#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         {
           '@type': 'ListItem',
           position: 2,
           name: '产品对比',
-          item: 'https://ihui.ai/compare',
+          item: 'https://aizhs.top/compare',
         },
         {
           '@type': 'ListItem',
           position: 3,
           name: 'IHUI AI vs Dify',
-          item: 'https://ihui.ai/compare/ihui-vs-dify',
+          item: 'https://aizhs.top/compare/ihui-vs-dify',
         },
       ],
     },
     {
       '@type': 'ItemList',
-      '@id': 'https://ihui.ai/compare/ihui-vs-dify#comparison',
+      '@id': 'https://aizhs.top/compare/ihui-vs-dify#comparison',
       name: 'IHUI AI vs Dify 维度对比',
       itemListElement: [
         {
@@ -93,7 +93,7 @@ export const metadata: Metadata = {
     title: 'IHUI AI vs Dify — 2026 全栈 AI 平台对比',
     description:
       'Dify 偏 Web 端 LLM 应用开发;IHUI AI 是六端同源全栈 AI 操作系统,Agent 市场 + 知识库 + 多模型 + 团队协作。',
-    url: 'https://ihui.ai/compare/ihui-vs-dify',
+    url: 'https://aizhs.top/compare/ihui-vs-dify',
     type: 'article',
   },
 }

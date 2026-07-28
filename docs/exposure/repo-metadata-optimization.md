@@ -39,7 +39,7 @@
 
 | 维度 | 优化前 | 优化后 |
 | --- | --- | --- |
-| URL | (空) | `https://ihui.ai` |
+| URL | (空) | `https://aizhs.top` |
 
 **为什么**:GitHub repo 主页右侧 "Website" 链接是社交平台卡片的关键元素之一。线上 Demo 是 GitHub 用户评估项目可信度的强信号,无 Demo = 流失 60%+ star 转化。
 
@@ -89,7 +89,7 @@
 **优化后**(370 行):
 
 - **Welcome 段落**:用项目使命("8 端统一 176 LLM")唤起贡献动机
-- **Code of Conduct**:链接到 `CODE_OF_CONDUCT.md`,违规举报邮箱 `conduct@ihui.ai`
+- **Code of Conduct**:链接到 `CODE_OF_CONDUCT.md`,违规举报邮箱 `conduct@aizhs.top`
 - **Getting Started**:环境要求表 + Fork & Clone + 安装 + 启动 dev server(端口注册表链接)
 - **Development Workflow**:5 步流程(同步 main → 创建分支 → 编码 → 提交 → 推送),含 Conventional Commits 格式表
 - **Project Structure**:8 端 + 8 共享包的 ASCII 架构图
@@ -109,7 +109,7 @@
 - 完整 Contributor Covenant 2.1 中文版
 - 4 级执行方针(Correction / Warning / Temporary Ban / Permanent Ban),参考 Mozilla 执行阶梯
 - 归属链接到官方 [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/code_of_conduct/)
-- 违规举报邮箱 `conduct@ihui.ai`,与安全漏洞披露(`security@ihui.ai`)分流
+- 违规举报邮箱 `conduct@aizhs.top`,与安全漏洞披露(`security@aizhs.top`)分流
 
 ### 3.3 `SECURITY.md`(130 行,根目录)
 
@@ -118,7 +118,7 @@
 **优化后**(130 行):
 
 - **支持版本表**:v0.2.x 支持,< v0.2.0 不支持
-- **报告渠道**:`security@ihui.ai` + GitHub Security Advisory + PGP 加密选项
+- **报告渠道**:`security@aizhs.top` + GitHub Security Advisory + PGP 加密选项
 - **报告内容清单**:漏洞类型 / 受影响版本 / 受影响文件 / 复现步骤 / 影响范围 / 修复建议
 - **响应 SLA 表**:48h 确认 / 5 工作日评估 / Critical 7d 修复 / High 14d / Medium 30d / Low 下个 release / 90d 协调披露
 - **报告者致谢**:Release 致谢区 + 荣誉徽章 + 匿名尊重
@@ -139,7 +139,7 @@
 
 ```yaml
 ko_fi: ihuiai
-custom: ['https://ihui.ai/pricing', 'https://ihui.ai/enterprise']
+custom: ['https://aizhs.top/pricing', 'https://aizhs.top/enterprise']
 ```
 
 **为什么改用 ko_fi**:用户尚未注册 GitHub Sponsors,`github: [用户名]` 字段在不注册 Sponsors 的情况下不会显示 Sponsor 按钮。Ko-fi 是国际通用的轻量赞助平台,注册门槛低;`custom` 链接作为商业化入口(pricing / enterprise)承接企业客户。
@@ -156,7 +156,7 @@ GitHub repo 搜索算法的关键信号(按权重从高到低):
 2. 🏷️ Topics(0 → 20,本次新增)— **直接命中 topic 筛选**
 3. 📝 Description(空 → 244 字符英文)— **关键词密度提升**
 4. 📜 README 首屏(已优化)
-5. 🌐 Homepage URL(空 → ihui.ai)— **可信度信号**
+5. 🌐 Homepage URL(空 → aizhs.top)— **可信度信号**
 6. 💬 Discussions 活跃度(关闭 → 开启)— **社区健康信号**
 7. 📦 Releases(0 → 计划下次)— **项目成熟度信号**
 8. 🔄 最近 commit 频率(已活跃)
@@ -171,7 +171,7 @@ Twitter / LinkedIn / 微信 / Telegram 抓取 GitHub 链接时的卡片元素:
 - 卡片标题:仓库 full_name(IHUI-INF-AI/IHUI-AI)
 - 卡片描述:description(已优化为英文长描述)
 - 卡片图:social-preview.png(已配置,见 `.github/social-preview.png`)
-- 卡片按钮:Website(已配置为 ihui.ai)
+- 卡片按钮:Website(已配置为 aizhs.top)
 
 **预期影响**:社交平台 CTR(点击率)提升 40%+(主要来自 description 从空到 244 字符英文 + homepage 链接可见)。
 
@@ -182,7 +182,7 @@ Google 对 GitHub repo 页面的索引权重信号:
 - 页面 title:`IHUI-INF-AI/IHUI-AI: <description>`(description 优化后 title 更具描述性)
 - 页面 meta description:GitHub 用 repo description 作为 meta description
 - 主题相关性:topics 提供页面主题信号
-- 外链信号:homepage 链接到 ihui.ai,形成双向引用
+- 外链信号:homepage 链接到 aizhs.top,形成双向引用
 
 预计对 Google 搜索 "open source ai agent platform" / "self-hosted chatgpt alternative" 等长尾词的排名提升 20%+。
 
@@ -196,7 +196,7 @@ Google 对 GitHub repo 页面的索引权重信号:
 full_name: IHUI-INF-AI/IHUI-AI
 html_url: https://github.com/IHUI-INF-AI/IHUI-AI
 description: Eight-platform full-stack AI operating system - unifies 176 LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 340 tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.
-homepage: https://ihui.ai
+homepage: https://aizhs.top
 has_issues: True
 has_discussions: True
 has_wiki: False

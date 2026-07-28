@@ -9843,6 +9843,7 @@
       "timelineInlineHint": "Inline view in the main message list",
       "timelineNoMatch": "No events match the current filter",
       "timelineClearFilters": "Clear filters",
+      "timelineExport": "Export as Markdown",
       "sseStatus": {
         "connected": "Connected",
         "connecting": "Connecting",
@@ -9918,7 +9919,12 @@
         "toolsCount": "Tool Calls ({n})",
         "active": "{n} active",
         "done": "{n} done",
-        "failed": "{n} failed"
+        "failed": "{n} failed",
+        "menuCopyThreadId": "Copy Thread ID",
+        "menuCopyHandle": "Copy Handle",
+        "menuCopyNickname": "Copy Nickname",
+        "menuCopyDetails": "Copy Details",
+        "menuAriaLabel": "Subagent {nickname} actions"
       },
       "overview": {
         "title": "Task Overview",
@@ -9940,7 +9946,8 @@
         "token": "Token",
         "rate": "Rate",
         "eta": "ETA",
-        "context": "Context"
+        "context": "Context",
+        "copySummary": "Copy task summary"
       },
       "thinkingTitle": "Thinking process",
       "thinkingStreaming": "Thinking...",
