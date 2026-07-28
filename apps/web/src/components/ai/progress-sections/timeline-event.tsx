@@ -83,8 +83,34 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
   const hasChildren = !!event.children && event.children.length > 0
 
   const onClick = () => {
-    if (hasChildren) toggleExpanded(event.id)
+    if (hasChildren) {
+      toggleExpanded(event.id)
+      return
+    }
+    // Trae Work 对齐(2026-07-28):timeline 事件可点击跳转到对话流对应位置
+    // 优先级:messageId > planStepId > toolCallId(都通过 custom event 派发,MessageList 监听处理)
+    if (event.messageId) {
+      window.dispatchEvent(
+        new CustomEvent('ihui:scroll-to-message', { detail: { messageId: event.messageId } }),
+      )
+      return
+    }
+    if (event.planStepId) {
+      window.dispatchEvent(
+        new CustomEvent('ihui:scroll-to-plan-step', { detail: { planStepId: event.planStepId } }),
+      )
+      return
+    }
+    if (event.toolCallId) {
+      window.dispatchEvent(
+        new CustomEvent('ihui:scroll-to-tool-call', { detail: { toolCallId: event.toolCallId } }),
+      )
+    }
   }
+
+  // 至少有一种交互目标(children / messageId / planStepId / toolCallId)才可点
+  const hasJumpTarget = !!(event.messageId || event.planStepId || event.toolCallId)
+  const isClickable = hasChildren || hasJumpTarget
 
   return (
     <div
@@ -103,11 +129,12 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
       <button
         type="button"
         onClick={onClick}
-        disabled={!hasChildren}
+        disabled={!isClickable}
         aria-expanded={hasChildren ? isExpanded : undefined}
+        data-jump-target={hasJumpTarget ? 'true' : undefined}
         className={cn(
           'flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors',
-          hasChildren ? 'hover:bg-accent/30 cursor-pointer' : 'cursor-default',
+          isClickable ? 'hover:bg-accent/30 cursor-pointer' : 'cursor-default',
         )}
       >
         {hasChildren ? (

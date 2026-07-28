@@ -409,3 +409,178 @@ describe('useHoverPreview 集成 — 键盘焦点触发', () => {
     }
   })
 })
+
+// ─── 进阶边界场景(2026-07-28 覆盖率深化) ─────────────────────────
+
+/** 状态化 data 的 TestConsumer,用于测试 data 变更 + close() 显式调用 */
+function StatefulTestConsumer(): React.ReactElement {
+  const [data, setData] = React.useState<TestData | null>({ name: 'init', count: 0 })
+  const anchorRef = React.useRef<HTMLDivElement | null>(null)
+  const preview = useHoverPreview<TestData>({
+    buildContent: (d) => (
+      <div>
+        <div>Name: {d.name}</div>
+        <div>Count: {d.count}</div>
+      </div>
+    ),
+    anchorRef,
+    data,
+    delayMs: 250,
+    closeDelayMs: 100,
+  })
+  return (
+    <>
+      <div
+        ref={anchorRef}
+        data-testid="stateful-anchor"
+        onMouseEnter={preview.hoverHandlers.onMouseEnter}
+        onMouseLeave={preview.hoverHandlers.onMouseLeave}
+        tabIndex={0}
+      >
+        Hover Me
+      </div>
+      <button
+        type="button"
+        data-testid="change-data"
+        onClick={() => setData({ name: 'updated', count: 99 })}
+      >
+        Update
+      </button>
+      <button
+        type="button"
+        data-testid="nullify-data"
+        onClick={() => setData(null)}
+      >
+        Nullify
+      </button>
+      <button
+        type="button"
+        data-testid="close-button"
+        onClick={() => preview.close()}
+      >
+        Close
+      </button>
+      {preview.visible && (
+        <HoverPreviewCard
+          visible={preview.visible}
+          position={preview.position}
+          content={preview.content}
+          data-testid="stateful-preview"
+        />
+      )}
+    </>
+  )
+}
+
+describe('useHoverPreview 集成 — close() 显式关闭', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('显式调用 close():立即关闭卡片,无需等待 closeDelayMs', () => {
+    vi.useFakeTimers()
+    try {
+      render(<StatefulTestConsumer />)
+      const anchor = screen.getByTestId('stateful-anchor')
+      fireEvent.mouseEnter(anchor)
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(screen.getByTestId('stateful-preview')).toBeTruthy()
+      // 显式 close
+      fireEvent.click(screen.getByTestId('close-button'))
+      // 立即关闭,无需 advanceTimersByTime
+      expect(screen.queryByTestId('stateful-preview')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('useHoverPreview 集成 — data 变更与清空', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('data 从 {init, 0} 变 {updated, 99}:显示后 content 反映最新 data', () => {
+    vi.useFakeTimers()
+    try {
+      render(<StatefulTestConsumer />)
+      const anchor = screen.getByTestId('stateful-anchor')
+      fireEvent.mouseEnter(anchor)
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      const preview = screen.getByTestId('stateful-preview')
+      expect(preview.textContent).toContain('Name: init')
+      expect(preview.textContent).toContain('Count: 0')
+      // 更新 data
+      fireEvent.click(screen.getByTestId('change-data'))
+      // content 同步更新(无需重新 hover)
+      expect(preview.textContent).toContain('Name: updated')
+      expect(preview.textContent).toContain('Count: 99')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('data 设为 null:卡片自动关闭(useEffect 触发 close)', () => {
+    vi.useFakeTimers()
+    try {
+      render(<StatefulTestConsumer />)
+      const anchor = screen.getByTestId('stateful-anchor')
+      fireEvent.mouseEnter(anchor)
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(screen.getByTestId('stateful-preview')).toBeTruthy()
+      // data → null
+      fireEvent.click(screen.getByTestId('nullify-data'))
+      expect(screen.queryByTestId('stateful-preview')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('data 初始为 null:即使 mouseenter 也不显示卡片(已在原测试覆盖,此处验证多次 hover)', () => {
+    render(<StatefulTestConsumer />)
+    const anchor = screen.getByTestId('stateful-anchor')
+    // 直接 nullify
+    fireEvent.click(screen.getByTestId('nullify-data'))
+    fireEvent.mouseEnter(anchor)
+    fireEvent.mouseEnter(anchor)
+    fireEvent.mouseEnter(anchor)
+    expect(screen.queryByTestId('stateful-preview')).toBeNull()
+  })
+})
+
+describe('useHoverPreview 集成 — 快速 hover-leave-hover 序列', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('hover 后立刻 leave 再 hover:close timer 被清空,新 show timer 正常触发', () => {
+    vi.useFakeTimers()
+    try {
+      render(<TestConsumer data={{ name: 'test', count: 1 }} />)
+      const anchor = screen.getByTestId('hover-anchor')
+      // 第一次 hover
+      fireEvent.mouseEnter(anchor)
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
+      expect(screen.getByTestId('consumer-preview')).toBeTruthy()
+      // leave
+      fireEvent.mouseLeave(anchor)
+      // 还没到 closeDelay(100ms),立刻重新 hover → close timer 应被清空
+      fireEvent.mouseEnter(anchor)
+      act(() => {
+        vi.advanceTimersByTime(100)
+      })
+      // 卡片应仍然可见(close timer 被清,新的 show timer 不会重复触发,visible 仍为 true)
+      expect(screen.getByTestId('consumer-preview')).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
