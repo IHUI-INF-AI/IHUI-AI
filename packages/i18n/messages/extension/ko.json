@@ -231,5 +231,10 @@
     "balance": "사용 가능 잔액",
     "totalRecharge": "누적 충전",
     "loadFailed": "로딩 실패"
+  },
+  "contextMenu": {
+    "translate": "IHUI AI · 선택 영역 번역",
+    "vocab": "IHUI AI · 단어 조회",
+    "send": "IHUI AI · 채팅으로 보내기"
   }
 }

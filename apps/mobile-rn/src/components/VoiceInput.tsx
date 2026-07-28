@@ -2,6 +2,9 @@
  *
  * 2026-07-28 修复 bug:原实现只返回音频 URI,没调用 STT 转文字。
  * 现在改为:录音停止 → 上传到 ai-service /api/voice/stt → 返回转写文字。
+ *
+ * 共享类型 VoiceInputMinimalProps 已下沉到 @ihui/types,
+ * 本地 Props extends Minimal 并追加 aiServiceUrl/language(mobile-rn 专属配置)。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native'
@@ -9,14 +12,9 @@ import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } fr
 import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { voiceSttFromReactNative } from '@ihui/api-client'
+import type { VoiceInputMinimalProps } from '@ihui/types'
 
-export interface VoiceInputProps {
-  /** 录音完成时回调(松开按钮时触发,参数为转写文字) */
-  onComplete?: (text: string) => void
-  /** 录音过程中回调(保留 API 兼容,本实现仅在完成时触发) */
-  onChange?: (text: string) => void
-  disabled?: boolean
-  placeholder?: string
+export interface VoiceInputProps extends VoiceInputMinimalProps {
   /** ai-service URL(默认 http://localhost:8803) */
   aiServiceUrl?: string
   /** 语言提示(默认 zh) */

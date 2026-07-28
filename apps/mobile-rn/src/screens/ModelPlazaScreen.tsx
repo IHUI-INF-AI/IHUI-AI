@@ -11,6 +11,7 @@ import {
   RefreshControl,
 } from 'react-native'
 import { getAiModels, type AiModel } from '@ihui/api-client'
+import { useI18n } from '../i18n'
 
 type ModelType = 'text' | 'image' | 'av'
 
@@ -88,6 +89,7 @@ function buildProviders(models: Model[]): Provider[] {
 }
 
 export default function ModelPlazaScreen() {
+  const { t } = useI18n()
   const [models, setModels] = useState<Model[]>([])
   const [providerId, setProviderId] = useState<string>('')
   const [typeFilter, setTypeFilter] = useState<'all' | ModelType>('all')
@@ -131,10 +133,8 @@ export default function ModelPlazaScreen() {
   const listByProvider = models.filter((m) => m.providerId === providerId)
   const filteredList = typeFilter === 'all' ? listByProvider : listByProvider.filter((m) => m.type === typeFilter)
 
-  // TODO: i18n — Alert.alert 硬编码中文待翻译(模型对比 / 请选择 2-3 个模型加入对比)
-  const handleCompare = () => Alert.alert('模型对比', '请选择 2-3 个模型加入对比')
-  // TODO: i18n — Alert.alert 硬编码中文待翻译(模型详情 / 查看「X」完整参数与定价)
-  const handleDetail = (m: Model) => Alert.alert('模型详情', `查看「${m.name}」完整参数与定价`)
+  const handleCompare = () => Alert.alert(t('modelPlaza.compare.title'), t('modelPlaza.compare.message'))
+  const handleDetail = (m: Model) => Alert.alert(t('modelPlaza.detail.title'), t('modelPlaza.detail.message', { name: m.name }))
 
   return (
     <View style={s.container}>
