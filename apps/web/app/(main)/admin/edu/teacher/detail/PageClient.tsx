@@ -98,7 +98,7 @@ export default function EduTeacherDetailPage() {
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <BookOpen className="h-8 w-8 text-sky-500" />
