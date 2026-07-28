@@ -154,13 +154,13 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 
 ### 推荐组合(零成本上线)
 
-| 角色 | 平台 | 免费额度 | 用途 |
-| ---- | ---- | -------- | ---- |
-| 前端 Web | Vercel | 100GB 流量/月 | 静态导出 + 全球 CDN |
-| 后端 API | Railway | $5 额度/月 | Fastify + Drizzle ORM |
-| AI 服务 | Render | 750 小时/月 | FastAPI + LangGraph |
-| 数据库 | Railway/Render | 免费 PostgreSQL | 1GB 存储 |
-| 缓存 | Railway/Render | 免费 Redis | 25MB 存储 |
+| 角色     | 平台           | 免费额度        | 用途                  |
+| -------- | -------------- | --------------- | --------------------- |
+| 前端 Web | Vercel         | 100GB 流量/月   | 静态导出 + 全球 CDN   |
+| 后端 API | Railway        | $5 额度/月      | Fastify + Drizzle ORM |
+| AI 服务  | Render         | 750 小时/月     | FastAPI + LangGraph   |
+| 数据库   | Railway/Render | 免费 PostgreSQL | 1GB 存储              |
+| 缓存     | Railway/Render | 免费 Redis      | 25MB 存储             |
 
 详细步骤见:[一键部署指南](docs/deployment/one-click-deploy.md) · [Vercel 部署](docs/deployment/vercel-deploy.md) · [Railway 部署](docs/deployment/railway-deploy.md) · [家人朋友代部署指南](docs/deployment/family-friends-guide.md)
 
@@ -472,6 +472,36 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | Plan/Spec 模式      | tree-sitter AST 反向生成 spec markdown + 4 态模式切换(build/plan/review/spec)(对标 Trae Plan/Spec)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 |                   | Context Engineering | 多维 @ 提及 file/database/symbol/folder/web + LRU 缓存 + DB schema 查询(对标 Qoder)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 |                   | Subagent 派单       | AGENTS.md §11 派单格式对话框 + SVG mesh 拓扑可视化 + 任务状态机(对标 Trae Subagent)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **AI 流式体验**   | 进度面板 v12        | AgentTaskProgressPane Phase 19 极致化(2026-07-28):Plan↔Message 双向跳转 + Timeline 时间线 + HoverPreviewCard + 右键菜单 6 类操作 + BatchHeader 4 态批次头 + Checklist 工具调用 + ResourceBudget step 预算 60 + SubAgentTaskTree 子代理任务树                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|                   | 折叠子区组件        | 21 个 progress-sections 组件(FoldableSection/ThinkingSection/ToolCallsSection/ChangesSection/TerminalSection/OverviewSection/ConnectionStatus/ProgressRing/QuestionBlock/TraeBlock/TraeCodeHeader 等),支持 dark mode + i18n 5 语言 + React.memo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+
+---
+
+## 🎬 AI 流式输出体验(对标 Trae Work · Phase 19)
+
+> 实现位置:`apps/web/src/components/ai/agent-task-progress-pane.tsx` v12 + `apps/web/src/components/chat/message-list.tsx`
+
+### 四大招牌交互
+
+1. **Plan Step ↔ Message 双向跳转**:`useProgressJumpStore` 联动,点击 PlanStep 滚动到 AI 消息 + 1.5s flashHighlight 淡出,反向 hover AI 消息自动高亮 PlanStep
+2. **Timeline 时间线统一事件流**:`flattenToTimelineEvents` 把 plan/subagent/tool/question 展平为单一时间线,inline/timeline 双 tab 切换
+3. **HoverPreviewCard 步骤预览**:`useHoverPreview` 250ms 延迟触发,100ms 关闭,边界检测防溢出,显示步骤说明/关联消息/token 消耗
+4. **MessageContextMenu 右键菜单**:6 类操作(复制/Markdown/重新生成/反馈/分享/折叠/删除)+ Esc 关闭 + 边界翻转
+
+### 关键组件
+
+- `BatchHeader`(批次头,4 态 running/completed/failed/partial + 进度条)
+- `Checklist`(`in_progress` 步骤关联工具调用列表)
+- `ResourceBudget`(step 预算 60,对标 Trae Work)
+- `CompressionDivider`(跨日/长间隔消息折叠分割线)
+- `SubAgentTaskTree`(子代理任务树,4 态)
+- `ConnectionStatus`(SSE 5 次重连策略)
+
+### 守门
+
+- typecheck:`pnpm --filter @ihui/web typecheck` → 0 错误
+- unit test:`pnpm vitest run tests/agent-task-progress-pane.test.tsx` → 107/107
+- i18n parity:`node scripts/check-i18n-keys.mjs --staged` → 5 语言 OK
 
 ---
 
