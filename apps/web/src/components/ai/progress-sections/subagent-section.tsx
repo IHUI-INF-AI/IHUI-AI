@@ -90,6 +90,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
           }
         }}
         data-testid={`subagent-item-${sa.id}`}
+        data-status={sa.status}
       >
         {hasDetail && (
           <ChevronRight
