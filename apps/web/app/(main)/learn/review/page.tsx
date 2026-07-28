@@ -13,7 +13,11 @@ import {
 } from '@/api/edu-api'
 
 const QUALITY_OPTIONS: { value: number; label: string; tone: string }[] = [
-  { value: 0, label: '完全忘记', tone: 'bg-destructive/10 text-destructive hover:bg-destructive/20' },
+  {
+    value: 0,
+    label: '完全忘记',
+    tone: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
+  },
   { value: 2, label: '失败', tone: 'bg-orange-500/10 text-orange-600 hover:bg-orange-500/20' },
   { value: 3, label: '勉强', tone: 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20' },
   { value: 4, label: '良好', tone: 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20' },
@@ -122,9 +126,7 @@ export default function ReviewPage() {
           <Brain className="h-7 w-7 text-primary" />
           今日复习
         </h1>
-        <p className="text-xs text-muted-foreground">
-          基于 SM-2 间隔重复算法,巩固长期记忆。
-        </p>
+        <p className="text-xs text-muted-foreground">基于 SM-2 间隔重复算法,巩固长期记忆。</p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -159,9 +161,7 @@ export default function ReviewPage() {
                 第 {index + 1} / {reviews.length} 题
               </span>
               {current.subject && (
-                <span className="rounded-md bg-muted px-2 py-0.5 text-xs">
-                  {current.subject}
-                </span>
+                <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{current.subject}</span>
               )}
             </div>
 
@@ -215,7 +215,7 @@ export default function ReviewPage() {
                   </div>
                 )}
                 {result && (
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center text-xs">
                     <div className="rounded-md bg-muted/50 p-2">
                       <div className="text-muted-foreground">下次复习</div>
                       <div className="mt-1 font-medium">
@@ -231,9 +231,7 @@ export default function ReviewPage() {
                     </div>
                     <div className="rounded-md bg-muted/50 p-2">
                       <div className="text-muted-foreground">难度因子</div>
-                      <div className="mt-1 font-medium">
-                        {result.easeFactor.toFixed(2)}
-                      </div>
+                      <div className="mt-1 font-medium">{result.easeFactor.toFixed(2)}</div>
                     </div>
                   </div>
                 )}
