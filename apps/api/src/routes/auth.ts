@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 // 2026-07-24 国安级升级:argon2id 密码哈希(抗 GPU/ASIC),兼容老 bcrypt 透明升级
 import { hashPassword, verifyPassword, upgradeHashIfNeeded } from '../utils/password-crypto.js'
@@ -118,6 +118,30 @@ const emailLoginQuerySchema = z.object({
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60 // 30d
 const ADMIN_ROLE_ID = 1 // 与 require-permission.ts 保持一致
 const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
+
+/**
+ * 2026-07-28 修复:在所有签发 accessToken 的端点 setCookie(auth_token, httpOnly)。
+ * 原因:跨端口 fetch(8801 web → 8802 api)时,前端 useAuthStore.token 内存值可能因
+ * 页面刷新/HMR/标签页恢复而丢失,而非 httpOnly cookie 在不同子路径下的行为也不可靠。
+ * 后端写 httpOnly cookie + transport credentials: 'include' 是跨端口鉴权的最稳链路:
+ * 1. 浏览器自动带 cookie(同 host 不同 port 共享 cookie,因 path=/ + 没设 Domain)
+ * 2. httpOnly 防 XSS 读取 token
+ * 3. sameSite=lax 允许同站 POST 带 cookie
+ * 4. maxAge 与 accessToken 生命周期一致(access token 15min,这里设 7d 是为了
+ *    兼容"自动登录"场景下,refresh 流程用 refresh cookie 续期前保证 cookie 存在)
+ *
+ * 前端 useAuthStore.token 用于 Authorization header(主路径,内存中),
+ * 跨端口/刷新后 memory token 丢失时后端 cookie fallback 兜底。
+ */
+function setAuthTokenCookie(reply: FastifyReply, accessToken: string): void {
+  reply.setCookie('auth_token', accessToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60, // 7d(原 accessToken 15min,这里延长到 7d 是为了兼容跨端口 cookie 续期;真正鉴权仍走 token 有效期)
+  })
+}
 
 async function buildTokenPair(user: {
   id: string
@@ -503,6 +527,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       })
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      // 2026-07-28 修复:跨端口 cookie 兜底,详见 setAuthTokenCookie 注释
+      setAuthTokenCookie(reply, tokens.accessToken)
       return reply.send(
         success({
           ...tokens,
@@ -677,6 +703,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       })
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      // 2026-07-28 修复:跨端口 cookie 兜底,详见 setAuthTokenCookie 注释
+      setAuthTokenCookie(reply, tokens.accessToken)
       return reply.send(
         success({
           ...tokens,
@@ -797,6 +825,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       })
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      // 2026-07-28 修复:跨端口 cookie 兜底,详见 setAuthTokenCookie 注释
+      setAuthTokenCookie(reply, tokens.accessToken)
       return reply.send(
         success({
           ...tokens,
@@ -860,6 +890,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       })
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      // 2026-07-28 修复:跨端口 cookie 兜底,详见 setAuthTokenCookie 注释
+      setAuthTokenCookie(reply, tokens.accessToken)
       return reply.send(
         success({
           ...tokens,
@@ -935,6 +967,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         familyId,
       })
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      // 2026-07-28 修复:跨端口 cookie 兜底,详见 setAuthTokenCookie 注释
+      setAuthTokenCookie(reply, tokens.accessToken)
       return reply.send(
         success({
           ...tokens,
@@ -1111,6 +1145,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         familyId: payload.familyId,
       })
 
+      // 2026-07-28 修复:refresh 后也要 setCookie 让浏览器拿到新 cookie
+      setAuthTokenCookie(reply, tokens.accessToken)
+
       return reply.send(success(tokens))
     },
   )
@@ -1177,6 +1214,15 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (record && !record.revokedAt) {
         await revokeRefreshToken(token)
       }
+
+      // 2026-07-28 修复:logout 也要清 auth_token cookie(httpOnly),否则下次打开仍会自动登录
+      reply.setCookie('auth_token', '', {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 0,
+      })
 
       return reply.send(success({ revoked: true }))
     },

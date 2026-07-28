@@ -41,8 +41,8 @@ export default function AdminLotteryPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Gift className="h-6 w-6 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight">
+          <Gift className="h-5 w-5 text-primary" />
           抽奖活动
         </h1>
         <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索活动名" className="h-9 w-64" />

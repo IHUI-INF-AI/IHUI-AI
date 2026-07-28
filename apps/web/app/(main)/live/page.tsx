@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -43,7 +43,7 @@ interface ChannelsData {
   pageSize: number
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)

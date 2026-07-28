@@ -113,8 +113,8 @@ export default function SmsTempPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <MessageSquare className="h-6 w-6 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight">
+          <MessageSquare className="h-5 w-5 text-primary" />
           短信模板
         </h1>
         <div className="flex gap-2">

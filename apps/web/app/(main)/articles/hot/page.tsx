@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -28,7 +28,7 @@ interface ArticlesData {
   pageSize: number
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
@@ -57,13 +57,13 @@ export default function HotArticlesPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Flame className="h-6 w-6 text-orange-500" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('hotTitle')}</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('hotTitle')}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">{t('hotSubtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('hotSubtitle')}</p>
       </header>
 
       <Link
@@ -75,7 +75,7 @@ export default function HotArticlesPage() {
       </Link>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -84,7 +84,7 @@ export default function HotArticlesPage() {
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <Flame className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
