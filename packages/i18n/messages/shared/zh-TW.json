@@ -694,5 +694,33 @@
     "ask": "提問",
     "asker": "提問者",
     "answers": "回答"
+  },
+  "noteDetail": {
+    "title": "筆記詳情",
+    "loadFailed": "載入筆記失敗",
+    "views": "{count} 次閱讀",
+    "likes": "點讚",
+    "tags": "標籤"
+  },
+  "articleDetail": {
+    "title": "文章詳情",
+    "loadFailed": "載入文章失敗",
+    "views": "{count} 次閱讀",
+    "likes": "點讚"
+  },
+  "helpDetail": {
+    "title": "說明詳情",
+    "loadFailed": "載入失敗",
+    "empty": "內容不存在",
+    "answer": "回答",
+    "category": "分類"
+  },
+  "feedbackDetail": {
+    "title": "反饋詳情",
+    "loadFailed": "載入失敗",
+    "empty": "反饋不存在",
+    "content": "內容",
+    "reply": "回覆",
+    "createdAt": "提交時間"
   }
 }
