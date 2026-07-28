@@ -92,7 +92,7 @@ export default function MessageTypePage() {
     enabled: isValid,
     queryFn: async (): Promise<UnifiedItem[]> => {
       if (isPrivateLetter) {
-        const res = await api<{ list: Conversation[] }>(`/api/messages/list?page=1&pageSize=50`)
+        const res = await api<{ list: Conversation[] }>(`/api/messages/list?page=1&pageSize=10`)
         return (res.list ?? []).map((c): UnifiedItem => ({
           id: c.id,
           title: c.peerName,
@@ -104,7 +104,7 @@ export default function MessageTypePage() {
       }
       const apiType = NOTI_API_TYPE[type as Exclude<MessageType, 'private-letter'>]
       const res = await api<{ list: NotificationItem[] }>(
-        `/api/notifications?type=${apiType}&page=1&pageSize=50`,
+        `/api/notifications?type=${apiType}&page=1&pageSize=10`,
       )
       return (res.list ?? []).map((n): UnifiedItem => ({
         id: n.id,
@@ -139,7 +139,7 @@ export default function MessageTypePage() {
 
   if (!isValid) {
     return (
-      <div className="mx-auto max-w-3xl py-10 text-center text-muted-foreground">{t('noData')}</div>
+      <div className="mx-auto max-w-3xl py-8 text-center text-muted-foreground">{t('noData')}</div>
     )
   }
 
@@ -157,28 +157,28 @@ export default function MessageTypePage() {
       </div>
 
       {isLoading ? (
-        <div className="py-10 text-center text-muted-foreground">
+        <div className="py-8 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
+        <div className="py-8 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
           <Icon className="h-8 w-8 opacity-40" />
           <p className="text-sm">{isPrivateLetter ? tp('noConversations') : t('empty')}</p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="max-h-[calc(100vh-22rem)] space-y-2 overflow-auto p-1">
           {items.map((item) => (
-            <li key={item.id}>
+            <li key={item.id} className="rounded-lg border">
               <button
                 type="button"
                 onClick={() => {
                   if (!item.isRead) readMut.mutate(item.id)
                 }}
                 className={cn(
-                  'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'flex w-full items-start gap-3 rounded-lg px-4 py-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   !item.isRead && 'bg-primary/[0.03]',
                 )}
               >

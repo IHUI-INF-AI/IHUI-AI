@@ -70,11 +70,7 @@ export function VideoPlayer({
     ref.current?.requestFullscreen()
   }
 
-  const fmt = (s: number) => {
-    const m = Math.floor(s / 60)
-    const sec = Math.floor(s % 60)
-    return `${m}:${sec.toString().padStart(2, '0')}`
-  }
+  const fmt = (s: number) => formatMediaTime(s)
 
   return (
     <div className={cn('group relative overflow-hidden rounded-lg bg-black', className)}>

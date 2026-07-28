@@ -4,14 +4,63 @@ import * as React from 'react'
 import Image from 'next/image'
 import { Sparkles, AlertCircle, Loader2, ChevronDown, ShieldCheck, ShieldAlert, Hand } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import type { FallbackEvent } from '@ihui/api-client'
 
 import type { ChatMessage } from '@/stores/chat'
+import { useChatStore } from '@/stores/chat'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
+import type { SubAgentActivity } from '@/components/ai/types'
+import { useProgressJumpStore } from '@/stores/progress-jump-store'
+import { TraeCodeHeader } from '@/components/ai/progress-sections/trae-code-header'
+import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
+import {
+  MessageContextMenu,
+  defaultMessageMenuItems,
+  type ContextMenuItem,
+} from '@/components/ai/message-context-menu'
+import { TimelineTab } from '@/components/ai/timeline-tab'
+import {
+  useTimelineStore,
+  type TimelineEvent as TimelineEventData,
+} from '@/stores/timeline-store'
 import { cn } from '@/lib/utils'
+
+/** 压缩分隔线插入索引(messages.length > 100 时,在第 50 条后插入) */
+const COMPRESSION_DIVIDER_INDEX = 50
+const COMPRESSION_DIVIDER_THRESHOLD = 100
+
+/** 自定义状态管理 context menu(不用 useContextMenu hook)
+ * 原因:hook 的 dataRef 在 re-render 时更新,首次右键时 setData 尚未生效,
+ * hook.onContextMenu 早返回导致菜单不显示。本场景为列表项级 context menu,
+ * 直接 useState 更简单可靠。 */
+interface ContextMenuState {
+  visible: boolean
+  x: number
+  y: number
+  messageId: string | null
+}
+
+function clampMenuPosition(
+  desired: { x: number; y: number },
+  width: number,
+  height: number,
+  padding: number,
+): { x: number; y: number } {
+  if (typeof window === 'undefined') return desired
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  let { x, y } = desired
+  if (x + width > vw) x = Math.max(padding, vw - width - padding)
+  if (y + height > vh) y = Math.max(padding, vh - height - padding)
+  if (x < padding) x = padding
+  if (y < padding) y = padding
+  return { x, y }
+}
 
 /** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
  * - AI 消息气泡的标签后追加一个轻量模式徽章
@@ -98,6 +147,12 @@ interface MessageItemProps {
   assistantLabel: string
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
+  /** Phase 19.1: 该消息关联的 planStepIds(用于 hover 联动到右侧索引) */
+  relatedPlanStepIds?: string[]
+  /** Phase 19.1: 是否正在被短时高亮(jump 目标) */
+  isHighlighted?: boolean
+  /** Phase 19.1: hover 消息 → 联动右侧 planStep(取第一个相关 step) */
+  onHoverMessage?: (messageId: string | null, planStepIds: string[]) => void
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -107,6 +162,9 @@ const MessageItem = React.memo(function MessageItem({
   assistantLabel,
   onApplyDiff,
   onRejectDiff,
+  relatedPlanStepIds,
+  isHighlighted,
+  onHoverMessage,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   const isUser = m.role === 'user'
@@ -114,7 +172,18 @@ const MessageItem = React.memo(function MessageItem({
   const streamingThis = !isUser && isStreaming && isLast
 
   return (
-    <div className={cn('flex w-full gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div
+      className={cn(
+        'flex w-full gap-3 transition-all duration-500',
+        isUser ? 'flex-row-reverse' : 'flex-row',
+        // Phase 19.1: jump 目标消息 1.5s 高亮(primary 色淡背景 + ring)
+        isHighlighted && 'rounded-lg bg-primary/8 ring-2 ring-primary/40',
+      )}
+      data-message-id={m.id}
+      data-testid={`message-item-${m.id}`}
+      onMouseEnter={() => onHoverMessage?.(m.id, relatedPlanStepIds ?? [])}
+      onMouseLeave={() => onHoverMessage?.(null, [])}
+    >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
@@ -259,6 +328,15 @@ interface MessageListProps {
   fallbackNotice?: FallbackEvent | null
   /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
   onClearFallbackNotice?: () => void
+  /** Phase 18.2: 子 agent 活动(对话流 inline 模式,Trae Work 对齐) */
+  subAgentActivities?: SubAgentActivity[]
+  /** Phase 18.4: 上下文 step 预算(used / total),用于显示 X/60 step budget */
+  stepBudget?: { used: number; total: number }
+  /** Phase 20: 重新生成回调(消息右键菜单"重新生成"按钮触发),
+   *  集成方根据 messageId 决定重新发送哪条用户消息或重新执行 */
+  onRegenerate?: (messageId: string) => void
+  /** Phase 20: 启用 TimelineTab(inline ↔ timeline 切换),默认 false 不渲染顶部 tab 条 */
+  enableTimelineTab?: boolean
 }
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
@@ -287,11 +365,229 @@ export function MessageList({
   onLoadMoreHistory,
   fallbackNotice,
   onClearFallbackNotice,
+  subAgentActivities,
+  stepBudget,
+  onRegenerate,
+  enableTimelineTab = false,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const lastContent = messages[messages.length - 1]?.content
+
+  // Phase 19.1: Plan Step ↔ Message 双向跳转 — 监听 jump 请求 + 高亮
+  const pendingJumpToMessage = useProgressJumpStore((s) => s.pendingJumpToMessage)
+  const clearPendingJump = useProgressJumpStore((s) => s.clearPendingJump)
+  const highlightedMessageId = useProgressJumpStore((s) => s.highlightedMessageId)
+  const messageToPlanStepIds = useProgressJumpStore((s) => s.messageToPlanStepIds)
+  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
+  const setHoveredMessage = useProgressJumpStore((s) => s.setHoveredMessage)
+
+  // Phase 19.1: 监听 jump 请求 → 滚动到目标消息
+  React.useEffect(() => {
+    if (!pendingJumpToMessage) return
+    const { messageId } = pendingJumpToMessage
+    // 特殊兜底:___jump_to_latest___ 降级为滚到底部
+    if (messageId === '___jump_to_latest___') {
+      const el = bottomRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      clearPendingJump()
+      return
+    }
+    // 真实 messageId:用 querySelector 找对应元素(用 data-message-id)
+    const target = containerRef.current?.querySelector(
+      `[data-message-id="${messageId}"]`,
+    ) as HTMLElement | null
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else {
+      // 消息不在当前渲染范围内(可能虚拟滚动外)→ 滚到底部兜底
+      const el = bottomRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+    clearPendingJump()
+  }, [pendingJumpToMessage, clearPendingJump])
+
+  // Phase 19.1: hover 消息 → 联动右侧 planStep 高亮(取第一个相关 step)
+  const handleHoverMessage = React.useCallback(
+    (messageId: string | null, planStepIds: string[]) => {
+      setHoveredMessage(messageId)
+      setHoveredPlanStep(messageId && planStepIds.length > 0 ? (planStepIds[0] ?? null) : null)
+    },
+    [setHoveredMessage, setHoveredPlanStep],
+  )
+
+  // Phase 20: 消息右键菜单状态(per-message,不用 useContextMenu hook)
+  const [contextMenu, setContextMenu] = React.useState<ContextMenuState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    messageId: null,
+  })
+
+  // Phase 20: 关闭 context menu
+  const closeContextMenu = React.useCallback(() => {
+    setContextMenu((prev) => ({ ...prev, visible: false, messageId: null }))
+  }, [])
+
+  // Phase 20: 找到右键触发的消息
+  const contextMenuMessage = React.useMemo<ChatMessage | null>(() => {
+    if (!contextMenu.visible || !contextMenu.messageId) return null
+    return messages.find((m) => m.id === contextMenu.messageId) ?? null
+  }, [contextMenu.visible, contextMenu.messageId, messages])
+
+  // Phase 20: 构造 context menu items(根据消息角色)
+  const contextMenuItems = React.useMemo<ContextMenuItem[]>(() => {
+    if (!contextMenuMessage) return []
+    const isOwn = contextMenuMessage.role === 'user'
+    return defaultMessageMenuItems({ id: contextMenuMessage.id, isOwnMessage: isOwn })
+  }, [contextMenuMessage])
+
+  // Phase 20: 消息右键触发
+  const onMessageContextMenu = React.useCallback(
+    (message: ChatMessage, e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const pos = clampMenuPosition({ x: e.clientX, y: e.clientY }, 220, 320, 8)
+      setContextMenu({ visible: true, x: pos.x, y: pos.y, messageId: message.id })
+    },
+    [],
+  )
+
+  // Phase 20: context menu item click 分发
+  const onContextMenuItemClick = React.useCallback(
+    async (item: ContextMenuItem) => {
+      if (!contextMenuMessage) return
+      const action = item.action
+      const msgId = contextMenuMessage.id
+      const content = contextMenuMessage.content
+
+      if (action === 'copy' || action === 'copyMarkdown') {
+        try {
+          await navigator.clipboard.writeText(content)
+          toast.success('已复制到剪贴板')
+        } catch {
+          toast.error('复制失败,请手动复制')
+        }
+      } else if (action === 'regenerate') {
+        if (onRegenerate) {
+          onRegenerate(msgId)
+        } else {
+          toast.info('重新生成回调未配置')
+        }
+      } else if (action === 'feedback') {
+        // 简单反馈 toast(不引入复杂反馈系统)
+        const feedbackLabel = item.id === 'feedback-up' ? '有帮助' : '没帮助'
+        toast.success(`反馈已收到:${feedbackLabel}`)
+      } else if (action === 'share') {
+        // 复制消息链接(链接暂用空 placeholder)
+        try {
+          await navigator.clipboard.writeText(window.location.href)
+          toast.success('链接已复制到剪贴板')
+        } catch {
+          toast.error('复制失败')
+        }
+      } else if (action === 'collapseToPlan') {
+        useProgressJumpStore.getState().requestJumpToMessage('___jump_to_latest___')
+      } else if (action === 'delete') {
+        const confirmed = window.confirm('确定要删除这条消息吗?')
+        if (confirmed) {
+          useChatStore.setState((s) => ({
+            messages: s.messages.filter((m) => m.id !== msgId),
+          }))
+          toast.success('已删除消息')
+        }
+      }
+      closeContextMenu()
+    },
+    [contextMenuMessage, onRegenerate, closeContextMenu],
+  )
+
+  // Phase 20: Timeline events 派生(messages + subagent + pendingQuestion)
+  const pendingQuestion = useChatStore((s) => s.pendingQuestion)
+  const timelineEvents = React.useMemo<TimelineEventData[]>(() => {
+    const events: TimelineEventData[] = []
+    for (const m of messages) {
+      if (m.role === 'assistant') {
+        if (m.reasoning) {
+          events.push({
+            id: `${m.id}-thinking`,
+            type: 'thinking',
+            timestamp: new Date(m.createdAt).toISOString(),
+            title: '思考过程',
+            status: 'done',
+            messageId: m.id,
+          })
+        }
+        if (m.toolCalls) {
+          for (const tc of m.toolCalls) {
+            events.push({
+              id: `${m.id}-${tc.id}`,
+              type: 'tool',
+              timestamp: new Date(m.createdAt).toISOString(),
+              title: tc.toolName,
+              // ToolCall.status ∈ {'running' | 'success' | 'error'}
+              status:
+                tc.status === 'success'
+                  ? 'done'
+                  : tc.status === 'error'
+                    ? 'failed'
+                    : tc.status === 'running'
+                      ? 'running'
+                      : 'pending',
+              messageId: m.id,
+              toolCallId: tc.id,
+            })
+          }
+        }
+      }
+    }
+    if (subAgentActivities) {
+      for (const a of subAgentActivities) {
+        events.push({
+          id: `subagent-${a.agentId}`,
+          type: 'subagent',
+          timestamp: new Date().toISOString(),
+          title: a.name || a.type,
+          description: a.currentStep,
+          status:
+            a.status === 'completed'
+              ? 'done'
+              : a.status === 'failed' || a.status === 'cancelled'
+                ? 'failed'
+                : 'running',
+          children: a.completedSteps.map((s, i) => ({
+            id: `${a.agentId}-op-${i}`,
+            type: 'subagent',
+            timestamp: s.createdAt,
+            title: s.stepAction,
+            status:
+              s.status === 'completed'
+                ? 'done'
+                : s.status === 'failed'
+                  ? 'failed'
+                  : s.status === 'running'
+                    ? 'running'
+                    : 'pending',
+          })),
+        })
+      }
+    }
+    if (pendingQuestion) {
+      events.push({
+        id: `question-${pendingQuestion.questionId}`,
+        type: 'question',
+        timestamp: new Date().toISOString(),
+        title: pendingQuestion.prompt,
+        status: 'running',
+        messageId: pendingQuestion.assistantMessageId,
+      })
+    }
+    return events
+  }, [messages, subAgentActivities, pendingQuestion])
+
+  // Phase 20: Timeline tab active(受控:用 store,避免本地 state 同步)
+  const activeTimelineTab = useTimelineStore((s) => s.activeTab)
 
   // #7 虚拟滚动状态
   const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
@@ -548,17 +844,58 @@ export function MessageList({
         {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
         {renderItems.map((m, idx) => {
           const realIdx = enableVirtual ? visibleRange.start + idx : idx
+          const isLastMessage = realIdx === messages.length - 1
           return (
-            <div key={m.id} ref={enableVirtual ? measureItem(m.id) : undefined}>
+            <div
+              key={m.id}
+              ref={enableVirtual ? measureItem(m.id) : undefined}
+              onContextMenu={(e) => onMessageContextMenu(m, e)}
+            >
+              {/* Phase 19.7: 每条 AI 消息顶部显示 TRAE Code 标识
+                  - 仅 assistant 角色(user 消息不显示,保持左/右布局简洁)
+                  - React.memo 不破坏:TraeCodeHeader 自身 memo,外层 MessageItem memo 也保留 */}
+              {m.role === 'assistant' && <TraeCodeHeader name="TRAE Code" />}
               {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
               <MessageItem
                 message={m}
-                isLast={realIdx === messages.length - 1}
+                isLast={isLastMessage}
                 isStreaming={isStreaming}
                 assistantLabel={assistantLabel}
                 onApplyDiff={onApplyDiff}
                 onRejectDiff={onRejectDiff}
+                /* Phase 19.1: Plan Step ↔ Message 双向跳转 — 关联 planStepIds + 高亮 + hover 联动 */
+                relatedPlanStepIds={messageToPlanStepIds[m.id]}
+                isHighlighted={highlightedMessageId === m.id}
+                onHoverMessage={handleHoverMessage}
               />
+              {/* Phase 18.2: 在最后一条消息下方 inline 渲染 subagent 活动(Trae Work 风格)
+                  仅当最后一条消息是 AI 消息且存在 subagent 活动时显示,确保 subagent 卡片跟随主 agent 消息。
+                  历史消息不展示:subAgentActivities 总是当前对话的最新状态,内联在最后一条 AI 消息下方才是有意义的。 */}
+              {isLastMessage &&
+                m.role === 'assistant' &&
+                subAgentActivities &&
+                subAgentActivities.length > 0 && (
+                  <div className="ml-11 mt-1 max-w-[calc(100%-3rem)]">
+                    <SubAgentActivityFeed
+                      swarmId=""
+                      activities={subAgentActivities}
+                      completed={subAgentActivities.every(
+                        (a) =>
+                          a.status === 'completed' ||
+                          a.status === 'failed' ||
+                          a.status === 'cancelled',
+                      )}
+                      inline
+                      stepBudget={stepBudget}
+                    />
+                  </div>
+                )}
+              {/* Phase 19.10: 历史压缩分隔线(messages.length > 100 时,在第 50 条后插入)
+                  - 复用 CompressionDivider 组件,符合 Trae Work 视觉风格
+                  - 仅非虚拟模式下生效(虚拟模式下 idx 是 visibleRange 内的相对索引,语义不对) */}
+              {!enableVirtual &&
+                messages.length > COMPRESSION_DIVIDER_THRESHOLD &&
+                realIdx === COMPRESSION_DIVIDER_INDEX && <CompressionDivider />}
             </div>
           )
         })}
@@ -566,6 +903,40 @@ export function MessageList({
         {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
         <div ref={bottomRef} />
       </div>
+      {/* Phase 20: 消息右键菜单容器(per-message,屏幕坐标 fixed 定位) */}
+      <MessageContextMenu
+        visible={contextMenu.visible}
+        position={{ x: contextMenu.x, y: contextMenu.y }}
+        items={contextMenuItems}
+        onItemClick={onContextMenuItemClick}
+        onClose={closeContextMenu}
+      />
+      {/* Phase 20: 启用 TimelineTab 时,在消息区顶部展示一个 tab 控件;
+          选中"时间线"时,TimelineTab 覆盖整个滚动区显示时间线视图;
+          选中"对话流"时,TimelineTab 自动隐藏,正常对话流继续可见
+          - 仅在非虚拟滚动 + 消息数 > 0 时启用
+          - activeTab 状态由 timeline store 维护,跨组件同步
+          - TimelineTab 内部 defaultTab 与 store 联动,保证切换响应 */}
+      {enableTimelineTab && !enableVirtual && messages.length > 0 && (
+        <div
+          className={cn(
+            'absolute z-10',
+            activeTimelineTab === 'timeline' ? 'inset-0 bg-background' : 'right-2 top-2',
+          )}
+        >
+          <TimelineTab
+            events={timelineEvents}
+            inlineContent={
+              <div className="p-4 text-center text-[11px] text-muted-foreground/60">
+                对话流由外层 MessageList 渲染,TimelineTab 仅展示时间线视图
+              </div>
+            }
+            inlineLabel="对话流"
+            timelineLabel="时间线"
+            defaultTab={activeTimelineTab}
+          />
+        </div>
+      )}
     </div>
   )
 }

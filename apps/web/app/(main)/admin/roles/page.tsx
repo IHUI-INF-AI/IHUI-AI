@@ -132,7 +132,7 @@ export default function AdminRolesPage() {
   const roles = rolesQ.data ?? []
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <RoleFilter onCreate={openCreate} />
 
       <RoleTable

@@ -65,8 +65,8 @@ export default function SubagentsListPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Subagent 派单</h1>
-          <p className="mt-1 text-sm text-muted-foreground">多智能体团队调度 · 对标 TRAE Work</p>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">Subagent 派单</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">多智能体团队调度 · 对标 TRAE Work</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => router.push('/subagents/topology')}>
@@ -82,7 +82,7 @@ export default function SubagentsListPage() {
 
       <StatsCards stats={statsQ.data} isLoading={statsQ.isLoading} />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
         <Card>
           <CardHeader className="p-4">
             <CardTitle className="text-sm">活跃派单({dispatches.length})</CardTitle>

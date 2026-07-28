@@ -46,6 +46,18 @@
       "subscribeFailed": "작업에 실패했습니다"
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "설정",
+      "개인 정보",
+      "프로젝트",
+      "대화 기록",
+      "멤버",
+      "워크스페이스",
+      "단축키",
+      "AI 모델"
+    ]
+  },
   "common": {
     "refundTime": "환불 시간",
     "tools": {

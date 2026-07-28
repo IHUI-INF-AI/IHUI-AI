@@ -9,10 +9,10 @@ export default function SupportPage() {
   const [tab, setTab] = React.useState<'list' | 'new'>('list')
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">客服中心</h1>
-        <p className="mt-1 text-sm text-muted-foreground">提交工单、查看进度与服务评价</p>
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">客服中心</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">提交工单、查看进度与服务评价</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">

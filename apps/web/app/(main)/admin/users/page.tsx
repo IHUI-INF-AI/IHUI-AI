@@ -255,8 +255,8 @@ export default function AdminUsersPage() {
 
   return (
     <>
-      <div className="grid grid-cols-[220px_1fr] gap-4">
-        <aside className="sticky top-4 h-[calc(100vh-8rem)] self-start">
+      <div className="grid grid-cols-[200px_1fr] gap-3">
+        <aside className="sticky top-4 h-[calc(100vh-7rem)] self-start">
           <DeptTree
             selectedId={selectedDeptId}
             onSelect={(id) => {
@@ -265,14 +265,14 @@ export default function AdminUsersPage() {
             }}
           />
         </aside>
-        <div className="min-w-0 space-y-4">
-          <div className="flex items-start justify-between">
+        <div className="min-w-0 space-y-3">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-                <Users className="h-6 w-6 text-primary" />
+              <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+                <Users className="h-5 w-5 text-primary" />
                 <CenteredText>{t('title')}</CenteredText>
               </h1>
-              <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
             </div>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" />
@@ -295,8 +295,8 @@ export default function AdminUsersPage() {
             }}
           />
 
-          <div className="flex items-center gap-2 text-sm">
-            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 text-xs">
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">默认排序</span>
             <select
               value={userSortValue}

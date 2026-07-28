@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -46,35 +46,35 @@ export default function LearnRecordPage() {
   const items = data ?? []
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-3">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-lg font-bold tracking-tight">
           <BookOpen className="h-5 w-5 text-primary" />
           {t('title', { default: '学习记录' })}
         </h1>
       </div>
 
       {isLoading ? (
-        <div className="py-10 text-center text-muted-foreground">
+        <div className="py-6 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading', { default: '加载中...' })}
         </div>
       ) : error ? (
-        <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
+        <div className="py-6 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
           <BookOpen className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty', { default: '目前还没有数据' })}</p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid gap-2 sm:grid-cols-2">
           {items.map((item) => {
             const progress =
               typeof item.progress === 'number' ? Math.min(100, Math.max(0, item.progress)) : 0
             return (
               <li
                 key={item.id}
-                className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"
+                className="rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1">

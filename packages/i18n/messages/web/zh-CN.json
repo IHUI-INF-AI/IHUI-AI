@@ -46,6 +46,18 @@
       "subscribeFailed": "操作失败"
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "设置",
+      "个人资料",
+      "项目",
+      "对话历史",
+      "成员",
+      "工作区",
+      "快捷键",
+      "AI 模型"
+    ]
+  },
   "common": {
     "refundTime": "退款时间",
     "tools": {

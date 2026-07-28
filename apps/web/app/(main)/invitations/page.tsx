@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -98,14 +98,14 @@ export default function InvitationsPage() {
   const invitees = inviteesQ.data ?? []
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <UserPlus className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={() => genMut.mutate()} disabled={genMut.isPending}>
           {genMut.isPending ? (
@@ -199,7 +199,7 @@ export default function InvitationsPage() {
             {(inviteesQ.error as Error).message}
           </div>
         ) : invitees.length > 0 ? (
-          <div className="overflow-hidden rounded-lg border">
+          <div className="max-h-[calc(100vh-22rem)] overflow-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs text-muted-foreground">
                 <tr>

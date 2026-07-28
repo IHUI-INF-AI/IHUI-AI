@@ -370,13 +370,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
 /** 把毫秒格式化成 mm:ss / hh:mm:ss(展示用) */
 export function formatRemaining(ms: number): string {
   if (ms <= 0) return '00:00'
-  const totalSec = Math.ceil(ms / 1000)
-  const h = Math.floor(totalSec / 3600)
-  const m = Math.floor((totalSec % 3600) / 60)
-  const s = totalSec % 60
-  const pad = (n: number) => String(n).padStart(2, '0')
-  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`
-  return `${pad(m)}:${pad(s)}`
+  return formatMediaTime(Math.ceil(ms / 1000))
 }
 
 /** 内部供测试 / 自验脚本导入的存储 key(避免硬编码 2 处) */

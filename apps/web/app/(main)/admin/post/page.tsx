@@ -125,8 +125,8 @@ export default function PostPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Briefcase className="h-6 w-6 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight">
+          <Briefcase className="h-5 w-5 text-primary" />
           岗位管理
         </h1>
         <HasPermi code="system:post:add">

@@ -59,13 +59,13 @@ export default function SecurityAuditPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <ShieldAlert className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -78,6 +78,7 @@ export default function SecurityAuditPage() {
           ) : list.length === 0 ? (
             <p className="py-16 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
+            <div className="max-h-[calc(100vh-22rem)] overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -108,6 +109,7 @@ export default function SecurityAuditPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

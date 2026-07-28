@@ -87,7 +87,7 @@ export default function FeatureCenterPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 
@@ -97,7 +97,7 @@ export default function FeatureCenterPage() {
           {t('loading')}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ENTRIES.map((entry) => {
             const Icon = entry.icon
             return (

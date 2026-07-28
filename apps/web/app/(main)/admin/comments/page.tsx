@@ -77,11 +77,11 @@ export default function AdminCommentsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <MessageSquare className="h-6 w-6 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight">
+          <MessageSquare className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

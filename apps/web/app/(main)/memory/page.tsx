@@ -60,12 +60,12 @@ export default function MemoryListPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Brain className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">记忆系统</h1>
-          <span className="text-sm text-muted-foreground">({entries.length})</span>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">记忆系统</h1>
+          <span className="text-xs text-muted-foreground">({entries.length})</span>
         </div>
         <Button asChild>
           <Link href="/memory/new">

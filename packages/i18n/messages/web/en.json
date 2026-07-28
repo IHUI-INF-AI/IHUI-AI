@@ -46,6 +46,18 @@
       "subscribeFailed": "Operation failed"
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "Settings",
+      "Profile",
+      "Projects",
+      "Conversations",
+      "Members",
+      "Workspace",
+      "Shortcuts",
+      "AI Models"
+    ]
+  },
   "common": {
     "refundTime": "Refund Time",
     "tools": {

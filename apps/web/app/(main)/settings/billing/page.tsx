@@ -110,7 +110,7 @@ export default function BillingPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="invoices" className="space-y-3">
+        <TabsContent value="invoices" className="space-y-3 mt-2">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">

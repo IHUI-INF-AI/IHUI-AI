@@ -46,6 +46,18 @@
       "subscribeFailed": "操作に失敗しました"
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "設定",
+      "プロフィール",
+      "プロジェクト",
+      "会話履歴",
+      "メンバー",
+      "ワークスペース",
+      "ショートカット",
+      "AI モデル"
+    ]
+  },
   "common": {
     "refundTime": "返金日時",
     "tools": {

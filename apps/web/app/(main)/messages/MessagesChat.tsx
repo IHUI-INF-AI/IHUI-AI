@@ -78,8 +78,8 @@ export function MessagesChat({
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b px-4 py-3">
+    <div className="flex flex-1 flex-col rounded-lg bg-card">
+      <div className="flex items-center gap-2 bg-muted/40 px-4 py-2.5">
         <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
           {selected.peerAvatar ? (
             <Image
@@ -145,7 +145,7 @@ export function MessagesChat({
         )}
       </div>
 
-      <div className="flex items-center gap-2 border-t p-3">
+      <div className="flex items-center gap-2 bg-muted/40 p-3">
         <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

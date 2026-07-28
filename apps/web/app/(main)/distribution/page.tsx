@@ -110,7 +110,7 @@ export default function DistributionHomePage() {
   const loading = teamQ.isLoading || summaryQ.isLoading || availableQ.isLoading
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <Card className="overflow-hidden">
         <CardContent className="flex items-center gap-4 p-5">
           <Image
@@ -124,11 +124,11 @@ export default function DistributionHomePage() {
             unoptimized
           />
           <div className="min-w-0 space-y-1">
-            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-              <Gift className="h-7 w-7 text-primary" />
+            <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+              <Gift className="h-6 w-6 text-primary" />
               {t('title')}
             </h1>
-            <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+            <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
           </div>
         </CardContent>
       </Card>

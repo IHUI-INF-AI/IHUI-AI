@@ -34,8 +34,8 @@ export default function AdminNewsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('articlesTitle')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('articlesSubtitle')}</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('articlesTitle')}</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('articlesSubtitle')}</p>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link href="/admin/news/categories">

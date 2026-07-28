@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Mic, Square, Play, Pause, Trash2, Download } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
+import { formatShortDuration } from '@ihui/shared/utils'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -132,11 +133,7 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
     a.click()
   }
 
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60)
-    const sec = s % 60
-    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
-  }
+  const formatTime = (s: number) => formatShortDuration(s)
 
   return (
     <div className="flex flex-col items-center gap-3">

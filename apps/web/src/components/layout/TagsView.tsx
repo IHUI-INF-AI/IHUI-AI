@@ -58,6 +58,7 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   const router = useRouter()
   const tNav = useTranslations('nav')
   const tCommon = useTranslations('common')
+  const tSearch = useTranslations('search')
   const [open, setOpen] = React.useState(false)
   const triggerRef = React.useRef<HTMLButtonElement>(null)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
@@ -65,6 +66,37 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const searchParamsStr = searchParams?.toString()
+
+  // 2026-07-28 立:标签栏搜索弹窗下拉建议支撑(用户反馈"输入内容后没下拉 + Enter 没反应")
+  // - history:从 localStorage 读历史搜索记录,聚焦时(input 为空)显示在下拉
+  // - suggestions:默认建议列表(无后端 API 时降级,确保用户有内容可看)
+  // - 提交时(onSearch)追加到 history 并写回 localStorage
+  const [history, setHistory] = React.useState<string[]>([])
+
+  // 挂载后从 localStorage 读历史(SSR 安全,失败静默)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const stored = window.localStorage.getItem('searchHistory')
+      if (stored) setHistory(JSON.parse(stored))
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  // 默认建议(无后端 API 时降级,确保下拉永远有内容可看)
+  // 优先 i18n 翻译(若 search namespace 有 quickSuggestions key),fallback 到硬编码常用项
+  const suggestions = React.useMemo<string[]>(() => {
+    try {
+      const arr = tSearch.raw('quickSuggestions') as unknown
+      if (Array.isArray(arr)) {
+        return (arr as unknown[]).filter((s): s is string => typeof s === 'string').slice(0, 8)
+      }
+    } catch {
+      /* ignore */
+    }
+    return ['设置', '个人资料', '项目', '对话历史', '成员', '工作区', '快捷键', 'AI 模型']
+  }, [tSearch])
 
   // 挂载后查询右侧工作区容器作为 portal 目标(只在客户端执行)
   React.useEffect(() => {
@@ -108,8 +140,35 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   }, [open])
 
   const handleSearch = (kw: string) => {
-    router.push(`/search?q=${encodeURIComponent(kw)}`)
+    const trimmed = kw.trim()
+    if (!trimmed) return
+    // 写历史(去重 + 最多 10 条 + 持久化 localStorage)
+    const next = [trimmed, ...history.filter((h) => h !== trimmed)].slice(0, 10)
+    setHistory(next)
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('searchHistory', JSON.stringify(next))
+      } catch {
+        /* ignore */
+      }
+    }
+    router.push(`/search?q=${encodeURIComponent(trimmed)}`)
     setOpen(false)
+  }
+
+  const handleHistoryClick = (kw: string) => {
+    handleSearch(kw)
+  }
+
+  const handleClearHistory = () => {
+    setHistory([])
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem('searchHistory')
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   // 通过 portal 渲染到右侧工作区容器:绝对定位、水平居中(inset-x-0 + mx-auto,避免
@@ -140,6 +199,10 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
               <div className="rounded-md border bg-popover text-popover-foreground shadow-md">
                 <SearchBar
                   onSearch={handleSearch}
+                  onHistoryClick={handleHistoryClick}
+                  onClearHistory={handleClearHistory}
+                  history={history}
+                  suggestions={suggestions}
                   placeholder={tCommon('searchPlaceholder')}
                   focusOnMount
                 />

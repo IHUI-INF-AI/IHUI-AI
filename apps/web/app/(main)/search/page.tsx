@@ -77,7 +77,7 @@ function SearchContent() {
   const total = users.length + projects.length + files.length
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <SearchBar
         placeholder={tc('search')}
         onSearch={handleSearch}

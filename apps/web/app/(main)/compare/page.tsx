@@ -113,26 +113,26 @@ export default function CompareIndexPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(compareJsonLd) }}
       />
-      <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
-        <section className="space-y-5 text-center">
+      <main className="mx-auto w-full max-w-6xl px-4 py-4 md:px-8 md:py-6">
+        <section className="space-y-3 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
             <Layers className="h-3.5 w-3.5 text-primary" />
             产品对比
           </div>
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
             IHUI AI vs 主流 AI 平台
           </h1>
-          <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
+          <p className="mx-auto max-w-2xl text-xs text-muted-foreground">
             从 11 个核心维度深度对比,帮你选择最适合的 AI 平台。
           </p>
         </section>
 
-        <section className="mt-12 grid gap-6 md:grid-cols-2">
+        <section className="mt-6 grid gap-3 md:grid-cols-2">
           {COMPARISONS.map(({ slug, competitor, tagline, keyPoints }) => (
             <Link
               key={slug}
               href={`/compare/${slug}`}
-              className="group rounded-2xl border bg-card p-6 shadow-sm transition-shadow hover:shadow-md"
+              className="group rounded-2xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">IHUI AI vs {competitor}</h2>
@@ -152,10 +152,10 @@ export default function CompareIndexPage() {
         </section>
 
         {/* 综合对比表格 */}
-        <section className="mt-12">
-          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">综合对比表</h2>
-          <p className="mt-1 text-sm text-muted-foreground">7 大平台 12 项指标一目了然</p>
-          <div className="mt-6 overflow-x-auto rounded-lg border bg-card shadow-sm">
+        <section className="mt-6">
+          <h2 className="text-xl font-bold tracking-tight md:text-2xl">综合对比表</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">7 大平台 12 项指标一目了然</p>
+          <div className="mt-4 max-h-[calc(100vh-22rem)] overflow-auto rounded-lg border bg-card shadow-sm">
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b bg-muted/30">
@@ -190,10 +190,10 @@ export default function CompareIndexPage() {
         </section>
 
         {/* 全部 36 个深度对比 */}
-        <section className="mt-12">
-          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">全部深度对比</h2>
-          <p className="mt-1 text-sm text-muted-foreground">IHUI-AI 与 36 个竞品的逐一深度对比</p>
-          <div className="mt-6 space-y-6">
+        <section className="mt-6">
+          <h2 className="text-xl font-bold tracking-tight md:text-2xl">全部深度对比</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">IHUI-AI 与 36 个竞品的逐一深度对比</p>
+          <div className="mt-4 space-y-4">
             {ALL_COMPARISONS.map(({ group, items }) => (
               <div key={group}>
                 <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>
@@ -210,11 +210,11 @@ export default function CompareIndexPage() {
         </section>
 
         {/* CTA */}
-        <section className="mt-12 rounded-lg border bg-primary/5 p-8 text-center md:p-12">
+        <section className="mt-6 rounded-lg border bg-primary/5 p-4 text-center md:p-6">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">立即开始使用 IHUI-AI</h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">开源、免费、8 端同源,176 模型 + LangGraph + MCP + A2A 三栈合一。</p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">立即开始使用 IHUI-AI</h2>
+          <p className="mx-auto mt-2 max-w-xl text-xs text-muted-foreground">开源、免费、8 端同源,176 模型 + LangGraph + MCP + A2A 三栈合一。</p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
             <Button size="lg" asChild><Link href="/pricing">立即开始</Link></Button>
             <Button size="lg" variant="outline" asChild>
               <a href="https://github.com/IHUI-INF-AI/IHUI-AI" target="_blank" rel="noopener noreferrer">

@@ -200,7 +200,7 @@ export default function NewPublishPage() {
   const isTextFormat = format === 'md' || format === 'html'
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="mx-auto w-full max-w-4xl space-y-4">
       <div>
         <h2 className="text-base font-semibold">{t('new.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('new.subtitle')}</p>

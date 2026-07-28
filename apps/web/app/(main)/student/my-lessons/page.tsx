@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -55,31 +55,31 @@ export default function MyLessonsPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-          <BookOpen className="h-7 w-7 text-primary" />
+    <div className="mx-auto w-full max-w-6xl space-y-3">
+      <header className="space-y-0.5">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+          <BookOpen className="h-5 w-5 text-primary" />
           {t('myLessonsTitle')}
         </h1>
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10">
           <BookOpen className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {list.map((item) => {
               const statusKey =
                 item.status === 2
@@ -101,11 +101,11 @@ export default function MyLessonsPage() {
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center">
-                          <BookOpen className="h-8 w-8 text-muted-foreground/40" />
+                          <BookOpen className="h-6 w-6 text-muted-foreground/40" />
                         </div>
                       )}
                     </div>
-                    <CardContent className="space-y-3 p-4">
+                    <CardContent className="space-y-2 p-3">
                       <h3 className="font-medium">{item.title}</h3>
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">

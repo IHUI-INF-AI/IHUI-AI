@@ -725,6 +725,9 @@ export function AISidePanel() {
                     }
                   : undefined
               }
+              // Phase 20: AI 侧面板默认启用 TimelineTab(对话流 ↔ 时间线 切换),
+              // 让用户能在长对话中快速定位工具调用 / subagent 派发等事件
+              enableTimelineTab
             />
             {/* Agent 任务进度 popover(v6.3:固定在消息区右上角,带间距;
                 由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store) */}

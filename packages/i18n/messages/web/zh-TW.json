@@ -46,6 +46,18 @@
       "subscribeFailed": "操作失敗"
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "設定",
+      "個人資料",
+      "項目",
+      "對話歷史",
+      "成員",
+      "工作區",
+      "快捷鍵",
+      "AI 模型"
+    ]
+  },
   "common": {
     "refundTime": "退款時間",
     "tools": {

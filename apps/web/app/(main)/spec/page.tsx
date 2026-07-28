@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -67,11 +67,11 @@ export default function SpecListPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Spec 模式</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">Spec 模式</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             代码规格文档生成 · 四阶段生命周期管理
           </p>
         </div>
@@ -83,7 +83,7 @@ export default function SpecListPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_220px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">历史版本</h2>
           {isLoading ? (

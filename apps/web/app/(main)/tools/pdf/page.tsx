@@ -41,8 +41,8 @@ const TOOLS: PdfTool[] = [
 
 export default function PdfToolsPage() {
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
+      <nav className="flex items-center gap-1 text-xs text-muted-foreground">
         <Link href="/tools" className="transition-colors hover:text-foreground">
           工具
         </Link>
@@ -54,11 +54,11 @@ export default function PdfToolsPage() {
           <FileText className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">PDF 工具</h1>
-          <p className="text-sm text-muted-foreground">在线处理 PDF：合并、拆分、水印与格式转换</p>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">PDF 工具</h1>
+          <p className="text-xs text-muted-foreground">在线处理 PDF：合并、拆分、水印与格式转换</p>
         </div>
       </header>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         {TOOLS.map(({ href, title, description, Icon }) => (
           <Link key={href} href={href} className="group block">
             <Card className="transition-colors hover:bg-accent">

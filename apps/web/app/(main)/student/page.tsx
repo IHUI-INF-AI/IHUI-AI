@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -79,14 +79,14 @@ export default function StudentCenterPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <header className="flex items-center justify-between space-y-1">
-        <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-            <BarChart3 className="h-7 w-7 text-primary" />
+    <div className="mx-auto w-full max-w-6xl space-y-4">
+      <header className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+            <BarChart3 className="h-5 w-5 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -117,137 +117,137 @@ export default function StudentCenterPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : (
         <>
           {/* 课程统计 */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">{t('lessons')}</h2>
+              <BookOpen className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">{t('lessons')}</h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('totalLessons')}</CardTitle>
-                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+                  <CardTitle className="text-xs font-medium">{t('totalLessons')}</CardTitle>
+                  <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{lessons?.total ?? 0}</div>
+                <CardContent className="p-3 pt-0">
+                  <div className="text-xl font-bold">{lessons?.total ?? 0}</div>
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('completedLessons')}</CardTitle>
-                  <Award className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+                  <CardTitle className="text-xs font-medium">{t('completedLessons')}</CardTitle>
+                  <Award className="h-3.5 w-3.5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                <CardContent className="p-3 pt-0">
+                  <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
                     {lessons?.completed ?? 0}
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('inProgressLessons')}</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+                  <CardTitle className="text-xs font-medium">{t('inProgressLessons')}</CardTitle>
+                  <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-primary">{lessons?.inProgress ?? 0}</div>
+                <CardContent className="p-3 pt-0">
+                  <div className="text-xl font-bold text-primary">{lessons?.inProgress ?? 0}</div>
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('avgProgress')}</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+                  <CardTitle className="text-xs font-medium">{t('avgProgress')}</CardTitle>
+                  <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{lessons?.avgProgress ?? 0}%</div>
+                <CardContent className="p-3 pt-0">
+                  <div className="text-xl font-bold">{lessons?.avgProgress ?? 0}%</div>
                 </CardContent>
               </Card>
             </div>
           </div>
 
           {/* 考试统计 */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">{t('exams')}</h2>
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">{t('exams')}</h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('totalExams')}</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+                  <CardTitle className="text-xs font-medium">{t('totalExams')}</CardTitle>
+                  <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{exams?.total ?? 0}</div>
+                <CardContent className="p-3 pt-0">
+                  <div className="text-xl font-bold">{exams?.total ?? 0}</div>
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('passedExams')}</CardTitle>
-                  <Award className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+                  <CardTitle className="text-xs font-medium">{t('passedExams')}</CardTitle>
+                  <Award className="h-3.5 w-3.5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                <CardContent className="p-3 pt-0">
+                  <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
                     {exams?.passed ?? 0}
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('avgScore')}</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+                  <CardTitle className="text-xs font-medium">{t('avgScore')}</CardTitle>
+                  <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{exams?.avgScore ?? 0}</div>
+                <CardContent className="p-3 pt-0">
+                  <div className="text-xl font-bold">{exams?.avgScore ?? 0}</div>
                 </CardContent>
               </Card>
             </div>
           </div>
 
           {/* 证书统计 */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">{t('certificates')}</h2>
+              <Award className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">{t('certificates')}</h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('totalCerts')}</CardTitle>
-                  <Award className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
+                  <CardTitle className="text-xs font-medium">{t('totalCerts')}</CardTitle>
+                  <Award className="h-3.5 w-3.5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{certs?.total ?? 0}</div>
+                <CardContent className="p-3 pt-0">
+                  <div className="text-xl font-bold">{certs?.total ?? 0}</div>
                 </CardContent>
               </Card>
             </div>
           </div>
 
           {/* 快捷入口 */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <ScrollText className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">{t('quickLinks')}</h2>
+              <ScrollText className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">{t('quickLinks')}</h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {quickLinks.map(({ href, key, icon: Icon }) => (
                 <Link key={href} href={href}>
                   <Card className="transition-colors hover:bg-accent">
-                    <CardContent className="flex items-center gap-3 p-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
-                        <Icon className="h-5 w-5 text-primary" />
+                    <CardContent className="flex flex-col items-center gap-2 p-3 text-center">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
+                        <Icon className="h-4 w-4 text-primary" />
                       </div>
-                      <span className="font-medium">{t(key)}</span>
+                      <span className="text-xs font-medium">{t(key)}</span>
                     </CardContent>
                   </Card>
                 </Link>

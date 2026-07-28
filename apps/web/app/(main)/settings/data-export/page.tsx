@@ -114,61 +114,63 @@ export default function DataExportPage() {
   const hasExport = Boolean(lastExport.url)
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="md" padding={false} className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('dataExportTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('dataExportDesc')}</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('dataExportTitle')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('dataExportDesc')}</p>
       </div>
 
       <Alert variant="info" title={t('exportScope')} description={t('exportScopeDesc')} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileJson className="h-4 w-4" />
-            {t('exportJson')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('exportJsonDesc')}</span>
-            <Button size="sm" onClick={handleExport} disabled={creating}>
-              {creating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileJson className="h-4 w-4" />
-              )}
-              {creating ? t('exportCreating') : t('download')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileJson className="h-4 w-4" />
+              {t('exportJson')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{t('exportJsonDesc')}</span>
+              <Button size="sm" onClick={handleExport} disabled={creating}>
+                {creating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileJson className="h-4 w-4" />
+                )}
+                {creating ? t('exportCreating') : t('download')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card className="opacity-60">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileText className="h-4 w-4" />
-            {t('exportCsv')}
-            <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-              {tc('comingSoon')}
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('exportCsvDesc')}</span>
-            <Button size="sm" disabled>
-              <Download className="h-4 w-4" />
-              {t('download')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <Card className="opacity-60">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" />
+              {t('exportCsv')}
+              <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                {tc('comingSoon')}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{t('exportCsvDesc')}</span>
+              <Button size="sm" disabled>
+                <Download className="h-4 w-4" />
+                {t('download')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {loading ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
+        <p className="py-2 text-center text-xs text-muted-foreground">{t('activityLoading')}</p>
       ) : error ? (
-        <p className="py-4 text-center text-sm text-destructive">{error}</p>
+        <p className="py-2 text-center text-xs text-destructive">{error}</p>
       ) : hasExport ? (
         <Card>
           <CardHeader>
@@ -177,8 +179,8 @@ export default function DataExportPage() {
               {t('exportLastExport')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-col gap-2 text-sm">
+          <CardContent className="space-y-2">
+            <div className="flex flex-col gap-1.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('exportLastExport')}</span>
                 <span>{formatTime(lastExport.exportedAt)}</span>
@@ -206,7 +208,7 @@ export default function DataExportPage() {
           </CardContent>
         </Card>
       ) : (
-        <p className="py-4 text-center text-sm text-muted-foreground">{t('exportNoHistory')}</p>
+        <p className="py-2 text-center text-xs text-muted-foreground">{t('exportNoHistory')}</p>
       )}
 
       {toast && (

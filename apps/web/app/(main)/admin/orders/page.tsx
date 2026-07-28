@@ -28,8 +28,8 @@ export default function AdminOrdersPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">

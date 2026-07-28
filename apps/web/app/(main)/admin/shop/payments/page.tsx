@@ -85,13 +85,15 @@ export default function AdminShopPaymentsPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <ShoppingCart className="h-6 w-6 text-primary" />
-          支付订单管理
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">查看与处理支付订单</p>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <ShoppingCart className="h-5 w-5 text-primary" />
+            支付订单管理
+          </h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">查看与处理支付订单</p>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -104,7 +106,7 @@ export default function AdminShopPaymentsPage() {
               setPage(1)
             }}
             placeholder="搜索订单号/用户"
-            className="h-9 pl-8"
+            className="h-8 pl-8"
           />
         </div>
         <Select
@@ -128,9 +130,9 @@ export default function AdminShopPaymentsPage() {
         </Select>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="max-h-[calc(100vh-22rem)] overflow-auto rounded-lg border">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-muted/50">
             <TableRow className="bg-muted/50">
               <TableHead className="text-xs uppercase">订单号</TableHead>
               <TableHead className="text-xs uppercase">用户</TableHead>
@@ -144,13 +146,13 @@ export default function AdminShopPaymentsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                 </TableCell>
               </TableRow>
             ) : orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                   暂无订单
                 </TableCell>
               </TableRow>
