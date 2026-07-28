@@ -156,8 +156,14 @@ function applyTranslations(translations, messages) {
     const langObj = messages[lang]
 
     for (const [key, value] of Object.entries(langTranslations)) {
-      if (typeof value !== 'string') {
-        errors.push(`[${lang}] ${key}: 翻译值非字符串 (${typeof value}),跳过`)
+      // 2026-07-28 升级: 支持非字符串值(数组/对象)
+      // 背景: pricingPage.testimonials.items 是 6 元素对象数组、search.quickSuggestions
+      //       是 8 元素数组、newsletter.benefits.items 是 5 元素对象数组。
+      //       旧逻辑 typeof value !== 'string' 直接跳过,导致 10 个键无法 apply,
+      //       必须手动 fs.writeFileSync 补全(P0 协作风险)。
+      // collectLeafEntries 已将数组/对象当作 leaf 不递归,这里直接 setByPath 写入。
+      if (value === undefined || value === null) {
+        errors.push(`[${lang}] ${key}: 翻译值为 ${typeof value},跳过`)
         continue
       }
       setByPath(langObj, key, value)
