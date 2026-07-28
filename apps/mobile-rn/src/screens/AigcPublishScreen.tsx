@@ -10,10 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { createAigcTask } from '@ihui/api-client'
+import { createAigcTask, uploadFileMultipart, resolveFileUrl } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PRIMARY = tokens.brand.DEFAULT
@@ -50,6 +51,7 @@ export default function AigcPublishScreen() {
   const [description, setDescription] = useState('')
   const [prompt, setPrompt] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [urlInput, setUrlInput] = useState('')
 
@@ -66,6 +68,46 @@ export default function AigcPublishScreen() {
     setError('')
     setFiles((prev) => [...prev, { id: `file-${Date.now()}`, url, type: workType }])
     setUrlInput('')
+  }
+
+  /**
+   * 调用 expo-image-picker 从相册选择图片,通过 uploadFileMultipart 上传到 /api/files/upload/form。
+   * expo-image-picker 8.x:result 直接是 ImageInfo(uri/type/width/height),
+   * 无 mimeType/fileName 字段(13+ 才有 assets 数组),需根据 type 推断 MIME 与扩展名。
+   */
+  const pickImage = async () => {
+    if (uploading) return
+    if (files.length >= 5) {
+      setError('最多上传 5 个素材')
+      return
+    }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      })
+      // 8.x 用 cancelled(英式拼写);canceled(美式)是 13+ 才有的字段
+      if (result.cancelled || !result.uri) return
+      setUploading(true)
+      setError('')
+      const isVideo = result.type === 'video'
+      const res = await uploadFileMultipart({
+        uri: result.uri,
+        type: isVideo ? 'video/mp4' : 'image/jpeg',
+        name: `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+      })
+      if (res.success && res.data) {
+        const url = resolveFileUrl(res.data.path)
+        setFiles((prev) => [...prev, { id: res.data!.id, url, type: workType }])
+      } else {
+        setError(res.error || '上传失败')
+      }
+    } catch {
+      setError('选择文件失败')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id))
@@ -188,6 +230,21 @@ export default function AigcPublishScreen() {
               <Text style={styles.urlAddText}>添加</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            style={[styles.pickerBtn, uploading && styles.pickerBtnDisabled]}
+            onPress={pickImage}
+            disabled={uploading}
+            activeOpacity={0.7}
+          >
+            {uploading ? (
+              <View style={styles.pickerBtnInner}>
+                <ActivityIndicator color={tokens.surface.light} size="small" />
+                <Text style={styles.pickerBtnTextUploading}>上传中...</Text>
+              </View>
+            ) : (
+              <Text style={styles.pickerBtnText}>从相册选择</Text>
+            )}
+          </TouchableOpacity>
           <View style={styles.fileGrid}>
             {files.map((f) => (
               <View key={f.id} style={styles.fileItem}>
@@ -198,9 +255,14 @@ export default function AigcPublishScreen() {
               </View>
             ))}
             {files.length < 5 ? (
-              <TouchableOpacity style={styles.fileAdd} onPress={addFileByUrl} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.fileAdd}
+                onPress={pickImage}
+                disabled={uploading}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.fileAddIcon}>+</Text>
-                <Text style={styles.fileAddText}>添加</Text>
+                <Text style={styles.fileAddText}>{uploading ? '上传中' : '从相册'}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -312,6 +374,24 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
   },
   urlAddText: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
+  pickerBtn: {
+    paddingVertical: 11,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: PRIMARY,
+    backgroundColor: tokens.surface.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  pickerBtnDisabled: {
+    opacity: 0.6,
+    borderColor: tokens.text.tertiary,
+    backgroundColor: tokens.text.tertiary,
+  },
+  pickerBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pickerBtnText: { color: PRIMARY, fontSize: 13, fontWeight: '600' },
+  pickerBtnTextUploading: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
   fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   fileItem: {
     width: 76,
