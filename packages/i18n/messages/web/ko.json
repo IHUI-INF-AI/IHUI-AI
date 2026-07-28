@@ -5732,6 +5732,32 @@
       "error": "다운로드 실패",
       "printError": "인쇄 실패",
       "certText": "이로써 {name}이(가) 관련 평가를 통과했음을 증명합니다."
+    },
+    "detail": {
+      "headerTitle": "수강 완료 증명서",
+      "courseLabel": "강좌",
+      "recipientLabel": "수령인",
+      "certNo": "증명서 번호",
+      "awarderLabel": "발급자",
+      "issueDate": "발급일",
+      "validityLabel": "유효 기간",
+      "loading": "증명서 로딩 중...",
+      "notFound": "증명서가 없거나 취소되었습니다",
+      "unknownRecipient": "이름 미상 수령인",
+      "defaultIssuer": "IHUI AI 아카데미",
+      "defaultAwarder": "학술 위원회",
+      "defaultConditions": "전체 강좌 학습을 완료하고 최종 평가(60점 이상)에 합격",
+      "defaultValidity": "영구 유효",
+      "printAction": "인쇄",
+      "downloadAction": "PDF 다운로드",
+      "downloadError": "다운로드 실패",
+      "backToList": "증명서 목록으로",
+      "source": "출처",
+      "template": "템플릿",
+      "status": "상태",
+      "statusValid": "유효",
+      "statusRevoked": "취소됨",
+      "issuerAria": "{org}에서 {name}에게 발급한 수료 증명서"
     }
   },
   "selfMedia": {
