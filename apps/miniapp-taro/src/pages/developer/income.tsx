@@ -242,8 +242,9 @@ export default function DeveloperIncome() {
   const settleClass = (item: IncomeItem) => {
     const s = String(item.settlement ?? item.settleStatus ?? item.status ?? '')
     const base = 'text-[22rpx] px-[14rpx] py-[4rpx] rounded-[8rpx] bg-background text-muted-foreground'
-    if (s === '2') return `${base} bg-[#e9f7ef] text-[#34c759]`
-    if (s === '1') return `${base} bg-[#fff4e6] text-[#ff9500]`
+    // TODO: custom color: 浅色背景 #e9f7ef / #fff4e6 无对应 token
+    if (s === '2') return `${base} bg-[#e9f7ef] text-success`
+    if (s === '1') return `${base} bg-[#fff4e6] text-warning`
     return base
   }
   const displayTime = (item: IncomeItem) =>
@@ -290,6 +291,7 @@ export default function DeveloperIncome() {
                   {tt('developer.income.accumulatedYuan', '累积收入(元)')}
                 </Text>
                 <Text className="text-[52rpx] font-bold text-[#7b61ff] leading-[1.1]">
+                  {/* TODO: custom color: 紫色品牌色,无对应 token */}
                   {loading ? '--' : accumulated}
                 </Text>
               </View>
@@ -378,7 +380,7 @@ export default function DeveloperIncome() {
                     <Text className="text-[24rpx] text-muted-foreground">{displayTime(item)}</Text>
                   </View>
                   <View className="flex flex-col items-end">
-                    <Text className="text-[30rpx] text-[#34c759] font-semibold mb-[8rpx]">
+                    <Text className="text-[30rpx] text-success font-semibold mb-[8rpx]">
                       +¥{displayAmount(item)}
                     </Text>
                     {settleText(item) ? (
@@ -437,7 +439,8 @@ export default function DeveloperIncome() {
             onClick={(e) => e.stopPropagation()}
           >
             <View className="flex items-center mb-[12rpx]">
-              <Text className="w-[44rpx] h-[44rpx] leading-[44rpx] text-center bg-[#7b61ff] text-white rounded-[10rpx] text-[24rpx] mr-[16rpx]">¥</Text>
+              {/* TODO: custom color: bg-[#7b61ff] 紫色品牌色 + bg-[#f3eeff] 浅紫选中背景,无对应 token */}
+              <Text className="w-[44rpx] h-[44rpx] leading-[44rpx] text-center bg-[#7b61ff] text-primary-foreground rounded-[10rpx] text-[24rpx] mr-[16rpx]">¥</Text>
               <Text className="text-[30rpx] font-semibold text-foreground">
                 {tt('developer.income.selectMethod', '请选择提现方式')}
               </Text>
@@ -449,13 +452,13 @@ export default function DeveloperIncome() {
               className={`flex items-center w-full p-[20rpx] bg-background rounded-[12rpx] mb-[28rpx] box-border${incomeType === 'wechat' ? ' bg-[#f3eeff]' : ''}`}
               onClick={() => setIncomeType((prev) => (prev === 'wechat' ? '' : 'wechat'))}
             >
-              <View className="w-[48rpx] h-[48rpx] leading-[48rpx] text-center bg-[#07c160] text-white rounded-[10rpx] text-[24rpx] mr-[16rpx]">
-                <Text className="text-white">微</Text>
+              <View className="w-[48rpx] h-[48rpx] leading-[48rpx] text-center bg-[var(--color-wechat-green)] text-primary-foreground rounded-[10rpx] text-[24rpx] mr-[16rpx]">
+                <Text className="text-primary-foreground">微</Text>
               </View>
               <Text className="flex-1 text-[28rpx] text-foreground">
                 {tt('developer.income.wechat', '微信')}
               </Text>
-              <Text className={`w-[36rpx] text-center text-muted-foreground text-[28rpx]${incomeType === 'wechat' ? ' text-[#07c160] text-[32rpx]' : ''}`}>
+              <Text className={`w-[36rpx] text-center text-muted-foreground text-[28rpx]${incomeType === 'wechat' ? ' text-[var(--color-wechat-green)] text-[32rpx]' : ''}`}>
                 {incomeType === 'wechat' ? '✓' : ''}
               </Text>
             </View>

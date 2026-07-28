@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import {
   Alert,
@@ -9,7 +10,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Input } from '@ihui/ui-native'
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   genderItemActive: { backgroundColor: tokens.brand.DEFAULT },
   genderText: { fontSize: 12, color: tokens.text.secondary },
   genderTextActive: { color: tokens.surface.light },
-  errorBar: { backgroundColor: '#FEF2F2', borderRadius: 8, padding: 8 },
+  errorBar: { backgroundColor: tokens.danger.light, borderRadius: 8, padding: 8 },
   errorText: { fontSize: 12, color: tokens.error.text },
   emptyText: { fontSize: 12, color: tokens.text.secondary },
   modalOverlay: {
