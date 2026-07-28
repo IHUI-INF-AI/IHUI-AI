@@ -5,6 +5,7 @@ import { useState, useCallback } from 'react'
 import { generateImage } from '@/api'
 import { useI18n } from '@/i18n'
 import EmptyState from '@/components/EmptyState'
+import { formatDateByTemplate } from '@ihui/shared'
 
 interface HistoryItem {
   id: string
@@ -52,13 +53,7 @@ function saveFavorites(set: Set<string>): void {
   }
 }
 
-const fmtTime = (ts: number) =>
-  new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(ts)
+const fmtTime = (ts: number) => formatDateByTemplate(ts, 'MM-DD HH:mm')
 
 export default function ImagePage() {
   const { t, tList } = useI18n()
