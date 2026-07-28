@@ -710,6 +710,10 @@ function TerminalViewport({
       fitAddonRef.current = null
       wsHandleRef.current = null
       roRef.current = null
+      // P3 修复:主 effect cleanup 中显式调 clearDecorations,
+      // 防止 dynamic import 未 resolve 时切换 session 导致装饰残留
+      // (此时 termRef.current 可能为 null,_terminalCleanup 未挂载,decorationsRef 残留旧 session 装饰)
+      clearDecorations()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅 sessionId/paneId 变化时重建,fontSize/theme 通过独立 effect 更新
   }, [sessionId, paneId])
