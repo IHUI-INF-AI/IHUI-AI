@@ -364,6 +364,27 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 38 (2026-07-28 新增,solito 幽灵依赖回归守门,防 P0 优化被回退) ---
+  // blocking:本仓库刚完成 P0 级优化移除 solito 幽灵依赖(commit f8c9a6630c),
+  //   solito 0 真实运行时调用,packages/app 改用纯 props 注入式跨端共享组件。
+  //   若其他 agent 误把 solito 重新引入,会导致依赖树复杂度回升 + packages/app 耦合回升。
+  //   本守门检测 package.json / pnpm-workspace.yaml / patches/ / packages/app 源码 中的 solito 残留。
+  // 失败含义:有人重新引入 solito 依赖,需移除后重新 commit。
+  {
+    id: '38',
+    label: '🛡️  solito 幽灵依赖回归守门(blocking,防 P0 优化被回退)',
+    script: 'check-solito-residue.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 检测到 solito 依赖被重新引入,本仓库已于 2026-07-28 移除 solito(commit f8c9a6630c)。',
+      '     packages/app 已改用纯 props 注入式跨端共享组件(无外部导航库依赖)。',
+      '     修复:从 package.json 删除 solito 依赖,从 pnpm-workspace.yaml 删除 *solito* hoist,',
+      '     删除 patches/solito@*.patch,删除 packages/app 源码中 import from "solito/..." 语句。',
+      '',
+    ].join('\n'),
+  },
   {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',
