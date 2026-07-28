@@ -4,7 +4,6 @@ import * as React from 'react'
 import { Search, X, Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { useClickOutside } from '@/hooks/use-click-outside'
 
 interface SearchBarProps {
   placeholder?: string
@@ -33,19 +32,66 @@ export function SearchBar({
   const [value, setValue] = React.useState('')
   const [focused, setFocused] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
-  const containerRef = useClickOutside<HTMLDivElement>(
-    React.useCallback(() => setFocused(false), []),
-  )
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
-  // focusOnMount:用 ref + effect 主动聚焦(避免 jsx-a11y/no-autofocus 警告)
+  // 2026-07-28 修复(用户反馈"输入内容后没下拉 + Enter 没反应"):
+  // 原 useClickOutside hook 在 SearchBar 挂载时立即注册 document mousedown 监听器,
+  // 与 focusOnMount=true 的 inputRef.current?.focus() 时序冲突:
+  // - mount 后 useEffect 注册 mousedown 监听器
+  // - 同 effect 内 inputRef.current?.focus() 同步触发原生 focus
+  // - React commit 后派发合成 onFocus → setFocused(true)
+  // - 但如果 mousedown 在 focus() 派发前同步触发(或 React 19 dev 模式 batching 变化),
+  //   会立即 setFocused(false) 覆盖,导致下拉永远不显示
+  // 修复:用 focused 状态作为 enabled gate,只有 input 已聚焦后才监听外部 mousedown,
+  //      从根本上消除与 focusOnMount 的时序竞争。
   React.useEffect(() => {
-    if (focusOnMount) inputRef.current?.focus()
+    if (!focused) return
+    const handler = (event: MouseEvent | TouchEvent) => {
+      const el = containerRef.current
+      if (el && !el.contains(event.target as Node)) {
+        setFocused(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [focused])
+
+  // focusOnMount:用 ref + effect + setTimeout(0) 主动聚焦
+  // setTimeout 推到下一帧,确保 React commit 完成后 input 节点完全可用,
+  // 然后同步触发原生 focus 事件让 React 派发 onFocus 合成事件。
+  // 不使用 jsx-a11y/no-autofocus 警告的方式(在 input 上写 autoFocus)。
+  React.useEffect(() => {
+    if (!focusOnMount) return
+    const id = window.setTimeout(() => {
+      inputRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(id)
   }, [focusOnMount])
+
+  // 2026-07-28 修复(用户反馈"输入内容后没下拉 + Enter 没反应"):
+  // 之前依赖 form onSubmit 触发搜索,但 input type=search + form 在中文 IME composition
+  // 状态下按 Enter 是"确认中文选词",不会触发 form submit,导致 Enter 提交失效。
+  // 改用 input onKeyDown 显式拦截 Enter,绕过 IME 与 form 提交流程。
+  const handleEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    // 跳过 IME composition 中的 Enter(原生 keydown 的 isComposing 判断)
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
+    e.preventDefault()
+    const trimmed = value.trim()
+    if (!trimmed) return
+    onSearch?.(trimmed)
+    setFocused(false)
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (value.trim()) {
-      onSearch?.(value.trim())
+    const trimmed = value.trim()
+    if (trimmed) {
+      onSearch?.(trimmed)
       setFocused(false)
     }
   }
@@ -66,6 +112,7 @@ export function SearchBar({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onFocus={() => setFocused(true)}
+          onKeyDown={handleEnter}
           placeholder={resolvedPlaceholder}
           className="h-10 w-full bg-transparent pl-9 pr-9 text-sm transition-colors placeholder:text-muted-foreground/70 focus-visible:outline-none"
         />
