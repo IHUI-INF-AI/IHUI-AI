@@ -1,139 +1,70 @@
-import { useState } from 'react'
-import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  Alert,
+  FlatList,
+  Modal,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { getAiCareers, type AiCareerItem } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-type Category = 'all' | 'tech' | 'product' | 'design' | 'ops'
-
-interface Job {
-  id: string
-  position: string
-  company: string
-  salary: string
-  location: string
-  category: Exclude<Category, 'all'>
-  tags: string[]
-  experience: string
-  education: string
-  description: string
-  requirements: string[]
+/** 安全提取 AiCareerItem 上 index signature 为 unknown 的字符串字段。 */
+const getStringField = (item: AiCareerItem, field: string): string => {
+  const v: unknown = item[field]
+  return typeof v === 'string' ? v : ''
 }
-
-const TABS: { key: Category; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'tech', label: '技术' },
-  { key: 'product', label: '产品' },
-  { key: 'design', label: '设计' },
-  { key: 'ops', label: '运营' },
-]
-
-const MOCK_JOBS: Job[] = [
-  {
-    id: '1',
-    position: '高级前端工程师',
-    company: 'AI智汇社',
-    salary: '25-40K',
-    location: '上海',
-    category: 'tech',
-    tags: ['React', 'RN'],
-    experience: '3-5年',
-    education: '本科',
-    description: '负责跨端 AI 应用前端架构与核心模块开发,与产品团队协作交付高质量体验。',
-    requirements: [
-      '精通 React / TypeScript',
-      '熟悉 React Native 跨端开发',
-      '有大型应用性能优化经验',
-      '良好的工程协作意识',
-    ],
-  },
-  {
-    id: '2',
-    position: 'AI 产品经理',
-    company: '智汇实验室',
-    salary: '30-50K',
-    location: '北京',
-    category: 'product',
-    tags: ['AI', 'B端'],
-    experience: '5年以上',
-    education: '本科',
-    description: '主导 AI 智能体产品从 0 到 1 的规划与落地,对接客户需求与研发节奏。',
-    requirements: [
-      '5年以上产品经验',
-      '熟悉 LLM / Agent 能力边界',
-      '有 B 端 SaaS 经验优先',
-      '出色的需求抽象能力',
-    ],
-  },
-  {
-    id: '3',
-    position: 'UI/UX 设计师',
-    company: '智汇设计中心',
-    salary: '18-30K',
-    location: '远程',
-    category: 'design',
-    tags: ['UI', 'UX'],
-    experience: '3年以上',
-    education: '大专',
-    description: '负责多端产品的视觉与交互设计,建立统一的设计语言与组件规范。',
-    requirements: [
-      '精通 Figma 等设计工具',
-      '有跨端设计经验',
-      '理解前端实现约束',
-      '有设计系统建设经验优先',
-    ],
-  },
-  {
-    id: '4',
-    position: '内容运营专员',
-    company: '智汇社区',
-    salary: '10-18K',
-    location: '杭州',
-    category: 'ops',
-    tags: ['内容', '社区'],
-    experience: '1-3年',
-    education: '本科',
-    description: '负责社区内容生态运营,策划 AI 话题活动,提升用户活跃与留存。',
-    requirements: ['有社区/内容运营经验', '熟悉 AI 行业动态', '较强的文案能力', '数据驱动思维'],
-  },
-  {
-    id: '5',
-    position: '后端架构师',
-    company: 'AI智汇社',
-    salary: '40-70K',
-    location: '上海',
-    category: 'tech',
-    tags: ['Node', '架构'],
-    experience: '5年以上',
-    education: '本科',
-    description: '负责平台后端架构演进与技术选型,保障高并发场景下的稳定性与扩展性。',
-    requirements: [
-      '精通 Node.js / TypeScript',
-      '熟悉微服务架构',
-      '有高并发系统经验',
-      '数据库调优能力',
-    ],
-  },
-]
 
 const PRIMARY = tokens.brand.DEFAULT
 
-/** 招聘列表:职位筛选 / 列表 / 详情 / 投递。 */
+/** 招聘列表:职位列表 / 详情 / 投递。 */
 export default function RecruitmentScreen() {
   const navigation = useNavigation<NavigationProp>()
-  const [activeTab, setActiveTab] = useState<Category>('all')
-  const [selected, setSelected] = useState<Job | null>(null)
-  const [applied, setApplied] = useState<Set<string>>(new Set())
+  const [items, setItems] = useState<AiCareerItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const [selected, setSelected] = useState<AiCareerItem | null>(null)
 
-  const filtered =
-    activeTab === 'all' ? MOCK_JOBS : MOCK_JOBS.filter((j) => j.category === activeTab)
+  const loadData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
+    setError('')
+    try {
+      const resp = await getAiCareers({ page: 1, pageSize: 50 })
+      if (resp.success) {
+        setItems(resp.data.list)
+      } else {
+        setError(resp.error || '加载失败')
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '加载失败')
+    } finally {
+      if (isRefresh) {
+        setRefreshing(false)
+      } else {
+        setLoading(false)
+      }
+    }
+  }, [])
 
-  const onApply = (job: Job) => {
-    setApplied((prev) => new Set(prev).add(job.id))
-    setSelected(null)
+  useEffect(() => {
+    void loadData()
+  }, [loadData])
+
+  const onApply = () => {
+    Alert.alert('提示', '投递功能待接入')
   }
 
   return (
@@ -143,64 +74,48 @@ export default function RecruitmentScreen() {
           <Text style={styles.backText}>返回</Text>
         </TouchableOpacity>
         <Text style={styles.title}>招聘职位</Text>
-        <Text style={styles.subtitle}>{filtered.length} 个职位 · 欢迎投递</Text>
-      </View>
-
-      <View style={styles.tabs}>
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => setActiveTab(tab.key)}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        <Text style={styles.subtitle}>{items.length} 个职位 · 欢迎投递</Text>
       </View>
 
       <FlatList
-        data={filtered}
+        data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void loadData(true)} />
+        }
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>暂无相关职位</Text>
+            <Text style={styles.emptyText}>{loading ? '加载中...' : error || '暂无相关职位'}</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.jobCard}
-            onPress={() => setSelected(item)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.jobHead}>
-              <Text style={styles.jobPosition} numberOfLines={1}>
-                {item.position}
-              </Text>
-              <Text style={styles.jobSalary}>{item.salary}</Text>
-            </View>
-            <Text style={styles.jobCompany}>
-              {item.company} · {item.location}
-            </Text>
-            <View style={styles.jobMeta}>
-              <Text style={styles.jobMetaText}>{item.experience}</Text>
-              <Text style={styles.jobMetaText}>{item.education}</Text>
-              {item.tags.map((tg) => (
-                <View key={tg} style={styles.miniTag}>
-                  <Text style={styles.miniTagText}>{tg}</Text>
-                </View>
-              ))}
-              {applied.has(item.id) ? (
-                <View style={styles.appliedBadge}>
-                  <Text style={styles.appliedText}>已投递</Text>
-                </View>
+        renderItem={({ item }) => {
+          const company = getStringField(item, 'company')
+          const salary = getStringField(item, 'salary')
+          const location = getStringField(item, 'location')
+          const meta = [company, location].filter(Boolean).join(' · ')
+          return (
+            <TouchableOpacity
+              style={styles.jobCard}
+              onPress={() => setSelected(item)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.jobHead}>
+                <Text style={styles.jobPosition} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                {salary ? <Text style={styles.jobSalary}>{salary}</Text> : null}
+              </View>
+              {meta ? <Text style={styles.jobCompany}>{meta}</Text> : null}
+              {item.description ? (
+                <Text style={styles.jobDesc} numberOfLines={2}>
+                  {item.description}
+                </Text>
               ) : null}
-            </View>
-          </TouchableOpacity>
-        )}
+            </TouchableOpacity>
+          )
+        }}
       />
 
       <Modal
@@ -215,31 +130,29 @@ export default function RecruitmentScreen() {
               <>
                 <View style={styles.modalHead}>
                   <Text style={styles.modalTitle} numberOfLines={1}>
-                    {selected.position}
+                    {selected.title}
                   </Text>
                   <TouchableOpacity onPress={() => setSelected(null)}>
                     <Text style={styles.modalClose}>关闭</Text>
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.modalSalary}>
-                  {selected.salary} · {selected.company} · {selected.location}
+                  {[
+                    getStringField(selected, 'salary'),
+                    getStringField(selected, 'company'),
+                    getStringField(selected, 'location'),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </Text>
-                <Text style={styles.modalSection}>职位描述</Text>
-                <Text style={styles.modalDesc}>{selected.description}</Text>
-                <Text style={styles.modalSection}>任职要求</Text>
-                {selected.requirements.map((r, i) => (
-                  <Text key={i} style={styles.modalReq}>
-                    · {r}
-                  </Text>
-                ))}
-                <TouchableOpacity
-                  style={[styles.applyBtn, applied.has(selected.id) && styles.applyBtnDisabled]}
-                  onPress={() => onApply(selected)}
-                  disabled={applied.has(selected.id)}
-                >
-                  <Text style={styles.applyText}>
-                    {applied.has(selected.id) ? '已投递,等待反馈' : '立即投递'}
-                  </Text>
+                {selected.description ? (
+                  <>
+                    <Text style={styles.modalSection}>职位描述</Text>
+                    <Text style={styles.modalDesc}>{selected.description}</Text>
+                  </>
+                ) : null}
+                <TouchableOpacity style={styles.applyBtn} onPress={onApply}>
+                  <Text style={styles.applyText}>立即投递</Text>
                 </TouchableOpacity>
               </>
             ) : null}
@@ -286,6 +199,7 @@ const styles = StyleSheet.create({
   },
   jobSalary: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
   jobCompany: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
+  jobDesc: { marginTop: 6, fontSize: 12, color: tokens.text.tertiary, lineHeight: 18 },
   jobMeta: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   jobMetaText: { fontSize: 11, color: tokens.text.tertiary },
   miniTag: {

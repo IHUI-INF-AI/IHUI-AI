@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { sendAiChat } from '@ihui/api-client'
+import { getAiModels, sendAiChat } from '@ihui/api-client'
 import type { ChatMessage as AiChatMessage } from '@ihui/types'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -28,22 +28,35 @@ interface ChatMessage extends AiChatMessage {
   createdAt: number
 }
 
-const MODELS = ['gpt-4o', 'claude-3.5-sonnet', 'gemini-1.5-pro']
-
 export function AIMultimodalScreen() {
   const { t } = useI18n()
   const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [mode, setMode] = useState<Mode>('text')
-  const [model, setModel] = useState(MODELS[0])
+  const [models, setModels] = useState<string[]>([])
+  const [model, setModel] = useState('')
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    void (async () => {
+      const resp = await getAiModels({ page: 1, pageSize: 100 })
+      if (resp.success) {
+        const names = resp.data.list.map((m) => m.name)
+        setModels(names)
+        const first = names[0]
+        if (first !== undefined) {
+          setModel(first)
+        }
+      }
+    })()
+  }, [])
+
   const handleSend = async () => {
     const text = input.trim()
-    if (!text || loading) return
+    if (!text || !model || loading) return
     const userMsg: ChatMessage = {
       id: `${Date.now()}-u`,
       role: 'user',
@@ -108,19 +121,23 @@ export function AIMultimodalScreen() {
 
       <View style={styles.modelRow}>
         <Text style={styles.modelLabel}>{t('aiMultimodal.switchModel')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {MODELS.map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.modelChip, model === m && styles.modelChipActive]}
-              onPress={() => setModel(m)}
-            >
-              <Text style={[styles.modelChipText, model === m && styles.modelChipTextActive]}>
-                {m}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {models.length === 0 ? (
+          <Text style={styles.emptyText}>暂无可用模型</Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {models.map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.modelChip, model === m && styles.modelChipActive]}
+                onPress={() => setModel(m)}
+              >
+                <Text style={[styles.modelChipText, model === m && styles.modelChipTextActive]}>
+                  {m}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       <FlatList
@@ -156,9 +173,9 @@ export function AIMultimodalScreen() {
           multiline
         />
         <TouchableOpacity
-          style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
+          style={[styles.sendBtn, (!input.trim() || !model || loading) && styles.sendBtnDisabled]}
           onPress={handleSend}
-          disabled={!input.trim() || loading}
+          disabled={!input.trim() || !model || loading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />

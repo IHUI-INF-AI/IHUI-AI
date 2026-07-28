@@ -36,7 +36,8 @@ interface CommissionData {
 }
 
 
-const MOCK_FALLBACK: CommissionData = {
+// 初始空状态(非 mock 数据,API 返回前占位)
+const INITIAL_STATE: CommissionData = {
   total_earnings: '0',
   today_commission: '0',
   balance: '0',
@@ -46,7 +47,7 @@ const MOCK_FALLBACK: CommissionData = {
 export function IncomeScreen() {
   const navigation = useNavigation<NavigationProp>()
   const { token, user } = useAuth()
-  const [data, setData] = useState<CommissionData>(MOCK_FALLBACK)
+  const [data, setData] = useState<CommissionData>(INITIAL_STATE)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 

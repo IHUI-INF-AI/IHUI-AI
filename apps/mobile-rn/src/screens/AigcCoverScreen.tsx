@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { getAigcTask, getAigcTasks, type AigcTask } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const PRIMARY = tokens.brand.DEFAULT
@@ -20,63 +21,129 @@ interface CoverOption {
   label: string
 }
 
-const MOCK_COVERS: CoverOption[] = [
+// 静态 UI 模板配置(非 mock 数据):AI 模板预置封面,URL 是 UI 配置
+const AI_TEMPLATE_OPTIONS: CoverOption[] = [
   {
-    id: 'c1',
-    url: 'https://picsum.photos/seed/cover1/600/600',
-    source: 'work',
-    label: '作品原图 1',
-  },
-  {
-    id: 'c2',
-    url: 'https://picsum.photos/seed/cover2/600/600',
-    source: 'work',
-    label: '作品原图 2',
-  },
-  {
-    id: 'c3',
-    url: 'https://picsum.photos/seed/cover3/600/600',
-    source: 'work',
-    label: '作品原图 3',
-  },
-  {
-    id: 'c4',
+    id: 'ai-tpl-1',
     url: 'https://picsum.photos/seed/aicover1/600/600',
     source: 'ai',
     label: 'AI 模板 · 治愈',
   },
   {
-    id: 'c5',
+    id: 'ai-tpl-2',
     url: 'https://picsum.photos/seed/aicover2/600/600',
     source: 'ai',
     label: 'AI 模板 · 复古',
   },
   {
-    id: 'c6',
+    id: 'ai-tpl-3',
     url: 'https://picsum.photos/seed/aicover3/600/600',
     source: 'ai',
     label: 'AI 模板 · 极简',
   },
 ]
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null
+}
+
+function asString(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined
+}
+
+/** 将 AIGC 任务(result 为 unknown)安全映射为 CoverOption,无 coverUrl 返回 undefined */
+function toCoverFromTask(task: AigcTask): CoverOption | undefined {
+  const r = isRecord(task.result) ? task.result : {}
+  const url = asString(r.coverUrl)
+  if (!url) return undefined
+  const title = asString(r.title) ?? '作品原图'
+  return {
+    id: task.taskId,
+    url,
+    source: 'work',
+    label: title,
+  }
+}
+
 export default function AigcCoverScreen() {
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const workTitle = (route.params?.title as string) ?? '未命名作品'
-  const [selectedId, setSelectedId] = useState<string>(MOCK_COVERS[0]!.id)
+  const routeId = route.params?.id
+
+  const [works, setWorks] = useState<CoverOption[]>([])
+  const [currentCover, setCurrentCover] = useState<CoverOption | null>(null)
+  const [selectedId, setSelectedId] = useState<string>(routeId ?? '')
   const [filter, setFilter] = useState<'all' | 'work' | 'ai'>('all')
 
-  const selected = MOCK_COVERS.find((c) => c.id === selectedId) ?? MOCK_COVERS[0]!
-  const filtered = filter === 'all' ? MOCK_COVERS : MOCK_COVERS.filter((c) => c.source === filter)
+  // 加载用户 AIGC 作品列表,从 result.coverUrl 提取封面
+  const loadWorks = async () => {
+    try {
+      const res = await getAigcTasks({ page: 1, pageSize: 20 })
+      if (res.success) {
+        const covers = res.data.list
+          .map(toCoverFromTask)
+          .filter((c): c is CoverOption => c !== undefined)
+        setWorks(covers)
+      }
+    } catch {
+      // 静默失败:works 为空时 UI 仍可用 AI 模板
+    }
+  }
+
+  // 路由 id 用于调 getAigcTask(id) 获取当前作品的真实 coverUrl,作为预览默认值
+  const loadCurrent = async () => {
+    if (!routeId) return
+    try {
+      const res = await getAigcTask(routeId)
+      if (res.success) {
+        const cover = toCoverFromTask(res.data)
+        if (cover) {
+          setCurrentCover(cover)
+          setSelectedId(cover.id)
+        }
+      }
+    } catch {
+      // 静默失败
+    }
+  }
+
+  useEffect(() => {
+    void loadWorks()
+    if (routeId) void loadCurrent()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeId])
+
+  // 合并去重:当前作品优先 + works 列表 + AI 模板
+  const allOptions = useMemo<CoverOption[]>(() => {
+    const map = new Map<string, CoverOption>()
+    if (currentCover) map.set(currentCover.id, currentCover)
+    for (const c of works) {
+      if (!map.has(c.id)) map.set(c.id, c)
+    }
+    for (const c of AI_TEMPLATE_OPTIONS) map.set(c.id, c)
+    return Array.from(map.values())
+  }, [works, currentCover])
+
+  // selectedId 为空时默认选第一个(避免初始无选中)
+  useEffect(() => {
+    if (!selectedId && allOptions.length > 0) {
+      setSelectedId(allOptions[0]!.id)
+    }
+  }, [selectedId, allOptions])
+
+  const selected =
+    allOptions.find((c) => c.id === selectedId) ?? allOptions[0] ?? AI_TEMPLATE_OPTIONS[0]!
+
+  const filtered =
+    filter === 'all' ? allOptions : allOptions.filter((c) => c.source === filter)
 
   const onConfirm = () => {
-    Alert.alert('封面已应用', `已为「${workTitle}」应用封面:${selected.label}`, [
-      { text: '好的', onPress: () => navigation.goBack() },
-    ])
+    Alert.alert('提示', '封面应用功能待接入')
   }
 
   const onGenerateAi = () => {
-    Alert.alert('AI 生成封面', '正在调用 AI 生成新封面,请稍候…(mock)', [{ text: '知道了' }])
+    Alert.alert('提示', 'AI 生成封面功能待接入')
   }
 
   return (

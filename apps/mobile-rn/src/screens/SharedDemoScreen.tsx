@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
+import { useEffect, useState } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native'
 import {
   AboutScreen,
   ProfileScreen,
@@ -16,31 +16,19 @@ import type {
   SharedLocaleOption,
   SharedThemeOption,
   SharedMenuItem,
+  SharedUser,
+  SharedUserStatistics,
 } from '@ihui/rn-app'
+import { getProfile, getUserStatistics } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 
 type Tab = 'about' | 'profile' | 'settings' | 'cards'
 
-const MOCK_USER = {
-  id: '1',
-  nickname: '李思涵',
-  avatar: null,
-  email: 'lisihan@ihui.ai',
-  phone: '186****9808',
-}
-const MOCK_STATS = {
-  courseCount: 12,
-  favoriteCount: 34,
-  followingCount: 56,
-  fansCount: 78,
-  studyHours: 120,
-  points: 9800,
-}
-
 /**
  * SharedDemoScreen — RN 端共享组件集成验证页。
- * 引用 packages/app 的 3 个生产级共享组件 + 5 个跨端卡片组件,注入 t 函数 + 模拟数据 + 回调。
+ * 引用 packages/app 的 3 个生产级共享组件 + 5 个跨端卡片组件,注入 t 函数 + 真实 API 数据 + 回调。
+ * cards tab 内的卡片组件保留静态演示 props(组件展示性质,仅 __DEV__ 可见)。
  */
 export function SharedDemoScreen() {
   const { t } = useI18n()
@@ -49,8 +37,53 @@ export function SharedDemoScreen() {
   const [locale, setLocale] = useState('zh-CN')
   const [theme, setTheme] = useState('system')
   const [notifications, setNotifications] = useState({ push: true, message: true, email: false })
+  const [user, setUser] = useState<SharedUser | null>(null)
+  const [stats, setStats] = useState<SharedUserStatistics | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      setLoading(true)
+      const [profileRes, statsRes] = await Promise.all([getProfile(), getUserStatistics()])
+      if (cancelled) return
+      if (profileRes.success) {
+        const p = profileRes.data
+        setUser({
+          id: p.id,
+          nickname: p.nickname || p.username,
+          avatar: p.avatar ?? null,
+          email: p.email,
+          phone: p.phone,
+        })
+      }
+      if (statsRes.success) {
+        const s = statsRes.data
+        setStats({
+          courseCount: s.courseCount,
+          favoriteCount: s.favoriteCount,
+          followingCount: s.followingCount,
+          fansCount: s.fansCount,
+          studyHours: s.studyHours,
+          points: s.points,
+        })
+      }
+      setLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   if (!__DEV__) return null
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loading]}>
+        <ActivityIndicator size="large" color={tokens.brand.DEFAULT} />
+      </View>
+    )
+  }
 
   const menuSections: SharedMenuSection[] = [
     {
@@ -111,8 +144,8 @@ export function SharedDemoScreen() {
       {tab === 'profile' && (
         <ProfileScreen
           t={t}
-          user={MOCK_USER}
-          stats={MOCK_STATS}
+          user={user}
+          stats={stats}
           orderCount={5}
           colorScheme={resolvedTheme}
           menuSections={menuSections}
@@ -124,7 +157,7 @@ export function SharedDemoScreen() {
       {tab === 'settings' && (
         <SettingsScreen
           t={t}
-          user={MOCK_USER}
+          user={user}
           locale={locale}
           localeOptions={localeOptions}
           onSelectLocale={(l) => setLocale(l)}
@@ -231,6 +264,7 @@ export function SharedDemoScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  loading: { alignItems: 'center', justifyContent: 'center' },
   tabs: { flexDirection: 'row', padding: 8, gap: 8 },
   tab: {
     paddingVertical: 8,
