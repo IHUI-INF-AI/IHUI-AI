@@ -215,7 +215,7 @@ export default function ReviewPage() {
                   </div>
                 )}
                 {result && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center text-xs">
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
                     <div className="rounded-md bg-muted/50 p-2">
                       <div className="text-muted-foreground">下次复习</div>
                       <div className="mt-1 font-medium">

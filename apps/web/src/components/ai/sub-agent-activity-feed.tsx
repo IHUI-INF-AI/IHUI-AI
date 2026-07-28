@@ -13,12 +13,6 @@ interface SubAgentActivityFeedProps {
   activities: SubAgentActivity[]
   completed?: boolean
   initiallyExpanded?: boolean
-  /** 2026-07-28 立(Phase 18.2 Trae Work 对齐):inline 模式,
-   * 去除外层卡片,直接展示 agent 列表(用于对话流中作为子 agent 卡片 inline 渲染) */
-  inline?: boolean
-  /** 2026-07-28 立(Phase 18.4 Trae Work 对齐):step budget 资源预算信息,
-   * 传入后在 inline 模式底部显示 "Current usage: X / 60 step budget" */
-  stepBudget?: { used: number; total: number }
 }
 
 const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
@@ -154,51 +148,13 @@ export function SubAgentActivityFeed({
   activities,
   completed = false,
   initiallyExpanded,
-  inline = false,
-  stepBudget,
 }: SubAgentActivityFeedProps) {
   const t = useTranslations('ai.subAgentFeed')
   const ts = useTranslations('ai.status')
   const hasRunning = activities.some(isAgentActive)
-  const totalSteps = activities.reduce((sum, a) => sum + a.completedSteps.length, 0)
-  const budgetText = stepBudget
-    ? `Current usage: ${stepBudget.used} / ${stepBudget.total} step budget`
-    : undefined
-  // 2026-07-28 立(Phase 18.2 Trae Work 对齐):useState 必须无条件调用(React Hooks rules-of-hooks)
   const [expanded, setExpanded] = React.useState(initiallyExpanded ?? (hasRunning && !completed))
 
-  // 2026-07-28 立(Phase 18.2 Trae Work 对齐):inline 模式直接展示 agent 列表
-  if (inline) {
-    return (
-      <div className="space-y-1.5" data-testid="sub-agent-inline">
-        <div className="mb-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground/70">
-          <Zap className="h-3 w-3 text-amber-500" aria-hidden />
-          <span>
-            {completed
-              ? t('coordinated', { count: activities.length })
-              : t('working', { count: activities.length })}
-            {totalSteps > 0 && (
-              <span className="ml-1 text-muted-foreground/60">
-                {t('totalSteps', { count: totalSteps })}
-              </span>
-            )}
-          </span>
-        </div>
-        {activities.map((agent) => (
-          <SubAgentCard
-            key={agent.agentId}
-            agent={agent}
-            badgeLabel={t('badge')}
-            defaultName={t('defaultName')}
-            statusLabel={ts(agent.status)}
-          />
-        ))}
-        {budgetText && completed && (
-          <div className="text-[10px] text-muted-foreground/60">{budgetText}</div>
-        )}
-      </div>
-    )
-  }
+  const totalSteps = activities.reduce((sum, a) => sum + a.completedSteps.length, 0)
 
   return (
     <div

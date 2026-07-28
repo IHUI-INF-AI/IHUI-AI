@@ -1354,7 +1354,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                 {predictResult.message && (
                   <p className="text-[10px] text-muted-foreground">{predictResult.message}</p>
                 )}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <StatCard
                     label="Token 差异"
                     value={

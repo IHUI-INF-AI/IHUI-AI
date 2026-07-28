@@ -138,7 +138,7 @@ export function ModelDetailDialog({
 
           <p className="text-sm leading-relaxed text-foreground/90">{description}</p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <DetailStat
               icon={<Cpu className="h-3.5 w-3.5" />}
               label={t('contextLength')}

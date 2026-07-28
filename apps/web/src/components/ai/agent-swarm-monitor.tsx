@@ -175,7 +175,7 @@ export function AgentSwarmMonitor({
             {performanceMetrics && (
               <div>
                 <h4 className="mb-2 text-sm font-medium">{t('performanceMetrics')}</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                <div className="grid grid-cols-3 gap-2 text-sm">
                   <Metric
                     label={t('successRate')}
                     value={`${(performanceMetrics.successRate * 100).toFixed(1)}%`}
