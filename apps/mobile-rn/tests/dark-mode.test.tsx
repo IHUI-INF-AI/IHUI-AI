@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
-import { createElement, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 
 vi.mock('react-native', async () => {
   const { createElement } = await import('react')
@@ -30,11 +30,6 @@ vi.mock('react-native', async () => {
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })
-
-vi.mock('solito/link', () => ({
-  TextLink: (props: { children?: ReactNode; textProps?: { style?: unknown } }) =>
-    createElement('a', null, props.children),
-}))
 
 import {
   getTokens,
@@ -101,6 +96,7 @@ function makeProps(overrides: Partial<SettingsScreenProps> = {}): SettingsScreen
     onLogout: () => {},
     menuItems: [],
     onMenuPress: () => {},
+    onBack: () => {},
     ...overrides,
   }
 }
