@@ -8779,6 +8779,11 @@
     }
   },
   "search": {
+    "history": "搜索历史",
+    "popular": "热门搜索",
+    "suggest": "搜索建议",
+    "clearAll": "清除全部",
+    "noResults": "无搜索结果",
     "quickSuggestions": [
       "设置",
       "个人资料",
@@ -9598,7 +9603,6 @@
       "working": "{count} 个子智能体协作中"
     },
     "pane": {
-      "title": "任务计划",
       "ariaLabel": "Agent 任务进度面板",
       "pin": "置顶",
       "unpin": "取消置顶",
@@ -9648,6 +9652,10 @@
       "pinHintUnpinned": "已取消置顶,点击外部关闭",
       "minimizeHint": "最小化任务面板",
       "emptyHint": "开始对话后显示任务计划",
+      "emptyTitle": "等待任务开始",
+      "emptySubtitle": "对话开始后,任务拆解会显示在这里",
+      "elapsedTitle": "已耗时 {time}",
+      "failureBanner": "{n} 个任务失败,点击查看",
       "emptyHintsLabel": "任务计划使用提示",
       "emptyHint1": "开始对话后,这里会显示 AI 的任务拆解与进度",
       "emptyHint2": "子代理 / 工具调用 / 终端输出会自动归类到对应区域",
