@@ -149,11 +149,11 @@
 }
 .cal-badge-upcoming {
   background: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 .cal-badge-living {
   background: rgba(221, 82, 77, 0.12);
-  color: #dd524d;
+  color: var(--color-destructive);
 }
 .cal-badge-ended {
   background: var(--color-muted);
@@ -180,8 +180,8 @@
   border: 2rpx solid var(--color-ring);
 }
 .cal-action-living {
-  color: #fff;
-  background: #dd524d;
+  color: var(--color-destructive-foreground);
+  background: var(--color-destructive);
 }
 .cal-action-ended {
   color: var(--color-primary);

@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -24,7 +25,6 @@ const STUDY_PLAN_STATUS_KEYS: Record<PlanItem['status'], string> = {
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function StudyPlanScreen() {
   const { t } = useI18n()
@@ -115,43 +115,43 @@ export function StudyPlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
+  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.bg,
     padding: 16,
   },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827', marginBottom: 12 },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
   empty: { paddingVertical: 40, alignItems: 'center' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 8 },
+  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 8 },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' },
+  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
   status: {
     fontSize: 10,
-    color: '#6b7280',
-    backgroundColor: '#f3f4f6',
+    color: tokens.text.secondary,
+    backgroundColor: tokens.surface.card,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginLeft: 8,
   },
-  statusDone: { color: PRIMARY, backgroundColor: '#ecfdf5' },
-  course: { marginTop: 4, fontSize: 12, color: '#374151' },
-  bar: { height: 4, backgroundColor: '#f3f4f6', borderRadius: 2, marginTop: 8, overflow: 'hidden' },
-  barFill: { height: 4, backgroundColor: PRIMARY },
+  statusDone: { color: tokens.success.DEFAULT, backgroundColor: tokens.success.light },
+  course: { marginTop: 4, fontSize: 12, color: tokens.text.medium },
+  bar: { height: 4, backgroundColor: tokens.surface.card, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
+  barFill: { height: 4, backgroundColor: tokens.success.DEFAULT },
   cardFoot: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  meta: { fontSize: 11, color: '#9ca3af' },
+  meta: { fontSize: 11, color: tokens.text.tertiary },
   btn: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
   },
-  btnText: { color: '#fff', fontSize: 14 },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

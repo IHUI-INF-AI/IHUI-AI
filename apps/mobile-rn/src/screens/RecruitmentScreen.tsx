@@ -1,6 +1,6 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getAiCareers, type AiCareerItem } from '@ihui/api-client'
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.light },
   stateWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   stateText: { fontSize: 13, color: tokens.text.tertiary },
-  errorText: { fontSize: 13, color: '#dc2626' },
+  errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { paddingVertical: 4, marginBottom: 4 },
   backText: { fontSize: 14, color: tokens.text.secondary },
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     marginRight: 8,
   },
-  jobSalary: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
+  jobSalary: { fontSize: 14, fontWeight: '600', color: tokens.danger.bright },
   jobCompany: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
   jobMeta: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   jobMetaText: { fontSize: 11, color: tokens.text.tertiary },
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: tokens.success.light,
   },
   appliedText: { fontSize: 10, color: PRIMARY },
   modalMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

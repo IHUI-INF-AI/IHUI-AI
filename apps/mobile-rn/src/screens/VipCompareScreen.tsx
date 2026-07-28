@@ -1,10 +1,10 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -13,7 +13,6 @@ interface CompareRow { feature: string; basic: string; premium: string; enterpri
 
 export function VipCompareScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [rows, setRows] = useState<CompareRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,12 +21,11 @@ export function VipCompareScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/vip-compare`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: CompareRow[] }
-      setRows(d.data ?? [])
+      const r = await fetchApi<CompareRow[]>('/vip-compare')
+      if (!r.success) throw new Error()
+      setRows(r.data ?? [])
     } catch { setError(t('vipCompare.loadFailed')) } finally { setLoading(false) }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => { void load() }, [load])
 
@@ -78,19 +76,19 @@ export function VipCompareScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  table: { margin: 16, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, overflow: 'hidden' },
-  tableHeader: { flexDirection: 'row', backgroundColor: '#F9FAFB' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  table: { margin: 16, borderWidth: 1, borderColor: tokens.border.light, borderRadius: 8, overflow: 'hidden' },
+  tableHeader: { flexDirection: 'row', backgroundColor: tokens.surface.muted },
   tableRow: { flexDirection: 'row' },
-  rowAlt: { backgroundColor: '#F9FAFB' },
-  cell: { flex: 1, padding: 10, fontSize: 11, color: '#6B7280' },
-  cellFeature: { flex: 1.2, fontWeight: '600', color: '#111827' },
+  rowAlt: { backgroundColor: tokens.surface.muted },
+  cell: { flex: 1, padding: 10, fontSize: 11, color: tokens.text.secondary },
+  cellFeature: { flex: 1.2, fontWeight: '600', color: tokens.text.primary },
   cellText: { fontSize: 11 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, textAlign: 'center' },
   backBtn: { marginTop: 12 },
 })

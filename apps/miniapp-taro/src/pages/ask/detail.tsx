@@ -99,7 +99,7 @@ export default function AskDetailPage() {
           placeholder={t('ask.detail.placeholder')}
           onInput={(e) => setAnswer(e.detail.value)}
         />
-        <Button className="ml-[16rpx] bg-primary disabled:bg-[#ccc] text-foreground text-[24rpx]" size="mini" onClick={onAnswer} disabled={!answer}>
+        <Button className="ml-[16rpx] bg-primary disabled:bg-muted text-foreground text-[24rpx]" size="mini" onClick={onAnswer} disabled={!answer}>
           {t('ask.detail.answer')}
         </Button>
       </View>

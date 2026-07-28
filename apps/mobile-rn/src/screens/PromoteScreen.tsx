@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Alert,
@@ -10,9 +11,8 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -43,7 +43,6 @@ const PROMOTE_STATUS_KEYS: Record<InviteRecord['status'], string> = {
 
 export function PromoteScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<PromoteInfo | null>(null)
   const [records, setRecords] = useState<InviteRecord[]>([])
@@ -59,27 +58,23 @@ export function PromoteScreen() {
       else setLoading(true)
       setError('')
       const [infoRes, recordsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/promote/info`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }),
-        fetch(`${API_BASE_URL}/api/promote/records?page=1&pageSize=10`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        fetchApi<PromoteInfo>('/promote/info'),
+        fetchApi<{ list: InviteRecord[] }>('/promote/records', {
+          params: { page: 1, pageSize: 10 },
         }),
       ])
-      if (!infoRes.ok || !recordsRes.ok) {
+      if (!infoRes.success || !recordsRes.success) {
         setError(t('promote.loadFailed'))
         setLoading(false)
         setRefreshing(false)
         return
       }
-      const infoData = (await infoRes.json()) as { data?: PromoteInfo }
-      const recordsData = (await recordsRes.json()) as { data?: { list: InviteRecord[] } }
-      setInfo(infoData.data ?? null)
-      setRecords(recordsData.data?.list ?? [])
+      setInfo(infoRes.data ?? null)
+      setRecords(recordsRes.data?.list ?? [])
       setLoading(false)
       setRefreshing(false)
     },
-    [token, t],
+    [t],
   )
 
   useEffect(() => {
@@ -233,55 +228,53 @@ export function PromoteScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   center: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
-  errorText: { fontSize: 12, color: '#DC2626', textAlign: 'center', marginTop: 4 },
+  emptyText: { fontSize: 12, color: tokens.text.tertiary, marginTop: 8 },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, textAlign: 'center', marginTop: 4 },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
-  statsCard: { marginHorizontal: 16, padding: 16, borderRadius: 8, backgroundColor: '#ECFDF5' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
+  statsCard: { marginHorizontal: 16, padding: 16, borderRadius: 8, backgroundColor: tokens.success.light },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 20, fontWeight: '700', color: PRIMARY },
-  statLabel: { marginTop: 4, fontSize: 11, color: '#065F46' },
+  statValue: { fontSize: 20, fontWeight: '700', color: tokens.success.DEFAULT },
+  statLabel: { marginTop: 4, fontSize: 11, color: tokens.success.deepText },
   linkCard: {
     marginHorizontal: 16,
     marginTop: 12,
     padding: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: tokens.border.light,
   },
-  linkLabel: { fontSize: 12, fontWeight: '600', color: '#374151' },
-  linkText: { marginTop: 6, fontSize: 13, color: PRIMARY },
+  linkLabel: { fontSize: 12, fontWeight: '600', color: tokens.text.medium },
+  linkText: { marginTop: 6, fontSize: 13, color: tokens.success.DEFAULT },
   linkActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   linkBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  copyBtn: { backgroundColor: PRIMARY },
-  shareBtn: { backgroundColor: '#F3F4F6' },
-  linkBtnText: { fontSize: 13, color: '#FFFFFF' },
-  codeText: { marginTop: 10, fontSize: 11, color: '#9CA3AF' },
+  copyBtn: { backgroundColor: tokens.success.DEFAULT },
+  shareBtn: { backgroundColor: tokens.surface.card },
+  linkBtnText: { fontSize: 13, color: tokens.surface.light },
+  codeText: { marginTop: 10, fontSize: 11, color: tokens.text.tertiary },
   sectionTitle: {
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
     fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
+    color: tokens.text.primary,
   },
   rulesCard: {
     marginHorizontal: 16,
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: tokens.border.light,
   },
-  ruleText: { fontSize: 12, color: '#6B7280', marginVertical: 3, lineHeight: 18 },
+  ruleText: { fontSize: 12, color: tokens.text.secondary, marginVertical: 3, lineHeight: 18 },
   recordsList: { marginHorizontal: 16, marginBottom: 24 },
   recordCard: {
     flexDirection: 'row',
@@ -290,29 +283,29 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: tokens.border.light,
     marginBottom: 8,
   },
   recordInfo: { flex: 1, marginRight: 8 },
-  recordName: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  recordDate: { marginTop: 2, fontSize: 11, color: '#9CA3AF' },
+  recordName: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  recordDate: { marginTop: 2, fontSize: 11, color: tokens.text.tertiary },
   recordRight: { alignItems: 'flex-end' },
-  recordContribution: { fontSize: 13, fontWeight: '600', color: PRIMARY },
+  recordContribution: { fontSize: 13, fontWeight: '600', color: tokens.success.DEFAULT },
   recordStatus: {
     marginTop: 4,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: tokens.surface.card,
   },
-  statusActive: { backgroundColor: '#ECFDF5' },
-  recordStatusText: { fontSize: 10, color: '#6B7280' },
+  statusActive: { backgroundColor: tokens.success.light },
+  recordStatusText: { fontSize: 10, color: tokens.text.secondary },
   retryBtn: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
   },
-  retryBtnText: { color: '#FFFFFF', fontSize: 13 },
+  retryBtnText: { color: tokens.surface.light, fontSize: 13 },
 })

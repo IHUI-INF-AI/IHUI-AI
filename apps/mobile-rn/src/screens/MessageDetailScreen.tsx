@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -17,7 +18,6 @@ interface Message extends MessageItem {
 
 type Route = RouteProp<RootStackParamList, 'MessageDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function MessageDetailScreen() {
   const { t } = useI18n()
@@ -87,7 +87,7 @@ export function MessageDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.bg,
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 32,
@@ -96,30 +96,30 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.bg,
     padding: 16,
   },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  reply: { fontSize: 14, color: PRIMARY, fontWeight: '500' },
-  subject: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  reply: { fontSize: 14, color: tokens.success.DEFAULT, fontWeight: '500' },
+  subject: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 6,
     marginBottom: 12,
   },
-  from: { fontSize: 13, color: PRIMARY, fontWeight: '500' },
-  meta: { fontSize: 11, color: '#9ca3af' },
-  content: { fontSize: 14, lineHeight: 22, color: '#374151' },
+  from: { fontSize: 13, color: tokens.success.DEFAULT, fontWeight: '500' },
+  meta: { fontSize: 11, color: tokens.text.tertiary },
+  content: { fontSize: 14, lineHeight: 22, color: tokens.text.medium },
   btn: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
   },
-  btnText: { color: '#fff', fontSize: 14 },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

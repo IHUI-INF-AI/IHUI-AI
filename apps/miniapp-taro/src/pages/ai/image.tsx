@@ -248,7 +248,7 @@ export default function ImagePage() {
           </View>
         ) : null}
         <Button
-          className="bg-primary text-foreground rounded-[40rpx] text-[28rpx] px-[32rpx] mt-3 w-full disabled:bg-[#ccc]"
+          className="bg-primary text-foreground rounded-[40rpx] text-[28rpx] px-[32rpx] mt-3 w-full disabled:bg-muted"
           onClick={onGenerate}
           disabled={!prompt || loading}
         >

@@ -3,6 +3,7 @@
  * 配置 Coze 平台连接:PAT/API Key、Base URL、默认 bot_id、超时。
  * 参考 miniapp-taro 的 about/api-settings + mobile-rn SettingsAccountScreen 风格。
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -82,7 +83,7 @@ export function ApiSettingsScreen() {
           <TextInput
             style={[s.input, s.inputFlex]} value={config.token} secureTextEntry={!showToken}
             placeholder={tt('apiSettings.tokenPlaceholder', '请输入 Coze API 令牌')}
-            placeholderTextColor="#9CA3AF" autoCapitalize="none" autoCorrect={false}
+            placeholderTextColor={tokens.text.tertiary} autoCapitalize="none" autoCorrect={false}
             onChangeText={(v) => setConfig({ ...config, token: v })}
           />
           <TouchableOpacity style={s.eyeBtn} onPress={() => setShowToken((p) => !p)} accessibilityRole="button">
@@ -93,7 +94,7 @@ export function ApiSettingsScreen() {
         <Text style={s.label}>{tt('apiSettings.baseUrl', 'Base URL')}</Text>
         <TextInput
           style={s.input} value={config.baseUrl} placeholder={COZE_DEFAULT_BASE_URL}
-          placeholderTextColor="#9CA3AF" autoCapitalize="none" autoCorrect={false} keyboardType="url"
+          placeholderTextColor={tokens.text.tertiary} autoCapitalize="none" autoCorrect={false} keyboardType="url"
           onChangeText={(v) => setConfig({ ...config, baseUrl: v })}
         />
 
@@ -101,14 +102,14 @@ export function ApiSettingsScreen() {
         <TextInput
           style={s.input} value={config.botId}
           placeholder={tt('apiSettings.botIdPlaceholder', '可选,默认对话使用的 Bot ID')}
-          placeholderTextColor="#9CA3AF" autoCapitalize="none" autoCorrect={false}
+          placeholderTextColor={tokens.text.tertiary} autoCapitalize="none" autoCorrect={false}
           onChangeText={(v) => setConfig({ ...config, botId: v })}
         />
 
         <Text style={s.label}>{tt('apiSettings.timeout', '超时 (毫秒)')}</Text>
         <TextInput
           style={s.input} value={String(config.timeout)} placeholder={String(COZE_DEFAULT_TIMEOUT)}
-          placeholderTextColor="#9CA3AF" keyboardType="numeric"
+          placeholderTextColor={tokens.text.tertiary} keyboardType="numeric"
           onChangeText={(v) => setConfig({ ...config, timeout: Number(v) || 0 })}
         />
 
@@ -117,7 +118,7 @@ export function ApiSettingsScreen() {
 
       <View style={s.btnRow}>
         <TouchableOpacity style={[s.btn, s.btnPrimary, saving && s.btnDisabled]} onPress={save} disabled={saving} accessibilityRole="button">
-          {saving ? <Loading color="#FFFFFF" /> : <Text style={s.btnTextPrimary}>{tt('apiSettings.save', '保存设置')}</Text>}
+          {saving ? <Loading color={tokens.surface.light} /> : <Text style={s.btnTextPrimary}>{tt('apiSettings.save', '保存设置')}</Text>}
         </TouchableOpacity>
         <TouchableOpacity style={[s.btn, s.btnGhost]} onPress={reset} accessibilityRole="button">
           <Text style={s.btnTextGhost}>{tt('apiSettings.reset', '重置默认')}</Text>
@@ -147,35 +148,35 @@ export function ApiSettingsScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   content: { padding: 16, paddingBottom: 32 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  card: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 12 },
-  sectionTitle: { fontSize: 14, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  label: { fontSize: 12, color: '#6B7280', marginTop: 8, marginBottom: 4 },
-  input: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF', fontSize: 13, color: '#111827' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  card: { backgroundColor: tokens.surface.muted, borderRadius: 12, padding: 16, marginBottom: 12 },
+  sectionTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
+  label: { fontSize: 12, color: tokens.text.secondary, marginTop: 8, marginBottom: 4 },
+  input: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.surface.bg, fontSize: 13, color: tokens.text.primary },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   inputFlex: { flex: 1 },
-  eyeBtn: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+  eyeBtn: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.surface.bg },
   eyeText: { fontSize: 14 },
-  hint: { fontSize: 11, color: '#9CA3AF', marginTop: 12 },
+  hint: { fontSize: 11, color: tokens.text.tertiary, marginTop: 12 },
   btnRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   btn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  btnPrimary: { backgroundColor: '#10B981' },
-  btnGhost: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' },
+  btnPrimary: { backgroundColor: tokens.success.DEFAULT },
+  btnGhost: { backgroundColor: tokens.surface.bg, borderWidth: 1, borderColor: tokens.border.light },
   btnDisabled: { opacity: 0.6 },
-  btnTextPrimary: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
-  btnTextGhost: { color: '#374151', fontSize: 14, fontWeight: '600' },
+  btnTextPrimary: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
+  btnTextGhost: { color: tokens.text.medium, fontSize: 14, fontWeight: '600' },
   testRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  testLabel: { fontSize: 13, color: '#374151' },
-  testBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: '#111827' },
+  testLabel: { fontSize: 13, color: tokens.text.medium },
+  testBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tokens.text.primary },
   testBtnRunning: { opacity: 0.6 },
-  testBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
-  statusOk: { fontSize: 12, color: '#10B981', marginTop: 8 },
-  statusErr: { fontSize: 12, color: '#DC2626', marginTop: 8 },
-  toast: { fontSize: 12, color: '#10B981', textAlign: 'center', marginTop: 4 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
+  testBtnText: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
+  statusOk: { fontSize: 12, color: tokens.success.DEFAULT, marginTop: 8 },
+  statusErr: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
+  toast: { fontSize: 12, color: tokens.success.DEFAULT, textAlign: 'center', marginTop: 4 },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
 })

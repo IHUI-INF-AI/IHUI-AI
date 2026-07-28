@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   View,
@@ -40,9 +41,9 @@ const TYPE_TABS: { id: 'all' | ModelType; label: string }[] = [
 ]
 
 function typeBadge(t: ModelType): { text: string; color: string; bg: string } {
-  if (t === 'image') return { text: '图像', color: '#C41E7A', bg: '#FDE8F5' }
-  if (t === 'av') return { text: '音视频', color: '#2E7D32', bg: '#E8F5E9' }
-  return { text: '文本', color: '#1888EE', bg: '#E8F4FD' }
+  if (t === 'image') return { text: '图像', color: tokens.purple.DEFAULT, bg: tokens.purple.light } // TODO: custom color #C41E7A/#FDE8F5
+  if (t === 'av') return { text: '音视频', color: tokens.success.deep, bg: tokens.success.light } // TODO: custom color #2E7D32/#E8F5E9
+  return { text: '文本', color: tokens.indigo.DEFAULT, bg: tokens.indigo.light } // TODO: custom color #1888EE/#E8F4FD
 }
 
 function readModelType(v: unknown): ModelType {
@@ -240,43 +241,43 @@ export default function ModelPlazaScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, backgroundColor: '#FFFFFF' },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  compareBtn: { paddingHorizontal: 12, height: 30, borderRadius: 8, borderWidth: 1, borderColor: '#7B61FF', alignItems: 'center', justifyContent: 'center' },
-  compareText: { fontSize: 12, fontWeight: '600', color: '#7B61FF' },
-  providerScroll: { maxHeight: 44, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.muted }, // TODO: custom color #F8F9FA
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, backgroundColor: tokens.surface.bg },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: tokens.text.primary },
+  compareBtn: { paddingHorizontal: 12, height: 30, borderRadius: 8, borderWidth: 1, borderColor: tokens.purple.DEFAULT, alignItems: 'center', justifyContent: 'center' },
+  compareText: { fontSize: 12, fontWeight: '600', color: tokens.purple.DEFAULT },
+  providerScroll: { maxHeight: 44, backgroundColor: tokens.surface.bg },
   providerScrollContent: { paddingHorizontal: 16, gap: 8, paddingVertical: 6 },
-  providerTab: { paddingHorizontal: 14, height: 32, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  providerTabActive: { backgroundColor: '#EEF2FF' },
-  providerText: { fontSize: 13, color: '#6B7280' },
-  providerTextActive: { color: '#4F46E5', fontWeight: '600' },
-  providerHeader: { padding: 16, backgroundColor: '#FFFFFF' },
-  providerName: { fontSize: 16, fontWeight: '600', color: '#111827' },
-  providerMeta: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
-  providerDesc: { marginTop: 6, fontSize: 12, color: '#6B7280', lineHeight: 18 },
-  errorBar: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#FFFFFF' },
-  errorText: { fontSize: 12, color: '#EF4444' },
-  typeTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#FFFFFF' },
-  typeTab: { paddingHorizontal: 12, height: 30, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  typeTabActive: { backgroundColor: '#7B61FF' },
-  typeTabText: { fontSize: 12, color: '#6B7280' },
-  typeTabTextActive: { color: '#FFFFFF', fontWeight: '600' },
+  providerTab: { paddingHorizontal: 14, height: 32, borderRadius: 8, backgroundColor: tokens.surface.card, alignItems: 'center', justifyContent: 'center' },
+  providerTabActive: { backgroundColor: tokens.indigo.light },
+  providerText: { fontSize: 13, color: tokens.text.secondary },
+  providerTextActive: { color: tokens.indigo.deep, fontWeight: '600' },
+  providerHeader: { padding: 16, backgroundColor: tokens.surface.bg },
+  providerName: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
+  providerMeta: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
+  providerDesc: { marginTop: 6, fontSize: 12, color: tokens.text.secondary, lineHeight: 18 },
+  errorBar: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: tokens.surface.bg },
+  errorText: { fontSize: 12, color: tokens.danger.bright },
+  typeTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: tokens.surface.bg },
+  typeTab: { paddingHorizontal: 12, height: 30, borderRadius: 8, backgroundColor: tokens.surface.card, alignItems: 'center', justifyContent: 'center' },
+  typeTabActive: { backgroundColor: tokens.purple.DEFAULT },
+  typeTabText: { fontSize: 12, color: tokens.text.secondary },
+  typeTabTextActive: { color: tokens.surface.light, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 48 },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
-  modelCard: { padding: 12, borderRadius: 12, backgroundColor: '#FFFFFF' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  modelCard: { padding: 12, borderRadius: 12, backgroundColor: tokens.surface.bg },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  modelName: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  modelName: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
   typeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   typeBadgeText: { fontSize: 11, fontWeight: '600' },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' },
-  priceLabel: { fontSize: 11, color: '#9CA3AF' },
-  priceValue: { fontSize: 12, color: '#1888EE', fontWeight: '600' },
-  priceDivider: { fontSize: 11, color: '#D1D5DB', marginHorizontal: 4 },
-  priceExtra: { fontSize: 11, color: '#9CA3AF' },
-  cardDesc: { fontSize: 12, color: '#6B7280', lineHeight: 18, marginBottom: 8 },
+  priceLabel: { fontSize: 11, color: tokens.text.tertiary },
+  priceValue: { fontSize: 12, color: tokens.indigo.DEFAULT, fontWeight: '600' }, // TODO: custom color #1888EE
+  priceDivider: { fontSize: 11, color: tokens.border.medium, marginHorizontal: 4 },
+  priceExtra: { fontSize: 11, color: tokens.text.tertiary },
+  cardDesc: { fontSize: 12, color: tokens.text.secondary, lineHeight: 18, marginBottom: 8 },
   cardTagRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  cardTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: '#F3F4F6' },
-  cardTagText: { fontSize: 11, color: '#6B7280' },
-  payMode: { marginLeft: 'auto', fontSize: 11, color: '#9CA3AF' },
+  cardTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: tokens.surface.card },
+  cardTagText: { fontSize: 11, color: tokens.text.secondary },
+  payMode: { marginLeft: 'auto', fontSize: 11, color: tokens.text.tertiary },
 })

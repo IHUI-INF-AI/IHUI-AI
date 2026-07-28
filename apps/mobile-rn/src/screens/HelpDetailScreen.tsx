@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -82,7 +83,7 @@ export function HelpDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -91,23 +92,23 @@ const s = StyleSheet.create({
     gap: 12,
   },
   body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   categoryRow: { flexDirection: 'row', marginBottom: 8 },
   categoryBadge: {
     fontSize: 11,
-    color: '#FFFFFF',
-    backgroundColor: '#10B981',
+    color: tokens.surface.light,
+    backgroundColor: tokens.success.DEFAULT,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
     overflow: 'hidden',
   },
-  question: { fontSize: 17, fontWeight: '600', color: '#111827' },
-  answerTitle: { marginTop: 16, fontSize: 13, fontWeight: '600', color: '#6B7280' },
-  answer: { marginTop: 6, fontSize: 14, color: '#374151', lineHeight: 22 },
+  question: { fontSize: 17, fontWeight: '600', color: tokens.text.primary },
+  answerTitle: { marginTop: 16, fontSize: 13, fontWeight: '600', color: tokens.text.secondary },
+  answer: { marginTop: 6, fontSize: 14, color: tokens.text.medium, lineHeight: 22 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, textAlign: 'center' },
   backBtn: { marginTop: 12 },
 })

@@ -78,7 +78,7 @@
 }
 .pinned-tag-text {
   font-size: 20rpx;
-  color: #ff6b35;
+  color: var(--color-brand-orange);
   font-weight: 600;
 }
 .pinned-cover {
@@ -159,7 +159,7 @@
 .unread-dot {
   width: 12rpx;
   height: 12rpx;
-  background: #ff6b35;
+  background: var(--color-brand-orange);
   border-radius: 6rpx;
   flex-shrink: 0;
 }

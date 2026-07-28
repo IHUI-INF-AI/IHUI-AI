@@ -204,7 +204,7 @@ export default function CoursePlanet() {
                 ) : null}
                 <View className="flex items-center justify-between mt-[8rpx]">
                   {item.price !== null && item.price !== undefined ? (
-                    <Text className="text-[32rpx] text-[#f44336] font-bold">
+                    <Text className="text-[32rpx] text-destructive font-bold">
                       {item.price === 0
                         ? tt('coursePlanet.free', '免费')
                         : `¥${item.price.toFixed(2)}`}
