@@ -1,66 +1,30 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Card } from '@ihui/ui-native'
+import { LegalDocScreen, type LegalDocSection } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-interface Section {
-  title: string
-  body: string
-}
-
+/** 用户协议 — 复用共享 LegalDocScreen */
 export function AgreementScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
 
-  const sections: Section[] = [
+  const sections: LegalDocSection[] = [
     { title: t('agreement.sectionTerms'), body: t('agreement.sectionTermsBody') },
     { title: t('agreement.sectionRights'), body: t('agreement.sectionRightsBody') },
     { title: t('agreement.sectionObligations'), body: t('agreement.sectionObligationsBody') },
   ]
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('agreement.title')}</Text>
-      </View>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <Card style={styles.card}>
-          <Text style={styles.subtitle}>{t('agreement.subtitle')}</Text>
-          <Text style={styles.updatedAt}>{t('agreement.updatedAt')}: 2026-07-19</Text>
-        </Card>
-        {sections.map((section) => (
-          <Card key={section.title} style={styles.card}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <Text style={styles.sectionBody}>{section.body}</Text>
-          </Card>
-        ))}
-      </ScrollView>
-    </View>
+    <LegalDocScreen
+      t={t}
+      title={t('agreement.title')}
+      subtitle={t('agreement.subtitle')}
+      updatedAt="2026-07-19"
+      sections={sections}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.light },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  subtitle: { fontSize: 13, color: tokens.text.secondary },
-  updatedAt: { marginTop: 8, fontSize: 11, color: tokens.text.tertiary },
-  sectionTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-  sectionBody: { marginTop: 6, fontSize: 12, color: tokens.text.medium, lineHeight: 18 },
-})

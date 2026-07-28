@@ -23,6 +23,17 @@ export { RefundHistoryScreen } from './features/refund-history/RefundHistoryScre
 export { CourseQAListScreen } from './features/course-qa-list/CourseQAListScreen'
 export { HelpDetailScreen } from './features/help-detail/HelpDetailScreen'
 export { ArticleDetailScreen } from './features/article-detail/ArticleDetailScreen'
+export { PrivacyScreen } from './features/privacy/PrivacyScreen'
+export { AgreementScreen } from './features/agreement/AgreementScreen'
+export { PointRuleScreen } from './features/point-rule/PointRuleScreen'
+export { VipLevelScreen } from './features/vip-level/VipLevelScreen'
+export { RefundDetailScreen } from './features/refund-detail/RefundDetailScreen'
+export { OrderDetailScreen } from './features/order-detail/OrderDetailScreen'
+export { CertDetailScreen } from './features/cert-detail/CertDetailScreen'
+export { PostDetailScreen } from './features/post-detail/PostDetailScreen'
+export { AnnouncementDetailScreen } from './features/announcement-detail/AnnouncementDetailScreen'
+export { LegalDocScreen } from './features/legal-doc/LegalDocScreen'
+export { HelpScreen } from './features/help/HelpScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -106,4 +117,24 @@ export type {
   HelpDetailScreenProps,
   ArticleDetailItem,
   ArticleDetailScreenProps,
+  PrivacyScreenProps,
+  AgreementScreenProps,
+  PointRuleItem,
+  PointRuleScreenProps,
+  VipLevelItem,
+  VipLevelScreenProps,
+  RefundDetailItem,
+  RefundDetailScreenProps,
+  OrderDetailItem,
+  OrderDetailScreenProps,
+  CertDetailItem,
+  CertDetailScreenProps,
+  PostDetailItem,
+  PostDetailScreenProps,
+  AnnouncementDetailItem,
+  AnnouncementDetailScreenProps,
+  LegalDocSection,
+  LegalDocScreenProps,
+  HelpListItem,
+  HelpScreenProps,
 } from './types'
