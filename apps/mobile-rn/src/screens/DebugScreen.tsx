@@ -89,7 +89,7 @@ export function DebugScreen() {
         </Card>
         <Card style={styles.card}>
           <Button onPress={onOpenSharedDemo} variant="outline" style={styles.btn}>
-            共享组件 Demo (Solito + NativeWind)
+            共享组件 Demo (shared-demo)
           </Button>
         </Card>
       </View>
