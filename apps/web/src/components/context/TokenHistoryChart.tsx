@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import type { VisualizationData } from '@ihui/shared/context/index'
+import { formatDateByTemplate } from '@ihui/shared'
 import { TOKEN_COLORS, TOKEN_LABELS } from './TokenPieChart'
 
 interface TokenHistoryChartProps {
@@ -54,12 +55,7 @@ export function TokenHistoryChart({
   const yOf = (v: number) => padT + plotH - (v / maxVal) * plotH
 
   const fmtTime = (ts: string) => {
-    try {
-      const d = new Date(ts)
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-    } catch {
-      return ''
-    }
+    return formatDateByTemplate(ts, 'HH:mm')
   }
 
   return (

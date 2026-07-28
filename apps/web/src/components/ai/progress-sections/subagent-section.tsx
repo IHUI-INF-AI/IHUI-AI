@@ -9,6 +9,7 @@ import { CopyButton } from './copy-button'
 import { ToolCallItem } from './tool-calls-section'
 import type { Subagent, SubagentStatus } from '@/hooks/use-agent-progress'
 import { SUBAGENT_COLOR_CLASS } from '@/hooks/use-agent-progress'
+import { formatDateByTemplate } from '@ihui/shared'
 
 interface SubagentSectionProps {
   subagents: Subagent[]
@@ -38,12 +39,7 @@ const SUBAGENT_STATUS_TKEY: Record<SubagentStatus, string> = {
 
 /** 格式化 ISO 时间为本地短时间(HH:MM:SS) */
 function formatTime(iso: string): string {
-  try {
-    const d = new Date(iso)
-    return d.toLocaleTimeString('zh-CN', { hour12: false })
-  } catch {
-    return iso
-  }
+  return formatDateByTemplate(iso, 'HH:mm:ss') || iso
 }
 
 /**
