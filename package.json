@@ -9,6 +9,11 @@
   },
   "scripts": {
     "dev": "turbo run dev",
+    "dev:safe": "powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1",
+    "dev:safe:status": "powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Status",
+    "dev:safe:stop": "powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Stop",
+    "dev:safe:clean": "powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Clean -Force",
+    "dev:safe:all": "powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -All",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "lint:strict": "turbo run lint -- --max-warnings 0",
@@ -92,9 +97,6 @@
       "ignoreMissing": [
         "@opentelemetry/api"
       ]
-    },
-    "patchedDependencies": {
-      "solito@4.3.0": "patches/solito@4.3.0.patch"
     }
   },
   "lint-staged": {
