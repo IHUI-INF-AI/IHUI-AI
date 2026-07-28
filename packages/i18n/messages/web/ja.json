@@ -5748,6 +5748,32 @@
       "error": "ダウンロードにしました",
       "printError": "印刷失敗",
       "certText": "ここに{name}がにしたことをします。"
+    },
+    "detail": {
+      "headerTitle": "コース修了証明書",
+      "courseLabel": "コース",
+      "recipientLabel": "受講者",
+      "certNo": "証明書番号",
+      "awarderLabel": "発行者",
+      "issueDate": "発行日",
+      "validityLabel": "有効期間",
+      "loading": "証明書を読み込み中...",
+      "notFound": "証明書が存在しないか取り消されました",
+      "unknownRecipient": "氏名未記入",
+      "defaultIssuer": "IHUI AI アカデミー",
+      "defaultAwarder": "学術委員会",
+      "defaultConditions": "全チャプターを修了し、最終評価(60 点以上)に合格",
+      "defaultValidity": "永久有効",
+      "printAction": "印刷",
+      "downloadAction": "PDF ダウンロード",
+      "downloadError": "ダウンロード失敗",
+      "backToList": "証明書一覧へ",
+      "source": "ソース",
+      "template": "テンプレート",
+      "status": "ステータス",
+      "statusValid": "有効",
+      "statusRevoked": "取り消し",
+      "issuerAria": "{org} から {name} に発行された修了証明書"
     }
   },
   "selfMedia": {
