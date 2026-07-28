@@ -319,7 +319,6 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
         <div
           ref={menuRef}
           role="menu"
-          tabIndex={-1}
           aria-label={`子代理 ${subagent.nickname} 操作菜单`}
           onKeyDown={onMenuKeyDown}
           data-testid={`${testId ?? 'subagent-task-tree'}-context-menu`}
