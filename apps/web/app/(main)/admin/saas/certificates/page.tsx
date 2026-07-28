@@ -116,7 +116,7 @@ export default function CertificatesPage() {
   const { certificates, total, healthy, warning, critical, expired, acmePath, acmeExists, generatedAt } = data
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <BackBar />
 
       {/* 标题 + 刷新 */}
@@ -126,7 +126,7 @@ export default function CertificatesPage() {
             <Lock className="h-6 w-6 text-primary" />
             <CenteredText>{t('title')}</CenteredText>
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             <CenteredText>{t('subtitle')}</CenteredText>
           </p>
         </div>
@@ -184,7 +184,7 @@ export default function CertificatesPage() {
       {/* 证书列表 */}
       {certificates.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
             <CenteredText>{t('empty')}</CenteredText>
           </CardContent>
         </Card>

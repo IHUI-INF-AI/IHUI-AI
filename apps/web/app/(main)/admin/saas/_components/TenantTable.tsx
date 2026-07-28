@@ -43,7 +43,7 @@ export function TenantTable({
 
   if (tenants.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
         {t('empty')}
       </div>
     )

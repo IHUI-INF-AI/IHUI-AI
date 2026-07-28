@@ -95,7 +95,7 @@ export default function WithdrawRecordsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <div className="flex items-center justify-between">
         <Link
           href="/distribution/withdraw"
@@ -107,7 +107,7 @@ export default function WithdrawRecordsPage() {
       </div>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <ArrowDownToLine className="h-7 w-7 text-primary" />
           {t('withdrawRecordsTitle')}
         </h1>

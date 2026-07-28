@@ -333,7 +333,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
   const Icon = uc.icon
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:py-16">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
       {/* Hero */}
       <section className="space-y-5 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -361,7 +361,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
 
       {/* 痛点 */}
       <section className="mt-16 rounded-2xl border bg-card p-8 md:p-12">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{uc.problemTitle}</h2>
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">{uc.problemTitle}</h2>
         <ul className="mt-6 space-y-3">
           {uc.problems.map((p, i) => (
             <li
@@ -377,7 +377,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
 
       {/* 解决方案 */}
       <section className="mt-16">
-        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">
+        <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">
           {uc.solutionTitle}
         </h2>
         <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -395,7 +395,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
 
       {/* 工作流程 */}
       <section className="mt-16">
-        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">4 步落地</h2>
+        <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">4 步落地</h2>
         <div className="mt-8 grid gap-4 md:grid-cols-4">
           {uc.howItWorks.map((hw) => (
             <div key={hw.step} className="rounded-2xl border bg-card p-6">
@@ -411,7 +411,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
 
       {/* 核心收益 */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-8 md:p-12">
-        <h2 className="text-center text-2xl font-bold tracking-tight md:text-3xl">核心收益</h2>
+        <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">核心收益</h2>
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {uc.benefits.map((b, i) => {
             const BIcon = b.icon
@@ -431,7 +431,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       {/* CTA */}
       <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-2xl font-bold tracking-tight md:text-3xl">开始你的 AI 用例</h2>
+        <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">开始你的 AI 用例</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
           注册即得 1000 积分,从用例模板一键 fork,5 分钟体验。
         </p>

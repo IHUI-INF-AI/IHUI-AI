@@ -115,7 +115,7 @@ export default function AiWorldEditPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -123,7 +123,7 @@ export default function AiWorldEditPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-4">
       <Button variant="ghost" size="sm" onClick={() => router.push(`/ai-world/${params.id}`)}>
         <ArrowLeft className="h-4 w-4" />
         {t('back')}

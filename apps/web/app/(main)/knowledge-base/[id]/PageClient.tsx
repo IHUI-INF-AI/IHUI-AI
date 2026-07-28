@@ -58,7 +58,7 @@ export default function KBDetailPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         加载中...
       </div>
@@ -84,7 +84,7 @@ export default function KBDetailPage() {
   const toc = extractToc(article.content)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/knowledge-base"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -94,8 +94,8 @@ export default function KBDetailPage() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{article.title}</h1>
-        {article.summary && <p className="text-sm text-muted-foreground">{article.summary}</p>}
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{article.title}</h1>
+        {article.summary && <p className="text-xs text-muted-foreground">{article.summary}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {article.authorName && <span>{article.authorName}</span>}
           {article.categoryName && (
