@@ -66,4 +66,6 @@ export type {
   RefundHistoryScreenProps,
   CourseQAListItem,
   CourseQAListScreenProps,
+  HelpDetailItem,
+  HelpDetailScreenProps,
 } from '@ihui/types'

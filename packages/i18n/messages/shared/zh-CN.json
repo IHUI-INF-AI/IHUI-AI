@@ -694,5 +694,33 @@
     "ask": "提问",
     "asker": "提问者",
     "answers": "回答"
+  },
+  "noteDetail": {
+    "title": "笔记详情",
+    "loadFailed": "加载笔记失败",
+    "views": "{count} 次阅读",
+    "likes": "点赞",
+    "tags": "标签"
+  },
+  "articleDetail": {
+    "title": "文章详情",
+    "loadFailed": "加载文章失败",
+    "views": "{count} 次阅读",
+    "likes": "点赞"
+  },
+  "helpDetail": {
+    "title": "帮助详情",
+    "loadFailed": "加载失败",
+    "empty": "内容不存在",
+    "answer": "回答",
+    "category": "分类"
+  },
+  "feedbackDetail": {
+    "title": "反馈详情",
+    "loadFailed": "加载失败",
+    "empty": "反馈不存在",
+    "content": "内容",
+    "reply": "回复",
+    "createdAt": "提交时间"
   }
 }
