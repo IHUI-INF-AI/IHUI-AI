@@ -751,17 +751,14 @@ export function AISidePanel() {
               stepBudget={
                 subAgentActivities.length > 0
                   ? {
-                      used: subAgentActivities.reduce(
-                        (sum, a) => sum + a.completedSteps.length,
-                        0,
-                      ),
+                      used: subAgentActivities.reduce((sum, a) => sum + a.completedSteps.length, 0),
                       total: 60,
                     }
                   : undefined
               }
             />
-            {/* Agent 任务进度 popover(v6.3:固定在消息区右上角,带间距;
-                由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store) */}
+            {/* Agent 任务进度 popover(v14:absolute 锚定到本容器右上角,不再 fixed 到视口)
+                由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store */}
             <AgentTaskProgressPane />
           </div>
 
