@@ -82,3 +82,18 @@ publicHoistPattern:
   - 'tailwind-merge'
   - 'xstate'
   - 'zod'
+
+# ============== pnpm catalog(2026-07-29 立,AGENTS.md P3 阶段 1.2)==============
+# 目的:锁定全端共用依赖的单一版本,升级改一处,所有引用自动同步。
+# 范围:只纳入"版本完全一致 + 多端共用"的依赖(21+18+12+10+4 = 65 处引用)。
+# 排除:react/react-dom(18 vs 19 是 Taro 4 硬约束)/ tailwindcss(v3 vs v4 硬约束)/
+#       next(web 独占)/ expo+react-native(RN 独占)/ @tarojs/*(taro 独占)/
+#       @types/react(对应 React 版本,由根 pnpm.overrides 全局锁定)。
+# 引用方式:package.json 中 "typescript": "catalog:" 即引用此处的版本。
+# 与 pnpm.overrides 协同:overrides 优先级 > catalog,二者可并存。
+catalog:
+  typescript: ^5.7.2
+  rimraf: ^6.0.1
+  vitest: ^2.1.8
+  eslint: ^9.16.0
+  zustand: ^5.0.2
