@@ -24,8 +24,6 @@ import { AgentTaskProgressPane } from '@/components/ai/agent-task-progress-pane'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
-import { PlanActToggle } from '@/components/ai/plan-act-toggle'
-import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { Tooltip } from '@/components/feedback'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
@@ -76,8 +74,8 @@ export function AISidePanel() {
     setModel,
   } = useChat()
   const subAgentActivities = useChatStore((s) => s.subAgentActivities)
-  // Plan/Act 模式(2026-07-25 深化):订阅 planMode 用于动态切换输入框 placeholder
-  const planMode = useChatStore((s) => s.planMode)
+  // ChatMode 4 态(2026-07-28 移除独立 PlanActToggle):订阅 currentMode 用于动态切换输入框 placeholder
+  const currentMode = useModeStore((s) => s.currentMode)
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
   const [loadingHistory, setLoadingHistory] = React.useState(false)
@@ -461,9 +459,10 @@ export function AISidePanel() {
   }, [handleNewChat, open])
 
   // Alt+P / Option+P 快捷键:切换 Plan/Act 模式(2026-07-25 立,对标 Trae SOLO Plan 快捷键)
+  // 2026-07-28 升级:Plan/Act 概念合并到 ChatMode,Alt+P 改为在 ChatMode.plan ↔ ChatMode.build 间切换
   // - 仅当 AI 面板打开时生效,避免污染其他页面
   // - 不在输入框聚焦时触发(避免与 Alt+字母 输入特殊字符冲突)
-  // - 与 PlanActToggle 按钮 / /plan /act 斜杠命令三入口联动
+  // - 与 /plan /act 斜杠命令联动(两入口都走 ChatMode)
   React.useEffect(() => {
     if (!open) return
     const onAltP = (e: KeyboardEvent) => {
@@ -477,8 +476,9 @@ export function AISidePanel() {
         return
       }
       e.preventDefault()
-      const next = useChatStore.getState().planMode === 'plan' ? 'act' : 'plan'
-      useChatStore.getState().setPlanMode(next)
+      // ChatMode:plan ↔ build 切换(语义对齐:plan=只读分析,build=正常执行)
+      const next: ChatMode = useModeStore.getState().currentMode === 'plan' ? 'build' : 'plan'
+      useModeStore.getState().setMode(next)
     }
     window.addEventListener('keydown', onAltP)
     return () => window.removeEventListener('keydown', onAltP)
@@ -504,23 +504,23 @@ export function AISidePanel() {
       if (!target) return
       e.preventDefault()
       const labelMap: Record<ChatMode, string> = {
-        build: '构建',
-        plan: '计划',
-        review: '审查',
-        spec: '规格',
+        build: t('modeBuild'),
+        plan: t('modePlan'),
+        review: t('modeReview'),
+        spec: t('modeSpec'),
       }
       const label = labelMap[target]
       const modeStore = useModeStore.getState()
       if (modeStore.currentMode === target) {
-        toast.info(`当前已是${label}模式`)
+        toast.info(t('modeAlreadyActive', { mode: label }))
         return
       }
       modeStore.setMode(target)
-      toast.success(`已切换到${label}模式`)
+      toast.success(t('modeSwitched', { mode: label }))
     }
     window.addEventListener('keydown', onModeShortcut)
     return () => window.removeEventListener('keydown', onModeShortcut)
-  }, [open])
+  }, [open, t])
 
   // 拖拽调整宽度
   // 关闭态下拖拽手柄:先 openPanel 再开始 resize,实现"拖拽即打开"
@@ -663,12 +663,10 @@ export function AISidePanel() {
               </span>
             </div>
             {/* Plan/Act 模式切换(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
-              Plan=只制定计划不执行工具,Act=正常 tool loop 执行(默认)
-              2026-07-25 v3:AI 面板 header 强制 variant="icon" 始终单图标按钮。
-              原因:header 已有 4 个图标按钮(新对话/派发 subagent/关闭)+ 厂商图标 + 标题 + 工作区,
-              在 320px 最小宽度下没有空间再放 2 文字按钮(规划/执行,~90px),
-              强制 icon 形态占 32px(h-8 w-8),跟其他 header 按钮对齐,空间始终可控。 */}
-            <PlanActToggle variant="icon" />
+              2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
+              语义重叠,统一用 ModeSwitcher 控制。当前 mode 视觉指示由 sidebar ModeSwitcher 高亮态承载,
+              切换入口:ModeSwitcher 4 态按钮 + Ctrl+1/2/3/4 快捷键 + /build /plan /review /spec 斜杠命令 +
+              Alt+P 快捷键(plan ↔ build)。AI 面板 header 释放 32px 空间,布局更紧凑。 */}
             <Tooltip content={tc('newConversation')}>
               <button
                 type="button"
@@ -712,26 +710,40 @@ export function AISidePanel() {
               onTemplateSelect={(content) => {
                 useChatStore.setState({ draftInput: content })
               }}
+              // Phase 18.2: 传递 subAgentActivities 到 MessageList,
+              // Trae Work 风格 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)
+              subAgentActivities={subAgentActivities}
+              // Phase 18.4: step budget(从 store 派生,目前用固定 60 上限)
+              stepBudget={
+                subAgentActivities.length > 0
+                  ? {
+                      used: subAgentActivities.reduce(
+                        (sum, a) => sum + a.completedSteps.length,
+                        0,
+                      ),
+                      total: 60,
+                    }
+                  : undefined
+              }
             />
             {/* Agent 任务进度 popover(v6.3:固定在消息区右上角,带间距;
                 由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store) */}
             <AgentTaskProgressPane />
           </div>
 
-          {/* Sub-agent 活动流:多 agent 多路复用时按 agentId 分流实时显示 token 输出。
-            仅当有 sub-agent 活动时渲染,单 agent 模式不显示。 */}
-          {subAgentActivities.length > 0 && (
-            <div className="shrink-0 px-3 pb-1">
-              <SubAgentActivityFeed swarmId="" activities={subAgentActivities} />
-            </div>
-          )}
+          {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,Trae Work 风格)
+            历史:此区域之前独立在 AI 面板底部,但 Trae Work 的 subagent 卡片是 inline 在对话流中。
+            为保持视觉一致性,所有 subagent 卡片现在统一在最后一条 AI 消息下方展示。 */}
 
           {/* 输入区 */}
           <MessageInput
             onSend={sendMessage}
             onStop={stop}
             isStreaming={isStreaming}
-            placeholder={planMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+            // 2026-07-28 升级:placeholder 切换依据从 planMode 改为 ChatMode
+            // - ChatMode.plan → placeholderPlan(只读分析提示)
+            // - 其他(build/review/spec)→ placeholder(默认)
+            placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
             sendLabel={t('send')}
             stopLabel={t('stop')}
             model={currentModel}
