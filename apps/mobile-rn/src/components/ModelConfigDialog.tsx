@@ -24,8 +24,12 @@ import {
   TouchableOpacity,
 } from 'react-native'
 import { useI18n } from '../i18n'
+import type { ModelConfigType } from '@ihui/ui-native'
 
-export type ModelType = 'text' | 'image' | 'video' | 'audio' | 'multimodal'
+// 共享类型(ModelConfigType)从 packages/types 下沉,两端复用。
+// 保留 ModelType 别名以维持本模块对外 API 向后兼容(虽然当前 mobile-rn 内部无外部引用,
+// 但 export 关键字原本就在,删 export 会改变公开 API 表面)。
+export type ModelType = ModelConfigType
 
 export interface ModelConfig {
   temperature: number

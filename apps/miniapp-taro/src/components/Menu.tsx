@@ -1,12 +1,10 @@
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+import type { MenuItem } from '@ihui/types'
 
-export interface MenuItem {
-  id?: number | string
-  name: string
-  icon?: string
-  [key: string]: unknown
-}
+// 共享类型 MenuItem 已下沉到 packages/types,两端复用。
+// 统一为必选版(id/icon 必选),本组件原 `item.id ?? index` 和 `item.icon ?` 仍合法。
+export type { MenuItem }
 
 export interface MenuProps {
   items?: MenuItem[]
