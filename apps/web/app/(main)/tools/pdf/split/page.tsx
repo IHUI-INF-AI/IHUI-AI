@@ -45,10 +45,7 @@ export default function PdfSplitPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
-      <ToolHeader
-        title={t('title')}
-        description={t('description')}
-      />
+      <ToolHeader title={t('title')} description={t('description')} />
       {!file ? (
         <UploadArea
           accept="application/pdf"
@@ -60,14 +57,19 @@ export default function PdfSplitPage() {
           <FileText className="h-4 w-4 shrink-0 text-primary" />
           <span className="flex-1 truncate">{file.name}</span>
           <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
-          <Button variant="ghost" size="icon" onClick={() => setFile(null)} aria-label={t('removeFile')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setFile(null)}
+            aria-label={t('removeFile')}
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
       )}
       <div className="space-y-2">
         <Label>{t('modeLabel')}</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {MODE_KEYS.map((key) => (
             <button
               key={key}
