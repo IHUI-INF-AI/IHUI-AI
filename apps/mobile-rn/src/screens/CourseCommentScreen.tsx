@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -17,8 +18,6 @@ interface Comment extends Pick<CommentRecord, 'content'> {
 
 type Route = RouteProp<RootStackParamList, 'CourseComment'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-const PRIMARY = '#10B981'
 
 export function CourseCommentScreen() {
   const { t } = useI18n()
@@ -91,31 +90,31 @@ export function CourseCommentScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
+  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.bg,
     padding: 16,
   },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827', marginBottom: 12 },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
   empty: { paddingVertical: 40, alignItems: 'center' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 8 },
+  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 8 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  user: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  rating: { fontSize: 12, color: PRIMARY },
-  content: { marginTop: 6, fontSize: 13, color: '#374151' },
-  meta: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
+  user: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  rating: { fontSize: 12, color: tokens.success.DEFAULT },
+  content: { marginTop: 6, fontSize: 13, color: tokens.text.medium },
+  meta: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   btn: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
   },
-  btnText: { color: '#fff', fontSize: 14 },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

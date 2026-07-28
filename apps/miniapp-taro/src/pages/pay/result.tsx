@@ -18,10 +18,11 @@ const STATUS_ICON: Record<PayStatus, string> = {
   failed: '×',
 }
 
+// TODO: custom color: #ff9a3c 自定义橙色,无对应 token,保留原值
 const STATUS_BG: Record<PayStatus, string> = {
   pending: 'bg-[#ff9a3c]',
-  paid: 'bg-[#4caf50]',
-  failed: 'bg-[#dd524d]',
+  paid: 'bg-success',
+  failed: 'bg-destructive',
 }
 
 export default function PayResult() {
@@ -82,7 +83,7 @@ export default function PayResult() {
           {t(STATUS_KEY[status])}
         </Text>
         {amount > 0 && (
-          <Text className="block text-[40rpx] text-[#dd524d] mt-[16rpx]">¥{amount}</Text>
+          <Text className="block text-[40rpx] text-destructive mt-[16rpx]">¥{amount}</Text>
         )}
       </View>
       {status !== 'pending' ? (

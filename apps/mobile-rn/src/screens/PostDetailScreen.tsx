@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -11,7 +12,6 @@ interface Post { id: string; title: string; content: string; author: string; cir
 
 type Route = RouteProp<RootStackParamList, 'PostDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function PostDetailScreen() {
   const { t } = useI18n()
@@ -61,20 +61,20 @@ export function PostDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16 },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface.bg, padding: 16 },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 12 },
-  author: { fontSize: 13, color: PRIMARY, fontWeight: '500' },
-  circle: { fontSize: 11, color: '#6b7280', backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  meta: { fontSize: 11, color: '#9ca3af' },
-  content: { fontSize: 14, lineHeight: 22, color: '#374151' },
+  author: { fontSize: 13, color: tokens.success.DEFAULT, fontWeight: '500' },
+  circle: { fontSize: 11, color: tokens.text.secondary, backgroundColor: tokens.surface.card, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  meta: { fontSize: 11, color: tokens.text.tertiary },
+  content: { fontSize: 14, lineHeight: 22, color: tokens.text.medium },
   statRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  statBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#f3f4f6' },
-  statText: { fontSize: 12, color: '#374151' },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  btnText: { color: '#fff', fontSize: 14 },
+  statBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tokens.surface.card },
+  statText: { fontSize: 12, color: tokens.text.medium },
+  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

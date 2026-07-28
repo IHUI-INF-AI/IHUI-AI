@@ -6,8 +6,8 @@
  *
  * 2026-07-28 重构:硬编码颜色改用 @ihui/rn-app 的 tokens.* 统一管理。
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 
 export type ModelUserType = 'freevip' | 'freeuse' | 'freetime' | 'hasbuy' | 'buymonth' | 'none'
 

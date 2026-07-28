@@ -51,6 +51,7 @@
   font-size: 52rpx;
   font-weight: bold;
   color: #7b61ff;
+  /* TODO: custom color: 紫色品牌色,无对应 token(--color-secondary 为灰色,不匹配) */
   line-height: 1.1;
 }
 .income-overview-btn {
@@ -168,7 +169,7 @@
 }
 .income-card-amount {
   font-size: 30rpx;
-  color: #34c759;
+  color: var(--color-success);
   font-weight: 600;
   margin-bottom: 8rpx;
 }
@@ -181,11 +182,13 @@
 }
 .income-card-badge.pending {
   background: #fff4e6;
-  color: #ff9500;
+  /* TODO: custom color: 浅警告背景 */
+  color: var(--color-warning);
 }
 .income-card-badge.settled {
   background: #e9f7ef;
-  color: #34c759;
+  /* TODO: custom color: 浅成功背景 */
+  color: var(--color-success);
 }
 
 .income-empty {
@@ -336,7 +339,8 @@
   line-height: 44rpx;
   text-align: center;
   background: #7b61ff;
-  color: #ffffff;
+  /* TODO: custom color: 紫色品牌色,无对应 token */
+  color: var(--color-primary-foreground);
   border-radius: 10rpx;
   font-size: 24rpx;
   margin-right: 16rpx;
@@ -363,20 +367,21 @@
 }
 .income-method-item.selected {
   background: #f3eeff;
+  /* TODO: custom color: 浅紫选中背景 */
 }
 .income-method-wx-icon {
   width: 48rpx;
   height: 48rpx;
   line-height: 48rpx;
   text-align: center;
-  background: #07c160;
-  color: #ffffff;
+  background: var(--color-wechat-green);
+  color: var(--color-primary-foreground);
   border-radius: 10rpx;
   font-size: 24rpx;
   margin-right: 16rpx;
 }
 .income-method-wx-text {
-  color: #ffffff;
+  color: var(--color-primary-foreground);
 }
 .income-method-item-text {
   flex: 1;
@@ -390,6 +395,6 @@
   font-size: 28rpx;
 }
 .income-method-check.on {
-  color: #07c160;
+  color: var(--color-wechat-green);
   font-size: 32rpx;
 }

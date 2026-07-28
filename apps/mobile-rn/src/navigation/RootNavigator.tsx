@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect } from 'react'
 import { View, Text } from 'react-native'
 import {
@@ -148,7 +149,6 @@ import { useTheme } from '../context/ThemeContext'
 import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
 import { TaskDispatchPage } from '../pages/TaskDispatchPage'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
-import { tokens } from '@ihui/rn-app'
 
 export type RootStackParamList = {
   Login: undefined

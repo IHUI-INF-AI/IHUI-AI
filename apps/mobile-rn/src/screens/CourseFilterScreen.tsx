@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
@@ -12,7 +13,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { fetchApi } from '@ihui/api-client'
-import { usePaginatedList } from '../hooks/use-paginated-list'
+import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Card } from '@ihui/ui-native'
 
@@ -207,28 +208,26 @@ export function CourseFilterScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
-  filterSection: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F9FAFB' },
-  filterLabel: { fontSize: 12, fontWeight: '600', color: '#374151', marginTop: 8, marginBottom: 6 },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
+  filterSection: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: tokens.surface.muted },
+  filterLabel: { fontSize: 12, fontWeight: '600', color: tokens.text.medium, marginTop: 8, marginBottom: 6 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  chipActive: { backgroundColor: PRIMARY },
-  chipText: { fontSize: 12, color: '#6B7280' },
-  chipTextActive: { color: '#FFFFFF' },
+  chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: tokens.surface.card },
+  chipActive: { backgroundColor: tokens.success.DEFAULT },
+  chipText: { fontSize: 12, color: tokens.text.secondary },
+  chipTextActive: { color: tokens.surface.light },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   actionBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  resetBtn: { backgroundColor: '#F3F4F6' },
-  applyBtn: { backgroundColor: PRIMARY },
-  resetText: { fontSize: 13, color: '#6B7280' },
-  applyText: { fontSize: 13, color: '#FFFFFF' },
+  resetBtn: { backgroundColor: tokens.surface.card },
+  applyBtn: { backgroundColor: tokens.success.DEFAULT },
+  resetText: { fontSize: 13, color: tokens.text.secondary },
+  applyText: { fontSize: 13, color: tokens.surface.light },
   errorBar: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -236,20 +235,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  errorText: { fontSize: 12, color: '#DC2626' },
-  retryText: { fontSize: 12, color: PRIMARY },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+  retryText: { fontSize: 12, color: tokens.success.DEFAULT },
   center: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
+  emptyText: { fontSize: 12, color: tokens.text.tertiary, marginTop: 8 },
   card: {
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.bg,
   },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  cardMeta: { marginTop: 4, fontSize: 12, color: '#6B7280' },
+  cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  cardMeta: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
   cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  cardMetaText: { fontSize: 12, color: '#6B7280' },
-  priceText: { fontSize: 14, fontWeight: '600', color: PRIMARY },
+  cardMetaText: { fontSize: 12, color: tokens.text.secondary },
+  priceText: { fontSize: 14, fontWeight: '600', color: tokens.success.DEFAULT },
 })

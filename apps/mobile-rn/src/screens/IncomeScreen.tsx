@@ -3,6 +3,7 @@
  * 布局:收益统计(今日/累计/余额) + 提现入口 + 收益记录列表。
  * 数据源:跨端共享 @ihui/api-client 的 distribution 端点(getOverview + getCommissionList + getDayMonthSummary)。
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import {
   FlatList,
@@ -175,49 +176,49 @@ export function IncomeScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   content: { padding: 16, paddingBottom: 32 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
-  mutedText: { fontSize: 13, color: '#9CA3AF' },
-  errorText: { fontSize: 13, color: '#DC2626' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface.bg },
+  mutedText: { fontSize: 13, color: tokens.text.tertiary },
+  errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
   header: { paddingVertical: 8, marginBottom: 8 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: tokens.text.primary },
   summaryCard: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: tokens.purple.light,
     marginBottom: 16,
   },
   summaryRow: { flexDirection: 'row', marginBottom: 12 },
   summaryCol: { flex: 1 },
-  summaryLabel: { fontSize: 12, color: '#6B7280' },
-  summaryValue: { marginTop: 4, fontSize: 18, fontWeight: '700', color: '#111827' },
-  summaryAccent: { color: '#7B61FF' },
+  summaryLabel: { fontSize: 12, color: tokens.text.secondary },
+  summaryValue: { marginTop: 4, fontSize: 18, fontWeight: '700', color: tokens.text.primary },
+  summaryAccent: { color: tokens.purple.DEFAULT },
   withdrawBtn: {
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#7B61FF',
+    backgroundColor: tokens.purple.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  withdrawText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 10 },
+  withdrawText: { fontSize: 14, fontWeight: '700', color: tokens.surface.light },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: tokens.text.primary, marginBottom: 10 },
   emptyBox: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
   card: {
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.bg,
   },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { flex: 1, fontSize: 13, fontWeight: '600', color: '#111827', marginRight: 8 },
+  cardTitle: { flex: 1, fontSize: 13, fontWeight: '600', color: tokens.text.primary, marginRight: 8 },
   cardStatus: { fontSize: 11, fontWeight: '700' },
-  statusSettled: { color: '#10B981' },
-  statusPending: { color: '#FF6B00' },
-  cardTime: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
-  cardAmount: { marginTop: 6, fontSize: 15, fontWeight: '700', color: '#FF6B00' },
+  statusSettled: { color: tokens.success.DEFAULT },
+  statusPending: { color: tokens.warning.deep },
+  cardTime: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
+  cardAmount: { marginTop: 6, fontSize: 15, fontWeight: '700', color: tokens.warning.deep },
 })
 
 export default IncomeScreen

@@ -43,7 +43,7 @@ export default function LessonComplete({
             <Text className="block text-xs text-muted-foreground">{tt('lesson.studyDuration', '学习时长')}</Text>
           </View>
           <View>
-            <Text className="block text-sm font-medium text-[#f59e0b]">+{points}</Text>
+            <Text className="block text-sm font-medium text-warning">+{points}</Text>
             <Text className="block text-xs text-muted-foreground">{tt('lesson.points', '积分')}</Text>
           </View>
         </View>
