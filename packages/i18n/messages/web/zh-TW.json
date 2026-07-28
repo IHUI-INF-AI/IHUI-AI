@@ -6175,6 +6175,9 @@
     "resourceCount": "{count} 個資源",
     "popular": "熱門標籤"
   },
+  "tagsview": {
+    "empty": "暫無打開的頁面"
+  },
   "teams": {
     "title": "團隊",
     "subtitle": "管理你的協作團隊",

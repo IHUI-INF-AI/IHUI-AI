@@ -6199,6 +6199,9 @@
     "resourceCount": "{count}개 리소스",
     "popular": "인기 태그"
   },
+  "tagsview": {
+    "empty": "열린 페이지가 없습니다"
+  },
   "teams": {
     "title": "팀",
     "subtitle": "포괄적인의개발문서및API참조",
