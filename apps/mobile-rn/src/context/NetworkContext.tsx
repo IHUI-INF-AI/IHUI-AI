@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { API_BASE_URL } from '../lib/config'
 
 /**
  * 网络状态 Context(2026-07-22 P0 Round 5 鲁棒性加固)。
@@ -32,8 +33,7 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
         // 用原生 fetch,避免依赖 @ihui/api-client 的 token 注入(health 端点无需鉴权)
-        const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8801'
-        const resp = await fetch(`${baseUrl}${PROBE_URL}`, {
+        const resp = await fetch(`${API_BASE_URL}${PROBE_URL}`, {
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
