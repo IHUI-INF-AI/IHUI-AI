@@ -237,6 +237,30 @@
       "post": "動態"
     }
   },
+  "history": {
+    "empty": "暫無瀏覽歷史",
+    "loadFailed": "載入歷史失敗",
+    "refresh": "重新整理",
+    "title": "瀏覽歷史",
+    "type": {
+      "article": "文章",
+      "course": "課程",
+      "live": "直播",
+      "note": "筆記",
+      "post": "動態"
+    }
+  },
+  "notificationList": {
+    "empty": "暫無通知",
+    "loadFailed": "載入通知失敗",
+    "title": "訊息通知",
+    "type": {
+      "course": "課程",
+      "order": "訂單",
+      "social": "社交",
+      "system": "系統"
+    }
+  },
   "faq": {
     "categoryDeploy": "部署與維運",
     "categoryGeneral": "平臺介紹",
