@@ -87,6 +87,9 @@ Module._resolveFilename = function (request, parent, ...args) {
 const { withNativeWind } = require('nativewind/metro')
 
 const config = getDefaultConfig(__dirname)
+// 显式设置 projectRoot,避免 expo export:embed 时被覆盖为 monorepo 根
+config.projectRoot = __dirname
+// resolver.worker = undefined 必要时设置
 
 // pnpm isolated linker 兼容(2026-07-25 修复 Metro bundle 失败)
 // 问题:pnpm node-linker=isolated 下,react-native 等包是 junction 指向
@@ -102,11 +105,15 @@ config.resolver.nodeModulesPaths = [
   require('path').resolve(__dirname, '../../node_modules/.pnpm/node_modules'),
 ]
 
-// pnpm isolated linker 兼容:watchFolders 添加 monorepo 根 + .pnpm 虚拟存储
-// Metro 默认 watchFolders 为空,只 watch projectRoot,但 RN 依赖在 .pnpm 隔离目录下,
-// 不在 projectRoot 内,Metro 无法 watch → "Failed to get SHA-1" 错误。
-// 添加 monorepo 根让 Metro watch 所有依赖文件。
-config.watchFolders = [...(config.watchFolders || []), require('path').resolve(__dirname, '../..')]
+// pnpm isolated linker 兼容:watchFolders 添加 mobile-rn 必需的目录
+// 不直接 watch 整个 monorepo 根(G:\IHUI-AI),否则会扫描 apps/web/test-results 等
+// 不存在的子目录(FallbackWatcher 报 ENOENT),只 watch packages/ 共享代码目录。
+// .pnpm 虚拟存储通过 nodeModulesPaths + unstable_enableSymlinks 已可访问,无需 watch。
+config.watchFolders = [
+  ...(config.watchFolders || []),
+  __dirname, // apps/mobile-rn 自身
+  require('path').resolve(__dirname, '../../packages'), // 共享 packages
+]
 
 // pnpm isolated linker 兼容:Metro 默认解析失败时,fallback 到 Node 原生 require.resolve
 // Node 能正确处理 pnpm junction,且支持 sourceExts(.ts/.tsx)解析
