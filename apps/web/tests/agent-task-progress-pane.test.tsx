@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
+import type * as UseAgentProgressModule from '../src/hooks/use-agent-progress'
 
 // Mock next-intl — vi.hoisted 确保 mockT 在 vi.mock 工厂和测试体中均可使用
 const { mockT } = vi.hoisted(() => {
