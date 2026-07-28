@@ -13,9 +13,9 @@
 import { useAuthStore } from '@/stores/auth'
 import { readExp } from '@ihui/shared/utils/jwt-utils'
 import { type TokenPair } from '@ihui/types'
+import { refreshAccessToken } from '@ihui/api-client'
 
 const REFRESH_LEAD_MS = 5 * 60 * 1000 // 提前 5 分钟续期
-const REFRESH_ENDPOINT = '/api/auth/refresh'
 const MIN_DELAY_MS = 30 * 1000 // 最小 30s,避免 setTimeout 越界
 const MAX_DELAY_MS = 24 * 60 * 60 * 1000 // 上限 24h
 
@@ -65,21 +65,12 @@ async function doRefresh(opts: ScheduleOptions): Promise<void> {
   }
   inFlightRefresh = (async () => {
     try {
-      const res = await fetch(REFRESH_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: opts.refreshToken }),
-      })
-      if (!res.ok) {
-        opts.onError?.(new Error(`refresh 失败: HTTP ${res.status}`))
+      const result = await refreshAccessToken(opts.refreshToken)
+      if (!result.success || !result.data?.accessToken) {
+        opts.onError?.(new Error(`refresh 失败: ${'error' in result ? result.error : 'unknown'}`))
         return null
       }
-      const json = (await res.json()) as { data?: TokenPair; code?: number }
-      const data = json.data
-      if (!data?.accessToken) {
-        opts.onError?.(new Error('refresh 响应缺少 accessToken'))
-        return null
-      }
+      const data = result.data
       opts.onRefreshed(data)
       schedule({ ...opts, ...data })
       return data
