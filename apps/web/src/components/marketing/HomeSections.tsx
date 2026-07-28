@@ -105,7 +105,8 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
           <RevealOnView
             delay={0.4}
             as="div"
-            className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground md:text-xs"
+            // 2026-07-28 升级:text-[11px] → text-xs(12px),满足 WCAG 推荐基线
+            className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-xs text-muted-foreground"
           >
             <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
               <ShieldCheck className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
@@ -213,7 +214,8 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
                     <AnimatedNumber value={s.value} duration={1500} />
                     {s.suffix && <span>{s.suffix}</span>}
                   </span>
-                  <span className="line-clamp-2 text-[10px] text-muted-foreground md:text-xs">
+                  {/* 2026-07-28 升级:text-[10px] → text-xs(12px),满足 WCAG 推荐基线 */}
+                  <span className="line-clamp-2 text-xs text-muted-foreground">
                     {s.label}
                   </span>
                 </RevealOnView>

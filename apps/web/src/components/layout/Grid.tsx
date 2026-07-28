@@ -17,10 +17,10 @@ interface GridProps extends React.HTMLAttributes<HTMLDivElement> {
 const colsMap: Record<Cols, string> = {
   1: 'grid-cols-1',
   2: 'grid-cols-2',
-  3: 'grid-cols-3',
-  4: 'grid-cols-4',
-  5: 'grid-cols-5',
-  6: 'grid-cols-6',
+  3: 'grid-cols-2 sm:grid-cols-3',
+  4: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
+  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+  6: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6',
   12: 'grid-cols-12',
 }
 

@@ -123,7 +123,7 @@ export function SpecGenerateForm({
 
           <div className="space-y-2">
             <Label>分析范围</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {scopeOptions.map((opt) => (
                 <button
                   key={opt.value}
