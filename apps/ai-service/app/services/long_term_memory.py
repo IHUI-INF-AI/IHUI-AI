@@ -33,6 +33,7 @@ from typing import Any, Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 from .session_summarizer import session_summarizer
 
 logger = logging.getLogger(__name__)
@@ -43,35 +44,20 @@ _CONTEXT_LIMIT = 2000
 # extract_key_facts 返回条数上限
 _MAX_KEY_FACTS = 20
 
-# 全局连接池(与 session_summarizer._pool 独立,避免互相影响)
-_pool: Optional[asyncpg.Pool] = None
-
 # P0 修复:每用户内存缓存记录上限,防止 _cache 无界增长导致 OOM
 _MAX_CACHE_ENTRIES = 500
 
 
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool / close_pool 函数签名(向后兼容)。
 async def _get_pool() -> asyncpg.Pool:
-    """获取 asyncpg 连接池(懒初始化,与 session_summarizer 独立)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 async def close_pool() -> None:
-    """P0 修复:关闭全局 asyncpg 连接池(main.py shutdown 调用,防止重启时连接残留)。"""
-    global _pool
-    if _pool is not None:
-        try:
-            await _pool.close()
-        except Exception:
-            pass
-        _pool = None
+    """关闭连接池(no-op,共享 pool 由 main.py shutdown 统一关闭)。"""
+    return None
 
 
 # =============================================================================
