@@ -237,6 +237,30 @@
       "post": "动态"
     }
   },
+  "history": {
+    "empty": "暂无浏览历史",
+    "loadFailed": "加载历史失败",
+    "refresh": "刷新",
+    "title": "浏览历史",
+    "type": {
+      "article": "文章",
+      "course": "课程",
+      "live": "直播",
+      "note": "笔记",
+      "post": "动态"
+    }
+  },
+  "notificationList": {
+    "empty": "暂无通知",
+    "loadFailed": "加载通知失败",
+    "title": "消息通知",
+    "type": {
+      "course": "课程",
+      "order": "订单",
+      "social": "社交",
+      "system": "系统"
+    }
+  },
   "faq": {
     "categoryDeploy": "部署与运维",
     "categoryGeneral": "平台介绍",

@@ -237,6 +237,30 @@
       "post": "Post"
     }
   },
+  "history": {
+    "empty": "No browsing history",
+    "loadFailed": "Failed to load history",
+    "refresh": "Refresh",
+    "title": "Browsing History",
+    "type": {
+      "article": "Article",
+      "course": "Course",
+      "live": "Live",
+      "note": "Note",
+      "post": "Post"
+    }
+  },
+  "notificationList": {
+    "empty": "No notifications",
+    "loadFailed": "Failed to load notifications",
+    "title": "Notifications",
+    "type": {
+      "course": "Course",
+      "order": "Order",
+      "social": "Social",
+      "system": "System"
+    }
+  },
   "faq": {
     "categoryDeploy": "Deployment & Operations",
     "categoryGeneral": "Platform Introduction",
