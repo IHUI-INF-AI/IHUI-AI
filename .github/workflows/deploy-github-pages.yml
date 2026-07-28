@@ -28,13 +28,14 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build web
         run: pnpm --filter @ihui/web... build
         env:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_APP_NAME: IHUI AI
+          NEXT_PUBLIC_API_URL: https://ihui-api.railway.app
           NEXT_TELEMETRY_DISABLED: 1
 
       - name: Add .nojekyll
