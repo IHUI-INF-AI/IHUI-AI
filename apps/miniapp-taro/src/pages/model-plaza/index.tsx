@@ -234,8 +234,8 @@ export default function ModelPlazaIndex() {
           {providerId || '-'}
         </Text>
         <Text className="provider-meta">
-          {tt('modelPlaza.modelCount', '共 {{n}} 个模型').replace('{{n}}', String(currentProviderCount))}
-          {currentProviderCount > filteredList.length ? tt('modelPlaza.synced', '已同步 {{n}} 条').replace('{{n}}', String(filteredList.length)) : ''}
+          {t('modelPlaza.modelCount', { n: currentProviderCount })}
+          {currentProviderCount > filteredList.length ? t('modelPlaza.synced', { n: filteredList.length }) : ''}
         </Text>
       </View>
 
