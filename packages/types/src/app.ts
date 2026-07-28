@@ -324,3 +324,79 @@ export interface MessageCenterScreenProps {
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
+
+/**
+ * 订单状态(用户端共享屏展示子集,与后端 /api/orders 契约对齐)。
+ *
+ * 注意:admin-types.ts 的 `OrderStatus` 是后台完整状态机(7 值含 refunding/failed),
+ * 此处 `AppOrderStatus` 是用户端展示子集(含 shipped 实物发货),两者语义不同,
+ * 故加 `App` 前缀避免 `export *` 冲突。
+ */
+export type AppOrderStatus =
+  'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded' | string
+
+/** 订单 Tab */
+export type OrderTab = 'all' | 'pending' | 'paid' | 'shipped' | 'completed' | string
+
+/** 订单列表项(平台注入,字段对齐 mobile-rn OrderScreen Order) */
+export interface OrderItem {
+  id: string
+  orderNo: string
+  title: string
+  amount: number
+  status: AppOrderStatus
+  createdAt: string
+}
+
+/** Order 屏 props */
+export interface OrderScreenProps {
+  t: TFunction
+  items: OrderItem[]
+  /** 当前激活 tab */
+  activeTab: OrderTab
+  /** tab 切换回调,平台注入重新拉取逻辑 */
+  onSelectTab: (tab: OrderTab) => void
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击订单卡片回调,平台注入导航跳转 */
+  onPressItem: (item: OrderItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 学习计划状态 */
+export type PlanStatus = 'active' | 'paused' | 'completed' | 'overdue' | string
+
+/** 学习计划列表项(平台注入,字段对齐 mobile-rn StudyPlanScreen StudyPlan) */
+export interface StudyPlanItem {
+  id: string
+  title: string
+  courseName: string
+  /** 总课时数 */
+  totalLessons: number
+  /** 已完成课时数 */
+  completedLessons: number
+  /** 学习进度(0-100,百分比) */
+  progress: number
+  status: PlanStatus
+  /** 截止日期(ISO 或格式化字符串) */
+  deadline: string
+}
+
+/** StudyPlan 屏 props */
+export interface StudyPlanScreenProps {
+  t: TFunction
+  items: StudyPlanItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击计划卡片回调,平台注入导航跳转 */
+  onPressItem: (item: StudyPlanItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
