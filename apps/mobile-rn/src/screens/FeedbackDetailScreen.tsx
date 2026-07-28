@@ -55,11 +55,11 @@ export function FeedbackDetailScreen() {
   if (error || !item) {
     return (
       <View className="flex-1 items-center justify-center p-4">
-        <Text className="text-[13px] text-[#DC2626] text-center">
+        <Text className="text-[13px] text-danger text-center">
           {error || t('feedbackDetail.empty')}
         </Text>
         <TouchableOpacity onPress={() => navigation.goBack()} className="mt-3">
-          <Text className="text-sm text-[#374151]">{t('common.back')}</Text>
+          <Text className="text-sm text-body">{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -69,7 +69,7 @@ export function FeedbackDetailScreen() {
     <ScrollView className="flex-1 bg-card">
       <View className="flex-row items-center px-4 py-3 gap-3">
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text className="text-sm text-[#374151]">{t('common.back')}</Text>
+          <Text className="text-sm text-body">{t('common.back')}</Text>
         </TouchableOpacity>
         <Text className="text-lg font-semibold text-foreground">{t('feedbackDetail.title')}</Text>
       </View>
@@ -85,13 +85,13 @@ export function FeedbackDetailScreen() {
         <Text className="mt-3 text-[13px] font-semibold text-muted-foreground">
           {t('feedbackDetail.content')}
         </Text>
-        <Text className="mt-1.5 text-sm text-[#374151] leading-[22px]">{item.content}</Text>
-        <Text className="mt-2 text-[11px] text-[#9CA3AF]">{item.createdAt}</Text>
+        <Text className="mt-1.5 text-sm text-body leading-[22px]">{item.content}</Text>
+        <Text className="mt-2 text-[11px] text-tertiary">{item.createdAt}</Text>
         <Text className="mt-3 text-[13px] font-semibold text-muted-foreground">
           {t('feedbackDetail.reply')}
         </Text>
         <Text
-          className={`mt-1.5 text-sm leading-[22px] ${item.reply ? 'text-[#374151]' : 'text-[#9CA3AF] italic'}`}
+          className={`mt-1.5 text-sm leading-[22px] ${item.reply ? 'text-body' : 'text-tertiary italic'}`}
         >
           {item.reply || t('common.empty')}
         </Text>
