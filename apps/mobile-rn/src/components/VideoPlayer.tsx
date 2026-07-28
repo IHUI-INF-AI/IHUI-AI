@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type View as ViewType } from 'react-native'
 import Video, { type VideoRef, type OnProgressData, type OnLoadData } from 'react-native-video'
 import { useI18n } from '../i18n'
+import { tokens } from '@ihui/rn-app'
 
 import { Loading } from '@ihui/ui-native'
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2] as const
@@ -183,7 +184,7 @@ export function VideoPlayer({
 
       {loading ? (
         <View style={StyleSheet.absoluteFill} className="items-center justify-center">
-          <Loading color="#fff" />
+          <Loading color={tokens.surface.light} />
         </View>
       ) : null}
 
