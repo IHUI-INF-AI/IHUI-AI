@@ -35,6 +35,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid as _uuid
@@ -44,6 +45,7 @@ from typing import Any, Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
 
@@ -97,20 +99,11 @@ def _merge_stats_add(
 
 
 # 全局连接池(独立,避免与 meta_learner / user_profile 互相影响)
-_pool: Optional[asyncpg.Pool] = None
-
-
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool 函数签名(向后兼容)。
 async def _get_pool() -> asyncpg.Pool:
-    """获取 asyncpg 连接池(懒初始化)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 class ABTestTracker:
@@ -144,6 +137,42 @@ class ABTestTracker:
     def __init__(self) -> None:
         self._tests: dict[str, dict[str, Any]] = {}
         self._skill_active_index: dict[str, str] = {}
+        # P1 修复:按需懒加载,替代 main.py startup 全量 hydrate
+        # A/B 测试数据是按 skill 维度(非 user 维度),用 _loaded 标记首次访问后全量加载
+        self._loaded: bool = False
+        self._loaded_lock: asyncio.Lock = asyncio.Lock()
+
+    # ==================================================================
+    # P1 修复:按需懒加载(替代启动时全量 hydrate)
+    # ==================================================================
+
+    async def _ensure_loaded(self) -> None:
+        """按需加载 running A/B 测试(首次访问时触发,替代启动时全量 hydrate)。
+
+        P1 修复:原 main.py lifespan 调 load_active_tests() 全量加载所有 running 测试,
+        导致启动慢 + 内存峰值高。改为首次访问时才加载。
+
+        注意:A/B 测试数据是按 skill 维度(非 user 维度),无法按 user_id 懒加载,
+        故用 _loaded 布尔标记,首次访问时全量加载一次。
+
+        线程安全:asyncio.Lock 防止并发首次访问重复加载。
+        加载失败也标记为已加载(避免每次调用都重试)。
+        """
+        if self._loaded:
+            return
+        async with self._loaded_lock:
+            # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
+            if self._loaded:
+                return
+            try:
+                await self.load_active_tests()
+            except Exception as e:
+                logger.warning(
+                    "[ab_test_tracker] _ensure_loaded 加载失败(降级空内存): %s", e
+                )
+            finally:
+                # 无论成功失败都标记已加载(避免重复重试)
+                self._loaded = True
 
     # ==================================================================
     # 创建 / 查询
@@ -172,6 +201,9 @@ class ABTestTracker:
         Returns:
             test_id(UUID 字符串)
         """
+        # P1 修复:按需懒加载 running 测试(替代启动时全量 hydrate)
+        # 确保知道同 skill 是否已有 running 测试(避免创建重复 running 测试)
+        await self._ensure_loaded()
         if not skill_name or not control_version or not treatment_version:
             raise ValueError("skill_name / control_version / treatment_version 必填")
         if control_version == treatment_version:
@@ -340,6 +372,8 @@ class ABTestTracker:
         Returns:
             True 表示成功(内存更新成功即视为成功,DB 失败仅 warning)
         """
+        # P1 修复:按需懒加载 running 测试(替代启动时全量 hydrate)
+        await self._ensure_loaded()
         if decision not in ("promote", "rollback", "inconclusive"):
             raise ValueError(f"非法 decision: {decision}")
         test = self._tests.get(test_id)
@@ -374,6 +408,8 @@ class ABTestTracker:
 
     async def stop_test(self, test_id: str, reason: str = "manual") -> bool:
         """手动停止测试(无决策)。"""
+        # P1 修复:按需懒加载 running 测试(替代启动时全量 hydrate)
+        await self._ensure_loaded()
         return await self._stop_test_internal(test_id, reason)
 
     async def _stop_test_internal(self, test_id: str, reason: str) -> bool:
@@ -405,6 +441,8 @@ class ABTestTracker:
 
         由 ABTestScheduler 周期性调用(避免每次 record_call 都写 DB)。
         """
+        # P1 修复:按需懒加载 running 测试(替代启动时全量 hydrate)
+        await self._ensure_loaded()
         test = self._tests.get(test_id)
         if not test:
             return False
@@ -416,6 +454,8 @@ class ABTestTracker:
         Returns:
             成功 flush 的测试数
         """
+        # P1 修复:按需懒加载 running 测试(替代启动时全量 hydrate)
+        await self._ensure_loaded()
         count = 0
         for test_id, test in list(self._tests.items()):
             if test.get("status") != "running":

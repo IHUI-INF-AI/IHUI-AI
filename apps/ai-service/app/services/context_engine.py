@@ -66,6 +66,8 @@ VIZ_HISTORY_LIMIT = 100
 # P0 修复:内存降级缓存上限,防止无界增长导致 OOM
 _SUMMARY_CACHE_MAX = 500  # summary 缓存上限(按 cache_key)
 _USER_BEHAVIOR_MAX = 1000  # 用户行为记录上限(file:symbol -> count)
+# P2 修复:embedding 缓存上限(content_hash → embedding),避免对每条历史消息重复调 embedding API
+_EMBEDDING_CACHE_MAX = 500
 
 # 用户行为 boost 分段(2026-07-22 深化立)
 # (count_low, count_high, boost_low, boost_high)
@@ -116,6 +118,8 @@ class ContextEngine:
         # 用户行为记录(内存降级):{file:symbol: count}
         # P0 修复:用 OrderedDict + max_size 实现 LRU,防止 _user_behavior 无界增长
         self._user_behavior: OrderedDict[str, int] = OrderedDict()
+        # P2 修复:embedding 缓存(content_hash → embedding),LRU 淘汰,避免重复调 embedding API
+        self._embedding_cache: OrderedDict[str, list[float]] = OrderedDict()
         # 压缩事件历史(内存降级)
         # P0 修复:用 deque(maxlen=...) 自动淘汰旧记录,无需手动 trim
         self._compression_events: deque[dict[str, Any]] = deque(maxlen=COMPRESSION_HISTORY_LIMIT)
@@ -273,7 +277,7 @@ class ContextEngine:
                         content = str(msg.get("content", ""))
                         if not content or len(content) < 10:
                             continue
-                        msg_embedding = await self._get_embedding(content)
+                        msg_embedding = await self._get_embedding_cached(content)
                         if not msg_embedding:
                             continue
                         score = self._cosine_similarity(query_embedding, msg_embedding)
@@ -720,6 +724,32 @@ class ContextEngine:
         except Exception as e:
             logger.debug("embed failed: %s", e)
             return None
+
+    async def _get_embedding_cached(self, content: str) -> Optional[list[float]]:
+        """带缓存的 embedding 调用(同一内容不重复计算)。
+
+        P2 修复:retrieve_and_enrich 原对每条历史消息调一次 embedding API,
+        100 条消息 = 100 次 embedding 调用;改为 content_hash 缓存后仅首次计算。
+        LRU 淘汰策略与 _summary_cache 一致(上限 _EMBEDDING_CACHE_MAX)。
+        """
+        import hashlib
+
+        cache_key = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        # 缓存命中:移到末尾(LRU 标记最近使用)
+        if cache_key in self._embedding_cache:
+            self._embedding_cache.move_to_end(cache_key)
+            return self._embedding_cache[cache_key]
+
+        # 缓存未命中:调 API 计算 embedding
+        embedding = await self._get_embedding(content)
+        if embedding is None:
+            return None
+
+        # 写入缓存 + LRU 淘汰(超出上限时移除最旧记录)
+        self._embedding_cache[cache_key] = embedding
+        while len(self._embedding_cache) > _EMBEDDING_CACHE_MAX:
+            self._embedding_cache.popitem(last=False)
+        return embedding
 
     @staticmethod
     def _cosine_similarity(a: list[float], b: list[float]) -> float:

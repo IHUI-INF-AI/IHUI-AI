@@ -16,6 +16,7 @@ L2-4(2026-07-25 立):画像聚合持久化到 PostgreSQL(agent_user_profile 表)
 DB 异常降级:仅写内存,不阻塞主流程。
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -25,6 +26,7 @@ from typing import Any, Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
 
@@ -46,21 +48,12 @@ _TYPE_TO_DIMENSION: dict[str, str] = {
     "fact": "expertise",            # 事实信息归入专业能力
 }
 
-# 全局连接池(与 memory_service._pool / memory_decay._pool 独立,避免互相影响)
-_pool: Optional[asyncpg.Pool] = None
 
-
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool 函数签名(向后兼容)。
 async def _get_pool() -> asyncpg.Pool:
-    """获取 asyncpg 连接池(懒初始化,与 memory_service 独立避免循环导入)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 def _parse_uuid(user_id: str) -> Any:
@@ -85,6 +78,41 @@ class UserProfileBuilder:
         self._client = memory_client
         # 画像缓存:user_id -> UserProfileAggregate
         self._profiles: dict[str, dict[str, Any]] = {}
+        # P1 修复:按需懒加载,替代 main.py startup 全量 hydrate
+        # 跟踪已加载用户,首次访问该用户时才从 DB 加载画像
+        self._loaded_users: set[str] = set()
+        self._loaded_lock: asyncio.Lock = asyncio.Lock()
+
+    # ==================================================================
+    # P1 修复:按需懒加载(替代启动时全量 hydrate)
+    # ==================================================================
+
+    async def _ensure_loaded(self, user_id: str) -> None:
+        """按需加载单个用户画像(首次访问时触发,替代启动时全量 hydrate)。
+
+        P1 修复:原 main.py lifespan 调 load_all_profiles() 全量加载所有用户画像,
+        导致启动慢 + 内存峰值高。改为首次访问该用户时调用 load_profile
+        只加载该用户的画像。
+
+        线程安全:asyncio.Lock 防止并发首次访问重复加载同一用户。
+        加载失败也标记为已加载(避免每次调用都重试,DB 异常时降级空内存)。
+        """
+        if not user_id or user_id in self._loaded_users:
+            return
+        async with self._loaded_lock:
+            # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
+            if user_id in self._loaded_users:
+                return
+            try:
+                await self.load_profile(user_id)
+            except Exception as e:
+                logger.warning(
+                    "[user_profile] _ensure_loaded 加载失败(user=%s 降级空内存): %s",
+                    user_id, e,
+                )
+            finally:
+                # 无论成功失败都标记已加载(避免重复重试)
+                self._loaded_users.add(user_id)
 
     # ==================================================================
     # 全量画像构建
@@ -105,6 +133,10 @@ class UserProfileBuilder:
             UserProfileAggregate 字典:
             {userId, entries: [UserProfileEntry], totalMemories, completeness, updatedAt}
         """
+        # P1 修复:build_profile 会全量重建并覆盖缓存,预先标记已加载
+        # 避免 build_profile 后 update_profile 的 _ensure_loaded 用 DB 旧数据覆盖新画像
+        if user_id:
+            self._loaded_users.add(user_id)
         client = memory_client or self._client
         entries = await self._get_entries(user_id, client)
         if not entries:
@@ -146,6 +178,8 @@ class UserProfileBuilder:
         Returns:
             更新后的 UserProfileAggregate 字典
         """
+        # P1 修复:按需懒加载该用户画像(替代启动时全量 hydrate)
+        await self._ensure_loaded(user_id)
         client = memory_client or self._client
         # 读取现有画像(缓存优先,否则全量构建)
         profile = self._profiles.get(user_id)
