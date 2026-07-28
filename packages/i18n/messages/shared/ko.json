@@ -237,6 +237,30 @@
       "post": "게시물"
     }
   },
+  "history": {
+    "empty": "검색 기록이 없습니다",
+    "loadFailed": "기록 로드에 실패했습니다",
+    "refresh": "새로고침",
+    "title": "검색 기록",
+    "type": {
+      "article": "기사",
+      "course": "강의",
+      "live": "라이브",
+      "note": "노트",
+      "post": "게시물"
+    }
+  },
+  "notificationList": {
+    "empty": "알림이 없습니다",
+    "loadFailed": "알림 로드에 실패했습니다",
+    "title": "알림",
+    "type": {
+      "course": "강의",
+      "order": "주문",
+      "social": "소셜",
+      "system": "시스템"
+    }
+  },
   "faq": {
     "categoryDeploy": "배포 및 운영",
     "categoryGeneral": "플랫폼 소개",
