@@ -610,7 +610,9 @@
       "review": "Switch to Review mode (read-only, enhanced code review)",
       "spec": "Switch to Spec mode (reverse-generate spec docs from code)",
       "goal": "Set current session goal (AI works toward the goal, enters goal mode workflow)",
-      "loop": "Set loop execution mode (on / off / N iterations)"
+      "loop": "Set loop execution mode (on / off / N iterations)",
+      "goalArgTitle": "Select goal template",
+      "loopArgTitle": "Select loop mode"
     },
     "cmdSummary": "Please summarize the above conversation and extract key information",
     "cmdTranslate": "Please translate the following content to English:",
@@ -9796,6 +9798,14 @@
       "timelineNoMatch": "No events match the current filter",
       "timelineClearFilters": "Clear filters",
       "timelineExport": "Export as Markdown",
+      "timelineSubagentSpawn": "Subagent Started",
+      "timelineSubagentProgress": "In Progress",
+      "timelineSubagentEnd": "Subagent Completed",
+      "timelineSubagentFailed": "Subagent Failed",
+      "timelineSubagentThinking": "Thinking",
+      "timelineSubagentToolCall": "Calling Tool",
+      "timelineSubagentToolResult": "Tool Result",
+      "timelineSubagentOutputReady": "Output Ready",
       "sseStatus": {
         "connected": "Connected",
         "connecting": "Connecting",
