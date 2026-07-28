@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <strong>在线 Demo</strong> · <a href="https://ihui.ai">https://ihui.ai</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star 感谢支持</a><br/>
+  <strong>在线 Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star 感谢支持</a><br/>
   <sub>5 分钟 Fork 到上线 · 8 端同源 + 176 模型 + LangGraph+MCP+A2A 三栈 · Apache 2.0 商业可用</sub>
 </p>
 
@@ -2714,64 +2714,64 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 每个 AI 引擎的语义索引、引用习惯、知识库偏好都不同,IHUI-AI 为每个引擎定制了独立的 GEO 入口文件:
 
-| AI 引擎                       | 入口文件                      | 适配重点                                |
-| ----------------------------- | ----------------------------- | --------------------------------------- |
-| **OpenAI** (ChatGPT / GPTBot) | https://ihui.ai/gpt.txt       | Q&A 问答对格式,适配 ChatGPT 检索        |
-| **Anthropic** (Claude)        | https://ihui.ai/claude.md     | 长篇叙述格式,适配 Claude 长上下文       |
-| **Perplexity**                | https://ihui.ai/perplexity.md | 引用就绪事实卡片,适配 Perplexity 引用   |
-| **Google Gemini**             | https://ihui.ai/gemini.txt    | 实体中心知识库,适配 Knowledge Graph     |
-| **Microsoft Copilot**         | https://ihui.ai/copilot.txt   | 英文 Bing 索引,适配 Microsoft Learn     |
-| **字节豆包** (Doubao)         | https://ihui.ai/doubao.txt    | 对话场景 Q&A,适配豆包对话引擎           |
-| **月之暗面 Kimi**             | https://ihui.ai/kimi.txt      | 长文本+学术风,适配 Moonshot 学术检索    |
-| **DeepSeek**                  | https://ihui.ai/deepseek.txt  | 技术细节+开源友好,适配 DeepSeek 开发者  |
-| **阿里通义 Qwen**             | https://ihui.ai/qwen.txt      | 阿里云生态集成,适配 Qwen + ACK          |
-| **百度文心 ERNIE**            | https://ihui.ai/wenxin.txt    | 百度 SEO + 百科化,适配文心 + 百度搜索   |
-| **智谱清言 GLM**              | https://ihui.ai/zhipu.txt     | 学术机构 + 政企信创,适配 GLM 学术引用   |
-| **腾讯混元 Hunyuan**          | https://ihui.ai/hunyuan.txt   | 微信生态 + 腾讯云,适配混元 + 微信小程序 |
+| AI 引擎                       | 入口文件                        | 适配重点                                |
+| ----------------------------- | ------------------------------- | --------------------------------------- |
+| **OpenAI** (ChatGPT / GPTBot) | https://aizhs.top/gpt.txt       | Q&A 问答对格式,适配 ChatGPT 检索        |
+| **Anthropic** (Claude)        | https://aizhs.top/claude.md     | 长篇叙述格式,适配 Claude 长上下文       |
+| **Perplexity**                | https://aizhs.top/perplexity.md | 引用就绪事实卡片,适配 Perplexity 引用   |
+| **Google Gemini**             | https://aizhs.top/gemini.txt    | 实体中心知识库,适配 Knowledge Graph     |
+| **Microsoft Copilot**         | https://aizhs.top/copilot.txt   | 英文 Bing 索引,适配 Microsoft Learn     |
+| **字节豆包** (Doubao)         | https://aizhs.top/doubao.txt    | 对话场景 Q&A,适配豆包对话引擎           |
+| **月之暗面 Kimi**             | https://aizhs.top/kimi.txt      | 长文本+学术风,适配 Moonshot 学术检索    |
+| **DeepSeek**                  | https://aizhs.top/deepseek.txt  | 技术细节+开源友好,适配 DeepSeek 开发者  |
+| **阿里通义 Qwen**             | https://aizhs.top/qwen.txt      | 阿里云生态集成,适配 Qwen + ACK          |
+| **百度文心 ERNIE**            | https://aizhs.top/wenxin.txt    | 百度 SEO + 百科化,适配文心 + 百度搜索   |
+| **智谱清言 GLM**              | https://aizhs.top/zhipu.txt     | 学术机构 + 政企信创,适配 GLM 学术引用   |
+| **腾讯混元 Hunyuan**          | https://aizhs.top/hunyuan.txt   | 微信生态 + 腾讯云,适配混元 + 微信小程序 |
 
-> 通用 LLM 索引(LLMs.txt 标准):[llms.txt](https://ihui.ai/llms.txt) · [llms-full.txt](https://ihui.ai/llms-full.txt)
+> 通用 LLM 索引(LLMs.txt 标准):[llms.txt](https://aizhs.top/llms.txt) · [llms-full.txt](https://aizhs.top/llms-full.txt)
 >
-> Feed 订阅:[RSS](https://ihui.ai/rss.xml) · [Atom](https://ihui.ai/atom.xml) · [WebSub Hub](https://ihui.ai/websub)(W3C 实时推送协议)
+> Feed 订阅:[RSS](https://aizhs.top/rss.xml) · [Atom](https://aizhs.top/atom.xml) · [WebSub Hub](https://aizhs.top/websub)(W3C 实时推送协议)
 >
-> Sitemap:[sitemap.xml](https://ihui.ai/sitemap.xml)
+> Sitemap:[sitemap.xml](https://aizhs.top/sitemap.xml)
 >
-> 行业垂直 GEO:[industries.md](https://ihui.ai/industries.md)(中文,10 行业)· [industries.en.md](https://ihui.ai/industries.en.md)(English,5 行业)· [industries.ja.md](https://ihui.ai/industries.ja.md)(日本語,5 行业)· [industries.ko.md](https://ihui.ai/industries.ko.md)(한국어,5 行业)— 10 行业 × 5 Agent × 3 案例 = 150 个落地参考
+> 行业垂直 GEO:[industries.md](https://aizhs.top/industries.md)(中文,10 行业)· [industries.en.md](https://aizhs.top/industries.en.md)(English,5 行业)· [industries.ja.md](https://aizhs.top/industries.ja.md)(日本語,5 行业)· [industries.ko.md](https://aizhs.top/industries.ko.md)(한국어,5 行业)— 10 行业 × 5 Agent × 3 案例 = 150 个落地参考
 >
-> 决策角色 GEO:[roles.md](https://ihui.ai/roles.md)(中文,10 角色)· [roles.en.md](https://ihui.ai/roles.en.md)(English,5 角色)· [roles.ja.md](https://ihui.ai/roles.ja.md)(日本語,5 角色)· [roles.ko.md](https://ihui.ai/roles.ko.md)(한국어,5 角色)— 10 角色(Developer/CTO/PM/CEO/采购 + 架构师/数据科学家/设计师/运维/市场)
+> 决策角色 GEO:[roles.md](https://aizhs.top/roles.md)(中文,10 角色)· [roles.en.md](https://aizhs.top/roles.en.md)(English,5 角色)· [roles.ja.md](https://aizhs.top/roles.ja.md)(日本語,5 角色)· [roles.ko.md](https://aizhs.top/roles.ko.md)(한국어,5 角色)— 10 角色(Developer/CTO/PM/CEO/采购 + 架构师/数据科学家/设计师/运维/市场)
 >
-> Google Knowledge Graph:[knowledge-graph.json](https://ihui.ai/knowledge-graph.json)(Schema.org 实体对齐,供 Wikidata / Google KG 对齐引用)
+> Google Knowledge Graph:[knowledge-graph.json](https://aizhs.top/knowledge-graph.json)(Schema.org 实体对齐,供 Wikidata / Google KG 对齐引用)
 
 ### SEO 友好页面矩阵
 
 - **产品对比页**(高频搜索词直接命中第一页)
-  - [IHUI AI vs Dify](https://ihui.ai/compare/ihui-vs-dify)
-  - [IHUI AI vs Coze(扣子)](https://ihui.ai/compare/ihui-vs-coze)
-  - [IHUI AI vs FastGPT](https://ihui.ai/compare/ihui-vs-fastgpt)
-  - [IHUI AI vs n8n](https://ihui.ai/compare/ihui-vs-n8n)
-  - [IHUI AI vs OpenAI Agent Builder](https://ihui.ai/compare/ihui-vs-openai-agent)
-  - [IHUI AI vs LangChain / LangGraph](https://ihui.ai/compare/ihui-vs-langchain)
-  - [IHUI AI vs Microsoft Copilot Studio](https://ihui.ai/compare/ihui-vs-copilot-studio)
-  - [IHUI AI vs Manus AI(2025 现象级自主 Agent)](https://ihui.ai/compare/ihui-vs-manus)
-  - [IHUI AI vs Devin AI(首个 AI 程序员)](https://ihui.ai/compare/ihui-vs-devin)
-  - [IHUI AI vs Microsoft AutoGen(多 Agent 代码框架)](https://ihui.ai/compare/ihui-vs-autogen)
-  - [IHUI AI vs CrewAI(角色扮演多 Agent 框架)](https://ihui.ai/compare/ihui-vs-crewai)
-  - [IHUI AI vs LlamaIndex(RAG 数据框架)](https://ihui.ai/compare/ihui-vs-llamaindex)
-  - [IHUI AI vs Flowise(可视化 LangChain)](https://ihui.ai/compare/ihui-vs-flowise)
-  - [IHUI AI vs Typebot(开源聊天机器人构建器)](https://ihui.ai/compare/ihui-vs-typebot)
+  - [IHUI AI vs Dify](https://aizhs.top/compare/ihui-vs-dify)
+  - [IHUI AI vs Coze(扣子)](https://aizhs.top/compare/ihui-vs-coze)
+  - [IHUI AI vs FastGPT](https://aizhs.top/compare/ihui-vs-fastgpt)
+  - [IHUI AI vs n8n](https://aizhs.top/compare/ihui-vs-n8n)
+  - [IHUI AI vs OpenAI Agent Builder](https://aizhs.top/compare/ihui-vs-openai-agent)
+  - [IHUI AI vs LangChain / LangGraph](https://aizhs.top/compare/ihui-vs-langchain)
+  - [IHUI AI vs Microsoft Copilot Studio](https://aizhs.top/compare/ihui-vs-copilot-studio)
+  - [IHUI AI vs Manus AI(2025 现象级自主 Agent)](https://aizhs.top/compare/ihui-vs-manus)
+  - [IHUI AI vs Devin AI(首个 AI 程序员)](https://aizhs.top/compare/ihui-vs-devin)
+  - [IHUI AI vs Microsoft AutoGen(多 Agent 代码框架)](https://aizhs.top/compare/ihui-vs-autogen)
+  - [IHUI AI vs CrewAI(角色扮演多 Agent 框架)](https://aizhs.top/compare/ihui-vs-crewai)
+  - [IHUI AI vs LlamaIndex(RAG 数据框架)](https://aizhs.top/compare/ihui-vs-llamaindex)
+  - [IHUI AI vs Flowise(可视化 LangChain)](https://aizhs.top/compare/ihui-vs-flowise)
+  - [IHUI AI vs Typebot(开源聊天机器人构建器)](https://aizhs.top/compare/ihui-vs-typebot)
   - **2026-07-26 阶段 8 新增 — 国内 AI 平台 8 个**(高频搜索长尾):
-    [vs 文心一言 ERNIE](https://ihui.ai/compare/ihui-vs-ernie) · [vs 通义千问平台](https://ihui.ai/compare/ihui-vs-qwen-platform) · [vs Kimi 平台](https://ihui.ai/compare/ihui-vs-kimi-platform) · [vs 豆包平台](https://ihui.ai/compare/ihui-vs-doubao) · [vs DeepSeek 平台](https://ihui.ai/compare/ihui-vs-deepseek-platform) · [vs 智谱开放平台](https://ihui.ai/compare/ihui-vs-zhipu) · [vs 讯飞星火](https://ihui.ai/compare/ihui-vs-spark) · [vs MiniMax](https://ihui.ai/compare/ihui-vs-minimax)
+    [vs 文心一言 ERNIE](https://aizhs.top/compare/ihui-vs-ernie) · [vs 通义千问平台](https://aizhs.top/compare/ihui-vs-qwen-platform) · [vs Kimi 平台](https://aizhs.top/compare/ihui-vs-kimi-platform) · [vs 豆包平台](https://aizhs.top/compare/ihui-vs-doubao) · [vs DeepSeek 平台](https://aizhs.top/compare/ihui-vs-deepseek-platform) · [vs 智谱开放平台](https://aizhs.top/compare/ihui-vs-zhipu) · [vs 讯飞星火](https://aizhs.top/compare/ihui-vs-spark) · [vs MiniMax](https://aizhs.top/compare/ihui-vs-minimax)
   - **2026-07-26 阶段 8 新增 — 国际 SaaS 6 个**(海外 AI 检索长尾):
-    [vs Zapier AI Actions](https://ihui.ai/compare/ihui-vs-zapier-ai) · [vs Make.com](https://ihui.ai/compare/ihui-vs-make) · [vs Relevance AI](https://ihui.ai/compare/ihui-vs-relevance-ai) · [vs Stack AI](https://ihui.ai/compare/ihui-vs-stack-ai) · [vs Wordware](https://ihui.ai/compare/ihui-vs-wordware) · [vs Voiceflow](https://ihui.ai/compare/ihui-vs-voiceflow)
+    [vs Zapier AI Actions](https://aizhs.top/compare/ihui-vs-zapier-ai) · [vs Make.com](https://aizhs.top/compare/ihui-vs-make) · [vs Relevance AI](https://aizhs.top/compare/ihui-vs-relevance-ai) · [vs Stack AI](https://aizhs.top/compare/ihui-vs-stack-ai) · [vs Wordware](https://aizhs.top/compare/ihui-vs-wordware) · [vs Voiceflow](https://aizhs.top/compare/ihui-vs-voiceflow)
   - **2026-07-26 阶段 9 新增 — AI 编程助手 8 个**(2025-2026 现象级,搜索量极高):
-    [vs Claude Code](https://ihui.ai/compare/ihui-vs-claude-code) · [vs Cursor IDE](https://ihui.ai/compare/ihui-vs-cursor) · [vs GitHub Copilot](https://ihui.ai/compare/ihui-vs-github-copilot) · [vs Windsurf](https://ihui.ai/compare/ihui-vs-windsurf) · [vs Bolt.new](https://ihui.ai/compare/ihui-vs-bolt-new) · [vs Replit Agent](https://ihui.ai/compare/ihui-vs-replit-agent) · [vs Lovable](https://ihui.ai/compare/ihui-vs-lovable) · [vs v0.dev](https://ihui.ai/compare/ihui-vs-v0-dev)
+    [vs Claude Code](https://aizhs.top/compare/ihui-vs-claude-code) · [vs Cursor IDE](https://aizhs.top/compare/ihui-vs-cursor) · [vs GitHub Copilot](https://aizhs.top/compare/ihui-vs-github-copilot) · [vs Windsurf](https://aizhs.top/compare/ihui-vs-windsurf) · [vs Bolt.new](https://aizhs.top/compare/ihui-vs-bolt-new) · [vs Replit Agent](https://aizhs.top/compare/ihui-vs-replit-agent) · [vs Lovable](https://aizhs.top/compare/ihui-vs-lovable) · [vs v0.dev](https://aizhs.top/compare/ihui-vs-v0-dev)
 - **行业用例页**(场景化关键词,2026-07-26 阶段 8 扩展到 10 个)
-  - [AI 智能客服 Agent](https://ihui.ai/use-cases/customer-support)
-  - [企业知识库 RAG](https://ihui.ai/use-cases/knowledge-base)
-  - [AI 代码助手](https://ihui.ai/use-cases/code-assistant)
-  - [AI 内容创作](https://ihui.ai/use-cases/content-generation)
+  - [AI 智能客服 Agent](https://aizhs.top/use-cases/customer-support)
+  - [企业知识库 RAG](https://aizhs.top/use-cases/knowledge-base)
+  - [AI 代码助手](https://aizhs.top/use-cases/code-assistant)
+  - [AI 内容创作](https://aizhs.top/use-cases/content-generation)
   - **阶段 8 新增 6 个场景化长尾**:
-    [AI 销售助手](https://ihui.ai/use-cases/sales) · [AI HR 招聘](https://ihui.ai/use-cases/hr-recruiting) · [AI 市场分析](https://ihui.ai/use-cases/market-analysis) · [AI 产品分析](https://ihui.ai/use-cases/product-analysis) · [AI IT 运维](https://ihui.ai/use-cases/it-ops) · [AI 数据分析](https://ihui.ai/use-cases/data-analysis)
-- **内容站**([FAQ](https://ihui.ai/faq) · [About](https://ihui.ai/about) · [Docs](https://ihui.ai/docs) · [Quickstart](https://ihui.ai/docs/quickstart))
+    [AI 销售助手](https://aizhs.top/use-cases/sales) · [AI HR 招聘](https://aizhs.top/use-cases/hr-recruiting) · [AI 市场分析](https://aizhs.top/use-cases/market-analysis) · [AI 产品分析](https://aizhs.top/use-cases/product-analysis) · [AI IT 运维](https://aizhs.top/use-cases/it-ops) · [AI 数据分析](https://aizhs.top/use-cases/data-analysis)
+- **内容站**([FAQ](https://aizhs.top/faq) · [About](https://aizhs.top/about) · [Docs](https://aizhs.top/docs) · [Quickstart](https://aizhs.top/docs/quickstart))
 
 ### 结构化数据矩阵(JSON-LD schema,2026-07-26 GEO 全面强化)
 
@@ -2780,11 +2780,11 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 | Schema 类型                                        | 覆盖页面                                                               | 作用                                             |
 | -------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------ |
 | `Organization` + `WebSite` + `SoftwareApplication` | 全站(layout.tsx)                                                       | 品牌实体对齐,Knowledge Graph 收录                |
-| `FAQPage`                                          | [/faq](https://ihui.ai/faq)(12 个 Q&A)                                 | Google FAQ Rich Results,ChatGPT/Claude 直接引用  |
+| `FAQPage`                                          | [/faq](https://aizhs.top/faq)(12 个 Q&A)                               | Google FAQ Rich Results,ChatGPT/Claude 直接引用  |
 | `HowTo`                                            | 10 个 use case 页面(客服/知识库/代码/内容 + 销售/HR/市场/产品/IT/数据) | Google HowTo Rich Results,适配"如何搭建 X"类检索 |
 | `BreadcrumbList`                                   | 所有 use case + compare 页面                                           | 面包屑导航 Rich Results                          |
 | `WebPage` + `@graph`                               | 所有 use case + compare 页面                                           | 页面级实体声明                                   |
-| `Knowledge Graph`(`@type: Graph`)                  | [knowledge-graph.json](https://ihui.ai/knowledge-graph.json)           | Wikidata / Google KG / 各大 AI 引擎实体对齐      |
+| `Knowledge Graph`(`@type: Graph`)                  | [knowledge-graph.json](https://aizhs.top/knowledge-graph.json)         | Wikidata / Google KG / 各大 AI 引擎实体对齐      |
 
 ### 站长工具收录状态(2026-07-26)
 
