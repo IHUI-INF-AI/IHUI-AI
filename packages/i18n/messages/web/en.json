@@ -180,7 +180,7 @@
     "lecturers": "Lecturers",
     "schedule": "Schedule",
     "topics": "Topics",
-    "asks": "Q\u0026A",
+    "asks": "Q&A",
     "circles": "Circles",
     "resources": "Resources",
     "news": "News",
@@ -263,7 +263,7 @@
     "eduCertificates": "Certificates",
     "eduSchedule": "Schedule",
     "eduNotes": "Notes",
-    "eduQa": "Q\u0026A",
+    "eduQa": "Q&A",
     "eduProgress": "Progress",
     "memberDashboard": "Member Hub",
     "memberBenefits": "Benefits",
@@ -299,9 +299,9 @@
       "moderation": "Moderation",
       "finance": "Finance",
       "aiAgent": "AI Agents",
-      "marketing": "Marketing \u0026 Live",
-      "courseExam": "Courses \u0026 Exams",
-      "analytics": "Monitoring \u0026 BI",
+      "marketing": "Marketing & Live",
+      "courseExam": "Courses & Exams",
+      "analytics": "Monitoring & BI",
       "support": "Support Tickets",
       "community": "Community",
       "resource": "Resource Center",
@@ -320,7 +320,7 @@
       "slide1Subtitle": "Personalized learning paths with AI tutoring for efficient growth",
       "slide1Title": "AI Smart Learning Platform",
       "slide2Cta": "Enter Live Room",
-      "slide2Subtitle": "Expert live streaming with real-time Q\u0026A",
+      "slide2Subtitle": "Expert live streaming with real-time Q&A",
       "slide2Title": "Live Interactive Streaming",
       "slide3Cta": "Start Assessment",
       "slide3Subtitle": "Intelligent test generation for accurate evaluation",
@@ -338,7 +338,7 @@
       "loginNow": "Log in now",
       "allCourses": "All courses",
       "featuredArticles": "Featured articles",
-      "askCommunity": "Q\u0026A community",
+      "askCommunity": "Q&A community",
       "learningCircle": "Learning circle",
       "defaultUser": "User"
     },
@@ -357,8 +357,8 @@
       "newsEn": "News",
       "article": "Articles",
       "articleEn": "Article",
-      "ask": "Q\u0026A",
-      "askEn": "Q\u0026A",
+      "ask": "Q&A",
+      "askEn": "Q&A",
       "community": "Community",
       "communityEn": "Community",
       "knowledge": "Knowledge Base",
@@ -468,7 +468,7 @@
       "clearFilter": "Clear filter",
       "filterPlaceholder": "Filter folders...",
       "nativePick": "System picker",
-      "nativePickHint": "Pick with the system native dialog (folder name only — you need to complete the full path)",
+      "nativePickHint": "Picked folder: {name} (browser security blocks reading the full path). The list below is filtered to matching folders — click or press Enter to open",
       "computer": "This PC",
       "parent": "Parent",
       "rootHint": "Pick a drive at this level, or type a full path above",
@@ -530,7 +530,7 @@
       "empty": "No workspace permission configurations",
       "goToWorkspace": "Back to Workspace",
       "edit": "Edit",
-      "confirmDelete": "Delete this workspace\u0027s permission configuration?"
+      "confirmDelete": "Delete this workspace's permission configuration?"
     }
   },
   "chat": {
@@ -731,9 +731,9 @@
       "autoRevertedTitle": "Auto-reverted to ask for approval",
       "autoRevertedDescWithDuration": "Full Access ran for {usedMin} min, auto-reverted to Ask. Use Shift+Tab or click the permission button to re-enable.",
       "revertWarning5minTitle": "Full Access mode will auto-revert soon",
-      "revertWarning5minDesc": "Auto-reverting to Ask in 5 minutes. Click \u0027Extend 1 hour\u0027 to keep full access.",
+      "revertWarning5minDesc": "Auto-reverting to Ask in 5 minutes. Click 'Extend 1 hour' to keep full access.",
       "revertWarning1minTitle": "Full Access auto-reverting in 1 minute",
-      "revertWarning1minDesc": "Click \u0027Extend 1 hour\u0027 immediately to keep full access.",
+      "revertWarning1minDesc": "Click 'Extend 1 hour' immediately to keep full access.",
       "extendOneHour": "Extend 1 hour",
       "firstTimeConfirmTitle": "Enable full access mode?",
       "firstTimeConfirmDesc": "Full access lets AI perform any action without confirmation, including modifying/deleting files, running arbitrary commands, and network access. Use only in fully trusted private projects.",
@@ -741,7 +741,7 @@
       "firstTimeConfirmBullet2": "Auto-reverts to ask for approval after 1h idle (cancellable via top countdown)",
       "firstTimeConfirmBullet3": "A 5-second undo toast lets you quickly back out",
       "firstTimeConfirmAcknowledge": "I understand the risks, continue",
-      "firstTimeConfirmNeverShow": "Don\u0027t show again (resettable in permission settings)",
+      "firstTimeConfirmNeverShow": "Don't show again (resettable in permission settings)",
       "firstTimeConfirmProceed": "Continue",
       "firstTimeConfirmCancel": "Back",
       "titleBarAutoRevert": "⏱ auto-revert in {time}",
@@ -800,7 +800,7 @@
       "shortcutsClose": "Got it",
       "shortcutsSectionSwitch": "Mode switching",
       "shortcutsSectionGuard": "High-risk guardrails",
-      "shortcutsSectionAudit": "Undo \u0026 audit",
+      "shortcutsSectionAudit": "Undo & audit",
       "shortcutsItemShiftTabKbd": "Cycle through 3 modes",
       "shortcutsItemNumberKbd": "Press 1/2/3 in popover to pick mode directly",
       "shortcutsItemQuestionMarkKbd": "Open this shortcuts panel",
@@ -808,10 +808,10 @@
       "shortcutsItemWarn5minKbd": "5-minute warning toast with one-click extend",
       "shortcutsItemWarn1minKbd": "1-minute urgent toast",
       "shortcutsItemExtendKbd": "Switch toast offers an Extend 1 hour button",
-      "shortcutsItemCancelAutoKbd": "Banner\u0027s Cancel auto-revert button keeps full access",
+      "shortcutsItemCancelAutoKbd": "Banner's Cancel auto-revert button keeps full access",
       "shortcutsItemUndoKbd": "5s undo window after switching to full access",
       "shortcutsItemDangerousKbd": "High-risk mode blocks dangerous commands with confirm",
-      "shortcutsItemHistoryKbd": "View recent switches via popover\u0027s History button",
+      "shortcutsItemHistoryKbd": "View recent switches via popover's History button",
       "shortcutsItemInfoKbd": "View 4 detailed behaviors of this mode",
       "shortcutsItemSlashAskKbd": "Switch to Ask mode",
       "shortcutsItemSlashAutoKbd": "Switch to Auto mode",
@@ -988,11 +988,11 @@
   },
   "plaza": {
     "title": "Community Plaza",
-    "subtitle": "Browse circles and Q\u0026A in one place",
+    "subtitle": "Browse circles and Q&A in one place",
     "circlesTab": "Circles",
-    "asksTab": "Q\u0026A",
+    "asksTab": "Q&A",
     "viewAllCircles": "View all circles",
-    "viewAllAsks": "View all Q\u0026A"
+    "viewAllAsks": "View all Q&A"
   },
   "vip": {
     "title": "VIP Membership",
@@ -1016,7 +1016,25 @@
     "durationDays": "{days} days",
     "buyButton": "Subscribe Now",
     "limitedOffer": "Limited Offer",
-    "buyPrompt": "Subscribe VIP now to unlock all exclusive benefits"
+    "buyPrompt": "Subscribe VIP now to unlock all exclusive benefits",
+    "benefitList": {
+      "testPaymentFlow": "Test payment flow",
+      "unlimitedChat": "Unlimited chat",
+      "exclusiveModel": "Exclusive models",
+      "prioritySupport": "Priority support",
+      "referral": "Referral rewards",
+      "lifetime": "Lifetime benefits",
+      "distributionQualification": "Distribution qualification",
+      "aiCourses": "AI courses",
+      "founderQa": "Founder Q&A",
+      "agentBeta": "Agent beta access",
+      "vipMaxDiscount": "VIP max discount",
+      "customAgentDiscount": "Custom Agent discount",
+      "allVipRights": "All VIP benefits",
+      "verticalAccountIncubation": "Vertical account incubation",
+      "secondaryDistribution": "Secondary distribution",
+      "offlineLearning": "Offline learning"
+    }
   },
   "asks": {
     "title": "Title",
@@ -3247,7 +3265,7 @@
           "expired": "Expired"
         },
         "source": {
-          "letsencrypt": "Let\u0027s Encrypt",
+          "letsencrypt": "Let's Encrypt",
           "selfSigned": "Self-signed",
           "custom": "Custom"
         },
@@ -3321,7 +3339,7 @@
       "total": "{total} total",
       "noData": "No users found",
       "userDetail": "User Detail",
-      "confirmStatusChange": "Are you sure you want to change this user\u0027s status?",
+      "confirmStatusChange": "Are you sure you want to change this user's status?",
       "createUser": "Create User",
       "uploadAvatar": "Upload Avatar",
       "uploadAvatarHint": "JPG/PNG, max 2MB",
@@ -5358,7 +5376,7 @@
       }
     },
     "menuPermission": {
-      "title": "Menus \u0026 permissions",
+      "title": "Menus & permissions",
       "noData": "No data",
       "approve": "Approve",
       "colActions": "Actions",
@@ -5483,10 +5501,10 @@
     "title": "Knowledge Graph",
     "buildSection": "Build from Text",
     "placeholder": "Paste a passage of text and the system will extract entities and relationships...",
-    "buildButton": "Extract \u0026 Build",
+    "buildButton": "Extract & Build",
     "clearButton": "Clear Graph",
     "graphSection": "Graph Visualization",
-    "emptyState": "No data yet. Enter text above and click \"Extract \u0026 Build\".",
+    "emptyState": "No data yet. Enter text above and click \"Extract & Build\".",
     "stats": "{entities} entities / {relations} relations",
     "legendHint": "Tip: hover a node to highlight its edges. Node size = frequency, edge thickness = weight.",
     "graphAriaLabel": "Knowledge graph visualization",
@@ -5526,10 +5544,10 @@
       "emailPlaceholder": "Enter your email"
     },
     "security": {
-      "passwordHint": "6-20 chars, no \u003c \u003e \" \u0027 | \\ allowed",
+      "passwordHint": "6-20 chars, no < > \" ' | \\ allowed",
       "passwordTooShort": "Password must be at least 6 characters",
       "passwordTooLong": "Password must be at most 20 characters",
-      "passwordInvalidChar": "Password cannot contain \u003c \u003e \" \u0027 | \\",
+      "passwordInvalidChar": "Password cannot contain < > \" ' | \\",
       "passwordNotMatch": "Passwords do not match",
       "pwUpdated": "Password updated",
       "phone": "Change Phone",
@@ -5671,7 +5689,7 @@
       "unfollowSuccess": "Unfollowed"
     },
     "ask": {
-      "title": "My Q\u0026A",
+      "title": "My Q&A",
       "empty": "No data yet",
       "loading": "Loading..."
     },
@@ -5764,7 +5782,7 @@
       "articleNumber": "Article {n}",
       "articleUnit": "articles",
       "msUnit": "ms",
-      "historyItemHint": "Click to reuse this history entry\u0027s parameters",
+      "historyItemHint": "Click to reuse this history entry's parameters",
       "validateFailedPrefix": "validate failed: ",
       "unknownError": "unknown error",
       "noOutputPathError": "generate did not return outputPath, cannot continue validate",
@@ -5791,7 +5809,7 @@
       "minuteLabel": "Minute (0-59)",
       "dryRunLabel": "Dry-run mode (does not actually push to drafts)",
       "titleTemplateLabel": "Title template (use {date} placeholder, replaced with MMDD)",
-      "titleTemplatePlaceholder": "e.g., Today\u0027s AI News {date}",
+      "titleTemplatePlaceholder": "e.g., Today's AI News {date}",
       "cancel": "Cancel",
       "save": "Save",
       "triggerNow": "Trigger Now",
@@ -5954,7 +5972,7 @@
       "disable": "Disable",
       "scanQR": "Scan the QR code with an authenticator app",
       "enterCode": "Enter the 6-digit code",
-      "verify": "Verify \u0026 enable",
+      "verify": "Verify & enable",
       "codeInvalid": "Invalid code",
       "previewCode": "Current demo code",
       "backupDesc": "Save these backup codes safely. Use them to log in if you lose your 2FA device.",
@@ -5963,7 +5981,7 @@
       "done": "Done"
     },
     "themeBackup": {
-      "title": "Theme Backup \u0026 Sync",
+      "title": "Theme Backup & Sync",
       "desc": "Export current theme config, or import from a backup file with smooth transition",
       "export": "Export config",
       "import": "Import config"
@@ -6017,7 +6035,7 @@
     "modelRecordAlgorithmTypeValue": "Generative Synthesis",
     "modelRecordStatusFiled": "Filed",
     "modelRecordScopeValue": "Text generation and dialogue services for users in China",
-    "modelRecordNotice": "This platform\u0027s AI model has completed algorithm record filing in accordance with the Interim Measures for the Management of Generative AI Services.",
+    "modelRecordNotice": "This platform's AI model has completed algorithm record filing in accordance with the Interim Measures for the Management of Generative AI Services.",
     "loginHistory": {
       "allTypes": "All Types"
     },
@@ -6197,7 +6215,7 @@
     "deleteTeam": "Delete Team",
     "deleteTeamDesc": "Deleting a team removes all members and data. This cannot be undone.",
     "deleteConfirm": "Are you sure you want to delete this team? This cannot be undone.",
-    "notFound": "Team not found or you don\u0027t have access"
+    "notFound": "Team not found or you don't have access"
   },
   "chatHistory": {
     "title": "Chat History",
@@ -6259,12 +6277,12 @@
       "showKey": "Show key",
       "hideKey": "Hide key",
       "testBtn": "Test",
-      "saveBtn": "Save \u0026 Enable",
+      "saveBtn": "Save & Enable",
       "updateBtn": "Update",
       "testSuccess": "Connection OK",
       "testFailed": "Connection failed",
       "saved": "Saved",
-      "savedDesc": "API Key encrypted \u0026 stored. Model is ready to use.",
+      "savedDesc": "API Key encrypted & stored. Model is ready to use.",
       "saveFailed": "Save failed",
       "noTemplate": "No template for this provider. Please add manually in Settings → LLM Config.",
       "securityHint": "API Key is encrypted with AES-256-GCM, visible only to your account, never stored in plaintext.",
@@ -6316,8 +6334,8 @@
       "subtitle": "View your account, calls, and spending",
       "stats": {
         "balance": "Account Balance",
-        "todayCalls": "Today\u0027s Calls",
-        "todayCost": "Today\u0027s Spending",
+        "todayCalls": "Today's Calls",
+        "todayCost": "Today's Spending",
         "activeModels": "Active Models"
       },
       "quickActions": {
@@ -6408,7 +6426,7 @@
       "subtitle": "Manage recharges, bills, and packages",
       "currentBalance": "Current Balance",
       "recharge": "Recharge Now",
-      "monthConsume": "This Month\u0027s Spending",
+      "monthConsume": "This Month's Spending",
       "totalRecharge": "Total Recharge",
       "packages": {
         "title": "Recharge Packages",
@@ -6594,7 +6612,7 @@
       "members": "Members",
       "ratio": "Rate Multiplier",
       "models": "Available Models",
-      "todayCalls": "Today\u0027s Calls"
+      "todayCalls": "Today's Calls"
     },
     "channels": {
       "title": "Channels",
@@ -6608,7 +6626,7 @@
         "priority": "Priority",
         "weight": "Weight",
         "qps": "QPS",
-        "todayCalls": "Today\u0027s Calls",
+        "todayCalls": "Today's Calls",
         "status": "Status"
       },
       "statusLabels": {
@@ -6864,7 +6882,7 @@
       "signedInBtn": "Signed In",
       "signing": "Signing in...",
       "signInSuccess": "Signed in! Earned {points} points",
-      "todayReward": "Today\u0027s reward",
+      "todayReward": "Today's reward",
       "weekCalendar": "This Week",
       "history": "Sign-in History",
       "dateLabel": "Date",
@@ -7502,7 +7520,7 @@
   "distributionCompany": {
     "title": "I Company",
     "subtitle": "Distribution Company and Team",
-    "dayEarnings": "Today\u0027s Earnings",
+    "dayEarnings": "Today's Earnings",
     "monthEarnings": "This Month",
     "totalEarnings": "Total Earnings",
     "pendingEarnings": "Pending Earnings",
@@ -7535,9 +7553,9 @@
     "rule1Title": "Tier 1 Commission",
     "rule1": "When the invitee first tops up, the inviter earns a 10% commission.",
     "rule2Title": "Tier 2 Commission",
-    "rule2": "When the invitee\u0027s sub-tier tops up, the inviter earns a 15% commission.",
+    "rule2": "When the invitee's sub-tier tops up, the inviter earns a 15% commission.",
     "rule3Title": "Tier 3 Commission",
-    "rule3": "When the invitee\u0027s tier-3 sub-tier tops up, the inviter earns a 20% commission."
+    "rule3": "When the invitee's tier-3 sub-tier tops up, the inviter earns a 20% commission."
   },
   "oauthPlatform": {
     "featureApiTitle": "Open API",
@@ -8092,7 +8110,7 @@
     "heroSubtitle": "IHUI AI is an open-source full-stack AI operating system that brings Agent design, knowledge base, multi-model dispatch, cross-platform collaboration and team operations into a single platform.",
     "storyBadge": "Our Story",
     "storyTitle": "Why we built IHUI AI?",
-    "storyP1": "In 2024, we discovered that companies adopting AI universally face a \u0027four-piece problem\u0027: choosing models is hard, integrating a knowledge base is hard, cross-platform distribution is hard, and team collaboration \u0026 billing is hard. Existing products either solve just one, are closed-source and locked-in, or cost too much to use.",
+    "storyP1": "In 2024, we discovered that companies adopting AI universally face a 'four-piece problem': choosing models is hard, integrating a knowledge base is hard, cross-platform distribution is hard, and team collaboration & billing is hard. Existing products either solve just one, are closed-source and locked-in, or cost too much to use.",
     "storyP2": "So we built IHUI AI: open-source, unified, cross-platform, self-hostable. We compressed what would take 12-18 months of in-house development into a 30-minute sign-up.",
     "valueOpenTitle": "Fully Open Source",
     "valueOpenDesc": "Apache 2.0 license, core code public, commercial use allowed, zero self-host cost.",
@@ -8103,7 +8121,7 @@
     "valueEnterpriseTitle": "Enterprise-grade Security",
     "valueEnterpriseDesc": "SSO/OAuth, audit logs, role-based access, self-hosting, serving multiple listed companies.",
     "platformTitle": "Full-stack AI Operating System",
-    "platformAgentsTitle": "Agent Marketplace \u0026 Orchestration",
+    "platformAgentsTitle": "Agent Marketplace & Orchestration",
     "platformAgentsDesc": "Visual drag-and-drop to build AI Agents, 200+ templates, plugin/MCP tools, one-click publish to any client.",
     "platformRagTitle": "Knowledge-base RAG",
     "platformRagDesc": "PDF/Word/Markdown/web parsing, vector + BM25 hybrid retrieval, Chinese-friendly, knowledge graph.",
@@ -8137,7 +8155,7 @@
     "q1Question": "What is IHUI AI?",
     "q1Answer": "IHUI AI (Chinese: 智汇 AI) is an all-in-one full-stack AI operating system. It unifies Agent design, knowledge-base RAG, multi-model dispatch, cross-platform collaboration and team operations in a single platform, supporting six clients (Web, Desktop, Mini Program, Browser Extension, React Native, CLI) from one codebase, with Apache 2.0 open-source core and self-hosting support.",
     "q2Question": "How is IHUI AI different from Dify, Coze, and FastGPT?",
-    "q2Answer": "Dify focuses on LLM app development (web only); Coze is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q\u0026A. IHUI AI is an open-source platform that simultaneously covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing — one platform that replaces the Dify + Coze + FastGPT trio.",
+    "q2Answer": "Dify focuses on LLM app development (web only); Coze is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q&A. IHUI AI is an open-source platform that simultaneously covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing — one platform that replaces the Dify + Coze + FastGPT trio.",
     "q3Question": "Who is IHUI AI for?",
     "q3Answer": "Three audiences benefit most: AI developers (rapidly build/distribute/monetize Agents, publish to all six clients in one click), enterprise IT (self-host for data sovereignty, unified AI capability hub), and team leaders (multi-user collaboration, unified knowledge base, unified billing).",
     "q4Question": "Which AI models are supported?",
@@ -8151,21 +8169,21 @@
     "q8Question": "How are credits calculated? Can I get a refund?",
     "q8Answer": "Credits are billed per model call, with different consumption rates per model (see pricing page). Recharged credits: full refund within 7 days if unused, pro-rata refund for used portion. Subscription plans: pro-rata refund for unused months. See refund policy for details.",
     "q9Question": "Is self-hosting supported?",
-    "q9Answer": "Yes, Apache 2.0 open-source, zero licensing fees for self-hosting. Single-node Docker Compose one-click deploy (5 minutes), multi-node Kubernetes deploy (with Helm Chart). Enterprise edition additionally provides high-availability, backup \u0026 recovery, canary upgrades, and dedicated technical support.",
+    "q9Answer": "Yes, Apache 2.0 open-source, zero licensing fees for self-hosting. Single-node Docker Compose one-click deploy (5 minutes), multi-node Kubernetes deploy (with Helm Chart). Enterprise edition additionally provides high-availability, backup & recovery, canary upgrades, and dedicated technical support.",
     "q10Question": "What hardware do I need for self-hosting?",
     "q10Answer": "Minimum: 2-core CPU / 4GB RAM / 20GB disk, supports 10-50 concurrent users. Recommended: 4-core CPU / 8GB RAM / 50GB SSD, supports 200 concurrent users. GPU is not required (LLM inference runs on cloud APIs); if you run local models (7B-13B), you need a single 24GB VRAM card.",
     "q11Question": "Is my data secure?",
-    "q11Answer": "Hosted edition: data is stored on Alibaba Cloud (Mainland China), TLS 1.3 in transit, AES-256 at rest, compliant with China\u0027s Data Security Law, Personal Information Protection Law, GDPR, and CCPA. Self-hosted edition: 100% on your infrastructure, we never touch it. We don\u0027t train models, don\u0027t share data with third parties, and all access is audit-logged.",
+    "q11Answer": "Hosted edition: data is stored on Alibaba Cloud (Mainland China), TLS 1.3 in transit, AES-256 at rest, compliant with China's Data Security Law, Personal Information Protection Law, GDPR, and CCPA. Self-hosted edition: 100% on your infrastructure, we never touch it. We don't train models, don't share data with third parties, and all access is audit-logged.",
     "q12Question": "Will IHUI AI use my data to train your models?",
     "q12Answer": "Absolutely not. We neither train our own models nor use your data to train any third-party models. For data retention policies of OpenAI/Anthropic and other API providers, please refer to their official documentation (all default to no-training; in API mode, data is automatically deleted after 30 days).",
-    "ctaTitle": "Didn\u0027t find your answer?",
+    "ctaTitle": "Didn't find your answer?",
     "ctaDesc": "Contact our technical team, we respond within 2 hours.",
     "ctaButton": "Contact Technical Support",
     "heroTitle": "Frequently Asked Questions",
     "heroSubtitle": "12 frequently asked questions about IHUI AI, find your answer in 30 seconds.",
     "categoryGeneral": "Platform",
-    "categoryTech": "Tech \u0026 Development",
-    "categoryDeploy": "Deployment \u0026 Ops"
+    "categoryTech": "Tech & Development",
+    "categoryDeploy": "Deployment & Ops"
   },
   "articles": {
     "title": "Articles",
@@ -8246,7 +8264,7 @@
     "passwordPlaceholder": "Enter password",
     "alreadyLoggedIn": "Already signed in",
     "authorizing": "Authorizing for {clientId}…",
-    "authorizeAndRedirect": "Authorize \u0026 Redirect",
+    "authorizeAndRedirect": "Authorize & Redirect",
     "generateCodeFailed": "Failed to generate authorization code",
     "footerHint": "You will be redirected back to the target app after authorization. The login state will be shared across all sub-projects.",
     "registerTitle": "Unified Register",
@@ -8257,7 +8275,7 @@
     "confirmPassword": "Confirm password",
     "confirmPasswordPlaceholder": "Re-enter password",
     "getCode": "Get code",
-    "registerBtn": "Sign Up \u0026 Authorize",
+    "registerBtn": "Sign Up & Authorize",
     "invalidPhone": "Please enter a valid phone number",
     "codeSent": "Verification code sent",
     "sendCodeFailed": "Failed to send verification code",
@@ -8801,32 +8819,58 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
@@ -9171,19 +9215,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -9304,25 +9360,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q\u0026A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -9478,7 +9546,7 @@
       "scoreUnit": "pts",
       "ratersCount": "{count} raters",
       "certTitle": "Completion Certificate",
-      "certAcquired": "Congratulations on completing the course! You\u0027ve earned the certificate.",
+      "certAcquired": "Congratulations on completing the course! You've earned the certificate.",
       "certPending": "Complete all lessons and pass the assessment to earn the certificate.",
       "certPreview": "Certificate preview",
       "certStudent": "Student name",
@@ -9641,7 +9709,6 @@
         "disconnectedShort": "Offline",
         "tooltipError": "Connection error: {error}"
       },
-
       "relativeTime": {
         "justNow": "just now",
         "secondsAgo": "{n}s ago",
@@ -9775,7 +9842,7 @@
   },
   "edu": {
     "qa": {
-      "title": "Q\u0026A Center",
+      "title": "Q&A Center",
       "subtitle": "Ask and answer learning questions",
       "askPlaceholder": "Enter your question...",
       "askBtn": "Ask",
@@ -9813,7 +9880,7 @@
         "💎 VIP members: 30% off, unlimited access to 100+ agents",
         "🌍 Multi-language upgrade: real-time translation in 5 languages",
         "🎨 50+ themes in Theme Center, switch visual style with one click",
-        "📚 Knowledge RAG is live, documents turn into smart Q\u0026A"
+        "📚 Knowledge RAG is live, documents turn into smart Q&A"
       ]
     },
     "welcome": {
@@ -9824,7 +9891,7 @@
       "brandSubtitle": "8 Platforms · 100+ LLMs · 1029+ API · Save ¥180K/year",
       "seats": "Limited to 18 Seats · Decision-Makers Only",
       "earlyBird": "Early-Bird ¥6000/year · 67% Off",
-      "multiEnd": "8-Platform Coverage · Industry\u0027s Only",
+      "multiEnd": "8-Platform Coverage · Industry's Only",
       "benefits": {
         "benefit6": "Full refund if not satisfied",
         "benefit1": "",
@@ -9835,7 +9902,7 @@
       }
     },
     "stats": {
-      "platforms": "Platform Coverage · Industry\u0027s Only",
+      "platforms": "Platform Coverage · Industry's Only",
       "models": "+ LLMs Integrated",
       "seats": "Seats Limited · Decision-Makers Only"
     },
@@ -9963,7 +10030,7 @@
       "professional": {
         "title": "Engineering Rigor · Industry Benchmark",
         "description": "17 pre-commit guardrails + 4 husky hooks + 122+ migrations + 12 shared packages, code quality beats 95% of peers",
-        "evidence": "Evidence: 17 guardrails \u003e industry avg 3 / 122 migrations \u003e avg 30 / 12 packages \u003e avg 4 → 99.9% error-free"
+        "evidence": "Evidence: 17 guardrails > industry avg 3 / 122 migrations > avg 30 / 12 packages > avg 4 → 99.9% error-free"
       },
       "efficient": {
         "title": "Smart Routing · Ultimate Cost Reduction",
@@ -9973,7 +10040,7 @@
       "reliable": {
         "title": "Enterprise-Grade Security · Zero Risk",
         "description": "99.9% SLA + AES-256-GCM encryption + RBAC button-level permissions + 5-language i18n parity + full refund",
-        "evidence": "AES-256-GCM = bank-grade encryption / RBAC button-level = beyond finance industry / 99.9% SLA = downtime \u003c 8.76 hours/year"
+        "evidence": "AES-256-GCM = bank-grade encryption / RBAC button-level = beyond finance industry / 99.9% SLA = downtime < 8.76 hours/year"
       },
       "innovative": {
         "title": "Triple Stack · Relatively Rare",
@@ -10232,14 +10299,14 @@
       "days": "d",
       "loading": "Loading trend data…",
       "noData": "Data accumulating",
-      "noDataHint": "Need ≥2 days of snapshots to draw trends, available after tomorrow\u0027s cron",
+      "noDataHint": "Need ≥2 days of snapshots to draw trends, available after tomorrow's cron",
       "stable": "Stable",
       "rankDelta": "Rank change",
       "hotValue": "Hotness"
     },
     "funding": {
-      "label": "Mega Funding \u0026 Acquisitions",
-      "title": "Mega Funding \u0026 Acquisitions",
+      "label": "Mega Funding & Acquisitions",
+      "title": "Mega Funding & Acquisitions",
       "subtitle": "July 2026 capital moves: SpaceX acquires Cursor for $60B, DeepSeek raises $7B",
       "empty": "No funding updates",
       "sortLabel": "Sort",
@@ -10273,7 +10340,7 @@
       "copyBaseUrl": "Copy Base URL",
       "baseUrlCopied": "Base URL copied to clipboard",
       "copyFailed": "Copy failed, please copy manually",
-      "copyAndImport": "Copy \u0026 Import"
+      "copyAndImport": "Copy & Import"
     },
     "compare": {
       "label": "Model Compare",
@@ -10380,11 +10447,11 @@
     "subtitle": "Save independent API Key, model ID, and context length for each AI platform. 15+ templates are preconfigured; you only need to fill in your credentials.",
     "importCliConfig": "Import CLI Config",
     "infoTitle": "Configuration Notes",
-    "infoDesc": "Platform URL and protocol are preconfigured. You only need to fill in API Key, model ID, and context length. After saving you can test connectivity or fetch all upstream models. Each account\u0027s config is isolated and encrypted.",
+    "infoDesc": "Platform URL and protocol are preconfigured. You only need to fill in API Key, model ID, and context length. After saving you can test connectivity or fetch all upstream models. Each account's config is isolated and encrypted.",
     "listCount": "{total} configs · {enabledCount} enabled",
     "loading": "Loading...",
     "quickStartTitle": "Popular platforms (click to start):",
-    "securityNotice": "API Keys are encrypted with AES-256 and visible only to your account. Each platform\u0027s URL, protocol, and headers are preconfigured per official docs, no manual setup required.",
+    "securityNotice": "API Keys are encrypted with AES-256 and visible only to your account. Each platform's URL, protocol, and headers are preconfigured per official docs, no manual setup required.",
     "card": {
       "enabled": "Enabled",
       "disabled": "Disabled",
@@ -10424,7 +10491,7 @@
     "dialog": {
       "editTitle": "Edit LLM Config",
       "newTitle": "New LLM Config",
-      "description": "Pick a platform template, then fill in API Key, model ID, and context length. The system follows each platform\u0027s protocol automatically.",
+      "description": "Pick a platform template, then fill in API Key, model ID, and context length. The system follows each platform's protocol automatically.",
       "templateLabel": "Platform Template",
       "official": "Official",
       "self": "Custom",
@@ -10575,7 +10642,7 @@
         "description": "Notes",
         "descriptionPlaceholder": "Usage notes...",
         "enableConfig": "Enable this provider",
-        "enableConfigDesc": "Disabled providers can\u0027t be selected. Existing requests are unaffected.",
+        "enableConfigDesc": "Disabled providers can't be selected. Existing requests are unaffected.",
         "cancel": "Cancel",
         "save": "Save",
         "create": "Create",
@@ -10601,7 +10668,7 @@
         "outputPrice": "Output price (per 1K tokens, cents)",
         "defaultParams": "Default params",
         "enableModel": "Enable this model",
-        "enableModelDesc": "Disabled models can\u0027t be selected",
+        "enableModelDesc": "Disabled models can't be selected",
         "setDefault": "Set as provider default model",
         "setDefaultDesc": "Default model is preferred for new conversations",
         "cancel": "Cancel",
@@ -10852,12 +10919,12 @@
       "voiceProcessing": "Voice Processing",
       "videoGeneration": "Video Generation",
       "manufacturing": "Manufacturing",
-      "education": "Education \u0026 Training",
+      "education": "Education & Training",
       "healthcare": "Healthcare",
-      "government": "Government \u0026 Public",
-      "marketingService": "Marketing \u0026 Service",
-      "productionManufacturing": "Production \u0026 Manufacturing",
-      "rdInnovation": "R\u0026D Innovation",
+      "government": "Government & Public",
+      "marketingService": "Marketing & Service",
+      "productionManufacturing": "Production & Manufacturing",
+      "rdInnovation": "R&D Innovation",
       "officeCollaboration": "Office Collaboration",
       "unknown": "Other Tools"
     }
@@ -10872,7 +10939,15 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"
@@ -11014,7 +11089,7 @@
   },
   "aiCareerPage": {
     "title": "AI Career Guidance",
-    "subtitle": "Fill in your child\u0027s learning profile, AI will generate personalized career guidance",
+    "subtitle": "Fill in your child's learning profile, AI will generate personalized career guidance",
     "options": {
       "school": [
         "Key Middle School",
@@ -11030,7 +11105,7 @@
       ],
       "difficulty": [
         "Chinese Reading Comprehension",
-        "English Listening \u0026 Speaking",
+        "English Listening & Speaking",
         "Math Calculation",
         "Physics Concepts",
         "Chemistry Memorization",
@@ -11048,7 +11123,7 @@
     "fields": {
       "school": "School Type",
       "classLevel": "Class Level",
-      "scoreRange": "Chinese \u0026 English Score Range",
+      "scoreRange": "Chinese & English Score Range",
       "scoreRangePlaceholder": "e.g. 80-90",
       "languageDifficulty": "Language Learning Difficulty",
       "scienceCharacteristics": "Science Strengths",
@@ -11176,7 +11251,7 @@
       "completed": "Completed"
     },
     "examsCard": {
-      "title": "Exams \u0026 Certs",
+      "title": "Exams & Certs",
       "totalExams": "Total Exams",
       "totalCerts": "Certificates"
     },
@@ -11497,7 +11572,7 @@
     "temperature": "Temperature (0-2)",
     "maxTokens": "max_tokens",
     "systemPrompt": "System prompt",
-    "systemPromptPlaceholder": "Set the assistant\u0027s behavior and role...",
+    "systemPromptPlaceholder": "Set the assistant's behavior and role...",
     "cancel": "Cancel",
     "saving": "Saving...",
     "save": "Save"
@@ -11543,7 +11618,7 @@
     "notePlaceholder": "Enter note content...",
     "saveNote": "Save note",
     "sections": "Sections",
-    "qa": "Q\u0026A",
+    "qa": "Q&A",
     "qaPlaceholder": "Ask a question...",
     "qaEmpty": "No questions yet"
   },
@@ -11565,7 +11640,7 @@
   },
   "eduSchedulePage": {
     "title": "Class Schedule",
-    "subtitle": "This week\u0027s class schedule",
+    "subtitle": "This week's class schedule",
     "loading": "Loading...",
     "empty": "No classes this week",
     "today": "Today",
@@ -11728,7 +11803,7 @@
       "duration": "Duration"
     },
     "budget": {
-      "todayUsage": "Today\u0027s Usage",
+      "todayUsage": "Today's Usage",
       "tokens": "Token",
       "cost": "Cost",
       "trend": "7-Day Trend",
@@ -11788,7 +11863,7 @@
     "title": "Subscription Management",
     "subtitle": "Manage your subscription, renew or cancel",
     "loading": "Loading...",
-    "noSubscription": "You haven\u0027t subscribed to any membership plan",
+    "noSubscription": "You haven't subscribed to any membership plan",
     "subscribeNow": "Subscribe Now",
     "subscriptionAmount": "Subscription Amount",
     "autoRenew": "Auto Renew",
@@ -11816,7 +11891,7 @@
     "modeLabel": "Split Mode",
     "rangesLabel": "Page ranges (comma-separated, e.g. 1-3,5,7-10)",
     "everyLabel": "Pages per File",
-    "bookmarksHint": "Will automatically split into multiple files based on the PDF\u0027s built-in bookmarks (level 1).",
+    "bookmarksHint": "Will automatically split into multiple files based on the PDF's built-in bookmarks (level 1).",
     "submit": "Split",
     "submitting": "Splitting...",
     "resultHint": "Split complete. The result has been packaged as a ZIP:",
@@ -11844,7 +11919,7 @@
     "errorDefault": "Share link is invalid or expired",
     "retry": "Retry",
     "copyFail": "Copy failed, please copy manually",
-    "shareTitleWithUser": "{user}\u0027s share",
+    "shareTitleWithUser": "{user}'s share",
     "shareTitleDefault": "IHUI AI Share",
     "wechatShareTip": "Please tap the top-right ··· to \"Share to friend\" or copy the link",
     "questionLabel": "Question",
@@ -12379,7 +12454,7 @@
     "loginTitle": "Welcome Back",
     "loginSubtitle": "Sign in to your account",
     "loginBtn": "Sign In",
-    "noAccount": "Don\u0027t have an account?",
+    "noAccount": "Don't have an account?",
     "registerNow": "Sign up",
     "forgotPassword": "Forgot password?",
     "accountHistory": "Account History",
@@ -12422,7 +12497,7 @@
     "agreementNoticeTitle": "Please Agree to Continue",
     "agreementNoticeDesc": "To protect your account security, please read and agree to the following terms before logging in",
     "agreementNoticeSafe": "Your information is transmitted securely via an encrypted channel",
-    "agreementNoticeAgree": "Agree \u0026 Continue",
+    "agreementNoticeAgree": "Agree & Continue",
     "autoLogin": "Auto-login",
     "getVerificationCode": "Get Code",
     "alipayLogin": "AlipayLogin"
@@ -12446,7 +12521,7 @@
     "clearAll": "Clear All"
   },
   "agreement": {
-    "title": "Agreements \u0026 Policies",
+    "title": "Agreements & Policies",
     "effectiveDate": "Effective Date",
     "staticContent1": "Welcome to our platform. By using our services, you agree to all terms of this agreement.",
     "staticContent2": "We strictly protect your personal privacy and will not disclose it to third parties without your permission.",
@@ -12500,7 +12575,7 @@
       "name": "IHUI AI Top-up Packages",
       "description": "API top-up packages for the IHUI AI full-stack AI OS, covering individual developers, small teams, and enterprise needs, supporting both usage-based billing and monthly subscriptions.",
       "brand": "IHUI AI",
-      "category": "Software \u003e AI Development Platform \u003e API Credits",
+      "category": "Software > AI Development Platform > API Credits",
       "currency": "USD",
       "offers": {
         "starter": {
@@ -12597,7 +12672,7 @@
         "desc": "Image and text understanding / generation"
       },
       "4": {
-        "name": "Reasoning \u0026 Analysis",
+        "name": "Reasoning & Analysis",
         "desc": "Math / logic / analysis"
       },
       "5": {
@@ -12607,11 +12682,11 @@
     }
   },
   "useCasesAiEdu": {
-    "metaTitle": "AI Education Agent Use Case — Course Authoring / Q\u0026A / Learning Path | IHUI AI",
-    "metaDescription": "Build AI Education Agent with IHUI AI full-stack AI OS: structured course authoring, smart Q\u0026A, auto-grading, personalized learning paths, learning dashboard, 8-end sync distribution.",
+    "metaTitle": "AI Education Agent Use Case — Course Authoring / Q&A / Learning Path | IHUI AI",
+    "metaDescription": "Build AI Education Agent with IHUI AI full-stack AI OS: structured course authoring, smart Q&A, auto-grading, personalized learning paths, learning dashboard, 8-end sync distribution.",
     "courseSchema": {
       "name": "IHUI AI Education Agent Bootcamp",
-      "description": "Hands-on course for building AI Education Agents targeting K12, vocational training, and corporate L\u0026D, covering structured course authoring, smart Q\u0026A, auto-grading, learning dashboards, and personalized recommendations. Go live in 30 minutes.",
+      "description": "Hands-on course for building AI Education Agents targeting K12, vocational training, and corporate L&D, covering structured course authoring, smart Q&A, auto-grading, learning dashboards, and personalized recommendations. Go live in 30 minutes.",
       "provider": "IHUI AI",
       "startDate": "2026-08-01",
       "endDate": "2026-12-31",
@@ -12619,7 +12694,7 @@
       "about": [
         "AI Education",
         "Course Authoring",
-        "Smart Q\u0026A",
+        "Smart Q&A",
         "Auto-grading",
         "Learning Recommendation",
         "MCP Tool Protocol",
@@ -12628,7 +12703,7 @@
       ],
       "teaches": [
         "Structured course authoring",
-        "Smart Q\u0026A workflow design",
+        "Smart Q&A workflow design",
         "Auto-grading implementation",
         "Learning dashboard construction",
         "Personalized learning path recommendation"
@@ -13073,9 +13148,15 @@
       "recommended": "Recommended Reading"
     },
     "articles": {
-      "a1": { "title": "AI Engineering: Building an Enterprise AI Assistant from Scratch" },
-      "a2": { "title": "Complete Agent Development Guide: LangGraph + MCP Protocol" },
-      "a3": { "title": "RAG in Practice: Multi-tenant Knowledge Base Isolation Design" }
+      "a1": {
+        "title": "AI Engineering: Building an Enterprise AI Assistant from Scratch"
+      },
+      "a2": {
+        "title": "Complete Agent Development Guide: LangGraph + MCP Protocol"
+      },
+      "a3": {
+        "title": "RAG in Practice: Multi-tenant Knowledge Base Isolation Design"
+      }
     },
     "errors": {
       "generic": "Subscription failed, please try again later",
