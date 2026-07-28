@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, or, ilike, desc, sql } from 'drizzle-orm'
+import { eq, and, or, ilike, desc, sql, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -148,16 +148,17 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
     const rejectReason = body.data.action === 'reject' ? (body.data.reason ?? null) : null
     const results: Array<{ id: string; status: string }> = []
 
-    for (const id of body.data.ids) {
-      const [existing] = await db
-        .select({ status: zhsDemandSquare.status })
-        .from(zhsDemandSquare)
-        .where(eq(zhsDemandSquare.id, id))
-        .limit(1)
-      if (!existing || existing.status !== 'pending') {
-        results.push({ id, status: 'skipped' })
-        continue
-      }
+    // P1 修复:N+1 查询改批量,2 次 DB 往返替代 2N 次
+    const existingRows = await db
+      .select({ id: zhsDemandSquare.id, status: zhsDemandSquare.status })
+      .from(zhsDemandSquare)
+      .where(inArray(zhsDemandSquare.id, body.data.ids))
+
+    const pendingIdSet = new Set(
+      existingRows.filter((r) => r.status === 'pending').map((r) => r.id),
+    )
+
+    if (pendingIdSet.size > 0) {
       await db
         .update(zhsDemandSquare)
         .set({
@@ -167,8 +168,12 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
           reviewedAt: now,
           updatedAt: now,
         })
-        .where(eq(zhsDemandSquare.id, id))
-      results.push({ id, status: newStatus })
+        .where(inArray(zhsDemandSquare.id, Array.from(pendingIdSet)))
+    }
+
+    // 保持输入顺序:pending → newStatus,其余 → skipped
+    for (const id of body.data.ids) {
+      results.push({ id, status: pendingIdSet.has(id) ? newStatus : 'skipped' })
     }
     return reply.send(success({ results }))
   })
