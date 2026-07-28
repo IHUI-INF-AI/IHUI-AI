@@ -111,6 +111,20 @@
   --color-rank-silver: #c0c0c0;
   --color-rank-bronze: #cd7f32;
 
+  /* ============ 跨端扩展语义色(2026-07-29 上提自 miniapp-taro,8 端共享) ============
+   * 源: apps/miniapp-taro/src/app.css 扩展色板(2026-07-27 之前为小程序本地管理)
+   * 用途: 链接 / 微信品牌 / 聊天气泡 / 分销品牌橙 / 通知色等跨端通用语义色
+   * 上提理由: 单一真相源,避免小程序端漂移,web/mobile-rn 端也可引用
+   * 暗色覆盖见下方 .dark 块 */
+  --color-link: #1888ee;
+  --color-link-bg: #f0f7ff;
+  --color-wechat-green: #4cd964;
+  --color-chat-bubble-user: #95ec69;
+  --color-brand-orange: #ff6b35;
+  --color-brand: #6366f1;
+  --color-notification-bg: #fff8e1;
+  --color-notification-text: #7c5e1e;
+
   /* ============ 图表色板(2026-07-27 立,统一 web 端图表硬编码色) ============
    * 8 色主色板对应 Tailwind blue/emerald/amber/red/violet/pink/cyan/lime-500
    * 用于 SVG fill/stroke / inline style / className;ECharts option 因 canvas 不支持 CSS var(),
@@ -306,6 +320,17 @@
   /* 图表色板暗色覆盖(2026-07-27):8 主色沿用亮色,仅文字/轴线色下调 */
   --chart-text: #64748b;
   --chart-axis: #1e293b;
+
+  /* 跨端扩展语义色暗色覆盖(2026-07-29 上提自 miniapp-taro)
+   * dark 模式值提高亮度以保证暗色背景下的可读性 */
+  --color-link: #4ea3f5;
+  --color-link-bg: rgba(78, 163, 245, 0.15);
+  --color-wechat-green: #4cd964;
+  --color-chat-bubble-user: #4cd964;
+  --color-brand-orange: #ff8e53;
+  --color-brand: #818cf8;
+  --color-notification-bg: rgba(245, 158, 11, 0.15);
+  --color-notification-text: hsl(38 85% 70%);
 }
 
 /* ============ 全局基础变量(2026-07-27 上提自 web 本地 design-tokens.css) ============
