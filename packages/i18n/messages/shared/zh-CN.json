@@ -237,6 +237,35 @@
       "post": "动态"
     }
   },
+  "certificate": {
+    "empty": "暂无证书",
+    "expiryDate": "过期时间",
+    "issuedDate": "发证时间",
+    "loadFailed": "加载证书失败",
+    "status": {
+      "expired": "已过期",
+      "issued": "已颁发",
+      "revoked": "已撤销"
+    },
+    "title": "我的证书"
+  },
+  "messageCenter": {
+    "empty": "暂无消息",
+    "loadFailed": "加载消息失败",
+    "tab": {
+      "course": "课程",
+      "order": "订单",
+      "social": "社交",
+      "system": "系统"
+    },
+    "title": "消息中心",
+    "type": {
+      "course": "课程",
+      "order": "订单",
+      "social": "社交",
+      "system": "系统"
+    }
+  },
   "history": {
     "empty": "暂无浏览历史",
     "loadFailed": "加载历史失败",
