@@ -608,7 +608,9 @@
       "koubo-script": "Write koubo video script",
       "build": "Switch to Build mode (all tools enabled, normal execution)",
       "review": "Switch to Review mode (read-only, enhanced code review)",
-      "spec": "Switch to Spec mode (reverse-generate spec docs from code)"
+      "spec": "Switch to Spec mode (reverse-generate spec docs from code)",
+      "goal": "Set current session goal (AI works toward the goal, enters goal mode workflow)",
+      "loop": "Set loop execution mode (on / off / N iterations)"
     },
     "cmdSummary": "Please summarize the above conversation and extract key information",
     "cmdTranslate": "Please translate the following content to English:",
