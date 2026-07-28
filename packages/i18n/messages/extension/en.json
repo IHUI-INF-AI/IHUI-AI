@@ -231,5 +231,10 @@
     "balance": "Available balance",
     "totalRecharge": "Total recharged",
     "loadFailed": "Load failed"
+  },
+  "contextMenu": {
+    "translate": "IHUI AI · Translate Selection",
+    "vocab": "IHUI AI · Look Up Word",
+    "send": "IHUI AI · Send to Chat"
   }
 }
