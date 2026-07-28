@@ -34,16 +34,14 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
   return (
     <div
       // 2026-07-21 v7:缩窄精致化 - px-1→px-0.5,py-2→py-1.5,gap-1.5→gap-1
-      // 2026-07-28 升级:动态 right 适配 sidebar/ai-panel 占位
-      //   - 营销页 (/):sidebar+ai-panel = 0 → right = 24px(贴 viewport 右边 24px,旧行为)
-      //   - 工作区页 (/home) 展开 sidebar(130~180px):right = 154~204px → 距工作区可见区右边 24px
-      //   - 工作区页 (/home) 折叠 sidebar(60px):right = 84px → 距工作区可见区右边 24px
-      //   - 工作区页 (/home) + ai-panel 打开(width+8):right 进一步加大
-      //   与 ScrollDownButton 用同一组 CSS 变量(单一来源),保证两个指示器视觉同步
-      style={{
-        right:
-          'calc(24px + var(--sidebar-width, 0px) + var(--ai-panel-width, 0px))',
-      }}
+      // 2026-07-28 修复:位置跑偏根因是旧公式把左侧的 sidebar/ai-panel 算进了 right
+      //   - sidebar / ai-panel 都在 viewport 左侧(GlobalShell flex 流),不影响工作区右边
+      //   - 工作区右边距 viewport 右边固定 8px(由 (marketing)/layout.tsx 与 MainShell.tsx 的 mr-2 决定)
+      //   - 指示器贴工作区右边 24px → right = 8 + 24 = 32px(距 viewport 右边)
+      //   - 与 sidebar 折叠/展开、ai-panel 开/关 全部无关(它们只影响工作区左边)
+      //   - 不与 ScrollDownButton 共用 CSS 变量:ScrollDownButton 用 left 居中需动态计算,
+      //     而 PageIndicator 用 right 是常量,二者几何模型不同,不应耦合
+      style={{ right: '32px' }}
       className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
       aria-label={t('label')}
     >
