@@ -216,7 +216,7 @@ export function TagsView() {
               onDragEnd={onDragEnd}
               onContextMenu={(e) => handleContextMenu(e, tag.path)}
               className={cn(
-                'group inline-flex h-full shrink-0 items-center gap-1 rounded-md border py-0 pl-7 pr-1 text-xs leading-none transition-colors',
+                'group inline-flex h-full shrink-0 cursor-pointer items-center gap-1 rounded-md border py-0 pl-7 pr-1 text-xs leading-none transition-colors',
                 active
                   ? 'border-primary/30 bg-primary/10 font-medium text-primary'
                   : 'border-border/40 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -252,7 +252,7 @@ export function TagsView() {
                   }
                 }}
                 className={cn(
-                  'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 transition-opacity duration-150',
+                  'inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-opacity duration-150',
                   'hover:bg-destructive/10 hover:text-destructive',
                   // 默认 hidden hover 显示;减少动画偏好的用户始终可见 60% 不透明
                   'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60',
