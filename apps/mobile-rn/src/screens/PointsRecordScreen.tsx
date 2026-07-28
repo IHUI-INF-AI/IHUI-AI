@@ -3,9 +3,8 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
+import { fetchApi } from '@ihui/api-client'
 import { usePaginatedList } from '../hooks/use-paginated-list'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatShortDateTime } from '../utils/date-utils'
 
@@ -36,7 +35,6 @@ const POINTS_TAB_KEYS: Record<(typeof TYPE_TABS)[number], string> = {
 
 export function PointsRecordScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [typeTab, setTypeTab] = useState<(typeof TYPE_TABS)[number]>('all')
   const [balance, setBalance] = useState(0)
@@ -47,15 +45,12 @@ export function PointsRecordScreen() {
       pageSize: String(PAGE_SIZE),
       type: typeTab,
     })
-    const resp = await fetch(`${API_BASE_URL}/api/points/records?${params.toString()}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) return { success: false as const, error: t('pointsRecord.loadFailed') }
-    const data = (await resp.json()) as { data?: RecordPage }
-    const list = data.data?.list ?? []
-    if (typeof data.data?.balance === 'number') setBalance(data.data.balance)
-    return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
-  }, [token, typeTab, t])
+    const res = await fetchApi<RecordPage>(`/api/points/records?${params.toString()}`)
+    if (!res.success) return { success: false as const, error: t('pointsRecord.loadFailed') }
+    const list = res.data?.list ?? []
+    if (typeof res.data?.balance === 'number') setBalance(res.data.balance)
+    return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
+  }, [typeTab, t])
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<PointsRecord>(
     fetcher,
