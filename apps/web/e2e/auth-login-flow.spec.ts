@@ -75,7 +75,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
     const result = await apiLogin(
       request,
       baseURL ?? 'http://localhost:8801',
-      process.env.E2E_USER_ACCOUNT ?? 'test@ihui.ai',
+      process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top',
       process.env.E2E_USER_PASSWORD ?? 'Test@123456',
     )
     if (!result.ok && result.code === null) {
@@ -123,7 +123,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
     const result = await apiLogin(
       request,
       baseURL ?? 'http://localhost:8801',
-      process.env.E2E_USER_ACCOUNT ?? 'test@ihui.ai',
+      process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top',
       process.env.E2E_USER_PASSWORD ?? 'Test@123456',
     )
     if (!result.ok) {

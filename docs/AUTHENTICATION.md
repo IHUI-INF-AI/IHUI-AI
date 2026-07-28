@@ -675,7 +675,7 @@ reply.addHook('onResponse', async () => {
 | 来源 | 优先级 | 场景 |
 | --- | --- | --- |
 | `X-Tenant-Id` header | 1 | 跨租户管理员显式指定 |
-| subdomain(如 `acme.ihui.ai`) | 2 | SaaS 多租户默认 |
+| subdomain(如 `acme.aizhs.top`) | 2 | SaaS 多租户默认 |
 | JWT `tenantId` claim | 3 | 单租户用户回退 |
 
 ### 10.3 RLS 行级安全
@@ -925,7 +925,7 @@ server.post('/login', {
 - **认证方式**:`X-API-Key` header
 
 ```bash
-curl https://api.ihui.ai/v1/chat \
+curl https://api.aizhs.top/v1/chat \
   -H "X-API-Key: ihui_sk_xxxxxxxx"
 ```
 
@@ -1297,7 +1297,7 @@ curl http://localhost:8802/api/orders \
   -H "X-Tenant-Id: acme-corp"
 
 # 或 subdomain(生产)
-curl https://acme.ihui.ai/api/orders \
+curl https://acme.aizhs.top/api/orders \
   -H "Authorization: Bearer <access-token>"
 ```
 

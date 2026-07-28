@@ -58,7 +58,7 @@ export interface DownloadsConfig {
 export const DOWNLOADS_CONFIG: DownloadsConfig = {
   // TODO(运营):iOS App 上架后填入纯数字 App Store ID(如 "1234567890")
   appStoreId: '',
-  // TODO(运营):CDN 接入后改为绝对 URL(如 https://cdn.ihui.ai/apk/app-release.apk)
+  // TODO(运营):CDN 接入后改为绝对 URL(如 https://cdn.aizhs.top/apk/app-release.apk)
   apkPath: '/apk/ihui-ai-latest.apk',
   // TODO(运营):与 apps/web/public/apk/ 实际文件名对齐
   apkFileName: 'ihui-ai-latest.apk',

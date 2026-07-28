@@ -248,10 +248,10 @@ IHUI AI (智汇 AI) is an open-source, full-stack AI operating system that combi
 - 🏠 Apache 2.0, self-hosting in 5 minutes
 
 **Links**:
-- Website: https://ihui.ai
+- Website: https://aizhs.top
 - GitHub: https://github.com/ihui-ai
-- Quickstart: https://ihui.ai/docs/quickstart
-- Comparison: https://ihui.ai/compare
+- Quickstart: https://aizhs.top/docs/quickstart
+- Comparison: https://aizhs.top/compare
 
 ### 5.2 HN Show HN 文案
 
@@ -260,7 +260,7 @@ IHUI AI (智汇 AI) is an open-source, full-stack AI operating system that combi
 **Body**:
 Hi HN,
 
-We're the team behind IHUI AI (https://ihui.ai), an open-source full-stack AI operating system we've been working on since 2024.
+We're the team behind IHUI AI (https://aizhs.top), an open-source full-stack AI operating system we've been working on since 2024.
 
 The problem we set out to solve: when companies adopt AI, they typically end up stitching together Dify (LLM app dev) + Coze (Agent platform) + FastGPT (knowledge base) + n8n (workflow) + a custom internal dashboard (team/billing). We built IHUI AI to replace that whole toolchain with one open-source product.
 
@@ -276,16 +276,16 @@ What it does:
 Stack: TypeScript monorepo, Next.js 15, Fastify 5, Drizzle ORM, PostgreSQL, FastAPI, LangGraph, LiteLLM, Tauri 2, Taro 4, WXT, React Native.
 
 Comparison pages (so you can see how we stack up against the tools you'd be replacing):
-- https://ihui.ai/compare/ihui-vs-dify
-- https://ihui.ai/compare/ihui-vs-coze
-- https://ihui.ai/compare/ihui-vs-fastgpt
-- https://ihui.ai/compare/ihui-vs-n8n
+- https://aizhs.top/compare/ihui-vs-dify
+- https://aizhs.top/compare/ihui-vs-coze
+- https://aizhs.top/compare/ihui-vs-fastgpt
+- https://aizhs.top/compare/ihui-vs-n8n
 
 We'd love feedback on the Agent marketplace, RAG quality, and the six-client architecture. If you try the Docker Compose quickstart, please let us know how it goes.
 
 GitHub: https://github.com/ihui-ai
-Quickstart: https://ihui.ai/docs/quickstart
-LLM-optimized docs: https://ihui.ai/llms.txt
+Quickstart: https://aizhs.top/docs/quickstart
+LLM-optimized docs: https://aizhs.top/llms.txt
 
 ### 5.3 Reddit 发布模板
 
@@ -340,7 +340,7 @@ LLM-optimized docs: https://ihui.ai/llms.txt
 1. **每周自动生成 3 篇技术博客草稿**(AI 模型对比 / 架构演进 / 客户案例),发布到掘金 + Dev.to + Medium
 2. **每周自动提交 5 个外部目录**(从本策略文档 §2 清单中按优先级循环)
 3. **每月自动生成监控报表**(KPI 进度 + 待优化项 + 下月计划)
-4. **AI 引擎引用监控**:每日检测主流 AI 引擎(ChatGPT/Claude/Perplexity/Gemini)对 ihui.ai 的引用,异常时报警
+4. **AI 引擎引用监控**:每日检测主流 AI 引擎(ChatGPT/Claude/Perplexity/Gemini)对 aizhs.top 的引用,异常时报警
 
 对应实现见:
 - `scripts/seo-monitor.mjs`(待开发)

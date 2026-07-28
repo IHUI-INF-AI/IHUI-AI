@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/en/use-cases/ai-translation#webpage',
-      url: 'https://ihui.ai/en/use-cases/ai-translation',
+      '@id': 'https://aizhs.top/en/use-cases/ai-translation#webpage',
+      url: 'https://aizhs.top/en/use-cases/ai-translation',
       name: 'AI Multilingual Translation Agent Use Case — IHUI AI',
       description:
         'AI multilingual translation agent built on IHUI AI full-stack AI operating system: multi-language document translation, localization workflow, glossary management, translation review, cultural adaptation, subtitle translation. 30-minute onboarding, 8-endpoint distribution.',
       inLanguage: ['en', 'zh-CN', 'zh-TW', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/en/use-cases/ai-translation#breadcrumb',
+      '@id': 'https://aizhs.top/en/use-cases/ai-translation#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI Translation', item: 'https://ihui.ai/en/use-cases/ai-translation' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI Translation', item: 'https://aizhs.top/en/use-cases/ai-translation' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/en/use-cases/ai-translation#howto',
+      '@id': 'https://aizhs.top/en/use-cases/ai-translation#howto',
       name: '30-Minute Setup of an AI Multilingual Translation Agent',
       description:
         'Six-step workflow to build an AI multilingual translation agent on IHUI AI: build glossary, upload translation memory, configure languages, train cultural adaptation, set review rules, connect to workflow. 6x faster translation, 70% cost reduction.',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI Multilingual Translation Agent — IHUI AI',
     description: 'Multi-language translation + glossary + cultural adaptation, 30-minute onboarding.',
-    url: 'https://ihui.ai/en/use-cases/ai-translation',
+    url: 'https://aizhs.top/en/use-cases/ai-translation',
     type: 'article',
   },
 }

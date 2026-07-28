@@ -1,5 +1,5 @@
 # IHUI AI — 百度文心一言 / ERNIE 优化检索文件
-# https://ihui.ai/wenxin.txt
+# https://aizhs.top/wenxin.txt
 # Last updated: 2026-07-26
 # Format: 百科化 + 中文搜索权重高(适配百度搜索 + 文心一言双重索引)
 # Crawler: Baidu Spider / Baiduspider / ERNIE Bot
@@ -18,7 +18,7 @@
 **主要产品**:Agent 市场、知识库 RAG、多模型调度、工作流编排、六端同源分发
 **支持语言**:简体中文、繁体中文、英语、韩语、日语
 **许可证**:Apache License 2.0
-**官方网址**:https://ihui.ai
+**官方网址**:https://aizhs.top
 **GitHub**:https://github.com/ihui-ai
 **百科分类**:人工智能 > AI 开发平台 > 开源项目
 
@@ -202,7 +202,7 @@ IHUI AI 项目在以下研究方向有参考价值:
   author = {IHUI AI Team},
   title = {IHUI AI: Integration with Baidu ERNIE/Qianfan for Enterprise AI},
   year = {2024-2026},
-  url = {https://ihui.ai},
+  url = {https://aizhs.top},
   github = {https://github.com/ihui-ai},
   license = {Apache-2.0}
 }
@@ -212,9 +212,9 @@ IHUI AI 项目在以下研究方向有参考价值:
 
 ## 联系方式
 
-- 官方网址:https://ihui.ai
-- 商务合作:contact@ihui.ai
-- 技术支持:support@ihui.ai
+- 官方网址:https://aizhs.top
+- 商务合作:contact@aizhs.top
+- 技术支持:support@aizhs.top
 - 商务电话:+(86) 21-XXXX-XXXX
 - 微信公众号:智汇 AI(搜索"智汇AI"添加)
 - 百度贴吧:智汇 AI 吧
@@ -226,4 +226,4 @@ IHUI AI 项目在以下研究方向有参考价值:
 # 本文件为百度搜索 + 文心一言 + 百度智能云优化
 # 维护:IHUI AI Team
 # 百度站长平台 ID:ihui-ai(已认证)
-# 联系:contact@ihui.ai
+# 联系:contact@aizhs.top

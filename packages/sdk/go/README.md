@@ -77,7 +77,7 @@ func main() {
 client := ihui.NewIhuiClient(
     ihui.WithAPIKey("ihui_xxx"),
     ihui.WithSecret("sec_xxx"),
-    ihui.WithBaseURL("https://api.ihui.ai"),
+    ihui.WithBaseURL("https://api.aizhs.top"),
     ihui.WithTimeout(60*time.Second),
     ihui.WithMaxRetries(3),
 )

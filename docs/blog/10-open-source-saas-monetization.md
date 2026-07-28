@@ -126,7 +126,7 @@ IHUI-AI 不是一个模式,而是组合多个:
 | 模式 | IHUI-AI 实现 | 占比预估 |
 | --- | --- | --- |
 | Open Core | 核心 8 端开源,企业 RBAC/SSO 闭源 | 转化入口 |
-| 托管 SaaS | ihui.ai 一键开通,免运维 | 40% |
+| 托管 SaaS | aizhs.top 一键开通,免运维 | 40% |
 | 企业版 | 私有部署 + 审计 + 合规 | 25% |
 | API 计费 | 按调用计费(token + RAG + Agent) | 20% |
 | 市场抽成 | Agent 市场创作者分成(30%) | 10% |
@@ -167,7 +167,7 @@ IHUI-AI 当前处于第一阶段,核心目标是把 SaaS 托管与企业版做�
 **相关链接**
 
 - 项目仓库(Apache 2.0):<https://github.com/IHUI-INF-AI/IHUI-AI>
-- 官网(SaaS 托管入口):<https://ihui.ai>
+- 官网(SaaS 托管入口):<https://aizhs.top>
 
 如果你也是开源作者或正在考虑商业化,欢迎到 GitHub 给 IHUI-AI 点 Star ⭐,也欢迎来官网看我们如何把开源与商业结合。
 

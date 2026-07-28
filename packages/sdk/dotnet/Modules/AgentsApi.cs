@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// Agent 模块 — 列表 / 调用 / 高级执行 / Pipeline / 并行 / 任务分解。

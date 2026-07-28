@@ -9741,6 +9741,7 @@
       "timelineInlineHint": "对话流内联展示(在主消息列表中显示)",
       "timelineNoMatch": "没有匹配当前过滤条件的事件",
       "timelineClearFilters": "清空过滤",
+      "timelineExport": "导出为 Markdown",
       "sseStatus": {
         "connected": "已连接",
         "connecting": "连接中",
@@ -9816,7 +9817,12 @@
         "toolsCount": "工具调用({n})",
         "active": "{n} 活跃",
         "done": "{n} 完成",
-        "failed": "{n} 失败"
+        "failed": "{n} 失败",
+        "menuCopyThreadId": "复制 Thread ID",
+        "menuCopyHandle": "复制 Handle",
+        "menuCopyNickname": "复制昵称",
+        "menuCopyDetails": "复制详情",
+        "menuAriaLabel": "子代理 {nickname} 操作菜单"
       },
       "overview": {
         "title": "任务总览",
@@ -9838,7 +9844,8 @@
         "token": "Token",
         "rate": "速率",
         "eta": "预计",
-        "context": "上下文"
+        "context": "上下文",
+        "copySummary": "复制任务摘要"
       },
       "thinkingTitle": "思考过程",
       "thinkingStreaming": "思考中...",

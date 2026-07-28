@@ -7,10 +7,10 @@ import { defineConfig, devices } from '@playwright/test'
  * CI 运行:`pnpm test:e2e`(用 build + start,更接近生产)
  * 复用已有 server:`PLAYWRIGHT_REUSE_SERVER=1 pnpm test:e2e`
  *
- * globalSetup 在所有 spec 前自动 seed test@ihui.ai 用户,globalTeardown 在所有 spec 后
+ * globalSetup 在所有 spec 前自动 seed test@aizhs.top 用户,globalTeardown 在所有 spec 后
  * 自动 cleanup(回到只有 admin 状态),保证 E2E 自包含、CI 无需手动干预。
  * - 跳过 seed:`E2E_SKIP_SEED=1`(本地复用已 seed 的数据库)
- * - 跳过 cleanup:`E2E_AUTO_CLEANUP=0`(调试时保留 test@ihui.ai)
+ * - 跳过 cleanup:`E2E_AUTO_CLEANUP=0`(调试时保留 test@aizhs.top)
  */
 export default defineConfig({
   // 覆盖默认 testDir + testMatch:同时发现 e2e/ 与 tests/visual/ 两个目录下的 spec。
@@ -25,7 +25,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
-  // globalSetup 自动 seed test@ihui.ai,失败只 warn 不 throw(与 fixtures.ts ensureStorageState 兜底兼容);
+  // globalSetup 自动 seed test@aizhs.top,失败只 warn 不 throw(与 fixtures.ts ensureStorageState 兜底兼容);
   // globalTeardown 自动 cleanup,失败只 warn 不阻塞测试报告生成。详见 e2e/global-setup.ts / global-teardown.ts。
   globalSetup: 'e2e/global-setup.ts',
   globalTeardown: 'e2e/global-teardown.ts',

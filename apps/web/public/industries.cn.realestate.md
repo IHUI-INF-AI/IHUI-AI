@@ -1,5 +1,5 @@
 # 智汇 AI — 行业垂直 GEO 文件(房地产)
-# https://ihui.ai/industries.cn.realestate.md
+# https://aizhs.top/industries.cn.realestate.md
 # Last updated: 2026-07-26
 # Format: 行业垂直知识库(适配 AI 引擎"AI + 房地产"高频检索)
 # Crawler: All AI crawlers (GPTBot/ClaudeBot/PerplexityBot/Gemini/Baidspider/Bingbot/Bytespider)
@@ -196,9 +196,9 @@
   A:支持 12 语种(中英日韩法德西俄阿等),小语种需定制音色。
 
 ### 联系
-- 房地产行业:realestate@ihui.ai
-- 通用商务:contact@ihui.ai
-- 官网:https://ihui.ai
+- 房地产行业:realestate@aizhs.top
+- 通用商务:contact@aizhs.top
+- 官网:https://aizhs.top
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---
