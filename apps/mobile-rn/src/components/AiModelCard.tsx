@@ -4,24 +4,10 @@
  * 保留卡片样式 + 点击事件
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/AiModelCard/index.vue)
  *
- * 2026-07-27 重构:15+ 处硬编码颜色改用 @ihui/rn-app 的 tokens.* 统一管理,
- * tokens 未覆盖的语义色(品牌浅底/警告色)提取为 COLORS 常量集中管理。
+ * 2026-07-28 重构:硬编码颜色改用 @ihui/rn-app 的 tokens.* 统一管理。
  */
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '@ihui/rn-app'
-
-/**
- * tokens 未覆盖的语义色常量(集中管理)
- *
- * - brandBg:品牌浅底色(tokens.brand.light 未定义,RnTokens 仅含 brand.DEFAULT/dark)
- * - warningBg/warning:警告色(tokens.warning 未定义,RnTokens 无警告语义色)
- * 后续若 tokens 扩展这些语义,可平滑迁移到 tokens.*。
- */
-const COLORS = {
-  brandBg: '#eef2ff',
-  warningBg: '#fffbeb',
-  warning: '#d97706',
-} as const
 
 export type ModelUserType = 'freevip' | 'freeuse' | 'freetime' | 'hasbuy' | 'buymonth' | 'none'
 
@@ -177,7 +163,7 @@ const styles = StyleSheet.create({
   tag: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: COLORS.brandBg,
+    backgroundColor: tokens.indigo.light,
     borderRadius: 2,
   },
   tagText: {
@@ -193,12 +179,12 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: COLORS.warningBg,
+    backgroundColor: tokens.warning.light,
     borderRadius: 2,
   },
   badgeText: {
     fontSize: 11,
-    color: COLORS.warning,
+    color: tokens.warning.DEFAULT,
   },
   buyBtn: {
     paddingHorizontal: 12,

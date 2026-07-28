@@ -119,9 +119,7 @@ export default function AigcListScreen() {
   const filtered =
     category === 'all'
       ? items
-      : items.filter(
-          (w) => w.fileType === CATEGORIES.find((c) => c.key === category)?.fileType,
-        )
+      : items.filter((w) => w.fileType === CATEGORIES.find((c) => c.key === category)?.fileType)
 
   const openWork = (work: AigcWork) => {
     navigation.navigate('AigcCover', { id: work.id, title: work.title })
@@ -321,13 +319,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#d1fae5',
+    backgroundColor: tokens.success.light,
   },
   audioPlayText: { fontSize: 12, color: PRIMARY, fontWeight: '600' },
   empty: { paddingVertical: 60, alignItems: 'center' },
   emptyText: { fontSize: 13, color: tokens.text.tertiary },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  errorText: { fontSize: 13, color: '#ef4444' },
+  errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
   fab: {
     position: 'absolute',
     bottom: 24,
@@ -339,7 +337,7 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOpacity: 0.15,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
