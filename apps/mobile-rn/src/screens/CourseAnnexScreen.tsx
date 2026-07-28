@@ -3,17 +3,20 @@ import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-na
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Card, Loading } from '@ihui/ui-native'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Item { id: string; name: string; size: number; url: string }
+interface Item {
+  id: string
+  name: string
+  size: number
+  url: string
+}
 
 export function CourseAnnexScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,16 +26,27 @@ export function CourseAnnexScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/course-annex`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Item[] }
-      setItems(d.data ?? [])
-    } catch { setError(t('courseAnnex.loadFailed')) } finally { setLoading(false); setRefreshing(false) }
-  }, [token, t])
+      const res = await fetchApi<Item[]>('/course-annex')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
+    } catch {
+      setError(t('courseAnnex.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [t])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
-  const fmtSize = (bytes: number) => bytes < 1024 ? `${bytes}B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)}KB` : `${(bytes / 1048576).toFixed(1)}MB`
+  const fmtSize = (bytes: number) =>
+    bytes < 1024
+      ? `${bytes}B`
+      : bytes < 1048576
+        ? `${(bytes / 1024).toFixed(1)}KB`
+        : `${(bytes / 1048576).toFixed(1)}MB`
 
   return (
     <View className="flex-1 bg-card">
@@ -54,7 +68,15 @@ export function CourseAnnexScreen() {
           keyExtractor={(i) => i.id}
           contentContainerStyle={{ padding: 16 }}
           ItemSeparatorComponent={() => <View className="h-2" />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true)
+                void load()
+              }}
+            />
+          }
           ListEmptyComponent={
             <View className="items-center py-12">
               <Text className="text-xs text-muted-foreground">{t('courseAnnex.empty')}</Text>
@@ -62,10 +84,16 @@ export function CourseAnnexScreen() {
           }
           renderItem={({ item }) => (
             <Card className="p-3">
-              <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{item.name}</Text>
+              <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                {item.name}
+              </Text>
               <View className="mt-2 flex-row items-center justify-between">
-                <Text className="text-[11px] text-muted-foreground">{t('courseAnnex.size')}: {fmtSize(item.size)}</Text>
-                <Text className="text-xs font-semibold text-primary">{t('courseAnnex.download')}</Text>
+                <Text className="text-[11px] text-muted-foreground">
+                  {t('courseAnnex.size')}: {fmtSize(item.size)}
+                </Text>
+                <Text className="text-xs font-semibold text-primary">
+                  {t('courseAnnex.download')}
+                </Text>
               </View>
             </Card>
           )}

@@ -58,7 +58,7 @@ export default function OauthPlatformPage() {
       {/* Features */}
       <section className="space-y-6">
         <div className="space-y-1 text-center">
-          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('featuresTitle')}</h2>
+          <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('featuresTitle')}</h2>
           <p className="text-sm text-muted-foreground">{t('featuresSubtitle')}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -82,7 +82,7 @@ export default function OauthPlatformPage() {
       {/* Steps */}
       <section className="space-y-6">
         <div className="space-y-1 text-center">
-          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('stepsTitle')}</h2>
+          <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('stepsTitle')}</h2>
           <p className="text-sm text-muted-foreground">{t('stepsSubtitle')}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -105,8 +105,8 @@ export default function OauthPlatformPage() {
       </section>
 
       {/* Bottom CTA */}
-      <section className="rounded-2xl bg-primary/5 px-6 py-12 text-center">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('ctaTitle')}</h2>
+      <section className="rounded-2xl bg-primary/5 px-6 py-8 text-center">
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{t('ctaSubtitle')}</p>
         <div className="mt-6 flex justify-center">
           <Link href="/oauth/my-authorized">

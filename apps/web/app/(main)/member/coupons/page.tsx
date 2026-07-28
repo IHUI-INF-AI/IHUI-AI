@@ -95,21 +95,21 @@ export default function MemberCouponsPage() {
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : coupons.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Ticket className="h-8 w-8 text-muted-foreground opacity-40" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {coupons.map((c: any) => (
+          {coupons.map((c) => (
             <div
               key={c.id}
-              className={cn('flex items-center gap-3 rounded-lg border p-3', (STATUS_CLS as any)[c.status])}
+              className={cn('flex items-center gap-3 rounded-lg border p-3', STATUS_CLS[c.status])}
             >
               <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-md bg-primary/10 text-primary">
                 <span className="text-lg font-bold">

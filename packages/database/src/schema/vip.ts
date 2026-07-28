@@ -6,8 +6,14 @@ import { orders } from './billing.js'
  * VIP 等级表。
  * price 以分为单位。durationDays: 有效天数。benefits: 权益配置(jsonb, VipPlanQuota 结构)。
  * status: 1=上架 0=下架
- * levelValue 4 档(P0-2a,2026-07-27):0=免费 / 1=个人 / 2=团队 / 3=企业
+ * levelValue 4 档(P0-2a,2026-07-27 扩展):0=免费 / 1=个人 / 2=团队 / 3=企业
  * benefits 结构见 apps/api/src/services/plan-entitlement-service.ts VipPlanQuotaSchema
+ *
+ * 配额字段(P0-2a 新增,plan-driven 中间件 P0-2b 读取):
+ * - aiBudgetDefaults: 该档位默认 AI 预算 {dailyTokenLimit, monthlyTokenLimit, dailyCostLimit, monthlyCostLimit}
+ * - apiQps: API 每秒查询限制(0=不限)
+ * - maxConcurrency: 最大并发请求数(0=不限)
+ * - modelWhitelist: 允许的模型 ID 数组(null=全部允许,[]=无权限)
  */
 export const vipLevels = pgTable(
   'vip_levels',
@@ -20,6 +26,16 @@ export const vipLevels = pgTable(
     benefits: jsonb('benefits').notNull().default([]),
     status: integer('status').default(1).notNull(),
     sortOrder: integer('sort_order').default(0).notNull(),
+    // P0-2a 配额字段(2026-07-28)
+    aiBudgetDefaults: jsonb('ai_budget_defaults').notNull().default({
+      dailyTokenLimit: 100_000,
+      monthlyTokenLimit: 1_000_000,
+      dailyCostLimit: '10',
+      monthlyCostLimit: '100',
+    }),
+    apiQps: integer('api_qps').default(10).notNull(),
+    maxConcurrency: integer('max_concurrency').default(3).notNull(),
+    modelWhitelist: jsonb('model_whitelist'), // null=全部允许
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

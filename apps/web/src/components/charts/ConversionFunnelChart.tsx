@@ -21,6 +21,7 @@ const MOCK: ConversionFunnelStage[] = [
   { name: '付费', value: 680 },
 ]
 
+// ECharts canvas 渲染不支持 CSS var(),以下颜色含 --chart-1(blue)/--chart-5(violet) 及非标准色(indigo/purple)的硬编码副本,修改需同步 tokens.css
 export function ConversionFunnelChart({ data = MOCK, height = 300 }: ConversionFunnelChartProps) {
   const option: EChartsOption = {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },

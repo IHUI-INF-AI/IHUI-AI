@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { db } from '../db/index.js'
 import { sql, eq, and, desc } from 'drizzle-orm'
 import { examPapers, examWrongQuestion, examSignups } from '@ihui/database'
+import { error } from '../utils/response.js'
 
 /**
  * 历史项目缺失端点补齐 — 考试模块(D1/D2/D16)。
@@ -59,7 +60,7 @@ export const legacyExamRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
   fastify.get('/exam/signups/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const result = await db.select().from(examSignups).where(eq(examSignups.id, id)).limit(1)
-    if (!result[0]) return reply.code(404).send({ error: '报名记录不存在' })
+    if (!result[0]) return reply.status(404).send(error(404, '报名记录不存在'))
     return result[0]
   })
 

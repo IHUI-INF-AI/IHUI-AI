@@ -23,7 +23,7 @@
  *
  * 用法: node scripts/check-i18n-keys.mjs [--staged] [--target=web|extension|shared] [--parity-only]
  *   --staged:      只检查 git 暂存区涉及的文件(pre-commit 用, 有问题则 exit 1)
- *   --target:      扫描目标,web(默认)、extension 或 shared
+ *   --target:      扫描目标,web(默认)、extension、shared 或 cli
  *   --parity-only: 仅做 5 语言 parity 校验,跳过源文件扫描;与 --staged 一起用时强制跑 parity
  *   无参数:        全量检查(CI 用, 历史遗留问题标 warning, exit 0)
  */
@@ -37,20 +37,23 @@ const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 const isExtension = TARGET === 'extension'
 const isShared = TARGET === 'shared'
+const isCli = TARGET === 'cli'
 // 2026-07-26: --parity-only 强制仅做 5 语言 parity 校验(不扫描源文件)
 // 用途:guardian-runner 2n-web 项,即使暂存区无 i18n JSON 改动也强制跑 parity
 const isParityOnlyFlag = process.argv.includes('--parity-only')
 // parity-only 模式:仅做 5 语言 key parity 校验,跳过源码使用检测与翻译完整性检测
 // (extension 用 useI18n() namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方;
 //  --parity-only 用于 guardian-runner 2n-web 项兜底,防止 i18n JSON 没动时 parity 漂移漏检)
-const isParityOnly = isExtension || isShared || isParityOnlyFlag
+const isParityOnly = isExtension || isShared || isCli || isParityOnlyFlag
 const WEB_DIR = join(ROOT, 'apps/web')
 // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
 const MESSAGES_DIR = isExtension
   ? join(ROOT, 'packages/i18n/messages/extension')
   : isShared
     ? join(ROOT, 'packages/i18n/messages/shared')
-    : join(ROOT, 'packages/i18n/messages/web')
+    : isCli
+      ? join(ROOT, 'packages/i18n/messages/cli')
+      : join(ROOT, 'packages/i18n/messages/web')
 // shared 目录:web/extension 非 shared 模式下与 MESSAGES_DIR 合并校验(方案 A)
 // shared 模式下 MESSAGES_DIR === SHARED_DIR,二者相同
 const SHARED_DIR = join(ROOT, 'packages/i18n/messages/shared')
@@ -59,10 +62,12 @@ const SHARED_DIR = join(ROOT, 'packages/i18n/messages/shared')
 // shared 模式只识别 shared/
 const STAGED_MESSAGES_PREFIXES = isShared
   ? ['packages/i18n/messages/shared/']
-  : isExtension
-    ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
-    : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
-const STAGED_SOURCE_PREFIX = isExtension ? 'apps/extension/' : 'apps/web/'
+  : isCli
+    ? ['packages/i18n/messages/cli/']
+    : isExtension
+      ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
+      : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
+const STAGED_SOURCE_PREFIX = isExtension ? 'apps/extension/' : isCli ? 'apps/cli/' : 'apps/web/'
 const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.worktrees', 'build', 'dist', 'node_modules'])
 const BASE_LANG = 'zh-CN'
 
@@ -94,7 +99,7 @@ function loadMessages() {
   const langs = {}
   if (!existsSync(MESSAGES_DIR)) return langs
   // shared 模式:仅读 MESSAGES_DIR(=== SHARED_DIR),不合并
-  if (isShared) {
+  if (isShared || isCli) {
     for (const entry of readdirSync(MESSAGES_DIR)) {
       if (!entry.endsWith('.json')) continue
       try {
@@ -548,7 +553,9 @@ if (issueCount > 0) {
     ? `packages/i18n/messages/extension/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
     : isShared
       ? `packages/i18n/messages/shared/${BASE_LANG}.json`
-      : isParityOnlyFlag
+      : isCli
+        ? `packages/i18n/messages/cli/${BASE_LANG}.json`
+        : isParityOnlyFlag
         ? `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
         : `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
   console.log(
@@ -568,7 +575,9 @@ const targetLabel = isExtension
   ? '[extension] '
   : isShared
     ? '[shared] '
-    : isParityOnlyFlag
+    : isCli
+      ? '[cli] '
+      : isParityOnlyFlag
       ? '[parity-only] '
       : ''
 console.log(

@@ -43,7 +43,7 @@ import {
   tokens,
   SettingsScreen,
   type SettingsScreenProps,
-} from '@ihui/app'
+} from '@ihui/rn-app'
 
 describe('getTokens 动态 token 逻辑', () => {
   it("getTokens('light') === lightTokens", () => {

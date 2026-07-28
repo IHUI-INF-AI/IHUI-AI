@@ -441,6 +441,26 @@ export function MessageInput({
       description: t('slashCmd.act'),
       kind: 'action' as const,
     },
+    // 对话模式动作型命令(2026-07-28 立,补全 ChatMode 4态三通道):
+    // /build /review /spec 切换 ChatMode,/plan /act 同时联动 ChatMode 和 Plan/Act
+    {
+      id: 'build',
+      label: '/build',
+      description: t('slashCmd.build'),
+      kind: 'action' as const,
+    },
+    {
+      id: 'review',
+      label: '/review',
+      description: t('slashCmd.review'),
+      kind: 'action' as const,
+    },
+    {
+      id: 'spec',
+      label: '/spec',
+      description: t('slashCmd.spec'),
+      kind: 'action' as const,
+    },
     // 权限模式动作型命令(2026-07-25 深化,深度对标 Codex approvalMode CLI):
     // /permission ask|auto|full 切换工作区权限模式(不进入 LLM 流,纯本地 UI 状态)
     // description 用 \n 拼接短描述 + 用法提示(2026-07-25 深化,提示用户支持的 3 个子命令)
@@ -533,6 +553,11 @@ export function MessageInput({
     if (
       id === 'plan' ||
       id === 'act' ||
+      // ChatMode 4态动作型命令(2026-07-28 立,补全三通道):
+      // /build /review /spec 走 onSend,由 use-chat.ts 的 tryHandleChatModeSlash 拦截
+      id === 'build' ||
+      id === 'review' ||
+      id === 'spec' ||
       // 权限模式动作型命令(2026-07-25 深化):/permission ask|auto|full 走 onSend
       // 由 use-chat.ts 的 tryHandlePermissionSlash 拦截(纯本地 UI 状态切换,无 LLM)
       id === 'permission-ask' ||
@@ -863,11 +888,14 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
-          {/* Agent 任务进度触发按钮(2026-07-27 v6.3,用户规则:
-              trigger 在输入容器 div 外面上方居中,点击弹出 popover。
-              v6.3:popover 移到消息区(ai-side-panel)右上角定位,不再跟随 trigger。
-              trigger 只负责切换 store.open,popover 由 store 联动显隐。 */}
-          <div className="flex justify-center pb-1">
+          {/* Agent 任务进度触发按钮(2026-07-28 v8 零窜位最终版,用户规则:
+              trigger 在输入容器 div 外面上方居中,点击切换 store.open。
+              v8 关键修复:trigger 永远渲染(删除原 v6 return null),
+              open=true 时用 invisible pointer-events-none 占位 → inline 流位置零变化。
+              popover 仍按 v6 原设计用 absolute right-2 top-2 浮在消息区右上角
+              (用户特意要求,2026-07-28 立不可改),浮层不占流 → 周围内容零窜位。
+              empty:hidden 兜底保留(防御未来回归)。 */}
+          <div className="flex justify-center pb-1 empty:hidden">
             <AgentProgressTrigger />
           </div>
           {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。

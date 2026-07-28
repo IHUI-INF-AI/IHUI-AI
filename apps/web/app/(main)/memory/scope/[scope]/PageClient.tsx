@@ -131,16 +131,16 @@ export default function MemoryScopePage() {
       )}
 
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           加载中...
         </div>
       )}
 
       {!loading && !error && filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-8 text-center">
           <Brain className="h-10 w-10 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">该作用域下还没有记忆条目</p>
+          <p className="text-xs text-muted-foreground">该作用域下还没有记忆条目</p>
           <Button asChild variant="outline" size="sm">
             <Link href="/memory/new">
               <Plus className="h-4 w-4" />

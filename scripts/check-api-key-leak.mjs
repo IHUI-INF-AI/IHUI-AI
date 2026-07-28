@@ -16,6 +16,9 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { createLogger } from './lib/logger.mjs'
+
+const log = createLogger()
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -117,18 +120,18 @@ for (const file of files) {
 }
 
 if (violations.length > 0) {
-  console.error('\x1b[31m[API Key 泄露检查] 检测到真实 API key,拒绝提交!\x1b[0m')
-  console.error('')
-  console.error('\x1b[31m泄露位置:\x1b[0m')
-  violations.forEach((v) => console.error(`  ${v}`))
-  console.error('')
-  console.error('\x1b[33m修复方法:\x1b[0m')
-  console.error('  1. .example 文件必须用 <your-xxx-api-key> 占位符')
-  console.error('  2. 真实 key 只允许写入 .env / .env.production / apps/ai-service/.env(在 .gitignore)')
-  console.error('  3. memory 文件禁止记录真实 key 值')
-  console.error('')
+  log.error('\x1b[31m[API Key 泄露检查] 检测到真实 API key,拒绝提交!\x1b[0m')
+  log.error('')
+  log.error('\x1b[31m泄露位置:\x1b[0m')
+  violations.forEach((v) => log.error(`  ${v}`))
+  log.error('')
+  log.error('\x1b[33m修复方法:\x1b[0m')
+  log.error('  1. .example 文件必须用 <your-xxx-api-key> 占位符')
+  log.error('  2. 真实 key 只允许写入 .env / .env.production / apps/ai-service/.env(在 .gitignore)')
+  log.error('  3. memory 文件禁止记录真实 key 值')
+  log.error('')
   process.exit(1)
 }
 
-console.log('\x1b[32m[API Key 泄露检查] 通过,未检测到真实 key 泄露\x1b[0m')
+log.info('\x1b[32m[API Key 泄露检查] 通过,未检测到真实 key 泄露\x1b[0m')
 process.exit(0)

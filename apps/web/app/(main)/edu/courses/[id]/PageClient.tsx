@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -50,7 +50,9 @@ export default function EduCourseDetailPage() {
 
   const handleSelectSection = (section: Section) => {
     setCurrentSection(section)
-    const chapter = course?.chapters?.find((c: any) => c.sections.some((s: any) => s.id === section.id))
+    const chapter = course?.chapters?.find((c: Chapter) =>
+      c.sections.some((s) => s.id === section.id),
+    )
     setCurrentChapterId(chapter?.id)
   }
 
@@ -67,7 +69,7 @@ export default function EduCourseDetailPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         加载中...
       </div>

@@ -62,11 +62,11 @@ export async function ModelsHeader({ total, freeCount, providerCount, highlightC
   return (
     <header className="space-y-4">
       <div className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl [&>span]:translate-y-[0.5px]">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl [&>span]:translate-y-[0.5px]">
           <Bot className="h-7 w-7 text-primary" />
           <span>{t('title')}</span>
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

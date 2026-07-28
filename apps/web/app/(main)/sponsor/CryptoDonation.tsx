@@ -76,7 +76,7 @@ export function CryptoDonation(): React.JSX.Element {
   return (
     <section className="mt-16">
       <div className="text-center">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h2>
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h2>
         <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">
           {t('subtitle')}
         </p>

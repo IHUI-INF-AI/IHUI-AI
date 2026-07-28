@@ -69,9 +69,9 @@ export default function EduCertificateIssuedPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
   const bySource = {
-    exam: rows.filter((r: any) => r.source === 'exam').length,
-    learn: rows.filter((r: any) => r.source === 'learn').length,
-    manual: rows.filter((r: any) => r.source === 'manual').length,
+    exam: rows.filter((r) => r.source === 'exam').length,
+    learn: rows.filter((r) => r.source === 'learn').length,
+    manual: rows.filter((r) => r.source === 'manual').length,
   }
 
   return (
@@ -170,7 +170,7 @@ export default function EduCertificateIssuedPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((c: any) => (
+              rows.map((c) => (
                 <TableRow key={c.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-mono text-xs">{c.certificateNo}</TableCell>
                   <TableCell className="px-4 py-2.5 font-medium">{c.title}</TableCell>

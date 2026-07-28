@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useQuery } from '@tanstack/react-query'
 import { Award, Loader2, Check, Crown } from 'lucide-react'
@@ -46,18 +46,18 @@ export default function MemberBenefitsPage() {
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Award className="h-8 w-8 text-muted-foreground opacity-40" />
           <p className="text-sm text-muted-foreground">暂无权益数据</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {items.map((b: any) => {
+          {items.map((b) => {
             const benefits = Array.isArray(b.benefits) ? b.benefits : []
             return (
               <Card
@@ -81,7 +81,7 @@ export default function MemberBenefitsPage() {
                   </div>
                   {benefits.length > 0 ? (
                     <ul className="space-y-1.5 text-sm">
-                      {benefits.map((item: any, i: any) => (
+                      {benefits.map((item, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
                           <span className="text-muted-foreground">{item}</span>

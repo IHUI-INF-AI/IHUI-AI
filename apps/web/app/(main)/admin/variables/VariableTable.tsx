@@ -16,7 +16,7 @@ interface Props {
 export function VariableTable({ list, isLoading, deletePending, onEdit, onDelete }: Props) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         加载中...
       </div>
@@ -24,7 +24,7 @@ export function VariableTable({ list, isLoading, deletePending, onEdit, onDelete
   }
   if (list.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
         <p className="text-sm text-muted-foreground">暂无变量,点击右上角创建</p>
       </div>
     )

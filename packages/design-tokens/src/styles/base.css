@@ -1,0 +1,50 @@
+/**
+ * 共享基础样式 — web / extension / miniapp-taro 三端 html/body/page 根节点统一(2026-07-27 立)。
+ *
+ * 作用:消除三端 globals.css 的 body/page 基础样式重复副本。
+ * 各端 globals.css 只需 @import 本文件,改基础样式改这一处全端生效。
+ *
+ * 内容:
+ * - margin/padding/width/height reset(html/body 100% height 用于 flex 布局)
+ * - font-family(统一字体回退栈,优先 var(--font-sans),降级中文优先栈)
+ * - font-size: 14px(仅 body/page,不含 html — web/extension 的 html font-size 不同,
+ *   web 16px(browser default)/extension 14px(本地 override),统一 html font-size 会破坏 rem 单位)
+ * - background-color / color(绑定 --color-background / --color-foreground)
+ *
+ * 选择器:html, body, page
+ * - web/extension 用 html, body(标准 DOM)
+ * - miniapp-taro 用 page(小程序根节点)
+ * - CSS 容错:page 在 web 中无效但不会报错,html/body 在小程序中无效但不会报错
+ *
+ * 各端需自行声明:
+ * - @import 'tailwindcss' 或 @tailwind base/components/utilities
+ * - @import tokens.css(web/extension)或同步 :root 块(miniapp-taro,Tailwind v3 不识别 @theme)
+ * - 端独占样式(web 滚动条隐藏 / extension html font-size: 14px / miniapp-taro 工具类)
+ */
+
+html,
+body,
+page {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: var(
+    --font-sans,
+    'HarmonyOS Sans SC',
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Noto Sans SC',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif
+  );
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+body,
+page {
+  font-size: 14px;
+}

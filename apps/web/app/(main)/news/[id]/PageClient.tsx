@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -57,7 +57,7 @@ export default function NewsDetailPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -83,7 +83,7 @@ export default function NewsDetailPage() {
   const tags = article.tags
     ? article.tags
         .split(',')
-        .map((s: any) => s.trim())
+        .map((s: string) => s.trim())
         .filter(Boolean)
     : []
   const likeCount = article.likeCount ?? (Math.floor(article.viewCount * 0.05) || 36)
@@ -104,7 +104,7 @@ export default function NewsDetailPage() {
               <header className="space-y-3 border-b pb-4">
                 <h1 className="text-2xl font-bold tracking-tight">{article.title}</h1>
                 {article.summary && (
-                  <p className="text-sm text-muted-foreground">{article.summary}</p>
+                  <p className="text-xs text-muted-foreground">{article.summary}</p>
                 )}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   {article.authorName && (
@@ -157,7 +157,7 @@ export default function NewsDetailPage() {
               {tags.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 border-t pt-4">
                   <span className="text-xs text-muted-foreground">{t('tags')}</span>
-                  {tags.map((tag: any) => (
+                  {tags.map((tag: string) => (
                     <Badge key={tag} variant="primary">
                       #{tag}
                     </Badge>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -45,9 +45,7 @@ function HistoryRow({ entry }: { entry: SpecHistoryEntry }) {
                 {scopeLabel(entry.scope.type)}
               </span>
               {entry.scope.path && (
-                <span className="truncate text-xs text-muted-foreground">
-                  {entry.scope.path}
-                </span>
+                <span className="truncate text-xs text-muted-foreground">{entry.scope.path}</span>
               )}
             </div>
             <p className="truncate text-sm text-foreground">{entry.summary}</p>
@@ -69,7 +67,7 @@ export default function SpecListPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Spec 模式</h1>
@@ -89,7 +87,7 @@ export default function SpecListPage() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">历史版本</h2>
           {isLoading ? (
-            <div className="flex items-center py-16 text-muted-foreground">
+            <div className="flex items-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               加载中…
             </div>
@@ -100,12 +98,12 @@ export default function SpecListPage() {
             </div>
           ) : data && data.length > 0 ? (
             <div className="space-y-2">
-              {data.map((entry: any) => (
+              {data.map((entry) => (
                 <HistoryRow key={entry.id} entry={entry} />
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
               <FileText className="h-8 w-8 text-muted-foreground/50" />
               <p className="text-sm text-muted-foreground">暂无 Spec,点击右上角生成</p>
             </div>

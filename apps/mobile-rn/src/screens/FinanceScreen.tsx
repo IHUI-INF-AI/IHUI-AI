@@ -4,10 +4,8 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
+import { fetchApi } from '@ihui/api-client'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface FinanceSummary {
@@ -24,8 +22,7 @@ function formatMoney(n: number | undefined | null): string {
 
 export function FinanceScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
-  const navigation = useNavigation<NavigationProp>()
+    const navigation = useNavigation<NavigationProp>()
   const [summary, setSummary] = useState<FinanceSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -36,13 +33,10 @@ export function FinanceScreen() {
       setLoading(true)
       setError('')
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/wallet/balance`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: FinanceSummary }
+        const res = await fetchApi<FinanceSummary>('/wallet/balance')
+        if (!res.success) throw new Error('http')
         if (cancelled) return
-        setSummary(data.data ?? null)
+        setSummary(res.data ?? null)
       } catch {
         if (!cancelled) setError(t('finance.loadFailed'))
       } finally {
@@ -52,7 +46,7 @@ export function FinanceScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   if (loading) {
     return (

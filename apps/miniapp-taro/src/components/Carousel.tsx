@@ -5,7 +5,7 @@ import { cn } from '@ihui/design-tokens'
 export interface CarouselItem {
   img: string
   link?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface CarouselProps {
@@ -34,7 +34,7 @@ export default function Carousel({
       if (total === 0) return
       setCurrent(((idx % total) + total) % total)
     },
-    [total]
+    [total],
   )
 
   useEffect(() => {
@@ -71,12 +71,7 @@ export default function Carousel({
               style={{ width: `${100 / total}%` }}
               onClick={() => onItemClick?.(item, index)}
             >
-              <Image
-                src={item.img}
-                mode="aspectFill"
-                className="h-full w-full"
-                lazyLoad
-              />
+              <Image src={item.img} mode="aspectFill" className="h-full w-full" lazyLoad />
             </View>
           ))}
         </View>
@@ -89,7 +84,7 @@ export default function Carousel({
               onClick={() => goTo(index)}
               className={cn(
                 'h-1.5 rounded-sm transition-all',
-                current === index ? 'w-4 bg-white' : 'w-1.5 bg-white/50'
+                current === index ? 'w-4 bg-white' : 'w-1.5 bg-white/50',
               )}
             />
           ))}

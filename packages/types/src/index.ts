@@ -80,3 +80,6 @@ export * from './registry'
 
 // 跨端 app 组件类型契约(从 packages/app 迁移,2026-07-25)
 export * from './app'
+
+// Coze 平台 API 跨端契约(2026-07-27 立,PAT 直连 Coze 官方 API,chat/workflow/bot/dataset)
+export * from './coze'
