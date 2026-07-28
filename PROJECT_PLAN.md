@@ -174,7 +174,14 @@
 
 #### P1-4 SEO 资产补全
 
-- [ ] **P1-4 SEO 资产补全** — favicon/apple-touch-icon/OG image/sitemap.xml 补全 + `apps/web/src/app/(main)/sitemap.ts` 动态生成 + robots.txt
+- [x] ✅(2026-07-28) **P1-4 SEO 资产补全** — favicon/apple-touch-icon/OG image/sitemap.xml 补全 + `apps/web/src/app/(main)/sitemap.ts` 动态生成 + robots.txt
+  - 本次提交 `94c6d11065`(push 成功,local==origin):
+    ① 新建 3 个图像资产 — `apps/web/public/favicon.ico`(多尺寸 16/32/48 ICO 容器,自写 write_multi_size_ico 拼装多 PNG 块,IHUI 品牌色 #6366F1 + AI 副标题)/ `apps/web/public/apple-touch-icon.png`(180x180,iOS 主屏图标)/ `apps/web/public/og-image.png`(1200x630,垂直渐变 #6366F1→#8B5CF6→#EC4899 + IHUI 大字 logo + 8 端全栈 AI 操作系统副标题 + TagLine);
+    ② 删 `apps/web/public/robots.txt`(137 行)消除与 `app/robots.ts` 动态路由冲突,Next.js 优先走 app/robots.ts 动态生成;
+    ③ `apps/web/app/layout.tsx`:`icons.icon` 数组添加 favicon.ico + apple-touch-icon.png(`shortcut` 保留 favicon.ico 兜底旧 IE/Edge),`openGraph.images` 切换到新建 `/og-image.png`(1200×630 image/png,alt 写 8 端全栈 AI 操作系统),`twitter.images` 同步切换;
+    ④ `apps/web/app/(main)/layout.tsx`:补 page-specific metadata(`title` 用 `absolute` 避免与根 layout 的 template 双重应用渲染为 "X | IHUI AI | IHUI AI",`description` 扩到 ~120 字符覆盖工作区高频场景,`keywords` 15 个覆盖 AI 工作区/Agent/RAG/MCP/多模型调度/团队协作,`openGraph` + `twitter` 显式引用 `/og-image.png`,`robots` 显式 index/follow + googleBot max-image-preview=large);
+    ⑤ 验证:`pnpm --filter @ihui/web typecheck` exit 0;`pnpm --filter @ihui/web build` 失败但**与本任务无关**(失败点 `apps/web/app/(main)/security-audit/page.tsx:112` JSX 闭合 `)}` 语法错误,属于其他 agent 工作范围,按 AGENTS.md §12 多 agent 并行 push 边界规则,**禁止越权修改其他 agent 代码**,本任务 typecheck 全绿 + 本任务 6 个文件 lint 0 警告 0 错误即满足交付);
+    ⑥ **保留不动**:`app/robots.ts` + `app/sitemap.ts` 已有完整 GEO/SEO 规则(覆盖 GPTBot/ClaudeBot/PerplexityBot/Googlebot/Bingbot/CCBot 6 主流 AI 爬虫 + 30+ 核心公开页 + 5 语言 hreflang + compare/use-cases 长尾覆盖),本任务**只**补图像资产 + 路由组 metadata,**不**改动 robots/sitemap 逻辑
 
 ---
 
