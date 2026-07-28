@@ -3,21 +3,26 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
+import { useChatStore } from '@/stores/chat'
+import { ConnectionStatusDot, deriveConnectionState } from './progress-sections/connection-status'
 
 /**
- * AgentProgressTrigger — Agent 任务进度触发按钮(2026-07-27 v6 联动版)
+ * AgentProgressTrigger — Agent 任务进度触发按钮(2026-07-28 v8 零窜位版)
  *
- * v6 改动(用户规则):
- * - 与 popover 联动:popover 显示时(open=true)trigger 隐藏,把空间让给 popover;
- *   popover 隐藏时(open=false)trigger 显示,作为再次打开的入口。
- *   点击 popover 右上角"最小化"按钮 → toggle → open=false → trigger 显示。
- *   点击 trigger → toggle → open=true → trigger 隐藏 + popover 显示。
- * - button 容器加背景色 + 描边(bg-card + border-border),
- *   light mode 白底浅灰描边,dark mode 黑底深灰描边,subtle hover 颜色变化。
+ * v8 改动(用户规则:弹窗可以覆盖内容 悬浮态,不能上下窜位):
+ * - trigger 永远渲染,不再因 popover open 切换 return null。
+ *   原 v6 联动(return null)会导致 message-input 上方 trigger wrapper 突然消失,
+ *   周围 inline 流回流 → "开始新的任务" 内容上下窜位。
+ * - popover 改用 fixed 浮层覆盖在 trigger 上方(由 store.open 联动显隐),
+ *   trigger 在 popover 打开时用 invisible 占位(opacity-0 + pointer-events-none),
+ *   inline 流位置完全不变 → 周围内容零窜位。
+ * - v7 保留:ConnectionStatusDot 显示 SSE 连接状态。
  *
- * v5 保留:
+ * v5/v6 保留:
  * - 文字显示:无进度 = "任务列表";有进度 = "01/06"
  * - 快捷键:Ctrl+Shift+J 切换 / ArrowDown 打开(未打开时)
+ * - 容器背景色 + 描边(bg-card + border-border),
+ *   light mode 白底浅灰描边,dark mode 黑底深灰描边,subtle hover 颜色变化。
  *
  * 数据来源:从 useAgentProgressPaneStore 读取 progressCurrent/progressTotal
  * (由 AgentTaskProgressPane 组件同步,避免 trigger 启动第二个 SSE 流)
@@ -27,6 +32,16 @@ export function AgentProgressTrigger() {
   const toggle = useAgentProgressPaneStore((s) => s.toggle)
   const progressCurrent = useAgentProgressPaneStore((s) => s.progressCurrent)
   const progressTotal = useAgentProgressPaneStore((s) => s.progressTotal)
+
+  // Phase 16: 从 useChatStore 获取 conversationId 用于推导连接状态
+  const conversationId = useChatStore((s) => s.conversationId)
+
+  // Phase 16: 推导连接状态(未打开 popover 时显示基础状态)
+  // 注:trigger 不直接启动 SSE,这里仅做静态状态指示
+  const connectionState = React.useMemo(
+    () => deriveConnectionState(false, 0, false, conversationId),
+    [conversationId],
+  )
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -67,15 +82,15 @@ export function AgentProgressTrigger() {
     ? `${String(progressCurrent).padStart(2, '0')}/${String(progressTotal).padStart(2, '0')}`
     : '任务列表'
 
-  // 联动:popover 显示时(open=true)trigger 隐藏,把空间让给 popover;
-  // popover 隐藏时(open=false)trigger 显示,作为再次打开的入口。
-  if (open) return null
-
+  // v8 零窜位:trigger 永远渲染,popover 用 fixed 浮层覆盖在上方
+  // open=true 时用 invisible 占位(opacity-0 + pointer-events-none,占位但视觉隐藏),
+  // inline 流位置完全不变 → 周围内容零回流零窜位
   return (
     <button
       type="button"
       onClick={toggle}
       aria-label={hasProgress ? `任务进度 ${progressCurrent}/${progressTotal}` : '任务列表'}
+      aria-expanded={open}
       title={
         hasProgress
           ? `Agent 任务进度 ${progressCurrent}/${progressTotal} (Ctrl+Shift+J)`
@@ -90,9 +105,13 @@ export function AgentProgressTrigger() {
         'hover:bg-accent hover:text-accent-foreground',
         // 有进度时文字用 primary 色突出
         hasProgress && 'text-primary',
+        // v8:open=true 时 invisible 占位(opacity-0 + 不可点击) → inline 流位置不变
+        open && 'invisible pointer-events-none',
       )}
       data-testid="agent-progress-trigger"
     >
+      {/* Phase 16: 连接状态点 */}
+      <ConnectionStatusDot state={connectionState} />
       <span className="whitespace-nowrap tabular-nums">{display}</span>
     </button>
   )
