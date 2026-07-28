@@ -19,8 +19,8 @@
       "timeout_sec": 60
     },
     "ai-service": {
-      "cmd": "pnpm",
-      "args": ["--filter", "@ihui/ai-service", "dev"],
+      "cmd": "uv",
+      "args": ["run", "uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8803"],
       "cwd": "apps/ai-service",
       "port": 8803,
       "health": "http://localhost:8803/health",
