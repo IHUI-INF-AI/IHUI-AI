@@ -17,14 +17,15 @@ import {
   X,
 } from 'lucide-react'
 
-import { Button, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  Button,
+  Input,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@ihui/ui-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import {
   browseDirectory,
   openWorkspace,
@@ -280,9 +281,7 @@ function PathNav({ currentPath, onNavigate, onRefresh, isRefreshing, t }: PathNa
               const isLast = idx === crumbs.length - 1
               return (
                 <React.Fragment key={bc.path}>
-                  {idx > 0 && (
-                    <span className="select-none text-muted-foreground/30">/</span>
-                  )}
+                  {idx > 0 && <span className="select-none text-muted-foreground/30">/</span>}
                   <button
                     type="button"
                     onClick={() => onNavigate(bc.path)}
@@ -304,9 +303,7 @@ function PathNav({ currentPath, onNavigate, onRefresh, isRefreshing, t }: PathNa
       )}
 
       {isAtRoot && (
-        <span className="flex-1 truncate text-xs text-muted-foreground/80">
-          {t('rootHint')}
-        </span>
+        <span className="flex-1 truncate text-xs text-muted-foreground/80">{t('rootHint')}</span>
       )}
 
       {/* 切换到路径输入 */}
@@ -337,9 +334,7 @@ function PathNav({ currentPath, onNavigate, onRefresh, isRefreshing, t }: PathNa
               className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
               aria-label={t('refresh')}
             >
-              <RefreshCw
-                className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')}
-              />
+              <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
             </button>
           </TooltipTrigger>
           <TooltipContent>{t('refresh')}</TooltipContent>
@@ -372,9 +367,7 @@ function EntryRow({ entry, isSelected, onSelect, onOpen }: EntryRowProps) {
         title={entry.path}
         className={cn(
           'group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors',
-          isSelected
-            ? 'bg-amber-500/15 text-foreground'
-            : 'text-foreground hover:bg-muted/60',
+          isSelected ? 'bg-amber-500/15 text-foreground' : 'text-foreground hover:bg-muted/60',
         )}
       >
         <Folder
@@ -491,9 +484,7 @@ export function LocalFolderPicker({
 
   const sortedDirs = React.useMemo(() => {
     const list = browseData?.entries ?? []
-    return list
-      .filter((e) => e.isDir)
-      .sort((a, b) => a.name.localeCompare(b.name))
+    return list.filter((e) => e.isDir).sort((a, b) => a.name.localeCompare(b.name))
   }, [browseData])
   const filteredDirs = React.useMemo(() => {
     if (!filter.trim()) return sortedDirs
@@ -524,9 +515,7 @@ export function LocalFolderPicker({
   // 当 selectedPath 变化时,确保可见
   React.useEffect(() => {
     if (!listRef.current || !selectedPath) return
-    const btn = listRef.current.querySelector<HTMLElement>(
-      `[data-selected="true"]`,
-    )
+    const btn = listRef.current.querySelector<HTMLElement>(`[data-selected="true"]`)
     btn?.scrollIntoView({ block: 'nearest' })
   }, [selectedPath])
 
@@ -643,10 +632,7 @@ export function LocalFolderPicker({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          className="max-w-2xl gap-0 p-0"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
+        <DialogContent className="max-w-2xl gap-0 p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
           {/* Header */}
           <DialogHeader className="px-5 pb-4 pt-5">
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -711,8 +697,12 @@ export function LocalFolderPicker({
                 </Tooltip>
               </TooltipProvider>
 
-              {/* 系统选择器 */}
-              {capability.showDirectoryPicker && (
+              {/* 系统选择器:任一原生选择器能力可用即显示
+                  - Tauri:用 @tauri-apps/plugin-dialog 拿完整路径(自动打开)
+                  - 浏览器:用 showDirectoryPicker 拿 folder name(引导输入完整路径)
+                  注:浏览器/Chromium 系有 showDirectoryPicker,Tauri 桌面端不会 polyfill,
+                  所以按钮可用条件 = isTauri || showDirectoryPicker */}
+              {(isTauri || capability.showDirectoryPicker) && (
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -876,9 +866,7 @@ export function LocalFolderPicker({
                   disabled={!canOpen}
                   className="h-8 min-w-[7rem]"
                 >
-                  {openMutation.isPending && (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  )}
+                  {openMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   <span className="truncate">
                     {openMutation.isPending
                       ? t('opening')
