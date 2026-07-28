@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -99,25 +100,25 @@ export function CustomerServiceScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  label: { fontSize: 12, color: '#6B7280' },
+  label: { fontSize: 12, color: tokens.text.secondary },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  dotOnline: { backgroundColor: '#10B981' },
-  dotOffline: { backgroundColor: '#9CA3AF' },
+  dotOnline: { backgroundColor: tokens.success.DEFAULT },
+  dotOffline: { backgroundColor: tokens.text.tertiary },
   statusText: { fontSize: 13, fontWeight: '600' },
-  textOnline: { color: '#10B981' },
-  textOffline: { color: '#9CA3AF' },
-  workHours: { marginTop: 8, fontSize: 12, color: '#9CA3AF' },
+  textOnline: { color: tokens.success.DEFAULT },
+  textOffline: { color: tokens.text.tertiary },
+  workHours: { marginTop: 8, fontSize: 12, color: tokens.text.tertiary },
   contactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
-  rowDivider: { borderTopColor: '#F3F4F6', borderTopWidth: 1 },
-  value: { fontSize: 13, color: '#111827' },
-  muted: { fontSize: 13, color: '#6B7280' },
-  errorText: { fontSize: 13, color: '#DC2626' },
+  rowDivider: { borderTopColor: tokens.surface.card, borderTopWidth: 1 },
+  value: { fontSize: 13, color: tokens.text.primary },
+  muted: { fontSize: 13, color: tokens.text.secondary },
+  errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
 })

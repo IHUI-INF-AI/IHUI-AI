@@ -94,5 +94,5 @@
   padding: 0 32rpx;
 }
 .btn[disabled] {
-  background: #ccc;
+  background: var(--color-muted);
 }

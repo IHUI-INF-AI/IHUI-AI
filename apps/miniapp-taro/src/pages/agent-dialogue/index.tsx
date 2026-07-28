@@ -4,6 +4,7 @@ import Taro, { useReady } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
+import { AGENT_DIALOGUE_DATA_KEY } from '@/constants/storage'
 
 type MsgType = 'user' | 'seller' | 'system'
 type MediaType = 'image' | 'audio' | 'video' | 'file' | null
@@ -455,7 +456,7 @@ export default function AgentDialogue() {
     if (roomName) setChatTitle(roomName)
     if (avatar) sellerAvatarRef.current = avatar
 
-    const userData = (Taro.getStorageSync('ihui-agent-dialogue-data') || {}) as {
+    const userData = (Taro.getStorageSync(AGENT_DIALOGUE_DATA_KEY) || {}) as {
       uuid?: string
       avatar?: string
       headimgurl?: string

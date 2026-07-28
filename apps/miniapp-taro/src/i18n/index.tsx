@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import Taro from '@tarojs/taro'
 import { mergeMessages, translate, resolveList } from '@ihui/i18n/loader'
 import type { Locale, Messages } from '@ihui/i18n/types'
+import { LOCALE_KEY } from '@/constants/storage'
 // 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/{shared,miniapp-taro}/
 // 2026-07-26 loader.getValueByPath 扩展为返回 unknown,resolveList 支持 fallback,
 // 删除本地 mergeDict/resolveRaw,完全复用 @ihui/i18n/loader
@@ -45,13 +46,13 @@ const LOCALES: Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
-    const stored = Taro.getStorageSync('lang')
+    const stored = Taro.getStorageSync(LOCALE_KEY)
     return LOCALES.includes(stored) ? (stored as Locale) : 'zh-CN'
   })
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l)
-    Taro.setStorageSync('lang', l)
+    Taro.setStorageSync(LOCALE_KEY, l)
   }, [])
 
   const t = useCallback(

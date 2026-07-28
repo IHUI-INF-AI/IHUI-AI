@@ -17,6 +17,7 @@
   display: flex;
   align-items: center;
   background: linear-gradient(135deg, #4e8cff, #6a5cff);
+  /* TODO: custom color: 蓝紫渐变,无对应 token */
   margin: 20rpx;
   padding: 28rpx 30rpx;
   border-radius: 16rpx;
@@ -155,23 +156,23 @@
   font-size: 24rpx;
   padding: 4rpx 16rpx;
   border-radius: 6rpx;
-  color: #8a8a8e;
+  color: var(--color-muted-foreground);
   background: rgba(138, 138, 142, 0.12);
 }
 .agent-status.status-1 {
-  color: #d99a00;
+  color: var(--color-warning);
   background: rgba(217, 154, 0, 0.12);
 }
 .agent-status.status-2 {
-  color: #34c759;
+  color: var(--color-success);
   background: rgba(52, 199, 89, 0.12);
 }
 .agent-status.status-4 {
-  color: #dd524d;
+  color: var(--color-destructive);
   background: rgba(221, 82, 77, 0.12);
 }
 .agent-status.status-5 {
-  color: #8a8a8e;
+  color: var(--color-muted-foreground);
   background: rgba(138, 138, 142, 0.12);
 }
 .agent-actions {
@@ -188,7 +189,7 @@
   background: rgba(78, 140, 255, 0.1);
 }
 .agent-action.delete {
-  color: #dd524d;
+  color: var(--color-destructive);
   background: rgba(221, 82, 77, 0.1);
 }
 .loading-text,

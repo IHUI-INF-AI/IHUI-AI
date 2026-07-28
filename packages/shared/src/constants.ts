@@ -1,5 +1,6 @@
-export const TOKEN_STORAGE_KEY = 'ihui_token'
-export const REFRESH_TOKEN_STORAGE_KEY = 'ihui_refresh_token'
+// TOKEN_STORAGE_KEY / REFRESH_TOKEN_STORAGE_KEY 已迁移至 ./constants/storage-keys.ts
+// 此处 re-export 保持向后兼容(已有大量代码从 'constants' 直接 import)
+export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from './constants/storage-keys'
 export const REFRESH_LEAD_MS = 5 * 60 * 1000
 
 /**

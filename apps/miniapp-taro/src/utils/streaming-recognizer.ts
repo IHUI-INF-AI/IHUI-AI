@@ -36,7 +36,6 @@ class StreamingRecognizer {
   private recognitionResult = ''
   private tempFilePath = ''
 
-  private onPartialResult: ResultCallback | null = null
   private onFinalResult: ResultCallback | null = null
   private onError: ErrorCallback | null = null
 
@@ -117,8 +116,8 @@ class StreamingRecognizer {
   }
 
   on(event: RecognitionEventType, callback: ResultCallback | ErrorCallback): void {
-    if (event === 'partial') this.onPartialResult = callback as ResultCallback
-    else if (event === 'final') this.onFinalResult = callback as ResultCallback
+    // 'partial' 事件已废弃(流式帧上传已移除),保留参数兼容但不存储回调
+    if (event === 'final') this.onFinalResult = callback as ResultCallback
     else if (event === 'error') this.onError = callback as ErrorCallback
   }
 

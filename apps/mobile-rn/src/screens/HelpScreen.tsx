@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -97,7 +98,7 @@ export function HelpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -105,15 +106,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  errorText: { fontSize: 12, color: '#DC2626' },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
   card: { padding: 12, borderRadius: 8 },
   question: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  questionText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#111827' },
-  toggle: { fontSize: 18, color: '#10B981', marginLeft: 8 },
-  answerText: { marginTop: 8, fontSize: 12, color: '#374151', lineHeight: 18 },
+  questionText: { flex: 1, fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  toggle: { fontSize: 18, color: tokens.success.DEFAULT, marginLeft: 8 },
+  answerText: { marginTop: 8, fontSize: 12, color: tokens.text.medium, lineHeight: 18 },
   emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: '#6B7280' },
+  muted: { fontSize: 12, color: tokens.text.secondary },
 })

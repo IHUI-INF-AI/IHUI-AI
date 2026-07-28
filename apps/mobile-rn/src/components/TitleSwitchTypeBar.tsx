@@ -2,9 +2,9 @@
  * TitleSwitchTypeBar — 横向多选分类条(type_bar.vue 迁移)
  * 支持"全部"切换、多选标签、自定义种类弹窗。
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 
 export interface TypeTabItem {
   id: string
@@ -142,11 +142,11 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   tabActive: {
-    borderColor: '#E0E8FF',
+    borderColor: tokens.indigo.light, // TODO: custom color #E0E8FF
     backgroundColor: 'rgba(205,208,255,0.5)',
   },
   tabText: { fontSize: 13, fontWeight: '600', color: tokens.overlay.modal },
-  tabTextActive: { color: '#000' },
+  tabTextActive: { color: tokens.gray.black },
   mask: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.3)',
@@ -160,12 +160,12 @@ const s = StyleSheet.create({
     backgroundColor: tokens.surface.light,
     alignItems: 'center',
   },
-  dialogTitle: { fontSize: 14, fontWeight: '700', color: '#3D3D3D', marginBottom: 16 },
+  dialogTitle: { fontSize: 14, fontWeight: '700', color: tokens.text.medium, marginBottom: 16 }, // TODO: custom color #3D3D3D
   input: {
     width: 240,
     height: 40,
     borderWidth: 1,
-    borderColor: '#979797',
+    borderColor: tokens.border.medium, // TODO: custom color #979797
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 13,

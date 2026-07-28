@@ -66,12 +66,12 @@
   margin-top: 6rpx;
 }
 .wc-item-amount.positive {
-  color: #34c759;
+  color: var(--color-success);
   font-size: 30rpx;
   font-weight: 600;
 }
 .wc-item-amount.negative {
-  color: #ff3b30;
+  color: var(--color-destructive);
   font-size: 30rpx;
   font-weight: 600;
 }

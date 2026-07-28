@@ -1,3 +1,4 @@
+/* TODO: custom color: #ffd700 / #ffc107 / #d4a017 / #ff6b00 / #1a1a2e 为会员品牌金/橙色,无对应 token,保留原值 */
 .member-page {
   min-height: 100vh;
   background: var(--color-background);
@@ -18,7 +19,7 @@
   width: 120rpx;
   height: 120rpx;
   border-radius: 12rpx;
-  background: #fff;
+  background: var(--color-card);
   margin-right: 24rpx;
   flex-shrink: 0;
 }
@@ -30,7 +31,7 @@
   display: block;
   font-size: 36rpx;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-primary-foreground);
   margin-bottom: 12rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -42,7 +43,7 @@
 }
 .member-vip-text {
   background: #ffd700;
-  color: #333;
+  color: var(--color-foreground);
   font-size: 24rpx;
   font-weight: 700;
   padding: 4rpx 16rpx;
@@ -51,7 +52,7 @@
 }
 .member-vip-expire {
   font-size: 24rpx;
-  color: #fff;
+  color: var(--color-primary-foreground);
 }
 .member-normal-user {
   font-size: 26rpx;
@@ -115,13 +116,13 @@
   color: var(--color-foreground);
 }
 .member-level-silver .member-level-name {
-  color: #9ca3af;
+  color: var(--color-muted-foreground);
 }
 .member-level-gold .member-level-name {
   color: #d4a017;
 }
 .member-level-diamond .member-level-name {
-  color: #6366f1;
+  color: var(--color-brand);
 }
 
 /* ===== 使用统计 ===== */
@@ -240,6 +241,7 @@
   font-size: 40rpx;
   font-weight: 700;
   color: #ff6b00;
+  /* TODO: custom color: 品牌橙 */
   margin-right: 16rpx;
 }
 .member-original-price {
@@ -251,7 +253,7 @@
 .member-cta-button {
   width: 100%;
   background: var(--color-primary);
-  color: #1a1a2e;
+  color: var(--color-primary-foreground);
   height: 80rpx;
   line-height: 80rpx;
   font-size: 30rpx;
@@ -275,13 +277,13 @@
 }
 .member-crown {
   font-size: 40rpx;
-  color: #fff;
+  color: var(--color-primary-foreground);
   margin-right: 12rpx;
 }
 .member-permanent-text {
   font-size: 32rpx;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-primary-foreground);
 }
 .member-cta-text {
   display: block;

@@ -17,6 +17,7 @@ import Taro from '@tarojs/taro'
 import { loginByWechat } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo } from './auth'
 import { useUserStore } from '../stores/user'
+import { LOCALE_KEY } from '@/constants/storage'
 // 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/miniapp-taro/
 import zhCN from '@ihui/i18n/messages/miniapp-taro/zh-CN.json'
 import en from '@ihui/i18n/messages/miniapp-taro/en.json'
@@ -27,7 +28,7 @@ import zhTW from '@ihui/i18n/messages/miniapp-taro/zh-TW.json'
 /** 读取当前 locale 下的 i18n 字典(非 hook 场景,供工具函数使用) */
 function getCurrentDict(): typeof zhCN {
   try {
-    const stored = Taro.getStorageSync('lang') as string
+    const stored = Taro.getStorageSync(LOCALE_KEY) as string
     if (stored === 'en') return en as typeof zhCN
     if (stored === 'ja') return ja as typeof zhCN
     if (stored === 'ko') return ko as typeof zhCN

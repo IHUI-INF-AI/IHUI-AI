@@ -29,7 +29,7 @@ function getLayerStyle(delta: number): CSSProperties {
     borderRadius: '15px',
     boxShadow: '0 0 6px 0 rgba(0, 0, 0, 0.3)',
     position: 'relative',
-    color: '#000',
+    color: 'var(--color-foreground)',
     transition: 'all 0.3s ease',
     display: 'flex',
     alignItems: 'center',
@@ -38,9 +38,9 @@ function getLayerStyle(delta: number): CSSProperties {
   if (delta === 0) {
     return {
       ...base,
-      color: 'rgba(0, 0, 0, 1)',
+      color: 'var(--color-foreground)',
       fontWeight: 600,
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      backgroundColor: 'var(--color-card)',
       transform: 'scale(1)',
       opacity: 1,
       zIndex: 10,

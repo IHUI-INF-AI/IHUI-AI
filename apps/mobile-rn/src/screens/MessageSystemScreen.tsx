@@ -1,10 +1,10 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MessageItem } from '@ihui/types'
 
@@ -18,7 +18,6 @@ interface Item extends Pick<MessageItem, 'id' | 'content'> {
 
 export function MessageSystemScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,19 +27,16 @@ export function MessageSystemScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/message/system`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Item[] }
-      setItems(d.data ?? [])
+      const res = await fetchApi<Item[]>('/message/system')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
     } catch {
       setError(t('messageSystem.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -101,7 +97,7 @@ export function MessageSystemScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -109,16 +105,16 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  error: { paddingHorizontal: 16, fontSize: 12, color: '#DC2626' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  error: { paddingHorizontal: 16, fontSize: 12, color: tokens.danger.DEFAULT },
   center: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  cardUnread: { borderColor: '#10B981', backgroundColor: '#F0FDF4' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light },
+  cardUnread: { borderColor: tokens.success.DEFAULT, backgroundColor: tokens.success.lightest },
   titleRow: { flexDirection: 'row', alignItems: 'center' },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981', marginLeft: 8 },
-  cardContent: { marginTop: 4, fontSize: 12, color: '#6B7280' },
-  cardTime: { marginTop: 6, fontSize: 11, color: '#9CA3AF' },
+  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: tokens.success.DEFAULT, marginLeft: 8 },
+  cardContent: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
+  cardTime: { marginTop: 6, fontSize: 11, color: tokens.text.tertiary },
 })

@@ -82,11 +82,12 @@ export default function DeveloperWithdrawal() {
   const statusClass = useCallback((item: WithdrawalItem) => {
     const norm = normalizeStatus(item.status)
     const base = 'text-[24rpx] px-[16rpx] py-[6rpx] rounded-[6rpx]'
+    // TODO: custom color: #007aff iOS 蓝,无对应 token
     const styles: Record<string, string> = {
-      pending: 'text-[#ff9500] bg-[rgba(255,149,0,0.1)]',
+      pending: 'text-warning bg-[rgba(255,149,0,0.1)]',
       processing: 'text-[#007aff] bg-[rgba(0,122,255,0.1)]',
-      success: 'text-[#34c759] bg-[rgba(52,199,89,0.1)]',
-      failed: 'text-[#ff3b30] bg-[rgba(255,59,48,0.1)]',
+      success: 'text-success bg-[rgba(52,199,89,0.1)]',
+      failed: 'text-destructive bg-[rgba(255,59,48,0.1)]',
     }
     return `${base} ${styles[norm] ?? styles.pending}`
   }, [])
@@ -132,7 +133,7 @@ export default function DeveloperWithdrawal() {
                 <Text className="block text-[32rpx] text-foreground font-semibold mb-[8rpx]">¥{item.amount}</Text>
                 <Text className="block text-[24rpx] text-muted-foreground">{displayTime(item)}</Text>
                 {displayReason(item) ? (
-                  <Text className="block text-[22rpx] text-[#ff3b30] mt-[6rpx]">{displayReason(item)}</Text>
+                  <Text className="block text-[22rpx] text-destructive mt-[6rpx]">{displayReason(item)}</Text>
                 ) : null}
               </View>
               <Text className={statusClass(item)}>

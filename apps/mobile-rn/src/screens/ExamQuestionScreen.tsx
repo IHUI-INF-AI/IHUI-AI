@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -22,7 +23,6 @@ interface Exam {
 
 type Route = RouteProp<RootStackParamList, 'ExamQuestion'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function ExamQuestionScreen() {
   const { t } = useI18n()
@@ -152,7 +152,7 @@ export function ExamQuestionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.bg,
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 32,
@@ -161,45 +161,45 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.bg,
     padding: 16,
   },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { flex: 1, fontSize: 18, fontWeight: '600', color: '#111827' },
-  progress: { marginTop: 12, fontSize: 12, color: PRIMARY, fontWeight: '600' },
-  qType: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
-  qContent: { marginTop: 8, fontSize: 16, fontWeight: '500', color: '#111827', marginBottom: 16 },
-  option: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 8 },
-  optionSelected: { borderColor: PRIMARY, backgroundColor: '#ecfdf5' },
-  optionText: { fontSize: 14, color: '#374151' },
-  optionTextSelected: { color: PRIMARY, fontWeight: '500' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { flex: 1, fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  progress: { marginTop: 12, fontSize: 12, color: tokens.success.DEFAULT, fontWeight: '600' },
+  qType: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
+  qContent: { marginTop: 8, fontSize: 16, fontWeight: '500', color: tokens.text.primary, marginBottom: 16 },
+  option: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 8 },
+  optionSelected: { borderColor: tokens.success.DEFAULT, backgroundColor: tokens.success.light },
+  optionText: { fontSize: 14, color: tokens.text.medium },
+  optionTextSelected: { color: tokens.success.DEFAULT, fontWeight: '500' },
   actionRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 16 },
   navBtn: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
   },
   navDisabled: { opacity: 0.4 },
-  navText: { fontSize: 14, color: '#374151' },
+  navText: { fontSize: 14, color: tokens.text.medium },
   submitBtn: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
     alignItems: 'center',
   },
-  submitText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  submitText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
   btn: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
   },
-  btnText: { color: '#fff', fontSize: 14 },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

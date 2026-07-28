@@ -2,6 +2,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { useI18n } from '@/i18n'
+import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
 import './success.css'
 
 /** 安全 decode router 参数 */
@@ -79,11 +80,11 @@ export default function VipSuccessPage() {
         duration,
         savedAt: Date.now(),
       }
-      const existing = Taro.getStorageSync('ihui-vip-orders') as Array<Record<string, unknown>> | null
+      const existing = Taro.getStorageSync(VIP_ORDERS_KEY) as Array<Record<string, unknown>> | null
       const list = Array.isArray(existing) ? existing : []
       list.push(orderData)
-      Taro.setStorageSync('ihui-vip-orders', list)
-      Taro.setStorageSync('ihui-paid-status', true)
+      Taro.setStorageSync(VIP_ORDERS_KEY, list)
+      Taro.setStorageSync(VIP_PAID_STATUS_KEY, true)
       setSaved(true)
     } catch {
       // 静默忽略本地存储失败

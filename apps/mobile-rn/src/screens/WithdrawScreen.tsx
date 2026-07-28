@@ -1,18 +1,17 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function WithdrawScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [amount, setAmount] = useState('')
   const [bankCardId, setBankCardId] = useState('')
@@ -34,15 +33,11 @@ export function WithdrawScreen() {
     setError('')
     setSuccess('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/wallet/withdraw`, {
+      const resp = await fetchApi<unknown>('/wallet/withdraw', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ amount: num, bankCardId: bankCardId || undefined }),
       })
-      if (!resp.ok) throw new Error('http')
+      if (!resp.success) throw new Error('http')
       setSuccess(t('withdraw.success'))
       setAmount('')
       setBankCardId('')
@@ -91,16 +86,16 @@ export function WithdrawScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   card: { padding: 12, borderRadius: 8 },
-  label: { fontSize: 12, color: '#6B7280', marginTop: 8 },
+  label: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
   input: { marginTop: 4 },
-  errorText: { fontSize: 12, color: '#DC2626', marginTop: 8 },
-  successText: { fontSize: 12, color: '#10B981', marginTop: 8 },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
+  successText: { fontSize: 12, color: tokens.success.DEFAULT, marginTop: 8 },
   submitBtn: { marginTop: 12, borderRadius: 8 },
-  hint: { fontSize: 11, color: '#9CA3AF', marginTop: 8 },
+  hint: { fontSize: 11, color: tokens.text.tertiary, marginTop: 8 },
 })

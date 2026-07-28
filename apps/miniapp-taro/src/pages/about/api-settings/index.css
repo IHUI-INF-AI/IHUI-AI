@@ -128,7 +128,7 @@
   line-height: 64rpx;
   padding: 0 32rpx;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-primary-foreground);
   border-radius: 8rpx;
   margin: 0;
 }
@@ -144,10 +144,10 @@
   font-size: 24rpx;
 }
 .status-success {
-  color: #10b981;
+  color: var(--color-success);
 }
 .status-failed {
-  color: #ef4444;
+  color: var(--color-destructive);
 }
 .tips {
   text-align: center;

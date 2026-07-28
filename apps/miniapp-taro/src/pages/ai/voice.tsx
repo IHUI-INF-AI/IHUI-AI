@@ -216,7 +216,7 @@ export default function VoicePage() {
       >
         {messages.map((m, i) => (
           <View key={i} className={`flex mb-[32rpx] items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <View className={`w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 ${m.role === 'user' ? 'bg-primary' : 'bg-[#4cd964]'}`}>{m.role === 'user' ? '我' : 'AI'}</View>
+            <View className={`w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 ${m.role === 'user' ? 'bg-primary' : 'bg-[var(--color-wechat-green)]'}`}>{m.role === 'user' ? '我' : 'AI'}</View>
             <View className={`max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] ${m.role === 'user' ? 'bg-primary' : 'bg-card'}`}>
               {m.isVoice ? (
                 <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)}>
@@ -240,7 +240,7 @@ export default function VoicePage() {
         ))}
         {loading ? (
           <View className="flex mb-[32rpx] items-start">
-            <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 bg-[#4cd964]">AI</View>
+            <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 bg-[var(--color-wechat-green)]">AI</View>
             <View className="max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] bg-card">
               <View className="flex gap-[8rpx] items-center">
                 <Text className="text-[40rpx] text-muted-foreground animate-pulse">·</Text>

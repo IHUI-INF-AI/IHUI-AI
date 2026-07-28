@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   FlatList,
@@ -10,9 +11,8 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -60,7 +60,6 @@ function initials(name: string): string {
 
 export function TeamScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [stats, setStats] = useState<TeamStats | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -75,27 +74,23 @@ export function TeamScreen() {
       else setLoading(true)
       setError('')
       const [statsRes, membersRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/team/stats`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }),
-        fetch(`${API_BASE_URL}/api/team/members?page=1&pageSize=20`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        fetchApi<TeamStats>('/team/stats'),
+        fetchApi<{ list: TeamMember[] }>('/team/members', {
+          params: { page: 1, pageSize: 20 },
         }),
       ])
-      if (!statsRes.ok || !membersRes.ok) {
+      if (!statsRes.success || !membersRes.success) {
         setError(t('team.loadFailed'))
         setLoading(false)
         setRefreshing(false)
         return
       }
-      const statsData = (await statsRes.json()) as { data?: TeamStats }
-      const membersData = (await membersRes.json()) as { data?: { list: TeamMember[] } }
-      setStats(statsData.data ?? null)
-      setMembers(membersData.data?.list ?? [])
+      setStats(statsRes.data ?? null)
+      setMembers(membersRes.data?.list ?? [])
       setLoading(false)
       setRefreshing(false)
     },
-    [token, t],
+    [t],
   )
 
   useEffect(() => {
@@ -240,37 +235,35 @@ export function TeamScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   center: { alignItems: 'center', paddingVertical: 32, justifyContent: 'center' },
-  emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
-  errorText: { fontSize: 12, color: '#DC2626' },
+  emptyText: { fontSize: 12, color: tokens.text.tertiary, marginTop: 8 },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
-  statsCard: { marginHorizontal: 16, padding: 14, borderRadius: 8, backgroundColor: '#ECFDF5' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
+  statsCard: { marginHorizontal: 16, padding: 14, borderRadius: 8, backgroundColor: tokens.success.light },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 18, fontWeight: '700', color: PRIMARY },
-  statLabel: { marginTop: 4, fontSize: 10, color: '#065F46', textAlign: 'center' },
+  statValue: { fontSize: 18, fontWeight: '700', color: tokens.success.DEFAULT },
+  statLabel: { marginTop: 4, fontSize: 10, color: tokens.success.deepText, textAlign: 'center' },
   contributionBox: {
     marginTop: 12,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.surface.bg,
     alignItems: 'center',
   },
-  contributionLabel: { fontSize: 11, color: '#6B7280' },
-  contributionValue: { marginTop: 4, fontSize: 18, fontWeight: '700', color: PRIMARY },
+  contributionLabel: { fontSize: 11, color: tokens.text.secondary },
+  contributionValue: { marginTop: 4, fontSize: 18, fontWeight: '700', color: tokens.success.DEFAULT },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
-  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  tabActive: { backgroundColor: PRIMARY },
-  tabText: { fontSize: 12, color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF' },
+  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tokens.surface.card },
+  tabActive: { backgroundColor: tokens.success.DEFAULT },
+  tabText: { fontSize: 12, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.surface.light },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
   card: {
     flexDirection: 'row',
@@ -278,43 +271,43 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.bg,
   },
   avatarBox: {
     width: 40,
     height: 40,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarImg: { width: '100%', height: '100%', borderRadius: 8 },
-  avatarInitial: { fontSize: 16, fontWeight: '600', color: '#6B7280' },
+  avatarInitial: { fontSize: 16, fontWeight: '600', color: tokens.text.secondary },
   memberInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  memberName: { fontSize: 14, fontWeight: '600', color: '#111827', flex: 1 },
+  memberName: { fontSize: 14, fontWeight: '600', color: tokens.text.primary, flex: 1 },
   relationBadge: {
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: tokens.surface.card,
   },
-  relationDirect: { backgroundColor: '#ECFDF5' },
-  relationText: { fontSize: 10, color: '#6B7280' },
-  memberMeta: { marginTop: 3, fontSize: 11, color: '#9CA3AF' },
+  relationDirect: { backgroundColor: tokens.success.light },
+  relationText: { fontSize: 10, color: tokens.text.secondary },
+  memberMeta: { marginTop: 3, fontSize: 11, color: tokens.text.tertiary },
   memberRight: { alignItems: 'flex-end' },
-  contributionText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
+  contributionText: { fontSize: 13, fontWeight: '600', color: tokens.success.DEFAULT },
   statusBadge: { marginTop: 4, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 },
-  statusActive: { backgroundColor: '#ECFDF5' },
-  statusInactive: { backgroundColor: '#F3F4F6' },
-  statusText: { fontSize: 10, color: '#6B7280' },
+  statusActive: { backgroundColor: tokens.success.light },
+  statusInactive: { backgroundColor: tokens.surface.card },
+  statusText: { fontSize: 10, color: tokens.text.secondary },
   retryBtn: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: PRIMARY,
+    backgroundColor: tokens.success.DEFAULT,
   },
-  retryBtnText: { color: '#FFFFFF', fontSize: 13 },
+  retryBtnText: { color: tokens.surface.light, fontSize: 13 },
 })

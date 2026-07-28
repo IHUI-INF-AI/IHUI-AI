@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -19,8 +20,6 @@ interface OrderDetail {
 
 type Route = RouteProp<RootStackParamList, 'OrderDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-const PRIMARY = '#10B981'
 
 export function OrderDetailScreen() {
   const { t } = useI18n()
@@ -78,16 +77,16 @@ export function OrderDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16 },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  card: { padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' },
-  label: { marginTop: 8, fontSize: 11, color: '#9ca3af' },
-  value: { marginTop: 2, fontSize: 14, color: '#111827' },
-  price: { marginTop: 2, fontSize: 18, fontWeight: '600', color: PRIMARY },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  btnText: { color: '#fff', fontSize: 14 },
+  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface.bg, padding: 16 },
+  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+  back: { fontSize: 14, color: tokens.text.secondary },
+  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
+  card: { padding: 16, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light },
+  label: { marginTop: 8, fontSize: 11, color: tokens.text.tertiary },
+  value: { marginTop: 2, fontSize: 14, color: tokens.text.primary },
+  price: { marginTop: 2, fontSize: 18, fontWeight: '600', color: tokens.success.DEFAULT },
+  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
+  btnText: { color: tokens.surface.light, fontSize: 14 },
 })

@@ -1,11 +1,11 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -17,7 +17,6 @@ interface ReferrerInfo {
 
 export function ReferrerScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<ReferrerInfo | null>(null)
   const [code, setCode] = useState('')
@@ -30,13 +29,10 @@ export function ReferrerScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/referrer`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: ReferrerInfo }
+        const resp = await fetchApi<ReferrerInfo>('/user/referrer')
         if (cancelled) return
-        setInfo(data.data ?? { referrerName: null, referrerCode: null })
+        if (!resp.success) throw new Error('http')
+        setInfo(resp.data ?? { referrerName: null, referrerCode: null })
       } catch {
         if (!cancelled) setError(t('referrer.loadFailed'))
       } finally {
@@ -46,7 +42,7 @@ export function ReferrerScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const handleBind = async () => {
     if (!code) {
@@ -57,15 +53,11 @@ export function ReferrerScreen() {
     setError('')
     setSuccess('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/user/referrer`, {
+      const resp = await fetchApi<unknown>('/user/referrer', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ code }),
       })
-      if (!resp.ok) throw new Error('http')
+      if (!resp.success) throw new Error('http')
       setInfo({ referrerName: code, referrerCode: code })
       setSuccess(t('referrer.bindSuccess'))
       setCode('')
@@ -125,19 +117,19 @@ export function ReferrerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  label: { fontSize: 12, color: '#6B7280' },
-  value: { marginTop: 6, fontSize: 16, fontWeight: '600', color: '#10B981' },
-  desc: { marginTop: 8, fontSize: 12, color: '#9CA3AF' },
+  label: { fontSize: 12, color: tokens.text.secondary },
+  value: { marginTop: 6, fontSize: 16, fontWeight: '600', color: tokens.success.DEFAULT },
+  desc: { marginTop: 8, fontSize: 12, color: tokens.text.tertiary },
   input: { marginTop: 4 },
-  errorText: { fontSize: 12, color: '#DC2626', marginTop: 8 },
-  successText: { fontSize: 12, color: '#10B981', marginTop: 8 },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
+  successText: { fontSize: 12, color: tokens.success.DEFAULT, marginTop: 8 },
   submitBtn: { marginTop: 12, borderRadius: 8 },
-  muted: { fontSize: 13, color: '#6B7280' },
+  muted: { fontSize: 13, color: tokens.text.secondary },
 })

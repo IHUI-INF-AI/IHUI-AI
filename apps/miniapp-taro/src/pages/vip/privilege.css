@@ -1,4 +1,5 @@
 /* 会员权益介绍页样式 — 金色系，深色模式 token 适配 */
+/* TODO: custom color: #d4af6a / #f8d486 / #b8860b / #2c2c2c / #1a1a1a 为 VIP 品牌金色梯度,无对应 token,保留原值 */
 
 .page {
   min-height: 100vh;
@@ -15,7 +16,7 @@
   display: block;
   font-size: 44rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--color-primary-foreground);
 }
 .header-level-row {
   display: flex;
@@ -158,7 +159,7 @@
   height: 88rpx;
   line-height: 88rpx;
   background: linear-gradient(135deg, #f8d486 0%, #b8860b 100%);
-  color: #ffffff;
+  color: var(--color-primary-foreground);
   font-size: 32rpx;
   font-weight: 600;
   border-radius: 12rpx;
@@ -222,7 +223,7 @@
   height: 84rpx;
   line-height: 84rpx;
   background: linear-gradient(135deg, #f8d486 0%, #b8860b 100%);
-  color: #ffffff;
+  color: var(--color-primary-foreground);
   font-size: 30rpx;
   font-weight: 600;
   border-radius: 10rpx;

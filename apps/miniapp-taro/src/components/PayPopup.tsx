@@ -45,9 +45,9 @@ export default function PayPopup({ visible = false, pay = {}, onClose, onPay }: 
           {isFree ? (
             <Text className="text-2xl font-bold text-primary">{tt('common.free', '免费')}</Text>
           ) : isLimitFree ? (
-            <Text className="text-2xl font-bold text-[#f59e0b]">{tt('pay.limitedFree', '限时免费')}</Text>
+            <Text className="text-2xl font-bold text-warning">{tt('pay.limitedFree', '限时免费')}</Text>
           ) : isVipFree ? (
-            <Text className="text-2xl font-bold text-[#f59e0b]">{tt('pay.memberFree', '会员免费')}</Text>
+            <Text className="text-2xl font-bold text-warning">{tt('pay.memberFree', '会员免费')}</Text>
           ) : (
             <Text className="text-2xl font-bold text-destructive">¥{displayAmount}</Text>
           )}
@@ -58,7 +58,7 @@ export default function PayPopup({ visible = false, pay = {}, onClose, onPay }: 
               className="flex-1 py-3 rounded-md border border-yellow-400 bg-yellow-50 text-center"
               onClick={onPay}
             >
-              <Text className="text-sm text-[#f59e0b]">{tt('pay.memberFree', '会员免费')}</Text>
+              <Text className="text-sm text-warning">{tt('pay.memberFree', '会员免费')}</Text>
             </View>
           )}
           {isPaid && (

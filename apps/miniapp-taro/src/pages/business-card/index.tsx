@@ -3,6 +3,7 @@ import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
+import { BUSINESS_CARD_DATA_KEY } from '@/constants/storage'
 import './index.css'
 
 type StoredData = {
@@ -18,7 +19,7 @@ export default function BusinessCardIndex() {
   const [uploading, setUploading] = useState(false)
 
   const loadCardData = useCallback(() => {
-    const data = (Taro.getStorageSync('ihui-business-card-data') || {}) as StoredData
+    const data = (Taro.getStorageSync(BUSINESS_CARD_DATA_KEY) || {}) as StoredData
     const cardUrl = data?.thirdPartyAccounts?.card || ''
     setCard(cardUrl)
     setIsShow(Boolean(cardUrl))
@@ -33,14 +34,14 @@ export default function BusinessCardIndex() {
       const res = await Taro.chooseImage({ count: 1, sizeType: ['compressed'] })
       const tempPath = res.tempFilePaths?.[0]
       if (!tempPath) return
-      const data = (Taro.getStorageSync('ihui-business-card-data') || {}) as StoredData
+      const data = (Taro.getStorageSync(BUSINESS_CARD_DATA_KEY) || {}) as StoredData
       const uuid = data.uuid || ''
       await api.updateBusinessCard({ uuid, card: tempPath })
       const merged: StoredData = {
         ...data,
         thirdPartyAccounts: { ...(data.thirdPartyAccounts || {}), card: tempPath },
       }
-      Taro.setStorageSync('ihui-business-card-data', merged)
+      Taro.setStorageSync(BUSINESS_CARD_DATA_KEY, merged)
       setCard(tempPath)
       setIsShow(true)
       Taro.showToast({ title: tt('businessCard.uploaded', '名片已上传'), icon: 'success' })

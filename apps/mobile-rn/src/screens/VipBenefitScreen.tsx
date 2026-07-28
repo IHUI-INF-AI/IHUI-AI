@@ -1,11 +1,11 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Badge, Loading } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
@@ -18,7 +18,6 @@ interface Benefit {
 
 export function VipBenefitScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [items, setItems] = useState<Benefit[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,18 +26,15 @@ export function VipBenefitScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/vip-benefit`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Benefit[] }
-      setItems(d.data ?? [])
+      const r = await fetchApi<Benefit[]>('/vip-benefit')
+      if (!r.success) throw new Error()
+      setItems(r.data ?? [])
     } catch {
       setError(t('vipBenefit.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -97,7 +93,7 @@ export function VipBenefitScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -106,14 +102,14 @@ const s = StyleSheet.create({
     gap: 12,
   },
   body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10 },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 10 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' },
-  cardDesc: { marginTop: 6, fontSize: 12, color: '#6B7280', lineHeight: 18 },
+  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  cardDesc: { marginTop: 6, fontSize: 12, color: tokens.text.secondary, lineHeight: 18 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
+  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
+  error: { fontSize: 13, color: tokens.danger.DEFAULT, textAlign: 'center' },
   backBtn: { marginTop: 12 },
 })

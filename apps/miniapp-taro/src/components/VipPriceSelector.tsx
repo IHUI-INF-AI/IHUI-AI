@@ -81,10 +81,10 @@ export default function VipPriceSelector({
             </Text>
             {opt.discount && (
               <View
-                className="mt-1.5 px-1.5 py-0.5 rounded bg-[#f59e0b]/10 inline-block"
+                className="mt-1.5 px-1.5 py-0.5 rounded bg-warning/10 inline-block"
                 style={{ display: 'block', textAlign: 'center' }}
               >
-                <Text className="text-[20rpx] text-[#f59e0b]">{opt.discount}</Text>
+                <Text className="text-[20rpx] text-warning">{opt.discount}</Text>
               </View>
             )}
           </View>
