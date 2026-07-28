@@ -33,6 +33,7 @@
 - [x] ✅(2026-07-26) G4 完整迁移 — ① `RAGService.retrieve_only()` 公有方法(20 行,委托 `_retrieve`,替代 PoC 私有调用)+ 5 单测;② `knowledge_lookup.py._query_rag` 从 `_retrieve` 迁移到 `retrieve_only()` + 更新模块 docstring + 修测试 mock 路径;③ 新 `app/services/agent_tools.py`(132 行)`make_knowledge_lookup_tool()` 工厂,把 `knowledge_lookup` 包成 `ToolDefinition`,`AgentLoopV2` 调用方一行接入(闭包绑定 user_id/repo_id 等,LLM 只控 query+top_k,空 query/ValueError 降级返回 error dict,hits 不含 raw)+ 14 单测;④ README G4 章节升级 PoC→完整迁移 + L4 状态升级;⑤ 验证 44 个新单测全绿 + 联合 278/278 全绿;commit `bf8e61ade`,多 subagent 并行(Subagent A:retrieve_only + Subagent B:agent_tools 工厂 + 主 agent:迁移整合)
 - [x] ✅(2026-07-26) G5 生产调用点接入 — `mcp_server.py` 三处改动:① 新增 `_tool_knowledge_lookup(arguments)` 函数(89 行,包装 `knowledge_lookup`,空 query/ValueError 降级,`top_k_per_source` clamp 1-20,hits 不含 raw);② 注册到 `_TOOLS`(MCPTool schema,query required + top_k_per_source optional 1-20);③ 注册到 `_TOOL_HANDLERS`(handler 调度表)。不在 `_ADMIN_ONLY_TOOLS`(查询类,所有用户可用,类比 search_codebase)。服务端固定 `user_id`/`session_id`/`repo_id`=None(mcp_server `call_tool` 无 session context 注入,跳过 LTM 源,后续架构改动再接入)。`test_mcp_server.py` 新增 20 个测试(注册 4 + 执行 13 + MCPServer 调度 3);验证 35/35 本任务测试全绿 + 联合 313/313 全绿(2 个 image_generation 失败是其他 agent config.py 改动,§12 隔离);commit `9a86814ae`,README G4+G5 章节合并 + L4 状态升级 G4 完整迁移 → G4+G5 完整迁移
 - [x] ✅(2026-07-26) G6 LTM 源接入 mcp_server 架构改动 — 扩展 `MCPServer.call_tool(name, arguments, *, user_role, user_id, session_id)` 签名(复用 `__user_role` 注入模式,新增 `__user_id`/`__session_id` 注入到 arguments 副本),`_tool_knowledge_lookup` 从 arguments 提取注入值传给 `knowledge_lookup(user_id=...)`,启用 `long_term_memory` 源(此前固定 None 跳过 LTM)。调用方:`routers/mcp.py` 从 `request.state.user_id` 拿(JWTAuthMiddleware 已注入),`routers/llm.py` 从已提取的 `owner_uuid` 传(`req.metadata.userId`)。service 层(agent_loop/orchestrator/conversation)保持默认 None(非 FastAPI request 上下文,不回归)。把 knowledge_lookup 从"两源(codebase+RAG)"升级为"完整三源(+跨会话历史)",LLM 可查用户历史对话,实现"记忆分离式字典化"完整闭环。验证:6 个 G6 新测试(`TestKnowledgeLookupG6SessionContext`)+ 联合 211/211 全绿(`test_mcp_server` + `test_knowledge_lookup` + `test_agent_tools`)。commit `edc24be2e`(§12 协作事故:其他 agent commit 意外包含 G6 改动 6 文件 +146/-19,git-push-guard exit 0,§20 五条全绿;G6 改动本身已自验 pytest 全绿)
+- [x] ✅(2026-07-28) 侧边栏 `aiChat.{today,thisWeek,thisMonth}` i18n key 缺失修复 — `apps/web/src/components/sidebar-chat-history.tsx:515` `tc(group.key)` 引用 `aiChat.today/thisWeek/thisMonth` 三个 key,但 `packages/i18n/messages/web/*.json` 5 语言 `aiChat` 命名空间均无此 3 key,next-intl 找不到翻译会原样回显 key 路径(用户实际看到 `aiChat.thisMonth` 字面量)。修复:`aiChat` 命名空间补全 3 key(插入在 `messages` 与 `confirmDeleteConversation` 之间),5 语言同步翻译 — `zh-CN`:今天 / 本周 / 本月;`en`:Today / This Week / This Month;`zh-TW`:今天 / 本週 / 本月;`ja`:今日 / 今週 / 今月;`ko`:오늘 / 이번 주 / 이번 달。验证:`check-i18n-keys.mjs --target=web` 3 keys 不再 missing(parity 已通过,剩余 190+ missing 是历史 611 pending,与本任务无关);`scan-i18n-zh-residue.mjs zh-TW/ko` 无中文残留 ✅。**未做浏览器自验**:`pnpm --filter @ihui/web dev` 在 8801 启动时遇到预先存在 `@ihui/api-client` 构建错误(`Module not found '../client.js'` + `ApiResult not exported`,`packages/api-client/src/endpoints/files.ts:10` + `:63`),与本次 i18n 修复无关,属其他 agent 的预先问题;改用静态验证 + 脚本验证代替。改动文件:`packages/i18n/messages/web/{zh-CN,en,zh-TW,ja,ko}.json`(仅 +3 行 ×5 文件,共 15 行)。
 
 ### P0 安全与核心架构债清零
 
@@ -778,17 +779,17 @@
 ### P1 中降本(预计 0.6x,部分依赖 P0 完成)
 
 - [x] ✅(2026-07-28) P1-1: web utils re-export @ihui/shared(4 文件下沉,降本 0.2x,依赖 P0-1) — 阶段2 完成,commit `7d4981509d` format-ext 模块新增 formatShortDuration/MediaTime/HumanDuration + number-format.ts re-export @ihui/shared/utils/format
-- [x] ✅(2026-07-28) P1-2: packages/shared 死代码审计(52->~35 文件,降本 0.1x) — 阶段2 完成,17 文件 0 死代码(已高内聚,降本 0x 但审计完成)
-- [x] ✅(2026-07-28) P1-3: mobile-rn 类型契约接入(添加 @ihui/types import,降本 0.1x) — 阶段2 完成,3 screens 添加 @ihui/types import
+- [x] ✅(2026-07-28) P1-2: packages/shared 死代码审计(66 文件 0 死代码,降本 0.0x) — 阶段2 完成,审计报告 `.trae-cn/tmp/p1-2-audit/report.md`(gitignore),commit `86210133`(P0+P1 混合 commit,审计脚本 + 跨仓库 grep 0 命中验证)
+- [x] ✅(2026-07-28) P1-3: mobile-rn 类型契约接入(添加 @ihui/types import + ApiResponse<T> 契约化,降本 0.1x) — 阶段2 完成,3 screens(ActivityScreen/AgentSettingScreen/BankCardScreen)接入,commit `1acae38e24`(P1+P2 收尾混合 commit)
 - [x] ✅(2026-07-28) P1-4: packages/types 类型整合(降本 0.1x) — 阶段2 续批完成,commit `27c172a7ad` 删除 2 个死类型 MemoryExtractionRequest/Result(跨仓库 grep 0 命中,28 行)
 - [x] ✅(2026-07-28) P1-5: Tailwind preset 下沉(降本 0.1x) — 阶段2 完成,commit `fd49943afc` 抽取 packages/design-tokens/src/tailwind-preset.js + 修复 sm=0.125rem 符合 §4
 
 ### P2 低降本(预计 0.2x,审计为主)
 
-- [x] ✅(2026-07-28) P2-1: mobile-rn/global.css 注释修正(降本 0.0x) — 阶段2 完成,ui-primitives -> design-tokens(2 处)
-- [x] ✅(2026-07-28) P2-2: scripts/ 死脚本审计(降本 0.05x) — 阶段2 完成,6 文件移到 .trae-cn/archive/scripts/
-- [x] ✅(2026-07-28) P2-3: extension sidepanel 死页面审计(降本 0.05x) — 阶段2 续批完成,审计脚本 `.trae-cn/tmp/p2-3-audit/audit.mjs`,结果 33 个页面全部被 SidepanelApp.tsx 的 <Route> 引用,0 死页面(P0-1 已删 7 个低频页跳 web,剩余 33 全部活跃)
-- [x] ✅(2026-07-28) P2-4: web/src/lib 死代码审计(降本 0.1x) — 阶段2 完成,67 文件 15 候选,报告在 .trae-cn/tmp/
+- [x] ✅(2026-07-28) P2-1: mobile-rn/global.css 注释修正(降本 0.0x) — 阶段2 完成,ui-primitives -> design-tokens(2 处),commit `1acae38e24`(mobile-rn/global.css 4 行 +/-,P1+P2 收尾混合 commit)
+- [x] ✅(2026-07-28) P2-2: scripts/ 死脚本审计(降本 0.05x) — 阶段2 完成,6 文件移到 .trae-cn/archive/scripts/(非 git tracked,降本仅逻辑性),commit `1acae38e24`(P1+P2 收尾混合 commit,审计+归档)
+- [x] ✅(2026-07-28) P2-3: extension sidepanel 死页面审计(降本 0.05x) — 阶段2 续批完成,审计脚本 `.trae-cn/tmp/p2-3-audit/audit.mjs`,结果 33 个页面全部被 SidepanelApp.tsx 的 <Route> 引用,0 死页面(P0-1 已删 7 个低频页跳 web,剩余 33 全部活跃),commit `9dd31b354c`(阶段7 commit,PROJECT_PLAN.md 标 [x] + 审计报告)
+- [x] ✅(2026-07-28) P2-4: web/src/lib 死代码审计(降本 0.1x) — 阶段2 完成,67 文件 15 候选,报告在 `.trae-cn/tmp/p2-4-audit/`,commit `1acae38e24`(web/src/lib/number-format.ts 5 行 +/-,P1+P2 收尾混合 commit,审计文档化)
 
 ### [x] ✅(2026-07-27) 阶段2 P0+P1+P2 全部完成(5.5x -> 4.2x,10动作9 subagent并行)
 
