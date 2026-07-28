@@ -651,3 +651,87 @@ export interface CourseQAListScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+// ============ 详情屏(批次 7,2026-07-29) ============
+
+/** 笔记详情(平台注入,字段对齐 mobile-rn NoteDetailScreen Note) */
+export interface NoteDetailItem {
+  id: string
+  title: string
+  content: string
+  createdAt: string
+  tags: string[]
+  views: number
+  likes: number
+  author: string
+}
+
+/** NoteDetail 屏 props */
+export interface NoteDetailScreenProps {
+  t: TFunction
+  item: NoteDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 文章详情(平台注入,字段对齐 mobile-rn ArticleDetailScreen Article) */
+export interface ArticleDetailItem {
+  id: string
+  title: string
+  content: string
+  author: string
+  cover?: string
+  views: number
+  likes: number
+  publishedAt: string
+}
+
+/** ArticleDetail 屏 props */
+export interface ArticleDetailScreenProps {
+  t: TFunction
+  item: ArticleDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 帮助详情(平台注入,字段对齐 mobile-rn HelpDetailScreen Detail) */
+export interface HelpDetailItem {
+  id: string
+  question: string
+  answer: string
+  category: string
+}
+
+/** HelpDetail 屏 props */
+export interface HelpDetailScreenProps {
+  t: TFunction
+  item: HelpDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 反馈详情(平台注入,字段对齐 mobile-rn FeedbackDetailScreen Detail) */
+export interface FeedbackDetailItem {
+  id: string
+  type: string
+  content: string
+  status: string
+  reply: string
+  createdAt: string
+}
+
+/** FeedbackDetail 屏 props */
+export interface FeedbackDetailScreenProps {
+  t: TFunction
+  item: FeedbackDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
