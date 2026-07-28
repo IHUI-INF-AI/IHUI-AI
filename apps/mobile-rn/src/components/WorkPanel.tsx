@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import WebView from 'react-native-webview'
 
 import { Loading } from '@ihui/ui-native'
+import { tokens } from '@ihui/rn-app'
 // ── 模块级导航回调(由 RootNavigator 中的 NavBridge 注册) ──
 let _navigateFn: ((url: string) => void) | null = null
 
@@ -80,7 +81,7 @@ export function WorkPanelScreen({ route }: { route: WorkPanelRoute }) {
         />
         {loading ? (
           <View style={[StyleSheet.absoluteFill, styles.center]}>
-            <Loading color="#16a34a" />
+            <Loading color={tokens.success.deep} />
           </View>
         ) : null}
         {error ? (
