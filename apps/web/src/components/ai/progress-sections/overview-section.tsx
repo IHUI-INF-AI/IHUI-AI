@@ -58,7 +58,7 @@ export const OverviewSection = React.memo(function OverviewSection({
   etaMs,
   contextUsage,
 }: OverviewSectionProps) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const hasData =
     overview.sessionStart !== null ||
     overview.totalSteps > 0 ||
