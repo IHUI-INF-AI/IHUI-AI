@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -51,7 +51,7 @@ interface ResourcesData {
   pageSize: number
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 const selectClass =
   'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
@@ -103,13 +103,13 @@ export default function ResourcesPage() {
   const items = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-          <BookOpen className="h-7 w-7 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+          <BookOpen className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -145,7 +145,7 @@ export default function ResourcesPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -154,12 +154,12 @@ export default function ResourcesPage() {
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
           <FileText className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
             <Link key={item.id} href={`/resources/${item.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">

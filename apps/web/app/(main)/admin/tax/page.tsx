@@ -32,8 +32,8 @@ export default function AdminTaxPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Receipt className="h-6 w-6 text-primary" />
+        <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight">
+          <Receipt className="h-5 w-5 text-primary" />
           税务规则
         </h1>
         <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索规则名称" className="h-9 w-64" />

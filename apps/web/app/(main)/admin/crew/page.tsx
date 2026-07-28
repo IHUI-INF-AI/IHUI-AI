@@ -130,10 +130,10 @@ export default function CrewPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Bot className="h-6 w-6 text-primary" /> Crew 多智能体协作
+          <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight">
+            <Bot className="h-5 w-5 text-primary" /> Crew 多智能体协作
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             5 角色流水线:planner → researcher → executor → reviewer → reporter
           </p>
         </div>

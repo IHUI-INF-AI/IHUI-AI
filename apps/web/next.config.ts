@@ -5,8 +5,16 @@ import createNextIntlPlugin from 'next-intl/plugin'
 const isGitHubPages = process.env.GITHUB_PAGES === 'true'
 const repoName = 'IHUI-AI'
 
+// 2026-07-28 修复:Next.js 15 启动校验更严,dev 模式下 `output: 'export'` + middleware.ts
+// 共存直接报错 "Middleware cannot be used with output: export" 并死锁 8801 端口
+// (HTTP 接收但永不响应,前端表现为"页面打不开")。dev 模式不设 output,build 模式保留。
+// 注意:next dev 时 NODE_ENV === 'development',next build 时 === 'production'。
+const isProdBuild = process.env.NODE_ENV === 'production'
+
 const nextConfig: NextConfig = {
-  output: 'export', // A 套壳方案:静态导出供 Tauri WebView 加载(原 'standalone',见 commit ce1f12795)
+  // A 套壳方案:静态导出供 Tauri WebView 加载(原 'standalone',见 commit ce1f12795)
+  // dev 模式跳过:output: export 模式下 middleware.ts 不工作,会触发 Next.js 启动校验报错
+  ...(isProdBuild ? { output: 'export' as const } : {}),
   basePath: isGitHubPages ? `/${repoName}` : '',
   assetPrefix: isGitHubPages ? `/${repoName}/` : '',
   trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问

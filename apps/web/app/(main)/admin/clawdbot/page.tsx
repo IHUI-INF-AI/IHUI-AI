@@ -115,10 +115,10 @@ export default function ClawdbotDashboardPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Bot className="h-6 w-6 text-primary" /> Clawdbot 控制台
+          <h1 className="flex items-center gap-2 text-xl md:text-2xl font-bold tracking-tight">
+            <Bot className="h-5 w-5 text-primary" /> Clawdbot 控制台
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Bot 管理、会话监控、工具与权限</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Bot 管理、会话监控、工具与权限</p>
         </div>
         <Button
           size="sm"

@@ -59,8 +59,8 @@ export default function ThemeListPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">主题列表</h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理站点主题与外观配置</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">主题列表</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">管理站点主题与外观配置</p>
         </div>
         <Button size="sm" asChild>
           <Link href="/admin/theme/create">

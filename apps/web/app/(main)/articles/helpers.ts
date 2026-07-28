@@ -1,6 +1,6 @@
 import { fetchApi } from '@/lib/api'
 
-export const PAGE_SIZE = 20
+export const PAGE_SIZE = 10
 
 export async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)

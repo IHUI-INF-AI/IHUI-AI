@@ -8868,6 +8868,34 @@
       }
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "設定",
+      "個人資料",
+      "專案",
+      "對話歷史",
+      "成員",
+      "工作區",
+      "快捷鍵",
+      "AI 模型"
+    ],
+    "tabs": {
+      "all": "全部",
+      "users": "使用者",
+      "projects": "專案",
+      "files": "檔案"
+    },
+    "sort": "排序",
+    "sortRelevance": "相關度",
+    "sortTime": "時間",
+    "sortName": "名稱",
+    "sortSize": "大小",
+    "emptyKeyword": "請輸入搜尋關鍵字",
+    "loading": "搜尋中...",
+    "emptyResult": "未找到符合結果",
+    "open": "開啟",
+    "resultsCount": "共 {total} 筆結果(使用者 {users}、專案 {projects}、檔案 {files})"
+  },
   "footer": {
     "companyName": "吉林省愛智匯人工智能科技有限公司",
     "addressLine1": "長春市高新區越達路107號",

@@ -639,6 +639,9 @@ importers:
       expo-device:
         specifier: ^7.1.4
         version: 7.1.4(expo@53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))
+      expo-image-picker:
+        specifier: ~8.1.0
+        version: 8.1.0
       expo-linking:
         specifier: ^7.1.7
         version: 7.1.7(expo@53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0)
@@ -11637,6 +11640,9 @@ packages:
     peerDependencies:
       expo: '*'
 
+  expo-image-picker@8.1.0:
+    resolution: {integrity: sha512-UMHiDGiflg47A/nfnmJ1gYdB/sEoxB4STVGgMeLNYpUkVR59kUWqsGTyVEtSywNCLPuXPZVB9NaRUd81Rbs7lA==}
+
   expo-keep-awake@14.1.4:
     resolution: {integrity: sha512-wU9qOnosy4+U4z/o4h8W9PjPvcFMfZXrlUoKTMBW7F4pLqhkkP/5G4EviPZixv4XWFMjn1ExQ5rV6BX8GwJsWA==}
     peerDependencies:
@@ -11672,6 +11678,9 @@ packages:
       expo: '*'
       react: '*'
       react-native: '*'
+
+  expo-permissions@8.1.0:
+    resolution: {integrity: sha512-QBHD+1J9+sGFnhoEGzMRchPweeEE0OJ9ehG/0l1BMRBA7qsLS9vRC1FTJ55NwjI0Kr4RTha9r6ZX1kZHT09f/w==}
 
   expo-secure-store@14.2.4:
     resolution: {integrity: sha512-ePaz4fnTitJJZjAiybaVYGfLWWyaEtepZC+vs9ZBMhQMfG5HUotIcVsDaSo3FnwpHmgwsLVPY2qFeryI6AtULw==}
@@ -31818,6 +31827,10 @@ snapshots:
       expo-image-loader: 4.6.0(expo@53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))
     optional: true
 
+  expo-image-picker@8.1.0:
+    dependencies:
+      expo-permissions: 8.1.0
+
   expo-keep-awake@14.1.4(expo@53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))(react@18.3.1):
     dependencies:
       expo: 53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@18.3.1))(react@18.3.1)
@@ -31877,6 +31890,8 @@ snapshots:
       react-native: 0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0)
     transitivePeerDependencies:
       - supports-color
+
+  expo-permissions@8.1.0: {}
 
   expo-secure-store@14.2.4(expo@53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0)):
     dependencies:

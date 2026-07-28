@@ -38,7 +38,7 @@ export default function MyArticlesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'my', page],
-    queryFn: () => api<MyArticlesData>(`/api/article/my?page=${page}&pageSize=20`),
+    queryFn: () => api<MyArticlesData>(`/api/article/my?page=${page}&pageSize=10`),
   })
 
   const deleteMut = useMutation({
