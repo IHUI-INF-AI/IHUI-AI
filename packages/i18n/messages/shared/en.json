@@ -694,5 +694,33 @@
     "ask": "Ask",
     "asker": "Asked by",
     "answers": "Answers"
+  },
+  "noteDetail": {
+    "title": "Note Detail",
+    "loadFailed": "Failed to load note",
+    "views": "{count} views",
+    "likes": "Likes",
+    "tags": "Tags"
+  },
+  "articleDetail": {
+    "title": "Article Detail",
+    "loadFailed": "Failed to load article",
+    "views": "{count} views",
+    "likes": "Likes"
+  },
+  "helpDetail": {
+    "title": "Help Detail",
+    "loadFailed": "Failed to load",
+    "empty": "Content not found",
+    "answer": "Answer",
+    "category": "Category"
+  },
+  "feedbackDetail": {
+    "title": "Feedback Detail",
+    "loadFailed": "Failed to load",
+    "empty": "Feedback not found",
+    "content": "Content",
+    "reply": "Reply",
+    "createdAt": "Submitted at"
   }
 }
