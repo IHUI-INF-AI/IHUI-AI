@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+﻿import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { env } from 'node:process'
@@ -16,13 +16,14 @@ import {
   listUserVips,
   cancelUserVip,
 } from '../db/vip-queries.js'
-import { createOrder, findOrderByNo } from '../db/payment-queries.js'
+import { createOrder, findOrderByNo, updateOrderStatus } from '../db/payment-queries.js'
 import {
   isWechatPayConfigured,
   jsapiPrepay,
   nativePrepay,
   h5Prepay,
   buildJsapiSign,
+  queryOrder,
 } from '../services/wechat-pay.js'
 import { listUserBindings } from '../db/oauth-queries.js'
 
@@ -302,6 +303,30 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
     if (order.status !== 'pending') {
       return reply.send(success({ status: order.status }))
     }
+
+    // 2026-07-27 主动查单(不依赖回调):本地开发环境回调到不了,轮询时主动调微信查单 API
+    // 如果微信返回 trade_state=SUCCESS,更新本地订单状态 + 发卡,返回 paid
+    if (isWechatPayConfigured() && order.paymentMethod?.startsWith('wechat')) {
+      try {
+        const wxResult = await queryOrder(order.orderNo)
+        const tradeState = wxResult.trade_state as string | undefined
+        if (tradeState === 'SUCCESS') {
+          await updateOrderStatus(order.orderNo, 'paid', undefined, null)
+          // 发卡(如果还没发过)
+          if (order.orderType === 2 && order.productId) {
+            try {
+              await purchaseVip({ userId: order.userId!, vipLevelId: order.productId, orderId: order.id })
+            } catch {
+              // 已发过卡会唯一约束冲突,忽略
+            }
+          }
+          return reply.send(success({ status: 'paid' }))
+        }
+      } catch {
+        // 查单失败(订单未支付/网络问题),继续返回 pending + payInfo
+      }
+    }
+
     const paymentMethod = order.paymentMethod ?? 'wechat'
     const resolvedOpenId = await resolveOpenId(request.userId!, undefined)
     const payInfo = await createVipPrepay(order, paymentMethod, resolvedOpenId, request.ip)

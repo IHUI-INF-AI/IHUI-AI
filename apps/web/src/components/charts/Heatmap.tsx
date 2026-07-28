@@ -16,7 +16,7 @@ export const Heatmap = React.memo(function Heatmap({
   data,
   xLabels,
   yLabels,
-  color = '#3b82f6',
+  color = 'var(--chart-1)',
   className,
 }: HeatmapProps) {
   const t = useTranslations('a11y')

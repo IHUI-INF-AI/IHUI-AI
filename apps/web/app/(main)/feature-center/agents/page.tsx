@@ -48,7 +48,7 @@ export default function AgentsPage() {
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item: any) => {
+    return all.filter((item) => {
       const matchKeyword =
         !keyword ||
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -59,7 +59,7 @@ export default function AgentsPage() {
   }, [data, keyword, category])
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 
@@ -93,26 +93,26 @@ export default function AgentsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
             {t('noMatch')}
           </CardContent>
         </Card>
       ) : (
-        <VirtualList items={list} itemKey={(item) => item.id as any} itemHeight={180}>
+        <VirtualList items={list} itemKey={(item) => item.id} itemHeight={180}>
           {(item) => (
             <FeatureCard
-              title={item.name as any}
-              description={item.description as any}
-              badge={item.category as any}
+              title={item.name}
+              description={item.description}
+              badge={item.category}
               footer={
                 <div className="flex flex-wrap gap-1">
-                  {item.capabilities.map((cap: any) => (
+                  {item.capabilities.map((cap) => (
                     <span
                       key={cap}
                       className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"

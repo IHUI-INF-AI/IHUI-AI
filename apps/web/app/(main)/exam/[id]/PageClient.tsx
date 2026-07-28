@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -37,7 +37,7 @@ export default function ExamTakePage() {
   const startMut = useMutation({
     mutationFn: () =>
       api<{ record: { id: string } }>(`/api/exam/papers/${id}/start`, { method: 'POST' }),
-    onSuccess: (d: any) => {
+    onSuccess: (d: { record: { id: string } }) => {
       setRecordId(d.record.id)
       setPhase('answering')
       const duration = data?.duration ?? 0
@@ -57,7 +57,7 @@ export default function ExamTakePage() {
         method: 'POST',
         body: JSON.stringify(payload),
       }).then((d) => d.result),
-    onSuccess: (r: any) => {
+    onSuccess: (r: SubmitResult) => {
       setResult(r)
       setPhase('result')
     },
@@ -98,7 +98,7 @@ export default function ExamTakePage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>

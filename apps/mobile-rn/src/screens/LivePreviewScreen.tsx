@@ -3,8 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -21,7 +20,6 @@ interface Detail {
 
 export function LivePreviewScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const id = route.params.id
@@ -33,18 +31,15 @@ export function LivePreviewScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/live/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: Detail }
-      setItem(d.data ?? null)
+      const res = await fetchApi<Detail>(`/live/${id}`)
+      if (!res.success) throw new Error()
+      setItem(res.data ?? null)
     } catch {
       setError(t('livePreview.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [id, token, t])
+  }, [id, t])
 
   useEffect(() => {
     void load()
@@ -54,11 +49,8 @@ export function LivePreviewScreen() {
     if (!item) return
     setSubscribing(true)
     try {
-      const r = await fetch(`${API_BASE_URL}/api/live/preview/${id}/subscribe`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!r.ok) throw new Error()
+      const res = await fetchApi(`/live/preview/${id}/subscribe`, { method: 'POST' })
+      if (!res.success) throw new Error()
       setItem({ ...item, subscribed: true })
     } catch {
       setError(t('livePreview.loadFailed'))

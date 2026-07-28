@@ -1,15 +1,3 @@
-import { useCallback, useRef } from 'react'
-
-export function useLoadMore(fetch: (page: number) => Promise<boolean>) {
-  const pageRef = useRef(1)
-  const loadingRef = useRef(false)
-  const loadMore = useCallback(async () => {
-    if (loadingRef.current) return
-    loadingRef.current = true
-    const hasMore = await fetch(pageRef.current)
-    if (hasMore) pageRef.current++
-    loadingRef.current = false
-  }, [fetch])
-  const reset = useCallback(() => { pageRef.current = 1 }, [])
-  return { loadMore, reset }
-}
+// useLoadMore 已迁移到 @ihui/shared/hooks(单一来源)
+// 本文件保留 re-export 保持外部 `import { useLoadMore } from './use-load-more'` 引用不变
+export { useLoadMore } from '@ihui/shared/hooks'

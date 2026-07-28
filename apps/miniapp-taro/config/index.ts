@@ -5,7 +5,8 @@ import path from 'path'
 // 2026-07-26 修复 WXSS 不支持 Tailwind 任意值语法 [xxx] 的编译错误
 // (541 个规则如 .-bottom-[2px]{bottom:-2rpx} 被 WXSS parser 当作属性选择器报错)
 // weapp-tailwindcss 同时处理 WXSS 选择器转义和 wxml class 匹配,保留全部样式
-import type { Plugin } from 'vite'
+import type { Plugin, UserConfig } from 'vite'
+import type Chain from 'webpack-chain'
 import tailwindcss from 'tailwindcss'
 import { WeappTailwindcss } from 'weapp-tailwindcss/vite'
 
@@ -61,9 +62,9 @@ export default defineConfig(async (merge) => {
               // Taro 4 vite 不读 postcss.config.js,需程序化注入 tailwindcss postcss 插件
               {
                 name: 'postcss-config-loader-plugin',
-                config(config: any) {
-                  if (typeof config.css?.postcss === 'object') {
-                    config.css?.postcss?.plugins?.unshift(tailwindcss())
+                config(config: UserConfig) {
+                  if (config.css?.postcss && typeof config.css.postcss === 'object') {
+                    config.css.postcss.plugins?.unshift(tailwindcss())
                   }
                 },
               },
@@ -112,11 +113,11 @@ export default defineConfig(async (merge) => {
                 path.resolve(__dirname, '..', '..', '..', 'packages', 'types', 'src'),
               ],
             },
-            webpackChain: (chain: any) => {
+            webpackChain: (chain: Chain) => {
               chain.module
                 .rule('script')
                 .use('babelLoader')
-                .tap((options: any) => ({
+                .tap((options) => ({
                   ...options,
                   presets: [['taro', { framework: 'react', ts: true, compiler: 'webpack5' }]],
                 }))
@@ -158,11 +159,11 @@ export default defineConfig(async (merge) => {
       // - common: 跨≥2 个异步 chunk 共享的业务代码，仅作用于 async 包，不影响首屏
       // - runtime: webpack 运行时单独抽出，利于长缓存
       // 优化前 app.js 单文件 823 KiB（含全部 vendor + runtime），优化后主 bundle 显著下降
-      webpackChain: (chain: any) => {
+      webpackChain: (chain: Chain) => {
         chain.module
           .rule('script')
           .use('babelLoader')
-          .tap((options: any) => ({
+          .tap((options) => ({
             ...options,
             presets: [['taro', { framework: 'react', ts: true, compiler: 'webpack5' }]],
           }))

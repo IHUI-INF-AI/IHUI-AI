@@ -53,7 +53,7 @@ export default function ArticleDetailPage() {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -78,7 +78,7 @@ export default function ArticleDetailPage() {
   const article = data.article
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/articles"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -88,8 +88,8 @@ export default function ArticleDetailPage() {
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{article.title}</h1>
-        {article.summary && <p className="text-sm text-muted-foreground">{article.summary}</p>}
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{article.title}</h1>
+        {article.summary && <p className="text-xs text-muted-foreground">{article.summary}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {article.authorName && <span>{article.authorName}</span>}
           {article.categoryName && <span>{article.categoryName}</span>}

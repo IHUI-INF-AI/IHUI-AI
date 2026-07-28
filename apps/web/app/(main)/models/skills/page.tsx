@@ -129,13 +129,13 @@ export default async function SkillsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Sparkles className="h-6 w-6 text-primary" />
           {t('skills.title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('skills.subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('skills.subtitle')}</p>
       </header>
 
       {/* 搜索 */}

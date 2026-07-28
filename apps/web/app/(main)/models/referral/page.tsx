@@ -30,10 +30,10 @@ export default async function ReferralPage() {
   const inviteLink = 'https://ihui.ai/register?ref=IHUI2026ABC'
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 邀请链接 */}

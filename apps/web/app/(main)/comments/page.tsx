@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -104,17 +104,17 @@ export default function MyCommentsPage() {
   const userName = user?.nickname ?? 'U'
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <MessageSquare className="h-7 w-7 text-primary" />
           {t('myCommentsTitle')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('myCommentsSubtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('myCommentsSubtitle')}</p>
       </header>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('loading')}
         </div>
@@ -123,14 +123,14 @@ export default function MyCommentsPage() {
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <MessageSquare className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <>
           <div className="space-y-3">
-            {list.map((comment: any) => {
+            {list.map((comment) => {
               const Icon = TARGET_ICONS[comment.targetType] ?? FileText
               return (
                 <div

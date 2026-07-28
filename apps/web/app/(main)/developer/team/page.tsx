@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -95,7 +95,7 @@ export default function TeamPage() {
 
   function handleSave() {
     if (editId) {
-      const m = list.find((x: any) => x.id === editId)
+      const m = list.find((x) => x.id === editId)
       if (m) updateRoleMut.mutate(m)
     } else {
       inviteMut.mutate()

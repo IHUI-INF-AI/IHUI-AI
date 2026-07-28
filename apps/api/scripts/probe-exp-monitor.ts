@@ -11,8 +11,9 @@ import { startExpirationMonitor } from '../src/services/expiration-monitor-servi
 try {
   const result = await startExpirationMonitor()
   console.log('[probe] result:', JSON.stringify(result, null, 2))
-} catch (e: any) {
-  console.log('[probe] fatal:', e?.message, '|', e?.code, '|', e?.cause?.message)
-  console.log('[probe] stack:', e?.stack)
+} catch (e: unknown) {
+  const err = e as { message?: string; code?: string; cause?: { message?: string }; stack?: string }
+  console.log('[probe] fatal:', err?.message, '|', err?.code, '|', err?.cause?.message)
+  console.log('[probe] stack:', err?.stack)
 }
 process.exit(0)

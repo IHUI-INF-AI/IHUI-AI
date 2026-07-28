@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createSrsStream, updateSrsStream, type SrsStream } from '@ihui/api-client'
 import { unwrapApi } from '@/utils/api-bridge'
 import { useI18n } from '@/i18n'
+import { formatDuration } from '@ihui/shared/utils'
 
 type StreamStatus = 'idle' | 'active' | 'inactive'
 
@@ -18,13 +19,6 @@ const MOCK_PRODUCTS: Product[] = [
   { id: '2', name: '会员年卡', price: 365 },
   { id: '3', name: '实体周边', price: 89 },
 ]
-
-function formatDuration(sec: number): string {
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
-  return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':')
-}
 
 function formatBytes(n: number | null): string {
   if (!n || n <= 0) return '0 B'

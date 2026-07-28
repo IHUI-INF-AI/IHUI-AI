@@ -830,20 +830,25 @@ function CustomRolesPanel() {
   const [autoGenTask, setAutoGenTask] = React.useState('')
   const [isGenerating, setIsGenerating] = React.useState(false)
 
-  const loadRoles = React.useCallback(async () => {
+  const loadRoles = React.useCallback(async (isCancelled?: () => boolean) => {
     setLoading(true)
     try {
       const r = await fetchApi<{ roles: CustomRole[] }>('/api/subagents/roles/custom')
+      if (isCancelled?.()) return
       if (r.success && r.data) setRoles(r.data.roles)
     } catch {
       // 静默
     } finally {
-      setLoading(false)
+      if (!isCancelled?.()) setLoading(false)
     }
   }, [])
 
   React.useEffect(() => {
-    void loadRoles()
+    let cancelled = false
+    void loadRoles(() => cancelled)
+    return () => {
+      cancelled = true
+    }
   }, [loadRoles])
 
   const handleDelete = async (id: string) => {
@@ -1148,21 +1153,26 @@ function EvolutionPanel() {
   const [analysis, setAnalysis] = React.useState<EvolutionAnalysis | null>(null)
   const [applying, setApplying] = React.useState(false)
 
-  const loadHistory = React.useCallback(async (role: string) => {
+  const loadHistory = React.useCallback(async (role: string, isCancelled?: () => boolean) => {
     setLoading(true)
     try {
       const r = await fetchApi<EvolutionHistory>(`/api/subagents/agents/${role}/evolution-history`)
+      if (isCancelled?.()) return
       if (r.success && r.data) setHistory(r.data)
       else setHistory(null)
     } catch {
-      setHistory(null)
+      if (!isCancelled?.()) setHistory(null)
     } finally {
-      setLoading(false)
+      if (!isCancelled?.()) setLoading(false)
     }
   }, [])
 
   React.useEffect(() => {
-    void loadHistory(selectedRole)
+    let cancelled = false
+    void loadHistory(selectedRole, () => cancelled)
+    return () => {
+      cancelled = true
+    }
   }, [selectedRole, loadHistory])
 
   const handleEvolve = async () => {

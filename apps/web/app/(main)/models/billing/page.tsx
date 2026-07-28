@@ -135,10 +135,10 @@ export default async function BillingPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
         />
       ) : null}
-      <div className="space-y-6">
+      <div className="space-y-4">
         <header className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('billing.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('billing.subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('billing.subtitle')}</p>
         </header>
 
       {/* 余额卡片 */}
@@ -149,7 +149,7 @@ export default async function BillingPage() {
               <Wallet className="h-3.5 w-3.5" />
               {t('billing.currentBalance')}
             </div>
-            <div className="mt-2 text-3xl font-bold tracking-tight">¥ 128.50</div>
+            <div className="mt-2 text-xl font-bold tracking-tight md:text-2xl">¥ 128.50</div>
             <Button className="mt-3 h-8 w-full gap-1.5 text-xs">
               <DollarSign className="h-3.5 w-3.5" />
               {t('billing.recharge')}
@@ -194,7 +194,7 @@ export default async function BillingPage() {
               <CardContent className="p-5">
                 <div className="text-sm font-semibold">{p.name}</div>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold tracking-tight">{p.price}</span>
+                  <span className="text-xl font-bold tracking-tight md:text-2xl">{p.price}</span>
                   <span className="text-xs text-muted-foreground">
                     {t('billing.packages.once')}
                   </span>

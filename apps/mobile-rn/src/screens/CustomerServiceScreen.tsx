@@ -4,9 +4,8 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
+import { fetchApi } from '@ihui/api-client'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface CustomerServiceInfo {
@@ -28,11 +27,10 @@ export function CustomerServiceScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/customer-service/info`)
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: CustomerServiceInfo }
+        const res = await fetchApi<CustomerServiceInfo>('/customer-service/info')
+        if (!res.success) throw new Error('http')
         if (cancelled) return
-        setInfo(data.data ?? null)
+        setInfo(res.data ?? null)
       } catch {
         if (!cancelled) setError(t('customerService.loadFailed'))
       } finally {

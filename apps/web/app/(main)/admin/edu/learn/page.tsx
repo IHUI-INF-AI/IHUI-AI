@@ -177,7 +177,7 @@ export default function EduLearnPage() {
             <div>
               <div className="text-sm text-muted-foreground">{t('totalSignups')}</div>
               <div className="mt-1 text-2xl font-semibold">
-                {lessons.reduce((a: any, l: any) => a + l.signupCount, 0)}
+                {lessons.reduce((a, l) => a + l.signupCount, 0)}
               </div>
             </div>
           </CardContent>

@@ -106,8 +106,25 @@ function SubAgentCard({ agent, badgeLabel, defaultName, statusLabel }: SubAgentC
                 <div className="flex items-center gap-1.5 text-xs">
                   <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" />
                   <span>{agent.currentStep}</span>
+                  {agent.progressIteration !== undefined && agent.progressIteration > 1 && (
+                    <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50">
+                      ·{agent.progressIteration}轮
+                    </span>
+                  )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 工具调用计数 + 输出预览(2026-07-28 立,subagent_progress 事件驱动) */}
+          {agent.toolCallsCount !== undefined && agent.toolCallsCount > 0 && (
+            <div className="text-[10px] tabular-nums text-muted-foreground/50">
+              {agent.toolCallsCount} 次工具调用
+            </div>
+          )}
+          {agent.outputPreview && active && (
+            <div className="rounded-sm bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground/70 line-clamp-2">
+              {agent.outputPreview}
             </div>
           )}
 

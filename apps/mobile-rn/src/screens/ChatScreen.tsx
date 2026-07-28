@@ -19,17 +19,10 @@ import {
   type LlmModel,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
+import type { ChatMessage } from '@ihui/shared'
 import { useAuth } from '../context/AuthContext'
 import { useScreenshot } from '../hooks/use-screenshot'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
-type Role = 'user' | 'assistant' | 'system'
-
-interface ChatMessage {
-  id: string
-  role: Role
-  content: string
-}
 
 const FALLBACK_MODELS: LlmModel[] = [
   {

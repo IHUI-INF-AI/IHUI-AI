@@ -4,33 +4,25 @@ import { persist } from 'zustand/middleware'
 import { ssrStorage } from './persist-helpers'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+import type {
+  SubagentSpawnEvent,
+  SubagentEndEvent,
+  SubagentProgressEvent,
+} from '@ihui/api-client'
+import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 
-export type ChatRole = 'user' | 'assistant' | 'system'
+export type { ChatRole } from '@ihui/shared'
 
 /** Inline Diff Apply 状态:pending=待确认 / applying=应用中 / applied=已应用 / rejected=已拒绝 / error=应用失败 */
 export type DiffApplyStatus = 'pending' | 'applying' | 'applied' | 'rejected' | 'error'
 
-export interface ToolCall {
-  id: string
-  toolName: string
-  args: Record<string, unknown>
-  result?: unknown
-  status: 'running' | 'success' | 'error'
-  duration?: number
-  error?: string
-  /** 多轮 tool loop 的轮次(1-based,undefined 或 1 表示单轮) */
-  iteration?: number
+export interface ToolCall extends BaseToolCall {
   /** edit_file/write_file 工具调用关联的 Inline Diff 信息(供 InlineDiffCard 渲染) */
   diffInfo?: InlineDiffInfo
   /** Inline Diff Apply 工作流状态(Accept/Reject 按钮交互) */
   applyStatus?: DiffApplyStatus
   /** Apply 失败时的错误信息(applyStatus === 'error' 时填充) */
   applyError?: string
-  /** 后端重复调用检测命中时标记(同 tool_name + 同 args 已执行过,跳过实际调用)
-   * 来自 SSE tool-result 事件的 repeated 字段。true 时前端渲染"已跳过"灰色徽章 */
-  repeated?: boolean
-  /** image_generation 工具返回的图片 URL(data URI 或 https URL) */
-  image_url?: string
   /** summarize_artifacts 工具返回的结构化摘要数据 */
   summary_data?: {
     plans?: Array<{ id: string; title: string; status: string; steps?: string[] }>
@@ -58,26 +50,20 @@ export interface PendingQuestion {
 }
 
 /**
- * Web 前端 chat store UI 状态消息类型(本地保留,不复用 @ihui/types 的 ChatMessage)。
+ * Web 前端 chat store UI 状态消息类型。
  *
- * 原因:@ihui/types 的 ChatMessage 是 LLM API 调用消息格式(role + content 简版),
- * 此处是 web chat store 的 UI 状态消息(含 id / createdAt / model / error / toolCalls / reasoning / question 等 UI 状态字段)。
- * 两者语义不同:LLM API 消息格式 vs 前端 store 状态类型,强行合并会让 packages/types ChatMessage
- * 变成大杂烩,且 question 字段会引入与 PendingQuestionPayload 的循环依赖风险。
+ * 继承 @ihui/shared 的 ChatMessage 通用基类(id/role/content/createdAt?/model?/error?/reasoning?/toolCalls?/meta?),
+ * 扩展 web 端独占字段:createdAt 必填 + toolCalls 用 web 本地类型(含 InlineDiff/ApplyStatus)+ question + permissionMode。
  *
  * 命名保留 ChatMessage 是因为 web chat store 内仅此一种 chat 消息类型,文件内无命名冲突
  * (web 端在其他位置如 lib/video-tools/chat-image-drawer.ts 也有同名 ChatMessage,但属于不同业务上下文,
  *  各自文件内独立,无 import 交叉)。
  */
-export interface ChatMessage {
-  id: string
-  role: ChatRole
-  content: string
+export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCalls'> {
+  /** Web 端 createdAt 必填(写入时 Date.now()) */
   createdAt: number
-  model?: string
-  error?: boolean
+  /** Web 端 toolCalls 用本地 ToolCall 类型(含 InlineDiff/ApplyStatus) */
   toolCalls?: ToolCall[]
-  reasoning?: string
   /** 该消息触发的提问(若有,渲染时显示提问卡片) */
   question?: PendingQuestion
   /** 2026-07-25 立(深度对标 Codex 透明性):该消息生成时所使用的工作区权限模式
@@ -106,11 +92,6 @@ interface ChatState {
    * 存 pluginId,sendMessage 时合并到 agentTools 传给后端。
    * 不持久化(每次新会话默认空)。 */
   selectedTools: string[]
-  /** Plan/Act 模式(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
-   * - 'plan':LLM 只制定计划不调用工具(后端注入 Plan Mode system prompt)
-   * - 'act':正常 tool loop 执行(默认)
-   * 持久化,跨刷新保留用户选择。 */
-  planMode: 'plan' | 'act'
   /** 最近一条会话的 messages 快照(2026-07-25 立,#12 store messages 持久化)。
    * 不在 set 中主动更新,每次 partialize 调用时从 messages + conversationId 派生。
    * 持久化目的:刷新页面后 messages 数组清空,从 recentMessages 预填充避免空状态闪烁。
@@ -119,10 +100,6 @@ interface ChatState {
   recentMessages: { conversationId: string; messages: ChatMessage[] } | null
 
   setModel: (model: string) => void
-  /** 设置 Plan/Act 模式 */
-  setPlanMode: (mode: 'plan' | 'act') => void
-  /** 切换 Plan/Act 模式(plan ↔ act) */
-  togglePlanMode: () => void
   /** 添加单个工具到已选;已存在则忽略 */
   addSelectedTool: (pluginId: string) => void
   /** 从已选移除单个工具 */
@@ -149,6 +126,19 @@ interface ChatState {
   markAllAgentStreamsDone: () => void
   /** 清空所有 sub-agent 活动(新对话开始时调用) */
   resetSubAgentActivities: () => void
+  /** Subagent 自动派发生成(2026-07-28 立,对标 Trae Work):
+   *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn SSE 事件,
+   *  前端通过 onSubagentSpawn 回调写入 store,UI 自动展示 subagent 生命周期。 */
+  addSubagentSpawn: (event: SubagentSpawnEvent) => void
+  /** Subagent 自动派发结束(2026-07-28 立):
+   *  dispatch_subagent 工具执行完成后,后端发 subagent_end SSE 事件,
+   *  前端通过 onSubagentEnd 回调更新 store 中对应条目状态为 completed/failed。 */
+  markSubagentEnd: (event: SubagentEndEvent) => void
+  /** Subagent 执行进度更新(2026-07-28 立):
+   *  subagent 执行期间后端实时发 subagent_progress SSE 事件,
+   *  前端通过 onSubagentProgress 回调更新 store 中对应条目的 phase/iteration/tool 等字段,
+   *  UI 进度面板据此实时显示"思考中.../调用工具: xxx/输出就绪"等状态。 */
+  updateSubagentProgress: (event: SubagentProgressEvent) => void
   /** 添加工具调用到指定消息(SSE tool-call-start 事件触发)
    * 2026-07-22 立,P2 联动 WorkPanel */
   addToolCall: (
@@ -202,12 +192,9 @@ export const useChatStore = create<ChatState>()(
       pendingQuestion: null,
       subAgentActivities: [],
       selectedTools: [],
-      planMode: 'act',
       recentMessages: null,
 
       setModel: (model) => set({ currentModel: model }),
-      setPlanMode: (mode) => set({ planMode: mode }),
-      togglePlanMode: () => set((s) => ({ planMode: s.planMode === 'plan' ? 'act' : 'plan' })),
       addSelectedTool: (pluginId) =>
         set((s) =>
           s.selectedTools.includes(pluginId)
@@ -331,6 +318,111 @@ export const useChatStore = create<ChatState>()(
 
       resetSubAgentActivities: () => set({ subAgentActivities: [] }),
 
+      // Subagent 自动派发(2026-07-28 立,对标 Trae Work):
+      // - addSubagentSpawn: 后端 subagent_spawn SSE 事件触发,追加新 SubAgentActivity(status='running')
+      // - markSubagentEnd: 后端 subagent_end SSE 事件触发,更新现有条目状态为 completed/failed
+      // 与 appendToAgentStream 的区别:appendToAgentStream 用于多 agent 多路复用的 token 流分流,
+      // 而 addSubagentSpawn/markSubagentEnd 用于 dispatch_subagent 工具调用的生命周期展示。
+      // 两者写入同一 subAgentActivities 数组,UI 统一通过 SubAgentActivityFeed 渲染。
+      addSubagentSpawn: (event) =>
+        set((s) => {
+          // 同一 id 已存在则跳过(防止后端重复发 spawn 事件)
+          if (s.subAgentActivities.some((a) => a.agentId === event.id)) return s
+          const newActivity: SubAgentActivity = {
+            agentId: event.id,
+            name: event.role || `Subagent ${event.id.slice(-6)}`,
+            type: 'worker',
+            status: 'running',
+            currentStep: event.task || '执行中…',
+            completedSteps: [],
+          }
+          return { subAgentActivities: [...s.subAgentActivities, newActivity] }
+        }),
+
+      markSubagentEnd: (event) =>
+        set((s) => ({
+          subAgentActivities: s.subAgentActivities.map((a) => {
+            if (a.agentId !== event.id) return a
+            const nextStatus: SubAgentActivity['status'] =
+              event.status === 'failed' ? 'failed' : 'completed'
+            return {
+              ...a,
+              status: nextStatus,
+              // 完成时把 currentStep 推入 completedSteps,再清空 currentStep;
+              // 失败时 currentStep 改为错误摘要,保留 step 上下文供用户排查
+              ...(event.status === 'failed'
+                ? {
+                    currentStep: event.failureReason
+                      ? `失败:${event.failureReason.slice(0, 200)}`
+                      : '执行失败',
+                  }
+                : {
+                    completedSteps: [
+                      ...a.completedSteps,
+                      ...(a.currentStep
+                        ? [
+                            {
+                              stepAction: a.currentStep,
+                              createdAt: event.timestamp,
+                              status: 'completed' as const,
+                            },
+                          ]
+                        : []),
+                    ],
+                    currentStep: '',
+                  }),
+              streamingDone: true,
+            }
+          }),
+        })),
+
+      updateSubagentProgress: (event) =>
+        set((s) => ({
+          subAgentActivities: s.subAgentActivities.map((a) => {
+            if (a.agentId !== event.id) return a
+            // 根据 phase 构造人类可读的 currentStep 文本
+            let stepText = a.currentStep
+            const iter = event.iteration ? ` (轮次 ${event.iteration})` : ''
+            switch (event.phase) {
+              case 'thinking':
+                stepText = `思考中…${iter}`
+                break
+              case 'tool_call':
+                stepText = `调用工具: ${event.tool ?? 'unknown'}${iter}`
+                break
+              case 'tool_result':
+                stepText = `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}${iter}`
+                break
+              case 'output_ready':
+                stepText = '输出就绪'
+                break
+            }
+            // tool_result 时把 tool_call 的 stepText 推入 completedSteps
+            let completedSteps = a.completedSteps
+            let toolCallsCount = a.toolCallsCount ?? 0
+            if (event.phase === 'tool_result') {
+              toolCallsCount += 1
+              completedSteps = [
+                ...completedSteps,
+                {
+                  stepAction: `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}`,
+                  createdAt: event.timestamp,
+                  status: (event.ok ? 'completed' : 'failed') as 'completed' | 'failed',
+                },
+              ]
+            }
+            return {
+              ...a,
+              currentStep: stepText,
+              progressPhase: event.phase,
+              progressIteration: event.iteration ?? a.progressIteration,
+              progressTool: event.tool ?? a.progressTool,
+              toolCallsCount,
+              outputPreview: event.outputPreview ?? a.outputPreview,
+            }
+          }),
+        })),
+
       addToolCall: (messageId, toolCall) =>
         set((s) => {
           // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历,
@@ -401,7 +493,8 @@ export const useChatStore = create<ChatState>()(
         currentModel: s.currentModel,
         conversationId: s.conversationId,
         draftInput: s.draftInput,
-        planMode: s.planMode,
+        // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
+        // ChatMode 由 useModeStore 独立管理,持久化不重复存储
         // #12 store messages 持久化(2026-07-25 立):
         // 仅持久化当前 conversationId 对应的 messages 最近 50 条,
         // 用于刷新页面后预填充(避免空状态闪烁),真实数据以服务端 getMessages 为准。

@@ -46,7 +46,7 @@ export default function ModelsPage() {
 
   const list = React.useMemo(() => {
     const all = data ?? []
-    return all.filter((item: any) => {
+    return all.filter((item) => {
       const matchKeyword =
         !keyword ||
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
@@ -57,7 +57,7 @@ export default function ModelsPage() {
   }, [data, keyword, provider])
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 
@@ -91,37 +91,37 @@ export default function ModelsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
             {t('noMatch')}
           </CardContent>
         </Card>
       ) : (
-        <VirtualList items={list} itemKey={(item) => item.id as any} itemHeight={200}>
+        <VirtualList items={list} itemKey={(item) => item.id} itemHeight={200}>
           {(item) => (
             <FeatureCard
-              title={item.name as any}
-              description={item.description as any}
-              badge={item.provider as any}
+              title={item.name}
+              description={item.description}
+              badge={item.provider}
               footer={
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Cpu className="h-3.5 w-3.5" />
-                      {t('contextLabel')} {formatNumber(item.contextLength as any)}
+                      {t('contextLabel')} {formatNumber(item.contextLength)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Zap className="h-3.5 w-3.5" />
-                      {item.inputPrice as any === 0 ? t('freeLabel') : `$${item.inputPrice as any}/1M`}
+                      {item.inputPrice === 0 ? t('freeLabel') : `$${item.inputPrice}/1M`}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {item.capabilities.map((cap: any) => (
+                    {item.capabilities.map((cap) => (
                       <span
                         key={cap}
                         className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"

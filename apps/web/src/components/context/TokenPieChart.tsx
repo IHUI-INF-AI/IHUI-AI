@@ -6,10 +6,10 @@ import type { TokenDistribution } from '@ihui/shared/context/index'
 /** 5 类源的颜色映射(与 CONTEXT_TYPE_COLORS 共用色板) */
 export const TOKEN_COLORS = {
   history: '#6366f1',
-  codebase: '#10b981',
-  mention: '#f59e0b',
-  web: '#3b82f6',
-  database: '#ec4899',
+  codebase: 'var(--chart-2)',
+  mention: 'var(--chart-3)',
+  web: 'var(--chart-1)',
+  database: 'var(--chart-6)',
 } as const
 
 export const TOKEN_LABELS = {
@@ -82,7 +82,7 @@ export function TokenPieChart({ distribution, size = 220 }: TokenPieChartProps) 
             <path
               key={p.key}
               d={p.d}
-              fill={TOKEN_COLORS[p.key]}
+              style={{ fill: TOKEN_COLORS[p.key] }}
               stroke="var(--card)"
               strokeWidth={1.5}
             >
@@ -120,9 +120,7 @@ export function TokenPieChart({ distribution, size = 220 }: TokenPieChartProps) 
               style={{ backgroundColor: TOKEN_COLORS[s.key] }}
             />
             <span className="text-muted-foreground">{TOKEN_LABELS[s.key]}</span>
-            <span className="ml-auto font-medium tabular-nums">
-              {s.value.toLocaleString()}
-            </span>
+            <span className="ml-auto font-medium tabular-nums">{s.value.toLocaleString()}</span>
           </div>
         ))}
       </div>

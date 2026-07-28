@@ -115,7 +115,7 @@ export default function EduExamPapersRandomPage() {
                 <SelectValue placeholder={t('selectPaper')} />
               </SelectTrigger>
               <SelectContent>
-                {papers.map((p: any) => (
+                {papers.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.title}
                   </SelectItem>
