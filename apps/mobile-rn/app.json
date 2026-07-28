@@ -29,6 +29,15 @@
         "usesNonExemptEncryption": false
       }
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许访问相册以选择素材",
+          "cameraPermission": "允许访问相机以拍摄素材"
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": ""
