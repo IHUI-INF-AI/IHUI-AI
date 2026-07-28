@@ -72,8 +72,8 @@ export default function AigcPublishScreen() {
 
   /**
    * 调用 expo-image-picker 从相册选择图片,通过 uploadFileMultipart 上传到 /api/files/upload/form。
-   * expo-image-picker 8.x:result 直接是 ImageInfo(uri/type/width/height),
-   * 无 mimeType/fileName 字段(13+ 才有 assets 数组),需根据 type 推断 MIME 与扩展名。
+   * expo-image-picker 16.x(SDK 53 兼容):result.canceled + assets[] 数组,
+   * asset 含 uri/mimeType/fileName 字段,无需推断 MIME 与扩展名。
    */
   const pickImage = async () => {
     if (uploading) return
@@ -87,15 +87,17 @@ export default function AigcPublishScreen() {
         allowsMultipleSelection: false,
         quality: 0.8,
       })
-      // 8.x 用 cancelled(英式拼写);canceled(美式)是 13+ 才有的字段
-      if (result.cancelled || !result.uri) return
+      // 16.x 用 canceled(美式拼写);cancelled(英式)是 8.x 老字段
+      if (result.canceled) return
+      const asset = result.assets?.[0]
+      if (!asset?.uri) return
       setUploading(true)
       setError('')
-      const isVideo = result.type === 'video'
+      const isVideo = asset.type === 'video'
       const res = await uploadFileMultipart({
-        uri: result.uri,
-        type: isVideo ? 'video/mp4' : 'image/jpeg',
-        name: `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+        uri: asset.uri,
+        type: asset.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
+        name: asset.fileName || `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
       })
       if (res.success && res.data) {
         const url = resolveFileUrl(res.data.path)
