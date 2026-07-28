@@ -1,4 +1,6 @@
-import { fetchApi } from '@/lib/api'
+import { unwrapApi as api } from '@/lib/api-helpers'
+
+export { api }
 
 export interface InvoiceTitle {
   id: string
@@ -29,7 +31,7 @@ export interface TitleForm {
   isDefault: boolean
 }
 
-export const PAGE_SIZE = 10
+export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE=20
 
 export const EMPTY_FORM: TitleForm = {
   titleName: '',
@@ -40,10 +42,4 @@ export const EMPTY_FORM: TitleForm = {
   address: '',
   phone: '',
   isDefault: false,
-}
-
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
