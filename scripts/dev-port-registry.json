@@ -1,0 +1,79 @@
+{
+  "$schema_version": 1,
+  "_comment": "IHUI-AI dev 服务端口 + 命令注册表(与 docs/port-management.md §2 同步)。start-dev.ps1 读取此表按需启动 8 端。修改时同步更新 docs/port-management.md。",
+  "services": {
+    "web": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/web", "dev"],
+      "cwd": "apps/web",
+      "port": 8801,
+      "health": "http://localhost:8801",
+      "timeout_sec": 60
+    },
+    "api": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/api", "dev"],
+      "cwd": "apps/api",
+      "port": 8802,
+      "health": "http://localhost:8802/api/health",
+      "timeout_sec": 60
+    },
+    "ai-service": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/ai-service", "dev"],
+      "cwd": "apps/ai-service",
+      "port": 8803,
+      "health": "http://localhost:8803/health",
+      "timeout_sec": 90
+    },
+    "miniapp-taro": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/miniapp-taro", "dev:h5"],
+      "cwd": "apps/miniapp-taro",
+      "port": 8804,
+      "health": "http://localhost:8804",
+      "timeout_sec": 90
+    },
+    "mobile-rn": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/mobile-rn", "start"],
+      "cwd": "apps/mobile-rn",
+      "port": 8805,
+      "health": "http://localhost:8805/status",
+      "timeout_sec": 90
+    },
+    "desktop": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/desktop", "dev"],
+      "cwd": "apps/desktop",
+      "port": 8806,
+      "health": null,
+      "timeout_sec": 60
+    },
+    "extension": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/extension", "dev"],
+      "cwd": "apps/extension",
+      "port": 8808,
+      "health": null,
+      "timeout_sec": 60
+    },
+    "cli": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/cli", "dev"],
+      "cwd": "apps/cli",
+      "port": 8841,
+      "health": "http://localhost:8841/health",
+      "timeout_sec": 60
+    }
+  },
+  "all": ["web", "api", "ai-service", "miniapp-taro", "mobile-rn", "desktop", "extension", "cli"],
+  "default": ["web", "api"],
+  "port_ranges": {
+    "app": [8801, 8809],
+    "infra": [8810, 8819],
+    "helper": [8820, 8829],
+    "saas": [8830, 8839],
+    "extension": [8840, 8849]
+  }
+}
