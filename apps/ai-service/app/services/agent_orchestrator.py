@@ -479,6 +479,73 @@ class AgentOrchestrator:
         # 每轮每个 Agent 的发言记录:[{agent, output, stance, status}]
         rounds_history: list[list[dict[str, Any]]] = []
 
+        # P2 修复:每轮内 N 个 agent 并行执行(asyncio.gather),轮次间保持串行
+        # 原实现 N agent × M 轮 = N×M 次串行 LLM 调用(5×3=15 次,总耗时 1-7 分钟)
+        # 修复后每轮仅等待最慢的 1 个 agent,总耗时 ≈ M × max_per_agent(参考 run_vote 并行模式)
+        async def run_one(
+            round_idx: int, prev_text: str, agent_name: str,
+        ) -> tuple[AgentStepResult, dict[str, Any], dict[str, Any]]:
+            """单 agent 单轮发言(供并行 gather 调用)。返回 (step_result, trace_item, round_record)。"""
+            agent = self._registry.get(agent_name)
+            if not agent:
+                step_r = AgentStepResult(
+                    agent_name=agent_name, input="", output="",
+                    status="failed", error=f"Agent 不存在: {agent_name}",
+                )
+                trace_r = {
+                    "round": round_idx + 1, "agent": agent_name,
+                    "status": "failed", "error": "agent_not_found",
+                }
+                round_r = {
+                    "agent": agent_name, "output": "",
+                    "stance": "unknown", "status": "failed",
+                }
+                return step_r, trace_r, round_r
+
+            if round_idx == 0:
+                user_input = (
+                    f"辩论主题:{topic}\n\n"
+                    "请给出你的初始观点,并在末尾用一行声明立场(agree/disagree/neutral)。"
+                )
+            else:
+                user_input = (
+                    f"{prev_text}辩论主题:{topic}\n\n"
+                    f"这是第 {round_idx + 1} 轮,请基于以上发言回应,"
+                    "可在末尾更新立场(agree/disagree/neutral)。"
+                )
+
+            t0 = time.monotonic()
+            try:
+                result = await self._run_agent(agent, user_input, sid, model_override)
+            except Exception as e:
+                logger.warning(
+                    "agent_orchestrator.run_debate agent 发言失败(agent=%s): %s",
+                    agent_name, e, exc_info=True,
+                )
+                result = AgentStepResult(
+                    agent_name=agent_name, input=user_input, output="",
+                    status="failed",
+                    duration_ms=round((time.monotonic() - t0) * 1000, 2),
+                    error=str(e),
+                )
+
+            # 解析立场(取 output 中首个 agree/disagree/neutral 词)
+            stance = "neutral"
+            m = _re.search(r"\b(agree|disagree|neutral)\b", (result.output or "").lower())
+            if m:
+                stance = m.group(1)
+
+            trace_r = {
+                "round": round_idx + 1, "agent": agent_name,
+                "duration_ms": result.duration_ms, "status": result.status,
+                "stance": stance,
+            }
+            round_r = {
+                "agent": agent_name, "output": result.output,
+                "stance": stance, "status": result.status,
+            }
+            return result, trace_r, round_r
+
         for round_idx in range(max_rounds):
             round_records: list[dict[str, Any]] = []
             prev_round = rounds_history[-1] if rounds_history else []
@@ -490,67 +557,15 @@ class AgentOrchestrator:
                     for r in prev_round
                 ) + "\n\n"
 
-            for agent_name in agents:
-                agent = self._registry.get(agent_name)
-                if not agent:
-                    step_results.append(AgentStepResult(
-                        agent_name=agent_name, input="", output="",
-                        status="failed", error=f"Agent 不存在: {agent_name}",
-                    ))
-                    trace.append({
-                        "round": round_idx + 1, "agent": agent_name,
-                        "status": "failed", "error": "agent_not_found",
-                    })
-                    round_records.append({
-                        "agent": agent_name, "output": "",
-                        "stance": "unknown", "status": "failed",
-                    })
-                    continue
-
-                if round_idx == 0:
-                    user_input = (
-                        f"辩论主题:{topic}\n\n"
-                        "请给出你的初始观点,并在末尾用一行声明立场(agree/disagree/neutral)。"
-                    )
-                else:
-                    user_input = (
-                        f"{prev_text}辩论主题:{topic}\n\n"
-                        f"这是第 {round_idx + 1} 轮,请基于以上发言回应,"
-                        "可在末尾更新立场(agree/disagree/neutral)。"
-                    )
-
-                t0 = time.monotonic()
-                try:
-                    result = await self._run_agent(agent, user_input, sid, model_override)
-                except Exception as e:
-                    logger.warning(
-                        "agent_orchestrator.run_debate agent 发言失败(agent=%s): %s",
-                        agent_name, e, exc_info=True,
-                    )
-                    result = AgentStepResult(
-                        agent_name=agent_name, input=user_input, output="",
-                        status="failed",
-                        duration_ms=round((time.monotonic() - t0) * 1000, 2),
-                        error=str(e),
-                    )
-
-                # 解析立场(取 output 中首个 agree/disagree/neutral 词)
-                stance = "neutral"
-                m = _re.search(r"\b(agree|disagree|neutral)\b", (result.output or "").lower())
-                if m:
-                    stance = m.group(1)
-
-                step_results.append(result)
-                trace.append({
-                    "round": round_idx + 1, "agent": agent_name,
-                    "duration_ms": result.duration_ms, "status": result.status,
-                    "stance": stance,
-                })
-                round_records.append({
-                    "agent": agent_name, "output": result.output,
-                    "stance": stance, "status": result.status,
-                })
-                if result.status == "failed":
+            # 并行执行本轮所有 agent(gather 保序,与原串行结果顺序一致)
+            gathered = await asyncio.gather(
+                *[run_one(round_idx, prev_text, a) for a in agents]
+            )
+            for step_r, trace_r, round_r in gathered:
+                step_results.append(step_r)
+                trace.append(trace_r)
+                round_records.append(round_r)
+                if step_r.status == "failed":
                     status = "failed"
 
             rounds_history.append(round_records)
