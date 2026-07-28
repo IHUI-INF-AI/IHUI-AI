@@ -17,6 +17,7 @@ import {
   type TokenBalance,
 } from '@ihui/api-client'
 import { formatShortDateTime } from '../utils/date-utils'
+import { useI18n } from '../i18n'
 
 type RecordType = 'all' | 'cost' | 'recharge'
 
@@ -57,6 +58,7 @@ function formatToken(n: number): string {
 }
 
 export default function TokenValueScreen() {
+  const { t } = useI18n()
   const [tab, setTab] = useState<RecordType>('all')
   const [balance, setBalance] = useState<TokenBalance | null>(null)
   const [records, setRecords] = useState<Record[]>([])
@@ -130,11 +132,10 @@ export default function TokenValueScreen() {
 
   const list = records.filter((r) => (tab === 'all' ? true : r.type === tab))
 
-  // TODO: i18n — Alert.alert 硬编码中文待翻译(确认充值 / 套餐:X Token · ¥Y / 取消 / 立即支付 / 支付成功 / 已到账 X Token)
   const handleRecharge = (p: Package) =>
-    Alert.alert('确认充值', `套餐:${formatToken(p.tokens)} Token · ¥${p.price}`, [
-      { text: '取消' },
-      { text: '立即支付', onPress: () => Alert.alert('支付成功', `已到账 ${formatToken(p.tokens + p.bonus)} Token`) },
+    Alert.alert(t('tokenValue.recharge.title'), t('tokenValue.recharge.message', { tokens: formatToken(p.tokens), price: p.price }), [
+      { text: t('common.cancel') },
+      { text: t('tokenValue.recharge.payBtn'), onPress: () => Alert.alert(t('tokenValue.recharge.success.title'), t('tokenValue.recharge.success.message', { tokens: formatToken(p.tokens + p.bonus) })) },
     ])
 
   return (

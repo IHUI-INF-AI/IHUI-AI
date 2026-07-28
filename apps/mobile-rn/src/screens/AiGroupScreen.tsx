@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import { getGroups } from '@ihui/api-client'
 import type { Group as ApiGroup } from '@ihui/api-client'
+import { useI18n } from '../i18n'
 
 type Tab = 'mine' | 'discover'
 
@@ -67,6 +68,7 @@ function mapGroup(g: ApiGroup): Group {
 }
 
 export default function AiGroupScreen() {
+  const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('mine')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [items, setItems] = useState<Group[]>([])
@@ -104,8 +106,7 @@ export default function AiGroupScreen() {
   const list = tab === 'mine' ? items : items.slice().reverse()
 
   const handleEnter = (g: Group) => setSelectedId(g.id)
-  // TODO: i18n — Alert.alert 硬编码中文待翻译(加入群组 / 已申请加入「X」)
-  const handleJoin = (g: Group) => Alert.alert('加入群组', `已申请加入「${g.name}」`)
+  const handleJoin = (g: Group) => Alert.alert(t('aiGroup.join.title'), t('aiGroup.join.message', { name: g.name }))
 
   if (loading) {
     return (

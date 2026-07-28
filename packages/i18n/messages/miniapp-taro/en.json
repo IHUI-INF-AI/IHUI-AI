@@ -1325,7 +1325,8 @@
       "createSuccess": "Agent created successfully",
       "mockSuccess": "API not yet available. Mock creation completed",
       "submitting": "Creating…",
-      "submit": "Create Agent"
+      "submit": "Create Agent",
+      "fileSizeExceeded": "File cannot exceed 10MB"
     },
     "modelEdit": {
       "title": "Edit model",

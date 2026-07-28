@@ -29,23 +29,22 @@ import {
 } from 'react-native'
 import Video, { type VideoRef, type OnProgressData, type OnLoadData } from 'react-native-video'
 import { useI18n } from '../i18n'
+import type { VideoPlayerMinimalProps } from '@ihui/types'
 
 import { Loading } from '@ihui/ui-native'
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2] as const
 
-export interface VideoPlayerProps {
+// 共享类型 VideoPlayerMinimalProps 已下沉到 @ihui/types,
+// 本地 Props extends Omit<Minimal,'url'> 并将 url 改为必选,
+// 追加 title/startPosition/VideoComponent(mobile-rn 专属字段)。
+// miniapp-taro 字段名不同(src/onTimeUpdate/onEnded),不 extends Minimal,保留本地定义。
+export interface VideoPlayerProps extends Omit<VideoPlayerMinimalProps, 'url'> {
   /** 视频 URL(HLS / MP4 / 其他 react-native-video 支持的协议) */
   url: string
   /** 标题(显示在控制条上方) */
   title?: string
   /** 起始播放位置(秒) */
   startPosition?: number
-  /** 进度更新(>1s 一次) */
-  onProgress?: (currentTime: number, duration: number) => void
-  /** 视频结束回调 */
-  onComplete?: () => void
-  /** 错误回调 */
-  onError?: (error: string) => void
   /** 用于测试:注入 Video 实现,默认从 react-native-video 导入 */
   VideoComponent?: typeof Video
 }
