@@ -26,4 +26,10 @@ export type {
   BookmarkTargetType,
   BookmarkItem,
   BookmarkScreenProps,
+  NotificationType,
+  NotificationListItem,
+  NotificationListScreenProps,
+  HistoryTargetType,
+  HistoryItem,
+  HistoryScreenProps,
 } from '@ihui/types'
