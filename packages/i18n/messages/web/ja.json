@@ -8927,6 +8927,11 @@
     }
   },
   "search": {
+    "history": "検索履歴",
+    "popular": "人気の検索",
+    "suggest": "検索候補",
+    "clearAll": "すべてクリア",
+    "noResults": "検索結果なし",
     "sort": "ソート",
     "sortName": "氏名",
     "emptyKeyword": "キーワードをしてください",
@@ -9724,7 +9729,6 @@
       "working": "{count} 個のサブエージェントが協力中"
     },
     "pane": {
-      "title": "タスク計画",
       "ariaLabel": "Agent タスク進行パネル",
       "pin": "ピン留め",
       "unpin": "ピン解除",
@@ -9773,6 +9777,10 @@
       "pinHintPinned": "ピン留め済み、外部クリックでは閉じません",
       "pinHintUnpinned": "ピン留め解除済み、外部クリックで閉じます",
       "minimizeHint": "タスクパネルを最小化",
+      "emptyTitle": "タスク開始を待機中",
+      "emptySubtitle": "会話開始後、タスク分解がここに表示されます",
+      "elapsedTitle": "経過 {time}",
+      "failureBanner": "{n} 件のタスクが失敗しました、クリックで表示",
       "emptyHint": "会話開始後にタスク計画が表示されます",
       "emptyHintsLabel": "使い方のヒント",
       "emptyHint1": "会話を開始すると、AI のタスク分解と進捗がここに表示されます。",
