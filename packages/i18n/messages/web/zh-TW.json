@@ -9881,12 +9881,12 @@
       "earlyBird": "早鳥價 ¥6000/年 · 3.3 折",
       "multiEnd": "8 端全覆蓋 · 行業中較為少見",
       "benefits": {
-        "benefit6": "不滿意全額退款",
-        "benefit1": "",
-        "benefit2": "",
-        "benefit3": "",
-        "benefit4": "",
-        "benefit5": ""
+        "benefit1": "全年所有課程免費參加",
+        "benefit2": "探索活動優先參與",
+        "benefit3": "社群互助無限次",
+        "benefit4": "線上社群專屬入口",
+        "benefit5": "AI 助手優先體驗",
+        "benefit6": "不滿意全額退款"
       },
       "subtitle": "全棧 AI 操作系統，8 端同源，一站式智能體協作",
       "description": "智匯 AI 整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議，支援 Web / 桌面 / 小程式 / 瀏覽器外掛 / React Native / CLI 六端同源，Apache 2.0 開源，支援私有化部署。",
