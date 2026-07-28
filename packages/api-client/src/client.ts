@@ -107,7 +107,7 @@ async function fetchOnce<T>(
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
-    body: typeof options.body === 'string' ? options.body : undefined,
+    body: typeof options.body === 'string' || options.body instanceof FormData ? options.body : undefined,
     signal: options.signal ?? undefined,
   })
 
@@ -291,7 +291,7 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
-    body: typeof options.body === 'string' ? options.body : undefined,
+    body: typeof options.body === 'string' || options.body instanceof FormData ? options.body : undefined,
     signal: options.signal ?? undefined,
   })
   if (!response.ok) {

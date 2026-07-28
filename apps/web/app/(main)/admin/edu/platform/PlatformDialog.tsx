@@ -93,7 +93,7 @@ export function PlatformDialog({
               placeholder={t('filePathPlaceholder')}
             />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label>{t('typeLabel')}</Label>
               <Input

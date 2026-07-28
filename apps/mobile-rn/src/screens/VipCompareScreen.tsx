@@ -3,8 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -13,7 +12,6 @@ interface CompareRow { feature: string; basic: string; premium: string; enterpri
 
 export function VipCompareScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<Nav>()
   const [rows, setRows] = useState<CompareRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,12 +20,11 @@ export function VipCompareScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/vip-compare`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      if (!r.ok) throw new Error()
-      const d = (await r.json()) as { data?: CompareRow[] }
-      setRows(d.data ?? [])
+      const res = await fetchApi<CompareRow[]>('/api/vip-compare')
+      if (!res.success) throw new Error()
+      setRows(res.data ?? [])
     } catch { setError(t('vipCompare.loadFailed')) } finally { setLoading(false) }
-  }, [token, t])
+  }, [t])
 
   useEffect(() => { void load() }, [load])
 

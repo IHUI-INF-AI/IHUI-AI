@@ -8894,6 +8894,38 @@
       }
     }
   },
+  "search": {
+    "quickSuggestions": [
+      "설정",
+      "프로필",
+      "프로젝트",
+      "대화 기록",
+      "멤버",
+      "워크스페이스",
+      "단축키",
+      "AI 모델"
+    ],
+    "searchPlaceholder": "검색…",
+    "searchHistory": "검색 기록",
+    "clear": "지우기",
+    "noSuggestions": "일치하는 제안이 없습니다",
+    "tabs": {
+      "all": "전체",
+      "users": "사용자",
+      "projects": "프로젝트",
+      "files": "파일"
+    },
+    "sort": "정렬",
+    "sortRelevance": "관련도",
+    "sortTime": "시간",
+    "sortName": "이름",
+    "sortSize": "크기",
+    "emptyKeyword": "검색어를 입력하세요",
+    "loading": "검색 중...",
+    "emptyResult": "일치하는 결과가 없습니다",
+    "open": "열기",
+    "resultsCount": "총 {total}건 (사용자 {users}, 프로젝트 {projects}, 파일 {files})"
+  },
   "footer": {
     "companyName": "지린성 애즈후이 인공지능 기술 유한회사",
     "addressLine1": "창춘시 고신구 월달로 107호",
@@ -9163,6 +9195,9 @@
     "handleHint": "클릭하거나 오른쪽으로 드래그해 AI 작업공간 열기",
     "resizeHandleHint": "드래그하여 너비 조정",
     "messages": "메시지",
+    "today": "오늘",
+    "thisWeek": "이번 주",
+    "thisMonth": "이번 달",
     "confirmDeleteConversation": "삭제 확인채팅？삭제후없음복원。",
     "deleteConversation": "삭제채팅",
     "deleteFailed": "삭제실패",

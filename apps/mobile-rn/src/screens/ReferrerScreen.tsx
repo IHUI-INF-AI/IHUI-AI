@@ -4,8 +4,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card, Input } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
-import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
+import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -17,7 +16,6 @@ interface ReferrerInfo {
 
 export function ReferrerScreen() {
   const { t } = useI18n()
-  const { token } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<ReferrerInfo | null>(null)
   const [code, setCode] = useState('')
@@ -30,13 +28,10 @@ export function ReferrerScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/user/referrer`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!resp.ok) throw new Error('http')
-        const data = (await resp.json()) as { data?: ReferrerInfo }
+        const res = await fetchApi<ReferrerInfo>('/api/user/referrer')
         if (cancelled) return
-        setInfo(data.data ?? { referrerName: null, referrerCode: null })
+        if (!res.success) throw new Error('http')
+        setInfo(res.data ?? { referrerName: null, referrerCode: null })
       } catch {
         if (!cancelled) setError(t('referrer.loadFailed'))
       } finally {
@@ -46,7 +41,7 @@ export function ReferrerScreen() {
     return () => {
       cancelled = true
     }
-  }, [token, t])
+  }, [t])
 
   const handleBind = async () => {
     if (!code) {
@@ -57,15 +52,11 @@ export function ReferrerScreen() {
     setError('')
     setSuccess('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/user/referrer`, {
+      const res = await fetchApi<void>('/api/user/referrer', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ code }),
       })
-      if (!resp.ok) throw new Error('http')
+      if (!res.success) throw new Error('http')
       setInfo({ referrerName: code, referrerCode: code })
       setSuccess(t('referrer.bindSuccess'))
       setCode('')
