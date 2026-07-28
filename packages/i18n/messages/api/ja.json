@@ -1,0 +1,12 @@
+{
+  "budgetAlert": {
+    "subject": {
+      "warning": "【警告】AI 予算が上限に近づいています",
+      "critical": "【重大】AI 予算を超過しました"
+    },
+    "body": {
+      "warning": "お客様の AI 使用量が予算上限に近づいています。以下をご確認ください:\n• 本日 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 今月コスト: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\nサービス中断を避けるため、使用量を調整するか、管理者にご連絡の上上限引き上げをご依頼ください。",
+      "critical": "お客様の AI 使用量が予算上限に達しており、今後の呼び出しに影響する可能性があります:\n• 本日 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 今月コスト: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\n直ちに使用量を調整するか、管理者にご連絡の上上限引き上げをご依頼ください。超過分は制限または停止される場合があります。"
+    }
+  }
+}
