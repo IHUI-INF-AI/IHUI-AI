@@ -194,10 +194,12 @@ export function WorkspaceSelector() {
             <div className="mt-1 flex flex-col gap-0.5">
               {/* 添加工作区 */}
               <DropdownMenu.Item
-                onSelect={(e) => {
-                  e.preventDefault()
+                onSelect={() => {
                   setMenuOpen(false)
-                  setPickerOpen(true)
+                  // 延迟打开 picker:Radix DropdownMenu 关闭菜单时 portal 卸载是异步的,
+                  // 同步 setPickerOpen(true) 会导致 Dialog 与 Menu 卸载冲突,Dialog 渲染为 display:none。
+                  // 用 setTimeout 推到下一个事件循环,确保 Menu 完全卸载后再打开 Dialog。
+                  window.setTimeout(() => setPickerOpen(true), 0)
                 }}
                 className={cn(
                   'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
