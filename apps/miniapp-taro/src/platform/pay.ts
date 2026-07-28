@@ -6,6 +6,7 @@
  */
 import Taro from '@tarojs/taro'
 import { getPlatform, type MiniProgramPlatform } from './auth'
+import { isAlipaySuccess, isAlipayCancel, isAlipayPending } from '@ihui/shared/constants'
 
 export interface WechatPayParams {
   timeStamp: string
@@ -38,7 +39,7 @@ export function requestPayment(params: WechatPayParams | AlipayPayParams): Promi
 }
 
 /** 微信支付:Taro.requestPayment */
-async function requestWeappPayment(params: WechatPayParams): Promise<PayResult> {
+export async function requestWeappPayment(params: WechatPayParams): Promise<PayResult> {
   Taro.showLoading({ title: '支付中...', mask: true })
   try {
     await Taro.requestPayment({
@@ -63,7 +64,7 @@ async function requestWeappPayment(params: WechatPayParams): Promise<PayResult> 
 }
 
 /** 支付宝支付:Taro.tradePay(对应 my.tradePay,支付宝不支持 requestPayment) */
-async function requestAlipayPayment(params: AlipayPayParams): Promise<PayResult> {
+export async function requestAlipayPayment(params: AlipayPayParams): Promise<PayResult> {
   const tradeNO = params.tradeNO
   const orderStr = params.orderStr
   if (!tradeNO && !orderStr) {
@@ -77,10 +78,14 @@ async function requestAlipayPayment(params: AlipayPayParams): Promise<PayResult>
     const res = await Taro.tradePay(option)
     Taro.hideLoading()
     const resultCode = String(res.response.resultCode)
-    if (resultCode === '9000') return { platform: 'alipay', resultCode }
-    if (resultCode === '6001') {
+    if (isAlipaySuccess(resultCode)) return { platform: 'alipay', resultCode }
+    if (isAlipayCancel(resultCode)) {
       Taro.showToast({ title: '您已取消支付', icon: 'none' })
       throw 'cancel'
+    }
+    if (isAlipayPending(resultCode)) {
+      Taro.showToast({ title: '支付结果待确认', icon: 'none', duration: 2000 })
+      throw new Error(`支付宝支付待确认(${resultCode})`)
     }
     Taro.showToast({ title: '支付失败,请重试', icon: 'none' })
     throw new Error(`支付宝支付失败(${resultCode})`)
