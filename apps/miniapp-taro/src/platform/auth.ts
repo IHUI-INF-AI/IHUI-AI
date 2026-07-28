@@ -5,6 +5,9 @@
 import Taro from '@tarojs/taro'
 
 export type MiniProgramPlatform = 'weapp' | 'alipay'
+// 2026-07-28 Q-3: 扩展 getPlatform 返回类型,覆盖 app/web 环境,
+// 供 utils/pay.ts 等需要区分多端的模块复用(消除本地 getPlatform 重复实现)。
+export type RuntimePlatform = 'weapp' | 'alipay' | 'app' | 'web' | 'unknown'
 
 export interface MiniProgramLoginResult {
   /** 微信 code 或支付宝 authCode */
@@ -23,11 +26,13 @@ type AlipayAuthTaro = {
   getAuthCode(option: { scopes: string[] }): Promise<{ authCode: string; errMsg?: string }>
 }
 
-/** 获取当前平台 */
-export function getPlatform(): MiniProgramPlatform | 'unknown' {
+/** 获取当前平台(2026-07-28 Q-3: 扩展支持 app/web,供 utils/pay.ts 复用) */
+export function getPlatform(): RuntimePlatform {
   const env = Taro.getEnv()
   if (env === Taro.ENV_TYPE.WEAPP) return 'weapp'
   if (env === Taro.ENV_TYPE.ALIPAY) return 'alipay'
+  if (env === Taro.ENV_TYPE.RN) return 'app'
+  if (env === Taro.ENV_TYPE.WEB) return 'web'
   return 'unknown'
 }
 

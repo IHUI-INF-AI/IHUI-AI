@@ -47,7 +47,7 @@ export default function TeacherCard({
           <View className="flex items-center mt-1">
             <Text className="text-xs text-muted-foreground mr-3">{courseCount} 门课</Text>
             <Text className="text-xs text-muted-foreground mr-3">{studentCount} 学员</Text>
-            <Text className="text-xs text-[#f59e0b]">★ {rating.toFixed(1)}</Text>
+            <Text className="text-xs text-warning">★ {rating.toFixed(1)}</Text>
           </View>
         </View>
         <View

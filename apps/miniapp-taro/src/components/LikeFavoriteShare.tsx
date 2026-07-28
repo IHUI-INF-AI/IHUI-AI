@@ -35,10 +35,10 @@ export default function LikeFavoriteShare({
         </Text>
       </View>
       <View className="flex flex-col items-center" onClick={onFavorite}>
-        <Text className={`text-lg ${favorited ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>
+        <Text className={`text-lg ${favorited ? 'text-warning' : 'text-muted-foreground'}`}>
           {favorited ? '★' : '☆'}
         </Text>
-        <Text className={`text-xs mt-0.5 ${favorited ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>
+        <Text className={`text-xs mt-0.5 ${favorited ? 'text-warning' : 'text-muted-foreground'}`}>
           {favoriteCount > 0 ? favoriteCount : tt('action.favorite', '收藏')}
         </Text>
       </View>

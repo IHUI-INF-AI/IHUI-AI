@@ -78,6 +78,7 @@ export default function NotificationPage() {
               <View className="flex-1 mr-[16rpx]">
                 <Text className="text-[28rpx] text-foreground">{item.title}</Text>
               </View>
+              {/* TODO: native prop: Switch color 需 hex,微信小程序不支持 CSS 变量,保留 #00b96b */}
               <Switch
                 checked={item.enabled}
                 color="#00b96b"

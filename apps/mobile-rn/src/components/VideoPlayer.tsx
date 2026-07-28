@@ -17,6 +17,7 @@
  * - 'react-native-video' 在测试环境被 mock 为纯 React 组件(无原生绑定)
  * - 控件点击/拖拽事件通过 fireEvent 触发
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Pressable,
@@ -28,7 +29,6 @@ import {
 } from 'react-native'
 import Video, { type VideoRef, type OnProgressData, type OnLoadData } from 'react-native-video'
 import { useI18n } from '../i18n'
-import { tokens } from '@ihui/rn-app'
 
 import { Loading } from '@ihui/ui-native'
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2] as const

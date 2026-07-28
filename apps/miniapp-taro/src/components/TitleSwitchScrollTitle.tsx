@@ -88,6 +88,7 @@ export default function TitleSwitchScrollTitle({
           onChange={mainChange}
           className="w-[calc(100vw-60px)] box-border h-[120rpx]"
         >
+          {/* TODO: custom color: #7361FF 紫色品牌色,无对应 token,保留原值 */}
           {mainList.map((item, index) => (
             <SwiperItem
               key={index}
@@ -115,6 +116,7 @@ export default function TitleSwitchScrollTitle({
             onChange={subChange}
             className="w-[calc(100vw-60px)] box-border h-[120rpx]"
           >
+            {/* TODO: custom color: #7361FF 紫色品牌色,无对应 token,保留原值 */}
             {subList.map((item, index) => (
               <SwiperItem
                 key={index}

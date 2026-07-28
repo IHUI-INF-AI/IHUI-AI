@@ -160,7 +160,7 @@ export default function Index() {
                 (isLogin ? t('common.user') : t('home.tapLogin'))}
             </Text>
             {userInfo?.isVip ? (
-              <Text className="ml-[12rpx] px-[12rpx] py-[2rpx] bg-[#f59e0b] text-white text-[20rpx] rounded-[6rpx] font-semibold">
+              <Text className="ml-[12rpx] px-[12rpx] py-[2rpx] bg-warning text-white text-[20rpx] rounded-[6rpx] font-semibold">
                 VIP
               </Text>
             ) : null}
@@ -358,7 +358,7 @@ export default function Index() {
                 >
                   <View className="relative w-[320rpx] h-[180rpx] rounded-[16rpx] overflow-hidden">
                     <Image className="w-full h-full" src={live.coverUrl} mode="aspectFill" />
-                    <View className="absolute top-1 right-1 px-[8rpx] py-[2rpx] bg-[#f59e0b] text-white text-[20rpx] rounded-[6rpx]">
+                    <View className="absolute top-1 right-1 px-[8rpx] py-[2rpx] bg-warning text-white text-[20rpx] rounded-[6rpx]">
                       <Text>{t('live.preview')}</Text>
                     </View>
                   </View>

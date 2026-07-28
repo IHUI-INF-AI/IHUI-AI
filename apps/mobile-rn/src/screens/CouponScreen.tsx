@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
@@ -12,7 +13,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { fetchApi } from '@ihui/api-client'
-import { usePaginatedList } from '../hooks/use-paginated-list'
+import { usePaginatedList } from '../hooks'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Card } from '@ihui/ui-native'
@@ -43,9 +44,9 @@ const COUPON_TAB_KEYS: Record<CouponItem['status'], string> = {
 }
 
 function statusColor(status: CouponItem['status']): string {
-  if (status === 'available') return '#10B981'
-  if (status === 'used') return '#9CA3AF'
-  return '#DC2626'
+  if (status === 'available') return tokens.brand.DEFAULT
+  if (status === 'used') return tokens.text.tertiary
+  return tokens.danger.DEFAULT
 }
 
 export function CouponScreen() {
@@ -150,20 +151,18 @@ export function CouponScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
-  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  tabActive: { backgroundColor: PRIMARY },
-  tabText: { fontSize: 12, color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF' },
+  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tokens.surface.card },
+  tabActive: { backgroundColor: tokens.success.DEFAULT },
+  tabText: { fontSize: 12, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.surface.light },
   errorBar: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -171,30 +170,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  errorText: { fontSize: 12, color: '#DC2626' },
-  retryText: { fontSize: 12, color: PRIMARY },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+  retryText: { fontSize: 12, color: tokens.success.DEFAULT },
   center: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
+  emptyText: { fontSize: 12, color: tokens.text.tertiary, marginTop: 8 },
   card: {
     flexDirection: 'row',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: tokens.border.light,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.surface.bg,
   },
   cardLeft: {
     width: 96,
     padding: 12,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: tokens.success.light,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  amountText: { fontSize: 22, fontWeight: '700', color: PRIMARY },
-  minText: { marginTop: 4, fontSize: 11, color: '#6B7280', textAlign: 'center' },
+  amountText: { fontSize: 22, fontWeight: '700', color: tokens.success.DEFAULT },
+  minText: { marginTop: 4, fontSize: 11, color: tokens.text.secondary, textAlign: 'center' },
   cardRight: { flex: 1, padding: 12 },
-  cardName: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  validText: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
+  cardName: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  validText: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
   statusBadge: {
     alignSelf: 'flex-start',
     marginTop: 6,
@@ -202,5 +201,5 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 8,
   },
-  statusText: { fontSize: 11, color: '#FFFFFF' },
+  statusText: { fontSize: 11, color: tokens.surface.light },
 })
