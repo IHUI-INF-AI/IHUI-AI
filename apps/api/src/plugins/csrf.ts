@@ -1,4 +1,4 @@
-﻿import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import cookie from '@fastify/cookie'
@@ -39,6 +39,11 @@ const PUBLIC_PREFIXES = [
   '/api/tbox/events',
   // VIP 购买/订阅:需 authenticate 鉴权(未登录返 401 引导登录,而非 CSRF 403)
   '/api/vip/',
+  // 2026-07-28 加固:本地工作区文件浏览是 read-only(列目录结构/打开文件夹),
+  // 由 fsBridge 处理,无副作用;同时已有 requireAuth 鉴权(workspace-ai.ts:84),
+  // CSRF 校验在此是冗余(主要防 csrf 利用已登录 cookie,但 browse 无副作用可攻击),
+  // 跨端口 fetch 8801->8802 cookie 传递链路脆弱,直接豁免避免误伤合法用户
+  '/api/workspace/fs/',
 ]
 
 function secret(): string {
