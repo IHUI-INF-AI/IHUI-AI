@@ -130,7 +130,7 @@ export default function MyCommissionPage() {
         </h1>
       </header>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {stats.map((s) => (
           <Card key={s.label}>
             <CardContent className="space-y-1 p-4">
