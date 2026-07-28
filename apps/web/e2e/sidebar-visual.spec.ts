@@ -222,7 +222,7 @@ test.describe('Sidebar 视觉守门', () => {
  * Sidebar 折叠态尺寸守门测试 (2026-07-19 立)
  *
  * 防止以下回归:
- *   - 折叠态下 NavLink / SearchNavItem / ExpandableNavItem 父级宽度未统一为 36×36 正方形
+ *   - 折叠态下 NavLink / ExpandableNavItem 父级宽度未统一为 36×36 正方形
  *   - 部分导航项漏改导致折叠态背景容器尺寸不一致(原 bug:43×36 非正方形拉伸)
  *
  * 守门依据:sidebar.tsx 中 NAV_ITEM_COLLAPSED_CLASS = 'w-9 mx-auto justify-center' (36×36)
@@ -250,7 +250,7 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
   test('折叠态导航项背景容器统一为 36×36 正方形', async ({ page }) => {
     // 收集所有主导航项:
     // - 新建任务按钮 (button.bg-foreground)
-    // - NavLink / SearchNavItem / ExpandableNavItem 父级 (a[href^="/"] 或 button[aria-label])
+    // - NavLink / ExpandableNavItem 父级 (a[href^="/"] 或 button[aria-label])
     // 排除:collapse 按钮(PanelLeftClose/Open)、关闭按钮(X)、底部工具栏按钮(国旗/下载/铃铛/主题)、用户头像
     const navItems = await page.evaluate(() => {
       const aside = document.querySelector('aside')
@@ -286,8 +286,8 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
         })
       }
 
-      // 所有 nav 内 a[href^="/"] (NavLink + SearchNavItem 折叠态是 button,展开态是 button,这里也找 button)
-      // 折叠态:NavLink 渲染为 <a>,SearchNavItem 渲染为 <button>,ExpandableNavItem 父级渲染为 <button>
+      // 所有 nav 内 a[href^="/"] (NavLink 折叠态是 a,ExpandableNavItem 父级折叠态是 button)
+      // 折叠态:NavLink 渲染为 <a>,ExpandableNavItem 父级渲染为 <button>
       const candidates = Array.from(
         nav.querySelectorAll('a[href^="/"], button[aria-label]'),
       ) as Array<HTMLElement>
