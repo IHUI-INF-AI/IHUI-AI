@@ -128,13 +128,13 @@ export interface Settings {
     cacheTtlMs?: number;
   };
   /**
-   * P2-6 Voice STT 语音输入(默认关闭,启用后 /voice 命令录音 + 转写)。
+   * P2-6 Voice STT 语音输入(默认开启,2026-07-28 改:ai-service 已用 faster-whisper 本地推理,零成本)。
    *
-   * 启用方式:settings.voice.enabled = true。
+   * 启用方式:默认开启,如需关闭设 settings.voice.enabled = false。
    * 关闭时 /voice 命令提示未启用(零回归)。
    */
   voice?: {
-    /** 启用语音输入(默认 false) */
+    /** 启用语音输入(默认 true,2026-07-28 改:ai-service 本地 faster-whisper 零成本) */
     enabled?: boolean;
     /** ai-service API URL(默认用 settings.apiUrl) */
     apiUrl?: string;
