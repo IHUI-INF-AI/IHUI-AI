@@ -201,3 +201,60 @@ export interface BookmarkScreenProps {
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
+
+/** 通知类型(与后端 /api/notifications 契约对齐) */
+export type NotificationType = 'system' | 'order' | 'course' | 'social' | string
+
+/** 通知列表项(平台注入,字段对齐 mobile-rn NotificationListScreen Notif) */
+export interface NotificationListItem {
+  id: string
+  type: NotificationType
+  title: string
+  content: string
+  /** 是否已读(未读用 success 色 border + 浅色背景) */
+  read: boolean
+  createdAt: string
+}
+
+/** NotificationList 屏 props */
+export interface NotificationListScreenProps {
+  t: TFunction
+  items: NotificationListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击通知卡片回调,可选(原 RN 实现无点击跳转,wrapper 可不传) */
+  onPressItem?: (item: NotificationListItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 浏览历史对象类型(与后端 /api/history 契约对齐) */
+export type HistoryTargetType = 'course' | 'article' | 'post' | 'note' | 'live' | string
+
+/** 浏览历史列表项(平台注入,字段对齐 mobile-rn HistoryScreen HistoryItem) */
+export interface HistoryItem {
+  id: string
+  targetId: string
+  targetType: HistoryTargetType
+  title: string
+  /** 访问时间(ISO 或格式化后字符串) */
+  visitedAt: string
+}
+
+/** History 屏 props */
+export interface HistoryScreenProps {
+  t: TFunction
+  items: HistoryItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击列表项回调,平台注入导航跳转(参数为 HistoryItem 完整对象,平台依据 targetType 决定目标路由) */
+  onPressItem: (item: HistoryItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}

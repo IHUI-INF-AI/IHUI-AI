@@ -1,143 +1,55 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { useEffect, useState } from 'react'
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { NotificationListScreen as SharedNotificationListScreen } from '@ihui/rn-app'
+import type { NotificationListItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
-import { Loading } from '@ihui/ui-native'
-import type { NotificationItem } from '@ihui/types'
-
-interface Notif extends NotificationItem {
-  // read 是 isRead 的本地别名
-  read: boolean
-  // type narrowing:从 string 缩到 4 个本地实际值
-  type: 'system' | 'order' | 'course' | 'social'
-}
-
-const NOTIF_TYPE_KEYS: Record<Notif['type'], string> = {
-  system: 'notificationList.type.system',
-  order: 'notificationList.type.order',
-  course: 'notificationList.type.course',
-  social: 'notificationList.type.social',
-}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function NotificationListScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [notifs, setNotifs] = useState<Notif[]>([])
+  const [items, setItems] = useState<NotificationListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  const load = async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
+  const load = useCallback(async () => {
     setError('')
-    const res = await fetchApi<Notif[]>('/api/notifications')
-    if (res.success) setNotifs(res.data ?? [])
-    else setError(res.error || t('notificationList.loadFailed'))
-    setLoading(false)
-    setRefreshing(false)
-  }
+    try {
+      const res = await fetchApi<NotificationListItem[]>('/api/notifications')
+      if (!res.success) throw new Error()
+      setItems(res.data ?? [])
+    } catch {
+      setError(t('notificationList.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [t])
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [load])
 
-  if (loading)
-    return (
-      <View style={styles.center}>
-        <Loading />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
-  if (error && notifs.length === 0)
-    return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
-          <Text style={styles.btnText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-      </View>
-    )
   return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
-      <Text style={styles.title}>{t('notificationList.title')}</Text>
-      <FlatList
-        data={notifs}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.muted}>{t('notificationList.empty')}</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <View style={[styles.card, !item.read && styles.unread]}>
-            <View style={styles.cardHead}>
-              <Text style={[styles.type, item.type === 'system' && styles.typeSystem]}>
-                {t(NOTIF_TYPE_KEYS[item.type])}
-              </Text>
-              {!item.read ? <View style={styles.dot} /> : null}
-              <Text style={styles.meta}>{item.createdAt}</Text>
-            </View>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
-            <Text style={styles.cardContent} numberOfLines={2}>
-              {item.content}
-            </Text>
-          </View>
-        )}
-      />
-    </View>
+    <SharedNotificationListScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: tokens.surface.bg,
-    padding: 16,
-  },
-  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
-  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: tokens.text.secondary },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
-  empty: { paddingVertical: 40, alignItems: 'center' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 8 },
-  unread: { borderColor: tokens.success.DEFAULT, backgroundColor: tokens.success.light },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  type: {
-    fontSize: 10,
-    color: tokens.text.secondary,
-    backgroundColor: tokens.surface.card,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  typeSystem: { color: tokens.success.DEFAULT, backgroundColor: tokens.success.light },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tokens.danger.DEFAULT },
-  meta: { marginLeft: 'auto', fontSize: 11, color: tokens.text.tertiary },
-  cardTitle: { marginTop: 6, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-  cardContent: { marginTop: 4, fontSize: 13, color: tokens.text.medium },
-  btn: {
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: tokens.success.DEFAULT,
-  },
-  btnText: { color: tokens.surface.light, fontSize: 14 },
-})

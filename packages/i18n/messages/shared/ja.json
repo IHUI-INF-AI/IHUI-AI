@@ -237,6 +237,30 @@
       "post": "投稿"
     }
   },
+  "history": {
+    "empty": "閲覧履歴がありません",
+    "loadFailed": "履歴の読み込みに失敗しました",
+    "refresh": "更新",
+    "title": "閲覧履歴",
+    "type": {
+      "article": "記事",
+      "course": "コース",
+      "live": "ライブ",
+      "note": "ノート",
+      "post": "投稿"
+    }
+  },
+  "notificationList": {
+    "empty": "通知がありません",
+    "loadFailed": "通知の読み込みに失敗しました",
+    "title": "通知",
+    "type": {
+      "course": "コース",
+      "order": "注文",
+      "social": "ソーシャル",
+      "system": "システム"
+    }
+  },
   "faq": {
     "categoryDeploy": "デプロイと運用",
     "categoryGeneral": "プラットフォーム紹介",
