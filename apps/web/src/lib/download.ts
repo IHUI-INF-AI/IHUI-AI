@@ -1,3 +1,5 @@
+import { formatDateByTemplate } from '@ihui/shared'
+
 export function downloadText(
   content: string,
   filename: string,
@@ -24,7 +26,5 @@ export function slugifyForFilename(title: string): string {
 }
 
 export function buildTimestamp(): string {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
+  return formatDateByTemplate(new Date(), 'YYYYMMDD-HHmm')
 }

@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { useCallback } from 'react'
+import { formatDateByTemplate } from '@ihui/shared'
 import DrawerComponent from './DrawerComponent'
 import EmptyState from './EmptyState'
 import { useI18n } from '@/i18n'
@@ -37,14 +38,7 @@ const TABS: { key: MaterialTab; labelKey: string; icon: string }[] = [
 ]
 
 function formatTime(ts?: string): string {
-  if (!ts) return ''
-  try {
-    const d = new Date(ts)
-    if (isNaN(d.getTime())) return ''
-    return `${d.getMonth() + 1}/${d.getDate()}`
-  } catch {
-    return ''
-  }
+  return formatDateByTemplate(ts, 'MM/DD')
 }
 
 export default function MaterialPopup({
