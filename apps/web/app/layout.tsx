@@ -82,9 +82,18 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   manifest: '/manifest.json',
   icons: {
-    // 浏览器 favicon 与 apple-touch:统一用无文字版 logo.png(2026-07-19 全站统一)
-    icon: [{ url: '/images/logo.png?v=20260719-unify', type: 'image/png' }],
-    apple: [{ url: '/images/logo.png?v=20260719-unify' }],
+    // 2026-07-28 P1-4 SEO 资产补全:
+    // - favicon.ico(多尺寸 16/32/48)作为浏览器默认 favicon 兜底
+    // - apple-touch-icon.png(180x180)用于 iOS 添加到主屏幕
+    // - icon.png 兜底高分辨率浏览器(Chrome/Edge tab)
+    // - shortcut icon 兼容旧版 IE/Edge
+    // 老的 /images/logo.png?v=20260719-unify 保留作为 SVG 矢量备选
+    icon: [
+      { url: '/favicon.ico', sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    shortcut: [{ url: '/favicon.ico', type: 'image/x-icon' }],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
   alternates: {
     canonical: '/',
@@ -106,11 +115,13 @@ export const metadata: Metadata = {
     title: 'IHUI AI — 8 端全栈 AI 操作系统',
     description: SITE_DESCRIPTION,
     images: [
+      // 2026-07-28 P1-4 SEO 资产补全:使用新建的 og-image.png(1200x630 品牌图)
       {
-        url: '/images/logo.png?v=20260719-unify',
+        url: '/og-image.png',
         width: 1200,
         height: 630,
         alt: 'IHUI AI — 8 端全栈 AI 操作系统',
+        type: 'image/png',
       },
     ],
   },
@@ -118,7 +129,8 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'IHUI AI — 8 端全栈 AI 操作系统',
     description: SITE_DESCRIPTION,
-    images: ['/images/logo.png?v=20260719-unify'],
+    // 2026-07-28 P1-4 SEO 资产补全:Twitter card 使用 og-image.png
+    images: ['/og-image.png'],
     creator: '@ihui_ai',
   },
   robots: {
