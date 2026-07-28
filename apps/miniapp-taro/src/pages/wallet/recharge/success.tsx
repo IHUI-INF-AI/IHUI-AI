@@ -2,14 +2,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { useI18n } from '@/i18n'
-
-const timeFmt = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-})
+import { formatDateByTemplate } from '@ihui/shared'
 
 export default function RechargeSuccess() {
   const { t } = useI18n()
@@ -22,7 +15,7 @@ export default function RechargeSuccess() {
   useEffect(() => {
     setAmount(Number(router.params.amount) || 0)
     setOrderNo(decodeURIComponent(router.params.orderNo || ''))
-    setArriveTime(timeFmt.format(new Date()))
+    setArriveTime(formatDateByTemplate(new Date(), 'YYYY-MM-DD HH:mm'))
   }, [router.params.amount, router.params.orderNo])
 
   const goBack = () => {
