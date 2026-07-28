@@ -46,6 +46,9 @@ _MAX_KEY_FACTS = 20
 # 全局连接池(与 session_summarizer._pool 独立,避免互相影响)
 _pool: Optional[asyncpg.Pool] = None
 
+# P0 修复:每用户内存缓存记录上限,防止 _cache 无界增长导致 OOM
+_MAX_CACHE_ENTRIES = 500
+
 
 async def _get_pool() -> asyncpg.Pool:
     """获取 asyncpg 连接池(懒初始化,与 session_summarizer 独立)。"""
@@ -58,6 +61,17 @@ async def _get_pool() -> asyncpg.Pool:
             command_timeout=10,
         )
     return _pool
+
+
+async def close_pool() -> None:
+    """P0 修复:关闭全局 asyncpg 连接池(main.py shutdown 调用,防止重启时连接残留)。"""
+    global _pool
+    if _pool is not None:
+        try:
+            await _pool.close()
+        except Exception:
+            pass
+        _pool = None
 
 
 # =============================================================================
@@ -330,6 +344,9 @@ class LongTermMemory:
         summaries = [
             SessionSummarizer._row_to_summary_dict(row) for row in rows
         ]
+        # P0 修复:LRU 上限淘汰,SQL 已按 end_time DESC 返回,保留前 N 条最新记录,防止 OOM
+        if len(summaries) > _MAX_CACHE_ENTRIES:
+            summaries = summaries[:_MAX_CACHE_ENTRIES]
         self._cache[user_id] = summaries
         return len(summaries)
 

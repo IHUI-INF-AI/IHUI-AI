@@ -196,14 +196,23 @@ class SwarmManager {
 
   private waitForDependency(depId: string, completed: Set<string>): Promise<void> {
     if (completed.has(depId)) return Promise.resolve()
-    // 轮询等待依赖完成（简化实现）
     return new Promise((resolveWait) => {
+      // P0 修复:5 分钟超时兜底,防止依赖永远不完成导致定时器泄漏
+      const TIMEOUT_MS = 5 * 60 * 1000
       const timer = setInterval(() => {
         if (completed.has(depId)) {
           clearInterval(timer)
+          clearTimeout(timeoutGuard)
           resolveWait()
         }
       }, 100)
+      timer.unref()  // 不阻止进程退出
+
+      const timeoutGuard = setTimeout(() => {
+        clearInterval(timer)
+        resolveWait()  // 超时也 resolve,不阻塞流程
+      }, TIMEOUT_MS)
+      timeoutGuard.unref()
     })
   }
 
