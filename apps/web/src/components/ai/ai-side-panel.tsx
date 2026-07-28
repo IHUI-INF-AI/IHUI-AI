@@ -516,7 +516,8 @@ export function AISidePanel() {
   // Ctrl+1/2/3/4 切换 ChatMode 4态(2026-07-28 立,补全三通道)
   // - 仅当 AI 面板打开时生效,避免污染其他页面
   // - Ctrl+数字 不与打字冲突,故无需排除 textarea/input 聚焦场景
-  // - 与 ModeSwitcher 按钮 / /build /plan /review /spec 斜杠命令三入口联动
+  // - 与 /build /plan /review /spec 斜杠命令 + AI 自动判断三入口联动
+  //   (2026-07-28 移除 4 按钮后,4 按钮入口废弃,保留 /命令 + Ctrl 快捷键 + AI 自动判断)
   // - Ctrl+数字 在浏览器默认切换 tab,需 preventDefault 阻止
   React.useEffect(() => {
     if (!open) return
@@ -695,7 +696,11 @@ export function AISidePanel() {
               2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
               语义重叠,统一用 ModeSwitcher 控制。当前 mode 视觉指示由 sidebar ModeSwitcher 高亮态承载,
               切换入口:ModeSwitcher 4 态按钮 + Ctrl+1/2/3/4 快捷键 + /build /plan /review /spec 斜杠命令 +
-              Alt+P 快捷键(plan ↔ build)。AI 面板 header 释放 32px 空间,布局更紧凑。 */}
+              Alt+P 快捷键(plan ↔ build)。AI 面板 header 释放 32px 空间,布局更紧凑。
+              2026-07-28 v2:移除 sidebar 4 按钮后,ModeSwitcher 文件已删除,模式视觉指示由
+              message-input.tsx 的 CurrentModeBadge 承载(输入区上方小徽章),
+              切换入口:/build /plan /review /spec 斜杠命令 + Ctrl+1-4 快捷键 + AI 自动判断(发送时)。
+              Alt+P 快捷键保留(plan ↔ build 二选一场景,2026-07-28 仍有效)。 */}
             <Tooltip content={tc('newConversation')}>
               <button
                 type="button"
