@@ -92,11 +92,6 @@ interface ChatState {
    * 存 pluginId,sendMessage 时合并到 agentTools 传给后端。
    * 不持久化(每次新会话默认空)。 */
   selectedTools: string[]
-  /** Plan/Act 模式(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
-   * - 'plan':LLM 只制定计划不调用工具(后端注入 Plan Mode system prompt)
-   * - 'act':正常 tool loop 执行(默认)
-   * 持久化,跨刷新保留用户选择。 */
-  planMode: 'plan' | 'act'
   /** 最近一条会话的 messages 快照(2026-07-25 立,#12 store messages 持久化)。
    * 不在 set 中主动更新,每次 partialize 调用时从 messages + conversationId 派生。
    * 持久化目的:刷新页面后 messages 数组清空,从 recentMessages 预填充避免空状态闪烁。
@@ -105,10 +100,6 @@ interface ChatState {
   recentMessages: { conversationId: string; messages: ChatMessage[] } | null
 
   setModel: (model: string) => void
-  /** 设置 Plan/Act 模式 */
-  setPlanMode: (mode: 'plan' | 'act') => void
-  /** 切换 Plan/Act 模式(plan ↔ act) */
-  togglePlanMode: () => void
   /** 添加单个工具到已选;已存在则忽略 */
   addSelectedTool: (pluginId: string) => void
   /** 从已选移除单个工具 */
@@ -196,12 +187,9 @@ export const useChatStore = create<ChatState>()(
       pendingQuestion: null,
       subAgentActivities: [],
       selectedTools: [],
-      planMode: 'act',
       recentMessages: null,
 
       setModel: (model) => set({ currentModel: model }),
-      setPlanMode: (mode) => set({ planMode: mode }),
-      togglePlanMode: () => set((s) => ({ planMode: s.planMode === 'plan' ? 'act' : 'plan' })),
       addSelectedTool: (pluginId) =>
         set((s) =>
           s.selectedTools.includes(pluginId)
@@ -478,7 +466,8 @@ export const useChatStore = create<ChatState>()(
         currentModel: s.currentModel,
         conversationId: s.conversationId,
         draftInput: s.draftInput,
-        planMode: s.planMode,
+        // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
+        // ChatMode 由 useModeStore 独立管理,持久化不重复存储
         // #12 store messages 持久化(2026-07-25 立):
         // 仅持久化当前 conversationId 对应的 messages 最近 50 条,
         // 用于刷新页面后预填充(避免空状态闪烁),真实数据以服务端 getMessages 为准。
