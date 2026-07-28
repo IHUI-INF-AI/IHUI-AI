@@ -647,5 +647,52 @@
     "empty": "No chapters",
     "loadFailed": "Failed to load catalog",
     "duration": "{n} min"
+  },
+  "pointHistory": {
+    "title": "Points History",
+    "empty": "No points records",
+    "loadFailed": "Failed to load points",
+    "balance": "Balance"
+  },
+  "noteList": {
+    "title": "Notes",
+    "empty": "No notes",
+    "loadFailed": "Failed to load notes"
+  },
+  "articleList": {
+    "title": "Articles",
+    "empty": "No articles",
+    "loadFailed": "Failed to load articles",
+    "views": "{count} views"
+  },
+  "announcement": {
+    "title": "Announcements",
+    "empty": "No announcements",
+    "loadFailed": "Failed to load announcements",
+    "pinned": "Pinned",
+    "publishTime": "Published"
+  },
+  "livePlaybackList": {
+    "title": "Live Playback",
+    "empty": "No recordings",
+    "loadFailed": "Failed to load recordings",
+    "lecturer": "Lecturer",
+    "duration": "Duration",
+    "viewerCount": "Views",
+    "play": "Play"
+  },
+  "refundHistory": {
+    "title": "Refund History",
+    "empty": "No refund records",
+    "loadFailed": "Failed to load refunds",
+    "createdAt": "Requested"
+  },
+  "courseQAList": {
+    "title": "Course Q&A",
+    "empty": "No questions",
+    "loadFailed": "Failed to load Q&A",
+    "ask": "Ask",
+    "asker": "Asked by",
+    "answers": "Answers"
   }
 }
