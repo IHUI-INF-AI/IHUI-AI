@@ -13,6 +13,7 @@ import { ImageResponse } from 'next/og'
 export const alt = '智汇 AI — 全栈 AI 平台'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
+export const dynamic = 'force-static' // output: 'export' 模式必须声明
 
 // 构建时从 Google Fonts 加载思源黑体(中文支持)
 // 失败则回退默认字体(中文可能不渲染,但构建不中断)
