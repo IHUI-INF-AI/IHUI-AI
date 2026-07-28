@@ -576,6 +576,70 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 ---
 
+## 26. C 盘防护强制规则(强制)
+
+### 触发背景(2026-07-27 立,真实事故)
+
+C 盘 120 GB 频繁告急,根因排查发现:
+- **TRAE 自身缓存 12.88 GB**(TRAE SOLO CN 7.68 + TRAE SOLO 旧版 3.46 + Trae CN 旧版 1.74)
+- **Chrome OptGuideOnDeviceModel 4 GB**(Chrome 内置 AI 模型,用户不用)
+- **Local\Temp 累积 1.6 GB**(TRAE 旧版安装包 + pip 安装临时)
+- **项目历史违规写入 `C:\temp\ihui-*` 0.33 GB**
+
+已通过环境变量迁移 + 符号链接 + 自动维护计划任务根治。
+
+### 开发工具缓存路径强制规则(强制)
+
+**所有开发工具的全局缓存/存储/临时目录必须指向 D 盘**(已通过用户环境变量永久配置):
+
+| 工具 | 环境变量 / 配置 | 路径 |
+| --- | --- | --- |
+| Temp/TMP | `TEMP` / `TMP` / `TMPDIR` | `D:\caches\Temp` |
+| pnpm | `PNPM_HOME` + `pnpm config` | `D:\caches\pnpm\{store,global,cache,state}` |
+| npm | `npm config` | `D:\caches\npm\{cache,prefix}` |
+| pip | `pip config` | `D:\caches\pip` |
+| uv | `UV_CACHE_DIR` | `D:\caches\uv` |
+| Cargo | `CARGO_HOME` | `D:\caches\cargo` |
+| Rustup | `RUSTUP_HOME` | `D:\caches\rustup` |
+| Go | `GOPATH` / `GOMODCACHE` / `GOCACHE` | `D:\caches\go{,\pkg\mod,-build}` |
+| Playwright | `PLAYWRIGHT_BROWSERS_PATH` | `D:\caches\playwright` |
+
+**禁止 agent 在代码或脚本中硬编码 C 盘路径**作为写入目标:
+- ❌ `C:\temp\*` / `C:\Users\荣耀\AppData\Local\Temp\*`(用 `os.tmpdir()` / `$env:TEMP` 替代,会自动走 D 盘)
+- ❌ `C:\Users\荣耀\AppData\Local\*\cache`(用工具自带配置或环境变量)
+- ❌ `C:\Users\荣耀\AppData\Roaming\TRAE*\*`(TRAE 自身管理,agent 不触碰)
+
+**唯一例外**:系统日志(`debug.log` / `next-server.log`)可走 `$env:TEMP`(已指向 D 盘)。
+
+### TRAE ModularData 迁移(已配置自动迁移)
+
+- `C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\ModularData`(4.5 GB 会话历史 + 代码索引)→ `D:\caches\trae-modular-data\ModularData`(符号链接)
+- `C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\logs` → `D:\caches\trae-modular-data\logs`(符号链接)
+- **自动迁移机制**:`scripts/auto-migrate-trae-modular.ps1` 由计划任务 `IHUI-C-Drive-AutoMaintain`(每天 3am)调用,检测 TRAE 未运行时自动迁移(robocopy 复制 → 删原目录 → mklink 符号链接)
+- **手动迁移**:`pwsh -File scripts/auto-migrate-trae-modular.ps1`(需关闭 TRAE)
+
+### 自动维护计划任务(已注册)
+
+| 任务名 | 触发 | 脚本 | 功能 |
+| --- | --- | --- | --- |
+| `IHUI-C-Drive-AutoMaintain` | 每天 3am | `scripts/c-drive-auto-maintain.ps1` | 清理 TRAE/Chrome/Temp 缓存 + 触发 ModularData 迁移 |
+
+**手动触发**:`pwsh -File scripts/c-drive-auto-maintain.ps1`
+**查看日志**:`D:\caches\c-drive-maintain.log`
+**查看任务状态**:`Get-ScheduledTask -TaskName "IHUI-*"` / `schtasks /Query /TN "IHUI-C-Drive-AutoMaintain"`
+
+### 守门(待实现)
+
+- `scripts/check-c-drive-paths.mjs`(TODO):扫描 staged 文件中硬编码的 C 盘写入路径(`C:\temp\` / `C:\Users\*\AppData\Local\Temp\` 等,排除 `os.tmpdir()` / `$env:TEMP` / 注释 / 文档),warn-only。
+
+### 历史案例
+
+- 2026-07-27:C 盘 28 GB → 42 GB,释放 13.85 GB(TRAE 旧版残留 + Chrome OptGuideOnDeviceModel + Temp 旧文件)
+- 后续配置 11 个环境变量永久指向 D 盘,杜绝开发工具缓存再写 C 盘
+- TRAE ModularData 4.5 GB 待自动迁移(计划任务在 TRAE 未运行时执行)
+
+---
+
 ## 关键参考文档
 
 | 文档                      | 说明                               |
