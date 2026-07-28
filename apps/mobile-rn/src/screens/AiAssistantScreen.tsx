@@ -12,6 +12,7 @@ import {
   RefreshControl,
 } from 'react-native'
 import { getAgents, type Agent } from '@ihui/api-client'
+import { useI18n } from '../i18n'
 
 type Category = 'all' | 'writing' | 'coding' | 'office' | 'study'
 
@@ -28,6 +29,7 @@ function formatNum(n: number): string {
 }
 
 export default function AiAssistantScreen() {
+  const { t } = useI18n()
   const [category, setCategory] = useState<Category>('all')
   const [keyword, setKeyword] = useState('')
   const [items, setItems] = useState<Agent[]>([])
@@ -63,8 +65,7 @@ export default function AiAssistantScreen() {
     return keyword ? a.name.includes(keyword) || a.description.includes(keyword) : true
   })
 
-  // TODO: i18n — Alert.alert 硬编码中文待翻译(进入对话 / 即将与「X」开始对话)
-  const handleChat = (a: Agent) => Alert.alert('进入对话', `即将与「${a.name}」开始对话`)
+  const handleChat = (a: Agent) => Alert.alert(t('aiAssistant.chat.title'), t('aiAssistant.chat.message', { name: a.name }))
 
   return (
     <View style={s.container}>

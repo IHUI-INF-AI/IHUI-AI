@@ -5,6 +5,7 @@ import { getAigcTasks, type AigcTask } from '@ihui/api-client'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useI18n } from '../i18n'
 
 const PRIMARY = tokens.brand.DEFAULT
 
@@ -52,6 +53,7 @@ function mapTaskToCover(task: AigcTask): CoverOption | null {
 export default function AigcCoverScreen() {
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
+  const { t } = useI18n()
   const workTitle = (route.params?.title as string) ?? '未命名作品'
   const [covers, setCovers] = useState<CoverOption[]>([])
   const [selectedId, setSelectedId] = useState<string>('')
@@ -91,15 +93,13 @@ export default function AigcCoverScreen() {
 
   const onConfirm = () => {
     if (!selected) return
-    // TODO: i18n — Alert.alert 硬编码中文待翻译(封面已应用 / 已为「X」应用封面 / 好的)
-    Alert.alert('封面已应用', `已为「${workTitle}」应用封面:${selected.label}`, [
-      { text: '好的', onPress: () => navigation.goBack() },
+    Alert.alert(t('aigcCover.applied.title'), t('aigcCover.applied.message', { title: workTitle, label: selected.label }), [
+      { text: t('common.ok'), onPress: () => navigation.goBack() },
     ])
   }
 
   const onGenerateAi = () => {
-    // TODO: i18n — Alert.alert 硬编码中文待翻译(AI 生成封面 / 功能开发中 / 知道了)
-    Alert.alert('AI 生成封面', '功能开发中', [{ text: '知道了' }])
+    Alert.alert(t('aigcCover.aiGen.title'), t('aigcCover.aiGen.message'), [{ text: t('common.gotIt') }])
   }
 
   if (loading) {
