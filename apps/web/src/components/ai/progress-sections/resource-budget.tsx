@@ -57,7 +57,7 @@ export const ResourceBudget = React.memo(function ResourceBudget({
           </span>
           <span className="shrink-0 tabular-nums">{pct}%</span>
         </div>
-        <div className="h-1 overflow-hidden rounded-full bg-muted/40" aria-hidden>
+        <div className="h-1 overflow-hidden rounded-sm bg-muted/40" aria-hidden>
           <div
             className={cn('h-full transition-all duration-300', fillCls)}
             style={{ width: `${pct}%` }}
