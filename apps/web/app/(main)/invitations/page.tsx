@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -98,14 +98,14 @@ export default function InvitationsPage() {
   const invitees = inviteesQ.data ?? []
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <UserPlus className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={() => genMut.mutate()} disabled={genMut.isPending}>
           {genMut.isPending ? (
@@ -134,7 +134,7 @@ export default function InvitationsPage() {
           </div>
         ) : codes.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            {codes.map((c: any) => (
+            {codes.map((c) => (
               <Card key={c.id} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-center justify-between gap-2">
@@ -144,10 +144,10 @@ export default function InvitationsPage() {
                     <span
                       className={cn(
                         'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
-                        (STATUS_STYLE as any)[c.status],
+                        STATUS_STYLE[c.status],
                       )}
                     >
-                      {t((INVITATION_STATUS_KEYS as any)[c.status]!)}
+                      {t(INVITATION_STATUS_KEYS[c.status]!)}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -177,7 +177,7 @@ export default function InvitationsPage() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Gift className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('emptyCodes')}</p>
           </div>
@@ -209,7 +209,7 @@ export default function InvitationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {invitees.map((u: any) => {
+                {invitees.map((u) => {
                   const name = u.inviteeNickname ?? u.inviteeEmail ?? '-'
                   return (
                     <tr key={u.invitationId} className="transition-colors hover:bg-accent/50">
@@ -230,7 +230,7 @@ export default function InvitationsPage() {
             </table>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Users className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('emptyInvitees')}</p>
           </div>

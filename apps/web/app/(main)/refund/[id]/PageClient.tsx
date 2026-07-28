@@ -60,7 +60,11 @@ const STATUS_CONFIG: Record<string, { labelKey: string; icon: typeof Clock; cls:
     icon: CheckCircle,
     cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   },
-  rejected: { labelKey: 'status.rejected', icon: XCircle, cls: 'bg-destructive/10 text-destructive' },
+  rejected: {
+    labelKey: 'status.rejected',
+    icon: XCircle,
+    cls: 'bg-destructive/10 text-destructive',
+  },
   completed: {
     labelKey: 'status.completed',
     icon: Wallet,
@@ -83,7 +87,7 @@ export default function RefundDetailPage() {
 
       const listRes = await fetchApi<RefundListData>(`/api/refunds/me?page=1&pageSize=100`)
       if (listRes.success && listRes.data) {
-        const found = listRes.data.list?.find((r: any) => r.id === params.id)
+        const found = listRes.data.list?.find((r) => r.id === params.id)
         if (found) return { refund: found, order: null, auditRecords: [] }
       }
       throw new Error(detailRes.error || t('notFound'))
@@ -111,7 +115,7 @@ export default function RefundDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -136,7 +140,7 @@ export default function RefundDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/refund"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -181,14 +185,20 @@ export default function RefundDetailPage() {
             />
             <Row
               label={t('fields.refundType')}
-              value={refund.refundType === 'original' ? t('refundType.original') : refund.refundType}
+              value={
+                refund.refundType === 'original' ? t('refundType.original') : refund.refundType
+              }
             />
             <Row label={t('fields.applyTime')} value={fmt(refund.applyTime ?? refund.createdAt)} />
             <Row label={t('fields.processTime')} value={fmt(refund.processTime)} />
             <Row label={t('fields.completeTime')} value={fmt(refund.completeTime)} />
             {refund.reason && <Row label={t('fields.reason')} value={refund.reason} />}
-            {refund.processMessage && <Row label={t('fields.processMessage')} value={refund.processMessage} />}
-            {refund.handleMessage && <Row label={t('fields.handleMessage')} value={refund.handleMessage} />}
+            {refund.processMessage && (
+              <Row label={t('fields.processMessage')} value={refund.processMessage} />
+            )}
+            {refund.handleMessage && (
+              <Row label={t('fields.handleMessage')} value={refund.handleMessage} />
+            )}
           </dl>
         </CardContent>
       </Card>
@@ -197,7 +207,7 @@ export default function RefundDetailPage() {
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">{t('auditRecords')}</h2>
           <div className="space-y-2">
-            {auditRecords.map((record: any) => {
+            {auditRecords.map((record: AuditRecord) => {
               const cfg =
                 record.action === 'approve'
                   ? STATUS_CONFIG.approved

@@ -75,10 +75,10 @@ export default function VipPage() {
   const levels = levelsData?.items ?? []
   const myVip = myData?.vip ?? null
   const billingPlans = plansData?.plans ?? []
-  const hasRecurring = billingPlans.some((p: any) => p.isRecurring === true)
+  const hasRecurring = billingPlans.some((p) => p.isRecurring === true)
   const maxTrialDays = billingPlans
-    .filter((p: any) => p.isRecurring === true)
-    .reduce((m: any, p: any) => Math.max(m, p.trialDays ?? 0), 0)
+    .filter((p) => p.isRecurring === true)
+    .reduce((m, p) => Math.max(m, p.trialDays ?? 0), 0)
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
@@ -87,13 +87,13 @@ export default function VipPage() {
   const popularIdx = levels.length > 1 ? Math.floor(levels.length / 2) : 0
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1 text-center">
-        <h1 className="flex items-center justify-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <Crown className="h-7 w-7 text-amber-500" />
           {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 立即购买 VIP — 跳转收款落地页(支付宝支付) */}
@@ -125,10 +125,10 @@ export default function VipPage() {
 
       {myVip ? (
         <Card className="border-amber-500/40 bg-amber-50/40">
-          <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{t('currentLevel')}</p>
-              <p className="flex items-center gap-2 text-lg font-semibold">
+              <p className="flex items-center gap-2 text-base font-semibold">
                 {myVip.levelName ?? t('title')}
                 <span
                   className={cn(
@@ -153,7 +153,7 @@ export default function VipPage() {
       ) : null}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
@@ -162,13 +162,13 @@ export default function VipPage() {
           {(error as Error).message}
         </div>
       ) : levels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <Crown className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-start">
-          {levels.map((level: any, idx: any) => {
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-stretch">
+          {levels.map((level, idx) => {
             const isPopular = idx === popularIdx
             const benefits = Array.isArray(level.benefits) ? level.benefits : []
             return (
@@ -176,7 +176,7 @@ export default function VipPage() {
                 key={level.id}
                 className={cn(
                   'relative flex flex-col transition-shadow',
-                  isPopular && 'border-amber-500/50 shadow-lg lg:scale-105',
+                  isPopular && 'border-amber-500/50 shadow-lg',
                 )}
               >
                 {isPopular && (
@@ -206,10 +206,10 @@ export default function VipPage() {
 
                   {benefits.length > 0 && (
                     <ul className="mb-6 space-y-2 text-sm">
-                      {benefits.map((b: any, i: any) => (
+                      {benefits.map((b, i) => (
                         <li key={`benefit-${i}`} className="flex items-start gap-2">
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                          <span>{b}</span>
+                          <span>{t(`benefitList.${b}`)}</span>
                         </li>
                       ))}
                     </ul>
@@ -227,7 +227,7 @@ export default function VipPage() {
         </div>
       )}
 
-      <div className="rounded-lg border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border bg-muted/30 p-3 text-center text-xs text-muted-foreground">
         {t('faqHint')}
       </div>
       <div className="text-center">

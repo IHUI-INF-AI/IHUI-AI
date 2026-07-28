@@ -53,7 +53,8 @@ import { financeRoutes } from './finance.js'
 import { authExtendedRoutes } from './auth-extended.js'
 import { authSsoRoutes } from './auth-sso.js'
 import { vipRoutes, adminVipRoutes } from './vip.js'
-import { aiPricingRoutes } from './ai-pricing.js'
+// P0-3a/b 配套:AI 模型定价公开查询(/api/ai-pricing, /api/ai-pricing/stats, /api/ai-pricing/:modelId)
+import aiPricingRoutes from './ai-pricing.js'
 import { developerPortalRoutes } from './developer-portal.js'
 import { agentsRoutes } from './agents.js'
 import { agentsKanbanRoutes } from './agents-kanban.js'
@@ -499,7 +500,7 @@ export function registerRoutes(server: FastifyInstance) {
   // VIP 会员：等级/购买/我的 + admin（R1 补完）
   server.register(vipRoutes, { prefix: '/api' })
   server.register(adminVipRoutes, { prefix: '/api/admin' })
-  // AI 模型定价公开查询（P0-3a/b 配套,定价页用）
+  // AI 模型定价公开查询（P0-3a/b 配套,定价页用,/api/ai-pricing）
   server.register(aiPricingRoutes, { prefix: '/api' })
   // 开发者门户公开元信息（P0-4a/b 配套,开发者门户页用）
   server.register(developerPortalRoutes, { prefix: '/api' })

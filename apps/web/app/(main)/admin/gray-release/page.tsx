@@ -82,7 +82,7 @@ export default function GrayReleasePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -98,12 +98,12 @@ export default function GrayReleasePage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('search')}
         </div>
       ) : rules.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           {t('grayRelease.noData')}
         </div>
       ) : (

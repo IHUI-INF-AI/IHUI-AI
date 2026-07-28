@@ -39,13 +39,21 @@ export default function KnowledgeRagChunksPage() {
   const t = useTranslations('knowledgeRag.chunks')
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
 
-  const { data: doc, isLoading: docLoading, error: docError } = useQuery({
+  const {
+    data: doc,
+    isLoading: docLoading,
+    error: docError,
+  } = useQuery({
     queryKey: ['knowledgeRag', 'doc', id],
     queryFn: () => api<DocSummary>(`/api/knowledge/docs/${id}`),
     enabled: Boolean(id),
   })
 
-  const { data: chunks, isLoading, error } = useQuery({
+  const {
+    data: chunks,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['knowledgeRag', 'chunks', id],
     queryFn: () => api<ChunkItem[]>(`/api/knowledge/docs/${id}/chunks?limit=${PAGE_LIMIT}`),
     enabled: Boolean(id),
@@ -62,7 +70,7 @@ export default function KnowledgeRagChunksPage() {
 
   if (isLoading || docLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -89,7 +97,7 @@ export default function KnowledgeRagChunksPage() {
   const items = chunks ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Link
         href={`/knowledge-rag/${id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -99,8 +107,8 @@ export default function KnowledgeRagChunksPage() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{doc.title}</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{doc.title}</h1>
+        <p className="text-xs text-muted-foreground">
           {t('totalCount', { count: doc.chunkCount })}
         </p>
       </header>
@@ -111,10 +119,11 @@ export default function KnowledgeRagChunksPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((c: any) => {
+          {items.map((c: ChunkItem) => {
             const isExpanded = expanded.has(c.id)
             const tooLong = c.content.length > PREVIEW_LEN
-            const display = tooLong && !isExpanded ? `${c.content.slice(0, PREVIEW_LEN)}…` : c.content
+            const display =
+              tooLong && !isExpanded ? `${c.content.slice(0, PREVIEW_LEN)}…` : c.content
             return (
               <Card key={c.id}>
                 <CardContent className="p-4">

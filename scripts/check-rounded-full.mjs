@@ -23,21 +23,14 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { withExcludes } from './lib/exclude-dirs.mjs'
+import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
 
-const C = {
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  dim: '\x1b[2m',
-  bold: '\x1b[1m',
-  reset: '\x1b[0m',
-}
-
-const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.venv', '.worktrees', '__tests__', 'build', 'dist', 'e2e', 'node_modules', 'tests'])
+// EXCLUDE_DIRS:基于共享 EXCLUDE_DIRS,追加脚本特有(.trae-cn / tests / __tests__ / e2e)
+const EXCLUDE_DIRS = withExcludes(['.trae-cn', 'tests', '__tests__', 'e2e'])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss']
 

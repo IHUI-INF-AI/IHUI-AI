@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -95,7 +95,7 @@ export default function WithdrawRecordsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <div className="flex items-center justify-between">
         <Link
           href="/distribution/withdraw"
@@ -107,7 +107,7 @@ export default function WithdrawRecordsPage() {
       </div>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
           <ArrowDownToLine className="h-7 w-7 text-primary" />
           {t('withdrawRecordsTitle')}
         </h1>
@@ -148,7 +148,7 @@ export default function WithdrawRecordsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((it: any) => (
+              items.map((it) => (
                 <TableRow key={it.id}>
                   <TableCell className="px-4 py-2.5 text-right font-medium">
                     {fmtYuan(it.originalAmount)}
