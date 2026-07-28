@@ -52,6 +52,9 @@ _MIN_MESSAGES_FOR_SUMMARY = 5
 # 全局连接池(与 meta_learner._pool 独立,避免互相影响)
 _pool: Optional[asyncpg.Pool] = None
 
+# P0 修复:每用户内存缓存记录上限,防止 _cache 无界增长导致 OOM(防御性:目前 _cache 未被写入)
+_MAX_CACHE_ENTRIES = 500
+
 
 async def _get_pool() -> asyncpg.Pool:
     """获取 asyncpg 连接池(懒初始化,与 meta_learner 独立避免互相影响)。"""
@@ -64,6 +67,17 @@ async def _get_pool() -> asyncpg.Pool:
             command_timeout=10,
         )
     return _pool
+
+
+async def close_pool() -> None:
+    """P0 修复:关闭全局 asyncpg 连接池(main.py shutdown 调用,防止重启时连接残留)。"""
+    global _pool
+    if _pool is not None:
+        try:
+            await _pool.close()
+        except Exception:
+            pass
+        _pool = None
 
 
 # =============================================================================

@@ -35,6 +35,9 @@ logger = logging.getLogger(__name__)
 # 全局连接池(与 meta_learner._pool / user_profile._pool 独立,避免互相影响)
 _pool: Optional[asyncpg.Pool] = None
 
+# P0 修复:每用户内存缓存记录上限,防止 _cache 无界增长导致 OOM
+_MAX_CACHE_ENTRIES = 500
+
 
 async def _get_pool() -> asyncpg.Pool:
     """获取 asyncpg 连接池(懒初始化,与其他 service 独立避免互相影响)。"""
@@ -47,6 +50,17 @@ async def _get_pool() -> asyncpg.Pool:
             command_timeout=10,
         )
     return _pool
+
+
+async def close_pool() -> None:
+    """P0 修复:关闭全局 asyncpg 连接池(main.py shutdown 调用,防止重启时连接残留)。"""
+    global _pool
+    if _pool is not None:
+        try:
+            await _pool.close()
+        except Exception:
+            pass
+        _pool = None
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -437,6 +451,9 @@ class MultimodalMemory:
             return 0
 
         records: list[dict[str, Any]] = [_row_to_record(row) for row in rows]
+        # P0 修复:LRU 上限淘汰,SQL 已按 created_at DESC 返回,保留前 N 条最新记录,防止 OOM
+        if len(records) > _MAX_CACHE_ENTRIES:
+            records = records[:_MAX_CACHE_ENTRIES]
         self._cache[user_id] = records
         return len(records)
 
@@ -462,6 +479,9 @@ class MultimodalMemory:
                 bucket[i] = record
                 return
         bucket.append(record)
+        # P0 修复:LRU 上限淘汰,超出 _MAX_CACHE_ENTRIES 时移除最旧记录,防止 OOM
+        while len(bucket) > _MAX_CACHE_ENTRIES:
+            bucket.pop(0)
 
     def _remove_from_cache(self, user_id: str, memory_id: str) -> bool:
         """从内存缓存删除指定 id。"""

@@ -819,11 +819,20 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
     const existingConvId = conversationId || (await getCozeConversationId(targetUserId, botId))
 
+    // P1 修复:补齐 SSE 连接清理 — hijack + AbortController + close 监听 + 超时兜底
+    reply.hijack()
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     })
+
+    const controller = new AbortController()
+    const onClose = () => controller.abort()
+    request.raw.on('close', onClose)
+
+    // 5 分钟兜底超时,防止上游挂住导致连接泄漏
+    const timeoutGuard = setTimeout(() => controller.abort(), 5 * 60 * 1000)
 
     let newConversationId: string | null = null
     try {
@@ -840,10 +849,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           conversation_id: existingConvId,
           stream: true,
         }),
+        signal: controller.signal,
       })
       if (!resp.ok || !resp.body) {
         reply.raw.write(`data: ${JSON.stringify({ error: `Coze API ${resp.status}` })}\n\n`)
-        reply.raw.end()
         return
       }
       const reader = resp.body.getReader()
@@ -878,8 +887,13 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         await saveCozeConversationId(targetUserId, botId, newConversationId).catch(() => {})
       }
     } catch (e) {
-      reply.raw.write(`data: ${JSON.stringify({ error: (e as Error).message })}\n\n`)
+      // 客户端断开导致的 AbortError 不写错误帧
+      if (!(e instanceof Error && e.name === 'AbortError')) {
+        reply.raw.write(`data: ${JSON.stringify({ error: (e as Error).message })}\n\n`)
+      }
     } finally {
+      clearTimeout(timeoutGuard)
+      request.raw.removeListener('close', onClose)
       reply.raw.end()
     }
   })
