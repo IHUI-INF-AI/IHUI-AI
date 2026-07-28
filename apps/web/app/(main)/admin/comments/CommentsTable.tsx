@@ -111,11 +111,7 @@ export function CommentsTable({ list, isLoading, onOpenDetail, onDelete, deleteP
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Tooltip content={t('viewDetail')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onOpenDetail(item.id)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onOpenDetail(item.id)}>
                           <Eye className="h-4 w-4" />
                         </Button>
                       </Tooltip>
@@ -169,7 +165,7 @@ export function CommentDrawer({ open, commentId, onClose }: DrawerProps) {
   const comment = data?.comment
   const replies = data?.replies ?? []
   return (
-    <Dialog open={open} onOpenChange={(o: any) => (o ? null : onClose())}>
+    <Dialog open={open} onOpenChange={(o: boolean) => (o ? null : onClose())}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -222,7 +218,7 @@ export function CommentDrawer({ open, commentId, onClose }: DrawerProps) {
                 </div>
               ) : (
                 <div className="max-h-64 space-y-2 overflow-auto">
-                  {replies.map((r: any) => (
+                  {replies.map((r) => (
                     <div key={r.id} className="rounded-md border bg-card p-2 text-sm">
                       <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{r.userNickname ?? '-'}</span>

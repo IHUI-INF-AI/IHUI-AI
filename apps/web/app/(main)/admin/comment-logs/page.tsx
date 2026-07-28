@@ -65,7 +65,7 @@ export default function CommentLogsPage() {
                 </td>
               </tr>
             ) : (
-              list.map((item: any) => (
+              list.map((item) => (
                 <tr key={item.id} className="hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{item.userName}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{item.content}</td>

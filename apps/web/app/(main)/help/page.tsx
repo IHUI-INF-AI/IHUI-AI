@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -43,7 +43,7 @@ export default function HelpPage() {
   }
 
   const kw = q.trim().toLowerCase()
-  const filtered = articles.filter((a: any) => {
+  const filtered = articles.filter((a) => {
     if (active !== 'all' && a.category !== active) return false
     if (!kw) return true
     const excerpt = a.summary ?? excerptFromContent(a.content)
@@ -57,13 +57,13 @@ export default function HelpPage() {
     )
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <HelpCircle className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="relative max-w-md">
@@ -88,7 +88,7 @@ export default function HelpPage() {
             {t('allArticles')}
             <span className="ml-auto text-xs text-muted-foreground">{articles.length}</span>
           </button>
-          {cats.map((c: any) => (
+          {cats.map((c) => (
             <button
               key={c.slug}
               type="button"
@@ -106,7 +106,7 @@ export default function HelpPage() {
 
         <div>
           {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               {t('loading')}
             </div>
@@ -116,7 +116,7 @@ export default function HelpPage() {
             </div>
           ) : filtered.length > 0 ? (
             <div className="space-y-2">
-              {filtered.map((a: any) => (
+              {filtered.map((a) => (
                 <Link key={a.slug} href={`/help/${a.slug}`} className="block">
                   <Card className="transition-colors hover:bg-accent">
                     <CardContent className="p-4">
@@ -135,7 +135,7 @@ export default function HelpPage() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
               <HelpCircle className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">{t('empty')}</p>
             </div>

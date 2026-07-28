@@ -1,6 +1,6 @@
 # AGENTS.md — IHUI-AI 项目 Agent 指南
 
-> 作用域:`d:\桌面\项目\IHUI-AI` 仓库根目录及所有子目录。
+> 作用域:`g:\IHUI-AI` 仓库根目录及所有子目录。
 > 历史案例归档见 `.trae-cn/archive/AGENTS_history.md`。
 > 本文件为精简版(2026-07-25 重构,原 783 行 → ≤400 行),保留所有强制规则核心条款。
 
@@ -41,11 +41,23 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - 做减法,最小化代码,零冗余。复用现有代码和模式,不创建文档文件(除非明确要求),不加 copyright/license header。
 
+### TypeScript 类型零技术债(强制)
+
+- **尽最大程度禁用 `any`**,优先用 `unknown` + 类型守卫 / `as const` / 泛型 / 条件类型 / 工具类型(`Pick`/`Omit`/`Record`/`Partial`/`Required`/`ReturnType`/`Parameters`)/ 精确接口替代,禁止把 `any` 当"类型兜底"逃避设计。
+- **深度分析 TS 用法**:函数签名(入参/出参/泛型约束)、对象字段、API 响应、props、state 必须显式标注精确类型;能由 `tsc` 推断且可读性良好的局部变量可省略,但禁止"省略 = 不写类型"扩散到公共 API。
+- **必须用 `any` 的例外(三选一)**:① 第三方库无 `@types` 或类型声明缺失;② 泛型推断失败且无法用 `unknown` + 守卫替代;③ 跨包循环依赖无法用类型导入断言解决。**必须**附行内注释 `// FIXME(any): 原因 + 移除计划 + 截止版本`,后续 PR 必须清理。
+- **不留技术债**:新代码 `tsc --noEmit` 必须 0 错误,禁止"先 any 后修"占位;重构遗留 `any` 必须替换为精确类型,**禁止**复制粘贴扩散 `any`;PR 引入新的 `any` 必须在 PR 描述说明例外依据。
+- **守门**(分层渐进):
+  - **过渡期(当前生效)**:`@typescript-eslint/no-explicit-any: error`(packages/eslint-config/index.js,syntax-level 不需 type info,已生效)。lint-staged 对 staged 源码文件触发阻塞,新代码引入 `any` 会在 `pnpm lint` 报错。
+  - **目标态(已评估,推迟启用)**:`@typescript-eslint/no-unsafe-assignment` / `no-unsafe-member-access` / `no-unsafe-call` / `no-unsafe-return` / `no-unsafe-argument` 五条规则设为 `error`。**2026-07-28 评估结论**:实测启用 `recommendedTypeChecked` + `projectService` 后,(a) 性能不可接受 — cli 包(最小)lint 时间 2.7s -> 51.9s(慢 19 倍),web/api 包预计 30s -> 600s+;(b) 历史错误多 — cli 包已报 30+ 处(`require-await` / `no-unsafe-assignment` / `no-base-to-string` / `restrict-template-expressions` / `no-unnecessary-type-assertion`),全量预计 300+ 处;(c) 配置陷阱 — `eslint.config.js` 不被 tsconfig include 需 `allowDefaultProject`,JS 文件需单独豁免 `no-unsafe-*`。**启用前置条件(全部满足才可启用)**:1. lint 性能优化方案落地(eslint cache 持久化 / 仅 staged 文件 typed-lint / CI 才跑全量 typed-lint);2. 历史类型错误清零(`require-await` 等非 unsafe 错误先修);3. `allowDefaultProject` 配置就绪。
+  - **测试文件豁免**:`**/*.test.ts` / `**/*.spec.ts` / `**/tests/**` / `**/test/**` / `**/e2e/**` 路径下的 mock/stub 代码允许 `any`(mock 类型断言必需),启用 typed-linting 后通过 `files` overrides 关闭上述规则。
+  - CI `pnpm typecheck` 全绿方可合并。
+
 ---
 
 ## 4. 前端 UI 约束
 
-- compact 紧凑、elegant 优雅。hover 用 subtle 颜色变化,**不要蓝色发光边框**。复用 `packages/ui` 的 Card/Button/Input/Dialog。每个页面 < 250 行。时间用 `Intl.DateTimeFormat`,头像用 initials。状态徽章:draft 灰 / published 绿。积分正数绿色,负数红色。
+- compact 紧凑、elegant 优雅。hover 用 subtle 颜色变化,**不要蓝色发光边框**。复用 `packages/ui-react` 的 Card/Button/Input/Dialog。每个页面 < 250 行。时间用 `Intl.DateTimeFormat`,头像用 initials。状态徽章:draft 灰 / published 绿。积分正数绿色,负数红色。
 
 ### 圆角守门(强制)
 
@@ -527,7 +539,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 ### 强制动作(缺一不可,违反视为协作事故)
 
 1. **临时文件必须放 `.trae-cn/tmp/<任务名>/`**:例如 `.trae-cn/tmp/perm-popover-debug/verify-v2.mjs`。
-2. **禁止放 apps/* 根目录**:`apps/web/verify-*.mjs` / `apps/api/verify-*.ts` 等位置**严禁** commit。
+2. _*禁止放 apps/* 根目录_*:`apps/web/verify-*.mjs` / `apps/api/verify-*.ts` 等位置**严禁** commit。
 3. **禁止放 .trae-cn/ 根目录**:`.trae-cn/verify-*.mjs` 与守门脚本混在一起,难追溯。
 4. **路径推导用项目内路径**:`$PSScriptRoot` / `__dirname` / `import.meta.url`,不写硬编码绝对路径(§15 卫生规则)。
 5. **任务完成后清理**:`rm -rf .trae-cn/tmp/<任务名>/`(已 gitignore,自动忽略)。

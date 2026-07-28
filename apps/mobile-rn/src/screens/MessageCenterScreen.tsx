@@ -28,6 +28,7 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatDateByTemplate } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -39,16 +40,6 @@ type Item = (NotificationItem & { _kind: 'notification' }) | (MessageItem & { _k
 const MESSAGE_CENTER_TAB_KEYS: Record<TabKey, string> = {
   notification: 'messageCenter.tab_notification',
   message: 'messageCenter.tab_message',
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value))
 }
 
 interface MessagePage {
@@ -217,7 +208,7 @@ export function MessageCenterScreen() {
                   <Text style={styles.itemContent} numberOfLines={2}>
                     {item.content}
                   </Text>
-                  <Text style={styles.itemDate}>{formatDate(item.createdAt)}</Text>
+                  <Text style={styles.itemDate}>{formatDateByTemplate(item.createdAt, 'YYYY-MM-DD HH:mm')}</Text>
                 </View>
                 {item._kind === 'message' && item.fromAvatar ? (
                   <Image source={{ uri: item.fromAvatar }} style={styles.avatar} />

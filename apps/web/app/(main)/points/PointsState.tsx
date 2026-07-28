@@ -30,7 +30,7 @@ export function PointsState({
   }
   const I = Icon ?? Star
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
       <I className="h-8 w-8 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">{text}</p>
     </div>

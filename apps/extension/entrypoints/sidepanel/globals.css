@@ -17,6 +17,7 @@
 
 /* 共享 design token(颜色/圆角/字体/vcenter/动画/断点)— 与 web 端单一来源 */
 @import '../../../../packages/design-tokens/src/styles/tokens.css';
+@import '../../../../packages/design-tokens/src/styles/base.css';
 
 /* ===== 基础 reset ===== */
 
@@ -24,16 +25,8 @@
   box-sizing: border-box;
 }
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  font-family: var(--font-sans);
+html {
   font-size: 14px;
-  background: var(--color-background);
-  color: var(--color-foreground);
 }
 
 /* ===== 登录外壳样式 =====

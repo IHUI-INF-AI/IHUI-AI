@@ -18,7 +18,7 @@ export default function BusinessCardIndex() {
   const [uploading, setUploading] = useState(false)
 
   const loadCardData = useCallback(() => {
-    const data = (Taro.getStorageSync('data') || {}) as StoredData
+    const data = (Taro.getStorageSync('ihui-business-card-data') || {}) as StoredData
     const cardUrl = data?.thirdPartyAccounts?.card || ''
     setCard(cardUrl)
     setIsShow(Boolean(cardUrl))
@@ -33,14 +33,14 @@ export default function BusinessCardIndex() {
       const res = await Taro.chooseImage({ count: 1, sizeType: ['compressed'] })
       const tempPath = res.tempFilePaths?.[0]
       if (!tempPath) return
-      const data = (Taro.getStorageSync('data') || {}) as StoredData
+      const data = (Taro.getStorageSync('ihui-business-card-data') || {}) as StoredData
       const uuid = data.uuid || ''
       await api.updateBusinessCard({ uuid, card: tempPath })
       const merged: StoredData = {
         ...data,
         thirdPartyAccounts: { ...(data.thirdPartyAccounts || {}), card: tempPath },
       }
-      Taro.setStorageSync('data', merged)
+      Taro.setStorageSync('ihui-business-card-data', merged)
       setCard(tempPath)
       setIsShow(true)
       Taro.showToast({ title: tt('businessCard.uploaded', '名片已上传'), icon: 'success' })

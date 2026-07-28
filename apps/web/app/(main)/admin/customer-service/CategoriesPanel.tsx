@@ -93,7 +93,7 @@ export function CategoriesPanel() {
                 </td>
               </tr>
             ) : (
-              list.map((c: any) => (
+              list.map((c) => (
                 <tr key={c.id}>
                   <td className="px-4 py-2.5 font-medium">{c.name}</td>
                   <td className="px-4 py-2.5 font-mono text-xs">{c.slug}</td>

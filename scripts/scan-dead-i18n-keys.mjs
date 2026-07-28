@@ -1,32 +1,37 @@
 #!/usr/bin/env node
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
- * i18n 死 key 审计器 — web 兼容入口(2026-07-26 重构,2026-07-26 抽出公共函数到 _i18n-scan-helpers.mjs)
+ * i18n 死 key 审计器 — 统一入口(2026-07-27 重构:5 端收敛为 --target 单脚本)
  *
- * 历史:本脚本是 web 端 baseline,2026-07-26 扩展支持 4 端(--target 切换);
- *      2026-07-26 进一步抽出公共逻辑到 _i18n-scan-helpers.mjs,4 端独立脚本
- *      (scan-extension-dead-i18n-keys.mjs 等)直接调用 helper,本入口保留
- *      --target 兼容(供旧调用方/测试用,推荐 4 端独立脚本)。
+ * 历史:原 5 份独立脚本(scan-{web,extension,miniapp-taro,mobile-rn,desktop}-dead-i18n-keys.mjs)
+ *      逻辑高度相似(各端配置 + 调用 _i18n-scan-helpers.mjs 的 main()),
+ *      2026-07-27 收敛为本统一入口,5 端配置内聚为 TARGETS 字典;
+ *      5 个旧脚本改为 thin wrapper(spawnSync 委托本入口 --target=<端>),向后兼容。
  *
  * 用法:
  *   node scripts/scan-dead-i18n-keys.mjs                              # 默认 target=web
  *   node scripts/scan-dead-i18n-keys.mjs --target miniapp-taro        # 指定目标端
+ *   node scripts/scan-dead-i18n-keys.mjs --target web --check         # 烟测模式(= --dry-run,不写报告)
  *   node scripts/scan-dead-i18n-keys.mjs --target web --dry-run       # 只打印统计
  *   node scripts/scan-dead-i18n-keys.mjs --out <path>                 # 自定义输出路径
  *   node scripts/scan-dead-i18n-keys.mjs --exit 1                     # 发现死 key 则 exit 1
  *   node scripts/scan-dead-i18n-keys.mjs --help                       # 帮助
  *
- * 支持目标端(2026-07-26 扩展,原仅 web):
+ * 支持目标端(2026-07-27 5 端收敛):
  *   - web          (默认,代码扫描含 web/miniapp-taro/cli/mobile-rn,因 web i18n 跨端共享)
+ *   - extension    (代码扫描 apps/extension/{entrypoints,src,lib})
  *   - miniapp-taro (代码扫描仅 apps/miniapp-taro/src)
  *   - mobile-rn    (代码扫描仅 apps/mobile-rn/src)
- *   - extension    (代码扫描 apps/extension/{entrypoints,src,lib})
+ *   - cli          (Node.js CLI,代码扫描 apps/cli/src)
+ *   - desktop      (Rust/Tauri 包装,无 JS 代码,messages 目录未建立,自动跳过 exit 0)
  *
- * 4 端独立脚本(2026-07-26 新增,推荐):
- *   node scripts/scan-extension-dead-i18n-keys.mjs
- *   node scripts/scan-mobile-rn-dead-i18n-keys.mjs
- *   node scripts/scan-desktop-dead-i18n-keys.mjs
- *   node scripts/scan-miniapp-taro-dead-i18n-keys.mjs
+ * 5 端 thin wrapper(向后兼容,委托本入口):
+ *   node scripts/scan-web-dead-i18n-keys.mjs          # → --target=web
+ *   node scripts/scan-extension-dead-i18n-keys.mjs    # → --target=extension
+ *   node scripts/scan-miniapp-taro-dead-i18n-keys.mjs # → --target=miniapp-taro
+ *   node scripts/scan-mobile-rn-dead-i18n-keys.mjs    # → --target=mobile-rn
+  # cli 无 thin wrapper,直接用 --target=cli
+ *   node scripts/scan-desktop-dead-i18n-keys.mjs      # → --target=desktop
  *
  * 死 key 判定 / 翻译完整性 / 动态 key:见 _i18n-scan-helpers.mjs 注释
  */
@@ -39,7 +44,6 @@ const TARGETS = {
       'apps/web/src',
       'apps/web/app', // Next.js 15 App Router(2026-07-26 漏扫 bug 修复)
       'apps/miniapp-taro/src',
-      'apps/cli/src',
       'apps/mobile-rn/src', // React Native 端,2026-07-26 mobile-rn 子任务补扫(与 web 共享部分 leaf key)
     ],
   },
@@ -51,9 +55,17 @@ const TARGETS = {
     localeDir: 'packages/i18n/messages/mobile-rn',
     scanTargets: ['apps/mobile-rn/src'],
   },
+  cli: {
+    localeDir: 'packages/i18n/messages/cli',
+    scanTargets: ['apps/cli/src'],
+  },
   extension: {
     localeDir: 'packages/i18n/messages/extension',
     scanTargets: ['apps/extension/entrypoints', 'apps/extension/src', 'apps/extension/lib'],
+  },
+  desktop: {
+    localeDir: 'packages/i18n/messages/desktop',
+    scanTargets: [], // desktop 是 Rust/Tauri 包装,无 JS 代码可扫描;messages 目录未建立,自动跳过 exit 0
   },
 }
 
@@ -63,11 +75,13 @@ function parseArgs(argv) {
   const args = { dryRun: false, exitOnDead: false, out: null, help: false, target: 'web' }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--dry-run') args.dryRun = true
+    // --check: 烟测模式(= --dry-run),验证脚本能跑,不写报告,exit 0(除非真实错误如 messages 损坏)
+    if (a === '--dry-run' || a === '--check') args.dryRun = true
     else if (a === '--exit') { args.exitOnDead = argv[++i] === '1' }
     else if (a === '--out') args.out = argv[++i]
-    else if (a === '--target') {
-      const t = argv[++i]
+    else if (a === '--target' || a.startsWith('--target=')) {
+      // 同时支持 --target web(空格)和 --target=web(等号)两种形式
+      const t = a.startsWith('--target=') ? a.slice('--target='.length) : argv[++i]
       if (!TARGETS[t]) {
         console.error(`[scan-dead-i18n-keys] 错误:未知 target '${t}',支持: ${Object.keys(TARGETS).join(', ')}`)
         process.exit(1)
@@ -80,29 +94,33 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`scan-dead-i18n-keys.mjs — i18n 死 key 审计器(web 兼容入口)
+  console.log(`scan-dead-i18n-keys.mjs — i18n 死 key 审计器(统一入口,5 端收敛)
 
 用法:
   node scripts/scan-dead-i18n-keys.mjs                              # 默认 target=web
   node scripts/scan-dead-i18n-keys.mjs --target miniapp-taro        # 指定目标端
+  node scripts/scan-dead-i18n-keys.mjs --target web --check         # 烟测模式(= --dry-run,不写报告)
   node scripts/scan-dead-i18n-keys.mjs --target web --dry-run       # 只打印统计
   node scripts/scan-dead-i18n-keys.mjs --out <path>                 # 自定义输出路径
   node scripts/scan-dead-i18n-keys.mjs --exit 1                     # 发现死 key 则 exit 1
   node scripts/scan-dead-i18n-keys.mjs --help                       # 帮助
 
-支持 target:
-  web          (默认,代码扫描含 web/miniapp-taro/cli/mobile-rn,因 web i18n 跨端共享)
+支持 target(5 端):
+  web          (默认,代码扫描含 web/miniapp-taro/mobile-rn,因 web i18n 跨端共享)
+  cli          (代码扫描 apps/cli/src)
+  extension    (代码扫描 apps/extension/{entrypoints,src,lib})
   miniapp-taro (代码扫描仅 apps/miniapp-taro/src)
   mobile-rn    (代码扫描仅 apps/mobile-rn/src)
-  extension    (代码扫描 apps/extension/{entrypoints,src,lib})
+  desktop      (Rust/Tauri 包装,无 JS 代码,messages 未建立,自动跳过 exit 0)
 
-4 端独立脚本(2026-07-26 新增,推荐):
-  node scripts/scan-extension-dead-i18n-keys.mjs
-  node scripts/scan-mobile-rn-dead-i18n-keys.mjs
-  node scripts/scan-desktop-dead-i18n-keys.mjs
-  node scripts/scan-miniapp-taro-dead-i18n-keys.mjs
+5 端 thin wrapper(向后兼容,委托本入口 --target=<端>):
+  node scripts/scan-web-dead-i18n-keys.mjs          # → --target=web
+  node scripts/scan-extension-dead-i18n-keys.mjs    # → --target=extension
+  node scripts/scan-miniapp-taro-dead-i18n-keys.mjs # → --target=miniapp-taro
+  node scripts/scan-mobile-rn-dead-i18n-keys.mjs    # → --target=mobile-rn
+  node scripts/scan-desktop-dead-i18n-keys.mjs      # → --target=desktop
 
-输出:.trae-cn/tmp/i18n-dead-keys-${TODAY}-<target>.md(默认)
+输出:.trae-cn/tmp/i18n-dead-keys-${TODAY}-<target>.md(默认,web 无 target 后缀)
 排除:node_modules / .next / dist / __tests__ / *.test.ts(x) / *.spec.ts(x) / .d.ts
 `)
 }

@@ -40,7 +40,7 @@ export function AdvertiseDialog({
 }: Props) {
   const t = useTranslations('admin.advertise')
   return (
-    <Dialog open={open} onOpenChange={(o: any) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
       <DialogContent className="max-w-lg">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
@@ -55,7 +55,9 @@ export function AdvertiseDialog({
             <Label>{t('labelTitle')}</Label>
             <Input
               value={form.title}
-              onChange={(e: any) => setForm({ ...form, title: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                setForm({ ...form, title: e.target.value })
+              }
               placeholder={t('placeholderTitle')}
             />
           </div>
@@ -63,7 +65,9 @@ export function AdvertiseDialog({
             <Label>{t('labelPosition')}</Label>
             <Input
               value={form.position}
-              onChange={(e: any) => setForm({ ...form, position: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                setForm({ ...form, position: e.target.value })
+              }
               placeholder={t('placeholderPosition')}
             />
           </div>
@@ -78,7 +82,9 @@ export function AdvertiseDialog({
             <Label>{t('labelLink')}</Label>
             <Input
               value={form.linkUrl}
-              onChange={(e: any) => setForm({ ...form, linkUrl: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                setForm({ ...form, linkUrl: e.target.value })
+              }
               placeholder={t('placeholderLink')}
             />
           </div>
@@ -88,13 +94,15 @@ export function AdvertiseDialog({
               <Input
                 type="number"
                 value={form.sort}
-                onChange={(e: any) => setForm({ ...form, sort: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                  setForm({ ...form, sort: e.target.value })
+                }
               />
             </div>
             <div className="flex items-center gap-2 pt-7">
               <Switch
                 checked={form.status}
-                onCheckedChange={(v: any) => setForm({ ...form, status: v })}
+                onCheckedChange={(v: boolean) => setForm({ ...form, status: v })}
               />
               <Label>{t('labelEnabled')}</Label>
             </div>

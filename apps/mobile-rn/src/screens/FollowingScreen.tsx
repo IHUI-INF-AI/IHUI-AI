@@ -8,18 +8,11 @@ import { unfollowUser } from '../api/social'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { formatShortDateWithYear } from '../utils/date-utils'
 
 const PAGE_SIZE = 20
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
-}
 
 export function FollowingScreen() {
   const { t } = useI18n()
@@ -119,7 +112,7 @@ export function FollowingScreen() {
                   {item.bio}
                 </Text>
               ) : null}
-              <Text className="mt-0.5 text-xs text-neutral-400">{formatDate(item.followedAt)}</Text>
+              <Text className="mt-0.5 text-xs text-neutral-400">{formatShortDateWithYear(item.followedAt)}</Text>
             </View>
             <Button onPress={() => onUnfollow(item)} variant="outline" size="sm">
               {t('following.unfollow')}

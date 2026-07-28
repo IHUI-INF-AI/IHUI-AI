@@ -51,7 +51,7 @@ export default function AdminDistributionWithdrawalsPage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    onSuccess: (_d: any, v: any) => {
+    onSuccess: (_d, v) => {
       toast.success(v.action === 'approve' ? '已通过提现申请' : '已拒绝提现申请')
       qc.invalidateQueries({ queryKey: ['admin', 'distribution', 'withdrawals'] })
     },

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -69,13 +69,13 @@ export default function CommentPage() {
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <MessageSquare className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('empty', { default: '目前还没有数据' })}</p>
         </div>
       ) : (
         <ul className="space-y-2">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <li
               key={item.id}
               className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"

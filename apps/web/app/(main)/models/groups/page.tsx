@@ -24,11 +24,11 @@ export default async function GroupsPage() {
   const tPage = await getTranslations('modelsGroupsPage')
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('groupsMgmt.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('groupsMgmt.subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('groupsMgmt.subtitle')}</p>
         </div>
         <Button size="sm" className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />

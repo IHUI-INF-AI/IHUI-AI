@@ -3,7 +3,7 @@
  *
  * 从 packages/app/src/types.ts 迁移而来(2026-07-25),作为单一来源。
  * web/miniapp-taro 可直接 `import type { SharedUser } from '@ihui/types'`,
- * 无需安装 @ihui/app(后者有 react-native / solito peerDep)。
+ * 无需安装 @ihui/rn-app(后者有 react-native / solito peerDep)。
  * packages/app/src/types.ts 改为 re-export 本文件,保持向后兼容(mobile-rn 不受影响)。
  *
  * 平台无关的 props 契约,RN/web wrapper 通过 props 注入平台实现

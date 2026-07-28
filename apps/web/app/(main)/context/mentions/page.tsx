@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -38,7 +38,7 @@ export default function ContextMentionsPage() {
 
   const symbolDetail: SymbolResult | null = React.useMemo(() => {
     if (activeType !== 'symbol' || !selected) return null
-    return symbolsQ.data?.symbols.find((s: any) => s.id === selected.id) ?? null
+    return symbolsQ.data?.symbols.find((s) => s.id === selected.id) ?? null
   }, [activeType, selected, symbolsQ.data])
 
   const results = mentionsQ.data?.mentions ?? []
@@ -86,15 +86,27 @@ export default function ContextMentionsPage() {
               <div className="mt-3 max-h-[420px] space-y-1.5 overflow-y-auto">
                 {symbols.length === 0 ? (
                   <div className="py-10 text-center text-sm text-muted-foreground">
-                    {isLoading ? '检索中…' : debouncedQ.length === 0 ? '请输入符号关键词' : '暂无结果'}
+                    {isLoading
+                      ? '检索中…'
+                      : debouncedQ.length === 0
+                        ? '请输入符号关键词'
+                        : '暂无结果'}
                   </div>
                 ) : (
-                  symbols.map((s: any) => (
+                  symbols.map((s) => (
                     <SymbolSearchResult
                       key={s.id}
                       symbol={s}
                       selected={selected?.id === s.id}
-                      onSelect={(sym) => setSelected({ id: sym.id, type: 'symbol', label: sym.name, detail: sym.filePath, insertText: sym.name })}
+                      onSelect={(sym) =>
+                        setSelected({
+                          id: sym.id,
+                          type: 'symbol',
+                          label: sym.name,
+                          detail: sym.filePath,
+                          insertText: sym.name,
+                        })
+                      }
                     />
                   ))
                 )}
@@ -109,7 +121,7 @@ export default function ContextMentionsPage() {
           </CardHeader>
           <CardContent className="pt-0">
             {!selected ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
+              <div className="py-8 text-center text-sm text-muted-foreground">
                 选择左侧结果查看详情
               </div>
             ) : (
@@ -168,9 +180,7 @@ function DetailPanel({
           <p className="mt-0.5 text-muted-foreground">
             {symbol.filePath}:{symbol.line}
           </p>
-          {symbol.detail && (
-            <p className="mt-1 text-muted-foreground">{symbol.detail}</p>
-          )}
+          {symbol.detail && <p className="mt-1 text-muted-foreground">{symbol.detail}</p>}
         </div>
       )}
 
@@ -201,9 +211,7 @@ function DetailPanel({
                       <td className="px-2 py-1 font-mono">{c.name}</td>
                       <td className="px-2 py-1 text-muted-foreground">{c.type}</td>
                       <td className="px-2 py-1 text-center">{c.nullable ? '✓' : '—'}</td>
-                      <td className="px-2 py-1 text-center">
-                        {c.primaryKey ? '✓' : '—'}
-                      </td>
+                      <td className="px-2 py-1 text-center">{c.primaryKey ? '✓' : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

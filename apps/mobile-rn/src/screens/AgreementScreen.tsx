@@ -1,4 +1,5 @@
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
@@ -47,13 +48,19 @@ export function AgreementScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  subtitle: { fontSize: 13, color: '#6B7280' },
-  updatedAt: { marginTop: 8, fontSize: 11, color: '#9CA3AF' },
-  sectionTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  sectionBody: { marginTop: 6, fontSize: 12, color: '#374151', lineHeight: 18 },
+  subtitle: { fontSize: 13, color: tokens.text.secondary },
+  updatedAt: { marginTop: 8, fontSize: 11, color: tokens.text.tertiary },
+  sectionTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  sectionBody: { marginTop: 6, fontSize: 12, color: tokens.text.medium, lineHeight: 18 },
 })

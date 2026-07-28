@@ -8,6 +8,7 @@ import {
 } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { fmtDate } from '../../../lib/date-utils'
 
 export default function NotificationsPage() {
   const { t } = useI18n()
@@ -116,12 +117,7 @@ export default function NotificationsPage() {
                 <div className="text-xs text-muted-foreground mt-1 break-words">{n.content}</div>
               ) : null}
               <div className="text-[11px] text-muted-foreground mt-1.5">
-                {new Intl.DateTimeFormat('zh-CN', {
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }).format(new Date(n.createdAt))}
+                {fmtDate(n.createdAt)}
               </div>
             </CardContent>
           </Card>
