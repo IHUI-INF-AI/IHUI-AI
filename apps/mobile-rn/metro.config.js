@@ -121,7 +121,13 @@ const upstreamResolveRequest = config.resolver.resolveRequest
 const fs = require('fs')
 const path = require('path')
 
-function tryResolveWithExts(basePath, originDir) {
+// 2026-07-29 修复 RN 环境加载 web 版本文件导致 "Property 'window' doesn't exist" 崩溃
+// 根因:原 tryResolveWithExts 扩展名解析顺序为 .js 优先于 .native.js,导致 fallback
+// 解析时加载了 react-native-css-interop/dist/runtime/api.js(web 版本)而非
+// api.native.js(native 版本),web 版本的 color-scheme.js 顶层访问 globalThis.window.document
+// 在 Hermes 引擎下崩溃。
+// 修复:扩展名解析顺序改为 Metro 标准:特定平台 → .native → 通用 → .web(仅 web 平台)
+function tryResolveWithExts(basePath, originDir, platform) {
   // 0. 如果是目录,先尝试读 package.json 的 main/browser/react-native 字段
   if (fs.existsSync(basePath) && fs.statSync(basePath).isDirectory()) {
     const pkgPath = path.join(basePath, 'package.json')
@@ -137,7 +143,7 @@ function tryResolveWithExts(basePath, originDir) {
           pkg['main'] ||
           'index'
         const mainPath = path.resolve(basePath, mainField)
-        const resolved = tryResolveWithExts(mainPath, originDir)
+        const resolved = tryResolveWithExts(mainPath, originDir, platform)
         if (resolved) return resolved
       } catch {}
     }
@@ -146,34 +152,71 @@ function tryResolveWithExts(basePath, originDir) {
   if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
     return basePath
   }
-  // 2. 尝试 sourceExts(.ts/.tsx/.js/.jsx/.json/.mjs/.cjs)
   const exts = ['ts', 'tsx', 'js', 'jsx', 'json', 'mjs', 'cjs']
+
+  // 2. 优先尝试特定平台扩展(.android.js / .ios.js)— RN 环境下最高优先级
+  if (platform && platform !== 'web') {
+    for (const ext of exts) {
+      if (fs.existsSync(`${basePath}.${platform}.${ext}`)) {
+        return `${basePath}.${platform}.${ext}`
+      }
+    }
+  }
+
+  // 3. 尝试 .native.{ext}(通用原生平台,RN 环境下优先于 .js)
+  //    这是修复的关键:.native.js 必须在 .js 之前尝试
+  if (platform !== 'web') {
+    for (const ext of exts) {
+      if (fs.existsSync(`${basePath}.native.${ext}`)) {
+        return `${basePath}.native.${ext}`
+      }
+    }
+  }
+
+  // 4. 尝试普通扩展 .{ext}
   for (const ext of exts) {
     if (fs.existsSync(`${basePath}.${ext}`)) return `${basePath}.${ext}`
   }
-  // 3. 尝试 /index.<ext>
+
+  // 5. 尝试 /index.{platform}.{ext} 和 /index.native.{ext}(目录入口的平台扩展)
+  if (platform && platform !== 'web') {
+    for (const ext of exts) {
+      if (fs.existsSync(path.join(basePath, `index.${platform}.${ext}`))) {
+        return path.join(basePath, `index.${platform}.${ext}`)
+      }
+    }
+  }
+  if (platform !== 'web') {
+    for (const ext of exts) {
+      if (fs.existsSync(path.join(basePath, `index.native.${ext}`))) {
+        return path.join(basePath, `index.native.${ext}`)
+      }
+    }
+  }
+
+  // 6. 尝试 /index.{ext}(目录入口的通用扩展)
   for (const ext of exts) {
     if (fs.existsSync(path.join(basePath, `index.${ext}`))) {
       return path.join(basePath, `index.${ext}`)
     }
   }
-  // 4. 尝试平台扩展(.ios/.android/.native/.web)
-  const platforms = ['ios', 'android', 'native', 'web']
-  for (const plat of platforms) {
+
+  // 7. 最后尝试 .web.{ext}(仅 web 平台时才尝试,RN 环境下不解析 web 扩展)
+  if (platform === 'web') {
     for (const ext of exts) {
-      if (fs.existsSync(`${basePath}.${plat}.${ext}`)) return `${basePath}.${plat}.${ext}`
+      if (fs.existsSync(`${basePath}.web.${ext}`)) return `${basePath}.web.${ext}`
+    }
+    for (const ext of exts) {
+      if (fs.existsSync(path.join(basePath, `index.web.${ext}`))) {
+        return path.join(basePath, `index.web.${ext}`)
+      }
     }
   }
+
   return null
 }
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  // 调试日志
-  if (process.env.METRO_DEBUG_RESOLVE) {
-    console.error(
-      `[resolveRequest] moduleName=${moduleName} origin=${context.originModulePath} platform=${platform}`,
-    )
-  }
   // React 单实例去重(2026-07-28 修复 NativeWind useContext null 错误)
   // 问题:pnpm isolated linker 下,bundle 中出现两个 react 实例:
   //   (1) .pnpm/react@19.0.0/node_modules/react/  (react-native 隔离目录引用)
@@ -194,11 +237,39 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   }
   // 1. 先尝试 Metro 默认解析(upstreamResolveRequest 或 context.resolveRequest)
   try {
+    let result = null
     if (upstreamResolveRequest) {
-      const result = upstreamResolveRequest(context, moduleName, platform)
-      if (result) return result
+      result = upstreamResolveRequest(context, moduleName, platform)
     }
-    return context.resolveRequest(context, moduleName, platform)
+    if (!result) {
+      result = context.resolveRequest(context, moduleName, platform)
+    }
+
+    // 2026-07-29 主动拦截:react-native-css-interop 的 web 版本文件重定向到 native 版本
+    // 根因:Metro 默认解析器在 pnpm isolated linker 下可能解析到 dist/runtime/api.js
+    // (web 版本)而非 api.native.js(native 版本),web 版本的 color-scheme.js 顶层
+    // 访问 globalThis.window.document 在 Hermes 引擎下崩溃。
+    // 修复:检查结果路径,如果包含 /runtime/web/,用 resolveManual 重新解析(优先 .native.js)
+    if (
+      result &&
+      result.filePath &&
+      result.filePath.includes('react-native-css-interop') &&
+      result.filePath.includes('/runtime/web/')
+    ) {
+      const originRealPath = fs.realpathSync(context.originModulePath)
+      const originDir = path.dirname(originRealPath)
+      const nativeResolved = resolveManual(moduleName, originDir, platform)
+      if (nativeResolved && !nativeResolved.includes('/runtime/web/')) {
+        if (process.env.METRO_DEBUG_RESOLVE) {
+          console.error(
+            `[resolveRequest web→native] ${result.filePath} → ${nativeResolved}`,
+          )
+        }
+        return { type: 'sourceFile', filePath: nativeResolved }
+      }
+    }
+
+    if (result) return result
   } catch (_e) {
     // 2. fallback:手动解析包名 + 子路径 + 扩展名
     // 不用 require.resolve(不支持 ESM exports 的 conditions 参数)
@@ -226,15 +297,16 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 /**
  * 手动解析模块名:支持 npm 包名(含 scoped 子路径如 @ihui/shared/auth) + 相对路径 + 扩展名
  * 用于 Metro 默认解析 + require.resolve 都失败时的最终 fallback。
+ * platform 参数用于扩展名平台优先级(.native.js 优先于 .js)。
  */
-function resolveManual(moduleName, originDir, _platform) {
+function resolveManual(moduleName, originDir, platform) {
   let basePath
   if (path.isAbsolute(moduleName)) {
     basePath = moduleName
-    return tryResolveWithExts(basePath, originDir)
+    return tryResolveWithExts(basePath, originDir, platform)
   } else if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
     basePath = path.resolve(originDir, moduleName)
-    return tryResolveWithExts(basePath, originDir)
+    return tryResolveWithExts(basePath, originDir, platform)
   } else {
     // npm 包名,可能在 node_modules 层级查找
     // 分割包名和子路径:@ihui/shared/auth → pkg=@ihui/shared, subPath=auth
@@ -326,7 +398,7 @@ function resolveManual(moduleName, originDir, _platform) {
           typeof entry === 'string' ? entry : entry.import || entry.require || entry.default
         if (target) {
           const targetPath = path.resolve(pkgDir, target)
-          const resolved = tryResolveWithExts(targetPath, originDir)
+          const resolved = tryResolveWithExts(targetPath, originDir, platform)
           if (resolved) return resolved
         }
       }
@@ -335,11 +407,11 @@ function resolveManual(moduleName, originDir, _platform) {
     if (!subPath) {
       const mainField = pkgJson['react-native'] || pkgJson['browser'] || pkgJson['main'] || 'index'
       const mainPath = path.resolve(pkgDir, mainField)
-      return tryResolveWithExts(mainPath, originDir)
+      return tryResolveWithExts(mainPath, originDir, platform)
     }
     // 子路径直接解析
     basePath = path.resolve(pkgDir, subPath)
-    return tryResolveWithExts(basePath, originDir)
+    return tryResolveWithExts(basePath, originDir, platform)
   }
 }
 

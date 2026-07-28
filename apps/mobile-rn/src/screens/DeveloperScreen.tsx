@@ -86,7 +86,7 @@ export default function DeveloperScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View className="bg-[#F5F3FF] rounded-xl p-4 mb-5">
-          <Text className="text-[20px] font-bold text-[#7B61FF]">成为开发者</Text>
+          <Text className="text-[20px] font-bold text-purple">成为开发者</Text>
           <Text className="mt-1 text-[13px] text-muted-foreground">发布智能体,获取收益</Text>
           <View className="mt-3.5 flex-row flex-wrap gap-2.5">
             {FEATURES.map((f) => (
@@ -100,7 +100,7 @@ export default function DeveloperScreen() {
           </View>
         </View>
 
-        <Text className="text-sm font-semibold text-[#374151] mb-3">请选择所需要的服务</Text>
+        <Text className="text-sm font-semibold text-body mb-3">请选择所需要的服务</Text>
         {error ? (
           <View className="py-8 items-center">
             <Text className="text-sm text-muted-foreground">{error}</Text>
@@ -120,10 +120,10 @@ export default function DeveloperScreen() {
                   onPress={() => setSelected(p.type)}
                   activeOpacity={0.8}
                 >
-                  <Text className={`text-sm font-semibold ${active ? 'text-[#7B61FF]' : 'text-[#374151]'}`}>
+                  <Text className={`text-sm font-semibold ${active ? 'text-purple' : 'text-body'}`}>
                     {p.label}
                   </Text>
-                  <Text className={`mt-2 ${active ? 'text-[#7B61FF]' : 'text-foreground'}`}>
+                  <Text className={`mt-2 ${active ? 'text-purple' : 'text-foreground'}`}>
                     <Text className="text-[24px] font-bold">{p.price}</Text>
                     <Text className="text-xs text-[#9CA3AF]"> / {p.unit}</Text>
                   </Text>
@@ -131,7 +131,7 @@ export default function DeveloperScreen() {
                     {p.perks.map((perk) => (
                       <Text
                         key={perk}
-                        className={`text-[11px] ${active ? 'text-[#7B61FF]' : 'text-muted-foreground'}`}
+                        className={`text-[11px] ${active ? 'text-purple' : 'text-muted-foreground'}`}
                         numberOfLines={1}
                       >
                         · {perk}

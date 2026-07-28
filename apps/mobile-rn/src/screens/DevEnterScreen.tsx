@@ -46,7 +46,7 @@ export default function DevEnterScreen() {
         <Text className="mt-1 text-xs text-[#9CA3AF]">填写资料,申请成为开发者</Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">开发者类型</Text>
+        <Text className="text-[13px] font-semibold text-body mt-4 mb-2">开发者类型</Text>
         <View className="flex-row gap-3">
           {(
             [
@@ -62,13 +62,13 @@ export default function DevEnterScreen() {
                 onPress={() => setDevType(t.id)}
                 activeOpacity={0.8}
               >
-                <Text className={`text-sm ${active ? 'text-[#7B61FF] font-semibold' : 'text-[#374151]'}`}>{t.label}</Text>
+                <Text className={`text-sm ${active ? 'text-purple font-semibold' : 'text-body'}`}>{t.label}</Text>
               </TouchableOpacity>
             )
           })}
         </View>
 
-        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">{devType === 'personal' ? '姓名' : '企业名称'}</Text>
+        <Text className="text-[13px] font-semibold text-body mt-4 mb-2">{devType === 'personal' ? '姓名' : '企业名称'}</Text>
         <Input
           className="rounded-lg bg-card py-2.5"
           value={name}
@@ -77,7 +77,7 @@ export default function DevEnterScreen() {
           maxLength={30}
         />
 
-        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">联系方式</Text>
+        <Text className="text-[13px] font-semibold text-body mt-4 mb-2">联系方式</Text>
         <Input
           className="rounded-lg bg-card py-2.5"
           value={contact}
@@ -87,7 +87,7 @@ export default function DevEnterScreen() {
           keyboardType="email-address"
         />
 
-        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">所属领域</Text>
+        <Text className="text-[13px] font-semibold text-body mt-4 mb-2">所属领域</Text>
         <View className="flex-row flex-wrap gap-2.5">
           {FIELD_OPTIONS.map((f) => {
             const active = field === f.id
@@ -98,13 +98,13 @@ export default function DevEnterScreen() {
                 onPress={() => setField(f.id)}
                 activeOpacity={0.8}
               >
-                <Text className={`text-[13px] ${active ? 'text-[#7B61FF] font-semibold' : 'text-[#374151]'}`}>{f.label}</Text>
+                <Text className={`text-[13px] ${active ? 'text-purple font-semibold' : 'text-body'}`}>{f.label}</Text>
               </TouchableOpacity>
             )
           })}
         </View>
 
-        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">开发者简介</Text>
+        <Text className="text-[13px] font-semibold text-body mt-4 mb-2">开发者简介</Text>
         <Input
           className="rounded-lg bg-card min-h-[90px] py-2.5"
           value={intro}
