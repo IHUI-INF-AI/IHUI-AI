@@ -453,6 +453,18 @@ export function MessageList({
     }
   }, [])
 
+  // P3 修复:用 dirty 标记合并 rAF,多个消息同时进入视区时一帧只跑一次 handleScroll,
+  // 避免每个 measureItem 高度变化都排队独立 rAF(每个 rAF 内 handleScroll 调 computeCumulative O(n))
+  const scrollDirtyRef = React.useRef(false)
+  const scheduleScrollUpdate = React.useCallback(() => {
+    if (scrollDirtyRef.current) return // 已有 pending
+    scrollDirtyRef.current = true
+    requestAnimationFrame(() => {
+      scrollDirtyRef.current = false
+      handleScroll()
+    })
+  }, [handleScroll])
+
   // #8 加载更多历史时保持滚动位置(handleScroll 内已处理)
   // #7 ResizeObserver 测量真实高度并触发重算可见范围
   const measureItem = React.useCallback((id: string) => (el: HTMLElement | null) => {
@@ -470,11 +482,11 @@ export function MessageList({
     if (prev !== h) {
       map.set(id, h)
       // P1-3 修复:heightMap 变化时版本号 +1,强制下次 computeCumulative 重算缓存
-      // 高度变化后重算可见范围(下一帧,避免布局抖动)
+      // 高度变化后重算可见范围(下一帧,避免布局抖动);用 scheduleScrollUpdate 合并多消息同时变化
       heightMapVersionRef.current++
-      requestAnimationFrame(() => handleScroll())
+      scheduleScrollUpdate()
     }
-  }, [handleScroll])
+  }, [scheduleScrollUpdate])
 
   // 消息列表重置(切换会话)时清空高度映射 + 重置可见范围
   React.useEffect(() => {
