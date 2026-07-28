@@ -1,12 +1,12 @@
 import { View, ScrollView, Image } from '@tarojs/components'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback } from 'react'
 import { cn } from '@ihui/design-tokens'
+import { useAutoPlay } from '@ihui/shared'
+import type { CarouselItem } from '@ihui/types'
 
-export interface CarouselItem {
-  img: string
-  link?: string
-  [key: string]: unknown
-}
+// 共享类型 CarouselItem + 共享 hook useAutoPlay 已下沉到 packages,
+// 消除 mobile-rn / miniapp-taro 两端类型与自动播放逻辑重复。
+export type { CarouselItem }
 
 export interface CarouselProps {
   items?: CarouselItem[]
@@ -25,8 +25,7 @@ export default function Carousel({
   onItemClick,
   className = '',
 }: CarouselProps) {
-  const [current, setCurrent] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { current, setCurrent } = useAutoPlay(items.length, interval, autoplay)
   const total = items.length
 
   const goTo = useCallback(
@@ -34,18 +33,8 @@ export default function Carousel({
       if (total === 0) return
       setCurrent(((idx % total) + total) % total)
     },
-    [total],
+    [total, setCurrent],
   )
-
-  useEffect(() => {
-    if (!autoplay || total <= 1) return
-    timerRef.current = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % total)
-    }, interval)
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  }, [autoplay, interval, total])
 
   if (total === 0) return null
 

@@ -63,6 +63,7 @@ export default function AiAssistantScreen() {
     return keyword ? a.name.includes(keyword) || a.description.includes(keyword) : true
   })
 
+  // TODO: i18n — Alert.alert 硬编码中文待翻译(进入对话 / 即将与「X」开始对话)
   const handleChat = (a: Agent) => Alert.alert('进入对话', `即将与「${a.name}」开始对话`)
 
   return (

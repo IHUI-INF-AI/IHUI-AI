@@ -105,6 +105,7 @@ export default function AiAssistantPage() {
   }, [])
 
   const copyHandle = useCallback((text?: string) => {
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(没有可复制的内容 / 复制成功 / 复制失败)
     if (!text || !text.trim()) return Taro.showToast({ title: '没有可复制的内容', icon: 'none' })
     Taro.setClipboardData({
       data: text,
@@ -119,14 +120,17 @@ export default function AiAssistantPage() {
 
   const handleSend = useCallback(async () => {
     const message = prompt.trim()
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(请输入描述 / 请等待当前请求完成)
     if (!message) return Taro.showToast({ title: '请输入描述', icon: 'none' })
     if (loading) return Taro.showToast({ title: '请等待当前请求完成', icon: 'none' })
     const u = getUserInfo() as { userMargin?: { tokenQuantity?: number } }
     if (u?.userMargin?.tokenQuantity && u.userMargin.tokenQuantity < 50000) {
+      // TODO: i18n — Taro.showModal 硬编码中文待翻译(智汇值不足 / 是否前往充值?)
       const r = await Taro.showModal({ title: '智汇值不足', content: '是否前往充值?' })
       if (r.confirm) Taro.navigateTo({ url: '/pages/wallet/recharge/index' })
       return
     }
+    // TODO: i18n — Taro.showToast 硬编码中文待翻译(请先登录)
     if (!getToken()) return Taro.showToast({ title: '请先登录', icon: 'none' })
 
     const idx = list.length
@@ -190,6 +194,7 @@ export default function AiAssistantPage() {
       setList((prev) =>
         prev.map((it, i) => (i === idx ? { ...it, answer: '生成失败,请重试', visible: true } : it)),
       )
+      // TODO: i18n — Taro.showToast 硬编码中文待翻译(生成失败)
       Taro.showToast({ title: '生成失败', icon: 'none' })
     } finally {
       setLoading(false)

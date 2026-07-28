@@ -175,6 +175,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
       contextLimit: getModelContextCapacity(model),
       onCompaction: (info) => {
+        // TODO: i18n — Alert.alert 硬编码中文待翻译(上下文已自动压缩 / 移除 X 条历史)
         Alert.alert(
           '上下文已自动压缩',
           `${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}(移除 ${info.removedCount} 条历史)`,
@@ -196,6 +197,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
         setIsStreaming(false)
         abortRef.current = null
         if (formatted.severity === 'auth') {
+          // TODO: i18n — Alert.alert 按钮文字硬编码中文待翻译(去登录 / 取消)
           Alert.alert(formatted.title, formatted.message, [
             { text: '去登录', onPress: () => logout() },
             { text: '取消', style: 'cancel' },
@@ -231,6 +233,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     if (!el || capturing) return
     const uri = await capture({ current: el } as React.RefObject<View>)
     if (!uri) return
+    // TODO: i18n — Alert.alert 硬编码中文待翻译(我的消息 / AI 消息 / 截图已生成 / 分享 / 取消)
     Alert.alert(item.role === 'user' ? '我的消息' : 'AI 消息', '截图已生成', [
       { text: '分享', onPress: () => Share.share({ url: uri, message: item.content }) },
       { text: '取消', style: 'cancel' },
