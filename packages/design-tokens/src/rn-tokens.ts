@@ -41,6 +41,41 @@ export const rnTokens = {
   overlay: {
     modal: 'rgba(0,0,0,0.4)',
   },
+  indigo: {
+    light: '#eef2ff',
+    DEFAULT: '#6366f1',
+    deep: '#4f46e5',
+  },
+  purple: {
+    light: '#f5f3ff',
+    DEFAULT: '#7B61FF',
+  },
+  warning: {
+    light: '#fffbeb',
+    DEFAULT: '#d97706',
+    deep: '#FF6B00',
+  },
+  success: {
+    light: '#ecfdf5',
+    DEFAULT: '#10B981',
+    deep: '#16a34a',
+  },
+  danger: {
+    light: '#fef2f2',
+    DEFAULT: '#dc2626',
+  },
+  gray: {
+    50: '#f9fafb',
+    100: '#f3f4f6',
+    200: '#e5e7eb',
+    400: '#9ca3af',
+    500: '#6b7280',
+    600: '#4b5563',
+    700: '#374151',
+    800: '#1f2937',
+    900: '#111827',
+    black: '#000',
+  },
 } as const
 
 export type RnTokens = typeof rnTokens
@@ -56,6 +91,23 @@ export type RnThemeTokens = {
   border: { light: string; medium: string }
   error: { bg: string; text: string }
   overlay: { modal: string }
+  indigo: { light: string; DEFAULT: string; deep: string }
+  purple: { light: string; DEFAULT: string }
+  warning: { light: string; DEFAULT: string; deep: string }
+  success: { light: string; DEFAULT: string; deep: string }
+  danger: { light: string; DEFAULT: string }
+  gray: {
+    50: string
+    100: string
+    200: string
+    400: string
+    500: string
+    600: string
+    700: string
+    800: string
+    900: string
+    black: string
+  }
 }
 
 /**
@@ -69,6 +121,23 @@ export const rnLightTokens: RnThemeTokens = {
   border: { light: '#E5E7EB', medium: '#D1D5DB' },
   error: { bg: '#FEE2E2', text: '#B91C1C' },
   overlay: { modal: 'rgba(0,0,0,0.4)' },
+  indigo: { light: '#eef2ff', DEFAULT: '#6366f1', deep: '#4f46e5' },
+  purple: { light: '#f5f3ff', DEFAULT: '#7B61FF' },
+  warning: { light: '#fffbeb', DEFAULT: '#d97706', deep: '#FF6B00' },
+  success: { light: '#ecfdf5', DEFAULT: '#10B981', deep: '#16a34a' },
+  danger: { light: '#fef2f2', DEFAULT: '#dc2626' },
+  gray: {
+    50: '#f9fafb',
+    100: '#f3f4f6',
+    200: '#e5e7eb',
+    400: '#9ca3af',
+    500: '#6b7280',
+    600: '#4b5563',
+    700: '#374151',
+    800: '#1f2937',
+    900: '#111827',
+    black: '#000',
+  },
 }
 
 /**
@@ -85,6 +154,23 @@ export const rnDarkTokens: RnThemeTokens = {
   border: { light: '#374151', medium: '#4B5563' },
   error: { bg: '#7F1D1D', text: '#FCA5A5' },
   overlay: { modal: 'rgba(0,0,0,0.6)' },
+  indigo: { light: '#312e81', DEFAULT: '#6366f1', deep: '#818cf8' },
+  purple: { light: '#4c1d95', DEFAULT: '#7B61FF' },
+  warning: { light: '#451a03', DEFAULT: '#f59e0b', deep: '#FF6B00' },
+  success: { light: '#052e16', DEFAULT: '#10B981', deep: '#16a34a' },
+  danger: { light: '#450a0a', DEFAULT: '#ef4444' },
+  gray: {
+    50: '#f9fafb',
+    100: '#f3f4f6',
+    200: '#e5e7eb',
+    400: '#9ca3af',
+    500: '#6b7280',
+    600: '#4b5563',
+    700: '#374151',
+    800: '#1f2937',
+    900: '#111827',
+    black: '#000',
+  },
 }
 
 /** 按已解析主题返回对应 token 集 */
