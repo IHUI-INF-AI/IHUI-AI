@@ -6108,6 +6108,9 @@
     "resourceCount": "{count} 个资源",
     "popular": "热门标签"
   },
+  "tagsview": {
+    "empty": "暂无打开的页面"
+  },
   "teams": {
     "title": "团队",
     "subtitle": "管理你的协作团队",

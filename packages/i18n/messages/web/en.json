@@ -6212,6 +6212,9 @@
     "resourceCount": "{count} resources",
     "popular": "Popular Tags"
   },
+  "tagsview": {
+    "empty": "No open pages"
+  },
   "teams": {
     "title": "Teams",
     "subtitle": "Manage your collaboration teams",
