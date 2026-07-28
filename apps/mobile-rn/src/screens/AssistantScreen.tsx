@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   View,
@@ -100,11 +101,11 @@ export default function AssistantScreen() {
     ])
 
   const statusBadge = (a: Assistant) => {
-    if (a.status === 'published') return { text: '已发布', color: '#10B981', bg: '#ECFDF5' }
-    if (a.status === 'reviewing') return { text: '审核中', color: '#7B61FF', bg: '#F5F3FF' }
-    if (a.status === 'rejected') return { text: '审核失败', color: '#FF6B00', bg: '#FFF7ED' }
-    if (a.status === 'offline') return { text: '已下架', color: '#6B7280', bg: '#F3F4F6' }
-    return { text: '待发布', color: '#6B7280', bg: '#F3F4F6' }
+    if (a.status === 'published') return { text: '已发布', color: tokens.success.DEFAULT, bg: '#ECFDF5' }
+    if (a.status === 'reviewing') return { text: '审核中', color: tokens.purple.DEFAULT, bg: '#F5F3FF' }
+    if (a.status === 'rejected') return { text: '审核失败', color: tokens.warning.deep, bg: '#FFF7ED' }
+    if (a.status === 'offline') return { text: '已下架', color: tokens.text.secondary, bg: '#F3F4F6' }
+    return { text: '待发布', color: tokens.text.secondary, bg: '#F3F4F6' }
   }
 
   return (
@@ -226,39 +227,39 @@ export default function AssistantScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  tabRow: { flexDirection: 'row', marginHorizontal: 16, padding: 4, borderRadius: 10, backgroundColor: '#F3F4F6' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  tabRow: { flexDirection: 'row', marginHorizontal: 16, padding: 4, borderRadius: 10, backgroundColor: tokens.surface.card },
   tabItem: { flex: 1, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  tabItemActive: { backgroundColor: '#FFFFFF' },
-  tabText: { fontSize: 13, color: '#6B7280' },
-  tabTextActive: { color: '#111827', fontWeight: '600' },
+  tabItemActive: { backgroundColor: tokens.surface.bg },
+  tabText: { fontSize: 13, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.text.primary, fontWeight: '600' },
   subTabRow: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 12, gap: 20 },
   subTabItem: { paddingVertical: 4 },
-  subTabText: { fontSize: 13, color: '#6B7280' },
-  subTabTextActive: { color: '#7B61FF', fontWeight: '600' },
+  subTabText: { fontSize: 13, color: tokens.text.secondary },
+  subTabTextActive: { color: tokens.purple.DEFAULT, fontWeight: '600' },
   searchRow: { paddingHorizontal: 16, marginTop: 12 },
-  searchInput: { height: 38, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, fontSize: 13, color: '#111827', backgroundColor: '#F9FAFB' },
+  searchInput: { height: 38, borderWidth: 1, borderColor: tokens.border.light, borderRadius: 10, paddingHorizontal: 12, fontSize: 13, color: tokens.text.primary, backgroundColor: tokens.surface.muted },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  errorText: { fontSize: 12, color: '#FF6B00' },
+  errorText: { fontSize: 12, color: tokens.warning.deep },
   empty: { alignItems: 'center', paddingVertical: 48 },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
-  card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  emptyText: { fontSize: 13, color: tokens.text.tertiary },
+  card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: tokens.border.light },
   cardHead: { flexDirection: 'row' },
-  avatar: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#F5F3FF', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  avatarText: { fontSize: 18, fontWeight: '600', color: '#7B61FF' },
+  avatar: { width: 44, height: 44, borderRadius: 10, backgroundColor: tokens.purple.light, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  avatarText: { fontSize: 18, fontWeight: '600', color: tokens.purple.DEFAULT },
   cardMain: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' },
+  name: { flex: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary },
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   badgeText: { fontSize: 11, fontWeight: '600' },
-  prologue: { marginTop: 4, fontSize: 12, color: '#6B7280' },
+  prologue: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
   cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
-  metaText: { fontSize: 11, color: '#9CA3AF' },
+  metaText: { fontSize: 11, color: tokens.text.tertiary },
   cardActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  actionPrimary: { paddingHorizontal: 16, height: 32, borderRadius: 8, backgroundColor: '#7B61FF', alignItems: 'center', justifyContent: 'center' },
-  actionPrimaryText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
-  actionDanger: { paddingHorizontal: 16, height: 32, borderRadius: 8, borderWidth: 1, borderColor: '#FF6B00', alignItems: 'center', justifyContent: 'center' },
-  actionDangerText: { fontSize: 13, color: '#FF6B00' },
+  actionPrimary: { paddingHorizontal: 16, height: 32, borderRadius: 8, backgroundColor: tokens.purple.DEFAULT, alignItems: 'center', justifyContent: 'center' },
+  actionPrimaryText: { fontSize: 13, fontWeight: '600', color: tokens.surface.light },
+  actionDanger: { paddingHorizontal: 16, height: 32, borderRadius: 8, borderWidth: 1, borderColor: tokens.warning.deep, alignItems: 'center', justifyContent: 'center' },
+  actionDangerText: { fontSize: 13, color: tokens.warning.deep },
 })

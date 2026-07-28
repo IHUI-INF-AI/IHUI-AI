@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import {
   FlatList,
@@ -11,9 +12,9 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Loading } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
-import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -52,7 +53,7 @@ function initials(name: string): string {
 
 export function RankingScreen() {
   const { t } = useI18n()
-  const { token, user } = useAuth()
+  const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [range, setRange] = useState<RangeKey>('weekly')
   const [list, setList] = useState<RankItem[]>([])
@@ -65,21 +66,18 @@ export function RankingScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const resp = await fetch(`${API_BASE_URL}/api/ranking?range=${range}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!resp.ok) {
+      const resp = await fetchApi<RankItem[]>('/ranking', { params: { range } })
+      if (!resp.success) {
         setError(t('ranking.loadFailed'))
         setLoading(false)
         setRefreshing(false)
         return
       }
-      const data = (await resp.json()) as { data?: RankItem[] }
-      setList(data.data ?? [])
+      setList(resp.data ?? [])
       setLoading(false)
       setRefreshing(false)
     },
-    [token, range, t],
+    [range, t],
   )
 
   useEffect(() => {
@@ -197,23 +195,21 @@ export function RankingScreen() {
   )
 }
 
-const PRIMARY = '#10B981'
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   center: { alignItems: 'center', paddingVertical: 32 },
-  emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
-  errorText: { fontSize: 12, color: '#DC2626' },
+  emptyText: { fontSize: 12, color: tokens.text.tertiary, marginTop: 8 },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
   backBtn: { marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
+  backText: { fontSize: 14, color: tokens.text.secondary },
+  title: { fontSize: 22, fontWeight: '600', color: tokens.text.primary },
+  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
-  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  tabActive: { backgroundColor: PRIMARY },
-  tabText: { fontSize: 12, color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF' },
+  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tokens.surface.card },
+  tabActive: { backgroundColor: tokens.success.DEFAULT },
+  tabText: { fontSize: 12, color: tokens.text.secondary },
+  tabTextActive: { color: tokens.surface.light },
   errorBar: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -221,16 +217,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  retryText: { fontSize: 12, color: PRIMARY },
+  retryText: { fontSize: 12, color: tokens.success.DEFAULT },
   podiumRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   podiumItem: {
     flex: 1,
     alignItems: 'center',
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
   },
-  podiumFirst: { backgroundColor: '#FEF3C7' },
+  podiumFirst: { backgroundColor: tokens.warning.amberLight },
   podiumAvatar: {
     width: 56,
     height: 56,
@@ -238,24 +234,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.surface.bg,
   },
   avatarImg: { width: '100%', height: '100%', borderRadius: 8 },
-  avatarInitial: { fontSize: 22, fontWeight: '600', color: '#6B7280' },
-  podiumName: { marginTop: 6, fontSize: 13, fontWeight: '600', color: '#111827' },
-  podiumPoints: { marginTop: 2, fontSize: 12, color: PRIMARY },
+  avatarInitial: { fontSize: 22, fontWeight: '600', color: tokens.text.secondary },
+  podiumName: { marginTop: 6, fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  podiumPoints: { marginTop: 2, fontSize: 12, color: tokens.success.DEFAULT },
   rankBadge: { marginTop: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
-  rankBadgeText: { fontSize: 11, color: '#FFFFFF' },
+  rankBadgeText: { fontSize: 11, color: tokens.surface.light },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.bg,
   },
-  cardMe: { borderColor: PRIMARY, backgroundColor: '#ECFDF5' },
+  cardMe: { borderColor: tokens.success.DEFAULT, backgroundColor: tokens.success.light },
   rankText: { width: 36, fontSize: 14, fontWeight: '700' },
   listAvatar: {
     width: 36,
@@ -264,10 +260,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
   },
   listInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
-  listName: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  listMeta: { marginTop: 2, fontSize: 11, color: '#9CA3AF' },
-  listPoints: { fontSize: 15, fontWeight: '700', color: PRIMARY },
+  listName: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+  listMeta: { marginTop: 2, fontSize: 11, color: tokens.text.tertiary },
+  listPoints: { fontSize: 15, fontWeight: '700', color: tokens.success.DEFAULT },
 })

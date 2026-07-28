@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useState } from 'react'
 import {
   ActivityIndicator,
@@ -11,7 +12,6 @@ import {
   View,
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import { tokens } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { createAigcTask, uploadFileMultipart, resolveFileUrl } from '@ihui/api-client'

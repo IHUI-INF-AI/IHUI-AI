@@ -1513,9 +1513,10 @@ function handleMcpList(): void {
  */
 async function handleVoice(args: string[], state: ReplState): Promise<void> {
   const settings = loadSettings();
-  const flagEnabled = settings.voice?.enabled === true;
+  // 2026-07-28:默认开启(后端 faster-whisper 零成本),只有显式 false 才关闭
+  const flagEnabled = settings.voice?.enabled !== false;
   if (!flagEnabled) {
-    console.info(chalk.dim('语音输入未启用(在 settings.voice.enabled=true 开启)'));
+    console.info(chalk.dim('语音输入已关闭(在 settings.voice.enabled=true 重新开启)'));
     return;
   }
 

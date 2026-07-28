@@ -1,3 +1,4 @@
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -57,16 +58,16 @@ export function CourseQAAskScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
   body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  label: { fontSize: 12, color: '#6B7280' },
-  textarea: { marginTop: 6, minHeight: 120, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 14, color: '#111827' },
-  error: { fontSize: 12, color: '#DC2626', marginTop: 8 },
-  toast: { fontSize: 12, color: '#10B981', marginTop: 8 },
-  btn: { marginTop: 16, backgroundColor: '#10B981', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  back: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  label: { fontSize: 12, color: tokens.text.secondary },
+  textarea: { marginTop: 6, minHeight: 120, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, fontSize: 14, color: tokens.text.primary },
+  error: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
+  toast: { fontSize: 12, color: tokens.success.DEFAULT, marginTop: 8 },
+  btn: { marginTop: 16, backgroundColor: tokens.success.DEFAULT, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  btnText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
 })

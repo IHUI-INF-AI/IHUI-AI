@@ -4,8 +4,8 @@
  * 保留图标 + 文字 + 点击回调
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/Menu/index.vue)
  */
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity } from 'react-native'
-import { tokens } from '@ihui/rn-app'
 
 export interface MenuItem {
   id: number | string
