@@ -30,72 +30,177 @@ declare global {
   }
 }
 
+// ai-service URL(浏览器直连,与 edu-api.ts 保持一致;生产环境通过 nginx/rewrites 反代)
+const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
+
 function getRecognitionConstructor(): (new () => SpeechRecognitionLike) | null {
   if (typeof window === 'undefined') return null
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null
 }
 
+/**
+ * VoiceInput — 语音输入组件(零成本混合策略)。
+ *
+ * 主路径(Chrome/Edge):浏览器原生 webkitSpeechRecognition,零延迟零后端负载。
+ * Fallback(Firefox/Safari):MediaRecorder 录音 → POST ai-service /api/voice/stt
+ *   → faster-whisper 本地 CPU 推理(完全免费,首次下载 74MB 模型后离线)。
+ *
+ * 两条路径最终都调用 onTranscript(text),由父组件决定如何处理(通常追加到 textarea)。
+ * 语音不会直接发给 LLM,转写为文字后才进入 prompt(符合用户预期)。
+ */
 export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const t = useTranslations('chat')
   const [recording, setRecording] = React.useState(false)
-  const [supported, setSupported] = React.useState(true)
+  const [supported, setSupported] = React.useState<'native' | 'fallback' | 'unsupported'>('native')
+
+  // 原生 webkitSpeechRecognition 引用
   const recognitionRef = React.useRef<SpeechRecognitionLike | null>(null)
   const transcriptRef = React.useRef('')
 
+  // Fallback MediaRecorder 引用
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null)
+  const chunksRef = React.useRef<Blob[]>([])
+  const streamRef = React.useRef<MediaStream | null>(null)
+
   React.useEffect(() => {
     const Ctor = getRecognitionConstructor()
-    if (!Ctor) {
-      setSupported(false)
-      return
-    }
-    const recognition = new Ctor()
-    recognition.lang = 'zh-CN'
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.onresult = (event) => {
-      let text = ''
-      for (let i = 0; i < event.results.length; i++) {
-        text += event.results[i]?.[0]?.transcript ?? ''
+    if (Ctor) {
+      setSupported('native')
+      const recognition = new Ctor()
+      recognition.lang = 'zh-CN'
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.onresult = (event) => {
+        let text = ''
+        for (let i = 0; i < event.results.length; i++) {
+          text += event.results[i]?.[0]?.transcript ?? ''
+        }
+        transcriptRef.current = text
       }
-      transcriptRef.current = text
-    }
-    recognition.onerror = () => {
-      setRecording(false)
-    }
-    recognition.onend = () => {
-      setRecording(false)
-      if (transcriptRef.current) {
-        onTranscript(transcriptRef.current)
-        transcriptRef.current = ''
+      recognition.onerror = () => {
+        setRecording(false)
       }
+      recognition.onend = () => {
+        setRecording(false)
+        if (transcriptRef.current) {
+          onTranscript(transcriptRef.current)
+          transcriptRef.current = ''
+        }
+      }
+      recognitionRef.current = recognition
+    } else if (
+      typeof navigator !== 'undefined' &&
+      typeof navigator.mediaDevices?.getUserMedia === 'function'
+    ) {
+      // Firefox/Safari:不支持 webkitSpeechRecognition,但有 MediaRecorder
+      setSupported('fallback')
+    } else {
+      setSupported('unsupported')
     }
-    recognitionRef.current = recognition
+
     return () => {
-      recognition.onresult = null
-      recognition.onerror = null
-      recognition.onend = null
-      try {
-        recognition.stop()
-      } catch {
-        // ignore
+      if (recognitionRef.current) {
+        recognitionRef.current.onresult = null
+        recognitionRef.current.onerror = null
+        recognitionRef.current.onend = null
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // ignore
+        }
       }
+      // 清理 MediaRecorder 资源
+      streamRef.current?.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
     }
   }, [onTranscript])
 
-  const toggle = () => {
+  const startNativeRecording = () => {
     const recognition = recognitionRef.current
     if (!recognition) return
-    if (recording) {
-      recognition.stop()
-      setRecording(false)
-    } else {
-      transcriptRef.current = ''
-      recognition.start()
+    transcriptRef.current = ''
+    recognition.start()
+    setRecording(true)
+  }
+
+  const stopNativeRecording = () => {
+    recognitionRef.current?.stop()
+    setRecording(false)
+  }
+
+  const startFallbackRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      const recorder = new MediaRecorder(stream)
+      chunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      recorder.onstop = async () => {
+        // 录音停止 → 上传到 ai-service 转写
+        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        streamRef.current?.getTracks().forEach((track) => track.stop())
+        streamRef.current = null
+
+        if (audioBlob.size === 0) {
+          setRecording(false)
+          return
+        }
+
+        try {
+          const formData = new FormData()
+          formData.append('file', audioBlob, 'voice.webm')
+          formData.append('language', 'zh')
+          const res = await fetch(`${AI_SERVICE_URL}/api/voice/stt`, {
+            method: 'POST',
+            body: formData,
+          })
+          if (res.ok) {
+            const data = (await res.json()) as { text?: string; stub?: boolean }
+            if (data.text && !data.stub) {
+              onTranscript(data.text)
+            }
+          }
+        } catch {
+          // 转写失败静默处理(不阻塞用户输入)
+        } finally {
+          setRecording(false)
+        }
+      }
+      recorder.start()
+      mediaRecorderRef.current = recorder
       setRecording(true)
+    } catch {
+      setRecording(false)
     }
   }
 
-  if (!supported) return null
+  const stopFallbackRecording = () => {
+    const recorder = mediaRecorderRef.current
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop()
+    }
+    // onstop 回调会处理后续转写
+  }
+
+  const toggle = () => {
+    if (supported === 'native') {
+      if (recording) {
+        stopNativeRecording()
+      } else {
+        startNativeRecording()
+      }
+    } else if (supported === 'fallback') {
+      if (recording) {
+        stopFallbackRecording()
+      } else {
+        void startFallbackRecording()
+      }
+    }
+  }
+
+  if (supported === 'unsupported') return null
 
   return (
     <>
