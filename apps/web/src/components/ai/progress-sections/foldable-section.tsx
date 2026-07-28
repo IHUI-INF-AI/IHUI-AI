@@ -166,9 +166,6 @@ export function FoldableSection({
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
             data-testid={`${testId ?? 'foldable'}-header-extra`}
-            // role="presentation" 让 a11y 规则不视为独立交互元素
-            // 真正的可交互按钮(子节点)由 headerExtra 自身提供
-            role="presentation"
             className="ml-0.5 flex shrink-0 items-center"
           >
             {headerExtra}
