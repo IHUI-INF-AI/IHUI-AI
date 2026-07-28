@@ -44,15 +44,14 @@ export function useDesktop() {
   const [loading, setLoading] = React.useState(true)
 
   // 初始化:挂载后探测 Tauri(避免 hydration mismatch)
-  // 2026-07-26 用户反馈(第八次):useEffect 一次检查仍可能为 false,因为 Tauri 2.x
-  //   在 WebView 创建后会异步注入 __TAURI_INTERNALS__,首次 useEffect 执行时
-  //   window.__TAURI_INTERNALS__ 可能尚未存在。
-  // 解决方案:轮询直到检测到 Tauri 或超时(10 秒,2026-07-26 从 2 秒增加,解决注入时机问题)。
-  // 浏览器端永远检测不到,稳定 false。
+  // 2026-07-28 优化:原 10 秒超时太长,首启桌面端 UI(窗口控制按钮/resize/拖拽)10 秒内不显示
+  //   - Tauri 2.x 在 Windows 上注入 __TAURI_INTERNALS__ 通常 100-500ms 内完成
+  //   - 缩短到 3 秒超时,50ms 间隔轮询,正常情况 100-500ms 内检测到
+  //   - 浏览器端永远检测不到,稳定 false
   React.useEffect(() => {
     let cancelled = false
     const start = Date.now()
-    const TIMEOUT_MS = 10000
+    const TIMEOUT_MS = 3000
     const INTERVAL_MS = 50
     const check = () => {
       if (cancelled) return
