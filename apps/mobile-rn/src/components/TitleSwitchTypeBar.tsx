@@ -5,13 +5,11 @@
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import type { TitleSwitchTypeBarItem } from '@ihui/ui-native'
 
-export interface TypeTabItem {
-  id: string
-  name: string
-  butUrl?: string
-  field1?: string
-}
+// 共享类型 TitleSwitchTypeBarItem 下沉到 packages/types,两端复用。
+// 保留 TypeTabItem 别名以维持本模块公开 API(本模块内部亦使用此名)。
+export type TypeTabItem = TitleSwitchTypeBarItem
 
 interface Props {
   showAll?: boolean
