@@ -42,6 +42,7 @@ from typing import Any, Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
 
@@ -66,21 +67,12 @@ _LAYER_ACCESS_COL: dict[str, str] = {
     "procedural": "last_used_at",
 }
 
-# 全局连接池(独立于 meta_learner / memory_service,避免互相影响)
-_pool: Optional[asyncpg.Pool] = None
 
-
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool 函数签名(向后兼容)。
 async def _get_pool() -> asyncpg.Pool:
-    """获取 asyncpg 连接池(懒初始化,与其他服务独立避免循环导入)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 class ActiveForgetter:

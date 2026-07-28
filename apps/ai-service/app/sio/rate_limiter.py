@@ -17,6 +17,7 @@ from typing import Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
 
@@ -72,20 +73,11 @@ async def acquire(user_id: str) -> bool:
 # 预算检查:查 PostgreSQL ai_budgets / ai_cost_records
 # =============================================================================
 
-_pool: Optional[asyncpg.Pool] = None
-
-
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool 函数签名(向后兼容)。
 async def _get_pool() -> asyncpg.Pool:
-    """获取/复用 asyncpg 连接池(参考 llm_gateway._get_pool 模式)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=3,
-            command_timeout=5,
-        )
-    return _pool
+    """获取/复用 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 async def check_budget(

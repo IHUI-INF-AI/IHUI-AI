@@ -29,12 +29,10 @@ from typing import Any, Optional
 import asyncpg
 
 from ..core.config import settings
+from ..core.db_pool import get_shared_pool
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
-
-# 全局连接池(与 llm_gateway._pool 独立,避免互相影响)
-_pool: Optional[asyncpg.Pool] = None
 
 
 def _internal_service_token() -> str:
@@ -50,17 +48,11 @@ def _memory_api_base() -> str:
     return str(settings.api_service_url).rstrip("/")
 
 
+# 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
+# 保留 _get_pool 函数签名(向后兼容),内部委托给 get_shared_pool()。
 async def _get_pool() -> asyncpg.Pool:
-    """获取 asyncpg 连接池(懒初始化)。"""
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-        )
-    return _pool
+    """获取 asyncpg 连接池(复用 app.core.db_pool 共享 pool)。"""
+    return await get_shared_pool()
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
