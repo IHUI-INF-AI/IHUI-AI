@@ -247,7 +247,17 @@ export function Popover({
   const triggerProps =
     trigger === 'hover'
       ? { onMouseEnter: () => setOpen(true), onMouseLeave: () => setOpen(false) }
-      : { onClick: () => setOpen(!open) }
+      : {
+          onClick: (e: React.MouseEvent) => {
+            // 2026-07-29 修复:弹层内部点击不切换 trigger 状态。
+            // 原因:trigger 的外层 div 包含弹层(overlay),点击弹层内 button(如命令项)时
+            // 事件冒泡到外层 div → setOpen(!open) → 弹窗被误关。
+            // 与 click-outside handler(line 100-101)的 contentRef 检查逻辑保持一致:
+            // 弹层内部点击由 button 自己的 onClick 决定是否 onOpenChange(false),不靠 trigger 切换。
+            if (contentRef.current && contentRef.current.contains(e.target as Node)) return
+            setOpen(!open)
+          },
+        }
 
   // 抓 trigger DOM 节点(用 callback ref 赋值给 triggerElRef)
   const childWithRef = React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
