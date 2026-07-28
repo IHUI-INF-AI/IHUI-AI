@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet } from 'react-native'
-import { TextLink } from 'solito/link'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
@@ -89,15 +88,9 @@ export function SettingsScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        {onBack ? (
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
-          </TouchableOpacity>
-        ) : (
-          <TextLink href="/" textProps={{ style: styles.backText }}>
-            {t('common.back')}
-          </TextLink>
-        )}
+        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.backText}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>{t('settings.title')}</Text>
       </View>
 
