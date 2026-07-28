@@ -158,7 +158,7 @@
 #### P0-4 API 开放平台打磨
 
 - [ ] **P0-4a Swagger 公开暴露策略** — `/docs` 端点生产环境独立暴露 + 鉴权(API Key 或公开)+ 自定义品牌页(替换默认 swagger-ui)+ `SWAGGER_ENABLED=true` 生产配置
-- [ ] **P0-4b 开发者门户定价页** — `apps/web/app/(main)/developer/pricing/` 补定价表 + 按量计费规则说明 + 调用示例
+- [x] ✅(2026-07-28) **P0-4b 开发者门户定价页** — `apps/web/app/(main)/developer/pricing/` 4 文件新建:page.tsx(server component,带 SEO metadata)+ PricingContent.tsx(hero + 176+ 模型定价表 + 厂商 Tab + 搜索 + React Query 拉 `/api/ai-pricing`+`/stats`)+ BillingRules.tsx(费用计算公式 + 4 参数说明表 + 计费示例 gpt-4o 500/1200 tokens + 3 条计费规则 note)+ CodeExamples.tsx(cURL/Node.js/Python 3 语言调用示例 + 复制按钮);`developer/page.tsx` 加定价页入口卡片(quickEntries 第 5 项,grid 改 2/5 列,Coins icon + developerPricingPage.cardLabel/cardDesc);5 语言 i18n 5 文件新增 `developerPricingPage` 命名空间(50 keys,含 title/subtitle/modelCount/vendorCount/vendorAll/searchPlaceholder/12 个 col/labels/3 段 example/3 段 note/3 段 code 与 lang 标签/toast 反馈);验证:`pnpm --filter @ihui/web typecheck` exit 0 + `pnpm --filter @ihui/web lint` 仅 1 个 useMemo 警告(line 92,与现有 models-pricing 模式一致,非阻塞);5 语言 JSON.parse 全部 OK,developerPricingPage 50 keys parity 完整
 
 #### P1-1 SDK 发布 CI
 
