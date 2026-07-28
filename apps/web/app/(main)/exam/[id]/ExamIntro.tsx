@@ -36,7 +36,7 @@ export function ExamIntro({ paper, isPending, isError, error, onStart }: Props) 
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center text-sm">
+          <div className="grid grid-cols-3 gap-3 text-center text-sm">
             <div className="rounded-md border p-3">
               <div className="text-muted-foreground">{t('questionCountLabel')}</div>
               <div className="font-semibold">{paper.questions.length}</div>
