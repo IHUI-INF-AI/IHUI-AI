@@ -38,7 +38,7 @@ interface FlowsData {
   total: number
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 const OP_TYPE_KEY: Record<number, string> = {
   1: 'flowRecharge',
