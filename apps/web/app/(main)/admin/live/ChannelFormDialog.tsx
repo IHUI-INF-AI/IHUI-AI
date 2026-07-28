@@ -176,7 +176,7 @@ export function ChannelFormDialog({
               placeholder={t('titlePlaceholder')}
             />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label htmlFor="ch-category">{t('fieldCategory')}</Label>
               <Select
