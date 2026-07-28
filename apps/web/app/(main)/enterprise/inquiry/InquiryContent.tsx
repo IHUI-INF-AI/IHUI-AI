@@ -22,7 +22,7 @@ export function InquiryContent(): React.JSX.Element {
           <span className="inline-flex items-center gap-1.5">
             <Mail className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">{t('enterpriseInquiry.contactEmail')}:</span>
-            <span className="font-medium">business@ihui.ai</span>
+            <span className="font-medium">business@aizhs.top</span>
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Phone className="h-4 w-4 text-muted-foreground" />

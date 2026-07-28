@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Ihui.AI;
+namespace aizhs.top;
 
 /// <summary>
 /// AI 核心模块 — chat / embeddings / vision / moa / models / userModels。

@@ -27,7 +27,7 @@ export default async function ReferralPage() {
     { user: '孙*丽', joined: '2026-07-01', reward: 15, status: 'activated' },
   ]
 
-  const inviteLink = 'https://ihui.ai/register?ref=IHUI2026ABC'
+  const inviteLink = 'https://aizhs.top/register?ref=IHUI2026ABC'
 
   return (
     <div className="space-y-4">

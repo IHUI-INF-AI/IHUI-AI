@@ -78,7 +78,7 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
-  SMTP_FROM: z.string().default('noreply@ihui.ai'),
+  SMTP_FROM: z.string().default('noreply@aizhs.top'),
   SMTP_ENABLED: z.coerce.boolean().default(false),
 
   // 邮件服务商 (auto=按收件域名智能路由国内/国外; smtp/resend/tencent 强制指定)

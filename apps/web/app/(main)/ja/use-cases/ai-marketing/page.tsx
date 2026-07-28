@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/ja/use-cases/ai-marketing#webpage',
-      url: 'https://ihui.ai/ja/use-cases/ai-marketing',
+      '@id': 'https://aizhs.top/ja/use-cases/ai-marketing#webpage',
+      url: 'https://aizhs.top/ja/use-cases/ai-marketing',
       name: 'AI マーケティングコンテンツ生成 Agent ユースケース — IHUI AI',
       description:
         'IHUI AI フルスタック AI OS を基盤に構築する AI マーケティングコンテンツ生成 Agent:マルチプラットフォームコピー (XHS / Douyin / Weibo / WeChat / LinkedIn)、SEO ブログ、ブランドトーン統一、A/B テスト、ペルソナ駆動。30 分で導入、8 エンドポイント配信。',
       inLanguage: ['ja', 'zh-CN', 'zh-TW', 'en', 'ko'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/ja/use-cases/ai-marketing#breadcrumb',
+      '@id': 'https://aizhs.top/ja/use-cases/ai-marketing#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'ホーム', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: 'ユースケース', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI マーケティング', item: 'https://ihui.ai/ja/use-cases/ai-marketing' },
+        { '@type': 'ListItem', position: 1, name: 'ホーム', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: 'ユースケース', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI マーケティング', item: 'https://aizhs.top/ja/use-cases/ai-marketing' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/ja/use-cases/ai-marketing#howto',
+      '@id': 'https://aizhs.top/ja/use-cases/ai-marketing#howto',
       name: '30 分で AI マーケティングコンテンツ生成 Agent を構築',
       description:
         'IHUI AI フルスタック AI OS を基盤に AI マーケティングコンテンツ生成 Agent を構築する 6 ステップ:ブランドガイドアップロード → トーン学習 → マルチプラットフォーム API 接続 → A/B テスト設定 → ペルソナインポート → データフィードバックループ有効化。コンテンツ産出 10 倍。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI マーケティングコンテンツ生成 Agent — IHUI AI',
     description: 'マルチプラットフォーム一括リライト + ブランドトーン統一 + A/B テスト、30 分導入。',
-    url: 'https://ihui.ai/ja/use-cases/ai-marketing',
+    url: 'https://aizhs.top/ja/use-cases/ai-marketing',
     type: 'article',
   },
 }

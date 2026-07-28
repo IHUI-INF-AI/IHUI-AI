@@ -16,7 +16,7 @@ import type { MetadataRoute } from 'next'
 // 否则 Next.js 抛 "export const dynamic = 'force-static' not configured" 错误。
 export const dynamic = 'force-static'
 
-const SITE_URL = 'https://ihui.ai'
+const SITE_URL = 'https://aizhs.top'
 const LOCALES = ['zh-cn', 'zh-tw', 'en', 'ko', 'ja'] as const
 
 // 核心公开页面清单

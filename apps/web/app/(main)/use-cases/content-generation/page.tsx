@@ -6,28 +6,28 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/content-generation#webpage',
-      url: 'https://ihui.ai/use-cases/content-generation',
+      '@id': 'https://aizhs.top/use-cases/content-generation#webpage',
+      url: 'https://aizhs.top/use-cases/content-generation',
       name: 'AI 内容创作 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的内容创作 Agent:一键多平台改写,SEO 智能优化,多语言本地化,品牌调性统一,数据驱动迭代。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/content-generation#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/content-generation#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: '内容创作', item: 'https://ihui.ai/use-cases/content-generation' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: '内容创作', item: 'https://aizhs.top/use-cases/content-generation' },
       ],
     },
     // 2026-07-26 GEO 强化:HowTo schema(适配 AI 引擎"如何搭建 AI 内容创作流水线"类检索)
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/content-generation#howto',
+      '@id': 'https://aizhs.top/use-cases/content-generation#howto',
       name: '搭建多平台多语言 AI 内容创作流水线',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建内容创作 Agent 的 4 步流程:上传品牌资料 → 选题策划 → 一键生成 → 效果追踪。产能 ×10,多语言成本 -80%。',
@@ -77,7 +77,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 内容创作 — 多平台多语言一键产出',
     description: '产能 ×10,多语言成本 -80%,5 平台一键改写。',
-    url: 'https://ihui.ai/use-cases/content-generation',
+    url: 'https://aizhs.top/use-cases/content-generation',
     type: 'article',
   },
 }

@@ -48,7 +48,7 @@
 
 ### 步骤 2:填写注册信息
 
-1. **Email address**（邮箱）:用户邮箱（如 `ihui.ai@gmail.com`）
+1. **Email address**（邮箱）:用户邮箱（如 `aizhs.top@gmail.com`）
 2. **Full name**（姓名）:用户身份证上的姓名（拼音）
 3. **Password**（密码）:强密码（至少 12 位，含大小写字母+数字+符号）
 4. **Country**（国家）:
@@ -85,7 +85,7 @@ Stripe 会要求填写账户详情（Account Details），分几部分:
    ```
    IHUI-AI is an open-source AI platform. We accept payments for digital products (AI prompt library, courses) and donations.
    ```
-4. **URL**（业务网址）:`https://ihui.ai`
+4. **URL**（业务网址）:`https://aizhs.top`
 5. **Country**:**United States**（或其他海外国家）
 6. 点击 **"Continue"**
 
@@ -200,7 +200,7 @@ Webhook 让 Stripe 在支付成功时通知你的服务器。
 
 1. **Endpoint URL**:
    ```
-   https://ihui.ai/api/stripe/webhook
+   https://aizhs.top/api/stripe/webhook
    ```
 2. **Description**:`IHUI-AI payment webhook`
 

@@ -129,7 +129,7 @@ GitHub link and the Schema.org `sameAs` array.
 | P275 | copyright license | 1 | Apache License 2.0 |
 | P571 | inception | 1 | 2024 (year precision) |
 | P577 | publication date | 1 | 2024-01-01 (month precision) |
-| P856 | official website | 1 | https://ihui.ai |
+| P856 | official website | 1 | https://aizhs.top |
 | P1324 | source code repository URL | 1 | https://github.com/IHUI-INF-AI/IHUI-AI |
 | P17 | country | 1 | People's Republic of China |
 | P131 | located in | 1 | Shanghai |
@@ -216,7 +216,7 @@ After any change to the ID map or the description text, re-run both
 - [ ] The 10-language label set is intact.
 - [ ] The schema.org mirror at `apps/web/public/wikidata.json` has been
       updated with the real Q-ID.
-- [ ] The Wikidata item links back to `https://ihui.ai` via P856.
+- [ ] The Wikidata item links back to `https://aizhs.top` via P856.
 - [ ] The schema.org `sameAs` array on the homepage includes
       `https://www.wikidata.org/wiki/Q<id>`.
 - [ ] `apps/web/public/llms.txt` mentions the Q-ID in the entity section.

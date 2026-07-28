@@ -9,7 +9,7 @@ import { getAllRoutesForFeed, type FeedItem } from '../rss.xml/feed-source'
 // 必须显式声明 force-static 或 revalidate,否则构建报错
 export const dynamic = 'force-static'
 
-const SITE_URL = 'https://ihui.ai'
+const SITE_URL = 'https://aizhs.top'
 const SITE_TITLE = 'IHUI AI — 全栈 AI 操作系统'
 const SITE_DESCRIPTION =
   '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,Apache 2.0 开源。'
@@ -38,7 +38,7 @@ export async function GET() {
     <published>${item.publishedAt}</published>
     <author>
       <name>IHUI AI Team</name>
-      <email>contact@ihui.ai</email>
+      <email>contact@aizhs.top</email>
     </author>
     <category term="${escapeXml(item.category)}" />
     <summary>${escapeXml(item.description)}</summary>

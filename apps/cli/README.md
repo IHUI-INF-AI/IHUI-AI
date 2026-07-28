@@ -13,25 +13,25 @@ npm install -g @ihui/cli
 ### 2. curl 一键安装(macOS / Linux)
 
 ```bash
-curl -fsSL https://ihui.ai/install.sh | bash
+curl -fsSL https://aizhs.top/install.sh | bash
 ```
 
 指定版本:
 
 ```bash
-curl -fsSL https://ihui.ai/install.sh | bash -s -- --version 1.0.0
+curl -fsSL https://aizhs.top/install.sh | bash -s -- --version 1.0.0
 ```
 
 ### 3. PowerShell 一键安装(Windows)
 
 ```powershell
-irm https://ihui.ai/install.ps1 | iex
+irm https://aizhs.top/install.ps1 | iex
 ```
 
 指定版本:
 
 ```powershell
-irm https://ihui.ai/install.ps1 | iex -Version 1.0.0
+irm https://aizhs.top/install.ps1 | iex -Version 1.0.0
 ```
 
 ### 4. Homebrew(macOS / Linux)

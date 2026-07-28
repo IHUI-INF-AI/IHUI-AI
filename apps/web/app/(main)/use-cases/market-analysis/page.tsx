@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/market-analysis#webpage',
-      url: 'https://ihui.ai/use-cases/market-analysis',
+      '@id': 'https://aizhs.top/use-cases/market-analysis#webpage',
+      url: 'https://aizhs.top/use-cases/market-analysis',
       name: 'AI 市场分析 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 市场分析 Agent:竞品监控、舆情分析、趋势预测、受众画像、SEO 建议,30 分钟上线,6 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/market-analysis#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/market-analysis#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 市场分析', item: 'https://ihui.ai/use-cases/market-analysis' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 市场分析', item: 'https://aizhs.top/use-cases/market-analysis' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/market-analysis#howto',
+      '@id': 'https://aizhs.top/use-cases/market-analysis#howto',
       name: '30 分钟搭建 AI 市场分析 Agent',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建 AI 市场分析 Agent 的 6 步流程:接入数据源 → 配置竞品监控 → 设置舆情关键词 → 训练趋势模型 → 生成受众画像 → 输出 SEO 建议。趋势预测准确率 90%+。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 市场分析 Agent — IHUI AI',
     description: '竞品监控 + 舆情预警 + 趋势预测,30 分钟上线。',
-    url: 'https://ihui.ai/use-cases/market-analysis',
+    url: 'https://aizhs.top/use-cases/market-analysis',
     type: 'article',
   },
 }

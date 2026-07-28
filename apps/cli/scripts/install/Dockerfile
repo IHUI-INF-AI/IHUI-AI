@@ -7,7 +7,7 @@
 FROM node:20-slim
 
 LABEL org.opencontainers.image.title="IHUI AI Coding Agent CLI"
-LABEL org.opencontainers.image.source="https://ihui.ai"
+LABEL org.opencontainers.image.source="https://aizhs.top"
 LABEL org.opencontainers.image.description="IHUI AI Coding Agent — 对标 Claude Code / Codex"
 LABEL org.opencontainers.image.licenses="MIT"
 

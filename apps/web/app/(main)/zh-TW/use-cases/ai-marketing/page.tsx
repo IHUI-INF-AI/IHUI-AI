@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-marketing#webpage',
-      url: 'https://ihui.ai/zh-TW/use-cases/ai-marketing',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-marketing#webpage',
+      url: 'https://aizhs.top/zh-TW/use-cases/ai-marketing',
       name: 'AI 行銷內容生成 Agent 用例 — IHUI AI',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建的 AI 行銷內容生成 Agent:多平台文案(小紅書/抖音/微博/公眾號/LinkedIn)、SEO 部落格、品牌語調統一、A/B 測試、使用者畫像驅動,30 分鐘上線,8 端分發。',
       inLanguage: ['zh-TW', 'zh-CN', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-marketing#breadcrumb',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-marketing#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 行銷內容', item: 'https://ihui.ai/zh-TW/use-cases/ai-marketing' },
+        { '@type': 'ListItem', position: 1, name: '首頁', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 行銷內容', item: 'https://aizhs.top/zh-TW/use-cases/ai-marketing' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/zh-TW/use-cases/ai-marketing#howto',
+      '@id': 'https://aizhs.top/zh-TW/use-cases/ai-marketing#howto',
       name: '30 分鐘搭建 AI 行銷內容生成 Agent',
       description:
         '基於 IHUI AI 全棧 AI 作業系統搭建 AI 行銷內容生成 Agent 的 6 步流程:上傳品牌指南 → 訓練語調模型 → 接入多平台 API → 配置 A/B 測試 → 匯入使用者畫像 → 啟用資料回饋閉環。產能提升 10 倍。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 行銷內容生成 Agent — IHUI AI',
     description: '多平台一鍵改寫 + 品牌語調統一 + A/B 測試,30 分鐘上線。',
-    url: 'https://ihui.ai/zh-TW/use-cases/ai-marketing',
+    url: 'https://aizhs.top/zh-TW/use-cases/ai-marketing',
     type: 'article',
   },
 }

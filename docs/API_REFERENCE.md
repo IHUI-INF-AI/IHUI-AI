@@ -707,7 +707,7 @@ const plans = await fetchApi<{ list: unknown[]; total: number }>('/billing/plans
 | Go | `packages/sdk/go/` | `ihui.go` |
 | Java | `packages/sdk/java/` | `com.ihui.ai.sdk.IhuiClient` |
 | Python | `packages/sdk/python/` | `ihui_ai.client.IhuiClient` |
-| .NET | `packages/sdk/dotnet/` | `Ihui.AI.Client.IhuiClient` |
+| .NET | `packages/sdk/dotnet/` | `aizhs.top.Client.IhuiClient` |
 
 所有 SDK 模块统一为:AgentsApi / AiApi / AudioApi / FilesApi / GenerationApi / ImagesApi / KnowledgeApi / MemoryApi / MessagesApi / ThreeDApi / ToolsApi / UserApi / VideosApi。
 

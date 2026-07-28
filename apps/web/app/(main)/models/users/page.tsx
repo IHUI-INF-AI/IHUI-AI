@@ -19,16 +19,16 @@ export default async function UsersPage() {
 
   const users = Array.from({ length: 10 }).map((_, i) => {
     const emails = [
-      'alice@ihui.ai',
-      'bob@ihui.ai',
-      'carol@ihui.ai',
-      'david@ihui.ai',
-      'eric@ihui.ai',
-      'frank@ihui.ai',
-      'grace@ihui.ai',
-      'henry@ihui.ai',
-      'ivy@ihui.ai',
-      'jack@ihui.ai',
+      'alice@aizhs.top',
+      'bob@aizhs.top',
+      'carol@aizhs.top',
+      'david@aizhs.top',
+      'eric@aizhs.top',
+      'frank@aizhs.top',
+      'grace@aizhs.top',
+      'henry@aizhs.top',
+      'ivy@aizhs.top',
+      'jack@aizhs.top',
     ]
     const roles = ['admin', 'user', 'user', 'user', 'vip']
     const groups = ['默认分组', '龙岗区数学组', '高中英语组', 'AI 教研组', '管理员']

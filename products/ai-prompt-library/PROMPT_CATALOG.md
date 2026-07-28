@@ -362,7 +362,7 @@
 ## 联系
 
 - 主页: https://github.com/ihui-ai/ihui-ai
-- 邮箱: support@ihui.ai
+- 邮箱: support@aizhs.top
 
 ---
 

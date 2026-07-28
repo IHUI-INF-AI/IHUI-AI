@@ -112,10 +112,10 @@ export const serviceInquiryRoutes: FastifyPluginAsync = async (server) => {
     }
     inquiryStore.set(inquiry.id, inquiry)
 
-    // 邮件通知占位(后续接入 mail 服务:business@ihui.ai)
+    // 邮件通知占位(后续接入 mail 服务:business@aizhs.top)
     request.log.info(
       { id: inquiry.id, name: inquiry.name, email: inquiry.email, serviceType: inquiry.serviceType },
-      '[service-inquiry] 新询价提交,待发送邮件通知到 business@ihui.ai',
+      '[service-inquiry] 新询价提交,待发送邮件通知到 business@aizhs.top',
     )
 
     return reply.send(success({ id: inquiry.id }))

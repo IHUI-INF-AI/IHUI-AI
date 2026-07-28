@@ -22,7 +22,7 @@ export default async function ContactPage() {
     {
       icon: Mail,
       label: t('contact.channels.email'),
-      value: 'support@ihui.ai',
+      value: 'support@aizhs.top',
       desc: t('contact.channels.emailDesc'),
     },
     {

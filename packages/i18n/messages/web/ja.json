@@ -9876,6 +9876,7 @@
       "timelineInlineHint": "メッセージリスト内にインライン表示",
       "timelineNoMatch": "フィルターに一致するイベントがありません",
       "timelineClearFilters": "フィルターをクリア",
+      "timelineExport": "Markdown としてエクスポート",
       "sseStatus": {
         "connected": "接続済み",
         "connecting": "接続中",
@@ -9948,10 +9949,15 @@
         "endedAt": "終了:",
         "duration": "所要時間:",
         "copyThreadId": "threadId をコピー",
-        "toolsCount": "ツール呼び出し({n})",
+        "toolsCount": "ツール呼び出し ({n})",
         "active": "{n} アクティブ",
         "done": "{n} 完了",
-        "failed": "{n} 失敗"
+        "failed": "{n} 失敗",
+        "menuCopyThreadId": "Thread ID をコピー",
+        "menuCopyHandle": "Handle をコピー",
+        "menuCopyNickname": "ニックネームをコピー",
+        "menuCopyDetails": "詳細をコピー",
+        "menuAriaLabel": "サブエージェント {nickname} の操作"
       },
       "overview": {
         "title": "タスク概覧",
@@ -9973,7 +9979,8 @@
         "token": "Token",
         "rate": "速度",
         "eta": "予定",
-        "context": "コンテキスト"
+        "context": "コンテキスト",
+        "copySummary": "タスク概要をコピー"
       },
       "thinkingTitle": "思考プロセス",
       "thinkingStreaming": "思考中...",

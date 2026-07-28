@@ -39,7 +39,7 @@ export default async function BillingPage() {
     productJsonLd = generateProductSchema({
       name: productT('name'),
       description: productT('description'),
-      url: 'https://ihui.ai/models/billing',
+      url: 'https://aizhs.top/models/billing',
       brand: productT('brand'),
       category: productT('category'),
       offers,

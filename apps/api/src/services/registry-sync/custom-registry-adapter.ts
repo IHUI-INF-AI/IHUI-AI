@@ -8,7 +8,7 @@ import {
   fetchWithTimeout,
 } from './types.js'
 
-const DEFAULT_REGISTRY_URL = 'https://registry.ihui.ai/api/registry/items'
+const DEFAULT_REGISTRY_URL = 'https://registry.aizhs.top/api/registry/items'
 
 // SSRF 防护:禁止内网地址 / 非白名单协议
 const BLOCKED_IP_PATTERNS = [

@@ -7,27 +7,27 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'WebPage',
-      '@id': 'https://ihui.ai/use-cases/ai-translation#webpage',
-      url: 'https://ihui.ai/use-cases/ai-translation',
+      '@id': 'https://aizhs.top/use-cases/ai-translation#webpage',
+      url: 'https://aizhs.top/use-cases/ai-translation',
       name: 'AI 多语翻译 Agent 用例 — IHUI AI',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 多语翻译 Agent:多语种文档翻译、本地化工作流、术语库管理、译文审校、文化适配、字幕翻译,30 分钟上线,8 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
-      isPartOf: { '@id': 'https://ihui.ai/#website' },
-      about: { '@id': 'https://ihui.ai/#organization' },
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: { '@id': 'https://aizhs.top/#organization' },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': 'https://ihui.ai/use-cases/ai-translation#breadcrumb',
+      '@id': 'https://aizhs.top/use-cases/ai-translation#breadcrumb',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://ihui.ai' },
-        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://ihui.ai/use-cases' },
-        { '@type': 'ListItem', position: 3, name: 'AI 多语翻译', item: 'https://ihui.ai/use-cases/ai-translation' },
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '用例', item: 'https://aizhs.top/use-cases' },
+        { '@type': 'ListItem', position: 3, name: 'AI 多语翻译', item: 'https://aizhs.top/use-cases/ai-translation' },
       ],
     },
     {
       '@type': 'HowTo',
-      '@id': 'https://ihui.ai/use-cases/ai-translation#howto',
+      '@id': 'https://aizhs.top/use-cases/ai-translation#howto',
       name: '30 分钟搭建 AI 多语翻译 Agent',
       description:
         '基于 IHUI AI 全栈 AI 操作系统搭建 AI 多语翻译 Agent 的 6 步流程:建立术语库 → 上传历史译文 → 配置语种 → 训练文化适配 → 设置审校规则 → 接入工作流。翻译效率提升 6 倍,成本降低 70%。',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI 多语翻译 Agent — IHUI AI',
     description: '多语种翻译 + 术语库 + 文化适配,30 分钟上线。',
-    url: 'https://ihui.ai/use-cases/ai-translation',
+    url: 'https://aizhs.top/use-cases/ai-translation',
     type: 'article',
   },
 }

@@ -1,10 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { Activity, Loader2, CheckCircle2, XCircle, AlertCircle, Circle } from 'lucide-react'
+import { Activity, Loader2, CheckCircle2, XCircle, AlertCircle, Circle, Clipboard, Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration } from './foldable-section'
+import { buildOverviewSummaryMarkdown } from './overview-summary'
 import type { AgentOverview } from '@/hooks/use-agent-progress'
 
 interface OverviewSectionProps {
@@ -124,8 +125,54 @@ export const OverviewSection = React.memo(function OverviewSection({
 
   const Icon = STATUS_ICON[overview.status]
 
+  // Phase 20 P1-2:复制整个任务摘要为 Markdown(2026-07-28 立)
+  const [copied, setCopied] = React.useState<boolean>(false)
+  const onCopySummary = React.useCallback(async () => {
+    const md = buildOverviewSummaryMarkdown({
+      overview,
+      isStreaming,
+      totalTokens,
+      tokenRate,
+      etaMs,
+      contextUsage,
+      sessionStart: overview.sessionStart,
+    })
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(md)
+        setCopied(true)
+        const id = window.setTimeout(() => setCopied(false), 1500)
+        return () => window.clearTimeout(id)
+      }
+    } catch {
+      // 忽略剪贴板权限错误
+    }
+    return undefined
+  }, [overview, isStreaming, totalTokens, tokenRate, etaMs, contextUsage])
+
   return (
-    <FoldableSection title={t('overview.title')} icon={Activity} data-testid="overview-section">
+    <FoldableSection
+      title={t('overview.title')}
+      icon={Activity}
+      data-testid="overview-section"
+      headerExtra={
+        <button
+          type="button"
+          onClick={onCopySummary}
+          aria-label={copied ? t('copied') : t('overview.copySummary')}
+          title={copied ? t('copied') : t('overview.copySummary')}
+          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+          data-testid="overview-copy-summary"
+          data-copied={copied ? 'true' : undefined}
+        >
+          {copied ? (
+            <Check className="h-2.5 w-2.5 text-emerald-500" aria-hidden />
+          ) : (
+            <Clipboard className="h-2.5 w-2.5" aria-hidden />
+          )}
+        </button>
+      }
+    >
       <div className="space-y-0.5 text-[11px] leading-relaxed">
         {/* 会话状态 */}
         <div className="flex items-center gap-1.5">

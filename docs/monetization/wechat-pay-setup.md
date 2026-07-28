@@ -215,7 +215,7 @@ WECHAT_PAY_PRIVATE_KEY_PATH=./certs/wechat/apiclient_key.pem
 WECHAT_PAY_PUBLIC_KEY_PATH=./certs/wechat/apiclient_cert.pem
 
 # Optional: Notify URL
-WECHAT_PAY_NOTIFY_URL=https://ihui.ai/api/wechat/notify
+WECHAT_PAY_NOTIFY_URL=https://aizhs.top/api/wechat/notify
 ```
 
 ### 5.1 证书文件存放

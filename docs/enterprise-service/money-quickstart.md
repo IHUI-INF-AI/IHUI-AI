@@ -180,7 +180,7 @@ docker compose up -d
 ### 第 1 步：ICP 备案（必须，20 天起）
 
 1. 买阿里云/腾讯云服务器（国内节点，4 核 8G，¥300/月起）
-2. 买域名（ihui.ai 已被占，考虑 ihui-ai.com / zhihuiai.com）
+2. 买域名（aizhs.top 已被占，考虑 ihui-ai.com / zhihuiai.com）
 3. 通过云服务商提交 ICP 备案：
    - 阿里云：https://beian.aliyun.com
    - 腾讯云：https://cloud.tencent.com/product/ba

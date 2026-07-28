@@ -159,7 +159,7 @@ IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,核心代码永久免费�
 
 - 赞助者可选用 **GitHub 用户名**、**真实姓名**或**企业名称**展示。
 - 头像默认使用 GitHub 头像,可替换为企业 Logo。
-- 赞助者可随时申请修改展示信息(联系 sponsor@ihui.ai)。
+- 赞助者可随时申请修改展示信息(联系 sponsor@aizhs.top)。
 - 取消赞助后,展示信息保留 1 个月,之后移除(Diamond 战略合作伙伴标识立即移除)。
 - 匿名赞助者显示为 "Anonymous Sponsor",不展示头像。
 
@@ -183,8 +183,8 @@ IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,核心代码永久免费�
 
 ## 9. 联系方式
 
-- 赞助咨询:sponsor@ihui.ai
-- 企业合作:business@ihui.ai
+- 赞助咨询:sponsor@aizhs.top
+- 企业合作:business@aizhs.top
 - GitHub Sponsors:https://github.com/sponsors/IHUI-INF-AI(占位)
 
 ---
