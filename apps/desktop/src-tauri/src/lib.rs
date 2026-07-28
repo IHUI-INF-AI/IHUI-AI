@@ -95,6 +95,9 @@ fn get_app_info() -> AppInfo {
 /// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
 /// direction: n/s/e/w/ne/nw/se/sw
 /// label: 窗口标签(main/admin),默认 "main"。2026-07-27 立:支持 admin 窗口独立 resize。
+///
+/// 2026-07-28 修复:最大化/全屏状态下拒绝 resize(Windows 原生行为)。
+/// 前端 MainShell 也已禁用最大化时的 resize 区域渲染,这里作为防御性兜底。
 #[tauri::command]
 fn start_resize(
     direction: String,
@@ -117,6 +120,13 @@ fn start_resize(
         .get_webview_window(label)
         .ok_or_else(|| format!("window {} not found", label))?;
     let win = webview.as_ref().window();
+    // 2026-07-28 立:最大化/全屏状态下拒绝 resize(Windows 原生行为)
+    if win.is_maximized().unwrap_or(false) {
+        return Err("window is maximized".to_string());
+    }
+    if win.is_fullscreen().unwrap_or(false) {
+        return Err("window is fullscreen".to_string());
+    }
     let dir = serde_json::from_value(serde_json::Value::String(dir_name.to_string()))
         .map_err(|e| e.to_string())?;
     win.start_resize_dragging(dir).map_err(|e| e.to_string())
