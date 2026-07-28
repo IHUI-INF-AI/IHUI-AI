@@ -1,5 +1,15 @@
 import Taro from '@tarojs/taro'
-import { isAlipaySuccess, isAlipayCancel, isAlipayPending } from '@ihui/shared/constants'
+import { requestWeappPayment, requestAlipayPayment } from '../platform/pay'
+
+// 对外统一 API(从 platform/pay.ts re-export,消除双套实现)
+export {
+  requestPayment,
+  requestWeappPayment,
+  requestAlipayPayment,
+  type WechatPayParams,
+  type AlipayPayParams,
+  type PayResult,
+} from '../platform/pay'
 
 export type PayPlatform = 'wechat' | 'alipay'
 
@@ -138,38 +148,26 @@ function showAliPayError(err: PayErrorLike): void {
   })
 }
 
+/**
+ * 微信支付:mp-weixin 委托 platform/pay.ts,App 端保留原 orderInfo 模式
+ * 向后兼容:签名(requestWxPayment + AnyPayParams)不变,调用方无需修改
+ */
 export function requestWxPayment(payParams: AnyPayParams): Promise<unknown> {
   const platform = getPlatform()
-  Taro.showLoading({ title: '支付中...', mask: true })
 
+  // mp-weixin: 委托 platform/pay.ts 实现(内部处理 loading + 错误提示)
   if (platform === 'mp-weixin') {
-    const required = ['timeStamp', 'nonceStr', 'package', 'paySign'] as const
-    const missing = required.filter((k) => !payParams[k])
-    if (missing.length > 0) {
-      Taro.hideLoading()
-      Taro.showToast({ title: '支付参数不完整', icon: 'none' })
-      return Promise.reject(new Error(`missing: ${missing.join(',')}`))
-    }
-    return new Promise((resolve, reject) => {
-      Taro.requestPayment({
-        timeStamp: String(payParams.timeStamp ?? ''),
-        nonceStr: String(payParams.nonceStr ?? ''),
-        package: String(payParams.package ?? ''),
-        signType: (payParams.signType as 'RSA' | 'MD5') || 'RSA',
-        paySign: String(payParams.paySign ?? ''),
-        success: (res) => {
-          Taro.hideLoading()
-          resolve(res)
-        },
-        fail: (err) => {
-          Taro.hideLoading()
-          showWxPayError(err as PayErrorLike)
-          reject(err)
-        },
-      })
+    return requestWeappPayment({
+      timeStamp: String(payParams.timeStamp ?? ''),
+      nonceStr: String(payParams.nonceStr ?? ''),
+      package: String(payParams.package ?? ''),
+      signType: payParams.signType ?? 'RSA',
+      paySign: String(payParams.paySign ?? ''),
     })
   }
 
+  // App 端支付(保留原逻辑)
+  Taro.showLoading({ title: '支付中...', mask: true })
   if (platform === 'app') {
     const orderInfo = buildAppWxOrderInfo(payParams)
     return new Promise((resolve, reject) => {
@@ -194,61 +192,28 @@ export function requestWxPayment(payParams: AnyPayParams): Promise<unknown> {
   return Promise.reject(new Error(`unsupported platform: ${platform}`))
 }
 
+/**
+ * 支付宝支付:mp-alipay 委托 platform/pay.ts,App 端保留原 orderInfo 模式
+ * 向后兼容:签名(requestAliPayment + AnyPayParams)不变,调用方无需修改
+ */
 export function requestAliPayment(payParams: AnyPayParams): Promise<unknown> {
   const platform = getPlatform()
-  Taro.showLoading({ title: '支付中...', mask: true })
 
   if (platform === 'mp-weixin') {
-    Taro.hideLoading()
     Taro.showToast({ title: '微信小程序暂不支持支付宝支付', icon: 'none' })
     return Promise.reject(new Error('mp-weixin unsupported alipay'))
   }
 
-  // 支付宝小程序支付:必须用 Taro.tradePay(对应 my.tradePay),而非 Taro.requestPayment
-  // tradeNO 优先(后端 alipay.trade.create 返回),否则用 orderStr(完整订单串)
-  const tradeNO = (payParams as { tradeNO?: string }).tradeNO
-  const orderStr = payParams.orderInfo ?? payParams.orderStr ?? ''
-
+  // mp-alipay: 委托 platform/pay.ts 实现(内部处理 loading + 错误提示)
   if (platform === 'mp-alipay') {
-    if (!tradeNO && !orderStr) {
-      Taro.hideLoading()
-      Taro.showToast({ title: '支付宝订单信息缺失', icon: 'none' })
-      return Promise.reject(new Error('missing alipay tradeNO/orderStr'))
-    }
-    const tradeOption: Record<string, unknown> = {}
-    if (tradeNO) tradeOption.tradeNO = tradeNO
-    else tradeOption.orderStr = orderStr
-
-    return new Promise((resolve, reject) => {
-      Taro.tradePay({
-        ...tradeOption,
-        success: (res: { resultCode?: number | string }) => {
-          Taro.hideLoading()
-          const code = String(res?.resultCode ?? '')
-          // 9000=成功 8000=待确认 4000=失败 6001=取消 6002=网络异常
-          if (isAlipaySuccess(code)) {
-            resolve(res)
-          } else if (isAlipayCancel(code)) {
-            Taro.showToast({ title: '您已取消支付', icon: 'none' })
-            reject(new Error('cancel'))
-          } else if (isAlipayPending(code)) {
-            Taro.showToast({ title: '支付结果待确认', icon: 'none', duration: 2000 })
-            reject(new Error(`alipay pending: ${code}`))
-          } else {
-            Taro.showToast({ title: '支付失败,请重试', icon: 'none', duration: 2000 })
-            reject(new Error(`alipay failed: ${code}`))
-          }
-        },
-        fail: (err: PayErrorLike) => {
-          Taro.hideLoading()
-          showAliPayError(err)
-          reject(err)
-        },
-      } as unknown as Parameters<typeof Taro.tradePay>[0])
-    })
+    const tradeNO = payParams.tradeNO
+    const orderStr = typeof payParams.orderInfo === 'string' ? payParams.orderInfo : payParams.orderStr
+    return requestAlipayPayment({ tradeNO, orderStr })
   }
 
   // App 端支付宝支付(保留原 orderInfo 模式)
+  Taro.showLoading({ title: '支付中...', mask: true })
+  const orderStr = typeof payParams.orderInfo === 'string' ? payParams.orderInfo : (payParams.orderStr ?? '')
   if (!orderStr) {
     Taro.hideLoading()
     Taro.showToast({ title: '支付宝订单信息缺失', icon: 'none' })

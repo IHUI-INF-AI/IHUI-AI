@@ -3,6 +3,8 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
+import { useChatStore } from '@/stores/chat'
+import { ConnectionStatusDot, deriveConnectionState } from './progress-sections/connection-status'
 
 /**
  * AgentProgressTrigger — Agent 任务进度触发按钮(2026-07-27 v6 联动版)
@@ -19,6 +21,9 @@ import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
  * - 文字显示:无进度 = "任务列表";有进度 = "01/06"
  * - 快捷键:Ctrl+Shift+J 切换 / ArrowDown 打开(未打开时)
  *
+ * v7(Phase 16):
+ * - 增加 ConnectionStatusDot 显示 SSE 连接状态
+ *
  * 数据来源:从 useAgentProgressPaneStore 读取 progressCurrent/progressTotal
  * (由 AgentTaskProgressPane 组件同步,避免 trigger 启动第二个 SSE 流)
  */
@@ -27,6 +32,16 @@ export function AgentProgressTrigger() {
   const toggle = useAgentProgressPaneStore((s) => s.toggle)
   const progressCurrent = useAgentProgressPaneStore((s) => s.progressCurrent)
   const progressTotal = useAgentProgressPaneStore((s) => s.progressTotal)
+
+  // Phase 16: 从 useChatStore 获取 conversationId 用于推导连接状态
+  const conversationId = useChatStore((s) => s.conversationId)
+
+  // Phase 16: 推导连接状态(未打开 popover 时显示基础状态)
+  // 注:trigger 不直接启动 SSE,这里仅做静态状态指示
+  const connectionState = React.useMemo(
+    () => deriveConnectionState(false, 0, false, conversationId),
+    [conversationId],
+  )
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -93,6 +108,8 @@ export function AgentProgressTrigger() {
       )}
       data-testid="agent-progress-trigger"
     >
+      {/* Phase 16: 连接状态点 */}
+      <ConnectionStatusDot state={connectionState} />
       <span className="whitespace-nowrap tabular-nums">{display}</span>
     </button>
   )

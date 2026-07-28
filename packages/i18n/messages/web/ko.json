@@ -9661,7 +9661,7 @@
       "totalSteps": "(총 {count}단계)",
       "working": "{count}개 서브 에이전트 협업 중"
     },
-    "progressPane": {
+    "pane":  {
       "title": "작업 계획",
       "ariaLabel": "Agent 작업 진행 패널",
       "pin": "고정",
@@ -9677,6 +9677,9 @@
       "sectionsToolbarLabel": "접기 섹션 도구 모음",
       "copy": "복사",
       "copied": "복사됨",
+      "progressLabel":  "작업 진행 {pct}%",
+      "sseStatus":  {"connected":"연결됨","connecting":"연결 중","reconnecting":"재연결 중","disconnected":"연결 끊김","reconnectingShort":"재연결 {n}/{max}","disconnectedShort":"오프라인","tooltipError":"연결 오류: {error}"},
+
       "relativeTime": {
         "justNow": "방금",
         "secondsAgo": "{n}초 전",

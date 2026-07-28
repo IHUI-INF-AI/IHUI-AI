@@ -27,6 +27,13 @@ import { ChangesSection } from './progress-sections/changes-section'
 import { TerminalSection } from './progress-sections/terminal-section'
 import { OverviewSection } from './progress-sections/overview-section'
 import { CopyButton } from './progress-sections/copy-button'
+import { ProgressRing } from './progress-sections/progress-ring'
+import {
+  ConnectionStatus,
+  ConnectionStatusDot,
+  deriveConnectionState,
+  type ConnectionState,
+} from './progress-sections/connection-status'
 
 /**
  * AgentTaskProgressPane — 输入容器右上角的小 popover(2026-07-28 v7 Trae Work 对齐)
@@ -60,14 +67,14 @@ const PlanStepItem = React.memo(function PlanStepItem({
   step: PlanStep
   index: number
 }) {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const Icon = PLAN_ICON[step.status]
   const stepLabel =
     step.status === 'in_progress'
-      ? t('pane.stepInProgress', { n: index + 1, step: step.step })
+      ? t('stepInProgress', { n: index + 1, step: step.step })
       : step.status === 'completed'
-        ? t('pane.stepCompleted', { n: index + 1, step: step.step })
-        : t('pane.stepPending', { n: index + 1, step: step.step })
+        ? t('stepCompleted', { n: index + 1, step: step.step })
+        : t('stepPending', { n: index + 1, step: step.step })
   return (
     <div
       role="listitem"
@@ -121,7 +128,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
 
 // ─── 主组件 ──────────────────────────────────────────────────────────
 export function AgentTaskProgressPane() {
-  const t = useTranslations('ai.progressPane')
+  const t = useTranslations('ai.pane')
   const open = useAgentProgressPaneStore((s) => s.open)
   const threadId = useAgentProgressPaneStore((s) => s.threadId)
   const setThreadId = useAgentProgressPaneStore((s) => s.setThreadId)
@@ -183,6 +190,26 @@ export function AgentTaskProgressPane() {
       progressPct: (completed / planSteps.length) * 100,
     }
   }, [planSteps])
+
+  // Phase 16: 进度环状态推导
+  const ringState: 'idle' | 'in_progress' | 'completed' = React.useMemo(() => {
+    if (planSteps.length === 0) return 'idle'
+    if (progressPct >= 100) return 'completed'
+    if (isStreaming) return 'in_progress'
+    return 'idle'
+  }, [planSteps.length, progressPct, isStreaming])
+
+  // Phase 16: SSE 连接状态推导
+  const connectionState: ConnectionState = React.useMemo(
+    () =>
+      deriveConnectionState(
+        isStreaming,
+        progress.overview.reconnectAttempt,
+        !!progress.overview.error,
+        threadId,
+      ),
+    [isStreaming, progress.overview.reconnectAttempt, progress.overview.error, threadId],
+  )
 
   // 同步 planSteps 进度到 store(供 trigger 显示 "01/06" 格式)
   React.useEffect(() => {
@@ -279,8 +306,8 @@ export function AgentTaskProgressPane() {
       className={cn(
         // 位置:消息区右上角(固定,带 8px 间距,不随滚动移动)
         'absolute right-2 top-2 z-50',
-        // 尺寸:紧凑 popover
-        'w-[280px]',
+        // 尺寸:紧凑 popover + 高度自适应(视口 60vh,内容多时整体滚动)
+        'flex w-[280px] max-h-[60vh] flex-col',
         // 外观:圆角边框阴影,popover 风格
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
       )}
@@ -290,58 +317,47 @@ export function AgentTaskProgressPane() {
     >
       {/* Header:状态点 + 标题 + pin 按钮 + 关闭按钮 */}
       <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2">
-        {/* 状态点:running 时 primary 色脉冲,idle 时灰色 */}
-        <span
+        {/* Phase 16: 状态点(连接状态可视化) - 替换原静态点 */}
+        <ConnectionStatusDot
+          state={connectionState}
           className={cn(
-            'h-1.5 w-1.5 shrink-0 rounded-full',
-            isStreaming
-              ? 'bg-primary animate-pulse'
-              : planSteps.length > 0
-                ? 'bg-emerald-500'
-                : 'bg-muted-foreground/50',
+            'transition-all duration-300',
+            // 5 状态颜色(对标 Trae Work)
+            connectionState === 'connected' && 'shadow-[0_0_0_1px_rgb(16_185_129/0.3)]',
+            connectionState === 'reconnecting' && 'shadow-[0_0_0_1px_rgb(245_158_11/0.3)]',
+            connectionState === 'disconnected' && 'shadow-[0_0_0_1px_rgb(239_68_68/0.3)]',
           )}
         />
         <ListTodo className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-        <span className="shrink-0 text-xs font-medium">{t('pane.title')}</span>
-        {/* v9: SVG 圆环进度(有 planSteps 时显示) */}
+        <span className="shrink-0 text-xs font-medium">{t('title')}</span>
+        {/* Phase 16: 进度环(中心显示百分比,带脉冲/庆祝动画) */}
         {planSteps.length > 0 && (
-          <svg
-            className="h-4 w-4 shrink-0 -rotate-90"
-            viewBox="0 0 16 16"
-            data-testid="progress-ring"
-            aria-label={`${Math.round(progressPct)}% 已完成`}
-          >
-            <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted" />
-            <circle
-              cx="8"
-              cy="8"
-              r="6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              className="text-emerald-500 transition-all duration-300"
-              strokeDasharray={2 * Math.PI * 6}
-              strokeDashoffset={2 * Math.PI * 6 * (1 - progressPct / 100)}
-            />
-          </svg>
+          <ProgressRing
+            value={progressPct}
+            state={ringState}
+            centerMode="percent"
+            size={16}
+            strokeWidth={2}
+            aria-label={t('pane.progressLabel', { pct: Math.round(progressPct) })}
+          />
         )}
-        {/* SSE 重连指示 */}
-        {progress.overview.reconnectAttempt > 0 && (
-          <span
-            className="shrink-0 animate-pulse text-[10px] text-amber-500"
-            title={t('pane.reconnecting', { n: progress.overview.reconnectAttempt })}
-          >
-            ↻{progress.overview.reconnectAttempt}/5
-          </span>
+        {/* Phase 16: SSE 连接状态指示器(紧凑模式,仅异常状态显示文字) */}
+        {connectionState !== 'connected' && connectionState !== 'connecting' && (
+          <ConnectionStatus
+            state={connectionState}
+            reconnectAttempt={progress.overview.reconnectAttempt}
+            totalAttempts={5}
+            error={progress.overview.error}
+            className="ml-0.5"
+          />
         )}
         <div className="flex-1" />
         {/* v9: 展开全部/折叠全部按钮 */}
         <button
           type="button"
           onClick={() => setExpandAll(expandAll === true ? false : true)}
-          aria-label={expandAll === true ? t('pane.collapseAll') : t('pane.expandAll')}
-          title={expandAll === true ? t('pane.collapseAll') : t('pane.expandAll')}
+          aria-label={expandAll === true ? t('collapseAll') : t('expandAll')}
+          title={expandAll === true ? t('collapseAll') : t('expandAll')}
           className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           data-testid="pane-expand-all"
         >
@@ -380,8 +396,11 @@ export function AgentTaskProgressPane() {
         </button>
       </div>
 
-      {/* 内容:plan steps 列表 + 折叠子区 */}
-      <div className="max-h-[280px] overflow-y-auto overflow-x-hidden py-1" data-testid="plan-list">
+      {/* 内容:plan steps 列表 + 折叠子区(min-h-0 + flex-1 让 popover 整体滚动,避免嵌套) */}
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1"
+        data-testid="plan-list"
+      >
         {/* 无 conversationId */}
         {!threadId && (
           <div className="flex flex-col items-center gap-1.5 px-2 py-6 text-center">
@@ -443,8 +462,9 @@ export function AgentTaskProgressPane() {
             <div
               onKeyDown={onSectionsKeyDown}
               role="toolbar"
-              aria-label={t('pane.sectionsToolbarLabel')}
+              aria-label={t('sectionsToolbarLabel')}
               data-testid="sections-container"
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
             >
               <ThinkingSection
                 content={overview.content}
