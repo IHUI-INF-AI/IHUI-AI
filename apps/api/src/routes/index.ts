@@ -341,6 +341,13 @@ import { securityRoutes } from './security.js'
 
 // P0-4 补建:智能体创作核心接口(迁移自旧项目 aiModels.js,4 类端点:我的创作/收费配置 CRUD/agent 配置查询/工作流搜索)
 import agentCreationRoutes from './agent-creation.js'
+// P0-5 模型 API 中转站(2026-07-29 立,4 个 admin 路由 + 1 个公开路由 + 1 个 developer 路由)
+import relayModelsRoutes from './admin/relay-models.js'
+import relayKeyPoolRoutes from './admin/relay-key-pool.js'
+import relayDiscoveryRoutes from './admin/relay-discovery.js'
+import relayLogsRoutes from './admin/relay-logs.js'
+import { relayPublicRoutes } from './relay-public.js'
+import developerRelayRoutes from './developer-relay.js'
 // 资源上下文管理(7 端点:列表/创建/详情/更新/删除/绑定/按会话查询)+ 交易员流水统计(4 端点:流水/汇总/按日/排行)
 import resourceContextRoutes from './resource-context.js'
 import traderStatsRoutes from './trader-stats.js'
@@ -949,4 +956,15 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiTutorRoutes, { prefix: '/api' })
   // Newsletter 订阅(定价页转化率优化配套:subscribe/unsubscribe + admin list/send)
   server.register(newsletterRoutes, { prefix: '/api/newsletter' })
+
+  // ===== P0-5 模型 API 中转站(2026-07-29 立,对标 OneAPI/NewAPI)=====
+  // admin 管理后台:模型上下架/Key 池/动态发现/调用日志(4 个路由文件,绝对路径字面量注册)
+  server.register(relayModelsRoutes, { prefix: '/api' })
+  server.register(relayKeyPoolRoutes, { prefix: '/api' })
+  server.register(relayDiscoveryRoutes, { prefix: '/api' })
+  server.register(relayLogsRoutes, { prefix: '/api' })
+  // 公开端点:GET /api/relay/models/public(无需鉴权,返回中转站已上架模型清单 + 定价倍率)
+  server.register(relayPublicRoutes, { prefix: '/api/relay' })
+  // developer 用户侧端点:API Key 列表(含余额)/ 用量明细 / 调用日志 / 充值
+  server.register(developerRelayRoutes, { prefix: '/api' })
 }
