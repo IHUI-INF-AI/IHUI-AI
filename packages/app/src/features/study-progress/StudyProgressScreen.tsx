@@ -52,7 +52,9 @@ export function StudyProgressScreen({
       <Text style={styles.title}>{t('studyProgress.title')}</Text>
       <View style={styles.statGrid}>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{progress.completedCourses}/{progress.totalCourses}</Text>
+          <Text style={styles.statValue}>
+            {progress.completedCourses}/{progress.totalCourses}
+          </Text>
           <Text style={styles.statLabel}>{t('studyProgress.courses')}</Text>
         </View>
         <View style={styles.statCard}>
@@ -74,7 +76,9 @@ export function StudyProgressScreen({
       ) : (
         progress.courses.map((c) => (
           <View key={c.id} style={styles.card}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {c.title}
+            </Text>
             <View style={styles.bar}>
               <View style={[styles.barFill, { width: `${c.progress}%` }]} />
             </View>
@@ -88,23 +92,67 @@ export function StudyProgressScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tk.surface.bg, padding: 16 },
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: 16,
+      paddingTop: 48,
+      paddingBottom: 32,
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.bg,
+      padding: 16,
+    },
     muted: { marginTop: 8, fontSize: 13, color: tk.text.secondary },
     error: { fontSize: 13, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     back: { fontSize: 14, color: tk.text.secondary },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary, marginBottom: 12 },
+    title: {
+      marginTop: 8,
+      fontSize: 22,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: 12,
+    },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-    statCard: { flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light, alignItems: 'center' },
+    statCard: {
+      flex: 1,
+      minWidth: '45%',
+      padding: 16,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      alignItems: 'center',
+    },
     statValue: { fontSize: 20, fontWeight: '600', color: tk.success.DEFAULT },
     statLabel: { marginTop: 4, fontSize: 11, color: tk.text.secondary },
     sectionTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
-    card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light, marginBottom: 8 },
+    card: {
+      padding: 16,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      marginBottom: 8,
+    },
     cardTitle: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
-    bar: { height: 4, backgroundColor: tk.surface.card, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
+    bar: {
+      height: 4,
+      backgroundColor: tk.surface.card,
+      borderRadius: 2,
+      marginTop: 8,
+      overflow: 'hidden',
+    },
     barFill: { height: 4, backgroundColor: tk.success.DEFAULT },
     meta: { marginTop: 4, fontSize: 11, color: tk.text.tertiary },
-    btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tk.success.DEFAULT },
+    btn: {
+      marginTop: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: tk.success.DEFAULT,
+    },
     btnText: { color: tk.surface.light, fontSize: 14 },
   })
 }

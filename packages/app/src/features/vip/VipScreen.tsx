@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipLevelItem2, VipMembershipInfo, VipScreenProps } from '../../types'
 
@@ -84,12 +77,8 @@ export function VipScreen({
 
       {membership && membership.isActive ? (
         <View style={styles.membershipCard}>
-          <Text style={styles.membershipLabel}>
-            {t('vip.currentLevel')}
-          </Text>
-          <Text style={styles.membershipLevel}>
-            {membership.levelName}
-          </Text>
+          <Text style={styles.membershipLabel}>{t('vip.currentLevel')}</Text>
+          <Text style={styles.membershipLevel}>{membership.levelName}</Text>
           <View style={styles.membershipMeta}>
             <Text style={styles.membershipMetaText}>
               {t('vip.expireAt')}:{membership.expireTime}
@@ -102,9 +91,7 @@ export function VipScreen({
       ) : null}
 
       <View style={styles.levelsSection}>
-        <Text style={styles.levelsTitle}>
-          {t('vip.levelsTitle')}
-        </Text>
+        <Text style={styles.levelsTitle}>{t('vip.levelsTitle')}</Text>
         {levels.length === 0 ? (
           <View style={styles.card}>
             <Text style={styles.emptyText}>{t('vip.empty')}</Text>
@@ -119,9 +106,7 @@ export function VipScreen({
               <View key={level.id} style={styles.cardSpacing}>
                 <View style={styles.card}>
                   <View style={styles.cardHead}>
-                    <Text style={styles.cardLevelName}>
-                      {level.levelName}
-                    </Text>
+                    <Text style={styles.cardLevelName}>{level.levelName}</Text>
                     {isCurrent ? (
                       <View style={styles.currentBadge}>
                         <Text style={styles.currentBadgeText}>{t('vip.currentBadge')}</Text>
@@ -132,9 +117,7 @@ export function VipScreen({
                     <Text style={styles.durationText}>
                       {t('vip.duration', { days: level.durationDays })}
                     </Text>
-                    <Text style={styles.priceText}>
-                      ¥ {level.price.toFixed(2)}
-                    </Text>
+                    <Text style={styles.priceText}>¥ {level.price.toFixed(2)}</Text>
                   </View>
                   {benefitsCount > 0 ? (
                     <Text style={styles.benefitsText}>
@@ -209,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardSpacing: { marginBottom: 12 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

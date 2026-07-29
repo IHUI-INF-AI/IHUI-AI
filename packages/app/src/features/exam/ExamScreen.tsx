@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamItem, ExamScreenProps, ExamStatus } from '../../types'
 
@@ -175,7 +168,12 @@ function createStyles(tk: AppThemeTokens) {
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
     toastText: { paddingHorizontal: 16, paddingVertical: 4, fontSize: 12, color: tk.brand.DEFAULT },
-    errorText: { paddingHorizontal: 16, paddingVertical: 4, fontSize: 12, color: tk.danger.DEFAULT },
+    errorText: {
+      paddingHorizontal: 16,
+      paddingVertical: 4,
+      fontSize: 12,
+      color: tk.danger.DEFAULT,
+    },
     retryBtn: {
       marginTop: 12,
       paddingHorizontal: 16,
@@ -189,7 +187,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 16, paddingBottom: 32 },
     separator: { height: 10 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
