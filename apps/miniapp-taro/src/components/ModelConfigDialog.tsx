@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { useI18n } from '@/i18n'
 import type { ModelConfigType } from '@ihui/types'
 import Selecter from './Selecter'
+import './ModelConfigDialog.css'
 
 // ===== 默认 variant 用:简化版配置 =====
 export interface ModelConfig {
@@ -36,6 +37,8 @@ export interface ModelConfigDialogProps {
   modelName?: string
   /** aigc variant:是否 VIP(水印禁用判定) */
   isVip?: number
+  /** aigc variant:系统音色列表(默认使用内置 SYSTEM_VOICES) */
+  systemVoices?: Array<string | SelecterOptionObj>
 }
 
 // ===== aigc variant:动态配置项类型 =====
@@ -63,10 +66,19 @@ const TIMBRES = [
   { id: 'longmom', name: '龙妈' },
 ]
 
+// aigc variant:对齐原项目 indexa.vue 的系统音色与视频比例
+const SYSTEM_VOICES = ['默认音色', '甜美女声', '成熟男声', '清澈童声', '专业播音', '情感朗读']
+const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '16:9', '9:16', '21:9']
+
 const isBool = (v: unknown): v is boolean => typeof v === 'boolean'
 const isArray = (v: unknown): v is Array<unknown> => Array.isArray(v)
-const isSizeType = (arr: Array<unknown>): boolean =>
-  arr.length > 0 && typeof arr[0] === 'object'
+const isSizeType = (arr: Array<unknown>): boolean => arr.length > 0 && typeof arr[0] === 'object'
+
+// 获取音色项的显示标签(字符串或 {name} 对象)
+const voiceLabel = (v: string | SelecterOptionObj | undefined): string => {
+  if (v === undefined) return ''
+  return typeof v === 'string' ? v : (v.name ?? '')
+}
 
 // ===== aigc variant:上传按钮项 =====
 type UploadKey = 'firstFrame' | 'lastFrame' | 'audio' | 'video'
@@ -97,12 +109,15 @@ export default function ModelConfigDialog({
   variables = [],
   modelName = '',
   isVip = 0,
+  systemVoices = SYSTEM_VOICES,
 }: ModelConfigDialogProps) {
   const { t } = useI18n()
   const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   // aigc variant 内部状态
   const [configParamsObj, setConfigParamsObj] = useState<Record<string, unknown>>({})
-  const [setVariables, setSetVariables] = useState<Array<{ name: string; desc: string; value: unknown }>>([])
+  const [setVariables, setSetVariables] = useState<
+    Array<{ name: string; desc: string; value: unknown }>
+  >([])
   const [uploads, setUploads] = useState<UploadsState>({
     firstFrame: { url: '', name: '' },
     lastFrame: { url: '', name: '' },
@@ -110,6 +125,7 @@ export default function ModelConfigDialog({
     video: { url: '', name: '' },
   })
   const [showAudioMenu, setShowAudioMenu] = useState(false)
+  const [selectedVoiceIndex, setSelectedVoiceIndex] = useState<number>(-1)
 
   if (!visible) return null
 
@@ -129,14 +145,18 @@ export default function ModelConfigDialog({
           onClick={(e) => e.stopPropagation()}
         >
           <View className="flex items-center justify-between px-4 py-3 mb-2">
-            <Text className="text-sm font-medium text-foreground">{tt('model.configTitle', '模型配置')}</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {tt('model.configTitle', '模型配置')}
+            </Text>
             <Text className="text-sm text-muted-foreground" onClick={onClose}>
               {tt('common.close', '关闭')}
             </Text>
           </View>
           <View className="px-4 py-3">
             <View className="mb-3">
-              <Text className="block text-xs text-muted-foreground mb-1">{tt('model.temperature', '温度 (0-2)')}</Text>
+              <Text className="block text-xs text-muted-foreground mb-1">
+                {tt('model.temperature', '温度 (0-2)')}
+              </Text>
               <Input
                 type="digit"
                 className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
@@ -146,7 +166,9 @@ export default function ModelConfigDialog({
               />
             </View>
             <View className="mb-3">
-              <Text className="block text-xs text-muted-foreground mb-1">{tt('model.maxToken', '最大 Token')}</Text>
+              <Text className="block text-xs text-muted-foreground mb-1">
+                {tt('model.maxToken', '最大 Token')}
+              </Text>
               <Input
                 type="number"
                 className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
@@ -166,7 +188,9 @@ export default function ModelConfigDialog({
               />
             </View>
             <View className="mb-3">
-              <Text className="block text-xs text-muted-foreground mb-1">{tt('model.systemPrompt', '系统提示词')}</Text>
+              <Text className="block text-xs text-muted-foreground mb-1">
+                {tt('model.systemPrompt', '系统提示词')}
+              </Text>
               <Input
                 className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
                 placeholder="You are a helpful assistant"
@@ -294,7 +318,7 @@ export default function ModelConfigDialog({
     let newSetVars = setVariables
     if (idx !== -1) {
       newSetVars = setVariables.map((it, i) =>
-        i === idx ? { name: it.name, desc: it.desc, value: val } : it
+        i === idx ? { name: it.name, desc: it.desc, value: val } : it,
       )
       setSetVariables(newSetVars)
     }
@@ -306,7 +330,11 @@ export default function ModelConfigDialog({
     try {
       if (key === 'audio') {
         // 音频:从会话文件选
-        const res = await Taro.chooseMessageFile({ count: 1, type: 'file', extension: ['mp3', 'wav', 'm4a'] })
+        const res = await Taro.chooseMessageFile({
+          count: 1,
+          type: 'file',
+          extension: ['mp3', 'wav', 'm4a'],
+        })
         const f = res.tempFiles?.[0]
         if (f) {
           const url = f.path || ''
@@ -341,10 +369,38 @@ export default function ModelConfigDialog({
 
   // 上传按钮配置
   const uploadItems: UploadItem[] = [
-    { key: 'firstFrame', label: '添加首帧图', url: uploads.firstFrame.url, name: uploads.firstFrame.name, emptyIcon: '🖼️', successIcon: '✅' },
-    { key: 'lastFrame', label: '添加尾帧图', url: uploads.lastFrame.url, name: uploads.lastFrame.name, emptyIcon: '🖼️', successIcon: '✅' },
-    { key: 'audio', label: '参考音色', url: uploads.audio.url, name: uploads.audio.name, emptyIcon: '🎵', successIcon: '🔊' },
-    { key: 'video', label: '克隆数字人', url: uploads.video.url, name: uploads.video.name, emptyIcon: '🎬', successIcon: '🎞️' },
+    {
+      key: 'firstFrame',
+      label: '添加首帧图',
+      url: uploads.firstFrame.url,
+      name: uploads.firstFrame.name,
+      emptyIcon: '🖼️',
+      successIcon: '✅',
+    },
+    {
+      key: 'lastFrame',
+      label: '添加尾帧图',
+      url: uploads.lastFrame.url,
+      name: uploads.lastFrame.name,
+      emptyIcon: '🖼️',
+      successIcon: '✅',
+    },
+    {
+      key: 'audio',
+      label: '参考音色',
+      url: uploads.audio.url,
+      name: uploads.audio.name,
+      emptyIcon: '🎵',
+      successIcon: '🔊',
+    },
+    {
+      key: 'video',
+      label: '克隆数字人',
+      url: uploads.video.url,
+      name: uploads.video.name,
+      emptyIcon: '🎬',
+      successIcon: '🎞️',
+    },
   ]
 
   return (
@@ -355,7 +411,9 @@ export default function ModelConfigDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between px-4 py-3 mb-2">
-          <Text className="text-sm font-medium text-foreground">{tt('model.configTitle', '模型配置')}</Text>
+          <Text className="text-sm font-medium text-foreground">
+            {tt('model.configTitle', '模型配置')}
+          </Text>
           <Text className="text-sm text-muted-foreground" onClick={onClose}>
             {tt('common.close', '关闭')}
           </Text>
@@ -367,7 +425,7 @@ export default function ModelConfigDialog({
               <View
                 key={it.key}
                 className="flex flex-col items-center"
-                onClick={() => it.key === 'audio' ? setShowAudioMenu(true) : handleUpload(it.key)}
+                onClick={() => (it.key === 'audio' ? setShowAudioMenu(true) : handleUpload(it.key))}
               >
                 <View className="relative">
                   {!it.url ? (
@@ -382,56 +440,74 @@ export default function ModelConfigDialog({
                   {it.url && (
                     <View
                       className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full flex items-center justify-center"
-                      onClick={(e) => { e.stopPropagation(); deleteUpload(it.key) }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteUpload(it.key)
+                      }}
                     >
                       <Text className="text-white text-[16rpx]">×</Text>
                     </View>
                   )}
                 </View>
-                <Text className="text-[24rpx] text-muted-foreground mt-1">{it.name || it.label}</Text>
+                <Text className="text-[24rpx] text-muted-foreground mt-1">
+                  {it.name || it.label}
+                </Text>
               </View>
             ))}
           </View>
 
-          {/* 音色选择弹窗 */}
+          {/* 音色选择弹窗 — 集成 Selecter type='voice' 选系统音色 + 上传克隆音色 */}
           {showAudioMenu && (
             <View
               className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/40"
               onClick={() => setShowAudioMenu(false)}
             >
               <View
-                className="bg-card rounded-xl mx-6 w-full max-w-xs p-4"
+                className="mcd-audio-menu mx-6 w-full max-w-xs p-4"
                 onClick={(e) => e.stopPropagation()}
               >
                 <View className="flex items-center justify-between mb-3">
                   <Text className="text-sm font-medium">选择音色</Text>
-                  <Text className="text-sm text-muted-foreground" onClick={() => setShowAudioMenu(false)}>×</Text>
+                  <Text
+                    className="text-sm text-muted-foreground"
+                    onClick={() => setShowAudioMenu(false)}
+                  >
+                    ×
+                  </Text>
                 </View>
+                {/* 系统音色选择 - Selecter type='voice' */}
+                <View className="mb-3">
+                  <Text className="block text-xs text-muted-foreground mb-2">
+                    {selectedVoiceIndex >= 0
+                      ? `当前：${voiceLabel(systemVoices[selectedVoiceIndex])}`
+                      : '系统音色库'}
+                  </Text>
+                  <Selecter
+                    type="voice"
+                    options={systemVoices}
+                    onChange={(val, idx) => {
+                      setSelectedVoiceIndex(typeof idx === 'number' ? idx : -1)
+                      setConfigValue('voice', val)
+                      setShowAudioMenu(false)
+                    }}
+                  />
+                </View>
+                {/* 克隆音色 - 上传音频文件 */}
                 <View
-                  className="flex items-center py-2 mb-2 rounded-md border border-border"
+                  className="flex items-center py-2 rounded-md border border-border"
                   onClick={() => {
                     setShowAudioMenu(false)
                     handleUpload('audio')
                   }}
                 >
-                  <Text className="text-2xl mr-2">🎵</Text>
-                  <View className="flex-1">
-                    <Text className="block text-sm">{uploads.audio.name ? '当前：' + uploads.audio.name : '选择音色'}</Text>
-                    <Text className="block text-xs text-muted-foreground">从系统音色库中选择</Text>
-                  </View>
-                  <Text className="text-muted-foreground">›</Text>
-                </View>
-                <View
-                  className="flex items-center py-2 rounded-md border border-border"
-                  onClick={() => {
-                    setShowAudioMenu(false)
-                    Taro.showToast({ title: '录音克隆音色功能待接入后端', icon: 'none' })
-                  }}
-                >
                   <Text className="text-2xl mr-2">🎤</Text>
                   <View className="flex-1">
-                    <Text className="block text-sm">克隆音色</Text>
-                    <Text className="block text-xs text-muted-foreground">上传音频文件克隆音色</Text>
+                    <Text className="block text-sm">
+                      {uploads.audio.name ? '当前：' + uploads.audio.name : '克隆音色'}
+                    </Text>
+                    <Text className="block text-xs text-muted-foreground">
+                      上传音频文件克隆音色
+                    </Text>
                   </View>
                   <Text className="text-muted-foreground">›</Text>
                 </View>
@@ -449,7 +525,9 @@ export default function ModelConfigDialog({
                   <Text className="text-sm text-foreground">{item.desc}</Text>
                   <View
                     className="w-[88rpx] h-[44rpx] rounded-full flex items-center px-[4rpx]"
-                    style={{ backgroundColor: checked ? 'var(--color-primary)' : 'var(--color-muted)' }}
+                    style={{
+                      backgroundColor: checked ? 'var(--color-primary)' : 'var(--color-muted)',
+                    }}
                     onClick={() => setConfigValue(item.name, !checked)}
                   >
                     <View
@@ -468,7 +546,9 @@ export default function ModelConfigDialog({
                   <Text className="block text-xs text-muted-foreground mb-1">{item.desc}</Text>
                   <Selecter
                     type={selecterType as 'ratio' | ''}
-                    options={item.value as Array<string | SelecterOptionObj | Record<string, unknown>>}
+                    options={
+                      item.value as Array<string | SelecterOptionObj | Record<string, unknown>>
+                    }
                     desc={item.desc}
                     isVip={isVip}
                     onChange={(val) => setConfigValue(item.name, val)}
@@ -494,6 +574,14 @@ export default function ModelConfigDialog({
           {isVideoModel && (
             <View className="mt-3 pt-2 border-t border-border">
               <Text className="block text-xs text-muted-foreground mb-2">视频设置</Text>
+              <View className="mb-3">
+                <Text className="block text-xs text-muted-foreground mb-1">视频比例</Text>
+                <Selecter
+                  type="scale"
+                  options={VIDEO_ASPECT_RATIOS}
+                  onChange={(val) => setConfigValue('aspect_ratio', val)}
+                />
+              </View>
               <View className="mb-3">
                 <Text className="block text-xs text-muted-foreground mb-1">视频分辨率</Text>
                 <Selecter
