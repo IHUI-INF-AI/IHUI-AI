@@ -19,14 +19,7 @@ import type {
   TeamScreenProps,
 } from '../../types'
 
-export type {
-  TeamMemberStatus,
-  TeamRelation,
-  TeamTab,
-  TeamStats,
-  TeamMember,
-  TeamScreenProps,
-}
+export type { TeamMemberStatus, TeamRelation, TeamTab, TeamStats, TeamMember, TeamScreenProps }
 
 const TAB_KEYS: TeamTab[] = ['all', 'direct', 'indirect']
 
@@ -93,7 +86,11 @@ export function TeamScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{t('team.title')}</Text>
@@ -217,7 +214,12 @@ function createStyles(tk: AppThemeTokens) {
     backText: { fontSize: 14, color: tk.text.secondary },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
-    statsCard: { marginHorizontal: 16, padding: 14, borderRadius: 8, backgroundColor: tk.success.light },
+    statsCard: {
+      marginHorizontal: 16,
+      padding: 14,
+      borderRadius: 8,
+      backgroundColor: tk.success.light,
+    },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
     statItem: { alignItems: 'center', flex: 1 },
     statValue: { fontSize: 18, fontWeight: '700', color: tk.success.DEFAULT },
@@ -232,7 +234,12 @@ function createStyles(tk: AppThemeTokens) {
     contributionLabel: { fontSize: 11, color: tk.text.secondary },
     contributionValue: { marginTop: 4, fontSize: 18, fontWeight: '700', color: tk.success.DEFAULT },
     tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
-    tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tk.surface.card },
+    tab: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: tk.surface.card,
+    },
     tabActive: { backgroundColor: tk.success.DEFAULT },
     tabText: { fontSize: 12, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light },
@@ -242,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
