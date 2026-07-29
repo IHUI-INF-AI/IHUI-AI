@@ -1,4 +1,4 @@
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useUserStore } from '@/stores/user'
@@ -8,11 +8,24 @@ import { useI18n } from '@/i18n'
 import { useLoginForm, type LoginApiResult, type LoginUser } from '@ihui/shared/hooks'
 import { credentialStorage } from '@/lib/credential-storage'
 import type { UserInfo } from '@/utils/auth'
+import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
+import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
+import AuthButton from '@/components/AuthButton'
+import './login.css'
 
 export default function Login() {
   const { t } = useI18n()
   const { setAuth } = useUserStore()
   const [loginType, setLoginType] = useState<'phone' | 'password'>('phone')
+
+  // 视觉状态:区号 / 密码可见性 / 输入框聚焦 / 协议勾选(对齐 login.vue)
+  const [phoneHead, setPhoneHead] = useState('+86')
+  const [showPwd, setShowPwd] = useState(false)
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false)
+  const [isCodeFocused, setIsCodeFocused] = useState(false)
+  const [isPwdFocused, setIsPwdFocused] = useState(false)
+  const [isAccountFocused, setIsAccountFocused] = useState(false)
+  const [isChecked, setIsChecked] = useState(false)
 
   // ===== 短信验证码登录状态(保持现状,未接入 useLoginForm) =====
   const [phone, setPhone] = useState('')
@@ -22,8 +35,8 @@ export default function Login() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const codeBtnText = useMemo(
-    () => (countdown > 0 ? `${countdown}s` : t('login.getCode')),
-    [countdown, t],
+    () => (countdown > 0 ? `${countdown}秒后重新获取` : '发送验证码'),
+    [countdown],
   )
   const codeBtnDisabled = useMemo(() => countdown > 0 || phone.length !== 11, [countdown, phone])
 
@@ -74,8 +87,6 @@ export default function Login() {
   }
 
   // ===== 密码登录:用 @ihui/shared useLoginForm 替代本地 useState + handleLogin =====
-  // loginByPassword 返回完整 UserInfo(含 phone/uuid/roleId 等扩展字段),
-  // 通过 ref 暂存,onLoginSuccess 时优先使用完整 UserInfo 而非 hook 精简版 LoginUser。
   const lastLoginUserRef = useRef<UserInfo | undefined>(undefined)
 
   const loginApi = useCallback(
@@ -97,7 +108,6 @@ export default function Login() {
           user,
         }
       } catch {
-        // 错误已由 request 统一提示,返回空 error 避免重复 toast
         return { success: false, error: '' }
       }
     },
@@ -106,7 +116,6 @@ export default function Login() {
 
   const handlePasswordLoginSuccess = useCallback(
     (accessToken: string, refreshToken: string, user?: LoginUser) => {
-      // 优先使用 API 返回的完整 UserInfo(含 phone/uuid/roleId 等扩展字段)
       const fullUser: UserInfo | undefined = lastLoginUserRef.current ?? user
       if (fullUser) {
         setAuth(accessToken, fullUser, refreshToken)
@@ -127,14 +136,12 @@ export default function Login() {
     onSuccess: handlePasswordSuccess,
   })
 
-  // 密码登录本地校验错误(auth.invalidAccount / auth.invalidPassword)以 toast 提示
   useEffect(() => {
     if (form.error) {
       Taro.showToast({ title: t(form.error), icon: 'none' })
     }
   }, [form.error, t])
 
-  // 登录按钮 loading 状态:phone 模式用短信登录 loading,password 模式用 form.loading
   const isLogging = loginType === 'phone' ? isSmsLogging : form.loading
 
   function handleLoginClick() {
@@ -147,7 +154,6 @@ export default function Login() {
   }
 
   function handleWechatLogin() {
-    // 跨端小程序登录:微信用 Taro.login,支付宝用 Taro.getAuthCode(由 miniAppLogin 自动适配)
     if (process.env.TARO_ENV === 'weapp' || process.env.TARO_ENV === 'alipay') {
       setIsSmsLogging(true)
       useUserStore
@@ -166,18 +172,7 @@ export default function Login() {
     }
   }
 
-  /**
-   * SSO 登录:跳 webview 加载 /sso/login?redirect=...
-   * 用户在 web 端登录后,生成 sso_code 回跳小程序(通过 webview postMessage
-   * 或在 redirect URL 里用 ihui-miniapp:// scheme 触发小程序回跳)。
-   *
-   * 简化实现:打开 webview 让用户登录,登录态会自动通过 web cookie 持久化,
-   * 小程序下次启动时(如果 web cookie 共享)可直接调 /sso/redirect 拿 code。
-   * 当前实现采用最简方案:webview 展示 SSO 登录页,登录成功后提示用户手动返回。
-   * 真正的 code 回传需要 webview postMessage 或 scheme 跳转,留待联调时补完。
-   */
   function handleSsoLogin() {
-    // 小程序回调地址(用 webview 站内跳转协议)
     const redirectUri = 'ihui-miniapp://sso/callback'
     const ssoUrl = getSsoLoginUrl(redirectUri)
     const encoded = encodeURIComponent(ssoUrl)
@@ -190,114 +185,207 @@ export default function Login() {
     loginType === 'phone' ? setPhone(e.detail.value) : form.setAccount(e.detail.value)
 
   return (
-    <View className="min-h-screen px-[48rpx] bg-card">
-      <View className="pt-[160rpx] pb-[80rpx] text-center">
-        <Text className="text-[56rpx] font-bold text-primary">{t('login.brand')}</Text>
-        <Text className="block mt-[16rpx] text-[26rpx] text-muted-foreground">
-          {t('login.slogan')}
-        </Text>
-      </View>
+    <View className="container-ali">
+      <View className="container1">
+        <Image className="bg-image" src="/static/images/loginbackk.png" mode="aspectFill" />
+        <View className="container-box">
+          {/* 顶部 logo + 标题图 */}
+          <View className="top_box">
+            <View className="logobox">
+              <Image className="logo" src="/static/images/sqlogo.svg" mode="aspectFit" />
+            </View>
+            <View className="titlebox">
+              <Image className="titlebox-image" src="/static/images/loginengtexta.png" mode="aspectFit" />
+              <Image className="titlebox-image1" src="/static/images/loginzhtext.png" mode="aspectFit" />
+            </View>
+          </View>
 
-      <View className="flex mb-[48rpx] bg-muted rounded-md">
-        <View
-          className={`flex-1 text-center py-[20rpx] text-[30rpx] rounded-md ${
-            loginType === 'phone' ? 'text-primary font-semibold bg-card' : 'text-muted-foreground'
-          }`}
-          onClick={() => setLoginType('phone')}
-        >
-          <Text>{t('login.phoneLogin')}</Text>
-        </View>
-        <View
-          className={`flex-1 text-center py-[20rpx] text-[30rpx] rounded-md ${
-            loginType === 'password'
-              ? 'text-primary font-semibold bg-card'
-              : 'text-muted-foreground'
-          }`}
-          onClick={() => setLoginType('password')}
-        >
-          <Text>{t('login.passwordLogin')}</Text>
-        </View>
-      </View>
+          <View className="center_box">
+            {/* tab 切换:手机号验证码登录 / 手机号密码登录 */}
+            <View className="select-box-above-input">
+              <View className="login-type-tabs">
+                <View
+                  className={`login-type-tab ${loginType === 'phone' ? 'login-type-tab-active' : ''}`}
+                  onClick={() => setLoginType('phone')}
+                >
+                  <Text>手机号验证码登录</Text>
+                </View>
+                <View
+                  className={`login-type-tab ${loginType === 'password' ? 'login-type-tab-active' : ''}`}
+                  onClick={() => setLoginType('password')}
+                >
+                  <Text>手机号密码登录</Text>
+                </View>
+              </View>
+            </View>
 
-      <View className="flex items-center h-[96rpx] mb-[32rpx] border border-solid border-[var(--color-border)] rounded-md px-[24rpx]">
-        <Input
-          className="flex-1 h-[96rpx] text-[30rpx]"
-          type="number"
-          maxlength={11}
-          placeholder={t('login.phonePlaceholder')}
-          value={accountValue}
-          onInput={onAccountInput}
-        />
-      </View>
+            {/* 手机号输入框(phone 模式) */}
+            {loginType === 'phone' ? (
+              <View className="input-wbox">
+                <View className={`input-nbox ${isPhoneFocused ? 'input-nbox-focused' : ''}`}>
+                  <View className="input-box">
+                    <View className="input-icon" />
+                    <PhoneAreaCodePicker
+                      value={phoneHead}
+                      onChange={setPhoneHead}
+                      focused={isPhoneFocused}
+                    />
+                    <Input
+                      className="input iponeinput input-text"
+                      type="number"
+                      maxlength={11}
+                      placeholder="手机号码"
+                      placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
+                      value={accountValue}
+                      onInput={onAccountInput}
+                      onFocus={() => setIsPhoneFocused(true)}
+                      onBlur={() => setIsPhoneFocused(false)}
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : null}
 
-      {loginType === 'phone' ? (
-        <View className="flex items-center h-[96rpx] mb-[32rpx] border border-solid border-[var(--color-border)] rounded-md px-[24rpx]">
-          <Input
-            className="flex-1 h-[96rpx] text-[30rpx]"
-            type="number"
-            maxlength={6}
-            placeholder={t('login.codePlaceholder')}
-            value={code}
-            onInput={(e) => setCode(e.detail.value)}
-          />
-          <View
-            className={`px-[20rpx] text-[26rpx] ${codeBtnDisabled ? 'text-muted-foreground' : 'text-primary'}`}
-            onClick={sendCode}
-          >
-            <Text>{codeBtnText}</Text>
+            {/* 账号输入框(password 模式) */}
+            {loginType === 'password' ? (
+              <View className="input-wbox">
+                <View className={`input-nbox ${isAccountFocused ? 'input-nbox-focused' : ''}`}>
+                  <View className="input-box">
+                    <View className="input-icon" />
+                    <Input
+                      className="input iponeinput input-text"
+                      type="text"
+                      placeholder="手机号码"
+                      placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
+                      value={accountValue}
+                      onInput={onAccountInput}
+                      onFocus={() => setIsAccountFocused(true)}
+                      onBlur={() => setIsAccountFocused(false)}
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
+            {/* 密码输入框(password 模式)+ 忘记密码 */}
+            {loginType === 'password' ? (
+              <View className="input-wbox input-wbox-column">
+                <View
+                  className={`input-nbox ${isPwdFocused ? 'input-nbox-focused' : ''}`}
+                  style={{ marginTop: '18rpx' }}
+                >
+                  <View className="input-box">
+                    <View className="input-icon" />
+                    <Input
+                      className="input iponeinput input-text"
+                      password={!showPwd}
+                      placeholder="密码"
+                      placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
+                      value={form.password}
+                      onInput={(e) => form.setPassword(e.detail.value)}
+                      onFocus={() => setIsPwdFocused(true)}
+                      onBlur={() => setIsPwdFocused(false)}
+                    />
+                    <PasswordVisibilityToggle
+                      visible={showPwd}
+                      onToggle={() => setShowPwd((v) => !v)}
+                    />
+                  </View>
+                </View>
+                <View className="forgot-pwd-row">
+                  <Text
+                    className="forgot-pwd-btn"
+                    onClick={() => Taro.navigateTo({ url: '/pages/forgot-password/index' })}
+                  >
+                    {t('login.forgotPassword')}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* 验证码输入框(phone 模式) */}
+            {loginType === 'phone' ? (
+              <View className="input-wbox">
+                <View
+                  className={`input-nbox ${isCodeFocused ? 'input-nbox-focused' : ''}`}
+                  style={{ marginTop: '18rpx' }}
+                >
+                  <View className="input-box">
+                    <View className="input-icon" />
+                    <Input
+                      className="input input-text"
+                      type="number"
+                      maxlength={6}
+                      placeholder="验证码"
+                      placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
+                      value={code}
+                      onInput={(e) => setCode(e.detail.value)}
+                      onFocus={() => setIsCodeFocused(true)}
+                      onBlur={() => setIsCodeFocused(false)}
+                    />
+                    <View className="send-code" onClick={sendCode}>
+                      <Text>{codeBtnText}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
+            <View style={{ height: '100rpx' }} />
+          </View>
+
+          {/* 底部:登录按钮 + 快捷登录 + 协议 */}
+          <View className="bottom-section">
+            <View className="bottom_box">
+              <AuthButton onClick={handleLoginClick} disabled={isLogging}>
+                {isLogging ? '登录中…' : '登录/注册'}
+              </AuthButton>
+
+              {/* 快捷登录分割线(三段式) */}
+              <View className="switch-login">
+                <View className="switch-login-line" />
+                <Text className="switch-login-text">快捷登录</Text>
+                <View className="switch-login-line" />
+              </View>
+
+              {/* 第三方登录图标:wx + alipay 占位 + google */}
+              <View className="icon-all">
+                <View className="icon-all-box" onClick={handleWechatLogin}>
+                  <Image
+                    className="third-icon"
+                    src="/static/images/wx.svg"
+                    mode="aspectFit"
+                  />
+                </View>
+                <View className="icon-all-box" onClick={handleWechatLogin}>
+                  <View className="third-icon" />
+                </View>
+                <View className="icon-all-box" onClick={handleSsoLogin}>
+                  <Image
+                    className="third-icon"
+                    src="/static/images/google.svg"
+                    mode="aspectFit"
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* 协议勾选:自定义 checkbox + checkmark 旋转动画 */}
+            <View className="bottom-agreement">
+              <View className="yiyue-box" onClick={() => setIsChecked((v) => !v)}>
+                <View className="custom-checkbox">
+                  <View className={`checkmark ${isChecked ? 'checked' : ''}`} />
+                </View>
+                <Text className="arge">
+                  点击登录/注册按钮即视为同意
+                  <Text className="textItem">《隐私政策》</Text>
+                  和
+                  <Text className="textItem">《服务协议》</Text>;未注册用户将自动创建账号
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
-      ) : null}
-
-      {loginType === 'password' ? (
-        <View className="flex items-center h-[96rpx] mb-[32rpx] border border-solid border-[var(--color-border)] rounded-md px-[24rpx]">
-          <Input
-            className="flex-1 h-[96rpx] text-[30rpx]"
-            password
-            placeholder={t('login.passwordPlaceholder')}
-            value={form.password}
-            onInput={(e) => form.setPassword(e.detail.value)}
-          />
-        </View>
-      ) : null}
-
-      {loginType === 'password' ? (
-        <View
-          className="mb-[24rpx] text-right text-[26rpx] text-primary"
-          onClick={() => Taro.navigateTo({ url: '/pages/forgot-password/index' })}
-        >
-          <Text>{t('login.forgotPassword')}</Text>
-        </View>
-      ) : null}
-
-      <View
-        className={`h-[96rpx] mt-[24rpx] rounded-[48rpx] flex items-center justify-center text-white text-[32rpx] bg-primary ${
-          isLogging ? 'opacity-60' : ''
-        }`}
-        onClick={handleLoginClick}
-      >
-        <Text>{isLogging ? t('login.logging') : t('login.login')}</Text>
-      </View>
-
-      <View
-        className="mt-[48rpx] text-center text-[28rpx] text-primary"
-        onClick={handleWechatLogin}
-      >
-        <Text>{t('login.wechatLogin')}</Text>
-      </View>
-
-      <View
-        className="mt-[48rpx] text-center text-[26rpx] text-muted-foreground pt-[32rpx]"
-        onClick={handleSsoLogin}
-      >
-        <Text>{t('login.ssoLogin')}</Text>
-        <Text className="block mt-[8rpx] text-[22rpx] text-muted-foreground">
-          {t('login.ssoLoginHint')}
-        </Text>
-      </View>
-
-      <View className="mt-[60rpx] text-center text-[22rpx] text-muted-foreground">
-        <Text>{t('login.agreement')}</Text>
       </View>
     </View>
   )
