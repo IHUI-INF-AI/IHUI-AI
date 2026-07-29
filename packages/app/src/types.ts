@@ -94,4 +94,6 @@ export type {
   LegalDocScreenProps,
   HelpListItem,
   HelpScreenProps,
+  SearchScreenItem,
+  SearchScreenProps,
 } from '@ihui/types'
