@@ -80,7 +80,7 @@ function createStyles(tk: AppThemeTokens) {
     back: { fontSize: 14, color: tk.text.medium },
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     body: { padding: 16 },
-    card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
+    card: { padding: 16, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
     label: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
     input: {
       marginTop: 4,

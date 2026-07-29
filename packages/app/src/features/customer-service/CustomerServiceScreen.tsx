@@ -1,10 +1,7 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  CustomerServiceInfo,
-  CustomerServiceScreenProps,
-} from '../../types'
+import type { CustomerServiceInfo, CustomerServiceScreenProps } from '../../types'
 
 /** 客服共享屏 — props 注入式跨端组件 */
 export type { CustomerServiceInfo, CustomerServiceScreenProps }
@@ -51,18 +48,9 @@ export function CustomerServiceScreen({
         <View style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.label}>{t('customerService.status')}</Text>
-            <View
-              style={[styles.dot, info.online ? styles.dotOnline : styles.dotOffline]}
-            />
-            <Text
-              style={[
-                styles.statusText,
-                info.online ? styles.textOnline : styles.textOffline,
-              ]}
-            >
-              {info.online
-                ? t('customerService.online')
-                : t('customerService.offline')}
+            <View style={[styles.dot, info.online ? styles.dotOnline : styles.dotOffline]} />
+            <Text style={[styles.statusText, info.online ? styles.textOnline : styles.textOffline]}>
+              {info.online ? t('customerService.online') : t('customerService.offline')}
             </Text>
           </View>
           <Text style={styles.workHours}>
@@ -71,11 +59,19 @@ export function CustomerServiceScreen({
         </View>
 
         <View style={styles.card}>
-          <TouchableOpacity style={styles.contactRow} onPress={onCall} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+          <TouchableOpacity
+            style={styles.contactRow}
+            onPress={onCall}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          >
             <Text style={styles.label}>{t('customerService.phone')}</Text>
             <Text style={styles.value}>{info.phone || '—'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.contactRow, styles.contactRowLast]} onPress={onEmail} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+          <TouchableOpacity
+            style={[styles.contactRow, styles.contactRowLast]}
+            onPress={onEmail}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          >
             <Text style={styles.label}>{t('customerService.email')}</Text>
             <Text style={styles.value}>{info.email || '—'}</Text>
           </TouchableOpacity>
@@ -106,7 +102,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     body: { padding: 16 },
     card: {
-      padding: 12,
+      padding: 16,
       marginBottom: 12,
       borderRadius: 8,
       borderWidth: 1,
