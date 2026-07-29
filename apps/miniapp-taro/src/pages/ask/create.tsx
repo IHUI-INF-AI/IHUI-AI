@@ -4,7 +4,7 @@ import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createAsk } from '@/api'
 import { NavBar } from '@/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './create.css'
 
 interface FormState {
@@ -32,13 +32,7 @@ const CATEGORIES = [
 const REWARDS = [0, 5, 10, 20, 50]
 
 export default function AskCreatePage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string, params?: Record<string, string | number>) => {
-    const v = params ? t(k, params) : t(k)
-    if (v !== k) return v
-    if (!params) return fb
-    return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
-  }
+  const tt = useTt()
 
   const [form, setForm] = useState<FormState>({
     title: '',

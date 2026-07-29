@@ -2,7 +2,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { listRecurringContracts, cancelRecurringContract, type WechatPayContract } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
 
 // TODO: custom color: #e8f5e9 浅绿背景/#ff9a3c 自定义橙,无对应 token,保留原值
@@ -14,8 +14,7 @@ const STATUS_STYLE: Record<WechatPayContract['status'], string> = {
 }
 
 export default function SubscriptionContractsPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [list, setList] = useState<WechatPayContract[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -74,7 +73,7 @@ export default function SubscriptionContractsPage() {
         },
       })
     },
-    [load],
+    [load, tt],
   )
 
   useDidShow(() => {

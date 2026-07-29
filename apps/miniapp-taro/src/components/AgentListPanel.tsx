@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import type { Agent } from '@ihui/api-client'
 import EmptyState from './EmptyState'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export type AgentInfo = Pick<Agent, 'id' | 'name'> & {
   description?: string
@@ -28,8 +28,7 @@ export default function AgentListPanel({
   loading = false,
   onSelect,
 }: AgentListPanelProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   if (!visible) return null
 
   return (

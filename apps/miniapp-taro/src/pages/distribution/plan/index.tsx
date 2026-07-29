@@ -2,11 +2,10 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export default function DistributionPlan() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [totalEarnings, setTotalEarnings] = useState(0)
   const [inviteCount, setInviteCount] = useState(0)
 
