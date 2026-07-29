@@ -91,6 +91,7 @@ import {
   Network,
   Database,
   Activity,
+  Zap,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -313,6 +314,10 @@ const DEVELOPER_ITEMS: NavItem[] = [
   { href: '/developer', labelKey: 'developer', icon: Terminal },
   { href: '/developer/api-docs', labelKey: 'developerApiDocs', icon: Code },
   { href: '/developer/keys', labelKey: 'developerKeys', icon: Key },
+  // P0-5 模型 API 中转站(2026-07-29 立)
+  { href: '/developer/relay', labelKey: 'developerRelay', icon: Zap },
+  { href: '/developer/relay/keys', labelKey: 'developerRelayKeys', icon: KeyRound },
+  { href: '/developer/relay/usage', labelKey: 'developerRelayUsage', icon: Activity },
   { href: '/developer/webhooks', labelKey: 'developerWebhooks', icon: Webhook },
   { href: '/developer/sandbox', labelKey: 'developerSandbox', icon: FlaskConical },
   { href: '/developer/limits', labelKey: 'developerLimits', icon: Gauge },
@@ -558,10 +563,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   // 图标尺寸与 NavLink 导航项 (h-5 w-5=20px) 完全一致,避免底部工具栏图标过小不一致;
   // 4 个按钮 + 3 个 gap-0.5 (6px) = 110px,正好填满 130px 默认宽度 (扣 px-1.5 + p-1 = 20px padding);
   // [&_svg]:size-5 覆盖 Button 默认的 [&_svg]:size-4,让 svg 渲染为 20×20 与导航项图标尺寸一致。
-  // hover 用 foreground/20 与新建任务按钮/展开按钮统一(2026-07-20 用户反馈:原 ghost hover:bg-accent 太弱);
-  // 尺寸保持 26×26 不改 36×36(130px 宽度约束,改大溢出);默认态保持透明(次要工具按钮语义,与展开按钮 bg-foreground/10 区分层级)。
+  // 2026-07-29 与顶部 TagsView 搜索按钮统一风格:纯白/纯黑背景(无描边),hover 微变灰,
+  // focus-visible:ring-1 为键盘用户提供视觉锚点(鼠标用户不变),outline-none 屏蔽浏览器默认 ring。
   const btnClass =
-    'h-[26px] w-[26px] shrink-0 p-0 [&_svg]:size-5 text-foreground hover:bg-foreground/20'
+    'h-[26px] w-[26px] shrink-0 p-0 [&_svg]:size-5 text-foreground outline-none transition-colors bg-white hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30'
 
   return (
     <div

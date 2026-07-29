@@ -1,26 +1,18 @@
 import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { register, sendSmsCode } from '@/api'
 import { useI18n } from '@/i18n'
+import {
+  useRegisterForm,
+  type RegisterApiResult,
+  type RegisterFormValues,
+  type SendCodeApiResult,
+} from '@ihui/shared/hooks'
 
 export default function RegisterIndex() {
   const { t } = useI18n()
-  const [phone, setPhone] = useState('')
-  const [code, setCode] = useState('')
-  const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
-  const [agree, setAgree] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [countdown, setCountdown] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    },
-    [],
-  )
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -30,62 +22,50 @@ export default function RegisterIndex() {
     [t],
   )
 
-  const onSendCode = useCallback(async () => {
-    if (countdown > 0) return
-    if (!phone.trim()) {
-      Taro.showToast({ title: tt('register.enterPhone', '请输入手机号'), icon: 'none' })
-      return
-    }
-    if (!/^1\d{10}$/.test(phone.trim())) {
-      Taro.showToast({ title: tt('register.phoneInvalid', '请输入正确的手机号'), icon: 'none' })
-      return
-    }
-    try {
-      await sendSmsCode(phone.trim())
-      Taro.showToast({ title: tt('register.codeSent', '验证码已发送'), icon: 'success' })
-      setCountdown(60)
-      timerRef.current = setInterval(() => {
-        setCountdown((c) => {
-          if (c <= 1) {
-            if (timerRef.current) clearInterval(timerRef.current)
-            return 0
-          }
-          return c - 1
-        })
-      }, 1000)
-    } catch {
-      // ignore
-    }
-  }, [phone, countdown, tt])
-
-  const onSubmit = useCallback(async () => {
-    if (!phone.trim() || !code.trim() || !password.trim()) {
-      Taro.showToast({ title: tt('register.incomplete', '请填写完整信息'), icon: 'none' })
-      return
-    }
-    if (!/^1\d{10}$/.test(phone.trim())) {
-      Taro.showToast({ title: tt('register.phoneInvalid', '请输入正确的手机号'), icon: 'none' })
-      return
-    }
-    if (password.length < 6 || password.length > 20) {
-      Taro.showToast({ title: tt('register.pwdLength', '密码长度 6-20 位'), icon: 'none' })
-      return
-    }
-    if (!agree) {
-      Taro.showToast({ title: tt('register.agreeFirst', '请先阅读并同意用户协议'), icon: 'none' })
-      return
-    }
-    setSubmitting(true)
-    try {
-      await register({ phone: phone.trim(), code: code.trim(), password })
-      Taro.showToast({ title: tt('register.success', '注册成功'), icon: 'success' })
+  // 用 @ihui/shared useRegisterForm 替代本地 useState + onSendCode + onSubmit
+  // type='phone' + enableCode + enableAgreement + 无确认密码字段,密码长度限制 6-20
+  const form = useRegisterForm({
+    type: 'phone',
+    enableCode: true,
+    enableConfirmPassword: false,
+    enableAgreement: true,
+    maxPasswordLength: 20,
+    phoneRegex: /^1\d{10}$/,
+    registerApi: async (v: RegisterFormValues): Promise<RegisterApiResult> => {
+      try {
+        await register({ phone: v.phone.trim(), code: v.code.trim(), password: v.password })
+        return { success: true }
+      } catch {
+        // 错误已由 request 统一提示,返回空 error 避免重复 toast
+        return { success: false, error: '' }
+      }
+    },
+    sendCodeApi: async (v: RegisterFormValues): Promise<SendCodeApiResult> => {
+      try {
+        await sendSmsCode(v.phone.trim())
+        return { success: true }
+      } catch {
+        return { success: false, error: '' }
+      }
+    },
+    onSuccess: () => {
       setTimeout(() => Taro.redirectTo({ url: '/pages/login/login' }), 800)
-    } catch {
-      // ignore
-    } finally {
-      setSubmitting(false)
+    },
+  })
+
+  // hook 校验/调用错误以 toast 提示(与 login.tsx 适配模式一致)
+  useEffect(() => {
+    if (form.error) {
+      Taro.showToast({ title: t(form.error), icon: 'none' })
     }
-  }, [phone, code, password, agree, tt])
+  }, [form.error, t])
+
+  // hook 成功提示(注册成功 / 验证码已发送)以 success toast 显示
+  useEffect(() => {
+    if (form.info) {
+      Taro.showToast({ title: t(form.info), icon: 'success' })
+    }
+  }, [form.info, t])
 
   function openAgreement(type: 'user' | 'privacy') {
     const url = type === 'user' ? '/pages/about/protocol' : '/pages/about/privacy'
@@ -116,8 +96,8 @@ export default function RegisterIndex() {
             type="number"
             maxlength={11}
             placeholder={tt('register.phonePlaceholder', '请输入手机号')}
-            value={phone}
-            onInput={(e) => setPhone(e.detail.value)}
+            value={form.values.phone}
+            onInput={(e) => form.setPhone(e.detail.value)}
           />
         </View>
         <View className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx] relative">
@@ -129,14 +109,14 @@ export default function RegisterIndex() {
             type="number"
             maxlength={6}
             placeholder={tt('register.codePlaceholder', '请输入验证码')}
-            value={code}
-            onInput={(e) => setCode(e.detail.value)}
+            value={form.values.code}
+            onInput={(e) => form.setCode(e.detail.value)}
           />
           <Text
-            className={`absolute right-[40rpx] bottom-[40rpx] text-[26rpx] ${countdown > 0 ? 'text-muted-foreground' : 'text-primary'}`}
-            onClick={onSendCode}
+            className={`absolute right-[40rpx] bottom-[40rpx] text-[26rpx] ${form.countdown > 0 ? 'text-muted-foreground' : 'text-primary'}`}
+            onClick={form.sendCode}
           >
-            {countdown > 0 ? `${countdown}s` : tt('register.getCode', '获取验证码')}
+            {form.countdown > 0 ? `${form.countdown}s` : tt('register.getCode', '获取验证码')}
           </Text>
         </View>
         <View className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
@@ -149,8 +129,8 @@ export default function RegisterIndex() {
               password={!showPwd}
               maxlength={20}
               placeholder={tt('register.passwordPlaceholder', '请设置密码')}
-              value={password}
-              onInput={(e) => setPassword(e.detail.value)}
+              value={form.values.password}
+              onInput={(e) => form.setPassword(e.detail.value)}
             />
             <Text
               className="absolute right-[20rpx] top-1/2 -translate-y-1/2 text-[24rpx] text-primary"
@@ -164,19 +144,19 @@ export default function RegisterIndex() {
           </Text>
         </View>
         <View
-          className={`w-full bg-primary text-foreground text-[30rpx] rounded-[8rpx] mt-[20rpx] py-[24rpx] text-center ${submitting ? 'opacity-60' : ''}`}
-          onClick={onSubmit}
+          className={`w-full bg-primary text-foreground text-[30rpx] rounded-[8rpx] mt-[20rpx] py-[24rpx] text-center ${form.submitting ? 'opacity-60' : ''}`}
+          onClick={form.register}
         >
           <Text>
-            {submitting ? tt('register.submitting', '注册中…') : tt('register.submit', '注册')}
+            {form.submitting ? tt('register.submitting', '注册中…') : tt('register.submit', '注册')}
           </Text>
         </View>
         <View className="flex items-start mt-[24rpx] px-[8rpx]">
-          <View className="py-[4rpx] pr-[12rpx]" onClick={() => setAgree((v) => !v)}>
+          <View className="py-[4rpx] pr-[12rpx]" onClick={() => form.setAgreed(!form.agreed)}>
             <View
-              className={`w-[32rpx] h-[32rpx] border-[2rpx] rounded-[6rpx] bg-card flex items-center justify-center ${agree ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
+              className={`w-[32rpx] h-[32rpx] border-[2rpx] rounded-[6rpx] bg-card flex items-center justify-center ${form.agreed ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
             >
-              {agree ? <Text className="text-foreground text-[22rpx] leading-none">✓</Text> : null}
+              {form.agreed ? <Text className="text-foreground text-[22rpx] leading-none">✓</Text> : null}
             </View>
           </View>
           <Text className="flex-1 text-[24rpx] text-muted-foreground leading-[1.5]">

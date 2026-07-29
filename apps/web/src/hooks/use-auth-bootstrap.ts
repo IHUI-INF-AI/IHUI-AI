@@ -110,15 +110,19 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
       setToken(storedToken, null)
 
       try {
-        const res = await fetchApi<{ user: { id: string; nickname: string; avatar?: string; phone?: string } }>('/auth/me')
+        const res = await fetchApi<{ user: { id: string; nickname: string; avatar?: string; phone?: string; roleId?: number; username?: string; status?: number } }>('/auth/me')
         if (cancelled) return
         if (res.success) {
           const u = res.data.user
+          // 保留 roleId(后端 publicUser 已返回),admin layout 守卫需用它判断权限
           setUser({
             id: u.id,
             nickname: u.nickname,
             avatar: u.avatar,
             phone: u.phone,
+            roleId: u.roleId,
+            username: u.username,
+            status: u.status,
           })
           await fetchProfile()
         } else {
@@ -127,7 +131,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
           if (cancelled) return
           if (refreshed) {
             setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
-            const retry = await fetchApi<{ user: { id: string; nickname: string; avatar?: string; phone?: string } }>('/auth/me')
+            const retry = await fetchApi<{ user: { id: string; nickname: string; avatar?: string; phone?: string; roleId?: number; username?: string; status?: number } }>('/auth/me')
             if (!cancelled && retry.success) {
               const u = retry.data.user
               setUser({
@@ -135,6 +139,9 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
                 nickname: u.nickname,
                 avatar: u.avatar,
                 phone: u.phone,
+                roleId: u.roleId,
+                username: u.username,
+                status: u.status,
               })
               await fetchProfile()
             } else {

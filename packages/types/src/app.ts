@@ -3927,6 +3927,91 @@ export interface ChatScreenNavItem {
   onPress: () => void
 }
 
+/** 批次 30(2026-07-29):MessageInput 消息输入框共享组件(对标 D 盘 InputArea.vue 全量能力) */
+
+/** 输入框附件类型(图片/文档/视频) */
+export type MessageInputFileType = 'image' | 'document' | 'video'
+
+/** 输入框附件条目 */
+export interface MessageInputFile {
+  id: string
+  /** 远端 URL 或本地 uri */
+  url: string
+  /** 文件名(文档/视频场景使用) */
+  filename?: string
+  type: MessageInputFileType
+}
+
+/** 智能体变量条目(供 D 盘 Agent 变量填槽使用) */
+export interface MessageInputAgentVariable {
+  /** 变量名(空时显示描述) */
+  name: string
+  /** 变量类型(text/image) */
+  type: 'text' | 'image'
+  /** 描述(占位符) */
+  description: string
+  /** 当前值(text 时为字符串,image 时为 url) */
+  value: string
+}
+
+/** MessageInput props(平台无关,wrapper 注入所有平台能力) */
+export interface MessageInputProps {
+  t: TFunction
+  /** 当前输入文本 */
+  text: string
+  /** 占位符(可选,默认用 t('messageInput.placeholder')) */
+  placeholder?: string
+  /** 是否流式中(显示停止按钮) */
+  isStreaming: boolean
+  /** 加载中(发送按钮变 loading) */
+  isSending: boolean
+  /** 是否禁用输入 */
+  disabled: boolean
+  /** 附件列表 */
+  files: MessageInputFile[]
+  /** Agent 变量填槽(无则不显示) */
+  agentVariables?: MessageInputAgentVariable[]
+  /** 是否显示添加附件按钮 */
+  showAddFileBtn: boolean
+  /** 焦点状态(用于样式切换) */
+  isFocused: boolean
+  /** 全屏放大模式(独立全屏编辑区) */
+  isFullscreen: boolean
+  /** 是否处于语音输入模式 */
+  isVoiceMode: boolean
+  /** 语音录制中(显示波形) */
+  isRecording: boolean
+  /** 错误提示 */
+  error: string
+
+  onTextChange: (v: string) => void
+  onSend: () => void
+  onStop: () => void
+  onFocus: () => void
+  onBlur: () => void
+  /** 切换全屏 */
+  onFullscreenToggle: () => void
+  /** 切换语音/键盘模式 */
+  onVoiceToggle: () => void
+  /** 添加图片(由 wrapper 实现相册/相机) */
+  onAddImage: () => void
+  /** 添加文件(由 wrapper 实现文档选择) */
+  onAddFile: () => void
+  /** 移除附件 */
+  onRemoveFile: (id: string) => void
+  /** 清空输入 */
+  onClear: () => void
+  /** 开始语音录制 */
+  onVoiceStart: () => void
+  /** 结束语音录制 */
+  onVoiceEnd: () => void
+  /** Agent 变量值变更(text) */
+  onAgentVariableTextChange?: (index: number, value: string) => void
+  /** Agent 变量值变更(image) */
+  onAgentVariableImageChange?: (index: number) => void
+  colorScheme?: 'light' | 'dark'
+}
+
 /** ChatScreen props(平台无关,wrapper 注入数据+SSE/截图/分享/导航回调) */
 export interface ChatScreenProps {
   t: TFunction
@@ -3938,6 +4023,22 @@ export interface ChatScreenProps {
   model: string
   pickerOpen: boolean
   navItems: ChatScreenNavItem[]
+  /** MessageInput 所需:wrapper 注入的附件列表 */
+  inputFiles?: MessageInputFile[]
+  /** MessageInput 所需:智能体变量填槽 */
+  agentVariables?: MessageInputAgentVariable[]
+  /** MessageInput 所需:输入框焦点 */
+  isInputFocused?: boolean
+  /** MessageInput 所需:全屏模式 */
+  isInputFullscreen?: boolean
+  /** MessageInput 所需:语音模式 */
+  isVoiceMode?: boolean
+  /** MessageInput 所需:语音录制中 */
+  isRecording?: boolean
+  /** MessageInput 所需:发送中(loading) */
+  isSending?: boolean
+  /** MessageInput 所需:输入错误 */
+  inputError?: string
   onInputTextChange: (v: string) => void
   onSend: () => void
   onStop: () => void
@@ -3946,6 +4047,30 @@ export interface ChatScreenProps {
   onLongPressMessage: (item: ChatScreenMessage) => void
   /** 消息气泡 ref 注册回调(wrapper 可用于截图等平台特定能力,共享层不依赖) */
   onMessageRef?: (id: string, el: unknown) => void
+  /** MessageInput 事件:输入框焦点 */
+  onInputFocus?: () => void
+  /** MessageInput 事件:输入框失焦 */
+  onInputBlur?: () => void
+  /** MessageInput 事件:全屏切换 */
+  onInputFullscreenToggle?: () => void
+  /** MessageInput 事件:语音模式切换 */
+  onInputVoiceToggle?: () => void
+  /** MessageInput 事件:添加图片 */
+  onInputAddImage?: () => void
+  /** MessageInput 事件:添加文件 */
+  onInputAddFile?: () => void
+  /** MessageInput 事件:移除附件 */
+  onInputRemoveFile?: (id: string) => void
+  /** MessageInput 事件:清空输入 */
+  onInputClear?: () => void
+  /** MessageInput 事件:开始语音 */
+  onInputVoiceStart?: () => void
+  /** MessageInput 事件:结束语音 */
+  onInputVoiceEnd?: () => void
+  /** MessageInput 事件:Agent 变量文本变更 */
+  onInputAgentVariableTextChange?: (index: number, value: string) => void
+  /** MessageInput 事件:Agent 变量图片选择 */
+  onInputAgentVariableImageChange?: (index: number) => void
   colorScheme?: 'light' | 'dark'
 }
 
