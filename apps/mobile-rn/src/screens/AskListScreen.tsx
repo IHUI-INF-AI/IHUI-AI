@@ -1,21 +1,17 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { AskListScreen as SharedAskListScreen, type AskListItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { Card } from '@ihui/ui-native'
-
-interface Ask { id: string; title: string; author: string; answerCount: number; views: number; createdAt: string }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function AskListScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
-  const [asks, setAsks] = useState<Ask[]>([])
+  const [asks, setAsks] = useState<AskListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -23,7 +19,7 @@ export function AskListScreen() {
   const load = async (refresh = false) => {
     if (refresh) setRefreshing(true); else setLoading(true)
     setError('')
-    const res = await fetchApi<Ask[]>('/api/asks')
+    const res = await fetchApi<AskListItem[]>('/api/asks')
     if (res.success) setAsks(res.data ?? [])
     else setError(res.error || t('askList.loadFailed'))
     setLoading(false); setRefreshing(false)
@@ -31,56 +27,17 @@ export function AskListScreen() {
 
   useEffect(() => { void load() }, [])
 
-  if (loading) return <View style={styles.center}><ActivityIndicator /><Text style={styles.muted}>{t('common.loading')}</Text></View>
-  if (error && asks.length === 0) return (
-    <View style={styles.center}>
-      <Text style={styles.error}>{error}</Text>
-      <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}><Text style={styles.btnText}>{t('common.back')}</Text></TouchableOpacity>
-    </View>
-  )
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>{t('common.back')}</Text></TouchableOpacity>
-        <Text style={styles.title}>{t('askList.title')}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('AskCreate')}><Text style={styles.action}>+</Text></TouchableOpacity>
-      </View>
-      <FlatList
-        data={asks}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-        ListEmptyComponent={<View style={styles.empty}><Text style={styles.muted}>{t('askList.empty')}</Text></View>}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => navigation.navigate('AskDetail', { id: item.id })}>
-            <Card className="p-3 mb-2">
-              <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-              <View style={styles.row}>
-                <Text style={styles.author}>{item.author}</Text>
-                <Text style={styles.meta}>{t('askList.answers', { count: item.answerCount })} · {t('askList.views', { count: item.views })}</Text>
-              </View>
-            </Card>
-          </TouchableOpacity>
-        )}
-      />
-    </View>
+    <SharedAskListScreen
+      t={t}
+      items={asks}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => load(true)}
+      onPressItem={(id) => navigation.navigate('AskDetail', { id })}
+      onCreate={() => navigation.navigate('AskCreate')}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface.bg, padding: 16 },
-  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
-  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  back: { fontSize: 14, color: tokens.text.secondary },
-  title: { flex: 1, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
-  action: { fontSize: 24, color: tokens.success.DEFAULT, fontWeight: '600' },
-  empty: { paddingVertical: 40, alignItems: 'center' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, marginBottom: 8 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  author: { fontSize: 11, color: tokens.success.DEFAULT },
-  meta: { fontSize: 11, color: tokens.text.tertiary },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
-  btnText: { color: tokens.surface.light, fontSize: 14 },
-})
