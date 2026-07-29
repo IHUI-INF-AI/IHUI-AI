@@ -9229,6 +9229,9 @@
   },
   "aiChat": {
     "title": "ai채팅",
+    "templates": "템플릿",
+    "settings": "설정",
+    "share": "공유",
     "history": "채팅",
     "newConversation": "새 대화",
     "noHistory": "없음채팅",
