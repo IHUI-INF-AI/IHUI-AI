@@ -3172,6 +3172,93 @@ export interface CourseCommentScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
+/** 批次 24(2026-07-29):Circle 系(圈子)4 屏 — 成员/详情/创建/聊天 */
+
+/** 圈子成员项 */
+export interface CircleMemberItem {
+  id: string
+  name: string
+  avatar?: string
+  role: 'owner' | 'admin' | 'member'
+  joinedAt: string
+}
+
+/** CircleMemberScreen props */
+export interface CircleMemberScreenProps {
+  t: TFunction
+  items: CircleMemberItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 圈子详情数据 */
+export interface CircleDetailItem {
+  id: string
+  name: string
+  description: string
+  memberCount: number
+  postCount: number
+  isJoined: boolean
+  createdAt: string
+}
+
+/** CircleDetailScreen props */
+export interface CircleDetailScreenProps {
+  t: TFunction
+  item: CircleDetailItem | null
+  loading: boolean
+  error: string
+  onJoin: () => void
+  onLeave: () => void
+  onPressPost: () => void
+  onPressMembers: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** CircleCreateScreen props */
+export interface CircleCreateScreenProps {
+  t: TFunction
+  name: string
+  description: string
+  saving: boolean
+  error: string
+  onNameChange: (v: string) => void
+  onDescriptionChange: (v: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 圈子聊天消息 */
+export interface CircleChatMessage {
+  id: string
+  role: 'user' | 'other'
+  author: string
+  content: string
+  createdAt: string
+}
+
+/** CircleChatScreen props */
+export interface CircleChatScreenProps {
+  t: TFunction
+  title: string
+  messages: CircleChatMessage[]
+  loading: boolean
+  error: string
+  input: string
+  sending: boolean
+  onInputChange: (v: string) => void
+  onSend: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
 /** 批次 17(2026-07-29):混合类屏(API 设置/创客名片/课程附件/课程问答/课程资源/客服/讲师详情/笔记/订阅/任务中心,10 屏迁移自 mobile-rn) */
 
 /** Coze API 配置(ApiSettingsScreen) */
