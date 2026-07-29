@@ -11,7 +11,7 @@
  *   5. 子智能体数=0 时不显示子智能体文本
  *   6. 点击展开按钮 → isMinimized=false + 完整面板可见
  *   7. 摘要条有 role="status" + aria-live="polite"
- *   8. idle 状态(progress=0, toolCallCount=0)→ 自动展开
+ *   8. idle 状态(progress=0, toolCallCount=0)→ 摘要条保持可见(v17 无自动展开)
  *
  * - Timeline 空状态(7 test):
  *   9.  无事件 → 显示空状态(data-testid="timeline-empty-state")
@@ -509,14 +509,25 @@ describe('AgentTaskProgressPane — Phase 23 最小化模式', () => {
       window.localStorage.removeItem('agent-progress-pane-position')
       window.localStorage.removeItem('agent-progress-pane-position-v2')
       window.localStorage.removeItem('agent-progress-pane-position-v3')
+      window.localStorage.removeItem('ihui-agent-progress-pane-v6')
     } catch {
       // 忽略
+    }
+    // v17 终极根治:Pane 通过 React Portal 挂到 [data-testid="ai-side-panel-container"]
+    // 内部,测试环境不挂载 AISidePanel,需手动提供容器让 Pane 能 mount
+    if (!document.querySelector('[data-testid="ai-side-panel-container"]')) {
+      const anchor = document.createElement('div')
+      anchor.setAttribute('data-testid', 'ai-side-panel-container')
+      document.body.appendChild(anchor)
     }
   })
 
   afterEach(() => {
     cleanup()
     mockChatStoreRefs.setConversationId(null)
+    // 清理测试用 anchor,避免污染其他 describe
+    const anchor = document.querySelector('[data-testid="ai-side-panel-container"]')
+    if (anchor) anchor.remove()
   })
 
   /** 设置 threadId(同时通过 conversationId 让 useEffect 不会覆盖) */
@@ -666,9 +677,13 @@ describe('AgentTaskProgressPane — Phase 23 最小化模式', () => {
     expect(bar?.getAttribute('aria-live')).toBe('polite')
   })
 
-  // ── 8. idle 状态(progress=0, toolCallCount=0)→ 自动展开 ──
+  // ── 8. idle 状态(progress=0, toolCallCount=0)→ 摘要条保持可见,无自动展开 ──
+  // v17 终极根治后,minimize 状态完全由用户控制,不允许任何"自动展开"逻辑干扰用户操作
+  // (自动展开的副作用是"按钮好像坏了"——按了 minimize,Pane 没变化)
+  // 新语义:idle 状态(progress=0, toolCallCount=0)下,用户已点 minimize → 摘要条仍可见
+  // 用户必须主动点展开按钮才能恢复完整面板
 
-  it('8. idle 状态(progress=0, toolCallCount=0)→ 自动展开(摘要条消失)', async () => {
+  it('8. idle 状态(progress=0, toolCallCount=0)→ 摘要条保持可见(v17 无自动展开)', async () => {
     useAgentProgressPaneStore.getState().openPane()
     setTestThreadId('thread-min-8')
     // 初始有进度
@@ -678,6 +693,8 @@ describe('AgentTaskProgressPane — Phase 23 最小化模式', () => {
     // 最小化
     fireEvent.click(screen.getByTestId('pane-minimize'))
     expect(document.body.querySelector('[data-testid="pane-minimized-bar"]')).toBeTruthy()
+    // 完整面板隐藏
+    expect(document.body.querySelector('[data-testid="agent-progress-pane"]')).toBeNull()
 
     // 切换到 idle 状态(清空 planSteps + tools)
     mockAgentProgressRefs.setState({
@@ -686,15 +703,19 @@ describe('AgentTaskProgressPane — Phase 23 最小化模式', () => {
       isStreaming: false,
     })
 
-    // 重新渲染触发 effect
+    // 重新渲染触发 effect — v17 删除 idle 自动展开 effect,所以摘要条应保持
     await act(async () => {
       rerender(<AgentTaskProgressPane />)
       await Promise.resolve()
     })
 
-    // 摘要条自动消失(isMinimized → false)
+    // v17 新行为:摘要条仍可见(minimize 状态由用户独占,无 effect reset)
+    expect(document.body.querySelector('[data-testid="pane-minimized-bar"]')).toBeTruthy()
+    // 完整面板仍未渲染
+    expect(document.body.querySelector('[data-testid="agent-progress-pane"]')).toBeNull()
+    // 只有用户点 expand 按钮才会展开(通过 fireEvent 模拟)
+    fireEvent.click(screen.getByTestId('pane-expand'))
     expect(document.body.querySelector('[data-testid="pane-minimized-bar"]')).toBeNull()
-    // 完整面板恢复
     expect(document.body.querySelector('[data-testid="agent-progress-pane"]')).toBeTruthy()
   })
 })
