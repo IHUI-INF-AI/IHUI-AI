@@ -41,7 +41,9 @@ export function ExamResultScreen({
         <Text style={styles.back}>{t('common.back')}</Text>
       </TouchableOpacity>
       <Text style={styles.title}>{item.examTitle}</Text>
-      <View style={[styles.scoreCard, item.passed ? styles.scoreCardPassed : styles.scoreCardFailed]}>
+      <View
+        style={[styles.scoreCard, item.passed ? styles.scoreCardPassed : styles.scoreCardFailed]}
+      >
         <Text style={styles.scoreText}>
           {item.score}/{item.totalScore}
         </Text>
@@ -141,7 +143,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 8,
     },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
