@@ -2632,3 +2632,346 @@ export interface AigcPublishScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */
+
+/** Agent 列表项 */
+export interface AgentScreenItem {
+  id: string
+  name: string
+  avatar?: string
+  description: string
+  isVipExclusive?: boolean
+  useCount?: number
+  rating?: number
+}
+
+/** AgentScreen props */
+export interface AgentScreenProps {
+  t: TFunction
+  items: AgentScreenItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 助手分类 */
+export interface AiAssistantCategory {
+  id: string
+  label: string
+}
+
+/** AI 助手项 */
+export interface AiAssistantItem {
+  id: string
+  name: string
+  description: string
+  tags: string[]
+  useCount: number
+  favoriteCount: number
+}
+
+/** AiAssistantScreen props */
+export interface AiAssistantScreenProps {
+  t: TFunction
+  items: AiAssistantItem[]
+  categories: AiAssistantCategory[]
+  category: string
+  keyword: string
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  onCategoryChange: (id: string) => void
+  onKeywordChange: (kw: string) => void
+  onRefresh: () => void
+  onPressItem: (item: AiAssistantItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 职业趋势 */
+export type AiCareerTrend = 'up' | 'new' | 'stable'
+
+/** AI 职业匹配项 */
+export interface AiCareerMatchItem {
+  id: string
+  title: string
+  salary?: string
+  match: number
+  trend: AiCareerTrend
+  reasons: string[]
+}
+
+/** AiCareerScreen props */
+export interface AiCareerScreenProps {
+  t: TFunction
+  items: AiCareerMatchItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  selectedId: string | null
+  onToggleItem: (id: string) => void
+  onRefresh: () => void
+  onPlan: (item: AiCareerMatchItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 多模态模式 */
+export type AiMultimodalMode = 'text' | 'image' | 'audio'
+
+/** AI 多模态消息 */
+export interface AiMultimodalMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** AIMultimodalScreen props */
+export interface AIMultimodalScreenProps {
+  t: TFunction
+  userName: string
+  mode: AiMultimodalMode
+  models: string[]
+  model: string
+  messages: AiMultimodalMessage[]
+  input: string
+  loading: boolean
+  error: string | null
+  onModeChange: (mode: AiMultimodalMode) => void
+  onModelChange: (model: string) => void
+  onInputChange: (text: string) => void
+  onSend: () => void
+  onClear: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 16(2026-07-29):简单详情/表单/展示类(活动详情/Agent评价详情/银行卡/名片/课程报名/通知设置/发帖/二维码/实名认证/安全设置) */
+
+/** 活动详情数据 */
+export interface ActivityDetailItem {
+  id: string
+  title: string
+  content: string
+  startAt: string
+  endAt: string
+  location: string
+}
+
+/** ActivityDetailScreen props */
+export interface ActivityDetailScreenProps {
+  t: TFunction
+  item: ActivityDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agent 评价详情数据 */
+export interface AgentReviewDetailItem {
+  id: string
+  agentName: string
+  author: string
+  rating: number
+  content: string
+  createdAt: string
+}
+
+/** AgentReviewDetailScreen props */
+export interface AgentReviewDetailScreenProps {
+  t: TFunction
+  item: AgentReviewDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 银行卡数据 */
+export interface BankCardItem {
+  id: string
+  number: string
+  holder: string
+  bankName: string
+  isDefault: boolean
+}
+
+/** BankCardScreen props */
+export interface BankCardScreenProps {
+  t: TFunction
+  items: BankCardItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 电子名片数据 */
+export interface BusinessCardItem {
+  id: string
+  name: string
+  position: string
+  company: string
+  phone: string
+  wechat: string
+  email: string
+  location: string
+  bio: string
+}
+
+/** BusinessCardScreen props */
+export interface BusinessCardScreenProps {
+  t: TFunction
+  card: BusinessCardItem | null
+  loading: boolean
+  error: string
+  saved: boolean
+  onShare: () => void
+  onSave: () => void
+  onEdit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程报名列表项 */
+export interface CourseEnrollItem {
+  id: string
+  title: string
+  instructor: string
+  level: string
+  lessonCount: number
+  studentCount: number
+  price: number
+  isFree: boolean
+  isEnrolled: boolean
+}
+
+/** CourseEnrollScreen props */
+export interface CourseEnrollScreenProps {
+  t: TFunction
+  items: CourseEnrollItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  keyword: string
+  enrollingId: string | null
+  toast: string
+  userNickname: string
+  onKeywordChange: (keyword: string) => void
+  onSearch: () => void
+  onRefresh: () => void
+  onEnroll: (item: CourseEnrollItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 通知设置数据 */
+export interface NotificationSettingsItem {
+  pushEnabled: boolean
+  messageEnabled: boolean
+  emailEnabled: boolean
+  smsEnabled: boolean
+  marketingEnabled: boolean
+}
+
+/** NotificationSettingsScreen props */
+export interface NotificationSettingsScreenProps {
+  t: TFunction
+  settings: NotificationSettingsItem | null
+  loading: boolean
+  saving: boolean
+  error: string
+  success: string
+  onToggle: (key: keyof NotificationSettingsItem, value: boolean) => void
+  onSave: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** PostCreateScreen props(表单类,字段直接注入) */
+export interface PostCreateScreenProps {
+  t: TFunction
+  title: string
+  content: string
+  tags: string
+  saving: boolean
+  error: string
+  onTitleChange: (title: string) => void
+  onContentChange: (content: string) => void
+  onTagsChange: (tags: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 二维码信息 */
+export interface QrCodeItem {
+  content: string
+  url: string
+  inviteCode: string
+}
+
+/** QrCodeScreen props */
+export interface QrCodeScreenProps {
+  t: TFunction
+  info: QrCodeItem | null
+  loading: boolean
+  error: string
+  onShare: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 实名认证状态值 */
+export type RealNameAuthStatus = 'unverified' | 'pending' | 'verified' | 'rejected'
+
+/** 实名认证数据 */
+export interface RealNameAuthItem {
+  status: RealNameAuthStatus
+  name?: string
+  idNumber?: string
+  reason?: string
+}
+
+/** RealNameAuthScreen props */
+export interface RealNameAuthScreenProps {
+  t: TFunction
+  status: RealNameAuthItem | null
+  name: string
+  idNumber: string
+  loading: boolean
+  submitting: boolean
+  error: string
+  onNameChange: (name: string) => void
+  onIdNumberChange: (idNumber: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 安全设置数据 */
+export interface SecuritySettingsItem {
+  passwordEnabled: boolean
+  biometricEnabled: boolean
+  twoFactorEnabled: boolean
+  loginAlert: boolean
+}
+
+/** SecuritySettingsScreen props */
+export interface SecuritySettingsScreenProps {
+  t: TFunction
+  settings: SecuritySettingsItem | null
+  loading: boolean
+  error: string
+  onToggle: (key: keyof SecuritySettingsItem, value: boolean) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
