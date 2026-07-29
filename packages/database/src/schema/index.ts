@@ -185,3 +185,5 @@ export * from './model-leaderboard.js'
 export * from './registry.js'
 // 资源上下文管理(2026-07-24 新增,用户上传文件/知识库/URL 绑定到会话供 AI 引用)
 export * from './resource-context.js'
+// P0-5 中转站 Key 池 + 动态发现待审批(2026-07-29 立)
+export * from './ai-relay.js'
