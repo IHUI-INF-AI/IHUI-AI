@@ -86,6 +86,10 @@ export async function listKeys(userId: string): Promise<SafeApiKey[]> {
       status: developerApiKeys.status,
       lastUsedAt: developerApiKeys.lastUsedAt,
       rateLimit: developerApiKeys.rateLimit,
+      tokenBalance: developerApiKeys.tokenBalance,
+      costBalanceCents: developerApiKeys.costBalanceCents,
+      tokenUsedTotal: developerApiKeys.tokenUsedTotal,
+      costUsedTotalCents: developerApiKeys.costUsedTotalCents,
       createdAt: developerApiKeys.createdAt,
       updatedAt: developerApiKeys.updatedAt,
     })
