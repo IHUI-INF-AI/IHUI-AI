@@ -139,7 +139,7 @@ function createStyles(tk: AppThemeTokens) {
     bio: { marginTop: 12, fontSize: 13, lineHeight: 20, color: tk.text.medium },
     contactsBox: {
       marginTop: 12,
-      padding: 12,
+      padding: 16,
       borderRadius: 6,
       backgroundColor: tk.surface.muted,
     },
