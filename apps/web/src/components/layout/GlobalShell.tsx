@@ -66,6 +66,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 等高频变化字段触发整棵路由树重渲染(原 `{ open, width } = useAiPanelStore()` 等价于全订阅)。
   const aiOpen = useAiPanelStore((s) => s.open)
   const aiWidth = useAiPanelStore((s) => s.width)
+  const aiFloatMode = useAiPanelStore((s) => s.floatMode)
+  const aiFloatMinimized = useAiPanelStore((s) => s.floatMinimized)
   const currentUserId = useAuthStore((s) => s.user?.id)
   // 2026-07-26 用户反馈:TagsView 从 GlobalShell 移到 MainShell(只覆盖 main 同宽容器)
   // 之前放右列顶部会横跨 work-area-portal-root + WebWorkPanel,违反"只覆盖 main 同宽"要求
@@ -81,10 +83,12 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
   // +6:AI 面板右边缘与工作区卡片之间固定 6px 间距(用户强制要求,不可更改)
+  // 浮窗模式(floatMode)或最小化时:occupy=0,面板 fixed 定位不占 flex 空间
   React.useEffect(() => {
-    const occupy = aiOpen ? aiWidth + 6 : 0
+    const docked = aiOpen && !aiFloatMode && !aiFloatMinimized
+    const occupy = docked ? aiWidth + 6 : 0
     document.documentElement.style.setProperty('--ai-panel-occupy', `${occupy}px`)
-  }, [aiOpen, aiWidth])
+  }, [aiOpen, aiWidth, aiFloatMode, aiFloatMinimized])
 
   React.useEffect(() => {
     try {
