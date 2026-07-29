@@ -9202,6 +9202,9 @@
   },
   "aiChat": {
     "title": "AI對話",
+    "templates": "任務模板",
+    "settings": "任務設定",
+    "share": "分享任務",
     "history": "歷史對話",
     "newConversation": "新建對話",
     "noHistory": "暫無歷史對話",

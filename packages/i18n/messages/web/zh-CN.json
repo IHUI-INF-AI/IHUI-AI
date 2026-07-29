@@ -9131,6 +9131,9 @@
   },
   "aiChat": {
     "title": "AI任务",
+    "templates": "任务模板",
+    "settings": "任务设置",
+    "share": "分享任务",
     "history": "任务列表",
     "newConversation": "新建任务",
     "noHistory": "暂无任务",
