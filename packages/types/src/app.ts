@@ -3531,3 +3531,373 @@ export interface TaskCenterScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+// ============ 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏迁移自 mobile-rn) ============
+
+/** 分销商品(平台注入,字段对齐 mobile-rn DistributionScreen Product) */
+export interface DistributionProduct {
+  id: string
+  title: string
+  commission: number
+  salePrice: number
+  sales: number
+}
+
+/** 分销概览(平台注入,字段对齐 mobile-rn DistributionScreen DistributionInfo) */
+export interface DistributionInfo {
+  level: string
+  commissionRate: number
+  totalEarnings: number
+  withdrawn: number
+  pending: number
+  withdrawMin: number
+  products: DistributionProduct[]
+}
+
+/** DistributionScreen props(注入式:wrapper 保留 API 调用 + Alert 弹窗) */
+export interface DistributionScreenProps {
+  t: TFunction
+  info: DistributionInfo | null
+  loading: boolean
+  refreshing: boolean
+  error: string
+  withdrawing: boolean
+  onRefresh: () => void
+  onWithdraw: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 考试题目(平台注入,字段对齐 mobile-rn ExamQuestionScreen Question) */
+export interface ExamQuestionItem {
+  id: string
+  type: 'single' | 'multi'
+  content: string
+  options: string[]
+}
+
+/** 考试试卷(平台注入,字段对齐 mobile-rn ExamQuestionScreen Exam) */
+export interface ExamQuestionPaper {
+  id: string
+  title: string
+  questions: ExamQuestionItem[]
+  duration: number
+}
+
+/** ExamQuestionScreen props(注入式:wrapper 保留 API 调用 + 状态管理) */
+export interface ExamQuestionScreenProps {
+  t: TFunction
+  exam: ExamQuestionPaper | null
+  loading: boolean
+  error: string
+  current: number
+  answers: Record<string, number[]>
+  onToggleOption: (questionId: string, optionIndex: number, multi: boolean) => void
+  onPrev: () => void
+  onNext: () => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 财务汇总(平台注入,字段对齐 mobile-rn FinanceScreen FinanceSummary) */
+export interface FinanceSummary {
+  balance: number
+  todayIncome: number
+  totalIncome: number
+  totalExpense: number
+}
+
+/** FinanceScreen props(注入式:wrapper 保留 API 调用) */
+export interface FinanceScreenProps {
+  t: TFunction
+  summary: FinanceSummary | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 首页推荐课程项(平台注入,字段对齐 mobile-rn HomeScreen Course 子集) */
+export interface HomeRecommendItem {
+  id: string
+  title: string
+  instructor: string
+  level: string
+  studentCount: number
+  price: number
+  isFree: boolean
+}
+
+/** 首页直播预览项(平台注入,字段对齐 mobile-rn HomeScreen Live 子集) */
+export interface HomeLiveItem {
+  id: string
+  title: string
+  lecturerName?: string | null
+  isLive: boolean
+  startTimeText: string
+}
+
+/** 首页学习进度项(平台注入,字段对齐 mobile-rn HomeScreen StudyProgress 子集) */
+export interface HomeProgressItem {
+  courseId: string
+  courseTitle?: string | null
+  progress: number
+  completedLessons: number
+  totalLessons: number
+}
+
+/** 首页发现菜单项(平台注入,字段对齐 mobile-rn HomeScreen 菜单配置) */
+export interface HomeMenuItem {
+  key: string
+  labelKey: string
+  icon: string
+}
+
+/** HomeScreen props(注入式:wrapper 保留 useAuth/useNotificationStore/API 调用) */
+export interface HomeScreenProps {
+  t: TFunction
+  userNickname: string
+  connected: boolean
+  unreadCount: number
+  recommends: HomeRecommendItem[]
+  lives: HomeLiveItem[]
+  progress: HomeProgressItem[]
+  menuItems: HomeMenuItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onOpenNotifications: () => void
+  onPressProgress: (courseId: string) => void
+  onPressLive: (id: string) => void
+  onPressCourse: (id: string) => void
+  onPressMenu: (key: string) => void
+  onNavigateCourses: () => void
+  onNavigateLives: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 实名认证状态(字段对齐 mobile-rn IdentityVerifyScreen VerifyStatus) */
+export type IdentityVerifyStatus = 'unverified' | 'pending' | 'verified' | 'rejected'
+
+/** IdentityVerifyScreen props(注入式:wrapper 保留 API 调用 + 状态管理) */
+export interface IdentityVerifyScreenProps {
+  t: TFunction
+  status: IdentityVerifyStatus
+  reason: string
+  loading: boolean
+  submitting: boolean
+  error: string
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 推广状态(active/inactive) */
+export type PromoteStatus = 'active' | 'inactive'
+
+/** 推广信息汇总(平台注入,字段对齐 mobile-rn PromoteScreen Info) */
+export interface PromoteInfo {
+  referralCode: string
+  referralLink: string
+  inviteCount: number
+  activeCount: number
+  totalEarnings: number
+  pendingEarnings: number
+  rules: string[]
+}
+
+/** 推广邀请记录(平台注入,字段对齐 mobile-rn PromoteScreen InviteRecord) */
+export interface PromoteInviteRecord {
+  id: string
+  nickname: string
+  joinDate: string
+  contribution: number
+  status: PromoteStatus
+}
+
+/** PromoteScreen props(平台无关,wrapper 注入数据+回调) */
+export interface PromoteScreenProps {
+  t: TFunction
+  info: PromoteInfo | null
+  records: PromoteInviteRecord[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  copied: boolean
+  onRefresh: () => void
+  onCopy: () => void
+  onShare: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 优惠券状态(available/used/expired) */
+export type PromotionCouponStatus = 'available' | 'used' | 'expired'
+
+/** 优惠券条目(平台注入,字段对齐 mobile-rn PromotionScreen Coupon) */
+export interface PromotionCoupon {
+  id: string
+  name: string
+  amount: number
+  minSpend: number
+  expireDate: string
+  status: PromotionCouponStatus
+}
+
+/** PromotionScreen props(平台无关,wrapper 注入数据+回调) */
+export interface PromotionScreenProps {
+  t: TFunction
+  items: PromotionCoupon[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onUse: (item: PromotionCoupon) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 招聘职位分类(all/tech/product/design/ops) */
+export type RecruitmentCategory = 'all' | 'tech' | 'product' | 'design' | 'ops'
+
+/** 招聘职位(平台注入,字段对齐 mobile-rn RecruitmentScreen Job) */
+export interface RecruitmentJob {
+  id: string
+  position: string
+  company: string
+  salary: string
+  location: string
+  category: Exclude<RecruitmentCategory, 'all'>
+  tags: string[]
+  experience: string
+  education: string
+  description: string
+  requirements: string[]
+}
+
+/** RecruitmentScreen props(平台无关,wrapper 注入数据+回调) */
+export interface RecruitmentScreenProps {
+  t: TFunction
+  jobs: RecruitmentJob[]
+  activeTab: RecruitmentCategory
+  appliedIds: ReadonlySet<string>
+  selected: RecruitmentJob | null
+  loading: boolean
+  error: string
+  onSelectTab: (tab: RecruitmentCategory) => void
+  onSelectJob: (job: RecruitmentJob | null) => void
+  onApply: (job: RecruitmentJob) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 推荐人信息(平台注入,字段对齐 mobile-rn ReferrerScreen Info) */
+export interface ReferrerInfo {
+  referrerName: string | null
+  referrerCode: string | null
+}
+
+/** ReferrerScreen props(平台无关,wrapper 注入数据+回调) */
+export interface ReferrerScreenProps {
+  t: TFunction
+  info: ReferrerInfo | null
+  code: string
+  loading: boolean
+  submitting: boolean
+  error: string
+  success: string
+  onCodeChange: (text: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 团队成员状态 */
+export type TeamMemberStatus = 'active' | 'inactive'
+
+/** 成员关系(direct/indirect) */
+export type TeamRelation = 'direct' | 'indirect'
+
+/** 团队 tab(all/direct/indirect) */
+export type TeamTab = 'all' | 'direct' | 'indirect'
+
+/** 团队统计(平台注入,字段对齐 mobile-rn TeamScreen Stats) */
+export interface TeamStats {
+  totalMembers: number
+  activeMembers: number
+  directCount: number
+  indirectCount: number
+  totalContribution: number
+}
+
+/** 团队成员(平台注入,字段对齐 mobile-rn TeamScreen Member) */
+export interface TeamMember {
+  id: string
+  nickname: string
+  avatar: string | null
+  level: number
+  joinDate: string
+  contribution: number
+  status: TeamMemberStatus
+  relation: TeamRelation
+}
+
+/** TeamScreen props(平台无关,wrapper 注入数据+回调) */
+export interface TeamScreenProps {
+  t: TFunction
+  stats: TeamStats | null
+  members: TeamMember[]
+  activeTab: TeamTab
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onSelectTab: (tab: TeamTab) => void
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程学习进度(平台无关镜像,字段对齐 @ihui/api-client CourseProgress) */
+export interface VideoPlayerProgress {
+  courseId: string
+  totalLessons: number
+  completedLessons: number
+  progress: number
+  lastLearnedAt: string | null
+}
+
+/** VideoPlayerScreen props(平台无关,wrapper 注入数据+播放器 slot+回调) */
+export interface VideoPlayerScreenProps {
+  t: TFunction
+  title?: string
+  videoUrl?: string
+  progress: VideoPlayerProgress | null
+  completed: boolean
+  completing: boolean
+  loading: boolean
+  error: string
+  onComplete: () => void
+  onBack: () => void
+  playerContent?: import('react').ReactNode
+  colorScheme?: 'light' | 'dark'
+}
+
+/** VIP 权益条目(平台注入,字段对齐 mobile-rn VipBenefitScreen Item) */
+export interface VipBenefitItem {
+  id: string
+  name: string
+  desc: string
+  level: string
+}
+
+/** VipBenefitScreen props(平台无关,wrapper 注入数据+回调) */
+export interface VipBenefitScreenProps {
+  t: TFunction
+  items: VipBenefitItem[]
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
