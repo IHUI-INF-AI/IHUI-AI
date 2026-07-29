@@ -22,6 +22,9 @@ export interface ActiveWorkspace {
   techStack?: string[]
 }
 
+/** 浮窗默认位置(右上角偏移) */
+export const FLOAT_DEFAULT_POSITION = { x: -1, y: -1 } // -1 = 未初始化,首次使用时计算右上角
+
 interface AiPanelState {
   /** 面板是否展开(全局唯一,任何路由可触发) */
   open: boolean
@@ -41,6 +44,12 @@ interface AiPanelState {
   pendingPermissionSetup: { path: string; name: string; techStack?: string[] } | null
   /** 待确认启用完全访问模式(2026-07-25 立,首次启用高风险模式弹确认弹窗) */
   pendingFullAccess: boolean
+  /** 浮窗模式:docked(flex 流)→ floating(fixed 可拖拽) */
+  floatMode: boolean
+  /** 浮窗最小化:只显示 FAB 按钮,点击展开完整面板 */
+  floatMinimized: boolean
+  /** 浮窗位置(视口坐标,持久化) */
+  floatPosition: { x: number; y: number }
   openPanel: () => void
   closePanel: () => void
   togglePanel: () => void
@@ -51,6 +60,9 @@ interface AiPanelState {
     v: { path: string; name: string; techStack?: string[] } | null,
   ) => void
   setPendingFullAccess: (v: boolean) => void
+  setFloatMode: (v: boolean) => void
+  setFloatMinimized: (v: boolean) => void
+  setFloatPosition: (pos: { x: number; y: number }) => void
 }
 
 /**
@@ -69,6 +81,9 @@ export const useAiPanelStore = create<AiPanelState>()(
       activeWorkspace: null,
       pendingPermissionSetup: null,
       pendingFullAccess: false,
+      floatMode: false,
+      floatMinimized: false,
+      floatPosition: FLOAT_DEFAULT_POSITION,
 
       openPanel: () => set({ open: true }),
       closePanel: () => set({ open: false }),
@@ -81,11 +96,16 @@ export const useAiPanelStore = create<AiPanelState>()(
       setActiveWorkspace: (ws) => set({ activeWorkspace: ws }),
       setPendingPermissionSetup: (v) => set({ pendingPermissionSetup: v }),
       setPendingFullAccess: (v: boolean) => set({ pendingFullAccess: v }),
+      setFloatMode: (v: boolean) => set({ floatMode: v }),
+      setFloatMinimized: (v: boolean) => set({ floatMinimized: v }),
+      setFloatPosition: (pos: { x: number; y: number }) => set({ floatPosition: pos }),
     }),
     {
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
         width: s.width,
         activeWorkspace: s.activeWorkspace,
+        floatMode: s.floatMode,
+        floatPosition: s.floatPosition,
       })),
       // 强制 open=true:rehydrate 时即使 localStorage 残留旧版本 open=false 也覆盖为 true。
       // 保证"AI 对话框默认弹出"规则在所有刷新场景下生效。
