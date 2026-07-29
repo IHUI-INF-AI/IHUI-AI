@@ -1,25 +1,16 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Card } from '@ihui/ui-native'
+import { fetchApi } from '@ihui/api-client'
+import { FinanceScreen as SharedFinanceScreen, type FinanceSummary } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { fetchApi } from '@ihui/api-client'
-import { formatAmount } from '@ihui/shared/utils'
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-interface FinanceSummary {
-  balance: number
-  todayIncome: number
-  totalIncome: number
-  totalExpense: number
-}
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function FinanceScreen() {
   const { t } = useI18n()
-    const navigation = useNavigation<NavigationProp>()
+  const navigation = useNavigation<NavigationProp>()
   const [summary, setSummary] = useState<FinanceSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -45,68 +36,13 @@ export function FinanceScreen() {
     }
   }, [t])
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
-  }
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.link}>{t('common.back')}</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-  if (!summary) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('finance.empty')}</Text>
-      </View>
-    )
-  }
-
-  const cards: Array<{ label: string; value: number; primary?: boolean }> = [
-    { label: t('finance.balance'), value: summary.balance, primary: true },
-    { label: t('finance.todayIncome'), value: summary.todayIncome },
-    { label: t('finance.totalIncome'), value: summary.totalIncome },
-    { label: t('finance.totalExpense'), value: summary.totalExpense },
-  ]
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('finance.title')}</Text>
-      </View>
-      {cards.map((c) => (
-        <Card key={c.label} style={styles.card}>
-          <Text style={styles.label}>{c.label}</Text>
-          <Text style={[styles.value, c.primary && styles.valuePrimary]}>¥ {formatAmount(c.value, '0.00')}</Text>
-        </Card>
-      ))}
-    </ScrollView>
+    <SharedFinanceScreen
+      t={t}
+      summary={summary}
+      loading={loading}
+      error={error}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, gap: 12 },
-  backBtn: { marginTop: 12 },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  label: { fontSize: 12, color: tokens.text.secondary },
-  value: { marginTop: 4, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
-  valuePrimary: { color: tokens.success.DEFAULT },
-  muted: { fontSize: 13, color: tokens.text.secondary },
-  errorText: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8 },
-  link: { fontSize: 13, color: tokens.success.DEFAULT },
-})

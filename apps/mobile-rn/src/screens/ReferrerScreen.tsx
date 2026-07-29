@@ -1,19 +1,15 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card, Input } from '@ihui/ui-native'
 import { fetchApi } from '@ihui/api-client'
+import {
+  ReferrerScreen as SharedReferrerScreen,
+  type ReferrerInfo,
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-interface ReferrerInfo {
-  referrerName: string | null
-  referrerCode: string | null
-}
 
 export function ReferrerScreen() {
   const { t } = useI18n()
@@ -68,68 +64,18 @@ export function ReferrerScreen() {
     }
   }
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('referrer.title')}</Text>
-      </View>
-      <View style={styles.body}>
-        <Card style={styles.card}>
-          <Text style={styles.label}>{t('referrer.current')}</Text>
-          {info?.referrerCode ? (
-            <Text style={styles.value}>{info.referrerName || info.referrerCode}</Text>
-          ) : (
-            <Text style={styles.muted}>{t('referrer.empty')}</Text>
-          )}
-          <Text style={styles.desc}>{t('referrer.desc')}</Text>
-        </Card>
-        {info?.referrerCode ? null : (
-          <Card style={styles.card}>
-            <Text style={styles.label}>{t('referrer.codeLabel')}</Text>
-            <Input
-              value={code}
-              onChangeText={setCode}
-              placeholder={t('referrer.codePlaceholder')}
-              autoCapitalize="none"
-              style={styles.input}
-            />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            {success ? <Text style={styles.successText}>{success}</Text> : null}
-            <Button loading={submitting} disabled={submitting} onPress={handleBind} style={styles.submitBtn}>
-              {submitting ? t('referrer.submitting') : t('referrer.submit')}
-            </Button>
-          </Card>
-        )}
-      </View>
-    </View>
+    <SharedReferrerScreen
+      t={t}
+      info={info}
+      code={code}
+      loading={loading}
+      submitting={submitting}
+      error={error}
+      success={success}
+      onCodeChange={setCode}
+      onSubmit={handleBind}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  body: { padding: 16 },
-  card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  label: { fontSize: 12, color: tokens.text.secondary },
-  value: { marginTop: 6, fontSize: 16, fontWeight: '600', color: tokens.success.DEFAULT },
-  desc: { marginTop: 8, fontSize: 12, color: tokens.text.tertiary },
-  input: { marginTop: 4 },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
-  successText: { fontSize: 12, color: tokens.success.DEFAULT, marginTop: 8 },
-  submitBtn: { marginTop: 12, borderRadius: 8 },
-  muted: { fontSize: 13, color: tokens.text.secondary },
-})
