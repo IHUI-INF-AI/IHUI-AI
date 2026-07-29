@@ -80,9 +80,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   useNativeShortcuts((id) => void dispatchMenuAction(id))
 
   // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
-  // +16:AI 面板右边缘与工作区卡片之间保留 16px 视觉间距(2026-07-30 用户反馈间距不足)
+  // +6:AI 面板右边缘与工作区卡片之间固定 6px 间距(用户强制要求,不可更改)
   React.useEffect(() => {
-    const occupy = aiOpen ? aiWidth + 16 : 0
+    const occupy = aiOpen ? aiWidth + 6 : 0
     document.documentElement.style.setProperty('--ai-panel-occupy', `${occupy}px`)
   }, [aiOpen, aiWidth])
 
