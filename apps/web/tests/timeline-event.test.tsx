@@ -21,6 +21,21 @@ import { TimelineEventRow } from '../src/components/ai/progress-sections/timelin
 import { useTimelineStore } from '../src/stores/timeline-store'
 import type { TimelineEvent } from '../src/stores/timeline-store'
 
+// Phase 22(2026-07-29):TimelineEventRow 用 useTranslations('ai.pane') 翻译 subagent 描述
+// 测试环境不挂 NextIntlClientProvider,需 mock 翻译函数 → 返回 key 自身
+// 翻译时 key 含占位符如 'thinking' 会保留原样(测试断言靠 data-i18n-key,不靠显示文本)
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string, params?: Record<string, string | number>) => {
+    if (!params) return key
+    return Object.entries(params).reduce(
+      (acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)),
+      key,
+    )
+  },
+  useLocale: () => 'zh-CN',
+  NextIntlClientProvider: ({ children }: { children: React.ReactNode }) => children,
+}))
+
 // ─── lucide-react mock(IconSpan 接收 className + 任意 props) ───
 vi.mock('lucide-react', () => {
   const IconSpan = ({
