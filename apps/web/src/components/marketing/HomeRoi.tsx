@@ -3,19 +3,18 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { BarChart3, BookOpen, Brain, Rocket, ShieldCheck, TrendingUp, Users, type LucideIcon } from 'lucide-react'
-import { RevealOnView } from '@/components/common'
+import { AnimatedNumber, RevealOnView } from '@/components/common'
 
 /**
  * 第 4 页:8 项可量化 ROI + 计算公式
  *
- * 2026-07-21 拆分(从原 HomeScenarioGrid 抽出):
- * - 用户反馈"内容太拥挤了,再分个页面出来"
- * - 8 ROI 卡片独立成页,字号 / 间距 / 公式可读性都提升一档
- * - 让决策者聚焦"省多少钱 / 提多少效"两个最关心的问题
- *
- * 8 项可量化 ROI:省 ¥18-30 万/年、10× 加速、60% 降本、99.9% SLA 等
- *
- * 2026-07-23 改:卡片入场 staggered + hover 上浮 + 图标弹动 + 数字加微脉冲。
+ * 2026-07-29 杂志风改版:
+ * - 编辑式章节标题(大号 ghost 数字 04)
+ * - 大号数值展示(gradient text + AnimatedNumber 数字动画)
+ * - 计算公式用 monospace 风格框
+ * - hover 光泽扫过 + 数值微脉冲
+ * - staggered 入场
+ * - Ghost 编号(01-08)
  */
 
 interface RoiItem {
@@ -24,6 +23,12 @@ interface RoiItem {
   value: string
   description: string
   calculation: string
+  /** 从 value 中提取的数字部分(用于 AnimatedNumber) */
+  numericValue: number | null
+  /** value 前缀(如 ¥) */
+  prefix: string
+  /** value 后缀(如 /年) */
+  suffix: string
 }
 
 const ROI_KEYS = [
@@ -37,7 +42,6 @@ const ROI_KEYS = [
   { key: 'seats', icon: Users },
 ] as const
 
-/** i18n 静态映射表 — 用于消除 `t(`${key}.xxx`)` 动态拼接 */
 const ROI_I18N_KEY: Record<string, { title: string; value: string; description: string; calculation: string }> = {
   cost: { title: 'cost.title', value: 'cost.value', description: 'cost.description', calculation: 'cost.calculation' },
   speed: { title: 'speed.title', value: 'speed.value', description: 'speed.description', calculation: 'speed.calculation' },
@@ -49,25 +53,55 @@ const ROI_I18N_KEY: Record<string, { title: string; value: string; description: 
   seats: { title: 'seats.title', value: 'seats.value', description: 'seats.description', calculation: 'seats.calculation' },
 }
 
+/**
+ * 从 value 字符串中提取数字部分 + 前缀 + 后缀,用于 AnimatedNumber 动画。
+ * 例:"省 ¥18-30 万/年" → numericValue=30, prefix="省 ¥", suffix=" 万/年"
+ *     "10× 加速" → numericValue=10, prefix="", suffix="× 加速"
+ *     "99.9% SLA" → numericValue=99, prefix="", suffix=".9% SLA"(取整数部分)
+ */
+function parseValue(raw: string): { numericValue: number | null; prefix: string; suffix: string; displayValue: string } {
+  // 匹配第一个数字
+ const match = raw.match(/(\d+)/)
+  if (!match) return { numericValue: null, prefix: '', suffix: '', displayValue: raw }
+  const numStr = match[1]
+  const num = parseInt(numStr, 10)
+  const idx = match.index ?? 0
+  const prefix = raw.slice(0, idx)
+  const suffix = raw.slice(idx + numStr.length)
+  return { numericValue: num, prefix, suffix, displayValue: raw }
+}
+
 export function HomeRoi() {
   const t = useTranslations('marketing.roi')
 
   const rois: RoiItem[] = ROI_KEYS.map(({ key, icon }) => {
     const i18nKey = ROI_I18N_KEY[key]
+    const rawValue = t(i18nKey?.value ?? 'unknown.value')
+    const parsed = parseValue(rawValue)
     return {
       icon,
       title: t(i18nKey?.title ?? 'unknown.title'),
-      value: t(i18nKey?.value ?? 'unknown.value'),
+      value: rawValue,
       description: t(i18nKey?.description ?? 'unknown.description'),
       calculation: t(i18nKey?.calculation ?? 'unknown.calculation'),
+      numericValue: parsed.numericValue,
+      prefix: parsed.prefix,
+      suffix: parsed.suffix,
     }
   })
 
   return (
-    <section className="space-y-5">
-      <RevealOnView as="div" className="space-y-2 text-center">
+    <section className="relative space-y-6">
+      {/* 编辑式章节标题 */}
+      <RevealOnView as="div" className="relative space-y-1.5 text-center">
+        <div
+          className="font-edix pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 select-none text-[120px] font-bold leading-none tracking-tighter text-foreground animate-mag-section-breathe sm:text-[160px]"
+          aria-hidden="true"
+        >
+          04
+        </div>
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('title')}</h2>
-        <h3 className="font-edix text-xs uppercase tracking-wider text-muted-foreground">
+        <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
         <p className="mx-auto max-w-3xl text-sm text-muted-foreground sm:text-base">
@@ -76,24 +110,55 @@ export function HomeRoi() {
       </RevealOnView>
 
       <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        {rois.map(({ icon: Icon, title, value, description, calculation }, i) => (
+        {rois.map(({ icon: Icon, title, value, description, calculation, numericValue, prefix, suffix }, i) => (
           <RevealOnView
             key={title}
-            delay={0.05 * (i + 1)}
-            className="group relative flex flex-col items-center gap-1.5 overflow-hidden rounded-lg border bg-muted/40 p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/10 sm:p-5"
+            delay={0.06 * (i + 1)}
+            className="group relative flex flex-col items-center gap-1.5 overflow-hidden rounded-lg border bg-muted/30 p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-primary/3 hover:shadow-xl hover:shadow-primary/5 sm:p-5"
           >
-            {/* 图标背景圆 - hover 放大旋转 */}
-            <div className="relative flex h-10 w-10 items-center justify-center">
-              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary transition-transform duration-300 group-hover:scale-110">
+            {/* Ghost 编号 */}
+            <span
+              className="font-edix pointer-events-none absolute right-2 top-0.5 text-3xl font-bold leading-none text-foreground/5 transition-opacity duration-300 group-hover:text-foreground/10"
+              aria-hidden="true"
+            >
+              {String(i + 1).padStart(2, '0')}
+            </span>
+
+            {/* 光泽扫过 */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
+              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+            </div>
+
+            {/* 图标 */}
+            <div className="relative flex h-9 w-9 items-center justify-center">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/12 text-primary transition-all duration-300 group-hover:scale-110 group-hover:bg-primary/18">
                 <Icon className="h-4 w-4" aria-hidden="true" />
               </div>
             </div>
-            <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-base font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 sm:text-lg">
-              {value}
+
+            {/* 大号数值 — gradient text + AnimatedNumber */}
+            <span className="animate-mag-value-glow bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-base font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 sm:text-lg">
+              {numericValue !== null ? (
+                <>
+                  {prefix && <span>{prefix}</span>}
+                  <AnimatedNumber value={numericValue} duration={1500} />
+                  {suffix && <span>{suffix}</span>}
+                </>
+              ) : (
+                value
+              )}
             </span>
-            <h3 className="text-xs font-semibold leading-tight sm:text-sm">{title}</h3>
-            <p className="text-[11px] text-muted-foreground sm:text-xs">{description}</p>
-            <p className="rounded bg-background/80 px-2 py-1.5 text-[10px] text-muted-foreground/70 sm:text-[11px]">
+
+            {/* 标题 */}
+            <h3 className="font-edix text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+              {title}
+            </h3>
+
+            {/* 描述 */}
+            <p className="text-[11px] leading-relaxed text-muted-foreground sm:text-xs">{description}</p>
+
+            {/* 计算公式 — monospace 风格 */}
+            <p className="mt-auto rounded bg-background/60 px-2 py-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground/60 sm:text-[10px]">
               {calculation}
             </p>
           </RevealOnView>
