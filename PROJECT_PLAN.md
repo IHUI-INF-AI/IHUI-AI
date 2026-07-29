@@ -19,6 +19,42 @@
 
 ---
 
+## 当前活跃任务:miniapp-taro 样式完整对齐 zhs_app-ZZ(2026-07-29 立,/goal 模式,平台独占:仅 apps/miniapp-taro)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/miniapp-taro`,不参与 web/api/ai-service 跨端契约同步。
+> /goal 运行时:`.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md`(目标结束后删除)
+> 对齐基础设施:`.trae-cn/tmp/miniapp-taro-style-align/`(page-list.md / color-map.md / workflow.md / home-spec.md)
+
+### 目标条件(五要素契约)
+将 `apps/miniapp-taro` 100+ 页面样式完整对齐历史项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue`(uni-app + Vue + SCSS),做到"一模一样":布局/颜色/间距/字号/圆角/交互视觉全对齐。验证:browser_use 截图 + DOM 验证 + typecheck/lint/build 全绿。约束:保留 design-tokens 映射原项目颜色,允许重写页面+子组件,禁止引入新依赖。20 轮耗尽输出剩余清单。
+
+### 硬性指标(H1-H10)
+- [ ] H1:tabbar 5 tab 页面对齐(首页/智汇社区/课程/直播/我的)
+- [ ] H2:高频 10 页面对齐(登录/注册/AI 对话/VIP/支付/订单/用户中心/搜索/消息)
+- [ ] H3:长尾页面按轮次推进
+- [x] ✅(2026-07-29) H4:typecheck exit 0(轮次 3 验证)
+- [x] ✅(2026-07-29) H5:lint exit 0(轮次 3 验证,0 errors)
+- [ ] H6:taro build 无 error(dev server 已编译过,待正式 build 验证)
+- [x] ✅(2026-07-29) H7:token 同步不漂移(sync-design-tokens --check exit 0)
+- [x] ✅(2026-07-29) H8:颜色映射表建立(color-map.md,87 颜色/29 字号/38 间距/31 圆角)
+- [x] ✅(2026-07-29) H9:对齐清单建立(page-list.md,159 条目)
+- [x] ✅(2026-07-29) H10:工作流模板建立(workflow.md,7 步流程 + 4 快速查询 + 验证清单)
+
+### 进度记录
+- 轮次 1:启动 + 建立 goal-runtime STATE.md + loop-run-log.md
+- 轮次 2:建立对齐基础设施(page-list.md / color-map.md / workflow.md,3 subagent 并行)
+- 轮次 3:新增青色 token 到 tokens.css(8 青色 + 4 透明度)+ 同步到 app.css + H4/H5/H7 达成
+- 轮次 4:提取首页规格书 home-spec.md(42114 字节,7 层结构 + 45 样式类 + 4 子组件 + 30 颜色映射)
+- 轮次 5+:首页重写 + 子组件重写 + 浏览器验证 + 其他页面对齐(进行中)
+
+### 关键发现
+- 原项目首页 `pages/table/aiIndex/ai_index.vue` 是 AI 对话主页(6186 行:template 182 + script 3772 + style 2229),与 miniapp-taro 现有首页(教育门户)完全不同,需整体重写
+- 原项目主品牌色 #93d2f3 青色系在 design-tokens 缺失,轮次 3 已新增 8 青色 token + 4 透明度变体解除阻塞
+- model-type-btn 选中态用 SVG 背景图(非纯色),8 个按钮统一结构可抽成 ModelTypeButton 组件
+- 159 页清单:P0 未对齐 2 项(首页+智汇社区),P1 未对齐若干,P2 长尾 144 项,无对应 74 项
+
+---
+
 ## §1 后续任务建议(2026-07-26 维护成本优化批次)
 
 > 2026-07-26 维护成本优化批次(死 key 审计 + LLM 字典化阶段 1)完成后衍生 P2 任务清单。
